@@ -195,3 +195,41 @@ func TestCoreFieldInjectionsSurviveAnEmptyPrunedList(t *testing.T) {
 		t.Fatalf("domain = %q, want the ensureCoreFields injection to survive an empty pruned list", v)
 	}
 }
+
+func TestDefaultedFieldWithDotlessConfigStringIsNotPrunedAndStrategy6StillWins(t *testing.T) {
+	// The editquality seat's advisory objection on the APPROVED round
+	// (corr ae0dfb93): a dotless config string is classified VALUE on a
+	// spec-defaulted field but REFERENCE elsewhere — could that ambiguity make
+	// the prune predicate misfire? It cannot, and this test pins why: Strategy 0
+	// writes ONLY on IsDottedPathReference, so a dotless string never reaches
+	// it, the field is still Defaulted at the prune point, and it is therefore
+	// NOT pruned — searched exactly as today (conflict recorded, answer
+	// discarded), with Strategy 6 then taking the literal over the default.
+	// Every assertion here is today's behaviour; the test exists so a future
+	// reordering of the strategies cannot silently change the classification.
+	got := captureResolverFindings(t)
+
+	spec := ActionInputSpec{
+		Optional: []string{"mode"},
+		Defaults: map[string]interface{}{"mode": "default-mode"},
+	}
+	data := map[string]interface{}{
+		"decoyA": map[string]interface{}{"mode": "wrong-a"},
+		"decoyB": map[string]interface{}{"mode": "wrong-b"},
+	}
+	config := map[string]interface{}{"mode": "custom"} // dotless: VALUE on a defaulted field
+
+	inputs, err, logs := observedExtract(t, data, config, spec)
+	if err != nil {
+		t.Fatalf("ExtractActionInputs: %v", err)
+	}
+	if v := inputs.Get("mode"); v != "custom" {
+		t.Fatalf("mode = %q, want \"custom\" — Strategy 6 (explicit config value beats default) must be unaffected by the prune", v)
+	}
+	if n := logs.FilterMessage(conflictWarnMsg).Len(); n != 1 {
+		t.Fatalf("conflict WARN fired %d times, want 1 — a defaulted field with a dotless config string is NOT Strategy-0-resolved and must still be searched", n)
+	}
+	if len(*got) != 1 {
+		t.Fatalf("recorded %d findings, want 1", len(*got))
+	}
+}
