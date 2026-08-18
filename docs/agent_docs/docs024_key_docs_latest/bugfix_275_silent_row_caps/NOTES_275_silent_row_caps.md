@@ -456,3 +456,200 @@ one.
 
 **0 `suggest_tools` runs since migration 445 (11:22Z on 08-17)**, so 275's "after" half remains
 undone. The "before" half is proven at the artefact (29 tools, 0 past rank 30, highest exactly 30).
+
+---
+
+## 2026-08-18 (evening) — the channel the detector logs into cannot retain what it is meant to census; a durable channel already holds it, and answers §3b and §3c
+
+Picked up from `HANDOFF_2026-08-18_continue_here.md` to run the three owed verifications. Two of the
+three are now answered — but not by the instrument the handoff specified, because that instrument
+cannot work. The correction below **supersedes the "⚠ MISSTEP-ADJACENT" entry above**, which
+understated the problem by about three orders of magnitude.
+
+### First, the artefact check, because everything below depends on it
+
+Pods `agent-chassis-85b844f547-{l8r76,xdsz6}`, image `v1.0.1310`, both started **18:00Z**, digest
+`sha256:9ca35bac…` identical on both.
+
+`build provenance` was **absent from `--tail=3000` on both pods twenty minutes after they started** —
+so the startup-line recipe in CLAUDE.md failed here, exactly as its own caveat says it can. Fell back
+to the binary probe, run as one `grep -aoFf -` over 122 candidate shas (120 recent commits + two
+controls) so the answer could come out wrong:
+
+| probe | result |
+|---|---|
+| fabricated sha `deadbeefcafe…` (must be ABSENT) | absent ✓ |
+| real sha from 3,000 commits back (must be ABSENT) | absent ✓ |
+| exactly one of the 120 recent shas matched | `0b185bad2a49c6e032352fa9e7d0b429f0a95104` |
+
+`git merge-base --is-ancestor eb137faed 0b185bad2` → **yes**. [MEASURED] The detector is in the
+running binary.
+
+### ⚠ CORRECTION — the observable window is SECONDS, not "time since the last pod restart"
+
+The entry above says the WARN's history "dies with the pod" and reasons about daily rolls against
+6-hourly schedules. That framing is wrong, and it is wrong in the optimistic direction. The container
+log rotates **on size**, and the coordinator emits whole-state dumps, so the log is wiped continuously
+while the pods keep running.
+
+[MEASURED] 2026-08-18, both pods up since 18:00Z with **0 restarts**:
+
+| sample | pod | oldest retrievable line | window |
+|---|---|---|---|
+| 18:27:09Z | l8r76 | 18:27:06Z | **3 s** |
+| 18:27:24Z | xdsz6 | 18:26:50Z | **34 s** |
+| 18:28:37Z | l8r76 | 18:27:06Z | **91 s** |
+| 18:28:45Z | xdsz6 | 18:28:30Z | **15 s** |
+| 18:29:11Z | xdsz6 | 18:28:50Z | **21 s** |
+
+Cause, by bytes, from one snapshot (448 KB in 205 lines — mean **2.2 KB/line**, worst single line
+**183 KB**):
+
+```
+68389 B   5 lines  Executing local action in executelocalaction
+65419 B   5 lines  Executing local action - result back is: look for request id
+64626 B   5 lines  just into executeLocalAction look for execCtx before it gets changed
+52266 B   4 lines  Transitioning to next step
+22227 B   5 lines  CollectedData structure
+```
+
+And there is nowhere else to read it: no aggregator runs in the cluster (`kubectl get pods -A` matches
+nothing for loki/fluent/vector/elastic/promtail; nothing in `deployments/`), and
+`platform/logger/logger.go:37` sets `OutputPaths: []string{"stdout"}` — one sink, rotating.
+
+**This is not a new discovery and I should have grepped for it before measuring it.** `LANDMINES.md`
+has carried it since 2026-08-08 ("A chassis pod's retrievable log holds LESS THAN A SECOND of history
+under load"), measured at 0.4 s, with the two remedies I ended up rediscovering: attach `kubectl logs
+-f` *before* the event, or arrange a DB-visible observable. The lane built a log-only detector with
+that entry already on file.
+
+### ⚠ MY OWN MISSTEP, and it is the same one the handoff warns about
+
+My first action was the RUNBOOK's census over 48 pods with `--since=45m`. It returned **0 WARNs and 0
+`query_database` completions**, and the base rate in the handoff (21 completions/24 h) makes zero look
+entirely reasonable. I was one step from recording "nothing has fired" a second time.
+
+What stopped it was checking whether the thing I was censusing had *run*: the 18:15Z
+`model-directory-trigger` is in `orchestration_states` as COMPLETED, on pod `l8r76`, whose captured log
+began at **18:23:44Z** — after the event. The zero was not a negative result. It was a blind pass, and
+the same blind pass the handoff's own 24 h census recorded.
+
+### The detector was live for almost none of the window that census covered
+
+[MEASURED] Oldest surviving replicaset carrying `v1.0.1309` (the release that first contains the
+detector) was created **2026-08-18 15:45:31Z**; `v1.0.1310` at 17:58–18:00Z. Older replicasets are
+pruned, so 15:45Z is the earliest *evidenced* roll, not provably the first.
+
+So the 24 h census in the handoff spanned a period in which the detector was mostly **not running at
+all**. Two independent reasons for the same zero, neither of them "no caps fired".
+
+### The durable channel — `collected_data` already holds every fact the WARN would report
+
+`QueryDatabaseAction` writes its result to the step's `output_field`, and that lands in
+`orchestration_states.collected_data`, which survives rolls. So the census does not need the log at
+all: **array** output → `jsonb_array_length`, **object** output → `->>'count'`, compared against the
+step's own cap. Retroactive, and it produces negatives.
+
+[MEASURED] 2026-08-18, all three live capped steps, over the whole retained table:
+
+| agent | step | cap | runs measurable | max rows | **runs that HIT the cap** |
+|---|---|---|---|---|---|
+| `content-feed-trigger` | `find_news_sites` | 5 | 4 | 5 | **3** |
+| `internal-linker` | `load_candidate_pages` | 15 | 2 | 15 | **1** |
+| `model-directory-trigger` | `find_directory_sites` | 12 | 5 | 4 | **0** |
+
+Itemised, because an aggregate cannot show you a control:
+
+```
+2026-08-17 20:31Z  content-feed-trigger   5 of cap 5   HIT
+2026-08-17 22:22Z  internal-linker        7 of cap 15  under
+2026-08-18 01:01Z  internal-linker       15 of cap 15  HIT
+2026-08-18 02:32Z  content-feed-trigger   4 of cap 5   under      <- same agent, same query, not a constant
+2026-08-18 08:32Z  content-feed-trigger   5 of cap 5   HIT
+2026-08-18 14:32Z  content-feed-trigger   5 of cap 5   HIT
+```
+
+Two independent negative arms, which is what makes the positives worth anything: `model-directory-trigger`
+never exceeded 4 against a cap of 12 across 5 runs, and `content-feed-trigger` itself returned 4 on one
+of its four runs.
+
+⚠ **The durable channel has a horizon too, and it is ~2 days.** `orchestration_states` holds 5,701 rows
+back to 2026-07-13, but only **25** are older than two days. So this is a far better instrument than the
+log (~3,000× the window) and still not "all history" — do not read "3 hits" as a lifetime total.
+
+### What this means for the three owed verifications
+
+- **§3b is answered, by the better instrument.** Four cap hits in the retained window, with working
+  controls. What is NOT yet shown is the WARN itself firing — because every one of those six runs
+  predates 15:45Z, when the detector went live.
+- **Since the detector went live, exactly ONE capped step has executed**: `model-directory-trigger` at
+  18:15Z, **4 rows against a cap of 12**, so no warning was due. That is the negative control the
+  handoff predicted, and it came out as predicted — though note the WARN's *absence* was not observed
+  either (the log had already rotated); the durable row is what says no warning was due.
+- **First genuine positive opportunity: `content-feed-trigger` at ~20:32Z tonight.** [MEASURED] its
+  eligible population right now is **6 against a cap of 5**, and three of its last four runs returned
+  exactly 5. Not certain — the predicate includes `next_fetch_at <= NOW()`, so the population moves.
+- A streaming capture is armed for it (`kubectl logs -f` since 18:34Z, deadline 20:45Z), because with a
+  15–90 s window streaming is the only way to read a WARN.
+- **§3a is still blocked.** [MEASURED] `suggest_tools` has run **0 times** since migration 445; last run
+  in all history **2026-08-15 20:29Z**, and the agent has been quiet on 08-16, 08-17 and 08-18. Its
+  history is 1–9 runs on roughly half of days, so this may clear on its own or may not.
+
+### §3a, as far as it CAN be taken without a run
+
+The prompt artefact still needs a real run, but the mechanism is verifiable now, at the live row rather
+than at the migration file. [MEASURED] the live `load_library_tools` config carries **no `LIMIT`** and
+bounds `description` to 200 chars with the ` […truncated]` marker; executing that exact query today
+returns **76 tools, of which 46 rank past position 30** — 46 the pre-fix query could not have shown —
+with **54 descriptions marked truncated** and a longest description of 213 chars (200 + the 13-char
+marker). What remains unproven is only that a *prompt* carried them.
+
+### §3c is answered, and the answer is not the one the ticket expected — see `bugs_open/298`
+
+The handoff says `internal-linker` has "zero `llm_call_log` rows in all history, so whether its
+`LIMIT 15` has ever shaped a link decision is unmeasured", and that the detector would answer it. Both
+halves turned out differently.
+
+[MEASURED] the agent is live and has run: **13 `orchestration_states` rows**, 82 `site_work_items` naming
+it as `handler_agent`, most recent run **2026-08-18 07:33Z**. The "zero rows" was true of `llm_call_log`
+only — which is the single-channel reading the handoff's own landmine #2 warns against.
+
+Two of those runs reached `load_candidate_pages`; one returned **exactly 15** — the cap. But **both runs
+ended at `current_step = complete_no_candidates`**, including the one holding 15 candidates.
+
+The reason is readable in the config and the code, and it is not the cap:
+
+- `load_candidate_pages` declares `"output_format": "array"`, and `QueryDatabaseAction` returns the bare
+  slice for that format (`database_actions.go:129`) — **no `count` key exists**; `count` is only set in
+  the `object` branch.
+- `check_candidates` tests `"candidate_pages.count > 0"`.
+- `resolveFieldValue` (`conditional_branch_action.go:320`) tries five strategies; strategy 5, the
+  recursive one, requires the base to be a `map[string]interface{}`, and an array is not, so all five
+  fail and it returns `nil`.
+- The numeric arm then fails `datahelpers.ToFloat64(nil)`, logs `Numeric comparison: left side is not
+  numeric`, and **returns false** — the `else_step`, `complete_no_candidates`.
+
+So `plan_links` cannot run, which is exactly why there are no `llm_call_log` rows. **The cap has never
+shaped a link decision because the linker has never made one.** The condition is unsatisfiable as
+configured, on every run, for as long as the config has had this shape.
+
+**Filed to the diagnosis loop before asserting it anywhere durable** (owner ruling 2026-07-31 — this is
+a root cause outside the symptom, on a shared conditional mechanism):
+`RUN_CORRELATION_ID=c4aa3559-86b1-4356-a28b-c71dfa661465`.
+
+### My own missteps this session, in the order I made them
+
+1. **Ran the log census first and nearly recorded its zero** (above). The check that saved it — "did the
+   thing I am censusing actually run?" — cost one query and belongs *before* the census, not after.
+2. **`grep -m1 'build provenance'` returned a 1.6 MB line.** On these logs a substring can match inside a
+   183 KB state dump, so `-m1` is no protection. `grep -ao '"msg":"build provenance","git_commit":"[0-9a-f]*"'`
+   is the form that cannot run away.
+3. **`date -u -d '2026-08-18 20:45:00'` parsed as LOCAL time** and set the watcher's deadline to 19:45Z —
+   an hour before the event it exists to catch. The `-u` flag formats output in UTC; it does not make the
+   *input* UTC. `date -u -d '... 20:45:00Z'` does. It printed the deadline back, which is the only reason
+   I caught it.
+4. **`pkill -f warn_watch.sh` killed the shell running it**, because that shell's own command line
+   contained the pattern. `pkill -f 'warn_[w]atch'` is the form that excludes itself.
+5. **`cut -c8-30` on `"ts":"2026-…"` chopped the leading `2`**, so `date -d` produced epoch-63-billion
+   nonsense in the window sampler. The raw timestamps were still in the output, so the measurement
+   survived; had I only kept the computed field, the whole sample would have been silently garbage.

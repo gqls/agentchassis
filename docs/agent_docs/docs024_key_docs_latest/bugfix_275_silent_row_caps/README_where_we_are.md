@@ -120,3 +120,66 @@ Two things remain open and are written down where the next person will find them
 end-to-end proof needs a real suggester run, which has not happened yet; and **two other agents have
 the same defect** — one of them choosing from 10 of up to 107 items, which is worse than the bug I set
 out to fix. Whether those become their own tickets is your call.
+
+## 2026-08-18 (evening) — the warning light is real, but it is wired to a bulb that burns out in a minute
+
+I picked this up to finish three checks the last session left owed. Two are now answered, one is still
+waiting on the system to do something, and along the way I found that the way we planned to check was
+never going to work.
+
+**What the fix does, in plain terms.** Several of our agents fetch a list from the database and hand it
+to the model — "here are the tools this site could have", "here are the pages you could link to". Some
+of those fetches quietly stop at a fixed number. The model then chooses from a slice and nobody can
+tell, because a shortened list produces perfectly plausible answers. The fix we shipped last week
+removes one such limit and, for the rest, prints a **warning** whenever a list comes back exactly as
+long as its own limit — the tell-tale that it was probably cut short.
+
+**What I found.** That warning is written to the log of the running program. Those logs are kept in a
+fixed-size buffer, and this particular program writes enormous entries — I measured single log entries
+of 183 kilobytes, because it prints its entire working state at every step. The buffer fills and
+overwrites itself continuously. I measured the situation on two machines that had been running for
+half an hour without interruption: **the oldest thing either of them could still tell me about was
+between 3 and 91 seconds old.**
+
+So a warning that fires at 2 pm is gone well before anyone looks at 2:01. The previous session thought
+the risk was that the machines restart daily; the real number is under two minutes. Nothing is wrong
+with the warning itself — it is correct and it is running — but as a way of finding out what has been
+happening, it is unusable, and the "we checked and found nothing" from yesterday was not a clean bill
+of health. It was a look at a blank page.
+
+I nearly wrote the same thing again. My first action was to re-run yesterday's check, and it came back
+clean, and clean was exactly what I expected. What stopped me was asking a dull question first: did the
+thing I am checking for actually happen during the window I can see? It had not.
+
+**The good news, and it is genuinely good.** The information is not lost — it was never only in the
+logs. Every one of these fetches already writes its results into the database as part of the normal
+record of a run. That record survives restarts and can be read back over the last couple of days. So I
+ran the census there instead, and it works:
+
+- The news-feed agent hit its limit of 5 on **three of its last four runs**.
+- The internal-linking agent hit its limit of 15 on one run.
+- The model-directory agent, which has a limit of 12 and only ever finds 3 or 4 things, hit it
+  **zero times out of five** — which is the control I wanted, because it shows the method can come back
+  negative. The news-feed agent also came back under its limit on one of its four runs.
+
+That is the first real evidence that these caps bite in production rather than just in principle.
+
+**One of the two open tickets changed shape completely.** The internal-linking ticket asked whether its
+capped list had ever actually influenced anything, and left it honestly unmeasured. It has not — but
+not for the reassuring reason. That agent fetches its list of candidate pages, and then a check
+immediately afterwards asks "did we get any candidates?" in a way that can never say yes: the fetch is
+configured to return a plain list, while the check asks that list for a "count" field it does not have.
+So the answer is always no, and the agent finishes reporting it found nothing to link — even on the run
+where it was holding fifteen perfectly good pages. **The internal linker has never made a link.** I
+have put that through the independent diagnosis loop rather than just asserting it, because it is the
+kind of claim that gets repeated.
+
+**Still owed:** the tool-suggester fix needs one real run to prove end-to-end, and that agent has not
+run since 15 August. I have verified everything about it that can be verified without a run — the live
+configuration no longer has the limit, and the query it now uses returns 76 tools, 46 of which the old
+version could not have shown.
+
+**Tonight.** The news-feed agent is due at about 20:32, and for once the machines have been up since
+18:00, so the warning would be visible — but only if someone is watching at the moment it fires. I have
+left a recorder attached until 20:45 that writes any warning to a file. Either way, the database check
+above will tell us what happened whenever anyone next looks.

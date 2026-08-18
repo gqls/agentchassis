@@ -37,7 +37,65 @@ figures below use the real predicate.
 So this bites on **a third of sites**, and at the worst one the model chooses from **15 of 68 (22%)**.
 Unlike `bugs_open/297` (19 of 24 sites), the median site here is fine.
 
-## ⚠ Reachability — the part that keeps this ticket honest
+## ✅ REACHABILITY — ANSWERED 2026-08-18, and it inverts this ticket's priority
+
+**Keep reading past this block for the original §Reachability text; it is left intact because its
+reasoning was sound and its conclusion was not.**
+
+Two of its claims do not survive measurement:
+
+1. **"ZERO rows, all history" is true of `llm_call_log` ONLY.** The agent has **13
+   `orchestration_states` rows** and 82 `site_work_items`, most recent run **2026-08-18 07:33Z**. It
+   is dispatched and it completes. Reading one channel is the trap this lane's own handoff lists as
+   landmine #2.
+2. **"The detector will answer §Reachability by itself" is false.** LCO-009 writes a log line, and
+   the chassis log retains 15–90 s (measured 2026-08-18). It cannot answer a question about the past.
+
+**What the durable record says.** `load_candidate_pages` writes its result to
+`collected_data->'candidate_pages'`, which survives rolls. Two runs reached that step:
+
+| run | candidates loaded | `current_step` at completion |
+|---|---|---|
+| 2026-08-17 22:22:33Z | 7 | `complete_no_candidates` |
+| 2026-08-18 01:01:46Z | **15 — exactly the cap** | `complete_no_candidates` |
+
+**Both runs ended reporting no candidates, including the one holding fifteen of them.**
+
+### Why: the branch after the fetch is unsatisfiable as configured
+
+- `load_candidate_pages` declares `"output_format": "array"`. `QueryDatabaseAction` returns the bare
+  slice for that format (`platform/orchestration/actions/database_actions.go:129`); the `count` key
+  exists **only** in the `object` branch.
+- `check_candidates` is `"condition": "candidate_pages.count > 0"`, `else_step: complete_no_candidates`.
+- `resolveFieldValue` (`platform/orchestration/actions/conditional_branch_action.go:320`) tries five
+  strategies. Strategy 5, the recursive one, requires the base to be a `map[string]interface{}` — an
+  array is not — so all five fail and it returns `nil`.
+- The numeric arm then fails `datahelpers.ToFloat64(nil)`, logs `Numeric comparison: left side is not
+  numeric`, and **returns false**. Every run takes the `else`.
+
+**So `plan_links` cannot execute, which is precisely why `llm_call_log` is empty — the empty table was
+a symptom of this, not evidence of dormancy.** The cap in this ticket has never shaped a link decision
+because **the internal linker has never made a link.**
+
+### What this does to the ticket
+
+- The **cap** (this file's subject) is **latent**, exactly as the original §Reachability suspected it
+  might be — but for a reason that is worse, not better, than "the agent is idle".
+- **Fix candidate 1 ("resolve reachability first") is DONE.** Do not size the cap fix until the branch
+  is fixed: repairing the cap alone changes nothing observable, and repairing the branch alone
+  immediately makes the cap live on the 8 sites that exceed it.
+- The dead branch is a **different defect** from the cap and is being filed separately rather than
+  folded in here.
+
+**Filing basis for THIS block (owner ruling 2026-07-31):** put through the diagnosis loop before being
+asserted — `RUN_CORRELATION_ID=c4aa3559-86b1-4356-a28b-c71dfa661465`, filed 2026-08-18 18:38Z.
+**Verdict pending at the time of writing**; whoever reads this next should check it and record the
+result here. The measurements above are first-hand and reproducible by the queries in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_275_silent_row_caps/RUNBOOK_275_silent_row_caps.md`.
+
+---
+
+## ⚠ Reachability — the part that keeps this ticket honest (ORIGINAL, 2026-08-17 — superseded above)
 
 **`llm_call_log` for `agent_type='internal-linker'`: ZERO rows, all history.** The step that consumes
 these candidates (`plan_links`, an `execute_llm_prompt`) has no logged call, ever. So although the cap
@@ -100,5 +158,7 @@ file declines to guess at**. Grepped both bug directories before filing; nothing
 ## Related
 
 `bugs_open/275` (fixed, approved) · `bugs_open/297` (the sibling instance, live and worse) · register
-**LCO-009** (the detector will answer §Reachability by itself once the chassis rolls) · `bugs_open/287`
-(why 8 of the 38 results are unreadable) · `bugs_open/242` (same class, render audit).
+**LCO-009** (~~the detector will answer §Reachability by itself once the chassis rolls~~ — **it cannot;
+its log line does not survive 90 seconds. Corrected 2026-08-18; the durable channel is
+`orchestration_states.collected_data`**) · `bugs_open/287` (why 8 of the 38 results are unreadable) ·
+`bugs_open/242` (same class, render audit).

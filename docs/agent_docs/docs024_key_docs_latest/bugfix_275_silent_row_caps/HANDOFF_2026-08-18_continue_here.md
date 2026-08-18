@@ -4,6 +4,16 @@
 council-approved and live. Both are essentially done. What remains is **three owed verifications, all
 gated on fleet traffic rather than on work**, plus two new tickets nobody has started.
 
+> ## ⚠ CORRECTED 2026-08-18 (evening) — READ THIS BEFORE §3b, §3c AND §4
+>
+> **The census instrument specified below cannot work, and its zero is not a negative result.**
+> The chassis log retains **15–90 seconds** (measured, pods up 27 min with 0 restarts), not "time
+> since the last pod restart". **Census `orchestration_states.collected_data` instead** — it holds
+> every fact the WARN reports, survives rolls, and reaches back ~2 days. Doing so answers §3b
+> (**4 cap hits**, with two working negative controls) and §3c (**answered, and it changes
+> `bugs_open/298`**). §3a is unchanged and still owed. Full detail: NOTES, entry of 2026-08-18
+> (evening); commands: RUNBOOK, "Census the caps from `collected_data`".
+
 ---
 
 ## 1. State, at a glance
@@ -15,7 +25,7 @@ gated on fleet traffic rather than on work**, plus two new tickets nobody has st
 | register **MDL-041** (budget at the client) | registered, index row present | live |
 | register **LCO-009** (silent row-cap detector) | registered, index row present | live, **but see §4** |
 | `bugs_open/297` — tool-recreation, 10 of up to 107 | **FILED, not started** | n/a |
-| `bugs_open/298` — internal-linker, 15 of up to 68 | **FILED, not started** | n/a |
+| `bugs_open/298` — internal-linker, 15 of up to 68 | **reachability ANSWERED 08-18** — the cap is moot; the agent never reaches `plan_links` at all (diagnosis `c4aa3559`) | n/a |
 
 **Nothing is half-committed.** Working tree is clean for every file either lane touched; the clean
 `git archive HEAD` tree builds and `platform/aiservice` + `platform/orchestration/actions` are green.
@@ -75,6 +85,25 @@ rank 30" purely because tools were added after that prompt rendered. Constrain b
 
 ### 3b. The live cap census
 
+> **CORRECTED 2026-08-18 (evening) — ANSWERED, but not by this recipe.** The pod-log census below is
+> superseded: see the banner. Two independent reasons its zero meant nothing — the log window is
+> ~15–90 s, and `v1.0.1309` (the first release carrying the detector) shows an earliest evidenced
+> roll of **15:45:31Z**, so most of that 24 h had no detector in the fleet at all.
+>
+> **The durable answer, from `collected_data`, over the ~2 days that table retains:**
+>
+> | agent | step | cap | runs measurable | **hit the cap** |
+> |---|---|---|---|---|
+> | `content-feed-trigger` | `find_news_sites` | 5 | 4 | **3** |
+> | `internal-linker` | `load_candidate_pages` | 15 | 2 | **1** |
+> | `model-directory-trigger` | `find_directory_sites` | 12 | 5 | **0** ← negative control, as predicted |
+>
+> `content-feed-trigger` also came back **under** its cap on one of its four runs, so the method
+> demonstrably produces negatives. **Since the detector went live at 15:45Z, exactly one capped step
+> has run** — `model-directory-trigger` at 18:15Z, 4 rows against a cap of 12, so no WARN was due.
+> **The first genuine positive opportunity is `content-feed-trigger` at ~20:32Z** (eligible
+> population 6 against a cap of 5 as at 18:35Z; the predicate moves with `next_fetch_at`).
+
 **Run 2026-08-18, and the answer was "nothing it watches has executed".** 41 pods, 24h: **0 WARNs, 21
 `query_database` completions, not one of them a capped step** (`find_dispatchable_site` ×9,
 `notify_scheduler` ×6, `load_entry` ×3, `notify_scheduler_idle` ×3).
@@ -98,6 +127,22 @@ last fired 14:32Z. `model-directory-publish` is also 6-hourly but its population
 
 ### 3c. `bugs_open/298`'s reachability question
 
+> **ANSWERED 2026-08-18 (evening), and the answer inverts the ticket.** Two claims below are wrong.
+> (1) "zero rows in all history" is true of `llm_call_log` **only** — the agent has **13
+> `orchestration_states` rows** and 82 `site_work_items`, most recent run 08-18 07:33Z. That is the
+> single-channel reading landmine #2 of §5 warns against, in this file's own §5. (2) The detector
+> would NOT have answered it, for the reasons in the banner.
+>
+> **What is true:** two runs reached `load_candidate_pages`; one returned **exactly 15**, the cap.
+> **Both then ended at `complete_no_candidates`.** `load_candidate_pages` declares
+> `output_format: array`, so `QueryDatabaseAction` returns a bare slice with **no `count` key**
+> (`database_actions.go:129`), while `check_candidates` tests `candidate_pages.count > 0`;
+> `resolveFieldValue` fails all five strategies (strategy 5 needs a map, an array is not one),
+> `ToFloat64(nil)` fails, and the numeric arm **returns false** — always the `else_step`. So
+> `plan_links` cannot run, which is exactly why `llm_call_log` is empty. **The cap has never shaped a
+> link decision because the linker has never made one.** Filed to the diagnosis loop before being
+> asserted: `RUN_CORRELATION_ID=c4aa3559-86b1-4356-a28b-c71dfa661465`.
+
 `internal-linker` has **zero `llm_call_log` rows in all history**, so whether its `LIMIT 15` has ever
 shaped a link decision is **unmeasured** and 298 says so rather than guessing. **The LCO-009 detector
 will answer this by itself** once `load_candidate_pages` runs — no separate work needed.
@@ -105,6 +150,19 @@ will answer this by itself** once `load_candidate_pages` runs — no separate wo
 ---
 
 ## 4. ⚠ THE LIMITATION THAT MAY DEFEAT 3b AND 3c ENTIRELY — read before trusting a quiet census
+
+> **CORRECTED 2026-08-18 (evening): this section is right that the limitation defeats 3b and 3c, and
+> wrong by ~3 orders of magnitude about its size — in the optimistic direction.** The window is not
+> "time since the last pod restart" (hours to a day). The container log rotates **on size**, and the
+> coordinator emits whole-state dumps (measured: mean 2.2 KB/line, worst single line **183 KB**), so
+> it is wiped continuously while the pods keep running. **Measured 2026-08-18, both pods up since
+> 18:00Z with 0 restarts: the oldest retrievable line was 3 s, 15 s, 21 s, 34 s and 91 s old across
+> five samples.** There is no aggregator (`platform/logger/logger.go:37` — `OutputPaths: ["stdout"]`).
+> **This was already in `LANDMINES.md`, filed 2026-08-08 at 0.4 s under load** — the lane built a
+> log-only detector with that entry on file, and neither the design review nor the council round
+> surfaced it. Its two stated remedies are the ones this session ended up rediscovering: attach
+> `kubectl logs -f` *before* the event, or arrange a DB-visible observable — and one already exists
+> (`collected_data`), which is why no code change is needed to census the caps.
 
 **The WARN is a log line, so its history dies with the pod.** The observable window is *time since the
 last pod restart*.
