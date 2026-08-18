@@ -377,3 +377,126 @@ forked, and NOT re-fired: the rows are queued, and a missing completion is not a
 > answers the question you ENCODED: a filtered count cannot rule out a cause the filter excludes.
 >
 > **So "delayed behind a fleet backlog" — not blocked, not 029, and nothing to act on.**
+
+---
+
+## 2026-08-18 (late) — family B diagnosed properly, and my earlier account of it was wrong twice
+
+Went looking for the carousel seam, and the same investigation settled family B. Both results below.
+
+### ⚠ CORRECTION — "seven components hardcode a light ground" was WRONG, twice over
+
+My 08-17 entry listed **seven** components as hardcoding a white ground, from this query:
+
+```sql
+... WHERE pc.rendered_html ~* 'background[^;]*(#fff|255, *255, *255)'
+```
+
+**That query cannot distinguish a bare literal from a `var()` FALLBACK, and five of the seven were
+fallbacks** — `background: var(--color-background, #fff)`, present in the source and never applied
+because the token is set. The very landmine I cited in the same entry
+([[a-css-fallback-is-present-and-inoperative]]), and I walked into it while writing about it.
+
+Then I over-corrected. Reading `differentiators-section`'s template and finding proper `var()`
+usage, I concluded the templates were clean and the white must come from elsewhere — chasing it
+through the site stylesheet (`--color-background: #080B10`, no `team-member` rule at all) and a
+browser probe. **That was wrong too**, and the reason is worth recording: I grepped
+
+```
+grep -oE '\.(team-section|team-member)[^{]*\{[^}]*\}'
+```
+
+which returned `.team-section { padding: 3rem 1.5rem; }` — a **media-query duplicate** of the
+selector. The real rule, with the background, is elsewhere in the same file. **A grep that returns
+"the rule" when a selector appears more than once answers about the first occurrence and reads as
+though it answered about all of them.** Resolved by asking the database instead of the text:
+`(html_template ~ 'background: *#f8f9fa') = true` on the row reached **through `component_id`**,
+not by name.
+
+### What family B actually is — narrower, and worse
+
+**Two shared templates, not seven: `departments-grid` and `leadership-team`.** Their complete
+colour surface:
+
+```
+background: #f8f9fa;     <- section ground
+color:      #555;
+background: #fff;        <- card
+background: #e0e0e0;     <- icon circle
+color:      #0f3460;     <- card heading
+color:      #555;
+```
+
+**Not one themed value. These two components have NO theme support whatsoever** — they are pure
+light-theme CSS in a library whose sibling section component (`differentiators-section`) already
+does it correctly with `var(--color-background, #fff)` / `var(--color-surface, #f8f9fa)`. On this
+site, the only DARK site using them, they were never going to work.
+
+⚠ **This is why the fix is NOT "tokenise the backgrounds".** Doing only that would put `#555` and
+`#0f3460` — mid-grey and dark navy — onto a `#0D1117` card, i.e. **a fresh set of invisible text,
+which is migration 456's mistake repeated exactly.** The 457 landmine ("census the BLOCK, not the
+declaration") caught it before I wrote anything.
+
+**The whole block must move together, and every token it needs already exists** (read from the
+served `:root`, 35 tokens):
+
+| current | token | value here |
+|---|---|---|
+| `background: #f8f9fa` | `var(--color-background, #f8f9fa)` | `#080B10` |
+| `background: #fff` | `var(--color-surface, #fff)` | `#0D1117` |
+| `background: #e0e0e0` | `var(--color-border, #e0e0e0)` | `#21262D` |
+| `color: #0f3460` | `var(--color-text, #0f3460)` | `#E6EDF3` |
+| `color: #555` | `var(--color-text-muted, #555)` | `#8B949E` |
+
+**Blast radius, checked before proposing (the 456 lesson): 3 sites, and the two light ones barely
+move.** `departments-grid` on ai-agent-orchestration + finetuning.uk; `leadership-team` on those
+plus leopardessconsulting.co.uk.
+
+| site | scheme | `--color-surface` | effect on the card |
+|---|---|---|---|
+| ai-agent-orchestration.com | DARK `#080B10` | `#0D1117` | **fixed** |
+| finetuning.uk | light `#F5F3EF` | `#FFFFFF` | **identical to today's `#fff`** |
+| leopardessconsulting.co.uk | light `#FAF8F4` | `#FFFFFF` | **identical to today's `#fff`** |
+
+So the light sites keep their appearance (their surface token *is* white) and the dark site is
+repaired. Two-level fallback throughout, so it is inert anywhere the tokens are absent.
+
+**This retires the "owner design decision" I recorded on 08-17 as an either/or.** I framed it as
+*strip the white so the dark theme shows through* vs *keep light cards and darken the text inside*.
+Neither is right: the components should consume the site's tokens, exactly as their sibling in the
+same library already does, which gives each site its own answer instead of picking one for all
+three. The owner still owns whether to spend it — but it is no longer a choice between two designs.
+
+### Carousels — the seam, and a conflict in this site's own spec
+
+`plan_sections_action.go:1101` is the planner→creator seam: **`design_intent.style_direction` is
+the string passed to `needs_new_component` items "so the component-creator knows the visual
+style"**. On this site it is the bare slug **`"professional-dark"`** — a very low-bandwidth channel.
+
+⚠ **`layout_preference` is NOT read by that seam**, despite being the obvious place and despite
+carrying rich, relevant prose here (*"Card-based layouts for services, case studies, and team
+members"*). Anything written there today reaches nothing. **[MEASURED]** by reading the Go: the
+extraction takes `style_direction` only.
+
+⚠ **This site's `design_intent.avoid` already contains "Testimonial carousels with headshots of
+fake people".** Narrow — it bans one *kind* of carousel, not the pattern — but it is the site's own
+standing instruction and any carousel hint must be written so the two do not read as contradictory.
+Flagging rather than deciding: the owner asked for carousels and the spec discourages one variety
+of them.
+
+### ⚠ A separate, unrelated defect found in passing — the spec carries TWO contradictory palettes
+
+`design_intent` holds `palette.reference_values` (**dark**: background `#080B10`, surface `#0D1117`)
+**and** a `color_scheme` block (**light**: background `#ffffff`, surface `#f8f9fa`, text `#333333`),
+plus a `colour_mood` prose paragraph describing a **third** scheme (electric blue `#0EA5E9` on
+slate). `color_scheme` is **live** — `render_css_from_spec_action.go:480` does
+`palette = extract("color_scheme")`.
+
+**Fleet-wide this site is the only contradictory one:** of the sites carrying both keys, only
+ai-agent-orchestration has a light `color_scheme` against a dark palette (leopardess has
+`#FAF8F4`/`#FAF8F4`, consistent).
+
+**[UNVERIFIED] what this currently causes.** The served `:root` is dark and correct, so the palette
+is evidently winning today — but the two blocks disagree and one of them feeds CSS generation, so a
+future run could serve the light one. Recorded, not acted on, and NOT offered as family B's cause:
+family B is the untokenised components above, which is measured.
