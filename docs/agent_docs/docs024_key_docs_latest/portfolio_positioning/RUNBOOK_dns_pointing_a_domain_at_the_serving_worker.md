@@ -131,15 +131,71 @@ route proxies to the placeholder origin and fails, which is worse than not exist
 reference zone happens to use a parking IP (`199.59.243.228`); either works because the worker
 intercepts first, but a documentation-reserved address cannot accidentally reach a live host.
 
-## ⚠ FLEET-WIDE FINDING: `www.` resolves NOWHERE
+## ✅ DONE 2026-08-18 20:07Z — `www.` now 301s to the apex on every applicable zone
+
+**36 of 36 applicable zones verified redirecting; 3 deliberately skipped; 0 failures.**
+Owner ruling: redirect, do not serve. Two moving parts:
+
+1. **`scripts/cloudflare/worker.js`** carries the redirect (`hostname.startsWith('www.')`
+   → 301 to the same URL with `www.` stripped, above the object-key construction).
+   Deployed by the owner 20:02:37Z via `scripts/cloudflare/deploy_worker.sh`.
+2. **`scripts/cloudflare/add_www_redirect.sh --apply`** adds, per zone, a proxied `www`
+   A → 192.0.2.1 and — only where no wildcard route already covers it — a
+   `www.<domain>/*` route. **28 DNS records + 7 routes added, 0 failed.**
+
+**It classifies each zone live rather than looping, and that is load-bearing.** Skipped:
+`idea.uk` (no route to the worker at all — a proxied A there is a 522 black hole),
+`relojistas.com` (www already serves a real page off another host), `webdesign.uk`
+(deliberate 302 to webdesign.co.uk). Left alone as already correct: `cookly.uk`,
+`dartsonline.com`. Fixed as a side effect: `robot-hands.com` and
+`leopardessconsulting.co.uk`, whose `www` records had existed with nothing serving them
+and simply hung.
+
+### ⚠ Two things that make a WORKING change look broken — do not undo it on either
+
+- **A newly created worker route 522s for the first few requests.** `www.remortgagecalculator.uk/`
+  returned **522** immediately after its route was created, while `…/mortgage-lenders.html`
+  on the same host already 301'd. 522 is exactly the signature of "no worker, dead origin"
+  (192.0.2.1 is TEST-NET-1 and can never answer), so it reads as *"the redirect is not
+  working and the A record is pointing at nothing"*. It settled within a minute: 5/5
+  clean on retry. **Re-test before diagnosing; never delete the record on one reading.**
+- **Your own resolver's NEGATIVE cache outlives the record you just created.**
+  `www.vonc.com` and `www.webdesign.co.uk` returned `curl: (6) Could not resolve host`
+  for minutes after their records existed — because the dry run had queried those names
+  while they were NXDOMAIN and the negative answer was still cached locally. **"Could not
+  resolve" is indistinguishable from "the record was never created."** Ask authoritative
+  DNS instead of your resolver, and prove the redirect by pinning the IP:
+  ```sh
+  curl -s -H 'accept: application/dns-json' "https://1.1.1.1/dns-query?name=www.<domain>&type=A"
+  curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' \
+       --resolve "www.<domain>:443:<ip-from-above>" "https://www.<domain>/"
+  ```
+  Both zones were correct all along and read as failures for ~4 minutes.
+
+### Verify (read the redirect, never the API response)
+
+```sh
+curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}\n' https://www.<domain>/
+# expect: 301 -> https://<domain>/   — path and query string are preserved
+```
+
+## ⚠ SUPERSEDED FINDING (kept for the history): `www.` resolves NOWHERE
 
 Measured 2026-08-18: `www.ai-agent-orchestration.com` **does not resolve at all** while the
 apex returns 200. There is no `www` record and no `www` route on the reference zone — and by
 implication on **any of the 36**. Anyone typing `www.<domain>` gets a DNS failure, not a
 redirect.
 
-**Not fixed here, deliberately** — it is a fleet-wide convention, and changing it on one zone
-would diverge that zone from the other 35. **It is a decision for the owner:** add a proxied
-`www` CNAME plus a `www.<domain>/*` worker route to every zone (the worker keys on
-`<hostname><path>`, so `www.` would need its own bucket prefix or a redirect worker), or
-accept that these sites are apex-only.
+> **⚠ CORRECTED 2026-08-18: "on any of the 36" was an INFERENCE from one zone, and it was
+> wrong in both directions.** Measured across all 39: **8 zones already carried a `www`
+> record**, in FOUR different states — two redirecting correctly (`cookly.uk`,
+> `dartsonline.com`), one deliberately pointing elsewhere (`webdesign.uk` → webdesign.co.uk),
+> one serving a real page off another host (`relojistas.com`), and two simply hanging
+> (`robot-hands.com`, `leopardessconsulting.co.uk`). A uniform claim about a fleet, drawn
+> from the reference zone, is the shape to distrust — the exceptions are exactly the zones a
+> blind fan-out would have broken.
+
+**Resolved by the owner 2026-08-18: redirect www to the apex.** Implemented in the worker
+rather than per-zone redirect rules, because the portfolio token has no ruleset permission
+(`http_request_dynamic_redirect` → `Authentication error`) and no account scope. See the
+DONE section at the top of this file.
