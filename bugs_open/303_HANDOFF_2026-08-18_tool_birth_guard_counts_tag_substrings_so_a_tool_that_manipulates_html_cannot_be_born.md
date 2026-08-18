@@ -1,7 +1,8 @@
 # 303 — the tool-birth truncation guard counts tag SUBSTRINGS, so a tool whose own code mentions a structural tag cannot be born — and it is rejected with "the generation was cut", which is false
 
 **Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane, which hit it building an HTML minifier.
-**Status: OPEN, UNOWNED. Live. It is blocking real work right now.**
+~~**Status: OPEN, UNOWNED. Live. It is blocking real work right now.**~~
+**Status: FIXED AT SOURCE 2026-08-18 (`6d962bcf8` + `e21b172f0`), OPEN until a chassis image rolls** — Go changes are inert until then, so the birth refusal is still live in the fleet today and the LANDMINES workaround (tag names without angle brackets in `add_tool` descriptions) still applies. Owner: session "303, bugs_open/298", lane `bugfix_303_tool_birth_guard`. Council: `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc`. Fix record at the bottom of this file.
 
 ## The one-paragraph version
 
@@ -131,3 +132,62 @@ of any kind. On a web-design site that is a natural and recurring product catego
 mentioned inside a template literal is exactly the case region-stripping handles and rewording cannot.
 It also means candidate 4 (fix the wording only) is not sufficient — the message is misleading AND the
 predicate blocks correct code.
+
+## FIX RECORD 2026-08-18 — fixed at source (session "303, bugs_open/298"), OPEN until a chassis roll
+
+**The fix is candidate 1 (+3's honesty, +4's wording), taken at the framework level.** One shared
+markup-context scanner — `platform/content/markup_balance.go`: `StructuralTagPairs` /
+`StructuralTagCounts` / `UnbalancedStructuralTags` — counts a token only when it is tag-shaped
+(name then whitespace/`>`/`/`) and in markup context: `<!-- -->` bodies skipped, `<script>`/`<style>`
+raw-text bodies skipped to the first close token, exactly where a browser ends the element. A cut
+mid-JavaScript still leaves `<script` unmatched, so the true-positive class (012/021/046) is kept.
+
+**Where it landed** (commits `6d962bcf8` and, for the shared file, `e21b172f0` — that hunk rode the
+309 lane's commit as a declared same-file passenger by agreement between the two sessions):
+
+- `toolTemplateValid` (birth AND load — the load half was worse than this file knew: a failing tool
+  was silently dropped from the schemas map, the `bugs_open/024` shape again),
+- `hasUnbalancedStructuralTags` (section birth) and `componentRegressionIssues` check 2 (rewrite),
+- `check_truncated_component` (sweep + verifier + intact probe; the hand-mirrored pair list is
+  RETIRED — the leaf package ends the import cycle that forced it),
+- `check_tool_completeness` (advisory, tool-recreation flow; was also case-SENSITIVE),
+- `store_generated_component` Check 2 + the five-pair birth message.
+
+**The refusal is honest now** (candidates 3+4): it states the measured signals — per-pair
+markup-context counts and `ends_cleanly`, both in the message and in the `agent_error_log` context
+(`tag_imbalance`) — and points at `llm_call_log` output_tokens vs max_tokens instead of asserting
+"the generation was cut". `error_code='tool_birth_truncation_blocked'` is KEPT (queried by name).
+
+**Calibration** (the guard header's standing instruction, re-run 2026-08-18 over the full live DB):
+
+- `component_versions`, 264 rows: **26 flagged by BOTH old and new, 0 verdict flips** — every
+  recorded casualty kept. Comparative check-2 over all 121 consecutive version pairs: 1 block under
+  both (the 012 write), 0 disagreements.
+- `content_components`, 300 rows: old flagged 11, **new flags 8 — a strict subset, zero new
+  positives**. The 3 cleared rows were each hand-read and all are mentions inside CSS comments:
+  `79c34359` Agent Protocol Tracker ("component's `<style>` block is unstyled…", line 3, inside the
+  style block), `fc56f085` info-card-grid ("do not move this block above the base `<style>`. */",
+  line 233), `71a54cc2` gauntlet-round-record-vonc-com ("Inline `<script>` means no /tools/assets
+  publication step", line 13, inside the style block). All 8 still-flagged rows are inactive
+  historical casualties; **no active component is a true casualty today**.
+- **Two of the three cleared rows carry OPEN `truncated_component` work items that are FALSE ALARMS
+  of the substring count**: `91007600` (info-card-grid, "intact v1 available to restore" — restoring
+  v1 would have REPLACED A GOOD TEMPLATE) and `6e2c9ebf` (gauntlet-round-record, "needs
+  regeneration" — regeneration risks fabrication per `bugs_open/020`). Left open deliberately: after
+  the fix rolls, their verifier resolves them as balanced; nobody should act on their remedy text
+  before then. The third open item's component (`c4f94a99` tool-llm-cost-calculator) passes under
+  BOTH predicates today — repaired after filing; its item is stale, not false.
+- **The verification recipe from this file, run on the real stored templates** (`c0cfb873`,
+  `88b70065`): as stored, both predicates pass; with `// protect <style> and <script> blocks`
+  injected, old refuses (this bug), new passes; truncated at 60%, BOTH refuse, new naming
+  `<script`. Pinned as unit tests, including `TestSubstringCountWouldRefuseMentionTool`, which
+  reproduces the OLD predicate so the fixture can never silently stop exercising the defect.
+
+**The ADDENDUM class is covered too**, and is the strongest argument for region-stripping: in
+`<script>const s=`+"`"+`<script type="…">…<\/script>`+"`"+`;</script>` both mentions sit in the
+outer script's raw-text body, and the element balances exactly as a browser reads it — pinned as
+the "tool that OUTPUTS a script tag" test. No concatenation obfuscation needed once this rolls.
+
+**Council:** `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc` (verdict recorded here when read).
+**Register:** CLC-019. **Verify after the roll:** re-run an `add_tool` whose description names tags
+with angle brackets; confirm birth; confirm the two false-alarm items resolve via their verifier.
