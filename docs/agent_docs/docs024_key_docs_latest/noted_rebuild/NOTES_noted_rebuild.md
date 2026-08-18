@@ -2325,3 +2325,46 @@ Everything the owner asked for is live: Get Started → the sign-in page on all 
 pages; the email changed in every store, page, and the canonical privacy copy
 (22/22 verbatim). The durable CTA override rides the next fleet roll
 (`229e14e74`, Council-Submitted `89f3331e…`).
+
+---
+
+## 2026-08-18 — "a person will answer" removed; the CTA override is LIVE and derived; council round 2
+
+### The phrase (owner edit)
+
+Removed through the full chain: draft ("write to noted@contactforsales.com." —
+checker clean, 308 words) → evidence_base (derived row, 7 bans intact, phrase
+absent from the whole spec) → 074b re-render → the storage-risk guide's
+article-body carried the same sentence and was edited the same way. Verified at
+the box (privacy 0, guide 0) and live (0), header CTA intact.
+
+**Instrument note:** the verbatim check read 21/22 — the missing "sentence" was my
+tag-stripper inserting a space where the mailto anchor is now sentence-final
+(`…com</a>.` → `com .`). The raw HTML carries the anchor followed directly by the
+full stop; with ` .`→`.` normalisation, **22/22**. Second instrument lesson in two
+days from the same checker: the diff tests the strip, then the copy.
+
+### The fresh build carries the override — the interim patch is retired
+
+`build provenance: 0b185bad2…`; `git merge-base --is-ancestor 229e14e74 <stamp>`
+→ ancestor. Re-rendered chrome under the new binary: the header CTA came out
+**`/tools/write/index.html` BY DERIVATION** from `header_cta_url` (updated
+18:13:59). The interim rendered_html patch is now unreachable state — any future
+chrome re-render produces the owner's CTA from the key. The pre-roll reversion
+window recorded on the 17th is closed.
+
+### Council: round 1 REVISE was RIGHT about the plan, already false about the world
+
+editquality's gating objection: the plan's rationale said "noted sets the key in
+the same change" but the edits array held only the Go edit — "ships as a dead
+feature for the one site that requested it". The key had in fact been set BEFORE
+round 1 (the round's own reviewer read-back shows it), so the defect was the
+PLAN's under-description, not the estate's state. Per practice: revised, not
+defended — round 2 under the same correlation adds the executed config change as
+an explicit edit, and answers the second reviewer signal (a `site_config` aspect
+existed and was unevaluated): `sites.content_data` chosen because
+`loadSiteDataFull` already reads the sites row (zero new query paths) and the map
+already carries sibling presentation knobs; migrating later is one UPDATE + one
+COALESCE. Also: the trigger refuses a pseudo-path in `edits[].file` ("ONE EDIT =
+ONE FILE, repo-relative") — a DB config change is pointed at the doc that records
+it.
