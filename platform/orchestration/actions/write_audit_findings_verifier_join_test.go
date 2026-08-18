@@ -136,22 +136,45 @@ func TestHardcodedColourVerifierGradesItsOwnAggregate(t *testing.T) {
 // It does NOT prove the nil branch cannot panic; `if policy.Grades != nil` is a plain
 // nil check on a func field and there is no target.Spec access before it, so there is
 // no type assertion to slip. What it proves is that the branch is not TAKEN for the
-// other ten.
+// unlicensed rest.
+//
+// WIDENED 2026-08-18 (bugs_open/131 og-card slug): "exactly one type" became a
+// LICENSED SET, because the guard's own error message names the entry fee — a
+// producer measurement — and needs_brand_head_assets paid it. Measured
+// archive-inclusive (site_work_items UNION site_work_items_archive — the live
+// table is a ~7-day window, so a live-only producer count under-reads): 53 rows
+// lifetime, EXACTLY two spec shapes and no third: 35 'purpose only' (the
+// discovery producer, check_undeployed_assets' brand-head half) and 18 'mode
+// only' (hand-filed brand_head redrives, six distinct created_by lanes since
+// July). Its Grades is a positive shape match on precisely those two shapes
+// (brand-head purpose, or mode='brand_head'), per the GradesFunc contract —
+// keyed on the ROW, never a producer list. Note the message's
+// `spec->>'audit_source'` discriminator is the AUDIT family's; for this type
+// the producer discriminator is the spec shape itself, which is what was
+// measured.
 func TestOnlyTheOptedInVerifierCarriesAScopeTest(t *testing.T) {
-	const optedIn = "hardcoded_section_colors"
+	// item_type -> the measurement that licenses its scope test. An entry
+	// here without a real archive-inclusive producer measurement in its
+	// value is the reviewed-for-a-different-type hole wearing a map key.
+	optedIn := map[string]string{
+		"hardcoded_section_colors": "bugs_open/213's own fix (corr c9c7c83f)",
+		"needs_brand_head_assets": "bugs_open/131: 53 rows lifetime (archive-inclusive, 2026-08-18), " +
+			"exactly two spec shapes — 35 purpose-only (discovery producer), 18 mode-only (hand redrives)",
+	}
 
 	for _, itemType := range checks.RegisteredVerifierItemTypes() {
 		_, policy := checks.GetVerifier(itemType)
 		switch {
-		case itemType == optedIn && policy.Grades == nil:
-			t.Errorf("%s is the one type that must carry a scope test and does not — "+
-				"the bugs_open/213 fix is unwired", itemType)
-		case itemType != optedIn && policy.Grades != nil:
+		case optedIn[itemType] != "" && policy.Grades == nil:
+			t.Errorf("%s is licensed to carry a scope test (%s) and does not — "+
+				"the bugs_open/213 fix is unwired for it", itemType, optedIn[itemType])
+		case optedIn[itemType] == "" && policy.Grades != nil:
 			t.Errorf("%s has acquired a scope test. Every completion of this item_type now "+
 				"passes through a predicate that was reviewed for a DIFFERENT type — which is "+
 				"bugs_open/213's own defect, reintroduced by its fix. If this is deliberate, "+
-				"the scope test needs its own measurement of which producers file this type "+
-				"(spec->>'audit_source', NOT item_type, NOT created_by) before it can be trusted.",
+				"license it in optedIn above WITH an archive-inclusive measurement of which "+
+				"producer shapes file this type (the live table is a ~7-day window; and the "+
+				"discriminator is the spec's own shape, NOT item_type, NOT created_by).",
 				itemType)
 		}
 	}
