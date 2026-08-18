@@ -701,3 +701,29 @@ apply time). Each conversion now auto-files its page-scoped `template_changed` r
 the fixed `create_rerender`. Monitor armed on the drain. The judged pool (25: the 23 LMC
 calculators + 2 tools) remains untouched — its pipeline is the next design task, LMC-first with
 the oracle, per the ruling.
+
+### 13.5 The batch is DRAINED — 68 converted, both refusals are the refusal arms working, tripwire retired
+
+Final reconciliation, counts read fresh at terminal state and tied item-by-item:
+
+| | count |
+|---|---|
+| batch items | 70 |
+| `fixed:true` (converted, gated, written, snapshot taken) | **68** |
+| `fixed:false` — hex-ambiguity refusal | 1 — `tool-process-automation-scorer` declares an id literally named **`ec2`**; the `#id` pass cannot tell it from the colour `#ec2`. Route: judged pool, or rename the id first |
+| `failed` — gate hard-error | 1 — `tool-spawn-rate-balancer`, the **pre-existing internal duplicate** (`chartTitle` twice within one copy, §3a's off-by-one); prefixing cannot fix a within-instance duplicate, and the gate refused to write. Route: repair the duplicate, then reconvert |
+| adopters (templates carrying `{{.InstanceID}}`) | **69** = canary + 68 ✓ exact |
+| page-scoped `template_changed` rerenders auto-filed by the fixed `create_rerender` | **72** (68 components; some sit on 2 pages), draining under a monitor |
+
+**Both non-conversions are the failure-direction design proving itself**: each refused loudly,
+wrote nothing, and named its route in the message. Neither is a converter defect.
+
+**The tripwire is RETIRED** (CronJob deleted 2026-08-18; retirement note in `doc_notes`;
+CLC-016 updated). It lived three days, ran daily, caught real corpus drift on its second run,
+tripped on the first conversion exactly as designed, and was removed before its firing could
+become noise — the full life cycle the design asked for.
+
+**Remaining in 283:** the 72 rerenders drain and a sample of served pages gets spot-checked;
+the two refused rows get their small repairs; then the JUDGED pool — 25 components, 23 of them
+the LMC calculators, LMC-first with the oracle, pipeline not yet designed. The mechanical
+three-quarters of RFC_034 is done.
