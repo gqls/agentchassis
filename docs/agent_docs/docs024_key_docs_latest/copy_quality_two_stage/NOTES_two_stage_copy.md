@@ -1556,3 +1556,130 @@ have closed either, since the review queue has no surface and the edit item was 
 page: proposal → gate → `section-editor` → render → deploy → six links live. It does NOT
 prove the `on_approve` → `section-editor` handoff, which is still the untested part —
 approval today is a human running two commands, and `bugs_open/033` is why.
+
+## 2026-08-18 — THE HARDER PAGE: it broke stage 2 twice, and the second break was in my own gate
+
+The handoff's item 2. Subject chosen to stress what the proof case could not:
+`ai-agent-orchestration.com/index` — **8 components** (all unlocked), **78,302 chars** of
+payload, four components declaring `array` fields, and a **diffuse** fault rather than a
+legible one: **15 define-by-negation constructions** over 2,414 words (`X, not Y` ×8,
+`rather than` ×7) where v2 allows a contrasting pair *"once or twice per page at most"*.
+`[MEASURED — count_negation_tells.py, committed]`
+
+Coordination checked first: nothing claimed or in flight on the site, all 8 components
+unlocked, `ai_endpoint_health.healthy = t`.
+
+### Run 2 FAILED — truncation, and the failure is the finding
+
+```
+step run_copy_edit failed: AI call failed with unhandled error: response truncated:
+stop_reason=max_tokens (output_tokens=16000 reached the configured cap, 9687 chars recovered)
+```
+
+**Two faults, and only one is the token cap.**
+
+1. The cap was too low for the task's shape.
+2. **The agent attempted a whole-page rewrite, which the design forbids.** PLAN §3 rule 3
+   says the write is "one component at a time"; the config asked for page-scoped read AND
+   every write in ONE completion, which is not the same thing and is what broke.
+
+> **CORRECTION to 2026-08-17's reading.** That evening I recorded the surgical six-line
+> diff and flagged "whether the restraint survives a subtler page" as the open question.
+> **It did not.** Given a fault spread thinly across eight components the agent tried to
+> rewrite everything. **The restraint was a property of a LEGIBLE DEFECT, not of the
+> design** — which is exactly why the handoff said the next page had to be harder, and why
+> a single good run is not evidence about a mechanism.
+
+**Credit where due:** the platform **failed loudly rather than persisting a fragment.**
+That is `bugs_open/012`'s shape (a 10,272-char component saved back as 1,253 chars of CSS)
+handled correctly — the runtime checks `stop_reason` even though `llm_call_log` has no such
+column, which is why the landmine I filed yesterday says compare `output_tokens` to the cap
+when reading the LOG.
+
+### The fix is a BUDGET, not a bigger cap (migration 462)
+
+`max_tokens` 16,000 → 32,000 **and** an explicit ceiling of **three edits per run**, ranked
+by what a reader loses if it stays. **An edit set bounded at the source cannot truncate**;
+a raised cap only moves the wall. The read stays FULL — page-scoped read is the whole point
+and input was never the problem (78 KB ≈ 20k tokens, nowhere near a limit). 447's four
+invariants are re-asserted by 462's own guard block, so a prompt edit cannot quietly drop
+the voice carrier or add a page-writing step.
+
+⚠ **Number collision:** filed as 460, renamed to **462** — another session had committed
+`460_template_changed_rerender_reason.sql` while I wrote. Theirs keeps the number.
+⚠ **`snapshot_agent` has TWO overloads and they write to DIFFERENT PLACES.** The 1-arg form
+inserts an `is_snapshot` row into `agent_definitions`; the **2-arg form (which 462 calls)
+writes to `agent_definitions_backup` with the reason in `snapshot_reason`**. My ROLLBACK
+was searching `agent_definitions` and would have raised *"no snapshot found"* on a snapshot
+that exists — a missing-backup reading of a wrong-table bug. Corrected before applying.
+
+### Run 3 PASSED, and the judgement is what page-scoped read exists FOR
+
+COMPLETED in 105 s, **8,181 output tokens** against the 32,000 cap (not truncated),
+**exactly 3 edits**. Item `d2378b77`. The page judgement found what no section-scoped
+writer could:
+
+- **the same pitch restated near-verbatim in FIVE sections** (system-stats, features,
+  differentiators, departments-grid, call-to-action);
+- **one resource called FOUR different names** across the page — "adoption register",
+  "adoption tracker", "Enterprise AI Agent Adoption Tracker", "adoption tracker page".
+  This is the "Amortisation"/"amortization" case that motivated the design, found live.
+
+And the edits are **removals**, not rewrites: drop a fake tenth "feature" that was a sales
+pitch, cut an off-topic tangent from a section intro, standardise the resource's name.
+⚠ Note it did **not** chase the negation tells I had measured — it judged restatement the
+bigger problem. Defensible, and worth recording that my measurement was not its priority:
+**the tell count is an observation, not the brief.**
+
+### The gate FAILED that proposal, and the gate was wrong — twice
+
+Both defects were in my own tool, and both were found by RUNNING it on something harder,
+not by reading it:
+
+1. **The volume floor could not tell a GUTTED section from a deliberately DE-DUPLICATED
+   one.** It was specified against `bugs_open/178`'s shape and fired on two edits whose
+   entire purpose was removing five-fold restatement — i.e. it failed the editor for doing
+   half its remit. **Not relaxed — made to discriminate.** A field may now shrink >10% only
+   if **every figure and link removed is still reachable elsewhere ON THE PAGE**; below 25%
+   of the original it fails outright regardless. The discriminator is deliberately
+   mechanical: keying it on the agent's stated rationale would let it talk its way past its
+   own gate.
+   > This is the one change I was most wary of, because "the gate fired, so I changed the
+   > gate" is the `fixing-a-checker-to-agree-with-a-broken-site` shape. The test I held it
+   > to: **the controls must still fail.** They do — the volume control now fails via BOTH
+   > the orphan test ("34 items exist NOWHERE else on the page") and the absolute floor.
+2. **Array fields were silently unchecked beyond their type**, while the coverage line read
+   *"1 of 1 proposed field(s) type-checked"* — true, and misleading. The `features` edit
+   removed a whole item and the gate said nothing. Arrays are now flattened so links,
+   markup, facts and volume apply, and item-count changes print explicitly (`10 -> 9`).
+   **This is the armed-but-inert shape, in the tool this lane wrote to prevent it.** Third
+   occurrence in the lane's history, first in our own code.
+
+Re-graded after the fix: **all three edits PASS**, each carrying `⚠ REVIEW THE PROSE` — the
+gate clears the mechanical contract and explicitly refuses to vouch for the writing.
+
+### A fact discovered by accident, which matters more than it looks
+
+The proof case's component id **`d6c9198b…` no longer exists.** A rerender at
+**09:55:37Z today replaced the row** with `f05d59e5…` (created_at == updated_at). The
+content came through intact — 7,136 chars, and `gate_page_links.py` **still exits 0**, so
+yesterday's six links survived the regeneration `[MEASURED]`.
+
+**But a parked proposal stores `page_component_id`, and that id can be DEAD within a day.**
+My landmine yesterday said a parked payload goes stale in its CONTENT; it also goes stale
+in its ADDRESS, and the gate then exits `no page_component <id>` — which reads like a typo,
+not like a rerender. This is 016b §9's "resolve by (page_name, slot_name), never by a
+stored component id" arriving from a new direction. Landmine updated.
+
+**Chassis today:** `v1.0.1308`, commit **`e7e5e4d53`**, binary-probed on `-dvscb` with a
+negative control (current HEAD absent); mode-split ancestry still holds. ⚠ I briefly
+suspected the roll had disrupted run 2 — **wrong, and dropped**: the pods started 07:57Z,
+nearly four hours before the 11:51Z dispatch, so the ~300 s rule was never in play.
+
+### Where this leaves stage 2
+
+Two pages, two shapes of defect, two genuine mechanism faults found and fixed. **The
+run-3 proposal is PARKED and unapplied** (`d2378b77`, `needs_human_review`) — D2 holds, and
+the owner has not seen it. It is a better test of the review step than the proof case was,
+because the edits DELETE live copy, which is the class of change a human should want to see
+before it lands.
