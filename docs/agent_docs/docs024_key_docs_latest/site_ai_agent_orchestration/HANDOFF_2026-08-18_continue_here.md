@@ -209,6 +209,14 @@ close them is to fix the page and let the site's render audit run, **not** to pr
 last rendered **2026-04-13**, so `rerender_page_sections` has nothing to rebuild from — this page
 is the reason "just re-render everything" was never going to be enough.
 
+✅ **`pricing` is `rebuild_policy='generic'`, so the rebuild will not be refused** — checked
+2026-08-18. ⚠ **Six pages on this site are `owned` (5 `deployed`, 1 `needs_rebuild`) and WILL
+refuse.** That refusal is real and currently biting other sites: every `page_rerender` failure
+fleet-wide created after 2026-08-17 16:12Z is a content-gating refusal, not a timeout —
+`save_page_sections: overwrite: REFUSED`, `page <x> is rebuild_policy=…`, `claims floor blocked:
+19 banned claim(s)`. So a rebuild aimed at an `owned` page fails with a clear error rather than
+silently doing nothing; check the policy before dispatching, not after.
+
 Owner approved the rebuild on 2026-08-17, **knowing it REGENERATES the copy rather than correcting
 it**. Route: `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh` per the
 owner ruling of 2026-08-04 (never hand-build). ⚠ **NEVER restore from `page_component_history`** —
