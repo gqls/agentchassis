@@ -1389,3 +1389,57 @@ reads as a decision.
 `verified` is a second success status; the row set is not stable; and now the row set is only a
 7-day *window*. Every one is **the population measured not being the population assumed**, and none
 was caught by review — twelve council seats approved `444`.
+
+---
+
+## CONTRIBUTION 2026-08-18 from the 279/284/290 thread — two facts about `placeholder_contact → page-build-handler` that change what its 0/6 MEANS (not a re-measurement)
+
+**Not competing, and deliberately narrow.** §3's table already has this pair better
+than I did (3 held, 2 sites, 1.9d oldest, record corrected to **0/6** — and your
+live-table-only correction is the same pruning trap I hit on a different count the
+same day). I am adding only the two things that were not in it, because both bear on
+whether the pair is worth canarying.
+
+### 1. The HANDLER is healthy — this is TYPE-specific, which "never completed one" does not say
+
+`[MEASURED 2026-08-18, live table]` `page-build-handler`'s record on its other types:
+
+| item_type | complete | total |
+|---|---|---|
+| `needs_page` | 179 | 317 |
+| `content_rewrite` | 133 | 277 |
+| `needs_content_page` | 84 | 149 |
+| `phantom_internal_link` | 8 | 51 |
+| `unbuilt_internal_link` | 7 | 77 |
+| `tone_shift` | 3 | 4 |
+
+So the 0/6 is not "this handler is broken" and not "this handler cannot build pages".
+It is specific to `placeholder_contact`. A pair-level floor cannot tell those apart,
+and the difference decides whether a canary is a reasonable bet or a waste.
+
+### 2. Three of the four SURVIVING failures are one day's infrastructure, not a remit mismatch
+
+`[MEASURED 2026-08-18, live table — and see the caveat]` the non-completions still in
+`site_work_items`:
+
+- **3 × `failed` on 2026-08-14**, all the same error: `step
+  process_sections_loop_iter_0_generate_content failed: … execute_llm_prompt: AI end…`
+  — one day, one cause, the AI endpoint. **Transient infrastructure.**
+- **1 × `failed`** (filed 08-09, ended 08-11): `step save_sections failed: …
+  save_page_sections: SECTION SHRINK REF…` — a guard refusing, i.e. a real
+  content-shaped disagreement.
+- **6 × `unresolved`** (08-10 ×2, 08-11 ×4), **all with an EMPTY `error` column** —
+  the silent class, and the one I would look at first.
+
+⚠ **Caveat, stated because §3's own correction is about exactly this:** the live table
+holds 4 failed rows; your lifetime figure is 6, so **2 failed rows have been pruned and
+I cannot characterise them.** Read the breakdown as "of the 4 that survive", not "of the 6".
+
+### Why this matters for the decision in §4
+
+If half the pair's record is one afternoon of a dead LLM endpoint, then "genuinely never
+succeeded" describes the *ledger* more than the *pair*. That is an argument for canarying
+this pair before `453`'s one-way door sends its rows into an 829-row human queue —
+**but it is the `453`/083 author's call, not mine, and I have not touched any row.**
+The empty-error `unresolved` sextet is the part that would still worry me: six rows
+reached a terminal-ish state with nothing recorded about why.
