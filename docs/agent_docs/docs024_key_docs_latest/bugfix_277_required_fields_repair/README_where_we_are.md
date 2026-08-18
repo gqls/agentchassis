@@ -520,3 +520,51 @@ possible moment.
 
 **Nothing needs a decision from you.** The next real job is still the shared router engine design
 round.
+
+---
+
+## 2026-08-18, evening — your six decisions, and the answer to the tool question
+
+You asked why the tool fix isn't working properly. The answer is not what I expected and it is
+better news than it sounds.
+
+**Nothing is broken and nothing is missing.** The machinery for repairing a tool or widget page
+exists and is the best-performing repair path we have: it has succeeded 220 times and failed 5. The
+problem is that these particular complaints never get sent to it.
+
+**What decides success is the kind of repair, not the page.** The general page-rebuilder succeeds on
+tool-owned pages seventy-four times — whenever the job is to *add* something: fill an empty section,
+write a missing page. It has never once succeeded, across thirty-nine attempts, when the job is to
+*change* something that is already there: fix stray formatting characters, repair a link that points
+nowhere, replace placeholder contact details. That is not a coincidence — changing existing content
+is precisely what the safety guard exists to refuse on a page that belongs to a tool.
+
+**And here is why we cannot simply redirect them.** The editor that can safely change a tool page
+needs to be told *what the corrected content should be*. Our detectors only report that something is
+wrong — that stray asterisks reached the page, not what the sentence should say instead. So the
+missing piece is a small translation step between "this is broken" and "here is the fix". That is a
+genuine gap, it is a design job rather than a patch, and roughly 134 waiting complaints sit behind
+it.
+
+**The immediate protection you asked for is cheap and I have a concrete way to do it.** When the
+guard refuses, it currently records the refusal as a failure of the repair handler — and our new
+safety rule counts failures to decide whether to keep trusting that handler. So refusals for work it
+was never allowed to attempt could switch off a repair path that works two times in three on
+ordinary pages. The fix is to record the refusal as "not applicable" rather than "failed". I checked:
+that status is already excluded from the trust calculation *and* it releases the record so the
+complaint comes back naturally once routing exists. No new machinery, and reversible.
+
+**On the other decisions.** I am fixing the one-way door so that findings held back can be reclaimed
+once we prove a repair type works — this matters more than it did yesterday, because we now have a
+real case of a repair type being wrongly held while it had nine successes to its name. I have left
+both canaries alone as you said; one would have failed for a documented reason and the other would
+have rebuilt a live tool page unprotected. And I have written down a small worry for later: that tool
+page is marked as an ordinary page in our records, so the guard that protects other tool pages would
+not have protected it. If that marking is inconsistent across the estate, the routing work inherits
+the problem.
+
+**The order I intend to work in**, so you can redirect me if it is wrong: the one-way door first
+because it has a clock on it (three findings cross the line tomorrow); then the "not applicable"
+change and the unstable-identifier fix together, since they share a rebuild; then closing 083 next
+week; and the translation step last, with a design review first, because it is the only one that
+actually repairs those 134 pages.

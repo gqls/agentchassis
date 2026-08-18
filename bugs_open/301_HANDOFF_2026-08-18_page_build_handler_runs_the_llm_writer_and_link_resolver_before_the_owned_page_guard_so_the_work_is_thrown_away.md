@@ -164,3 +164,61 @@ claim here is one query plus your own guard's error text, both first-hand and bo
 0/38 table above, and `rebuild_policy` read from `pages`. I am also not filing this as its own bug,
 because `301` owns the `page-build-handler`/owned-guard interaction and a second file would drift
 from it. Contributed rather than acted on: the status question in §3 is your call or the owner's.
+
+### Refinement to my own contribution, same day — the defect is TYPE-SPECIFIC, not handler-wide, and that is what makes it fixable
+
+My table above is scoped to four item types and says so, but the sentence *"a route that cannot
+work"* invites a wider reading than the data supports. **`page-build-handler` succeeds on owned pages
+74 times.** The full split, same method (live + archive, joined to `pages.rebuild_policy`):
+
+| item_type on an OWNED page | ok | failed |
+|---|---|---|
+| `content_rewrite` | 30 | 52 |
+| `needs_content_page` | 18 | 15 |
+| `empty_section` | 16 | 2 |
+| `link_resolution_rebuild` | 6 | 0 |
+| `needs_page` | 4 | 0 |
+| **`literal_markdown`** | **0** | 16 |
+| **`phantom_internal_link`** | **0** | 14 |
+| **`placeholder_contact`** | **0** | 4 |
+| **`empty_internal_href`** | **0** | 4 |
+| **`tone_shift`** | **0** | 1 |
+
+The bottom five are **0 of 39**, and they are exactly the ones that ask for a *targeted edit to
+existing content* rather than the creation or filling of a section. Types that ADD content survive
+the guard; types that MODIFY it are refused, because modifying is what "would clobber it" means.
+So the boundary is not the handler and not the page — it is **the kind of repair**.
+
+### And the alternative the guard names ALREADY WORKS — nothing routes to it
+
+`section-editor` / `apply_section_edit` is live and is the estate's best-performing repair path on
+owned pages: **220 complete / 5 failed = 98%** (`section_edit` 214/5, `content_edit` 6/0). On owned
+pages generally, `component-template-fixer` is 150/0 and `page-rerender` 3754/89. **The machinery for
+repairing an owned page is not missing and is not broken.** The five refused types are simply not
+sent to it — their producers hard-code `handler_agent='page-build-handler'` without consulting
+`pages.rebuild_policy`.
+
+### Why it cannot be fixed by simply re-pointing `handler_agent`, which is the real finding
+
+`apply_section_edit` is content-first by design — its own header: *"content_data is the source of
+truth. Every edit updates content_data first, then re-renders from template. This means edits
+survive future re-renders."* Its input is `{edit_type, page_component_id, field_updates}`, where
+**`field_updates` carries the corrected values**.
+
+The five detectors do not produce corrected values. `literal_markdown` reports *that* asterisks
+reached the page, not the de-asterisked text; `phantom_internal_link` reports that an href resolves
+nowhere, not what it should point at. **So the gap is not a missing handler or a wrong handler_agent
+string — it is that nothing converts a detector's finding into an editor's edit.** Re-routing needs a
+compute-the-edit step per defect type. That is a design piece, and it is the honest reason the tool
+repair path "does not work" despite every component of it existing and performing well.
+
+### Consequence for the status question in §3 above, now with a concrete cheap answer
+
+Checked against the live gate: the promoter's floor counts `failed` and **never mentions
+`wont_fix`**, so a `wont_fix` refusal is excluded from both the numerator and the denominator — the
+pair reads as *never tested here*, which is the truth. And `idx_swi_dedup` excludes `wont_fix`, so
+the finding's dedup key is released and it will be re-raised naturally once routing exists.
+**So the one-word change is available today using existing statuses, with no new vocabulary and no
+change to the gate**: refuse to `wont_fix` with the reason, not to `failed`. It protects
+`phantom_internal_link`'s 69%-effective generic-page path from being switched off by refusals it was
+never responsible for, and it is reversible.
