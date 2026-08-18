@@ -130,11 +130,18 @@ Because the window is under two minutes, you must be attached **before** the eve
 
 ```bash
 kubectl -n ai-persona-system logs -f --since=1s -l app=agent-chassis --max-log-requests=10 --prefix \
-  | grep --line-buffered -a -e "EQUALS the query.s LIMIT" -e "QueryDatabaseAction: Complete" \
-  | while IFS= read -r line; do printf '%s %s\n' "$(date -u +%FT%TZ)" "${line:0:900}" >> capture.txt; done
+  | grep --line-buffered -a -e '"msg":"query_database result count EQUALS' -e '"msg":"QueryDatabaseAction: Complete"' \
+  | while IFS= read -r line; do printf '%s %s\n' "$(date -u +%FT%TZ)" "$line" >> capture.txt; done
 ```
 
-Three traps, all of which cost me a rearm on 2026-08-18:
+Four traps, all of which cost me a rearm on 2026-08-18:
+
+- ⚠ **ANCHOR every pattern on the line's own `"msg":`, and do NOT truncate.** An unanchored grep
+  matches the literal *inside* the coordinator's whole-state dumps: measured, **121 of 184** captured
+  lines matched that way and were not the event at all. Truncating for readability then removes the
+  evidence of why they matched, so the file reads as 184 hits. A real WARN carries only
+  step/agent_type/limit/rows_returned and is small — keep it whole. Verify the instrument with an
+  identity that must hold: **total lines == anchored hits**, i.e. no strays.
 
 - ⚠ **NO `cut` (or any block-buffering filter) in the pipeline.** `cut` holds output in a 4 KB buffer,
   so a rare small WARN never reaches the file and the empty capture reads exactly like "it did not
