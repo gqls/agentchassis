@@ -153,7 +153,24 @@ evidence about your case.
    **both paths on the commit** (`git mv` landmine) and verify at HEAD with `git ls-tree`.
 4. **Decision 1 Tier 2 — the detector→editor routing.** The large one, and **the only thing that
    actually repairs the ~134 findings queued on owned pages.** RFC first: it is a new shared repair
-   route, so architecture-scope. Shape in `08-18c` §2c. Nothing above touches it.
+   route, so architecture-scope. Nothing above touches it.
+   > ⚠ **`08-18c` §2a/§2c SIZE THIS WRONG, and I corrected it after the council caught me.** Both of
+   > them say *"nothing converts a detector's finding into an editor's edit … someone must build the
+   > step"*. **False, asserted with no query, gated HIGH by `prior_art_librarian` (corr `725b1f01`
+   > round 2).** `copy-editor` is a live agent whose `run_copy_edit` step already returns
+   > `{page_component_id, slot_name, field_updates, rationale}` — **exactly** `apply_section_edit`'s
+   > input — built from each component's `content_data`, rendered HTML **and declared schema**, with
+   > the type-preservation and link-preservation constraints a repair route needs already written
+   > (its prompt enumerates the page's required links as data *"because a prose instruction to
+   > preserve a set is not reliably followed"*).
+   > **What is true, narrowed: nothing routes a specific detector FINDING to that producer** — it
+   > takes a page, not a finding. So the RFC is *"aim an existing producer at one finding on one
+   > component, and route the five refused types there"*, not *"build a converter per defect type"*.
+   > ⚠ **And check the producer before building on it:** [MEASURED 2026-08-18] `copy-editor` has
+   > **2 orchestration runs in all history, 0 work items, and no scheduled task drives it** — against
+   > `section-editor`'s 227. A mechanism nothing drives is the shape this estate keeps mistaking for
+   > a missing one, and it is also the shape that turns out to be broken on first real use. Full
+   > account in `bugs_open/301`'s correction section.
 5. **Two loose ends nobody owns**, both `[UNMEASURED]`, neither chased:
    - **`page-rerender` saves to owned pages 3,754 times without refusal** while `page-build-handler`
      is refused every time. Both go through the same guard. One of those facts needs explaining, and

@@ -36473,3 +36473,49 @@ both paths write `failed` — the two overwritten rows are distinguishable only 
 and the change that introduces a second possible value is what makes it visible. That is an argument
 for shipping the change, not against it, but it means "I checked the live rows" would have been a
 false reassurance.
+
+---
+
+## 2026-08-18 — I declared a mechanism nonexistent to justify not building on it, and it exists and has run twice
+
+**Session:** `bugfix-277/083`. Second entry tonight; the first was about censusing readers and not
+writers. This one is worse, because the shape is already in this file and in MEMORY.
+
+**What I claimed**, in a council submission, in `bugs_open/301`, in two handoffs and in a concept
+register entry: *"nothing converts a detector's finding into an editor's edit"* — used to justify
+punting the actual repair of ~134 findings to an unwritten RFC and sizing it as *"someone must build
+the step … a design piece"*.
+
+**What was true:** `copy-editor` is a live, active `agent_definitions` row whose `run_copy_edit` step
+returns, verbatim from the live prompt:
+`{"edits":[{"page_component_id":"…","slot_name":"…","field_updates":{…},"rationale":"…"}]}` — exactly
+`apply_section_edit`'s input — built from each component's stored `content_data`, its rendered HTML
+**and its declared schema**, with the constraints a repair route needs already written (may not
+introduce a fact, may not drop a link, may not change a field's type, may not touch a component not
+in the list). The narrowed claim that IS true is *"nothing routes a specific detector FINDING to that
+producer"* — it takes a page, not a finding. [MEASURED] it has **2 runs in all history, 0 work items,
+no scheduled task**.
+
+**What caught it:** the council gate's `prior_art_librarian` seat, round 2, **HIGH, gating**. It did
+not find the instance — it named the failure mode: *"a load-bearing absence claim used to justify
+punting the actual repair to an unwritten RFC. The instructions' own worked example is a
+five-month-old, 3-run mechanism (section-editor) declared nonexistent this same way."* I then found
+`copy-editor` in two queries.
+
+**The cheap check that would have:** one grep and one query, about ninety seconds.
+`grep -rn '"field_updates"' --include=*.go platform/` and
+`SELECT ad.type, s.key FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s WHERE s.value::text LIKE '%field_updates%' AND ad.is_active;`
+The second returns `copy-editor` immediately.
+
+**Why I did not run it, which is the part worth keeping.** The claim was not mine — I inherited it
+from this lane's own `HANDOFF_2026-08-18c`, where it reads as a hard-won diagnosis (*"this is the
+real finding"*). **Inheriting a confident claim from your own lane's handoff feels like having
+checked it.** It is not: a handoff is a doc like any other, and the marker rules apply to a claim I
+merely repeat exactly as they do to one I formed. Every place I restated it, I restated it in my own
+voice with no `[INHERITED]` or `[UNVERIFIED]` marker — which is how it reached a register entry, the
+one artefact other lanes read as ground truth.
+
+**And the tell was in the sentence itself.** "Nothing converts X into Y" is a universal negative over
+a codebase and a live config — the single most expensive claim shape there is, and the one this file
+already has an entry for from earlier tonight. **A sentence beginning "nothing"/"no such"/"there is
+no" is a query, not a conclusion — including, and especially, when someone you trust wrote it first.**

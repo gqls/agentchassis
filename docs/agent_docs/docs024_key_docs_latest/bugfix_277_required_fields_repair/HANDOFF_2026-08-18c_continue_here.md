@@ -60,6 +60,18 @@ never what the corrected content is: `literal_markdown` reports that asterisks r
 the de-asterisked text. **Nothing converts a detector's finding into an editor's edit.** That gap —
 not a missing mechanism — is why tool/widget pages do not get repaired.
 
+> ⚠ **CORRECTED 2026-08-18 — THE SENTENCE ABOVE IS FALSE, and it was load-bearing for §2c's sizing.**
+> Caught by the council gate's `prior_art_librarian` seat (corr `725b1f01`, round 2, HIGH); I had
+> asserted the absence without a single query. **`copy-editor`** is a live agent whose
+> `run_copy_edit` step already returns
+> `{"edits":[{"page_component_id","slot_name","field_updates":{…},"rationale"}]}` — exactly
+> `apply_section_edit`'s input — from each component's `content_data`, rendered HTML and declared
+> schema, with type- and link-preservation constraints already written. What is true, narrowed:
+> **nothing routes a specific detector FINDING to that producer** — it takes a page, not a finding,
+> and [MEASURED 2026-08-18] it has **2 runs in all history, 0 work items, no scheduled task**.
+> So §2c's *"someone must build the step"* overstates it: both ends exist and work; what is missing
+> is the narrowing. See `bugs_open/301`'s correction section for the full account.
+
 ### 2b. Tier 1 — the status change (small, reversible, protects a fleet-wide gate)
 
 Refuse to **`wont_fix`** with the reason, not to `failed`. Checked against the live gate:
