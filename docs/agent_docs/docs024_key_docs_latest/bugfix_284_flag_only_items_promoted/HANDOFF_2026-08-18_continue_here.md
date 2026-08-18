@@ -223,7 +223,12 @@ build-failure branch is written but was NOT exercised.
 
 1. **`bugs_open/309`** — ~~read the `090` verdict (`df8ca3a1`)~~ **that run never
    existed (see the correction in §C)**; a real one is in flight under
-   `6e578bf5-778a-4e72-aab2-0531e45c07d8`. The mechanism is now MEASURED end to end in
+   `6e578bf5-778a-4e72-aab2-0531e45c07d8` — **and it came back CONFIRMED at 18:44Z**,
+   first iteration set, independently citing `site_specs WHERE aspect='blog'` → 0 rows,
+   `content_data has_post1_url..has_post6_url` all false, `onMissing="skip_field"`, and
+   both `findBlogPage` predicates. ⚠ One slip in the verdict is corrected in 309 §7: it
+   calls the working comparator "the site's own true blog page", but fundamentallyai.com
+   has no page named `blog` — that row is leopardessconsulting.co.uk's. The mechanism is MEASURED end to end in
    309's addendum: the card anchors are gated on `postN_url`, those seven fields source
    `site_specs.blog.*`, and **the `blog` aspect has never existed on any site**, so
    `on_missing=skip_field` drops the key and the `{{if}}` drops the link — silently, with

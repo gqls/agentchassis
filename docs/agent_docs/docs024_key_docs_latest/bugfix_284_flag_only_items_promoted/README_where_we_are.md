@@ -435,3 +435,33 @@ artefacts, and the orchestration table — and all three are empty for that iden
 no work item of any kind was created in that whole hour. So the trigger never landed. I am
 re-firing it, and this time I will confirm the intake row exists rather than trusting the
 identifier it printed at me.
+
+**Same evening — the diagnosis came back, and it confirms the whole chain.**
+
+The run I re-fired finished in about eight minutes and the verdict is CONFIRMED. It
+worked the mechanism out for itself and cited the two facts everything hangs on: the
+site has no "blog" settings entry of the kind the component is asking for — zero rows,
+and it printed the site's actual list to show it — and the six link fields are missing
+from the page's stored data as a result. That matches what I had measured by hand, from
+a different direction, which is the point of running it.
+
+So, in plain terms: the index lists six articles and links none of them, because the
+component builds each link from a setting that has never existed on any site we run.
+When the setting is missing the framework quietly drops the field, and the template only
+draws a link if the field is there — so the link doesn't come out broken, it doesn't come
+out at all. Nothing looks wrong on the page, which is why five pieces of writing sat
+unreachable without anyone noticing. The second half is that the one routine that would
+have filled in real links only looks at pages it recognises as a blog, and this page is
+filed as a section index, so it never touches it.
+
+The good news is that this is a migration somebody already did everywhere else. Every
+sister component — the tools list, the guides list, the games list — was moved years-of-
+commits ago onto a source that reads the real pages, so the title and the link always
+come from the same row and can't disagree. This one was left behind. I checked what that
+source would return for your site and it gives 8 articles, correctly leaving out the one
+that's archived — which also disposes of the odd card advertising a retired page.
+
+**I have not changed anything yet, and I'd like your call on which way to fix it**, because
+the obvious fix touches a component another site uses too, so it should go through review
+rather than be done quietly. The options are in the bug file, ranked. I've flagged the
+choice to you separately.
