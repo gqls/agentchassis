@@ -1902,3 +1902,44 @@ Pilot `needs_imagery`: 8 triaged, 1 claimed, 1 complete (the old one), 1 failed 
 **Too early to call either way**, and that is the honest read rather than a lean in either
 direction: image generation is genuinely slow, and one timeout in a draining queue is not yet
 a pattern. What to measure next is whether `assets` for this site rises above 11.
+
+### 2026-08-18 — THE FULL CHAIN IS PROVEN AT THE RENDERED ARTEFACT (and my "decisive" measurement was wrong)
+
+**v1.0.1308 running** (tag moved again — 1307 → 1308; the reuse problem is genuinely fixed).
+Base-tree 404s since the 08-17 roll: **0**, now over ~17 hours. The outage stays closed.
+
+**The retry worked.** `needs_imagery` went 1 complete / 10 failed → **9 complete / 2 failed**;
+`needs_page` 4 → **9 complete**. So 8 of the 11 items I re-queued succeeded.
+
+> **CORRECTION — the measurement I named as decisive was the WRONG ONE, and I wrote it into
+> the handoff.** I said: *"does `assets` for this site rise above 11?"* It did not, and that
+> is CORRECT BEHAVIOUR, not a failure. The 8 completed items reference **8 asset ids that all
+> predate the outage** (created 13:26–14:10Z); **zero new rows**. The images were generated in
+> the original run; the step that failed was `call_asset_deployer` — **deployment**, not
+> generation — so a successful retry deploys an existing asset and must NOT mint a duplicate.
+> `"stored": true` in the result refers to the S3 object, not to a new DB row.
+> **The lesson: I picked a counter that measures the wrong half of the pipeline.** Before
+> naming a measurement "decisive", say which STEP it observes and check that the step is the
+> one that failed. The right checks here were item completion plus the rendered artefact.
+
+**THE END-TO-END PROOF — the whole point of Phases B and C.** `mortgage-lenders` is
+**`build_status='deployed'`, `deployed_at` set**, and its three components are rendered:
+`hero` (3,010 chars), **`mortgage-lender-directory-listing` (4,882)**, `call-to-action` (2,373).
+Read the rendered HTML rather than trusting the status — it contains:
+- the heading *"UK mortgage lenders, listed"*;
+- the compliance posture **in the copy itself**: *"notes facts such as their regulator status
+  and the types of mortgage they offer. **It does not list rates, fees or APRs**, because those
+  change daily and depend on your circumstances, so check current pricing with the lender
+  directly or with a broker"* — the owner's non-price ruling, surviving all the way to the page;
+- real cited entries: **Mansfield Building Society** and **Family Building Society**, each with
+  `lender_type` / `product_types` claims and a **`source`** link per claim.
+
+So the chain is closed at the artefact: researcher → verified quote-checked claim → register →
+kind-aware publish → `evaluate_directory_features` flag → planner rule → page → deploy →
+rendered page naming real regulated firms with citations and no prices.
+
+**Where the pilot actually stands:** 3 of 6 pages deployed (`mortgage-lenders`, `next-steps`,
+`about`); 3 at `needs_rebuild` (`index`, `what-your-number-means`, `six-month-checklist`).
+`sites.build_status` is still `pending`. Remaining work, unchanged in character: 3 ×
+`needs_new_component` failed, 1 × `needs_rerender` failed, 2 × `needs_imagery` failed, and a
+HITL queue of 10 × `unresolved_cta` + 4 × `needs_page` + 1 × `needs_section_data`.
