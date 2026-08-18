@@ -18,6 +18,26 @@
 (the owner's decisions + the lead he still owes) → `TERMS_2026-08-17_new_commercial_position_impact.md`
 → NOTES 2026-08-17 (night) → `bugs_open/299`.
 
+## 0z. UPDATE 2026-08-18 afternoon — THE LEAD IS RULED AND LIVE IN THE SPEC
+
+- **Owner APPROVED proposal F**: *show the work, promise nothing*. Encoded in `writer_block`
+  (`SQL_2026-08-18b_lead_show_the_work.sql`) together with two narrow market-superlative bans.
+- **Its precondition is the load-bearing part.** The example SITES exist and are attested
+  (`any_site_type_examples`: noted.co.uk, cookly.uk, dartsonline.com, vetcomparison.uk) so the
+  copy may name them; a GALLERY pairing each prompt with its result does NOT exist, so the
+  instruction forbids "see our examples", any portfolio link, or implying a showcase until one
+  is live. Without that, the page selling the product ships `bugs_open/299`'s own defect.
+- **⚠ THE REGISTER IS WRITTEN BY TWO LANES, AND THE OTHER ONE EDITS IN PLACE.** Between my
+  10:23 supersede and 14:xx, `site_delivery_and_editor` added 7 facts
+  (`one_shot_no_approval`, `starter_site_initial_copy`, `hosted_under_our_domain`,
+  `domain_rent_monthly`, `domain_buy_once`, `any_site_type_examples`, `no_presales_service`)
+  and **RETIRED `hosting_and_domain_not_included`** (hosting and domain are now paid options).
+  My first attempt asserted a fixed count of 15 and **correctly ABORTED** rather than
+  overwriting them. **Never assert a fixed fact count on this register — assert that nothing
+  is LOST by your own write.** The corrected block is the pattern to copy.
+- **NEXT:** the pages have not been rebuilt against the new lead. A rebuild of `index` (and
+  the rest) will now write copy that leads with the work. Nothing blocks it.
+
 ## 0a. UPDATE 2026-08-18 midday — THE CHAT IS LIVE ON THE HOME PAGE; the blocker is identified and fixed
 
 - **LIVE, verified at the artefact** (`preview.webdesign.uk/index.html`, served 10:35Z):
