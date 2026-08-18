@@ -1015,6 +1015,13 @@ check is one query against `candidate_paths` values and is **not** done.
 
 ### 10.12 DECISION-1 MEASUREMENT — 2026-08-18: the conflicts are REAL disagreements, the winner is the right value in every population checked, and the wrong candidates are never read. Phase 2 is the thing that would break it.
 
+> **MOVED TO `bugs_open/306` (owner direction, 2026-08-18) so it is dealt with.** The finding —
+> the insertion-order tie-break, the 13/139 different-page population, and the unsorted-map
+> residual in `tryUnwrapMapPatterns` — now lives at
+> `bugs_open/306_HANDOFF_2026-08-18_resolver_tie_break_is_undeclared_insertion_order.md`, with
+> fix candidates ordered. This section stays as the measurement record the bug cites; **do not
+> update the finding here — update the bug file.**
+
 §10.11 left one question open and flagged it `[OPEN]`: are the conflicting `current_page`
 candidates materially different pages, or the same page in different shapes?
 `findFieldRecursive` flags any non-`DeepEqual` set, so the row cannot tell them apart.
