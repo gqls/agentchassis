@@ -4821,3 +4821,84 @@ across 10+ agent types (`page-rerender` 487, `build-dispatch-loop` 253, `asset-d
 and 9+ domains, **zero occurrences since 16:15Z on 08-17**. So the "54% failure rate with no
 visible owner" line in the handoff is a snapshot of an outage window mistaken for a rate — the
 same denominator error §10.9 corrected two paragraphs earlier, made again on a different figure.
+
+## 2026-08-18 (evening) — five owner directives executed: 306+307 filed, the 100 cancelled, the prune BUILT and submitted, and the gating blast radius measured
+
+Owner rulings, verbatim intent: (1) the tie-break finding moves from the RFC into `bugs_open`
+"so it is dealt with"; (2) build the prune; (3) run the declaration query and think hard about
+what else gating would affect; (4) re-think Phase 2 and re-present it; (5) first "a terminal
+blip should return the item to queued", then, mid-session: "remove the 100 items … or mark
+them not active". A fresh chassis build was also announced mid-session.
+
+**Build verified (label first, then digest):** `v1.0.1309` = `f0117fb8b`, local RepoDigest ==
+running `imageID` (genuinely delivered, not the cache trap). Diff `e7e5e4d53..f0117fb8b` touches
+only `coordinator.go` (the 029 lane's retry-timeout fix) — no resolver code, so the observation
+window reads continuously across the roll.
+
+**The 100 items: CANCELLED, not re-queued** (the later directive supersedes re-queuing for
+these rows). Scope: `status='failed' AND updated_at BETWEEN 2026-08-17 13:00Z AND 17:00Z` —
+exactly 100 rows, split first for the record: 87 git-404, 13 outage-adjacent (timeouts, repo
+creation, plus ~4 genuine content bugs). All 100 → `cancelled` with
+`result.cancelled_reason` naming the directive and the burst. `failed→cancelled` is
+terminal→terminal for `idx_swi_dedup`, so no contract movement.
+
+**Filed: `bugs_open/306`** (tie-break undeclared + 13/139 different-page population + the
+`tryUnwrapMapPatterns` unsorted-map residual, 0/139 able to fire) and **`bugs_open/307`**
+(the burst mechanism, with the owner's return-to-queued ruling recorded). 307's sharpest
+finding: **the retry machinery exists and worked — 88/100 exhausted all 3 attempts INSIDE the
+2 h 43 m burst** because nothing delays a retry; 12/100 died at attempt 1 via a
+direct-to-failed path not yet identified (`[UNVERIFIED]`, first task in the file). The naive
+fix (extend the count-free AI-unavailable branch to 404s) is named as a trap: a genuinely
+deleted repo 404s identically and would retry for ever. RFC_029 §10.12 now POINTS at 306
+rather than holding the finding.
+
+**The prune: BUILT, tested, submitted, committed** (`131e6430e`,
+`Council-Submitted: ae0dfb93-3df9-490b-96b8-34e0c628eded`). Implementation exactly §10.10's
+spec with §10.11's corrected safety argument in the comment: `strategy0Resolved` = "in
+`result.Values` and not `Defaulted`" at that point (exact, because the only prior writers are
+the Defaults pre-fill and Strategy 0, which deletes `Defaulted` on overwrite);
+`withoutResolved` composed with `withoutStrict` at both call sites; calls NOT skipped on an
+empty list (ensureCoreFields' injections must keep merging). Six tests; **mutation-proved the
+honest way after a false start**: reverting the call sites made the package fail to COMPILE
+(unused variable), which proves nothing — the clean mutation no-ops the filter body in place,
+and then exactly the two guarding tests fail while the scope-pin tests stay green. Full
+package green (arm budget floor 10 untouched — no new write site); `git archive HEAD` + the
+two files builds `./platform/...` clean. First 097 attempt was refused client-side
+(`plan` must be an OBJECT with summary/edits/grounded_in/risks, not an array) — refusal is
+pre-publish, so no duplicate-round cost; output `tee`'d per the landmine.
+
+**Decision-3 measurement — the load-bearing consumers of `ensureCoreFields`, enumerated:**
+
+1. Neither `page-content-writer` nor `page-build-handler` declares `current_page` ANYWHERE
+   (config-map or input_fields) — zero rows on the declaration query.
+2. Fleet prompt sweep (regex `\{\{[^}]*\.<field>\y` over prompt/prompt_template/system_prompt,
+   all live definitions): **`domain` consumed UNDECLARED by 39 steps across 31 agent types;
+   `objective` 10 steps; `model` 6 steps** — those three injections are heavily load-bearing
+   and must NEVER be gated. **`current_page`/`current_section`/`render_context`: ZERO
+   undeclared prompt consumers** (current_page's only 2 template uses are declared:
+   content-creator, content-reviewer).
+3. Go-side readers of the three page-ish keys from extraction results, all classified:
+   `save_page_sections` — declares current_page in its own Go list (unaffected by gating);
+   `extractPageInfo` (html_actions.go:618 via buildFullHTMLPrompt) — used by `generate_html`:
+   `html-developer` declares current_page, **`html-developer-chunked` (3 steps) does NOT** —
+   the one live injection-dependent consumer found, and the failure mode is soft (the HTML
+   prompt loses its "Page:" line); v3_site_actions:5156 / web_search:399 / site_db:432 read
+   `CollectedData` directly, not an extraction result — unaffected.
+
+So gating current_page/current_section/render_context (requested fields still searched,
+uninvited searches skipped) breaks, on today's fleet: **one agent type, softly** — and the
+remedy is a config edit (add `current_page` to html-developer-chunked's three input_fields
+lists) that is live immediately and can precede the gate. `[MEASURED]` all of the above,
+queries in this entry and the RUNBOOK; residual uncertainty: template keys outside the three
+prompt columns, and any Go reader whose access shape my grep patterns missed — named, not
+closed.
+
+**A claim of mine from §10.12 WEAKENED by this sweep, corrected here rather than left to
+stand:** I wrote that for page-build-handler the resolved `current_page` "IS read". After
+enumerating consumers I cannot name a page-build-handler reader of the INJECTED copy — the
+readers I can name are save_page_sections (page-content-writer, declared list),
+html-developer(-chunked), and the two declared template uses. The 13/139 different-page
+population is still real and still guarded only by the undeclared tie-break (306 stands
+unchanged), but the "live exposure" framing for page-build-handler specifically is
+**[INFERRED] from the agent's function, not from a named reader** — the Phase 2
+re-presentation to the owner says so.
