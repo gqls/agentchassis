@@ -691,3 +691,56 @@ the native tool `deployed` at position 2 (7,879 / 8,520). One live slot each.
 **Batch tally: built 6 · LIVE AND PROVEN 5 (aspect-ratio, markdown-tables, html-minifier,
 svg-optimizer, sri-generator) · failed 1 (#2, the fleet-wide unique index) · parked 2 (RFC_036) ·
 remaining ~55.** Three of the five replaced a tool that was measurably broken in production.
+
+## 2026-08-18 08:0xZ — OWNER BUG REPORT on html-minifier ("copy copies the wrong box"). The copy is CORRECT; the real defect is MY BRIEF.
+
+Owner pasted a LinkedIn page source, hit Copy, and got back what looked like the input; same
+impression on the SVG stripper. Report: *"the copy output might copy the wrong box."*
+
+**1. The copy button is NOT the bug — measured at the SERVED code on both tools.**
+- html-minifier: `copyBtn.addEventListener('click', …)` reads `outputEl.value` on the clipboard path,
+  and the fallback does `outputEl.focus(); outputEl.select(); document.execCommand('copy')`.
+  Both paths are the OUTPUT element.
+- svg-optimizer: `var text = outputEl.value;` then `writeText(text)`, fallback `outputEl.select()`.
+- **Duplicate-id check on both served pages: none.** This mattered — a repeated id would make
+  `getElementById` return the first match and could genuinely have copied the wrong box. `uniq -d`
+  over every `id="…"` on each page returned empty.
+
+**2. What the owner actually saw, and it is real: these tools barely change real-world input.**
+`[MEASURED 2026-08-18, by porting the SERVED `minifyHtml` and the SVG stripper to Python — a port, so
+treat the exact figures as indicative, but the mechanism is read from the shipped source]`
+| input | result |
+|---|---|
+| the minifier's own page (13,006 chars) | output 12,625 — **2.9% saved**; **71.4% of the input is inside `<script>`/`<style>`** |
+| a real path-heavy SVG (Ghostscript Tiger, 68,630 chars) | output 66,169 — **3.6% saved** |
+A LinkedIn page is far more script-dominated than 71%, so output ≈ input almost exactly. **Paste 10 MB,
+copy, paste, get 10 MB that looks identical — which is indistinguishable from "it copied the input".**
+
+**3. The cause is a requirement I wrote, not a generator failure.** My brief said the contents of
+`<pre>`, `<textarea>`, `<script>` and `<style>` "must be left EXACTLY as it is". That is correct for
+safety and it is why the rebuild is better than the ported version — but it means a minifier that
+declines to touch the 71–95% of a real page that IS script. **I specified a tool that is safe and
+nearly useless on its main use case, and then graded it PASS against my own spec without ever running
+it on a realistic input.** Grading the component's CODE is not the same as exercising its BEHAVIOUR;
+every check I ran (raw fields, labels, listeners, transforms present) passes on a tool that does
+almost nothing.
+
+**4. No growth mechanism exists — "10 Mb and increasing" is not the tool.** Both `replace` calls use
+FUNCTION replacements, so there is no `$&`/`$1` expansion, and `restoreRegions` substitutes originals
+back for shorter placeholders: output is bounded above by input. The owner's own guess (vim rendering
+the paste) is consistent with everything measured here.
+
+**5. UNVERIFIED, and worth stating as such `[HYPOTHESIS]`:** on a very large paste the minifier runs
+`minifyHtml` **synchronously on every `input` event with no debounce** (I specified a debounce for the
+SRI tool and did not for this one). The protect regex uses a lazy `[\s\S]*?` with a backreference,
+which can degrade badly on multi-megabyte input. If the browser stalls mid-update, `outputEl.value`
+could still hold the PREVIOUS result — and copying that WOULD look exactly like "copied the wrong
+box". I have no browser here to test it; it is a hypothesis, not a finding, and it does not change
+the fix list below.
+
+**Fix options (owner's call — this means retiring and rebuilding a tool he has already seen):**
+(a) add a size readout to the minifier (input / output / % saved) so the tool tells the truth about
+what it did — the SVG stripper already has one, the minifier does not; (b) add a third option,
+"also minify inside `<script>` and `<style>`", default OFF, doing safe whitespace work there;
+(c) debounce the input handler and show a "working…" state for large pastes. (a)+(c) are cheap and
+carry no correctness risk; (b) is the one that answers "why didn't it shrink my page".
