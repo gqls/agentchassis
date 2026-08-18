@@ -744,3 +744,49 @@ what it did — the SVG stripper already has one, the minifier does not; (b) add
 "also minify inside `<script>` and `<style>`", default OFF, doing safe whitespace work there;
 (c) debounce the input handler and show a "working…" state for large pastes. (a)+(c) are cheap and
 carry no correctness risk; (b) is the one that answers "why didn't it shrink my page".
+
+## 2026-08-18 08:2xZ — CORRECTION to the 08:0xZ diagnosis. The owner's growth evidence beat my analysis, and re-reading found a REAL defect: the copy button LIES.
+
+**Owner: "The original svg was just 333k and I was getting Megabytes of output."** That directly
+contradicts my 08:0xZ conclusion ("no growth mechanism exists — output is bounded above by input").
+**I reached that from a Python PORT I had written, not from the shipped JS**, and I stated it as a
+finding. Wrong move: a port is my reconstruction, and using one to rule a mechanism OUT is exactly
+the case where its fidelity matters most.
+
+**What re-reading the SHIPPED code found — verified, both tools:**
+```js
+// html-minifier
+function fallbackCopy() {
+  outputEl.focus(); outputEl.select();
+  try { document.execCommand('copy'); } catch (e) { /* silent failure */ }
+  showCopied();                      // <-- UNCONDITIONAL
+}
+// svg-optimizer: same shape, plus the clipboard-rejection path calls showCopied() regardless
+```
+`document.execCommand` **returns a boolean** that both tools discard, the exception is swallowed, and
+`showCopied()` runs either way. **So the button reports "Copied" when nothing was copied.** The
+clipboard then still holds whatever was in it before — for the owner, a LinkedIn page and a large SVG
+he had copied earlier. That accounts for BOTH reports (10 MB of LinkedIn markup; megabytes from a
+333 KB SVG) with **no growth mechanism in the tool at all**, and it explains why the pasted content
+looked nothing like a minifier's output.
+
+**Still `[UNREPRODUCED]`, and stated as such:** I could not make either tool produce output larger
+than its input, on the tool's own page (13,006 chars, −2.9%) or a real 68 KB SVG (−3.6%), and I could
+not obtain an Inkscape SVG at the owner's 333 KB scale to try. The silent-copy-failure explanation
+fits the evidence and is verified in code; **the growth itself is explained-not-reproduced.** So the
+rebuild carries a guard that makes the reported failure impossible regardless of cause:
+**the tool must assert its output is never larger than its input, and show a plain error if it is.**
+
+**Also mine, again:** the unconditional `showCopied()` traces to my brief — I asked for "brief inline
+feedback in the button itself (label changing to 'Copied')" and never said "only on success". Three
+briefs now (minifier scope, no debounce, this) have shipped defects that the component-grading step
+cannot see, because **grading the CODE against my own spec cannot catch a wrong spec.** The missing
+step is exercising the tool on a realistic input before calling it done.
+
+**Rebuild scope, owner-approved 2026-08-18 (all three fixes, and the SVG gets the opt-in too):**
+(a) size readout on the minifier (input / output / % saved) — the SVG one already has this;
+(b) opt-in "also minify inside `<script>`/`<style>`", default OFF, on BOTH tools;
+(c) debounce + a working state for large input, on both;
+(d) **copy reports success only when it succeeded** (check `execCommand`'s return, await the promise,
+    show a distinct failure label) — from this diagnosis;
+(e) **output-never-exceeds-input assertion** — the guard for the unreproduced growth.
