@@ -211,3 +211,103 @@ run correlation    c8312dce-db45-4554-b2ab-5ac50e7e0c8a   <- artifacts are under
 
 Chassis uptime checked before dispatch (4h+, well clear of the ~300s post-roll drop
 window) — the 2026-07-26 contribution to this bug file records what skipping that costs.
+
+---
+
+## 2026-08-18 — the `[UNVERIFIED]` half is now CODE-GROUNDED: the replay triggers a "take over"
+
+Above I recorded, honestly, that I had proved *that* the replay wedges the child but not
+*why*, and named an untested hypothesis (two drivers racing on the optimistic lock). I
+have now found the path in the code, and the hypothesis was **right in shape and wrong in
+detail** — the second driver is not an accident of concurrency, it is **deliberate, and the
+coordinator invites it**.
+
+`platform/orchestration/coordinator.go`, the status switch (~line 758):
+
+```go
+case StatusExecutingStep:
+    // Check if stuck
+    if state.CurrentlyExecuting != nil && time.Since(state.LastActivity) > StuckOrchestrationTimeout {
+        s.logger.Warn("Found stuck orchestration, taking over",
+            zap.String("stuck_step", *state.CurrentlyExecuting))
+        if err := repo.ClearExecutingStep(ctx, state.OrchestrationID); err != nil { return err }
+        state, err := repo.GetState(ctx, state.OrchestrationID)
+        if err != nil { return fmt.Errorf("failed to reload state: %w", err) }
+        return s.continueExecution(ctx, state, execCtx)     // <- concurrent second driver
+    }
+    s.logger.Info("Orchestration is actively executing")
+    return nil
+```
+
+and `coordinator.go:38`:
+
+```go
+StuckOrchestrationTimeout = 5 * time.Minute
+```
+
+### The complete chain
+
+1. The child is legitimately inside a long step. `process_item_iter_N_spawn_handler` runs
+   `SpawnAgentAction`, which makes K8s API calls, creates and waits on two Kafka topics,
+   and contains **two hardcoded `time.Sleep(5 * time.Second)`** — a step that routinely
+   runs minutes without the coordinator writing anything.
+2. **`last_activity` is not a heartbeat.** Grepped: it is written on insert and on
+   `UpdateState` (`state.go:1033/1052`) and **nowhere else**. There is no mid-step touch.
+   So a healthy child inside a long step goes quiet on that column by construction.
+3. Past five minutes of that quiet, the child is **indistinguishable from a dead pod** to
+   the code above.
+4. The parent's replay arrives (at ~25 min, because of the window truncation in §1). The
+   child's coordinator loads the row, sees `EXECUTING_STEP`, evaluates
+   `time.Since(LastActivity) > 5m` as **true**, declares it stuck, **clears the executing
+   step**, and calls `continueExecution` — **while the original worker is still running.**
+5. Two drivers, one row, an optimistic version column. One loses and abandons its write.
+   The row stops advancing and is left in `EXECUTING_STEP` with no live driver.
+6. Nothing re-drives it. `TimeoutMonitor` and the retry driver both key on awaited
+   requests, and it has none. The reaper's `EXECUTING_STEP > 4h` arm gets it, four hours
+   later.
+
+The observed **+11 to +22 seconds** between the parent's final send and the child's freeze
+is consistent with Kafka delivery plus this takeover path running and the race resolving.
+
+### Why this is the right place to call it a root cause
+
+The takeover heuristic is **not stupid** — it exists to recover an orchestration whose pod
+died mid-step, which is a real failure this estate has. The defect is narrower and more
+interesting than "bad code":
+
+> **`last_activity` is being used as a LIVENESS signal, but it is not maintained as one.**
+
+Liveness needs something a live worker keeps refreshing. A timestamp that only moves when
+the coordinator happens to write is a record of *progress*, and progress and liveness are
+different things — a worker can be alive and making no writes for twenty minutes, which is
+precisely what a spawn step does. Every long step is therefore a false positive waiting
+for any message to arrive and trip it. **The retry replay is just the commonest such
+message; it is the trigger, not the cause.**
+
+That also predicts something worth stating because it is disconfirmable: **any** message
+delivered to a child mid-long-step should be able to wedge it, not only a retry replay. I
+have **not** tested that. `[UNVERIFIED]`
+
+### Reuse before building: the estate already has the right mechanism
+
+Do not invent a lease. `platform/orchestration/intake_repo.go:154` already has
+`HeartbeatClaim(ctx, key, claimedBy, lease)` — *"extends the lease; reports false when the
+claim is no longer held"* — used for intake claims. The orchestration takeover path uses a
+bare timestamp comparison instead. A lease held by an identified holder, refreshed while
+work is in flight, makes the bad state **unrepresentable**: a second driver cannot take
+over while the first holds a valid lease, and a genuinely dead pod's lease expires on its
+own. `orchestration_states` already carries `processing_node` and `currently_executing`,
+so the holder identity is half-present already.
+
+Ranking by the estate's own rule — *what makes the bad state unrepresentable, not what is
+smallest*:
+
+| | change | what it does | leaves what |
+|---|---|---|---|
+| 1 | **lease + heartbeat on step execution** | a live worker cannot be taken over at all | genuine pod death still recovered, on lease expiry |
+| 2 | honour the declared retry window | fewer premature replays, so fewer triggers | a slow step is still takeover-able by any message |
+| 3 | re-drive / faster reaper for `EXECUTING_STEP` | cuts dwell from 4h | the wedge still happens |
+
+**2 alone would have made the measured outage rarer without making it safe** — which is
+the point the PLAN makes about not conflating A, B and C. 1 is the one that closes the
+door.
