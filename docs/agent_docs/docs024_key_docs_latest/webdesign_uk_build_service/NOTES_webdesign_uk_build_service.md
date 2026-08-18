@@ -3840,3 +3840,85 @@ explain it. Do not act on this as established.
    condition plus field defaults means the chat's brief can pre-fill it so the human
    step is a confirmation, not a form. That ordering also matches the owner's
    `no_presales_service` ruling: the customer does the confirming, not the owner.
+
+## 2026-08-18 (~13:1xZ) — TASK 1 DONE: the retired £1,200 offer swept out of every spec
+
+Owner instruction: "remove the £1200 and related copy from everywhere" and "sweep
+the briefing aspect". The briefing aspect was the tip of it.
+
+**Census first (this is the number that matters): NINE current specs, 36 offending
+strings.** `evidence_base` had been corrected twice and the live pages rewritten,
+but nothing else had ever been swept, and every one of these is an authority a
+writer or planner reads.
+
+The two worst were not the obvious ones:
+
+- **`strategy`** — its entire `defensible_moat` AND `gap_opportunity` were the
+  *"refund-until-acceptance guarantee"*, which no longer exists. A planner reading
+  this would have built the site's whole argument on a retired term. Rewritten so
+  the moat is what it actually is now: cost and speed from a one-shot AI build,
+  which an hours-based competitor cannot match without changing how they operate.
+- **`content_direction.writing_rules[10]`** — a live instruction to writers to
+  *"state the specific terms from the evidence base: the number of revision rounds
+  included in the price and the length of the review window"*. That is an
+  instruction to write claims that are now **banned on this same site**. Replaced,
+  and the new rule also tells the writer the survivable phrasing for the no-refunds
+  denial (this morning's landmine).
+  - **A lead, still NOT traced:** the faq rewrite failed 11:47Z on banned claim
+    "rounds of changes". This instruction is a plausible source. I have not read
+    what that writer was handed, so it stays a hypothesis.
+
+Applied as `SQL_2026-08-18e` (9 aspects, ~77 KB of regenerated jsonb) and
+`SQL_2026-08-18f` (one fact claim). Probe-run first, then applied.
+
+### Three traps this paid for
+
+1. **`submission` EMBEDS its own copies** of `mission_brief` and `roadmap_brief`,
+   and their text **differs** from the standalone aspects. I anchored my first
+   replacements on submission's wording and applied them to `roadmap_brief`; both
+   anchors missed, loudly, because the script treats a missing anchor as a hard
+   error rather than a skip. Had it skipped silently, submission would still be
+   asserting the old offer and the sweep would have reported success.
+2. **`content_direction` carries BOTH structured fields and a rendered `formatted`
+   string duplicating them.** Fixing the structured fields left `formatted` stale
+   and authoritative-looking. Now mirrored from the originals automatically.
+3. **The mirror itself over-matched.** Short key-terms (`"refund"`, `"acceptance"`)
+   occur inside unrelated sentences, so a blind replace produced *"Never describe
+   the no refunds or revision right open-endedly"*. Restricted to anchors ≥25 chars,
+   with the short vocabulary list handled by an explicit whole-block replacement.
+
+### The verification, and why it can fail
+
+The checker flags a retired term only when **no negation cue precedes it within 90
+chars** — the same backwards-window algorithm as the platform's claims guard, with
+the same known blind spot for a negation that follows. Every flagged case was read
+in context rather than trusted.
+
+Seven phrases must never be ASSERTED and are now asserted **nowhere**: `1,200` ·
+`only pay if you` · `14/fourteen days` · `full refund` · `refund-until-acceptance` ·
+`rounds of revisions/changes` · `preview link`. **The SQL guard was run against the
+UNSWEPT data first and failed loudly**, naming all seven with counts (preview link
+in 7 specs, full refund in 6) — a guard that has only seen a clean state proves
+nothing.
+
+`revision round` survives 6 times and `review window` twice, **always inside a
+denial** ("no approval stage and no revision rounds"; "never describe a review
+window ... because none exist"). Removing the vocabulary would stop us telling the
+writer what not to invent.
+
+### Deliberately left, each checked individually
+
+- **`price_total` and `build_duration`** mention £1,200 only in `source.attested_by`
+  as provenance ("supersedes the £1,200 price attested by the owner on 2026-08-03"),
+  and `writer_block` only to say the deposit and fourteen-day window were retired
+  with it. That is the audit trail of what superseded what; stripping it destroys
+  the record and changes no customer-facing word.
+- **Other sites' `1200` hits are all false positives** — `1200px` container widths
+  on mortgagecalculator/gamesdesign/webdesign.co.uk, and `12000000` on
+  leopardessconsulting.
+- **`index-rejected-v1-20260806`** (5 hits) is a rejected, undeployed page version.
+- Repo docs keep the £1,200 as history.
+
+**Final state: zero fact claims and zero non-`evidence_base` current specs assert
+any retired term.** The only remaining matches are the `banned_claims` patterns
+whose job is to match them.
