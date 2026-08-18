@@ -701,3 +701,102 @@ applying. **The test is not "is this control true?" but "could it ever have come
 stable · the row set is only a 7-day window · and a control that cannot come out otherwise. Every
 one is **a population or a domain assumed rather than enumerated**, and none was caught by review —
 twelve council seats approved `444`.
+
+## 2026-08-18 ~18:15–18:40Z — `466` verified live; its clock re-predicted against TICKS not dates; and the floor's protective-refusal hole MEASURED
+
+**Build:** `kafka-scheduler` on `0b185bad2a49c6e032352fa9e7d0b429f0a95104` (own `build provenance`
+line, pod 17m old) — a roll newer than the handoff's v1.0.1309. Chassis provenance was **absent from
+`--tail=3000`**, which is the documented "not in range" case for a busy service, not "unstamped".
+
+### `466` is live and is the text that is running
+
+Dumped `scheduled_tasks.pre_query` for `held-pair-canary-escalation` and read it: the `hist` CTE
+UNIONs `site_work_items_archive`, `classified` carries `hold_kind`, the suppression is `HAVING`, and
+the two remedy strings are opposite (canary → "run one by hand"; floor → "do NOT canary, FIX THE
+HANDLER"). So all three of `466`'s corrections are in the deployed row, not just in the file.
+
+### ⚠ CORRECTION to my own handoff §3.1 — its escalation dates are ONE TICK EARLY
+
+The handoff predicted `placeholder_contact` escalates **~08-19** and `literal_markdown` **~08-20**.
+Both are wrong, and the error is the one this lane keeps making: **computed on DATES, when the
+mechanism runs on TIMESTAMPS.** The task is `interval_seconds=86400` and last fired
+**12:57:48 UTC**, so it ticks at 12:57 each day; the predicate is
+`min(created_at) < now() - interval '3 days'`. A row created at 19:17 is not 3 days old at 12:57 —
+it misses by 6h20m and waits a further day.
+
+[MEASURED 2026-08-18 18:19Z, read-only run of `466`'s own `classified` CTE]
+
+| pair | hold_kind | rows | oldest (UTC) | 3d due | FIRST TICK THAT ESCALATES |
+|---|---|---|---|---|---|
+| `placeholder_contact → page-build-handler` | canary | 3 | 08-16 19:17 | 08-19 19:17 | **08-20 12:57** |
+| `dead_fragment_link → page-build-handler` | canary | 1 | 08-18 01:38 | 08-21 01:38 | **08-21 12:57** |
+| `literal_markdown → page-build-handler` | floor | 10 | 08-17 19:21 | 08-20 19:21 | **08-21 12:57** |
+| `missing_conversion_path → content-gap-planner` | canary | 1 | 08-17 22:21 | 08-20 22:21 | **08-21 12:57** |
+
+**So tomorrow's tick — the first under `466` — escalates NOTHING.** It should log `escalated=0` with
+`watching=15`, which is `466`(a) working (a `HAVING` that still speaks on an idle tick). **Do not
+read that zero as `466` being broken**; that misreading was set up by my own handoff. The effective
+limit for a daily task with a 3-day predicate is 3–4 days, not 3. Conditional on the held set not
+changing: if the oldest row leaves `detected`, `min(created_at)` moves later and pushes the date out.
+
+### Handoff item 2 — the floor counts protective refusals as failure. MEASURED, fleet-wide.
+
+Population: **948 `failed` rows**, `site_work_items` UNION `site_work_items_archive` (lifetime, which
+is what the floor reads after `465`). Classifier is string-matching on `error`, with **D as the
+residual bucket** — so an over-broad A/B rule would *shrink* D, and D is the number I lean on.
+
+| class | rows | % | what it is |
+|---|---|---|---|
+| **A protective refusal** | 434 | 45.8% | handler correctly declined — 418 `rebuild_policy=owned`, 10 section-shrink, 6 overwrite |
+| **B transient / infra** | 234 | 24.7% | 93 claim-timeout/pod-died, 78 LLM-call failed (**debatable**), 41 delivery, 22 other |
+| **C housekeeping** | 110 | 11.6% | 52 `bugs_open/017` backfill, 30 no error at all, 28 manual cleanup — **never a handler attempt** |
+| **D genuine non-repair** | 170 | **17.9%** | handler tried and produced nothing |
+
+**Only ~18% of what the floor counts as handler failure is the handler failing** — and that is an
+**upper bound**: I found ~9 rows misfiled INTO D (4 `diagnosis exceeded 75m — handler pod likely
+died`, which my `Claim timed out%` pattern missed, and 5 `claims floor blocked`, which is another
+protective refusal). Both corrections push the same way.
+
+### But NOTHING is mis-gated today — and I nearly recorded that it was
+
+First pass said `placeholder_contact → page-build-handler` **flips** to promotable under a corrected
+floor (6 failures, **0** of them genuine). That was **my own tautology-family error, caught before
+recording**: I had tested the FLOOR formula alone, but the promoter's predicate is
+`c = 0 OR under-floor`, and this pair has **zero successes**, so the *canary* rule holds it whatever
+the floor says. Re-run against the **full** predicate: **0 pairs flip, 0 with rows waiting.** The
+handoff's "no pair is mis-held today" is confirmed — now on the full population rather than one pair.
+
+`literal_markdown → page-build-handler` refines too: the handoff estimated 3/(3+14) ≈ 18% from 24
+live failures; the true lifetime figure is **3 successes / 36 failures, of which 16 protective and 16
+genuine → 3/(3+16) = 16%**. Still under 25%, still correctly held. Verdict survives, better number.
+
+### The reason it is NOT merely theoretical: refusals are a RATCHET, and they are now the majority
+
+[MEASURED] Protective share of `failed` by month: 04 **0%** · 05 **0%** · 06 **0%** · 07 **1.5%** ·
+**08 61.6%**. The `rebuild_policy=owned` guard first fired 2026-07-17; it is **bursty**, not a slow
+drift (08-08: 123 of 134; 08-09: 102 of 131; **today 66 of 74 = 89%**).
+
+The floor reads **lifetime** with no window, so a refusal never ages out. **One batch sweep across N
+owned pages permanently adds N to a pair's denominator, and a held pair gets no dispatches, so it can
+never earn the successes to climb back out.** `literal_markdown → page-build-handler` needs **9** more
+successes to clear 25% counting all 36 failures, but only **3** counting the 16 genuine ones — and
+being held, it will get neither unattended.
+
+> ### ⚠ DATED, FALSIFIABLE: the 08-21 escalation will MISDIRECT the human it pages
+> `466`(b)'s floor-held remedy text says *"this handler is failing … FIX THE HANDLER, or decide the
+> pair is wrong and retire the producer."* When `literal_markdown → page-build-handler` escalates on
+> the **08-21 12:57** tick, **16 of its 36 lifetime failures are the handler correctly refusing to
+> clobber owned pages** (`bugs_open/295`'s family). The payload will send someone to fix a handler
+> that is, in 44% of its failures, behaving exactly as designed. This is my defect, in text I wrote
+> yesterday, and it has a date on it.
+
+### The fix is NOT to put this classifier in the gate — and that is the finding, not a dodge
+
+Encoding `error ILIKE '%rebuild_policy=owned%'` into a live gate makes **an error message's wording
+load-bearing fleet-wide**: anyone rewording that string silently changes what the promoter dispatches,
+with no test that fails. That is the `a source-scan test makes your COMMENTS load-bearing` family,
+one rung worse because the coupling crosses services. The sound fix is a **structured refusal
+signal** — a distinct terminal status (`refused`) or a `result` key the handler sets deliberately —
+so the gate reads an assertion rather than a sentence. That is a new shared vocabulary on a shared
+seam, i.e. **architecture-scope** (owner rulings 2026-07-28 / 07-29), and belongs in the RFC track
+with `bugs_open/295`, not in a fourth revision of this task's `pre_query`.
