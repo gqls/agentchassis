@@ -55,6 +55,15 @@
 // applying this fleet-wide would block real completions. Whoever adds a type here
 // is asserting, for that type, that a zero-change run cannot be a repair — and
 // owes the measurement that says so, in the rule's Why.
+//
+// SECOND DECLARATION, ADDED 2026-08-18 (bugs_open/302). A roster entry now also
+// has to say what an UNREADABLE payload means for its type — the case where the
+// type opted in and then none of its declared counters could be resolved. It used
+// to complete unconditionally, which silently waived the very assertion the entry
+// exists to make, and [MEASURED] on 5 of 11 occasions it completed an item this
+// gate had ALREADY refused one attempt earlier. See unreadableOutcome for the
+// evidence and for why this is per-type rather than one rule for the roster; the
+// zero value is not a policy and the roster test refuses it.
 
 package actions
 
@@ -88,7 +97,101 @@ type noChangeRule struct {
 	// CounterPaths are dotted paths into the handler's result payload, each
 	// expected to hold an integer count of artefacts changed.
 	CounterPaths []string
+
+	// OnUnreadable declares what an UNREADABLE payload MEANS for this type — the
+	// case where the type opted in and then NONE of its declared counters could be
+	// resolved. See unreadableOutcome for why this had to become a per-type
+	// declaration rather than one rule for the whole roster.
+	//
+	// The zero value is unreadableUndeclared, which is deliberately NOT a policy:
+	// TestNoChangeGatesRosterCarriesItsEvidence refuses to let an entry ship
+	// without a declaration, and at runtime it takes the abstain arm, so a roster
+	// entry written by somebody who never read this comment cannot start blocking
+	// completions by accident.
+	OnUnreadable unreadableOutcome
+
+	// UnreadableWhy is the measurement licensing OnUnreadable: unreadableRefuses,
+	// and is required for it (roster test). It is a SEPARATE field from Why on
+	// purpose: Why licenses "zero counters cannot be a repair", which is a claim
+	// about the handler's transform. This licenses "a payload I cannot read cannot
+	// be a repair either", which is a claim about the payloads this type actually
+	// receives — a different question with different evidence.
+	UnreadableWhy string
 }
+
+// unreadableOutcome declares, per item_type, what the gate does when it cannot
+// read the payload it was asked to judge.
+//
+// WHY THIS IS PER-TYPE AND NOT ONE RULE (bugs_open/302). Until 2026-08-18 the
+// unreadable case always abstained and completed, and the reason given was sound
+// as far as it went: "a payload this guard cannot read is not evidence of a no-op,
+// and inverting that would block legitimate work on a handler whose response shape
+// simply differs". What that argument missed is that the roster is OPT-IN, and an
+// entry on it is an assertion WITH A MEASUREMENT that for this type a zero-change
+// run cannot be a repair. An unreadable payload silently waived that assertion —
+// so the one thing the type's owners had established could not be enforced exactly
+// when the evidence went missing.
+//
+// The sibling gate settled the same question by OWNER RULING (RFC_017,
+// 2026-08-08): a verifier that cannot run fails CLOSED, because "I could not
+// check" must not be read as "I checked and it is fixed" — and
+// runRegisteredVerifier deliberately routes an unparseable spec down that branch
+// too, its comment saying that exempting it "would leave a second silent
+// completion path behind the one RFC_017 closed". This gate, written five days
+// after that ruling, was such a path.
+//
+// [MEASURED 2026-08-18] and this is the sharp part: of the 11 abstain-completions
+// (agent_error_log NO_CHANGE_GATE_UNREADABLE_RESULT, 08-14 → 08-17), FIVE were
+// items THIS GATE HAD ALREADY BLOCKED one attempt earlier — `complete`,
+// attempt_count 1, with the block sentence still in site_work_items.error
+// (completion never clears that column, which is why the sequence is still
+// legible: 0ceacd8f, 9ae28ee3, f65a1834, f4003032, a2ef2613). The gate found the
+// handler reported no change, refused, the item retried, the retry came back
+// unreadable, and the abstain arm completed it. The arm did not merely fail to
+// grade — it REVERSED the gate's own refusal.
+//
+// It stays a per-type declaration rather than becoming the roster's default
+// because the two directions are unsafe in different ways: refusing is new
+// blocking authority on a shared completion path whose measured failure mode was
+// exactly shape drift, and abstaining is the false green of WII-001. Neither may
+// be an author-time silent default, which is what the three-valued type buys.
+type unreadableOutcome int
+
+const (
+	// unreadableUndeclared is the zero value and is NOT a policy: the roster test
+	// fails an entry carrying it, and the runtime treats it as abstain.
+	unreadableUndeclared unreadableOutcome = iota
+
+	// unreadableAbstains keeps the pre-2026-08-18 behaviour — complete, and record
+	// that this gate could not judge it. Now a stated choice rather than a default.
+	unreadableAbstains
+
+	// unreadableRefuses declines to certify what it cannot read: completion is
+	// blocked and the item routes into the attempt machinery, as for a persisting
+	// defect. Requires UnreadableWhy.
+	unreadableRefuses
+)
+
+// noChangeOutcome is this gate's verdict. It replaces a (string, bool, string)
+// triple that could express "blocked AND unknown shape" — a state the caller had
+// to defend against with a test rather than being unable to represent.
+type noChangeOutcome int
+
+const (
+	// noChangePass — not this gate's business (not opted in, or a counter moved).
+	noChangePass noChangeOutcome = iota
+
+	// noChangeBlocked — every declared counter resolved and every one was zero.
+	noChangeBlocked
+
+	// noChangeUnreadableBlocked — nothing resolved, and the type declares that
+	// unreadable cannot certify a repair.
+	noChangeUnreadableBlocked
+
+	// noChangeUnreadableAbstained — nothing resolved, and the type abstains (or
+	// has not declared, which is treated as abstain). Completes; caller records.
+	noChangeUnreadableAbstained
+)
 
 // noChangeGates is the opt-in roster. Absent item_type → this file is inert.
 //
@@ -107,38 +210,51 @@ var noChangeGates = map[string]noChangeRule{
 			"response.fix_result.total_fixed",
 			"response.text_color_result.total_fixed",
 		},
+		OnUnreadable: unreadableRefuses,
+		UnreadableWhy: "no unreadable payload this type has ever received was a repair: of the 11 " +
+			"abstain-completions 2026-08-14→08-17, 7 were a SPAWN RECORD (bugs_closed/287, fixed and " +
+			"rolled on v1.0.1307 08-17 17:05Z), 3 were a design-token blob carrying no counters, and 1 " +
+			"was another page's triage decision — and FIVE of the 11 were items this gate had already " +
+			"BLOCKED one attempt earlier (complete, attempt_count 1, block sentence still in .error: " +
+			"0ceacd8f, 9ae28ee3, f65a1834, f4003032, a2ef2613), so the arm was reversing this gate's own " +
+			"refusal. The handler's readable envelope is known and asserted above, so any other shape is " +
+			"a mis-stored or foreign record rather than a dialect (bugs_open/302)",
 	},
 }
 
 // handlerReportedNoChange reports whether the result about to be stored is itself
 // a record of the handler having changed nothing.
 //
-// Returns (detail, noChange, unknownShape), mirroring handlerReportedFailure's
-// three-valued contract for the same reason: the third case is neither a pass nor
-// a block, and it must be RECORDED rather than swallowed.
+// Returns (detail, outcome). The outcome is a single value rather than the
+// (detail, noChange, unknownShape) triple this used to return, and that is a
+// deliberate narrowing: the triple could express "blocked AND unknown shape",
+// a state the caller had to be defended against by a test
+// ("both noChange and unknownShape set") rather than being unable to occur.
 //
-//   - noChange=true  — every declared counter resolved and every one was zero.
-//   - unknownShape≠"" — the type opted in, but NO declared counter could be
-//     resolved. The item still completes: a payload this guard cannot read is not
-//     evidence of a no-op, and inverting that would block legitimate work on a
-//     handler whose response shape simply differs. But it is exactly the drift
-//     that makes a guard silently stop guarding, so the caller records it.
-//     This case is live TODAY and is why the arm exists rather than being
-//     defensive boilerplate: of the 14 completed dark_section_audit items,
-//     [MEASURED 2026-08-12] only 4 carry the fixer's response envelope at all;
-//     the other 10 carry a payload that is not this handler's (a design-system
-//     spec for 9 of them, an unrelated child-page triage decision for the 10th).
-//     Why that is so is NOT ESTABLISHED — see bugs_open/213 §D, which records it
-//     as an observation and deliberately does not guess. Instrumenting it here
-//     turns an unexplained split into a queryable one.
+//   - noChangeBlocked — every declared counter resolved and every one was zero.
+//   - noChangeUnreadableBlocked / noChangeUnreadableAbstained — the type opted in,
+//     but NO declared counter could be resolved. Which of the two depends on the
+//     type's own OnUnreadable declaration; see unreadableOutcome for why that is a
+//     per-type choice and what changed on 2026-08-18.
+//
+// The unreadable case is live, not defensive boilerplate: of the 14 completed
+// dark_section_audit items, [MEASURED 2026-08-12] only 4 carry the fixer's response
+// envelope at all; the other 10 carry a payload that is not this handler's (a
+// design-system spec for 9 of them, an unrelated child-page triage decision for the
+// 10th). [MEASURED 2026-08-18, bugs_open/302] the majority of that split is now
+// ATTRIBUTED: 7 of the 11 recorded abstentions carried a SPAWN RECORD, which is
+// bugs_closed/287 — fixed and live on v1.0.1307, after which the shape appears 0
+// times in 1,880 fleet completions (939 before). So bugs_open/213 §D's "NOT
+// ESTABLISHED" is now largely answered, and what remains for this type is the
+// design-token blob.
 //
 // A partially-resolved payload counts as readable: the counters that DID resolve
 // are judged, and the missing ones are named in the detail. Requiring all of them
 // would let a handler escape the gate by dropping one field.
-func handlerReportedNoChange(itemType string, result map[string]interface{}) (string, bool, string) {
+func handlerReportedNoChange(itemType string, result map[string]interface{}) (string, noChangeOutcome) {
 	rule, opted := noChangeGates[itemType]
 	if !opted {
-		return "", false, ""
+		return "", noChangePass
 	}
 
 	var (
@@ -160,22 +276,33 @@ func handlerReportedNoChange(itemType string, result map[string]interface{}) (st
 
 	// Any evidence of work done → not this gate's business.
 	if len(nonZero) > 0 {
-		return "", false, ""
+		return "", noChangePass
 	}
 
-	// Nothing readable → cannot assert a no-op. Complete, but say so.
+	// Nothing readable. What that MEANS is the type's own declaration, not this
+	// function's to assume — see unreadableOutcome. The shape text is built the
+	// same way either way, because it is the useful half of the observation in
+	// both directions: it names what WAS in the payload.
 	if len(zero) == 0 {
-		return "", false, fmt.Sprintf(
+		shape := fmt.Sprintf(
 			"item_type %s opted into the no-change gate but none of its declared counters (%s) "+
 				"are present in the handler's result; payload top-level keys were [%s]",
 			itemType, strings.Join(rule.CounterPaths, ", "), strings.Join(topLevelKeys(result), " "))
+		if rule.OnUnreadable == unreadableRefuses {
+			return shape + " — " + rule.UnreadableWhy, noChangeUnreadableBlocked
+		}
+		// unreadableAbstains AND unreadableUndeclared land here. The zero value
+		// abstaining is the safety property: an entry added without reading the
+		// declaration cannot start blocking completions by accident, and the roster
+		// test is what stops it shipping undeclared.
+		return shape, noChangeUnreadableAbstained
 	}
 
 	detail := fmt.Sprintf("handler reported 0 changes at %s", strings.Join(zero, " and "))
 	if len(missing) > 0 {
 		detail += fmt.Sprintf(" (no value present at %s)", strings.Join(missing, ", "))
 	}
-	return detail + " — " + rule.Why, true, ""
+	return detail + " — " + rule.Why, noChangeBlocked
 }
 
 // lookupNumericPath resolves a dotted path to a number.

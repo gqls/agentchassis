@@ -83,7 +83,9 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 	// gate 1 is: a handler that reports it changed nothing is not worth grading, and
 	// for the one type opted in today there is no verifier to grade it with.
 	var abstained *noChangeAbstention
-	if detail, noChange, unknownShape := handlerReportedNoChange(itemType, handlerResult); noChange {
+	detail, noChangeVerdict := handlerReportedNoChange(itemType, handlerResult)
+	switch noChangeVerdict {
+	case noChangeBlocked:
 		logger.Warn("verifyBeforeComplete: handler reported it changed nothing — blocking completion",
 			zap.String("item_id", itemID.String()),
 			zap.String("item_type", itemType),
@@ -93,10 +95,28 @@ func verifyBeforeComplete(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 			"item_type": itemType,
 			"detail":    detail,
 		}, false, nil
-	} else if unknownShape != "" {
+
+	case noChangeUnreadableBlocked:
+		// The type declared that it will not certify what this gate cannot read
+		// (bugs_open/302). A DISTINCT status from the arm above, because it is a
+		// distinct claim: nothing was graded and nothing readable said work
+		// happened — see blockedCompletionReason. Gate 2 is skipped for the same
+		// reason it is on the block arm above: the item is not completing, so
+		// there is nothing to grade.
+		logger.Warn("verifyBeforeComplete: handler result unreadable and this item type refuses to certify it — blocking completion",
+			zap.String("item_id", itemID.String()),
+			zap.String("item_type", itemType),
+			zap.String("detail", detail))
+		return map[string]interface{}{
+			"status":    "handler_result_unreadable",
+			"item_type": itemType,
+			"detail":    detail,
+		}, false, nil
+
+	case noChangeUnreadableAbstained:
 		// Completes, but the caller records why this gate abstained. Gate 2 still
 		// runs: abstaining from ONE gate must not skip the other.
-		abstained = &noChangeAbstention{ItemType: itemType, Shape: unknownShape}
+		abstained = &noChangeAbstention{ItemType: itemType, Shape: detail}
 	}
 
 	verifier, policy := checks.GetVerifier(itemType)
@@ -262,6 +282,22 @@ func blockedCompletionReason(v map[string]interface{}) (string, string) {
 		detail, _ := v["detail"].(string)
 		return "completion blocked: the handler reported it changed nothing, so this cannot be a repair (bugs_open/213 D1): " + detail,
 			"handler_reported_no_change"
+	}
+	// Fifth cause (bugs_open/302), and it is NOT the fourth with a different
+	// wording. There, the handler told us plainly that it changed nothing — a
+	// readable payload with zeros in it. Here NOTHING was readable: no counter
+	// resolved, so no gate graded anything and nothing in the payload asserts that
+	// work happened. An operator handed the fourth message would go looking for a
+	// handler whose remit is too narrow; what is actually owed here is to identify
+	// which producer wrote this payload, because on the one type that declares this
+	// refusal every unreadable payload observed so far belonged to something else
+	// entirely (a spawn record, a design-token blob, another page's triage).
+	if status, _ := v["status"].(string); status == "handler_result_unreadable" {
+		detail, _ := v["detail"].(string)
+		return "completion blocked: the handler's result was unreadable to the no-change gate, and this " +
+				"item type refuses to certify what it cannot read (bugs_open/302; RFC_017's rule that " +
+				"\"I could not check\" is not \"I checked and it is fixed\"): " + detail,
+			"handler_result_unreadable"
 	}
 	detail, _ := v["detail"].(string)
 	return "completion blocked: post-fix verification found the defect still present: " + detail,
