@@ -12632,3 +12632,28 @@ artefact unchanged": before reading the handler, run
 and check whether the item's type is even ON the list. If it is not, the
 completion proves nothing and the handler may not even be the defect. Related:
 `bugs_closed/201` §symptom 2 (same class, different family), `bugs_closed/213`.
+
+### Widening a population does not widen its VERDICT PATH — every downstream resolver keyed on the old members' identity silently drops the new ones (2026-08-18, `bugs_open/146` ported-tools slug / `bugs_closed/281` Finding B)
+
+TL-033 widened the tool-acceptance population to ported pages (2026-07-29), keyed
+by page-name stem instead of `cc.function`. The RUN half was ported-aware (the
+URL resolver even gained a `name IN ($2, 'tool-'||$2)` candidate), but the
+VERDICT half — `JudgeAcceptanceResultsAction` — still re-derived its component
+via `WHERE cc.function = <subject key>`, a lookup no ported instance can ever
+satisfy (their function is `ported-page`). Result: runs execute, verdicts are
+written, and every FAILING ported verdict ends at "route this manually" with no
+work item — pasteboard and vibe-equalizer each failed Tier 4 twice (2026-08-05
+and 08-14) and filed nothing, while the checks read as covering them. The
+population predicate said "in"; the outcome path still said "out"; nothing
+errored anywhere.
+
+The pattern when you widen (or inherit a widened) population: grep every
+consumer of the subject key for a RE-DERIVATION of identity — any
+`WHERE <old identity column> = <subject key>` downstream of the widened
+predicate is a member-shaped hole, and it fails by producing a well-formed
+verdict that routes nowhere rather than by erring. Kin of the 149 landmine
+("widening what REACHES a function breaks it unedited") — this is the same
+class one step later: the function was reached, ran correctly, and its OUTPUT
+fell through. The fix shape that closes it: resolve identity from the work
+item's own spec (the producer already knew exactly which instance it filed
+for), never re-derive it from a key the new members do not carry.

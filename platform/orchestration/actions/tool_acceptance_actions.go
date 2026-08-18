@@ -860,6 +860,7 @@ Categories: acceptance-run`,
 	itemCreated := false
 	itemDeduped := false
 	escalated := false
+	portedRouted := false
 	if params.DB != nil && siteID != "" {
 		// The improve_tool spec needs the component; recreated/adopted tools
 		// have no content_components row — record the miss honestly instead.
@@ -1027,16 +1028,28 @@ Categories: acceptance-run`,
 					zap.String("function", function))
 			}
 		} else {
-			// No content_components row: neither item can be raised, because both
-			// specs are written against a component id. Unchanged by the
-			// no_auto_fix work — a fence that forbids auto-fixing and whose tool
-			// has no resolvable component STILL cannot be escalated cleanly, the
-			// same limitation `stuck` has always had. It is safe in the direction
-			// that matters (nothing is dispatched at the protected markup either),
-			// so it is left as a known gap rather than solved here; the note's
-			// Fix: line says so, and routing is manual.
-			logger.Info("judge: no content_components row for function — improve_tool item not created (recreated/adopted tool; route manually)",
-				zap.String("function", function))
+			// No content_components row under this FUNCTION. For a PORTED
+			// instance that is not a data problem — it is what a ported tool IS:
+			// its subject key is the page name stem and its component is the
+			// shared ported-page wrapper, so the fork lookup above can never hit
+			// (bugs_open/146; bugs_closed/281 Finding B). This arm used to stop
+			// at the log below, and the note's "route this manually" routed to
+			// nobody: pasteboard and vibe-equalizer each FAILED Tier 4 twice
+			// (2026-08-05 and 08-14) and filed nothing. The run item's own spec
+			// names the instance (check_tool_acceptance_due writes component_id
+			// and page_id), so when that component resolves to a NON-tool level
+			// the verdict is filed as ported_tool_fix — the third producer of
+			// the vocabulary check_tool_health and check_tool_acceptance already
+			// emit, handler-less at needs_human_review for the same reason they
+			// are: tool-improver's writeback targets the wrapper SHARED by every
+			// ported page on the site. Anything else — no spec component, a fork
+			// whose function moved, a lookup error — keeps this branch's old
+			// behaviour byte-for-byte.
+			portedRouted = routePortedAcceptanceFailure(ctx, params, logger, v, function, siteID, criteria, issue)
+			if !portedRouted {
+				logger.Info("judge: no content_components row for function — improve_tool item not created (recreated/adopted tool; route manually)",
+					zap.String("function", function))
+			}
 		}
 	}
 
@@ -1067,6 +1080,14 @@ Categories: acceptance-run`,
 		// previous reader looking for a broken insert (bugs_open/010).
 		fixLine = fmt.Sprintf(
 			"no new improve_tool item — one for %s is ALREADY OPEN under this key (the previous fix cycle has not finished); this verdict re-confirms work already queued",
+			strings.Join(v.FailedIDs, ", "))
+	case portedRouted:
+		// A ported instance's verdict now has a destination. When the fence ALSO
+		// says no_auto_fix the destination is identical (human review) — the
+		// ported reason is the one recorded, because it is the one that decides
+		// what a human may edit: the instance's markup, never the shared wrapper.
+		fixLine = fmt.Sprintf(
+			"no automated fixer may act — this is a PORTED instance whose component is the shared ported-page wrapper (bugs_closed/281): filed ported_tool_fix at needs_human_review carrying %s for a human to route",
 			strings.Join(v.FailedIDs, ", "))
 	case noAutoFix:
 		// Same precedence as above, and the same known gap: no component row (or
@@ -1104,6 +1125,7 @@ Categories: acceptance-fail`,
 		zap.Strings("failed", v.Failed),
 		zap.Bool("improve_tool_created", itemCreated),
 		zap.Bool("escalated", escalated),
+		zap.Bool("ported_tool_fix_filed", portedRouted),
 		zap.Bool("no_auto_fix", noAutoFix),
 		zap.Int("fix_cycles_spent", attempts))
 	out := map[string]interface{}{
@@ -1112,6 +1134,12 @@ Categories: acceptance-fail`,
 		"improve_tool_created": itemCreated,
 		"escalated":            escalated,
 		"fix_cycles_spent":     attempts,
+	}
+	if portedRouted {
+		// Present ONLY when the ported route fired, mirroring no_auto_fix below:
+		// an ordinary verdict's result map keeps exactly the shape it has always
+		// had, so a workflow branching on key presence keeps working.
+		out["ported_tool_fix_filed"] = true
 	}
 	if noAutoFix {
 		// Present ONLY when the fence opted in, so an ordinary verdict's result
@@ -1124,6 +1152,115 @@ Categories: acceptance-fail`,
 		}
 	}
 	return out, nil
+}
+
+// routePortedAcceptanceFailure files a failing Tier-4 verdict on a PORTED
+// instance as a ported_tool_fix work item (bugs_open/146; bugs_closed/281
+// Finding B). It fires only on positive evidence, in this order:
+//
+//  1. the run item's spec names its component (input_data.spec.component_id —
+//     check_tool_acceptance_due writes it on every item it files); absent
+//     means an older item or a bespoke dispatch, and nothing new happens;
+//  2. that component exists, is active, and its component_level is NOT
+//     'tool' — a real fork whose function moved, a deleted component, or any
+//     lookup error all fall through to the caller's old behaviour.
+//
+// The item joins the contract its two sibling producers established
+// (check_tool_health.go, check_tool_acceptance.go): item_type ported_tool_fix,
+// status needs_human_review, NO handler — tool-improver's writeback targets
+// content_components.html_template, which for a ported instance is the wrapper
+// SHARED by every ported page on the site (clobbered fleet-wide 2026-08-05 and
+// 08-14), and no automated fixer edits page_components.rendered_html from a
+// finding today. The key's check segment is its own (tool_acceptance_tier4),
+// so a Tier-2 static finding and a Tier-4 behavioural one hold separate open
+// decisions, exactly as tool_health's do.
+//
+// The insert is the acceptance_stuck idiom from this file: the arbiter
+// predicate matches idx_swi_dedup, and a re-verdict REFRESHES the standing
+// item (spec MERGE keeps any human-added keys) rather than duplicating it.
+func routePortedAcceptanceFailure(ctx context.Context, params ActionParams, logger *zap.Logger,
+	v acceptanceVerdict, function, siteID, criteria, issue string) bool {
+
+	specComponentID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.component_id")
+	if specComponentID == "" {
+		return false
+	}
+	var level string
+	if err := params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(component_level, '')
+		FROM content_components
+		WHERE id = $1::uuid AND is_active`, specComponentID).Scan(&level); err != nil {
+		logger.Info("judge: ported-route component lookup did not resolve — keeping the manual-routing behaviour",
+			zap.String("component_id", specComponentID), zap.Error(err))
+		return false
+	}
+	if level == "tool" {
+		// A fork: the caller's function-keyed lookup missing it is a different
+		// defect (a renamed function), and filing a ported item for it would
+		// mislabel a tool that HAS an automated fixer. Not this route's case.
+		return false
+	}
+
+	spec := map[string]interface{}{
+		"component_id":      specComponentID,
+		"check":             "tool_acceptance_tier4",
+		"subject_key":       function,
+		"issue":             issue,
+		"failing_checks":    v.FailedIDs,
+		"failing_instances": v.Failed,
+		"acceptance_test":   json.RawMessage(criteriaOrNull(criteria)),
+	}
+	if pageID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.page_id"); pageID != "" {
+		spec["page_id"] = pageID
+	}
+	if pageName := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.page_name"); pageName != "" {
+		spec["page_name"] = pageName
+	}
+	if v.ForcedBy != "" {
+		spec["overflow_forced_by"] = v.ForcedBy
+	}
+	if v.ForcedReason != "" {
+		spec["overflow_fix_hint"] = v.ForcedReason
+	}
+	if shots := shotsForSpec(v.Shots, ""); len(shots) > 0 {
+		spec["screenshots"] = shots
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	res, err := params.DB.ExecContext(ctx, fmt.Sprintf(`
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			priority, handler_agent, status, created_by, spec, item_key, batch_id
+		) VALUES ($1::uuid, 'acceptance', 'build', 'ported_tool_fix',
+		          'medium', $2, 60, '', 'needs_human_review',
+		          'tool-acceptance-agent', $3::jsonb, $4, $5::uuid)
+		ON CONFLICT (site_id, item_key)
+			WHERE item_key IS NOT NULL AND status NOT IN (%s)
+		DO UPDATE SET spec = site_work_items.spec || EXCLUDED.spec,
+		              summary = EXCLUDED.summary, updated_at = now()`,
+		sqlInList(workItemTerminalStatuses)),
+		siteID,
+		fmt.Sprintf("Tier-4 acceptance failed for ported tool %s: %s", function, first(v.Details)),
+		string(specJSON),
+		fmt.Sprintf("ported_tool_fix:tool_acceptance_tier4:%s:%s", function, siteID),
+		uuid.NewString(),
+	)
+	if err != nil {
+		logger.Warn("judge: ported_tool_fix insert failed", zap.Error(err))
+		return false
+	}
+	if n, raErr := rowsAffected(res, err); raErr != nil || n == 0 {
+		// DO UPDATE means a conflicting open item is refreshed, so zero rows is
+		// unexpected — treat it as not-filed and let the note say routing is
+		// manual rather than claim a filing that did not happen.
+		logger.Warn("judge: ported_tool_fix wrote no row — recording as not filed",
+			zap.Error(raErr))
+		return false
+	}
+	logger.Info("judge: ported instance FAILED Tier-4 — ported_tool_fix filed for human review",
+		zap.String("subject_key", function),
+		zap.Strings("failing_checks", v.FailedIDs))
+	return true
 }
 
 // convergenceAttempts counts the improve_tool cycles that have already tried,
