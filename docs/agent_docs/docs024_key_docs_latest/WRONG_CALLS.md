@@ -36428,3 +36428,48 @@ the target before asserting a config-plumbing fact in a submission). Same sessio
 class, second occurrence: the tally says this check wants to be a habit — an absence
 stated in a council submission is a measurable claim, and every one of them deserves its
 grep before submission, not after the objection.
+
+---
+
+## 2026-08-18 — I measured every consumer of the STATUS and none of the writers that could overwrite it
+
+**Session:** `bugfix-277/083`, shipping owner decision 1 Tier 1 (an owned-page refusal records
+`wont_fix` rather than `failed`).
+
+**What I claimed:** in a council submission, that migration `480` "opts exactly one step in" and
+that the refusal would therefore be recorded as `wont_fix`. I built a whole blast-radius table
+first — every consumer that READS `wont_fix` positively, `silentCoverageClause`,
+`crossLinkFailedStatuses`, `check_page_canonical_collision`, `workItemClosedStatuses`, and every
+`scheduled_tasks.pre_query` — and concluded the change was safe.
+
+**What was true:** the handler's `update_work_item_status` write is not the last word. The
+dispatch loop runs afterwards, and there are THREE writers of a work item's terminal status.
+`CompleteWorkItemAction` and `failUnverifiedCompletion` both guard on
+`status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')`
+— so `wont_fix` survives, and my change works. But `FailWorkItemAction` has **no guard at all**,
+and on that path the status is overwritten. [MEASURED afterwards] 2 of 115 owned-page refusals
+took it. The claim was right for 98.3% of cases and I had no evidence for any of them.
+
+**What caught it:** the council gate's `editquality` seat, round 1, GATING. It did not reason
+about it — it cited two `LANDMINES.md` entries keyed on `update_work_item_status result_fields`
+and `site_work_items.result for any item completed by a loop sub-workflow`, both of which say the
+loop replaces what a handler wrote. **The entries existed. I did not read them.**
+
+**The cheap check that would have:**
+`grep -n "update_work_item_status\|site_work_items.result" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`
+— seconds, and MEMORY's own index says to do it (*"grep LANDMINES for the SYMBOL you are about
+to trust"*). I grepped for the symbol I was ADDING (`wont_fix`) and not for the mechanism I was
+WRITING THROUGH (`update_work_item_status`).
+
+**The transferable lesson, which is not "read LANDMINES":** a blast-radius census of who READS a
+value is only half the question. The other half is **who else WRITES it, and last.** I enumerated
+readers exhaustively and writers not at all, and an exhaustive-looking table is exactly what makes
+that omission invisible — to a reviewer and to me. Before asserting that a write takes effect,
+enumerate every writer of that column on the path AFTER yours.
+
+**Second observation, worth its own line:** today's data could not have caught this either, because
+both paths write `failed` — the two overwritten rows are distinguishable only by `handled_by`.
+**A defect that every possible query returns the same answer for is not absent, it is unobservable**,
+and the change that introduces a second possible value is what makes it visible. That is an argument
+for shipping the change, not against it, but it means "I checked the live rows" would have been a
+false reassurance.

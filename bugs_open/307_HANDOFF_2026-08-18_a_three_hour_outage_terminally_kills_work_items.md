@@ -93,3 +93,81 @@ terminal `failed` rows attributable to it.
 Owner ruling 2026-08-18 (this file) · the 100-item disposition (cancelled, same day) ·
 `ai_errors.go` (the existing transient mechanism this generalises) · `bugs_open/131`
 (wrong-repo landmine on the same seam) · MEMORY `order-fix-candidates-by-what-closes-the-door`.
+
+---
+
+## Contribution, 2026-08-18 (session `bugfix-277/083`) — a THIRD gap in the same UPDATE: `FailWorkItemAction` is the only one of the three work-item status writers with no terminal-status guard
+
+**Not a rival diagnosis, not a fix attempt, and not filed as its own bug** — `307` owns
+`FailWorkItemAction` and a second file would drift from it. I arrived from the other end
+(shipping owner decision 1 of 2026-08-18, which makes an ownership refusal record `wont_fix`
+instead of `failed`) and a council reviewer's gating objection sent me to read exactly the lines
+this bug quotes. What I add is a defect in the same statement, adjacent to your two.
+
+### The asymmetry
+
+Three code paths write a work item's terminal status. Two of them refuse to overwrite a status a
+handler deliberately set; the third does not, and it is this one.
+
+| writer | guard |
+|---|---|
+| `CompleteWorkItemAction` (`load_work_item_actions.go:1017-1025`) | `AND status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')` |
+| `failUnverifiedCompletion` (`complete_work_item_verification.go:428-429`) | **the identical list** |
+| **`FailWorkItemAction` (`load_work_item_actions.go:1146-1160`)** | **none — `WHERE id = $1`, nothing else** |
+
+`CompleteWorkItemAction`'s guard carries its own reasoning in a comment: *"do NOT overwrite a
+status a handler deliberately set to a flagged or terminal state … without this guard a handler
+that flagged its item `needs_human_review` … would be re-stamped 'complete' here, silently undoing
+the flag."* **Every word of that applies to the failure path too.** A handler that has just
+written `needs_human_review`, `wont_fix` or `rejected` through its own `update_work_item_status`
+step, and whose saga then errors on the way out, has that decision replaced by
+`triaged`/`failed` — and `triaged` means it is re-dispatched to be refused again.
+
+### How often, measured — small, and NOT zero
+
+[MEASURED 2026-08-18] on the population I was working, `page-build-handler`'s owned-page
+refusals. `handled_by` is the tell: it is written **only** by `fail_work_item` and
+`complete_work_item`; `update_work_item_status` never writes it, so a NULL means the handler's
+own write was never touched.
+
+| `handled_by` | status | rows |
+|---|---|---|
+| **NULL** — the handler's own write, untouched | `failed` | **113** |
+| NULL | `cancelled` | 3 |
+| **`build-dispatch-loop`** — went through `fail_work_item` | `failed` | **2** |
+
+So **~98% of refusals take the guarded path and ~2% do not**, the latter both on 2026-08-15.
+Small, but it is the same shape as the 88/100 in §2: a mechanism that is right almost always and
+silently wrong in the tail.
+
+⚠ **Why this is invisible in today's data, and why that matters to YOUR fix.** Both paths
+currently write `failed`, so no query on the existing rows can tell "the handler said failed and
+it stood" from "the loop overwrote what the handler said". The 2 rows above are visible only
+because `handled_by` happens to distinguish the writers. **Any change that makes a handler write
+a status other than `failed` — including the one I have just shipped, and including anything
+`307` does about returning items to `queued` — turns that invisible overwrite into a visible
+wrong answer.**
+
+### What I am NOT proposing
+
+I have deliberately **not** added the guard, and the reason is the one this estate keeps filing
+bugs about: `fail_work_item` is a shared action reached by every dispatch loop, and adding
+`status NOT IN (…)` to it changes the retry ladder for all of them. In particular `failed` is
+itself in the sibling list, so a naive copy would stop `fail_work_item` re-triaging a `failed`
+row — which may be exactly right, and is exactly the kind of decision that belongs with whoever
+owns the retry semantics rather than inside someone else's patch. Owner ruling 2026-07-28: a
+change to a shared mechanism arriving inside a bug patch draws a veto, and rightly.
+
+**What the fix probably wants** (your call, not mine): the guard list on the failure path is
+almost certainly NOT the same list as on the completion path. `failed`/`unresolved` should
+probably stay overwritable (that is the retry ladder); `needs_human_review`, `wont_fix`,
+`rejected`, `verified`, `blocked` — the statuses that record a DECISION rather than an outcome —
+should not. That is one line and one comment, but it is a decision about what those words mean.
+
+### Relates
+
+`bugs_open/301` (the owned-page refusals whose statuses this can overwrite) · `bugs_open/083`
+(the promoter floor that reads those statuses) · register **WII-003** (the flag-preservation
+guard, Fix A — this is the same defect class, one writer over) · **WII-019** (the change that
+made this observable) · council corr `725b1f01-f4b5-42fc-92b5-6de8fc0daa85`, whose `editquality`
+seat raised the objection that found it
