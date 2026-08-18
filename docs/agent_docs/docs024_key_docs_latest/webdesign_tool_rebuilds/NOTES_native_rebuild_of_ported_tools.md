@@ -1000,3 +1000,32 @@ html-minifier and svg-optimizer each now at v2), 2 parked on `RFC_036`, ~55 unto
 **Three platform defects surfaced and filed by this lane, all found by doing ordinary things:**
 `RFC_036` (three uniqueness gates on one INSERT; one makes any tool un-rebuildable) and
 `bugs_open/303` (the birth guard counts tag substrings, so markup-handling tools are unbornable).
+
+## 2026-08-18 16:31Z — owner APPROVED both v2 tools; `v1.0.1309` verified a real roll; rebuild #7 filed
+
+- **Owner on the two rebuilt tools: "those two tools are good now thank you."** The copy-button bug he
+  reported is closed at the served artefact on both.
+- **`v1.0.1309` IS a real roll — and settled WITHOUT a binary probe.** Pods 15:45Z. Tag 1307 → 1309
+  **and** the running `imageID` digest `sha256:8339bdbd7999…` → **`sha256:d45a76fa36f3…`**. A changed
+  digest cannot be a cached same-tag serve, which is the whole failure mode of `v1.0.1305`. **This is
+  the cheaper check and it has no controls to get wrong** — prefer it to probing `/proc/1/exe`, which
+  costs ~20–30 s per grep and needs a positive control to mean anything (MEMORY
+  `a-fresh-deploy-can-ship-no-new-code`, second half).
+- **Rebuild #7 FILED: `tool-smooth-shadow`** (Smooth Shadow Generator), item
+  `770615bc-2c83-413f-b96c-6dac72d59413`, page `eecc675e…`. Revert handle: ported slot
+  **`d44de35d-f84a-4a14-82c5-d4f4c531946a`, 5,192 chars, md5 `e7508141028f35f47f182c01c5c9c694`**.
+  **All THREE gates now pre-asserted as standard**, plus the serial throttle.
+- **Spec from the live script.** Six layers, `step = i/6`, `y = distance*step` (1 dp),
+  `blur = distance*step*2` (1 dp), `a = alpha*(1 - step*sharpness)` (3 dp), joined as
+  `0 Ypx BLURpx rgba(0,0,0,A)`. Sliders: alpha 0–0.5 step 0.01 default 0.07; distance 10–100 default
+  50; sharpness 0–1 step 0.1 default 0.5.
+  - **Checked for a defect and found none** — at sharpness 1 the outermost layer's alpha reaches
+    exactly 0, not negative, so no invalid `rgba()` is reachable. Recorded because "I looked and it
+    was fine" is worth as much to the next reader as a defect found; three of the previous six had
+    real faults and the absence here is a measurement, not an omission.
+  - **One thing specified as intent:** show each slider's current numeric value beside its label. The
+    ported version shows none, so a user cannot read off or reproduce a setting they liked — a real
+    gap in a generator tool, and the only change to behaviour. Deliberately did NOT add a copy button:
+    the original has none, and adding one is a feature, not a fix.
+- The 303 build-constraint sentence is now carried in every brief as cheap insurance, even for tools
+  that do not manipulate markup.
