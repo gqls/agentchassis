@@ -776,9 +776,32 @@ built from `box/chat-service/` and run by two unit shapes on the box:
 | `webdesign-chat.service` (kept, repointed) | `/etc/webdesign-chat.env` | `/var/lib/webdesign-chat` | webdesign.uk — proven store + journal history stay put |
 | `sitechat@<domain>.service` (template) | `/etc/sitechat/<domain>.env` | `/var/lib/sitechat/<domain>` | every other site on this box |
 
-Both run the SAME file; `md5sum /usr/local/bin/sitechat` on the box must equal the
-local build's. The old `/usr/local/bin/webdesign-chat` is kept as
+Both run the SAME file. The old `/usr/local/bin/webdesign-chat` is kept as
 `webdesign-chat.bak-20260815b` (rollback: repoint `ExecStart`, `daemon-reload`, restart).
+
+> **⚠ CORRECTED 2026-08-18 — this paragraph used to say "`md5sum` on the box must
+> equal the local build's", and that check CANNOT do the job it looks like it does.**
+> Measured: rebuilding the **exact commit** behind the then-live binary
+> (`84202f061`) produced md5 `65da9971` and 9381552 bytes, against the box's
+> `f07fb146` and 9381544. Same source, different digest, eight bytes apart. These
+> builds are **not byte-reproducible across build environments**, so an md5
+> comparison proves only that the box holds the file you just pushed in THIS
+> session. It cannot answer "which commit is the box running", which is the
+> question that matters, and a mismatch looks identical to a failed deploy.
+>
+> **Ask the binary instead.** Since `434d2b64b` it stamps its own commit and logs
+> the same line the backend fleet uses:
+> ```bash
+> ssh -i ~/.ssh/webdesign_box_ed25519 root@webdesign.vs.mythic-beasts.com \
+>   "journalctl -u webdesign-chat --since '-5 min' -o cat | grep 'build provenance'"
+> ```
+> `make box-verify` does both halves: md5 for "the file arrived", provenance for
+> "the running service is this commit". A binary built outside `make box-build`
+> says `unstamped` rather than printing an empty commit.
+
+**The whole scp/systemctl recipe below is superseded by `make box-release`** (added
+2026-08-18 at the owner's request). It builds from committed HEAD via `git archive`
+— the hand recipe built from the working tree and could ship another session's WIP.
 
 ### Per-site parameters (the env file)
 
