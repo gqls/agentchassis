@@ -3499,3 +3499,66 @@ without my touching anything. It is not variance — the register's own writer
 NOTE tells the writer to use the one surviving form, and the writers still do
 not, because "there's no refund once payment's made" is what the sentence
 naturally wants to be. Each miss costs a rebuild and a re-triage.
+
+### 12:02:13Z — the refund ban fix APPLIED (owner steer, via the session operator), and two guard bugs caught on the way in
+
+`SQL_2026-08-18d` applied to the live register. Post-state: **33 bans (unchanged),
+22 facts (unchanged), bare-token ban gone, promise-shape ban present (1).**
+
+**Verified at the LIVE pattern, not at my file** — pulled `banned_claims` back out
+of the register and ran the two sentences that actually stopped a rebuild today
+through `ScanBannedClaims`:
+
+| the real failing text | now |
+|---|---|
+| *"There's no refund once payment's made…"* (how-it-works 11:53:18Z) | **ALLOWED** |
+| *"The FAQ page sets out the refund position…"* (what-you-get 11:40:02Z) | **ALLOWED** |
+| *"You get a full refund right up to the moment you accept…"* (retired £1,200 promise, control) | **STILL BLOCKED** |
+
+**Two bugs in my own guards, both caught before the apply — and both were the
+kind that pass silently:**
+
+1. **The fact-id guard I copied from `SQL_2026-08-18b` would have ABORTED on a
+   correct register.** It hardcoded 21 fact ids; between that file and this one
+   the other lane legitimately RETIRED `delivery_preview_and_zip` (the
+   post-payment link is no longer called a "preview") and `any_site_type_examples`
+   (example links dropped), and added three. A hardcoded list does not survive a
+   register two lanes write. Replaced with the invariant the handoff actually
+   states — **compare against the row THIS transaction supersedes**: set equality
+   of fact ids, ban count unchanged. That is "nothing is lost by your own write"
+   expressed so it cannot go stale.
+2. **My first version of that comparison could never have failed.** I wrote
+   `A EXCEPT B UNION ALL C EXCEPT D` without parentheses; Postgres associates set
+   operators left to right, so it computed `((A EXCEPT B) UNION ALL C) EXCEPT D`
+   — not a symmetric difference. Parenthesised, then **controlled**: current vs
+   itself → 0, current vs the previous row → **5**. A guard that returns 0 on
+   identical input is worth nothing until you have seen it return non-zero on
+   different input.
+
+Probe-run first (`COMMIT`→`ROLLBACK`): `INSERT 0 1`, `DO`, `ROLLBACK`. Then applied.
+
+**Both failed items re-triaged** (`cf83a513` what-you-get, `8d969047`
+how-it-works) — status `triaged`, claim cleared, error cleared.
+
+**Attribution, stated honestly: the fix gets NO credit for what-you-get's 11:59
+run.** That run cleared `validate_content` at 11:59:45Z and my write landed at
+**12:02:13Z** — two and a half minutes later. That writer simply produced no
+refund sentence (or the register steer held). I checked the timestamps
+specifically because "the rewrite passed after I applied the fix" was the
+comfortable reading and it is false. What the fix is evidenced on is the table
+above: the two sentences that DID block are now allowed at the live pattern.
+
+### NEW, separate finding — what-you-get is now failing a SHRINK gate, not a claims gate
+
+`cf83a513`'s 11:59:45Z failure is a different mechanism entirely and is worth the
+driving session's eye:
+
+> `save_page_sections: SECTION SHRINK REFUSED for page "what-you-get" —
+> call-to-action 594→264 chars of VISIBLE text (44% kept, floor 50%)`
+
+The rewrite is cutting the CTA to under half its visible text. The gate offers
+`section_shrink_floor` as the override, but **whether that CTA should lose half
+its text is a copy decision, not a threshold to raise to make a failure stop** —
+and this is the same `call-to-action` component `bugs_open/299` is about (its
+href dials the phone). Left alone deliberately; re-triaged, so it will retry, and
+it may well hit this again. Flagged, not patched.

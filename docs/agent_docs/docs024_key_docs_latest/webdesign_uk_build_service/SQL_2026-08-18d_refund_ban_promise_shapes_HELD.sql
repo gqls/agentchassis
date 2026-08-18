@@ -82,16 +82,40 @@ SELECT r.site_id,'evidence_base', r.newdata,'lane-fix',
 FROM rebuilt r, retire;
 
 DO $$
-DECLARE d jsonb; nb_old int; nb_new int; n int;
+DECLARE d jsonb; prev jsonb; nb_old int; nb_new int; n int;
 BEGIN
   SELECT ss.data INTO d FROM site_specs ss JOIN sites s ON s.id=ss.site_id
    WHERE s.domain='webdesign.uk' AND ss.aspect='evidence_base' AND ss.is_current;
 
-  -- Nothing lost: no fixed fact count (another lane edits this row in place), so
-  -- assert the known ids each appear exactly once.
-  SELECT count(*) INTO n FROM unnest(ARRAY['price_total','price_is_total_no_vat','ai_built','build_duration','no_changes_included','no_lock_in','taking_it_further','yours_to_change','queue_limited','contact','third_party_options','payment_upfront','no_refund','delivery_preview_and_zip','one_shot_no_approval','starter_site_initial_copy','hosted_under_our_domain','domain_rent_monthly','domain_buy_once','any_site_type_examples','no_presales_service']) k
-   WHERE (SELECT count(*) FROM jsonb_array_elements(d->'facts') f WHERE f->>'id'=k) <> 1;
-  IF n <> 0 THEN RAISE EXCEPTION '% known fact(s) lost or duplicated by this write', n; END IF;
+  -- The row THIS transaction just superseded. Comparing against it is the only
+  -- invariant that survives a shared register: it asserts nothing is lost by MY
+  -- write, whatever another lane did before it. A hardcoded fact list does NOT
+  -- survive - the list in this file's first draft named delivery_preview_and_zip
+  -- and any_site_type_examples, and the other lane legitimately RETIRED both
+  -- (the post-payment link is no longer called a preview; example links dropped)
+  -- between the draft and the apply, so that guard would have aborted on a
+  -- correct register.
+  SELECT ss.data INTO prev FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+   WHERE s.domain='webdesign.uk' AND ss.aspect='evidence_base' AND NOT ss.is_current
+   ORDER BY ss.superseded_at DESC NULLS LAST LIMIT 1;
+  IF prev IS NULL THEN RAISE EXCEPTION 'no superseded row to compare against'; END IF;
+
+  -- Every fact id present before must be present after, and vice versa.
+  SELECT count(*) INTO n FROM (
+    (SELECT f->>'id' FROM jsonb_array_elements(prev->'facts') f
+     EXCEPT
+     SELECT f->>'id' FROM jsonb_array_elements(d->'facts') f)
+    UNION ALL
+    (SELECT f->>'id' FROM jsonb_array_elements(d->'facts') f
+     EXCEPT
+     SELECT f->>'id' FROM jsonb_array_elements(prev->'facts') f)
+  ) x;
+  IF n <> 0 THEN RAISE EXCEPTION '% fact id(s) differ between the superseded row and this one - this write must change bans only', n; END IF;
+
+  -- Ban count unchanged: one pattern replaced IN PLACE, nothing added or dropped.
+  SELECT jsonb_array_length(prev->'banned_claims') INTO nb_old;
+  SELECT jsonb_array_length(d->'banned_claims') INTO nb_new;
+  IF nb_old <> nb_new THEN RAISE EXCEPTION 'banned_claims moved from % to % - this write replaces one pattern in place', nb_old, nb_new; END IF;
 
   -- The bare-token ban must be GONE and the promise-shape ban PRESENT.
   SELECT count(*) INTO nb_old FROM jsonb_array_elements(d->'banned_claims') b
@@ -101,11 +125,6 @@ BEGIN
   SELECT count(*) INTO nb_new FROM jsonb_array_elements(d->'banned_claims') b
    WHERE b->>'pattern' LIKE '%money[ -]?back%' AND b->>'pattern' LIKE '%refundable%';
   IF nb_new <> 1 THEN RAISE EXCEPTION 'expected exactly 1 promise-shape refund ban, found %', nb_new; END IF;
-
-  -- Every other ban carried through. 31 was the count before this write; this
-  -- replaces one in place, so the total must not move.
-  SELECT count(*) INTO nb_new FROM jsonb_array_elements(d->'banned_claims');
-  IF nb_new < 31 THEN RAISE EXCEPTION 'banned_claims shrank to % - the other bans must be preserved', nb_new; END IF;
 END $$;
 
 COMMIT;
