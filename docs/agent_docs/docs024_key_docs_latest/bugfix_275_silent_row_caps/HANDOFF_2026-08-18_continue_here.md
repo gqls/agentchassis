@@ -20,7 +20,16 @@ gated on fleet traffic rather than on work**, plus two new tickets nobody has st
 > `needs_internal_links` items read `complete` across it. **Fix 313 BEFORE 298's cap** — the cap fix
 > alone changes nothing observable.
 >
-> **THE ONE THING LEFT ON THE CLOCK:** the WARN has still never been observed firing. Since the
+> **UPDATE 20:32Z — the cap FIRED and the WARN was STILL not witnessed.** `content-feed-trigger` returned
+> **5 of cap 5** (durable, in `collected_data`); the streamed capture caught 0 WARN lines *and* missed
+> that step's unconditional completion line, so the miss is at the observation layer and is
+> **unattributed** — wrong-pod, disconnect, old-binary and general stream-loss were each ruled out (see
+> NOTES). **Do not re-run this experiment expecting a different result without first fixing the
+> selector** (`-l app=agent-chassis` covers 2 of 62 chassis-image pods; the rest are `app=dynamic-agent`
+> ephemerals that are deleted within minutes). **Nothing depends on it:** `collected_data` answers the
+> question retroactively, which is now the recommended method everywhere in this lane.
+>
+> ~~**THE ONE THING LEFT ON THE CLOCK:** the WARN has still never been observed firing.~~ Since the
 > detector went live (15:45Z) only one capped step has run, and it was correctly silent (4 rows vs cap
 > 12, 18:15Z). The next chance is `content-feed-trigger` at **~20:32Z**; a streaming capture is
 > attached until 20:45Z at

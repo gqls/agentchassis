@@ -438,3 +438,26 @@ is 1–9 runs on roughly half of days, so this may clear on its own.
 ` […truncated]` marker; executing that exact query today returns **76 tools, of which 46 rank past
 position 30** — 46 the pre-fix query could not have shown — with **54 descriptions marked truncated**
 and a longest description of 213 chars. What is still unproven is only that a *prompt* carried them.
+
+### §2026-08-18 20:32Z — the cap FIRED (first since the detector went live), and the WARN was still not witnessed
+
+**Durable channel:** `content-feed-trigger-orchestrate-0818-2032`, created 20:32:54Z,
+`news_sites.count = 5` against cap **5** — hit, five real domains in the payload, read while the run was
+still in flight.
+
+**Log channel: 0 anchored WARN lines**, against 133 anchored completions as a liveness control.
+**That is not evidence the detector stayed silent** — the step's *unconditional* completion line is
+missing too, so both of its lines went together and the failure is at the observation layer. Ruled out:
+wrong pod (`processing_node` was a followed pod, and all recent trigger runs use the deployment pods),
+stream disconnect (no reconnect marker; lines captured 30 s either side from both pods), old binary
+(all 62 chassis-image pods on v1.0.1310), and `logs -f` being lossy in general (fidelity test: 561
+streamed vs 291 retained over the same 60 s). **The miss is unattributed and recorded as such.**
+
+**⚠ Instrument defect for whoever tries next:** `-l app=agent-chassis` matches **2 of 62** chassis-image
+pods; the other 60 are `app=dynamic-agent` ephemerals that `agent-job-cleanup` deletes within minutes.
+It did not cause tonight's miss, but a capped step running inside one would be unwitnessable by any
+means.
+
+**The conclusion the lane should carry:** the WARN is a hint for someone already watching;
+`collected_data` is the record, and it answered the same question in one query, retroactively, with
+controls.

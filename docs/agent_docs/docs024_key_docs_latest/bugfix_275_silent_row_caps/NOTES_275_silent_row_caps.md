@@ -710,3 +710,54 @@ One useful side-effect of the scare: it forced a check that mattered for this la
 edits `agent_definitions`, so a fleet-wide write to that table an hour earlier could in principle have
 reverted them. It did not; the live `load_library_tools` config verified at 18:38Z (after the 17:59Z
 sweep) still has no `LIMIT` and still carries the truncation marker.
+
+### 2026-08-18 20:32Z — the cap FIRED, and the streamed capture still missed the WARN
+
+**The durable channel delivered.** `content-feed-trigger-orchestrate-0818-2032`, created **20:32:54Z**,
+`news_sites.count = 5` against a cap of **5** — `hit_the_cap = true`, with five real domains in the
+payload. **This is the first cap hit since the detector went live at 15:45Z**, and it was read straight
+out of `collected_data` while the orchestration was still `AWAITING_RESPONSES`.
+
+**The WARN was not captured.** 0 anchored WARN lines, against a liveness control of **133 anchored
+`QueryDatabaseAction: Complete` lines** in the same capture, with the watcher still running.
+
+**Do NOT read that as "the detector did not fire."** The step's *unconditional* completion line
+(`database_actions.go:111`, logged on every `query_database` step regardless of any cap) is **also
+absent**. Both lines from that one step are missing together, which locates the failure at the
+observation layer, not in `resultHitItsRowCap`.
+
+What was ruled out, in order:
+
+| hypothesis | verdict |
+|---|---|
+| ran on a pod outside the watcher's selector | **refuted** — `processing_node` is `l8r76`, one of the two followed pods, and all 8 recent trigger runs ran on `agent-chassis-*` deployment pods, never on a dynamic-agent pod |
+| the stream had disconnected | **refuted** — no `[stream ended - reconnecting]` marker at all, and captured lines bracket the event at 20:32:25Z, 20:33:02Z and 20:33:55Z from both pods |
+| the pod ran an older binary without the detector | **refuted** — all **62** chassis-image pods carry `v1.0.1310` |
+| `logs -f` is a lossy instrument in general | **not supported** — fidelity test on the same busy pod: the stream saw **561** lines over 60 s where the pod's own retained log held **291** for the same window. The stream is nearly 2× richer than a retrospective pull; it is rotation that eats the pull |
+
+**So the miss is unattributed, and I am leaving it that way rather than picking the tidiest story.**
+The remaining candidates are a gap in `kubectl logs -f` across a rotation boundary (which the fidelity
+test above cannot isolate, because the pull is the weaker instrument on both sides) and something about
+that step's logging I have not thought of.
+
+**⚠ One real instrument defect found regardless, and it would have mattered on a different night:** the
+watcher followed `-l app=agent-chassis`, which matches **2 of the 62 pods running the chassis image**.
+The other 60 are ephemeral agents labelled **`app=dynamic-agent`** (`agent-feed-ingester`,
+`agent-page-rerender`, `agent-content-feed-orchestrator`, …), and `agent-job-cleanup` deletes them
+within minutes of completion. It did not cause tonight's miss — these triggers run on the deployment
+pods — but any capped step executing inside a dynamic agent is invisible to that selector *and* to any
+later log pull, because the pod itself is gone.
+
+### What this settles for the lane
+
+The point of tonight was to witness the WARN once, end to end. **It did not happen, and the attempt is
+more informative than the success would have been:** the medium was chosen for a detector whose events
+are 6-hourly, the retention is seconds, and even doing the prescribed thing — attaching `logs -f`
+*before* the event, on the right pod, with the stream verified live and the pattern verified anchored —
+still produced nothing to show. Three instrument bugs of my own had to be fixed first (block-buffering
+`cut`, unanchored patterns, a local-time deadline), and the fourth (the label selector) is still there.
+
+**The durable channel answered the same question in one query, retroactively, with controls.** That is
+the recommendation: LCO-009's WARN is a hint for someone already watching; `collected_data` is the
+record. LCO-009's `verify-later` should now read "witness the WARN once" as an open item that has been
+*attempted and failed*, not as untried.
