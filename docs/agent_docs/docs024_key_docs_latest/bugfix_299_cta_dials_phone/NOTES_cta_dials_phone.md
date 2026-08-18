@@ -153,3 +153,20 @@ provenance-based, not flag-based.
 Also noted from 248: the working tree transiently doesn't compile (another session's WIP
 calls an unwritten function) — our commits pre-date it and were archive-validated; not ours
 to chase.
+
+## 2026-08-18 (post-commit, later) — the ordering tripwire is now MUTATION-PROVEN
+
+248 induced the exact feared mutation (KEEP #2 broadened past `validPages.Contains`) against
+a clean `git archive HEAD` tree: both of our applyCTARecompute write-expectation cases FAIL,
+and so does their own suite for an independent reason (the mutation also lets a phantom be
+kept). Three tripwires on one seam, each failing for its own stated reason — recorded in
+LNK-034, upgrading the ordering-dependency claim from reasoned to induced. Division of
+record settled: 477's migration header is THE authoritative statement of the
+build-half-unproven condition; 248's file carries only the pointer.
+
+Transferable lesson (theirs, adopted here too): a PEER MESSAGE is another doc — an assertion
+in conversational register still lands in someone's register entry. Verify claims about
+code/tests before repeating them, whichever channel they arrive on. (Their "nothing guards
+yours" went out unchecked and nearly added a redundant test; our correction went back
+checked, and they mutation-verified it rather than accepting it. That loop — check, correct,
+induce — is the practice working.)
