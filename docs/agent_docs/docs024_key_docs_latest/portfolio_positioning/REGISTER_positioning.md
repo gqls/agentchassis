@@ -541,13 +541,32 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
 - **`reviewsinsurance.co.uk`/.uk — the evaluation layer.** Reviews of **insurERS**, not prices:
   claims-handling record, service, financial strength. Genuinely distinct mode, and the closest
   natural consumer of a future insurer directory.
-- **`sportsreviewinsurance.co.uk`/.uk — resolved 2026-08-18.** The owner asked whether "sports
-  review" is an insurance category. **It is not** — the category is **sports insurance** (clubs,
-  coaches, events, athletes: public liability, personal accident, equipment cover); "sports
-  review" is a parse artefact of the domain string. So the domain reads *"review [of] sports
-  insurance"*, which is exactly the owner's fallback and lands on the same evaluation mode as
-  `reviewsinsurance` — narrowed to one vertical. **[REASONED, not market-researched]** — mark it
-  verified once the classifier/vertical researcher has run on it at build time.
+- **`sportsreviewinsurance.co.uk`/.uk — MEDIA LIABILITY FOR SPORTS MEDIA.**
+  > **CORRECTED 2026-08-18, same day, by the owner.** I first answered that "sports review" is
+  > not an insurance category and the domain must therefore mean *"review of sports insurance"*.
+  > **That was wrong, and it was wrong in a way this register could have told me.** The owner's
+  > question — *"if I write a sports review and insult someone, is there not an insurance group
+  > or category for that, however narrow?"* — names a real and well-established line: **media
+  > liability / libel & defamation cover**, normally sold as (or alongside) professional
+  > indemnity for people who publish. **I9's own entry already carried the precedent**:
+  > `journalistinsurance.co.uk` — *"PI for journalists — libel/defamation"*. I asserted a market
+  > fact without reading the adjacent proposition that contradicted it. Logged in `WRONG_CALLS.md`.
+- **audience:** people who publish sports opinion — reviewers, bloggers, podcasters, pundits,
+  fanzines, YouTube/Substack sports writers, and small sports-media outfits. The trigger is
+  usually a specific fear (a piece about a named player, club or official) or a platform/
+  publisher contract requiring cover — not a general sense of risk.
+- **cover:** defamation/libel and slander, breach of confidence, IP and image-rights
+  infringement, plus the PI core. **This is a vertical slice of I9, not a competitor to it** —
+  same relationship `journalistinsurance` has, one vertical across. Under the differentiation
+  ruling that is a real proposition: nobody in the portfolio serves sports media.
+- **do NOT confuse with sports insurance** (clubs, coaches, events, athletes — public liability,
+  personal accident, equipment). That is a different market and a different buyer; if the
+  portfolio ever wants it, it needs its own entry rather than being folded in here.
+- **note the parse ambiguity, because it also applies next door:** "reviews insurance" can be
+  read as *insurance for reviewers* on exactly this logic. `reviewsinsurance` is deliberately
+  kept as the **evaluation layer** (reviews of insurERS) because that audience is far larger
+  and nothing else in the portfolio does it — but the two domains are now differentiated by
+  DECISION rather than by grammar, and that is worth knowing if either is ever revisited.
 - **`bestinsurancedeal(s)` / `bestinsurancerate(s)` / `cheapinsurancequote`:** superlative-shaped
   names. Under the differentiation ruling these need an angle that is not "cheapest quotes"
   (which every comparison site claims and none can evidence) — and note the site-level

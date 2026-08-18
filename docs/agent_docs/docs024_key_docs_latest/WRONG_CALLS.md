@@ -35261,3 +35261,34 @@ threshold, state the system's condition **immediately before** the triggering ev
 whether the trigger's own guard could have passed. Here: "for the takeover to fire, the
 child must already have been silent for 5 minutes — is that consistent with it working?"
 Ten seconds, and it is a different question from "have I read the code", which I had.
+
+## 2026-08-18 — I ruled a market category out of existence without reading the adjacent register entry that named it
+
+**The claim:** asked whether "sports review" is an insurance category for
+`sportsreviewinsurance.co.uk`, I answered *"It is not"*, and wrote that into the register with
+a reasoned-not-researched marker.
+
+**What was true:** the owner pushed back with the case that decides it — *"if I write a sports
+review and insult someone, is there not an insurance group or category for that, however
+narrow?"* There is: **media liability / libel & defamation cover**, sold as or alongside
+professional indemnity for anyone who publishes.
+
+**The check that would have caught it cost one grep, and the answer was already in the file I
+was editing.** The register's **I9 (professional indemnity)** entry lists
+`journalistinsurance.co.uk` — *"PI for journalists — libel/defamation"*. The portfolio had
+**already** established that exact niche, one vertical across from sports. I was writing an
+entry for an insurance brandable and did not read the insurance proposition next to it.
+
+**Why the marker did not save me.** I tagged it `[REASONED, not market-researched]`, which is
+the honest label for *"I have not checked the market"* — and it is worthless against *"I have
+not checked the document in front of me"*. A marker describes the evidence you have; it cannot
+flag evidence you never looked for. **Marking a claim unverified is not a substitute for the
+cheap verification that was available.**
+
+**Second-order:** I answered a narrower question than the one asked. "Is *sports review* a named
+insurance line" and "is there insurance for the risk a sports reviewer runs" have different
+answers, and only the second was the owner's question. When a domain name is ambiguous, the
+question is what the buyer's risk is — not whether the domain string matches a category label.
+
+**Cost:** none externally — caught by the owner in the same session, before any build. The
+register now carries the corrected entry and the precedent it should have cited.

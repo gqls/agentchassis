@@ -33,12 +33,29 @@ dig +short NS example.uk
 
 ## Steps
 
-**1. Create the zone (OWNER — I cannot).** The session token
-(`~/.cloudflare/404-token.env`, `CLOUDFLARE_API_404_TOKEN`) is **Workers-scoped**: it verifies,
-reads zones and reads/writes worker routes, but **cannot read DNS records and cannot create
-zones** — measured 2026-08-18: `Requires permission "com.cloudflare.api.account.zone.create"`.
-Add the zone in the Cloudflare dashboard, or mint a token with `Zone:Zone:Edit` +
-`Zone:DNS:Edit` and I can script the rest.
+**1. Create the zone.** The existing session token (`~/.cloudflare/404-token.env`,
+`CLOUDFLARE_API_404_TOKEN`) is **Workers-scoped**: it verifies, reads zones and reads/writes
+worker routes, but **cannot read DNS records and cannot create zones** — measured 2026-08-18:
+`Requires permission "com.cloudflare.api.account.zone.create"`.
+
+> **CORRECTED 2026-08-18 — the permission is NOT under the "Account" group.** I first told the
+> owner to add *Account → Zone → Edit*; he checked and there is no such entry (the Account
+> group lists Workers Scripts, Workers Tail, Zero Trust…). **The zone-creation right comes from
+> the ZONE group, scoped to the whole account:**
+>
+> - set the first dropdown to **Zone** (not Account), then **Zone → Edit**
+> - add **Zone → DNS → Edit**
+> - add **Zone → Workers Routes → Edit**
+> - **under *Zone Resources*, choose `Include → All zones from an account → <the account>`.**
+>   This is the load-bearing part: a token scoped to *specific zones* cannot create a zone that
+>   does not exist yet. The account-wide scope is what grants
+>   `com.cloudflare.api.account.zone.create` despite the permission living under "Zone".
+>
+> Account: `13044f178ae0b156961065f55c8fada8`. Save as `CLOUDFLARE_API_TOKEN=…` in
+> `~/.cloudflare/dns-token.env` (mode 600).
+
+With that token I can script steps 1, 4 and 5 for a whole batch; **step 3 (Nominet) stays
+manual** — it is registrar-side and there is no access from here.
 
 **2. Note the two assigned nameservers** shown after zone creation.
 
