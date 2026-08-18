@@ -164,6 +164,18 @@ Design the placement with that in mind.
 
 ## 4. TODO recorded at the owner's request
 
+> **⚠ DONE (written + tested) 2026-08-18, commit `5777ac945` — NOT DEPLOYED.**
+> `promptConduct` now has a second job: helping the visitor work out what to ask
+> for, drawing out the five things `MISSION_2026-08-04_webdesign_uk.txt` shows a
+> good prompt carries, then offering to write it back as a brief. Built in the
+> conduct, not a second widget, as the note below prefers. It REPLACES "Do not ask
+> for anything else unless they offer it" deliberately. Two mutation-checked tests.
+> It does not name the Website Brief Starter tool, because that tool's GUIDE page
+> still sells the retired pay-after-approval model (rewrite queued `881c95ef`) —
+> add the pointer once that page is rebuilt. **Remaining: the box deploy**
+> (RUNBOOK, "Rolling the shared binary"), which is a live customer-facing bot and
+> so is a confirmed step, not an automatic one. Full record in NOTES.
+
 **A prompt maker** — help a visitor write a really good prompt for the system. His own
 preference, and the better route: **make the EXISTING chat box do it** rather than build a
 second widget (it already has the site's facts, the four abuse controls and a live

@@ -3562,3 +3562,69 @@ its text is a copy decision, not a threshold to raise to make a failure stop** �
 and this is the same `call-to-action` component `bugs_open/299` is about (its
 href dials the phone). Left alone deliberately; re-triaged, so it will retry, and
 it may well hit this again. Flagged, not patched.
+
+### 12:2xZ — §4's PROMPT MAKER written and tested (NOT deployed), and a fifth stale page found on the way
+
+**The change** (`box/chat-service/facts.go`, committed `5777ac945`): `promptConduct`
+now has two jobs. The second is helping the visitor work out what to ask for, and
+it is not a nicety. The register attests `one_shot_no_approval` ("there is no
+approval stage ... the site is built once") and `no_changes_included`, so **the
+brief is the only thing that shapes the site and there is no correction round**.
+That is the reason the bot gives, and it is drawn from facts it already states
+rather than invented.
+
+Built in the conduct rather than as a second widget, per the owner's own
+preference: this bot already has the live facts, the four abuse controls and a
+deployment. Five things it draws out over the conversation (what it is, who for,
+what it should do, how it should sound, what to avoid) — the shape of
+`MISSION_2026-08-04_webdesign_uk.txt`, which is what a good prompt for this system
+actually looks like. Then it offers to write the brief back, under 250 words, only
+if they say yes.
+
+**It replaces the old rule "Do not ask for anything else unless they offer it",
+and that is deliberate** — that rule and a brief-builder cannot both hold. What
+stops it becoming an interrogation is not a refusal to ask: it is the
+one-question-at-a-time rule, the ban on presenting the five as a form or
+checklist, and explicit permission to take one line and stop.
+
+**It does NOT name the Website Brief Starter tool**, deliberately — see the stale
+page below.
+
+**Two tests, and both were MUTATED rather than just run green:**
+
+- `TestConductDoesNotBreakItsOwnStyleRule` — the conduct bans em dashes, and **the
+  string before this change used one in the very sentence banning them**. Prompt
+  text is read by the model as an example of the behaviour it describes, so that
+  is a real defect, not a typo. Proven: re-inserting that em dash fails the test.
+- `TestConductCarriesTheBriefBuilderAndItsRestraints` — pins the second job, its
+  register-derived reason, the restraints, and fails if the old contradictory rule
+  is restored. Proven: removing the one-at-a-time clause fails it.
+
+Restored byte-identical after mutating (`cmp` + matching md5), and re-run with
+`-count=1` — the first green after the restore said `(cached)`, which is not
+evidence of anything.
+
+**NOT DEPLOYED.** It is compiled behaviour on a live customer-facing bot; the
+RUNBOOK's "Rolling the shared binary" is a separate, confirmed step. Cross-compiled
+for linux/amd64 to prove it builds (9.4 MB, `go test -count=1` green first).
+
+### A FIFTH page still sells the retired model, and the 08-18 sweep missed it
+
+Found while checking the brief-starter tool for overlap. **`/guides/tool-website-brief-starter-guide.html` is served, HTTP 200, and still says:**
+
+> *"You don't pay anything until you've seen the finished site on a private preview
+> link and approved it"* — and *"Once you agree the scope, work starts."*
+
+Both retired: payment is first, there is no approval stage and no scope-confirmation
+step. The four queued rewrites are index, what-you-get, faq, how-it-works; this page
+is `page_type='blog-post'` and was not in the sweep. It is arguably the worst one to
+leave, because it is the page explaining the intake tool — read at exactly the moment
+someone is deciding.
+
+The tool page itself (`/tools/website-brief-starter/index.html`) is **clean** —
+checked, zero occurrences of approve/preview/refund/pay/£149. Only the guide.
+
+Coverage-checked before filing (two open items already touch this page, both
+`unresolved_cta` from the internal-link-resolver on 2026-08-12, neither rewrites
+copy). Queued as **`881c95ef`**, `needs_content_page`, priority 40, same
+`owner-brief-2026-08-18` source as the other four.
