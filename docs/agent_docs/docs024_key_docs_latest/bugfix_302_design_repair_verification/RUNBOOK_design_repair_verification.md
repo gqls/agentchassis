@@ -93,3 +93,54 @@ grep -n '^\t"' platform/orchestration/actions/write_audit_findings_retraction.go
 
 ⚠ A concept-register STATUS line is a snapshot that outlives its truth (LANDMINES). WII-011 /
 WII-013 / WII-017 / WII-018 describe these rosters; read the roster.
+
+## R7 — submitting to the council gate: two things that cost a round-trip each
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/.../bugfix_302_design_repair_verification/SUBMISSION_302_unreadable_refuses_r1.json
+```
+
+⚠ **`operation` is an enum and `"create"` is NOT in it.** A new file is `"add"`; the allowed set is
+`modify|add|remove|config_change`. The trigger refuses client-side (so it costs no credits), but the
+error names only the first offending edit.
+
+⚠ **You cannot commit with a placeholder trailer.** `Council-Submitted: pending` is refused by a
+`commit-msg` hook, and it is right to: the trailer is a JOIN KEY for the `098` coverage report, a
+non-UUID resolves to nothing, and forward-only forbids fixing it with an amend. **So submit FIRST** —
+the trigger prints `SUBMISSION_CORR` in seconds — then commit with that id. Or omit the trailer
+entirely; a pre-verdict commit needs none.
+
+⚠ **Budget ~30 minutes, not ~2.** The council itself runs in 2–5 minutes; the dispatch queues behind
+the fleet. A missing `orchestration_states` row is almost always latency — do NOT retry. Find the run
+by payload, never by the printed id:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+```
+
+## R8 — proving a mutation matrix rather than performing one
+
+```bash
+run() { go test ./platform/orchestration/actions/ -run "$1" -count=1 >/tmp/out.txt 2>&1; echo $?; }
+```
+
+⚠ **Gate on the EXIT STATUS.** WII-017's own status block records two worthless attempts on this very
+file: one mutation broke the BUILD (a compile error prints `FAIL` and tests nothing), and one was
+scored with `grep '^\s+--- FAIL'`, which matches **subtests only**, so a top-level failure read as
+"mutation not caught". ⚠ **Always run an unmutated control in the same session**, and ⚠ **verify
+restoration with `diff -q` against a pre-mutation copy** rather than trusting that you undid it.
+
+## R9 — is a test failure MINE, on a tree 40 sessions share?
+
+```bash
+W=<scratch>/headtest; rm -rf "$W"; mkdir -p "$W"
+git archive HEAD | tar -x -C "$W" && cd "$W" && go test ./platform/orchestration/actions/... -count=1
+```
+
+⚠ This is the only check that settles it: `git archive HEAD` contains **no** working-tree WIP —
+neither yours nor anybody else's. A failure that reproduces there is pre-existing (possibly a red
+HEAD somebody should be told about); one that vanishes is somebody's uncommitted edit, and one that
+appears only in your tree is yours. On 2026-08-18 this separated a `discovery_checks` build break
+(another session's WIP) from `TestOnlyTheOptedInVerifierCarriesAScopeTest` (genuinely red on HEAD).

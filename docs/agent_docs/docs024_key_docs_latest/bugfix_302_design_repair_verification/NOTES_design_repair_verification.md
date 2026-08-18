@@ -408,3 +408,50 @@ two real boundaries (verifier registered 2026-07-24, `Grades` added 2026-08-10):
 **The lesson I am taking into the fix:** every figure I quote in the submission must say which
 table(s) it came from and which era it covers, because on this schema "ever" and "the last seven
 days" are different questions that look identical in SQL.
+
+---
+
+## 2026-08-18 (cont.) — BUILT. The mutation matrix, in full, with its controls
+
+Committed `743bc1945` (code + tests + WII-017 amendment + submission JSON, one pathspec commit).
+Council submitted first because the trailer gate refuses a placeholder — corr
+`edfef8cc-c42f-45f8-9b36-7578ffb56f6c`, `Council-Submitted:` trailer on the commit.
+
+**The matrix. Gated on EXIT STATUS, never on grepping for `--- FAIL`** — WII-017's own status block
+records two worthless mutation attempts, one of which broke the build (a compile error prints FAIL
+and tests nothing) and one scored by `grep '^\s+--- FAIL'`, which matches SUBtests only.
+
+| # | the exact edit | test that went RED | what the failure said |
+|---|---|---|---|
+| control | none | — | **all target tests GREEN, exit 0** |
+| M1 | delete `OnUnreadable: unreadableRefuses` from the roster entry | `TestNoChangeGatesRosterCarriesItsEvidence` | `OnUnreadable is undeclared` |
+| M2 | `if rule.OnUnreadable == unreadableRefuses` → `if false` | `TestHandlerReportedNoChange` (6 cases) | outcome = 3, want 2 |
+| M3 | default arm returns `noChangeUnreadableBlocked` | `TestHandlerReportedNoChange` | the `OnUnreadable UNDECLARED … never blocks` case |
+| M4 | delete the `handler_result_unreadable` arm of `blockedCompletionReason` | `TestBlockedCompletionReasonDistinguishesNoChange` | `reason code = "verification_failed"` |
+| M5 | route `noChangeUnreadableBlocked` to the abstain path | `TestVerifyBeforeComplete_UnreadableRefusesBlocks` | `mayComplete = true on an unreadable payload` |
+| M6 | remove the `!opted` early return | `TestVerifyBeforeComplete_UnregisteredTypeCompletes` | `never opted in` |
+
+**M4 is the one worth reading twice.** With the fifth arm gone the code does not error — it falls
+through to the default and reports `verification_failed`, i.e. *"post-fix verification found the
+defect still present"*. **That is a finding no gate made**, handed to an operator as if a verifier
+had made it. It is the exact defect `blockedCompletionReason`'s own comment says the function exists
+to prevent, and it would have been invisible without a distinctness assertion.
+
+**Restoration verified, not assumed:** `diff -q` against pre-mutation copies of both files →
+`BOTH IDENTICAL`, then a final control run at exit 0.
+
+### The full-suite result, and why two failures are NOT mine
+
+`go test ./platform/orchestration/actions/...` on the working tree gives two failures. Settled the
+only way that settles it on a shared tree — `git archive HEAD | tar -x` into a scratch dir and run
+there, so no session's WIP is involved:
+
+| failure | at clean HEAD | verdict |
+|---|---|---|
+| `discovery_checks` build break, `undefined: truncationTagPairs` | **passes** | another session's uncommitted WIP |
+| `TestOnlyTheOptedInVerifierCarriesAScopeTest` | **FAILS** | **red on HEAD already**, from `c121d5a73` (08-18 17:55, the bug-131 lane) |
+
+Neither is this change's. The second means **HEAD is red right now** — a guard refusing
+`needs_brand_head_assets`'s new scope test until somebody supplies the producer measurement. Told
+that lane directly (they are live and busy), with the archive-inclusive query it needs; not acted on,
+not claimed. My own target files were clean throughout, re-checked immediately before each edit.
