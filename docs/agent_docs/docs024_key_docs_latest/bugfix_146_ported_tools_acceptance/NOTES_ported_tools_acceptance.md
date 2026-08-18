@@ -265,3 +265,15 @@ approved. Verdict READ in full this session — this section is the record of th
   shape is the workaround. Expected outcome: mobile-fit FAILS (page still overflowed at
   the live URL 08-17) → the new arm files
   `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:6b49db8e…`. Monitor armed.
+
+## 2026-08-18 (later) — induction queued behind 131 items; priority bumped on my own item
+
+First monitor window (40 min) expired with `cc37a4d7` still `triaged`, unclaimed. Not a
+defect — queue physics: 131 triaged build items sat AHEAD of it (dispatch is ASCENDING
+priority, 5/tick; 96 of the 131 are `page_rerender` at priority 80, which other lanes
+refill), drain measured at ~1 claim/min, so a priority-90 item could starve for hours.
+Bumped MY OWN induction item to priority 20 (behind only 2 items) — a dispatch-order
+hint on a row this lane created, not a semantic change; the run itself is identical.
+Monitor re-armed. If the SECOND window also expires unclaimed, stop assuming and read
+the dispatcher: the ai-endpoint health gate (`claim_work_item_action.go` ~:218,
+LANDMINES `ai_endpoint_health`) can hold ALL claims while endpoints read unhealthy.
