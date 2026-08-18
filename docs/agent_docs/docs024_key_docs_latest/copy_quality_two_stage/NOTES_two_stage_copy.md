@@ -1683,3 +1683,25 @@ run-3 proposal is PARKED and unapplied** (`d2378b77`, `needs_human_review`) — 
 the owner has not seen it. It is a better test of the review step than the proof case was,
 because the edits DELETE live copy, which is the class of change a human should want to see
 before it lands.
+
+### 2026-08-18 (later) — a THIRD gate hole, found while preparing the owner's review
+
+Reading run 3's edits closely enough to describe them, edit 2 removes a plain-text
+`/adoption-tracker.html` from `departments-grid.section_intro`. **The gate saw nothing
+either way** — its link check reads `href="…"` attributes, and a URL written as prose has
+no attribute to read. I established by hand that the path survives in `system-stats`
+(2 mentions page-wide, both in components this proposal touches), which is precisely the
+check that should not be by hand: had both gone, the gate would have passed a page that
+lost its only pointer to that resource.
+
+Fixed on the same page-scoped standard as volume: **a pointer may leave a FIELD if the
+reader can still reach it from the page; it may not leave the PAGE.** Field-scoped
+strictness would fail de-duplication, which is the job.
+
+⚠ **And the live control PASSED, which proved nothing.** On this page the URL legitimately
+survives elsewhere, so the real-data control exercises only the OK arm. A branch I have not
+seen fail is not a proven branch — so the FAIL arm is exercised directly instead (prose URLs
+are seen; markup-only ones are not double-counted; a page-wide loss is distinguished from a
+field-level move). Three holes in this gate now, all three found by USING it on something
+harder rather than by reading it, and all three of the same family: **it reported "checked"
+for a thing it had not looked at.**
