@@ -276,8 +276,25 @@ close them is to fix the page and let the site's render audit run, **not** to pr
 last rendered **2026-04-13**, so `rerender_page_sections` has nothing to rebuild from — this page
 is the reason "just re-render everything" was never going to be enough.
 
-✅ **`pricing` is `rebuild_policy='generic'`, so the rebuild will not be refused** — checked
-2026-08-18. ⚠ **Six pages on this site are `owned` (5 `deployed`, 1 `needs_rebuild`) and WILL
+> ⚠ **CORRECTED 2026-08-18 evening: THE REBUILD WAS ALREADY DISPATCHED AND IT WAS REFUSED.**
+> Item `889a0687-cc0a-4f5e-8693-9ee6ca98751a`, filed by `page-rerender` **2026-08-17 20:28Z**,
+> handler `page-build-handler` — `status='failed'`:
+> *"SECTION SHRINK REFUSED for page "pricing" — call-to-action 483→213 chars of VISIBLE text
+> (44% kept, floor 50%) … Nothing was written."*
+> So "not yet dispatched" is wrong, and the `generic` check below answered the **wrong gate**:
+> `rebuild_policy` governs overwrite permission, while this refusal came from the **shrink floor**.
+> A green answer to one gate is not a green answer to the one that fired. The guard is not
+> misfiring — the regenerated CTA really is 56% shorter. **This is now an owner decision** (accept
+> the shorter copy by setting `section_shrink_floor`, or find out why it shrank first), not a
+> next step. See `NOTES_site_improvement.md`, 2026-08-18 evening.
+>
+> ⚠ **And `082_submit_domain_unified.sh` is WHOLE-SITE, not page-scoped** — research → strategy →
+> briefing → site plan → design cascade → every page. On this 40-page live site it would
+> regenerate the `index`/`about` copy just fixed. The page-scoped route (`needs_page` →
+> `page-build-handler`) is the one that was already tried.
+
+~~✅ **`pricing` is `rebuild_policy='generic'`, so the rebuild will not be refused** — checked
+2026-08-18.~~ (True that it is `generic`; wrong that this means it will not be refused.) ⚠ **Six pages on this site are `owned` (5 `deployed`, 1 `needs_rebuild`) and WILL
 refuse.** That refusal is real and currently biting other sites: every `page_rerender` failure
 fleet-wide created after 2026-08-17 16:12Z is a content-gating refusal, not a timeout —
 `save_page_sections: overwrite: REFUSED`, `page <x> is rebuild_policy=…`, `claims floor blocked:

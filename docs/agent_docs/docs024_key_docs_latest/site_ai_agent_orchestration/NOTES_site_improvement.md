@@ -709,3 +709,55 @@ up the tokens whenever they next re-render, and the simulation says that is safe
 ⚠ **This lane's remaining contrast work is now ONLY `pricing`, and no re-render can touch it.**
 8 failures, 5/5 components with NULL `content_data`, last rendered 2026-04-13. It closes via the
 owner-approved framework rebuild (§3c) or not at all.
+
+### ⚠ The `pricing` rebuild is NOT "approved and unblocked" — it was DISPATCHED and REFUSED
+
+The handoff's §3c says `pricing` is *"owner approved 2026-08-17, **not yet dispatched**"* and
+*"✅ `pricing` is `rebuild_policy='generic'`, **so the rebuild will not be refused**"*. Both halves
+are wrong, and the evidence predates the handoff by ~16 hours.
+
+**A page-scoped rebuild was already filed and it FAILED**, item
+`889a0687-cc0a-4f5e-8693-9ee6ca98751a`, filed by `page-rerender` at **2026-08-17 20:28:00Z**,
+handler `page-build-handler`, `spec.reason='content_data_backfill'`, `attempt_count=1/3`:
+
+```
+step save_sections failed: failed to execute action save_page_sections:
+save_page_sections: SECTION SHRINK REFUSED for page "pricing" —
+call-to-action 483→213 chars of VISIBLE text, stylesheet and script content excluded
+(44% kept, floor 50%). A same-named prose slot may not lose more than 50% of the text a
+READER sees in one save; if this shrink is intended, set section_shrink_floor in the step
+config. Nothing was written (bugs_open/178, axis corrected by bugs_open/293).
+```
+
+**The `generic` check was true but answered the wrong question.** `rebuild_policy` gates
+*overwrite permission*; this refusal came from the **shrink floor**, a different guard entirely.
+Confirming a page is not `owned` therefore predicts nothing about whether its rebuild will be
+refused — and reading "✅ will not be refused" is how a session skips looking for the refusal that
+already happened. **A green answer to one gate is not a green answer to the gate that fired.**
+
+**The page's state is otherwise exactly as documented**: 5/5 components `content_data IS NULL`,
+`rendered_html` last written 2026-04-09/13, `rebuild_policy='generic'`, `status='active'`. So it
+still cannot re-render, and the 8 remaining firm failures still close only via a rebuild.
+
+**Why this is a decision, not a next step.** The guard is not misfiring: the regenerated
+call-to-action really is 56% shorter than the one on the page, and the floor exists for the failure
+class where an agent rewrites a whole artefact and persists a fragment while reporting success
+(`bugs_open/012`, and CLAUDE.md's own `output_tokens == max_tokens` rule). Three routes, and they
+are not equivalent:
+
+1. **Set `section_shrink_floor`** in the step config and re-file the page-scoped rebuild. Cheapest,
+   page-scoped — but it is *turning down a safety control* to let a known-shorter rewrite land.
+   Whether that is right depends on whether the shorter CTA is acceptable copy, which is an
+   owner-facing judgement about the live page, not a technical one.
+2. **Find out why the regeneration is so much shorter first.** The floor may be reporting a real
+   content loss rather than a stylistic one. Nothing has been written, so there is no damage yet
+   and no time pressure.
+3. **`082_submit_domain_unified.sh`** — the route §3c names. ⚠ **This is WHOLE-SITE, not
+   page-scoped**: `needs_domain_research → strategy → briefing → site plan → design cascade →
+   needs_content_page × N → rerender`. On a live 40-page site it regenerates everything, including
+   the `index` and `about` copy whose contrast was just fixed and verified, and re-runs the design
+   cascade. It is the correct tool for adopting or building a domain; it is a very large hammer for
+   one broken page, and the owner's approval was for *"the pricing rebuild"*.
+
+**NOT ACTED ON.** Recorded and put to the owner. Nothing is queued, nothing is at risk, and the
+page has been in this state since April.
