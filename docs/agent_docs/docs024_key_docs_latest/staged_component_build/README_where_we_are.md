@@ -1887,3 +1887,15 @@ it — the population where a wrong guess would genuinely land somewhere is smal
 specific than I said, and the chat message names it precisely. The remaining decision — when
 and in what form to switch on "refuse rather than guess" — is re-presented there with a
 recommended order.
+
+**2026-08-18, late — you chose the sequenced path, and it is now written down as the plan of
+record.** In order: the efficiency fix ships and we re-read the recorder; the two small
+safety fixes from the new bug file (write down the tie-break rule the code already follows,
+and remove the last remaining lucky-dip); then switch off the safety net for the three page
+values only — never the business values — with the one affected agent given its one-line
+settings fix first; then repair the handful of places that genuinely store the same page in
+two shapes, at the source; and only then turn on "refuse rather than guess", which by that
+point should have almost nothing left to refuse — which is exactly the state we want it
+armed in, as a permanent guarantee rather than a cleanup. Each step waits on evidence from
+the recorder, not on a calendar. The full path is in the handoff as a table a fresh session
+can execute.

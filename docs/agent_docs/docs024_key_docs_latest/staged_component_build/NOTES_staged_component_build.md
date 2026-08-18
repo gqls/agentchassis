@@ -4902,3 +4902,13 @@ population is still real and still guarded only by the undeclared tie-break (306
 unchanged), but the "live exposure" framing for page-build-handler specifically is
 **[INFERRED] from the agent's function, not from a named reader** — the Phase 2
 re-presentation to the owner says so.
+
+## 2026-08-18 (late) — Phase 2 RULED: sequence A, with the closing flip kept
+
+Owner, verbatim intent: "I choose your recommendation A with the recommendation" — i.e.
+sequence A INCLUDING the note that the final conflicts→refusal flip happens even if step 4
+leaves a near-empty population, because it converts the instrument into a guarantee for future
+pipelines. Recorded as **RFC_029 §10.13** (which supersedes §9 D2's original precondition —
+that predates the four-mechanism split); handoff 18b §3 rewritten as the working table.
+Council verdict on the prune (`ae0dfb93`) still pending at time of writing — a watcher is
+armed; the next session reads it per the handoff checklist regardless.
