@@ -1638,10 +1638,17 @@ func componentInfoFromRaw(comp map[string]interface{}, callerCtx string, logger 
 	if !componentTemplateValid(htmlTpl, level) {
 		name, _ := comp["name"].(string)
 		function, _ := comp["function"].(string)
-		logger.Warn(callerCtx+": component template truncated, skipping",
+		// The MEASURED signals ride the log line (council 70cf0da5 round 2,
+		// bug_historian advisory: a load-time drop must be diagnosable from
+		// the evidence trail, not just visible). The durable detector for
+		// this class is the truncated_component discovery sweep, which files
+		// the human-review work item; this Warn is the load-time echo.
+		logger.Warn(callerCtx+": component template structurally incomplete, skipping (falls back to stored HTML; the truncated_component sweep owns the durable finding)",
 			zap.String("function", function),
 			zap.String("name", name),
-			zap.String("component_level", level))
+			zap.String("component_level", level),
+			zap.Strings("unbalanced_markup_context", content.UnbalancedStructuralTags(htmlTpl)),
+			zap.Bool("ends_cleanly", endsCleanly(htmlTpl)))
 		return componentInfo{}, false
 	}
 
