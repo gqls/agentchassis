@@ -134,3 +134,35 @@
   with a plain link list. Its pc still points at the phantom component, so a
   regeneration would re-enter the broken path — the birth gate (once live)
   refuses that, and the other lane's candidate-1 migration retires it properly.
+
+## 2026-08-18 close — round 2 APPROVED (4 advisories, none high; 5 abstained)
+
+Verdict read in full. Commits already carry `Council-Submitted: fdb032c6` and are
+credited automatically by 098. Advisory triage, each answered or routed:
+
+1. **guardian (medium): enumerate dispatchers of store_generated_component.**
+   MEASURED: exactly ONE active agent_definition names it — `component-creator`.
+   One pipeline, whose failure path has handled pre-store refusals since checks
+   1–4 existed. Blast radius of the new refusal = that one lane.
+2. **bug_historian (medium): enumerate OTHER writers of content_components
+   input_schema.** MEASURED: 14 Go files INSERT/UPDATE content_components; only
+   TWO touch input_schema — the gated store action, and deploy_tool_action.go
+   whose write is `SELECT … input_schema … FROM content_components WHERE id=$3`
+   — a verbatim COPY of an existing row (propagation, cannot introduce a new
+   phantom). Introduction paths = generated route (gated) + hand SQL
+   (LANDMINES entry; CLC-015-style table check is the escalation).
+3. **bug_historian (medium): fail-open still STORES the component.** True and
+   deliberate (availability over strictness for a transient read error), now
+   with the durable row. If SOURCE_GUARD_ASPECT_SET_UNAVAILABLE ever shows a
+   sustained streak, flip the default — one-line change, recorded here.
+4. **bug_historian (low): does component-creator swallow the refusal?** NOT
+   verified this round — routed as the lane's open follow-up (check the 017
+   unhandled-error shape against a live rejection once the guard rolls).
+5. **editquality (medium): second wiring test asserts INSERT happens, not row
+   content.** Fair; tightening = WithArgs/content match on the finding INSERT.
+   Advisory, not done tonight — noted as test-debt.
+6. **debug_historian (medium): my stated deploy check led with the provenance
+   LOG line, which SCROLLS on agent-chassis.** Corrected in CLC-018's
+   verify-later: binary probe with present+absent controls is the primary.
+7. **architecture/reuse (low): five bespoke Layer-1 guards, consolidation owed.**
+   Already in CLC-018 relations as the known refactor direction.
