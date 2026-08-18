@@ -126,3 +126,11 @@
   registered-but-empty class per the RFC_009 owner ruling.
 - Round 2 resubmitted on the SAME correlation (RESUBMIT_CORR=fdb032c6),
   submission JSON: COUNCIL_RESUBMISSION_2026-08-18_r2.json.
+
+- `[VERIFIED 2026-08-18 ~20:30 local]` closing the earlier [UNVERIFIED]:
+  leopardessconsulting.co.uk/blog.html serves 200 with **0 bl-cards and 11
+  working hrefs in <main>** — matching its stored rendered_html. The second
+  consumer is NOT visibly broken live; some earlier writer replaced its listing
+  with a plain link list. Its pc still points at the phantom component, so a
+  regeneration would re-enter the broken path — the birth gate (once live)
+  refuses that, and the other lane's candidate-1 migration retires it properly.
