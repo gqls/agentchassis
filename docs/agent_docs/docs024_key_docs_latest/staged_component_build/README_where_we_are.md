@@ -1760,3 +1760,50 @@ success report.
 There is a new milestone summary in the lane folder
 (`SUMMARY_2026-08-18_the_instrument_caught_its_first_real_bug.md`) — the first one for this
 thread of work, written to be read aloud if you want to describe it to someone.
+
+**2026-08-18, later — I picked up the handoff and the next job turned out to be mostly wrong,
+which is good news caught at the cheapest possible moment.**
+
+Some background first, in plain terms, because the decisions below only make sense with it. When
+one part of the system hands work to another, it has to find the values to pass along — a page,
+an item number, a domain. The tidy way is that the instruction says exactly where to look. The
+untidy way, which this platform has always had as a fallback, is a search: rummage through
+everything collected so far for anything with the right name and take what you find. That search
+is the thing we have spent the last fortnight fencing in, because when it finds two different
+answers it used to pick one at random, and twice that put the wrong page's content on a page.
+
+Since Sunday we have had a recorder running that writes down every time the search finds two
+answers that disagree. It has written about seven and a half thousand of those notes in two days.
+The handoff I picked up said we now knew why, and specified the fix: the system was searching even
+for values it had already been told exactly where to find, and then throwing the search's answer
+away. Stop searching for those, and the noise mostly goes.
+
+**The reasoning was sound and the evidence pointer underneath it was wrong.** The handoff cited a
+particular line of code as proof that skipping the search was safe. I opened it before building
+anything. It is a different function from the one described — the real one is three hundred lines
+further down, and it does more than claimed: it searches for three extra values *whether anybody
+asked for them or not*, and one of those, the current page, is **seventy-two per cent of all the
+notes we have collected**. So the specified fix cannot touch the majority of the problem, because
+that search never consults the list the fix would prune.
+
+Worse, it flips the reassuring half of the conclusion. The handoff argued the recorder was
+over-counting: if the answer gets thrown away, a bad search result harms nothing. That is true for
+the smaller class. For the big class it is the opposite — nothing else supplies the current page,
+so the guessed answer is not thrown away, it is used. **Those notes are not noise. They are the
+system guessing which page it is working on, thousands of times a day.**
+
+Nothing has been built and nothing has been shipped. The correction is written up where the wrong
+claim lives, and logged in the fleet-wide wrong-calls file. What I need from you is below, in the
+chat — four choices, and one of them (whether those disagreements are actually different pages, or
+just the same page in two shapes) decides whether this is a tidying job or a live bug.
+
+One more thing, and it corrects my own note from this morning. I told you fourteen of twenty-six
+asset deployments failed and called it a fifty-four per cent failure rate nobody was watching.
+That was a window sampled inside an outage. Read across the whole fleet it is a two-hour-forty-
+three-minute event yesterday afternoon, a repository lookup failing, about eight hundred and
+fifteen failed steps across ten different parts of the system and nine sites — and **nothing since
+four o'clock yesterday**. So it is not a standing rate and not an asset-deployment problem. But it
+did leave **a hundred pieces of work marked failed, eighty-one of them page re-renders, and they
+are still sitting there twenty-one hours later** with nothing having picked them up. That is the
+part worth a decision, not the outage itself. I made the same mistake this morning that I spent
+the morning correcting — a number taken from too narrow a window and reported as a rate.
