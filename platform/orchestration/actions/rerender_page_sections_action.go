@@ -855,6 +855,16 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 	// "+440…" it refuses stays RAW for a human (check_cta_nonpage files it).
 	// The title is COMPUTED so the content writer can write copy FOR the
 	// destination instead of inventing one (bugs_open/299's mechanism).
+	//
+	// ⚠ THE ORDER IS LOAD-BEARING: this branch is reachable only because
+	// keep #2's predicate requires validPages.Contains, which every non-page
+	// url fails. "Tidying" keep #2 into a broader keep (dropping the
+	// validPages test) would silently swallow these cases — kept, but never
+	// normalised and never titled. The tripwire is the WRITE expectation in
+	// resolve_internal_links_nonpage_test.go's applyCTARecompute cases: a
+	// swallowed tel: leaves resolved empty and they fail. If one fails after
+	// an edit to keep #2, the fix is keep #2, not the test. Sibling seam:
+	// LNK-033's asymmetry pin (TestFreshPickRefusesUtilityWhileStoredUtilityIsKept).
 	if hasCurrent && datahelpers.IsAuthoredNonPageCTADestination(current) {
 		kept := current
 		if norm, ok := datahelpers.NormalizeTelHref(current); ok {

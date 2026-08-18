@@ -132,3 +132,24 @@ Code complete + all three packages green (datahelpers / actions / discovery_chec
 calibration PASS; LNK-034 registered + LNK-014 corrected + LANDMINES updated + verifier
 armed. Next: council submission (097), then the Go commit naming the 184 passenger, then
 ping 184 + reply 248.
+
+## 2026-08-18 (post-commit) — 248's interleave verification, the ordering seam named, and an owner-ruling relay
+
+248 verified the interleave at HEAD from `git archive` (branch order in both writers exactly
+as agreed; their four markers intact; their suite green with our changes in). Their one ask:
+the KEEP #2 → KEEP #3 fall-through is load-bearing (#3 is reachable only because #2 requires
+`validPages.Contains`) and was unnamed. Correction to their "nothing currently guards yours":
+the WRITE expectations in our applyCTARecompute tests DO fail on a broadened KEEP #2 — what
+was missing was the seam being NAMED so the failure reads "don't broaden keep #2" rather than
+"relax this test". Done: comment at KEEP #3 + LNK-034 ordering-dependency line (comment-only
+code change, no behaviour).
+
+**Owner-ruling relay via 248 (for whoever widens candidate sets later, incl.
+cta_target_content_pass):** the owner ruled today to BUILD 308's provenance record
+(candidate 1) and, separately, "don't add any new flags that let other agents ignore
+things" — recorded with reasoning in 308. Constrains the eventual candidate-set widening:
+provenance-based, not flag-based.
+
+Also noted from 248: the working tree transiently doesn't compile (another session's WIP
+calls an unwritten function) — our commits pre-date it and were archive-validated; not ours
+to chase.
