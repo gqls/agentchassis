@@ -1,5 +1,19 @@
 # HANDOFF 2026-08-18 — the new commercial terms are LIVE and proven at the bot; the ONE open thread is placing the chat box on the home page — SUPERSEDES HANDOFF_2026-08-17
 
+> **⚠ §2's OPEN THREAD IS CLOSED (2026-08-18 ~10:37Z, recorded by the
+> site_delivery_and_editor session at the owner's direction — full record in
+> NOTES, two dated 2026-08-18 entries).** The chat box IS on the served index
+> and the payment-first/ZIP terms ARE live on preview.webdesign.uk (run
+> `ea12d8c9`, verified at the served page, old copy gone). The blocker hunt
+> recipe below is STALE: validation issues are now PERSISTED
+> (`agent_error_log.error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`, live on
+> v1.0.1308) — query the table, don't grep pods. The 09:57Z failure was
+> `unregistered_stat` ("1 day" vs a build_duration fact with no numeric
+> value); fixed by `SQL_2026-08-18_attest_build_duration_numeric.sql` (this
+> dir). Still open for this lane: the two flags in the NOTES 10:37Z entry
+> (no-refunds sentence gone from served index; index `rebuild_policy` check),
+> plus §3's owner decisions and §4's prompt-maker TODO.
+
 **Start here cold.** Read order: this file → `DECISION_2026-08-17_reasons_for_the_no_refund_position.md`
 (the owner's decisions + the lead he still owes) → `TERMS_2026-08-17_new_commercial_position_impact.md`
 → NOTES 2026-08-17 (night) → `bugs_open/299`.
