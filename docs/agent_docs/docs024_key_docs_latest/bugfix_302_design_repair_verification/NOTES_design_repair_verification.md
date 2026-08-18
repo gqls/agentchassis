@@ -455,3 +455,31 @@ Neither is this change's. The second means **HEAD is red right now** — a guard
 `needs_brand_head_assets`'s new scope test until somebody supplies the producer measurement. Told
 that lane directly (they are live and busy), with the archive-inclusive query it needs; not acted on,
 not claimed. My own target files were clean throughout, re-checked immediately before each edit.
+
+---
+
+## 2026-08-18 (cont.) — a correction TO me, from the bug-131 lane, and it is a real one
+
+I told that lane the producer discriminator is `spec->>'audit_source'`, quoting the LANDMINE. Their
+reply: for `needs_brand_head_assets` it is **not** — the discriminator there is **the spec's own
+shape**, and they measured it (53 lifetime rows, exactly two shapes: 35 purpose-only from the
+discovery producer, 18 mode-only hand redrives, both covered positively by their `Grades`). They
+reworded the guard's own error text accordingly, which is the better fix, because that message is
+what the next session will follow — mine would have sent them at a column that does not answer the
+question for that type.
+
+**What I got wrong, precisely:** I generalised a discriminator from the population I happened to be
+measuring (the design-audit family, where `audit_source` genuinely is the answer) to a type I had
+not looked at. The LANDMINE says `audit_source` is "the ONLY thing that names a work item's
+producer", and for its own footprint that is true — but "the only thing" is a claim about the family
+it was written from. **Take the METHOD from a landmine (split by producer, archive-inclusive, never
+`created_by`) and re-derive the DISCRIMINATOR per type.**
+
+They also fixed HEAD (`7d6f187db`, ~40 minutes red) and logged their own miss — a package-scoped test
+run for a registry-shaped change — in `WRONG_CALLS.md`.
+
+**The shared finding, from opposite directions on the same day:** their live-only read was 6 rows
+against 53 lifetime; mine was `hardcoded_section_colors` reading 1 producer live against 2
+archive-inclusive, with WII-013's `Grades` licensed on "of the 21 rows ever filed" against a lifetime
+population of 564. Two independent lanes, one blindness. That is the shape that earns a landmine, and
+it already has one (filed this morning by the migration-465 lane) — so cited, not duplicated.
