@@ -3184,18 +3184,11 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 	// Increment retry version
 	awaited.RetryVersion++
 
-	// Use original timeout duration, not hardcoded 60s
-	// Calculate from the original TimeoutAt - SentAt if available
-	originalDuration := awaited.TimeoutAt.Sub(awaited.SentAt)
-	newTimeout := originalDuration
-	if newTimeout <= 0 || newTimeout > 30*time.Minute {
-		// Fallback to reasonable default if calculation fails
-		newTimeout = 3 * time.Minute
-	}
-	// For retries, cap at 5 minutes to avoid very long waits
-	if newTimeout > 5*time.Minute {
-		newTimeout = 5 * time.Minute
-	}
+	// A retry waits the window the STEP DECLARED, not a recomputed one
+	// (bugs_open/029). See retryWindow — the block that stood here capped every
+	// retry at 5 minutes, and dropped to 3 minutes for any step declaring more
+	// than 30, so the longer a step declared the LESS it was given.
+	newTimeout := retryWindow(state, awaited, s.logger)
 
 	awaited.SentAt = time.Now()
 	awaited.TimeoutAt = time.Now().Add(newTimeout)
@@ -4208,6 +4201,62 @@ func getTargetAgentType(step models.Step, result map[string]interface{}) string 
 		return agentType
 	}
 	return "unknown"
+}
+
+// retryWindow returns how long a REPLAYED request is waited for.
+//
+// The step's DECLARED timeout is authoritative (bugs_open/029). The block this
+// replaced derived the window from the row instead —
+//
+//	originalDuration := awaited.TimeoutAt.Sub(awaited.SentAt)
+//	if originalDuration > 30*time.Minute { newTimeout = 3 * time.Minute }
+//	if newTimeout > 5*time.Minute       { newTimeout = 5 * time.Minute }
+//
+// — which had three defects, all measured live on 2026-08-18:
+//
+//  1. It INVERTED the declaration. A step asking for more than 30 minutes was
+//     given THREE; everything else was capped at FIVE. The longer you declared,
+//     the less you got. 33 live steps across 25 agent types declare more than
+//     300s (600 … 86400, the largest being a human-approval step that would have
+//     been given three minutes for a person to answer).
+//  2. The row is a poisoned source anyway: UpdateAwaitedRequestRetry resets
+//     sent_at on every retry, so TimeoutAt-SentAt reports the PREVIOUS retry's
+//     window, not the declared one. From retry 2 onward it is self-referential.
+//  3. The truncation manufactured premature exhaustion. build-dispatch-loop's
+//     COMPLETED runs exceed 5 minutes 25.5% of the time but its declared 15
+//     minutes only 5.9%; page-build-handler, 17.6% against 0.5%. So the cap
+//     turned a retry that would usually have succeeded into one that usually
+//     failed — at BOTH levels of the call tree, since the loop's own
+//     iter_N_call_handler awaits are truncated the same way and abandon real
+//     page work when they exhaust.
+//
+// Loop-expanded steps resolve here: the stored plan carries the suffixed keys
+// (process_item_iter_1_call_handler et al) with their config intact, which is
+// exactly the population the bug was measured on. ConvertStepTimeout is required
+// because the expanded steps carry config.timeout_seconds with the `timeout`
+// field empty.
+//
+// Falls back to the row only when the plan no longer carries the step, and never
+// below the system default — a shorter-than-default retry is the defect above in
+// miniature.
+func retryWindow(state *OrchestrationState, awaited *AwaitedRequest, logger *zap.Logger) time.Duration {
+	systemDefault := time.Duration(datahelpers.DefaultRequestTimeout) * time.Second
+
+	if state != nil && awaited != nil {
+		if step, ok := state.WorkflowPlan.Steps[awaited.StepName]; ok {
+			datahelpers.ConvertStepTimeout(&step, logger)
+			if d := datahelpers.GetStepTimeout(step); d > 0 {
+				return d
+			}
+		}
+	}
+
+	if awaited != nil {
+		if d := awaited.TimeoutAt.Sub(awaited.SentAt); d > systemDefault {
+			return d
+		}
+	}
+	return systemDefault
 }
 
 func getTimeout(step models.Step) time.Duration {
