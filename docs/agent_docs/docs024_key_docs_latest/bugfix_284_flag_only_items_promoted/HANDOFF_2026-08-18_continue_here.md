@@ -135,3 +135,90 @@ go test ./cmd/config-key-audit/                     # the parity guard nobody ru
 > The habit that would have prevented it is CLAUDE.md's own: *read before write on any
 > file you did not create, and prefer a tool that refuses an unread file over a redirect
 > that does not*. Logged in WRONG_CALLS.
+
+---
+
+# ADDENDUM — 2026-08-18, later: four owner-directed tasks, and one premise that did not survive measurement
+
+Chassis at this point: **`v1.0.1309`**, revision `f0117fb8b93e…`, digest-matched, probe
+discriminating (new revision PRESENT, previous `a6d1c53c` absent, fake sha absent).
+Everything this thread built is an ancestor of it. Nothing of ours awaits a roll.
+
+## A. Contributed to `bugs_open/083` — narrow, because the lane already had it
+
+`placeholder_contact → page-build-handler` was already in 083 §3, measured better than
+mine (3 held, 0/6 lifetime, with their own correction for pruned rows). So I added only
+the two things that were NOT there, both of which bear on whether to canary the pair:
+
+1. **The handler is healthy — the failure is TYPE-specific.** Same handler:
+   `needs_page` 179/317, `content_rewrite` 133/277, `needs_content_page` 84/149,
+   `tone_shift` 3/4. "Never completed one" does not distinguish a broken handler from a
+   broken pair; this does.
+2. **3 of the 4 surviving failures are one afternoon's dead AI endpoint** (all
+   2026-08-14, identical `execute_llm_prompt: AI end…` error), 1 is a section-shrink
+   guard, and **6 `unresolved` rows carry an EMPTY error column** — the silent class,
+   and the part I would look at first. ⚠ Marked in the file: the live table holds 4
+   failed rows against their lifetime 6, so 2 are pruned and uncharacterised.
+
+**Not done, deliberately:** no rows touched, no canary run. §4's one-way door is the
+`453`/083 author's call.
+
+## B. The "duplicate guides" — THE PREMISE WAS WRONG, so nothing was cleaned up
+
+The owner asked me to investigate on the basis that three tools had two guides each and
+that duplication was unintended. **They are not duplicates.** Each pair is two DIFFERENT
+articles about the same tool — a usage guide and a conceptual/decision guide:
+
+| tool | `/blog/…` | `/guides/tool-…` |
+|---|---|---|
+| Automation Savings Estimator | "How to Use the Automation Savings Estimator" | "How the AI Automation Time Savings Estimator Works" |
+| Model Approach Selector | "How the Model Approach Selector weighs fine-tuning, RAG…" | "Prompting, RAG, or fine-tuning: a decision guide…" |
+
+**Archiving either would have destroyed real content, not removed a copy** — so I filed
+no de-duplication work despite being asked to clean it up. Inventory 2026-08-18: 7 active
+guides (4 `/blog/`, 3 `/guides/`) + 1 archived (`ai-readiness-checker-guide`, whose live
+sibling is the `/guides/` one). **What remains is a content-strategy question for the
+owner** — does the site want two pieces per tool? — not a defect, and it is NOT filed as one.
+
+## C. The index → filed as `bugs_open/309`, and it is bigger than "it omits the guides"
+
+The index does NOT omit them. It lists them and renders them **unclickable**:
+**6 `<article class="bl-card">` cards, ZERO `<a>` elements in any of them.** Five are the
+guides; the sixth is an ordinary blog post, so this is the whole index, not a guide
+problem. Nothing anywhere on the site links a guide — checked `/`,
+`/platform-log/index.html`, `/tools.html`, `/capabilities.html`.
+
+- **Control that makes it a real finding:** `mortgagecalculator.co.uk/investor/index.html`
+  renders 6 cards with **6** anchors. The component is capable; this page's render is not.
+- **A second defect behind the first:** card 4 advertises `ai-readiness-checker-guide`,
+  which is **archived** — restoring anchors alone would give that card a 404.
+- **Root cause NOT diagnosed.** `090` fired: correlation
+  **`df8ca3a1-9cca-474a-88fb-19577e088080`** (queue was empty; no prior bug mentions
+  `bl-card` or unlinked cards). **A verdict should be waiting for the next session —
+  read it first:** `SELECT body FROM diagnosis_artifacts WHERE
+  correlation_id='df8ca3a1-9cca-474a-88fb-19577e088080' ORDER BY created_at;`
+- ⚠ **Measurement correction recorded in the bug file:** a first pass on one truncated
+  card string reported "1 anchor". Re-running over all six returned 0 each. A regex over
+  a `[:900]` slice is not a measurement of the card.
+
+## D. RFC_022's parity guard now runs at commit time
+
+`scripts/check-optional-key-parity.sh`, wired as step 4 of `.githooks/pre-commit`.
+**Scoped** (fires only when the staged diff touches the cron literal, the acks file, or a
+Go file declaring an `ActionInputSpec`) and **advisory** (only `check-secrets.sh` may
+block). A **build failure is deliberately not reported as drift** — this tree often does
+not compile because of another session's WIP, and "I could not tell" must not read as "it
+has drifted". Tested both ways: silent on irrelevant files; on the exact defect that was
+live (`publish_site` removed) it names the action and the re-apply step. The
+build-failure branch is written but was NOT exercised.
+
+## What is open after this addendum
+
+1. **`bugs_open/309`** — read the `090` verdict (`df8ca3a1`), then fix the unclickable
+   index. Verify at the SERVED page; card 4 must point at the live `/guides/` sibling.
+2. **Owner content-strategy question** — two articles per tool: keep both, merge, or
+   retire one? Nothing is filed either way.
+3. **`bugs_open/083`** — the canary decision on `placeholder_contact` is that lane's,
+   now better informed.
+4. **Still true from the main handoff:** the scheduled promoter has never written through
+   CHECK `443` (compatible by construction and a clean run, not by an observed promotion).
