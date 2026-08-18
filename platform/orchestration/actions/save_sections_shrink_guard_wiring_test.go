@@ -359,3 +359,39 @@ func TestEnforcePageTotalTextFloor_FailsClosedWhenItCannotMeasure(t *testing.T) 
 			"and 'lower the floor' is the wrong remedy for a query that errored. Got: %v", err)
 	}
 }
+
+// MUT-293-J: delete the `if floor > 0.95 { floor = 0.95 }` clamp from
+// enforcePageTotalTextFloor. This test must then FAIL.
+//
+// The clamp was found missing by USING it: proving this floor fires at the artefact
+// (2026-08-18, v1.0.1309) needed a floor above 1.0, so that a payload of the page's
+// own sections byte-for-byte would be refused — which made the induction safe in
+// both branches and simultaneously exposed the gap. A floor above 1 demands that a
+// save GROW, so a typo of `1.5` refuses every save on that step, silently and for
+// ever; and on this path a refusal fails the step, which can strand a whole build
+// loop. Both siblings clamp, and this one did not.
+func TestEnforcePageTotalTextFloor_AbsurdFloorIsClampedNotRefuseEverything(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	page := `<section class="s"><p>` + strings.Repeat("word ", 200) + `</p></section>`
+	mock.ExpectQuery("SELECT rendered_html").
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(page))
+
+	params := shrinkGuardTestParams(db)
+	// A floor of 1.5 would demand 150% of the deployed text: unsatisfiable by any
+	// save that is not a large expansion, so unclamped it refuses everything.
+	params.StepConfig = models.Step{Config: map[string]interface{}{pageTotalTextFloorKey: 1.5}}
+
+	// IDENTICAL content — 100% kept. Clamped to 0.95 this must be ALLOWED.
+	if err := enforcePageTotalTextFloor(context.Background(), params, uuid.Nil, uuid.Nil,
+		"about", []SectionData{{ComponentName: "block", HTML: page, Position: 1}}); err != nil {
+		t.Fatalf("a floor of 1.5 must clamp to 0.95, so a save keeping 100%% of the page's visible text is "+
+			"ALLOWED. Unclamped it demands the save GROW by half, which no ordinary rebuild does — a config "+
+			"typo would then refuse every save on this step, and a refusal here fails the step and can strand "+
+			"a build loop. Got: %v", err)
+	}
+}

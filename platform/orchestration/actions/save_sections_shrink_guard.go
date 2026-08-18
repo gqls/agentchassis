@@ -405,6 +405,22 @@ func enforcePageTotalTextFloor(ctx context.Context, params ActionParams, siteID,
 			zap.String("page_name", pageName))
 		return nil
 	}
+	// CLAMPED, like both sibling floors (evaluateSectionShrink, evaluateComponentLoss)
+	// — and found MISSING here by using it, 2026-08-18. Inducing a refusal to prove
+	// this floor fires at the artefact needed a floor above 1.0 (so that a payload of
+	// the page's OWN sections, byte-for-byte, would be refused and a failure to refuse
+	// would write identical content — safe in both branches). `page_total_text_floor:
+	// 1.5` did exactly that, which is the proof AND the defect: a floor above 1 demands
+	// that a save GROW, so a config typo of 1.5 or 2.5 refuses every save on that step
+	// silently and for ever, and on this path a refusal fails the step and can strand a
+	// whole build loop. Its siblings have clamped from the start, for the reason their
+	// own test states: "an absurd floor is clamped to 0.95, not treated as 'refuse
+	// everything'". The clamp costs the byte-for-byte induction (0.95 allows identical
+	// content), so the repeatable recipe now reduces one slot's prose by ~6% instead —
+	// see the RUNBOOK.
+	if floor > 0.95 {
+		floor = 0.95
+	}
 
 	rows, err := params.DB.QueryContext(ctx, `
 		SELECT rendered_html
