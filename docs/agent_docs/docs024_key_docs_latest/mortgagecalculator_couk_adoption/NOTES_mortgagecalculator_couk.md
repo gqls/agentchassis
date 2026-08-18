@@ -3604,3 +3604,80 @@ whoever picks it up should ask that question first rather than draining the queu
 "will work through the estate over the next day", and it had already finished. Left unedited (the
 series is the record and each entry is what we believed at that milestone); recorded here instead.
 **A forecast written about a mechanism you switched on yesterday can expire before the ink dries.**
+
+## 2026-08-18 (afternoon) — the directory-URL fix is SHIPPED (DGH-012), and the deploy taught two traps worth more than the fix
+
+Owner approved it. Three lines in `scripts/cloudflare/worker.js`; live 12:23:10Z.
+
+### Why it was safe, established BEFORE touching anything
+
+1. **One-directional by measurement:** `b2 ls --recursive` over the whole bucket → **ZERO keys
+   ending in `/`**. So the rewrite can only convert a 404 into a 200; no object that served before
+   can stop serving. That is the difference between "I think this is safe" and knowing it.
+2. **The repo copy was byte-identical to what was deployed** (downloaded the live script, stripped
+   the multipart envelope, diffed against `git show HEAD:` — 5,499 bytes both sides). So nobody had
+   dashboard-edited it, my deploy would change only my lines, and HEAD was an exact rollback
+   artefact.
+3. **A behavioural baseline captured with the same probe I would re-run after** — 11 URLs across
+   three B2 sites, a git-route control, the health endpoint and a genuine miss.
+
+### The two traps, either of which could have cost an outage or a false alarm
+
+⚠ **`node --check` PASSES a syntactically broken `worker.js`.** I broke a copy deliberately (one
+`)` removed) and `node --check` exited **0** on it. ESM syntax in a `.js` file makes the check a
+no-op. As `.mjs` it correctly exited 1 with the SyntaxError at the right line. **My first
+"SYNTAX OK" was worthless and I only know that because I ran the control.** A syntax error here is
+a 36-zone outage.
+> And a second-order slip inside that same check: my first control run reported `bad exit=0`
+> because I wrote `docker … | head -3; echo $?` — **`$?` was `head`'s status, not docker's.** Same
+> shape as the RUNBOOK's `${PIPESTATUS[0]}` warning for `b2`. Both files then "passed", which is
+> what made me look harder rather than accept it.
+
+⚠ **The PUT response returns `result.bindings: []` on a completely successful deploy.** That is
+the exact signature of the credential-stripping outage `scripts/cloudflare/README.md` warns about,
+and for about thirty seconds I believed I had caused it. **The sites were fine** — confirmed by
+probing immediately, then by the `/settings` endpoint (both `plain_text` B2 bindings present,
+`compatibility_date` and `observability` preserved). **Never read the PUT response as evidence
+about bindings.**
+
+Also: the README's hand-typed metadata is lossy — it omits `observability` and
+`compatibility_flags`, which are live on this worker. The deploy script builds the metadata from
+`~/.cloudflare/portfolio-sites-router.settings.json` and **refuses to PUT unless both B2 bindings
+are present and non-empty**.
+
+### The result, measured both sides with one probe
+
+| URL | before | after |
+|---|---|---|
+| `mortgagecalculator.co.uk/guides/` | 404 | **200** |
+| `mortgagecalculator.co.uk/tools/repayment/` | 404 | **200** |
+| `gaswholesalers.com/tools/supplier-comparison-calculator/` | 404 | **200** |
+| `leopardessconsulting.co.uk/tools/automation-savings-estimator/` | 404 | **200** |
+| every `…/index.html`, the roots, `/worker-health` | 200 | 200 |
+| a genuine miss | 404 + site's own 404 page | 404 + site's own 404 page |
+| `relojistas.com/noticias/` (git route, control) | 200 | 200 |
+
+`/guides/` and `/guides/index.html` return the same `<title>`, so it serves the real page and not
+a soft-404; the 404 body leaks no bucket internals (`bugs_open/132`'s guarantee intact); and the
+re-exported live script is byte-identical to the repo copy.
+
+**On this site it closed the last non-260 broken link without touching a word of copy** —
+`/tools/rate-forecaster/` resolves, and a re-audit of all 30 internal links leaves exactly one
+dead target (`/scorecard-simulator.html`, which is 260's).
+
+⚠ **Fleet-wide it resolved 1 of the 16 open `dead_internal_link_live` findings, not more.** A
+second (`gaswholesalers.com/fuel-pricing-framework.html`) went 200 the same day because somebody
+built the page — **not my change, and not credited to it.** The internal-link population was
+always tiny (2 hrefs fleet-wide); the value is in the URLs nobody can enumerate — typed, shared
+and inbound links — and that share is stated as unmeasurable rather than estimated.
+
+### Governance, stated rather than skipped
+
+Registered as **DGH-012 in the same commit that shipped it** (the ordering-exemption's condition
+2), with its landmines and one open review question: canonicals emit `…/index.html` and now both
+forms serve, so there is a duplicate-content question nobody has ruled on. **NOT sent to the
+council gate — it refuses paths outside `platform/`/`internal/`/`pkg/` client-side**, so
+`scripts/cloudflare/` cannot be submitted; that is a property of the gate, not an exemption I took.
+Both LANDMINES entries describing the old behaviour were **corrected in place, not deleted** — the
+local-server lesson and the still-404ing slashless form outlive the fix. The `pattern-check` hook
+then caught that DGH-012 had no row in `000_concept_index.md`; added in a follow-up commit.
