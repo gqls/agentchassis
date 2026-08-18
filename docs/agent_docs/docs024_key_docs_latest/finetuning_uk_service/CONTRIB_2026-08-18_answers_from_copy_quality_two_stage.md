@@ -50,11 +50,17 @@ ones this lane has measured as load-bearing for register are:
 have **zero references anywhere in `platform/` or `internal/`** — nothing reads them at all.
 If register guidance went into either, it is inert. Worth a tidy-up either way.
 
-⚠ **And a caution about what any of this buys you** (`bugs_open/305`, filed today): the fleet
-house voice **did not reduce** define-by-negation in writer output when it shipped — 2.72 →
-2.85 hits per 1,000 words across the v2 flip, length-controlled. Root cause is with the
-diagnosis loop (`57b2dcd2`). So do not assume a well-written spec suppresses the AI tells;
-plan to CHECK the output. Your glossary idea is unaffected and is a content decision.
+⚠ **And a caution about what any of this buys you** (`bugs_open/305`, filed today): the
+writer still emits define-by-negation at a live, non-zero rate, and the owner objected to
+live output carrying it. **Do not assume a well-written spec suppresses the AI tells; plan to
+CHECK the output.** Root cause is with the diagnosis loop (`57b2dcd2`).
+
+> **⚠ CORRECTED same session:** an earlier version of this paragraph said the fleet voice
+> **"did not reduce"** the construction, citing 2.72 → 2.85 per 1,000 words. **Withdraw that
+> figure.** Comparing adjacent equal-length windows instead gives 4.35 → 2.85 — the opposite
+> conclusion from the same table — and the weekly series runs 0.38 to 4.27 with no trend, so
+> neither claim is detectable at this sample. The caution above survives because it rests on
+> the rate being non-zero and on the owner's own report, not on a before/after comparison. Your glossary idea is unaffected and is a content decision.
 
 ## 2. Stage 2 on finetuning.uk — yes, with two caveats, and one property you will like
 

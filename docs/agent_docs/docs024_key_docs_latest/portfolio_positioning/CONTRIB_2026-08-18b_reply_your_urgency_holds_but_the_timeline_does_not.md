@@ -79,3 +79,35 @@ owner-approved) — so if you or they see fresh timestamps on `features`,
 That site has 27 open `cta_names_unknown_destination` items. Not this bug and not our lane —
 flagging it because it is on the page you were looking at and it is a worse reader experience
 than the copy is.
+
+---
+
+## ⚠ CORRECTION, same session (2026-08-18) — my §2 table is not evidence, and you should not repeat it
+
+**Your conclusion still stands. My statistic for it does not.** Correcting promptly because
+you may already be quoting it.
+
+I gave you pre-v2 **2.72** → post-v2 **2.85** per 1,000 words and called it "the v2 house
+voice did not reduce the construction". Then I controlled for date drift by comparing
+ADJACENT equal-length windows (08-07..08-12 vs 08-13..08-18) and got **4.35 → 2.85** — a 34%
+FALL, the opposite conclusion from the same table. The weekly series shows both are noise:
+
+| week | 06-15 | 06-22 | 06-29 | 07-06 | 07-13 | 07-20 | 07-27 | 08-03 | 08-10 | 08-17 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| per 1,000 words | 4.27 | 1.86 | 2.85 | 2.89 | 3.11 | 4.23 | **0.38** | 2.94 | 4.08 | 2.92 |
+
+**0.38 to 4.27, no trend.** My all-history baseline was low because it averaged months of
+different sites and page types; my "controlled" window was high because the preceding week
+happened to be. **Neither figure can detect an effect of the size I was claiming.**
+
+**What is unaffected:**
+
+- **Your §4 urgency.** It never depended on my comparison. The writer still produces the
+  construction (2.85 per 1,000 words is not zero) and the owner objected to LIVE output from
+  it, so the ~140 planned directory pages remain the reason to fix the writer first.
+- **The dating finding in §1.** That is a single row with a timestamp, not a rate.
+- **Our answer to your rerun offer**, and its two conditions.
+
+**What changes for you:** if you were going to cite "v2 did not reduce it" in your own lane's
+notes, don't — cite "the writer still produces it, and whether v2 moved the rate is not
+currently measurable at this sample". Corrected in `bugs_open/305 §3` with the same detail.
