@@ -120,6 +120,20 @@ func TestUnbalancedStructuralTags(t *testing.T) {
 
 		// ---- browser-faithful raw-text handling ----
 		{
+			// bugs_open/303 ADDENDUM — the class that cannot be reworded: a
+			// tool whose OUTPUT is a script tag. The open literal must appear
+			// in the template string and the close MUST be escaped (<\/script>
+			// — an unescaped close would terminate the outer script; a hard JS
+			// rule, not style). The substring count is imbalanced BY
+			// CONSTRUCTION for every correct implementation; in markup context
+			// both mentions sit in the outer script's raw-text body, and the
+			// element balances exactly as a browser reads it.
+			"tool that OUTPUTS a script tag: open literal + escaped close in a template string",
+			"<section><div id=\"out\"></div></section>" +
+				"<script>const s=`<script type=\"application/ld+json\">${json}<\\/script>`;emit(s);</script>",
+			nil,
+		},
+		{
 			"literal </script> inside a JS string ends the element (as in a browser)",
 			`<script>var s="</script>";`,
 			nil, // open 1, close 1 — the trailing '";' is page text, not a tag imbalance
@@ -152,6 +166,17 @@ func TestSubstringCountWouldRefuseMentionTool(t *testing.T) {
 	}
 	if got := UnbalancedStructuralTags(mentionTool); len(got) != 0 {
 		t.Fatalf("markup-context scanner refuses the mention tool: %v — the bugs_open/303 false positive is back", got)
+	}
+
+	// The addendum class: an output-tool template whose substring imbalance is
+	// forced by JS escaping rules, so no rewording can dodge the old counter.
+	outputTool := "<section><div id=\"out\"></div></section>" +
+		"<script>const s=`<script type=\"application/ld+json\">${json}<\\/script>`;emit(s);</script>"
+	if got := oldSubstringUnbalanced(outputTool); len(got) == 0 {
+		t.Fatalf("output-tool fixture no longer trips the substring counter — it stopped exercising the 303 addendum")
+	}
+	if got := UnbalancedStructuralTags(outputTool); len(got) != 0 {
+		t.Fatalf("markup-context scanner refuses the output tool: %v", got)
 	}
 }
 
