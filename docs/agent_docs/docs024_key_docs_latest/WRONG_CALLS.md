@@ -35061,3 +35061,42 @@ one full duty cycle is a preview, not a measurement.
 place at 287 §11e with the arithmetic shown, and in RFC_029 §10.7/§10.9. No decision was taken on
 it — the direction (large improvement, `result` eliminated) was right, which is exactly why
 nobody would have questioned the size.
+
+## 2026-08-18 — I read a reaper's write as the moment a job froze, and got a uniform 4h26m that was pure instrument (bugs_open/029)
+
+**The claim I was about to make:** that the wedged `build-dispatch-loop` orchestrations in
+`bugs_open/029` "ran for about four and a half hours before dying". I had the query, I had 18
+rows, and every single one came back between **04:21 and 04:28** — about as tight a cluster as
+you ever see in this estate.
+
+**What was wrong:** I computed the lifetime as `updated_at - created_at`. On a row the stale
+reaper has failed, `updated_at` is **when the reaper wrote FAILED**, not when the job stopped.
+So I was measuring the reaper's own threshold — its arm is `EXECUTING_STEP > 4 hours` on a 180s
+tick — and reporting it as a property of the job. The correct column is `last_activity`, and
+with it the real answer is **~25 minutes**, 17 of 18 inside an 11-second band.
+
+**Why it read as sound, and this is the part worth keeping:** the wrong number was *more*
+convincing than the right one would have been at that moment. A tight cluster is normally the
+signal you are hoping for — it says "deterministic, not load" — and I read the tightness as
+corroboration rather than asking what could make 18 independent jobs agree to within seven
+minutes. **A suspiciously uniform result is a reason to check the instrument, not to believe it
+harder.** Every value a reaper, sweep or cron writes will cluster on its own threshold, and it
+will cluster beautifully.
+
+**What caught it:** noticing that 4h26m sat just past a documented reaper arm of 4h, and that
+"just past a threshold someone configured" is not a shape work produces. Then reading the
+reaper's own predicate instead of inferring from the number.
+
+**The cheap check that would have caught it first:** before timing anything from
+`updated_at`, ask **who else writes this column**. On `orchestration_states` the answer is
+"a reaper, on exactly the rows I am selecting for" — the selection and the timestamp share a
+cause, so the measurement could not have come out any other way. That is the
+"could-this-have-come-out-otherwise" test from the working-docs rules, and it fails outright.
+Same family as this bug file's own 2026-07-20 warning not to measure the halt with
+`site_work_items.updated_at`; different table, and I still walked into it.
+
+**Cost:** none published — caught inside the session, before it reached the bug file or the
+diagnosis symptom. Recorded because the *right* answer (25 minutes) is what produced the
+mechanism, so the wrong column would not merely have been an inaccuracy — it would have hidden
+the finding completely. `RUNBOOK_retry_kills_live_child.md` now carries the corrected query with
+`froze` and `reaped` as separate named columns, so the distinction is impossible to miss.
