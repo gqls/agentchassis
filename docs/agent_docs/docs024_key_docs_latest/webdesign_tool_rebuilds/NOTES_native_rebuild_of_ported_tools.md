@@ -1029,3 +1029,24 @@ html-minifier and svg-optimizer each now at v2), 2 parked on `RFC_036`, ~55 unto
     the original has none, and adding one is a feature, not a fix.
 - The 303 build-constraint sentence is now carried in every brief as cheap insurance, even for tools
   that do not manipulate markup.
+
+## 2026-08-18 16:34Z — #7 `tool-smooth-shadow` built first attempt, graded, retired in 124 s
+
+Run `complete`, `page_adopted=true`, component **`10d4d540-f5ca-4e2f-bb04-04669fff808e`**,
+no `__step_error`. Item claimed and built in ~3 minutes.
+
+**Component graded by mechanism** (6,660 chars, `{{\.` **0**, 1 script, 0 `script src`):
+ids = `alpha-slider`/`alpha-value`, `distance-slider`/`distance-value`,
+`sharpness-slider`/`sharpness-value`, `preview-box`, `code-output`.
+The paired `-slider`/`-value` ids are the one intent change delivered — each slider now displays its
+current number, so a setting can be read off and reproduced.
+Arithmetic confirmed present, not assumed: six-layer loop, `step = i/6`, blur doubling,
+`toFixed(1)` ×2 (offset and blur) and `toFixed(3)` ×1 (alpha), `rgba(0,0,0,…)`.
+
+**Ported slot retired 16:36:11Z, 124 s after the build.** `d44de35d…` to `removed`, 5,192 chars,
+md5 `e7508141028f35f47f182c01c5c9c694` byte-identical to the handle taken at filing. Asserted one
+deployed slot remains **and that it is `10d4d540`**.
+Rerender `c60deac6-de71-4667-a039-929832c26015` queued and watched.
+
+**Retire margins so far: 45 min · 2 min · 26 min · 96 min (LOST) · 91 s · 93 s · 124 s.** The last
+three were won by ordering rather than luck — grade and retire first, write up second.
