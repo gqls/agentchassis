@@ -31,6 +31,16 @@
 -- Backup: snapshot_agent() per row (standard idiom, per council round 1 reuse
 -- objection). Needle-gated: a re-run where the flag is already true updates 0
 -- rows; the verify checks final state, so re-runs pass without lying.
+--
+-- NULL-DIRECTION ANALYSIS of the verify (council r3 — the jsonb <>-vs-NULL
+-- landmine): the DO block counts POSITIVE presence (`(#> path)::text = 'true'`);
+-- an absent path yields NULL, the row is not counted, n <> 2, RAISE. No
+-- negative-form (`<>`) comparison exists here, so no NULL can read as green.
+-- A jsonb_set path typo cannot no-op silently either: jsonb_set with a missing
+-- parent returns its input unchanged, the flag then does not exist at the
+-- checked path, and the same count check RAISES. (Per-UPDATE row-count
+-- assertions are deliberately absent: the needle gates make 0-row re-runs
+-- legitimate, and the final-state check is the idempotency-correct verify.)
 
 BEGIN;
 

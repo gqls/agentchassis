@@ -636,8 +636,39 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 	StrictConfig: true,
 }
 
+// RenderComponentInputSpec is this action's first registered spec (bugs_open/184,
+// council 060bcc0a round 3: two seats objected that landing a new capability flag
+// on the fleet's most-shared render action with NO spec left it invisible to the
+// RFC_022 optional-key budget counter — they were right, so the spec exists now).
+//
+// The declared set is the census of keys RenderComponentAction actually READS
+// (grep config["..."] over the function, 2026-08-18): ten keys, all settings or
+// by-name references resolved from step config, none through ExtractActionInputs
+// — hence ConfigKeys, not Optional. Declaring ConfigKeys opts the action into
+// unknown-config-key REPORTING (warning-only; no StrictConfig — this is a first
+// census on a 40+-carrier action, and an over-strict validator is a worse bug
+// than an inert key, per action_inputs.go's own header).
+//
+// DELIBERATELY NOT DECLARED: `output_html` — carried by live step configs and
+// read by NOTHING in this binary (grep '"output_html"' = zero hits). Declaring
+// it would hide exactly that (the bugs_closed/101 trap: declaring a key is a way
+// of hiding it). Leave it undeclared so the coverage report surfaces it; retire
+// or implement it as its own task.
+var RenderComponentInputSpec = datahelpers.ActionInputSpec{
+	ConfigKeys: []string{
+		"component_from", "component_function", "component_id",
+		"content_field", "content_from",
+		"context_field", "context_from",
+		"merge_with", "slot_name_from",
+		// bugs_open/184: gates the literal-markdown strip on LLM content at
+		// birth. Default OFF; enabled per step by migration 474.
+		"strip_literal_markdown",
+	},
+}
+
 func init() {
 	datahelpers.RegisterActionInputSpec("update_page_status", UpdatePageStatusInputSpec)
+	datahelpers.RegisterActionInputSpec("render_component", RenderComponentInputSpec)
 }
 
 // UpdatePageStatusAction updates a single page's build_status

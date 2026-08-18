@@ -106,6 +106,19 @@ func init() {
 	datahelpers.RegisterActionInputSpec("rerender_page_sections", RerenderPageSectionsInputSpec)
 }
 
+// shouldStripLiteralMarkdown is the rerender strip's DOUBLE GATE (bugs_open/184;
+// council 060bcc0a r2 guardian): the step config flag arms the capability, the
+// dispatch's own spec.reason scopes it to the literal_markdown repair. Either
+// alone must NOT strip — the flag alone would strip on EVERY sections-branch
+// rerender (image_landed/template_changed/cta_links_stale, the fleet's busiest
+// pipeline), and the reason alone means the operator has not enabled the
+// capability. Extracted so the containment property is asserted by a direct
+// unit test (rerender_strip_gate_test.go), not inferred from code review.
+func shouldStripLiteralMarkdown(stepConfig map[string]interface{}, reason string) bool {
+	on, _ := stepConfig["strip_literal_markdown"].(bool)
+	return on && reason == "literal_markdown"
+}
+
 // storedSection is one page_components row as loaded for re-render.
 type storedSection struct {
 	componentID  string
@@ -247,7 +260,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	// is archived by save_page_sections into page_component_history before the
 	// replace, so a disputed strip is recoverable, not lost.
 	var strippedMarkdownFields []string
-	if on, _ := params.StepConfig.Config["strip_literal_markdown"].(bool); on && reason == "literal_markdown" {
+	if shouldStripLiteralMarkdown(params.StepConfig.Config, reason) {
 		for _, s := range stored {
 			if len(s.contentData) == 0 {
 				continue

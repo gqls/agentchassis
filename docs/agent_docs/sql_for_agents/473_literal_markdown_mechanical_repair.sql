@@ -34,6 +34,17 @@
 -- bespoke side-table — council round 1 (corr 060bcc0a) reuse objection, upheld.
 -- The rollback is a surgical inverse (removes exactly what this added), so
 -- intervening migrations on the same row survive a rollback untouched.
+--
+-- NULL-DIRECTION ANALYSIS of the verify (council r3, editquality/debug_historian
+-- — the jsonb <>-vs-NULL landmine): every comparison below fails LOUD on an
+-- absent key, never green. `cond` is explicitly guarded (`IF cond IS NULL OR
+-- cond NOT LIKE ...` → RAISE); the flag check is a POSITIVE-presence EXISTS
+-- (`(#> path)::text = 'true'` — an absent path yields NULL, NULL = 'true' is
+-- not true, the row is not selected, NOT EXISTS → RAISE). The landmine's trap
+-- is negative-form verifies (`<> 'bad'` passing on NULL); none is used here.
+-- jsonb_set with a missing PARENT path returns its input unchanged — that
+-- silent no-op is also caught, because the final-state check above would then
+-- find no flag and RAISE.
 
 BEGIN;
 
