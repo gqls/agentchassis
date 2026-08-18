@@ -258,3 +258,79 @@ honest way to argue for it, and the way it goes into the submission.
 
 This also means **the fix must not be argued on "the retraction will catch it"**, and any plan that
 leans on that (including anything fable returns that does) needs this correction applied first.
+
+---
+
+## 2026-08-18 (cont.) — the payload class 302 blames is GONE post-roll, and the release valve is PROVEN once
+
+### [MEASURED] 287's fix removed the malformed-payload class entirely, with a real demand control
+
+```sql
+SELECT CASE WHEN updated_at > '2026-08-17 17:05:00+00' THEN 'after roll' ELSE 'before' END AS era,
+       count(*) AS completions,
+       count(*) FILTER (WHERE result ? 'response') AS has_envelope,
+       count(*) FILTER (WHERE result ?& array['agent_id','agent_type','role','topics']) AS spawn_shape
+FROM site_work_items WHERE status='complete' AND updated_at > '2026-08-14' GROUP BY 1;
+```
+
+| era | completions | has handler envelope | **spawn-record shape** |
+|---|---|---|---|
+| before (08-14 → roll) | 2,694 | 1,505 | **939** |
+| **after roll** | **1,880** | 1,813 | **0** |
+
+939 → **0** against 1,880 completions of demand. ⚠ The 939 independently reproduces the `287`
+lane's own figure for rows that stay wrong for ever — two different queries, same number, which is
+the sort of agreement worth noting because it could easily have disagreed.
+
+### [MEASURED] and the 67 post-roll completions with no envelope are all LEGITIMATE non-handler closes
+
+Not one is a malformed handler reply:
+
+| keys | rows | what it is |
+|---|---|---|
+| `reason,resolved_at,resolved_by` | 47 | the **retraction** seam (WII-009/016) — the detector's own re-scan |
+| `revalidation` | ~10 | the revalidation sweep |
+| `applied,closed_by,gate,owner_decision,verified_at_served_page` | 4 | owner-decision closures |
+| `completed_at_iso,completed_by_*` | 2 | orchestration bookkeeping |
+
+**So the population 302 blames on the handlers has no post-roll instance at all.** The hole in gate
+1b is now a *latent* one: real by construction, with no current traffic exercising it. That is the
+honest basis for the fix and it must be argued that way — as a guard that closes a door, not as a
+leak being stemmed.
+
+### The safety question this raises, and the answer — the close paths are DISJOINT from the gate
+
+If a legitimate non-handler closure went *through* gate 1b, an unreadable payload would be
+indistinguishable from a retraction, and making the gate refuse would block real closures. It does
+not:
+
+```sql
+SELECT count(*) FILTER (WHERE result ? 'resolved_by' AND result ? '_verification') AS both,
+       count(*) FILTER (WHERE result ? 'resolved_by')   AS retraction_closes,
+       count(*) FILTER (WHERE result ? 'revalidation' AND result ? '_verification') AS both_reval,
+       count(*) FILTER (WHERE result ? 'revalidation')  AS reval_closes
+FROM site_work_items;
+-- both = 1 | retraction_closes = 63 | both_reval = 0 | reval_closes = 811
+```
+
+**811 revalidation closes, zero of which ever carried a `_verification` payload**, and 62 of 63
+retraction closes likewise. These paths write the row directly; they do not call
+`complete_work_item`, so `verifyBeforeComplete` never sees them and no change to it can block them.
+
+### The single overlapping row is not a counterexample — it is the release valve WORKING
+
+`8ab3a32b…`, `empty_section`, created 08-09, closed 08-14:
+`_verification.status='error'` **and** `resolved_by='empty_sections'`.
+
+Read in order, that row is the whole design functioning: the gate **refused** the completion (a
+verifier error, fail-closed under RFC_017), the item went into attempts, and days later the
+detector's own re-scan found the defect gone and **retracted** it to `complete`. The
+`_verification` payload is the earlier refusal, still on the row.
+
+> **This REFINES my correction two sections up rather than reversing it.** The
+> refusal→attempts→retraction release valve is **proven live, once, on `empty_section`.** What is
+> dead is specifically the **design** audit's carrier (`site-discovery-rotation-design`,
+> `enabled=false` since 08-11), so for `dark_section_audit` the valve cannot fire. The architecture
+> is sound; the gap is **operational**, in a different subsystem, and plausibly
+> `bugs_open/230`'s rotation work rather than this lane's. Both statements are now measured: the
+> pattern works, and it is not switched on for this producer.
