@@ -7,12 +7,17 @@
 --   2. section-editor: apply_edit (action apply_section_edit) — strips the
 --      merged content map before each branch's render.
 --
--- Both flags are read by code shipped with the 184 fix (commit 019fb0616 and
--- the rerender-side follow-up); default OFF in code, so this migration is the
--- entire enablement surface. Step names verified against the LIVE rows
--- 2026-08-18 (seed-vs-live drift is a known trap): page-content-writer's step
--- is render_section inside the sub_workflow; section-editor's step is
--- apply_edit.
+-- Both flags are read from params.StepConfig.Config — RenderComponentAction's
+-- `config := params.StepConfig.Config` (v3_site_actions.go:1836) and
+-- ApplySectionEditAction's switch-site read — which is where the engine
+-- delivers these jsonb paths (coordinator.go:1696). Default OFF in code, so
+-- this migration is the entire enablement surface. Step paths verified against
+-- the LIVE rows 2026-08-18, and re-verified by council round 1's own read-only
+-- checks (corr 060bcc0a): page-content-writer's sub_workflow uses key 'steps'
+-- with step 'render_section'; section-editor's step is 'apply_edit'. The
+-- UPDATEs are additionally anchored on each step's action value, so a moved
+-- path means 0 rows and a loud RAISE — jsonb_set can never mint an orphan key
+-- on a row the anchor rejected.
 --
 -- NOT touched, deliberately (migration 304's own measurement, re-stated):
 -- content-writer and simple-content-writer-with-approval carry neither the
@@ -22,31 +27,41 @@
 --
 -- ORDERING: safe before the image (keys unread by the old binary); intended
 -- to be applied together with 473 after the image is live.
+--
+-- Backup: snapshot_agent() per row (standard idiom, per council round 1 reuse
+-- objection). Needle-gated: a re-run where the flag is already true updates 0
+-- rows; the verify checks final state, so re-runs pass without lying.
 
 BEGIN;
 
-CREATE TABLE IF NOT EXISTS _backup_474_writer_strip AS
-  SELECT id, type, default_config, now() AS backed_up_at
-    FROM agent_definitions
-   WHERE type IN ('page-content-writer', 'section-editor') AND is_active
-     AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+SELECT snapshot_agent('page-content-writer',
+                      '474_writer_render_strip_optin.sql: pre-update');
+SELECT snapshot_agent('section-editor',
+                      '474_writer_render_strip_optin.sql: pre-update');
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
          '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,strip_literal_markdown}',
-         'true'::jsonb)
+         'true'::jsonb),
+       updated_at = now()
  WHERE type = 'page-content-writer' AND is_active
    AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
    -- anchor: the step must exist with its expected action, or refuse
-   AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,action}' = 'render_component';
+   AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,action}' = 'render_component'
+   -- needle gate: a re-run is a 0-row no-op
+   AND (default_config #> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,strip_literal_markdown}')::text
+       IS DISTINCT FROM 'true';
 
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
          '{workflow,steps,apply_edit,config,strip_literal_markdown}',
-         'true'::jsonb)
+         'true'::jsonb),
+       updated_at = now()
  WHERE type = 'section-editor' AND is_active
    AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
-   AND default_config #>> '{workflow,steps,apply_edit,action}' = 'apply_section_edit';
+   AND default_config #>> '{workflow,steps,apply_edit,action}' = 'apply_section_edit'
+   AND (default_config #> '{workflow,steps,apply_edit,config,strip_literal_markdown}')::text
+       IS DISTINCT FROM 'true';
 
 DO $$
 DECLARE n int;

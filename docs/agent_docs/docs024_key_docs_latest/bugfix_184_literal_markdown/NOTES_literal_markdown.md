@@ -75,3 +75,34 @@
   303/304 were live since 08-04); bugs_open/184 progress note appended; 016b §9 entry
   appended ("repair-by-regeneration cannot fix a defect the regenerator has the habit of
   producing").
+
+## 2026-08-18 ~21:00Z — 299 commit landed; part 2 at HEAD; council round 1 = REVISE, answered
+
+- 299 lane committed `757a0890a` with my strip block as a named passenger, exactly as
+  agreed. Part 2 committed `763bb5d55` (md_link widening + re-route). IMAGE_TAG bumped
+  `f9cf30974` (v1.0.1310 → v1.0.1311 — all three of makefile/overlay/live pod read 1310,
+  the same-tag cached-image precondition).
+- **Council round 1: REVISE**, gating objection = my own risks-§6 config-path doubt,
+  flagged as HIGH by four seats independently. The committed code was already uniform
+  (`params.StepConfig.Config` at all three seams — v3:1836, rerender:129+hook,
+  section-editor switch); the SKETCH was the false half → WRONG_CALLS entry appended.
+- Real improvements taken from the round, not defended:
+  - migrations 473/474 reworked: `snapshot_agent()` instead of bespoke backup tables
+    (reuse seat — and the rework fixed a flaw the seat didn't name: my restore-from-
+    backup rollback would have clobbered intervening migrations; the surgical inverse
+    doesn't), needle gate added to 474 (debug_historian).
+  - true lifetime counts re-measured across live + archive (prior_art_librarian):
+    rerender pair 13,993/142 (stronger than cited), build-handler pair 3/36.
+  - RUNBOOK: binary probe for the strip gates before batch promotion; chrome/head
+    scope note (items structurally name body sections only).
+- bug_historian's HIGH (strip at call sites, not inside RenderTemplate itself) is
+  answered, not adopted: a strip inside the shared render mechanism would mutate EVERY
+  template render including non-LLM contexts — the blind-mutation shape the estate
+  rejects; coverage of the REPAIR is universal anyway (any writer's markdown is caught
+  by the fleet-wide check and healed by the rerender path, whatever produced it), so an
+  unflagged caller is detected-and-repaired, not silent.
+- architecture seat's ConfigKeys point: rerender spec HAS the declaration; creating a
+  first-ever ActionInputSpec for render_component (the fleet's most-shared render
+  action, no spec today) as a rider on this fix is a bigger blast radius than the fix —
+  named as follow-up, not smuggled in. apply_section_edit likewise has no registered
+  spec (its step config predates the spec system).

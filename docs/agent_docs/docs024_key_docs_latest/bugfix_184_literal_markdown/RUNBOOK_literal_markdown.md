@@ -86,3 +86,26 @@ A hit can be loaded context (MEMORY/LANDMINES), so read the hit lines before con
    content_data heal too (rerender regenerates rendered_html) UNLESS the markdown is in
    the component's html_template (1 template fleet-wide matches) — those will verify
    FAILED honestly; file the template case separately, do not weaken the verifier.
+
+## Council round-1 refinements (2026-08-18, corr 060bcc0a)
+
+- **Before promoting past the canary, probe the BINARY for the strip gates, not just
+  provenance** (debug_historian): on each replica,
+  `kubectl exec <pod> -- grep -aq "strip_literal_markdown" /proc/1/exe && echo PRESENT`
+  plus a nonsense-string negative control. Four Go files changed; the pod is the truth.
+- **Scope note** (guardian): literal_markdown items only ever name BODY sections — the
+  check's population is `page_components` rows. A markdown defect in site chrome/head
+  (stored in site chrome artefacts, not page_components) is structurally outside this
+  item_type and this repair path; if one is ever seen, it is a NEW check, not a widening.
+- **True lifetime counts, live + archive** (prior_art_librarian — site_work_items alone
+  is a ~7-day window): `page_rerender → page-rerender` = 13,993 complete / 142 failed
+  (99.0%); `literal_markdown → page-build-handler` = 3 complete / 36 failed (7.7%);
+  the retired first routing `literal_markdown → page-content-writer` = 2 complete /
+  9 failed, all archived. Measured 2026-08-18 across both tables — the archive makes the
+  case STRONGER in both directions.
+- **A completed rerender with carried (bailed-out) sections cannot false-green**
+  (render_guardian's concern): VerifyLiteralMarkdownResolved is registered for the
+  item_type in init() and CompleteWorkItemAction runs it on EVERY completion
+  (verifiers.go — RFC_017 fail-closed), not just canaries; a carried dirty section keeps
+  the page's scan non-empty, so completion is refused and the item rides the attempt
+  machinery to human review. Honest failure, not silent success.

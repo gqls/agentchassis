@@ -36316,3 +36316,27 @@ Recorded as a visible correction in the 029 lane's NOTES.
   A statement in a peer message is a durable claim: it lands in their notes and their register
   entry, and mine nearly added a redundant test to a guarded seam.
   Tally for "asserted an absence without opening the artefact": **2, both today.**
+
+## 2026-08-18 — bug 184 council sketch asserted a config-read path I had never read (caught by the council, round 1)
+
+**The claim:** my council submission's edit-4 sketch showed the rerender strip gate as
+`params.ExecutionContext.Config["strip_literal_markdown"]`, and edit 3's sketch read a
+bare `config` map for the same key — two different sources for one flag, written before
+I had opened either action's config plumbing. The gating objection (editquality, HIGH)
+was exactly this; four seats flagged it independently.
+
+**What was true:** every step-config key in these actions is delivered as
+`params.StepConfig.Config` (coordinator.go:1696 `StepConfig: step`;
+RenderComponentAction's own `config := params.StepConfig.Config` at v3_site_actions.go:1836),
+and the code I actually committed reads that uniformly — because by implementation time I
+HAD read the plumbing. The sketch and the code diverged; the sketch was the false half.
+
+**What caught it:** the council's editquality seat (and my own risks §6, which flagged
+the doubt without resolving it — logging a doubt is not a control on it, again).
+
+**The cheap check that would have:** grep the target action for `params.StepConfig.Config`
+BEFORE writing any sketch line that names a config source — one grep per seam, ~10
+seconds each. A sketch is a claim; reviewers verify sketches, and a wrong source in a
+sketch reads as a wrong source in the plan. Corollary already in the file's tally:
+flagging an unverified claim in a risks section does not discharge it — either verify it
+or write the sketch without asserting it.
