@@ -74,9 +74,21 @@ side:**
   RE-RENDER. Neither fix failed on this case. **Any live sentence can be dated:**
   `SELECT id, agent_type, created_at FROM llm_call_log WHERE response_text ILIKE '%<sentence>%'`
   — a component timestamp dates the render; only the call log dates the words.
-- **Mine:** it is not a fossil. Same `agent_type`, split at the v2 flip, normalised per 1,000
-  words with mean response length identical (222 vs 223): **2.72 → 2.85.** The carrier did not
-  reduce the construction. Uncomfortable, because CQ-022 is this lane's own delivery.
+- **Mine — and then MY OWN CORRECTION, same session.** I reported **2.72 → 2.85** per 1,000
+  words ("the carrier did not reduce it"). **Withdrawn.** Adjacent equal-length windows give
+  **4.35 → 2.85** — a 34% FALL, the opposite conclusion from the same table — and the weekly
+  series runs **0.38 to 4.27 with no trend**, so neither claim is detectable at this sample.
+  **Do not quote either figure.** The supportable statement is: *the writer still produces the
+  construction at a non-zero rate, and whether v2 moved that rate is not currently
+  measurable.* Full correction in `305 §3` and `WRONG_CALLS` 2026-08-18; both other lanes were
+  told which sentence to stop repeating.
+  - **The cheap check I skipped:** plot the metric over time before quoting two points from
+    it (`GROUP BY date_trunc('week')`, seconds). Marking it `[MEASURED]`, stating the method
+    and normalising for length all made a wrong number look MORE trustworthy.
+  - ⚠ **The `090` symptom was authored from the refuted framing**, so read its verdict against
+    this correction rather than at face value.
+  - **A within-site pre/post query is the right shape** and was too slow to finish inline —
+    it is the measurement someone should actually complete.
 
 **Root cause is NOT asserted** — `090` run **`57b2dcd2-2ded-473c-9f2e-617176f39c15`**, filed
 per the 2026-07-31 ruling. **The next session should read that verdict first** (it was still
