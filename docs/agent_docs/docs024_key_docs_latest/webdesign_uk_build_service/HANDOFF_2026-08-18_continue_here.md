@@ -18,7 +18,36 @@
 (the owner's decisions + the lead he still owes) → `TERMS_2026-08-17_new_commercial_position_impact.md`
 → NOTES 2026-08-17 (night) → `bugs_open/299`.
 
-## 0. State in one paragraph
+## 0a. UPDATE 2026-08-18 midday — THE CHAT IS LIVE ON THE HOME PAGE; the blocker is identified and fixed
+
+- **LIVE, verified at the artefact** (`preview.webdesign.uk/index.html`, served 10:35Z):
+  component order `hero, brief-explanation, chat-input-box, call-to-action` — the owner's
+  requested placement. 26 hrefs (none lost). **Zero** occurrences of the retired
+  pay-after-approval claim.
+- **The blocker was `unregistered_stat`**: the writer turned the HEDGED `build_duration`
+  ("usually ready the next day") into a hard stat `"1 day"` at
+  `brief-explanation.stat_2_value`. Fixed at the spec
+  (`SQL_2026-08-18_voice_assistant_and_stat_guard.sql`) — **not** by attesting 1 as a number,
+  which would convert the owner's hedge into a promise he has ruled against.
+- **The retrieval recipe (I wasted two rebuilds on this):** the failing step's output is NOT
+  persisted on the orchestration, but the action DOES write the issues to `agent_error_log`.
+  Query by `context ? 'issues'`, **never** by `domain`:
+  `SELECT jsonb_pretty(context) FROM agent_error_log WHERE occurred_at > now() - interval '30 minutes' AND context ? 'issues' ORDER BY occurred_at DESC LIMIT 1;`
+- **Owner's VOICE BRIEF is live in writer_block**: helpful assistant, not marketing bot —
+  state it, then the next step, the order to do it in, or who can help; the six
+  `third_party_options` services are HELP, not just exclusions.
+- **Cross-lane:** the other thread is `docs024_key_docs_latest/site_delivery_and_editor/`
+  (its SESSION is unreachable from this machine — absent from all 36 peers, `SendMessage`
+  refused). Correspondence left as a file **in their directory**:
+  `NOTE_2026-08-18_from_webdesign_uk_lane_terms_changed.md`.
+- **⚠ TWO ATTESTED CLAIMS ARE AHEAD OF THE MECHANISM** (flagged to that lane, needs a ruling):
+  "a ZIP to keep" — the presign defaults to **7 days** (`zip_deliverable_action.go`,
+  `expiry_minutes: 10080`); and "a preview link … about a month" — **no month-long preview
+  serving found at all**. The live bot makes both promises in pre-sale. Either Phase 4 builds
+  them or the owner re-words.
+- **Milestone read-out written:** `SUMMARY_2026-08-18_webdesign_uk_build_service.md`.
+
+## 0. State in one paragraph (as at 08-18 morning; §0a supersedes on the chat placement)
 
 PLAN_2026-08-11 is **complete, 6/6**. The owner's new commercial position is **applied and
 verified live**: payment before build, no customer preview before paying, ZIP to keep plus a
