@@ -192,3 +192,43 @@ exploratory line was added and reverted in the same minute — the tree compiles
   Verdict owed: budget ~30 min from submission; find the run by payload
   (`collected_data->'input_data'->>'fix_correlation_id'`), never retry on a missing row.
 - Bug file updated with the dated FIXED-IN-CODE section + close conditions.
+
+## 2026-08-18 — council APPROVED ROUND 1 (`d2edf61d`), 13 seats approve / 4 object advisory, none high; all four mediums answered with evidence
+
+- **guidelines (medium)** claimed the work-item dedup contract is "DELETE+INSERT, never
+  ON CONFLICT". **The file's own pinned contract says the opposite**:
+  `TestConvergenceGuard_EscalatesAfterTwoFailedCycles` asserts "must not DELETE+INSERT —
+  no such dedup contract exists" and the acceptance_stuck comment (council-reviewed in
+  081's round) states the ON CONFLICT arbiter matching idx_swi_dedup IS the canonical
+  idiom (a DELETE+INSERT would disturb a row a human is triaging). The real risk the seat
+  gestures at — Go terminal-list vs DB partial-index drift — is the standing lockstep
+  contract ([[dedup-index-go-list-lockstep]]), unchanged by this fix. No change.
+- **guardian (medium, retraction seams)**: measured — NO retraction or revalidation
+  mechanism touches `ported_tool_fix` (only Go refs outside the three producers are a
+  comment; `reviewRevalidators` covers other types only). Cross-producer closing is
+  impossible today, and the check-segmented keys keep the three producers' items
+  disjoint by construction. No change.
+- **guardian (low, single-caller)**: census re-run INCLUDING snapshots and deleted rows —
+  still exactly one agent_definitions row (`tool-acceptance-agent`, active, not snapshot,
+  not deleted). Conclusive.
+- **guardian (low, log-text fragility)**: self-protecting — the firing test asserts
+  `saidPorted()` TRUE, so a reword that drops "ported" from the arm's log lines fails the
+  FIRING test immediately; the negative controls cannot silently rot without it.
+- **debug_historian (medium, post-deploy proof)**: already committed to in the bug file's
+  close conditions; sharpened there — probe the binary for `routePortedAcceptanceFailure`
+  with an invented-symbol control, per service, THEN the natural induction.
+- **bug_historian (medium, the still-silent branches)**: disposition recorded — the
+  residue is (i) run items lacking `spec.component_id` (only pre-425/bespoke shapes;
+  every current producer writes it), (ii) transient lookup errors, (iii) renamed forks
+  (a different defect, not a ported instance). Deliberately NOT given a fourth
+  handler-less queue: three human-review sinks already exist for ported pages
+  (`ported_tool_fix`, `fact_drift_review`, tool-auditor's `needs_human_review`) and the
+  033/083 cadence work owns their drain. Named as a residual in the bug file.
+- **editquality (low, priority parity)**: a real catch — checked the LIVE rows:
+  ported_tool_fix carries severity→priority high→30 / low→80 (dispatch is ASCENDING);
+  my medium→60 sits exactly on the sibling mapping. Source differs deliberately
+  ('acceptance' vs the checks' 'discovery' — producer-truthful, as acceptance_stuck).
+
+**Trailer status:** the commit carries `Council-Submitted:` (written pre-verdict,
+forward-only forbids an amend); 098 credits it automatically now the correlation is
+approved. Verdict READ in full this session — this section is the record of that read.

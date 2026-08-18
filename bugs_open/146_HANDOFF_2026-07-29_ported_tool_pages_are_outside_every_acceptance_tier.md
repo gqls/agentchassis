@@ -122,13 +122,25 @@ now the THIRD producer of `ported_tool_fix` (after tool_health and Tier-2 accept
 firing only when the run item's own `spec.component_id` resolves to an active non-tool
 component; key `ported_tool_fix:tool_acceptance_tier4:<subjectKey>:<siteID>`, handler-less
 `needs_human_review`, refresh-and-merge dedup. Register TL-042 updated in the same commit.
-Council corr `d2edf61d-87af-4195-bcce-c5717afc2d9e` (submitted alongside; read the verdict
-before citing this as reviewed). **Go is inert until the next chassis roll** (fleet is on
-v1.0.1309 = `f0117fb8`, which predates this).
+**Council APPROVED at ROUND 1** — corr `d2edf61d-87af-4195-bcce-c5717afc2d9e`, 2026-08-18,
+"approved with 4 advisory objection(s) — none high-severity"; all four mediums answered
+with evidence the same day (lane NOTES § "council APPROVED ROUND 1" holds each
+disposition, including the guidelines seat's DELETE+INSERT claim being contradicted by
+this file's own pinned dedup contract). The commit carries `Council-Submitted:`
+(pre-verdict, forward-only); 098 credits it automatically. **Go is inert until the next
+chassis roll** (fleet is on v1.0.1309 = `f0117fb8`, which predates this).
+
+Named residual (bug_historian's advisory): a failing ported verdict whose run item lacks
+`spec.component_id` (pre-seed-425 / bespoke shapes only — every current producer writes
+it), a transient component lookup error, or a renamed fork still takes the old
+"route this manually" arm, deliberately — a fourth handler-less queue for a shrinking
+legacy shape would be noise, and the 033/083 cadence work owns the drains that exist.
 
 **To close this file** (the fixed-AND-live bar):
 1. After a roll carrying `1549dc58b`: `git merge-base --is-ancestor 1549dc58b <the
-   pod's stamp>`, per service.
+   pod's stamp>`, per service — and probe the binary for a symbol the change CREATED
+   (`grep -ac routePortedAcceptanceFailure /proc/1/exe` beside an invented-symbol
+   control expecting 0).
 2. The standing failing case IS the induction: vibe-equalizer's next 7-day acceptance run
    on its real fence should file `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:…`
    carrying the overflow attribution (or pasteboard, if the rebuild lane replaces
