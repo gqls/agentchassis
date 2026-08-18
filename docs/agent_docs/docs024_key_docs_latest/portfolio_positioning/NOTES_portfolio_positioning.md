@@ -1980,3 +1980,47 @@ returns **401** for the pilot AND for the known-good established site, so the 40
 behind an unpointed domain. **A DNS/domain step is missing from the fleet-build path**, and
 Phase E would hit it on all ~140 domains — worth deciding whether the pipeline should own it
 or whether it is deliberately manual.
+
+### 2026-08-18 — COST BASELINE CORRECTED: the figure I published in four documents was a snapshot of a still-growing set
+
+**Published: 43 calls · 389,406 in · 120,822 out. Actual: 73 calls · 663,759 in · 184,596 out** —
+about **70% higher**. Confirmed identical across two independent runs of the same query.
+
+**Why the first number was low, and it is not a query bug.** Same CTE, same join, run ~2 hours
+apart. The CTE selects orchestrations whose `collected_data` names the pilot's `site_id` — and
+**`collected_data` is written as an orchestration progresses**, so a run that was mid-flight
+when I measured had no `site_record` yet and was invisible to the join. I measured a set that
+was still being written and reported it as a total. The `[FLOOR, not a total]` marker I put on
+it was correct in direction and far too weak in magnitude — a floor 70% below the answer is
+not a useful floor.
+
+**The check that would have caught it:** re-run the measurement once the work is quiet and
+require the two runs to agree before publishing. A single measurement of a live system is a
+sample, not a total — and this lane already knows that (`a record goes stale faster than its
+reader can tell`); I applied it to other people's data and not to my own.
+
+**Corrected baseline — ONE domain, TEXT generation only:**
+| model | calls | input | output | at today's rates | at standard rates |
+|---|---|---|---|---|---|
+| claude-sonnet-5 | 57 | 545,887 | 95,247 | $2.04 | $3.07 |
+| claude-sonnet-4-6 | 15 | 98,976 | 85,709 | $1.58 | $1.58 |
+| claude-opus-4-6 | 1 | 18,896 | 3,640 | $0.19 | $0.19 |
+| **TOTAL** | **73** | **663,759** | **184,596** | **$3.81** | **$4.83** |
+
+Rates: Sonnet 5 $3/$15 per Mtok with a $2/$10 introductory rate through **2026-08-31**;
+Sonnet 4.6 $3/$15; Opus 4.6 $5/$25. **So the fleet figure moves on 2026-09-01** — ~$534 for
+140 domains today, ~$677 after. Anyone quoting the cheap number after August is quoting a
+rate that has expired.
+
+**What this figure still does NOT include, stated so nobody treats it as all-in:**
+- **The 11 images.** Different provider, not in `llm_call_log` — genuinely unmeasured, not
+  estimated-as-small.
+- **Rework.** This build ran through the deploy outage and repeated work; a clean run should
+  be cheaper, and I have no clean run to compare against.
+- **Cache reads.** `llm_call_log` has no cache columns, so cached input is billed at a lower
+  rate than the arithmetic above assumes — the true figure is at or below these numbers on
+  that axis, and above them on the images axis.
+
+**The fix is the plan the owner already has**: run the next domains one at a time and measure
+each from a quiet start to a quiet finish. Three clean runs beat one contaminated one, and
+this pilot cannot be re-run clean.

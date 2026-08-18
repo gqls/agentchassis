@@ -20,7 +20,7 @@ The site was correctly marked as wanting a mortgage-lender directory when it was
 
 That last point is worth dwelling on. The gap we closed on Friday was that a site could be marked as wanting a directory and the planner would ignore the mark, so the site only got its directory later, after being built and published once without it. On this build the planner got it right the first time, unprompted, from the rule alone.
 
-**The cost, measured rather than estimated:** 43 model calls, roughly 390,000 tokens in and 121,000 out, and 11 images. Nearly all of it is page writing. I have taken care not to inflate that figure by counting other workstreams' activity that happened to run in the same two hours — it is attributed to this site's own jobs — and it should be read as a floor rather than a total.
+**The cost, measured rather than estimated:** 43 model calls, roughly 390,000 tokens in and 121,000 out, and 11 images. **[CORRECTED 2026-08-18: this figure was ~70% low — the real total is 73 calls, 664,000 in, 185,000 out, about $3.81 per site today and $4.83 from 1 September when an introductory model rate ends. I measured while the build was still running, so jobs still in flight were invisible to the count. See NOTES, 2026-08-18.]** Nearly all of it is page writing. I have taken care not to inflate that figure by counting other workstreams' activity that happened to run in the same two hours — it is attributed to this site's own jobs — and it should be read as a floor rather than a total.
 
 **What broke is the pilot's real yield**, and none of it is the directory work:
 

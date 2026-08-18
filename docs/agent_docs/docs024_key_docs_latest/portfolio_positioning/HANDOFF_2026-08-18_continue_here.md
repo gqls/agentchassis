@@ -22,8 +22,11 @@ no prices.** That was the Phase B/C question and it is answered.
 
 **All proof points passed** (432 flag ✅ · 433/441 page name+type+composition ✅ · zero
 `PLAN_SECTION_NAME_DROPPED` ✅ · directory checks silent for the right reason ✅).
-**Cost baseline: 43 LLM calls · 389,406 in · 120,822 out · 11 assets** — a FLOOR (joined to the
-pilot\'s own orchestrations, not a time window). page-content-writer ≈71% of input tokens.
+**Cost baseline (CORRECTED 2026-08-18): 73 LLM calls · 663,759 in · 184,596 out · 11 assets
+= ~$3.81/domain today, ~$4.83 from 2026-09-01** when Sonnet 5's introductory rate ends
+(~$534 vs ~$677 for 140 domains). **The 43-call figure first published here was ~70% low** —
+it sampled a set still being written (`collected_data` fills in as a run progresses). Excludes
+images (different provider, unmeasured) and assumes no cache discount. See NOTES 2026-08-18.
 
 ## 1a. URLs — what you can actually look at
 

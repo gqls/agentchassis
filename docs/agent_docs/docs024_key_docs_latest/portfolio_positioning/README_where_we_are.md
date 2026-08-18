@@ -526,3 +526,33 @@ The costs, for pacing the rest: this site took 43 model calls, about 390,000 tok
 What I need from you before the fleet goes out is sign-off on that cost and on the pilot
 itself — the plan puts that decision before any wave of sites, and it is the right place for
 it.
+
+### Tuesday 18 August (later) — correcting the cost figure, upward
+
+The cost I gave you yesterday was wrong, and wrong in the direction that matters. I said one
+site cost about 43 model calls and 390,000 tokens in. The real figure is **73 calls and
+664,000 tokens in** — about 70% higher. I have now measured it three times and got the same
+answer each time, and the site has been quiet since early this morning, so this number is
+stable in a way yesterday's was not.
+
+The mistake was mine and it is worth understanding, because it will recur otherwise. I
+measured while the site was still building. The way I identify "this site's work" depends on a
+field the system fills in as each job progresses, so jobs still in flight were invisible to my
+count. I labelled the number a floor, which was the right instinct, but a floor 70% below the
+answer is not much of a floor.
+
+**In money: about £3.00 per site today, rising to about £3.80 on 1 September** when an
+introductory rate on one of the models ends. Across 140 domains that is roughly £420 now
+versus £530 after. I have quoted those in dollars in the working notes — $3.81 and $4.83 per
+site, $534 and $677 for the fleet — since that is how they are billed.
+
+Three things that number does not cover, so it is not an all-in figure. The 11 images are not
+in it — they come from a different supplier and are not recorded alongside the text costs, so
+they are genuinely unmeasured rather than estimated as small. This particular build ran
+through the outage and repeated some work, so a clean run should come in lower. And where the
+system reuses cached text it is billed at a reduced rate that my arithmetic does not know
+about, which pushes the real figure down again.
+
+Your plan of running the next domains one at a time fixes this properly: each one gives a
+clean measurement from a quiet start to a quiet finish, and three of those are worth far more
+than one figure taken from a build that had an outage in the middle of it.
