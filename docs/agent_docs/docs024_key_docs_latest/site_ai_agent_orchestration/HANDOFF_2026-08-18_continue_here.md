@@ -37,8 +37,21 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 >   `updated_at` is when the *reaper* wrote, yielding a uniform ~4h26m that is the reaper's own
 >   threshold and nothing to do with the job. That lane believed the wrong number first.
 > - Their root cause (declared `timeout_seconds: 900` honoured on attempt 0 only, retries silently
->   recomputed to 5 min, final replay landing on a live loop) is measured. ⚠ **WHY the replay
->   wedges the loop is [UNVERIFIED]** — the optimistic-lock race is a candidate, not a finding.
+>   recomputed to 5 min, final replay landing on a live loop) is measured.
+> - **The "why" is now code-grounded, and it is NOT the optimistic-lock race** that lane first
+>   named as its candidate — that candidate is **withdrawn by them**, so do not repeat it (an
+>   earlier version of this handoff carried it). Their current read: `coordinator.go`'s
+>   `StatusExecutingStep` arm declares an orchestration stuck when
+>   `time.Since(last_activity) > 5 minutes`, clears the executing step and **re-drives it
+>   concurrently with the worker that is still running**. The replay is merely the message that
+>   trips it. The narrower defect: **`last_activity` is USED as a liveness signal and is not
+>   MAINTAINED as one** — no mid-step heartbeat, while a spawn step makes K8s calls, waits on two
+>   Kafka topics and contains two hardcoded 5s sleeps. A healthy child goes quiet by construction
+>   and, past five minutes, is indistinguishable from a dead pod.
+> - ⚠ **That is a code read plus a DB correlation — NOT runtime-proven**, and they say so
+>   explicitly. Chassis log retention on this cluster is about **four minutes**, so a log grep for
+>   the takeover returns zero with the control also zero: that is blindness, not absence. Do not
+>   cite it as runtime evidence, and do not "confirm" it with a log query.
 
 ---
 
