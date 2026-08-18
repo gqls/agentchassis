@@ -489,3 +489,40 @@ marked as wanting a lender directory when it is classified; that the planner the
 lender directory page into the plan; and only if those failed, that the automatic checks
 catch it. The third is the safety net, so a clean run has to be confirmed by looking at the
 plan directly — a quiet safety net is not the same as a good result.
+
+### Tuesday 18 August — it works, and there is a real page to look at
+
+The lender directory page is live and I have read the actual HTML rather than trusting a
+status field. It says "UK mortgage lenders, listed", it names Mansfield Building Society and
+Family Building Society, each fact carries a link to the source it came from, and it opens by
+saying plainly that it does not list rates, fees or APRs because those change daily. That last
+sentence matters more than it looks: it is the compliance rule you set weeks ago, having
+survived every stage between a researcher reading a lender's website and a page being
+published, without anyone re-typing it along the way.
+
+So the question this pilot existed to answer is answered. A site can be marked as wanting a
+lender directory, plan itself around one, build it, and publish a page of cited, non-price
+facts about regulated firms. Nothing about that was true a week ago.
+
+The site itself is half-published: three of its six pages are live, three still need
+rebuilding, and there is a queue of things waiting for a human — mostly calls-to-action the
+system could not resolve on its own. That is ordinary new-site work rather than anything
+broken. The genuinely broken items are a handful of component failures and one where a
+component is leaking raw template code into the finished page; that is a platform bug and I
+have written it up rather than patched around it.
+
+Two corrections to what I told you yesterday, because both would have misled you. I said the
+retried image jobs were succeeding when what I was actually looking at was a job that had
+finished the day before — I read the starting number as a result. And I had told you the way
+to tell whether the retry worked was to watch the image count go up. It did not go up, and
+that turns out to be correct behaviour: the images had already been made, and what had failed
+was publishing them, so a successful retry publishes an existing image rather than making a
+second one. I had picked a measurement that watched the wrong half of the process. The retry
+did work — eight of the eleven jobs completed.
+
+The costs, for pacing the rest: this site took 43 model calls, about 390,000 tokens in and
+121,000 out, and 11 images. Read it as a floor rather than an exact figure.
+
+What I need from you before the fleet goes out is sign-off on that cost and on the pilot
+itself — the plan puts that decision before any wave of sites, and it is the right place for
+it.
