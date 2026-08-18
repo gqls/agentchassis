@@ -241,3 +241,67 @@ attached**; that arm does not.
 with its query, `RUNBOOK` the six queries and their gotchas, `README_where_we_are` the plain-prose
 account. `WRONG_CALLS.md` 2026-08-18 carries my own wrong call from this pass (I called WII-018
 "live" from the code being merged).
+
+---
+
+## FIXED 2026-08-18 (one arm of it) — and the three follow-ups it does NOT cover
+
+**Commit `743bc1945`.** Gate 1b's unreadable-payload arm is now a **per-type declaration** whose
+zero value is not a policy, and `dark_section_audit` declares **refuse**. `_verification.status`
+gains a fifth value `handler_result_unreadable` with its own operator message and reason code.
+Registered in the same commit (WII-017 amended; its abstain LANDMINE corrected in place and its
+"wiring proven only behaviourally" gap CLOSED by a new sqlmock wiring test). Council
+**submitted** — corr `edfef8cc-c42f-45f8-9b36-7578ffb56f6c`, `Council-Submitted:` trailer.
+Mutation-proven M1–M6, exit-status gated, unmutated control, both files restored byte-identical
+(matrix in the lane NOTES; M4 is the instructive one — deleting the fifth reason arm does not
+error, it falls through to `verification_failed`, a finding no gate made).
+
+⚠ **NOT proven live, and it cannot be without manufactured demand.** Zero `dark_section_audit`
+rows touched since the `v1.0.1307` roll (1,862 fleet completions in the same window) and both
+carriers that dispatch the type are `enabled=false`. After a roll the honest status is **"deployed,
+not behaviourally proven"**. Plan, phasing and the scope argument:
+`docs024_key_docs_latest/bugfix_302_design_repair_verification/PLAN_2026-08-18_*`.
+
+### Follow-up 1 — the claimed-item-timeout sweep bypasses gate 1b entirely, and its lockstep cannot see the roster
+
+[VERIFIED in the live `pre_query`, not inferred] `scheduled_tasks.claimed-item-timeout`
+auto-completes a `claimed` item on generic orchestration evidence, and its own comment says the
+exclusion list is *"the LOCKSTEP TWIN of the `RegisterVerifier()` calls"* — i.e. it keys on **gate 2
+only**. A type with a gate-1b roster entry and no registered verifier — which is exactly
+`dark_section_audit` — is therefore **not excluded**, so the sweep can complete it 15 minutes after
+a claim without either gate running.
+
+[MEASURED, archive-inclusive] it has **never happened**: 0 of 30 `dark_section_audit` and 0 of 564
+`hardcoded_section_colors` rows carry the sweep's `completed_by_step` shape. So this is **latent**,
+and deliberately left out of `743bc1945`: widening the lockstep contract from "has a verifier" to
+"has a verifier OR a roster entry" changes a shared scheduler predicate AND the parity test that
+enforces it both ways (`TestRegisteredVerifiersMatchClaimTimeoutExclusion`), which is its own
+coherent task with its own blast radius. **Do not "just add the type" to `220`** — the parity test
+enforces excluded ⇔ verifier in both directions and will fail.
+
+### Follow-up 2 — three design types are NOT covered by this fix, and each needs a decision first
+
+The four finetuning.uk evidence rows this file was filed on are **not all one type**:
+`needs_design_review` ×2, `spacing_fix` ×1, `dark_section_audit` ×1. Only the last is covered.
+
+- **`needs_design_review`** — needs a *semantics ruling* before any gate: an analysis blob may
+  legitimately BE the deliverable for a review type, in which case "the handler changed nothing" is
+  a success and a no-change rule would be wrong. It is also the worst producer population in the
+  estate for this (4 producers, 1,296 lifetime rows).
+- **`spacing_fix` / `responsive_fix`** — need their handlers' success-envelope shape MEASURED before
+  `CounterPaths` and `OnUnreadable` can be declared honestly. The roster's bar is a measurement, not
+  a guess about somebody else's handler.
+
+### Follow-up 3 — the operational gap, which is probably not this lane's
+
+The refuse→attempts→**retraction** release valve is proven live once (`empty_section` `8ab3a32b`:
+gate errored 08-09, the detector retracted it 08-14) but is unavailable to this family because the
+design audit's carrier has been `enabled=false` since 08-11 and WII-018 has never run. Re-enabling a
+carrier is a cost decision, and the rotation work is `bugs_open/230`'s. **This file should not be
+read as claiming refused rows get tidied up.**
+
+### Status of this bug
+
+**STAYS OPEN.** One arm fixed and unproven-live; three follow-ups above; and the filing's headline
+question — should the design-audit family have artefact verifiers at all — is answered "not by this
+route" with the recorded reasons, which is a decision on the record rather than a fix.
