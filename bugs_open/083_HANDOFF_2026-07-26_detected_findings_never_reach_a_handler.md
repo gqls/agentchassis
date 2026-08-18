@@ -1153,6 +1153,108 @@ run as a **read-only mirror** (the `scored` CTE alone, no `promoted` CTE), and w
 The commit carrying this work went out with `Council-Submitted: 8dc58e2a-…` before the verdict
 landed, which `098` resolves to the approval at report time — no amend, per forward-only.
 
+---
+
+# 2026-08-18 — THE RESIDUAL IS CLOSED AND VERIFIED AT THE SERVICE, and the first thing it showed was that the held pile had grown 8× overnight while nobody could see it
+
+Session `bugfix-083`, after the fresh fleet build. This is the post-roll verification the section
+above said was owed, plus what the new visibility immediately revealed.
+
+## 1. The deploy, proven per SERVICE with a control that behaves
+
+| | |
+|---|---|
+| pod | `kafka-scheduler-5d9f8c7bf7-wcsdq`, image `docker.io/aqls/kafka-scheduler:v1.0.1309` |
+| started | 2026-08-18 15:45:39Z |
+| the service's own statement | `main.go:63` `"build provenance"`, `git_commit=f0117fb8b93ea3e1f32298daeb9751bcff4b90c7` |
+| carries the fix? | `git merge-base --is-ancestor 03012d862 f0117fb8b` → **YES** |
+
+> ⚠ **My first control was not a control, and I am recording it because it "failed" in a way that
+> looked alarming.** I checked that my *last* commit (`58f6ad360`) was NOT in the build — it read as
+> an ancestor, which I briefly took as the control failing. It was not: the build post-dates all of
+> yesterday's work, so of course it contains it. A commit that cannot be absent cannot be a control.
+> Re-run properly against a commit made **after** the build revision (31 exist on this branch):
+> `3f1426a8d` is correctly NOT an ancestor. **The check only means something when the negative case
+> is reachable** — the same demand-control discipline `444`'s verify block used, applied to git.
+
+## 2. Criterion: the residual is CLOSED — a tick now reports its own work
+
+The line the old binary emitted was `{"caller":"scheduler/main.go:274","msg":"Pre-query task
+completed (no message fired)","task":"detected-item-promoter"}` and nothing else, on every tick,
+whether it promoted twenty rows or none. What it emits now (`main.go:286`, the line moved because
+the code did):
+
+```json
+{"msg":"Pre-query task completed (no message fired)","task":"detected-item-promoter",
+ "pre_query_result":"{\"held\":\"16\",\"held_detail\":\"dead_fragment_link->page-build-handler
+ (pair has never completed one (awaiting a hand canary)); empty_internal_href->page-build-handler
+ (…); literal_markdown->page-build-handler (pair below the 25% success floor);
+ missing_conversion_path->content-gap-planner (…); placeholder_contact->page-build-handler (…)\",
+ \"pairs\":null,\"promoted\":\"0\"}"}
+```
+
+**And the two branches now discriminate**, which was half the point: `thunder-reaper` and
+`thunder-training-monitor` take the zero-row branch at `main.go:218` (*"Pre-query found no rows —
+task ran with nothing to do"*), while the promoter — which has something to say — takes the
+completion branch. Before this build both said the same thing.
+
+That is criterion-complete for the residual: not "the column exists" but **a real tick's held count
+is legible in the service's own log**, which is what the guardian seat actually asked for.
+
+## 3. What it showed on day one — the held pile is 16, not 2, across 5 pairs
+
+Yesterday's measurement, taken through a read-only mirror because nothing reported it, was **2 rows
+in 2 pairs**. Today, measured off the same predicate the promoter uses:
+
+| pair | held | sites | oldest | pair record (ok / failed) | why held |
+|---|---|---|---|---|---|
+| `literal_markdown → page-build-handler` | **10** | 2 | 0.9d | 3 / 24 = **11%** | below the 25% floor |
+| `placeholder_contact → page-build-handler` | 3 | 2 | **1.9d** | 0 / 4 | never completed one |
+| `dead_fragment_link → page-build-handler` | 1 | 1 | 0.6d | 0 / 0 | never dispatched at all |
+| `empty_internal_href → page-build-handler` | 1 | 1 | 0.5d | 0 / 1 | never completed one |
+| `missing_conversion_path → content-gap-planner` | 1 | 1 | 0.7d | 0 / 0 | never dispatched at all |
+
+**An 8× growth in one day, entirely invisible until this build.** It is not a regression — the
+promoter is refusing work exactly as designed, and `literal_markdown`'s 10 rows are `444`'s floor
+doing precisely the job it was built for. But "the mechanism is behaving" and "sixteen real findings
+about live pages are parked" are both true, and only the second is a problem anyone can now see.
+
+## 4. ⚠ TIME-SENSITIVE: `453`'s one-way door fires on 3 of these rows TOMORROW
+
+Measured: `result ? 'held_pair_escalation'` is **0 across all 16** — `453` has not escalated any of
+them yet, because its limit is 3 days and the oldest held row (`placeholder_contact`, 2026-08-16) is
+at 1.9 days. **It crosses the limit on 2026-08-19.**
+
+At that point those 3 rows move `detected → needs_human_review`, which the promoter never selects —
+and, as recorded above, **nothing moves them back.** So they leave the automated path permanently,
+joining a human queue that stands at 829 rows. If the pair is later canaried successfully, the
+promoter will pick up *future* `placeholder_contact` findings and these three will still be sitting
+there. The composition defect I flagged yesterday at 5 rows now has 16 rows queued into it, with the
+first 3 due in under a day.
+
+This is a decision, not a defect I should quietly patch: the door was built deliberately, and
+whether a successful canary should reclaim its pair's escalated rows is the `453` author's call or
+the owner's. Named here with its clock so it cannot be missed.
+
+## 5. Where 083 now stands
+
+| criterion | state |
+|---|---|
+| 1 — promotable pile drains and stays drained (corrected wording) | **HOLDS.** Promotable = 0; the 16 are all correctly *held*, not stranded-by-absence-of-a-promoter |
+| 2 — `phantom_internal_link` first `complete` | met on wording, **non-discriminating**, unchanged |
+| 3 — completions verified at the live page | **MET** twice (08-17 morning ×4, 08-17 evening ×3 with before/after and a negative control) |
+| residual — held rows visible | **CLOSED 2026-08-18**, verified at the running service with the two log branches discriminating |
+
+**The bug's own fix is complete and proven.** What remains is not 083's mechanism but the questions
+its new visibility has surfaced — the four never-canaried pairs, `literal_markdown`'s broken handler
+(`bugs_open/184` / `201`), `453`'s one-way door, and `bugs_open/300`'s unstable key. Those are named
+owners or owner decisions, not this file's outstanding work.
+
+**Recommendation: 083 can close** once `444`/`458`'s doors have sat their week (they are visibly
+holding the right things today, which is the first time that sentence could be checked rather than
+asserted). Everything it was filed for — a queue with no consumer — is answered, mechanically and
+with artefact evidence.
+
 ### `454` PROVEN on the next tick — 2026-08-17 16:43Z
 
 The correction to `444` (count `verified` as success, not just `complete`) released exactly what it
@@ -1209,3 +1311,58 @@ in order: (1) run `090` on *"completed `site_work_items` rows disappear; 14 `req
 completes left the table between 11:00Z and 18:30Z on 2026-08-17 with no status change"*; (2) only
 then decide whether the promoter's tests need a durable counter (e.g. a per-pair success tally that
 survives row deletion) rather than a live COUNT over the table.
+
+### THE OPEN RISK IS DIAGNOSED — 2026-08-18. "Lifetime" meant the last 7 DAYS, and it was already stranding a good pair. Fixed by `465`.
+
+The section above recorded, as `[UNDIAGNOSED]`, that completed work items were disappearing. **The
+actor is `work-item-archiver`** — an ENABLED daily scheduled task (`fire_message=true`, agent
+`work-item-archiver`, 86400s) whose own description reads: *"Archives terminal work items older than
+7 days to `site_work_items_archive`"*.
+
+**It is not a cleanup nobody runs.** `site_work_items_archive` holds **20,184 rows against 8,702
+live** — most of this platform's work-item history is not in `site_work_items` at all. My 14 missing
+`required_fields_missing` completes are there (49 archived rows of the type, all `complete`), as are
+12 archived `literal_markdown → page-build-handler` rows, which is why that pair's failures appeared
+to *fall* from 28 to 24 overnight.
+
+> **Why I did not find it yesterday, recorded because the search looked thorough and was not.** I
+> grepped for `DELETE FROM site_work_items` and for "retention", and checked `pre_query` bodies. The
+> archiver is invisible to all three: it **moves** rows rather than deleting them, its scheduled-task
+> row has a **NULL `pre_query`** (it fires a message to an agent, so the SQL is not in the table I
+> was reading), and its description says "Archives", not "retention". I then reasoned from *"the
+> oldest surviving row is 2026-03-15"* that there was no systematic sweep — but that row is
+> **non-terminal**, and the archiver only takes terminal ones. The control I chose could not have
+> come out otherwise. What found it was noticing `work-item-archiver` in an unrelated list of
+> `maintenance` group-mates inside migration `458`'s header.
+
+**Both of the promoter's success tests read `site_work_items` only, so both meant "in the last 7
+days".** That is `bugs_open/083`'s own disease reintroduced by the mechanism built to cure it: a pair
+that works well but has been quiet for eight days reads as *never having worked* and is held for ever.
+
+**It had already happened.** Live-table-only versus live+archive, measured 2026-08-18:
+
+| pair | live-only | TRUE | verdict under the old scope |
+|---|---|---|---|
+| `empty_internal_href → page-build-handler` | 0/1 = 0% | **9/5 = 64%** | **HELD as "never completed" while holding NINE lifetime successes** |
+| `empty_section → page-build-handler` | 12/16 = 43% | **316/33 = 91%** | a 316-success workhorse reading as marginal |
+| `literal_markdown → page-build-handler` | 3/24 = 11% | 3/36 = 8% | correctly held either way |
+| `placeholder_contact → page-build-handler` | 0/4 = 0% | 0/6 = 0% | genuinely never succeeded |
+
+**Migration `465`** (applied + ledger-recorded, `_ROLLBACK.sql` alongside) makes both tests read
+`site_work_items UNION ALL site_work_items_archive`. Three controls, and the two negative ones carry
+the weight: `literal_markdown` must **stay** held (if the archive rescued the very pair `444` exists
+for, the fix would be dissolving the floor rather than correcting its scope) and `placeholder_contact`
+must stay unknown (no success in either table). Both hold. A read-only mirror of the live predicate
+confirms the next tick takes **exactly** the one stranded row.
+
+Cost: 78 ms → 134.6 ms per tick on a 900,000 ms interval.
+
+**Deliberately not taken:** a shared VIEW over both tables, which is the tidier estate-wide answer
+and the right RFC. A new shared object other pipelines may adopt is a shared-seam change (owner
+ruling 2026-07-28); this file's job was to stop a live pair being stranded. Named so the omission
+reads as a decision.
+
+**This is the fourth member of one family in this lane** — `failed` rows have no `completed_at`;
+`verified` is a second success status; the row set is not stable; and now the row set is only a
+7-day *window*. Every one is **the population measured not being the population assumed**, and none
+was caught by review — twelve council seats approved `444`.
