@@ -653,3 +653,60 @@ a root cause outside the symptom, on a shared conditional mechanism):
 5. **`cut -c8-30` on `"ts":"2026-…"` chopped the leading `2`**, so `date -d` produced epoch-63-billion
    nonsense in the window sampler. The raw timestamps were still in the output, so the measurement
    survived; had I only kept the computed field, the whole sample would have been silently garbage.
+
+### 2026-08-18 18:56Z — the diagnosis came back CONFIRMED, and `bugs_open/313` is filed
+
+**CONFIRMED, first iteration**, `c4aa3559`. It re-read the same config and code independently, cited
+`check_candidates`, `load_candidate_pages`, the surviving `orchestration_states` row (with the actual
+page list in it), and the `resolveFieldValue` type assertion — and added the one link I had left
+implicit: **`check_candidates`' `then_step` is `load_specs`, and `load_specs` is the only step that
+chains to `plan_links`**, so the else branch alone is sufficient to make the LLM step unreachable. That
+is the difference between "the condition is false" and "the agent cannot work", and I had asserted the
+second while only having read the first.
+
+Filed as `bugs_open/313`; `bugs_open/298` now carries the verdict and the fix ORDER (313 first — fixing
+the cap alone changes nothing observable, and fixing the branch alone makes the cap live on 8 sites).
+
+**Three things the filing turned up that the analysis had not:**
+
+1. **The mismatch dates to the agent's creation.** `sql_for_agents/101_internal_linker.sql` (added
+   2026-04-13; row created 2026-04-12) carries the identical pairing, and live config agrees with the
+   seed. So there is no drift and no regression to hunt — it has never worked. **[MEASURED]** 57
+   `needs_internal_links` items read `complete` between 2026-07-24 and 2026-08-18 while the workflow
+   step itself declares `"status": "skipped"`.
+2. **The blast radius is exactly one.** Censused across live config, **7** conditionals test some
+   `X.count`; six read a producer that really emits it (four `query_database` steps with
+   `output_format: object`, plus `load_unswept_areas` and `load_ch_enrichment_batch`, whose Go actions
+   set `"count": len(...)`). Worth measuring before writing the fix, because "the shared resolver
+   should synthesise `.count` for arrays" is the tempting root fix and it would change what a shared
+   conditional guarantees for every always-false condition of this shape. One instance does not justify
+   that; the bug file argues against it explicitly.
+3. **The obvious one-word fix is a trap.** Flipping `load_candidate_pages` to `output_format: object`
+   makes the condition resolve — and breaks `plan_links`, whose template does `{{range .candidate_pages}}`
+   over the bare array. Ranging a map yields `rows`, `count`, `columns`. **Both halves in one
+   migration, or you trade a dead branch for a broken prompt.** I only found this by reading the prompt
+   template, which is the same lesson as 445: read what actually consumes the column.
+
+### ⚠ MISSTEP: I read a bulk timestamp as another session's edit
+
+`agent_definitions.updated_at` for `internal-linker` read **2026-08-18 17:59:19Z** — an hour before I
+filed against it, and a minute before the pods rolled. That looks exactly like another thread editing
+the agent I am about to write a bug about, and the correct response to that is to stop.
+
+**[MEASURED] 200 of 201 live definitions share that minute** — it is the fleet release syncing
+`image_tag` (all 201 rows now read `v1.0.1310`), which the makefile documents at length under
+`bugs_open/066`. One `GROUP BY date_trunc('minute', updated_at)` separates "someone edited this row"
+from "everything was touched at once".
+
+**And this is already in `LANDMINES.md` twice** — "*`agent_definitions.updated_at` is bumped by BULK
+SWEEPS — a fresh timestamp is not another session working on your agent*" and a second entry on the
+missing trigger. That is twice in one session that I measured my way to something the file already
+knew (the log window was the first). **The pattern is mine, not the tool's: I grep LANDMINES by path,
+and both of these are keyed on a TABLE and a COMMAND, which the SessionStart hook cannot match.**
+Grepping the table name I am about to trust would have cost one command, and CLAUDE.md says to do
+exactly that.
+
+One useful side-effect of the scare: it forced a check that mattered for this lane — migration 445/446
+edits `agent_definitions`, so a fleet-wide write to that table an hour earlier could in principle have
+reverted them. It did not; the live `load_library_tools` config verified at 18:38Z (after the 17:59Z
+sweep) still has no `LIMIT` and still carries the truncation marker.
