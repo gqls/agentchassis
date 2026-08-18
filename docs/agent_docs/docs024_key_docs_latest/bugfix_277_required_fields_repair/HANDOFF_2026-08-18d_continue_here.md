@@ -18,8 +18,8 @@ bottom.** All figures measured 2026-08-18 evening unless dated otherwise.
 | thing | state | re-verify with |
 |---|---|---|
 | decision 2 — reclaim arm | **DONE** (mig `479`, `f95504674`). Never yet exercised on a real reclaim | scheduler log, `reclaimed` column |
-| decision 1 Tier 1 — refusal status | **BUILT + COMMITTED `6aee22b00`; config LIVE (mig `480`); Go INERT until a roll.** Council corr `725b1f01`: round 1 **REVISE**, round 2 resubmitted | §1 |
-| decision 4 — `bugs_open/300` | **BUILT + COMMITTED `42a4bf441`; INERT until a roll.** Council corr `203d858b`, verdict pending | §2 |
+| decision 1 Tier 1 — refusal status | **BUILT + COMMITTED `6aee22b00`; config LIVE (mig `480`); Go INERT until a roll.** Council corr `725b1f01`: **REVISE ×2, round 3 submitted** — both objections were REAL, see §1 | §1 |
+| decision 4 — `bugs_open/300` | **BUILT + COMMITTED `42a4bf441`; INERT until a roll.** Council **APPROVED r1** (`203d858b`), **verdict READ**, 4 mediums answered; registered **WII-020** | §2 |
 | decision 6 — gate cannot review config | **FILED, `bugs_open/314`** + 016b §9 pattern (`6826d2385`) | §3 |
 | decision 3 — both canaries | left alone, as ruled. Unchanged | `08-18c` §4 |
 | decision 5 — close `083` | **due ~2026-08-25**, unchanged | §4 |
@@ -76,6 +76,31 @@ The `fail_work_item` gap is **contributed to `bugs_open/307`** (owned by `staged
 active, same function) rather than fixed here: shared action, fleet-wide retry semantics, and
 `failed` is itself in the sibling guard list so a naive copy would stop the retry ladder. The split
 it probably wants is in the contribution.
+
+### The SECOND revise, which retracted a claim in my own submission
+
+Round 2 was gated by `prior_art_librarian`, **HIGH**: *"'nothing converts a detector's finding into
+its `field_updates` payload' — a load-bearing absence claim used to justify punting the actual repair
+to an unwritten RFC. The instructions' own worked example is a five-month-old, 3-run mechanism
+declared nonexistent this same way."* **It was right; see the Tier 2 box in §4.** The claim is
+retracted and corrected in four documents. Nothing in Tier 1 depended on it.
+
+Seven other objections were answered by check rather than argument, and three of those checks are
+worth keeping because they are re-runnable evidence about this change:
+
+- **nothing string-matches the refusal's current message** — 0 hits across `platform/ internal/ pkg/
+  cmd/ scripts/`, 0 live `agent_definitions`, and the 1 `scheduled_tasks` hit is prose in this lane's
+  own remedy note, not a predicate. So re-wording the error was safe.
+- **`page-build-handler` has exactly ONE definition row, version 1** — the documented
+  two-active-rows landmine does not apply to this type. Checked independently of the migration's own
+  guard, which is what `debug_historian` asked for.
+- **the opt-in key is on exactly ONE live step**, by `jsonb_each` over every live definition rather
+  than by assertion.
+
+`guardian` also asked the right question about a shared action: *behaviourally inert is not
+crash-safe*. **Seven cases added** driving the new block with a number / bool / empty / nil config
+value and a `__step_error` that is a bare string, an array, or has a numeric message — each must
+leave the configured status untouched and must not error.
 
 ### What is owed
 
