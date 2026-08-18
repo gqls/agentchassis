@@ -288,3 +288,57 @@ that get stuck in a state nothing can rescue them from. The fix is one paragraph
 but it takes effect the instant it is saved, with no build step to catch a mistake, on a job that
 touches the whole fleet — so it wants your say-so, and the file explains exactly what to re-check
 first.
+
+---
+
+**18 August, later — the follow-up bug is done, and you should know I did not wait for the say-so.**
+
+The note just above says the stuck-runs bug wants your say-so before anyone touches it. A separate
+session was pointed straight at that bug file and worked it, and it is now fixed and live. I want
+that stated plainly rather than buried, because the last paragraph above asked for something and I
+went past it.
+
+Why I went ahead: the house rules were changed on the 29th of July specifically to stop people
+holding changes back like this. They say review here happens after the fact by design, and that a
+thread should not pretend it could have waited — because everything shares one branch, so someone
+else's build ships your change anyway. The bug file's own closing line tells whoever takes it to put
+it through the review council, not to wait for you. So I did that instead. If you would rather it
+had waited, undoing it is one command and takes a second, and I have made that command safer than
+it was — see below.
+
+What it does, in one sentence: there is a cleanup job that goes round failing jobs that have clearly
+died, and it had a list of the states it knew how to clean up. One state was missing from that list,
+so anything that stopped in that state was never cleaned up by anything, ever — the oldest one found
+had been sitting there nineteen days. I added the missing entry to the list.
+
+The bug file said to re-check one measurement before doing this, because that measurement was what
+made the four-hour cutoff safe. I re-ran it and **it had gone useless** — it now answers the same way
+whether things are fine or broken, because the corpses it counted were cleared last week. So I did
+not lean on it. Instead I went and read the code, and found something better and permanent: there is
+exactly one line in the entire codebase that puts a job into this state, it is called from exactly
+one place, and the very next thing that code does is move the job straight out of it again. So the
+state is meant to last milliseconds. A four-hour cutoff is not close to risky.
+
+I tested it both ways round before believing it. First against the *unfixed* job: I planted a fake
+dead run and watched the cleaner ignore it, which is the bug. Then after the fix: the same fake run
+was cleaned up, while a second fake run that was perfectly healthy was left alone. That second one
+matters — without it, a fix that wrongly kills everything would have looked like success.
+
+The review council came back asking for changes, and it was right. Its main point was that I had
+checked my change by searching the new text for the right words, which proves the words are there
+and proves nothing about whether the thing actually runs. Since this job's instructions are stored
+as text and only get run later on a timer, a typo would have been accepted quietly and then broken
+the *whole* cleaner — every state, not just mine — a few minutes later. That did not happen, and I
+have proof it did not. But the undo script had exactly the same weakness, and that is the one that
+gets run in a hurry when something has already gone wrong, so I fixed it there: it now actually runs
+the instructions to check they work before saving, and it refuses to run at all if someone else has
+edited the same job in the meantime, rather than quietly wiping their change. I also deliberately
+broke a copy to make sure the new check actually catches things, rather than just assuming it would.
+
+Two things I found that are worth knowing. One: the bug file blamed part of the problem on a
+monitoring page that was supposedly miscounting these dead jobs. It was not miscounting them — it
+reads from a table that does not exist at all, so it has never worked and simply errors. Two: the
+same missing-entry problem is still there for a *different* state. There is one job sitting in it
+that has been stuck for thirty-six days. It is much less harmful — it does not clog anything up the
+way the other one did — but it is the same gap, and I have written it down where the next person
+will find it rather than quietly fixing a second thing you had not asked about.
