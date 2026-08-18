@@ -285,3 +285,32 @@ total prose wipe on 10 of 11.
 Watch query and its demand control: `docs024_key_docs_latest/bugfix_293_whole_page_shrink_axis/RUNBOOK`.
 Council `823679dc-43d5-4f93-8b2d-746c41250290`, APPROVED round 2. Disposition record for the next
 fixer: `doc_notes`, `subject_key='save_page_sections-text-floors-axis-293'`.
+
+---
+
+## 2026-08-18 — the refusal has now FIRED at the artefact, and the test found a missing clamp
+
+`v1.0.1309`, stamp `f0117fb8b`: **all three code commits are live**, including `cd610a006` (the
+page-total floor failing CLOSED). Absent control: `HEAD`, 28 commits ahead, is not an ancestor.
+
+**Induced safely** — payload was the page's own sections byte-for-byte with `page_total_text_floor: 1.5`,
+so a refusal was arithmetically certain and a failure to refuse would have written identical content.
+Target `ai-agent-orchestration.com/contact`. Recipe, and the two unsafe variants it rejects, in the
+lane RUNBOOK.
+
+```
+FAILED | induce_save | PAGE CONTENT REGRESSION REFUSED for page "contact" — the incoming sections
+carry 581 chars of VISIBLE text against 581 deployed across 3 sections (100% kept, floor 150%)
+```
+- `enforcePageTotalTextFloor` executes in the shipped binary and reads its new config key.
+- **581 visible chars on a page holding 7,343 BYTES of HTML** — the ratio the retired axis could not see.
+- Artefact untouched: same fingerprint **and same row ids**, so the DELETE never ran.
+- Queue row carries the page-total floor's OWN remedy sentence; cancelled afterwards as synthetic.
+- **Allow arm** from live traffic: 6 real rebuild writes on this image, 4 in scope, **0 refused**.
+
+**NEW RESIDUAL, fixed but not yet rolled.** `page_total_text_floor` was **unclamped** — the only reason
+`1.5` worked. Both siblings clamp at 0.95 (*"an absurd floor is clamped to 0.95, not treated as 'refuse
+everything'"*); a typo of `1.5`/`2.5` would have refused every save on that step for ever, and a refusal
+here fails the step and can strand a build loop. Clamped in `d5b40c4eb` with MUT-293-J behind it; **inert
+until the next roll**. It passed a council round, ten tests and a green suite because all of them
+exercised the default — a config key nothing has ever set is untested by definition.
