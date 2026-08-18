@@ -58,6 +58,11 @@ page. That is `bugs_open/295`'s family (*"SIX producer families die on owned pag
 > the floor would hold a handler that is behaving correctly. The floor should distinguish
 > *"refused on purpose"* and *"transient"* from *"tried and failed"*. Not fixed here; it wants its
 > own measurement of how the error strings partition fleet-wide, and it touches `bugs_open/295`.
+>
+> **CORRECTED 2026-08-18 18:40Z — the figures in this block are LIVE-TABLE ONLY and are superseded.**
+> The pair's true lifetime record is **3 successes / 36 failures, 16 protective / 16 genuine**, so the
+> corrected rate is **16%**, not the ~18% estimated here. The conclusion is unchanged (still under the
+> 25% floor, still correctly held). Full fleet-wide partition and the decision: §3 item 2.
 
 > A shared VIEW over both tables is the tidier estate-wide answer and is **deliberately not taken** —
 > a new shared object other pipelines may adopt is a shared-seam change (owner ruling 2026-07-28).
@@ -82,15 +87,56 @@ Live after apply: **watching 15 rows — 5 canary-held, 10 floor-held.**
 ## 3. Owed work, in priority order
 
 1. **Watch `466`'s first tick** (daily; last ran 12:57 under `453`, so the next is the first under
-   `466`). Expect: `literal_markdown` (10 rows, floor-held, oldest 08-17) to escalate once past the
-   3-day limit ~**08-20**; `placeholder_contact` (3 rows, canary-held, oldest 08-16) ~**08-19**. The
-   `pre_query_result` line in `kafka-scheduler` logs is the instrument — it should now carry
+   `466`). ~~Expect: `literal_markdown` (10 rows, floor-held, oldest 08-17) to escalate once past the
+   3-day limit ~**08-20**; `placeholder_contact` (3 rows, canary-held, oldest 08-16) ~**08-19**.~~
+   The `pre_query_result` line in `kafka-scheduler` logs is the instrument — it should now carry
    `watching` and `watching_detail` even on an idle tick, which is `466`(a) working.
-2. **The floor counts protective refusals as failure** (§1's new finding). Measure how
-   `site_work_items.error` partitions fleet-wide — `rebuild_policy=owned` refusals, `failed_transient`
-   delivery errors, and genuine non-repairs — then decide whether the floor should exclude the first
-   two. Not urgent (no pair is mis-held today) but it is a soundness hole in a live gate, and it
-   overlaps `bugs_open/295`.
+
+   > **⚠ CORRECTED 2026-08-18 18:20Z — BOTH DATES ABOVE ARE ONE TICK EARLY, and the miss looks
+   > exactly like `466` being broken.** I computed them as `(oldest + 3 days)::date`, which discards
+   > the time of day. The task fires at **12:57 UTC** (`interval_seconds=86400`,
+   > `last_triggered_at` 12:57:48) and its predicate is `min(created_at) < now() - interval '3 days'`,
+   > so a row created at 19:17 is 6h20m short at the 12:57 tick and waits a **further full day**. A
+   > "3-day limit" on a daily task is really **3–4 days**. Re-derived read-only from `466`'s own
+   > `classified` CTE, [MEASURED 2026-08-18 18:19Z]:
+   >
+   > | pair | hold_kind | rows | oldest (UTC) | FIRST TICK THAT ESCALATES |
+   > |---|---|---|---|---|
+   > | `placeholder_contact → page-build-handler` | canary | 3 | 08-16 19:17 | **08-20 12:57** |
+   > | `dead_fragment_link → page-build-handler` | canary | 1 | 08-18 01:38 | **08-21 12:57** |
+   > | `literal_markdown → page-build-handler` | floor | 10 | 08-17 19:21 | **08-21 12:57** |
+   > | `missing_conversion_path → content-gap-planner` | canary | 1 | 08-17 22:21 | **08-21 12:57** |
+   >
+   > **So the 08-19 12:57 tick — the first under `466` — escalates NOTHING, and that is CORRECT.**
+   > It should log `escalated=0` with `watching=15`, which is `466`(a) working (a `HAVING` that still
+   > speaks on an idle tick). Do not read that zero as a failed migration. Conditional on the held set
+   > not changing: the clock keys on `min(created_at)` per PAIR, so if the oldest row leaves
+   > `detected` the date moves OUT. Logged in `WRONG_CALLS.md` and `LANDMINES.md` (2026-08-18).
+2. ~~**The floor counts protective refusals as failure**~~ — **MEASURED AND DECIDED 2026-08-18
+   18:40Z; `471` applied. Do not redo the measurement.** Fleet-wide over the 948 `failed` rows the
+   floor actually reads (live UNION archive): **protective refusal 434 (45.8%)** — 418 of them
+   `rebuild_policy=owned` — **transient/infra 234 (24.7%)**, **housekeeping that was never an attempt
+   110 (11.6%)**, **genuine non-repair 170 (17.9%)**, and that last is an UPPER bound (~9 rows
+   misfiled into it, both corrections pushing the same way). Protective share by month: 04–06 **0%**,
+   07 **1.5%**, **08 61.6%** — bursty, not drift; today 66 of 74.
+   - **The floor's arithmetic is NOT changed, and that is the decision, not an omission.** Under the
+     promoter's FULL predicate (`c = 0 OR under-floor` — *not* the floor formula alone) **0 pairs
+     flip**. My first pass said `placeholder_contact` flips; that was my own error, caught before
+     recording — it has zero successes, so the *canary* rule holds it whatever the floor says.
+     `literal_markdown → page-build-handler` refines to **3/(3+16) = 16%**, still correctly held.
+   - **Why not put the classifier in the gate:** `error ILIKE '%rebuild_policy=owned%'` in a live gate
+     makes an error message's *wording* load-bearing across services — reword it, silently change what
+     the promoter dispatches, no test fails. The sound fix is a **structured refusal signal** (a
+     distinct terminal status, or a `result` key the handler sets), which is a new shared vocabulary
+     on a shared seam ⇒ **architecture-scope**, to be taken with `bugs_open/295`. **Left open
+     deliberately; named so the omission reads as a decision.**
+   - **What WAS fixed (`471`, applied + ledger-recorded + `_ROLLBACK.sql`):** the floor-held
+     escalation payload. `466`(b) told the reader *"FIX THE HANDLER"*; on the **08-21 12:57Z** tick
+     that would have gone to `literal_markdown → page-build-handler`, **16 of whose 36 lifetime
+     failures are the handler correctly refusing**. It now leads with *"FIRST PARTITION THE
+     FAILURES"*, carries the numbers, and hands the reader the query. Text-only by construction
+     (single `replace()` on the live `pre_query`); `EXPLAIN` proved it still parses without executing
+     its `UPDATE`; positive control proved the text is reachable (10 rows).
 3. **`277` → `bugs_closed/`** ~**2026-08-22**: churn guard + the two cancelled conversions
    re-raising. **Both paths on the commit** — LANDMINE.
 4. **`083` → `bugs_closed/`** — its arc is demonstrated (the 08-17 canary, and now `465` proven);
