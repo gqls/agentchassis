@@ -483,3 +483,75 @@ against 53 lifetime; mine was `hardcoded_section_colors` reading 1 producer live
 archive-inclusive, with WII-013's `Grades` licensed on "of the 21 rows ever filed" against a lifetime
 population of 564. Two independent lanes, one blindness. That is the shape that earns a landmine, and
 it already has one (filed this morning by the migration-465 lane) — so cited, not duplicated.
+
+---
+
+## 2026-08-18 (cont.) — APPROVED round 1, and what the objections were actually worth
+
+Corr `edfef8cc-c42f-45f8-9b36-7578ffb56f6c`. **APPROVED**, *"approved with 2 advisory objection(s) —
+none high-severity (round 1)"*, **10 reviewers, 7 abstained, `unreadable: 0`,
+`gated_by_truncation: false`.** Dispatch→verdict was ~14 minutes (17:11:08 → ~17:25Z), which is far
+better than the ~30 minutes CLAUDE.md tells you to budget — do not generalise from one run.
+
+Verdict READ in full, not taken at its word. `verdict: object` from `editquality` and `guardian`;
+`approve` from `reuse_agent`, `guidelines`, `diagnosis_guardian`, `debug_historian`, `constitution`,
+`mission`, `prior_art_librarian`, `architecture`. **Every objection was actionable and all four are
+acted on** (`24235e990`), because a disclosed risk is not a checked one.
+
+### `editquality` found a FALSE CLAIM in my submission — the most valuable objection of the round
+
+My CONSUMERS ENUMERATED paragraph said *"WII-011's landmine about reading that column is amended in
+the same commit"*. **It was not.** I had amended WII-017, whose relations line *mentions* WII-011's
+landmine; WII-011 itself — the entry a reader of `_verification.status` lands on — said nothing.
+Now fixed: WII-011 carries all six values with the warning not to read the new one as a verifier
+verdict. Logged in `WRONG_CALLS.md`. ⚠ **The objection arrived inside an APPROVAL**, which is exactly
+when it is easiest to skim past.
+
+Its other objection (medium) — "other roster entries would be left undeclared and edit 6's test would
+fail for them" — is answered by a count: the roster holds **exactly one entry** and it declares
+`OnUnreadable`. The forcing test iterates every entry and is green, which is the proof.
+
+### `guardian` was right that a grep of a Go constant does not size a shared surface
+
+It asked for the blast radius by query. Doing that found something I had not enumerated:
+
+- **No live reader of the `_verification.status` string exists.** Three `scheduled_tasks` mention
+  `_verification` in their `pre_query`; two are `enabled=false`, and the enabled one —
+  `detected-item-promoter` — keys on `site_work_items.status IN ('complete','verified')`, the item's
+  own column, not this payload.
+- **But that promoter is affected SECOND-HAND, which the objection is what surfaced.** Its `floor_ok`
+  door-closer needs a pair to be ≥25% good over ≥5 terminal outcomes, and this change moves future
+  rows from `complete` to `failed`. [MEASURED, archive-inclusive exactly as the promoter reads it] the
+  pair `dark_section_audit`/`color-variable-fixer` stands at **26 complete / 4 failed = 86.7% good**.
+  Historical completions do not change, so **75 further refusals** are needed to cross the floor —
+  ~16 days if every filing were refused, at the observed ~4.7/day.
+- **It does not flip soon, and when it does that is the CORRECT outcome.** The promoter exists to stop
+  promoting item_type/handler pairs that do not work, and 86.7% is an artefact of precisely the false
+  greens this fix removes: the gate was telling the promoter this pair works. ⚠ My first instinct was
+  to write "this will stop the promoter promoting these items" — the arithmetic says 75 rows away.
+  **Second time today that doing the arithmetic before writing the sentence changed the sentence.**
+
+### The two low objections, both answered rather than filed
+
+- `reuse_agent`: the `OnUnreadable` grep rules out the literal symbol, not an equivalent idiom under
+  another name. Checked — the idiom **does** exist twice and this copies it: `silenceRetractionGates`
+  (`Why` + `ConsecutiveSilences`, same "state the measurement or the number is a guess" bar) and
+  `VerifierPolicy` (`FailOpenOnError` + `Grades`, per-type opt-ins with the unsafe default OFF). Named
+  in the register so the next reader does not have to re-derive it.
+- `architecture`: `ARCHITECTURE_SIGNAL: point_fix`, with a watch item — at a **second** type declaring
+  `unreadableRefuses` the accumulated policy surface becomes a shared judgement contract worth its own
+  RFC, and this round's precedent will not cover it. Recorded in the register where the next author
+  will meet it. Same accumulation argument as RFC_022's optional-key budget.
+
+`prior_art_librarian` withheld objections pending spot-checks of my load-bearing counts and IDs, noting
+it could not verify a codebase-absence claim from a declarations-only index. Fair, and worth knowing:
+**that seat cannot confirm a `grep` returned nothing**, so an absence claim in a submission is
+author-asserted for it either way.
+
+### Not built, not deployed — deliberately
+
+`make release` is whole-fleet and the owner runs it; a one-service apply at its own tag is the trap
+recorded in fleet memory. The code is committed, so it rides the next roll. What is owed at that point
+is in the PLAN: a three-needle binary scan on **both** replicas (the new literal, a long-live control,
+a nonsense needle), then the honest status **"deployed, not behaviourally proven"** until a real or
+induced row exercises the refusal.
