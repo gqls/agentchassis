@@ -89,8 +89,16 @@ because **the internal linker has never made a link.**
 
 **Filing basis for THIS block (owner ruling 2026-07-31):** put through the diagnosis loop before being
 asserted — `RUN_CORRELATION_ID=c4aa3559-86b1-4356-a28b-c71dfa661465`, filed 2026-08-18 18:38Z.
-**Verdict pending at the time of writing**; whoever reads this next should check it and record the
-result here. The measurements above are first-hand and reproducible by the queries in
+**Verdict: CONFIRMED**, first iteration (2026-08-18 18:56Z), independently citing the same config and
+code and adding the one link this analysis had left implicit: `check_candidates`' `then_step` is
+`load_specs`, and `load_specs` is the only step chaining to `plan_links`, so the else branch alone is
+sufficient to make `plan_links` unreachable.
+
+**The dead branch is now filed on its own as `bugs_open/313`** — it is a different defect from this
+file's cap, and it dates to the agent's creation (2026-04-12; the seed
+`sql_for_agents/101_internal_linker.sql` carries the identical mismatch, and live config agrees with
+it). **Fix 313 first, or fixing this cap changes nothing observable; fix 313 alone and this cap goes
+live on the 8 sites that exceed it.** The measurements above are first-hand and reproducible by the queries in
 `docs/agent_docs/docs024_key_docs_latest/bugfix_275_silent_row_caps/RUNBOOK_275_silent_row_caps.md`.
 
 ---
