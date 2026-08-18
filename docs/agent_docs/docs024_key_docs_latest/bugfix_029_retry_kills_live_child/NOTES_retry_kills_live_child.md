@@ -685,3 +685,52 @@ await either, while `call_dispatch` got its declared 900s on the same path shape
 initial-window path may have its own conversion gap, separate from the retry truncation this
 change fixes.** `[UNVERIFIED]` — I have not traced which registration site each takes.
 Deliberately not widened into this round; it is a fresh question, not a loose end of this fix.
+
+---
+
+## 2026-08-18 — a handed-over lead CHECKED and CLOSED: the `page_rerender` failure cluster is NOT 029
+
+The `site_ai_agent_orchestration` lane handed over ~107 failed `page_rerender` rows, 72%
+concentrated in three sites, webdesign.co.uk still failing today — offered as the place the
+suspected initial-wait conversion gap would show. They were right to offer it and right not
+to diagnose it. **It is not 029, and it is not a standing defect at all.**
+
+```sql
+SELECT count(*) FILTER (WHERE error ILIKE '%timed out after%')    AS the_029_signature,
+       count(*) FILTER (WHERE error ILIKE '%claim timed out%')    AS claim_timeouts,
+       count(*) FILTER (WHERE error ILIKE '%save_page_sections%') AS content_gating,
+       count(*) FILTER (WHERE error ILIKE '%commit%' OR error ILIKE '%github%') AS git_api,
+       count(*) AS total
+  FROM site_work_items WHERE item_type='page_rerender' AND status='failed'
+   AND updated_at > now()-interval '5 days';
+--  7 | 2 | 17 | 76 | 108
+```
+
+**76 of 108 are GitHub API / git-adapter failures** (`failed to get latest commit/base tree`,
+`failed to create commit: github API request…`). Only **7** carry this bug's signature.
+
+And they are **one incident, not a pattern** — every git failure falls inside a single
+**2h35m window on 2026-08-17, 13:37 → 16:12 UTC**, across six sites:
+
+| site | git fails | first | last |
+|---|---|---|---|
+| webdesign.co.uk | 28 | 13:37:35 | 15:35:44 |
+| gamesdesign.co.uk | 22 | 13:49:34 | 16:12:34 |
+| robot-hands.com | 16 | 14:45:41 | 15:59:36 |
+| loancalculator.co.uk | 6 | 15:59:50 | 16:10:54 |
+| cookly.uk | 2 | 14:49:16 | 14:49:48 |
+| relojistas.com | 1 | 15:31:17 | 15:31:17 |
+
+Fleet-wide, time-bounded, self-limiting, already over — the shape of a GitHub API outage or
+rate-limit window, not a defect anyone needs to fix. **The "three sites carry 72%" reading is
+an artefact of which sites had the most rerender traffic during those 2½ hours**, not of
+anything wrong with those sites. `[MEASURED]`.
+
+**The disconfirming result was available and is why this is worth recording:** if the
+initial-wait gap were showing in this population, the `timed out after` count would dominate.
+It is 7 of 108. So this lead is closed rather than parked — I am not carrying it forward as a
+suspicion, and nobody should re-open it on the row count alone.
+
+**Not filed as a bug.** A dated, finished incident with an external cause is not a
+`bugs_open/` entry, and filing one would put a permanent-looking record against six sites for
+a two-hour API wobble. If it recurs, the query above is the check.
