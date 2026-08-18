@@ -25,6 +25,39 @@ no prices.** That was the Phase B/C question and it is answered.
 **Cost baseline: 43 LLM calls · 389,406 in · 120,822 out · 11 assets** — a FLOOR (joined to the
 pilot\'s own orchestrations, not a time window). page-content-writer ≈71% of input tokens.
 
+## 1a. URLs — what you can actually look at
+
+**LIVE AND VIEWABLE (verified by reading the served BODY, not the status code):**
+| directory | URL |
+|---|---|
+| AI Model Directory | `https://ai-agent-orchestration.com/model-directory.html` |
+| Enterprise AI Agent Adoption Tracker | `https://ai-agent-orchestration.com/adoption-tracker.html` |
+| Agent Communication Protocol Tracker | `https://ai-agent-orchestration.com/protocol-tracker.html` |
+
+**THE PILOT IS NOT VIEWABLE — and a `curl` status code will LIE to you about it.**
+`https://remortgagecalculator.uk/mortgage-lenders.html` returns **200**, and the body is
+`<script>window.onload=function(){window.location.href="/lander"}</script>` — the registrar\'s
+**parking page**, which answers EVERY path with 200. An `%{http_code}` probe against a parked
+domain is a check that cannot fail. **Always read the body.**
+
+**So: BUILT and DEPLOYED TO THE BUCKET, but NOT SERVED.** `pages.build_status='deployed'` +
+`deployed_at` is truthful about what the pipeline did (it wrote the tree to
+`b2://portfolio-sites/remortgagecalculator.uk/`); **nothing points the domain at the serving
+worker**, so no visitor can reach it. **`deployed` and `reachable` are different facts** and
+this lane had been conflating them.
+
+- Serving mechanism: `scripts/cloudflare/worker.js`, objectKey = `<hostname><path>` in bucket
+  `portfolio-sites`. It works where DNS points at it — that is why aao.com serves and the
+  pilot does not.
+- The bucket cannot be probed from here: `s3.us-east-005.backblazeb2.com/portfolio-sites/…`
+  returns **401 for the known-good site as well as the pilot**, so that 401 means "private
+  bucket", NOT "missing object", and is evidence of nothing.
+- The pilot\'s directory content IS verified — in `page_components.rendered_html`: two cited
+  building societies, per-claim `source` links, and the non-price copy.
+- **A DNS/domain step is missing from the fleet-build path.** Phase E hits this on all ~140
+  domains. Decide whether the pipeline owns it or it is deliberately manual — this is an
+  owner question, not a bug to fix quietly.
+
 ## 2. Pilot state — built and PARTLY live
 
 | | |
