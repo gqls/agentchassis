@@ -1093,3 +1093,27 @@ inside it. **The origin was correct the whole time.**
   the one-line confirmation.
 - **This lane creates the hazard itself**: the recipe fetches the live tool to write the brief, which
   warms the edge with the doomed page, ~40 minutes before the rerender lands inside the same 1-hour TTL.
+
+## 2026-08-18 17:2xZ — #8 `tool-json-cleaner` FILED; live-tool fetch now cache-busted too
+
+- **Item `9e698938-0382-48d6-8f85-78585e230a6c`**, page `e1958a27…`. Revert handle: ported slot
+  **`c522acb3-cab6-4dd9-bf11-198fedb58071`, 5,296 chars, md5 `370aa8561c9629919841f4368995f269`**.
+  All three gates + the serial throttle pre-asserted.
+- **The live-tool read now uses `?cb=<epoch>` as well.** A cache-busted URL is a different cache key,
+  so reading the tool to write its brief no longer warms the canonical page with the copy that is
+  about to be replaced. That closes the hazard at source rather than only compensating for it at
+  grading time (where the buster still applies).
+- **Two real ported defects found by reading, both specified as fixed:**
+  1. **An invalid or blank limit silently disables truncation.** `parseInt(limitInput.value)` yields
+     `NaN`, and `obj.length > NaN` is `false` for every string, so the tool returns the input
+     unchanged and looks like it simply had nothing to do. **A silent no-op that is indistinguishable
+     from success** — the same shape as the minifier's, and the third instance of that class in this
+     batch. Fix: reject a blank/non-numeric/less-than-1 limit with an inline message.
+  2. **A parse error is written INTO the output box** (`output.value = "Error: Invalid JSON..."`),
+     destroying the result the user was about to copy. Fix: a separate error area, output left intact,
+     cleared on the next successful run.
+- Kept faithful otherwise: exact truncation format, `JSON.stringify(..., null, 4)`, recursion over
+  arrays and objects with non-strings passed through. **Deliberately did NOT add a copy button** — the
+  original has none; same call as smooth-shadow. One intent change only: recompute when the limit
+  changes, since it is the tool's single control and the ported version ignores it until the button is
+  pressed again.
