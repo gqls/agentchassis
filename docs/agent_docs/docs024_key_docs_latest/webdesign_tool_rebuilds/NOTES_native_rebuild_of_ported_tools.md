@@ -883,3 +883,31 @@ before the rebuild was filed. Asserted in the same transaction that exactly ONE 
 **and that it is the new v2 component** — not merely "one slot", which would have passed if the wrong
 one had survived. Page now: ported `removed` (deep fallback), v1 `removed` (revert handle), v2 deployed.
 Rerender `3fe4d30b-eeb9-49b5-8016-918917895226` queued and watched.
+
+## 2026-08-18 14:11Z — minifier v2 LIVE and PASS at the served page; SVG v2 filed
+
+**Rerender `3fe4d30b` complete 14:11:35Z. Grade at
+`https://webdesign.co.uk/tools/html-minifier/index.html` `[MEASURED]`:**
+`http=200`, 18,327 B · `class="ported-page"` **0** · `{{\.` **0** · `type="checkbox"` **4** (3 options)
+· `<textarea>` **2** · **`Copy failed` 1 and `execCommand` 1 — the honest-copy fix is in the SERVED
+bytes**, which is the whole point of this rebuild · negative control **0**, positive **7**.
+Size readout live at line 315: `<div class="size-readout" id="sizeReadout" aria-live="polite">` →
+`Input: N characters. Output: N characters. Saved: N percent.`, updated on every path including the
+empty case and the output-too-large case.
+
+**SECOND false negative from my own grading patterns, in one session.** I grepped the served page for
+`% saved` and got **0**, on a tool whose readout is present and working — it words it
+`Saved: N percent.` Combined with the `execCommand` regex miss an hour earlier, that is two occasions
+where **my check said a required fix was missing and the fix was there**. Both times the fix was a
+STRING I had guessed at rather than the BEHAVIOUR I actually required. The durable form:
+**grade a requirement by locating the mechanism, not by matching a phrase you imagined it would use** —
+find `id="sizeReadout"` and read what writes to it, rather than grepping for your own wording.
+(Note the asymmetry that makes this dangerous: a false negative costs a wasted rebuild; the same
+sloppiness in the other direction — grepping a phrase that happens to appear in a comment — passes a
+tool that does nothing. `bugs_open/303` is the platform-level version of the identical error.)
+
+**SVG v2 FILED** — item `dc3448b4-14a5-4ec8-b057-30f32891c8a5`, same five fixes plus the 303
+build-constraint clause. All three gates freed in one transaction: `88b70065` set `is_active=false`
+AND renamed to `tool-svg-optimizer-webdesign-co-uk-v1-retired-20260818`, with pre-asserts on all three
+gates, on the serial throttle, and on the revert handle (placement `7ccde0a1` still points at the old
+component). Revert handle: **7,879 chars, md5 `23b028ed44c3c17d4bb2495684064488`**.
