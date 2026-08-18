@@ -36233,3 +36233,24 @@ Recorded as a visible correction in the 029 lane's NOTES.
   Tally for "a peer session caught something my own adversarial pass missed": 1 — worth
   noting, because the adversarial pass I commissioned attacked the DESIGN and never asked
   whether the code it defended was reachable.
+
+- **2026-08-18 (bugfix-309 lane): "309 is unowned — the filing session ended, no live
+  transcript mentions it" — TRUE at 19:22, FALSE by 19:35, and I never re-checked.** I did
+  the full pickup diligence: who-owns (commits), live-transcript greps for the slug and the
+  distinctive terms, read the filing thread's handoff ("read the verdict, then fix" — an
+  explicit hand-off, not a claim). All of it was correct AT THAT MINUTE. Another session
+  (titled bugs_open/272, also redirected from its original bug) began measuring the same
+  mechanism minutes later; its first 309 commit landed at 19:35 while I was deep in the same
+  DB queries, and I only discovered the collision at 19:46 — in `git log` output scrolling
+  past my own commit. Two sessions independently derived the same root cause in parallel for
+  ~70 minutes. Nothing was lost (the halves were complementary: they took the case repair, I
+  had shipped the class guard), but that is luck, not process.
+  **What caught it:** the commit-scope block of my own `git commit` printing a fresher log.
+  **The cheap check:** an ownership check is a SNAPSHOT with a half-life of minutes on this
+  tree (the who-owns entry already says LAGGING — this extends it: even the live-transcript
+  sweep lags, because a session redirected onto the bug AFTER your sweep is invisible to it).
+  Before each expensive phase — first code written, each commit, firing a council round —
+  re-run the one-liner: `git log --oneline --since=90min -- bugs_open/<file>` plus a fresh
+  transcript grep. Seconds each; would have surfaced the collision 25 minutes and one
+  duplicate mechanism-derivation earlier.
+  Tally for "acted on an ownership snapshot without re-checking at the next phase boundary": 1.
