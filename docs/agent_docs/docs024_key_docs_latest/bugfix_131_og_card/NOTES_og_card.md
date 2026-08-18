@@ -774,3 +774,31 @@ package would not test in-tree. Verified against `git archive HEAD` + my 4 files
 **Open on this phase:** council verdict (read it; act on REVISE/REJECTED — code is on the
 shared branch); artefact verification once the 4 items dispatch (curl + LOOK at the PNGs —
 spec-sheet landmine); the four still-open items from (10) are untouched.
+
+**(11a) Redrive verification, first two sites (2026-08-18, same session).**
+- cookly.uk: item `f29b37a3` complete; wire 404→**200/200** (favicon 3,614B, og-card
+  138,869B); result shows `check_mode.condition_met=true → derive_head_assets`,
+  `derived:true`. **Eyeballed both PNGs**: card clean and legible ("Cookly" on the brand
+  plate photo); favicon is the known wide-logo illegibility class (aspect preserved, no
+  distortion — July's fix working; joins the square-favicon-source backlog).
+- webdesign.co.uk: item `3f5286cf` complete; wire 404→**200/200**; provenance rows active
+  at the published paths (both sites) — exactly the state `VerifyBrandHeadAssetsResolved`
+  will accept. **Eyeballed the card: the stored logo has a baked-in transparency
+  CHECKERBOARD** (editor chequer flattened into the pixels), so the card shows the mark on
+  a chequered rectangle. Asset-quality defect, relojistas family — mechanically green,
+  visually wrong. NOT this fix's remit; belongs to the webdesign.co.uk site lane (their
+  shopfront). Flagged in the bug file.
+
+**(11b) Redrive COMPLETE — all four items terminal, 467's fallback WITNESSED (2026-08-18).**
+- lendzy.co.uk: 404→**200/200** (favicon 2,301B, og-card 113,780B). Card eyeballed: clean —
+  shield/book mark + wordmark, mild letterbox (opaque-logo class, known).
+- **Proof item `8c964f93` (purpose, NO mode — the exact six-week mis-route shape) completed
+  via the fallback**, and its result records the whole chain declining in order:
+  `check_mode:false → check_sprite_mode:false → check_card_mode:false →
+  check_ingest_mode:false → check_brand_head_purpose → derive_head_assets,
+  brand_head_result.derived:true`. Migration 467 is now a witnessed mechanism, not a
+  deployed-but-unexercised one.
+- Final wire census: idea.uk 200/200 (08-17 hand item), mortgagecalculator 200/200 (08-14
+  hand item), cookly.uk 200/200, webdesign.co.uk 200/200 (+ its 302 twin webdesign.uk),
+  lendzy.co.uk 200/200. Remaining 404 pair: **loancalculator.co.uk — deliberately left to
+  its owning lane** (runbook has their one-liner).

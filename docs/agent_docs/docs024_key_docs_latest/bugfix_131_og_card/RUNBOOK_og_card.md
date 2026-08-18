@@ -139,3 +139,38 @@ SELECT left(orchestration_id::text,8) AS orch,
 - **Do NOT count rounds with `WHERE current_step LIKE 'review%'` and call it a census of
   council traffic.** `current_step` moves as the round progresses, so a finished round drops
   out of the filter — the query answers "what is at a review step now", never "how many ran".
+
+---
+
+## 2026-08-18 — redrive a site whose brand-head items mis-routed (the proven shape)
+
+The gotcha the whole section exists for: the item MUST carry `spec.mode='brand_head'` —
+`purpose` alone routed to `deploy_asset` until migration 467, and still relies on the
+fallback rather than the first-choice route. Direct SQL INSERT deliberately bypasses the
+Go two-strike rule (false completes within 7 days would otherwise birth the item
+`unresolved`); the dedup index ignores terminal/unresolved rows, so no collision. Distinct
+`item_key` per redrive batch (a live `deferred` row with the producer's key WOULD collide —
+`deferred` is not in the index's terminal set).
+
+```sql
+INSERT INTO site_work_items (site_id, source, item_type, item_key, severity, summary,
+                             spec, pipeline, priority, handler_agent, status, created_by)
+SELECT s.id, 'manual', 'needs_brand_head_assets',
+       'needs_brand_head_assets:derive_<YYYYMMDD>', 'medium',
+       'Derive favicon + OG card from the active logo (mode=brand_head)',
+       '{"mode": "brand_head"}'::jsonb, 'build', 70, 'asset-deployer', 'triaged',
+       'claude-<lane>-brandhead-<YYYYMMDD>'
+FROM sites s WHERE s.domain = '<domain>';
+```
+
+Precondition check first (the deriver declines without it), then verify at the WIRE and
+LOOK at the PNGs (spec-sheet landmine, NOTES (5)):
+
+```sql
+SELECT EXISTS (SELECT 1 FROM assets a WHERE a.site_id=s.id AND a.asset_key='logo'
+               AND a.status='active') FROM sites s WHERE s.domain='<domain>';
+```
+```bash
+for a in favicon.png og-card.png; do curl -s -o /dev/null -w "$a %{http_code}\n" \
+  "https://<domain>/assets/images/$a"; done   # then download and actually view them
+```

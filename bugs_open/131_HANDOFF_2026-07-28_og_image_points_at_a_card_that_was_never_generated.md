@@ -414,3 +414,14 @@ conditionals, refusal branch, verifier registry, two-strike arithmetic), live co
 agent row, not the seed), live rows (item census, result payloads) and the wire (curl all
 affected sites), with idea.uk as the positive control. Stated here rather than silently
 skipped.
+
+**UPDATE 2026-08-18 (same session, later): redrive VERIFIED — all three sites 404→200/200
+on the wire, provenance rows active at the published paths, cards eyeballed** (cookly and
+lendzy clean; **webdesign.co.uk's card renders its mark on a baked-in transparency
+CHECKERBOARD** — the stored logo PNG has the editor chequer flattened into its pixels, the
+relojistas asset-defect family: for the webdesign.co.uk lane, not this fix). **Migration
+467's fallback is WITNESSED, not assumed**: proof item `8c964f93` carried the exact
+mis-route shape (purpose, no mode) and its result records every mode check declining, then
+`check_brand_head_purpose → derive_head_assets, derived:true`. The only remaining 404 pair
+in the affected set is loancalculator.co.uk, left to its active lane with the runbook
+one-liner.
