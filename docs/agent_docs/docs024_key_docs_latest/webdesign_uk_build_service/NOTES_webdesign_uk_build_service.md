@@ -3299,3 +3299,26 @@ this session's cold-start falsifier sweep:
   The served page still said "You pay once, after you've seen the finished
   site on a preview link and approved it" at 10:22Z — the page contradicting
   the bot is the customer-visible defect this whole thread exists to close.
+- **~10:37Z — THE NEW TERMS ARE LIVE ON THE SERVED PAGE, and the chat box is
+  ON index.** Run `ea12d8c9`: validation PASSED (zero
+  CONTENT_VALIDATION_BLOCKER_DETAIL rows), item `complete` 10:33Z, and the
+  SERVED `preview.webdesign.uk` now says *"You pay first, then get a finished
+  site as a preview link and a ZIP file to keep"* / *"£149 in full before any
+  work starts"* — the old "pay once, after you've seen" copy is GONE
+  (cache-busted fetch). All four components stored 10:31 including
+  `chat-input-box` (3,886 B) — the lane's original goal landed in the same
+  run. **Attribution, stated honestly**: this run's writer produced NO
+  turnaround stat (stat fields empty — writer variance; it chose numbered
+  steps), so the pass did NOT exercise the build_duration fix — the run
+  dodged the stat gate rather than passing through it. The fix still stands
+  and matters: the writer produced the "1 day" stat in 1 of 2 observed
+  passes, so without value:1 the NEXT rewrite would fail the same way.
+- **Two things the lane owner should look at** (observed, deliberately not
+  acted on): (1) the *"We do not offer refunds"* sentence is no longer on the
+  served index (it was at 10:22Z) — the no-refunds disclosure now lives only
+  in the bot/terms surfaces; whether the home page must state it is a
+  commercial/consumer-rights call, and the lane's own landmine (the claims
+  gate reads "no refund" as a refund PROMISE) may be systematically pushing
+  writers away from the sentence. (2) `rebuild_policy` on index after the
+  chat placement — the handoff's own warning about widget-owned pages
+  refusing generic rebuilds is now live to check.
