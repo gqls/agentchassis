@@ -394,3 +394,40 @@ name. So a paused job would quietly have its messaging resources deleted out fro
 looking perfectly healthy. Oddly, our test tool has the right spelling and the real system has the
 wrong one. I have not fixed it — nothing is broken today and it is not what you asked for — but I
 have written it down in the place people check before touching unfamiliar code.
+
+**2026-08-18, later the same evening — correcting what I wrote above.** Two things I told you an
+hour ago are now wrong, and one of them was wrong when I wrote it.
+
+First: I said the fix was written and deliberately not switched on, waiting on your decision. It is
+switched on and working. It turned out **another session was fixing exactly the same thing at the
+same time**, without either of us being able to see the other. They got your approval and switched
+theirs on at 18:43. Three minutes later the tidy-up job ran on its normal schedule and cleared both
+stuck jobs, including the thirty-six-day-old one. There are now none left anywhere.
+
+The two fixes were, letter for letter, the same — identical down to the byte. I take some comfort
+from that: two people working separately wrote the same thing, which is decent evidence it was the
+right thing. But it is also a plain waste, and worth being honest about. Before starting I checked
+the bug files and the work queue for anyone already on it, and none of those can show you a session
+that has not yet written anything down. There is no way, today, to see work that is in progress but
+uncommitted. My file is retired as a duplicate rather than deleted, and renamed so it cannot be run
+by accident.
+
+Second, and more useful: **the other session's reasoning was better than mine on the key point, and
+I want to record that rather than quietly move on.** I argued the fix was safe because a job only
+sits in that early state for a few thousandths of a second — I worked that out by reading the code
+and following what happens next. They did not argue it; they measured it, across nearly six thousand
+real jobs. The true figure is an average of a fifth of a second and a worst case of just over six
+seconds. So I was out by roughly a thousand times. The four-hour cutoff is still enormously safe
+either way, but it is safe because of their measurement, not because of my argument.
+
+The deeper point they made is the one I would want you to take from today. I had assumed this state
+worked like the one we fixed yesterday, and reused yesterday's justification. It does not. The
+earlier one could only ever be brief because of how the code is written — it is not waiting for
+anything. This one is genuinely waiting, for a message to arrive over the queue, so how long it sits
+there is a fact about how busy the system is, not a fact about the code. That can change tomorrow.
+It has to be re-measured, not re-argued, and I have written that into the bug file for whoever
+touches the threshold next.
+
+So: the thing is fixed, the two stuck jobs are gone, and the wider gap — the fact that we list these
+states by hand in six different places and no two lists agree — is still open and is being taken as
+separate work.

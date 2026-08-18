@@ -33,13 +33,29 @@ artefact on the case that motivated it. Nothing here is blocked on the owner exc
 > hand-authors a `loop_complete` step with `loop_iteration` in it. **Still needs a build and roll,
 > and the code is inert either way, so the risk and the reward are both small.** Not done here.
 >
-> **NEW WORK, and the live one: `bugs_open/310`** — `INITIALIZED` is this same gap one status over.
-> Neither the reaper nor `database-cleanup` names it, so such a row is reaped by nothing and pruned
-> by nothing; one has survived since 2026-07-13. Harm is bounded (it pins no Kafka topics, unlike
-> `RUNNING`), and health-checking is **not** broken — 964 `COMPLETED` runs in the window. The fix
-> (`470_reaper_initialized_arm.sql` + rollback) is **built and fully proven but deliberately
-> UNAPPLIED**: live config on a fleet-wide reaper is the owner's call. Council submitted, corr
-> `473553c0`. See `310` for the guard proofs and the induced test.
+> **NEW WORK: `bugs_closed/310`** — `INITIALIZED` was this same gap one status over. Neither the
+> reaper nor `database-cleanup` named it, so such a row was reaped by nothing and pruned by nothing;
+> one had survived since 2026-07-13. Harm was bounded (it pins no Kafka topics, unlike `RUNNING`),
+> and health-checking was **not** broken — 964 `COMPLETED` runs in the window.
+>
+> > **CORRECTED 19:30Z, same evening — the two sentences that stood here are now false.** They said
+> > the fix was `470_reaper_initialized_arm.sql`, and that it was "built and fully proven but
+> > deliberately UNAPPLIED, the owner's call". **It is fixed and LIVE**, and by a different file:
+> > **another lane was working the identical gap in parallel** and applied `464_reaper_initialized_arm.sql`
+> > at 18:43:03Z with owner approval (`42375f96a`). The reaper fired on its own scheduled tick at
+> > 18:45:53Z and failed both rows; `INITIALIZED` is now 0 fleet-wide. The two migrations' payloads
+> > are **byte-identical** (md5 `421dfc4f…`), so `470` is redundant, not wrong — it is retired as
+> > `470_..._SUPERSEDED.sql`, excluded from the runner and bannered.
+> >
+> > **And `310` carries two corrections to MY reasoning that the other lane got right.** (1) I said
+> > the `INITIALIZED` window is "milliseconds"; that was derived from a code path, and the measured
+> > figure over 5,736 rows is avg 0.22 s / p99 2.01 s / **max 6.31 s**. (2) I reused `463`'s licence
+> > wholesale, and **it does not transfer**: `RUNNING` is transient by construction, whereas
+> > `INITIALIZED` waits on a Kafka queue, so its duration is measurable, not derivable. Read
+> > `310`'s CORRECTION 1 and 2 before reusing any of this file's threshold reasoning.
+>
+> Council on `470`: APPROVED round 1, corr `473553c0` — but 8 of 9 seats abstained as out-of-scope
+> (it is a `docs/`-path SQL file), so weigh it accordingly rather than as unanimity.
 
 ---
 
