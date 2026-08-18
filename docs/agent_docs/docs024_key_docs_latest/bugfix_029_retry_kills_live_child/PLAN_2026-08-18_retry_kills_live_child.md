@@ -1,5 +1,25 @@
 # PLAN — 2026-08-18 — `bugs_open/029`: the retry replay kills the child that was still working
 
+> ## ⚠ CORRECTED 2026-08-18, later the same day — THE TITLE OF THIS PLAN IS WRONG
+>
+> **The replay does NOT kill a live child. It re-executes one that had already frozen
+> ~7–10 minutes earlier**, duplicating a non-idempotent spawn and resetting the 4-hour
+> reaper clock. The takeover arm *cannot* fire on a healthy child, because every
+> `UpdateStateWithVersion` bumps `last_activity` — so >5 min of staleness is the
+> precondition, not the consequence.
+>
+> Caught by the Fable design pass (briefed to contradict the diagnosis) and then verified
+> here: 17 of 18 wedged children carry **two** spawn-init `awaited_requests` rows for the
+> same step; the 18th carries one and is exactly the outlier this plan's own evidence
+> reported and kept. Full working: `NOTES_retry_kills_live_child.md`, final section.
+>
+> **Survives:** the window truncation (worse than stated — it also fires one level down,
+> inside the child), the 33-step blast radius, the 4-hour unreachability, and that the
+> replay is destructive. **Withdrawn:** that it destroys *live work*.
+> **Now the centre of 029, and OPEN:** what kills the child's continuation after its first
+> spawn handshake. Headings below are left unedited so the correction reads against what
+> it corrects.
+
 **Lane opened 2026-08-18.** Owner thread: this one (session "bugs_open/029 hung spawns").
 The owner started 029 here deliberately and told the `site_ai_agent_orchestration`
 lane so, which is blocked on it (`6731ffa31`, 2026-08-17: *"propagation BLOCKED by
@@ -17,7 +37,9 @@ by the retry machinery itself**.
 
 ## The claim
 
-**The parent's own retry kills the child that was still legitimately working.**
+~~**The parent's own retry kills the child that was still legitimately working.**~~
+
+**WITHDRAWN — see the banner.** Corrected claim: **the parent's retry RE-EXECUTES a child that has already frozen**, duplicating a non-idempotent spawn (a real `page-rerender` agent and K8s job) and re-stamping `last_activity`, which resets the 4-hour reaper clock so the corpse outlives its own first death by another four hours.
 
 The chain, as measured (evidence in `NOTES_retry_kills_live_child.md`):
 

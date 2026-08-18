@@ -35209,3 +35209,55 @@ for adding the disconfirming-value question to it rather than for anyone trying 
   Tally for "an instrument that could not have returned another answer": **4 in one day, 2 lanes,
   4 distinct instruments** (an aggregate, a filtered count, a timestamp column, a log grep). None
   of the four was a careless measurement; every one was a careful measurement of the wrong thing.
+
+## 2026-08-18 — I asserted a mechanism the guard I had just read FORBIDS, and the outlier I kept for honesty was the thing that disproved it (bugs_open/029)
+
+**The claim:** *"the parent's own retry kills the child that was still legitimately
+working."* Published into `bugs_open/029`'s lane docs, two commit messages (`55137dc2f`,
+`c2fdd2590`), and two messages to the `site_ai_agent_orchestration` lane.
+
+**The evidence, which was sound:** 11 of 12 wedged children's `last_activity` froze 11–22 s
+after their parent sent its final (rv=3) replay. I still stand behind that measurement.
+
+**What was wrong:** the interpretation. The takeover arm that the replay trips
+(`coordinator.go` ~761) fires **only** when `time.Since(last_activity) > 5 minutes`. Every
+`UpdateStateWithVersion` bumps `last_activity` (`state.go:1052`), so a child quiet that long
+is one whose driving goroutine is **already gone**. Staleness is the *precondition* for the
+takeover, not its consequence. The child was dead ~7–10 minutes before the replay arrived;
+what I timed was the *second* freeze, after the takeover re-ran the same spawn.
+
+**Why this one is worse than a measurement error: I had read the guard.** I quoted
+`StuckOrchestrationTimeout = 5 * time.Minute` in my own notes, in the same session, in the
+paragraph that built the wrong claim. Nothing was hidden or stale. I read a five-minute
+precondition and then asserted a mechanism that requires the child to be alive at that
+moment — the two cannot both hold, and I did not check them against each other. **Reading
+the code is not the same as reasoning about what it entails**, and my confidence came from
+having read it, which is precisely the false assurance CLAUDE.md's diagnosis section warns
+about ("confidence is not a signal").
+
+**What caught it:** the Fable design pass, which I had briefed to contradict the diagnosis
+if the code did not support it. That brief was the single highest-value thing I did all
+session, and it cost one sentence. **A reviewer told to agree finds nothing; the instruction
+to disagree is what bought the correction.**
+
+**The check that decided it, and the part worth carrying:** the two accounts made opposite,
+cheap predictions. Mine implied **one** spawn-init `awaited_requests` row per wedged child;
+Fable's implied **two**. Seventeen of eighteen returned two. **And the eighteenth returned
+one — and it was exactly the outlier I had reported in my own correlation table** (the
+single row at −3m50s that did not fit and that I published rather than dropped). It doesn't
+fit because in that one case the takeover never fired. **The outlier kept for honesty was
+the control that settled the question.** Every instinct to tidy it away would have cost the
+correction.
+
+**Cost:** ~2 hours, and a wrong mechanism briefly in front of another lane. It did **not**
+reach their cold-start doc — but only because that lane independently decided to reduce it
+to a pointer at my lane rather than restate it, on the strength of `bugs_open/048` having
+done exactly the opposite to 029's *previous* wrong cause. Their judgement contained my
+error; my care did not. Corrected in place in `PLAN`, `NOTES`, `README_where_we_are`, and by
+message to that lane.
+
+**The cheap check that would have caught it first:** when a mechanism depends on a
+threshold, state the system's condition **immediately before** the triggering event and ask
+whether the trigger's own guard could have passed. Here: "for the takeover to fire, the
+child must already have been silent for 5 minutes — is that consistent with it working?"
+Ten seconds, and it is a different question from "have I read the code", which I had.

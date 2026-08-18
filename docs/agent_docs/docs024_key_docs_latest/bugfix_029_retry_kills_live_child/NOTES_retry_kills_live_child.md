@@ -439,3 +439,107 @@ it. With a lease in place, an early replay stops being destructive — it become
 wasteful. So A drops from "causes the outage" to "causes avoidable load", and the ordering
 in the PLAN stands: **the lease is the fix; honouring the declared window is the
 efficiency.**
+
+---
+
+## 2026-08-18 — **CORRECTED: the replay does NOT kill a live child. It re-executes one that was already dead.** My headline claim was wrong.
+
+> **This corrects the claim made throughout this file above, in `PLAN_2026-08-18`, in
+> `README_where_we_are`, in the commit messages `55137dc2f` and `c2fdd2590`, and in two
+> messages I sent to the `site_ai_agent_orchestration` lane.** The measurements above are
+> all still correct. The *interpretation* of the central one was not.
+
+**What caught it:** the Fable design pass, which I had briefed to contradict me if the code
+did not support the diagnosis. It did exactly that, and then I grounded its claim myself
+rather than taking it — a subagent's report is another document.
+
+### The claim that failed
+
+I wrote: *"the parent's own retry kills the child that was still legitimately working."*
+The evidence was that 11 of 12 wedged children's `last_activity` froze 11–22 seconds after
+the parent sent its final (rv=3) replay.
+
+### Why it is wrong
+
+**The takeover arm cannot fire on a healthy child.** Every `UpdateStateWithVersion` bumps
+`last_activity` (`state.go:1052`), so `time.Since(last_activity) > 5m` on an
+`EXECUTING_STEP` row *means the driving goroutine was already gone*. The precondition for
+the takeover is that the child is already dead. I had read the guard and still asserted a
+mechanism the guard forbids.
+
+### The disconfirming measurement, which I ran because it could have come out either way
+
+If Fable were right, each wedged child should carry **two** spawn-init `awaited_requests`
+rows for the same step (`preRegisterAwaitedRequest`, `spawn_actions.go:162`) — one per
+execution of that spawn. If I were right, there should be **one**.
+
+```sql
+SELECT ar.orchestration_id, ar.step_name, count(*) AS init_rows,
+       min(ar.sent_at)::timestamp(0) AS first_spawn,
+       max(ar.sent_at)::timestamp(0) AS last_spawn,
+       max(os.last_activity)::timestamp(0) AS froze
+  FROM awaited_requests ar
+  JOIN orchestration_states os ON os.orchestration_id = ar.orchestration_id
+ WHERE os.owner_agent_type='build-dispatch-loop' AND os.status='FAILED'
+   AND os.error LIKE 'reaper: stale EXECUTING_STEP%' AND os.created_at > now()-interval '4 days'
+   AND ar.step_name = os.current_step
+ GROUP BY 1,2 ORDER BY 3 DESC, 4;
+```
+
+**17 of 18 returned `init_rows = 2`.** Sample:
+
+| child | first_spawn | last_spawn | froze | gap 1→2 |
+|---|---|---|---|---|
+| `4b0e2854` | 18:26:39 | 18:36:09 | 18:36:22 | 9m30s |
+| `838f8c14` | 18:52:22 | 19:01:40 | 19:01:53 | 9m18s |
+| `c634317c` | 18:05:21 | 18:12:15 | 18:12:25 | 6m54s |
+
+**And the 18th returned `init_rows = 1` — `2186f4b1`, which is EXACTLY the outlier from my
+own correlation table** (the one at −3m50s that I reported rather than dropped). One spawn
+at 16:53:19, froze 16:53:30, eleven seconds later, and no takeover — because at rv=3 its
+staleness was under five minutes, so the arm declined to fire. Fable predicted that row's
+behaviour before I looked. **The outlier I kept for honesty turned out to be the control
+that decides the question**, which is the best argument I have yet met for not tidying
+outliers away.
+
+### The corrected sequence
+
+1. The child's **own** `iter_N_call_handler` await — to its `page-rerender` grandchild — is
+   retried on the same truncated 5-minute windows and exhausts. **The truncation bites
+   inside the child too, and real page work is abandoned there.**
+2. Exhaustion routes to `skipToNextLoopIterationForAsync`; the next iteration's
+   `spawn_handler` runs, completes its init handshake — and then the continuation dies
+   with no further state write. **This is the first freeze, and it is the actual "hung
+   spawn" of 029.**
+3. The parent's rv=1 and rv=2 replays land while the child is awaiting or <5m stale and
+   are swallowed benignly (`ErrWaitingForResponse` → `nil`). **Budget burnt for nothing.**
+4. The rv=3 replay finds >5m staleness → **takeover** → re-runs the spawn (a *duplicate*
+   `page-rerender` agent and K8s job — a real, non-idempotent side effect) → wedges
+   identically → **and re-stamps `last_activity`, resetting the 4-hour reaper clock.** The
+   reaper fired at freeze₂+4h, not freeze₁+4h.
+
+So what I measured as "the freeze" was the **second** freeze, and the +11–22 s was the gap
+between the takeover re-running the spawn and that re-execution dying the same way.
+
+### What survives, what dies, and what is now open
+
+| claim | status |
+|---|---|
+| retry window truncated to 5 min / 3 min above a 30-min declaration | **STANDS** — measured and code-read; and it is now *worse* than I thought, because it also fires one level down, inside the child |
+| 33 steps across 25 agents affected | **STANDS** |
+| the frozen row is unreachable for 4h and starves the site for 40 min | **STANDS**, and is worse: each takeover *extends* the 4h |
+| the replay is destructive | **STANDS, but the damage is different** — duplicated non-idempotent side effects and a reset reaper clock, not the killing of live work |
+| **"the retry kills a child that was still working"** | **WITHDRAWN** |
+| what kills the continuation after the first spawn handshake | **OPEN — this is now the centre of 029, and I do not know the answer** |
+
+### Consequence for the 090 run in flight
+
+The symptom I filed asserts the withdrawn mechanism. Whatever it returns, it is answering a
+question that is now partly wrong — so I will **not** cite a CONFIRMED verdict from it as
+support for the replay-kills-live-work claim, and a REFUTED verdict would be correct rather
+than surprising. The narrow symptom worth filing next is Fable's: *what kills the
+post-handshake continuation?* Fable's own candidate — that the durable ticker's recovery
+runs under a shared **60-second** context (`cleanupExpiredAwaitedRequests`,
+`coordinator.go:4264`), so a continuation that spawns agents cannot finish inside it and
+every error-path write dies with the deadline — is plausible and **[UNVERIFIED]**; the
+fast-path timer uses `context.Background()`, so it cannot be the whole story.

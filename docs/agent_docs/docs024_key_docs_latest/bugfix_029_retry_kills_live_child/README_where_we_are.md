@@ -105,3 +105,73 @@ that records when the *cleanup sweep* wrote to the row, not when the job actuall
 The real answer was twenty-five minutes, and it's the twenty-five minutes that led to the
 whole mechanism. A uniform, plausible number from the wrong column is exactly the kind of
 thing that looks like a finding.
+
+---
+
+## 2026-08-18, later the same afternoon — I was wrong about the most striking part, and here is what actually happens
+
+I need to correct the account above before anything else, because the headline of it was
+wrong and I'd rather you heard that from me than discovered it later.
+
+### What I said, and what is actually true
+
+I told you: **the platform's own retry is killing work that was still running.** The
+evidence was that the jobs stopped dead within about fifteen seconds of the caller's final
+re-send. That measurement was right and I still stand behind it. What I got wrong was what
+it meant.
+
+The truth is: **the job was already dead when the re-send arrived — by about ten minutes.**
+
+I should have caught this myself, because the code says so. The "poke" can only happen at
+all if the job has gone quiet for more than five minutes, and a healthy job cannot be quiet
+that long — every time it makes progress it stamps the clock. So going quiet for five
+minutes *is* death. It was the precondition for the poke, not the result of it. I read that
+guard and then asserted something it forbids.
+
+### What caught it
+
+I had asked Fable to design the fix, and briefed it explicitly to contradict me if the code
+didn't support what I'd found. It did. Then I checked its claim myself rather than taking
+its word, and the check was decisive in a way I want to flag because it turned on something
+small.
+
+If Fable was right, each dead job should show **two** records of starting the same piece of
+work — one for the real attempt, one for the pointless re-run. If I was right, there should
+be one. Seventeen of the eighteen showed two.
+
+And the eighteenth showed one — and it is exactly the odd-one-out I mentioned in my earlier
+note, the single case that didn't fit my pattern and which I reported rather than quietly
+dropping. It doesn't fit because in that one case the re-run never happened. **The outlier I
+kept out of honesty turned out to be the case that settled the question.** That is the best
+argument I have ever had for not tidying away the inconvenient data point.
+
+### So what IS happening
+
+Most of what I told you stands, and one part is worse than I said:
+
+- **The shortened retry window is real, and it's worse than I described.** I said it makes
+  the caller give up early. It does — but it also fires one level *further down*, inside the
+  job itself, where it abandons real page-building work. So it's causing damage at two
+  levels, not one.
+- **The job dies on its own, shortly after starting a piece of work.** This is the actual
+  "hung spawn" this bug is named for, and **I do not yet know what kills it.** That is now
+  the open question at the centre of the bug. Fable has a candidate — a recovery path given
+  only sixty seconds to do work that takes minutes — which is plausible and unproven.
+- **The re-send is still harmful, just differently.** Instead of killing live work, it
+  re-runs work that's already dead. That costs a duplicate build agent each time (real
+  money and real side effects), and — this is the sting — it resets the four-hour cleanup
+  timer. So poking the corpse makes it lie there four hours longer.
+
+### What this changes about the fix
+
+Less than you might expect, and this is the useful part. The fix I was heading towards is
+still the right one, and the reasons are now firmer: don't send a re-run at a job that
+already exists, and stop silently shortening the window everyone configured. What changes is
+the *claim I can make for it*: I can no longer say it prevents work being destroyed. I can
+say it stops us paying for duplicate agents, stops corpses being kept alive, and stops real
+page work being abandoned one level down.
+
+I've told the other affected thread. They had already, on their own initiative, reduced my
+mechanism to a pointer at my notes rather than restating it in their own handoff — which
+means my error did not propagate into their cold-start document. That was their good
+judgement, not my carefulness, and it is worth recording as such.
