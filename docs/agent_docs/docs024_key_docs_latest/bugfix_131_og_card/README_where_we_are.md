@@ -195,3 +195,27 @@ do not think it earns its place today.
 Everything else from this morning stands: the code fix is reviewed, approved and running on the
 live system, leopardess's approved artwork is now properly protected rather than protected by
 accident, and the two new problems I found along the way are written up as their own bugs.
+
+---
+
+**2026-08-18 (new session).** Picked the lane back up after two quiet weeks. The last loose
+thread from July — "some sites still never got their favicon and social card" — turned out
+to have a precise cause, found by another thread yesterday: the automatic system that spots
+a missing favicon/card files a to-do note for the robot that generates them, but the note
+was missing the one word that tells the robot WHICH of its five jobs to do. Without that
+word the robot fell back to its default job, which is expressly forbidden from touching
+favicons and cards — so it politely declined, and the system recorded the decline as "done".
+Twenty-one notes were "done" this way; four live sites still had no favicon and no share
+card at all.
+
+Fixed today, three ways at once, so it cannot come back: (1) the note-writer now includes
+the missing word; (2) the robot has a new last-resort rule — if a note is obviously about
+favicons/cards but the word is missing, do the right job anyway rather than decline; (3)
+the system no longer takes "done" on faith for these notes — it now checks the artefact
+actually exists before closing the note, and a decline that produced nothing stays visibly
+unfinished instead of quietly disappearing. The code half rides the next release; the
+routing half is live already. Fresh "please generate" notes are queued for webdesign.co.uk,
+cookly.uk and lendzy.co.uk (idea.uk was already repaired yesterday by hand, and
+loancalculator's own active thread has it in hand). The change went to the review council
+before committing; verdict pending. Still owed from July, unchanged: the square favicon
+source for the five wide-logo sites, and the smarter page titles/descriptions on shares.

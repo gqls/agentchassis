@@ -721,3 +721,56 @@ a separate favicon source; it always uses `asset_key='logo'`.
 illegible tab icon today, distorted or not. That is 5 of 14 — and it is not a regression, it
 has always been true. `[UNVERIFIED]` whether the 9 square-logo sites' favicons are legible at
 16px; their sources are square marks so they should be, but I have not rendered them.
+
+---
+
+## (11) 2026-08-18 — new session picks the lane up: the mis-route fixed at source (A+B+C), migrations applied, redrive filed
+
+Cold-start read: bug file (incl. the 08-17 `idea_uk_vm_site` contribution), memory, who-owns,
+live transcripts (rule: grep code symbols, read the hits — two hot sessions were the
+retraction lane and the idea.uk lane, neither on this fix; the idea.uk lane's contribution
+explicitly deferred it).
+
+**Evidence trail for the fix set (all first-hand today):**
+- Producer: `check_undeployed_assets.go:182-188` spec = check/purpose/expected_path/
+  head_references/has_logo — no mode. `grep ItemType: "needs_brand_head_assets"` → ONE site.
+  Census: 22 complete / 4 unresolved / 2 deferred; discovery specs all purpose-no-mode.
+- Chain (live row, not seed): check_mode → sprite → card → ingest → deploy_asset; every
+  conditional keys on mode. `start_step=check_mode`.
+- Refusal: `deploy_image_asset_action.go:229-242`; result rows carry
+  `deploy_result.reason: refused: purpose "favicon" is a brand-head artefact…`.
+- No verifier: `RegisterVerifier` grep — absent for this type; `verifyBeforeComplete`
+  no-ops on nil verifier (`complete_work_item_verification.go:102-104`).
+- Two-strike: `load_work_item_actions.go:1336-1376` — `('complete','failed')` in 7 days;
+  ≥2 → born `unresolved`. webdesign.co.uk had 4 born-unresolved rows (08-11).
+- Wire baseline: webdesign.co.uk 404/404, cookly.uk 404/404, lendzy.co.uk 404/404,
+  loancalculator.co.uk 404/404, webdesign.uk 302→webdesign.co.uk; controls idea.uk 200/200,
+  mortgagecalculator.co.uk 200/200.
+- `recordDerivedAsset` writes url = the published path, upsert on (site_id, asset_key) —
+  so the verifier predicate (active row at published path) is the handler's own fixed point;
+  016b §9 remit rule satisfied by coincidence-of-predicates, stated not assumed.
+
+**Shipped:** commit `c121d5a73` (7 files, pathspec, `Council-Submitted:
+85afbafc-9daa-4a7b-808d-cbfef9f9af05`). Migrations 467 (fallback conditional, pre/post
+DO/RAISE guards, snapshot taken) + 468 (claim-timeout exclusion, 322-style targeted
+replace) both applied cleanly — live-list pre-read matched 220's declared 12 exactly.
+
+**Redrive items:** webdesign.co.uk `3f5286cf`, lendzy.co.uk `fd95d874`, cookly.uk
+`f29b37a3` (mode shape); proof item `8c964f93` on lendzy (purpose-no-mode shape, exists to
+WITNESS 467 — with fix A rolled nothing exercises the fallback naturally, and an
+unexercised mechanism is the register's own trap). loancalculator deliberately left to its
+active lane (its transcript already plans its brand-head items).
+
+**Missteps this session:** none material yet. Two flagged near-misses recorded for
+honesty: (i) first council submission bounced client-side on missing `plan.summary`
+(schema, caught by 097, no cost); (ii) two Explore subagents died on API 529s — research
+redone inline; no conclusions were taken from the dead agents.
+
+**Build hygiene:** shared tree carried another lane's broken WIP
+(`check_truncated_component.go` dirty, its test referencing a removed symbol), so the
+package would not test in-tree. Verified against `git archive HEAD` + my 4 files overlaid
+(scratch), green; re-verified after HEAD moved (006a7d7ce), green, THEN committed.
+
+**Open on this phase:** council verdict (read it; act on REVISE/REJECTED — code is on the
+shared branch); artefact verification once the 4 items dispatch (curl + LOOK at the PNGs —
+spec-sheet landmine); the four still-open items from (10) are untouched.

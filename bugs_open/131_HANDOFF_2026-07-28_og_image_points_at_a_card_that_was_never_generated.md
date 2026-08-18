@@ -344,3 +344,73 @@ same for `og-card.png`. Both must be 200. The page references them at those exac
 (`<link rel="icon">`, `<meta property="og:image">`) — confirmed on idea.uk 2026-08-17, where
 `logo.png` (the derivation INPUT) is 200 while both derived files are 404, which is the
 signature of "the deriver never ran" rather than "the logo is missing".
+
+---
+
+## STATUS 2026-08-18 (bugfix-131-og-card lane, new session) — the mis-route is FIXED AT SOURCE; three doors closed, redrive in flight
+
+Continues the 2026-08-17 contribution above, which found the defect and deliberately left the
+source fix. Workstream docs: `docs024_key_docs_latest/bugfix_131_og_card/` (PLAN has the
+2026-08-18 phase; NOTES has the evidence trail).
+
+**The producer was identified — it is `check_undeployed_assets.go`'s brand-head half** (the
+one `ItemType: "needs_brand_head_assets"` site in the codebase; the census corroborates:
+every discovery-filed spec carries `purpose` and none carried `mode`). The 08-17
+contribution's candidate 1, plus its candidate 2 in a safer position, plus the completion
+gate the framework already owned:
+
+- **A (Go, commit `c121d5a73`, inert until the next chassis roll):** the producer now emits
+  `spec.mode='brand_head'` — the key its own handler chain routes on. Pinned by
+  `TestBrandHeadItemSpecCarriesTheRoutingMode`.
+- **B (Go, same commit):** `VerifyBrandHeadAssetsResolved` registered as the completion
+  verifier for `needs_brand_head_assets`, with a `Grades` remit covering both live spec
+  shapes (bugs_open/213). Predicate = an active `assets` row recording the published path —
+  the deriver's own post-commit write, so detector predicate and handler remit coincide
+  (016b §9's remit rule satisfied by construction). A refusal that derives nothing can no
+  longer complete: it burns an attempt and lands `failed`, visible, instead of `complete`.
+  Claim-timeout lockstep done both halves (220 declared list + migration 468 on the live
+  column, **applied 2026-08-18**, verify guards passed). This reverses the recorded
+  "stays catCreation" decision in `verifier_coverage_test.go` — corrected visibly there.
+- **C (config, migration 467, applied 2026-08-18 — LIVE NOW):** `check_brand_head_purpose`
+  conditional inserted LAST in asset-deployer's chain (`check_ingest_mode.else_step` now
+  points at it): brand-head `spec.purpose` → `derive_head_assets`, else → `deploy_asset`.
+  Last-not-first so explicit modes always win and the fallback can only catch items the
+  deploy branch could only ever refuse. NOT a widening of `check_mode` — that would hijack
+  ingest/sprite/card items carrying a brand-head purpose field.
+
+**Council:** submitted before commit, correlation `85afbafc-9daa-4a7b-808d-cbfef9f9af05`
+(`Council-Submitted:` trailer on `c121d5a73`; verdict pending at the time of writing).
+
+**Redrive filed (status `triaged`, the idea.uk-proven manual shape,
+`created_by='claude-bugfix131-brandhead-20260818'`):**
+- webdesign.co.uk `3f5286cf`, lendzy.co.uk `fd95d874`, cookly.uk `f29b37a3` — all
+  `spec={"mode":"brand_head"}`, item_key `…:derive_20260818`.
+- lendzy.co.uk also carries **proof item `8c964f93`** — deliberately `purpose` and NO mode,
+  the exact mis-routing shape — to witness 467's fallback live rather than assume it (with
+  fix A rolled, nothing would ever exercise it naturally). Its result must show the
+  conditional chain reaching `derive_head_assets`; a `deploy_result.reason: refused…` there
+  means the fallback did NOT fire.
+- **loancalculator.co.uk is deliberately NOT redriven here** — its lane is active today
+  (transcript-verified) and its own queue plan names its 2 `deferred` brand-head items.
+  The one-liner it needs is the INSERT above with its domain.
+- webdesign.uk 302s every path to webdesign.co.uk, so one redrive covers both.
+
+**Verify (unchanged rule — the artefact, never the item status):**
+`curl -s -o /dev/null -w '%{http_code}' https://<domain>/assets/images/favicon.png` and
+og-card.png; both 200, then LOOK at the PNGs (the relojistas spec-sheet landmine above).
+Baseline measured 2026-08-18 pre-redrive: webdesign.co.uk 404/404, cookly.uk 404/404,
+lendzy.co.uk 404/404; idea.uk and mortgagecalculator.co.uk 200/200 (the two hand-filed
+mode items — the working control).
+
+**Still open after this (unchanged from the 07-29 status):** the square favicon source
+(item 1 there — the only change that helps the 5 wide-logo sites), the og:image tag gate
+(item 2, with the leopardess row-gate landmine), og:title/og:description/og:url page
+context (item 3 + the vonc6 contribution), webdesign.co.uk's head-skip (item 4).
+
+**Diagnosis-loop note (owner ruling 2026-07-31):** not re-run through 090. The case was
+already filed here with the 08-17 measurements; this session substituted equivalent
+first-hand verification — every link re-read today in current code (producer spec, chain
+conditionals, refusal branch, verifier registry, two-strike arithmetic), live config (the
+agent row, not the seed), live rows (item census, result payloads) and the wire (curl all
+affected sites), with idea.uk as the positive control. Stated here rather than silently
+skipped.

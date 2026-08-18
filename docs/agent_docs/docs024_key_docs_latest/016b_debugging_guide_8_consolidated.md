@@ -12657,3 +12657,29 @@ class one step later: the function was reached, ran correctly, and its OUTPUT
 fell through. The fix shape that closes it: resolve identity from the work
 item's own spec (the producer already knew exactly which instance it filed
 for), never re-derive it from a key the new members do not carry.
+
+### A guard's REFUSAL travels the SUCCESS path — so a mis-routed item completes on the refusal of an action it should never have reached (2026-08-18, `bugs_open/131` og-card slug)
+
+**Shape.** A router keys on one spec field. A producer omits it. The item falls through to
+the router's default branch, whose guard correctly REFUSES this class of work — and the
+refusal is a refusal-as-result (house style: the workflow completes and reports why, so the
+item resolves instead of retrying for ever against a guard that will never pass). Three
+correct components — a correct guard, a correct completion of a successful saga, a correct
+default branch — compose into a silent lie: the item stamps `complete` with the defect
+untouched, and every dashboard, coverage count and human skim reads the work as done.
+Knock-on: the false completes feed the two-strike counter, so honest re-detections are born
+`unresolved` and never dispatched. The failure is only visible at the ARTEFACT (21 items
+`complete`, four sites' favicon + og-card 404 on the wire).
+
+**The tells.** `result` carries the guard's own `reason: refused: …` naming the remedy
+verbatim — advice recorded into a terminal row nothing re-reads; and a hand-filed sibling
+carrying the routing field works first time (the discriminating control).
+
+**The fix shape that closes all three doors** (each alone is partial): the producer emits
+the field its own handler chain routes on; the router gains a LAST-in-chain fallback
+recognising the class by its content, placed after every explicit key so it can only catch
+items the default branch could only ever refuse (never widen the FIRST conditional — that
+hijacks other modes that happen to carry the same content field); and a completion verifier
+re-runs the handler's own fixed point, so any residual mis-route becomes visible `failed`
+attempts instead of silent `complete`. Refusals-as-results stay correct — the verifier is
+the framework's designed place to catch a refusal that changed nothing.
