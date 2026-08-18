@@ -13,6 +13,19 @@ gated on fleet traffic rather than on work**, plus two new tickets nobody has st
 > (**4 cap hits**, with two working negative controls) and §3c (**answered, and it changes
 > `bugs_open/298`**). §3a is unchanged and still owed. Full detail: NOTES, entry of 2026-08-18
 > (evening); commands: RUNBOOK, "Census the caps from `collected_data`".
+>
+> **§3c produced a new bug: `bugs_open/313`** — `internal-linker`'s `check_candidates` can never be
+> true, so `plan_links` has never run and the agent has never made a link. Diagnosis loop
+> **CONFIRMED** (`c4aa3559`), first iteration. It dates to the agent's creation (2026-04-12), and 57
+> `needs_internal_links` items read `complete` across it. **Fix 313 BEFORE 298's cap** — the cap fix
+> alone changes nothing observable.
+>
+> **THE ONE THING LEFT ON THE CLOCK:** the WARN has still never been observed firing. Since the
+> detector went live (15:45Z) only one capped step has run, and it was correctly silent (4 rows vs cap
+> 12, 18:15Z). The next chance is `content-feed-trigger` at **~20:32Z**; a streaming capture is
+> attached until 20:45Z at
+> `~/.claude-scratch/…/scratchpad/lco009_capture.txt`. **If you are reading this after 20:45Z, do not
+> hunt the logs — read `collected_data`** (RUNBOOK), which answers it whenever you look.
 
 ---
 
