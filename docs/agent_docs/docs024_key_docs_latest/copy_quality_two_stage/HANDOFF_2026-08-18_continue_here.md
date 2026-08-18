@@ -146,9 +146,20 @@ Full version with the SQL: `HANDOFF_2026-08-17_continue_here.md`. The short form
   (ours, applied 11:59:01Z, in the ledger) and `462_fixer_rerenders_skip_owned_pages.sql`
   (the 283 lane's, committed 13:43 vs our 13:05). The ledger keys on filename so both can
   coexist, but a bare "462" is now ambiguous in conversation. Not ours to renumber.
-- **Chassis stamp is a DATED OBSERVATION, never a current fact.** It moved twice in two days
-  (`v1.0.1305`/`6a782274b` → **`v1.0.1308`/`e7e5e4d53`**, probed with a negative control
-  2026-08-18). Re-probe before trusting instrumented rows; mode-split ancestry has held.
+- **Chassis stamp is a DATED OBSERVATION, never a current fact.** It moved THREE times in two
+  days: `v1.0.1305`/`6a782274b` → `v1.0.1308`/`e7e5e4d53` → **`v1.0.1309`/`f0117fb8b`
+  (deployed 2026-08-18 15:45Z, both replicas)**. Mode-split ancestry has held throughout, and
+  **1309 changes nothing this lane depends on** (no diff in `section_editor_actions.go`,
+  `ai_actions.go`, `voicestyle/`, `checkpoint_for_review_action.go`) — `copy-editor` is
+  config-only, so a roll cannot affect it either way.
+  - ⚠ **Read the log FIRST when the pods are fresh; do not probe candidate commits.** The
+    binary stamps exactly ONE sha — the build HEAD — so every ancestor you try returns 0 and
+    a list of plausible candidates all read "absent". I burned a round on that today with
+    four candidates, one of them the *previous confirmed build*. `logs --limit-bytes=600000
+    | grep -m1 '"msg":"build provenance"'` answered it in one call.
+  - ⚠ **`grep -acF 000…0` is NOT a negative control — it returned 2.** Forty zeros match Go's
+    internal digit table, so a control that matches everything proves nothing. Use a real sha
+    that must be absent (current HEAD, made after the build).
 - **Re-verify "X does not exist" against the live DB before building X.** This lane's whole
   history is that lesson and it paid three times in two days.
 - LMC: never fire `run_improvement_sweep_once.sh`. Check lane activity before writing to

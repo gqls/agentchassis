@@ -1751,3 +1751,30 @@ count is nearly unmoved and honest to report as such.
 **Open, for the next session:** a fourth run on this same page, to see whether the budget's
 under-fix is self-correcting — does it now find the two remaining restatements and the
 negation density, or re-propose what it already proposed?
+
+### 2026-08-18 (late) — fresh chassis roll verified: v1.0.1309, and a no-op for this lane
+
+`v1.0.1309`, both replicas, pods up 15:45Z, build commit **`f0117fb8b`** `[MEASURED]` —
+3 hits in `/proc/1/exe` on `-9sc5r`, negative control (current HEAD, committed after the
+build) 0, so the probe discriminates. Strictly newer than `e7e5e4d53`; mode-split ancestry
+holds. **`git log e7e5e4d53..f0117fb8b` over `section_editor_actions.go`, `ai_actions.go`,
+`platform/voicestyle/` and `checkpoint_for_review_action.go` is EMPTY** — nothing this lane
+depends on changed, and `copy-editor` is config-only regardless.
+
+**Two method errors of mine, both worth the ink:**
+
+1. **I probed four candidate commits before reading the log, and all four returned 0** —
+   including `e7e5e4d53`, the build I had confirmed myself this morning. **The binary stamps
+   exactly ONE sha, the build HEAD**, so every ancestor reads "absent" and a candidate list
+   produces a page of zeros that looks like "unstamped binary". This is already a LANDMINE
+   entry (the landmine-verifier re-confirmed it STILL_VALID this morning, in this session's
+   own logs) and I walked into it anyway. **Pods fresh → read the log; line scrolled → probe,
+   but only with a candidate you already have.**
+2. **My "must be absent" control was forty zeros, and it returned 2.** A control that matches
+   everything cannot fail, which is the same defect this lane has now found three times in
+   its own gate. The valid control is a real sha that must be absent — current HEAD.
+
+⚠ The makefile now carries its own warning that **`v1.0.1305` was REUSED** and the cluster
+served the cached digest while a locally-built image of the same tag carried 252 newer
+commits. A same-tag re-release re-serves the cache; only a new tag ships code. Relevant here
+only as confirmation that reading the TAG is not reading the BUILD.
