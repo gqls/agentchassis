@@ -2306,3 +2306,124 @@ which refuted it in one query. The cause: `UNIQUE(kind, slug)`, so Family Buildi
 exists TWICE, once as `mortgage-lender` and once as `savings-provider`, and my slug-only filter
 joined both entities' claims into one listing. **A per-entity read cannot see a per-(kind,slug)
 key** — filter by kind, or join and print it.
+
+---
+
+## 2026-08-18 (evening, second session) — why the pilot has no calculator, and the directory going 2 → 25
+
+### 1. The missing tools: BOTH keys are right and they are DIFFERENT keys
+
+`remortgagecalculator.uk` served with no calculator. Full case + fix candidates:
+**`bugs_open/311`**. Diagnosis run through `090` — **CONFIRMED, first iteration**
+(run corr `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3`).
+
+The chain, each step measured:
+1. Planner planned section `mortgages-repayment` on `index`.
+2. `SelectComponentByType` matches `WHERE section_type = $1 …` — the component that
+   IS that calculator (`function='mortgages-repayment'`) has **`section_type` NULL**.
+   No match → `not_found` → `needs_new_component`.
+3. `store_generated_component` matches `WHERE function = $1 AND forked_from IS NULL`
+   — **this finds it**, so the store believes it is a regeneration.
+4. The field-contract guard refuses: the new schema drops the 8 fields
+   (`button_1, heading_1, label_1..label_6`) that
+   **loanandmortgagecalculator.co.uk's** stored `content_data` is keyed on. The
+   guard is RIGHT — overwriting would empty that site's live sections.
+5. Three attempts (12:51, 14:12, 19:02 on 08-17), all identical. Section left with
+   `component_id=''`; page built, deployed, served. `status='active'`.
+
+**The alternative explanation is excluded, not assumed.** The diagnosis flagged
+that one site retrying its own regeneration would look identical in the error log.
+Settled by joining through `page_components` (there is no `site_id` on
+`content_components` — which is exactly why the writer cannot see whose row it is):
+
+| function | rows | depended on by | requester |
+|---|---|---|---|
+| `mortgages-repayment` | 1 | loanandmortgagecalculator.co.uk | **remortgagecalculator.uk** |
+| `loans-credit-health-check` | 1 | loanandmortgagecalculator.co.uk | **loancalculator.co.uk**, **loanzy.uk** |
+
+**Live right now, not historical:** `loans-credit-health-check` retried at 18:02,
+18:07, 18:10, 18:14, 18:17, 18:21, 18:25 today, same 18-field rejection each time.
+
+**Class size** [MEASURED]: of 140 active base `component_level='section'` rows,
+**26 have no `section_type`** — each invisible to the selector and each a trap for
+the next site that names its `function`. 79 `component_level='tool'` rows are
+invisible to this selector by construction.
+
+**The part that stings:** an active `tool-mortgage-repayment` section component
+(section_type set, 10,760-char template, live since 2026-05-06) was sitting there.
+The site needed no new component at all.
+
+### 2. The directory: 2 → 25 mortgage lenders in ~15 minutes
+
+**The measurement that redirected the work** — all-history yield per source domain,
+a query that could have come out the other way:
+
+| kind | source | claims | firms |
+|---|---|---|---|
+| savings-provider | www.gov.uk | 14 | **12** |
+| health-insurer | mytribeinsurance.co.uk | 8 | 7 |
+| health-insurer | drewberryinsurance.co.uk | 7 | 7 |
+| mortgage-lender | fca.org.uk / kbra.com / familybuildingsociety / mansfieldbs | 2/2/2/1 | 1 each |
+
+Every high-yield source in the register's history is a **multi-firm enumeration**.
+Every single-firm page yields one firm. The mortgage kind had never had an
+enumeration page in its scrape set: its four slots on 08-18 went to two
+market-overview pages that name firms without stating quotable facts about them
+(ukfinance.org.uk's largest-lenders table, **bsa.org.uk's HOMEPAGE rather than its
+member list**) plus two single-society pages. Candidates 2, registered 1.
+
+So the cause was **source shape and slot count**, not the pipeline. Migration
+**471** (applied 18:31Z, DO/RAISE verified):
+- `max_scrapes` 4 → 10, `num_results` 10 → 20, `max_snippets` 5 → 8. Sized against
+  `bugs_closed/062` (a batch_scrape reply over ~1 MB is dropped and the caller
+  starves): the 08-18 run carried **85 kB of scrape_results for 4 URLs**
+  (orchestration `a5ba225c`), so 10 URLs projects to ~210 kB — ~5× margin. Measured.
+- four enumeration-shaped mortgage queries (BSA member list, adverse-credit
+  specialists, buy-to-let, FSCS-protected firms), all < 200 bytes (web_search drops
+  a ≥200-char query and blames config keys).
+- the prompt line *"Third-party listicles are weak"* narrowed — it was the exact
+  opposite of what the register's own history shows.
+
+**Result, four runs, ~15 minutes:**
+
+| query | urls | candidates | registered |
+|---|---|---|---|
+| BSA member list | 10 | 15 | 13 |
+| adverse credit | 10 | 15 | **15** |
+| buy-to-let | 10 | 15 | 7 |
+| FSCS protected | 10 | 12 | 7 |
+
+**Active mortgage lenders 2 → 25.** Named firms, no category-shaped entities (the
+423 named-firm rule held). The adverse-credit cohort — Bluestone, Kensington,
+Pepper Money, Vida, Foundation Home Loans, The Mortgage Lender, Aldermore, United
+Trust Bank — is exactly what `adversecreditmortgage.co.uk` had nothing to list.
+Review queue took 8 mortgage + 5 savings rejects, which is the verbatim gate
+working at a normal rate (42 registered / 57 candidates).
+
+### 3. www — what the Nominet change did and did not do
+
+Nameserver delegation landed (`remortgagecalculator.uk` serves its own pages).
+`www` was never a delegation problem. Route inventory across all 39 zones, measured:
+**24 carry a wildcard `*.<domain>/*` route** (need the DNS record only), **12 have
+the apex route only** (need both), and **4 must be left alone**: `idea.uk` and
+`relojistas.com` have no route to the worker at all (a proxied A → 192.0.2.1 there
+is a 522 black hole), `webdesign.uk` deliberately 302s to webdesign.co.uk, and
+`relojistas.com` already serves www. `cookly.uk` and `dartsonline.com` already
+301 correctly. `robot-hands.com` and `leopardessconsulting.co.uk` have a www
+record with nothing serving it — they time out today, and the change fixes them.
+
+So the earlier "www resolves NOWHERE across all 36 zones" was **too uniform**:
+8 zones had a www record, in four different states.
+
+### 4. Missteps this session
+
+- **I wrote "no zone has a www route" from a script whose route check had
+  crashed.** The python got `D` as argv instead of env, printed nothing, and
+  `[ "" != 0 ]` is TRUE — so eight unconfigured zones reported as "already
+  configured". A reading that is not a number must be refused, not compared; the
+  script now does that explicitly.
+- **I hypothesised that directory facts come from a firm's own page** and was
+  going to exclude the trade-body pages on that basis. The per-source yield query
+  refuted it in one shot: the single highest-yield source in the register's whole
+  history is a gov.uk list page. Widening on the wrong theory would have made the
+  mortgage kind worse.
