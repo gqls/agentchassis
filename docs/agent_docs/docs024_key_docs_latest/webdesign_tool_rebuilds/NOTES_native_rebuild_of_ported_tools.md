@@ -661,3 +661,33 @@ blocked on the unique-index decision **4** · remaining clear **57** · builds a
 
 **Batch tally: built 6, live-and-proven 3, awaiting rerender 2 (svg, sri), failed 1 (#2, index),
 parked 2 (RFC_036), remaining ~55.**
+
+## 2026-08-18 07:42Z — #5 REPAIRED and #6 LIVE, both graded PASS at the served bytes. Five tools done.
+
+Both repair rerenders complete (`b607fd48` svg, `4d8fa51b` sri).
+
+| check | svg-optimizer | sri-generator |
+|---|---|---|
+| http / bytes | 200 / **14,319** (was **19,415** while double-tooled) | 200 / **15,129** |
+| `class="ported-page"` | **0** | **0** |
+| `{{\.` | **0** | **0** |
+| ported tool's own id `inputCode` | **0** — gone | **0** — gone |
+| new tool's markers | `svg-stripper-input` 5, `svg-stripper-saved` 2, `PROTECTED` 2 | `SHA-384` 2, `crypto.subtle` 2, `integrity=` 1 |
+| controls (neg / pos) | **0 / 7** | **0 / 7** |
+
+DB, both pages: `ported-page` `removed` at position 0 with its bytes retained (5,095 / 4,752),
+the native tool `deployed` at position 2 (7,879 / 8,520). One live slot each.
+
+- **The double-tool repair is CONFIRMED at the artefact, not inferred from the status.** The decisive
+  number is the size going **19,415 → 14,319** together with `class="ported-page"` falling 1 → 0 and
+  the ported `inputCode` disappearing: a status flip plus a `complete` rerender would have looked
+  identical if the assembly had still included the removed slot. The `PROTECTED` marker surviving into
+  the served bytes also proves it is the NEW component being served, not a cached older render.
+- **Recovery cost of losing that race, measured end to end:** ~68 minutes of a double-tool page, one
+  extra rerender, no data loss, no manual repair beyond the retire that should have happened anyway.
+  Worth knowing precisely, because it sets how much the mitigation is worth: the answer is "attend the
+  build", not "build tooling".
+
+**Batch tally: built 6 · LIVE AND PROVEN 5 (aspect-ratio, markdown-tables, html-minifier,
+svg-optimizer, sri-generator) · failed 1 (#2, the fleet-wide unique index) · parked 2 (RFC_036) ·
+remaining ~55.** Three of the five replaced a tool that was measurably broken in production.
