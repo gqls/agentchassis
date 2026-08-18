@@ -517,3 +517,112 @@ the first thing the next session should cost.
 > Caught by asking a sharper question than the commit count: "has this service's
 > OWN code changed since it shipped?" A large diff between a build and HEAD says
 > nothing about whether the diff touches the built thing.
+
+---
+
+## 2026-08-18 — the per-service costing, done. Two of the four checks ARE blind today.
+
+The question left open above ("whether any linked symbol they actually use has
+changed") is now answered, and the answer is worse than the correction implied.
+It is not merely that a linked *helper* moved. **The registry these checks
+enumerate is compiled into their binaries, so a frozen image is a frozen view of
+what the estate contains.**
+
+### The mechanism, in one paragraph
+
+`cmd/config-key-audit` — which is the binary behind *both*
+`shared-output-fields-check` and `removed-config-keys-check`, via different
+Dockerfile CMDs — drives its whole audit from
+`datahelpers.ListActionInputSpecNames()` (`cmd/config-key-audit/main.go:277`,
+with `ListDeclaredConfigKeys()` at `:229` and `ListRemovedConfigKeys()` at
+`:260`). That list is populated by ~169 `RegisterActionInputSpec(...)` calls
+compiled into the binary. **An action that entered the registry after the image
+was built is not in the list, so the loop never visits it** — `GetActionInputSpec`
+returns `!ok` and the code does `continue` (`:297-300`). The check does not
+report that it skipped anything. It reports clean.
+
+### The census [MEASURED 2026-08-18]
+
+Production registry only (`':(exclude)*_test.go'` — the first cut of this
+included test-only registrations and read 201/164; the numbers below are the
+corrected ones). `-A1` so multi-line calls are counted; the missing sets are
+identical either way, which is the check on the counting method:
+
+```bash
+acts () { git grep -h -A1 'RegisterActionInputSpec(' "$1" -- platform/ internal/ \
+          ':(exclude)*_test.go' | grep -o '"[a-z0-9_]\+"' | tr -d '"' | sort -u; }
+acts HEAD > /tmp/h; acts <build-commit> > /tmp/b; comm -23 /tmp/h /tmp/b
+```
+
+| service | tag | build commit | registry in binary | actions it cannot see |
+|---|---|---|---|---|
+| `component-render-check` | v1.0.1258 | `667757b5d` | **160 / 169** | `ensure_page_section_layout` `evaluate_directory_features` `process_approval_decision` `process_data` `publish_site` `record_vision_finding` `retract_asset_files` `update_page_status` `zip_deliverable` |
+| `shared-output-fields-check` | v1.0.1265 | `22ed9aa04` | **161 / 169** | the same, less `ensure_page_section_layout` |
+| `removed-config-keys-check` | v1.0.1285 | `a9237f0c9` | **165 / 169** | `evaluate_directory_features` `publish_site` `retract_asset_files` `zip_deliverable` |
+| `verifier-remit-check` | v1.0.1289 | `74ac4ed3a` | **165 / 169** | (same four — but see below, it does not read the registry) |
+
+**This measurement could have come out otherwise** — 169 at every commit was the
+expected result if the registry had been quiet, and four separate builds agreeing
+would have closed the question. They do not agree.
+
+Build commit = the commit that last touched that service's
+`overlays/production/uk_001/kustomization.yaml`, which per the freeze evidence is
+the day it was created and deployed.
+
+### Per service, because they are not equally affected
+
+- **`shared-output-fields-check` and `removed-config-keys-check` — BLIND, today.**
+  Both drive off the compiled registry (proven above at `main.go:277/229/260`).
+  Eight and four live actions respectively are outside their field of view, and
+  the failure is silent: a skipped action produces no finding, so the check's
+  clean report is indistinguishable from a clean estate. Both ran this morning
+  (`06:25Z`, `07:10Z`) on the frozen images — confirmed at the cluster, not
+  inferred from the repo:
+  `kubectl -n ai-persona-system get cronjob -o custom-columns=...,IMAGE:...`
+  prints `…/removed-config-keys-check:v1.0.1285` and `…:v1.0.1265`.
+- **`component-render-check` — suspect, not proven.** It does not enumerate the
+  registry; its one direct internal symbol whose definition changed since its
+  build is `actions.RenderContext`. Nine actions are outside its linked registry,
+  but whether its own logic depends on that is not established. Someone should
+  read `rendercheck.go` against the current `RenderContext` before asserting it.
+- **`verifier-remit-check` — least affected, and probably fine.** It references
+  only two internal symbols and **neither definition has changed** since
+  `74ac4ed3a`. It does not touch `datahelpers` at all. Its 165/169 is a property
+  of a package it links, not of anything it reads. Do not fold it in on the
+  strength of this table alone.
+
+### `publish_site` and `retract_asset_files` are missing from ALL FOUR
+
+CLAUDE.md already records that these two actions "entered the registry counted as
+**ZERO** and were invisible to the check until 2026-08-17" — that is about the
+`optional-key-budget-check` cron's hand-maintained literal in `check.py`, a
+**different** mechanism with its own parity test
+(`cmd/config-key-audit/optional_budget_cron_parity_test.go`). The same two actions
+are *also* invisible to these four Go binaries, for the unrelated reason that the
+images are frozen. **Two independent blind spots landing on the same pair of
+actions is not a coincidence worth ignoring** — both mechanisms fail whenever the
+registry grows, and neither notices. Worth checking whether the `publish_site` /
+`retract_asset_files` authors were told their action is unaudited by either path.
+
+### What this does NOT show
+
+Nothing here says a check has emitted a *wrong* finding. The demonstrated defect
+is **under-coverage** — findings that should have been raised and were not. That
+is the harder kind to notice, because the artefact of a blind check and a healthy
+estate is the same empty report, and it accumulates: every clean run since
+2026-08-08 vouched for actions the binary could not see.
+
+### The complete frozen set is SIX, confirmed — the other CronJobs are not this class
+
+Enumerated every `deployments/kustomize/services/*/overlays/production/uk_001/`
+overlay and listed each one not pinned to the fleet tag `v1.0.1309`. Beyond the
+six already known, the rows that came back pin **no image at all** —
+`optional-key-budget-check`, `single-owner-carriers-check`,
+`concept-register-drift-check`, `component-fallback-check`,
+`bugs-open-staleness-sweep`, `site-discovery-staleness-check`,
+`instance-token-adoption-check`. Those all run `postgres:16-alpine` with their
+logic in SQL/ConfigMap, so they carry no build at all and are outside this class
+(they have their own staleness mechanism — the ConfigMap literal, see CLAUDE.md
+on `check.py`). `ollama-adapter` / `ollama-eval` pin `latest`, which is a
+*separate* trap and not part of 237. **So Decision B's scope is the six, and only
+the six.**

@@ -4,6 +4,14 @@
 The bug file is the shared account and is authoritative; this file is the lane's
 own state and the two open owner decisions.
 
+> **The lane's standing five now exist (2026-08-18)** — read these in preference to
+> re-deriving anything here: `PLAN_2026-08-18_decision_b_frozen_services.md` (the
+> options, costed, with the recommendation), `RUNBOOK_release_enumeration.md` (every
+> command, with its gotcha), `NOTES_release_enumeration.md` (the measurement log and
+> this session's four missteps), `README_where_we_are.md` (owner's plain-prose log),
+> `SUMMARY_2026-08-18_decision_b_costed.md` (the milestone read-out).
+> **Decision A is done; Decision B is costed and awaiting the owner's ruling only.**
+
 ---
 
 ## 1. What this lane is about, in plain terms
@@ -136,6 +144,27 @@ release churns the image (newer apt packages) for nothing.
 **Do NOT meanwhile just run `release-github-runner`:** it moves the singular
 runner only and leaves `-vmsites` untouched and unmovable — the exact state that
 produced this.
+
+> **UPDATED 2026-08-18 — the costing is DONE, and two of the four checks are
+> provably blind today.** The paragraph below asked the next session to cost this
+> per service; that is complete, so do not repeat it. Result: `cmd/config-key-audit`
+> drives its audit from a registry of ~169 actions **compiled into the binary**
+> (`main.go:277/229/260`; an unknown action is `continue`d at `:297-300` with no
+> output), so a frozen image has a frozen **inventory**, not just frozen logic.
+> `removed-config-keys-check` sees **165/169** actions, `shared-output-fields-check`
+> **161/169** — and both ran on 2026-08-18 on the frozen tags, confirmed at the
+> cluster. `component-render-check` (160/169) does not read the registry but one
+> symbol it uses, `actions.RenderContext`, has changed — suspect, unproven.
+> `verifier-remit-check` is the **least** affected: it reads neither the registry nor
+> any symbol whose definition moved, so **do not fold it in on its 165/169 alone**.
+> `publish_site` and `retract_asset_files` are absent from all four.
+> The frozen set is confirmed to be exactly **six** — every other suspicious
+> CronJob runs `postgres:16-alpine` and carries no build of ours.
+> Full evidence: `bugs_open/237` (2026-08-18 section) and `NOTES_release_enumeration.md`.
+> Options costed and recommended: `PLAN_2026-08-18_decision_b_frozen_services.md`.
+> **What is open is the owner's ruling, not a measurement.**
+
+#### (original statement, kept for the record)
 
 **Not yet measured, deliberately not asserted:** whether any check is
 *functionally* wrong today. A stale linked package is a reason to look, not proof
