@@ -401,3 +401,72 @@ be the proof that the new code path ran. It returned nothing on either `agent-ch
 logs with them. **A log-based proof of execution has the lifetime of the pod that produced it, and for
 an ephemeral handler that is minutes.** The durable substitutes are what I used instead: the binary
 stamp for "is it in the image", and the archive plus the harness for "was it exercised, in scope".
+
+## 2026-08-18 — INDUCED REFUSAL PROVEN AT THE ARTEFACT, and it found a missing clamp on the way
+
+`v1.0.1309`, stamp **`f0117fb8b`** (read from the binary). **All three of this lane's code commits are
+in it** — `6aae23e62`, `e42d57adf` and `cd610a006` — so the fleet is now running the full
+council-approved shape, including the page-total floor failing **CLOSED**. Absent control: `HEAD`
+(28 commits ahead of the stamp) is not an ancestor, and it passes.
+
+> **MISSTEP 5, immediately:** my first absent-control was `dc04efa6e`, one of my own commits from
+> yesterday — which *is* an ancestor of a stamp built today, so it reported "CONTROL FAILED" for
+> entirely correct reasons and briefly looked like a broken probe. **An absent control has to postdate
+> the stamp.** Recorded in the RUNBOOK next to the command.
+
+### The design that made the test safe in BOTH branches
+
+The payload was **the page's own three sections, byte-for-byte**, with `page_total_text_floor: 1.5` on
+an inline single-step workflow. A floor above 1 demands the save GROW, so identical content (100% kept)
+is refused arithmetically — and if the guard had failed to fire, the save would have written back
+*identical content*, a no-op. Neither branch could damage the page. Target chosen for low stakes:
+`ai-agent-orchestration.com/contact`, 3 slots, 7.3 KB, `rebuild_policy='generic'`, nothing locked.
+
+Two obvious alternatives were rejected and are now written down as traps in the RUNBOOK: shrinking a
+real page's content (on a DELETE+INSERT path, a guard that does not fire leaves the page holding what
+you sent — the damage of `bugs_closed/285`), and raising a floor on a live `agent_definitions` row and
+waiting (a refusal fails the step, and no build loop sets `continue_on_error`, so it can strand every
+page after it).
+
+### What it proved
+
+```
+FAILED | induce_save | save_page_sections: PAGE CONTENT REGRESSION REFUSED for page "contact" —
+the incoming sections carry 581 chars of VISIBLE text against 581 deployed across 3 sections
+(100% kept, floor 150%), with stylesheet and script content excluded from both sides.
+```
+
+- The extracted `enforcePageTotalTextFloor` **executes in the shipped binary** — it had never fired
+  before, on any image.
+- It **reads the new config key** (`floor 150%` is my 1.5), so `page_total_text_floor` is live.
+- **It measures VISIBLE text: 581 chars on a page holding 7,343 BYTES of HTML.** That ratio *is* the
+  bug — the retired axis would have counted the markup and seen nothing wrong.
+- **The artefact is untouched**: same fingerprint AND **same row ids**, which is the stronger check —
+  identical bytes alone would also be consistent with a delete-and-reinsert, whereas unchanged ids
+  prove the DELETE never ran.
+- The queue row carries **the page-total floor's own remedy sentence**, not a sibling's borrowed one —
+  the thing `bugs_open/178` had to fix twice.
+- **ALLOW ARM, from live traffic rather than a manufactured write**: 6 real rebuild writes on this
+  image, 4 in scope on the live axis, **0 refused**, and the only refusal on the whole image was the
+  induced one. Without this arm a refusal-only test also certifies a guard that refuses everything.
+- Housekeeping: the synthetic `needs_human_review` row was set `cancelled` with the reason recorded in
+  `result` — it describes an event that did not happen, and `cancelled` is in
+  `workItemTerminalStatuses` so it releases the dedup slot and the induction stays repeatable.
+
+### And the test found a real gap in my own change
+
+**`page_total_text_floor` was NOT CLAMPED**, which is the only reason `1.5` worked. Both sibling floors
+clamp at 0.95, for the reason their own test states — *"an absurd floor is clamped to 0.95, not treated
+as 'refuse everything'"*. Mine didn't, because I carried the inline rule's hardcoded `0.25` across
+faithfully and **never exercised the config path until today**. A typo of `1.5` or `2.5` in a step
+config would have refused every save on that step, silently and for ever, and on this path a refusal
+fails the step and can strand a build loop.
+
+Clamped in `d5b40c4eb`, with **MUT-293-J** behind it (delete the clamp → the new test fails, quoting
+the refusal it would have produced on identical content). Ten mutations on this lane now, A–J. The
+clamp costs the byte-for-byte induction, so the repeatable recipe drops ~10% of one slot's prose
+instead — worst case, one sentence, with the original in hand.
+
+**The general shape, which is the transferable part:** *a config key nothing has ever set is untested
+by definition, and the act of exercising it for a test is the first time anyone finds out what it
+does.* I proved the floor fires and discovered its threshold was unbounded in the same command.
