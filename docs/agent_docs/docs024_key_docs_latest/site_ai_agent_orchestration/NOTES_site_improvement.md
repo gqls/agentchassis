@@ -635,3 +635,45 @@ literals, so nothing changes for them until they next re-render for any reason, 
 get the tokenised version — which the simulation above says passes on both. Not re-rendered because
 they belong to other lanes and I have measured their contrast only by simulation, not at the
 artefact. Whoever owns them should re-render when convenient.
+
+### The double-wrapped `<p>` — censused, and it is LOCAL, not a fleet pattern
+
+Above I said this "needs a fleet-wide census first — is this one component's content, or every
+`{{if .x}}<p>{{.x}}</p>{{end}}` against LLM-authored prose that already contains block markup?"
+**Answered: it is two placements, both on this site's `about` page, and nothing else fleet-wide.**
+
+| what it carries | placements | sites |
+|---|---|---|
+| `content-block-about` / `body_text` | 1 | 1 |
+| `leadership-team` / `section_intro` | 1 | 1 |
+
+**How the number moved, because the intermediate answers were both wrong and each looked
+authoritative:**
+
+1. `rendered_html ~ '<p[^>]*>\s*<p[ >]'` → **2 placements, 1 page, 1 site.** I distrusted this,
+   correctly in principle: `rendered_html` is a **lagging** indicator, stale wherever a placement
+   has not re-rendered since its content changed. A clean result there can mean "not yet visible".
+2. So I censused `content_data` instead, which is current → **359 placements, 26 sites, 8
+   components.** That number is real but answers a different question: block markup in
+   `content_data` is only a defect where the TEMPLATE wraps that field in a `<p>`. Five of the eight
+   components render the field bare into a block context, which is correct and intended.
+3. Narrowing to "component wraps *a* field in `<p>`" → **4 components, 26 placements.** Still wrong,
+   and this is the instructive one: `about-content` (23 of those 26, across 16 sites) has
+   `<p>{{.description}}</p>` in its template and block markup in its `content` key — **two different
+   fields.** It renders `{{.content}}` bare. The regex proved *some* field is wrapped, never *the
+   one carrying the markup*, and at that point I had a fleet-wide finding across 16 sites that was
+   an artefact of the join.
+4. Matching the p-wrapped field NAMES against the fields that actually carry markup, and checking
+   the `{{range}}`-nested ones separately (`leadership-team.members[].bio`,
+   `about-content.highlights[].description` — both **0**, and a top-level `jsonb_each_text` cannot
+   see either) → **2.** Which is where step 1 started.
+
+**So the lagging instrument and the precise one agree, and the two readings in between did not.**
+Worth writing down because the wrong ones were the ones that looked like a discovery: "359
+placements across 26 sites" is exactly the shape of a finding you carry into a bug file.
+
+**Not filed as a bug.** Two placements on one page, no automated consumer, and the visible symptom
+(the stray paragraph's contrast) is fixed by 469. What is NOT fixed is that `.section-intro`'s
+styling reaches nothing on this site — the inner bare `<p>` is a sibling, so the muted colour,
+centring and max-width are all inert there. Cosmetic today; it belongs with the `pricing` rebuild
+work, where the copy is regenerated anyway.
