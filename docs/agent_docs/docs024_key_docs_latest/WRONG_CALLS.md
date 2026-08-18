@@ -36254,3 +36254,38 @@ Recorded as a visible correction in the 029 lane's NOTES.
   transcript grep. Seconds each; would have surfaced the collision 25 minutes and one
   duplicate mechanism-derivation earlier.
   Tally for "acted on an ownership snapshot without re-checking at the next phase boundary": 1.
+
+- **2026-08-18 (bugfix_275 lane): three claims written into a cold-start handoff, all from
+  reading ONE channel — and `LANDMINES.md` already held the correction to two of them.** The
+  lane shipped a silent-row-cap detector (LCO-009) that emits a WARN to the pod log, then
+  wrote (a) *"the observable window is time since the last pod restart"*, (b) *"0 WARNs — nothing
+  it watches has executed"*, and (c) *"whether `internal-linker`'s cap has ever shaped a link
+  decision is UNMEASURED; the detector will answer it by itself"*.
+  (a) is wrong by ~3 orders of magnitude in the optimistic direction: measured on pods up 27
+  minutes with **zero restarts**, the oldest retrievable log line was **3 s / 15 s / 21 s / 34 s /
+  91 s** across five samples — the log rotates on SIZE against 183 KB whole-state dumps, so it is
+  wiped continuously while the pods keep running. (b) followed from (a) plus a second sufficient
+  cause nobody had checked: `v1.0.1309`, the first release containing the detector, has an
+  earliest evidenced roll of **15:45Z**, so most of that 24 h had no detector in the fleet. (c)
+  was true of `llm_call_log` alone — the agent had **13 `orchestration_states` rows** and 82 work
+  items, and its capped step's own result was sitting in `collected_data`, where it showed a run
+  that loaded **exactly 15** candidates and then reported none.
+  **What caught it:** asking, before believing my own re-run of the census, whether the thing I
+  was censusing had actually RUN in the window I could see. It had not — the 18:15Z job was in
+  the DB as COMPLETED on a pod whose retrievable log began at 18:23:44Z. That one question is the
+  whole difference between a negative result and a blank page.
+  **The cheap check, and this is the part that stings:** `grep -n "kubectl logs" LANDMINES.md`
+  returns TWO entries predating this work — 2026-08-08 ("*holds LESS THAN A SECOND under load*")
+  and 2026-08-14 ("*~90 SECONDS … a log-only signal is NOT a durable control on this fleet, and a
+  council seat will say so*"), both prescribing the two remedies this session rediscovered from
+  scratch (attach `logs -f` before the event; arrange a DB-visible observable). The medium was
+  chosen, design-reviewed and council-approved with both entries on file. **The SessionStart hook
+  matches landmines against DIRTY PATHS, and these are keyed on a COMMAND and a TABLE — so they
+  are never shown to you.** Grep LANDMINES for the command, table or symbol you are about to
+  trust, not just your file paths. Same session, same failure, second instance:
+  `agent_definitions.updated_at` read as another session's edit when 200 of 201 rows shared the
+  minute — also already in LANDMINES, twice, keyed on a table.
+  Tally for "measured my way to a fact LANDMINES already recorded, because I grepped it by path
+  and the entry was keyed on a table or a command": **2, in one session.**
+  Tally for "a durable claim built from one channel that another channel contradicted": 1 —
+  and note it failed toward the comfortable answer (*dormant agent, nothing firing*) both times.
