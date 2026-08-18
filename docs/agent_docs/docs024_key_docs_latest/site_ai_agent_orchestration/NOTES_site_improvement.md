@@ -500,3 +500,138 @@ ai-agent-orchestration has a light `color_scheme` against a dark palette (leopar
 is evidently winning today — but the two blocks disagree and one of them feeds CSS generation, so a
 future run could serve the light one. Recorded, not acted on, and NOT offered as family B's cause:
 family B is the untokenised components above, which is measured.
+
+---
+
+## 2026-08-18 (evening session) — family B applied as migration **469**, not 459
+
+### First: two corrections to what the handoff told me
+
+**1. The number 459 was already taken.** The handoff of ~12:15Z says "ready to write as migration
+`459`". By the time I looked, `459_zip_deliverer_agent_HOLD.sql` existed from another lane, as did
+460–468 and (while I was working) 470. The runner's rule is *next number = highest in the directory
++ 1*, so this landed as **469**. ⚠ **Numbers in `sql_for_agents/` also COLLIDE** — 457 and 458 each
+name two unrelated migrations from two lanes (`457_stats_cta_…` vs `457_tool_auditor_…`;
+`458_aiao_imagery_…` vs `458_detected_item_promoter_…`). So a bare migration number is ambiguous in
+this directory exactly as a bare bug number is in `/bugs_*/`. **Cite the filename.**
+
+**2. "Both light sites are unchanged" was too strong, and I had written it myself.** The table
+above compares only `--color-surface`. The migration moves five tokens, and on the light sites three
+of them are NOT identical to today's literal:
+
+| declaration | today | finetuning.uk | leopardess |
+|---|---|---|---|
+| `.team-section` ground | `#f8f9fa` | `#F5F3EF` | `#FAF8F4` |
+| `.team-member` ground | `#fff` | `#FFFFFF` **identical** | `#FFFFFF` **identical** |
+| icon well | `#e0e0e0` | `#D4CFC6` | `#E4DFD5` |
+| `.member-title` | `#0f3460` | `#1A1A2E` | `#1A1A1A` |
+| `.section-intro` / `.member-bio` | `#555` | `#6B6860` | `#5A5751` |
+
+Only the card ground is genuinely unchanged. The others shift to each site's own tokens — which is
+the *intent*, but it is a change, and the defensible claim is **"no element loses its contrast floor
+on any site"**, not "nothing moves". [MEASURED] by simulating every element of the block on all
+three sites; every light-site row passes before AND after, lowest after-value 5.02:1 against a 4.5
+floor (finetuning `.section-intro`). The disconfirming result was available: any row going
+PASS→FAIL would have stopped the migration.
+
+### What I verified before touching anything
+
+- **Live contrast, re-measured 19:14Z: 32 firm failures** (`render_audit.py`, overImage excluded —
+  raw 35, of which 3 over-image). Composition matches §3 of the handoff exactly: 20 `#E6EDF3` on
+  `#FFFFFF`, 4 on `#F8F9FA` (= family B, 24), 7 `#0D1117` on `#0D1117` + 1 on `#080B10` (= family A,
+  8, all on `pricing`).
+- **`a.stats-cta` produced ZERO findings.** So 457 IS deployed and live. The handoff carries two
+  `## 7` headings and the second one's item 1 ("Finish 457 — applied and rendered but NOT DEPLOYED,
+  still 1.61:1") is **stale**; §1 of the same file is right. Resolved, nothing to do.
+- **All five tokens are SET on all three sites** — read by `getComputedStyle` against the live
+  pages, never from a stylesheet (R2). No branch falls back in practice.
+- **Fleet-wide, exactly TWO components define `.team-*`/`.member-*`.** This is what licenses the
+  "both must move together" reasoning: they share class names, both are placed on `about.html`, and
+  their `<style>` blocks land on one page, so migrating one alone would restyle the other through
+  the cascade. Asserted as a guard, not just checked.
+
+### Family B's real breakdown — and `departments-grid` is on INDEX too
+
+The handoff describes these as "the two about-page components". `departments-grid` is placed on
+**index as well**, which is where 9 of the 24 live:
+
+```
+index / departments-grid   9   (1 H2 + 8 department H3s)
+about / departments-grid   9   (1 H2 + 8 department H3s)
+about / leadership-team    6   (1 H2 + 1 stray P + 4 member H3s)
+```
+
+**The mechanism is not a bad foreground.** `.team-section h2` and `.team-member h3` set *no colour
+at all* — they inherit `--color-text` (`#E6EDF3`). The defect is a **themed foreground inherited
+onto an unthemed ground**. That is why tokenising only the backgrounds would have been wrong in the
+other direction: it would have left `color: #555` and `color: #0f3460` on a `#0D1117` card.
+
+### A guard of mine that was wrong, caught before it ran
+
+I first wrote the "never introduce a bare `var()`" invariant as a **fleet-wide** assertion, copying
+456/457's shape. 456/457 assert it only for the two *ink* tokens. Measured before applying:
+**145 `content_components` fleet-wide already carry a bare `var(--color-*)`** with no fallback. The
+guard would have aborted the migration on pre-existing state that has nothing to do with this
+change — and the failure would have read as "my edit introduced a bare var". Narrowed to the two
+rows I touch; kept the bare-**ink** invariant fleet-wide, which genuinely is 0.
+**The lesson: an invariant copied from a neighbouring migration inherits its SCOPE, and that scope
+was chosen for a different token set.** Check the count before you assert it.
+
+### A separate defect found in passing — content is DOUBLE-WRAPPED in `<p>`
+
+`about` / `leadership-team` renders:
+
+```html
+<p class="section-intro"><p>AI Agent Orchestration is built around a single principle: ...</p></p>
+```
+
+The content already carries its own `<p>` and the template wraps it in another. The HTML parser
+auto-closes the outer tag, so the **inner bare `<p>` is a SIBLING with no class** — it inherits
+`--color-text` instead of `.section-intro`'s muted colour. That stray paragraph is one of the 24
+failures, and 469 does fix its contrast (it sits on `.team-section`, whose ground is now themed).
+**The double-wrap itself is untouched and is a real content/render defect** — `.section-intro`'s
+styling reaches nothing on this site. NOT filed as a bug yet; it needs a fleet-wide census first
+(is this one component's content, or every `{{if .x}}<p>{{.x}}</p>{{end}}` against LLM-authored
+prose that already contains block markup?).
+
+### Applying it
+
+- **Rehearsed first**: the whole file with its final `COMMIT` replaced by `ROLLBACK`. Guards passed,
+  `INSERT 0 2` / `UPDATE 2`, then rolled back; confirmed afterwards that `migration_backups` held 0
+  rows and neither template was tokenised. A dry-run `SELECT` proves the anchors match; only a
+  rehearsal proves the **guards** pass.
+- **Applied alone with `psql -f`, NOT `run-migrations.sh --apply`.** ⚠ `--apply` takes EVERY pending
+  file: at the time that was **17 files from at least six other lanes** (456–458, 460–462, 467, 468,
+  470, plus older ones). Recorded afterwards with `--record-only`.
+- ⚠ **"Pending" in that runner does not mean "unapplied".** 460 was listed pending, yet
+  `template_changed` is already live in `page-rerender.check_rerender_mode` — it was applied by hand
+  and never recorded. I checked the live agent row rather than trusting the listing, which is what
+  told me the propagation path below actually exists.
+- **Byte-exact rollback**: 469 backs both rows up to `migration_backups` first, and the ROLLBACK
+  file restores from those rows rather than reverse-regexing. It cannot drift from what was replaced.
+
+### Propagation — page-scoped, and why not site-wide
+
+Templates changed; placements keep the OLD html until re-rendered. Filed **two** `page_rerender`
+items (index, about) with `spec.reason='template_changed'`, copying the live
+`component-template-fixer.create_rerender` shape.
+
+- ⚠ **`reason` is load-bearing.** `page-rerender` routes to `rerender_sections` ONLY for
+  `image_landed | section_data_resolved | cta_links_stale | template_changed`; anything else
+  **assembles stored HTML** and ships the old CSS with a green status.
+- ⚠ **Page-scoped ON PURPOSE, not site-wide.** A site-wide `needs_rerender` fans out to every page
+  including `privacy` and `terms`, whose `generic-text-block` components are **permanently locked**
+  (`182_legal_pages`, 2026-07-21) — and firing a rerender at a locked positionally-named section
+  *duplicates* it rather than protecting it (`bugs_open/189`).
+- Both target pages are `rebuild_policy='generic'` and all three placements have non-null
+  `content_data`, so neither the content-gating refusal nor the `pricing`-style "nothing to rebuild
+  from" applies.
+
+### The other two sites are deliberately NOT re-rendered
+
+`finetuning.uk` (3 placements) and `leopardessconsulting.co.uk` (1) now carry a template their
+rendered HTML does not reflect. **This is safe and non-urgent**: their live pages keep today's
+literals, so nothing changes for them until they next re-render for any reason, at which point they
+get the tokenised version — which the simulation above says passes on both. Not re-rendered because
+they belong to other lanes and I have measured their contrast only by simulation, not at the
+artefact. Whoever owns them should re-render when convenient.

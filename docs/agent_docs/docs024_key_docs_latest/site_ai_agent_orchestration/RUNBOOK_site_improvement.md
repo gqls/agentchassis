@@ -130,3 +130,88 @@ A page with `nulls = comps` **cannot be re-rendered** — `rerender_page_section
 section from `content_data` and there is none. It must be rebuilt through the framework.
 NEVER restore from `page_component_history` (its `component_id` is NULLed by
 `ON DELETE SET NULL`; see `bugs_closed/194` §4).
+
+## R8 — Propagate a component-TEMPLATE change to the live pages
+
+A `content_components.html_template` edit is inert until each placement re-renders. Getting this
+wrong is silent: the wrong route reports **success** and ships the old bytes.
+
+```sql
+-- Page-scoped rerenders for every page carrying a changed component, ON ONE SITE.
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary,
+                             priority, handler_agent, status, created_by, spec)
+SELECT DISTINCT p.site_id, 'side_effect', 'build', 'page_rerender', 'low',
+       'Rerender page after template fix: ' || p.name,
+       80, 'page-rerender', 'triaged', '<who-you-are>',
+       jsonb_build_object('reason','template_changed','page_id',p.id::text,
+                          'page_name',p.name,'domain',s.domain)
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE pc.component_id IN (<the component ids>)
+  AND p.site_id = '<site>'
+  AND p.rebuild_policy IS DISTINCT FROM 'owned'
+  AND NOT EXISTS (SELECT 1 FROM site_work_items w
+                  WHERE w.site_id=p.site_id AND w.item_type='page_rerender'
+                    AND w.spec->>'page_id'=p.id::text
+                    AND w.spec->>'reason'='template_changed'
+                    AND w.status IN ('detected','triaged','claimed'));
+```
+
+**Gotchas, all four of which cost something if missed.**
+
+- **`spec.reason` is what selects the code path.** `page-rerender.check_rerender_mode` routes to
+  `rerender_sections` (regenerates from `content_data` + the template) ONLY for
+  `image_landed | section_data_resolved | cta_links_stale | template_changed`. Every other value,
+  **including none**, falls to `render_page`, which assembles the STORED `rendered_html` — old CSS,
+  green status. Read the live condition before trusting this list; it has grown:
+  ```sql
+  SELECT default_config #>> '{workflow,steps,check_rerender_mode,config,condition}'
+  FROM agent_definitions WHERE type='page-rerender'
+    AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+- **Scope to the pages that carry the component; never fire a site-wide `needs_rerender`.** On this
+  site `privacy` and `terms` hold **permanently locked** `generic-text-block` components, and a
+  rerender aimed at a locked positionally-named section **duplicates** it (`bugs_open/189`). Count
+  `page_components` for the page before and after if you ever do hit one.
+- **Copy the shape from the LIVE agent row, not from the migration that introduced it.**
+  `460_template_changed_rerender_reason.sql` puts `p.filename` in the spec and **`pages` has no such
+  column** — that is what `461_fix_460_…` exists to fix. The live query is the corrected one:
+  ```sql
+  SELECT default_config #>> '{workflow,steps,create_rerender,config,query}'
+  FROM agent_definitions WHERE type='component-template-fixer'
+    AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  ```
+- **`p.rebuild_policy IS DISTINCT FROM 'owned'`** — an `owned` page refuses with
+  `save_page_sections: overwrite: REFUSED` rather than silently doing nothing, but filtering keeps
+  the queue honest.
+
+Then verify at the artefact, **by colour pair** (R1). A pair present in the after-set and absent
+from the before-set is a regression you introduced — the check migration 456 lacked, which is how
+its `.stats-cta` regression survived a net 44→33 improvement.
+
+## R9 — Apply ONE migration without sweeping other lanes'
+
+`run-migrations.sh --apply` takes **every** pending file; on 2026-08-18 that was 17 files from at
+least six lanes. Apply yours alone, then record it:
+
+```bash
+# 0. rehearse: the real file, guards and all, with the final COMMIT swapped for ROLLBACK
+sed 's/^COMMIT;$/ROLLBACK;/' <file>.sql > /tmp/rehearsal.sql
+kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < /tmp/rehearsal.sql
+# 1. apply (same invocation the runner itself uses)
+kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <file>.sql
+# 2. record
+./scripts/migration/run-migrations.sh --record-only <file>.sql --note "<what you checked>"
+```
+
+**Gotchas.**
+- **A dry-run `SELECT` proves your ANCHORS match; only the rehearsal proves your GUARDS pass.** Mine
+  passed the anchor dry run and would have failed at COMMIT on a guard I had scoped too widely.
+- **"Pending" ≠ "unapplied".** The listing shows files applied by hand and never recorded. 460 was
+  listed pending while `template_changed` was already live in `page-rerender`. **Check the live row,
+  not the ledger**, before concluding a mechanism does not exist.
+- **`--no-probe` for a fast listing.** The default probe executes every pending file inside a doomed
+  transaction, which took longer than a 240 s timeout here.
+- **Next number = highest in the directory + 1, and numbers still collide** (457 and 458 each name
+  two unrelated migrations). Re-check immediately before writing: 470 appeared during this session.
