@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/content"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -387,12 +388,28 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	// aspect that has never existed on any site, and served an article index
 	// whose every card was silently link-less). The aspect half needs the live
 	// aspect vocabulary; a failed read skips ONLY that half (fail open — a
-	// transient DB error must not block all component generation) and says so.
-	// component_source_guard.go carries the reasoning and the calibration.
+	// transient DB error must not block all component generation) — and that
+	// skip is recorded DURABLY, not just logged: a sustained outage across
+	// store windows would otherwise re-admit phantom-aspect components with
+	// the same silent-loss shape this guard exists to close (council
+	// fdb032c6, bug_historian). component_source_guard.go carries the
+	// reasoning and the calibration.
 	knownSpecAspects, aspectsErr := loadKnownSpecAspects(ctx, params.DB)
 	if aspectsErr != nil {
 		logger.Warn("store_generated_component: could not load site_specs aspect vocabulary — site_specs source validation skipped for this store",
 			zap.Error(aspectsErr))
+		LogActionFindings(ctx, params,
+			datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id"), "",
+			"store_generated_component", []agenterrors.Finding{{
+				ErrorCode: "SOURCE_GUARD_ASPECT_SET_UNAVAILABLE",
+				Severity:  "warning",
+				Message: fmt.Sprintf("site_specs aspect vocabulary unread (%v) — component %q stored with the phantom-aspect half of the source guard SKIPPED; prefix and query-name halves still ran",
+					aspectsErr, functionName),
+				Context: map[string]interface{}{
+					"function":     functionName,
+					"section_type": sectionType,
+				},
+			}}, logger)
 	}
 	blockingIssues = append(blockingIssues, sourceVocabularyIssues(schemaJSONStr, knownSpecAspects)...)
 
