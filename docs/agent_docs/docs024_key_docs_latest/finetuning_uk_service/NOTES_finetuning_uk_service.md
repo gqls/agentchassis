@@ -1646,3 +1646,22 @@ The repair lane's standing five stay where they are (history + evidence);
 new work records HERE. Phase 1 (offer page + payment link) is now unblocked on
 coordination — it needs only owner decisions (price, booking shape, samples,
 Stripe posture) and the repair-path question above.
+
+---
+
+## 2026-08-18 (later) — the repair-path 090: refuted as I wrote it, and the narrower truth filed as `bugs_open/302`
+
+Run 1 (`f60d72d6`) FAILED (NULL step errors, five bundles, no verdict; the
+roll-killed-it hypothesis was tested and REFUTED — chassis rolled hours before
+the window). Run 2 (`361605fe`) completed: **UNVERIFIABLE — "NOT confirmed
+(stopped: scope-not-narrowing)", my broad hypothesis marked REFUTED as
+stated**, trail handed to a human. > **CORRECTED accordingly:** my 090 symptom
+asserted the handlers-write-nothing mechanism as the bug; the loop refused it
+and it was too broad. Following its own citation to
+`complete_work_item_verification.go` and enumerating the verifier registry
+first-hand: **eleven registered verifiers, all discovery-check types, zero
+design-repair types — so the gate ABSTAINS and no-op completions pass.** Filed
+as `bugs_open/302` with the declared-verification statement (owner ruling
+07-31), fix candidates ordered by door-closing, and the blob question left
+explicitly undiagnosed. 016b §9 pattern added. A REFUTED verdict is a success:
+it stopped a wrong mechanism reaching a bug file with my confidence attached.
