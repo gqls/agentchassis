@@ -122,6 +122,20 @@ func TestComponentRegressionIssues(t *testing.T) {
 			wantBlock: true,
 			// no reason asserted: both the balance and mid-token checks apply
 		},
+		{
+			// bugs_open/303 — the rewrite-path false positive. A fix that ADDS
+			// a comment mentioning a tag inside its JavaScript must not read
+			// as a truncation: mentions are not markup. Under the old
+			// substring count the added "<style" tipped opens over closes and
+			// this legitimate repair was refused — precisely on the path where
+			// a human had reported a defect and asked for specific behaviour.
+			name: "legitimate — fix adds a comment mentioning <style>/<script>",
+			current: pad(9000,
+				"<style>.t{}</style><section><div><script>minify();</script>", "</div></section>"),
+			next: pad(8600,
+				"<style>.t{}</style><section><div><script>// protect <style> and <script> blocks\nvar r=/<script[^>]*>/g;minify();</script>", "</div></section>"),
+			wantBlock: false,
+		},
 	}
 
 	for _, tc := range cases {
@@ -179,6 +193,13 @@ func TestHasUnbalancedStructuralTags(t *testing.T) {
 		{"case-insensitive: <SCRIPT> open", "<SECTION><SCRIPT>var t=1;</SECTION>", true},
 		{"no structural tags at all", "just some plain text", false},
 		{"empty", "", false},
+		// bugs_open/303: mentions of tags inside a script body — a comment, a
+		// regex — are not markup and must not read as unterminated opens.
+		{
+			"mentions in JS comment/regex are not tags (bugs_open/303)",
+			"<section><div id=\"o\"></div></section><script>/* protect <style> and <script> blocks */var r=/<div[^>]*>/g;go();</script>",
+			false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

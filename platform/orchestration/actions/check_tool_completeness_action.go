@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -63,18 +64,24 @@ func CheckToolCompletenessAction(ctx context.Context, params ActionParams) (inte
 		issues = append(issues, "missing completion marker — output likely truncated")
 	}
 
-	// Check for balanced script tags
-	scriptOpens := strings.Count(html, "<script")
-	scriptCloses := strings.Count(html, "</script>")
-	if scriptOpens > 0 && scriptOpens != scriptCloses {
-		issues = append(issues, fmt.Sprintf("unbalanced script tags: %d opens, %d closes", scriptOpens, scriptCloses))
-	}
-
-	// Check for balanced style tags
-	styleOpens := strings.Count(html, "<style")
-	styleCloses := strings.Count(html, "</style>")
-	if styleOpens > 0 && styleOpens != styleCloses {
-		issues = append(issues, fmt.Sprintf("unbalanced style tags: %d opens, %d closes", styleOpens, styleCloses))
+	// Check for balanced script/style tags. Markup-context counts
+	// (content.StructuralTagCounts, bugs_open/303): this runs on TOOL HTML,
+	// the population where a raw substring count misreads the tool's own
+	// JavaScript ("// protect <style> blocks", /<script[^>]*>/) as an
+	// unterminated tag. The old count here was also case-sensitive, so
+	// <SCRIPT> slipped it entirely.
+	var scriptOpens int
+	for _, tb := range content.StructuralTagCounts(html) {
+		name := tb.Open[1:]
+		if name != "script" && name != "style" {
+			continue
+		}
+		if name == "script" {
+			scriptOpens = tb.Opens
+		}
+		if tb.Opens > 0 && tb.Opens != tb.Closes {
+			issues = append(issues, fmt.Sprintf("unbalanced %s tags: %d opens, %d closes (markup context)", name, tb.Opens, tb.Closes))
+		}
 	}
 
 	// Check the HTML has substance (not just a wrapper div)

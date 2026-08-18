@@ -117,13 +117,32 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// born truncated and shipped broken JavaScript to 6 live customer domains.
 	//
 	// componentTemplateValid is the SAME absolute structural predicate the schema
-	// loader applies (plan_sections_action.go: every paired tag balanced and the
-	// template ends on a closed tag), calibrated 0-false-positive against the live
-	// tool population. Applying it at the birth WRITE means a tool that would be
-	// dropped at LOAD can never be born in the first place — one contract, both
-	// seams. Hard fail: the workflow's error_step routes the item to
-	// needs_human_review carrying this reason (same path as the header gate above).
+	// loader applies (plan_sections_action.go: every paired tag balanced in markup
+	// context and the template ends on a closed tag). Applying it at the birth
+	// WRITE means a tool that would be dropped at LOAD can never be born in the
+	// first place — one contract, both seams. Hard fail: the workflow's error_step
+	// routes the item to needs_human_review carrying this reason (same path as the
+	// header gate above).
+	//
+	// The refusal names the MEASURED signals — which pair is unbalanced, at what
+	// counts, and whether the template ends cleanly — and does not assert a cause.
+	// The previous message claimed "the generation was cut" unconditionally, which
+	// its own context payload (ends_cleanly: true) disproved on the bugs_open/303
+	// false positives; a wrong asserted cause sent the next reader hunting a
+	// token-limit truncation that had not happened. If this fires with
+	// ends_cleanly true AND balanced counts, something new is wrong — read
+	// toolTemplateValid before trusting any message here.
 	if !componentTemplateValid(htmlContent, "tool") {
+		var imbalance []string
+		for _, tb := range content.StructuralTagCounts(htmlContent) {
+			if tb.Opens > tb.Closes {
+				imbalance = append(imbalance, fmt.Sprintf("%s: %d open vs %d close", tb.Open, tb.Opens, tb.Closes))
+			}
+		}
+		signals := "ends mid-token (last chars: " + tailForMessage(htmlContent) + ")"
+		if len(imbalance) > 0 {
+			signals = "unbalanced in markup context: " + strings.Join(imbalance, ", ")
+		}
 		recordComponentWriteRejection(
 			ctx, logger, params,
 			actionProvenance{
@@ -131,18 +150,18 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 				StepName:  params.ExecutionContext.StepName,
 				Action:    "create_tool_component",
 			},
-			fmt.Sprintf("tool birth refused for site %s: generated HTML is structurally incomplete — a paired tag (<script>/<style>/<section>/<div>/<fieldset>) is unterminated or it ends mid-token, the signature of a cut-off generation",
-				siteIDStr),
+			fmt.Sprintf("tool birth refused for site %s: generated HTML is structurally incomplete — %s", siteIDStr, signals),
 			"tool_birth_truncation_blocked",
 			"error",
 			map[string]interface{}{
-				"site_id":      siteIDStr,
-				"html_length":  len(htmlContent),
-				"ends_cleanly": endsCleanly(htmlContent),
+				"site_id":       siteIDStr,
+				"html_length":   len(htmlContent),
+				"ends_cleanly":  endsCleanly(htmlContent),
+				"tag_imbalance": imbalance,
 			},
 		)
-		return nil, fmt.Errorf("refusing to persist truncated tool for site %s: generated HTML is structurally incomplete (unterminated tag or ends mid-token) — the generation was cut; regenerate",
-			siteIDStr)
+		return nil, fmt.Errorf("refusing to persist structurally incomplete tool for site %s: %s — if a generation was genuinely cut, llm_call_log's output_tokens will be at or near max_tokens; check that before re-rolling (bugs_open/303)",
+			siteIDStr, signals)
 	}
 
 	function := inputs.Get("function")

@@ -24,10 +24,16 @@
 // legitimate templates. A discovery item is a human's queue entry, not a silent
 // schema drop, so the sweep must be high-precision. Imbalance alone is.
 //
-// truncationTagPairs MIRRORS actions.balancedPairs (component_write_guard.go),
-// the canonical list. It cannot be imported: package actions imports
-// discovery_checks (registry wiring), so the reverse would be an import cycle.
-// truncationTagPairsMirrorGuard (the test) fails if the two lists drift.
+// The pair list and its counter are content.StructuralTagPairs /
+// content.UnbalancedStructuralTags (platform/content, a leaf package) — the
+// SAME predicate the write guards use. This file used to keep a hand-
+// maintained MIRROR of the list because package actions imports
+// discovery_checks (registry wiring) and the reverse import is a cycle;
+// moving the canonical list to the leaf package (bugs_open/303) retired the
+// mirror and its drift guard. Counting is markup-context since bugs_open/303:
+// a tag mentioned inside a script body, comment or regex is not an
+// unterminated tag, so an HTML-manipulating tool no longer sweeps as a
+// "truncation casualty" (and its verifier can actually resolve).
 //
 // ROUTING — detect-and-surface: needs_human_review, NO handler. The remedy
 // varies per casualty and none of it is safe to automate here:
@@ -58,6 +64,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/content"
 	"go.uber.org/zap"
 )
 
@@ -70,40 +77,22 @@ type TruncatedComponentCheck struct{}
 
 func (c *TruncatedComponentCheck) Name() string { return "truncated_component" }
 
-// truncationTagPairs are the open/close tokens whose balance is checked. MIRRORS
-// actions.balancedPairs — keep them identical (truncationTagPairsMirrorGuard
-// enforces it). See the file header for why it is mirrored, not imported.
-var truncationTagPairs = []struct{ open, close string }{
-	{"<script", "</script>"},
-	{"<style", "</style>"},
-	{"<section", "</section>"},
-	{"<div", "</div>"},
-	{"<fieldset", "</fieldset>"},
-}
-
 // truncationMinLen matches the census floor: templates below it are treated as
 // intentional stubs, never truncation casualties (mirrors toolTemplateValid /
 // sectionTemplateValid, and the census query's `length >= 100`).
 const truncationMinLen = 100
 
-// unterminatedTagPairs returns the open tokens (e.g. "<script") that appear more
-// often than their closing token in html — the truncation signature. Empty
+// unterminatedTagPairs returns the open tokens (e.g. "<script") whose markup-
+// context opens exceed their closes in html — the truncation signature. Empty
 // result means every paired tag is balanced. Pure: no DB, directly unit-tested.
-//
-// Case-folded so <SCRIPT> cannot slip past a lowercase token. Returned in the
-// fixed truncationTagPairs order for stable messages.
+// Delegates to the canonical counter (content.UnbalancedStructuralTags):
+// case-folded, tag-shaped tokens only, script/style bodies and comments
+// skipped, stable content.StructuralTagPairs order for stable messages.
 func unterminatedTagPairs(html string) []string {
 	if len(html) < truncationMinLen {
 		return nil
 	}
-	folded := strings.ToLower(html)
-	var bad []string
-	for _, pair := range truncationTagPairs {
-		if strings.Count(folded, pair.open) > strings.Count(folded, pair.close) {
-			bad = append(bad, pair.open)
-		}
-	}
-	return bad
+	return content.UnbalancedStructuralTags(html)
 }
 
 func (c *TruncatedComponentCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {

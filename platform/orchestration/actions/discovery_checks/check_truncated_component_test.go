@@ -35,9 +35,29 @@ func TestUnterminatedTagPairs(t *testing.T) {
 		{"unterminated section", `<section class="a"><p>hi</p>` + strings.Repeat("z", 100), []string{"<section"}},
 		{"unterminated fieldset", `<fieldset><label>a</label>` + strings.Repeat("w", 100), []string{"<fieldset"}},
 		{
-			"multiple unterminated, fixed order",
+			// Cut inside the <style> body: to a browser (and to the markup-
+			// context counter, bugs_open/303) everything after the cut is CSS
+			// text, so only <style reports unbalanced. The old substring
+			// counter also listed the section/div/script that follow the cut;
+			// the VERDICT (truncated) is identical, the token list shorter.
+			"cut inside a raw-text body reports the enclosing tag",
 			`<style>.a{}` + `<section><div><script>x` + strings.Repeat("q", 100),
-			[]string{"<script", "<style", "<section", "<div"},
+			[]string{"<style"},
+		},
+		{
+			"multiple unterminated in markup context, fixed order",
+			`<section><div><script>x();</script><script>y` + strings.Repeat("q", 100),
+			[]string{"<script", "<section", "<div"},
+		},
+		{
+			// bugs_open/303: a tool whose own JavaScript MENTIONS tags must not
+			// sweep as a truncation casualty (and, via the verifier, an item on
+			// a since-fixed tool must be resolvable).
+			"mentions inside script are not unterminated tags",
+			`<section class="t"><div id="o"></div></section>` +
+				`<script>/* protect <style> and <script> blocks */var r=/<div[^>]*>/g;x();</script>` +
+				strings.Repeat(" ", 40),
+			nil,
 		},
 		{"case-insensitive open tag", `<SCRIPT>var x=1;` + strings.Repeat("p", 100), []string{"<script"}},
 		{"short stub exempt", `<script>x`, nil},
@@ -53,29 +73,8 @@ func TestUnterminatedTagPairs(t *testing.T) {
 	}
 }
 
-// truncationTagPairsMirrorGuard fails if truncationTagPairs drifts from the
-// canonical list in actions.balancedPairs (component_write_guard.go). The
-// package boundary forbids importing that list (actions imports discovery_checks
-// — the reverse is an import cycle), so this hardcoded expectation is the guard:
-// change one list without the other and this test breaks, forcing reconciliation.
-func TestTruncationTagPairsMirrorGuard(t *testing.T) {
-	// MUST equal actions.balancedPairs in
-	// platform/orchestration/actions/component_write_guard.go.
-	want := [][2]string{
-		{"<script", "</script>"},
-		{"<style", "</style>"},
-		{"<section", "</section>"},
-		{"<div", "</div>"},
-		{"<fieldset", "</fieldset>"},
-	}
-	if len(truncationTagPairs) != len(want) {
-		t.Fatalf("truncationTagPairs has %d pairs, want %d — reconcile with actions.balancedPairs",
-			len(truncationTagPairs), len(want))
-	}
-	for i, w := range want {
-		if truncationTagPairs[i].open != w[0] || truncationTagPairs[i].close != w[1] {
-			t.Errorf("truncationTagPairs[%d] = {%q,%q}, want {%q,%q} — reconcile with actions.balancedPairs",
-				i, truncationTagPairs[i].open, truncationTagPairs[i].close, w[0], w[1])
-		}
-	}
-}
+// The hand-maintained mirror of the pair list — and the drift guard that
+// policed it — was retired by bugs_open/303: this check now imports the
+// canonical list directly (content.StructuralTagPairs, a leaf package both
+// sides can reach). The list itself is pinned by TestStructuralTagPairsPinned
+// in platform/content/markup_balance_test.go.

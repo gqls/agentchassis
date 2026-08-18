@@ -40,6 +40,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -1850,6 +1851,16 @@ func componentTemplateValid(htmlTemplate, componentLevel string) bool {
 // Rejecting those here is load-bearing: it keeps the re-render loop on the
 // carry-stored-HTML path for a damaged template instead of deploying broken
 // markup from it.
+//
+// Since bugs_open/303 the tag balance is MARKUP-CONTEXT (content.
+// UnbalancedStructuralTags), not a substring count: a tool that MANIPULATES
+// HTML mentions tags in its own JavaScript (a comment, a regex
+// /<script[^>]*>/), and the substring count read one unpaired mention as a
+// truncation — refusing the tool at birth here via create_tool_component, and
+// silently dropping it from the schemas map at load (this function's other
+// caller), so an affected tool could never re-render. Recalibrated against the
+// full live population 2026-08-18: every known casualty still fails, and the
+// HTML-manipulating tools that passed by zero margin now pass with headroom.
 func toolTemplateValid(htmlTemplate string) bool {
 	if htmlTemplate == "" {
 		return true
@@ -1857,11 +1868,8 @@ func toolTemplateValid(htmlTemplate string) bool {
 	if len(htmlTemplate) < 100 {
 		return true
 	}
-	folded := strings.ToLower(htmlTemplate)
-	for _, pair := range balancedPairs {
-		if strings.Count(folded, pair.open) > strings.Count(folded, pair.close) {
-			return false
-		}
+	if len(content.UnbalancedStructuralTags(htmlTemplate)) > 0 {
+		return false
 	}
 	return endsCleanly(htmlTemplate)
 }

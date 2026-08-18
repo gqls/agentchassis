@@ -102,6 +102,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -132,48 +133,41 @@ import (
 // evidence base grows. Re-run the simulation in the header before trusting it.
 const componentCollapseRatio = 0.3
 
-// balancedPairs are open/close tokens whose balance is checked in the
-// replacement. An unterminated <script> is the direct signature of a
-// completion cut mid-stream — it is what catches the bugs_open/012
-// intermediate write (6,765 chars, 66% retained, comfortably inside the
-// legitimate size band, but with <script> left open).
+// The structural pair list and its counter live in platform/content
+// (content.StructuralTagPairs / content.StructuralTagCounts), the leaf package
+// both this package and discovery_checks can import — which retired the
+// hand-maintained mirror in check_truncated_component.go. An unterminated
+// <script> is the direct signature of a completion cut mid-stream — it is what
+// catches the bugs_open/012 intermediate write (6,765 chars, 66% retained,
+// comfortably inside the legitimate size band, but with <script> left open).
 // <div> and <fieldset> were added after the council gate's edit-quality seat
-// noted the wrecked artifact was missing those too, so covering only
-// script/style/section narrowed the guard's generality for no reason. Simulated
-// before adding: both contribute ZERO additional blocks across the recorded
-// transitions, so they cost nothing and widen what a mid-stream cut can be
-// caught by.
-var balancedPairs = []struct{ open, close string }{
-	{"<script", "</script>"},
-	{"<style", "</style>"},
-	{"<section", "</section>"},
-	{"<div", "</div>"},
-	{"<fieldset", "</fieldset>"},
-}
-
-// hasUnbalancedStructuralTags reports whether any structural pair in
-// balancedPairs is left open (more opens than closes) in html. This is the
-// ABSOLUTE form of the guard's tag-balance signal — no prior row, no size gate,
-// no mid-token check — for use at BIRTH writes, where a whole LLM artifact is
-// persisted with nothing to compare it against (bugs_open/021 INSTANCE 1).
+// noted the wrecked artifact was missing those too — simulated before adding,
+// zero additional blocks across the recorded transitions.
 //
-// Calibration (bugs_open/046, 2026-07-21): across every active component
-// fleet-wide this 5-pair predicate flagged EXACTLY the 9 known truncation
-// casualties and nothing else — 0 over-fire. The companion "ends mid-token"
-// signal (endsCleanly) is deliberately NOT folded in here: it is tool-safe but
-// adds ~36 false positives fleet-wide on non-tool components that legitimately
-// end on text or a closed non-tag. So a general birth gate (store_generated_component's
-// section path) uses tag-imbalance ALONE; only the tool path (toolTemplateValid)
-// additionally applies endsCleanly, against the tool population it was calibrated
-// on.
+// Since bugs_open/303 the counting is MARKUP-CONTEXT, not substring: mentions
+// of a tag inside JS/CSS bodies, comments or regexes do not count, so a tool
+// that manipulates HTML can exist. The markup_balance.go header carries the
+// exact semantics; the 2026-08-18 recalibration against the full live
+// population is recorded there and in bugs_open/303.
+
+// hasUnbalancedStructuralTags reports whether any structural pair is left open
+// (more opens than closes) in html, counting only markup-context tags. This is
+// the ABSOLUTE form of the guard's tag-balance signal — no prior row, no size
+// gate, no mid-token check — for use at BIRTH writes, where a whole LLM
+// artifact is persisted with nothing to compare it against (bugs_open/021
+// INSTANCE 1).
+//
+// Calibration (bugs_open/046, 2026-07-21; re-run for bugs_open/303,
+// 2026-08-18): across every active component fleet-wide the 5-pair predicate
+// flags exactly the known truncation casualties. The companion "ends
+// mid-token" signal (endsCleanly) is deliberately NOT folded in here: it is
+// tool-safe but adds ~36 false positives fleet-wide on non-tool components
+// that legitimately end on text or a closed non-tag. So a general birth gate
+// (store_generated_component's section path) uses tag-imbalance ALONE; only
+// the tool path (toolTemplateValid) additionally applies endsCleanly, against
+// the tool population it was calibrated on.
 func hasUnbalancedStructuralTags(html string) bool {
-	folded := strings.ToLower(html)
-	for _, pair := range balancedPairs {
-		if strings.Count(folded, pair.open) > strings.Count(folded, pair.close) {
-			return true
-		}
-	}
-	return false
+	return len(content.UnbalancedStructuralTags(html)) > 0
 }
 
 // componentRegressionIssues compares a proposed html_template against the row
@@ -207,25 +201,23 @@ func componentRegressionIssues(currentHTML, newHTML string) []string {
 		return issues
 	}
 
-	// Case-folded copies for token matching only (<SCRIPT> must not slip past
-	// a lowercase token). Lengths and messages use the originals.
-	currentFolded := strings.ToLower(currentHTML)
-	newFolded := strings.ToLower(newHTML)
-
 	// 2. Unterminated tags in the replacement, but only where the current row
 	//    was balanced. Comparative on purpose: if the component is ALREADY
 	//    unbalanced, blocking here would trap it permanently — no rewrite
-	//    could ever land to repair it.
-	for _, pair := range balancedPairs {
-		newOpen, newClose := strings.Count(newFolded, pair.open), strings.Count(newFolded, pair.close)
-		if newOpen <= newClose {
+	//    could ever land to repair it. Markup-context counts (bugs_open/303):
+	//    a fix that ADDS a comment or regex mentioning a tag must not read as
+	//    a truncation — the rewrite path was the bug's worst case, because
+	//    acting on a reported defect is when precise tag mentions appear.
+	curCounts := content.StructuralTagCounts(currentHTML)
+	newCounts := content.StructuralTagCounts(newHTML)
+	for k := range newCounts {
+		if newCounts[k].Opens <= newCounts[k].Closes {
 			continue
 		}
-		curOpen, curClose := strings.Count(currentFolded, pair.open), strings.Count(currentFolded, pair.close)
-		if curOpen <= curClose {
+		if curCounts[k].Opens <= curCounts[k].Closes {
 			issues = append(issues, fmt.Sprintf(
-				"replacement leaves %s unterminated (%d open vs %d close) where the current template is balanced — the completion was cut mid-stream",
-				pair.open, newOpen, newClose))
+				"replacement leaves %s unterminated (%d open vs %d close, counting markup only) where the current template is balanced — the completion was cut mid-stream",
+				newCounts[k].Open, newCounts[k].Opens, newCounts[k].Closes))
 		}
 	}
 
