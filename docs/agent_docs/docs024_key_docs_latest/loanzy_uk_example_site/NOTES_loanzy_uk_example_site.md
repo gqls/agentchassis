@@ -165,3 +165,61 @@ the next deploy syncs it. Reported to the owner with both commands; not retried.
 no new template variable, because one added without its `input_fields` entry renders EMPTY and
 errors nothing. Anchored twice with exactly-once assertions and a length-delta check, aborting
 via `DO/RAISE` (a verify block of bare `SELECT`s cannot stop a `COMMIT`).
+
+## 2026-08-18 15:00–15:35Z — run 2, and two findings that cost the attempt
+
+**The owner deleted `about.html` from B2. TWO OBJECTS SURVIVED and one was SERVING**
+`[MEASURED]`: `b2 ls --recursive b2://portfolio-sites/loanzy.uk/` returned
+`assets/js/snippets.js` and **`tools/eligibility-checker/index.html`** — the latter live at
+`https://loanzy.uk/tools/eligibility-checker/`, 31,924 B, *"Check your eligibility without
+touching your credit score"*. Committed to `gqls/sites` at **15:13:50Z**, i.e. **77 minutes
+after the build was stopped**.
+
+> **CORRECTION to this lane's own 14:0x claim.** I wrote "nothing has deployed — all 20 pages
+> still read `planned`". That was measured on the `pages` table, and **a tool page does not
+> publish through it**. The measurement could not have come out any other way, which is what
+> made it worthless: I checked the table I knew about, not the artefact. The check that would
+> have caught it is the one that eventually did — **list the bucket prefix**, or ask the edge.
+
+**What produced it: a FLEET SWEEP, not my build.** At **14:57:58Z** `rerender-pages` filed
+**19 fresh `page_rerender` items** for this site — an hour after I emptied its queue — and
+they went on generating downstream work (`needs_new_component`, `unresolved_cta`,
+`needs_section_data`, `save_refused_incomplete` at 15:00, 15:08, 15:09, 15:17, 15:20, one
+**claimed** while I was looking). **Emptying a site's queue does not stop work on that site
+while the site row exists**: other machinery finds it. This is the generalisation of this
+morning's landmine and it is the one that actually matters.
+
+**Containment moved to the EDGE, before dispatch this time.** Deleted both worker routes
+(`loanzy.uk/*`, `*.loanzy.uk/*` → `portfolio-sites-router`; ids `a706ebf4…`, `88b13f28…`).
+Verified: `curl` exits **28** on apex and on the tool page — a proxied domain with no route
+reaches the placeholder origin `199.59.243.228`, which accepts nothing. Nothing at loanzy.uk
+can now be served whatever is built and whoever builds it.
+
+**Re-submitting the domain does NOTHING** `[MEASURED]`: `domain-submitter`'s
+`create_research_item` returned `{"deduped": true, "inserted": false, "item_key":
+"research_loanzy.uk"}`. The dedup matches an item in ANY status, including `complete`, so a
+second no-prompt run through the front door is structurally impossible on a domain already
+submitted. Only a new `submission` spec was written. **Do not read a COMPLETED orchestration
+as "the run happened".**
+
+**⚠ THE CONTAINMENT BROKE THE EXPERIMENT — and this is the finding worth carrying.** Dispatched
+`domain-research-classifier` directly (same domain, same site_id, no mission, run-1 specs
+superseded first so it could not read its own previous answer back). It **FAILED at
+`scrape_site`**: *"All scraping engines failed to retrieve content"*. In run 1 the domain
+answered **404** from the router and the scrape survived; with the routes gone it **times
+out**, and a timeout is fatal to the step. So **taking a domain off the edge to contain it
+disables the research stage that the build depends on.** The two are in direct tension and
+nothing documents it. The honest sequence is: remove the artefacts from the bucket FIRST,
+then keep the routes ON (so the domain 404s), and rely on the fact that a build cannot
+cascade here anyway — see below.
+
+**Why re-running the classifier on THIS site cannot cascade** `[MEASURED]`, so the routes can
+safely go back once the bucket is clean: `needs_strategy`, `needs_briefing` and
+`needs_site_plan` all already exist as `complete`, so each `create_next_item` will dedup
+exactly as the research item did; and the strategist's own gate
+(`SELECT (COUNT(*)>0) … FROM pages WHERE NOT (deployed_at IS NULL AND build_status <> 'deployed')`)
+returns **true** because the archived `about` row is still `deployed`. Two independent brakes,
+both measured rather than assumed.
+
+**Blocked on the owner:** `b2 rm --versions -r "b2://portfolio-sites/loanzy.uk/"` (clears the
+two survivors). The `pages` DELETE and the `.keep` push were also refused by the harness.
