@@ -12719,3 +12719,43 @@ Transferable rules:
   the existing no-LLM `page-rerender` (5,044 lifetime completes) rather than a new
   handler: load stored content_data → strip → re-render → save through the guarded
   choke point. New machinery was one function, not one agent.
+
+### A filter that implements a SUBJECT-MATTER rule as a PATH test misclassifies everything whose subject and location disagree — and the refusal message will confidently tell you the wrong reason (2026-08-18, `bugs_open/314`)
+
+**The shape.** Someone rules "we do not review prose". Someone implements it as
+`SCOPE_RE='^(platform|internal|pkg)/'`. Both are right on the day. Then the estate grows a class of
+thing whose *subject* is squarely in scope and whose *path* is not — and it is refused, with a
+message naming a reason that does not apply to it.
+
+**The worked case.** The council gate's scope check (`097_TRIGGER_council_review_v1.sh:87`, `:146`)
+refuses any submission with no `platform/`/`internal/`/`pkg/` file, saying *"Docs and site content
+do not spend council credits."* But this estate's live behaviour ships as SQL migrations under
+`docs/agent_docs/sql_for_agents/`, so a change that rewrites a `scheduled_tasks.pre_query` or
+re-points an `agent_definitions` workflow step is classified as prose. [MEASURED 2026-08-18] **152
+of 227 migration-shipping commits in 14 days carry no in-scope file — 67%.** The gate is not
+declining to review config; it cannot see that it is config.
+
+**Why it survives so long.** Three things make it invisible:
+1. **The refusal is polite and specific**, so it reads as a considered decision about your change
+   rather than a classifier missing. You believe the message.
+2. **An override exists** (`FORCE=1`), so every author gets past it in seconds and nobody
+   accumulates a grievance. The workaround is what prevents the diagnosis.
+3. **The rule it implements is genuinely correct**, and is defended in writing elsewhere — here,
+   `architecture_review/DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §8d argues the
+   same line is *right*. It is, for prose. Finding prior art that endorses the rule feels like
+   confirmation and is not: **check whether the prior art was arguing about your case.**
+
+**The check, before you accept any filter's verdict on your work:** read the predicate, not the
+message. Then ask *what does this test actually measure* — a path, an extension, a directory, a
+name prefix — and *is that the same thing as the rule it is named for?* If the two can come apart,
+find one instance where they do and count how many there are. One `git log` loop is usually enough,
+and the count is what turns "mildly annoying" into a filed bug.
+
+**The generalisation, which is the transferable part.** A proxy variable is fine until the
+population shifts under it. Path-for-subject is the common one here, but the same shape includes:
+an `item_type` standing in for a repair KIND (`bugs_open/301` — five types refused because they
+MODIFY rather than ADD, which no field records); a status standing in for a cause
+(`wont_fix` vs `failed`, register **WII-019**); a filename standing in for a lifecycle stage
+(`_HOLD.sql`). **When a filter is cheap to widen and its proxy has drifted, widening it is usually
+right — but measure the population you are admitting first**, because a scope regex is also a
+budget.
