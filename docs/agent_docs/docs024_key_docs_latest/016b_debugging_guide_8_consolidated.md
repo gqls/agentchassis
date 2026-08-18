@@ -12683,3 +12683,39 @@ hijacks other modes that happen to carry the same content field); and a completi
 re-runs the handler's own fixed point, so any residual mis-route becomes visible `failed`
 attempts instead of silent `complete`. Refusals-as-results stay correct — the verifier is
 the framework's designed place to catch a refusal that changed nothing.
+
+### Repair-by-regeneration cannot fix a defect the regenerator has the HABIT of producing — a rebuild is not a repair, and the fix for a mechanical defect is mechanical (2026-08-18, `bugs_open/184` llm-markdown slug)
+
+The `literal_markdown` repair economy failed for two weeks at a 3% lifetime success rate
+(1 complete / 28 failed — the fleet's worst handler pair, eventually HELD by the
+promoter's 444 success floor) while every individual piece looked right: the detector
+found real defects, the dispatch worked (after bugs 201), the completion verifier gated
+honestly. The failing piece was the repair CONCEPT: the handler regenerated the page
+with an LLM writer, and the writer that regenerates is the writer whose habit caused
+the defect — proven at the artefact on 2026-08-07, when a full regeneration (all md5s
+changed) wrote 18 markdown findings back into the very field it was dispatched to
+clean, three days AFTER the prompt rule forbidding it was verified live.
+
+Transferable rules:
+
+- **Classify the defect before choosing the repairer.** A markdown marker in a
+  plain-text field is a MECHANICAL defect: its fix is a deterministic string
+  operation with a provable contract. Dispatching an LLM at it buys nothing and
+  re-rolls the dice that produced the defect. The question to ask of any repair
+  route: *can the repairer re-introduce the defect class it is repairing?* If yes,
+  the success rate has a ceiling set by the producer's habit, not by your plumbing —
+  and no amount of dispatch/verifier/routing work will move it.
+- **A prompt rule is not a control, measured twice now.** Rule 9's markdown
+  prohibition was live and verified (migration 304, 2026-08-04) and the writer
+  emitted markdown anyway (2026-08-07, artefact-level). When a prompt instruction is
+  load-bearing for an invariant, the invariant needs a mechanical enforcement point
+  on the write path; the prompt is at most a first filter.
+- **When detector, verifier and repairer must agree, single-source the predicate.**
+  The 184 fix puts patterns + scan + strip in one file with the property test
+  scan(strip(x)) == ∅. Two hand-kept copies of "what counts as the defect" is how a
+  verifier drifts stricter than its repairer and strands correctly-handled items in
+  `failed` (the page_rerender cautionary tale, verifier_coverage_test.go).
+- **Prefer the boring proven path as the repair vehicle.** The mechanical strip rides
+  the existing no-LLM `page-rerender` (5,044 lifetime completes) rather than a new
+  handler: load stored content_data → strip → re-render → save through the guarded
+  choke point. New machinery was one function, not one agent.

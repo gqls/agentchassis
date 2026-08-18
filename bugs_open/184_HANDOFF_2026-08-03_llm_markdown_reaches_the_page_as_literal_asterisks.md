@@ -555,3 +555,61 @@ What that means for this lane, stated plainly so it is not discovered as a surpr
 - **This lane is not claiming the bug.** Whether `page-build-handler` is the right repairer for
   `literal_markdown` at all is 184/201's call, and the floor deliberately does not answer it —
   it only stops the queue spending dispatches on the answer.
+
+## Progress — 2026-08-18 (`bugfix_184_literal_markdown` lane) — the bug is CLAIMED; repair goes mechanical
+
+**Taking the bug** (ownership checked: who-owns says "recently active" but every recent
+commit is a contribution that explicitly declined to claim it; transcript grep found the
+only live session touching `literal_markdown` is the bugfix_277 promoter-floor lane,
+working the pair as data). Re-validated first: 71 open items across 6 sites (34
+unresolved / 24 failed / 10 detected — newest **2026-08-18**, parked by the 444 floor /
+3 needs_human_review), and `fundamentallyai.com/news/index.html` serves 11 raw `#`
+headings + 2 raw md links at the artefact, curl-verified today. Migration 304's prompt
+rule re-verified live — present, and the defect still occurs. A prompt is not a control.
+
+**The design decision, from the accumulated evidence in this file: stop using an LLM to
+fix a mechanical defect.** Every repair attempt so far regenerated content with a writer
+that has the same habit (08-07 proof above: 18 findings written back). Removing markdown
+markers from a plain-text field is a deterministic string operation, so the repair is now:
+
+1. **One shared primitive** — `datahelpers/literal_markdown.go`: the check's letter-guarded
+   patterns (single-sourced; the check now imports them) + `StripLiteralMarkdown`
+   (strip-only: `**x**`→x, `` `x` ``→x, `# H`→H, `[text](url)`→text; never inserts a
+   character, so CQ-019's injection objection to normalise-on-write does not apply).
+   Property-tested: scan(strip(x)) == ∅ — detector, verifier and repair cannot drift.
+2. **Detector widened to `md_link`** — the live symptom outgrew the filing: 9 md-link
+   components fleet-wide (the largest raw bucket) and `## [title](url)` composites in
+   open items. Bullets/italic measured ZERO live — deliberately not added.
+3. **Repair = a page rerender.** HandlerAgent re-points to `page-rerender` (already a
+   proven work-item handler: 5,044 lifetime completes; the check_misdirected_cta
+   `reason` precedent), item spec gains `reason: "literal_markdown"`, migration 473
+   opens `check_rerender_mode` to it and sets `strip_literal_markdown: true` on
+   `rerender_sections` — so the existing no-LLM rerender loads stored content_data,
+   strips it, re-renders and redeploys. Both surfaces heal in one pass; the completion
+   verifier (unchanged, item_type-keyed) certifies it.
+4. **Prevention** — the same strip, opt-in default OFF, at RenderComponentAction
+   (LLM content at birth, both surfaces) and section-editor's two pre-render points;
+   migration 474 enables it for page-content-writer and section-editor.
+
+**State right now:** plan + council submission `060bcc0a-1ba5-4525-8fea-03de021e26f5`
+(verdict pending); part 1 committed (`019fb0616` + gofmt `5fbe549f7`): the datahelpers
+primitive + the inert render-seam hooks. Part 2 (check re-route + rerender strip hook)
+is deliberately held: the rerender file currently carries the 299 lane's uncommitted
+KEEP #3 hunk whose helpers are not at HEAD, and the re-route must ship in the SAME
+image as the strip hook (re-route alone would burn item attempts on an unequipped
+handler). Sequenced with that session by direct message: they commit (taking my strip
+block as a named passenger), I land part 2 immediately after. Migrations 473/474
+(+ROLLBACKs) are authored and committed; both are safe to apply before the image
+(flags unread, reason unemitted) but intended to be applied with it.
+
+**Rollout after part 2 + image + 473/474:** two-page canary by hand-promotion
+(`status='triaged'`, `handler_agent='page-rerender'`, `attempt_count=0`,
+`spec = spec || '{"reason":"literal_markdown"}'` — the 444 consumer notice's documented
+bootstrap path), artefact-level verification, then batch promotion; the check's
+retraction closes the leftovers on the next discovery pass. The old held pair is left
+alone — no 444 rollback; it simply stops receiving items. Consumer notice for the
+bugfix_277 lane: expect the held pair to go quiet and a fresh
+`literal_markdown → page-rerender` pair to appear and earn its ratio through canaries.
+
+Full plan with evidence and risks:
+`docs024_key_docs_latest/bugfix_184_literal_markdown/PLAN_2026-08-18_mechanical_markdown_repair.md`.
