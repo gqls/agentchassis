@@ -4244,8 +4244,14 @@ func retryWindow(state *OrchestrationState, awaited *AwaitedRequest, logger *zap
 
 	if state != nil && awaited != nil {
 		if step, ok := state.WorkflowPlan.Steps[awaited.StepName]; ok {
+			// Go through getTimeout, the SAME helper that sets the initial
+			// awaited window at the two registration sites, so the declared
+			// timeout is read one way rather than two (council `reuse_agent`,
+			// corr 7c92389a). ConvertStepTimeout first because the stored plan
+			// carries config.timeout_seconds with `timeout` empty — including
+			// on loop-expanded steps, verified on a live row.
 			datahelpers.ConvertStepTimeout(&step, logger)
-			if d := datahelpers.GetStepTimeout(step); d > 0 {
+			if d := getTimeout(step); d > 0 {
 				return d
 			}
 		}

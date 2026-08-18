@@ -632,3 +632,56 @@ regardless of what 029 turns out to be).
 I had the evidence to catch myself.** Fable caught the mechanism; the council caught the
 fossil. Both were cheap. The common factor is that each was asked to disagree — and in both
 cases the disconfirming material was already sitting in my own document.
+
+---
+
+## 2026-08-18 — COUNCIL ROUND 3: **APPROVED** (2 advisory objections, none high). Three rounds, two real defects found.
+
+Corr `7c92389a-617f-4abc-b03b-0ef84ca2239f`, *"approved with 2 advisory objection(s) — none
+high-severity"*, 3 abstained. **Verdict READ, so `Council-Reviewed:` is now writable.**
+
+| round | verdict | gated by | what it found |
+|---|---|---|---|
+| 1 | REVISE | `editquality` | **a real self-contradiction** — the rationale ranked a lease as "the fix" and said shipping only the window fix "would be the classic mistake", then shipped only the window fix. A fossil of the withdrawn mechanism. |
+| 2 | REVISE | `prior_art_librarian` (HIGH) | **a real asserted absence** — "no live caller reachable from the chassis" with no caller graph, used to justify not fixing a named twin. |
+| 3 | **APPROVED** | — | `editquality` and `prior_art_librarian` both moved to approve. |
+
+**Both gating objections were things I had the material to catch myself**, and neither was a
+matter of care: the first was a stale paragraph sitting above its own refutation in the same
+document; the second was a claim I had simply never checked. **The instruction to disagree is
+what bought them** — the same property as the Fable brief earlier in the day.
+
+### The advisories, and what I did about each
+
+- **`reuse_agent` (medium) — ACTED ON.** `getTimeout(step)` already exists and sets the
+  *initial* awaited window at both registration sites; `retryWindow` re-implemented the
+  lookup instead of going through it. Fair, and now fixed: `retryWindow` calls `getTimeout`
+  after conversion, so the declared timeout is read **one way rather than two**. That is this
+  bug's own defect class (two implementations of one judgement) and the seat was right to
+  flag it in a change whose whole point is that a second reader of a timeout disagreed.
+- **`editquality` (low) — accepted, not fixed.** The *fallback* branch still derives from
+  `TimeoutAt - SentAt`, the poisoned source. True. It fires only when the plan has lost the
+  step, and the alternative — failing the retry outright — is worse than a slightly wrong
+  window. Disclosed rather than silently narrowed.
+- **`bug_historian` (medium) — already actioned.** The dormant twin as a recurring shape. It
+  now has a `LANDMINES.md` entry with the caller-graph check and the data-side tell, and it
+  is in RSH-010. Not fixed, deliberately and on the record.
+- **`guardian` (medium) — accepted.** Stability preference on core dispatch plumbing, and the
+  concession that long-declared steps now wait longer. That is the declared intent of the
+  config; the counter-argument is in the submission's `risks` and stands.
+- **`guardian` / `prior_art_librarian` (low) — noted, not answerable.** The caller graph is
+  prose in `grounded_in` rather than a `code_check` the seats could run themselves. They are
+  right that this is weaker, and it is a limit of the tool: `code_checks` is
+  declaration-only, so a call-site search cannot be expressed there. **Worth carrying: an
+  absence claim is exactly the kind a reviewer cannot verify from the submission, which is
+  why the LANDMINES entry gives the reader the grep rather than the conclusion.**
+
+### The one thing in the advisories worth chasing later, recorded so it is not lost
+
+`reuse_agent` noted that `getTimeout(step)` sets the **initial** window at
+`TimeoutAt: time.Now().Add(getTimeout(step))`. But `call_diagnoser` declares 1800s and its
+rv0 window was **180s** — so on *that* path the declared value did not reach the initial
+await either, while `call_dispatch` got its declared 900s on the same path shape. **So the
+initial-window path may have its own conversion gap, separate from the retry truncation this
+change fixes.** `[UNVERIFIED]` — I have not traced which registration site each takes.
+Deliberately not widened into this round; it is a fresh question, not a loose end of this fix.
