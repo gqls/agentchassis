@@ -3261,3 +3261,41 @@ this session's cold-start falsifier sweep:
   page whose `rebuild_policy='owned'` — *"tool/widget-owned: a generic section save would
   clobber it"*. Once the chat IS placed on index, index may become owned, and a generic
   rebuild of it would then be refused. Worth knowing before designing the placement.
+
+## 2026-08-18 (~10:30Z) — BLOCKER IDENTIFIED AND FIXED (contributed by the site_delivery_and_editor session, at the owner's direction; coordinated by message to the active lane session)
+
+- **The blocker hunt is over, and the recipe changed under us**: the failing
+  step's issues ARE persisted now, live on v1.0.1308 —
+  `agent_error_log.error_code = 'CONTENT_VALIDATION_BLOCKER_DETAIL'`, context
+  carries the full structured issue list (`validate_page_content.go`,
+  `writeValidationFailureLog`). The handoff's "not persisted, grep the pod
+  logs before they rotate" is STALE — query the table.
+- **What actually failed, per run** (all from that table + `__step_error`):
+  - 09:57Z run (corr `0d3e9683`): `"0 blockers, 1 errors"` —
+    `unregistered_stat`, value **"1 day"**, location
+    `brief-explanation.stat_2_value` (label "Usual turnaround"). The writer's
+    copy was the NEW terms, correct and clean — the register just could not
+    support the figure: `build_duration` carried no numeric value.
+  - 01:00Z run: 8× `unrendered_template` blockers (`{{end}}`) — a different
+    failure that did not recur at 09:57.
+  - So the 08-17 "1 blockers" ≠ today's failure; the leading empty-section
+    hypothesis in the handoff was NOT confirmed — no placeholder/section
+    issue appears in the persisted detail.
+- **Fix applied ~10:28Z** — `SQL_2026-08-18_attest_build_duration_numeric.sql`
+  (this dir): `build_duration` gains `value: 1` +
+  `context_terms: ["turnaround","day","ready"]`, guarded jsonb surgery
+  (pre-state asserted, count 15 unchanged, read-back verified). The numeric is
+  the owner's own 2026-08-14 "usually next day" attestation in figure form;
+  the rendered stat keeps the hedge (label "Usual turnaround"). context_terms
+  mean this fact can never license a bare "1" outside a turnaround window.
+  claim/writer_line untouched ⇒ bot answers unchanged.
+- **Correction to the watcher's data**: `pages.sections` did NOT lose
+  `chat-input-box` — it reads all four sections; `blocker_hunt.log`'s
+  post-terminal "sections now" line was transient or a misread. Plan rows
+  intact too (4 components, chat at ordering 2).
+- Run `ea12d8c9` (re-triaged 10:24Z by the lane session, claimed 10:25Z) was
+  IN FLIGHT during the fix; its validation reads the register live, so it
+  should be the run that finally writes the payment-first/ZIP copy to index.
+  The served page still said "You pay once, after you've seen the finished
+  site on a preview link and approved it" at 10:22Z — the page contradicting
+  the bot is the customer-visible defect this whole thread exists to close.
