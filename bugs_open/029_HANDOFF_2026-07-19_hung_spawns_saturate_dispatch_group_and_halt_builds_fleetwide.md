@@ -1206,3 +1206,125 @@ rows at a `spawn_*`/`call_*` step **and** the logged timeouts — not either one
 **The failing row was deliberately NOT cancelled** (it is the evidence; destroying it
 pre-diagnosis is this file's own documented compounding error). It is
 `04b6176c-2c63-4245-9167-03e056f8aa62`, subject to the ~24h terminal reap.
+
+---
+
+## 2026-08-18 — OWNED LANE. Part A fixed and committed; the retry window was INVERTED; and a mechanism I filed this morning is WITHDRAWN by the afternoon
+
+Lane: `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/` (the standing five).
+Owner started 029 in this thread; the `site_ai_agent_orchestration` lane was told and is
+not forking. **This does NOT close 029** — see "what is still open" at the end.
+
+### First, the withdrawal, because it is in this file's own history that a confident cause propagates
+
+Earlier today I filed, here and to another lane: *"the parent's own retry kills the child
+that was still legitimately working"*, on the evidence that 11 of 12 wedged children froze
+11–22 s after their parent's final (rv=3) replay. **That measurement is right. The
+interpretation was wrong, and it is withdrawn.**
+
+The takeover arm the replay trips (`coordinator.go` ~761) fires **only** when
+`time.Since(last_activity) > StuckOrchestrationTimeout` (5 min), and every
+`UpdateStateWithVersion` bumps `last_activity`. **So staleness is the PRECONDITION for the
+takeover, not its consequence** — the child was already dead, by ~7–10 minutes, when the
+replay arrived. I had quoted the 5-minute constant in my own notes, in the paragraph that
+built the wrong claim. Reading the guard and reasoning about what it entails turned out to
+be different acts.
+
+**The disconfirming check, which the two accounts disagreed about in advance:** mine implied
+**one** spawn-init `awaited_requests` row per wedged child; the correction implied **two**.
+
+```sql
+SELECT ar.orchestration_id, ar.step_name, count(*) AS init_rows,
+       min(ar.sent_at)::timestamp(0) AS first_spawn, max(ar.sent_at)::timestamp(0) AS last_spawn,
+       max(os.last_activity)::timestamp(0) AS froze
+  FROM awaited_requests ar JOIN orchestration_states os ON os.orchestration_id = ar.orchestration_id
+ WHERE os.owner_agent_type='build-dispatch-loop' AND os.status='FAILED'
+   AND os.error LIKE 'reaper: stale EXECUTING_STEP%' AND os.created_at > now()-interval '4 days'
+   AND ar.step_name = os.current_step
+ GROUP BY 1,2 ORDER BY 3 DESC, 4;
+```
+
+**17 of 18 returned 2.** The 18th returned **1** — and it is exactly the outlier I had
+already published in my correlation table (the row at −3m50s that did not fit and that I
+reported rather than dropped). It does not fit because there the takeover never fired.
+**The outlier kept for honesty was the control that decided the question against me.**
+
+Caught by a Fable design pass briefed to contradict the diagnosis if the code did not
+support it, then grounded here rather than taken on trust. In `WRONG_CALLS.md`.
+
+### The corrected sequence
+
+1. The child's **own** `iter_N_call_handler` await — to its `page-rerender` grandchild — is
+   retried on truncated windows and exhausts. **The truncation bites INSIDE the child too,
+   and real page work is abandoned there.**
+2. Exhaustion → `skipToNextLoopIterationForAsync` → the next iteration's `spawn_handler`
+   runs, completes its init handshake, and **the continuation then dies with no further
+   state write. This first freeze is the actual "hung spawn" this file is named for.**
+3. The parent's rv=1/rv=2 replays land while the child is awaiting or <5 m stale and are
+   swallowed benignly (`ErrWaitingForResponse` → `nil`). Budget burnt for nothing.
+4. The rv=3 replay finds >5 m staleness → **takeover** → re-runs the spawn (**a duplicate
+   `page-rerender` agent and K8s job — a real non-idempotent side effect**) → wedges
+   identically → **and re-stamps `last_activity`, RESETTING the 4-hour reaper clock.** The
+   reaper fires at freeze₂+4h, not freeze₁+4h. **So poking a wedged row buys it another
+   four hours** — a better reason not to touch one than "it is evidence", because it does
+   not depend on anyone still needing the evidence.
+
+### The finding that is fixed: the retry window was INVERTED
+
+`handleRecoverableError` derived the retry window from the awaited row and then capped it:
+**>30-minute declarations fell to 3 minutes, everything else to 5.** The longer a step
+declared, the less it was given. It also read a poisoned source — `UpdateAwaitedRequestRetry`
+resets `sent_at`, so from retry 2 the row reports the previous *retry's* window.
+
+`[MEASURED 2026-08-18]` live `awaited_requests`, 4 days:
+
+| step | rv0 window (declared) | rv1–3 window |
+|---|---|---|
+| `call_dispatch` (declares 900s) | **15:00** (n=1492) | **05:00** (n=37/25/92) |
+| `process_item_iter_0_call_handler` (declares 1200s) | **20:00** (n=1474) | **05:00** |
+
+Cost, COMPLETED runs in 36 h: `build-dispatch-loop` exceeds 5 min in **25.5%** of runs but
+its declared 15 min in only **5.9%**; `page-build-handler` **17.6%** vs **0.5%**;
+`page-rerender` **0.1%** — the control, and why "the fleet looks fine" is easy to read off a
+fast agent. Blast radius: **33 steps across 25 agent types** declare >300s (600 … **86400**,
+the last a human-approval step given three minutes on retry).
+
+**FIXED — `bf7646a29`, `retryWindow()`, registered as RSH-010, council submitted
+`7c92389a-617f-4abc-b03b-0ef84ca2239f` (verdict UNREAD, so the commit carries
+`Council-Submitted:` and no `Council-Reviewed:` exists or may be written).** Five tests, each
+proven able to fail by mutation. **Go — inert until the next roll.**
+
+### What is STILL OPEN, and it is the centre of this bug
+
+**What kills the child's continuation after its first spawn handshake.** I do not know.
+Candidate, `[UNVERIFIED]`: the durable ticker's recovery runs under a shared **60-second**
+context (`cleanupExpiredAwaitedRequests`, `coordinator.go:4264`), so a continuation that
+spawns agents cannot finish inside it and every error-path write dies with the deadline —
+but the fast-path timer uses `context.Background()`, so it cannot be the whole story. **That
+is the narrow symptom worth a `090` on; do not re-file the withdrawn one.**
+
+Also unfixed and **declared rather than hidden**: `helpers.go retryTimedOutRequest` carries a
+**dormant twin** of the window defect (hard 30 s) on a path with no live caller reachable
+from the chassis. Not changed blind.
+
+### Two measurement traps this cost me, both now in the lane RUNBOOK
+
+- **The freeze time is `last_activity`, NEVER `updated_at`.** On a reaped row `updated_at` is
+  when the *reaper* wrote, so every wedged row reads a uniform ~4h26m — which is the reaper's
+  own 4-hour threshold, not a property of the job. **A suspiciously tight cluster is a reason
+  to check the instrument, not to believe it harder.**
+- **A takeover log-grep cannot confirm any of this and will look like it refutes it.** Chassis
+  log retention here is **~4 minutes** (a 24 h query returns lines from 12:20Z on a pod
+  started 07:57Z), so the grep returns zero **with the control also zero**. That is blindness,
+  not absence.
+
+### Contributed by the `site_ai_agent_orchestration` lane, and useful to whoever fixes the duplicate spawn
+
+Their `claimed=1 on every site` observation is this bug's per-site mutex photographed —
+`find_dispatchable_site`'s `NOT EXISTS (… status='claimed')` has **no `item_type` clause**, so
+**a census filtered by `item_type` cannot distinguish "no claim" from "a claim I filtered
+out"**. They also censused their site for duplicate `page_components` from the duplicated
+spawn: **CLEAN**, with the discriminator being **content identity, not slot repetition**
+(`count(DISTINCT md5(content_data))` equal to the row count) — and they warn that the obvious
+remediation, a unique index on `(page_id, slot_name)`, **breaks 11 legitimate pages
+fleet-wide**. One site, so not a fleet clearance.
