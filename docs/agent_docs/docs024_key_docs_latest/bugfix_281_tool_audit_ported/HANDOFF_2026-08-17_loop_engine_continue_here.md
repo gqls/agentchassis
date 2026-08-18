@@ -7,6 +7,40 @@ lane (bug 281, closed); read it only for that.
 **Status in one line: the loop-engine defect is fixed, live on `v1.0.1307`, and proven at the
 artefact on the case that motivated it. Nothing here is blocked on the owner except `bugs_open/294`.**
 
+> ## ⚠ UPDATED 2026-08-18 — §2 items 1 and 2 are BOTH DONE. Read this before working the list below.
+>
+> **Item 1, `bugs_open/294` — CLOSED 2026-08-18** and moved to `bugs_closed/`. Migration
+> `463_reaper_running_arm.sql` applied; council APPROVED at round 2 (corr `860d87d9`). Verified
+> here at the live artefact rather than from the file: the reaper's `pre_query` now carries a
+> fourth arm, `failed_running` (`status='RUNNING'` AND idle > 4 h), and `RUNNING` is **0 rows**
+> fleet-wide — including immediately after the 18:00Z roll, which is the event that strands them.
+>
+> **Item 2, `a436d898f` — SHIPPED.** It is an ancestor of `f0117fb8b`, the commit stamped into the
+> `v1.0.1309` binary (`git merge-base --is-ancestor a436d898f f0117fb8b` → true).
+>
+> **The 289 fix still holds, tested at the SIGNATURE and not by size.** Aggregate
+> `collected_data` for `build-dispatch-loop` has risen since the immediate post-roll sample
+> (450 kB avg / 1,642 kB max over 159 runs, versus 104 kB / 229 kB over 10) — which on its own is
+> ambiguous, so it is not the test. The test is the per-lap ratio, and on the three largest runs in
+> a 6 h window every `_iter_N_done` key is **77 bytes flat, ratio 1.00**. The growth is legitimate
+> per-item payload. Demand control: 160 multi-lap runs in that window.
+>
+> **Item 3 (residual 6) — its precondition is now MEASURED and MET, so it is deletable.** Every
+> `loop_complete` step carrying `loop_iteration` but lacking the explicit `loop_iteration_terminal`
+> flag (81 steps, 34 runs) belongs to a run created **before the 17:05Z roll** — latest 16:56:21Z,
+> nine minutes before the pods started — and all are terminal (`COMPLETED`/`FAILED`/`CANCELLED`),
+> so none can execute again. No non-terminal run needs the fallback, and no live agent definition
+> hand-authors a `loop_complete` step with `loop_iteration` in it. **Still needs a build and roll,
+> and the code is inert either way, so the risk and the reward are both small.** Not done here.
+>
+> **NEW WORK, and the live one: `bugs_open/310`** — `INITIALIZED` is this same gap one status over.
+> Neither the reaper nor `database-cleanup` names it, so such a row is reaped by nothing and pruned
+> by nothing; one has survived since 2026-07-13. Harm is bounded (it pins no Kafka topics, unlike
+> `RUNNING`), and health-checking is **not** broken — 964 `COMPLETED` runs in the window. The fix
+> (`470_reaper_initialized_arm.sql` + rollback) is **built and fully proven but deliberately
+> UNAPPLIED**: live config on a fleet-wide reaper is the owner's call. Council submitted, corr
+> `473553c0`. See `310` for the guard proofs and the induced test.
+
 ---
 
 ## 1. What shipped, and the proof

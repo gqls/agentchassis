@@ -345,3 +345,81 @@ I reported a fleet-wide 15-day LLM outage. **It lasted about three minutes.**
   round for four lines of logging is a poor trade).
 - Every doc I put the claim in is corrected in place and dated: `bugs_open/289`, `bugs_open/294`,
   the loop-engine handoff, register `WFA-016` and its index row.
+
+---
+
+## 2026-08-18 (evening) — picked the lane up from the 08-17 handoff; both its blockers were already done, and the live gap is one status over
+
+**First move was to ground the handoff rather than work it, and that was the whole session's value.**
+Its §2 listed five open items with `bugs_open/294` as "the only thing genuinely waiting on a human".
+Two of the five had been closed by other sessions in the meantime:
+
+- **294 CLOSED** (migration `463`, council APPROVED round 2). I did not take the file's word: read
+  the reaper's live `pre_query` and confirmed the fourth arm `failed_running` is present, and that
+  `RUNNING` is 0 rows fleet-wide.
+- **`a436d898f` SHIPPED** — `git merge-base --is-ancestor a436d898f f0117fb8b` is true, and
+  `f0117fb8b` is the commit stamped into the `v1.0.1309` binary.
+
+**The 289 fix still holds, but the first number I looked at would have said otherwise.** Aggregate
+`collected_data` for `build-dispatch-loop` is now 450 kB avg / 1,642 kB max over 159 runs, against
+the 104 kB / 229 kB over 10 runs recorded right after the roll — a 7× rise in the max. **Size is not
+the test and I nearly treated it as one.** The test is the per-lap ratio: on the three largest runs
+in a 6 h window, every `_iter_N_done` key is 77 bytes flat, ratio 1.00. The growth is legitimate
+per-item payload. Demand control: 160 multi-lap runs in the window, so the flatness is not silence.
+
+**Residual (6)'s precondition is now measurable and met.** 81 `loop_complete` steps across 34 runs
+carry `loop_iteration` without the explicit `loop_iteration_terminal` flag — and every one belongs
+to a run created before the 17:05Z roll (latest 16:56:21Z, nine minutes before the pods started),
+all terminal. So no non-terminal run needs the fallback. Left undone deliberately: it needs a build
+and roll, and the code is inert either way.
+
+### The live gap: `INITIALIZED`, filed as `bugs_open/310`
+
+`294`'s post-close flagged it; I verified it end to end. Neither the reaper (four arms) nor
+`database-cleanup` (two clauses) names `INITIALIZED`, and zero scheduled tasks mention it — so such
+a row is reaped by nothing and pruned by nothing. Four `StatusInitialized` references exist in Go:
+the constant, one live writer (`state.go:734`), one reader (`coordinator.go:741`), and a dormant
+writer inside `OrchestratorHelper`, whose constructor has zero callers (re-verified by grep, which
+is what `294`'s Correction 3 asks the next reader to do rather than cite it).
+
+**The thing that made the census interpretable was noticing the table is pruned asymmetrically.**
+`COMPLETED`/`FAILED` reach back 24 h; `INITIALIZED` and `CANCELLED` are never deleted. So "2 rows"
+is a lifetime figure while "964 completed" is a one-day figure — same table, same `GROUP BY`, two
+different populations. Both numbers were needed: without the 964 the two rows read as a dead
+pipeline, and without the pruner predicate the two rows read as a 24-hour explosion. Filed as a
+landmine.
+
+### Missteps, in the order I made them
+
+- **I nearly reported a regression from an aggregate.** See above — the 7× max-size rise. Caught by
+  asking what the disconfirming result would look like (a ratio near 2.0) before interpreting the
+  number, rather than after.
+- **My branch-B guard test failed, and the guard was fine — my harness was wrong.** I rebuilt the
+  new `pre_query` inside a shell heredoc to simulate "already applied", and `echo` added a leading
+  newline, so the md5 differed and Guard 1 correctly REFUSED. For about a minute that looked like a
+  guard defect. **Reconstructing a byte-exact payload through shell quoting is not a test of the
+  thing; it is a test of your quoting.** Redone the honest way — run the migration twice in one
+  transaction — which is also the real-world repeat-run case, and it passed (`UPDATE 0`, "already
+  present — this run is a no-op").
+- **Migration number collision, live.** I built the pair as `469` and another lane created
+  `469_render_audit_rotation_three_day_window.sql` **two minutes** before I wrote mine. Renumbered
+  to `470`. The `sed 's/469/470/g'` that fixes the references also runs over the **embedded SQL
+  payload**, so I re-verified both `pre_query` texts byte-exact by md5 *after* the rename. They were
+  clean, but the check is the point — a global sed over a file whose payload is SQL is exactly how
+  a payload acquires a silent edit.
+- **I misread the wall clock** and briefly thought the `090` run had been stalled 80 minutes. The DB
+  clock was 18:27, not 19:35. Nothing followed from it because I checked the orchestration rows
+  before saying anything, which is the only reason it is a footnote rather than an entry in
+  `WRONG_CALLS.md`.
+
+### What is proven about `470`, and what is not
+
+Proven, all inside rolled-back transactions, live row unchanged throughout (`md5 91ba9704`):
+parse check passes on the new text and **is caught** on a corrupted copy; all three Guard-1
+branches (apply / declared no-op / REFUSED); the rollback sidecar restores byte-exactly; and the
+induced test fires **both ways in one tick** — the 870 h row FAILED with the right error, the
+10-minute negative control survived, siblings all 0.
+
+**Not proven, and cannot be without applying:** that the *scheduled* tick fires it. Every test above
+executes the `pre_query` directly and bypasses the scheduler. That is the gap the owner's apply
+decision opens, and it is stated as such in `310`.
