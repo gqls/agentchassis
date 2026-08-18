@@ -2,7 +2,11 @@
 
 **Filed 2026-08-10** by the `bugfix_203_phantom_cta_cleanup` lane, which hit this while
 deciding whether the `misdirected_cta` queue could be drained to repair pages.
-**Status: OPEN, not started.** Nothing here is fixed.
+**Status: OPEN — FIXED IN CODE 2026-08-18, not yet rolled.** See the FIX RECORD at the foot
+of this file; it also carries dated corrections to the "schedulers are disabled / mostly
+dormant" claim below (they were switched on, and one clobber was caught firing in production
+on 2026-08-17) and to the queue figures in §"Why it is dangerous RIGHT NOW specifically",
+which cannot be re-run as written.
 
 ## Why this is filed on first-hand verification rather than a `090` run
 
@@ -325,3 +329,153 @@ its contact link has nothing left to put at risk. **A repair pass scoped by the 
 predicate will never reach them.**
 
 — contrast front, 2026-08-17. Queries re-runnable; no CTA altered.
+
+---
+
+# FIX RECORD 2026-08-18 — the split shipped, and one instance was caught firing in production
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_248_authored_cta_destinations/`.
+**Status: FIXED IN CODE, NOT YET LIVE — this file stays OPEN until the fix has rolled and
+been proven at the artefact.** A fix committed but unrolled is still reproducible in prod.
+
+## ⚠ CORRECTION to §"Why it is dangerous RIGHT NOW specifically" and §"Related state"
+
+> **CORRECTED 2026-08-18.** This file says *"the discovery and improvement schedulers are
+> currently DISABLED … So this defect is mostly dormant"* and advises not switching them on.
+> **They were switched on, and the defect has been firing.** Measured 2026-08-17:
+> `site-discovery-rotation-completeness` (this check's host) enabled, `-quality` and
+> `-availability` enabled, and `detected-item-promoter` running on a **900s** cadence
+> promoting `detected` → `triaged` with no human in the loop. Repairs completing daily.
+>
+> `016b` §9 rule 4 — written *from this bug* — predicted exactly this: *"a defect whose blast
+> radius is gated by a switch someone else can flip is not contained."* The switch was
+> flipped on 2026-08-16 by another lane on owner direction, which had no reason to know.
+
+> **CORRECTED 2026-08-18 — the queue figures here cannot be re-run as written.** This file
+> reports "192 `detected` / 95 `unresolved` / 63 `failed`" for a `misdirected_cta` queue.
+> `item_type='misdirected_cta'` returns **zero rows**: the check files
+> `item_type='page_rerender'` with `item_key LIKE 'misdirected_cta:%'` and
+> `spec.reason='cta_links_stale'`. Query by `item_key`.
+
+## The damage half, now ATTRIBUTABLE — one confirmed instance, caught in the act
+
+The 2026-08-17 CONTRIB above measured 59 pages that had lost a contact CTA and said plainly
+it could not attribute them: *"nothing in the history distinguishes 'clobbered by
+`applyCTARecompute`' from 'regenerated wrong' — both arrive as a
+`save_page_sections_overwrite` row."* **One instance is now attributable, because the work
+item names itself.**
+
+`finetuning.uk` `/services.html`, `call-to-action` slot, **2026-08-17 19:11:24Z** — about two
+hours after this lane measured the at-risk population:
+
+| | label | destination |
+|---|---|---|
+| before (archived 19:11:24.684533Z) | `Start a Conversation` | `/contact.html` |
+| after (live) | `Start a Conversation` | `/tools/password-entropy.html` |
+
+In the same second, `misdirected_cta:services:1368e337-…` completed carrying
+`spec.reason='cta_links_stale'` — and `applyCTARecompute` is the only CTA behaviour that
+reason triggers. The label was never touched, so the copy is still standing on the live page
+as evidence of what the button was for. "Start a Conversation" reduces to `[conversation]`
+(`start`, `a` are stopwords), names no page, so the label-match branch declined; the
+keep-branch refused it for being in an excluded area; the positional pick took it.
+
+Fleet at-risk count moved **24 (08-10) → 20 (08-17) → 18 (08-18)**. The drop is not evidence
+of repair.
+
+## What was fixed, and the design
+
+**One set was making three decisions.** `areasExcludedFromCTA` is a sound rule about what the
+platform should *generate* — a freshly picked CTA destination should not be a utility page.
+It was also being used as evidence of what a human *meant*, which it never was:
+
+| | site | decision | now |
+|---|---|---|---|
+| 1 | `chooseCTATargets` → `rank()` | a FRESH pick must never be a utility page | unchanged |
+| 2 | `applyCTARecompute` keep-branch | a STORED utility link is untrustworthy | **fixed** |
+| 3 | `check_misdirected_cta`'s excluded-area arm | a deployed utility href is an "unknown destination" | **demoted** |
+| 4 | `setCTAField` — no keep-branch at all | *(nobody had filed this)* | **fixed** |
+
+**Provenance is derived, not recorded.** This file's fix candidate 1 wanted a provenance field
+on `content_data` and costed it as the largest change, needing a backfill. It turns out the
+code already constrains itself enough to derive it: the positional pick cannot choose a
+utility page (`rank()` drops those candidates) and the label match cannot return one (once
+`candidatesFromHubs` applies the same filter — see below). So **a stored url that is both a
+valid page and in a utility area cannot have been written by either writer.** That is the
+predicate `storedCTADestinationIsAuthored`, and both writers now consult it.
+
+Validity is load-bearing, not decoration: an **invalid** `/contact.html` is `bugs_open/203`'s
+phantom, and replacing that is the repair, not the bug. Pinned by a test.
+
+**Five edits, plus tests:**
+
+1. `storedCTADestinationIsAuthored` — the shared predicate, with the invariant and its
+   breakers written into the doc comment.
+2. `applyCTARecompute` — the keep is now two explicit branches. The authored one WRITES the
+   value rather than returning bare, so the keep cannot be beaten by anything else that
+   populated `ResolvedData`.
+3. `setCTAField` — gains the keep-branch it never had, positioned after the label match and
+   before the positional pick, taking the slot's stored `content_data` (already in hand at
+   the call site; no new loader). It writes, because a regeneration replaces the row and a
+   gated template renders no button for an absent url — a branch added to keep a link must
+   not be able to delete it.
+4. `candidatesFromHubs` — **its doc comment was false.** It claimed both lists arrive
+   pre-filtered by `rank()`; `rank()` filters a local copy and never mutates its inputs, and
+   both call sites pass the raw loader output. Four live `section-index` pages sit at utility
+   URLs, so the label branch could mint one. The filter is now applied there, which is what
+   makes the invariant exact rather than approximate.
+5. `loadExistingSectionContentData` — excludes `build_status='removed'` and orders by
+   position. The map is last-row-wins on `slot_name`, and this read now decides whether an
+   authored link is kept, so on the 11 legitimate duplicate-slot pages that decision was
+   nondeterministic and a removed section could drive it.
+
+**The detector arm is DEMOTED, not deleted.** It still emits the finding; it no longer files
+a `cta_names_unknown_destination` work item. Measured precision was ~0 — 103 filed, 103 still
+open, and the 2026-08-07 audit in `bugfix_203_phantom_cta_cleanup/NOTES` (F20) found 18 of 18
+sampled were *correct* contact buttons. Deleting it outright was considered and rejected: it
+is the only arm that can see a fabricated-but-**valid** contact link (the phantom arm is blind
+once the contact page exists; the misdirect arm is blind when the copy names no page).
+
+## Verification bar from §"How to verify a fix" — status
+
+1. ✅ The A/B repro is now a passing test asserting the CORRECT behaviour, control and case in
+   one function (`resolve_internal_links_authored_destination_test.go`).
+2. ✅ Not overcorrected — `TestApplyCTARecomputeOverridesValidButMisdirectedLink` passes
+   unchanged, and both writers have an explicit ordering pin ("Run the Risk Checker" →
+   `/contact.html` is still recomputed to the risk checker).
+3. ⏳ Bulk promotion of the queue — still gated, and still subject to that queue's own
+   precision problem. Not attempted.
+
+**Mutation-checked, not just green.** Each edit was reverted in turn against a clean `HEAD`
+tree and the matching test confirmed red: removing the recompute keep fails
+`TestApplyCTARecomputeKeepsAuthoredContactLink`; removing the build-path branch fails
+`TestSetCTAFieldKeepsAuthoredContactLink`; removing the `candidatesFromHubs` filter fails
+`TestFreshPickRefusesUtilityWhileStoredUtilityIsKept`. A negative control
+(`TestSetCTAFieldRederivesOrdinaryStoredDestination`) proves ordinary destinations are still
+re-derived — without it, a fix that froze every CTA would pass everything else here.
+
+## Known residuals — NOT closed by this fix
+
+- **A single incidental shared token still beats an authored contact link.**
+  `BestLabelMatch` claims a label at overlap ≥ 1, so "Talk to us about pricing" resolves to a
+  Pricing page over an authored `/contact.html`. Forced by the ordering this file's own
+  verification bar #2 requires. Not closed.
+- The two sibling observations above (label-branch self-link; both fields landing on one
+  target) are untouched.
+- **The detector and the repairer still disagree about which pages exist as CTA
+  destinations** — 149 findings suggest a utility page the repairer's candidate set cannot
+  produce, so they re-detect for ever. Filed separately rather than folded in here, because
+  closing it *adds* a capability with a measured false-match risk.
+
+## Still to do before this file can close
+
+- Roll, then prove at the artefact (not at git): binary provenance stamp per service; a
+  single `cta_links_stale` rerender on an at-risk page with `content_data` byte-identical
+  before and after, **with a demand control** in the same run so "unchanged" is
+  distinguishable from a handler that never ran; a full regeneration proving the build-path
+  half; and a discovery run filing zero excluded-area work items while still emitting the
+  finding.
+- Disposition of the 103 standing `cta_names_unknown_destination` rows, with a note naming
+  the demoted arm rather than silently.
+- The LANDMINE entry (footprint `applyCTARecompute` / `areasExcludedFromCTA`) needs its dated
+  correction **after** the roll, via `landmines-verify-dispatch.sh`.

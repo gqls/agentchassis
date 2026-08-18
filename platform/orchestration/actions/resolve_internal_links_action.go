@@ -69,6 +69,14 @@ type contentHub struct {
 	NavOrder int
 }
 
+// areasExcludedFromCTA names the utility areas a FRESH CTA pick must never land
+// in. It governs CANDIDATE SELECTION ONLY — rank() below, and candidatesFromHubs.
+// Judging an already-STORED destination with it was bugs_open/248's clobber
+// (slug cta_recompute_clobbers_authored_contact_links): "never newly SEND a
+// generated CTA to contact" is a sound default; "never TRUST an existing link to
+// contact" is a different and much stronger claim that happens to reuse the same
+// set. See storedCTADestinationIsAuthored for the deliberate asymmetry, and
+// resolve_internal_links_authored_destination_test.go for the test that pins it.
 var areasExcludedFromCTA = map[string]bool{
 	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
 }
@@ -188,9 +196,9 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		sectionName := stringOrEmpty(section["name"])
 		resolved := sectionResolvedData(section)
 		existing := existingLabels[sectionName]
-		setCTAField(resolved, fields[0], primary, validPages, function, sectionName, "primary", &unresolved,
+		setCTAField(resolved, existing, fields[0], primary, validPages, function, sectionName, "primary", &unresolved,
 			existingLabelFor(existing, labelFieldOf[fields[0]]), candidates)
-		setCTAField(resolved, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved,
+		setCTAField(resolved, existing, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved,
 			existingLabelFor(existing, labelFieldOf[fields[1]]), candidates)
 		section["resolved_data"] = resolved
 	}
@@ -305,7 +313,13 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
 // in nav-order regardless of what either button claims to do. A generic
 // label ("Get Started") or one matching no candidate falls through to
 // today's positional behaviour unchanged.
-func setCTAField(resolved map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
+//
+// `stored` is the slot's currently-persisted content_data (nil for a page that
+// has never been built, which reads as "" everywhere below and degrades to
+// exactly the old behaviour). It exists for the authored-destination branch —
+// bugs_open/248 — and gives this writer the same shape as its sibling,
+// rerender_page_sections' applyCTARecompute.
+func setCTAField(resolved, stored map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
 	function, sectionName, slot string, unresolved *[]map[string]interface{},
 	existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
 	if field == "" {
@@ -319,6 +333,30 @@ func setCTAField(resolved map[string]interface{}, field string, target contentHu
 			}
 			return
 		}
+	}
+	if storedURL, _ := stored[field].(string); storedCTADestinationIsAuthored(storedURL, validPages) {
+		// bugs_open/248, BUILD-path half. This writer had no keep branch at all,
+		// so an authored /contact.html died on the next full regeneration even
+		// once the rerender path stopped clobbering it — the recompute and the
+		// rebuild are two writers of one field and only one of them was fixed.
+		//
+		// WRITTEN, not skipped, and that is the whole point: a fresh
+		// content_data need not carry the old url, and plan_sections' stored
+		// carry misses on non-deployed rows, conflicted duplicate slots and
+		// mismatched slot names. Returning silently would leave the field to
+		// whatever else happened to populate resolved_data — which for a gated
+		// template means no button at all. A branch added to keep a link must
+		// not be able to delete it.
+		//
+		// Positioned AFTER the label match on purpose (bugs_open/248's own
+		// verification bar #2): a fabricated contact url whose label names a
+		// real page is 203's defect and is still repaired. Inert for every
+		// non-utility stored value — those are re-derived exactly as before.
+		resolved[field] = storedURL
+		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
+		return
 	}
 	if target.URL != "" && validPages.Contains(target.URL) {
 		resolved[field] = target.URL
@@ -335,16 +373,37 @@ func setCTAField(resolved map[string]interface{}, field string, target contentHu
 	})
 }
 
-// candidatesFromHubs converts the ranked interactive/hub contentHub lists
-// into label-match candidates. Both lists are already filtered (excluded
-// areas, the page's own URL) by chooseCTATargets' own rank() — this reuses
-// that filtering rather than re-deriving it, so the candidate set label
-// matching searches is always a subset of what positional choice would have
-// picked from.
+// candidatesFromHubs converts the interactive/hub contentHub lists into
+// label-match candidates.
+//
+// The lists arrive RAW from loadInteractivePages/loadContentHubs. An earlier
+// comment here claimed "both lists are already filtered (excluded areas, the
+// page's own URL) by chooseCTATargets' own rank()" — that was never true:
+// rank() builds its own filtered LOCAL slice and never mutates its inputs, and
+// both call sites (this file's ResolveInternalLinksAction, and
+// rerender_page_sections' loadRerenderCTAState) pass the loader output
+// unchanged. Both writers believed the claim, which is how a label match could
+// reach a destination the positional pick is forbidden to choose.
+//
+// So the one filter label matching needs is applied HERE: a utility-area page
+// is dropped, by the URL-SHAPE test (ctaExcludedDestination) rather than by
+// page_type, because a section-index hub can legitimately live at
+// /contact/index.html — 4 such pages exist fleet-wide (measured 2026-08-17).
+// This is what makes storedCTADestinationIsAuthored's invariant exact for the
+// label-match path as well as the positional one.
+//
+// NOT applied here, and known: rank()'s self-exclusion (h.Name == pageName).
+// The page's own name is not in scope in this function, so a label naming the
+// page it sits on can still match it — dartsonline's brands-index/hero
+// recomputed to a link to its own page. Recorded in bugs_open/248's sibling
+// observations; not fixed by this change.
 func candidatesFromHubs(interactive, hubs []contentHub) []datahelpers.LabelMatchCandidate {
 	var out []datahelpers.LabelMatchCandidate
 	add := func(list []contentHub, isInteractive bool) {
 		for _, h := range list {
+			if ctaExcludedDestination(h.URL) {
+				continue // the invariant: the resolver never OFFERS a utility page
+			}
 			if c, ok := datahelpers.NewLabelMatchCandidate(h.Name, h.Name, h.Title, h.URL, isInteractive, ""); ok {
 				out = append(out, c)
 			}
@@ -372,6 +431,17 @@ func existingLabelFor(contentData map[string]interface{}, labelField string) str
 // an error) for a brand-new page or a load failure: an existing label is an
 // enhancement to today's positional pick, never a requirement, so a miss here
 // must degrade to exactly today's behaviour rather than block resolution.
+//
+// The map is keyed by slot_name and the loop below is last-row-wins, so the
+// filter and the ORDER BY are load-bearing rather than tidiness. 11 pages
+// fleet-wide legitimately carry a duplicate slot_name, and this read now also
+// decides whether an authored destination is KEPT (setCTAField's
+// storedCTADestinationIsAuthored branch, bugs_open/248) — so an unordered read
+// made that decision nondeterministic between two rows, and an unfiltered one
+// let a section someone had REMOVED drive it. build_status IS DISTINCT FROM,
+// not !=, because the column is nullable: != would silently drop every
+// NULL-status row, which is the worse failure (same reasoning as
+// rerender_page_sections' loadStoredSections).
 func loadExistingSectionContentData(ctx context.Context, params ActionParams, siteID uuid.UUID, pageName string, logger *zap.Logger) map[string]map[string]interface{} {
 	out := map[string]map[string]interface{}{}
 	if pageName == "" {
@@ -382,6 +452,8 @@ func loadExistingSectionContentData(ctx context.Context, params ActionParams, si
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1 AND p.name = $2
+		  AND pc.build_status IS DISTINCT FROM 'removed'
+		ORDER BY pc.position ASC
 	`, siteID, pageName)
 	if err != nil {
 		logger.Warn("resolve_internal_links: loadExistingSectionContentData query failed, degrading to no existing labels", zap.Error(err))
@@ -472,6 +544,42 @@ func ctaExcludedDestination(url string) bool {
 	}
 	p = strings.TrimSuffix(p, ".html")
 	return areasExcludedFromCTA[p]
+}
+
+// storedCTADestinationIsAuthored reports whether an ALREADY-STORED CTA url must
+// be treated as authored — written by a person or by content authoring, not by
+// this resolver — and therefore kept rather than recomputed away.
+//
+// There is no provenance field on content_data: bugs_open/248 (slug
+// cta_recompute_clobbers_authored_contact_links) established that a fabricated
+// and an authored /contact.html are byte-identical, so no amount of care at the
+// call site can tell them apart by value. Provenance is derived from the
+// resolver's own constraints instead.
+//
+// THE INVARIANT: no resolver path can produce a utility-area destination.
+//   - the positional pick cannot: chooseCTATargets' rank() drops every
+//     candidate whose URL shape is excluded, so it can never be chosen;
+//   - the label match cannot: candidatesFromHubs applies the same URL-shape
+//     filter before matching, so BestLabelMatch can never return one.
+//
+// A stored url that is BOTH a valid page AND in a utility area was therefore
+// not written by setCTAField or applyCTARecompute. Both keep it.
+//
+// Validity is load-bearing, not decoration. An INVALID /contact.html is
+// bugs_open/203's phantom fallback on a site with no contact page, and
+// replacing that is the repair, not the bug — which is why a url absent from
+// validPages returns false here and falls through to the positional pick.
+//
+// WHAT WOULD BREAK THIS, and it can be broken at a distance: letting
+// utility-area pages into the resolver's candidate supply — widening
+// loadContentHubs/loadInteractivePages, or removing candidatesFromHubs' filter,
+// or removing rank()'s excluded-area test. Any of those lets the resolver mint
+// the very urls this predicate declares un-mintable, and both keep branches
+// would then freeze the resolver's own output for ever. If you widen the
+// candidate set to utility pages deliberately (bugs_closed/023's authored-intent
+// forward direction), this predicate needs REAL recorded provenance first.
+func storedCTADestinationIsAuthored(url string, validPages datahelpers.PageURLSet) bool {
+	return url != "" && ctaExcludedDestination(url) && validPages.Contains(url)
 }
 
 // sectionInputSchema extracts the component's input_schema from a

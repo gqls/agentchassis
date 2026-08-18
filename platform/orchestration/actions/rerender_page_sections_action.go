@@ -748,6 +748,14 @@ func loadRerenderCTAState(ctx context.Context, params ActionParams, siteID uuid.
 // this is the actual repair. Only when the label matches nothing (generic
 // text, or no candidate at all) does the function fall back to today's
 // keep-if-valid-else-positional-target behaviour, unchanged.
+//
+// bugs_open/248 (cta_recompute_clobbers_authored_contact_links): the keep
+// branch no longer refuses a utility-area destination. It used to, which meant
+// an authored /contact.html could take NO branch — generic contact copy
+// ("Get in Touch" reduces to [touch]) names no page, so the label match
+// declines too — and fell through to the positional pick that overwrote it.
+// The label match stays AHEAD of the keep on purpose: a FABRICATED contact url
+// whose label names a real page is 203's defect and must still be repaired.
 func applyCTARecompute(resolved, stored map[string]interface{}, field string, target contentHub,
 	validPages datahelpers.PageURLSet, pageURL string, existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
 
@@ -768,6 +776,33 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 		}
 	}
 
+	// KEEP #1 — an AUTHORED utility-area destination (bugs_open/248, slug
+	// cta_recompute_clobbers_authored_contact_links). A stored, VALID
+	// /contact.html cannot have been produced by this resolver (see
+	// storedCTADestinationIsAuthored), so it was authored. Refusing it here was
+	// the clobber: generic contact copy names no page, so the label match
+	// declines too, and control fell through to the positional pick — which
+	// replaced a working contact button with an unrelated tool page.
+	//
+	// This one is WRITTEN rather than merely left alone. Keep #2 below can
+	// safely return bare because resolved merges OVER the stored content_data,
+	// so an untouched field flows through unchanged. That is true today for
+	// this branch too — but the field's schema fallback is the one thing that
+	// could beat it, and a utility-area fallback is exactly the shape someone
+	// adds back by accident (site-header still carries one). Writing makes the
+	// keep independent of anything else that populated ResolvedData.
+	if hasCurrent && storedCTADestinationIsAuthored(current, validPages) &&
+		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
+		resolved[field] = current
+		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
+		return
+	}
+
+	// KEEP #2 — an ordinary valid, non-utility destination. Unchanged since
+	// 203: kept by leaving the field untouched, so the stored value flows
+	// through the merge.
 	if hasCurrent && current != "" &&
 		validPages.Contains(current) &&
 		!ctaExcludedDestination(current) &&

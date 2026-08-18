@@ -106,9 +106,17 @@ func TestApplyCTARecompute(t *testing.T) {
 	if got := run("/archetypes.html"); len(got) != 0 {
 		t.Errorf("authored valid link overwritten: %v", got)
 	}
-	// Excluded destination (/contact.html): REPLACED.
-	if got := run("/contact.html"); got["cta_url"] != gauntlet.URL {
-		t.Errorf("excluded destination not replaced: %v", got)
+	// Utility-area destination (/contact.html), valid and not self: KEPT.
+	//
+	// INVERTED 2026-08-17 for bugs_open/248, slug
+	// cta_recompute_clobbers_authored_contact_links. This case used to assert
+	// REPLACED, which enshrined the defect as the spec: a stored VALID
+	// /contact.html cannot have come from this resolver (rank() will not pick a
+	// utility page and candidatesFromHubs will not offer one), so it was
+	// authored, and overwriting it destroyed working contact buttons on 13 live
+	// components. Written, not merely left alone — see keep #1.
+	if got := run("/contact.html"); got["cta_url"] != "/contact.html" {
+		t.Errorf("authored utility destination not kept: %v", got)
 	}
 	// Phantom: REPLACED.
 	if got := run("/services.html"); got["cta_url"] != gauntlet.URL {
@@ -178,7 +186,7 @@ func TestSetCTAFieldEmptyField(t *testing.T) {
 
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
-	setCTAField(resolved, "", gauntlet, valid, "archetype-grid", "archetype-grid", "secondary", &unresolved, "", nil)
+	setCTAField(resolved, nil, "", gauntlet, valid, "archetype-grid", "archetype-grid", "secondary", &unresolved, "", nil)
 	if len(resolved) != 0 {
 		t.Errorf("empty field name wrote a value: %v", resolved)
 	}

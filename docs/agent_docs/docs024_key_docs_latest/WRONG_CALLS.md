@@ -35716,3 +35716,42 @@ the domain of the thing you are counting before you count it.**
   Tally for "shipped a new config key without bounding it": 1. Tally for "found my own defect by using
   the thing rather than reading it": 1 — and it cost nothing, because the use was a test I was running
   anyway.
+
+---
+
+- **2026-08-18 — `bugfix_248_authored_cta_destinations` — "the live component schemas still
+  fabricate `/contact.html`, so this fix would freeze machine junk for ever."** Nearly
+  written into a bug file as the reason to abandon a design; it was false, and the check that
+  caught it took one query.
+  I had an adversarial subagent attack the fix's core claim (a stored, valid, utility-area
+  CTA destination cannot have come from the resolver, so it is authored). It returned a
+  CRITICAL finding with a full chain of evidence: `hero.cta_url` and
+  `call-to-action.primary_cta_url` still carry `"fallback": "/contact.html"`, migration 091
+  says in terms that it flipped the *source* and left fallbacks untouched, and
+  `plan_sections_action.go:2378-2384` writes that fallback into `resolved_data` whenever the
+  stored-value carry misses. Every link in that chain is real. The conclusion was still wrong.
+  **Actually:** it had read `docs/agent_docs/sql_for_tables/005_content_components.sql` — the
+  SEED. At the live table all ten CTA url fields on the six protected components carry
+  `source=renderer` and `fallback=NULL`. The only live schemas fabricating a utility URL are
+  `site-header`/`site-head`, which are chrome and route through `LoadChromeLinkPolicy`. The
+  same report also described `content-block-about.cta_url` as `source:llm`, quoting migration
+  098's note; it is `renderer` now.
+  **The cheap check is the one already written down** — *the seed is not the system; a repo
+  seed records what an agent WAS, live config drifts* — and I know it, and I still let a
+  file:line citation stand in for it for several minutes, because a citation of a real file
+  with a real line number reads exactly like a measurement. It is not one: a **CITATION IS
+  NOT A READ**, and reading the wrong artefact reads the same as reading the right one.
+  ```sql
+  SELECT function, key, val->>'source', val->>'fallback'
+  FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') AS f(key,val)
+  WHERE cc.function IN ('hero','call-to-action') AND key LIKE '%cta%url%';
+  ```
+  **The general shape, and why it is worth a row rather than a shrug: an adversarial pass is
+  the one place where a false finding is most likely to be believed**, because I commissioned
+  it to tell me I was wrong and it obliged. Scepticism was pointed entirely at my design and
+  not at all at its evidence. **Ground a subagent's figures before they change a decision, in
+  exactly the direction you would have grounded your own** — a refutation deserves the same
+  check as a confirmation, and this one would have cost the fix.
+  Tally for "believed a subagent's citation without opening the artefact": 1 (caught).
+  Tally for "the seed was mistaken for the live row": this is the family's Nth — it keeps
+  arriving in new clothes, and this time the clothes were a CRITICAL security-shaped finding.

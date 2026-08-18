@@ -18,15 +18,19 @@
 //     call-to-action, archetype-grid, archetype-combinations, gauntlet-cta,
 //     content-block-about); a misdirected link inside any other component
 //     (e.g. prose) — or one the recompute deliberately keeps because it is
-//     an authored link to a real, non-excluded page — is re-detected on the
+//     an authored link to a real page (bugs_open/248: including one in an
+//     excluded area, which it used to overwrite) — is re-detected on the
 //     next discovery pass and escalates via the two-strike rule to human
 //     review — loud, not silent.
 //
 //   - cta_names_unknown_destination: anchor text names NO real page AND the
-//     href is empty, phantom, self-referential, or lands in an excluded area
-//     (contact/legal/about). Copy promising a destination that does not exist
-//     is a product decision (build the page? rewrite the copy?), so this goes
-//     to needs_human_review with no handler.
+//     href is empty, phantom, self-referential, or points at the homepage.
+//     Copy promising a destination that does not exist is a product decision
+//     (build the page? rewrite the copy?), so this goes to needs_human_review
+//     with no handler. An href that lands in an excluded area is RECORDED as a
+//     finding but files no work item (bugs_open/248) — a real contact page is
+//     a legitimate CTA destination, and judging one by its area filed 103
+//     items of which a sampled 18 of 18 were correct buttons.
 //
 // Guard against false positives: anchor text is reduced to distinctive tokens
 // (stopwords + generic CTA words removed); generic texts ("Learn More",
@@ -121,6 +125,10 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 
 	type unknownDest struct {
 		pageName, pageID, slotName, text, href, why string
+		// filesWorkItem distinguishes "report this to a human" from "record it
+		// and move on". Every arm but one files; the excluded-area arm does
+		// not — see the switch below and bugs_open/248.
+		filesWorkItem bool
 	}
 	var unknowns []unknownDest
 
@@ -172,6 +180,7 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			// visitor back at the start: the "Enter the Arena" -> /index.html
 			// case). All review-only; none of these auto-fix.
 			why := ""
+			filesWorkItem := true
 			switch {
 			case scope == datahelpers.LinkScopeEmpty:
 				why = "empty href"
@@ -180,7 +189,25 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			case hrefNorm == datahelpers.NormalizePagePath(pageURL):
 				why = "links back to its own page"
 			case ctaAreaExcluded(a.Href):
+				// RECORDED, NOT FILED (bugs_open/248, slug
+				// cta_recompute_clobbers_authored_contact_links). This arm
+				// judged a destination that IS a real page, purely on the area
+				// it lives in — the same conflation that let a CTA repair
+				// overwrite authored contact buttons, and the premise that fix
+				// overturns for stored links. Its measured precision on live
+				// data was ~0: 103 items filed, 103 still open, and an
+				// independent 2026-08-07 audit found 18 of 18 sampled were
+				// CORRECT contact buttons ("Get in Touch", "Talk to Us").
+				//
+				// It is DEMOTED rather than deleted because it is the only arm
+				// that can see a FABRICATED but valid contact link: the phantom
+				// arm is blind once the contact page exists, and the misdirect
+				// arm is blind when the copy names no page. The finding is still
+				// emitted, so the signal survives in discovery output; what
+				// stops is the needs_human_review work item, which is what made
+				// a queue nobody could drain.
 				why = "lands in an excluded area (contact/legal/about)"
+				filesWorkItem = false
 			case hrefNorm == "/":
 				why = "names a specific destination but points at the homepage"
 			}
@@ -188,6 +215,7 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 				unknowns = append(unknowns, unknownDest{
 					pageName: pageName, pageID: pageID, slotName: slotName,
 					text: a.Text, href: a.Href, why: why,
+					filesWorkItem: filesWorkItem,
 				})
 			}
 		}
@@ -251,7 +279,12 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 			"text":      u.text,
 			"href":      u.href,
 			"why":       u.why,
+			"filed":     u.filesWorkItem,
 		})
+
+		if !u.filesWorkItem {
+			continue // recorded as a finding above; no human queue item
+		}
 
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":     "cta_names_unknown_destination",

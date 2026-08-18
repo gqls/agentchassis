@@ -49,7 +49,7 @@ func TestSetCTAFieldPrefersLabelMatchOverPositionalTarget(t *testing.T) {
 
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
-	setCTAField(resolved, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
+	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
 		"Run the Risk Checker", candidates)
 
 	if got := resolved["cta_url"]; got != "/tools/tool-ai-data-risk-checker.html" {
@@ -69,7 +69,7 @@ func TestSetCTAFieldFallsBackToPositionalWhenLabelIsGeneric(t *testing.T) {
 
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
-	setCTAField(resolved, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
+	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
 		"Get Started", candidates)
 
 	if got := resolved["cta_url"]; got != positionalTarget.URL {
@@ -87,7 +87,7 @@ func TestSetCTAFieldFallsBackToPositionalWhenLabelMatchesNoCandidate(t *testing.
 
 	resolved := map[string]interface{}{}
 	var unresolved []map[string]interface{}
-	setCTAField(resolved, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
+	setCTAField(resolved, nil, "cta_url", positionalTarget, valid, "hero", "hero", "primary", &unresolved,
 		"Read Our Privacy Policy", candidates)
 
 	if got := resolved["cta_url"]; got != positionalTarget.URL {

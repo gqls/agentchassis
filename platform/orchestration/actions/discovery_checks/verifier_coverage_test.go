@@ -140,11 +140,17 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	//         if fields, isCTA := ctaFieldNames[fn]; isCTA { applyCTARecompute(...) }
 	//     }
 	// The remit is in fact NARROWER than the comment implies: applyCTARecompute
-	// itself returns early, leaving the field untouched, when the stored url is
-	// already a valid non-excluded non-self page ("authored link ... keep it") and
-	// when the recomputed target is empty or not a valid page. So even inside the
-	// ctaFieldNames set the handler deliberately declines to rewrite. A whole-page
-	// verifier would have been MORE wrong than the hold assumed.
+	// itself declines to rewrite when the stored url is already a valid non-self
+	// page, and when the recomputed target is empty or not a valid page. So even
+	// inside the ctaFieldNames set the handler deliberately leaves fields alone.
+	// A whole-page verifier would have been MORE wrong than the hold assumed.
+	//
+	// bugs_open/248 (cta_recompute_clobbers_authored_contact_links) WIDENED that
+	// decline by one case, so this description no longer says "non-excluded": a
+	// stored, valid destination in a utility area (contact/about/...) is now KEPT
+	// rather than overwritten, because no resolver path can produce one and it is
+	// therefore authored. Anyone writing the held verifier must model that too, or
+	// it will report an authored contact link as an unresolved misdirect.
 	"page_rerender": {catMechanical, "verifier written and held: a whole-page predicate is stricter than the handler's ctaFieldNames remit and would destroy the designed two-strike escalation — needs component→spec-function scoping first"},
 
 	// hardcoded_section_colors got its verifier 2026-07-24 (bugs_open/021
