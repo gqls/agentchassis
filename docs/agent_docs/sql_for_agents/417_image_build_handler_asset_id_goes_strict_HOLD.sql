@@ -80,6 +80,14 @@
 --       unclaimed pre-apply, RECORDED after (record-only); the other 417
 --       (brief_fidelity_auditor) never collided — the ledger keys on the filename.
 
+-- PROVEN LIVE 2026-08-18: 26 image-build-handler runs since the apply, 26/26
+-- asset-deployer children carry a BARE `asset_id`, ZERO carry a literal `asset_id!`
+-- key (the control that would mean the binary did not parse the marker), and zero
+-- strict/asset_id errors fleet-wide. Refusal branch still un-exercised, as predicted.
+-- (14 of those 26 children later FAILED on an unrelated git-adapter "base tree for
+-- branch master" error, well after input resolution — not this migration's, but do
+-- not quote "26/26" without reading the statuses. RFC_029 §10.8.)
+--
 -- APPLIED 2026-08-16 15:58:18Z by the owner, by hand, after chassis v1.0.1304
 -- (stamp 5de6cddbe, ancestor of 1806371ef + 53edef286) was verified live:
 -- UPDATE 1, verify DO-block passed, COMMIT. Ledger row recorded (record-only).
