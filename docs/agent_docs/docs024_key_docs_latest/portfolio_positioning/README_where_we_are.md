@@ -623,3 +623,106 @@ are marked cancelled because you cleared the site, not because something else bu
 called "recommended builder", which is almost certainly where the impression comes from — but
 nothing in the current build path reads that field. It is a leftover from an older route in.
 So the difference between the two flows really is only what we prepare before pressing go.
+
+### Tuesday 18 August (evening, later) — why the calculator was missing, and the lender directory going from 2 to 25
+
+**The missing calculator has a real cause, and it is not the site's fault.** You
+were right to flag it, and right to wonder whether the tools were still being
+built — they were not. Nothing was pending; the attempt had already failed three
+times and stopped.
+
+Here is what happened, in plain terms. The system keeps one shared library of page
+sections. Every component in it has two names: a *type* name, used when the system
+goes looking for something to reuse, and a *function* name, used when it goes to
+save one. For most components those two names are the same, so nobody notices. For
+the mortgage repayment calculator they are not: it has a function name and no type
+name at all.
+
+So the pilot asked the library, "have you got a mortgage repayment calculator?" —
+and the library, searching by type name, said no. The site therefore set about
+generating its own. When it went to save the new one, the save searched by
+*function* name, found the existing calculator, and concluded it was being asked to
+replace it. It refused — correctly, because that calculator belongs to
+loanandmortgagecalculator.co.uk and overwriting it would have blanked that site's
+live pages. Three attempts, three identical refusals, and the page was then built,
+deployed and served with the calculator simply absent.
+
+Two things make this worse than one missing section. The first is that a page with
+one fewer section looks completely finished — there is no visible tell, which is
+why it took you noticing the site rather than any alarm. The second is that it is
+not a one-off: I found the same collision live on two other sites this evening
+(loancalculator.co.uk and loanzy.uk, both blocked by another component of
+loanandmortgagecalculator.co.uk's, retrying every few minutes), and 26 components
+in the library are in the same state waiting to catch the next site. On a plan to
+build 50 finance sites that will naturally want the same calculators, this would
+have bitten repeatedly.
+
+The particularly annoying part: a perfectly good mortgage repayment calculator has
+been sitting in the library since May, properly typed and ready to be reused. The
+site never needed a new one.
+
+I have written the whole thing up as bug 311, with the fix options ranked. I put it
+through the independent diagnosis loop before asserting any of it, and that came
+back confirmed on the first pass. **The fix itself is a change to shared machinery
+that every site's build goes through, so I have not made it while the builds are
+halted — it wants your say-so and a review round.** The one that closes the door
+properly is to make the save *fork* a copy for the new site instead of colliding,
+which is exactly what the tool-deployment path already does elsewhere.
+
+**The directory: from 2 lenders to 25, in about a quarter of an hour.** You asked
+whether we should widen the search. We should have, and the reason it was so thin
+turned out to be something I would not have guessed, so I measured it rather than
+assuming.
+
+I asked the register which *sources* have actually produced facts, across its whole
+history. The answer was lopsided: twelve of our thirteen savings providers came
+from a single page on gov.uk, and all ten health insurers came from two specialist
+broker round-ups. Every source that ever produced more than one firm was a page
+that *lists many firms and says something about each*. The mortgage search had
+never once landed on a page like that — its four slots went to two market-overview
+pages that name firms without saying anything quotable about them, and two
+individual building societies' own pages. Two candidates, one registered. That is
+the whole story of "only two lenders".
+
+Worse, the instructions we give the extractor actually said third-party round-up
+pages were weak sources and to prefer the regulator or the firm — the exact
+opposite of what our own history shows.
+
+So I made three changes: each search now reads ten pages instead of four (I checked
+the size against a known failure where an oversized response gets silently dropped —
+we are running at about a fifth of that limit); I added four new mortgage searches
+aimed at the kind of page that actually works, including one specifically for
+adverse-credit lenders; and I corrected that instruction.
+
+The four searches ran this evening and registered 42 new facts. **We now have 25
+named lenders** — Skipton, Leeds, Yorkshire, Principality, Newcastle, Suffolk,
+Teachers, Ecology and other societies, plus the specialist end: Bluestone,
+Kensington, Pepper Money, Vida, Foundation Home Loans, Aldermore, The Mortgage
+Lender. That specialist list is precisely what adversecreditmortgage.co.uk had
+nothing to put on its directory page.
+
+Eight of the new facts failed the verbatim check and went to the review queue,
+which is the normal rate and the gate doing its job.
+
+**One thing needs you.** The pilot's lender page is live and still shows two
+lenders; it will show all 25 once it re-renders, but the site is locked under the
+build halt, so I have not lifted that. Say the word and I will refresh just that
+page.
+
+**On www: your nameserver change did work**, and the pilot is now serving at its
+own address because of it. But www is a separate job, and I want to be straight
+that I got the earlier description of it wrong. It is not that no domain has a www
+— eight of the 39 do, in four different states. Two (cookly.uk, dartsonline.com)
+already redirect exactly the way you want. One (webdesign.uk) deliberately points
+somewhere else and I have left it. Two (robot-hands.com,
+leopardessconsulting.co.uk) have a www that simply hangs, and this fixes them. Two
+zones are not served by our worker at all, so adding a record there would create a
+new broken address rather than a working one, and I have excluded them.
+
+The redirect itself is written and committed. **It needs one command run by you** —
+the deploy step is blocked for me by a permission rule, which is reasonable given
+that a bad deploy of that one file would take all 39 sites down at once. I have
+checked the file against the live version and syntax-checked it (including proving
+the checker actually fails on a deliberately broken copy, because it silently
+passes broken files otherwise). Once you have run it, I will add the DNS entries
+across the 32 zones that need them and verify each one.
