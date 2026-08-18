@@ -37,6 +37,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/content"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -129,12 +130,15 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	}
 
 	// Check 2: Unclosed <style> tags indicate token-limit truncation.
-	styleOpens := strings.Count(templateLower, "<style")
-	styleCloses := strings.Count(templateLower, "</style>")
-	if styleOpens > styleCloses {
-		return nil, fmt.Errorf(
-			"generated template for %q has %d unclosed <style> tag(s) — likely truncated by token limit",
-			sectionType, styleOpens-styleCloses)
+	// Markup-context count (bugs_open/303): '<style' inside a script body or
+	// comment is a mention, not an open tag. Unlike the five-pair gate further
+	// down, this check has no 100-char floor — kept as-is.
+	for _, tb := range content.StructuralTagCounts(htmlTemplate) {
+		if tb.Open == "<style" && tb.Opens > tb.Closes {
+			return nil, fmt.Errorf(
+				"generated template for %q has %d unclosed <style> tag(s) in markup context — likely truncated by token limit",
+				sectionType, tb.Opens-tb.Closes)
+		}
 	}
 
 	// Check 3: Empty input_schema means the component has no content fields.
@@ -335,14 +339,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	// balances <section> tags, so a section whose <script>/<style> is cut but
 	// whose <section> closes upstream of the cut passes it — which is how 4 of
 	// bugs_open/046's 8 casualties (and its one 'section' casualty) slipped
-	// through. hasUnbalancedStructuralTags checks all five pairs. It is the
-	// tag-imbalance signal ALONE (NOT the tool path's ends-mid-token check, which
-	// over-fires on non-tool components) — calibrated to 0 over-fire fleet-wide.
+	// through. hasUnbalancedStructuralTags checks all five pairs, counting only
+	// markup-context tags (bugs_open/303 — a tag mentioned in a script body or
+	// comment is not an unterminated tag). It is the tag-imbalance signal ALONE
+	// (NOT the tool path's ends-mid-token check, which over-fires on non-tool
+	// components) — calibrated to 0 over-fire fleet-wide, re-run 2026-08-18.
 	// The <100-char skip mirrors sectionTemplateValid's stub tolerance; a
 	// truncated generation is long, not a tiny intentional stub.
 	if len(htmlTemplate) >= 100 && hasUnbalancedStructuralTags(htmlTemplate) {
 		blockingIssues = append(blockingIssues,
-			"template leaves a structural tag (<script>/<style>/<section>/<div>/<fieldset>) unterminated — the generation was cut mid-stream")
+			"template leaves a structural tag ("+strings.Join(content.UnbalancedStructuralTags(htmlTemplate), ", ")+
+				") unterminated in markup context — the signature of a generation cut mid-stream")
 	}
 
 	// A template must not SUBSTITUTE A BUSINESS FACT for an absent datum
@@ -374,6 +381,20 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	if issue := fabricatedFallbackIssue(htmlTemplate); issue != "" {
 		blockingIssues = append(blockingIssues, issue)
 	}
+
+	// A declared source must be one the platform can resolve (bugs_open/309:
+	// blog-listing_pre_037 shipped six required URLs sourced from a site_specs
+	// aspect that has never existed on any site, and served an article index
+	// whose every card was silently link-less). The aspect half needs the live
+	// aspect vocabulary; a failed read skips ONLY that half (fail open — a
+	// transient DB error must not block all component generation) and says so.
+	// component_source_guard.go carries the reasoning and the calibration.
+	knownSpecAspects, aspectsErr := loadKnownSpecAspects(ctx, params.DB)
+	if aspectsErr != nil {
+		logger.Warn("store_generated_component: could not load site_specs aspect vocabulary — site_specs source validation skipped for this store",
+			zap.Error(aspectsErr))
+	}
+	blockingIssues = append(blockingIssues, sourceVocabularyIssues(schemaJSONStr, knownSpecAspects)...)
 
 	// Regeneration must not break the field-name contract that existing
 	// dependents' content_data is keyed on. content_data is written to
