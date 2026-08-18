@@ -62,3 +62,31 @@
   the file was missing; a combined `ls` of both dirs found it in `bugs_closed/`.
   The first command's empty output remains unexplained — treat a surprising empty
   grep as suspect and re-ask differently (grep-silent traps are a known family).
+
+## 2026-08-18 later — the collision, the real 090, and the division of labour
+
+- **Two sessions worked 309 in parallel for ~70 min.** Session "bugs_open/272"
+  (transcript 24fed6ae; redirected onto 309 like this one was) measured the same
+  mechanism (bfaf27f75, 19:35), verified fix candidate 1 (c15984e70), and recorded
+  the 090 verdict (5b7ab5a66). Discovered via git log at my code commit. Logged in
+  WRONG_CALLS (ownership snapshots expire); SendMessage to the session failed (name
+  not reachable) so coordination went through the bug file: §8 CONTRIB (1ce6d7808).
+- **The df8ca3a1 correlation names a run that NEVER dispatched** (their finding —
+  explains my three 0-row polls; I stopped polling it). The REAL run is
+  `6e578bf5-778a-4e72-aab2-0531e45c07d8`: verdict **CONFIRMED**, first iteration
+  set, independently grounding the same chain (0-row blog aspect, all has_postN_url
+  false, onMissing=skip_field). My council submission cites df8ca3a1 as "queued" —
+  stale in that one line; the evidence base is unaffected. Correct it if a REVISE
+  round happens.
+- **Division:** they own the CASE repair (at the owner fork; their candidate 1 =
+  migrate blog-listing_pre_037 to query.blog_posts — endorsed, and my guard blesses
+  exactly that migration). This lane owns the CLASS guard: committed `0df9f1be9`
+  (queryresolve map + IsKnownQueryName/KnownQueryBases + component_source_guard.go
+  + 10 tests, all green against a clean `git archive HEAD` + my files).
+- **Wiring still HELD:** store_generated_component_action.go carries the 303 lane's
+  hunk depending on untracked platform/content/markup_balance.go. Committing the
+  file before that symbol lands breaks HEAD. Whoever commits the file takes my
+  wiring hunk with it — safe, the guard symbols are at HEAD already.
+- Census reconciliation: their "61 silently-dead fields" = my 58 phantom-aspect
+  + 3 junk-prefix. Same population, sliced differently. The 7 unknown query names
+  are ADDITIONAL and only in my census.
