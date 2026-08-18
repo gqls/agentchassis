@@ -875,3 +875,133 @@ cleanly and yields SQL that will not run.
 `placeholder_contact` crosses the limit 2026-08-19 and `literal_markdown` on 08-20 — but both pairs
 are *correctly* held, so neither will be reclaimed. The first genuine reclaim needs a pair to be
 escalated and *then* qualify. Watch the daily tick's new `reclaimed` / `reclaimed_pairs` columns.
+
+---
+
+## 2026-08-18 evening (cont.) — path step 2: Tier 1, the refusal status. Commit `6aee22b00`, migration `480`, council corr `725b1f01`
+
+### What was actually wrong, and where the fix had to go
+
+The owner's decision was one word: an owned-page refusal must write something other than `failed`.
+Finding the *place* to write it took most of the work.
+
+`page-build-handler`'s workflow routes `save_sections`' error to `mark_item_failed`, which is
+`update_work_item_status` with a hard-coded `"status": "failed"` [MEASURED — read from the live
+`agent_definitions` row 2026-08-18]. Three shapes were considered and two were rejected on evidence:
+
+1. **A different `error_step` for the refusal.** Impossible. `error_step` is a static config value
+   resolved by the coordinator (`coordinator.go:3640`, `routeToErrorStepOrFail`); an action cannot
+   name its own. Checked, not assumed.
+2. **The guard writes the status itself, then returns the error.** Broken by construction:
+   `mark_item_failed` still runs afterwards and `UpdateWorkItemStatusAction` has no terminal-state
+   guard — it would overwrite `wont_fix` back to `failed` one step later.
+3. **Discriminate at the routed step.** The only channel that survives the action → coordinator →
+   error_step boundary is `collected_data.__step_error.message`, which `routeToErrorStep` copies
+   **verbatim** from the action's error (`coordinator.go:3672`). A typed Go error does not cross it.
+   So: put a marker in the message, read it at the routed step.
+
+That is why the change is in two files rather than one, and why the marker is a string. It is not
+the shape I would pick from scratch; it is the only one the seam supports today. Named as risk 1 in
+the council submission rather than left for a reviewer to notice.
+
+### The `wont_fix` choice, verified rather than inherited
+
+`HANDOFF_2026-08-18c` §2b asserted two things about `wont_fix`. Both re-checked first-hand:
+
+* **The floor.** [MEASURED 2026-08-18, from `scheduled_tasks.detected-item-promoter.pre_query`]
+  `count(*) FILTER (WHERE h.status IN ('complete','verified')) AS c` and
+  `count(*) FILTER (WHERE h.status = 'failed') AS f`, tested as `(c+f) < 5 OR c >= 0.25*(c+f)`.
+  **CONFIRMED** — `wont_fix` is in neither bucket, so a refusal leaves numerator and denominator
+  alone and the pair reads *never tested here*.
+* **The dedup index.** [MEASURED — `pg_indexes.indexdef` for `idx_swi_dedup`] the partial index
+  excludes `'complete','verified','rejected','wont_fix','failed','unresolved','cancelled'`.
+  **PARTLY WRONG AS STATED, and it was my own claim.** 08-18c says *"`idx_swi_dedup` excludes
+  `wont_fix`, so the dedup key is released"* — true, but it excludes `failed` too, so the key was
+  **already** released and this is **not a difference between the two statuses**. It is not an
+  argument for `wont_fix`; the floor is the whole argument. Recorded here rather than quietly
+  dropped, because a true sentence that reads as a reason and is not one is the harder error to
+  catch.
+
+### Blast radius, measured before writing anything
+
+The rule this lane keeps re-learning is "no collision is possible" is a query, not an argument. So,
+every consumer that reads `wont_fix` *positively* (not as an exclusion):
+
+| consumer | failed | wont_fix | differs? |
+|---|---|---|---|
+| `silentCoverageClause` (diagnose_silent_check) | covered | covered | no |
+| `crossLinkFailedStatuses` | listed | listed | no |
+| `check_page_canonical_collision` suppression | — | suppresses | scoped to its OWN item_type |
+| `workItemClosedStatuses` (retraction) | open | **closed** | **YES** |
+| any `scheduled_tasks.pre_query` | — | — | **none mentions `wont_fix` at all** |
+
+One difference, and it is the right way round: a `wont_fix` refusal row will never be retracted.
+That is correct for a row that is already closed, and the finding re-raises on its own because the
+dedup key is free.
+
+### Consumers enumerated, not asserted (owner ruling 2026-07-29 §3)
+
+Every live agent with a `save_page_sections` step, queried from `agent_definitions`:
+
+| agent | step | error routes to | affected? |
+|---|---|---|---|
+| `page-build-handler` | `save_sections` | `mark_item_failed` (`update_work_item_status`) | **yes — the one opt-in** |
+| `page-rerender` | `save_sections` | *(no `error_step` at all)* | no |
+| `tool-recreation-handler` | `save_sections` | `complete_error` → `complete_workflow` | no (writes no item status) |
+
+⚠ **Loose end I did not chase.** `page-rerender` is 3754 ok / 89 failed on owned pages, which sits
+oddly beside a guard that refuses generic saves on exactly those pages. Either rerender's saves
+resolve the page differently, or the guard's `pageIsOwnedForGuard` lookup misses on that route.
+[UNMEASURED] — not this task, but worth a look before anyone concludes the guard covers every save.
+
+### Mutation-proving, because the tests were the point
+
+Four assertions, and only as a **set**: the downgrade alone would pass on an implementation that
+marks *every* failure `wont_fix`, which is strictly worse than the bug (the floor would go blind to
+real incompetence). Proven by mutating the shipped code, not by reasoning:
+
+* marker changed to one that never matches → the downgrade assertion fails (`got "failed", want
+  "wont_fix"`);
+* marker changed to `""` so it always matches → the default-OFF and genuine-save-failure assertions
+  both fail (`got "wont_fix", want "failed"`).
+
+Also caught by doing this: the first version of the test asserted on the `result` JSONB and **passed
+vacuously**. `captureArg` only records a `driver.Value` that is a `string`, and `json.Marshal`
+output arrives as `[]byte` — so every `strings.Contains` ran against `""`. Added `captureTextArg`.
+The assertion looked exactly like a working one; it was the *positive* case failing loudly that
+exposed it, which is luck, not method.
+
+### Migration 480 — applied, and how it was scoped
+
+`MIGRATIONS_DIR` pointed at a **scratch directory containing only `480`** (see RUNBOOK). The
+unscoped dry run listed ~15 pending files belonging to other lanes, including two probing
+*inconclusive* on drift (`467`, `468`) — `--apply` at repo scope would have taken all of them.
+
+Exercised before applying, three ways:
+1. the whole file with `COMMIT` → `ROLLBACK`: guard passed, `UPDATE 1`, verify `NOTICE` raised;
+2. **probe: key pre-set** in the same transaction → the already-set guard **aborted**, as required;
+3. **probe: key planted on `image-build-handler.mark_work_item_failed`** → the verify block's
+   negative control **aborted** naming the leak. Without that control the positive assertion would
+   pass identically on an `UPDATE` with no `WHERE` clause.
+
+Ledger: `480_owned_page_refusal_is_not_a_handler_failure.sql` at `2026-08-18 20:24:01+00`.
+
+### Order — why config went first here, contrary to the usual rule
+
+The estate's rule is image first, because config naming an unregistered **action** fails at runtime.
+That does not apply: this adds a config **key** to an action that already exists.
+`update_work_item_status` reads its config by explicit lookup, has no `RegisterActionInputSpec`, and
+there is no strict/unknown-key validator anywhere in the orchestration path [MEASURED — grepped for
+one]. So a binary predating the Go half never looks the key up. **The config is live and the
+behaviour is inert until the next chassis roll**, at which point it activates by itself with no
+second visit. The pre-commit hook's architecture signal flagged exactly this ("needs a staged
+rollout order") and the answer is in the migration header.
+
+### Still open after this
+
+Nothing about Tier 1 except the roll and the verdict (`725b1f01-f4b5-42fc-92b5-6de8fc0daa85`,
+`Council-Submitted:` on `6aee22b00` — **not** `Council-Reviewed:`, the verdict is unread).
+**Post-roll verification needs a positive AND a negative control**: an owned-page refusal must land
+`wont_fix` carrying `result->'owned_page_refusal'`, and a genuine save failure must still land
+`failed`. Without the second, "the refusals stopped counting" is equally consistent with having
+broken the status write.

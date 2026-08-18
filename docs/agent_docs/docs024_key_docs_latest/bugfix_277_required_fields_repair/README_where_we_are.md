@@ -568,3 +568,47 @@ because it has a clock on it (three findings cross the line tomorrow); then the 
 change and the unstable-identifier fix together, since they share a rebuild; then closing 083 next
 week; and the translation step last, with a design review first, because it is the only one that
 actually repairs those 134 pages.
+
+---
+
+**2026-08-18, later that evening — the "not applicable" change is written, tested and half-live.**
+
+The second job on my list is done and committed. Here is what it does, in plain terms.
+
+When one of our tools or widgets has its own page, the system refuses to let the ordinary page
+builder rewrite it — a generic rewrite would wipe the working tool. That refusal is right and I have
+not touched it. The problem was the *record* it left: the job was filed as "failed", which is the
+same word we use for a handler that tried and could not manage it. Somewhere else entirely, a safety
+rule counts those "failed" records to decide whether a repair type is still worth dispatching. So
+refusals for work the handler was never permitted to start were quietly voting to switch off a repair
+type that works about two times in three on ordinary pages.
+
+From now on that refusal will be filed as "not applicable" instead, and the safety rule ignores it —
+which is honest, because the handler was never given a chance to try. A genuine failure on the very
+same step still files as "failed" and still counts. I made a point of testing that second half: I
+deliberately broke the code two different ways and checked the tests caught both, because a version
+of this that marked *every* failure "not applicable" would pass a careless test and would be worse
+than the bug I set out to fix.
+
+**One thing I got wrong yesterday and want to correct.** In yesterday's write-up I gave two reasons
+for choosing this status. The first — that the safety rule ignores it — is right, and I have now read
+the rule itself rather than trusting my note. The second reason was that it "releases the record so
+the complaint comes back naturally". That is true, but it is not a *reason*, because the old "failed"
+status released it too. So there is really only one reason, and it is a good one. I would rather say
+so than leave a sentence standing that sounds like evidence and is not.
+
+**Where it stands.** The database half is live now. The code half sits waiting for the next time the
+services are rebuilt, which happens routinely — nothing needs doing to make it happen, and until then
+everything behaves exactly as it did this morning. I have also put it through the review council; the
+verdict has not come back yet, and I have labelled the commit honestly as "submitted" rather than
+"reviewed" so nobody reads it as approved.
+
+**What I could not settle, and am not going to pretend I did.** This change repairs no page. It stops
+a filing error from switching off a working repair path; that is all it is for. The ~134 findings
+sitting on tool pages still need the translation step — turning "this page has a defect" into "here is
+the corrected text" — and that is the design piece I want to write up properly before anyone builds it.
+
+**One loose end worth someone's time.** The page *re-render* path saves to tool pages nearly four
+thousand times without being refused, while the page *build* path is refused every time. Both go
+through the same guard, so one of those two facts needs explaining. I have not chased it — it is not
+this job — but nobody should conclude the guard covers every save until somebody does.

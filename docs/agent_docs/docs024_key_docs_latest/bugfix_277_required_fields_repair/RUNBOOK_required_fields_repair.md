@@ -172,3 +172,82 @@ EXECUTE 'EXPLAIN ' || new_q;   -- inside the migration's DO block
 inside prose that is nested in a SQL string literal — and mutates nothing. Pair it with an occurrence
 count on the anchor you are replacing (`(length(q)-length(replace(q,a,'')))/length(a) = 1`) so the
 edit cannot silently land on text another session has since changed.
+
+## Apply exactly ONE migration — a better way than the section above (2026-08-18)
+
+> **CORRECTION to "there is no `--only <file>` flag", above.** True as written, and the
+> hand-apply-then-`--record-only` recipe still works — but it makes recording a **separate human
+> act** that is easy to forget, and an applied-but-unrecorded migration reads as pending to the next
+> session's dry run. There is a scoped path that records automatically.
+
+`MIGRATIONS_DIR` is the runner's own env override, and it can point anywhere. Give it a directory
+holding **only your file** and `--apply` cannot reach another lane's work, because the runner never
+sees it:
+
+```bash
+S=$(mktemp -d)                        # or the session scratchpad
+cp docs/agent_docs/sql_for_agents/480_owned_page_refusal_is_not_a_handler_failure.sql "$S/"
+
+MIGRATIONS_DIR="$S" ./scripts/migration/run-migrations.sh          # dry run: must list exactly 1
+MIGRATIONS_DIR="$S" ./scripts/migration/run-migrations.sh --apply  # applies AND records it
+```
+
+You get the probe, the apply, and the `schema_migrations` row in one step, with the ledger keyed on
+the real filename.
+
+**Gotchas, all of them load-bearing:**
+
+* **The assignment must be on the SAME line as the command.** `MIGRATIONS_DIR=…` on its own line is
+  an ordinary shell assignment that the script's `${MIGRATIONS_DIR:-…}` default may not pick up, and
+  the run then covers the whole repo directory — this is a `LANDMINES.md` entry in its own right.
+* **Copy, do not move.** The file must stay in `docs/agent_docs/sql_for_agents/` for everyone else.
+* **Sidecars are excluded anyway.** `_ROLLBACK.sql` / `_VERIFY.sql` match `SIDECAR_RE` and are never
+  run by the runner, so copying only the migration is enough.
+* **`--record-only` still takes a bare filename**, if you ever do need the hand-apply route.
+
+Measured 2026-08-18: the unscoped dry run listed **15 pending files** from other lanes, two of them
+probing *inconclusive* on live drift (`467`, `468`). Scoped, it listed one.
+
+## Exercise a migration THREE ways before applying it
+
+A dry run proves the SQL runs. It does not prove the guards can fire, and a guard that cannot fire
+is not a guard. All three inside transactions that roll back:
+
+```bash
+# 1. the whole file, COMMIT swapped for ROLLBACK — expect: guard passes, UPDATE 1, verify NOTICE
+sed 's/^COMMIT;$/ROLLBACK;/' <file>.sql | kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+
+# 2. PRE-SET the state the guard refuses, then run the file — expect: the guard ABORTS
+{ echo "BEGIN;"; echo "<UPDATE that sets the key/state>"; sed 's/^COMMIT;$/ROLLBACK;/' <file>.sql; echo "ROLLBACK;"; } \
+  | kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+
+# 3. PLANT the leak the negative control looks for, then run the file — expect: VERIFY ABORTS
+#    (without this, a positive assertion passes identically on an UPDATE with no WHERE clause)
+```
+
+Both probes must print `ERROR:` **naming your own message**. If probe 2 or 3 succeeds, the guard is
+decorative. Run them before the apply, not after — after, you cannot roll back.
+
+## Tell an ownership REFUSAL from a genuine save FAILURE, post-roll
+
+The Tier 1 change (`480` + `6aee22b00`) makes them different rows. Both controls, in one query — a
+result with only the first line is equally consistent with the status write being broken:
+
+```sql
+SELECT status, count(*), bool_or(result ? 'owned_page_refusal') AS stamped
+FROM site_work_items
+WHERE handler_agent = 'page-build-handler'
+  AND updated_at > '<the roll>'
+  AND error LIKE '%OWNED_PAGE_GUARD%'
+GROUP BY 1
+UNION ALL
+SELECT 'control: real save failures', count(*), bool_or(result ? 'owned_page_refusal')
+FROM site_work_items
+WHERE handler_agent = 'page-build-handler'
+  AND updated_at > '<the roll>'
+  AND status = 'failed' AND COALESCE(error,'') NOT LIKE '%OWNED_PAGE_GUARD%';
+```
+Expected: refusals `wont_fix` with `stamped = t`; the control non-zero, `failed`, `stamped = f`.
+**A zero control means no genuine failures happened in the window, not that the split works** — widen
+the window rather than reading it as a pass.

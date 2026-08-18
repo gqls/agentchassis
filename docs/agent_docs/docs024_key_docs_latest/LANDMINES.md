@@ -12612,3 +12612,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
   and **retry a 522 at least three times before believing it**. Confirm the record itself at the API (`/zones/<zid>/dns_records?name=<host>`) rather than inferring its absence from a resolver. A single reading of either failure is not evidence.
 - **relations:** `RUNBOOK_dns_pointing_a_domain_at_the_serving_worker.md` (the ✅ DONE section carries both traps) · LANDMINES "A parked domain returns 200 on EVERY path" (the same lesson from the other side — read the artefact, and read it more than once) · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
 - **added:** 2026-08-18, portfolio_positioning lane, during the fleet-wide www→apex rollout
+
+### Renaming `ownedPageSkipReasonPrefix` silently changes a WORK ITEM'S TERMINAL STATUS — and its own doc comment told you it was matched by nothing
+
+- **footprint:** `platform/orchestration/actions/owned_page_guard.go` · `ownedPageSkipReasonPrefix` · `OWNED_PAGE_GUARD` · `platform/orchestration/actions/save_page_sections_action.go` · `platform/orchestration/actions/v3_site_actions.go` (`UpdateWorkItemStatusAction`, `UpdatePageStatusAction`) · `owned_page_refusal_status` · `scheduled_tasks.detected-item-promoter`
+- **fires when:** you tidy, rename or reword that constant — or you change the wording of `SavePageSectionsAction`'s owned-page refusal error, which reads like ordinary operator prose. No symptom is needed and none will appear.
+- **the trap:** until 2026-08-18 the constant's own comment read *"It is matched by nothing — the skip protocol is a boolean"*. That was **already false when it was written** (two call sites match it inside an upstream `skip_reason`), and it is now false in a way that costs real dispatch: the marker travels in the action's error message into `collected_data.__step_error.message`, and `UpdateWorkItemStatusAction`'s opt-in `owned_page_refusal_status` matches it to decide whether the work item records `wont_fix` (a refusal) or `failed` (a competence failure). **A rename makes every ownership refusal record `failed` again**, which puts it back into the denominator of `detected-item-promoter`'s 25% success floor — a fleet-wide gate that, when a pair crosses it, stops dispatching that `item_type` **entirely**, including on the generic pages where it was working (`phantom_internal_link`: 69% generic, 0/14 owned).
+- **why the wrong result looks exactly like the right one:** nothing errors. The guard still refuses, the page is still protected, the `owned_page_review` row is still filed, the item is still terminal, the tests of the *guard* still pass. The only visible difference is a status word on rows nobody is watching, and a ratio that drifts down over weeks until a repair type quietly switches itself off. There is no log line for "the marker stopped matching", because from the reader's side nothing happened.
+- **the check — grep the constant's consumers before you touch it, and make the rename go RED:**
+  ```sh
+  grep -rn "ownedPageSkipReasonPrefix\|OWNED_PAGE_GUARD" --include=*.go platform/ | grep -v _test.go
+  # expect FOUR non-test matches: the declaration, SavePageSections (upstream skip + its own error),
+  # UpdatePageStatus (upstream skip), UpdateWorkItemStatus (__step_error.message)
+  go test ./platform/orchestration/actions/ -run TestUpdateWorkItemStatus_OwnedPageRefusal
+  ```
+  The test builds its fixture **from the constant**, so a rename that keeps everything in step stays green and a half-rename goes red. And the config side must move too — the opt-in lives in the DB, not the source:
+  ```sql
+  SELECT ad.type, s.key, s.value->'config'->>'owned_page_refusal_status'
+    FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+   WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+     AND s.value->'config' ? 'owned_page_refusal_status';
+  ```
+  One row today: `page-build-handler.mark_item_failed → wont_fix` (migration `480`).
+- **the wider rule this is an instance of:** a string constant whose comment says it is decorative is exactly the one to distrust, because the comment ages and the matchers accumulate. Before deleting or renaming any marker literal, grep for it rather than reading what it says about itself.
+- **relations:** register **WII-019** (the mechanism, its enumerated consumers and the blast-radius measurement) · **PBP-036** (the ownership guard itself) · **SCH-026** (the floor that reads the status) · `bugs_closed/295` · `bugs_open/301` (the same guard, being reordered by another lane — the marker must survive whatever step the refusal moves to) · MEMORY [[a-source-scanning-test-makes-comments-load-bearing]], [[a-doc-comment-is-not-an-enforcement-mechanism]]
+- **added:** 2026-08-18, bugfix_277/083 lane, shipping owner decision 1 Tier 1
