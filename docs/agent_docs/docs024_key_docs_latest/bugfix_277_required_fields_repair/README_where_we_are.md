@@ -461,3 +461,62 @@ was visible in a plan.
 should escalate its first overdue items around the 19th and 20th, which will be the real test of it.
 The bigger remaining piece is the shared router engine you ruled on — its groundwork is done and its
 design round is the next real job.
+
+## 2026-08-18, evening — the escalation dates I gave you are wrong, and the rule that stops bad handlers is judging them on the wrong evidence
+
+Two things this session, and the first is a correction to what I told you a couple of hours ago.
+
+**The dates I gave you for the queue escalation were both a day early.** I said the first overdue
+items would surface around the 19th and 20th. They will actually be the 20th and 21st. The reason is
+small and worth knowing, because it will happen again: the job runs **once a day, at 12:57**, and it
+asks "has this been waiting more than three days?" at that moment and no other. An item that arrived
+at 19:17 in the evening is still six hours short of three days when the job looks at lunchtime, so it
+waits another full day. A "three-day limit" on a once-a-day job is really three-to-four days. I had
+worked the dates out on a calendar, which throws away the time of day.
+
+**What makes this worth a paragraph rather than a footnote:** tomorrow the job will run and escalate
+**nothing**, and that is the correct behaviour. But it looks identical to the mechanism being broken
+on its first run after I changed it. I had written the wrong dates into the handover notes as
+instructions, so the next person to look would have seen a zero on the day I told them to expect
+action, and reasonably concluded the change had failed. I have corrected the notes and written the
+trap up where sessions read it.
+
+**The second thing is more substantial, and it is a fault in my own design.** The rule I built stops
+sending work to a handler that keeps failing — below a one-in-four success rate, it stops. I have now
+gone and looked at *why* those failures happened, across every failure on record rather than the last
+week's. **Only about one in six is the handler actually failing.** Nearly half are the handler
+**correctly refusing** — declining to overwrite a page that a tool owns, which is exactly what we
+want it to do. A quarter are infrastructure: timeouts, a pod dying, a message not delivered. And
+about one in eight were never an attempt at all — old records tidied up by hand or backfilled by a
+previous fix. My rule counts all of them identically as "this handler failed".
+
+**Nothing is currently being blocked wrongly** — I checked every handler pairing on the system and
+none of them changes verdict if you exclude the refusals. The one that is currently blocked is still
+correctly blocked. So this is not a fire. But it is getting worse quickly: before July, refusals were
+**zero percent** of all failures; in August they are **sixty-two percent**, and today they were
+sixty-six out of seventy-four. They also never expire, so one bad batch run against tool-owned pages
+permanently damages a handler's record, and a handler that has been stopped gets no more work and so
+can never earn its way back.
+
+**What I changed, and what I deliberately did not.** I did **not** change the rule itself. The
+obvious fix is to teach it to recognise refusals by reading the error message — and that would mean
+that anyone who ever rewords that error message silently changes which work the system dispatches,
+with nothing failing to warn them. The right answer is for a handler to *say* "I refused" in a way
+the rule can read, rather than us guessing from its prose, and that is a change to a shared interface
+that needs proper review rather than being slipped in. I have written it up as such.
+
+What I did change is the message a person receives when the system escalates one of these. It used to
+say "fix the handler". On the 21st that message was going to go to someone about a handler whose
+failures are nearly half correct refusals. It now tells them to break the failures down first, gives
+them the query, and says that if refusals dominate then the handler is fine and the real problem is
+the page needing a different route.
+
+**And I got that message wrong on the first attempt**, which is the third correction in this entry. I
+pointed the reader at a bug file that had been closed the day before, having copied the reference out
+of my own handover notes without checking it still existed. I have fixed it to point at the part that
+is genuinely still open. The lesson I took: a stale reference sitting in prose is untidy, but the same
+reference inside a message that only fires when someone is already stuck is a dead end at the worst
+possible moment.
+
+**Nothing needs a decision from you.** The next real job is still the shared router engine design
+round.
