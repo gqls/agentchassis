@@ -1,161 +1,137 @@
-# HANDOFF 2026-08-18 — bugfix_284 lane: what is finished, what is live, what is left
+# HANDOFF 2026-08-18 — the 279/284/290 thread: what is DONE, what is LIVE, what is OPEN
 
-Written for a session that has never seen this lane. Read this file, then only the
-parts of the five standing docs it points you at. **The bug this lane was opened for is
-CLOSED and its fix is live and proven; everything still open belongs to OTHER lanes, and
-this file's main job is to stop you re-deriving what was already measured.**
+**Read this first if you are picking the thread up cold.** It covers four bugs, one
+RFC verification and one site item, across 2026-08-15 → 08-18. Everything below was
+verified at the artefact; where a claim is unproven it says so.
+
+## 1. State as at 2026-08-18 15:45 UTC (re-measure before trusting — this decays)
+
+| fact | value | how to re-check |
+|---|---|---|
+| chassis image | `v1.0.1309`, revision `f0117fb8b93e…` | digest of pod == digest of local image, then read the OCI `revision` label |
+| binary probe | new revision PRESENT, previous (`a6d1c53c`) absent, fake sha absent | `kubectl exec <pod> -- grep -aq "<40-hex>" /proc/1/exe`, **always with both controls** |
+| handler-less `blocked` rows | **0** (was 60) | `SELECT count(*) FROM site_work_items WHERE status='blocked' AND COALESCE(handler_agent,'')='';` |
+| minted `audit_finding_%` since 08-15 | **0** | `… WHERE item_type LIKE 'audit_finding_%' AND created_at > '2026-08-15 18:45+00';` |
+| `agent_definitions` NULL descriptions | **0** (column is NOT NULL) | `SELECT count(*) FROM agent_definitions WHERE description IS NULL;` |
+| CHECK `swi_no_handlerless_promotable` | present + **validated** | `SELECT convalidated FROM pg_constraint WHERE conname='swi_no_handlerless_promotable';` |
+| RFC_022 budget cron | writing a `doc_notes` row daily | `… WHERE body LIKE 'OPTIONAL-KEY BUDGET CHECK%'` — **a MISSING row means the job did not run**, which is not the same as "nothing is wrong" |
+
+## 2. CLOSED, fixed AND live (all in `bugs_closed/`)
+
+- **279** — `classifyFinding`'s fallback minted `audit_finding_<category>`, an item_type
+  registered nowhere, so those rows died in `detected`. Now files **`capability_gap`**
+  (deferred, empty handler, `spec.builder_needed`), counted in the result map as
+  `unrouted_categories` and Warn-logged. Dead `work_item_type` deleted from two prompts
+  (mig `416`). Closed-set CI test + a build-time ratchet banning **constructed**
+  item_types, at two layers (`pattern-check.py` advisory + a blocking Go test).
+  Councils `925d7759` (r1) and `336d1549` (r3) APPROVED.
+- **115** — the brief-fidelity auditor that "nobody ran". It now speaks the router's
+  category vocabulary (mig `417`) and runs inside every improvement sweep (mig `419`).
+  Live proof: 8 findings → 8 routed items, 0 minted.
+- **284** — flag-only findings were promoted then stamped `blocked` by the claim path.
+  Guard `7027a2801` + 60 rows repaired (mig `442`) + hand-insert path closed by CHECK
+  (mig `443`). **Proven with a manufactured demand control**, twice — before and after
+  the tie-break refactor: a site with 36 flag-only rows and nothing routable returns
+  `promoted: 0, not_promotable: 36`.
+- **290** (renumbered from 287 — a concurrent session took 287 by 89 seconds; resolve
+  bug numbers by SLUG) — an agent seeded without a `description` could not be spawned,
+  resolved or listed; five readers scanned a nullable column into a Go string. Data fix
+  (mig `420`), **schema fix (mig `438`, owner-ruled): `NOT NULL DEFAULT ''`**, code fix
+  `COALESCE` at all five readers + a module-wide source guard. Council `ad789fe1` APPROVED.
+
+## 3. The owner's three decisions of 2026-08-17 — all executed
+
+1. **Re-file the fundamentallyai.com item** → **NOT re-filed, deliberately.** Checked the
+   served pages first: all three asks (Tools in nav; guides link their tool; tools linked
+   from body copy) were already true, done by other lanes' rebuilds while the item sat
+   blocked. Item closed as satisfied with the measurements inside it. **Filing work that
+   is already done burns a pipeline run and leaves a false record.**
+2. **Unify the third copy of the routability predicate** → done, council `79505ac5`
+   APPROVED, live on `v1.0.1307`, and proven end-to-end through the refactored path (not
+   just by a string-equality test). The renderer moved DOWN into `discovery_checks`
+   (import direction forces it); `actions` delegates in one line so the claim path stays
+   byte-identical. **It was FIVE renderings, not three** — the two extra
+   (`core-manager/admin/agent_handlers.go:101,:724`) are deliberately excluded because
+   they ask a different question (admin CRUD existence, not routability).
+3. **Build the RFC_022 counter** → **nothing to build; it already existed** (counter
+   2026-08-13, N=10 ruled 08-14, daily cron live since 08-14). CLAUDE.md's clause was
+   three days stale and said otherwise — now corrected. What I found and fixed instead:
+   `check.py`'s literal counted `retract_asset_files` (4 keys) and `publish_site` (3) as
+   **ZERO**, so they were invisible to the accumulation check; the parity test that
+   catches this was FAILING at HEAD and nobody had run it.
+
+## 4. OPEN — what the next session can pick up
+
+### Needs an OWNER decision (do not act unilaterally)
+- **Two fundamentallyai.com findings**, surfaced while verifying, NOT actioned: (a) three
+  tools appear to have **two guides each** at two path conventions (`/blog/<tool>-guide`
+  and `/guides/tool-<tool>-guide`) — possible duplicate content; (b) the **Platform Log
+  index no longer links to any guide at all** — it links straight to tools, so the writing
+  may be orphaned from its own section index. Evidence is in the closed work item's
+  `result` and in the lane README.
+
+### Actionable without a decision
+- **`go test ./cmd/config-key-audit/` runs nowhere automatic.** The parity guard worked
+  and still sat failing for days because that package is untouched by ordinary work. A
+  pre-commit or CI hook that runs it when `check.py` or any `ActionInputSpec` changes
+  would close it. (LANDMINE written 08-17.)
+- **`bugs_open/083` observation, not chased:** `placeholder_contact` → `page-build-handler`
+  stands at **0 complete / 4 failed** — a handler that has never once succeeded at an item
+  type it is named for. It therefore can never pass the scheduled promoter's
+  "has succeeded before" gate. Belongs to that lane.
+- **The scheduled promoter has never written through CHECK `443`.** It ran clean after the
+  constraint landed but promoted nothing (its own precedent gate excluded the only
+  candidates), so compatibility is proven *by construction and a clean run*, not by an
+  observed promotion. Notice the first real one.
+
+## 5. Traps this thread hit — do not re-pay for them
+
+- **A "fresh build" can ship NO new code.** A same-tag rebuild serves the node's cached
+  image: pods look new, binary is unchanged. Hit on 2026-08-17 (237 commits stranded).
+  **The one-command proof is the DIGEST**: pod `imageID` vs local `RepoDigests`. Then the
+  binary probe — and the negative control must be *capable* of being absent (40 zeros
+  matches every binary; use a plausible fake sha).
+- **A producer's status literal may have been changed BY THE FIX you are evaluating.**
+  Both `capability_gap` producers read `deferred` at HEAD, which looks like it refutes the
+  whole 284 diagnosis; `git log -S` shows `deferred` arrived in 284's own fix commit.
+- **A zero from a guessed URL is a false zero.** Six "guides have no tool links" readings
+  were 404 pages. Control it: does the page have a body at all?
+- **Read the owning lane's DIRECTORY, not just the bug file.** I wrote migration `442`
+  while an equivalent repair already sat in this lane (now bannered SUPERSEDED). Logged in
+  `WRONG_CALLS.md`.
+- **Dates: anchor to the clock, not to the deploy.** A day of work was dated 08-16 because
+  I anchored to the roll. Corrected visibly; the two recorded migrations keep their
+  wrong prose dates because editing a recorded file drifts its ledger checksum.
+
+## 6. Commands you will want
+
+```bash
+# Is my code actually live? (per SERVICE, never per fleet)
+P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+IMG=$(kubectl -n ai-persona-system get pod $P -o jsonpath='{.spec.containers[0].image}')
+kubectl -n ai-persona-system get pod $P -o jsonpath='{.status.containerStatuses[0].imageID}'   # must equal:
+docker image inspect "$IMG" --format '{{range .RepoDigests}}{{.}}{{end}}'
+docker image inspect "$IMG" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
+git merge-base --is-ancestor <your-commit> <that-revision> && echo LIVE
+
+# Drive the 284 guard on demand (a real demand control, no side effects on a site with
+# flag-only rows and nothing routable — leopardessconsulting.co.uk was that site)
+#   one-step workflow calling action "triage_detected_items" with site_id;
+#   expect promoted: 0, not_promotable: N. Publish with payload-in-COMMAND (kcat landmine).
+
+# RFC_022 counter, on demand
+./scripts/audit-optional-key-budget.sh 10          # human;  --json for the full census
+go test ./cmd/config-key-audit/                     # the parity guard nobody runs
+```
 
 ---
 
-## 1. The one-paragraph version
-
-`bugs_closed/284`: the platform files two kinds of finding — **jobs** (a named agent can
-fix it) and **flags** (nothing on the platform can act, so the row names no handler *on
-purpose*). `TriageDetectedItemsAction` promoted every `detected` row on a site without
-looking at `handler_agent`, so flags were promoted, claimed, and stamped `blocked` with
-*"No handler_agent set — item cannot be routed to any agent"*: a correct finding rewritten
-as a routing failure, permanently (`blocked` is not terminal, so the row also held its
-dedup slot and its check could never re-file). 60 rows, 4 item_types, 15+ sites. The fix
-put the **claim path's own routability test at the promoter**, rendered from one shared
-function, so the bad outcome is unreachable rather than merely unlikely.
-
-## 2. State, with how each was proven (do not re-derive these)
-
-| thing | state | proof |
-|---|---|---|
-| The promoter guard | **LIVE** since chassis `v1.0.1305`, still in `v1.0.1309` | image label `org.opencontainers.image.revision`, local `RepoDigests` matched to the pods' `imageID`, then `git merge-base --is-ancestor 7027a2801 <revision>` |
-| Guard **exercised** in production | **YES** | single-step `triage_detected_items` on `leopardessconsulting.co.uk` (36 flag-only rows, nothing routable → could only hold or promote): `promoted: 0`, `not_promotable: 36`. Corr `a5be3dea-3f2c-490a-9922-22993662bc95` |
-| The 60 damaged rows | **REPAIRED** | migration `442` (counted needles, `RETURNING` postcondition, `result.repair_284` stamped so none looks spontaneously fixed) |
-| Born-dispatchable hole | **CLOSED** | migration `443`, CHECK `swi_no_handlerless_promotable`, `NOT VALID` then `VALIDATE`d, induced with two negative controls |
-| Council | **APPROVED** round 2, verdict read | corr `c22998e8-41df-4145-a7b9-f132a7c77426`; all 4 advisories answered |
-| Owner tie-break (predicate copies) | **RULED (a) and LIVE** | `10fc61184`; one definition fleet-wide; register **WDS-017** |
-| Standing check today | **0 blocked / 723 flag-only held** | see NOTES 2026-08-18 |
-
-**The standing check, and the control that makes it mean anything:**
-
-```sql
-SELECT count(*) FROM site_work_items WHERE status='blocked' AND handler_agent='';        -- must stay 0
-SELECT count(*) FROM site_work_items WHERE handler_agent='' AND status IN ('detected','deferred'); -- 723 and rising
-```
-
-A zero alone proves nothing here — `improvement-sweep` (the only *scheduled* driver of the
-only carrier) is `enabled=false` by the owner's `bugs_open/083` ruling of 2026-08-15, and
-the promoter that runs unattended today (`detected-item-promoter`, created 2026-08-15)
-never had the defect. The second number is why the zero is evidence.
-
-## 3. What is LEFT — all of it in other lanes, none of it this lane's to execute
-
-**(a) Five case-study images cannot be generated at all — a surface-list gap.**
-`check_content_image_missing` is the framework's content-hero producer; its population is
-hardcoded to `PageType: "blog-post"` (:131) and `"tool"` (:137), swept via
-`AND p.page_type = $2` (:223). The case-study pages on `finetuning.uk` and
-`ai-agent-orchestration.com` are **`page_type='content'`** — outside it by construction,
-so no run of that check can ever emit their imagery, while the page markup references
-`/assets/images/case-study-*.jpg`. Recorded in `bugs_open/114` with file:line.
-**Do not hand-file `needs_imagery` rows for them** (the framework composes those prompts
-from the page's own title/description — a session writing them is the 2026-08-06 ruling's
-exact prohibition, and it hides the gap). **Do not widen the surface list unilaterally**:
-two lines, but every `page_type='content'` page on every site enters the generator at
-once. Count the population first.
-
-**(b) 17 image findings need publishing or repointing, not new art.** Census (live table,
-2026-08-17; still 41 open findings today, unchanged): 11 findings already have the asset
-under **exactly** the referenced `asset_key` (4 `hero`, 2 `logo`, 5 `case-study-*`) — the
-deploy to the canonical web path never ran; 6 are `hero` where the site's heroes are
-page-scoped (`lendzy.co.uk` has 9, keyed `hero_home`/`hero_about`/…, none keyed plain
-`hero`) so nothing lands at the base path a page requests. 8 more are `favicon`/`og-card`
-and belong to **`bugs_open/131`** (owned). Full table in `bugs_open/114`.
-
-**(c) One owner-raised row is queued behind `bugs_open/227`.**
-`needs_experience_plan` on `fundamentallyai.com`, `spec.raised_by = "owner, reading the
-live site 2026-08-12"`, parked at `deferred`. **`experience-planner` exists and is
-active** — so routing it is a one-field change (`handler_agent`), not a build. The owner
-ruled **(b): fix 227 first**, because that agent's prompt hardcodes one site's diagnosis
-and would produce another site's plan. Dependency written into `bugs_open/227`.
-
-## 4. The verification recipe that cost this lane a day — use it, do not re-invent it
-
-**To answer "did my change ship?", read the image's own label. Do not probe for a needle.**
-
-```bash
-kubectl -n ai-persona-system get pods -l app=agent-chassis \
-  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}' | sort -u
-docker image inspect aqls/agent-chassis:<tag> --format '{{json .RepoDigests}}'   # must contain that digest
-docker image inspect aqls/agent-chassis:<tag> --format '{{json .Config.Labels}}' # → org.opencontainers.image.revision
-git merge-base --is-ancestor <your-commit> <that revision> && echo SHIPPED
-git rev-list --count <that revision>..HEAD                                       # what is still unshipped
-```
-
-Why: the `build provenance` log line is a STARTUP line and scrolls out of reach within
-hours on this service, and binary needles go wrong in two ways this lane hit —
-**a needle taken from source may be inside a `//` comment** (stripped at compile time, so
-it can never fire: I published a "nothing shipped" claim on exactly that, and the
-conclusion only survived because unchanged tag + identical digest carried it), and **a
-`kubectl exec` loop killed by a tool timeout prints `absent`** for the needle it died on.
-If you must probe: one `exec`, every needle inside it, a control that must come out the
-other way, and draw the positive control from the **same commit** as the discriminating
-needle.
-
-**Also: a "fresh build" at an unchanged tag ships NOTHING** — a same-tag rebuild serves the
-node's cached image. Measured 2026-08-17: pods restarted, tag still `v1.0.1305`, digest
-byte-identical, **215 commits unshipped**. Bump `IMAGE_TAG` before building. The three
-rolls since: 215 → 42 → 28 unshipped.
-
-## 5. Traps this lane hit, each with the check (all in WRONG_CALLS/LANDMINES too)
-
-- **A census by struct-field VALUE misses the site that omits the field.**
-  `grep 'HandlerAgent: ""'` found 16 producers and missed the two with the most damage
-  (`check_image_url_404`, `head_essentials_missing`) — Go zero-values an omitted field.
-  Ask the DB which `item_type`s hold `handler_agent=''`, then find their producers.
-- **A marker KEY does not prove authorship; a VALUE can.** `spec.original_pipeline` has
-  three writers. Two hardcode `"build"`; the promoter writes `to_jsonb(pipeline)`, so
-  `design`/`content` is its signature. Enumerate every writer before resting a case on a
-  key's presence.
-- **`orchestration_states` keeps `COMPLETED` rows for ~2 days.** "Zero runs in five weeks"
-  measured the pruner. Check retention **for the status you are asking about**.
-- **A disabled cron does not mean a path cannot run** — single-step dispatch exercises it,
-  and that is also the cheapest proof available.
-- **Reading the two `capability_gap` producers at HEAD looks like it refutes the
-  diagnosis** (they say `Status: "deferred"`): that status was introduced by 284's own fix.
-  `git log -S` on a status literal before believing a producer's present-day shape.
-- **A pathspec commit still takes a same-file passenger.** `git diff --numstat <file>`
-  before AND after appending to any fleet-wide file; I swept another lane's WRONG_CALLS
-  entry under my message and had to add a provenance note.
-- **A gate tested only on its failing side is indistinguishable from one that always
-  fails.** My repair script's `\set guard_commit` (psql client var) was read as
-  `current_setting('myvars.…')` (server GUC) — it aborted unconditionally. Induce both arms.
-
-## 6. Where everything lives
-
-- `bugs_closed/284_HANDOFF_2026-08-15_…` — the case, with the correction box explaining
-  that its own title names the wrong mechanism (nothing claims a `deferred` row; the rows
-  were born `detected`).
-- This directory: `PLAN_2026-08-16`, `NOTES_…` (append-only, newest last — read the last
-  three entries), `RUNBOOK_…` (the queries, each with its gotcha), `README_where_we_are.md`
-  (the owner's plain-prose log), `SUMMARY_2026-08-16` + `SUMMARY_2026-08-17`,
-  `REPAIR_…sql` (**superseded by migration 442 — do not run**), `ROLLBACK_…sql`.
-- Migrations: `sql_for_agents/442` (repair) and `443` (the CHECK constraint), both with
-  ROLLBACK sidecars.
-- Register **WDS-017** (`register/work-dispatch.md`) — the mechanism, its landmines, and
-  which way the seat disagreement was resolved.
-- `016b` §9 (*"A status that means 'unclaimable' to its PRODUCER may be a promotable
-  queue"*) and its §10 row for 284.
-- Code: `work_items_common.go` (`workItemRoutableSQL`, `countUnroutableDetected`),
-  `discovery_checks/remit.go` (`HandlerRegisteredSQL` — **the single definition**, in that
-  package because `actions` imports it and never the reverse),
-  `triage_detect_items_action.go`, `triage_routability_guard_test.go` (three tests, each
-  proven load-bearing by a named mutation).
-- `bugs_open/291` — the sibling defect this lane found and filed (`tool-auditor` filing at
-  `hitl-review`, an agent that never existed); another lane fixed it, and its arm reads 0.
-
-## 7. Do NOT do these
-
-1. Do not re-open the `improvement-sweep` question — the owner ruled it stays paused
-   (`bugs_open/083`, 2026-08-15); triage got its own scheduled task instead.
-2. Do not read a clean `blocked` census as proof of this guard without quoting the
-   flag-only population beside it (§2).
-3. Do not write a fourth rendering of the agent-registration predicate. Call
-   `discovery_checks.HandlerRegisteredSQL`.
-4. Do not repair `image_url_404` rows expecting them to self-clear — that check has **no**
-   `CheckResult.Resolved` arm (0 sites, versus 1/1/5 for its three flag-only siblings), so
-   its rows stay open until a human acts. Not a fault of the guard.
+> **NOTE ADDED 2026-08-18 by the bugfix-284 session, and it is an apology, not content.**
+> I overwrote this file with a shell redirect (`cat >`) while writing a handoff of my own,
+> having assumed the name was free. It is restored here **byte-for-byte** from commit
+> `1173f49f6` — verified with `git diff --stat 1173f49f6 -- <path>` returning empty — and
+> my narrower lane handoff now lives beside it as
+> `HANDOFF_2026-08-18b_bugfix_284_lane.md`. Nothing of yours was lost; git had it.
+> The habit that would have prevented it is CLAUDE.md's own: *read before write on any
+> file you did not create, and prefer a tool that refuses an unread file over a redirect
+> that does not*. Logged in WRONG_CALLS.
