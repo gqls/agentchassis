@@ -1,12 +1,12 @@
 # HANDOFF — mortgagecalculator.co.uk — cold start, read this first (2026-08-18)
 
-**Supersedes `HANDOFF_2026-08-16b_continue_here.md`.** That file's §0 owner rulings and its §4
-(the directory-URL question) still stand and are NOT repeated here — read it second, for those two
-sections only; everything else in it is either done or restated below.
+**Supersedes `HANDOFF_2026-08-16b_continue_here.md`.** Only that file's **§0 owner rulings** still
+need reading — its §4 (the directory-URL question) is now **fixed and shipped**, see §3.1.
 
 **Nothing is blocked and nothing is half-finished.** This lane is in a clean state. What follows
-is (1) what is live, (2) the three decisions that are the owner's, (3) what is genuinely next, and
-(4) the traps this arc paid for.
+is (1) what is live, (2) what this arc did, (3) the open items — **one platform bug owned
+elsewhere, one queue decision, and the parked backlog** — and (4) the traps this arc paid for.
+**Updated 2026-08-18 evening: the directory-URL fix is LIVE (§3.1).**
 
 ---
 
@@ -37,19 +37,20 @@ is probably one of these, and neither is a fault:
 | `/guides/mortgage-scorecard/index.html` | 200, "Where you stand before you apply", 526 words, no template leak | 08-16 |
 | `/guides/lender-restrictions/index.html` | 200, "What might limit your options", 444 words | 08-16 |
 | `/scorecard-simulator.html` | **still 404** — build refused by `bugs_open/260`; item `0c65f9fa` parked | 08-16 |
-| `/tools/rate-forecaster/` (directory form) | **still 404** — target exists at `…/index.html`; deliberate, see §3.1 | 08-16 |
+| `/tools/rate-forecaster/` (directory form) | **200** — fixed by DGH-012, no copy touched | 08-18 |
 | `images/mortgagecalculatormono.xcf` | **GONE** — 404, removed from bucket AND deploy source | 08-17 |
 | logo / favicon / og-card / hero / header roundel | all 200, unchanged | 08-16 |
 | the 10 tool-page heroes | still paid-and-unconsumed — `bugs_open/114`'s to wire | 08-16 |
 | `stamp-duty` fence | `doc_plans` `400657e0…`, 13 facts declared, `no_auto_fix` true | 08-17 |
 | evidence register | 1 current row, relief cap **500000**, `pinned` carried, 0 test rows | 08-17 |
 
-Site id `62b5978e-4271-4589-8e00-4baebfc0447c`. `sites.github_repo` empty → **B2 route** (§3.1).
+Site id `62b5978e-4271-4589-8e00-4baebfc0447c`. `sites.github_repo` empty → **B2 route** — which since
+DGH-012 no longer means directory URLs 404 (§3.1).
 Site unlocked. No work items armed by this lane.
 
 ---
 
-## 2. What this arc actually did (08-16 → 08-17), one line each
+## 2. What this arc actually did (08-16 → 08-18), one line each
 
 - **The "30 stale titles" item was already done** and had been carried forward unmeasured for five
   days. Acting on it would have fired 30 rerenders to change nothing.
@@ -64,28 +65,46 @@ Site unlocked. No work items armed by this lane.
 - **Removed the `.xcf`** from bucket and deploy source, with four byte-identical copies retained.
 - **Seeded the CLM-022 `facts` declaration and PROVED IT END TO END** — both arms, plus the
   self-quieting. §3.2.
+- **Shipped the directory-URL fix to the Cloudflare worker (DGH-012)** after the owner approved
+  it — `/guides/` was a 404 on every B2-hosted site and is now 200, fleet-wide. §3.1.
 
 ---
 
 ## 3. The open items, in the order they matter
 
-### 3.1 The directory-URL 404 — OWNER'S CALL, three lines of code, 36 zones
+### 3.1 ~~The directory-URL 404~~ **FIXED AND LIVE 2026-08-18 12:23Z — register DGH-012**
 
-On the B2 route **every** directory-form URL 404s: `/guides/`, `/about/`, `/tools/repayment/`,
-`/investor/` — while every `…/index.html` serves 200. The git route serves both
-(`relojistas.com/noticias/` 200). Anyone who types, shortens or shares an address without the exact
-ending gets a 404.
+Owner approved it; it is deployed and verified. `scripts/cloudflare/worker.js:9-27` now appends
+`index.html` to any path ending in `/`.
 
-- **Cause and fix located precisely:** `scripts/cloudflare/worker.js:9-12` special-cases only the
-  root; an `else if (path.endsWith('/')) path += 'index.html';` closes the class — for human,
-  typed and inbound links, not just internal ones.
-- **Why it is not a lane's call:** one worker fronts all 36 B2 zones, and
-  `scripts/cloudflare/README.md` warns that a deploy without the two B2 bindings strips the
-  worker's credentials and takes every site down. Owner + council.
-- **Already in `LANDMINES.md`** (search *"A `/section/` URL 404s on every B2-hosted site"*), with
-  an addendum this lane added: the platform's own `NormalizePagePath` collapses `/x/` and
-  `/x/index.html`, so five DB-derived mechanisms all wave the dead form through. **Do not "fix" it
-  by making that helper route-aware.**
+**Verified at the artefact, same probe both sides:** `mortgagecalculator.co.uk/guides/` and
+`/tools/repayment/` **404→200**; `gaswholesalers.com/tools/supplier-comparison-calculator/` and
+`leopardessconsulting.co.uk/tools/automation-savings-estimator/` **404→200**. Unchanged: every
+`…/index.html`, the site roots, `/worker-health`, and a genuine miss still **404 with the site's
+own 404 page and no bucket internals**. Git-route control (`relojistas.com/noticias/`) unaffected.
+`/guides/` and `/guides/index.html` return the same `<title>`, so it is the real page, not a
+soft-404. The repo copy was re-exported and diffed after the PUT: **deployed == repo**.
+
+**It closed this site's last non-260 broken link without touching a word of copy** —
+`/tools/rate-forecaster/` now resolves. A full re-audit of all 30 internal links leaves exactly
+**one** dead target: `/scorecard-simulator.html`, which is §3.3's bug.
+
+⚠ **Two deploy traps, now in `scripts/cloudflare/README.md` and DGH-012, because either could
+cost an outage or a false alarm:**
+- **The PUT response returns `result.bindings: []` on a completely successful deploy.** That is
+  the API not echoing them, and it is indistinguishable from the credential-stripping outage the
+  README warns about. Confirm from the `/settings` endpoint and a live fetch, never from the PUT.
+- **`node --check` PASSES a syntactically broken `worker.js`.** ESM syntax in a `.js` file makes
+  the check a no-op — a copy with one `)` removed exited **0**; as `.mjs` it correctly failed.
+  Check as `.mjs` **and prove the checker fails on a broken copy in the same session.**
+- Build the PUT metadata from `~/.cloudflare/portfolio-sites-router.settings.json`, not by hand:
+  the README's minimal recipe silently resets `observability` and `compatibility_flags`.
+
+**Not council-reviewed, and that is not an omission:** the gate refuses paths outside
+`platform/`/`internal/`/`pkg/` client-side, so `scripts/cloudflare/` cannot be submitted. The
+ordering-exemption's condition (2) was met instead — registered in the same commit as the ship,
+with its landmines and one open review question (canonicals emit `…/index.html` and now both
+forms serve; nobody has ruled on the duplicate-content question).
 
 ### 3.2 CLM-022 — PROVEN, and the 13 items are supposed to be there
 
@@ -167,7 +186,12 @@ completeness decision, they were paused for different reasons.**
   `## 2026-08-17 (afternoon)`, `## 2026-08-17 (evening)`.
 - `README_where_we_are.md` — `2026-08-16 (Sunday afternoon)`, `2026-08-17 (Monday morning)`.
 - `SUMMARY_2026-08-18_two_dormant_mechanisms_switched_on_and_proven.md` (the milestone read-out).
-- `bugs_open/260` §10 (this lane's contribution) · `LANDMINES.md` (two entries) ·
+  ⚠ **Written before the worker fix shipped, so its "where we're going" is already overtaken** —
+  it names the trailing-slash question as open and the rotation as still running; both are done.
+  Left unedited (the series is the record); the corrections are in NOTES 2026-08-18.
+- `bugs_open/260` §10 (this lane's contribution) · concept register **DGH-012** (+ its index row) ·
+  `scripts/cloudflare/{worker.js,README.md}` · `LANDMINES.md` (two entries, both now CORRECTED in
+  place because DGH-012 killed the behaviour they described) ·
   `WRONG_CALLS.md` 08-16 and 08-17 ·
   `register_guards_code_phase_b/CONTRIB_REPLY_2026-08-17b_…md` (seeded + both addenda).
 - Reusable scripts: `scratchpad/{dryrun_safe,realrun_safe,induce}.sh` + `{mutate,restore}.sql`
