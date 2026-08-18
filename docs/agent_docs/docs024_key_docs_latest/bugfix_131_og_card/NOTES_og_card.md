@@ -802,3 +802,31 @@ spec-sheet landmine); the four still-open items from (10) are untouched.
   hand item), cookly.uk 200/200, webdesign.co.uk 200/200 (+ its 302 twin webdesign.uk),
   lendzy.co.uk 200/200. Remaining 404 pair: **loancalculator.co.uk — deliberately left to
   its owning lane** (runbook has their one-liner).
+
+> **CORRECTED 2026-08-18 (same session, ~40 min later):** entry (11)'s "Build hygiene"
+> paragraph over-claimed — the archive-HEAD verification ran ONE package
+> (`discovery_checks`), not the tree, and `c121d5a73` broke
+> `TestOnlyTheOptedInVerifierCarriesAScopeTest` in `actions/` (the bugs_open/213
+> one-scope-test guard enumerates the registry I added to). Caught by the bugs_open/302
+> lane at clean archive HEAD within the hour; fixed in `7d6f187db` (guard widened to a
+> licensed map, entry fee paid: 53 rows lifetime archive-inclusive, exactly two spec
+> shapes). WRONG_CALLS has the generalising rule: a registration is never package-local.
+
+**(12) Council round 1: REVISE (gating: editquality) — triage of all 12 objections, and round 2 submitted (2026-08-18).**
+Two conceded as REAL: (i) 467 called `snapshot_agent` BEFORE its `$pre$` gate — the
+documented re-run anti-pattern (poisons `ORDER BY snapshot_taken_at` rollback recipes);
+reordered in `e066c9677`. (ii) prior_art's "registering an ItemVerifier obliges TWO more
+edits" landmine under-counts: the THIRD is the actions-package one-scope-test guard, which
+I hit at HEAD (see the CORRECTED note under (11) and WRONG_CALLS). Settled by query, results
+now in the round-2 submission: two-active-rows (the four types are chief-strategist,
+content-creator, content-creator-contact, site-component-architect — asset-deployer NOT
+among them, and 467's `$pre$` asserts count=1, which round 1's sketch failed to show — my
+sketch's fault, the reviewer read it correctly); presigned-url HIGH (brand-head rows carry
+the literal published path, measured on the 4 live rows; a foreign presigned write would
+land in the cannot-tell branch and converge via one re-derive — now in the verifier's
+comment); purposes coverage (map has exactly the 2 entries; parity test pins map⇔deriver);
+API existence (verifiers.go:147-152, prior use in check_hardcoded_section_colors.go).
+Guardian's ship-A+B-first scope objection answered with the witnessed state (proof item
+trail + 3 sites healed within the hour) and the refusal-only catch-population argument;
+recorded, not relitigated — a human breaks that tie if the seat maintains it. Round 2
+submitted on the SAME correlation (`RESUBMIT_CORR=85afbafc…`), verdict pending.
