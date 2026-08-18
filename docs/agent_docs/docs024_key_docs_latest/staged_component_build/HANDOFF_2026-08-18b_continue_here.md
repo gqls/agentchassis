@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-18b, fresh chat starts here: the prune is BUILT and under council review; 306+307 are FILED; the gating blast radius is MEASURED; Phase 2 awaits an owner ruling on the re-presented sequencing.
+# HANDOFF — 2026-08-18b, fresh chat starts here: the prune is BUILT and under council review; 306+307 are FILED; the gating blast radius is MEASURED; and Phase 2 is **RULED — sequence A (RFC_029 §10.13)**. The next builds are steps 2 and 3 of that path.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
 was CORRECTED before building** — the mis-citation and its consequences are RFC_029 §10.11, the
@@ -53,17 +53,22 @@ Gating `ensureCoreFields` splits cleanly in two:
   RFC_029 amendment with the consumer enumeration above as its evidence. NOT yet ruled — it is
   option 2 of the re-presented Phase 2 sequencing awaiting the owner.
 
-## 3. Phase 2 — re-presented to the owner (chat, 2026-08-18 evening); do not act until ruled
+## 3. THE RULED PATH — owner chose sequence A, 2026-08-18 evening (RFC_029 §10.13 is the durable record; this is the working copy)
 
-The recommended sequence (owner has NOT yet chosen): (a) prune ships + window re-read →
-(b) 306 candidates 1+2 (pin tie-break, sort pattern 1) → (c) gate the three page-ish fields
-(RFC amendment; html-developer-chunked config fix precedes it) → (d) re-read window; remaining
-rows are declared-field genuine conflicts (e.g. save_page_sections' object-vs-name, which
-conflicts EVERY run and whose value IS read — fix the shape at source, not with refusal) →
-(e) flip Phase 2 on what is left, which may be ~zero. Key correction carried into the
-re-presentation: my §10.12 claim that page-build-handler "reads" the resolved value is
-downgraded to `[INFERRED]` — no named reader found in the decision-3 sweep (NOTES, evening
-entry, last paragraph).
+Five steps, each gated on a STATE the window must show, never a date. Steps 2 and 3 are this
+lane's next builds and are independent of each other and of step 1's roll.
+
+| step | what | precondition | done when |
+|---|---|---|---|
+| 1 | Prune ships; window re-read | council APPROVED on `ae0dfb93` + next fleet roll (owner's) | `work_item_id` class gone; `current_page` class INTACT (that is success — see the code comment) |
+| 2 | `bugs_open/306` candidates 1+2: pin the tie-break (depth, then source-class), sort `tryUnwrapMapPatterns` pattern 1's keys | none — buildable NOW; behaviour-identical today, council-gated | tests pin both; mutation-proved |
+| 3 | Gate `current_page`/`current_section`/`render_context` in `ensureCoreFields` (requested-only). **`domain`/`objective`/`model` stay UNCONDITIONAL — 39/10/6 undeclared consumers, never gate.** | **config edit FIRST**: add `current_page` to `html-developer-chunked`'s 3 `input_fields` lists (live immediately). Go gate is an RFC_029 AMENDMENT — name and tell consumers per the 2026-07-29 ruling; the NOTES enumeration is the evidence | class-1 63% gone from the window after the roll |
+| 4 | Fix surviving shape conflicts AT SOURCE (worked example: `save_page_sections` sees the page OBJECT at `input_data.current_page` vs its NAME STRING at `render_context.current_page` — one rename ends it). **`!` cannot fix these** — Go-side request lists, config-side marker | step 3's window read | window reads zero, or every survivor carries a written safe-by-inspection note |
+| 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
+
+Carried correction: my §10.12 claim that `page-build-handler` "reads" the resolved value is
+downgraded to `[INFERRED]` — no named reader of the injected copy was found in the decision-3
+sweep (NOTES, evening entry, last paragraph).
 
 ## 4. Traps for a fresh session (beyond the standing ones in the 08-18 handoff §4, all still live)
 
@@ -86,5 +91,5 @@ entry, last paragraph).
 3. If APPROVED and a build is rolling: verify by label+digest, then re-read the window
    (RUNBOOK) — expect the work_item_id class gone, current_page class INTACT (that is correct,
    not a failed fix; the comment in action_inputs.go says why).
-4. Await/execute the owner's Phase 2 sequencing ruling (§3). 306's candidates 1+2 are buildable
-   without it.
+4. Build the ruled path (§3): step 2 (306 candidates 1+2) is buildable immediately; step 3
+   starts with the html-developer-chunked config edit, then the gate as an RFC_029 amendment.
