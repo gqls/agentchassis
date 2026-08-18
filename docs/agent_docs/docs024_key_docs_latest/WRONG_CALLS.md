@@ -35972,3 +35972,24 @@ time of day attached, it has not been computed against the thing that will actua
 Tally for "a population or a domain assumed rather than enumerated" **in this lane alone: six** (the
 five in `HANDOFF_2026-08-18b` §4, plus this one — here the assumed domain is the *clock*). The shape
 still has not varied.
+- **I wrote a test payload that was blind in exactly the way the bug was — on the lane whose entire
+  subject is that blindness.** Proving the new clamp behaves (`bugs_closed/293`) needed a payload with a
+  little less prose than the live page. My builder took "the longest text run in the slot" and truncated
+  it by 76 characters. **The page's visible-text total did not move at all**, because the longest run in
+  that HTML is inside a `<style>` block — CSS, not prose. I had reproduced the defect I spent a week
+  measuring, inside the instrument built to verify its fix.
+  **What caught it was an assertion, not attention.** The builder recomputes the verdict under both the
+  clamped and unclamped floor and `raise SystemExit`s unless BOTH come out REFUSE — that being the
+  property that makes the test unable to write anything whatever the answer is. It printed `ALLOW` on one
+  line and "both refuse" on the next, and the abort stopped the dispatch. **Had it gone out with the
+  clamp live, the save would have been ALLOWED and would have rewritten the page's rows.** So the guard
+  on my test was load-bearing in the same way the guard under test is.
+  **The cheap check, and I already owned it:** exclude `<style>`/`<script>` spans before choosing a text
+  run — three lines, and the same three lines the fix itself is about. Better still, never trust a
+  payload's *intent*: compute the quantity the guard will compute, on the payload you are about to send,
+  and refuse to send it unless the arithmetic says what you think it says.
+  **The base rate was in my own notes:** 728 of 1,062 live sections carry over half their tag-stripped
+  "text" inside style/script. "The longest text on this page is CSS" is not a quirk of the page I picked
+  — it is the normal case, measured in week one of this lane, and I walked into it anyway.
+  Tally for "reproduced the bug inside the tool built to verify its fix": 1. Tally for "a safety
+  assertion caught what reading did not": 1 — and it is the only reason this cost nothing.

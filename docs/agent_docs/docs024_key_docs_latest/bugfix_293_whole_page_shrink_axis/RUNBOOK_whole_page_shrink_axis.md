@@ -165,6 +165,21 @@ lock/decision matching misses the row it protects.
 > worst case if the guard is broken is that the page loses one sentence, and you are holding the
 > original in `before.json`.
 
+⚠ **Two traps in BUILDING the reduced payload, both hit on 2026-08-18.**
+
+1. **Pick a text run OUTSIDE `<style>`/`<script>`.** The longest run in a real section is usually CSS —
+   728 of 1,062 live sections carry over half their tag-stripped "text" inside those blocks. A builder
+   that truncates "the longest text run" removes 76 characters and moves the VISIBLE total by **zero**,
+   producing a payload that is 100% kept and would be ALLOWED, i.e. WRITTEN. Exclude those spans first.
+2. **Assert the arithmetic before dispatching, and refuse to send otherwise.** Compute the verdict the
+   guard will compute — under both the clamped and unclamped floor — and abort unless BOTH are REFUSE:
+
+```python
+if not (after < before*0.95 and after < before*1.50):
+    raise SystemExit("ABORT: both must refuse, or a non-firing guard could write. Not dispatching.")
+```
+That assertion, not care, is what stopped the bad payload above going out.
+
 ```bash
 CORR=$(uuidgen); ORCH=$(uuidgen)
 kubectl -n kafka run -i --rm kcat-293-induce-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
