@@ -360,11 +360,20 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	// --- Apply the edit ---
 	var outcome sectionEditOutcome
 
+	// bugs_open/184: when enabled (migration 474), literal markdown is stripped
+	// from the merged content map INSIDE each branch, before its RenderTemplate
+	// call — the :398/:407 pre-persist window below is too late for this
+	// transform, because rendered_html is already built from the unstripped
+	// values by then. One gated strip per branch, both feeding the single
+	// persist switch (the "count writes, not branches" rule holds: the persist
+	// sites are unchanged).
+	stripMarkdown, _ := params.StepConfig.Config["strip_literal_markdown"].(bool)
+
 	switch editType {
 	case "content_edit":
-		outcome, err = applyContentEdit(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
+		outcome, err = applyContentEdit(ctx, params.DB, siteID, pcData, editCtx, inputs, stripMarkdown, logger)
 	case "component_swap":
-		outcome, err = applyComponentSwap(ctx, params.DB, siteID, pcData, editCtx, inputs, logger)
+		outcome, err = applyComponentSwap(ctx, params.DB, siteID, pcData, editCtx, inputs, stripMarkdown, logger)
 	default:
 		return nil, fmt.Errorf("unknown edit_type: %s (expected: content_edit, component_swap)", editType)
 	}
@@ -746,6 +755,7 @@ func applyContentEdit(
 	pcData map[string]interface{},
 	editCtx map[string]interface{},
 	inputs *datahelpers.ActionInputs,
+	stripMarkdown bool,
 	logger *zap.Logger,
 ) (sectionEditOutcome, error) {
 
@@ -821,6 +831,16 @@ func applyContentEdit(
 		return sectionEditOutcome{}, fmt.Errorf("component template is empty — cannot re-render")
 	}
 
+	// bugs_open/184: strip literal markdown from the MERGED map (LLM
+	// field_updates included) before the render below, so rendered_html and the
+	// persisted ContentData are both built from clean values. Gated, default OFF.
+	if stripMarkdown {
+		if changed := datahelpers.StripLiteralMarkdownFromContentData(existingContentData); len(changed) > 0 {
+			logger.Info("applyContentEdit: stripped literal markdown",
+				zap.Strings("fields", changed))
+		}
+	}
+
 	// --- Build render context from DB ---
 	pageData, _ := editCtx["page"].(map[string]interface{})
 	var pageInfoForRender *PageInfo
@@ -882,6 +902,7 @@ func applyComponentSwap(
 	pcData map[string]interface{},
 	editCtx map[string]interface{},
 	inputs *datahelpers.ActionInputs,
+	stripMarkdown bool,
 	logger *zap.Logger,
 ) (sectionEditOutcome, error) {
 
@@ -921,6 +942,14 @@ func applyComponentSwap(
 		}
 		logger.Info("applyComponentSwap: Using existing content_data from page_component",
 			zap.Int("field_count", len(cd)))
+	}
+
+	// bugs_open/184: same gated strip as applyContentEdit, before the render.
+	if stripMarkdown {
+		if changed := datahelpers.StripLiteralMarkdownFromContentData(contentData); len(changed) > 0 {
+			logger.Info("applyComponentSwap: stripped literal markdown",
+				zap.Strings("fields", changed))
+		}
 	}
 
 	// Build render context from DB with existing content_data

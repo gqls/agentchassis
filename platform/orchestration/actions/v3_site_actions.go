@@ -2004,6 +2004,24 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 			if comp != nil && len(comp.InputSchema) > 0 {
 				reconcileGeneratedItemKeys(contentData, expectedItemFieldsFromComponentSchema(comp.InputSchema), componentFunction, params.Logger)
 			}
+
+			// bugs_open/184: strip literal markdown (**bold**, `code spans`,
+			// # headings, [links](url)) from plain-text LLM fields at birth, so
+			// BOTH surfaces — the render context and the persisted content_data
+			// captured below — are built from clean values. text/template
+			// escapes nothing, so the syntax would reach the visitor verbatim.
+			// Strip-only (never inserts markup into the unescaping pipe);
+			// markup-bearing values keep their backticks/brackets (the check's
+			// own suppression rule). Opt-in per step, default OFF: enabled by
+			// migration 474 on page-content-writer's render_section. Every
+			// strip is logged — the demand control proving the seam fires.
+			if on, _ := config["strip_literal_markdown"].(bool); on {
+				if changed := datahelpers.StripLiteralMarkdownFromContentData(contentData); len(changed) > 0 {
+					params.Logger.Info("RenderComponentAction: stripped literal markdown from LLM content",
+						zap.Strings("fields", changed),
+						zap.String("component", componentFunction))
+				}
+			}
 			sectionContentData = contentData // ← capture before merge
 			params.Logger.Info("RenderComponentAction: Merging content data",
 				zap.String("content_field", contentField),
