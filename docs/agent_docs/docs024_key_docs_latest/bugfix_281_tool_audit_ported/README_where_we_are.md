@@ -342,3 +342,55 @@ same missing-entry problem is still there for a *different* state. There is one 
 that has been stuck for thirty-six days. It is much less harmful — it does not clog anything up the
 way the other one did — but it is the same gap, and I have written it down where the next person
 will find it rather than quietly fixing a second thing you had not asked about.
+
+---
+
+**2026-08-18, evening.** I picked this lane up from the handoff, and the first useful thing I did
+was check whether the handoff was still true. It was not, in a good way. It said two things were
+outstanding and that one of them was waiting on a decision from you. Both had been finished by other
+sessions in the meantime — the stuck-job fix went live, and the small code tidy-up rode out with the
+last release. So there was nothing waiting on you there after all.
+
+I did check the big fix from yesterday is still working, and there was a moment where it looked like
+it might not be. The measurement I reached for first was how much data these jobs are carrying, and
+that number has gone up about sevenfold since yesterday's reading. That reads like the bug coming
+back. It is not. The bug made each lap of a job swallow the previous lap, so the giveaway is that
+each lap is roughly double the one before it. I went and looked at the individual laps on the three
+biggest jobs running now, and every lap is the same size — seventy-seven bytes, identical, no
+doubling anywhere. The extra bulk is just real work: more jobs, carrying more genuine content. Worth
+saying plainly, because if I had reported the first number without checking the second I would have
+told you a fixed thing was broken.
+
+The thirty-six-day-old stuck job I mentioned in my last note is now properly investigated and
+written up. It is the same hole as the one we just fixed, one door along. When a job finishes or
+fails, something clears it away after a day. When a job gets wedged, something notices and kills it
+after four hours. But there is one early state — the moment just after a job is created, before it
+starts running — that nothing watches and nothing tidies. A job only sits there for a few
+thousandths of a second normally, so it is very rare; but if the machine handling it dies in exactly
+that instant, the job sits there for ever and nobody ever looks at it again.
+
+Two things I want to be clear about, because it would be easy to read this as worse than it is.
+It is not causing an outage: the health-checking system these two stuck jobs came from ran 964 jobs
+successfully in the last day, the most recent a few minutes before I looked. So we are talking about
+roughly one in a thousand, not a broken pipeline. And unlike the last one, these stuck jobs do not
+hold onto messaging resources, so they are not feeding the memory problem we have elsewhere. The
+cost is a permanent bit of clutter and one silently lost piece of work each time.
+
+**I have written the fix and tested it thoroughly, and I have deliberately not switched it on.**
+This is the kind of change that takes effect the instant it is saved, with no build or deployment
+step in between to catch a mistake, and it edits something that runs across the whole fleet. That
+makes it your call rather than mine. What I have done is prove everything that can be proved without
+switching it on: I ran the fix against a copy of the real thing and undid it afterwards, and it
+correctly killed the thirty-six-day-old job while leaving a deliberately fresh one alone in the same
+pass. I also deliberately corrupted the fix to check my own safety checks would catch it — they did.
+And I checked it refuses to run rather than overwrite someone else's work if another session has
+edited the same thing in the meantime. The live system is untouched; I verified that afterwards.
+
+One more thing I found along the way, which is not biting yet but will bite whoever touches it. We
+have a feature for pausing a job to wait for a human. Nobody has switched it on. When someone does,
+they will hit a spelling mismatch: the code writes one name for that paused state, and five
+different places that are supposed to protect a paused job are all looking for a slightly different
+name. So a paused job would quietly have its messaging resources deleted out from under it while
+looking perfectly healthy. Oddly, our test tool has the right spelling and the real system has the
+wrong one. I have not fixed it — nothing is broken today and it is not what you asked for — but I
+have written it down in the place people check before touching unfamiliar code.
