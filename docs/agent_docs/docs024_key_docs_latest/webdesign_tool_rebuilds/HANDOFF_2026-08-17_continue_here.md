@@ -4,7 +4,7 @@ Read: this file → `PLAN_2026-08-15_…` (design + THREE owner rulings + two co
 `RUNBOOK_…` (every command, incl. the two filing gates) → `NOTES_…` (evidence + missteps, newest at
 the bottom) → `SUMMARY_2026-08-16_…` → `architecture_review/RFC_036_…` (the parked question).
 
-## The recipe. It is PROVEN — three tools live, one failed for a reason now designed out.
+## The recipe. It is PROVEN — FIVE tools live, one failed for a reason now designed out.
 
 1. **Read the LIVE tool's `<script>`** and write the spec from its behaviour. Never from its page copy.
    Describe *intent* where the ported version is defective (3 of 5 so far were), but do not add features.
@@ -25,7 +25,7 @@ the bottom) → `SUMMARY_2026-08-16_…` → `architecture_review/RFC_036_…` (
    after must equal the md5 before. **There is NO `page_component_history` archive row for a retire**
    (the trigger is `AFTER UPDATE OF rendered_html`); the surviving row IS the handle.
    **The race is real: the generator queues its own assemble-only rerender and the margin has been as
-   little as ~2 minutes.** Retire the moment the component grades — not after writing it up.
+   little as ~2 minutes, and it was LOST once at ~96.** Retire the moment the component grades — not after writing it up.
 6. **Grade at the served page**, `http=200` asserted FIRST (`/tools/<x>/` is a 404 that passes every
    cleanliness check), with a negative and a positive control in the same breath.
 
