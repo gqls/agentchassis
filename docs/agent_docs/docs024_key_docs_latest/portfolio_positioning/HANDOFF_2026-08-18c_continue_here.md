@@ -45,9 +45,27 @@ identical item types handled by identical agents (`build-site-planner`, `site-de
 agent and the classifier still writes `recommended_builder: "pageflow-builder"`, but **no Go
 code reads that field** outside doc-comment examples — a leftover from the older intake route.
 
-## 3. ⚠ TWO THINGS NEED THE OWNER'S HANDS
+## 3. ✅ www→apex is DONE (was §3(i)) · ⚠ ONE THING STILL NEEDS THE OWNER
 
-**(i) Deploy the www redirect — one command.** `scripts/cloudflare/worker.js` now 301s
+> **✅ COMPLETED 2026-08-18 20:07Z — do not redo this.** The owner deployed the worker
+> (20:02:37Z) and the fan-out ran: **28 DNS records + 7 routes added, 0 failed, and
+> 36 of 36 applicable zones verified 301ing `www.<domain>` → apex** (path and query
+> preserved). 3 deliberately skipped: `idea.uk` (no route to the worker — a proxied A
+> there is a 522 black hole), `relojistas.com` (www serves a real page off another host),
+> `webdesign.uk` (deliberate 302 to webdesign.co.uk). `robot-hands.com` and
+> `leopardessconsulting.co.uk` had a hanging `www` and are fixed as a side effect.
+> **Post-deploy fleet health swept: 36/39 apexes serving; the 3 exceptions are `apis.uk`
+> and `ugg2.com` (no site row at all — parked) and `loanzy.uk` (cleared by the owner).**
+> Two traps that made a WORKING change look broken, both now in `LANDMINES.md` and the
+> runbook: a newly created worker route **522s** for the first few requests (522 is exactly
+> "no worker, dead origin", so it reads as failure), and your own resolver's **negative DNS
+> cache** makes a record you just created report `Could not resolve host` for minutes. Ask
+> authoritative DNS and pin the IP with `--resolve`; retry a 522 three times before
+> believing it. Neither is a reason to undo anything.
+
+### ⚠ STILL NEEDS THE OWNER
+
+**(i) ~~Deploy the www redirect~~ — DONE 20:02Z, see the box above. Kept for the record:** `scripts/cloudflare/worker.js` now 301s
 `www.<domain>` → apex (committed `407e334fb`). The deploy is blocked for a session by the
 permission classifier, which is proportionate: a bad PUT of this one file takes **all 39
 zones** down.
@@ -75,7 +93,7 @@ proxied A → 192.0.2.1 there is a 522 black hole), `relojistas.com` already ser
 this fixes them. **Correction to 18b's §4:** "www resolves NOWHERE across all 36 zones" was
 too uniform — 8 of 39 have a record, in four different states.
 
-**(ii) The pilot's lender page is stale — say the word.** It serves 2 lenders; the register
+**(ii) THE ONE OPEN ITEM — the pilot's lender page is stale; say the word.** It serves 2 lenders; the register
 now holds 25. It refreshes on the directory publish path, but the site is LOCKED under §1,
 so nothing will re-render it. A single page refresh is not a build, but it is a change to a
 live site under your halt, so it is your call.
