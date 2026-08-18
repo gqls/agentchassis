@@ -470,3 +470,35 @@ instead — worst case, one sentence, with the original in hand.
 **The general shape, which is the transferable part:** *a config key nothing has ever set is untested
 by definition, and the act of exercising it for a test is the first time anyone finds out what it
 does.* I proved the floor fires and discovered its threshold was unbounded in the same command.
+
+## 2026-08-18, later — the third "fresh build" notice did NOT reach the chassis, and pod churn is why it looked like it had
+
+Checked because the clamp (`d5b40c4eb`) was the one thing outstanding. It is **not** live, and no new
+chassis image exists:
+
+| check | reading |
+|---|---|
+| chassis pods | `v1.0.1309`, **the same two pods**, still started `15:45:31Z`/`15:45:53Z` |
+| stamp on the binary | `f0117fb8b` — **unchanged** from the previous check |
+| `d5b40c4eb` in the image? | **no**, and decisively: `f0117fb8b` is an ANCESTOR of it |
+| timing | build's commit `16:26:18`, the clamp `17:28:28` — the build was cut **an hour before the clamp existed**, with 46 commits between |
+| `IMAGE_TAG` (makefile) | still `v1.0.1309`, unbumped; chassis overlay `newTag: v1.0.1309` |
+| fleet | **all 52** chassis-image pods on `v1.0.1309` |
+
+**What made it look like a deploy: POD CHURN ON THE SAME TAG.** The newest pods in the namespace
+started at `16:40` — `agent-page-build-handler`, `agent-css-patch-agent`, `agent-build-dispatch-loop`,
+`agent-component-creator`, `agent-page-content-writer` — all on `v1.0.1309`. Those are the ephemeral
+per-job handlers spawning and exiting continuously, so `get pods` always shows fresh start times and a
+recent-looking fleet. **Newness of pods is not newness of code**, and on this estate the tell is that
+the two long-lived `agent-chassis` pods did not restart at all.
+
+This is the third such notice in this lane's thread. The first two DID carry new code (`v1.0.1307`
+brought the axis fix and the section editor's half; `v1.0.1309` brought the two council-round commits).
+This one carried nothing new for the chassis. **The ancestry check is what separates them, and the
+cheapest decisive form is not "is my commit in the stamp" but "is the STAMP an ancestor of my commit" —
+if it is, the build predates the code and no further checking is needed.**
+
+Nothing else is owed on `bugs_closed/293`: the filed defect is fixed, live, and proven at the artefact
+in both directions. The clamp is a hardening found while verifying, it is committed with its mutation
+test, and it will ride whichever build is cut next — no action needed from this lane, since a release is
+whole-fleet and the owner runs it.

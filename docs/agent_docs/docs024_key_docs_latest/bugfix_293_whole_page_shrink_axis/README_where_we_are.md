@@ -228,3 +228,22 @@ whole messages and those quote the same phrase. It now reads the version out of 
 
 That's the thread. The bug is closed, the fix is live and has been seen doing its job in both
 directions, and the cap rides the next roll.
+
+## 2026-08-18, closing — this time the new build hadn't actually reached the chassis
+
+The one thing left over was the cap I added yesterday evening. It isn't running yet, and the reason is
+simple: **no new chassis image has been built since the one already running.** The two long-lived
+chassis pods haven't restarted, the version is the same, and the program still reports the same commit
+it did before. Decisively, the code that build was cut from is *older* than my cap — by about an hour.
+
+What made it look like a deployment is worth knowing, because it will happen again: the fleet is full of
+short-lived pods that spawn for one job and exit, so a listing always shows things that started minutes
+ago. Five had started at 16:40. All of them on the *old* version. **Fresh pods are not fresh code** —
+and the giveaway is that the two permanent chassis pods didn't move at all.
+
+To be clear about the record: the two previous "fresh build" notices in this thread *did* carry new
+code, and that's how the fix and its council refinements got live. This one didn't.
+
+Nothing is stuck. The bug is closed, the fix is live and has been watched working in both directions,
+and the cap is committed with a test that fails if it's removed. It'll come into effect on whichever
+build gets cut next — no action needed from me, since a release goes out fleet-wide and you run that.
