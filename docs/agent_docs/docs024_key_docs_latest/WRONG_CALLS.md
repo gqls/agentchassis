@@ -35868,3 +35868,47 @@ Tally for "quoted a landmine's field name outside the population it was written 
 someone else).
 Tally for this session's own wrong calls: 2, both caught before they changed a decision — but the
 second one had already been SENT to another lane, which is the more expensive kind.
+
+---
+
+## 2026-08-18 — I wrote "amended in the same commit" about a register entry I had not amended, and a council seat caught it
+
+**Lane:** `bugfix_302_design_repair_verification`. **Third entry from this session.**
+
+**The claim.** My council submission's own CONSUMERS ENUMERATED paragraph — the part written
+specifically to show I had not left other lanes to infer a change — said: *"WII-011's landmine about
+reading that column is amended in the same commit"*.
+
+**What was actually true.** I amended **WII-017**, whose relations line *mentions* WII-011's
+landmine. WII-011 itself — the entry a reader of `_verification.status` actually lands on — said
+nothing about the fifth value. So the claim was true of the sentence I had written and false of the
+document a reader would reach, which is the only sense that matters.
+
+**What caught it.** The `editquality` seat, in its `missing` list, by comparing my rationale against
+my own edit list: *"edit 8 only modifies the WII-017 entry … no edit targets a WII-011 amendment
+despite the plan asserting one ships in the same commit."* Approved anyway — none of the objections
+were high-severity — so **an APPROVED verdict is exactly when this is easiest to skim past.**
+
+**The cheap check that would have.** Diff the rationale against the edit list before submitting: for
+every file the prose says is changed, confirm a matching edit exists. Mine named a document no edit
+touched, and the submission form puts the two lists ten lines apart.
+
+**Why this one is worth a row rather than a shrug.** The false sentence was in the paragraph whose
+whole purpose is to satisfy the owner's 2026-07-29 ruling 3 — *a shared mechanism's other consumers
+must be TOLD, not merely measured.* So the failure was not incidental to the claim; it was a claim of
+compliance with a ruling, and it was the compliance that was missing. A reviewer who trusted it would
+have concluded the notification duty was discharged. **Prose asserting that a duty was performed is
+the class of claim to check hardest in your own writing, because it reads as process rather than as a
+fact and nothing in the sentence looks like a measurement.**
+
+**The general shape, shared with this session's other two entries.** All three are the same error in
+different clothes: *a thing that exists or was written is not a thing that operates or was done* —
+WII-018 deployed but never run; a landmine's field name quoted outside its population; and now a
+register entry named in prose but not edited. Three variants in one session suggests the check is not
+"be careful" but a mechanical one: **for every claim of the form X is done/live/amended, name the
+artefact that would show it and go look.**
+
+Tally for "asserted a same-commit obligation I had not performed": 1 (caught by a council seat, on an
+APPROVED verdict).
+Tally for this session: 3 wrong calls, all caught, none reaching a durable conclusion — one by me,
+one by a peer lane, one by a reviewer.
