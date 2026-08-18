@@ -170,19 +170,49 @@ Then re-file and verify the served page carries the copy verbatim (handoff §3.1
 
 ### 2.2 Publish a sitemap and point robots.txt at it
 
-`./scripts/site-discovery-files.py dartsonline.com` (dry run first — it prints what it
-would change), then `--write`, then deploy. Run it when the site is not mid-build: the tool
-probes every URL and drops anything not returning 200 at that moment, which is correct
-behaviour and can silently under-list a page that is being rebuilt.
+**Done as far as it can be without a deploy decision: the three files are generated and
+waiting** `[MEASURED 2026-08-18]`. Dry run then `--write` into a scratch directory:
+
+```
+site dartsonline.com   live pages in DB: 23
+probed: 23 fetchable, 0 dropped
+wrote robots.txt (705 b), sitemap.xml (2407 b), llms.txt (4170 b)
+NOT committed and NOT deployed -- deliberately.
+```
+
+All 23 live URLs probe 200, so the sitemap advertises nothing dead.
+
+**The deploy route is concrete, and it is why the file is missing rather than broken**
+`[MEASURED]`: static sites are served from B2 out of a per-domain folder in the `sites`
+repo (local checkout `~/projects/sites/<domain>/`). `webdesign.co.uk/` in that repo
+contains `robots.txt` and `sitemap.xml`; **`dartsonline.com/` contains neither** — which is
+exactly the 404 we measure on the live site. So publishing is: pull, copy the three files
+into `~/projects/sites/dartsonline.com/`, commit **by pathspec** and push.
+
+**I have not pushed.** It deploys to a live site out of a repo other sessions also work in,
+and one file in it is a live decision the owner has open: the sitemap would list
+`/shipping-returns.html` (§1.4). Decide that page first, then ship the sitemap once.
 
 ⚠ Cloudflare's managed robots.txt is **prepended** to ours, not replaced — the tool detects
-this and says so. If the merge is on, our `Sitemap:` line still lands, but the AI-crawler
-blocks above it are Cloudflare's, not ours. Worth the owner knowing they are there:
-**ClaudeBot, GPTBot, CCBot, Google-Extended, Applebot-Extended, Bytespider and
-meta-externalagent are all currently disallowed** `[MEASURED]`, which is a business
-decision nobody in this lane made. If we want to be quotable by AI assistants — and for a
-guides site that is a genuine traffic source now — that is a Cloudflare dashboard setting
-to revisit.
+this and says so. Shipping our file will therefore **not** unblock any crawler: that is two
+dashboard settings, per zone, and both are needed (*Block AI training bots* → allow, and
+*Set your preference to block training in robots.txt* → no preference). Full recipe,
+including the per-agent verification loop — a single `curl` cannot tell you, because the
+file is served conditionally — is in `docs024_key_docs_latest/FLEET_GUIDANCE_discoverability.md` §2.
+
+Currently disallowed on this zone `[MEASURED]`: **ClaudeBot, GPTBot, CCBot,
+Google-Extended, Applebot-Extended, Amazonbot, Bytespider, meta-externalagent**. The owner
+ruled *allow everything, including training* for the relojistas zone on 2026-07-28; **every
+other zone, including this one, still carries the block.** The argument that decided it is
+worth re-reading before answering for darts (fleet guidance §4): a robots block is
+voluntary compliance, so it stops the crawlers that would cite and link us and does nothing
+to the ones that scrape without credit.
+
+> Note for anyone repeating the relojistas reasoning: **the "dead URLs are eating the crawl
+> budget" causation was WITHDRAWN** in that guidance — crawl budget is a large-site concept
+> and does not bind below a few thousand URLs. The sitemap is worth shipping because
+> **discovery** is the constraint on a 23-page site nobody links to, not because of crawl
+> budget. This plan does not rest on the withdrawn claim.
 
 ### 2.3 Get the number (owner)
 
