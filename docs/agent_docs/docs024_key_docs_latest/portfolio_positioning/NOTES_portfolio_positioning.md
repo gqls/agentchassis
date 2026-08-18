@@ -2373,7 +2373,7 @@ market-overview pages that name firms without stating quotable facts about them
 member list**) plus two single-society pages. Candidates 2, registered 1.
 
 So the cause was **source shape and slot count**, not the pipeline. Migration
-**471** (applied 18:31Z, DO/RAISE verified):
+**`471_widen_finance_directory_discovery.sql`** (applied 18:32:55Z, DO/RAISE verified). **⚠ cite the FILENAME:** another session applied a different `471_floor_held_remedy_partitions_failures_first.sql` at 18:30:39Z — `schema_migrations` keys on filename, so both are live and the ledger is right; a bare "471" is what is wrong. Changes:
 - `max_scrapes` 4 → 10, `num_results` 10 → 20, `max_snippets` 5 → 8. Sized against
   `bugs_closed/062` (a batch_scrape reply over ~1 MB is dropped and the caller
   starves): the 08-18 run carried **85 kB of scrape_results for 4 URLs**
