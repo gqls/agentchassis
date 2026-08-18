@@ -5388,3 +5388,36 @@ filed after it waits.
 > `attempt_count = 0` is the discriminator that settles it every time: it means never
 > tried, so nothing is failing and nothing is malformed. A non-zero count would be the
 > real signal.
+
+## 2026-08-18 — the "~1 item per 3 hours" figure, run down to its mechanism
+
+Asked to look at how to speed the drain rate up. Findings are fleet-level, so they are
+written up separately: **`dispatch_throughput/STARTER_2026-08-18_fleet_dispatch_drain_rate.md`**
+(measured, with the levers ranked and the traps named). Three things that matter to *this*
+lane, in short:
+
+1. **idea.uk is not draining at 1 item / 3 hours.** It completed **42 items on 08-17** —
+   1 claim at 15:xx, then nothing until 19:00, then 25 / 9 / 4 over three hours. The
+   3.5-hour gap was a wait for its **turn**, not a slow rate. Median handler runtime
+   fleet-wide is **36 seconds**.
+2. **The turn is slow because the whole fleet dispatches ONE site at a time.**
+   `build-pipeline-trigger` carries `max_concurrent: 8` and it is dead config — the
+   scheduler's group counter counts *task rows* (one enabled row in the group), and a
+   separate per-task guard permits one execution at a time regardless. Measured: never two
+   trigger runs in the same minute; productive runs average 218 s; ceiling ≈ 83 items/hour
+   for the **entire fleet**. Service order is strict fleet-wide FIFO by item age, so
+   anything this lane files goes behind every older item on every other site. That is the
+   whole explanation for §6's "give it hours, not minutes".
+3. **Nothing this lane can file will drain today, because there is nothing dispatchable.**
+   idea.uk has **0** triaged/approved/claimed. Its 31 `detected` rows all carry
+   `handler_agent = ''` and the promoter's routability guard refuses them — that is
+   `bugs_open/083` (606 `head_essentials_missing` rows across 21 sites fleet-wide), and it
+   is **actively owned** by the `bugfix_277_required_fields_repair` lane. Contribute there,
+   do not compete.
+
+> **A misstep worth recording, because it is the one I nearly wrote down as evidence.**
+> To test "is dispatch concurrent?" I counted distinct sites claimed per **5-minute**
+> bucket and got 2–6. That reads as concurrency and is worth nothing: five ticks at one
+> site each produce exactly the same number. The measurement only discriminates at
+> **1-minute** granularity, where it reads 1 in nearly every populated minute. The bucket
+> width, not the query, was the whole result.
