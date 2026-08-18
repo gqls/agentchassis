@@ -1190,3 +1190,40 @@ of them, and it costs about two minutes per tool.
 - **Ported slot retired 18:57:00Z — 101 s after the build.** `15b8323c…` to `removed`, 5,622 chars,
   md5 `16e9b46b5bffbc0e6ba2d62a0dd9733e` byte-identical. Asserted one deployed slot and that it is
   `3bd05c01`. Rerender `6980e048-5a3e-4df2-ab2d-9a8a228d228c` queued and watched.
+
+## 2026-08-18 20:12Z — #9 is NOT live: the DB is right, the rerender says `complete`, the ORIGIN is stale
+
+**First served-page failure of the batch that is NOT a cache artefact.** Graded cache-busted and it
+still shows the ported tool: `class="ported-page"` **1**, the ported ids (`b-type`, `b-name`, `b-img`,
+`b-url`, `b-phone`, `output`) present, the new component's marker **`scriptOpenTag` absent**,
+`onclick=` 1.
+
+**Everything upstream of the publish is correct — checked, not assumed:**
+- `page_components` on `3d1fbd02…`: ported `15b8323c` **`removed`** (18:57:00), native `2100c25e`
+  **`deployed`**, and its **stored `rendered_html` contains `scriptOpenTag` and does NOT contain
+  `b-type`** — so the new markup is in the database, 6,551 chars.
+- Rerender `6980e048` (`…_assemble`, correct spec) claimed 20:11:42, `complete` 20:12:06, `error` NULL,
+  orchestration COMPLETED with no `__step_error`.
+- **`last-modified: Tue, 18 Aug 2026 14:12:06 GMT`** with `cf-cache-status: DYNAMIC` (so this is the
+  ORIGIN's header, not an edge copy). **Three rerenders have completed since** — 15:18:58, 17:10:29,
+  20:12:06 — and the object has not been rewritten once.
+- **Isolated, not systemic:** the other four rebuilt pages are all correct right now and freshly
+  stamped — json-cleaner `ported-page=0` last-modified 19:08:55, smooth-shadow 0 / 19:08:54,
+  html-minifier 0 / 14:40:33, svg-optimizer 0 / 15:53:36. So the publish seam works; it is failing
+  on this one page.
+- **`last-modified` is trustworthy here** — the other four values line up with their own rerenders
+  (svg 15:53:36 against a rerender completing 15:53:17), which is what rules out a timezone artefact
+  in the 14:12:06 reading rather than my assuming it.
+
+**This is exactly CLAUDE.md's "trust the rendered artefact, not the status" with all three lower
+layers passing.** A `complete` item, a COMPLETED orchestration, a correct database — and stale bytes.
+Had I graded on status, or skipped the cache-buster and blamed the cache, I would have recorded #9 as
+live.
+
+**Decisive test filed rather than more theorising:** a fresh assemble-only republish,
+item `66a4e6cf-33bb-49b8-9e96-ca733bdea621`, distinct `item_key` so the dedup index cannot silently
+swallow it (`ON CONFLICT DO NOTHING` on the standard key would have looked like a successful file).
+If it completes and `last-modified` still does not move, that is a publish-seam defect on this page
+and gets its own bug; if it publishes, the three prior rerenders were dropped silently, which is also
+worth a bug. **Note `handler_agent` is NOT NULL on `site_work_items`** — the first attempt failed on
+that; the value for this type is `page-rerender`.
