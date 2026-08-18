@@ -2375,3 +2375,57 @@ line, in `bugs_closed/`.
 add-a-section case to `apply_section_edit`, which cannot add; and fix candidate 3 (route content
 findings on owned pages to `section_edit`, which completes there 18 times) is untouched. **This made
 a refusal visible; it did not make the page get repaired.**
+
+## 2026-08-18 — the fix's first full day: 59 refusals, and what they revealed is a bigger defect than the one I fixed
+
+Re-verified everything before building on it (91 commits and two chassis rolls since my last entry).
+**295's fix is still present on `v1.0.1308`** — marker 1, positive control `OWNED_PAGE_GUARD` 3,
+negative control (plausible fake sha) 0. Estate: `offer_ordering` 5 of 23; offer-analysis items
+26 (18 complete / 5 failed / 3 needs_human_review); sweep still disabled.
+
+### The rows are not noise, and the shape is the finding
+
+`[MEASURED 12:20 UTC]` **59 `owned_page_review` rows** from `save_page_sections` since 08-17 18:57,
+across 5 sites, all `needs_human_review`. **59 rows / 59 distinct `(site_id, item_key)`** — dedup
+is perfect; 58 distinct page names, the one overlap being `llm-cost-calculator` on two sites.
+
+Distribution is the interesting part, not the total:
+**webdesign.co.uk 49 · finetuning.uk 3 · loancash.co.uk 3 · leopardess 2 · vonc 2.**
+**49 of webdesign's 97 owned pages** — half — were the target of a generic save in fourteen hours.
+And it arrived as a burst: **23 rows at 03:00, 15 at 04:00.**
+
+### Following the burst produced `bugs_open/301`
+
+webdesign, 02:30–05:00, from `orchestration_states`:
+**39 `page-content-writer` COMPLETED · 39 `internal-link-resolver` COMPLETED · 39
+`page-build-handler` at `complete_error`.** Work items over the same window: 21 `needs_page` and
+17 `content_rewrite` **failed**.
+
+So the chain runs the LLM writer and the link resolver **to completion**, and only then refuses,
+because the ownership guard is `save_sections` — **step 12 of the workflow, when `rebuild_policy`
+is knowable at step 2** (`load_page_record` already has the row). Filed as `bugs_open/301` with the
+preferred fix (refuse at step 2, keep the save-path guard as the backstop — removing it re-opens
+295) and a verification recipe with both controls.
+
+⚠ **Stated as unmeasured in the bug file and repeated here because it is the weak joint:** the
+39/39/39 correspondence is **three aggregates over one window, not a per-orchestration join.** It
+is strong — equal counts, matching window, matching failure mode — and it is still a correlation.
+The parent/child ids make the join easy, but `orchestration_states` retention is ~24h, so **it has
+to be done on a fresh burst.** I did not do it, and I have not costed the tokens either; 39 runs is
+a count, not spend.
+
+### What this says about the fix I shipped yesterday
+
+**The fix did not create this waste; it made it countable.** Before 08-17 18:57 those 39 chains ran
+and vanished nightly with no row anywhere — the only trace was a `failed` work item whose reason
+expired within a day. `bugs_closed/295` was filed as a *reporting* gap and graded as one, and the
+first thing its reporting produced was a *cost* defect an order of magnitude more expensive than
+the missing rows. **That is the argument for fixing observability before behaviour**, and it is
+worth remembering the next time a reporting-only fix looks like the boring option.
+
+⚠ **Also worth watching, and it is the honest counter-argument:** 59 unactioned
+`needs_human_review` rows in fourteen hours is `bugs_open/115`'s shape. They cannot inflate
+dispatch (terminal, unclaimable) and cannot trip the sweep's 50-item guard (which counts only
+`triaged`/`detected`) — verified against the pre_query — but nothing drains them. **If 301 lands,
+the arrival rate should fall sharply, and that fall is a better post-fix measurement than any
+count of the rows themselves.**
