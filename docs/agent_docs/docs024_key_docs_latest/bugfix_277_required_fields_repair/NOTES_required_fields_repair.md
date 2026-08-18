@@ -565,3 +565,39 @@ checked, and all five existing `truncate*` helpers are unexported inside
 
 **Told the `bugs_open/297` lane about the duplicate migration number** (their `453` is the unapplied
 one, so renumbering is free; `459` was clear at 22:15Z). Not edited by me.
+
+## 2026-08-18 — post-roll: the residual is CLOSED at the service, and it immediately found 14 rows nobody could see
+
+`kafka-scheduler:v1.0.1309`, pod started 15:45:39Z, own `build provenance` line
+`git_commit=f0117fb8b`; `03012d862` confirmed an ancestor. Full record in `bugs_open/083` §1-5.
+
+**A control that could not fail, recorded because it briefly alarmed me.** My first negative control
+was "my last commit must NOT be in the build" — it read as an ancestor. That is not a failure: the
+build post-dates all of yesterday's work. A commit that cannot be absent is not a control. Re-run
+against a commit made *after* the build revision (`3f1426a8d`), it behaves. Same discipline as
+`444`'s positive control, applied to git rather than to SQL.
+
+**The residual is closed on its real criterion** — not "the column exists" but a live tick's held
+count legible in the service's own log:
+
+```
+"pre_query_result":"{\"held\":\"16\",\"held_detail\":\"… literal_markdown->page-build-handler
+ (pair below the 25% success floor); placeholder_contact->page-build-handler (never completed) …\",
+ \"pairs\":null,\"promoted\":\"0\"}"
+```
+
+and the two branches now discriminate (`thunder-reaper` takes `:218` "found no rows"; the promoter
+takes `:286`). Before this build both emitted the identical sentence.
+
+**Held: 2 rows → 16 rows across 5 pairs, overnight, invisible the whole time.** `literal_markdown →
+page-build-handler` alone is 10 rows on 2 sites, held by `444`'s floor at 3 ok / 24 failed = 11%.
+The other four pairs (6 rows) have never completed one and are waiting on a hand canary; two of them
+(`dead_fragment_link`, `missing_conversion_path`) have never been dispatched at all, so their handler
+is genuinely unmeasured rather than known-bad.
+
+**⚠ CLOCK: `453`'s one-way door fires tomorrow.** `result ? 'held_pair_escalation'` is 0 across all
+16 — the limit is 3 days and the oldest held row (`placeholder_contact`, 2026-08-16) is at 1.9 days,
+so it crosses on **2026-08-19**. Those 3 rows then move to `needs_human_review`, which the promoter
+never selects and nothing returns from. Yesterday this interaction had 5 rows behind it; now it has
+16, first 3 due within a day. Not patched here — the door was deliberate and reclaiming escalated
+rows after a successful canary is `453`'s author's call or the owner's.

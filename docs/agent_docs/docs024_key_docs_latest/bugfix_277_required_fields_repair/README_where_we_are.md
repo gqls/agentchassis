@@ -375,3 +375,44 @@ than papered over: another session found that completed work records have been d
 the database and nobody yet knows why. All of this counting reads that same table, so if records
 can vanish, the promoter can decide a handler "has never succeeded" when it has. That needs the
 diagnosis run someone has already recommended.
+
+---
+
+## 2026-08-18 — the logging change went live, and the first thing it did was find fourteen problems we could not see
+
+The fresh build carried the scheduler change. I checked it at the service rather than trusting the
+deploy: the pod states which commit built it, and ours is in it. (One honest wobble: my first sanity
+check was meaningless. I checked that yesterday's last commit was *absent* from the build — it
+wasn't, because the build is newer than everything I did yesterday, so nothing of mine could have
+been absent. A test that cannot fail isn't a test. Redone properly against a commit made after the
+build, it behaved.)
+
+**What the change was for, and what it found.** Until today, this background job wrote a short
+summary of what it did on every run, and the scheduler threw it away unread. Every run logged the
+same sentence whether it moved twenty items or none. It now reports itself — and a job with nothing
+to do now says so, which is a different sentence from a job that did something. Those two cases were
+indistinguishable before.
+
+**Then it told us something we did not know.** Yesterday I measured, by hand, that the promoter was
+holding back two findings. Today its own log says **sixteen**, across five kinds of repair. That is
+an eight-fold increase overnight, and it was completely invisible the whole time. The mechanism is
+behaving exactly as designed — it refuses to hand work to a repair type nobody has supervised — but
+"the machine is fine" and "sixteen real complaints about live pages are parked" are both true at
+once, and only the second one is a problem you can now see.
+
+Ten of the sixteen are one kind: a page-formatting defect whose repair handler succeeds about one
+time in nine. Yesterday's new safety rule is deliberately holding those back rather than feeding a
+handler that mostly fails — which is right, and it is also why those ten pages stay broken. That
+handler is already someone else's open bug.
+
+**One thing has a clock on it, which is why I am flagging rather than filing it.** Yesterday we added
+a rule that nags when something has been held too long: after three days it moves the finding into
+the queue a human reads. Three of these sixteen cross that line **tomorrow**. The problem is that the
+move is one-way — the promoter can never pick those rows up again, even if we later prove the repair
+type works. So tomorrow, three real findings quietly leave the automated path for a human queue with
+829 items in it. It is a small version of the exact bug this whole piece of work was about, and the
+fix is not mine to choose because the three-day rule was built on purpose by another session.
+
+**On the original bug: it is done.** Everything 083 was filed for has been answered and checked at
+the artefact rather than asserted. What is left in that file is not its own machinery but the
+questions the new visibility raised, each of which has a named owner or needs a decision from you.
