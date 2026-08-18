@@ -555,3 +555,54 @@ recorded in fleet memory. The code is committed, so it rides the next roll. What
 is in the PLAN: a three-needle binary scan on **both** replicas (the new literal, a long-live control,
 a nonsense needle), then the honest status **"deployed, not behaviourally proven"** until a real or
 induced row exercises the refusal.
+
+---
+
+## 2026-08-18 18:38Z — ROLLED on `v1.0.1310`. Proven present on both replicas; behaviourally unproven, and one control is VACUOUS
+
+The owner reported a fresh chassis build. Verified rather than believed, because a fresh tag is not
+evidence that new code shipped.
+
+### The deploy, proven at the artefact
+
+| check | result |
+|---|---|
+| pods | `v1.0.1310`, both replicas, started **18:00:06Z / 18:00:29Z**, 0 restarts |
+| `build provenance` log line | **scrolled past `--tail=4000`** on both — "could not look", NOT "unstamped" |
+| image label `org.opencontainers.image.revision` | `0b185bad2a49c6e032352fa9e7d0b429f0a95104` |
+| **positive** `merge-base --is-ancestor 743bc1945 0b185bad2` | **IN the build** |
+| **control** `merge-base --is-ancestor 01770302d(HEAD) 0b185bad2` | **NOT in the build** → the check discriminates |
+| running `imageID` digest vs local tag | `sha256:9ca35bac…` on **both**, identical → the tag I inspected IS what runs |
+| binary probe, each replica separately | `handler_result_unreadable` **present** · long-live control `NO_CHANGE_GATE_UNREADABLE_RESULT` **present** · `handler_result_unreadableV2` and `unreadableRefusesXX` **absent** |
+
+⚠ **MY FIRST CONTROL WAS MIS-CHOSEN AND "FAILED", AND THAT NEEDED EXPLAINING RATHER THAN IGNORING.**
+I picked my own `SUMMARY` commit `370c42ef1` as the must-be-absent control, expecting it to postdate
+the build. It read as IN. The check was not broken — **the commit genuinely predates the build**
+(SUMMARY 17:31:25Z, build commit 17:43:19Z), so it was a control that could not come out the other
+way. Re-run against HEAD (`01770302d`, genuinely later) it behaves correctly. **A control chosen from
+"I think this came after" is not a control; take the timestamps first.** Lesson generalises: the thing
+that makes a control a control is that you have checked it CAN fail, not that it feels later.
+
+### The behavioural half — and the control that proves nothing here
+
+[MEASURED 18:38Z, i.e. 38 minutes after the roll]
+
+| question | answer |
+|---|---|
+| `dark_section_audit` rows touched since the roll | **0** |
+| rows carrying `_verification.status='handler_result_unreadable'` | **0** |
+| fresh `NO_CHANGE_GATE_UNREADABLE_RESULT` records since the roll | **0** |
+| fleet completions in the same window (demand control) | **18** |
+
+⚠ **The third row is the one my own PLAN nominated as the standing control** — "a fresh abstain record
+for this type post-roll means the refusal is not wired". It reads 0. **It is VACUOUS**: with zero
+items of that type touched, the abstain path could not have fired whatever the binary contains, so the
+zero is consistent with the fix working, with the fix being absent, and with the gate never running.
+It is not evidence in either direction, and recording it as a pass would be exactly the failure mode
+in fleet memory — *a post-fix ZERO needs a DEMAND control*. The demand control (18 fleet completions)
+confirms the fleet is alive but says nothing about this type.
+
+**So the status is precisely what the PLAN predicted before the roll: "deployed, not behaviourally
+proven."** What carries it is the wiring test (M5), not a live row. Proving it for real needs
+manufactured demand — a one-shot design-discovery envelope at one site — which is a cost decision and
+the owner's, not a verification convenience. Both carriers for the type remain `enabled=false`.
