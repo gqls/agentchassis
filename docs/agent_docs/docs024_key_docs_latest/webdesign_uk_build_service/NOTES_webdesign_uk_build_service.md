@@ -3922,3 +3922,83 @@ writer what not to invent.
 **Final state: zero fact claims and zero non-`evidence_base` current specs assert
 any retired term.** The only remaining matches are the `banned_claims` patterns
 whose job is to match them.
+
+## 2026-08-18 (~13:3xZ) — TASK 2 DONE: the briefing questionnaire now works for any sort of site
+
+`SQL_2026-08-18g`, applied and verified at the live row. 11 fields → 15.
+
+### Why this one object matters more than it looks
+
+**Exactly one agent_definitions row in the fleet has a non-empty
+`briefing_questionnaire`: `pageflow-builder`.** And `recommended_builder` is
+`pageflow-builder` on **20 of the 21** sites that have a briefing spec (the 21st,
+cookly.uk, is null). So this single object shapes the brief for effectively every
+site we build. It is not a legacy corner.
+
+### The measured case for reshaping it
+
+The old eleven fields were a corporate brochure intake form: `company_name`*,
+`about_us`*, `tagline`, `services`*, `leadership_team`, `case_studies`,
+`contact_email`*, `contact_phone`, `headquarters`, `has_blog`, `has_careers`.
+
+Fleet-wide site types, from `classification`:
+
+| site_type | count |
+|---|---|
+| interactive-platform | 12 |
+| brochure | 6 |
+| interactive | 2 |
+| ecommerce / editorial / hub | 1 each |
+
+**Only 6 of 23 are brochures**, and every one of the other 17 was still being asked
+for its services, leadership team and case studies. And `site_type` is settled
+BEFORE the questionnaire runs (`domain-research-classifier` writes `classification`;
+webdesign.uk reads `brochure`, confidence 0.97), so the questions arrive already
+knowing they do not fit. The owner's recollection on that ordering was right.
+
+### What it asks now, and the correlation that was the point
+
+`site_purpose` · `audience` · `site_jobs` · `voice` · `avoid` — the five things
+`MISSION_2026-08-04_webdesign_uk.txt` shows a good brief for this system carries,
+and exactly what the chat's prompt-maker draws out of a visitor. **What the chat
+collects now has somewhere to land, field for field.** `offerings` replaces
+`services` and is optional, so a club or personal site is no longer forced to
+invent a service line.
+
+### The safety check that shaped the design
+
+Before renaming anything I checked what consumes these names:
+
+- **`company_name` is referenced by 18 live agent_definitions and is a column on
+  `sites`.** It STAYS, spelled exactly that and still required. Only its label
+  changed, to "Name of the site, business, group or person it is for".
+- `about_us`, `leadership_team`, `case_studies`, `has_careers` are referenced by
+  **no** agent config — all four came back false across every live row. Safe to retire.
+- Downstream is an LLM, not a parser: `build-site-planner` interpolates the whole
+  blob as `{{.site_specs.specs.briefing}}` and never names a field.
+
+`has_careers` is subsumed by `extra_sections` (careers, gallery, events, downloads,
+opening times — whatever the type needs), which is strictly more expressive.
+`contact_email` stays required and unchanged: relaxing it is a separate decision and
+dropping it risks sites with no contact route.
+
+### Verification
+
+Backup taken first (`agent_def_pageflow_questionnaire_backup_20260818`), and the
+guard asserts the backup actually contains the OLD shape rather than trusting that
+the CREATE TABLE did something. Guards: 15 questions, `company_name` present exactly
+once and required, all five brief-shaping fields present, all six business-only
+fields gone. **Run against the old questionnaire first, the guard failed**
+("expected 15 questions, found 11") — a guard that has only seen the state it was
+written for proves nothing.
+
+### Still open, and it is the owner's call
+
+He asked whether to drop pageflow-builder for the submit-domain route or improve
+pageflow. The evidence above says **improve it**: it is not a side route, it is the
+route 20 of 21 sites take. The real difference he named is real though, and this
+questionnaire does not resolve it: pageflow builds in one flow, the normal cycle
+files triage items which is better but slower and makes delivery times harder to
+promise. Under the new one-shot commercial terms, "usually ready the next day" is an
+attested fact and a triage-driven build cannot honour it reliably. That is the
+tension to decide, not the builder's age.
