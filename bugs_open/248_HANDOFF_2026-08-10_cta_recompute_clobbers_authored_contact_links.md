@@ -610,3 +610,75 @@ keep; nothing here changes your design.
    halves being pod-verified live.** Please tell us (session `299 CTA dials phone`, or a
    dated line here) when your half is committed/rolled so the unhold can be sequenced —
    or if you would rather the unhold wait for anything else on your side.
+
+---
+
+## COUNCIL + LIVE PROOF 2026-08-18 — APPROVED round 1, and the fix is proven at the artefact
+
+### Council: APPROVED (round 1), corr `d9839782-ad06-4977-8c63-fbad167d88f3`
+
+*"approved with 4 advisory objection(s) — none high-severity"*. 8 seats approved, 4 objected
+without blocking, 5 abstained. The commit carries `Council-Submitted:`, so `098` credits it
+automatically; no amend, and no `Council-Reviewed:` was written by hand.
+
+**Every checkable objection was checked. Three were answerable, one corrects my wording, one
+is accepted as a follow-up.**
+
+| seat | objection | answer |
+|---|---|---|
+| `bug_historian` | `candidatesFromHubs` is shared — does a non-CTA consumer silently lose candidates? | **No. Exactly 2 callers**, both CTA writers: `resolve_internal_links_action.go:157` and `rerender_page_sections_action.go:731`. |
+| `guardian` | `loadExistingSectionContentData` is a shared read — other callers relying on the old unordered semantics? | **No. Exactly 1 caller** (`resolve_internal_links_action.go:163`), inside the file that defines it. |
+| `prior_art_librarian` | the "no revalidator is registered for this type" claim was asserted, not looked up | **True, and it is test-pinned**: `revalidate_review_queue_test.go:208-209` fails if the type ever enters `reviewRevalidators`. Lookup now attached, which is what the seat asked for. |
+| `prior_art_librarian` | is `check_misdirected_cta` the ONLY producer, or will a second keep the queue filling? | **Only producer** — one `ItemType: "cta_names_unknown_destination"` in the tree, `check_misdirected_cta.go:325`. |
+| `editquality` | the keep-branch may sit BEFORE the label match, pre-empting a real-page match | **It does not**, and the ordering is pinned by a test on each writer (`…StillRepairsFabricatedContactWithPageNamingLabel`). The seat said it could not confirm ordering from a declarations-only index — correct, and the tests are the answer. |
+| `editquality` | could 203's fabricated fallback target an EXISTING valid contact page, so the predicate freezes a fabrication? | **Yes, in principle — stated openly rather than argued away.** The harm is bounded and asymmetric: a frozen fabrication is a *working* link to the contact page, against a *destroyed* authored link as the harm prevented. Measured: every remaining at-risk row postdates migration 091 (2026-07-14), which removed the unconditional writer. |
+| `bug_historian` / `guardian` | where does the DEMOTED finding actually land? | **⚠ My wording was too strong.** It lands in the action's result map (`discovery_checks.go:330`) and so in `orchestration_states.collected_data` — 639 runs carry a `findings` key in the last 7 days, and that table spans **~30 days** (2026-07-19..2026-08-18). So it is **queryable for about a month, not permanent, and nothing downstream reads it.** "Still emitted" is true; "durable" would have been an overstatement. |
+| `reuse_agent` | the write-plus-carry-title block is duplicated across the two writers | **Fair, ACCEPTED as a follow-up, not done post-approval.** Two writers already diverged once — that divergence is how this bug got its fourth unfiled consumer — so the seat's instinct is right. Not folded in here because the approved plan and the shipped code should not drift after a verdict. |
+| `editquality` | no edit repairs the already-clobbered rows | **Correct and deliberate.** Owner decision 2026-08-18: repair is a separate live-site operation, and doing it before the fix rolled would have been undone. |
+
+### Proven at the artefact — the fix is LIVE
+
+**Binary.** Chassis `v1.0.1310`, build commit `0b185bad2a49c6e032352fa9e7d0b429f0a95104`;
+`git merge-base --is-ancestor 53a8d3c1d 0b185bad2a4` passes. Extracted from the running
+binary (`grep -aoE '[0-9a-f]{40}' /proc/1/exe | sort -u` → 79 runs, exactly one a real commit
+object by `git cat-file -e`), positive control `build provenance` present.
+
+**A real `cta_links_stale` rerender, dispatched at a live page.**
+`leopardessconsulting.co.uk/how-it-works`, corr `abe311ea-f2c0-4847-801e-75218d2f3ee1`,
+COMPLETED:
+
+| | before | after |
+|---|---|---|
+| `hero.cta_url` ("Walk us through your problem") | `/contact.html` | **`/contact.html`** |
+| `call-to-action.primary_cta_url` ("Describe the job") | `/contact.html` | **`/contact.html`** |
+| row `updated_at` | 2026-07-18 15:27 | 2026-08-18 18:48:10 |
+| `rendered_html_digest` | *(empty)* | populated |
+
+**The demand control matters as much as the result.** `updated_at` advanced by a month and the
+digests went from empty to populated, and 14 `page_component_history` rows were archived by the
+run — so the rerender genuinely rewrote both components and *chose* to keep the CTA. Without
+that, "unchanged" would have been indistinguishable from a handler that never ran. Pre-fix,
+this is the exact run that would have replaced both values.
+
+**At the served page** — `curl https://leopardessconsulting.co.uk/how-it-works.html`:
+
+```
+<a href="/contact.html" class="btn btn-primary">Walk us through your problem
+<a href="/contact.html" class="cta-btn cta-btn-primary">Describe the job
+```
+
+with `/services.html` still present 3× as a negative control, so the page has not simply been
+pointed at contact wholesale.
+
+**Detector:** zero new excluded-area work items since the roll. ⚠ Weak on its own — no
+discovery run may have fired in that window — so this is *consistent with* the demotion, not
+proof of it. The demotion's real proof is the unit test plus the single-producer check above.
+
+### What is NOT proven, and cannot be yet
+
+**The build-path half has never executed in production.** See the correction above: its output
+is discarded before it reaches a page (`bugs_open/312`, held), so `setCTAField`'s keep-branch
+is unit- and mutation-tested only. The canary vouches for the rerender path alone. Whoever
+unholds 312 owns the first live exercise of that branch — `leopardessconsulting.co.uk`
+`/how-it-works` and `/index` each carry two authored `/contact.html` CTAs and are honest
+canaries for it.
