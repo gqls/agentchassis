@@ -35292,3 +35292,37 @@ question is what the buyer's risk is — not whether the domain string matches a
 
 **Cost:** none externally — caught by the owner in the same session, before any build. The
 register now carries the corrected entry and the precedent it should have cited.
+- **A TRUE FACT DOING NO WORK — the sixth instance, and a different failure from the other five.**
+  2026-08-18, jointly with the `bugs_open/029` lane. Handing that lane a population of ~107 failed
+  `page_rerender` rows, I wrote that three sites carried 72% of them **and** that
+  "webdesign.co.uk is still failing today". Both statements were arithmetically correct. Neither
+  was connected to the conclusion either of us drew from them.
+  - The **concentration** was a traffic artefact of a 2h35m GitHub API incident, not a property of
+    those sites. I handed it over labelled "offered not diagnosed", which was honest packaging,
+    but I had **never looked at the `error` column** — one query, and it decomposes the population
+    into git failures, content gating and timeouts at a glance.
+  - "**Still failing today**" was true — rows created 2026-08-18 at 00:38, 11:58, 11:59, 12:29Z —
+    and sat beside a closure whose incident window ended 2026-08-17 16:12Z. It did not corroborate
+    that closure; it was outside it entirely. When I finally pulled the error text, all 15
+    post-window rows were **content gating, zero timeouts** — a third population neither of us had
+    named.
+  **Why this is not the same defect as the other five in this file.** Those were instruments that
+  could not discriminate: an aggregate that could only return a smaller number, a filtered count, a
+  timestamp column with a guaranteed answer, a log grep with a zero control, an asserted absence
+  with no query behind it. **This one is a correct reading, honestly obtained, that was allowed to
+  function as support for a claim it had no bearing on.** The other lane put it best: an untested
+  true claim reads exactly like a tested one, **and it is harder to catch precisely because
+  checking it feels redundant** — the instinct is "that fact is true, what is there to check?",
+  when the thing needing the check is not the fact but its RELEVANCE.
+  **The check: state which conclusion the fact supports, and how.** If the answer is "it points
+  the same way", that is not support, that is coincidence with good manners. For a population
+  claim specifically, the range check is the whole job — does this fact fall inside the window,
+  the category, the population my conclusion is about? Mine did not, and the closure it appeared
+  to back was about a different set of rows entirely.
+  **What it cost and what it bought:** nothing live; one addendum on their side (`a33783252`), one
+  correction here. It bought a real constraint on this lane — chasing the error text is what
+  surfaced that **content gating, not `029`, is what will block our remaining rebuilds**, and that
+  6 of this site's pages are `rebuild_policy='owned'` and would refuse. A check nominally about
+  someone else's bug found the thing that will bite our own next dispatch.
+  Running tally, both lanes, one day: **6 claims that read as evidence and were not.** Five were
+  instruments that could not fail; the sixth was a fact that could not be relevant.
