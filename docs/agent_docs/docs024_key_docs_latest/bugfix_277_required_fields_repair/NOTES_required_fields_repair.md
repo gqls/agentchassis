@@ -840,3 +840,38 @@ recorded via `--record-only` (see RUNBOOK — `--apply` would have taken four ot
 the full promoter predicate, and encoding `error ILIKE '%rebuild_policy=owned%'` into a live gate
 would make an error message's wording load-bearing across services. The sound fix is a structured
 refusal signal, which is architecture-scope and belongs with `bugs_open/295`.
+
+### 2026-08-18, later still — path step 1 shipped: migration `479`, the escalation door opens both ways
+
+Owner decision 2 ("fix the door"). Applied + ledger-recorded + committed `f95504674`, rollback file
+alongside. Three things about HOW it was built are worth carrying forward more than the change:
+
+**Surgical anchored replacement, not a rewrite.** The task body is **7,803 characters**, most of it
+`466`'s `what_to_do` prose, and that lane shipped `465`, `466`, `471`, `472` in a single day. A
+wholesale `SET pre_query = $Q$…$Q$` would have silently reverted whatever landed between my read and
+my apply, and transcribing 7.8 KB by hand introduces its own errors. So: three verbatim anchors,
+each **asserted to occur exactly once** before any replacement runs, plus a pre-image md5 guard that
+**aborts** rather than clobbers. The verify block additionally asserts `466`'s parts survived
+(archive scope, `hold_kind`, `resolution_path`, the failure-partition remedy, the 3-day limit) — a
+negative control on a copy-paste error, since a rewrite that dropped one of those would still be
+valid SQL and would still "work".
+
+**The controls test the predicate, not the row count, and that was a deliberate choice.** Zero rows
+are escalated today (oldest held row is at day 2 of 3), so `reclaimed = 0` and an assertion on that
+number would pass identically if the predicate were `WHERE false` — vacuous, the exact defect this
+lane keeps catching. Instead: positive control = `page_component_status_drift →
+component-template-fixer` (hand-canaried 08-17, 4 ok / 0 failed) **must** satisfy the reclaim test;
+negative control = `literal_markdown → page-build-handler` (3 ok / 36 failed = 8%) **must not** —
+that being the pair `444` exists for, and the one that would wrongly return if the archive scope or
+the floor arithmetic were wrong. Both behaved.
+
+**Exercised end to end before applying.** The migration ran inside a transaction, the *resulting*
+`pre_query` was then executed via `\gexec` — returning `escalated 0, reclaimed 0, watching 15` with
+`watching_detail` naming each pair and its day count — and the whole thing rolled back. Testing the
+migration is not the same as testing the query it produces; this catches a replacement that lands
+cleanly and yields SQL that will not run.
+
+**Residual, stated:** the arm has never reclaimed a real row, because none has been escalated yet.
+`placeholder_contact` crosses the limit 2026-08-19 and `literal_markdown` on 08-20 — but both pairs
+are *correctly* held, so neither will be reclaimed. The first genuine reclaim needs a pair to be
+escalated and *then* qualify. Watch the daily tick's new `reclaimed` / `reclaimed_pairs` columns.

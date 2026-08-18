@@ -154,8 +154,19 @@ item against the gate.
 
 ## 6. THE PATH — sequenced, with what each unblocks
 
-1. **Decision 2's reclaim arm** (½ day). Self-contained, one migration, no roll. Do first: it has a
-   clock and it protects the findings the later work will want back.
+1. ~~**Decision 2's reclaim arm** (½ day). Self-contained, one migration, no roll. Do first: it has a
+   clock and it protects the findings the later work will want back.~~ **✅ DONE 2026-08-18 —
+   migration `479`, applied + ledger-recorded, `_ROLLBACK.sql` alongside, committed `f95504674`.**
+   A row escalated because its pair was held returns to `detected` once that pair passes the
+   promoter's known-good rule. Written as a **surgical anchored replacement** (three verbatim
+   anchors each asserted unique, pre-image md5 guard that aborts rather than clobbers) because the
+   task body is 7.8 KB of `466`'s prose and that lane shipped four migrations in a day. Exercised
+   end to end before applying: the migration ran in a transaction, the **resulting** `pre_query` was
+   then executed (`escalated 0, reclaimed 0, watching 15`) and the whole thing rolled back.
+   Controls test the **predicate**, not the row count, because 0 rows were escalated at apply —
+   positive (`page_component_status_drift`, canaried 08-17) and negative (`literal_markdown`, 3/36)
+   both behaved. **Not yet exercised on a real reclaim**: nothing has crossed the 3-day limit. Watch
+   the daily tick's new `reclaimed` / `reclaimed_pairs` columns in the scheduler log.
 2. **Decision 1 Tier 1**, the `wont_fix` refusal (½ day + a roll). Coordinate with `301`'s author
    first — same function. Protects `phantom_internal_link`'s 69% path immediately.
 3. **Decision 4**, `bugs_open/300`'s handler fix (½ day + the same roll). Bundle the roll with (2).
