@@ -2081,3 +2081,32 @@ headline: **imagery overtakes text as the dominant cost somewhere between 30 and
 site at any rate above ~$0.08.** That is the number worth pinning down before Phase E, and one
 provider invoice after the next few builds settles it — the *count* per site is ours to
 choose, the *rate* is theirs to publish.
+
+### 2026-08-18 — OWNER RULING: L9 reassigned — loanzy.uk is an EXAMPLE SITE, no register entry
+
+*"we can use loanzy.uk as an example site which means no prior registry entry and it should be
+built just from the webdesign.uk prompt."* Started by the owner in a separate thread.
+
+**This resolves the Phase D conflict item.** L9 (loan brandables) had been "direction
+unassigned, deliberately" and was contested between this lane and the `webdesign` lane; it is
+now neither lane's proposition — it is a demonstration of what the framework produces from a
+prompt alone. **Removed from this lane's build order** (`PLAN_2026-08-18_first_50…`).
+
+Worth noting for whoever runs it: "no prior registry entry" means the directory machinery will
+correctly do **nothing** there — `evaluate_directory_features` writes no flag without a
+matching vertical, so no `content_features` key, no directory page, no directory checks firing.
+That is the designed behaviour, not a failure, and it makes loanzy.uk a clean control for what
+the framework does *without* the Phase B additions.
+
+### 2026-08-18 — first-50 build order proposed, awaiting approval
+
+`PLAN_2026-08-18_first_50_build_order_FOR_APPROVAL.md`. Five waves, M→B→I per the standing
+ruling, 42 fresh builds + the pilot + 8 named reserves.
+
+**The finding that shaped it, and it cuts against the ruling's order:** the mortgage-lender
+register holds **2 entities / 3 current found claims**, against savings-provider 13/15 and
+health-insurer 10/15 (measured 2026-08-18). M is the family ruled FIRST and has the LEAST
+directory data — eleven mortgage sites built today would each carry the pilot's same two-row
+lender directory. **Recommendation: force-trigger the finance researcher on `mortgage-lender`
+before Wave 2** (the B4 procedure, already proven). It does not block Wave 1, and it is the
+difference between a 2-row and a 15-row directory across the whole M family.
