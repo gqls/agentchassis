@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1307
+IMAGE_TAG ?= v1.0.1309
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -2666,3 +2666,103 @@ github-runner-restart: ## Restart github-actions-runner
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n ai-persona-system rollout status deployment/github-actions-runner --timeout=120s
 	@echo "$(GREEN)Runner restarted$(NC)"
 
+
+#################################
+# Site chat box (Mythic Beasts VM) — DELIBERATELY NOT part of `release`
+#
+# The chat box is a plain Go binary on a VM, not a k8s service, so `make
+# release` does not carry it and must not: different machine, different
+# credential (an ssh key, not the kubeconfig), different blast radius. A
+# customer-facing bot should never roll as a side effect of a fleet deploy,
+# and a fleet deploy should never fail because an ssh key expired.
+#
+# These targets exist because the opposite failure is worse and already
+# happened (2026-08-18): the deploy lived only in a runbook, so a change was
+# committed believing `make release` would ship it. It would not have. An
+# invisible deploy path is one nobody remembers to run.
+#
+#   make box-release     test → build from committed HEAD → push → install → verify
+#   make box-status      what is ACTUALLY running on the box (md5, units, binds)
+#   make box-verify      compare the box binary against a fresh local build
+#
+# box-build builds from COMMITTED HEAD through `git archive`, the same rule the
+# backend follows, so it cannot bundle another session's WIP on this shared
+# tree. box-build-tree is the opt-in escape hatch.
+#
+# One binary serves every site on the box: webdesign-chat.service plus one
+# sitechat@<domain>.service per additional site. They all exec
+# /usr/local/bin/sitechat, so a roll restarts all of them.
+#################################
+
+BOX_HOST ?= webdesign.vs.mythic-beasts.com
+BOX_USER ?= root
+BOX_KEY  ?= $(HOME)/.ssh/webdesign_box_ed25519
+BOX_SRC  := docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/box/chat-service
+BOX_OUT  := $(CURDIR)/dist/sitechat
+BOX_SSH   = ssh -i $(BOX_KEY) $(BOX_USER)@$(BOX_HOST)
+
+.PHONY: box-test
+box-test: ## Run the site-chat box tests
+	@cd $(BOX_SRC) && GOPROXY=off GOTOOLCHAIN=local go test . -count=1
+
+.PHONY: box-build
+box-build: box-test ## Build the sitechat binary from committed HEAD (no WIP can enter)
+	@git rev-parse --verify --quiet '$(REF)^{commit}' >/dev/null || \
+		{ echo "$(RED)REF='$(REF)' is not a commit.$(NC)"; exit 1; }
+	@echo "$(GREEN)Building sitechat from committed ref $(REF) = $$(git rev-parse --short $(REF)) — working tree NOT included.$(NC)"
+	@UNSHIPPED=$$(git status --porcelain -- $(BOX_SRC) 2>/dev/null | wc -l); \
+	if [ "$$UNSHIPPED" -gt 0 ] && [ "$(REF)" = "HEAD" ]; then \
+		echo "$(YELLOW)  $$UNSHIPPED uncommitted change(s) under $(BOX_SRC) are NOT in this binary:$(NC)"; \
+		git status --porcelain -- $(BOX_SRC); \
+	fi
+	@mkdir -p $(dir $(BOX_OUT))
+	@CTX=$$(mktemp -d /tmp/box-ctx.XXXXXX) && \
+	trap 'rm -rf "$$CTX"' EXIT && \
+	git archive $(REF) | tar -x -C "$$CTX" && \
+	cd "$$CTX/$(BOX_SRC)" && \
+	GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "$(BOX_OUT)" . && \
+	echo "$(GREEN)Built $(BOX_OUT) ($$(stat -c%s "$(BOX_OUT)") bytes, md5 $$(md5sum "$(BOX_OUT)" | cut -d' ' -f1))$(NC)"
+
+.PHONY: box-build-tree
+box-build-tree: ## Build sitechat from the WORKING TREE, WIP and all (opt-in escape hatch)
+	@echo "$(YELLOW)Building sitechat from the WORKING TREE — uncommitted code WILL ship.$(NC)"
+	@mkdir -p $(dir $(BOX_OUT))
+	@cd $(BOX_SRC) && GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+		go build -o "$(BOX_OUT)" . && \
+		echo "$(GREEN)Built $(BOX_OUT) (md5 $$(md5sum "$(BOX_OUT)" | cut -d' ' -f1))$(NC)"
+
+.PHONY: box-push
+box-push: ## Copy the built sitechat binary to the box (no restart)
+	@test -f $(BOX_OUT) || { echo "$(RED)$(BOX_OUT) missing — run 'make box-build' first.$(NC)"; exit 1; }
+	scp -i $(BOX_KEY) $(BOX_OUT) $(BOX_USER)@$(BOX_HOST):/root/sitechat
+
+.PHONY: box-deploy
+box-deploy: ## Install the pushed binary, restart every site instance, verify
+	@echo "$(YELLOW)Installing and restarting all sitechat instances on $(BOX_HOST)...$(NC)"
+	@$(BOX_SSH) 'install -m 755 /root/sitechat /usr/local/bin/sitechat && \
+		systemctl restart webdesign-chat.service "sitechat@*.service" 2>/dev/null; \
+		sleep 2; \
+		echo "--- md5 ---"; md5sum /usr/local/bin/sitechat; \
+		echo "--- journal ---"; journalctl -u webdesign-chat -n 5 --no-pager -o short-iso; \
+		echo "--- binds (must be 127.0.0.1 only) ---"; ss -ltnp | grep sitechat'
+	@$(MAKE) --no-print-directory box-verify
+
+.PHONY: box-verify
+box-verify: ## Prove the box is running the binary you just built (md5, both ends)
+	@test -f $(BOX_OUT) || { echo "$(RED)$(BOX_OUT) missing — nothing to compare against.$(NC)"; exit 1; }
+	@LOCAL=$$(md5sum $(BOX_OUT) | cut -d' ' -f1); \
+	REMOTE=$$($(BOX_SSH) 'md5sum /usr/local/bin/sitechat' 2>/dev/null | cut -d' ' -f1); \
+	echo "  local  $$LOCAL"; echo "  box    $$REMOTE"; \
+	if [ -z "$$REMOTE" ]; then echo "$(RED)Could not read the box binary — deploy NOT verified.$(NC)"; exit 1; \
+	elif [ "$$LOCAL" = "$$REMOTE" ]; then echo "$(GREEN)MATCH — the box is running this build.$(NC)"; \
+	else echo "$(RED)MISMATCH — the box is NOT running this build.$(NC)"; exit 1; fi
+
+.PHONY: box-release
+box-release: box-build box-push box-deploy ## Full chat-box roll: test, build from HEAD, push, install, verify
+	@echo "$(GREEN)Chat box released from $$(git rev-parse --short $(REF)).$(NC)"
+
+.PHONY: box-status
+box-status: ## Show what is actually running on the chat box
+	@$(BOX_SSH) 'echo "--- binary ---"; md5sum /usr/local/bin/sitechat; ls -l /usr/local/bin/sitechat; \
+		echo "--- units ---"; systemctl list-units "sitechat@*" webdesign-chat.service --no-pager --no-legend 2>/dev/null; \
+		echo "--- binds ---"; ss -ltnp | grep sitechat'
