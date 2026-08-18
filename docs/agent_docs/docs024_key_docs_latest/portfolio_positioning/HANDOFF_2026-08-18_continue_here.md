@@ -109,15 +109,43 @@ already non-zero at t=0 evidences nothing at t+n — take the baseline, or watch
   `sitemap_entry_dead_live` at **0 — deliberately NOT interpreted** (clean vs never-exercised
   look identical; separating them is open work). All flag-only: a backlog to triage.
 
-## 5. Next
+## 5. What is next in this lane — ordered
 
-1. **Owner sign-off on Phase C** — the cost baseline above is the number to pace Phase E waves
-   against. This is the gate the plan names before any fleet dispatch.
-2. Finish the pilot: the HITL queue, then the 3 component/rerender failures, then the
-   `{{end}}` template leak (which is a platform bug, not a site one — worth its own file).
-3. **A Phase-C-complete SUMMARY** — the series\' next inflection; the 2026-08-17 one predates
-   the artefact proof.
-4. Then Phase D decisions / Phase E waves per `PLAN_2026-08-12_fleet_buildout.md`.
+**Blocked on the owner (nothing else moves past these):**
+1. **Sign-off on Phase C** — the plan makes this the gate before any Phase E wave. The number
+   to sign off against is the cost baseline: **43 LLM calls · 389,406 in · 120,822 out · 11
+   assets** for one site, read as a FLOOR.
+2. **Decide who owns DNS.** The pilot is built and unreachable because its domain still points
+   at a registrar parking page. Phase E meets this on ~140 domains. Either the build pipeline
+   acquires a domain-pointing step, or it is deliberately manual and the fleet plan budgets
+   for it. **Do not fix this quietly** — it changes what "the pipeline builds a site" means.
+3. **Phase D decisions**, unchanged and still outstanding: `loanzy.uk` (L9) conflict with the
+   webdesign lane, the B8/B9/I10 holds, and build order across the remaining domains.
+
+**This lane can do without waiting:**
+4. **Work the pilot\'s HITL queue** — 10 × `unresolved_cta`, 4 × `needs_page`, 1 ×
+   `needs_section_data`. Ordinary new-site work; it is what stands between 3 deployed pages
+   and 6.
+5. **The three genuine build failures**: `needs_new_component` ×3 (`store_generated_component`,
+   3/3 attempts gone), `needs_rerender` ×1 (timeout), `needs_imagery` ×2. Retry budget is
+   exhausted on all of them, so they need diagnosis, not a re-queue.
+6. **File the `{{end}}` template leak as a platform bug.** 20 blockers across 2 pages, a
+   component emitting raw Go template syntax into rendered output. **Confirmed NOT the seeded
+   `banned_claims`.** It is not site-specific and will recur on every build — grep
+   `bugs_open/` first, it may already exist.
+7. **Write the Phase-C-complete SUMMARY.** The 2026-08-17 one predates both the artefact proof
+   and the reachability finding, so the series\' next entry is genuinely a new inflection.
+8. **Triage the `head_essentials_missing` backlog** — 247 findings across 8 sites, flag-only.
+   Intelligence, not an incident, but nobody has looked at it.
+
+**Open questions this lane should not close by assumption:**
+- The **090 on deploy routing (`75220928…`) never returned a verdict.** Which component sent a
+  no-repo site to the git adapter, and what changed at 13:31 on 08-17, are both still unknown.
+  The outage stopped when the roll landed; that is a coincidence in time, not an explanation.
+- **`structured_data_invalid` and `sitemap_entry_dead_live` sit at ZERO.** Clean and
+  never-exercised look identical and have not been separated.
+- **RFC_031\'s trigger stands**: the THIRD hand-spliced `content_features` enricher must build
+  the shared ordered list instead of copying the splice a third time.
 
 ## 6. Files of record
 
