@@ -311,3 +311,59 @@ smallest*:
 **2 alone would have made the measured outage rarer without making it safe** — which is
 the point the PLAN makes about not conflating A, B and C. 1 is the one that closes the
 door.
+
+---
+
+## 2026-08-18 — I tried to prove the takeover at RUNTIME and the check came back BLIND. Recording the blindness, not a zero.
+
+The takeover path logs a distinctive line — `s.logger.Warn("Found stuck orchestration,
+taking over", ...)`. If it fires in production, that is direct runtime proof of the
+mechanism rather than a code read plus a correlation. So I went looking.
+
+**Result: zero hits — and zero on the control too, which is the only reason this is not
+now recorded as evidence of absence.**
+
+| where | lines available | `Found stuck orchestration, taking over` | control: `Orchestration is actively executing` |
+|---|---|---|---|
+| both `agent-chassis` pods, `--since=24h` | 829 | 0 | **0** |
+| 13 live `agent-build-dispatch-loop` pods | 3,811 | 0 | **0** |
+
+**The control is the whole point.** `Orchestration is actively executing` is the *other*
+arm of the same `switch` — any pod that evaluated `StatusExecutingStep` at all must emit
+one line or the other. Zero on both arms means those pods never reached that code in the
+window I can see, so the query cannot discriminate "the takeover does not happen" from
+"I am looking at the wrong minutes". Without the control I would have written *"the
+takeover never fires in production"*, which the data does not support in either direction.
+
+**Why it is blind, and it is not fixable by trying harder:**
+
+- **Chassis log retention here is ~4 minutes.** The earliest line `--since=24h` returns is
+  `12:20:54Z` against a query at ~12:25Z and a pod that started at `07:57Z`. `--since=24h`
+  returning four minutes of log is exactly the shape that makes a grep look thorough and
+  be worthless. (MEMORY's *a "fresh build" can ship no new code* warns about controls that
+  match everything; this is the mirror — a control that matches nothing.)
+- **The population is not occurring right now.** Today has had **2** timeout rows fleet-wide,
+  both `diagnose-*`. The wedges I measured are from **08-17** (67 timeouts that day), and
+  the job pods that would hold those lines were reaped hours ago.
+- This bug file already records the general form of this trap, from 2026-07-27: *"a hung
+  spawned pod is evidence on a clock. Nothing in this fleet keeps one for you."* I hit the
+  same wall from the log side.
+
+**So the mechanism rests on two legs, not three, and I am saying so:** (1) the DB
+correlation — 11 of 12 children freezing 11–22 s after the parent's final replay; (2) the
+code path, read at HEAD, which is deterministic given `last_activity > 5 min`. The runtime
+log confirmation is **not available** and I have not obtained it.
+
+**What would obtain it, for whoever is here next.** Do not wait for a natural instance —
+catch one live. `build-pipeline-trigger` fires every 60 s and is the free reproducer this
+bug file has recommended since 2026-07-28. Watch for a `build-dispatch-loop` whose
+`last_activity` has been static for >5 min while its status is `EXECUTING_STEP`, then
+`kubectl logs -f` **that pod specifically** before its parent's next replay is due, and
+capture `kubectl get pod -o yaml` in the same breath. The window between "identifiable"
+and "reaped" is minutes.
+
+> **The transferable rule, since it caught me twice today in different clothes:** a zero
+> is only a finding when something in the same query could have come out non-zero. This
+> morning it was `updated_at` (a number that could not have come out other than ~4h26m);
+> this afternoon it is a log grep whose control is also zero. Same failure, opposite
+> direction — one produced a false positive, the other a false negative.
