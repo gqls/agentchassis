@@ -314,3 +314,23 @@ everything'"*); a typo of `1.5`/`2.5` would have refused every save on that step
 here fails the step and can strand a build loop. Clamped in `d5b40c4eb` with MUT-293-J behind it; **inert
 until the next roll**. It passed a council round, ten tests and a green suite because all of them
 exercised the default — a config key nothing has ever set is untested by definition.
+
+## 2026-08-18 (final) — the residual is closed too: the clamp is LIVE and PROVEN on `v1.0.1310`
+
+Stamp `0b185bad2`, new pods `agent-chassis-85b844f547-*` (18:00Z), `IMAGE_TAG` bumped — and the reversed
+check settles it in one line: the stamp is **not** an ancestor of `d5b40c4eb`, so the build is at or
+past the clamp.
+
+Proven behaviourally, not by ancestry alone. Induction repeated with `page_total_text_floor: 1.5` and a
+payload whose prose was ~70 visible chars shorter:
+
+```
+PAGE CONTENT REGRESSION REFUSED … 522 chars of VISIBLE text against 581 deployed … (90% kept, FLOOR 95%)
+```
+**`floor 95%`** — 1.5 was sent, 0.95 was applied. Designed so clamped and unclamped BOTH refuse, so the
+test could not write whatever the answer was; the stated floor is the discriminator. Artefact untouched
+(same fingerprint AND row ids). Synthetic queue row cancelled.
+
+**Nothing is outstanding on this bug.** Remaining known limits, unchanged and by design: ~11% of pairs
+sit below the 200-char minimum (class-attribute floor covers them), and
+`page_component_writer_coverage_test.go` is still blind to this DELETE+INSERT path.
