@@ -416,3 +416,48 @@ fix is not mine to choose because the three-day rule was built on purpose by ano
 **On the original bug: it is done.** Everything 083 was filed for has been answered and checked at
 the artefact rather than asserted. What is left in that file is not its own machinery but the
 questions the new visibility raised, each of which has a named owner or needs a decision from you.
+
+---
+
+## 2026-08-18, evening — I found what was eating the history, and it was worse than I'd filed it
+
+Yesterday I told you some completed work records were vanishing and I couldn't find what was doing
+it. I found it, and the honest summary is that one query would have answered it and my three
+searches were each looking in a place it could not have been.
+
+**There is a housekeeping job that moves finished work older than a week into an archive table.**
+It's been running daily, it's supposed to be there, and nothing is broken about it. The problem is
+that the safety rules I built read only the *live* table — and the archive turns out to hold more
+than twice as much history as the live table does. So when my rules asked "has this handler ever
+succeeded?", they were really asking "has it succeeded in the last seven days?"
+
+**That was already doing damage, not waiting to.** One handler was being blocked as "never
+succeeded" when it had in fact succeeded nine times out of fourteen — the record was simply older
+than a week. Another, with 316 successes behind it, looked marginal. Both are fixed: the rules now
+read the archive as well, and I watched the blocked one get picked up and start work within seconds
+of the change going in.
+
+**Why I want to flag how I missed it.** The job moves records rather than deleting them, so
+searching for deletions found nothing. Its configuration lives somewhere other than where I was
+looking. Its description says "archives", and I was searching for "retention". And the reassurance
+I gave myself — "the oldest surviving record is from March, so nothing is sweeping the table" — was
+worthless, because that record is one the job would never touch. Four checks, all clean, none of
+them capable of finding it. What actually found it was the job's name appearing in a list in someone
+else's file that I happened to be reading for another reason.
+
+**I also corrected three faults in the time-limit mechanism I built for you yesterday**, one of
+which another session found and left for me. The important one: it had drifted out of step with the
+rule it describes, so it would have asked a person to go and hand-test a handler that was already
+working fine. Both now use one shared definition rather than two copies that agree until they don't.
+
+**One pattern is worth naming, because it's now happened five times in this piece of work and always
+the same way:** every mistake was me measuring a population I hadn't checked the boundaries of.
+Not sloppy arithmetic — well-formed queries answering a slightly different question than the one I
+meant. Three of them were caught only because a number moved when it shouldn't have. Twelve
+reviewers approved the rule that had the first one in it; a review reads the plan, and none of these
+was visible in a plan.
+
+**Still with you or ahead of us:** nothing needs a decision from you right now. The queue mechanism
+should escalate its first overdue items around the 19th and 20th, which will be the real test of it.
+The bigger remaining piece is the shared router engine you ruled on — its groundwork is done and its
+design round is the next real job.
