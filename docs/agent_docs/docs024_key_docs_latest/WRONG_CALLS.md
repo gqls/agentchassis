@@ -35175,3 +35175,37 @@ point — this makes **four** instances in one day across two lanes (the
 regression it had introduced, and a count filtered by `item_type` on a mutex that has no
 `item_type` clause). Four in a day, all passing the existing marker rule, is the argument
 for adding the disconfirming-value question to it rather than for anyone trying harder.
+- **Two of mine today were MARKED, DATED, HONESTLY MEASURED — and structurally incapable of coming
+  out otherwise. The marker rule does not catch that shape, and this is the fourth instance in one
+  day across two lanes.** Filed jointly with the `bugs_open/029` lane, at their suggestion, so the
+  four sit in one place instead of in two summaries of each other.
+  **The proposed check, sharper than "is it measured?" and about ten seconds long: NAME THE VALUE
+  THE QUERY WOULD HAVE RETURNED IF THE THING YOU ARE TESTING WERE FALSE. If you cannot name one,
+  you have an instrument reading, not a measurement.** (Formulation theirs, from their two below;
+  it would have caught all four.)
+  **Mine (`site_ai_agent_orchestration`, 2026-08-18):**
+  (a) **An aggregate that improved while hiding a regression I had introduced.** Migration `456`
+  took the site from **44 firm contrast failures to 33**, and I reported it as a clean win. It
+  contained a fresh **1.61:1** failure at `a.stats-cta` that the migration itself created. A
+  before/after COUNT cannot represent a swap — the only value it can return is a smaller number,
+  whether I fixed twenty things or fixed twenty-one and broke one. The disconfirming answer does
+  not exist in that instrument. What did catch it was comparing by **colour PAIR** and requiring
+  that no `(fg,bg)` in the after-set be absent from the before-set — an instrument in which a
+  regression has a value of its own.
+  (b) **A filtered count I then reasoned past.** `SELECT ... WHERE item_type='page_rerender' AND
+  status='claimed'` → 0, from which I concluded my site was not mutex-blocked. The mutex is per
+  **SITE across ALL item types**, so a claim held by any other type returns 0 from that query too.
+  The number was right and could not have told me so.
+  **Theirs (`bugs_open/029`, same day, recorded against their own lane):** a freeze time read off
+  `updated_at` on rows the reaper had already written, where the reaper's own 4h threshold
+  guaranteed ~4h26m regardless of what was true; and a production log grep for a takeover line
+  returning zero **with the control also zero**, from which "the takeover never fires in
+  production" was nearly written — chassis log retention here is ~4 minutes.
+  **Why this is not a new rule but a missing HALF of one we already have.** The standing practice
+  is "mark `[MEASURED]`, and ask what the disconfirming result would have looked like". That
+  catches an UNMARKED claim. **It does not catch a claim that is marked, dated, honestly measured,
+  and cannot discriminate** — all four of these were. The marker certifies **provenance**, not
+  **discriminating power**, and those are different properties.
+  Tally for "an instrument that could not have returned another answer": **4 in one day, 2 lanes,
+  4 distinct instruments** (an aggregate, a filtered count, a timestamp column, a log grep). None
+  of the four was a careless measurement; every one was a careful measurement of the wrong thing.

@@ -38,20 +38,20 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 >   threshold and nothing to do with the job. That lane believed the wrong number first.
 > - Their root cause (declared `timeout_seconds: 900` honoured on attempt 0 only, retries silently
 >   recomputed to 5 min, final replay landing on a live loop) is measured.
-> - **The "why" is now code-grounded, and it is NOT the optimistic-lock race** that lane first
->   named as its candidate — that candidate is **withdrawn by them**, so do not repeat it (an
->   earlier version of this handoff carried it). Their current read: `coordinator.go`'s
->   `StatusExecutingStep` arm declares an orchestration stuck when
->   `time.Since(last_activity) > 5 minutes`, clears the executing step and **re-drives it
->   concurrently with the worker that is still running**. The replay is merely the message that
->   trips it. The narrower defect: **`last_activity` is USED as a liveness signal and is not
->   MAINTAINED as one** — no mid-step heartbeat, while a spawn step makes K8s calls, waits on two
->   Kafka topics and contains two hardcoded 5s sleeps. A healthy child goes quiet by construction
->   and, past five minutes, is indistinguishable from a dead pod.
-> - ⚠ **That is a code read plus a DB correlation — NOT runtime-proven**, and they say so
->   explicitly. Chassis log retention on this cluster is about **four minutes**, so a log grep for
->   the takeover returns zero with the control also zero: that is blindness, not absence. Do not
->   cite it as runtime evidence, and do not "confirm" it with a log query.
+> - **The underlying MECHANISM is provisional and deliberately NOT restated here** — it is being
+>   worked in `bugfix_029_retry_kills_live_child`; **read it there**. Two earlier versions of this
+>   handoff carried a mechanism from that lane, and the first one it gave me was later **withdrawn**
+>   by them. This file now points rather than asserts, at their request and for a good reason:
+>   `029`'s own history records `bugs_open/048` restating 029's *refuted* cause as fact while
+>   correctly diagnosing its own, because a confident cause in a handoff is what the next thread
+>   builds on. A cold-start doc is the highest-propagation surface there is.
+> - ⚠ **A LOG GREP CANNOT CONFIRM ANY OF THIS, AND WILL LOOK LIKE IT REFUTES IT.** Chassis log
+>   retention on this cluster is about **FOUR MINUTES** — a 24h query returns lines from minutes
+>   ago on a pod that started hours ago. So grepping for the takeover returns zero **with the
+>   control also zero**. That is **blindness, not absence**: do not cite it as runtime evidence,
+>   do not "confirm" the mechanism with it, and do not conclude the takeover never fires. This
+>   holds whatever the diagnosis returns — it is a property of the cluster, not of anyone's
+>   theory.
 
 ---
 
