@@ -1,0 +1,53 @@
+{
+    "contact": {
+        "email": null,
+        "phone": null,
+        "address": null,
+        "location": "United Kingdom"
+    },
+    "tagline": null,
+    "industry": "Financial Services",
+    "services": [
+        {
+            "name": "Personal Loan Matching",
+            "description": "Connect UK borrowers with suitable personal loan offers from multiple lenders based on their profile."
+        },
+        {
+            "name": "Loan Comparison Tool",
+            "description": "Interactive tool allowing users to compare real APRs, terms, and eligibility across multiple lenders in one place."
+        },
+        {
+            "name": "Eligibility Checker",
+            "description": "Soft-search eligibility checker that does not affect the user's credit score, surfacing likely approvals before a full application."
+        },
+        {
+            "name": "Lender Lead Facilitation",
+            "description": "Affiliate/lead generation bridge connecting qualifying users to lender application journeys."
+        }
+    ],
+    "key_people": [
+    ],
+    "company_name": "Loanzy",
+    "sub_industry": "Personal Loans / Loan Comparison (UK)",
+    "about_summary": "Loanzy.uk is an unbuilt UK domain in the personal finance space. Evidence from related entities (loanzy.asia and loanzytech.com) positions the Loanzy brand as a lead aggregation and facilitation platform that connects borrowers with third-party financial service providers. For the UK market, loanzy.uk is best positioned as a loan comparison and matching platform for UK consumers seeking personal loans, bridging finance, or short-term credit from FCA-regulated lenders.",
+    "social_profiles": {
+    },
+    "target_audience": "UK adults aged 25–55 who are employed or self-employed, seeking personal loans of £1,000–£25,000 for debt consolidation, home improvement, vehicle purchase, or unexpected expenses, who want to compare options without harming their credit score.",
+    "competitors_found": [
+        "loantube.com",
+        "moneysupermarket.com",
+        "comparethemarket.com",
+        "totallymoney.com",
+        "clearscore.com",
+        "novunapersonalfinance.co.uk",
+        "loansbymal.co.uk"
+    ],
+    "has_existing_site": false,
+    "existing_site_quality": "none",
+    "unique_selling_points": [
+        "Soft-search eligibility that does not mark the user's credit file",
+        "Single application surfacing offers from multiple FCA-regulated lenders",
+        "Transparent real APR comparison rather than headline rates",
+        "Fast, mobile-first application journey suited to UK borrowers"
+    ]
+}

@@ -1,0 +1,108 @@
+{
+    "voice": {
+        "person": "Second person (you/your) throughout for the user; first person plural (we/our) for Loanzy. Never third person for the reader.",
+        "register": "Straightforward and human — explains financial products in plain English without talking down to the reader. Avoids financial jargon unless immediately defined. Sounds like a knowledgeable friend, not a bank.",
+        "formality": "Professional but accessible. Uses contractions (you're, we'll, it's). Avoids stuffiness. Would not feel out of place in a Which? article or a Martin Lewis explanation.",
+        "emotional_tone": "Calm and reassuring. Acknowledges that borrowing is a significant decision. Does not exploit financial anxiety or manufacture urgency. Empowers the reader to make a confident, informed choice.",
+        "authority_level": "Establishes credibility through transparency — showing real rates, explaining how matching works, and being upfront about being a comparison service, not a lender. Never overstates certainty about approval."
+    },
+    "cta_style": {
+        "approach": "CTAs should name the action and the benefit simultaneously. Avoid generic 'Submit' or 'Click here'. The primary CTA is the eligibility checker — phrase it to reduce anxiety about credit impact. Secondary CTAs guide to guides or FAQs for hesitant users.",
+        "verb_choices": "Check (your eligibility), Compare (your options), See (what you could borrow), Find (your rate), Start (your free check) — active, low-commitment verbs. Avoid 'Apply now' as a primary CTA because it implies commitment before the user has seen options."
+    },
+    "formatted": "Content depth:\nThoroughness: Sufficient depth to build confidence and answer likely objections at each step of the journey, but never padded. The comparison tool and eligibility checker pages need thorough UX copy. Blog/guide content can be longer-form to support SEO and trust.\nAssumed knowledge: Readers know what a loan is and roughly what APR means, but may not understand representative APR vs. personal APR, how credit searches work, or what FCA authorisation means. Explain these concisely on first encounter.\nExplanation pattern: Analogy first for complex concepts (e.g. 'A soft search is like looking in a shop window — the shopkeeper doesn't know you were there'). Follow with the practical implication for the reader. Then the technical detail for those who want it.\n\nHeading style:\nHierarchy: H1: one per page, names the core user outcome. H2: section titles that structure the journey or content. H3: sub-topics or FAQ entries. Do not skip levels. Keep H1 under 8 words where possible.\nFormat: Benefit-led or question-led for page and section headings. 'Find a loan that fits your life' not 'Personal Loan Services'. Use questions where the reader's doubt is the thing being resolved: 'Will applying affect my credit score?' Use title case for H1, sentence case for H2 and below.\n\nWriting rules:\n- Always display the representative APR example in the format required by FCA/Consumer Credit Act — never hide it in fine print.\n- Never promise or imply guaranteed approval — use language like 'check your eligibility' or 'see which lenders are likely to accept you'.\n- Distinguish clearly between Loanzy (the comparison platform) and the lenders — never let the reader confuse who they are borrowing from.\n- State on every relevant page that Loanzy is a credit broker, not a lender, and that the service is free to the borrower.\n- Explain the soft-search / no credit-score-impact benefit on every page that asks for personal data, not just the FAQ.\n- Use real numbers in examples — loan amounts, terms, APRs — rather than vague ranges. Round numbers feel more trustworthy than odd ones.\n- Avoid the word 'cheap' when describing loans — use 'competitive rates' or 'rates matched to your profile'.\n- Never use urgency or scarcity language ('offer expires', 'limited spaces', 'apply now before rates rise') — this is explicitly discouraged by FCA guidance on financial promotions.\n- Link to the FCA register entry for any lender mentioned by name.\n- In guide content, always recommend that readers consider whether a loan is the right solution before applying — including signposting debt advice charities (StepChange, MoneyHelper) where relevant.\n\nParagraph style:\nStructure: One idea per paragraph. Open with the main point, support or qualify in the body, close with implication for the reader if needed. Avoid multi-topic paragraphs that bury the lead.\nTypical length: 2–4 sentences for body copy. 1–2 sentences for UI copy (eligibility checker, tool labels). Longer paragraphs only in guide/blog content where depth is the point — and even then break at 4–5 sentences.\n\nThings to avoid:\n- Urgency and scarcity language — 'act now', 'limited time offer', 'rates rising fast'\n- Guaranteed approval language — 'you will be approved', 'instant approval for everyone'\n- Obscuring that Loanzy is a broker, not a lender — never imply Loanzy is lending the money\n- Burying the representative APR example in footnotes or small print — it must be prominent\n- Sensational or aspirational lifestyle imagery that implies borrowing solves life problems\n- Jargon-heavy copy that assumes financial literacy — 'amortisation schedule', 'LIBOR-linked'\n- Fake or generic testimonials — 'John S., London: Great service!'\n- Dark patterns in the tool flow — pre-ticked marketing consent boxes, hidden fees disclosure\n\nCompliance rules:\n- Loanzy must be authorised or appointed as a credit broker by the FCA; this authorisation number must appear in the site footer on every page.\n- All financial promotions must comply with FCA CONC (Consumer Credit sourcebook) — no misleading claims, no cherry-picked rates without the required representative APR example.\n- Representative APR example must be shown where a rate or monthly payment is quoted: loan amount, term, monthly repayment, total repayable, and APR — per Consumer Credit Act 1974 and FCA rules.\n- The site must not engage in real-time credit brokering without appropriate permissions and must clearly route users to lenders for the actual credit decision.\n- Data collection must comply with UK GDPR — a compliant privacy notice, cookie consent mechanism, and lawful basis for processing must be in place before launch.\n- Vulnerable customer considerations: the site must include clear signposting to free debt advice services (MoneyHelper, StepChange) and must not target advertising at people in financial difficulty in a way that could cause harm.\n- Financial promotions must be fair, clear, and not misleading per FCA Principle 7 and CONC 3.\n- Do not imply FCA authorisation confers a quality endorsement on any particular lender's product.\n\nThings to emulate:\n- LoanTube's transparent display of real APRs at the results stage — rates shown are the rate the user would actually get\n- MoneySavingExpert's tone in guides — authoritative, plain English, clearly on the reader's side\n- TotallyMoney's eligibility-first framing that reduces anxiety about credit impact\n- Which?'s habit of explaining not just what a product is but when it is and is not the right choice\n- Clear process visualisation — a 3-step or 4-step journey diagram that demystifies what happens after the user starts\n- MoneyHelper's signposting of alternative options (including not borrowing) before the sales pitch\n\nVoice:\nFormality: Professional but accessible. Uses contractions (you're, we'll, it's). Avoids stuffiness. Would not feel out of place in a Which? article or a Martin Lewis explanation.\nEmotional tone: Calm and reassuring. Acknowledges that borrowing is a significant decision. Does not exploit financial anxiety or manufacture urgency. Empowers the reader to make a confident, informed choice.\nAuthority level: Establishes credibility through transparency — showing real rates, explaining how matching works, and being upfront about being a comparison service, not a lender. Never overstates certainty about approval.\nPerson: Second person (you/your) throughout for the user; first person plural (we/our) for Loanzy. Never third person for the reader.\nRegister: Straightforward and human — explains financial products in plain English without talking down to the reader. Avoids financial jargon unless immediately defined. Sounds like a knowledgeable friend, not a bank.\n\nCta style:\nApproach: CTAs should name the action and the benefit simultaneously. Avoid generic 'Submit' or 'Click here'. The primary CTA is the eligibility checker — phrase it to reduce anxiety about credit impact. Secondary CTAs guide to guides or FAQs for hesitant users.\nVerb choices: Check (your eligibility), Compare (your options), See (what you could borrow), Find (your rate), Start (your free check) — active, low-commitment verbs. Avoid 'Apply now' as a primary CTA because it implies commitment before the user has seen options.\n\nTerminology:\nApproach: Introduce financial terms in plain English on first use. Where a technical term is unavoidable, provide a one-line gloss immediately after, not in a footnote. Build a mini-glossary in the FAQ or a dedicated Terms page.\nKey terms:\n- Representative APR\n- Soft search / soft credit check\n- Credit broker\n- Unsecured personal loan\n- Total amount repayable\n- Eligibility\n- FCA authorised\n- Monthly repayment\n- Loan term\n- Debt consolidation\n\nSentence style:\nRhythm: Varied — alternate short punchy sentences with slightly longer explanatory ones. Avoid a wall of identical-length sentences. Read aloud test: it should feel like a conversation, not a legal document.\nAverage length: Short to medium — typically 12–18 words. Complex products warrant slightly longer explanations but never compound-complex sentences that bury the point.\nStructure patterns: Lead with the user benefit or the answer, then give the supporting detail. Avoid throat-clearing openers ('In today's world...'). Use bullet lists for steps, comparisons, and eligibility criteria. Use numbered lists for processes.\n\nExample phrases:\nCharacteristic:\n- Check your options in minutes — it won't affect your credit score.\n- We compare loans from multiple FCA-authorised lenders so you don't have to.\n- See the rates you're actually likely to get, not just the headline figure.\n- Borrowing is a big decision. We're here to make sure you have the full picture.\n- Free to use. No hidden fees. Lenders pay us, not you.\nWould never say:\n- Get cash in your account TODAY — don't miss out!\n- You're pre-approved — claim your loan now.\n- Lowest rates in the UK, guaranteed.\n- Apply in 60 seconds with no checks.\n- Turn your financial worries into financial freedom.\n\nPersuasion approach:\nMethod: Demonstrate usefulness before asking for anything. Let the tool do the persuading — if the eligibility checker surfaces a good offer, that is more convincing than any headline claim. Use social proof and clarity of process to reduce hesitation.\nTrust building: FCA regulatory context stated clearly and early. Explain the soft-search process and why it does not affect credit score. Show lender logos. Display representative APR examples prominently and accurately. Avoid vague superlatives; use specific facts.\nSocial proof style: Customer reviews focused on ease of process and transparency of information, not on 'getting rich' or 'saving thousands'. Show a Trustpilot score if available. Keep testimonials realistic and specific — generic praise reads as fake in this sector.",
+    "terminology": {
+        "approach": "Introduce financial terms in plain English on first use. Where a technical term is unavoidable, provide a one-line gloss immediately after, not in a footnote. Build a mini-glossary in the FAQ or a dedicated Terms page.",
+        "key_terms": [
+            "Representative APR",
+            "Soft search / soft credit check",
+            "Credit broker",
+            "Unsecured personal loan",
+            "Total amount repayable",
+            "Eligibility",
+            "FCA authorised",
+            "Monthly repayment",
+            "Loan term",
+            "Debt consolidation"
+        ]
+    },
+    "content_depth": {
+        "thoroughness": "Sufficient depth to build confidence and answer likely objections at each step of the journey, but never padded. The comparison tool and eligibility checker pages need thorough UX copy. Blog/guide content can be longer-form to support SEO and trust.",
+        "assumed_knowledge": "Readers know what a loan is and roughly what APR means, but may not understand representative APR vs. personal APR, how credit searches work, or what FCA authorisation means. Explain these concisely on first encounter.",
+        "explanation_pattern": "Analogy first for complex concepts (e.g. 'A soft search is like looking in a shop window — the shopkeeper doesn't know you were there'). Follow with the practical implication for the reader. Then the technical detail for those who want it."
+    },
+    "heading_style": {
+        "format": "Benefit-led or question-led for page and section headings. 'Find a loan that fits your life' not 'Personal Loan Services'. Use questions where the reader's doubt is the thing being resolved: 'Will applying affect my credit score?' Use title case for H1, sentence case for H2 and below.",
+        "hierarchy": "H1: one per page, names the core user outcome. H2: section titles that structure the journey or content. H3: sub-topics or FAQ entries. Do not skip levels. Keep H1 under 8 words where possible."
+    },
+    "writing_rules": [
+        "Always display the representative APR example in the format required by FCA/Consumer Credit Act — never hide it in fine print.",
+        "Never promise or imply guaranteed approval — use language like 'check your eligibility' or 'see which lenders are likely to accept you'.",
+        "Distinguish clearly between Loanzy (the comparison platform) and the lenders — never let the reader confuse who they are borrowing from.",
+        "State on every relevant page that Loanzy is a credit broker, not a lender, and that the service is free to the borrower.",
+        "Explain the soft-search / no credit-score-impact benefit on every page that asks for personal data, not just the FAQ.",
+        "Use real numbers in examples — loan amounts, terms, APRs — rather than vague ranges. Round numbers feel more trustworthy than odd ones.",
+        "Avoid the word 'cheap' when describing loans — use 'competitive rates' or 'rates matched to your profile'.",
+        "Never use urgency or scarcity language ('offer expires', 'limited spaces', 'apply now before rates rise') — this is explicitly discouraged by FCA guidance on financial promotions.",
+        "Link to the FCA register entry for any lender mentioned by name.",
+        "In guide content, always recommend that readers consider whether a loan is the right solution before applying — including signposting debt advice charities (StepChange, MoneyHelper) where relevant."
+    ],
+    "sentence_style": {
+        "rhythm": "Varied — alternate short punchy sentences with slightly longer explanatory ones. Avoid a wall of identical-length sentences. Read aloud test: it should feel like a conversation, not a legal document.",
+        "average_length": "Short to medium — typically 12–18 words. Complex products warrant slightly longer explanations but never compound-complex sentences that bury the point.",
+        "structure_patterns": "Lead with the user benefit or the answer, then give the supporting detail. Avoid throat-clearing openers ('In today's world...'). Use bullet lists for steps, comparisons, and eligibility criteria. Use numbered lists for processes."
+    },
+    "example_phrases": {
+        "characteristic": [
+            "Check your options in minutes — it won't affect your credit score.",
+            "We compare loans from multiple FCA-authorised lenders so you don't have to.",
+            "See the rates you're actually likely to get, not just the headline figure.",
+            "Borrowing is a big decision. We're here to make sure you have the full picture.",
+            "Free to use. No hidden fees. Lenders pay us, not you."
+        ],
+        "would_never_say": [
+            "Get cash in your account TODAY — don't miss out!",
+            "You're pre-approved — claim your loan now.",
+            "Lowest rates in the UK, guaranteed.",
+            "Apply in 60 seconds with no checks.",
+            "Turn your financial worries into financial freedom."
+        ]
+    },
+    "paragraph_style": {
+        "structure": "One idea per paragraph. Open with the main point, support or qualify in the body, close with implication for the reader if needed. Avoid multi-topic paragraphs that bury the lead.",
+        "typical_length": "2–4 sentences for body copy. 1–2 sentences for UI copy (eligibility checker, tool labels). Longer paragraphs only in guide/blog content where depth is the point — and even then break at 4–5 sentences."
+    },
+    "things_to_avoid": [
+        "Urgency and scarcity language — 'act now', 'limited time offer', 'rates rising fast'",
+        "Guaranteed approval language — 'you will be approved', 'instant approval for everyone'",
+        "Obscuring that Loanzy is a broker, not a lender — never imply Loanzy is lending the money",
+        "Burying the representative APR example in footnotes or small print — it must be prominent",
+        "Sensational or aspirational lifestyle imagery that implies borrowing solves life problems",
+        "Jargon-heavy copy that assumes financial literacy — 'amortisation schedule', 'LIBOR-linked'",
+        "Fake or generic testimonials — 'John S., London: Great service!'",
+        "Dark patterns in the tool flow — pre-ticked marketing consent boxes, hidden fees disclosure"
+    ],
+    "compliance_rules": [
+        "Loanzy must be authorised or appointed as a credit broker by the FCA; this authorisation number must appear in the site footer on every page.",
+        "All financial promotions must comply with FCA CONC (Consumer Credit sourcebook) — no misleading claims, no cherry-picked rates without the required representative APR example.",
+        "Representative APR example must be shown where a rate or monthly payment is quoted: loan amount, term, monthly repayment, total repayable, and APR — per Consumer Credit Act 1974 and FCA rules.",
+        "The site must not engage in real-time credit brokering without appropriate permissions and must clearly route users to lenders for the actual credit decision.",
+        "Data collection must comply with UK GDPR — a compliant privacy notice, cookie consent mechanism, and lawful basis for processing must be in place before launch.",
+        "Vulnerable customer considerations: the site must include clear signposting to free debt advice services (MoneyHelper, StepChange) and must not target advertising at people in financial difficulty in a way that could cause harm.",
+        "Financial promotions must be fair, clear, and not misleading per FCA Principle 7 and CONC 3.",
+        "Do not imply FCA authorisation confers a quality endorsement on any particular lender's product."
+    ],
+    "things_to_emulate": [
+        "LoanTube's transparent display of real APRs at the results stage — rates shown are the rate the user would actually get",
+        "MoneySavingExpert's tone in guides — authoritative, plain English, clearly on the reader's side",
+        "TotallyMoney's eligibility-first framing that reduces anxiety about credit impact",
+        "Which?'s habit of explaining not just what a product is but when it is and is not the right choice",
+        "Clear process visualisation — a 3-step or 4-step journey diagram that demystifies what happens after the user starts",
+        "MoneyHelper's signposting of alternative options (including not borrowing) before the sales pitch"
+    ],
+    "persuasion_approach": {
+        "method": "Demonstrate usefulness before asking for anything. Let the tool do the persuading — if the eligibility checker surfaces a good offer, that is more convincing than any headline claim. Use social proof and clarity of process to reduce hesitation.",
+        "trust_building": "FCA regulatory context stated clearly and early. Explain the soft-search process and why it does not affect credit score. Show lender logos. Display representative APR examples prominently and accurately. Avoid vague superlatives; use specific facts.",
+        "social_proof_style": "Customer reviews focused on ease of process and transparency of information, not on 'getting rich' or 'saving thousands'. Show a Trustpilot score if available. Keep testimonials realistic and specific — generic praise reads as fake in this sector."
+    }
+}

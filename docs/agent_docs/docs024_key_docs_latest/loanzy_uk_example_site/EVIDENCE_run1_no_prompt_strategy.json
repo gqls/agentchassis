@@ -1,0 +1,106 @@
+{
+    "tone": "friendly",
+    "site_type": "authority-portal",
+    "money_flow": "Lenders and credit providers pay Loanzy a fee — either a fixed cost-per-qualified-lead or a cost-per-acquisition commission — each time a user who completes the eligibility checker is referred to a lender and meets that lender's minimum criteria; payment is triggered at the point of referral or confirmed application, typically settled monthly against a tracked referral report.",
+    "domain_type": "ambiguous",
+    "growth_path": "Phase 1 (launch): Core tool pages (eligibility checker, repayment calculator, pre-loan diagnostic), home page, three to four purpose landing pages (debt consolidation, home improvement, car purchase, unexpected expenses), five to eight foundational guide articles, lender directory with profiles for initial panel lenders, and all compliance infrastructure (FCA footer, privacy notice, cookie consent, UK GDPR lawful basis). Phase 2 (months 3–9): Expand purpose landing page coverage to capture additional long-tail loan types (wedding, holiday, medical, business starter). Grow guide library to 30+ articles targeting informational queries at every stage of the borrower research journey. Build out lender profile pages for all panel lenders and begin targeting lender-name queries. Introduce Trustpilot integration once review volume is sufficient — display exact count in hero sections. Phase 3 (month 9+): Introduce a loan alert feature ('notify me when a lender matching my profile becomes available') as a re-engagement and retention mechanism — the low-scale equivalent of TotallyMoney's credit score dashboard. Explore white-label or co-branded eligibility checker placement on personal finance editorial sites as a lead-gen channel. Scale editorial output with named financial writers. Pursue FCA appointed representative relationships with additional lenders to widen the panel and improve result set quality.",
+    "search_intent": {
+        "primary_intent": "commercial",
+        "likely_searches": [
+            "personal loans UK",
+            "compare personal loans",
+            "loan comparison UK",
+            "best personal loan rates UK",
+            "check loan eligibility without affecting credit score",
+            "debt consolidation loan UK",
+            "home improvement loan UK",
+            "soft search loan comparison",
+            "loans for bad credit UK",
+            "how much can I borrow personal loan"
+        ],
+        "high_value_terms": [
+            "personal loan comparison UK",
+            "check loan eligibility soft search",
+            "best personal loan rates 2024",
+            "debt consolidation loan comparison",
+            "compare loans no credit check impact",
+            "unsecured personal loan UK"
+        ]
+    },
+    "revenue_models": {
+        "affiliate": {
+            "fit": "strong_fit",
+            "reasoning": "Affiliate commission (cost-per-acquisition or cost-per-click from lenders) is structurally identical to the lead-gen model in this vertical and is how MoneySuperMarket, TotallyMoney, and LoanTube all monetise. Loanzy can operate both — a CPA affiliate arrangement with some lenders and a direct lead-sale arrangement with others. These two models are complementary, not competing."
+        },
+        "saas_tools": {
+            "fit": "poor_fit",
+            "reasoning": "The eligibility checker and repayment calculator are conversion tools, not standalone SaaS products. White-labelling these tools to other sites is theoretically possible but far outside the core business model and not a realistic near-term revenue path."
+        },
+        "primary_model": "lead_generation",
+        "direct_business": {
+            "fit": "poor_fit",
+            "reasoning": "Loanzy is a broker and comparison platform, not a lender. It does not originate credit. There is no direct product to sell — the revenue is intermediary by definition."
+        },
+        "lead_generation": {
+            "fit": "strong_fit",
+            "reasoning": "The native Loanzy business model is lead aggregation — FCA-regulated lenders pay per qualified referral. The comparison and eligibility-checker flow exists precisely to generate and qualify leads before routing users to lender application journeys. This is the dominant revenue model in UK loan comparison and the one the brand was built around."
+        },
+        "secondary_models": [
+            "affiliate"
+        ],
+        "sponsored_listings": {
+            "fit": "possible",
+            "reasoning": "Premium placement for lenders in the results cards is a model used by comparison platforms, but it must be disclosed clearly per FCA rules and labelled as 'featured' or 'sponsored'. Viable as a supplementary commercial arrangement with lenders, but must never distort the relevance ranking shown to users."
+        },
+        "display_advertising": {
+            "fit": "possible",
+            "reasoning": "Guide and blog content will attract research-phase traffic that may not convert to a lead immediately. Display advertising on guide pages is a legitimate secondary revenue layer, but should not pollute the tool pages — ads adjacent to the eligibility checker would undermine trust and degrade UX. Viable at scale on content-only pages."
+        }
+    },
+    "recurring_value": "A visitor returns when their financial situation changes — they want to check whether they now qualify for a better rate, consolidate new debt, or borrow for a new purpose — or when a loan alert notification tells them a lender match has become available for a rate or amount they previously could not access.",
+    "trust_threshold": "The trust threshold is high relative to most web products because users are sharing personal financial data and making credit decisions that affect their financial health for years; Loanzy must establish FCA regulatory legitimacy, soft-search safety, and broker-not-lender transparency before the user will enter the eligibility checker — which is why all three must be communicated above the fold, adjacent to the tool, not buried in a footer.",
+    "content_strategy": "Content is organised in two parallel streams that serve different user stages and reinforce each other. The conversion stream — tool pages, purpose landing pages, eligibility checker — serves high-intent users who are ready to compare and uses the tools themselves as the primary persuasion mechanism, with copy playing an anxiety-reduction and trust-signalling role. The authority stream — guide articles, lender profiles, the repayment calculator, the 'is a loan right for me?' diagnostic — serves research-phase users and builds the topical authority that earns organic search rankings for high-value terms. The differentiating content feature is the pre-tool decision-support diagnostic: a short, honest question set that helps users assess whether a loan is genuinely right for their situation before they enter the comparison funnel. This is positioned as a user benefit, not a compliance checkbox, and is promoted as such in meta descriptions and social content. Guide content follows the MSE/Which? model: named authors, compliance review dates, signposting of free debt advice charities (StepChange, MoneyHelper), and clear disclosure of how Loanzy earns revenue. The representative APR example is treated as a featured content element on every page that mentions rates — never minimised into footnote small print.",
+    "value_proposition": "Loanzy helps UK borrowers compare personal loans from FCA-regulated lenders — showing the rates they're actually likely to get, not just headline figures — without affecting their credit score, and with the honesty to tell them when a loan might not be the right answer.",
+    "site_type_reasoning": "Loanzy.uk is not a single-service brochure — it must cover multiple loan types, serve multiple audience intents (from early research to ready-to-compare), and build enough topical authority to compete for high-value loan-related search terms. An authority-portal structure — combining interactive tools as the conversion core with a rich editorial layer (guides, calculators, FAQs) and purpose-specific landing pages — is the only site type that serves all three simultaneously. A pure landing-page approach would sacrifice SEO surface area. A brochure would undersell the tool capability. The authority-portal model mirrors what LoanTube and MoneySuperMarket have built and is the recognised architecture for this vertical.",
+    "competitive_position": {
+        "defensible_moat": "The moat is not technical — any platform can build an eligibility checker. The moat is reputational and structural: being the first UK commercial comparison platform to treat 'consider alternatives first' as a product feature rather than a legal box-tick creates an FCA-aligned positioning that incumbents cannot easily reverse-engineer without appearing to walk back their existing conversion-first funnels. Loanzy, as a greenfield build, can design the entire user journey around this principle from day one. Combined with a transparent, personalised-rate-first results display and named editorial authorship on guide content, this creates a compounding trust asset that acquisition-focused competitors have systematically underinvested in.",
+        "gap_opportunity": "No mainstream UK loan comparison platform has integrated a pre-tool 'should I borrow?' diagnostic into the conversion funnel as a feature rather than a compliance footnote. The gap is a brief, honest decision-support layer — perhaps a 60-second 'Is a loan right for me?' question set — that precedes the eligibility checker, surfaces alternatives (0% purchase credit cards, employer salary advances, debt advice) where appropriate, and routes confirmed borrowers into the comparison tool with higher intent and lower post-application regret. This simultaneously satisfies FCA vulnerable customer obligations organically, reduces complaint rates, and positions Loanzy as the platform that is visibly on the user's side — a credible differentiator in a market where trust is the primary conversion barrier.",
+        "current_landscape": "The UK loan comparison vertical is dominated by MoneySuperMarket (brand scale and TV recognition), TotallyMoney (credit-score-first acquisition), ClearScore (credit report anchor), and LoanTube (personalised APR transparency). All assume the user has already decided to borrow and route them immediately into a comparison flow. The sector is further crowded with niche players (NovunaPersonalFinance, LoansByMal) targeting specific credit profiles. FCA Consumer Duty obligations (July 2023) are tightening requirements around vulnerable customer identification, suitability of financial promotions, and outcomes monitoring — raising the compliance bar for all participants."
+    },
+    "domain_type_reasoning": "Loanzy is a coined brand name — the '-zy' suffix is a deliberate stylisation that signals fintech startup identity rather than a generic descriptor. However, the word root 'loan' is a high-value generic keyword, which gives the domain meaningful topical authority signals for search. The .uk suffix anchors it firmly to the UK market. Evidence from related entities (loanzytech.com, loanzy.asia) confirms this is an intentional brand rather than a parked generic — the brand exists and has a documented lead-aggregation business model. Judgment call: treat as a company_brand that happens to carry strong generic keyword equity, and build accordingly — a branded comparison platform rather than a pure generic directory.",
+    "recommended_page_types": [
+        {
+            "page_type": "index",
+            "reasoning": "The home page must lead with the eligibility checker or loan amount input as the hero element — the tool above the fold, not a banner image. It sets the trust tone: FCA registration, soft-search assurance, and the pre-tool 'is a loan right for me?' diagnostic entry point. It is the primary trust-building and conversion surface for direct and branded search traffic."
+        },
+        {
+            "page_type": "tool",
+            "reasoning": "Three distinct tool pages are central to the strategy: (1) the soft-search eligibility checker — the primary conversion mechanism; (2) a loan repayment calculator — a standalone SEO-optimised page capturing research-phase queries like 'how much will a loan cost me'; and (3) the 'is a loan right for me?' pre-diagnostic tool — the differentiating feature that no current competitor offers as a primary funnel element. Each tool page must resolve the credit-score anxiety objection adjacent to every data entry field."
+        },
+        {
+            "page_type": "landing",
+            "reasoning": "Purpose-specific loan landing pages (debt consolidation, home improvement, car purchase, unexpected expenses, wedding loans) are essential for SEO and for giving users a contextually relevant funnel entry point. Each page is a distinct search intent target — 'debt consolidation loan UK' and 'home improvement loan UK' are separate high-value queries requiring dedicated, intent-matched pages with embedded tool access and purpose-relevant guide content."
+        },
+        {
+            "page_type": "entity-directory",
+            "reasoning": "A lender directory — showing FCA-authorised lenders active on the platform, with key metrics and a link to their FCA register entry — serves two functions: it builds topical authority through structured lender data, and it satisfies the FCA requirement to be transparent about which lenders Loanzy works with. This is also an SEO asset for lender-name queries ('Lender X review UK')."
+        },
+        {
+            "page_type": "entity-page",
+            "reasoning": "Individual lender profile pages — covering each lender's products, eligibility criteria, representative APR, and FCA register link — capture long-tail search queries, provide the editorial depth that Google rewards, and serve users who want to research a specific lender before or after running an eligibility check. Named authorship and compliance review dates on each page signal accountability."
+        },
+        {
+            "page_type": "blog-index",
+            "reasoning": "A guide and editorial index is the SEO surface area layer — capturing informational queries from users who are not yet ready to run a comparison but are researching loan types, credit scores, or debt options. The blog-index page organises content by topic (understanding loans, improving your credit, debt advice, loan types explained) and creates internal linking pathways that route research-phase users toward the comparison tools."
+        },
+        {
+            "page_type": "blog-post",
+            "reasoning": "Individual guide articles — written to MSE/Which? editorial standards with named authorship — are the trust-building and organic traffic engine. High-value topics include: 'What is a representative APR?', 'Will a personal loan affect my credit score?', 'Debt consolidation loans: are they right for you?', 'Personal loan vs credit card: which should you choose?'. Each article must signal-post StepChange and MoneyHelper where appropriate, and link internally to the relevant tool or landing page."
+        },
+        {
+            "page_type": "content",
+            "reasoning": "Standard content pages cover the essential trust and compliance infrastructure: About Loanzy (broker-not-lender, FCA status, how the business model works), How It Works (3-step or 4-step process visualisation), Privacy Policy (UK GDPR compliant), Cookie Policy, Terms of Use, and a Glossary of financial terms introduced across the site. The glossary page is both a compliance asset and an internal linking hub for key terms used across guide content."
+        }
+    ],
+    "satisfaction_condition": "A visitor has had a worthwhile visit if they either complete the eligibility checker and receive a set of personalised loan offers they can meaningfully compare, or — if not ready to compare — leave with a clearer understanding of whether a loan is right for them and what their realistic alternatives are."
+}

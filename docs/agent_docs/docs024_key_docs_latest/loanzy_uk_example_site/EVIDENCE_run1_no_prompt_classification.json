@@ -1,0 +1,29 @@
+{
+    "category": "interactive",
+    "reasoning": "The domain is unbuilt but the brand name, related entity evidence (loanzytech.com terms describe lead aggregation), and the competitive landscape point strongly to a UK loan comparison and matching platform. The revenue model is affiliate/lead generation — lenders pay per qualified lead. This demands an interactive-platform site type centred on an eligibility checker and comparison tool, not a static brochure. The best sites in this vertical (MoneySupermarket, LoanTube, TotallyMoney) are defined by their interactive tools, not their prose. Confidence is moderate because the domain is new and no first-party content exists.",
+    "site_type": "interactive-platform",
+    "confidence": 0.72,
+    "industry_tags": [
+        "fintech",
+        "personal-loans",
+        "loan-comparison",
+        "affiliate-hub",
+        "interactive-platform",
+        "lead-generation",
+        "uk-finance",
+        "credit-matching",
+        "consumer-finance",
+        "tool-portal"
+    ],
+    "suggested_style": "modern-light",
+    "tone_suggestion": "friendly",
+    "detected_signals": [
+        "Domain suffix .uk indicates UK market intent",
+        "Brand 'Loanzy' matches known lead-aggregation platform (loanzytech.com terms)",
+        "No existing site — greenfield build",
+        "Competitive space dominated by comparison and eligibility-check platforms",
+        "Affiliate/lead-gen revenue model is native to this brand category"
+    ],
+    "page_count_estimate": 6,
+    "recommended_builder": "pageflow-builder"
+}

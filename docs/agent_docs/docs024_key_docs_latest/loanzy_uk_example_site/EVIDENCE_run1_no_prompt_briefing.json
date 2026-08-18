@@ -1,0 +1,118 @@
+{
+    "gaps": [
+        "contact_email — no first-party contact details found; placeholder inferred from domain",
+        "contact_phone — no data found",
+        "tagline — no existing tagline found; brand is unbuilt",
+        "people — no named founders, key people, or editorial authors identified in research data",
+        "examples — no completed work, case studies, or results available; site is a greenfield build",
+        "FCA authorisation number — not yet known; must be obtained before launch and added to footer",
+        "Lender panel — specific lenders on the Loanzy panel not confirmed; lender directory content cannot be populated until commercial agreements are in place",
+        "Trustpilot score and review count — site is unbuilt; no reviews exist yet",
+        "Representative APR example figures — specific loan amount, term, monthly repayment, total repayable, and APR for the required representative example must be confirmed once lender panel is established",
+        "Legal entity name — the registered company name behind loanzy.uk is not confirmed in the research data"
+    ],
+    "tone": "friendly",
+    "avoid": "Urgency and scarcity language — 'act now', 'limited time offer', 'rates rising fast', 'offer expires'. Guaranteed approval language — 'you will be approved', 'instant approval', 'pre-approved'. The word 'cheap' when describing loans — use 'competitive rates' or 'rates matched to your profile' instead. Implying Loanzy is a lender rather than a credit broker. Burying the representative APR example in footnotes or small print. Sensational or aspirational lifestyle imagery that implies borrowing solves life problems. Stock photography of coins, calculators, or piggy banks. Jargon that assumes financial literacy — 'amortisation schedule', 'LIBOR-linked'. Fake or generic testimonials — 'John S., London: Great service!'. Dark patterns in the tool flow — pre-ticked marketing consent boxes, hidden fees disclosure. 'Apply now' as a primary CTA — it implies commitment before the user has seen options. Vague superlatives without supporting facts. 'Get cash today' style phrasing. Any claim that implies FCA authorisation confers a quality endorsement on a lender's products.",
+    "voice": "Professional but accessible — uses contractions naturally (you're, we'll, it's) and avoids stuffiness. The tone is calm and reassuring: it acknowledges that borrowing is a significant decision without exploiting financial anxiety or manufacturing urgency. It empowers the reader to make a confident, informed choice. Authority comes from transparency — showing real rates, explaining how matching works, and being upfront about being a comparison service, not a lender. The register is plain English throughout: financial terms are introduced in plain language on first use with a brief gloss immediately after, never in a footnote. It sounds like a knowledgeable friend, not a bank. Second person (you/your) for the reader; first person plural (we/our) for Loanzy. Sentence rhythm is varied — short punchy sentences alternate with slightly longer explanatory ones. The writing should pass a read-aloud test: it should feel like a conversation, not a legal document.",
+    "people": [
+    ],
+    "tagline": null,
+    "audience": "A UK adult aged roughly 25–55, employed or self-employed, who needs to borrow somewhere between £1,000 and £25,000. They might want to consolidate existing debts into one monthly payment, fund a home improvement project, buy a car, or cover an unexpected expense. They know what a loan is and have a rough idea what APR means, but they are not confident about the difference between a representative APR and the rate they will personally be offered, or about whether checking their eligibility will leave a mark on their credit file. That last concern — 'will this hurt my credit score?' — is the single biggest thing stopping them from starting. They are comparison-minded: they want to see real options before committing to anything. They are cautious enough to want reassurance that the platform is regulated and that nobody is going to pressure them into borrowing. They may have looked at one or two lender sites already and felt either overwhelmed by jargon or suspicious of headline rates that turned out not to apply to them.",
+    "examples": [
+    ],
+    "has_blog": true,
+    "industry": "Financial Services — Personal Loans / Loan Comparison (UK Fintech)",
+    "location": "United Kingdom",
+    "offerings": [
+        {
+            "name": "Soft-Search Eligibility Checker",
+            "description": "An interactive tool that lets users check which lenders are likely to accept them and at what rate, without affecting their credit score. Uses a soft credit search. Free to use — lenders pay Loanzy, not the borrower."
+        },
+        {
+            "name": "Loan Comparison Tool",
+            "description": "Side-by-side comparison of personal loan offers from multiple FCA-regulated lenders, showing real APRs, monthly repayments, total amount repayable, and loan terms on each result card. Routes users to the lender for the actual application."
+        },
+        {
+            "name": "'Is a Loan Right for Me?' Diagnostic",
+            "description": "A short, honest pre-tool question set that helps users decide whether a personal loan is the right solution for their situation. Surfaces alternatives where appropriate (0% credit cards, salary advances, debt advice) and routes confirmed borrowers into the eligibility checker."
+        },
+        {
+            "name": "Loan Repayment Calculator",
+            "description": "A standalone, free calculator that shows estimated monthly repayments and total cost for different loan amounts, terms, and interest rates — no personal data required. Useful for research-phase users who want to explore costs before committing to a check."
+        },
+        {
+            "name": "Purpose-Specific Loan Pages",
+            "description": "Dedicated landing pages for common borrowing purposes — debt consolidation, home improvement, car purchase, and unexpected expenses — each with intent-matched copy, relevant guide content, and direct access to the eligibility checker."
+        },
+        {
+            "name": "Loan and Personal Finance Guides",
+            "description": "Long-form editorial guides covering loan types, APR explained, credit scores, debt consolidation, and when not to borrow. Written in plain English with named authorship. Includes signposting to free debt advice charities."
+        },
+        {
+            "name": "Lender Directory and Profiles",
+            "description": "A directory of FCA-authorised lenders active on the Loanzy panel, with individual profile pages covering key metrics, eligibility criteria, representative APR, and a link to each lender's FCA register entry."
+        }
+    ],
+    "site_jobs": [
+        {
+            "job": "Resolve the credit-score anxiety objection",
+            "detail": "Explain clearly, adjacent to every data entry field, that the eligibility check uses a soft search — it does not affect the user's credit score. Use plain-English analogies on first encounter (e.g. 'A soft search is like looking in a shop window — the shopkeeper doesn't know you were there')."
+        },
+        {
+            "job": "Run a pre-tool 'Is a loan right for me?' diagnostic",
+            "detail": "Offer a brief, honest question set that helps users assess whether a personal loan is the right solution for their situation, surfacing alternatives such as 0% purchase credit cards, employer salary advances, or free debt advice where appropriate. Route confirmed borrowers into the eligibility checker with higher confidence."
+        },
+        {
+            "job": "Deliver a soft-search eligibility check",
+            "detail": "The primary conversion mechanism: a step-by-step eligibility checker that collects enough information to surface personalised loan offers from multiple FCA-regulated lenders without performing a hard credit search. Must resolve the credit-score objection at every data-entry step."
+        },
+        {
+            "job": "Display personalised, comparable loan results",
+            "detail": "Show card-based results with APR, monthly repayment, total amount repayable, and loan term visible on each card without a click-through. Show the rates the user is actually likely to get, not just headline representative figures. Route users to the lender for the actual application."
+        },
+        {
+            "job": "Provide a standalone loan repayment calculator",
+            "detail": "A free, no-commitment tool letting users explore how much a loan would cost at different amounts, terms, and rates — capturing research-phase visitors who are not yet ready to run a full eligibility check and converting them into comparison tool users."
+        },
+        {
+            "job": "Serve purpose-specific loan landing pages",
+            "detail": "Distinct pages for debt consolidation, home improvement, car purchase, and unexpected expenses — each matching the user's specific search intent, providing contextually relevant copy, and embedding access to the eligibility checker."
+        },
+        {
+            "job": "Build topical authority through guide content",
+            "detail": "Long-form guide articles written to plain-English editorial standards (MSE/Which? model), with named authorship, covering topics like 'What is a representative APR?', 'Will a personal loan affect my credit score?', and 'Debt consolidation loans: are they right for you?'. Each article signposts StepChange and MoneyHelper where relevant and links internally to the comparison tools."
+        },
+        {
+            "job": "Establish FCA regulatory legitimacy clearly and early",
+            "detail": "Display FCA credit broker status, authorisation number, and broker-not-lender distinction above the fold and adjacent to tools — not only in the footer. State that the service is free to the borrower and that lenders pay Loanzy."
+        },
+        {
+            "job": "Signpost free debt advice for users who may not need a loan",
+            "detail": "Include prominent, genuine signposting to MoneyHelper and StepChange on the pre-loan diagnostic, guide content, and any page where a user may be in financial difficulty — as a product feature, not a compliance footnote."
+        },
+        {
+            "job": "Display the representative APR example prominently wherever rates are mentioned",
+            "detail": "Show the full FCA/Consumer Credit Act required representative example — loan amount, term, monthly repayment, total repayable, and APR — as a featured content element, never hidden in footnotes or small print."
+        }
+    ],
+    "site_type": "interactive-platform",
+    "company_name": "Loanzy",
+    "site_purpose": "Loanzy is a UK loan comparison and matching platform. It connects UK borrowers with personal loan offers from multiple FCA-regulated lenders through a soft-search eligibility checker that does not affect the user's credit score. The site lets visitors compare real APRs, monthly repayments, and loan terms across lenders in one place, then routes confirmed borrowers to the relevant lender for the actual credit decision. Loanzy is a credit broker, not a lender — lenders pay Loanzy a fee per qualified referral; the service is free to the borrower. A differentiating feature is a pre-tool 'Is a loan right for me?' diagnostic that helps users assess whether borrowing is genuinely the right option before they enter the comparison funnel, including signposting to free debt advice services where appropriate.",
+    "contact_email": "[INFERRED] hello@loanzy.uk",
+    "contact_phone": null,
+    "extra_sections": [
+        "Loan Repayment Calculator",
+        "Is a Loan Right for Me? Diagnostic",
+        "Lender Directory",
+        "Guides and Articles",
+        "How It Works",
+        "Glossary of Loan Terms",
+        "Debt Advice Signposting",
+        "Privacy Policy",
+        "Cookie Policy",
+        "Terms of Use",
+        "About Loanzy"
+    ],
+    "briefing_confidence": 0.74,
+    "recommended_builder": "pageflow-builder"
+}

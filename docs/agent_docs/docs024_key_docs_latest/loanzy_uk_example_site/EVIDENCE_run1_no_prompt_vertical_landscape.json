@@ -1,0 +1,116 @@
+{
+    "lessons": {
+        "adapt": [
+            "LoanTube's 'guaranteed APR' language should be adapted carefully: the principle of showing personalised rates rather than representative rates is correct and should be adopted, but Loanzy must avoid the specific phrase 'guaranteed APR' unless it can technically deliver that guarantee. Use 'the rate you're actually likely to get' or 'your personalised rate' instead.",
+            "MoneySuperMarket's named editorial authorship model is worth adapting at a smaller scale — even without a full editorial team, Loanzy's guide content should attribute authorship (a named financial writer or compliance reviewer) rather than appearing anonymous. Accountability through identity is the underlying principle.",
+            "TotallyMoney's credit score acquisition hook is a sophisticated long-term retention mechanism that Loanzy likely cannot replicate at launch without credit bureau partnerships. The underlying principle — give genuine value before asking for anything — can be adapted by making the repayment calculator or a 'how much could I borrow?' tool the no-commitment entry point, delivering a useful output before requesting personal data.",
+            "MoneySuperMarket's rewards mechanic (£20 cashback) drives return visits but requires commercial scale to fund. Adapt the underlying intent — giving users a reason to return — through a loan alert feature ('tell us your desired rate and we'll notify you when a match appears') that is achievable at lower scale.",
+            "LoanTube's broad loan-type page structure should be adopted but with deeper editorial content on each page than LoanTube currently provides — guides on 'is a home improvement loan right for me?' embedded within the purpose page, not just as separate blog posts. This serves SEO and trust simultaneously."
+        ],
+        "adopt": [
+            "Eligibility checker as the hero element above the fold on every primary loan-type page — the tool must be the first thing users interact with, not the last thing they reach after reading marketing copy.",
+            "Soft-search messaging placed immediately adjacent to every data entry field, not only in the FAQ — the objection must be resolved at the exact moment it arises, which is when the user sees a form field.",
+            "Purpose-led site architecture: create distinct landing pages for each loan use case (debt consolidation, home improvement, car purchase, unexpected expenses) — each page is an SEO entry point and a contextually relevant funnel.",
+            "Card-based results display with APR, monthly repayment, total repayable, and loan term visible on each card without requiring a click-through — users must be able to compare at a glance.",
+            "Third-party review score (Trustpilot once available) displayed in the hero section of primary pages with the exact review count, not a rounded figure — specificity signals authenticity.",
+            "Standalone repayment calculator page optimised for search — captures research-phase users who are not yet ready to run an eligibility check and converts them into comparison tool users.",
+            "Clear broker-not-lender statement on every page that mentions a lender or product, not only in the footer — confusion about who the user is borrowing from is the most damaging trust failure in this vertical.",
+            "Representative APR example displayed prominently wherever a rate is mentioned — treated as a design feature for transparency, not a compliance footnote to be minimised.",
+            "Purpose-selector (tile or dropdown) at the comparison tool entry point to pre-segment results — makes the outcome feel personalised from the first interaction."
+        ],
+        "avoid": [
+            "LoanTube uses 'guaranteed APRs' in page titles (e.g. 'Apply for Long Term Loans with Guaranteed APRs Online') — this is a compliance risk under FCA CONC rules and should not be replicated. Loanzy must not promise or imply guaranteed approval or guaranteed rates unless it can legally deliver them.",
+            "MoneySuperMarket uses 'Compare cheap loans' as a headline — 'cheap' is discouraged in FCA guidance on financial promotions and reads as reductive in a trust-sensitive context. Avoid 'cheap' in favour of 'competitive rates' or 'rates matched to your profile'.",
+            "Generic hero imagery (coins, calculators, piggy banks) seen across commodity comparison sites — this visual language signals a low-differentiation template site and should be avoided entirely.",
+            "Burying the representative APR example in footnote-style small print — all three exemplars make this mistake to varying degrees. Loanzy should treat the representative example as a featured content element, not a legal disclaimer.",
+            "Urgency and scarcity language — none of the three exemplars use it heavily, but it appears in isolated CTAs ('Apply Now' in some LoanTube contexts). Loanzy should eliminate it entirely from primary CTAs, using 'Check your eligibility' or 'See your options' instead.",
+            "Anonymous, generic testimonials — 'Great service, very fast' style reviews without specificity read as fabricated in this sector. If testimonials are used, they must reference the specific experience (the clarity of the process, understanding the options) not vague satisfaction.",
+            "Pre-ticked marketing consent boxes or dark patterns in the data collection flow — any such pattern would be a UK GDPR violation and would destroy trust if surfaced publicly.",
+            "Implying that FCA authorisation confers a quality endorsement on any lender's products — this is explicitly prohibited. FCA authorisation establishes regulatory compliance, not product quality."
+        ]
+    },
+    "patterns": {
+        "tools": "Soft-search eligibility checker is the central interactive element across all three — the sector has standardised on this as the primary conversion mechanism precisely because it eliminates the credit-score objection. Loan amount and term sliders or inputs appear before personal data collection, letting users explore scenarios before committing to sharing information. Purpose-segmentation (dropdown or tile selection of loan purpose) is used at the funnel entry point to pre-filter results. Repayment calculators appear as standalone SEO-optimised pages in addition to being embedded in the comparison flow — the calculator serves both research-phase users and late-stage comparison users. Results pages use card layouts with consistent metric display across all lenders to enable genuine side-by-side comparison. All three route users to lender sites for the actual application rather than collecting full application data themselves — the platform's role ends at the qualified referral.",
+        "design": "Tool-first layout is universal: the comparison entry point or eligibility checker is above the fold on every primary page, not below a hero banner. Card-based results display is the dominant pattern for showing lender options — each card surfaces the key metrics (APR, monthly repayment, total repayable, term) without requiring a click-through. Clean, light backgrounds with a single strong accent colour for CTAs — no dark or heavy palettes on consumer-facing pages. Mobile-first execution is evident across all three, with progressive disclosure used to manage complexity on small screens. Social proof (Trustpilot or Google rating) appears in the hero section of every primary page, positioned before any product claim. Named authorship on editorial content is a MoneySuperMarket-specific pattern worth noting — it adds accountability that generic copy lacks.",
+        "content": "All three sites organise content around loan purpose rather than product features — users self-select by what they need the money for (home improvement, debt consolidation, car) before encountering any product detail. This purpose-led architecture is universal in this vertical. Each site also separates the comparison tool from the editorial/guide content, with guides serving SEO and trust-building functions while the tool serves conversion. Representative APR examples appear prominently on every page that mentions rates — this is both a compliance requirement and a consistent design pattern across all three. None of the three sites rely primarily on long-form body copy; the tools do the persuasive heavy lifting, with copy playing a supporting, anxiety-reduction role. FAQ content is used consistently to address credit-score anxiety, broker-vs-lender confusion, and eligibility criteria — these are the three universal objections in this vertical."
+    },
+    "confidence": 0.82,
+    "exemplars_analyzed": [
+        {
+            "url": "https://www.loantube.com",
+            "positioning": "A UK loan comparison platform that differentiates on transparency — specifically the promise that APRs shown at the results stage are the rates the user will actually receive, not headline teaser rates. Positions itself as a single destination for all loan types (personal, debt consolidation, long-term, small loans, home improvement) to maximise SEO surface area and user entry points.",
+            "notable_tools": [
+                "Soft-search eligibility checker embedded above the fold on every loan-type page — the tool IS the hero, not a secondary element below marketing copy.",
+                "Real APR display at results stage — the mechanism of showing personalised rather than representative APRs is itself a product feature, not just a compliance decision.",
+                "Loan amount and term sliders that let users explore repayment scenarios before committing to an eligibility check, reducing perceived risk of starting the process.",
+                "Purpose-segmented entry into the comparison tool (home improvement, car, debt consolidation etc.) so the results page can be contextually filtered from the start."
+            ],
+            "trust_signals": [
+                "Google review score (4.8) displayed prominently in the hero section of every major page — third-party platform score, not a self-reported rating.",
+                "FCA authorisation referenced in site footer and within tool flows, establishing regulatory legitimacy without over-explaining it.",
+                "Explicit 'no impact on your credit score' messaging adjacent to data entry fields — placed at the moment of highest anxiety, not buried in an FAQ.",
+                "Named lender logos displayed in results — associating the platform with known, regulated brands transfers trust from the lender to the comparison tool.",
+                "Clear broker-not-lender distinction in compliance copy, preventing the confusion that erodes trust when users later discover the product comes from a third party."
+            ],
+            "success_factors": [
+                "The core value proposition is rate transparency: showing personalised, guaranteed APRs rather than representative rates shifts the trust dynamic — users feel they are seeing reality, not marketing. This reduces comparison fatigue and drop-off at the results stage.",
+                "Breadth of loan-type landing pages means the site captures intent at every point in the borrower journey, whether the user searches 'small personal loan' or 'home improvement loan'. Each page is a distinct SEO entry point with its own intent-matched copy.",
+                "The eligibility-first flow (soft search before any hard credit check) addresses the single biggest anxiety in this vertical — 'will checking hurt my credit score?' — at the exact moment the user considers entering data. Resolving this objection early removes the primary conversion barrier.",
+                "A prominent social proof score (4.8 Google rating displayed immediately in the hero) provides third-party validation before the user has read a single line of copy, borrowing credibility from a trusted platform rather than self-asserting quality.",
+                "Multiple loan-purpose pages allow users to self-select into a contextually relevant journey, making the experience feel tailored rather than generic, even if the underlying comparison engine is the same."
+            ]
+        },
+        {
+            "url": "https://www.totallymoney.com",
+            "positioning": "An eligibility-and-credit-health platform that frames loan and credit card comparison as a natural extension of helping users understand and improve their credit score. The free credit report is the acquisition hook; personalised product eligibility is the monetisation layer. This positions TotallyMoney as a long-term financial companion rather than a transactional comparison site, which increases return visits and data richness for matching.",
+            "notable_tools": [
+                "Live credit score dashboard that updates and sends alerts when the score changes — creates habitual return visits beyond the initial comparison.",
+                "Personalised eligibility indicator on each product card showing the user's likelihood of acceptance before they click through — this is the critical anxiety-reduction mechanism.",
+                "Partner-model for adjacent products (mortgages via L&C) — rather than building thin comparison tables for products outside core competency, TotallyMoney routes to a trusted specialist and frames it as a referral, not a comparison. This maintains quality perception.",
+                "Cookie and consent management that is unusually transparent in explaining what each category of cookie does — this models the kind of honesty the FCA and ICO expect and that sophisticated users notice."
+            ],
+            "trust_signals": [
+                "Trustpilot score (4.3, 14,000+ reviews) displayed with exact review count — specificity of the number signals authenticity more than a rounded figure would.",
+                "Free product with no payment details required — zero-commitment entry removes the most common reason users abandon financial services sign-ups.",
+                "Transparent cookie policy that explains purpose of each cookie type in plain English, signalling organisational honesty that extends to the financial products.",
+                "FCA authorisation number in footer with clear broker-not-lender statement on product pages.",
+                "Partner brand logos (L&C for mortgages) used to transfer credibility from established names to the platform's recommendations.",
+                "No urgency or scarcity language anywhere in the crawled pages — absence of pressure tactics is itself a trust signal in a sector notorious for them."
+            ],
+            "success_factors": [
+                "The free credit score and report as the primary CTA removes all financial friction from the first interaction — users get genuine value before the platform asks them to consider any product. This builds a trust deposit that makes subsequent product recommendations feel like advice rather than sales.",
+                "Eligibility-first framing across every product category (loans, credit cards, mortgages) means the platform never asks users to apply blind. The consistent message 'check without harming your credit score' is applied uniformly, not just on one product type, so users learn to expect it across the site.",
+                "Personalised offers derived from the user's actual credit profile make the recommendations feel credible and specific, not generic. A user with a thin credit file sees different options than one with an established history — this specificity is itself a trust signal.",
+                "The credit report product creates a natural re-engagement loop: users return to check score changes, and each return is an opportunity to surface newly eligible products. Most pure comparison sites lose users after a single transaction.",
+                "Clean, app-like mobile UI with generous whitespace and progressive disclosure (show the score first, then the detail, then the products) reduces cognitive load at each stage and makes a complex information set feel manageable."
+            ]
+        },
+        {
+            "url": "https://www.moneysupermarket.com/loans/",
+            "positioning": "The market-leading UK comparison aggregator, using scale and brand recognition to position itself as the default starting point for any financial product search. In the loans vertical specifically, it combines a broad product taxonomy (personal, secured, car finance, debt consolidation) with a calculator tool and editorial content to capture users at every stage from initial research to comparison to application.",
+            "notable_tools": [
+                "Free personal loan repayment calculator with named authorship and expert review — positions the tool as editorial content as well as a utility, boosting SEO and trust simultaneously.",
+                "Purpose-selector on the comparison entry point (dropdown or tile selection of loan purpose before entering personal details) — segments the results before the user starts, making the outcome feel more personalised.",
+                "Eligibility search integrated into the secured loans CTA ('Find a loan') using soft-search language — consistent with the sector-wide shift away from hard-search-first flows.",
+                "Card-based lender result display with key metrics (APR, monthly repayment, total repayable, loan term) visible without clicking through — enables side-by-side comparison without leaving the results page.",
+                "Super Save Club rewards integration as a CTA modifier — adds a non-financial-product incentive to complete a comparison, increasing conversion on fence-sitters."
+            ],
+            "trust_signals": [
+                "Named, photographed editorial authors and reviewers on all calculator and guide content — accountability through identity, not anonymous copy.",
+                "Representative APR prominently displayed with caret notation and full representative example — compliance executed with transparency rather than minimalism.",
+                "Broker-not-lender disclosure on every product page where a partner facilitates the product (e.g. Car Finance 247 on car finance pages) — clear delineation of who the user is actually dealing with.",
+                "Breadth of product coverage signals market authority — a site covering personal, secured, car, and consolidation loans reads as comprehensive rather than niche, which increases perception of best-deal coverage.",
+                "Long-established UK brand with high offline awareness — cannot be replicated by a new entrant but signals what sustained credibility looks like."
+            ],
+            "success_factors": [
+                "Brand recognition does a large share of the trust work before the user arrives — MoneySuperMarket's decades of TV advertising means users arrive with pre-established confidence. A new entrant cannot replicate this, but can understand the underlying mechanism: trust is built through repeated, consistent, credible presence, not a single page element.",
+                "The loan calculator as a standalone, SEO-optimised page captures high-intent research-phase queries ('how much will a loan cost me') and converts researchers into comparison tool users. The calculator is both a content asset and a funnel entry point.",
+                "Purpose-led navigation (home improvement, debt, car, wedding, holiday) meets users at their specific intent rather than asking them to navigate a generic 'loans' category. This reduces cognitive load and increases relevance of results.",
+                "Editorial content (written by named authors, reviewed by named experts with photos and bios) adds a content authority layer that pure comparison tools lack. Named authorship signals accountability and expertise, which matters in a regulated sector.",
+                "Prominent representative APR display with the caret notation (e.g. 'Rates from 5.9%^') and the associated representative example — this is a compliance requirement executed as a design feature, not hidden in footnotes. The transparency itself becomes a differentiator.",
+                "A rewards mechanic (£20 reward for completing a purchase) introduces a loyalty element that pure comparison platforms lack, giving users a reason to return to MoneySuperMarket rather than going direct to lenders on renewal."
+            ]
+        }
+    ],
+    "differentiation_opportunity": "None of the three exemplars meaningfully addresses the borrower's decision-making anxiety before they reach the comparison tool — they all assume the user has already decided to borrow and is now choosing where from. The gap is a 'should I borrow?' layer: a brief, honest pre-tool question set that helps users assess whether a loan is the right solution for their situation (versus a 0% credit card, an employer salary advance, or a conversation with a debt adviser). This is what MoneyHelper does well, but no commercial comparison platform has integrated it into their conversion funnel because it appears to reduce conversion. In practice, it would increase conversion quality (fewer defaults, fewer FCA complaints, fewer chargebacks from borrowers who felt misled) and would be a genuine differentiator in a market where FCA consumer duty obligations are tightening. Loanzy could frame this as a 60-second 'Is a loan right for me?' diagnostic that precedes the eligibility checker — surfacing alternatives where appropriate, and routing confirmed borrowers into the comparison tool with higher confidence and lower post-application regret. This also creates a natural signposting mechanism for StepChange and MoneyHelper that satisfies vulnerable customer obligations without feeling like a legal box-tick. No other UK loan comparison platform currently positions the 'consider alternatives first' step as a feature rather than a compliance footnote."
+}
