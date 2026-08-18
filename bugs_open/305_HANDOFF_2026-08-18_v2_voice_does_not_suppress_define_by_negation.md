@@ -38,7 +38,44 @@ them the important thing. The `hero` on the same page closes *"…not a vendor r
 directory **listing** components are fine — they render from the cited register and read
 plainly. It is the surrounding `hero` and `call-to-action` copy, which is LLM-authored.
 
-## 3. The measurement, and it refutes the comfortable reading
+## 3. ⚠ CORRECTED 2026-08-18, SAME SESSION — MY CENTRAL MEASUREMENT DOES NOT SUPPORT THIS FILE'S TITLE
+
+> **The rate comparison below cannot answer the question it was built to answer, and I
+> published it before checking that.** Read this block before §3.
+>
+> I reported pre-v2 **2.72** → post-v2 **2.85** hits per 1,000 words and called it "unchanged
+> to slightly worse". Then I controlled for date drift by comparing ADJACENT equal-length
+> windows (08-07..08-12 vs 08-13..08-18) and got **4.35 → 2.85** — a 34% FALL, i.e. the
+> opposite conclusion from the same table.
+>
+> Both are artefacts. The weekly series for the same agent `[MEASURED]`:
+>
+> | week | 06-15 | 06-22 | 06-29 | 07-06 | 07-13 | 07-20 | 07-27 | 08-03 | 08-10 | 08-17 |
+> |---|---|---|---|---|---|---|---|---|---|---|
+> | per 1,000 words | 4.27 | 1.86 | 2.85 | 2.89 | 3.11 | 4.23 | **0.38** | 2.94 | 4.08 | 2.92 |
+>
+> **Week-to-week variance runs 0.38 to 4.27 with no trend.** An effect the size of either
+> claim is invisible against that. So the honest statement is: **this method cannot detect
+> whether v2 changed the rate**, and neither "it did not reduce it" (the title) nor "it
+> reduced it 34%" is supportable. The all-history baseline was low because it averaged
+> months of different sites, page types and content lengths; the adjacent window was high
+> because the preceding week happened to be high.
+>
+> **What survives, and it is what actually matters:** the writer demonstrably still produces
+> the construction — 2.85 per 1,000 words is not zero, and the owner objected to live output
+> from it. §5's urgency does not depend on the comparison at all.
+>
+> **What a real measurement needs:** hold site AND page-type constant (the mix moves weekly),
+> or measure per-PAGE rather than per-call, and state the effect size the sample could
+> detect before running it. A within-site pre/post query is running and is the right shape;
+> it was too slow to finish inline.
+>
+> **The title of this file overstates its own evidence and is left standing deliberately**,
+> with this correction directly beneath it, because renaming it would hide that the error
+> was made. Cause remains with the loop (`57b2dcd2`) — ⚠ and note the `090` symptom
+> statement was authored FROM the refuted framing, so read its verdict against this block.
+
+## 3. The measurement as originally filed (superseded by the block above)
 
 **First finding — the copy is OLDER than the symptom's timestamp.** The producing call is
 `llm_call_log` `31a81e3c-f8e0-4783-b213-8e089779f564`, `page-content-writer`, step
