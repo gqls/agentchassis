@@ -103,3 +103,31 @@ re-read the same function.
 - `architecture_review/RFC_036` — the other structural blocker this lane surfaced (three uniqueness
   gates on one INSERT, one of which makes any tool un-rebuildable).
 - `docs024_key_docs_latest/webdesign_tool_rebuilds/NOTES_…` 2026-08-18 — the full sequence.
+
+## ADDENDUM 2026-08-18 — a second, STRICTLY WORSE class: tools whose OUTPUT is a script tag
+
+Found filing `tool-seo-injector` (a JSON-LD generator). The class in the body above — tools that
+mention a tag in a comment, regex or prose — can be dodged by rewording. **This one cannot be
+reworded, because the imbalance is forced by JavaScript itself.**
+
+A tool that emits a script tag must contain the opening text `<script type="…">` in its template, and
+**must escape the closing tag** (`<\/script>`), because an unescaped closing tag inside an inline
+script terminates that script — that is a hard language rule, not a style choice. So:
+
+- `strings.Count(folded, "<script")` counts the opening literal, **and**
+- `strings.Count(folded, "</script>")` does **not** match the escaped `<\/script>`.
+
+⇒ opens exceed closes **by construction**, for every correct implementation. The only escape is to
+assemble both tags from concatenated pieces so neither literal appears — which is what this lane now
+has to write into the work item's description. **A guard that forces generated code into an obfuscated
+form to pass is inverting its own purpose**: the concatenated version is harder to read and no less
+likely to be truncated.
+
+Affected beyond this tool: anything that outputs embedded markup — JSON-LD/schema generators,
+analytics snippet builders, embed-code generators, CSP or meta-tag helpers, "copy this snippet" tools
+of any kind. On a web-design site that is a natural and recurring product category.
+
+**This strengthens fix candidate 1** (strip script/style/comment regions before counting): a tag
+mentioned inside a template literal is exactly the case region-stripping handles and rewording cannot.
+It also means candidate 4 (fix the wording only) is not sufficient — the message is misleading AND the
+predicate blocks correct code.
