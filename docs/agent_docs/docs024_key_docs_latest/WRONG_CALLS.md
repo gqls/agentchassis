@@ -36360,3 +36360,52 @@ case in your head — "what does this check say when the thing I'm verifying is 
 exact form I probed for?" One sentence of simulation. Same family as the standing memory "your
 fix's SUCCESSOR passes your marker check" (prove-a-deploy-at-the-artefact): a marker keyed to one
 commit expires at the very first build after it, which is the first moment anyone runs the recipe.
+
+---
+
+## 2026-08-18 — I DERIVED a duration from a code path when it was measurable, and was wrong by ~1000x
+
+**Lane:** `bugfix_281_tool_audit_ported`, filing `bugs_closed/310` (the `INITIALIZED` reaper gap).
+
+**The wrong call:** I wrote, into a bug file *and* into a migration header that a council then
+approved, that the `INITIALIZED` window is "one `GetState`, three log lines and a map assignment…
+MILLISECONDS", and licensed a 4 h reaper threshold as "~7 orders of magnitude of headroom". I got
+there by tracing the code — `coordinator.go:149` creates the row and `:165` drives it on, in the
+same message handler — and the trace is *correct*. The number I inferred from it is not: measured
+over 5,736 retained rows that have actually left the status, occupancy is avg **0.22 s**, p99
+**2.01 s**, **max 6.31 s**. Roughly a thousand times my figure.
+
+**The second, worse call underneath it:** I reused `bugs_closed/294`/`463`'s licence wholesale —
+*"`RUNNING` is an inter-step transition, never a durable healthy state, therefore so is
+`INITIALIZED`"*. **It does not transfer, and the distinction is the whole point.** `RUNNING` is
+transient *by construction*: one writer, one caller, and the next write flips it back, so no amount
+of load can lengthen it. `INITIALIZED` is a genuine **waiting** state — the row sits there until the
+first message is handled, i.e. on a Kafka queue — so its duration is a **queue property, measurable
+and load-dependent**, not a property of the code. My one-writer/one-reader trace was accurate and
+was answering the wrong question: it establishes what *writes* the status, never how long a row
+*sits* in it.
+
+**What caught it:** a concurrent lane fixing the identical gap, whose commit (`42375f96a`) states
+the non-transfer explicitly and carries the measurement. **Not** my own review, **not** the council
+(APPROVED round 1, and the derivation was in the submitted rationale), and **not** the `090`
+diagnosis loop (UNVERIFIABLE). Three review surfaces passed over it, because a plausible mechanism
+stated confidently reads exactly like a measured one.
+
+**The cheap check that would have:** ask *"is this number derivable, or only observable?"* before
+writing it down. A duration bounded by code shape is derivable; a duration that includes **waiting
+for anything** — a queue, a lock, a network hop, another process — is observable only. The query
+existed and was one line: `(processing_history->0->>'timestamp') - created_at` over rows that have
+left the status, which yields the distribution and *could have come out otherwise*. Marking it
+`[INFERRED]` would also have done the job — the marker rule exists precisely so an inference cannot
+be read in the same voice as a finding, and I skipped it on the one figure in the file that was
+carrying a threshold.
+
+**The transferable rule:** *a licence borrowed from a sibling case is a claim about the two cases
+being the same shape, and that claim needs its own evidence.* Both `RUNNING` and `INITIALIZED` are
+"non-terminal statuses nothing reaps", which is what made the borrow feel safe — but they are bounded
+by different things, and only one of them is bounded by something that cannot change under load.
+
+**Relations:** MEMORY [[measurement-discipline-index]] · [[a-justification-in-an-evidence-column-reads-as-evidence]] ·
+`bugs_closed/310` CORRECTION 1 and 2 · LANDMINES "An `orchestration_states` status census is a
+~24 h WINDOW…" (same table, same session, the reverse error — there I *did* check which population
+I was counting).
