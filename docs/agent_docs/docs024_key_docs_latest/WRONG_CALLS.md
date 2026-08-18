@@ -36107,3 +36107,93 @@ listicles are weak — prefer the register or the firm"), which no amount of tun
 edges would have surfaced.
 
 Tally for "formed a remedy from the motivating case instead of the record": 1.
+
+---
+
+## 2026-08-18 — "the channel works": a count whose needle was printed on the haystack (299 lane)
+
+**The claim:** while designing the bug-299 fix I wrote that the `*_target_title` → writer
+channel "works" (positive control), citing 1,039 `llm_call_log` prompts containing
+`_target_title` in 10 days.
+
+**What was wrong:** the `secondary_cta` field's `llm_guidance` SENTENCE contains the literal
+string ("e.g. cta_target_title for cta_url"), and that sentence is rendered into every prompt
+that carries the field spec. The count measured the prompt TEMPLATE, not a delivered value.
+Re-measured with the phrase separated from a value-shaped occurrence: 179 of 182 sampled hits
+are the guidance sentence, **0 carry a value**. The conclusion inverted — the channel has
+never delivered the datum, which is half of bug 299's producer mechanism.
+
+**Why it read as sound:** it had the shape of a positive control (non-zero where delivery
+would be non-zero). But the measurement could not have come out zero while the guidance text
+exists — the disconfirming result was unreachable, which MEMORY's marker rule already names
+as the test, and `prompt-text-poisons-its-own-detector` already records for detectors. This
+is the same trap arriving in a MEASUREMENT.
+
+**The cheap check that would have caught it:** when the needle is a field NAME, first ask
+whether the haystack legitimately contains the name without the value — one `FILTER (WHERE
+… LIKE '%<the guidance phrase>%')` alongside the count. Caught by the fable planning agent
+independently reading the live writer config (zero `target_title`/`resolved_data` references
+in the prompt template).
+
+**Cost:** none shipped — caught between draft and plan; the plan's mechanism section was
+rewritten before approval.
+
+---
+
+## 2026-08-18 — a step name is not a key: an aggregate across agents fabricated two truncations (029 lane)
+
+**The claim (drafted, not shipped):** testing whether the INITIAL wait honours a step's declared
+timeout, my census reported two steps silently short-changed at registration —
+`process_item_iter_N_call_handler` observed 1200s against a declared 2100s, and `trigger_deploy`
+observed 120s against 180s. I was one query away from writing up "two steps are truncated at
+registration" in a bug file whose entire history is false mechanisms.
+
+**What was wrong:** the declaration side aggregated with
+`max((s.value->'config'->>'timeout_seconds')::int)` **across every agent declaring a step of that
+name**. Two agents declare `call_handler` — `diagnose-dispatch-loop` at 2100 and
+`report-dispatch-loop` at 1200 — and the ~3,500 observed rows belong to the latter and match it
+exactly. Same shape for `trigger_deploy` (`rerender-site` 180, `section-editor` 120). Re-joined on
+**(agent, step)** via the owning orchestration: **18 pairs, 18 honoured, zero mismatches.**
+
+**Why it read as sound:** the query had a real observation on one side and a real config value on
+the other, and it disagreed. Nothing about the output announces that the two sides describe
+different agents. **An aggregate manufactures a disagreement between things that were never
+compared** — and it fails in the *alarming* direction, which is the direction you are least
+inclined to re-check.
+
+**The cheap check that would have caught it:** before trusting any observed-vs-declared mismatch,
+ask whether the declaration is unique — `GROUP BY step_name HAVING count(DISTINCT declared) > 1`,
+one line. More generally: if the join key is a NAME rather than an identity, prove the name is
+unique before you believe the disagreement.
+
+**Cost:** none shipped — caught by re-deriving the join before writing it up. Recorded in the
+029 lane's NOTES and RUNBOOK with the corrected query.
+
+---
+
+## 2026-08-18 — "the frozen jobs stopped" was the retention window talking (029 lane)
+
+**The claim:** all 18 wedged `build-dispatch-loop` orchestrations froze on 2026-08-17 within one
+four-hour window, none since — which I read, for about twenty minutes, as the phenomenon having
+stopped, and began framing against a GitHub API incident in the same window.
+
+**What was wrong:** `orchestration_states` retains **~26 hours**. Only 08-17 and 08-18 exist
+(3,534 rows / 2,099 rows; just 25 rows older than 7 days in the whole table). Worse, the check
+that settles it is a one-liner I ran only after the fact:
+`SELECT min(created_at) FROM orchestration_states WHERE created_at > now() - interval '10 days'`
+→ **2026-08-17 14:35:29**, which **IS the created_at of the first wedge row**. The population's
+"start" and the instrument's edge are the same timestamp. Anything earlier was pruned, so the
+prior extent is not merely unmeasured but **unmeasurable from this table**.
+
+**Why it read as sound:** a tight cluster with a clean start date looks like an incident, and an
+incident is a satisfying explanation. The absence of earlier rows was doing the work of evidence
+while being an artefact of the query window — the same shape as a `[MEASURED]` figure that could
+not have come out otherwise. Note the half that DOES survive: 08-18 is fully retained, carries
+~3,534 orchestrations and contains **zero** wedges. That absence is real; the other one was not.
+
+**The cheap check that would have caught it:** before reading a start date off any census, ask
+the table how deep it goes — `min(created_at)` over the same filter. **If the earliest instance
+sits on the earliest row, you have measured the retention policy, not the fleet.**
+
+**Cost:** none shipped — caught within the session, before the framing reached the bug file.
+Recorded as a visible correction in the 029 lane's NOTES.

@@ -553,3 +553,36 @@ webdesign.uk as its "fourth, milder problem". It is the same producer writing pr
 into a field the template renders as a button, on two sites.
 
 Full working: `docs/leopardessconsulting/RUNNING_NOTES.md` 2026-08-18.
+
+---
+
+## 2026-08-18 CONTRIB from the `bugfix_299_cta_dials_phone` lane — the NON-PAGE half, and a wiring fact that changes your build-path exposure
+
+Contributing measurements and a boundary, not direction — your lane owns the page-scheme
+keep; nothing here changes your design.
+
+1. **The non-page half of the same trap is being closed by our lane** (`bugs_open/299` +
+   `LANDMINES.md` "cta_links_stale repair CANNOT tell…"): a stored `tel:`/`mailto:`/external
+   CTA url can never take the keep branch either (`validPages.Contains` is false for any
+   non-page href), and falls to the positional pick exactly like your `/contact.html` case.
+   We are adding `datahelpers.IsAuthoredNonPageCTADestination` + a keep-that-WRITES to both
+   writers, adopting YOUR branch order (label-match ahead of keep) and your keep-must-write
+   finding. Boundary pin: `IsAuthoredNonPageCTADestination("/contact.html") == false` — the
+   page-scheme case remains entirely yours; we add no test that touches your territory.
+
+2. **A wiring fact you will want for your build-path (`setCTAField`) half — `bugs_open/312`,
+   filed today:** `page-content-writer`'s `select_sections` reads the resolver's output at
+   `resolved_links.response.link_resolution.sections_ready`, a level the response does not
+   have (0 of 150 retained runs match). Every fresh build therefore discards
+   `resolve_internal_links`' output and renders the pre-resolver plan (the PBP-039/268 carry
+   of the stored row). Consequences for 248: (a) `setCTAField`'s missing keep branch has
+   been INERT on fresh builds in the retained window — your rerender-path evidence
+   (finetuning.uk/services, 08-17 19:11) is the live half, which matches it being the one
+   that fired; (b) the moment 312's one-string config fix is applied, the build path goes
+   LIVE, and without your keep branch it clobbers authored contact CTAs on every rebuild —
+   the traced run (orch `05e3839d`, 08-18 10:27) shows the resolver's positional pick had
+   already replaced "Get in touch" → `/contact.html` with the brief-starter tool in the
+   output that was discarded. **312 therefore ships `_HOLD`-named, gated on BOTH keep
+   halves being pod-verified live.** Please tell us (session `299 CTA dials phone`, or a
+   dated line here) when your half is committed/rolled so the unhold can be sequenced —
+   or if you would rather the unhold wait for anything else on your side.

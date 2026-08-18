@@ -67,3 +67,44 @@ sits in exactly the section that work will touch. **File, do not patch**: a surg
 copy fix now is discarded by the rewrite, and the producer question above is the part
 that survives it. Whoever does the rewrite must confirm the regenerated CTA points at
 the tool page, using the control above.
+
+---
+
+## 2026-08-18 — TAKEN ON by the `bugfix_299_cta_dials_phone` lane; the producer question is ANSWERED
+
+**The section was regenerated again (08-18 10:31, the chat-box rebuild) and the defect
+survived in a new form:** the label is now "See how it works" (naming `/how-it-works.html`),
+the href is still `tel:+44 (0) 7934 524 911`. Label and destination are written by two
+different sources and nothing ties them together — a rewrite changes one and carries the
+other.
+
+**Why a chassis carrying the 268 fix still produces this — traced, not inferred
+(→ `bugs_open/312`):** on that same rebuild the internal-link resolver computed the RIGHT
+destination (both CTA fields → `/tools/website-brief-starter/index.html`, target titles
+included) and `page-content-writer`'s `select_sections` step discarded it — its first
+extract path names a `link_resolution` level the response does not have (0 of 150 retained
+runs match), and the silent fallback fed the render the pre-resolver plan, whose
+resolved_data is the 268 carry of the stored row. The carry then faithfully re-ships the
+tel: through every rebuild. So: right answer computed, thrown away, damage carried — the
+268 fix is part of the persistence mechanism, not a failed guard.
+
+Two further halves, confirmed while validating the fix design: the misdirected-CTA check
+CANNOT see this shape (`ClassifyLinkScope` files `tel:` under mailto and the scan skips it
+before classification — it ran on this site 08-14 and 08-17 with this anchor live), and the
+repair path would DELETE a genuine phone button rather than fix this one
+(`applyCTARecompute`'s keep branch requires `validPages.Contains`, false for any non-page
+href — the `LANDMINES.md` bug-203 trap in a second form; faq and how-it-works carry real
+phone CTAs today).
+
+**Fix in flight** (plan approved by the owner 08-18, working docs
+`docs024_key_docs_latest/bugfix_299_cta_dials_phone/`): shared non-page-destination
+vocabulary + tel: normaliser in `datahelpers`; keep branches in `setCTAField` and
+`applyCTARecompute` (coordinated with `bugs_open/248`, which owns the page-scheme half); a
+`cta_nonpage_destination` discovery check; the archived-page scan filter; a gated
+destination stamp into the writer's field specs; and — LAST, under an interlock, because
+fixing it first would arm the 248 clobber on every fresh build — the `select_sections`
+path correction (312).
+
+This file stays OPEN until the regenerated CTA's copy and href agree on the served page
+(fixed AND live bar). Verification stays as §"How to verify" above — assert on the anchor
+TEXT, never on the URL's presence in the page.
