@@ -5408,6 +5408,13 @@ func detectNeedsLLMContent(htmlTemplate, inputSchema string) bool {
 //     row's result JSONB. Values are literals; the
 //     action always adds orchestration_id and step
 //     metadata automatically.
+//   - owned_page_refusal_status: optional, OFF when absent. The status to
+//     record INSTEAD of `status` when the routed step
+//     error came from the owned-page guard — i.e. the
+//     handler was refused permission to touch this
+//     page, rather than having tried and failed. Same
+//     status vocabulary. See the block in the body for
+//     what reads the difference and why it is a field.
 func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("UpdateWorkItemStatusAction: Starting")
 
@@ -5472,6 +5479,71 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("invalid work item status: %s (valid: complete, failed, claimed, executing, detected, wont_fix, needs_human_review, unresolved)", newStatus)
 	}
 
+	// --- Opt-in: an ownership REFUSAL is not a handler FAILURE ---
+	//
+	// OWNER DECISION 1, 2026-08-18 ("do not switch the handler off for this —
+	// write something other than `failed`"). bugs_open/301 §3, bugs_open/083.
+	//
+	// WHAT THE PROBLEM IS, in plain terms. A page with rebuild_policy='owned'
+	// belongs to a tool or widget, so the owned-page guard refuses a generic
+	// section save over it. That refusal is correct. But the refused work item
+	// then dies `failed`, and `failed` is what a fleet-wide gate counts.
+	//
+	// WHAT READS IT. The detected-item-promoter's floor (scheduled task
+	// `detected-item-promoter`, migration 444 corrected by 454/465) holds an
+	// (item_type, handler_agent) pair whose lifetime successes fall below 25% of
+	// complete+verified+failed. Read from the live pre_query 2026-08-18: it
+	// counts `complete`/`verified` and `failed`, and names no other status. So a
+	// refusal recorded as `failed` enters the DENOMINATOR of a competence
+	// measure it says nothing about — and when the pair crosses the floor the
+	// promoter stops dispatching that item type ENTIRELY, including the findings
+	// on generic pages that were succeeding. phantom_internal_link is the live
+	// case: 69% on generic pages, 0 for 14 on owned ones, 47% overall.
+	//
+	// WHAT THIS DOES. When the routed step error carries the ownership guard's
+	// marker, record the configured refusal status instead. With `wont_fix` the
+	// pair reads NEVER TESTED HERE, which is the truth: excluded from numerator
+	// and denominator alike, because the floor names neither.
+	//
+	// WHY A FIELD AND NOT A RULE IN CODE (owner ruling 2026-08-02 §2): new
+	// authority on a shared seam ships opt-in with the unsafe default OFF, so
+	// the decision is visible to a reviewer of the CALLER. Absent — which is
+	// every caller today — this block is inert and the status is exactly what
+	// the workflow configured. It is scoped to the ownership marker on purpose:
+	// a genuine save failure (shrink guard, banned claim) still records `failed`
+	// and still counts, or the floor would go blind to real incompetence.
+	//
+	// THE ONE BEHAVIOUR DIFFERENCE, measured rather than assumed. Of the
+	// consumers that read `wont_fix` positively: silentCoverageClause
+	// (diagnose_silent_check_action.go) treats failed and wont_fix alike;
+	// crossLinkFailedStatuses lists both; check_page_canonical_collision's
+	// suppression is scoped to its own item_type. Only retraction differs —
+	// workItemClosedStatuses holds wont_fix and not failed, so the row will not
+	// later be retracted. That is correct for a row that is already closed. The
+	// dedup key is released either way (idx_swi_dedup excludes both), so the
+	// finding re-raises when it is detected again.
+	ownedPageRefusal := false
+	configuredStatus := newStatus
+	if refusalStatus, ok := config["owned_page_refusal_status"].(string); ok && refusalStatus != "" {
+		if !validStatuses[refusalStatus] {
+			return nil, fmt.Errorf("invalid owned_page_refusal_status: %s (same vocabulary as status)", refusalStatus)
+		}
+		// The marker travels in the routed error only — routeToErrorStep copies
+		// the action's error message verbatim to __step_error.message. A step
+		// reached by next_step rather than error_step has no __step_error and so
+		// is never downgraded, which is what keeps this to the refusal path.
+		routed := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.message")
+		if strings.Contains(routed, ownedPageSkipReasonPrefix) {
+			params.Logger.Warn("UpdateWorkItemStatusAction: ownership refusal — recording the refusal status, not the configured one",
+				zap.String("work_item_id", workItemIDStr),
+				zap.String("configured_status", newStatus),
+				zap.String("refusal_status", refusalStatus),
+				zap.String("marker", ownedPageSkipReasonPrefix))
+			newStatus = refusalStatus
+			ownedPageRefusal = true
+		}
+	}
+
 	// Optional error message — recorded in the error column so triage can see
 	// why a handler parked the item.
 	errorMessage, _ := config["error_message"].(string)
@@ -5527,6 +5599,17 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		"completed_by_orchestration_id": params.ExecutionContext.OrchestrationID,
 		"completed_by_step":             params.ExecutionContext.StepName,
 		"completed_at_iso":              time.Now().UTC().Format(time.RFC3339),
+	}
+	// Stamp the substitution on the row, not only in the log. Without this the
+	// only trace that a status was chosen rather than configured is a scrolling
+	// pod line, and the rows are indistinguishable from a human's wont_fix —
+	// which matters because the whole point is that a census can separate
+	// "refused on ownership grounds" from "the handler could not do this job".
+	// Queryable as: result ? 'owned_page_refusal'.
+	if ownedPageRefusal {
+		resultPayload["owned_page_refusal"] = true
+		resultPayload["owned_page_refusal_replaced_status"] = configuredStatus
+		resultPayload["owned_page_refusal_marker"] = ownedPageSkipReasonPrefix
 	}
 	if extras, ok := config["result_fields"].(map[string]interface{}); ok {
 		for k, v := range extras {

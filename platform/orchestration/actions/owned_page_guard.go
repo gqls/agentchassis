@@ -52,10 +52,24 @@ import (
 // pipeline's to rebuild" (migration 164's CHECK allows only 'generic'|'owned').
 const ownedRebuildPolicy = "owned"
 
-// ownedPageSkipReasonPrefix marks a skip caused by this guard. It is matched by
-// nothing — the skip protocol is a boolean — but it is the string to pod-grep to
-// prove the guard is live on a running binary, and it is what tells an operator
-// reading a skipped iteration WHY the page was left alone.
+// ownedPageSkipReasonPrefix marks a refusal caused by this guard. It is the
+// string to pod-grep to prove the guard is live on a running binary, and it is
+// what tells an operator reading a skipped iteration WHY the page was left alone.
+//
+// > **CORRECTED 2026-08-18:** this comment used to say "It is matched by
+// > nothing — the skip protocol is a boolean". That was already false when
+// > written (SavePageSectionsAction and UpdatePageStatusAction both match it in
+// > an upstream skip_reason) and it is now load-bearing in a third place:
+// > SavePageSectionsAction leads its refusal ERROR with it, so that
+// > UpdateWorkItemStatusAction's owned_page_refusal_status can tell an ownership
+// > refusal apart from a real save failure. The full matcher set, so a future
+// > edit knows what it would break:
+// >
+// >	SavePageSectionsAction     — an upstream skip_reason, and its own error
+// >	UpdatePageStatusAction     — an upstream skip_reason (refuses the 'deployed' stamp)
+// >	UpdateWorkItemStatusAction — __step_error.message (chooses the terminal status)
+// >
+// > Changing this literal changes an item's terminal STATUS, not only a log line.
 const ownedPageSkipReasonPrefix = "OWNED_PAGE_GUARD"
 
 // resolveGuardedPage finds the page a composition step is working on.

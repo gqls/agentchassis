@@ -216,11 +216,21 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 					ownedPageSkipReasonPrefix, pageName),
 				params.Logger)
 
+			// The error LEADS with ownedPageSkipReasonPrefix (owner decision 1,
+			// 2026-08-18). routeToErrorStep copies this message verbatim into
+			// collected_data.__step_error.message, which is the only channel that
+			// survives the action → coordinator → error_step boundary — an action
+			// cannot name its own error step, and a typed error does not cross it.
+			// So the marker is what lets the routed step tell THIS refusal apart
+			// from a genuine save failure (a shrink guard, a banned claim), which
+			// is what update_work_item_status' owned_page_refusal_status reads.
+			// Without it every save error looks alike at the only place the
+			// item's terminal status is chosen.
 			return nil, fmt.Errorf(
-				"page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
+				"%s: page %s is rebuild_policy=owned (tool/widget-owned): a generic section save "+
 					"would clobber it. Use apply_section_edit for targeted edits or the tool "+
 					"pipeline for rebuilds. Refusing to overwrite.",
-				pageName)
+				ownedPageSkipReasonPrefix, pageName)
 		}
 	}
 
