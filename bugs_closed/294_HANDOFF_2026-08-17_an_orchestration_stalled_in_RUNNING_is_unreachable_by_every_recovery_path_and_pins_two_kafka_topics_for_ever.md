@@ -416,3 +416,52 @@ idle **0.4 days and rising**. Both from a `check_health` step. Unlike `RUNNING` 
 Kafka topics (`INITIALIZED` is absent from `getActiveOrchestrationTopics`'s protected set),
 so the harm is bounded — but the gap is live and growing, and it is the standing argument for
 fix candidate 2.
+
+## Correction 4 — my Correction 2 above overstated it, in the same way it was correcting
+
+Correction 2 says `WorkflowMonitor`'s endpoints *"return **500** whenever anyone asks"*, citing
+`platform/health/monitoring.go:53,85`. **That is wrong.** `AddMonitoringEndpoints` had **zero
+callers**, so `/monitor/stuck` and `/monitor/metrics` were never registered on any server —
+nobody could reach them, and no 500 was ever produced. The table really does not exist and the
+module really was inoperative; what I got wrong is *how* it was inoperative.
+
+I read the function — it does mount handlers — and did not walk the caller graph. **That is the
+third time in this one session**, after this file's own root-cause item 4 and after describing
+`TimeoutMonitor` as blind-to-empty-`awaited_requests` when in fact nothing constructs it. Same
+cause every time: *reading the body instead of the callers*. Left uncorrected in place above so
+the sequence is visible, because three instances in a day is the useful datum, not any one of
+them.
+
+**The code is now gone** — deleted 2026-08-18 (`0e169319b`) on the owner's decision:
+`platform/orchestration/monitoring.go`, `platform/health/monitoring.go`, `cmd/workflow-monitor/`
+and its orphan CronJob manifest (referenced by no kustomization, deployed in no namespace). Not
+repointed at the real table, deliberately: that would switch on endpoints and a cronjob that had
+never once reported, which is a new capability smuggled inside a cleanup. The working equivalent
+already exists at `internal/core-manager/admin/dashboard_handlers.go:351-354`.
+Council `Council-Submitted: 25fa8173-91d5-4b1a-ad05-d35b0f7af96a`.
+
+## The sibling arm — `INITIALIZED` is now closed too (migration 464)
+
+Owner decision 2026-08-18: take the contained arm now, leave candidate 2 (the invariant rewrite)
+as separate work. `464_reaper_initialized_arm.sql` is applied, recorded and live.
+
+**463's licence deliberately not reused, because it does not transfer.** `RUNNING` is transient
+*by construction*. `INITIALIZED` is a genuine **waiting** state — created at `state.go:734`, left
+only when the first message is handled (`coordinator.go:741`) — so its duration is a property of
+the queue and had to be **measured**:
+
+| rows measured | avg | p99 | max | >5 min | >1 h | >4 h |
+|---|---|---|---|---|---|---|
+| 5,736 (all agent types) | 0.22 s | 2.01 s | **6.31 s** | **0** | **0** | **0** |
+
+Time in `INITIALIZED` = `(processing_history->0->>'timestamp') − created_at`. The zero in the
+`>5 min` column is what licenses 4 h, and it could have been non-zero.
+
+**Induced on the REAL population** — stronger than 463's scratch-row test — with the control in
+the same tick: `generic/check_health` (idle 871 h) → `FAILED`; `endpoint-health-checker/check_health`
+(idle 10.7 h) → `FAILED`; a planted row with `last_activity = NOW()` → **untouched**. Non-terminal
+rows older than 4 h fleet-wide: **0**.
+
+⚠ **The CLASS is still open.** Two instances are now closed; the reaper's coverage is still an
+*enumeration*, so the next status nobody lists is immortal by construction. Candidate 2 remains
+the real fix. `Council-Submitted: e973d2aa-a1fc-4b0d-bf2f-b90ef7f39c1f`.

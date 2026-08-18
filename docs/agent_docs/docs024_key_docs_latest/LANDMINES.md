@@ -12247,6 +12247,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ### `platform/orchestration/monitoring.go` queries `orchestrator_state` — a table that DOES NOT EXIST — so "the metric counts X" is true of the source and false of every live reading
 
+> **CORRECTED + SUPERSEDED 2026-08-18, same day, by the author of this entry.** Two things.
+>
+> **(1) The entry overstated reachability, and in exactly the way it warns against.** It said
+> `WorkflowMonitor` "IS wired … so this is not dead-by-disuse — the endpoints are live and
+> return **500** to anyone who asks". **False.** `AddMonitoringEndpoints`
+> (`platform/health/monitoring.go:16`) had **ZERO callers**, so `/monitor/stuck` and
+> `/monitor/metrics` were never registered on any server: nobody could reach them and no 500
+> was ever produced. I read the function — it does mount handlers — and did not walk the
+> caller graph, which is the same mistake this entry exists to catch. **Third instance in one
+> session** (the others: `bugs_open/294`'s root-cause item 4, and describing `TimeoutMonitor`
+> as blind-to-empty-`awaited_requests` when nothing constructs it). The durable lesson is the
+> sibling entry's: `grep` the symbol **upward to its constructors and callers**, never just
+> read the body.
+>
+> **(2) The code is GONE — deleted 2026-08-18 (`0e169319b`), owner-directed.**
+> `platform/orchestration/monitoring.go`, `platform/health/monitoring.go`,
+> `cmd/workflow-monitor/` and its orphan CronJob manifest were removed after enumerating that
+> nothing reached any of them. **So the trap no longer fires on a live file** — this entry is
+> kept only so the *reasoning* survives, and because the misreading it caused is still sitting
+> in `bugs_open/294`'s original text. If you are here from a stale citation: the live
+> active-workflow count is `internal/core-manager/admin/dashboard_handlers.go:351-354`, which
+> reads the real table. Council `Council-Submitted: 25fa8173-91d5-4b1a-ad05-d35b0f7af96a`.
+
 - **footprint:** `platform/orchestration/monitoring.go` (`WorkflowMonitor`, `GetStuckWorkflows`, `GetWorkflowMetrics`), `platform/health/monitoring.go` (`/monitor/stuck`, `/monitor/metrics`), `cmd/workflow-monitor`, the identifier `orchestrator_state` (SINGULAR, no trailing `s`), any claim about the fleet's active-orchestration count
 - **fires when:** you reason about what the platform *observes* — "why did nothing notice this?", "the active-orchestration metric was overstated", "the instrument should have surfaced it". `monitoring.go` is the obvious place to look, it is named for the job, and its SQL is perfectly readable. Reading it tells you `RUNNING` counts as active (`WHERE status IN ('RUNNING', 'AWAITING_RESPONSES')`, :111 and :167) — and that sentence is true about the file and false about the system.
 - **the mechanism:** those queries select `FROM orchestrator_state`. The real table is **`orchestration_states`** — different word, different number. `orchestrator_state` exists in no schema on the search path, so the queries do not miscount, they **error**:
