@@ -772,3 +772,24 @@ tokens and 0 duplicate ids**.
 serving instance-scoped ids (68 batch + canary); 2 parked behind small repairs (`ec2` id,
 `chartTitle` duplicate); 17 owned pages take their conversion from their owning pipeline; 2 forked
 pages parked behind the shrink investigation; 25 judged rows remain — the LMC pipeline, next.
+
+### 13.8 Round 4 returned REVISE; every objection measured; round 5 submitted
+
+Round 4 (the 460/461 config changes) drew a **REVISE**, gated by `editquality`'s dual-active-row
+concern — a real landmine class, measured **inapplicable here**: both types carry exactly one
+active row and both carry the update, with runtime proof only the updated config produces (the 72
+page-scoped items; the sections routing; the flipped canary).
+
+The other objections, each answered with fleet evidence in **round 5** (submitted, same
+correlation): the sections path's documented side effects were measured across all 53 rerendered
+pages (0 lost content; the 1 duplicated-slot page is the pre-existing legitimate two-instance
+class — different positions/content/html; locked-section duplication 0; shrink floor 2/55, both
+safe refusals, both forked); the re-render is **whole-page** (`loadStoredSections` + the loop at
+`:376`), so the dedup cannot swallow a second component's fix; and a scope correction —
+`create_rerender` is the fixer's **shared** step, so 460 fixed it for *every* fix_type, not just
+this lane's.
+
+**The bug_historian's ask is filed:** work item `item_key='rerender-reason-producers-283'`
+(parked `needs_human_review`) tracks the producers genuinely outside this fix
+(`StoreGeneratedComponentAction.createRerenderWorkItem` and kin), plus the `reuse_agent`'s
+consolidation onto `create_rerender_items_action` and the dedup status-set alignment.
