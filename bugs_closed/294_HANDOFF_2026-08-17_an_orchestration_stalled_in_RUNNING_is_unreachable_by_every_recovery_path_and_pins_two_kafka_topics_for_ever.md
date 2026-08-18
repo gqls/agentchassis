@@ -300,3 +300,37 @@ can reach this state.
 
 None of these re-open the defect this file names: a `RUNNING` row is no longer immortal,
 and its two Kafka topics are released the moment it is failed.
+
+## Correction 3 — lock #2 is stronger than either this file or my own closure said
+
+Both the original filing (root cause 1) and my closure above describe `TimeoutMonitor` as
+unable to reach a `RUNNING` row *because* `awaited_requests` is empty and every entry
+point indexes `state.AwaitedRequests`. Every clause of that is literally true, and it
+quietly implies something false: that `TimeoutMonitor` runs at all.
+
+**It does not. Nothing constructs it.** Verified 2026-08-18, after the
+`bugfix_029_retry_kills_live_child` lane filed the same finding in `LANDMINES.md` the
+same day (its entry asks you to re-run the greps rather than trust it — I did):
+
+```
+grep -rn "TimeoutMonitor\|OrchestratorHelper" --include="*.go" . | grep -v "/helpers.go"
+ → one hit, and it is a COMMENT in reply_delivery_adoption_test.go:125
+grep -rn "NewOrchestratorHelper" --include="*.go" .
+ → the definition at helpers.go:581 and nothing else — ZERO callers
+```
+
+`NewTimeoutMonitor` has exactly one caller, `NewOrchestratorHelper` (`helpers.go:587`),
+which itself has none. So the whole cluster is dormant, and a stranded row is outside
+its reach *for every status and every value of `awaited_requests`* — not merely for the
+empty-map case.
+
+This does not change the fix or the verdict; it makes lock #2 unconditional rather than
+conditional, so the conclusion holds a fortiori. **It is recorded because the mechanism
+was stated wrongly twice — once in the filing, once by me while correcting the filing —
+and the reason both times was reading the function and not the caller graph.** Scope the
+claim: both constructors are exported, so this is "no caller in this repository", not
+"uncallable". Re-run the greps rather than citing this paragraph.
+
+Noted for the council round in flight (`860d87d9`): the submission's `grounded_in`
+carries the `AwaitedRequests` framing. Nothing in it is false, but if a seat objects on
+this ground the objection is correct and the answer is the caller graph above.
