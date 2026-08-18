@@ -626,3 +626,84 @@ logic in SQL/ConfigMap, so they carry no build at all and are outside this class
 on `check.py`). `ollama-adapter` / `ollama-eval` pin `latest`, which is a
 *separate* trap and not part of 237. **So Decision B's scope is the six, and only
 the six.**
+
+---
+
+## 2026-08-18 — OWNER RULING on Decision B, and it is implemented (`b1480f008`)
+
+**Ruling: all six fold into the fleet release.** The four checks take option 2 now
+with option 1 (the content-change trigger) to follow as its own change; the two
+runners take option 2 as well, overriding the lane's recommendation of a one-off
+unstick plus a written `RETAG_EXEMPT` entry. One cadence, no exemptions to
+maintain. `RETAG_EXEMPT` gains no new entries.
+
+**What shipped** — `RELEASE_IMAGES` gains the four check images plus
+`github-actions-runner`; `AGENT_DEPLOY_SERVICES` gains all six services, with
+`github-actions-runner-vmsites:github-actions-runner`.
+
+- **`-vmsites` needed no new target.** Both runner overlays pin the *same* image
+  (`docker.io/aqls/github-actions-runner`) at different tags — one image, two
+  Deployments — so it fits the existing `<service>:<image>` form, the same shape
+  as `render-audit-adapter:browser-runner-adapter`. This file's "**no retag target
+  exists at all**" was the symptom; it never needed one, it needed *declaring*.
+- **The gate's blind spot closes by construction, and this is the part worth
+  keeping.** `check-release-coverage` fails a service only when its overlay pins
+  an image **the release builds**. All six pinned images the release did not
+  build, so no amount of tightening the gate would have caught them — the fix was
+  to change which side of the predicate they sit on. Controls, both directions:
+  with the **old** declarations none of the six appears in the gate's output
+  however hard you probe (`RELEASE_IMAGES="<old 14>" AGENT_DEPLOY_SERVICES="agent-chassis"`);
+  with the new ones the same mutation names all six.
+- **⚠ NEW HAZARD, written where the old one was.** `deploy-agents` now retags both
+  runner overlays to `IMAGE_TAG`. That is safe *only because* the release also
+  builds and pushes that image. Remove `github-actions-runner` from
+  `RELEASE_IMAGES` (or drop `build-github-runner` from `build-backend`) while
+  leaving the runners in `AGENT_DEPLOY_SERVICES` and both runners
+  `ImagePullBackOff` **together** — the exact trap the old makefile comment
+  warned about, with its premise now inverted. **`check-release-coverage` does not
+  catch this direction**: it fails a service that pins a release-built image and is
+  in no release path, not one that is in a release path but whose image stopped
+  being built. Verified today by set equality (`build-backend` builds ==
+  `RELEASE_IMAGES`, neither side over); that equality is policed by nothing.
+- `build-github-runner` switched from a bare `docker build … .` (the whole shared
+  working tree as context — the pattern inverted for every other backend service
+  on 2026-07-17) to `ref_build`. Drop-in: it `COPY`s one tracked file.
+- `deploy-github-runners` kept, demoted to its production-strict missing-overlay
+  check — the generic loop warns on a missing overlay, that target fails.
+- All 21 `AGENT_DEPLOY_SERVICES` entries confirmed to have an overlay at
+  `$(OVERLAY_PATH)` with **exactly one** `newTag:` line, so none is silently
+  SKIPPED and the whole-file sed cannot clobber a second image.
+
+**Council: none, and deliberately.** Makefile-only submissions are refused
+client-side by scope (`platform/`, `internal/`, `pkg/`), so no commit here carries
+a review trailer.
+
+### ⚠ THIS IS STILL INERT — the two blind checks are STILL BLIND
+
+Nothing has been built, pushed or rolled. Releases are whole-fleet and the owner
+runs `make release`. Until one runs, the frozen tags remain live and the registry
+gap is unchanged.
+
+**Acceptance test after the first release that includes this** — and it can fail,
+which is the point:
+
+```bash
+acts () { git grep -h -A1 'RegisterActionInputSpec(' "$1" -- platform/ internal/ \
+          ':(exclude)*_test.go' | grep -o '"[a-z0-9_]\+"' | tr -d '"' | sort -u; }
+acts HEAD > /tmp/h; acts <new build commit> > /tmp/b; comm -23 /tmp/h /tmp/b   # expect EMPTY
+kubectl -n ai-persona-system get cronjob -o custom-columns='NAME:.metadata.name,IMAGE:.spec.jobTemplate.spec.template.spec.containers[0].image,LAST:.status.lastScheduleTime'
+```
+
+Expect 169/169 on all four and the new tag on all four CronJobs. **A green
+`check-release-coverage` is not the acceptance test** — it only says the gate
+agrees with today's tree.
+
+### What remains before 237 can close
+
+1. The first release carrying this, then the acceptance test above.
+2. Option 1 — the content-change trigger (`pinned tag predates the last commit to
+   its own sources`), as its own change with its own review. This is what covers a
+   *seventh* service without anyone remembering.
+3. Open, non-blocking: read `rendercheck.go` against the current
+   `actions.RenderContext` and record whether `component-render-check` was ever
+   functionally affected. Suspect, unproven, and deliberately not asserted.

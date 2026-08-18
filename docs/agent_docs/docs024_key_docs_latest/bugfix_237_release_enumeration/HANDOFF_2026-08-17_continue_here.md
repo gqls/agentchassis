@@ -10,7 +10,17 @@ own state and the two open owner decisions.
 > command, with its gotcha), `NOTES_release_enumeration.md` (the measurement log and
 > this session's four missteps), `README_where_we_are.md` (owner's plain-prose log),
 > `SUMMARY_2026-08-18_decision_b_costed.md` (the milestone read-out).
-> **Decision A is done; Decision B is costed and awaiting the owner's ruling only.**
+> **UPDATED 2026-08-18 — BOTH decisions are now RULED and IMPLEMENTED.** Decision B
+> was ruled by the owner the same day: **all six fold into the fleet release**
+> (`b1480f008`), the four checks with the content-change trigger to follow, the two
+> runners folded in too rather than exempted. **`-vmsites` needed no new target** —
+> both runners pin the same image, so it fits the existing `<service>:<image>` form.
+> **The work is INERT until a release runs** (whole-fleet, owner runs it), so the two
+> blind checks are still blind. Acceptance test, remaining work and the ONE NEW HAZARD
+> (removing the runner image from `RELEASE_IMAGES` while leaving the runners in
+> `AGENT_DEPLOY_SERVICES` ImagePullBackOffs both — the gate does not catch that
+> direction) are in `bugs_open/237`, 2026-08-18 section. **Nothing below is a live
+> decision any more; read it as the record.**
 
 ---
 

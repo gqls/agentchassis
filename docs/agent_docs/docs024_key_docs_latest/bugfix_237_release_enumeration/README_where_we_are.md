@@ -75,3 +75,45 @@ exempt them explicitly, in writing, where the gate can see the exemption.
 The one thing not to do in the meantime is run `release-github-runner` as a quick
 fix. It moves one of the two runners and leaves the other untouched and unmovable,
 which is precisely the state that produced this bug.
+
+---
+
+## 2026-08-18, later — you ruled, and it is built
+
+You ruled all six into the fleet release: the four checks fold in now with the
+content-change trigger to follow, and the two runners fold in as well rather than
+getting the written exemption I suggested. That is done and committed.
+
+Two things turned out better than expected. The `-vmsites` runner, which the
+handoff described as having no way to move it at all, needed no new machinery —
+both runners pin the *same* image at different tags, one image and two
+deployments, so it just needed declaring in the list we already had. And folding
+these six in has a second effect I had not fully appreciated when I wrote the
+options up: the coverage gate only watches services whose image the release
+builds, so all six were outside what it could ever see. Bringing them in means the
+gate now watches them too. I proved that both ways — under the old lists none of
+the six shows up however hard you probe it, under the new ones all six do.
+
+One thing needed care. Retagging the runners is only safe *because* the release
+now also builds and pushes that image; if someone later removes it from the build
+list but leaves the runners in the deploy list, both runners break together with a
+failure to pull the image. The old comment in the file warned about exactly that,
+and its premise has now flipped, so I have written the new hazard down where the
+old one was rather than just deleting it. I also checked mechanically that what
+the build actually produces matches the declared list exactly, in both directions.
+
+While I was in there I found `build-github-runner` was still building from the
+whole shared working tree — the thing we inverted for every other service back in
+July, so an image could pick up any session's half-finished work. It only needs
+one tracked file, so switching it to the safe build was a one-line change.
+
+**What is still true: nothing has actually moved yet.** This is makefile
+plumbing, and it does nothing until a release runs — which is yours to run, since
+releases are whole-fleet. Until then the two blind checks are still blind. When
+you do run one, the test that tells us it worked is re-running the registry count
+against the new build: it should read 169 of 169 on all four, and it is a test
+that can genuinely fail.
+
+There is also no council review on any of this, and that is not an oversight —
+the gate refuses makefile-only submissions by scope, client-side, so no commit
+here claims one.

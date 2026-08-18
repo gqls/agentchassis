@@ -89,7 +89,50 @@ pinned tag predates the last commit to the sources that service is built from.
   so it recurs, and the next recurrence is silent again.
 - Only defensible as a *first step under* 1 or 2, never as the answer.
 
-## 4. Recommendation
+## 3a. OWNER RULING 2026-08-18 — all six fold into the fleet release
+
+- **The four checks → option 2, then option 1.** Fold in now so the blindness ends
+  at the next release; build the content-change trigger afterwards as its own
+  change, so a *seventh* check is covered without anyone remembering.
+- **The two runners → option 2 as well.** This **overrides the recommendation in
+  §4 below**, which argued for a one-off unstick plus a written exemption on the
+  grounds that rebuilding an Ubuntu-plus-tarball image every release churns it for
+  nothing. The owner has ruled one cadence for everything. Recording the
+  disagreement rather than quietly rewriting §4: the churn cost is real and was
+  weighed, and a single cadence with no exemptions to maintain is the simpler
+  estate. **`RETAG_EXEMPT` therefore gains no new entries.**
+
+**Implemented the same day, `b1480f008`.** What the ruling turned out to need, and
+one thing it did not:
+
+- `-vmsites` needed **no new target at all**. Both runner overlays pin the *same*
+  image (`docker.io/aqls/github-actions-runner`) at different tags — one image,
+  two Deployments — so it fits the existing `<service>:<image>` form exactly, the
+  same shape as `render-audit-adapter:browser-runner-adapter`. The handoff's
+  "**no retag target exists at all**" was the symptom; the cause is that it never
+  needed one, it needed *declaring*.
+- **The build half and the retag half are one change.** `deploy-agents` now
+  retags both runner overlays to `IMAGE_TAG`; if the image were not also built and
+  pushed, both runners would `ImagePullBackOff` together — precisely the trap the
+  old makefile comment warned about. So `build-backend` gained `build-checks` and
+  `build-github-runner`, verified by **set equality** (what `build-backend` builds
+  == `RELEASE_IMAGES`, neither side over). That equality is not policed by any
+  gate and is the thing to re-check if anyone edits either list.
+- `build-github-runner` was still a bare `docker build … .` — the whole shared
+  working tree as build context, the pattern inverted for every other backend
+  service on 2026-07-17. Switched to `ref_build`; it only `COPY`s one tracked
+  file, so it was a drop-in. A release image built from the working tree would
+  have reintroduced exactly that blast radius.
+- **The gate's blind spot closes by construction.** `check-release-coverage` only
+  polices overlays pinning a `RELEASE_IMAGES` image, so it could not see any of
+  these six. Controls run both ways: with the *old* declarations none of the six
+  appears however hard you probe; with the new ones a mutated
+  `AGENT_DEPLOY_SERVICES` names all six.
+
+**Still inert.** Nothing has been built or rolled — releases are whole-fleet and
+the owner runs `make release`. The four checks stay blind until then.
+
+## 4. Recommendation (superseded for the runners — see §3a)
 
 **Split the answer.**
 
