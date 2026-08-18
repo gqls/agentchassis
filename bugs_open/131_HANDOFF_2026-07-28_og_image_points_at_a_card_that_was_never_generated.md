@@ -425,3 +425,10 @@ mis-route shape (purpose, no mode) and its result records every mode check decli
 `check_brand_head_purpose → derive_head_assets, derived:true`. The only remaining 404 pair
 in the affected set is loancalculator.co.uk, left to its active lane with the runbook
 one-liner.
+
+**VERDICT 2026-08-18: council round 2 APPROVED** (12/12 voted, 0 unreadable, 3 advisories
+none high; round 1 was REVISE and both its conceded defects are fixed in `e066c9677` /
+`7d6f187db`). Advisory follow-up worth a future lane's attention: asset-deployer's
+`input_contract` is `{}` — neither the pre-existing `spec.mode` reads nor 467's
+`spec.purpose` read is declared; declare both together after reading how `input_contract`
+is enforced (measured + reasoning in the lane NOTES (13)).

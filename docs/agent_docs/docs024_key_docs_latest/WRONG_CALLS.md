@@ -35912,3 +35912,14 @@ Tally for "asserted a same-commit obligation I had not performed": 1 (caught by 
 APPROVED verdict).
 Tally for this session: 3 wrong calls, all caught, none reaching a durable conclusion — one by me,
 one by a peer lane, one by a reviewer.
+
+## 2026-08-18 (second from the 131 og-card lane) — I wrote "tested rollback recipe" about a DOWN block nobody has ever run
+
+**The claim (council round-2 submission, risks section):** "467 has a tested rollback
+recipe in its header." **Reality:** the header holds a WRITTEN recipe (snapshot-restore or
+inverse jsonb edit) that has never been executed against anything. **What caught it:** the
+council's debug_historian seat, citing this very file's 2026-07-26 entry about a rollback
+that "would have restored nothing" while reading as reassurance. **The cheap check:**
+before writing "tested", say what the test WAS — if the sentence has no answer, delete the
+word. A recipe is a hypothesis until a dry-run against a snapshot row has produced the
+before-image.

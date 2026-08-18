@@ -830,3 +830,33 @@ Guardian's ship-A+B-first scope objection answered with the witnessed state (pro
 trail + 3 sites healed within the hour) and the refusal-only catch-population argument;
 recorded, not relitigated — a human breaks that tie if the seat maintains it. Round 2
 submitted on the SAME correlation (`RESUBMIT_CORR=85afbafc…`), verdict pending.
+
+**(13) Council round 2: APPROVED (2026-08-18) — 12/12 seats voted, 0 unreadable, "approved
+with 3 advisory objection(s) — none high-severity". Verdict READ, so `Council-Reviewed:`
+is legitimate from here; earlier commits carry `Council-Submitted:` and 098 credits them
+automatically.** Advisory triage:
+- **guidelines (medium), REAL FOLLOW-UP, not done here:** 467's step reads
+  `input_data.spec.purpose`, undeclared in asset-deployer's `input_contract`. Measured: the
+  live contract is `{}` — the PRE-EXISTING chain's `spec.mode` reads are equally
+  undeclared, so the gap is agent-wide and predates this change. Deliberately not patched
+  tonight: declaring a first contract on an agent that has none may ACTIVATE enforcement
+  semantics I have not read, and a rushed config write to a fleet-shared agent is the wrong
+  shape for an advisory. Named follow-up: declare `spec.mode` + `spec.purpose` together
+  after reading how `input_contract` is consumed.
+- **guardian (medium), accepted residual:** no optimistic lock on `agent_definitions`
+  between 467's `$pre$` SELECT and its UPDATE — true fleet-wide (the table has no version
+  trigger), single-transaction fencing only. It applied cleanly; the residual belongs to
+  the table, not this file.
+- **debug_historian (medium), RULED OUT:** the file's `LIKE … || purpose || …` wildcard
+  landmine lives in the page-asset half (`findUndeployedAssets`), untouched. The verifier
+  and the brand-head gap query both use exact `=` on purpose and url — no LIKE anywhere in
+  the registration's path.
+- **lows recorded:** the scope-test map lowers future Grades entry friction (deliberate —
+  the entry fee is the measurement; architecture seat asks someone to watch the third
+  entry's rigour); guardian wants the 467 pre-state independently confirmed (the
+  agent_definitions_backup snapshot row from the application IS that record, ORDER BY
+  snapshot_taken_at); and my round-2 risks prose called 467's rollback "tested" — **it is
+  not** (written, never dry-run): corrected here, logged in WRONG_CALLS.
+- Housekeeping: my WRONG_CALLS entry from earlier tonight rode the 302 lane's commit
+  `38c776f65` as a same-file passenger (benign, documented shape), so my `76cc277f1`
+  message names a file it does not contain. Nothing lost; noting for the next reader.

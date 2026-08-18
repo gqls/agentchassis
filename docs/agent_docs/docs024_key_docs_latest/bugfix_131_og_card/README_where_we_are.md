@@ -219,3 +219,14 @@ cookly.uk and lendzy.co.uk (idea.uk was already repaired yesterday by hand, and
 loancalculator's own active thread has it in hand). The change went to the review council
 before committing; verdict pending. Still owed from July, unchanged: the square favicon
 source for the five wide-logo sites, and the smarter page titles/descriptions on shares.
+
+**2026-08-18, closing the day.** The review council asked for one revision round — it
+caught two genuine sloppinesses in my migration file (a snapshot taken before the safety
+check, and my summary hiding a guard the reviewer needed to see) plus, separately, another
+thread caught my code change breaking a test I had not run; all three fixed within the
+hour. Second round: approved, twelve reviewers, no high-severity concerns. End state on the
+sites: every affected site that was missing its favicon and share card now serves both
+(checked by eye, not just by status), except loancalculator.co.uk, whose own active thread
+has the one-line instruction waiting. The generator code fix and the new completion check
+ride the next release; the routing repair is live now and was deliberately exercised end to
+end before we called it done.
