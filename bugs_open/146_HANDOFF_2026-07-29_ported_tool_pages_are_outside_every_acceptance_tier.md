@@ -136,15 +136,29 @@ it), a transient component lookup error, or a renamed fork still takes the old
 "route this manually" arm, deliberately — a fourth handler-less queue for a shrinking
 legacy shape would be noise, and the 033/083 cadence work owns the drains that exist.
 
+> **OWNER RULING 2026-08-18: "Ported tools should all be rewritten and be fully
+> customisable by the framework like any other tool."** This answers the fence question
+> (door 1) as none-of-the-above — native rebuilds fleet-wide, the webdesign_tool_rebuilds
+> approach extended. Measured backlog: 72 clause-b pages / 6 sites (webdesign 56,
+> gamesdesign 6, loancash 3, loanandmortgagecalculator 3, vonc 3, mortgagecalculator 1).
+> On loancash the owner's "was a new build, should be framework-built" is half right,
+> measured: 2 of its tools ARE framework forks (2026-08-12, fenced, mobile-checked);
+> 3 calculators + the tools-index came in as verbatim ports during the 2026-08-01
+> adoption and join the rewrite list. The judge fix below stays the safety net while any
+> port still serves.
+
 **To close this file** (the fixed-AND-live bar):
-1. After a roll carrying `1549dc58b`: `git merge-base --is-ancestor 1549dc58b <the
-   pod's stamp>`, per service — and probe the binary for a symbol the change CREATED
-   (`grep -ac routePortedAcceptanceFailure /proc/1/exe` beside an invented-symbol
-   control expecting 0).
-2. The standing failing case IS the induction: vibe-equalizer's next 7-day acceptance run
-   on its real fence should file `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:…`
-   carrying the overflow attribution (or pasteboard, if the rebuild lane replaces
-   vibe-equalizer first).
+1. ✅ **DONE 2026-08-18** — v1.0.1310 (pods 18:00Z) carries it: `routePortedAcceptanceFailure`
+   present in BOTH replicas' `/proc/1/exe` (2 hits each), invented-symbol control 0.
+2. The standing failing case IS the induction — **FIRED 2026-08-18 18:4xZ** rather than
+   waiting for the 7-day cadence: hand-inserted the due-sweep's exact ported item shape
+   (item `cc37a4d7-5019-401b-bb5b-7db5a23c4c2b`, `triaged` — a hand-filed item at
+   `detected` is invisible to the dispatcher). Expected: mobile-fit FAILS (live page still
+   overflowed 08-17) → `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:…` appears
+   with the overflow attribution. ⚠ `tool_acceptance_run.sh` cannot fire a ported tool
+   (resolves the page by `cc.function`, which is `ported-page` for every port) — the
+   hand-insert with the proven 08-14 spec shape is the route until someone teaches the
+   script the eligibility predicate.
 3. The seven pages themselves are the **webdesign_tool_rebuilds** lane's (owner-directed
    native replacement; 4 of 63 done as of 2026-08-17) — this file does not gate on them.
 

@@ -1145,3 +1145,15 @@ parse error both leave the previous output intact, and `clearError()` runs on th
 md5 `370aa8561c9629919841f4368995f269` byte-identical to the handle taken at filing. Asserted one
 deployed slot remains and that it is `d71713e3`.
 Rerender `07e6c627-7718-4a11-8f32-2e531ba98efe` queued and watched.
+
+**POINTER 2026-08-18 (bugfix_146 lane, follow-up to yesterday's):** OWNER RULING today —
+"Ported tools should all be rewritten and be fully customisable by the framework like any
+other tool" — i.e. your approach, extended fleet-wide. Measured clause-b backlog beyond
+your site: gamesdesign 6 (all needs_rebuild), loancash 3 (+ ported tools-index),
+loanandmortgagecalculator 3 (their lane's D5 applies), vonc 3, mortgagecalculator 1.
+Your webdesign count stands at 56. How the other sites' rebuilds get organised is the
+owner's/your call — recording the ruling and the census here because you own the proven
+machinery (TL-044 + seed 435). Also: the Tier-4 judge fix went LIVE on v1.0.1310, so a
+fenced ported tool that fails its browser run now files `ported_tool_fix` — you may see
+those appear for subjects you haven't reached yet; they are queue-ordering signal, not new
+work types.

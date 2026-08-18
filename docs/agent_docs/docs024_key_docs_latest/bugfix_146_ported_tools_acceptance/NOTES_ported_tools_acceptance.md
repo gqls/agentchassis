@@ -232,3 +232,36 @@ exploratory line was added and reverted in the same minute — the tree compiles
 **Trailer status:** the commit carries `Council-Submitted:` (written pre-verdict,
 forward-only forbids an amend); 098 credits it automatically now the correlation is
 approved. Verdict READ in full this session — this section is the record of that read.
+
+## 2026-08-18 (evening) — FIX LIVE on v1.0.1310; OWNER RULING answers Door 1; induction FIRED
+
+- **v1.0.1310 (pods 18:00Z) carries the fix — verified at BOTH replicas' binaries**:
+  `grep -ac routePortedAcceptanceFailure /proc/1/exe` → 2, invented-symbol control → 0,
+  on `-l8r76` and `-xdsz6`. Close condition 1 of the bug file: DONE.
+- **OWNER RULING 2026-08-18: ported tools should ALL be rewritten and be fully
+  customisable by the framework like any other tool.** This decides PLAN §Door 1 as
+  none-of-the-above: not fences over ported blobs — native rebuilds, fleet-wide (the
+  webdesign_tool_rebuilds approach extended beyond webdesign). Fencing-as-remedy is dead;
+  the judge fix remains the safety net for as long as any port is still serving.
+- **loancash measured against the owner's "should have been built by the framework"**:
+  half right — `tool-affordability-complaint-checker` and `tool-cpa-cancellation-checker`
+  ARE framework forks (built 2026-08-12, canonical URLs, fenced, mobile-checkable). But
+  THREE genuine ports remain from the 2026-08-01 adoption (`tool-complaint-deadline-calculator`,
+  `tool-price-cap-checker`, `tool-true-cost-calculator` — `ported-page` component, flat
+  `.html` URLs) plus a ported `tools-index`. Those four fall under the rewrite ruling.
+- **Fleet rewrite backlog (clause-b census, any build_status), 72 pages / 6 sites**:
+  webdesign 56 (55 deployed + 1 needs_rebuild — down from 59, their lane is moving),
+  gamesdesign 6 (ALL needs_rebuild), loancash 3, loanandmortgagecalculator 3 (their lane
+  has its own D5 authority programme — coordinate, don't direct), vonc 3 (1 deployed +
+  2 needs_rebuild; includes island-backed special cases — per-tool call), mortgagecalculator 1.
+  ⚠ flat-URL ports rebuilt natively will meet the canonical-URL convention — the 080
+  `page_canonical_collision` detector watches exactly this; expect its items, don't
+  suppress them.
+- **Induction FIRED 18:4xZ**: hand-inserted the due-sweep's exact ported item shape
+  (`cc37a4d7-5019-401b-bb5b-7db5a23c4c2b`, acceptance_run:vibe-equalizer, status triaged —
+  the dispatcher-cannot-see-detected landmine). NOTE: `tool_acceptance_run.sh` REFUSES
+  ported tools (resolves by `cc.function`, which is 'ported-page') — worth a fix in that
+  script if manual ported runs become routine; the hand-insert with the proven 08-14 spec
+  shape is the workaround. Expected outcome: mobile-fit FAILS (page still overflowed at
+  the live URL 08-17) → the new arm files
+  `ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:6b49db8e…`. Monitor armed.

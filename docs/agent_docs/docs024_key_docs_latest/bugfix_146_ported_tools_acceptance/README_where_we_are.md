@@ -44,3 +44,21 @@ The broken-guard version now fails the test, which is the point.
 Two things wait on you — set out under "Decisions" in my summary to you, and in the plan
 file: whether ported tools should get an automatic baseline mobile-fit check (it costs
 browser runs), and nothing else — the rest is machinery that rides the next release.
+
+## 2026-08-18 (evening) — your ruling recorded, the fix is live, and the proof run is in flight
+
+The new build carries the fix — I checked the actual running program on both server
+copies, with a deliberately fake name as the control, and it's there.
+
+Your ruling — rewrite every ported tool properly rather than bolt checks onto the old
+copies — is recorded as the decision on the open question I'd left you. The measured
+backlog is 72 pages across 6 sites; webdesign's rebuild programme already covers 56 of
+them and is running. On loancash you were half right: the two newest tools were indeed
+built by the framework (editable, mobile-checked, all as intended) — but three older
+calculators and the tools index page came in as verbatim copies during the August 1st
+adoption, before those two were built. They join the rewrite list.
+
+And rather than wait days for the schedule, I fired the proof run now: a real acceptance
+check against the vibe-equalizer page (one of the broken seven). If the fix works, the
+failure lands in the review queue as an actionable item — the first ever from this route.
+Result in the next update.
