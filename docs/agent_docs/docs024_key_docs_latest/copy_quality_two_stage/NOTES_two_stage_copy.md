@@ -1705,3 +1705,49 @@ are seen; markup-only ones are not double-counted; a page-wide loss is distingui
 field-level move). Three holes in this gate now, all three found by USING it on something
 harder rather than by reading it, and all three of the same family: **it reported "checked"
 for a thing it had not looked at.**
+
+### 2026-08-18 (evening) — run 3 APPLIED, and the honest result is mixed
+
+Owner approved all three. Applied **sequentially** (concurrent `section-editor` runs on one
+page would race on render and deploy), items `b95724f8` / `43b2a624` / `ab45029e`, orchs
+`3ae2ba76` / `e68f5d8b` / `3cff87eb`, all COMPLETED 12:47–12:49Z. Re-graded against the live
+rows immediately before: 0 failing, none stale.
+
+**Applied `[MEASURED]`:** `features` 3,966 → 2,971 · `departments-grid` 4,168 → 3,532 ·
+`system-stats` 2,019 → 1,934 chars. **The other five components are untouched**, still at
+their 08:36:33Z timestamps — the blast radius is exactly the three named fields.
+
+**Verified at the served page:** the fake "feature" card is gone; the 105-word departments
+tangent is gone; **the `/adoption-tracker.html` pointer SURVIVES (2 occurrences)** — the
+redundancy the new prose-URL check was written to protect; "adoption register" 1 → 0, so the
+resource now carries one name. **Page-wide: 16 figures → 16 (none lost, none invented) and
+37 links → 37 (none lost, none added)**, across an edit that removed 258 words.
+
+⚠ **My first verification fetch READ AS A FAILURE and was wrong.** Fetched seconds after the
+last orchestration completed, the served page still carried the old footnote, and I was one
+step from recording "the naming fix did not land". The stored artefact was already correct
+(content_data new, rendered_html clean); the page host had not propagated. **A served-page
+check immediately after a deploy is a check on propagation, not on the edit** — re-fetch
+before concluding, and read the DB when the two disagree.
+
+### The result that matters, and it is not the flattering one
+
+**The register fault I measured is largely still there.** Negation tells **19 → 15**
+(7.9 → 7.0 per 1,000 words). The agent never targeted them: it judged five-fold restatement
+the bigger problem and spent all three edits there.
+
+Two readings, and I cannot yet separate them `[UNMEASURED]`:
+1. it was right — repetition across five sections is worse for a reader than a contrast
+   construction used eight times; or
+2. the 3-edit budget forced a choice and restatement was simply the larger fish.
+
+**What this does establish:** the tell count I banked in the morning was *my* framing of the
+page's problem, and the agent disagreed with it. Recording that because the tempting write-up
+is "measured 19 tells, ran stage 2, tells went down" — which would be true, trivial, and a
+misreading of what actually happened. The page is 258 words shorter, says one thing once
+instead of five times, and calls one resource by one name. That is the improvement; the tell
+count is nearly unmoved and honest to report as such.
+
+**Open, for the next session:** a fourth run on this same page, to see whether the budget's
+under-fix is self-correcting — does it now find the two remaining restatements and the
+negation density, or re-propose what it already proposed?
