@@ -355,3 +355,86 @@ where a log line does not. Noted as LCO-009's `verify-later`, not smuggled in he
 
 **275's "after" half: 0 `suggest_tools` runs since migration 445 went live** (11:22Z on 08-17). The
 before half is proven at the artefact (§2026-08-17); the after half needs one real run.
+
+## §2026-08-18 (evening) — the cap census IS answerable, from a channel that was there all along
+
+> **This section supersedes "§2026-08-18 — the live cap census RAN, and the answer is 'no capped step
+> has executed'" and the limitation section under it.** Both were run honestly and both were reading a
+> channel that cannot hold the answer.
+
+### The instrument was the problem, twice over
+
+**1. The window is 15–90 seconds, not "time since the last pod restart".** The container log rotates on
+**size**, and the coordinator emits whole-state dumps (mean 2.2 KB/line; worst single line **183 KB**),
+so it is wiped continuously while the pods keep running. [MEASURED] 2026-08-18, both chassis pods up
+since 18:00Z with **0 restarts**: oldest retrievable line **3 s / 15 s / 21 s / 34 s / 91 s** across
+five samples. No aggregator exists — `platform/logger/logger.go:37` is `OutputPaths: ["stdout"]`.
+
+**2. The detector was not in the fleet for most of the window that census covered.** [MEASURED] the
+oldest surviving replicaset carrying `v1.0.1309` — the first release containing the detector — was
+created **2026-08-18 15:45:31Z**. A "last 24h" sweep run that afternoon therefore spanned mostly hours
+with no detector running at all.
+
+Two sufficient causes, one indistinguishable clean zero. **Neither of them is "no cap fired".**
+
+⚠ This was **already in `LANDMINES.md`** — filed 2026-08-08 (0.4 s under load) and again 2026-08-14
+(~90 s, with the liveness-control recipe, and the explicit note that *a log-only signal is not a durable
+control on this fleet*). This lane built a log-only detector with both entries on file. The design
+review, the council round and the author all missed it; grepping LANDMINES for `kubectl logs` before
+choosing the medium would have caught it in one command.
+
+### The durable census — no new code needed
+
+`QueryDatabaseAction` writes its result to the step's `output_field`, which lands in
+`orchestration_states.collected_data` and survives rolls. Every fact the WARN reports is there, per run,
+retroactively. [MEASURED] over the ~2 days that table retains (5,701 rows; only 25 older than 2 days):
+
+| agent | step | cap | runs measurable | max rows | **hit the cap** |
+|---|---|---|---|---|---|
+| `content-feed-trigger` | `find_news_sites` | 5 | 4 | 5 | **3** |
+| `internal-linker` | `load_candidate_pages` | 15 | 2 | 15 | **1** |
+| `model-directory-trigger` | `find_directory_sites` | 12 | 5 | 4 | **0** |
+
+```
+2026-08-17 20:31Z  content-feed-trigger   5 of cap 5   HIT
+2026-08-17 22:22Z  internal-linker        7 of cap 15  under
+2026-08-18 01:01Z  internal-linker       15 of cap 15  HIT
+2026-08-18 02:32Z  content-feed-trigger   4 of cap 5   under   <- same agent, same query: not a constant
+2026-08-18 08:32Z  content-feed-trigger   5 of cap 5   HIT
+2026-08-18 14:32Z  content-feed-trigger   5 of cap 5   HIT
+```
+
+**Two independent negative arms**, which is what makes the positives mean anything: `model-directory-trigger`
+never exceeded 4 against a cap of 12 across five runs — the negative control this file predicted — and
+`content-feed-trigger` itself came back under its cap once.
+
+⚠ **Handle both output formats or you re-create the blind zero in SQL.** A first pass counting only
+JSON arrays reported **0 of 4** for `content-feed-trigger`; `output_format: object` puts the number in
+`->>'count'`, and the true answer was 3 of 4.
+
+**So: the caps in this file's class are now MEASURED to bite in production**, which no census had shown
+before. What remains unobserved is the **WARN itself** — every one of those six runs predates 15:45Z.
+
+### What has happened since the detector went live
+
+Exactly **one** capped step has executed: `model-directory-trigger` at 18:15Z, **4 rows against a cap of
+12** — no warning due, and the durable row is what says so (the log had already rotated, so the WARN's
+*absence* was not observed either; an unobserved absence is not evidence).
+
+**First genuine positive opportunity: `content-feed-trigger` at ~20:32Z.** [MEASURED] eligible
+population **6 against a cap of 5** at 18:35Z — though the predicate includes `next_fetch_at <= NOW()`,
+so it moves. A streaming capture was attached from 18:42Z (deadline 20:45Z), because with a 15–90 s
+window that is the only way to read a WARN. **Whatever the stream catches, the `collected_data` row will
+answer it whenever anyone next looks** — that is the point of the durable channel.
+
+### Still owed: 275's "after" half, unchanged
+
+[MEASURED] `suggest_tools` has run **0 times** since migration 445 (11:22Z on 08-17); last run in all
+history **2026-08-15 20:29Z**, and it has been quiet on 08-16, 08-17 and 08-18. Its historical cadence
+is 1–9 runs on roughly half of days, so this may clear on its own.
+
+**Everything short of a real run is now verified at the live row, not at the migration file:** the live
+`load_library_tools` config carries **no `LIMIT`** and bounds `description` to 200 chars with the
+` […truncated]` marker; executing that exact query today returns **76 tools, of which 46 rank past
+position 30** — 46 the pre-fix query could not have shown — with **54 descriptions marked truncated**
+and a longest description of 213 chars. What is still unproven is only that a *prompt* carried them.
