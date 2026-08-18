@@ -489,3 +489,23 @@
   nothing lost. Also: a first grep for the entry reported a FALSE ABSENCE
   (case-sensitive grep vs the heading's capitals) — trust `git log -S`, not
   one grep spelling.
+
+## 2026-08-18 — ROLL LANDED (v1.0.1308): deploy proven, seed 459 APPLIED, acceptance dispatched
+
+- **Deploy proven at the artefact, not assumed**: startup provenance line
+  already scrolled from both pods (2h of chatter — expected, it is a startup
+  line), so the image-LABEL recipe was used instead:
+  `docker inspect ...:v1.0.1308 → org.opencontainers.image.revision =
+  e7e5e4d53`. Ancestry: `git merge-base --is-ancestor e1a7f1935 e7e5e4d53`
+  exit 0 (and `5a2faf018` also in); discrimination control: first post-stamp
+  commit (`72c5d8a3b`) correctly NOT an ancestor; same-tag trap excluded by
+  digest equality — pod imageID `sha256:32e10fa2…` == local labelled image.
+- **Seed 459 applied ~09:52Z** (re-listed first — no collision): both INSERTs
+  1 row, verify block passed (action name, input_contract assertion, 3 shim
+  steps, zero schedules). STATUS line updated in the header per the sidecar
+  convention (no runner record exists for UPPERCASE sidecars, by design; 422
+  did the same — and sidecars are outside the migration-checksum trap).
+- **Acceptance dispatch fired ~09:55Z** with the PUBLISH_OK recipe:
+  corr `c9ee1ca8-a7bc-4168-bb29-527fd3c5e49a`, input `{domain: noted.co.uk}`.
+  Watcher armed; a missing row is latency (budget 30 min), and a FAILED
+  spawn→call handshake is re-dispatched, never cancelled pre-diagnosis.

@@ -36,7 +36,11 @@
 --     -f - < docs/agent_docs/sql_for_agents/459_zip_deliverer_agent_HOLD.sql
 -- ⚠ There is NO --record-only step: the runner REFUSES to record
 -- UPPERCASE-suffixed sidecars (by design). The apply record is the lane
--- NOTES entry + this header. STATUS: NOT YET APPLIED.
+-- NOTES entry + this header. STATUS: APPLIED 2026-08-18 ~09:52Z on
+-- v1.0.1308 (image label revision e7e5e4d53, e1a7f1935 ancestry verified
+-- with a post-stamp discrimination control, pod imageID digest ==
+-- labelled image 32e10fa2; 459 re-listed, no collision). Both INSERTs
+-- took 1 row; verify block passed incl. the input_contract assertion.
 -- Re-running after a successful apply is SAFE: both inserts are guarded by
 -- WHERE NOT EXISTS and no-op on the second pass.
 --
