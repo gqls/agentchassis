@@ -35606,3 +35606,88 @@ table?"*, enumerate the actors before grepping for the verb you expect them to u
 promoter's known-good rule was holding `empty_internal_href → page-build-handler` as "never
 completed" — a pair with **nine** lifetime successes at 64%. A day of a good pair stranded, and a
 recommendation in a handoff to spend a `090` run on something one query would have answered.
+
+## 2026-08-18 — bugfix-287 lane, third of the same species in two days: I reported a population of 3,330 that was a COUNT OF JOINED ROWS, and the owner authorised a repair against it
+
+I told the owner (in the lane README, the bug file and a migration header) that **3,330** work
+items carried the spawn-record shape and **303** were repairable. He said "run it". On applying
+the next day the migration found **35**.
+
+Two different faults, and only one of them is time passing.
+
+### 1. The 3,330 was never an item count
+
+The query was `... FROM bad LEFT JOIN orchestration_states os ON left(os.correlation_id::text,8)
+= bad.corr8` and then `count(*)`. That counts **(item × matching parent) pairs**, not items: an
+8-hex correlation prefix matches every orchestration sharing it, so each item is counted once per
+match. The correct measure is `count(DISTINCT b.id)` — or, better, a plain count on the table with
+no join at all, since the join contributes nothing to "how many rows carry this shape".
+Measured today: 1,186 joined rows against **974** distinct items on the same predicate (1.22×
+inflation now; it was ~3.5× yesterday, when far more parent rows existed to collide with).
+**So the true population never was 3,330. It was ~950–975 all along, and my figure overstated it
+by about 3.4×.**
+
+This is the third instance in two days of the same species from this lane — a filtered or joined
+count reported as a population, after (a) asserting a key-presence claim without dividing by
+demand and (b) "refuting" it from a lossy state table. The tally is the point: **the check that
+keeps failing is "what is the denominator, and is it rows of the thing I am counting?"**
+
+### 2. The 303 → 35 collapse is real, and it is a CLOSING WINDOW nobody had characterised
+
+The repairable count came from the exact per-row join (parent must name that item for that
+iteration), so those 303 were genuinely distinct, genuinely repairable — yesterday. Today: 35.
+Cause, measured, not inferred: of the 939 unrepaired spawn-shaped items left, **zero** have ANY
+orchestration row matching their correlation. **The parents are being DELETED** (retention /
+reaping — mig `463` extended the stale-orchestration reaper the same morning), and the reply only
+ever existed inside the parent's `collected_data`. So the repairable set decays with orchestration
+retention, and it fell ~88% in 21 hours.
+
+**What this cost and what it saved:** nothing was repaired wrongly — the 35 that remained were
+repaired correctly and verified. What was lost is ~268 rows that were repairable when I wrote the
+migration and were not when it ran, because I filed it for a decision instead of noting that the
+evidence was perishable. **The transferable rule: when a repair depends on state another system
+is actively expiring, say so with the decay rate in the same sentence as the count** — "303 today,
+falling with orchestration retention" would have got the same answer a day earlier and saved 268
+rows. A count with no expiry date reads as durable, and this one had a half-life of hours.
+
+Corrected in place: `bugs_open/287` §11d, the 455 migration header, the lane README and NOTES.
+
+## 2026-08-18 — I diagnosed WHY each held pair was held, from a `count(*)` over a table that holds only the last 7 days of history
+
+**The claim.** Reporting what the promoter's new held-count visibility had revealed, I published a
+per-pair table: five held pairs, each with its lifetime record and the reason it was being held —
+`empty_internal_href → page-build-handler` at **0 complete / 1 failed**, therefore *"never completed
+one, awaiting a hand canary"*.
+
+**Its true record is 9 complete / 5 failed = 64%, and it was not being held at all.** A concurrent
+session diagnosed the actor while I was writing: `work-item-archiver`, an enabled daily task that
+**moves** terminal work items older than 7 days into `site_work_items_archive` — 20,184 archived rows
+against 10,615 live. Every figure in my column was therefore "the last 7 days", labelled as lifetime.
+I reported a pair holding nine lifetime successes as one that had never succeeded.
+
+**Why this is the same defect twice, one level apart.** The finding I was writing up *is* that the
+promoter's gates read a truncated history. I then computed my own diagnosis of those gates with the
+identical truncation, in the same document, in the same hour. Getting the mechanism right did not
+stop me reproducing it in my own measurement, because I never asked the question the mechanism was
+about — **who else writes to this table?**
+
+**What did not catch it.** The figures were dated, marked and correctly read; the query ran cleanly;
+the numbers were plausible (a 0/1 pair looks exactly like a genuinely-new pair). Nothing about the
+result invited a second look. What caught it was another session grepping an unrelated list of
+`maintenance` group-mates — in the header of *my own* migration `458`, which lists
+`work-item-archiver` by name three lines from text I wrote.
+
+**The cheap check, and it is the general form of this session's other wrong call:** before treating
+`count(*) … FROM <table>` as a lifetime, enumerate **who writes to and who removes from** that table
+— `SELECT name, description FROM scheduled_tasks WHERE enabled` would have surfaced "Archives
+terminal work items older than 7 days" in one query. Yesterday I used the outcome to predict the
+outcome (`pages.deployed_at`); today I used a 7-day window as a lifetime. **Both are the same
+mistake: asking a source a question it cannot answer, and accepting the well-formed reply.**
+
+**Cost.** The wrong per-pair verdicts reached `bugs_open/083` and a commit message before the
+correction, and one of them would have sent someone to hand-canary a pair that needed no canary. Both
+are corrected in place with the true figures beside them. **Tally for "a count over a table whose
+other writers I never enumerated": 1** — and it is the third entry in two days in the one family
+(`failed` rows carry no `completed_at`; `verified` is a second success status; and now the row set
+itself is a 7-day window). The habit that would have prevented all three is one sentence: **enumerate
+the domain of the thing you are counting before you count it.**

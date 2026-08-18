@@ -1211,8 +1211,31 @@ in 2 pairs**. Today, measured off the same predicate the promoter uses:
 | `literal_markdown → page-build-handler` | **10** | 2 | 0.9d | 3 / 24 = **11%** | below the 25% floor |
 | `placeholder_contact → page-build-handler` | 3 | 2 | **1.9d** | 0 / 4 | never completed one |
 | `dead_fragment_link → page-build-handler` | 1 | 1 | 0.6d | 0 / 0 | never dispatched at all |
-| `empty_internal_href → page-build-handler` | 1 | 1 | 0.5d | 0 / 1 | never completed one |
+| `empty_internal_href → page-build-handler` | 1 | 1 | 0.5d | ~~0 / 1~~ | ~~never completed one~~ |
 | `missing_conversion_path → content-gap-planner` | 1 | 1 | 0.7d | 0 / 0 | never dispatched at all |
+
+> **CORRECTED 2026-08-18, same day — EVERY "pair record" FIGURE IN THE TABLE ABOVE IS LIVE-TABLE-ONLY,
+> AND ONE OF THEM IS MATERIALLY WRONG.** While I was writing it, another session diagnosed the
+> archiver (section below): `work-item-archiver` moves terminal rows older than 7 days to
+> `site_work_items_archive`, which holds **20,184 rows against 10,615 live**, so "lifetime" in my
+> column meant "the last 7 days". Re-measured over `site_work_items UNION ALL
+> site_work_items_archive`, which is what migration `465` now makes the promoter itself read:
+>
+> | pair | my figure | TRUE record | corrected verdict |
+> |---|---|---|---|
+> | `empty_internal_href → page-build-handler` | 0 / 1 | **9 / 5 = 64%** | **NOT held at all — PROMOTABLE.** I reported a pair with nine lifetime successes as "never completed one" |
+> | `literal_markdown → page-build-handler` | 3 / 24 | 3 / 36 = 8% | held either way, correctly |
+> | `placeholder_contact → page-build-handler` | 0 / 4 | 0 / 6 | genuinely never succeeded |
+> | `dead_fragment_link`, `missing_conversion_path` | 0 / 0 | 0 / 0 | genuinely never dispatched |
+>
+> **So the held pile is 15 rows in 4 pairs, not 16 in 5**, and a sixth pair
+> (`generic_theme → webdesign-agent`, 62 / 0) is promotable too. The 8× growth headline stands — the
+> pile was 2 and is now 15 — but my per-pair diagnosis of *why* each was held was computed on a
+> truncated history, which is the same defect the archiver finding is about, reproduced one level up
+> in my own measurement. **What would have caught it:** asking who else writes to
+> `site_work_items` before treating a `count(*)` over it as a lifetime. Verified live:
+> `SELECT (pre_query LIKE '%site_work_items_archive%') FROM scheduled_tasks WHERE
+> name='detected-item-promoter'` → `t`.
 
 **An 8× growth in one day, entirely invisible until this build.** It is not a regression — the
 promoter is refusing work exactly as designed, and `literal_markdown`'s 10 rows are `444`'s floor
