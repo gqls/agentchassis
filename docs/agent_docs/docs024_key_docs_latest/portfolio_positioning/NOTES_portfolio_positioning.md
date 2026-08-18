@@ -1943,3 +1943,40 @@ rendered page naming real regulated firms with citations and no prices.
 `sites.build_status` is still `pending`. Remaining work, unchanged in character: 3 ×
 `needs_new_component` failed, 1 × `needs_rerender` failed, 2 × `needs_imagery` failed, and a
 HITL queue of 10 × `unresolved_cta` + 4 × `needs_page` + 1 × `needs_section_data`.
+
+### 2026-08-18 (cont.) — the pilot is DEPLOYED BUT UNREACHABLE: its domain still serves a registrar parking page
+
+Asked for the pilot's URL and nearly handed over a false one. **`curl` returned 200 for
+`https://remortgagecalculator.uk/mortgage-lenders.html` — and the body is
+`<script>window.onload=function(){window.location.href="/lander"}</script>`.** That is the
+registrar's parking page, which answers **every** path with 200. The status code was not
+merely uninformative, it was actively misleading, and the estate's own rule caught it:
+**trust the rendered artefact, never the status.** A `%{http_code}` probe against a parked
+domain is a check that cannot fail.
+
+**So the pilot's true state is: BUILT and DEPLOYED TO THE BUCKET, NOT SERVED.**
+`pages.build_status='deployed'` + `deployed_at` set is truthful about what the pipeline did —
+it wrote the tree to `b2://portfolio-sites/remortgagecalculator.uk/` — but **nothing points
+the domain at the serving worker**, so no visitor can reach it. `deployed` and `reachable` are
+different facts and this lane had been treating them as one.
+
+**The worker/DNS chain works where DNS exists** — the demand control that makes this a
+configuration gap rather than a broken pipeline: `ai-agent-orchestration.com` serves real
+built pages through the same worker (`scripts/cloudflare/worker.js`, objectKey =
+`<hostname><path>` in bucket `portfolio-sites`), including all three live directories, with
+real content (*"Gemini 3.7 Flash · Google · Google's most capable Flash model…"*).
+
+Bucket objects cannot be verified directly from here — `s3.us-east-005.backblazeb2.com/portfolio-sites/...`
+returns **401** for the pilot AND for the known-good established site, so the 401 says
+"private bucket", not "missing object", and is not evidence either way.
+
+**LIVE AND VIEWABLE TODAY (all 200, real titles, real entries):**
+- `https://ai-agent-orchestration.com/model-directory.html` — *AI Model Directory*
+- `https://ai-agent-orchestration.com/adoption-tracker.html` — *Enterprise AI Agent Adoption Tracker*
+- `https://ai-agent-orchestration.com/protocol-tracker.html` — *Agent Communication Protocol Tracker*
+
+**NOT viewable:** the pilot's `mortgage-lenders.html`. Its content is verified in
+`page_components.rendered_html` (two cited building societies, non-price copy) but it is
+behind an unpointed domain. **A DNS/domain step is missing from the fleet-build path**, and
+Phase E would hit it on all ~140 domains — worth deciding whether the pipeline should own it
+or whether it is deliberately manual.
