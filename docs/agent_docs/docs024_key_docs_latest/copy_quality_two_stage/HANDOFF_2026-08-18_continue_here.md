@@ -90,17 +90,36 @@ side:**
   - **A within-site pre/post query is the right shape** and was too slow to finish inline —
     it is the measurement someone should actually complete.
 
-**Root cause is NOT asserted** — `090` run **`57b2dcd2-2ded-473c-9f2e-617176f39c15`**, filed
-per the 2026-07-31 ruling. **The next session should read that verdict first** (it was still
-at its `verdict` step when this was written):
+**`090` verdict is IN (`57b2dcd2`): `UNVERIFIABLE` — "stopped: scope-not-narrowing", no fix
+proposed, "hand to a human, do NOT auto-conclude." And it REFUTED the hypothesis, which is
+the run paying for itself.**
+
+- It found the same rhetorical shape on **2026-08-06** (a week before the v2 flip), via a
+  different generation than the 08-08 one I found. So v2's wording did not introduce it.
+- It asked for the voice text active on 08-06 and could only see the present config. **I
+  closed that gap:** the pre-v2 block is preserved in
+  `agent_default_configs_bak_20260813_voicecarrier` (a backup THIS lane took shipping v2).
+  **Pre-v2: 2,499 chars, does NOT contain "contrasting pair". Current v2: 6,032 chars, does.**
+  The construction was produced under a block that never mentions it → **naming it cannot be
+  the licence. `305 §4` is dead by two independent routes.**
+- ⚠ **Do NOT edit the voice block.** The obvious fix is now positively refuted, not merely
+  unproven.
+
+**What the loop could NOT close, and is the next real step:** the same before/after for
+**`adoption-tracker` and `protocol-tracker`** — its bundle had no generation history for
+either (symbol bodies "unavailable", a tooling failure, and its own data request died with
+`canceling statement due to statement timeout`). ⚠ I was running an expensive correlated
+query on the same database in that window; I cannot show it caused the timeout, but **do not
+run heavy exploratory queries while a diagnosis run is in flight.**
+
+Reading the artifacts (the item's `result` is a SPAWN RECORD, not the diagnosis — follow the
+child):
 ```sql
-SELECT status, result FROM site_work_items WHERE item_type='needs_diagnosis'
-  AND spec->>'dispatch_correlation_id'='57b2dcd2-2ded-473c-9f2e-617176f39c15';
-SELECT body FROM doc_notes WHERE body ILIKE '%57b2dcd2%' ORDER BY created_at DESC LIMIT 1;
+SELECT result->>'child_orchestration' FROM site_work_items
+ WHERE item_type='needs_diagnosis' AND spec->>'dispatch_correlation_id'='57b2dcd2-…';
+SELECT collected_data->'call_diagnoser'->'response'->>'conclusion'
+  FROM orchestration_states WHERE orchestration_id='74c5ca26-6468-4f89-845c-a72f6d442348';
 ```
-⚠ **Do NOT edit the voice block on the strength of the hypothesis in `305 §4`** (that naming
-the construction licenses it). It is labelled a hypothesis. Editing on that guess is this
-lane learning "exemplars beat rules" a third time by doing it wrong again.
 
 ### The landmine that came out of answering `finetuning_uk_service`
 
