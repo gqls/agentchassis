@@ -35522,3 +35522,46 @@ still overstates its evidence, left standing with the correction beneath it so t
 stays visible.
 
 ---
+
+---
+
+## 2026-08-18 — I clobbered another thread's handoff with `cat >`, and the tell was in output I nearly skipped
+
+**What happened.** Asked for a handoff, I wrote one to
+`bugfix_284_flag_only_items_promoted/HANDOFF_2026-08-18_continue_here.md` with a heredoc
+redirect. That filename was already taken: the **279/284/290 thread** had published its own
+cold-start there hours earlier (`1173f49f6`, 125 lines covering four bugs, an RFC
+verification and a site item). `cat >` truncates without asking. I destroyed it and
+committed the destruction under a message announcing a new file.
+
+**What caught it — and it nearly didn't.** `git commit` printed
+`1 file changed, 154 insertions(+), 118 deletions(-)`. **118 deletions is impossible for a
+file you just created**, and that arithmetic is the only thing that flagged it; the tool
+output otherwise looked like success. Recovery took two commands
+(`git show 1173f49f6:<path> > <path>`, verified with `git diff --stat 1173f49f6 -- <path>`
+returning empty) because git had their version and my own commit had mine — so nothing was
+lost, which is luck plus the versioning, not care on my part.
+
+**The rule I already had and did not apply.** CLAUDE.md, in the section on the versioned
+memory directory: *"Read before write on any file you did not create; prefer the Write
+tool, which refuses an unread file, over a shell redirect, which does not."* It is written
+about `~/.claude/.../memory/` but the reasoning is about shared directories, and a lane
+directory several sessions write into is exactly one. I was operating in a mode that
+prefers shell tools for file edits, which makes this failure one keystroke away — **the
+mode changes the tool, it does not change the obligation.**
+
+**The checks, cheapest first.**
+1. `ls <path>` or `git log --oneline -- <path>` **before** any `>` redirect. One command.
+2. Prefer `>>` for anything append-shaped, and a tool that refuses an unread file for
+   anything else.
+3. **Read the numstat/commit arithmetic every time**: `N insertions, 0 deletions` for a new
+   file; any non-zero deletion count on a "new" file means it was not new. This is the same
+   check that caught a same-file passenger two days ago (2026-08-17, second entry) — twice
+   in two days, one instrument, which is the argument for making it reflex.
+
+**Second-order note for whoever owns handoff naming.** `HANDOFF_<date>_continue_here.md` is
+a *convention*, which means it is a collision magnet in any directory more than one thread
+writes to. Two threads produced a "continue here" for the same date in the same lane
+directory. Mine is now `HANDOFF_2026-08-18b_bugfix_284_lane.md`, both files cross-reference
+each other, and the date-suffix idiom (`b`) is the one the SUMMARY series already uses for
+same-day siblings.
