@@ -154,6 +154,22 @@ def hrefs(html):
     return Counter(re.findall(r'href="([^"]*)"', html or ""))
 
 
+# A path written as PROSE is still the only pointer a reader has. Found 2026-08-18 on
+# ai-agent-orchestration.com: two components mentioned `/adoption-tracker` as plain text,
+# an edit removed one of them, and the href check saw nothing either way because there
+# was no `href=` to see. It happened to survive in the other component — checked BY HAND,
+# which is exactly the check that should not be by hand.
+PATH_RE = re.compile(r'(?<![\w"\'])(?:https?://[^\s<>"\')]+|/[a-z0-9][a-z0-9._/-]{2,})', re.I)
+
+
+def paths(html):
+    """URL-ish tokens in the VISIBLE text, excluding those already inside an href
+    (those are covered, precisely, by hrefs()). Returns a set: a prose mention is a
+    pointer, and one is as good as three."""
+    text = re.sub(r'<[^>]+>', ' ', html or "")
+    return {m.rstrip('.,;:)') for m in PATH_RE.findall(text)}
+
+
 def classes(html):
     out = Counter()
     for attr in re.findall(r'class="([^"]*)"', html or ""):
@@ -287,6 +303,25 @@ def grade(component_id, proposal, induce=None):
                            f"{len(dropped)} link(s) dropped: {' '.join(dropped[:6])}" if dropped
                            else f"{len(b_href)} distinct href(s) preserved")
 
+        # Same standard as VOLUME below, and for the same reason: a pointer may leave
+        # THIS field if the reader can still reach it from the page. Field-scoped
+        # strictness would fail de-duplication, which is stage 2's job; page-scoped
+        # loss is the thing worth refusing.
+        b_path, a_path = paths(before), paths(after)
+        lost_paths = sorted(b_path - a_path)
+        if lost_paths:
+            if page_text is None:
+                page_text = load_page_text(c["page_id"], component_id)
+            orphan_paths = [u for u in lost_paths if u not in page_text and u not in after]
+            failures += report(not orphan_paths, f"links {name} (paths written as prose)",
+                               f"{len(orphan_paths)} prose URL(s) exist NOWHERE else on the page: "
+                               + " ".join(orphan_paths[:5]) if orphan_paths else
+                               f"{len(lost_paths)} prose URL(s) left this field but remain on the page: "
+                               + " ".join(lost_paths[:3]))
+        elif b_path:
+            failures += report(True, f"links {name} (paths written as prose)",
+                               f"{len(b_path)} prose URL(s) preserved")
+
         required = [str(x).split()[0] for x in (c["required_links"] or [])]
         missing = [u for u in required if f'href="{u}"' not in after]
         failures += report(not missing, f"links {name} (page's declared set)",
@@ -405,6 +440,23 @@ def main():
         if strings.get("body", {}).get("type") != "text":
             sys.exit("CONTROL FAILED: the legacy string→text remap is not applied.")
         print("CONTROL OK: both dialects normalise, fromLegacy reported, string→text remapped.\n")
+        # PROSE-URL CONTROL. The page-scoped orphan branch cannot be induced from a real
+        # page — on the page that motivated the check the URL legitimately survives
+        # elsewhere, so the live control PASSES and proves nothing about the FAIL arm.
+        # Exercise the logic directly, with a URL that exists nowhere else.
+        found = paths('<p>Method at /a-unique-path.html and https://example.org/x.</p>')
+        if "/a-unique-path.html" not in found or "https://example.org/x" not in found:
+            sys.exit(f"CONTROL FAILED: paths() does not see prose URLs — found {found}")
+        if paths('<a href="/only-as-markup.html">x</a>') - {"/only-as-markup.html"}:
+            sys.exit("CONTROL FAILED: paths() is picking up stray tokens from markup.")
+        page_elsewhere = "some other component mentions /kept.html here"
+        lost = ["/kept.html", "/vanished.html"]
+        orphans = [u for u in lost if u not in page_elsewhere and u not in ""]
+        if orphans != ["/vanished.html"]:
+            sys.exit(f"CONTROL FAILED: the orphan test does not discriminate — got {orphans}")
+        print("CONTROL OK: prose URLs are seen, and a page-wide loss is distinguished "
+              "from a field-level move.\n")
+
 
         # Each control mutates the proposal in ONE way the gate claims to catch. A
         # control that does not fail means the gate is not reading what it says it is.
