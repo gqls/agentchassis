@@ -435,3 +435,37 @@ One incidental finding worth knowing: the homepage component I fixed for you las
 rebuilt by a routine process this morning, and the six links survived it intact. Good news
 — but it also means anything we leave sitting in the queue can be pointing at a version of
 a page that no longer exists by the time someone approves it.
+
+## 2026-08-18 (evening) — applied, and I want to be straight about what it did and didn't do
+
+The three edits are live on ai-agent-orchestration.com. The homepage no longer carries a
+"feature" that was really a sales pitch, the departments section no longer detours into a
+hundred words about industry-wide project failures, and the thing that was being called
+four different names is now called one name.
+
+What I checked afterwards: every number on the page is still there (sixteen of them), every
+link is still there (thirty-seven), nothing new was invented, and the five sections nobody
+asked it to touch are untouched. The page is about 250 words shorter and says its main point
+once instead of five times.
+
+**Now the part I'd rather report than have you find later.** This morning I measured the
+specific fault I thought that page had — a mannerism where everything is defined by what it
+isn't ("in days, not months", "rather than a survey result"). Nineteen instances. After the
+edits: fifteen. Barely moved.
+
+The editor didn't go after them. It read the page and decided the bigger problem was that
+the same pitch appears in five different sections, and spent its whole allowance there. I
+can't yet tell you whether it was right to make that call or whether it simply ran out of
+room — three edits was the limit I imposed this morning after it tried to rewrite everything
+at once. Either way, the honest summary is: it fixed repetition and naming, and left the
+mannerism mostly intact.
+
+I'm flagging that because the tidy version of this story — "measured a problem, ran the tool,
+problem went down" — would be technically true and would misrepresent what happened. What the
+tool actually found was something I hadn't measured and wouldn't have thought to look for:
+that a reader going down that page meets the same argument five times.
+
+One more thing worth knowing for the future: when I first checked the live page after the
+edits, it still showed the old text, and I nearly wrote down that the naming fix had failed.
+It hadn't — the site simply hadn't finished publishing. Checking a page seconds after a
+deploy tests the publishing, not the edit.
