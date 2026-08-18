@@ -1741,3 +1741,22 @@ What is left is now a short, named list rather than a fog: about six places wher
 still guesses, most of them only a few times an hour. Working through that list is one session's
 work, and it is the last thing standing between us and the final step (stopping the guessing
 altogether). Nothing needs a decision from you.
+
+**2026-08-18 — the strict switch is proven, and one of my numbers was wrong.** The image
+pipeline finally had work to do overnight — twenty-six runs — and the switch you applied on
+Sunday is proven: every one of them passed the right value through, and none tripped the failure
+we were watching for. That closes the last open item on that thread.
+
+Two honest corrections. First, I told you the other lane's fix was a seventy-three per cent
+improvement; that was measured over eighty minutes and eleven runs. With a full night's data it
+is fifty-three per cent — still large, still real, but I published a number my sample could not
+support, and it had been sitting in their bug file for a day. It is corrected in both places and
+logged. Second, while proving the image switch I noticed that fourteen of those twenty-six
+deployments failed afterwards, on an error about fetching a repository branch — nothing to do
+with our change, but a fifty-four per cent failure rate on asset deployments that nobody seems to
+be looking at. I have written it where it will be found rather than quietly leaving it in a
+success report.
+
+There is a new milestone summary in the lane folder
+(`SUMMARY_2026-08-18_the_instrument_caught_its_first_real_bug.md`) — the first one for this
+thread of work, written to be read aloud if you want to describe it to someone.
