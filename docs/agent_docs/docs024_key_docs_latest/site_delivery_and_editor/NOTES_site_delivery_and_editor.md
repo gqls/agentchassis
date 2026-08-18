@@ -538,3 +538,15 @@
 - Nothing was written on any box: all verification via presigned HTTP + the
   served site + local scratch. Spawned pods: 2 zip-deliverer pods total, one
   per cut, on-demand only — no schedule exists (asserted by the seed verify).
+
+## 2026-08-18 (~12:20Z) — delivery-architecture addition from the owner (recorded here because Phase 4 consumes it)
+
+- **The domain fee now has a BUY-OUT**: owner directive (chat, 2026-08-18,
+  while directing webdesign.uk FAQ copy): domain rental £10/month via a
+  subscription link carried IN THE DELIVERY EMAIL (confirms Phase 4's email
+  is the vehicle), OR a one-off £200 purchase after which the customer is
+  free to transfer the domain to their own registrar or host. The 08-17
+  architecture PLAN's decision 1 knew only the £10/mo retention; the £200
+  transfer-out path is new and belongs in Phase 4's email links and the
+  domain programme's Stripe products. Recorded in webdesign.uk's register
+  as facts domain_rent_monthly (value 10) and domain_buy_once (value 200).

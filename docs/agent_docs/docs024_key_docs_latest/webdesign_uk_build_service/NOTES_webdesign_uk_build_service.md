@@ -3332,3 +3332,47 @@ this session's cold-start falsifier sweep:
   > 10:23:38Z and confirmed the clean pass via agent_error_log — so the
   > requeue credit is that session's, and it independently found the
   > persisted-detail route.)
+
+## 2026-08-18 (~12:20Z) — OWNER COPY DIRECTIVES applied at the register; what-you-get, faq, how-it-works queued for rewrite (site_delivery_and_editor session, owner chat directive)
+
+- **The problem, measured before acting**: what-you-get, faq AND how-it-works
+  (the owner named the first two; the third has the same defect) all still
+  served the pay-after-approval flow: "once you approve it, you pay", "You
+  pay after you've seen the finished site", "preview link before you pay
+  anything". Only index was rewritten this morning — three pages contradict
+  the live bot and billing.
+- **Owner directives (2026-08-18 chat, quoted in the SQL header)**: one-shot
+  product, NO approval stage, stated bluntly (that is how the price stays
+  down); starter site with initial copy included, customer expected to edit,
+  not a final product; domain/hosting: we host under a domain they can rent
+  (£10/month, subscription link in the delivery email) or buy (one-off £200,
+  then free to transfer to their own registrar or host); get-started answer
+  drops the contact-me encouragement, says any sort of site (not just
+  business) with example links to the owner's domains; no pre-sales
+  customer service, helpful in copy and recommendations, never with the
+  owner's time.
+- **Register surgery** — `SQL_2026-08-18b_one_shot_starter_site_domain_pricing.sql`:
+  7 facts added (one_shot_no_approval, starter_site_initial_copy,
+  hosted_under_our_domain, domain_rent_monthly value:10, domain_buy_once
+  value:200, any_site_type_examples, no_presales_service),
+  `hosting_and_domain_not_included` REMOVED (superseded), `no_lock_in`
+  SCOPED to the site itself so it cannot contradict the £10/mo rental;
+  writer_block edited by anchor in four places (hosting story, fact
+  enumeration, conversation paragraph now forbids email/phone encouragement,
+  new ONE-SHOT paragraph); 3 banned_claims arming detection for the retired
+  promises, patterns matching PROMISE shapes only so the new blunt denials
+  never trip them (the \brefunds?\b ban is the cautionary precedent).
+  15→21 facts, 28→31 bans, all guarded with read-back.
+- **Example domains chosen** (owner said "links to my domains", choice
+  delegated): noted.co.uk, cookly.uk, dartsonline.com, vetcomparison.uk —
+  varied, none business-services, all fetched 200 with real titles today.
+  loancalculator.co.uk deliberately excluded while bugfix 146's tool-page
+  overflow is live.
+- **Rewrites queued** (needs_content_page, triaged, owner-brief-2026-08-18):
+  what-you-get `cf83a513`, faq `f853f532`, how-it-works `8d969047`.
+- **To verify at the served pages when they land**: no approval/pay-after
+  sentence anywhere; the rent/buy figures present; text answer gives both
+  halves; no email/phone encouragement in get-started/questions answers
+  (NOTE: locked CTA components may refuse the rewrite and keep "Send us an
+  email" copy — if so that is an owner unlock decision, not a forced write);
+  example links present and correct.
