@@ -726,3 +726,41 @@ checked the file against the live version and syntax-checked it (including provi
 the checker actually fails on a deliberately broken copy, because it silently
 passes broken files otherwise). Once you have run it, I will add the DNS entries
 across the 32 zones that need them and verify each one.
+
+### Tuesday 18 August (night) — www is done, on every site
+
+Your deploy went through at 20:02, and the rest followed. **Typing `www.` in front of any
+of our addresses now takes you to the site**, rather than to a browser error — on 36 of the
+36 domains where that makes sense, verified one at a time by actually following the
+redirect rather than trusting what the API told me. It keeps the rest of the address too,
+so a link to `www.<site>/some-page` lands on the right page, not the front door.
+
+Three domains I left alone on purpose. Two of them (`idea.uk`, `relojistas.com`) are not
+served by our worker at all, so adding the record would have created a new broken address
+rather than a working one. The third is `webdesign.uk`, which deliberately sends `www`
+traffic to webdesign.co.uk — that looked intentional, so I did not overwrite it.
+
+Two domains were quietly broken before tonight and are fixed as a by-product:
+`robot-hands.com` and `leopardessconsulting.co.uk` had a `www` entry with nothing behind
+it, so those addresses simply hung.
+
+I also swept every domain's front page after your deploy, because that one file serves all
+of them and a bad deploy takes the lot down at once. All fine. Three do not answer, and
+none of them is new: `apis.uk` and `ugg2.com` have no site behind them at all — they are
+parked — and `loanzy.uk` is the one you cleared. Worth knowing that our records still list
+loanzy as deployed even though its pages are gone; that is the other thread's to tidy, but
+it will read as "live" to anything that asks.
+
+**Two things nearly made me undo a change that was working**, and I want them on record
+because they will catch the next person. First, a freshly created route returns a
+particular error — 522 — for the first few seconds, and that error means, in every other
+circumstance, "there is nothing behind this address". It settled within a minute. Second,
+and stranger: two domains reported "cannot find this address" from my machine for about
+four minutes *after* the entry existed and the real DNS was serving it perfectly — my own
+machine had remembered the earlier "no such address" answer and kept giving it back. In
+both cases the honest-looking reading was the wrong one, and the tempting fix — delete it
+and try again — would have destroyed a correct change. Both are now written down.
+
+**The only thing still waiting on you** is whether I refresh the pilot's lender page, which
+still shows 2 lenders instead of the 25 we now have. The site is locked under your build
+halt, so nothing will do it by itself.
