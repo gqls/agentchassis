@@ -228,3 +228,16 @@ zero-row LATERAL walk").
   reads "pending" for an applied, live, verified change. Its `doc_notes` row is the audit trail.
   Yesterday I misdiagnosed this as a harness permissions block; corrected in the 452 header.
   Verifier armed via `landmines-verify-dispatch.sh` (dispatched 1, 0 failed).
+- **⚠ FOURTH methodological slip of this lane, caught in one command, recorded because it is the
+  same family:** to prove my LANDMINES edit deleted nothing, I diffed `HEAD~1` against `HEAD`.
+  On this tree `HEAD` had already moved past my own commit (other sessions commit constantly),
+  so that pair compared two *later* commits and returned a reassuring "identical" that said
+  nothing about my change. My own memory index carries this as a landmine
+  (`relative-git-refs-are-not-evidence` / "never cite `HEAD~1`") and I used one anyway. Redone
+  with pinned shas (`61bebf77e^` vs `61bebf77e`): **505 entry headings before and after**, and
+  the only line unique to the parent is the one I appended a dated note to — modification in
+  place, the sanctioned way to correct another lane's entry. The pre-commit pattern check's
+  "3 lines removed from an append-only ledger" advisory is explained by that: three lines were
+  MODIFIED (two path repoints + the note), none deleted. My commit also carried **2 uncommitted
+  lines belonging to the 277/083 canary lane** — named in the commit message, since one shared
+  file means a pathspec cannot exclude them.
