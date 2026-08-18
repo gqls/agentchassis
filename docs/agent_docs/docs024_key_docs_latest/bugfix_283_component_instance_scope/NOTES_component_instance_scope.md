@@ -374,3 +374,52 @@ tokens, 5/5 `data-target` chains paired. Tripwire tripped 07:40 as designed (ado
 
 **Batch released:** 70 items (eligible count 66→69→70 over two days — derive, never paste).
 Monitor `budmv5g2d` on the drain.
+
+## 2026-08-18 (session 5, evening) — the judged pipeline is DESIGNED; every load-bearing input re-measured
+
+Deliverable: `PLAN_2026-08-18_judged_pipeline.md`. Session opened with RUNBOOK §1 (pods on
+`v1.0.1310`, digest-matched, revision `0b185bad2` = ancestor of HEAD — clean). No code written;
+this was the design session the continue file asked for.
+
+**The two measurements that changed the design from what §12.5 sketched:**
+
+1. **All 23 LMC calculators sit on `rebuild_policy='owned'` pages** (24 placements;
+   `mortgages-repayment` on 2). So the mechanical programme's proven delivery
+   (`template_changed` rerender) covers only the 2 generic-page tools — mig 462 excludes owned
+   pages BY DESIGN. LMC delivery = section-editor (`apply_section_edit`), which binds the
+   instance token (verified at `section_editor_actions.go:850/:948`, occurrence 0 — correct,
+   since no page places any of the 25 twice; 26 distinct component×page pairs).
+2. **22 of the placed 25 are `component_level='section'`** — so tool-improver's fenced write
+   (`sharedComponentWriteCheck`) would REFUSE `mortgages-repayment` (section-level, 2 pages).
+   That killed the "reuse tool-improver wholesale" option: the judged writer must be a
+   fan-out-intended sibling of `scope_component_instance` inside
+   `fix_component_template_action.go`, declared in `component_template_writer_coverage_test.go`.
+
+**Shape chosen:** extend `component-template-fixer` — the mechanical arm's
+`needs_script_scoping` refusal IS the router (it fired correctly on all 25 in the batch), same
+`instance_scope_conversion` seed, same `component_versions` audit trail
+(`change_source='scope_component_instance_judged'`). LLM step gets the IDS-CONVERTED template
+and a deliberately narrow brief (IIFE + rewire the inventoried `on*=` handlers + replace
+`window.onload`, change nothing else); the gate re-derives the ids-converted baseline itself
+and refuses on: GateConvertedTemplate not fully clean, markup-parity-outside-script broken,
+id-set drift, or the comparative collapse guard. Refusal = `needs_human_review`, nothing
+written, no auto-retry in v1.
+
+**Truncation defence is layered, not single:** `execute_llm_prompt` already hard-refuses capped
+completions unless a step opts into `tolerate_truncation` (`ai_actions.go:409–517`) — the judged
+step will NOT opt in; the write path's comparative collapse guard is the second layer; id-set
+parity is the third (a cut template loses ids).
+
+**[UNVERIFIED], named in the plan and proven by the canary:** that a `section_edit` item with
+empty `field_updates` re-renders the slot from the converted template AND deploys, on an LMC
+owned page specifically. tool-improver's 42 completes make it likely; nobody has watched it
+end-to-end there.
+
+**Cross-lane:** CONTRIB filed in the LMC lane dir (b2_verify byte-identity ends at conversion;
+oracle selectors move in lockstep per tool, same commit as each conversion's verification;
+canary `loans-standard-calc` with a veto window). webdesign rebuild lane unaffected (none of
+the 25 is theirs); copy_quality lane unaffected (links, not ids).
+
+**Out of scope, unchanged:** `ec2` rename and `chartTitle` repair are pre-repairs for the
+MECHANICAL path (the judged prepare would hit the same hex refusal — routing them to judged
+would not help); forked-function shrink investigation; the companion producers item; RFC_032.

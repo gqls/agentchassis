@@ -222,3 +222,24 @@ converts, snapshots its previous state, and asks for precisely its own pages to 
 monitor is watching the queue drain. The twenty-five calculators that need the careful script work
 remain untouched; designing that pipeline, with the loan-calculator site's test harness watching,
 is the next piece of work.
+
+---
+
+**2026-08-18, evening.** The plan for the last quarter — the twenty-five calculators that need
+real script surgery — is now written, and two facts found while checking it reshaped it. First:
+all twenty-three loan-calculator pages are "owned" pages, which the rebuild machinery we proved
+last week deliberately skips — so those conversions will be delivered through the section
+editor, the same door the tool-fixing agent has used successfully forty-two times. Second: the
+obvious shortcut (reuse that tool-fixing agent wholesale) turns out to be wrong, because its
+safety fence would refuse one of our own calculators — so the careful work stays inside the
+same agent that did the mechanical batch, which simply hands the hard cases to the language
+model and then checks its work mechanically before anything is written.
+
+The checking is the heart of it: the machine does all the renaming it is already proven at, the
+language model only wraps and rewires the scripts, and a gate re-renders two copies of the
+result and refuses to save anything that is half-done, altered outside its brief, or cut off
+mid-generation. Refusals go to a human; nothing gets written on a doubt. The loan-calculator
+site's own test harness — 170 arithmetic checks against the live pages — is the independent
+witness, moved one tool at a time in step with each conversion, and that lane has been given
+notice and a chance to object before the first small calculator goes through. Next session:
+build it, put it through the review council, and run the first one.

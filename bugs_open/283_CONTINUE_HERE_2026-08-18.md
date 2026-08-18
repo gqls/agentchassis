@@ -33,7 +33,13 @@ components that genuinely declare into global scope, 23 of them the LMC calculat
 
 ## 3. Do next, in order
 
-1. **Design the judged pipeline for the 25** (the real remaining work — a design session):
+1. ~~**Design the judged pipeline for the 25**~~ **DONE 2026-08-18 (evening, same day):**
+   `bugfix_283_component_instance_scope/PLAN_2026-08-18_judged_pipeline.md` — next is the BUILD
+   (checklist in its §8). Two facts moved the design off this sketch: all 23 LMC placements are
+   `rebuild_policy='owned'` (delivery = section-editor, not `template_changed`), and 22 of the 25
+   are `component_level='section'` (tool-improver's fenced write would refuse one — the judged
+   writer is a fan-out-intended sibling of the mechanical arm). CONTRIB with veto window filed in
+   the LMC lane dir. The sketch that follows stands as originally written:
    LLM rewrites each script (IIFE-wrap + rewire the 20 inline `on*=` handlers + replace the 8
    `window.onload`), through the framework; **`GateConvertedTemplate` is the acceptance gate**
    (it already refuses unscoped output); **byte-level truncation check on every rewrite**
