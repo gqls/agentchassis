@@ -1005,3 +1005,130 @@ Nothing about Tier 1 except the roll and the verdict (`725b1f01-f4b5-42fc-92b5-6
 `wont_fix` carrying `result->'owned_page_refusal'`, and a genuine save failure must still land
 `failed`. Without the second, "the refusals stopped counting" is equally consistent with having
 broken the status write.
+
+---
+
+## 2026-08-18 late evening — the REVISE was right, and it found a defect I could not have found
+
+### What the council objected to, and why my evidence was insufficient
+
+Round 1 came back **REVISE**, gated by `editquality`. The objection, in one line: *you write the
+item's status inside the handler, but the dispatch loop runs afterwards — does your write survive?*
+It did not argue; it **cited two `LANDMINES.md` entries** keyed on `update_work_item_status
+result_fields` and `site_work_items.result for any item completed by a loop sub-workflow`, both
+saying the loop replaces what a handler wrote.
+
+**The entries existed and I had not read them.** I grepped LANDMINES for the symbol I was *adding*
+(`wont_fix`) and not for the mechanism I was *writing through* (`update_work_item_status`). Logged
+in `WRONG_CALLS.md`.
+
+### The answer — three writers, and they do not agree
+
+| writer | guard |
+|---|---|
+| `CompleteWorkItemAction` (`load_work_item_actions.go:1017-1025`) | `status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')` |
+| `failUnverifiedCompletion` (`complete_work_item_verification.go:428-429`) | the **identical** list |
+| `FailWorkItemAction` (`load_work_item_actions.go:1146-1160`) | **none — `WHERE id = $1`** |
+
+`wont_fix` is in the first two lists, so on the `mark_complete` path the UPDATE matches **0 rows**
+and replaces nothing — not the status, and not the result either, because both are in the same
+statement. The landmine is real and does not reach this case. On the `mark_failed` path there is no
+guard at all and the status is overwritten to `triaged` or `failed`.
+
+**So which path does a refusal take?** [MEASURED 2026-08-18] over every `page-build-handler` item
+whose `error` names the guard, split by `handled_by` — a column only `fail_work_item` and
+`complete_work_item` ever write, so NULL means the handler's own write was never touched:
+
+| `handled_by` | status | rows |
+|---|---|---|
+| NULL — handler's own write, untouched | `failed` | **113** |
+| NULL | `cancelled` | 3 |
+| `build-dispatch-loop` — via `fail_work_item` | `failed` | **2** |
+
+**113 of 115 = 98.3% guarded; 2 not.** Positive control, because the first number alone reads as
+"nothing ever overwrites anything": **122 rows sit at `needs_human_review` with
+`handled_by='page-build-handler'`**, most recently today — a handler-set protected status
+demonstrably surviving this exact loop, 122 times.
+
+### The thing worth carrying, which is not "read LANDMINES"
+
+**A blast-radius census of who READS a value is half the question. The other half is who else
+WRITES it, and last.** I enumerated readers exhaustively and writers not at all, and the
+exhaustive-looking table is precisely what made the omission invisible — to me and nearly to the
+reviewer.
+
+And: **today's rows could not have caught this either.** Both paths write `failed`, so no query on
+the existing population distinguishes "the handler said failed and it stood" from "the loop
+overwrote it". The 2 rows are visible *only* because `handled_by` separates the writers. A defect
+that every possible query returns the same answer for is not absent — it is unobservable, and the
+change that introduces a second possible value is what makes it visible.
+
+### What I did with it
+
+Contributed to **`bugs_open/307`** (owned by `staged_component_build`, active, same function) rather
+than fixing it: `fail_work_item` is reached by every dispatch loop, `failed` is itself in the
+sibling guard list so a naive copy would stop the retry ladder, and a shared-mechanism change inside
+a bug patch is what the 2026-07-28 ruling vetoes. The split it probably wants is in the
+contribution: statuses that record a DECISION protected, `failed`/`unresolved` left overwritable.
+Round 2 resubmitted on the same correlation with the measurement and the residual stated.
+
+---
+
+## 2026-08-18 late evening — path step 3: `bugs_open/300`, and one figure in that bug had already moved
+
+### The measurement is stronger than the bug file's, in the direction that matters
+
+[MEASURED 2026-08-18, all 82 lifetime `page_component_status_drift` rows] `page_id` present 82/82,
+`spec.slot_name` present 82/82, `spec.page_component_id` resolves **70/82** (12 dead, 15%),
+`(page_id, slot_name)` resolves **82/82**. The bug filed it as "1 of 20".
+
+**And the ageing it predicted has happened in one day.** The file recorded on 08-17 that *"every one
+of their ids still resolves today"* for the 16 deferred rows. Today **11 of 16** do. Five died in a
+queue nobody touched. That is the file's own hypothesis confirming itself, not my finding.
+
+### The part that needed a test rather than a query
+
+`(page_id, slot_name)` is **not unique**: [MEASURED] 17 such pairs on the estate carry more than one
+component, worst case 4, of 1,730 components. **Zero of them are drift rows today** — which is
+exactly the trap. Resolving by the pair alone is correct on every row that exists now and silently
+wrong on the first one that is not, and no query against current data would ever say so. Hence the
+stored id as a tiebreak *within* the pair's matches, and a refusal rather than a guess when the pair
+is ambiguous and the stored id is not among them.
+
+### A correction to this lane's own handoff
+
+`HANDOFF_2026-08-18c` §5 says: *"⚠ `page_id` is **not** in the dispatch loop's `call_handler`
+input_mapping (verified live)"*. **That is wrong.** [VERIFIED 2026-08-18, `build-dispatch-loop`'s
+live `sub_workflow`] the mapping is `{spec, domain, issue?, source, site_id, page_id?, purpose?,
+asset_id?, item_type, page_name?, current_page, work_item_id, component_id?, reviewed_brief?}`.
+`page_id?` is there; the `?` makes it optional, so it is dropped whenever the row's `page_id` is
+NULL — which is why the live `component-template-fixer` payload I sampled (an
+`instance_scope_conversion` item) had none, and probably how the original claim was formed. The fix
+does not depend on it: it joins through `work_item_id`, which is unconditionally mapped.
+
+### Mutation matrix
+
+Stable key never consulted → 4 tests RED. Tiebreak removed so an ambiguous pair takes the first
+match → 2 RED. Fallback to the stored id removed → 2 RED. Full `platform/` suite green after
+restore, and the working file byte-identical (`git diff --numstat` unchanged).
+
+---
+
+## 2026-08-18 late evening — path step 5: `bugs_open/314` filed, and the prior art nearly stopped me
+
+Owner decision 6. The handoff's framing was *"097 scopes to platform//internal//pkg/, so config
+cannot be submitted"*. Reading the script sharpened it: `SCOPE_RE='^(platform|internal|pkg)/'` is a
+**path** test standing in for a **subject-matter** rule ("prose does not spend council credits"), and
+this estate's config ships as SQL under `docs/agent_docs/sql_for_agents/`. **The gate is not
+declining to review config; it cannot see that it is config.**
+
+[MEASURED, 14 days] 227 commits ship a numbered migration; **152 (67%) carry no in-scope file** and
+are refused by construction. Stated as a bound, not an enumeration — some of those are docs commits
+carrying a migration, and some lanes used `FORCE=1` anyway.
+
+⚠ **The prior art nearly stopped me filing, and reading it properly is what let me file.**
+`architecture_review/DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §8d cites this exact
+line and concludes the refusal is **correct**. It is — *for prose*, which is what §8d was arguing
+about (72 DESIGN/PLAN/SPEC docs in a month). Finding prior art that endorses the rule felt like
+confirmation that there was no bug. **It was not: the question is whether the prior art was arguing
+about your case.** That went into 016b §9 as the transferable half.

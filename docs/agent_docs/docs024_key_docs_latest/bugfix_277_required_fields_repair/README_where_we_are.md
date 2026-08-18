@@ -612,3 +612,57 @@ the corrected text" — and that is the design piece I want to write up properly
 thousand times without being refused, while the page *build* path is refused every time. Both go
 through the same guard, so one of those two facts needs explaining. I have not chased it — it is not
 this job — but nobody should conclude the guard covers every save until somebody does.
+
+---
+
+**2026-08-18, late evening — the review board sent my change back, and it was right to.**
+
+I mentioned earlier that I had put the "not applicable" change through the review council. The
+verdict came back **revise**, not approve, and the objection was a good one. I want to write it down
+properly because it is the most useful thing that happened this evening.
+
+The reviewer asked a question I had not asked myself. My change has the page handler write a status
+onto the job record. But after the handler finishes, the machinery that dispatched it runs one more
+step — and there is a note in our own trap file saying that step **overwrites** what a handler
+wrote. So: does my change do anything at all?
+
+I had not checked. I had been thorough about one half of the question — I listed every part of the
+system that *reads* this status, and there are several — and I had not looked at what else might
+*write* it afterwards. The list I did make was long and careful, which is exactly what made the
+gap invisible.
+
+**The answer turned out to be a split.** There are three pieces of code that can set a job's final
+status. Two of them explicitly refuse to overwrite a decision a handler has made — so my change
+stands. The third has no such protection. Counting the actual jobs: **113 of 115 refusals go through
+the protected route and 2 do not.** So the change works for about 98% of cases, and for the other 2%
+nothing gets worse — they behave exactly as they do today.
+
+Two things worth saying about that.
+
+**First, the missing protection is a real defect and it is not mine to fix.** The unprotected piece
+is shared by every dispatch loop in the system, and adding the same protection there would change
+how retries work fleet-wide. Another thread is already working on that exact function this week for
+a different reason, so I have written the finding into their file rather than starting a competing
+fix.
+
+**Second, and this is the part I find interesting:** nobody could have found this defect before
+today, including me, because every route currently writes the same word — "failed". You cannot tell
+"the handler said failed and it stood" from "something overwrote it with failed". My change is what
+introduces a second possible answer, and that is what makes the overwrite visible at all. The defect
+was not hidden; it was unobservable.
+
+**Also done this evening.** I fixed the unstable-identifier bug (the one where a finding points at a
+component that a routine rebuild has since replaced). While measuring it I found the exposure is
+larger than we recorded — 12 of 82 findings already point at something that no longer exists, not 1
+of 20 — and that five of them died in the single day since that bug was written. The stable way of
+identifying the component works for all 82. There was one trap: the stable identifier is not always
+unique (17 places on the estate have two components in the same slot), and none of them is one of
+these findings today — so a fix that ignored it would have been correct on every case that exists
+and wrong on the first one that did not. That case now has a test.
+
+And I filed the last small item you asked for: our review council can't be given a
+configuration-only change, because it decides what to review by looking at where a file lives, and
+our configuration happens to live under a documentation folder. Two thirds of the changes that alter
+live behaviour are in that category. I nearly did not file it — there is an older note in our own
+records saying that refusal is correct, and it is, but it was arguing about written documents, not
+about configuration. Reading what the old note was actually about is what let me file this one.
