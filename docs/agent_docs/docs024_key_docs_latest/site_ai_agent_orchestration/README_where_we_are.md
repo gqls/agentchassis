@@ -210,3 +210,77 @@ re-firing them would just add noise.
 
 The handoff is rewritten as `HANDOFF_2026-08-18_continue_here.md`, and the old August 5th one now
 carries a banner saying it's superseded and which of its numbers went stale.
+
+---
+
+## 2026-08-18 (late) — you were right to send me to the flow agents
+
+Two things came out of consulting the component and experience flow agents, and one of them
+corrects something I told you earlier today.
+
+### We already have carousels. I said we didn't.
+
+I told you "we have no carousel component anywhere in the platform". **That was wrong**, and the
+way it was wrong is worth a sentence: I searched the *code*. The carousels live in the *database* —
+in something called the experience register — and a search of the code can't see them. The search
+came back empty and I read empty as "doesn't exist" rather than "didn't look there".
+
+There are **two**, and they are properly thought through:
+
+- **Card carousel with arrows** — arrows always visible, swiping works natively, auto-advance only
+  if you ask for it.
+- **A simpler swipeable track** with no JavaScript at all.
+
+You asked me to consider their behaviour. It turns out someone already has, in more detail than I
+would have managed:
+
+- If there's only one card, all the controls hide themselves — a button that can't do anything
+  shouldn't be on the page.
+- If the JavaScript fails to load, the track still scrolls and swipes and every card is still a
+  real link. The scripting is an enhancement, not the thing itself.
+- Auto-advance stops when the carousel scrolls off screen, and stops while you're hovering over or
+  reading it. It never moves under you.
+- If your system is set to reduce motion, it never auto-advances at all.
+- If you swipe it yourself, it works out where *you* are before the next arrow press, rather than
+  jumping back to where the code thought it was.
+
+There's also a neat protection: a carousel's buttons can't point at a page that doesn't exist,
+because the link targets are checked against the real site when the carousel is attached. We've
+been bitten by exactly that before — four carousels found pointing at missing pages back in July.
+
+**The catch**: none of the eleven patterns in that register has ever been approved, and the
+approval step has never been run, once, by anybody. So the carousel job isn't "build a carousel" —
+it's "approve one and attach it". That's better, but I'd rather warn you that we'd be the first
+ones down that path than have you find out from a stalled run.
+
+### Your imagery ruling is in
+
+Applied to the site's design spec. It does two things at once, and I want to be clear I've read it
+that way:
+
+- **It permits more than before.** The spec previously said technical diagrams *only*, and
+  explicitly banned corporate photography. Offices, desks, screens, server rooms, people working —
+  those are now allowed.
+- **It bans something more precisely.** The old rule banned "testimonial carousels with fake
+  headshots" — which bans a *format*, so the same dishonesty was still available through an
+  about-page team grid or a founder quote. The new rule bans the *act*: no photographed person
+  presented, captioned or implied as someone who works here, in any layout.
+
+One thing to flag: the two about-page components have a 120-pixel **circular avatar slot**. That's
+a headshot-shaped hole, and it's exactly the placement your ruling is about. My reading is that
+slot wants an abstract or illustrative mark rather than a face — a photo of a person in a round
+frame next to a department name reads as staff no matter what the caption says. Say if you'd rather
+it went another way.
+
+### The white cards — your decision is no longer needed
+
+I'd asked you to choose between stripping the white or darkening the text inside white cards. Having
+actually read the two components, **neither is right and you don't need to pick.** They have no
+theme support at all — six hardcoded colours between them, in a library where the equivalent
+component next door does it properly. They should just use the site's own colours, which fixes this
+site and leaves the two light sites that share them looking exactly as they do today.
+
+That's 24 of the remaining 32 contrast failures, it's designed, and I've checked what else it
+touches. It only needs your nod to spend it.
+
+The handoff is rewritten for a fresh session: `HANDOFF_2026-08-18_continue_here.md`.
