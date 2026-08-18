@@ -35479,3 +35479,46 @@ cache purge have to land, so verify at the URL.
   stall narrative the moment something ran slower than I expected, then read the data to fit it. Both
   times a single query refuted it in under a minute, and both times I had already said it out loud.
   Tally for "asserted a stall before measuring its age properly": 2.
+
+## 2026-08-18 — a [MEASURED] before/after rate that produced the OPPOSITE conclusion when I controlled it, and neither figure could detect the effect
+
+**Lane:** `copy_quality_two_stage`. **The claim:** filed in `bugs_open/305` and sent to TWO
+other lanes as the evidence for an owner-directed fix — *"the v2 house voice did not reduce
+define-by-negation in writer output"*, from `page-content-writer` rows in `llm_call_log`:
+pre-v2 **2.72** vs post-v2 **2.85** hits per 1,000 words, normalised by word count, with mean
+response length identical (222 vs 223) so it was not a length artefact.
+
+**Why it was false:** the "pre-v2" arm was **all history** — 19,651 calls over months, across
+a different mix of sites, page types and content lengths. Comparing ADJACENT equal-length
+windows instead (08-07..08-12 vs 08-13..08-18) gives **4.35 → 2.85**: a 34% FALL, the
+opposite conclusion, from the same table and the same regex. The weekly series settles it —
+4.27 · 1.86 · 2.85 · 2.89 · 3.11 · 4.23 · **0.38** · 2.94 · 4.08 · 2.92 — **0.38 to 4.27 with
+no trend.** An effect the size of either claim is invisible against that variance. The honest
+answer is "this method cannot detect it", which is neither of the two answers I gave.
+
+**Caught by:** me, ~40 minutes later, running a *better-controlled* version of my own
+measurement while waiting on a diagnosis run — specifically because the comparison was the
+load-bearing claim in a bug file and I wanted the site-mix confound closed. It was not caught
+by review, and both other lanes had already been told.
+
+**The cheap check that would have caught it:** **plot the metric over time BEFORE quoting any
+two points from it.** One `GROUP BY date_trunc('week')` — the query I eventually ran — costs
+seconds and would have shown the noise band immediately. A before/after pair drawn from a
+series you have never looked at is two samples from an unknown distribution, and the length
+normalisation I was so pleased with controlled the wrong variable.
+
+**Second, subtler error, and the one worth keeping:** I had *already* applied the estate's
+discipline — I marked it `[MEASURED]`, stated the method, controlled for response length, and
+named the weaker statistic (presence-per-call) so nobody would quote it. **All of that made a
+wrong number look more trustworthy, not less.** The marker rule says a figure is only
+evidence if it could have come out otherwise; this one could have — and did, twice, in
+opposite directions, depending on a denominator I chose without examining.
+
+**Cost:** two lanes given a wrong figure for an owner-directed fix (corrected within the
+hour, with the specific sentence each should stop repeating); a `090` diagnosis run
+(`57b2dcd2`) whose symptom statement was authored FROM the refuted framing, so its verdict
+must now be read against the correction rather than at face value; and a bug file whose title
+still overstates its evidence, left standing with the correction beneath it so the error
+stays visible.
+
+---
