@@ -106,7 +106,13 @@ and stopped. Separately: tools normally arrive AFTER a build via `tool-suggester
 `add_tool` → `deploy_tool_to_site` (35 completions across 18 sites); **neither new finance
 site has ever had an `add_tool` item.**
 
-## 5. THE DIRECTORY — 2 → 25 lenders (migration 471, applied and verified)
+## 5. THE DIRECTORY — 2 → 25 lenders (`471_widen_finance_directory_discovery`, applied and verified)
+
+> **⚠ THE NUMBER 471 IS AMBIGUOUS — cite the FILENAME.** Another session applied a different
+> `471_floor_held_remedy_partitions_failures_first.sql` at 18:30:39Z, two minutes before this
+> one at 18:32:55Z. Both are live and neither is harmed: `schema_migrations` keys on FILENAME,
+> not number, so the ledger is correct and the collision is purely a citation hazard. Resolve
+> any migration reference by exact filename against the ledger, never by number.
 
 **Why it was thin:** yield is decided by SOURCE SHAPE. All-history per-source yield —
 savings got **12 of 13 firms from ONE gov.uk page**; health got all 10 from **two** broker
@@ -114,7 +120,7 @@ round-ups; mortgage got 1 firm per source from four single-firm pages. An enumer
 had never reached the mortgage scrape set (its slots went to ukfinance's largest-lenders
 table, **bsa.org.uk's HOMEPAGE not its member list**, and two societies' own pages).
 
-Migration **471**: `max_scrapes` 4→10, `num_results` 10→20, `max_snippets` 5→8; four
+Migration **`471_widen_finance_directory_discovery`**: `max_scrapes` 4→10, `num_results` 10→20, `max_snippets` 5→8; four
 enumeration-shaped mortgage queries (BSA member list · adverse credit · buy-to-let · FSCS
 protected); and the prompt line calling third-party round-ups weak narrowed — it was the
 opposite of the measured history. Sizing checked against `bugs_closed/062`: 85 kB for 4 URLs
@@ -142,7 +148,7 @@ when double-escaped (probe in Go) · cost measured mid-build reads ~70% low.
 
 ## 7. Files of record
 
-`bugs_open/311` (missing tools) · `sql_for_agents/471_*` (+ ROLLBACK) ·
+`bugs_open/311` (missing tools) · `sql_for_agents/471_widen_finance_directory_discovery.sql` (+ ROLLBACK — **not** the other 471) ·
 `scripts/cloudflare/worker.js`, `add_www_redirect.sh`, `README.md` ·
 `REGISTER_positioning.md` (P11) · `NOTES_portfolio_positioning.md` (evidence, newest at
 bottom) · `README_where_we_are.md` (owner's log) ·
