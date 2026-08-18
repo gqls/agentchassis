@@ -3681,3 +3681,40 @@ that catch it.
 
 Not re-triaged: repeating the dispatch would likely repeat the rerender, and the
 item belongs to the session driving both lanes. Handed to them in their directory.
+
+## 2026-08-18 (~12:40Z) — second owner round applied; rewrites: 2 landed, 3 failures all ONE family, fixed at the root
+
+- **Owner corrections (second chat round)**: NO example links (none of those
+  sites came from this one-shot route) — and the framework had already
+  refused them (`cross_site_domain` blocker on faq, 11:47Z, dartsonline.com
+  flagged as contamination: example links would need an allow-list mechanism
+  even if wanted later); the post-payment link is NEVER called a "preview"
+  (the home page said "no preview beforehand" then "a preview link" — one
+  word doing both jobs); keep-it-online hosting clarity (host it yourself
+  after the month; free options recommended; the ZIP's instructions walk
+  through set-up; help is instructions + recommendations, never time).
+  Applied as `SQL_2026-08-18c` (guarded anchors; one anchor corrected
+  against the live text after a refused first run).
+- **index COMPLETE + SERVED-VERIFIED**: "Software builds your starter site
+  in one pass, with no approval stage… a link to your site, already live" —
+  the denial passes (my own first grep flagged "approval" in the DENIAL: a
+  crude pattern reads the sanctioned sentence as the old copy; check the
+  match context before believing a boolean). **what-you-get COMPLETE**,
+  stored components NEW at 12:20 (starter site, no approval); served copy
+  was still old at 12:33 = deploy lag, re-verify after the chain runs.
+- **Three validation failures, one family — a DENIAL using a banned token**:
+  how-it-works "There's no refund once payment's made" (bare-'no' trap,
+  writer disobeyed the sanctioned phrasing); faq "no rounds of changes"
+  (same trap, the rounds ban); how-it-works "nothing is shown to you before
+  you pay" — MY OWN 18b ban `\bbefore you pay\b`, over-broad, blocking a
+  correct payment-first denial: the exact mistake I cited the refunds ban
+  for. **Fixes (`SQL_2026-08-18d`)**: that ban narrowed to the promise shape
+  (`\bpreview[^.]{0,40}before you pay\b`); writer_block gains ONE
+  consolidated rule with sanctioned denial phrasings ("We do not offer
+  refunds." "We do not revise the site after it is built." "Nothing is shown
+  until you have paid." — never bare 'no' + a banned token, the negation
+  guard recognises do-not/never/cannot only). faq + how-it-works re-triaged.
+- Observed in passing: failed items were ALSO being re-triaged by something
+  automatic (status cycled needs_human_review→triaged without me at 12:04)
+  — attempt/retry machinery exists on this path; do not assume a re-triage
+  you see was a human.
