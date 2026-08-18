@@ -14,6 +14,20 @@
 > (no-refunds sentence gone from served index; index `rebuild_policy` check),
 > plus §3's owner decisions and §4's prompt-maker TODO.
 
+> **⚠ SECOND UPDATE 2026-08-18 (~12:45Z): the operational cold-start for this
+> lane is now the JOINT handoff —
+> `../site_delivery_and_editor/HANDOFF_2026-08-18_continue_here.md` — one
+> session drives both lanes (owner direction). Start THERE; this file keeps
+> this lane's detail (§3 owner decisions, bugs_open/299, the prompt-maker
+> TODO). Since the morning banner: the owner's copy directives were applied
+> at the register in two rounds (SQL_2026-08-18b + 18c + a refund-pointer
+> steer, this dir) — one-shot/no approval stage, starter-site framing,
+> domain rent £10/mo / buy £200, NO example links yet (the cross_site_domain
+> guard refused them anyway — measured, faq 11:47Z), the post-payment link
+> is never called a "preview", keep-it-online hosting clarity, no pre-sales
+> service — and FOUR page rewrites queued: index, what-you-get, faq,
+> how-it-works. Verification recipe and expected copy: the joint handoff §1.**
+
 **Start here cold.** Read order: this file → `DECISION_2026-08-17_reasons_for_the_no_refund_position.md`
 (the owner's decisions + the lead he still owes) → `TERMS_2026-08-17_new_commercial_position_impact.md`
 → NOTES 2026-08-17 (night) → `bugs_open/299`.
