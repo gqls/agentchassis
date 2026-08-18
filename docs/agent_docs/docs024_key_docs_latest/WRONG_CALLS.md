@@ -35565,3 +35565,44 @@ writes to. Two threads produced a "continue here" for the same date in the same 
 directory. Mine is now `HANDOFF_2026-08-18b_bugfix_284_lane.md`, both files cross-reference
 each other, and the date-suffix idiom (`b`) is the one the SUMMARY series already uses for
 same-day siblings.
+
+## 2026-08-18 — `bugfix_277_required_fields_repair`: I filed a defect as `[UNDIAGNOSED]` after three searches that could not have found it
+
+**The call.** On 08-17 I measured that completed work items were disappearing from
+`site_work_items` (14 of one type between 11:00Z and 18:30Z), searched for the cause, found nothing,
+and filed it in `bugs_open/083` as `[UNDIAGNOSED]` with a recommendation that the next session run
+the `090` diagnosis loop. Marking it undiagnosed rather than guessing was right. **The search
+itself was the mistake**, and I presented its emptiness as meaningful.
+
+**The cause was a named, enabled, daily scheduled task**: `work-item-archiver` — *"Archives terminal
+work items older than 7 days to `site_work_items_archive`"*. The archive holds **20,184 rows against
+8,702 live**, so it is not an edge case; it is where most of the history lives.
+
+**Each of my three searches was structurally blind, and I ran all three without noticing they shared
+a blind spot:**
+1. `grep -rn "DELETE FROM site_work_items"` — the archiver **moves** rows. No DELETE to find.
+2. Reading `scheduled_tasks.pre_query` — the archiver's `pre_query` is **NULL**; it is
+   `fire_message=true`, so its SQL lives in an agent definition, not the column I was reading. I had
+   spent the previous day working on `fire_message=false` CTE-only tasks and searched as if every
+   task were one.
+3. Grepping for `retention` — its description says *"Archives"*.
+
+**And my reassuring control could not have come out otherwise.** I reasoned: *"the oldest surviving
+row fleet-wide is 2026-03-15 and 89 pre-August completes survive, so this does not look like a
+blanket sweep."* That oldest row is **non-terminal**; the archiver only takes terminal rows. An
+oldest-row check is blind to a status-scoped sweep **by construction** — the same defect I had
+logged twice in the previous 24 hours, applied this time to a control rather than to a measurement.
+
+**What actually found it:** the string `work-item-archiver` appearing in an unrelated list of
+`maintenance` concurrency-group members inside another session's migration header. Not a search —
+peripheral vision.
+
+**The cheap check, now a LANDMINE:** `SELECT name, description, fire_message FROM scheduled_tasks`
+for the whole `maintenance` group — one query, reads the *purpose* of every task rather than probing
+for a mechanism you have already guessed. When you are asking *"what could be modifying this
+table?"*, enumerate the actors before grepping for the verb you expect them to use.
+
+**The cost of getting this wrong was real, not hypothetical.** While it sat undiagnosed, the
+promoter's known-good rule was holding `empty_internal_href → page-build-handler` as "never
+completed" — a pair with **nine** lifetime successes at 64%. A day of a good pair stranded, and a
+recommendation in a handoff to spend a `090` run on something one query would have answered.
