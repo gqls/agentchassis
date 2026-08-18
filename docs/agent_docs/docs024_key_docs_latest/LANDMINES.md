@@ -12293,3 +12293,30 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the workaround that works today:** put a constraint in the `add_tool` description itself — refer to elements by NAME ONLY in comments and visible text (never with angle brackets), always write tag names inside an alternation group in regexes, and never build tag strings by concatenation. That is a prompt-level dodge of a code defect, not a fix.
 - **relations:** `bugs_open/303` (this, with fix candidates and a verification recipe) · `bugs_open/046` / `021` INSTANCE 1 / `012` (the real truncation class the guard exists for — it is right to exist; this is a precision defect) · `bugs_open/024` (the previous misclassification in the OPPOSITE direction, which is why `toolTemplateValid` was split from `sectionTemplateValid`) · `architecture_review/RFC_036` (the other birth-time blocker: three uniqueness gates on one INSERT) · CLAUDE.md "`output_tokens == max_tokens` means the completion was CUT" — **the converse does not hold, and this entry is the counter-example**
 - **added:** 2026-08-18, `webdesign_tool_rebuilds` lane (hit while acting on an owner bug report — the fix path is exactly where this bites hardest)
+
+## Cancelling a site's queued work items does NOT stop the build — and the deploy is in the PAGE BUILDER, not the rerender
+
+- **footprint:** `site_work_items` · `page-build-handler` · `platform/orchestration/actions/retract_page_deployment_action.go` · `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh`
+- **fires when:** you need to stop a build that is already running — a wrong direction, a
+  compliance problem, a runaway cost — and you reach for the queue.
+- **why the wrong result looks right:** setting the pending items to `cancelled` returns a
+  satisfying `UPDATE 33` and the queue then reads clean. Two things are still moving.
+  (1) An item another agent has already **claimed** runs to completion; cancellation only
+  stops an item being picked UP. Measured 2026-08-18 on loanzy.uk: 33 items cancelled
+  13:57:24Z, one already-claimed page deployed **14:01:55Z**, four minutes later, straight to
+  the public edge. (2) Holding `needs_rerender` holds nothing — **`page-build-handler` has its
+  own `deploy_page` step**, so each page publishes itself as it finishes; the rerender is a
+  site-level pass, not the publication gate.
+- **the check:** before believing a build is stopped, ask what is still in flight —
+  `SELECT item_type,status FROM site_work_items WHERE site_id=… AND status IN
+  ('claimed','in_progress')` — and treat anything claimed as already gone. To know where
+  publication actually happens for any handler, read its step list rather than the pipeline
+  diagram: `SELECT jsonb_object_keys(default_config->'workflow'->'steps') FROM
+  agent_definitions WHERE type='<handler>' AND is_active AND COALESCE(is_snapshot,false)=false`.
+  If a page must not reach the public, the only reliable hold is arranged BEFORE dispatch
+  (no worker route / a domain that does not resolve) — a queue edit is a race you may lose.
+- **and when you do have to unpublish:** `page-retraction` **refuses a live page** ("page is
+  active — retracting a live page is not what archiving means"). Archive the row first
+  (`UPDATE pages SET status='archived' …`; there is no writer, it is hand-run), then dispatch
+  the retraction. Its `success:true` names a git delete in `gqls/sites`, NOT the edge — a
+  bucket sync and cache purge follow, so verify at the URL and expect minutes.
