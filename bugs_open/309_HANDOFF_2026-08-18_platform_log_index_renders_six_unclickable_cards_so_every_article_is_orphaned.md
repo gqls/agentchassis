@@ -368,3 +368,51 @@ Its symptom coverage marks the six-card/zero-anchor observation `[explained]`.
 > uses it for. But left uncorrected it implies fundamentallyai.com already has a
 > working listing somewhere, which would send the next reader looking for a page that
 > does not exist instead of fixing the one that does.
+
+
+---
+
+## 8. CONTRIBUTION from the bugfix-309 lane (2026-08-18, session "bugfix bugs_open/297") — the CLASS half is shipped; the case repair is the other thread's
+
+Two threads reached this bug in parallel today (this section's author checked live
+transcripts before starting and found no 309 activity; the §7 thread got there
+anyway — recorded in both lanes' notes). Division as of now: **the thread that wrote
+§§2–7 owns the case repair** (it is at the owner fork on candidates 1/3/4); **this
+lane shipped the class guard** and holds its docs in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_309_unclickable_index_cards/`.
+
+**Committed at `0df9f1be9`** (`Council-Submitted: fdb032c6-f15e-457f-97bc-14fdb540ddfc`):
+
+- `queryresolve`'s dispatch switch is now ONE handler map, exporting
+  `IsKnownQueryName` / `KnownQueryBases` — the validator and dispatcher answer from
+  the same structure and cannot drift.
+- `component_source_guard.go`: `sourceVocabularyIssues(schemaJSON, knownAspects)`
+  flags, at component birth, (a) `site_specs.<aspect>` sources whose aspect exists
+  on NO site (aspect set live-loaded per store, fail-open on read error), (b)
+  `query.*` names the resolver does not register, (c) prefixes outside the
+  vocabulary entirely. Calibrated against every active component's schema: flags
+  ONLY fields that already resolve nowhere.
+- **Held UNCOMMITTED, deliberately:** the one-line wiring into
+  `store_generated_component_action.go`'s Layer-1 `blockingIssues` — that file
+  carries the 303 lane's uncommitted hunk depending on
+  `content.UnbalancedStructuralTags` (untracked `platform/content/markup_balance.go`),
+  so committing it now would break HEAD. Whoever commits that file takes the wiring
+  along; it compiles once markup_balance.go lands (the guard symbols are already at
+  HEAD).
+
+**Census reconciliation with §5's "61 silently-dead fields":** this lane counts
+58 phantom-aspect fields (10 aspects × 11 components; queries in the lane RUNBOOK)
+plus 3 fields with prefixes outside the vocabulary (`nav.*` ×2, `site.*` ×1) =
+**61 — the numbers agree**, they were sliced differently. Separately: 7 `query.*`
+names in active schemas that the resolver has never registered (affiliate_products,
+category, category_posts, comparison_filter_types, comparison_results,
+featured_post, bare `pages`) — a second latent class with the same silent fate.
+
+**On candidate 1 (migrate the component to `query.blog_posts`):** this lane
+independently reached the same repair and endorses it. Interplay with the guard,
+in candidate 1's favour: once wired, a regeneration that KEEPS `site_specs.blog.*`
+is refused with a message naming the real vocabulary, while the candidate-1
+migration passes the guard by construction. **On candidate 2 (daily audit of
+EXISTING config):** the guard is its birth-gate half; `sourceVocabularyIssues` is
+pure and deliberately callable from a CronJob check — build the audit on it rather
+than a second predicate, or the two will drift the way §5.1's stale comment did.
