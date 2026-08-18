@@ -347,10 +347,22 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   dated and revisited — the site's honesty IS the archive of its own past calls.
 - **neighbours:** B5 (explains today), M3/M4 (act on it)
 
-### B8 — savings app (product)
+### B8 — savings app (APP-SHAPED CONTENT SITE)
 - **primary:** savingsapp.co.uk · **twins:** savingsapp.uk ⚑OWNER
-- **status:** product, not content — HOLD until there is an actual product; a content site
-  here would burn the name.
+- **status:** ~~product, not content — HOLD~~ **BUILD (owner ruling 2026-08-18).** HOLD lifted.
+- **OWNER RULING 2026-08-18, with the trade-off stated by him:** *"I might build a savings app
+  but it's not in the roadmap so we will have to burn the domain on a content site — but it can
+  have all the trappings of a savings app (tools, guides, edutainment, reminders, calendars etc)
+  so it won't be a big step for them to then download the app if it comes."* The name is spent
+  knowingly, not accidentally, and the mitigation is the build shape.
+- **mode: APP-SHAPED, not article-shaped.** The site should read like the thing the app would
+  be, minus the account: interactive tools first, guides second, plus the app-like furniture —
+  savings reminders, a rate-review calendar, goal trackers, edutainment. **The test for any page
+  here: would this feel continuous with an app if one shipped?** A conventional content site
+  with a blog would fail the ruling while technically satisfying it.
+- **audience:** active saver who wants to *do* something, not read about it.
+- **neighbours:** B1 (the live rate table), B2 (rate chaser), B4 (by account type). B8 is the
+  DOING layer over those; it must not become a fourth rate table.
 
 ### B9 — banking equipment (B2B — different market entirely)
 - **primary:** bankingequipment.co.uk · **twins:** bankingequipment.uk ⚑OWNER
@@ -358,8 +370,15 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   every collision check in this register; build as trade content or HOLD.
 - **neighbours:** none in this portfolio — different market. If built, it competes with
   trade press, not with any sibling here.
-- **P9 (owner ruling, 2026-08-15): HOLD** — excluded from the build-out's first waves;
-  revisit after the fleet rollout, not during it.
+- ~~**P9 (owner ruling, 2026-08-15): HOLD**~~ **SUPERSEDED — BUILD (owner ruling 2026-08-18):**
+  *"yes build it as a standalone trade site — I don't offer them but third parties will, so
+  guides, tools, directories, news etc etc — same as most of the other sites in the portfolio."*
+- **mode:** the portfolio's standard shape (guides · tools · **directories** · news), pointed at
+  a trade audience. **We supply none of the equipment; third parties do** — so the commercial
+  logic is referral/advertising to suppliers, and the site must never imply we sell kit.
+- **directory implication:** this is a candidate for a NEW directory kind (branch/office
+  equipment suppliers), which would be the first non-finance kind. That is a **seven-place**
+  addition (DIR-001) and needs its own decision — do NOT assume the finance kinds cover it.
 
 ## Family: X — cross-cutting
 
@@ -511,9 +530,29 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   cheapinsurancequote.uk, insuranceapp.co.uk/.uk (product — HOLD like B8),
   reviewsinsurance.co.uk/.uk (angle: the evaluation layer — reviews of insurERS not
   prices; genuinely distinct mode), sportsreviewinsurance.co.uk/.uk (unclear; hold)
-- **status:** assign after the exact-match rows are built, same rule as L9.
-- **P9 (owner ruling, 2026-08-15): HOLD** — with B8 and B9, excluded from the build-out's
-  first waves; revisit after the fleet rollout.
+- ~~**status:** assign after the exact-match rows are built~~ · ~~**P9: HOLD**~~
+- **OWNER RULING 2026-08-18: HOLD lifted; DIFFERENTIATE.** *"we want differentiated offerings so
+  please lean that way when creating the register entries for these domains."* So each of these
+  gets a real proposition of its own — not a thin variant of I1–I9. A brandable that can only be
+  described as "insurance quotes, again" should be left unbuilt rather than built generically.
+- **`insuranceapp.co.uk`/.uk — APP-SHAPED, same ruling as B8** (owner, 2026-08-18: *"same answer
+  for the insuranceapp domain"*): tools, reminders (renewal dates), policy-tracking furniture,
+  edutainment — continuous with an app if one ever ships.
+- **`reviewsinsurance.co.uk`/.uk — the evaluation layer.** Reviews of **insurERS**, not prices:
+  claims-handling record, service, financial strength. Genuinely distinct mode, and the closest
+  natural consumer of a future insurer directory.
+- **`sportsreviewinsurance.co.uk`/.uk — resolved 2026-08-18.** The owner asked whether "sports
+  review" is an insurance category. **It is not** — the category is **sports insurance** (clubs,
+  coaches, events, athletes: public liability, personal accident, equipment cover); "sports
+  review" is a parse artefact of the domain string. So the domain reads *"review [of] sports
+  insurance"*, which is exactly the owner's fallback and lands on the same evaluation mode as
+  `reviewsinsurance` — narrowed to one vertical. **[REASONED, not market-researched]** — mark it
+  verified once the classifier/vertical researcher has run on it at build time.
+- **`bestinsurancedeal(s)` / `bestinsurancerate(s)` / `cheapinsurancequote`:** superlative-shaped
+  names. Under the differentiation ruling these need an angle that is not "cheapest quotes"
+  (which every comparison site claims and none can evidence) — and note the site-level
+  `banned_claims` pattern this lane already seeds forbids market-wide superlatives in copy, so a
+  site whose NAME is a superlative must earn it structurally or say plainly what it ranks on.
 
 ---
 
