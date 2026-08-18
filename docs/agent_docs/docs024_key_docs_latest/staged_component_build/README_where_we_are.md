@@ -1852,3 +1852,38 @@ and harmful for the nine per cent that is read — because in those runs the can
 *every single time*, so refusing means the page writer and page builder get no page at all, in one
 hundred per cent of their runs. **As it stands, that step would only bite the parts that currently
 work.** It needs reordering, not cancelling, and I have set out how in the chat.
+
+**2026-08-18, evening — your five decisions are done or answered, and the one still open is
+re-presented in chat with better numbers than this morning's.**
+
+The bug you asked to be taken out of the discussion paper and filed properly is filed — two of
+them, in fact. The first records that the system currently picks the right page by an accident
+of code ordering nobody wrote down, with the fixes ranked. The second records yesterday's
+outage properly: the retry machinery we already have did exactly what it was built to do, three
+times per item — all three tries inside the same three-hour outage, because nothing tells a
+retry to wait. Eighty-eight of the hundred dead items died that way. Your ruling — a blip
+should send work back to the queue, not kill it — is written at the top of that file, along
+with the one trap for whoever implements it: a repository that has genuinely been deleted
+produces exactly the same error as the blip, so "retry forever on this error" would grind on a
+dead repo for ever. The hundred stranded items themselves are marked inactive, as you asked,
+each with a note saying why.
+
+The efficiency fix you approved is built, tested and submitted for review. I proved it the
+paranoid way: switched it off again and watched the right tests fail, then switched it back on
+and watched everything pass. It should remove roughly a quarter of the recorder's noise once
+it ships in the next build.
+
+The question I owed you an answer on — who is actually living on the safety net — came back
+much cleaner than I feared. The three page-related values it injects have almost no secret
+consumers: one HTML-generating agent quietly relies on it, and the failure would be cosmetic
+(a missing "Page:" label in an internal prompt), fixable with a one-line settings change
+before we touch anything. The three business values — domain, objective, model — are the
+opposite: **fifty-five places across thirty-one different agents use them without declaring
+them**. Those must never be gated; the split between the two groups is the whole answer.
+
+One honest downgrade of my own morning claim: I said the page builder "reads" the guessed page
+value. Having now enumerated every reader I can find, I cannot point at the line that reads
+it — the population where a wrong guess would genuinely land somewhere is smaller and more
+specific than I said, and the chat message names it precisely. The remaining decision — when
+and in what form to switch on "refuse rather than guess" — is re-presented there with a
+recommended order.
