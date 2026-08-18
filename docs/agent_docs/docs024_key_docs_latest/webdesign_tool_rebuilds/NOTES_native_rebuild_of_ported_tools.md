@@ -1117,3 +1117,31 @@ inside it. **The origin was correct the whole time.**
   original has none; same call as smooth-shadow. One intent change only: recompute when the limit
   changes, since it is the tool's single control and the ported version ignores it until the button is
   pressed again.
+
+## 2026-08-18 18:32Z — #8 `tool-json-cleaner` built, both ported defects fixed, retired in 64 s
+
+Run `complete`, `page_adopted=true`, component **`d71713e3-dbfe-4fef-9178-d845be544910`**,
+no `__step_error`. Built first attempt.
+
+**Component graded by mechanism** (7,545 chars, `{{\.` **0**, 1 script, 0 `script src`,
+**0 inline `onclick`** — the ported version's `onclick="cleanJson()"` is gone):
+ids = `json-input`, `limit-input`, `process-btn`, **`limit-message`**, `hint-message`,
+**`error-area`**, **`error-text`**, `json-output`. Two listeners (button + limit change).
+`JSON.parse` ✓ · `JSON.stringify(…, null, 4)` ✓ · "Truncated" wording ✓ · limit guard
+(`isNaN`/`< 1`) ✓.
+
+**Both fixes verified by READING the control flow, not by the presence of an element** — an
+`error-area` div proves nothing on its own if the catch still writes to the output:
+```js
+try { parsed = JSON.parse(rawInput); }
+catch (err) { showError(err.message); return; }     // does NOT touch outputBox
+clearError();
+outputBox.value = JSON.stringify(cleaned, null, 4);
+```
+The limit guard returns early the same way (`showLimitMessage(); return;`). So a bad limit and a
+parse error both leave the previous output intact, and `clearError()` runs on the next success.
+
+**Ported slot retired 18:33:25Z — 64 s after the build**, `c522acb3…` to `removed`, 5,296 chars,
+md5 `370aa8561c9629919841f4368995f269` byte-identical to the handle taken at filing. Asserted one
+deployed slot remains and that it is `d71713e3`.
+Rerender `07e6c627-7718-4a11-8f32-2e531ba98efe` queued and watched.
