@@ -29,38 +29,32 @@ the bottom) → `SUMMARY_2026-08-16_…` → `architecture_review/RFC_036_…` (
 6. **Grade at the served page**, `http=200` asserted FIRST (`/tools/<x>/` is a 404 that passes every
    cleanliness check), with a negative and a positive control in the same breath.
 
-## State (all `[MEASURED 2026-08-17 18:35Z]`)
+## State (all `[MEASURED 2026-08-18 07:45Z]`)
 
 | | |
 |---|---|
-| chassis | **`v1.0.1307`**, pods 17:05Z, stamp **`a6d1c53c0`** — a REAL roll. (`v1.0.1305` was NOT: same tag ⇒ cached image, 267 commits inert. Verify per roll.) |
-| **live + proven, owner-approved** | `tool-aspect-ratio` · `tool-markdown-tables` |
-| **retired, awaiting rerender** | `tool-html-minifier` — rerender `b137a7ce-dc4b-428f-b359-ed1a52bf521d`, `triaged` |
-| **building** | `tool-svg-optimizer` — add_tool `7ced2d32-4d63-4b88-b98f-e5e2eeb7d847`, `triaged` |
-| **next to file (#6)** | `tool-sri-generator` — spec researched, see below. Blocked only by the serial throttle. |
-| **parked on RFC_036** | `tool-ab-test-calculator` · `tool-meme-generator` |
-| remaining after those | ~55 |
+| chassis | `v1.0.1307`, stamp `a6d1c53c0` — a REAL roll. (`v1.0.1305` was NOT: same tag ⇒ cached image. Verify per roll, with a control that MUST match.) |
+| **LIVE + PROVEN (5)** | `tool-aspect-ratio` · `tool-markdown-tables` · `tool-html-minifier` · `tool-svg-optimizer` · `tool-sri-generator` |
+| owner has approved | aspect-ratio, markdown-tables. The other three are graded PASS and awaiting his look. |
+| **parked on RFC_036 (2)** | `tool-ab-test-calculator` · `tool-meme-generator` — do NOT unblock by deactivating their library templates; both have live forks elsewhere. |
+| failed once | `tool-ab-test-calculator` (#2) — the fleet-wide unique index. Cause understood, designed out of the recipe. |
+| remaining | **~55** |
+
+Three of the five replaced a tool that was **measurably broken in production** (two had their
+comment-stripping call swallowed by its own comment; the minifier also corrupted `<pre>`/`<script>`
+content). Reading the live `<script>` before writing the brief is what found all three.
 
 ## Next actions, in order
 
-1. **Grade `tool-html-minifier` at the served page** once `b137a7ce` completes (baseline taken:
-   `ported-page` 1, `htmlInput` 2, before). Then it joins the owner-review set.
-2. **Grade `tool-svg-optimizer`** through steps 3–6 when `7ced2d32` completes. Revert handle already
-   recorded: slot `665075ab-591c-47e8-af95-faab9f48b73d`, 5,095 chars, md5 `be0f5c3530636eddb04e03c82141d8a8`.
-3. **File #6 `tool-sri-generator`** the moment no `add_tool` is open (serial throttle).
-   Page `211c3abc-d036-40a1-a5cf-ff6708efaba4`, `/tools/sri-generator/index.html`.
-   Revert handle: slot **`7d4b69db-66a0-4c81-ba4e-6e27ab09fc49`, 4,752 chars, md5 `16332add36f84bddc5da40d8aa5d59c3`**.
-   **Live behaviour, already read:** one textarea (`inputCode`) for pasted file content; `TextEncoder`
-   → `crypto.subtle.digest('SHA-384', …)` → base64 via `btoa(String.fromCharCode.apply(null, …))` →
-   emits `integrity="sha384-<b64>" crossorigin="anonymous"`. Defects to specify as fixed: `alert("Copied!")`
-   and inline-`onclick` binding (use listeners + inline "Copied" feedback), and empty input early-returns
-   leaving **stale output** (should clear). `crypto.subtle` requires a secure context — the page is HTTPS,
-   so fine; ask for a graceful message if unavailable. Keep SHA-384 only; do not add an algorithm picker.
-4. **The owner reviews #4/#5/#6 together** (he said so). Cadence otherwise remains one-at-a-time.
-5. **RFC_036 stays open.** Owner direction: keep the library-and-fork model, other sites fork.
-   ⇒ option 2 (a rebuild records `forked_from`), NOT option 1. **Do NOT deactivate `8c9a6e06`
-   (ab-test) or `6ae53f32` (meme-generator) to unblock those two** — both have live forks elsewhere,
-   and deactivating is exactly what makes a tool un-forkable, which contradicts the direction.
+1. **Pick the next tool from the 55** with the RUNBOOK's "Scope the batch correctly" query
+   (`p.name LIKE 'tool-%'`, NOT `p.url LIKE '/tools/%'`), smallest ported body first, `ext_scripts=0`
+   before tackling the 13 external-script ones.
+2. **Run the six-step recipe above. Do not file a rebuild you cannot attend** — see the retire race.
+3. **The owner reviews served pages**, one at a time by his 2026-08-17 ruling (he relaxed it once, to
+   review three together, on request).
+4. **RFC_036 stays open.** Owner direction: keep the library-and-fork model, other sites fork ⇒
+   option 2 (a rebuild records `forked_from`), NOT option 1. Nobody has built it.
+5. Rich apps last and one at a time (owner ruling 2026-08-16 put them in scope as reimplementations).
 
 ## Traps this lane has paid for (each cost a real cycle)
 
