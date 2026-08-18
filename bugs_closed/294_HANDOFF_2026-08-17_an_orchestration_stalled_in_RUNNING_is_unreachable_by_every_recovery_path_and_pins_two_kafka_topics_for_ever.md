@@ -1,7 +1,22 @@
 # 294 — an orchestration stalled in `RUNNING` is unreachable by EVERY recovery path, and pins two Kafka topics for ever
 
+> ## ✅ CLOSED 2026-08-18 — FIXED AND LIVE, induced in both directions
+>
+> **Migration `463_reaper_running_arm.sql`, applied + recorded + committed (`1be21820f`).**
+> Candidate 1 taken: the reaper gained a `failed_running` arm. Live config, so it took
+> effect the instant it was saved — no roll. Council: `Council-Submitted:
+> 860d87d9-e273-44fe-bb1d-d45a3f2bb69a` (verdict not yet read; `098` credits it
+> automatically on approval). Rollback in one command:
+> `docs/agent_docs/sql_for_agents/463_reaper_running_arm_ROLLBACK.sql`.
+>
+> **Two claims in the filing below are corrected in §"Closure" — read them before
+> reusing this file's reasoning:** (a) the age census that licensed the 4 h threshold
+> can no longer license anything, and (b) root-cause item 4 (`monitoring.go`) is wrong.
+> A third lock on the door, not in the filing, was found while verifying it.
+
+
 **Filed 2026-08-17** by the `bugfix_281_tool_audit_ported` lane, found while sweeping the
-corpses left by `bugs_open/289`. Status: **OPEN, UNOWNED.**
+corpses left by `bugs_open/289`. Status: **CLOSED 2026-08-18 — fixed and live.**
 
 **Latent as of this filing** — the 49 rows that proved it were swept the same day, and `289`'s
 fix (committed `509e01e6a`, inert until the next roll) stops the producer that was feeding it.
@@ -151,3 +166,137 @@ by dead `RUNNING` rows **0**.
   immortal, not the reason they were created.
 - The 49 swept ids are in the lane scratchpad (`289_corpse_rows_before.txt`) if anything needs
   reversing; the rows were set to `FAILED`, not deleted.
+
+
+---
+
+# Closure — 2026-08-18, by the `bugs_open 294` lane
+
+## What shipped
+
+`docs/agent_docs/sql_for_agents/463_reaper_running_arm.sql` — **candidate 1**, a
+`failed_running` CTE in the `stale-orchestration-reaper`'s `pre_query`, mirroring the
+existing `failed_wedged` arm:
+
+```sql
+failed_running AS (
+    UPDATE orchestration_states
+    SET status = 'FAILED',
+        error = 'reaper: stale RUNNING for >4h; step=' || COALESCE(current_step, '(none)'),
+        updated_at = NOW()
+    WHERE status = 'RUNNING'
+      AND last_activity < NOW() - INTERVAL '4 hours'
+    RETURNING orchestration_id, owner_agent_type, current_step
+),
+```
+
+plus its counter in the trailing `SELECT` and in the `HAVING` (without the `HAVING`
+clause a RUNNING-only reap would be silently swallowed and fire no report message).
+Statuses are disjoint from the sibling CTEs, so no `NOT IN` exclusion is needed.
+
+**Applied by hand via `psql`, then `--record-only`.** The migration runner has no
+single-file mode, and `--apply` would have swept **~17 other threads' pending files**.
+
+## Verification — induced in BOTH directions, with the negative control in the same tick
+
+| when | reaper tick | stale row (`last_activity` −5 h) | control row (`last_activity` = NOW()) |
+|---|---|---|---|
+| **before** the fix | 13:52:47Z | **stayed `RUNNING`**, `error` NULL | `RUNNING` |
+| **after** the fix | 13:56:18Z | **`FAILED`** — `reaper: stale RUNNING for >4h; step=scratch_stale` | **untouched, `RUNNING`** |
+
+The pre-fix run is the disconfirming result this file asked for, observed before the
+change. The control matters twice: it proves the fixed reaper is selective rather than
+failing everything, **and** it retroactively licenses the pre-fix reading — the same
+mechanism ticking three minutes later did flip the row, so "stayed RUNNING" was the
+reaper declining to act, not the reaper being asleep. Both scratch rows deleted after.
+
+`RUNNING` rows fleet-wide after closure: **0**.
+
+## Correction 1 — the census that licensed the threshold no longer licenses anything
+
+This file says: *"Re-run the age census immediately before applying — it is a one-query
+check and it is what licenses the threshold."* Done, and **it came back 0 rows in EVERY
+band**, including `> 4 h` — the 289 sweep cleared the population and 289's fix stopped
+the producer.
+
+A census reading 0 everywhere **cannot discriminate** "nothing healthy lives in
+`RUNNING`" from "I sampled at a quiet moment". The original measurement was strong
+precisely because its young bands *could* have been non-zero; this one could not come
+out any other way. **So it was not used as the licence, and nobody should re-cite it.**
+
+**The licence is the code, and it does not expire:**
+
+- `RUNNING` is written on **exactly one line fleet-wide** — `platform/orchestration/state.go:1428`,
+  in `ClearExecutingStep`, flipping `EXECUTING_STEP` → `RUNNING`. (`grep StatusRunning`
+  across `platform/ internal/ pkg/` returns one assignment; every other `'RUNNING'`
+  literal is a *reader*, plus the unrelated Thunder vendor enum.)
+- `ClearExecutingStep` has **exactly one caller** — `coordinator.go:765`, the
+  stuck-orchestration takeover — whose next act is `GetState` then `continueExecution`.
+- `continueExecution`'s main loop **opens with `SetExecutingStep`** (`coordinator.go:868`),
+  flipping the row straight back.
+
+So the `RUNNING` window is one `GetState` + a circuit-breaker check + a max-age check —
+**milliseconds**. It is an inter-step transition, never a durable healthy state, and 4 h
+is roughly seven orders of magnitude of headroom. Kept at 4 h anyway (not tighter) to
+match `failed_wedged` and stay conservative on live config; the code would license
+minutes if `240`'s topic pressure ever demands it.
+
+## Correction 2 — root-cause item 4 is wrong: `monitoring.go` never reported these
+
+This file says `platform/orchestration/monitoring.go:111,167` counted the 49 corpses as
+active, and calls it *"the instrument that should have surfaced this … reporting them as
+healthy work"*. **It could not have.** Those queries read `FROM orchestrator_state`, and
+that relation **does not exist in `clients_db`**:
+
+```
+SELECT to_regclass('orchestrator_state'), to_regclass('public.orchestrator_state');
+ →  (null), (null)          -- while orchestration_states resolves fine
+SELECT COUNT(*) FROM orchestrator_state WHERE status IN ('RUNNING','AWAITING_RESPONSES');
+ →  ERROR:  relation "orchestrator_state" does not exist
+```
+
+So `WorkflowMonitor` errors rather than miscounts — `GetStuckWorkflows` and
+`GetWorkflowMetrics` are inoperative, and the `/monitor/stuck` and `/monitor/metrics`
+endpoints (`platform/health/monitoring.go:53,85`) return **500** whenever anyone asks.
+The live query that *does* count `RUNNING` as active is
+**`internal/core-manager/admin/dashboard_handlers.go:351-354`**, which reads the real
+table. Candidate 3, if anyone takes it, belongs there — not in `monitoring.go`.
+
+This is a landmine in its own right (reading the source tells you the metric counts
+`RUNNING`; that is true of the source and false of every live reading) and is filed in
+`LANDMINES.md`.
+
+## Addition — a THIRD lock on the door, not in the filing
+
+`handleOrchestrationStatus` (`coordinator.go:740-796`) switches on
+`StatusInitialized` / `StatusExecutingStep` / `StatusAwaitingResponses` /
+`StatusCompleted` / `StatusFailed`, and then:
+
+```go
+default:
+    return fmt.Errorf("unknown orchestration status: %s", state.Status)
+```
+
+**There is no `case StatusRunning`.** So even the message-driven path actively *rejects*
+a stranded row — this is stronger than the filing's item 3 (`failWorkflow` at :3718
+merely *declines to fail* it). Three independent locks, then: no reaper arm, no
+`TimeoutMonitor` reach (it keys entirely on `AwaitedRequests`, and every entry point
+indexes that map), and a hard error on message arrival.
+
+**Why a reaper arm is the *right* fix and not merely the cheapest:** if the pod dies
+between `ClearExecutingStep` and `SetExecutingStep`, no in-process recovery can exist —
+the process that would perform it is gone. An external sweeper is the only thing that
+can reach this state.
+
+## Residuals — deliberately not done here
+
+1. **Candidate 2** (reap on the invariant: any non-terminal row with empty
+   `awaited_requests` and stale). Strictly more general, and still the right answer if
+   another status is ever left unenumerated. Not needed to close *this* defect.
+2. **Candidate 3**, retargeted by correction 2 above → `dashboard_handlers.go:351-354`.
+3. **Candidate 4**, the topic-pin age guard — defence in depth for `bugs_open/240`.
+4. **The missing `case StatusRunning`** in `handleOrchestrationStatus`. Now bounded
+   rather than permanent (the reaper reaches it within 4 h), so it is a wart, not a leak.
+
+None of these re-open the defect this file names: a `RUNNING` row is no longer immortal,
+and its two Kafka topics are released the moment it is failed.
