@@ -251,7 +251,18 @@ zero value is not a policy, and `dark_section_audit` declares **refuse**. `_veri
 gains a fifth value `handler_result_unreadable` with its own operator message and reason code.
 Registered in the same commit (WII-017 amended; its abstain LANDMINE corrected in place and its
 "wiring proven only behaviourally" gap CLOSED by a new sqlmock wiring test). Council
-**submitted** — corr `edfef8cc-c42f-45f8-9b36-7578ffb56f6c`, `Council-Submitted:` trailer.
+**APPROVED round 1** — corr `edfef8cc-c42f-45f8-9b36-7578ffb56f6c`, *"approved with 2 advisory
+objection(s) — none high-severity"*, 10 reviewers, 7 abstained, `unreadable: 0`. **All four
+objections acted on, not filed** (`24235e990`) — including `editquality`'s catch of a FALSE CLAIM in
+my own submission (I asserted WII-011's landmine was amended in the same commit; I had amended
+WII-017, which merely mentions it — now fixed and logged in `WRONG_CALLS.md`), and `guardian`'s
+by-query blast radius, which surfaced a second-hand effect nobody had enumerated: the live
+`detected-item-promoter`'s `floor_ok` door-closer needs a pair ≥25% good, and this pair reads
+**26 complete / 4 failed = 86.7%** today — an artefact of exactly the false greens this fix removes.
+**75 further refusals** would cross the floor (~16 days if every filing were refused), and when it
+does that is the correct outcome. `architecture` returned `point_fix` with a watch item, now in the
+register: **at a SECOND type declaring `unreadableRefuses` this stops being a point fix and the
+accumulated surface is worth its own RFC.**
 Mutation-proven M1–M6, exit-status gated, unmutated control, both files restored byte-identical
 (matrix in the lane NOTES; M4 is the instructive one — deleting the fifth reason arm does not
 error, it falls through to `verification_failed`, a finding no gate made).
