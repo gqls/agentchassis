@@ -35100,3 +35100,35 @@ diagnosis symptom. Recorded because the *right* answer (25 minutes) is what prod
 mechanism, so the wrong column would not merely have been an inaccuracy — it would have hidden
 the finding completely. `RUNBOOK_retry_kills_live_child.md` now carries the corrected query with
 `froze` and `reaped` as separate named columns, so the distinction is impossible to miss.
+- **I wrote "plausibly a consequence of the owner's 029 work in flight" into a handoff instead of
+  running a query, and it was wrong on both halves.** 2026-08-18, `site_ai_agent_orchestration`
+  lane. My rerender batch sat `triaged=41, claimed=0` for five minutes. Yesterday's fleet-wide
+  wedge had a *different* signature (`claimed=1` on every site), so I noted the difference,
+  explicitly declined to diagnose it — correct — and then **attributed it anyway**, in a
+  parenthetical, to the neighbouring thread working `bugs_open/029`.
+  **Refuted twice within the hour.** (1) That lane replied that it has run **no mutations** against
+  `site_work_items` or `orchestration_states` — reads only. (2) The actual cause was ordinary
+  congestion: `build-pipeline-trigger` healthy (`interval_seconds=60`, `last_completed_at` 8s
+  before I looked), the build pipeline **completing 2–3 items/minute fleet-wide for 45 minutes**,
+  **15+ sites** holding `triaged` build work all filed within the hour, and my rows among the
+  newest — at the back of a queue that was draining the whole time.
+  **The check is three queries and none of them is hard:** is the trigger firing
+  (`SELECT name, enabled, interval_seconds, last_completed_at FROM scheduled_tasks`), is anything
+  completing (`GROUP BY date_trunc('minute', updated_at)` over `status='complete'`), and how deep
+  is the fleet backlog ahead of me.
+  **The aggravating detail, which is the actually transferable one: the query I DID run could not
+  have produced the answer.** I filtered `item_type='page_rerender'` and concluded "claimed=0",
+  but the mutex that gates dispatch is per **SITE across all item types** — a claim held by any
+  other type would have been invisible to me. As it happened there was none, so my *number* was
+  right and my *inference from it* was unsupported. **A filtered count cannot rule out a cause the
+  filter excludes**, and a filter that happens to be harmless this time still cannot license the
+  conclusion.
+  **The second-order lesson is about writing, not measuring: "plausibly X" is not a hedge, it is a
+  claim with deniability.** I marked it as speculation and it still went into a cold-start handoff,
+  where the next reader inherits "029 might be doing this" as the working theory and a neighbouring
+  lane inherits an unearned attribution. **Do not name another thread as a possible cause of your
+  symptom in a durable doc — either measure it or say "not diagnosed" and stop**, which is what the
+  preceding sentence already said before I undid it.
+  **Caught by:** the `bugs_open/029` lane, unprompted, plus my own follow-up queries. Cost: nothing
+  live; one correction in `NOTES`, one in the handoff. Tally for "wrote a cause I had not
+  measured": 1. Tally for "an inference from a filtered count": 3 (see the two entries above).

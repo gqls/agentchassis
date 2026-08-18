@@ -240,6 +240,30 @@ Every site wedged at **exactly one claimed item**, all claimed by `build-dispatc
 `bugs_open/029` — *hung spawns saturate dispatch group and halt builds fleetwide* — which is
 **OPEN and owned**. Not re-diagnosed and not forked; recorded here as the blocker.
 
+> **CORRECTED 2026-08-18, by the `bugs_open/029` lane** (`CONTRIB_2026-08-18_from_the_029_lane_what_wedged_your_queue.md`,
+> commit `619c02474`). Two things above are wrong, and both came from quoting the bug's TITLE:
+>
+> 1. **The dispatch concurrency group is NOT saturated**, and has not been since that file's own
+>    2026-07-21 correction. The title still says it; I repeated the title. The real mechanism is a
+>    **per-site mutex** in `build-pipeline-trigger`'s `find_dispatchable_site`:
+>    `NOT EXISTS (… active.site_id = wi.site_id AND active.status='claimed')`. **That is why it is
+>    "exactly one" on every site** — one orphaned `claimed` row removes that whole site from
+>    dispatch, and a second cannot form while the first is held. My table was that mutex
+>    photographed, which is the one thing I did get right.
+> 2. **"Blocked" overstates it: the cost is ~40 minutes per site per incident, not indefinite.**
+>    `claimed-item-timeout` releases the claim at 40 min. My own 08-18 entry below — the queue
+>    drained overnight with nobody intervening — is the evidence for the correction, and I had it
+>    in hand while still writing "blocked".
+>
+> What put the claim there (their measurement, not mine): `build-pipeline-trigger` declares
+> `timeout_seconds: 900`, but that is honoured on **attempt 0 only** — every retry is silently
+> recomputed to 5 minutes, so the caller burns three retries in ~25 min instead of ~60 and its
+> final replay lands on a loop that is still running. 11 of 12 wedged loops froze 11–22s after
+> that send, in `EXECUTING_STEP` with an empty awaited set — invisible to `TimeoutMonitor` and the
+> retry driver, which both key on awaited requests. ⚠ **Why the replay wedges the loop is
+> [UNVERIFIED]** by that lane; the optimistic-lock race is their leading candidate and must not be
+> repeated as fact.
+
 **So: the contrast fix is correct, applied and committed at the source, and invisible to a visitor
 until that queue moves.** Reported to the owner as blocked rather than done, because the
 difference is the whole point.
@@ -324,3 +348,32 @@ Queue at 12:12–12:17Z: `triaged=41, claimed=0`, static. **Different signature 
 fleet-wide wedge (`claimed=1` on every site = `bugs_open/029`) — zero claims rather than one
 stuck claim, plausibly a consequence of the owner's 029 work in flight. Not diagnosed, not
 forked, and NOT re-fired: the rows are queued, and a missing completion is not a lost message.
+
+> **CORRECTED 2026-08-18 ~12:25Z — the speculation in that paragraph is REFUTED, twice, and the
+> real answer is dull: ordinary congestion.**
+>
+> 1. **It was not the 029 lane's work.** That lane states it has run **no mutations** against
+>    `site_work_items` or `orchestration_states` — reads only, plus one `090` intake anchored on
+>    `system.internal`. So attributing my empty claim set to their activity was a guess, and a
+>    wrong one. It was the cheapest kind of wrong: an unfalsifiable "plausibly X" about a
+>    neighbouring thread's actions, written instead of a query.
+> 2. **It was not a wedge at all.** Measured:
+>    - `build-pipeline-trigger` is `enabled`, `interval_seconds=60`, and **completed 8 seconds
+>      before I looked** (`last_completed_at` 12:23:36Z). The trigger is healthy.
+>    - The build pipeline is **draining fleet-wide at 2–3 items/minute**, every minute, for the
+>      last 45 (`GROUP BY date_trunc('minute', updated_at)` on `status='complete'`).
+>    - **My site holds ZERO `claimed` rows of ANY item type**, so the per-site mutex is not
+>      excluding it — it simply has not been selected yet.
+>    - Fleet backlog: **15+ sites** with `triaged`/`pipeline='build'` items, all created within the
+>      preceding hour, and mine (12:07–12:10) is among the **newest**, i.e. near the back.
+>    - Claims are churning normally: 3 sites held one at 12:22, **1 site at 12:24 — a different
+>      site**, 1 minute old.
+>
+> **My query could not have seen the answer**, which is the transferable part: I filtered on
+> `item_type='page_rerender'` and concluded "zero claims". The mutex is per **SITE, across all
+> item types**, so a claim held by any other type would have been invisible to me — as it happens
+> there was none, but I could not have known that from the query I ran. Same shape as
+> [[your-action-moves-you-to-the-back-of-the-selector]] and the standing rule that a measurement
+> answers the question you ENCODED: a filtered count cannot rule out a cause the filter excludes.
+>
+> **So "delayed behind a fleet backlog" — not blocked, not 029, and nothing to act on.**

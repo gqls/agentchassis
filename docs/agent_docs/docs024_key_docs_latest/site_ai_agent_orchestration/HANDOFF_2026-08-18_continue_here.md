@@ -14,10 +14,31 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 > | `pricing` rebuild | **OWNER APPROVED 2026-08-17, not yet dispatched** (§3c) |
 >
 > **`bugs_open/029` is being worked by the owner in another thread (2026-08-18). DO NOT FORK IT.**
-> It halted this lane for ~40 minutes yesterday and **has since drained** — 69 of my 70 queued
+> It delayed this lane by ~40 minutes yesterday and **has since drained** — 69 of my 70 queued
 > items completed overnight. If the queue wedges again (signature: every site at exactly
 > `claimed=1`), that is 029, it is owned, and the correct action is to record what you saw and
 > wait, not to diagnose.
+>
+> **What 029 actually is** (from that lane, 2026-08-18 —
+> `CONTRIB_2026-08-18_from_the_029_lane_what_wedged_your_queue.md`, their docs in
+> `bugfix_029_retry_kills_live_child/`):
+> - ⚠ **The bug's TITLE is stale and misleading — the dispatch concurrency group is NOT
+>   saturated**, and has not been since that file's own 2026-07-21 correction. Do not repeat the
+>   title; this lane did and had to correct it.
+> - The mechanism is a **per-site mutex** in `find_dispatchable_site`
+>   (`NOT EXISTS (… site_id = … AND status='claimed')`). **One** orphaned `claimed` row removes
+>   that whole site from dispatch — which is why the signature is *exactly* one per site.
+> - **Cost is ~40 minutes per site per incident, not indefinite** — `claimed-item-timeout`
+>   releases the claim. Read "029" as *delayed*, never *halted*.
+> - ⚠ If it wedges again, **do NOT cancel the frozen orchestration** — it is that lane's evidence,
+>   and cancelling does not release the claim anyway. If you need the site moving sooner than 40
+>   minutes, release the **claim** and say so in your notes.
+> - ⚠ Measuring it? Use **`last_activity`**, never `updated_at` — on a row the reaper has touched,
+>   `updated_at` is when the *reaper* wrote, yielding a uniform ~4h26m that is the reaper's own
+>   threshold and nothing to do with the job. That lane believed the wrong number first.
+> - Their root cause (declared `timeout_seconds: 900` honoured on attempt 0 only, retries silently
+>   recomputed to 5 min, final replay landing on a live loop) is measured. ⚠ **WHY the replay
+>   wedges the loop is [UNVERIFIED]** — the optimistic-lock race is a candidate, not a finding.
 
 ---
 
@@ -50,12 +71,25 @@ WHERE p.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da'
 python3 scripts/render_audit.py https://ai-agent-orchestration.com/index.html
 ```
 
-**Queue state when this was written (2026-08-18 12:12–12:17Z): `triaged=41, claimed=0`, static for
-5 minutes.** Note this is a *different* signature from yesterday's fleet-wide wedge
-(`claimed=1` on every site, which is `bugs_open/029`) — zero claims rather than one stuck claim.
-It may simply be a consequence of the owner's 029 work in flight. **Not diagnosed here, and
-deliberately not forked.** Re-fire nothing: the 41 rows are queued, and a missing completion is
-not a lost message.
+**Queue state, re-measured 2026-08-18 12:23–12:25Z: this is ORDINARY CONGESTION, not a wedge and
+not `bugs_open/029`.** An earlier draft of this handoff guessed it was "plausibly a consequence of
+the owner's 029 work in flight". That guess is **refuted** — the 029 lane has run no mutations
+against `site_work_items` or `orchestration_states` — and the measured answer is dull:
+
+- `build-pipeline-trigger` is `enabled`, `interval_seconds=60`, `last_completed_at` **8 seconds**
+  before I looked. The trigger is healthy.
+- The build pipeline is **completing 2–3 items per minute fleet-wide**, every minute, for 45.
+- This site holds **ZERO `claimed` rows of ANY item type**, so the per-site mutex is not
+  excluding it.
+- **15+ sites** have `triaged` / `pipeline='build'` work, all filed within the preceding hour, and
+  this site's rows (12:07–12:10) are among the **newest** — i.e. at the back of the queue.
+
+⚠ **The query that produced "claimed=0" could not have seen the answer**, and that is the part to
+carry forward: it filtered `item_type='page_rerender'`, while the mutex is per **SITE across all
+item types**. A claim held by any other type would have been invisible. **A filtered count cannot
+rule out a cause the filter excludes.**
+
+**Re-fire nothing:** the rows are queued, not lost, and a missing completion is not a lost message.
 
 **Re-measure it yourself in one command** (never trust the table above):
 
