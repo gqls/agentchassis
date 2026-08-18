@@ -394,7 +394,31 @@ It was also being used as evidence of what a human *meant*, which it never was:
 | 1 | `chooseCTATargets` → `rank()` | a FRESH pick must never be a utility page | unchanged |
 | 2 | `applyCTARecompute` keep-branch | a STORED utility link is untrustworthy | **fixed** |
 | 3 | `check_misdirected_cta`'s excluded-area arm | a deployed utility href is an "unknown destination" | **demoted** |
-| 4 | `setCTAField` — no keep-branch at all | *(nobody had filed this)* | **fixed** |
+| 4 | `setCTAField` — no keep-branch at all | *(nobody had filed this)* | **fixed, and see the correction below** |
+
+> **CORRECTED 2026-08-18, same day, by the `bugs_open/299` session — I overstated the
+> build-path half.** This record said fixing only the repair path "leaves every authored
+> contact link dying on the next full page regeneration". It does not, *today*. That session
+> found, and I then verified independently at the live config and data, that
+> `page-content-writer` reads the resolver's output from
+> `resolved_links.response.link_resolution.sections_ready` while `internal-link-resolver`
+> publishes `link_resolution.sections_ready` — and of **150** retained runs carrying
+> `resolved_links`, the configured path resolves in **0** (as does the obvious
+> `.response`-less alternative, so the repair is not simply deleting one level). The build
+> path's output is discarded before it reaches a page, so `setCTAField`'s missing keep-branch
+> has been **inert on fresh builds**, and my confirmed clobber (finetuning.uk/services,
+> 08-17 19:11Z) necessarily arrived via the **rerender** path.
+>
+> **The fix stands and is better motivated than I argued.** It PRE-POSITIONS the guard: that
+> wiring defect is filed as `bugs_open/312` and is held, and the traced run in it shows the
+> discarded resolver output had *already* repointed an authored "Get in touch" at a tool. So
+> the moment 312 unholds, the build path goes live fleet-wide — and without this branch it
+> would start clobbering in the same instant. What I must not claim is that it was clobbering
+> already.
+>
+> **⚠ Consequence for anyone verifying this: the build-path branch has never executed in
+> production and cannot be, until 312 lands.** It is unit- and mutation-tested only. Do not
+> record it as proven at the artefact on the strength of the rerender canary.
 
 **Provenance is derived, not recorded.** This file's fix candidate 1 wanted a provenance field
 on `content_data` and costed it as the largest change, needing a backfill. It turns out the

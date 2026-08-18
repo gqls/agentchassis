@@ -18,6 +18,14 @@ different decisions, and only the first of them is a statement the set can suppo
 Job 1 is about what the platform should *generate*. Jobs 2 and 3 reuse it as evidence of
 what a human *meant*. It was never evidence for that.
 
+> **CORRECTED 2026-08-18 (credit: the `bugs_open/299` session, via cross-session message;
+> verified here at the live config and at 150 retained runs before propagating).** The
+> paragraph below claims the build path was destroying links on regeneration. It was not:
+> `page-content-writer` reads the resolver output from a path that resolves in **0 of 150**
+> runs (`bugs_open/312`), so `setCTAField`'s output never reaches a page and its missing
+> keep-branch was **inert**. The fix is a PRE-POSITIONED guard for the moment 312 unholds —
+> which is a stronger reason to ship it, not a weaker one, but it is a different claim.
+
 **Fourth consumer, and nobody had filed it:** `setCTAField`
 (`resolve_internal_links_action.go:308-336`), the build/regeneration writer, has no
 keep-branch at all. Fixing only the repair path leaves every authored contact link dying on

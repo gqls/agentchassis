@@ -124,3 +124,71 @@ Fleet at-risk count moved **20 → 18** overnight, consistent with this and one 
 at-risk state, so the "could this be pre-migration machine junk?" question is moot for it —
 and the remaining at-risk set is now entirely post-2026-07-14. The freeze-a-fabrication risk
 the adversarial pass raised is measured at **zero** rows today.
+
+## 2026-08-18 (later) — the fix is LIVE, and a peer session corrected one of my claims
+
+### Proven at the artefact, not at the tag
+
+Chassis `v1.0.1310`. The stamp is the BUILD commit only, so grepping the binary for my own
+sha is the wrong test — it is absent even when the fix is in. Extract the stamp, then test
+ancestry:
+
+```bash
+kubectl -n ai-persona-system exec <pod> -- sh -c "grep -aoE '[0-9a-f]{40}' /proc/1/exe | sort -u"
+# 79 runs; feed each to: git cat-file -e <h>^{commit}   -> exactly ONE is a real commit
+git merge-base --is-ancestor 53a8d3c1d 0b185bad2a49c6e032352fa9e7d0b429f0a95104   # passes
+```
+
+Positive control `build provenance` present in the binary. The 79 runs are mostly Go's
+internal digit tables (`0001020304050607…`), which is precisely why the standing landmine
+forbids a bare discovery grep — `git cat-file -e` is what makes the extraction discriminating
+rather than a guess.
+
+⚠ Two dead ends first, recorded so the next reader skips them: 40 sequential `kubectl exec`
+greps (one per candidate sha) timed out at 2 minutes, and so did one `grep` with 250 `-e`
+patterns against the binary. Extract-then-classify is the cheap direction, not match-then-test.
+
+### MISSTEP — I overstated the build-path half, and a peer caught it
+
+The `bugs_open/299` session messaged to say `page-content-writer` reads the resolver's output
+from `resolved_links.response.link_resolution.sections_ready`, a level the response does not
+have, so `resolve_internal_links`' output is discarded on every fresh build.
+
+**Verified here before propagating** (a peer's report is another doc, exactly like a
+subagent's):
+
+```sql
+SELECT count(*),
+       count(*) FILTER (WHERE collected_data->'resolved_links'->'response'->'link_resolution' ? 'sections_ready'),
+       count(*) FILTER (WHERE collected_data->'resolved_links'->'link_resolution' ? 'sections_ready')
+FROM orchestration_states WHERE collected_data ? 'resolved_links';
+-- 150 | 0 | 0
+```
+
+The third column is the one worth having: the obvious repair — delete the `.response` level —
+**also** matches nothing, so anyone fixing `bugs_open/312` cannot assume it is a one-word edit.
+Confirmed at config too: `internal-link-resolver` publishes `link_resolution.sections_ready`;
+`page-content-writer` is the only definition referencing the longer path.
+
+**So `setCTAField`'s missing keep-branch has been INERT on fresh builds**, and my confirmed
+clobber (finetuning.uk/services, 08-17 19:11Z) necessarily arrived via the rerender path — as
+the work item's own `reason=cta_links_stale` already said. I had written "dies on the next
+full regeneration" into the bug file, the register entry, the commit message and the owner
+log. Corrected visibly in all four; the commit message cannot be amended (forward-only), so
+the correction lives in the bug file it points at.
+
+**The fix is not weakened — it is differently motivated, and the difference matters for
+sequencing.** `bugs_open/312` is HELD, and its traced run shows the discarded resolver output
+had *already* repointed an authored "Get in touch" at a tool. So the build-path branch is a
+guard PRE-POSITIONED for the instant 312 unholds, rather than a repair of damage in flight.
+
+**⚠ Consequence I must not let a later reader miss: the build-path branch has never executed
+in production and cannot until 312 lands.** It is unit- and mutation-tested only. The rerender
+canary does not vouch for it.
+
+**The cheap check I skipped:** I established that `setCTAField` writes into `resolved_data`
+and stopped there, without asking whether anything downstream ever READS it. "Writes the
+field" is not "the field reaches the page" — the same shape as the standing lesson that
+*writes the field is not reads the field*, one seam further along. One query over
+`orchestration_states` would have shown it, and I had already run queries against that table
+twice today for other reasons.

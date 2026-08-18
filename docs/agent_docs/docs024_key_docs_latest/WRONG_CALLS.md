@@ -36197,3 +36197,39 @@ sits on the earliest row, you have measured the retention policy, not the fleet.
 
 **Cost:** none shipped — caught within the session, before the framing reached the bug file.
 Recorded as a visible correction in the 029 lane's NOTES.
+
+- **2026-08-18 — `bugfix_248_authored_cta_destinations` — "an authored contact link dies on
+  the next full regeneration, so the build-path writer must be fixed too."** The conclusion
+  (fix it too) was right; the stated reason was false, and I put it in a bug file, a concept
+  register entry, an owner-facing log and a commit message before anyone checked it.
+  I had traced `setCTAField` carefully: it writes a CTA destination into `resolved_data`, it
+  has no keep-branch, and `resolved_data` merges last over stored content. Every step of that
+  is true. What I never asked was whether anything downstream ever READS what it writes.
+  **Actually:** `page-content-writer` reads the resolver's output from
+  `resolved_links.response.link_resolution.sections_ready`, a level the response does not
+  have. Of 150 retained runs carrying `resolved_links`, that path resolves in **0** — and so
+  does the obvious `.response`-less alternative, which is the more useful half of the
+  measurement, because it means the repair is not a one-word edit. So the build path's output
+  is discarded before it reaches a page and its missing keep-branch has been **inert**. My
+  one confirmed clobber came through the rerender path, as its work item's own
+  `reason=cta_links_stale` had already told me.
+  **What caught it:** the `bugs_open/299` session, working the non-page half of the same
+  function, messaged the finding across. I verified it at the live config and at 150 runs
+  before propagating — a peer's report is another doc, with the same missing seam as a
+  subagent's, and it deserved the same grounding as a refutation I had commissioned.
+  **The cheap check is one query, and it is the standing lesson one seam further along:**
+  *writes the field* is not *reads the field* — and "the writer is wired in" is not "the
+  writer's output is consumed". Before claiming a code path causes damage, find the READER:
+  ```sql
+  SELECT count(*) FILTER (WHERE collected_data #> '{<the configured path>}' IS NOT NULL)
+  FROM orchestration_states WHERE collected_data ? '<the step key>';
+  ```
+  **The general shape: an INERT defect and a live one read identically in the source.** I was
+  reading the function, and the function was faultless about its own job. Nothing at the call
+  site says "and this is thrown away". The fix still ships — 312 is held and unholding it
+  switches the build path on fleet-wide, so the guard has to be there first — but it is
+  pre-positioned, not remedial, and those are different claims with different evidence.
+  Tally for "asserted a code path was causing live damage without finding its reader": 1.
+  Tally for "a peer session caught something my own adversarial pass missed": 1 — worth
+  noting, because the adversarial pass I commissioned attacked the DESIGN and never asked
+  whether the code it defended was reachable.
