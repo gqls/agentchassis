@@ -12336,3 +12336,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[a-fresh-deploy-can-ship-no-new-code]] · the LANDMINE above on `strings`/discovery greps and 40-zero controls
 - **source:** 2026-08-18, webdesign_uk_build_service lane, found while proving the ROLLBACK path before overwriting the live chat binary — i.e. by checking a thing nobody had thought to check, not by a failure. Fixed in `main.go` (`buildCommit`) + makefile `box-build`/`box-verify`; RUNBOOK corrected in place
 - **added:** 2026-08-18, webdesign_uk_build_service lane
+
+## A site's `voice` spec never reaches the writer — it feeds the DETECTOR, so careful register guidance written there changes what gets FLAGGED, not what gets WRITTEN
+
+- **footprint:** `site_specs` aspect `voice` (also `tone_of_voice`, `voice_and_tone`) · `platform/orchestration/actions/write_site_plan_action.go:161` · `platform/orchestration/actions/discovery_checks/check_voice_tells.go:238` · `page-content-writer`'s `input_fields` (`site_specs`) · `llm_call_log.prompt_rendered` · any task of the form "set this site's tone/register properly"
+- **fires when:** an owner or a lane specifies a register ("friendly and expansive, not dense", "direct, anti-hype, no vendor-speak") and you encode it in the site's `voice` spec — the obviously-named place, already populated on many sites, and listed in the writer's own `input_fields` via the bulk `site_specs` field. The spec saves, `is_current` flips, the row looks live and authoritative, and **the writer never sees it.** The next build produces copy in whatever register it was already producing, and the only visible consequence is that `check_voice_tells` starts flagging the mismatch — i.e. the spec makes the DETECTOR complain about output the spec was supposed to prevent.
+- **the tell:** the spec is present and current, the copy is unchanged, and voice-tell findings go UP rather than down after you set it.
+- **the check — read the artefact, and bring a positive control** `[MEASURED 2026-08-18: 0 of 1,338]`:
+  ```sql
+  SELECT count(*) AS calls,
+         count(*) FILTER (WHERE prompt_rendered ILIKE '%tone_guardrails%')   AS voice_spec_present,
+         count(*) FILTER (WHERE prompt_rendered ILIKE '%key_differentiators%') AS control_identity_present
+    FROM llm_call_log
+   WHERE agent_type = 'page-content-writer' AND success AND created_at > now() - interval '7 days';
+  ```
+  `voice_spec_present = 0` while `control_identity_present > 0` is this landmine. **The control is not optional** — without it a zero reads as "my LIKE pattern is wrong" and the finding evaporates; with it, identity data demonstrably reaches the same prompts and the absence is real.
+- **where register actually lands, in order of measured force:** `identity.key_differentiators` (drives the LEAD — a differentiator written as a subtraction produces copy that leads with a loss) · `content_direction.example_phrases.characteristic` (**exemplars beat rules**; and the writer reads `content_direction.formatted`, NOT the array, so editing the array alone is inert) · `strategy`. The fleet house voice is separate again: one row in `agent_default_configs.voice_style_block`, injected only into templates naming `{{.voice_style}}` (CQ-022).
+- ⚠ **Two neighbouring aspects are entirely dead:** `tone_of_voice` and `voice_and_tone` have **zero references** in `platform/` or `internal/`, yet sites carry them as current rows (finetuning.uk has all three). Writing into either is inert with no signal at all — worse than `voice`, which at least drives detection.
+- **source:** 2026-08-18, `copy_quality_two_stage`, answering `finetuning_uk_service`'s question "is friendly-expansive encodable in the spec rather than per edit?" — the answer is yes, but not in the aspect named after it. Related: `bugs_open/305` (the fleet voice block did not reduce define-by-negation either: 2.72 → 2.85 per 1,000 words across the v2 flip).
+- **relations:** MEMORY [[a-dead-config-key-looks-like-a-live-one]] · [[grep-the-config-key-before-calling-it-a-win]] · [[a-print-statement-is-not-a-config-row]] · CQ-017 (per-site voice specs) · CQ-020 (`ScanVoiceTells`) · CQ-022 (the fleet carrier)
+- **added:** 2026-08-18, copy_quality_two_stage lane
