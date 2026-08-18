@@ -964,3 +964,39 @@ component). Revert handle: **7,879 chars, md5 `23b028ed44c3c17d4bb2495684064488`
   assert added on the minifier, which a bare count would not give.
 - Page now: ported `removed` (deep fallback) · v1 `removed` (revert handle) · v2 deployed.
   Rerender `4a74f19e-66e6-4ba9-81d9-3baaccc82bc6` queued and watched.
+
+## 2026-08-18 15:53Z — BOTH v2 rebuilds LIVE and graded at the served bytes. The owner's bug is fixed on both tools.
+
+Rerender `4a74f19e` complete 15:53:17Z. Grade at
+`https://webdesign.co.uk/tools/svg-optimizer/index.html` `[MEASURED]`: `http=200`, 17,316 B ·
+`class="ported-page"` **0** · `{{\.` **0** · negative control **0**, positive **7**.
+**Graded by mechanism** — every element the five fixes need is in the SERVED page:
+`id="size-readout"` 1 · `id="error-box"` 1 · `id="copy-status-text"` 1 ·
+`id="compress-inline-toggle"` 1 · `execCommand` 1.
+**And the decisive negative: `svg-stripper-input` = 0** — that was the v1 component's input id, so its
+absence proves the served page carries v2 and not a cached v1 render. A positive-only check could not
+have distinguished them, because both versions are "an SVG stripper with a size readout".
+
+**Final DB state, both pages — three generations each, two retired, one live:**
+| page | slot | status |
+|---|---|---|
+| html-minifier | Ported Page (4,929) | `removed` — deep fallback |
+| | `…-v1-retired-20260818` (6,546) | `removed` — revert handle |
+| | `tool-html-minifier-webdesign-co-uk` (12,499) | **deployed** |
+| svg-optimizer | Ported Page (5,095) | `removed` — deep fallback |
+| | `…-v1-retired-20260818` (7,879) | `removed` — revert handle |
+| | `tool-svg-optimizer-webdesign-co-uk` (11,493) | **deployed** |
+Note the naming: the v2 components took the ORIGINAL names, because renaming v1 freed them. So the
+live component of each tool is always the plainly-named one, and every retired generation carries a
+dated `-vN-retired-` suffix. That is now the convention for any re-fix.
+
+**The owner's report is closed on both tools:** the copy button captures `execCommand`'s return, has a
+failure branch and a dedicated status element, so it can no longer say "Copied" when nothing was
+copied; and both tools now state input size, output size and percent saved, so "it did nothing" is
+visible rather than inferred.
+
+**Lane tally: 7 tool-builds live and proven** (aspect-ratio, markdown-tables, sri-generator, plus
+html-minifier and svg-optimizer each now at v2), 2 parked on `RFC_036`, ~55 untouched.
+**Three platform defects surfaced and filed by this lane, all found by doing ordinary things:**
+`RFC_036` (three uniqueness gates on one INSERT; one makes any tool un-rebuildable) and
+`bugs_open/303` (the birth guard counts tag substrings, so markup-handling tools are unbornable).
