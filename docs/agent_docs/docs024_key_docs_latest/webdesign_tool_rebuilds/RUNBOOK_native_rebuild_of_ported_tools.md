@@ -232,3 +232,16 @@ If the build lands while nobody is looking, the page serves BOTH tools until som
 - **Confirm the damage at the served page rather than assuming it** — a double-tool page is obvious
   by size (the SVG page went ~12 KB to 19,415 B) and by `class="ported-page"` being 1 when it should
   be 0, with both tools' control ids present.
+
+## ALWAYS cache-bust the served-page grade (added 2026-08-18, after a false FAIL)
+
+```bash
+curl -s -o /tmp/t.html -w 'http=%{http_code} bytes=%{size_download}\n' \
+  "https://webdesign.co.uk/<url>?cb=$(date +%s)"
+curl -sI "https://webdesign.co.uk/<url>" | grep -i 'last-modified'   # compare to the rerender's completed_at
+```
+`cache-control: public, max-age=3600` on these pages, and **the recipe warms that cache itself** when
+you fetch the live tool to write the brief — roughly 40 minutes before the rerender lands. The
+asymmetry: a **pass** through a stale cache is impossible (a stale copy serves the OLD page, so it
+cannot show the new ids), but a **fail** through one is exactly what staleness looks like. Never
+report a served-page failure from an un-busted fetch.

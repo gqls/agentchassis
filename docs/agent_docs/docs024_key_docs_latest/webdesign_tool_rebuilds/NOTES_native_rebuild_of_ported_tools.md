@@ -1064,3 +1064,32 @@ They are visitor-visible mobile breakages today, so they may deserve an early sl
 one-at-a-time cadence. Context if useful: the Tier-4 judge now files `ported_tool_fix` for
 a failing ported acceptance run (commit `1549dc58b`, inert until the next roll), and each
 of your rebuilds retires a subject from that population.
+
+## 2026-08-18 17:13Z — #7 LIVE and PASS — but the first grade read a CACHED page and said FAIL
+
+**I nearly filed a false failure.** The plain fetch after the rerender returned `class="ported-page"`
+**1**, the old tool's `id="sharpness"` **1**, and **none** of the new component's ids — i.e. "the
+retire did not take". The DB said otherwise (ported `removed`, new tool `deployed`) and the rerender
+`c60deac6` was `complete` with no error and the right assemble-only spec, so I checked the wire before
+believing either.
+
+**It was Cloudflare.** Headers on that URL: `cache-control: public, max-age=3600`,
+`cf-cache-status: DYNAMIC`, **`last-modified: Tue, 18 Aug 2026 17:13:52 GMT`** — which matches the
+rerender finishing at 17:13:37. My baseline fetch at ~16:31 (taken to read the live tool) had warmed
+the edge with the OLD page, and the TTL is an hour, so the post-rerender read at 17:1x was still
+inside it. **The origin was correct the whole time.**
+
+**Re-graded with a cache buster (`?cb=<epoch>`) — PASS `[MEASURED]`:**
+`http=200`, 12,719 B · `class="ported-page"` **0** · `{{\.` **0** ·
+`alpha-slider` / `alpha-value` / `distance-value` / `sharpness-value` / `preview-box` / `code-output`
+**1 each** · `type="range"` 4 · **old tool's `id="sharpness"` 0** · controls 0 / 7.
+
+**METHOD CORRECTION for every served-page grade in this lane — the asymmetry is what matters:**
+- A **PASS** through the cache is still sound. A stale edge copy can only serve the OLD page, so it can
+  never manufacture the new component's ids. Every earlier tool's pass stands.
+- A **FAIL** through the cache is worthless — it is exactly what a stale copy looks like.
+- So: **always fetch with `?cb=$(date +%s)`**, and if you ever see a fail, re-fetch cache-busted
+  before writing a word about it. Reading `last-modified` against your rerender's `completed_at` is
+  the one-line confirmation.
+- **This lane creates the hazard itself**: the recipe fetches the live tool to write the brief, which
+  warms the edge with the doomed page, ~40 minutes before the rerender lands inside the same 1-hour TTL.
