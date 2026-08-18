@@ -8,10 +8,11 @@ or `bugs_closed/` mentions `bl-card`, unlinked cards, or a section index that do
 not link its members.
 
 > **STATUS SUPERSEDED 2026-08-18 (later) — read the ADDENDUM at the foot of this
-> file before this header.** The mechanism is now measured end to end, the "control"
-> below is corrected, the `090` correlation cited further down **names a run that
-> does not exist**, and a real diagnosis is in flight under run correlation
-> `6e578bf5-778a-4e72-aab2-0531e45c07d8`. Still OPEN, still unfixed.
+> file before this header.** The mechanism is measured end to end AND **CONFIRMED by
+> the `090` loop** (run correlation `6e578bf5-778a-4e72-aab2-0531e45c07d8`, verdict
+> `CONFIRMED`, first iteration set). The "control" below is corrected, and the `090`
+> correlation cited further down **names a run that never existed**. Root cause is now
+> established; **still OPEN because nothing is fixed** — see §5 for candidates.
 
 ## The symptom, measured at the served page
 
@@ -325,3 +326,45 @@ not a strict rule.** So the pairs stay, no de-duplication work is to be filed, a
 the archived `ai-readiness-checker-guide` is not evidence of a duplication policy.
 Nothing about the ruling changes §1–§5: the defect is that the index links none of
 them, whether there are one, two or three.
+
+
+---
+
+## 7. The `090` verdict — CONFIRMED, and one slip in it worth not propagating
+
+`[MEASURED 2026-08-18 18:44Z]` Run correlation
+**`6e578bf5-778a-4e72-aab2-0531e45c07d8`** (intake `5214334f-…`; the item is
+`needs_diagnosis:blog-listing-cards-no-anchor`, status `complete`). Verdict:
+**`CONFIRMED`**, `is_fix: false`, reached on the first iteration set — four bundles,
+about eight minutes end to end.
+
+It re-derived the chain independently and grounded it on evidence this file did not
+hand it, including the two facts the whole diagnosis turns on:
+
+- `[state] site_specs WHERE aspect='blog'` → **`(0 rows)`**, and the site's actual
+  aspect list printed in full (`briefing … vertical_landscape`) with no `blog` in it;
+- `[state] page_components.content_data` → `has_post1_url … has_post6_url` **all
+  `false`**;
+- `[static] plan_sections_action.go:planSection` → `onMissing = "skip_field"`, and
+  `recordStructuralKeyCarryMisses` → *"resolved from neither their declared source nor
+  the page's stored content_data — omitted under on_missing=skip_field"*;
+- both `findBlogPage` predicates quoted verbatim, and `pages` showing
+  `platform-log-index | section-index | active`.
+
+Its symptom coverage marks the six-card/zero-anchor observation `[explained]`.
+
+> ⚠ **CORRECTION to the verdict, so it does not travel.** Its one `[context]` line
+> reads *"The site's own true blog page (name=blog, page_type=blog-index) shows the
+> same component family with real populated post URLs"*. **fundamentallyai.com has no
+> page named `blog`** — `SELECT count(*) FROM pages WHERE site_id='199733a8-…' AND
+> name='blog'` → **0**. The row it is describing is
+> **leopardessconsulting.co.uk's**, which is the other of the two
+> `blog-listing_pre_037` instances and the one quoted in §2 above. Fleet-wide only
+> three sites have such a page (leopardessconsulting.co.uk, finetuning.uk,
+> ai-agent-orchestration.com) and this is not one of them.
+>
+> **It does not touch the conclusion** — every load-bearing citation is same-site, and
+> the cross-site row is used only as a working comparator, which is exactly what §2
+> uses it for. But left uncorrected it implies fundamentallyai.com already has a
+> working listing somewhere, which would send the next reader looking for a page that
+> does not exist instead of fixing the one that does.
