@@ -191,9 +191,86 @@ func TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure(t *testing.T) {
 	})
 }
 
+// The council's `guardian` seat, round 2, medium: the new block runs on EVERY
+// call to this action, for every caller fleet-wide, whether or not they opted in.
+// Being behaviourally inert is not the same as being crash-safe — a panic or a
+// failed type assertion here degrades every workflow that uses
+// update_work_item_status, not only the one migration 480 touches.
+//
+// So: drive the block with the malformed shapes a real payload can carry, and
+// require the ACTION to succeed with the configured status untouched. Each case
+// is a shape the estate can actually produce — a JSON number or bool where a
+// string was expected (config comes from jsonb), and a __step_error that is not
+// a map because some other step wrote there.
+func TestUpdateWorkItemStatus_RefusalBlockIsCrashSafeForEveryCaller(t *testing.T) {
+	cases := []struct {
+		name      string
+		config    map[string]interface{}
+		collected map[string]interface{}
+	}{
+		{
+			name:      "refusal_status is a number, not a string",
+			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": 42},
+			collected: ownedRefusalError(t),
+		},
+		{
+			name:      "refusal_status is a bool",
+			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": true},
+			collected: ownedRefusalError(t),
+		},
+		{
+			name:      "refusal_status is an empty string — treated as absent",
+			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": ""},
+			collected: ownedRefusalError(t),
+		},
+		{
+			name:      "refusal_status is nil",
+			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": nil},
+			collected: ownedRefusalError(t),
+		},
+		{
+			name:   "__step_error is a string, not a map",
+			config: map[string]interface{}{"status": "failed", "owned_page_refusal_status": "wont_fix"},
+			collected: map[string]interface{}{
+				"__step_error": "something wrote a bare string here",
+			},
+		},
+		{
+			name:   "__step_error.message is a number",
+			config: map[string]interface{}{"status": "failed", "owned_page_refusal_status": "wont_fix"},
+			collected: map[string]interface{}{
+				"__step_error": map[string]interface{}{"message": 500},
+			},
+		},
+		{
+			name:   "__step_error is an array",
+			config: map[string]interface{}{"status": "failed", "owned_page_refusal_status": "wont_fix"},
+			collected: map[string]interface{}{
+				"__step_error": []interface{}{"a", "b"},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// runStatusUpdate t.Fatal's on an action error, so reaching the
+			// assertion at all is the no-panic / no-error half.
+			got := runStatusUpdate(t, tc.config, tc.collected)
+			if got.status != "failed" {
+				t.Errorf("status = %q, want %q — a malformed shape must leave the configured status alone, not substitute one", got.status, "failed")
+			}
+		})
+	}
+}
+
 // A misconfigured refusal status must fail loudly at the step rather than write
 // a status the vocabulary does not contain. It shares validStatuses with
 // `status` on purpose — two vocabularies for one column is the drift class.
+//
+// NOTE the deliberate asymmetry with the test above: a WRONG-TYPED value is
+// ignored (it cannot be a considered choice, and erroring would break callers
+// who never opted in), while a well-typed value outside the vocabulary DOES
+// error, because that is an author who meant something and got it wrong.
 func TestUpdateWorkItemStatus_RefusalStatusIsValidated(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
