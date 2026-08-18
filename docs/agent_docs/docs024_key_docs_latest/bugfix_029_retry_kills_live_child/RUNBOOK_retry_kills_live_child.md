@@ -165,3 +165,39 @@ intake correlation is not.
 SELECT owner_agent_type, current_step, status, created_at::timestamp(0), updated_at::timestamp(0)
   FROM orchestration_states WHERE correlation_id::text = '<RUN_CORRELATION_ID>' ORDER BY created_at;
 ```
+
+---
+
+## Censusing the wedge signature: do NOT filter by `item_type`
+
+*Contributed by the `site_ai_agent_orchestration` lane, 2026-08-18, as a correction to its
+own measurement — it is a correctness condition on this diagnostic, not just on theirs.*
+
+The per-site mutex in `find_dispatchable_site` is
+`NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND
+active.status='claimed')`. It has **no `item_type` clause** — a claim of *any* type
+excludes the whole site.
+
+So a census filtered to one type (theirs was `item_type='page_rerender'`) **cannot
+distinguish "this site holds no claim" from "this site holds a claim I filtered out"**.
+Their number happened to be right and the inference from it was unsupported.
+
+```sql
+-- CORRECT: unfiltered by item_type, which is what the mutex actually sees
+SELECT s.domain, count(*) FILTER (WHERE wi.status='claimed')  AS claimed_any_type,
+       count(*) FILTER (WHERE wi.status='triaged')            AS triaged,
+       min(wi.claimed_at) FILTER (WHERE wi.status='claimed')::timestamp(0) AS oldest_claim
+  FROM sites s JOIN site_work_items wi ON wi.site_id = s.id
+ GROUP BY 1 HAVING count(*) FILTER (WHERE wi.status='claimed') > 0
+ ORDER BY 4;
+```
+
+**Reading it.** Sites rotating — a different site holding one claim each minute, taken and
+released inside a minute — is the **healthy** baseline. The wedge is *one site holding one
+claim STATIC for tens of minutes*. The count alone does not separate them; the **age** of
+the claim does.
+
+> ⚠ **Take claim age from `claimed_at`, not `updated_at`.** `trg_site_work_items_updated_at`
+> bumps `updated_at` on every write, so a periodically-touched row looks perpetually fresh
+> — the same trigger behind the unreapable-work-item landmine. This is the `site_work_items`
+> twin of the `last_activity` vs `updated_at` trap above; two tables, one mistake.
