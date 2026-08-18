@@ -13,15 +13,14 @@ RFC_029 §10.11–§10.12 (corrections + measurement record) → NOTES `## 2026-
 - **Build `v1.0.1309` = `f0117fb8b`**, label + digest matched (local RepoDigest == running
   imageID). Only orchestration change vs 1308 is coordinator.go retry timeouts (029 lane) — the
   window reads continuously across the roll.
-- **The prune is COMMITTED (`131e6430e`) with `Council-Submitted: ae0dfb93-3df9-490b-96b8-34e0c628eded`.**
-  It removes the ~28% work_item_id class only; the code comment states why it CANNOT touch the
-  ~72% `current_page` class (ensureCoreFields is unconditional). Six tests in
-  `action_inputs_prune_test.go`, mutation-proved (no-op the filter body → exactly 2 guarding
-  tests fail). **First open item for the next session: READ THE VERDICT** —
-  `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
-  (find the run by payload, never by printout: `…WHERE collected_data->'input_data'->>
-  'fix_correlation_id'='ae0dfb93-…'`). REVISE/REJECTED must be acted on — the code is already on
-  the shared branch. **It has NOT shipped**: needs the next chassis build+roll after approval.
+- **The prune is COMMITTED (`131e6430e`) and the council verdict is APPROVED** (round 1, corr
+  `ae0dfb93-9d…`, 4 advisory objections, none high-severity — every one dispositioned, NOTES
+  "(verdict)" entry: editquality's ambiguity edge is now a seventh TEST (`595e3fca6`,
+  `Council-Reviewed:` trailer), guardian's wider-suite ask ran (9 packages ok from the archive),
+  bug_historian's observability point is recorded for step 5's design, nothing alarms on the
+  row drop). It removes the ~28% work_item_id class only; the code comment states why it CANNOT
+  touch the ~72% `current_page` class. Seven tests, mutation-proved. **It has NOT shipped**:
+  needs the next chassis build+roll — that roll is §3 step 1's remaining precondition.
 - **`bugs_open/306`** (tie-break undeclared; 13/139 genuinely-different-page candidate sets;
   `tryUnwrapMapPatterns` pattern 1 still ranges an unsorted map, 0/139 can fire). Fix candidates
   ranked in the file; candidates 1+2 (declare the tie-break + sort pattern 1) are small,
@@ -87,7 +86,7 @@ sweep (NOTES, evening entry, last paragraph).
 ## 5. Session-start checklist
 
 1. `git log --oneline -10`; re-read this file from disk.
-2. Read the council verdict for `ae0dfb93-…` (§1) and act on it.
+2. Verdict already APPROVED and dispositioned (§1) — nothing owed on it.
 3. If APPROVED and a build is rolling: verify by label+digest, then re-read the window
    (RUNBOOK) — expect the work_item_id class gone, current_page class INTACT (that is correct,
    not a failed fix; the comment in action_inputs.go says why).

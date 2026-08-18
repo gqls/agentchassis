@@ -4912,3 +4912,36 @@ pipelines. Recorded as **RFC_029 §10.13** (which supersedes §9 D2's original p
 that predates the four-mechanism split); handoff 18b §3 rewritten as the working table.
 Council verdict on the prune (`ae0dfb93`) still pending at time of writing — a watcher is
 armed; the next session reads it per the handoff checklist regardless.
+
+## 2026-08-18 (verdict) — prune APPROVED round 1, 4 advisory objections, each dispositioned
+
+**APPROVED** (`complete_approved`, corr `ae0dfb93`, round 1, "none high-severity"; 7 seats
+abstained). Commit `131e6430e` is credited automatically via its `Council-Submitted:` trailer.
+The four advisories, and what was done with each — none waved through:
+
+1. **editquality (medium)** — could the prune predicate misfire on a field that is BOTH
+   defaulted AND carries a dotless config string (the VALUE/REFERENCE classification
+   ambiguity)? **No, and it is now a TEST** (`595e3fca6`): Strategy 0 writes only on
+   `IsDottedPathReference`, so a dotless string never reaches it; such a field is still
+   `Defaulted` at the prune point → not pruned → searched exactly as today, and Strategy 6
+   still takes the literal afterwards. The test pins the whole chain against strategy
+   reordering, which was the seat's real worry.
+2. **bug_historian** — pruning removes the conflict row for a Strategy-0-resolved field, so a
+   WRONG Strategy-0 resolution becomes silent. **Disposition: recorded, no code change — the
+   lost signal was never a guard on Strategy 0.** The conflict row records the *search
+   disagreeing with itself*; in the measured class-2 population the search's own winner was
+   the WRONG value (a previous iteration's `claim_result.work_item_id`) while Strategy 0's
+   was right — so the row was misleading noise about that field, not protection. No
+   instrument compares Strategy 0's answer to anything today, pruned or unpruned; that
+   absence predates the prune and is a fair future-instrument idea, noted here so step 5's
+   design can weigh it. Building one now would re-run the search per resolved field, i.e.
+   undo the prune.
+3. **guardian (medium)** — package-green ≠ blast radius; wants the wider suite. **Done:**
+   `go test ./platform/orchestration/...` from `git archive HEAD` + the changed files — 9
+   packages ok, 0 failures.
+4. **guardian (low)** — does anything downstream alarm on the RESOLVER_* row-count drop?
+   **Checked by enumeration:** the window's only readers are this lane's RUNBOOK queries; the
+   daily budget cron reads `RegisterActionInputSpec` declarations, not `agent_error_log`; no
+   dashboard or alert on these error_codes exists. The drop is the intended measurement.
+   (debug_historian's low note — archive extraction filling /tmp — checked in the same run:
+   94M before and after; extraction goes to the session scratchpad, not /tmp.)
