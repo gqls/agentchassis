@@ -170,3 +170,17 @@ code/tests before repeating them, whichever channel they arrive on. (Their "noth
 yours" went out unchecked and nearly added a redundant test; our correction went back
 checked, and they mutation-verified it rather than accepting it. That loop — check, correct,
 induce — is the practice working.)
+
+## 2026-08-18 (evening) — council round 1: REVISE on form; round 2 resubmitted, same trail
+
+Verdict read (corr 1f1fecc9): **REVISE, gating editquality objection** — my edit 7's sketch
+described THREE files under one entry whose `file` named only check_cta_nonpage_test.go.
+Form, not substance, and fair: I had compressed to fit the 8-edit cap. Revised to one file
+per edit (8 exactly) with the ninth file (verifier_coverage_test.go's sensor-forced
+classification entries) DECLARED in the plan summary instead of smuggled into a sketch, and
+the rationale refreshed to the shipped truth (committed 757a0890a; ordering tripwire now
+mutation-proven by the 248 lane). Resubmitted with RESUBMIT_CORR on the same correlation
+(round-2 run 5091d0b7). The commit's Council-Submitted trailer is unchanged and resolves at
+report time. Verdict-parsing note for the next reader: the verdict body QUOTES other rounds'
+objections inside its reviewers'-checks evidence — a regex sweep attributes them to your
+round; slice from your round's `decided_by` block only.
