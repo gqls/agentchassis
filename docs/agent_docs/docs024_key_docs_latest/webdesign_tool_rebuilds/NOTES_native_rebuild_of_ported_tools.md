@@ -790,3 +790,49 @@ step is exercising the tool on a realistic input before calling it done.
 (d) **copy reports success only when it succeeded** (check `execCommand`'s return, await the promise,
     show a distinct failure label) — from this diagnosis;
 (e) **output-never-exceeds-input assertion** — the guard for the unreproduced growth.
+
+## 2026-08-18 13:51Z — the v2 rebuild hit a THIRD gate nobody knew about: `content_components_name_key`
+
+The minifier v2 build failed at `save_tool` — and **not on the index that bit us before.** I nearly
+mis-read it, because the truncated error looked identical to rebuild #2's:
+
+```
+duplicate key value violates unique constraint "content_components_name_key" (SQLSTATE 23505)
+```
+
+**`content_components_name_key` is `UNIQUE (name)` — a plain constraint with NO predicate at all.**
+Not partial on `is_active`, not on `forked_from`, not on site. And `create_tool_component_action.go`
+derives the name deterministically:
+```go
+componentName := fmt.Sprintf("%s-%s", function, domainSlug)   // tool-html-minifier-webdesign-co-uk
+```
+⇒ **the generator can build a given tool for a given site EXACTLY ONCE, EVER.** Deactivating the old
+component (which frees gate 1 and gate 2) does nothing here, because an inactive row still owns its
+name. There is no second attempt at any tool without freeing the name first.
+
+**So there are THREE gates on this one INSERT, and all three differ in scope:**
+| gate | key | scope | `is_active` frees it? |
+|---|---|---|---|
+| `already_exists` probe | `function` + placement | **per-site** | yes |
+| `idx_cc_tool_function_unique` | `function` | **fleet-wide**, forks exempt | yes |
+| **`content_components_name_key`** | **`name`** | **fleet-wide, TOTAL** | **NO** |
+
+**Why the first five rebuilds never saw it:** each replaced a *ported* tool, so no generated component
+with that name had ever existed. It only appears on a **second** native build of the same tool — which
+is exactly what an owner-reported defect requires. **The recipe as written could ship a tool but never
+fix one.**
+
+**What I nearly got wrong:** the two failures print the same `SQLSTATE 23505` and the same leading
+text, and my grading query truncated the message at 140 chars — which cut off the constraint name, the
+only part that distinguishes them. I was one step from "the index bit us again, deactivate harder".
+**Read the constraint NAME, not the SQLSTATE**; and do not truncate an error you are diagnosing from.
+
+**Fix applied — rename, never delete:** `c0cfb873` name →
+`tool-html-minifier-webdesign-co-uk-v1-retired-20260818`, `is_active` already false. Asserted in the
+same transaction that (a) the old name is now free, (b) the function slot is free, and (c) **the
+placement row `3a56d6dc` still points at the old component** — that last one is the revert handle, and
+a rename is exactly the kind of edit that could silently break it.
+Re-filed as item `9186b583-10cf-492a-a9a1-a98066e0d614`, now with **gate 3 as a pre-assert too**.
+
+**This applies to the SVG v2 rebuild as well** (`88b70065`, name `tool-svg-optimizer-webdesign-co-uk`)
+and to every future re-fix of any native tool on any site.
