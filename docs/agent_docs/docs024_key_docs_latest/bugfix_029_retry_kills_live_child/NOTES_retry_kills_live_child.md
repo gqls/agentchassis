@@ -367,3 +367,75 @@ and "reaped" is minutes.
 > morning it was `updated_at` (a number that could not have come out other than ~4h26m);
 > this afternoon it is a log grep whose control is also zero. Same failure, opposite
 > direction — one produced a false positive, the other a false negative.
+
+---
+
+## 2026-08-18 — the estate has TWO liveness proxies and MAINTAINS NEITHER; and the guarded takeover it built already exists but is not on this path
+
+Two findings, and together they settle what the fix has to be.
+
+### 1. There are two takeover paths, and only one is guarded
+
+```
+coordinator.go:290  ->  repo.TakeOverOrchestration(...)   # CAS on processing_node, guarded on the previous holder
+coordinator.go:765  ->  repo.ClearExecutingStep(...)      # unguarded; THIS is the path that wedges children
+```
+
+`TakeOverOrchestration` was built for `bugs_open/075`, carries a long WHY comment, and is
+protected by a source-scanning invariant test (`state_locks_test.go`) asserting that the
+pod-name CAS and `UpdateStateWithVersion`'s version-CAS never govern the same column. It is
+careful, reviewed work — and the `StatusExecutingStep` arm does not call it. It calls
+`ClearExecutingStep`, which does a plain read-modify-write with no CAS and no notion of who
+is holding the step.
+
+So the *shape* of the answer is already in the tree. "Reuse existing machinery before
+building new" points straight at it.
+
+### 2. But `processing_node` is not a liveness signal either — and the code says so itself
+
+I was about to propose "gate the takeover on `processing_node`" and stopped, because
+`state.go`'s own comment on `SetExecutingStep` rules it out in advance:
+
+> *"UPDATE does not list processing_node among its columns, so this assignment never
+> reaches the database. Consequence: **processing_node records the pod that CREATED the
+> row, not the pod driving it — which is why an ownership gate built on it could never
+> distinguish a dead owner from a live one.**"*
+
+**That is the same defect as `last_activity`, in a second costume.** The estate has two
+columns that look like liveness and neither is maintained as such:
+
+| column | written when | why it is not liveness |
+|---|---|---|
+| `last_activity` | on insert, and on `UpdateState` only | a healthy worker inside a long step writes nothing for minutes |
+| `processing_node` | at row creation, and only ever moved by `TakeOverOrchestration` | names the creating pod, not the driving one — a dead pod's name persists for ever |
+
+A takeover decision needs something a **live worker keeps refreshing**. Neither of these is,
+so no combination of them can be made correct — which is why this cannot be fixed by
+choosing the better column or tuning the 5-minute threshold. **Tuning the threshold is the
+trap here**: any value is simultaneously too short for a legitimate spawn step and too long
+for a dead pod, because the signal does not carry the distinction at all.
+
+### 3. What that leaves
+
+The estate already has a correct instance of the pattern that *is* missing:
+`platform/orchestration/intake_repo.go:154` — `HeartbeatClaim(ctx, key, claimedBy, lease)`,
+*"extends the lease; reports false when the claim is no longer held"* — with the
+lease-expiry semantics spelled out at `:100`. Intake claims are held safely this way today.
+Step execution is not.
+
+So the fix direction is: **a lease on step execution, refreshed by the worker while the step
+is in flight, with takeover permitted only on an EXPIRED lease** — modelled on the intake
+lease rather than invented, and keeping `TakeOverOrchestration`'s column-separation
+invariant intact (add to one side, never both — the council objection recorded at
+corr `4a227ed9`).
+
+That makes the bad state unrepresentable rather than unlikely: a second driver cannot take
+over a live worker at all, and a genuinely dead pod is still recovered when its lease
+expires — which is the behaviour the `:765` arm was written to provide and currently
+provides unsafely.
+
+**Consequence for the retry-window defect (A):** it is still worth fixing, but this reframes
+it. With a lease in place, an early replay stops being destructive — it becomes merely
+wasteful. So A drops from "causes the outage" to "causes avoidable load", and the ordering
+in the PLAN stands: **the lease is the fix; honouring the declared window is the
+efficiency.**
