@@ -291,7 +291,7 @@ duplicated in full.
 - **verify-later:** a real kill-and-resume test; dispatch_thunder_prepare_resume_url in registry
 
 ### FTW-035 — Monitor enablement gate: DONE must mean durable
-- **status:** partial — **the gate CONDITION is MET (2026-08-15); the enable itself is deliberately still an owner call**
+- **status:** deployed — **ENABLED 2026-08-18 on the owner's word** (gate condition proven 2026-08-15; `scheduled_tasks.thunder-training-monitor.enabled=true`)
 - **status-evidence:** the gating proof landed 2026-08-15: a real run reached `RUN_SH_DONE` with the adapter verified durable in B2 at the artefact (see FTW-032). `thunder-training-monitor` remains `enabled=false` — flipping a fleet scheduled task whose DONE_OK path decommissions boxes was judged an owner decision, not a session's; the condition being met is recorded here so the next enabler knows the gate is open.
 - **what:** An explicit sequencing invariant: the training monitor's DONE_OK path decommissions the box (destroying the disk), so the schedule stays disabled until the upload path proves that RUN_SH_DONE genuinely implies the adapter is durable in B2. Enabling early would have destroyed iter_0's adapter. The interim protocol for in-flight runs was manual: scp the adapter off the box before anything decommissions it.
 - **sources:** PLAN_checkpoint_and_artefact_upload_b2(7).md#build-order; FOCUS_finetuning_flywheel_and_service(25).md#update-2026-06-04

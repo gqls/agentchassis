@@ -727,3 +727,29 @@ and the safety catch is back on. What's left is business rather than
 engineering: your call on the price (the first invoice will settle what the
 cards really cost us), whether to switch the automatic run-babysitter on, and
 coordinating the sales page with the thread that owns the site's front end.
+
+---
+
+## 18 August 2026 — price direction, positioning direction, and the machinery armed
+
+Your call on price, recorded: we don't fix it finally until we've walked real
+customers through the whole journey. Start at **£99** and see how we go — it's a
+business audience, so the credible range is low hundreds; too cheap reads as low
+value, too dear kills take-up; reducing later is easy, raising later is hard.
+And we watch what competing service companies charge.
+
+Your positioning sketch, recorded as the working hypothesis: **we do a techie
+thing without sounding techie** — genuinely helpful in tone (even though it's
+automated underneath), and visually just enough "tech authority" to be credible
+without looking like the tech companies, which would scare off exactly the
+businesses we want. You've asked for more thinking on this together; it's an
+open strand, not a settled decision.
+
+Meanwhile three mechanical things moved. The run-babysitter (the monitor that
+watches training jobs and cleans up machines when they genuinely finish) is now
+switched ON — the proof it needed landed on Friday, and the provisioning safety
+catch stays on regardless. The mystery from the front-end thread — repairs that
+report "done" while changing nothing — has been formally handed to the diagnosis
+loop, which reads the real code and evidence and comes back with a cited verdict.
+And your invoice confirmed our cost estimates to the cent, so the £99 starting
+price sits on measured ground: roughly £1 of GPU per customer job.
