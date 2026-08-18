@@ -163,3 +163,55 @@ func TestRelayServingAnotherSitesFactsIsRefused(t *testing.T) {
 		t.Fatalf("case difference alone must not refuse: %v", err)
 	}
 }
+
+// The conduct forbids em dashes. Prompt text is read by the model as an example
+// of the behaviour it describes, so a rule stated in a sentence that breaks the
+// rule is worse than no rule. This is not hypothetical: the conduct string before
+// 2026-08-18 banned em dashes in a sentence containing one.
+//
+// It is a real test because it FAILS on that previous string, not merely on a
+// contrived one. Checked when written.
+func TestConductDoesNotBreakItsOwnStyleRule(t *testing.T) {
+	if !strings.Contains(promptConduct, "no em dashes") {
+		t.Fatal("the em dash rule has gone from the conduct; either restore it or delete this test deliberately")
+	}
+	for _, dash := range []string{"—", "–"} {
+		if i := strings.Index(promptConduct, dash); i >= 0 {
+			lo := i - 50
+			if lo < 0 {
+				lo = 0
+			}
+			hi := i + 50
+			if hi > len(promptConduct) {
+				hi = len(promptConduct)
+			}
+			t.Errorf("the conduct bans em dashes and contains one at %d: %q", i, promptConduct[lo:hi])
+		}
+	}
+}
+
+// The brief-builder is the whole point of the 2026-08-18 change and it is one
+// string away from being silently reverted by anyone tidying the prompt. Pin the
+// load-bearing clauses: the second job, the reason it matters (which is drawn
+// from the register's own one_shot_no_approval fact, not invented), the rule that
+// keeps it from becoming an interrogation, and the permission to stop.
+func TestConductCarriesTheBriefBuilderAndItsRestraints(t *testing.T) {
+	for _, want := range []string{
+		"help them work out what to ask for", // the second job exists
+		"no approval stage and no revisions", // why it matters, per the register
+		"Ask ONE thing at a time",            // not an interrogation
+		"take it and stop",                   // the visitor may decline
+		"Only write it if they say yes",      // the brief is offered, not imposed
+		"under 250 words",                    // fits max_tokens 1024; see claude.go
+		"a draft for them to check",          // honest about what it is
+	} {
+		if !strings.Contains(promptConduct, want) {
+			t.Errorf("conduct lost the clause %q", want)
+		}
+	}
+	// The old rule and the brief-builder cannot both hold. If someone restores it,
+	// the bot stops eliciting and the change is dead without any test going red.
+	if strings.Contains(promptConduct, "Do not ask for anything else unless they offer it") {
+		t.Error("the pre-2026-08-18 rule is back; it contradicts the brief-builder above")
+	}
+}
