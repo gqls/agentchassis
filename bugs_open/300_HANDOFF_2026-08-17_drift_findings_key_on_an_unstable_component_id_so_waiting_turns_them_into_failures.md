@@ -162,3 +162,79 @@ floor. Each was verified first-hand and each is a single query or file:line a re
   served page rather than the item's `result`.
 - `bugs_open/184` / `201` — the other pairs currently near or under the `444` floor, for a different
   reason.
+
+---
+
+## FIX BUILT 2026-08-18 (candidate 1, owner-chosen) — and the exposure figures in this file are now stale in the direction that matters
+
+Built by the `bugfix-277/083` lane on the owner's decision of 2026-08-18 (*"as recommended — resolve
+by `(page_id, slot_name)`, id as tiebreak"*). **Go change; INERT until the next chassis roll.**
+
+### The exposure is larger than this file recorded, and the ageing is now OBSERVED rather than predicted
+
+[MEASURED 2026-08-18, all lifetime `page_component_status_drift` rows, live table]
+
+| | rows | carry `page_id` | carry `spec.slot_name` | `spec.page_component_id` resolves | **`(page_id, slot_name)` resolves** |
+|---|---|---|---|---|---|
+| `complete` | 66 | 66 | 66 | 59 | **66** |
+| `deferred` | 16 | 16 | 16 | 11 | **16** |
+| **total** | **82** | **82** | **82** | **70** | **82 — 100%** |
+
+So **12 of 82 stored ids are already dead (15%)**, not 1 of 20; and the stable pair resolves for
+every single row. The measurement could have come out otherwise in both columns — it did not.
+
+**The ageing this file predicted has happened, in one day.** This file recorded on 2026-08-17 that
+*"the other 16 are `deferred` on `loancalculator.co.uk` and **every one of their ids still resolves
+today**"*. Today **11 of those 16 resolve**. Five died in a queue nobody touched, exactly as the
+compounding path here describes. That is the strongest evidence in this file and it belongs to the
+original diagnosis, not to me.
+
+### One correction to a claim this bug and its handoff both carried
+
+> ⚠ `page_id` is **not** in the dispatch loop's `call_handler` input_mapping today (verified live)
+
+**That is no longer true** [VERIFIED 2026-08-18, `build-dispatch-loop`'s live `sub_workflow`]: the
+mapping is `{spec, domain, issue?, source, site_id, page_id?, purpose?, asset_id?, item_type,
+page_name?, current_page, work_item_id, component_id?, reviewed_brief?}` — `page_id?` is there. The
+`?` makes it optional, so it is omitted for item types whose row has a NULL `page_id`, which is why
+a sampled `component-template-fixer` payload (an `instance_scope_conversion` item) showed none.
+Drift rows carry `page_id` on 82 of 82, so it would arrive. **The fix does not depend on it either
+way** — it joins `page_components` through `site_work_items.page_id` using `work_item_id`, which is
+unconditionally mapped, so it cannot be broken by a change to an optional mapping entry.
+
+### What was built
+
+`resolveStatusRepairComponent` in `fix_component_template_action.go`, called by
+`fixPageComponentStatus`:
+
+1. **`(page_id, slot_name)` via `work_item_id`** — one match wins outright, and if it differs from
+   the stored id that is logged as a stale-key resolution.
+2. **The stored id is the TIEBREAK when the pair is ambiguous** — and that is not decoration.
+   [MEASURED 2026-08-18] **17 `(page_id, slot_name)` pairs on the estate carry more than one
+   component, worst case 4.** None is a drift row today, which is precisely why it needed a test:
+   resolving by the pair alone is correct on every row that exists now and silently wrong on the
+   first one that is not.
+3. **Genuine ambiguity is REFUSED, not guessed** — `fixed:false, action:needs_review` with the
+   reason on the row, matching the two guards already in this function ("refusing rather than
+   guessing"). A refusal is not a hard error, so it does not feed the `444` floor either.
+4. **Fallback to the stored id** when the pair yields nothing, so every caller that worked before
+   works identically.
+5. Every outcome now carries `resolved_by` (`page_id+slot_name` / `…+stored_id_tiebreak` /
+   `spec.page_component_id`), so a census can tell which key did the work.
+
+The measured instance in §"The measured instance" above now lands on the `"already deployed"` arm
+instead of a hard error — which is the correct reading of what happened to it.
+
+### Residual, stated
+
+If **both** keys miss (the page itself is gone), it is still a hard error and still reaches the
+floor. Deliberate: candidate 1 is what was approved, and softening a genuinely-missing subject is a
+different judgement about what `complete` means. Recorded rather than quietly widened.
+
+**Verification is still owed at the artefact** (this file's own "How to verify a fix", unchanged):
+after the roll, a row with a dead stored id must close without failing, **and** a row whose drift is
+genuinely still true must still be repaired — without the second control, "no more failures" is
+equally consistent with having made the handler blind.
+
+Mutation-proven before submission: stable key never consulted → 4 tests RED; tiebreak removed so an
+ambiguous pair takes the first match → 2 RED; fallback removed → 2 RED.

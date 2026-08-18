@@ -798,22 +798,151 @@ var knownRebuildStatuses = map[string]bool{
 	"needs_rebuild": true,
 }
 
+// resolveStatusRepairComponent finds the page_component this finding is really
+// about, preferring the STABLE key over the stored id.
+//
+// bugs_open/300. `page_components.id` is not stable across re-renders — the
+// estate's own rule, written in 016b and obeyed by revalidate_review_queue_action
+// and create_report_page_action. The page_component_status_drift check stores the
+// id as the finding's only handle, so an ordinary re-render between filing and
+// dispatch turns a true finding into `sql.ErrNoRows`, which this action turned
+// into a hard error and the item into `failed`. That is not merely a lost repair:
+// detected-item-promoter's 25% floor (migration 444/454) cannot tell an
+// artefact failure from an incompetent handler, so enough of them switch the
+// whole item_type off — including the findings that are still true.
+//
+// [MEASURED 2026-08-18, all 82 lifetime page_component_status_drift rows]
+// `spec.page_component_id` resolves for 70; `(page_id, slot_name)` resolves for
+// 82 of 82. The 12 dead ids are the ageing this fixes. On 2026-08-17 the same
+// query gave 16 of 16 deferred rows resolving by id; today 11 do — five died in a
+// day, in a queue nobody touched, which is the mechanism rather than an anecdote.
+//
+// THE TIEBREAK IS NOT DECORATION. `(page_id, slot_name)` is NOT unique fleet-wide
+// — [MEASURED 2026-08-18] 17 (page_id, slot_name) pairs carry more than one
+// component, worst case 4. None of them is a drift row today, but resolving by
+// the pair alone would silently pick an arbitrary component on the day one is.
+// So: the stored id wins WITHIN the pair's matches when it is still alive, a lone
+// match is taken, and genuine ambiguity is REFUSED rather than guessed — the same
+// posture as the two guards below it.
+//
+// Returns the resolved id and how it was resolved (recorded on the result so a
+// census can tell repaired-by-stable-key from repaired-by-stored-id), or ok=false
+// with a caller-returnable reason when the subject cannot be identified.
+func resolveStatusRepairComponent(
+	ctx context.Context,
+	params ActionParams,
+	specIDStr, slotName, workItemIDStr string,
+	logger *zap.Logger,
+) (pcID uuid.UUID, resolvedBy string, reason string, ok bool) {
+	var specID uuid.UUID
+	specIDValid := false
+	if specIDStr != "" {
+		if parsed, err := uuid.Parse(specIDStr); err == nil {
+			specID, specIDValid = parsed, true
+		} else {
+			logger.Warn("repair_page_component_status: spec.page_component_id is not a uuid",
+				zap.String("page_component_id", specIDStr), zap.Error(err))
+		}
+	}
+
+	// The stable pair. page_id lives on the work item ROW, not in the dispatch
+	// payload — [VERIFIED 2026-08-18 against a live component-template-fixer
+	// orchestration] input_data carries spec/domain/site_id/item_type/
+	// component_id/current_page/work_item_id and NO page_id or page_name. Joining
+	// through work_item_id is therefore what makes this fix possible without
+	// touching the shared dispatch mapping, which every handler reads.
+	if workItemIDStr != "" && slotName != "" {
+		if workItemID, err := uuid.Parse(workItemIDStr); err == nil {
+			rows, qErr := params.DB.QueryContext(ctx, `
+				SELECT pc.id
+				FROM page_components pc
+				JOIN site_work_items wi ON wi.page_id = pc.page_id
+				WHERE wi.id = $1 AND pc.slot_name = $2
+				ORDER BY pc.id
+			`, workItemID, slotName)
+			if qErr != nil {
+				// Fail open to the stored id: a lookup error must not be worse
+				// than the behaviour this replaces.
+				logger.Warn("repair_page_component_status: stable-key lookup failed, falling back to the stored id",
+					zap.String("slot_name", slotName), zap.Error(qErr))
+			} else {
+				var matches []uuid.UUID
+				for rows.Next() {
+					var id uuid.UUID
+					if scanErr := rows.Scan(&id); scanErr != nil {
+						logger.Warn("repair_page_component_status: scan failed on the stable-key lookup", zap.Error(scanErr))
+						break
+					}
+					matches = append(matches, id)
+				}
+				rows.Close()
+
+				switch {
+				case len(matches) == 1:
+					if specIDValid && matches[0] != specID {
+						logger.Info("repair_page_component_status: the stored component id is stale — resolved by (page_id, slot_name)",
+							zap.String("stale_page_component_id", specIDStr),
+							zap.String("resolved_page_component_id", matches[0].String()),
+							zap.String("slot_name", slotName))
+					}
+					return matches[0], "page_id+slot_name", "", true
+				case len(matches) > 1:
+					// The stored id disambiguates when it is one of them.
+					if specIDValid {
+						for _, m := range matches {
+							if m == specID {
+								return m, "page_id+slot_name+stored_id_tiebreak", "", true
+							}
+						}
+					}
+					logger.Warn("repair_page_component_status: (page_id, slot_name) is ambiguous and the stored id is not among the matches — refusing to guess",
+						zap.String("slot_name", slotName), zap.Int("matches", len(matches)),
+						zap.String("stored_page_component_id", specIDStr))
+					return uuid.Nil, "", fmt.Sprintf(
+						"slot %q resolves to %d components on this page and the stored page_component_id is not one of them — refusing to guess which",
+						slotName, len(matches)), false
+				}
+				// len(matches) == 0 falls through to the stored id below.
+			}
+		} else {
+			logger.Warn("repair_page_component_status: work_item_id is not a uuid",
+				zap.String("work_item_id", workItemIDStr), zap.Error(err))
+		}
+	}
+
+	if specIDValid {
+		return specID, "spec.page_component_id", "", true
+	}
+	return uuid.Nil, "", "no usable subject: (page_id, slot_name) resolved nothing and spec.page_component_id is absent or unparseable", false
+}
+
 func fixPageComponentStatus(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
 	pcIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.page_component_id")
 	if pcIDStr == "" {
 		pcIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.page_component_id")
 	}
-	if pcIDStr == "" {
-		return nil, fmt.Errorf("page_component_id is required for repair_page_component_status")
-	}
-	pcID, err := uuid.Parse(pcIDStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid page_component_id %q: %w", pcIDStr, err)
+	specSlotName := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.slot_name")
+	workItemIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.work_item_id")
+
+	pcID, resolvedBy, resolveReason, resolved := resolveStatusRepairComponent(
+		ctx, params, pcIDStr, specSlotName, workItemIDStr, logger)
+	if !resolved {
+		if resolveReason == "" {
+			return nil, fmt.Errorf("page_component_id is required for repair_page_component_status")
+		}
+		// A subject we cannot identify is not a repair we attempted. Refusing
+		// softly keeps it off the promoter's failure ledger while still leaving
+		// the reason on the row for a human — the same shape as the guards below.
+		return map[string]interface{}{
+			"fixed": false, "fix_type": "repair_page_component_status",
+			"reason": resolveReason,
+			"action": "needs_review",
+		}, nil
 	}
 
 	var observed, slotName, pageStatus string
 	var hasHTML bool
-	err = params.DB.QueryRowContext(ctx, `
+	err := params.DB.QueryRowContext(ctx, `
 		SELECT COALESCE(pc.build_status, ''), COALESCE(pc.slot_name, ''),
 		       COALESCE(p.build_status, ''),
 		       (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
@@ -822,35 +951,48 @@ func fixPageComponentStatus(ctx context.Context, params ActionParams, logger *za
 		WHERE pc.id = $1
 	`, pcID).Scan(&observed, &slotName, &pageStatus, &hasHTML)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load page_component %s: %w", pcIDStr, err)
+		return nil, fmt.Errorf("failed to load page_component %s (resolved by %s): %w", pcID, resolvedBy, err)
 	}
+	pcIDStr = pcID.String()
 
 	switch {
 	case observed == "deployed":
+		// This is the arm bugs_open/300's measured instance lands in once the
+		// subject is resolved by the stable key: the drift was real when filed
+		// and an ordinary re-render fixed it days later. Under the old lookup
+		// the same row was a hard error, and so a vote against the pair.
 		return map[string]interface{}{
 			"fixed": false, "fix_type": "repair_page_component_status",
-			"reason": "already deployed",
+			"reason":            "already deployed",
+			"page_component_id": pcIDStr,
+			"resolved_by":       resolvedBy,
 		}, nil
 	case knownRebuildStatuses[observed]:
 		logger.Info("repair_page_component_status: refusing to flip an honest status",
 			zap.String("slot", slotName), zap.String("build_status", observed))
 		return map[string]interface{}{
 			"fixed": false, "fix_type": "repair_page_component_status",
-			"observed_status": observed,
-			"reason":          "status is a legitimate awaiting-rebuild state — needs a rebuild, not a status flip",
-			"action":          "needs_review",
+			"observed_status":   observed,
+			"reason":            "status is a legitimate awaiting-rebuild state — needs a rebuild, not a status flip",
+			"action":            "needs_review",
+			"page_component_id": pcIDStr,
+			"resolved_by":       resolvedBy,
 		}, nil
 	case pageStatus != "deployed":
 		return map[string]interface{}{
 			"fixed": false, "fix_type": "repair_page_component_status",
-			"reason": fmt.Sprintf("parent page build_status is %q, not deployed", pageStatus),
-			"action": "needs_review",
+			"reason":            fmt.Sprintf("parent page build_status is %q, not deployed", pageStatus),
+			"action":            "needs_review",
+			"page_component_id": pcIDStr,
+			"resolved_by":       resolvedBy,
 		}, nil
 	case !hasHTML:
 		return map[string]interface{}{
 			"fixed": false, "fix_type": "repair_page_component_status",
-			"reason": "component has no rendered_html — cannot claim it is deployed",
-			"action": "needs_review",
+			"reason":            "component has no rendered_html — cannot claim it is deployed",
+			"action":            "needs_review",
+			"page_component_id": pcIDStr,
+			"resolved_by":       resolvedBy,
 		}, nil
 	}
 
@@ -871,6 +1013,7 @@ func fixPageComponentStatus(ctx context.Context, params ActionParams, logger *za
 		"page_component_id": pcIDStr,
 		"slot_name":         slotName,
 		"observed_status":   observed,
+		"resolved_by":       resolvedBy,
 		"new_status":        "deployed",
 	}, nil
 }
