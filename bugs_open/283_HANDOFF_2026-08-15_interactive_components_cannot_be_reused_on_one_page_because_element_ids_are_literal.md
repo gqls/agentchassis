@@ -747,3 +747,28 @@ this seam — but that pipeline's next render of a converted template is worth o
 **Migration 462 (applied, PREPARE-checked):** the fixer's `create_rerender` now excludes owned
 pages, so it stops filing items that exist only to be refused. The remaining ~55 generic-page
 rerenders continue draining.
+
+### 13.7 TERMINAL — the mechanical programme is COMPLETE and spot-checked at the served artefact
+
+Rerender batch final: **53 complete + 15 cancelled (owned, pre-empted) + 4 failed = 72**, every
+row accounted. The 4 failures are two guard classes, both refusing safely with stored pages
+standing:
+
+- **2 owned-page refusals** (webdesign tools) — §13.6, fixer now skips these (mig 462);
+- **2 shrink-guard refusals** — `tool-model-approach-selector` (fundamentallyai.com) and
+  `tool-llm-cost-calculator` (webdesign.co.uk): the re-render planned too few of the stored
+  sections (33% < the 0.50 floor) and the whole save was refused. **Both are FORKED functions**
+  (the multi-row components of RFC_034 §1) — likely not a coincidence: a fork's page can carry
+  sections whose components resolve differently than the shared row the plan expects. One
+  deliberate investigation owed; their templates stay converted and their pages stay
+  pre-conversion.
+
+**Served-artefact spot-checks, three domains beyond the canary's:**
+`mortgagecalculator.co.uk/tools/rate-scenarios` (23 new ids), `dartsonline.com/tools/setup-builder`
+(36), `robot-hands.com/tools/gripper-safety-factor-calculator` (23) — each with **0 unrendered
+tokens and 0 duplicate ids**.
+
+**The mechanical three-quarters of RFC_034 is done and live.** 69 of 94 corpus rows converted and
+serving instance-scoped ids (68 batch + canary); 2 parked behind small repairs (`ec2` id,
+`chartTitle` duplicate); 17 owned pages take their conversion from their owning pipeline; 2 forked
+pages parked behind the shrink investigation; 25 judged rows remain — the LMC pipeline, next.
