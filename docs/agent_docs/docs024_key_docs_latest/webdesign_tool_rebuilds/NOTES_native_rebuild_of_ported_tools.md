@@ -911,3 +911,28 @@ build-constraint clause. All three gates freed in one transaction: `88b70065` se
 AND renamed to `tool-svg-optimizer-webdesign-co-uk-v1-retired-20260818`, with pre-asserts on all three
 gates, on the serial throttle, and on the revert handle (placement `7ccde0a1` still points at the old
 component). Revert handle: **7,879 chars, md5 `23b028ed44c3c17d4bb2495684064488`**.
+
+## 2026-08-18 15:36Z — SVG v2 unclaimed for 83 min. NOT a stall, and my first reading of it was wrong AGAIN.
+
+- **The watcher timed out** (80 min, exit 1 — the timeout branch fired, which is the branch existing so
+  that silence cannot be mistaken for success). Item `dc3448b4` `triaged`, **`now()-created_at =
+  01:22:56`** — this time the age comes from the ROW, so the wait is real, unlike the 08-17 false alarm.
+- **MISSTEP, corrected within two queries: I announced "a `page_rerender` stuck in `claimed` since
+  14:07 — 89 minutes — is holding the site's queue." FALSE.** My grouped census selected
+  `min(created_at) AS oldest` and I read that column as the claim time. The claimed row had been
+  claimed at **15:33:36**, i.e. **3 minutes**, not 89. Nothing was wedged.
+  **This is the SECOND time this lane I have asserted a stall from a misread timestamp** (08-17: read
+  the session clock as queue age). The pattern is not "I misread a column" — it is that **I reach for
+  a stall narrative when something is slower than I expect, and then read the data to fit it.**
+  The check that kills it in one step, and which I now owe every time:
+  `SELECT status, now()-created_at AS age, now()-claimed_at AS claimed_for FROM …` — put BOTH ages in
+  the same row as the status, so no interpretation is needed and no other column can be mistaken for
+  either. → `WRONG_CALLS.md`.
+- **What is actually happening, measured:** the site queue is working hard — **9 `page_rerender` items
+  completed in the 6 minutes to 15:35**, each 20–50 s. The `add_tool` sits behind four rerenders on
+  this site, **and those rerenders exist because of my own rebuild activity**: two are for the GUIDE
+  pages the generator creates alongside each tool (`tool-html-minifier-guide`,
+  `tool-sri-generator-guide`). Six tool rebuilds have therefore queued roughly twice that many
+  rerenders. **The lane's own throughput is its main queue competitor** — worth knowing before anyone
+  sizes the remaining ~55 as "16 minutes each".
+- Watcher re-armed with a 150-minute window (`bnae8o163`).

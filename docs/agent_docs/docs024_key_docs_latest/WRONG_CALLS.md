@@ -35467,3 +35467,15 @@ armed it anyway. The replacement emits `WATCH-QUERY-FAILED rc=…` explicitly.
 (`pages.status='archived'`, a hand-run UPDATE, there is no writer), then retract. And the
 success flag is not the edge: the file is deleted from `gqls/sites`, then a bucket sync and a
 cache purge have to land, so verify at the URL.
+- **I asserted a queue stall from a misread timestamp column — the second time in two days.** A grouped
+  census of work items selected `min(created_at) AS oldest`; one row had status `claimed`, and I
+  reported "stuck in `claimed` since 14:07 — 89 minutes — holding the site's queue". The row had been
+  claimed at 15:33, **three minutes earlier**; `oldest` was its creation time. Nothing was wedged, and
+  the site was in fact completing a re-render every 30 seconds. The previous instance (2026-08-17) was
+  the same conclusion from a different misreading — the session clock instead of the row's age.
+  **The cheap check:** never let status and age come from different columns you have to relate in your
+  head — `SELECT status, now()-created_at AS age, now()-claimed_at AS claimed_for` puts all three in
+  one row and cannot be misread. **The deeper fault is not the column:** twice now I have reached for a
+  stall narrative the moment something ran slower than I expected, then read the data to fit it. Both
+  times a single query refuted it in under a minute, and both times I had already said it out loud.
+  Tally for "asserted a stall before measuring its age properly": 2.
