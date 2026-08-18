@@ -936,3 +936,31 @@ component). Revert handle: **7,879 chars, md5 `23b028ed44c3c17d4bb2495684064488`
   rerenders. **The lane's own throughput is its main queue competitor** — worth knowing before anyone
   sizes the remaining ~55 as "16 minutes each".
 - Watcher re-armed with a 150-minute window (`bnae8o163`).
+
+## 2026-08-18 15:46Z — SVG v2 BUILT first attempt, graded by MECHANISM, retired in 93 s
+
+- **Built on the first attempt** — the 303 build-constraint clause carried over from the minifier
+  worked, so the tag-balance guard did not fire. Run `complete`, `page_adopted=true`, component
+  **`854e8b75-5d8d-4c98-ae23-b0e2e12ff7fc`**, no `__step_error`. Item was `triaged` 93 min (queued
+  behind this lane's own guide-page rerenders), then built in under a minute once claimed.
+- **Graded by locating the MECHANISM, not by matching phrases I guessed** — the correction from the
+  two false negatives earlier today. Instead of grepping for wording, I enumerated the component's
+  ids and checked what each fix's machinery actually is:
+  ids = `svg-input-area`, `svg-output-area`, `compress-inline-toggle`, **`size-readout`**,
+  **`error-box`**, `copy-output-btn`, **`copy-status-text`**.
+  | fix | evidence |
+  |---|---|
+  | (a) size readout | element `size-readout` exists |
+  | (b) opt-in | `compress-inline-toggle` + 2 checkboxes |
+  | (c) debounce | `setTimeout` present |
+  | (d) honest copy | `execCommand('copy')` **with its return captured** (`= document.execCommand`) **and** a failure branch (`copy failed`), plus a dedicated `copy-status-text` element |
+  | (e) larger-output guard | guard text present, plus a dedicated `error-box` element |
+  11,494 chars, `{{\.` **0**, 1 script, 0 `script src`, **0 `alert(`**, **0 inline `onclick`**.
+  Note the shape of the better check: (d) is now three independent signals (the call, the captured
+  return, the failure branch) rather than one string — a fix cannot half-satisfy that.
+- **Old native slot retired 15:47:48Z, 93 s after the build.** `7ccde0a1…` to `removed`, 7,879 chars,
+  md5 `23b028ed44c3c17d4bb2495684064488` byte-identical to the handle taken before filing. Asserted
+  exactly one deployed slot remains **and that it is `854e8b75`** — the same "is it the RIGHT one"
+  assert added on the minifier, which a bare count would not give.
+- Page now: ported `removed` (deep fallback) · v1 `removed` (revert handle) · v2 deployed.
+  Rerender `4a74f19e-66e6-4ba9-81d9-3baaccc82bc6` queued and watched.
