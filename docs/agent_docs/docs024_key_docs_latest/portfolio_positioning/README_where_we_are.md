@@ -556,3 +556,70 @@ about, which pushes the real figure down again.
 Your plan of running the next domains one at a time fixes this properly: each one gives a
 clean measurement from a quiet start to a quiet finish, and three of those are worth far more
 than one figure taken from a build that had an outage in the middle of it.
+
+### Tuesday 18 August (evening) — the pilot is live on its own domain; www is a separate job; and what the "citation queue" actually is
+
+**Your nameserver change worked.** `remortgagecalculator.uk` now serves the pilot site at its
+own address — I fetched the page and read the words on it, not just the status code, because a
+parked domain returns a cheerful 200 on every path. It is the real thing: the title is
+"Remortgage Calculator UK — Your Number, in Seconds" and it is 40kB of the framework's own
+markup. That is the first of these sites to reach its own domain.
+
+**But `www` still does not resolve, and the nameserver change was never going to fix it.**
+Those are two different jobs. Changing the nameservers at Nominet decides *who answers*
+questions about the domain — it hands that to Cloudflare. It does not decide *what the answer
+is*. Each of our zones at Cloudflare contains exactly one entry, for the bare domain, and
+nothing at all for `www`; and the little program that serves the pages is attached only to the
+bare name. So `www.remortgagecalculator.uk` and `www.ai-agent-orchestration.com` both come back
+"no such name" — I checked both just now. Fixing it is two small additions per domain, times
+36, and it needs one decision from you first: whether `www` should show the same pages or
+simply bounce visitors to the bare domain. I would bounce them — one page, one address, no
+chance of the two drifting apart.
+
+**Noted on loanzy — and I have written the rule down.** The cleared build is recorded in the
+positioning register as P11, along with what I take to be the general instruction: we do not
+create sites that present themselves as accredited finance brokers unless you have asked for
+one. I want to flag that this makes the flow decision in front of you slightly bigger than the
+paper says. My recommendation was "the cheap flow plus an automatic seed", on the grounds that
+the missing safety machinery was a seeding problem. That is still true, but it is no longer the
+whole problem: an automatic seed would have given that site a claims-checker and a contact
+address, and it would still have invented a regulated broker, because nothing in the cheap flow
+stops the strategist choosing that identity. So there is a second piece of work — a
+prohibition, or a check that refuses the plan — and I have not costed it.
+
+**The citation queue, in plain terms.** We keep one shared directory of facts about outside
+companies — mortgage lenders, savings providers, health insurers, AI models — and the rule for
+that directory is that every fact must carry a quotation from a public web page that says it.
+When the research agent proposes a fact, the system re-fetches the page itself and checks the
+exact words are there. If they are, the fact is registered. If they are not, the fact is
+**refused** — never quietly kept, never quietly dropped either. The refusals go into the
+citation queue, which is simply a list of "the machine would not accept these, a person needs
+to rule on them". Nothing else in the system touches it; it waits for a human.
+
+There are four rulings waiting, one per kind of thing we catalogue. The number in the handoff —
+"4 items" — is four *lists*, not four facts: between them they hold 27 refused facts, of which
+**one** concerns a mortgage lender. So working that queue will not produce more lenders, and I
+should not have implied it would.
+
+The single mortgage-lender refusal is a good illustration of the system behaving well rather
+than badly. It is a fact about Family Building Society's product range, and the page it quotes
+has been reworded since we last looked, so the quotation no longer appears on it word for word.
+Two facts about that lender that we verified on Friday are still standing and untouched. The
+refusal is the check doing its job on a re-run, not something breaking.
+
+**Where the directory genuinely is thin is the research, not the review.** We have four
+mortgage-lender records; two of them were struck out on Friday because they were not lenders at
+all but categories — one was literally "FCA-regulated mortgage lenders (general)". So two real
+firms: Family Building Society and Mansfield Building Society. The queue cannot fix that. What
+fixes it is running the lender researcher more, or aiming it better.
+
+**On your other point — the two builds are not two different machines.** You said one looked
+like a page-flow builder and the other like the work-item system. I checked what actually did
+the work rather than what the write-up claims, and all three sites — the pilot, the new build,
+and loanzy — produced the identical sequence of jobs handled by the identical agents: research,
+strategy, briefing, site plan, design, then one job per page and one per image. loanzy's jobs
+are marked cancelled because you cleared the site, not because something else built it. There
+*is* an agent called `pageflow-builder`, and the classifier still writes its name into a field
+called "recommended builder", which is almost certainly where the impression comes from — but
+nothing in the current build path reads that field. It is a leftover from an older route in.
+So the difference between the two flows really is only what we prepare before pressing go.

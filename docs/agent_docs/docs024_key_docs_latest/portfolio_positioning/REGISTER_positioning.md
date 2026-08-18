@@ -262,6 +262,22 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   (d) `loansy.uk` and `loanzy.co.uk` remain HOLD, untouched.
   Lane: `docs024_key_docs_latest/loanzy_uk_example_site/`. P-number free when written
   2026-08-18; if another session has taken P10, renumber this and leave the date.
+- **P11 (owner ruling, 2026-08-18 evening): the first `loanzy.uk` build was CLEARED, and a
+  standing rule follows from it — *"we shouldn't create accredited finance broker sites
+  unless asked"*.** The no-prompt build invented a credit-broker identity (an FCA-shaped
+  regulated intermediary) off nothing but the domain name and a short prompt. Two separate
+  faults, and only the first was previously recorded here: it had no `evidence_base`, so
+  nothing checked a single claim on its 20 pages; and — the ruling — **inventing a regulated
+  identity is itself out of bounds, guards or no guards.** A regulated-firm posture is a
+  legal position, not a content choice, and no agent may adopt one on the estate's behalf
+  without being asked for it explicitly.
+  **Consequence for the flow decision (`DECISION_2026-08-18_two_builder_flows_side_by_side.md`):**
+  the seeding gap it identifies is real but is no longer the whole gap. An automatic seed
+  supplies `evidence_base`, an email and an imagery guide; it does **not** stop the
+  classifier or strategist choosing a regulated identity in the first place. Flow B needs a
+  **prohibition on regulated-intermediary positioning** in the classifier/strategist path
+  (or a check that refuses the plan) on top of the auto-seed, and that is new work not
+  costed in the decision doc.
 
 ## Family: BANKING / SAVINGS / RATES
 

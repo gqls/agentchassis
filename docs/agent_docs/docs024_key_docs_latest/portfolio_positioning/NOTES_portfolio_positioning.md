@@ -2208,3 +2208,101 @@ belt-and-braces. If sites are to be built from a short prompt — the `loanzy.uk
 just from the webdesign.uk prompt"*, no register entry — then the classifier reading the
 register is **the only remaining place differentiation could come from**, and RFC_037 becomes a
 precondition for the fleet rather than an improvement to it.
+
+---
+
+## 2026-08-18 (evening) — three measurements: DNS after the Nominet change, the citation queue, and whether the two flows are actually two flows
+
+### 1. DNS — the nameserver change LANDED; `www` was never a nameserver problem
+
+Measured 2026-08-18, from this session, resolver + HTTPS in one pass:
+
+| host | DNS | HTTP |
+|---|---|---|
+| `ai-agent-orchestration.com` (reference) | `2606:4700:3033::6815:eef` | 200 |
+| `www.ai-agent-orchestration.com` | **NXDOMAIN** | — |
+| `remortgagecalculator.uk` (pilot) | `2606:4700:3037::6815:11f8` | 200 |
+| `www.remortgagecalculator.uk` | **NXDOMAIN** | — |
+
+**The pilot is serving its own pages at its own domain for the first time** — body read, not
+status code (`<title>Remortgage Calculator UK — Your Number, in Seconds</title>`, 40,726 bytes,
+the framework's own CSS-variable stylesheet). That closes the §3 blocker in
+`HANDOFF_2026-08-18b`: the Nominet delegation to `alexis`/`leah.ns.cloudflare.com` is live.
+
+**`www` is unchanged and the nameserver change could not have changed it.** Delegation decides
+*which nameserver answers*; `www` needs *a record to answer with*, and there is none — the
+reference zone carries one apex A record and nothing else, and the worker route is
+`<domain>/*`, which does not match `www.<domain>`. So the RUNBOOK's fleet-wide finding stands
+verbatim, now with a second zone confirming it. **[MEASURED]** — the disconfirming result was
+available: had a `www` record existed, `getent hosts` would have returned an address.
+
+### 2. The citation queue — what is actually in it (`directory_citation_unverified`)
+
+Four rows open, one per directory kind, all at the `system.internal` pseudo-site
+(`eac60db8-…`), all `needs_human_review`, all `handler_agent='human-review'`:
+
+| item_key | rejected candidates | classes |
+|---|---|---|
+| `…:company` | 10 | citation_lost |
+| `…:model` | 12 | citation_lost |
+| `…:mortgage-lender` | **1** | citation_lost |
+| `…:protocol` | 4 | citation_lost, fetch_error |
+
+**The handoff's "4 items" is 4 QUEUE ROWS, not 4 candidates** — 27 rejected candidates in
+total, and only ONE of them is a mortgage lender. Re-read `HANDOFF_2026-08-18b` §3 with that
+correction: working the mortgage-lender row cannot produce more lenders, because it holds one
+reject and that reject is not a new lender.
+
+The single mortgage-lender reject: `family-building-society` / `product_types`, class
+`citation_lost`, url `…/mortgages/later-life-mortgages`. **It is not a loss.** Two current
+`found` claims for that entity already stand (`lender_type`, `product_types`, both verified
+2026-08-15) — this is a re-extraction whose longer quote no longer matches verbatim, the same
+shape the 08-15 health-insurer row was ruled on. The verbatim gate working, not a regression.
+
+**Why the register still shows "2 lenders" against 4 entity rows** — the two extra rows are
+`status='archived'`: `fca-regulated-mortgage-lenders` ("FCA-regulated mortgage lenders
+(general)") and `uk-specialist-lenders-sector`. Both are CATEGORY-shaped, not named firms, and
+the 08-15 B4 session's "discard" ruling archived them and added the named-firm rule to
+`extract_claims` (migration 423). `QueryDirectoryEntries` filters `status='active'`, so they
+cannot reach a page. The two active ones are Family Building Society and Mansfield Building
+Society. **So the directory's problem is ACQUISITION (the researcher finds ~2 firms per run),
+not the review queue.**
+
+### 3. The two builder flows ARE one flow — measured at the handler, not asserted from the script
+
+`DECISION_2026-08-18_two_builder_flows_side_by_side.md` asserts "same entry script and same
+agent graph" from the script. Here is the same claim measured at the work items the builds
+actually produced — the row that names the agent that did the work:
+
+| domain | needs_site_plan | needs_composition | needs_page | needs_imagery |
+|---|---|---|---|---|
+| remortgagecalculator.uk (A) | `build-site-planner` | `site-design-planner` | `page-build-handler` ×14 | `image-build-handler` ×11 |
+| adversecreditmortgage.co.uk (A) | `build-site-planner` | `site-design-planner` | `page-build-handler` ×18 | `image-build-handler` ×20 |
+| loanzy.uk (**B**) | `build-site-planner` | `site-design-planner` | `page-build-handler` ×16 | `image-build-handler` ×16 |
+
+Identical handlers, identical item types, identical order
+(`needs_domain_research → needs_strategy → needs_briefing → needs_site_plan → needs_design →
+needs_composition → needs_page/needs_imagery`). **loanzy.uk drove off the same work-item queue
+as both flow-A sites.** Its rows are `cancelled` because the site was cleared, not because a
+different mechanism built it.
+
+**Where "pageflow builder" comes from, and why it is a red herring here.** `pageflow-builder`
+is a live agent, and the classifier's prompt still tells it to emit
+`"recommended_builder": "pageflow-builder"` (`003_site_classifier.sql`). But: only TWO live
+agent definitions mention the string at all (`domain-research-classifier`, which writes it, and
+`pageflow-builder` itself, which is named by it) — and **no Go code in `platform/` or
+`internal/` reads `recommended_builder`** except doc-comment examples of the generic
+`agent_type_field` dynamic-dispatch mechanism (`spawn_actions.go`, `call_agent.go`). It is a
+field from the older intake route that the build pipeline does not dispatch on. **[MEASURED]**
+by `default_config::text LIKE '%pageflow-builder%'` over live non-snapshot agent definitions,
+and by grep over the two Go trees.
+
+### 4. Misstep in this session, caught by my own aggregate
+
+Reading `family-building-society`'s claims I saw two rows with `is_current = t` for the same
+`field` (`product_types`) and started to write it up as a supersede defect. The fleet-wide
+check — `GROUP BY entity_id, field HAVING count(*) > 1 WHERE is_current` — returned **0 rows**,
+which refuted it in one query. The cause: `UNIQUE(kind, slug)`, so Family Building Society
+exists TWICE, once as `mortgage-lender` and once as `savings-provider`, and my slug-only filter
+joined both entities' claims into one listing. **A per-entity read cannot see a per-(kind,slug)
+key** — filter by kind, or join and print it.
