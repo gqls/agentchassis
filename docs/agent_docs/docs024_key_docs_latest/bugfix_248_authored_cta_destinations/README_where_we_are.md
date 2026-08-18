@@ -83,3 +83,46 @@ fix depends on: the moment the machine *can* choose the contact page, "the machi
 chosen this" stops being true. Doing both properly needs the database field the original bug
 report proposed. It is now the second bug to need it, which is probably the argument for
 building it.
+
+## 2026-08-18, later — it is live, and it works
+
+The release went out while I was writing this up, and the fix is in it. I checked that
+properly rather than trusting the release: the running binary says which commit built it, and
+our fix is an ancestor of that commit. A version tag alone would not have told us — we have
+been caught by that before.
+
+Then I proved it on a real page instead of trusting the tests. I took a before-snapshot of
+leopardessconsulting.co.uk/how-it-works, fired exactly the kind of repair job that has been
+destroying these buttons, and looked at what came back. Both contact buttons — "Walk us
+through your problem" and "Describe the job" — still point at the contact page, and the live
+page confirms it.
+
+The part that makes that meaningful is the control. The repair genuinely rewrote both
+sections: their last-modified stamps jumped from 18 July to this evening and fourteen archive
+rows were written. So the job ran, rewrote the page, and *chose* to leave the contact links
+alone. Without checking that, "nothing changed" would have been indistinguishable from "the
+job never ran" — which is how you end up believing a fix that did nothing.
+
+The review panel approved it first time, with four advisory comments and no blocking ones. I
+checked every comment that could be checked rather than answering from memory, and one of them
+caught me: I had written that the demoted detector's findings are still recorded "durably".
+They are recorded, and they are queryable for about a month, and nothing downstream reads
+them. That is a weaker claim than I made, so I have corrected it.
+
+A second correction came from another session working on the neighbouring half of the same
+function. They pointed out that the *rebuild* path's output is currently thrown away before it
+reaches a page — so the second fault I fixed was not actually destroying anything yet. It
+would have started the moment their own fix lands, which is why it is worth having in place
+first. I had claimed it was doing damage already. It was not, and I have corrected that in
+four places and logged it.
+
+I am leaving the bug file open rather than filing it as closed, and deliberately: two other
+sessions are gating their work on it and are actively writing into it this evening. Closing it
+would move the file out from under them mid-flight. It should close once their wiring fix
+lands and the rebuild half gets its first real exercise.
+
+On your instruction to keep a provenance record — I have written that up as the decided
+direction on the new bug, along with your rule about not adding flags that let agents ignore
+things. That one is worth having in writing, because the obvious way to build provenance is to
+add a switch that turns it off for callers in a hurry, and that is exactly what you have said
+not to do. The fix that just shipped conforms already: it added no switch of any kind.
