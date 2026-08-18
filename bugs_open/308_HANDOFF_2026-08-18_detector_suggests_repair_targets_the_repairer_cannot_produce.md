@@ -108,3 +108,46 @@ there rather than opening a competing lane.**
    which is the signal that LNK-033's invariant was consciously retired rather than quietly
    broken. **If that test was edited without provenance landing, the fix is wrong.**
 3. A fresh POSITIONAL pick must still never land on a utility page, whatever else changes.
+
+---
+
+## OWNER RULINGS 2026-08-18 — this bug's direction is now decided
+
+Recorded by the `bugfix_248_authored_cta_destinations` lane, which filed this bug and put the
+question to the owner in the same session.
+
+### 1. **Build the provenance record. Fix candidate 1 is the chosen route.**
+
+Asked whether to keep deriving provenance from the resolver's constraints (cheap, fragile) or
+to record it properly, the owner ruled: **"Keep a provenance record."**
+
+So candidates 2, 3 and 4 above are **not** the plan. In particular candidate 2 (widen the
+label-match candidate set and recalibrate stopwords) must NOT ship on its own — it falsifies
+`bugs_open/248`'s live invariant (LNK-033) the instant it lands, and 248's two keep-branches
+would begin freezing the resolver's own output with the detector arm that would have noticed
+now demoted. **Provenance first, then the widening.**
+
+### 2. **No opt-out flags. "Don't add any new flags that let other agents ignore things — this leads to bugs."**
+
+A design constraint on whatever is built here, and it rules out the shape this estate reaches
+for by habit: a `skip_provenance` / `ignore_authored` / `force_recompute` config key on the
+step, so a caller in a hurry can switch the new rule off.
+
+Read it against the 2026-08-02 owner ruling (new authority on a shared seam ships as an opt-in
+field with the unsafe default OFF) — **they are not in conflict, and the difference is worth
+being precise about.** That ruling is about a *capability* whose widest branch needs a caller
+to opt in. This one is about an *escape hatch* from a rule that is already load-bearing. A
+field that turns a protection OFF is not the same object as a field that turns a capability
+ON, even though both are "a new key with a default". If the provenance work needs a new key,
+it must be the second kind.
+
+The 248 fix already conforms, and is a usable precedent: `storedCTADestinationIsAuthored` is a
+predicate with no config surface at all, and the detector demotion is unconditional. Nothing
+was added that a caller can switch off.
+
+### What this means for sequencing
+
+`bugs_open/312` (the wiring defect that makes `setCTAField`'s output discarded) is held and
+gated on 248's two keep halves. 248's rerender half is proven live at `v1.0.1310`; its build
+half is pre-positioned. Provenance work should assume the build path WILL be live and design
+for both writers from the start, rather than treating the build path as dormant.
