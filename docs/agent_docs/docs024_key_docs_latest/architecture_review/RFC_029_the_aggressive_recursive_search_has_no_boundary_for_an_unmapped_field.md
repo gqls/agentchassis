@@ -862,3 +862,58 @@ COUNT is right, the VOLUME is not. Phase 2 is still gated on the same enumerated
 simply a louder list than I said yesterday, which makes triage pass 2 (§10.7a(c): *what is still
 searching, when every sub-workflow reference is explicitly mapped?*) the more clearly the next
 piece of work.
+
+### 10.10 TRIAGE PASS 2 — ANSWERED, at the code: an explicitly-resolved field is STILL searched, and only `!` stops it. This de-risks Phase 2 and hands us a clean fix.
+
+§10.7a(c) asked: every `work_item_id`/`current_page` reference in the loop's sub-workflow is
+explicitly mapped, so why do ~7 rows per run still reach the whole-tree search? Neither candidate
+explanation was right. **The answer is in `ExtractActionInputs` itself** (`action_inputs.go`
+~690–780, read 2026-08-18):
+
+```go
+allFields := append([]string{}, spec.Required...)
+allFields = append(allFields, spec.Optional...)
+// Strategy 0: resolve explicit dotted config paths into result.Values     <- resolves current_item.id
+...
+extracted := ExtractFields(collectedData, withoutStrict(allFields), logger) // <- SEARCHES ALL OF THEM ANYWAY
+for k, v := range extracted {
+    if _, alreadyResolved := result.Values[k]; alreadyResolved { continue }  // <- discarded HERE, after the fact
+```
+
+**`allFields` is never pruned by what Strategy 0 already resolved.** The search therefore runs for
+every declared field, conflicts and all, and its answer is thrown away at merge time. The only
+thing that removes a field from the search is `withoutStrict` — i.e. the **`!` marker**.
+
+Three consequences, in order of importance:
+
+1. **The triage method in the handoff was half wrong, and is corrected.** "Write the explicit
+   mapping, then `!`" — the *mapping alone changes nothing observable*. It was already there for
+   `claim`, `mark_failed` and `call_handler`, and the rows kept coming. **`!` is not a
+   ratchet-after-the-fact here; for these fields it IS the fix.** (And it is exactly why 287's
+   `result!`/`work_item_id!` took `field=result` to zero while the other two fields, left
+   unmarked, carried on.)
+2. **Phase 2 is much less risky than §10.5 feared.** For any field Strategy 0 resolved, the
+   search's answer is *already discarded*, so Phase 2 (conflicts resolve NOTHING) changes nothing
+   at all for it. The real exposure is only the subset where Strategy 0 did NOT resolve — a
+   strictly smaller population than the row count suggests. **The rows OVERCOUNT the exposure**,
+   and the instrument cannot yet separate the two: the conflict WARN fires inside
+   `findFieldRecursive`, which has no knowledge of `result.Values`.
+3. **A clean fix exists, and it is better than marking fields one at a time.** Prune `allFields`
+   (and Strategy 1's `fieldNames`) by what Strategy 0 already resolved, before calling
+   `ExtractFields`. Behaviour-equivalent by inspection — the merge discards exactly those keys
+   today, and `ExtractFields`' only side effect on a non-requested field is core-field recovery,
+   which covers `domain`/`objective`/`model` **only** (`unified_extractor.go:387`), none of them
+   in this population. It would: eliminate the bulk of the rows at a stroke; stop the platform
+   doing a whole-tree search per already-resolved field per step (a real waste on a hot path);
+   and leave a residual that *means* something — every remaining row would be a field the
+   platform genuinely could not resolve explicitly, which is the population Phase 2 is actually
+   about.
+
+**This is platform code on a shared seam, so it goes through the council gate**, and it is
+arguably an RFC_029 amendment rather than a new RFC: it changes no guarantee, it makes the
+existing "explicit beats search" rule actually skip the search. Sequence: build + submit; once
+live, re-read the window; whatever survives is Phase 2's true precondition list.
+
+`[UNMEASURED]` how much of the current population is inert-vs-live. The fix makes the question
+moot for the inert half, which is why it comes first — measuring the split would cost an
+instrument change that the fix then makes pointless.
