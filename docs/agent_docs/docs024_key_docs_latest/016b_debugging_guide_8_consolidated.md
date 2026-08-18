@@ -11295,7 +11295,7 @@ the bonus finding).
 **Symptom.** A discovery check's declared auto-repair handler (`HandlerAgent:
 "page-content-writer"`) either hard-fails every dispatch with the same message, or
 reaches `status='complete'` while the artefact the item named is untouched.
-`bugs_open/201`, from `184`'s verification run: 11 of 12 `literal_markdown` work
+`bugs_closed/201`, from `184`'s verification run: 11 of 12 `literal_markdown` work
 items failed identically (`page-content-writer planned its own sections and none
 are ready`); the 12th reached `complete` but the exact `page_components` row it
 targeted carries an `updated_at` from **before** the dispatch — nothing was written.
@@ -11337,7 +11337,7 @@ Category tags: `caller-enumeration-incomplete`, `shared-step-owner-called-direct
 `untested-branch-hit-same-day`, `complete-status-is-not-a-repair`,
 `unverified-precedent-cited-as-proven`.
 Related: `bugs_closed/087` (the fix whose self-plan branch this exercises for the
-first time); `bugs_open/201` (the case); `bugs_open/184` (the case that surfaced
+first time); `bugs_closed/201` (the case); `bugs_open/184` (the case that surfaced
 it, now blocked on 201); `bugs_closed/177` above (same shape — a caller never
 supplies what a handler's resolution needs — but 177 was the handler's OWN
 resolution failing on a page it built; this is a caller bypassing the wrapper
@@ -12631,4 +12631,4 @@ artefact unchanged": before reading the handler, run
 `grep -rn "RegisterVerifier(" platform/orchestration/actions/discovery_checks/`
 and check whether the item's type is even ON the list. If it is not, the
 completion proves nothing and the handler may not even be the defect. Related:
-`bugs_open/201` §symptom 2 (same class, different family), `bugs_closed/213`.
+`bugs_closed/201` §symptom 2 (same class, different family), `bugs_closed/213`.

@@ -34,8 +34,16 @@ at 3/3 → human review, which is the correct destination.
 fail-open-on-error policy, which this fix routes around locally and every other verifier still
 inherits. Not a blocker; an owner decision.
 
-**Per the owner ruling of 2026-08-06, this file STAYS in `bugs_open/` although it is fixed and
-live.**
+~~**Per the owner ruling of 2026-08-06, this file STAYS in `bugs_open/` although it is fixed and
+live.**~~
+
+> **CORRECTED 2026-08-18 — the 08-06 direction was SUPERSEDED on 2026-08-12**, when the owner
+> restored `CLAUDE.md`'s fixed-AND-live bar (*"if it is fixed and live it should be moved"*, asked
+> of `239`, which moved the same day in `2aa3014a3`). The practice is demonstrably active since:
+> `213`/`216` moved 08-15, `287` moved 08-18. **So this file moves to `bugs_closed/`**, with the
+> closure evidence re-verified at the artefact today rather than carried forward from this lane's
+> own account — see the final section. Caught by: reading the memory entry
+> `owner-keeps-fixed-bugs-in-bugs-open`, whose own title now describes the retired rule.
 
 ---
 
@@ -618,3 +626,59 @@ hard-fail on its two remaining attempts. **194's check 3b is therefore blocked b
 not merely behind a site choice. Recorded in
 `docs024_key_docs_latest/bugfix_194_sections_metadata_mapping/` (RUNBOOK R7, NOTES 08-05).
 No action requested of you; flagging the dependency so a fix here is known to unblock 194 too.
+
+---
+
+## CLOSING VERIFICATION 2026-08-18 — re-measured at the artefact, by a thread outside this lane
+
+Closed on evidence taken today, not on this file's own account. The lane's `HANDOFF_2026-08-09`
+states there is nothing left to do on 201; this section is the independent check of that claim,
+run by the `bugfix_302_design_repair_verification` thread (302 cites 201 §symptom 2 as its
+precedent, which is why this was looked at at all).
+
+**Symptom 2's verifier is live and DISCRIMINATING — both directions observed:**
+
+```sql
+SELECT status, result->'_verification'->>'status' AS verif, count(*) n, max(updated_at) latest
+FROM site_work_items WHERE item_type='literal_markdown' GROUP BY 1,2 ORDER BY n DESC;
+```
+
+| status | `_verification.status` | rows | most recent |
+|---|---|---|---|
+| `failed` | **`defect_persists`** | **15** | 2026-08-17 |
+| `complete` | **`verified`** | **1** | 2026-08-15 |
+| `unresolved` | — | 34 | 2026-08-17 |
+| `detected` | — | 10 | 2026-08-18 |
+| `failed` | — | 9 | 2026-08-14 |
+| `needs_human_review` | — | 3 | 2026-08-17 |
+| `complete` | — | 2 | 2026-08-17 |
+
+**Why both directions matter:** a verifier that only ever refuses could be broken-closed, and one
+that only ever passes is the `bugs_closed/213` shape (right about the wrong question). Fifteen
+refusals *and* one certification means the predicate can come out either way on live rows. The
+15 refusals are the mechanism 201 was filed to obtain.
+
+**The two `complete` rows carrying NO `_verification` were chased, not assumed.** They are not a
+bypassed gate:
+
+```sql
+SELECT result->>'resolved_by', result->>'reason', result->>'completed_by_step'
+FROM site_work_items WHERE item_type='literal_markdown' AND status='complete';
+-- resolved_by = 'literal_markdown'
+-- reason      = "literal_markdown re-scan: page's unlocked components carry no markdown syntax
+--                on either surface"
+```
+
+Both closed through the **discovery-check retraction seam (WII-009)** — the detector went back,
+re-ran its own predicate and found the defect gone. A retraction is a first-hand measurement, so
+there is nothing for a completion-time verifier to add, and it correctly does not run. ⚠ **Worth
+knowing when reading any verified item_type:** a `complete` row with a null `_verification` is
+NOT prima facie evidence of a gate bypass — read `result->>'resolved_by'` before concluding one.
+
+**What remains open is not this bug's**, and is unchanged from the 08-09 handoff: `RFC_017`
+option 3 (an `Indeterminate`/park outcome instead of burning three attempts) still has one real
+data point and no rate; `bugs_open/223` (landmine verifier blind to non-Go footprints) is open and
+unowned; the `empty_sections_loop_integrity` cheap fix is that lane's call.
+
+**Moved to `bugs_closed/` on this evidence**, per the restored fixed-AND-live bar (see the
+correction at the top of this file).
