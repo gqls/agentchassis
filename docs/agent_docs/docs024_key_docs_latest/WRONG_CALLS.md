@@ -36289,3 +36289,30 @@ Recorded as a visible correction in the 029 lane's NOTES.
   and the entry was keyed on a table or a command": **2, in one session.**
   Tally for "a durable claim built from one channel that another channel contradicted": 1 —
   and note it failed toward the comfortable answer (*dormant agent, nothing firing*) both times.
+
+- **2026-08-18 (same session, hours after the entry above) — "nothing currently guards yours."**
+  Told the `bugs_open/299` lane that the KEEP #2 → KEEP #3 fall-through in `applyCTARecompute`
+  was unprotected on their side — that my asymmetry test covered my half of the seam and
+  nothing covered theirs — and suggested they add one. I had not opened their test file.
+  **Actually:** `resolve_internal_links_nonpage_test.go` already trips mechanically. Proven by
+  inducing the exact mutation I was worried about (broaden KEEP #2 by dropping its
+  `validPages.Contains` requirement, so it swallows `tel:`/`mailto:`):
+  `TestApplyCTARecomputeKeepsAndNormalisesPhoneButton` and
+  `TestApplyCTARecomputeKeepsMailto` both go red, plus my own `TestApplyCTARecompute`. What
+  was genuinely missing was the seam being NAMED, so the failure reads "do not broaden keep
+  #2" rather than looking like a test that needs updating — which is the fix-the-checker trap,
+  and is what they added.
+  **The cheap check is the one I had already used three times today**: don't argue about
+  whether a guard exists, MUTATE the code and see what goes red. It took two minutes here, and
+  I had a scratch `git archive HEAD` tree already standing from the previous check.
+  **The tally is the finding, and it is why this is a separate row rather than a footnote to
+  the entry above.** That entry, written the same afternoon, is *"asserted a code path was
+  causing live damage without finding its reader"* — an absence claimed without looking. Then,
+  hours later, in a message reviewing someone else's work: an absence claimed without looking.
+  Same class, same session, and the first one had just been logged with its own cheap check
+  written out. **Writing the lesson down did not transfer it** — what transferred was the
+  habit of verifying claims *about code I was changing*, while claims *about someone else's
+  tests* went out unchecked because they felt like conversation rather than assertion.
+  A statement in a peer message is a durable claim: it lands in their notes and their register
+  entry, and mine nearly added a redundant test to a guarded seam.
+  Tally for "asserted an absence without opening the artefact": **2, both today.**
