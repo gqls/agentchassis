@@ -416,3 +416,100 @@ migration passes the guard by construction. **On candidate 2 (daily audit of
 EXISTING config):** the guard is its birth-gate half; `sourceVocabularyIssues` is
 pure and deliberately callable from a CronJob check — build the audit on it rather
 than a second predicate, or the two will drift the way §5.1's stale comment did.
+
+---
+
+## 9. THE CASE REPAIR — config is LIVE and PROVEN; the render is blocked by a guard doing its job
+
+**Owner ruled 2026-08-18: take candidate 1.** Done as migration
+`478_309_blog_listing_collection_dialect.sql` (+ ROLLBACK), applied 19:40Z and
+ledger-recorded via `--record-only` — **applied directly with psql, not `--apply`,
+because 473–477 are other sessions' pending files and the runner takes every pending
+file.** Its own guards ran: 7 phantom `site_specs.blog.*` fields retired, verify block
+confirms 0 `site_specs.*` sources survive, `articles ← query.blog_posts`, template
+ranges.
+
+**⚠ THE PAGE IS UNCHANGED AND SAFE.** `page_components.updated_at` is still
+2026-08-17, `rendered_html` still 14,212 chars, the served page still 32,594 bytes
+with 6 cards / 0 anchors. Nothing was written. Read on for why that is the correct
+outcome and not a half-applied change.
+
+### What is proven
+
+The template was executed before it was shipped (Go `text/template`, representative
+data): 2 items → 2 cards, 2 real anchors each, image `{{if}}`-gated so a missing
+image cannot emit `src=""`, `$.read_more_label` scoping correct inside `range`, 0
+unresolved `{{`. **Control:** the OLD template with the OLD data shape through the
+same harness reproduces the live defect exactly — 6 cards, 0 anchors — so the check
+can fail.
+
+Then the real thing. A `page-rerender` dispatch with `spec.reason=template_changed`
+(the `check_rerender_mode` conditional reads `input_data.spec.reason`; without a
+recognised reason it takes `else_step → render_page`, which would have assembled the
+new template against stored data with no `articles` and rendered an EMPTY grid — that
+is the trap in this repair) resolved **8 real articles with real URLs**, and:
+
+- **the archived `ai-readiness-checker-guide` is correctly ABSENT**;
+- **card 4's problem is fixed by construction** — the AI-Readiness card now points at
+  `/guides/tool-ai-readiness-checker-guide.html`, the live sibling.
+
+So the mechanism, the migration and the dispatch path are all confirmed working.
+
+### What blocked it, and why I did NOT force it through
+
+`save_page_sections` **refused**:
+
+> `SECTION SHRINK REFUSED for page "platform-log-index" — blog-listing 2478→1033
+> chars of VISIBLE text … (42% kept, floor 50%) … Nothing was written.`
+
+The guard is right, and it caught something I had not measured. `[MEASURED]` **5 of
+the 8 articles have an EMPTY `meta_description`** (`automation-savings-estimator-guide`,
+`llm-cost-calculator-guide`, `model-approach-selector-guide`,
+`review-council-simulator-guide`, `self-correction-leopardessconsulting`; the three
+`/guides/tool-*` ones have 140–177 chars). The collection dialect can only show what
+the page rows carry, so those five cards would ship with an empty excerpt. That is a
+real content regression on top of the intended loss of the fabricated metadata — and
+it is most of the missing 58%.
+
+**The error message invites you to `set section_shrink_floor in the step config`. Do
+not.** That key is read from step config only (`save_sections_shrink_guard.go:80`),
+i.e. from the `page-rerender` agent definition — so lowering it to push one page
+through weakens a guard on **every rerender fleet-wide**, which is the highest-volume
+pipeline there is. Trading a fleet-wide hollowing guard for one page is the wrong
+trade in every direction.
+
+### The exact unblock, measured rather than guessed
+
+`[MEASURED 2026-08-18]` from the resolved article set:
+
+| quantity | value |
+|---|---|
+| old slot visible text | 2,478 chars |
+| new render as it stands | 1,033 (**42%** — refused) |
+| floor to clear | ≥ 1,239 (50%) |
+| observed mean `meta_description` on the 3 that have one | 157 chars |
+| projected new render with the 5 backfilled | ≈ **1,818 (≈73%)** — clears comfortably |
+
+**So the blocker is a content gap with a number on it: five missing meta
+descriptions.** Backfill those five and re-dispatch the same rerender; nothing else
+about this repair needs to change.
+
+⚠ **And it must be the FRAMEWORK that writes them, not a session** (owner ruling
+2026-08-06). The framework already knows: `head_essentials_missing` is the item type,
+and it stands at **606 rows fleet-wide, every one of them `status='detected'`** —
+i.e. detected and never promoted, which is this very lane's (`284`) subject. That is
+the thread to pull, and it is why this has not self-healed.
+
+### Left deliberately
+
+- **Migration 478 stays applied.** It is correct, the owner chose it, and rolling it
+  back would re-arm a `site_specs.blog.*` source that the new source-vocabulary birth
+  gate (`0df9f1be9`) now refuses. While it is applied the page keeps serving its old
+  stored HTML; any rerender of it (or of leopardess's blog page) refuses at the same
+  guard rather than writing anything — a failure, not damage.
+- **Cosmetic, not fixed:** the resolver projects `pages.title`, so card headings carry
+  the SEO suffix ("… | FundamentallyAI"). `nav_label` is not better (longer, same
+  suffix, and NULL on the three `/guides/` pages). Fixing it means projecting a clean
+  display title, which is a shared-resolver change affecting `tool-list`/`game-list`/
+  `guide-list` too — out of scope here, noted so the next reader does not think it was
+  missed.

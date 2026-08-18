@@ -465,3 +465,36 @@ that's archived — which also disposes of the odd card advertising a retired pa
 the obvious fix touches a component another site uses too, so it should go through review
 rather than be done quietly. The options are in the bug file, ranked. I've flagged the
 choice to you separately.
+
+**Later still — I made the fix you chose, and a safety check stopped it. That is the right outcome, and here is why.**
+
+The change itself is done and live in the configuration: the index component now reads
+your real article pages instead of a settings entry that never existed. I proved it
+works before and after shipping it — I ran the new template through the rendering
+engine on its own first, and then the real pipeline resolved **eight actual articles
+with working links**, correctly leaving out the retired one. So the odd card pointing
+at an archived page is fixed as a side effect, exactly as I said it would be.
+
+**But the page has not changed, because the save was refused, and nothing was written.**
+The framework has a guard that blocks any edit which quietly guts a page's text. The
+new cards came out at 42% of the old text and the floor is 50%, so it stopped.
+
+I could have switched that guard off. I didn't, for two reasons. The first is that the
+switch isn't per-page — it would have turned the protection off for every page
+re-render across every site, to push one page through. That is a bad trade in any
+direction. The second is better: **the guard was right, and it found something I had
+missed.** Five of your eight articles have no summary text stored at all. The old cards
+hid that by having the model make something up; the new ones can only show what is
+really there, so those five would have shipped with an empty description.
+
+So the blocker is not the fix — it is a genuine gap in the content, and it now has a
+number on it. Fill in those five summaries and the same re-render lands at about 73%,
+which clears the floor comfortably. I have not written them myself, because writing
+site content is the framework's job, not mine — and the framework already knows about
+this: it has flagged 606 missing-page-essentials items across the estate, every single
+one sitting undelivered in the same stuck state this whole workstream has been about.
+That is the thread to pull, and it is why this hasn't fixed itself.
+
+Everything is recorded, including a warning for whoever migrates the next component
+like this, because the error message politely invites you to disable the very guard
+that is protecting you.
