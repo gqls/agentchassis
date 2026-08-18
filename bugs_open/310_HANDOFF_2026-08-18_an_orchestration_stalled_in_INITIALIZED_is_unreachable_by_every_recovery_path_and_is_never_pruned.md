@@ -1,0 +1,276 @@
+# 310 — an orchestration stalled in `INITIALIZED` is unreachable by EVERY recovery path, and is never pruned
+
+**Filed 2026-08-18** by the `bugfix_281_tool_audit_ported` lane, found while verifying the close of
+`bugs_closed/294`. Status: **OPEN — latent-but-live, harm bounded.**
+
+**This is `294` one status over.** 294 closed the `RUNNING` gap with migration `463`
+(a `failed_running` reaper arm). `INITIALIZED` has the identical shape — a non-terminal status that
+no automated path reaches — and was named in 294's own post-close observation as the standing
+argument for its fix candidate 2. It is not the same bug and it is not covered by 463.
+
+**Do not read this as an outage.** Health-checking, the subsystem both stranded rows come from,
+is working: see the demand control in Evidence. The defect is a permanent slow leak and a
+structural hole, not a stopped pipeline.
+
+---
+
+## The one-paragraph version
+
+A row is created in `INITIALIZED` and is meant to leave that status milliseconds later, inside the
+same message handler that created it. If the process dies in that window, the row stays there for
+ever. The stale-orchestration reaper has four arms — `AWAITING_RESPONSES` (30 min / 90 min),
+`EXECUTING_STEP` (4 h) and, since `463`, `RUNNING` (4 h) — and **none for `INITIALIZED`**. The
+`database-cleanup` task deletes `COMPLETED`/`FAILED` after 24 h and `EXECUTING_STEP`/
+`AWAITING_RESPONSES` after 4 h, and **never mentions `INITIALIZED`** either. The only in-process
+consumer of the status is the `case StatusInitialized` arm of `handleOrchestrationStatus`, which
+runs only when an inbound Kafka message arrives for that orchestration — and for a stranded row,
+none ever will. So nothing will look at it again, and nothing will delete it.
+
+Unlike `RUNNING`, it pins no Kafka topics, so this is **not** a contributor to `bugs_open/240`.
+The harm is a permanent row (~4 KB), one silently-lost unit of work per occurrence, and a status
+that is invisible to every operator surface.
+
+## Evidence `[MEASURED 2026-08-18, DB clock 18:12Z]`
+
+**The live reaper's arms** — read from the `pre_query` the task is actually wired with, not from a
+migration file's intent (`SELECT pre_query FROM scheduled_tasks WHERE name='stale-orchestration-reaper'`):
+
+| arm | predicate |
+|---|---|
+| `failed_dispatch` | `status='AWAITING_RESPONSES'` AND `owner_agent_type='build-dispatch-loop'` AND idle > 30 min |
+| `failed_orchs` | `status='AWAITING_RESPONSES'` AND idle > 90 min |
+| `failed_wedged` | `status='EXECUTING_STEP'` AND idle > 4 h |
+| `failed_running` | `status='RUNNING'` AND idle > 4 h  *(added by `463`, verified live)* |
+| — | **no `INITIALIZED` arm exists** |
+
+**The live pruner** (`scheduled_tasks.name='database-cleanup'`, hourly), clause 3 and clause 4:
+deletes `status IN ('COMPLETED','FAILED') AND updated_at < NOW() - INTERVAL '24 hours'`, and
+`status IN ('EXECUTING_STEP','AWAITING_RESPONSES') AND updated_at < NOW() - INTERVAL '4 hours'`.
+**`INITIALIZED` appears in neither.**
+
+**No live scheduled task mentions the status at all:**
+`SELECT name FROM scheduled_tasks WHERE pre_query ILIKE '%INITIALIZED%'` → **0 rows**. Only three
+tasks reference `orchestration_states`: the two above plus `claimed-item-timeout`, which is
+read-only with respect to it (0 `UPDATE`/`DELETE` against the table in its `pre_query`).
+
+**The census, and why it is a LIFETIME figure rather than a window.** `orchestration_states` *is*
+pruned — `COMPLETED`/`FAILED` reach back only to 08-17 — so a count over this table is normally a
+~24 h window and must be treated as one. The predicates above are the licence for treating this
+particular status differently: **no automated path deletes an `INITIALIZED` row**, which is why one
+survives from 2026-07-13. Scope the claim honestly: this is lifetime *with respect to every
+automated path*, and a session could have swept rows by hand (24 `CANCELLED` rows dated
+2026-07-19→24, written by nothing in this repository, are what a manual sweep looks like here).
+
+| orchestration | owner_agent_type | current_step | idle |
+|---|---|---|---|
+| `0dcdd076-6515-4c60-b015-a73af84e7c3b` | `generic` | `check_health` | **870.78 h (36.3 d)** |
+| `8a3adf9b-e7a0-4fe9-90b1-3fc7237fa125` | `endpoint-health-checker` | `check_health` | **10.24 h** |
+
+Both have `awaited_requests = {}` and `last_activity = created_at` — they never advanced past
+creation, which is the signature of the window below rather than of a later stall.
+
+**DEMAND CONTROL — the subsystem works; do not read two rows as a broken pipeline.**
+`endpoint-health-checker` logged **964 `COMPLETED`** and 4 `FAILED` runs inside the 24 h retention
+window, most recent 16:37Z. So the 07:58Z stall is roughly **1 in 969** for that agent over that
+window, `n=1`, and the rate is not otherwise estimable from this table because the successes are
+pruned. A zero here would have been meaningless; 964 is what makes the one row informative.
+
+**A natural experiment, and it did NOT reproduce.** A chassis roll is the exact event that should
+strand these rows. Pods rolled at **18:00:06Z / 18:00:29Z**; re-censused at 18:12Z, `INITIALIZED`
+was **still 2 rows** and `RUNNING` **0**. Read as weak corroboration that the window is genuinely
+tiny — not as evidence of a fix, and not as a licence to close this.
+
+## Root cause, in the code
+
+**Exactly one live writer, exactly one reader.** `grep -rn "StatusInitialized" --include="*.go" .`
+returns four hits and no more:
+
+1. `platform/orchestration/state.go:26` — the constant.
+2. `platform/orchestration/state.go:734` — `StateRepository.CreateInitialState`, the `$11` status
+   parameter of the INSERT. **The only live writer.**
+3. `platform/orchestration/coordinator.go:741` — `case StatusInitialized` in
+   `handleOrchestrationStatus`. **The only reader.** It calls `SetExecutingStep` and then
+   `continueExecution`, so it is what normally moves a row on.
+4. `platform/orchestration/helpers.go:615` — a second writer that **never fires**: it is inside
+   `OrchestratorHelper`, whose constructor `NewOrchestratorHelper` (`helpers.go:581`) has **zero
+   callers** repo-wide. Re-verified here by grep rather than cited from `294`, which is what that
+   file's Correction 3 asks the next reader to do. The same greps show `NewTimeoutMonitor`'s only
+   caller is `NewOrchestratorHelper` (`helpers.go:587`), so the whole `TimeoutMonitor` cluster is
+   dormant and is not a recovery path for this or any status. Scope: "no caller in this
+   repository", not "uncallable" — both constructors are exported.
+
+**The window is milliseconds, in one process.** `coordinator.go:149` calls `getOrCreateState`,
+which runs `CreateInitialState` (row now `INITIALIZED`) and returns; `coordinator.go:165` then
+calls `handleOrchestrationStatus` on that same state, which takes the `StatusInitialized` arm and
+calls `SetExecutingStep`. Between those two commits there is a `GetState`, three log lines and a
+map assignment. **`INITIALIZED` is an inter-step transition, never a durable healthy state** — the
+same structural argument `463` used to license its threshold on the *code* rather than on a census,
+and it does not expire the way a census does.
+
+A row is therefore stranded iff the process dies inside that window (eviction, OOM, roll), or
+`handleOrchestrationStatus` returns before `SetExecutingStep` and the message is not redelivered.
+As with `RUNNING`: **no in-process recovery can exist, because the process that would do it is
+gone.** An external sweeper is the correct primary fix, not merely the cheapest.
+
+**It is also invisible to every operator surface**, which is why it went 36 days unnoticed:
+
+- `internal/core-manager/admin/dashboard_handlers.go:353` counts "active workflows" as
+  `status IN ('RUNNING','AWAITING_RESPONSES','PAUSED_FOR_HUMAN_INPUT')` — `INITIALIZED` is absent,
+  so a corpse is not reported as active *or* as anything else.
+- `platform/orchestration/actions/cleanup_stale_topics.go:209,213` protects
+  `('RUNNING','AWAITING_RESPONSES','PAUSED_FOR_HUMAN_INPUT','EXECUTING_STEP')` — `INITIALIZED`
+  absent. **This is the one place the omission helps**: it is why these rows pin no Kafka topics
+  and why this is not a `240` contributor.
+
+## ADJACENT FINDING — a status string that no code path can produce `[MEASURED 2026-08-18]`
+
+Found while enumerating the status vocabulary for fix candidate 2. **Filed here rather than
+separately because it is latent; promote it the moment anyone wires pause-for-human.**
+
+The Go constant is `StatusPausedForHuman OrchestrationStatus = "PAUSED_FOR_HUMAN"`
+(`state.go:28`). **Five production SQL sites guard the string `'PAUSED_FOR_HUMAN_INPUT'`**, which
+that constant cannot produce:
+
+| site | what it would get wrong |
+|---|---|
+| `actions/cleanup_stale_topics.go:209` and `:213` | a paused run's Kafka topics unprotected → deleted mid-pause |
+| `internal/core-manager/admin/topic_cleanup_handler.go:85` | same, on the admin path |
+| `internal/core-manager/admin/dashboard_handlers.go:353` | a paused run not counted as active |
+| `platform/orchestration/monitoring.go:168` | the `paused` metric can only ever report 0 |
+
+`test/tools/db-inspector/check_state.go:127` uses `'PAUSED_FOR_HUMAN'` — **the test tool has the
+correct string and production has the wrong one, in five places.**
+
+**Why it is not biting today, stated so nobody "fixes" a live incident that isn't one:**
+nothing writes the constant. `grep -rn "StatusPausedForHuman"` returns its definition and one e2e
+assertion (`test/e2e/scenarios/human_in_loop_test.go:107`); `pause_for_human_input` appears only in
+a fuel-cost table and a doc comment, with no registered action. No `PAUSED_*` row has ever existed
+live (`SELECT DISTINCT status FROM orchestration_states` → 6 values, none paused). So the feature
+is unwired and the mismatch is **latent**. It becomes live and silent the day someone wires it.
+
+## Fix candidates, ordered by what makes the bad state unrepresentable
+
+**1 — an `INITIALIZED` arm on the reaper, mirroring `463`.** Live config, effective on save, no
+build. Closes the immortality; does not stop the producer, which is correct — the producer is a
+process dying mid-window and cannot be stopped from inside that process. Lowest risk: the idiom,
+the guards, the rollback shape and the induced test are all proven by `463`, applied one day
+earlier against the same row. **Recommended, and the one I would take.** Threshold 4 h, matching `failed_wedged`
+and `failed_running`, licensed by the code argument above rather than by a census.
+
+**2 — reap on the INVARIANT instead of enumerating statuses** (this is `294`'s residual 1, and the
+only candidate that closes the *class*). Any non-terminal row, idle beyond a threshold, with no
+`awaited_requests`, is dead regardless of which status it stopped in — so no future status can be
+forgotten the way `RUNNING` was and `INITIALIZED` is. **It needs care that candidate 1 does not:**
+it must exclude genuinely-durable non-terminal states, and the vocabulary is not what a reader
+would assume — `PAUSED_FOR_HUMAN` is the real durable one, it is spelled two different ways across
+the estate (see the adjacent finding), and an invariant arm that inherits the wrong spelling would
+reap paused runs and look correct while doing it. Do not attempt this without settling the string.
+
+**3 — never persist the status: create the row directly in `EXECUTING_STEP`.** Makes the state
+unrepresentable at source, which is the strongest form. But it is a Go change on the hottest path
+in the coordinator, it needs a roll, and `INITIALIZED` is load-bearing for the duplicate-key →
+`GetState` idempotency branch at `coordinator.go:620` and `:673`. Higher risk than the leak.
+**Not recommended now**; the right shape if the class is ever revisited wholesale.
+
+**4 — a topic-pin age guard** — not applicable here, unlike in 294: these rows pin nothing.
+
+## How to verify a fix
+
+Induce it in **both** directions, with the negative control in the same tick — the shape `463`
+used, because an arm only ever observed *not* firing is indistinguishable from one that cannot:
+
+```sql
+-- (a) induce: a row that MUST be reaped
+UPDATE orchestration_states SET status='INITIALIZED', last_activity = now() - interval '5 hours'
+ WHERE orchestration_id = '<a disposable test row>';
+-- (b) negative control, same tick: a row that must NOT be reaped
+UPDATE orchestration_states SET status='INITIALIZED', last_activity = now() - interval '10 minutes'
+ WHERE orchestration_id = '<a second disposable row>';
+-- then wait one reaper tick (interval_seconds=180) and read BOTH back.
+-- pass = (a) FAILED, (b) still INITIALIZED. Both halves are required.
+```
+
+Then confirm the pre-existing arms survived the rewrite — a clumsy full-text `pre_query` update
+that dropped `failed_wedged` would otherwise pass every assertion about the new arm.
+
+## Notes for whoever takes it
+
+- **Re-read the live `pre_query` before writing a migration against it.** `scheduled_tasks` is
+  edited by more than one lane and the update is a full-text rewrite, so it clobbers silently.
+  `463`'s rollback gates on `md5(pre_query)` with a three-way branch for exactly this reason —
+  and **not** on `updated_at`, which moves for scheduler stamping with the text unchanged.
+- **A substring assertion proves nothing about whether the SQL parses.** A stored `pre_query`
+  parses only when the task next ticks, so a typo commits happily and then takes out *all* the
+  reaper's arms minutes later with no earlier signal. Use the `EXECUTE`-with-sentinel guard from
+  `463_..._ROLLBACK.sql` (house idiom: `210_report_pipeline_scheduled_tasks.sql`). The council
+  gated `463` at HIGH on precisely this and it is the first thing a reviewer will look for.
+- **`463` itself still has no parse check** — the council accepted that as an advisory because it
+  was already applied and ledger-recorded. A new migration has no such excuse: put the guard in
+  from the start.
+- Statuses are disjoint, so a new CTE needs no `NOT IN` exclusion against its siblings.
+- **The wider observation, which is the RFC signal and NOT this fix:** the status vocabulary is
+  enumerated by hand in at least six places — the reaper, the pruner, two topic-protection sets,
+  the dashboard count and the monitoring metric — and **no two of those lists agree**. That is the
+  same defect class as the `PAUSED_FOR_HUMAN` mismatch and as `294`, and it is why forgetting a
+  status is the default outcome rather than an accident. Candidate 2 is the local answer; a single
+  owned definition of "non-terminal" that all six read is the real one.
+
+---
+
+## FIX BUILT 2026-08-18 — candidate 1, written and fully proven, **NOT YET APPLIED**
+
+`docs/agent_docs/sql_for_agents/470_reaper_initialized_arm.sql` (+ `470_..._ROLLBACK.sql`).
+Adds a `failed_initialized` CTE to the reaper: `status='INITIALIZED' AND last_activity < NOW() -
+INTERVAL '4 hours'`, wired into the projection and the `HAVING` clause like its four siblings.
+
+**It is deliberately unapplied.** This is live config on a fleet-wide reaper — it takes effect the
+instant it is saved, with no build step to catch a mistake — so the apply is the owner's call, not
+a session's. Everything that can be proven without applying has been.
+
+**Numbering note:** built as `469`, renumbered to `470` mid-session because another lane created
+`469_render_audit_rotation_three_day_window.sql` two minutes earlier. Both embedded `pre_query`
+texts were re-verified byte-exact by md5 *after* the rename, because a global `sed` over a file
+whose payload is SQL is exactly how a payload silently acquires an edit.
+
+**Construction, and why it was not retyped.** The new `pre_query` was built by anchored insertion
+into the **live** text captured byte-exactly from the row (md5 `91ba9704…`, 2,582 B → `421dfc4f…`,
+3,068 B). `diff` of before/after shows **only** the three intended additions and nothing else. A
+reaper rewrite is full-text: retyping it is how a sibling arm quietly disappears.
+
+**Both guards are in the migration itself from the start**, which `463` did not have — its council
+round gated at HIGH on the substring-assertion gap and its `editquality` seat logged the advisory
+that `463` still lacked the parse check. Guard 1 is the three-way `md5(pre_query)` concurrency
+branch; Guard 2 is the functional `EXECUTE`-with-sentinel parse check.
+
+**Proven, every branch, all inside rolled-back transactions:**
+
+| what | result |
+|---|---|
+| Guard 2 on the new text | `PARSE OK` — parses and executes |
+| Guard 2 on a corrupted copy (`failed_initialized AS ((((`) | **CAUGHT** — `syntax error at or near "UPDATE"` |
+| Branch A — live is `463`'s text | `UPDATE 1`, arm wired, prior arms intact, parse-checked |
+| Branch B — migration run twice | `UPDATE 0`, *"already present — this run is a no-op"*, verify still passes |
+| Branch C — a third lane's edit | **`REFUSED`**, naming the remedy — no clobber |
+| ROLLBACK sidecar | restores byte-exactly to `91ba9704…` and parse-checks the restored text |
+
+**The induced test, both directions in the SAME tick** — the check this file's own "How to verify"
+section prescribes, run against the two real rows with the new `pre_query` executed directly:
+
+| row | idle | outcome |
+|---|---|---|
+| `0dcdd076…` `generic`/`check_health` | 870.98 h | **`FAILED`** — `reaper: stale INITIALIZED for >4h; step=check_health` |
+| `8a3adf9b…` (temporarily set fresh, the **negative control**) | 0.17 h | **still `INITIALIZED`**, untouched |
+
+`initialized_failed = 1` and **every sibling arm reported 0**, so nothing was reaped collaterally.
+An arm only ever observed *not* firing is indistinguishable from one that cannot fire, which is why
+both halves are recorded and why the control shares the tick.
+
+**Control after every test above:** the live row is **unchanged** — `md5 = 91ba9704…`, and
+`INITIALIZED` is still 2 rows. Nothing in this section touched production.
+
+**Still owed before this can close:**
+1. The owner's decision to apply, then the apply itself, then re-running the induced test against
+   the *scheduled* tick (these tests bypass the scheduler by executing the `pre_query` directly).
+2. Council verdict — submitted, correlation recorded in the commit trailer.
+3. **Re-read the live `pre_query` immediately before applying.** Guard 1 will refuse rather than
+   clobber if another lane has edited it since, but knowing that in advance beats an aborted apply.
