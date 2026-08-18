@@ -38,6 +38,13 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 >   threshold and nothing to do with the job. That lane believed the wrong number first.
 > - Their root cause (declared `timeout_seconds: 900` honoured on attempt 0 only, retries silently
 >   recomputed to 5 min, final replay landing on a live loop) is measured.
+> - ⚠ **THAT LANE HAS NOW WITHDRAWN ITS MECHANISM TWICE** (2026-08-18: first the optimistic-lock
+>   race, then the "retry kills live work" reading — the child was already dead ~7-10 min before
+>   the replay; staleness is the takeover's PRECONDITION, not its consequence). **This is why the
+>   pointer below is not laziness.** Both withdrawals happened after this handoff would have
+>   quoted them, and neither reached this file. Do not re-import a mechanism from their lane docs
+>   into this one, however well-grounded it looks — that is precisely the move `bugs_open/048`
+>   made against `029`'s previous wrong cause.
 > - **The underlying MECHANISM is provisional and deliberately NOT restated here** — it is being
 >   worked in `bugfix_029_retry_kills_live_child`; **read it there**. Two earlier versions of this
 >   handoff carried a mechanism from that lane, and the first one it gave me was later **withdrawn**
@@ -45,6 +52,26 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 >   `029`'s own history records `bugs_open/048` restating 029's *refuted* cause as fact while
 >   correctly diagnosing its own, because a confident cause in a handoff is what the next thread
 >   builds on. A cold-start doc is the highest-propagation surface there is.
+> - **What survives the withdrawals, and the one part that touches THIS lane** (their statement,
+>   2026-08-18 — impact, not mechanism): the retry-window truncation also fires **one level down,
+>   inside the child, where it abandons real page-building work**; and a replay **duplicates a
+>   non-idempotent spawn — a real `page-rerender` agent and K8s job — per incident.**
+>   `page-rerender` is this lane's own item type, so that is our exposure, not a bystander's.
+>   **CHECKED 2026-08-18 on this site: NO duplication damage.** Three duplicate
+>   `(page_id, slot_name)` groups exist and all three are **legitimate** — the discriminator is
+>   content identity, not slot repetition, and each group's `count(DISTINCT md5(content_data))`
+>   equals its row count (3/3, 2/2, 2/2: repeated `generic-text-block` slots). ⚠ **Re-run this
+>   after any future incident, and do NOT "deduplicate" on slot repetition** — a unique index on
+>   `(page_id, slot_name)` breaks 11 legitimate pages fleet-wide (LANDMINES):
+>   ```sql
+>   WITH dups AS (SELECT pc.page_id, pc.slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id
+>                 WHERE p.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da' GROUP BY 1,2 HAVING count(*)>1)
+>   SELECT p.name, pc.slot_name, count(*), count(DISTINCT md5(pc.content_data::text)) AS distinct_content
+>   FROM page_components pc JOIN dups d USING (page_id, slot_name) JOIN pages p ON p.id=pc.page_id
+>   GROUP BY 1,2;   -- act ONLY on groups where distinct_content = 1
+>   ```
+>   Also theirs: each takeover **re-stamps `last_activity` and RESETS the 4-hour reaper clock**, so
+>   poking a wedged row buys it another four hours. Another reason not to touch one.
 > - ⚠ **A LOG GREP CANNOT CONFIRM ANY OF THIS, AND WILL LOOK LIKE IT REFUTES IT.** Chassis log
 >   retention on this cluster is about **FOUR MINUTES** — a 24h query returns lines from minutes
 >   ago on a pod that started hours ago. So grepping for the takeover returns zero **with the
