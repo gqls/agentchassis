@@ -1586,3 +1586,63 @@ worth not repeating.
 decommissioned. Phase 0 spend total $5.72 booked / ≈$1.12 real.** Remaining for
 the lane: invoice (settles real rates), owner switches (monitor enable, 259
 live-proof), Phase 1 front-end coordination.
+
+---
+
+## 2026-08-18 — THE INVOICE LANDED: every open price question settles, and the books reconcile to the cent
+
+Owner pasted the Thunder invoice preview (period Aug 9 – Sep 9):
+
+| line | qty | rate | amount |
+|---|---|---|---|
+| A6000 Instance Usage | 3.2 GPU-hours | **$0.35 / GPU-hour** | $1.10 |
+| 1x-2x A100 (80GB) Usage | 0.1 hours | **$1.09 / hour** | $0.02 |
+| **Subtotal** | | | **$1.12** (covered by credits) |
+
+**What this settles, each previously `[UNVERIFIED]`:**
+- **a6000 bills at the flat advertised $0.35/hr.** The "+$0.04/vCPU/hr beyond 4"
+  surcharge worry (floor $0.35–0.43) is RESOLVED at $0.35 — the 6-vCPU minimum is
+  included in the sticker price. WRONG_CALLS' 08-15 correction closes on the
+  cheap side.
+- **a100xl at $1.09/hr as advertised.**
+- **Reconciliation:** our real-cost estimate for the whole of Phase 0 was
+  **≈$1.12 — the invoice says exactly $1.12.** Uptime cross-check: our a6000
+  boxes sum to ≈3.16h ≈ the billed 3.2 GPU-hours; the a100xl 94s rounds into
+  their 0.1h/$0.02 line. Per-minute billing confirmed in practice.
+- **`cost_usd` inflation now has an exact factor:** $5.72 booked / $1.12 real =
+  **5.1× over** at the flat $1.80/hr. Config left at $1.80 deliberately — it is
+  the SAFE direction for the $30 daily cap and a single flat column cannot carry
+  per-type rates; noted in RUNBOOK.
+
+**Owner's pricing posture, stated 2026-08-18:** quote substantially over running
+costs — headroom for errors and reruns, plus profit. Measured cost basis for one
+full customer journey (train ~$0.25 clean + GGUF ~$0.05 + 2h playground ≈$0.75
+incl. warm-up): **≈$1.05 of GPU**. At 3× rerun headroom ≈$3.15. The PLAN's
+original £12–15 envelope gives ~10× cover over the measured base — consistent
+with the stated posture. **The number itself remains the owner's to fix.**
+
+## 2026-08-18 — LANE MERGE (owner direction): the front end joins this thread
+
+Owner: "maybe we merge the threads and continue in this thread for both front
+and backend" — and could not find the front-end thread, which is fair because
+the boundary line in our docs named a session id, not a path. For the record:
+
+**The front-end thread's docs: `docs/agent_docs/docs024_key_docs_latest/finetuning_uk_repair/`**
+(NOTES, README, RUNBOOK, PLAN_2026-08-03 + PLAN_2026-08-04, two SUMMARYs, and
+triggers 294/295). Session `7b4e88a8` / successors last touched it **2026-08-12**
+— dormant six days, no live transcript activity since. Safe to adopt; adopted.
+
+**Its honest parked state (from its own NOTES, 08-12):** the design AUDIT works
+and is verified (detect-only trigger 295); **the REPAIR path does not work** —
+four design repairs completed while changing nothing at the artefact (token-blob
+result shape, measured), one orphan `needs_rerender` stuck at `detected` (a dead
+status, fleet landmine), `/index.html` not redeployed since 08-12 03:34Z. Their
+NOTES deliberately left the four `complete` rows as evidence and did NOT assert
+a root cause — a `090` is the marked next step for "repair completes without
+repairing" (cross-cutting: three handlers).
+
+**Boundary lifted:** this lane now covers finetuning.uk backend AND front end.
+The repair lane's standing five stay where they are (history + evidence);
+new work records HERE. Phase 1 (offer page + payment link) is now unblocked on
+coordination — it needs only owner decisions (price, booking shape, samples,
+Stripe posture) and the repair-path question above.

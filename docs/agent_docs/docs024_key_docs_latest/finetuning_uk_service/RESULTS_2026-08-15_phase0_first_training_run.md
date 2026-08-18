@@ -58,9 +58,12 @@ safely enabled — owner switch, still off).
 | Whole day, 4 boxes | $1.630 | **≈ $0.32** |
 
 ⚠ `cost_usd`/`total_24h_spend` are OUR estimate at a flat $1.80/hr for every GPU
-type (`provision_action.go:429` → `decommission_action.go:152`) — an upper bound
-**4–5× over** for a6000. Safe direction (the $30 daily cap trips early). The true
-a6000 rate ($0.35 vs $0.43/hr) is `[UNVERIFIED]` until an invoice.
+type (`provision_action.go:429` → `decommission_action.go:152`) — measured
+**5.1× over** for a6000. Safe direction (the $30 daily cap trips early).
+~~The true a6000 rate is `[UNVERIFIED]` until an invoice~~ **SETTLED by the
+invoice, 2026-08-18: a6000 = $0.35/hr flat (6-vCPU minimum included — no
+surcharge), a100xl = $1.09/hr; billed per minute. Invoice total for all of
+Phase 0: $1.12, matching our real-cost estimate to the cent.**
 
 **Boot times — day-variable by ~20×, never quote without a date:**
 
@@ -139,5 +142,10 @@ Template verdict: the `ollama` template carries the binary (saves an install)
 but not a running service — the boot script must `ollama serve` itself.
 
 **Phase 0 total spend, all sixteen days of it settled in two sessions:**
-$5.72 booked / **≈ $1.12 real** across 7 boxes, every one decommissioned, vendor
-`{}` at close. Phase 0 is COMPLETE; pricing is unblocked (invoice still owed).
+$5.72 booked / **$1.12 real — CONFIRMED by the vendor invoice, 2026-08-18** —
+across 7 boxes, every one decommissioned, vendor `{}` at close. Phase 0 is
+COMPLETE and **pricing is fully unblocked**: measured cost of one full customer
+journey ≈ **$1.05 of GPU** (train ~$0.25 clean + GGUF ~$0.05 + 2h playground
+≈$0.75 incl. warm-up). Owner posture (2026-08-18): price substantially above
+running costs for rerun headroom + margin; the PLAN's £12–15 envelope gives
+~10× cover over the measured base. The number is the owner's.
