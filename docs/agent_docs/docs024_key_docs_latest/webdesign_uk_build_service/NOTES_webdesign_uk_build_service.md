@@ -3628,3 +3628,56 @@ Coverage-checked before filing (two open items already touch this page, both
 `unresolved_cta` from the internal-link-resolver on 2026-08-12, neither rewrites
 copy). Queued as **`881c95ef`**, `needs_content_page`, priority 40, same
 `owner-brief-2026-08-18` source as the other four.
+
+### ⚠ 12:10Z — the `index` rewrite reports COMPLETE and changed NO COPY. It was a RERENDER.
+
+The most consequential thing found this session, and it will read as success to
+anyone checking item status.
+
+**Measured, in this order:**
+
+1. Item `5c6f73ac` (index, `needs_content_page`, the other lane's) → `complete`
+   12:10:42Z. `pages.build_status='deployed'`, `deployed_at` 12:10:34Z, all four
+   `page_components.updated_at` 12:10:05Z. Everything reads like a successful rebuild.
+2. **The served page's visible text is BYTE-IDENTICAL to my 11:42Z fetch** — 1,872
+   chars both, zero words differing after stripping tags/script/style. (The full-file
+   md5 does differ; that is non-visible markup. Comparing raw md5 would have said
+   "it changed" and been useless.)
+3. **The mechanism, from the item's own result:**
+   `"commit_message": "Rerender: index.html"`. A rerender regenerates markup from
+   unchanged `content_data`, so the copy could not have changed. `success: true`.
+
+**What that cost, at the served page right now:** none of the owner's 2026-08-18
+directives reached index.
+
+- The post-payment link is called a **"preview" five times**, against the owner's
+  explicit directive that it never is.
+- One sentence is plainly **wrong to a customer**: *"you get a preview link within
+  about a month"* — that reads as "you wait a month for your link". The intended
+  claim is the opposite (the link stays live for about a month), and the correct
+  version is also on the same page: *"a preview link that stays live for about a
+  month"*. **The page contradicts itself.**
+- No domain rent/buy (£10/£200), no one-shot framing: `£10` 0, `£200` 0,
+  `one-shot` 0, `rent` 0 occurrences.
+
+**I am NOT asserting why a `needs_content_page` item took the rerender path.** I
+have the artefact and the commit message; I have not read the handler, and a cause
+stated confidently here would be exactly the kind of claim this repo keeps having
+to retract. Prior art worth reading first, both already filed:
+`bugs_open/201` (page-content-writer dispatched directly silently no-ops on an
+already-built page) and `bugs_closed/271` (a rewrite brief with no reader: "the
+work happens anyway, steered by nothing but `writer_block` and the existing page,
+and reports complete"). The other three pages DID get genuinely new copy — their
+validation blockers are on freshly written sentences — so the writer runs for
+them. Index is the odd one out.
+
+**Why this matters beyond one page:** the joint handoff's §1 verification recipe is
+"verify at the SERVED pages, never item status", and it lists what to expect —
+"no approval/pay-after sentence anywhere". Index **passes that check** (that copy
+went at 10:32) while failing every directive issued since. A verification list that
+only names what must be ABSENT cannot detect a rebuild that did nothing. The
+present-tense checks (the rent/buy figures, the absence of "preview") are the ones
+that catch it.
+
+Not re-triaged: repeating the dispatch would likely repeat the rerender, and the
+item belongs to the session driving both lanes. Handed to them in their directory.
