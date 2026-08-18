@@ -8,7 +8,7 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 >
 > | ask | state |
 > |---|---|
-> | **contrast** | **Partly fixed and PROVEN AT THE ARTEFACT: 44 → 33 firm failures on the 4 audited pages.** Migrations `456` + `457` applied and committed. The remaining 33 are a **different defect family** that neither migration addresses — see §3 |
+> | **contrast** | **Done for this defect family and PROVEN AT THE ARTEFACT: 44 → 32 firm failures**, 0 regressions. Migrations `456` + `457` applied, propagated, verified. The remaining 32 are **two other families** neither migration touches — see §3 |
 > | **images** | **NOT STARTED.** Fully scoped in §4. One component, 10 images. ⚠ the obvious handler would DELETE them |
 > | **carousels** | **NOT STARTED.** Design work, no pipeline dependency — the cheapest thing to pick up next (§5) |
 > | `pricing` rebuild | **OWNER APPROVED 2026-08-17, not yet dispatched** (§3c) |
@@ -87,18 +87,21 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 | thing | state |
 |---|---|
 | **Migration 456** — 12 templates repoint foreground `--color-primary` → `--color-primary-ink` | **APPLIED + PROPAGATED.** `UPDATE 12`, guards passed |
-| **Migration 457** — `.stats-cta` → `--color-accent-text` | **APPLIED. Component re-rendered in the DB (2 rows carry it). NOT YET DEPLOYED — the live page still serves the 1.61:1 failure.** See the deploy note below |
-| Contrast on index / about | index 17 → **10**, about 19 → **15** |
+| **Migration 457** — `.stats-cta` → `--color-accent-text` | **APPLIED, PROPAGATED AND VERIFIED LIVE 2026-08-18 ~12:45Z.** `a.stats-cta` firm failures: **0** |
+| **Regression control** — colour pairs live now that were ABSENT from the baseline | **0.** This is the check 456 needed and did not have |
+| Contrast on index / about | index 17 → **9**, about 19 → **15** |
 | Contrast on services | **0**, before and after (it was already clean) |
 | Contrast on pricing | 8 → **8, unchanged and expected** — the page cannot re-render at all (§3c) |
 | `CONTRIB` filed to the `bugfix_122_contrast_ink_slots` lane | committed 2026-08-17 |
 
-### ⚠ RENDERED ≠ DEPLOYED, and this lane hit the distinction on its last action
+### ⚠ RENDERED ≠ DEPLOYED — RESOLVED 2026-08-18, but keep the check
 
-`457`'s fix is in `page_components.rendered_html` (2 rows) **and the live page still fails at
-1.61:1**, because nothing has re-assembled and published the page since. A component can be
-correct in the database and wrong on the internet, and **the DB query is the one that looks like
-success**. Check both, and treat the live page as the only verdict:
+**Now closed**: the batch drained (42 complete), the page republished, and `a.stats-cta` measures
+**0** firm failures live. Recorded because the intermediate state is the trap: for ~30 minutes
+`457`'s fix was in `page_components.rendered_html` (2 rows) **while the live page still served
+1.61:1**. A component can be correct in the database and wrong on the internet, and **the DB
+query is the one that looks like success**. Check both, and treat the live page as the only
+verdict:
 
 ```sql
 -- (1) is the COMPONENT fixed?
@@ -167,12 +170,13 @@ Two further self-corrections from this lane, both in `WRONG_CALLS.md` / `NOTES`:
 The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08-18:
 
 ```
- 20  LIGHT-ON-LIGHT  #E6EDF3 on #FFFFFF      <- family B
+ 20  LIGHT-ON-LIGHT  #E6EDF3 on #FFFFFF      <- family B, needs an OWNER DESIGN DECISION (3a)
   4  LIGHT-ON-LIGHT  #E6EDF3 on #F8F9FA      <- family B
-  7  DARK-ON-DARK    #0D1117 on #0D1117      <- family A, on pricing only (unrenderable)
-  1  DARK-ON-DARK    #0D1117 on #080B10      <- family A, on pricing only
-  1  DARK-ON-DARK    #768eb2 on #F0A500      <- the 457 regression, fix applied, propagation pending
+  7  DARK-ON-DARK    #0D1117 on #0D1117      <- family A, on `pricing` ONLY (unrenderable, 3c)
+  1  DARK-ON-DARK    #0D1117 on #080B10      <- family A, on `pricing` ONLY
 ```
+**Every surviving family-A failure is on `pricing`**, i.e. 456 cleared family A everywhere it
+could reach. `pricing` is unreachable by any re-render, so those 8 close only via the rebuild.
 
 ### (a) Family B — 24 failures, components hardcode a LIGHT ground on a DARK site
 
