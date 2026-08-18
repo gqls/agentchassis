@@ -3376,3 +3376,106 @@ this session's cold-start falsifier sweep:
   (NOTE: locked CTA components may refuse the rewrite and keep "Send us an
   email" copy — if so that is an owner unlock decision, not a forced write);
   example links present and correct.
+
+## 2026-08-18 (~12:00Z) — the two flags the morning left open, ANSWERED; and the refund ban is measurably over-broad
+
+Picked up from `HANDOFF_2026-08-18_continue_here.md`. Four minutes into the
+session the handoff gained its SECOND banner: one session now drives both this
+lane and site_delivery_and_editor (owner direction), with the joint file as the
+operational cold-start. So this entry deliberately **applies nothing** — that
+session had four rewrites in flight against the register at 11:50Z, and editing
+`banned_claims` under a running rewrite is the in-place collision the joint
+handoff itself warns about. Findings handed over as a file in their directory
+(`NOTE_2026-08-18b_…_two_corrections_to_the_joint_handoff.md`); their session is
+not reachable from this machine (37 peers listed, none is that lane).
+
+### Flag 2 — `rebuild_policy` on index after the chat placement: NO PROBLEM
+
+```sql
+SELECT p.name, p.rebuild_policy FROM pages p JOIN sites s ON s.id=p.site_id
+ WHERE s.domain='webdesign.uk';
+-- index | generic     (also contact | generic, which carries chat-input-box too)
+```
+
+`index` is still **`generic`** after run `ea12d8c9` placed `chat-input-box` at
+10:32Z. The handoff's warning — that `save_page_sections` refuses a page whose
+`rebuild_policy='owned'` — does not bite here: placing a tool component did not
+flip the page to owned. Generic rebuilds of index are not refused. This was
+measured after the event and could have read `owned`, so it is a real check
+rather than a restatement. **Flag closed.**
+
+### Flag 1 — the "We do not offer refunds" sentence gone from served index: CONFIRMED, and the cause is mechanical
+
+Cache-busted fetch of `preview.webdesign.uk/index.html` at 11:42Z: **zero**
+occurrences of "refund" (it was there at 10:22Z). `pay first` present once,
+`once you approve` absent — so the new terms are intact; it is only the
+disclosure that has gone.
+
+The morning's entry guessed the claims gate "may be systematically pushing
+writers away from the sentence". **Measured, it is.** Running the live pattern
+`\brefunds?\b|\brefundable\b|\bmoney.back\b` through the real scanner
+(`datahelpers.ScanBannedClaims`) over twelve natural ways to state the owner's
+position: **8 of 12 BLOCKED.** Only "we do not offer refunds" / "we don't offer
+refunds" survive. Blocked: "Refunds are not available", "Refunds are not
+offered once work has started", "There are no refunds", "No refunds", "The
+price is non-refundable", "Do you offer refunds? No."
+
+**Why** — `claims.go`, `NegationGuard.NegatedAt`: the guard scans **backwards**
+from the matched token within the clause. A cue that FOLLOWS the token never
+suppresses, so *"refunds are **not** available"* reads as a refund promise; and
+bare "no"/"non-" are excluded from the cue vocabulary deliberately, pinned by
+`TestBareNoIsAKnownResidualOfTheSharedGuard`. The writer therefore has two
+survivable phrasings out of twelve and no way to tell which. That is a
+systematic bias, not the "coin-flip failure the gate correctly catches" the
+joint handoff files it as — and it cost a real rebuild at 11:40:02Z, where
+what-you-get died on a *pointer*, not a promise: *"The FAQ page sets out the
+refund position, what's included in the price"*.
+
+**Fix written and HELD, not applied**:
+`SQL_2026-08-18d_refund_ban_promise_shapes_HELD.sql` — promise shapes instead of
+the bare word, guarded in the lane's usual form. Verified on the exact string as
+written in the file, both directions:
+
+- 24 hand cases → **0 failures**: every denial above allowed, all twelve promise
+  shapes still blocked (money-back, full refund, "a refund is available",
+  refundable deposit, "we will refund you", "request a refund", …).
+- 26 **real** corpus lines — every refund-bearing component in the fleet, 7
+  sites, none written for this test → **0 newly blocked**. The five retired
+  £1,200-model promises on this site stay blocked; the 11 freed lines are other
+  sites' Ombudsman/consumer-rights prose, never a promise by the site.
+
+The corpus half matters because the hand suite is one I composed, and a fixture
+you compose exercises its own rule. The corpus lines nobody wrote for this test
+are what makes the "0 newly blocked" disconfirmable.
+
+**I did not touch the shared negation guard**, and that was the judgement in
+this entry: widening it to take bare "no" would change the claims gate for every
+site in the estate to make one site's copy easier, against a documented
+fleet-wide decision with a test pinning it. Site-scoped pattern, not shared
+mechanism.
+
+**Still the owner's, not decided here:** whether the home page must carry the
+no-refunds disclosure at all (consumer-rights call). The held fix only makes it
+sayable; it writes no copy.
+
+### The example-links blocker is one row, not a mechanism to build
+
+The joint handoff §3 says example links "need an allow-list mechanism first".
+They do not. `sites.content_data->'allowed_reference_domains'` has been live
+since **v1.0.1146 (2026-07-21)** and `fundamentallyai.com` uses it in production
+today with four domains; `loadAllowedReferenceDomains`
+(`validate_page_content.go:1462`) reads it and `checkDomainContamination` skips
+both the domain and the company check for an allowlisted site — built for
+exactly this (`bugs_open/055`: a portfolio site naming another of ours as a case
+study). Opt-in, per-site, key absent → today's behaviour.
+
+Also: the guard refused **one of four**, not four of four. `knownSites` is five
+hardcoded domains and only **dartsonline.com** is among the owner's four
+examples — noted.co.uk, cookly.uk and vetcomparison.uk are not checked at all.
+The faq run's persisted detail (11:47:41Z) lists exactly one cross-site issue,
+dartsonline.com.
+
+This does **not** reopen the owner's deferral — he deferred examples because
+none of those sites was built by this one-shot route, a copy-honesty judgement
+the allowlist has no bearing on. It only means the blocker should not be
+weighing on that decision as though a build were needed.
