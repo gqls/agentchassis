@@ -4747,3 +4747,16 @@ values are derived paths, not model output. Noted, not actioned.
   The `!` markers on `mark_complete` are holding.
 - Phase 1 is complete: both promises (the instrument readable after the fact; the marker proven
   on a real adopter) are discharged. Pass 2 of the triage is the only open thread.
+- **Triage pass 2 ANSWERED at the code (RFC_029 §10.10), and it corrects our own method.**
+  `ExtractActionInputs` builds `allFields` from the spec and never prunes it by what Strategy 0
+  already resolved — so the whole-tree search runs for every declared field and its answer is
+  discarded at merge. **An explicit mapping therefore never prevents the search; only `!` does**
+  (via `withoutStrict`). That is why 287's `result!` went to zero while the unmarked
+  `current_page`/`work_item_id` on the same steps carried on. Neither of pass 2's two ranked
+  candidate explanations was right — the answer was one level up, in the function itself.
+  Consequences: the rows OVERCOUNT real exposure (an already-resolved field's search result is
+  thrown away, so Phase 2 changes nothing for it); and there is a clean fix — prune the field
+  list before `ExtractFields` — which is behaviour-equivalent (core-field recovery is
+  domain/objective/model only) and is now the lane's next task, council-gated.
+- New handoff cut: `HANDOFF_2026-08-18_continue_here.md`; the 08-16 file is marked superseded with
+  its two now-wrong claims named at the head.

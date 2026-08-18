@@ -1,5 +1,7 @@
 # HANDOFF — 2026-08-18 (rolling file, started 08-16), fresh chat starts here: **RFC_029 Phase 1 is COMPLETE and both its promises are discharged** — 417 PROVEN (26/26) and the window produced a real result (287 fixed, `field=result` → 0 across 193 runs). ONE thing is open: triage pass 2, and its question is written below. A rate I published was corrected today (−53%, not −73%)
 
+> **⚠ SUPERSEDED 2026-08-18 by `HANDOFF_2026-08-18_continue_here.md`.** Read that first. Two things in this file are now WRONG: its triage method ("write the explicit mapping, then `!`") — an explicit mapping does NOT stop the search, only `!` does (RFC_029 §10.10); and its "−73% / 3.4 rows per run" figure, corrected to **−53% / 8.4** (§10.9). Everything else here is history and still accurate.
+
 **Supersedes `HANDOFF_2026-08-15c_continue_here.md`** (whose §1 verdict summary and §4 traps
 still hold). Everything 15c §2 asked for is done; this file records what changed, what was
 measured, and the short list that remains. Session record with the missteps: NOTES
