@@ -12,26 +12,39 @@
 -- becomes immortal again and pins two Kafka topics for ever.
 --
 -- ─────────────────────────────────────────────────────────────────────────────
--- TWO GUARDS, ADDED 2026-08-18 AFTER COUNCIL ROUND 1 (corr 860d87d9) RETURNED
--- REVISE ON EXACTLY THIS FILE'S CLASS OF RISK. Both are copyable: ANY migration
--- that rewrites a scheduled_tasks.pre_query wants them.
+-- TWO GUARDS. Council round 1 (corr 860d87d9) gated at HIGH on this file's class
+-- of risk; round 2 APPROVED, and both remaining advisories are folded in here.
+-- BOTH GUARDS FOLLOW AN EXISTING HOUSE IDIOM rather than being invented —
+-- reuse_agent's round-2 note was right that I authored them from scratch first:
+--   * the three-way md5 branch is 458_detected_item_promoter_..._ROLLBACK.sql;
+--   * the EXECUTE-the-stored-SQL check is 210_report_pipeline_scheduled_tasks.sql,
+--     whose header puts the danger better than I did: "a pre_query with a typo
+--     fails silently at tick time (the task simply never fires), which is the
+--     hardest kind of dead pipeline to notice."
 --
--- GUARD 1 — CONCURRENCY. The UPDATE is gated on the md5 of the text we expect to
--- be replacing. scheduled_tasks is edited by more than one lane, and an ungated
--- full-text rewrite silently CLOBBERS whatever another session put there. Gated,
--- a drifted row makes this a 0-row no-op, which the verify block then turns into
--- a loud abort. (Do NOT gate on updated_at: measured 2026-08-18, it moves for
--- scheduler stamping with pre_query unchanged. md5 of the text is the only
--- check that answers the question actually being asked.)
+-- GUARD 1 — CONCURRENCY, three-way (458's form). scheduled_tasks is edited by
+-- more than one lane and an ungated full-text rewrite silently CLOBBERS whatever
+-- another session put there. Three distinguishable states, because round 2's
+-- editquality objection was that a single "someone else edited it" message
+-- misdirects an operator under incident pressure when the real cause is a benign
+-- repeat run:
+--     live == 463's text   -> roll back (the expected case)
+--     live == pre-463 text -> ALREADY rolled back; this run is a clean no-op
+--     anything else        -> a THIRD edit landed; refuse, do not clobber it
+-- (Do NOT gate on updated_at: measured 2026-08-18 it moves for scheduler
+-- stamping with pre_query unchanged. md5 of the TEXT is the only check that
+-- answers the question being asked.)
 --
--- GUARD 2 — FUNCTIONAL PARSE CHECK, the objection debug_historian gated on at
--- HIGH severity. A pre_query is DATA to this migration: substring assertions
--- (pre_query LIKE '%...%') prove a needle is present, and prove NOTHING about
--- whether the assembled SQL parses. It parses only when the reaper next ticks —
--- so a typo here commits happily and breaks THE WHOLE REAPER (all five arms,
--- not just the edited one) minutes later, with no earlier signal. The guard
--- below EXECUTEs the text we just wrote inside a sub-block, then raises a
--- sentinel to discard the effects, so a syntax error aborts the migration.
+-- GUARD 2 — FUNCTIONAL PARSE CHECK, the objection debug_historian gated on. A
+-- pre_query is DATA to this migration: substring assertions (pre_query LIKE
+-- '%...%') prove a needle is present and prove NOTHING about whether the
+-- assembled SQL parses. It parses only when the reaper next ticks — so a typo
+-- here commits happily and takes out the reaper (all five arms, not just the
+-- edited one) minutes later, with no earlier signal.
+-- Variation from 210, deliberately: 210 EXECUTEs gate SELECTs, which are inert.
+-- The reaper's pre_query MUTATES (it is a chain of UPDATE ... RETURNING CTEs),
+-- so executing it plainly would reap rows for real. The sentinel raise below
+-- discards the effects while still proving the text parses and runs.
 --
 -- The guard was PROVEN IN BOTH DIRECTIONS before being trusted (2026-08-18):
 -- the live text passed, and a deliberately corrupted copy ('failed_running AS
@@ -40,6 +53,25 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 BEGIN;
+
+-- GUARD 1 (pre-flight): decide which of the three states we are in.
+DO $do$
+DECLARE live_md5 text;
+BEGIN
+  SELECT md5(pre_query) INTO live_md5 FROM scheduled_tasks
+   WHERE name = 'stale-orchestration-reaper';
+
+  IF live_md5 IS NULL THEN
+    RAISE EXCEPTION '294/463 ROLLBACK: no stale-orchestration-reaper row exists.';
+  ELSIF live_md5 = '91ba970443ff2d237b53633d80e20904' THEN
+    RAISE NOTICE '294/463 ROLLBACK: live text is 463 — rolling back.';
+  ELSIF live_md5 = '66891c14ef5026700185cbd5c7a945ed' THEN
+    RAISE NOTICE '294/463 ROLLBACK: already rolled back — this run is a no-op.';
+  ELSE
+    RAISE EXCEPTION '294/463 ROLLBACK REFUSED: the reaper pre_query is neither 463''s text nor the pre-463 pre-image (live md5 %). A THIRD edit has landed since 463 — blind restoration would revert it. Re-capture the live text and redo this rollback by hand.', live_md5;
+  END IF;
+END
+$do$;
 
 UPDATE scheduled_tasks
    SET pre_query = $PQ$
@@ -99,19 +131,18 @@ HAVING
 $PQ$,
        updated_at = now()
  WHERE name = 'stale-orchestration-reaper'
-   -- GUARD 1: only roll back the exact text 463 installed.
+   -- 0 rows on the already-rolled-back path, which GUARD 1 has declared benign.
    AND md5(pre_query) = '91ba970443ff2d237b53633d80e20904';
 
 -- GUARD 2 + verify (DO/RAISE — a SELECT cannot stop a COMMIT)
 DO $do$
-DECLARE q text;
+DECLARE q text; live_md5 text;
 BEGIN
-  -- Did GUARD 1 refuse? Then the live row is not what we expected: abort loudly
-  -- rather than leave the operator believing a rollback happened.
-  IF (SELECT count(*) FROM scheduled_tasks
-       WHERE name = 'stale-orchestration-reaper'
-         AND md5(pre_query) = '66891c14ef5026700185cbd5c7a945ed') <> 1 THEN
-    RAISE EXCEPTION '294/463 ROLLBACK REFUSED: the reaper pre_query is not the text 463 installed (md5 mismatch) — another lane has edited it since. Re-capture the live text and redo this rollback by hand rather than clobbering their change.';
+  SELECT md5(pre_query), pre_query INTO live_md5, q FROM scheduled_tasks
+   WHERE name = 'stale-orchestration-reaper';
+
+  IF live_md5 <> '66891c14ef5026700185cbd5c7a945ed' THEN
+    RAISE EXCEPTION '294/463 ROLLBACK: restored text is not byte-exact to the captured pre-463 pre-image (got %, want 66891c14ef5026700185cbd5c7a945ed). Do NOT commit it.', live_md5;
   END IF;
 
   -- the RUNNING arm is gone and every other arm survived
@@ -127,16 +158,17 @@ BEGIN
   END IF;
 
   -- GUARD 2: the restored text must actually PARSE AND EXECUTE, not merely
-  -- contain the right substrings. Effects are discarded by the sentinel raise.
-  SELECT pre_query INTO q FROM scheduled_tasks WHERE name = 'stale-orchestration-reaper';
+  -- contain the right substrings. Effects discarded by the sentinel raise.
   BEGIN
     EXECUTE q;
     RAISE EXCEPTION 'PARSE_CHECK_OK';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'PARSE_CHECK_OK' THEN
-      RAISE EXCEPTION '294/463 ROLLBACK: restored pre_query does NOT execute (%) — the reaper would break at its next tick. Aborting.', SQLERRM;
+      RAISE EXCEPTION '294/463 ROLLBACK: restored pre_query does NOT execute (%) — a task with a broken gate never fires and looks merely idle. Aborting.', SQLERRM;
     END IF;
   END;
+
+  RAISE NOTICE '294/463 ROLLBACK: pre_query restored byte-exactly and proven to execute.';
 END
 $do$;
 

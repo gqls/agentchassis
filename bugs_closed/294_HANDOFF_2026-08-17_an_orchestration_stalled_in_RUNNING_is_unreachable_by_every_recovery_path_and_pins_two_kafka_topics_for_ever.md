@@ -334,3 +334,61 @@ claim: both constructors are exported, so this is "no caller in this repository"
 Noted for the council round in flight (`860d87d9`): the submission's `grounded_in`
 carries the `AwaitedRequests` framing. Nothing in it is false, but if a seat objects on
 this ground the objection is correct and the answer is the caller graph above.
+
+## Council — APPROVED at round 2 (correlation `860d87d9-e273-44fe-bb1d-d45a3f2bb69a`)
+
+**Round 1 → REVISE**, gated by `debug_historian` at HIGH, and the objection was right:
+my verify block *substring-checked* the rewritten `pre_query` and so proved nothing about
+whether the assembled SQL **parses**. Stored SQL parses only when the cron fires, so a typo
+would have committed happily and then taken out the reaper — *all five arms, not just mine*
+— minutes later, with no earlier signal. Round 1's plan also carried only the **pre-fix**
+half of the induced test, because I submitted while the post-fix tick was still pending.
+
+**Round 2 → APPROVED**, 2 advisory objections, none high-severity. `debug_historian` moved
+to approve: *"matches the SQL-surgery lore closely and answers the round-1 gap correctly."*
+
+What changed between rounds, all of it in the **rollback** file — 463 was already applied
+and proven, whereas the rollback had never run, carried the identical hole, and is the
+artefact someone executes under incident pressure:
+
+- **Guard 1, concurrency** — three-way on `md5(pre_query)`. Not `updated_at`: measured
+  2026-08-18, that moves for scheduler stamping with the text unchanged.
+- **Guard 2, functional parse check** — `EXECUTE` the written text in a sub-block, sentinel
+  raise to discard effects, so a syntax error aborts the migration instead of surfacing at
+  the next tick.
+
+**Both guards follow an existing house idiom rather than being invented** — round 2's
+`reuse_agent` was right that I authored them from scratch first. The three-way md5 branch is
+`458_detected_item_promoter_..._ROLLBACK.sql`; the EXECUTE check is
+`210_report_pipeline_scheduled_tasks.sql`, whose header states the danger better than I did:
+*"a pre_query with a typo fails silently at tick time (the task simply never fires), which is
+the hardest kind of dead pipeline to notice."* The one deliberate variation: 210 executes
+gate `SELECT`s, which are inert, whereas the reaper's `pre_query` **mutates**, so it needs
+the sentinel.
+
+**Every branch proven, not just the happy one** (2026-08-18, all inside rolled-back
+transactions; live row verified untouched afterwards at `md5 91ba9704`):
+
+| branch | live text is | result |
+|---|---|---|
+| A | 463's text | `NOTICE … rolling back` · `UPDATE 1` · restored + parse-checked |
+| B | already the pre-image | `NOTICE … already rolled back — no-op` · `UPDATE 0` |
+| C | a third lane's edit | **`REFUSED`**, naming the remedy — no clobber |
+
+Guard 2 separately proven both ways: the live text passed; a corrupted copy
+(`failed_running AS ((((`) was **caught**.
+
+### Advisories accepted but not acted on, with reasons
+
+- **`editquality` (medium): 463 itself still has no parse check.** True. It is applied,
+  recorded in `schema_migrations` with a checksum, and functionally proven; editing it now
+  would drift the ledger against a file whose only remaining use is re-application *after* a
+  rollback — and the rollback is precisely where the guard now sits. Anyone re-applying 463
+  should copy the guard from the sidecar.
+- **`guardian` (medium + missing): a future agent might legitimately park in `RUNNING`.**
+  The one-writer trace covers today's code only — correct, and stated as the standing risk in
+  the migration header and the `LANDMINES` entry, which tell the next author to re-run the
+  greps rather than cite them. Measured now: `RUNNING` is **0 rows** fleet-wide and the new
+  arm has reaped **0** real rows since apply, so nothing is being killed today.
+- **`prior_art_librarian` (low): the `TimeoutMonitor`-is-dormant claim rests on greps.**
+  Correct, and scoped in Correction 3 above to "no caller in this repository".
