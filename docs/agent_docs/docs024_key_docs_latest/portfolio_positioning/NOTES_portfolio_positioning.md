@@ -2148,3 +2148,30 @@ audience where a false promise does actual harm.
 classification (domain contains "mortgage"), then a `mortgage-lenders` page — and its directory
 will show **2 lenders** until the researcher run lands. Also expect the negative-CTA copy
 defect handed to `copy_quality_two_stage`; it is unfixed, so build #1 will exhibit it.
+
+### 2026-08-18 — DNS: `remortgagecalculator.uk` zone CREATED and configured; awaiting Nominet
+
+Owner minted a proper token (`~/.config/cloudflare/portfoliotoken`, All zones —
+Zone:Edit/DNS:Edit/Workers Routes:Edit, no expiry) after correcting my wrong instruction (the
+zone-creation right is under the **Zone** group scoped to all zones on the account, not under
+Account). **Done from here:**
+- zone `c7ef25edb1221fb4ffc4d4dade271781`, status `pending`
+- **nameservers: `alexis.ns.cloudflare.com`, `leah.ns.cloudflare.com`** — same pair as the
+  working sites; these go into Nominet (owner)
+- one proxied apex A record → `192.0.2.1` (TEST-NET-1, RFC 5737 — cannot route anywhere; the
+  worker answers before origin)
+- worker route `remortgagecalculator.uk/*` → `portfolio-sites-router`
+
+**Config matched to the reference, not guessed.** With DNS:Read finally available I read
+`ai-agent-orchestration.com`: **one apex A record, one route, nothing else.** I had added a
+proxied `www` CNAME — removed it, because with no `www.*` route it would proxy to a dead origin
+and fail, which is worse than not existing.
+
+**FLEET-WIDE FINDING, not fixed:** `www.ai-agent-orchestration.com` **does not resolve at all**
+(apex returns 200). No `www` record or route exists on the reference zone, so by implication on
+none of the 36. **Anyone typing `www.` gets a DNS failure.** Left alone deliberately — fixing
+one zone would diverge it from 35 others; it is an owner decision, recorded in the runbook.
+
+**Still blocked on Nominet** — until the nameservers change, the domain keeps answering from
+Dan.com's parking lander. **Remember the trap: a parked domain returns 200 on every path**, so
+verify by reading the body, never the status code.

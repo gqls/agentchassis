@@ -90,3 +90,56 @@ step 3 has not happened). **Token expiry: 2026-09-01** — re-mint before the Ph
 `remortgagecalculator.uk`: pages `mortgage-lenders`, `next-steps`, `about` are **deployed to
 the bucket**; the domain is still on `ns1/ns2.dan.com`, so nothing is reachable. Steps 1–3 are
 the owner's; ping me and I will do 5 and verify 6.
+
+
+---
+
+# PROVEN RECIPE — executed 2026-08-18 on `remortgagecalculator.uk`
+
+Token: `~/.config/cloudflare/portfoliotoken` (bare token, one line — read it with
+`T=$(tr -d ' \r\n' < ~/.config/cloudflare/portfoliotoken)`). Scope: All zones —
+Zone:Edit, DNS:Edit, Workers Routes:Edit. **Active, no expiry.** It does NOT carry
+Account:Read, so `GET /accounts` returns empty — that is expected, not a fault; use the
+account id directly.
+
+Account: `13044f178ae0b156961065f55c8fada8`.
+
+```sh
+T=$(tr -d ' \r\n' < ~/.config/cloudflare/portfoliotoken); ACC=13044f178ae0b156961065f55c8fada8; D=<domain>
+
+# 1. zone  -> returns the two nameservers for Nominet
+ZID=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones" -H "Authorization: Bearer $T" \
+  -H "Content-Type: application/json" --data "{\"name\":\"$D\",\"account\":{\"id\":\"$ACC\"},\"type\":\"full\"}" \
+  | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['result']['id']) if d['success'] else print(d['errors'])")
+
+# 2. ONE proxied apex A record. The address is irrelevant — the worker answers before origin.
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZID/dns_records" -H "Authorization: Bearer $T" \
+  -H "Content-Type: application/json" \
+  --data "{\"type\":\"A\",\"name\":\"$D\",\"content\":\"192.0.2.1\",\"proxied\":true,\"ttl\":1}"
+
+# 3. ONE worker route
+curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZID/workers/routes" -H "Authorization: Bearer $T" \
+  -H "Content-Type: application/json" --data "{\"pattern\":\"$D/*\",\"script\":\"portfolio-sites-router\"}"
+```
+
+**Match the reference config exactly — one A record, one route.** I initially also added a
+proxied `www` CNAME; then read the working zone (now possible with DNS:Read) and found it has
+**one apex A record and nothing else**. A `www` CNAME with no matching `www.<domain>/*` worker
+route proxies to the placeholder origin and fails, which is worse than not existing. Removed.
+
+**`192.0.2.1` is deliberate** — TEST-NET-1 (RFC 5737), which can never route anywhere. The
+reference zone happens to use a parking IP (`199.59.243.228`); either works because the worker
+intercepts first, but a documentation-reserved address cannot accidentally reach a live host.
+
+## ⚠ FLEET-WIDE FINDING: `www.` resolves NOWHERE
+
+Measured 2026-08-18: `www.ai-agent-orchestration.com` **does not resolve at all** while the
+apex returns 200. There is no `www` record and no `www` route on the reference zone — and by
+implication on **any of the 36**. Anyone typing `www.<domain>` gets a DNS failure, not a
+redirect.
+
+**Not fixed here, deliberately** — it is a fleet-wide convention, and changing it on one zone
+would diverge that zone from the other 35. **It is a decision for the owner:** add a proxied
+`www` CNAME plus a `www.<domain>/*` worker route to every zone (the worker keys on
+`<hostname><path>`, so `www.` would need its own bucket prefix or a redirect worker), or
+accept that these sites are apex-only.
