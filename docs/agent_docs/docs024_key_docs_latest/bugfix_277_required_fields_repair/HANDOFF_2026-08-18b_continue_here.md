@@ -5,6 +5,12 @@
 
 ## 0. Build state
 
+> **UPDATED 2026-08-18 18:20Z:** the fleet has rolled again since. `kafka-scheduler` now reports its
+> own `build provenance` as **`0b185bad2a49c6e032352fa9e7d0b429f0a95104`** (pod 17m old at the time).
+> `agent-chassis` provenance was **absent from `--tail=3000`** — that is the documented "startup line
+> has scrolled" case for a busy service, **not** "unstamped"; use the binary probe if you need it.
+> Nothing below depends on the Go half changing: `471`/`472` are config-only.
+
 `agent-chassis` **v1.0.1309** verified shipped: label `f0117fb8b`, PRESENT in the binary,
 superseded `a6d1c53c0` ABSENT, 28 commits behind HEAD (ordinary churn). A real tag bump, so no
 repeat of 08-17's cached-layer no-op. `kafka-scheduler` **v1.0.1308** carries `458`'s Go half, so
@@ -137,6 +143,13 @@ Live after apply: **watching 15 rows — 5 canary-held, 10 floor-held.**
      FAILURES"*, carries the numbers, and hands the reader the query. Text-only by construction
      (single `replace()` on the live `pre_query`); `EXPLAIN` proved it still parses without executing
      its `UPDATE`; positive control proved the text is reachable (10 rows).
+   - **`472` (applied + ledger-recorded + `_ROLLBACK.sql`) corrects `471`'s onward pointer.** `471`
+     shipped **`bugs_open/295`** into that payload — and 295 **closed 2026-08-17**, so the path does
+     not exist. I copied the reference out of this handoff's own §1 without resolving it. The payload
+     now names `bugs_closed/295` and its **live residual — fix candidate 3, route owned-page content
+     findings to `section_edit` (18 completes)** — plus the `apply_section_edit` trap (right for
+     REWRITING a component, a dead end for ADDING a section). ⚠ **§1 above still says
+     "touches `bugs_open/295`" — it is `bugs_closed/`.** `WRONG_CALLS.md` has both.
 3. **`277` → `bugs_closed/`** ~**2026-08-22**: churn guard + the two cancelled conversions
    re-raising. **Both paths on the commit** — LANDMINE.
 4. **`083` → `bugs_closed/`** — its arc is demonstrated (the 08-17 canary, and now `465` proven);
