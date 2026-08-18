@@ -195,6 +195,14 @@ an amend. Use single quotes or `-F`.
 lost: `schema_migrations`' PK is `filename`, all are applied. **Renaming orphans the ledger row, the
 file reads as pending, and the runner re-applies it** — and `454`'s positive control would now fail.
 
+**Now also `471`** (2026-08-18): mine is `471_floor_held_remedy_partitions_failures_first.sql`,
+another session's is `471_widen_finance_directory_discovery.sql`. Both applied, both in the ledger,
+**nothing to do** — the collision is the expected steady state on a shared tree, not a fault. Same
+rule: do not renumber. ⚠ And note `462` is doubled too, with only ONE of the pair applied
+(`462_copy_editor_edit_budget` is in the ledger; `462_fixer_rerenders_skip_owned_pages` is still
+pending) — so on this tree a migration number tells you neither who wrote it nor whether it ran.
+**Ask the ledger by exact filename, never by number.**
+
 ## 6. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · **verify the chassis/scheduler revision
 before trusting any Go claim** · `scripts/who-owns.py 277` / `083` (by SLUG — 083 is ambiguous) ·
