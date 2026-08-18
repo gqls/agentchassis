@@ -1,5 +1,12 @@
 # HANDOFF — 2026-08-18, fresh chat starts here: RFC_029 Phase 1 is **COMPLETE and both promises discharged** (417 PROVEN 26/26; the window caught `bugs_open/287`, whose fix took `field=result` to zero). Triage pass 2 is **ANSWERED** and hands us one buildable change. That change is the next work.
 
+> **⚠ SUPERSEDED by `HANDOFF_2026-08-18b_continue_here.md` (same day, evening).** Two claims
+> below are now WRONG: §2's task spec rests on a mis-citation (RFC_029 §10.11 — the prune
+> cannot reach the ~72% `current_page` class, and it is BUILT anyway, commit `131e6430e`,
+> council corr `ae0dfb93`); and §5's "54% failure rate" was an outage window read as a rate
+> (`bugs_open/307`; the 100 items are cancelled by owner directive). Start from 18b.
+
+
 **Supersedes `HANDOFF_2026-08-16_continue_here.md`** (which superseded 15c). Nothing in this file
 needs re-deriving; every figure below was measured 2026-08-17/18 and says where.
 ⚠ **Not to be confused with `HANDOFF_2026-08-16_gaswholesalers_tool_page_and_stray_logo.md`** —
