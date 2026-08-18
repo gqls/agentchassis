@@ -1,5 +1,42 @@
 # 146 — Seven live tool pages overflow on mobile, and no tier can ever see them
 
+> # CLOSED 2026-08-18 — fixed, council-APPROVED r1, LIVE on v1.0.1310, and INDUCED in production the same evening
+>
+> The whole chain ran, with evidence at each step:
+>
+> 1. **Binary-verified on BOTH replicas of v1.0.1310** (pods 18:00Z):
+>    `routePortedAcceptanceFailure` → 2 hits in `/proc/1/exe` each, invented-symbol
+>    control → 0.
+> 2. **Council APPROVED round 1** (corr `d2edf61d`, 13 approve / 4 advisory objections,
+>    none high; all four mediums answered with evidence — lane NOTES).
+> 3. **Production induction 19:24Z** (item `cc37a4d7`, the due-sweep's exact ported spec
+>    shape, hand-filed `triaged`): the real Tier-4 run FAILED mobile-fit on the live page
+>    (div#preview-card 380px forced by div.card-img 324px — the same defect this file
+>    measured on 07-29), and the new arm filed
+>    **`ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:6b49db8e…` at
+>    `needs_human_review`** with the full actionable spec: subject, page, shared
+>    component id, failing checks, the criteria, the mobile screenshot (durable s3 URI +
+>    presigned view), `overflow_forced_by` and the fix hint. The verdict note's `Fix:`
+>    line records the filing — the first ported Tier-4 failure ever to route anywhere.
+>    (Before this fix the identical failure was eaten FOUR times: pasteboard ×2,
+>    vibe-equalizer ×2, 2026-08-05 and 08-14.)
+>
+> **What lives on, and where** (none of it gates this file):
+> - **The rewrite programme** — OWNER RULING 2026-08-18: all ported tools are rewritten
+>   natively, fleet-wide (72 clause-b pages / 6 sites censused in the lane NOTES). The
+>   webdesign_tool_rebuilds lane owns the proven machinery; the seven pages of this
+>   file's title are theirs, with the re-measured evidence pointed into their NOTES.
+> - **The induced item itself** stays in the review queue as a REAL finding — it is the
+>   worked example of the route and queue-ordering signal for the rebuilds.
+> - **Named residual**: a failing ported verdict with no `spec.component_id`
+>   (pre-seed-425/bespoke shapes), a transient lookup error, or a renamed fork still
+>   takes the old manual arm, deliberately (bug_historian's advisory, dispositioned).
+> - The needs_human_review drain cadence belongs to 033/083/291, unchanged.
+>
+> Lane: `docs024_key_docs_latest/bugfix_146_ported_tools_acceptance/`. Commits
+> `1549dc58b` (fix+tests+register+016b, `Council-Submitted:`), `ec02ac8bd` (verdict
+> read + advisories), `55c0f3fb8` (ruling + live proof), plus lane docs.
+
 **Filed:** 2026-07-29 · **By:** gauntlet_dead_cta (vonc 6), as a byproduct of
 witnessing `bugs_open/131` B · **Severity:** MEDIUM — live user-facing defects on
 a shipped site, plus the structural reason nothing caught them · **Status:** OPEN,

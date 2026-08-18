@@ -62,3 +62,16 @@ And rather than wait days for the schedule, I fired the proof run now: a real ac
 check against the vibe-equalizer page (one of the broken seven). If the fix works, the
 failure lands in the review queue as an actionable item — the first ever from this route.
 Result in the next update.
+
+## 2026-08-18 (final) — proven in production, and the bug is closed
+
+The proof run came back exactly as designed: the real browser check failed the
+vibe-equalizer page on the same phone-screen overflow we've been chasing, and — for the
+first time ever — that failure landed in the human review queue as an actionable item,
+with the screenshot, the culprit element, and the suggested fix attached. Before this
+change the identical failure had been silently swallowed four times.
+
+So the bug is closed on the full bar: fixed, approved, running in production, and seen
+working there. What continues elsewhere is your rewrite programme (72 ported pages across
+6 sites, measured), which retires the underlying pages one by one — and the review item
+we just created is a ready-made worked example for whoever picks up vibe-equalizer.

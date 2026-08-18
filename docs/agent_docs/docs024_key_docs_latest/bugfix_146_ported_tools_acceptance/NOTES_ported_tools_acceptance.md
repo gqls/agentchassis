@@ -277,3 +277,18 @@ hint on a row this lane created, not a semantic change; the run itself is identi
 Monitor re-armed. If the SECOND window also expires unclaimed, stop assuming and read
 the dispatcher: the ai-endpoint health gate (`claim_work_item_action.go` ~:218,
 LANDMINES `ai_endpoint_health`) can hold ALL claims while endpoints read unhealthy.
+
+## 2026-08-18 (final) — INDUCTION PROVEN END-TO-END; 146 (ported-tools slug) CLOSED
+
+Item `cc37a4d7` claimed by build-dispatch-loop after the priority bump, run completed;
+the Tier-4 run FAILED mobile-fit on the live page (same 380px/324px attribution as the
+07-29 filing and the 08-17 re-scan) and the new arm filed
+`ported_tool_fix:tool_acceptance_tier4:vibe-equalizer:6b49db8e…` at `needs_human_review`,
+created 19:24:22Z, spec carrying subject/page/component/failing_checks/criteria/screenshot
+(s3 URI + presigned)/forced_by/fix hint. The verdict note's `Fix:` line records the
+filing ("no automated fixer may act — this is a PORTED instance … filed ported_tool_fix
+at needs_human_review carrying mobile-fit for a human to route") — the note-from-outcome
+half verified too. **Every close condition met: fixed + council-approved + live on both
+replicas + production-induced. File moved to `bugs_closed/` with the closing banner.**
+The induced item stays in the queue deliberately — it is a real finding and the rebuild
+lane's queue-ordering signal.
