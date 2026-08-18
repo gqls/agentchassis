@@ -35,3 +35,29 @@ to the council.
 
 A machine diagnosis of the same page was fired by the previous session and is
 still queued; we'll read it when it lands as a cross-check on our tracing.
+
+## 2026-08-18, evening — the door has a lock now; the page fix is with you
+
+Since this morning's note: it turned out a second session had picked up the same
+bug at almost the same minute — it confirmed the same cause through the automatic
+diagnosis loop and is the one currently asking you which way to fix the page
+itself (its "candidate 1", rebuilding the card list to ask the database for the
+site's real articles, is the one we'd also recommend — it fixes both affected
+sites' pages and the archived-article card in one move).
+
+This session built the door-lock: new components are now checked, the moment they
+are stored, against the real list of data sources the platform can actually
+serve. A component asking for a data drawer that doesn't exist anywhere gets sent
+back with a message naming the real options, instead of shipping and failing
+silently months later. The review council asked for two hardenings before
+approving — proof the check is genuinely called (we now have a test that fails if
+anyone unplugs it — verified by unplugging it), and a permanent record whenever
+the check has to run half-blind because the database was briefly unreachable.
+Both are done and the revised change is back with the council. The lock takes
+effect on the next software release.
+
+One honest limit, written down where the next person will look: the lock guards
+the machine-generated route. A component added by hand-written database script
+walks around it — the same gap that eventually forced a database-level rule for
+an earlier problem of this shape. If phantom sources reappear via hand seeds,
+that is the next move.
