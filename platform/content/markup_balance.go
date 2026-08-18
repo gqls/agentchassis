@@ -71,6 +71,23 @@
 //     mention comment injected, old refuses (the bug) and new passes; cut at
 //     60%, BOTH refuse, new naming the unterminated <script.
 
+// Why this is hand-rolled and not golang.org/x/net/html (which the repo
+// already imports — datahelpers/claims.go, actions/section_visible_text.go;
+// the council's prior-art seat asked, 70cf0da5 round 1): those callers ask
+// what a document CONTAINS — parse questions on assumed-whole documents,
+// where the WHATWG parser's error recovery is exactly right. These guards ask
+// whether a document is CUT, and spec-mandated EOF recovery normalises the
+// very malformedness they exist to detect: a tokenizer at EOF inside an open
+// tag emits no StartTag (so "...<script src=\"/a.js" would pass tag balance
+// where both the old counter and this scanner flag it), and at EOF in script
+// data it simply stops, leaving the caller to reconstruct "an open with no
+// close" from tokenizer state. Preserving the old counter's true-positive
+// set — calibrated at ZERO verdict flips across all 264 recorded
+// component_versions rows — required deciding those EOF edge cases the old
+// counter's way, which a spec tokenizer deliberately does not. ~120 pure
+// lines with no dependency also keeps this package a leaf, which is what
+// lets discovery_checks import it.
+
 package content
 
 import "strings"

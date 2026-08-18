@@ -188,9 +188,25 @@ markup-context counts and `ends_cleanly`, both in the message and in the `agent_
 outer script's raw-text body, and the element balances exactly as a browser reads it — pinned as
 the "tool that OUTPUTS a script tag" test. No concatenation obfuscation needed once this rolls.
 
-**Council:** `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc` (verdict recorded here when read).
-**Register:** CLC-019. **Verify after the roll:** re-run an `add_tool` whose description names tags
-with angle brackets; confirm birth; confirm the two false-alarm items resolve via their verifier.
+**Council:** `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc`. **Round 1: REVISE**
+(gating objection: edit 6 was contingent on the 309 lane's commit at submission time — it landed at
+`e21b172f0` eight minutes later; the round's real products were the pod-verification recipe below
+and the prior-art answer now in `markup_balance.go`'s header on why this is not `x/net/html`).
+Round 2 resubmitted under the same correlation; verdict recorded here when read.
+**Register:** CLC-019.
+
+**Verify the roll actually carries it (per the debug_historian seat — a roll is not evidence):**
+```bash
+# the service's own statement of its commit (startup line — scrolls; see LANDMINES):
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 6d962bcf8 <the stamp>   # exit 0 = the fix is in the binary
+# fallback binary probe with BOTH controls (never a discovery grep):
+kubectl -n ai-persona-system exec <pod> -- grep -aq "<stamp sha>" /proc/1/exe        # must hit
+kubectl -n ai-persona-system exec <pod> -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo BAD-CONTROL  # must miss
+```
+**Then verify behaviour:** re-run an `add_tool` whose description names tags with angle brackets —
+birth succeeds; confirm the two false-alarm items (`91007600`, `6e2c9ebf`) resolve via their
+verifier on completion, and that a deliberately truncated fixture still refuses (negative control).
 
 ### Addendum evidence — the obfuscation the guard forces, as shipped `[MEASURED 2026-08-18]`
 
