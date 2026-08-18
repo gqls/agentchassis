@@ -666,3 +666,34 @@ our configuration happens to live under a documentation folder. Two thirds of th
 live behaviour are in that category. I nearly did not file it — there is an older note in our own
 records saying that refusal is correct, and it is, but it was arguing about written documents, not
 about configuration. Reading what the old note was actually about is what let me file this one.
+
+---
+
+**2026-08-18, closing the evening — both changes approved, and the approval caught me one more time.**
+
+Both went through the review council in the end. The unstable-identifier fix passed first time. The
+"not applicable" change took three rounds, and I want to record that plainly rather than round it up:
+**both rejections found something real.** The first was the overwrite question I described above. The
+second was harder to take, because it was a sentence I had written in four places.
+
+I had been saying that repairing these tool pages needs a piece of machinery nobody has built — that
+we can turn a defect report into a page fix only after someone designs the translation step. **The
+reviewer asked whether I had actually looked. I had not.** It exists. Another thread built it
+yesterday, and it already produces exactly the format the repair tool consumes, with the careful
+parts — don't invent a fact, don't lose a link, don't change a field's type — already thought
+through.
+
+**And then the approval caught me a third time, on my own correction.** Having found the thing I
+said didn't exist, I described it in one line as barely used — and the reviewer asked where those
+numbers came from. They came from me, and two were wrong: I had compared two different things, and
+I had called a one-day-old mechanism dormant. Finding what you missed is not the end of it; the
+first sentence you write about it comes out of the same hurry that produced the mistake.
+
+**What that means practically:** the big remaining piece is smaller than I told you, and it starts
+with a conversation rather than a design. The thread that owns that machinery is still changing it
+daily. Writing a design around it tonight would be writing against something that will have moved by
+the time anyone reads it.
+
+Nothing is running differently in production yet — both fixes wait for the next routine rebuild of
+the services, and I have written down exactly what to check afterwards, including the control that
+stops a good-looking result from being mistaken for a working one.
