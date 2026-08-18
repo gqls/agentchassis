@@ -677,3 +677,35 @@ placements across 26 sites" is exactly the shape of a finding you carry into a b
 styling reaches nothing on this site — the inner bare `<p>` is a sibling, so the muted colour,
 centring and max-width are all inert there. Cosmetic today; it belongs with the `pricing` rebuild
 work, where the copy is regenerated anyway.
+
+### 469 VERIFIED AT THE ARTEFACT — 32 → 8 firm failures, index and about at ZERO
+
+Both `page_rerender` items completed (about 18:34:36Z, index 18:35:12Z — ~5 minutes behind ~50
+queued items, no wedge, no `claimed` row held on this site at any point). Verified in the order
+that matters, because the first of these is the one that looks like success:
+
+**(1) the components** — all three placements carry `var(--color-surface, #fff)` and have **zero**
+bare hex colour declarations left in `rendered_html`.
+
+**(2) the live pages** — `render_audit.py`, overImage excluded:
+
+| page | before (19:14Z) | after (19:36Z) |
+|---|---|---|
+| index.html | 9 | **0** |
+| about.html | 15 | **0** |
+| pricing.html | 8 | 8 (expected — unrenderable, §3c) |
+| services.html | 0 | 0 |
+| **TOTAL FIRM** | **32** | **8** |
+
+**Regression check by COLOUR PAIR — the check 456 lacked: NONE.** Every `(fg,bg)` in the after-set
+was already in the before-set. The after-set is now only the two family-A pairs on `pricing`
+(`#0D1117` on `#0D1117` ×7, `#0D1117` on `#080B10` ×1). Both family-B pairs are gone entirely.
+
+**Control on the two light sites: their `rendered_html` is UNTOUCHED** — all four placements still
+carry bare hex, no token, `updated_at` still 2026-08-17. So their appearance cannot have changed,
+which is what "not re-rendered" should mean and is worth asserting rather than assuming. They pick
+up the tokens whenever they next re-render, and the simulation says that is safe.
+
+⚠ **This lane's remaining contrast work is now ONLY `pricing`, and no re-render can touch it.**
+8 failures, 5/5 components with NULL `content_data`, last rendered 2026-04-13. It closes via the
+owner-approved framework rebuild (§3c) or not at all.

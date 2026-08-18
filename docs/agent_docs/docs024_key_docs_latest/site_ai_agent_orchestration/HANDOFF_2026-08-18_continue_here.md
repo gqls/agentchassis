@@ -4,15 +4,21 @@
 record of the rebuild scoping and its `bugs_closed/194` analysis — read it second, not first, and
 treat every figure in it as 13 days stale (the ones that mattered are re-measured below).
 
-> ## ✅ NOTHING IS BLOCKED. The contrast half is SHIPPED AND MEASURED. Images and carousels are NOT STARTED.
+> ## ✅ NOTHING IS BLOCKED. Contrast is DONE except `pricing` (8 left, rebuild-only). Images and carousels are NOT STARTED.
+>
+> **UPDATED 2026-08-18 ~18:40Z — FAMILY B IS APPLIED, PROPAGATED AND VERIFIED LIVE.** `index` and
+> `about` now measure **0** firm contrast failures; the site total is **32 → 8**, and the 8 are all
+> family A on `pricing`. Shipped as **migration `469`**, NOT `459` — that number was taken by
+> another lane before it could be written (see §3a). Everything below that describes family B as
+> pending is superseded by this line.
 >
 > | ask | state |
 > |---|---|
-> | **contrast** | **Done for this defect family and PROVEN AT THE ARTEFACT: 44 → 32 firm failures**, 0 regressions. Migrations `456` + `457` applied, propagated, verified. The remaining 32 are **two other families** neither migration touches — see §3 |
+> | **contrast** | **Families A and B both done and PROVEN AT THE ARTEFACT: 44 → 32 → 8 firm failures**, 0 regressions at either step. Migrations `456` + `457` + **`469`** applied, propagated, verified. The remaining **8** are family A on `pricing` ONLY, which no re-render can reach — see §3c |
 > | **images** | **NOT STARTED.** Fully scoped in §4. One component, 10 images. ⚠ the obvious handler would DELETE them |
 > | **carousels** | **NOT STARTED — but FAR further along than this lane first reported.** Two fully-specified carousel patterns ALREADY EXIST in the experience register with complete behaviour contracts. The work is APPROVE + BIND, not design (§5) |
 > | `pricing` rebuild | **OWNER APPROVED 2026-08-17, not yet dispatched** (§3c) |
-> | **white cards (family B)** | **DIAGNOSED, fix designed, NOT applied — the either/or put to the owner on 08-17 is RETIRED** (§3a) |
+> | **white cards (family B)** | ✅ **APPLIED, PROPAGATED AND VERIFIED LIVE 2026-08-18 18:36Z as migration `469`.** 24 failures fixed, 0 regressions by colour pair. The either/or put to the owner on 08-17 is RETIRED (§3a) |
 > | **imagery policy** | **OWNER RULING 2026-08-18 APPLIED** — migration `458`, people at work permitted, impersonation banned (§6) |
 >
 > **`bugs_open/029` is being worked by the owner in another thread (2026-08-18). DO NOT FORK IT.**
@@ -167,9 +173,15 @@ Two further self-corrections from this lane, both in `WRONG_CALLS.md` / `NOTES`:
 - **`rerender-pages` does not render.** It files one `page_rerender` work item per page and
   returns `COMPLETED` in seconds. A green run means "41 rows filed", not "41 pages rendered".
 
-## 3. Contrast — what is LEFT, and it is not more of the same
+## 3. Contrast — what is LEFT
 
-The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08-18:
+> **UPDATED 2026-08-18 18:36Z: family B is FIXED. Only the 8 family-A failures on `pricing`
+> remain**, and they are unreachable by any re-render. Re-measured live after `469`:
+> `index` **0**, `about` **0**, `services` **0**, `pricing` **8**. No colour pair exists in the
+> after-set that was absent from the before-set. The composition table below is the PRE-469
+> reading, kept because it is what the diagnosis was built on.
+
+The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08-18 (PRE-469):
 
 ```
  20  LIGHT-ON-LIGHT  #E6EDF3 on #FFFFFF      <- family B, needs an OWNER DESIGN DECISION (3a)
@@ -180,7 +192,25 @@ The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08
 **Every surviving family-A failure is on `pricing`**, i.e. 456 cleared family A everywhere it
 could reach. `pricing` is unreachable by any re-render, so those 8 close only via the rebuild.
 
-### (a) Family B — 24 failures. TWO components with no theme support at all
+### (a) Family B — 24 failures. TWO components with no theme support at all — ✅ FIXED by `469`
+
+> **DONE 2026-08-18. Shipped as `469_departments_grid_and_leadership_team_consume_site_tokens.sql`,
+> not `459`** — that number was taken by another lane (`459_zip_deliverer_agent_HOLD.sql`) before
+> this could be written. ⚠ **Numbers in `sql_for_agents/` COLLIDE** (457 and 458 each name two
+> unrelated migrations from two lanes), so cite the FILENAME, never the bare number.
+>
+> Applied, recorded, propagated by two **page-scoped** `template_changed` rerenders, and verified
+> live: index 9→**0**, about 15→**0**, zero regressions by colour pair. Rollback restores both
+> templates byte-exact from `migration_backups`. Full account: `NOTES_site_improvement.md`,
+> 2026-08-18 evening; propagation recipe: `RUNBOOK` R8; single-migration apply: R9.
+>
+> ⚠ **Two corrections to what this section says below.** (1) `departments-grid` is placed on
+> **index as well as about** — 9 of the 24 were on index, so "the two about-page components" is
+> wrong. (2) **"both light ones are unchanged" was too strong**: only the CARD ground is identical
+> (`#fff`→`#FFFFFF`). The section ground, the icon well and both text literals DO move to each
+> site's own tokens. Nothing loses its contrast floor on either light site (lowest after-value
+> 5.02:1 against a 4.5 floor) — but "nothing gets worse" is the claim, not "nothing moves".
+> Neither light site has been re-rendered, so both still serve today's exact appearance.
 
 > ⚠ **CORRECTED 2026-08-18. This lane previously said SEVEN components "hardcode a light ground",
 > and offered the owner a choice between two designs. Both were wrong.** The seven came from a
@@ -416,13 +446,15 @@ site's own standing text and would have looked like a contradiction.
 
 ## 7. Next actions, cheapest first
 
-1. **Finish 457 — it is applied and rendered but NOT DEPLOYED.** The live `a.stats-cta` still
-   measures **1.61:1**. 41 `page_rerender` rows sit `triaged` from orchestration
-   `3d221a1e-2676-46bc-9e9e-f2c6e0a28cc7` (fired 2026-08-18 12:10Z). When the dispatch lane moves,
-   re-audit `/index.html` and require `a.stats-cta` ≥ 4.5:1. **Do not re-fire** — the rows are
-   queued, not lost.
-2. **Family B** (§3a) — write migration `459`. Fully designed, blast radius already checked, no
-   owner decision outstanding. Biggest single win left: **24 of the remaining 32 failures.**
+1. ~~**Finish 457 — applied and rendered but NOT DEPLOYED**, live `a.stats-cta` still 1.61:1.~~
+   ✅ **DONE — and this item was ALREADY STALE when it was written.** §1 of this same file says
+   457 was verified live at 12:45Z; this list says the opposite. §1 was right. Re-measured
+   2026-08-18 19:14Z and again at 19:36Z: `a.stats-cta` produces **zero** findings on any of the
+   four pages. The 41 queued rows drained on their own. **Nothing to do.**
+   ⚠ *Two `## 7` headings exist in this file — this is the second. Where they disagree, the
+   earlier sections have been re-measured and this list had not.*
+2. ~~**Family B** (§3a) — write migration `459`.~~ ✅ **DONE 2026-08-18 as migration `469`**
+   (`459` was taken). Applied, propagated, verified live: **24 of the 32 fixed, 0 regressions.**
 3. **Carousels** (§5) — approve `arrow-and-swipe-card-carousel`, then bind. **No pipeline
    dependency**, so it proceeds whatever the dispatch lane is doing. Budget for being the first
    ever run of the approval council, and settle the `section_types` question before binding.
