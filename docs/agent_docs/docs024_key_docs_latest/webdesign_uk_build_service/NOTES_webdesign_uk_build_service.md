@@ -3479,3 +3479,23 @@ This does **not** reopen the owner's deferral — he deferred examples because
 none of those sites was built by this one-shot route, a copy-honesty judgement
 the allowlist has no bearing on. It only means the blocker should not be
 weighing on that decision as though a build were needed.
+
+### 11:53Z — a SECOND rewrite dies on the same trap, 13 minutes after the first
+
+`how-it-works` (`8d969047`) → `needs_human_review`, one `banned_claim` blocker,
+value "refund", location:
+
+> *"There's **no refund** once payment's made, so it's worth using the chat box for a…"*
+
+That is the writer stating the owner's position correctly and being blocked for
+it — the bare-"no" case exactly. **Two of the four queued rewrites have now
+failed on this ban in thirteen minutes** (what-you-get 11:40:02Z on a pointer,
+how-it-works 11:53:18Z on a denial), against one that failed on cross_site_domain
+and one not yet run.
+
+This lands AFTER the entry above was written and strengthens it: the "8 of 12
+phrasings" measurement predicted this, and the prediction came true twice
+without my touching anything. It is not variance — the register's own writer
+NOTE tells the writer to use the one surviving form, and the writers still do
+not, because "there's no refund once payment's made" is what the sentence
+naturally wants to be. Each miss costs a rebuild and a re-triage.
