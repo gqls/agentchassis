@@ -389,3 +389,49 @@ thread's work and I have not touched it.
 Next, unless you'd rather something else: run it on a harder page — one with several
 sections and a fault that's a matter of tone rather than six obviously missing links — to
 find out whether tonight's restraint is the design working or just an easy target.
+
+## 2026-08-18 — the harder page broke it, which is what a harder page is for
+
+I ran the editor at a genuinely difficult page — ai-agent-orchestration.com's homepage,
+eight sections, and a fault spread thinly through all of them rather than one obvious
+hole. It failed. That is the useful outcome, and it corrects something I told you last
+night.
+
+Last night the editor changed six lines and left everything else alone, and I said the
+restraint was striking. **It doesn't generalise.** Faced with a page where something was
+slightly wrong everywhere, it tried to rewrite the whole thing at once, produced more than
+the system would accept, and was cut off mid-answer. The platform handled that correctly —
+it threw the half-answer away rather than saving it, which is exactly the failure we've
+been bitten by before — but the lesson is that yesterday's good behaviour was a property of
+an easy target, not of the design.
+
+The fix isn't "let it write more". It's a limit: at most three edits per run, chosen by
+what a reader actually loses. A bounded job can't overrun; a bigger allowance just moves
+the wall further out.
+
+With that in place it ran again and did something I'd call genuinely useful. It reported
+that the same sales pitch is restated almost word for word in **five** different sections
+of that page, and that one thing on the site is called four different names — "adoption
+register", "adoption tracker", "Enterprise AI Agent Adoption Tracker", "adoption tracker
+page". Neither of those is visible to whatever writes a single section, because each
+section is written without sight of the others. That is the whole reason this stage reads
+the entire page. Its three proposed edits **delete** things: a fake "feature" that was
+really a sales pitch, an off-topic tangent, and one inconsistent name.
+
+Then my own checker failed those edits — wrongly, twice, and both worth telling you about
+because they're the same mistake in different clothes. It couldn't tell "deliberately cut
+repeated material" from "gutted a section", so it rejected the editor for doing half its
+job. And it was quietly skipping list-type content while reporting that it had checked
+everything — technically true, thoroughly misleading. I fixed both, and made a point of
+proving the checker can still catch real damage afterwards, because "it complained, so I
+changed it" is how a check quietly becomes decorative.
+
+**One thing needs you.** Those three edits are sitting unapplied, and they're a different
+kind of decision from last night's: last night added six links, tonight *removes* live
+copy. I'd rather you looked at that class of change before I apply it, which is precisely
+what the review step is for.
+
+One incidental finding worth knowing: the homepage component I fixed for you last night was
+rebuilt by a routine process this morning, and the six links survived it intact. Good news
+— but it also means anything we leave sitting in the queue can be pointing at a version of
+a page that no longer exists by the time someone approves it.

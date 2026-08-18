@@ -3,7 +3,8 @@
 **Lane:** `copy_quality_two_stage`. **State: DONE and APPLIED. Stage 2 exists, is live,
 passed its proof case on its first run, and — owner-approved the same evening — the edit
 has been applied to the live page and verified at the artefact. The lane has no
-outstanding decision and no build work. Next is a HARDER page, not a fix.**
+outstanding build work. **2026-08-18: the harder page has now been run too — it found two
+real mechanism faults (both fixed) and left ONE proposal awaiting the owner.**
 
 > **UPDATED 2026-08-17 evening — the proof case is CLOSED.** `gate_page_links.py` now exits
 > 0 ("all 16 required links present"); the six guides have had a homepage link since
@@ -14,6 +15,20 @@ outstanding decision and no build work. Next is a HARDER page, not a fix.**
 > beside the 08-12 FAILING baseline. Both work items closed with evidence on the row.
 > **The write path is proven end to end. The `on_approve` → `section-editor` handoff is
 > still NOT** — approval today is a human running two commands, and `bugs_open/033` is why.
+
+> **UPDATED 2026-08-18 — RUN 2 (the harder page) BROKE STAGE 2 TWICE, both faults now fixed.**
+> `ai-agent-orchestration.com/index` (8 components, 78 KB, a DIFFUSE register fault) made the
+> agent attempt a whole-page rewrite; it truncated at `stop_reason=max_tokens`. **So
+> 08-17's restraint was a property of a LEGIBLE DEFECT, not of the design** — the table
+> below is corrected accordingly. Fixed by migration **462**: a THREE-EDIT BUDGET plus
+> `max_tokens` 32,000, because an edit set bounded at the source cannot truncate. Re-run
+> passed (8,181 tokens, 3 edits) and its judgement is what page-scoped read exists for —
+> the same pitch restated in FIVE sections and one resource under FOUR names.
+> **My own gate then failed that proposal wrongly, twice** (a volume floor that could not
+> tell de-duplication from gutting; array fields unchecked beyond their type while
+> reporting "1 of 1 type-checked"). Both fixed, controls re-proven. Full record: NOTES
+> 2026-08-18. **Run 3's proposal `d2378b77` is PARKED and needs the owner** — its edits
+> DELETE live copy, which is the class of change a human should see first.
 
 Everything the 08-15 handoff called "NEXT WORK" is delivered:
 
@@ -88,18 +103,20 @@ reads the CURRENT row, so a re-grade catches it. Now a LANDMINE entry in its own
 | claim | status |
 |---|---|
 | stage 2 produces a gate-passing edit | **MEASURED** — one page, one run, 0 checks failing |
-| it leaves good sections alone | **MEASURED once** — 6 added lines, nothing else |
+| it leaves good sections alone | **REFUTED as a general claim, 2026-08-18.** True on a legible defect (6 added lines); on a diffuse one it attempted the whole page and truncated. Now BOUNDED at 3 edits by config (462) rather than trusted |
 | the gate can fail | **MEASURED** — 6 controls, all fire |
 | the four safety rules hold | **ASSERTED AT APPLY TIME** by guarded `DO` blocks, not by comments |
 | the agent cannot write to a page | **STRUCTURAL** — no step in it can; the migration RAISEs if one is added |
 | the apply path works | **PROVEN 2026-08-17** end to end: proposal → gate → `section_edit` → render → deploy → six links live. ⚠ but the `on_approve` → `section-editor` HANDOFF is still unexercised — a human filed the item |
-| it works on a subtler defect | **UNKNOWN.** Six absent links is a legible defect; restraint on a vaguer page is untested |
-| `field_updates` narrows blast radius | **VACUOUS HERE** — `ported-prose` declares one field, so it is a full-field write either way |
+| it works on a subtler defect | **YES, once bounded** — run 3 found five-fold cross-section restatement and one resource under four names, and proposed 3 removals. ⚠ unapplied: the owner has not reviewed it |
+| `field_updates` narrows blast radius | **REAL on run 3** — 3 named fields across 3 components, one of them an `array` (`features`, 10 items → 9), leaving 58- and 22-field components otherwise untouched |
 
 ## Next work, in the order that closes doors
 
 1. ~~**Apply the proof case**~~ **DONE 2026-08-17** — gate exits 0, six links live.
-2. **A second page, deliberately chosen to be harder** — a multi-component page with a
+2. ~~**A second page, deliberately chosen to be harder**~~ **DONE 2026-08-18 — and it found two mechanism faults.** What remains of it: the owner reviewing `d2378b77`, whose three edits DELETE copy.
+3. **A THIRD page, to test the 3-edit budget's ceiling** — run 3 said five sections restate each other and edited three of them, so the budget is now a known under-fix on a page like that. Does a second pass on the same page find the remaining two, or does it re-propose the same three?
+4. ~~old item 2~~ **superseded** — a multi-component page with a
    multi-field component, so `field_updates` and the type gate are doing real work rather
    than standing by. The interesting question is whether "leave good sections alone"
    survives when the defect is register rather than a missing set.
@@ -113,9 +130,11 @@ reads the CURRENT row, so a re-grade catches it. Now a LANDMINE entry in its own
 
 ## Standing cautions that survive from the last handoff
 
-- **Re-verify the chassis stamp** before trusting instrumented rows. At this writing:
-  `v1.0.1305`, commit `6a782274b`, both replicas, binary-probed with a negative control
-  (the startup line had already scrolled). Mode-split ancestry holds.
+- **Re-verify the chassis stamp** before trusting instrumented rows — it moved between the
+  two halves of this file. ~~`v1.0.1305` / `6a782274b`~~ → **2026-08-18: `v1.0.1308`,
+  commit `e7e5e4d53`**, binary-probed on `-dvscb` with a negative control (the startup line
+  had already scrolled). Mode-split ancestry still holds. **A stamp in a handoff is a
+  dated observation, never a current fact.**
 - **LMC:** never fire `run_improvement_sweep_once.sh` (promotes all `detected` rows). Check
   lane activity before any write to their site.
 - **Concurrent sessions are fast here.** Re-verify "X does not exist" from these docs
