@@ -1,5 +1,13 @@
 # HANDOFF 2026-08-17 — continue here
 
+> # ⚠ SUPERSEDED by `HANDOFF_2026-08-18_continue_here.md` — start there, not here.
+> This file's STATE lines are stale (they predate run 2, the 3-edit budget, and two
+> owner-directed CONTRIBs that arrived on 08-18). **What is still worth reading here:**
+> the worked proof-case example and the full apply recipe with its SQL. Its
+> proven/not-proven table was corrected in place on 08-18 and is safe to read; its
+> "next work" list is superseded.
+
+
 **Lane:** `copy_quality_two_stage`. **State: DONE and APPLIED. Stage 2 exists, is live,
 passed its proof case on its first run, and — owner-approved the same evening — the edit
 has been applied to the live page and verified at the artefact. The lane has no
