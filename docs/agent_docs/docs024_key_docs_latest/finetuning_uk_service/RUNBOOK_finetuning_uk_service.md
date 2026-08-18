@@ -494,10 +494,12 @@ UPDATE thunder_config SET is_paused = true, pause_reason = '<what you did, and t
 - ⚠ **`cost_usd` is OUR estimate, not Thunder's charge.** It is
   `default_hourly_rate_usd` (a flat **$1.80/hr**, all GPU types) × uptime —
   `provision_action.go:429` stamps the rate, `decommission_action.go:152` computes
-  from it. The 129s test billed **$0.0645** by our books; at the advertised
-  $0.35–0.43/hr it would be **$0.0125–$0.0154**. So `total_24h_spend` is an **upper
-  bound ~4–5× over** for a6000, and the daily cap trips early rather than late.
-  **The real price is still unanswered — only an invoice settles it.**
+  from it. **SETTLED by the invoice (2026-08-18): a6000 bills $0.35/hr FLAT
+  (6-vCPU minimum included — no surcharge), a100xl $1.09/hr, per-minute; our
+  books run exactly 5.1× over for a6000 ($5.72 booked vs $1.12 invoiced for the
+  whole of Phase 0).** The flat $1.80 stays DELIBERATELY — safe direction for
+  the $30 daily cap, and the single flat column cannot carry per-type rates;
+  lowering it weakens the fleet's spend guard for every card at once.
 
 ## 9. The Phase 0 TRAINING run — staged 2026-08-15, ready to fire (postponed on an owner credits hold)
 
