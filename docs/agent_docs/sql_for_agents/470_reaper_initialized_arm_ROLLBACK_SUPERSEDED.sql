@@ -1,3 +1,29 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ SUPERSEDED 2026-08-18 — DO NOT RUN. This is a DUPLICATE of
+--    464_reaper_initialized_arm.sql, which is what actually shipped.
+--
+-- Two lanes worked the bugs_open/310 INITIALIZED gap in parallel without seeing
+-- each other. 464 was applied by hand at 18:43:03Z, owner-approved, and is the
+-- row recorded in schema_migrations; the reaper fired on its own tick at
+-- 18:45:53Z and failed both stranded rows. INITIALIZED is now 0 fleet-wide.
+--
+-- The two files' payloads are BYTE-IDENTICAL (md5 421dfc4f9f74035d71f43a33c703cd44,
+-- 3,068 bytes), so this file is redundant rather than wrong. Renamed with an
+-- uppercase suffix so the migration runner's SIDECAR_RE ('_[A-Z][A-Z0-9_]*\.sql$',
+-- run-migrations.sh:65) excludes it from --apply while still listing it. It is NOT
+-- in schema_migrations. If it were ever run, GUARD 1 would take the
+-- "already present — this run is a no-op" branch.
+--
+-- ⚠ AND ITS REASONING IS PARTLY WRONG — see bugs_open/310 "CORRECTION 2".
+-- The header below argues that 463's licence transfers because INITIALIZED, like
+-- RUNNING, is an inter-step transition of milliseconds. It does NOT transfer.
+-- RUNNING is transient by construction; INITIALIZED is a genuine WAITING state
+-- that sits on a Kafka queue, so its duration is measurable, not derivable — and
+-- measured it is avg 0.22s / p99 2.01s / MAX 6.31s over 5,736 rows, not
+-- milliseconds. 4h remains safe (~2,280x the observed max) but is licensed by that
+-- measurement. Re-run the p99 query, do not re-read coordinator.go.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 -- ROLLBACK for 470 — restores the stale-orchestration-reaper pre_query to its
 -- pre-470 text (the INITIALIZED arm removed, every other arm untouched).
 --

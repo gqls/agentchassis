@@ -1,7 +1,24 @@
 # 310 — an orchestration stalled in `INITIALIZED` is unreachable by EVERY recovery path, and is never pruned
 
+> ## ✅ CLOSED 2026-08-18 — FIXED AND LIVE, and **fixed by another lane, not by this file's migration**
+>
+> **Migration `464_reaper_initialized_arm.sql`, applied by hand 18:43:03Z by a concurrent lane and
+> owner-approved (`42375f96a`, `Council-Submitted: e973d2aa`).** The reaper fired on its own
+> scheduled tick at **18:45:53Z** and failed both rows with
+> `reaper: stale INITIALIZED for >4h; step=check_health`. `INITIALIZED` is now **0 rows** fleet-wide.
+> That is the real-tick verification this file said was still owed — delivered, just not by me.
+>
+> **This file's own migration `470` is a DUPLICATE and has been retired.** Two sessions worked the
+> same gap in parallel and produced **byte-identical** SQL (both payloads md5 `421dfc4f…`, 3,068 B);
+> the live text is that value. See "Two lanes, one gap" below.
+>
+> **⚠ TWO CLAIMS IN THIS FILE ARE CORRECTED BELOW — read them before reusing its reasoning:**
+> (a) my "the window is milliseconds" was **derived, and the measurement disagrees**; (b) my
+> "463's structural argument transfers" is **wrong**, and the other lane's reason why is the more
+> useful finding in this whole episode.
+
 **Filed 2026-08-18** by the `bugfix_281_tool_audit_ported` lane, found while verifying the close of
-`bugs_closed/294`. Status: **OPEN — latent-but-live, harm bounded.**
+`bugs_closed/294`. Status: **CLOSED 2026-08-18 — fixed and live.**
 
 **This is `294` one status over.** 294 closed the `RUNNING` gap with migration `463`
 (a `failed_running` reaper arm). `INITIALIZED` has the identical shape — a non-terminal status that
@@ -358,3 +375,95 @@ So the chain is now established end to end: **the only production route into the
 arm is an inbound message, and a stranded row is one for which no further message will ever
 arrive.** That is the premise the whole filing turns on, and it is now a citation rather than an
 inference.
+
+---
+
+# CLOSED 2026-08-18 — and the useful part is that another lane got the reasoning right where I did not
+
+## What actually shipped
+
+`464_reaper_initialized_arm.sql`, applied by hand at **18:43:03Z** by a concurrent lane, owner-
+approved, recorded in `schema_migrations` (`applied_by='record-only'`, note: *"runner's `--apply`
+would sweep ~17 other threads' pending files"*). Committed as `42375f96a`.
+
+**Verified at the artefact, on a real scheduled tick — not by executing the `pre_query` by hand,
+which is all my own tests had done:**
+
+| row | idle | after the 18:45:53Z tick |
+|---|---|---|
+| `0dcdd076…` `generic`/`check_health` | 871 h | **`FAILED`** — `reaper: stale INITIALIZED for >4h; step=check_health` |
+| `8a3adf9b…` `endpoint-health-checker`/`check_health` | 10.7 h | **`FAILED`** — same error |
+
+`INITIALIZED` is now **0 rows** fleet-wide, as are non-terminal rows older than 4 h.
+
+## Two lanes, one gap — and they produced byte-identical SQL
+
+I filed this and built `470`; another lane was working the same gap from `294`'s residual and built
+`464`. Neither knew about the other. **Both payloads are byte-identical: md5 `421dfc4f…`, 3,068
+bytes.** That convergence is reassuring about the change and damning about the coordination — I
+checked `/bugs_open/`, `/bugs_closed/` and the work-item queue before filing, and none of them could
+show me a session that had written no file yet. `scripts/who-owns.py` reads commits, so a lane
+mid-fix is invisible to it; that limitation is already recorded in MEMORY as
+`who-owns-is-blind-to-uncommitted-sessions`, and this is a clean instance of the cost.
+
+**`470` is retired as a duplicate, not deleted** — its header now says so. If it is ever run, Guard 1
+takes the "already present — this run is a no-op" branch, which is the branch I proved. It is not in
+`schema_migrations`.
+
+## CORRECTION 1 — "the window is milliseconds" was DERIVED, and the measurement disagrees
+
+I wrote, in this file and in `470`'s header, that the `INITIALIZED` window is "one `GetState`, three
+log lines and a map assignment… MILLISECONDS", and licensed the 4 h threshold as "~7 orders of
+magnitude of headroom".
+
+**The other lane measured it instead of deriving it**, over every retained row that has *left*
+`INITIALIZED`, using `(processing_history->0->>'timestamp') - created_at`:
+
+> 5,736 rows, all agent types · avg **0.22 s** · p99 **2.01 s** · **max 6.31 s** · over 5 min: **0**
+
+So the real occupancy is up to **6.31 seconds**, not milliseconds — my figure was wrong by roughly
+three orders of magnitude. The threshold is still amply safe (4 h is ~2,280× the observed max), but
+**it is licensed by that measurement, not by my derivation.** This is the `[INFERRED]` vs
+`[MEASURED]` rule biting exactly where it is supposed to: I read a code path, inferred a duration
+from it, and stated the inference in the same voice as a finding. The disconfirming result existed
+and was one query away.
+
+## CORRECTION 2 — "463's structural argument transfers" is WRONG, and this is the finding worth keeping
+
+I reused `463`'s licence wholesale: *`RUNNING` is an inter-step transition, never a durable healthy
+state, therefore so is `INITIALIZED`.* The other lane's commit refuses that reuse, and is right:
+
+> **463'S LICENCE DOES NOT TRANSFER, and not reusing it is half the point.** `RUNNING` is transient
+> BY CONSTRUCTION (one writer, one caller, next write flips it back). `INITIALIZED` is a genuine
+> WAITING state: created at `state.go:734`, left only when the first message is handled
+> (`coordinator.go:741`). Between those it waits on Kafka, so its duration is a **QUEUE property —
+> measurable, not derivable.**
+
+That distinction is the real content. `RUNNING`'s bound comes from the code shape and cannot be
+otherwise; `INITIALIZED`'s bound is a fact about queue latency that could change tomorrow if Kafka
+backs up, and therefore has to be re-measured rather than re-argued. **My one-writer/one-reader
+trace was accurate and was answering the wrong question** — it establishes what *writes* the status,
+not how long a row *sits* in it. Anyone revisiting this threshold should re-run the p99 query, not
+re-read `coordinator.go`.
+
+**Their stuck-signature note, which my filing had as an observation and they turned into a
+discriminator:** both live examples had `last_activity == created_at` exactly *and*
+`processing_history = []` — "a spawn that never arrived, not a slow one; a slow start would carry
+history".
+
+## What remains open, and where it lives
+
+- **The CLASS is still not closed.** This shut one more instance. `294`'s residual 1 — reap on the
+  invariant (any non-terminal row, stale, with no `awaited_requests`) — remains the only fix that
+  stops a *future* status being forgotten, and the owner has taken it as separate work. The blocker
+  named in this file stands: settle the `PAUSED_FOR_HUMAN` / `PAUSED_FOR_HUMAN_INPUT` vocabulary
+  first, or an invariant arm will inherit the wrong spelling and reap paused runs while looking
+  correct.
+- **The adjacent `PAUSED_FOR_HUMAN` mismatch is untouched and still latent.** Recorded above and in
+  `LANDMINES.md`.
+- **A build trap the other lane paid for and wrote down**, worth repeating because it defeated an
+  md5 check: they stripped a trailing newline belonging to the value (`head -c -1` is right for a
+  psql dump, wrong for exact python-written text), fusing `> 0` onto the terminator and truncating
+  the file to 166 of 215 lines — **and the md5 assertion PASSED on the truncated file**, because the
+  extractor's end-pattern never matched and ran to EOF. Assert **structure** as well as content:
+  `BEGIN`/`COMMIT`/terminator counts exactly 1, fused lines 0.
