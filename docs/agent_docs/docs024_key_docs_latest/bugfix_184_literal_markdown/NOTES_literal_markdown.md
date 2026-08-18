@@ -106,3 +106,66 @@
   action, no spec today) as a rider on this fix is a bigger blast radius than the fix —
   named as follow-up, not smuggled in. apply_section_edit likewise has no registered
   spec (its step config predates the spec system).
+
+## 2026-08-18 ~22:00Z — round 2 REVISE: two HIGHs UPHELD (real defects), one refuted; fixed and resubmitted
+
+Round 2 found genuine design defects — the REVISE-is-cheaper-than-the-defect rule proven again:
+
+- **UPHELD (guardian, HIGH)**: my step-level flag made the strip fire on EVERY
+  sections-branch rerender — image_landed, template_changed, cta_links_stale — a blanket
+  change to the fleet's highest-volume pipeline framed as a scoped repair. FIXED
+  (`6fa9f5673`): double gate, flag AND spec.reason=='literal_markdown'. I had privately
+  considered blanket-hygiene "intended"; the council was right that the plan didn't say
+  so and the blast radius didn't match the framing.
+- **UPHELD (bug_historian, HIGH)**: Info logs are ~minutes of retention — not an audit
+  trail for a content-mutating transform. FIXED: stripped field paths now ride every
+  seam's action RESULT (`stripped_markdown_fields`, durable via collected_data), and
+  the repair path's pre-strip state is archived (save_page_sections →
+  page_component_history:753, first-handed).
+- **UPHELD (prior_art, HIGH)**: `ApplySectionEditInputSpec` EXISTS — my "no registered
+  spec" was a FALSE ABSENCE, second same-class miss of the session (grep before
+  asserting an absence in a submission). WRONG_CALLS entry #2 filed. ConfigKeys added.
+- **REFUTED by measurement (editquality, HIGH)**: the substeps-vs-sub_workflow landmine
+  needs BOTH keys present; the live loop config carries ONLY sub_workflow
+  (jsonb_object_keys measured), and loop_actions.go:87-104 falls back to
+  sub_workflow.steps — 474's path is the executed path.
+- Also measured: all three target agent types carry exactly ONE active row (the
+  dormant-duplicate trap has no substrate); no existing consumer of the new
+  `stripped_markdown_fields` key (3 hits = my 3 writers).
+
+Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code committed:
+`6fa9f5673` is the round-2 fix commit.
+
+## 2026-08-18 ~23:15Z — round 3 REVISE answered (9c77e0dff), round 4 APPROVED
+
+- Round 3's asks, all landed in `9c77e0dff`: RenderComponentInputSpec (the action's
+  FIRST spec — ten read keys as ConfigKeys; `output_html` deliberately undeclared: live
+  configs carry it, ZERO Go readers — leaving it undeclared lets the coverage report
+  surface a dead key instead of hiding it); `shouldStripLiteralMarkdown` extracted with
+  a direct containment test (every other reason + near-misses + mistyped flag values
+  must not strip); NULL-direction analysis written into both migration headers (all
+  verifies are positive-presence; absence RAISES; no `<>`-on-NULL green possible).
+- The gating bug_historian objection was answered with the census it asked for: LLM
+  content_data reaches page_components through exactly FOUR writers — three hooked,
+  one (create_report_page) disclosed as the detector-covered residual with zero live
+  findings (measured: no open item's page carries a report/dossier slot).
+- **Round 4: APPROVED** ("approved with 2 advisory objection(s) — none high-severity").
+  Advisories, dispositions:
+  - debug_historian (medium): do not apply 473/474 before pod-verifying the binary —
+    already RUNBOOK rollout step 2 (provenance + per-replica binary probe).
+  - render_guardian (medium): a section whose render bails out can persist stripped
+    content_data while carrying stale dirty rendered_html — the verifier scans both
+    stored surfaces, so completion is still refused; honest, not false-green. Noted.
+  - architecture (low): RenderComponentInputSpec sits at 10 ConfigKeys — at the N=10
+    boundary; the audit (`audit-optional-key-budget.sh --json`) counts OPTIONAL keys
+    and reports nothing over budget (apply_section_edit 6/10, rerender 3/10);
+    `cmd/config-key-audit` parity test green.
+  - prior_art (low, twice): the two absence claims ("first spec", "output_html unread")
+    marked as content-search absences a human may re-confirm — both were fresh greps
+    this session, stated as such.
+- Trail complete: REVISE → REVISE → REVISE → **APPROVED**, one correlation
+  (`060bcc0a`), every commit already carrying `Council-Submitted:` — 098 credits them
+  automatically now the verdict is approved. Two of the four rounds caught REAL design
+  defects (blast radius; audit trail) — the revise-is-cheaper rule, proven again.
+- SUMMARY_2026-08-18_literal_markdown.md written (milestone: design+code+council done;
+  rollout pending the owner's fleet release).
