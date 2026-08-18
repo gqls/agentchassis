@@ -90,3 +90,18 @@
 - Census reconciliation: their "61 silently-dead fields" = my 58 phantom-aspect
   + 3 junk-prefix. Same population, sliced differently. The 7 unknown query names
   are ADDITIONAL and only in my census.
+
+## 2026-08-18 latest — wiring LANDED; the hold resolved by handshake
+
+- 303 lane committed `markup_balance.go` at HEAD (`6d962bcf8`) and messaged the
+  all-clear directly (cross-session message — so SendMessage works INBOUND even
+  when my outbound by-name send failed earlier). Wiring committed at `e21b172f0`
+  with their store-action hunk as a DECLARED passenger (their corr 70cf0da5 named
+  in the message body, mine in the trailer). Combined file verified against clean
+  `git archive HEAD` before the commit: build + tests green.
+- Full fix now on the shared branch: `0df9f1be9` (guard + queryresolve map + 10
+  tests) + `e21b172f0` (wiring). Inert until a chassis image rolls — Go changes
+  need a build + roll. NOT requesting a roll for this alone (releases are
+  whole-fleet, owner runs make release).
+- Register updated: CLC-018 status BUILT+COMMITTED+WIRED, index row matched.
+- Council `fdb032c6`: review_guardian EXECUTING_STEP as of 18:51:56Z.
