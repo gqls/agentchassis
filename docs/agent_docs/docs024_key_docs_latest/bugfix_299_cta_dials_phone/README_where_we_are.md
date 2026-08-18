@@ -39,3 +39,26 @@ of the same trap); whether the home-page button should end up as a phone button 
 words, or a link to the Brief Starter tool; confirming the right phone number for the
 contact page (we think +44 7934 524 911); and a look at the numbers before we switch the new
 checker on, since its findings go to the human review queue.
+
+## 2026-08-18, evening — the fix is written, tested, calibrated and committed; three switches wait, on purpose
+
+Everything described this morning is now built and on the shared branch (commits 757a0890a
+and 0f483c8ab), reviewed by the council gate (submission 1f1fecc9, verdict pending — the
+code ships regardless, that is how review works here). Before writing the detector we ran
+it over the whole fleet as a dry run: the first version — the scope we'd originally chosen —
+would have raised 226 alarms of which about 211 were wrong (mostly news headlines and email
+links that were perfectly fine). We narrowed it and re-ran: 17 alarms, every one checked by
+hand, every one real. That narrowing means "copy names our page but the link goes to some
+other website" goes undetected for now — written down as a known gap, not swept under.
+
+We also coordinated with two neighbouring efforts working the same files at the same time:
+the contact-button fix (their half is already live) and a markdown-cleanup fix (their edit
+rides inside one of our commits, by agreement, labelled).
+
+Three switches are written and deliberately NOT thrown (files 475/476/477, all marked HOLD):
+turning the new detector on, telling the writer what each button's destination is, and — the
+big one — fixing the hand-off so the link resolver's answers are actually used. The last one
+is only safe after the next build of the system is rolled out and verified, because using
+the resolver's answers today would overwrite good contact buttons on other sites. After the
+roll: verify, throw the switches in order, canary one site, then rebuild the webdesign.uk
+home page through the normal pipeline and check the button by its text.
