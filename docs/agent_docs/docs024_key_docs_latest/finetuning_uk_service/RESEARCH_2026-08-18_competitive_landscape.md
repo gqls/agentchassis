@@ -52,3 +52,26 @@ credible for business buyers, reduce-later-not-raise-later.
 - [AI Pricing Guru — Together.ai pricing](https://www.aipricing.guru/together-pricing/) · [Mistral pricing](https://www.aipricing.guru/mistral-ai-pricing/)
 - [Delegait — AI Chatbot Cost UK](https://delegait.co.uk/blog-ai-chatbot-cost-uk) · [AskMind](https://askmind.co.uk/blog/ai-chatbot-cost-uk-2026) · [AI Optimised](https://ai-optimised.co.uk/blog/ai-chatbot-cost-uk-small-business) · [Launchwork](https://launchworkdigital.co.uk/blog/ai-chatbot-business-uk)
 - [Rapid Innovation — fine-tuning services](https://www.rapidinnovation.io/service-development/fine-tuning-language-model) · [Layer3 Labs — open-weights buyer's guide](https://www.layer3labs.io/open-weights/fine-tuning-open-weights-models)
+
+## Positioning principles — OWNER-RATIFIED 2026-08-18 (restated by the owner for the record)
+
+The owner restated the following analysis verbatim as the agreed basis; the
+consulting threads (`copy_quality_two_stage`, `vigilant_designer_offer_analysis`)
+should treat these as settled direction, not proposals:
+
+1. **"Helpful though automated" has a concrete design implication: show the
+   journey, not the machinery.** "Send us your examples → we train overnight →
+   you chat with it the next day, booked hour, no setup" is genuinely reassuring
+   and true — every step of it is now measured. **The concierge phase is an
+   asset, not a stopgap:** "a real person checks every run" is differentiation
+   the big platforms structurally cannot offer at £99.
+2. **The authority-without-intimidation balance is earned through SPECIFICITY,
+   not aesthetics:** real numbers ("trained in under an hour", "your data never
+   trains anyone else's model"), a plain-English guarantee, one screenshot of
+   the playground chatting. Authoritative to a business buyer in a way
+   terminal-green styling never is — and it can't scare anyone.
+3. **"Doesn't sound techie" must not slide into VAGUE.** The buyer who signs off
+   £99–£300 at a small business is often its one semi-technical person; they
+   will want one page that says exactly what they get (model, licence, file
+   they can download, where it runs). **Shape: friendly front door, one honest
+   "for your technical person" page behind it.**
