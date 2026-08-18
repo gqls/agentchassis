@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -45,6 +46,135 @@ type QueryRequest struct {
 	Name   string
 	SiteID uuid.UUID
 	Limit  int
+}
+
+// queryHandler is the uniform shape every registered query is adapted to.
+// Handlers that ignore arg / siteID / limit simply don't read them.
+type queryHandler func(ctx context.Context, db *sql.DB, siteID uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error)
+
+// queryHandlers is the ONE home of the `query.*` vocabulary. Resolve
+// dispatches through it and IsKnownQueryName answers from it, so the
+// dispatcher and any validator asking "would this name resolve?" cannot
+// drift — the drift class two hand-maintained lists always grow into
+// (bugs_open/309: 7 query names declared in component schemas that the old
+// switch did not know, each failing silently at plan time).
+var queryHandlers = map[string]queryHandler{
+	"pages_where_type": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolvePagesWhereType(ctx, db, siteID, arg, limit, false, logger)
+	},
+
+	"pages_under_section": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolvePagesUnderSection(ctx, db, siteID, arg, limit, logger)
+	},
+
+	"section_index_for": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveSectionIndexForType(ctx, db, siteID, arg, logger)
+	},
+
+	"products": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveProducts(ctx, db, siteID, arg, limit, logger)
+	},
+
+	// Homepage news cards (latest-news component). Items come from
+	// content_feed_items, not pages — see news_items.go for why the
+	// selection is shared with the JSON path and the output is escaped.
+	"latest_news": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveLatestNews(ctx, db, siteID, limit, logger)
+	},
+
+	// News-index listing (news-listing component). Same machinery,
+	// archive depth and window, topics included.
+	"news_archive": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveNewsArchive(ctx, db, siteID, limit, logger)
+	},
+
+	// Homepage model-directory snippet (model-directory component).
+	// Deliberately NOT site-scoped — see model_directory_items.go's
+	// header: directory_entities/directory_claims is one global
+	// registry, siteID is unused here.
+	"model_directory": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveModelDirectory(ctx, db, limit, logger)
+	},
+
+	// Model-directory listing page (model-directory-listing component).
+	// Same registry, listing depth.
+	"model_directory_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveModelDirectoryFull(ctx, db, limit, logger)
+	},
+
+	// Homepage adoption-tracker snippet: organisations adopting AI
+	// agents, with their cited ROI/rollout claims. Same global register
+	// as the model directory, kind='company' — also not site-scoped.
+	"adoption_tracker": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "company", limit, 12, logger)
+	},
+
+	// Adoption-tracker listing page. Same register, listing depth.
+	"adoption_tracker_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "company", limit, 50, logger)
+	},
+
+	// Agentic-communication protocols (MCP and successors) and their
+	// cited uptake. Deliberately a SEPARATE kind rather than a company
+	// attribute: a protocol is adopted BY many companies, so modelling
+	// it as a company field would force one row per pairing and lose
+	// the protocol's own cited facts (spec version, governance, date).
+	"protocol_tracker": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "protocol", limit, 12, logger)
+	},
+
+	"protocol_tracker_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "protocol", limit, 50, logger)
+	},
+
+	// Phase B finance kinds (2026-08-13): three more register kinds on the
+	// same global directory_entities/directory_claims registry — the same
+	// resolveDirectoryKind the adoption/protocol trackers use, never the
+	// bespoke model_* functions. Not site-scoped, like every directory arm.
+	"mortgage_lender_directory": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "mortgage-lender", limit, 12, logger)
+	},
+
+	"mortgage_lender_directory_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "mortgage-lender", limit, 50, logger)
+	},
+
+	"savings_provider_directory": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "savings-provider", limit, 12, logger)
+	},
+
+	"savings_provider_directory_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "savings-provider", limit, 50, logger)
+	},
+
+	"health_insurer_directory": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "health-insurer", limit, 12, logger)
+	},
+
+	"health_insurer_directory_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, "health-insurer", limit, 50, logger)
+	},
+
+	// A site's own verified business_intel directory (bugs_open/206).
+	// No arg: the vertical is looked up from the site's own
+	// directory-export-json config, not a static parameter — see
+	// business_directory.go's header for why.
+	"business_directory": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveBusinessDirectory(ctx, db, siteID, limit, logger)
+	},
+
+	// Article listings (content-listing, blog-listing components declare
+	// `source: "query.blog_posts"`). Fleet convention: articles are pages
+	// with page_type 'blog-post', so this is pages_where_type with the
+	// type fixed — one vocabulary entry, zero new query machinery.
+	//
+	// listedOnly (F2.1, 2026-07-17): article listings additionally demand
+	// the page actually shipped — plan-era scaffold rows and never-built
+	// duplicates sit status='active' and were being listed as 404 links
+	// (robot-hands served 6 of them at the D13 gate).
+	"blog_posts": func(ctx context.Context, db *sql.DB, siteID uuid.UUID, _ string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolvePagesWhereType(ctx, db, siteID, "blog-post", limit, true, logger)
+	},
 }
 
 // Resolve dispatches the request to a registered query handler. Returns
@@ -78,107 +208,33 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 	// no argument.
 	base, arg := parseQueryName(name)
 
-	switch base {
-	case "pages_where_type":
-		return resolvePagesWhereType(ctx, db, req.SiteID, arg, req.Limit, false, logger)
-
-	case "pages_under_section":
-		return resolvePagesUnderSection(ctx, db, req.SiteID, arg, req.Limit, logger)
-
-	case "section_index_for":
-		return resolveSectionIndexForType(ctx, db, req.SiteID, arg, logger)
-
-	case "products":
-		return resolveProducts(ctx, db, req.SiteID, arg, req.Limit, logger)
-
-	case "latest_news":
-		// Homepage news cards (latest-news component). Items come from
-		// content_feed_items, not pages — see news_items.go for why the
-		// selection is shared with the JSON path and the output is escaped.
-		return resolveLatestNews(ctx, db, req.SiteID, req.Limit, logger)
-
-	case "news_archive":
-		// News-index listing (news-listing component). Same machinery,
-		// archive depth and window, topics included.
-		return resolveNewsArchive(ctx, db, req.SiteID, req.Limit, logger)
-
-	case "model_directory":
-		// Homepage model-directory snippet (model-directory component).
-		// Deliberately NOT site-scoped — see model_directory_items.go's
-		// header: directory_entities/directory_claims is one global
-		// registry, req.SiteID is unused here.
-		return resolveModelDirectory(ctx, db, req.Limit, logger)
-
-	case "model_directory_full":
-		// Model-directory listing page (model-directory-listing component).
-		// Same registry, listing depth.
-		return resolveModelDirectoryFull(ctx, db, req.Limit, logger)
-
-	case "adoption_tracker":
-		// Homepage adoption-tracker snippet: organisations adopting AI
-		// agents, with their cited ROI/rollout claims. Same global register
-		// as the model directory, kind='company' — also not site-scoped.
-		return resolveDirectoryKind(ctx, db, "company", req.Limit, 12, logger)
-
-	case "adoption_tracker_full":
-		// Adoption-tracker listing page. Same register, listing depth.
-		return resolveDirectoryKind(ctx, db, "company", req.Limit, 50, logger)
-
-	case "protocol_tracker":
-		// Agentic-communication protocols (MCP and successors) and their
-		// cited uptake. Deliberately a SEPARATE kind rather than a company
-		// attribute: a protocol is adopted BY many companies, so modelling
-		// it as a company field would force one row per pairing and lose
-		// the protocol's own cited facts (spec version, governance, date).
-		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 12, logger)
-
-	case "protocol_tracker_full":
-		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 50, logger)
-
-	case "mortgage_lender_directory":
-		// Phase B finance kinds (2026-08-13): three more register kinds on the
-		// same global directory_entities/directory_claims registry — the same
-		// resolveDirectoryKind the adoption/protocol trackers use, never the
-		// bespoke model_* functions. Not site-scoped, like every directory arm.
-		return resolveDirectoryKind(ctx, db, "mortgage-lender", req.Limit, 12, logger)
-
-	case "mortgage_lender_directory_full":
-		return resolveDirectoryKind(ctx, db, "mortgage-lender", req.Limit, 50, logger)
-
-	case "savings_provider_directory":
-		return resolveDirectoryKind(ctx, db, "savings-provider", req.Limit, 12, logger)
-
-	case "savings_provider_directory_full":
-		return resolveDirectoryKind(ctx, db, "savings-provider", req.Limit, 50, logger)
-
-	case "health_insurer_directory":
-		return resolveDirectoryKind(ctx, db, "health-insurer", req.Limit, 12, logger)
-
-	case "health_insurer_directory_full":
-		return resolveDirectoryKind(ctx, db, "health-insurer", req.Limit, 50, logger)
-
-	case "business_directory":
-		// A site's own verified business_intel directory (bugs_open/206).
-		// No arg: the vertical is looked up from the site's own
-		// directory-export-json config, not a static parameter — see
-		// business_directory.go's header for why.
-		return resolveBusinessDirectory(ctx, db, req.SiteID, req.Limit, logger)
-
-	case "blog_posts":
-		// Article listings (content-listing, blog-listing components declare
-		// `source: "query.blog_posts"`). Fleet convention: articles are pages
-		// with page_type 'blog-post', so this is pages_where_type with the
-		// type fixed — one vocabulary entry, zero new query machinery.
-		//
-		// listedOnly (F2.1, 2026-07-17): article listings additionally demand
-		// the page actually shipped — plan-era scaffold rows and never-built
-		// duplicates sit status='active' and were being listed as 404 links
-		// (robot-hands served 6 of them at the D13 gate).
-		return resolvePagesWhereType(ctx, db, req.SiteID, "blog-post", req.Limit, true, logger)
-
-	default:
+	handler, ok := queryHandlers[base]
+	if !ok {
 		return nil, fmt.Errorf("queryresolve.Resolve: unknown query name %q (base %q)", req.Name, base)
 	}
+	return handler(ctx, db, req.SiteID, arg, req.Limit, logger)
+}
+
+// IsKnownQueryName reports whether a `query.*` source declaration would
+// dispatch to a registered handler. `name` is the part after "query." —
+// the same string QueryRequest.Name carries, optional `:arg` included.
+// Same normalisation as Resolve, and answered from the same map, so this
+// cannot say yes to a name Resolve would refuse.
+func IsKnownQueryName(name string) bool {
+	base, _ := parseQueryName(strings.ToLower(strings.TrimSpace(name)))
+	_, ok := queryHandlers[base]
+	return ok
+}
+
+// KnownQueryBases returns the registered query bases, sorted, for use in
+// validation messages that must name the real vocabulary.
+func KnownQueryBases() []string {
+	bases := make([]string, 0, len(queryHandlers))
+	for base := range queryHandlers {
+		bases = append(bases, base)
+	}
+	sort.Strings(bases)
+	return bases
 }
 
 // parseQueryName splits a query name into base and argument. The first
