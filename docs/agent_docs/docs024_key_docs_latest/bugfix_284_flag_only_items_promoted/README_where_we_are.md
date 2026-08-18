@@ -411,3 +411,27 @@ So the position on your third decision is: eleven need publishing, six need repo
 eight belong to bug 131, and the last five need a small decision from the imagery lane
 before anything can generate them. All of it is written up in bug 114 with the file and
 line numbers.
+
+---
+
+**2026-08-18, later — your answer on the two-guides-per-tool question, and what it closes.**
+
+You said: two or three articles per tool is fine, it's not a strict rule. So the content-
+strategy question I left open is settled — the pairs stay. Nothing to do, and importantly
+nothing to undo: I had already declined to file any de-duplication work, because the pairs
+turned out not to be duplicates at all (a usage guide and a decision guide per tool), so
+there is no cleanup sitting half-done waiting on this. I have recorded your ruling in bug
+309, which is where the question was written down, so the next session reading that file
+does not re-raise it.
+
+What this does NOT settle is the actual defect on that page, and that is what I am on now:
+the Platform Log index lists six articles as plain text with no links in them at all, so
+none of the writing is reachable from the site. That is bug 309 and it is still open.
+
+**A correction to my own handoff, straight away.** That handoff told you a diagnosis run
+was in flight and that the next session should read its verdict first. There is no such
+run. I checked the three places it would have to exist — the intake queue, the diagnosis
+artefacts, and the orchestration table — and all three are empty for that identifier, and
+no work item of any kind was created in that whole hour. So the trigger never landed. I am
+re-firing it, and this time I will confirm the intake row exists rather than trusting the
+identifier it printed at me.

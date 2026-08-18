@@ -192,11 +192,18 @@ problem. Nothing anywhere on the site links a guide — checked `/`,
   renders 6 cards with **6** anchors. The component is capable; this page's render is not.
 - **A second defect behind the first:** card 4 advertises `ai-readiness-checker-guide`,
   which is **archived** — restoring anchors alone would give that card a 404.
-- **Root cause NOT diagnosed.** `090` fired: correlation
-  **`df8ca3a1-9cca-474a-88fb-19577e088080`** (queue was empty; no prior bug mentions
-  `bl-card` or unlinked cards). **A verdict should be waiting for the next session —
-  read it first:** `SELECT body FROM diagnosis_artifacts WHERE
-  correlation_id='df8ca3a1-9cca-474a-88fb-19577e088080' ORDER BY created_at;`
+- **Root cause NOT diagnosed.** ~~`090` fired: correlation
+  `df8ca3a1-9cca-474a-88fb-19577e088080` … a verdict should be waiting for the next
+  session — read it first.~~
+  > **CORRECTED 2026-08-18 (later): THAT RUN DOES NOT EXIST — do not wait for it.**
+  > `diagnosis_artifacts`, `orchestration_states` and `site_work_items` are all empty
+  > for that id, and no work item of any type was created in that hour. A printed
+  > correlation is not a dispatched run; the intake ROW is
+  > (`SELECT status, spec->>'dispatch_correlation_id' FROM site_work_items WHERE
+  > item_key='needs_diagnosis:<slug>'`). A real run is now in flight —
+  > **run correlation `6e578bf5-778a-4e72-aab2-0531e45c07d8`**, and artefacts are
+  > keyed by that, never by the intake id the script prints first. Logged in
+  > `WRONG_CALLS.md`; mechanism and corrections are in `bugs_open/309`'s addendum.
 - ⚠ **Measurement correction recorded in the bug file:** a first pass on one truncated
   card string reported "1 anchor". Re-running over all six returned 0 each. A regex over
   a `[:900]` slice is not a measurement of the card.
@@ -214,10 +221,23 @@ build-failure branch is written but was NOT exercised.
 
 ## What is open after this addendum
 
-1. **`bugs_open/309`** — read the `090` verdict (`df8ca3a1`), then fix the unclickable
-   index. Verify at the SERVED page; card 4 must point at the live `/guides/` sibling.
-2. **Owner content-strategy question** — two articles per tool: keep both, merge, or
-   retire one? Nothing is filed either way.
+1. **`bugs_open/309`** — ~~read the `090` verdict (`df8ca3a1`)~~ **that run never
+   existed (see the correction in §C)**; a real one is in flight under
+   `6e578bf5-778a-4e72-aab2-0531e45c07d8`. The mechanism is now MEASURED end to end in
+   309's addendum: the card anchors are gated on `postN_url`, those seven fields source
+   `site_specs.blog.*`, and **the `blog` aspect has never existed on any site**, so
+   `on_missing=skip_field` drops the key and the `{{if}}` drops the link — silently, with
+   no empty href to see. Second half: `findBlogPage` only selects `blog-index`/`name='blog'`
+   pages, so `RebuildBlogListingAction` never rebuilds this `section-index` page. It is a
+   **missed migration** — every sibling list component already moved to `query.*`
+   collection sources; this one alone kept the numbered-flat dialect, which is also why
+   card 4 can name an archived page (its titles are `source: llm`, joined to nothing).
+   Fix candidates are ranked in 309 §5. Verify at the SERVED page.
+2. **Owner ruling 2026-08-18 — CLOSED, no action:** two or three articles per tool is
+   fine, it is not a strict rule. The content-strategy question below is settled; nothing
+   to file either way.
+3. ~~**Owner content-strategy question** — two articles per tool.~~ **RULED
+   2026-08-18: keep them; two or three per tool is fine.** See item 2 above.
 3. **`bugs_open/083`** — the canary decision on `placeholder_contact` is that lane's,
    now better informed.
 4. **Still true from the main handoff:** the scheduled promoter has never written through
