@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1309
+IMAGE_TAG ?= v1.0.1310
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -55,12 +55,33 @@ endif
 # declaration and the targets loop over it.
 #
 # RELEASE_IMAGES — the images build-backend/push-backend produce at
-# $(IMAGE_TAG). An image NOT in this list is never retagged by a release
-# (check services, github runners, ollama: own lineage, own deploy cadence).
+# $(IMAGE_TAG). An image NOT in this list is never retagged by a release.
+#
+# ⚠ CORRECTED 2026-08-18 (OWNER RULING, bugs_open/237 Decision B): this comment
+# used to end "(check services, github runners, ollama: own lineage, own deploy
+# cadence)". For ollama that is still true — it is an upstream image. For the
+# four check services and the two github runners it was NOT a cadence, it was a
+# FREEZE, and the owner has ruled all six into the fleet release. What the
+# separate lineage actually bought:
+#   - the four checks each had a deploy target nobody ran, so each overlay was
+#     written once on the day the service was created and never again. Because
+#     these binaries compile the estate's action registry IN, a frozen image is a
+#     frozen INVENTORY: measured 2026-08-18, removed-config-keys-check could see
+#     165 of 169 registered actions and shared-output-fields-check 161 — and a
+#     check that skips an action emits nothing, so its clean report is
+#     indistinguishable from a clean estate;
+#   - github-actions-runner sat on v1.0.948 since April, missing rsync and ssh
+#     (measured at the pod), and github-actions-runner-vmsites had NO retag
+#     target in this file at all.
+# Folding them in also closes check-release-coverage's blind spot by
+# construction: the gate only polices overlays pinning a RELEASE_IMAGES image,
+# so until now it could not see any of these six.
 RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	web-search-adapter web-scrape-adapter git-adapter image-generator-adapter \
 	thunder-adapter analyser-adapter browser-runner-adapter \
-	content-creator-agent remote-job-spawner kafka-scheduler
+	content-creator-agent remote-job-spawner kafka-scheduler \
+	component-render-check shared-output-fields-check \
+	removed-config-keys-check verifier-remit-check github-actions-runner
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -69,16 +90,24 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 #   render-audit-adapter runs the browser-runner image (different topic and
 #     consumer group; it deliberately has NO build/push of its own, and none
 #     should be added);
-#   vet-intel and business-intel run the agent-chassis image.
+#   vet-intel and business-intel run the agent-chassis image;
+#   github-actions-runner-vmsites runs the github-actions-runner image — ONE
+#     image, two Deployments, which is why -vmsites never needed a build or a
+#     retag target of its own and why it went four months with no way to move it
+#     (bugs_open/237 Decision B, owner ruling 2026-08-18).
 # ORDER is preserved by the loops; render-audit-adapter sits directly after
 # browser-runner-adapter because the two must move together — the tag applied
-# to it has to be one the browser-runner was actually built at.
+# to it has to be one the browser-runner was actually built at. The same is now
+# true of the two runners, for the same reason.
 AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	web-scrape-adapter git-adapter image-generator-adapter thunder-adapter \
 	analyser-adapter browser-runner-adapter \
 	render-audit-adapter:browser-runner-adapter content-creator-agent \
 	remote-job-spawner kafka-scheduler vet-intel:agent-chassis \
-	business-intel:agent-chassis
+	business-intel:agent-chassis \
+	component-render-check shared-output-fields-check \
+	removed-config-keys-check verifier-remit-check \
+	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
 # their OWN deploy path, named here so check-release-coverage can hold them to
@@ -157,8 +186,24 @@ dev-reset: dev-down ## Reset development environment (removes volumes)
 .PHONY: build-all
 build-all: build-backend build-frontends ## Build all images
 
+# build-backend MUST produce every image in RELEASE_IMAGES. push-backend loops
+# that list and exits 1 on the first missing image, so an image declared there
+# and not built here fails the release loudly — but the runners are the case
+# where that matters most: deploy-agents now retags BOTH runner overlays to
+# $(IMAGE_TAG), so a release that retags without building would point them at an
+# image nobody pushed and both would ImagePullBackOff together. The build half
+# and the retag half must land in the same release, which is why build-checks
+# and build-github-runner are prerequisites here and not optional extras
+# (bugs_open/237 Decision B, owner ruling 2026-08-18).
 .PHONY: build-backend
-build-backend: build-auth-service build-core-manager build-agents build-adapters ## Build all backend services
+build-backend: build-auth-service build-core-manager build-agents build-adapters build-checks build-github-runner ## Build all backend services
+
+# build-checks — the four daily CronJob images. Folded into the release
+# 2026-08-18: each previously had a deploy target nobody ran, and because these
+# binaries compile the action registry IN, a frozen image silently under-reports
+# on the estate it audits (see RELEASE_IMAGES above for the measured figures).
+.PHONY: build-checks
+build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check ## Build all four daily check CronJob images
 
 .PHONY: build-frontends
 build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
@@ -1166,10 +1211,18 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 		fi; \
 	done
 
-	# Deploy BOTH github runners' manifests (own image lineage — NOT retagged to
-	# IMAGE_TAG; see the deploy-github-runners comment). Manifest-only, so a
-	# release ships pod-spec changes — requests, spread constraints — without
-	# touching which runner image is pinned.
+	# Re-apply BOTH github runners' manifests.
+	#
+	# ⚠ CHANGED 2026-08-18 (owner ruling, bugs_open/237 Decision B): the runners
+	# are now IN AGENT_DEPLOY_SERVICES, so the loop above has already retagged and
+	# applied both — including -vmsites, which maps to the github-actions-runner
+	# image because there is one image and two Deployments. This call is therefore
+	# a redundant re-apply and is KEPT ON PURPOSE for the one thing the generic
+	# loop does not do: the loop SKIPS a missing overlay with a warning, whereas
+	# deploy-github-runners FAILS in production. The runners are production-only,
+	# so for them a missing overlay means a release is about to report success
+	# while shipping none of the manifests it claims to — worth one idempotent
+	# apply to keep. It no longer has anything to do with image tags.
 	@$(MAKE) --no-print-directory deploy-github-runners
 
 	# Deploy the node-config DaemonSet (bugs_open/252: kubelet image-GC settings
@@ -2519,10 +2572,16 @@ dev-dashboard: ## Run Vite dev server for local dashboard development
 # GitHub Actions Runner (Self-Hosted)
 #################################
 .PHONY: build-github-runner
-build-github-runner: ## Build github-actions-runner image
-	@echo "$(YELLOW)Building github-actions-runner...$(NC)"
-	docker build -t $(REGISTRY)/github-actions-runner:$(IMAGE_TAG) \
-		-f build/docker/backend/github-actions-runner.dockerfile .
+build-github-runner: ## Build github-actions-runner image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,github-actions-runner)
+# Was a bare `docker build ... .` until 2026-08-18, i.e. the whole shared working
+# tree as build context — the pattern inverted for every other backend service on
+# 2026-07-17. It only COPYs one tracked file
+# (build/docker/backend/github-actions-runner-entrypoint.sh), which git archive
+# includes, so ref_build is a drop-in and the image can no longer carry another
+# session's WIP. Changed here because the runner is now a release image
+# (RELEASE_IMAGES), and a release image built from the working tree would
+# reintroduce exactly the blast radius the ref_build default exists to remove.
 
 .PHONY: push-github-runner
 push-github-runner: ## Push github-actions-runner image
@@ -2547,13 +2606,23 @@ release-github-runner: build-github-runner push-github-runner deploy-github-runn
 # their image tags. This is what `deploy-agents` calls, so `make release` ships
 # runner pod-spec changes the same way it ships every other service's.
 #
-# Why it does not sed newTag, when every other block in deploy-agents does:
-# the runners do NOT share the platform's image lineage. `build-backend` and
-# `push-backend` never build or push `github-actions-runner` (it has its own
-# build-/push-/release-github-runner targets), and the two overlays are pinned
-# to DIFFERENT tags — measured 2026-08-13, live: github-actions-runner
-# on v1.0.948 and github-actions-runner-vmsites on v1.0.1126, against a platform
-# IMAGE_TAG of v1.0.1295.
+# ⚠ SUPERSEDED 2026-08-18 (OWNER RULING, bugs_open/237 Decision B) — this target
+# no longer decides anything about image tags, and the paragraph below is kept
+# only because it explains what the estate looked like before the ruling.
+# `github-actions-runner` is now in RELEASE_IMAGES (so build-backend/push-backend
+# DO build and push it, from committed HEAD via ref_build) and both runners are
+# in AGENT_DEPLOY_SERVICES, with -vmsites mapped to the shared image. So the
+# retag now happens in the deploy-agents loop like every other service, and this
+# target survives ONLY for its production-strict missing-overlay check.
+#
+# (historical, pre-ruling) Why it did not sed newTag, when every other block in
+# deploy-agents does: the runners did NOT share the platform's image lineage.
+# `build-backend` and `push-backend` never built or pushed
+# `github-actions-runner` (it had its own build-/push-/release-github-runner
+# targets), and the two overlays were pinned to DIFFERENT tags — measured
+# 2026-08-13, live: github-actions-runner on v1.0.948 and
+# github-actions-runner-vmsites on v1.0.1126, against a platform IMAGE_TAG of
+# v1.0.1295.
 #
 # ⚠ CORRECTED 2026-08-17 (OWNER RULING): this comment used to say those two tags
 # differed "on purpose". They do NOT — the owner has ruled the separate cadence
@@ -2562,13 +2631,21 @@ release-github-runner: build-github-runner push-github-runner deploy-github-runn
 # them and v1.0.948 (github-actions-runner) does NOT — verified at both pods with
 # git/jq as controls. The freeze has two different causes: `github-actions-runner`
 # has `release-github-runner` and nobody has run it since April; `-vmsites` has NO
-# retag target in this file at all, so nothing can move it. The fix is pending an
-# owner decision — see bugs_open/237. Do NOT "tidy" this by seding both tags to
-# IMAGE_TAG: retagging them to IMAGE_TAG on release would point both
-# at an image that was never built and never pushed, and they would
-# ImagePullBackOff together — the same all-or-nothing trap documented under
-# "Single-service deploy" below deploy-agents, which is why this mirrors the
-# ollama-adapter block (apply, no sed) rather than the twelve above it.
+# retag target in this file at all, so nothing can move it. ~~The fix is pending
+# an owner decision — see bugs_open/237.~~ RULED 2026-08-18: fold both into the
+# fleet release (above).
+#
+# The old warning here read: *Do NOT "tidy" this by seding both tags to
+# IMAGE_TAG: retagging them to IMAGE_TAG on release would point both at an image
+# that was never built and never pushed, and they would ImagePullBackOff
+# together.* **That warning was correct and its premise is now gone** — the
+# release builds and pushes the image, so the sed is safe. Note the two halves
+# are one change: if anyone removes github-actions-runner from RELEASE_IMAGES (or
+# drops build-github-runner from build-backend) while leaving the runners in
+# AGENT_DEPLOY_SERVICES, the old trap comes straight back and takes out CI on
+# both runners at once. check-release-coverage does NOT catch that direction —
+# it fails a service that pins a release-built image and is in no release path,
+# not one that is in a release path but whose image stopped being built.
 #
 # To move a runner to a new image, use `make release-github-runner`, which builds
 # and pushes at IMAGE_TAG BEFORE deploy-github-runner (singular) rewrites the tag.
