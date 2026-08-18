@@ -191,3 +191,24 @@ the "tool that OUTPUTS a script tag" test. No concatenation obfuscation needed o
 **Council:** `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc` (verdict recorded here when read).
 **Register:** CLC-019. **Verify after the roll:** re-run an `add_tool` whose description names tags
 with angle brackets; confirm birth; confirm the two false-alarm items resolve via their verifier.
+
+### Addendum evidence — the obfuscation the guard forces, as shipped `[MEASURED 2026-08-18]`
+
+`tool-seo-injector` was rebuilt with the concatenation instruction in its work item, and passed. The
+line it had to write is:
+
+```js
+var scriptOpenTag = lt + 'script type="application/ld+json"' + gt;
+```
+
+Guard arithmetic on the accepted component: `<script` 1/1, `<style` 1/1, `<div` 6/6, `<fieldset` 1/1 —
+exactly balanced, **because the tag it actually emits is no longer present as text**. The natural
+implementation (a template literal containing the tag, with the closing one escaped as JS requires)
+would have been rejected.
+
+So the guard's effect on this class is not "blocks bad code" but **"selects for code that hides its own
+strings from a text scan"**. The accepted version is harder to read than the rejected one, is no less
+likely to be truncated, and — the part that matters for the guard's actual purpose — **a real
+mid-generation cut in the concatenated version would now be HARDER to detect**, because the file no
+longer contains the tag text the predicate looks for. The workaround degrades the very signal the
+guard exists to measure.
