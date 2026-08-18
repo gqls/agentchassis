@@ -811,3 +811,54 @@ needed — but it cannot answer "which STEP asked?", which is exactly triage pas
 the *action name* is reachable at the bypass site at zero cost, and adding it to the finding's
 context would make the bypass rows self-attributing. Worth doing if pass 2's grep is inconclusive
 — not before, and not as part of Phase 2.
+
+### 10.8 MIGRATION 417 IS PROVEN LIVE — 2026-08-18, 26/26, with both controls
+
+The demand that had not arrived for 19 hours arrived: **26 `image-build-handler` runs since the
+apply** (all COMPLETED), each spawning an `asset-deployer` child. Build at the time:
+`v1.0.1308`, label revision `e7e5e4d53` confirmed at `/proc/1/exe`, negative control absent,
+digests matched — and `53edef286` (the recorder) an ancestor.
+
+| check | result |
+|---|---|
+| children of an `image-build-handler` parent since the apply | **26** |
+| carrying a bare `asset_id` | **26 / 26** |
+| carrying a literal `asset_id!` key (the BAD control — means the binary did not parse the marker) | **0** |
+| strict/`asset_id` errors fleet-wide since the apply | **0** |
+
+**So RFC_029 §9 D3's first adopter is proven end to end**: the `!` marker parses in the live
+binary, the suffix is stripped before delivery, and the child receives the bare key it always
+did. The happy path is unchanged, and the refusal branch — the real behaviour change — remains
+un-exercised (measured zero before the flip, and no strict error since), which is exactly the
+state 417's header predicted.
+
+**Honest caveat, because "26/26" invites an over-read:** 14 of those 26 children later FAILED —
+on `failed to get latest commit/base tree for branch "master"`, a git-adapter/repository error
+that happens well AFTER input resolution. Those children received their `asset_id` correctly and
+then failed at their own work. The marker is proven; the deploy path those children run is
+evidently unhealthy, and that is **not this lane's** — it is worth someone's attention as a
+separate matter (a 54% failure rate on asset deploys), and it is precisely the kind of thing a
+"26/26 proven" headline would bury if the statuses were not read.
+
+### 10.9 CORRECTED figures for §10.7 — the improvement is a HALF, not three-quarters
+
+> **CORRECTED 2026-08-18:** §10.7's table said ~~"105.6/h · 14.6 per run → 28.4/h · 3.4 per run
+> (−73%)"~~. The "after" column was a **1.3-hour, 11-run** sample. Matched-window, with 193 runs
+> of demand: **17.7 rows per run → 8.4 rows per run, −53%.** Direction and mechanism unchanged;
+> the size was overstated. Published into `bugs_open/287` §11d as well — corrected there (§11e)
+> and logged in `WRONG_CALLS.md`. The lesson generalises: a per-unit figure needs its denominator
+> stated inline, and a rate sampled over less than one duty cycle of a 2×-swinging fleet is a
+> preview, not a measurement.
+
+**What survives the correction, strengthened:** `field=result` is **still zero** — now across
+**193 `build-dispatch-loop` runs in 12 h** rather than 11. 287's fix is holding on 17× the
+demand that first tested it.
+
+**And the residual is bigger than §10.7 implied**, precisely because the per-run figure was
+wrong: over the last 12 h, `current_page` 1,124 and `work_item_id` 503 (plus
+`page-content-writer` `current_page` 111, `page-rerender` 6, `page-build-handler` 6+2). At 8.4
+rows per loop run this is not the "~6 pairs at a few an hour" the handoff described — the PAIR
+COUNT is right, the VOLUME is not. Phase 2 is still gated on the same enumerated list; it is
+simply a louder list than I said yesterday, which makes triage pass 2 (§10.7a(c): *what is still
+searching, when every sub-workflow reference is explicitly mapped?*) the more clearly the next
+piece of work.
