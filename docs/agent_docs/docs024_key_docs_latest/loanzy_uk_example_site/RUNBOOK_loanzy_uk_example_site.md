@@ -69,3 +69,33 @@ No `--roadmap-file` flag exists (webdesign lane, HANDOFF_2026-08-06). Do not dis
 
 Verify at the **served page**, cache-busted — not at item status, and not at
 `rendered_html` in the DB. `complete` is not proof the work happened.
+
+## The dispatch that was actually used (2026-08-18)
+
+```bash
+bash scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh loanzy.uk
+```
+**`bash <path>`, not `./<path>`** — the script is mode 644 in the tree and `./` fails with
+"Permission denied". No `--mission`, `--email`, `--phone` or seed: the domain string is the
+whole input, which is the point of this lane.
+
+Then verify it LANDED (never trust exit 0 — `kcat -P` can publish nothing and exit clean):
+
+```sql
+SELECT status, current_step, error FROM orchestration_states WHERE correlation_id='<corr>'::uuid;
+SELECT id, domain, status, build_status FROM sites WHERE domain='loanzy.uk';
+SELECT w.item_type, w.status, w.handler_agent FROM site_work_items w
+  JOIN sites s ON s.id=w.site_id WHERE s.domain='loanzy.uk' ORDER BY w.created_at;
+```
+⚠ Qualify `status` in the join — both tables have one, and an unqualified reference aborts the
+whole `psql` invocation with "column reference is ambiguous", which looks like the query found
+nothing.
+
+## Watching the cascade
+
+```sql
+SELECT ss.aspect, ss.source_agent, ss.is_current, ss.created_at FROM site_specs ss
+  JOIN sites s ON s.id=ss.site_id WHERE s.domain='loanzy.uk' ORDER BY ss.created_at;
+```
+The strategy spec is where the framework's own answer to "what is this domain for" first
+becomes readable — that is the artefact to judge before any page deploys.

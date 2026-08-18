@@ -53,3 +53,55 @@ prompt. Written into PLAN as the rule, with a requirement to log deviations here
 and it is a published artefact — building first and asking after would produce a pair whose
 prompt was reverse-engineered from the site, which is the one thing this exercise cannot
 survive.
+
+## 2026-08-18 12:53Z — DISPATCHED with NOTHING but the domain
+
+**Owner's steer, which changed the plan before Phase 1 ran:** *"I'd like the framework to
+determine the prompt — it should already have that step in the research stage or thereabouts.
+So assuming no prompt at all. Let's try that."* So the candidate prompts I had drafted were
+never put; PLAN Phase 1 ("the prompt, owner input, BLOCKING") is **struck** — the input is the
+domain string and nothing else.
+
+**He is right that the step exists** `[MEASURED]`. `082_submit_domain_unified.sh`'s own header
+documents the graph: `needs_domain_research → domain-research-classifier → needs_strategy →
+domain-strategist → needs_briefing → build-briefing-agent → needs_site_plan → …`, and *"a
+fresh domain still gets a research step regardless: the classifier always runs in full (web
+research + synthesis)"*. `--mission` is optional in the arg parser, and `domain-submitter`'s
+workflow marks `persist_mission` *"skipped if absent"* — so a mission-less fresh submission is
+a supported path, not a hack.
+
+**What was passed: `loanzy.uk`. Nothing else.** No `--mission`, no `--email`, no `--phone`, no
+fidelity, **and no seed SQL at all** — the FRESH path's `ensure_site_record` creates the site
+row itself. That means no `evidence_base`, no `banned_claims`, no `imagery_style_guide`: the
+site starts with nothing attested. Where webdesign.uk's own build could state its price
+because the owner had attested it, this one has no attested anything, and what the framework
+does about that is part of what we are here to observe. **Withholding the email was a
+choice**: a customer supplies contact details, so if the build raises an item asking for them,
+that is a finding to record and answer, not a failure to pre-empt.
+
+Preconditions checked before firing, none inferred: chassis pods up since 07:57Z (~5h, clear
+of the ~300s silent-drop window); `domain-submitter`, `domain-research-classifier`,
+`domain-strategist`, `build-briefing-agent` all `is_active` and not snapshots; zero existing
+work items on the domain.
+
+```
+CORRELATION_ID=a892b446-36bb-4b30-83be-71cca81ff53e
+ORCHESTRATION_ID=84865f5f-5ef1-4cc1-8fb1-656951f1a5a6
+site_id=55213ded-03ec-40f7-8fc1-169de05e05c8
+```
+
+`[MEASURED]` **Verified landed, not assumed from exit 0** — `kcat -P` is known to publish
+nothing and still exit 0. `orchestration_states` COMPLETED at step `complete`, `sites` row
+created (`build_status=pending`), and `needs_domain_research` filed `triaged` at 12:53:00Z for
+`domain-research-classifier`.
+
+⚠ `bash <script>`, not `./<script>` — the file is mode 644 in the tree, so `./` gives
+"Permission denied". Recorded in the RUNBOOK.
+
+**The risk this run carries, stated before the result is known so it cannot be rationalised
+after:** the only signal the classifier has is the string "loanzy.uk", which reads as a
+lender. If it invents a lender or broker, the result is a fake regulated firm on a live UK
+domain, and the honest response is to retract rather than to publish it as a demo. Reviewing
+the strategy spec before pages deploy is NOT steering the build — no input changes — but if I
+ever intervene in the content, it gets logged here as a deviation and the pair stops being
+"built only from the domain".
