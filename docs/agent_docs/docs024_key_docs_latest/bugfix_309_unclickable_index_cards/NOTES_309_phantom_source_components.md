@@ -105,3 +105,24 @@
   whole-fleet, owner runs make release).
 - Register updated: CLC-018 status BUILT+COMMITTED+WIRED, index row matched.
 - Council `fdb032c6`: review_guardian EXECUTING_STEP as of 18:51:56Z.
+
+## 2026-08-18 latest+1 — round 1 REVISE, answered by code, round 2 in flight
+
+- Council round 1: **REVISE**, gating objection from editquality — "the wiring
+  edit is HELD, so approving lands a guard nothing calls". TRUE when submitted;
+  resolved in the repo before the verdict even landed (e21b172f0). A lesson in
+  submission timing: the submission described the held state, events outran it.
+- Three seats independently demanded a wiring-level test ("a mutation deleting
+  the wiring line passes CI"). Closed at `e5c9029dc`: two sqlmock ACTION-level
+  tests; the mutation was ACTUALLY RUN (wiring line no-op'd → test FAILED →
+  restored → green). bug_historian's outage objection (fail-open = only a Warn)
+  closed in the same commit: durable `SOURCE_GUARD_ASPECT_SET_UNAVAILABLE` via
+  LogActionFindings, branch exercised by the second test.
+- Measured answers (no code): Resolve has exactly 2 callers fleet-wide;
+  check_required_fields_missing EXPLICITLY excludes resolver-sourced fields
+  (no existing discovery check covers the class); ValidateSitePlan drops by
+  component-NAME mismatch so it neither catches nor masks the 58 fields;
+  STRUCTURAL_KEY_CARRY_MISS (28 rows) is the live signal for the out-of-scope
+  registered-but-empty class per the RFC_009 owner ruling.
+- Round 2 resubmitted on the SAME correlation (RESUBMIT_CORR=fdb032c6),
+  submission JSON: COUNCIL_RESUBMISSION_2026-08-18_r2.json.
