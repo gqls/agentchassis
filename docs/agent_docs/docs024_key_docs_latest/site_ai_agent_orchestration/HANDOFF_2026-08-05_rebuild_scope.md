@@ -1,5 +1,20 @@
 # HANDOFF — `ai-agent-orchestration.com`, a rebuild the owner asked for, scoped but NOT started
 
+> ## ⛔ SUPERSEDED 2026-08-18 by `HANDOFF_2026-08-18_continue_here.md` — READ THAT FIRST.
+>
+> This file remains the record of the rebuild **scoping** and its `bugs_closed/194` analysis, both
+> of which still hold. **Every figure below is from 2026-08-05 ~10:30Z and is stale.** The ones
+> that mattered, re-measured 2026-08-17/18:
+>
+> | this file says | actually, 13 days on |
+> |---|---|
+> | 31 NULL `content_data` across 10 pages | **15 across 8 pages** — partly repaired |
+> | 42 queued `page_rerender` not moving | drained; the fleet-wide stall is `bugs_open/029`, **owned by the owner's own thread** |
+> | scope is an owner decision, NOT taken | **taken 2026-08-17** — contrast fixed at the template (migrations `456`+`457`), `pricing` rebuild approved |
+>
+> **§4 of this file is still correct and still worth reading**: this site cannot serve
+> `bugs_closed/194`'s check 3b, and that has not changed.
+
 **Written 2026-08-05 21:00Z.** The owner raised this unprompted: *"if you need a site to work
 on ai-agent-orchestration.com is a decent one, it needs a rebuild anyway there is a lot missing
 on it."* It was offered as a target for `bugs_closed/194`'s acceptance check; **it cannot serve

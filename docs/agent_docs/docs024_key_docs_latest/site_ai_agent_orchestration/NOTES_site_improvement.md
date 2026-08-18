@@ -252,3 +252,75 @@ completes green and propagates nothing. Only the `rerender_sections` branch (a `
 ⚠ This site has **2 locked components**, and firing `section_data_resolved` at a locked,
 positionally-named section **duplicates** it (LANDMINES; `bugs_open/189` records the reversal SQL).
 Count `page_components` for the page before and after if that route is taken.
+
+---
+
+## 2026-08-18 — the queue drained, the fix landed, and it introduced one failure of its own
+
+Owner is working `bugs_open/029` in another thread. Blocker noted, not forked.
+
+### The queue drained overnight and 456 propagated
+
+69 of the 70 queued `page_rerender` rows completed (latest 08-18 08:36Z); 81 of 116 components
+re-rendered. **Measured at the artefact, same 4 pages as the 08-17 baseline:**
+
+| page | before | after |
+|---|---|---|
+| index | 17 | **10** |
+| about | 19 | **15** |
+| pricing | 8 | **8** (expected — cannot re-render, 5/5 NULL `content_data`) |
+| services | 0 | 0 |
+| **TOTAL firm** | **44** | **33** |
+
+Family split confirms the fix did what it claimed and only what it claimed: dark-on-dark
+**20 → 8** (and the 8 survivors are all on `pricing`, the unrenderable page); light-on-light
+**24 → 24**, untouched, because family B is a hardcoded white ground and 456 never addressed it.
+
+### ⚠ 456 INTRODUCED A FAILURE, and the net number hid it
+
+The after-audit contained a colour pair that had never appeared before:
+`rgb(118,142,178) on rgb(240,165,0)` — `#768eb2` (the ink) on `#F0A500` (the amber accent),
+**1.61:1**, at `a.stats-cta` "View full report" on `/index.html`. Before 456 that label was
+`#0D1117` on `#F0A500` — near-black on amber, perfectly legible. **I made it worse.**
+
+Root cause, and it is a flaw in how I wrote 456 rather than in the ink mechanism:
+**I repointed every foreground `--color-primary` regardless of the ground it sits on.**
+`--color-primary-ink` is derived to clear the floor against the PAGE grounds — background,
+surface, and the composited overlay — and carries **no guarantee against a fill**. `.stats-cta`
+is `background: var(--color-accent, #7dd3fc)`, so the repoint swapped a well-contrasted colour
+for one that was never measured against amber.
+
+**Caught by re-auditing the same four pages, NOT by the net figure.** 44 → 33 reads as a clean
+win and contains a regression. A before/after total cannot see a swap; only the per-pair
+breakdown could, and only because the new pair had no counterpart in the baseline.
+
+**The renderer already had the right token and the component library was already expected to use
+it** — `palette_specialised_slots.go:105-107`: *"`--color-primary-text` on a primary-filled
+button, `--color-accent-text` on an accent-filled one"*, with `--color-accent-text` derived from
+the palette text colour against `palette["accent"]` **as its ground** (line 729). Verified live
+before writing the fix: it computes to `#294155` here.
+
+Migration `457` applies it. Census of how many of 456's 36 repointed declarations sat on a fill:
+**exactly one** (a second apparent hit, `.tag.highlight`, was a false positive from my own crude
+block parser — the repointed declaration there is `border-color`, and its `color` is
+`var(--color-background)`, untouched).
+
+> **Transferable rule, and the reason 457 exists as its own migration rather than a quiet edit:
+> a foreground repoint is safe only when the declaration's own rule block sets no `background`.
+> Census the BLOCK, not the declaration.** Whoever takes the remaining 144 templates inherits this.
+
+### ⚠ RENDERED ≠ DEPLOYED — and the DB query is the one that looks like success
+
+After applying 457 I checked `page_components.rendered_html`: **2 rows carry the accent-text
+fix.** Then I checked the live page: **still 1.61:1.** Both true at the same time. The component
+is correct in the database and wrong on the internet, because nothing has re-assembled and
+published the page since.
+
+Had I stopped at the SQL count I would have reported 457 as done, and it would have read as
+verified — a count of fixed components is exactly the shape of evidence that looks like proof of
+a live fix and is not.
+
+Queue at 12:12–12:17Z: `triaged=41, claimed=0`, static. **Different signature from yesterday's**
+fleet-wide wedge (`claimed=1` on every site = `bugs_open/029`) — zero claims rather than one
+stuck claim, plausibly a consequence of the owner's 029 work in flight. Not diagnosed, not
+forked, and NOT re-fired: the rows are queued, and a missing completion is not a lost message.

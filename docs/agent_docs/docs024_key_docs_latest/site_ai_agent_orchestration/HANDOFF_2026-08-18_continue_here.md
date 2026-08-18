@@ -1,0 +1,217 @@
+# HANDOFF — ai-agent-orchestration.com. START HERE. Written 2026-08-18 ~12:15Z.
+
+**Supersedes `HANDOFF_2026-08-05_rebuild_scope.md`** for current state. That file is still the
+record of the rebuild scoping and its `bugs_closed/194` analysis — read it second, not first, and
+treat every figure in it as 13 days stale (the ones that mattered are re-measured below).
+
+> ## ✅ NOTHING IS BLOCKED. The contrast half is SHIPPED AND MEASURED. Images and carousels are NOT STARTED.
+>
+> | ask | state |
+> |---|---|
+> | **contrast** | **Partly fixed and PROVEN AT THE ARTEFACT: 44 → 33 firm failures on the 4 audited pages.** Migrations `456` + `457` applied and committed. The remaining 33 are a **different defect family** that neither migration addresses — see §3 |
+> | **images** | **NOT STARTED.** Fully scoped in §4. One component, 10 images. ⚠ the obvious handler would DELETE them |
+> | **carousels** | **NOT STARTED.** Design work, no pipeline dependency — the cheapest thing to pick up next (§5) |
+> | `pricing` rebuild | **OWNER APPROVED 2026-08-17, not yet dispatched** (§3c) |
+>
+> **`bugs_open/029` is being worked by the owner in another thread (2026-08-18). DO NOT FORK IT.**
+> It halted this lane for ~40 minutes yesterday and **has since drained** — 69 of my 70 queued
+> items completed overnight. If the queue wedges again (signature: every site at exactly
+> `claimed=1`), that is 029, it is owned, and the correct action is to record what you saw and
+> wait, not to diagnose.
+
+---
+
+## 1. What is DONE and LIVE (each verified at the artefact, not at a status)
+
+| thing | state |
+|---|---|
+| **Migration 456** — 12 templates repoint foreground `--color-primary` → `--color-primary-ink` | **APPLIED + PROPAGATED.** `UPDATE 12`, guards passed |
+| **Migration 457** — `.stats-cta` → `--color-accent-text` | **APPLIED. Component re-rendered in the DB (2 rows carry it). NOT YET DEPLOYED — the live page still serves the 1.61:1 failure.** See the deploy note below |
+| Contrast on index / about | index 17 → **10**, about 19 → **15** |
+| Contrast on services | **0**, before and after (it was already clean) |
+| Contrast on pricing | 8 → **8, unchanged and expected** — the page cannot re-render at all (§3c) |
+| `CONTRIB` filed to the `bugfix_122_contrast_ink_slots` lane | committed 2026-08-17 |
+
+### ⚠ RENDERED ≠ DEPLOYED, and this lane hit the distinction on its last action
+
+`457`'s fix is in `page_components.rendered_html` (2 rows) **and the live page still fails at
+1.61:1**, because nothing has re-assembled and published the page since. A component can be
+correct in the database and wrong on the internet, and **the DB query is the one that looks like
+success**. Check both, and treat the live page as the only verdict:
+
+```sql
+-- (1) is the COMPONENT fixed?
+SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.site_id='2a8ebf9c-20a2-4c39-b191-840b012371da'
+  AND pc.rendered_html LIKE '%--color-accent-text, var(--color-primary%';   -- 2 on 2026-08-18
+```
+```bash
+# (2) is the PAGE fixed?  This is the one that counts.
+python3 scripts/render_audit.py https://ai-agent-orchestration.com/index.html
+```
+
+**Queue state when this was written (2026-08-18 12:12–12:17Z): `triaged=41, claimed=0`, static for
+5 minutes.** Note this is a *different* signature from yesterday's fleet-wide wedge
+(`claimed=1` on every site, which is `bugs_open/029`) — zero claims rather than one stuck claim.
+It may simply be a consequence of the owner's 029 work in flight. **Not diagnosed here, and
+deliberately not forked.** Re-fire nothing: the 41 rows are queued, and a missing completion is
+not a lost message.
+
+**Re-measure it yourself in one command** (never trust the table above):
+
+```bash
+python3 scripts/render_audit.py --json /tmp/aiao.json \
+  https://ai-agent-orchestration.com/{index,about,pricing,services}.html
+# then count FIRM failures only - exclude overImage, or you will over-report by ~3
+```
+
+## 2. The one thing this lane got wrong, so it is not repeated
+
+**456 repointed foreground declarations REGARDLESS OF THE GROUND THEY SIT ON, and that broke an
+element it should have left alone.** `--color-primary-ink` is derived to clear the contrast floor
+against the **page** grounds (background, surface, composited overlay). It carries **no guarantee
+against a fill**. `.stats-cta` is an accent-filled button, so 456 changed its label from `#0D1117`
+on `#F0A500` (near-black on amber, legible) to `#768eb2` on `#F0A500` — **measured 1.61:1**.
+
+Caught by re-auditing the same four pages after the change, **not** by the net improvement, which
+looked like a clean win (44 → 33) and hid it. Fixed by `457` using the token the renderer already
+emits for exactly this case (`--color-accent-text`, computed live as `#294155`).
+
+> **RULE for whoever does the remaining 144 templates: a foreground repoint is safe only when the
+> declaration's own rule block sets no `background`. Census the BLOCK, not the declaration.**
+> Of 456's 36 repointed declarations exactly one sat on a fill.
+
+Two further self-corrections from this lane, both in `WRONG_CALLS.md` / `NOTES`:
+- **A palette re-value was offered to the owner as the "quick safe" option and was not a route at
+  all** — `--color-primary` is dual-role here (37 foreground / 24 background uses), so lightening
+  it trades 20 failures for a fresh set. Withdrawn before anything was applied.
+- **`rerender-pages` does not render.** It files one `page_rerender` work item per page and
+  returns `COMPLETED` in seconds. A green run means "41 rows filed", not "41 pages rendered".
+
+## 3. Contrast — what is LEFT, and it is not more of the same
+
+The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08-18:
+
+```
+ 20  LIGHT-ON-LIGHT  #E6EDF3 on #FFFFFF      <- family B
+  4  LIGHT-ON-LIGHT  #E6EDF3 on #F8F9FA      <- family B
+  7  DARK-ON-DARK    #0D1117 on #0D1117      <- family A, on pricing only (unrenderable)
+  1  DARK-ON-DARK    #0D1117 on #080B10      <- family A, on pricing only
+  1  DARK-ON-DARK    #768eb2 on #F0A500      <- the 457 regression, fix applied, propagation pending
+```
+
+### (a) Family B — 24 failures, components hardcode a LIGHT ground on a DARK site
+
+Seven components paint themselves white and keep the site's pale `--color-text`:
+
+```
+about | departments-grid          #fff        index | departments-grid         #fff
+about | leadership-team           #fff        index | differentiators-section  #fff
+index | case-studies-grid         255,255,255 index | latest-news              #fff
+index | system-stats              255,255,255
+```
+
+**This is untouched by 456/457 and immune to re-rendering** — the white is in the template. It is
+the `hardcoded_section_colors` class the design-discovery agent already names, and the site carries
+an unresolved `generic_theme` item. **Not yet diagnosed to a root cause** — do not assume it is one
+edit. Decide first whether the fix is "remove the fill so the themed surface shows through" or
+"keep the light card and set a dark foreground inside it"; those are different designs and it is
+plausibly an owner question.
+
+### (b) The 17 parked `contrast_failure` items — LEAVE THEM PARKED
+
+They were parked by migration 389 deliberately: promoting them mints completions that are ungraded
+by construction. **They drain by themselves** — `write_render_audit_findings_action.go:479`
+retracts a row on a fresh positive measurement by the same instrument that filed it. So the way to
+close them is to fix the page and let the site's render audit run, **not** to promote them.
+
+### (c) `pricing` — approved for a framework rebuild, not yet dispatched
+
+8 firm failures, 7 of them invisible `H3`s. **5/5 components have NULL `content_data`** and it was
+last rendered **2026-04-13**, so `rerender_page_sections` has nothing to rebuild from — this page
+is the reason "just re-render everything" was never going to be enough.
+
+Owner approved the rebuild on 2026-08-17, **knowing it REGENERATES the copy rather than correcting
+it**. Route: `scripts/initial_messages/020_build_pipeline/082_submit_domain_unified.sh` per the
+owner ruling of 2026-08-04 (never hand-build). ⚠ **NEVER restore from `page_component_history`** —
+`component_id` is NULLed by `ON DELETE SET NULL`, so pairing yesterday's content with today's HTML
+makes the next rerender reinstate the old page (`bugs_closed/194` §4).
+
+## 4. Images — NOT STARTED, fully scoped, and the obvious move is a trap
+
+Every `<img>` on the site is one component, and there are ten:
+
+```
+index                           | case-studies-grid | (EMPTY src)                        x5
+enterprise-reference-deployment | case-studies-grid | /assets/images/case-study-*.png    x5, HTTP 404
+```
+
+`content_data` is rich — five case-study titles, excerpts, stats, and genuinely good
+`cardN_image_alt` prose describing the intended diagrams — but **there is no `cardN_image_url` key
+at all**. The site's own items say why: *"sources field 'card1_image_url' from site_assets.image
+which nothing generates"*.
+
+> ⚠ **DO NOT fill in `handler_agent` on the `image_url_404` / `image_source_unsatisfiable` rows.**
+> They are empty, which looks exactly like the missing piece, and `image-url-404-handler` /
+> `image-source-unsatisfiable-handler` are both live. **Their workflows are
+> `query_database` → `create_work_item` → `checkpoint_for_review` — they TRIAGE, they do not
+> generate.** The only site they have ever run against is `mortgagecalculator.co.uk` (2026-08-14),
+> which now has **zero `<img>` tags in any component**. Routing these rows there would most likely
+> strip the five case studies.
+
+Real generation is `image-generator` / `image-build-handler`. Then bind `cardN_image_url` and
+deploy to stable `/assets/images/` paths — **not** pre-signed URLs (§6).
+
+## 5. Carousels — NOT STARTED, and the cheapest thing to pick up next
+
+No carousel component exists anywhere (`grep -rli carousel platform/ internal/` → two hits, neither
+a component). The owner's instinct was right: this is a hint to the spec/planner. **It has no
+pipeline dependency, so it is the one ask that cannot be blocked by 029.**
+
+The existing guidance — *"For carousels/sliders: Use CSS animation, NOT complex JavaScript"* —
+lives at `html_actions.go:527`, inside a **whole-page** generation prompt. **This site builds
+through the component path, so that guidance never reaches it.** Putting the hint in the right
+place is most of the work.
+
+Constraints the hint must carry, each earned:
+- **CSS-first** (scroll-snap / CSS animation); vanilla JS only if unavoidable.
+- **Every control must resolve to a real page.** `bind_site_experience_action.go:36` records *"the
+  four dead carousel destinations found by hand on 2026-07-26"* (`bugs_open/023`, `071`). The
+  experience register checks destination roles against `pages` **at bind time**, so a carousel spec
+  routed through it cannot promise a dead page. Use it rather than re-inventing the check.
+- **Degrade to a legible list without JS**, so a carousel can never become an invisible-content
+  defect of the kind §3 is about.
+- Candidates: `case-studies-grid` (5 cards, already image-bearing — pairs naturally with §4),
+  `departments-grid`, `leadership-team`, `info-card-grid`.
+
+## 6. Live traps on this site
+
+- **The 9 hero/`content_hero` rows in `assets` are pre-signed Backblaze URLs**
+  (`X-Amz-Expires=604800`, stamped 2026-08-11) — **they lapsed on 2026-08-18**. Only `og-card.png`
+  and `favicon.png` are stable `/assets/images/` paths. No page component referenced one, so the
+  blast radius looked nil; **[UNVERIFIED]** whether og tags, feeds or the asset renderer hold one.
+  Do not mint new pre-signed URLs into content.
+- **2 locked components.** Firing `section_data_resolved` at a locked, positionally-named section
+  **duplicates** it rather than protecting it. Count `page_components` for the page before AND
+  after; `bugs_open/189` records the reversal SQL.
+- **The site is UNLOCKED** (`locked_at` NULL) and carries heavy scheduled automation
+  (`model-directory-publisher`, `feed-ingester`, `content-feed-orchestrator`, `build-dispatch-loop`).
+  Nothing will stop a dispatch — a reason for care, not permission.
+- **The served stylesheet lies about headings.** It declares `h3, .site-footer h4 { color: #ffffff }`
+  and that is **not** the winning declaration — the component's embedded `<style>` in
+  `rendered_html` overrides it. Diagnose from `getComputedStyle`, never from the stylesheet.
+- **`page-rerender` with no `reason` assembles from STORED `rendered_html`** and will ship the old
+  CSS while reporting success. Only the `rerender_sections` branch regenerates from `content_data`.
+
+## 7. Next actions, cheapest first
+
+1. **Finish 457 — it is applied and rendered but NOT DEPLOYED.** The live `a.stats-cta` still
+   measures **1.61:1**. 41 `page_rerender` rows sit `triaged` from orchestration
+   `3d221a1e-2676-46bc-9e9e-f2c6e0a28cc7` (fired 2026-08-18 12:10Z). When the dispatch lane moves,
+   re-audit `/index.html` and require `a.stats-cta` ≥ 4.5:1. **Do not re-fire** — the rows are
+   queued, not lost.
+2. **Carousels** (§5) — no pipeline dependency, pure design + prompt work.
+3. **Images** (§4) — generate via `image-generator`, bind `cardN_image_url`, verify over HTTP.
+4. **Family B** (§3a) — decide the design question first, then fix the 7 components.
+5. **`pricing` rebuild** (§3c) — owner-approved; expect regenerated copy.
+6. Let the site's render audit run afterwards; the 17 parked items drain on their own (§3b).

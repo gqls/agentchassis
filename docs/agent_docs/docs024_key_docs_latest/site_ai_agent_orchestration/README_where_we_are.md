@@ -152,3 +152,61 @@ so I'm not firing that blind.
 Images and carousels I haven't started — both need the same build pipeline that's currently
 jammed, so there was no point queuing more into it tonight. The pricing page rebuild you approved
 is in the same position.
+
+---
+
+## 2026-08-18 — the queue cleared, the fix landed, and it broke one button
+
+Good news first: the jam cleared overnight, my rebuild jobs ran, and **the contrast fix is
+working on the live site**. Measured on the same four pages as before: **44 failures down to 33**.
+The home page went from 17 to 10, the about page from 19 to 15. The services page was already
+clean and stayed clean.
+
+### One thing got worse, and it was my fix that did it
+
+When I re-measured, there was a failure that had never appeared before: the amber "View full
+report" button on the home page. Its label used to be near-black on amber, which reads perfectly
+well. My change turned it into a pale blue-grey on amber, which doesn't.
+
+The reason is a mistake in how I wrote the change. I repointed every heading colour to the
+"legible ink" colour **without checking what each one sits on**. That ink colour is calculated to
+be readable against the *page* — the dark background and the dark panels. Nobody ever calculated
+it against an amber button, and it isn't readable there.
+
+We already had exactly the right colour for that case and I didn't use it — the system works out a
+separate "text on accent" colour for precisely this situation. I've now written a second migration
+that uses it, and checked how many of the 36 declarations I changed were sitting on a coloured
+button like this: exactly one. So it's a small blast radius, but it was real.
+
+**Worth saying plainly: the headline number hid it.** "44 down to 33" looks like an unambiguous
+win, and a regression was inside it. I only caught it because I compared the failures by
+*colour pair* rather than by count, and this one had no counterpart in the original list. I've
+written the rule into the handoff for whoever does the remaining 144 components: check what the
+text is sitting on before you change its colour.
+
+### The second fix is applied but not yet visible
+
+Slight wrinkle. The corrected button is fixed in the database — the component is right. But the
+live page still shows the bad version, because the page itself hasn't been rebuilt and published
+since. Both things are true at once, and the database check is the one that *looks* like success.
+If I'd stopped there I'd have told you it was done.
+
+The rebuild jobs are queued (41 of them) and currently not moving. It's a different pattern from
+yesterday's jam — yesterday every site was stuck on one job, today there are no jobs being picked
+up at all. Since you're working on that bug in another thread, I've recorded what I saw and left
+it alone rather than starting a competing investigation. The jobs are queued, not lost, so
+re-firing them would just add noise.
+
+### Where the three asks stand
+
+- **Contrast** — mostly done. The remaining 33 failures are a *different* problem: seven
+  components paint themselves white on a dark site, so pale text lands on white. That needs a
+  design decision from you — either strip the white so the dark theme shows through, or keep the
+  white cards and darken the text inside them. Plus the pricing page, which still needs the
+  rebuild you approved.
+- **Images** — not started, fully scoped, no surprises expected.
+- **Carousels** — not started, and it's now the obvious next job: it's design and prompt work
+  with no dependency on the jammed pipeline, so it's the one thing that can proceed today.
+
+The handoff is rewritten as `HANDOFF_2026-08-18_continue_here.md`, and the old August 5th one now
+carries a banner saying it's superseded and which of its numbers went stale.
