@@ -35923,3 +35923,52 @@ that "would have restored nothing" while reading as reassurance. **The cheap che
 before writing "tested", say what the test WAS — if the sentence has no answer, delete the
 word. A recipe is a hypothesis until a dry-run against a snapshot row has produced the
 before-image.
+- **I predicted a backlog would not drain, while holding the measurement that would have refuted it.**
+  Answering `bugs_open/296`, I re-measured four parked contrast findings in a live browser, found all
+  four still failing at exactly their recorded ratio, and concluded the retraction would "correctly
+  close **approximately none** of the 225". Overnight it closed **40**, and the first page I re-checked
+  had gone from 6 failures to 1 — genuinely repaired. The four spot-checks were all correct; the
+  *inference* from them was not. **The refuting evidence was already in my scrollback:** I had counted
+  the `page_rerender` traffic on those very sites (vonc 44, robot-hands 93, ai-agent-orchestration 150,
+  webdesign 956) and used it **only** to explain why the audit's scheduler kept skipping ticks. I read
+  hundreds of repair jobs as an obstacle to *observation* and never once as repair. **The cheap check:
+  before predicting that a queue will not drain, ask what is currently WRITING to the artefact its
+  closure depends on** — "is anything fixing these?" is a different question from "are these still
+  broken?", and a snapshot of the artefact can only answer the second. A still-failing measurement is a
+  fact about **now**; a claim that it will still be failing next week is a claim about the *repair
+  pipeline*, and needs its own evidence. **Related, same session:** I also repeated a six-day-old
+  figure from the bug file — "`css-patch-agent` has never processed a single work item" — as a live
+  premise without re-running it. It had processed 58 by then, all successful. **Both errors are the
+  same shape: I treated a dynamic system's state as static because I had measured it once.**
+  Tally for "asserted a durable prediction from a point-in-time measurement": 2 (both this session).
+
+## 2026-08-18 (from the 277/083 lane) — I predicted two escalation dates from DATES, for a mechanism that runs on TIMESTAMPS; both were a full tick early
+
+**The claim (my own `HANDOFF_2026-08-18b`, §3.1, written to be the next session's instruction):**
+*"Expect: `literal_markdown` … to escalate once past the 3-day limit ~**08-20**;
+`placeholder_contact` … ~**08-19**."* **Reality:** `08-21` and `08-20` respectively. The
+`held-pair-canary-escalation` task has `interval_seconds=86400` and last fired at **12:57:48 UTC**,
+so it ticks at 12:57 daily; its predicate is `min(created_at) < now() - interval '3 days'`. The
+oldest `placeholder_contact` row was created at **19:17**, so at the 08-19 12:57 tick it is 6h20m
+short of three days and waits another full day. I had computed `(oldest + 3 days)::date`, which
+silently discards the time of day — and a daily task can only ever fire on its own tick, so an
+effective limit of "3 days" is really **3–4 days**.
+
+**What caught it:** re-deriving the prediction against the actual tick times before trusting the
+handoff I had written hours earlier — i.e. the session-start instruction to re-measure, not any
+external reviewer. Nobody would have caught this until 08-19, when the tick would have escalated
+nothing and read as `466` being broken.
+
+**Why it matters more than a day's slip:** the wrong number was *load-bearing instruction*. A session
+following my handoff would have watched the 08-19 tick, seen `escalated=0`, and had a live gate's
+first run under a new migration look like a failure — the wrong result is **indistinguishable from
+the right one** without recomputing the clock.
+
+**The cheap check:** for any scheduled mechanism, predict against `last_triggered_at +
+interval_seconds`, never against a calendar date — and state the prediction as *"the first TICK that
+escalates it"*, which forces the join between the clock and the predicate. If a predicted date has no
+time of day attached, it has not been computed against the thing that will actually run.
+
+Tally for "a population or a domain assumed rather than enumerated" **in this lane alone: six** (the
+five in `HANDOFF_2026-08-18b` §4, plus this one — here the assumed domain is the *clock*). The shape
+still has not varied.
