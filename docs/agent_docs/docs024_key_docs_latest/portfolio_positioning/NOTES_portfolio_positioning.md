@@ -2427,3 +2427,60 @@ So the earlier "www resolves NOWHERE across all 36 zones" was **too uniform**:
   refuted it in one shot: the single highest-yield source in the register's whole
   history is a gov.uk list page. Widening on the wrong theory would have made the
   mortgage kind worse.
+
+---
+
+## 2026-08-18 (night) — the www→apex rollout, measured at every step
+
+**Deploy** (owner-run, 20:02:37Z): `deploy_worker.sh` reported `success: True` and
+`bindings now: []`. **That empty array is the API not echoing them, and it is
+indistinguishable from the credential-stripping outage the README warns about** — so it was
+verified at the artefact instead: 5 of 6 sampled apexes served 200 with real titles and
+plausible byte counts immediately (a stripped B2 binding fails EVERY page, since the worker
+SigV4-signs each origin GET with them), `/worker-health` answered, and a missing path still
+returned the worker's own 404.
+
+**Full post-deploy sweep, all 39 apexes:** 36 serving. The 3 exceptions are all pre-existing
+and none is a regression: `apis.uk` and `ugg2.com` have **no `sites` row at all** (parked
+domains that carry a worker route), and `loanzy.uk` was cleared by the owner — though its DB
+row still reads `status='deployed'` with 19 active pages, so anything asking the database
+will believe it is live.
+> One apex (`loancash.co.uk`) read 404 on the first pass and 200 on retry, with
+> `cf-cache-status: DYNAMIC` (so live, not a cached answer) — transient, during script
+> propagation. **A single reading immediately after a fleet deploy is not evidence.**
+
+**Fan-out:** `add_www_redirect.sh --apply` — **28 DNS records + 7 routes, 0 failed.** Only 7
+routes because 24 zones already carried a wildcard `*.<domain>/*` route; adding an explicit
+`www.<domain>/*` there would have been redundant. Skipped 3 (see runbook). One zone was
+applied and verified ALONE first (`remortgagecalculator.uk`) before the other 35 — the
+worker's redirect branch had never executed anywhere at that point.
+
+**Verification: 36/36 applicable zones return `301 → https://<domain>/`**, path and query
+preserved (`www.…/about.html?x=1` → `https://…/about.html?x=1`), follow-through 200.
+
+### The two readings that said FAILURE while the change was correct
+
+1. **A newly created worker route 522s.** `https://www.remortgagecalculator.uk/` returned
+   **522** on the first request while `…/mortgage-lenders.html` — same host, same route,
+   same second — already returned 301. On this estate the origin is `192.0.2.1` (TEST-NET-1,
+   which can never answer), so 522 is the *expected* signature of "no worker attached", i.e.
+   the reading confirms the fear. 5/5 clean within a minute.
+2. **My own resolver's negative cache outlived the record.** `www.vonc.com` and
+   `www.webdesign.co.uk` gave `curl: (6) Could not resolve host` for ~4 minutes while the
+   Cloudflare API returned the records (`created_on` 20:07:43Z / 20:07:46Z) and
+   authoritative DNS answered `rcode 0` with proxy IPs. The dry run had queried both names
+   while they were NXDOMAIN, and that negative answer was cached locally. Proven working by
+   pinning the IP: `curl --resolve "www.vonc.com:443:104.21.87.185"` → `301 →
+   https://vonc.com/`. **Same command, same minute, opposite answers, depending only on who
+   was asked.**
+
+Both are in `LANDMINES.md` and the runbook's ✅ DONE section. The dangerous remedy in each
+case is the obvious one — delete the record and re-run — which destroys a correct change.
+
+### Correction carried back into the runbook
+
+The 08-18 finding *"`www.` resolves NOWHERE across all 36 zones"* was an **inference from
+the reference zone**, and wrong in both directions: 8 of 39 zones already had a `www` record,
+in four distinct states, and two of those (`cookly.uk`, `dartsonline.com`) were already doing
+exactly what the owner asked for. The exceptions were precisely the zones a blind fan-out
+would have broken — which is the argument for classifying per zone rather than looping.
