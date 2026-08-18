@@ -54,7 +54,13 @@ var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 		"acknowledges_decision",    // RFC_015 citation gate: decision key(s) this edit knowingly works within
 		"supersedes_decision",      // RFC_015 citation gate: decision key(s) this edit knowingly replaces
 	},
-	Defaults: map[string]interface{}{},
+	// strip_literal_markdown is a SETTING, not a data reference (bugs_open/184):
+	// when true, the merged content map is passed through
+	// datahelpers.StripLiteralMarkdownFromContentData before each branch's
+	// render. Default OFF; enabled on section-editor's apply_edit step by
+	// migration 474.
+	ConfigKeys: []string{"strip_literal_markdown"},
+	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{
 		"edit_type_field": "edit_type",
 		"content_data":    "replacement_content_data", // backward compat: old callers sending content_data
@@ -538,7 +544,10 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		// use. content_edit_mode is empty for component_swap.
 		"content_edit_mode":   outcome.ContentEditMode,
 		"updated_field_count": outcome.UpdatedFieldCount,
-		"total_field_count":   outcome.TotalFieldCount,
+		// bugs_open/184: durable record of a content-mutating strip — pod logs
+		// rotate in minutes; collected_data survives (council 060bcc0a r2).
+		"stripped_markdown_fields": outcome.StrippedMarkdownFields,
+		"total_field_count":        outcome.TotalFieldCount,
 	}, nil
 }
 
@@ -746,6 +755,10 @@ type sectionEditOutcome struct {
 	ContentEditMode   string
 	UpdatedFieldCount int
 	TotalFieldCount   int
+	// Field paths StripLiteralMarkdown changed (bugs_open/184). Surfaced on
+	// the action result — pod logs rotate in minutes; collected_data is the
+	// durable record of a content-mutating transform (council 060bcc0a r2).
+	StrippedMarkdownFields []string
 }
 
 func applyContentEdit(
@@ -834,8 +847,10 @@ func applyContentEdit(
 	// bugs_open/184: strip literal markdown from the MERGED map (LLM
 	// field_updates included) before the render below, so rendered_html and the
 	// persisted ContentData are both built from clean values. Gated, default OFF.
+	var strippedMarkdownFields []string
 	if stripMarkdown {
 		if changed := datahelpers.StripLiteralMarkdownFromContentData(existingContentData); len(changed) > 0 {
+			strippedMarkdownFields = changed
 			logger.Info("applyContentEdit: stripped literal markdown",
 				zap.Strings("fields", changed))
 		}
@@ -879,11 +894,12 @@ func applyContentEdit(
 	)
 
 	return sectionEditOutcome{
-		HTML:              rendered,
-		ContentData:       existingContentData,
-		ContentEditMode:   editMode,
-		UpdatedFieldCount: updatedFields,
-		TotalFieldCount:   len(existingContentData),
+		HTML:                   rendered,
+		ContentData:            existingContentData,
+		ContentEditMode:        editMode,
+		UpdatedFieldCount:      updatedFields,
+		TotalFieldCount:        len(existingContentData),
+		StrippedMarkdownFields: strippedMarkdownFields,
 	}, nil
 }
 
@@ -945,8 +961,10 @@ func applyComponentSwap(
 	}
 
 	// bugs_open/184: same gated strip as applyContentEdit, before the render.
+	var strippedMarkdownFields []string
 	if stripMarkdown {
 		if changed := datahelpers.StripLiteralMarkdownFromContentData(contentData); len(changed) > 0 {
+			strippedMarkdownFields = changed
 			logger.Info("applyComponentSwap: stripped literal markdown",
 				zap.Strings("fields", changed))
 		}
@@ -992,10 +1010,11 @@ func applyComponentSwap(
 	compID, _ := uuid.Parse(comp.ID)
 
 	return sectionEditOutcome{
-		HTML:        rendered,
-		ContentData: contentData,
-		ComponentID: compID,
-		SlotName:    comp.Function,
+		HTML:                   rendered,
+		ContentData:            contentData,
+		ComponentID:            compID,
+		SlotName:               comp.Function,
+		StrippedMarkdownFields: strippedMarkdownFields,
 	}, nil
 }
 

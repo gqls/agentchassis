@@ -223,26 +223,47 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	}
 
 	// bugs_open/184: with strip_literal_markdown enabled (migration 473 sets it
-	// on page-rerender's rerender_sections step), a rerender IS the mechanical
-	// repair for literal markdown: each section's STORED content_data is
-	// stripped here, before it feeds both the render context (:the render loop)
-	// and the persisted mergedContent — so one no-LLM rerender heals both
-	// surfaces. Strip-only, letter-guarded, identical patterns to the
-	// literal_markdown discovery check (single-sourced in datahelpers), so the
-	// completion verifier finds nothing left by construction. Runs before the
-	// content pre-check below on purpose: stripping never removes a field, so
-	// the required-field contract is unaffected.
-	if on, _ := params.StepConfig.Config["strip_literal_markdown"].(bool); on {
+	// on page-rerender's rerender_sections step) AND this dispatch's own
+	// spec.reason naming the repair, a rerender IS the mechanical repair for
+	// literal markdown: each section's STORED content_data is stripped here,
+	// before it feeds both the render context (the render loop) and the
+	// persisted mergedContent — so one no-LLM rerender heals both surfaces.
+	//
+	// DOUBLE-GATED ON PURPOSE (council round 2, guardian): the step config flag
+	// alone would strip on EVERY sections-branch rerender — image_landed,
+	// template_changed, cta_links_stale, the fleet's highest-volume pipeline —
+	// which is a blanket behavioural change dressed as a scoped repair. The
+	// reason gate bounds the blast radius to exactly the dispatched repair;
+	// other reasons carry markdown through untouched, where the discovery check
+	// files a literal_markdown item and THIS path repairs it, scoped.
+	//
+	// Strip-only, letter-guarded, identical patterns to the discovery check
+	// (single-sourced in datahelpers), so the completion verifier finds nothing
+	// left by construction. Runs before the content pre-check below on purpose:
+	// stripping never removes a field, so the required-field contract is
+	// unaffected. The changed paths are surfaced on the action OUTPUT (below),
+	// not just logged — pod logs rotate in minutes; collected_data is the
+	// durable record (council round 2, bug_historian) — and the pre-strip state
+	// is archived by save_page_sections into page_component_history before the
+	// replace, so a disputed strip is recoverable, not lost.
+	var strippedMarkdownFields []string
+	if on, _ := params.StepConfig.Config["strip_literal_markdown"].(bool); on && reason == "literal_markdown" {
 		for _, s := range stored {
 			if len(s.contentData) == 0 {
 				continue
 			}
 			if changed := datahelpers.StripLiteralMarkdownFromContentData(s.contentData); len(changed) > 0 {
+				for _, f := range changed {
+					strippedMarkdownFields = append(strippedMarkdownFields, s.slotName+":"+f)
+				}
 				logger.Info("rerender_page_sections: stripped literal markdown from stored content_data",
 					zap.String("slot", s.slotName),
 					zap.Strings("fields", changed))
 			}
 		}
+	}
+	if len(strippedMarkdownFields) > 0 {
+		out["stripped_markdown_fields"] = strippedMarkdownFields
 	}
 	if len(stored) == 0 {
 		logger.Info("rerender_page_sections: page has no stored components, nothing to re-render",

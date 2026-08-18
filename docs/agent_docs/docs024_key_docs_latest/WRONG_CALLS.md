@@ -36409,3 +36409,22 @@ by different things, and only one of them is bounded by something that cannot ch
 `bugs_closed/310` CORRECTION 1 and 2 · LANDMINES "An `orchestration_states` status census is a
 ~24 h WINDOW…" (same table, same session, the reverse error — there I *did* check which population
 I was counting).
+
+## 2026-08-18 — bug 184 round 2: "apply_section_edit has no registered spec" was a FALSE ABSENCE (caught by the council's prior_art seat)
+
+**The claim:** my round-2 council submission stated apply_section_edit "has no registered
+ActionInputSpec" and framed declaring the new config key there as follow-up work.
+
+**What was true:** `ApplySectionEditInputSpec` exists at section_editor_actions.go:47 and
+is registered at :66 — the seat found it FROM THE LANDMINES INDEX ALONE, by the symbol
+name, without reading the file. I had edited this very file the same evening (the strip
+hooks) and still asserted the absence from memory of what I'd looked at, not from a grep.
+
+**What caught it:** prior_art_librarian, round 2, HIGH.
+
+**The cheap check that would have:** `grep -rn "RegisterActionInputSpec(\"apply_section_edit\""`
+— five seconds, and it's the SAME check as this file's entry from earlier tonight (grep
+the target before asserting a config-plumbing fact in a submission). Same session, same
+class, second occurrence: the tally says this check wants to be a habit — an absence
+stated in a council submission is a measurable claim, and every one of them deserves its
+grep before submission, not after the objection.

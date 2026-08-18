@@ -1967,6 +1967,7 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	}
 
 	var sectionContentData map[string]interface{}
+	var strippedMarkdownFields []string
 
 	if contentField != "" {
 		// Try to extract content with fallback paths
@@ -2012,11 +2013,15 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 			// escapes nothing, so the syntax would reach the visitor verbatim.
 			// Strip-only (never inserts markup into the unescaping pipe);
 			// markup-bearing values keep their backticks/brackets (the check's
-			// own suppression rule). Opt-in per step, default OFF: enabled by
-			// migration 474 on page-content-writer's render_section. Every
-			// strip is logged — the demand control proving the seam fires.
+			// own suppression rule); only freshly-generated values are touched
+			// here — nothing pre-existing is altered on this seam. Opt-in per
+			// step, default OFF: enabled by migration 474 on
+			// page-content-writer's render_section. Strips are logged AND
+			// surfaced on the result (pod logs rotate in minutes;
+			// collected_data is the durable record — council 060bcc0a round 2).
 			if on, _ := config["strip_literal_markdown"].(bool); on {
 				if changed := datahelpers.StripLiteralMarkdownFromContentData(contentData); len(changed) > 0 {
+					strippedMarkdownFields = changed
 					params.Logger.Info("RenderComponentAction: stripped literal markdown from LLM content",
 						zap.Strings("fields", changed),
 						zap.String("component", componentFunction))
@@ -2203,6 +2208,9 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 
 	if sectionContentData != nil {
 		result["content_data"] = sectionContentData
+	}
+	if len(strippedMarkdownFields) > 0 {
+		result["stripped_markdown_fields"] = strippedMarkdownFields
 	}
 	return result, nil
 }
