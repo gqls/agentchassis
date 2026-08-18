@@ -238,3 +238,15 @@ equally consistent with having made the handler blind.
 
 Mutation-proven before submission: stable key never consulted → 4 tests RED; tiebreak removed so an
 ambiguous pair takes the first match → 2 RED; fallback removed → 2 RED.
+
+### Council APPROVED round 1 (corr `203d858b`), verdict READ — four medium advisories, answered by measurement not by filing
+
+- **`editquality` / `guardian` — "82/82 `page_id` is a historical snapshot, not an invariant".** Fair, and the better answer is structural rather than statistical: **the producer always fills it.** `check_page_component_status_drift.go` builds `WorkItemSpec{PageID: pageIDPtr}` from a row whose own query is `JOIN pages p ON p.id = pc.page_id`, so the page necessarily exists and the only nil path is a uuid parse failure. **Residual stands for a hand-filed row:** a NULL `page_id` falls through to the stored id — safe, because that is today's behaviour, but the fix is then a no-op for that row.
+- **`reuse_agent` / `constitution` / `prior_art_librarian` — "you wrote a THIRD implementation without searching for a shared helper".** The strongest objection, and the honest answer is that I did not state the search. Having now done it: `revalidateNamedFields` keys on `(page_name, slot)` from a parked item's spec; `create_report_page_action.go:208` keys on `(page_id, slot_name)` with page_id already in hand; this one must DERIVE page_id from a work item id, break a tie, and refuse an unbreakable one. **An extraction is probably right at three sites, but it needs the ambiguity semantics decided for all three** — wider than a bug fix. Named in register **WII-020** so the fourth caller extracts rather than writing a fifth.
+- **⚠ AND THE SEARCH FOUND SOMETHING.** `create_report_page_action.go:208` is `SELECT id FROM page_components WHERE page_id = $1 AND slot_name = $2` executed as a **`QueryRow` on a pair that is not unique** — 17 such pairs exist fleet-wide. It takes an arbitrary row if one ever collides. Not touched (different lane; its pages are freshly created so a collision is unlikely today), but it is the first thing to check if that shape is extracted.
+- **`bug_historian` — "the ambiguous refusal returns `needs_review` and the item still COMPLETES; nothing routes it to a human".** Correct, and it joins three arms in this same function that already do it. **The audit it asks for — is ANY `action:"needs_review"` value surfaced anywhere? — is NOT done and is not claimed.** Recorded rather than quietly inherited.
+- **`debug_historian` — no deploy-verification named.** Added to WII-020's `verify-later`: probe the RUNNING pod's binary for `resolveStatusRepairComponent` with a must-be-absent control in the same breath, never a tag.
+
+### ⚠ One more defect found while answering, NOT fixed here
+
+The producer's `item_key` is `page_component_status_drift:<page_component_id>` — **also keyed on the unstable id.** So after a re-render the same drift on the same slot re-raises under a NEW key rather than deduping against the open row. Same root cause as this bug, one table over, and it is a producer change rather than a handler one. Left for whoever takes fix candidate 2.
