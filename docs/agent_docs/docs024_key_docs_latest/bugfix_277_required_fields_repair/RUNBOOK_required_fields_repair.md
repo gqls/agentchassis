@@ -140,3 +140,35 @@ is latency, not a dropped dispatch; find the run by payload, never re-trigger on
 while non-terminal rows still route at the handler (un-assign first; header has the UPDATE).
 If the producer Go change has shipped, roll that back too or items go 'blocked' at claim
 (bugs_closed/077 shape).
+
+## Apply ONE migration when other lanes have pending files (the only safe route here)
+
+`./scripts/migration/run-migrations.sh --apply` takes **every** pending file in
+`docs/agent_docs/sql_for_agents/`, and on a tree this many sessions share that is routinely four or
+five other lanes' work (2026-08-18: `462_fixer_rerenders_skip_owned_pages`, `467`, `468`, `470`).
+There is no `--only <file>` flag. So apply the single file yourself, then register it:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - \
+  < docs/agent_docs/sql_for_agents/<NNN_name>.sql
+
+./scripts/migration/run-migrations.sh --record-only <NNN_name>.sql \
+  --note 'applied out of band by single-file psql; <what the controls proved>'
+```
+`--record-only` takes a **bare filename**, not a path, and is mutually exclusive with `--apply`.
+Gotchas: the file must carry its own `BEGIN`/`COMMIT` (psql only wraps `-f` in a transaction if the
+file says so), and its guard `DO` block must `RAISE` rather than `SELECT` — `ON_ERROR_STOP` ignores a
+non-empty result set, so a verify block made of `SELECT`s cannot stop the `COMMIT`.
+
+## Prove an edit to a live `pre_query` still parses, WITHOUT running it
+
+`pre_query` bodies here are `UPDATE`-in-CTE statements, so "run it to see if it parses" mutates rows.
+
+```sql
+EXECUTE 'EXPLAIN ' || new_q;   -- inside the migration's DO block
+```
+**EXPLAIN plans without executing.** It catches the realistic failure — an apostrophe left undoubled
+inside prose that is nested in a SQL string literal — and mutates nothing. Pair it with an occurrence
+count on the anchor you are replacing (`(length(q)-length(replace(q,a,'')))/length(a) = 1`) so the
+edit cannot silently land on text another session has since changed.

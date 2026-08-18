@@ -800,3 +800,43 @@ signal** — a distinct terminal status (`refused`) or a `result` key the handle
 so the gate reads an assertion rather than a sentence. That is a new shared vocabulary on a shared
 seam, i.e. **architecture-scope** (owner rulings 2026-07-28 / 07-29), and belongs in the RFC track
 with `bugs_open/295`, not in a fourth revision of this task's `pre_query`.
+
+### Migration `471` applied — the floor-held remedy no longer misdirects (text-only)
+
+Fixes the dated defect above. `466`(b)'s floor-held payload ended *"FIX THE HANDLER, or decide the
+pair is wrong and retire the producer"*; it now leads with **"FIRST PARTITION THE FAILURES"**, carries
+the fleet-wide numbers, hands the reader the partition query for their own pair, and says that if
+protective refusals dominate then the handler is behaving correctly and the defect is
+`bugs_open/295`, not the handler.
+
+**Built as a single `replace()` against the LIVE `pre_query`, not as a new pasted query.** That is
+the design decision, not an implementation detail: "text-only" then holds **by construction**, so I
+did not have to write a control asserting it — and any control I *could* have written for it
+(`replace(old,OLD,'') = replace(new,NEW,'')`) is **true by construction too**, which would have been
+this lane's FOURTH tautological control. The way out of that trap was to make the property structural
+rather than assert it.
+
+Controls, both of which could have come out otherwise:
+- **PRECONDITION** — the `466` anchor must occur **exactly once** in the live text (measured: 1). If
+  another session had revised this task, the count changes and the migration stops instead of editing
+  text it was not written against.
+- **CONTROL 1, the one that matters** — `EXECUTE 'EXPLAIN ' || new_q`. **EXPLAIN plans without
+  executing**, so it validates the whole rewritten statement — crucially that every apostrophe in the
+  new prose is doubled, which is the realistic way to break a string edit nested inside a SQL literal
+  — while mutating nothing. An un-doubled quote is a syntax error and aborts the COMMIT. (Running the
+  query itself would have been the other option and was rejected: it is a `UPDATE`-in-CTE statement,
+  so proving it parses by *running* it would escalate rows early.)
+- **CONTROL 2, POSITIVE** — a floor-held pair with rows waiting must exist, or the corrected string is
+  unreachable and the change untested. Result: **10 rows**, `literal_markdown → page-build-handler`.
+
+Post-apply verification: `FIRST PARTITION THE FAILURES` present; both canary strings, the
+`bugs_open/300` warning, the `HAVING` suppression and the archive UNION all intact; length 6044 →
+7205. ⚠ **my first verification query reported `canary text intact: false` and that was MY OWN
+misquote** — I probed for `run one by hand` when the live text says `runs one by hand`. A
+substring probe returning false is evidence about the probe until you have checked the probe. Ledger:
+recorded via `--record-only` (see RUNBOOK — `--apply` would have taken four other lanes' pending files).
+
+**What 471 does NOT do, deliberately:** it does not change the gate's arithmetic. 0 pairs flip under
+the full promoter predicate, and encoding `error ILIKE '%rebuild_policy=owned%'` into a live gate
+would make an error message's wording load-bearing across services. The sound fix is a structured
+refusal signal, which is architecture-scope and belongs with `bugs_open/295`.
