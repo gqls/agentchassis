@@ -613,3 +613,11 @@ bugfix_277 lane: expect the held pair to go quiet and a fresh
 
 Full plan with evidence and risks:
 `docs024_key_docs_latest/bugfix_184_literal_markdown/PLAN_2026-08-18_mechanical_markdown_repair.md`.
+
+**Update 2026-08-18 ~23:20Z**: council verdict landed — **APPROVED at round 4**
+(`060bcc0a`, trail REVISE×3 → APPROVED; rounds 1–3 caught two real design defects, both
+fixed: the strip is now double-gated on spec.reason, and every strip is durably recorded
+on the action result). All code at HEAD through `9c77e0dff`; IMAGE_TAG bumped to
+v1.0.1311. **Remaining: the owner's fleet release, then migrations 473/474, then the
+canary + batch promotion per the lane RUNBOOK.** Bug stays OPEN until the pages verify
+clean at the served artefact.
