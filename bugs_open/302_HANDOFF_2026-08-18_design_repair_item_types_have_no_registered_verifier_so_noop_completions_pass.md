@@ -88,3 +88,44 @@ Re-run the finetuning.uk repair items (or any design-repair item) after the
 change: a no-op completion must FAIL (candidate 1) or the verifier must measure
 the artefact and refuse (candidate 2). The four retained `complete` rows are
 the regression fixtures.
+
+---
+
+## SCOPING UPDATE, same day — the gate already anticipates this class, and that changes which fix bites
+
+Read in full: `complete_work_item_verification.go` + `complete_work_item_no_change.go`.
+There are TWO gates, and the picture is finer than the filing above:
+
+1. **Gate 1b (`noChangeGates`)** — opt-in per item type, counter-path based, from
+   `bugs_open/213` D1's council-reviewed design. **`dark_section_audit` is ALREADY
+   opted in** (with measured justification, 2026-08-12). But its counters
+   (`response.fix_result.total_fixed`, …) are read from the handler result — and
+   the token-blob results carry NO counters at all, which takes the
+   **`unknownShape` arm: abstain-and-complete with a note**. So even the opted-in
+   type sails through on exactly the failure shape we measured. **Opting the
+   other design types into 1b would change nothing** — blob results defeat 1b by
+   construction.
+2. **Gate 2 (registered verifiers)** — the eleven; none for this family.
+
+**Also load-bearing:** the file's own doc comment records that an absent
+item_type abstaining is a DELIBERATE, reviewed decision ("the handler changed
+nothing is a legitimate SUCCESS for other handlers"). So candidate 1
+(fail-closed for repair-shaped types) is not just architecture-scope — it
+revisits a recorded ruling, and MUST go the RFC route, not a bug patch.
+
+**Fix candidates, re-ordered by this scoping:**
+1. **(now the working candidate) Gate-2 artefact verifiers for the design-repair
+   family** — measure the named defect at the served/stored artefact, the same
+   discipline as the existing eleven. Works regardless of result shape, which is
+   the property 1b lacks. Per-type semantics must be read first: the four
+   evidence types differ (`needs_design_review` is arguably a review, not a
+   repair — what completion MEANS per type needs stating before a verifier can
+   grade it). `section_edit` is EXPLICITLY OUT of this file's scope — it is a
+   fleet-wide content type owned by other campaigns; a zero-change run may be a
+   legitimate success there, and the noChangeGates design demands a per-type
+   measured justification we do not have for it.
+2. **(RFC question, not a patch) unknownShape-blocks-for-opted-in-types and/or
+   missing-verifier-refuses-for-repair-shaped-types** — both change what the
+   shared gate guarantees; both touch a council-reviewed design. File as an RFC
+   with this bug as the motivating case.
+3. Registering 1b opt-ins alone: **ruled out** (defeated by blob results, above).
