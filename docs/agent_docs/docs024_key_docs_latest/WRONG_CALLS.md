@@ -35326,3 +35326,47 @@ register now carries the corrected entry and the precedent it should have cited.
   someone else's bug found the thing that will bite our own next dispatch.
   Running tally, both lanes, one day: **6 claims that read as evidence and were not.** Five were
   instruments that could not fail; the sixth was a fact that could not be relevant.
+
+## 2026-08-18 — the sixth is a DIFFERENT CLASS: not an instrument that could not fail, but a TRUE FACT THAT COULD NOT BE RELEVANT (bugs_open/029)
+
+**The claim:** closing a handed-over lead, I wrote that ~107 failed `page_rerender` rows were
+**one GitHub API incident** on 2026-08-17, 13:37–16:12Z. The 029 negative was sound (76 of
+108 git, 7 with this bug's signature). **The framing was not.**
+
+**What was wrong:** the lane that handed it over had told me *"webdesign.co.uk is still
+failing today"*, and I treated that as covered. It was not — there are failed rows created on
+**08-18**, outside my window entirely, so the one-incident story never reached them. Their
+check, which I then re-ran: **15 rows after the window, 0 with the 029 signature, 0 git, all
+15 content gating.** Three populations, not two. My conclusion got *stronger*; my account of
+it was doing work it could not support across part of the range.
+
+**Why this is not a seventh instance of the earlier five, and the distinction is the point.**
+The five logged above were all **instruments that could not fail** — a timestamp column
+written by the thing being measured, a filtered count, a log grep whose control was also zero,
+an aggregate hiding a regression, an asserted absence with no query behind it. This one is the
+opposite shape: **the fact was true, measured, and offered in good faith. It simply had no
+connection to the conclusion standing next to it.** I let it pass as corroboration because it
+pointed the same way.
+
+> **"It points the same way" is coincidence with good manners, not support.**
+
+**The check, which is not the same as the marker rule or the disconfirmability rule:** name
+the conclusion a fact supports **and how**. For a population claim, the range check *is* the
+whole job — and my window was the very thing the stray fact fell outside of. Ten seconds,
+and it fails on a fact I would have sworn was solid, because it *was* solid.
+
+**Why it is harder to catch than the other five:** checking a claim you already believe feels
+redundant. The other five announce themselves the moment you ask what a disconfirming result
+would look like. This one survives that question perfectly — it *could* have come out false,
+and didn't. **The thing needing the test is not the fact but its RELEVANCE**, and nothing in
+our existing practice asks for that.
+
+**Whose call it was:** mine. The handing-over lane packaged it as *"offered not diagnosed"*,
+which is honest packaging — but it characterised a population without opening the `error`
+column, and I stopped one query short of the same check before writing a closure on top of
+it. Both halves are logged; theirs is at `d63c9e6f8`. **Tally now reads: five instruments
+that could not fail, plus one fact that could not be relevant.** Collapsing that to "six
+measurement errors" would lose the only part that is new.
+
+**Cost:** none published beyond the lane's own NOTES, corrected in place the same hour
+(`a33783252`).
