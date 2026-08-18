@@ -811,3 +811,66 @@ each page directly.
 for the hero/guide/CTA text around the widget) completed as a no-op —
 `page-build-handler no-op: no sections ready to build` — so the tool page has
 no explanatory copy yet, only the widget. Cosmetic; not re-driven here.
+
+---
+
+## 2026-08-18 — why there is no traffic: three measured causes, and one wrong turn of my own
+
+Session trigger: **Webgains rejected the affiliate application for insufficient traffic.**
+Owner asked for a plan to get enough. Plan doc:
+`PLAN_2026-08-18_traffic_for_affiliate_approval.md`. This is the evidence behind it.
+
+### Measurements taken (all 2026-08-18 unless stated)
+
+| claim | how it was measured | result |
+|---|---|---|
+| no sitemap | `curl -o /dev/null -w '%{http_code}' https://dartsonline.com/sitemap.xml` (+ `_index`, `.txt`) | **404** on all three |
+| robots has no Sitemap line | `curl .../robots.txt \| grep -i '^sitemap'` | empty. relojistas + webdesign.co.uk both have one |
+| peers do have sitemaps | same probe over 5 domains | 200 on noted, relojistas, webdesign.co.uk, loancalculator; 404 on dartsonline + robot-hands |
+| feed publishes nothing | `SELECT status,count(*),count(published_page_id) FROM content_feed_items WHERE site_id=…` | 480 items, **0** with a page |
+| …and it is fleet-wide | same grouped by domain | 10,694 items / 9 sites, **0** published |
+| …and cannot be otherwise | `grep -rn published_page_id --include=*.go platform/ internal/ pkg/ cmd/` | **no Go writer exists** |
+| news page is link-out only | link census on the served page | 20 external, 13 internal (all nav) |
+| content growth stopped | `SELECT date_trunc('week',created_at), page_type, count(*) FROM pages …` | last new guide **w/c 08-03**; 0 in the two weeks since |
+| the budget is not the limit | `site_specs` aspect `growth_config` | 5 blog + 3 content + 3 structural per **rolling 7 days** (`page_growth_budget.go:162`), absolute_max 60, currently 25 active pages |
+| nothing drives new posts | `grep -rn needs_blog_posts / needs_content_planning --include=*.go` | `needs_blog_posts` produced ONLY by `check_empty_blog.go` (fires only at zero posts); `needs_content_planning` only by `write_audit_findings_action.go` (audit repair). **No cadence driver exists.** |
+| the planner cannot be aimed | live `agent_definitions` row, `plan_posts` step | `input_fields` = site_record, site_specs, existing_posts. **No topic/keyword input**; plans 3–4 posts; prompt says "initial blog posts" |
+| privacy page blocked | `agent_error_log` where `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'` | 1 blocker: banned claim **"does not appear here"** (completeness-of-exclusion, short form) in the owner-approved copy, draft line 101. Item parked `needs_human_review` since 08-17 12:24 |
+| hosting = no origin logs | response headers on `/` | `server: cloudflare` + `x-amz-*` (Backblaze B2). The relojistas nginx-log analysis **cannot be repeated here** |
+| affiliate tables are empty | `SELECT count(*) FROM affiliate_programs / affiliate_products` | 0 and 0, fleet-wide. Only 4 Go files mention them (validation + a required-fields check) |
+
+### What is NOT measured, and is marked as such in the plan
+
+- **Traffic itself.** No figure exists in the platform. Cloudflare/GSC/GA4 all need the
+  owner's login. Everything in the plan that says "when traffic reaches X" is deliberately
+  left without an X.
+- **Whether Google has indexed the site.** The search tool available here does not honour
+  `site:` or exact-phrase operators — a verbatim sentence from the tungsten guide returned
+  other darts sites and nothing of ours, which is suggestive and **not** evidence.
+- **Keyword volume for any proposed topic.** Nobody here has that data. The plan says so
+  rather than inventing a list with implied volumes behind it.
+
+### Wrong turn, recorded because it is the useful part
+
+**I read a `000` from `curl` as "the sandbox is blocking outbound HTTP" and escalated to
+running the rest of the session's probes with the sandbox disabled. That inference was
+wrong, and I did not check it for another dozen calls.**
+
+What actually happened: my first probe went to **`dartsonline.co.uk`**, a domain we do not
+own. I had assumed the `.co.uk` TLD from the lane name; the site is **`dartsonline.com`**
+(`sites.domain`, and the handoff never states a TLD). `.co.uk` resolves — `176.32.230.249`,
+a parking IP — and fails TLS, so `curl` exits **60** and `%{http_code}` prints **000**,
+which is the same output a blocked network gives.
+
+The control I should have run first, and eventually did: **the same URL under the
+sandbox.** `curl https://dartsonline.com/` sandboxed returns **200**. So the sandbox blocks
+nothing here and the escalation was unnecessary.
+
+Cheap check that would have caught it in one line: `getent hosts <domain>` plus reading
+curl's **exit code** rather than only `%{http_code}` — 60 is "certificate/TLS verify
+failed", i.e. *something answered*, which is already inconsistent with "network blocked".
+Two different causes print the same `000`.
+
+Not filed as a landmine: the failure is ordinary curl semantics rather than a trap in this
+estate's own tooling, and the hypothesis it produced ("the sandbox blocks HTTP") was
+refuted by the control.

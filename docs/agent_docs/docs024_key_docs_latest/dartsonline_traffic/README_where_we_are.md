@@ -438,3 +438,75 @@ Fixing it once fixes all of them.
 
 Full state, next steps and the exact traps to avoid are in
 `HANDOFF_2026-08-16_continue_here.md`.
+
+## 2026-08-18 — Webgains said no on traffic, and here is why there isn't any
+
+You were rejected by Webgains for not enough traffic. I have spent this session
+working out why the traffic isn't there, and the answer is not "we need to be
+patient" — three specific things are broken or missing, and all three are fixable.
+The full plan is in `PLAN_2026-08-18_traffic_for_affiliate_approval.md`; this is the
+plain version.
+
+**First, an uncomfortable admission: nobody can currently tell you how much traffic
+the site gets.** Not me, not the platform. The site is served from storage behind
+Cloudflare, so there are no server logs to read, and there is no traffic figure
+anywhere in our database. Three places would tell us — your Cloudflare dashboard,
+Google Search Console, and Google Analytics — and all three need your login. The
+Cloudflare one takes about a minute and gives a number today. Search Console is the
+valuable one, because it tells us what people actually searched for when they saw us,
+and that decides what we write next. I would like both before we do anything else,
+because a traffic plan you cannot watch working is a wish.
+
+**Second: Google has not been told what pages exist.** The site has no sitemap — the
+file is simply not there, and the robots file doesn't mention one either. Four other
+sites of ours do have one. There is already a tool in the repo that builds it, written
+three weeks ago when the same problem was found on the watches site. This is close to
+free and it is the first thing I would fix.
+
+**Third, and this is the big one: the site has stopped growing.** The last new guide
+was written on 3 August. Nothing since. Not because anything is broken and not because
+of a limit — the site is allowed five new posts a week and is using none of them. It
+is because nothing in the platform ever asks for more content. The one thing that
+triggers writing fires only when a blog is completely empty; ours has eleven posts, so
+it will never fire again. After the initial build, a site quietly stops growing unless
+a person asks for more. That is the whole reason the traffic never compounded.
+
+**A fourth thing, which surprised me.** The news page updates several times a day and
+adds nothing. We have pulled in 480 news items for this site, and not one of them has
+ever become a page — the page is a list of twenty links to other darts websites. So
+the part of the site that looks busiest is sending readers and search-engine credit to
+our competitors and leaving us no bigger than we were. It is not a dartsonline fault:
+across all nine sites that do this we have ingested nearly 11,000 items and published
+exactly none of them. The mechanism to publish one was never built.
+
+**Your privacy page is one sentence away from existing.** Everything worked — the copy
+was registered, the page was requested properly, the framework wrote it — and then the
+build stopped on a single flagged phrase. It is this line of your approved wording: *"a
+product does not appear here because it pays better."* We have a fleet-wide check that
+blocks claims of the form "X does not appear here", because it is normally an
+unverifiable boast. Yours means something quite different and honest, but it matches
+the same shape. I would rather reword your sentence than weaken the check, so: would
+you accept *"…and commission never decides what we recommend"*? Say the word and the
+page builds.
+
+**On the affiliate route itself: Webgains is not the only door, and it is the one with
+the traffic lock on it.** Red Dragon runs a programme through Awin (10%, sixty-day
+cookie) where the barrier is a £5 deposit that you get back, not a traffic figure.
+Darts Corner runs through Adtraction, free to join. Amazon has no traffic minimum but
+starts a 180-day clock in which you must make three sales, so it should wait until
+there are readers to convert. My suggestion is to apply to Awin and Adtraction now, so
+the site is earning and looks like a working publisher rather than an applicant, and
+re-apply to Webgains once we have a number worth quoting.
+
+One thing I need to know: was it the Webgains **network** that turned you down, or the
+**Target Darts programme** specifically? They are different problems. The programme has
+its own manager you can email directly, and a set of genuinely good guides is a better
+argument to a person than to a form.
+
+Two smaller things worth a decision. The shipping-and-returns page is still live,
+still describing shipping and returns on a site that holds no stock — an affiliate
+reviewer will read exactly that page, so this is now worth closing rather than leaving
+open. And Cloudflare is currently blocking every AI crawler from the site, including
+ClaudeBot and GPTBot. Nobody in this lane chose that; it is a Cloudflare default. For a
+site whose whole product is buying advice, being quotable by AI assistants is a real
+source of readers now, so it is worth a deliberate yes or no rather than a default.
