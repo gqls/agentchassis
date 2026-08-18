@@ -35691,3 +35691,28 @@ other writers I never enumerated": 1** — and it is the third entry in two days
 (`failed` rows carry no `completed_at`; `verified` is a second success status; and now the row set
 itself is a 7-day window). The habit that would have prevented all three is one sentence: **enumerate
 the domain of the thing you are counting before you count it.**
+- **I extracted a guard, gave it a brand-new config key, wrote it up in a council submission that was
+  approved — and never once set that key until I needed it for a test the next day, at which point it
+  turned out to be unbounded.** `bugs_open/293` pulled an inlined page-total content floor out into
+  `enforcePageTotalTextFloor` and gave it the escape hatch it had never had,
+  `page_total_text_floor` (default 0.25, 0 disables). Both its sibling floors CLAMP a configured floor
+  at 0.95, for the reason one of their own test cases spells out: *"an absurd floor is clamped to 0.95,
+  not treated as 'refuse everything'."* Mine did not clamp. A step config typo of `1.5` or `2.5` would
+  have demanded that every save GROW, refusing all of them silently and for ever — and on this path a
+  refusal fails the step, which can strand every page after it in a build loop.
+  **How it surfaced is the useful part: I only found it because I USED it.** Inducing a refusal safely
+  needed a floor above 1.0, so that a payload of the page's own sections byte-for-byte would be refused
+  (and a failure to refuse would write identical content — safe in both branches). `1.5` worked
+  perfectly, which was simultaneously the proof the guard fires and the proof it was unbounded. I had
+  carried the inline rule's hardcoded `0.25` across faithfully, tested the floor's ARITHMETIC at that
+  value, and never exercised the config path at all.
+  **The cheap check is one line of the sibling you copied**: when you give a mechanism a new config key,
+  diff it against how its siblings validate theirs — clamps, bounds, type coercion — because "I
+  reproduced the behaviour exactly" only covers the values the old code could take, and a new key's
+  whole point is that it can take values the old code never could. A hardcoded constant has no invalid
+  range; a config key has nothing else.
+  **And the general shape: a config key nothing has ever set is untested BY DEFINITION.** It passed a
+  council round, ten sibling tests and a green suite, because every one of those exercised the default.
+  Tally for "shipped a new config key without bounding it": 1. Tally for "found my own defect by using
+  the thing rather than reading it": 1 — and it cost nothing, because the use was a test I was running
+  anyway.
