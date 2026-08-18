@@ -5880,3 +5880,81 @@ string). **Shared deploy infrastructure — not this lane's to fix.**
 ⇒ **The lane is blocked on infrastructure, not on a decision, and the two blocks are
 independent.** Nothing here changes the §9 result: the calculators are correct in the
 plan and correct on the pages that did publish (toolgolden exit 0, locks 12/12).
+
+## 2026-08-18 — the owner chose /guides/, and the framework already has the control for it
+
+**Owner decision:** *"I would prefer /guides/ but I am happy to accept the most natural
+fix for the code."* So: the guides keep `/guides/<slug>.html`, and the fix should be the
+framework's own mechanism rather than anything bespoke.
+
+### 1. The natural fix exists, was written FOR THIS SITE, and has never been on here
+
+`normaliseRealisedToPlanPage` (`v3_site_actions.go:5615-5672`) stamps a realised-derived
+plan page `identity_authority: "realised"` and carries `parent_section`, so
+`CanonicalisePage` keeps the page where it is SERVING instead of re-deriving the role's
+default hub. Its own comment names our incident before it happened: *"CanonicalisePage
+re-derives a blog-post's URL under /blog/, which MOVES a live page that is serving from
+/guides/ (the bugs_open/241 URL-move hazard)"*. `bugs_open/241` was filed **while planning
+this site's rebuild**, 2026-08-10.
+
+It is opt-in per site via the structure spec (`site_identity_policy.go:75-110`), unsafe
+default off per the owner ruling of 2026-08-02. [MEASURED 2026-08-18] on this site:
+`honour_realised_identity`, `twin_identity_snap`, `stem_twin_snap` **all NULL**;
+`url_shape` correctly `flat` from the 08-11 seed. So the control for the exact hazard we
+hit was present, built, documented — and off.
+
+**Why the planner reached for `blog-post` at all** is the same 241 mechanism from the other
+end: `CanonicalisePage` maps `role=guide` to `/guides/<slug>/index.html` and **no input
+produces the flat `/guides/<slug>.html` this site actually serves**. The only roles that
+emit a flat `/<dir>/<slug>.html` are `blog-post` and `entity-page`. So a flat guide is
+unrepresentable to the planner, and the nearest expressible shape puts the dir at `blog`.
+
+**Seed written:** `SEED_2026-08-18_identity_flags.sql` (all three flags, supersede-then-
+insert, `DO`/`RAISE` verify that aborts if `url_shape` or the 27-entry pages list is lost).
+All three because of a precondition established **2026-08-17 by the
+loanandmortgagecalculator lane** (`96c83ebff`): `honour_realised_identity` is **inert
+unless a snap or union re-stamped the page** — the marker is stripped from every LLM page
+(`:6476`) — and that precondition is not stated where the flag is documented. They enabled
+the flag alone, having measured the population first, and got the twins anyway.
+`stem_twin_snap` is the layer for our shape (bare plan page vs prefixed realised, either
+direction).
+
+### 2. Why Pass C2 — which is written for our exact case — could not fire
+
+`Pass C2` drops a plan entry that re-proposes an adopted item under a different
+prefix/role/URL. Its comment's example is literally ours: *"'economy-basics' beside the
+adopted 'guide-economy-basics'"*. It could not fire, and the reason is stated in the code:
+`itemStemSets` is built from `noCurrentPlanPages`, and *"in practice that makes it
+first-plan-only: noCurrentPlanPages is empty whenever the site has a current plan
+(bugs_open/051)"*. This site had a current plan, so C2's index was empty. **A guard that
+exists, matches your case by name, and is structurally unreachable on a re-plan.**
+
+### 3. ⚠ CORRECTION to §6 — my "0 RECOMPOSE tells" was not evidence
+
+> §6 above reads: "**0** `RECOMPOSE_INTENT_NOT_REALISED` rows (every page genuinely
+> recomposed, no no-ops)". **Withdraw the parenthesis.** [MEASURED 2026-08-18]
+> `agent_error_log` has, fleet-wide and all-history, **zero rows** for
+> `RECOMPOSE_INTENT_NOT_REALISED`, `FACT_ASSIGNMENT_ABSENT`, `FACT_CARRY_MISS` and
+> `PLAN_PAGE_IDENTITY_SNAPPED`. The only `PLAN_PAGE_*` code ever written is
+> `PLAN_PAGE_MERGE_LOSSY` (2 rows, 2026-08-11) — and it is emitted from a **different
+> file**. So the channel my check read has never carried a message, and my zero could not
+> have come out any other way.
+> **The control that makes this legible:** the table itself is written heavily (1,856
+> `RESOLVER_CONFLICTING_CANDIDATES` in 12h), so the sink works — the silence is specific
+> to these codes, not to logging. Part of it is by design: a `url_exact` snap
+> deliberately does NOT append to `IdentitySnaps` (`:5885-5905`), so a run whose only
+> snaps are Pass B renames records nothing. Our run's `pages_restamped: 2` is consistent
+> with that, so I cannot say whether the twin layers have ever had demand.
+> **I applied exactly this discipline to the endpoint-health row this morning and not to
+> my own recompose check hours later.** A zero needs its demand control every time, not
+> when it occurs to you.
+
+### 4. And the evidence window closed while I was in it
+
+The planner run's `collected_data` (orchestration `627ff71a`) held the identity-snap
+detail. **It had purged before I could read it — gone within ~2 hours**, though this lane's
+own cautions say "planner rows purge in ~2 days" and the code comment at `:3623` says the
+orchestration row "expires in ~24h". I read `reconcile_result` from it at ~13:50 and the
+whole row was absent by ~18:30. **Read a run's payload the moment you have a question about
+it; the summary you already copied is all you will keep.** That is precisely why
+`recordIdentitySnaps` writes durable rows — and why those rows being empty matters.
