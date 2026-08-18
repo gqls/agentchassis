@@ -10,8 +10,10 @@ treat every figure in it as 13 days stale (the ones that mattered are re-measure
 > |---|---|
 > | **contrast** | **Done for this defect family and PROVEN AT THE ARTEFACT: 44 → 32 firm failures**, 0 regressions. Migrations `456` + `457` applied, propagated, verified. The remaining 32 are **two other families** neither migration touches — see §3 |
 > | **images** | **NOT STARTED.** Fully scoped in §4. One component, 10 images. ⚠ the obvious handler would DELETE them |
-> | **carousels** | **NOT STARTED.** Design work, no pipeline dependency — the cheapest thing to pick up next (§5) |
+> | **carousels** | **NOT STARTED — but FAR further along than this lane first reported.** Two fully-specified carousel patterns ALREADY EXIST in the experience register with complete behaviour contracts. The work is APPROVE + BIND, not design (§5) |
 > | `pricing` rebuild | **OWNER APPROVED 2026-08-17, not yet dispatched** (§3c) |
+> | **white cards (family B)** | **DIAGNOSED, fix designed, NOT applied — the either/or put to the owner on 08-17 is RETIRED** (§3a) |
+> | **imagery policy** | **OWNER RULING 2026-08-18 APPLIED** — migration `458`, people at work permitted, impersonation banned (§6) |
 >
 > **`bugs_open/029` is being worked by the owner in another thread (2026-08-18). DO NOT FORK IT.**
 > It delayed this lane by ~40 minutes yesterday and **has since drained** — 69 of my 70 queued
@@ -178,23 +180,58 @@ The 33 survivors are **not** the defect 456 fixed. Composition, measured 2026-08
 **Every surviving family-A failure is on `pricing`**, i.e. 456 cleared family A everywhere it
 could reach. `pricing` is unreachable by any re-render, so those 8 close only via the rebuild.
 
-### (a) Family B — 24 failures, components hardcode a LIGHT ground on a DARK site
+### (a) Family B — 24 failures. TWO components with no theme support at all
 
-Seven components paint themselves white and keep the site's pale `--color-text`:
+> ⚠ **CORRECTED 2026-08-18. This lane previously said SEVEN components "hardcode a light ground",
+> and offered the owner a choice between two designs. Both were wrong.** The seven came from a
+> query that cannot tell a bare literal from a `var()` **fallback**, and five of the seven were
+> fallbacks — `background: var(--color-background, #fff)`, present in the source and never applied.
+> (A second, opposite error followed: a grep returned `.team-section { padding: 3rem 1.5rem; }`, a
+> **media-query duplicate** of the selector, which made the templates look clean. Resolve component
+> CSS through `component_id` against the database, never by grepping `html_template` by name.)
+
+**It is `departments-grid` and `leadership-team`, and their ENTIRE colour surface is:**
 
 ```
-about | departments-grid          #fff        index | departments-grid         #fff
-about | leadership-team           #fff        index | differentiators-section  #fff
-index | case-studies-grid         255,255,255 index | latest-news              #fff
-index | system-stats              255,255,255
+background: #f8f9fa;   color: #555;     background: #fff;
+background: #e0e0e0;   color: #0f3460;  color: #555;
 ```
 
-**This is untouched by 456/457 and immune to re-rendering** — the white is in the template. It is
-the `hardcoded_section_colors` class the design-discovery agent already names, and the site carries
-an unresolved `generic_theme` item. **Not yet diagnosed to a root cause** — do not assume it is one
-edit. Decide first whether the fix is "remove the fill so the themed surface shows through" or
-"keep the light card and set a dark foreground inside it"; those are different designs and it is
-plausibly an owner question.
+**Not one themed value.** These two have **no theme support whatsoever**, in a library where the
+sibling section component (`differentiators-section`) already does it correctly with
+`var(--color-background, #fff)` / `var(--color-surface, #f8f9fa)`. On this site — the only DARK
+site that uses them — they were never going to work.
+
+⚠ **The fix is NOT "tokenise the backgrounds".** That would put `#555` and `#0f3460` onto a
+`#0D1117` card — **a fresh set of invisible text, which is migration 456's mistake repeated.**
+The whole block moves together. Every token needed already exists (read from the served `:root`):
+
+| current | becomes | resolves here |
+|---|---|---|
+| `background: #f8f9fa` | `var(--color-background, #f8f9fa)` | `#080B10` |
+| `background: #fff` | `var(--color-surface, #fff)` | `#0D1117` |
+| `background: #e0e0e0` | `var(--color-border, #e0e0e0)` | `#21262D` |
+| `color: #0f3460` | `var(--color-text, #0f3460)` | `#E6EDF3` |
+| `color: #555` | `var(--color-text-muted, #555)` | `#8B949E` |
+
+**Blast radius checked BEFORE proposing (the 456 lesson): 3 sites, and both light ones are
+unchanged.**
+
+| site | scheme | `--color-surface` | effect on the card |
+|---|---|---|---|
+| ai-agent-orchestration.com | DARK `#080B10` | `#0D1117` | **fixed** |
+| finetuning.uk | light `#F5F3EF` | `#FFFFFF` | **identical to today's `#fff`** |
+| leopardessconsulting.co.uk | light `#FAF8F4` | `#FFFFFF` | **identical to today's `#fff`** |
+
+**This RETIRES the owner design decision recorded on 08-17.** It was put as *strip the white* vs
+*keep light cards and darken the text*. Neither: the components should consume the site's tokens,
+as their sibling already does, which gives each site its own answer instead of imposing one on all
+three. What remains for the owner is only whether to spend it — not which design.
+
+**Ready to write as migration `459`**, same shape as `456`/`457`: dry-run simulation first, exact
+literal anchors, `DO`/`RAISE` guards, two-level fallbacks, rollback file. ⚠ Verify at the artefact
+by **colour PAIR** afterwards — any `(fg,bg)` in the after-set absent from the before-set is a
+regression you introduced (LANDMINES).
 
 ### (b) The 17 parked `contrast_failure` items — LEAVE THEM PARKED
 
@@ -248,29 +285,117 @@ which nothing generates"*.
 Real generation is `image-generator` / `image-build-handler`. Then bind `cardN_image_url` and
 deploy to stable `/assets/images/` paths — **not** pre-signed URLs (§6).
 
-## 5. Carousels — NOT STARTED, and the cheapest thing to pick up next
+## 5. Carousels — NOT design work. Two patterns already exist; the work is APPROVE + BIND
 
-No carousel component exists anywhere (`grep -rli carousel platform/ internal/` → two hits, neither
-a component). The owner's instinct was right: this is a hint to the spec/planner. **It has no
-pipeline dependency, so it is the one ask that cannot be blocked by 029.**
+> ⚠ **CORRECTION — an earlier version of this handoff said "no carousel component exists anywhere
+> in the platform". THAT WAS WRONG.** It came from `grep -rli carousel platform/ internal/`, which
+> searches Go source. The carousels live in the **experience register**, which is DATA — three
+> tables, `experience_patterns` / `site_experiences` / `experience_invariants`. **A grep of the
+> code cannot see a capability that lives in the database**, and the negative read as authoritative
+> because the command "found nothing" rather than erroring. Found only because the owner said to
+> consult the flow agents (2026-08-18).
 
-The existing guidance — *"For carousels/sliders: Use CSS animation, NOT complex JavaScript"* —
-lives at `html_actions.go:527`, inside a **whole-page** generation prompt. **This site builds
-through the component path, so that guidance never reaches it.** Putting the hint in the right
-place is most of the work.
+**Two patterns exist, both `kind='component-contract'`, both with real behaviour contracts:**
 
-Constraints the hint must carry, each earned:
-- **CSS-first** (scroll-snap / CSS animation); vanilla JS only if unavoidable.
-- **Every control must resolve to a real page.** `bind_site_experience_action.go:36` records *"the
-  four dead carousel destinations found by hand on 2026-07-26"* (`bugs_open/023`, `071`). The
-  experience register checks destination roles against `pages` **at bind time**, so a carousel spec
-  routed through it cannot promise a dead page. Use it rather than re-inventing the check.
-- **Degrade to a legible list without JS**, so a carousel can never become an invisible-content
-  defect of the kind §3 is about.
-- Candidates: `case-studies-grid` (5 cards, already image-bearing — pairs naturally with §4),
-  `departments-grid`, `leadership-team`, `info-card-grid`.
+| pattern | what it is |
+|---|---|
+| **`arrow-and-swipe-card-carousel`** | *"Card carousel: arrows always, swipe natively, auto-advance only if asked."* Native scroll-snap does the swiping so it works with **no JavaScript at all**; JS adds arrows, keyboard stepping, and optional auto-advance that yields to the visitor. `funnel_stage: awareness` |
+| **`scroll-snap-card-track`** | *"A swipeable track of text cards, with no JavaScript behind it."* Swipe, trackpad and tabbing through the cards' own links all move it; nothing is scripted. `funnel_stage: consideration` |
 
-## 6. Live traps on this site
+### The behaviour contract the owner asked to be considered — it is already written
+
+`arrow-and-swipe-card-carousel` specifies, in the register:
+
+- **Fewer than two cards → every control (arrows, pause) is hidden.** Enforced by the
+  `no-inert-control` invariant, which the entry declares in `requires_invariant`. *"A control that
+  cannot change anything must not be presented."*
+- **JS blocked or failed → the track still scrolls and snaps natively, every card is still a real
+  link**, and the arrows (the only JS-dependent part) simply do nothing. The behaviour is an
+  enhancement over a working component, not the component itself.
+- **Script included twice → initialisation must be idempotent** (one set of handlers, one timer).
+  The entry notes two different guard mechanisms already in use for this and makes choosing one a
+  decision rather than an accident.
+- **Scrolled out of view → auto-advance suspends** (IntersectionObserver, 0.25) and resumes on
+  return. *"A rotation nobody can see burns battery and moves content under a returning visitor."*
+- **Hover or focus anywhere inside → auto-advance suspends until they leave.** Reading is never
+  interrupted by the component moving.
+- **`prefers-reduced-motion` → auto-advance never starts**, and scrolling is instant, not smooth.
+- **Visitor swipes directly → the component re-derives which card is current** 120 ms after the
+  scroll settles, so the next arrow press continues from where the visitor is, not from where the
+  code last was.
+
+That is a better specification than this lane would have written from scratch, and it is the
+answer to "please also consider their behaviour": **it is considered, it is written down, and it
+should be adopted rather than reinvented.**
+
+### The dead-destination problem is already designed out
+
+`destination_roles` is `{{binding.card_destination_role}}` — a **binding**, not a URL.
+`bind_site_experience_action.go` checks a destination role against the site's real `pages` **at
+bind time**, so a carousel cannot promise a page that does not exist. That is the specific defect
+behind *"the four dead carousel destinations found by hand on 2026-07-26"* (`bugs_open/023`,
+`071`), and it is why the carousel must be adopted **through the register** rather than hand-built
+into a component template.
+
+### ⚠ THE ACTUAL BLOCKER: nothing has ever been approved, and the council has never run
+
+**[MEASURED 2026-08-18]**
+
+- `experience_patterns`: **11 rows, ALL `draft`, ZERO approved.**
+- `site_experiences`: **2 bindings**, both on `noted.co.uk`, both `status='proposed'` — consistent
+  with the rule that binding a draft is a proposal, not a commitment.
+- `experience-approval-council`: **zero orchestration rows, ever.** The approval path has never
+  been exercised end to end.
+
+So this is the estate's familiar shape — **a mechanism that is built, careful and undriven** — and
+the carousel work is *not* "write a carousel". It is:
+
+1. Put `arrow-and-swipe-card-carousel` through `experience-approval-council`
+   (`experience_register/260_TRIGGER_experience_approval_v1.sh`). **Expect to be the first ever
+   run; budget for the path itself being untested, not just the verdict.**
+2. Bind it to this site's target components with `bind_site_experience`, supplying
+   `card_destination_role` so the bind-time page check can fire.
+3. ⚠ **`section_types` is currently `["hero-carousel"]`.** The components the owner wants
+   carouselled are card grids (`case-studies-grid` and friends), so either the entry's
+   `section_types` needs widening or a sibling entry is needed. **Decide which — do not quietly
+   bind outside the declared section type.**
+
+**Best pairing: `case-studies-grid`.** Five cards, real per-card destinations, and it is the same
+component §4's image work targets — so the two asks land on one component.
+
+## 6. Imagery policy — OWNER RULING 2026-08-18, APPLIED
+
+Owner, verbatim:
+
+> *"we don't want fake headshots of people in the about us, but we can use pictures of typical
+> offices or people working as long as we are not pretending that they are part of the company"*
+
+**Applied as migration `458`** to `design_intent` (superseding, not mutating — 9 keys carried
+forward, guards passed). It **relaxes and narrows in the same edit**, and both halves matter:
+
+- **Relaxed.** `imagery_direction` said *"Technical illustrations and architectural diagrams ONLY …
+  never staged corporate photography"*, which forbade exactly the photography the owner has now
+  permitted. Ordinary working environments — offices, desks, screens, server rooms, whiteboards
+  mid-discussion, people at work — are now allowed where they earn their place.
+- **Narrowed.** The banned thing is **impersonation**, not people. The old `avoid` line was
+  *"Testimonial carousels with headshots of fake people"* — it banned a **vehicle**, so the same
+  deception stayed reachable through an about-page grid, a team strip or a founder quote. The
+  replacement bans the act in any layout: *no photographed person presented, captioned or implied
+  as a member of this company*; no invented team members, founder headshots, or testimonials
+  attributed to a stock face.
+
+⚠ **This is live for the imagery work in §4 and it is not a formality here.**
+`departments-grid` and `leadership-team` — the two about-page components in §3a — carry a **120px
+circular `.member-icon`**, which is a headshot-shaped hole. Whatever fills it must not read as
+staff. The safest reading of the ruling for that specific slot is an abstract or illustrative mark
+rather than a face; a photograph of a person in a circular avatar frame beside a department name
+is precisely the placement the ruling calls out.
+
+⚠ **The old carousel-shaped `avoid` line is GONE, so it no longer reads as a bar on §5's work.**
+It never was a bar on carousels as such — it banned fake headshots inside one — but it was the
+site's own standing text and would have looked like a contradiction.
+
+## 7. Live traps on this site
 
 - **The 9 hero/`content_hero` rows in `assets` are pre-signed Backblaze URLs**
   (`X-Amz-Expires=604800`, stamped 2026-08-11) — **they lapsed on 2026-08-18**. Only `og-card.png`
@@ -296,8 +421,17 @@ Constraints the hint must carry, each earned:
    `3d221a1e-2676-46bc-9e9e-f2c6e0a28cc7` (fired 2026-08-18 12:10Z). When the dispatch lane moves,
    re-audit `/index.html` and require `a.stats-cta` ≥ 4.5:1. **Do not re-fire** — the rows are
    queued, not lost.
-2. **Carousels** (§5) — no pipeline dependency, pure design + prompt work.
-3. **Images** (§4) — generate via `image-generator`, bind `cardN_image_url`, verify over HTTP.
-4. **Family B** (§3a) — decide the design question first, then fix the 7 components.
-5. **`pricing` rebuild** (§3c) — owner-approved; expect regenerated copy.
+2. **Family B** (§3a) — write migration `459`. Fully designed, blast radius already checked, no
+   owner decision outstanding. Biggest single win left: **24 of the remaining 32 failures.**
+3. **Carousels** (§5) — approve `arrow-and-swipe-card-carousel`, then bind. **No pipeline
+   dependency**, so it proceeds whatever the dispatch lane is doing. Budget for being the first
+   ever run of the approval council, and settle the `section_types` question before binding.
+4. **Images** (§4) — generate via `image-generator`, bind `cardN_image_url`, verify over HTTP.
+   **Read §6 first** — the imagery ruling is live and constrains the `.member-icon` slot.
+5. **`pricing` rebuild** (§3c) — owner-approved, confirmed `generic` so it will not be refused;
+   expect regenerated copy.
 6. Let the site's render audit run afterwards; the 17 parked items drain on their own (§3b).
+
+**Best order if picking one thing: (2), then (5).** Family B is designed and unblocked; the pricing
+rebuild is approved and unblocked. Carousels are the most interesting but the least predictable,
+because the approval path has never run.
