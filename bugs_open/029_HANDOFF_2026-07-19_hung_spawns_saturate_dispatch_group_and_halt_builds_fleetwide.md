@@ -1328,3 +1328,28 @@ spawn: **CLEAN**, with the discriminator being **content identity, not slot repe
 (`count(DISTINCT md5(content_data))` equal to the row count) — and they warn that the obvious
 remediation, a unique index on `(page_id, slot_name)`, **breaks 11 legitimate pages
 fleet-wide**. One site, so not a fleet clearance.
+
+### Part A status, 2026-08-18 evening: **APPROVED and committed. Still not closed.**
+
+Council **APPROVED at round 3** (corr `7c92389a-617f-4abc-b03b-0ef84ca2239f`, 2 advisory
+objections, none high-severity; verdict read). Code: `bf7646a29` + `2a3d30ec3`, registered
+**RSH-010**. **Go, so INERT until the next chassis roll** — verify at the build-provenance
+stamp per SERVICE, then re-run the `awaited_requests` window census, which carries its own
+positive control (rv0 windows must be UNCHANGED while rv≥1 windows move to the declared
+value).
+
+Rounds 1 and 2 were REVISE and both found real defects in the submission, recorded because
+the gate earning its keep is worth knowing: a **self-contradiction** (the rationale ranked a
+lease as "the fix" and then shipped only the window edit — a fossil of the mechanism
+withdrawn earlier that day), and an **asserted absence** (the dormant twin declared
+unreachable with no caller graph). The caller graph was then run and the absence held; the
+name collision it exposed — `handleRequestTimeout` on BOTH `(*SagaCoordinator)` (live) and
+`(*TimeoutMonitor)` (dormant, hard 30s) — is now a `LANDMINES.md` entry.
+
+**029 REMAINS OPEN.** What kills the child's continuation after its first spawn handshake is
+still unexplained, and no part of this touches it.
+
+**A fresh question raised by the approval round, recorded so it is not lost:**
+`call_diagnoser` declares 1800s and its **rv0** window was 180s, while `call_dispatch` got
+its declared 900s on the same path shape — so the **initial**-window path may have its own
+conversion gap, separate from the retry truncation now fixed. `[UNVERIFIED]`; not folded in.

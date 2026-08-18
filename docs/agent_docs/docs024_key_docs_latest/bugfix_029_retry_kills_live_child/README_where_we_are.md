@@ -175,3 +175,45 @@ I've told the other affected thread. They had already, on their own initiative, 
 mechanism to a pointer at my notes rather than restating it in their own handoff — which
 means my error did not propagate into their cold-start document. That was their good
 judgement, not my carefulness, and it is worth recording as such.
+
+---
+
+## 2026-08-18, end of the day — approved, and what it did and didn't buy
+
+The retry-window fix went through the review council and was **approved on the third
+attempt**. The first two attempts were sent back, and both times the reviewers found
+something real rather than something procedural, so it's worth telling you what.
+
+**First rejection: I contradicted myself and hadn't noticed.** My submission argued that a
+different, bigger fix was the important one and that shipping only the small fix "would be
+the classic mistake" — and then it shipped only the small fix. That sentence was left over
+from *before* I corrected myself that afternoon. When the correction landed I updated the
+evidence and left the conclusion standing above it. The document carried its own refutation
+and its stale headline in the same breath, and the reviewer read both.
+
+**Second rejection: I claimed something was unused without checking.** There's a second,
+duplicate copy of the same defect elsewhere in the code. I said it was unreachable and didn't
+need fixing — and I hadn't actually verified that, I'd assumed it. The reviewer refused it on
+exactly that ground. I then ran the check properly, and the claim held. But it held by luck
+of being right, not by my having earned it, and the check turned up something genuinely
+useful: two different functions share a name, one live and one dead, so anyone searching for
+that name finds the live one and concludes the dead code is running. That's now written down
+as a trap for the next person.
+
+**What I changed because of the review:** a reviewer pointed out I'd written a second way of
+reading a step's declared timeout when the codebase already had one. In a fix whose entire
+subject is "two bits of code disagreed about a timeout", writing a third reader would have
+been faintly absurd. It now goes through the existing one.
+
+**What this buys, honestly.** Thirty-three steps across twenty-five agents stop being given
+less time than they asked for, and one of them is a step that waits on a human. That's a real
+improvement and it will reduce how often the failure fires. **It is not why builds stop.**
+The thing that actually freezes a job is still unexplained, and I'd rather say that plainly
+than let an approved fix imply the bug is dealt with. Everything I've written — the commit,
+the register entry, the bug file — says "part A, does not close it" in those words.
+
+The fix is committed but does nothing until the fleet next rebuilds, which isn't mine to
+trigger. When it does, there's a check written down that can tell whether it worked, and it's
+designed so that "no change" and "the test didn't run" can't be confused with each other —
+which, after the day I've had with measurements that couldn't come out any other way, felt
+like the least I could do.
