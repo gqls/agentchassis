@@ -82,3 +82,18 @@ Flat-File Micro CMS, Pasteboard Manager, and the 13 external-script tools): opti
 anyway, **accepting that it is a reimplementation, not a preservation**. No excluded class remains, and
 `bugs_open/204` / the byte-faithful route is no longer a prerequisite for any webdesign tool.
 Full ruling + reasoning: PLAN §"OWNER RULING 2026-08-16", README_where_we_are 2026-08-16 afternoon.
+
+---
+
+> **[Dated pointer from the bugfix_283 lane, 2026-08-18 — appended, your words untouched.]**
+> Your native tools' component TEMPLATES now carry `{{.InstanceID}}` element-id namespacing
+> (68 components converted 2026-08-18 via `scope_component_instance`, RFC_034; snapshot per row in
+> `component_versions`, `change_source='scope_component_instance'`). Three things that touch you:
+> **(1)** your OWNED pages were deliberately NOT rerendered — `save_page_sections` refuses generic
+> saves on them (correctly), so their served bytes keep pre-conversion ids until YOUR pipeline next
+> renders; the fixer now skips owned pages entirely (migration 462). **(2)** your render path is
+> outside `RenderTemplate`, so when it next renders a converted template, check once that
+> `{{.InstanceID}}` is either bound or absent from your path's inputs — an unbound token renders as
+> an empty string. **(3)** if you REGENERATE a component, regeneration REPLACES the template and the
+> conversion goes with it — that is expected, not a defect; the conversion items are idempotent and
+> can re-run after your rebuild. Contact/context: `bugs_open/283` §13.6.
