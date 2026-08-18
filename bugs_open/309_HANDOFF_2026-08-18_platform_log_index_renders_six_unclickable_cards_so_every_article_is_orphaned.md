@@ -209,6 +209,14 @@ template render — the only state in which the missing keys are visible.
 Served-page re-measurement `[MEASURED 2026-08-18 18:34Z]`, HTTP 200, 32,594 bytes:
 6 cards, **0 anchors in every one**, 31 anchors on the page (all chrome/footer).
 
+`[MEASURED 2026-08-18 18:41Z]` and the "nothing on the site links a guide" claim still
+holds — re-checked because other lanes rebuild these pages hourly. `/`,
+`/platform-log/index.html`, `/tools.html`, `/capabilities.html`: **0 hrefs containing
+"guide" on any of them.** The control that makes those zeros real (this thread's own
+earlier trap was six 404-shaped false zeros): all four returned HTTP 200 with bodies of
+59,573 / 32,592 / 27,081 / 44,910 bytes, so each zero is a page that loaded and linked
+nothing, not a page that was not there.
+
 ## 3. This is a MISSED MIGRATION, not a novel defect — and it explains card 4
 
 `[MEASURED]` Every sibling list component was moved to a collection dialect whose
@@ -246,8 +254,12 @@ site has ever carried: **12 aspects, 61 fields, 15 (component, aspect) pairs**. 
 The other twelve pairs (`nav`, `pricing`, `inventory`, `categories`, `legal`,
 `ctas`, `product`, `search`, `structured_data`, `social`) sit on components with
 **zero** live instances — dormant legacy rows, worth a sweep but not biting anything
-today. **[UNMEASURED]** whether the two `social_proof` fields are URL-gated like
-these; not chased.
+today. **[MEASURED]** the two `social_proof` fields are **not** this shape: both are
+`testimonials`, `type: array`, `required: true` — no anchor to gate, and their three
+live instances are all on `gaswholesalers.com`, where one page carries the key with
+three entries and two rows have **`content_data` NULL entirely**, which is a different
+condition (never populated) rather than a field dropped by `skip_field`. Different
+lane; noted, not chased.
 
 So exactly **one live page** is broken by this today: the one this bug is about.
 The leopardess instance is rescued only incidentally, by being the page type the
@@ -273,6 +285,25 @@ and local HEAD, so the 273-commit gap does not make this a stale-tree diagnosis.
    page rows. Kills the orphaned links AND the fabricated/archived title in one
    change, and it is the migration its three siblings already had. Requires the
    template to move from six numbered blocks to a range.
+
+   `[MEASURED 2026-08-18]` **this candidate is concrete, not hopeful** — the target
+   source was checked against this site rather than assumed. `query.blog_posts` is
+   `resolvePagesWhereType(site, 'blog-post', listedOnly=true)`
+   (`queryresolve.go:175`), whose predicate is `p.status IN ('active','deployed')`
+   plus `ListedPageEligibilitySQL` (`deployed_at IS NOT NULL`, `sections` a non-empty
+   array). Run against fundamentallyai.com that returns **8 articles**: all nine
+   `blog-post` pages are deployed and sectioned, and the one it drops is exactly
+   `ai-readiness-checker-guide` (`status='archived'`) — **so this candidate fixes
+   card 4 by construction rather than by a second repair step.** Each row carries
+   `p.url`, ordered by `COALESCE(nav_order,100), name`.
+
+   ⚠ **And the codebase already believes this is done.** `queryresolve.go:167` reads
+   *"Article listings (content-listing, **blog-listing** components declare
+   `source: "query.blog_posts"`)"*. The live `content_components` row does not — it
+   still declares `site_specs.blog.postN_url`. The comment is not wrong about intent;
+   it is wrong about the fleet, and it is the kind of stale comment that makes a
+   reader stop looking. Whoever lands this fix should correct that line in the same
+   commit.
 2. **A daily check that no `content_components.input_schema` field sources a
    `site_specs` aspect that no site carries.** This is live DB config, so a
    pre-commit hook cannot gate it (see the RFC_006 note in memory) — it wants the
