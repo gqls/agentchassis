@@ -1778,3 +1778,60 @@ depends on changed, and `copy-editor` is config-only regardless.
 served the cached digest while a locally-built image of the same tag carried 252 newer
 commits. A same-tag re-release re-serves the cache; only a new tag ships code. Relevant here
 only as confirmation that reading the TAG is not reading the BUILD.
+
+## 2026-08-18 (late) — the owner's directory-page complaint: two comfortable readings refuted, root cause routed to the loop
+
+Picked up `portfolio_positioning`'s CONTRIB, which the owner directed at this lane with BOTH
+halves (*"ensure that that sort of copy never leaves this framework again"* + fix the pages).
+Filed as **`bugs_open/305`**; `090` run **`57b2dcd2`**.
+
+### Refutation 1 — the copy is OLDER than the symptom's timestamp
+
+Their framing was "positive identity spec, negative output, five days after the identity-spec
+fix", concluding either a second path or a non-generalising fix. **There is a third
+possibility: the copy predates both fixes.** `llm_call_log` `31a81e3c…`, `page-content-writer`,
+**2026-08-08 08:51:33Z** — found by searching `response_text` for the owner's own sentence.
+`page_components.updated_at` = 08-17 20:08Z is a **re-render**.
+
+**Generally useful, and neither lane had it:** any live sentence can be dated by
+`SELECT … FROM llm_call_log WHERE response_text ILIKE '%<distinctive sentence>%'`. A
+component timestamp dates the RENDER; only the call log dates the WORDS. Handed to them.
+
+### Refutation 2 — but it is not a fossil, and this one refutes MY side
+
+That would make the three pages cleanup — except the writer has not stopped. Same
+`agent_type`, split at the 08-13 v2 flip, normalised per 1,000 words `[MEASURED]`:
+
+| era | calls | mean words | `X, not Y` / 1,000 words |
+|---|---|---|---|
+| pre-v2 | 19,651 | 222 | **2.72** |
+| post-v2 | 1,338 | 223 | **2.85** |
+
+**The v2 house voice did not reduce the construction.** Mean response length is identical, so
+this is not a length artefact. ⚠ The presence-per-call figures (33.6% → 41.6%) look more
+dramatic and are the weaker statistic; quote the normalised rate.
+
+**This is uncomfortable for this lane specifically.** CQ-022 (the v2 carrier) is our delivery,
+and the 08-17 NOTES entry credited it with cleaning webdesign.co.uk unattended. That remains
+true of that page — but "the carrier improves copy" does not generalise to "the carrier
+suppresses this tell", and the corpus says it does not. Both statements can hold; only the
+narrow one is measured.
+
+### And it reframes run 3, again
+
+This morning I recorded that stage 2 spent its 3-edit budget on restatement and left the
+negation tells nearly untouched (19 → 15), and said I could not separate "it was right" from
+"the budget forced a choice". **The owner has now independently named the negation
+construction as what reads wrong to him** — on the same site. So the fault stage 2
+de-prioritised is the one the owner notices first. That does not make its restatement
+judgement wrong, but it does mean the budget's ranking instruction ("what a reader loses")
+is not currently aligned with what THIS reader loses.
+
+### What I did NOT do
+
+**No edit to the voice block or any writer prompt.** The obvious fix is "tell the writer not
+to", and v2 **already** discusses when a contrasting pair is earned — the shape is named
+inside the instruction meant to discourage it (hypothesis, labelled as one in `305 §4`).
+Editing on that guess would be this lane learning "exemplars beat rules" a third time by
+doing it wrong again. **No rerender of the three pages** — another lane's site, evidence
+deliberately intact, and I have already touched that site's index today.
