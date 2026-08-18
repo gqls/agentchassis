@@ -12575,3 +12575,17 @@ so it lives at the door. And `create_work_item` now accepts the parking idiom
 "handler_agent is required" validation is what forced the phantom name into
 config in the first place. A validation that refuses the correct shape does not
 prevent the wrong one; it SELECTS for it.
+
+### A `complete` repair item passed through a gate that ABSTAINS for its type — enumerate the verifier registry before trusting any family's completions (2026-08-18, `bugs_open/302`)
+
+`verifyBeforeComplete` only verifies item types present in the
+`discovery_checks` verifier registry; `GetVerifier(itemType) == nil` → abstain
+→ complete. The registry holds discovery-check types only, so EVERY
+repair-shaped family outside it (the design-repair family today; any new type
+tomorrow) completes unverified by default — a no-op handler result and a real
+repair look identical at the row. The pattern when you see "repair completed,
+artefact unchanged": before reading the handler, run
+`grep -rn "RegisterVerifier(" platform/orchestration/actions/discovery_checks/`
+and check whether the item's type is even ON the list. If it is not, the
+completion proves nothing and the handler may not even be the defect. Related:
+`bugs_open/201` §symptom 2 (same class, different family), `bugs_closed/213`.
