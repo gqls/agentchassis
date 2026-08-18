@@ -35755,3 +35755,52 @@ the domain of the thing you are counting before you count it.**
   Tally for "believed a subagent's citation without opening the artefact": 1 (caught).
   Tally for "the seed was mistaken for the live row": this is the family's Nth — it keeps
   arriving in new clothes, and this time the clothes were a CRITICAL security-shaped finding.
+
+---
+
+## 2026-08-18 — I called a deployed mechanism "live" from the code being merged, in the same document where I was arguing that a deployed mechanism must be measured
+
+**Lane:** `bugfix_302_design_repair_verification` (`bugs_open/302`).
+
+**The claim.** Writing up the cost of my favoured fix, I stated that refusing an unverifiable
+completion for `dark_section_audit` "costs at most three rebuilds and then hands the row to a
+retraction path built for exactly this population", and called that path **live**. It is
+`silenceRetractionGates` / WII-018 — real code, council-approved, deployed, and reachable.
+
+**What was actually true.** It has never run. `SELECT count(*) FROM site_work_items WHERE
+item_type='dark_section_audit' AND result ? 'retraction'` returns **0 rows, ever**, because the
+design audit's carrier `site-discovery-rotation-design` has been `enabled=false` since
+2026-08-11. So a refused item would sit in `failed` with nothing accruing the silence that
+retracts it. The cost of my own fix was **three wasted rebuilds and a row a human must read** —
+not "the retraction tidies it up".
+
+**What caught it.** Going to look, one command, because I wanted the streak count for the plan.
+Nothing external contradicted me; the claim would have shipped into a council submission as the
+blast-radius argument, where it is exactly the sort of thing a guardian seat kills a submission
+over — and rightly, because it understates the cost of the change being reviewed.
+
+**The cheap check that would have — and the reason this row is worth writing.** It is *already in
+my own notes for this lane, one section earlier*: **`enabled` + a fresh tick ≠ ever RUN** — ask
+the artefact whether the mechanism has ever produced an output row.
+
+```sql
+SELECT count(*) FROM site_work_items WHERE item_type='<type>' AND result ? '<the mechanism''s key>';
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name ILIKE '%<carrier>%';
+```
+
+**The general shape, which is why it is not just a slip.** I had *read* the owning lane's handoff
+that says in terms *"LIVE IS NOT EXERCISED… both carriers still `enabled=false`"* — and did not
+carry the fact 40 lines into my own reasoning. A mechanism's **existence** and its **operation**
+are separate facts, and code review only ever establishes the first. The reason it slipped is
+that the merged, approved, registered mechanism *reads* as operational: it has a register entry, a
+council verdict and passing tests, and none of those four things is a row.
+
+**The second-order finding it turned up, which is the useful part:** the type is still being FILED
+(7 rows 08-14, 5 on 08-15, 2 on 08-17) *while* its retraction path is dead — so **a disabled
+scheduler is not a dead subsystem, and a live subsystem does not imply a live retraction.** Count
+the rows for each half separately; the two halves of one seam can be in opposite states.
+
+Tally for "read the owning lane's own correction and failed to apply it to my own claim 40 lines
+later": 1 (caught, pre-submission).
+Tally for the family "a built mechanism reported as an operating one": this estate's Nth — the
+memory entry `thunder-reaper-fires-but-has-never-reaped` is the same error with different code.
