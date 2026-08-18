@@ -240,6 +240,28 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
   domain remains L9-claimed here so no other proposition drifts onto it, but its use is
   the webdesign lane's; this register makes no further plans for it. `loansy.uk` and
   `loanzy.co.uk` are unaffected (still HOLD).
+- **P10 (owner ruling, 2026-08-18): `loanzy.uk` becomes webdesign.uk's FIRST EXAMPLE SITE,
+  and is built ONLY from the webdesign.uk customer prompt — so it gets NO positioning entry
+  here, deliberately.** The owner opened by putting it back in the finance build queue, then
+  settled on the example-site use, and named the two conditions himself: *"which would mean
+  no prior registry entry"* and *"have it built only from the webdesign.uk prompt"*. That is
+  the whole point of it — webdesign.uk's approved lead (proposal F, *show the work, promise
+  nothing*) may not name examples until a site exists that this one-shot route actually
+  produced, and the four sites its copy attests (`any_site_type_examples`) were NOT built
+  that way. A site given a hand-written proposition from this register would overstate the
+  product, because a paying customer gets no such thing.
+  **Consequences for this register, so no lane mistakes them:**
+  (a) the claims-table line keeps `loanzy.uk` under L9 — that claim is MECHANICAL (it stops
+  another proposition drifting onto the domain and keeps `check_register.py` whole), and it
+  is NOT a direction;
+  (b) no audience/mode/neighbours coordinate is written for it, so it cannot collide with
+  L1/L2/L3/L10 — in particular it is **not** a third FCA-rules site (`loancash.co.uk` L10
+  and its shadow `lendzy.co.uk` already serve that ground, both live, 22 pages each);
+  (c) it does **not** enter the Phase E finance waves as a positioned build; putting it back
+  in that queue was the owner's opening position and is superseded by this ruling;
+  (d) `loansy.uk` and `loanzy.co.uk` remain HOLD, untouched.
+  Lane: `docs024_key_docs_latest/loanzy_uk_example_site/`. P-number free when written
+  2026-08-18; if another session has taken P10, renumber this and leave the date.
 
 ## Family: BANKING / SAVINGS / RATES
 
