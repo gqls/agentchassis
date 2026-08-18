@@ -402,3 +402,57 @@ would be exactly the blind-pass this estate keeps logging.
 
 `content-feed-refresh` (cap 5, population 9) is 6-hourly and last fired 14:31Z pre-roll — the first
 expected positive. Command recorded in the bug file.
+
+## 2026-08-18 — ran the census; the answer is "nothing it watches has run", plus one real limitation
+
+Detector re-verified at **v1.0.1309** (pods 15:45Z; added string present, known-present control
+present, plausible fake absent). Swept **all 41** chassis-image pods over 24h.
+
+**0 WARNs. 21 `query_database` completions.** And — this is the part that makes the zero readable —
+the log line carries `step_name`, so all 21 are attributed: `find_dispatchable_site` ×9,
+`notify_scheduler` ×6, `load_entry` ×3, `notify_scheduler_idle` ×3. **Not one capped step.**
+
+So the zero says nothing about the detector. Reporting "the WARN has not fired" without that table
+would be precisely the blind pass this estate keeps logging — the traffic control passing while blind.
+
+### The `LIMIT 1` exclusion, vindicated by measurement rather than by argument
+
+`find_dispatchable_site` returned **exactly 1 row on 5 of its 9 runs** — sitting on its own `LIMIT 1`
+five times in 24 hours, on a quiet fleet, from a dispatch-loop step that runs continuously. **Without
+the `n >= 2` exclusion that is five false warnings from one step in one quiet day.**
+
+I made that decision on reasoning alone (19 of 26 live hits are fetch-one; a channel that always fires
+is a channel nobody reads) and wrote it into the source as the arm most likely to be "simplified" away
+later. It is satisfying to find the margin is larger than the argument claimed — but the useful lesson
+is the reverse: **the design argument was checkable all along and I did not check it until now.** The
+same query would have run before I shipped.
+
+### ⚠ MISSTEP-ADJACENT: a limitation the design review never surfaced, that running it did
+
+**The WARN is a log line, so its history dies with the pod.** The observable window is "time since the
+last pod restart", and I never considered that when choosing log-only.
+
+Measured today: pods restarted **15:45Z**; `content-feed-refresh` (cap 5, population 9) last fired
+**14:32Z**; `model-directory-publish` **12:15Z**. **Both fired before the restart**, so both are
+invisible, and their next runs are ~20:32Z and ~18:15Z.
+
+Rolls land roughly daily on this tree; the capped steps are 6-hourly. **A cap that fires shortly before
+a roll is invisible for ever.** The detector is correct and live — the unit tests and the binary probe
+both say so — but *whether it will actually catch the caps in practice* is a race between roll
+frequency and schedule period that nobody has characterised, and I certainly did not.
+
+**This is the strongest argument yet for the follow-up I recorded as out of scope** (the `LIMIT n+1`
+probe): a definitive result written somewhere durable — a `doc_notes` row, a column — survives a roll.
+A log line does not. I chose log-only for good reasons (observational, no authority on a shared seam,
+smallest possible intervention) and those reasons still hold; what I got wrong was not noticing that
+the *medium* has a retention property, and that the thing being watched runs less often than the medium
+is wiped.
+
+**Recorded as LCO-009's `verify-later`, not fixed here** — widening the seam is a separate change with
+its own review, and the council was explicit that the observational scope was the right call for THIS
+one.
+
+### Still owed
+
+**0 `suggest_tools` runs since migration 445 (11:22Z on 08-17)**, so 275's "after" half remains
+undone. The "before" half is proven at the artefact (29 tools, 0 past rank 30, highest exactly 30).
