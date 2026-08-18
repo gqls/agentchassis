@@ -49,3 +49,25 @@ is actually running in the fleet.
 One measurement worth keeping: the live defect today is mostly raw "#" headings and
 [link](url) syntax on news pages — not the **asterisks** the bug was filed on — and the
 detector didn't look for links at all until today's widening.
+
+## 2026-08-18 night — everything is committed; one thing needed from you
+
+All the code is on the shared branch and ready to ride the next fleet release. I bumped
+the image tag to v1.0.1311 so the next release actually builds fresh (everything —
+makefile, cluster, overlays — was sitting on 1310, which is the exact setup that made a
+release ship nothing on the 17th).
+
+**The ask: run the fleet release when convenient** —
+`! date; make release redeploy-agents ENVIRONMENT=production REGION=uk001; date`
+
+After it rolls, the steps are scripted in this folder's RUNBOOK: apply migrations 473
+and 474, canary two pages, then promote the rest. I can do all of that myself in a
+follow-up session — the release is the only step that's yours.
+
+The review council asked for a revision on the first round — their main worry was a
+detail in my written plan (two sketches disagreed about where a setting is read from);
+the actual committed code was already consistent, and their other suggestions genuinely
+improved the migrations (I switched to the standard backup mechanism, and re-measured
+the success statistics including the archive — which made the case for the new repair
+path stronger, not weaker: the rerender machinery is 99% reliable over ~14,000 runs).
+Round two is submitted with the evidence.
