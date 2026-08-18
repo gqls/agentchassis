@@ -454,3 +454,32 @@ already link to.
 
 *Contributed by the `mortgagecalculator_couk_adoption` lane, 2026-08-16. Evidence lives in that
 lane's `NOTES` `## 2026-08-16 (afternoon…)`.*
+
+## 11. CONTRIBUTION 2026-08-18 — a THIRD lane hits it the same day, and the cost is a page that never publishes (from the `loanzy_uk_example_site` lane)
+
+`[MEASURED 2026-08-18 21:0xZ]` A greenfield build of `loanzy.uk` had its **`your-rights` page
+refused at `validate_content`: "20 blockers, 0 errors"** — and the persisted detail
+(`agent_error_log.error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`) is **20 × identical
+`unrendered_template` / `{{end}}`**, this bug's exact fingerprint. The page is **not built and
+not deployed**; the site went live without it.
+
+**Two lanes, three pages, one day.** `portfolio_positioning` recorded *"2 pages blocked by
+20 × `unrendered_template` `{{end}}`"* on its pilot on 2026-08-17/18 (its
+`HANDOFF_2026-08-18` §5 item 6 asks for the leak to be **filed as a platform bug** — it is
+filed, it is THIS one; that TODO can be closed by pointing at 260). Same count of 20 in both
+lanes, on unrelated sites, with unrelated content.
+
+**What this adds to §10c's qualification, concretely:** the cost is not only the "unfinished
+prose" reading — it is a **page that never exists**. On this site the blocked page was
+`your-rights`, i.e. the consumer-rights content, on a site whose entire licensed position is
+explaining borrowers' rights. The home page links to it. So the observable damage is a
+**dead internal link on a live site plus a missing page**, which no scan of stored
+`page_components` can see, because the defect's whole effect is that nothing was stored.
+
+**Frequency signal, since §10 said "still firing":** it is firing on *fresh* builds, not only
+rebuilds of existing components — this site had **zero** prior components (every page row was
+created in this run). So the trigger does not require an aged or hand-edited component.
+
+No diagnosis run filed: the mechanism is already proven in §2 with a control, and this
+contribution asserts only an occurrence and its cost, both read directly from the persisted
+blocker rows and the live site.
