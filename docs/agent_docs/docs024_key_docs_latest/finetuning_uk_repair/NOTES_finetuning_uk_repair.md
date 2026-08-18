@@ -843,3 +843,14 @@ never run. `/index.html` `deployed_at` is still `03:34:52Z`.
 
 **So the honest state of the design work: the audit is real and verified, and the
 repair path is not working.** The four findings are still true of the live page.
+
+---
+
+## 2026-08-18 — LANE MERGED into `finetuning_uk_service` (owner direction)
+
+The owner merged the front-end and backend threads: **all finetuning.uk work now
+records in `../finetuning_uk_service/`** (NOTES there, entry "2026-08-18 — LANE
+MERGE"). This directory stays as history and evidence — the four deliberately
+retained `complete` rows and the audit trail above remain the record for the
+"repair completes without repairing" question, whose `090` filing is the marked
+next step and now belongs to the merged lane.

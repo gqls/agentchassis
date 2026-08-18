@@ -274,3 +274,15 @@ Separately, and unrelated to the site: the credential-logging problem you asked
 about is fixed and the fix is live on the fleet as of today. There is one loose
 end that matters for the key rotation you said you would do later, and it is a
 timing one — details in the note below.
+
+---
+
+## 18 August 2026 — this thread merges into the service thread
+
+You asked for the two finetuning.uk threads to become one. From today, both the
+service backend and this front-end work continue in a single thread, and the
+running story lives in `finetuning_uk_service/README_where_we_are.md`. Nothing
+here is lost — this file stays as the history of the site repair work, including
+the honest state it parked in: the design *audit* works and is verified; the
+automatic *repair* path completes without actually repairing, which is the first
+thing the merged thread should chase down.
