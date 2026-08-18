@@ -73,3 +73,62 @@ Plan approved by owner (three choices recorded in PLAN); fresh chassis roll depl
 carries none of this (nothing committed); target files clean and untouched by other
 sessions; four owner decisions posed (PLAN §Owner decisions). Next: message `bugfix 248`
 session, commit docs, then the Go commit (links_tel.go + keeps + check + filter + stamp).
+
+## 2026-08-18 (later) — code written, calibrated, coordinated; two cross-session facts changed the work under us
+
+**248's half LANDED AND ROLLED while we were designing** (their message + `53a8d3c1d`, live
+v1.0.1310 — the "fresh chassis build" of this afternoon). Their `setCTAField` now takes
+`stored` as a parameter, which deleted my planned signature change entirely; my non-page keep
+reads `stored[field]` and slots in after their branch, disjoint by predicate. They also
+CORRECTED their own build-path claim on our 312 evidence (authored links did NOT "die on next
+regeneration" — the discard made their build-path branch inert) and verified 312
+independently, adding that `resolved_links.link_resolution.sections_ready` ALSO resolves in 0
+runs. Their gate answer: nothing on their side blocks the 312 unhold; canary suggestion =
+leopardessconsulting.co.uk (authored /contact.html CTAs ×4).
+
+**The 184 lane was dirty in the SAME FILE** (rerender_page_sections_action.go,
+strip_literal_markdown). Order negotiated by message: they landed their datahelpers primitive
+first (019fb0616 + 5fbe549f7) so their hunk compiles as my passenger; I commit next NAMING
+the passenger; they follow with their re-route + migrations 473/474. **Migration numbers
+473/474 are THEIRS; this lane takes 475+.** Their catch worth keeping: had I committed
+before their primitive landed, my commit would have broken HEAD's build via the passenger —
+a same-file passenger can carry a MISSING DEPENDENCY, not just noise.
+
+### CALIBRATION — the owner's detector-scope choice was overturned by the measurement
+
+Round A (scope as chosen: tel/mailto + external): 698 anchors, **226 findings, ~211 false**
+— two classes the unit fixtures could not show (text that IS its own mailto address; external
+news/reference links whose prose matches a page on one token). Round B (tel/mailto only +
+self-agreement suppression, misdirect-only — a self-stating malformed tel is still
+malformed): **17 findings, 17/17 hand-reviewed true, 0 false.** Full table in
+`CALIBRATION_2026-08-18_cta_nonpage_report.md`; round-A raw kept beside it. External is a
+STATED blind spot in the check header. The owner has not yet confirmed the narrowing —
+flagged in the session report.
+
+**Bonus calibration fact:** the artefact surface holds 15 malformed tels vs the
+content_data census's 5 — contact-info renders phones from SITE IDENTITY, so a
+content_data-only fix would have left 10 invisible. Detector reads rendered_html; right call.
+
+### MISSTEP (caught by an existing test, cheaply)
+
+First cut of the self-agreement rule suppressed the WHOLE classification, so a phone button
+stating its own malformed number stopped being flagged malformed. The pre-existing
+"genuine phone button, malformed separators" fixture failed and forced the split:
+self-agreement suppresses the MISDIRECT only. The order of guards inside one classifier is
+itself a behaviour — test each finding kind against each guard.
+
+### Register archaeology: 312 is a RECURRENCE
+
+LNK-014 fixed this exact seam in JUNE in the opposite direction (config repointed TO
+`response.link_resolution.…` when the envelope nested); LNK-014's own follow-up asked for
+the lean return that later made that path stale again; LNK-013 named the fallback's
+double-edge in advance. Appended to 312 and corrected visibly in LNK-014. A silent fallback
+on this seam has now failed twice in both directions — 312's candidates 2 (loud fallback)
+and 3 (lockstep test) are earned, not speculative.
+
+### State at this entry
+
+Code complete + all three packages green (datahelpers / actions / discovery_checks);
+calibration PASS; LNK-034 registered + LNK-014 corrected + LANDMINES updated + verifier
+armed. Next: council submission (097), then the Go commit naming the 184 passenger, then
+ping 184 + reply 248.

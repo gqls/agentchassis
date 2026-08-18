@@ -162,6 +162,18 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 	// exactly as before. Loaded once per page, not per section.
 	existingLabels := loadExistingSectionContentData(ctx, params, siteID, pageName, logger)
 
+	// stamp_cta_destination_guidance (OPT-IN, unsafe default OFF — the owner
+	// ruling of 2026-08-02: new authority on a shared seam ships as a field a
+	// reviewer of the CALLER can see; single live consumer today is
+	// internal-link-resolver). When armed, each resolved CTA destination is
+	// appended to the paired LABEL field's llm_field_specs description, which
+	// the page-content-writer prompt already renders — so the writer is told
+	// what the button's destination IS instead of inventing one. Measured
+	// before this shipped (bugs_open/299): the *_target_title VALUE reached 0
+	// of 182 sampled prompts; only the guidance sentence naming the field did.
+	// Mis-typed values fail OFF, matching recordDeadURLControls' semantics.
+	stampGuidance, _ := params.StepConfig.Config[ctaDestinationGuidanceConfigKey].(bool)
+
 	var unresolved []map[string]interface{}
 	for _, raw := range sections {
 		section, ok := raw.(map[string]interface{})
@@ -201,6 +213,10 @@ func ResolveInternalLinksAction(ctx context.Context, params ActionParams) (inter
 		setCTAField(resolved, existing, fields[1], secondary, validPages, function, sectionName, "secondary", &unresolved,
 			existingLabelFor(existing, labelFieldOf[fields[1]]), candidates)
 		section["resolved_data"] = resolved
+		if stampGuidance {
+			stampCTADestinationGuidance(section, labelFieldOf[fields[0]], resolved, fields[0])
+			stampCTADestinationGuidance(section, labelFieldOf[fields[1]], resolved, fields[1])
+		}
 	}
 
 	logger.Info("resolve_internal_links: augmented CTA sections",
@@ -319,6 +335,48 @@ func emitUnresolvedCTAItems(ctx context.Context, params ActionParams, siteID uui
 // exactly the old behaviour). It exists for the authored-destination branch —
 // bugs_open/248 — and gives this writer the same shape as its sibling,
 // rerender_page_sections' applyCTARecompute.
+// ctaDestinationGuidanceConfigKey arms the destination stamp on the label
+// field's llm_field_specs description (see the read site above). Unset or a
+// non-bool value ⇒ pre-existing behaviour, byte for byte.
+const ctaDestinationGuidanceConfigKey = "stamp_cta_destination_guidance"
+
+// stampCTADestinationGuidance appends "Destination (fixed): <title>…" to the
+// llm_field_specs entry for the CTA's LABEL field, once the URL field has a
+// resolved companion title (page or non-page — the same gap produced both the
+// bugs_closed/268 family and bugs_open/299's phone-dialling button). The
+// specs pipe (plan_sections → llm_field_specs[].description → the writer
+// prompt's per-field description) already exists; this only puts the datum on
+// it. No-op when the label field is unknown (schema not attached in transit),
+// the title is absent, or the section carries no specs — degrading to exactly
+// today's behaviour, never blocking resolution.
+func stampCTADestinationGuidance(section map[string]interface{}, labelField string, resolved map[string]interface{}, urlField string) {
+	if labelField == "" || urlField == "" {
+		return
+	}
+	title, _ := resolved[ctaTargetTitleField(urlField)].(string)
+	if title == "" {
+		return
+	}
+	specs, ok := section["llm_field_specs"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, raw := range specs {
+		spec, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if name, _ := spec["name"].(string); name != labelField {
+			continue
+		}
+		desc, _ := spec["description"].(string)
+		spec["description"] = strings.TrimSpace(desc +
+			" Destination (fixed): " + title +
+			". Write this CTA's text to name or clearly promise this destination; never promise a different one.")
+		return
+	}
+}
+
 func setCTAField(resolved, stored map[string]interface{}, field string, target contentHub, validPages datahelpers.PageURLSet,
 	function, sectionName, slot string, unresolved *[]map[string]interface{},
 	existingLabel string, candidates []datahelpers.LabelMatchCandidate) {
@@ -354,6 +412,36 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 		// non-utility stored value — those are re-derived exactly as before.
 		resolved[field] = storedURL
 		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
+		return
+	}
+	if storedURL, _ := stored[field].(string); datahelpers.IsAuthoredNonPageCTADestination(storedURL) {
+		// bugs_open/299, the NON-PAGE half of the same trap: tel:/mailto:/
+		// external/named-fragment destinations fail validPages.Contains by
+		// construction, so no resolver path can have produced one — it was
+		// authored — and no earlier keep could see one, so it fell to the
+		// positional pick and a phone button became a tool link. DISJOINT
+		// from the 248 branch above (that one REQUIRES validPages
+		// membership); no url can satisfy both predicates.
+		//
+		// WRITTEN, for the branch above's reasons — and the write is also
+		// the URI repair: the fleet's live tel: values carry spaces and
+		// parens RFC 3966 forbids, and NormalizeTelHref fixes the ones that
+		// are unambiguous. The ones it refuses (the collapsed-trunk
+		// "+440…") are kept RAW: inventing digits is a human's call, and
+		// check_cta_nonpage files them for one.
+		//
+		// The companion title is COMPUTED, not carried: it is what lets the
+		// content writer write copy FOR this destination ("a phone call to
+		// …") instead of inventing a destination the copy then promises —
+		// which is exactly how bugs_open/299's button was written.
+		kept := storedURL
+		if norm, ok := datahelpers.NormalizeTelHref(storedURL); ok {
+			kept = norm
+		}
+		resolved[field] = kept
+		if title := datahelpers.DescribeCTADestination(storedURL); title != "" {
 			resolved[ctaTargetTitleField(field)] = title
 		}
 		return

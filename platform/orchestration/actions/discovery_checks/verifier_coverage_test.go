@@ -223,6 +223,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"deactivated_component":         {catMechanical, "all 41 carry component_id"},
 	"empty_internal_href":           {catMechanical, "all 21 carry page_id"},
 	"cta_names_unknown_destination": {catMechanical, "all 47 carry page_id; sibling finding of misdirected_cta"},
+	"cta_names_nonpage_destination": {catMechanical, "review-only, no handler (bugs_open/299 round 1): repair deliberately withheld until the non-page keep branches are proven live — a cta_links_stale item here IS the LANDMINES recompute clobber; predicate is classifyNonPageAnchor, re-runnable when a verifier is wanted"},
+	"cta_tel_malformed":             {catMechanical, "review-only, no handler: predicate is datahelpers.NormalizeTelHref, trivially re-runnable; the unambiguous forms self-heal via the keep branches, the refused residue (+440… collapsed trunk) NEEDS a human, so auto-completion would be wrong by design (bugs_open/299)"},
 	"voice_tells":                   {catMechanical, "all 25 carry page_id; predicate is check_voice_tells"},
 	// literal_markdown: VERIFIER WRITTEN 2026-08-06 (bugs_open/201 symptom 2) —
 	// VerifyLiteralMarkdownResolved in check_literal_markdown.go. Entry removed from
@@ -595,6 +597,11 @@ var computedItemTypeSites = map[string]string{
 	// below. Adding a further profile therefore still fails this guard until
 	// it is classified, which is the behaviour we want.
 	"check_directory.go": "p.SectionItemType / p.PageItemType — one profile per register kind (model, company, protocol, mortgage-lender, savings-provider, health-insurer)",
+	// fl.f.Kind — exactly two values, both spelled as literals in
+	// classifyNonPageAnchor and both classified in itemTypesWithoutVerifiers:
+	// cta_names_nonpage_destination, cta_tel_malformed. A third Kind fails
+	// this guard until it too is classified, which is the behaviour we want.
+	"check_cta_nonpage.go": "fl.f.Kind — cta_names_nonpage_destination | cta_tel_malformed (bugs_open/299)",
 }
 
 // TestEveryCheckProducedItemTypeIsClassified is the SENSOR half of the guard.

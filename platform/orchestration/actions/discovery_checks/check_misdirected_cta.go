@@ -70,6 +70,27 @@ var ctaExcludedAreas = map[string]bool{
 	"about": true, "contact": true, "privacy": true, "terms": true, "legal": true,
 }
 
+// ctaComponentScanQuery is the deployed-HTML scan shared by this check and
+// check_cta_nonpage — one spelling, so the two CTA checks cannot disagree on
+// which components they examine (the lockstep discipline).
+//
+// The page-status filter was ABSENT until 2026-08-18 (bugs_open/299 lane):
+// archived pages were scanned, and webdesign.uk's index-rejected-v1-20260806
+// minted two cta_links_stale rerender items — both failed, because nothing
+// downstream will touch an archived page (archived_page_guard refuses the
+// deploy). The filter is spelled exactly as loadCTAMatchIndex below spells it;
+// the shared constant in the actions package (prepare_link_context_action.go)
+// is unreachable from here — actions imports this package.
+const ctaComponentScanQuery = `
+		SELECT p.name, p.url, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html
+		FROM page_components pc
+		JOIN pages p ON p.id = pc.page_id
+		WHERE p.site_id = $1
+		  AND p.status NOT IN ('deleted', 'archived')
+		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''
+		ORDER BY p.name, pc.position
+	`
+
 // ctaClassifyAnchor is THE definition of "this CTA is misdirected", shared by
 // the discovery check and the completion verifier so the two cannot drift. If
 // they drifted, a verifier could resolve a defect the next discovery pass
@@ -132,14 +153,7 @@ func (c *MisdirectedCTACheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 	}
 	var unknowns []unknownDest
 
-	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT p.name, p.url, pc.page_id::text, COALESCE(pc.slot_name, ''), pc.rendered_html
-		FROM page_components pc
-		JOIN pages p ON p.id = pc.page_id
-		WHERE p.site_id = $1
-		  AND pc.rendered_html IS NOT NULL AND pc.rendered_html <> ''
-		ORDER BY p.name, pc.position
-	`, dctx.SiteID)
+	rows, err := dctx.DB.QueryContext(dctx.Ctx, ctaComponentScanQuery, dctx.SiteID)
 	if err != nil {
 		return nil, fmt.Errorf("misdirected_cta page query failed: %w", err)
 	}

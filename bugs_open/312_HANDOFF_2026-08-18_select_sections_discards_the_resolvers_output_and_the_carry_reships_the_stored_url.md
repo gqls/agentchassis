@@ -111,3 +111,32 @@ for a CTA section (they differed on `05e3839d`), AND the authored `/contact.html
   is the fallback being tolerant of the wrong thing) · `bugs_closed/268` (the carry that
   re-ships the stored values).
 - Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_299_cta_dials_phone/`.
+
+---
+
+## 2026-08-18 (same day, later) — this is a RECURRENCE of LNK-014, and the register called the shot
+
+Register archaeology (`docs026_concept_register/register/link-management.md`):
+
+- **LNK-014** records this exact defect firing in JUNE, in the OPPOSITE direction: then, the
+  `call_agent` envelope nested the reply at `resolved_links.response.link_resolution.sections_ready`
+  and `select_sections` read the top-level `resolved_links.sections_ready` → null → silent
+  fallback → schema-phantom CTAs shipped. Fixed 2026-06-26 by a one-line jsonb_set repointing
+  the config TO `response.link_resolution.…` — the very path that is wrong today.
+- **LNK-014's own open follow-up asked for the change that re-broke it:** "the resolver
+  returns its whole echoed collected_data with empty final_result (should return a lean
+  `{sections_ready, unresolved}`)". The lean return exists now — today's measured response IS
+  `{unresolved, sections_ready}` directly under `response` — so [INFERRED, culprit commit not
+  yet pinned] the lean-return follow-up landed without the config repoint, and the same
+  fallback masked the same class a second time.
+- **LNK-013 named the mechanism in advance:** "Designed so resolver failure is byte-identical
+  to prior behaviour — which later proved double-edged: the fallback silently masked a path
+  mismatch for two weeks." It has now done so twice, in both directions of the same seam.
+
+Consequences for the fix candidates above: candidate 1's target path
+(`resolved_links.response.sections_ready`) is confirmed against both the measured shape and
+this history; candidates 2 (loud fallback) and 3 (lockstep test binding the config path to
+the resolver's actual response shape) are no longer nice-to-haves — a seam that has failed
+twice, silently, in both directions, earns its tripwire. The June fix also supplies the
+repair mechanics (jsonb_set on the agent_definitions row) and the verification posture.
+The INTERLOCK above is unchanged and still binds.

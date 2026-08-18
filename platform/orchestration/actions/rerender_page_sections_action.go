@@ -92,7 +92,14 @@ var RerenderPageSectionsInputSpec = datahelpers.ActionInputSpec{
 	// not yet found.
 	Required: []string{"target_site_id"},
 	Optional: []string{"page_name", "page_id", "reason"},
-	Defaults: map[string]interface{}{},
+	// strip_literal_markdown is a SETTING, not a data reference (bugs_open/184):
+	// when true, stored content_data is passed through
+	// datahelpers.StripLiteralMarkdownFromContentData before it feeds both the
+	// render context and the persisted mergedContent — which is what makes a
+	// plain rerender the mechanical repair for literal_markdown items. Default
+	// OFF; enabled on page-rerender's rerender_sections step by migration 473.
+	ConfigKeys: []string{"strip_literal_markdown"},
+	Defaults:   map[string]interface{}{},
 }
 
 func init() {
@@ -213,6 +220,29 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	stored, err := loadStoredSections(ctx, params.DB, pageID, logger)
 	if err != nil {
 		return nil, fmt.Errorf("load stored sections: %w", err)
+	}
+
+	// bugs_open/184: with strip_literal_markdown enabled (migration 473 sets it
+	// on page-rerender's rerender_sections step), a rerender IS the mechanical
+	// repair for literal markdown: each section's STORED content_data is
+	// stripped here, before it feeds both the render context (:the render loop)
+	// and the persisted mergedContent — so one no-LLM rerender heals both
+	// surfaces. Strip-only, letter-guarded, identical patterns to the
+	// literal_markdown discovery check (single-sourced in datahelpers), so the
+	// completion verifier finds nothing left by construction. Runs before the
+	// content pre-check below on purpose: stripping never removes a field, so
+	// the required-field contract is unaffected.
+	if on, _ := params.StepConfig.Config["strip_literal_markdown"].(bool); on {
+		for _, s := range stored {
+			if len(s.contentData) == 0 {
+				continue
+			}
+			if changed := datahelpers.StripLiteralMarkdownFromContentData(s.contentData); len(changed) > 0 {
+				logger.Info("rerender_page_sections: stripped literal markdown from stored content_data",
+					zap.String("slot", s.slotName),
+					zap.Strings("fields", changed))
+			}
+		}
 	}
 	if len(stored) == 0 {
 		logger.Info("rerender_page_sections: page has no stored components, nothing to re-render",
@@ -808,6 +838,33 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 		!ctaExcludedDestination(current) &&
 		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
 		return // authored link to a real, sensible destination — keep it
+	}
+
+	// KEEP #3 — an AUTHORED NON-PAGE destination (bugs_open/299): tel:/
+	// mailto:/external/named-fragment. Fails validPages.Contains by
+	// construction, so keeps #1 and #2 can never see one and it fell to the
+	// positional pick — this is the LANDMINES.md "cta_links_stale repair
+	// CANNOT tell a genuine 'Get in Touch' from …" trap in its second form:
+	// webdesign.uk's faq and how-it-works carry genuine "Call us on …" tel:
+	// buttons that a rerender would have replaced with a tool link. DISJOINT
+	// from keep #1 (which REQUIRES validPages membership).
+	//
+	// WRITTEN, for keep #1's schema-fallback reason — and the write is the
+	// URI repair: NormalizeTelHref fixes the unambiguous malformed tel:
+	// forms (spaces/parens) on the next rerender; the collapsed-trunk
+	// "+440…" it refuses stays RAW for a human (check_cta_nonpage files it).
+	// The title is COMPUTED so the content writer can write copy FOR the
+	// destination instead of inventing one (bugs_open/299's mechanism).
+	if hasCurrent && datahelpers.IsAuthoredNonPageCTADestination(current) {
+		kept := current
+		if norm, ok := datahelpers.NormalizeTelHref(current); ok {
+			kept = norm
+		}
+		resolved[field] = kept
+		if title := datahelpers.DescribeCTADestination(current); title != "" {
+			resolved[ctaTargetTitleField(field)] = title
+		}
+		return
 	}
 
 	if target.URL == "" || !validPages.Contains(target.URL) {
