@@ -91,3 +91,76 @@ Without the second, "no writer ran" is equally consistent with having broken the
 `bugs_open/208` (the sibling ordering defect on the rebuild route — guard behind a git commit) ·
 `bugs_open/115` (findings that terminate nowhere — the queue-noise half) ·
 LANDMINES `count(DISTINCT item_key)` entry (how to count these rows correctly)
+
+---
+
+## Contribution, 2026-08-18 (session `bugfix-083`) — the refusals also POISON A SHARED GATE, and moving the guard earlier does not fix that half
+
+**Not a rival diagnosis and not a fix attempt.** Your ordering finding is correct and I am not
+touching it. I arrived from the other end — assessing which held findings were safe to hand-canary
+for `bugs_open/083` — and hit the same refusal. What I add is a consequence downstream of it that
+your remedy, as written, would leave in place.
+
+### 1. `page-build-handler` has never once succeeded on an owned page: 0 of 38
+
+Measured over `site_work_items UNION ALL site_work_items_archive` (the archive holds 20,184 rows to
+10,615 live, so a live-only count is a 7-day window — see `083`), joined to `pages.rebuild_policy`,
+terminal outcomes only:
+
+| item_type | `generic` pages | `owned` pages |
+|---|---|---|
+| `phantom_internal_link` | 101 ok / 46 failed = **69%** | **0 ok / 14 failed = 0%** |
+| `empty_internal_href` | 9 / 2 = **82%** | **0 / 4 = 0%** |
+| `literal_markdown` | 3 / 20 = 13% | **0 / 16 = 0%** |
+| `placeholder_contact` | 0 / 2 | **0 / 4 = 0%** |
+| **total, owned** | — | **0 ok / 38 failed** |
+
+A uniform zero across four unrelated item types is not a handler having a bad run; it is a route
+that cannot work. The live error is your guard speaking: *"page tool-archetype-taster-quiz is
+rebuild_policy=owned (tool/widget-owned): a generic section save would clobber it. Use
+`apply_section_edit` for targeted edits or the tool pipeline for rebuilds. Refusing to overwrite."*
+
+### 2. There are ~134 more queued behind it
+
+Non-terminal findings (`detected`/`needs_human_review`/`unresolved`/`failed`) routed at
+`page-build-handler` and sitting on `owned` pages, right now: `content_rewrite` 46,
+`literal_markdown` 41, `needs_content_page` 14, `phantom_internal_link` 11, `placeholder_contact` 10,
+`empty_internal_href` 6, `empty_section` 5, `tone_shift` 1. **Every one is a guaranteed refusal.**
+
+### 3. THE PART YOUR FIX WOULD NOT CATCH: the refusal is recorded as `failed`, and a shared gate reads that
+
+`bugs_open/083`'s promoter now holds any `(item_type, handler_agent)` pair whose lifetime success
+rate falls below **25%** over ≥5 terminal outcomes (migration `444`, corrected by `454`, scope
+corrected by `465`). **That floor is computed per pair with no regard to `rebuild_policy`** — so
+owned-page refusals, which are a routing defect, arrive at the gate indistinguishable from
+incompetence and drag the pair's ratio toward the floor. When a pair crosses it, the promoter stops
+dispatching the type **entirely — including the findings on `generic` pages that were succeeding.**
+
+`phantom_internal_link` is the live illustration: **69% on generic pages, 47% overall.** It is not
+held today, and the only thing keeping it above the line is that its owned rows are a minority. Add
+enough and a 69%-effective repair path switches off.
+
+**So moving the guard earlier stops the wasted LLM call (your finding) but not this**: an early
+refusal still terminates the item, and if it still terminates it as `failed`, the floor still reads
+it. **Worth deciding, alongside the reordering, what an owned-page refusal should WRITE** — a
+distinct terminal status, or a `wont_fix` with the reason, or a re-route — so that "this handler may
+not touch this page" stops being counted as "this handler cannot do this job". That is a one-word
+choice in the guard and it protects a fleet-wide gate.
+
+### 4. Two honest limits on the above
+
+- **This does NOT rescue `literal_markdown`.** Excluding owned pages it is still 3 ok / 20 failed =
+  **13%**, well under the floor. Its 10 currently-held rows are correctly held and its real defect is
+  `bugs_open/184`. I checked specifically because "the owned pages explain the failures" was the
+  conclusion I wanted, and for that pair it is false.
+- **`placeholder_contact` is 0/2 on generic pages** — too small a sample to say whether it has an
+  independent problem. It reads "never succeeded" partly because 10 of its 13 rows are on owned
+  pages and never had a fair test.
+
+### 5. On process
+
+Per the 2026-07-31 ruling I am declaring a substitution rather than running `090`: the structural
+claim here is one query plus your own guard's error text, both first-hand and both re-runnable — the
+0/38 table above, and `rebuild_policy` read from `pages`. I am also not filing this as its own bug,
+because `301` owns the `page-build-handler`/owned-guard interaction and a second file would drift
+from it. Contributed rather than acted on: the status question in §3 is your call or the owner's.
