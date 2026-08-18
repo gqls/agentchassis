@@ -13,7 +13,8 @@ content and its OWN declared schema — never against a brief, and never by comp
 prose to prose (`bugs_open/278` §8: same generator, same inputs, twice → 2 of 4 card
 bodies diverged with nothing wrong; a prose-diff gate would fail that pair).
 
-WHAT IT CHECKS, all five mechanical:
+WHAT IT CHECKS, all five mechanical (arrays included — their items are flattened
+to text so B–E apply to them too):
 
   A. TYPES     every field named in the proposal matches the type the component
                DECLARES (`content_components.input_schema`), read in BOTH dialects —
@@ -26,7 +27,12 @@ WHAT IT CHECKS, all five mechanical:
                fall (`bugs_open/253` is a markup-level loss a text-level check missed).
   D. FACTS     every number/currency figure present before must survive, and no NEW
                figure may appear (stage 2 may reorder and rewrite; it may not invent).
-  E. VOLUME    word count may not fall below a floor (default 90% of before).
+  E. VOLUME    a field may shrink ONLY as de-duplication: if it loses >10% of its
+               words, every figure and link removed must still be reachable elsewhere
+               on the page, or it fails. A cut below 25% of the original fails outright.
+               (It began life as a flat 90% floor and could not tell a gutted section
+               from a deliberately de-duplicated one — which is half of stage 2's remit.
+               Fixed by making it discriminate, not by relaxing it.)
 
 WHAT IT DELIBERATELY DOES NOT CHECK. Prose quality — that is the human's call under
 D2, and the reason stage 2's output queues for review rather than applying itself. It
@@ -123,6 +129,27 @@ ACCEPTS = {
 }
 
 
+def flatten(v):
+    """Field value -> comparable text. An array field is not exempt from the content
+    checks just because it is not a string: `features` is a list of objects whose
+    bodies carry the links, figures and classes this gate exists to protect, and the
+    first version of this function skipped them entirely while reporting the field
+    'type-checked' — true, and misleading, which is the shape this lane calls
+    armed-but-inert.
+    """
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return " ".join(flatten(x) for x in v)
+    if isinstance(v, dict):
+        return " ".join(flatten(x) for x in v.values())
+    return "" if v is None else str(v)
+
+
+def items_of(v):
+    return len(v) if isinstance(v, list) else None
+
+
 def hrefs(html):
     return Counter(re.findall(r'href="([^"]*)"', html or ""))
 
@@ -149,6 +176,20 @@ def figures(html):
 
 def words(html):
     return len(re.sub(r'<[^>]+>', ' ', html or "").split())
+
+
+def load_page_text(page_id, exclude_component_id):
+    """Every OTHER component's stored text on the same page, flattened.
+
+    This is what makes a deliberate CUT distinguishable from a silent gutting: text
+    removed because it was restated elsewhere is still findable elsewhere. Without
+    this the gate can only measure that a field got shorter, which is the same reading
+    for the edit stage 2 exists to make and for the bug it exists to prevent.
+    """
+    out = psql(f"""SELECT COALESCE(string_agg(content_data::text, ' '), '')
+                     FROM page_components
+                    WHERE page_id = '{page_id}' AND id <> '{exclude_component_id}';""")
+    return out or ""
 
 
 def load_component(component_id):
@@ -219,11 +260,18 @@ def grade(component_id, proposal, induce=None):
         print("     coverage: legacy dialect — maxItems/enum/pattern are NOT carried by the "
               "projection and were NOT evaluated (PLAN §10 addendum)")
 
-    # ── B–E, per prose field, before vs after ──────────────────────────────────
-    for name, after in proposal.items():
-        if not isinstance(after, str):
-            continue
-        before = before_data.get(name, "") if isinstance(before_data.get(name, ""), str) else ""
+    # ── B–E, per field, before vs after. Arrays included: flattened to text so the
+    # link/markup/fact checks apply to their item bodies too. ────────────────────
+    page_text = None
+    for name, after_raw in proposal.items():
+        before_raw = before_data.get(name)
+        before, after = flatten(before_raw), flatten(after_raw)
+        b_items, a_items = items_of(before_raw), items_of(after_raw)
+        if b_items is not None or a_items is not None:
+            print(f"     items {name}: {b_items} -> {a_items}"
+                  + ("  (ITEMS REMOVED — the removal test below decides)" if (a_items or 0) < (b_items or 0) else ""))
+        if induce and not isinstance(after, str):
+            after = flatten(after_raw)
         if induce == "links":
             after = re.sub(r'<li><a href="[^"]*"[^>]*>.*?</a></li>', '', after, count=1)
         if induce == "markup":
@@ -265,10 +313,40 @@ def grade(component_id, proposal, induce=None):
                            + (f"{len(new)} NEW figure(s): {' '.join(new[:5])}" if new else "")
                            or f"{len(b_fig)} figure(s), unchanged")
 
+        # ── VOLUME, and why it is not a word-count floor ─────────────────────
+        # The floor this started as (90% of before) could not tell a section that had
+        # been GUTTED from one that had been deliberately DE-DUPLICATED — and cutting
+        # restated copy is half of stage 2's remit, so the check failed the editor for
+        # doing its job. It is not weakened here; it is made to discriminate.
+        #
+        # The mechanical discriminator is REDUNDANCY, not the rationale (a prose
+        # justification would let the agent talk its way past its own gate): every
+        # figure and link in the removed text must still be reachable — elsewhere in
+        # this field, or in another component ON THE SAME PAGE. Content that survives
+        # somewhere the reader can still reach it is a cut; content that vanishes from
+        # the page is a loss, and stays a failure.
         b_w, a_w = words(before), words(after)
-        floor = int(b_w * 0.9)
-        failures += report(a_w >= floor, f"volume {name}",
-                           f"{a_w} words, floor {floor} (was {b_w})")
+        if a_w >= int(b_w * 0.9):
+            failures += report(True, f"volume {name}", f"{a_w} words (was {b_w})")
+        else:
+            if page_text is None:
+                page_text = load_page_text(c["page_id"], component_id)
+            removed_fig = sorted(set(figures(before)) - set(figures(after)))
+            removed_href = sorted(set(hrefs(before)) - set(hrefs(after)))
+            orphaned = [f for f in removed_fig if f not in re.sub(r"\s", "", page_text)] \
+                     + [h for h in removed_href if f'href=\\"{h}\\"' not in page_text and h not in page_text]
+            pct = round((1 - a_w / b_w) * 100) if b_w else 0
+            failures += report(not orphaned, f"volume {name} (cut is redundancy?)",
+                               (f"{pct}% shorter and {len(orphaned)} item(s) exist NOWHERE else on the page: "
+                                + " ".join(map(str, orphaned[:5])))
+                               if orphaned else
+                               (f"{a_w} words, {pct}% shorter (was {b_w}) — every removed figure/link is "
+                                f"still on the page, so this reads as de-duplication. ⚠ REVIEW THE PROSE"))
+            # A catastrophic cut stays a failure whatever the redundancy test says: at
+            # some point "de-duplicated" stops being a credible account of the edit.
+            if b_w and a_w < b_w * 0.25:
+                failures += report(False, f"volume {name} (absolute floor)",
+                                   f"{a_w} of {b_w} words — more than three quarters removed")
 
     print(f"\n{'PASS' if failures == 0 else 'FAIL'} — {failures} check(s) failing.")
     return 1 if failures else 0
