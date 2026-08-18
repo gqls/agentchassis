@@ -14,6 +14,28 @@ import (
 	"time"
 )
 
+// buildCommit is stamped at link time by `make box-build`
+// (-ldflags "-X main.buildCommit=<sha>"). It exists because md5-comparing the
+// box binary against a fresh local build CANNOT tell you what SOURCE the box is
+// running: measured 2026-08-18, rebuilding the exact commit behind the live
+// binary produced a different md5 and a different size (9381552 vs 9381544), so
+// these builds are not byte-reproducible across build environments. An md5 match
+// only proves the box holds the file you just pushed. This makes the binary say
+// what it was built from, which is the same rule the backend fleet already
+// follows ("ask the binary, not git"). Empty means an unstamped build.
+var buildCommit = ""
+
+// logBuildProvenance prints the commit on the same line shape the backend uses,
+// so `journalctl -u webdesign-chat | grep 'build provenance'` works the way
+// `kubectl logs | grep 'build provenance'` does for every other service.
+func logBuildProvenance() {
+	c := buildCommit
+	if c == "" {
+		c = "unstamped (built outside `make box-build`)"
+	}
+	log.Printf("build provenance: git_commit=%s", c)
+}
+
 func env(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -22,6 +44,8 @@ func env(key, fallback string) string {
 }
 
 func main() {
+	logBuildProvenance()
+
 	port := env("PORT", "8081")
 
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {

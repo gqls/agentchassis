@@ -2720,7 +2720,8 @@ box-build: box-test ## Build the sitechat binary from committed HEAD (no WIP can
 	trap 'rm -rf "$$CTX"' EXIT && \
 	git archive $(REF) | tar -x -C "$$CTX" && \
 	cd "$$CTX/$(BOX_SRC)" && \
-	GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "$(BOX_OUT)" . && \
+	GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+		go build -trimpath -ldflags "-X main.buildCommit=$$(cd $(CURDIR) && git rev-parse '$(REF)^{commit}')" -o "$(BOX_OUT)" . && \
 	echo "$(GREEN)Built $(BOX_OUT) ($$(stat -c%s "$(BOX_OUT)") bytes, md5 $$(md5sum "$(BOX_OUT)" | cut -d' ' -f1))$(NC)"
 
 .PHONY: box-build-tree
@@ -2728,7 +2729,7 @@ box-build-tree: ## Build sitechat from the WORKING TREE, WIP and all (opt-in esc
 	@echo "$(YELLOW)Building sitechat from the WORKING TREE — uncommitted code WILL ship.$(NC)"
 	@mkdir -p $(dir $(BOX_OUT))
 	@cd $(BOX_SRC) && GOPROXY=off GOTOOLCHAIN=local GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-		go build -o "$(BOX_OUT)" . && \
+		go build -trimpath -ldflags "-X main.buildCommit=$$(git rev-parse --short HEAD)-tree" -o "$(BOX_OUT)" . && \
 		echo "$(GREEN)Built $(BOX_OUT) (md5 $$(md5sum "$(BOX_OUT)" | cut -d' ' -f1))$(NC)"
 
 .PHONY: box-push
@@ -2752,10 +2753,18 @@ box-verify: ## Prove the box is running the binary you just built (md5, both end
 	@test -f $(BOX_OUT) || { echo "$(RED)$(BOX_OUT) missing — nothing to compare against.$(NC)"; exit 1; }
 	@LOCAL=$$(md5sum $(BOX_OUT) | cut -d' ' -f1); \
 	REMOTE=$$($(BOX_SSH) 'md5sum /usr/local/bin/sitechat' 2>/dev/null | cut -d' ' -f1); \
-	echo "  local  $$LOCAL"; echo "  box    $$REMOTE"; \
+	echo "  local md5   $$LOCAL"; echo "  box   md5   $$REMOTE"; \
 	if [ -z "$$REMOTE" ]; then echo "$(RED)Could not read the box binary — deploy NOT verified.$(NC)"; exit 1; \
-	elif [ "$$LOCAL" = "$$REMOTE" ]; then echo "$(GREEN)MATCH — the box is running this build.$(NC)"; \
-	else echo "$(RED)MISMATCH — the box is NOT running this build.$(NC)"; exit 1; fi
+	elif [ "$$LOCAL" != "$$REMOTE" ]; then echo "$(RED)MISMATCH — the box is NOT running this build.$(NC)"; exit 1; \
+	else echo "$(GREEN)md5 MATCH — the box holds the file just pushed.$(NC)"; fi
+	@echo "$(YELLOW)Now asking the RUNNING service what it was built from — md5 cannot answer that:$(NC)"
+	@WANT=$$(git rev-parse '$(REF)^{commit}'); \
+	GOT=$$($(BOX_SSH) "journalctl -u webdesign-chat --since '-3 min' --no-pager -o cat 2>/dev/null | grep -m1 'build provenance'" 2>/dev/null | sed 's/.*git_commit=//'); \
+	echo "  want commit $$WANT"; \
+	echo "  box  says   $${GOT:-<none: pre-stamp binary, or the restart is older than the window>}"; \
+	if [ "$$GOT" = "$$WANT" ]; then echo "$(GREEN)PROVENANCE MATCH — the running service IS this commit.$(NC)"; \
+	elif [ -z "$$GOT" ]; then echo "$(YELLOW)No provenance line — expected on the FIRST roll of the stamp only.$(NC)"; \
+	else echo "$(RED)PROVENANCE MISMATCH — running $$GOT, wanted $$WANT.$(NC)"; exit 1; fi
 
 .PHONY: box-release
 box-release: box-build box-push box-deploy ## Full chat-box roll: test, build from HEAD, push, install, verify
