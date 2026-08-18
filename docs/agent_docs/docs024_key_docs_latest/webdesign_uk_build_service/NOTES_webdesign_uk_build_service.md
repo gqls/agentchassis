@@ -3727,3 +3727,116 @@ item belongs to the session driving both lanes. Handed to them in their director
   what-you-get/faq/how-it-works, post-payment link is "already live at a web
   address we provide" (never a preview), no example-domain leaks, no
   email-us-your-questions encouragement. The joint handoff's §1 is struck.
+
+## 2026-08-18 (~12:55Z) — correlating the chat prompt-maker with the EXISTING briefing agent (owner question)
+
+Asked to look at the existing briefing agent and see whether the two can be
+correlated, with the briefing agent's own HITL possibly becoming "the step" later.
+Short answer: **the seam is real and closer than expected, the questionnaire is the
+wrong shape for the product we now sell, and the HITL arm cannot be used yet.**
+Also found a live data problem that matters more than either.
+
+### What actually exists (three agents, not one)
+
+| agent | what it does | HITL? |
+|---|---|---|
+| `briefing-agent` (data-collection) | "Executes briefing questionnaires - either via LLM inference or HITL collection" | **YES** |
+| `build-briefing-agent` (specialist) | what the BUILD PIPELINE uses: reads research, fetches the target builder's questionnaire, LLM-answers it, writes `site_specs` aspect `briefing`, chains to site-planner | **NO ARM AT ALL** |
+| `brief-fidelity-auditor` (analyst) | grades a built site against its own brief, files broken promises (mig 419) | n/a |
+
+`briefing-agent` carries exactly the switch the owner is imagining:
+
+```json
+"check_mode": {"action":"evaluate_condition","config":{
+  "condition_field":"input_data.hitl_mode",
+  "conditions":{"auto":"infer_via_llm","interactive":"collect_via_hitl"},
+  "default":"infer_via_llm"}}
+```
+and `collect_via_hitl` is `request_human_input` with `request_type: "questionnaire"`,
+`questionnaire_field: "questionnaire"`, `timeout_seconds: 86400`, output `brief_answers`.
+`RequestHumanInputAction` also supports **skip conditions** and **field defaults
+populated from collected data** — i.e. "pre-fill it, let the human confirm" is the
+shape the action was BUILT for. That is the good news.
+
+### The questionnaire is the integration point, and it is the wrong shape
+
+Exactly ONE agent in the fleet has a populated `briefing_questionnaire`:
+**`pageflow-builder`** — and webdesign.uk's own briefing spec says
+`recommended_builder: "pageflow-builder"`, so it is the one that applies here. Its
+eleven fields:
+
+`company_name`* · `about_us`* · `tagline` · `services`* · `leadership_team` ·
+`case_studies` · `contact_email`* · `contact_phone` · `headquarters` · `has_blog` ·
+`has_careers`   (* = required)
+
+That is a **corporate brochure intake form**. Two problems, and they pull opposite ways:
+
+1. **It requires what the owner ruled we must stop assuming.** `company_name` and
+   `services` are required; the register now attests `any_site_type` ("builds any
+   sort of site, not just business sites"), and the chat bot was fixed in TWO places
+   on 2026-08-17 precisely to stop asking what business the visitor runs. The
+   questionnaire still asks, and cannot proceed without it.
+2. **It has no field for anything the chat actually elicits.** The prompt-maker draws
+   out what it is · who it is for · what it should do · how it should sound · what to
+   avoid — the shape of `MISSION_2026-08-04_webdesign_uk.txt`, which is what a good
+   prompt for this system looks like. The questionnaire's only slot for any of that
+   is `tone`, and webdesign.uk's own answer to it is the single word `"professional"`.
+   `leadership_team` and `case_studies` are for a £149 one-shot starter site.
+
+**So the two do not correlate today, and the gap is not cosmetic.** The honest
+statement is that the questionnaire needs to change shape anyway to serve
+`any_site_type`, and rewriting it to match what the chat elicits IS the correlation.
+
+### The HITL arm cannot be the step yet — measured, with a control
+
+- Across **369** briefing-bearing orchestrations: `collect_via_hitl` **0**,
+  `brief_answers` **0**, `hitl_mode` **0**. The control — `briefing_answers`, the LLM
+  path's output field — reads **3**. The control firing is what makes the three zeros
+  evidence rather than a broken search.
+- `request_human_input` publishes to Kafka `system.notifications.ui` and parks on a
+  reply topic. **I found no consumer of that topic** in the tree: the only other
+  mentions are the topic-creation job, the topic manager, the two HITL actions that
+  PRODUCE to it, and a hardcoded list in an admin "list topics" endpoint.
+- The human surface that DOES work is a **different path**: `site_work_items` +
+  the admin dashboard, which fills fields, merges to `site_specs` and queues a
+  `content_rewrite` (`App.tsx` ~795-830). `bugs_open/033` is about that queue.
+
+So flipping `hitl_mode` to `interactive` today would park the build for 24 hours and
+time out. **[UNVERIFIED]** I have not read the resume path or proven what a timeout
+does; the absence of a consumer is from grep plus the zero counts, not from watching
+one fail.
+
+### ⚠ The thing that matters NOW: webdesign.uk's `briefing` spec is a stale authority
+
+`site_specs` aspect `briefing`, `is_current`, written 2026-08-09 by
+`build-briefing-agent`. It still carries **the entire retired offer**:
+
+- `"£1,200"` (now £149) · tagline **"We build your website. You only pay if you like it."**
+- *"You see the finished site on a private preview link before you pay anything"*
+- *"You have 14 days from the preview link to accept, ask for changes, or take the full refund"*
+- *"Two rounds of revisions are included in the price"*
+
+**Three of those are BANNED CLAIMS on this same site today** — `\byou only pay if you
+(like|love|are happy|want)\b`, `\b(14|fourteen)[ -]days?\b`, and the refund family.
+The evidence_base was swept twice today; **`briefing` was not swept at all**, and
+`build-site-planner` reads that aspect (`read_specs`).
+
+**A lead, NOT a proven cause:** today's faq rewrite failed at 12:06Z on banned claims
+`"rounds of changes"` and `"whenever you like"`. The briefing spec says *"Two rounds
+of revisions are included"*. That is a plausible source and worth checking, but I have
+not traced what the faq writer was actually handed, and the register alone could
+explain it. Do not act on this as established.
+
+### Suggested order, if the owner wants this pursued
+
+1. **Sweep the `briefing` aspect** the way `evidence_base` was swept. It is an
+   authority asserting retired commercial terms, and it is read by the site planner.
+   Cheapest, highest value, independent of everything below.
+2. **Reshape `pageflow-builder`'s questionnaire** (or give webdesign.uk its own) so it
+   asks the five things rather than a company fact sheet. This is the actual
+   correlation work and it is needed for `any_site_type` regardless.
+3. **Then** the HITL step, and probably NOT via `system.notifications.ui`: the
+   work-item path already has a working surface, and `request_human_input`'s skip
+   condition plus field defaults means the chat's brief can pre-fill it so the human
+   step is a confirmation, not a form. That ordering also matches the owner's
+   `no_presales_service` ruling: the customer does the confirming, not the owner.
