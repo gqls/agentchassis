@@ -223,3 +223,22 @@ both measured rather than assumed.
 
 **Blocked on the owner:** `b2 rm --versions -r "b2://portfolio-sites/loanzy.uk/"` (clears the
 two survivors). The `pages` DELETE and the `.keep` push were also refused by the harness.
+
+## 2026-08-18 15:45–15:56Z — bucket cleared, edge restored, classifier re-dispatched
+
+- **Owner ran the removal**: `b2 rm --versions -r "b2://portfolio-sites/loanzy.uk/"` → 2 files.
+  `[MEASURED]` `b2 ls --recursive` now returns **0 objects** for the prefix.
+- **Routes restored** (new ids `9404d751…` apex, `b5302156…` wildcard, both →
+  `portfolio-sites-router`). `[MEASURED]` apex back to **404 in ~8s**, and the old tool URL
+  `https://loanzy.uk/tools/eligibility-checker/` **404s** — object gone, not merely unrouted.
+  Route changes propagate in seconds here, in both directions (delete: instant timeouts;
+  create: 8s) — faster than the ~30s the rollout lane's landmine records for its case.
+- **A fresh chassis rolled at 15:45:31/15:45:53Z** (pods `56587989f-*`). Waited past the ~300s
+  silent-drop window before dispatching (~9 min). Irrelevant to the guard itself — migration
+  `464` is DB config and was live from the moment it was applied — but it does mean any Go
+  change committed by other lanes today is now in the fleet.
+- **Classifier re-dispatched** on the same site with no mission: corr
+  `fe2e99fd-c81e-4b62-84fc-36e6a6500c24`. Same domain, same search inputs, run-1 specs
+  superseded, **only the amended prompt differs**. Two measured brakes mean it cannot cascade:
+  every downstream item key already exists as `complete` (so `create_next_item` dedups), and
+  the strategist's deployed-pages gate returns true on the archived `about` row.
