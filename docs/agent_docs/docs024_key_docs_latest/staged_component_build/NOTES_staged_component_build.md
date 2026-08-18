@@ -4945,3 +4945,28 @@ The four advisories, and what was done with each — none waved through:
    dashboard or alert on these error_codes exists. The drop is the intended measurement.
    (debug_historian's low note — archive extraction filling /tmp — checked in the same run:
    94M before and after; extraction goes to the session scratchpad, not /tmp.)
+
+## 2026-08-18 (roll) — v1.0.1310 verified; the prune is LIVE and the first window read is clean, with both controls in one table
+
+Owner announced a fresh chassis build. Verified by label first: tag `v1.0.1310`, revision
+`0b185bad2`, local RepoDigest == running imageID, revision present at `/proc/1/exe` with the
+fake-sha negative control clean. **`131e6430e` (the prune) IS an ancestor — live since
+~18:00Z.** The advisory-test commit `595e3fca6` is in it too.
+
+First window read (18:00–18:17Z, ~17 min — a MECHANISM read, not a rate; the 24 h read is the
+next session's):
+
+| pod (created) | `current_page` rows | `work_item_id` rows |
+|---|---|---|
+| `…-gf5rr` (~17:59, OLD binary, drained by 18:03) | 7 | **3** |
+| `…-4vfms` (~18:05, new) | 7 | **0** |
+| `…-xm9sp` (~18:11, new) | 6 | **0** |
+| `…-zpksz` (~18:16, new) | 2 | **0** |
+
+The one pre-roll pod produced BOTH classes (the old-binary positive control: instrument
+working, old code emitting); every post-roll pod produces ONLY the class the prune cannot
+touch (the demand control: 15 `current_page` rows prove the loops ran and searched). Under
+the old ratio (~1:2.2) those 15 would have come with ~6–7 `work_item_id` rows; there are
+zero. `page-content-writer`'s class-3 row also present post-roll — intact as predicted.
+**Path step 1's "done when" is met on the mechanism read**; the remaining formality is the
+longer window, which also gives the honest before/after rate the next SUMMARY can quote.

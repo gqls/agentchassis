@@ -10,9 +10,12 @@ RFC_029 §10.11–§10.12 (corrections + measurement record) → NOTES `## 2026-
 
 ## 1. What is true now (all measured 2026-08-18 evening; evidence cited at each)
 
-- **Build `v1.0.1309` = `f0117fb8b`**, label + digest matched (local RepoDigest == running
-  imageID). Only orchestration change vs 1308 is coordinator.go retry timeouts (029 lane) — the
-  window reads continuously across the roll.
+- **Build `v1.0.1310` = `0b185bad2`**, label + digest + `/proc/1/exe` all matched, fake-sha
+  control clean. **THE PRUNE IS LIVE** (`131e6430e` is an ancestor; rolled ~18:00Z). First
+  window read (17 min, per-pod attribution — NOTES "(roll)" entry): the one pre-roll pod
+  emitted both row classes; every post-roll pod emits ONLY `current_page` (15 rows = demand
+  present) and ZERO `work_item_id` (~6–7 expected under old code). **Path step 1's mechanism
+  read is CLEAN; the 24 h rate read is the next session's first job.**
 - **The prune is COMMITTED (`131e6430e`) and the council verdict is APPROVED** (round 1, corr
   `ae0dfb93-9d…`, 4 advisory objections, none high-severity — every one dispositioned, NOTES
   "(verdict)" entry: editquality's ambiguity edge is now a seventh TEST (`595e3fca6`,
@@ -87,8 +90,9 @@ sweep (NOTES, evening entry, last paragraph).
 
 1. `git log --oneline -10`; re-read this file from disk.
 2. Verdict already APPROVED and dispositioned (§1) — nothing owed on it.
-3. If APPROVED and a build is rolling: verify by label+digest, then re-read the window
-   (RUNBOOK) — expect the work_item_id class gone, current_page class INTACT (that is correct,
-   not a failed fix; the comment in action_inputs.go says why).
+3. Re-read the window over 24 h from 2026-08-18 18:05Z (post-drain) for the honest
+   before/after rate — the 17-min mechanism read is already clean (§1); expect work_item_id ≈ 0,
+   current_page class INTACT (correct, not a failed fix; the comment in action_inputs.go says
+   why).
 4. Build the ruled path (§3): step 2 (306 candidates 1+2) is buildable immediately; step 3
    starts with the html-developer-chunked config edit, then the gate as an RFC_029 amendment.
