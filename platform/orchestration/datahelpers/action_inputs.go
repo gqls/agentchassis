@@ -742,6 +742,47 @@ func ExtractActionInputs(
 		return kept
 	}
 
+	// A field Strategy 0 has ALREADY RESOLVED is likewise removed from what
+	// Strategy 1/2 request (RFC_029 §10.10 as corrected by §10.11). The merge
+	// below has always discarded the search's answer for exactly these keys, so
+	// this changes no output — it stops a whole-tree search per already-resolved
+	// field per step on a hot path, and makes every surviving conflict row for a
+	// DECLARED field mean one the platform genuinely could not resolve
+	// explicitly (~28% of all conflict rows, measured 2026-08-18). The set is
+	// exact at this point in the function: the only writers to result.Values so
+	// far are the Defaults pre-fill and Strategy 0, and Strategy 0 deletes
+	// Defaulted when it overwrites — so "in Values and not Defaulted" IS
+	// "Strategy 0 resolved it". Defaulted-only fields are deliberately NOT
+	// pruned: their search answers are equally discarded at merge, but pruning
+	// them would widen this diff beyond "explicit resolution skips the search".
+	// What this CANNOT stop, stated so nobody re-derives it from the window:
+	// ExtractFields ends with an UNCONDITIONAL ensureCoreFields, which searches
+	// domain/objective/model/current_page/current_section/render_context whether
+	// or not they were requested (unified_extractor.go, the call under "Always
+	// ensure domain and objective exist") — the remaining ~72% of conflict rows
+	// come from there, and that is bugs_open/306 / RFC_029's gating decision,
+	// not this prune's scope. For the same reason the ExtractFields calls below
+	// still run on an EMPTY pruned list rather than being skipped: the core-field
+	// injections merge into Values today and must keep doing so unchanged.
+	strategy0Resolved := map[string]bool{}
+	for _, field := range allFields {
+		if _, ok := result.Values[field]; ok && !result.Defaulted[field] {
+			strategy0Resolved[field] = true
+		}
+	}
+	withoutResolved := func(fields []string) []string {
+		if len(strategy0Resolved) == 0 {
+			return fields
+		}
+		kept := make([]string, 0, len(fields))
+		for _, f := range fields {
+			if !strategy0Resolved[f] {
+				kept = append(kept, f)
+			}
+		}
+		return kept
+	}
+
 	// Strategy 1: Use input_fields if specified in config (preferred)
 	if inputFields, ok := config["input_fields"].([]interface{}); ok {
 		fieldNames := make([]string, 0, len(inputFields))
@@ -750,7 +791,7 @@ func ExtractActionInputs(
 				fieldNames = append(fieldNames, name)
 			}
 		}
-		extracted := ExtractFields(collectedData, withoutStrict(fieldNames), logger)
+		extracted := ExtractFields(collectedData, withoutResolved(withoutStrict(fieldNames)), logger)
 		for k, v := range extracted {
 			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
@@ -765,7 +806,7 @@ func ExtractActionInputs(
 		}
 	} else {
 		// Strategy 2: Try to extract all needed fields directly
-		extracted := ExtractFields(collectedData, withoutStrict(allFields), logger)
+		extracted := ExtractFields(collectedData, withoutResolved(withoutStrict(allFields)), logger)
 		for k, v := range extracted {
 			// Don't overwrite values already resolved by Strategy 0 (explicit config paths)
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
