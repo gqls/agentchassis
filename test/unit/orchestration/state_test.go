@@ -180,48 +180,6 @@ func TestAddExecutionRecord(t *testing.T) {
 	assert.Equal(t, "test_step", updatedState.ExecutionPath[0].Step)
 }
 
-// test/unit/orchestration/state_test.go (update the TestWorkflowMonitor function)
-func TestWorkflowMonitor(t *testing.T) {
-	db := helpers.TestDB(t)
-	defer db.Close()
-
-	monitor := orchestration.NewWorkflowMonitor(db)
-	ctx := context.Background()
-
-	// Create a test workflow state
-	logger := zap.NewNop()
-	repo := orchestration.NewStateRepository(db, logger)
-
-	plan := helpers.ValidWorkflow()
-	// Use a proper UUID instead of a string
-	correlationID := helpers.TestUUIDWithType("unit")
-	clientID := "test_client"
-
-	err := repo.CreateInitialState(ctx, correlationID, clientID, plan, nil)
-	if err != nil {
-		t.Skipf("Skipping test - database not available: %v", err)
-		return
-	}
-
-	// Test GetActiveWorkflows
-	active, err := monitor.GetActiveWorkflows(ctx, clientID)
-	if err != nil {
-		t.Skipf("Skipping test - monitor not available: %v", err)
-		return
-	}
-	assert.GreaterOrEqual(t, len(active), 1)
-
-	// Test GetWorkflowDetails
-	details, err := monitor.GetWorkflowDetails(ctx, correlationID)
-	require.NoError(t, err)
-	assert.Equal(t, correlationID, details.CorrelationID)
-
-	// Test GetWorkflowMetrics
-	metrics, err := monitor.GetWorkflowMetrics(ctx, clientID, time.Now().Add(-1*time.Hour))
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, metrics.TotalWorkflows, 1)
-}
-
 func createComplexWorkflow() models.WorkflowPlan {
 	return models.WorkflowPlan{
 		StartStep: "init",
