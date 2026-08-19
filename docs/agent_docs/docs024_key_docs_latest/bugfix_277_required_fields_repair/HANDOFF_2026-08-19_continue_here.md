@@ -348,7 +348,40 @@ sections, which is how two reasons diverge through one step.
 **That is `277`'s `no_content_data` population appearing on a second route**, so it plausibly bears
 on §3's missing half — and it is a third way a repair can report success without touching the page.
 
-### (b) Population established, damage NOT — and they withdrew their own figure
+### (b) ANSWERED 2026-08-19 — the damage is ZERO, and the recommendation is DO NOT FILE
+
+**Route 2 (price the consequence, not the cause) was run and lands on a zero** (`3440e53b7`). The
+clobber signature is interactive markup replaced by prose, so **a page still carrying its markup is
+not clobbered by construction** — 72 of the 89 still carry it. Of the 17 possible: **7 archived, 11
+on `loanzy.uk` all created 2026-08-18** (a site built that day, mid-build), and 3 older actives, each
+checked at the **served page** with an owned-tool positive control and a fabricated-URL 404 control
+in the same run. None is the defect — one is a `ported-prose` landing page *about* a tool (slots
+`hero/ported-prose/faq/tool-cta`, correctly `generic`), one is a never-built page (404, zero
+components — a different defect, see below), one is mid-build.
+
+**And the seed case settles it the other way:** `tool-pet-treatment-cost-estimator`, the page this
+question came from, serves **200, 21KB, 5 scripts, 2 inputs — its tool fully intact.** The page most
+likely to show harm shows none.
+
+⚠ **The "89 identically-shaped" figure is narrowed by its own author** — true of the two tests run,
+**false as an implication**, because `ported-prose` landing pages legitimately sit under `/tools/`
+with a `tool-` name. Counting only pages carrying interactive controls it is **69 of 89 against 83 of
+95**. **The marking is inconsistent across ~69 real tools — and inconsistent is not damaged.**
+
+**RECOMMENDATION, theirs and I agree: DO NOT FILE (b).** My own §10 criterion decides it — (b) has no
+mechanism read at source, and now a **priced consequence of zero**. Filing would assert a
+cross-cutting cause behind a harmless inconsistency, which is the 2026-07-31 ruling's target. Route 1
+(find the writer) is now the wrong spend: it would buy a tidier database and no protection.
+**What would reopen it is written down and the detector query is dated and re-runnable** — a
+`generic`-marked interactive tool page serving prose where its tool used to be.
+
+> ⚠ **The method note, which is the third instance in one day:** the aggregate looked damning
+> (`generic` tool pages 81% carrying script vs `owned` 99%, and 2.5x the components — exactly the
+> shape of a tool component replaced by prose sections) and **printing the 17 rows dissolved it**, because
+> the proportion had folded a new site's in-flight build into a damage signal. **Do not trust a
+> proportion before printing its rows.**
+
+### (b), the earlier withdrawn figure — kept because the withdrawal is the useful part
 
 **89** pages named `tool-%`, under `/tools/`, not guides, carry `generic` — against **95
 identically-shaped** pages marked `owned`, plus 4 more under `/tools/` without the prefix. The 70
