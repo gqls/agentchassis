@@ -2,8 +2,12 @@
 
 **Filed 2026-08-19** by the session dispatched at bugs_closed/303's residual ("complete the
 two false-alarm items normally").
-**Status: FIXED AT SOURCE 2026-08-19 (`c117c1bba`), OPEN until a chassis image rolls AND the
-next daily sweep runs.** Council: **APPROVED round 1, all reviewers** (14 seats, 3 abstained,
+~~**Status: FIXED AT SOURCE 2026-08-19 (`c117c1bba`), OPEN until a chassis image rolls AND the
+next daily sweep runs.**~~
+**Status: CLOSED 2026-08-19 — fixed AND live on `v1.0.1315`, and PROVEN BY A LIVE SWEEP RUN:
+all three parked items closed `auto:revalidated` at 16:00:48Z with the verifier's evidence
+sentence recorded, components untouched.** Close-out at the bottom.
+Council: **APPROVED round 1, all reviewers** (14 seats, 3 abstained,
 0 unreadable), correlation `70fc8ff0-b50a-41fd-a358-a94decb269e0`. The commit carries
 `Council-Submitted:` and is credited automatically by the 098 report (forward-only forbids
 amending the trailer to `Council-Reviewed:`).
@@ -93,6 +97,38 @@ registries are quoted above from source at exact lines; the closer census and th
 are live-DB measurements; the balance claim was exercised through the live predicate rather
 than repeated from 303. A loop run would re-read the same four functions. The fix is
 additionally before the council on the correlation above.
+
+## CLOSED 2026-08-19 — fixed AND live, proven by a live sweep run through the normal path
+
+**The roll:** image `v1.0.1315`, pods restarted ~12:16Z. Build commit **`590ca3a20`**
+(2026-08-19 12:38 BST, the newest commit before pod start with none between), confirmed by
+known-value probe in `/proc/1/exe` on BOTH replicas (`bfw5n`, `nkdkl`), high-entropy must-miss
+control clean. Ancestry: `git merge-base --is-ancestor c117c1bba 590ca3a20` ✓.
+
+**The proof run** (not waited for — the scheduled task was made due by setting
+`last_triggered_at` back 25h, so the kafka-scheduler dispatched it through the NORMAL path at
+16:00:47Z; pods were 3h43m old, well past the 300s dispatch blackout):
+
+- Sweep `COMPLETED`: `{scanned: 201, resolved: 12, still_holds: 91, unknown: 98, closed: 12,
+  dry_run: false}` — the 12 closes are these three plus nine other covered-type items, the
+  sweep's normal daily work done a cycle early.
+- **All three items of this type closed within one second of dispatch**, each with the full
+  audit trail: `status='complete'`, `resolution_path='auto:revalidated'`,
+  `result.revalidation = {verdict: resolved, arm: verifier_resolved, reason: "html_template
+  balances every paired tag"}` (completed_at 16:00:48.98 / 49.13 / 49.44Z).
+- **Negative control — retraction, not remedy:** all three components untouched. `updated_at`
+  on `content_components` unchanged (2026-08-10 / 08-18 / 08-10, all pre-sweep), lengths
+  unchanged, all still `is_active`. Nothing was restored, regenerated or removed; 91007600's
+  dangerous "restore v1" remedy text was never acted on.
+- **Honestly stated:** this run exercised only the `resolved` arm live. The `still_holds` and
+  `unknown` (error) arms are pinned by the table tests at the shipped code, not yet naturally
+  exercised — their first live exercise will be the next genuinely truncated component the
+  discovery check files.
+
+**Residual: none on this lane.** The queue for the type is empty; the next truncated_component
+item the check files will park for a human as designed and drain automatically if the
+component is repaired, deactivated or falsely flagged. The dedup keys for all three components
+are released, so re-detection is unobstructed.
 
 ## Related
 

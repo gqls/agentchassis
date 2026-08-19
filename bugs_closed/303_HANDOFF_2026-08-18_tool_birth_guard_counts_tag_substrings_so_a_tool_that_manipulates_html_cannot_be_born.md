@@ -317,7 +317,8 @@ it never appears as a clean token. Known-value substring probes are the only rel
 > assumed the completion path would do it. What caught it: reading the completion guard's
 > status list when actually asked to complete them. The actual fix: a `truncated_component`
 > revalidator in `revalidate_review_queue` delegating to the SAME
-> `VerifyTruncatedComponentResolved` (`bugs_open/325`, commit `c117c1bba`, inert until a roll;
-> the daily sweep then closes all three items — including `e7a4a7dd`, the repaired
+> `VerifyTruncatedComponentResolved` (`bugs_closed/325`, commit `c117c1bba`; council APPROVED
+> round 1; **live on `v1.0.1315` and PROVEN 2026-08-19 16:00Z** — the sweep closed all three
+> items `auto:revalidated`, components untouched — including `e7a4a7dd`, the repaired
 > tool-llm-cost-calculator, which this file's residual paragraph did not list). Trap distilled
 > in LANDMINES ("`RegisterVerifier` is not a drain"); incident in WRONG_CALLS 2026-08-19.
