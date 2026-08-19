@@ -822,3 +822,72 @@ tidy.
 **0 `suggest_tools` runs since migration 445**; last in all history 2026-08-15 20:29Z. Four days quiet
 against a historical cadence of 1–9 runs on roughly half of days. `plan_links` likewise still **0 rows
 all history**, which is 313's disconfirming arm staying clean.
+
+## 2026-08-19 09:35Z — OWNER RULINGS: stop chasing the WARN; dispatch the suggester deliberately
+
+Two decisions taken, both recorded here because the reasoning matters more than the outcome.
+
+### 1. Witnessing the WARN in the logs is CLOSED — by decision, not by success
+
+It was attempted properly once (08-18 20:32Z, cap fired 5 of 5, capture attached beforehand on the
+right pod, stream verified live, patterns verified anchored) and produced nothing, with the miss
+unattributed. **The owner ruled to stop.** Not "unresolved and someone should try again" — closed.
+
+The justification, so nobody reopens it out of tidiness: the WARN's only job is to make a suspicion
+visible to someone already looking, and **`collected_data` answers the same question better on every
+axis** — retroactively, with controls, over ~2 days rather than ~60 seconds, and without needing anyone
+present at the moment it fires. Witnessing the log line would have proved the code path executes; the
+unit tests and the binary probe already establish that, and no decision depends on the third proof.
+
+### 2. §3a: the last owed proof is DISPATCHED, not waited for
+
+**Why waiting was never going to work — measured, and this is the part I had wrong.** I had reported
+§3a as "wait and it may clear on its own". Reading `check_missing_tools.go` shows it cannot: the
+producer of `evaluate_tools` items applies a **tiered cooldown** — 7 days for a site with no tools,
+**30 days** for a site with tools that is not behind its content-to-tools ratio. Every candidate site
+was evaluated on 08-10..08-15, so the next natural run was **mid-September**. "It runs 1–9 times on
+roughly half of days" was true of its history and false about its future, because the history included
+the initial sweep across sites that had never been evaluated.
+
+**What was dispatched, and why it is not hand-rolling.** The item filed is byte-for-byte the shape the
+discovery check itself files (`check_missing_tools.go:225-238`): `source=discovery`, `pipeline=build`,
+`item_type=evaluate_tools`, `severity=low`, `priority=130`, `handler_agent=tool-suggester`,
+`status=detected`, `item_key=evaluate_tools:<site_id>`. The only difference is that it arrives ahead of
+the cooldown — which is exactly what "dispatch one deliberately" means. `created_by` is set to
+`bugfix_275_silent_row_caps` rather than an agent name, so the row is honest about who filed it.
+
+**Blast radius, established BEFORE firing rather than discovered after:**
+
+- The workflow ends in `create_items_loop`, which creates one **`add_tool`** work item per suggestion —
+  library matches to `tool-deployer`, novel ones to `tool-generator`. Those carry `approval_mode: auto`
+  (38 complete, 2 deferred historically), so **they build without a further gate**. That is the real
+  cost of this dispatch and it is on a live site.
+- **No outward-facing side effect:** no `send_email`/`notify`/`deliver`/`publish` action exists in any
+  of the three workflows. A regex over the step configs matched `tool-suggester` and `tool-generator`,
+  and both matches were prose in prompt text ("...a suggested tool would deliver", "delivery cost
+  estimator"). Checked because CLAUDE.md says to grep the handler before firing an operator action.
+
+**Target chosen twice, and the first choice was wrong.** First filed against `webdesign.co.uk` (ours,
+12 tools, previously evaluated). Then checked the queue rather than assuming: that site has **115
+`triaged` page_rerenders and one `claimed`**, and the dispatcher takes one item per site at a time, so
+the run would have sat behind all of them. **Withdrawn** (`status=cancelled`, never claimed, nothing
+half-done) and re-filed against **`gamesdesign.co.uk`** — ours, **queue empty**, and the most tools
+already deployed (7) among the idle candidates, which is the axis that minimises new suggestions.
+
+**Verified the route end to end before waiting on it**, because a filed item that no mechanism collects
+looks exactly like a slow one:
+
+| gate | requirement | this item |
+|---|---|---|
+| `detected-item-promoter` (15 min, pure SQL) | pipeline in build/content/design | `build` ✓ |
+| | handler is a live agent | `tool-suggester` active ✓ |
+| | pair has ≥1 lifetime complete | 18 completes ✓ |
+| | pair ≥25% success over ≥5 terminal | 18 complete / 0 failed ✓ |
+| | 20 per tick, oldest first | 10 eligible ahead of it ✓ |
+| `build-pipeline-trigger` (60 s) | status in triaged/approved | after promotion ✓ |
+| | site not locked, no claimed item | both clear ✓ |
+
+**The proof it must produce** (the "after" half of this bug's own disconfirming pair): the rendered
+prompt must contain tools ranked **past 30** by `display_name`, ranked against the library **as it stood
+at the prompt's timestamp**. For this site the eligible library is **79 tools, 49 of them past rank 30**,
+so a post-fix prompt cannot pass by accident and a pre-fix one could not have passed at all.
