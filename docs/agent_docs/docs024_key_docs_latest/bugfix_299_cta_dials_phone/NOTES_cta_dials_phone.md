@@ -285,3 +285,48 @@ three predicates are disjoint by construction and the file says so at `links_tel
 area; `storedCTADestinationIsAuthored` (`:669`) is `ctaExcludedDestination(url) &&
 validPages.Contains(url)` — 248's, and it requires page membership, which the non-page
 predicate can never satisfy. No url can satisfy both keeps.
+
+### The 090 loop came back UNVERIFIABLE — and the gap it named was real, so I closed it by hand
+
+Run corr `d1434dd5`, two iterations, `status=UNVERIFIABLE`, `stopped_by=scope-not-narrowing`,
+`is_fix=false`, "Hand to a human with the full trail; do NOT auto-conclude." **It did not
+refute 312 — it could not SEE 312.** Its own words: the `data_request` meant to show
+`select_sections` "returned the plan_sections step instead (truncated before reaching
+select_sections)"; no fetched orchestration row carried the two structures side by side
+("truncated before any such structure"); and the `agent_error_log` rows it did get were all
+`validate_content` blockers and a `save_sections` SECTION SHRINK REFUSED — "they neither
+confirm nor refute this hypothesis". A truncation in the loop's own evidence fetch, on a
+hypothesis whose evidence is large nested jsonb.
+
+**This is the honest reading and it cost a run: an UNVERIFIABLE verdict is not a REFUTED one,
+and it is not a CONFIRMED one either.** Per the 2026-07-31 owner ruling I therefore substituted
+first-hand verification, and state it plainly — each of the three gaps it named, answered:
+
+1. **The live `select_sections` config** [MEASURED 2026-08-19]:
+   `fields.sections_ready = ["resolved_links.response.link_resolution.sections_ready",
+   "input_data.section_plan.sections_ready", "section_plan.sections_ready"]`, `required =
+   ["sections_ready"]`. The stale path is still first, unchanged. 477 is still needed.
+2. **The negative control, re-measured on today's window**: 48 runs carry `resolved_links`;
+   **0** match the configured path 1; **48/48** carry the real lean shape. (Was 0/150 with
+   149/150 on 08-18. Retention has rolled the window forward — 08-18→08-19 — and the answer
+   is the same, which is what a control is for.)
+3. **The same-run comparison, which the loop never got** — and it produced a SHARPER
+   instrument than the lane had before. On fresh post-roll run `01b5ba83` (18:33Z,
+   ai-agent-orchestration.com) the resolver wrote `cta_url`, `secondary_cta_url` AND
+   `cta_target_title`/`secondary_cta_target_title`; `sections_for_render` carried the two urls
+   and **neither title**. The URLs agreed *by coincidence* — the carried stored value was
+   already right — so a url-diff would have scored this run as "no problem".
+   **The `*_target_title` keys are the discriminator: only the resolver mints them, so their
+   absence downstream is the discard itself, visible even when the urls agree.** Fleet-wide
+   over the 48 retained runs:
+
+   | | runs |
+   |---|---|
+   | carry both structures | 48 |
+   | resolver minted `*_target_title` on a CTA section | 26 |
+   | …titles SURVIVED into `sections_for_render` | **0** |
+   | …titles DISCARDED | **26** |
+   | the two sides byte-identical | 18 |
+   | the two sides DIFFER | 30 |
+
+   **26 of 26, no survivors.** 312 is confirmed at fleet scale, not by one trace.

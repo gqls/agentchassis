@@ -37971,6 +37971,32 @@ already-collected findings down with it (the error returns before `tx.Commit()`,
 `defer tx.Rollback()`). Recorded because the near-miss was luck, not design: nothing in the
 process compares the two sections.
 
+## 2026-08-19 — "the retry loop becomes the convergence engine": a re-arm was read as a rebuild (bugfix 311 lane)
+
+**The wrong call:** answering a council advisory ("no re-trigger for already-parked items"), the
+311 NOTES and council triage said the failed `needs_new_component` items needed no manual
+re-drive because `check_unresolved_sections` "keeps re-arming deployed pages — the exact loop
+that today livelocks becomes the convergence engine once the diverted row exists." The check
+does flip `pages.build_status` to `needs_rebuild`; **nothing consumes `needs_rebuild` on its
+own** — the `page-rebuild` agent that reads it has no scheduled task and zero orchestrations in
+history, and the build queue seeds on `planned`. Every real build of those pages was a
+`needs_page` item (planner, reconcile, or `flag_page_image_rebuild`'s `page_rerender:<page>`)
+handled by `page-build-handler`. So the fix makes the NEXT build succeed; it does not cause one.
+
+**What caught it:** running the real-world test from the fix lane — after the diversion fired
+and the page still sat at `needs_rebuild`, asking "who reads this status?" before asserting the
+page would heal. Memory already held "`needs_rebuild` is a DEAD queue" (bugfix 161); it was not
+re-read.
+
+**The cheap check that would have:** a claim that a status "drives" something owes the name
+of the consumer — `grep <status>` in live `agent_definitions` steps, then `scheduled_tasks` for
+that agent, then `orchestration_states` for a run. Three queries; the third returned nothing.
+
+**Cost:** one wrong sentence in a lane NOTES and a council-triage answer (corrected in place
+2026-08-19 20:00Z); no action taken on it. Had it reached the loanzy/portfolio lanes as "the
+items converge by themselves", six loanzy tool pages would have stayed hollow and been read as
+"the fix did not work".
+
 ## 2026-08-19 — "same field, same value, opposite meanings; only the `reason` separates them" — a bug file asserted two payloads were the same shape without listing their keys (bugfix 302 lane's filing of 323; found by the 323 lane)
 
 **The wrong call:** `bugs_open/323` (and the roster comment in `complete_work_item_no_change.go`)
@@ -38036,3 +38062,32 @@ just the second.
 `git diff --cached --name-only` must not list them. Added to the 323 RUNBOOK.
 
 **Cost:** none realised — caught within a minute; `git reset -- <path>` cleared it.
+
+## 2026-08-19 — a needle that matched the haystack's OTHER end, and it inverted the answer (bugfix 299 lane)
+
+**The wrong call:** to prove `bugs_open/312`'s discard fleet-wide I measured whether the
+resolver's `*_target_title` keys survive into the render's input, with
+`(collected_data->'sections_for_render')::text LIKE '%_target_title%'` — the whole blob cast to
+text. Result: **31 runs minted titles, 31 survived, 0 discarded.** I had just read a single run
+with my own eyes where those keys were plainly ABSENT from the render side. Both could not be
+true. The blob-wide `LIKE` was matching `_target_title` somewhere else inside
+`sections_for_render` — not in the CTA sections' `resolved_data`, which is the only place the
+claim is about. Re-measured with `jsonb_path_query_array(…,'$.sections_ready[*].resolved_data')`
+on both sides: **26 minted, 0 survived, 26 discarded.** The corrected answer is the exact
+opposite of the first one, and the first one would have read as "312 is not happening".
+
+**What caught it:** a single-row read I had done one step earlier and had not thrown away —
+the aggregate contradicted the instance, and the instance was the one I had actually looked at.
+
+**The cheap check that would have:** cast the SMALLEST structure the claim is about, never the
+containing blob — if the claim is "these keys are absent from X's `resolved_data`", the
+`LIKE` must be anchored to `resolved_data`, not to X. General form, and it is the memory
+index's own line: **your measurement answers the question you ENCODED.** A `::text LIKE` over
+a nested jsonb blob silently widens the universe to every nested copy of every neighbouring
+structure. Corollary earned here: **when an aggregate disagrees with a single row you have
+already read, the row wins until the aggregate explains itself** — do not "resolve" it by
+preferring the bigger N.
+
+**Cost:** none realised — caught within one step, before anything was written down as a
+finding or shipped to a doc. Recorded because the wrong version was the *comfortable* one: it
+said a seam I was about to spend a fleet-wide migration on was already fine.
