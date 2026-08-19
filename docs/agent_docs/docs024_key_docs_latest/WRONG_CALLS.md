@@ -37702,3 +37702,30 @@ correct number in the wrong sentence carries every signal of having been measure
 `[MEASURED]` marker, a date and a method. That is the same property that made this lane's
 withdrawn `content_direction` census look trustworthy two days ago: the arithmetic was never the
 weak point.
+
+---
+
+## 2026-08-19 — `copy_quality_two_stage`: I called an iterating diagnosis run's intermediate step "the verdict", and committed it
+
+**The claim.** A `bugs_open/327` section headed **"⚠ `090` VERDICT IS IN — `UNVERIFIABLE`"**,
+committed, describing the loop as having "declined to conclude" and "stopped short".
+
+**The truth.** That was **iteration 1**. `UNVERIFIABLE` accompanied by populated `code_requests`
+and `data_requests` is the loop *ordering its next bundle*. Seven minutes after I read it, the
+same orchestration moved from `verdict` back to `assemble_bundle` and carried on with the three
+symbols and the query it had asked for.
+
+**What caught it.** Re-querying `current_step` while writing the handoff — not the outcome field,
+which said exactly the same thing before and after.
+
+**The cheap check:** read the **step**, not the outcome. `SELECT current_step, status FROM
+orchestration_states WHERE correlation_id='<corr>'` — a run cycling
+`assemble_bundle → call_diagnoser → verdict` is mid-flight however conclusive its latest
+`outcome` string reads. One query, available the whole time.
+
+**Why this one is embarrassing in a specific way.** The lane's own handoff warns, in bold, that a
+**missing** orchestration row means latency rather than a dropped dispatch, and not to act on it.
+I had read that hours earlier. This is the identical impatience pointed the other way: **a
+present row read as finished.** The general form is that *the tell for "not done yet" is almost
+never in the field you are reading for the answer* — and a document that names a verdict is far
+harder to walk back than a note saying a run is still going.

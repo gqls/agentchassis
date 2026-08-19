@@ -151,11 +151,32 @@ is a separate, larger defect that happens to live in the same field.
 
 ---
 
-# ⚠ `090` VERDICT IS IN — `UNVERIFIABLE`, and it named its four gaps. All four are closed below, first-hand.
+# `090` ITERATION 1 returned `UNVERIFIABLE` and named four gaps. All four are closed below, first-hand.
+
+> ## ⚠ CORRECTED WITHIN THE HOUR — I READ AN INTERMEDIATE STEP AS THE FINAL VERDICT
+>
+> This section was first written under the heading **"`090` VERDICT IS IN"**. It was not.
+> `UNVERIFIABLE` with a populated `code_requests` / `data_requests` block is **the loop asking
+> for its next bundle**, not a conclusion — and seven minutes after I read it, orchestration
+> `6073488a` moved from `verdict` back to **`assemble_bundle`** and began iteration 2 with the
+> three symbols and the query it had asked for. `[MEASURED 2026-08-19 16:02Z]`
+>
+> **What gave it away was the step, not the outcome field.** The tell is one query:
+> `SELECT current_step, status FROM orchestration_states WHERE correlation_id='<corr>'` — a run
+> still cycling `assemble_bundle → call_diagnoser → verdict` has not finished, however
+> conclusive its latest `outcome` string reads. I had already read this lane's own handoff
+> warning that a missing row is latency rather than a dropped dispatch; the same impatience in
+> the other direction produced this.
+>
+> **What survives unchanged:** the four gap-closures below are first-hand code and data, and
+> they do not depend on the loop's outcome at all. **What changes:** iteration 2 may reach a
+> different outcome, and if it does, it is reading evidence I did not have when I wrote this.
+> Whoever picks this up should read the FINAL verdict rather than quoting this section.
 
 **Run `8be5f6e9-d0b3-43f7-9ee4-dee2432dd8b1`, orchestration `6073488a-3082-447d-8bd0-d8ee53000136`.**
-Outcome **`UNVERIFIABLE`** — which here means *not closed by the loop*, not *refuted*. Read its
-own words before mine: it **confirmed the ordering** from the code it could see —
+Iteration 1's outcome was **`UNVERIFIABLE`** — which here means *not closed on that bundle*, not
+*refuted*. Read its own words before mine: it **confirmed the ordering** from the code it could
+see —
 
 > *"FormatContentDirection(specMap) runs on the incoming partial spec_data **before currentData
 > is even read from the DB**, and siteSpecDeepMerge is called afterward."*
