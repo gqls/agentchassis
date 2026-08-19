@@ -92,3 +92,13 @@ rather they went straight to the roadmap row now, that is a one-line config chan
 say the word.
 
 **Still open:** read and act on the council verdict; verify the Go half after the roll.
+
+**20:31Z — the review panel approved it, first round, no serious objections.** Two small
+things they asked for I did straight away: the test now calls the fixer's own "which fix type is
+this?" logic instead of keeping its own copy (so the two can't drift), and the hand-off with the
+283 lane — whose pending change touches the same agent — is now written down where they will find
+it, not just in my prose. One thing they flagged that I'm keeping as a stated trade-off: after the
+roll, the "no handler" roadmap row keeps only the first CTA finding's detail per site; later ones
+on the same site are counted but not stored. That is how the 077 shape works everywhere, and the
+auditors re-raise every run, so the detail comes back the moment a real handler exists. Nothing
+left for you to decide tonight.
