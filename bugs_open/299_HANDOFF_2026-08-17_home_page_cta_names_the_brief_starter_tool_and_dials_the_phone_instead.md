@@ -108,3 +108,65 @@ path correction (312).
 This file stays OPEN until the regenerated CTA's copy and href agree on the served page
 (fixed AND live bar). Verification stays as §"How to verify" above — assert on the anchor
 TEXT, never on the URL's presence in the page.
+
+---
+
+## 2026-08-19 — still OPEN, but the Go half is LIVE and two of the three switches are thrown
+
+**The bug re-validated itself while being checked.** The served page still carries
+`href="tel:+44 (0) 7934 524 911"` on `cta-btn-secondary`. The label has now changed a
+**third** time — stored `updated_at` 2026-08-19 10:17:38, and the history reads:
+
+| when | label | href |
+|---|---|---|
+| 08-16 16:12 | "Or answer a few short questions first with the Website Brief Starter…" | `tel:+44 (0) 7934 524 911` |
+| 08-18 10:31 | "Or answer a couple of quick questions first with the Website Brief Starter…" | `tel:+44 (0) 7934 524 911` |
+| 08-18 12:10 | "See how it works" | `tel:+44 (0) 7934 524 911` |
+| 08-19 10:17 | "Read the full terms in our FAQ before you pay." | `tel:+44 (0) 7934 524 911` |
+
+Four rewrites, four labels, one unmoved href. That is `bugs_open/312`'s carry, and it is
+now the clearest single piece of evidence in this file: **whatever rewrites the copy is not
+what writes the destination, and only one of them is changing.**
+
+### What is live
+
+- **The Go fix is in production**: chassis **v1.0.1316**, verified on BOTH pods by capability
+  probe with a negative control absent each time (`NormalizeTelHref`,
+  `IsAuthoredNonPageCTADestination`, `DescribeCTADestination`, `ctaTargetTitleField`, and
+  248's `storedCTADestinationIsAuthored`). *Not* verified by commit ancestry — that check was
+  unavailable, and why is now `LANDMINES.md` + `RFC_040`.
+- **Migration 475 APPLIED** — `cta_nonpage_destination` armed on `completeness-discovery-agent`
+  (checks 43 → 44, and on that agent only). The class is no longer invisible.
+- **Migration 476 APPLIED** — the destination stamp is on, and **deliberately inert until 477**.
+  A zero in `llm_call_log` for `Destination (fixed):` is the designed state right now; do not
+  read it as a broken stamp. The migration header says so in place.
+- **Migration 477 NOT applied.** It is the fleet-wide one. Both keep halves are now live, which
+  satisfies its stated ancestry precondition — but its canary is still owed and the owner's
+  decision #1 is unanswered. See below.
+
+### What still has to happen for this file to close
+
+The bar is unchanged and it is the served page: **the regenerated CTA's copy and href must
+agree**, asserted on the anchor whose TEXT names a destination — never on the URL's presence
+anywhere in the page, because nav and footer link the tool correctly and would pass that grep
+today. In order:
+
+1. Owner answers decision #1 (gate 477 on both keeps — now satisfied — or hold longer) and
+   decision #2 (should this button end as a phone button with honest copy, or a Brief Starter
+   link). Decision #3 (the intended number for the undialable `tel:+4407934524911`) is still
+   open and is a one-line fix once answered.
+2. Apply 477, canary `leopardessconsulting.co.uk` (authored `/contact.html` CTAs ×4 across
+   /index and /how-it-works) — diff the CTA urls before and after. **Survival is the control
+   that the keeps, not luck, made it safe.**
+3. Rebuild webdesign.uk `index` through the normal pipeline (never by hand — the 2026-08-04
+   owner ruling) and assert on the anchor text.
+
+### Note for whoever picks this up
+
+`bugs_open/312` is now confirmed at fleet scale rather than by a single trace: of 48 retained
+`page-content-writer` runs carrying both structures, the resolver minted `*_target_title` on a
+CTA section in 26 and **0 survived** into `sections_for_render`; 30 of 48 runs differ between
+the two sides. The `*_target_title` keys are the sharp instrument here — only the resolver
+mints them, so their absence downstream IS the discard, and it stays visible even on the runs
+where the URLs coincidentally agree (18 of 48 are byte-identical, and a url-diff would score
+those as healthy).
