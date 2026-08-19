@@ -1,9 +1,28 @@
 -- 476 (_HOLD) — bug 299: arm the CTA destination stamp on internal-link-resolver.
 --
--- ⚠ HELD until the image carrying commit 757a0890a is POD-VERIFIED live on
--- agent-chassis. A config key naming behaviour the binary lacks reads as
--- applied and does nothing (the 380 trap) — worse than either state alone.
--- Rename away the _HOLD suffix only after the provenance check passes.
+-- ✅ HOLD DISCHARGED 2026-08-19 — RELEASED (_HOLD suffix off). The hold guarded
+-- against the 380 trap: a config key naming behaviour the binary lacks reads as
+-- applied and does nothing, which is worse than either state alone. So the check
+-- that discharges it is not "which commit shipped" but "does the binary know
+-- this key" — probed directly on the live pod (agent-chassis-5ddd9744-86nqf,
+-- image v1.0.1316, 2026-08-19), because the build-provenance startup line had
+-- already scrolled out of the retained log:
+--     stamp_cta_destination_guidance   PRESENT in /proc/1/exe
+--     "Destination (fixed)"            PRESENT   <- the phrase it writes
+-- Both halves present: the key the config sets, and the literal the code emits
+-- when it acts on it. See 475's header for the fuller note on why a capability
+-- probe replaced the commit-ancestry check here.
+--
+-- ⚠⚠ READ THIS BEFORE YOU "VERIFY" THIS MIGRATION AND CONCLUDE IT FAILED.
+-- Arming this is CORRECT and INERT AT THE SAME TIME. The resolver runs today and
+-- stamps the guidance into its sections_ready — and select_sections then DISCARDS
+-- that whole object (bugs_open/312; measured 2026-08-19: of 48 retained runs, 26
+-- minted *_target_title and 0 survived into sections_for_render). So the
+-- post-apply check below WILL READ ZERO until migration 477 repoints the path,
+-- and that zero means "inert as designed", NOT "the stamp is broken".
+-- The demand control that distinguishes them: 477 unapplied ⇒ expect 0; 477
+-- applied ⇒ expect non-zero on the next fresh page-content-writer run. Do not
+-- record a pre-477 zero as evidence about this migration.
 --
 -- What it arms: stamp_cta_destination_guidance (opt-in, default OFF in code —
 -- the 2026-08-02 owner-ruling shape). When ON, resolve_internal_links appends
@@ -26,6 +45,10 @@
 -- "Destination (fixed):" occurrence, with the pre-arm 0/182 as the baseline.
 
 BEGIN;
+
+-- README rule: every migration touching agent_definitions opens with a snapshot.
+SELECT snapshot_agent('internal-link-resolver',
+  '476_arm_cta_destination_guidance: pre-update');
 
 CREATE TABLE IF NOT EXISTS _backup_476_cta_stamp AS
   SELECT id, type, default_config, now() AS backed_up_at

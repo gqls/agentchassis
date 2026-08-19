@@ -53,6 +53,17 @@ var liveConfiguredChecks = []string{
 	"missing_protocol_tracker_section", "missing_protocol_tracker_page",
 	"content_duplication",      // seed 296, applied 2026-08-03
 	"page_canonical_collision", // seed 306, applied 2026-08-04
+	// cta_nonpage_destination — bugs_open/299 (slug
+	// home_page_cta_names_the_brief_starter_tool_and_dials_the_phone_instead),
+	// migration 475, applied 2026-08-19 on chassis v1.0.1316. Added HERE in the
+	// same commit as the agent_definitions UPDATE, for asset_reference_404's
+	// reason four lines further down: this list is what the live agents are
+	// configured with, so a config change without it leaves the fixture
+	// asserting a roster that no longer exists. Pod-verified on BOTH pods with a
+	// negative control BEFORE the config landed, because an unregistered name
+	// fails the whole step (discovery_checks.go:198-216) and takes the run's
+	// already-collected findings down with it (the return precedes tx.Commit()).
+	"cta_nonpage_destination",
 
 	// design-discovery-agent
 	"stale_site_components", "missing_style_collection", "shared_css_theme",
