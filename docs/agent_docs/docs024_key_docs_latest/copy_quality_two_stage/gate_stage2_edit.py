@@ -150,6 +150,45 @@ def items_of(v):
     return len(v) if isinstance(v, list) else None
 
 
+# ── Will the write-time strip alter this value? (bugs_open/184, LIVE 2026-08-19) ──
+# `strip_literal_markdown` is TRUE on section-editor's apply_edit since 10:34:35Z, so the
+# merged content map — LLM field_updates included — passes through
+# datahelpers.StripLiteralMarkdownFromContentData BEFORE render and persist. What lands is
+# then not necessarily byte-identical to what this gate graded.
+#
+# ⚠ This is a HEADS-UP keyed on the markers, NOT a reimplementation of the transform. A
+# second copy of someone else's regexes would drift from production and this lane has
+# written down twice what a checker that disagrees with production costs. The AUTHORITY is
+# `stripped_markdown_fields` on the apply result — non-empty iff it fired, with field paths.
+#
+# Suppression is PER VALUE and asymmetric (confirmed in code + with the 184 lane): md links
+# and code spans are gated behind `includeCodeSpan = !HTMLMarkupRe.MatchString(value)`, so an
+# HTML-bearing value skips those two — but mdBoldStripRe and mdHeadingStripRe run
+# UNCONDITIONALLY. An HTML field is NOT exempt; it is exempt from two of four.
+MD_BOLD_RE = re.compile(r'\*\*[^*\n]+\*\*|__[^_\n]+__')
+MD_HEADING_RE = re.compile(r'(?m)^\s{0,3}#{1,6}\s+\S')
+MD_LINK_RE = re.compile(r'\[[^\]\n]+\]\([^)\s]+\)')
+MD_CODE_RE = re.compile(r'`[^`\n]+`')
+HTML_MARKUP_RE = re.compile(r'<[a-zA-Z/][^>]*>')
+
+
+def strip_exposure(value):
+    """Markers in `value` that the live write-time strip would act on. Returns a list of
+    names, or [] if the strip would leave it alone."""
+    text = flatten(value)
+    hits = []
+    if MD_BOLD_RE.search(text):
+        hits.append("bold")
+    if MD_HEADING_RE.search(text):
+        hits.append("heading")
+    if not HTML_MARKUP_RE.search(text):          # only these two are suppressed on HTML
+        if MD_LINK_RE.search(text):
+            hits.append("md_link")
+        if MD_CODE_RE.search(text):
+            hits.append("code_span")
+    return hits
+
+
 def hrefs(html):
     return Counter(re.findall(r'href="([^"]*)"', html or ""))
 
@@ -275,6 +314,14 @@ def grade(component_id, proposal, induce=None):
     if from_legacy:
         print("     coverage: legacy dialect — maxItems/enum/pattern are NOT carried by the "
               "projection and were NOT evaluated (PLAN §10 addendum)")
+
+    # ── Write-time strip exposure (advisory, never a failure) ────────────────
+    for name, after_raw in proposal.items():
+        exposed = strip_exposure(after_raw)
+        if exposed:
+            print(f"⚠    strip {name}: contains {', '.join(exposed)} — the live write-time "
+                  f"strip WILL alter this before persist, so what lands is NOT what is graded "
+                  f"here. Confirm with `stripped_markdown_fields` on the apply result.")
 
     # ── B–E, per field, before vs after. Arrays included: flattened to text so the
     # link/markup/fact checks apply to their item bodies too. ────────────────────
