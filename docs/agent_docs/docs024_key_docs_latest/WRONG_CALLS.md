@@ -37620,3 +37620,52 @@ twice (the portfolio lane's four items are two pages seen twice) — neither is 
 type column, and both were live in this one census.
 
 Tally for "generalised from a name when the row was already on screen": 1.
+
+---
+
+## 2026-08-19 (fourth entry) — I read co-occurrence as causation, sent it to another lane as a warning, and put an invented worked case in a fleet-wide file
+
+**Session:** `bugfix-277/083`. Second consecutive wrong prediction about the same migration.
+
+**What I claimed:** that migration `473` re-routed `literal_markdown` and thereby created a new
+`(literal_markdown, page-rerender)` pair at 0 complete / 3 failed which my promoter's `known_good`
+gate would hold — so **"our gate now blocks your fix"** — and that `held-pair-canary-escalation`
+would escalate it within three days. **I messaged the 184 lane with it, wrote it into my handoff, and
+wrote a `LANDMINES.md` entry citing it as a MEASURED worked case.**
+
+**What was true:** `473` does not touch work items at all —
+`grep -icE "UPDATE site_work_items|handler_agent"` over the file returns **0**. The pair I cited was
+created **2026-08-17/08-18**, two days *before* `473` applied. The promoter's held pile never named
+it. And the pair the repair actually lands on is `(page_rerender, page-rerender)` at **14,454
+complete / 142 failed** — the most-exercised pair in the estate, which nothing holds.
+
+**How it happened, precisely:** I queried the pair immediately after the apply, saw 0/3, and **the
+shape matched the prediction I had just written down**. I checked neither `created_at` on those rows
+nor whether the migration touches `handler_agent`. Two commands, either of which would have stopped it.
+
+**What caught it:** checking my own prediction against the promoter's live held pile — which did not
+list the pair. **I only looked because I had pre-registered the prediction and wanted to score it.**
+Without that, the claim would have stood in three places.
+
+**The three costs, in ascending order of seriousness:**
+1. My handoff was wrong — cheap, I own it.
+2. **Another lane was told their fix was blocked by my mechanism** and may have sequenced work around
+   a hold that does not exist. Retracted within the hour with an explicit "if you deferred anything,
+   undo it".
+3. **A fleet-wide `LANDMINES.md` entry carried a fabricated worked case.** That is the worst of the
+   three: it is the one file where a reader is specifically trusting that the instance is real, it is
+   synced into `doc_notes` for agents to read, and a landmine with an invented example is worse than
+   no landmine. Corrected the same day (`2aadac491`) to state the property as **derived from the
+   promoter's `pre_query`, with no measured instance**.
+
+**The lesson, and it is not "check `created_at`":** **a confirmed-looking result arriving right where
+you predicted it is the single least-scrutinised kind of evidence.** Both of this week's worst calls
+landed that way — this one, and the 3,754 figure that was right as a count and wrong as a noun. A
+prediction makes you *look*, which is good, but it also supplies the interpretation in advance.
+**Pre-registration earns its keep only if the check is "what else could produce this reading?", not
+"did the number come out as I said?"**
+
+**And a second-order note:** I had, that same morning, written into my own handoff that an
+enumeration of mine "felt exhaustive because I built it from the mechanisms I already owned". I then
+made the identical error, in the same hour, about the same migration. **Writing the lesson down does
+not install it — the next instance does not announce itself as an instance.**
