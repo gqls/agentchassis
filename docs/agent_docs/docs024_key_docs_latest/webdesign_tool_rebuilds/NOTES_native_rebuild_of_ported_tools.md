@@ -1399,3 +1399,26 @@ Rerender `20d280e0` complete 11:06:19Z. Cache-busted grade of `/tools/rls-archit
    the RUNBOOK's scoping query orders the rest. Recipe and all three gates are in
    `HANDOFF_2026-08-19_continue_here.md`.
 3. **Track 2, the checker** — the highest-leverage work left, and it needs Go + council + a roll.
+
+## 2026-08-19 20:30Z — `v1.0.1316` verified; #12 confirmed live; #13 `tool-prompt-permutator` filed
+
+- **`v1.0.1316` is a real roll** — tag 1314 → 1316 AND digest `d0257576…` → `2d0d3def…`. Pods 17:13/17:14Z.
+- **#12 `tool-css-variables` published and PASSES** (checked while confirming the tally):
+  `class="ported-page"` **0**, old id `cPrimary` **0**. **Tally at the DB: 11 removed, 52 deployed.**
+- **#13 FILED: `tool-prompt-permutator`**, item `c860210f-6264-4b22-b87c-29fcfc7f3f78`, page
+  `fdaf3c75…`. Revert handle: ported slot **`b5db3257-8711-41df-95cc-673d91aae25c`, 6,411 chars,
+  md5 `48f609219a2e4da8230bb9835ae12100`**.
+- **Its defect is the most severe found in this batch: the expansion is UNBOUNDED.** The tool takes a
+  template like `{short|long} {formal|casual}` and produces the cross-product, multiplying group sizes
+  with no ceiling. Ten groups of five is ~9.8 million strings, built in memory and `join`ed into a
+  single value. **A reasonable-looking template freezes the tab and the user loses what they were
+  writing.** Unlike the other defects in this batch it does not produce a wrong answer — it produces
+  no answer and takes the page with it.
+  The brief requires the product to be COMPUTED FIRST and compared against a cap of 5,000, generating
+  nothing and naming both numbers if exceeded, plus a group-count limit so the multiplication itself
+  cannot overflow into nonsense. Also the singular: the ported version says "1 Variants".
+  **Note this is NOT reachable by 481's rules** — rule 18 covers validating what the user typed, and
+  this input is perfectly valid; the fault is in what the tool then chooses to do with it. Another
+  data point for Track 2's scope: the checker will need to reason about resource bounds, not just
+  input hygiene.
+- Fourth brief written against the contract; generic rules omitted throughout.
