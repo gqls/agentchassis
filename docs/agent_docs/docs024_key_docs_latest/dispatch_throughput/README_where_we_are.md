@@ -46,3 +46,19 @@ What happens next: a diagnosis run is verifying the dispatcher finding independe
 own rules require that before we write it down as fact), and the full research document with
 every option costed and a decision list for you is being written now. Nothing in the live
 system has been changed.
+
+## 2026-08-19, later — the research document is written, and we measured a real build
+
+The full review is now in this directory (RESEARCH_2026-08-18_throughput_to_thousands_of_
+domains.md). The headline addition since the morning: we measured what one new domain
+actually costs, using loanzy.uk, which was built yesterday. One site: about two hundred
+pieces of work, four hundred and ten agent runs (a fifth of which failed internally and
+were retried — worth knowing before a burst), about twenty dollars of AI calls, and ten and
+a half hours from submission to mostly-live — most of that queueing behind other sites, not
+working. We also found the AI bill is dominated not by site work but by the platform's own
+review council, which grows with how much we change the platform, not how many domains we
+host — good news for per-domain economics, and it means the per-domain running cost still
+needs one clean measurement before pricing anything. The document ends with a decision
+list; the two that block everything else are: how much upkeep per domain per day do you
+actually want, and how big a sign-up burst should we design for, with what promise on
+"your site will be ready in…".

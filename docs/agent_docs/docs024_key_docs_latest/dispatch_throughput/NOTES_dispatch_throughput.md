@@ -79,3 +79,32 @@ on the same subsystem).
   proven 08-18 18:28Z, live on v1.0.1309; fleet now at **v1.0.1314** (my 08-18 baselines
   were taken on the 1310 fleet — dated accordingly).
 - Both corrections written into PLAN §3 visibly (strikethrough + CORRECTED blocks).
+
+## 2026-08-19 — build-cost measurement (the burst-sizing number), n=1 + one dead end
+
+**loanzy.uk** (site row born 2026-08-18 12:53, `deployed`): ~213 work items filed day one;
+**410 orchestrations attributable, 87 FAILED (21%)**; LLM via two attribution routes
+(work_item_id join ∪ orchestration-payload ILIKE on the domain): ~180–200 calls,
+**~1.1M input + ~1.1M output tokens ≈ $20 at Sonnet list**; 21 image assets (imagery API
+cost [UNMEASURED]); wall-clock submit→mostly-built **~10.5h** (much of it fleet-queue wait,
+not work). All `[MEASURED 2026-08-19]`, queries in RUNBOOK.
+
+**Misstep worth keeping:** attribution by payload text is silently partial. The second case
+(remortgagecalculator.uk, 10 pages 08-17/18) returned a well-formed ZERO on both the domain
+string AND the site UUID — its orchestrations embed neither. So "what did this site's build
+cost" is unanswerable today without archaeology for some sites; the n=1 figure is marked
+accordingly, and per-site cost attribution is itself a gap the RESEARCH doc records
+(§4 caveats). The trap class is measurement-discipline's "interrogating what doesn't exist
+returns a well-formed answer".
+
+**LLM spend split, 7d window `[MEASURED 08-19]`:** council-gate dominates — 2,207 calls,
+7.9M in + 6.4M out + **271.9M cache-read** ≈ $200/wk; it scales with CHANGE volume, not
+domains. Steady-state maintenance completions are dominated by page_rerender (4,808/14d),
+which is LLM-free. Per-class LLM-bearing maintenance cost remains [UNMEASURED] — the one
+figure still owed before pricing tiers (RESEARCH §6).
+
+## 2026-08-19 — deliverable written; 090 verdict pending
+
+`RESEARCH_2026-08-18_throughput_to_thousands_of_domains.md` written (9 sections, decision
+table D0a–D16). 090 run a16b82cd at `verdict` step (EXECUTING_STEP) as of ~15:45 UTC;
+verdict to be appended here when it lands.
