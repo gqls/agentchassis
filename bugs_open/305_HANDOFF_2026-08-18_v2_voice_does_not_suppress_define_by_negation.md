@@ -182,3 +182,86 @@ Re-run §3's split with the cut at the fix date rather than 08-13, on
 `page-content-writer` only, normalised per 1,000 words, and require the rate to FALL. ⚠ A
 rate that falls on a *different* agent population proves nothing — hold the `agent_type` and
 the word-count normalisation fixed, or the comparison drifts.
+
+
+---
+
+# ROOT CAUSE FOUND 2026-08-19 — the brief is written in the construction, and one of its sentences is the owner's own complaint, verbatim
+
+**This closes the gap the loop named** (*"the same before/after-2026-08-13 comparison for those
+two pages"*) **and supplies a cause the loop did not reach.** First-hand verification, stated
+plainly per the 2026-07-31 ruling: the evidence below is literal string matching between a
+spec, a rendered prompt and a stored output — not a rate, not an inference, and not the
+correlation this file already had to withdraw.
+
+## A. All three flagged pages are pre-v2. The symptom contains no post-v2 output at all.
+
+Dated by searching `llm_call_log.response_text` for each page's own distinctive sentence
+`[MEASURED 2026-08-19]`:
+
+| page | component | copy written |
+|---|---|---|
+| `model-directory` | call-to-action | **2026-08-08** (and the loop found the same shape on 08-06) |
+| `adoption-tracker` | call-to-action | **2026-07-26 15:50** |
+| `protocol-tracker` | call-to-action | **2026-07-26 15:33** |
+| `adoption-tracker` | hero ("in days, not months") | **first seen 2026-04-10**, in **251** calls |
+
+All predate the v2 carrier (08-13). **The owner's complaint is entirely about pre-v2 copy**,
+which is why every attempt to explain it through v2's wording failed — including mine.
+
+## B. The cause: `content_direction` is itself written in the construction, and it hands down the tagline verbatim
+
+The site's current `content_direction` spec (`is_current`, created 2026-07-24) — the page
+brief the writer reads — carries the shape **seven times in one document**:
+
+- *"Use concrete stack references (Kubernetes, Kafka, Postgres) naturally, **not as buzzwords**"*
+- *"…thinking 'these people actually run this in production' **rather than** 'these people have read about this tech'"*
+- *"CTAs should initiate a technical conversation, **not a sales process**"*
+- *"Frame the next step as an engineering discussion, **not a purchase decision**"*
+- *"verbs that imply collaborative technical engagement **rather than** transaction"*
+- *"Headings should make a claim or describe a condition, **not just label a section**"*
+- and the **canonical tagline it supplies**: *"Multi-agent systems deployed to production **in days, not months** — on Kubernetes, Kafka, and Postgres"*
+
+**The causal chain is literal, not statistical** `[MEASURED 2026-08-19]` — across all 21,078
+`page-content-writer` calls, `in days, not months` appears in **1,348 rendered prompts** and
+**408 responses**. The brief hands the writer the phrase; the writer uses it. That is the
+hero sentence the owner read.
+
+**Every one of the site's five writer-visible specs carries the shape** (`identity`,
+`strategy`, `content_direction`, `audience`, `briefing` — all match `,\s+not\s+`).
+
+## C. What this corrects, in both directions
+
+- **`portfolio_positioning` were right that the 08-12 root cause does not fit — and right for
+  a reason that turns out to be beside the point.** They checked `identity.key_differentiators`
+  and found them *positive in sentiment* ("Fast deployments (minutes instead of weeks)"). True
+  — **and that differentiator is itself a contrast.** Positive in CONTENT is not free of the
+  CONSTRUCTION, and it is the construction the owner objected to.
+- **So the lane's 08-12 finding survives in corrected form.** It said the negativity comes from
+  a negatively-worded differentiator. The general statement is stronger and simpler: **the
+  writer reproduces the RHETORICAL FORM of its brief, independent of the brief's sentiment.**
+  This is the estate's own measured principle — *the example is the instruction; the rule is
+  commentary* — arriving from the input side: here the instructions ARE the examples.
+- **And it explains why no voice-block change could have fixed it.** The fleet carrier is a
+  general instruction; the brief is a specific, repeated, site-scoped exemplar carrying the
+  literal sentence. `305 §4`'s licensing hypothesis was not merely unproven, it was looking at
+  the wrong document.
+
+## D. What follows for the fix — and it is NOT a writer change
+
+The owner gave this lane both halves (*"ensure that that sort of copy never leaves this
+framework again"* + fix the pages). On this evidence:
+
+1. **The durable half is the SPEC, not the writer.** `content_direction` for this site should
+   be rewritten out of the construction — including the canonical tagline, which is the single
+   highest-leverage string on the site (1,348 prompts). ⚠ This is a **site-config** change on
+   another lane's site: coordinate, do not unilaterally edit.
+2. **A detector is expressible and cheap:** flag a `content_direction`/`identity` spec whose
+   own text carries the shape more than once or twice. It is the same count
+   `count_negation_tells.py` already does, pointed at the SPEC instead of the page — and it
+   catches the fault at the place that causes it, before a single page is written.
+3. **The three pages are cleanup and stay behind (1).** Re-rendering them against an unchanged
+   brief regenerates the same register from the same source.
+4. ⚠ **This is one site.** Whether other sites' briefs carry the shape is a one-query census
+   nobody has run — and given this file's own history with over-general claims, **run it before
+   asserting a fleet pattern.**
