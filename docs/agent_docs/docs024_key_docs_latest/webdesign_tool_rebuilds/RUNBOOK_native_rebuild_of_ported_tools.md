@@ -28,6 +28,13 @@ Must return exactly 1 row. `removed` is the assembly-excluded tombstone
 (`rerender_single_page_action.go:843`); do NOT delete the row (artefact archive trigger keeps
 history on UPDATE, and the pre-state stays recoverable).
 
+**Wrap it in a transaction with `DO`/`RAISE` asserts, and beware what an ABORT looks like
+(2026-08-19, hit twice in one session).** `min(id)` on a uuid column raises `function min(uuid) does
+not exist` — cast (`min(id::text)`) or use `string_agg(id::text, ',')`. When that raise happened in a
+post-`UPDATE` assert, psql had ALREADY printed the `RETURNING` row and `UPDATE 1`, then rolled the
+whole transaction back: **`UPDATE 1` in the output of an aborted transaction is not a write.** Re-read
+the row's `build_status` after any transaction that errored anywhere, and only then believe it.
+
 Then re-render the page (single-page path; the queue's `page_rerender` item type also works):
 name the page, verify the item completes, then grade at the artefact below.
 
@@ -71,11 +78,39 @@ Gotchas learned the hard way:
   SELECT id, name, created_from FROM content_components
   WHERE function='<f>' AND component_level='tool' AND forked_from IS NULL AND is_active;
   ```
-  **Must return 0 rows. A non-empty result is a STOP, not an input to a judgement** — the older
-  wording ("must be empty") was right and was talked past by reasoning about the probe instead.
-  Known blocked on webdesign.co.uk (4 of 62): `tool-ab-test-calculator`, `tool-bg-remover`,
-  `tool-meme-generator`, `tool-prompt-architect`. Do not file these until the library-template
-  question is decided — the unblock has fleet-wide blast radius.
+  ~~**Must return 0 rows. A non-empty result is a STOP, not an input to a judgement**~~ —
+  **SUPERSEDED 2026-08-19, and only for the LIBRARY-CLAIM case, which is the only case this index
+  can report.** RFC_036 §9.3 is live (`create_tool_component_action.go:249-285`, commit `e24bc9c0f`,
+  chassis `v1.0.1316`): when a library entry claims the function the generator now sets
+  `forked_from` on the new row, so the partial index no longer fires and `save_tool` completes.
+  **PROVEN on demand 2026-08-19 20:57Z** with `tool-ab-test-calculator` (NOTES 20:58Z).
+  So the gate INVERTS rather than disappearing — assert the claim's IDENTITY, not its absence:
+  ```sql
+  -- expect exactly ONE row, and pin its bytes so a misbehaving fork is detectable afterwards
+  SELECT id, name, md5(html_template) FROM content_components
+  WHERE function='<f>' AND component_level='tool' AND forked_from IS NULL AND is_active;
+  ```
+  and re-read that md5 AFTER the build (it must be unchanged — the library row must never be written).
+  Two things still hold: **verify the running chassis actually carries `e24bc9c0f`** before relying on
+  this (`git merge-base --is-ancestor e24bc9c0f <the pod's stamp>`, plus a positive and a negative
+  literal probe on BOTH replicas — the tag alone is not the evidence), and **a tool whose LOCAL fork
+  is still `is_active` short-circuits at the `already_exists` probe instead**, so the fork branch is
+  never reached (deactivate it first — see "Before REFILING a tool that already has a native
+  component"). Remaining blocked on webdesign.co.uk: **1**, `tool-meme-generator`, and only because it
+  is a Phase B rich app that goes last by the owner's instruction — not because the platform refuses it.
+- **Check for an OPEN `page_rerender` on the target page BEFORE you file, not only after
+  (added 2026-08-19).** The reason is not the one further down this file ("don't file a second
+  rerender"): an assemble that is ALREADY QUEUED can be claimed inside the 60-to-100 seconds between
+  the build completing and your retire, and then the page publishes BOTH tools. Measured that day: the
+  ab-test page's rerender had been filed by the `rerender-pages` sweep **21 minutes before** the build,
+  and one of the 117 rerenders that sweep queued for this site was sitting on the very page being
+  rebuilt. It also **dedupes the generator's own rerender away** (one open `page_rerender` per page by
+  `item_key`), so after the retire you must confirm a pending rerender still exists and file an
+  assemble-only one if it does not.
+  ```sql
+  SELECT id, status, created_by, created_at FROM site_work_items
+  WHERE page_id='<page>' AND item_type='page_rerender' AND status IN ('triaged','approved','claimed','pending');
+  ```
 - The `description` is the GENERATOR'S functional brief — never put process/replacement notes
   in it (they can end up rendered into the page). Process notes go in the item summary.
 - Rich apps (mind-map, meme-generator, micro-cms, pasteboard, logic-architect…): do NOT file —
