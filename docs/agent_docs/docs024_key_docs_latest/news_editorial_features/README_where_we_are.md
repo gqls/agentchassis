@@ -220,3 +220,52 @@ one tool at a time. A workflow generating pages and tools automatically, across
 premises and sites, takes the person out of exactly that position. So the rule
 the earlier note proposed, and I would keep: **anything this lane generates goes
 to human review, and never into automatic repair.**
+
+## 2026-08-19, later — the first editorial feature is live
+
+The worked example is up: **https://robot-hands.com/insights/robot-demand-step-change.html**
+
+I picked robot-hands rather than the gas site, for one decisive reason: our
+charts refuse to draw a number that isn't backed by a registered, cited fact —
+and the gas site has no fact register yet, so it would have produced a feature
+with no charts at all.
+
+The story chose itself from the site's own feed. The robot-demand story is on
+at least four channels this week: one outlet framed record installations around
+the labour shortage; a wire release about rising orders was carried, almost
+word for word, by two different outlets — which is exactly the "same story,
+different channels" signal this whole project is about; and one trade journal
+ran the opposite headline, saying US orders were weak. I kept that dissenting
+one in deliberately, because the background chart explains it: the Americas take
+under a tenth of the world's new robots, so a soft American quarter and a strong
+world are both true at once. That is what an editorial feature can do that a
+headline list cannot.
+
+The background is charted from the robot industry's own statistics body — five
+years of worldwide installations, every point carrying its own citation to the
+press release it came from, each one fetched and checked word-for-word before I
+registered it. The page says what the series actually shows, which is more
+interesting than the headlines: not a boom, but one sharp step up followed by
+four years holding above half a million — a plateau at altitude. For this site's
+readers the closing turn is that every one of those installations ends in a
+gripper somebody had to specify, which hands off to the site's own selection
+tools.
+
+Everything went through the framework: the facts into the site's evidence
+register, the page assembled from existing components, the honesty scan run
+before deploy (clean), and the footer link requested through the framework's own
+navigation queue rather than patched by hand.
+
+Two things I'd note for next time. Writing the prose was quick; **choosing the
+story and deciding what it actually shows was nearly all of the work** — which
+was the bet, and it held, and it is what any future automation has to be
+designed around. And the update question is now concrete: this page's series
+moves once a year (each September, when the new report lands), while the
+orders-and-earnings coverage it discusses moves quarterly — one page, two
+natural clocks, which is why the policy proposal ties cadence to the fact, not
+the page.
+
+**Waiting on your say-so:** the lifecycle policy in
+`DESIGN_2026-08-19_starting_point.md` §3 — stable URLs updated in place,
+retirement by de-listing rather than deletion, cadence per fact. If you're
+happy with it, it becomes the rule for every page this workstream ships.
