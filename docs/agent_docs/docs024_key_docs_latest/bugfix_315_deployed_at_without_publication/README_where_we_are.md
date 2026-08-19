@@ -130,3 +130,68 @@ machine. The plan works around it deliberately — the fingerprint check detects
 side without needing to see inside the deployment machinery. And the automated diagnosis service I
 would normally run this past refused twice on an API spending limit, so I have said plainly in the
 record that I substituted my own first-hand checks and listed exactly what they were.
+
+## 2026-08-19, midday — the review came back "revise", and it was worth every minute
+
+The council reviewed the plan and asked for changes. Five of its seats approved, five objected. I
+want to record what they caught, because two of the objections were right in ways I would not have
+found on my own.
+
+**The first: I overclaimed.** My summary said the change would mean the "deployed" timestamp is only
+ever written after a real deployment. That was not true of the plan I submitted. The part that does
+the checking was designed to be switched on per-agent, and I had not included the step that switches
+it on for any of them — so three of the five offending agents would have carried on exactly as
+before, with a new but dormant safety mechanism sitting beside them. The reviewer put it plainly and
+was right. The fix is not better wording; it is saying honestly what the change does and does not do.
+
+**The second: I was about to undo somebody's deliberate decision.** My plan added a column to the
+pages table to hold the deployment reference. One reviewer objected that this rested on an unchecked
+assumption. Checking it found something better than either of us expected: that column was removed
+on purpose years-of-commits ago, with the stated reason that it belongs on the page-sections table
+instead — and the migration that records this goes further, saying that deciding whether to wire this
+up at all "is an owner call, not a bug fix". So that part is out of my plan and is a question for
+you (below).
+
+**The third came from the architecture seat**, which ruled that changing what the deployment service
+reports back is not a bug fix at all — that response is consumed by nineteen different steps across
+sixteen agents, and I had checked none of them for how they read it. It told me to ship the small
+safe part now and take the rest to architecture review. I have done exactly that: the small part is a
+configuration change, and the rest is written up as RFC 038.
+
+## And then I caught myself being wrong about something bigger
+
+Earlier I reported that forty pages looked stale — the database saying "published" while the website's
+files had not been touched for nearly an hour and a half. I hedged it and set a check running.
+
+**All forty were fine.** I proved it by pulling a page's content out of the database, cutting a
+distinctive chunk out of it, fetching the live page, and searching for that chunk. It was there. The
+website is serving exactly what the database holds. Those pages had simply been rebuilt into
+*identical* content, which produces an empty change that correctly copies nothing.
+
+This is the most useful thing I found all morning, because of what it took. Four steps and a
+judgement call, for one page — and until I did it, "these pages never needed republishing" and "these
+pages failed to republish" looked **completely identical** in every signal the platform produces.
+That is the bug, stated properly. It is not that pages fail to publish. It is that nothing we have
+can tell those two situations apart.
+
+It also kills the cheap version of the fix outright. The bug report suggested alerting whenever the
+timestamp is newer than the website's file. I ran precisely that, and it produced forty confident
+false alarms on our busiest site, and they stayed false for eighty-five minutes — longer than any
+sensible "give it time to settle" allowance. So the fingerprint approach is not a refinement of that
+idea; it is the only version that works.
+
+## What I need from you
+
+**One decision.** The platform has two unused database fields designed for exactly this — a content
+fingerprint on pages, and a deployment reference on page sections. Both are empty, neither has ever
+been written to by any code, and this is now the *third* time somebody has independently discovered
+they are empty and walked away. The note left by the last person says wiring them up is your call,
+not a bug-fixer's. **Do we wire them up, or drop them?** Everything else in this fix depends on that
+answer, and I have deliberately not taken it myself.
+
+**One thing you may want sooner.** There is a configuration-only change ready that removes the worst
+half of the problem: two agents currently mark a page "deployed" *before* they have even asked for it
+to be deployed, and both already call a routine that marks it properly afterwards. Deleting the
+premature step needs no new code and takes effect immediately. The architecture reviewer looked at
+this specific piece and said "clean point fix — proceed". I have not applied it, because it changes
+the live build pipeline the moment it runs and that felt like your call to make, not mine.
