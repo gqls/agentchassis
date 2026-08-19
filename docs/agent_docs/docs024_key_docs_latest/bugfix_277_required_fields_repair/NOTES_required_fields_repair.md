@@ -1621,3 +1621,74 @@ measurement so it is not wrong as written, but it reads as a live claim. Left fo
   and `bugs_closed/295` are the neighbours; none of them is this finding. **Recommend filing, but
   the damage half must be priced first** — a bug filed on the population alone would assert a
   cross-cutting cause this measurement does not support (CLAUDE.md's 2026-07-31 ruling).
+
+---
+
+## 2026-08-19 later — §4.5(b) DAMAGE PRICED AT THE ARTEFACT: it is a ZERO, and the zero is the finding (`agentchassis-22`)
+
+Following the lane thread's route 2 — *price the consequence, not the cause* — because it is immune
+to the mutability trap that broke my first attempt: it asks the served page, not the label.
+
+**VERDICT: population confirmed, damage NOT FOUND. No tool page has been clobbered. On this
+evidence (b) should NOT be filed as a bug.**
+
+### How the candidate set was narrowed, and why the aggregate lied twice
+
+The clobber signature is *interactive markup replaced by prose* — that is precisely what the guard
+exists to prevent. So a page still carrying its markup is not clobbered, by construction.
+
+| | pages | still carry `<script>` in stored components | avg components |
+|---|---|---|---|
+| `generic`-marked tool pages | 89 | 72 | 3.2 |
+| `owned`-marked tool pages | 95 | 94 | 1.3 |
+
+That table looks damning — 81% vs 99%, and 2.5x the components, exactly the shape of one tool
+component being replaced by several prose sections. **It is not damning, and reading the 17 rows
+instead of the aggregate is what showed it.** [MEASURED]
+
+Of the 17 `generic` tool pages with no script left: **7 are `archived`**, and **11 are on
+`loanzy.uk`, every one created 2026-08-18** — a site built yesterday and still mid-build. That
+leaves **3** older active candidates. **The aggregate had folded a new site's in-flight build into a
+damage signal.** Same error class as the 3,754 and as my withdrawn 107: a population assumed rather
+than enumerated, for the third time in one day, caught here only by printing the rows.
+
+### The three real candidates, each checked at the served page
+
+Controls in the same run: an `owned` tool page that must work, and a fabricated URL that must 404.
+
+| page | served | verdict |
+|---|---|---|
+| `loancalculator.co.uk/tools/credit-roadmap.html` | 200, 35KB, 3 script, **0 inputs** | **NOT damage** — its slots are `hero / ported-prose / faq / tool-cta`. A *ported prose page about* a tool. Correctly `generic`; never was interactive |
+| `vetcomparison.uk/tools/compliance-deadline-calculator/index.html` | **404**, 0 components | **NOT this defect** — `status='active'` but never built. A separate defect, unrelated to the guard |
+| `adversecreditmortgage.co.uk/tools/eligibility-tool/index.html` | 200, 0 components in DB | in-build (page created 08-18) |
+| **control** `gamesdesign.co.uk/tools/ttk-calculator/` (`owned`) | 200, 5 script, 4 inputs | works |
+| **control** fabricated `/tools/definitely-not-a-real-tool-control/` | 404, **2690 bytes** | discriminates — and it is byte-identical to the 404 above, which is what makes that 404 a genuine absence rather than a fetch artefact |
+
+**And the seed case settles it in the other direction.** `tool-pet-treatment-cost-estimator` — the
+page this whole question started from, marked `generic` — serves **200, 21KB, 5 scripts, 2 inputs**.
+**Its tool is fully intact.** The page most likely to show harm shows none.
+
+### What this does to my own §4.5(b) population claim — it narrows it
+
+"89 identically-shaped pages" was true of the two tests I ran (name + URL) and **false as an
+implication**, because a third axis separates them: `ported-prose` landing pages sit under `/tools/`
+with a `tool-` name and are *correctly* `generic`. Counting only pages carrying interactive
+controls: **69 of 89 `generic` vs 83 of 95 `owned`**. So the marking really is inconsistent across
+~69 genuinely interactive tools — **but inconsistent is not damaged, and nothing here is damaged.**
+
+### Recommendation, and the reasoning rather than the caution
+
+**Do not file.** The lane thread's precedent is that we do file on population-with-unpriced-damage
+(`314`, `300`) **when a mechanism is read at source**. (b) has no mechanism — nothing shows the
+marking is *wrong* rather than a deliberate distinction — and now it has a **priced consequence of
+zero**. A bug file asserting a cross-cutting cause behind a harmless inconsistency is the 2026-07-31
+ruling's exact target.
+
+**What would reopen it:** a `generic`-marked interactive tool page found serving prose where its tool
+used to be. The query above is the detector and it currently returns nothing. Recorded here so the
+zero is dated and re-runnable rather than remembered as "someone looked once".
+
+**A live defect found in passing, which is NOT mine and NOT this:**
+`vetcomparison.uk/tools/compliance-deadline-calculator` is `status='active'` with zero components
+and serves **404** since at least 2026-07-17. That is a page the estate believes it is publishing
+and is not. Unowned as far as I can see; not filed by me because I have not looked for its cause.
