@@ -36991,3 +36991,46 @@ the record was current, and I looked in the wrong index. Both entries in this la
 were found by reading code and files rather than by a better query, which is the
 argument for spending the `090` run before asserting rather than after being
 contradicted.
+
+---
+
+## 2026-08-19 (third entry) — I made the exact mistake I had diagnosed, written a migration to fix, and documented, four days earlier
+
+**Session:** `bugfix-277/083`. Sixth this week. This one is different in kind from the other five and
+that is why it is here rather than folded in.
+
+**What I claimed**, contributing to `bugs_open/315`: that
+`vetcomparison.uk/tool-compliance-deadline-calculator` had **"3 `page_rerender` items all
+`complete`"** against zero components.
+
+**What was true: 13.** I had queried `site_work_items` alone, which `work-item-archiver` prunes to
+roughly a 7-day window. The class figure I gave was likewise understated — re-measured over
+`site_work_items UNION ALL site_work_items_archive`, it is **331 completed work items against 55
+pages that contain nothing**, not the handful my numbers implied.
+
+**Why this one is worse than the other five:** *this is my own lane's diagnosed trap.* On 2026-08-14
+this lane established that the promoter's "lifetime" success history was really a 7-day window
+because it read only the live table, and **I wrote the migration that fixed it** —
+`465_promoter_reads_archived_history.sql`. The whole of `bugs_open/083`'s floor arithmetic depends on
+that UNION. It is in this lane's NOTES, in the migration's own header, and in two handoffs. **Then I
+wrote a work-item count without it.**
+
+**What caught it:** the `bugs_open/302 201` session, who volunteered the trap unprompted while
+replying about something else — the archive held **20,184 rows against 10,689 live** when they
+measured it, and it had changed two of their own figures by more than 20×.
+
+**The cheap check that would have:** `UNION ALL site_work_items_archive`. I have typed it perhaps
+twenty times this month.
+
+**The lesson, and it is not "remember the archive".** Knowing a trap, fixing it in production, and
+documenting it **does not install the check** — because I had attached it to a *topic* (the
+promoter's floor) rather than to an *action* (writing any count of work items). When I moved to a
+different bug in someone else's lane, the topic changed and the check did not come with me.
+**A check bound to a subject protects only that subject. Bind it to the operation instead:** every
+`count(*) FROM site_work_items` is a 7-day answer until proven otherwise, whatever it is about.
+
+**Corollary worth its own line:** the numbers in the same contribution that were computed over
+`pages` / `page_components` were fine, because those tables are not archived. **I got the
+window-limited half wrong and the unlimited half right in a single query set**, which is exactly why
+"was my measurement scoped correctly?" is not answerable as one question — it is one question per
+table.
