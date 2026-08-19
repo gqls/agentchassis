@@ -80,3 +80,27 @@ together.
 The independent diagnosis check I re-armed earlier is running now. Nothing further is
 needed from anyone until the next chassis image rolls; then the RUNBOOK's recipe proves the
 fix on the real case. The bug file's status line now says exactly this.
+
+## 2026-08-19, evening — both halves approved; the precondition is code-complete
+
+Two developments since the last entry. First, an owner ruling arrived via the portfolio
+lane: the calculator fix must cover BOTH writers — the section one already done, and the
+tool-level one described in RFC_036 — as one logical change, and the ~50-site build wave
+does not start until it lands. Second, both halves are now through: the tool-level fix is
+built (a native rebuild of a tool the library already offers is now born as a site copy of
+it, which is what the fork field means everywhere else, so the unique-name gate no longer
+kills the build), tested the same way as the first half including deliberately breaking it
+to watch the test fail, and approved by the council on the first round — as was the first
+half this morning.
+
+Where each half stands: the section fix is LIVE in the fleet (proven at the running binary
+with controls, not inferred from tags) but has had zero real exercises — the loanzy lane's
+next clean-domain build is the agreed real test, with the old site's checksums pinned
+beforehand so we can prove nothing was overwritten. The tool fix rides the next chassis
+image. One follow-up is tracked in RFC_036 rather than left as folklore: the two different
+ways a site can acquire a tool copy don't yet recognise each other's copies, which today
+fails loudly rather than silently if it ever happens.
+
+One process slip recorded in WRONG_CALLS: a commit message claimed a document edit that had
+actually failed; the next commit corrected it and says so. The bug stays open until the
+real-world test passes and a roll carries the tool half.
