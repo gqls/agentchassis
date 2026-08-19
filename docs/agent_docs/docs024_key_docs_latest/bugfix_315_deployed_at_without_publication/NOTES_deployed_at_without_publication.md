@@ -442,3 +442,32 @@ trusting key order, censused 744 live `deploy_result` rows over 7 days, probed 4
 served artefact with cache-busters, and read the runner pods' own job logs. **The loop is still
 queued and should be read if it ever completes** — and if it refutes any of this, the refutation
 wins.
+
+## 2026-08-19 ~10:50Z — the plan's first `[UNVERIFIED]` risk, closed (favourably)
+
+The plan flagged as unverified whether removing the two handlers' early `update_status` step would
+break an output contract, since that step's `output_field` is `status_updated`. `[MEASURED
+2026-08-19]` at the live config — **it would not**:
+
+| agent | `complete.config.output_fields` | names `status_updated`? |
+|---|---|---|
+| `page-build-handler` | `["sections_saved", "deploy_result"]` | **no** |
+| `tool-recreation-handler` | `["tool_analysis", "sections_saved", "deploy_result", "training_data_saved"]` | **no** |
+
+So the step can be removed without any consumer losing a declared field. **Risk 1 of the council
+submission is closed** — recorded here rather than resubmitted, since it narrows a stated risk
+rather than changing the plan.
+
+And the replacement stamp is confirmed sound: `page-rerender.update_status` is configured
+`{"status":"deployed","page_id_field":"rendered_page.page_id"}` — it stamps **by page id from the
+render it just did**, which is a stronger identity than the two handlers' own steps, both of which
+resolve the page by *name* (`site_id_field` + `page_name_field`). So the reorder does not merely
+move the stamp later; it also moves it onto a more precise identifier.
+
+### An incidental confirmation of the nesting finding
+
+Both handlers declare `deploy_result` in their `complete` output fields while their own `deploy_page`
+step is a **`call_agent`**, not a `git_commit`. That is exactly the shape that produces the
+doubly-nested `deploy_result.response.deploy_result.…` envelope measured earlier at **57 of 744
+rows** — the sub-agent's whole collected data comes back under `response`. The two findings were
+made independently and agree, which is worth more than either on its own.
