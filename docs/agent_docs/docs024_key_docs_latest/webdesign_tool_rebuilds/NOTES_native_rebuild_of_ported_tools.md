@@ -1339,3 +1339,26 @@ md5 `54557439876ff313c1fdebdc7cf2083e` byte-identical. Asserted one deployed slo
 which is AFTER the orchestration started, so it returned 0 rows and read as "no run happened".**
 The run begins before the item completes. Window on the item's `claimed_at` minus a minute, or just
 use a wide window and `ORDER BY created_at DESC LIMIT 1`.
+
+## 2026-08-19 09:45Z — #12 `tool-css-variables` filed. A THIRD tool that states a derivation it never performs.
+
+Item `b87ca4ca-4c80-439e-b9ce-d0730c06b16c`, page `6bb566f9…`. Revert handle: ported slot
+**`9420de90-3c78-44a8-a004-01ed1de533fc`, 6,350 chars, md5 `4cef84c747ed3f2dd73357fa080f3725`**.
+
+**The defect:** the emitted token block contains
+`--color-border: #e5e7eb; /* Auto-generated grey */` — a hardcoded constant with a comment asserting
+it was generated. It ignores all four colour pickers, so the border never matches the palette, and the
+comment travels into the user's stylesheet as a false statement about their own code.
+
+**This is now a PATTERN worth naming, not three coincidences.** Three of the twelve tools examined
+claim in their own output that they did something they did not:
+- `tool-rls-architect`: *"Implement the following SQL policies exactly"* → emitted the dropdown's prose label, no SQL.
+- `tool-css-variables`: *"Auto-generated grey"* → a fixed hex, no generation.
+- `tool-noise-generator`: a colour control wired to nothing (the same lie told by a control rather than a comment).
+**These fail in the one way that defeats casual checking: the output looks like the output of a
+working tool.** A dead checkbox is visibly dead; a confident sentence about work that never happened
+is not. It is also the class the 481 contract cannot reach — rules 15-20 govern how a tool BEHAVES,
+not whether its prose is true. Candidate for Track 2's checker, or at minimum a standing line in the
+brief-writing step: **read what the tool SAYS about itself and check the code does it.**
+
+Brief written against the contract; generic rules omitted for the third time.
