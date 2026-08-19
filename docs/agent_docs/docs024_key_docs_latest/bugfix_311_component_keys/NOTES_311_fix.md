@@ -204,3 +204,9 @@ vertical without calculators" is off the table as a workaround.
 - The pair's state: section half LIVE (v1.0.1315, zero real exercises); tool half committed
   alongside this note, inert until the next roll. Wave 1's precondition is code-complete,
   pending the ceae30f2 verdict + a roll + the loanzy real-world test.
+- Post-commit advisory triage (`e24bc9c0f`): pattern-check flagged
+  `unrepaired-component-write` (page_components.rendered_html with no link repair) in
+  create_tool_component_action.go — PRE-EXISTING (3 occurrences in the parent commit,
+  zero in this commit's hunks); that class is `bugs_open/136`'s, owned elsewhere. Noted,
+  not acted on: pulling an unrelated behaviour change into this round would be scope creep
+  on a council-submitted change.
