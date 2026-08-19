@@ -136,3 +136,99 @@ it is a dated snapshot next to a fresher one, and the live table settles it.
 The landmine text for exactly this ("a concept-register STATUS line is a snapshot
 that outlives its truth") fired at session start against a dirty file in this
 tree. It was right.
+
+---
+
+## 2026-08-19 — the diagnosis verdict: CONFIRMED, and it found a file this pass missed
+
+Run correlation `3802fb10-c34f-4eff-9914-b2959c723bd5`, completed 10:12:53Z,
+three iterations, `stopped_by: confirmed`.
+
+**Outcome: CONFIRMED**, with all three symptom clauses marked `explained` and
+cited:
+
+| clause | how it was grounded |
+|---|---|
+| items enriched one at a time, never grouped across sources | `WriteFeedItemsAction` inserts each item individually with no grouping key; `QueryNewsItems` selects them individually |
+| `duplicate_of` / `entity_ids` written by no code path | every write in scope — the `WriteFeedItemsAction` INSERT, `ApplyFeedScoresAction`'s UPDATE, `RenderNewsSectionAction`'s expire UPDATE — omits both from its column list, and the live count (10855 / 0 / 0) confirms it holds in production, not only in the code as written |
+| `topics` populated by triage | `ApplyFeedScoresAction` sets `topics = $3`; `llm_call_log` shows `feed-triage/score_relevance` succeeding at 2026-08-19T08:42:43Z, i.e. the mechanism is actually running |
+
+**Note the shape of that second row.** The loop did not stop at "no code writes
+it" — it paired the static absence with a live count, because code-as-written and
+production can disagree. That is the pairing this workstream's own claims should
+copy.
+
+### The find: `queryresolve/news_items.go`, which this pass never opened
+
+The loop's scope walk surfaced `platform/orchestration/actions/queryresolve/news_items.go`
+(421 lines) — `QueryNewsItems`, `resolveLatestNews`, `resolveNewsArchive`,
+`newsTopicalTokens`, `titleToolKeys`, `capNewsItemsPerTool`, `projectNewsItems`.
+I read it first-hand rather than trusting the report.
+
+**There IS a mechanism that notices several headlines are about the same thing —
+and it exists to throw that signal away.** `newsTopicalTokens` (:185) builds a
+topical vocabulary from the site's own source queries, and *additionally* derives
+one by document frequency over the item titles when the pool is at least 12
+items, at a threshold of `len(items)/4` (floor 5). `capNewsItemsPerTool` (:222)
+then walks the ranked items and **drops** any whose title shares a tool key with
+`maxPer` already-kept items.
+
+Its own comment is the sharpest statement of this workstream's central problem
+that exists anywhere in the repo, and it was written for the opposite purpose:
+
+> Frequency derivation needs a pool large enough that "appears a lot" means "is
+> the subject matter", not "is one well-covered story". Below 12 items a genuine
+> tool cluster (four Firefox headlines) would cross any workable threshold, so
+> small pools rely on query topics alone.
+
+**"Four Firefox headlines" is precisely the input an editorial feature wants and
+this code deletes.** The display layer's requirement (no single story dominates
+the feed) and the editorial layer's requirement (find the story several channels
+are covering at once) read the same signal in opposite directions. Any grouping
+step built here must not be bolted onto this path, because this path's contract
+is suppression.
+
+### Second find: what "with dedup" actually means
+
+`registry.go:1386` describes `WriteFeedItemsAction` as *"Normalise and write feed
+items to content_feed_items with dedup"*, which reads like cross-source
+de-duplication and is not. `feed_actions.go:777-778, 896-905` — dedup **skips
+items whose `source_url` already exists for this site**, via the `idx_cfi_dedup`
+partial index on `source_url`. So it is exact-URL, per-site. The same story
+reported by Reuters and the BBC is two rows by design; a syndicated copy at a
+different URL is also two rows. **Cross-source grouping is not merely unbuilt —
+the one thing named "dedup" in this pipeline solves a different problem**, and a
+reader skimming the registry description would reasonably conclude otherwise.
+
+### Third: what the render path can select on
+
+`QueryNewsItems` filters `WHERE cfi.site_id = $1 AND cfi.status IN ('relevant',
+'ingested')` and projects title, summary, url, `source_published_at`, source
+name and `topics`. So `topics` **is** available to the render path, and
+`duplicate_of` / `entity_ids` are not selected at all. If a grouping key is
+added, the render path needs a column change, not just a writer.
+
+### A harness defect worth knowing about, since it will bite the next run
+
+Iteration 1's `NeededEvidence` records that the requested `SEED_SCOPE` **did not
+arrive** — the bundle carried an unrelated symbol-search fallback
+(`intake_repo.go`, `plan_sections_action.go`, `contentcreator/agent.go`,
+`evolution.go`) instead of the feed files actually named, and the attached
+runtime evidence was `agent_error_log` rows about the page-build pipeline, which
+bears on nothing here. The loop **noticed and said so** rather than reasoning
+from the wrong files, then re-scoped and got the right ones by iteration 2. That
+is `bugs_open/174`, and the loop names it itself.
+
+The lesson for reading any future verdict from this lane: **check
+`evidence_trail[].Verdict.NeededEvidence` before trusting an early iteration** —
+a bundle that did not deliver the requested scope still produces a
+confident-looking iteration.
+
+### What this changes in the PLAN
+
+`PLAN_2026-08-19_news_editorial_features.md` §3 said the "different channels"
+half of the ask "has no mechanism at all". **Corrected**: there is no *grouping*
+mechanism, but there is a *cluster-detection* mechanism pointed the other way.
+That is better news than "nothing exists" — the detection heuristic has already
+been thought about, tuned and shipped — and worse news than it looks, because
+reusing it means inverting a contract another feature depends on. §3 amended.

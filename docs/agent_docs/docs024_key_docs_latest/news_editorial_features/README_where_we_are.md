@@ -116,3 +116,40 @@ that shapes everything else is whether we start with a single site to prove the
 writing, or wait for the pooling to come off its pause and do it properly across
 a pool. My recommendation is the single site, for the reason both April documents
 gave.
+
+### Later the same day — the diagnosis came back, and it found something I had missed
+
+The run confirmed all of it: the items really are handled one at a time, the
+three columns really are written by nothing, and the topic tagging really is
+running in production. It checked that last one properly — not just that the code
+exists, but that the step ran successfully this morning.
+
+But it opened a file I never did, and that file changes the picture in a way
+worth telling you about.
+
+**We already have something that spots when several headlines are about the same
+story. We built it to throw that away.** There is a step in the news display code
+that watches for one subject dominating the feed and quietly drops the extra
+items so the page does not show four versions of the same thing. It is careful
+work — it only kicks in once there are at least twelve articles to judge from,
+because below that a genuine cluster looks the same as coincidence.
+
+The comment its author left is almost a description of what you have asked for,
+written by someone solving the opposite problem: it says the pool has to be big
+enough that "appears a lot" means "is the subject matter", not "is one
+well-covered story" — and gives four headlines about the same subject as the case
+it must not mistake.
+
+Four headlines about the same subject is exactly what a feature article is made
+of. So the signal we need is already being detected; it is just being deleted at
+the last moment, by a feature that is right to delete it. That is better news
+than finding nothing — someone has already tuned the hard part — but it does mean
+we cannot simply reuse that code where it sits, because the page it serves
+depends on it doing the opposite.
+
+One smaller thing worth knowing, because it would mislead anyone reading our own
+documentation: the ingestion step is described internally as writing feed items
+"with dedup", which sounds like it already merges the same story from different
+sources. It does not. It only skips an article whose exact web address we have
+already stored for that site. Reuters and the BBC covering one story are two
+separate rows, by design.

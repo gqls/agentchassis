@@ -8,6 +8,12 @@ arriving from several different channels.
 **Stage 1 (this document): collect every past discussion of this into one place.**
 No build this session. Decisions and their reasons are recorded here as they land.
 
+**Diagnosis run:** `090` filed on the mechanism before any design work, per the
+cross-cutting-claim rule. Run correlation
+`3802fb10-c34f-4eff-9914-b2959c723bd5`, **verdict CONFIRMED** (three iterations,
+`stopped_by: confirmed`). It also found a file this pass had missed — §3a below,
+and the full read-out in `NOTES_news_editorial_features.md`.
+
 ---
 
 ## 1. The headline finding
@@ -81,9 +87,15 @@ count(*) FILTER (WHERE published_page_id IS NOT NULL) -- 0
 
 - `duplicate_of` and `entity_ids` are declared in `content_feed_items` and
   **written by no code path in the repo** (grep over `platform/`, `internal/`,
-  `pkg/` returns nothing for either). So the same story arriving from four
-  channels is four unrelated rows, and the "different channels" part of the ask
-  has no mechanism at all.
+  `pkg/` returns nothing for either; control grep `relevance_score` returns 7
+  hits over the same paths, so the search shape works). So the same story
+  arriving from four channels is four unrelated rows.
+
+  > **CORRECTED 2026-08-19, by the diagnosis run** (`3802fb10`, verdict
+  > CONFIRMED): this bullet first read *"the 'different channels' part of the ask
+  > has no mechanism at all"*. There is no **grouping** mechanism, but there is a
+  > **cluster-detection** one, pointed the other way — see §3a. The run found the
+  > file this pass never opened.
 - `published_page_id` is never set because nothing publishes: `article-rewriter`,
   `feed-publisher`, `news-analyst`, `story-researcher`, `analysis-writer`,
   `visualization-renderer` and `data-chart-generator` are **all absent** from
@@ -92,6 +104,51 @@ count(*) FILTER (WHERE published_page_id IS NOT NULL) -- 0
 
 `topics` is free text with no controlled vocabulary, so it is a starting signal
 for grouping, not a grouping key.
+
+## 3a. The near-miss: a cluster detector that exists to discard clusters
+
+`platform/orchestration/actions/queryresolve/news_items.go` already notices when
+several headlines are about the same thing — and **exists to throw that signal
+away**. `newsTopicalTokens` (:185) builds a topical vocabulary from the site's own
+source queries, and additionally derives one by document frequency over item
+titles once the pool reaches 12 items (threshold `len(items)/4`, floor 5).
+`capNewsItemsPerTool` (:222) then **drops** any item whose title shares a tool key
+with `maxPer` already-kept items, so that no single story dominates the feed.
+
+Its own comment is the sharpest statement of this workstream's problem anywhere
+in the repo, written for the opposite purpose:
+
+> Frequency derivation needs a pool large enough that "appears a lot" means "is
+> the subject matter", not "is one well-covered story". Below 12 items a genuine
+> tool cluster (four Firefox headlines) would cross any workable threshold.
+
+**"Four Firefox headlines" is exactly the input an editorial feature wants.** The
+display layer's requirement (suppress the cluster) and the editorial layer's
+requirement (find the cluster) read the same signal in opposite directions.
+
+Two consequences for the design:
+
+1. **Do not bolt a grouping step onto this path.** Its contract is suppression,
+   and another feature depends on that. The detection *heuristic* is worth
+   copying; the call site is not.
+2. **The thresholds have already been thought about.** `>= 12 items`, `len/4`
+   floor 5 — tuned against real feeds. A grouping step starts from a tuned
+   heuristic rather than a blank page.
+
+And one naming trap: `registry.go:1386` describes `WriteFeedItemsAction` as
+*"Normalise and write feed items to content_feed_items **with dedup**"*, which
+reads like cross-source de-duplication and is not. The dedup skips items whose
+**`source_url` already exists for this site** (`feed_actions.go:777-778,896-905`,
+via the `idx_cfi_dedup` partial index). Exact URL, per site. Reuters and the BBC
+on one story are two rows by design. **The one thing named "dedup" here solves a
+different problem**, and the registry description will mislead a reader who does
+not open the file.
+
+Finally, what the render path can select on: `QueryNewsItems` filters on
+`site_id` and `status IN ('relevant','ingested')` and projects title, summary,
+url, published date, source name and **`topics`**. `duplicate_of` and
+`entity_ids` are not selected at all — so adding a grouping key needs a change at
+the read side too, not only a writer.
 
 ## 4. The one design decision already taken, and it is load-bearing
 
