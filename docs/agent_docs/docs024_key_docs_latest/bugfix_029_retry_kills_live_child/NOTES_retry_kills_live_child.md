@@ -1868,3 +1868,35 @@ was empty in those runs".
 so the include actually in force at runtime is much narrower than the package default I measured
 (86 base tables). Whoever proposes the `workflow%` widening should read the live agent config's
 `schema_include_patterns`, not the Go default, before arguing about the cap.
+
+### 12. The "~7 days / good until 08-24" figure, grounded at SOURCE instead of observed
+
+The whole remaining plan rests on the 08-17 rows surviving long enough to diagnose, and until now
+that rested on one observation (`min(sent_at)` = 08-12). The rule is DB-resident, in
+`cleanup_expired_awaited_requests()` — the function `state.go:2055` calls every minute:
+
+```sql
+-- Delete very old terminal requests (>7 days)
+DELETE FROM awaited_requests
+WHERE status IN ('processed','expired','cancelled','error')
+  AND processed_at < NOW() - INTERVAL '7 days';
+```
+
+`[VERIFIED at source, 2026-08-19]` via `pg_get_functiondef`. Three things this pins down that the
+observation could not:
+
+1. **It is keyed on `processed_at`, not `sent_at`.** My estimate used `sent_at`. For the wedge rows
+   the two differ by 9–16 seconds, so the deadline is unchanged — but the *predicate* is now known,
+   and anyone recomputing the window must use `processed_at` or they will be wrong on a slow row.
+2. **Only TERMINAL rows are deleted.** The wedge population is all `processed` / `error`, so it does
+   expire. A row that never reached a terminal status is kept indefinitely — so "7 days" is the rule
+   for this evidence, not for the table.
+3. **The deadline is therefore `processed_at + 7 days` ≈ 2026-08-24** for the 08-17 rows, and it is
+   enforced continuously by a per-minute call, not by a nightly job — there is no "it might not have
+   run yet" grace.
+
+> **⚠ Do not confuse this with `cleanupExpiredAwaitedRequests` (Go, `coordinator.go:4348`).** The Go
+> ticker is the *caller*; the retention is entirely inside the SQL function. Reading the Go and
+> concluding "the cleanup only marks rows expired" is wrong — the DELETE is one statement further
+> down, in a place `grep -rn "DELETE FROM awaited_requests" platform/ --include=*.go` returns
+> **nothing** for. **That grep returning zero is why this was assumed rather than checked.**
