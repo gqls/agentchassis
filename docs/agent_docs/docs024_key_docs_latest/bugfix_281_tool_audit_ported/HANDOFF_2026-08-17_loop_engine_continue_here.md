@@ -1,5 +1,25 @@
 # HANDOFF 2026-08-17 (evening) — loop engine: 289 CLOSED and PROVEN LIVE; what is left
 
+> ## 🏁 LANE COMPLETE 2026-08-19 — **start at `SUMMARY_2026-08-19_loop_engine_and_the_unreachable_states.md`, not here.**
+>
+> All five bugs this lane opened are **closed, fixed and live**: `281`, `289`, `291`, `294`, `310`.
+> Re-verified against the current build `v1.0.1314` (commit `d3590ca46`, read from the image's own
+> revision label): per-lap keys **77 bytes flat** across 123 runs, both reaper arms live, **0
+> non-terminal rows over 4 h** fleet-wide.
+>
+> **Exactly one item is left and it is an owner decision, not a task: residual (6).** Its
+> precondition is met and re-measured (1,196 steps / 357 runs all carry the explicit flag; 0 need
+> the fallback). **Recommendation: KEEP the fallback.** It has stopped being merely redundant and
+> become a second independent guard against the exact 2^N failure `289` was — two lines against a
+> bug that reached 22 MB rows and 1 completion in 63. The council seat that asked for its deletion
+> framed the wider `action`-overloading point as the RFC signal and *not* this fix.
+>
+> Everything else that outlives the lane belongs elsewhere: the class fix (owner took it separately,
+> blocked on the `PAUSED_FOR_HUMAN` spelling), the audit-yield question (the 285/281 sub-lane), and
+> the `PAUSED_FOR_HUMAN` mismatch itself (latent, in `LANDMINES.md`).
+>
+> The detail below is still accurate as history. Read it for *why*, not for *what next*.
+
 **Supersedes the earlier version of this file and `HANDOFF_2026-08-16_continue_here.md` for
 everything loop-engine.** The 08-16 file remains the cold-start for the *tool-audit-by-instance*
 lane (bug 281, closed); read it only for that.
