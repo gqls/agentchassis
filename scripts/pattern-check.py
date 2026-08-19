@@ -845,6 +845,9 @@ SHIPPED_PREDICATE_ALLOWED = {
     "adopt_verbatim.go": "WRITES the value, does not test it",
     "import.go": "WRITES the value, does not test it",
     "fix_component_template_action.go": "page_components write, not a pages liveness test",
+    "create_tool_component_regenerate.go":
+        "page_components write (`SET build_status = 'deployed'` on the regenerated tool slot, "
+        "bugs_open/331 TL-047), not a pages liveness test — same reason as fix_component_template",
     "save_page_sections_action.go": "page_components predicate, different table",
     "save_sections_shrink_guard.go":
         "page_components predicate, different table — the page-total text floor's population, "
