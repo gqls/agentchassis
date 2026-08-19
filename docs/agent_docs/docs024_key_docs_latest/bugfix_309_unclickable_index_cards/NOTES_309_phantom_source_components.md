@@ -199,3 +199,14 @@ credited automatically by 098. Advisory triage, each answered or routed:
   rejection exists; check it against the first SOURCE_GUARD row that appears.
   Bug 309 itself stays OPEN, blocked on the owner's 320 decision — not on this
   lane.
+
+## 2026-08-19 late morning — owner rulings received in THIS session, routed to the 320 lane
+
+The owner ruled on 320 §8 here (lane already closed, so this is a relay record,
+not reopened work): M2 guard YES, M1 planner field YES, backfiller GO fleet-wide
+WITHOUT a read-first review — replaced by a new requirement that summaries carry
+the house copy-style guidance and pass the voice/claims checks before save — and
+the 309 page WAITS for the writer/replan. Durable record: bugs_open/320 §11
+(9ae8971c2). The live 320 lane (session "bugfix 284") was messaged directly and
+owns execution. Also measured and passed on: aeccfc595 is NOT an ancestor of
+v1.0.1314, so their hold's release precondition is still unmet.
