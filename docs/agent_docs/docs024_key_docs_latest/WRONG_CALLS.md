@@ -37080,3 +37080,38 @@ zero-result search has no way to report *what it searched*. **Before believing a
 the search state the corpus it covered** — `grep -rn … <abs-path> --include=*.go -l | wc -l` on a
 pattern you KNOW is present is a one-line positive control, and it is the same discipline the
 estate already requires of detectors ("a post-fix zero needs a demand control").
+
+## 2026-08-18 — re-scoped a fix candidate as "the working candidate" that the estate had ALREADY decided against, with reasons, in the guard built to record exactly that
+
+**Lane:** `finetuning_uk_service` (`bugs_open/302` scoping update).
+
+**The claim:** after reading the completion gate, I wrote that gate-2 artefact
+verifiers for the design-repair family were "now the working candidate" — "works
+regardless of result shape, which is the property 1b lacks."
+
+**What was true:** `discovery_checks/verifier_coverage_test.go`'s
+`itemTypesWithoutVerifiers` already classified every type in that family, with a
+stated reason each — browser-needed checks are a STANDING objection on the
+completion path; `needs_design_review`/`spacing_fix`/`responsive_fix` are
+`catJudgement` ("an LLM opinion; nothing to re-run"); and the producer split
+(4 producers, 1,296 rows for `needs_design_review`) makes a single verifier
+`bugs_closed/213`'s exact defect. The fixing thread's measurement pass also
+corrected two more of my figures (registry = 13 not 11; most "unreadable
+payloads" were `287`'s shape, fixed the same day).
+
+**Caught by:** the thread that picked the bug up, within hours, by reading the
+coverage test before designing.
+
+**The cheap check that would have caught it:** `grep -rn "<item_type>"
+platform/orchestration/actions/discovery_checks/verifier_coverage_test.go` —
+the estate keeps a file whose whole purpose is "these gaps are decisions, not
+accidents"; I enumerated the REGISTRY (what exists) and never the COVERAGE TEST
+(what was decided not to exist). The memory `editing-one-file-is-not-knowing-the-
+package` names `*_coverage_test.go` specifically. The same session's landmine
+("a register status line outlives its truth") points the other way — here the
+record was CURRENT and I didn't read it.
+
+**Cost:** none in code — the bug was fixed correctly by someone else the same day,
+and the handoff I wrote was corrected before a fresh session could act on it.
+The exposure was a next session spending a council round on a candidate that
+owes "an argument against a specific recorded reason, not a fresh start".
