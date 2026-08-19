@@ -1586,3 +1586,60 @@ You also said you would take my suggestion on the third item, so the human-in-th
 step stays where I put it in the order: after the questions are right, and routed
 through the work-item queue that already has a working screen rather than the
 orchestration one that has never once been used.
+
+---
+
+## 2026-08-19 — delivery is now "two or three days", the two threads are one, and the chat box is live
+
+**Delivery.** The register now says two or three days, and I checked it where it
+actually matters rather than in the database: I asked the live bot "how quickly will
+my site be ready?" and it answered *"Usually two or three days from when we have
+everything we need from you"*, then went on to ask what the site is for. That second
+part is the new prompt-maker doing its job in the same breath.
+
+One small judgement I made for you. The register stores both a sentence and a
+number, and the number is what the system is allowed to print in a big "3 days"
+style figure on a page. "2 or 3" cannot be one number, so I set it to **3** — the
+end that cannot over-promise. If it ever renders as a bare figure it will say three
+days, which is inside what you said. The sentence itself keeps your wording.
+
+Four pages were still telling customers "next day", so they now contradicted the
+bot. Those rebuilds are queued and running as I write.
+
+**The threads are merged.** There is one cold-start document now, covering both the
+website business and the delivery machinery, and the two old ones point at it. Each
+side keeps its own working notes. Before writing it I went and checked what had
+actually changed underneath rather than copying the old text forward — 331 commits
+had landed overnight — and one thing was worth the check: the home page had been
+rewritten since yesterday and is now right. Yesterday it called the post-payment
+link a "preview" five times and contradicted itself; today the only time it says
+preview is to tell the truth, *"you pay before the site is built, so there is no
+preview to look at first."*
+
+**The chat box.** The prompt-maker is live on the box, and the deploy is now a
+proper command (`make box-release`) rather than a recipe in a document — which is
+what caused the confusion about your release in the first place.
+
+While setting that up I found something worth telling you, because it means an
+old instruction of ours was wrong. The way we checked "is the right code live on
+that machine" was to compare a fingerprint of the file. I tested that properly for
+once, by rebuilding the exact version that was already running — and got a
+*different* fingerprint from identical source. So that check could never have
+answered the question we were asking it; it only tells you the file you just copied
+arrived intact. The binary now states its own version when it starts, so we can
+simply ask it. I corrected the instruction where it was written down.
+
+**Left alone as you asked:** the redirect from webdesign.uk to webdesign.co.uk
+stays. It is recorded as your decision so nobody "fixes" it later.
+
+**Still waiting on you**, and this is the thing standing between us and first
+revenue: Stripe keys, the Stripe webhook exception, and the second Nominet tag.
+Phase 4 — the handover email that sends the customer their files and links — is the
+next build and cannot finish without them.
+
+**One honest flag I have raised before and want to keep in front of you:** the bot
+currently promises customers a ZIP "to keep" and a live link for "about a month".
+The ZIP link we generate actually expires after 7 days, and I could not find any
+mechanism that keeps a site served for a month. Either Phase 4 builds those, or the
+wording needs to change. Right now we are promising two things the machinery does
+not yet do.
