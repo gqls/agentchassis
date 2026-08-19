@@ -37133,3 +37133,90 @@ binaries") and I published it unmeasured. Same session, same recipe, second inst
 (yesterday's was the false-miss commit-sha probe): a verification recipe is CODE that ships to
 other sessions, and it deserves the same negative-control discipline as the check it teaches.
 Replacement: a high-entropy sha in no repo. Recorded in the recipe itself and the LANDMINES entry.
+
+## 2026-08-19 — bug 311's fix candidate 2 ranked a remedy the resolution order makes useless-to-harmful (bugfix 311 lane, correcting the 08-18 filing)
+
+**The wrong call:** `bugs_open/311` (filed 2026-08-18, 090 CONFIRMED) stated the incumbent
+components are unreusable BECAUSE the selector keys on `section_type` and they carry NULL —
+and ranked "backfill `section_type` / make the keys agree" as fix candidate 2. Read
+end-to-end, `plan_sections` Path 1 already matches by `function` BEFORE the selector; the
+incumbents are found there and then dropped by `sectionTemplateValid` (hand-seeded
+tool-shaped templates, no `</section>`). So the backfill is a no-op for valid rows and
+actively harmful for the guard-dropped ones: the selector would offer what the loader then
+refuses, converting a self-healing `not_found` (raises a work item) into a silent
+`selector_error` → "pass the section to the content writer as-is". The 090 that CONFIRMED
+the file verified the deadlock (real) and the column mismatch (real) — it was never asked
+whether the ranked remedy would work.
+
+**What caught it:** the fix lane reading the caller's full resolution chain before
+implementing, plus the artefact that was already in the queue — work item `3d775f99`'s
+defer message names the template guard on the exact incumbent id, filed three days before
+the bug.
+
+**The cheap check that would have:** before ranking a fix that changes what a LOOKUP
+returns, enumerate every lookup the caller tries, in order — "the selector misses" is only
+a root cause if the selector is the first resolver, and here it is the THIRD (stored id,
+then name/function, then selector). One grep for the caller of `SelectComponentByType`
+reaches `resolveSectionComponent`'s "didn't match any function directly" comment, which
+says it outright.
+
+**Cost:** none shipped — caught before implementation. The exposure: a migration
+backfilling 26 rows that would have made three of them fail QUIETER, on a bug whose whole
+point is that it already fails too quietly.
+
+## 2026-08-19 — "the refusal fired correctly on all 25 during the batch": the batch never contained the 25 (283 judged-pipeline PLAN)
+
+**The wrong call:** my design doc (`PLAN_2026-08-18_judged_pipeline.md` §2) grounded the
+router choice on "`apply_fix`'s needs_script_scoping refusal fired correctly on all 25 during
+the batch". The batch was seeded from the ELIGIBLE mechanical pool; the 25 judged rows were
+never in it. The refusal had fired on exactly zero of them in production — the classification
+came from `cmd/instanceaudit`, a different code path. Stated in the confident voice, no
+marker, in a doc built around a table of verified facts — the unverified line inherited the
+table's credibility.
+
+**What caught it:** the build session, reading the canary's real script bytes and tracing what
+the converter would actually do to them — which also surfaced `bugs_open/324` (the batch wrote
+32 templates with dangling bindings while every check read green).
+
+**The cheap check that would have:** the claim names a COUNT of production events — query it
+(`SELECT count(*) FROM site_work_items WHERE item_type='instance_scope_conversion' AND
+result->>'action'='needs_script_scoping'` → 0). A sentence of the form "X happened N times"
+that arrives without its query is the same shape as a `[MEASURED]` figure without a
+measurement; the tally here keeps saying: type the query or type `[ASSUMED]`.
+
+---
+
+## 2026-08-19 — a fleet census built on a top-level `jsonb_each` while the check I needed sat in LANDMINES three times (staged_component_build / RFC_029 gate)
+
+**The claim.** "Fleet prompt sweep over all live definitions: the page-ish trio has zero
+undeclared consumers" — the entire safety argument for gating `ensureCoreFields`, submitted to
+the council as measurement.
+
+**What was actually true.** The sweep enumerated `jsonb_each(default_config->'workflow'->'steps')`
+— top level only. Sub-workflow-nested steps were invisible, and most steps that matter live
+there. The blind spot had hidden a DECLARED consumer (`generate_content` — the very step I had
+traced by hand two hours earlier, which should have collided with my own census and didn't,
+and I did not notice the absence) and one more undeclared `domain` consumer. The conclusion
+happened to survive re-measurement; the evidence did not.
+
+**What caught it.** The council's guardian seat, HIGH severity, round 1 — citing this exact
+census class and its ~80 missed invocations elsewhere in the estate.
+
+**The cheap check that would have.** `grep -n "sub_workflow" LANDMINES.md` — **three existing
+entries** carry the remedy verbatim, including the compact form
+`LATERAL jsonb_path_query(ad.default_config,'$.**.steps')`, and one says in terms "do NOT
+trust a top-level jsonb_each". My failure was not a missing entry; it was building a census on
+a table without grepping LANDMINES for the table first (MEMORY: grep LANDMINES for the SYMBOL
+you are about to trust — the SessionStart hook only matches DIRTY files, and `agent_definitions`
+is never a dirty file).
+
+> **A census over a tree-shaped table is wrong by default until the query provably visits
+> every level — and this estate has already written that down more times than I looked.**
+
+**Tally note:** this check now appears three times in LANDMINES and once here as a miss. Per
+this file's own rule, a check that keeps appearing is a candidate for automation — a
+`pattern-check.py` rule flagging `jsonb_each(.*->'workflow'->'steps')` in committed SQL/docs
+without an accompanying `jsonb_path_query` would have caught this at commit time.
+
+**Cost:** one council round (REVISE) and the re-measurement. The second traced consumer was
+found before anything shipped.
