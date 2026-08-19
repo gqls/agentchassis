@@ -149,11 +149,15 @@ func TestStripToEmptyOnlyFromAlreadyEmptyInput(t *testing.T) {
 		"# ", "## \n### ", "# \n", "**x**", "`1`", "[a](https://e.com)",
 		"![alt](https://e.com/i.png)", "![](https://e.com/i.png)", "# **Bold**",
 		"## `code`", "**`x`**", "# ![alt](https://e.com/i.png)", "---", "   ",
+		"#  x", "# \n# y", "**a** ", " `b` ", "#   ",
 	}
 	for _, in := range inputs {
 		got, _ := StripLiteralMarkdown(in, true)
-		if got == "" && hasAlnum(in) {
-			t.Errorf("StripLiteralMarkdown(%q) emptied a value that had visible text", in)
+		// Whitespace-only counts as empty (council 060bcc0a r6, bug_historian):
+		// a heading strip leaves the rest of the line, so the only way to reach
+		// "" or "   " is from an input with nothing but markers and spaces.
+		if strings.TrimSpace(got) == "" && hasAlnum(in) {
+			t.Errorf("StripLiteralMarkdown(%q) emptied a value that had visible text (got %q)", in, got)
 		}
 		if got != "" && !hasAlnum(got) && hasAlnum(in) {
 			t.Errorf("StripLiteralMarkdown(%q) = %q lost every letter/digit", in, got)

@@ -397,3 +397,23 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   it lands, whatever it says — the correlation is already approved by the first.
 - `f6d632291` carries `Council-Submitted:`; 098 credits it at report time. NOT amending.
 - SUMMARY_2026-08-19 written (the close + the approved follow-up is the inflection).
+
+## 2026-08-19 ~21:35Z — duplicate run `cf86d0db…` also APPROVED (14 reviewers, 3 abstained, 3 advisory, none high); one advisory taken into the test
+
+- Same payload, independent panel draw, same outcome — a small, unplanned measurement of
+  the gate's consistency on this submission (n=2; says nothing about the gate in general).
+- New and useful: bug_historian MEDIUM — the strip-to-empty property test checked `== ""`
+  but not whitespace-only output. The property is the same (every pattern keeps alnum; the
+  heading strip removes only its prefix, so the line's text stays), so the assertion is now
+  `strings.TrimSpace(got) == ""` with five more inputs (`"#  x"`, `"# \n# y"`, `"**a** "`,
+  `" `b` "`, `"#   "`) — passes. Committed below.
+- debug_historian MEDIUM — "2 of ~41 pods": MEASURED: the chassis image runs in **93 pods**
+  (94 incl. one more at the instant of counting), `-l app=agent-chassis` = 2. All on ONE
+  tag (v1.0.1316), which is what makes a two-pod probe valid; the RUNBOOK step now asserts
+  the tag count first and probes per tag. Probed v1.0.1316: r6 literal ABSENT, r5 literal
+  PRESENT, both controls correct — 1316 is the 315 lane's build, cut before `f6d632291`.
+  So round 6 is still inert, as recorded.
+- editquality LOW ×2: `operation` said `add` for two test edits that modify existing files
+  — fair; cosmetic, noted for the next submission.
+- The remaining advisories repeat run 1's (stale edit-3 hunk, prose-not-SQL, precedent
+  not code-verified by the seat) — all answered in the previous section and the RUNBOOK.

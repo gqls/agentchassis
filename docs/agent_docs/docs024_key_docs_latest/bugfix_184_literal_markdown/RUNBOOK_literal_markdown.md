@@ -135,19 +135,24 @@ SELECT type, jsonb_path_query_array(default_config, '$.**.strip_literal_markdown
 
 ## After the roll that carries round 6 (`f6d632291`): the kill switch, and probing EVERY pod
 
-1. The r6 code is INERT until a roll. Prove it shipped at the binary, on EVERY
-   agent-chassis pod — not two replicas (debug_historian, council r5). The
-   kill-switch env NAME is the literal to probe, with both controls in the same breath:
+1. The r6 code is INERT until a roll. Prove it shipped at the binary — and measure the
+   POPULATION first (council r6 `debug_historian`): the chassis IMAGE runs in ~93 pods
+   across many labels (council-gate, spawned agents…), while `-l app=agent-chassis` shows
+   2. Probing two pods is fine ONLY if every pod is on one tag, so assert that, then probe
+   one pod per distinct tag with both controls in the same breath:
    ```bash
-   for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
-     printf '%s ' "$p"
-     kubectl -n ai-persona-system exec ${p#pod/} -- sh -c \
-       'grep -aq DISABLE_NEWS_MARKDOWN_STRIP /proc/1/exe && printf PRESENT || printf absent; printf " | ctrl+:"; grep -aq DISABLE_UNREGISTERED_HANDLER_DEMOTION /proc/1/exe && printf ok || printf FAIL; printf " ctrl-:"; grep -aq ZZ_NOT_A_REAL_SYMBOL_QQ /proc/1/exe && printf FAIL || echo ok'
-   done
+   kubectl -n ai-persona-system get pods -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}' \
+     | grep agent-chassis | sort | uniq -c          # want ONE line; two = a straddled roll, probe each
+   pod=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+   kubectl -n ai-persona-system exec ${pod#pod/} -- sh -c \
+     'printf "r6: "; grep -aq DISABLE_NEWS_MARKDOWN_STRIP /proc/1/exe && echo PRESENT || echo absent; \
+      printf "ctrl+: "; grep -aq DISABLE_UNREGISTERED_HANDLER_DEMOTION /proc/1/exe && echo ok || echo FAIL; \
+      printf "ctrl-: "; grep -aq ZZ_NOT_A_REAL_SYMBOL_QQ /proc/1/exe && echo FAIL || echo ok'
    ```
-   Gotcha: the positive control (`DISABLE_UNREGISTERED_HANDLER_DEMOTION`) is a literal
-   that has been in the binary since before v1.0.1300, so a pod where it is absent is a
-   pod whose `/proc/1/exe` you are not reading, not a pod missing the feature.
+   Measured 2026-08-19 21:30Z on v1.0.1316 (94 pods, one tag): r6 **absent**, ctrl+ ok,
+   ctrl- ok, r5 literal present — i.e. 1316 carries f3939f27d, not f6d632291. Gotcha: the
+   positive control has been in the binary since before v1.0.1300; a pod where it is
+   absent is a pod whose `/proc/1/exe` you are not reading, not one missing the feature.
 2. **Disarming the news strip without a roll** (only if a feed shape ever needs raw
    markdown displayed — none known): set `DISABLE_NEWS_MARKDOWN_STRIP=1` in the
    agent-chassis deployment env (overlay patch + `apply -k`, or `kubectl set env` —
