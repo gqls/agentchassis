@@ -214,3 +214,38 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
 - Cross-session: 083/277 lane's two messages folded in (their by-construction owned-page
   analysis was right; their canary ask ran); 8d lane confirmed 473/474 independently and
   contributed the shallow-jsonb query gotcha (now in RUNBOOK). All replies sent.
+
+## 2026-08-19 ~13:00Z — CHECKPOINT (session ending): round 5 = REVISE (real objections, unanswered yet); new pair is promoter-HELD until first completion
+
+- **Round 5 REVISE, gating = editquality**: (1) HIGH — the v3 merge_with strip is
+  single-gated (flag only) while the rationale claimed "same double gate"; genuine
+  sketch-vs-claim mismatch to resolve — either add a reason-equivalent gate at that seam
+  or state plainly why the writer path is flag-only by design (there is no spec.reason
+  at generation time — likely the honest answer, but it must be SAID, and guardian's
+  no-kill-switch HIGH on the unconditional projectNewsItems strip needs weighing too:
+  options are (a) defend producer-local with the directory_items precedent VERIFIED in
+  code (reuse seat says the precedent claim is asserted, not checked — it escapes HTML,
+  it does NOT strip markdown, so the precedent is posture-similar not behaviour-identical
+  — concede precisely), or (b) put the news strip behind a config/env kill switch.
+  (2) bug_historian MEDIUM: feed_triage + render_rss_feed still consume the dirty
+  source — enumerate/disposition, don't leave implied. (3) editquality MEDIUM: check
+  whether newsTopicalTokens/dedup reads pre- or post-strip titles (my strip happens in
+  projectNewsItems AFTER capNewsItemsPerTool/topical — verify order in code). (4) MEDIUM:
+  plan.ResolvedData aliasing — planSection returns a fresh local map per section
+  (b6e374fc2 doc_notes correction says exactly this) — cite it. (5) render_guardian LOW:
+  confirm strip-to-empty can't slip past the escalation check (letter-guards keep ≥1 char
+  of text — but verify the bare-image-markdown case). **NONE of these are applied-config
+  risks — 473/474 stay correctly applied; the REVISE concerns f3939f27d's code, which is
+  INERT until the next roll, so there is time to fix before it ships.**
+- **f3939f27d's premature Council-Reviewed trailer now definitely mismatches** (r5 came
+  back REVISE) — the WRONG_CALLS entry stands; fix forward in the round-6 commit.
+- **083 lane's post-apply notice (load-bearing for rollout)**: the NEW pair
+  `(literal_markdown, page-rerender)` is **held by the promoter's known_good gate**
+  (0 lifetime completes; 0/3 post-apply). In ~3 days `held-pair-canary-escalation` will
+  escalate it to needs_human_review — that is THEIR mechanism working, not our fix
+  failing. **The unblock = one successful hand-canary after the next roll** — already
+  RUNBOOK step; now it also releases the promoter queue. General landmine (theirs):
+  re-routing an item_type mints a history-less pair the promoter holds by default.
+- Their canary-model updates recorded: an owned-page item can terminally fail WITHOUT
+  touching the ownership guard (verifier blocks first on ported-slot rendered_html);
+  and no verifier-registered type can false-green via "completed having written nothing".
