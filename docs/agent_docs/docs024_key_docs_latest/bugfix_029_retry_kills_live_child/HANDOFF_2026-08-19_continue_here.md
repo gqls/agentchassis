@@ -62,8 +62,15 @@ list, and it worked.
   from" **plus** "tables a diagnosis cannot avoid addressing"); its own assertion added to
   `TestSchemaAlwaysTablesIsDeterministic` because the coverage test **cannot see why this entry
   belongs** and would stay green if someone deleted it as unused. **Proven able to fail by mutation.**
-- **Council: `Council-Submitted: e03f7122-7895-4b81-8add-5a93f69ed553`. VERDICT UNREAD — read it.**
-  `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
+- **Council: APPROVED at ROUND 1, all reviewers approve, ZERO objections** (corr
+  `e03f7122-7895-4b81-8add-5a93f69ed553`, **verdict READ 2026-08-19 ~16:2xZ**). The commit carries
+  `Council-Submitted:` and **098 credits it automatically now the correlation is approved — no amend
+  is needed and forward-only forbids one.** Do NOT hand-write `Council-Reviewed:` on a later commit
+  to "tidy this up"; the join is already exact.
+  ⚠ **Resolve the verdict BY CORRELATION, never by recency** — `ORDER BY created_at DESC LIMIT 1`
+  on `doc_notes` returned a *different lane's* APPROVED note (corr `f0e95e58`, a status-vocabulary
+  change) and I nearly recorded it as mine. Use
+  `... WHERE categories ? 'council-gate' AND body LIKE '%<your corr>%'`.
 - **Go, so INERT until the next chassis roll.** Verify after the roll at the build stamp, then by
   re-filing the 090 and checking its bundle actually describes the table.
 
@@ -199,8 +206,13 @@ quiet.**
    `EXECUTING_STEP` at 4h — the same threshold — so reaped-only evidence is **a lower bound on a
    population nobody can enumerate**. Nothing further is owed here; read the notes when a burst
    happens.
-3. **Read two verdicts that are outstanding**: the council on `e03f7122` (the bundle fix), and — if
-   anyone re-files — the 090.
+3. ~~**Read two verdicts that are outstanding**~~ — **the council one is READ and APPROVED (round 1,
+   no objections).** Still outstanding: the 090's, if anyone re-files after the roll.
+3b. **Widen the include to `workflow%` — the class is NOT closed.** `flow%` is a PREFIX pattern and
+   never matched `workflow%`; another lane's run `dd61df1b` stalled on exactly
+   `workflow_templates`, `workflow_contract_chain`, `v_active_workflows`, `v_all_workflows` the same
+   morning, and my one-table fix does nothing for it. Evidence and the reasoning: NOTES §9, 016b §9.
+   Deliberately kept out of the approved round rather than folded in under a running review.
 4. **Fix the step-name-keyed arrival check** in `persistAwaitingStateWithRetry` (NOTES §6). Verified
    at source, unshipped, should key on request id. Real on its own terms; `[UNVERIFIED]` as this
    bug's cause and it does **not** fit as the first failure. Council gate applies.
