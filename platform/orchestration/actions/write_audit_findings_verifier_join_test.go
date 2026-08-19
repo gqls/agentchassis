@@ -194,12 +194,12 @@ func TestOnlyTheOptedInVerifierCarriesAScopeTest(t *testing.T) {
 // naming what consumes it; a type that appears in the action but not here is
 // exactly the unrouteable shape this guards against.
 var classifyEmittableItemTypes = map[string]string{
-	"needs_design_review":    "webdesign-agent (designRouting)",
-	"spacing_fix":            "component-template-fixer (designRouting)",
-	"header_footer_fix":      "site-component-linker (designRouting)",
-	"dark_section_audit":     "color-variable-fixer (designRouting; own type per bugs_open/213)",
-	"responsive_fix":         "component-template-fixer (designRouting)",
-	"needs_spec_update":      "spec-updater (Rule 2)",
+	"needs_design_review": "webdesign-agent (designRouting)",
+	"spacing_fix":         "component-template-fixer (designRouting)",
+	"header_footer_fix":   "site-component-linker (designRouting)",
+	"dark_section_audit":  "color-variable-fixer (designRouting; own type per bugs_open/213)",
+	"responsive_fix":      "component-template-fixer (designRouting)",
+	"needs_spec_update":   "spec-updater (Rule 2)",
 	// cta_improvement / nav_restructure were emitted here (Rule 3 →
 	// component-template-fixer) until 2026-08-19; that handler refuses both by
 	// design and nothing read the refusal (bugs_open/323). Rule 3 now files
