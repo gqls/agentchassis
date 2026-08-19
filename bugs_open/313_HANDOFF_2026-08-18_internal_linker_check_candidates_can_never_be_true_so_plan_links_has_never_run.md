@@ -23,8 +23,11 @@
 >   `check_candidates` opts in via the same migration as a re-drift tripwire. Go halves ride the
 >   next chassis build after commit `5315c8a19` (v1.0.1315 predates it). Fix candidate 4
 >   (resolveFieldValue synthesis) deliberately NOT done, per this file's own warning.
-> - **Council:** `Council-Submitted: aef24a7f-2992-4d4f-a6e0-422cd77fcca3` (admitted in scope via
->   the platform/ files — cf. `bugs_open/314`).
+> - **Council: APPROVED, round 2, all reviewers** (corr `aef24a7f-2992-4d4f-a6e0-422cd77fcca3`,
+>   verdict read 2026-08-19). Round 1 REVISE caught two real things — recorded in the lane NOTES
+>   and WRONG_CALLS. **The second instance is already FIXED by its owner** (the 320 lane repaired
+>   the backfiller and adopted the tripwire the same afternoon), so the fleet audit now reads
+>   **CLEAN: 193 agents, 147 conditionals, 0 findings**.
 > - **Residual, named:** `create_rewrite_item` files items under `item_key_prefix: internal_link`
 >   with no suffix field, so until the `bugs_open/321` lane's disjoint config fix applies, an
 >   N-link plan yields ONE `content_rewrite` item (up to ~2/3 of output dropped). Confirmed

@@ -5,7 +5,7 @@
 > **Fixed by the `bugfix_313_internal_linker` lane**, in this file's own required order (313's
 > branch first — same transaction, so neither could land alone). Migration
 > `490_internal_linker_candidates_object_uncapped_fail_loud.sql`, applied 2026-08-19, recorded in
-> `schema_migrations`.
+> `schema_migrations`. Council: **APPROVED round 2** (corr `aef24a7f`, with 313's change set).
 >
 > - **Fix candidate 2 as prescribed, the 275-approved shape:** `LIMIT 15` dropped; the payload is
 >   bounded instead of the coverage — `content_sample` stays `LEFT(…, 800)` and the cut is now

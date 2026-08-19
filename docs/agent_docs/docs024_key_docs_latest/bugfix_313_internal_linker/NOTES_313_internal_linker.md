@@ -170,3 +170,31 @@ was a durable claim in a commit/bug file, a WRONG_CALLS.md row.
   Note for the reader: the reviewers' round-1 checks read back the POST-apply state because 490
   applied between submission and review — the estate's review-after-the-fact norm, stated in the
   round-2 header.
+
+## 2026-08-19 (close of day) — APPROVED, and the fleet goes clean
+
+- **Council round 2: APPROVED, all reviewers** (report read in full). Advisories, each closed:
+  - tooling_provenance (medium): "register entries claimed same-commit but not a plan edit" —
+    the entries DID land in commit `5315c8a19` (`git show --stat`: workflow-authoring.md +21,
+    000_concept_index.md +2); the plan under-declared them to stay within 8 code edits. Delivery
+    verified, on record here.
+  - guardian: "confirm no other live step already carries the key" — ran the nested-aware census:
+    **2 carriers**, both intended: `internal-linker.check_candidates` (mine, via 490) and
+    `meta-description-backfiller.check_has_pages` — **the 320 lane acted on the contribution
+    within the hour**: fixed their producer to `object` AND adopted the tripwire.
+  - architecture: `evaluateStringConditionMode` is unexported (lowercase) — cannot become an
+    external contract; confirmed.
+  - debug_historian: the accepted snapshot-ordering gap stays visible at low severity — agreed,
+    it is recorded here and in the round-2 rationale.
+- **Fleet audit now CLEAN: 193 agents, 147 conditional steps, 0 findings, exit 0.** The class is
+  closed at config time fleet-wide, with both known instances repaired by their owning lanes.
+- Trailer state: earlier commits carry `Council-Submitted:` and are auto-credited by 098 now the
+  correlation is approved; commits from here may carry `Council-Reviewed: aef24a7f…` (verdict
+  READ and APPROVED — never before).
+- **SUMMARY written** (`SUMMARY_2026-08-19_313_internal_linker.md`) — the milestone is real:
+  approved + applied + fleet clean + second instance fixed by its owner, same day.
+- **The lane's single remaining gate: the artefact proof.** `llm_call_log` for the linker is
+  still 0 all-history; ~20 queued jobs, natural cadence a few runs/day. The verification is
+  RUNBOOK §"Verify the fix at the artefact". On its first pass: move 313 + 298 to `bugs_closed/`
+  (numbering preserved), close the lane. Post-next-roll checks for the Go halves live in
+  WFA-018/019 §verify-later.
