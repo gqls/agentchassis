@@ -39,11 +39,26 @@ Two gaps, both measured on the 100:
    attempts — a re-triaged item is immediately re-claimable, so during an outage the loop
    burns the whole budget against the same dead dependency in minutes. Retry-without-delay is
    equivalent to no retry for any outage longer than a few dispatch cycles.
-2. **12/100 died at `attempt_count = 1`** — some path writes `failed` without the CASE ladder
-   (candidates: `update_work_item_status` with an explicit `failed`, or
-   `complete_work_item_verification.go:381-385`'s own ladder at max already). `[UNVERIFIED]`
-   which path those 12 took — the first task for whoever picks this up
-   (`SELECT handled_by, item_type` on the cancelled rows narrows it in one query).
+2. **12/100 died at `attempt_count = 1`** — some path writes `failed` without the CASE ladder.
+   ~~`[UNVERIFIED]` which path~~ **VERIFIED 2026-08-19 (filing session): it is
+   `update_work_item_status`, and the class is FIVE live agents wide.** All 12 have
+   `handled_by` NULL — the tell the §third-gap contribution below established (`handled_by` is
+   written only by `fail_work_item`/`complete_work_item`), so neither ever touched them. The
+   item types map to their handlers' error steps exactly: `content_rewrite`/`needs_content_page`/
+   `needs_page` (10) → `page-build-handler.mark_item_failed`; `needs_imagery` (2) →
+   `image-build-handler.mark_work_item_failed`. Census via the nested walk
+   (`jsonb_path_query(default_config,'$.**.steps')` — a top-level `jsonb_each` undercounts;
+   LANDMINES): **five live agents carry an `update_work_item_status` step with
+   `status: 'failed'`** — page-build-handler, image-build-handler,
+   image-source-unsatisfiable-handler, image-url-404-handler, required-fields-missing-handler.
+   `update_work_item_status`'s UPDATE (`v3_site_actions.go:~5496`) sets `status=$2,
+   attempt_count=attempt_count+1` with **no CASE ladder and no terminal-status guard**
+   (`WHERE id = $1` alone) — **one failure is terminal on these paths regardless of
+   `max_attempts`=3, in fair weather as well as outages.** Consequence for the candidates in
+   §4: candidate 2 (backoff) as originally written only reaches items routed through
+   `fail_work_item`'s ladder; these five bypass any ladder, so the remedy must cover this
+   writer too or it repairs 88% of the incident and reads as repairing all of it — which §4.4
+   already demanded, and which this verification now makes concrete.
 3. The git-adapter error never enters `isAIUnavailable` — that classifier is string-matched on
    LLM connection/auth patterns, and this failure is a clean HTTP 404 from a healthy adapter
    faithfully reporting GitHub. Nothing anywhere classifies "shared infrastructure dependency
@@ -171,3 +186,25 @@ should not. That is one line and one comment, but it is a decision about what th
 guard, Fix A — this is the same defect class, one writer over) · **WII-019** (the change that
 made this observable) · council corr `725b1f01-f4b5-42fc-92b5-6de8fc0daa85`, whose `editquality`
 seat raised the objection that found it
+
+
+## §7 — 2026-08-19 (filing session): the verified 12-path plus the §third-gap contribution converge on ONE remedy shape
+
+Three defects in one seam are now individually evidenced:
+(a) `fail_work_item` retries with no delay — 88/100 burned all attempts inside one burst (§2.1);
+(b) five agents' `update_work_item_status(status='failed')` steps have no ladder at all —
+    one failure is terminal (§2.2, verified);
+(c) `FailWorkItemAction` has no terminal-status guard where its two sibling writers do
+    (§third-gap contribution) — and `update_work_item_status` has none either.
+
+Fixing them separately produces three council rounds and leaves the seam as it was: FOUR
+writers with FOUR different guarantees. The converged shape (design, not yet built): **one
+work-item terminal-write contract** — attempts honoured (ladder), terminal statuses never
+overwritten (guard), transient classification releasing without consuming attempts BUT with a
+not-claimable-before backoff (never count-free-forever; the §3 404 trap), and the burst
+detector of §4.1 as its transient signal. Owner ruling stands ("a terminal blip should return
+the item to queued"). Interaction warning inherited from the contribution: the owned-page
+`wont_fix` change (owner decision 1, shipped) makes any overwrite VISIBLE, so the guard half
+should land before or with anything that widens status vocabulary further. This is a coherent
+council-gated piece; whoever builds it should treat this section as the spec's skeleton and
+the two measured populations (88/100, 12/100 → five agents) as its regression fixtures.
