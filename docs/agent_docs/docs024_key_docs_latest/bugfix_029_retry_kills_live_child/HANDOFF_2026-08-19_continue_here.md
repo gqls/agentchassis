@@ -1,3 +1,7 @@
+> **⚠ SUPERSEDED 2026-08-19 evening by `HANDOFF_2026-08-19b_continue_here.md`.** Read that first.
+> This file is kept because it records, in place, the corrections that were made during the day —
+> most importantly the "the evidence has expired" error and its retraction. It is history, not state.
+
 # HANDOFF — 2026-08-19 — `bugs_open/029`, continue here
 
 Supersedes `HANDOFF_2026-08-18b_continue_here.md` (bannered), which supersedes `..._2026-08-18_...`.
