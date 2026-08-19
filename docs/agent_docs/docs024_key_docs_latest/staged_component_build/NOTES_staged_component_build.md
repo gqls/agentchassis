@@ -5051,3 +5051,53 @@ or the owner raises it — council reviews, diagnosis runs, page writers, everyt
 Anthropic. The 2026-09-01 date in the error is the API's stated reset. This lane's Go work is
 unaffected (it is code + tests, no LLM), and the roll of `846496906`/`f42e03720` does not need
 an LLM either — but the gate's review must complete before it is honest to call step 3 reviewed.
+
+## 2026-08-19 (~10:40Z) — the limit lifted after ~11 min; gate RESUBMITTED; and step 4's worked example is fully traced: it is a NAME COLLISION BETWEEN TWO TYPES, and the handoff's "save_page_sections" framing was the wrong producer
+
+**The outage:** Anthropic calls failed 10:24:53Z → succeeded again 10:35:55Z (the owner raised
+the limit; the API's own message had said 2026-09-01). ~11 minutes, fleet-wide. The gate was
+resubmitted at ~10:39Z with `RESUBMIT_CORR=07468ec0` — same correlation, new run `fa0aa5bc` —
+so the artifact trail accumulates in one place. Watcher armed.
+
+**Step 4, traced to the root (every claim read at code or live config this session):**
+
+The class-3 conflict (`page-content-writer` `current_page`, 177 rows/24 h, fires EVERY run) is
+not save_page_sections' fallback — its direct paths (`page_record.name` etc.) resolve, so its
+search rarely runs. The producer of the rows is **`generate_content`** (the section loop's
+`execute_llm_prompt`), which DECLARES `current_page` in `input_fields` because its prompt reads
+`{{.current_page.title}}` — it needs the page OBJECT. The search then finds, all at depth 1:
+
+    ~unwrap.current_page            = input_data.current_page   → the page OBJECT   (winner)
+    render_context.current_page     = "about"                    → a STRING
+    build_render_context.current_page = "about"                  → the same STRING
+
+The strings exist because `build_render_context` outputs a `RenderContext` struct whose field
+is `CurrentPage string` with JSON tag **`current_page`** (`component_library.go:79`) — it holds
+the page's NAME for nav-highlighting (`IsHomePage`, `extractNavItemsForHeader`). **Two
+different types share one key in one tree: the page record and the page's name.** Both are
+correct in their own pipeline; the conflict row is the collision made visible. The winner is
+correct (the object) and since step 2 it is PINNED by the declared tie-break — so class 3 is a
+**permanent false-positive population**: no risk, but it blocks step 5 for ever (refusal would
+strip `current_page` from generate_content in 100% of runs).
+
+**Fix at source = end the collision. Design for the next session** (step 4 stays gated on
+step 3's post-roll read per §10.13; documented now so it is buildable then):
+
+- **Rename the JSON tag** `current_page` → `current_page_name` on `RenderContext`
+  (`component_library.go:79`). The consumers of the STRING shape, enumerated this session:
+  1. `render_content_envelope_guard.go:241` — a fallback chain reading
+     `render_context.current_page`; ADD the new path, KEEP the old (old stored trees).
+  2. ONE active `content_components` template (`evidence-chart`: `{{- $page := .current_page -}}`)
+     — rendered in the render pipeline where the data map IS the RenderContext, so it must
+     move to `.current_page_name` in the same change (a config/content edit, live at once —
+     ORDER: template AFTER the binary rolls, or it reads an absent key; or make the template
+     tolerate both).
+  3. Go readers of the STRUCT field (`multipage_actions` etc.) — unaffected by a tag rename.
+- `[MEASURED]` template consumers: 1 of 251 active content_components; `[UNMEASURED]`
+  site_components/page chrome Go templates — sweep before building.
+- Alternative rejected for now: a type-aware search (only accept map-shaped `current_page`) —
+  it bakes schema knowledge into a shared resolver; wider blast radius than renaming one tag.
+
+**Correction to the handoff/§10.13 step-4 row:** the worked example named
+`save_page_sections`; the live producer is `generate_content`, and the "one rename at the
+producer" is the RenderContext JSON tag, not a save-path change. Corrected in the handoff.
