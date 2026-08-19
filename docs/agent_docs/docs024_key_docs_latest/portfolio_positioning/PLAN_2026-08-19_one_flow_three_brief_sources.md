@@ -63,9 +63,32 @@ affiliate-link-manager, which is not registered"*). At 2,000 auto-written compre
 that number will not stay at 42, and a queue of deferred gaps nobody reads is the same as no
 detection at all.
 
-**Recommendation:** the brief-writer picks from an explicit list of what the platform can build
-today, and anything outside it goes in a `wishlist` section of the brief that is *documented but
-not planned*. That keeps ambition visible without turning it into silent build failures.
+> **⚠ OWNER RULING 2026-08-19 — this section's recommendation is NARROWED, and the principle is
+> better than what it replaces.** *"I don't think that brief writer necessarily needs to know
+> what we can actually build though it would help I guess. It can be an aspirational brief.
+> **The spec is aspirational, the plan is achievable.**"*
+>
+> That is a cleaner separation than the one I proposed and it belongs in the architecture, not
+> just in this decision: **the brief says what the site SHOULD be; the plan says what we can
+> build today.** Constraining the brief to today's capabilities would bake a snapshot of the
+> platform into a document meant to outlive it — and would quietly delete the evidence of what
+> we are missing, which is the most useful thing a corpus of 1,500 briefs could give us.
+>
+> **So the gap moves from the brief to the PLANNER, and that is where it must be handled.** Two
+> consequences a builder must not skip:
+> 1. **The planner must degrade explicitly, not silently.** A brief asking for a games section
+>    should produce a plan without one *and a recorded reason*, not a plan that quietly omits it.
+>    `capability_gap` is the existing carrier and it already fires — **42 raised, 41 `deferred`**
+>    (measured 2026-08-19). A deferred queue nobody reads is the same as no detection at all, so
+>    the volume from 1,500 aspirational briefs makes triaging that queue a prerequisite, not a
+>    nicety.
+> 2. **The aspiration becomes the roadmap.** If 300 briefs ask for games and nothing can build
+>    one, that is the single best-evidenced feature request the estate could produce. It is only
+>    worth anything if the gaps are aggregated and read — otherwise the ambition is written down
+>    and thrown away.
+>
+> The wishlist idea below is therefore unnecessary: **the whole brief is the wishlist**, and the
+> plan is the achievable subset of it.
 
 ## 3. This merges with RFC_037 rather than competing with it
 
@@ -185,5 +208,7 @@ but it removes the worst failure mode while the rest is designed.
    scale past a few dozen.
 2. **Does a third-party brief get the same trust as an owner brief?** They arrive through the
    same door and the regulated-identity test is currently "the brief says so".
-3. **Games** has no mechanism. Is it wanted enough to build, or does it go on the wishlist?
+3. ~~**Games** has no mechanism…~~ **ANSWERED by the aspirational-spec ruling:** briefs may ask
+   for it, the planner degrades explicitly and records a `capability_gap`. The live question is
+   now *who reads the gap queue*, since 41 of 42 sit deferred.
 4. **Should the brief-writer read the register instead of / as well as the classifier?** (§3.)
