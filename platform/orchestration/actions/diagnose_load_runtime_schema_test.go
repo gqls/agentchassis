@@ -126,6 +126,19 @@ func TestSchemaAlwaysTablesIsDeterministic(t *testing.T) {
 	if !seen["orchestration_states"] {
 		t.Error("orchestration_states missing — this is the table run 074beb8a could not address")
 	}
+	// awaited_requests is in the list for a REASON THE DERIVATION CANNOT SEE: no
+	// SELECT in diagnose_load_runtime names it, so the coverage test above would
+	// stay green if someone removed it as apparently-unused. This assertion is the
+	// only thing standing between that deletion and a silent return to the bug.
+	//
+	// bugs_open/029: two 090 runs died because the bundle rendered no columns for
+	// it. It is the step-level twin of orchestration_states and outlives it by
+	// about six days (7-day retention vs ~26 hours), so it is frequently the only
+	// table that still holds a hang.
+	if !seen["awaited_requests"] {
+		t.Error("awaited_requests missing — two 090 runs on bugs_open/029 stalled because its columns " +
+			"were absent from the bundle; it is here deliberately despite no SELECT in that file naming it")
+	}
 }
 
 // TestInputSpecDefaultMatchesAlwaysTables proves the spec default is the SAME

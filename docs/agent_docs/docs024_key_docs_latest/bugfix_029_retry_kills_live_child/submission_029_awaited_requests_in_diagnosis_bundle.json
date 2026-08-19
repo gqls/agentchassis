@@ -1,0 +1,29 @@
+{
+  "submitter": "bugfix_029_retry_kills_live_child workstream",
+  "rationale": "Two 090 diagnosis runs on bugs_open/029 have now stalled at UNVERIFIABLE for the same avoidable reason: the diagnosis evidence bundle carries no schema for awaited_requests, so the loop cannot write a row query against the one table that holds the evidence. The second run (corr d8af5f78-98bd-46fa-85b0-2a6899617db8, 2026-08-19) said so in its own data_request: 'awaited_requests is not in the bundle's schema listing; its columns must be confirmed before a targeted row query can be written to check for the stuck spawn_handler awaited request.' It had already identified the right table and the right code path (its RuntimeSite reads 'build-dispatch-loop orchestration - awaited_requests / response-consumer goroutine'), so this is purely a harness gap, not a bad symptom.\n\nThis is run 074beb8a's failure one table over. That run died because orchestration_states was absent from the Schema section, guessed a column name, got SQLSTATE 42703 and stopped; the remedy was schemaAlwaysTables, and the fix worked. awaited_requests falls outside BOTH filters that populate the section: it does not match the relevance include (site%|page%|content%|flow%) and no SELECT in diagnose_load_runtime names it, which is the rule the always-list is derived from. So it is invisible by construction and will stay invisible until named.\n\nWhy this table specifically, rather than widening the include: awaited_requests is the step-level twin of orchestration_states, holding the per-request rows (retry_version, status, sent_at, timeout_at, processed_at, processing_started_at) that every orchestration-hang question is actually answered from. It also RETAINS SEVEN DAYS where orchestration_states retains about twenty-six hours - measured 2026-08-19 - so it is routinely the only table that still holds the incident. On bugs_open/029 the full 20-instance wedge population is reconstructible from it after orchestration_states has lost every row.\n\nThe change is one entry in a list plus one test assertion. It ships no new mechanism, no new key and no new authority: it makes an existing, already-reviewed mechanism (the always-list) cover one more table.",
+  "plan": {
+    "summary": "Add awaited_requests to schemaAlwaysTables in diagnose_load_runtime, so the diagnosis bundle's Schema section always describes its columns. State the widened derivation rule in the comment (the list is now 'tables this action renders rows from' PLUS 'tables a diagnosis cannot avoid addressing'), because no SELECT in that file names awaited_requests and a future reader would otherwise delete it as unused. Guard that deletion with its own assertion in TestSchemaAlwaysTablesIsDeterministic, mirroring the existing orchestration_states assertion which exists for exactly this reason.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/diagnose_load_runtime_action.go",
+        "symbol": "schemaAlwaysTables",
+        "operation": "modify",
+        "rationale": "One entry, sorted into place. The existing derivation test asserts only queried-implies-listed, so adding a table breaks nothing; the comment is amended in the same edit so the list's rule is not silently falsified by its own contents.",
+        "sketch": "var schemaAlwaysTables = []string{\n\t\"agent_definitions\",\n\t\"agent_error_log\",\n+\t\"awaited_requests\",\n\t\"code_symbols\",\n\t\"llm_call_log\",\n\t\"orchestration_states\",\n\t\"site_work_items\",\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/diagnose_load_runtime_schema_test.go",
+        "symbol": "TestSchemaAlwaysTablesIsDeterministic",
+        "operation": "modify",
+        "rationale": "The coverage test derives the list from SELECTs in the source and therefore CANNOT see why awaited_requests belongs; it would stay green if the entry were removed as apparently-unused. This assertion is the only thing preventing a silent regression, and it names the two 090 runs so the reason survives. Proven able to fail: removing the entry fails this test with the intended message; restoring it passes.",
+        "sketch": "if !seen[\"awaited_requests\"] {\n\tt.Error(\"awaited_requests missing - two 090 runs on bugs_open/029 stalled because its columns were absent from the bundle; it is here deliberately despite no SELECT in that file naming it\")\n}"
+      }
+    ],
+    "grounded_in": [
+      "090 run corr d8af5f78-98bd-46fa-85b0-2a6899617db8, DataRequests[0].why, 2026-08-19 \u2014 \"awaited_requests is not in the bundle's schema listing; its columns must be confirmed before a targeted row query can be written to check for the stuck spawn_handler awaited request.\"",
+      "platform/orchestration/actions/diagnose_load_runtime_action.go, schemaAlwaysTables doc comment (pre-existing) \u2014 \"the verdict was handed orchestration_states rows, could not see the table in the Schema section, guessed `WHERE id = ...` (the column is `orchestration_id`), got SQLSTATE 42703, and stopped at UNVERIFIABLE ... Two separate 090 runs on bugs_open/236 died that way.\"",
+      "same file, measured 2026-08-10 \u2014 \"the default include (site%|page%|content%|flow%) selected 26 of 433 public tables, and FIVE of the six tables below fell outside it\"",
+      "live DB, measured 2026-08-19 (bugs_open/029 lane) \u2014 \"orchestration_states retains only 2026-08-18 and 2026-08-19 rows (plus unpruned CANCELLED); awaited_requests spans 2026-08-12 to 2026-08-19, and the full 20-instance 08-17 wedge population is reconstructible from it after orchestration_states has lost every row.\""
+    ]
+  }
+}

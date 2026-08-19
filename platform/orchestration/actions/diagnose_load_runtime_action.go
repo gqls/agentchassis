@@ -772,9 +772,31 @@ var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%"}
 // three gather helpers). TestSchemaAlwaysTablesCoverTablesThisActionQueries
 // re-derives it from the source and fails when a new query adds a table nobody
 // added here — which is what stops this going stale the way the include did.
+//
+// WIDENED 2026-08-19 (bugs_open/029), and the rule is stated rather than left
+// implicit: the list is "tables this action renders rows from" PLUS "tables a
+// diagnosis cannot avoid addressing". The derivation test only requires
+// queried ⊆ always, so the second group breaks nothing — but a future reader
+// MUST NOT delete an entry merely because no SELECT here names it. Each such
+// entry carries its own assertion in TestSchemaAlwaysTablesIsDeterministic,
+// which is where the reason lives.
+//
+// awaited_requests is the second group's founding member. It is the step-level
+// twin of orchestration_states — it holds the per-request rows (retry_version,
+// status, sent_at, timeout_at, processed_at, processing_started_at) that any
+// orchestration-hang question is actually answered from, and it RETAINS SEVEN
+// DAYS where orchestration_states retains about twenty-six hours, so it is
+// routinely the ONLY table still holding the incident. It matched neither the
+// relevance include (site%|page%|content%|flow%) nor the queried-here rule, so
+// it was invisible: two 090 runs on bugs_open/029 died on it, the second
+// (corr d8af5f78, 2026-08-19) naming the gap in its own words — "awaited_requests
+// is not in the bundle's schema listing; its columns must be confirmed before a
+// targeted row query can be written". That is run 074beb8a's failure exactly,
+// one table over, and the fix is the same one that worked there.
 var schemaAlwaysTables = []string{
 	"agent_definitions",
 	"agent_error_log",
+	"awaited_requests",
 	"code_symbols",
 	"llm_call_log",
 	"orchestration_states",
