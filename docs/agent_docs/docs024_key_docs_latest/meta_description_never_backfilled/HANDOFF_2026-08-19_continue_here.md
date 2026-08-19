@@ -1,130 +1,110 @@
-# HANDOFF 2026-08-19 — meta descriptions (`bugs_open/320`): LIVE and PROVEN, with three things left
+# HANDOFF 2026-08-19 (final) — meta descriptions, `bugs_open/320`: DONE, and it unblocked `309`
 
 **Read this first if you are picking this up cold.** Everything below was verified at the
 artefact; where a claim is unproven it says so.
+
+> **Rewritten 21:10Z.** An earlier version of this file said "355 pages remain" in §1 while
+> a banner added later said 50. Two numbers for one fact in one document is the drift this
+> lane spent the day fixing elsewhere, so it was rewritten rather than patched.
 
 ---
 
 ## 1. The one-paragraph version
 
-`pages.meta_description` is the sentence Google prints under a page title, and on this
-estate it is also each blog card's excerpt. **407 of 731 live pages had none.** Two live
-mechanisms caused it: the planner was never asked for one, and an unguarded upsert clause
-blanked the ones that existed. Both are fixed and live. A backfiller now exists, is
-proven, and has filled 26 pages so far. **355 pages remain empty because only two sites
-have been run.**
+`pages.meta_description` is the sentence a search engine prints under a page title, and on
+this estate it is also each blog card's excerpt. **407 of 731 live pages had none.** Two
+live mechanisms: the planner was never asked for one, and an unguarded upsert clause
+blanked the ones that existed. Both are fixed and live. A backfiller was built, proven, and
+run across the fleet: **50 of 737 pages are empty now (6.8%), and 43 of those have no
+content at all to describe.** The five pages that were blocking `bugs_open/309` were filled,
+the rerender was dispatched, and **309 is fixed and verified at the served page.**
 
-## 2. State, and how each was proven
+## 2. State, every line proven
 
 | thing | state | proof |
 |---|---|---|
-| Chassis | **`v1.0.1315`**, revision `590ca3a20cca…` | pod `imageID` **==** local `RepoDigests` (a real build, not a same-tag rebuild); all four commits ancestors; **control: `HEAD` correctly NOT an ancestor** |
+| Chassis | **`v1.0.1316`**, revision `07eeba4a1…` | pod `imageID` == local `RepoDigests` (a real build, not a cached same-tag rebuild); commits are ancestors; **control: `HEAD` correctly NOT an ancestor** |
 | M2 guard, **four** write paths | **LIVE** | `grep -rn 'meta_description = EXCLUDED' --include='*.go' . \| grep -v COALESCE` → 0 live sites |
-| M1 — planner asked (mig `485`) | **LIVE** since 08-19 | config, live on apply; chain verified: `write_site_plan_action.go:535` reads the exact key `485` adds |
-| `save_page_meta_description` (SEO-004) | **LIVE** | binary probe PRESENT, positive + negative controls both behaved |
-| Copy gates (owner's condition) | **LIVE, in the action** | 3 tests, mutations RUN: delete the gate call → 3 fail; make the unreadable branch pass → 1 fails |
-| `meta-description-backfiller` (mig `488` + `493`) | **LIVE and PROVEN** | 26 pages written; idempotence proven at row level |
-| Council | **APPROVED** round 2 | corr `46734ae9-91c5-47d6-9a8a-4cd1fa213d21`; round 1 REVISE found a real defect |
+| M1 — planner asked (mig `485`) | **LIVE** | chain verified: `write_site_plan_action.go:535` reads the exact key `485` adds, `:631` inserts it |
+| `save_page_meta_description` (SEO-004) | **LIVE** | binary probe PRESENT with positive **and** negative controls |
+| Copy gates (the owner's condition) | **LIVE, in the action** | 3 tests; mutations RUN: delete the gate call → 3 fail; make the unreadable branch pass → 1 fails |
+| `meta-description-backfiller` (`488` + `493`) | **LIVE, PROVEN, fleet-run** | ~571 pages written; idempotence proven at row level |
+| `fail_on_non_numeric` tripwire | **ARMED and PROVEN TO FIRE** | two identical workflows: with the flag → step **FAILED**, neither branch taken; without → `took_else` COMPLETED, i.e. the silent skip reproduced |
+| Council | **APPROVED** round 2 | corr `46734ae9-…`; round 1 REVISE found a real defect (I had guarded 1 of 4 paths) |
+| **`bugs_open/309`** | **FIXED** | 6 cards/0 anchors → **8 cards/16 anchors**, all 8 targets HTTP 200, shrink guard **passed untouched** |
 
-**Fleet: 407/731 empty → 381/736.**
+**Fleet: 407/731 empty (55.7%) → 50/737 (6.8%).** Mean description length **129** chars.
 
-## 3. WHAT TO DO NEXT, in order
+## 3. What is actually left
 
-> **UPDATED 2026-08-19 21:00Z — (a) is DONE and 309 is FIXED; (b) is essentially DONE.**
-> The fleet backfill ran: **407/731 empty → 50/737 (6.8%)**, ~571 pages filled, mean
-> description length **129** chars. Of the 50 left, **43 have ZERO components** and are a
-> floor, not a backlog — a page with no content cannot be described from its content, and
-> the alternative is invention. 7 are reachable and need one more pass.
-> **309's rerender was dispatched and WROTE**: 8 cards, 16 anchors, all 8 targets HTTP 200,
-> card 4 on the live sibling, archived guide unreferenced, shrink guard PASSED untouched.
-> See `bugs_open/309` §13 and `320` §12. What is left is §3(c) and the items in §4/§7 below.
-
-### (a) ~~Measure whether `bugs_open/309` is actually unblocked~~ — DONE, it is fixed
-All five pages blocking `309` now have descriptions. **That is not the same as `309` being
-fixed**, and the arithmetic says so:
-
-`309` §9 measured the old blog-listing slot at **2,478** chars of visible text, with a
-**50% shrink floor = 1,239**, and projected the rebuilt slot at ~**1,818** *assuming ~157
-chars per description*. `[MEASURED 2026-08-19]` **the descriptions came in at a mean of
-102 chars (range 65-177)**, well under the 120-155 the prompt asks for. So the projection
-is materially lower and the guard may still refuse.
-
-**The only way to know is to dispatch the rerender** (envelope and the `check_rerender_mode`
-gotcha are in `bugs_open/309` §9 — the reason MUST be one it recognises, `template_changed`
-is what was used). Expected on success: 8 cards, 2 anchors each, archived guide absent.
-**Verify at the SERVED page**, never the stored HTML.
-
-If it still refuses, the honest options are to improve the prompt's length adherence (the
-cheap one) — **not** to lower `section_shrink_floor`, which is step config and therefore
-fleet-wide.
-
-### (b) Run the remaining sites
-```bash
-./scripts/backfill-meta-descriptions.sh <domain>      # one site, safe to re-run
-```
-Reads the LIVE agent config and sends it inline, so it cannot drift from the seeded row.
-`overwrite_existing` defaults false, so it fills blanks and never replaces copy — proven
-at row level (a repeat run touched only the still-blank page). Sites with the most empty
-pages: `webdesign.co.uk` (78), `loancalculator.co.uk` (43), `finetuning.uk` (32),
-`ai-agent-orchestration.com` (27), `loanandmortgagecalculator.co.uk` (26).
-
-⚠ **Check the artefact, not the status.** The first canary reported `COMPLETED` and wrote
-nothing.
-
-### (c) Consider the description length
-Mean 102 against a 120-155 ask. Harmless for SEO, load-bearing for (a). If (a) fails, this
-is the first lever.
+1. **7 reachable pages** need one more pass: `./scripts/backfill-meta-descriptions.sh <domain>`.
+   The workflow takes 25 pages per run, which is why large sites needed several.
+2. **43 pages have ZERO components.** This is a **floor, not a backlog** — a page with no
+   content cannot be described from its content, and the alternative is invention. They
+   need content before they need a description. Do not "fix" this by lowering the floor.
+3. **Nothing is scheduled.** The backfiller is hand-driven. Now that a fleet run has been
+   read and is good, putting it on a cron is a reasonable next step and a small one — but
+   it is a decision, not a leftover.
+4. **`bugs_open/313`'s wider sweep** — the 313 lane has built `audit-array-producer-conditions.sh`
+   (WFA-018) and reports it clean; nothing owed from here.
 
 ## 4. Traps this lane paid for — do not re-pay
 
 - **A `COMPLETED` orchestration that wrote nothing.** `output_format: "array"` returns a
   BARE ARRAY, so a gate reading `X.count > 0` resolves to nothing and silently routes to
-  else. `.count` exists only under `output_format: "object"`
+  else. `.count` exists **only** under `output_format: "object"`
   (`database_actions.go:129-145`). **This is `bugs_open/313`, and it arrived here because I
-  copied `internal-linker` — the agent 313 was filed against. Copying a live agent copies
-  its bugs.** ≥8 other live conditions share the shape; that sweep belongs to `313`.
+  modelled the workflow on `internal-linker` — the agent 313 was filed against. Copying a
+  live agent copies its bugs.**
 - **`check_voice_tells` cannot see this column.** It scans `page_components.rendered_html`;
   `pages.meta_description` is invisible to it and to every `rendered_html` census. Wiring
   it would have produced a confident pass over text it never examined. The reusable
   text-level entry points are `VoiceGate.ScanVoice([]string, longForm)` and
   `checkBannedClaims([]string, …)`.
-- **`content_sample` from raw markup is mostly CSS.** A model handed a stylesheet will
-  still write you a fluent, wrong sentence, and no copy gate catches that.
-- **`--record-only` REFUSES an uppercase-suffixed sidecar.** A file that is `_HOLD`,
-  hand-applied, and left named `_HOLD` ends up applied with **no ledger row**. Rename it
+- **`content_sample` built from raw markup is mostly CSS.** A model handed a stylesheet
+  still writes you a fluent, wrong sentence, and no copy gate catches that.
+- **`--record-only` REFUSES an uppercase-suffixed sidecar.** A `_HOLD` file that is
+  hand-applied and left named `_HOLD` ends up applied with **no ledger row**. Rename it
   back the moment the hold is satisfied.
 - **`display_name` and `category` on `agent_definitions` are NOT NULL with no default.**
-- **A wrong claim I propagated into four places:** the new guard does NOT "match
-  `nav_label`". `nav_label` is `COALESCE(NULLIF(pages.…,''), EXCLUDED.…)` — **existing
-  wins**; `meta_description` is the mirror image — **incoming wins unless blank**. Both
-  deliberate, deliberately different. **Do not unify them.**
+- **The guard does NOT "match `nav_label`" — it is the mirror image.** `nav_label` is
+  `COALESCE(NULLIF(pages.…,''), EXCLUDED.…)`, so the **existing** value wins;
+  `meta_description` lets the **incoming** value win unless blank. Both deliberate,
+  deliberately different. **Do not unify them.**
+- **`000` from curl is the client failing to ask, not a 404.** One card target read `000`
+  and was 200 on retry. Reading it as "missing" would have manufactured a defect.
 - **When two of your own measurements disagree, neither is evidence** until you can say
-  which is wrong and why (I got 1 vs 314 visible chars on the same unchanged page and
-  nearly filed the wrong one).
+  which is wrong and why (1 vs 314 visible chars on the same unchanged page).
+- **A `[MEASURED]` figure can be honest, dated and still unrepresentative.** I recorded mean
+  description length as 102 from a 26-page two-site sample and flagged it as a shortfall
+  bearing on 309's shrink guard. On the full population it is 129. **The marker says how a
+  figure was obtained, not how far it generalises.**
 
 ## 5. Where everything lives
 
-- `bugs_open/320` — the case; **§11 is the owner ruling**, §12 the live results.
-- `bugs_open/309` — blocked-on-this; its §10 carries my correction of its own explanation.
-- `bugs_open/313` — the `.count`/`output_format` class this lane tripped over.
+- `bugs_open/320` — the case; **§11 the owner ruling**, **§12 the live results**.
+- `bugs_open/309` — **§13 is the close**, verified at the served page. Its §10 carries my
+  correction of its own explanation of the blocker.
 - This directory: `PLAN`, `NOTES` (append-only, newest last — the missteps are the point),
-  `RUNBOOK`, `README_where_we_are` (owner's prose log), `SUMMARY_2026-08-19`, the two
+  `RUNBOOK`, `README_where_we_are` (the owner's prose log), `SUMMARY_2026-08-19`, both
   council submissions.
-- Migrations: `485` (planner), `488` (the agent), `493` (the canary fixes) — all applied
-  and ledger-recorded, each with a ROLLBACK sidecar.
-- Code: `save_page_meta_description_action.go` (+ two test files),
-  `site_db_actions.go`/`apply_adoption_plan_action.go`/`adopt_verbatim.go`/
-  `cmd/webdesignport/import.go` (the four guards).
-- Register **SEO-004** (`register/seo.md`) + its index row.
+- Migrations `485` (planner), `488` (the agent), `493` (the canary fixes) — applied,
+  ledger-recorded, each with a ROLLBACK sidecar.
+- Code: `save_page_meta_description_action.go` + two test files; the four guards in
+  `site_db_actions.go`, `apply_adoption_plan_action.go`, `adopt_verbatim.go`,
+  `cmd/webdesignport/import.go`.
+- Register **SEO-004** (`register/seo.md`) and its `000_concept_index.md` row.
 - `scripts/backfill-meta-descriptions.sh`.
 
 ## 6. The owner's standing instructions on this lane
 
 1. **Backfill authorised FLEET-WIDE, review pass WAIVED** (`320` §11, 2026-08-19).
 2. **Condition of that waiver:** the summaries go through the copy guidance and checks so
-   they don't sound like AI. Guidance is in the prompt; checks are in the action, before
-   the write, where a workflow author cannot forget them.
-3. **The framework writes the content, not a session** (2026-08-06). If a generator does
-   not exist, that is the finding to report — it is why this lane exists.
-4. **`309`: wait for the writer/replan** — no regeneration of the five articles, no
-   shrink-floor change.
+   they don't sound like AI. Guidance is in the prompt (v3's rules 1-6 — the ones that
+   govern a single sentence; 7-13 are about tables and paragraph rhythm and would have
+   invited a table into a 155-character field). Checks are in the **action**, before the
+   write, where a workflow author cannot forget to wire them.
+3. **The framework writes the content, not a session** (2026-08-06). If a generator does not
+   exist, that is the finding to report — which is why this lane exists at all.
+4. **`309`: wait for the writer/replan** — honoured. The writer ran, then the rerender.
+   No article was regenerated and `section_shrink_floor` was never touched.

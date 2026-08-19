@@ -203,3 +203,48 @@ out is to trigger the rebuild and look, which is the next step rather than a gue
 Fleet-wide we have gone from 407 pages with no description to 381. That is only two sites
 done. The rest is one command per site, and the biggest are webdesign.co.uk with 78 and
 loancalculator.co.uk with 43.
+
+---
+
+## 2026-08-19, late — it is done, and your Platform Log page works
+
+The backfill has run across the whole estate. **We have gone from 407 pages with no
+description to 50** — and 43 of those 50 have no content on them at all, so there is
+nothing to describe. A page with nothing on it does not need a sentence invented about it,
+and the system correctly declines rather than making one up. Seven pages need one more
+pass. In practical terms it is finished.
+
+The writing came out well. Average length is about 129 characters, which is right in the
+band search engines display, and it reads like a person: *"Compare LLM costs across
+providers for your expected usage and workload."*
+
+**And your Platform Log index is fixed.** That was the job I was originally handed, three
+steps back. Once the five articles had descriptions I triggered the rebuild, and this time
+the safety guard let it through rather than refusing it. **The page now shows eight
+articles instead of six, and every one of them is clickable.** I checked all eight links
+myself and they all work. The card that used to point at a retired article now points at
+the version that is actually live.
+
+I want to be clear about one thing: **I did not touch the safety guard.** It refused the
+change last time for a good reason, and the fix was to give it something worth accepting,
+not to lower the bar. It passed on its own terms.
+
+### Two things worth telling you, because both were nearly mistakes
+
+Earlier today I told you the descriptions were coming out short — about 102 characters
+against a target of 120 to 155 — and flagged that as a risk to this page. **That was
+measured from only 26 pages on two sites, and on the full run it is 129, comfortably in
+range.** The number was honestly taken and honestly labelled and it was still too small a
+sample to lean on. I have corrected it in the record rather than quietly letting the better
+number replace it.
+
+And when I checked the eight links, one came back with a failure code that looks like a
+missing page. It was not: it was my own connection failing to complete, and the page is
+fine. Had I written that down without retrying, I would have reported a broken link that
+does not exist.
+
+### What is left
+
+Seven pages, one more command. Then a decision for you rather than a task for me: whether
+to put this on a schedule so new pages get descriptions automatically, now that a full run
+has been produced and read.
