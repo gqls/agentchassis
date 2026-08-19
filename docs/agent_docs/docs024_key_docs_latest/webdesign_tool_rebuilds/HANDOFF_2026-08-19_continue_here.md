@@ -60,9 +60,58 @@ and it costs ~2 minutes per tool. That has become the lane's main product.
   on three pages, including two that were serving correctly). One page was skipped by four completed
   rerenders and published itself ~6 h later.
 
+## THE PATH TO 63/63 (owner ruling 2026-08-19: framework ownership of ALL 63 tools)
+
+**The audit question is settled and it is NOT extra work.** Reading the live script is step 1 of every
+rebuild, so rebuilding all 55 audits all 55 by construction. A separate audit pass would duplicate it.
+What IS worth having is the cheap prevalence sweep already run `[MEASURED 2026-08-19]`, as a
+prioritiser and a brief-writing aid — across the 55 remaining ported tools:
+`onclick=` **42** · `alert(` **25** · `parseInt`/`parseFloat` **14** · `innerHTML =` **18** ·
+`localStorage` **3** · a copy button **26** · external `<script src>` **13**.
+⚠ **These are PATTERN PREVALENCE, not confirmed defects.** Inline `onclick` is a code-quality smell,
+not a bug; `alert()` is a real UX defect; the `parseInt` 14 are candidates for the NaN-guard class that
+silently disabled truncation in `json-cleaner`; the 26 with a copy button are candidates for the
+lying-copy class the owner reported. **Each still has to be read.** The value of the sweep is that it
+says where to look first, and it sets an expectation: the defects found so far are not incidental.
+
+### Phase A — the 18 simple, self-contained tools (<8 KB, no external script)
+The proven path, unchanged. ~5–10 min of attention each; wall-clock is queue depth, not work.
+Smallest first (the RUNBOOK's "Scope the batch correctly" query orders them). Serial — the item key
+enforces it. **Expect roughly half to have a real defect**, on the run rate so far (5 of 9).
+
+### Phase B — the 22 larger self-contained tools (≥8 KB)
+Same recipe, longer briefs. **The rich hand-built apps live here** (mind-map, meme studio, logic
+architect, micro-CMS, pasteboard) and by the owner's 2026-08-16 ruling they are reimplementations, not
+preservations. **Owner's standing instruction: these go LAST and one at a time, each seen at the served
+page.** For these the grade is a feature list checked in a browser, not a tag count — a raw-tag count
+cannot tell you a mind-map lost its export.
+
+### Phase C — the 13 external-`<script src>` tools
+The page is not self-describing: the logic lives in S3 assets the DB-side checks cannot read (TL-032).
+So the brief **must** come from the tool's behaviour in a browser, and **the external asset must be
+retired with the slot** or the page keeps fetching a file nothing serves. Do these after Phase A has
+made the recipe boring, and expect the spec work to dominate.
+
+### Phase D — the 2 blocked tools (`tool-ab-test-calculator`, `tool-meme-generator`)
+**Cannot be reached by any amount of lane effort.** They need `RFC_036 §9`: a ~10-line change in
+`create_tool_component_action.go` to set `forked_from` when a library entry already claims the
+function, then council + a chassis roll. **There is no config-only interim — proved in §9.1**: the
+platform's own definition of a library tool (`forked_from IS NULL AND is_active`) is exactly the index
+predicate, so "forkable by other sites" and "blocks a rebuild" are the same condition. Do not spend
+another cycle looking for a way round it.
+
+### Ordering, and why
+A before C before B: Phase A keeps the recipe warm and cheap; Phase C's cost is spec-writing, not
+mechanism; Phase B spends the owner's review attention, so it goes last when everything else is known
+to work. Phase D runs whenever RFC_036 lands — it is not a sequencing dependency for A/B/C.
+
+### What "done" means, stated now so it cannot drift
+**63/63 replaced, each graded at the served bytes with a cache-buster and a negative control.** If
+RFC_036 is never built, the honest terminal claim is **"61 of 63, 2 blocked on RFC_036"** — not "done".
+
 ## Next actions
 
-1. **Await the owner's continue/stop/scope decision** (asked 2026-08-19).
+1. **Phase A, next tool by size.**
 2. If continuing: next by size from the 18 simple ones; run the six steps; ~5–10 min of attention each,
    wall-clock dominated by queue depth. **Do not file a rebuild you cannot attend** — the retire race
    has been as short as 2 minutes and was lost once at 96.
