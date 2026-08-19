@@ -382,6 +382,25 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		zap.String("item_key", itemKey),
 	)
 
+	// A dedup INSIDE a loop iteration is the runtime shadow of bugs_open/321:
+	// with a key coarser than the loop item, iterations 2..N of a batch vanish
+	// exactly here, and the loop reports success either way. The offline
+	// detector (config-key-audit --loop-sitewide-item-keys) catches the
+	// missing-suffix shape at definition level, but it cannot see a suffix that
+	// RESOLVES yet is loop-invariant — this Warn is the net under that blind
+	// spot. It also fires on a legitimate cross-run dedup (an earlier run's item
+	// still open), so it is observability, not an error: the reader separates
+	// the two by whether the deduped keys differ WITHIN one orchestration.
+	if fire, loopVar, suffixConfigured := shouldWarnLoopDedup(config, inserted); fire {
+		logger.Warn("CreateWorkItemAction: insert deduped away inside a loop iteration — "+
+			"if other iterations of this batch share the key, their findings are being dropped (bugs_open/321)",
+			zap.String("item_key", itemKey),
+			zap.String("item_type", itemType),
+			zap.String("loop_var", loopVar),
+			zap.Bool("suffix_configured", suffixConfigured),
+		)
+	}
+
 	return map[string]interface{}{
 		"inserted":      inserted,
 		"item_type":     itemType,
@@ -394,4 +413,27 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		// Additive key — nothing consumed item_created.* before it existed.
 		"born_blocked": w.BornBlocked,
 	}, nil
+}
+
+// shouldWarnLoopDedup decides whether a non-inserted (deduped) work item
+// deserves the bugs_open/321 loop-dedup Warn: only when the step is executing
+// as a loop iteration. Loop context is read from the framework-injected
+// loop_iteration / loop_var_name keys (loop_expansion_handler.go:155; both in
+// frameworkStepConfigKeys, which is why neither appears in ConfigKeys above —
+// an author never writes them, so declaring them would invite exactly that).
+//
+// Extracted so the gate has a direct test (the shouldStripLiteralMarkdown
+// precedent): an inserted item, or a top-level dedup, must never fire — a Warn
+// that fires on every dedup fleet-wide would be noise nobody reads, which is
+// how an observability line dies.
+func shouldWarnLoopDedup(config map[string]interface{}, inserted bool) (fire bool, loopVar string, suffixConfigured bool) {
+	if inserted {
+		return false, "", false
+	}
+	if _, inLoop := config["loop_iteration"]; !inLoop {
+		return false, "", false
+	}
+	loopVar, _ = config["loop_var_name"].(string)
+	suffixField, _ := config["item_key_suffix_field"].(string)
+	return true, loopVar, suffixField != ""
 }
