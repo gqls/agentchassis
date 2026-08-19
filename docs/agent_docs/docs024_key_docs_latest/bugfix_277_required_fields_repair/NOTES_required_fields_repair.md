@@ -1939,3 +1939,107 @@ than after a human is invited to canary a route that has already been superseded
 read — do not write a `Council-Reviewed:` trailer for it until someone has actually read it**
 (the commit that resubmitted correctly used `Council-Submitted:`). ⚠ The architecture seat is in this
 round, and its known landmine is truncation — check the verdict is whole before believing it is mild.
+
+---
+
+## 2026-08-19 ~20:40Z — `v1.0.1316` rolled, `301` came back APPROVED, and its three medium advisories were checked rather than waved through — two are REFUTED and the third made our deploy proof better
+
+> **⚠ CORRECTED — my own entry above, four hours old, is now stale on its first line.** It says
+> *"Chassis still `v1.0.1315` … no new roll, so §1's binary probe still describes the running
+> binary and was not re-run."* **A fresh build rolled at 17:13Z.** That sentence was true when
+> written and is exactly the shape this lane keeps logging: a deploy fact with a shelf life of
+> hours, written without one. **Caught by the owner telling me, not by any check of mine** — I had
+> no re-check scheduled because I had concluded there was nothing to re-check. The cheap check that
+> would have caught it is the same one I then ran: read the pods, not your last reading of them.
+
+### 1. The new roll, re-probed on both replicas — and this time proven for all **57** pods, not 2
+
+`agent-chassis:v1.0.1316`, pods `86nqf` (17:13:39Z) and `8jlqh` (17:14:01Z). The `build provenance`
+startup line had **already scrolled** (this service emits ~3.7MB to `--tail=400`) — **"not in range",
+never "unstamped"** — so the binary probe, which has no shelf life. Both replicas, one pass:
+
+| needle | result | role |
+|---|---|---|
+| `owned_page_refusal_status` | **PRESENT** | Tier 1 (`083`/`301`) |
+| `resolveStatusRepairComponent` | **PRESENT** | `300`'s fix |
+| `refuse_owned_page` | **PRESENT** | `301`'s opt-in key (mig `488`) |
+| `OWNED_PAGE_GUARD` | **PRESENT** | control: the probe works |
+| `ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST` | **ABSENT** | control: the probe discriminates |
+
+⚠ **The probe takes ~2–7 minutes per pod** (it scans the whole binary); a 2-minute timeout kills it
+mid-scan and the partial output looks like a clean negative. Give it 420s.
+
+### 2. `301` COUNCIL ROUND 2 — **APPROVED**, 3 advisory objections, none high-severity
+
+`RESUBMIT_CORR=c7bc1b9e-97c8-4f3e-8a4f-b3a7029505ee`, orchestration `6469c138`, `complete_approved`
+**COMPLETED 16:19:28Z** — **11 minutes end to end**, against the ~30 minutes CLAUDE.md budgets.
+`gated_by_truncation: false`, so the architecture seat's truncation landmine did **not** fire; its
+verdict is whole and reads `ARCHITECTURE_SIGNAL: point_fix`, explicitly calling this *"the RFC_022
+exception applied correctly, not just claimed"*.
+
+**Round 1 (`b5b85e4b`) was `complete_revise` at 11:12Z; round 2 approved at 16:19Z.** The lane's
+standing claim that a REVISE round is cheaper than the defect it finds holds again.
+
+**No trailer action is owed on the code.** `6be66bceb` already carries `Council-Submitted: c7bc1b9e`,
+and `098` resolves the correlation at **report** time, so the commit is credited automatically once
+the verdict turns approved — no amend, which forward-only forbids anyway.
+
+> ⚠ **My own bookkeeping slip, recorded rather than left to confuse the coverage report.** I put
+> `Council-Reviewed: c7bc1b9e…` on the **LANDMINES docs commit** (`895df4e2f`). It is not a false
+> claim — I read the full verdict and every objection before writing it — but the trailer exists to
+> join a **platform-code** commit to its verdict, and docs are refused by the gate client-side. So it
+> credits a commit that never needed review. Forward-only means it stands; **do not repeat it**, and
+> if `098` shows an odd row for that commit, this is why.
+
+### 3. The three MEDIUM advisories, each checked first-hand. Two were WRONG.
+
+The lane's record is that advisories catch real defects, so these were checked rather than accepted.
+
+**(a) `diagnosis_guardian` — REFUTED AT SOURCE. The seat's standing discipline is stale.**
+Its objection: migration `488` sets `error_step` at the **step** level, but *"the coordinator reads
+ONLY `step.config.error_step`; a step-level one is parsed and silently inert"* — making our routing
+*"real or coincidental"*, unresolvable from 3 production refusals. **The code says the opposite, in a
+comment written for exactly this question** (`platform/orchestration/coordinator.go:3667`):
+
+```go
+// Check step-level first (parallel to NextStep) — preferred location
+if step.ErrorStep != "" { return s.routeToErrorStep(...) }
+// Fallback to config-level for backward compatibility
+if errorStep, ok := step.Config["error_step"].(string); ok && errorStep != "" { ... }
+```
+
+**Step level is the PREFERRED location and is checked FIRST; `step.config` is the backward-compatible
+fallback.** The seat has the precedence exactly inverted. **This is worth telling them** — a stale
+standing discipline in a council seat mis-fires on every future submission that does the right thing,
+which is the same "following the rule draws the objection" pathology RFC_022 was narrowed to fix.
+
+**(b) `bug_historian` — PREMISE VOID. The case it rests on is CLOSED.** It cited *"an OPEN case with
+exactly this shape: `bugs_open/086` step_level_error_step_dropped_by_the_plan_converter"* and called
+our 3-row sample thin against *"a documented, still-open drop bug"*. **086 is in `bugs_closed/`,
+closed 2026-07-27** — and closed on precisely the evidence the objection asks for: *"the persisted
+plans show a clean 0 → 10 step across the roll boundary"*, i.e. the converter was proven on data, not
+on `strings`. ⚠ Note it landed the ambiguity trap too: a bare `086` is checkable in one `ls` across
+**both** directories, which is why the rule is to resolve by slug and grep both.
+**Their underlying point still stands as a distinction worth keeping**: the *coordinator* honouring
+step-level `ErrorStep` (a) and the *plan converter* preserving it (b) are two different layers, and
+only (b) was ever the bug. Both are now answered, by different evidence.
+
+**(c) `debug_historian` — VALID, ALREADY A LANDMINE, AND NOW ANSWERED BETTER THAN IT ASKED.**
+Its objection: *"both replicas verified"* may not cover the pods capable of running the step, citing
+lore of 41 pods vs 2. **It is right, and it is `LANDMINES.md` line 5909** — which I had not read,
+because the SessionStart hook only matches entries against files already dirty in the tree and a
+`kubectl` footprint matches no path. **[MEASURED 2026-08-19 20:35Z]: 57 pods run the chassis image;
+only 2 carry `app=agent-chassis`.** The count has grown 41 → 57.
+
+**But the decisive check is the DIGEST, which also answers their second objection (same-tag cache) in
+the same command:** all 57 pods resolve to **one** `imageID`, `sha256:2d0d3def…`, `distinct digests:
+1`. **That upgrades "I probed 2 replicas" into "those 2 replicas' bytes are every pod's bytes"**
+without exec'ing 57 pods. Added to that landmine entry (`895df4e2f`) with the one-liner, because the
+entry prescribed enumerating by *image*, which proves the tag and cannot prove the bytes.
+⚠ Digest identity is **not** reachability — every pod runs the code; whether any executes it is the
+entry's existing positive-control query.
+
+**The pattern across all three: every objection was cheap to check and none needed the author's
+word.** (a) and (b) were refuted by one `grep` and one `ls`. That is the argument for reading
+advisories on an APPROVED verdict rather than filing them — two of these would otherwise have entered
+the record as unresolved doubts about a mechanism that is fine.
