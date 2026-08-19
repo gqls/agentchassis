@@ -2011,3 +2011,32 @@ Second round: approved. One reviewer asked for a guard against the rename table 
 — sensible, and it is now a test that fails if anyone adds a second entry without doing it on
 purpose. So step four is done and reviewed; it goes live on your next build. Then the last step:
 flip the recorder from "log it" to "refuse to guess".
+
+**2026-08-19, evening — the new build is verified, and I discovered a colleague had been busy.**
+
+The build you rolled this afternoon carries the first three steps of the path, and I proved all
+three on it: the noisy class is at zero against live demand, the class we expect to survive is
+surviving, and — new — the "declined to inject" log message is now witnessed in live production
+output, closing the one warning the earlier check had left open.
+
+Then a surprise, of the good kind. While I was verifying, another session working this same
+lane had already: built the third fix option on the tie-break bug (the one I had set aside as
+"not bundled"), taken it through diagnosis and review properly, closed that bug outright — and
+**built step four as well**, with a better design than my sketch: my version would have renamed
+a field everywhere; theirs renames it only at the boundary where the collision happens, and
+their measuring found a second producer my design had missed. It is approved and waits, with
+everything else, on your next build. Where our two accounts disagreed I have reconciled them in
+the shared handoff, and one embarrassment is recorded honestly: I nearly closed that bug a
+second time with a wrong summary, caught only because the file had already moved.
+
+With the path fully blocked on your next roll, I used the time on the outage bug from
+yesterday: the twelve items that died on their first attempt are now explained — five different
+agents carry a "mark it failed" step that ignores the three-attempt allowance entirely, so for
+them ONE failure is terminal even in fair weather. Combined with the other two defects already
+on file, the remedy converges on a single change: one properly-guarded way to write a work
+item's final status. The design skeleton is written into the bug file; building it is the next
+coherent piece of work, ready for whoever takes it — this session, a fresh one, or another
+lane.
+
+**What waits on you: one more build roll.** After it: verify step four the same way, then the
+final switch.
