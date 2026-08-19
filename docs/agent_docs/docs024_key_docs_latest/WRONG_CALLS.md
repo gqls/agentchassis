@@ -37581,3 +37581,42 @@ worse than no fingerprint, because the next reader treats it as a second data po
 `SELECT i->>'value', count(*) FROM agent_error_log, LATERAL jsonb_array_elements(context->'issues') i WHERE … GROUP BY 1;`
 **The general form: never characterise a set from a dump you truncated. `GROUP BY` the whole
 set, or say explicitly that you looked at the first N.**
+
+## 2026-08-19 — I told two lanes their `unbuilt_internal_link` rows were `bugs_open/260` counted twice
+
+**The claim:** while conferring with the `portfolio_positioning` and `loanzy_uk_example_site`
+lanes about 260's census, that "several of the 25 parked items are `unbuilt_internal_link` rows
+filed against pages that only failed to build because of this defect, so they are the same defect
+counted twice." Said twice, to two different lanes, as a fleet-wide generalisation of an
+observation one of them had made about a single site. **What caught it:** the loanzy lane filing
+`bugs_open/328` for the dead-link class, which made me read my own census rows properly to work
+out which bug owned what — and the rows say the opposite of what I had said.
+
+`[MEASURED]` An `unbuilt_internal_link` item is filed because a link points at a page that does
+not exist; it is then **dispatched to build that page**; and that build is what hit the template
+leak and was refused. The item type records **why the build was requested**, not a second sighting
+of the same event. Every one of those rows is a genuine 260 occurrence. The census is not inflated
+by them and must not be reduced.
+
+**Why it mattered:** the receiving lane said it would have carried "the census is inflated by
+`unbuilt_internal_link` rows" into its own notes as fact. A count I had just re-measured (26
+events, 7 domains) would then have been talked down by both lanes on my authority, in a file whose
+whole purpose this week is sizing how often the defect fires.
+
+**How I got it wrong:** I reasoned from the item TYPE NAME — "unbuilt internal link" sounds like a
+link finding, so a link finding is what I assumed it recorded — when the `summary` and the join I
+had already run were on screen and say plainly that it is a page-build request. I had the evidence
+before I made the claim and generalised from the name instead of reading it.
+
+**The cheap check, which is one line and could have come out differently:** for any work item you
+are about to call a duplicate, read what the item ASKED FOR, not what its type is called —
+`SELECT item_type, summary, status FROM site_work_items WHERE id = ANY(...)`. If the summary is an
+instruction to build something, the failure recorded against it is that build failing, and it is an
+occurrence in its own right.
+
+**The general form: a work-item TYPE names the trigger, not the event.** Two items of different
+types can be the same defect firing twice, and two items of the same type can be one event observed
+twice (the portfolio lane's four items are two pages seen twice) — neither is readable from the
+type column, and both were live in this one census.
+
+Tally for "generalised from a name when the row was already on screen": 1.
