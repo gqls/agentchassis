@@ -144,10 +144,16 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
 
 ## 4. WHAT IS LEFT, in the order I would do it
 
-1. **Tomorrow: re-run the two post-roll checks** (RUNBOOK), each with both controls. Minutes. This
-   is the only thing standing between `300` and "proven", and between Tier 1 and the same.
-   **This is now the top item — everything else on this list is either answered, owner's-call, or
-   dated.**
+1. ~~**Tomorrow: re-run the two post-roll checks**~~ **DONE 2026-08-19 on `v1.0.1315` — see §1.**
+   **Tier 1 is BEHAVIOURALLY PROVEN**, both arms opposite in one query (8 refusals → `wont_fix`
+   stamped; 1 genuine failure → `failed` unstamped). ⚠ **The control is n=1** — if you want it
+   firmer, re-run the §1 query in a few days and hope for a second genuine failure; do not
+   manufacture one.
+   **`300` is still unproven and the reason is DEMAND** — nothing has dispatched
+   `page_component_status_drift` since 08-18 09:49 (66 complete, 16 `deferred` and parked by the
+   loancalculator lane). **There is nothing to verify it against.** Leave it; it is an honest
+   resting state, not a chase. The first new drift finding proves it, and it will carry
+   `result->'resolved_by'` when it does — that field is the tell.
 2. **~2026-08-25: close `083`** once `444`/`458`'s doors have held a week (owner decision 5). Move
    with **both paths on the commit** (`git mv` landmine) and verify at HEAD with `git ls-tree`.
    ⚠ Before closing, check `479`'s reclaim arm has fired at least once — it still never has, so it
