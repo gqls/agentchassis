@@ -286,6 +286,39 @@ Three holes, all found by USING it on something harder, all the same family — 
 was followed by proving the gate can still fail. "It complained, so I changed it" is how a
 check becomes decorative.
 
+
+## NEXT STEP, designed but NOT built — the spec-side detector, and the distinction that makes it honest
+
+The owner's second half (*"ensure that that sort of copy never leaves this framework again"*)
+points at a detector on the BRIEF, not the writer — `bugs_open/305`'s root-cause section says
+why. Design work done 2026-08-19, **nothing built**:
+
+**`content_direction` mixes two kinds of text, and only one is evidenced.** Inspected on
+`ai-agent-orchestration.com`:
+
+- **Supplied-for-reuse fields** — the canonical tagline, `avoid_phrases`, `key_terms`,
+  `example_phrases` elsewhere. These are handed to the writer to USE. **Proven transfer:** the
+  tagline appears in 1,348 rendered prompts and 408 responses. A contrastive construction here
+  is a defect with literal evidence behind it.
+- **Instructional prose** — `cta_style.approach` (*"…a technical conversation, not a sales
+  process"*), `terminology.approach`, `voice`, `emphasis`. These tell the writer HOW to write;
+  a contrast here is a reasonable way to give guidance. **Transfer NOT established.**
+
+**So the detector should FLAG the first kind and merely REPORT the second**, and say which is
+which in its output. Building one that treats all matches alike would fire on 24 of 25 sites
+at 24–38 instances each — a number nobody can act on, and mostly aimed at text whose transfer
+is unproven. ⚠ `count_negation_tells.py` as written does exactly that (it counts a whole
+document), so it is the wrong tool pointed at a spec until it learns the split.
+
+**Before building it, the falsifiable measurement is still owed** (`305 §D.4`): do the
+INSTRUCTIONAL uses transfer to output at all? Design it so it can come out either way —
+per-site brief-instance count vs per-site output rate, with the refutation condition stated
+BEFORE looking, and with enough calls per site to beat the 0.38–4.27 weekly variance that
+already produced one withdrawn finding. ⚠ Attributing calls to sites is the awkward part:
+`llm_call_log` has no `site_id`, the join through `orchestration_states` timed out at ~7
+minutes, and `prompt_rendered ILIKE '%<domain>%'` is the cheap substitute.
+
+
 ## Next work, in the order that closes doors
 
 1. ~~**The two inbound asks**~~ **ANSWERED 2026-08-18 evening.** What replaced them:
