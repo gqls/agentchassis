@@ -38473,3 +38473,39 @@ method.
 
 > **A lane is not unowned because the file you were handed does not name an owner.** And a filename
 > you have not read is not a new file.
+
+## 2026-08-19 — I tuned a dispatch parameter from the first `ORDER BY` I found on the table, and it selected nothing (webdesign_tool_rebuilds lane)
+
+**The claim, made as an ACTION rather than a sentence, which is why it nearly escaped review.** 117
+`page_rerender` items were queued for one site at identical `created_at` and priority 80, draining
+alphabetically at ~0.7/min, and the two tool pages I had just rebuilt sorted near the end. I grepped
+for the selection order, found `load_work_item_actions.go:737` —
+`ORDER BY wi.priority ASC, wi.created_at ASC` — and lowered my two items to priority 5 and 6 expecting
+them to be picked next.
+
+**They were not.** Priority-80 items kept being claimed after my write (21:16:33, 21:17:08, 21:17:44,
+21:18:23 against a write at ~21:13). That ORDER BY belongs to a loader which does not dispatch
+`page_rerender`; the real selector is elsewhere — not `claim_work_item_action.go` (it claims a row by
+id, so something upstream picks it) and not any live `agent_definitions` row. Both rows restored to 80.
+
+**What caught it:** one query, ~30 seconds, asking *what has been claimed since my change* instead of
+*is my change in the row*. The row said `priority=5` and `UPDATE 1`, which is what "it worked" looks
+like. Nothing about the row could have told me the selector ignores it.
+
+**Why the wrong version was so easy to believe:** a table with a `priority` column, a query that orders
+by it, and a value I control. Every part of that is true; the false part is the join between them —
+that THIS query is what dispatches THIS item type. The same shape as quoting a shared helper's ruling
+instead of its behaviour (WRONG_CALLS, 2026-08-19 earlier today): the citation was real and it was
+about something else.
+
+**The cheap checks, in order of cost:**
+- **Verify a dispatch change at the DISPATCHER, never at the row.** After changing anything meant to
+  affect selection, ask what got selected next: `SELECT summary, priority, claimed_at FROM
+  site_work_items WHERE item_type='<t>' AND claimed_at > now()-interval '5 minutes' ORDER BY claimed_at DESC;`
+  If items you outranked are still being claimed, your lever is not connected.
+- **A `grep` for `ORDER BY` on the table is not the selector for your item type.** Confirm the caller
+  handles that item type before believing the query — several loaders read `site_work_items` for
+  different pipelines, and the one you find first is not the one you need.
+- **Prefer the documented path.** For "assemble ONE page now" this estate has a single-page rerender
+  route (MEMORY `single-page-deploy-bypasses-stalled-queue`); reaching for a queue parameter instead
+  was inventing a mechanism when a supported one existed.
