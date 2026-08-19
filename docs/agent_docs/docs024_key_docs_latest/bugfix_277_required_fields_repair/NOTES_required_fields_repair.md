@@ -1482,3 +1482,142 @@ duplication `who-owns.py` cannot see: today I measured **0 `page-build-handler` 
 the roll** while **20 of its work items were updated at 08:45:58** — a handler apparently acting with
 no orchestration to show for it. I noticed, did not chase it, did not record it. Same shape as their
 (a). Handed over with my zero explicitly marked unverified.
+
+---
+
+## 2026-08-19 — §4.5(a) and (b) MEASURED, by the `agentchassis-22` session (split agreed with the `bugfix 083` thread before starting)
+
+Handed the 08-19 handoff by the owner and told to coordinate rather than duplicate. The lane thread
+approved this split: §4.1–4.4 stay theirs, I take only the two `[UNMEASURED]` loose ends. Everything
+below is mine; nothing above this line was edited.
+
+### (a) — THE ASYMMETRY DOES NOT EXIST AS STATED. Both handlers are refused by the same guard
+
+The handoff's §4.5 asks why `page-rerender` "saves to owned pages ~3,754 times without refusal while
+`page-build-handler` is refused every time. Same guard." **Both halves of that sentence are wrong,
+and so is the premise that they differ.**
+
+**1. The 3,754 REPRODUCES but does not mean what it says.** [MEASURED 2026-08-19, live+archive]
+Re-derived from scratch rather than inherited: `page-rerender` on `rebuild_policy='owned'` pages is
+**3,818 complete+verified / 89 failed** (`bugs_open/301` line 196 said 3754/89 — same failures, ok
+grown by 64 in a day, so the figure is sound). **But it counts WORK-ITEM OUTCOMES, not saves.** A
+completed rerender item is not a save that reached the guard.
+
+**2. ~89% of those items never call the guarded action at all.** [MEASURED] `page-rerender`'s live
+workflow gates `save_sections` behind `check_rerender_mode`, whose condition is
+`spec.reason IN (image_landed, section_data_resolved, cta_links_stale, template_changed)`; the
+else-branch goes straight to `render_page` (assemble stored HTML), which never calls
+`save_page_sections`. Distribution of the 4,171 owned-page items:
+
+| spec.reason | reaches save_page_sections | ok | failed | rows |
+|---|---|---|---|---|
+| `(null)` | **no** | 3542 | 6 | 3681 |
+| `cta_links_stale` | yes | 120 | **82** | 332 |
+| `section_data_resolved` | yes | 127 | 1 | 129 |
+| `verbatim_adoption_deploy` | no | 26 | 0 | 26 |
+| `legal_page_publish` | no | 3 | 0 | 3 |
+
+So the guard is **reached ~461 times, not 3,754**. It is not being bypassed; it is not being reached.
+
+**3. `page-rerender` IS refused — 81 times.** [MEASURED, with a control that could have come out
+otherwise] Discriminating on the guard's own error text (per this lane's 08-19 rule, never on
+`pages.rebuild_policy`):
+
+| handler | policy | error names guard | other error | failed rows |
+|---|---|---|---|---|
+| `page-rerender` | owned | **81** | 8 | 89 |
+| `page-rerender` | generic | **0** | 46 | 46 |
+| `page-build-handler` | owned | **100** | 10 | 112 |
+| `page-build-handler` | generic | **0** | 151 | 161 |
+
+The two `generic` rows are the control: zero guard-named errors where the guard cannot fire, against
+46 and 151 real errors. The predicate discriminates.
+
+**4. And `page-build-handler` is NOT refused every time — it completes 74 items on owned pages.**
+[MEASURED] 74 ok / 112 failed lifetime. The "every time" reading came from looking only at failures.
+
+**What is actually true:** both handlers call the same `save_page_sections` and are refused by it at
+rates proportional to how often they reach it. `page-rerender` looks unrefused only because the
+denominator was ~8x too big. **The peer's warning was the right one and it applies to their own
+figure:** the route was invisible in the table it was being counted in.
+
+**The one REAL anomaly, which is sharper than the question that was asked.** [MEASURED] Post-guard
+(items created ≥ 08-08), on owned pages, through the *same* `save_sections` step:
+
+| handler / reason | completed | guard-refused |
+|---|---|---|
+| `page-rerender` / `section_data_resolved` | 122 | **0** |
+| `page-rerender` / `cta_links_stale` | 112 | **19** |
+| `component-template-fixer` | 53 | **0** |
+
+Same agent, same step, same guard, opposite outcomes by reason. **[INFERRED — mechanism read in
+code, NOT measured per row]** `rerender_page_sections_action.go:401-419`: a section with no stored
+`content_data`, or missing required LLM fields, escalates to the writer and returns
+`escalated=true`; `check_escalated` then routes to `complete`, **skipping `save_sections` entirely**.
+So those items complete having written nothing. `isSelfContainedSection` exempts tool sections from
+that escalation, which is why the two reasons could diverge. **The check that would settle it:** per
+row, whether `rerender_sections.escalated` was true — not attempted here.
+
+**Corollary worth its own line:** `page-rerender` has **no `error_step` on any of its ten steps**
+(verified in the live `agent_definitions` row, not the seed). A guard refusal there fails the whole
+workflow rather than routing to a status write — so its refusals are real but land differently from
+`page-build-handler`'s, which is the grain of truth in the original question.
+
+### (b) — 89 tool pages are marked `generic` while 95 IDENTICALLY-SHAPED ones are marked `owned`
+
+[MEASURED] Cross-tab of the two shape tests, kept independent so neither alone decides:
+
+| name `tool-%` | url `/tools/%` | is `-guide` | policy | pages |
+|---|---|---|---|---|
+| yes | yes | no | **owned** | 95 |
+| yes | yes | no | **generic** | **89** |
+| yes | no | yes | generic | 70 |
+| no | yes | no | owned | 10 |
+| no | yes | no | generic | 4 |
+
+The 70 `tool-…-guide` pages are prose guides and are **correctly** generic — the name test alone
+over-counts, which is why the URL and guide axes are shown separately. **The defect is the top two
+rows: 89 (+4) tool artefacts marked the opposite way from their twins.** Estate total is 172 owned
+of 786 pages.
+
+Seed case from the peer, **re-verified rather than inherited**: `tool-pet-treatment-cost-estimator`
+(`vetcomparison.uk`, `/tools/pet-treatment-cost-estimator/index.html`, 1 component) is `generic`.
+Its sibling `tool-pet-treatment-cost-estimator-guide` is also generic and legitimately so.
+
+### ⚠ WHERE I FAILED MY OWN CONTROL, recorded because the failure is the useful part
+
+I tried to price (b)'s damage as "completed generic saves that the guard would have refused had the
+page been marked owned" and got 107 (of 688 completed runs, after correctly excluding 581
+assemble-only rerenders — the same denominator error I had just caught in the 3,754).
+**That number did not survive its own control and I am withdrawing it.** Splitting by guard era,
+`owned` pages show **174 completions post-guard on the route I had classified as guarded** — which
+is impossible if that classification were right. Two candidate confounds, neither tested:
+`rebuild_policy` is **mutable and read at query time**, so a historical item is being judged against
+today's marking (this lane's landmine 3, "the row set is not stable", in a new dress); and my
+per-agent route classification is an assumption about workflow reachability, not a measurement —
+`component-template-fixer` is 150/0 on owned pages, which alone shows it does not reach the guard.
+
+**So: (b)'s POPULATION is established; (b)'s DAMAGE is NOT.** No exposure figure should be quoted
+from this section. The clean way to price it is per-row orchestration evidence that
+`save_page_sections` actually ran, not a join against today's policy column.
+
+**This also gives a second, independent reason for the lane's 08-19 error-text rule:** the policy
+column is wrong for historical rows not only because "owned+failed ≠ refusal", but because the
+column can have changed since the run. The error text is what the run itself recorded.
+
+### One stale comment found in passing, worth correcting where it lives
+
+`save_page_sections_action.go:203` states *"Measured 2026-08-17: 0 `owned_page_review` rows have
+ever carried `refused_by='save_page_sections'`"*. [MEASURED 2026-08-19] That is now **64 rows,
+2026-08-17 → 08-18** — the `bugs_open/295` emit is live and filing. The comment is a dated
+measurement so it is not wrong as written, but it reads as a live claim. Left for the code's owner.
+
+### Not done, and deliberately left
+
+- The peer's unrecorded observation (0 `page-build-handler` orchestrations vs 20 work items updated
+  at 08:45:58) is the same "invisible in the table you would count it in" shape. **Not chased.**
+- `feasibility-recheck`'s `pre_query` touching `handler_agent` + `agent_definitions` — not looked at.
+- Whether (b) warrants a `/bugs_open/` file. Grepped both dirs first: `bugs_open/208`, `266`, `301`
+  and `bugs_closed/295` are the neighbours; none of them is this finding. **Recommend filing, but
+  the damage half must be priced first** — a bug filed on the population alone would assert a
+  cross-cutting cause this measurement does not support (CLAUDE.md's 2026-07-31 ruling).
