@@ -1769,6 +1769,17 @@ func renderContextStepContractExcluded(key string) bool {
 // Go site outside this contract (render_content_envelope_guard.go's identity
 // chain, updated with it) and by no live agent definition (0 of the active
 // rows mention render_context.current_page, measured 2026-08-19).
+//
+// What this does NOT change (council round 1, bug_historian): the resolver's
+// whole-tree search stays generic — depth, then declared rank, then
+// reflect.DeepEqual across candidates — so the NEXT producer pair that files two
+// types under one key will reproduce this exact shape, recorded to
+// agent_error_log and never blocking, until someone reads the candidate-set
+// query (staged_component_build RUNBOOK, "step 4's done-condition") and repeats
+// this one-rename-at-the-producer move. That is the owner-ruled sequencing
+// (RFC_029 §10.13 step 4 → step 5 flips conflicts to refusal, which is what
+// makes the next collision LOUD). A second entry here needs its producer read
+// first; the map is not a place to park collisions nobody has traced.
 var renderContextStepContractRenames = map[string]string{
 	"current_page": "current_page_name",
 }
@@ -1797,6 +1808,21 @@ func renderContextStepContractKey(templateKey string) string {
 // (orchestrations in flight across the roll, and any caller that hand-builds a
 // context map under the old name). That tolerance is on the READ side only —
 // renderCtxToMap never emits the old name, which is what ends the collision.
+//
+// The fallback is DELIBERATELY string-only and DELIBERATELY temporary (council
+// round 1, corr f3716ebe, editquality + bug_historian):
+//   - a non-string under the old name (the page RECORD, which is what
+//     input_data.current_page holds on every envelope) is never adopted — the
+//     type guard is the whole point; there is no "name" to take from it here.
+//   - its justification expires with the pre-roll trees. orchestration_states
+//     retention is ~24 h (49 page-content-writer rows spanned 2026-08-18 20:46Z
+//     → 2026-08-19 20:06Z), so once the roll carrying the rename is a day old
+//     no tree it serves can exist. RETIRE IT IN THE RFC_029 §10.13 STEP-5
+//     COMMIT (the flip to refusal, which by its gate lands after that roll):
+//     delete the second `if` below and the "old tree" / "both present" cases
+//     in TestRestoreAcceptsBothSpellingsAcrossTheRoll. Named in the lane's
+//     handoff so it cannot outlive its reason quietly (the 051/052 precedent
+//     the historian cited is exactly a renamed-key tolerance nobody removed).
 func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interface{}) {
 	v := reflect.ValueOf(ctx).Elem()
 	t := v.Type()

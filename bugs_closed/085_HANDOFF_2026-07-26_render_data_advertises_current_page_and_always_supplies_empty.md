@@ -6,8 +6,10 @@ the shared `evidence-chart` component. Found by measuring a rendered page, not b
 **no section component can know which page it is on**, so nothing can vary per page.
 **Class:** structural (a key exists in the contract, is always empty on the main path, and
 fails by doing nothing rather than by erroring).
-**Status:** OPEN. Build path FIXED and LIVE (v1.0.1173); scoped-re-render path fixed in code
-and inert until the next roll. **Read the two dated sections at the foot before anything
+**Status:** ~~OPEN. Build path FIXED and LIVE (v1.0.1173); scoped-re-render path fixed in code
+and inert until the next roll.~~ **CLOSED 2026-08-19 — both paths fixed AND live since
+v1.0.1174 (2026-07-27 evening, this file's own foot); moved to `bugs_closed/`, see the last
+section.** **Read the two dated sections at the foot before anything
 above them** — "the fix is one line", asserted twice in the original text below, was wrong
 twice over: it was three points on one journey, and then a fourth on a sibling path that
 only a live test found. The original text is left standing, uncorrected in place, because
@@ -351,3 +353,42 @@ Anyone testing this must state the reason they dispatched with.
 
 **Still owed:** restore the `capabilities` placement and confirm it carries the **two**
 charts declared for it, and induce the empty case. Neither is blocked.
+
+## 2026-08-19 — STATUS RECONCILED AND CLOSED: both paths have been fixed AND live since v1.0.1174 (2026-07-27); the header's "inert until the next roll" outlived its truth by three weeks
+
+Moved to `bugs_closed/` by the staged_component_build lane under the owner's 2026-08-12 bar
+(fixed AND live → closed), after the council's `bug_historian` seat gated a review of
+RFC_029 §10.13 step 4 (corr `f3716ebe`) on this file still sitting in `bugs_open/`. The
+header's **Status** line was written on 2026-07-27 morning; this file's own "2026-07-27
+(evening)" section records **BOTH PATHS VERIFIED LIVE** across the v1.0.1173 → v1.0.1174 roll
+(build path v1.0.1173; scoped re-render path v1.0.1174, 3 charts → 1 chart, same agent, same
+page, same reason, only the binary differed). Nothing in this file was re-opened afterwards.
+The two "still owed" items at the foot (restore the `capabilities` placement; induce the empty
+case) are site chores and a confirmation, not the defect — the defect is closed. Owning lane
+(`brochure_component_library`, per `scripts/who-owns.py 085`) may disagree; forward-only, move
+it back with a reason.
+
+**Relation to RFC_029 §10.13 step 4 (commit `1a82225ec`), recorded here because the historian
+asked the right question — "could 'current_page renders empty' and 'current_page has a
+type-conflict' be the same defect seen from two ends?" — No, and the mechanism says why:**
+
+- 085 is about the VALUE: the page's name reached the template empty because three points on
+  one journey dropped it (and a fourth on the rerender path). Its fix produces the value
+  (`resolveCurrentPageName` at build; `base["current_page"]` at rerender), serialises it,
+  restores it, and projects it to templates.
+- Step 4 is about the KEY: `build_render_context` filed that string into collected_data under
+  `current_page`, the same key the page RECORD already occupies at `input_data.current_page`,
+  so the resolver's whole-tree search (which did not exist in its collect-all form until
+  2026-08-15) saw two types under one name on every page-content-writer run. Step 4 renames the
+  STEP-BOUNDARY key to `current_page_name`; it does not touch the value's production
+  (`resolveCurrentPageName` unchanged), nor the TEMPLATE key (`{{.current_page}}` unchanged).
+- The two are independent in both directions. 085's own end-to-end test,
+  `TestCurrentPageSurvivesBothRenderPaths`, is retained and still passes under the rename (and
+  fails under the mutation that drops the step-name read — it is one of the six mutants the
+  step-4 change was proved against). Conversely a recurrence of 085's emptiness would now emit
+  `current_page_name: ""` — no key collision either way — so it **cannot confound the step-4
+  done-condition** (zero conflict rows), which counts key collisions, not values; an empty
+  value is caught by 085's test and by a rendered page, never by the conflict count.
+- `[INFERRED, not measurable]`: before 085's fix, `current_page: ""` vs the record would ALSO
+  have been `reflect.DeepEqual`-unequal, so the collision predates 085's fix; the instrument
+  that records it only exists since 2026-08-15, so this cannot be read from rows.
