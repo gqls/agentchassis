@@ -3903,6 +3903,25 @@ and `directory_claims.go` twice (`directory_citation_unverified`,
 - **source:** `bugs_open/091`; `docs024_key_docs_latest/bugfix_091_workitem_conflict_refresh/`
 - **added:** 2026-08-03, bugs-sweep lane (bugfix_091)
 
+> **ADDENDUM 2026-08-19 (bugs_open/321): the loop-nested shape of this trap is now
+> MECHANISED — and this entry alone demonstrably did not prevent it.** The class
+> recurred sixteen days after this entry was written, in a different seam:
+> `create_work_item` steps filed PER ITEM inside a `loop` while keying
+> `<item_key_prefix>_<domain>` — tool-suggester lost ~72% of its suggestions
+> (40→11) to exactly the ON-CONFLICT drop described above. The config-driven half
+> of the check is no longer a question you must remember to ask:
+> `scripts/audit-loop-sitewide-item-keys.sh` (mode `--loop-sitewide-item-keys`,
+> CronJob `loop-sitewide-item-key-check`, daily 07:55 UTC, doc_notes row per run
+> incl. clean) convicts any loop-nested `create_work_item` carrying
+> `item_key_prefix` without an HONOURED `item_key_suffix_field`. If you are ADDING
+> a loop-filed work item: set `item_key_suffix_field` to a per-item path (usually
+> `<loop_variable>.<id>`; unresolved is a deliberate hard error, so evidence the
+> path first — migration 493 is the worked example, WFA-020 the register entry).
+> The remaining un-mechanised residue of THIS entry is the non-loop shape (a
+> once-per-run step whose spec carries a LIST) and the loop-INVARIANT suffix —
+> the latter gets a runtime Warn in `CreateWorkItemAction` once the roll carrying
+> `b1c844abb` lands.
+
 ---
 
 ### The anti-churn probe SWALLOWS its own error, so no sqlmock test in `platform/orchestration/actions` can detect a change to `recurrenceExpected`

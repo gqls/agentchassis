@@ -83,3 +83,24 @@
   20:31 `add_tool_novel_webdesign.co.uk` item is a hand-filed rebuild row (webdesign
   lane), not the suggester loop — old-shape key expected there, not a regression.
 - Next: Phase 3 (runtime Warn, platform/ scope → council), then canary dispatch.
+
+## 2026-08-19 ~20:45Z — canary PASSED, bug CLOSED
+
+- Phase 3 Warn committed (`b1c844abb`, `Council-Submitted: 43a7a60a`); whole
+  actions package green; verdict pending, not blocking (advisory).
+- Canary: dispatched tool-suggester at gamesdesign.co.uk via
+  `system.agent.scheduled.requests` (container-command kcat publish, PUBLISH_OK
+  confirmed; corr `57927dd5`). COMPLETED in ~40s. **5 suggested → 5 items, five
+  distinct per-tool keys** — against the same site's 7→1 that morning. Zero
+  suffix-resolution errors.
+- Register WFA-020 written (WFA-018/019 were taken by other lanes today — checked
+  the file, not my memory of it, before numbering). Index row added; no stored
+  count to bump (retired 2026-08-09; the drift-check counts live).
+- LANDMINES: dated addendum inside the existing "key coarser than its finding"
+  entry (the class it mechanises); `landmines-verify-dispatch.sh` run — 2
+  dispatched, 0 failed.
+- Bug file: close-out section appended, `git mv` to `bugs_closed/`.
+- Still open after close (not this bug): council verdict on 43a7a60a (poll; 098
+  credits the commit automatically on approval); the Warn goes live on the next
+  chassis roll; hard-error tripwire query worth a week of glances; downstream
+  build volume of the canary batch to report to the owner.

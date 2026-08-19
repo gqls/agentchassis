@@ -42,3 +42,21 @@ where yesterday it produced one in seven. Worth knowing before you look at the f
 post-fix run: fixing this means suggested tools actually get built now, so build
 volume per run will genuinely rise — that is the pipeline working as intended, and
 I'll report the real numbers so you can throttle on evidence if you want to.
+
+## 2026-08-19 evening — proven working; bug closed
+
+I dispatched a fresh suggestion run against the same site that lost six of seven
+suggestions this morning. The AI suggested five tools; all five became work items,
+each with its own label. That is the whole defect, cured and demonstrated on the
+live system the same day it was taken on.
+
+Everything shipped: the label fix for all four affected agents (live at four
+o'clock), the daily scanner (live, ran clean over all 193 agents, and your evening
+release picked its image up automatically), and the small runtime warning (code
+review requested, goes live with the next release). The bug file has moved to the
+closed pile with the evidence written in.
+
+One number for you: the five suggested tools are now queued to actually get built
+— that's the build-volume increase we discussed (you chose no throttle). I'll
+leave the queue to work through them at its normal pace; the first real batch is
+how we'll see the true cost per run.
