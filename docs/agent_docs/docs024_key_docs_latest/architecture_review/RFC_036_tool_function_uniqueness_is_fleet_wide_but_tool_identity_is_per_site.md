@@ -308,3 +308,17 @@ three seats): widen `deploy_tool_to_site`'s existing-fork lookup** from
 (`<function>-<domainSlug>`), so the two fork producers recognise each other's site copies.
 Its own small council round when picked up; until then the tail fails loudly at
 `pages_site_id_name_key`.
+
+**§11 addendum 3, 2026-08-19 20:50Z: BOTH halves are LIVE — the "inert until a roll" lines
+above are superseded.** v1.0.1316 (pods 17:13Z) stamps `07eeba4a1…` on both chassis replicas
+(probed in `agent-chassis-5ddd9744-86nqf` with a fake-sha negative control); `e24bc9c0f` (§9.3,
+tool half) and `17d883333` (section half, CLC-020) are both ancestors of the stamp; the
+literals `library tool claims this function` and `COMPONENT_COLLISION_DIVERTED` are present.
+State of exercise: the SECTION half was exercised on a real collision 2026-08-19 16:23Z
+(loanzy `loans-car-finance-calculator` → diverted row `2e497429`, eight incumbents
+byte-identical, page rebuilt and serving 4 `<input>`); the TOOL half has **zero real
+exercises** — its first is the webdesign_tool_rebuilds lane's Phase D
+(`tool-ab-test-calculator`; library row `8c9a6e06` md5s pinned in
+`bugfix_311_component_keys/NOTES_311_fix.md`), told 20:40Z. Nothing is "blocked on RFC_036"
+any more; what remains here is that exercise and the tracked deploy-lookup follow-up above.
+(Prompted by the bugs_open/286 session, which independently probed the same stamp.)
