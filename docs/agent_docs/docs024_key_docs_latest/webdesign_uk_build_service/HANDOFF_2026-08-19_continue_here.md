@@ -116,7 +116,10 @@ in the same commit.
   No form, no reply parsing. It lands alongside `sites.handed_over_at`.
 
 Note the chase has TWO subjects, not one: the customer must move **the site** off our
-hosting **and** a bought domain off our registrar account.
+hosting **and** a bought domain off our registrar account — and per decision 6 the
+domain half is not self-service. It needs their registrar details, an outbound
+transfer we perform, and documentation. That makes the chase email's domain leg a
+*request for information*, not just a reminder.
 
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe
 webhook edge exception; second Nominet TAG (domain programme only).
@@ -157,11 +160,44 @@ webhook edge exception; second Nominet TAG (domain programme only).
 >    thread — a tokenised link in the chase email, and recording the click IS the
 >    state. Build the simplest thing that records it.
 >
-> ⚠ **ONE WORDING QUESTION LEFT FOR THE OWNER, deliberately not changed:** fact
+> 6. **WE DO NOT STAY THEIR REGISTRAR — the £200 buy-out is a domain PLUS an assisted
+>    transfer.** Owner, 2026-08-19: *"I don't want to be their registrar if they buy
+>    the domain. They still have to buy it though so they'll need to provide details
+>    about their registrar and we'll have to document and probably hand hold the
+>    transfer process for them."*
+>
+>    This is **not a wording change, it is a process that does not exist.** What the
+>    £200 now has to cover:
+>    - **Collect the customer's registrar details** — a new intake step. Nothing
+>      collects them today, and the delivery email has no field for them.
+>    - **Perform the transfer out.** For the owner's `.uk` domains this is a Nominet
+>      **IPS TAG change** to the receiving registrar's tag — the domains sit on his
+>      own Nominet tag, and TAG + EPP password + an IP allowlist are already a known
+>      dependency (`domains_cloudflare_rollout/README_where_we_are.md`). **This is why
+>      the "second Nominet TAG" blocker in §2 is not only a domain-programme concern
+>      — it is now on the delivery path too.** Non-`.uk` TLDs use a different
+>      mechanism; **nobody has established which TLDs we will actually sell**, and
+>      that needs settling before this can be documented.
+>    - **Document it, and expect to hand-hold.** The owner's words. A transfer is the
+>      step a non-technical buyer is least able to do alone.
+>
+>    ⚠ **THIS COLLIDES WITH AN ATTESTED FACT, and the collision is the owner's to
+>    resolve.** `no_presales_service` says: *"the price is for a bare-bones starter
+>    website without frills, and it stays down because **nobody's time is included**
+>    … never offer the owner's time."* Hand-holding a registrar transfer **is** the
+>    owner's time. The defensible reading is that `no_presales_service` governs the
+>    £149 build and the £200 domain buy-out is a separate paid service that includes
+>    its own transfer support — but **that distinction is nowhere in the register**,
+>    and as it stands the two facts contradict each other. Do not paper over it in
+>    copy; get it worded.
+>
+> ⚠ **AND THE FACT IS NOW DEFINITELY WRONG, still deliberately unchanged:**
 > `domain_buy_once` says the customer is *"then **free to** transfer it to their own
-> registrar or host"*. "Free to" reads as an option they may decline; the owner says
-> it *"will need to be moved"*, which is an obligation. That is a real difference in
-> what a buyer is told, and it is his to word. The fact is untouched.
+> registrar or host"*. That was already an option-vs-obligation problem; with this
+> ruling it is worse — it implies they may leave the domain with us, which is exactly
+> what the owner does not want, and it says nothing about providing registrar details
+> or about us doing the transfer. It needs rewriting, and the wording is his because
+> it changes what a buyer is sold. The fact is untouched.
 >
 > **CORRECTION to the paragraph below:** it says "do not build a month-long serving
 > mechanism", written when the only question was whether customers might get *less*
@@ -245,13 +281,18 @@ webhook edge exception; second Nominet TAG (domain programme only).
    silence a copy decision rather than make one, and it is the same CTA as 299.
 4. **Contact email** `webdesign@contactforsales.com` (domain mismatch, item
    `a8d6f440`); Stripe webhook hostname; Stripe keys via terraform.
-5. **HITL as a briefing step** — owner accepted the ordering: questions first
+5. **Which TLDs do we actually sell?** Decision 6 above makes this load-bearing
+   rather than academic: the transfer-out mechanism differs by TLD, and it cannot be
+   documented — let alone hand-held — until the set is known. `.uk` goes via a
+   Nominet IPS TAG change and its TAG/EPP dependency is already tracked; nothing
+   establishes what else is in scope. Nobody owns this.
+6. **HITL as a briefing step** — owner accepted the ordering: questions first
    (DONE), then HITL, routed through the **work-item** queue, which has a working
    screen. The orchestration HITL path has never fired: `collect_via_hitl` 0,
    `brief_answers` 0, `hitl_mode` 0 across 369 briefing orchestrations, against
    `briefing_answers` = 3 as the control. No consumer found for
    `system.notifications.ui`.
-6. **Reseller market supposition — PARKED by the owner, do not develop.** He raised
+7. **Reseller market supposition — PARKED by the owner, do not develop.** He raised
    (2026-08-19) that the likely market may be small web-design outfits, Fiverr/Upwork
    sellers and domain owners, then: *"We can leave the reseller stuff for now. I'll
    revisit it later."* It is **discussion only** and is written to NO fact,
@@ -267,7 +308,7 @@ webhook edge exception; second Nominet TAG (domain programme only).
    2026-08-19; no action needed.** (I told the owner the opposite in chat by quoting
    the pre-sweep text from memory instead of re-reading the live spec. Ground the
    claim, then repeat it.)
-7. **A prompt-maker follow-up:** the conduct deliberately does NOT name the Website
+8. **A prompt-maker follow-up:** the conduct deliberately does NOT name the Website
    Brief Starter tool, because that tool's guide page was still selling the retired
    model. Once `881c95ef` lands, add the pointer.
 

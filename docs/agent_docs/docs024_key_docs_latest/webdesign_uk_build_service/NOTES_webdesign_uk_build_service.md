@@ -4397,3 +4397,41 @@ still stored would make the page refuse to save, leaving the falsehood published
 unfixable through the normal path. That is the `bugs_open/161` landmine, and this is
 exactly its shape: repair first, then arm, with a guard in the arming SQL that counts
 still-offending components and refuses on non-zero.
+
+### 2026-08-19 (~11:5xZ) — the £200 domain buy-out is a SERVICE, not a sale, and it collides with an attested fact
+
+**Owner:** *"I don't want to be their registrar if they buy the domain. They still
+have to buy it though so they'll need to provide details about their registrar and
+we'll have to document and probably hand hold the transfer process for them."*
+
+This answers the wording question I left open yesterday, and answers it bigger than a
+wording change. `domain_buy_once` currently reads *"then free to transfer it to their
+own registrar or host"* — under this ruling that is wrong three ways: it implies they
+may leave the domain with us (which is precisely what the owner does not want), it
+frames the transfer as their option rather than a required step, and it says nothing
+about providing registrar details or about **us** performing the transfer.
+
+**What the £200 now has to cover, none of which exists:**
+- collecting the customer's registrar details (no intake step, no field in the
+  delivery email);
+- performing the transfer out — for `.uk` a Nominet **IPS TAG change** to the
+  receiving registrar's tag. The owner's domains sit on his own Nominet tag, and
+  TAG + EPP password + IP allowlist are already a tracked dependency in
+  `domains_cloudflare_rollout`. **So the "second Nominet TAG" blocker is no longer
+  only a domain-programme concern — it is on the delivery path.**
+- documenting it, and hand-holding.
+
+**⚠ The collision, which I am recording rather than resolving.** Fact
+`no_presales_service` says the price *"stays down because **nobody's time is
+included** … never offer the owner's time."* Hand-holding a registrar transfer is the
+owner's time. The defensible reading is that `no_presales_service` governs the £149
+build while the £200 buy-out is a separate paid service carrying its own support —
+but **that distinction is nowhere in the register**, so as things stand two attested
+facts contradict each other. A writer handed both will produce copy that hedges or
+picks one. **This needs the owner's wording, not a session's guess**, which is why
+neither fact has been touched.
+
+**And a scope question nobody owns, now load-bearing:** which TLDs do we sell? The
+transfer-out mechanism differs by TLD and cannot be documented, let alone hand-held,
+until the set is known. `.uk` is understood; nothing establishes what else is in
+scope. Filed in the handoff's STILL OPEN.
