@@ -75,12 +75,13 @@ log and memory, because the reasoning is far more transferable than the fix.
 
 The lane is effectively complete. Four things outlive it, and only the first is ours:
 
-1. **One optional tidy-up, held deliberately for an owner decision.** The engine still keeps a
-   second, older way of recognising a lap's final step, kept for jobs that were already running
-   when the fix shipped. Those have all finished — measured, twice — so it can now be deleted, and
-   a reviewer asked for that. But it has quietly become a second independent guard against the
-   exact failure that caused all this, and it costs two lines. Deleting it buys tidiness and
-   spends a safety net. Recommendation: **keep it.**
+1. **DECIDED 2026-08-19 — nothing is left here.** The engine still keeps a second, older way of
+   recognising a lap's final step, kept for jobs that were already running when the fix shipped.
+   Those have all finished — measured, twice — so it could now be deleted, and a reviewer had asked
+   for that. **The owner ruled that it stays.** It has quietly become a second independent guard
+   against the exact failure that caused all this, it costs two lines, and deleting it would make
+   correctness depend on a single line being right for ever. The ruling is recorded at the code
+   itself, so someone arriving to simplify that function meets it before they cut.
 2. **The class of bug is still open.** We have now patched two states that nothing was watching,
    one at a time. The platform lists these states by hand in six different places and **no two
    lists agree**, so forgetting one is the normal outcome rather than an accident. The general fix

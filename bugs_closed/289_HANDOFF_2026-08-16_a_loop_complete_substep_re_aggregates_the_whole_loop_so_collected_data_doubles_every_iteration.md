@@ -591,9 +591,21 @@ rows written. Anyone measuring this machinery's yield must read `inserted`, not 
 - **Residual (4)** — `LoopCompleteAction` still lets a step lacking its own `total_iterations`
   inherit the whole loop's. Latent, and the fallback is deliberate backward-compat for
   pre-expansion plans, so weigh that before "fixing" it.
-- **Residual (6)** — the `loop_iteration` fallback in `isLoopIterationTerminal` becomes a permanent
+- **Residual (6)** — ~~the `loop_iteration` fallback in `isLoopIterationTerminal` becomes a permanent
   second discriminator once every persisted plan carries the explicit flag. Delete it then.
-  (Council `architecture` seat, corr `7a3c4fb7`.)
-- **`a436d898f`** — the council's `GetIntField` reuse swap postdates `v1.0.1307`, is behaviourally
-  identical, and rides the next build.
+  (Council `architecture` seat, corr `7a3c4fb7`.)~~
+  > **CLOSED BY OWNER RULING 2026-08-19 — THE FALLBACK STAYS. Do not re-open this as a task.**
+  > The precondition was reached and measured: 1,196 `loop_complete` steps across 357 runs all carry
+  > the explicit flag, **0 need the fallback**, and the only unflagged steps left are 22 in 6
+  > **CANCELLED** runs from 2026-07-24 — terminal, and unprunable because `database-cleanup` does not
+  > name that status. So deletion became technically available, and was **declined**.
+  > **Why:** the fallback stopped being redundant and became a *second independent discriminator*
+  > against the exact 2^N failure this bug was. Deleting it makes correctness depend on one line —
+  > `loop_expansion_handler.go:182` — being right for ever, on a subsystem that reached 22 MB rows and
+  > 1 completion in 63. Two lines of defence in depth is a poor trade for tidiness. The seat's own
+  > wider point (the step model overloading `action`) is the RFC signal and it said explicitly that
+  > it is **not** this fix. Recorded at the code as well, so a future simplifier meets it there.
+- **`a436d898f`** — ~~postdates `v1.0.1307` and rides the next build~~ **SHIPPED**: it is an ancestor
+  of `f0117fb8b`, the commit stamped into the `v1.0.1309` binary, and is live in `v1.0.1314`
+  (`d3590ca46`) too.
 - **The per-page `audit_review` key** — the 281 lane's item, demonstrated live above.

@@ -7,9 +7,10 @@
 > revision label): per-lap keys **77 bytes flat** across 123 runs, both reaper arms live, **0
 > non-terminal rows over 4 h** fleet-wide.
 >
-> **Exactly one item is left and it is an owner decision, not a task: residual (6).** Its
-> precondition is met and re-measured (1,196 steps / 357 runs all carry the explicit flag; 0 need
-> the fallback). **Recommendation: KEEP the fallback.** It has stopped being merely redundant and
+> **NOTHING IS LEFT. The last item, residual (6), was RULED ON BY THE OWNER 2026-08-19: the
+> fallback STAYS — do not re-open it as a task.** Its precondition was met and re-measured
+> (1,196 steps / 357 runs all carry the explicit flag; 0 need the fallback), so deletion became
+> available and was declined. It has stopped being merely redundant and
 > become a second independent guard against the exact 2^N failure `289` was — two lines against a
 > bug that reached 22 MB rows and 1 completion in 63. The council seat that asked for its deletion
 > framed the wider `action`-overloading point as the RFC signal and *not* this fix.

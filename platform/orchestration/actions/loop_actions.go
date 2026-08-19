@@ -563,14 +563,37 @@ func LoopCompleteAction(ctx context.Context, params ActionParams) (interface{}, 
 //     correctly (that step is built by handleLoopExpansion, never injected as a
 //     substep, so it does not carry the flag).
 //   - `loop_iteration`, which every injected iteration step carries and the
-//     loop's own end-step never does. Read with the shared
-//     datahelpers.GetIntField (it already handles the float64 a JSON round-trip
-//     through the persisted plan produces) rather than a local coercion helper —
-//     council 7a3c4fb7, reuse_agent objection. This is the fallback for workflow plans
-//     that were EXPANDED AND PERSISTED BEFORE this fix shipped: those plans are
-//     already in flight with no flag in them, and without this they would keep
-//     doubling until they died. A hand-authored loop_complete step has no
-//     business carrying an iteration index either way.
+//     loop's own end-step never does. Tested for PRESENCE only — the value is
+//     never read here, so no coercion helper is involved. (An earlier revision of
+//     this comment said it was read with datahelpers.GetIntField; that was wrong
+//     and is corrected here. GetIntField is used for `total_iterations` in
+//     LoopCompleteAction — council 7a3c4fb7, reuse_agent objection — not for this.)
+//     Its original purpose was workflow plans EXPANDED AND PERSISTED BEFORE the
+//     289 fix shipped: already in flight with no flag in them, and without this
+//     they would keep doubling until they died. A hand-authored loop_complete step
+//     has no business carrying an iteration index either way.
+//
+// ── OWNER RULING 2026-08-19 — THIS FALLBACK STAYS. DO NOT DELETE IT. ──────────
+// Its original reason HAS expired: measured 2026-08-19, 1,196 loop_complete steps
+// across 357 runs all carry the explicit flag and ZERO need the fallback; the only
+// unflagged steps left are 22 in 6 CANCELLED runs from 2026-07-24, which are
+// terminal and can never execute. So the pre-fix cohort is gone and the council
+// architecture seat's residual (6) — "delete it once every persisted plan carries
+// the flag" — is now technically satisfiable.
+//
+// It is deliberately NOT taken, because the fallback stopped being redundant and
+// became a SECOND INDEPENDENT DISCRIMINATOR against the exact failure bugs_closed/289
+// was: a 2^N blow-up that reached 22 MB rows and left tool-auditor completing 1 run
+// in 63. Deleting it makes correctness depend on one line — loop_expansion_handler.go:182
+// — being right for ever. Two lines of defence in depth against a bug of that severity
+// is a poor thing to trade for tidiness, and the seat itself framed the WIDER point
+// (the step model overloading `action` to mean both "what to run" and "role in the
+// workflow") as the RFC signal and explicitly NOT this fix.
+//
+// If you are here to simplify this function: that is the RFC, not this branch.
+// Full reasoning: bugs_closed/289 residual (6), and
+// docs024_key_docs_latest/bugfix_281_tool_audit_ported/SUMMARY_2026-08-19_….md.
+// ─────────────────────────────────────────────────────────────────────────────
 func isLoopIterationTerminal(config map[string]interface{}) bool {
 	if config == nil {
 		return false
