@@ -195,3 +195,88 @@ to be deployed, and both already call a routine that marks it properly afterward
 premature step needs no new code and takes effect immediately. The architecture reviewer looked at
 this specific piece and said "clean point fix — proceed". I have not applied it, because it changes
 the live build pipeline the moment it runs and that felt like your call to make, not mine.
+
+## 2026-08-19, afternoon — the premature stamp is gone, and the decision you asked me to explain
+
+**Done first: the change you authorised is live.** Migration 491, applied 15:20Z. The two agents
+that marked a page "deployed" before asking for it to be deployed no longer have that step; the job
+now falls to the routine they already call, which does it after the deployment has actually been
+requested. Verified at the live configuration, not just at the migration's say-so: all four
+remaining places that write that timestamp now come *after* a deployment request. It was two out of
+five; it is now none. The snapshots taken beforehand were checked to hold the *old* configuration —
+a snapshot that exists but holds the new value would restore nothing.
+
+One honest caveat: this is proven at the configuration, not yet watched at runtime, because no page
+has been built through the new path in the twenty minutes since. If it were wrong, the failure would
+be pages staying *un*-marked rather than falsely marked, which is the recoverable direction, and the
+rollback is written and ready.
+
+---
+
+## The decision, explained
+
+### What these two things actually are
+
+**A content fingerprint** (the `content_hash` field on pages) is a short string calculated from a
+file's exact contents. Change a single character anywhere in the file and the string changes
+completely. It is the ordinary way to answer "are these two files identical?" without comparing them
+character by character. There is a field for one on every page in the database. It is a 64-character
+text field — exactly the size the standard calculation produces — so somebody set it up for precisely
+this and never filled it in.
+
+**A deployment reference** (the `deploy_commit` field on page sections) is meant to hold the
+identifier of the specific save that carried that section to the website — a reference you could look
+up afterwards to see exactly what was sent.
+
+Both fields exist on every relevant row. Both are **completely empty**, everywhere, and no code
+anywhere in the system — including the tests — has ever written to either.
+
+### Why it is your decision and not mine
+
+Because a previous session wrote it down as yours. When a related unused setting was cleaned up,
+whoever did it left a note saying that the column is already there, that its being empty means "never
+built" rather than "never deployed", and that **deciding whether to wire it up or drop it is an owner
+call, not a bug fix**. I found that note only because a reviewer refused to let my plan assume
+otherwise — my original plan would have quietly taken the decision by adding a similar column back to
+a table it had been deliberately removed from.
+
+### The thing that makes the decision easier — they are not a pair
+
+I assumed at first that these two fields were two halves of one idea. They are not, and it matters:
+
+- **The website serves one file per page.** So a fingerprint stored *on the page* is exactly the
+  right shape for the question this bug is about: take the fingerprint of what we sent, later
+  fingerprint what the website is actually serving, compare. One step, no judgement.
+- **A section is not a file.** So a deployment reference stored *on the section* cannot answer "is
+  this page published" at all. It answers a different and narrower question — "which save carried
+  this particular section's last change" — which is useful for tracing history but is not this bug.
+
+So they can be decided separately, and I would decide them differently.
+
+### What each option costs
+
+**Wire up the page fingerprint — my recommendation.** This is the piece the whole fix rests on.
+Without a record of what we intended to publish, "this page never needed republishing" and "this page
+failed to publish" are indistinguishable — that is the bug, and no amount of cleverness about
+timestamps gets round it, as I demonstrated by producing forty confident false alarms this morning.
+It cannot land on its own, though: it needs the deployment service to hand back the fingerprint of
+what it actually sent, which is the piece now in architecture review as RFC 038, because that
+response is consumed by nineteen different steps and nobody has surveyed them.
+
+**The section-level deployment reference — I would drop it, or leave it.** It does not help this bug,
+nothing has ever needed it in the months it has existed, and keeping an empty field that looks
+purposeful is exactly what has now cost three separate sessions time. If you want deployment
+traceability later, it is a one-line addition at that point. The only argument for keeping it is that
+adding columns back is mildly annoying, which is not much of an argument.
+
+**Do nothing.** This is the option that has effectively been chosen three times already — once in
+early August by the lane that measured the fingerprint field empty and worked around it, once by
+whoever wrote the cleanup note, and once by me if I had not been stopped. The cost is not that
+anything breaks; it is that the same discovery gets made again, and that this bug stays unfixable in
+principle rather than merely unfixed.
+
+### What I need from you
+
+Just one answer, really: **wire up the page fingerprint, yes or no?** If yes, RFC 038 becomes worth
+pushing through and the rest follows from it. The section-level field is a tidy-up either way and I
+am happy to take silence on it as "leave it alone".
