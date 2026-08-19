@@ -1980,3 +1980,50 @@ answer**. A pointer preserves the loop's independent grading; a stated count wou
 `executeStep`, `executeLocalAction`, **`processAwaitResponse`**, **`createContinuationContext`**,
 `ProcessResponse`, `HandleResponse`, `handleRecoverableError`, `createAwaitedRequest`,
 `extractRequestID`, `executeRemoteAction`.
+
+### 15. Run `5d1d8f1c` — my "improved" re-file made it WORSE, and I confounded the experiment so I cannot say which change did it
+
+**Outcome: `UNVERIFIABLE`, `stopped_by = "scope-not-narrowing"`, ONE iteration.** The run it was
+meant to improve on (`d02a6958`) managed **three** iterations and produced real Tier-1 citations from
+the 08-17 evidence. **This is a regression, and it is mine.**
+
+What it did do: it read the instruction and **issued my reconstruction CTE as its first
+`DataRequest`** — so the "put the query in the symptom" mechanism works. It then stopped before
+iteration 2, which is where the results would have arrived. **It never saw the output of the query I
+supplied.** Its Tier-0 citations were good (`handleCompleteResponse`'s `allDone` continuation,
+`continueExecution`'s `SetExecutingStep`) and its Tier 1 was the expected
+*"(no orchestration rows for this correlation/site)"*.
+
+#### The methodological error, stated plainly
+
+**I changed three things in one re-file:**
+1. embedded the reconstruction SQL in the symptom,
+2. named the 200-row cap and its remedy,
+3. **widened the seed scope from 5 symbols to 6**, adding the previous run's own `NextScope` picks.
+
+The result got worse. **I cannot attribute the regression to any one of them**, and (3) is the
+obvious suspect on the stated stop reason — `scope-not-narrowing` compares the proposed scope against
+what it started with, and I handed it a *wider* start whose natural next step (13 symbols) then read
+as no narrowing. But that is a **hypothesis about my own change**, not a measurement, and the
+one-run-per-condition design cannot separate it from the longer symptom text.
+
+> **This is the same error this lane has logged in other people's work and I made it anyway: an
+> experiment with three simultaneous interventions has no interpretable result.** The correct
+> re-file changes ONE thing. `WRONG_CALLS.md` 2026-08-19.
+
+#### What the next re-file should do — one change only
+
+**Keep `d02a6958`'s seed scope EXACTLY** (the original five symbols; do NOT add the NextScope picks)
+and add **only** the reconstruction SQL. If that run also stops at `scope-not-narrowing`, the SQL is
+implicated; if it reaches iteration 2 and reads the results, the seed widening was the cause and the
+lesson is *never seed with the previous run's NextScope — that is what the loop is for.*
+
+**And note what is NOT in doubt:** `d02a6958` remains the high-water mark and its findings stand —
+the bundle fix works, the loop can now read and cite `awaited_requests`, and the wedge's transition
+is narrowed. Today's regression is about how I drove the tool, not about the evidence.
+
+**Two blind checks caught in one evening, same shape.** I twice checked the bundle for a string I had
+authored (`awaited_requests`, then `next_call_registered`) and both returned true on material that
+was just **my own symptom text quoted back into the bundle**. The general rule: **any check against
+the bundle body for a string you wrote is blind.** Discriminate on the *renderer's* syntax
+(`awaited_requests(` with the parenthesis) or on the query's *output values*, never on its name.
