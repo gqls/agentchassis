@@ -285,6 +285,20 @@ false-alarm annotation (see below) because their original remedy text is DANGERO
 info-card-grid's v1 would replace a good current template. Complete them normally; the verifier
 (new binary) resolves them as balanced. Do not act on their original remedy text.
 
+### Independent re-verification 2026-08-19 ~11:00Z (second session)
+
+A second session, dispatched at `bugs_open/303` before learning it had closed hours earlier,
+re-ran the close-out's checks first-hand rather than trusting this file. All held: ancestry
+(`6d962bcf8`, `e21b172f0`, `d71e8abc7` → `d3590ca46`, and `d3590ca46` → HEAD); known-value binary
+probe HIT on both replicas (`l5h6l`, `nxmkf`) with the high-entropy must-miss control clean; zero
+`tool_birth_truncation_blocked` rows since the 07:52Z roll (last ever: 2026-08-18 13:58Z,
+pre-fix); both post-roll tool births present in `content_components`; `go test
+./platform/content/` passes at the tree, `TestSubstringCountWouldRefuseMentionTool` included; no
+`awaiting_diagnosis` items matching truncation/tool-birth/tag in the queue. **The close stands;
+no fix work remains.** Residual unchanged: `91007600` / `6e2c9ebf` still `needs_human_review`
+with their false-alarm annotations — complete via the verifier, do not act on the original
+remedy text.
+
 **Two instrument lessons from the close-out itself** (both in WRONG_CALLS / the recipe above):
 an all-zeros must-miss control hits legitimately in Go binaries; and extracting the stamp with a
 discovery `grep -aoE "[0-9a-f]{40}"` fails a different way — Go's string table concatenates
