@@ -161,3 +161,25 @@ claims nothing in that predicate (correct for the index, but never claim §9.3 c
 Peer's offer: their pilot sits frozen under a build-halt as a stable failing specimen for
 on-demand queries — use it for post-roll verification. THE §9.3 IMPLEMENTATION IS THE NEXT
 WORK ITEM IN THIS LANE and is not started at the time of this note.
+
+## 2026-08-19 (afternoon) — THE FIX IS LIVE on v1.0.1315, binary-proven with controls
+
+Asked by the loanzy_uk lane (their probe for the fix sha came back ABSENT — correctly
+distrusted: the stamp is the BUILD commit's sha, so an absent ancestor sha proves nothing).
+The definitive chain, run 2026-08-19 ~16:00 UTC:
+- Both v1.0.1315 replicas (started 12:15Z) stamp `590ca3a20cca99e0f6e9c6a2545bd8e94c11b9ae`
+  in /proc/1/exe; fake-sha negative control ABSENT on the same pod.
+- `git merge-base --is-ancestor 17d883333 590ca3a20` → TRUE. Fix is in the build.
+- Second positive probe on the fix's own literal: `COMPONENT_COLLISION_DIVERTED` PRESENT.
+- Behavioural evidence: none yet — ZERO needs_new_component attempts fleet-wide since the
+  roll (loanzy lane measured), so this is a no-demand zero; the first real build is the test.
+
+Incumbent baselines PINNED before any real-world test (both-halves verification —
+values, not refs):
+- b89f91e1 (mortgages-repayment): html a2c00f1c66ce6f4ef72b48083f1e3da6 / schema 8265ae5a931b735305b1fe007b148acb
+- 7d8b0503 (loans-car-finance-calculator): html 5f9534982e7f2bd776605ed78e755010 / schema 8e2cfe0afb1863b178390d6a048409b0
+- 824e3309 (loans-credit-health-check): html e6ee4b07f11d0b43c1c5a62667f4999f / schema dd8f9863c84f8a5a7ec3e99154241f43
+
+The loanzy lane will re-run a build as the free real-world test and report either way.
+Owner context relayed by them: ALL sites must be capable of having tools — "pick a
+vertical without calculators" is off the table as a workaround.
