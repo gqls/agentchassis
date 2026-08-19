@@ -231,6 +231,37 @@ const (
 // because the CSS was already correct. Only a measurement per type tells them
 // apart.
 var noChangeGates = map[string]noChangeRule{
+	// ⚠⚠ THIS ENTRY'S LICENCE WAS VOIDED ON 2026-08-19 AND IT HAS NOT BEEN RE-EARNED.
+	//
+	// Both the Why and the CounterPaths below describe **color-variable-fixer**. On
+	// 2026-08-19 the owner ruled that this type should be routed to a handler that can
+	// actually make the change, and `designRouting["dark_section"]` now names
+	// **css-patch-agent** (write_audit_findings_action.go). So:
+	//
+	//   - the Why — "that transform's alphabet cannot write these properties" — is a
+	//     true statement about a handler this type no longer uses;
+	//   - the CounterPaths point at response.fix_result.total_fixed and
+	//     response.text_color_result.total_fixed, which css-patch-agent does not emit.
+	//     [MEASURED 2026-08-19] its completions carry css_fix / css_deployed, and 56 of
+	//     103 carry no response envelope at all. **No numeric counter exists in its
+	//     shape**, so the block arm below is now dead and every payload would read as
+	//     UNREADABLE.
+	//
+	// WHY IT IS LEFT IN PLACE ANYWAY, deliberately, rather than removed today. Its
+	// failure direction is a REFUSAL, which routes to attempts and then human review —
+	// the safe direction, and non-destructive. Removing it instead would drop this type
+	// out of the claim-timeout exclusion list (WII-021's guard asserts
+	// excluded ⇔ gated), reversing a change that is live and under council review, to
+	// no benefit while the type has no traffic. **Both carriers are enabled=false**
+	// (owner, 2026-08-19), so nothing can reach this entry until that changes.
+	//
+	// WHAT IS OWED BEFORE A CARRIER IS RE-ENABLED — this is the precondition, not a
+	// suggestion: re-measure css-patch-agent's reply shape on THIS type and either
+	// write CounterPaths and a Why that are true of it, or delete this entry and its
+	// exclusion-list row together. Writing an entry from a guess about somebody else's
+	// handler is the one thing this roster forbids, and right now that is exactly what
+	// the two fields below are.
+	//
 	// The two counters are color-variable-fixer's two repair steps
 	// (fix_hardcoded_colors and the forced-text-colour step). Both zero means
 	// neither step altered a single template or rendered component.

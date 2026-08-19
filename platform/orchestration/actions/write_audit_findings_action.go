@@ -88,14 +88,55 @@ var pageNameAliases = map[string]string{
 }
 
 // Design category → handler agent
+//
+// Read at FILING time only (Rule 1 below), so a change here affects newly-filed
+// items and never re-routes rows already carrying a handler_agent.
 var designRouting = map[string]string{
 	"colour":        "webdesign-agent",
 	"color":         "webdesign-agent",
 	"spacing":       "component-template-fixer",
 	"typography":    "webdesign-agent",
 	"header_footer": "site-component-linker",
-	"dark_section":  "color-variable-fixer",
-	"responsive":    "component-template-fixer",
+
+	// dark_section was routed to color-variable-fixer until 2026-08-19. OWNER RULING
+	// that date, on the choice this lane put to him: route it to a handler that can
+	// actually make these changes.
+	//
+	// WHY THE OLD ROUTE COULD NEVER WORK, measured rather than argued. These findings
+	// ask for SCOPED CSS BLOCKS DEFINING SECTION TOKENS — the live suggestions read
+	// "add a scoped style block for .cta-section that defines --section-text: #ffffff;
+	// --section-text-muted: …", "add a .site-footer scoped block defining
+	// --section-text, --section-heading, --section-surface and --section-bg". That is
+	// an ADDITIVE STYLESHEET RULE. color-variable-fixer's transform
+	// (checks.ReplaceHardcodedColors) does something else entirely: it rewrites dark
+	// hex literals found INSIDE component bodies, and its whole output alphabet is
+	// var(--color-primary) and var(--color-secondary). A transform with two words
+	// cannot satisfy a criterion naming five others, on any input — so [MEASURED
+	// 2026-08-19, archive-inclusive] all 26 completions of this type across 17 sites
+	// reported a repair count of ZERO, and not one ever reported a non-zero fix.
+	//
+	// WHY css-patch-agent. Its workflow IS this job — load_current_css → plan_css_fix
+	// → save_css_to_db → deploy_css — and it already carries the sibling colour
+	// concern (contrast_failure, 287 items). Capability confirmed at the ARTEFACT, not
+	// from its config: [MEASURED 2026-08-19] 39 of its completions carry a git-adapter
+	// response deploying assets/css/styles.css, most recent 2026-08-18.
+	//
+	// WHY NOT webdesign-agent, which takes every other colour category: for its main
+	// type (needs_design_review) the owner ruled the same day that THE ANALYSIS IS THE
+	// DELIVERABLE, and [MEASURED] all 1,268 of its completions carry no response
+	// envelope at all. Routing a repair need at an analysis producer is the same
+	// mistake this line is fixing, in different clothes.
+	//
+	// ⚠ READ complete_work_item_no_change.go BEFORE RE-ENABLING A CARRIER FOR THIS
+	// TYPE. Gate 1b's roster entry for dark_section_audit is licensed by a measurement
+	// about color-variable-fixer's transform, and this line has just voided it. The
+	// entry is deliberately left in place — its failure direction is a REFUSAL, which
+	// is safe — but it must be re-measured against css-patch-agent, or removed, before
+	// items flow again. Both carriers are enabled=false today (owner, 2026-08-19:
+	// keep them off for now), so this route is INERT until that changes.
+	"dark_section": "css-patch-agent",
+
+	"responsive": "component-template-fixer",
 }
 
 // Category → fix_type mapping for component-template-fixer
