@@ -480,7 +480,28 @@ type fieldCandidate struct {
 	path  string // dotted path from the search root; "~unwrap" marks a hop through tryUnwrapMapPatterns
 	depth int
 	value interface{} // UnwrapDeep'd, never nil
+
+	// rank is the DECLARED tie-break at equal depth (bugs_open/306). Lower wins.
+	// It names the preference the resolver has always applied by accident of
+	// append order: a direct key match at this level, then the ~unwrap hop
+	// (input_data / result / *_result — the places a step's own inputs live),
+	// then plain sibling recursion. Measured 2026-08-18 on page-build-handler,
+	// 13 of 139 runs carried a genuinely different page at equal depth and the
+	// unwrap-hop candidate was the correct one every time; nothing declared that
+	// dependency, and a reordered append would have flipped it with no failing
+	// test. Now the sort reads the rank, and a test pins it.
+	rank candidateRank
 }
+
+// candidateRank orders equal-depth candidates. The numeric values are the
+// collector's historical append order, so declaring them changes no winner.
+type candidateRank int
+
+const (
+	rankDirectMatch candidateRank = iota // v[fieldName] at this level
+	rankUnwrapHop                        // reached via tryUnwrapMapPatterns
+	rankSibling                          // reached by recursing into another key
+)
 
 // findFieldRecursive is the whole-tree-search arm — the resolver's last resort,
 // and the only nondeterministic one until 2026-08-15.
@@ -511,11 +532,19 @@ func findFieldRecursive(
 		return nil
 	}
 
-	// Stable sort by depth ONLY. Ties keep the collector's deterministic DFS
-	// encounter order (sorted map keys, natural slice order) — sorting by path
-	// STRING here would misorder slice indices ("[10]" < "[2]" lexicographically).
+	// Stable sort by depth, then by the DECLARED rank (bugs_open/306): direct
+	// match, then the ~unwrap hop, then sibling recursion. Remaining ties keep
+	// the collector's deterministic DFS encounter order (sorted map keys, natural
+	// slice order) — sorting by path STRING here would misorder slice indices
+	// ("[10]" < "[2]" lexicographically). The rank was always the append order;
+	// reading it here is what stops a reordered collector from silently changing
+	// the winner in the 13-of-139 population where the candidates are different
+	// pages.
 	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].depth < candidates[j].depth
+		if candidates[i].depth != candidates[j].depth {
+			return candidates[i].depth < candidates[j].depth
+		}
+		return candidates[i].rank < candidates[j].rank
 	})
 
 	winner := candidates[0]
@@ -575,6 +604,13 @@ func findFieldRecursive(
 // A key holding null was never a resolvable value here — the old walk returned
 // it as nil at the root (which read as not-found) and skipped past it mid-tree —
 // so the collector skips null uniformly rather than treating it as a candidate.
+//
+// RANK (bugs_open/306): every candidate carries the rank of the FIRST hop that
+// left the search root — direct match, ~unwrap hop, or sibling recursion — and
+// that rank is inherited unchanged by everything found beneath it. A caller at
+// the root passes rankDirectMatch; only the root's three branches assign the
+// other two. This is the append order the collector has always used, made
+// explicit so the sort in findFieldRecursive can read it instead of relying on it.
 func collectFieldCandidates(
 	data interface{},
 	fieldName string,
@@ -583,8 +619,29 @@ func collectFieldCandidates(
 	out []fieldCandidate,
 	logger *zap.Logger,
 ) []fieldCandidate {
+	return collectFieldCandidatesRanked(data, fieldName, path, depth, rankDirectMatch, path == "", out, logger)
+}
+
+func collectFieldCandidatesRanked(
+	data interface{},
+	fieldName string,
+	path string,
+	depth int,
+	inherited candidateRank,
+	atRoot bool,
+	out []fieldCandidate,
+	logger *zap.Logger,
+) []fieldCandidate {
 	if depth > 20 {
 		return out
+	}
+
+	// Below the root every hop inherits; at the root each branch names its own.
+	rankFor := func(branch candidateRank) candidateRank {
+		if atRoot {
+			return branch
+		}
+		return inherited
 	}
 
 	switch v := data.(type) {
@@ -596,6 +653,7 @@ func collectFieldCandidates(
 					path:  joinCandidatePath(path, fieldName),
 					depth: depth,
 					value: unwrapped,
+					rank:  rankFor(rankDirectMatch),
 				})
 			}
 		}
@@ -604,7 +662,7 @@ func collectFieldCandidates(
 		// and search inside — this reaches JSON-encoded payloads the plain key
 		// walk cannot (a string is not a map), exactly as the old walk did.
 		if unwrapped := tryUnwrapMapPatterns(v, logger); unwrapped != nil {
-			out = collectFieldCandidates(unwrapped, fieldName, joinCandidatePath(path, "~unwrap"), depth+1, out, logger)
+			out = collectFieldCandidatesRanked(unwrapped, fieldName, joinCandidatePath(path, "~unwrap"), depth+1, rankFor(rankUnwrapHop), false, out, logger)
 		}
 
 		// Recurse into all values, in sorted-key order so the candidate list is
@@ -629,12 +687,12 @@ func collectFieldCandidates(
 				// would manufacture conflicts no run has ever seen.
 				continue
 			}
-			out = collectFieldCandidates(v[key], fieldName, joinCandidatePath(path, key), depth+1, out, logger)
+			out = collectFieldCandidatesRanked(v[key], fieldName, joinCandidatePath(path, key), depth+1, rankFor(rankSibling), false, out, logger)
 		}
 
 	case []interface{}:
 		for i, val := range v {
-			out = collectFieldCandidates(val, fieldName, fmt.Sprintf("%s[%d]", path, i), depth+1, out, logger)
+			out = collectFieldCandidatesRanked(val, fieldName, fmt.Sprintf("%s[%d]", path, i), depth+1, rankFor(rankSibling), false, out, logger)
 		}
 	}
 
@@ -674,9 +732,23 @@ func isInfrastructureKey(key string) bool {
 
 // tryUnwrapMapPatterns tries to unwrap common nesting patterns
 func tryUnwrapMapPatterns(m map[string]interface{}, logger *zap.Logger) interface{} {
-	// Pattern 1: {field}_result.result
-	for key, val := range m {
+	// Pattern 1: {field}_result.result — in SORTED key order (bugs_open/306).
+	// This loop used to range the map directly and return the first *_result it
+	// met, which is the exact iteration-order coin flip RFC_029's collect-all
+	// rewrite removed from the collector, surviving one call inside it. Measured
+	// 0/139 able to fire on 2026-08-18 (no live root *_result object carried a
+	// `result` child), so sorting changes no live winner today — which is the
+	// cheap moment to close it, before a workflow produces two such keys.
+	keys := make([]string, 0, len(m))
+	for key := range m {
 		if strings.HasSuffix(key, "_result") {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		val := m[key]
+		{
 			if resultMap, ok := val.(map[string]interface{}); ok {
 				if result, ok := resultMap["result"]; ok {
 					if parsed := tryParseJSON(result, logger); parsed != nil {
