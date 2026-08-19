@@ -2040,3 +2040,47 @@ lane.
 
 **What waits on you: one more build roll.** After it: verify step four the same way, then the
 final switch.
+
+---
+
+**2026-08-19, night.** Still waiting on your roll — I checked properly rather than assuming, and
+the live build genuinely does not contain step four's code, so there was nothing to verify yet.
+Two useful things came out of the waiting.
+
+The first is small but worth having. The test for step four is "after the roll, this warning
+stops appearing". A warning that stops is only meaningful if it was happening beforehand, so I
+recorded that it was: fifteen occurrences in the three and a half hours before I looked, the
+most recent one a minute before I ran the query. Now the silence afterwards will mean something.
+
+The second is bigger, and it changes the last step of the plan. That final step flips the
+system from "when the search finds two different answers, pick one" to "when it finds two
+different answers, refuse". The code itself says what has to be true before we are allowed to
+do that: either the warning has gone quiet everywhere, or every place still producing it has
+been given an explicit answer to use instead. I had been assuming we were nearly there. **We are
+not.** Nineteen distinct places have produced this warning since the instrument went in;
+everything we have built so far accounts for five of them. Fourteen are unaddressed.
+
+What made this easy to get wrong is that most of the fourteen look dead — their last warning was
+a day or two ago. But I checked whether the code that produces them had run at all since, and it
+had, heavily: one of them ran nearly four hundred times in a day without tripping. So they are
+not fixed. They are waiting for the right data to come past. If we flip the switch believing
+they are gone, we will find out otherwise in production.
+
+Chasing the largest of those fourteen to the bottom turned up a real bug, which I have filed.
+When the system builds a small interactive tool for a site, it is supposed to link to that tool
+from whichever pages are genuinely related. When nobody has said which pages those are, the
+correct answer is "link from none". Instead the search goes looking for anything anywhere called
+"related pages", finds the list belonging to a *different, unrelated* tool, and uses that. On
+webdesign.co.uk the result is that nine different tools — an SVG optimiser, a JSON cleaner, a CSS
+generator — have all been queued to be linked from the same two statistics pages. The good news
+is that none of those links reached the live site; they sat in the queue and failed. Four other
+sites do this correctly, which is how I know the substitution is the fault and not the design.
+
+I record one wrong turn. My first explanation was that an old fix had been undone, and I had
+started writing that up before I opened the file and found the fix exactly where it should be —
+I had looked for it in the wrong place and read "not here" as "not anywhere". That is in the
+wrong-calls log.
+
+**What waits on you is unchanged: one more build roll.** What changes is what comes after it.
+The final switch now needs a piece of design work first — deciding what each of those fourteen
+places should get instead of a guess — rather than being the quick flip we had penciled in.
