@@ -97,9 +97,11 @@ sweep (NOTES, evening entry, last paragraph).
    `393f15bfd` is an ancestor (⊇ `846496906`, `f42e03720`). (b) ✓ window 12:16→15:58Z: bdl
    BOTH fields → 0 against live demand (84 post-roll orchestrations reference the loop), pcw
    persists (20 rows, last 15:54Z — instrument alive); BONUS: pbh retry-echo class 45→0
-   against 6 echo-shaped demand rows (cand 3). (c) ⚠ log line NOT WITNESSED — 0 hits in
-   `--tail=5000` on both pods, which at ~90s chassis retention means "not in range", not
-   "not firing"; the (b) row-disappearance against demand is the standing behaviour evidence.
+   against 6 echo-shaped demand rows (cand 3). (c) ~~⚠ log line NOT WITNESSED~~ **WITNESSED 2026-08-19
+   ~20:31Z on v1.0.1316** (the other session of this lane):
+   `"unrequested_page_fields_not_injected":["current_page",…]` live on a chassis pod's
+   "Ensuring core fields present" line — `--tail=8000` was the difference (5000 too shallow;
+   these lines churn in minutes). All three legs now stand.
    **306 CLOSED → `bugs_closed/` (all three candidates; §7 is the evidence record).**
 4. ~~Step 4: fix the surviving shape conflicts AT SOURCE …~~ **DONE (built+submitted) 2026-08-19
    late — see the step-4 row.** What is now owed, in order:
@@ -114,7 +116,11 @@ sweep (NOTES, evening entry, last paragraph).
    Budget ~30 min from submission (~16:45Z); a missing row is latency, not a drop — find it by
    payload (`collected_data->'input_data'->>'fix_correlation_id'` on `orchestration_states`),
    never re-trigger.
-   (b) **After the next chassis roll:** stamp the binary (`/proc/1/exe` grep for the stamp with a
+   (b) **After the next chassis roll — NOT v1.0.1316:** 1316 (= `07eeba4a1`, rolled ~17:13Z,
+   verified 3-leg by the parallel session ~20:30Z: steps 1–3 re-proven, bdl both fields 0
+   against 2-run demand, pcw 13 rows persisting as predicted) **PREDATES step 4's approval and
+   does NOT carry `1a82225ec`** — ancestry-checked, not assumed. Wait for a roll whose stamp
+   contains it, then: stamp the binary (`/proc/1/exe` grep for the stamp with a
    known-ABSENT and a known-PRESENT control), confirm `1a82225ec` is an ancestor, then read the
    done-condition (RUNBOOK "step 4's done-condition"): pcw/`current_page` conflict rows post-roll
    must be **0 against live pcw demand** (pcw orchestrations in the window > 0). Any NEW candidate
