@@ -37451,3 +37451,22 @@ WHERE clause before writing the sentence. Ten seconds of SQL; the census was alr
 documented adoption bar in `revalidate_review_queue`'s own tests, two files away. (Same family
 as [[detection-works-schedule-and-dispatch-do-not]]: the verifier DETECTED correctly; the path
 that was supposed to DRIVE it was never wired, and a remedy sentence inherited the gap.)
+- **I proved one failure, inferred its neighbour from the same shape, and wrote both into a bug file
+  as one finding.** Two work items on the same owned page failed 35 minutes apart. I read the first
+  one's `__step_error`, quoted it, and it was the owned-page guard. For the second I checked the
+  `item_key` (a different producer — which was the point I was making) and then let the *cause* ride
+  along on the shape: same page, same item type, same guard. I wrote *"many producers independently
+  arriving at the same owned page and each dying silently"*. **Two days later an owner directive
+  surfaced a fleet-wide `git-adapter` 404 burst covering 13:31–16:14Z — the proven failure is at
+  13:02:18, 29 minutes BEFORE it; the inferred one is at 13:37:24, inside it.** By then both
+  orchestrations were past the ~24h retention, so the second cause is now unknowable for ever.
+  **The cheap check was to read the second `__step_error` at the time** — it cost one query, the row
+  was still there, and I did not run it because the first one had already told me what I expected to
+  find. That is the whole mechanism: **a confirmed instance makes the next one feel measured.** The
+  giveaway in my own prose was that I had a quotation for one claim and a resemblance for the other,
+  and presented them in one sentence.
+  **The durable rule: a cause you did not read is not a weaker version of one you did — it is a
+  different kind of claim, and it needs a different word.** On this tree the window to convert an
+  inference into a reading closes in about a day. Marking it `[INFERRED]` at the time would have
+  been honest but would NOT have saved it; only the query would.
+  Tally for "let a proven cause vouch for an unread neighbour": 1.
