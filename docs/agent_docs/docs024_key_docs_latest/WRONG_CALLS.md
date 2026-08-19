@@ -38303,3 +38303,47 @@ file is prospective and prescriptive — it is read by sessions with no symptom,
 position to sanity-check a remedy against a population they have never seen. **A landmine entry
 that tells you to run a mutation deserves the same bar as the mutation.** Corrected in place
 `50b8c65cf`, ~30 minutes after it landed.
+
+---
+
+## 2026-08-19 (evening) — I "improved" a diagnosis re-file by changing THREE things at once, it got worse, and the result is uninterpretable
+
+**Lane:** `bugfix_029_retry_kills_live_child`. Run `d02a6958` had been the lane's best diagnosis
+result — three iterations, real Tier-1 citations from recovered `awaited_requests` evidence, stopping
+one query short of the outcome test. I re-filed to close that gap.
+
+**The claim I acted on:** *"hand it the reconstruction SQL and it will start where the last one
+ended."* **The re-file (`5d1d8f1c`) returned `UNVERIFIABLE` after ONE iteration**, `stopped_by =
+scope-not-narrowing` — a regression against the three-iteration run it was meant to improve. It did
+issue my query as its first `DataRequest`, then stopped before the results could arrive.
+
+**The actual error is not the wrong guess — it is that I cannot tell which guess was wrong.** I
+changed three things in the same re-file: embedded the SQL, named the 200-row cap, and **widened the
+seed scope from five symbols to six** by adding the previous run's own `NextScope` picks. One run per
+condition, three simultaneous interventions, one worse outcome: **no attribution is possible.** The
+seed widening is the obvious suspect given the stop reason, but "obvious suspect" is exactly the kind
+of confident reading this file exists to record rather than trust.
+
+**What caught it.** Reading `stopped_by` instead of stopping at `status`. The status alone
+(`UNVERIFIABLE`) looks like the same result as the two earlier runs; the stop reason and the
+iteration count are what show it is a different and worse one.
+
+**The cheap check that would have.** Change ONE variable per run. The lane had a clean baseline
+(`d02a6958`, 3 iterations) and I destroyed its comparability for the cost of one extra run. Concretely:
+add the SQL, keep the seed scope byte-identical — then the next result means something.
+
+**Second call, same evening, same shape, twice:** I checked whether the bundle contained my evidence
+by grepping its body for `awaited_requests` and later `next_call_registered` — **both returned true
+because the symptom text I wrote is quoted verbatim into the bundle.** A check whose needle is a
+string you authored cannot fail. Caught both times before publication by asking "could this have come
+out otherwise?", and the discriminating forms are the renderer's syntax (`awaited_requests(` with the
+parenthesis) or the query's output values.
+
+> **Tally note.** "A filter that removes the population under test" and "a needle you authored
+> yourself" are now four entries in this file between them. Both are instances of one question that
+> would catch all four: **could this measurement have come out otherwise?** That question is already
+> in MEMORY as the measurement-discipline index; what this session adds is that asking it *once, at
+> the end* is not enough — I asked it and passed on the batch measurement this morning, then failed
+> it twice on bundle greps the same evening.
+
+**Cost:** one diagnosis run, and the comparability of a good baseline.
