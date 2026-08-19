@@ -76,6 +76,26 @@ today, for this lane's own hold:
    for "some 40-hex string" (it matches Go's internal digit table and returns the same
    wrong answer on every service).
 
+> **CORRECTED 2026-08-19, before this RFC was ratified — I wrote the above as a fresh
+> discovery and it is at least the SECOND occurrence.** The `bugs_open/215` lane hit the
+> same wall on 2026-08-11, chassis `v1.0.1288`, and wrote it up: probing `/proc/1/exe` for
+> four of its own commit shas **plus a fabricated control** returned absent for all five —
+> "a check with a working negative control and **no positive control**, i.e. no information
+> at all" — and on the same day its `build provenance` log route "failed in both of its
+> documented ways at once" (1.4MB of council payloads quoting the phrase, and the startup
+> line already rotated out of both pods).
+>
+> **This changes the argument's weight, and in the RFC's favour.** A one-off is a session
+> being unlucky; a recurrence across two independent lanes, eight days apart, on different
+> chassis versions, is the mechanism failing by design. It also means the estate has already
+> paid for this twice and *still* has no enforceable answer — the 215 lane's remedy (probe a
+> literal your last commit ADDED, with a one-letter near-miss) is a better marker, but it is
+> still a marker: it needs a human to choose a good literal per change, it cannot be asserted
+> by a migration, and it silently stops working for a change that adds no literal. §1.4's
+> capability probe generalises it; §2 makes it mechanical. **Recorded here rather than
+> quietly fixed, because an RFC that overstates its novelty invites exactly the
+> prior-art objection this estate's council seat exists to raise.**
+
 So the estate's standing instruction for the most safety-critical ordering decision it
 makes resolves, in the common case, to *no available check* — and the honest sessions
 then improvise a substitute each time, undocumented and unverified. **That is the
@@ -303,3 +323,19 @@ The measurements that retire this RFC's risk (none are collectable yet):
 - The traps this mechanism is built not to repeat: `LANDMINES.md` — the 380 trap,
   `logs deploy/X reads one pod of N`, the `strings`/discovery-grep entries, and
   `MEMORY.md`'s "a FRESH BUILD CAN SHIP NO NEW CODE".
+- **The prior occurrence, and the reason this is a recurrence rather than a discovery:**
+  `bugs_open/215` lane, 2026-08-11, chassis v1.0.1288 — memory
+  `a-commit-sha-probe-has-no-positive-control`, indexed under
+  `prove-a-deploy-at-the-artefact-index` (14 lessons in that family already, which is itself
+  evidence about how often this seam is walked).
+
+## 10. Live evidence added after filing (2026-08-19)
+
+The capability probe was not only reasoned about — it gated a real config change the same day
+and the change then behaved as the probe predicted. Migration 475 armed
+`cta_nonpage_destination` on `completeness-discovery-agent` after both pods were probed for the
+check name with a negative control; an induced discovery run (`webdesign.uk`, corr `ee07fd81`)
+then **COMPLETED**, filing 6 findings from the new check alongside the existing ones. Had the
+probe been wrong, the fail-fast arm would have failed the whole step and rolled back every
+other check's findings in that run. **That is one worked instance of the proposed gate's
+predicate being both checkable in advance and correct** — a sample of one, stated as such.
