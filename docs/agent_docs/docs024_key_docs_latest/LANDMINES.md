@@ -12874,3 +12874,47 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/325` · `bugs_open/033` (the queue-has-no-drain umbrella) · `bugs_closed/303` (the corrected close-out) · MEMORY [[detection-works-schedule-and-dispatch-do-not]]
 - **source:** 2026-08-19, session asked to action 303's residual — found by asking "which mechanism moves this row?"
 - **added:** 2026-08-19, 325 (303-residual) session
+
+### `pages.deployed_at` vs the origin's `last-modified` is not a publish check — the healthy fleet fails it, and stays failing for hours
+
+- **footprint:** `pages.deployed_at`, `pages.content_hash`, `page_components.deploy_commit`, `platform/orchestration/actions/v3_site_actions.go` (`UpdatePageStatusAction`), `internal/adapters/git/github_client.go` (`CommitToRepo`), `internal/adapters/git/adapter.go` (`handleCommitAction`), any new `discovery_checks/check_*` asking "is this page current?"
+- **fires when:** you try to establish that a page reached the website — grading a rebuild, writing a staleness sweep, or believing `deployed_at` in a handoff. The obvious check is "origin `last-modified` should be newer than `deployed_at`", it needs no new code, and **it convicts pages that are perfectly fine.** `[MEASURED 2026-08-19]` run across 40 live deployed pages it returned **40 of 40 stale**, held for **85 minutes**, and **every single one was correctly published**.
+- **the mechanism, three layers deep and each one reassuring:**
+  1. **A rerender that changes nothing commits an EMPTY commit** (register `DGH-009`): the adapter returns `success:true` with the file listed, `b2 sync` rewrites no object, and `last-modified` correctly does not move. Byte-identical output is the *normal* result of re-running a rerender.
+  2. **The origin is rewritten in WHOLE-DOMAIN BATCHES**, not per page — one `b2 sync` per changed domain directory on a self-hosted runner, tens of minutes after the commit. All 40 pages shared ONE three-second `last-modified` window while their stamps spread across the following hour. So at any instant most healthy pages are "stale" against their own stamp.
+  3. **Nothing records what was intended.** `CommitToRepo` computes `newCommitSHA` and returns `repo.HTMLURL` — a per-repo constant — so the adapter's reply carries no commit identity; `pages.content_hash` (0 of 786) and `page_components.deploy_commit` (0 of 1,775) are both empty with **no writer anywhere in the repo including tests**. So *"never needed republishing"* and *"changed and never arrived"* are **identical in every signal the platform exposes**: same work-item status, same orchestration outcome, same `deployed_at`, same adapter success, same unmoved `last-modified`.
+- **what it costs:** a sweep built this way files a work item per healthy page on the busiest site in the estate, and a grader reading `deployed_at` reports a page live that has not been touched in six hours (`bugs_open/315` §3). **A settle window does not rescue it** — 85 minutes had elapsed and the honest answer was still "fine".
+- **the check — go to the CONTENT, never to the clock:**
+  ```bash
+  # needle from the live component, then look for it in the served bytes
+  psql -At -c "SELECT substring(pc.rendered_html from 200 for 120) FROM page_components pc
+               JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+               WHERE s.domain='<d>' AND p.url='<u>';" > needle.txt
+  curl -s "https://<d><u>?cb=$RANDOM$RANDOM" -o served.html   # always cache-bust; cf-cache-status: DYNAMIC = origin
+  grep -c -F -f needle.txt served.html                        # 0 = genuinely not published
+  ```
+  And before reporting a stall, read the runners' own history — deploy jobs arrive in **clusters 25–50 minutes apart** (`kubectl -n ai-persona-system logs github-actions-runner-… | grep 'Running job'`), so a quiet gap is not evidence.
+- **relations:** `bugs_open/315` · `architecture_review/RFC_038` (the adapter reply carries no evidence) · register `DGH-001`/`DGH-009` (`deployment-github.md`) · `sql_for_agents/356` (wiring `deploy_commit` is an **owner call**, not a bug fix) · `WRONG_CALLS.md` 2026-08-19 (dead ≠ unwanted) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[trust-the-rendered-artefact-not-the-status]]
+- **source:** 2026-08-19, `bugfix_315_deployed_at_without_publication` lane — found by running the bug file's own proposed check and disbelieving its 40/40 result
+- **added:** 2026-08-19, 315 lane
+
+### Re-routing an `item_type` to REPAIR it creates a NEW `(item_type, handler_agent)` pair with no history — and `detected-item-promoter` holds it by default, so your fix reads as "never completed one"
+
+- **footprint:** `scheduled_tasks.detected-item-promoter` · `scheduled_tasks.held-pair-canary-escalation` · `site_work_items.handler_agent` · SCH-026 · any migration that changes an item type's `handler_agent`, or that re-points a type onto a different agent's workflow branch · `bugs_open/083`
+- **fires when:** you repair a failing item type by sending it somewhere better — a new handler, or an existing agent's other branch — and expect the queue to start draining once the mechanism works. It will not. No symptom until you go looking for why nothing dispatched.
+- **the trap:** the promoter gates on `known_good` — **≥1 lifetime `complete` or `verified` for that exact `(item_type, handler_agent)` PAIR**, read over live + archive. **The old pair's record does not transfer.** So the moment you re-route, the type's history resets to zero and the pair is held with the reason *"pair has never completed one (awaiting a hand canary)"* — **which is indistinguishable from a type that has never worked, and arrives just as you are watching to see whether your fix works.** Three days later `held-pair-canary-escalation` escalates it to `needs_human_review` asking a human to canary the pair, which reads like an escalation *about* your fix.
+- **why the wrong result looks exactly like the right one:** every layer reports correctly. The migration applied. The mechanism works. The queue does not move, the held reason names *your* new pair, and the only honest reading of it — "this pair has no successes" — is true and yet not the problem you think it is.
+- **[MEASURED 2026-08-19, the worked case]** migration `473` re-routed `literal_markdown` from `page-build-handler` to `page-rerender`. Immediately after: old pair **3 complete / 35 failed**, new pair **0 complete / 3 failed**. The type had 83 lifetime rows and the pair that now governs its dispatch had three.
+- **the check — before you re-route, ask what the NEW pair's history is:**
+  ```sql
+  WITH hist AS (SELECT item_type,handler_agent,status FROM site_work_items
+                UNION ALL SELECT item_type,handler_agent,status FROM site_work_items_archive)
+  SELECT handler_agent,
+         count(*) FILTER (WHERE status IN ('complete','verified')) AS c,
+         count(*) FILTER (WHERE status='failed') AS f
+  FROM hist WHERE item_type = '<your type>' GROUP BY 1;
+  ```
+  ⚠ **The UNION is not optional** — `site_work_items` alone is a ~7-day window (`work-item-archiver`), and "lifetime" over the live table is the defect migration `465` exists to fix.
+- **the remedy, and it is cheap:** **one** successful completion on the new pair flips `known_good` and releases the queue. The hand-canary you would run anyway to prove the re-route **is** the unblock — so sequence it as *re-route → canary one item → let the promoter take the rest*, and do not wait for the queue to drain on its own in between. If the canary cannot run yet (pending a roll, as `473` was), expect the hold and say so in the migration header, or the next reader will diagnose your fix instead of the gate.
+- **relations:** register **SCH-026** (the promoter and its four doors) · **WII-019** (the sibling trap — a HITL type with a non-empty `handler_agent` is *held* rather than *excluded*) · `bugs_open/083` · `bugs_open/184` + migration `473` (the worked case) · LANDMINES "a scheduled task N-day limit is really N-to-N+1" (the same escalation task's clock)
+- **added:** 2026-08-19, `bugfix_277_required_fields_repair` lane — found by predicting `473`'s outcome, getting the prediction wrong, and measuring what actually happened to the pair
