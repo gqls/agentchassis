@@ -327,3 +327,48 @@ Step 4 is the one I can already start: `deploy_result` is present in `collected_
 `update_status` runs (confirmed on a live orchestration), so the census of what values actually
 appear there across recent runs is available now and is a prerequisite for writing the guard, not a
 follow-up to it.
+
+## 2026-08-19 ~10:45Z — the live census the guard has to be built from (house pattern, step 4)
+
+`[MEASURED 2026-08-19]` every `orchestration_states` row holding a `deploy_result`, last 7 days —
+**744 rows**, grouped by the four places a verdict could live:
+
+| `metadata.status` | envelope `response_status` | `response.data.success` | action `success` | rows |
+|---|---|---|---|---|
+| (absent) | complete | true | true | **666** |
+| (absent) | complete | **(absent)** | **(absent)** | **57** |
+| (absent) | complete | true | (absent) | 19 |
+| **`skipped`** | (none) | (none) | true | **2** |
+
+Three things follow, and each of them constrains the fix.
+
+**1. The skip path is live, and it is small.** The 2 rows at `metadata.status='skipped'` are
+`GitCommitAction`'s *"no files to commit"* branch: it returns `Success: true`, and the next step
+stamps `deployed_at`. So candidate 2's population is **2 in 7 days** — real, worth closing, and not
+where the volume is. Anyone sizing the fix off the bug's §3 story would over-weight this arm.
+
+**2. `deploy_result` has (at least) TWO SHAPES, and a naive guard is blind on 7.7% of runs.** The 57
+rows with no verdict are not missing one — they are **doubly nested**, because the deploy was done by
+a called sub-agent rather than inline:
+
+```
+direct :  deploy_result.response.data.success
+nested :  deploy_result.response.deploy_result.response.data.success
+```
+
+(worked example: `webdesign.uk`, repo `vm-sites`, 10:18:03Z, `success: true` at the inner path.)
+
+**A predicate written against the direct path alone would read `(absent)` on all 57 and — if it
+fails open, as it must — would wave them through.** That is the failure mode this whole bug is
+about, reintroduced inside its own fix. The guard has to resolve the verdict through the estate's
+existing resolver rather than by indexing a literal path: `datahelpers`' whole-tree search and
+`tryUnwrapMapPatterns`/`UnwrapDeep` (`unified_extractor.go:508,749`, `content_search.go:195`) exist
+precisely for this envelope-unwrapping problem, and RFC_029's recent work made that search's
+tie-break deterministic. **Reuse it; do not hand-roll a second unwrapper.**
+
+**3. There is no verdict worth reading yet.** Note what the 666 healthy rows actually contain:
+`success: true` from the adapter, and `repo_url` — which is a **constant per repo**. Nothing in any
+of the four columns distinguishes *a commit that wrote a blob* from *a commit that wrote nothing*,
+because `CommitToRepo` never returns the sha it computed. **So the census also says the guard cannot
+be built from the data as it stands** — step 1 of the house pattern (make the layer that knows say
+what it knows) is a genuine prerequisite, not a nice-to-have.
