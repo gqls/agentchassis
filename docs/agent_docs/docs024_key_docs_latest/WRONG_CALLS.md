@@ -37470,3 +37470,47 @@ that was supposed to DRIVE it was never wired, and a remedy sentence inherited t
   inference into a reading closes in about a day. Marking it `[INFERRED]` at the time would have
   been honest but would NOT have saved it; only the query would.
   Tally for "let a proven cause vouch for an unread neighbour": 1.
+
+## 2026-08-19 — I counted a spec document the writer never reads, and reported a `LIMIT 10` sample as a total. Third scope error in three days.
+
+**Lane:** `copy_quality_two_stage`. **The claims:** filed in `bugs_open/305` as a root cause,
+put in a SUMMARY, and sent to another lane as the basis for a decision — *"the brief is written
+in the construction, seven times over"*, plus a fleet census: *"24 of 25 briefs carry it at
+24–38 instances"*, with `remortgagecalculator.uk` at 38 quoted to the lane that owns it.
+
+**Why they were false.** Two independent errors in one finding:
+
+1. **Wrong population.** I counted `site_specs.data::text` — the whole `content_direction`
+   document. **The writer reads `data->>'formatted'`, which is 3,558 of 15,760 chars (~23%).**
+   The structured instructional fields never reach a prompt at all. Recounted over what the
+   writer actually sees, the complained-of site carries **2**, not seven; the fleet's worst is
+   **19**, not 38; 23 of 25 rather than 24.
+2. **Sample reported as total.** Even the "seven" was not a count. I ran a
+   `regexp_matches(... 'g') … LIMIT 10`, eyeballed the returned rows, and reported the visible
+   ones as the number of occurrences.
+
+**Caught by:** my own next experiment, not by review. Testing whether *instructional* brief text
+transfers to output, I found `not a sales process` and `rather than transaction` in **zero
+prompts** while present in **35** and **21** outputs — present only where the prompt did NOT
+contain them. Text that reaches no prompt cannot be causing anything, which meant a large part
+of what I had counted had no consumer.
+
+**The cheap check that would have caught it:** before counting a config document as a cause,
+**establish which part of it reaches the consumer** — one `prompt_rendered ILIKE '%<a phrase
+from the field>%'` per candidate field, with a phrase known to be present as the control. I had
+already done exactly that for the tagline (1,348 prompts) and did not think to do it for the
+rest of the same document. The evidence for the load-bearing half was collected properly; the
+evidence for the surrounding claim was not, and the good half made the bad half look measured.
+
+**Cost:** a root cause overstated in a bug file, a SUMMARY sentence, and a figure quoted to
+`portfolio_positioning` for a decision about their pilot. All corrected within the hour, in
+place, with the corrected method stated (`count data->>'formatted'`, not `data::text`). **Their
+decision does not change** — 19 is still the fleet's worst by a wide margin — which is luck, not
+diligence.
+
+**What this is the third of.** 08-17: a `length()` char/byte confusion read as file drift.
+08-18: an all-history denominator that reversed a before/after conclusion under control. 08-19:
+counting a document rather than the part with a reader. **Same family every time — the SCOPE of
+the measurement doing the arguing, while the marker discipline made each one look checked.**
+
+---
