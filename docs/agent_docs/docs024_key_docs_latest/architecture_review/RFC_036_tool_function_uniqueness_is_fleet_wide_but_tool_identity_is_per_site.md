@@ -297,3 +297,14 @@ the §9.3 fork. Known tail recorded in the submission's risks: a generated fork 
 `deploy_tool_to_site` of the same library tool on the same site are not recognised as the same
 copy (different name conventions) — surfaces loudly at the page layer; widening deploy's fork
 lookup is the follow-up if that tail ever fires.
+
+**§11 addendum 2, 2026-08-19: verdict + the tracked follow-up.** The §9.3 round is
+**APPROVED r1 (`ceae30f2`, 10 reviewers, 3 advisories none high)**. The fork-class concern
+was measured away (16 active tool forks already exist beside 84 base rows; the only code
+pairing `component_level='tool'` with `forked_from IS NULL` is the fork mechanism itself —
+no discovery/health path filters tool rows on `forked_from`). **TRACKED FOLLOW-UP (asked by
+three seats): widen `deploy_tool_to_site`'s existing-fork lookup** from
+`WHERE forked_from = $1 AND name = $2` to also match the generator's name shape
+(`<function>-<domainSlug>`), so the two fork producers recognise each other's site copies.
+Its own small council round when picked up; until then the tail fails loudly at
+`pages_site_id_name_key`.

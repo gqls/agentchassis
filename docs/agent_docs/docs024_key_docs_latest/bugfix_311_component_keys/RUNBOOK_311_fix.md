@@ -106,9 +106,10 @@ query above; the finding writer is `LogActionFindings` and the code is in `Conte
 
 Same discipline as the section half — per SERVICE, controls both ways:
 ```bash
-# stamp + ancestry (the stamp is the BUILD commit, not your commit):
-kubectl -n ai-persona-system exec <chassis-pod> -- grep -aoE "[0-9a-f]{40}" /proc/1/exe | head -0  # do NOT discovery-grep; probe candidates
-# probe the known build sha once identified, then:
+# Find the stamp by probing CANDIDATE full shas (commits in the build window) —
+# NEVER a discovery-grep for "some 40-hex string" (LANDMINE: matches Go's digit
+# table on every service). The stamp is the BUILD commit, not your commit:
+for sha in <candidate-full-shas>; do kubectl -n ai-persona-system exec <pod> -- grep -aq "$sha" /proc/1/exe && echo "STAMP=$sha"; done
 git merge-base --is-ancestor e24bc9c0f <stamp>   # TRUE = the fork fix is in the binary
 kubectl -n ai-persona-system exec <pod> -- grep -aq "library tool claims this function" /proc/1/exe && echo literal-present
 kubectl -n ai-persona-system exec <pod> -- grep -aq "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" /proc/1/exe || echo control-clean
