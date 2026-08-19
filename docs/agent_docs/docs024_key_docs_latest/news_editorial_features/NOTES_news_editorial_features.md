@@ -365,3 +365,101 @@ cross-links, then time-based lifecycle decay (featured → current → aging →
 archive → prune). So cross-source grouping was in the design from the very
 beginning and was dropped somewhere between that design and the deployed
 descendant — worth knowing before treating it as a novel addition.
+
+---
+
+## 2026-08-19 — session 2: the hand-built worked example (design D's step 3)
+
+Owner approved: summary doc, hand-built example on a site of my choice, propose
+the lifecycle policy, explain pooling. `DESIGN_2026-08-19_starting_point.md`
+carries all four; this entry is the build log.
+
+### Site and story selection
+
+**robot-hands.com** over gaswholesalers (the news exemplar): gaswholesalers has
+**no evidence base** and the chart components fail closed — it would have
+rendered a feature with no charts, which is the whole point missed.
+robot-hands: evidence base (extended 2026-08-19 by another lane to 8 catalogue
+facts), 2,835 relevant items, 9 sources, items from today.
+
+**Story cluster, from the live feed**: the robot-demand story is on at least
+four channels this week — investingnews (installations/labour-shortage),
+BusinessWire's A3 orders release **carried near-verbatim by theaiinsider and
+roboticsandautomationnews** (the same story on three channels — the multi-channel
+signal made concrete), seekingalpha (earnings framing), and **scdigest carrying
+the divergent read** ("US Robot Orders Weak in Q2 … while Revenues Much
+Stronger"). The divergence is not noise — it is design B's "multiple
+perspectives" rule with a live instance, and the regional chart is what
+reconciles it (US weak + global plateau are compatible because the Americas are
+9% of deployments).
+
+**The premise** (D's test applied): *factory robot demand stepped up
+structurally, not cyclically*. Falsifiable against one series: IFR annual
+installations. If installations had reverted to 2020 levels, every article in
+the cluster would need rewriting — so it is load-bearing.
+
+### The substrate: 9 facts, every quote fetched and substring-verified in-session
+
+`sql_for_agents/491_robot_hands_ifr_facts.sql`. One **series** fact
+(`rh-ifr-installations-series`, 5 observations 2020–2024, each with its own
+IFR press-release citation) + 8 metrics (world/China/Japan 2024, 2025 forecast,
+2024 stock, three regional shares).
+
+The verification discipline, per fact: WebSearch to find the release → WebFetch
+asking for **verbatim sentences** → the quote stored is the fetched sentence.
+Figures: 2020: 384,000 · 2021: 517,385 · 2022: 553,052 · 2023: 541,302 ·
+2024: 542,000. Basis: **as first reported in each year's release** — the 2024
+edition restates 2022 as 552,946 vs the 553,052 first reported, so mixing
+editions mixes revision states (mig 265's Thames lesson); one basis stated in
+the chart footnote instead. Four supporting metrics cite The Robot Report's
+coverage of WR2025 (verbatim-quoted) where the IFR release page did not carry
+the figure; publisher named honestly in each citation.
+
+### The page: `/insights/robot-demand-step-change.html`
+
+`sql_for_agents/492_robot_hands_demand_feature_page.sql`. Six sections, all
+existing components, **Thames pattern verbatim**: content_data copies the
+register exactly, `rendered_html` produced by a local harness replicating
+`executeGoTemplate` (text/template, missingkey=zero, the call_agent.go:1168
+funcmap, `<no value>` stripped — harness at scratchpad `build/render.go`),
+rows locked `permanent`, `rebuild_policy='owned'`, slot names matching
+`pages.sections` entry-for-entry (the 095 lesson).
+
+hero → feature-analysis (`generic-text-block`; the editorial, every figure
+within its fact's context-term window) → `evidence-timeseries-ifr` (the 5-year
+series, scale = the 2025 forecast fact) → `evidence-chart-2024` (two figures:
+regional shares scaled to Asia's own share; China/Japan/world scaled to the
+world total) → feature-coverage (`generic-text-block`; the cluster's articles
+linked out, title + link only, including the two-channels-one-story pair and
+the divergent A3 read) → call-to-action (house copy verbatim — its figures are
+already registered facts).
+
+### Applied + verified
+
+- 491: applied clean; verify block confirmed 5 observations each carrying its
+  own citation. 492: applied clean; verify block confirmed 6 locked components,
+  none under 500 bytes of HTML, sections↔slots exact.
+- Rendered values checked before seeding: bars `--v:384000..542000;--m:575000`,
+  ticks 2020–2024, five ifr.org citations in the sources block; evchart rows
+  Asia 74/74, Europe 16/74, Americas 9/74; World 542000/542000, China 295000,
+  Japan 44500.
+- **claimscan: 0 findings across 6 components** (10 fleet-wide banned patterns
+  included). Read correctly per the oufe runbook: the deterministic scan does
+  not see finance vocabulary — here the risk surface is numbers, which it does
+  see, and every number resolves.
+- Deploy: assemble-only `page-rerender` dispatched (corr
+  `1227617e-8ba6-43db-9e0a-badc6033cf49`) — **by hand-rolled envelope, not
+  `TRIGGER_rerender_page.sh`**, because the script defaults an empty reason to
+  `section_data_resolved`, and on a page whose chart is `render_mode='agent'`
+  the safe path for fully-authored locked rows is the assemble branch, which
+  never touches a renderer at all.
+
+### MISSTEP 2 — the first components.tsv export dropped two claimscan columns
+
+First export used `slot || tab || base64` — claimscan wants
+`page, slot, base64[, page_type]` (`cmd/claimscan/main.go:117`) and would have
+skipped every line as malformed. Caught by reading the parser before running,
+not after a suspicious clean pass — worth recording because a malformed TSV
+produces **"0 findings"** with only a stderr warning per line, which reads
+exactly like a clean scan if you don't check the component count in the
+summary line ("across 6 component(s)" is the tell).
