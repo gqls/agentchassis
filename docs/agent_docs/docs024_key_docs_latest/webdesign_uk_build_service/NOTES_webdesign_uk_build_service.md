@@ -4107,3 +4107,71 @@ now** (under-promise, tighten later once "done" is instrumented) rather than lea
 a refuted promise live while a better measurement is built. When it changes,
 `value`, `claim`, `writer_line` and `context_terms` all move together, and the
 pages need a rebuild to pick it up.
+
+## 2026-08-19 (~10:00Z) — delivery re-attested to "two or three days"; the lanes are merged; what moved overnight
+
+### Owner decisions taken today
+
+1. **Delivery is "2 or 3 days"** (owner, 2026-08-19), following his 08-18 ruling that
+   a better product beats a faster promise. Applied as `SQL_2026-08-19`.
+2. **Leave the apex 302** — `webdesign.uk` → `webdesign.co.uk` stays as it is. Not a
+   defect, an owner decision. Do not "fix" it; the chat API answers on
+   `preview.webdesign.uk`.
+3. **Merge the two lanes' handoffs into one** — done, see the new joint cold-start.
+
+### `build_duration` re-attested, and why `value` is 3 and not 2
+
+claim and `writer_line` carry the hedge ("usually ready in two or three days");
+`value` is **3**. `value` is what the stat guard lets a writer publish as a bare
+figure in a stat field, and a range cannot be one number, so the number must be the
+end that **cannot over-promise**: a stat reading "3 days" sits inside "2 or 3 days",
+a stat reading "2 days" does not. `context_terms` gains "days" so the figure can
+only license a turnaround sentence. This is the 2026-08-18 "1 day" lesson applied
+in the other direction — that time the hedge was wrongly hardened into a stat;
+this time the hedge stays prose and the stat takes the safe end.
+
+Guard proven able to fail: run against the pre-change register it raised
+*"value is 1 not 3"*.
+
+**Verified at the bot**, not just at the register (restarted to beat the 5-minute
+facts cache): *"How quickly will my site be ready?"* → **"Usually two or three days
+from when we have everything we need from you."** followed by the prompt-maker's
+own question. Both of yesterday's changes working together.
+
+### Four pages had to follow, and a duplicate-guard gotcha
+
+A register change does not touch published copy. **Four pages still had "next day"
+in stored components** — faq (2), how-it-works (2), index (2),
+tool-website-brief-starter-guide (1). Rebuilds queued at severity high.
+
+**index was silently skipped by my own duplicate guard** on the first pass. The
+guard was "no open `needs_content_page` for this page", and index has
+`dda32da9` ("no portfolio or case studies", 2026-08-14) sitting in status
+**`failed`** — not complete, not cancelled, so it counts as open, but nothing is
+working it and it is about something else entirely. **A `failed` item is not work in
+flight, and a NOT EXISTS guard written as "not terminal" treats it as if it were.**
+Caught because the INSERT reported 2 rows where I expected 3; had I queued only the
+three and not counted, index would have quietly kept publishing "next day".
+
+### The guide rewrite's failure was a CORRECT catch, unlike yesterday's
+
+`881c95ef` failed on banned claim `"template"`, location *"...in your own words
+rather than a template's"*. Unlike the refund ban, this one is **meant** to block
+denials — its own reason says *"Do not describe the product this way even to deny
+it. Denying a frame repeats it."* So it is a deliberate design decision, not the
+bare-token defect fixed yesterday. Re-triaged, no register change.
+
+### What changed beneath us overnight (checked, not assumed)
+
+- **331 commits** since my last one. Chassis is now **v1.0.1314** (was 1309).
+- **All four 08-18 rewrites are `complete`**, and three of the four served pages now
+  verify clean: what-you-get, faq and how-it-works carry £10/£200 and no "preview"
+  naming.
+- **index was rewritten after my rerender finding** and is now CORRECT: its single
+  "preview" occurrence is a *denial* — *"You pay before the site is built, so there
+  is no preview to look at first."* Yesterday it had five and contradicted itself.
+  So the rerender problem was resolved by the other session; the finding stands as
+  a record of how it was found, not as an open defect.
+- **Phase 4 has NOT started**: `sites.handed_over_at` does not exist.
+- **The register had not been touched since my 08-18 sweep** — the newest rows
+  before today were my own (13:23/13:25). No cross-lane collision.
