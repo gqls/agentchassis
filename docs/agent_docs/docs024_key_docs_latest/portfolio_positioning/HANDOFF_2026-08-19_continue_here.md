@@ -104,6 +104,29 @@ files (they cited each other nowhere before today).
 
 **Nothing here is built. This is a precondition for the fifty, not an improvement to them.**
 
+## 3b. 🔗 THE PILOT IS LIVE WITH TWO DEAD LINKS ON EVERY PAGE — `bugs_open/260`, and it is ONE defect not two
+
+Answered by an inbound note from the `loanzy_uk_example_site` lane
+(`NOTE_2026-08-18_from_loanzy_lane_your_end_leak_todo_is_already_filed.md`, no reply needed) and
+then **measured on our own live site 2026-08-19**.
+
+The pilot's four `needs_page` items stuck in `needs_human_review` all failed `validate_content`
+with **`20 blockers, 0 errors`** — that is `bugs_open/260`, the `{{end}}` template leak, already
+filed with a proven root cause. **Do not re-file it.** Two pages were never built
+(`six-month-checklist`, `what-your-number-means`): both have `pages` rows with `status='active'`
+and **zero `page_components`**.
+
+**The live cost, read from the served HTML:** `/`, `/about.html` and `/next-steps.html` **each
+link to both blocked pages**, and both targets return **404**. They are nav links, so the damage
+is site-wide rather than one stray reference, and nothing on any page shows a reader that
+anything failed.
+
+**This collapses two TODOs into one.** `HANDOFF_2026-08-18` carried the `{{end}}` blockers and
+the dead-internal-links finding as separate items; on this site the links are dead *because* the
+pages were blocked, so **repairing 260 removes both** and no link-level work is needed.
+Contributed back as §12 of the bug file, which still says "no live damage" in its headline — now
+wrong on two live sites, though we did not edit another lane's headline.
+
 ## 4. ✅ DONE — do not redo
 
 - **`www` → apex, fleet-wide** (owner deployed the worker 2026-08-18 20:02:37Z; fan-out ran).
@@ -125,7 +148,9 @@ files (they cited each other nowhere before today).
 2. **Decide who builds the 311/RFC_036 fix, and as one submission or two.** It needs the gate
    and a roll. Until it lands, **every site built on a shared calculator name ships that tool
    hollow** — so building the fifty first means fifty sites to repair afterwards.
-3. **Refresh the pilot's lender page** (see §6 — it is the one thing waiting on a single word).
+3. **Refresh the pilot's lender page** (see §6 — it is the one thing waiting on a single word),
+   and note that the pilot ALSO needs `bugs_open/260` before it is presentable: two of its six
+   pages do not exist and every serving page links to them (§3b).
 4. **Lift the halt** and let build #1 continue from its 41 held items.
 5. **Then wave 1 of the fifty**, one at a time and supervised, per
    `PLAN_2026-08-18_first_50_build_order_FOR_APPROVAL.md` (approved).
