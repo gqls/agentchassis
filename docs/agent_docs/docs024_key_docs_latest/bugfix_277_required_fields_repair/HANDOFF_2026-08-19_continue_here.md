@@ -390,7 +390,38 @@ blocked it honestly, **before `pageIsOwnedForGuard` was ever reached.**
 > is only because it was written down beforehand that the fourth outcome is legible as a finding
 > rather than as "well, obviously".
 
-### 7e. ⚠ CONSEQUENCE OF THE RE-ROUTE THAT IS OURS TO OWN: `473` created a new pair, and OUR gate holds it
+### 7e. ⚠⚠ RETRACTED SAME DAY — `473` did NOT create a pair and our gate does NOT hold their fix
+
+> **READ THIS BEFORE THE STRUCK-THROUGH SECTION BELOW.** Everything in 7e was wrong on its central
+> claim and I retracted it to the 184 lane within the hour, because they may have sequenced work
+> around a block that does not exist.
+>
+> - **`473` does not touch work items at all.** `grep -icE "UPDATE site_work_items|handler_agent"`
+>   over the migration returns **0** — it edits the `page-rerender` agent's own
+>   `check_rerender_mode` condition and nothing else. No `literal_markdown` row was re-pointed.
+> - **The pair I cited PRE-DATES it.** Those 3 rows were created **2026-08-17/08-18**; `473` applied
+>   **08-19 10:34Z**. I saw a zero-completion pair right after the apply, the shape matched the
+>   prediction I had just made, and I read co-occurrence as causation without checking the row dates.
+> - **The promoter's live held pile never named it** — it lists four pairs and this is not among
+>   them (pile now 13, down from 15).
+> - **And the pair their repair actually lands on is the safest in the estate.** A `page_rerender`
+>   item carrying `spec.reason='literal_markdown'` runs on `(page_rerender, page-rerender)`:
+>   **14,454 complete / 142 failed = 99% lifetime.** Nothing holds that under any of the four doors.
+>
+> **The general property survives as DERIVED, with no measured instance** — `known_good` is
+> evaluated per `(item_type, handler_agent)` over live+archive, so a genuinely re-pointed handler
+> *would* start from zero. The `LANDMINES.md` entry has been corrected to say so (`2aadac491`)
+> rather than leave a fabricated worked case in a fleet-wide file.
+>
+> ⚠ **And the near-miss is the more useful lesson: a repair that gives an EXISTING item type a new
+> REASON — which is what `473` does — lands on that agent's established pair and is not held at
+> all.** The trap I described is rarer than I made it sound.
+>
+> **This was the SECOND consecutive prediction I got wrong about `473`.** The first (§7c-RESULT) was
+> a three-outcome enumeration that missed a fourth. Both were wrong in the same direction: I built a
+> model from the mechanisms I already owned and did not ask what else was in the path.
+
+### ~~7e (RETRACTED). CONSEQUENCE OF THE RE-ROUTE: `473` created a new pair, and OUR gate holds it~~
 
 [MEASURED 2026-08-19, post-apply, live+archive]
 
