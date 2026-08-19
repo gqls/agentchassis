@@ -85,3 +85,65 @@ options rather than picked one.
 I am putting the evidence through the system's own diagnosis loop before I write any of
 it down as settled — that is the standing rule for a claim this broad, and it is cheap
 insurance against my being confidently wrong in a document other people then believe.
+
+---
+
+## 2026-08-19, later — you said build it all, so here is what exists and what is still waiting
+
+You chose the full fix. Four things came out of it. Two are live or committed, one is
+deliberately held back, and one is still ahead of us.
+
+**1. The bleeding has stopped — committed, goes live on the next fleet roll.** The line
+that was overwriting real descriptions with blanks now refuses to do that. A plan that
+genuinely has a description still updates the page; a plan that simply doesn't mention
+one can no longer wipe what's there. It is a single clause, and it now matches the line
+three above it that was already protected — which is the thing that made the bug so easy
+to walk past, because it looked like the difference was intended.
+
+**2. New pages will be born with descriptions — this one is already live.** The planner
+is now asked for one, with a short instruction about writing it as a promise to a
+visitor rather than a description of the build. That is a configuration change, so it
+took effect the moment it was applied rather than waiting for a release. Every site
+planned from today carries descriptions.
+
+**3. There is now something that can fill in an existing page — committed, waiting on
+the release.** This is the piece that genuinely did not exist. I kept it deliberately
+small: the framework already knows how to find pages and already knows how to write a
+sentence, so all I added was the ability to *save* one. The writing is still done by the
+platform's own generator working from the page's own content, not by me. It cannot
+replace copy that already exists unless someone explicitly turns that on, and it throws
+away anything that reads like build instructions rather than English — that guard
+already existed, from the time tool pages published their build briefs to Google, and I
+reused it rather than writing a second version.
+
+**4. The thing that actually runs it is held back on purpose.** The workflow that drives
+the backfill is written and committed but not switched on, for a mundane and important
+reason: the code it calls is not in the running system yet. There are 145 commits
+waiting for the next release, mine among them. Switching it on now would mean it fails
+the moment it runs. I have named the file so the migration tool physically cannot apply
+it by accident, and written the check into its own header so whoever picks it up can
+confirm the release has landed before starting.
+
+**I have also not put it on a schedule.** It writes copy that appears on your sites under
+your name, so the first runs should be one site at a time with someone reading the
+output. We have been bitten before by a generator that ran unattended and published
+build instructions where the sales pitch should have been. Once you have looked at a
+real site's worth and are happy, scheduling it is easy.
+
+### Where that leaves the numbers
+
+407 pages have no description today. Nothing I have done has filled one yet, and I want
+to be plain about that rather than let "the fix shipped" sound like "the problem is
+gone". After the next release: about 295 of them are on sites the planner manages, so
+they get descriptions the next time those sites are replanned; the remaining 112 need
+the backfill workflow, which is the held file. The five pages blocking your Platform Log
+index are in the first group.
+
+### One thing I got wrong, since it is the kind of thing worth knowing
+
+I wrote a test and attached a note saying "if someone deletes this safety check, this
+test will catch them". Then I actually deleted the safety check to see. The test passed
+happily. The note had been wishful thinking, and if I had not tried it, we would have
+had a protection that existed only in a comment. I fixed the test, re-ran the deletion,
+and it now fails as it should. I mention it because "we have a test for that" is exactly
+the sort of reassurance that is worth spending two minutes verifying.

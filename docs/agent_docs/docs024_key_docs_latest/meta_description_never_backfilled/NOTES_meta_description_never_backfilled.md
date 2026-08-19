@@ -199,3 +199,87 @@ would have shipped the file that way. The loop's "consistent-with is not direct"
 sent me to `site_snapshots` — a table I had not thought to look for, and which settled it
 in one query. **The check to carry: when you mark something `[UNMEASURED]`, spend one
 minute asking what evidence WOULD measure it before accepting the marker as the answer.**
+
+---
+
+## 2026-08-19, later still — owner chose the FULL fix, and what got built
+
+Owner ruling 2026-08-19, on the four options in `bugs_open/320` §8: **everything,
+including a backfill producer.** So the lane stopped being a report and became a build.
+
+### The root cause of M1, found after the bug was already filed
+
+I had `320` written and committed saying "the planner is never asked". I had not yet
+found *why*. It is one omission, and it is exact: `build-site-planner`'s `plan_site`
+step gives the model a `Return JSON:` template whose page object is
+
+```
+name, title, page_type, nav_label, nav_order, in_header, in_footer, sections
+```
+
+**and no description field.** `upsertPage` then reads
+`GetStringField(page,"meta_description","")` — asking the plan for a key the plan was
+never told to produce, and taking the blank.
+
+⚠ **The check that hides this:** `default_config::text ILIKE '%meta_description%'` on
+that agent returns **TRUE**. The planner does contain the string — in
+`load_existing_pages`, a `query_database` step that SELECTs the column. Matching the
+string proves the agent *mentions* the field, not that it is *asked* for one. I ran
+that grep early and it is why I nearly stopped at "the planner doesn't do it, somehow".
+Read the output schema, not the census.
+
+### What shipped
+
+| piece | what | state |
+|---|---|---|
+| M2 guard | `upsertPage` ON CONFLICT → `COALESCE(NULLIF(EXCLUDED.meta_description,''), pages.meta_description)` | committed `aeccfc595`, **rides the next fleet roll** |
+| M1 fix | migration `485` — the planner's page object gains the field + an authoring rule | **APPLIED + ledger-recorded 2026-08-19**, config is live on apply |
+| the missing mechanism | `save_page_meta_description` (register **SEO-004**) — the persist half only | committed `aeccfc595`, **rides the roll** |
+| the driver | migration `486` — `meta-description-backfiller` agent | **HELD**, see below |
+
+**Why only the persist half.** Finding the pages is `query_database` and writing the
+sentence is `execute_llm_prompt`; both already exist. Building a monolithic Go action
+that did all three would have re-implemented two working things and taken authorship
+away from the framework, which is the 2026-08-06 ruling's whole point.
+
+### `486` is HELD, and the suffix is the control
+
+CLAUDE.md: *image first, then seeds — a seed naming an unregistered action fails at
+runtime.* `[MEASURED 2026-08-19]` the live chassis is `v1.0.1314`, revision
+`d3590ca4638d…`, and `git merge-base --is-ancestor aeccfc595 d3590ca4` is **FALSE**
+(145 commits unshipped). So the action does not exist in the running binary.
+
+A banner would not have held it — **a migration's guard checks DRIFT, not ORDER**. The
+file is named `486_..._HOLD.sql` so the runner's `SIDECAR_RE` excludes it from
+`--apply` while still listing it. Verified rather than assumed: `--no-probe` shows it
+under *"Sidecars (hand-run only, NOT applied by this runner)"* and not in Pending.
+
+### Misstep 4 — a test I wrote CLAIMED a mutation would kill it, and the mutation passed
+
+The first version of `save_page_meta_description_test.go` matched
+`regexp.QuoteMeta("UPDATE pages")`, and its comment asserted that deleting the
+`AND ($3::bool OR COALESCE(meta_description,'')='')` guard would fail it.
+
+**I ran the mutation. All five tests stayed green.** With the clause deleted the action
+still passed three arguments, so `WithArgs(..., false)` still matched; sqlmock does not
+care that `$3` became unreferenced. The overwrite policy could have been moved out of
+the SQL into nothing at all and the suite would have applauded.
+
+Fixed by matching the clause itself (`metaDescGuardClause`). Re-ran: the mutation now
+fails three tests, and restoring makes them green.
+
+**The lesson is not "write better tests" — it is that the comment was the error.** I had
+written a MUTATION THAT KILLS IT line as though stating it made it true. Running the
+three named mutations took about two minutes and found that one of three was fiction.
+
+⚠ Related, and worth its own note: **the upsert guard had NO test at all before this.**
+The whole `actions` package passed both before and after the M2 fix. That is why
+`upsert_page_meta_description_guard_test.go` exists — and its mutation (restore the
+unguarded clause) was run too, and does fail.
+
+### Provenance discipline on the diagnosis run
+
+`320` and this file both say the `090` run came back **UNVERIFIABLE** on its iteration
+cap. It is cited as a **contributor** — it supplied M2 and named the `site_snapshots`
+test — and never as ratification. Every figure in `320` is first-hand and carries its
+query or `file:line`.

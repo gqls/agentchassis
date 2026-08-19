@@ -105,3 +105,62 @@ is the finding to report, not a gap to fill personally."* So:
   handler reproduces exactly the state this estate is already in — 606 detected
   `head_essentials_missing` rows nobody can action. Ranked accordingly when options go
   to the owner.
+
+
+---
+
+# PHASING — UPDATED 2026-08-19 after the owner's ruling
+
+**Owner ruled: option (c), everything including a backfill producer.** Phases 1-4 of the
+original plan are done; the plan below is what that turned into.
+
+| # | phase | state |
+|---|---|---|
+| 1 | Verify through the diagnosis loop before asserting | **DONE** — run `7375631a-…` returned **UNVERIFIABLE** on its iteration cap. Not a confirmation, and not written up as one. Its value was refusing the "frozen at creation" framing, supplying M2, and naming the `site_snapshots` test that settled M2's occurrence. |
+| 2 | File the class | **DONE** — `bugs_open/320`, committed `4cd81e211` |
+| 3 | Correct `309` §10 in place | **DONE** — same commit, purely additive (37 added / 0 deleted, checked with `--numstat` per the deleted-bullet landmine) |
+| 4 | Put the options to the owner | **DONE** 2026-08-19 |
+| 5 | M2 guard — `upsertPage` ON CONFLICT | **DONE**, committed `aeccfc595`. **Rides the next fleet roll** |
+| 6 | M1 fix — migration `485`, the planner is asked | **DONE + APPLIED + ledger-recorded.** Config, live on apply |
+| 7 | `save_page_meta_description` (SEO-004) | **DONE**, committed `aeccfc595`. Rides the roll |
+| 8 | The driver — migration `486` | **WRITTEN, HELD.** `_HOLD` suffix; runner lists it under Sidecars, verified with `--no-probe` |
+| 9 | Council gate | **SUBMITTED** `46734ae9-…`; committed with `Council-Submitted:` per the pre-verdict rule. **Still owed: read the verdict and act on a REVISE/REJECTED** — the code is already on the shared branch |
+
+## The decisions taken while building, and why
+
+- **Only the PERSIST half is new.** `query_database` already finds pages;
+  `execute_llm_prompt` already writes sentences. A monolithic Go action would have
+  re-implemented both and taken authorship from the framework, which is what the
+  2026-08-06 ruling exists to prevent.
+- **`overwrite_existing` defaults FALSE** (owner ruling 2026-08-02 §2). The unsafe
+  authority is replacing published copy, so that is the side that must be asked for. The
+  workflow omits the key entirely, and `486`'s verify block RAISEs if a later edit adds it.
+- **The policy lives in the UPDATE's `WHERE`**, not in a read-then-write, so it cannot
+  race a concurrent writer.
+- **Reuse `MetaDescriptionLooksInternal`** rather than re-derive the brief-vs-public rule.
+  Its own doc comment says it is exported so "a discovery check or a backfill" can ask the
+  same question; this is that backfill.
+- **`486` is NOT scheduled.** Nothing dispatches it. A generator of public copy on a timer,
+  before anyone has read its first page, is how `bugs_closed/103` published 1,206 characters
+  of build brief to Google. Hand-driven, one site at a time, until the output has been read.
+- **A discovery check was ranked BELOW the fixes and not built.** Detection with no handler
+  reproduces the state the estate is already in — 606 `head_essentials_missing` rows
+  detected and unactionable. If one is added later it is a wider seam and gets its own
+  register entry, which is written into the ratchet line's RE-CHECK condition.
+
+## What is NOT done, stated so it cannot read as finished
+
+1. **No page has been filled yet.** 407 of 731 remain empty. Phases 5-8 stop the cause and
+   supply the tool; they do not do the work.
+2. **`486` cannot be applied until the roll.** `[MEASURED 2026-08-19]` live chassis
+   `v1.0.1314` / `d3590ca4…`, `merge-base --is-ancestor aeccfc595 d3590ca4` FALSE, 145
+   commits unshipped.
+3. **`save_page_meta_description` is UNEXERCISED.** Registered SEO-004 as *"built, not yet
+   exercised in production"* deliberately — its tests pass, and a capability with no live
+   call has an untested dependency on its environment.
+4. **The council verdict is unread.**
+5. **`bugs_open/309` is still blocked.** Its five pages are plan-managed, so they are
+   reachable once the roll lands and fundamentallyai.com is replanned — or directly by
+   `486`. Neither has happened.
+6. **M2's scale is unknown and should stay marked so.** Four pages proven blanked, out of a
+   139-page / 7-site / mostly-April sample. Existence, not a rate.
