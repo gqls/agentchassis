@@ -140,3 +140,83 @@ the resolver's actual response shape) are no longer nice-to-haves — a seam tha
 twice, silently, in both directions, earns its tripwire. The June fix also supplies the
 repair mechanics (jsonb_set on the agent_definitions row) and the verification posture.
 The INTERLOCK above is unchanged and still binds.
+
+---
+
+## 2026-08-19 — CONFIRMED at fleet scale, with a sharper instrument than this file originally used
+
+Two things happened: a `090` diagnosis run came back **UNVERIFIABLE**, and re-doing its work
+by hand produced a much better control than the single trace above.
+
+### The 090 run did not refute this — it could not SEE it
+
+Run correlation `d1434dd5-4c5c-4097-9223-be8aca0dcd69` (intake `a26efb3c`, `FORCE=1` with the
+reason recorded in the lane NOTES — the coverage refusal listed 30+ items on
+`webdesign.uk/index`, none of them this seam). Two iterations, then
+`status=UNVERIFIABLE`, `stopped_by=scope-not-narrowing`, "Hand to a human with the full
+trail; do NOT auto-conclude."
+
+Its own account of why: the `data_request` meant to fetch `select_sections` "returned the
+plan_sections step instead (truncated before reaching select_sections)"; no fetched
+orchestration row carried the two structures side by side ("truncated before any such
+structure"); and the `agent_error_log` rows it did get were `validate_content` blockers and a
+`save_sections` SECTION SHRINK REFUSED, which it correctly reported as neither confirming nor
+refuting. **A truncation in the loop's own evidence fetch, on a hypothesis whose evidence is
+large nested jsonb.** Recorded plainly because an UNVERIFIABLE verdict is neither a REFUTED
+one (which would be a success) nor a CONFIRMED one, and it would be dishonest to file it as
+either. Per the 2026-07-31 owner ruling, first-hand verification was substituted for each of
+the three gaps it named:
+
+1. **The live config, re-read** — unchanged from §Evidence above: `select_sections`
+   `fields.sections_ready` still leads with
+   `resolved_links.response.link_resolution.sections_ready`, `required = ["sections_ready"]`.
+2. **The negative control, re-measured on a rolled-forward window** (08-18→08-19): **48** runs
+   carry `resolved_links`; **0** match the configured path; **48/48** carry the lean shape.
+   The window has moved since the 0/150 measurement and the answer has not.
+3. **The same-run comparison** — see below.
+
+### The sharper instrument: `*_target_title` is minted ONLY by the resolver
+
+The original trace compared URLs. That works when the stored value is wrong, and **silently
+scores a run as healthy when the carried value happens to already be right**. Of the 48
+retained runs, 18 have the two sides byte-identical — a url-diff calls all 18 fine, and it is
+not measuring anything on them.
+
+The resolver also writes `*_target_title` companions, and **nothing else on this path mints
+them**. So their absence downstream is the discard itself, visible on every run regardless of
+whether the urls agree. Worked example, fresh post-roll run `01b5ba83` (2026-08-19 18:33Z,
+ai-agent-orchestration.com): resolver wrote `cta_url`, `secondary_cta_url`, `cta_target_title`
+("Password Strength Physics") and `secondary_cta_target_title`; `sections_for_render` carried
+the two urls and **neither title**. The urls agreed — by coincidence — and the titles did not
+survive.
+
+Fleet-wide over the retained window:
+
+| | runs |
+|---|---|
+| carry both structures | 48 |
+| resolver minted `*_target_title` on a CTA section | 26 |
+| …titles SURVIVED into `sections_for_render` | **0** |
+| …titles DISCARDED | **26** |
+| the two sides byte-identical | 18 |
+| the two sides DIFFER | 30 |
+
+**26 of 26, no survivors.** Add this to §How to verify: after 477 the titles must appear
+downstream. It is a strictly better post-fix assertion than a url match, for the same reason
+it is a better pre-fix one — a url match can be satisfied by the carry doing nothing.
+
+⚠ **Measurement trap, paid for once (WRONG_CALLS 2026-08-19):** the first cut of that table
+cast the whole `sections_for_render` blob to text and `LIKE`d it, which matched
+`_target_title` elsewhere in the structure and returned **31 minted / 31 survived / 0
+discarded** — the exact opposite, and the comfortable answer. Anchor the cast to
+`jsonb_path_query_array(…,'$.sections_ready[*].resolved_data')` on BOTH sides, never to the
+container.
+
+### Interlock status
+
+Both keep halves are now LIVE (chassis v1.0.1316, capability-probed on both pods with a
+negative control — `LANDMINES.md` records why commit ancestry was not the check available).
+That satisfies 477's stated precondition. **477 is still HELD**, on the canary and the owner's
+decision, and `RFC_040` (DRAFT) proposes making this class of interlock mechanical rather than
+prose — raised out of the council objection that the enforcement point for this very bug's
+ordering constraint is documentation in three places and code in none.
