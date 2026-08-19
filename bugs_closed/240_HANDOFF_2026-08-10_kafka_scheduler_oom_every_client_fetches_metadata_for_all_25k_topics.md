@@ -1,8 +1,32 @@
 # BUG 240 — kafka-scheduler OOMs every ~60s: every kafka-go client refetches metadata for ALL 25,042 topics every ~3s, and 24,131 of those topics are orphans nothing deletes
 
+> ## ✅ CLOSED 2026-08-19 — **on the SYMPTOM and a holding MITIGATION, not on a proven root-cause fix**
+>
+> **Owner decision, 2026-08-19.** Read the distinction before citing this file as "fixed":
+>
+> **What is true:** the incident is over. Topics **25,042 → 5,370**, `job.*` orphans
+> **24,131 → 4,395**, memory **35Mi against a 256Mi ceiling**, **0 restarts**, and topics pinned by
+> non-terminal orchestrations **0** (that last one discharged by `bugs_closed/294` + migrations
+> 463/464/465/466, which bound every non-terminal row at 4h).
+>
+> **What is NOT established:** that the cause was fixed. What is holding is **C3, a mitigation**
+> (`55e992e8b`, 2026-08-10 — `GOMEMLIMIT=192MiB` + a 256Mi limit), and this file's own §"fix
+> candidates" records **C1 (`MetadataTopics`) as VERIFIED AND REFUTED in its naive form**. Nobody
+> re-opened it. The topic drop is **unattributed** — an earlier drop was recorded as unattributed on
+> 08-11 and I did not establish what removed the rest either; `scripts/kafka-orphan-topic-sweep.sh`
+> is the obvious candidate and "obvious" is not a measurement.
+>
+> **So: if topics regrow, this returns.** The closing session recommended correcting the banner and
+> leaving it OPEN for exactly that reason; the owner chose to close. Recorded so the disagreement is
+> visible rather than lost, and so nobody reads *symptom gone* as *cause fixed*.
+>
+> ⚠ **The 256Mi limit lives in the PRODUCTION OVERLAY only** — `base/deployment.yaml` still declares
+> `128Mi`. Deploying `kafka-scheduler` anywhere else reproduces the original condition.
+
+
 **Filed:** 2026-08-10 · found from the `bugfix_209_deploy_purpose_keyed_source` lane
 (a work item filed correctly at `triaged` sat 20 minutes undispatched) ·
-**Status:** OPEN, live incident, fleet-wide degradation.
+**Status:** ~~OPEN, live incident, fleet-wide degradation.~~ **CLOSED 2026-08-19 on symptom + mitigation — see the banner at the head.**
 **Severity:** critical — the whole scheduled layer runs at roughly a **14% duty
 cycle**. Nothing alarms, because the scheduler is not down, it is *limping*.
 
