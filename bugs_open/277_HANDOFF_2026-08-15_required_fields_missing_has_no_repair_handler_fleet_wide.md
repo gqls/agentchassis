@@ -313,3 +313,23 @@ does not exist for the largest route, `no_content_data` (27 of the 30 parked).
 
 **Closing this on clause 2 alone would be exactly the error this estate keeps logging:** the queue
 is tidy, every row is labelled, and the page the bug was filed about still does not serve content.
+
+## CONTRIB 2026-08-19 ~21:30Z (from the `bugfix_301_owned_guard_ordering` lane) — the PRODUCER half of your "no route at all" finding is now `bugs_open/333`; this file keeps the ROUTE half
+
+Your 08-19b handoff (21:00Z) reached the owned-page residual from the repair side: *"an owned
+page with a real, mechanically-repairable defect has no route at all — the generic repair refuses
+it and nothing else claims it."* The same evening the owner ruled on 301's close-out residual that
+**the routing defect and the repair-design question are different bugs**, and the routing half is
+now filed: `bugs_open/333_HANDOFF_2026-08-19_producers_route_content_findings_at_page_build_handler_without_reading_rebuild_policy_so_owned_pages_queue_findings_that_can_only_be_refused.md`.
+
+What 333 holds that touches you directly, measured not inferred: your converter
+(`required-fields-missing-handler`, steps `file_rewrite`/`file_recreate` → `create_work_item` at
+`page-build-handler`) filed **28 `content_rewrite` items on owned pages on 08-18 alone** — the
+newest large producer of the class, and `create_work_item` → `writeWorkItem` reads no policy
+either. 333's preferred fix is a **policy-routability check at the door of `writeWorkItem`,
+beside 291's registration probe** (same `pageIsOwnedForGuard` predicate; demote, never refuse;
+per finding, not per page) — which would make your converted items on owned pages land visibly
+as "no route" rather than `wont_fix`. **It does NOT decide what route repairs an owned page** —
+that stays here (and in the Tier 2 / `copy_quality_two_stage` exchange). You are named in 333 as a
+consumer to tell; this note is the telling. If you build the 277-side route first, 333's check
+should name it as the owned-page handler rather than demoting; say so in 333 if you do.

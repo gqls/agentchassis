@@ -210,3 +210,28 @@ commit); 016b §10 row 301 + §9 pattern "a guard at the LAST step…" (addition
 `MEMORY_closed.md` line + topic file `bugfix-301-owned-guard-ordering.md` (no line in the capped
 index — this lane never had one, and the practice lives in 016b §9). No platform code touched
 this session.
+
+## 2026-08-19 — session 3 (cont.): owner chose (a) → `bugs_open/333` filed
+
+- Next free number was 332 at 21:15Z; **another session filed a different `332` concurrently**
+  (`…rss_feed_description…`) between my `ls` and my `git add` — renamed mine to 333 before anything
+  referenced it. Re-`ls` immediately before `add` on this tree; the number is shared state.
+- **Misstep corrected:** the closing section's "12 sites" was a grep over `actions/*.go` only —
+  `discovery_checks/` and `internal/core-manager/admin/` hold the rest: **30 literal sites, 25 files**.
+  Corrected visibly in the 301 closing section, HANDOFF §1, README, SUMMARY (appended note), the
+  016b row, the memory topic file. The check that would have caught it: `-r` over `platform/ internal/`
+  and compare the file count against the `INSERT INTO site_work_items` file list (28).
+- Census by `created_by` (live+archive, owned pages at `page-build-handler`): `quality-discovery-agent`
+  33, `content-gap-planner` 30 (from 04-09), `tool-generator` 29 `tool_content:*` (from 04-02) + 28
+  `tool_crosslink:*`, `required-fields-missing-handler` 28 (08-18), `completeness-discovery-agent` 22+9+6,
+  `generic` 15+8+4, `tool-deployer` 6+5, audits ≤6. Open: 142 on 57 pages / 9 sites; owned pages
+  fleet-wide 173 on 12 sites (96 `tool-*`). `wont_fix`-by-refusal since 480: 9 (all 08-19).
+- Mechanism pinned by read: `writeWorkItem` (`load_work_item_actions.go:1330`) carries `pageID` +
+  `handlerAgent` and already runs 291's registration probe (`:1378-1420`, demote-never-refuse,
+  kill switch) — the owned-page case is its policy twin. `raiseToolContentItem`
+  (`tool_content_item.go:197`) is the tool pipeline deliberately asking the generic builder for prose on
+  an owned page — design conflict, named to the tool lane in 333, not taken.
+- 277 lane's 08-19b handoff (21:00Z) reached the same residual from the repair side; left a CONTRIB
+  pointer in `bugs_open/277` so the halves stay distinct. `who-owns.py 277` → ACTIVE lane, 83 commits/14d.
+- 090 NOT run for 333; substitution stated in the file per the 2026-07-31 ruling (first-hand read of
+  every site with a positive control).

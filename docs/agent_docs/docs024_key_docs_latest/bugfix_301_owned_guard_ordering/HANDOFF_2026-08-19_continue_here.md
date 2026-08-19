@@ -26,7 +26,19 @@ Commits this lane made: `6be66bceb` (fix), `25ca816c7`/`5949d9ce3`/`4384ebe12` (
 `1c16eb692` (side-find: budget-cron parity), and the close commit (this evening — `git log -- <bug
 file path>` for it).
 
-## 1. THE ONE OPEN ITEM — an OWNER decision, flagged not taken
+## 1. ~~THE ONE OPEN ITEM — an OWNER decision, flagged not taken~~ DECIDED (a) 2026-08-19 ~21:30Z → FILED as `bugs_open/333`
+
+> **Owner chose (a).** Filed as
+> `bugs_open/333_HANDOFF_2026-08-19_producers_route_content_findings_at_page_build_handler_without_reading_rebuild_policy_so_owned_pages_queue_findings_that_can_only_be_refused.md`
+> — OPEN, UNOWNED, with the write-history census, the 30-site routing table, four candidates ordered
+> by what closes the door (preferred: a policy-routability check beside 291's at `writeWorkItem`),
+> and the consumers to tell. **CORRECTION to the paragraph below:** "twelve producer sites" was an
+> undercount (grep skipped `discovery_checks/` and `internal/`) — **30 literal sites in 25 files**
+> plus the config-driven `required-fields-missing-handler`; and the tool pipeline itself is the
+> largest producer. The 277 lane owns the other half (what route CAN repair an owned page); 333 says
+> so and does not take it. **Nothing is owed on this lane now.** The paragraph below is kept as the
+> record of what was put to the owner.
+
 
 **Candidate 3 of the bug file — the real upstream defect.** Twelve producer sites in
 `platform/orchestration/actions/` hard-code `handler_agent='page-build-handler'` for content

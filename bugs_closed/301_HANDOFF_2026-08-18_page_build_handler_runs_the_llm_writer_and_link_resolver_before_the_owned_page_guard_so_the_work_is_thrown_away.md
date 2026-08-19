@@ -583,5 +583,13 @@ same commit as this section (`git mv`, both paths on the commit).
   its own small `bugs_open` entry, or (b) hand it to the Tier 2 / `copy_quality_two_stage` exchange
   that owns the adjacent repair question. The lane's recommendation stands: (a), cross-referencing (b)
   — a routing defect and a repair-design question are different bugs.
+  > **OWNER DECIDED (a), 2026-08-19 ~21:30Z → FILED as `bugs_open/333_…producers_route_content_findings_at_page_build_handler_without_reading_rebuild_policy…`.**
+  > **CORRECTED in the same breath:** "12 sites" above was an undercount — that grep skipped
+  > `discovery_checks/` and `internal/`; the real figure is **30 literal sites in 25 files**, plus the
+  > config-driven `required-fields-missing-handler` (28 items on 08-18 alone). And the write-history
+  > census (333 §"Who actually fired") shows the **tool pipeline itself** is the largest producer
+  > (`tool-generator` 57, four months old) — a design conflict, not only a missing predicate. The
+  > 277 lane measured the same residual from the repair side the same evening (their 08-19b handoff:
+  > "an owned page with a real defect has no route at all") — 333 owns the routing half, 277 the route.
 - Tier 2 finding-to-edit routing (owned by the 277/083 lanes, recorded in §3 above).
 - `bugs_open/208` — the sibling ordering defect on the rebuild route (guard behind a git commit).

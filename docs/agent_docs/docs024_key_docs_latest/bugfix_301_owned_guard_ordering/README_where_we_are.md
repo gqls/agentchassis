@@ -96,3 +96,29 @@ file carries it as its subject, which is exactly how a known problem gets buried
 an owned page" question. My recommendation is (a): "jobs are routed to the wrong handler" is a
 routing defect with a small fix; "how should these pages be repaired" is a design question —
 different bugs, and the first should not wait for the second.
+
+## 2026-08-19, later — you chose (a), and it is filed
+
+Filed as bug **333** (open, unowned). Two things I got more precise while filing it, and one
+I got wrong above and am correcting here rather than editing it away:
+
+- **"Twelve places" was an undercount.** My first search skipped two folders. The real figure
+  is thirty places across twenty-five files, plus one agent whose routing lives in its
+  configuration rather than in code. None of them checks whether the page is a tool page before
+  sending the job to the generic builder — and, as a control, the same search *does* find the
+  two producers that already do check, so "none" is a real result, not a blind one.
+- **The biggest offender is the tool pipeline itself.** For four months, the code that builds a
+  tool page has been asking the generic page builder to write the prose around the widget — on a
+  page the same pipeline has just marked as "not the generic builder's to touch". That is not a
+  forgotten check; it is two rules in conflict, and the bug file names it as a separate design
+  decision for the tool lane rather than trying to settle it.
+- **What the fix should look like.** The shared place where every work item is written already
+  has one "is this routable?" check at the door (for handlers that don't exist). The natural fix
+  is a second check beside it: if the handler is the generic builder and the page is owned, don't
+  file the job at that handler — record it visibly as "needs a route", per finding, so it can be
+  counted and acted on rather than silently refused. The bug file orders four candidates and says
+  why that one closes the door and the others don't.
+- **The boundary with the other lane.** The 277 lane reached the same residual from the other
+  side tonight ("an owned page with a real defect has no route at all"). 333 owns "stop sending
+  jobs to a handler that refuses"; 277 owns "what route can actually repair an owned page". I
+  have left a note in their file pointing at 333 so neither lane re-derives the other's half.

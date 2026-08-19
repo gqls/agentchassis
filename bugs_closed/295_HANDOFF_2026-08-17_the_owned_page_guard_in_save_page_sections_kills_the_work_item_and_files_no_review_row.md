@@ -474,3 +474,9 @@ that turned out to have a competing explanation sitting in another lane's incide
 you did not read is not a weaker version of one you did — it is a different kind of claim**, and on
 a tree with ~24h retention the window to convert it closes overnight. Both entries in
 `WRONG_CALLS.md` for this lane are now this shape.
+
+> **2026-08-19 (from the 301 lane):** this file's untaken **fix candidate 3** (stop filing generic
+> content items against owned pages) — also 301's untaken candidate 3 — is now its own open file on
+> the owner's decision: `bugs_open/333_…producers_route_content_findings_at_page_build_handler_without_reading_rebuild_policy…`.
+> 301 itself is CLOSED the same day (guard moved to `load_page_record`; this file's save-path guard
+> KEPT as the backstop, 0 save-path refusals since the 08-19 roll).

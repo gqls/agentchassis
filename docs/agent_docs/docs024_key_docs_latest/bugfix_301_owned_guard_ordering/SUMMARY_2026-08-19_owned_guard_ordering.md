@@ -47,3 +47,8 @@ that can only be refused — 142 tonight. That upstream defect is now the untake
 closed bug files and the subject of no open one. Recommendation: file it as its own small open bug,
 cross-referenced to the Tier 2 repair discussion, because "routed to the wrong handler" is a small
 routing fix and "how should these pages be repaired" is a design question — different bugs.
+
+> **CORRECTED 2026-08-19 (later the same evening):** "a dozen places" was an undercount from a
+> search that skipped two folders — thirty places in twenty-five files, plus one config-driven
+> agent. And the owner has since decided: it is filed as its own open bug, **333**. "Where we're
+> going" for this lane is therefore: nothing — the residual has a file of its own.
