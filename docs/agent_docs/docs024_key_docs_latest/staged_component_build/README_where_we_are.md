@@ -1986,3 +1986,28 @@ switch from "pick one and log it" to "refuse to guess" — is the next thing to 
 One note for honesty: this morning's handoff described this fix as a rename of the definition.
 That was the right target and the wrong tool; the notes file records the correction and what
 caught it (measuring before building).
+
+**2026-08-19, evening — the name-collision repair is approved, after one round that was about a
+filing cabinet, not the fix.**
+
+The reviewers sent it back once. Their blocking point was that an old bug about this same page
+label — the one where it always came through empty — was still sitting in the "open" folder,
+and my write-up had not mentioned it. Fair question: could the two be one problem seen from two
+ends? I went and read that file. It had been fixed and proven live on the 27th of July; its own
+last section says so in detail. Nobody had moved it to the "closed" folder or updated the line at
+the top, so for three weeks its location said one thing and its contents said another. I moved
+it, marked the top with the date, and wrote a short closing section explaining why the two
+things are different: that bug was about the label's value being empty; this one is about the
+label's name clashing with the page record's name. Each has its own proof and neither can
+disguise the other. The old bug's own test is still in place and is one of the checks this
+repair was proved against.
+
+The other real point was about a note in our landmines file warning anyone touching the
+identity code in this area. Read in full, that note is actually the reason my edit exists — it
+lists the very key I renamed as one of the three that work — so I engaged with it, re-measured
+on every stored run, and corrected the note in place with today's date.
+
+Second round: approved. One reviewer asked for a guard against the rename table quietly growing
+— sensible, and it is now a test that fails if anyone adds a second entry without doing it on
+purpose. So step four is done and reviewed; it goes live on your next build. Then the last step:
+flip the recorder from "log it" to "refuse to guess".

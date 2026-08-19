@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-18b (updated 2026-08-19 late), fresh chat starts here: steps 1–3 LIVE+PROVEN (v1.0.1315); step 4 BUILT+SUBMITTED (`1a82225ec`, corr `f3716ebe`) — inert until the next roll. Next: read the step-4 verdict; after the roll, read the done-condition; then step 5.
+# HANDOFF — 2026-08-18b (updated 2026-08-19 ~20:40Z), fresh chat starts here: steps 1–3 LIVE+PROVEN (v1.0.1315); step 4 BUILT+APPROVED r2 (`1a82225ec`+`916c8b22b`+`c16836d86`, corr `f3716ebe`) — inert until the next roll. Next: after the roll, stamp + read the done-condition (checklist 4b); then step 5 (4c, which also retires the read tolerance).
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
 was CORRECTED before building** — the mis-citation and its consequences are RFC_029 §10.11, the
@@ -106,9 +106,9 @@ sweep (NOTES, evening entry, last paragraph).
    (a) **Read the step-4 verdict** — ~~round 1~~ **round 1 = REVISE (bug_historian: 085 sat in
    `bugs_open/` while closed-in-fact — reconciled + MOVED, `916c8b22b`; guardian: the
    renderEnvelopeIdentity landmine — quoted, re-measured 49/49, entry corrected `cc1db051a`);
-   ROUND 2 resubmitted ~20:4xZ on the SAME corr (run `4d2df61b`), NOTES "(evening)" has every
-   answer. READ ROUND 2** (a REVISE/REJECTED must be acted on — the code is already on the
-   shared branch):
+   ROUND 2 **APPROVED 20:33Z** (3 advisories, none high — all dispositioned, NOTES "(~20:35Z)";
+   architecture's advisory is now `TestStepContractRenamesStayRare`, `c16836d86`,
+   `Council-Reviewed:`). NOTHING OWED ON REVIEWS.** Queries kept for the record:
    `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='f3716ebe-e420-4ae9-ba4a-9a649e3d7124' AND kind='council_report' ORDER BY created_at;`
    — and the note: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
    Budget ~30 min from submission (~16:45Z); a missing row is latency, not a drop — find it by

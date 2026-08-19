@@ -733,3 +733,23 @@ never conflict with each other (reflect.DeepEqual); a row that names ONLY those 
 different bug. A new candidate set containing any `*.current_page` STRING path is a new producer
 — trace it at `orchestration_states.collected_data` (the four-step method above), do not widen
 `renderContextStepContractRenames` to cover it without reading the producer.
+
+## "How many live agents use action X?" — the `jsonb_each(steps)` census is TOP-LEVEL ONLY (bitten twice on 2026-08-19)
+
+`jsonb_each(default_config->'workflow'->'steps')` cannot see a step nested inside a
+`sub_workflow` / loop substep. Twice in one day on this lane a census built that way was
+challenged (step 3 round 1: the gate's consumer census; step 4 round 2: the `build_render_context`
+caller count). Use the whole-config text search as the ceiling, then the structured query for detail:
+
+```sql
+SELECT type,
+       (length(default_config::text) - length(replace(default_config::text, '"<action>"', '')))
+         / length('"<action>"') AS occurrences
+FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text LIKE '%<action>%'
+ORDER BY 1;
+```
+If the text ceiling and the `jsonb_each` count disagree, the difference is nested steps — open the
+definition. (Quote the action name with its JSON quotes in the `replace`, or `build_render_context`
+also counts `output_field: "render_context"` matches' neighbours and prose.)

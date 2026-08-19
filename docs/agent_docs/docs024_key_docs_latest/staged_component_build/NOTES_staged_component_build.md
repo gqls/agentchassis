@@ -5347,3 +5347,42 @@ resolver find `current_page_name` too). Code delta this round: comments only (`9
 **Round 2 resubmitted** on the same correlation (`RESUBMIT_CORR=f3716ebe`, run `4d2df61b`,
 ~20:4xZ), JSON `COUNCIL_SUBMISSION_2026-08-19_rfc029_step4_current_page_name_round2.json`.
 Watcher armed. Budget the queue, not the council.
+
+## 2026-08-19 (~20:35Z) — step 4 APPROVED round 2 (3 advisories, none high); every advisory dispositioned, one became a test
+
+Round 2 queued only ~10 min this time (resubmit ~20:2xZ, verdict 20:33:37Z). `decided_by:
+approved with 3 advisory objection(s) — none high-severity`; 9 approve, 3 object on LOW/MED only.
+
+Dispositions, each at the data:
+- **guardian MED — "one live caller" came from a TOP-LEVEL `jsonb_each` census (the same trap this
+  lane's step-3 round hit this morning).** Redone as a recursive text search over the whole config:
+  `SELECT type, (length(default_config::text)-length(replace(default_config::text,'"build_render_context"','')))/length('"build_render_context"') FROM agent_definitions WHERE <live> AND default_config::text LIKE '%build_render_context%'`
+  → **page-content-writer | 3** (step name, action, one reference) and **1 of 1** definitions ever
+  (incl. inactive/snapshots). No nested producer. Claim stands; method upgraded. The lesson is
+  already in WRONG_CALLS from this morning — second occurrence in one day on the same lane, so
+  the check belongs in the RUNBOOK (added below).
+- **guardian LOW — other consumers of the envelope-guard chain:** `renderEnvelopeIdentity(` has
+  ONE caller, `writeRenderEnvelopeLog` in the same file (:286) — the render seam inside pcw runs.
+  49/49 is the whole population.
+- **architecture MED — the rename map has no growth guard →** `TestStepContractRenamesStayRare`
+  (`c16836d86`, `Council-Reviewed:` trailer): size pinned at 1; a parked second entry fails it
+  (mutation-checked); raising the number is a deliberate act in the same commit as reading the
+  new producer. Same shape as RFC_022's optional-key budget, at one map.
+- **editquality LOW ×2** — sibling test files "asserted not specified": they are in `1a82225ec`
+  (`render_context_derivation_test.go` +3/−1, `rerender_page_sections_base_data_test.go` +12/−3,
+  `render_content_envelope_guard_test.go` +10/−1 — `git show --stat 1a82225ec`); collision claim
+  "rests on a test not a grep": `grep -n 'json:"current_page_name"' platform/ -r` → 0, and
+  `TestRenderContextJSONTagsAreUnique` + `TestStepContractRenamesAreWellFormed` make it permanent.
+- **reuse / prior_art LOW — the alias survey was narrated:** `grep -rln alias platform/orchestration
+  --include=*.go | grep -v _test` → the only resolver-side alias mechanism is
+  `getFieldAlias` in `unified_extractor.go:465–467` (the READ-side "alias" arm of
+  `extractSingleField`, retries the chain under an alternative FIELD name — opposite direction);
+  config-side is `input_contracts/input_mapping.go`. Nothing projects struct→step-output by key.
+- **bug_historian LOW — generic mechanism stays generic:** acknowledged in round 2; step 5 is the
+  remedy (the flip makes the next collision loud). Its "missing" note that the historian index
+  still lists 085 under OPEN is the index snapshot lagging the move; `git ls-tree -r --name-only
+  HEAD -- bugs_open/ bugs_closed/ | grep 085_` → exactly one line, in `bugs_closed/`.
+
+**098 bookkeeping:** `1a82225ec` and `916c8b22b` carry `Council-Submitted: f3716ebe` and resolve to
+approved at report time; `c16836d86` carries `Council-Reviewed: f3716ebe` (verdict read). Step 4 is
+**code-complete, reviewed, committed; inert until the next chassis roll.**
