@@ -4205,3 +4205,61 @@ indefinitely, free. Commercial decision for the owner, recorded in the handoff.
 **Still standing, narrower than I first wrote it:** the ZIP presign is 7 days
 (`expiry_minutes: 10080`). "Theirs permanently" is true once downloaded; the link to
 fetch it dies at 7 days and the copy does not say so.
+
+### 2026-08-19 (~10:3xZ) — the four rebuilds landed; and the CAPS bans are now the same defect the refund ban was
+
+**Verified at the served pages, in BOTH directions** (a zero on "next day" alone
+would also be satisfied by copy that dropped the turnaround entirely):
+
+| page | "next day" | "two or three days" | £149 |
+|---|---|---|---|
+| index | 0 | 4 | 6 |
+| faq | 0 | 3 | 6 |
+| how-it-works | 0 | 3 | 3 |
+| what-you-get | 0 | 0 | 3 |
+
+`what-you-get` reading 0/0 is correct, not a miss: it never discussed turnaround,
+which is why it was not queued.
+
+**how-it-works taught a timing lesson:** the item read `complete`, the stored
+components were correct, and the served page was STILL stale for about five
+minutes. `last-modified` on the served object moved later than `pages.deployed_at`.
+So a stale served page shortly after a deploy is propagation, not failure — wait it
+out before concluding the rebuild no-op'd. (Do not over-learn this: the 08-18 index
+case looked identical and WAS a real no-op, a rerender. The difference is whether
+the stored components changed. Check those first.)
+
+### ⚠ The two "Caps ruling" bans have outlived their premise
+
+`881c95ef` (the brief-starter guide) has now failed TWICE, and the second failure is
+the refund-ban defect again in a new place:
+
+> banned claim **"whenever you like"**, at *"…it's yours to move to any registrar or
+> host you like, whenever you like."*
+
+That sentence is the writer stating an **attested fact**: `domain_buy_once` says
+*"the customer is then free to transfer it to their own registrar or host."* The
+register instructs the copy to say it and a ban stops the page.
+
+Both caps bans (owner, 2026-08-09) now cite premises that no longer exist:
+
+| pattern | stated reason | status of that reason |
+|---|---|---|
+| `(unlimited\|no limit to\|no limits on\|as many (changes\|revisions))` | "revisions are capped (see facts `revision_rounds_included`)" | **`revision_rounds_included` does not exist** — 0 facts match |
+| `(at any ?(point\|time)\|any time before\|whenever you like\|no time limit)` | "no open-ended time promises; **the review window is the bound**" | the review window is RETIRED |
+
+The first pattern is still right for the wrong reason: under the new terms NO
+changes are included, so an uncapped-changes promise is more wrong, not less. Only
+its reason needs correcting.
+
+The second is genuinely over-broad now. Its intent was to stop open-ended promises
+about **our service**, bounded by a review window that no longer exists. But the new
+offer contains real, attested, open-ended **customer freedoms** — the files are
+theirs to edit for ever (`yours_to_change`), the bought domain is theirs to move
+(`domain_buy_once`). A bare-phrase ban cannot tell "you may deal with US at any
+time" from "the thing you own is yours to move whenever you like", and it is
+blocking the second.
+
+**Not changed: it is an owner ruling, and the last ban I narrowed (refunds) he
+approved first.** Item re-triaged so it can try again meanwhile; the writer may
+phrase around it, but two failures on this family suggest it will not.
