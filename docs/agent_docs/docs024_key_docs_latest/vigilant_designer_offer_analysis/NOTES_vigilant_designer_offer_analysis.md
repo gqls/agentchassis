@@ -2429,3 +2429,42 @@ dispatch (terminal, unclaimable) and cannot trip the sweep's 50-item guard (whic
 `triaged`/`detected`) — verified against the pre_query — but nothing drains them. **If 301 lands,
 the arrival rate should fall sharply, and that fall is a better post-fix measurement than any
 count of the rows themselves.**
+
+## 2026-08-19 — 301 was already taken; I verified it instead, and the verification found a trap
+
+**Checked ownership before doing anything** (`scripts/who-owns.py 301`) — and it was the right call:
+another lane had already taken, fixed, council-submitted and ROLLED it (`6be66bceb` + migration 488,
+opt-in `refuse_owned_page`, live on `v1.0.1314`). Had I gone straight to the code I would have
+competed with a shipped fix. **So: contributed, did not compete.**
+
+Detail lives in the `bugs_open/301` CONTRIB block rather than here — the two things worth knowing:
+
+1. **The per-run join that file declared UNMEASURED is now closed**, on a fresh burst as its own
+   caveat required. Six builds post-roll: three reached `validate_content` and each spawned a writer
+   within a minute; three refused at `load_page_record` and spawned **none**. That is both halves of
+   the recipe — the owned case *and* the generic control proving the writer still works.
+2. **A trap that would have made me report the fix as broken.** `refused_by='load_page_record'`
+   reads **zero**, correctly: the emit dedups on `(site_id, item_key)` keyed by PAGE, and
+   `needs_human_review` is not in `idx_swi_dedup`'s excluded list, so the rows the *save* path filed
+   on 08-17 still occupy the key. **The new producer can work perfectly and never appear in a count
+   of its own rows** — worst on exactly the pages it most needs to catch, because those are the ones
+   already refused once. Now a LANDMINE; it generalises to every item type the 2026-08-02 ruling's
+   converge-the-producers shape applies to.
+
+### And a correction to my own work, forced by someone else's incident log
+
+An owner directive of 08-18 records a **fleet-wide `git-adapter` 404 burst, 2026-08-17
+13:31–16:14Z**. Two of this lane's offer-analysis items were cancelled as its casualties. That
+window also breaks a claim I made in `bugs_closed/295`: I proved one `tool-ttk-calculator` failure
+(13:02:18, guard quoted — **29 minutes before** the burst) and **inferred** its neighbour
+(13:37:24 — **inside** it). Both orchestrations are now past retention, so the second is unknowable
+for ever. Correction appended to the closed file; `WRONG_CALLS.md` entry written.
+
+**The mechanism, because it is the reusable part:** having read and confirmed one cause, I let the
+next one ride on the resemblance — same page, same item type, same expected guard. **A confirmed
+instance makes its neighbour feel measured.** The tell was visible in my own sentence: a quotation
+for one half, a resemblance for the other, joined by "and". The check was one query on a row that
+still existed at the time, skipped because the first had already told me what I expected to find.
+
+**Estate unchanged today:** `offer_ordering` 5 of 23; offer-analysis items 18 complete / 3 failed /
+3 needs_human_review / **2 cancelled** (the burst casualties above); sweep still disabled.
