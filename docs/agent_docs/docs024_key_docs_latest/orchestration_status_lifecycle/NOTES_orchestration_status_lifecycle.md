@@ -66,3 +66,46 @@ tool an operator reaches for in an incident disagreed with all four production g
 **Misstep:** a final "everything is fine" query reported `0 migrations recorded` — I had written
 `LIKE '46[34]%'`, and SQL `LIKE` has no character classes. The migrations were fine; the query
 asked the wrong question. Same family as everything else in this file.
+
+## 2026-08-19 (later) — 466 came back REVISE; the HIGH objection was right to ask and does NOT materialise
+
+**Council `f0e95e58` → REVISE, gated by `guardian` at HIGH.** The objection: the seed/FK was
+validated by grepping **Go** `.Status =` assignments only, while this estate has a standing landmine
+that **SQL embedded in an `agent_definitions` step is DATA** — invisible to a migration's probe,
+parsed only when the step runs. If any DB-resident SQL wrote a status, the live FK would reject it
+in production. I had used that very landmine's reasoning elsewhere the same day and did not apply it
+to my own seed.
+
+**Audited, and it is clean — but the audit is the answer, not the assertion:**
+
+| surface | result |
+|---|---|
+| `scheduled_tasks.pre_query` writing `orchestration_states` | only `stale-orchestration-reaper`, and `SET status =` yields exactly one literal: **`FAILED`** |
+| `agent_definitions` steps writing it (`UPDATE`/`INSERT`/`DELETE`) | **0** |
+| `agent_definitions` rows *mentioning* it at all | **5**, all reads — 3 are LLM prompt prose ("sql check on orchestration_states"), 2 of those inactive; `fix-implementer` and `fix-proposer` run `SELECT … FROM orchestration_states WHERE correlation_id = $1` |
+| independent runtime cross-check | the FK has now been live under production traffic with **0 violations** in the chassis logs — stronger than any grep |
+
+⚠ **STATE AT CHECKPOINT — 466 is APPLIED AND LIVE while its round says REVISE.** That is expected on
+this tree (review is after the fact by design) but must not be forgotten: the vocabulary table and
+the foreign key are enforcing right now, and round 2 has **not** been submitted. The answers are
+gathered above; what remains is writing them into a round-2 submission on `RESUBMIT_CORR=f0e95e58-1361-442b-87a5-56b5870943b6`.
+
+Other objections and their answers, for whoever resumes:
+- `editquality` [low] — the sketch showed one `WHERE` clause but the rationale said two guards in
+  `cleanup_stale_topics.go`. **Both were changed**; the edit asserted `count == 2` and then that 0
+  occurrences remained. Answer with the diff.
+- `guardian` [medium] — "say why THIS coordinator.go edit is a point fix". It restores a previously
+  captured value on a path that has **already failed its persist**; no contract, signature or
+  wire-shape changes.
+- `debug_historian` [medium] — Go evidence stops at `gofmt`/`go build`. The pod-grep recipe exists in
+  `RUNBOOK_orchestration_status_lifecycle.md`; it needs stating as the follow-up for the next roll.
+- `reuse_agent` + `architecture` [low] — the two-pattern asymmetry wants a tracked follow-up.
+  **Owner decided 2026-08-19: write it up as an RFC.** Next free number is **RFC_039**.
+
+**Owner decisions taken at this checkpoint, none yet executed:** RFC for the vocabulary-pattern
+asymmetry; file the takeover compare-and-swap gap as a bug (`TakeOverOrchestration` already exists as
+the guarded CAS; both takeover arms currently decide by a 5-minute clock, not a lock); and **CLOSE
+`bugs_open/240`** — note this differs from my recommendation, which was to correct the banner and
+leave it open because what is holding is a *mitigation* and its root-cause candidate was "verified
+and refuted". Closing is the owner's call; record the distinction in the file so a reader does not
+mistake symptom-gone for cause-fixed.
