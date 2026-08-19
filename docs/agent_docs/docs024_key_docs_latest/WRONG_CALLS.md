@@ -38091,3 +38091,32 @@ preferring the bigger N.
 **Cost:** none realised — caught within one step, before anything was written down as a
 finding or shipped to a doc. Recorded because the wrong version was the *comfortable* one: it
 said a seam I was about to spend a fleet-wide migration on was already fine.
+
+## 2026-08-19 — bug 321: "snapshot_agent writes no rows" — it writes them to a table I never looked at
+
+**The claim** (written into my working plan, sourced from a subagent's risk review and
+repeated by my own verification query): *"zero snapshot rows exist for tool-suggester
+despite 484's file calling snapshot_agent — do not rely on 484's snapshot for
+rollback."* Both the subagent and I "verified" it the same way: `SELECT … FROM
+agent_definitions WHERE is_snapshot=true` → 0 rows.
+
+**What was true:** `snapshot_agent` inserts into **`agent_definitions_backup`** (columns
+`snapshot_taken_at`, `snapshot_reason`) — the function's own body says so in its first
+30 lines. The snapshots exist; my query interrogated a table the function never writes.
+
+**What caught it:** my own migration 493 printed `NOTICE: Snapshot captured` three times
+and my is_snapshot check still said 0 — an instrument reading that contradicted an event
+I had just watched happen. Reading `pg_proc.prosrc` took one query and ended it.
+
+**The cheap check that would have:** read the function body BEFORE asserting its effect
+is absent. `\df+ snapshot_agent` / `SELECT prosrc FROM pg_proc WHERE proname='…'` is one
+line. General form: **an absence claim about a mechanism's output is only evidence if
+you read where the mechanism writes** — querying where you EXPECT the output lands is
+the same encoded-question trap as a filtered count, one level up. Also the memory
+index's subagent rule, honoured late: a subagent's report is another doc; this one's
+figure I grounded only after it had reached my plan file.
+
+**Cost:** small and contained — the false line lived in the plan file for ~3 hours and
+shaped a "verify your own snapshot row exists" instruction that then FOUND the truth; no
+migration, doc, or handoff shipped it. Recorded because both of us made the identical
+wrong query independently, which is exactly how a false absence calcifies into lore.
