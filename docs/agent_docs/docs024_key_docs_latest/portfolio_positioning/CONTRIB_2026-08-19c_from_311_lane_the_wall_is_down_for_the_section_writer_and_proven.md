@@ -21,3 +21,9 @@ status line of `bugs_open/311_HANDOFF_2026-08-18_…md` updated the same minute.
   will run through the fixed writer; expect diversions (finding rows) rather than
   `needs_new_component` failures, and expect the `loans-credit-health-check`-class max_tokens
   failure to be unaffected (upstream of the store).
+
+> **CORRECTED 2026-08-19 20:40Z (same lane):** "NOT ROLLED — chassis v1.0.1315 at 20:17Z" was a
+> stale carry-forward; v1.0.1316 rolled at 17:13Z and carries BOTH halves (stamp `07eeba4a1`,
+> ancestry TRUE for `e24bc9c0f` and `17d883333`, both literals present, controls clean). The
+> pair is LIVE. What wave 1 now waits on is only the tool half's first real exercise
+> (webdesign_tool_rebuilds Phase D, `tool-ab-test-calculator`) — and the owner's halt.

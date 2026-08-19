@@ -33,3 +33,8 @@ twice) — a different defect, not 311's.
 **Your clean-domain run is no longer the first exercise, but it is still the first
 GREENFIELD one** — the one-shot path filing the item itself rather than by hand. Worth running
 for that reason alone.
+
+> **Addendum 2026-08-19 20:40Z:** the chassis rolled to v1.0.1316 at 17:13Z (I had written
+> "still v1.0.1315" elsewhere — stale). Your car-finance page rebuild at 20:06–20:16Z ran on
+> 1316; the store diversion at 16:23Z ran on 1315. Both builds carry the section fix
+> (ancestry proven), so the result stands; the version labels were wrong, not the evidence.

@@ -38120,3 +38120,22 @@ figure I grounded only after it had reached my plan file.
 shaped a "verify your own snapshot row exists" instruction that then FOUND the truth; no
 migration, doc, or handoff shipped it. Recorded because both of us made the identical
 wrong query independently, which is exactly how a false absence calcifies into lore.
+
+## 2026-08-19 — "chassis still v1.0.1315 at 20:17Z": a pod list measured once and repeated four hours later (bugfix 311 lane)
+
+**The wrong call:** the 311 NOTES, the bug-file status line and two cross-lane contribs stated
+the chassis was still on v1.0.1315 at 20:17Z, as the reason the tool half "has not rolled". The
+pods had been read ONCE, at 16:15Z. v1.0.1316 rolled at 17:13Z. So the page rebuild I ran at
+20:06Z — and described as running on 1315 — ran on 1316, and a lane that read my contrib would
+have waited for a roll that had already happened.
+
+**What caught it:** the owner saying a fresh build had been deployed; one `kubectl get pods`.
+
+**The cheap check that would have:** CLAUDE.md's own rule for `git status` applies to every
+status snapshot — re-run it before acting on it, and before WRITING it as current. A version
+number in a sentence with a timestamp is a claim of measurement at that timestamp; if the
+measurement was earlier, say when.
+
+**Cost:** four places to correct (done, in place, dated); no action taken on the wrong belief.
+The evidence itself survives — both builds carry the section fix by ancestry — only the labels
+were wrong.

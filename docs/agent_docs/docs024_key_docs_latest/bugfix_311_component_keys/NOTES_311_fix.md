@@ -363,3 +363,42 @@ stated "next run" — pointed at, not pre-empted.
 - (The needs_rebuild dead-queue trap already has a LANDMINES entry — "A data repair RACES the
   sweep that publishes it", trap 1, footprint `pages.build_status` — so no new entry; the
   WRONG_CALLS row for my claim points there.)
+
+## 2026-08-19 20:35Z — v1.0.1316 IS LIVE and carries BOTH halves (binary-proven, both replicas, controls both ways)
+
+- Pods `agent-chassis-5ddd9744-86nqf` / `-8jlqh`, image v1.0.1316, started **17:13Z / 17:14Z**.
+  Provenance line already scrolled (>5000 lines) → candidate-sha probe: stamp
+  **`07eeba4a1eecbe809f518b5d0b7f9fc5f75e71ed`** (2026-08-19 17:21:10 +0100, "handoff(320)…")
+  PRESENT in /proc/1/exe on BOTH replicas; fake sha `deadbeef…` ABSENT (negative control);
+  `git merge-base --is-ancestor e24bc9c0f 07eeba4a1` TRUE and `… 17d883333 07eeba4a1` TRUE;
+  literals `library tool claims this function` (tool half) and `COMPONENT_COLLISION_DIVERTED`
+  (section half) both PRESENT. **The owner's precondition pair is LIVE.**
+
+> **CORRECTED 2026-08-19 20:40Z — a stale figure carried forward.** The 20:16Z entry above, the
+> bug-file status line, and the portfolio/loanzy contribs said "chassis still v1.0.1315 at
+> 20:17Z". I had measured the pods ONCE, at 16:15Z, and repeated it four hours later without
+> re-running `kubectl get pods`. The roll happened at 17:13Z. Consequence for the evidence: the
+> store diversion (16:23Z) ran on v1.0.1315, but the page rebuild (20:06–20:16Z) ran on
+> **v1.0.1316** — fine for the claim (the section code is in both), wrong as a statement of
+> fact. Caught by the owner saying a build had rolled; the cheap check is CLAUDE.md's own:
+> re-run the status snapshot before acting on it — a pod list is a snapshot like `git status`.
+> WRONG_CALLS row added.
+
+- Tool-half DEMAND test: NOT run from this lane, on purpose. The natural specimen
+  (`tool-ab-test-calculator`, webdesign.co.uk) belongs to the `webdesign_tool_rebuilds` lane,
+  which is ACTIVE right now (its NOTES last entry 20:35Z, `page_rerender` items filed 20:36Z)
+  and whose handoff still reads "RFC_036 §9 — nobody has built it / Phase D runs whenever
+  RFC_036 lands". Phase D is now unblocked; told them (CONTRIB in their dir, this commit) with
+  the assertion list and baselines. Firing an `add_tool` on a site another session is
+  actively dispatching at would contend on the one-site-per-tick dispatcher and muddle their
+  artefact reads.
+- Baselines PINNED for that test [MEASURED 20:38Z]: library row `8c9a6e06-e2b2-4f21-baf6-651585375f0c`
+  (`tool-ab-test-calculator_pre_037`, base, active) html `8673be08f969504f5a9ceb46e45d7656`,
+  schema `688e1188b91ccef0674cd527daa05ec3`, updated_at 2026-05-06; existing forks: `cd60486c`
+  (…-webdesign-co-uk, INACTIVE, html 8208eb17…) and `58da6570` (…-idea-uk, active, 2169c654…).
+  Pass = a NEW row `forked_from='8c9a6e06…'`, `component_level='tool'`, name
+  `tool-ab-test-calculator-webdesign-co-uk`, save_tool COMPLETES (no SQLSTATE 23505), the
+  §9.3 Info log line, and 8c9a6e06's md5s unchanged. One thing for them to read first: the
+  action's "already exists" check (`create_tool_component_action.go:228-237`) returns early if
+  an ACTIVE tool component with that function is linked to one of the site's pages — so the
+  ported slot's state at build time decides whether the fork branch is even reached.

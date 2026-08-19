@@ -147,3 +147,9 @@ with build_status deployed, AND `curl` the tool URL and count `<input` (tags spa
 Loanzy's six remaining: settlement / overpayment / standard-calc / compare-loans /
 interest-rate-stress-test (collision class) and credit-health-check (fails UPSTREAM on
 max_tokens 16000 — a different defect; do not spend attempts on it until that is raised).
+
+## 2026-08-19 20:35Z — the roll that carried the TOOL half: v1.0.1316, stamp `07eeba4a1eecbe809f518b5d0b7f9fc5f75e71ed`
+Both replicas (`agent-chassis-5ddd9744-*`, started 17:13Z). Re-run of the recipe above: stamp
+PRESENT, fake sha ABSENT, `e24bc9c0f` and `17d883333` both ancestors, both literals present.
+Gotcha that bit this lane: **re-run `kubectl get pods` before repeating a version** — a pod list
+is a snapshot; I carried "v1.0.1315" four hours past the roll.

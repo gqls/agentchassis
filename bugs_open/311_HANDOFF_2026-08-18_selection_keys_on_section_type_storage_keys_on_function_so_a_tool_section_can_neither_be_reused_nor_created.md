@@ -11,12 +11,17 @@ DIVERTED to base row `2e497429` `loans-car-finance-calculator-loanzy-uk` (one
 loanandmortgagecalculator.co.uk incumbents byte-identical to pre-pinned md5s; the page's
 rebuild resolved the slot to the new row via the selector and the served page went from
 **0 to 4 `<input>`** with its suffixed JS asset serving. Section half: fixed, live, exercised.
-**Stays OPEN** because per the OWNER RULING 2026-08-19 the TOOL-level writer
-(`create_tool_component`, RFC_036 §9.3, commit `e24bc9c0f`, council `ceae30f2` APPROVED) has
-NOT ROLLED — chassis still v1.0.1315 — and the pair is one logical change, a PRECONDITION for
-wave 1. Also: a parked page does NOT heal by itself (`needs_rebuild` has no consumer) — each
-needs a `needs_page` re-render filed; loanzy's other six tool pages are still hollow
-(RUNBOOK recipe).
+**BOTH HALVES LIVE on v1.0.1316** (pods 17:13Z; stamp `07eeba4a1` on both replicas,
+`e24bc9c0f` + `17d883333` both ancestors, both literals present, fake-sha control clean —
+measured 20:35Z; an earlier line here said "still v1.0.1315", a stale carry-forward,
+corrected in the lane NOTES). The TOOL-level writer (`create_tool_component`, RFC_036 §9.3,
+commit `e24bc9c0f`, council `ceae30f2` APPROVED) is therefore LIVE but has **ZERO real
+exercises**: its demand test is the `webdesign_tool_rebuilds` lane's Phase D
+(`tool-ab-test-calculator`, library row `8c9a6e06` md5s pinned in the 311 NOTES) — told
+them 2026-08-19 20:40Z. **Stays OPEN** until that tool-level exercise passes (the owner's
+precondition pair is one logical change); plus: a parked page does NOT heal by itself
+(`needs_rebuild` has no consumer) — each needs a `needs_page` re-render filed; loanzy's other
+six tool pages are still hollow (RUNBOOK recipe).
 Diagnosed
 2026-08-18, `090` verdict **CONFIRMED on the first iteration** (run correlation
 `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`);

@@ -150,3 +150,24 @@ written down), or the loanzy lane's full rebuild does them all. I stopped at one
 that is their site and their planned run — but it is a ten-minute job per page if you'd rather
 it just happened. One of the six (credit-health-check) will still fail for an unrelated reason:
 the AI's answer is longer than the limit allows, which is a separate small bug to raise.
+
+## 2026-08-19, night — the new build carries both halves; the second half now needs its first real run
+
+You said a fresh build had rolled, and it has: both chassis pods are on v1.0.1316, started at
+17:13 UTC, and I proved at the running binary — with a positive and a negative control — that
+it contains both the section fix and the tool fix. So the pair you ruled a precondition for the
+portfolio wave is live in full.
+
+One correction against myself: in the earlier entries I said the chassis was "still on
+v1.0.1315" at 20:17. That was a reading from 16:15 repeated without looking again; the roll had
+happened at 17:13. The car-finance page rebuild actually ran on the new build. It does not
+change the result (both builds carry the section fix), but the label was wrong, and I have
+corrected it everywhere it appeared and logged it as a wrong call.
+
+What remains for the tool half is the same thing the section half needed this afternoon: one
+real run. The obvious case is webdesign's A/B-test calculator, which has been parked for days
+on exactly the wall this fix removes. That site is being actively worked by its own lane right
+now, so rather than fire a build into the middle of their work I have told them, in their own
+folder, that the wall is down, what to assert, and the fingerprints to compare against. When
+their run passes, this bug is done. If you would rather not wait on them, say so and I will
+run it myself once their site goes quiet.
