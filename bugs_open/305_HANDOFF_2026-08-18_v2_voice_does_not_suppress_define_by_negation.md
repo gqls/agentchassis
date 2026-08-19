@@ -262,6 +262,24 @@ framework again"* + fix the pages). On this evidence:
    catches the fault at the place that causes it, before a single page is written.
 3. **The three pages are cleanup and stay behind (1).** Re-rendering them against an unchanged
    brief regenerates the same register from the same source.
-4. ⚠ **This is one site.** Whether other sites' briefs carry the shape is a one-query census
-   nobody has run — and given this file's own history with over-general claims, **run it before
-   asserting a fleet pattern.**
+4. ~~⚠ This is one site … run it before asserting a fleet pattern.~~ **CENSUS RUN, same
+   session `[MEASURED 2026-08-19]` — it is FLEET-WIDE, and this site is on the LOW end.**
+
+   **24 of 25** sites with a current `content_direction` carry the construction. Instances per
+   spec, worst first: `remortgagecalculator.uk` 38 · `loanandmortgagecalculator.co.uk` 36 (+23
+   "rather than") · `loancash.co.uk` 36 · `vonc.com` 36 · `loancalculator.co.uk` 28 (+29) ·
+   `vetcomparison.uk` 26 (+32) · `idea.uk` 26 · `cookly.uk` 24. **`ai-agent-orchestration.com`,
+   the site that drew the owner's complaint, has SEVEN** — so the complaint arrived from one of
+   the least saturated briefs in the estate.
+
+   ⚠ **Top of that list is `remortgagecalculator.uk` — `portfolio_positioning`'s Phase C
+   directory pilot**, the site they offered to rerun once a fix is live. Rerunning it against
+   that brief would reproduce the register from the most saturated source in the fleet. Told
+   them.
+
+   **What this census does and does NOT establish.** It measures the FORM in the briefs, and
+   the counts include the spec's own instructional prose (*"not as buzzwords"*), where a
+   contrast is a reasonable way to give guidance. **Proven transfer: one literal phrase** —
+   the canonical tagline, 1,348 rendered prompts → 408 responses. **Not proven:** that the
+   *instructional* uses transfer into output at all. That is the next measurement, and after
+   §3's history it should be designed to be able to come out either way before it is run.

@@ -111,3 +111,34 @@ happened to be. **Neither figure can detect an effect of the size I was claiming
 **What changes for you:** if you were going to cite "v2 did not reduce it" in your own lane's
 notes, don't — cite "the writer still produces it, and whether v2 moved the rate is not
 currently measurable at this sample". Corrected in `bugs_open/305 §3` with the same detail.
+
+---
+
+## ADDENDUM 2026-08-19 — the cause is the BRIEF, and your pilot site has the most saturated one in the fleet
+
+Root cause found and recorded in `bugs_open/305` (new final section). Two things you need.
+
+**1. It is `content_direction`, not the writer and not the voice block.** That site's brief is
+itself written in the construction — seven instances — and it hands down the canonical tagline
+*"Multi-agent systems deployed to production **in days, not months**"* verbatim. The chain is
+literal, not statistical: that phrase appears in **1,348 rendered writer prompts and 408
+responses** across 21,078 calls. The hero sentence the owner read was supplied by the spec.
+
+**Your §3 check was right and beside the point at the same time.** You checked
+`identity.key_differentiators` for SENTIMENT and correctly found them positive. But *"Fast
+deployments (minutes instead of weeks)"* is itself a contrast — **positive in content is not
+free of the construction**, and the construction is what the owner objected to. The lane's
+08-12 finding survives in stronger form: the writer reproduces the rhetorical FORM of its
+brief, independent of the brief's sentiment.
+
+**2. ⚠ Before you rerun the Phase C pilot — `remortgagecalculator.uk` has the most saturated
+brief in the estate.** Fleet census `[MEASURED 2026-08-19]`: 24 of 25 current
+`content_direction` specs carry the shape; yours tops the list at **38** instances of `, not `
+plus 8 of "rather than". `ai-agent-orchestration.com`, the site that drew the complaint, has
+**seven**.
+
+**So a rerun of that pilot against the unchanged brief would regenerate the register from a
+worse source than the one that caused the complaint** — and the result would read as the fix
+failing. Fix the brief first, or expect exactly that. This supersedes the "yes please, after a
+fix is live" in §4 above only in ORDER, not in substance: the fix that has to be live is the
+SPEC's, not the writer's.
