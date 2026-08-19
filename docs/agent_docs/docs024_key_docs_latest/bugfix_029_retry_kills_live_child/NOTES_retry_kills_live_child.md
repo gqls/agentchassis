@@ -1512,3 +1512,40 @@ source]`: `handleCompleteResponse` stamps `processed_at` before `continueExecuti
 identity of the two events is `[INFERRED]` from those three facts — well supported, not observed.
 The narrowing in §4 survives either way, because both readings put the death after the reply was
 handled; but the word "same" was doing work the evidence had not paid for.
+
+### 8. The re-filed 090 came back **UNVERIFIABLE** too — but for a completely different reason, and it is OURS, not the symptom's
+
+Run corr `d8af5f78-98bd-46fa-85b0-2a6899617db8`, filed 11:05Z, terminal ~11:10Z, **1 iteration**,
+`status = UNVERIFIABLE`, no `stopped_reason`, `Citations: null`.
+
+**The symptom correction WORKED.** The loop's own `RuntimeSite` reads
+*"build-dispatch-loop orchestration — **awaited_requests** / response-consumer goroutine"*, and its
+`NextScope` is a sensible eleven-symbol walk of the response path (`ProcessResponse`,
+`applyResponseToState`, `advanceToNextStepWithRetry`, `saveStepResultWithRetry`,
+`carryCollectedDataOntoFreshState`, …). It did **not** re-refute on absence of instances, which is
+exactly what the morning's run did and what the correction was for.
+
+**It stalled on a harness gap instead.** Its first `DataRequest`, in its own words:
+
+> *"`awaited_requests` **is not in the bundle's schema listing**; its columns must be confirmed
+> before a targeted row query can be written to check for the stuck `spawn_handler` awaited
+> request."*
+
+So the loop knew which table to read, could not discover its shape, asked for it, and the run ended
+at iteration 1 without the answer. **The evidence bundle does not carry `awaited_requests`.** That
+blocks *any* diagnosis of this class — every 029-shaped question lives in that table — and it is a
+defect in our diagnosis harness, not in the bug, the symptom or the tree.
+
+> **⚠ CORRECTION to §3 of this entry, and to what I put in the handoff and `bugs_open/029` an hour
+> ago.** I wrote that the 090 "is filable today". That is true and it is not sufficient: it is
+> filable and it will **stall**, because the loop cannot see the schema of the only table that holds
+> the evidence. Two runs have now died on `awaited_requests` — the first because it was told the
+> table did not matter, the second because it could not read it. **Fixing the symptom text was
+> necessary and was not enough.**
+
+**What actually unblocks this**, in order of cost: get `awaited_requests` into the diagnosis
+bundle's schema listing (the durable fix — it is a first-class orchestration table and its absence
+is arbitrary); or inline the `\d awaited_requests` output into the symptom text so iteration 1 does
+not have to ask; or answer the data request and resume. **Do not re-file the same symptom unchanged
+a third time** — it will stall in the same place, and that would be the third run spent on one
+avoidable gap.

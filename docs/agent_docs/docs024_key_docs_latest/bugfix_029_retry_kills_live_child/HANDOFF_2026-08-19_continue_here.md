@@ -54,7 +54,15 @@ SELECT owner_agent_type, current_step, status, updated_at::timestamp(0)
   FROM orchestration_states WHERE correlation_id::text='d8af5f78-98bd-46fa-85b0-2a6899617db8' ORDER BY created_at;
 ```
 
-**READ THE VERDICT BEFORE DOING ANYTHING ELSE ON THIS LANE.** A CONFIRMED answer changes what is
+**VERDICT READ 2026-08-19 ~11:10Z: `UNVERIFIABLE`, 1 iteration, no citations — and the reason is a
+HARNESS GAP, not the symptom.** The correction worked: the loop's `RuntimeSite` names
+`awaited_requests` and its `NextScope` walks the response path. It then asked for the table's
+columns because **`awaited_requests` is not in the diagnosis bundle's schema listing**, and the run
+ended before that was answered. **So: do NOT re-file this symptom unchanged — it will stall in the
+same place.** Get `awaited_requests` into the bundle, or inline `\d awaited_requests` into the
+symptom. Full read-out: NOTES §8, 2026-08-19.
+
+~~**READ THE VERDICT BEFORE DOING ANYTHING ELSE ON THIS LANE.**~~ A CONFIRMED answer changes what is
 worth building; a REFUTED one is still a result and must be recorded as a visible correction here.
 
 ## What is DONE — do not redo any of it
