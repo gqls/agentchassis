@@ -606,3 +606,74 @@ confirms the fleet is alive but says nothing about this type.
 proven."** What carries it is the wiring test (M5), not a live row. Proving it for real needs
 manufactured demand — a one-shot design-discovery envelope at one site — which is a cost decision and
 the owner's, not a verification convenience. Both carriers for the type remain `enabled=false`.
+
+---
+
+## 2026-08-19 09:15Z — **PROVEN IN PRODUCTION**, four-way, on the live binary
+
+Deploy re-verified first on the new build: `v1.0.1314` (pods 07:52Z/08:05Z), label revision
+`d3590ca46`, positive `merge-base --is-ancestor 743bc1945 d3590ca46` → **in**, control (HEAD
+`142f318a3`) → **not in**, running `imageID` digest `sha256:d0257576…` identical on both pods and
+matching the tag inspected.
+
+**Natural demand never arrived**: 15 hours after the first roll, still **0** `dark_section_audit`
+rows touched, against **252** fleet completions. Both carriers remain disabled. So the proof had to
+be induced — with the owner's authorisation.
+
+### How it was induced, and why this shape rather than a real dispatch
+
+The obvious route — fire the design audit at a site and let the dispatch loop run — would have
+exercised the **wrong arm**: post-`bugs_closed/287` the handler returns its READABLE envelope, which
+lands on `handler_reported_no_change`. The production shape that actually reaches the arm under test
+is **`complete_work_item` called with NO `result` at all** — which is precisely what
+`site-work-orchestrator`'s own step does (`{"action":"complete_work_item","config":{"work_item_id":
+"current_fix_item.id"}}`, no `result` key), and which has already fired for this item_type: **1 of 26
+completions carries `result = '{}'`**.
+
+So the harness was a single-step probe agent calling `complete_work_item`, plus four synthetic items.
+**No handler was spawned and no site data was read or written.** Safety by construction, not by care:
+the synthetic items carried `handler_agent='proof-302-probe'` (not an active definition, so
+`detected-item-promoter`'s `handler_ok` can never select them **and the real
+`dark_section_audit`/`color-variable-fixer` pair's 26/4 ratio is not polluted**), status `deferred`
+(writable by both completion UPDATEs — neither excludes it — but claimed by no dispatch loop and
+promoted by nothing), and `max_attempts=1` so a refusal terminalises at `failed` immediately rather
+than landing at `triaged` where a loop could pick it up.
+
+### The result — all four as predicted, and the four together are what make it a proof
+
+| case | payload supplied | item_type | outcome | `_verification.status` |
+|---|---|---|---|---|
+| **A** | **none** | `dark_section_audit` | **failed, attempt 1** | **`handler_result_unreadable`** ← the arm under test |
+| **B** | readable, all counters zero | `dark_section_audit` | failed, attempt 1 | `handler_reported_no_change` ← the OLD arm, **distinct** |
+| **C** | readable, `total_fixed: 3` | `dark_section_audit` | **complete** | (none) ← the gate is not refusing everything |
+| **D** | **none** | `spacing_fix` (not on the roster) | **complete** | (none) ← containment: the fleet's 86 empty-result completions are untouched |
+
+**A alone would have proved almost nothing.** A gate that refused everything satisfies A; a gate that
+merged the two blocking causes satisfies A; a gate that had started blocking the whole fleet satisfies
+A. B, C and D are what exclude those, and each came out the other way from A.
+
+The operator message on A, verbatim from `site_work_items.error` — it names what happened, **what was
+actually in the payload** (`payload top-level keys were []`) and carries the licence, so a human can
+check the claim that blocked their item:
+
+```
+completion blocked: the handler's result was unreadable to the no-change gate, and this item type
+refuses to certify what it cannot read (bugs_open/302; RFC_017's rule that "I could not check" is not
+"I checked and it is fixed"): item_type dark_section_audit opted into the no-change gate but none of
+its declared counters (response.fix_result.total_fixed, response.text_color_result.total_fixed) are
+present in the handler's result; payload top-level keys were [] — no unreadable payload this type has
+ever received was a repair: …
+```
+
+### Teardown, verified rather than assumed
+
+`PROOF_2026-08-19_probe_teardown.sql` (narrow: matched on the three `proof-302` markers the setup
+stamped, so it cannot reach a real row even if re-run). After it: **0** synthetic rows, **0** probe
+agent definitions, **0** `agent_error_log` entries mentioning it, and the real pair's ratio re-reads
+**26/4 — unchanged**, so the promoter's signal is exactly as it was.
+
+⚠ **The setup SQL failed on its first apply** — `site_work_items.summary` is NOT NULL with no default
+and I had only checked the columns I intended to set. The agent-definition INSERT had already
+committed by then (no explicit transaction, so statements autocommit), which is why the teardown
+deletes both independently rather than assuming they arrived together. **Check `is_nullable='NO' AND
+column_default IS NULL` for the whole table before an insert, not just the columns you plan to fill.**
