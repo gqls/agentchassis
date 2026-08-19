@@ -52,6 +52,27 @@ the stored `article-body`. Cause: item `881c95ef`'s brief was about the approval
 model and never mentioned turnaround, so the writer had no reason to revisit it.
 Requeued at priority 15 with a brief that names the fact.
 
+> **⚠ IT FAILED AGAIN at 15:25Z, on a DIFFERENT ban, and this one looks like a real
+> over-block:** banned claim `round of changes`, at *"There is no approval stage, and
+> **no round of changes** once the build is done."* The writer is **denying** changes,
+> which is exactly what fact `no_changes_included` attests — and the ban stops the
+> page, because the negation guard does not treat bare "no" as a negator.
+>
+> **DO NOT guess which way this goes — there is now a test, and both answers have
+> already happened once each:**
+>
+> | ban | did the register ATTEST the denied thing? | verdict |
+> |---|---|---|
+> | `\brefunds?\b` | YES — `no_refund` | **over-broad**; narrowed 08-18 on the owner's steer |
+> | `whenever you like` | NO — nothing attests an unbounded window | **ban was right, the copy was wrong** (owner, 08-19) |
+> | `round of changes` | YES — `no_changes_included` | **looks over-broad**; owner's call, NOT taken |
+>
+> The discriminator: **if the register attests the thing, the copy must be able to
+> deny it in normal English, and a bare-token ban prevents that.** If the register
+> attests no such thing, the ban is doing its job and the copy is wrong. Apply the
+> test, do not apply the precedent — I got this wrong on 08-19 by carrying the refund
+> precedent onto `whenever you like`.
+>
 > **Then, and only then, consider arming a ban on the retired turnaround** so this
 > class cannot come back. **ORDER IS LOAD-BEARING: repair the copy FIRST, then arm.**
 > A `banned_claims` entry is BLOCKER severity, so arming it while offending copy is
@@ -124,7 +145,7 @@ transfer we perform, and documentation. That makes the chase email's domain leg 
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe
 webhook edge exception; second Nominet TAG (domain programme only).
 
-> ### ⚠ OWNER DECISIONS 2026-08-19 (afternoon) — THREE THINGS TO BUILD IN PHASE 4
+> ### ⚠ OWNER DECISIONS 2026-08-19 (afternoon) — SIX, AND MOST ARE UNBUILT PHASE 4 WORK
 >
 > 1. **The live link EXPIRES AT 6 WEEKS.** *"the preview link can expire in 6 weeks"*
 >    (he said "preview"; he means the post-payment live link, which is never called a

@@ -4435,3 +4435,33 @@ neither fact has been touched.
 transfer-out mechanism differs by TLD and cannot be documented, let alone hand-held,
 until the set is known. `.uk` is understood; nothing establishes what else is in
 scope. Filed in the handoff's STILL OPEN.
+
+### 2026-08-19 (~15:3xZ) — a THIRD bare-token ban blocks a denial, and there is now a test rather than a precedent
+
+The requeued guide failed at 15:25Z on banned claim `round of changes`, at:
+
+> *"There is no approval stage, and **no round of changes** once the build is done."*
+
+The writer is **denying** changes, which is precisely what `no_changes_included`
+attests. Bare "no" is not a negation cue, so the denial is not suppressed and the
+page is stopped.
+
+That is three bans in this family in two days, and they have **not** all gone the
+same way. What separates them is not the ban and not the phrasing — it is whether
+the register attests the thing being denied:
+
+| ban | register attests it? | outcome |
+|---|---|---|
+| `\brefunds?\b` | YES (`no_refund`) | over-broad, narrowed 08-18 |
+| `whenever you like` | NO | ban right, copy wrong (owner, 08-19) |
+| `round of changes` | YES (`no_changes_included`) | looks over-broad, owner's call |
+
+**The test:** if the register attests the thing, the copy must be able to deny it in
+normal English, and a bare-token ban prevents that. If the register attests no such
+thing, the ban is doing its job and the copy is the defect.
+
+**I got this wrong once already today** by carrying the refund precedent onto
+`whenever you like` and concluding over-block; the owner ruled the other way and was
+right, because nothing attested an unbounded window. So the entry above is written as
+a test to apply, not a precedent to follow. Not changed — owner's ruling
+(2026-08-12), and the last time I assumed over-block I was wrong.
