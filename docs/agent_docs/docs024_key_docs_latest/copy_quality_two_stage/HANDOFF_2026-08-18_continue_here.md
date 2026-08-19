@@ -1,7 +1,24 @@
-# HANDOFF 2026-08-18 — continue here
+# HANDOFF 2026-08-18 (current as of 2026-08-19 evening) — continue here
 
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-17_continue_here.md`**
 (kept for its worked example and the apply recipe; its state lines are stale).
+
+> ## ▶ START HERE, IN THIS ORDER
+> 1. **`SUMMARY_2026-08-19_the_fault_was_never_in_the_writer.md`** — 5 minutes, plain prose,
+>    tells you what this lane now believes and why the 08-17 summary's headline is wrong.
+> 2. **`bugs_open/305`** — read its §3 CORRECTION block and the ROOT CAUSE section at the end.
+>    Skip its title, which overstates its own evidence and is left standing on purpose.
+> 3. **This file's "Next work"**, below. Everything above that heading is context.
+>
+> **One-line state:** stage 2 is built, live, and has applied owner-approved edits on two
+> sites; the fault the owner complained about is **in the briefs, not the writer**, fleet-wide
+> (24 of 25); nothing is in flight; no decision is waiting on the owner.
+>
+> ⚠ **Two things that changed under us and will change again:** the chassis rolled three times
+> in two days (currently `v1.0.1314` = `d3590ca46`), and migration **474 went live at
+> 2026-08-19 10:34:35Z**, so a stage-2 apply now runs the write-time markdown strip — read
+> `stripped_markdown_fields` on the apply result. **Re-verify both before trusting anything
+> dated here.**
 
 ## State in five lines
 
@@ -389,7 +406,24 @@ Full version with the SQL: `HANDOFF_2026-08-17_continue_here.md`. The short form
 
 ## The five living docs
 
-PLAN (§11 = delivery + three corrections) · NOTES (read the 08-17 → 08-18 tail; corrections
-marked in place) · README_where_we_are (owner's plain-prose log) · SUMMARY series
-(08-12 / 08-14 / 08-15 / 08-17 — **08-17's central claim is narrowed by 08-18 and a new one
-is due**) · this HANDOFF. Two inbound CONTRIBs dated 2026-08-18 are unanswered.
+- **PLAN** — §11 records delivery + three corrections.
+- **NOTES** — the evidence log. Read the 08-17 → 08-19 tail; corrections are marked in place.
+- **README_where_we_are** — the owner's plain-prose log, newest at the bottom.
+- **SUMMARY series** — 08-12 · 08-14 · 08-15 · 08-17 · **08-19 `the_fault_was_never_in_the_writer`
+  (newest — start here)**. ⚠ 08-17's headline claim ("it showed restraint") is refuted by 08-19
+  as a general claim; the series is the record, so it stays.
+- **this HANDOFF.**
+
+**Tooling this lane owns:** `gate_stage2_edit.py` (grades one proposal; `--self-test` runs
+every control and MUST fail) · `count_negation_tells.py` (an OBSERVATION, never a gate) ·
+`loanandmortgagecalculator_couk/gate_page_links.py` + its `acceptance/` baselines.
+
+**Migrations this lane owns:** `447` (seed `copy-editor`) · `462` (3-edit budget + 32k cap).
+Both have `_ROLLBACK` files; 462's restores from `agent_definitions_backup` by
+`snapshot_reason`.
+
+**Peer lanes with live threads, all answered, none waiting on us:** `bugfix 083` / `277` (the
+promoter; owes us an `item_type` exclusion + D2 citation, deliberately not done on a peer's
+say-so) · `bug 184` (owns 473/474 — **do not touch their bug file or migrations**;
+contribute in) · `portfolio_positioning` (raised the symptom; warned about their pilot's brief)
+· `finetuning_uk_service` (three questions answered).
