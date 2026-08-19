@@ -162,3 +162,168 @@ Three greps in a row returned no output and I read them as absences. They were r
 anywhere", "concept register has no publish entry") were flatly wrong, and the register entry that
 one of them missed is the single most useful document in this investigation. Logged to
 `WRONG_CALLS.md`.
+
+## 2026-08-19 ~10:50Z — sizing the ACTUAL defect, and two corrections to the bug file's own sizing
+
+### First, at the artefact (the bug's §6 method: cache-busted HEAD, `cf-cache-status: DYNAMIC`)
+
+- §3's instance, `webdesign.co.uk/tools/seo-injector/index.html` — **200, `last-modified` Wed 19 Aug
+  09:34:01 GMT.** Cleared, as the filing lane recorded.
+- The contribution's instance, `vetcomparison.uk/tools/compliance-deadline-calculator/index.html` —
+  **still 404 right now.** Live.
+
+### Correction 1 — the contribution's second instance is NOT this bug
+
+`[MEASURED 2026-08-19]` that page's row: `status=active`, `build_status='planned'`,
+**`deployed_at` IS NULL**, `content_hash` NULL, 0 components.
+
+**Nothing ever stamped it.** It is an active, link-eligible page that was never built and has never
+been served — real, and already the target of `check_componentless_pages` and
+`gatherNavLinkedNeverBuilt`. But it is not an instance of "`deployed_at` claims a publication that
+did not happen", because no claim was ever made. Fix candidate 1 (stamp only after a confirmed
+write) would not have touched it. The contribution called it "same shape as your four"; it is a
+different shape that shares a symptom.
+
+### Correction 2 — neither of the "2 at `deployed` with zero components" is this bug either
+
+The contribution called those two "the sharper version of your bug — the estate believes those are
+published and they have no components at all." `[MEASURED 2026-08-19]`, both at the DB and at the
+artefact:
+
+| page | `deployed_at` | served | what it actually is |
+|---|---|---|---|
+| `idea.uk` `/tools.html#audience-check` | **NULL** | `/tools.html` 200, LM 17 Aug 19:38:33 | a **phantom row whose `url` is a FRAGMENT** of another page. The real `/tools.html` row exists separately with 4 components and its own stamp. Nothing is unpublished |
+| `ai-agent-orchestration.com` `/roi-estimator.html` | 2026-05-02 | **200, LM today 08:37:59** | serving, and rewritten **today**. Two newer roi-estimator pages exist with components; this row is a stale duplicate, not an unpublished page |
+
+So the "42 / 11 / 2" table sizes *componentless active pages*, which is a real and overlapping
+population — but **it does not size bug 315**, and the two rows it points at as the sharpest cases
+are the two that are not cases at all. Worth saying plainly because that table is the only sizing
+the bug file carries, and a fix planned against it would be aimed at the wrong population.
+
+### Now the measurement that DOES size it — and what it says about candidate 4
+
+40 pages, `status=active`, `build_status='deployed'`, ≥1 component, stamped in the last 4 days, not
+on the `vm-sites` repo. Cache-busted `HEAD` on each; origin `last-modified` against `deployed_at`.
+
+**`[MEASURED 2026-08-19 ~10:45Z]` 40 of 40 have an origin `last-modified` EARLIER than their own
+`deployed_at`, by 50–57 minutes.**
+
+40/40 is the shape that should make you distrust the instrument, not celebrate the finding, so I
+looked at the raw values instead of the summary. They are decisive in a different way:
+
+```
+distinct origin last-modified across all 40 pages:
+    18 × Wed, 19 Aug 2026 09:33:57 GMT
+    13 × Wed, 19 Aug 2026 09:33:58 GMT
+     9 × Wed, 19 Aug 2026 09:33:56 GMT
+```
+
+**Every page in the sample was written to the origin inside the same THREE SECONDS**, while their
+`deployed_at` stamps are spread ~25–35 s apart across the hour that followed. That is the
+`b2 sync`-per-changed-domain-directory batch, seen directly: the origin is rewritten **per domain,
+in one pass**, not per page.
+
+The instrument is sound, and the control is in the data: pages on *other* domains carry *different*
+`last-modified` values (`idea.uk` 17 Aug 19:38:33, `ai-agent-orchestration.com` today 08:37:59), so
+this is a per-object write time, not one global checkout mtime that would make every file look
+identical.
+
+**The consequence for fix candidate 4 is the important part, and it is negative.** At this instant
+~40 `webdesign.co.uk` pages are stamped `deployed` with bytes not yet at the origin. Most of them
+are almost certainly *fine* — they are inside the normal window between batches. **So a sweep that
+flags `deployed_at > origin last-modified` would have flagged all 40, and would have been wrong
+about nearly all of them.** Candidate 4 as written in the bug file is not viable: the comparison
+has no way to tell "not synced yet" from "will never sync", because the only difference between
+them is *elapsed time*, and the bug's own live instance took **six hours**.
+
+⚠ **`[UNVERIFIED]` and the next thing to check:** whether this batch catches up. Re-probe the same
+40 pages later in the session. If their `last-modified` advances past their stamps, this is normal
+latency and the defect is only the *tail*; if a subset stays behind while others move, that subset
+is the real population and the sweep's threshold should be set from it. **That re-probe is the
+disconfirming test for everything in this section.**
+
+## 2026-08-19 ~10:35Z — the publish lag, watched live; and a claim I stopped myself making
+
+Following the batch finding, I watched the seam in real time on `webdesign.co.uk`.
+
+**`[MEASURED 2026-08-19 10:34Z]` A confirmed successful commit, and an origin that had not moved
+three minutes later:**
+
+- `orchestration_states` — at **10:31:38** the git-adapter returned
+  `deploy_result.response.data.success = true` with `file_path = /tools/css-variables/index.html`.
+  Its page was stamped `deployed_at = 10:31:28`.
+- Cache-busted `HEAD` on that exact URL at **10:34:49** — `last-modified: Wed, 19 Aug 2026
+  09:33:58 GMT`. **58 minutes old.**
+- And the commits are continuous, not isolated: eight `deploy_result` rows for `webdesign.co.uk`
+  between 10:30:34 and 10:34:16, every one `success: true`.
+
+**The runners are healthy and idle.** Two `github-actions-runner` pods, both `1/1 Running`, age
+162 m, both `Connected to GitHub` / `Listening for Jobs` on runner 2.336.0. Their job history:
+
+```
+brbq6:  08:37:12, 08:40:12, 08:41:10, 08:43:06, 09:33:33, 09:59:38   (all "Succeeded")
+tsktm:  08:35:34, 08:37:13, 08:38:37, 08:39:27, 08:43:03, 08:43:29, 09:34:04
+```
+
+**Last deploy job of any kind: 09:59:38–09:59:56.** Nothing since, against ~40 successful commits.
+
+### The claim I was about to make, and why I did not
+
+I had this written as a live incident — *"the runners have stopped receiving jobs while commits pile
+up"*. **The job history refutes it, or at least removes its force.** Deploy jobs do not arrive
+evenly; they arrive in **clusters separated by 25–50 minutes** (08:35–08:43, then nothing until
+09:33, then 09:59). The gap from 09:59 to now is **36 minutes — inside that range.** So "60 minutes
+of commits with no sync" is not distinguishable, from here, from the normal spacing of this seam.
+
+`[UNVERIFIED]` — I could not settle it: `gqls/sites` is **private** (`api.github.com/repos/gqls/sites`
+returns `Not Found` unauthenticated), so I cannot confirm from here that the 10:30–10:34 commits
+reached the ref, and the chassis holds no B2 credentials to read the bucket. The background re-probe
+now running is the test: if `last-modified` on those pages advances past 09:33:58 within the next
+40 minutes, this is latency; if it does not, the gap is real and worth its own bug.
+
+**Why this matters more than the incident would have.** Whichever way the re-probe falls, the
+structural point is now measured rather than inferred: **the origin is rewritten in whole-domain
+batches, tens of minutes after the commit that earned them, and `deployed_at` is stamped seconds
+after the commit.** The stamp is not merely unverified — it is written at a moment when the
+statement it makes is *reliably false*, and becomes true later if nothing goes wrong. That is why
+this is a measurement defect rather than a race, and it is also why the bug's own §5 candidate 4
+cannot work as written: at any given moment a large fraction of correctly-behaving pages are stale
+against their stamp.
+
+## 2026-08-19 ~10:40Z — the platform has already solved this exact defect ONE LEVEL UP
+
+This is the most useful thing I have found for the fix, because it means the shape of the answer is
+not a design question — it is a precedent to follow.
+
+`platform/orchestration/actions/load_work_item_actions.go:945-956` and
+`complete_work_item_verification.go:308-322`:
+
+> *"the envelope's `response_status` only records DELIVERY — the saga's own verdict lives at
+> `response.status`. A workflow that never ran at all (unregistered or mistyped action →
+> WORKFLOW_INVALID) returns `response.status='failed'`, and used to be stamped 'complete' alongside
+> the very error proving nothing was done. The `item_key` dedup then suppressed re-detection, so the
+> loop believed the defect class was handled: **54 items across 6 sites** by the 2026-07-18 sweep."*
+
+**That is bug 315, one layer higher.** Same three ingredients: a transport-level success mistaken
+for an operation-level success; a status column that then asserts the operation happened; and a
+dedup/skip mechanism downstream that treats the false status as settled and stops re-detecting.
+
+It was fixed with `handlerReportedFailure` — a **deliberately narrow predicate keyed on an explicit
+failure verdict rather than on the presence of an error string**, and the comment records that the
+predicate was **measured against live data before being chosen** ("on the 2026-07-18 sweep, 'failed'
+was the ONLY value…").
+
+**So the fix for 315 has a house pattern to copy, not to invent:**
+
+1. name the layer that actually knows (here: the git-adapter's own reply, and beneath it
+   `CommitToRepo`'s `newCommitSHA`);
+2. carry its verdict up rather than the transport's (`deploy_result.response.data`, which today
+   carries no verdict a caller can use — `success: true` is the adapter's, and `repo_url` is a
+   constant);
+3. gate the status write on that verdict with a **narrow** predicate;
+4. **choose the predicate against live data**, and say what values were observed.
+
+Step 4 is the one I can already start: `deploy_result` is present in `collected_data` when
+`update_status` runs (confirmed on a live orchestration), so the census of what values actually
+appear there across recent runs is available now and is a prerequisite for writing the guard, not a
+follow-up to it.
