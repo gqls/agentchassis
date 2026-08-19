@@ -1,0 +1,447 @@
+<style>
+.tool-container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  font-family: inherit;
+  color: var(--color-text);
+}
+.tool-container h2 {
+  margin-bottom: 0.4rem;
+}
+.tool-description {
+  color: var(--color-text-muted);
+  margin-bottom: 1.75rem;
+  line-height: 1.5;
+}
+.question-block {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1rem 1.1rem;
+  background: var(--color-surface);
+}
+.question-block legend {
+  font-weight: 600;
+  padding: 0 0.2rem;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.option-label {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 44px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--color-background);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.option-label:hover {
+  border-color: var(--color-primary);
+}
+.option-label.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary) inset;
+}
+.option-label input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}
+.option-text {
+  flex: 1;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.form-error {
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  margin: -0.5rem 0 1.5rem;
+  display: none;
+  font-weight: 600;
+}
+.question-block.missing {
+  border-color: var(--color-accent);
+}
+.submit-btn {
+  display: inline-block;
+  min-height: 48px;
+  padding: 0.8rem 1.6rem;
+  background: var(--color-primary);
+  color: var(--color-background);
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+}
+.submit-btn:hover {
+  background: var(--color-secondary);
+}
+#{{.InstanceID}}-resultPanel {
+  margin-top: 2rem;
+  padding: 1.5rem 1.25rem;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
+  background: var(--color-surface);
+  display: none;
+}
+.strength-badge {
+  display: inline-block;
+  padding: 0.45rem 1rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.strength-strong { background: var(--color-primary); color: var(--color-background); }
+.strength-moderate { background: var(--color-secondary); color: var(--color-background); }
+.strength-weak { background: var(--color-accent); color: var(--color-background); }
+.strength-verylow { background: var(--color-border); color: var(--color-text); }
+.result-intro {
+  line-height: 1.55;
+  margin-bottom: 1rem;
+}
+.flag-list {
+  margin: 0.75rem 0 1.25rem;
+  padding-left: 1.25rem;
+}
+.flag-list li {
+  margin-bottom: 0.7rem;
+  line-height: 1.5;
+}
+.note-box {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.guide-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.8rem 1.4rem;
+  background: var(--color-primary);
+  color: var(--color-background);
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 700;
+  min-height: 44px;
+  line-height: 1.3;
+}
+.guide-link:hover {
+  background: var(--color-secondary);
+}
+@media (max-width: 480px) {
+  .question-block { padding: 0.8rem; }
+  #{{.InstanceID}}-resultPanel { padding: 1.1rem 0.9rem; }
+}
+</style>
+
+<div class="tool-container">
+  <h2>Affordability Complaint Strength Checker</h2>
+  <p class="tool-description">
+    Answer these questions about the loan and your situation at the time you borrowed. This tool gives you a plain-English read on how strong an affordability complaint under CONC 5.2A looks, and which specific failures to point to if you decide to complain.
+  </p>
+
+  <form id="{{.InstanceID}}-acsForm" novalidate>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q1">
+      <legend>1. What type of agreement is this?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q1" value="payday"><span class="option-text">Payday loan or short-term cash loan</span></label>
+        <label class="option-label"><input type="radio" name="q1" value="doorstep"><span class="option-text">Doorstep or home credit loan</span></label>
+        <label class="option-label"><input type="radio" name="q1" value="guarantor"><span class="option-text">Guarantor loan</span></label>
+        <label class="option-label"><input type="radio" name="q1" value="logbook"><span class="option-text">Logbook loan (secured on your vehicle)</span></label>
+        <label class="option-label"><input type="radio" name="q1" value="rto"><span class="option-text">Rent-to-own agreement</span></label>
+        <label class="option-label"><input type="radio" name="q1" value="other"><span class="option-text">Another type of high-cost credit</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q2">
+      <legend>2. At the time you took out this loan, what best described your income?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q2" value="stable" data-score="0"><span class="option-text">Stable full-time income</span></label>
+        <label class="option-label"><input type="radio" name="q2" value="variable" data-score="1"><span class="option-text">Part-time, zero-hours, or variable self-employed income</span></label>
+        <label class="option-label"><input type="radio" name="q2" value="benefits" data-score="2"><span class="option-text">Benefits were my only income</span></label>
+        <label class="option-label"><input type="radio" name="q2" value="none" data-score="3"><span class="option-text">I had no regular income at all</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q3">
+      <legend>3. Did you have other loans or high-cost credit running at the same time?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q3" value="none" data-score="0"><span class="option-text">No other loans running</span></label>
+        <label class="option-label"><input type="radio" name="q3" value="one-two" data-score="1"><span class="option-text">One or two other loans or credit agreements</span></label>
+        <label class="option-label"><input type="radio" name="q3" value="three-plus" data-score="3"><span class="option-text">Three or more other loans or credit agreements</span></label>
+        <label class="option-label"><input type="radio" name="q3" value="unsure" data-score="1"><span class="option-text">Not sure, can't remember</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q4">
+      <legend>4. How many times did you roll over, renew, or take a further top-up loan from this same lender?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q4" value="none" data-score="0"><span class="option-text">Never, it was a one-off loan</span></label>
+        <label class="option-label"><input type="radio" name="q4" value="one-two" data-score="1"><span class="option-text">1 to 2 times</span></label>
+        <label class="option-label"><input type="radio" name="q4" value="three-five" data-score="3"><span class="option-text">3 to 5 times</span></label>
+        <label class="option-label"><input type="radio" name="q4" value="six-plus" data-score="4"><span class="option-text">6 or more times</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q5">
+      <legend>5. Did you ever tell the lender you were struggling financially, for example asking for more time or mentioning money problems?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q5" value="no" data-score="0"><span class="option-text">No, I never mentioned it</span></label>
+        <label class="option-label"><input type="radio" name="q5" value="unsure" data-score="1"><span class="option-text">Not sure</span></label>
+        <label class="option-label"><input type="radio" name="q5" value="after" data-score="2"><span class="option-text">Yes, but only after I'd already taken the loan</span></label>
+        <label class="option-label"><input type="radio" name="q5" value="continued" data-score="4"><span class="option-text">Yes, and they still lent to me again or let me roll over</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q6">
+      <legend>6. Did the lender ask for evidence of your income and outgoings (bank statements, payslips, etc) before agreeing the loan?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q6" value="checked" data-score="0"><span class="option-text">Yes, and they seemed to properly check it</span></label>
+        <label class="option-label"><input type="radio" name="q6" value="tickbox" data-score="2"><span class="option-text">They asked but it felt like a tick-box exercise</span></label>
+        <label class="option-label"><input type="radio" name="q6" value="none" data-score="3"><span class="option-text">No evidence was requested at all</span></label>
+        <label class="option-label"><input type="radio" name="q6" value="unsure" data-score="1"><span class="option-text">Not sure</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q7">
+      <legend>7. What did you mainly use this loan for?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q7" value="oneoff" data-score="0"><span class="option-text">A genuine one-off unexpected expense</span></label>
+        <label class="option-label"><input type="radio" name="q7" value="essentials" data-score="2"><span class="option-text">Everyday essentials like food, rent, or bills</span></label>
+        <label class="option-label"><input type="radio" name="q7" value="repay-debt" data-score="3"><span class="option-text">To repay another loan or debt</span></label>
+        <label class="option-label"><input type="radio" name="q7" value="nonessential" data-score="0"><span class="option-text">Something non-essential</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q8">
+      <legend>8. Looking back, how did repaying this loan affect your finances that month?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q8" value="none" data-score="0"><span class="option-text">No real impact, it was manageable</span></label>
+        <label class="option-label"><input type="radio" name="q8" value="tight" data-score="1"><span class="option-text">Manageable but tight</span></label>
+        <label class="option-label"><input type="radio" name="q8" value="struggled" data-score="2"><span class="option-text">I struggled to cover essentials or bills afterwards</span></label>
+        <label class="option-label"><input type="radio" name="q8" value="borrow-again" data-score="3"><span class="option-text">I had to borrow again almost immediately</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q9">
+      <legend>9. What is the current status of this loan?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q9" value="repaid-ontime"><span class="option-text">Repaid in full and on time</span></label>
+        <label class="option-label"><input type="radio" name="q9" value="repaid-late"><span class="option-text">Repaid, but late or with difficulty</span></label>
+        <label class="option-label"><input type="radio" name="q9" value="defaulted"><span class="option-text">Defaulted or written off</span></label>
+        <label class="option-label"><input type="radio" name="q9" value="outstanding"><span class="option-text">Still outstanding or being chased</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="question-block" id="{{.InstanceID}}-block-q10">
+      <legend>10. Roughly how long ago did you take out this loan?</legend>
+      <div class="options">
+        <label class="option-label"><input type="radio" name="q10" value="within6"><span class="option-text">Within the last 6 years</span></label>
+        <label class="option-label"><input type="radio" name="q10" value="over6"><span class="option-text">More than 6 years ago</span></label>
+        <label class="option-label"><input type="radio" name="q10" value="unsure"><span class="option-text">Not sure</span></label>
+      </div>
+    </fieldset>
+
+    <p class="form-error" id="{{.InstanceID}}-formError">Please answer every question so the assessment is accurate.</p>
+
+    <button type="submit" class="submit-btn">Check my complaint strength</button>
+  </form>
+
+  <div id="{{.InstanceID}}-resultPanel" aria-live="polite"></div>
+</div>
+
+<script>
+/* === tool-doc ===
+function: tool-affordability-complaint-checker
+purpose: Scores a visitor's answers about their borrowing circumstances to estimate how strong a CONC 5.2A affordability complaint looks and lists specific failures to cite.
+behaviour:
+  - all ten questions are required before a result is produced; missing answers are flagged and no score is calculated
+  - scored answers use fixed integer point values from data-score attributes on radio inputs, summed with no external weighting changed at runtime
+  - the total score is mapped to one of four fixed bands (very low, weak, moderate, strong) using fixed thresholds
+  - flag text is generated only from answers that meet defined risk thresholds, using static template strings, not free text
+  - no network requests, no external libraries, all computation and rendering happens in the browser
+  - output is rendered as HTML into a results panel and does not persist or transmit any answers
+inputs: ten multiple choice answers covering loan type, income at the time, other debts, number of rollovers, whether financial difficulty was disclosed, whether evidence of income was requested, purpose of the loan, impact of repayment, current loan status, and time since borrowing
+outputs: a strength band, a plain-English assessment paragraph, a list of specific CONC 5.2A failures to cite, contextual notes on timing and redress where relevant, and a link to the How to Complain guide
+=== /tool-doc === */
+
+(function () {
+  var form = document.getElementById('{{.InstanceID}}-acsForm');
+  var resultPanel = document.getElementById('{{.InstanceID}}-resultPanel');
+  var formError = document.getElementById('{{.InstanceID}}-formError');
+
+  // Highlight selected option within each group
+  form.addEventListener('change', function (e) {
+    if (e.target && e.target.type === 'radio') {
+      var group = form.querySelectorAll('input[name="' + e.target.name + '"]');
+      group.forEach(function (input) {
+        var label = input.closest('.option-label');
+        if (label) label.classList.toggle('selected', input.checked);
+      });
+      var block = e.target.closest('.question-block');
+      if (block) block.classList.remove('missing');
+    }
+  });
+
+  function getChecked(name) {
+    var el = form.querySelector('input[name="' + name + '"]:checked');
+    return el;
+  }
+
+  function getScore(name) {
+    var el = getChecked(name);
+    return el ? parseInt(el.getAttribute('data-score') || '0', 10) : null;
+  }
+
+  function getValue(name) {
+    var el = getChecked(name);
+    return el ? el.value : null;
+  }
+
+  var loanTypeLabels = {
+    payday: 'payday loan',
+    doorstep: 'doorstep loan',
+    guarantor: 'guarantor loan',
+    logbook: 'logbook loan',
+    rto: 'rent-to-own agreement',
+    other: 'high-cost credit agreement'
+  };
+
+  var questionNames = ['q1','q2','q3','q4','q5','q6','q7','q8','q9','q10'];
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var missing = [];
+    questionNames.forEach(function (name) {
+      if (!getChecked(name)) {
+        missing.push(name);
+        var block = document.getElementById('block-' + name);
+        if (block) block.classList.add('missing');
+      }
+    });
+
+    if (missing.length > 0) {
+      formError.style.display = 'block';
+      document.getElementById('block-' + missing[0]).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    formError.style.display = 'none';
+
+    var incomeScore = getScore('q2');
+    var debtsScore = getScore('q3');
+    var rolloverScore = getScore('q4');
+    var disclosedScore = getScore('q5');
+    var evidenceScore = getScore('q6');
+    var useScore = getScore('q7');
+    var impactScore = getScore('q8');
+
+    var total = incomeScore + debtsScore + rolloverScore + disclosedScore + evidenceScore + useScore + impactScore;
+
+    var loanType = getValue('q1');
+    var status = getValue('q9');
+    var timeframe = getValue('q10');
+    var loanLabel = loanTypeLabels[loanType] || 'loan';
+
+    var flags = [];
+
+    if (incomeScore >= 2) {
+      flags.push('Your income at the time (benefits only, or no regular income) needed closer scrutiny under CONC 5.2A.6G, which expects more thorough checks for borrowers with low or precarious income.');
+    }
+    if (debtsScore >= 3) {
+      flags.push('Having three or more other loans running at once is a strong sign the lender should have caught under CONC 5.2A.4R, the duty to check you could repay without borrowing further or missing other commitments.');
+    }
+    if (rolloverScore >= 1) {
+      flags.push('Rolling over or topping up the loan is a trigger point under CONC 5.2A. The lender is expected to reassess affordability at each rollover, not just wave repeat borrowing through.');
+    }
+    if (rolloverScore >= 3) {
+      flags.push('Multiple rollovers or top-ups is a serious red flag that the lender ignored a clear pattern of repeat borrowing rather than treating it as a warning sign.');
+    }
+    if (disclosedScore >= 2) {
+      flags.push('Telling the lender you were struggling, and having them still lend to you or let you roll over, is one of the clearest breaches you can point to under CONC 5.2A.4R and the wider duty to treat customers fairly.');
+    }
+    if (evidenceScore >= 2) {
+      flags.push('If the lender did not properly check evidence of your income and outgoings, that falls short of CONC 5.2A, which expects checks proportionate to the loan rather than relying on a self-declared figure.');
+    }
+    if (useScore >= 3) {
+      flags.push('Using the loan to repay another debt suggests it was not affordable in the first place, relevant to the CONC 5.2A requirement that repayment should not force you to borrow again.');
+    }
+    if (impactScore >= 2) {
+      flags.push('Struggling with essentials afterwards, or needing to borrow again almost immediately, is exactly the kind of undue difficulty CONC 5.2A is designed to prevent.');
+    }
+
+    var band, badgeClass;
+    if (total >= 17) {
+      band = 'Strong potential complaint';
+      badgeClass = 'strength-strong';
+    } else if (total >= 10) {
+      band = 'Moderate potential complaint';
+      badgeClass = 'strength-moderate';
+    } else if (total >= 5) {
+      band = 'Weak, but may still be worth raising';
+      badgeClass = 'strength-weak';
+    } else {
+      band = 'Unlikely to succeed on affordability grounds alone';
+      badgeClass = 'strength-verylow';
+    }
+
+    var introText = '';
+    if (total >= 17) {
+      introText = 'Based on your answers about your ' + loanLabel + ', several clear signs point to the lender not carrying out a reasonable affordability check under CONC 5.2A. This looks like a strong candidate for a formal complaint.';
+    } else if (total >= 10) {
+      introText = 'Based on your answers about your ' + loanLabel + ', there are genuine grounds to question whether the lender's checks met CONC 5.2A. It is worth putting together a written complaint citing the points below.';
+    } else if (total >= 5) {
+      introText = 'Based on your answers about your ' + loanLabel + ', a few things stand out, but the case is not overwhelming on affordability alone. It can still be worth complaining, since it costs nothing to try and lenders sometimes settle rather than contest weaker-looking cases.';
+    } else {
+      introText = 'Based on your answers about your ' + loanLabel + ', the clearest affordability red flags (income risk, repeat borrowing, disclosed difficulty, weak checks) do not obviously apply here. That does not mean the lending was fine, just that this particular angle looks weaker. It may still be worth reading the guide in case another basis for a complaint applies.';
+    }
+
+    var flagsHtml = '';
+    if (flags.length > 0) {
+      flagsHtml = '<h3>Specific failures to cite in your complaint</h3><ul class="flag-list">' +
+        flags.map(function (f) { return '<li>' + f + '</li>'; }).join('') +
+        '</ul>';
+    } else {
+      flagsHtml = '<p>None of the strongest individual red flags came up clearly in your answers, so there is no specific CONC 5.2A failure listed above. If you still think the loan was wrong for you, the guide below explains other grounds you might have.</p>';
+    }
+
+    var notesHtml = '';
+    if (status === 'defaulted' || status === 'outstanding') {
+      notesHtml += '<div class="note-box">Because this loan is still outstanding, was defaulted, or was written off, a successful complaint could also include correction or removal of adverse information from your credit file, not just a refund of interest and charges.</div>';
+    }
+    if (timeframe === 'over6') {
+      notesHtml += '<div class="note-box">You took this loan out more than 6 years ago. The Financial Ombudsman Service normally expects complaints within 6 years of the event, or 3 years of when you realised you had cause to complain, whichever is later. Check the timing carefully before you complain, you may still be in time.</div>';
+    } else if (timeframe === 'unsure') {
+      notesHtml += '<div class="note-box">You were not sure how long ago you took this loan out. If it was more than 6 years ago, check the Financial Ombudsman\'s time limits before relying on this route.</div>';
+    }
+
+    resultPanel.innerHTML =
+      '<span class="strength-badge ' + badgeClass + '">' + band + '</span>' +
+      '<p class="result-intro">' + introText + '</p>' +
+      flagsHtml +
+      notesHtml +
+      '<a class="guide-link" href="/how-to-complain">Read the How to Complain guide</a>';
+
+    resultPanel.style.display = 'block';
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+})();
+</script>

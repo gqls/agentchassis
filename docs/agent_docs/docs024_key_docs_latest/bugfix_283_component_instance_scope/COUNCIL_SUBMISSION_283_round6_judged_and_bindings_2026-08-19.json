@@ -1,0 +1,66 @@
+{
+ "rationale": "bugs_open/283 round 6 \u2014 the JUDGED pipeline (RFC_034's LLM quarter, owner-ruled) is BUILT, and building it exposed a defect in the APPROVED mechanical batch that this round also fixes: bugs_open/324. The converter's completeness check grepped for the literal forms its own passes rename, so a binding that carries an id to a lookup through a VARIABLE (var ids=['amount',\u2026] \u2192 getElementById(id)), a config object ({id:'gsfc-accel'} \u2192 field.id), a helper (el('rw-ev')) or a CONCATENATION ('block-'+name) survived unrenamed on 32 of 69 converted rows \u2014 14 serving live, structurally dead at load or first interaction, while every batch check (ids, tokens, duplicates, served-page spot-checks) read genuinely green. Measured with the Go detector over all 69 live rows and verified at robot-hands.com's served bytes. 27 repair mechanically; 5 route to the judged pool.\n\nThe change set (one commit): (1) pass 5 + an INDEPENDENT binding detector (UnprefixedBindings, incl. a composition-hazard check) wired INTO GateConvertedTemplate \u2014 the class cannot ship again; refuse-contexts (comparisons, case labels, object keys, computed access) are skipped and reported, never guessed. (2) fix_type repair_instance_scope_bindings \u2014 pass 5 for already-converted rows, gated by detector-empty + two-instance gate + comparative write guard, own change_source. (3) fix_type scope_component_instance_judged \u2014 the judged write: re-derives its baseline from the row, refuses on two-instance gate not fully clean / markup changed outside script bodies (derived expectation) / id-set drift / unprefixed bindings / collapse guard; refusals write NOTHING and land needs_human_review. (4) workflow migration 486_HOLD: fixer self-routes needs_script_scoping to a script-only LLM brief (sonnet 32k, tolerate_truncation deliberately absent) and chains create_rerender into an owned-page section_edit delivery (apply_section_edit binds InstanceID \u2014 closes 283 \u00a713.6's gap for every template fix). (5) seed 487_HOLD: repair batch over all converted rows, derived at apply time, serving-broken rows priority 30. Both SQL files are _HOLD: they dispatch fix_types that exist only post-roll.\n\nWhy the judged writer is fan-out-intended and NOT tool-improver's fenced path: 22 of the 25 judged rows are component_level='section' and one (mortgages-repayment) is placed on two pages \u2014 sharedComponentWriteCheck refuses exactly that shape, correctly, for page-scoped findings; this is a component-subject fix. Declared in component_template_writer_coverage_test.go with the measurement cited.\n\nVerification: full actions suite green on a git-archive-HEAD overlay (the working tree carries another session's WIP); fixtures are pinned LIVE bytes for all three defect classes plus one pre-conversion snapshot; mutation controls in both directions at the transform, the detector, and the wiring (pass 5 disabled \u2192 test fails; detector silenced \u2192 test fails). A false claim found in my own round-5-adjacent PLAN is corrected visibly and logged in WRONG_CALLS (the '25 fired during the batch' line).",
+ "submitter": "283-lane (judged pipeline build session, 2026-08-19)",
+ "plan": {
+  "summary": "Judged pipeline (Go arm + workflow migration 486_HOLD) + binding-completeness detector/repair for bugs_open/324 (pass 5, repair fix_type, seed 487_HOLD, instanceaudit --bindings), with the detector wired into the acceptance gate so the shipped class cannot recur.",
+  "edits": [
+   {
+    "file": "platform/orchestration/actions/component_instance_bindings.go",
+    "operation": "add",
+    "rationale": "The binding passes the converter was missing and the independent completeness detector (bugs_open/324): classes A/B/C rename mechanically; refuse-contexts reported; composition hazards detected; RepairConvertedTemplateBindings for already-converted rows.",
+    "sketch": "BindingIDSets / ApplyBindingPasses / UnprefixedBindings / compositionHazards / RepairConvertedTemplateBindings; concatSitePatterns shared by rename and detector so they cannot disagree"
+   },
+   {
+    "file": "platform/orchestration/actions/component_instance_conversion.go",
+    "operation": "modify",
+    "rationale": "Pass 5 into ConvertTemplateToInstanceScope; UnprefixedBindings into GateConvertedTemplate (gate now refuses the 324 class); report carries what was placed and what was not.",
+    "sketch": "baseIDs, fragments, rejects := BindingIDSets(out); out, rep.Bindings = ApplyBindingPasses(...); gate: if ub := UnprefixedBindings(converted); len(ub) > 0 { return true, nil }"
+   },
+   {
+    "file": "platform/orchestration/actions/component_instance_judged.go",
+    "operation": "add",
+    "rationale": "The judged gate: JudgedConversionIssues = two-instance gate fully clean + markup parity outside script bodies (expectation DERIVED: baseline minus on*= attrs, whitespace-normalised) + id-set parity + no unprefixed bindings + no surviving inline handlers; helpers for the LLM brief (handler inventory, fence stripping).",
+    "sketch": "func JudgedConversionIssues(function, baseline, candidate string, logger) []string \u2014 every issue names its check; refusal is the failure direction"
+   },
+   {
+    "file": "platform/orchestration/actions/fix_component_template_action.go",
+    "operation": "modify",
+    "rationale": "Two new arms on the existing action: scope_component_instance_judged (gate+snapshot+write fused; converges to the mechanical write if the row was scoped between steps) and repair_instance_scope_bindings (pass 5 for the 32; refuses residuals to the judged pool). Mechanical arm's refusal result now carries the ids-converted template + inventories. Shared writeScopedTemplate extracted.",
+    "sketch": "case scope_component_instance_judged / repair_instance_scope_bindings; refusals return fixed:false with named checks; nothing written on any refusal"
+   },
+   {
+    "file": "platform/orchestration/actions/component_template_writer_coverage_test.go",
+    "operation": "modify",
+    "rationale": "The census test that fails the build for undeclared html_template writers: both new arms declared fan-out-intended with the measurement (22/25 section-level, one multi-page) cited.",
+    "sketch": "FIVE html_template writes... declaration updated with reasons"
+   },
+   {
+    "file": "cmd/instanceaudit/main.go",
+    "operation": "modify",
+    "rationale": "--bindings mode: corpus census + done-check; exit 3 while any converted row dangles after repair. Reads a file, touches no DB, so it audits converter OUTPUT.",
+    "sketch": "auditBindings(rows): before/after per row, REPAIRABLE vs JUDGED"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/486_judged_instance_scope_pipeline_HOLD.sql",
+    "operation": "add",
+    "rationale": "Fixer workflow: check_scope_route \u2192 scope_script_llm \u2192 apply_judged_write \u2192 check_judged_result \u2192 judged_refusal (fail_work_item needs_human_review); create_rerender chains into create_section_edit_delivery for OWNED placements. Verify block PREPARE-compiles the embedded query (the 460\u2192461 lesson) and asserts tolerate_truncation is absent.",
+    "sketch": "jsonb merge of six steps + guarded next_step rewires + DO/RAISE verify"
+   },
+   {
+    "file": "docs/agent_docs/sql_for_agents/487_seed_bindings_repair_HOLD.sql",
+    "operation": "add",
+    "rationale": "Repair batch: one item per converted row, derived at apply time (counts drift daily); arm no-ops on sound rows; serving-broken rows severity high, priority 30. HOLD until post-roll AND post-486 (a refusal without 486 completes as a quiet no-op).",
+    "sketch": "INSERT ... SELECT FROM content_components WHERE html_template LIKE '%InstanceID%' ... NOT EXISTS dedup on item_key"
+   }
+  ],
+  "grounded_in": [
+   "Live census 2026-08-19, cmd/instanceaudit --bindings over all 69 converted rows: 32 with >=1 dangling binding, 27 REPAIRABLE / 5 JUDGED; independent python sweep agreed 32/32 and missed the composition hazard the Go detector catches",
+   "Served-artefact verification: robot-hands.com/tools/gripper-safety-factor-calculator serves bare { id: 'gsfc-accel' } beside prefixed markup ids (fetched 2026-08-19)",
+   "Placement/level measurements (live DB 2026-08-19): all 23 LMC judged rows on rebuild_policy='owned' pages; 22/25 judged rows component_level='section'; mortgages-repayment on 2 pages; no page places any judged row twice",
+   "ai_actions.go:409-517: execute_llm_prompt refuses capped completions unless tolerate_truncation opted in \u2014 the judged step does not opt in",
+   "section_editor_actions.go:850/:948: apply_section_edit binds BindSingleSectionInstanceToken (occurrence 0 \u2014 correct per the placement measurement)",
+   "Full actions suite green on git-archive-HEAD overlay + my files only; mutation controls: pass 5 disabled \u2192 TestConvert_freshConversionCarriesBindings fails; detector report silenced \u2192 TestBindings_refuseContexts fails"
+  ],
+  "risks": "(1) Markup-parity check may false-refuse on cosmetic LLM reformatting \u2014 chosen failure direction is refuse-to-human, never write; relax only on evidence (stated in the design). (2) apply_section_edit with empty field_updates re-rendering+deploying an LMC owned page is [UNVERIFIED] end-to-end on that estate \u2014 the canary is designed to prove it before the batch (PLAN \u00a75). (3) The 4 serving automation-savings placements stay live-broken until the judged pipeline runs \u2014 if it slips, the contained alternative is a snapshot rollback of 3 rows + rerender (owner call, named in bugs_open/324). (4) Migration/seed are _HOLD: applying before the roll dispatches unknown fix_types; the files' headers carry the digest-verify precondition."
+ }
+}

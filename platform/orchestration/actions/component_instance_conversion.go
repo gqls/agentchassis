@@ -73,6 +73,14 @@ type InstanceConversionReport struct {
 	HashRefs         int // CSS selectors, querySelector('#…'), href="#…"
 	RefusedReason    string
 	AlreadyConverted bool
+	// Binding passes (2026-08-19, component_instance_bindings.go): literals
+	// and concatenation sites that carry an id to a lookup without containing
+	// the lookup — the class the original passes could not see.
+	Bindings BindingPassReport
+	// UnprefixedBindings is the completeness detector's report over the
+	// OUTPUT. Non-empty does not refuse here — the gate turns it into a
+	// judged-pool route, and the caller carries it on the result.
+	UnprefixedBindings []string
 }
 
 // ConvertTemplateToInstanceScope performs the deterministic rename. It returns
@@ -185,11 +193,30 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 		})
 	}
 
+	// Pass 5 — bindings that do not CONTAIN the lookup (2026-08-19, after the
+	// mechanical batch shipped 32 templates with dangling bindings): bare
+	// literals equal to a declared id (fed to a helper or through an array),
+	// and concatenated declarations/lookups on a declared id's `-`/`_` prefix.
+	// A dynamically-declared id with no static prefix cannot be carried and
+	// refuses to the judged pool.
+	baseIDs, fragments, rejects := BindingIDSets(out)
+	if len(rejects) > 0 {
+		rep.RefusedReason = fmt.Sprintf("dynamic id declaration %q has no static `-`/`_` prefix to carry the token — convert through the judged pool", rejects[0])
+		return tpl, rep, false
+	}
+	out, rep.Bindings = ApplyBindingPasses(out, baseIDs, fragments)
+
 	// COMPLETENESS — the check that turns "the passes I thought of" into "the
 	// bindings that exist". Any declared id still reachable in a binding
 	// position after the passes was built in a way the passes do not
 	// recognise (concatenation, a template literal, an unquoted attribute);
 	// shipping would leave that one binding pointing at nothing, silently.
+	//
+	// ⚠ This literal-form check was the ONLY completeness check until
+	// 2026-08-19, and its premise — that a surviving binding contains the id
+	// literal at the binding site — is false for the three constructions pass
+	// 5 now handles. UnprefixedBindings below is the check that actually
+	// closes the class; this loop stays as the cheap first line.
 	for id := range seen {
 		leftovers := []string{
 			`id="` + id + `"`, `id='` + id + `'`,
@@ -207,7 +234,21 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 		}
 	}
 
+	rep.UnprefixedBindings = UnprefixedBindings(out)
 	return out, rep, true
+}
+
+// RepairConvertedTemplateBindings applies pass 5 to a template that has
+// ALREADY been converted — the repair path for the 32 rows the mechanical
+// batch wrote before pass 5 existed. Idempotent. Returns ok=false with a reason
+// when a dynamic declaration cannot be carried (route to the judged pool).
+func RepairConvertedTemplateBindings(converted string) (string, BindingPassReport, []string, bool) {
+	baseIDs, fragments, rejects := BindingIDSets(converted)
+	if len(rejects) > 0 {
+		return converted, BindingPassReport{}, rejects, false
+	}
+	out, rep := ApplyBindingPasses(converted, baseIDs, fragments)
+	return out, rep, nil, true
 }
 
 // GateConvertedTemplate decides whether a converted template may SHIP. It is
@@ -248,6 +289,14 @@ func GateConvertedTemplate(function, converted string, logger *zap.Logger) (need
 		// The §2.1 refusal: ids are clean, the script half is not. Shipping
 		// now would remove the only visible signal while both buttons still
 		// run the last instance's logic.
+		return true, nil
+	}
+	if ub := UnprefixedBindings(converted); len(ub) > 0 {
+		// The 2026-08-19 refusal: ids and script scope are clean, but a
+		// binding still carries the OLD id to a lookup (through a variable,
+		// a helper, or a concatenation). Two instances would both read clean
+		// here and both be broken at runtime — getElementById returns null.
+		// Judged pool.
 		return true, nil
 	}
 	return false, nil

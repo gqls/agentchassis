@@ -12761,3 +12761,31 @@ MODIFY rather than ADD, which no field records); a status standing in for a caus
 (`_HOLD.sql`). **When a filter is cheap to widen and its proxy has drifted, widening it is usually
 right — but measure the population you are admitting first**, because a scope regex is also a
 budget.
+
+### A renamer's completeness check that greps for the FORMS IT RENAMES cannot see a reference that travels through a variable — and every green check downstream inherits the blindness (2026-08-19, `bugs_open/324`, parent 283)
+
+The instance-scope converter renamed `id="x"` declarations and literal `getElementById('x')`
+calls, then asserted completeness by searching for those same literal forms surviving. But a
+reference does not have to CONTAIN the name at the use site: the corpus routes ids through
+arrays (`var ids=['amount',…]; ids.forEach(id => getElementById(id))`), config objects
+(`{id:'gsfc-accel'}` → `field.id`), helpers (`el('rw-ev')`), computed keys
+(`values['staff-count']`), and concatenation (`'block-'+name`, `id="name-'+index+'"`). Result:
+32 of 69 converted templates shipped with dangling bindings, 14 serving live — and every
+downstream check (0 duplicate ids, 0 unrendered tokens, IIFE-scoped, served-page spot-checks)
+was genuinely green, because each one measured what the converter changed, not what the script
+still refers to.
+
+The transferable rules:
+
+- **A rename's completeness check must be an independent detector over the REFERENCE space,
+  not a re-grep of the rename's own patterns.** "Did any old name survive where I looked for
+  it" and "does anything still refer to the old name" are different questions; only the second
+  is completeness. Here: grep the script bodies for any declared id surviving as a bare quoted
+  literal or concatenated prefix (`UnprefixedBindings`) — one line, and it found all 32.
+- **When a mechanical transform ships a batch, run its detector over the batch's OUTPUT before
+  calling the batch done** — `cmd/instanceaudit` deliberately reads a file so it can audit a
+  converter's output, and nobody pointed it at the 69 until the next design session read one
+  script by hand.
+- **Beware the composition hazard when prefixing**: if `p` is concatenated (`'fg-'+id`) and
+  both `x` and `p+x` are declared ids, prefixing both halves composes to a name that exists
+  nowhere. A repair that fixes each half independently makes it worse; route to judgement.

@@ -1,0 +1,56 @@
+<div class="card">
+        <div class="input-grid">
+            <div>
+                <label for="amount">{{.label_1}}</label>
+                <input type="number" id="amount" value="10000">
+            </div>
+            <div>
+                <label for="interest">{{.label_2}}</label>
+                <input type="number" id="interest" value="7.9">
+            </div>
+            <div>
+                <label for="years">{{.label_3}}</label>
+                <input type="number" id="years" value="5">
+            </div>
+        </div>
+        <div class="results-box">
+            <h3>{{.heading_1}}</h3>
+            <div class="monthly-payment" id="monthly-display">£0.00</div>
+            <p>Total Interest: <strong id="total-interest">£0.00</strong></p>
+            <p>Total Repayable: <strong id="total-cost">£0.00</strong></p>
+        </div>
+    </div>
+<script src="/assets/js/calculators.js"></script>
+<script>
+    const inputs = ['amount', 'interest', 'years'];
+    inputs.forEach(id => document.getElementById(id).addEventListener('input', calculateLoan));
+
+    function calculateLoan() {
+        const P = parseFloat(document.getElementById('amount').value);
+        const APR = parseFloat(document.getElementById('interest').value);
+        const years = parseFloat(document.getElementById('years').value);
+        const months = years * 12;
+
+        const gbp = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
+
+        if (!(P > 0 && APR >= 0 && months > 0)) {
+            document.getElementById('monthly-display').innerText = '£0.00';
+            document.getElementById('total-cost').innerText = '£0.00';
+            document.getElementById('total-interest').innerText = '£0.00';
+            return;
+        }
+
+        const result = calculateAmortization(P, APR, years);
+        const monthly = Math.round((result.monthly + Number.EPSILON) * 100) / 100;
+
+        // Totals follow the billed (rounded) payment; at 0% the exact figures
+        // apply - an interest-free loan repays exactly what was borrowed.
+        const totalRepayable = APR === 0 ? P : monthly * months;
+        const totalCostOfCredit = totalRepayable - P;
+
+        document.getElementById('monthly-display').innerText = gbp.format(monthly);
+        document.getElementById('total-cost').innerText = gbp.format(totalRepayable);
+        document.getElementById('total-interest').innerText = gbp.format(totalCostOfCredit);
+    }
+    calculateLoan();
+</script>

@@ -239,6 +239,17 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		// conversion programme. "instance_scope_conversion" is the item_type
 		// spelling so a work item routes without a spec.fix_type.
 		return fixScopeComponentInstance(ctx, params, logger)
+	case "repair_instance_scope_bindings":
+		// bugs_open/283 §14: pass 5 applied to a row the mechanical batch
+		// already converted before pass 5 existed. Same gate, same snapshot
+		// contract, separate change_source so the repair is its own audit row.
+		return fixRepairInstanceScopeBindings(ctx, params, logger)
+	case "scope_component_instance_judged":
+		// bugs_open/283 / RFC_034: the JUDGED half — gate + write for an
+		// LLM-rewritten script, reached only after the arm above refused with
+		// needs_script_scoping. Never routed from an item_type: it needs the
+		// rewrite in hand.
+		return fixScopeComponentInstanceJudged(ctx, params, logger)
 	case "inject_nav_flex_css", "spacing_fix", "spacing":
 		// "spacing" is a raw category value from SQL-patched items
 		return fixInjectNavFlexCSS(ctx, params, siteID, logger)
@@ -1224,38 +1235,41 @@ func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger 
 		logger.Info("scope_component_instance: ids convert cleanly but the script declares into global scope — refusing the half-state (RFC_034 §2.1), routing to the judged pool",
 			zap.String("function", function),
 			zap.Strings("ids", rep.IDsDeclared))
+		// The judged branch of the workflow picks these up: the IDS-CONVERTED
+		// template is what the LLM is given (so it never touches the surfaces
+		// the deterministic pass is proven on), and the handler inventory is
+		// what the brief names. Nothing is written here.
+		handlers := InlineHandlerInventory(converted)
+		if handlers == nil {
+			handlers = []string{}
+		}
+		ub := rep.UnprefixedBindings
+		if ub == nil {
+			ub = []string{}
+		}
+		reason := "script declares into global scope; deterministic conversion alone would ship a page that reads clean on ids while every button runs the last instance's logic"
+		if len(ub) > 0 {
+			reason = "deterministic conversion left " + fmt.Sprint(len(ub)) + " binding(s) unprefixed (" + strings.Join(ub, "; ") + ") — and/or the script declares into global scope; shipping would dangle those lookups at runtime"
+		}
 		return map[string]interface{}{
-			"fixed":        false,
-			"fix_type":     "scope_component_instance",
-			"function":     function,
-			"component_id": componentIDStr,
-			"action":       "needs_script_scoping",
-			"reason":       "script declares into global scope; deterministic conversion alone would ship a page that reads clean on ids while every button runs the last instance's logic",
-			"ids_declared": len(rep.IDsDeclared),
+			"fixed":               false,
+			"fix_type":            "scope_component_instance",
+			"function":            function,
+			"component_id":        componentIDStr,
+			"action":              "needs_script_scoping",
+			"reason":              reason,
+			"ids_declared":        len(rep.IDsDeclared),
+			"converted_template":  converted,
+			"inline_handlers":     handlers,
+			"inline_handler_n":    len(handlers),
+			"window_onload_n":     WindowOnloadCount(converted),
+			"unprefixed_bindings": ub,
 		}, nil
 	}
 
-	// Snapshot before modifying — same reversibility contract as
-	// repair_template_slots. Non-fatal if the snapshot fails; log and continue.
-	var maxVersion int
-	_ = params.DB.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(version_number), 0) FROM component_versions WHERE component_id = $1
-	`, componentID).Scan(&maxVersion)
-	_, snapErr := params.DB.ExecContext(ctx, `
-		INSERT INTO component_versions (component_id, version_number, html_template, change_source)
-		VALUES ($1, $2, $3, 'scope_component_instance')
-	`, componentID, maxVersion+1, currentTemplate)
-	if snapErr != nil {
-		logger.Warn("scope_component_instance: snapshot failed, continuing",
-			zap.String("function", function), zap.Error(snapErr))
-	}
-
-	if _, err = params.DB.ExecContext(ctx, `
-		UPDATE content_components
-		SET html_template = $1, updated_at = now()
-		WHERE id = $2
-	`, converted, componentID); err != nil {
-		return nil, fmt.Errorf("failed to update template for %s: %w", function, err)
+	maxVersion, err := writeScopedTemplate(ctx, params, componentID, function, currentTemplate, converted, "scope_component_instance", logger)
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Info("scope_component_instance: converted and written",
@@ -1266,20 +1280,352 @@ func fixScopeComponentInstance(ctx context.Context, params ActionParams, logger 
 		zap.Int("get_element_by_id", rep.GetElementByID),
 		zap.Int("id_ref_attrs", rep.IDRefAttrs),
 		zap.Int("hash_refs", rep.HashRefs),
+		zap.Int("binding_literals", rep.Bindings.LiteralIDsRenamed),
+		zap.Int("binding_concat_sites", rep.Bindings.ConcatSitesRenamed),
 		zap.Int("snapshot_version", maxVersion+1))
 
 	return map[string]interface{}{
-		"fixed":             true,
-		"fix_type":          "scope_component_instance",
-		"function":          function,
-		"component_id":      componentIDStr,
-		"ids_declared":      len(rep.IDsDeclared),
-		"id_attrs_renamed":  rep.IDAttrsRenamed,
-		"get_element_by_id": rep.GetElementByID,
-		"id_ref_attrs":      rep.IDRefAttrs,
-		"hash_refs":         rep.HashRefs,
-		"snapshot_version":  maxVersion + 1,
-		"note":              "pages carrying this component still serve stored rendered_html; the conversion reaches visitors on their next rerender+deploy",
+		"fixed":                true,
+		"fix_type":             "scope_component_instance",
+		"function":             function,
+		"component_id":         componentIDStr,
+		"ids_declared":         len(rep.IDsDeclared),
+		"id_attrs_renamed":     rep.IDAttrsRenamed,
+		"get_element_by_id":    rep.GetElementByID,
+		"id_ref_attrs":         rep.IDRefAttrs,
+		"hash_refs":            rep.HashRefs,
+		"binding_literals":     rep.Bindings.LiteralIDsRenamed,
+		"binding_concat_sites": rep.Bindings.ConcatSitesRenamed,
+		"snapshot_version":     maxVersion + 1,
+		"note":                 "pages carrying this component still serve stored rendered_html; the conversion reaches visitors on their next rerender+deploy",
+	}, nil
+}
+
+// writeScopedTemplate is the one write both halves of the 283 programme share:
+// snapshot the CURRENT template to component_versions under the given
+// change_source (reversibility contract, same as repair_template_slots;
+// non-fatal if the snapshot fails), then overwrite html_template. Returns the
+// pre-snapshot max version so the caller can report snapshot_version = max+1.
+func writeScopedTemplate(ctx context.Context, params ActionParams, componentID uuid.UUID, function, currentTemplate, newTemplate, changeSource string, logger *zap.Logger) (int, error) {
+	var maxVersion int
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(version_number), 0) FROM component_versions WHERE component_id = $1
+	`, componentID).Scan(&maxVersion)
+	if _, snapErr := params.DB.ExecContext(ctx, `
+		INSERT INTO component_versions (component_id, version_number, html_template, change_source)
+		VALUES ($1, $2, $3, $4)
+	`, componentID, maxVersion+1, currentTemplate, changeSource); snapErr != nil {
+		logger.Warn(changeSource+": snapshot failed, continuing",
+			zap.String("function", function), zap.Error(snapErr))
+	}
+	if _, err := params.DB.ExecContext(ctx, `
+		UPDATE content_components
+		SET html_template = $1, updated_at = now()
+		WHERE id = $2
+	`, newTemplate, componentID); err != nil {
+		return maxVersion, fmt.Errorf("failed to update template for %s: %w", function, err)
+	}
+	return maxVersion, nil
+}
+
+// repair_instance_scope_bindings: bugs_open/283 §14 (2026-08-19). The
+// mechanical batch converted 69 templates with a converter whose completeness
+// check could not see a binding that does not CONTAIN the id literal — an
+// array of ids, a {id:'x'} config, a helper call el('x'), a concatenated
+// lookup 'step-' + n. 32 rows carry at least one such dangling binding; 14 were
+// serving it live. This arm applies pass 5 (component_instance_bindings.go) to
+// an ALREADY-CONVERTED row: load, repair, require UnprefixedBindings empty and
+// the two-instance gate clean, snapshot under its own change_source, write.
+// The fixer then files the page-scoped template_changed rerenders as for any
+// template fix. Three exits, same contract as the mechanical arm:
+//
+//	fixed:true                         — repaired, gated, WRITTEN.
+//	fixed:false action:"needs_script_scoping"
+//	                                   — pass 5 could not place every binding
+//	                                     (a refuse-context literal, a dynamic
+//	                                     declaration with no static prefix);
+//	                                     nothing written; judged pool.
+//	fixed:false + reason               — not converted (wrong arm), or
+//	                                     nothing to repair. Nothing written.
+func fixRepairInstanceScopeBindings(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
+	componentIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.component_id")
+	if componentIDStr == "" {
+		componentIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.component_id")
+	}
+	if componentIDStr == "" {
+		return nil, fmt.Errorf("component_id is required for repair_instance_scope_bindings (expected in spec.component_id)")
+	}
+	componentID, err := uuid.Parse(componentIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid component_id %q: %w", componentIDStr, err)
+	}
+
+	var function, currentTemplate string
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT function, html_template
+		FROM content_components
+		WHERE id = $1
+	`, componentID).Scan(&function, &currentTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load component %s: %w", componentIDStr, err)
+	}
+
+	base := map[string]interface{}{
+		"fixed":        false,
+		"fix_type":     "repair_instance_scope_bindings",
+		"function":     function,
+		"component_id": componentIDStr,
+	}
+	if !strings.Contains(currentTemplate, "{{.InstanceID}}") {
+		base["reason"] = "template is not converted — nothing to repair; use scope_component_instance"
+		return base, nil
+	}
+
+	before := UnprefixedBindings(currentTemplate)
+	repaired, brep, rejects, ok := RepairConvertedTemplateBindings(currentTemplate)
+	if !ok {
+		base["action"] = "needs_script_scoping"
+		base["reason"] = fmt.Sprintf("dynamic id declaration %q has no static `-`/`_` prefix to carry the token — judged pool", rejects[0])
+		base["converted_template"] = currentTemplate
+		base["unprefixed_bindings"] = before
+		return base, nil
+	}
+	after := UnprefixedBindings(repaired)
+	if len(after) > 0 {
+		// Pass 5 placed what it recognises; something remains. Refuse to the
+		// judged pool with the repaired-so-far template as the baseline the
+		// LLM will see (the judged arm re-derives exactly this).
+		handlers := InlineHandlerInventory(repaired)
+		if handlers == nil {
+			handlers = []string{}
+		}
+		base["action"] = "needs_script_scoping"
+		base["reason"] = fmt.Sprintf("pass 5 left %d binding(s) unprefixed (%s) — judged pool", len(after), strings.Join(after, "; "))
+		base["converted_template"] = repaired
+		base["inline_handlers"] = handlers
+		base["inline_handler_n"] = len(handlers)
+		base["window_onload_n"] = WindowOnloadCount(repaired)
+		base["unprefixed_bindings"] = after
+		base["bindings_placed"] = brep.LiteralIDsRenamed + brep.ConcatSitesRenamed
+		return base, nil
+	}
+	if repaired == currentTemplate {
+		base["reason"] = "no unprefixed bindings found and nothing changed — already sound"
+		base["unprefixed_before"] = len(before)
+		return base, nil
+	}
+
+	needsJudged, gateErr := GateConvertedTemplate(function, repaired, logger)
+	if gateErr != nil {
+		return nil, fmt.Errorf("repair_instance_scope_bindings gate failed for %q: %w", function, gateErr)
+	}
+	if needsJudged {
+		// Bindings are placed but the script itself is unscoped — a row
+		// that should never have been written by the mechanical arm; route.
+		base["action"] = "needs_script_scoping"
+		base["reason"] = "bindings repaired but the script declares into global scope — judged pool"
+		base["converted_template"] = repaired
+		return base, nil
+	}
+	if issues := componentRegressionIssues(currentTemplate, repaired); len(issues) > 0 {
+		return nil, fmt.Errorf("repair_instance_scope_bindings: write guard refused %q: %s", function, strings.Join(issues, " | "))
+	}
+
+	maxVersion, err := writeScopedTemplate(ctx, params, componentID, function, currentTemplate, repaired, "repair_instance_scope_bindings", logger)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("repair_instance_scope_bindings: repaired and written",
+		zap.String("function", function),
+		zap.String("component_id", componentIDStr),
+		zap.Int("unprefixed_before", len(before)),
+		zap.Int("binding_literals", brep.LiteralIDsRenamed),
+		zap.Int("binding_concat_sites", brep.ConcatSitesRenamed),
+		zap.Strings("concat_prefixes", brep.ConcatPrefixes),
+		zap.Int("snapshot_version", maxVersion+1))
+
+	return map[string]interface{}{
+		"fixed":                  true,
+		"fix_type":               "repair_instance_scope_bindings",
+		"function":               function,
+		"component_id":           componentIDStr,
+		"unprefixed_before":      len(before),
+		"unprefixed_before_list": before,
+		"binding_literals":       brep.LiteralIDsRenamed,
+		"binding_concat_sites":   brep.ConcatSitesRenamed,
+		"concat_prefixes":        brep.ConcatPrefixes,
+		"snapshot_version":       maxVersion + 1,
+		"note":                   "pages carrying this component still serve stored rendered_html; the repair reaches visitors on their next rerender+deploy",
+	}, nil
+}
+
+// scope_component_instance_judged: the JUDGED half of bugs_open/283 (RFC_034
+// shape C; design PLAN_2026-08-18_judged_pipeline.md). Reached by the
+// component-template-fixer workflow only after scope_component_instance
+// refused with needs_script_scoping and an execute_llm_prompt step rewrote the
+// script. This arm is the GATE and the WRITE, fused so nothing can sit between
+// them:
+//
+//  1. re-load the row and RE-DERIVE the ids-converted baseline itself — the
+//     workflow-carried copy is never trusted (another session may have
+//     converted, deactivated or edited the row between steps);
+//  2. if the baseline now gates clean (corpus drift: someone scoped the
+//     script meanwhile), converge on the mechanical contract and write the
+//     baseline — the LLM output is discarded;
+//  3. otherwise JudgedConversionIssues (two-instance gate fully clean, markup
+//     parity outside <script>, id-set parity, no surviving on*=) then the
+//     comparative write guard (collapse ratio, ends-mid-token — the
+//     bugs_open/012 class, second layer behind execute_llm_prompt's own
+//     capped-completion refusal);
+//  4. snapshot under change_source='scope_component_instance_judged', write.
+//
+// Any refusal returns fixed:false with the failing checks named and writes
+// NOTHING; the workflow routes that to needs_human_review. No automatic retry
+// — 25 components; a handful of refusals is triage, not a queue.
+//
+// The rewrite is read from the step-config `html_field` path (default
+// "scoped_script.result", the execute_llm_prompt output shape). The component
+// is keyed by spec.component_id, the ROW — same as the mechanical arm.
+func fixScopeComponentInstanceJudged(ctx context.Context, params ActionParams, logger *zap.Logger) (interface{}, error) {
+	componentIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.component_id")
+	if componentIDStr == "" {
+		componentIDStr = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.component_id")
+	}
+	if componentIDStr == "" {
+		return nil, fmt.Errorf("component_id is required for scope_component_instance_judged (expected in spec.component_id)")
+	}
+	componentID, err := uuid.Parse(componentIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid component_id %q: %w", componentIDStr, err)
+	}
+
+	htmlField, _ := params.StepConfig.Config["html_field"].(string)
+	if htmlField == "" {
+		htmlField = "scoped_script.result"
+	}
+	rewrite := datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
+	if strings.TrimSpace(rewrite) == "" {
+		return nil, fmt.Errorf("scope_component_instance_judged: no rewrite found at %q — the LLM step produced nothing, or html_field names the wrong path", htmlField)
+	}
+	rewrite = StripMarkdownFence(rewrite)
+
+	var function, currentTemplate string
+	err = params.DB.QueryRowContext(ctx, `
+		SELECT function, html_template
+		FROM content_components
+		WHERE id = $1
+	`, componentID).Scan(&function, &currentTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load component %s: %w", componentIDStr, err)
+	}
+
+	refuse := func(reason string, extra map[string]interface{}) (interface{}, error) {
+		logger.Warn("scope_component_instance_judged: REFUSED, nothing written",
+			zap.String("function", function),
+			zap.String("component_id", componentIDStr),
+			zap.String("reason", reason))
+		out := map[string]interface{}{
+			"fixed":        false,
+			"fix_type":     "scope_component_instance_judged",
+			"function":     function,
+			"component_id": componentIDStr,
+			"action":       "needs_human_review",
+			"reason":       reason,
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out, nil
+	}
+
+	// Step 1 — the baseline, re-derived. Deterministic, so identical to what
+	// the earlier step handed the LLM unless the row moved underneath us.
+	baseline, rep, ok := ConvertTemplateToInstanceScope(currentTemplate)
+	if !ok && rep.AlreadyConverted {
+		// A row that was converted BEFORE pass 5 and routed here by the
+		// repair arm: the baseline the LLM saw is the current row with the
+		// binding passes applied (RepairConvertedTemplateBindings is
+		// deterministic, so this re-derives it exactly).
+		repaired, _, rejects, rok := RepairConvertedTemplateBindings(currentTemplate)
+		if !rok {
+			return refuse(fmt.Sprintf("baseline could not be re-derived: dynamic id declaration %q has no static prefix", rejects[0]), nil)
+		}
+		baseline, ok = repaired, true
+		rep.IDsDeclared, _, _ = BindingIDSets(currentTemplate)
+	}
+	if !ok {
+		return refuse("deterministic baseline could not be re-derived: "+rep.RefusedReason, nil)
+	}
+
+	// Step 2 — converge if the judged pool no longer applies.
+	needsJudged, gateErr := GateConvertedTemplate(function, baseline, logger)
+	if gateErr != nil {
+		return nil, fmt.Errorf("scope_component_instance_judged: baseline gate failed for %q: %w", function, gateErr)
+	}
+	if !needsJudged {
+		maxVersion, werr := writeScopedTemplate(ctx, params, componentID, function, currentTemplate, baseline, "scope_component_instance", logger)
+		if werr != nil {
+			return nil, werr
+		}
+		logger.Info("scope_component_instance_judged: baseline gates clean (script scoped since routing) — wrote the MECHANICAL conversion, LLM output discarded",
+			zap.String("function", function), zap.Int("snapshot_version", maxVersion+1))
+		return map[string]interface{}{
+			"fixed":            true,
+			"fix_type":         "scope_component_instance",
+			"converged_from":   "scope_component_instance_judged",
+			"function":         function,
+			"component_id":     componentIDStr,
+			"ids_declared":     len(rep.IDsDeclared),
+			"snapshot_version": maxVersion + 1,
+			"note":             "script was already scoped by the time the judged arm ran; mechanical conversion written, rewrite discarded",
+		}, nil
+	}
+
+	// Step 3 — the gate on the rewrite, then the comparative write guard.
+	if issues := JudgedConversionIssues(function, baseline, rewrite, logger); len(issues) > 0 {
+		return refuse("rewrite refused by the judged gate: "+strings.Join(issues, " | "), map[string]interface{}{
+			"gate_issues": issues,
+			"rewrite_len": len(rewrite),
+		})
+	}
+	if issues := componentRegressionIssues(currentTemplate, rewrite); len(issues) > 0 {
+		return refuse("rewrite refused by the comparative write guard: "+strings.Join(issues, " | "), map[string]interface{}{
+			"guard_issues": issues,
+			"rewrite_len":  len(rewrite),
+			"current_len":  len(currentTemplate),
+		})
+	}
+
+	// Step 4 — write.
+	maxVersion, err := writeScopedTemplate(ctx, params, componentID, function, currentTemplate, rewrite, "scope_component_instance_judged", logger)
+	if err != nil {
+		return nil, err
+	}
+
+	handlersBefore := InlineHandlerInventory(baseline)
+	logger.Info("scope_component_instance_judged: rewrite gated clean and written",
+		zap.String("function", function),
+		zap.String("component_id", componentIDStr),
+		zap.Int("ids", len(rep.IDsDeclared)),
+		zap.Int("inline_handlers_rewired", len(handlersBefore)),
+		zap.Int("window_onload_replaced", WindowOnloadCount(baseline)-WindowOnloadCount(rewrite)),
+		zap.Int("rewrite_len", len(rewrite)),
+		zap.Int("current_len", len(currentTemplate)),
+		zap.Int("snapshot_version", maxVersion+1))
+
+	return map[string]interface{}{
+		"fixed":                   true,
+		"fix_type":                "scope_component_instance_judged",
+		"function":                function,
+		"component_id":            componentIDStr,
+		"ids_declared":            len(rep.IDsDeclared),
+		"inline_handlers_rewired": len(handlersBefore),
+		"window_onload_before":    WindowOnloadCount(baseline),
+		"window_onload_after":     WindowOnloadCount(rewrite),
+		"rewrite_len":             len(rewrite),
+		"current_len":             len(currentTemplate),
+		"snapshot_version":        maxVersion + 1,
+		"note":                    "pages carrying this component still serve stored rendered_html; generic pages take the conversion on their template_changed rerender, owned pages on their section_edit delivery",
 	}, nil
 }
 

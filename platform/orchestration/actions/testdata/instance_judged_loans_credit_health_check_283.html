@@ -1,0 +1,71 @@
+<div class="card" id="quiz-container">
+        <div id="step-1" class="check-step active">
+            <h3>{{.heading_1}}</h3>
+            <button onclick="nextStep(2, 20)">{{.button_1}}</button>
+            <button onclick="nextStep(2, 0)">{{.button_2}}</button>
+        </div>
+
+        <div id="step-2" class="check-step">
+            <h3>{{.heading_2}}</h3>
+            <button onclick="nextStep(3, 30)">{{.button_3}}</button>
+            <button onclick="nextStep(3, 10)">{{.button_4}}</button>
+            <button onclick="nextStep(3, -20)">{{.button_5}}</button>
+        </div>
+
+        <div id="step-3" class="check-step">
+            <h3>{{.heading_3}}</h3>
+            <button onclick="nextStep(4, 25)">{{.button_6}}</button>
+            <button onclick="nextStep(4, 10)">{{.button_7}}</button>
+            <button onclick="nextStep(4, -10)">{{.button_8}}</button>
+        </div>
+
+        <div id="step-4" class="check-step">
+            <h3>{{.heading_4}}</h3>
+            <button onclick="nextStep(5, 15)">{{.button_9}}</button>
+            <button onclick="nextStep(5, 5)">{{.button_10}}</button>
+            <button onclick="nextStep(5, 0)">{{.button_11}}</button>
+        </div>
+
+        <div id="step-5" class="check-step">
+            <h3>{{.heading_5}}</h3>
+            <div class="score-meter"><div id="meter-fill"></div></div>
+            <h2 id="rating-text">{{.heading_6}}</h2>
+            <p id="rating-desc"></p>
+            <button onclick="location.reload()">{{.button_12}}</button>
+        </div>
+    </div>
+<script>
+    let totalScore = 0;
+    function nextStep(step, points) {
+        totalScore += points;
+        document.querySelectorAll('.check-step').forEach(el => el.classList.remove('active'));
+        document.getElementById('step-' + step).classList.add('active');
+
+        if (step === 5) {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        const fill = document.getElementById('meter-fill');
+        const text = document.getElementById('rating-text');
+        const desc = document.getElementById('rating-desc');
+
+        let percentage = Math.max(10, Math.min(95, totalScore));
+        fill.style.width = percentage + '%';
+
+        if (totalScore >= 70) {
+            text.innerText = "Excellent Prospect";
+            text.style.color = "#2f855a";
+            desc.innerText = "Lenders likely see you as a low-risk borrower. You are in a strong position to negotiate for the lowest APRs.";
+        } else if (totalScore >= 40) {
+            text.innerText = "Fair / Good";
+            text.style.color = "#2b6cb0";
+            desc.innerText = "You have a solid foundation, but small improvements (like staying at your address longer or reducing card balances) could unlock better rates.";
+        } else {
+            text.innerText = "Work in Progress";
+            text.style.color = "#e53e3e";
+            desc.innerText = "You may find it harder to get standard loans. Consider a credit-builder card and ensure you are on the Electoral Roll to improve your score.";
+        }
+    }
+</script>

@@ -443,3 +443,61 @@ Three things from it that bear on your next session, shortest first:
    figure. The site also has **3** tool-level components, not 2: censusing with
    `sections::text LIKE '%tool-%'` silently drops `tool-overpayment-priority`.
    `loans-standard-calc` itself: 3 active components, 0 locked, and 9 of the 170 oracle checks.
+
+## 2026-08-19 (session 6) — judged pipeline BUILT; and reading one canary script found bugs_open/324: the batch shipped 32/69 templates with dangling bindings, 14 serving
+
+Deploy verified first (RUNBOOK §1): pods on v1.0.1314, digest-matched, revision d3590ca46 —
+carries the design commit; docs were current.
+
+**MISSTEP 9 (mine, logged in WRONG_CALLS): the PLAN's "the refusal fired correctly on all 25
+during the batch" was FALSE** — the batch never contained the 25; the classification was the
+detector's. Corrected visibly in the PLAN §2.
+
+**The finding.** Reading loans-standard-calc's real bytes to write the LLM prompt: its script
+binds ids from `const inputs = ['amount','interest','years']` → `getElementById(id)`. The
+converter renames `id="x"` and literal `getElementById('x')` and asserts completeness by
+grepping for those SAME forms — so the array literal survives, the lookup dangles, and every
+batch check reads green. Censused all 69 converted rows two independent ways (python sweep +
+a purpose-built Go detector; agreed 32/32, the Go one also catching a composition hazard):
+**32 dirty, 27 mechanically repairable, 5 judged; 14 rows / 15 placements SERVING the broken
+bytes** (verified at robot-hands.com's served HTML). Full mechanism + classes: bugs_open/324.
+016b §9 pattern written ("a renamer's completeness check that greps for the forms it renames");
+LANDMINES entry appended + verifier armed (dispatch needed one retry after a kubectl stream
+EOF; second run: Dispatched 1, 0 failed).
+
+**Built (one commit, council round 6 submitted, same correlation):**
+- `component_instance_bindings.go`: pass 5 (classes A/B/C) + `UnprefixedBindings` (incl.
+  composition hazards) + `RepairConvertedTemplateBindings`. Refuse-contexts (comparison, case
+  label, object key, computed access — the last is why automation-savings is judged: a
+  `values['staff-count']` read must match the now-prefixed `values[field.id]` write) are
+  skipped and REPORTED. Detector wired INTO `GateConvertedTemplate`.
+- `component_instance_judged.go`: `JudgedConversionIssues` — two-instance gate fully clean,
+  markup parity outside script bodies (expectation derived from the baseline), id-set parity,
+  no unprefixed bindings, no surviving inline handlers.
+- `fix_component_template_action.go`: arms `scope_component_instance_judged` (gate+write
+  fused; converges to mechanical if the row was scoped between steps) and
+  `repair_instance_scope_bindings`; mechanical refusal result now carries the ids-converted
+  template + handler inventory + unplaced bindings; `writeScopedTemplate` shared.
+- `cmd/instanceaudit --bindings`: census + done-check (exit 3 while anything dangles
+  post-repair). Baseline run archived: scratchpad/bindings_audit3.txt.
+- Migration `486_judged_instance_scope_pipeline_HOLD.sql` (six workflow steps + rewiring +
+  PREPARE-compiled delivery query + tolerate_truncation-absent assertion) and seed
+  `487_seed_bindings_repair_HOLD.sql` (derived at apply time; serving-broken at priority 30).
+  Both _HOLD: they dispatch fix_types that exist only post-roll. ⚠ numbers 484/485 were taken
+  by two other lanes BETWEEN listing and writing — renumbered, references fixed.
+
+**Verification discipline:** full actions suite green on git-archive-HEAD + my files only
+(the tree carries another session's broken datahelpers WIP — not touched); fixtures = live
+bytes for all three classes + one pre-conversion snapshot from component_versions; mutation
+controls both directions at transform, detector AND wiring (pass 5 disabled → fresh-conversion
+test fails; report silenced → refuse-context test fails). pattern-check: only two other-lane
+gofmt nits.
+
+**Register:** CLC-021 (bindings) + CLC-022 (judged pipeline) added; CLC-017 status corrected
+(its "failure direction is the design" paragraph believed refusal covered this class — it
+did not). Index rows added after CLC-019 (CLC-020's index row is the 311 lane's to add).
+
+**Execution order next session:** roll (digest-verify, ancestry of THIS commit) → rename+apply
+486 → rename+apply 487 → drain (27 fixed / 5 needs_human_review expected; monitor) →
+`--bindings` exit 0 → per-page spot-checks with a BINDING check this time → then the LMC
+judged sequence (owed steps, canary, 22, generic pair + the 5).

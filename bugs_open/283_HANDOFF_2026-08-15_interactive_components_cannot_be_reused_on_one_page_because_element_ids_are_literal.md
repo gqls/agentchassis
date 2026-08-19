@@ -793,3 +793,47 @@ this lane's.
 (parked `needs_human_review`) tracks the producers genuinely outside this fix
 (`StoreGeneratedComponentAction.createRerenderWorkItem` and kin), plus the `reuse_agent`'s
 consolidation onto `create_rerender_items_action` and the dedup status-set alignment.
+
+## 14. UPDATE 2026-08-19 — §13.7's "COMPLETE and spot-checked" was TRUE and BLIND: 32 of the 69 converted templates dangle a binding, 14 serving live. Judged pipeline BUILT; repair BUILT.
+
+> **CORRECTED 2026-08-19 (this section corrects §13.7):** "the mechanical programme is
+> COMPLETE and spot-checked at the served artefact" stands only for what the spot-checks
+> measured — ids, tokens, duplicates. The converter's completeness check greps for the literal
+> forms its own passes rename, so a binding that carries an id to a lookup through a VARIABLE
+> (`var ids=['amount',…]` → `getElementById(id)`), a config object (`{id:'gsfc-accel'}` →
+> `field.id`), a helper (`el('rw-ev')`), or a CONCATENATION (`'block-'+name`) survived
+> unrenamed on **32 of 69** converted rows — **14 of them serving** (verified at
+> robot-hands.com's served bytes), where the tool is structurally dead at load or first
+> interaction. Full mechanism, census, and fix: **`bugs_open/324`** (filed with first-hand
+> verification substituted for a 090 run, stated there). What caught it: the judged-pipeline
+> build session read the canary's REAL script bytes and asked what the deterministic pass
+> would do to its `const inputs = ['amount','interest','years']` — a question no batch check
+> had encoded.
+
+What is BUILT this session (one commit, council round 6 on the lane correlation):
+
+- **Pass 5 + the binding detector** (`component_instance_bindings.go`): classes A/B/C rename
+  mechanically; refuse-contexts (comparisons, case labels, object keys, computed access) are
+  skipped and REPORTED; `UnprefixedBindings` — including a composition-hazard check
+  (`'fg-'+id` where both `fleetSize` and `fg-fleetSize` are declared) — is now part of
+  `GateConvertedTemplate`, so the gate refuses this shape from now on. Mutation-proven in both
+  directions on pinned live bytes (loan-repayment, gripper-sf, supplier-comparison,
+  affordability).
+- **`repair_instance_scope_bindings`** (fifth writer, fan-out-intended): repair → detector
+  empty + gate clean + write guard → snapshot + write. 27 of the 32 repair mechanically;
+  **5 refuse to the judged pool** (3× automation-savings-estimator, fuel-budget-forecaster,
+  loot-table-balancer). Seed: `sql_for_agents/487_seed_bindings_repair_HOLD.sql` — all
+  converted rows, derived at apply time, serving-broken rows at priority 30.
+- **The judged pipeline** (PLAN_2026-08-18 §3, built): `scope_component_instance_judged`
+  fix_type — re-derives its baseline, gates the LLM rewrite on the two-instance render +
+  markup parity + id-set parity + the binding detector + the comparative write guard, writes
+  under its own change_source. Workflow branch + owned-page section_edit delivery:
+  `sql_for_agents/486_judged_instance_scope_pipeline_HOLD.sql` (HOLD until the roll; then the
+  fixer self-routes refusals to the LLM branch and failures land `needs_human_review`).
+- **`cmd/instanceaudit --bindings`**: the census and the done-check (exit 3 while any
+  converted row still dangles after repair).
+
+**Execution order from here:** roll (digest-verify) → apply 486 → apply 487 → drain the repair
+batch (27 fixed:true, each auto-filing its page-scoped rerenders; 5 to needs_human_review →
+judged canary joins them) → `--bindings` exits 0 → then the LMC judged sequence per the PLAN
+(owed steps, canary `loans-standard-calc`, 22, then the 2 generic tools + the 5 refusals).

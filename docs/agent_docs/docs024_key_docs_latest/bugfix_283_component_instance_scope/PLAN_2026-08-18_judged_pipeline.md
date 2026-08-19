@@ -49,8 +49,13 @@ Two of these change the design materially, so they are called out:
 The judged pipeline is a **branch of the existing 283 programme agent**, triggered by the
 mechanical arm's own refusal. Reasons, in order of weight:
 
-1. **The router already exists and is proven.** `apply_fix`'s `needs_script_scoping` refusal
-   *is* the classification — it fired correctly on all 25 during the batch. No second
+1. **The router already exists.** `apply_fix`'s `needs_script_scoping` refusal
+   *is* the classification. ~~it fired correctly on all 25 during the batch~~
+   > **CORRECTED 2026-08-19: FALSE — the 25 were never seeded; the batch excluded them.** The
+   > classification came from `cmd/instanceaudit` (the detector), not from production runs of
+   > the converter. Written in the confident voice with no marker — exactly the
+   > `WRONG_CALLS.md` shape (logged there). The claim is now TESTED instead: the build's
+   > fixtures run the real refusal on real judged-pool bytes. No second
    classifier, no second seed shape: the judged batch is seeded exactly like the mechanical one
    (`instance_scope_conversion` items, one per component ROW), and the fixer routes each item
    mechanically or judged by looking, not by being told.
@@ -197,3 +202,30 @@ not a queue. (A single gate-fed retry is a v2 option if refusals cluster.)
 5. Image: bump `IMAGE_TAG`, build from committed HEAD, verify at the DIGEST (RUNBOOK §1) —
    two same-tag traps hit this lane in two days.
 6. Then §5's sequence: owed steps → canary → batch → generic pair.
+
+---
+
+## 9. ADDENDUM 2026-08-19 (build session) — what building it changed, and the defect the build found
+
+The pipeline above is BUILT (Go arm, gate, workflow migration `sql_for_agents/486_…_HOLD.sql`).
+Three deltas against §3–§4 as designed:
+
+1. **The gate gained a fourth mechanical check — the binding detector** (`UnprefixedBindings`,
+   `component_instance_bindings.go`): no declared id may survive bare in the script, no
+   concatenated prefix unprefixed, no composition hazard. Added because reading the canary's
+   REAL bytes exposed that the deterministic converter had shipped exactly that defect on 32 of
+   the 69 mechanical conversions — **`bugs_open/324`**, the batch's blind spot, 14 rows serving
+   broken. The converter itself gained pass 5 (same file), and the mechanical arm now reports
+   what it could not place.
+2. **A repair sub-programme precedes the judged sequence**: fix_type
+   `repair_instance_scope_bindings` + seed `487_…_HOLD.sql` repairs the 27 mechanically
+   repairable rows first (serving-broken at priority 30); its 5 refusals join the judged pool,
+   so the judged queue is 25 + 5 = 30 rows, LMC still first among the LMC-affected.
+3. **Refusal routing is a conditional, not an error path**: `apply_judged_write` returns
+   `fixed:false` with the failing checks named (structured, kept on the state), and a
+   `check_judged_result` conditional routes anything not `fixed:true` to `fail_work_item →
+   needs_human_review`. An action error (DB down) takes the same road via `error_step`.
+
+Everything else stands as designed, including the sequencing in §5 — with the repair batch
+inserted before the canary, because 4 of the live-broken placements are on the judged rows'
+own domains and the canary's oracle baseline must be taken on a repaired estate.

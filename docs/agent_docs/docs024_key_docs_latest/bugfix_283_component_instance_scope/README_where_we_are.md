@@ -243,3 +243,24 @@ site's own test harness — 170 arithmetic checks against the live pages — is 
 witness, moved one tool at a time in step with each conversion, and that lane has been given
 notice and a chance to object before the first small calculator goes through. Next session:
 build it, put it through the review council, and run the first one.
+
+---
+
+**2026-08-19.** Building the careful-conversion pipeline turned up something worse and more
+useful than the pipeline itself: yesterday's "finished" mechanical batch quietly broke a third
+of what it converted. The converter renamed every element name and every direct lookup, and
+checked its own work by searching for the patterns it had just renamed — but many of these
+little tools pass their element names around through lists and variables before looking them
+up, and those travelling names were never renamed. The page looks perfect; the calculator
+underneath is dead. Thirty-two of the sixty-nine converted components have the fault and
+fourteen are live right now, including a demo tool on our own web-design shopfront. Every
+check we ran yesterday was green because every check measured what the converter changed, not
+what the script still refers to — that lesson is now written into the permanent guides.
+
+The good news: the fix is mostly mechanical and it is built. A new detector answers the right
+question ("does anything still refer to the old name?"), it now sits inside the acceptance
+gate so this can never ship silently again, a repair pass fixes twenty-seven of the thirty-two
+by machine, and the five genuinely tricky ones join the language-model queue we designed
+yesterday — which is also now built, gates and all. Everything is submitted for review and
+waits only for the next release to roll out; the repair job is written so the broken-and-live
+pages go first.

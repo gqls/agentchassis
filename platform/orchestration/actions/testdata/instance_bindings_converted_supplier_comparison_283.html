@@ -1,0 +1,443 @@
+<link rel="icon" href="data:,">
+<style>
+  .tool-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: inherit;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  .tool-container h2 {
+    margin-top: 0;
+    color: var(--color-primary);
+  }
+
+  .tool-description {
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .global-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .global-inputs .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1 1 200px;
+  }
+
+  fieldset.supplier-card {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    padding: 1rem;
+    margin: 0;
+  }
+
+  fieldset.supplier-card legend {
+    font-weight: 600;
+    color: var(--color-primary);
+    padding: 0 0.25rem;
+  }
+
+  .suppliers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.85rem;
+  }
+
+  label {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  select {
+    min-height: 44px;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  input:focus,
+  select:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  button.primary {
+    background: var(--color-primary);
+    color: var(--color-background);
+    border-color: var(--color-primary);
+  }
+
+  button:hover {
+    opacity: 0.9;
+  }
+
+  #{{.InstanceID}}-resultsArea {
+    margin-top: 1rem;
+  }
+
+  .results-table-wrapper {
+    overflow-x: auto;
+  }
+
+  table.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+  }
+
+  table.results-table th,
+  table.results-table td {
+    border: 1px solid var(--color-border);
+    padding: 0.6rem 0.7rem;
+    text-align: left;
+    font-size: 0.92rem;
+  }
+
+  table.results-table th {
+    background: var(--color-surface);
+    color: var(--color-primary);
+  }
+
+  tr.best-supplier td {
+    background: var(--color-accent);
+    color: var(--color-background);
+    font-weight: 600;
+  }
+
+  .summary-note {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border-left: 4px solid var(--color-primary);
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-radius: 4px;
+  }
+
+  .error-note {
+    color: var(--color-text);
+    border-left-color: var(--color-accent);
+  }
+
+  @media (max-width: 600px) {
+    .tool-container {
+      padding: 1rem;
+    }
+    table.results-table th,
+    table.results-table td {
+      font-size: 0.85rem;
+      padding: 0.5rem;
+    }
+  }
+</style>
+
+<div class="tool-container">
+  <h2>Wholesale Fuel Supplier Comparison Calculator</h2>
+  <p class="tool-description">
+    Compare two or three supplier quotes side by side. Enter each supplier's rack price, delivery fee,
+    minimum order volume, and any early payment discount. This tool calculates the true landed cost per
+    unit and per year, not just the headline rack price, so you can see which quote actually costs less.
+  </p>
+
+  <fieldset>
+    <legend>Your fuel requirement</legend>
+    <div class="global-inputs">
+      <div class="field">
+        <label for="{{.InstanceID}}-annualVolume">Annual volume needed</label>
+        <input type="number" id="{{.InstanceID}}-annualVolume" value="120000" min="0" step="100">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-unitSelect">Unit of measure</label>
+        <select id="{{.InstanceID}}-unitSelect">
+          <option value="gallon">Gallons</option>
+          <option value="litre">Litres</option>
+        </select>
+      </div>
+    </div>
+  </fieldset>
+
+  <div class="suppliers-grid" id="{{.InstanceID}}-suppliersGrid">
+    <fieldset class="supplier-card" data-index="0">
+      <legend>Supplier A</legend>
+      <div class="field">
+        <label for="{{.InstanceID}}-name-0">Supplier name</label>
+        <input type="text" id="{{.InstanceID}}-name-0" value="Supplier A">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-rack-0">Rack price per unit ($)</label>
+        <input type="number" id="{{.InstanceID}}-rack-0" value="2.450" step="0.001" min="0">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-delivery-0">Delivery fee per order ($)</label>
+        <input type="number" id="{{.InstanceID}}-delivery-0" value="150" step="1" min="0">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-minorder-0">Minimum order volume</label>
+        <input type="number" id="{{.InstanceID}}-minorder-0" value="8000" step="100" min="1">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-discount-0">Early payment discount (%)</label>
+        <input type="number" id="{{.InstanceID}}-discount-0" value="0" step="0.1" min="0" max="100">
+      </div>
+    </fieldset>
+
+    <fieldset class="supplier-card" data-index="1">
+      <legend>Supplier B</legend>
+      <div class="field">
+        <label for="{{.InstanceID}}-name-1">Supplier name</label>
+        <input type="text" id="{{.InstanceID}}-name-1" value="Supplier B">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-rack-1">Rack price per unit ($)</label>
+        <input type="number" id="{{.InstanceID}}-rack-1" value="2.390" step="0.001" min="0">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-delivery-1">Delivery fee per order ($)</label>
+        <input type="number" id="{{.InstanceID}}-delivery-1" value="225" step="1" min="0">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-minorder-1">Minimum order volume</label>
+        <input type="number" id="{{.InstanceID}}-minorder-1" value="10000" step="100" min="1">
+      </div>
+      <div class="field">
+        <label for="{{.InstanceID}}-discount-1">Early payment discount (%)</label>
+        <input type="number" id="{{.InstanceID}}-discount-1" value="2" step="0.1" min="0" max="100">
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="button-row">
+    <button type="button" id="{{.InstanceID}}-addSupplierBtn">Add third supplier</button>
+    <button type="button" id="{{.InstanceID}}-calculateBtn" class="primary">Compare Suppliers</button>
+  </div>
+
+  <div id="{{.InstanceID}}-resultsArea" aria-live="polite"></div>
+</div>
+
+<script>
+/* === tool-doc ===
+function: tool-supplier-comparison-calculator
+purpose: Calculates and compares the true landed cost per unit and per year across two or three wholesale fuel supplier quotes.
+behaviour:
+  - treats all volumes in whatever single unit the user selects (gallon or litre) without converting between them
+  - landed cost per unit equals rack price after any early payment discount plus delivery fee amortised over the minimum order volume
+  - number of deliveries per year is the annual volume divided by minimum order volume, rounded up, with a minimum of one delivery
+  - total annual cost equals discounted rack cost for the full annual volume plus total delivery fees for the year
+  - flags the supplier with the lowest total annual cost as the recommended option
+  - performs no external calls or network requests; all math runs in the browser
+  - guards against zero or negative minimum order volume and annual volume by showing a validation message instead of dividing by zero
+inputs: annual volume needed, unit of measure, and per supplier: supplier name, rack price per unit, delivery fee per order, minimum order volume, early payment discount percentage
+outputs: a comparison table showing rack cost, delivery cost per unit, landed cost per unit, deliveries per year, annual delivery fees, annual fuel cost, and total annual cost for each supplier, with the lowest total cost highlighted and a plain language summary note
+=== /tool-doc === */
+
+(function () {
+  var grid = document.getElementById('{{.InstanceID}}-suppliersGrid');
+  var addBtn = document.getElementById('{{.InstanceID}}-addSupplierBtn');
+  var calcBtn = document.getElementById('{{.InstanceID}}-calculateBtn');
+  var resultsArea = document.getElementById('{{.InstanceID}}-resultsArea');
+
+  addBtn.addEventListener('click', function () {
+    var existing = grid.querySelectorAll('.supplier-card');
+    if (existing.length >= 3) {
+      return;
+    }
+    var index = existing.length;
+    var card = document.createElement('fieldset');
+    card.className = 'supplier-card';
+    card.setAttribute('data-index', String(index));
+    card.innerHTML =
+      '<legend>Supplier C</legend>' +
+      '<div class="field"><label for="name-' + index + '">Supplier name</label>' +
+      '<input type="text" id="{{.InstanceID}}-name-' + index + '" value="Supplier C"></div>' +
+      '<div class="field"><label for="rack-' + index + '">Rack price per unit ($)</label>' +
+      '<input type="number" id="{{.InstanceID}}-rack-' + index + '" value="2.400" step="0.001" min="0"></div>' +
+      '<div class="field"><label for="delivery-' + index + '">Delivery fee per order ($)</label>' +
+      '<input type="number" id="{{.InstanceID}}-delivery-' + index + '" value="180" step="1" min="0"></div>' +
+      '<div class="field"><label for="minorder-' + index + '">Minimum order volume</label>' +
+      '<input type="number" id="{{.InstanceID}}-minorder-' + index + '" value="9000" step="100" min="1"></div>' +
+      '<div class="field"><label for="discount-' + index + '">Early payment discount (%)</label>' +
+      '<input type="number" id="{{.InstanceID}}-discount-' + index + '" value="0" step="0.1" min="0" max="100"></div>';
+    grid.appendChild(card);
+    addBtn.disabled = true;
+    addBtn.textContent = 'Third supplier added';
+  });
+
+  function formatMoney(value) {
+    return '$' + value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function formatUnitPrice(value) {
+    return '$' + value.toFixed(4);
+  }
+
+  calcBtn.addEventListener('click', function () {
+    var annualVolume = parseFloat(document.getElementById('{{.InstanceID}}-annualVolume').value);
+    var unit = document.getElementById('{{.InstanceID}}-unitSelect').value === 'litre' ? 'litre' : 'gallon';
+    var unitLabel = unit === 'litre' ? 'litre' : 'gallon';
+
+    if (!isFinite(annualVolume) || annualVolume <= 0) {
+      resultsArea.innerHTML = '<p class="summary-note error-note">Please enter an annual volume greater than zero.</p>';
+      return;
+    }
+
+    var cards = grid.querySelectorAll('.supplier-card');
+    var results = [];
+    var validationError = '';
+
+    cards.forEach(function (card) {
+      var index = card.getAttribute('data-index');
+      var name = document.getElementById('name-' + index).value.trim() || ('Supplier ' + (parseInt(index, 10) + 1));
+      var rack = parseFloat(document.getElementById('rack-' + index).value);
+      var delivery = parseFloat(document.getElementById('delivery-' + index).value);
+      var minOrder = parseFloat(document.getElementById('minorder-' + index).value);
+      var discount = parseFloat(document.getElementById('discount-' + index).value);
+
+      if (!isFinite(rack) || rack < 0) rack = 0;
+      if (!isFinite(delivery) || delivery < 0) delivery = 0;
+      if (!isFinite(discount) || discount < 0) discount = 0;
+      if (discount > 100) discount = 100;
+
+      if (!isFinite(minOrder) || minOrder <= 0) {
+        validationError = 'Please enter a minimum order volume greater than zero for ' + name + '.';
+        return;
+      }
+
+      var discountedRack = rack * (1 - discount / 100);
+      var deliveryCostPerUnit = delivery / minOrder;
+      var landedCostPerUnit = discountedRack + deliveryCostPerUnit;
+
+      var deliveriesPerYear = Math.ceil(annualVolume / minOrder);
+      if (deliveriesPerYear < 1) deliveriesPerYear = 1;
+
+      var annualDeliveryFees = deliveriesPerYear * delivery;
+      var annualFuelCost = discountedRack * annualVolume;
+      var totalAnnualCost = annualFuelCost + annualDeliveryFees;
+
+      results.push({
+        name: name,
+        rack: rack,
+        discountedRack: discountedRack,
+        deliveryCostPerUnit: deliveryCostPerUnit,
+        landedCostPerUnit: landedCostPerUnit,
+        deliveriesPerYear: deliveriesPerYear,
+        annualDeliveryFees: annualDeliveryFees,
+        annualFuelCost: annualFuelCost,
+        totalAnnualCost: totalAnnualCost
+      });
+    });
+
+    if (validationError) {
+      resultsArea.innerHTML = '<p class="summary-note error-note">' + validationError + '</p>';
+      return;
+    }
+
+    if (results.length < 2) {
+      resultsArea.innerHTML = '<p class="summary-note error-note">Please provide at least two supplier quotes to compare.</p>';
+      return;
+    }
+
+    var lowestCost = Math.min.apply(null, results.map(function (r) { return r.totalAnnualCost; }));
+    var highestCost = Math.max.apply(null, results.map(function (r) { return r.totalAnnualCost; }));
+    var bestSupplier = results.filter(function (r) { return r.totalAnnualCost === lowestCost; })[0];
+
+    var tableRows = results.map(function (r) {
+      var rowClass = r.totalAnnualCost === lowestCost ? ' class="best-supplier"' : '';
+      return '<tr' + rowClass + '>' +
+        '<td>' + escapeHtml(r.name) + '</td>' +
+        '<td>' + formatUnitPrice(r.discountedRack) + '</td>' +
+        '<td>' + formatUnitPrice(r.deliveryCostPerUnit) + '</td>' +
+        '<td>' + formatUnitPrice(r.landedCostPerUnit) + '</td>' +
+        '<td>' + r.deliveriesPerYear + '</td>' +
+        '<td>' + formatMoney(r.annualDeliveryFees) + '</td>' +
+        '<td>' + formatMoney(r.annualFuelCost) + '</td>' +
+        '<td>' + formatMoney(r.totalAnnualCost) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var savings = highestCost - lowestCost;
+
+    var summaryHtml = '<p class="summary-note">' +
+      'Based on an annual requirement of ' + annualVolume.toLocaleString() + ' ' + unitLabel + 's, ' +
+      escapeHtml(bestSupplier.name) + ' offers the lowest total landed cost at ' +
+      formatMoney(bestSupplier.totalAnnualCost) + ' per year, equal to ' +
+      formatUnitPrice(bestSupplier.landedCostPerUnit) + ' per ' + unitLabel + '. ' +
+      (savings > 0 ? 'That is a saving of ' + formatMoney(savings) + ' per year compared with the highest cost quote.' : 'All quotes result in the same total annual cost.') +
+      '</p>';
+
+    resultsArea.innerHTML =
+      '<div class="results-table-wrapper">' +
+      '<table class="results-table">' +
+      '<thead><tr>' +
+      '<th>Supplier</th>' +
+      '<th>Rack price after discount ($/' + unitLabel + ')</th>' +
+      '<th>Delivery cost per ' + unitLabel + '</th>' +
+      '<th>Landed cost per ' + unitLabel + '</th>' +
+      '<th>Deliveries per year</th>' +
+      '<th>Annual delivery fees</th>' +
+      '<th>Annual fuel cost</th>' +
+      '<th>Total annual cost</th>' +
+      '</tr></thead>' +
+      '<tbody>' + tableRows + '</tbody>' +
+      '</table>' +
+      '</div>' +
+      summaryHtml;
+  });
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+})();
+</script>

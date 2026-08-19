@@ -58,7 +58,7 @@ var fanOutIntendedWriters = map[string]string{
 
 	// fix_component_template_action.go — FixComponentTemplateInputSpec:
 	// Required [site_id], Optional [fix_type, slot_name, page_component_id].
-	// THREE html_template writes (third added 2026-08-17, bugs_open/283):
+	// FIVE html_template writes (third added 2026-08-17, fourth and fifth 2026-08-19, all bugs_open/283):
 	// fixRepairTemplateSlots (component_id from input_data.spec.component_id /
 	// input_data.component_id; mechanical `<no value>x</no>` → `{{.x}}` after a
 	// `<no value>` presence check; snapshots to component_versions
@@ -72,12 +72,24 @@ var fanOutIntendedWriters = map[string]string{
 	// fan-out to every placement is the POINT of the fix; gated by
 	// GateConvertedTemplate before any write, snapshots to component_versions
 	// change_source='scope_component_instance', and REFUSES the write entirely
-	// when the script is unscoped rather than shipping ids-only). No
-	// page-scoped input reaches it. page_component_id is consumed ONLY by
+	// when the script is unscoped rather than shipping ids-only); and
+	// fixScopeComponentInstanceJudged (same spec.component_id subject; the
+	// RFC_034 JUDGED half — an LLM-rewritten script gated by
+	// JudgedConversionIssues + componentRegressionIssues before any write,
+	// snapshots change_source='scope_component_instance_judged'. Fan-out to
+	// every placement is again the POINT: 22 of the 25 judged rows are
+	// component_level='section', one placed on two pages, which is exactly
+	// the shape sharedComponentWriteCheck would refuse — and refusing it
+	// would leave that component unconvertible. PLAN_2026-08-18_judged_pipeline §1.);
+	// and fixRepairInstanceScopeBindings (spec.component_id; pass 5 applied to
+	// a row the mechanical batch converted before pass 5 existed — 283 §14;
+	// gated by UnprefixedBindings + GateConvertedTemplate + the comparative
+	// write guard; snapshots change_source='repair_instance_scope_bindings').
+	// No page-scoped input reaches any of the five. page_component_id is consumed ONLY by
 	// fixAlignSlotName and fixPageComponentStatus, both page_components
 	// METADATA writers. The 2026-08-15 header census that called this file
 	// "page-aware … writes the component's template" conflated those two paths.
-	"fix_component_template_action.go": "component-scoped writes only: mechanical slot repair (spec.component_id), chrome CSS APPEND via site_components with shared_sites recorded, and the 283 instance-scope conversion (spec.component_id, gate-refused before write when the script is unscoped); page_component_id reaches only metadata fix types",
+	"fix_component_template_action.go": "component-scoped writes only: mechanical slot repair (spec.component_id), chrome CSS APPEND via site_components with shared_sites recorded, the 283 instance-scope conversion (spec.component_id, gate-refused before write when the script is unscoped), its judged sibling (spec.component_id, LLM rewrite gated by JudgedConversionIssues + the comparative write guard; fan-out is the point — 22/25 judged rows are section-level), and the pass-5 binding repair (spec.component_id, gated by UnprefixedBindings + the two-instance gate + the write guard); page_component_id reaches only metadata fix types",
 
 	// fix_harcoded_colours_action.go — FixHardcodedColorsInputSpec: Required
 	// [site_id], Optional []. fixTemplateColors selects `SELECT DISTINCT cc.id …

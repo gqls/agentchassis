@@ -1,0 +1,340 @@
+<style>
+.tool-container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.tool-container * {
+  box-sizing: border-box;
+}
+
+.tool-container h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+}
+
+.tool-description {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.gsfc-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.gsfc-field {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--color-surface);
+}
+
+.gsfc-field legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.gsfc-field label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-muted);
+}
+
+.gsfc-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.gsfc-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.gsfc-btn {
+  min-height: 44px;
+  padding: 0.6rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-background);
+  cursor: pointer;
+}
+
+.gsfc-btn:hover {
+  filter: brightness(1.05);
+}
+
+.gsfc-btn.secondary {
+  background: var(--color-background);
+  color: var(--color-primary);
+}
+
+.gsfc-result {
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  background: var(--color-surface);
+  display: none;
+}
+
+.gsfc-result.visible {
+  display: block;
+}
+
+.gsfc-sf-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin: 0.25rem 0 0.75rem;
+}
+
+.gsfc-sf-label {
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.gsfc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.gsfc-table th,
+.gsfc-table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.gsfc-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.gsfc-reasoning {
+  color: var(--color-text);
+  line-height: 1.55;
+  margin-top: 1rem;
+}
+
+.gsfc-reasoning strong {
+  color: var(--color-secondary);
+}
+
+@media (min-width: 640px) {
+  .gsfc-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .gsfc-form .gsfc-field.full {
+    grid-column: 1 / -1;
+  }
+  .gsfc-actions {
+    grid-column: 1 / -1;
+  }
+  .gsfc-result {
+    grid-column: 1 / -1;
+  }
+}
+</style>
+
+<div class="tool-container">
+  <h2>Gripper Safety Factor Calculator</h2>
+  <p class="tool-description">
+    Select the conditions that best describe your application, then calculate a recommended
+    gripping force safety factor. The result is a starting point for engineering judgement,
+    not a substitute for it.
+  </p>
+
+  <form class="gsfc-form" id="{{.InstanceID}}-gsfc-form">
+    <fieldset class="gsfc-field">
+      <legend>Acceleration profile</legend>
+      <label for="{{.InstanceID}}-gsfc-accel">Peak acceleration during motion</label>
+      <select id="{{.InstanceID}}-gsfc-accel">
+        <option value="0">Low, under 0.3 g</option>
+        <option value="0.3">Medium, 0.3 to 1 g</option>
+        <option value="0.6">High, 1 to 3 g</option>
+        <option value="1.0">Very high, above 3 g or sudden stops</option>
+      </select>
+    </fieldset>
+
+    <fieldset class="gsfc-field">
+      <legend>Part fragility</legend>
+      <label for="{{.InstanceID}}-gsfc-fragility">Susceptibility to damage or crush</label>
+      <select id="{{.InstanceID}}-gsfc-fragility">
+        <option value="0">Robust, rigid metal or dense part</option>
+        <option value="0.4">Moderate, standard plastic or composite</option>
+        <option value="0.8">Fragile, thin walled or brittle</option>
+        <option value="1.2">Very fragile, glass, coated, or easily marked</option>
+      </select>
+    </fieldset>
+
+    <fieldset class="gsfc-field">
+      <legend>Grip orientation</legend>
+      <label for="{{.InstanceID}}-gsfc-orientation">How gravity acts on the held part</label>
+      <select id="{{.InstanceID}}-gsfc-orientation">
+        <option value="0">Horizontal grip, gravity assists closure</option>
+        <option value="0.5">Vertical grip, gravity opposes hold</option>
+        <option value="0.8">Overhead or inverted grip</option>
+        <option value="0.6">Angled or dynamically changing orientation</option>
+      </select>
+    </fieldset>
+
+    <fieldset class="gsfc-field">
+      <legend>Surface condition</legend>
+      <label for="{{.InstanceID}}-gsfc-surface">Contact surface between finger and part</label>
+      <select id="{{.InstanceID}}-gsfc-surface">
+        <option value="0">Dry, clean, high friction</option>
+        <option value="0.3">Slightly oily or dusty</option>
+        <option value="0.6">Wet or slick</option>
+        <option value="0.5">Inconsistent or unknown across batches</option>
+      </select>
+    </fieldset>
+
+    <fieldset class="gsfc-field full">
+      <legend>Consequence of a dropped part</legend>
+      <label for="{{.InstanceID}}-gsfc-consequence">Impact if the part is dropped or slips</label>
+      <select id="{{.InstanceID}}-gsfc-consequence">
+        <option value="0">Low, inexpensive part, no safety concern</option>
+        <option value="0.4">Moderate, some cost or minor line downtime</option>
+        <option value="0.8">High, expensive part or significant damage risk</option>
+        <option value="1.5">Safety critical, risk to personnel or major failure</option>
+      </select>
+    </fieldset>
+
+    <div class="gsfc-actions">
+      <button type="button" class="gsfc-btn" id="{{.InstanceID}}-gsfc-calculate">Calculate safety factor</button>
+      <button type="button" class="gsfc-btn secondary" id="{{.InstanceID}}-gsfc-reset">Reset</button>
+    </div>
+  </form>
+
+  <div class="gsfc-result" id="{{.InstanceID}}-gsfc-result">
+    <div class="gsfc-sf-label">Recommended safety factor</div>
+    <div class="gsfc-sf-value" id="{{.InstanceID}}-gsfc-sf-value">1.50x</div>
+
+    <table class="gsfc-table">
+      <thead>
+        <tr><th>Factor</th><th>Selection</th><th>Contribution</th></tr>
+      </thead>
+      <tbody id="{{.InstanceID}}-gsfc-breakdown"></tbody>
+    </table>
+
+    <p class="gsfc-reasoning" id="{{.InstanceID}}-gsfc-reasoning"></p>
+  </div>
+</div>
+
+<script>
+/* === tool-doc ===
+function: tool-gripper-safety-factor-calculator
+purpose: Computes a recommended gripping force safety factor multiplier from acceleration, part fragility, orientation, surface condition, and drop consequence inputs.
+behaviour:
+  - all five inputs are read as numeric weights from fixed dropdown option values, no free text
+  - total weighted score is summed then mapped linearly to a safety factor between 1.50x and 4.00x
+  - result is rounded to the nearest 0.25 and displayed with a breakdown table and plain language reasoning
+  - no external calls; all computation runs client-side in the browser
+inputs: selections for acceleration profile, part fragility, grip orientation, surface condition, and consequence of drop
+outputs: a recommended safety factor multiplier, a per-factor contribution table, and a written explanation of the reasoning
+=== /tool-doc === */
+
+(function () {
+  var calcBtn = document.getElementById('{{.InstanceID}}-gsfc-calculate');
+  var resetBtn = document.getElementById('{{.InstanceID}}-gsfc-reset');
+  var resultBox = document.getElementById('{{.InstanceID}}-gsfc-result');
+  var sfValueEl = document.getElementById('{{.InstanceID}}-gsfc-sf-value');
+  var breakdownEl = document.getElementById('{{.InstanceID}}-gsfc-breakdown');
+  var reasoningEl = document.getElementById('{{.InstanceID}}-gsfc-reasoning');
+
+  var fields = [
+    { id: 'gsfc-accel', label: 'Acceleration profile' },
+    { id: 'gsfc-fragility', label: 'Part fragility' },
+    { id: 'gsfc-orientation', label: 'Grip orientation' },
+    { id: 'gsfc-surface', label: 'Surface condition' },
+    { id: 'gsfc-consequence', label: 'Consequence of drop' }
+  ];
+
+  var MAX_SCORE = 5.1;
+  var MIN_SF = 1.5;
+  var MAX_SF = 4.0;
+
+  function roundToQuarter(value) {
+    return Math.round(value * 4) / 4;
+  }
+
+  function calculate() {
+    var total = 0;
+    var rows = '';
+
+    fields.forEach(function (field) {
+      var select = document.getElementById(field.id);
+      var value = parseFloat(select.value);
+      var text = select.options[select.selectedIndex].text;
+      total += value;
+      rows += '<tr><td>' + field.label + '</td><td>' + text + '</td><td>' +
+        value.toFixed(2) + '</td></tr>';
+    });
+
+    breakdownEl.innerHTML = rows;
+
+    var rawSF = MIN_SF + (total / MAX_SCORE) * (MAX_SF - MIN_SF);
+    if (rawSF > MAX_SF) rawSF = MAX_SF;
+    if (rawSF < MIN_SF) rawSF = MIN_SF;
+    var sf = roundToQuarter(rawSF);
+
+    sfValueEl.textContent = sf.toFixed(2) + 'x';
+
+    var band;
+    if (sf <= 1.75) {
+      band = 'This is a low risk combination. A modest safety factor should be sufficient, ' +
+        'but always confirm against the part manufacturer coefficient of friction data.';
+    } else if (sf <= 2.5) {
+      band = 'This is a moderate risk combination. A mid range safety factor gives margin for ' +
+        'minor variation in surface friction or part batch without over clamping.';
+    } else if (sf <= 3.25) {
+      band = 'This is an elevated risk combination. A higher safety factor is warranted, ' +
+        'and gripper force should be validated with a hold test at worst case acceleration.';
+    } else {
+      band = 'This is a high risk or safety critical combination. A conservative safety factor ' +
+        'is recommended, along with redundant retention such as a mechanical stop or sensor ' +
+        'confirmation of grip state.';
+    }
+
+    reasoningEl.innerHTML = '<strong>Reasoning:</strong> The combined score across acceleration, ' +
+      'fragility, orientation, surface condition, and drop consequence was ' + total.toFixed(2) +
+      ' out of a possible ' + MAX_SCORE.toFixed(1) + '. ' + band + ' Treat this figure as a ' +
+      'starting recommendation: it should be checked against actual coefficient of friction, ' +
+      'jaw geometry, and any relevant safety standards for the application.';
+
+    resultBox.classList.add('visible');
+  }
+
+  function reset() {
+    fields.forEach(function (field) {
+      document.getElementById(field.id).selectedIndex = 0;
+    });
+    resultBox.classList.remove('visible');
+  }
+
+  calcBtn.addEventListener('click', calculate);
+  resetBtn.addEventListener('click', reset);
+})();
+</script>

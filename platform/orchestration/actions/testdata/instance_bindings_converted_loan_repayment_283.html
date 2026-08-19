@@ -1,0 +1,246 @@
+<style>
+/* tool-loan-repayment — SELF-CONTAINED by design.
+   Every class is namespaced under .tool-loan-repayment-section and every colour,
+   radius and spacing reads a site theme variable with a literal fallback, so the
+   tool restyles itself into any host site and renders correctly on a site whose
+   stylesheet knows nothing about it.
+   That is not cosmetic: on loancalculator.co.uk today, .fca-style-warning,
+   .market-context-box and .status-badge are used by the page and DEFINED NOWHERE
+   (19 such classes, measured 2026-07-31), so the FCA risk warning currently
+   renders as unstyled body text. Defining them here fixes that by construction
+   and cannot regress when a host stylesheet is rewritten.
+   Deliberately does NOT set `display` on #{{.InstanceID}}-monthly-display, #{{.InstanceID}}-total-interest,
+   #{{.InstanceID}}-total-cost or the inputs: those values are part of the equivalence fingerprint
+   (block / inline / inline-block) and overriding them would register as a
+   behavioural change. */
+.tool-loan-repayment-section {
+  color: var(--color-text, #333);
+}
+.tool-loan-repayment-section .lrc-container {
+  max-width: var(--container-max-width, 1100px);
+  margin: 0 auto;
+}
+.tool-loan-repayment-section .lrc-fca-warning {
+  background: var(--color-warning-bg, #fff8e1);
+  border-left: 4px solid var(--color-warning, #f0ad4e);
+  padding: 0.85rem 1.1rem;
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  border-radius: var(--border-radius-sm, 0.25rem);
+}
+.tool-loan-repayment-section .lrc-market-context {
+  background: var(--color-surface-alt, #f4f7fb);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  padding: 0.85rem 1.1rem;
+  margin: 0 0 1.5rem;
+}
+.tool-loan-repayment-section .lrc-market-context p {
+  margin: 0.25rem 0;
+}
+.tool-loan-repayment-section .lrc-badge {
+  display: inline-block;
+  background: var(--color-accent-soft, #e7f1ff);
+  color: var(--color-accent-dark, #0056b3);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.tool-loan-repayment-section .lrc-card {
+  background: var(--color-card-bg, #ffffff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--border-radius, 0.5rem);
+  box-shadow: var(--shadow, 0 1px 4px rgba(0,0,0,0.07));
+  padding: 1.5rem;
+}
+.tool-loan-repayment-section .lrc-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.1rem;
+}
+.tool-loan-repayment-section .lrc-inputs label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+}
+.tool-loan-repayment-section .lrc-inputs input {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: var(--border-radius-sm, 0.25rem);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+.tool-loan-repayment-section .lrc-results {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  text-align: center;
+}
+.tool-loan-repayment-section .lrc-results h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tool-loan-repayment-section .lrc-headline {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  color: var(--color-accent-dark, #0056b3);
+  line-height: 1.1;
+}
+.tool-loan-repayment-section .lrc-results p {
+  margin: 0.4rem 0;
+  color: var(--color-text-muted, #64748b);
+}
+</style>
+
+<section class="tool-loan-repayment-section">
+  <div class="lrc-container">
+
+    <!-- Optional blocks. The guards are load-bearing, not tidiness: see
+         "the three optional blocks" in the tool-doc header below. -->
+    {{if .fca_warning}}<div class="lrc-fca-warning">{{.fca_warning}}</div>{{end}}
+
+    {{if or .market_context .rate_environment_note}}
+    <div class="lrc-market-context">
+      {{if .market_context}}<p>{{.market_context}}</p>{{end}}
+      {{if .rate_environment_note}}<p><span class="lrc-badge">{{.rate_environment_note}}</span></p>{{end}}
+    </div>
+    {{end}}
+
+    <div class="lrc-card">
+      <div class="lrc-inputs">
+        <div>
+          <label for="{{.InstanceID}}-amount">{{.label_amount}}</label>
+          <input type="number" id="{{.InstanceID}}-amount" value="{{.default_amount}}" min="0">
+        </div>
+        <div>
+          <label for="{{.InstanceID}}-interest">{{.label_rate}}</label>
+          <input type="number" id="{{.InstanceID}}-interest" value="{{.default_rate}}" min="0" step="0.1">
+        </div>
+        <div>
+          <label for="{{.InstanceID}}-years">{{.label_term}}</label>
+          <input type="number" id="{{.InstanceID}}-years" value="{{.default_term}}" min="0">
+        </div>
+      </div>
+      <div class="lrc-results">
+        <h3>{{.label_monthly}}</h3>
+        <div class="lrc-headline" id="{{.InstanceID}}-monthly-display">{{.zero_display}}</div>
+        <p>{{.label_total_interest}} <strong id="{{.InstanceID}}-total-interest">{{.zero_display}}</strong></p>
+        <p>{{.label_total_repayable}} <strong id="{{.InstanceID}}-total-cost">{{.zero_display}}</strong></p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+/* === tool-doc ===
+  name: Standard Loan Repayment Calculator
+  function: tool-loan-repayment
+  page: tool-loan-repayment (/tools/standard-calc.html)
+  description: Monthly repayment, total interest and total repayable for a fixed-rate personal loan, using the standard annuity formula with monthly compounding.
+  behaviour: |
+    - User sets amount, APR and term in years; every field recalculates on input.
+    - Monthly payment is the annuity formula on a monthly rate of (APR/100)/12.
+    - Total repayable is monthly x months; total interest is that less the principal.
+    - Runs once on load, so the tool is never blank.
+  invariants: |
+    £10,000 at 7.9% over 5 years MUST read £202.29 / £2,137.40 / £12,137.40. A single divisor error (/12 -> /11) is caught in all three vectors by the computed_values fence. This component also serves /index.html — both pages share one calculator.
+  verified: computed_values fence emitted from a captured golden; the rewrite is
+    proven identical to the hand-built original across three input vectors
+    (see loancalculator_couk/rewrite/verify_rewrite.py).
+  the three optional blocks: |
+    fca_warning, market_context and rate_environment_note are OPTIONAL, and their
+    conditional guards are why one component can serve two pages. (Spelled out
+    rather than written as template syntax: this block is INSIDE the template, so
+    a literal guard in prose is parsed as a real one — it failed validation with
+    "missing value for if".) This calculator
+    appears on /tools/standard-calc.html AND on /index.html; only standard-calc
+    carries the risk warning and the market lines. Rendered unconditionally they
+    would ADD both to the homepage, including two dated factual claims that would
+    then need maintaining in two places.
+    Blanking the fields is NOT an equivalent fix: an empty field still renders the
+    styled box, so the homepage would show an empty amber strip and an empty blue
+    panel. The markup is conditional and the page decides, via content_data.
+    THIS EXPLANATION LIVES HERE, NOT IN AN HTML COMMENT, and that is the point of
+    it. It used to sit in the markup, where it SHIPPED — StripToolDocHeader
+    removes this block from the served page (verified: `=== tool-doc ===` returns
+    0 on both live urls) but nothing strips an HTML comment. So the note
+    explaining why the homepage must not carry two dated figures was publishing
+    both figures into the homepage's own source. Keep engineering prose inside
+    these sentinels.
+  === /tool-doc === */
+/* ARITHMETIC PRESERVED EXACTLY from the hand-built original
+   (loancalculator.co.uk/tools/standard-calc.html, 2026-07-31). The standard
+   annuity formula. Every line below that computes anything is unchanged, and
+   equivalence is PROVEN rather than asserted: toolgolden.py compares the values
+   this produces against the golden captured from the original, across three
+   input vectors. £10,000 at 7.9% over 5 years must read £202.29 / £2,137.40 /
+   £12,137.40 — and a single-divisor error (/12 -> /11) is caught in every vector.
+
+   Changed from the original ONLY in how it is bound: the locale and currency now
+   come from the component's input_schema rather than being hardcoded 'en-GB'/'GBP',
+   which is what lets another site reuse this tool. The numeric result is
+   independent of that choice. */
+(function () {
+  var LOCALE = "{{.locale}}";
+  var CURRENCY = "{{.currency_code}}";
+  var ids = ['amount', 'interest', 'years'];
+
+  function calculateLoan() {
+    var P = parseFloat(document.getElementById('{{.InstanceID}}-amount').value);
+    var APR = parseFloat(document.getElementById('{{.InstanceID}}-interest').value);
+    var months = parseFloat(document.getElementById('{{.InstanceID}}-years').value) * 12;
+
+    var r = (APR / 100) / 12;
+    var fmt = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: CURRENCY });
+
+    function show(monthly, totalRepayable, totalCostOfCredit) {
+      document.getElementById('{{.InstanceID}}-monthly-display').innerText = fmt.format(monthly);
+      document.getElementById('{{.InstanceID}}-total-cost').innerText = fmt.format(totalRepayable);
+      document.getElementById('{{.InstanceID}}-total-interest').innerText = fmt.format(totalCostOfCredit);
+    }
+
+    // FIXED 2026-08-09 (bugs_open/224). The guard used to be `r > 0` with no
+    // else, so a 0% APR returned without touching the DOM and the PREVIOUS
+    // answer stayed on screen looking like a fresh one — the same inputs gave
+    // two different answers depending on the route taken to them. Every path
+    // now writes: an answer, or a cleared state.
+    if (!(P > 0 && months > 0) || !(APR >= 0) || !isFinite(APR)) {
+      show(0, 0, 0);
+      return;
+    }
+
+    if (r === 0) {
+      // 0% is an advertised product, not a degenerate input, and the annuity
+      // formula is 0/0 here. This is its limit as r->0: the debt divided by
+      // the term, and no interest.
+      var flat = Math.round((P / months + Number.EPSILON) * 100) / 100;
+      show(flat, P, 0);
+      return;
+    }
+
+    var x = Math.pow(1 + r, months);
+    var monthly = (P * x * r) / (x - 1);
+    monthly = Math.round((monthly + Number.EPSILON) * 100) / 100;
+
+    var totalRepayable = monthly * months;
+    var totalCostOfCredit = totalRepayable - P;
+
+    show(monthly, totalRepayable, totalCostOfCredit);
+  }
+
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', calculateLoan);
+  });
+  calculateLoan();
+})();
+</script>
+

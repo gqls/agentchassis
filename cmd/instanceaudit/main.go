@@ -23,6 +23,15 @@
 //	               JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
 //	          WHERE c.is_active AND c.html_template ~ 'getElementById') x;" > /tmp/templates.json
 //	go run ./cmd/instanceaudit /tmp/templates.json [--list]
+//	go run ./cmd/instanceaudit /tmp/converted.json --bindings
+//
+// --bindings (2026-08-19, bugs_open/283 §14) runs the BINDING completeness
+// detector — actions.UnprefixedBindings — over already-converted templates and
+// reports, per row, what dangles and whether actions.RepairConvertedTemplateBindings
+// clears it. This is the check the mechanical batch did not have: 32 of its 69
+// outputs carried an id literal that travels to a lookup through a variable,
+// a helper or a concatenation, and every spot-check (ids + tokens) read clean.
+// Export the converted rows with: … WHERE c.html_template LIKE '%InstanceID%'.
 //
 // The export is deliberately the caller's job: this reads a file and touches no
 // database, so it can be run against a snapshot, a single candidate template, or
@@ -153,6 +162,11 @@ func main() {
 	}
 	fmt.Println()
 
+	if len(os.Args) > 2 && os.Args[2] == "--bindings" {
+		auditBindings(rows)
+		return
+	}
+
 	if len(os.Args) > 2 && os.Args[2] == "--list" {
 		fmt.Println("\n--- per component ---")
 		for _, d := range details {
@@ -160,4 +174,77 @@ func main() {
 				strings.TrimSpace(d.fn), d.unscopedN, d.onloadN, d.dupIfDoubled)
 		}
 	}
+}
+
+// auditBindings reports the binding-completeness state of each converted
+// template and what the repair pass would do to it. Exit 3 if any row still
+// dangles AFTER repair (those need the judged pool), so a CI caller can tell.
+func auditBindings(rows []row) {
+	type br struct {
+		fn, id      string
+		before      []string
+		after       []string
+		literals    int
+		concatSites int
+		rejects     []string
+	}
+	var out []br
+	dirty, repairable, judged := 0, 0, 0
+	for _, r := range rows {
+		if !strings.Contains(r.Tpl, "{{.InstanceID}}") {
+			continue
+		}
+		b := br{fn: r.Function, id: r.ID, before: actions.UnprefixedBindings(r.Tpl)}
+		if len(b.before) == 0 {
+			continue
+		}
+		dirty++
+		repaired, rep, rejects, ok := actions.RepairConvertedTemplateBindings(r.Tpl)
+		b.rejects = rejects
+		if ok {
+			b.literals, b.concatSites = rep.LiteralIDsRenamed, rep.ConcatSitesRenamed
+			b.after = actions.UnprefixedBindings(repaired)
+		} else {
+			b.after = b.before
+		}
+		if len(b.after) == 0 {
+			repairable++
+		} else {
+			judged++
+		}
+		out = append(out, b)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].fn < out[j].fn })
+	fmt.Printf("converted templates: %d\n", countConverted(rows))
+	fmt.Printf("with unprefixed bindings: %d  (repairable mechanically: %d, still dangling after repair: %d)\n", dirty, repairable, judged)
+	for _, b := range out {
+		state := "REPAIRABLE"
+		if len(b.after) > 0 {
+			state = "JUDGED"
+		}
+		fmt.Printf("\n%-45s %s  %s\n", b.fn, b.id[:8], state)
+		for _, s := range b.before {
+			fmt.Printf("    before: %s\n", s)
+		}
+		fmt.Printf("    repair: literals=%d concat_sites=%d\n", b.literals, b.concatSites)
+		for _, s := range b.after {
+			fmt.Printf("    AFTER:  %s\n", s)
+		}
+		for _, s := range b.rejects {
+			fmt.Printf("    reject: %s\n", s)
+		}
+	}
+	if judged > 0 {
+		os.Exit(3)
+	}
+}
+
+func countConverted(rows []row) int {
+	n := 0
+	for _, r := range rows {
+		if strings.Contains(r.Tpl, "{{.InstanceID}}") {
+			n++
+		}
+	}
+	return n
 }
