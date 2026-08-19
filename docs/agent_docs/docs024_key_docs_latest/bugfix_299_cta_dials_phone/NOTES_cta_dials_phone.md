@@ -330,3 +330,47 @@ first-hand verification, and state it plainly — each of the three gaps it name
    | the two sides DIFFER | 30 |
 
    **26 of 26, no survivors.** 312 is confirmed at fleet scale, not by one trace.
+
+### PROVEN LIVE 2026-08-19 — the detector ran and caught 299's own button
+
+Arming a check is not evidence it works, and a zero would have been ambiguous (no run yet vs
+nothing to find), so I induced one scoped run rather than waiting for the rotation:
+`bash scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh webdesign.uk completeness`
+(corr `ee07fd81`, orch `1032332f` + child, both **COMPLETED**).
+
+**Two results, and the first one matters most:**
+
+1. **The run COMPLETED.** The fail-fast risk 475 was held for is now disproven *in production*,
+   not merely by probe: an unregistered name would have failed the whole step and rolled back
+   every other check's findings. It did not, and `misdirected_cta`, `orphan_pages` and the rest
+   filed normally alongside.
+2. **`cta_nonpage_destination` fired, 6 findings on this site, and one of them IS bug 299:**
+
+   ```json
+   {"kind": "cta_names_nonpage_destination", "page_name": "index", "slot_name": "call-to-action",
+    "text": "Read the full terms in our FAQ before you pay.",
+    "href": "tel:+44 (0) 7934 524 911",
+    "why": "copy names a real page; href is a non-page destination"}
+   ```
+
+   The element that had to reach the owner's eye — because *no queue could see it* — is now a
+   row in the queue. That closes the detection half of 299's "why is this invisible", and it is
+   the first end-to-end evidence the lane has produced rather than a unit test or a calibration.
+
+   The other five: a second `cta_names_nonpage_destination` on `how-it-works/call-to-action`
+   (same shape, different page), and four `cta_tel_malformed` — including
+   `contact/hero: tel:+4407934524911` with `why: "cannot be normalised without guessing
+   (collapsed trunk prefix …) — a human must state the intended number"`. **The normaliser
+   refusing to guess is visible in the artefact**, which is the behaviour the design argued for
+   and had only ever shown in a unit test. It is also owner decision #3, now filed as a queue
+   row rather than a question in a plan.
+
+   All six filed as `needs_human_review` with **no handler** — review-only, exactly as designed,
+   so nothing auto-repairs while 477 is held.
+
+**Honest limits of this run.** One site, not the fleet: the calibration predicted ~17 findings
+fleet-wide and this run only scanned `webdesign.uk`, so 6 is not a re-measurement of that 17.
+And the *misdirect* half of the calibration (17/17 true) is not re-proven here either — what is
+proven is that the check runs, files, and catches the motivating case. The fleet number arrives
+with the normal rotation; query it with:
+`SELECT item_type, count(*) FROM site_work_items WHERE item_type IN ('cta_names_nonpage_destination','cta_tel_malformed') GROUP BY 1;`
