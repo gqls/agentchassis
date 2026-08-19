@@ -58,8 +58,39 @@ satisfies it with compile-time-checkable config, A with a table row.
 6. **One active definition row per engine agent** (the two-active-rows landmine).
 7. **A verifier registered later for a routed type fail-closes the converted arm** — the
    engine should surface, at seed/validation time, when a routed type has a verifier.
-8. **The type-count itself is a signal** — RFC_022's unbuilt accumulation counter applies:
+8. **The type-count itself is a signal** — ~~RFC_022's unbuilt accumulation counter applies:~~
    the engine should be able to say how many types it routes, so the estate notices growth.
+
+   > **⚠ CORRECTED 2026-08-19 — "unbuilt" IS FALSE, and it was already false when this was
+   > written.** `RFC_022` is **CLOSED** and the whole mechanism is **LIVE**, not hypothetical:
+   > the counter was built **2026-08-13** (`cmd/config-key-audit --optional-key-budget`, and
+   > `scripts/audit-optional-key-budget.sh [--json] [N]`; concept register **WFA-013**); the owner
+   > **ruled N = 10 on 2026-08-14**; and the automatic half runs daily (`50 6 * * *` UTC, CronJob
+   > `optional-key-budget-check`, live since 2026-08-14). It writes **one `doc_notes` row per run,
+   > including on clean results** — so a MISSING row means the job did not run and must **not** be
+   > read as "nothing is wrong". An action past N owes one review of its accumulated surface,
+   > recorded in `architecture_review/optional_key_budget_acks.json`.
+   >
+   > **Why this bears on the A-vs-B choice and is not just a citation fix.** Written as "unbuilt",
+   > guarantee 8 reads as *"the engine should volunteer a count nobody yet consumes"* — a
+   > nice-to-have, and cheap to satisfy in either shape. In fact there is a **live budget with a
+   > ruled threshold and a daily job already enforcing it**, so the question becomes a real design
+   > constraint: does the chosen shape make each routed type accumulate **optional keys on one
+   > shared action** — in which case the engine walks toward N = 10 as it succeeds, and the budget
+   > is a designed-in ceiling to argue about — or does it keep per-type surface off that action?
+   > **[UNVERIFIED] which of A or B has that property is exactly what the design round must
+   > establish; do not assume either way here.**
+   >
+   > ⚠ One trap to carry into the round: two actions (`retract_asset_files`, `publish_site`)
+   > entered the registry **counted as ZERO** and were invisible to the check until 2026-08-17,
+   > because the cron's literal is hand-maintained. The parity test
+   > (`cmd/config-key-audit/optional_budget_cron_parity_test.go`) catches it — **run it** — and after
+   > editing `check.py` the kustomize overlay must be re-applied or the cluster keeps the old
+   > literal. An engine that adds routed types over time is precisely the shape that goes stale here.
+   >
+   > Source: `CLAUDE.md` § RFC_022 (itself corrected 2026-08-17 after telling every session the
+   > opposite for three days) and this lane's `NOTES_router_engine.md`, which flagged the staleness
+   > on 2026-08-18 without fixing it here.
 
 ## Phasing
 

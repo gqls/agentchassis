@@ -1,137 +1,161 @@
-# HANDOFF — 2026-08-19, fresh chat starts here: the roll landed, both changes are live and proven, and neither bug can close yet
+# HANDOFF — 2026-08-19, fresh chat starts here: the lane is in its WAITING phase (three dated checks, then it closes), and RFC_030 is now the real work
 
-**Supersedes `HANDOFF_2026-08-18d_continue_here.md`.** That file's §0 state table and §1 are stale
-(both council verdicts are in, the roll has happened, and two of its numbers are corrected below).
-Its §2 (`bugs_open/300`) and §3 (`bugs_open/314`) still read true. **Read this from disk, then
-`NOTES_required_fields_repair.md` from the bottom.**
+**Supersedes `HANDOFF_2026-08-18b_continue_here.md`.** That file is still worth reading for the
+`work-item-archiver` story and the `465`/`466` detail, but everything you need to ACT on is here.
+Measured 2026-08-19 09:00–09:30Z. Read this from disk, then `NOTES_required_fields_repair.md` from
+the bottom.
 
----
+**One line: `083` and `277` are finished work waiting out their proving clocks (08-22 and ~08-24).
+Nothing in them needs building. The largest real job on this lane is now `RFC_030`'s design round.**
 
-## 0. THE SHORT ANSWER TO "CAN WE CLOSE THIS LANE": no, and the reasons are specific
+## 0. Build state — verified at the BINARY, with controls
 
-| bug | state | what blocks the close |
+`agent-chassis` **`d3590ca4638d49bb6a3874db681814c4b0a99bbe`**, **158 commits** on from yesterday's
+`0b185bad2` (HEAD 3 further on). `kafka-scheduler` reports the same sha from its own log line.
+
+⚠ The startup `build provenance` line was **absent from `--tail=20000` on BOTH chassis pods** — that
+is the documented "scrolled" case for a busy service, **not "unstamped"**. Probed `/proc/1/exe`
+instead, always with a control in the same breath: sha **PRESENT**, current HEAD `db6ae7254`
+**ABSENT**, yesterday's `0b185bad2` **ABSENT**. So a real build, not a same-tag cached no-op.
+
+This roll carries **`480`'s Go half** and **`184` part 2** (the `literal_markdown` detector widened
+to `md_link`). `465`/`466`/`471`/`472` are **config-only** and were already live — they need no roll.
+
+## 1. What changed under this lane overnight, by OTHER sessions — read before you act
+
+**Two owner decisions landed on 2026-08-18 evening, and one of them builds the thing this lane had
+deliberately left open. Do not rebuild it.**
+
+- **`480_owned_page_refusal_is_not_a_handler_failure.sql`** (applied 08-18 20:24; Go half
+  `save_page_sections_action.go` + `v3_site_actions.go`, live in this roll). Owner decision №1:
+  *"do not switch the handler off for this — write something other than `failed`."* An owned-page
+  refusal now records **`wont_fix`**, which is in **neither** bucket of the promoter's success floor,
+  so a protective refusal no longer votes in a competence measure it says nothing about. Shipped as
+  an **opt-in field, unsafe default OFF** (`owned_page_refusal_status`) per the 2026-08-02 §2 ruling.
+  Its author reached this from a different pair than I did (`phantom_internal_link`: 69% on generic
+  pages, 0% on owned, blended 47%, ~134 findings queued behind it). **Two lanes converging from
+  different evidence is why this was real.**
+  - ⚠ **FORWARD-ONLY — it backfills nothing.** `literal_markdown → page-build-handler` re-measured
+    today is **unchanged: 3 successes / 36 failures, 16 protective / 16 genuine, 8% raw, 16%
+    corrected.** The ratchet stops tightening; it is not undone. **So `471`/`472`'s remedy text is
+    still needed on 08-21.**
+  - ⚠ **UNPROVEN, and the zero is readable only because of the control.** Zero `wont_fix` owned
+    refusals since it applied — **and zero owned refusals written `failed` since the roll either.**
+    That second half is the demand control: this is *"not yet exercised"*, not *"working"*.
+    **OWED: grade `480` at the first real owned refusal.**
+- **`479_escalation_reclaims_a_pair_that_has_since_qualified.sql`** (owner decision №2, *"fix the
+  door"*). Closes `453`'s one-way door: an escalated row whose pair later qualifies rejoins the
+  automated path. **My `471`/`472` text survived it** — its author used surgical replacement on three
+  verbatim anchors, each asserted to occur exactly once, guarded on the whole body's md5, explicitly
+  because *"that lane is iterating fast (465, 466, 471, 472 in one day)"*. Verified after the fact.
+  **That is how to edit a live object another session is working on — copy it.**
+
+## 2. THE THREE DATED CHECKS — all automatic, nothing to build
+
+`held-pair-canary-escalation` is daily and fires at **12:57 UTC**. As of 09:23Z today it had last
+run **08-18 12:57:48**, so none of these has happened yet. Instrument: the `pre_query_result` line in
+`kafka-scheduler` logs (`grep detected-item-promoter` / the escalation task).
+
+| when | expect | what it proves |
 |---|---|---|
-| **`bugs_open/277`** | router BUILT, LIVE, council-approved r5, **and doing its job** | **its own verify criterion, clause 1: the worked example must be REPAIRED. It is classified, not repaired.** Nothing repairs this type at all — see §3 |
-| **`bugs_open/083`** | fix complete + artefact-proven | the door soak, ~2026-08-25 (owner decision 5). Also: `479`'s reclaim arm has still never fired on a real row |
-| `bugs_open/300` | **fix LIVE on `v1.0.1314`**, council APPROVED r1 | behaviourally unexercised — nothing has dispatched this type since 08-18 |
-| `bugs_open/314` | filed 08-18, unfixed | it is a proposal for the gate; owner's call which candidate |
+| **08-19 12:57** | **`escalated=0`, `watching=15`** | ⚠ **ZERO IS CORRECT — do not read it as a failed migration.** It is `466`(a) working (a `HAVING` that still speaks on an idle tick), and it grades the 08-18 date correction |
+| **08-20 12:57** | `placeholder_contact → page-build-handler` (3 rows) escalates, **canary** wording | first real escalation this mechanism has ever produced |
+| **08-21 12:57** | `literal_markdown` (10, **floor**), `dead_fragment_link` (1), `missing_conversion_path` (1) | first use of `471`/`472`'s corrected floor remedy — the one that says PARTITION THE FAILURES rather than "fix the handler" |
 
-Neither of this lane's two bugs is closeable today. **`277` is the interesting one** — it is much
-closer to done than it looks, and it is blocked on something that is not routing.
+⚠ **Why 08-19 escalates nothing** (this bit me and is now a LANDMINE): a daily task with a 3-day
+predicate delivers **3–4 days**, because it can only act on its own tick. `placeholder_contact`'s
+oldest row is 08-16 **19:17**; at the 08-19 **12:57** tick it is 6h20m short of three days.
+Conditional on the held set not changing — the clock keys on `min(created_at)` per PAIR, so if the
+oldest row leaves `detected` the date moves **out**.
 
----
+⚠ **Do not canary `missing_conversion_path → content-gap-planner`** — `bugs_open/255` owns it
+(diagnosis CONFIRMED first iteration: routed at a handler that cannot read its spec). A canary would
+record a documented routing defect as handler incompetence.
 
-## 1. THE ROLL — both changes live, proven at the artefact, behaviourally unverified
+## 3. Closure — both bugs are finished work waiting out a clock
 
-`agent-chassis:v1.0.1314`, pods `-l5h6l` (07:52Z) and `-nxmkf` (08:05Z). The `build provenance`
-startup line had already scrolled out of `--tail=3000` — **that means "not in range", never
-"unstamped"** — so a single-pass binary probe on **both replicas**:
+Neither needs building. Conditions are the bug files' own, not my judgement.
 
-```sh
-kubectl -n ai-persona-system exec <pod> -- sh -c \
- "grep -aoE 'owned_page_refusal_status|resolveStatusRepairComponent|OWNED_PAGE_GUARD|ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST' /proc/1/exe | sort -u"
-```
-`owned_page_refusal_status` **PRESENT** · `resolveStatusRepairComponent` **PRESENT** ·
-`OWNED_PAGE_GUARD` **PRESENT** (long-lived control — the probe works) · nonsense needle **ABSENT**
-(the probe discriminates). Config half intact.
+- **`277` → `bugs_closed/` ~2026-08-22.** Three conditions in its "Still open before this moves"
+  section: (1) the churn guard's remaining days; (2) the two cancelled conversions re-raising — no
+  `cancelled` rows of the type remain, so this depends on discovery rotation re-filing them, and
+  **if not seen by ~08-22, re-file by hand**; (3) a named seam to watch, not to fix — `033`'s
+  revalidator and this router both write `result`, and `mark_complete` REPLACES `result`. They
+  compose correctly today; nothing guarantees it.
+- **`083` → `bugs_closed/` ~2026-08-24.** Its own §5 says the fix is complete and proven (all three
+  criteria met; the residual closed 08-18 and verified at the running service) and recommends closing
+  **once `444`/`458` have sat their week** — both applied 08-17, so 08-24. Everything else `083`
+  surfaced now has an owner: `453`'s one-way door → **`479`**; the refusal accounting → **`480`**;
+  `literal_markdown`'s handler → `bugs_open/184`/`201`; the unstable key → `bugs_open/300`.
+- ⚠ **Moving either file: name BOTH paths on the commit** — `git commit bugs_open/OLD.md
+  bugs_closed/NEW.md -m "..."` — and verify at HEAD, not the tree:
+  `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep <number>` must return exactly
+  one line. `git mv` + a pathspec commit silently ships a COPY. **LANDMINE.**
+- Health, so you can see the lane is sound while it waits: **1,123 promotions 08-14…08-18, 946
+  complete vs 79 failed (92%)**.
 
-**⚠ Neither is behaviourally verified, and do not let the quiet read as success.** Zero owned-page
-refusals since the roll — **and zero `page-build-handler` orchestrations either**, so the zero is a
-DEMAND artefact. Same for `300`: no `page_component_status_drift` dispatch since 08-18.
+## 4. THE REAL WORK — `RFC_030`, the router engine's design round
 
-**Do not induce one.** Refusals occur at ~4/hour on live traffic (`bugs_open/301` measured 59 in
-14 h); inducing costs exactly the wasted LLM chain that `301` exists about. **Just re-run the
-RUNBOOK query tomorrow**, and it needs BOTH controls — refusals landing `wont_fix` with
-`result ? 'owned_page_refusal'`, **and** genuine save failures still landing `failed` without the
-stamp. A zero on the control means no genuine failures happened in the window, not that the split
-works.
+`docs/agent_docs/docs024_key_docs_latest/router_engine/` (standing five) ·
+`docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_030_single_type_work_item_routers_want_one_engine.md`
+(**Status: RULED 2026-08-15 by the owner — scheduled as its own lane**).
 
----
+**Phase 1 (measure the live population per type) is DONE** and written up in that lane's NOTES.
+**Phase 2 is a council design round on shape A vs B, submitted as an RFC-shaped design — BEFORE
+building.** This IS architecture scope (a new shared mechanism), so it is the council's proper case,
+unlike this lane's config-only migrations.
 
-## 2. TWO NUMBERS OF MINE WERE WRONG, and the second changes what Tier 1 is worth
+✅ **The blocker on phase 2 is CLEARED as of 2026-08-19: the PLAN's guarantee 8 is fixed.** It said
+RFC_022's accumulation counter was *"unbuilt"*, which was false when written — RFC_022 is **CLOSED**,
+the counter shipped 2026-08-13 (`cmd/config-key-audit --optional-key-budget`, register **WFA-013**),
+the owner **ruled N = 10** on 08-14, and a daily CronJob has enforced it since 08-14. That is not a
+citation fix: it converts guarantee 8 from "volunteer a count nobody consumes" into **a live budget
+with a ruled threshold**, so the design round must ask whether the chosen shape makes each routed
+type accumulate optional keys on one shared action — i.e. whether the engine walks toward N = 10 as
+it succeeds. **[UNVERIFIED] which of A or B has that property is exactly what the round must
+establish — do not assume.** Full correction, with the hand-maintained-literal trap and the parity
+test to run, is in the PLAN at guarantee 8.
 
-**Both are corrected in place in `bugs_open/301`, register WII-019, NOTES and WRONG_CALLS.** They
-are here because a reader of the old handoffs will otherwise inherit them.
+**Then:** build the engine; migrate **`410` first** (its 8 routes define the contract and its
+44-item history is the regression fixture — census and canary evidence live in *this* lane's
+directory), then `397`'s two; retire the three bespoke seeds (rollback files exist for all three);
+update CQ-023 and IMG-071; register the engine.
 
-**(1) `phantom_internal_link` is 62.7%, not 47%.** Lifetime, live+archive, terminal only: generic
-**101/46 = 68.7%**, owned **0/14**, total **101/60 = 62.7%**. The two component figures I quoted
-beside it were right all along; the blend was arithmetic I got wrong and carried into four
-documents. **The floor is 25%, so crossing it from there needs 243 more failures** — "one bad
-stretch from switching off" was overstated.
+## 5. Also owed, smaller
 
-**(2) "owned page + failed" IS NOT "ownership refusal", and this refutes a remedy I nearly
-proposed.** Discriminating by the guard's own error text rather than by `pages.rebuild_policy`: of
-**87** `owned`+`failed` rows, **85 name the guard and 2 do not** — and those 2 are
-`placeholder_contact`'s, whose error is `step process_sections_loop_iter_0_generate_content failed`,
-i.e. the **content generator** failing, not the guard refusing.
+- **Grade `480`** at the first real owned refusal (§1). It is live and unexercised.
+- **Council gate's config blind spot** — `097` scopes on `platform/`/`internal/`/`pkg/`, so every
+  migration in this lane since `444` (`465`, `466`, `471`, `472`) has been unsubmittable. Another
+  lane filed `landmine(297)`. Submitting `465` with `FORCE=1` is worth it — it changed what
+  "lifetime" means for a shared gate.
+- ⚠ **Migration numbers collide on this tree and MUST NOT be renumbered.** `453`, `454`, `462` and
+  now `471` each exist twice; `462`'s two halves are one applied, one pending. **A number tells you
+  neither author nor applied-state — ask the ledger by exact filename.**
 
-**So Tier 1 releases NOTHING that is held today**, and would not have even applied retroactively:
+## 6. The landmine family this lane keeps hitting — now SIX, and the shape has never varied
 
-| held pair | why it is held | Tier 1 touches it? |
-|---|---|---|
-| `literal_markdown` | 3 ok / 16 REAL failures — still below floor with refusals excluded | no (`bugs_open/184`) |
-| `placeholder_contact` | never completed one; its owned failures are generator errors | no |
-| `dead_fragment_link` | never completed one — awaiting a hand canary | no |
-| `missing_conversion_path` | never completed one; `bugs_open/255` — handler cannot read its spec | no |
+Every one is **a population or a domain assumed rather than enumerated**, and none was caught by
+review (twelve seats approved `444`):
 
-**Its value is PREVENTIVE and still real** — 85 identified refusals already sit in the `failed`
-bucket, and ~134 findings are queued behind the refusal on owned pages, every one of which would
-otherwise enter a denominator it has nothing to do with. **But it is not restorative. Do not tell
-the owner a pair was rescued.**
+1. `failed` rows carry **no `completed_at`** — pair health keyed on it returns a uniform 100%.
+2. `status` has **two** terminal success states (`complete`, `verified`).
+3. The row set is **not stable** — rows leave `site_work_items`.
+4. The row set is only a **~7-day window** — `work-item-archiver`; the archive is *bigger* than the
+   live table.
+5. **A control that cannot come out otherwise** — THREE tautological ones caught here. The test is
+   not *"is this control true?"* but ***"could it ever have come out non-zero?"***
+6. **The CLOCK** (new, 2026-08-18) — a daily task's "3-day limit" is 3–4 days; predicting from a
+   DATE is off by a full tick, and the miss shows up as a silent zero.
 
----
+Also live: **a same-tag rebuild ships the cached image** · **an aggregate-only SELECT with a `WHERE`
+returns one row regardless — use `HAVING`** · **a pathspec commit still takes a same-file passenger**
+· **backticks in `git commit -m` EXECUTE — use single quotes or `-F`** · **`EXPLAIN` proves SQL
+parses, it cannot prove a path inside a string exists** (that shipped `bugs_open/295` into a live
+payload 30 minutes after 295 moved to `bugs_closed/`).
 
-## 3. `bugs_open/277` — the half that is missing, and it is not routing
+## 7. Session-start checklist
 
-Measured against **this bug's own** verify criterion, not mine.
-
-**Clause 2, MET.** The router is live and the type moves: 130 complete / 30 `needs_human_review`,
-handler active as recently as 08-19 08:45. **All 30 parked rows carry a route** —
-`no_content_data` 27, `asset_sourced` 2, `no_plan_owned` 1, **zero unrouted**. Nothing strands
-unclassified any more, which is what the bug was filed about.
-
-**Clause 1, NOT MET.** *"The gas converter's three items go `needs_human_review` → repaired → the
-page serves real content."* Its item sits at `needs_human_review`, route `no_plan_owned`, updated
-today. **Classified, not repaired.**
-
-**And the general form:** *nothing repairs this type.* Completions in the live table are **44
-`auto:revalidated`** (a sweep noticed the defect had gone — the page got content by some other
-route), **37 `build-dispatch-loop`**, and **0 by the router**. The queue looks healthier than the
-pages are.
-
-**This is not a criticism of the router**, which does what it was built and approved to do. It is
-that the owner's ruling — *"create a repair handler fleet wide"* — is half-delivered: routing
-exists and is proven, repairing does not exist for `no_content_data`, which is 27 of the 30.
-
-> **⚠ And the missing half is probably the SAME missing piece as Tier 2** — a finding-to-edit
-> converter. `copy-editor` already emits `apply_section_edit`'s exact input shape
-> (`{page_component_id, slot_name, field_updates, rationale}`) from a component's `content_data`,
-> rendered HTML and declared schema. **It is ONE DAY OLD and owned by the
-> `loanandmortgagecalculator_couk` lane** (migrations `447`/`462`). **Talk to them before designing
-> anything** — a design written tonight against a contract that changed twice in two days is stale
-> before it is read.
-
----
-
-## 4. WHAT IS LEFT, in the order I would do it
-
-1. **Tomorrow: re-run the two post-roll checks** (RUNBOOK), each with both controls. Minutes. This
-   is the only thing standing between `300` and "proven", and between Tier 1 and the same.
-2. **~2026-08-25: close `083`** once `444`/`458`'s doors have held a week (owner decision 5). Move
-   with **both paths on the commit** (`git mv` landmine) and verify at HEAD with `git ls-tree`.
-   ⚠ Before closing, check `479`'s reclaim arm has fired at least once — it still never has, so it
-   is shipped-but-unexercised, and the close should say so rather than imply it works.
-3. **`277`'s remaining half** — the `no_content_data` repair. **Start with a conversation with the
-   `loanandmortgagecalculator_couk` lane**, not a design. This is also Tier 2.
-4. **`314`** — owner's call between the four candidates; candidate 1 is one line plus a credit cost
-   somebody should size.
-5. **Two loose ends nobody owns**, both `[UNMEASURED]`:
-   - `page-rerender` saves to owned pages ~3,754 times without refusal while `page-build-handler` is
-     refused every time. Same guard. One of those needs explaining.
-   - a page named/URL'd `tool-…` carrying `rebuild_policy='generic'` looks like a data defect;
-     nobody has counted how many.
-
-## 5. Session-start checklist
-`git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,
-`083`, `300`, `301`, `307`, and **`copy-editor` belongs to another lane** · re-measure §1's probe ·
-then §4 step 1.
+`git log --oneline -10` · re-read this file **from disk** · **verify the chassis/scheduler sha before
+trusting any Go claim, with a negative control** · `scripts/who-owns.py 277` and, **by slug**,
+`detected_findings_never_reach_a_handler` (083 is an ambiguous number) · re-measure §2's held set
+before believing its dates · then §2 if a tick is due, otherwise **§4**.
