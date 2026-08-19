@@ -230,3 +230,16 @@ sites: every affected site that was missing its favicon and share card now serve
 has the one-line instruction waiting. The generator code fix and the new completion check
 ride the next release; the routing repair is live now and was deliberately exercised end to
 end before we called it done.
+
+**2026-08-19, closing the lane.** This morning's build carried the code half of yesterday's
+fix, and I proved it the proper way — by asking the running binary which commit it was built
+from, twice (a second build landed while I was working, and it carries the fix too). Then I
+waited for the new "check before you call it done" gate to fire on a real item, and it did:
+it looked at the artefact record and said "verified". That was the last thing I wanted to
+see before calling this closed. A sweep of every site we run shows all eighteen ordinary
+public sites now serving both the share card and the favicon. The five loan-family sites
+that still don't are a different story — two simply had never been asked (now asked; one
+already fixed), three have no logo at all, which nothing here can conjure. The bug file has
+moved to the closed folder. What's left in this corner of the product — share previews
+naming the right page rather than the homepage, the missing-image tag, unreadable tab icons
+from wide logos — lives in a new file, 322, so the next person starts from a clean sheet.
