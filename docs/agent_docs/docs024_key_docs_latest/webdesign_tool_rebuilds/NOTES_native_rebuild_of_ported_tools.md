@@ -1372,3 +1372,30 @@ Rerender `20d280e0` complete 11:06:19Z. Cache-busted grade of `/tools/rls-archit
 `last-modified` **11:06:35** against the rerender completing **11:06:19** — published correctly.
 
 **11 live and proven. 52 ported tools remain (2 blocked).**
+
+## 2026-08-19 11:37Z — #12 built and retired; CHECKPOINT (usage limit)
+
+- **#12 `tool-css-variables` built**, component **`f694ee60-a823-4785-8856-f617e069aa38`**, 11,501
+  chars. Graded: `{{\.` **0**, `onclick=` **0**, `alert(` **0**, border token present, and
+  **`Auto-generated grey` ABSENT** — the false comment is gone, which was this tool's whole defect.
+- **Ported slot retired 11:37:51Z**, `9420de90…` to `removed`, 6,350 chars, md5
+  `4cef84c747ed3f2dd73357fa080f3725` byte-identical. Asserted one deployed slot and that it is
+  `f694ee60`. **Rerender not yet watched — see next actions.**
+- **TRAP HIT AND CORRECTED IN ONE STEP:** my grading query took the most recent `tool-generator`
+  orchestration in a time window and got one sitting at `generate_tool_html` with no `component_id` —
+  i.e. **someone else's run, or a later one**. Read literally it says "#12 did not build". It had:
+  the page carried a new 11,501-char slot. **On a shared fleet, "the most recent run of agent type X"
+  is not "my run".** Resolve by the ARTEFACT (did the page gain a slot?) or by joining the
+  orchestration to the work item, never by recency alone. This is the same family as the earlier
+  `min(created_at)` misread: a query that answers a question adjacent to the one asked.
+
+## NEXT ACTIONS for the next session (checkpoint 2026-08-19 11:38Z)
+
+1. **Grade #12 at the served page** once its rerender completes, cache-busted:
+   `/tools/css-variables/index.html?cb=<epoch>` — want `class="ported-page"` 0, `{{\.` 0, the old ids
+   (`cPrimary`, `sBase`, `rBase`) **absent**, and `last-modified` after the rerender's `completed_at`.
+   The rerender was NOT armed with a watcher before the checkpoint.
+2. **Continue Phase A** from `tool-prompt-permutator` (6,411 B) then `tool-blob-maker` (6,550 B) —
+   the RUNBOOK's scoping query orders the rest. Recipe and all three gates are in
+   `HANDOFF_2026-08-19_continue_here.md`.
+3. **Track 2, the checker** — the highest-leverage work left, and it needs Go + council + a roll.
