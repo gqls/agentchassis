@@ -777,6 +777,34 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		s.logger.Info("Orchestration is actively executing")
 		return nil
 
+	case StatusRunning:
+		// RUNNING is the inter-step GAP, not a resting state. ClearExecutingStep
+		// (the takeover just above) sets it immediately before continueExecution's
+		// loop re-marks the step as executing, so a healthy row occupies RUNNING
+		// for milliseconds. A message arriving inside that window belongs to a pod
+		// that is already resuming this orchestration, and resuming it here too
+		// would double-execute the step — so the safe default is to leave it alone
+		// and take over only once the row is demonstrably stale, mirroring the
+		// StatusExecutingStep arm above.
+		//
+		// Before bugs_closed/294 there was no case for this status at all, so it
+		// fell through to the default arm and returned "unknown orchestration
+		// status: RUNNING" — the one in-process path that could have rescued a
+		// stalled row rejected it instead. The reaper's invariant arm (migration
+		// 465) now bounds such rows at 4h whatever happens; this recovers them in
+		// seconds when a message does arrive, rather than erroring.
+		if time.Since(state.LastActivity) > StuckOrchestrationTimeout {
+			s.logger.Warn("Found orchestration stalled between steps (RUNNING), resuming",
+				zap.String("current_step", state.CurrentStep),
+				zap.Duration("idle_for", time.Since(state.LastActivity)))
+
+			return s.continueExecution(ctx, state, execCtx)
+		}
+
+		s.logger.Info("Orchestration is between steps (RUNNING) - another process is resuming it",
+			zap.String("current_step", state.CurrentStep))
+		return nil
+
 	case StatusAwaitingResponses:
 		s.logger.Info("Orchestration is awaiting responses in handleOrchestrationStatus",
 			zap.Int("awaited_count", len(state.AwaitedRequests)))
