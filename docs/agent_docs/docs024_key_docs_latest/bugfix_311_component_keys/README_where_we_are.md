@@ -43,3 +43,40 @@ Next: council round on the plan, then the code, tests, and a commit so it rides 
 chassis build. Verification will re-run one of the failed calculator sections on
 loanzy.uk and check both halves: the new site gets its calculator, AND the old site's
 component is byte-for-byte untouched.
+
+## 2026-08-19, later — the fix is written, tested and committed; the council is reviewing it now
+
+The code went in as one commit (`17d883333`). What it does, in one sentence: when a site's
+build tries to write a component whose name is already held by a component other sites
+depend on, it now creates its own site-named copy that the library can find and reuse,
+instead of failing forever — and the old site's component is never touched.
+
+The tests prove both directions: the colliding case creates the new copy (and we checked
+the test really bites by deliberately breaking the fix and watching the test fail), and
+the normal case — a site regenerating its own component — behaves exactly as before.
+
+Two hiccups worth knowing about. The independent check I sent through the diagnosis loop
+failed because the fleet's AI budget cap was hit mid-morning; the cap lifted within the
+hour, and I re-armed the check to run again on its own. And while I worked, two other
+sessions were editing the same shared record files — their finished entries rode along in
+my commit, declared in the commit message, which is how this tree handles that.
+
+The council review of the plan is running as I write this. If it approves, nothing more
+is needed until the next chassis image rolls — then the verification recipe in the
+RUNBOOK proves both halves on the real loanzy.uk case. If it asks for revisions, that's
+the next piece of work.
+
+## 2026-08-19, end of session — the council APPROVED it, first time through
+
+Twelve reviewers looked at the plan; it was approved on the first round with four advisory
+notes and nothing severe. Most of the notes were "you asserted X, show it" — and each X has
+now been measured and written down: the naming helper exists (the code compiles and the
+tests pass against it), exactly one workflow in the fleet calls this action, the race two
+simultaneous builds could cause resolves itself loudly rather than silently, and the reason
+this fix differs in shape from the neighbouring tool-level proposal is now demonstrated
+from the live database schema, recorded in that proposal's own file so the two are tracked
+together.
+
+The independent diagnosis check I re-armed earlier is running now. Nothing further is
+needed from anyone until the next chassis image rolls; then the RUNBOOK's recipe proves the
+fix on the real case. The bug file's status line now says exactly this.

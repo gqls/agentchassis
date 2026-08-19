@@ -74,3 +74,52 @@
   carries their new instance-scope-bindings entry. Both complete and coherent; declared
   in the commit message rather than waiting (their entries say "committed this session",
   i.e. they are mid-cycle; a pathspec commit takes the whole file either way).
+
+## 2026-08-19 — council verdict: APPROVED round 1 (corr fc3ac5f4), 4 advisory objections, none high
+
+12 reviewers, 5 abstained, no truncation gating. Full report:
+`diagnosis_artifacts kind='council_report' correlation fc3ac5f4`. Triage of every advisory,
+with what was DONE about each:
+
+- **editquality medium — `domainSlug` asserted, not verified:** answered by the shipped code
+  (the council judges sketches): `domainSlug` exists in `deploy_tool_action.go` (same
+  package, read this session: `strings.ReplaceAll(domain, ".", "-")`); the committed helper
+  compiles and its tests pass against it.
+- **editquality low — LogActionFindings provenance merge:** the diversion finding inherits
+  the running step's provenance (component-creator), which IS the diverting actor — intended.
+  The RUNBOOK's post-roll demand check reads the actual row; verify provenance columns there.
+- **editquality low — "register entry ships in same commit" not an edit:** it did ship in
+  `17d883333` (CLC-020 + index row in `0bc2d6162`). Claim was true; council could not see it.
+- **bug_historian medium / prior_art medium — RFC_036 divergence asserted, not demonstrated:**
+  now MEASURED and recorded in RFC_036 §10 (appended this session, the architecture seat's
+  tracking ask): `idx_cc_tool_function_unique` read live — UNIQUE btree(function) WHERE
+  component_level='tool' AND forked_from IS NULL AND is_active — partial on forked_from,
+  which is exactly why the tool fork escapes it and a section fork would just be invisible.
+- **bug_historian low — census read error degrades silently:** it degrades with a Warn
+  ("dependent census unreadable — proceeding as legacy regeneration") and the field guard
+  as backstop; behaviour equals today's, never below. Accepted as designed.
+- **reuse_agent medium / architecture medium — two parallel collision conventions:** tracked
+  in RFC_036 §10 as asked; §9.3's implementer is pointed at `foreignDependents` for reuse.
+- **reuse_agent low — census may duplicate an existing pattern:** nearest sibling is
+  `markPagesPendingRebuild`'s site enumeration (same file) — different question
+  (affected-sites-for-rerender vs foreign-ownership with requester exclusion + domains).
+  Noted; not merged, deliberately: the rerender one has no exclusion and no site_components.
+- **guardian medium — "only caller" asserted:** now MEASURED: exactly one live
+  agent_definition names the action (`component-creator`, active; snapshots/deleted
+  excluded), and zero direct Go callers outside tests (grep). Recorded here.
+- **guardian medium — concurrent-divert race:** two racers mint the SAME suffixed name;
+  `content_components_name_key` (global UNIQUE on name) makes the second INSERT fail LOUDLY;
+  its retry finds the row and takes the own-site regeneration path. Self-converging, visible,
+  no silent duplication. (A silent duplicate would need different names for the same
+  function+site, which the deterministic suffix rules out.)
+- **guardian low — COALESCE self-heal is scope creep:** acknowledged in the plan's risks
+  block pre-verdict; accepted.
+- **debug_historian low — no deploy-verification step:** RUNBOOK carries the binary probe
+  with positive AND negative controls; council could not see lane docs.
+- **debug_historian medium — no re-trigger for already-parked items:** convergence path
+  exists without manual action and is now stated in the bug file: the failed
+  `needs_new_component` items are TERMINAL, so `CreateNeedsNewComponentItem`'s dedup
+  (status NOT IN terminal) permits a fresh item; loanzy's pages already sit at
+  `needs_rebuild`; `check_unresolved_sections` keeps re-arming deployed pages because the
+  incumbent matches by function — the exact loop that today livelocks becomes the
+  convergence engine once the diverted row exists. RUNBOOK also scripts a manual re-drive.

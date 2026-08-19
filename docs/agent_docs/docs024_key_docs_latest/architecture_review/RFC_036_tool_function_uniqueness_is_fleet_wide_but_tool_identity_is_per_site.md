@@ -241,3 +241,34 @@ cheaper than two rounds, and it removes the risk of a "tools are fixed" claim th
 `tool`-level and false for `section`-level. If the lane prefers to keep §9.3 narrow, **say so in
 §9.5's honest-fallback sentence** — "2 blocked on RFC_036" would otherwise read as the whole of
 the problem, and it is not.
+
+## §10 — CROSS-LANE 2026-08-19: the SECTION-level half is now BUILT (CLC-020), and this RFC is the tracking home for both mechanisms (council architecture seat's ask)
+
+The 311 fix lane built the section-writer half the same day this RFC's cross-lane note asked
+for it: `resolveStorageIdentity` (`platform/orchestration/actions/component_storage_identity.go`,
+commit `17d883333`, council **APPROVED r1** `fc3ac5f4`, register **CLC-020**). On a foreign
+collision, `store_generated_component` now diverts to a fresh **base** row
+`<function>-<domainSlug>` with `section_type` = the requested section name — deliberately NOT
+§9.3's `forked_from` shape, and the reason is now MEASURED, not asserted (a council advisory
+asked for exactly this demonstration):
+
+- The index this RFC is about, read live 2026-08-19 from `\d content_components`:
+  `"idx_cc_tool_function_unique" UNIQUE, btree (function) WHERE component_level = 'tool'::text
+  AND forked_from IS NULL AND is_active = true` — **partial on `forked_from IS NULL`**, so at
+  TOOL level a fork escapes the gate AND the deploy path links pages itself (fork invisibility
+  to selectors is irrelevant there).
+- At SECTION level every selection path filters `forked_from IS NULL`
+  (`component_selector.go`, `loadSectionComponents` has no such filter but
+  `check_unresolved_sections` and the selector do), and the diverted row must be FOUND by the
+  requesting page's rebuild — so `forked_from` stays NULL and identity lives in the suffixed
+  `function` + request-vocabulary `section_type`.
+
+**The architecture and reuse_agent seats' advisory on the approved round (their words):** the
+estate now carries two collision-resolution conventions on one underlying defect (no ownership
+column on a globally-named library) and they should be tracked HERE rather than left parallel
+ad hoc. So: whoever picks up §9.3, reuse `foreignDependents` (CLC-020's census —
+`page_components→pages` UNION `site_components`, requester-excluded) rather than writing a
+third census, and record in this section which convention the tool writer adopts and why. The
+honest-fallback sentence this RFC asked for now reads: **the section-level half is fixed
+(inert until a chassis roll ships it); the tool-level half (`create_tool_component`) remains
+open and is this RFC's question.**

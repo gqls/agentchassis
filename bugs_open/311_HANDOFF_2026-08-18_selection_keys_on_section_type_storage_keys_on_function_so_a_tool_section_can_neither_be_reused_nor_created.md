@@ -1,9 +1,14 @@
 # 311 — a section can be neither REUSED nor CREATED: the selector keys on `section_type`, the writer keys on `function`, and a component with one but not the other is invisible to the first and immovable to the second
 
-**Status:** OPEN. Diagnosed 2026-08-18, `090` verdict **CONFIRMED on the first
-iteration** (run correlation `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake
-`5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`). Not fixed. Three sites are affected today
-and the fleet buildout multiplies it.
+**Status:** OPEN — **FIX COMMITTED 2026-08-19 (`17d883333`), council APPROVED round 1
+(`fc3ac5f4`, 4 advisories none high), INERT until a chassis image rolls it** (the bar for
+closing is fixed AND live, and the deadlock is reproducible until the roll). Diagnosed
+2026-08-18, `090` verdict **CONFIRMED on the first iteration** (run correlation
+`8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`);
+mechanism refined 2026-08-19 (see the fix-lane contribution below). Three sites are
+affected today and the fleet buildout multiplies it. Residuals staying open even after the
+roll: candidate 3 (deploy gate), the tool-level writer (RFC_036), and the three tool-shaped
+incumbent rows themselves.
 
 **Symptom the owner saw:** *"remortgagecalculator.uk left out the actual tools."*
 A site whose entire proposition is a calculator shipped with no calculator, and
