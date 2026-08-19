@@ -103,8 +103,12 @@ sweep (NOTES, evening entry, last paragraph).
    **306 CLOSED → `bugs_closed/` (all three candidates; §7 is the evidence record).**
 4. ~~Step 4: fix the surviving shape conflicts AT SOURCE …~~ **DONE (built+submitted) 2026-08-19
    late — see the step-4 row.** What is now owed, in order:
-   (a) **Read the step-4 verdict** (a REVISE/REJECTED must be acted on — the code is already on
-   the shared branch):
+   (a) **Read the step-4 verdict** — ~~round 1~~ **round 1 = REVISE (bug_historian: 085 sat in
+   `bugs_open/` while closed-in-fact — reconciled + MOVED, `916c8b22b`; guardian: the
+   renderEnvelopeIdentity landmine — quoted, re-measured 49/49, entry corrected `cc1db051a`);
+   ROUND 2 resubmitted ~20:4xZ on the SAME corr (run `4d2df61b`), NOTES "(evening)" has every
+   answer. READ ROUND 2** (a REVISE/REJECTED must be acted on — the code is already on the
+   shared branch):
    `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='f3716ebe-e420-4ae9-ba4a-9a649e3d7124' AND kind='council_report' ORDER BY created_at;`
    — and the note: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
    Budget ~30 min from submission (~16:45Z); a missing row is latency, not a drop — find it by
@@ -116,7 +120,11 @@ sweep (NOTES, evening entry, last paragraph).
    must be **0 against live pcw demand** (pcw orchestrations in the window > 0). Any NEW candidate
    set that appears is a new producer of a `current_page` string — trace it, do not widen the
    rename.
-   (c) **Step 5**: flip conflicts → refusal at the marked flip sites
+   (c) **Step 5**: flip conflicts → refusal at the marked flip sites — **AND in the same commit
+   retire the read-side tolerance** in `setRenderContextScalarsFromData` (the second `if`; plus the
+   "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll`) — the comment
+   above that function names this commit as its owner; by step 5's gate the step-4 roll has
+   outlived `orchestration_states`' ~24 h retention, so no pre-roll tree can exist. Also: flip at
    (`unified_extractor_search_test.go` header names them), council-gated. §9's "never guess"
    made mechanical. The flip happens even on an empty population — the reason the owner chose A
    over C.

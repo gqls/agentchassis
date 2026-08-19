@@ -5298,3 +5298,52 @@ green there is not a green HEAD. The archive run is the one that counts; do it b
 **Next:** read the verdict (query in the handoff checklist); after the roll, stamp the binary
 (two controls) and read the done-condition query — pcw/`current_page` rows must be 0 against live
 pcw demand — then step 5 (flip at the marked sites, council-gated).
+
+## 2026-08-19 (evening) — step 4 round 1: REVISE (bug_historian gating, 085 in `bugs_open/`); every objection answered at the data; 085 was CLOSED-in-fact for three weeks and is now closed-in-place; round 2 resubmitted
+
+The run queued 3 h 23 min (published ~16:45Z, started 20:08Z, verdict 20:16:52Z) — fleet
+latency, the known shape. Verdict: **REVISE**, decided by a gating HIGH from `bug_historian`;
+9 seats approve, 2 object (historian HIGH/MED/LOW, guardian MED/LOW), 6 abstained.
+
+**The gating objection was RIGHT about the file and wrong about the defect — and the fix was
+to make the file stop lying.** `bugs_open/085` ("render data advertises `current_page` and
+always supplies empty") sat in `bugs_open/`; its header said "scoped path inert until the next
+roll"; its own foot ("2026-07-27 (evening) — BOTH PATHS VERIFIED LIVE", v1.0.1173→v1.0.1174,
+3 charts→1) said closed. Nobody had reconciled them in 23 days. `who-owns 085` → brochure
+lane, no commit touching the file in 14 d. Moved to `bugs_closed/` (`916c8b22b`, both paths on
+the commit; `git ls-tree` at HEAD shows exactly one `085_`), status line struck through with a
+date, and a closing section that answers the historian's real question — could "renders empty"
+and "two types under one key" be one defect? No: 085 is the VALUE, step 4 is the KEY; 085's own
+test `TestCurrentPageSurvivesBothRenderPaths` is retained and is mutant M4's victim; an 085
+recurrence would emit `current_page_name:""` and cannot register as a conflict row, so it cannot
+confound the done-condition. `[INFERRED]` the collision predates 085's fix ("" vs record is also
+DeepEqual-unequal) — unmeasurable, the instrument is 08-15.
+
+**Guardian's landmine objection was the useful one:** "The save seam's identity paths resolve
+to NOTHING inside the page writer's own run" has footprint `renderEnvelopeIdentity`. Read in
+full: it says don't copy the SAVE seam's paths, and its "what works" line is the chain I edited
+— INCLUDING `render_context.current_page` as a STRING. So the landmine is why the edit exists
+(the chain's third rung is the key that moves). Re-measured on all 49 stored pcw runs: rung 1
+49/49, rung 2 0/49, rung 3 string 49/49, only-rung-3 0/49 — today rung 1 covers everything, the
+new path is belt-and-braces, the old stays. **Corrected the landmine entry in place** with a
+dated note (`cc1db051a`) and ran `landmines-verify-dispatch.sh` (verifier corr `ad93974c`).
+That commit also carried another session's uncommitted SCH-026 entry update as a same-file
+passenger — declared in the message; I first tried to stage only my hunk, but the shared index
+already held a third session's staged rename (`446_…_HOLD.sql` → `446_….sql`), so an index commit
+would have swept that; pathspec-with-declared-passenger was the honest remaining option.
+
+**editquality's "inherited, not verified" soft gap — verified:** `coordinator.go:1902–1906`
+files one `result` map under `state.CurrentStep` AND `step.OutputField`; 49/49 pcw runs carry
+both keys with identical values. **Tolerance expiry (editquality + historian LOW):** written
+into the code comment — string-only by design, retire in the step-5 commit (after the roll has
+outlived the ~24 h `orchestration_states` retention: 49 pcw rows span 20:46Z 08-18 → 20:06Z
+08-19), mirrored in the handoff. **Historian MED (the search stays generic):** named in the
+rename-map comment, RFC §10.14 and the RUNBOOK — step 5 is what makes the next pair loud.
+**prior_art / reuse:** census queries now verbatim in grounded_in; precedent maps at
+`v3_site_actions.go:1692/:1717/:1727`; the only alias mechanisms are config-level
+`input_mapping` and the resolver's READ-side alias arm (opposite direction — would make the
+resolver find `current_page_name` too). Code delta this round: comments only (`916c8b22b`).
+
+**Round 2 resubmitted** on the same correlation (`RESUBMIT_CORR=f3716ebe`, run `4d2df61b`,
+~20:4xZ), JSON `COUNCIL_SUBMISSION_2026-08-19_rfc029_step4_current_page_name_round2.json`.
+Watcher armed. Budget the queue, not the council.
