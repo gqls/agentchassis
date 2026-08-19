@@ -426,3 +426,87 @@ shipped, on its first post-fix fleet run.**
   edit 4).
 - Re-run `scripts/audit-array-producer-conditions.sh` after your fix — exit 0 with the
   `N conditional step(s) checked` line non-zero is the pass.
+
+---
+
+## 2026-08-19, evening — v1.0.1315 shipped it, the canary found two more defects, and it now WORKS
+
+### The build carried it, verified rather than assumed
+
+`v1.0.1315`. Pod `imageID` **equals** the local `RepoDigests` entry (so a real build, not a
+same-tag rebuild serving the node's cache), revision `590ca3a20cca…`, and `aeccfc595` /
+`f2dd88f31` / `5b236ccc8` / `6cb82f1d7` are all ancestors of it. **Control: `HEAD` is
+correctly NOT an ancestor**, so the check discriminates. Binary probe: the new action and
+`voice_gate_unreadable` PRESENT, positive control PRESENT, fake symbol ABSENT.
+
+### Misstep 6 — the first canary "succeeded" and wrote nothing
+
+Orchestration `COMPLETED`, no error, no failed step, and **zero pages written**. It would
+have gone on doing that fleet-wide.
+
+`load_pages_missing_meta` used `output_format: "array"`, which returns a **bare array**;
+the gate read `pages_missing_meta.count > 0`. `database_actions.go:129-145`:
+
+```go
+if outputFormat == "array" { return results, nil }              // BARE ARRAY
+result := map[string]interface{}{"rows": …, "count": len(results), …}   // "object"
+```
+
+**`.count` exists only under `object`.** The orchestration's own `collected_data` shows
+the array held **11 rows** while the gate routed to `complete_nothing_to_do`.
+
+⚠ **This is `bugs_open/313`, and I walked into it by copying the agent it was filed
+against.** `conditional_branch_action.go:54` says it outright: *"an unresolvable
+`candidate_pages.count > 0` silently skipped the agent's only LLM step on every run for
+four months"* — and `candidate_pages` is `internal-linker`, the workflow I modelled `488`
+on. **Copying a live agent copies its bugs.** A census shows the same shape in ≥8 other
+live conditions; whether each is broken depends on its own `output_format`, and that
+sweep belongs to `313`, not here.
+
+### Misstep 7 — the writer was going to be shown CSS
+
+`content_sample` was `LEFT(string_agg(rendered_html), 1200)` — raw markup. On the canary's
+own rows that is `<style>.hero-tool-section{--section-text:var(--color-primary-text…` and
+never reaches a sentence inside 1200 characters. The model would have described a page
+from its stylesheet, fluently, and **the copy gates cannot catch a fluent wrong sentence.**
+
+Fixed to visible text. The floor moved 400 → 200, from the distribution rather than taste:
+across the 364 empty pages with any components, >400 admits 291, >200 admits 327, >120
+admits 330; p10 = 199, median 1340. 400 measured on *visible* text would have excluded
+loanzy.uk's own homepage (314 chars) — the raw-markup floor had been hiding that behind
+CSS bulk.
+
+### It works, proven at the artefact
+
+| | |
+|---|---|
+| loanzy.uk | **11 of 13** pages now have descriptions; the 2 left have **zero components** and were correctly excluded rather than invented |
+| fundamentallyai.com | **20 of 25** (was 5) |
+| **the five pages blocking `bugs_open/309`** | **ALL FIVE now carry descriptions** |
+| fleet | 407/731 empty → **381/736** |
+
+The copy reads like a person wrote it: *"Lending terms explained in plain English so you
+know what you're agreeing to before you sign."* — contractions, no em dash, no
+negative-frame opening, leads with what the visitor gets.
+
+**Idempotence proven at row level, not inferred:** a third run touched only the one page
+still blank (`updated_at` 16:13) and left the other ten on their previous timestamps
+(16:08). `overwrite_existing=false` holds in production.
+
+### ⚠ One measured shortfall, recorded because it bears on 309
+
+`[MEASURED]` the descriptions come in at a mean of **102 characters** (range 65-177)
+against a prompt asking for **120-155**. Not harmful in itself — a search engine prints
+what is there — but `309`'s shrink-guard arithmetic (§9) projected the new blog-listing
+slot at ~1,818 chars assuming ~157 per description. At ~102 the projection is materially
+lower, and **whether the guard now passes is an open question that must be MEASURED by
+dispatching the rerender, not assumed from "the blocker is cleared".**
+
+### Misstep 8 — a check query of mine disagreed with itself
+
+Measuring why three pages were skipped, one query said `index` had **1** visible character
+and another said **314**, on data whose `page_components.updated_at` had not moved since
+08-18. Tracing the regex stage by stage gave `18213 → 725 → 396 → 314`: **314 is right and
+my check query was faulty.** I nearly wrote up "the homepage has no text" as a finding.
+The habit that caught it: when two of your own measurements disagree, neither is evidence
+until you can say which is wrong and why.

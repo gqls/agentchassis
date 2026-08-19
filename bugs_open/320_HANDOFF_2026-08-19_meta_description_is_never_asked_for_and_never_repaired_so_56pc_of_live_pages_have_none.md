@@ -263,3 +263,57 @@ of damage the review pass would have caught — the checks are what replace it.
 Recorded by the bugfix-309 session; the live 320 lane (session "bugfix 284") was
 messaged the same content at the time of this commit. Division: the 320 lane owns
 execution; this section is the durable record of the authority it acts under.
+
+
+---
+
+## 12. LIVE AS OF 2026-08-19 EVENING — what is fixed, what it measured, what is still open
+
+All four commits shipped in chassis **`v1.0.1315`** (pod `imageID` == local
+`RepoDigests`, revision `590ca3a20cca…`, all four ancestors, `HEAD` correctly not an
+ancestor as a control, binary probe with both controls).
+
+| piece | state |
+|---|---|
+| M2 guard, all **four** write paths | **LIVE** |
+| M1 — planner asked (mig `485`) | **LIVE** since 08-19, config |
+| `save_page_meta_description` (SEO-004) + copy gates | **LIVE** |
+| `meta-description-backfiller` (mig `488`, fixed by `493`) | **LIVE and PROVEN** |
+
+### Measured after the first real runs
+
+| | before | after |
+|---|---|---|
+| fleet active pages with no description | 407 / 731 (55.7%) | **381 / 736 (51.8%)** |
+| loanzy.uk | 13 of 13 empty | **11 filled**; the 2 left have ZERO components |
+| fundamentallyai.com | 20 of 25 empty | **20 of 25 now HAVE one** |
+| the five pages blocking `bugs_open/309` | all empty | **all five filled** |
+
+Idempotence proven at row level: a repeat run touched only the still-blank page and left
+the others' `updated_at` untouched, so `overwrite_existing=false` holds in production.
+
+### The first canary run found two defects that a status check would have missed
+
+It reported `COMPLETED` with no error and wrote **nothing**.
+
+1. **`output_format: "array"` returns a bare array, so `.count` never resolved** and the
+   gate silently routed past the only LLM step — with 11 rows sitting in the array. This
+   is **`bugs_open/313`**, and it arrived here by copying `internal-linker`, the agent
+   `313` was filed against. Fixed by `output_format: "object"` (mig `493`).
+2. **`content_sample` was raw markup**, so the writer would have described tool pages from
+   their CSS. Now visible text, floor 400→200 chosen from the distribution.
+
+### ⚠ STILL OPEN, and the first one is load-bearing for `309`
+
+1. **Descriptions come in SHORT: mean 102 chars (65-177) against a prompt asking 120-155.**
+   `309` §9's shrink-guard arithmetic assumed ~157 each and projected the rebuilt slot at
+   ~1,818 chars against a 1,239 floor. At ~102 that projection is materially lower.
+   **Whether the guard now passes must be MEASURED by dispatching the rerender — do not
+   read "the blocker is cleared" as "309 will now render".**
+2. **355 pages still empty fleet-wide.** Only two sites have been run. The rest are a
+   `./scripts/backfill-meta-descriptions.sh <domain>` each.
+3. **Pages with zero components can never be filled from their own content** — 43 of the
+   original 407. They need content before they need a description.
+4. **`bugs_open/313`'s wider sweep is untouched**: ≥8 other live conditions use `X.count`
+   and whether each is broken depends on its own step's `output_format`. Noted there, not
+   silently widened from here.
