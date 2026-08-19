@@ -1201,3 +1201,77 @@ judgement gets the rigorous fix; the sibling stays heuristic"* (a named 016b §9
 *"correctly NOT fixed inline; a shared action getting a guard change belongs in its own reviewed
 patch per the 2026-07-28 ruling"*. **Two seats, opposite emphases, same conclusion: right defect,
 right containment.** It is in `bugs_open/307` with the split it probably wants.
+
+## 2026-08-19 ~09:00Z — fresh chassis verified; and TWO other sessions landed on this lane's open question overnight
+
+### Build: `agent-chassis` **`d3590ca46`**, verified at the BINARY with both controls
+
+The startup `build provenance` line was **absent from `--tail=20000` on both pods** — the documented
+"scrolled" case, not "unstamped". Probed `/proc/1/exe` instead, with a control in the same breath:
+
+| sha | expectation | result |
+|---|---|---|
+| `d3590ca4638d49bb6a3874db681814c4b0a99bbe` | present if this is the fleet release | **PRESENT** |
+| `db6ae7254` (current HEAD, built after) | must be ABSENT | absent |
+| `0b185bad2a49…` (yesterday's build) | superseded, must be ABSENT | absent |
+
+So a **real** build, not a same-tag cached no-op: **158 commits** on from yesterday's `0b185bad2`,
+HEAD 3 further on. `kafka-scheduler` reports the same sha from its own log line.
+
+### ⚠ `480` — another session BUILT the structured refusal signal I deferred, with an OWNER DECISION
+
+**This supersedes my 2026-08-18 "left open deliberately" paragraph, and the next session must not
+read that as still-open work.** `480_owned_page_refusal_is_not_a_handler_failure.sql` (applied
+2026-08-18 20:24, Go half in this roll — `save_page_sections_action.go` + `v3_site_actions.go`)
+makes `page-build-handler` record an ownership refusal as **`wont_fix`, not `failed`**. Owner
+decision 2026-08-18 №1: *"do not switch the handler off for this — write something other than
+`failed`."* `wont_fix` is in **neither** bucket of the floor, so a refusal now leaves numerator and
+denominator alone. Shipped as an **opt-in field with the unsafe default OFF**
+(`owned_page_refusal_status`), per the 2026-08-02 §2 ruling — which is exactly the shape I said the
+sound fix would need.
+
+Its author reached my conclusion independently and from a different case
+(`phantom_internal_link → page-build-handler`: 101/46 = 69% on generic pages, 0/14 on owned ones,
+blended 47%, with ~134 findings queued behind it). **Two lanes converging on the same defect from
+different evidence is the signal that it was real.**
+
+**What it does NOT do — and this is why `471`/`472` still earn their place:** it is **forward-only**
+and backfills nothing. `literal_markdown → page-build-handler` re-measured today is **unchanged: 3
+successes / 36 failures, 16 protective / 16 genuine, 8% raw and 16% corrected** — still correctly
+held, and still needing **9** more successes rather than 3 to climb out. The ratchet I described is
+not undone for existing rows; it only stops tightening. So when the pair escalates on **08-21**, the
+human still needs the partition instruction.
+
+**[UNPROVEN — no demand yet]** `480` has **not been exercised**. Zero `wont_fix` owned-refusal rows
+since it applied, **and zero owned refusals written as `failed` since the roll either** — the second
+half is the control that makes this "nothing tried", not "the fix failed". Do not record `480` as
+behaviourally proven on the strength of an absence.
+
+### `479` — the one-way door is fixed, and my `471`/`472` text SURVIVED
+
+`479_escalation_reclaims_a_pair_that_has_since_qualified.sql` (owner decision №2, *"fix the door"*)
+closes `453`'s one-way door: an escalated row whose pair later qualifies now rejoins the automated
+path. Its author explicitly worked around this lane — **surgical replacement on three verbatim
+anchors, each asserted to occur exactly once, guarded on the whole body's md5**, precisely because
+"that lane is iterating fast (465, 466, 471, 472 in one day)". Verified after the fact: `FIRST
+PARTITION THE FAILURES` present, `fix candidate 3 is UNTOUCHED` present, `bugs_open/295` absent.
+Body 7,205 → 10,566 chars. **That is how to edit a live object another session is working on.**
+
+### Escalation prediction RE-MEASURED on 08-19 and UNCHANGED
+
+09:02Z, `held-pair-canary-escalation` last fired **08-18 12:57:48** — so today's tick had not yet
+run and yesterday's correction is **still pending, not yet graded**. Held set identical to
+yesterday: `placeholder_contact` **08-20 12:57**; `dead_fragment_link`, `literal_markdown`,
+`missing_conversion_path` **08-21 12:57**.
+
+### Misstep, caught inside the session: I measured promotions against a literal I INVENTED
+
+Asked "is the promoter still promoting?" with
+`WHERE resolution_path = 'auto:promoted_known_good'` → **0 rows for 4 days**, which reads as a dead
+promoter. The promoter **sets no `resolution_path` at all**: it writes `status='triaged'`,
+`triaged_at=now()` and `spec.original_pipeline`. A census of the column confirmed my literal exists
+nowhere in 31k rows. Re-measured on the real signature: **301 / 100 / 71 / 335 / 316 promotions**
+on 08-14…08-18, outcomes **946 complete vs 79 failed (92%)** — criterion 1 holds comfortably.
+**The zero was well-formed, instant, and about a column the mechanism never writes.** Same family as
+the five already logged; the check that caught it was censusing the column instead of trusting the
+predicate. Read the mechanism's own `SET` clause before keying a health check on a value.
