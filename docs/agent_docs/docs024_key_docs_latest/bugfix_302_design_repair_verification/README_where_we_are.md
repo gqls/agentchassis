@@ -192,3 +192,66 @@ told them, and they had it green again quickly — and in the process they corre
 them, which I've logged against myself. That exchange found the same underlying trap from two
 directions: two thirds of the platform's job history sits in an archive table, so almost every "has
 this ever happened" count in this estate is really "in the last week".
+
+---
+
+## 2026-08-19 — proved it, closed it, and here is what I did to prove it
+
+You asked me to prove it, so I did, and I want to be straight about how — because "proved" can mean
+very little if the test could only ever have come out one way.
+
+**First, the fix is in the new build.** `v1.0.1314`. I checked the same way as before: the image's
+own record of which commit built it, an ancestry check that says *yes* to my fix and *no* to a later
+commit (a check that says yes to everything proves nothing), and the running pods' fingerprint
+matching the image I inspected.
+
+**Natural demand still never came.** Fifteen hours after the first release, not one job of the
+protected kind had been touched, against 252 jobs completed across the fleet. Both schedulers that
+feed it are still off. So there was nothing to wait for.
+
+**How I induced it, and the thing I had to avoid.** The obvious move — set the design audit running
+so it files a job — would have proved the *wrong half*. Since yesterday's other fix, the repair agent
+hands back a report the check can read, which trips a different rule. The situation my change is
+about is a job completed with **no report at all** — and that is a real, existing path: it's exactly
+what one of our own orchestrators does, and it has already happened once to this job type. So I
+reproduced that path with a tiny single-step probe that calls the completion check directly. **It
+spawns no repair agent and reads or writes nothing belonging to any site.**
+
+**Four cases, not one.** This is the part that matters:
+
+| what I supplied | job type | what happened |
+|---|---|---|
+| **nothing** | the protected one | **refused** — "the handler's result was unreadable… refuses to certify what it cannot read" |
+| a readable report, all zeros | the protected one | refused, but with the **other** message — so the two reasons stayed distinct |
+| a readable report with real work in it | the protected one | **completed** — the check isn't just refusing everything |
+| **nothing** | a job type not signed up | **completed** — the rest of the fleet is untouched |
+
+The first row on its own would have proved almost nothing: a check that refused *everything* would
+have produced it, so would one that had started blocking the whole fleet. The other three are what
+rule those out, and each came out the opposite way.
+
+Then I deleted the probe and the four test jobs, and checked the deletion at the data rather than
+assuming it: nothing left behind, and the real success-rate figure that a live scheduler reads still
+reads exactly what it did before I started.
+
+**So the lane is closed.** The bug is fixed, live, and proven.
+
+**What I did NOT fix, and deliberately.** The original complaint was that this family of design
+repairs has no proper before-and-after checker. The answer is that it shouldn't get one by that
+route, and that answer was already written down in our own code before I arrived — checking would
+need a real browser on the completion path, and for several of the types "fixed" is an aesthetic
+opinion with nothing to re-run. I've made that a recorded decision rather than an open gap.
+
+**Three things outlive this lane, and none is mine to decide.** I filed the first as its own ticket
+(`317`) so closing this one loses nothing: a fifteen-minute cleanup sweep can still complete one of
+these jobs with neither check running, because its exemption list is wired to the *other* check's
+list. It has never once happened — but only because the schedulers are off, so re-enabling one
+re-arms it. The other two need a decision from you or another lane: for one job type, handing back an
+analysis may legitimately *be* the deliverable, and for two others nobody has measured what a
+successful report even looks like.
+
+**And the honest footnote.** I made three wrong calls over the two days and all three were caught —
+one by me, one by a peer session, one by a reviewer. They were the same mistake wearing different
+clothes: *a thing that exists, or was written down, is not a thing that operates, or was done.* The
+fourth near-miss was in this very proof — my first "must be absent" control turned out to be a commit
+that couldn't have been absent. A control is only a control once you've checked it can fail.
