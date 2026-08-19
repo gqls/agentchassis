@@ -181,6 +181,7 @@ OPTIONAL_KEY_COUNTS = {
     "retract_asset_files": 4,
     "retract_page_deployment": 6,
     "revalidate_review_queue": 4,
+    "save_page_meta_description": 5,
     "scan_sites_for_maintenance": 2,
     "score_grippers": 6,
     "select_representative_content": 2,
