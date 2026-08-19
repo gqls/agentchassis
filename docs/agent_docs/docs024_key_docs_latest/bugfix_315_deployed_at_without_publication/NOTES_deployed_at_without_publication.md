@@ -713,3 +713,98 @@ build, the rerender's stamp is not firing and
 `491_drop_pre_deploy_deployed_stamp_ROLLBACK.sql` restores both steps surgically (deliberately not a
 blob restore — 488 is still pending against `page-build-handler` from another lane, and a whole-config
 restore would silently revert it).
+
+## 2026-08-19 ~15:40Z — 491's RUNTIME check PASSES, so the rollback is not needed
+
+My 15:20Z entry left this open: *"verified at the config; it has not yet been observed at
+RUNTIME … the thing to check on the next `page-build-handler` run is that `page-rerender`'s stamp
+actually lands."* It landed.
+
+`[MEASURED 2026-08-19 ~16:50 BST, re-run first-hand]` pages updated since 15:20Z:
+
+```
+build_status | count
+-------------+------
+deployed     |    31        <- ONE row. Nothing at planned, nothing at needs_rebuild.
+```
+
+and the most recent all carry a fresh `deployed_at` from the rerender, not from a handler:
+`news-index` 16:00:31, `product-detail` 15:46:06, `services` 15:45:12,
+`pneumatic-vs-electric-grippers` 15:44:11, `learning-center` 15:42:22.
+
+**So removing the pre-deploy stamp has not stranded a single page**, and `491_…_ROLLBACK.sql` is
+not needed on this evidence. ⚠ **What it does NOT show:** that the bytes arrived. It proves the
+stamp still lands. That is §2, and it is exactly what `content_hash` is for.
+
+### Credit, and the grounding I did anyway
+
+This check was handed to me by the **`agentchassis-b0` session**, at the owner's request, with the
+figures above (they measured 30; I measured 31 — the count moved between us, which is what a live
+system does). They also re-measured `content_hash` **0 of 790** and `page_components.deploy_commit`
+**0 of 1,789**, and confirmed **4** live `update_page_status` steps, down from 5.
+
+**I re-ran the load-bearing one myself before recording it**, because a peer session's report is
+another doc with no seam showing where its measuring stopped — the same rule as a subagent's. It
+held. Their other offering — that §3's `seo-injector` instance has moved again (`last-modified`
+now Wed 19 Aug **14:42:12**, `scriptOpenTag` 2, `ported-page` 0, `b-type` 0) — I have not re-run,
+and they explicitly make no claim about *why* it moved. Marked `[UNVERIFIED BY ME]`, and it changes
+nothing: the page clearing itself is a description of the bug, not evidence against it.
+
+## 2026-08-19 ~15:45Z — the fix is BUILT (both halves), and one twin deliberately left alone
+
+**Half 1 — the git-adapter says what it did** (`0c5b94725`). `CommitToRepo` returns
+`CommitOutcome{RepoURL, CommitSHA, Branch, AbsentPaths}` instead of `repo.HTMLURL`, and the reply
+carries `commit_sha` plus **`files_sha256`**.
+
+The hashing lives in the *adapter*, not the git client, for two reasons that are not stylistic: the
+keys there are still the **caller's own paths** (`CommitToRepo` prefixes `{domain}/` onto its private
+copy, and the chassis looks a page up by the path it sent), and hashing is pure, so it has no
+business inside the git plumbing.
+
+⚠ **The base64 branch is the part that would have failed silently for ever.** A base64 file's
+`content` string is a transport wrapper, not the file; hashing the wrapper yields a value that can
+*never* equal a sha256 of what the origin serves, and nothing would ever report the mismatch. It is
+not hypothetical — `derive_card_asset_action.go:202` and `derive_brand_head_assets_action.go:169`
+send base64 PNGs today. **Mutation-proved:** removing the decode fails exactly that assertion;
+restoring it passes.
+
+Unusable input is **omitted, never hashed wrongly** — a missing key means "no fingerprint available"
+and a reader can act on it; a wrong one means "this page is broken" and it cannot.
+
+**No `NoChange` flag, and that is a deliberate narrowing of my own plan.** It needs the PARENT
+commit's tree sha, and the parent tree is off the hot path — `getLatestCommitSHA` returns a *commit*
+sha and `getBaseTreeSHA` (which does read a tree sha) is only its error fallback. So it would cost a
+GitHub round-trip on **every** commit across 19 live `git_commit` steps, to populate a field the
+council ruled **report-only**. The per-file hashes answer the same question better, at the grain the
+site actually serves.
+
+**Half 2 — the chassis reads it** (`086f9b7b7`). `update_page_status` takes one optional,
+default-OFF key naming the deploy step's output field; refuses the stamp when that step reported a
+skip; and writes `pages.content_hash` in the same UPDATE as the stamp, via
+`COALESCE($3, content_hash)` so a stamp with no fingerprint leaves a good hash alone rather than
+nulling the only evidence there is.
+
+Resolution goes through `datahelpers.ExtractFields` **scoped to the named subtree**, not a path
+index. **Mutation-proved:** swapping in a literal `<field>.response.data` read fails exactly the
+nested-shape test and nothing else — which is the 7.7% of live runs, and failing there means failing
+*open* on all of them.
+
+Three outcomes kept distinct because they demand opposite responses: **skipped** → refuse;
+**resolved** → stamp and fingerprint; **unreadable** → stamp anyway and write a
+`DEPLOY_EVIDENCE_UNREADABLE` row. ⚠ I graded that row **`warning`, not `high` as the plan said**: the
+chassis and the git-adapter are separate images, so a chassis carrying this key against an adapter
+that predates RFC_038 resolves nothing on **every** deploy. That is an expected, bounded rollout
+window, and grading it `high` would have made the fleet's error log useless for a day.
+
+### The untouched twin — checked, and deliberately not changed
+
+`pattern-check` flagged `UpdatePageComponentsStatusAction` as an unedited twin of the function I
+changed. Checked rather than waved through: its only write is
+
+```sql
+UPDATE page_components SET build_status = $1, reviewed_at = $2, reviewed_by = $3, updated_at = NOW() ...
+```
+
+It never touches `pages.deployed_at` or `content_hash`, so **it makes no publication claim and does
+not carry this defect.** Extending it would mean writing `page_components.deploy_commit` — which the
+owner ruled out the same day. Not-changing it is right twice over.
