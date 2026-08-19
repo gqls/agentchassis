@@ -35,6 +35,38 @@ independently.**
 > BY RETENTION. Add the `wedge-evidence:<orch_id>` note keys to the runtime tier when a burst is
 > captured, but that is an addition, not a precondition.
 
+## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
+
+| check | result |
+|---|---|
+| build point | **`590ca3a20`** PRESENT on **both** replicas (`grep -aq` on `/proc/1/exe`). **Two negative controls absent**: the previous build point `d3590ca46` and `deadbeef…`. The `build provenance` log line had already scrolled on both — absent ≠ unstamped |
+| Part A (RSH-010) still aboard | `bf7646a29` and `2a3d30ec3` are ancestors of `590ca3a20`. The 236 park fix `3ba384c63` is too |
+| wedge population, 7-day view | **20, all on 08-17. None since** — and this is now a SEVEN-DAY statement from `awaited_requests`, not a 26-hour one from `orchestration_states` |
+| entry condition (terminal-`error` `call_handler`) | 08-18 **0/1595**, 08-19 **0/385**. Burst remains one day |
+| anything wedged on the new build | none. 38 COMPLETED; one `EXECUTING_STEP` at `process_item_iter_0_done` — **in flight, not a wedge** (wrong step; the wedge is at `_spawn_handler`). This is the exact shape the morning's 090 mistook for an instance |
+
+⚠ **The quiet still proves nothing.** Six of eight days are zero in the baseline too. What has
+changed is the *window we can say it over*, not the strength of the claim.
+
+## ✅ DONE THIS SESSION — the 090's blocker is FIXED IN CODE (inert until the next roll)
+
+`awaited_requests` was in **neither** filter that populates the diagnosis bundle's Schema section:
+it does not match the relevance include (`site%|page%|content%|flow%`) and no `SELECT` in
+`diagnose_load_runtime` names it, which is the rule `schemaAlwaysTables` derives from. Invisible by
+construction. **This is run `074beb8a`'s failure one table over** — that run died because
+`orchestration_states` was absent, guessed a column, got 42703 and stopped; the remedy was this same
+list, and it worked.
+
+- **Commit `0132a3683`** — `awaited_requests` added to `schemaAlwaysTables`; the derivation rule
+  WIDENED in the comment rather than quietly falsified (it is now "tables this action renders rows
+  from" **plus** "tables a diagnosis cannot avoid addressing"); its own assertion added to
+  `TestSchemaAlwaysTablesIsDeterministic` because the coverage test **cannot see why this entry
+  belongs** and would stay green if someone deleted it as unused. **Proven able to fail by mutation.**
+- **Council: `Council-Submitted: e03f7122-7895-4b81-8add-5a93f69ed553`. VERDICT UNREAD — read it.**
+  `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
+- **Go, so INERT until the next chassis roll.** Verify after the roll at the build stamp, then by
+  re-filing the 090 and checking its bundle actually describes the table.
+
 ## ⏳ IN FLIGHT — the re-filed 090, verdict NOT YET READ
 
 Filed 2026-08-19 **11:05Z** after the corrections below. **RUN correlation
@@ -148,8 +180,11 @@ quiet.**
 
 ## What is actually left on this lane
 
-1. ~~**Wait for the next burst, then act inside ~26 hours.**~~ **SUPERSEDED 2026-08-19: re-file the
-   090 NOW against the 20 retained `awaited_requests` instances** (§3 of the 08-19 NOTES entry), and
+1. **RE-FILE THE 090 — but ONLY after the roll that carries `0132a3683`.** Filing before it stalls
+   in the same place a third time; that is now the single gating dependency. The 20 retained
+   instances are good to **~2026-08-24**, so if the roll slips past that, inline `\d awaited_requests`
+   into the symptom instead of waiting. ~~**Wait for the next burst, then act inside ~26 hours.**~~
+   ~~**SUPERSEDED 2026-08-19: re-file the 090 NOW against the 20 retained `awaited_requests` instances**~~ (§3 of the 08-19 NOTES entry), and
    correct the symptom to name that table. The ~26-hour clock governs `orchestration_states` only;
    the usable window on the 08-17 burst runs to **~2026-08-24**. Waiting for a fresh burst was never
    required. Check with the RUNBOOK's wedge census; if rows exist, transcribe them AND
@@ -164,8 +199,13 @@ quiet.**
    `EXECUTING_STEP` at 4h — the same threshold — so reaped-only evidence is **a lower bound on a
    population nobody can enumerate**. Nothing further is owed here; read the notes when a burst
    happens.
-3. **Nothing else.** Part A is closed out; the initial-wait lead is refuted; the dormant twin is
-   deliberately unfixed with a re-verified scoped claim.
+3. **Read two verdicts that are outstanding**: the council on `e03f7122` (the bundle fix), and — if
+   anyone re-files — the 090.
+4. **Fix the step-name-keyed arrival check** in `persistAwaitingStateWithRetry` (NOTES §6). Verified
+   at source, unshipped, should key on request id. Real on its own terms; `[UNVERIFIED]` as this
+   bug's cause and it does **not** fit as the first failure. Council gate applies.
+5. **Nothing else.** Part A is closed out; the initial-wait lead is refuted; the ticker's 60s context
+   is refuted; the dormant twin is deliberately unfixed with a re-verified scoped claim.
 
 ## Can 029 be closed? NO — and the honest reason
 
