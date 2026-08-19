@@ -8,7 +8,8 @@
 > architecture_review with the 19-step consumer list and a rollback plan, before edit 4's config key
 > can safely reference the new fields."*
 
-This RFC is that referral. **Status: OPEN, awaiting the consumer survey it asks for.**
+This RFC is that referral. **Status: SURVEY DONE 2026-08-19 (§7) — the seat's one `missing` item is answered, and the answer is
+that NO consumer parses this reply at all. Owner ruled the destination the same day (§8).**
 
 ## 1. What is actually missing
 
@@ -115,3 +116,82 @@ in the git-adapter image, so rollback is repointing to the previous image — no
 config to unwind, and the 3 callers are in the same image. Nothing may name the new fields until
 this RFC is decided, which is why `bugs_open/315`'s config key was withdrawn from the same round
 rather than shipped ahead of it.
+
+
+## 7. THE CONSUMER SURVEY — done 2026-08-19, and it is decisive
+
+The seat's `missing` item was: *"No list of the 19 `git_commit` steps' current consumers verifying
+none will misparse the widened payload."* Answered from both sides.
+
+### 7a. Workflow config — every reference is a blind re-export
+
+For each `git_commit` step, its `output_field`, then every OTHER step in the same agent whose JSON
+mentions that field name:
+
+| agent | output_field | referenced by | as |
+|---|---|---|---|
+| content-feed-orchestrator | `news_commit_result` | `complete` | `complete_workflow` |
+| content-feed-orchestrator | `rss_commit_result` | `complete` | `complete_workflow` |
+| css-patch-agent | `css_deployed` | `complete` | `complete_workflow` |
+| model-directory-publisher | `directory_commit_result` | `complete` | `complete_workflow` |
+| page-rerender | `deploy_result` | `complete` | `complete_workflow` |
+| report-builder | `deploy_result` | `complete` | `complete_workflow` |
+| report-builder | `sidecar_deployed` | `complete` | `complete_workflow` |
+| section-editor | `git_result` | `complete` | `complete_workflow` |
+| site-asset-renderer | `deploy_result` | `complete` | `complete_workflow` |
+| webdesign-agent | `css_deployed` | `complete` | `complete_workflow` |
+| the remaining 7 (`js_snippets_deployed` ×6, `failed_sidecar_deployed`) | — | **nothing** | — |
+
+**Every single reference is `complete_workflow`'s `output_fields` list**, which re-exports the whole
+blob to the parent untouched. **Not one step reads a FIELD out of a `git_commit` reply** — no
+`*_field` path, no conditional, no template, anywhere in the live fleet.
+
+⚠ **One row in the first pass was a false positive and is removed above:** `report-builder`'s
+`publish_failed` appeared to reference `sidecar_deployed`, because `LIKE '%sidecar_deployed%'` also
+matches **`failed_sidecar_deployed`**, which is that step's own `output_field`. A substring match
+between two field names that share a suffix. Checked and dropped.
+
+### 7b. Go — the apparent readers are all WRITERS
+
+Grepping the payload's key names outside the adapter and `git_deployer_actions.go`:
+
+| key | non-adapter Go hits | what they actually are |
+|---|---|---|
+| `repo_url` | **0** | — |
+| `deploy_result` | **0** | — |
+| `css_deployed` / `js_snippets_deployed` | **0** | — |
+| `files_count` | 3 | `zap.Int("files_count", len(filesMap))` — log fields |
+| `file_path` | 4 | `"file_path": "feed.xml"` — constructing OUTBOUND payloads |
+| `commit_message` | 8 | building a message to SEND |
+| `git_result` | 3 | `"git_result": gitResult` — wrapping an action's own result |
+
+**No Go code reads a field out of the git-adapter's reply either.**
+
+### 7c. What this settles
+
+The reply is an **opaque blob** end to end: produced by the adapter, stored under `output_field`,
+re-exported by `complete_workflow`, never parsed. **Adding keys to it cannot make any current
+consumer misparse anything, because there is no current consumer.** That is the fact the seat asked
+for, measured rather than argued.
+
+It does **not** dissolve the seat's forward-looking concern — *"the risk is future steps starting to
+read `commit_sha`/`no_change` informally, at which point it is load-bearing with no RFC behind it"* —
+which is precisely why this RFC exists and why the fields are documented in `DGH-001` as they ship.
+
+## 8. OWNER RULING, 2026-08-19
+
+> *"wire up the page fingerprint; drop or ignore the section one."*
+
+- **`pages.content_hash` — WIRE IT.** It is the per-page fingerprint of the bytes committed. The site
+  serves one file per page, so this is the grain that answers *"is this page current?"* in one
+  comparison.
+- **`page_components.deploy_commit` — NOT wired.** A section is not a file, so it cannot answer the
+  publish question. **Implemented as "ignore", not "drop":** dropping a column is irreversible and
+  another lane may yet have a use, whereas the actual cost being paid — three sessions independently
+  rediscovering it is empty — is a documentation cost and is fixed by saying so. Recorded in
+  `DGH-001` and left in place.
+
+So the destination is settled and this RFC's remaining question is only the one in §4, now answered
+in §7. **The adapter change may proceed**; `files_sha256` is load-bearing (a commit sha alone cannot
+distinguish an empty commit, per `DGH-009`), `commit_sha` is traceability, and `no_change` stays
+report-only.
