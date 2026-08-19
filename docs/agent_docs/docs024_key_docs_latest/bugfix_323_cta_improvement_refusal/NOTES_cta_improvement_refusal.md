@@ -155,3 +155,35 @@ hunk (`MM`), which a bare commit by anyone would have shipped. `landmines-verify
 
 **Still owed:** council verdict read + acted on; bug file status; WRONG_CALLS; 016b §9; register
 entry; CONTRIB to `copy_quality_two_stage`; README; memory.
+
+## 2026-08-19 20:31Z — council round 1 APPROVED (14 seats, 3 abstained, "4 advisory objections, none high"); triage, each checked
+
+Verdict READ (diagnosis_artifacts `council_report`, corr `92829711`). Advisory triage:
+- **editquality** (m) sketch placeholder `'...'` for the cta/nav reasons — in code all three map to the
+  IDENTICAL verbatim string. ✓ no change. (m) dedup-key collision with the rule_missing fallback —
+  `capability_gap:no_handler_for_audit_category:` vs `capability_gap:unrouted_audit_category:`, distinct
+  (grep). ✓ (m) "tone_shift → page-build-handler unverified" — it is the router's own hard-coded Rule 4
+  output (what the test exercises) AND live: 32 lifetime tone_shift rows, all `page-build-handler`. ✓
+  (missing) "nothing covers the unread flag in this diff" — correct: that is 495, live and probe-proven,
+  and it covers non-router paths (raw `cta` category). ✓ stated.
+- **bug_historian** (m) coarse dedup key drops every finding after the first per site+category — TRUE and
+  DELIBERATE (077's "one open row per site per check"; the fallback does the same), recorded as a **named
+  residual**: the row carries the FIRST finding's suggestion/acceptance_test only; later ones count as
+  `items_skipped`. Auditors re-file every run, so repointing `noHandlerCategories` at a real handler
+  restores per-finding flow immediately. Not changed. Write path is EXISTS-then-INSERT (skip), not
+  ON CONFLICT DO UPDATE — so no accumulation, and no 091-style "reported as raised" either: the skip is
+  counted.
+- **reuse_agent** (m) the test restated the handler's fix_type ladder — **ACTED ON**: extracted
+  `fallbackFixType(category, itemType)` in `fix_component_template_action.go`, used by BOTH the action
+  and the test; re-mutated (route `cta` with NO spec.fix_type → dynamic half RED via the shared ladder,
+  8 hits; restored GREEN; full suite green). (l) `checks.GapHandlerMissing` — exists, `remit.go:114`. ✓
+- **tooling_provenance** (m) the 486/495 coordination lived only in prose — **ACTED ON**: `doc_notes` row
+  `3bacc872` (`action`/`fix_component_template`, category `coordination`) + a CONTRIB in the 283 lane dir.
+- **guardian** (m) blast radius of the renamed map — `noHandlerCategories`/`categoryToFixType` are referenced
+  in `write_audit_findings_action.go` and tests only (grep over platform/internal/pkg/cmd). ✓ (l) the test
+  re-point is stated as deliberate in the test comment. ✓ (l) "495 becomes dead config for cta after the
+  roll" — NOT dead: it still guards the other 11 refusal arms (lock-refused chrome, unrecognised fix_type,
+  chrome_overflow without slot/selector, status-drift refusals) and SQL-patched raw `cta` items. Recorded.
+- architecture: "ARCHITECTURE_SIGNAL: point_fix" — and names the copy-editor sibling as the RFC-shaped
+  decision if built, which matches the PLAN.
+Follow-up commit carries `Council-Reviewed: 92829711-aecb-4e1a-8457-d011b4a635af`.

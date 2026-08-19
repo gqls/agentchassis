@@ -36,20 +36,20 @@ import (
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 )
 
-// fixTypeTheHandlerWouldResolve mirrors FixComponentTemplateAction's resolution
-// ladder (config literal → input_data.fix_type → input_data.spec.fix_type →
-// spec.category → item_type) for a finding the dispatch loop would hand it.
-// Kept beside the test so a change to the ladder is a change here too.
+// fixTypeTheHandlerWouldResolve resolves a routed finding's fix_type the way
+// FixComponentTemplateAction does for an item the dispatch loop hands it:
+// spec.fix_type first (the router's explicit value), then the handler's OWN
+// fallback ladder — called, not copied, so this test cannot drift from it
+// (council reuse_agent, corr 92829711). The two config-level sources the
+// handler checks before these (step config literal, input_data.fix_type) do
+// not exist for a router-filed finding.
 func fixTypeTheHandlerWouldResolve(c classifiedFinding) string {
 	if ft, _ := c.Spec["fix_type"].(string); ft != "" {
 		return ft
 	}
-	if cat, _ := c.Spec["category"].(string); cat != "" {
-		if ft := inferFixTypeFromCategory(cat); ft != "" {
-			return ft
-		}
-	}
-	return inferFixTypeFromItemType(c.ItemType)
+	cat, _ := c.Spec["category"].(string)
+	ft, _ := fallbackFixType(cat, c.ItemType)
+	return ft
 }
 
 func TestAuditRoutingNeverTargetsAFixerRefusalArm(t *testing.T) {

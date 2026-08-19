@@ -20,7 +20,8 @@
 >   open row per site per category — `bugs_closed/077`) instead of dispatching at the fixer.
 > - **Layer 3 — same commit.** `fixTypesRefusedByDesign` + `TestAuditRoutingNeverTargetsAFixerRefusalArm`:
 >   the router can no longer name the fixer with a fix_type the fixer refuses (mutation-proven).
-> - Council: `Council-Submitted: 92829711-aecb-4e1a-8457-d011b4a635af` (round 1).
+> - Council: round 1 **APPROVED** 20:31Z (corr `92829711`, 14 seats, 4 advisories none high — triage in the lane NOTES; two acted on: the shared `fallbackFixType` ladder, the 486/495 coordination note).
+> - **Named residual:** the capability_gap row keeps the FIRST finding's suggestion/acceptance_test per site per category; later ones are counted as dedup skips (077's one-row-per-site shape, deliberate) — repointing `noHandlerCategories` at a real handler restores per-finding flow at the next audit.
 >
 > **The open question below is answered, by class:** DESTINATION defects are repaired by the resolver /
 > `cta_links_stale` recompute regardless of the item (robot-hands.com/index, ~2h later, graded at

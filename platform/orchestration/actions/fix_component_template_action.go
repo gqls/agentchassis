@@ -154,6 +154,29 @@ var fixTypesRefusedByDesign = map[string]string{
 	"nav_restructure": "fix_type requires LLM-driven changes, not programmatic HTML edits",
 }
 
+// fallbackFixType is the fix_type resolution ladder that runs when neither the
+// step config nor the work item's spec names one: spec.category first, then
+// item_type. Returns the fix_type and which input it came from ("category" /
+// "item_type"), or ("", "") when neither resolves.
+//
+// It is a named function rather than two inline blocks so that the routing
+// lockstep test (audit_routing_refusal_lockstep_test.go) resolves a finding's
+// fix_type through the SAME ladder the handler uses — a hand-copied ladder in a
+// test passes while the real one diverges.
+func fallbackFixType(category, itemType string) (fixType, derivedFrom string) {
+	if category != "" {
+		if ft := inferFixTypeFromCategory(category); ft != "" {
+			return ft, "category"
+		}
+	}
+	if itemType != "" {
+		if ft := inferFixTypeFromItemType(itemType); ft != "" {
+			return ft, "item_type"
+		}
+	}
+	return "", ""
+}
+
 // inferFixTypeFromCategory maps audit category names to actionable fix_type values.
 func inferFixTypeFromCategory(category string) string {
 	category = strings.ToLower(strings.TrimSpace(category))
@@ -211,29 +234,19 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		fixType = datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.fix_type")
 	}
 
-	// Fallback: derive from category
+	// Fallbacks: derive from spec.category, then item_type — ONE function, shared
+	// with the routing lockstep test so the test cannot drift from the ladder
+	// (council reuse_agent, corr 92829711).
 	if fixType == "" {
 		category := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.category")
-		if category != "" {
-			fixType = inferFixTypeFromCategory(category)
-			if fixType != "" {
-				logger.Info("Derived fix_type from category",
-					zap.String("category", category),
-					zap.String("fix_type", fixType))
-			}
-		}
-	}
-
-	// Fallback: derive from item_type
-	if fixType == "" {
 		itemType := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.item_type")
-		if itemType != "" {
-			fixType = inferFixTypeFromItemType(itemType)
-			if fixType != "" {
-				logger.Info("Derived fix_type from item_type",
-					zap.String("item_type", itemType),
-					zap.String("fix_type", fixType))
-			}
+		var derivedFrom string
+		fixType, derivedFrom = fallbackFixType(category, itemType)
+		if fixType != "" {
+			logger.Info("Derived fix_type from "+derivedFrom,
+				zap.String("category", category),
+				zap.String("item_type", itemType),
+				zap.String("fix_type", fixType))
 		}
 	}
 
