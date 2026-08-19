@@ -3338,7 +3338,7 @@ cited, no inference left load-bearing:
 2. **Those entries carry NO `identity_authority`, no `url`, no `parent_section`, and
    `sections: []`.** Same stored output. That is the whole answer in one artefact: the
    realised-identity marker is absent by the time validate hands the pages on.
-3. **Why it is absent —** `v3_site_actions.go:6476`, in the pass over the LLM pages:
+3. **Why it is absent —** `v3_site_actions.go `reconcilePlanWithRealised` (:6616 at 2026-08-19; was :6476 on 08-17 — anchor on the symbol)`, in the pass over the LLM pages:
    `delete(lm, "identity_authority")` with the comment *"This function is the ONLY minter of
    the realised-identity marker … Stripped before any pass can read it, and **re-stamped only
    by a snap or a union**."* This site had **no snap layers** — `twin_identity_snap` and
@@ -3381,3 +3381,75 @@ against a prefixed realised one *in either direction*, which is exactly
 `mortgages-stamp-duty` ↔ `tool-mortgages-stamp-duty`. "One canary, one question" was a false
 economy: with a precondition unmet, the canary answered no question at all about the flag —
 it only measured what happens when the flag cannot fire.
+
+### 2026-08-19 (f) — CORRECTION to (e)'s REMEDY: neither snap layer could have prevented the twins. All three share a guard that declines when the names MATCH, and the planner named our pages correctly
+
+Picked the lane up after two days (728 commits on the tree). (e)'s **cause** stands unchanged —
+no marker, so `honour_realised_identity` was inert. Its **remedy** was wrong, and so was the
+phase-4 instruction built on it ("seed `twin_identity_snap` and `stem_twin_snap`").
+
+**What I did not read yesterday: the guard the three twin layers share**
+(`v3_site_actions.go`, the `eligible` closure inside `matchTwinIdentity`, ~`:6091` at HEAD
+2026-08-19 — *anchor on the symbol, the line moved 140 rows in two days, see below*):
+
+```go
+eligible := func(rp map[string]interface{}) (string, bool) {
+    rname, _ := rp["name"].(string)
+    if rname == "" || rname == lname {   // <-- realised name EQUALS the plan name => INELIGIBLE
+        return rname, false
+    }
+    if planNames[rname] { return rname, false }
+    return rname, true
+}
+```
+
+Its own comment says it is *"shared by all three layers so a guard cannot be true of one and
+forgotten in another"* — so path-key, canonical-name and stem-twin all decline together.
+
+**Our round 1 hit exactly that clause, because the planner got the names RIGHT.** The run's
+stored `validate_plan` output carries `mortgages-stamp-duty`, `mortgages-simple`,
+`mortgages-repayment` — **identical** to the realised rows, not bare-vs-prefixed. So:
+
+| layer | why it did not fire |
+|---|---|
+| `path_key` | requires `lurl != ""`; our plan entries carried **no URL** |
+| `canonical_name` | `eligible` false — realised name == plan name |
+| `stem_twin` | same guard, and it additionally needs one side to be the bare stem |
+
+Then `write_site_plan` canonicalised `mortgages-stamp-duty` (role `tool`) into
+`tool-mortgages-stamp-duty` at the default hub, and `sync_pages` inserted it. **The twin is
+minted DOWNSTREAM of every layer that could have paired the pages, by the same canonicalisation
+whose output the layers exist to predict.**
+
+**Corroborated by a measurement that would otherwise read as nothing:**
+`recordIdentitySnaps` writes a durable row per twin event —
+`PLAN_PAGE_IDENTITY_SNAPPED` / `PLAN_PAGE_STEM_TWIN_OBSERVED` / `PLAN_PAGE_STEM_TWIN_REFUSED`
+into `agent_error_log` — precisely because *"an active chassis pod retains under one second of
+log"*. `[MEASURED 2026-08-19]`: **zero** rows of all three codes in our canary window, and
+**zero fleet-wide, all time** (the only `PLAN_PAGE_%` rows ever are 2 × `PLAN_PAGE_MERGE_LOSSY`,
+08-11, one site). That silence is not a missing feature — the code IS live (controlled probe
+below) — it is the guard declining before any layer can observe.
+
+**The probe, done properly this time** (yesterday's sha probe was uninformative because its
+negative control also came back absent). Against `v1.0.1314`, `/proc/1/exe`:
+`"Storage client not configured"` **PRESENT** (positive control) · `"PLAN_PAGE_STEM_TWIN_ZZZFAKE"`
+**ABSENT** (negative control) · `PLAN_PAGE_STEM_TWIN_OBSERVED`, `"stem twin observed, layer
+disabled"`, `PLAN_PAGE_IDENTITY_SNAPPED`, `honour_realised_identity` **all PRESENT**. So the
+08-11 identity code is compiled in and the zero is a behavioural fact.
+
+**The hole, stated as narrowly as the evidence allows:** the twin layers cover a page the
+planner names *differently* from its stored name. **A page the planner names CORRECTLY but
+whose stored name is not a canonical fixed point is unreachable by all three** — and on this
+site that is 17 of 45 pages (the identcheck measurement from 08-17). `honour_realised_identity`
+can therefore never fire for them, however it is configured. Filed as an addendum to
+`bugs_open/215` rather than as a new bug: same mechanism, same file, adjacent case.
+**No 090 this round** — the previous one (`33d4d7bc`) named this exact next scope and returned
+no verdict; this is the completion of its own evidence request, walked first-hand, which is the
+substitution the owner ruling of 2026-07-31 allows when it is declared. Declaring it.
+
+> **⚠ CITATION ROT, one to carry:** (e) and yesterday's LANDMINES entry cite
+> `v3_site_actions.go `reconcilePlanWithRealised` (:6616 at 2026-08-19; was :6476 on 08-17 — anchor on the symbol)` for the `identity_authority` strip. At HEAD today it is **`:6616`**
+> — the 184 lane's four commits moved it 140 lines in two days, with the code itself untouched
+> (`git diff` over the interval shows no change to any identity/snap symbol). **Anchor on
+> `reconcilePlanWithRealised` / the `eligible` closure, not on line numbers**, on a tree taking
+> ~350 commits a day. Corrected in place in all four places today.

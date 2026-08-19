@@ -36680,3 +36680,42 @@ string, my own arithmetic instead of the query, and now a grep mention instead o
 history. **When a tool exists whose whole purpose is that distinction, the absence of the thought
 "should I run it?" is the failure, not the absence of the tool.** Ask what would DEFINE the answer,
 then check whether something already computes it.
+
+---
+
+## 2026-08-19 — the SAME lesson as my 08-17 entry, two days later, on a different object: I published a REMEDY in four documents without reading the guard that decides whether the remedy applies
+
+On 08-17 I established why a planner canary minted 17 phantom pages: no realised-identity marker,
+so `honour_realised_identity` was inert. That cause was right and is unchanged. In the same breath
+I wrote the **remedy** — "seed `twin_identity_snap` and `stem_twin_snap`, the layers that do the
+pairing" — into a PLAN's phase 4, a NOTES entry, a `LANDMINES` entry and a `bugs_open/215`
+contribution, plus a commit message and a plain-prose note to the owner.
+
+**It is wrong.** All three twin layers share one `eligible` closure that returns false when
+`rname == lname` — when the planner names the page *correctly*. Ours did: the run's own stored
+`validate_plan` output carries `mortgages-stamp-duty`, not a variant. So no layer could ever have
+paired those pages, and enabling both would have changed nothing. The twin is minted downstream by
+canonicalisation, after every layer has declined.
+
+**What makes this worth a second entry rather than a footnote on the first:** it is the same
+failure as [2026-08-17, the twin-site entry] — *I read a mechanism's description and reasoned to
+its applicability instead of reading its predicate*. On 08-17 the predicate was a migration's SQL
+(`component_level IN ('section','element')` made a flag worth 3 components, not 23). Today it was
+a four-line Go closure. Both times the description was accurate and the applicability was not
+mine to infer. **A mechanism's doc comment tells you what it does when it fires; only its guard
+tells you whether it fires for you.**
+
+**The check, and it is the same one, which is the point of logging it twice in three days:**
+before writing down a remedy, open the function that would have to run and read its **entry
+conditions against your own case**. Not the type's doc comment, not the option's description in
+the policy struct, not the sibling site's experience — the guard. Had I done it on 08-17 it was
+one `sed -n` over the function I had already found.
+
+**Two things that limited the cost, both worth keeping.** (1) The remedy was never acted on: it
+was written as phase 4 of a plan, and the lane held phase 4 for an unrelated reason (a peer lane
+owns the shared oracle first), so no second canary was fired on a false premise. (2) A measurement
+I did not expect to need turned out to be the corroboration: `recordIdentitySnaps` persists one
+`agent_error_log` row per twin event *because a pod retains under a second of log*, and the
+**zero** rows fleet-wide since 08-11 — with the code proven live by a controlled binary probe —
+say the layers are declining, not missing. **A durable zero is evidence; the same zero from a log
+would have been nothing.**

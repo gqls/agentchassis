@@ -842,7 +842,7 @@ broken. It is inert unless a snap or a union has already paired the page:**
 1. `collected_data->'validate_plan'->'pages'` for the run holds the site's **realised names**
    (`mortgages-simple`, `mortgages-stamp-duty`, …) and **no `identity_authority`, no `url`, no
    `parent_section`, `sections: []`**.
-2. `v3_site_actions.go:6476` strips the marker from every LLM page —
+2. `v3_site_actions.go `reconcilePlanWithRealised` (:6616 at 2026-08-19; was :6476 on 08-17 — anchor on the symbol)` strips the marker from every LLM page —
    *"the ONLY minter … Stripped before any pass can read it, and **re-stamped only by a snap or
    a union**"*.
 3. This site had **neither snap layer** (`twin_identity_snap` / `stem_twin_snap` absent — the
@@ -867,3 +867,59 @@ matches a bare plan page against a prefixed realised one *in either direction*.)
 
 Next round on this site seeds all three together. Full chain and the queries:
 `docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry **2026-08-17 (e)**.
+
+### ADDENDUM 2026-08-19 (LMC lane) — the narrow hole: a page named CORRECTLY but non-canonically is unreachable by ALL THREE twin layers
+
+Yesterday's upgrade above said the flag has a precondition (a snap or a union must pair the page)
+and implied the remedy was to enable the snap layers. **That remedy is wrong, and the reason is
+one guard.** Re-read today with the run's own artefacts:
+
+```go
+// the closure shared by path_key, canonical_name and stem_twin —
+// "shared by all three layers so a guard cannot be true of one and forgotten in another"
+eligible := func(rp map[string]interface{}) (string, bool) {
+    rname, _ := rp["name"].(string)
+    if rname == "" || rname == lname {   // <-- realised name EQUALS plan name => INELIGIBLE
+        return rname, false
+    }
+    ...
+```
+
+**The layers are built for a page the planner names DIFFERENTLY from its stored name.** When the
+planner names it *the same* — which is the good case, and what ours did
+(`validate_plan` output carries `mortgages-stamp-duty`, `mortgages-simple`, `mortgages-repayment`
+verbatim) — every layer declines on the grounds that the two are already one name. The plan
+entries also carried **no URL**, so `path_key` was skipped before the guard even applied.
+`write_site_plan` then canonicalised `mortgages-stamp-duty` (role `tool`) to
+`tool-mortgages-stamp-duty` at the default hub, and `sync_pages` inserted it: **the twin is minted
+downstream of every layer that could have paired the pages, by the very canonicalisation the
+`canonical_name` layer exists to predict.**
+
+**Corroboration that reads as nothing unless you know the record is durable.**
+`recordIdentitySnaps` writes one `agent_error_log` row per twin event (`PLAN_PAGE_IDENTITY_SNAPPED`
+/ `PLAN_PAGE_STEM_TWIN_OBSERVED` / `PLAN_PAGE_STEM_TWIN_REFUSED`) *because* — in that function's
+own words — an active chassis pod retains under a second of log. `[MEASURED 2026-08-19]`: **zero
+rows of all three codes for our run, and zero fleet-wide since the codes shipped on 08-11.** The
+only `PLAN_PAGE_%` rows in the table are 2 × `PLAN_PAGE_MERGE_LOSSY` (08-11, one site). And the
+code is not merely committed — it is compiled into `v1.0.1314`: controlled `/proc/1/exe` probe,
+`"Storage client not configured"` PRESENT (positive control), `PLAN_PAGE_STEM_TWIN_ZZZFAKE` ABSENT
+(negative control), and `PLAN_PAGE_STEM_TWIN_OBSERVED`, `"stem twin observed, layer disabled"`,
+`PLAN_PAGE_IDENTITY_SNAPPED`, `honour_realised_identity` all PRESENT.
+
+**So, narrowly:** `honour_realised_identity` can only ever fire for a page some layer paired, and
+no layer can pair a page whose stored name the planner reproduced exactly. **For a stored name
+that is not a fixed point of `CanonicalisePage`, that combination is unreachable by
+configuration.** On this site it is **17 of 45 pages** (measured 08-17 by calling the real
+canonicaliser through the write path's own descriptor, with controls).
+
+**Not filed as a new bug** — same file, same mechanism, adjacent case, and this file already owns
+the phantom-minting class. **Not fixed by this lane either:** the fix is on the shared reconciler
+seam, so it belongs to whoever owns 215, with a council submission and a register entry
+(2026-07-28 / 2026-08-02 rulings). The LMC D6 planner work is **blocked on it** and now says so.
+
+Whoever takes it: the two candidate shapes we can see, unranked, and we have measured neither —
+(1) let the `canonical_name` layer consider a same-name realised row (drop `rname == lname` from
+that layer's eligibility, keeping it for the other two), or (2) have the write path treat a plan
+page whose name matches a realised row as realised-derived regardless of marker. (2) is wider and
+would need its own population measurement. **The 090 on this (`33d4d7bc`) returned no verdict but
+named this scope; the walk above is the completion of its own evidence request.**

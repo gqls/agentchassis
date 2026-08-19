@@ -263,6 +263,25 @@ dispatch within ~300s of a chassis pod restart). Budget tens of minutes for queu
 **Phase 4 — reseed and repeat** until (1)–(4) hold. Record each round's divergence in
 NOTES; the divergences are the product here, not the final plan.
 
+> **⚠ PHASE 4 ITEM 1 IS WITHDRAWN — 2026-08-19, NOTES (f).** "Seed `twin_identity_snap` and
+> `stem_twin_snap`" would not have prevented round 1 and will not prevent round 2. All three twin
+> layers share one `eligible` guard (the closure in `matchTwinIdentity`) that returns **false when
+> the realised name EQUALS the plan name** — and the planner named our pages *correctly*
+> (`mortgages-stamp-duty`, verified in the run's stored `validate_plan` output), so every layer
+> declined and the twin was minted downstream by canonicalisation. Corroborated: **zero**
+> `PLAN_PAGE_IDENTITY_SNAPPED` / `_STEM_TWIN_OBSERVED` / `_STEM_TWIN_REFUSED` rows in
+> `agent_error_log` for the run — and zero fleet-wide all time — with the code proven live in
+> `v1.0.1314` by a controlled binary probe (positive control present, negative absent).
+> **So round 2 must not be fired on the strength of a config change.** What the site needs is a
+> code-level answer to the narrow hole (a page named CORRECTLY whose stored name is not a
+> canonical fixed point is unreachable by all three layers — 17 of our 45 pages), which is filed
+> as an addendum to `bugs_open/215` and is **not this lane's to write unilaterally**: it is a
+> shared-seam change on the reconciler, so it goes to the council gate with the register entry,
+> per the 2026-07-28/08-02 rulings. Until then this lane's D6 work is **BLOCKED on 215**, and
+> saying so is more useful than another canary that can only re-measure the same wall.
+> Independently, the lane is also holding phase 4 while the `283` conversion runs (it owns the
+> oracle first — `CONTRIB_2026-08-19` in the 283 lane dir).
+
 **Phase 4, as it now stands after round 1 (2026-08-17, NOTES (e) — cause ESTABLISHED):**
 
 1. **Seed `twin_identity_snap` and `stem_twin_snap` alongside the identity flag**, superseding
