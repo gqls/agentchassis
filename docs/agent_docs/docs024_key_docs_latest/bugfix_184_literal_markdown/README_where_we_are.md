@@ -99,3 +99,24 @@ not this bug.
 One process note in the interest of honesty: I put the council's approval stamp on
 today's follow-up commit before the council had seen the follow-up. I caught it myself,
 sent the follow-up for review the same hour, and logged the mistake where we log those.
+
+## 2026-08-19 evening — the bug is CLOSED
+
+A second fleet release (run by another session) happened to carry the news-feed fix, so I
+could finish today. I re-ran the repair on the defective pages: six of seven came back
+clean on the first attempt, each certified by the honesty-checker and then confirmed by
+actually fetching the live page — fundamentallyai.com/news went from 13 visible markdown
+symbols to none, with all its text intact. The three pages the bug was originally filed
+on are clean too, and the bug's own detection query now finds nothing. That meets the bar
+you set for closing a bug (fixed, live, verified on the real page), so I moved the file to
+bugs_closed.
+
+Two things the live-page check caught that are NOT this bug, handed to the right owners:
+one robot-hands page has clean stored content but the old file is still what visitors
+see (the rebuild didn't republish it — a pipeline gap), and one robot-hands URL is simply
+a 404. And the 41 webdesign.co.uk items on "ported" tool pages are out of this route's
+reach by design — that's the tool-rebuild programme's job.
+
+One thing still owed on this lane (not a reason to keep the bug open): the review
+council asked for some polish on the last piece of code — mainly a kill switch for the
+news-feed cleaner — which I've written up for a follow-up round.
