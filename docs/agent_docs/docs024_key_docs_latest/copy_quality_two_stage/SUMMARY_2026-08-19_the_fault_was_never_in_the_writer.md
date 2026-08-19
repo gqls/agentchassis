@@ -56,10 +56,15 @@ framework", quoting sentences built on a mannerism — saying what a thing *isn'
 say what it is. We spent a day looking for the cause in the writing machinery and the house
 voice. It was in neither.
 
-**It is in the brief.** The instructions handed to the writer for that site are themselves
-written in that mannerism, seven times over — and one of them supplies, word for word, the
-sentence the owner objected to. That phrase reaches the writer in 1,348 prompts and comes back
-in 408 pieces of copy. The machine is doing as it is told.
+**It is in the brief.** The instructions for that site supply the writer with a house tagline
+built on that very mannerism — and it is, word for word, the sentence the owner objected to.
+That phrase reaches the writer in 1,348 prompts and comes back in 408 pieces of copy. The
+machine is doing as it is told.
+
+*(Corrected the same evening: I first reported the brief as carrying the mannerism "seven times
+over". Only about a quarter of a brief is actually shown to the writer, and by that measure the
+site carries it twice, not seven times — one of the two being the tagline. The chain that
+matters, the tagline going in and coming back out, is unaffected.)*
 
 **And it is not one site.** Twenty-four of twenty-five briefs across the estate are written the
 same way, most of them far more heavily than the site that prompted the complaint — which turns

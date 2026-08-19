@@ -186,7 +186,55 @@ the word-count normalisation fixed, or the comparison drifts.
 
 ---
 
-# ROOT CAUSE FOUND 2026-08-19 — the brief is written in the construction, and one of its sentences is the owner's own complaint, verbatim
+# ⚠ ROOT CAUSE — CORRECTED 2026-08-19 (evening). The finding SURVIVES and gets simpler; my COUNTS were over text the writer never sees.
+
+> **Read this block before the section below, which is left standing as filed.**
+>
+> **What I got wrong.** I wrote that the brief "is written in the construction, seven times
+> over", and ran a fleet census reporting 24 of 25 briefs at 24–38 instances. **Those counts
+> are over the whole `content_direction` DOCUMENT. The writer does not read the document.**
+> `[MEASURED 2026-08-19]` It reads `formatted` — **3,558 of that spec's 15,760 chars, ~23%** —
+> and the structured instructional fields (`cta_style.approach`, `terminology.approach`) never
+> reach the prompt at all.
+>
+> **Proof, and it is the check that found this:** `not a sales process` and `rather than
+> transaction` are both in that spec's `cta_style.approach`. Across every
+> `page-content-writer` call they appear in **ZERO prompts** — while appearing in **35** and
+> **21** outputs respectively, i.e. **only where the prompt did NOT contain them.** Text that
+> reaches no prompt cannot be causing anything; those echoes are the model's own phrasing, not
+> transfer. (⚠ The "seven times" figure was worse than merely mis-scoped — I read it off a
+> `LIMIT 10` sample of regex matches and reported the visible rows as the total.)
+>
+> **Corrected figures** `[MEASURED 2026-08-19]`:
+>
+> | | in `formatted` (the writer reads this) | in the whole spec (it does not) |
+> |---|---|---|
+> | `ai-agent-orchestration.com` — the complained-of site | **2** | 13 |
+> | `remortgagecalculator.uk` — worst in fleet | **19** | 38 |
+> | `vonc.com` / `loanandmortgagecalculator.co.uk` / `loancash.co.uk` | 18 / 17 / 16 | 36 / 36 / 36 |
+> | sites whose `formatted` carries it at all | **23 of 25** | 24 of 25 |
+>
+> **What survives — and it is the load-bearing half, now stated more precisely.** The brief's
+> effect on this symptom runs through **one supplied phrase**: the canonical tagline
+> *"Multi-agent systems deployed to production in days, not months"*, which IS in `formatted`
+> and transfers verbatim — **1,348 rendered prompts, 408 responses**. That is a literal chain
+> and it is untouched by this correction. The owner's hero sentence was supplied by the spec.
+>
+> **So the root cause is narrower and cleaner than I filed it:** not *"the brief is saturated
+> with the construction"* but ***"the brief hands the writer a canonical tagline built on the
+> construction, and supplied phrases transfer."*** The saturation was an artefact of counting
+> text nobody reads.
+>
+> **And the fleet claim changes shape too.** 23 of 25 sites still carry it in the text the
+> writer actually sees, and the ranking is unchanged — so the pattern is real, roughly half as
+> large as reported, and still worth a detector. But a detector must read `formatted` (and the
+> other supplied fields), **never the whole spec document**, or it will report an inflated
+> number pointed largely at text with no consumer.
+>
+> **Told `portfolio_positioning`**, whose pilot I had warned at 38: the real figure for what
+> their writer sees is **19**, still the fleet's worst.
+
+# ROOT CAUSE as originally filed (superseded by the block above) 2026-08-19 — the brief is written in the construction, and one of its sentences is the owner's own complaint, verbatim
 
 **This closes the gap the loop named** (*"the same before/after-2026-08-13 comparison for those
 two pages"*) **and supplies a cause the loop did not reach.** First-hand verification, stated
