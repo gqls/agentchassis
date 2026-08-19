@@ -137,3 +137,45 @@ here is inferred.
   config authors.
 - The two rounds that motivated it: council corrs `05a3d1c8` and `8dc58e2a` (`bugs_open/083`), both
   config-shaped, both submitted with `FORCE=1`.
+
+---
+
+## 9. Corroborating evidence from the `bugs_open 294` lane (added 2026-08-19, contributed not competing)
+
+Three council rounds from a different lane, on the same branch, the same week. **Two of the three
+needed `FORCE=1`**, and they are useful to this file because of *what the council did with them*
+once it was allowed to look.
+
+| round | correlation | in scope? | verdict |
+|---|---|---|---|
+| `463` reaper `RUNNING` arm, r1 | `860d87d9` | **no** — only file was `docs/agent_docs/sql_for_agents/463_*.sql` | **REVISE**, gated by `debug_historian` at **HIGH** |
+| `463` r2 (same trail) | `860d87d9` | **no** | **APPROVED**, 2 advisories |
+| `464` reaper `INITIALIZED` arm | `e973d2aa` | **no** | **APPROVED**, 4 advisories |
+| delete `WorkflowMonitor` (Go) | `25fa8173` | **yes** — `platform/`, `cmd/`, `test/` | **APPROVED**, zero objections |
+
+**The point this file can use: the in-scope round was the one with nothing to say, and the
+out-of-scope rounds were the ones that changed the artefact.** The Go deletion — which the gate
+admitted without argument — drew **zero objections**. The config-only change the gate would have
+**refused** drew a HIGH-severity gating objection that was correct and materially improved the
+work: my verify block asserted the rewritten `pre_query` text with `LIKE` substring checks, which
+prove a needle is present and prove *nothing* about whether the assembled SQL parses — and a
+`pre_query` parses only when the reaper next ticks, so a typo would have committed happily and
+taken out **all five arms** minutes later. The fix (an `EXECUTE`-in-a-discarded-sub-block parse
+check, plus an `md5` concurrency gate) exists only because that round ran.
+
+So the current filter is not merely mis-scoped in the abstract: **it declines to look at exactly
+the class of change where this council has demonstrably found the most severe defect**, and admits
+the class where it found none. That is the inverse of what a relevance filter should do, and it is
+a measured instance rather than an argument.
+
+Two smaller notes for §5's candidates:
+
+- **`FORCE=1` did not degrade the review.** All 16-ish seats ran normally and the verdicts were
+  substantive, so whatever the fix is, it only needs to change *admission*, not the review itself.
+- **The reviewers themselves were unbothered by the path.** No seat in any of the three rounds
+  objected to a migration living under `docs/`; `editquality` and `debug_historian` reviewed the
+  SQL on its merits. The mismatch is entirely in the pre-filter, which supports candidates that
+  widen the regex over candidates that relocate the migrations.
+
+*Source: `bugs_closed/294` (the `RUNNING` gap) and its sibling `464`. Not proposing a fix here —
+this file's §5 already owns that, and its owner decision is recorded at the top.*
