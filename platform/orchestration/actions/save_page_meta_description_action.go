@@ -34,6 +34,33 @@
 // right shape for tool pages, where the sentence really is mechanical; it is the
 // wrong shape for arbitrary content pages, which is most of the 407.)
 //
+// ── THE COPY GATES, AND WHY THEY LIVE HERE (OWNER REQUIREMENT 2026-08-19) ────
+//
+// The owner authorised the fleet-wide backfill and WAIVED the read-first review
+// pass ("I don't need a review"), with one condition given in the same exchange:
+//
+//	"please make sure the summaries go through the copy guidance and checks so
+//	 they don't sound like AI"
+//
+// The checks REPLACE the review, so they have to be real and they have to run
+// before the write. They are enforced HERE, in the action, rather than in the
+// calling workflow, because a gate a workflow author can forget to wire is a
+// comment (owner ruling 2026-08-02 §2, the same reasoning as overwrite_existing).
+//
+// ⚠ AND THE OBVIOUS GATE CANNOT BE USED. `check_voice_tells` scans
+// `page_components.rendered_html`; there is a standing landmine saying it — and
+// every rendered_html census — is BLIND to `pages.title` and
+// `pages.meta_description`. So running that check would pass this text without
+// ever looking at it. What is reused instead is the layer underneath, which does
+// take plain text: `VoiceGate.ScanVoice([]string, longForm)` and
+// `checkBannedClaims([]string, …)`. Same rules, same site config, applied to the
+// one string that is actually about to be published.
+//
+// Both are OPT-IN AT THE SITE, exactly as they are everywhere else: a site with
+// no `voice` spec has no gate, and a site with no evidence register is still
+// swept for the fleet-wide banned claims. A site that has not opted in is not
+// silently held to rules it never accepted.
+//
 // ── THE OPT-IN FIELD, AND WHY ITS DEFAULT IS THE SAFE SIDE ───────────────────
 //
 // Owner ruling 2026-08-02 §2: new authority on a shared seam ships as an opt-in
@@ -55,6 +82,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -151,6 +179,20 @@ func SavePageMetaDescriptionAction(ctx context.Context, params ActionParams) (in
 		}, nil
 	}
 
+	// The copy gates. Both are advisory-by-absence (a site that has not opted in
+	// has no gate) and BLOCKING when they fire: a description that reads as AI
+	// boilerplate is exactly what the waived review pass would have caught, and
+	// there is no later reader to catch it.
+	if reason, detail := metaDescriptionFailsCopyGates(ctx, params, candidate, logger); reason != "" {
+		logger.Warn("candidate refused by the copy gates — nothing written",
+			zap.String("reason", reason), zap.String("detail", detail))
+		return map[string]interface{}{
+			"updated": false,
+			"reason":  reason,
+			"detail":  detail,
+		}, nil
+	}
+
 	pageID, err := resolveMetaDescriptionPageID(ctx, params, config, logger)
 	if err != nil {
 		return nil, err
@@ -237,4 +279,63 @@ func resolveMetaDescriptionPageID(ctx context.Context, params ActionParams, conf
 	}
 
 	return uuid.Nil, nil
+}
+
+
+// metaDescriptionFailsCopyGates runs the site's own voice and claims rules over
+// the candidate sentence. Returns ("", "") when it may be published.
+//
+// It reuses the text-level entry points rather than the page-level checks on
+// purpose — see the file header: `check_voice_tells` reads rendered_html and
+// cannot see this column at all, so calling it would produce a confident pass
+// over text it never examined.
+//
+// A site that has not opted in to a voice gate is not held to one. The
+// banned-claims sweep still runs, because its fleet-wide arm applies to every
+// site with or without an evidence register (RFC 003 / bugs_closed/104).
+func metaDescriptionFailsCopyGates(ctx context.Context, params ActionParams, candidate string, logger *zap.Logger) (reason, detail string) {
+	siteID := resolveMetaDescriptionSiteID(params)
+	if siteID == uuid.Nil {
+		// No site in context: run nothing rather than pretend. Returning a pass
+		// here is honest only because the caller cannot have a site-scoped rule
+		// to apply; it is logged so a silent skip is visible.
+		logger.Warn("copy gates skipped: no site_id resolvable from collected data")
+		return "", ""
+	}
+
+	blocks := []string{candidate}
+
+	if gate, err := checks.LoadVoiceGate(ctx, params.DB, siteID); err != nil {
+		logger.Warn("voice gate could not be loaded — not treating that as a pass",
+			zap.Error(err))
+		return "voice_gate_unreadable", err.Error()
+	} else if gate != nil {
+		// longForm=false: a meta description is one sentence, never an essay, so
+		// the relaxed long-form thresholds must not apply to it.
+		if findings := gate.ScanVoice(blocks, false); len(findings) > 0 {
+			f := findings[0]
+			return "voice_tell", fmt.Sprintf("%s: %s (%q)", f.Check, f.Reason, f.Matched)
+		}
+	}
+
+	eb := loadEvidenceBase(ctx, params.DB, siteID, logger) // nil = no register; fleet-wide arm still applies
+	if issues := checkBannedClaims(blocks, eb, true, siteID.String(), logger); len(issues) > 0 {
+		i := issues[0]
+		return "banned_claim", fmt.Sprintf("%s: %s", i.Category, i.Description)
+	}
+
+	return "", ""
+}
+
+// resolveMetaDescriptionSiteID finds the site the candidate belongs to, trying
+// the shapes a real loop actually emits before giving up.
+func resolveMetaDescriptionSiteID(params ActionParams) uuid.UUID {
+	for _, path := range []string{"site_record.site_id", "site_record.id", "input_data.site_id", "site_id"} {
+		if s := datahelpers.ExtractNestedFieldString(params.CollectedData, path); s != "" {
+			if id, err := uuid.Parse(s); err == nil {
+				return id
+			}
+		}
+	}
+	return uuid.Nil
 }

@@ -15,6 +15,8 @@ package actions
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -254,6 +256,163 @@ func TestSavePageMetaDescription_EmptyCandidateWritesNothing(t *testing.T) {
 	}
 	if out.(map[string]interface{})["reason"] != "empty_candidate" {
 		t.Fatalf("expected empty_candidate refusal, got %#v", out)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations: %v", err)
+	}
+}
+
+// ── THE COPY GATES (owner requirement 2026-08-19) ───────────────────────────
+//
+// The owner waived the read-first review pass on condition that the summaries
+// "go through the copy guidance and checks so they don't sound like AI". The
+// checks REPLACE the review, so a test suite that never exercises them would be
+// certifying the wrong thing entirely.
+
+// TestSavePageMetaDescription_VoiceGateRefusesABannedPhrase proves the site's own
+// voice rules are actually CONSULTED and are BLOCKING — not loaded and ignored.
+//
+// MUTATION THAT KILLS IT (verified by running it): delete the
+// metaDescriptionFailsCopyGates call from the action. The UPDATE then fires and
+// sqlmock reports an unexpected query, because no ExpectQuery("UPDATE") is set.
+func TestSavePageMetaDescription_VoiceGateRefusesABannedPhrase(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	// A voice gate banning the single most AI-sounding construction there is.
+	mock.ExpectQuery(regexp.QuoteMeta("aspect = 'voice'")).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow([]byte(
+			`{"voice_gate":{"enabled":true,"banned_phrases":[{"pattern":"in today's fast-paced world","reason":"AI boilerplate opener"}]}}`)))
+	// No UPDATE expectation: any write is a failure.
+
+	params := ActionParams{
+		Context: context.Background(),
+		DB:      db,
+		Logger:  zap.NewNop(),
+		CollectedData: map[string]interface{}{
+			"page_id":          uuid.New().String(),
+			"site_record":      map[string]interface{}{"site_id": siteID.String()},
+			"meta_description": "In today's fast-paced world, our solutions empower your business.",
+		},
+		StepConfig: models.Step{Config: map[string]interface{}{
+			"page_id_field": "page_id",
+		}},
+	}
+
+	out, err := SavePageMetaDescriptionAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if res["updated"] != false || res["reason"] != "voice_tell" {
+		t.Fatalf("a banned phrase must be refused as voice_tell; got %#v", res)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations: %v", err)
+	}
+}
+
+// TestSavePageMetaDescription_CleanCopyPassesTheGates is the other arm, and it is
+// the one that matters most: a gate tested only on its REFUSING side is
+// indistinguishable from one that refuses everything, which here would mean the
+// whole backfill silently writes nothing while reporting named refusals.
+//
+// MUTATION THAT KILLS IT: make metaDescriptionFailsCopyGates return a constant
+// non-empty reason.
+func TestSavePageMetaDescription_CleanCopyPassesTheGates(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	pageID := uuid.New()
+	clean := "Work out what a loan really costs before you apply, with the rate and term you were actually offered."
+
+	mock.ExpectQuery(regexp.QuoteMeta("aspect = 'voice'")).
+		WithArgs(siteID).
+		WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow([]byte(
+			`{"voice_gate":{"enabled":true,"banned_phrases":[{"pattern":"in today's fast-paced world","reason":"AI boilerplate opener"}]}}`)))
+	mock.ExpectQuery(regexp.QuoteMeta("aspect = 'evidence_base'")).
+		WithArgs(siteID).
+		WillReturnError(sql.ErrNoRows) // site has no register — fleet-wide arm still runs
+	mock.ExpectQuery(regexp.QuoteMeta(metaDescGuardClause)).
+		WithArgs(pageID, clean, false).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(pageID))
+
+	params := ActionParams{
+		Context: context.Background(),
+		DB:      db,
+		Logger:  zap.NewNop(),
+		CollectedData: map[string]interface{}{
+			"page_id":          pageID.String(),
+			"site_record":      map[string]interface{}{"site_id": siteID.String()},
+			"meta_description": clean,
+		},
+		StepConfig: models.Step{Config: map[string]interface{}{
+			"page_id_field": "page_id",
+		}},
+	}
+
+	out, err := SavePageMetaDescriptionAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out.(map[string]interface{})["updated"] != true {
+		t.Fatalf("clean copy must pass the gates and be written; got %#v", out)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("sql expectations: %v", err)
+	}
+}
+
+// TestSavePageMetaDescription_UnreadableGateIsNotAPass pins the failure direction.
+// If the voice spec query errors, we must NOT publish — "I could not check" is
+// not "it is fine". This is the shape the estate keeps paying for elsewhere: a
+// swallowed error that reads as a clean result.
+//
+// MUTATION THAT KILLS IT: return ("","") instead of ("voice_gate_unreadable",…)
+// on the load error — the action would then write and sqlmock would see an
+// unexpected UPDATE.
+func TestSavePageMetaDescription_UnreadableGateIsNotAPass(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	siteID := uuid.New()
+	mock.ExpectQuery(regexp.QuoteMeta("aspect = 'voice'")).
+		WithArgs(siteID).
+		WillReturnError(fmt.Errorf("connection reset"))
+
+	params := ActionParams{
+		Context: context.Background(),
+		DB:      db,
+		Logger:  zap.NewNop(),
+		CollectedData: map[string]interface{}{
+			"page_id":          uuid.New().String(),
+			"site_record":      map[string]interface{}{"site_id": siteID.String()},
+			"meta_description": "A perfectly reasonable sentence about the page.",
+		},
+		StepConfig: models.Step{Config: map[string]interface{}{
+			"page_id_field": "page_id",
+		}},
+	}
+
+	out, err := SavePageMetaDescriptionAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if res["updated"] != false || res["reason"] != "voice_gate_unreadable" {
+		t.Fatalf("an unreadable gate must refuse, not pass; got %#v", res)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sql expectations: %v", err)
