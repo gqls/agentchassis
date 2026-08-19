@@ -1919,11 +1919,57 @@ IRRELEVANT to their defect, which now has a working, artefact-verified repair co
 the adjacent route.** That is `083`'s disease at its purest, and §7f called it before it was
 measurable: *a real finding, a working repair that exists, and no path between the two.*
 
-**The remedy is known and already proven in this very population** — an explicit `UPDATE … SET
+~~**The remedy is known and already proven in this very population** — an explicit `UPDATE … SET
 handler_agent='page-rerender'` on the stranded rows, which is what somebody did by hand for the ones
 that drained. **It is not ours to fire** (the type belongs to the `184`/`201` lanes, and the
 escalation's own `owners` map names them), but it should be *decided* before the 08-21 tick rather
-than after a human is invited to canary a route that has already been superseded.
+than after a human is invited to canary a route that has already been superseded.~~
+
+> ## ⚠⚠ CORRECTED 2026-08-19 21:00Z, ~4½ HOURS LATER, BY ME — THE STRUCK-THROUGH REMEDY WOULD HAVE DONE DAMAGE
+>
+> **What caught it:** I went to route this finding at the owning lane and ran `scripts/who-owns.py`
+> first, as the rules require. It said `bugs_open/184` is **CLOSED** — closed *today*, `0ca143c2d` —
+> and its close-out reads *"residuals routed (owned/ported → 301/tool-rebuilds …)"*. **A lane does not
+> route a residual it has not characterised**, so I finally asked the question I had skipped: what
+> **are** the 7 rows? I had written a remedy for them into three files without ever looking.
+>
+> **[MEASURED 21:00Z] All 7 sit on `rebuild_policy='owned'` pages** — `tool-cubic-bezier`,
+> `tool-grid-generator`, `tool-json-cleaner`, `tool-noise-generator`, `tool-text-extractor`,
+> `tool-head-architect`, `learn-design-physics-of-ui`. **And the decisive contrast, the same query
+> split by policy:**
+>
+> | `literal_markdown → page-rerender` | rows |
+> |---|---|
+> | `generic`, **complete** | **8** |
+> | `owned`, **failed** | **1** |
+>
+> **Every one of the new route's successes is a generic page. Its single owned attempt failed.** The
+> new route calls `save_page_sections` and is refused by the ownership guard on owned pages — **which
+> is this lane's own §7b warning to the 184 lane, now confirmed at n=1 against my own finding.**
+>
+> **So the `UPDATE` I proposed would have converted 7 quiet rows into 7 loud failures**, dragged
+> `(literal_markdown, page-rerender)` from 8/1 toward its floor, and repaired nothing. It is the
+> worst kind of wrong: confidently actionable.
+>
+> **THE MECHANISM SURVIVES; THE INFERENCE DOES NOT.** Still true and still measured: existing open
+> rows keep the old `handler_agent`, cannot be dispatched (old pair held below floor), cannot be
+> re-filed (dedup). **False:** *"therefore a working repair exists next door and only routing
+> separates them."* **Whether the new route can SERVE the old rows is a separate question with its own
+> answer, and I never asked it** — I reasoned entirely about the transport and not at all about
+> whether the destination would accept the cargo.
+>
+> ⚠ **And note how well-defended the wrong claim was.** It had a demand control, an `[INFERRED]`
+> marker on the dedup half, a measured 33-hour gap, and a same-microsecond batch as its smoking gun.
+> **Every one of those was true.** The error was upstream of all of them: a population I had counted
+> but never *described*. This is the lane's own landmine-family item 1 — *a population assumed rather
+> than enumerated* — for the seventh time, and the marker discipline cannot catch it, because nothing
+> I wrote was unmeasured.
+>
+> **The corrected finding is better for this lane than the wrong one was.** These 7 rows are `277`'s
+> subject: an owned page carrying a real, deterministically-repairable defect has **no repair route at
+> all** — the generic mechanical fix refuses it, and nothing else claims it. `184` closed correctly
+> and routed exactly this class **to us**. That is `no_content_data`'s hole reached from a new
+> direction, and it strengthens `277`'s clause-1 blocker rather than adding a separate problem.
 
 > **THE TRANSFERABLE PROPERTY, and it is the sharper half:** re-routing a producer fixes only
 > **FUTURE** findings. Every open row filed under the old literal keeps the old `handler_agent` for
