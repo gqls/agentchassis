@@ -46,3 +46,44 @@ The ab-test fork (`cd60486c`) is a **hollow shell**: its LLM-generated template 
 
 ## Relations
 `bugs_open/080` (identity rule reused) · `RFC_010` (`AdoptUnshippedRows`) · `bugs_open/281`/`285` (the ported-instance arc this route replaces) · `bugs_open/204` (does NOT bite: single named slot) · lane: `docs024_key_docs_latest/webdesign_tool_rebuilds/`.
+
+## CLOSED 2026-08-19 ~20:50Z — FIXED AND LIVE since 2026-08-16; every "How to close" step done; moved to `bugs_closed/`
+
+**The roll.** The fix `88897190e` first shipped in `v1.0.1304` (pods 10:41Z 2026-08-16; stamp `5de6cddbe`,
+ancestry TRUE, junk-hex control absent — the lane's NOTES 2026-08-16 15:10Z). Re-verified today at the
+artefact on the current fleet: `v1.0.1316` (pods 17:13Z), binary stamp `07eeba4a1` PRESENT in
+`agent-chassis-5ddd9744-86nqf` (`/proc/1/exe` grep; controls in the same breath: junk 40-hex ABSENT,
+the fix's own literal `88897190e` ABSENT as expected — a binary carries only its own sha);
+`git merge-base --is-ancestor 88897190e 07eeba4a1` → TRUE. Also an ancestor of the `v1.0.1315` stamp
+`590ca3a20` probed with both controls by the 306-closing session (`5ac03f247`).
+
+**The config half.** Seed 435 applied 2026-08-16 15:15Z (`ee0228813`, HOLD lifted after the roll); read live
+today 16:03Z: `tool-generator.save_tool.config.adopt_existing_page = true`, and the consumer census is still
+exactly ONE step naming `create_tool_component` (`agent_definitions`, active, non-snapshot).
+
+**Behaviour, measured with demand, not inferred from the roll.** `orchestration_states`
+(`owner_agent_type='tool-generator'`, `created_at > 2026-08-16`): **7 runs with
+`collected_data->'create_result'->>'page_adopted' = 'true'`, all COMPLETED** (2026-08-18 → 08-19), 1 greenfield
+(`false`), 0 with `already_exists`. The pilot itself (item `99734862`, orch `72f0737e`, 15:48Z 08-16) adopted
+the EXISTING page `00979b9e`, minted no `pages` row named `tool-aspect-ratio`, linked the new component at
+position 2 — then the lane retired the ported slot, re-rendered and graded at the served page; aspect-ratio is
+one of the 12 tools "replaced, live, graded" (lane HANDOFF 2026-08-19). The instrument-alive control:
+`agent_error_log` duplicate-key failures on this action all-time are **exactly three rows, one per
+constraint** — `pages_site_id_name_key` **once, 2026-08-15 18:29Z (the filing case) and never since**;
+`idx_cc_tool_function_unique` once 08-17; `content_components_name_key` once 08-18 (both below).
+
+**Residual — tracked elsewhere by design, and it is NOT small.** This file fixed the PAGE half of "rebuild a
+tool at an existing page". The COMPONENT half is three gates on the same INSERT, and the write history above
+shows the lane walking into each on consecutive days:
+- `idx_cc_tool_function_unique` (fleet-wide library claim) — `RFC_036 §9.3`, built by the `bugs_open/311`
+  lane (`e24bc9c0f`, council APPROVED r1 `ceae30f2`) and **LIVE on `v1.0.1316`** (ancestor of `07eeba4a1`,
+  checked above — the §11 addendum still says "inert until a roll"; it is not, as of 17:13Z today).
+- the action's own per-site `already_exists` probe + `content_components_name_key` (`UNIQUE(name)`, name =
+  `<function>-<domainSlug>`): **the generator can build a given tool for a given site exactly once, ever** —
+  a re-fix of a native tool needs the old row deactivated AND renamed by hand (lane RUNBOOK / NOTES 08-18
+  13:51Z), and the old slot retired by hand before the generator's own rerender claims (RUNBOOK "the retire
+  race", margins 2–96 min, lost once). Filed as its own bug from this session:
+  `bugs_open/330_HANDOFF_2026-08-19_create_tool_component_cannot_regenerate_its_own_tool.md` (with the
+  `090` run and the RFC_036 §12 note). Not this bug's: this bug's page collision is gone.
+- The "related finding" above (ab-test hollow shell, text-content floor) stays an open question for a floor
+  owner; it was never this bug's mechanism.
