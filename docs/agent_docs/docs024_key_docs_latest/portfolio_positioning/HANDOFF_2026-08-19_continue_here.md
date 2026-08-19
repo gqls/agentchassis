@@ -145,6 +145,22 @@ link to both blocked pages**, and both targets return **404**. They are nav link
 is site-wide rather than one stray reference, and nothing on any page shows a reader that
 anything failed.
 
+**⚠ The fix is bigger than it looked, so do not expect it soon.** Live exchange with the
+`bugs_open/260` session, 2026-08-19: our four items carry **no CSS classes and an empty
+`location`**, so the leak cannot be fingerprinted from `agent_error_log`. What the rows DO carry
+is the token set — `{{end}}` ×9, `{{.label}}` ×1, `{{if` ×9, `{{range` ×1 (the 20 is **two
+detectors each capped at 10**, which is why every instance in the fleet reports exactly 20). We
+offered a falsifiable inference: `{{.label}}` means an array loop that never ran, and
+`mechanism-flow` is the ONLY component planned on both blocked pages whose template emits
+`{{.label}}` (`info-card-grid` has a range but no `{{.label}}`; `hero`/`call-to-action` have no
+array at all). **They tested it across all 26 events fleet-wide: it held on 25 of 26**, across
+six domains it was never built on — and the 26th (`webdesign.co.uk`, token `{{ variable }}` with
+spaces, a different producer) **breaks homogeneity**, which settles the fix toward the **render
+seam for all 304 components** rather than a narrow `mechanism-flow` schema fix. Both sides noted
+the same limit: the token lists inherit the 10-cap, so this is *"consistent with"*, never
+*"proven on"*, every occurrence. **They will ping us when the fix lands so we can re-arm our four
+items; nothing is owed from us before then.**
+
 **This collapses two TODOs into one.** `HANDOFF_2026-08-18` carried the `{{end}}` blockers and
 the dead-internal-links finding as separate items; on this site the links are dead *because* the
 pages were blocked, so **repairing 260 removes both** and no link-level work is needed.

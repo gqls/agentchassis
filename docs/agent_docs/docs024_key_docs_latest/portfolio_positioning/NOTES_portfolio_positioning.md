@@ -2542,3 +2542,70 @@ owner rather than editing it.
 CLAUDE.md is whether the five headings would differ substantially from the last one: 08-17's
 "where we are now" reads *"the pilot site is built but not published… nothing is live yet"*,
 which is no longer true in either half. A genuine inflection, so a new file rather than silence.
+
+---
+
+## 2026-08-19 (later) — owner rulings recorded, two threads contacted, and an inference that survived six domains and then met its counter-example
+
+### Owner rulings taken this session
+
+| decision | ruling | where recorded |
+|---|---|---|
+| RFC_037: where the data lives | **a database** | RFC_037 §5, register header |
+| RFC_037: what is authoritative | **the database**; the markdown register stops being the source of truth | same |
+| RFC_037: advisory or binding | **advisory** (the binding collision check is deferred, not rejected) | same |
+| RFC_037: the ~40 non-register sites | **superseded — a registry for them AND for the rest of the ~2,000 .uk domains** | same |
+| 311 / RFC_036 | **one submission covering both writers; treat as a PRECONDITION** for wave 1 | handoff §3, relayed to the `bugs_open/311` session |
+
+**The hard blocker created by the registry ruling, recorded so it is not discovered late:**
+there is **no inventory of the ~2,000 domains** — not in the repo (`z_bundles/old/domainsubmit1.txt`
+is a log dump, not a list), and not in any `information_schema` column named `domain`/`domain_name`.
+Today: **44 register entries · 153 domains in `PORTFOLIO_domains.txt` · 43 `sites` rows.** The
+list must come from the owner; it blocks the build, not the design.
+
+### Correction to the owner's premise, stated because acting on it would have been wrong
+
+The owner asked me to contact "the thread that did `remortgagecalculator.co.uk`, which has the
+full directory". **That domain does not exist** and no other site carries the lender directory
+[MEASURED 2026-08-19]: `sites` holds `remortgagecalculator.uk` (ours), `mortgagecalculator.co.uk`
+and `loanandmortgagecalculator.co.uk`; the only `mortgage-lender-directory*` components anywhere
+are on **our** pilot; `mortgagecalculator.co.uk` has one `guide-lender-restrictions` guide page
+and no directory; and a sweep of five live finance sites for the new lender names (Skipton,
+Bluestone, Kensington, Pepper Money, Vida, Aldermore, Leeds BS) returned **zero hits on any of
+them**. Our pilot still serves 2 lenders. **I did not guess a thread and message it** — asked the
+owner instead.
+
+### The 260 exchange — an inference offered, tested by someone else, and half-refuted
+
+Their ask was CSS classes from our blocker rows, to decide narrow-fix vs render-seam. **The rows
+have no classes and an empty `location`**, so that route is dead — reported as a negative rather
+than worked around.
+
+What the rows do carry is the token set, and it discriminates better: `{{end}}`×9,
+`{{.label}}`×1, `{{if`×9, `{{range`×1. **The 20 is two detectors each capped at 10**, which
+explains why every instance fleet-wide reports exactly 20. `{{.label}}` inside a range means an
+**array loop that never executed** — not a parse error on arbitrary markup.
+
+Intersecting with what the plan intended (`site_plan_sections`, plan `e743e9b4`):
+
+| page | planned components | array fields | emits `{{.label}}` |
+|---|---|---|---|
+| six-month-checklist | hero, **mechanism-flow**, info-card-grid, call-to-action | mechanism-flow(steps), info-card-grid(cards) | **mechanism-flow only** |
+| what-your-number-means | hero, generic-text-block, **mechanism-flow**, faq, call-to-action | mechanism-flow(steps) | **mechanism-flow only** |
+
+So: `mechanism-flow` is the only array-carrying component on **both** pages and the only one
+whose template contains `{{.label}}`. **Offered as a falsifiable inference, explicitly not an
+attribution** — nothing in `agent_error_log` names a component.
+
+**Their test: it held on 25 of 26 events across seven domains** — six of which it was never built
+on. **The 26th refuted the narrow branch**: `webdesign.co.uk` leaked `{{ variable }}`, with
+spaces, a different producer entirely. So the population is **not homogeneous**, and the fix goes
+to the **render seam across all 304 components**, not to one component's schema. Both sides
+flagged the same limitation unprompted: the value lists inherit the 10-cap, so the finding is
+*"consistent with mechanism-flow on every occurrence"*, never *"proven"*.
+
+**Why this is worth the space:** the useful outcome was not the 25 that agreed — it was the 1
+that did not, and it arrived because the claim was stated in a form someone else could break.
+Also a correction to our own §12: the "four items" are **two pages observed twice** (a build item
+plus its re-render sibling), which reads as more occurrences than it is; their census counts
+distinct pages and that is the better number.
