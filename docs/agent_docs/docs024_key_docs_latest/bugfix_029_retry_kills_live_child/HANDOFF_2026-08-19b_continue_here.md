@@ -10,6 +10,34 @@ baseline trap — read it for those). Then `NOTES_retry_kills_live_child.md` §9
 with three verified source sites** and a **retired wrong subsystem**; a fourth 090 is in flight; and
 one real framework gap in the diagnosis harness was found and is **not yet fixed**.
 
+> **UPDATED ~17:00Z — the 090 verdict is IN and the plan is written. Both are recorded below;
+> the "IN FLIGHT" table is kept for the audit trail, not as outstanding work.**
+
+## ✅ RESOLVED SINCE THIS FILE WAS WRITTEN
+
+- **090 `d52c3407` verdict: `UNVERIFIABLE` — and it is a REAL abstention, the first run to READ the
+  wedge.** Four citations, three `tier: state` quoting actual rows: it pulled `04518118`'s rows and
+  the control and confirmed the signature. It abstained because the bundle carries no *bodies* for
+  `handleCompleteResponse`/`continueExecution` and `orchestration_states` — the only place the
+  map-vs-table divergence is observable — is purged for all six. Compatible-with is not
+  observation-of. **NOTES §11.**
+- **Its challenge to the rv0 finding is REFUTED at source. §9 stands.** It asked whether a retry path
+  could reset `retry_version` to 0 on a fresh `request_id`. Only two `INSERT INTO awaited_requests`
+  sites exist (`state.go:1611`, `spawn_actions.go:166`), **neither on a retry path**, and all three
+  `retry_version` writers are `UPDATE … WHERE request_id`. Its own citation settles it inside one
+  orchestration: `04518118`'s `call_handler` is **1 row at rv3**, its `spawn_handler` **2 rows at rv0
+  with distinct ids**. Also found: `UpdateAwaitedRequestForRetry` (`state.go:1962`) is **DEAD**; the
+  live writer is `UpdateAwaitedRequestRetry` (`coordinator.go:3337`). **NOTES §11a.**
+- **C1 survives a test that could have refuted it. NOTES §12.** 17/17 duplicate gaps exceed the 300 s
+  `StuckOrchestrationTimeout`, at 414–577 s. C1 and C2 both survive (identical table signature,
+  nothing separates them); C3 refuted, C4/C5 disfavoured. Separating C1 from C2 needs logs the 08-17
+  pods no longer have → next burst, RSH-011 armed.
+- **The fix plan is written and GRADED:** `PLAN_2026-08-19_wedge_fix_park_advance_divergence.md`.
+  Fable-drafted, checked against the live system. **Two draft claims did not survive** — a dead
+  citation, and a "divergence census 0 and 0 `[MEASURED]`" that is **vacuous** (zero orchestrations
+  are `AWAITING_RESPONSES` and zero `awaited_requests` rows are non-terminal fleet-wide, so 0/0 was
+  forced). It was headed for a council submission; do not carry it.
+
 ## ⏳ IN FLIGHT — read these two first
 
 | | |
@@ -71,7 +99,10 @@ checking a fresh bundle's Schema section actually describes the table.
 
 ## What is left
 
-1. **Read `d52c3407`'s verdict.** CONFIRMED changes what to build; REFUTED is a result and must be
+1. ~~**Read `d52c3407`'s verdict.**~~ **DONE — see above.** Next diagnosis action is NOT another
+   re-file: the loop's abstention turns on evidence that no longer exists for this cohort. **Wait for
+   the next burst**, which RSH-011 captures automatically with the full `awaited_requests` set.
+   ~~ CONFIRMED changes what to build; REFUTED is a result and must be
    recorded as a visible correction here.
 2. **Build the `### awaited_requests` rows section** in `diagnose_load_runtime` — council-gate it.
    Ranked above any symptom-text workaround by the close-the-door rule: the workaround must be
