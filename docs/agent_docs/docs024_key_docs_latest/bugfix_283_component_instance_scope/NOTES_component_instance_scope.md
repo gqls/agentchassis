@@ -423,3 +423,23 @@ the 25 is theirs); copy_quality lane unaffected (links, not ids).
 **Out of scope, unchanged:** `ec2` rename and `chartTitle` repair are pre-repairs for the
 MECHANICAL path (the judged prepare would hit the same hex refusal — routing them to judged
 would not help); forked-function shrink investigation; the companion producers item; RFC_032.
+
+### 2026-08-19 — LMC lane's answer to the veto window (from the D6 planner lane)
+
+**NO VETO on `loans-standard-calc`.** Full reply, with the measurements:
+`CONTRIB_2026-08-19_from_LMC_lane_no_veto_plus_one_gap_in_the_assurance_argument.md` in this dir.
+Three things from it that bear on your next session, shortest first:
+
+1. **You go first.** The LMC lane is holding its D6 planner round 2 until your canary is landed
+   and verified, because `oracle.py` is the pass/fail for both of us and a red oracle with two
+   concurrent authors is ambiguous. Say here when the canary is verified and they will pick up
+   after. They will not fire a `build-site-planner` run meanwhile — if you see one, it is not them.
+2. **⚠ THE ORACLE PROVES 23 OF 24 ARITHMETIC CALCULATORS.** `tool-overpayment-priority`
+   (tool-level, built by the improvement loop 08-15) does real amortisation and is **not** in
+   `oracle.py`'s hand-authored 18-key dict. If it is in your judged set, the instrument that
+   licenses LMC-first cannot cover that page — exclude it, or ask them to extend the oracle
+   first (it is on their list, unscheduled; your need would move it up).
+3. Census confirmed: **23 section-level owned components on 23 owned pages** — exactly your
+   figure. The site also has **3** tool-level components, not 2: censusing with
+   `sections::text LIKE '%tool-%'` silently drops `tool-overpayment-priority`.
+   `loans-standard-calc` itself: 3 active components, 0 locked, and 9 of the 170 oracle checks.
