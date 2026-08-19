@@ -5386,3 +5386,34 @@ Dispositions, each at the data:
 **098 bookkeeping:** `1a82225ec` and `916c8b22b` carry `Council-Submitted: f3716ebe` and resolve to
 approved at report time; `c16836d86` carries `Council-Reviewed: f3716ebe` (verdict read). Step 4 is
 **code-complete, reviewed, committed; inert until the next chassis roll.**
+
+## 2026-08-19 (~20:3xZ) — v1.0.1316 verified; steps 2+3 are LIVE and the post-deploy plan executed clean on all three legs. Step 4 is UNBLOCKED.
+
+Roll at ~17:13Z. (a) tag `v1.0.1316` = `07eeba4a1`, digest matched, revision at `/proc/1/exe`
+with clean fake-sha control, **`393f15bfd` an ancestor** (carries `846496906` + `f42e03720`).
+(b) Window since roll (3.2 h): **`build-dispatch-loop current_page` = 0** (the 63% class —
+gone; ~16+ rows expected under old code from the 2 loop runs that DID occur);
+`work_item_id` still 0 (prune holding); **`page-content-writer current_page` = 13** — intact
+exactly as predicted, serving as demand control AND as step 4's population. (c) Live probe:
+`"unrequested_page_fields_not_injected":["current_page",…]` present on chassis pod log lines —
+the gate is running and naming its skips. One probe lesson: the FIRST grep target was the
+chassis deployment pods and read empty; extraction logs appear in whichever pod runs the
+extraction — chassis pods do plenty themselves (agent_type "generic"), and the line was found
+there once the tail was deep enough. `--tail=3000` was too shallow minutes later — these lines
+churn fast; use 8000+.
+
+**306: ALREADY CLOSED — by a parallel session of this lane, and better than I was about to.**
+My close attempt failed on a missing pathspec, which is how I learned: `5ac03f247` closed it at
+v1.0.1315 after that session BUILT candidate 3 (the `retry_payload` skip I had marked
+"not bundled"), measured its blast radius, ran it through 090 (CONFIRMED, `a9a33be9`) and the
+council (APPROVED round 1, `e4840008`) — and its code half rode as a **same-file passenger in
+MY `393f15bfd` commit** (their WRONG_CALLS entry records holding coherent code for a verdict on
+a shared tree; mine at `05bebd935` records sweeping others' entries the same hour — the two
+halves of the same lesson, one day). I had drafted a close-out saying candidate 3 was
+"un-adopted": WRONG, caught before commit only because the `git mv` failed. Their close stands;
+my duplicate block is discarded unpublished. Their residual statement matches mine exactly:
+what survives is the pcw shape class = §10.13 step 4.
+
+**The window read that gates step 4 is DONE: the survivor population is exactly the traced
+name collision** (13 rows/3.2 h, all page-content-writer `current_page`, object-vs-string).
+Step 4 proceeds.
