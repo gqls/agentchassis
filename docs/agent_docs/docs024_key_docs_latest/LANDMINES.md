@@ -12732,3 +12732,53 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_closed/294` · `bugs_closed/310` · migration `465_reaper_invariant_and_cleanup_convergence.sql` · the sibling entry on `monitoring.go`'s `orchestrator_state` (same family: a plausible-looking identifier that matches nothing) · MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]] and [[a-grep-proves-absence-only-for-its-spelling]]
 - **source:** 2026-08-19, `bugs_open 294` lane, while designing `465`'s pausable exclusion
 - **added:** 2026-08-19, bugs_open/294 lane
+
+### `pages.meta_description` is BLANKED by the plan upsert while `nav_label` beside it is protected — and the work item that claims to fix one completes without writing anything
+
+- **footprint:** `platform/orchestration/actions/site_db_actions.go` (`upsertPage`), `pages.meta_description`, `site_work_items` `item_type='content_rewrite'`, `page-build-handler`, `build-site-planner`, `platform/orchestration/actions/rebuild_blog_listing_action.go`
+- **fires when:** you touch anything that writes a page row, you set out to fill or repair a meta description, or you read one as content (a blog card excerpt, a link-context blurb). Also when you file work AT a missing description.
+- **the mechanism, measured 2026-08-19:**
+  - `upsertPage`'s `ON CONFLICT` sets **`meta_description = EXCLUDED.meta_description`, unguarded**, three lines below **`nav_label = COALESCE(NULLIF(pages.nav_label, ''), EXCLUDED.nav_label)`**, which IS guarded. The neighbouring guarded line is exactly what makes the unguarded one read as deliberate.
+  - `metaDescription := datahelpers.GetStringField(page, "meta_description", "")` — so a page map that simply **omits** the key supplies `''`, and the upsert writes that over a real description.
+  - `build-site-planner`'s `Return JSON:` page object asks for `name, title, page_type, nav_label, nav_order, in_header, in_footer, sections` — **no description field at all**. So the omission is the normal case, not an edge case.
+  - **It has fired**: `site_snapshots.pages_snapshot` carries the column, and four `robot-hands.com` pages that held **97 / 120 / 169 / 329 chars** on 2026-04-10 read **0** today, all `built_from_plan_version IS NOT NULL`.
+  - ⚠ **The sample is 139 pages / 7 sites / mostly one day in April** (30 had a description, 4 lost it, 10 gained one). That establishes EXISTENCE, not a rate. **Do not quote 4/30 as a fleet figure.**
+- **why it is a landmine and not just a bug:** the loss is **invisible at the served page**. `rerender_single_page_action.go:1009-1020` (`reEmptyMetaDescription`) deliberately *strips* `<meta name="description" content="">` rather than serving an empty tag — correct behaviour, and it means there is no empty attribute to notice, only an absent tag. Nothing detects it either: **0 of the 58 checks** under `discovery_checks/` names the column.
+- **the second half, which is the expensive one:** `content_rewrite` items about missing meta descriptions ARE filed and routed to `page-build-handler`, and they **complete without writing the column**. Measured: `ec701bb3-85e7-40e7-bff1-2ce1ae104861` (gaswholesalers `about`) and `13522562-2392-4db9-96b5-204ab67cb999` (webdesign.co.uk `index`) are both `complete` and both targets read **0 chars** today — and the first page's own `updated_at` is *after* the item closed, so the handler ran and touched it. **Filing one is the expensive version of doing nothing, and it leaves a green record saying the opposite.** The reason is ownership: `llm_fields`/`llm_field_specs` are per-SECTION (`plan_sections_action.go:864-897`); this is a `pages` column, which no writer prompt can reach.
+- **the check, before you trust or repair this column:**
+  ```sql
+  -- COALESCE(...)='' , never IS NULL: the column is nullable AND routinely holds ''
+  SELECT count(*) FILTER (WHERE COALESCE(meta_description,'')='') , count(*)
+  FROM pages WHERE status='active';                       -- 407 / 731 on 2026-08-19
+  ```
+  And if you are testing a fix: **induce the overwrite** — replan a site whose page has a POPULATED description and assert it survives. A test that replans an already-empty page passes while blind. If you are about to file work at a missing description, join the item to `pages` and read the column; **`status='complete'` is the thing under test, not the test.**
+- **relations:** `bugs_open/320` (the case, both mechanisms, ranked candidates) · `bugs_open/309` §10 (blocked by this; its own explanation was corrected on 2026-08-19) · `bugs_closed/103` (the sibling: tool pages publishing the BRIEF as the description — the opposite failure on the same column) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]], [[writes-the-field-is-not-reads-the-field]]
+- **source:** 2026-08-19, while trying to execute `bugs_open/309` §10's "backfill five meta descriptions" step
+- **added:** 2026-08-19, `meta_description_never_backfilled` lane
+
+### A `090` diagnosis on a CODE-ONLY symptom dies with "no scope" unless you pass `SEED_SCOPE` — and its terminal orchestration row still reads `COMPLETED`
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh`, `diagnose_assemble_bundle`, `diagnosis_artifacts`, `orchestration_states.collected_data->>'__step_error'`
+- **fires when:** you file a diagnosis about a MECHANISM rather than about a site or a page — no `PAGES`, no site id — which is exactly the cross-cutting case CLAUDE.md tells you to file.
+- **the mechanism, measured 2026-08-19:** the symptom-authoring guidance says to *"POINT at the tables/symbols where the evidence lives"*, and naming files in the prose reads as complying. It is not enough. Scope resolution tries `route.scope.Symbols`, then `input_data.seed_scope`, then `code_results`; with none of them it aborts:
+  ```
+  diagnose_assemble_bundle: no scope (tried "route.scope.Symbols", "input_data.seed_scope", then code_results)
+  ```
+  The trigger accepts the symptom, writes the intake, dispatches, and the loop claims it — everything looks healthy right up to the abort.
+- **why it is a landmine:** the run **reports success**. The two genuinely `FAILED` steps carry `__step_error = (none)`; the orchestration's LAST row reads **`current_step=complete, status=COMPLETED`** and holds the real message. So a session that checks the obvious thing (the orchestration status) concludes the diagnosis ran, and a session that waits for a verdict waits for ever. Zero artifacts is the only honest tell.
+- **the check:**
+  ```bash
+  export SEED_SCOPE="path/to/file.go:SymbolName,path/to/other.go:OtherSymbol"   # path[:Symbol], comma-separated
+  ./docs/.../090_TRIGGER_needs_diagnosis_v1.sh "<symptom naming those symbols>"
+  ```
+  ```sql
+  -- "did it produce anything" — the only reading that cannot be misread
+  SELECT count(*) FROM diagnosis_artifacts WHERE correlation_id::text='<RUN_CORR>';
+  -- the error, which is NOT on the FAILED rows
+  SELECT current_step, status, left(collected_data->>'__step_error',900)
+  FROM orchestration_states WHERE correlation_id::text='<RUN_CORR>' ORDER BY updated_at;
+  ```
+  ⚠ Join `orchestration_states` on **`correlation_id`**, and use the **`RUN_CORRELATION_ID`** the script prints last — `collected_data->'input_data'->>'fix_correlation_id'` returns **0 rows** for these, and the intake correlation printed first is not the artefact key.
+- **relations:** `bugs_open/320` §10 · the sibling landmine on a printed correlation not being a dispatched run (`bugs_open/309` §C) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] (same shape: the status is not the outcome)
+- **source:** 2026-08-19, first `090` run on the `meta_description` mechanism (`d7a9ab39-4917-4479-b1d5-68aae982f79c`) — cost one full round trip
+- **added:** 2026-08-19, `meta_description_never_backfilled` lane

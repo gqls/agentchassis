@@ -36801,3 +36801,70 @@ reading what the workflow does between the item and the write.
 **The transferable rule:** when you inherit a figure, restate what it COUNTS in your own words before
 using it — "3,754 what, recorded where, by which step?" If you cannot answer without opening the
 config, you do not know what you are quoting, and its being reproducible is not reassurance.
+
+---
+
+## 2026-08-19 — "these five pages are empty because `head_essentials_missing` has no handler": the fact was right, the inference was wrong, and it named the wrong bug to fix
+
+**The claim, in `bugs_open/309` §10:** the five fundamentallyai.com articles have no meta
+description, and *"`head_essentials_missing` carries NO handler agent on all 606 rows …
+That is precisely `bugs_open/083`'s subject … and it is why the five missing descriptions
+have not self-healed and will not."*
+
+**Every fact in it is true.** The check does have 606 rows; they do carry no handler; that
+is `083`'s subject. **The inference is still false**, because that check has never looked
+at a meta description: `HeadEssentialsMissingCheck` asserts exactly three things — a
+non-empty `<title>`, a skip-link, and a `<footer>`. `headEssentials()` is nine lines and
+reads `doc.Find("title")`, `doc.Find("footer")` and an `href="#content"` match. So it
+could not have fired for these pages under any circumstances, and **fixing `083` would
+not have filled a single one of them.**
+
+**What caught it:** `grep -rn "head_essentials_missing" --include='*.go'` and reading the
+check's own source — before, not after, acting on the claim. About thirty seconds. I ran
+it only because I was about to go and work on `083`, and wanted to know what I would be
+waiting for.
+
+**The cheap check that would have prevented it:** *before citing a detector as the reason
+something was not detected, read what it asserts.* A check's NAME is a summary written by
+someone who already knew the answer; `head_essentials_missing` sounds like it covers the
+`<head>`, and a meta description lives in the `<head>`. The name is the trap, and the
+source is nine lines away.
+
+**Why this one is worth an entry although the author was diligent:** the surrounding
+paragraph is *exemplary* — the row count is `[MEASURED]`, dated, with its query, and the
+"not a handler that fails, no handler at all" distinction is precisely drawn. **The
+marker discipline was followed in full and the conclusion was still wrong**, because
+every marker was attached to the MEASUREMENT and none to the LINK between it and the
+symptom. That link was the load-bearing part and it carried no evidence at all. The
+lesson is the same shape as the `[MEASURED]`-figure rule already in CLAUDE.md, one step
+along: **mark the inference, not just the number.** "606 rows have no handler" and
+"which is why these five are empty" are two claims, and only the first was checked.
+
+**What it cost, and what it nearly cost:** a day was budgeted against `083`. What it
+actually surfaced, on looking, was `bugs_open/320` — 407 of 731 live pages with no meta
+description by two mechanisms, one of which is actively destroying descriptions that
+already exist. Had the inference been believed, `083` would have been fixed, the five
+pages would still have been empty, and the 407 would have stayed invisible.
+
+---
+
+## 2026-08-19 — I fired a `090` diagnosis with no `SEED_SCOPE`, and the failed run reported `COMPLETED`
+
+**What I did:** filed a code-only diagnosis (a mechanism, no site, no pages), naming six
+files by path in the symptom prose because the authoring guidance says to *"POINT at the
+tables/symbols where the evidence lives"*. It dispatched, was claimed by the loop, ran
+`lookup_symbols`, and died in `assemble_bundle` with
+`no scope (tried "route.scope.Symbols", "input_data.seed_scope", then code_results)`.
+
+**Why it was not obvious:** the orchestration's terminal row reads `current_step=complete,
+status=COMPLETED`, and the two genuinely `FAILED` rows carry `__step_error = (none)`. The
+real message is on the `complete` row. So the cheap glance says the run finished.
+
+**The cheap check that would have caught it:** `SELECT count(*) FROM diagnosis_artifacts
+WHERE correlation_id::text='<RUN_CORR>'` — zero artifacts is the only honest tell, and it
+costs one query. **The fix is `SEED_SCOPE="path:Symbol,…"`**, documented at lines 117 and
+282-346 of the trigger I had already run twice without reading that far.
+
+**Cost:** one full round trip (~10 min plus credits). Cheap, and only because I checked
+the artifact count instead of the status. **Naming files in prose is not naming symbols**,
+and a run that "looks accepted" is not a run that has scope.
