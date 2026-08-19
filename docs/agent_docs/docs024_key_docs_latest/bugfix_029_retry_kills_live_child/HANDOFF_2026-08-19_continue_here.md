@@ -49,10 +49,17 @@ independently.**
 ahead by then). The symptom now also **names the two refuted mechanisms so they are not
 re-proposed** (the ticker's shared 60 s context; the response-consumer context).
 
-⚠ **Two things this run is expected to settle, and they are separate.** (1) Whether the wedge has a
-cause — the actual question. (2) **Whether my bundle fix works** — the behavioural proof is that its
-stored bundle's Schema section now describes `awaited_requests`. **Shipped is not proven**; check the
-bundle, not the commit.
+**(2) THE BUNDLE FIX IS NOW BEHAVIOURALLY PROVEN — this half is DONE.** The post-fix bundle renders
+`awaited_requests(request_id varchar, …, retry_version integer, …, processing_started_at timestamp,
+processing_pod text, …)`; **all four pre-fix bundles across the two earlier runs render nothing**,
+while the positive control `orchestration_states(` is present in **all five** — so the section was
+working before and the absence was specific to this table. NOTES §11.
+
+⚠ **Use `awaited_requests(` WITH the parenthesis.** A bare `LIKE '%awaited_requests%'` returns true
+on a pre-fix bundle, because the SYMPTOM TEXT names the table and its columns and is quoted inside
+the bundle. I ran that blind check first. **A check your own input can satisfy is not a check.**
+
+**(1) Whether the wedge has a cause — still the open question, and what run `d02a6958` is for.**
 
 ## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
 
