@@ -30,8 +30,21 @@
 partial. The deep merge then puts that short `formatted` over the previous full one,
 because `formatted` is just another key and the newer value wins.
 
-**The same ordering is in the adoption path** — `apply_adoption_plan_action.go:280`
-formats `directionData` (what this run produced) and never sees the merged result.
+> **⚠ CORRECTED 2026-08-19 — the adoption path does NOT have this bug, and the loop caught me.**
+> This file first read: *"the same ordering is in the adoption path —
+> `apply_adoption_plan_action.go:280` formats `directionData` and never sees the merged result."*
+> The ordering is the same and **the consequence is not**, because that path never merges at all:
+> `apply_adoption_plan_action.go:386-421` does a straight `UPDATE … is_current=false` then a
+> fresh `INSERT` of `directionData` wholesale, with a comment saying so
+> (*"adoption re-derives them from the crawl wholesale"* — only the `structure` aspect
+> carries keys forward). With no merge there is no divergence: `formatted` describes the whole
+> document because the document **is** what was just written.
+> **Adoption has a different, visible failure instead** — it can shrink the stored document, which
+> a reader can see. This bug is specifically about the document staying complete while the brief
+> silently does not.
+> Found by the `090` run's iteration 2, from a path I had not taken: *"apply_adoption_plan_action.go's
+> content_direction branch, by contrast, does a full supersede+insert with no merge at all, so
+> that path can't exhibit the hypothesized bug."* **It is right.**
 
 **So the invariant that would fix it is one line long:** `formatted` must be computed
 from `merged`, never from the incoming partial.
@@ -110,9 +123,10 @@ is a separate, larger defect that happens to live in the same field.
 
 ## 5. Fix candidates, ordered by what makes the bad state unrepresentable
 
-1. **Compute `formatted` from `merged`** (`site_spec_actions.go`, move the block from
-   :212 to after :247; same in `apply_adoption_plan_action.go`). Removes the failure for
-   every future write. **A shared platform seam** — RFC/council per CLAUDE.md, and it
+1. **Compute `formatted` from `merged`** (`site_spec_actions.go`, move the block from :212 to
+   after :247). **`apply_adoption_plan_action.go` needs no change** — see the correction in §1;
+   it does not merge, so its `formatted` already describes its whole document. Removes the
+   failure for every future write. **A shared platform seam** — RFC/council per CLAUDE.md, and it
    changes what every `content_direction` consumer sees, so the other consumers must be
    **told**, not merely measured (owner ruling 2026-07-29 §3).
 2. **Then backfill the three sites** by recomputing `formatted` from the current merged
@@ -213,9 +227,13 @@ It cannot: its only parameter is the map it is handed
 it has no DB handle, no context, and its whole body is `for key, val := range spec`. Handed the
 partial, it can only render the partial.
 
-**Its gap 3 — the second write path it could not see.** `apply_adoption_plan_action.go:280`:
-`formatted := datahelpers.FormatContentDirection(directionData)`, where `directionData` is what
-that run produced. Same ordering, same consequence, independently reachable.
+**Its gap 3 — the second write path it could not see.** ⚠ **My answer here was WRONG and
+iteration 2 corrected it.** `apply_adoption_plan_action.go:280` does format `directionData` before
+writing — but that path **supersedes and re-inserts wholesale with no merge** (`:386-421`), so
+`formatted` and the document always agree and the bug cannot occur there. I asserted "same
+ordering, same consequence"; only the first half holds. See the correction block in §1. **This is
+the run paying for itself**: one round refuted a claim I had already committed, and the fix
+candidate in §5.1 is narrower as a result.
 
 **Its gap 4 — *"no observed instance where `jsonb_object_keys(data)` contains labels absent from
 `data->>'formatted'`"*.** That is §2 and §3 of this file, run before the verdict arrived, and it

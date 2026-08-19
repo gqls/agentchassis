@@ -37787,3 +37787,34 @@ observations minutes apart than one mistake.** My instinct was to assume the old
 wrong; the honest resolution was that both were right and the system had moved. I should reach for
 `git log --since` *before* apologising, because a wrong retraction is still something the owner has
 to unpick.
+
+---
+
+## 2026-08-19 — `copy_quality_two_stage`: I claimed a second write path had the same bug; it has the same ORDERING and not the same consequence
+
+**The claim.** `bugs_open/327` §1, committed: *"the same ordering is in the adoption path —
+`apply_adoption_plan_action.go:280` formats `directionData` and never sees the merged result"*,
+with the fix candidate in §5 telling whoever takes it to change both files.
+
+**The truth.** That path **never merges**. It supersedes the current row and inserts the new
+document wholesale (`:386-421`, with a comment saying adoption *"re-derives them from the crawl
+wholesale"*). With no merge there is no divergence between document and brief, so the bug cannot
+occur there — and a fix applied to it would have been changing code that was already correct.
+
+**What caught it.** The `090` diagnosis run's **second iteration**, from a path I had not taken:
+*"apply_adoption_plan_action.go's content_direction branch, by contrast, does a full
+supersede+insert with no merge at all, so that path can't exhibit the hypothesized bug."*
+
+**How I got it wrong.** I read to line 285, saw `FormatContentDirection(directionData)` in the
+same order as the buggy call site, and **stopped at the resemblance**. What decides it is 100
+lines further down, in a loop that writes every aspect. I had the file open.
+
+**The cheap check:** for a "same bug over here too" claim, **follow the value to its write**, not
+to its formatting. The formatting call proves the ordering; only the write proves the
+consequence. One `grep -n specAspects <file>` would have shown the loop.
+
+**Worth noting for the diagnosis-loop question generally.** The run's own outcome was
+`UNVERIFIABLE` twice over — it could not obtain the one function body the hypothesis turns on —
+and it still **refuted a committed claim of mine in passing**. A verdict field is not the only
+thing a run is worth reading for, and "it didn't confirm my hypothesis" is not the same as
+"it found nothing".
