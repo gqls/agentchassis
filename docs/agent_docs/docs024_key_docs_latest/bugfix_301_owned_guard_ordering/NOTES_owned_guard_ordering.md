@@ -108,3 +108,46 @@ STILL OPEN, in order:
 3. **Post-roll behavioural verification** — RUNBOOK, BOTH controls (owned → wont_fix +
    refused_by='load_page_record' + no writer child; generic → writer runs and saves).
    Then, and only then, 301 moves toward closed (fixed-AND-live bar).
+
+## 2026-08-19 — session 2 (after the fresh roll): LIVE, PROVEN, council round 2 in
+
+**Deploy proven at the artefact** (pods `-bfw5n`/`-nkdkl`, started 12:15Z): `refuse_owned_page`
+PRESENT in `/proc/1/exe` on BOTH replicas (a literal that exists only in `6be66bceb`),
+`OWNED_PAGE_GUARD` PRESENT (long-lived control), nonsense needle ABSENT (probe discriminates).
+Provenance log line already scrolled — "not in range", never "unstamped".
+
+**BEHAVIOURALLY PROVEN, both controls** [MEASURED ~16:05Z]:
+- POSITIVE: 3 owned-page `content_rewrite` items refused at 13:37–13:38Z with
+  `step load_page_record failed: ... OWNED_PAGE_GUARD: page learn-algorithms-...` — all 3
+  `wont_fix` with `result.owned_page_refusal`; **0 writer orchestrations in their window**;
+  3 handler runs for the 3 items, `complete_error` at `failed_step=load_page_record`.
+- NEGATIVE: 6 generic-page builds post-roll spawned writers normally; they later failed at
+  `validate_content` — a step this change cannot touch, at the historical rate (172 in the
+  7-day live window, 14 today ≈ ~25/day baseline). One build in flight at `call_content_writer`.
+  ⚠ HONEST LIMIT: no generic build has COMPLETED end-to-end post-roll yet (all fell to the
+  pre-existing validation failures), so "writer runs" is proven and "page saves" is inferred
+  from the change not touching the save path — re-check a completed build tomorrow.
+- Save-path refusals: **0 since the roll** — backstop-only now, as designed.
+- Review-row dedup as designed: 0 NEW `refused_by='load_page_record'` rows because all 3 pages
+  already hold an open `owned_page_review` row (ON CONFLICT DO NOTHING converged).
+
+**090 verdict recorded, as promised, either way:** `UNVERIFIABLE` — iteration cap, neither
+confirmed nor refuted; best-effort trail attached, no fix proposed. Superseded by the
+production discriminating pair above.
+
+**Council round 1: REVISE** (11:11:54Z, gating: `debug_historian` HIGH — 488 lacked the
+`snapshot_agent()` opener the runner's header requires). Conceded + remediated: pre-488 dump
+committed (`PRE_488_page_build_handler_workflow_steps.json`, dumped BEFORE apply), post-apply
+snapshot taken (source_id `8f35c080`), WRONG_CALLS entry written (the trap: hand-applying to
+avoid the runner also bypassed the documentation living in the runner). 488 itself NOT edited —
+its md5 is in the ledger. Other objections all answered by measurement or the committed code:
+attempt_count incremented on BOTH paths (v3:5748); the divergence is only the re-triage ladder,
+affected population = 0 genuine load errors in the live 7-day window; both return paths wired
+(quoted); count(*)=1 and 480-precondition guards ARE in the applied SQL (sketch elision, my
+error); census re-run (still exactly 2 carriers, trh key `(absent)`); the widening-precedent
+landmine cited and distinguished (per-step opt-in is the reason the wider net cannot catch the
+tool pipeline). The 146 figure re-derived as a split: 84 failed / 36 unresolved / 13
+needs_human_review / 9 detected (=142, moves with traffic; reviewer's 64 = narrower status set).
+
+**Round 2 RESUBMITTED** on the same correlation: `RESUBMIT_CORR=c7bc1b9e`, run orch
+`6469c138-3e88-492d-b2ba-5b60ab63a1ea`. Verdict owed a read (~30 min budget).

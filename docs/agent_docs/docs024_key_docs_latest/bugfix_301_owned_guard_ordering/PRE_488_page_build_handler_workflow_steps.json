@@ -1,0 +1,272 @@
+{
+    "complete": {
+        "action": "complete_workflow",
+        "config": {
+            "output_fields": [
+                "sections_saved",
+                "deploy_result"
+            ]
+        },
+        "description": "Page build complete"
+    },
+    "deploy_page": {
+        "action": "call_agent",
+        "config": {
+            "error_step": "mark_item_failed",
+            "target_role": "page_renderer",
+            "input_mapping": {
+                "domain": "site_record.domain",
+                "page_id": "page_record.id",
+                "site_id": "site_record.site_id"
+            },
+            "timeout_seconds": 120
+        },
+        "next_step": "complete",
+        "error_step": "mark_item_failed",
+        "description": "Assemble page from stored components and deploy to git",
+        "output_field": "deploy_result"
+    },
+    "plan_sections": {
+        "action": "plan_sections",
+        "config": {
+            "site_id": "site_record.site_id",
+            "sections": "spec_sections.sections",
+            "page_name": "page_record.name",
+            "error_step": "mark_item_failed",
+            "work_item_id": "input_data.work_item_id",
+            "section_facts": "spec_sections.section_facts"
+        },
+        "next_step": "check_has_ready_sections",
+        "error_step": "mark_item_failed",
+        "description": "Check data availability for each section, triage readiness",
+        "output_field": "section_plan"
+    },
+    "save_sections": {
+        "action": "save_page_sections",
+        "config": {
+            "error_step": "mark_item_failed",
+            "html_field": "validation_result.clean_html",
+            "site_id_field": "site_record.site_id",
+            "page_name_field": "page_record.name",
+            "work_item_id_field": "input_data.work_item_id",
+            "sections_metadata_field": "page_content.response.sections_metadata"
+        },
+        "next_step": "update_status",
+        "error_step": "mark_item_failed",
+        "description": "Persist generated sections to page_components",
+        "output_field": "sections_saved"
+    },
+    "update_status": {
+        "action": "update_page_status",
+        "config": {
+            "status": "deployed",
+            "site_id_field": "site_record.site_id",
+            "page_name_field": "input_data.spec.page_name"
+        },
+        "next_step": "spawn_rerender_agent",
+        "description": "Mark page as deployed",
+        "output_field": "status_updated"
+    },
+    "complete_error": {
+        "action": "complete_workflow",
+        "config": {
+            "output_fields": [
+                "page_content",
+                "site_record"
+            ],
+            "success_message": "Content writer skipped — page has no sections defined"
+        },
+        "description": "Page build completed with errors"
+    },
+    "check_page_found": {
+        "action": "conditional",
+        "config": {
+            "condition": "page_record.found == true",
+            "else_step": "complete_error",
+            "then_step": "load_existing_content"
+        },
+        "description": "Check if page exists in DB — audit findings for new pages will skip here"
+    },
+    "load_page_record": {
+        "action": "load_page_record",
+        "config": {
+            "page_id": "input_data.spec.page_id",
+            "site_id": "site_record.site_id",
+            "page_name": "input_data.spec.page_name",
+            "authoritative_page_id": "input_data.page_id"
+        },
+        "next_step": "check_page_found",
+        "description": "Load page record from DB — sections, title, page_type",
+        "output_field": "page_record"
+    },
+    "mark_item_failed": {
+        "action": "update_work_item_status",
+        "config": {
+            "status": "failed",
+            "skip_if_missing": true,
+            "work_item_id_field": "input_data.work_item_id",
+            "owned_page_refusal_status": "wont_fix"
+        },
+        "next_step": "complete_error",
+        "error_step": "complete_error",
+        "description": "Real step error — mark the work item failed (visible, attempt counted) before completing via the error path"
+    },
+    "validate_content": {
+        "action": "validate_page_content",
+        "config": {
+            "domain": "site_record.domain",
+            "error_step": "mark_needs_review",
+            "html_field": "page_content.response.page_html",
+            "require_sections_metadata": true
+        },
+        "next_step": "save_sections",
+        "error_step": "mark_needs_review",
+        "description": "Check for placeholders, unrendered templates, cross-site contamination",
+        "output_field": "validation_result"
+    },
+    "mark_needs_review": {
+        "action": "fail_work_item",
+        "config": {
+            "work_item_id": "input_data.work_item_id",
+            "error_message": "Content validation failed — needs human review",
+            "status_override": "needs_human_review"
+        },
+        "next_step": "complete_error",
+        "description": "Mark work item for human review when content has placeholder or contamination issues",
+        "output_field": "review_result"
+    },
+    "ensure_site_record": {
+        "action": "ensure_site_record",
+        "config": {
+            "store_brief_in_content_data": false
+        },
+        "next_step": "load_page_record",
+        "description": "Load site record for context",
+        "output_field": "site_record"
+    },
+    "load_spec_sections": {
+        "action": "load_page_sections_from_spec",
+        "config": {
+            "site_id": "site_record.site_id",
+            "page_name": "page_record.name",
+            "error_step": "plan_sections",
+            "page_sections_fallback": "page_record.sections"
+        },
+        "next_step": "plan_sections",
+        "error_step": "plan_sections",
+        "description": "Load sections from site_specs.site_plan (authoritative), fall back to pages.sections",
+        "output_field": "spec_sections"
+    },
+    "call_content_writer": {
+        "action": "call_agent",
+        "config": {
+            "error_step": "mark_item_failed",
+            "target_role": "content_writer",
+            "input_mapping": {
+                "domain": "site_record.domain",
+                "site_id": "site_record.site_id",
+                "site_plan": "site_record.content_data",
+                "build_mode?": "input_data.spec.mode",
+                "site_record": "site_record",
+                "current_page": "page_record",
+                "section_plan": "section_plan",
+                "reviewed_brief?": "site_record.content_data.reviewed_brief",
+                "existing_content?": "existing_content",
+                "rewrite_guidance?": "input_data.spec.suggestion"
+            },
+            "timeout_seconds": 1200
+        },
+        "next_step": "check_content_produced",
+        "error_step": "mark_item_failed",
+        "description": "Call page-content-writer to generate content",
+        "output_field": "page_content"
+    },
+    "mark_writer_skipped": {
+        "action": "update_work_item_status",
+        "config": {
+            "status": "needs_human_review",
+            "error_message": "page-build-handler no-op: content writer skipped this page — the target section was NOT rebuilt",
+            "skip_if_missing": true,
+            "work_item_id_field": "input_data.work_item_id"
+        },
+        "next_step": "complete_error",
+        "error_step": "complete_error",
+        "description": "Writer skipped — park the work item visibly instead of letting the dispatch loop stamp it complete"
+    },
+    "spawn_content_writer": {
+        "action": "spawn_agent",
+        "config": {
+            "role": "content_writer",
+            "agent_type": "page-content-writer"
+        },
+        "next_step": "call_content_writer",
+        "description": "Spawn page-content-writer specialist",
+        "output_field": "writer_agent"
+    },
+    "spawn_rerender_agent": {
+        "action": "spawn_agent",
+        "config": {
+            "role": "page_renderer",
+            "agent_type": "page-rerender"
+        },
+        "next_step": "deploy_page",
+        "description": "Spawn page-rerender for assembly and deploy",
+        "output_field": "rerender_agent"
+    },
+    "load_existing_content": {
+        "action": "load_existing_content",
+        "config": {
+            "mode": "input_data.spec.mode",
+            "page_id": "page_record.id",
+            "site_id": "site_record.site_id",
+            "page_name": "page_record.name",
+            "error_step": "load_spec_sections"
+        },
+        "next_step": "load_spec_sections",
+        "error_step": "load_spec_sections",
+        "description": "Load existing page content from adoption crawl if mode is recreate",
+        "output_field": "existing_content"
+    },
+    "check_content_produced": {
+        "action": "conditional",
+        "config": {
+            "condition": "page_content.response.skipped != true",
+            "else_step": "mark_writer_skipped",
+            "then_step": "validate_content"
+        },
+        "description": "Check if content writer produced content or skipped"
+    },
+    "mark_no_ready_sections": {
+        "action": "update_work_item_status",
+        "config": {
+            "status": "needs_human_review",
+            "error_message": "page-build-handler no-op: no sections ready to build (empty spec sections, or all sections deferred for missing data) — the target section was NOT rebuilt",
+            "skip_if_missing": true,
+            "work_item_id_field": "input_data.work_item_id"
+        },
+        "next_step": "complete_error",
+        "error_step": "complete_error",
+        "description": "No ready sections — park the work item visibly instead of letting the dispatch loop stamp it complete"
+    },
+    "check_has_ready_sections": {
+        "action": "conditional",
+        "config": {
+            "condition": "section_plan.ready_count > 0",
+            "else_step": "mark_no_ready_sections",
+            "then_step": "load_current_section_content"
+        },
+        "description": "If no sections are ready (all deferred or skipped), skip content generation"
+    },
+    "load_current_section_content": {
+        "action": "load_current_section_content",
+        "config": {
+            "mode": "input_data.spec.mode",
+            "page_id": "page_record.id",
+            "site_id": "site_record.site_id"
+        },
+        "next_step": "spawn_content_writer",
+        "error_step": "spawn_content_writer",
+        "description": "When spec.mode=edit_live, attach the current rendered_html for each ready section so the writer edits instead of regenerating (bugs_open/178)",
+        "output_field": "section_plan"
+    }
+}

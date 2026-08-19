@@ -37818,3 +37818,84 @@ consequence. One `grep -n specAspects <file>` would have shown the loop.
 and it still **refuted a committed claim of mine in passing**. A verdict field is not the only
 thing a run is worth reading for, and "it didn't confirm my hypothesis" is not the same as
 "it found nothing".
+
+---
+
+## 2026-08-19 — `bugfix_301_owned_guard_ordering`: I applied an `agent_definitions` migration without the pre-mutation snapshot the runner's own header requires
+
+**The miss.** Migration `488` (jsonb_set surgery on `page-build-handler`'s live
+`default_config`) was written from `480` as its template, exercised in a rolled-back
+transaction, double-apply-probed — and applied WITHOUT opening with
+`SELECT snapshot_agent('page-build-handler', ...)`. The house convention is written in
+`scripts/migration/run-migrations.sh`'s own header: every migration touching
+`agent_definitions` opens with a snapshot. I never read the header, because I was applying the
+file by hand precisely to AVOID the runner's take-every-pending-file behaviour — the workaround
+routed me around the place the rule was written.
+
+**What caught it.** The council's `debug_historian` seat, as the gating HIGH objection of the
+round — after the apply.
+
+**Why the damage was zero this time, which is luck, not process.** I had dumped the full
+pre-488 step object from the live row ~75 minutes before the apply (to read the workflow), so
+the true pre-mutation state existed by accident and is now committed
+(`bugfix_301_owned_guard_ordering/PRE_488_page_build_handler_workflow_steps.json`); a
+post-apply `snapshot_agent()` was taken as remediation, and the exercised `_ROLLBACK` file
+reverses both keys.
+
+**The cheap check:** before writing any migration that touches a table, read the RUNNER's
+header, not just a sibling migration — a template migration teaches you its own habits
+including its omissions (`402`'s header even NAMES a sibling that omitted the snapshot).
+And note the trap shape for the tally: **bypassing a tool for a good reason also bypasses the
+documentation that lives in it.**
+
+**Two smaller ones from the same session, same lesson (narration vs record):** (1) I wrote
+"~12:00 UTC" timestamps in lane NOTES that were BST misread as UTC — off by an hour; caught by
+`schema_migrations.applied_at`; corrected in place. (2) I cited "146 queued findings" as a
+single number where the honest shape was a status split (84 failed / 36 unresolved / 13
+needs_human_review / 9 detected at re-run) — a reviewer's differently-scoped count of 64
+surfaced the ambiguity. The measured DATA was right in both cases; the NARRATION around it was
+what drifted. Cheap check: any figure you write into a doc gets its query and its timestamp
+beside it, or a reader (or you) will re-derive a different true number and read yours as wrong.
+
+---
+
+## 2026-08-19 — `bugs_open/029`: "the takeover re-runs the spawn step" survived a week because nobody read the column sitting in the same row
+
+**The claim.** This lane's NOTES §6 (and the handoff it fed) explained the wedge's duplicate
+`iter_N_spawn_handler` registration as the retry/takeover path re-running the step: *"exactly what
+the takeover does when it re-runs `iter_N_spawn_handler`"*. The `handleSpawnRetry` candidate was
+carried in the handoff on that reading, with a measured duplicate GAP of 06:54–09:37 offered as
+"consistent with the already-established >5-min takeover".
+
+**What was actually true.** `retry_version` is **0 on both halves of every duplicate pair**, and 0
+on all 37 spawn rows. A retry bumps `retry_version` — that is the column's whole purpose, and Part A
+of this very bug was a fix to the retry *window*, so the lane had been reading that column all week
+for other reasons. Two rv0 registrations mean the step BODY executed twice. Whatever does that is
+upstream of the retry machinery entirely, so a week of candidate-generation was pointed at the
+wrong subsystem.
+
+**What caught it.** Adding `retry_version` to the `string_agg` of an existing census query, while
+building the evidence pack for the re-filed 090. Nothing clever — the column came back `rv0,rv0`
+and the reading collapsed on sight.
+
+**Why the timing gap read as corroboration.** The 06:54–09:37 duplicate gap genuinely IS consistent
+with a >5-min takeover sampled on a 5-minute replay cycle. It is also consistent with anything else
+that happens minutes apart. **A measurement consistent with your hypothesis is not evidence for it
+unless it is INCONSISTENT with the alternatives**, and no alternative had been written down to test
+it against — which is the same shape as this file's 2026-08-03 pair (a figure that could not have
+come out otherwise).
+
+**The cheap check, and it is embarrassing:** when a mechanism is named after a subsystem
+(`retry`, `takeover`, `replay`), **project that subsystem's own bookkeeping column into the census
+before theorising** — `retry_version`, `attempt`, `claimed_at`, `processing_pod`. One extra field in
+a `SELECT` you are already running. The tally shape for this file: *the discriminating column was
+already in the table being queried, and in the WHERE clause of a different query in the same
+runbook.*
+
+**A second, smaller one the same hour (tool, not claim).** Two 090 dispatches were lost to the
+trigger's unescaped `$json$` interpolation — a newline, then a double quote — each printing
+`SAVE: CORRELATION_ID=…` before failing the intake insert, so both looked dispatched. No false claim
+reached a doc because the third attempt was checked at the work item rather than at the banner, but
+the near-miss is the point: **a script that prints its success line before its failing statement
+will be believed.** Now a LANDMINES entry with the flatten/de-quote recipe and the
+`RUN_CORRELATION_ID` distinction.

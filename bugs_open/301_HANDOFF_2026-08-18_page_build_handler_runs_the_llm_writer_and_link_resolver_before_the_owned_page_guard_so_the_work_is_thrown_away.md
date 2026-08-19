@@ -470,3 +470,30 @@ before submission — verdict to be recorded in the lane NOTES either way.
 **Not taken here, still open on this file:** candidate 3 (producers stop filing generic
 content items against owned pages — the real upstream repair) and the Tier 2 finding-to-edit
 routing (with `copy_quality_two_stage` / migration 473's deterministic route).
+
+### 2026-08-19, later — THE ORDERING FIX IS LIVE AND BEHAVIOURALLY PROVEN
+
+The 12:15Z roll carries `6be66bceb` (binary probe on both replicas: `refuse_owned_page`
+PRESENT, controls both ways). **Both of this file's verify controls have now run on live
+traffic:**
+- **Owned page (positive):** 3 `content_rewrite` items at owned pages, 13:37–13:38Z, refused
+  at `load_page_record` (`OWNED_PAGE_GUARD` error), all `wont_fix` +
+  `result.owned_page_refusal`, and **no `page-content-writer` orchestration for any of them**.
+- **Generic page (negative):** 6 builds in the same window spawned writers normally (they
+  fail later at `validate_content` — pre-existing, ~25/day baseline, untouched by this fix).
+  ⚠ No generic build has completed END-TO-END post-roll yet (that validation failure + low
+  demand), so "writer runs" is observed and "page still saves" rests on the fix not touching
+  the save path — one more look owed.
+- `refused_by='save_page_sections'` reviews since the roll: **0** — the save guard is now
+  backstop-only, exactly as candidate 1 specified.
+
+Council round 1 returned REVISE (gating: 488 lacked the `snapshot_agent()` opener; conceded,
+remediated — pre-488 state committed verbatim in the lane dir, snapshot taken, WRONG_CALLS
+logged). Round 2 resubmitted same-correlation with every objection answered by measurement;
+verdict pending. The 090 run ended `UNVERIFIABLE` (iteration cap) and is superseded by the
+production proof above.
+
+**This file's filed defect — the ordering — is FIXED AND LIVE.** Remaining before close:
+read the round-2 verdict, and observe one end-to-end generic completion post-roll. The
+residuals that outlive this file (candidate 3's producer-side routing; Tier 2 finding-to-edit)
+are owned by other lanes and recorded above.
