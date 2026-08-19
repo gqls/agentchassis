@@ -269,3 +269,35 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   generic items (~28: statuses detected/failed/unresolved on non-owned pages), verify a
   sample at the artefact, let retraction close leftovers. Owned/ported 41 → 301 / tool
   rebuilds. Bug closes when the founding + widened-symptom pages verify clean served.
+
+## 2026-08-19 ~17:20Z — BATCH PROMOTION: 7 generic pages, 6 complete at attempt 0; artefact check found two NON-markdown anomalies
+
+- 083 lane confirmed (against the promoter's predicate, not assumed) that the
+  fundamentallyai completion opened the `known_good` door: new findings at page-rerender
+  now promote automatically. ⚠ Their arithmetic worth keeping: the new pair is 1/2 with
+  2 PRE-FIX failures banked forever; `floor_ok` binds at the 5th outcome — two more
+  failures before another success would HOLD it. That is why the batch was promoted
+  selectively (content_data-side findings, no ported slots, one row per page) rather than
+  indiscriminately.
+- Promoted 7 pages (6 re-armed + webdesign news `detected` flipped in place; the
+  `idx_swi_dedup` index allows ONE indexed row per page — duplicates and pages with a
+  `needs_human_review` sibling were left alone). **6 complete at attempt 0 within ~7
+  min**, each verifier-certified; the 7th queued behind other sites' work.
+- **Served-page verification of the six** (the only check that counts): fundamentallyai
+  news 0, dartsonline news 0 (12,346 chars — tables' pipes not counted, disclosed),
+  robot-hands news/index 0, webdesign news 0, robot-hands gripper-catalog 0 — **five pages
+  clean with text intact.** Two anomalies, both OUTSIDE the markdown mechanism:
+  - **robot-hands.com/news.html still SERVES 5 headings/links although its 3 stored
+    components are clean** (rewritten 16:08Z today, verifier-certified): `pages.deployed_at`
+    is still **2026-08-11** — the rerender's deploy step did not republish this page. The
+    DB-is-not-the-website landmine, live: the repair is done and the publish is missing.
+    Not a markdown defect; a rerender/deploy pipeline gap — filed as a follow-up for the
+    rerender lane rather than re-armed here (re-arming would pass the verifier again and
+    still not deploy).
+  - **robot-hands.com/learning-center/index.html is a 404** (339 visible chars of
+    not-found chrome). A page row + stored component exist for a URL nothing serves —
+    a dead-page/deploy-path issue, not markdown. Noted for the robot-hands lane.
+- Net for the bug: the repair converges for every page the route can reach AND deploy.
+  Remaining open: ai-agent-orchestration news (behind a needs_human_review sibling — a
+  human decision, left alone), the 24→sibling duplicates (retraction will close them on
+  the next discovery pass now the pages are clean), and the 41 owned/ported (301).
