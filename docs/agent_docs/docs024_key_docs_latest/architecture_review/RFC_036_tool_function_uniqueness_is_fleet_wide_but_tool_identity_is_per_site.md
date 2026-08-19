@@ -197,3 +197,47 @@ is the general form of the same wall.
 
 The lane finishes 61 of 63 and stops. That is the honest fallback and it should be stated in any
 "complete" claim: **"61 of 63, with 2 blocked on RFC_036"** — not "done".
+
+---
+
+## 10. CONTRIBUTION 2026-08-19 (portfolio_positioning lane) — the same wall exists at SECTION level, on a different writer, and §9.3 fixes only half of it
+
+**`bugs_open/311`** is this RFC's design fact — *function is fleet-wide, identity is per-site* —
+occurring on `store_generated_component` instead of `create_tool_component`. It was filed
+2026-08-18 with a `090` verdict of **CONFIRMED on the first iteration**
+(`8aa2e283-129f-41d1-93a0-6dcacbbabeae`). Until this note, neither file cited the other:
+`grep 311` here and `grep 036` there both returned 0.
+
+**Measured distinction, so nobody merges them by mistake** (2026-08-19):
+
+- 311's blocked rows are `component_level='section'` (`mortgages-repayment`,
+  `loans-credit-health-check`, `loans-car-finance-calculator`). `idx_cc_tool_function_unique`
+  is partial on `component_level='tool'`, so **the index is not what refuses them** — the
+  *regeneration field-contract guard* at `store_generated_component_action.go:397-412` is,
+  because the generated schema drops field names the incumbent site's `content_data` is keyed
+  on. It presents as a **`failed`** work item, not a `complete` one.
+- This RFC's rows (`tool-ab-test-calculator`, `tool-meme-generator`) are `tool`-level and are
+  not touched by that guard.
+
+**Why it bears on §9.3.** The change proposed there — look up a library tool claiming this
+`function` and set the new row's `forked_from` — is exactly 311's own fix candidate 1, and
+§9.2's observation that `deploy_tool_to_site` already builds that shape holds for both writers.
+But §9.3 is scoped to `create_tool_component_action.go` alone, and its blast-radius sentence
+("it only fires when a **library entry** already claims the function") is a `component_level='tool'`
+predicate. **A section-level incumbent claims nothing in the index, so the §9.3 change as
+written would leave 311 entirely live.**
+
+**The cost of fixing only this half, measured at the served artefact rather than inferred:**
+`loanzy.uk` was built greenfield and lost **7 of 7** tool sections to 311; its page
+`https://loanzy.uk/tools/loan-comparison-calculator/index.html` returns 200 with **zero
+`<input>` elements** — a calculator page with no calculator, live, with nothing in the artefact
+to show a reader that anything failed. The portfolio buildout plans ~140 finance domains whose
+propositions share calculator function names by construction, so whichever site creates a name
+first owns it and every later site ships that tool hollow.
+
+**Suggested, not asserted — it is this lane's call:** since both are shared-seam changes on the
+component write path needing the gate and a roll, one submission covering both writers is
+cheaper than two rounds, and it removes the risk of a "tools are fixed" claim that is true for
+`tool`-level and false for `section`-level. If the lane prefers to keep §9.3 narrow, **say so in
+§9.5's honest-fallback sentence** — "2 blocked on RFC_036" would otherwise read as the whole of
+the problem, and it is not.
