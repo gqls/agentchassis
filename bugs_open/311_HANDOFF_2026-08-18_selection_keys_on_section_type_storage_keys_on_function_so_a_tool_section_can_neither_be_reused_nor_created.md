@@ -1,8 +1,14 @@
 # 311 — a section can be neither REUSED nor CREATED: the selector keys on `section_type`, the writer keys on `function`, and a component with one but not the other is invisible to the first and immovable to the second
 
 **Status:** OPEN — **FIX COMMITTED 2026-08-19 (`17d883333`), council APPROVED round 1
-(`fc3ac5f4`, 4 advisories none high), INERT until a chassis image rolls it** (the bar for
-closing is fixed AND live, and the deadlock is reproducible until the roll). Diagnosed
+(`fc3ac5f4`, 4 advisories none high), and LIVE on v1.0.1315** (proven at the binary
+~16:00 UTC: both replicas stamp `590ca3a20`, ancestry TRUE, `COMPONENT_COLLISION_DIVERTED`
+literal present, fake-sha control clean — but **ZERO real exercises yet**, a no-demand
+zero; the loanzy lane's next build is the real-world test and incumbent md5 baselines are
+pinned in the fix lane's NOTES). Stays OPEN until the both-halves verification passes on a
+real case AND per the OWNER RULING 2026-08-19 the TOOL-level writer (`create_tool_component`,
+RFC_036 §9.3) ships too — one logical change, both writers, a PRECONDITION for wave 1.
+Diagnosed
 2026-08-18, `090` verdict **CONFIRMED on the first iteration** (run correlation
 `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`);
 mechanism refined 2026-08-19 (see the fix-lane contribution below). Three sites are
