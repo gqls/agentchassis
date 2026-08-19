@@ -15,7 +15,7 @@ artefact; where a claim is unproven it says so.
 this estate it is also each blog card's excerpt. **407 of 731 live pages had none.** Two
 live mechanisms: the planner was never asked for one, and an unguarded upsert clause
 blanked the ones that existed. Both are fixed and live. A backfiller was built, proven, and
-run across the fleet: **50 of 737 pages are empty now (6.8%), and 43 of those have no
+run across the fleet: **47 of 737 pages are empty now (6.4%), and 43 of those have no
 content at all to describe.** The five pages that were blocking `bugs_open/309` were filled,
 the rerender was dispatched, and **309 is fixed and verified at the served page.**
 
@@ -33,11 +33,12 @@ the rerender was dispatched, and **309 is fixed and verified at the served page.
 | Council | **APPROVED** round 2 | corr `46734ae9-…`; round 1 REVISE found a real defect (I had guarded 1 of 4 paths) |
 | **`bugs_open/309`** | **FIXED** | 6 cards/0 anchors → **8 cards/16 anchors**, all 8 targets HTTP 200, shrink guard **passed untouched** |
 
-**Fleet: 407/731 empty (55.7%) → 50/737 (6.8%).** Mean description length **129** chars.
+**Fleet: 407/731 empty (55.7%) → 47/737 (6.4%).** Mean description length **129** chars.
+Of the 47, **43 have zero components** — the floor — leaving **4** reachable.
 
 ## 3. What is actually left
 
-1. **7 reachable pages** need one more pass: `./scripts/backfill-meta-descriptions.sh <domain>`.
+1. **4 reachable pages** may need one more pass: `./scripts/backfill-meta-descriptions.sh <domain>`.
    The workflow takes 25 pages per run, which is why large sites needed several.
 2. **43 pages have ZERO components.** This is a **floor, not a backlog** — a page with no
    content cannot be described from its content, and the alternative is invention. They
