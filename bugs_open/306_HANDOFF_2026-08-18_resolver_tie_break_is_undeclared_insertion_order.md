@@ -64,6 +64,19 @@ live defect and must not be reported as one. It is where the coin flip re-enters
 workflow stores a `*_result` object with a `result` child at root — a shape other workflows do
 produce (`{X}_result.result` is pattern 1 precisely because it was once common).
 
+## 3a. STATUS 2026-08-19 — candidates 1+2 BUILT, council APPROVED (all-approve, corr `96ac93e6`), commit `846496906`; INERT UNTIL THE NEXT CHASSIS ROLL
+
+Candidate 1 shipped as a `rank` field on `fieldCandidate` (direct ≺ `~unwrap` ≺ sibling, inherited
+from the first hop off the root — which equals historical append order at every level because the
+collector is depth-first and exhausts each root branch before the next); the sort reads it.
+Candidate 2 shipped as a `sort.Strings` over pattern 1's `*_result` keys. Six tests in
+`unified_extractor_tiebreak_test.go`, incl. the 13/139 production shape; mutation-proved both
+ways (rank inverted → 2 fail while every previously pinned winner still passes; sort removed →
+determinism test fails 30/30). **Still OPEN:** candidate 3 (shrink the ambiguous population by
+skipping `retry_payload` subtrees) — needs its own blast-radius check and is NOT bundled; and
+the bug stays open until the roll makes the declared tie-break LIVE. Close when: the roll is
+verified by label+digest AND `TestTieBreakUnwrapHopBeatsSibling` is in the stamped revision.
+
 ## 4. Fix candidates, ordered by what closes the door
 
 1. **Declare the tie-break and pin it** (small, no behaviour change): make the sort
