@@ -1,4 +1,4 @@
--- 486 ROLLBACK — remove the meta-description-backfiller agent
+-- 488 ROLLBACK — remove the meta-description-backfiller agent
 --
 -- Soft-deletes the row rather than hard-deleting it, so any orchestration that
 -- already ran against it keeps a resolvable agent_definitions reference.
@@ -22,11 +22,11 @@ BEGIN
    WHERE type = 'meta-description-backfiller'
      AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
   IF n <> 1 THEN
-    RAISE EXCEPTION '486 ROLLBACK: expected exactly 1 live meta-description-backfiller row, found %', n;
+    RAISE EXCEPTION '488 ROLLBACK: expected exactly 1 live meta-description-backfiller row, found %', n;
   END IF;
 END $$;
 
-SELECT snapshot_agent('meta-description-backfiller', '486_ROLLBACK: pre-withdrawal');
+SELECT snapshot_agent('meta-description-backfiller', '488_ROLLBACK: pre-withdrawal');
 
 UPDATE agent_definitions
    SET is_active = false,
@@ -42,9 +42,9 @@ BEGIN
    WHERE type = 'meta-description-backfiller'
      AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
   IF n <> 0 THEN
-    RAISE EXCEPTION '486 ROLLBACK VERIFY: % live rows remain', n;
+    RAISE EXCEPTION '488 ROLLBACK VERIFY: % live rows remain', n;
   END IF;
-  RAISE NOTICE '486 ROLLBACK OK — the backfiller is withdrawn; SEO-004 now has NO caller, update the register entry to say so';
+  RAISE NOTICE '488 ROLLBACK OK — the backfiller is withdrawn; SEO-004 now has NO caller, update the register entry to say so';
 END $$;
 
 COMMIT;

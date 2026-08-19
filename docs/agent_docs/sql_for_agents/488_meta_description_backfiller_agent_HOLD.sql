@@ -25,10 +25,10 @@
 --    other sessions'):
 --      kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --        psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
---        < docs/agent_docs/sql_for_agents/486_meta_description_backfiller_agent_HOLD.sql
---      ./scripts/migration/run-migrations.sh --record-only 486_meta_description_backfiller_agent_HOLD.sql --note "<why>"
+--        < docs/agent_docs/sql_for_agents/488_meta_description_backfiller_agent_HOLD.sql
+--      ./scripts/migration/run-migrations.sh --record-only 488_meta_description_backfiller_agent_HOLD.sql --note "<why>"
 --
--- 486 — seed `meta-description-backfiller`, the workflow that DRIVES SEO-004
+-- 488 — seed `meta-description-backfiller`, the workflow that DRIVES SEO-004
 --       (bugs_open/320; owner chose the full fix 2026-08-19)
 --
 -- WHY THIS FILE EXISTS AT ALL. Migration 485 stopped new pages being born without
@@ -81,7 +81,7 @@
 -- shows an ABSENT tag, not an empty one — and a DB row updated before the page is
 -- rerendered will disagree with what a visitor gets.
 --
--- ROLLBACK: 486_meta_description_backfiller_agent_ROLLBACK.sql
+-- ROLLBACK: 488_meta_description_backfiller_agent_ROLLBACK.sql
 
 BEGIN;
 
@@ -92,7 +92,7 @@ BEGIN
    WHERE type = 'meta-description-backfiller'
      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
   IF n <> 0 THEN
-    RAISE EXCEPTION '486: a meta-description-backfiller row already exists (% found) — refusing to double-seed', n;
+    RAISE EXCEPTION '488: a meta-description-backfiller row already exists (% found) — refusing to double-seed', n;
   END IF;
 END $$;
 
@@ -240,25 +240,25 @@ BEGIN
      AND is_active AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
   IF cfg IS NULL THEN
-    RAISE EXCEPTION '486 VERIFY: the row was not inserted';
+    RAISE EXCEPTION '488 VERIFY: the row was not inserted';
   END IF;
   IF cfg#>>'{workflow,start_step}' IS DISTINCT FROM 'ensure_site_record' THEN
-    RAISE EXCEPTION '486 VERIFY: start_step is %, expected ensure_site_record', cfg#>>'{workflow,start_step}';
+    RAISE EXCEPTION '488 VERIFY: start_step is %, expected ensure_site_record', cfg#>>'{workflow,start_step}';
   END IF;
   IF cfg#>>'{workflow,steps,backfill_loop,config,sub_workflow,steps,save_description,action}'
        IS DISTINCT FROM 'save_page_meta_description' THEN
-    RAISE EXCEPTION '486 VERIFY: the loop does not call save_page_meta_description — the whole point of this agent';
+    RAISE EXCEPTION '488 VERIFY: the loop does not call save_page_meta_description — the whole point of this agent';
   END IF;
   -- The safety property, asserted rather than trusted: if a later edit ever sets
   -- overwrite_existing true here, this block is what should be updated to say so
   -- deliberately, and until then its ABSENCE is the control.
   IF cfg#>'{workflow,steps,backfill_loop,config,sub_workflow,steps,save_description,config}' ? 'overwrite_existing' THEN
-    RAISE EXCEPTION '486 VERIFY: overwrite_existing is set on the save step — this workflow must not be able to replace existing copy';
+    RAISE EXCEPTION '488 VERIFY: overwrite_existing is set on the save step — this workflow must not be able to replace existing copy';
   END IF;
   IF (cfg#>>'{workflow,steps,backfill_loop,config,max_iterations}')::int > 25 THEN
-    RAISE EXCEPTION '486 VERIFY: max_iterations is above the reviewed bound of 25';
+    RAISE EXCEPTION '488 VERIFY: max_iterations is above the reviewed bound of 25';
   END IF;
-  RAISE NOTICE '486 OK: meta-description-backfiller seeded, fill-blanks-only, 25 pages per run, NOT scheduled';
+  RAISE NOTICE '488 OK: meta-description-backfiller seeded, fill-blanks-only, 25 pages per run, NOT scheduled';
 END $$;
 
 COMMIT;
