@@ -76,10 +76,43 @@ Stripe hosted portal. Needs the `sites.handed_over_at` migration plus a single
 reader. `platform/mailer` is the sanctioned mailer. One council run; register entry
 in the same commit.
 
+**Plus, decided 2026-08-19 and not yet built:** a **6-week expiry** on the live link
+(nothing expires today — serving is unbounded), and a **weekly chase email until the
+customer confirms they have moved their files**, which needs a confirmed-transferred
+state alongside `sites.handed_over_at`.
+
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe
 webhook edge exception; second Nominet TAG (domain programme only).
 
-> **THE LIVE LINK IS FINE — and my 2026-08-18 flag on it was WRONG IN DIRECTION.**
+> ### ⚠ OWNER DECISIONS 2026-08-19 (afternoon) — THREE THINGS TO BUILD IN PHASE 4
+>
+> 1. **The live link EXPIRES AT 6 WEEKS.** *"the preview link can expire in 6 weeks"*
+>    (he said "preview"; he means the post-payment live link, which is never called a
+>    preview in copy). **This is NEW WORK: nothing expires today.** Serving is
+>    currently unbounded — no scheduled retraction, no retention job, no TTL — so a
+>    6-week expiry is a mechanism that does not exist and must be built. The copy
+>    still says "about a month", which under-promises against a 6-week reality. That
+>    is the right direction and is deliberate.
+> 2. **Chase by email, roughly WEEKLY, until the customer confirms they have moved
+>    their files.** Needs: the delivery email (Phase 4), a repeating reminder, and a
+>    *confirmed-transferred* state to stop it. No such state exists —
+>    `sites.handed_over_at` does not exist either, so both land together.
+> 3. **The move-it-yourself window is bounded: "within the next month."** Applied
+>    2026-08-19 as `SQL_2026-08-19b` (writer_block only). **This RESOLVED the caps-ban
+>    question the other way:** I was about to propose narrowing the 2026-08-09
+>    "whenever you like" ban as an over-block, because it stopped a sentence stating
+>    an attested freedom. The owner ruled the **ban is right and the copy was wrong** —
+>    our hosting is not indefinite, so an unbounded time phrase is exactly the promise
+>    that ban exists to stop. **Do not narrow that ban.** The carve-out written into
+>    writer_block: a domain BOUGHT outright for £200 is the customer's property and is
+>    genuinely theirs to move whenever, for ever. Bind the move, never the ownership.
+>
+> **CORRECTION to the paragraph below:** it says "do not build a month-long serving
+> mechanism", written when the only question was whether customers might get *less*
+> than a month. That still holds as written — but decision 1 above means an **expiry
+> at 6 weeks** must be built. Do not read "nothing to build" as covering that.
+>
+> **THE LIVE LINK'S *MINIMUM* IS FINE — and my 2026-08-18 flag on it was WRONG IN DIRECTION.**
 > Owner ruling 2026-08-19: *"The live link should be for a month or more; in reality
 > the text should say a month."* The text already says "about a month"
 > (`delivery_live_link_and_zip`), so **no wording change is needed**, and the

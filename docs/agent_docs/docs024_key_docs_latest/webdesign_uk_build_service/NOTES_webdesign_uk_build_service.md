@@ -4263,3 +4263,66 @@ blocking the second.
 **Not changed: it is an owner ruling, and the last ban I narrowed (refunds) he
 approved first.** Item re-triaged so it can try again meanwhile; the writer may
 phrase around it, but two failures on this family suggest it will not.
+
+### 2026-08-19 (~10:5xZ) — three owner decisions, and the caps-ban question resolved the OTHER way
+
+**Owner, 2026-08-19:** weekly chase emails until the customer confirms they have
+transferred their files; the live link may expire at **6 weeks**; and *"whenever you
+like should be within the next month."*
+
+**The third one overturned what I was about to propose, and that is worth recording
+because I had the argument fully built.** I had `881c95ef`'s second failure written
+up as the refund-ban defect recurring: a bare-phrase ban (`whenever you like`)
+blocking a sentence that stated an **attested** freedom (`domain_buy_once`: "free to
+transfer it to their own registrar or host"), with both caps bans citing premises
+that no longer exist. My recommendation was to narrow the ban.
+
+**The owner ruled the ban is RIGHT and the copy was wrong.** The hosting we provide
+is not indefinite, so an unbounded time phrase about it is exactly the open-ended
+promise that ban exists to stop. The register and the ban were not in conflict; the
+WRITER was splicing a true locational freedom ("host wherever they like", which is
+in writer_block) onto a false temporal one. **The ban caught a real defect and I had
+read it as a false positive because the previous ban in the same position had been
+one.** A precedent about one ban is not evidence about another.
+
+Applied as `SQL_2026-08-19b` — writer_block only, facts and bans asserted unchanged.
+It states the bound ("within the next month"), forbids open-ended time phrases about
+anything we host, and carries an explicit carve-out so the fix cannot create a false
+claim in the other direction: **a domain bought outright for £200 is the customer's
+property and is genuinely theirs to move whenever, for ever. Bind the move, never
+the ownership.** Guard asserts the instruction landed exactly once and that four
+earlier writer_block wires survive.
+
+**Both caps bans still carry stale REASONS** (one names fact
+`revision_rounds_included`, which does not exist; the other names the retired review
+window). The patterns are correct; only the prose the writer reads is out of date.
+Worth a tidy-up, not urgent, and NOT a narrowing.
+
+**The two new build requirements are Phase 4 work that does not exist yet:**
+- **6-week expiry on the live link.** Nothing expires today — serving is unbounded.
+  This is a mechanism to build, and it does not contradict the 08-19 correction
+  above: that correction said do not build something to GUARANTEE a month, because
+  the minimum is already exceeded. An expiry is the opposite end.
+- **Weekly chase until confirmed transferred.** Needs a confirmed-transferred state,
+  which does not exist, alongside `sites.handed_over_at`, which does not either.
+
+### Owner's market supposition, 2026-08-19 — DISCUSSION ONLY, not a directive
+
+Recorded because it may reshape positioning later, and explicitly flagged so nobody
+wires it into the register: **"just for us thinking now, not for copy on the site nor
+for any mission or spec directives."** It has NOT been written to any fact,
+writer_block, mission_brief or spec, and must not be until he says so.
+
+> The likely target market is small web-design outfits, Fiverr/Upwork sellers who
+> want something impressive to show their clients, and domain owners.
+
+Worth noting what it would change if it were ever adopted, so the thought is not
+lost: that is a **reseller/B2B** audience, not the end-customer SME the
+`mission_brief` and `identity` specs currently describe ("business owners who need a
+decent website and have neither the time nor the appetite"). A reseller cares about
+different things — white-labelling, whether they may resell at their own price,
+volume, speed, and whether our branding appears anywhere — and several of those are
+not currently attested either way. It would also sit oddly with `no_presales_service`,
+since a reseller buying repeatedly is exactly the customer who expects an account
+relationship. **None of that is a recommendation; it is the list of questions the
+supposition would raise if it were promoted from a thought to a direction.**
