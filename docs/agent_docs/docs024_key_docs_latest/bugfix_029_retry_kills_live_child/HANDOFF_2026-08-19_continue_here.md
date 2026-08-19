@@ -2,6 +2,18 @@
 > This file is kept because it records, in place, the corrections that were made during the day —
 > most importantly the "the evidence has expired" error and its retraction. It is history, not state.
 
+> **⚠ THE TWO HANDOFFS DISAGREE ABOUT WHICH IS LIVE — reconcile before trusting either (added by a
+> third session, 2026-08-19 ~21:1xZ).** This file is bannered "history, not state", but the evening's
+> *newest* state was appended **here** — the `v1.0.1316` verification and the `d02a6958` re-file —
+> while `19b`, the file a fresh session is handed, still said the bundle fix was "not aboard" until
+> just now. A session reading only `19b` gets stale build state; one reading only `19` is told it is
+> reading history. **Newest-wins by timestamp, and NOTES is the reliable spine.** Two findings from
+> that third session are in **NOTES §17**: §17b corrects §14's "ran out of iterations" (it was the
+> `scope-not-narrowing` guard at 3 of 5, and the `5d1d8f1c` arithmetic does **not** reconcile, so
+> §15's seed-scope suspicion is unproven too — read it before `NEXT_090_single_variable.sh` is fired
+> and its outcome attributed); §17c shows the `### awaited_requests` **rows** section would render
+> empty and should not be built as specified.
+
 # HANDOFF — 2026-08-19 — `bugs_open/029`, continue here
 
 Supersedes `HANDOFF_2026-08-18b_continue_here.md` (bannered), which supersedes `..._2026-08-18_...`.

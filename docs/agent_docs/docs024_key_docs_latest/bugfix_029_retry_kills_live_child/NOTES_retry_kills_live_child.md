@@ -1638,6 +1638,12 @@ later, differently-named `SAVE: RUN_CORRELATION_ID=` line.
 
 ### 10. Third stall, third distinct reason — and this one names a REAL framework gap: the bundle lists `awaited_requests`'s schema but renders NONE of its rows
 
+> **CORRECTED 2026-08-19 (§17c):** the gap is real, but the remedy named here — a `### awaited_requests`
+> **rows** section — **would render empty**. Static row sections are scoped to the diagnosis TARGET,
+> whose correlation has 0 such rows (control: 1,469 in the incident window). The schema half, already
+> shipped, was the whole blocker: the loop now fetches the rows itself via `data_requests`. Read §17c
+> before building it.
+
 Run `be89750f-c2ab-4c0a-bc21-751e75d9b19b`, dispatched 16:07Z, terminal ~16:12Z, **UNVERIFIABLE**.
 
 **First, what WORKED.** Inlining `\d awaited_requests` into the symptom did its job, and the proof is
@@ -1925,6 +1931,11 @@ returns, that does not change.
 
 ### 14. Run `d02a6958`: UNVERIFIABLE, and it is the best result this lane has had — it ran out of ROAD, not out of evidence
 
+> **CORRECTED 2026-08-19 (§17b):** it did **not** run out of iterations — it stopped at **3 of a
+> permitted 5**, halted by the narrowing guard. The field is `route.stopped_by` (not `stopped_reason`)
+> and it reads **`scope-not-narrowing`**; `iteration-cap` is a separate value in the same vocabulary.
+> The "one query short / give it a head start" remedy therefore does not address the halt. §17b.
+
 **Outcome: `UNVERIFIABLE`, 3 iterations, `stopped_reason` empty.** My §13 pre-registration guessed
 it would hit the **5**-iteration cap; **it did not — it stopped at 3.** Recording that my prediction
 was wrong before drawing anything from the result.
@@ -2058,3 +2069,83 @@ around the *rows* half by putting a reconstruction query in the symptom — a wo
 remembered by every future filer. They ranked building the `### awaited_requests` rows section above
 any such workaround, on the close-the-door rule. **My workaround was then tried and it regressed the
 run** (§15). Their ranking was right before the evidence arrived, which is the stronger position.
+
+> **CORRECTED 2026-08-19 ~21:1xZ (third session, §17b):** the rows-section ranking endorsed here
+> **would have shipped an empty section.** Measured, not argued — see §17b before building it.
+
+### 17. A third session's read of `v1.0.1316` — one corroboration and two corrections
+
+Written by the session handed `HANDOFF_2026-08-19b_continue_here.md` (**note: that file says it
+supersedes `HANDOFF_2026-08-19_continue_here.md`, but the owning session is appending to `19`, so a
+fresh session is pointed at the stale one** — reconcile before trusting either). Filed as a
+contribution, not a takeover: `bugs_open/029 hung spawns` was live and busy throughout.
+
+**(a) The bundle-fix proof below is CORROBORATION of §11, not a finding.** Independently and
+without seeing §11, from `orchestration_states` over ten runs rather than `diagnosis_artifacts` over
+five: the `awaited_requests(` table entry renders in `d02a6958` and in **none** of the nine pre-fix
+runs (10:50–16:16Z), with `orchestration_states(` present in all ten as a positive control and a
+`zzz_no_such_table(` negative control absent from all ten. Schema length 12,219 → 12,650 (+431),
+consistent with one added entry. §11 got there first and sourced it better. **One detail §11's
+warning does not name:** a bare `awaited_requests` match is blind for a *second* reason beyond the
+symptom text — `orchestration_states` has a **column** called `awaited_requests jsonb`, which is
+rendered in every bundle ever produced. My first census returned `t` for all ten runs on that alone.
+Both blind paths are closed by the same discriminator, the renderer's `(`.
+
+**(b) CORRECTION to §14: run `d02a6958` did NOT run out of iterations.** §14 records it as *"ran out
+of iterations one query short of the answer"* with *"`stopped_reason` empty"*. The populated field is
+`route.stopped_by` and it reads **`scope-not-narrowing`** — a convergence guard, at **iteration 3 of
+a permitted 5**. `iteration-cap` is a *separate* value in the same vocabulary
+(`diagnose_emit_action.go:24`), so this is a distinction the harness itself draws.
+
+`[MEASURED 2026-08-19]`, `collected_data->'route'` on the `diagnose-agent` row:
+
+| run | `stopped_by` | iter | `prev_scope_size` | named next_scope | guard: `>prev+2`? |
+|---|---|---|---|---|---|
+| `d02a6958` | scope-not-narrowing | **3** of 5 | 5 | 8 | `8 > 7` ✓ reconciles |
+| `5d1d8f1c` | scope-not-narrowing | 1 | 7 | 9 | `9 > 9` ✗ **does NOT reconcile** |
+
+Guard: single exit at `pkg/diagnose/loop.go:432`, predicate `next.size() > prevSize+2`; `size()` is
+`len(Symbols)` (`:205`); `named` is built from `v.NextScope` **alone** — it does *not* union the
+previous scope (`namedScope`, `:398-417`). On a stop the state returns early *before*
+`st.PrevScopeSize = d.NamedScopeSize` (`advance.go:104-111` vs `:120`), so the persisted
+`prev_scope_size` **is** the pre-guard number the guard compared against.
+
+**Why this matters for the next filing.** §14's remedy — hand the run the reconstruction SQL so it
+starts where this one ended — addresses the *data* half, which the loop had already solved for itself
+with a filtered query in iteration 2. It does not touch the halt.
+
+> **[UNRESOLVED — and it cuts BOTH ways.]** `5d1d8f1c`'s numbers do not satisfy the only predicate
+> that can emit this stop reason, so *why* it halted at iteration 1 is **not established**. That
+> means §15's suspicion (*"adding the previous run's NextScope symbols did it"*), which
+> `NEXT_090_single_variable.sh` now encodes as a hard rule, is **equally unestablished** — as §15
+> itself says. I tried to derive "seed a wider scope" as the remedy and **could not make the
+> arithmetic support it either; recording that I failed rather than the tidy version.** Settle the
+> reconciliation before the one-variable run's outcome is read as evidence about seed scope, or it
+> will attribute to the seed whatever this unexplained trip does next.
+
+**(c) CORRECTION to §10 and to §16(c): the `### awaited_requests` rows section would render EMPTY.**
+§10 calls the missing rows a REAL framework gap; §16(c) ranks building it above the query-in-symptom
+workaround on the close-the-door rule. The ranking argument is sound and the measurement still kills
+it — the bundle already contains the natural experiment.
+
+- Every static row section is scoped to the **diagnosis target**: `agent_error_log` by
+  `site_id`/`domain` (`diagnose_load_runtime_action.go:279-280`), `site_work_items` by `site_id`
+  (`:314`), `orchestration_states` by `correlation_id`/`site_id` (`:349-350`). A new section built to
+  that pattern inherits the scoping.
+- `[MEASURED]` the diagnosis target's own correlation `ac075f27-…` has **0** `awaited_requests` rows;
+  control — the 08-17 incident window — has **1,469**. The zero is specific to the target, not an
+  empty table. (The loop stated this itself and it checks out.)
+- The `orchestration_states` section is *already* scoped that way, already renders
+  `(no orchestration rows for this correlation/site)` for this run — and **that empty string is the
+  verdict's own first citation.**
+
+For this class of diagnosis — a *historical* incident described in prose, where the target
+correlation is the diagnosis run's own — the new section renders `(no rows…)`. It would be built,
+council-gated, shipped, and inert for the case that motivated it.
+
+**What actually unblocked the loop was the schema half, already shipped.** With the columns present
+the model wrote its own valid `awaited_requests` query and `runDataRequests` (`:624`) returned real
+rows — 215 lines over 37 orchestrations, including Tier-1 citations of the 08-17 incident. The rows
+arrive **dynamically**; they never needed a static section. The residual defect is real but much
+narrower than a new section: an unfiltered dump meets `row_cap=200` and an alphabetical `ORDER BY`,
+which §14 already documents and which the harness already announces.

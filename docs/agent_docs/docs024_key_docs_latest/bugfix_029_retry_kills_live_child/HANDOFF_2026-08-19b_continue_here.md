@@ -93,6 +93,11 @@ the table that is full. `0132a3683` fixed the schema half only.
 table/right schema/**no rows and no ids**. Rule earned: **when a run refutes on absence, establish
 WHICH absence from its `needed_evidence` before re-filing.**
 
+> **SUPERSEDED 2026-08-19 — this is now LIVE and PROVEN; the paragraph below is kept as the record
+> of what was true at 17:00Z.** `v1.0.1316` rolled 17:13Z, `0132a3683` is an ancestor of build point
+> `07eeba4a1`, and the bundle renders the table — proven behaviourally twice, independently
+> (NOTES §11 from `diagnosis_artifacts`, §17a from `orchestration_states`, with controls both times).
+
 ⚠ **`0132a3683` is Go and INERT until the next chassis roll.** Pods are on `v1.0.1315` (12:15Z);
 the commit is 16:00Z, so it is **not aboard**. Verify after the roll at the build stamp, then by
 checking a fresh bundle's Schema section actually describes the table.
@@ -104,9 +109,18 @@ checking a fresh bundle's Schema section actually describes the table.
    the next burst**, which RSH-011 captures automatically with the full `awaited_requests` set.
    ~~ CONFIRMED changes what to build; REFUTED is a result and must be
    recorded as a visible correction here.
-2. **Build the `### awaited_requests` rows section** in `diagnose_load_runtime` — council-gate it.
+2. ~~**Build the `### awaited_requests` rows section** in `diagnose_load_runtime` — council-gate it.
    Ranked above any symptom-text workaround by the close-the-door rule: the workaround must be
-   remembered by every future filer, and those who forget get a bundle that looks complete.
+   remembered by every future filer, and those who forget get a bundle that looks complete.~~
+   > **CORRECTED 2026-08-19 — DO NOT BUILD THIS AS SPECIFIED (NOTES §17c).** It would render
+   > **empty**. Every static row section is scoped to the diagnosis TARGET
+   > (`diagnose_load_runtime_action.go:279-280`, `:314`, `:349-350`), and `[MEASURED]` the target
+   > correlation has **0** `awaited_requests` rows against **1,469** in the 08-17 incident window.
+   > The `orchestration_states` section is already scoped that way and already renders
+   > `(no orchestration rows for this correlation/site)` — that empty string is the verdict's own
+   > first citation. The **schema** half (`0132a3683`, now live) was the whole blocker: the loop
+   > writes its own `awaited_requests` query and `runDataRequests` returns the rows. The residual
+   > defect is narrower — an unfiltered dump meets `row_cap=200` with an alphabetical `ORDER BY`.
 3. **Answer "what runs the step body twice at rv0"** — loop expansion / `ErrLoopExpansionHandled`,
    the recursive `continueExecution`, or a second consumer. Do NOT re-enter the retry machinery.
 4. **Do not close.** Bar is fixed AND live; nothing about the wedge is fixed. Quiet since 08-17 is a
