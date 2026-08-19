@@ -343,7 +343,7 @@ func ExtractFields(
 	}
 
 	// Always ensure domain and objective exist at root level
-	ensureCoreFields(result, collectedData, logger)
+	ensureCoreFields(result, collectedData, fieldNames, logger)
 
 	// Also ensure they exist inside input_data if that map exists
 	if inputDataMap, ok := result["input_data"].(map[string]interface{}); ok {
@@ -778,12 +778,39 @@ func tryUnwrapMapPatterns(m map[string]interface{}, logger *zap.Logger) interfac
 
 // ensureCoreFields makes absolutely sure critical fields exist eg domain, objective
 // These are fields that templates commonly reference but might not be explicitly requested
+//
+// TWO CLASSES OF TOP-UP, gated differently (RFC_029 §10.13 step 3, owner ruling
+// 2026-08-18; the measurement is in staged_component_build NOTES 2026-08-18
+// evening and bugs_open/306):
+//
+//   - domain / objective / model are recovered UNCONDITIONALLY, as always.
+//     Measured 2026-08-18: 39 / 10 / 6 live steps across 31 agent types read
+//     them from templates WITHOUT declaring them. They are load-bearing and
+//     must never be gated.
+//
+//   - current_page / current_section / render_context are recovered ONLY WHEN
+//     REQUESTED (present in fieldNames). Measured the same day: zero undeclared
+//     template consumers fleet-wide, and exactly one Go-side consumer that read
+//     the injected copy rather than requesting it — html-developer-chunked —
+//     which migration 483 gave an explicit input_fields list BEFORE this gate
+//     shipped (order is load-bearing: config is live at once, this rides a roll).
+//     Before the gate, 63% of the RFC_029 observation window's conflict rows
+//     were this function searching for a page on behalf of build-dispatch-loop,
+//     which declares no page anywhere and reads the answer nowhere: a wrong
+//     value, found by a whole-tree walk per step, delivered into a slot nobody
+//     opens. A request list is the only honest statement of who wants what.
+//
+// A requested page-ish field still gets the special-case extraction in
+// ExtractFields (which runs first and usually fills it) and this fallback if
+// that came up empty — exactly as before. Only the UNREQUESTED path is closed.
 func ensureCoreFields(
 	result map[string]interface{},
 	source map[string]interface{},
+	fieldNames []string,
 	logger *zap.Logger,
 ) {
 	logger.Info("Ensuring core fields present")
+	requested := func(name string) bool { return contains(fieldNames, name) }
 
 	// Check domain
 	if _, hasDomain := result["domain"]; !hasDomain {
@@ -833,8 +860,8 @@ func ensureCoreFields(
 		}
 	}
 
-	// ADDED: Check current_page - commonly referenced in content generation templates
-	if _, hasCurrentPage := result["current_page"]; !hasCurrentPage {
+	// Check current_page - only when REQUESTED (see the doc comment above)
+	if _, hasCurrentPage := result["current_page"]; !hasCurrentPage && requested("current_page") {
 		if currentPage := findFieldRecursive(source, "current_page", 0, logger); currentPage != nil {
 			result["current_page"] = currentPage
 			if cpMap, ok := currentPage.(map[string]interface{}); ok {
@@ -848,16 +875,16 @@ func ensureCoreFields(
 		}
 	}
 
-	// ADDED: Check current_section - critical for loop iterations
-	if _, hasCurrentSection := result["current_section"]; !hasCurrentSection {
+	// Check current_section - only when REQUESTED
+	if _, hasCurrentSection := result["current_section"]; !hasCurrentSection && requested("current_section") {
 		if currentSection := findFieldRecursive(source, "current_section", 0, logger); currentSection != nil {
 			result["current_section"] = currentSection
 			logger.Info("✓ Auto-recovered current_section")
 		}
 	}
 
-	// ADDED: Check render_context - commonly needed for template rendering
-	if _, hasRenderContext := result["render_context"]; !hasRenderContext {
+	// Check render_context - only when REQUESTED
+	if _, hasRenderContext := result["render_context"]; !hasRenderContext && requested("render_context") {
 		if renderContext := findFieldRecursive(source, "render_context", 0, logger); renderContext != nil {
 			result["render_context"] = renderContext
 			logger.Info("✓ Auto-recovered render_context")
