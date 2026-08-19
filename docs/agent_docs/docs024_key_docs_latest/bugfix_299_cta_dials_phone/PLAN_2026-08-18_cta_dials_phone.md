@@ -73,14 +73,38 @@ brief-starter tool (setCTAField has no keep branch at all). **Order: Go commit �
 roll → pod-verify → keep halves proven (coordinate 248's) → only then unhold the wiring
 migration → then arm the check + stamp.**
 
-## Owner decisions (asked 2026-08-18)
+## Owner decisions (asked 2026-08-18; status re-stated 2026-08-19)
 
-1. Wiring fix gated on BOTH keep halves (recommended) or mine alone — awaiting.
+1. Wiring fix (477) gated on BOTH keep halves (recommended) or mine alone — **STILL AWAITING,
+   and it is now the ONLY thing blocking the fix.** The gate's technical condition is
+   SATISFIED as of 2026-08-19: both halves are live in chassis v1.0.1316, capability-probed on
+   both pods with a negative control. What is still owed with it is the canary — the 248
+   lane's suggestion `leopardessconsulting.co.uk` (4 authored `/contact.html` CTAs across
+   /index and /how-it-works), diffed before and after the first post-apply build.
 2. Home secondary CTA: phone button with corrected copy (default) or Brief Starter link
-   (webdesign lane's move) — awaiting.
+   (webdesign lane's move) — **STILL AWAITING.** Note this is now less urgent than it was:
+   whichever is chosen, 477 has to land first or the next rebuild carries the stored value
+   again regardless.
 3. Confirm intended number for contact/hero's undialable `tel:+4407934524911`
-   (display text says +44 (0) 7934 524 911 ⇒ `tel:+447934524911`) — awaiting.
-4. Enable the new check after calibration review — awaiting the calibration numbers.
+   (display text says +44 (0) 7934 524 911 ⇒ `tel:+447934524911`) — **STILL AWAITING.**
+   One-line fix once answered; `NormalizeTelHref` deliberately REFUSES to guess this one.
+4. Enable the new check after calibration review — **DONE 2026-08-19.** Calibration was
+   17/17 true, 0 false; migration 475 applied; `completeness-discovery-agent` 43 → 44 checks.
+
+> **CORRECTION 2026-08-19 to §"The fix" step 4 and to the plan's ordering prose.** The plan
+> said the check ships "review-only round 1 (auto-repair only after §2 proven live)". That
+> still holds. But the plan implied the three switches would be thrown together after the
+> roll; they were not, and should not be. 475 and 476 are *independently* safe once the binary
+> is verified — 475 because its findings are review-only with no handler, 476 because its
+> output is discarded until 477 — whereas 477 changes fleet-wide build behaviour the instant
+> it applies. Splitting them is what let the detection half ship today while the fleet-wide
+> half waits properly on a human. **Do not re-couple them.**
+
+> **CORRECTION 2026-08-19 to §"The fix" step 3's ordering claim.** The plan says arming the
+> stamp is only observable after 477. True, and the migration header now carries the
+> consequence the plan did not draw: the post-arm verification **will read zero**, and a
+> reader who does not know that will record 476 as broken. A zero needs its demand control
+> stated next to it, not inferred.
 
 ## Not doing, and why
 
