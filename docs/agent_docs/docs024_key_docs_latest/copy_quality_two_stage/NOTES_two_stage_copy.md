@@ -1835,3 +1835,67 @@ inside the instruction meant to discourage it (hypothesis, labelled as one in `3
 Editing on that guess would be this lane learning "exemplars beat rules" a third time by
 doing it wrong again. **No rerender of the three pages** — another lane's site, evidence
 deliberately intact, and I have already touched that site's index today.
+
+## 2026-08-19 — checked the code beneath us, found the root cause, and coordinated with the 083 lane
+
+### What changed underneath (264 commits since my last)
+
+- **Two touch stage 2's write path.** `bugs_open/184` added `strip_literal_markdown` to
+  `apply_section_edit` — a gated transform that mutates the merged content map, **LLM
+  `field_updates` included**, before render. Code LIVE in `d3590ca46` (v1.0.1314); **migration
+  474 PENDING**, flag in zero live agent configs, so inert today. When it lands, *"what the
+  gate graded is what lands"* stops being exactly true for plain-text fields;
+  `stripped_markdown_fields` on the result is the tell. CONTRIB filed to their lane — they
+  could not have told me, since `copy-editor` did not exist when 474 was written.
+- **`copy-editor` was updated at 07:51:10Z by someone else — and it was benign.** 195 agent
+  rows share that timestamp: the release stamping `image_tag` `v1.0.1308` → `v1.0.1314`. Its
+  `default_config` is otherwise exactly as 462 left it (checked field by field, not eyeballed).
+- Chassis **`v1.0.1314` = `d3590ca46`**, both replicas, probed with a negative control.
+- Both applied edits still live: LMC 16/16 links; the ai-agent-orchestration deletions absent.
+
+### ROOT CAUSE of the owner's directory-page complaint — full evidence in `bugs_open/305`
+
+**The brief is written in the construction, and hands down the owner's complained-of sentence
+verbatim.** All three flagged pages are pre-v2 (07-26 ×2, 08-06/08-08); the hero phrase dates
+to 04-10 across 251 calls; `content_direction` carries the shape seven times and supplies the
+canonical tagline, which appears in **1,348 rendered prompts and 408 responses**. Literal
+chain, not a rate — deliberately, after §3's withdrawal.
+
+**Fleet census: 24 of 25 briefs carry it at 24–38 instances; the complained-of site has SEVEN.**
+So the complaint arrived from one of the least saturated briefs in the estate. Top of the list
+is `remortgagecalculator.uk` — `portfolio_positioning`'s pilot, which they offered to rerun;
+warned them that rerunning against that brief would read as the fix failing.
+
+**This corrects both lanes.** They checked differentiators for SENTIMENT and found them
+positive — true, and beside the point: *"minutes instead of weeks"* is itself a contrast. The
+lane's 08-12 finding survives in stronger form: **the writer reproduces the rhetorical FORM of
+its brief, independent of sentiment.**
+
+### The 083 exchange (the owner asked me to open it; both directions paid)
+
+Given: a warning that `copy_edit_proposed` must never be promoted (D2). Received: it is safe by
+two barriers, and their `held-pair-canary-escalation` would have invited a human to canary the
+pair after 3 days — a hazard in their lane they are now landmining. Their suggested
+`handler_agent=''` fix is **unavailable**: `checkpoint_for_review_action.go:202` hardcodes it,
+on a shared action (4 agents). But the same line hardcodes `status`, so the type **cannot be
+born `detected` by its only producer** — barrier 1 is structural.
+
+**The exchange's best return was theirs:** my guess that 473's page-rerender route would hit
+the owned-page refusal, which they MEASURED — 16 failed + 1 cancelled, most recent 08-18, and
+all 74 `literal_markdown` rows currently routing elsewhere — before 473 was applied.
+
+### Two self-inflicted evidence losses
+
+1. **Closing an item by writing `result` destroys the handler's own record.** My four applies'
+   `content_edit_mode`/`updated_field_count` are gone. Use `result = result || …`.
+2. **Orchestration rows are not an archive** — the 08-17 apply orchestration no longer exists
+   while rows from 07-13 survive, so not age-based.
+
+### And a correction to my own reasoning, caught by their warning
+
+I had argued my omitted RFC_015 citation was harmless because *"the gate returns a skip, my
+edits changed content, therefore no decision covered them."* **That inference breaks on the
+`covErr` path**, where a failed coverage check logs a warning and proceeds without the gate —
+so content changing does not distinguish "no decision" from "check failed open". **Looked
+instead:** 10 `decision-record` rows fleet-wide, **zero** on either site. Harmless, established
+rather than inferred.
