@@ -12844,3 +12844,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/324` · `bugs_open/283` §14 · 016b §9 "A renamer's completeness check that greps for the FORMS IT RENAMES…" · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-19, 283 judged-pipeline build session — found by reading one canary script by hand
 - **added:** 2026-08-19, 283 lane
+
+### `orchestration_states` retention is PER STATUS — a whole-table `min(created_at)` reads five weeks when the table holds two days, and "the evidence expired" is usually one table talking
+
+- **footprint:** `orchestration_states` (`created_at`, retention/cleanup), `awaited_requests`, any claim of the form "the rows have aged out" / "there is nothing left to cite" / "I have N hours of evidence", any `090` diagnosis seed that rests on live rows
+- **fires when:** you size how much history you have, or declare an incident's evidence gone, before dispatching a diagnosis run, filing a bug, or telling the next session to wait for a fresh occurrence. No symptom needed — the reading looks fine.
+- **the mechanism, both halves:**
+  1. **Within the table.** The cleanup prunes terminal working rows on a ~26-hour horizon but never touches `CANCELLED` (and at least one stray `FAILED` survives from 2026-07-13). `SELECT min(created_at) FROM orchestration_states` therefore returned **2026-07-13** on 2026-08-19 — *five weeks* — while a `GROUP BY created_at::date, status` showed the table held **08-18 and 08-19 only**, plus 24 CANCELLED rows and 1 FAILED. **The aggregate is dominated by exactly the rows the retention rule does not apply to**, and it errs *reassuringly*: it tells you the evidence is still there.
+  2. **Across tables.** Retention is a property of a table, never of a fact. `awaited_requests` retains **~7 days**, so a population lost from `orchestration_states` can be fully reconstructible from step rows. On 2026-08-19 the `bugs_open/029` wedge was declared expired on the strength of `orchestration_states` alone; rebuilding it from `awaited_requests` (an `iter_N_call_handler` at `retry_version>=3/status='error'`, the following `iter_{N+1}_spawn_handler`, and no `iter_{N+1}_call_handler` row) returned **20 instances — two MORE than the 18 the "complete" population was believed to be**.
+- **what it costs:** a `090` was filed that morning on the false premise and returned **NOT CONFIRMED (UNVERIFIABLE)**, quoting the premise back (*"already aged out of retention"*). The loop reasoned correctly from what it was told. A live bug was refuted because the instrument was pointed at the one table where the evidence was gone — and the cold-start handoff told the next session there was nothing to do but wait for another burst.
+- **the check, both lines, before you say "expired":**
+  ```sql
+  -- 1. retention is per status, never whole-table
+  SELECT created_at::date, status, count(*) FROM orchestration_states GROUP BY 1,2 ORDER BY 1 DESC;
+  -- 2. enumerate the OTHER tables that hold the same event
+  SELECT min(sent_at)::date AS oldest, max(sent_at)::date AS newest, count(*) FROM awaited_requests;
+  ```
+  If a signature can be written in terms of step rows, `awaited_requests` outlives `orchestration_states` by ~6 days — say which table you measured, every time.
+- **relations:** `bugs_open/029` (2026-08-19 sections) · `WRONG_CALLS.md` 2026-08-19 "the wedge evidence has expired" · MEMORY [[prior-art-search-goes-stale]] (an absence is true only when you looked — this is the same error in the *space* dimension) · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
+- **source:** 2026-08-19, `bugfix_029_retry_kills_live_child` lane — found by re-running the retention check by hand while writing an unrelated query
+- **added:** 2026-08-19, 029 lane

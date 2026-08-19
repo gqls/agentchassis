@@ -11,6 +11,14 @@ Read this, then `NOTES_retry_kills_live_child.md` (newest at the bottom).
 "rare, bursty, unexplained, not currently reproducing" — and the diagnosis loop has now said so
 independently.**
 
+> **UPDATE 2026-08-19 ~10:45Z — two things below are now WRONG and are corrected in place.**
+> (1) **The 08-17 evidence never expired** — `awaited_requests` retains 7 days and holds **20**
+> reconstructible instances (two more than `orchestration_states` ever showed). The 090 is filable
+> **today**; it does not wait for a burst. (2) **Candidate 1 (the ticker's shared 60 s context) is
+> REFUTED** on three independent measurements, and the open question is now narrowed to a single
+> transition: `continueExecution` for `iter_{N+1}_call_handler`, on the response-consumer goroutine,
+> straight after the spawn reply was handled. Full working: NOTES, 2026-08-19 entry.
+
 > **UPDATED 2026-08-19 10:10Z.** The 090 below is no longer "not dispatched": it RAN and
 > returned **NOT CONFIRMED (UNVERIFIABLE)**, refuting on absence of evidence exactly as this
 > handoff predicted. Run corr `b346d0d4-bf9b-4068-9db7-5af18d719706`, 3 iterations, ~12 min —
@@ -19,8 +27,13 @@ independently.**
 > that has already aged out of retention"*; it found a candidate at
 > `process_item_iter_4_spawn_handler`, tested it, and refuted — that orchestration COMPLETED
 > normally at 09:52:14, i.e. in flight, not wedged. **The loop was RIGHT to refute.**
-> **Re-file when there are CAPTURED instances**, adding the `wedge-evidence:<orch_id>` note keys
-> to the runtime tier; the symptom text itself is unchanged and correct.
+> ~~**Re-file when there are CAPTURED instances**~~ — **CORRECTED 2026-08-19 ~10:45Z: the refutation's
+> premise was FALSE and no wait is needed.** The burst had *not* aged out of the fleet, only out of
+> `orchestration_states`; **20 instances are still in `awaited_requests`** (7-day retention, good to
+> ~08-24). The loop refuted on an absence created by pointing it at the wrong table. Re-file now,
+> naming `awaited_requests` as the evidence source and stating that `orchestration_states` is empty
+> BY RETENTION. Add the `wedge-evidence:<orch_id>` note keys to the runtime tier when a burst is
+> captured, but that is an addition, not a precondition.
 
 ## What is DONE — do not redo any of it
 
@@ -36,21 +49,54 @@ independently.**
 ## THE OPEN QUESTION, unchanged
 
 **What kills the parent a few seconds after its spawn handshake SUCCEEDS, on the path taken when
-the previous iteration's `call_handler` ended in `error`?** Candidates, both `[UNVERIFIED]`:
-`cleanupExpiredAwaitedRequests` (`coordinator.go:4313`, shared 60s context — but the fast path
-uses `context.Background()`, so not the whole story) and `handleSpawnRetry` (`coordinator.go:1649`,
-a candidate for the **duplicate** registration).
+the previous iteration's `call_handler` ended in `error`?**
+
+**NARROWED 2026-08-19 — the question is now one transition, not "somewhere after the handshake".**
+The spawn's `processed_at` and the parent's last state write are **the same event** (37/37 rows;
+`handleCompleteResponse` stamps `processed_at` BEFORE `continueExecution` runs). So the child
+answered, the parent handled the answer, wrote state — and then **died inside `continueExecution`
+for `iter_{N+1}_call_handler`, on the response-consumer goroutine.** Not in the ticker, not in the
+spawn, not in the retry path.
+
+- ~~`cleanupExpiredAwaitedRequests` (shared 60s context)~~ — **REFUTED 2026-08-19, three ways.**
+  (1) The budget is never shared: `processing_started_at` is stamped `NOW()` per claim batch, and
+  **31,548 of 31,548 claims are batches of exactly ONE** (98.7% row coverage, whole 7-day window,
+  burst included). (2) It is not exhausted either: the continuation dies **~12–35 s into the 60 s**
+  (claim→spawn 3–19 s, spawn→freeze 9–16 s). (3) The path it dies on carries **no deadline at all** —
+  `c.ctx` in `agentbase/client.go` is the agent-lifetime context. NOTES 2026-08-19 §2.
+- `handleSpawnRetry` (`coordinator.go:1677`) — still open as the **duplicate**-registration
+  candidate. Duplicate gap measured at **06:54–09:37** across 17 of 20, which is consistent with the
+  already-established >5-min takeover sampled by a 5-min replay cycle, not a new mechanism.
+- **NEW, `[UNVERIFIED]`, the shape most worth testing:** what differs about an iteration entered
+  from the error path, given `call_handler` registers fine on every healthy iteration of the *same*
+  orchestration. `skipToNextLoopIteration` writes `iter_N_error`/`error_count` into `CollectedData`,
+  then the spawn parks through `persistAwaitingStateWithRetry`, which **reloads fresh state and
+  copies only awaited entries + status** (the `LANDMINES.md` discard). Whether those keys survive
+  the park has a definite answer nobody has fetched.
+- Pod death (OOM/crash) at that instant would produce an identical trace, and is untestable for the
+  08-17 rows. Cheap to settle on the next burst — worth adding to the RSH-011 capture.
 
 ## What changed overnight, and it cuts both ways
 
 - ✅ **The 090's blocker is GONE.** Origin advanced; `retryWindow` **is** on
   `origin/087_towards_multiple_domains`; HEAD is **17** commits ahead, not 233. A diagnosis filed
   now reads a tree that carries the fix.
-- ❌ **The evidence is GONE.** `orchestration_states` starts 2026-08-18 07:58; **0** wedged rows
-  retained. All 18 aged out on schedule. The loop reads the LIVE DB, so a 090 filed today would
-  have **no instances to cite**.
+- ~~❌ **The evidence is GONE.**~~ **CORRECTED 2026-08-19 ~10:45Z — WRONG, and it was wrong when
+  written. The evidence survives in `awaited_requests`, which retains SEVEN DAYS.** What expired is
+  `orchestration_states` (~26 h, **0** wedged rows retained — that half is right). The wedge
+  signature is fully reconstructible from `awaited_requests` alone: an `iter_N_call_handler` at
+  `retry_version>=3 / status='error'`, the following `iter_{N+1}_spawn_handler`, and **no**
+  `iter_{N+1}_call_handler` row. `[MEASURED]` that returns **20 instances on 2026-08-17 — two MORE
+  than `orchestration_states` ever showed** — including `23eb0107`, the worked example in NOTES.
+  **20/20 have no next `call_handler`.** Retained until ~2026-08-24. **So a 090 filed today DOES
+  have instances to cite** — see NOTES 2026-08-19 §3.
 
-~~**So do not file the 090 today on an empty table.**~~ **It WAS filed on 2026-08-19 (the owner asked for it) and returned NOT CONFIRMED on exactly that ground — see the banner at the top. The instruction stands for the NEXT one: file it when there are instances** — the
+~~**So do not file the 090 today on an empty table.**~~ **It WAS filed on 2026-08-19 (the owner asked for it) and returned NOT CONFIRMED on exactly that ground — see the banner at the top.**
+**⚠ AND THE GROUND WAS FALSE.** The table was not empty; the loop was pointed at the wrong table,
+and refuted on an absence that only existed in `orchestration_states`. A re-file is owed and is
+**not** blocked on the next burst — it must name `awaited_requests` as the evidence source and say
+plainly that `orchestration_states` is empty BY RETENTION, so the loop does not re-refute on the
+same absence. The rest of the seed below still applies — the
 symptom text is ready in NOTES (2026-08-18 17:05Z), the seed scope is
 `coordinator.go:continueExecution,handleSpawnRetry,createContinuationContext,handleRecoverableError`,
 and `FORCE=1` is legitimate (the only coverage hit is a terminal `failed` item from 08-12).
@@ -72,8 +118,11 @@ quiet.**
 
 ## What is actually left on this lane
 
-1. **Wait for the next burst, then act inside ~26 hours.** That is the whole of the remaining
-   work on the wedge. Check with the RUNBOOK's wedge census; if rows exist, transcribe them AND
+1. ~~**Wait for the next burst, then act inside ~26 hours.**~~ **SUPERSEDED 2026-08-19: re-file the
+   090 NOW against the 20 retained `awaited_requests` instances** (§3 of the 08-19 NOTES entry), and
+   correct the symptom to name that table. The ~26-hour clock governs `orchestration_states` only;
+   the usable window on the 08-17 burst runs to **~2026-08-24**. Waiting for a fresh burst was never
+   required. Check with the RUNBOOK's wedge census; if rows exist, transcribe them AND
    file the 090 the same day.
 2. ~~**Decide whether the 26-hour evidence window is acceptable.**~~ **DONE 2026-08-19 —
    RSH-011 `wedge-evidence-capture`.** Hourly CronJob at `:17`; captures LIVE wedges at

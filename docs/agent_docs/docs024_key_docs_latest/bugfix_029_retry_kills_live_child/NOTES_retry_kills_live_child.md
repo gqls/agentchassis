@@ -1306,3 +1306,162 @@ instances in it, and the loop said so rather than confabulating a cause from the
 indefinitely; the 090 re-filed against those rows has the occurrence evidence this one went
 looking for and could not find. Re-file the symptom verbatim from the 2026-08-18 17:05Z section
 and add the captured `doc_notes` keys to the runtime tier.
+
+---
+
+## 2026-08-19 ~10:45Z — the evidence is NOT gone: it survives in `awaited_requests`, and it kills candidate 1
+
+Picked the lane up cold from `bugs_open/029` and the 08-19 handoff. Re-verified the live state
+first (below), then went at the open question — *what kills the parent after its spawn handshake* —
+by reading source. Ended up somewhere better than expected, because **one of this lane's own
+stated facts was wrong and I caught it by accident.**
+
+### 0. Live state, re-verified before touching anything
+
+| check | result |
+|---|---|
+| wedged rows retained | **0** (`build-dispatch-loop` / FAILED / 4 days → 0 rows) |
+| `wedge-evidence-capture` (RSH-011) | ran **10:17Z**, `Complete`, *"newly captured this run: 0"* — the cron is alive and reporting |
+| `agent_error_log` timeout census | last `build-dispatch-loop` entry **2026-08-17 18:52**; nothing since |
+
+Not reproducing. Consistent with the handoff.
+
+### 1. ⚠ MEASUREMENT TRAP I walked into first: `min(created_at)` says five weeks of retention
+
+```sql
+SELECT min(created_at), max(created_at), count(*) FROM orchestration_states;
+--  2026-07-13 11:25:27 | 2026-08-19 10:43:41 | 3859
+```
+
+Read naively that is **five weeks** of retention and the handoff's "~26 hours" looks wrong. It is
+not. Broken down by day and status, the table holds **08-18 and 08-19 only**, plus 24 `CANCELLED`
+rows from 07-19…07-24 and one `FAILED` from 07-13 — statuses the cleanup never prunes. **The
+aggregate is dominated by exactly the rows the retention rule does not apply to.**
+
+The trap is that it errs in the *reassuring* direction: a session checking "is the evidence still
+there?" with a `min()` gets told yes and stops looking. **Retention is a per-status property here;
+measure it with `GROUP BY status`, never with a whole-table `min()`.**
+
+### 2. Candidate 1 — the ticker's shared 60-second context — is **REFUTED**, two independent ways
+
+The handoff's first candidate: `cleanupExpiredAwaitedRequests` (`coordinator.go:4348`) drives each
+claimed retry under **one 60-second context shared across a batch of up to 25**, so a continuation
+that spawns agents cannot finish inside it. The code is exactly as described — one
+`context.WithTimeout(context.Background(), 60*time.Second)` per tick, `ClaimExpiredAwaitedRequestsForRetry(ctx, s.podName, 25)`,
+then `for _, awaited := range claimed { s.retryExpiredAwaitedRequest(ctx, awaited) }` **serially**,
+`cancel()` at the end. The claim is global (no pod scoping in the `WHERE`), so a rescuer really can
+take 25 of anyone's rows.
+
+**But the budget is never actually shared.** `ClaimExpiredAwaitedRequestsForRetry` stamps
+`processing_started_at = NOW()` on every row of one batch, and `NOW()` is transaction-start time —
+so rows of one batch carry a **byte-identical** timestamp and a batch is directly countable:
+
+```sql
+WITH b AS (SELECT processing_started_at, processing_pod, count(*) n
+             FROM awaited_requests WHERE processing_started_at IS NOT NULL GROUP BY 1,2)
+SELECT n AS batch_size, count(*) AS claims FROM b GROUP BY 1 ORDER BY 1 DESC;
+--  batch_size | claims
+--           1 |  31548      ← and NOTHING else
+```
+
+`[MEASURED 2026-08-19]` **31,548 claims over the full 7-day `awaited_requests` window, every one a
+batch of exactly 1.** Never 2, never 25 — including across the 08-17 burst. Each claimed request
+gets the whole 60 seconds to itself.
+
+**And it does not use them.** Rebuilt from the burst population (§3): the next iteration's spawn is
+sent **3–19 s** after the claim, and the parent's last write lands **9–16 s** after that. The
+continuation dies **~12–35 s into a 60-second budget** — less than half way. A deadline that has not
+expired cannot be what killed it.
+
+> **⚠ My FIRST attempt at this measurement was wrong, and the way it was wrong is the lesson.**
+> I first sized batches by bucketing `sent_at` by minute for `retry_version >= 1`, and got batches
+> of 2–3 spanning **53–54 seconds** — which fits a 60-second budget so well I had already written
+> the arithmetic down. **Two things were wrong with it.** (a) It is a **survivorship filter of
+> exactly the kind this lane has been bitten by before**: a row that exhausts at rv=3 never resends,
+> so `sent_at` never moves, so **the rows on the wedge path are the very rows the measure cannot
+> see**. (b) The control killed it — co-timed rows have **different `processing_pod`s belonging to
+> different agent deployments** (`agent-build-dispatch-loop-…`, `agent-chassis-…`,
+> `agent-diagnose-orchestrator-…`), i.e. independent pods retrying independently inside the same
+> minute, not one serial batch. `processing_started_at` has neither flaw: it is stamped at claim
+> time, it is not reset on resend, and it is non-null on 31,548 of 31,961 rows (**98.7% coverage**).
+> **The near-miss is the point: a 53-second span under a 60-second cap is a number I wanted, and I
+> got it from a filter that had removed the population under test.**
+
+### 3. The 08-17 evidence is **NOT gone.** `orchestration_states` lost it; `awaited_requests` kept it
+
+This is the finding that matters, and it contradicts this lane's own handoff (mine to correct — the
+08-19 handoff and the `bugs_open/029` entry both say the evidence expired and the 090 must wait for
+the next burst).
+
+`orchestration_states` retains ~26 h and **has** lost all 18 rows. `awaited_requests` retains
+**7 days** — back to 2026-08-12 — and holds the complete per-step trace of the burst. The wedge
+signature is fully reconstructible there **without `orchestration_states` at all**: an
+`iter_N_call_handler` at `retry_version>=3 / status='error'`, the following
+`iter_{N+1}_spawn_handler`, and the absence of any `iter_{N+1}_call_handler` row.
+
+`[MEASURED 2026-08-19]` that query returns **20 instances** on 2026-08-17 — **two more than the 18
+`orchestration_states` ever showed** — and `23eb0107`, the worked example in the 08-18 notes, is
+among them. **20 of 20 have `next_call_registered = false`.** No exceptions.
+
+| property | value across the 20 |
+|---|---|
+| claim (rv3 error) → next spawn sent | **3–19 s** |
+| spawn `sent_at` → spawn `processed_at` | **9–16 s**, 37/37 rows |
+| duplicate spawn registered | **17 of 20**, gap **06:54–09:37** |
+| `iter_{N+1}_call_handler` ever registered | **0 of 20** |
+
+**The 090 is therefore filable today.** The blocker the last run refuted on — *"no currently-stuck
+instance … the 2026-08-17 burst has already aged out of retention"* — was true of the table it
+looked in and false of the fleet. The symptom must point the loop at `awaited_requests`, and must
+say plainly that `orchestration_states` is empty by design so the loop does not re-refute on the
+same absence.
+
+### 4. Where the parent actually dies — narrowed to one transition
+
+The 9–16 s figure the 08-18 notes recorded as *"the parent's last state write lands 9–16 s after the
+final send"* and the 9–16 s I measure as *spawn `sent_at` → `processed_at`* are **the same event**.
+`handleCompleteResponse` stamps `processed_at` **before** `continueExecution` runs (stated in the
+`claimRecoveryStaleness` comment at `coordinator.go:4409`). So:
+
+1. spawn sent (claim + 3–19 s)
+2. the `page-rerender` child answers the init handshake 9–16 s later — **37/37 spawn rows are
+   `processed`**, so the child answered and the parent handled it
+3. the parent marks the row processed and writes state — **this is the last write**
+4. the parent must now execute `iter_{N+1}_call_handler`. **It never registers it, and never
+   writes again.**
+
+**So the death is inside `continueExecution` for the `call_handler` step, on the response-consumer
+goroutine, immediately after the spawn reply was handled.** Not in the ticker, not in the spawn,
+not in the retry path. That is a much smaller target than "somewhere after the handshake".
+
+Two things about that goroutine, both `[VERIFIED at source]`, neither yet a cause:
+
+- **The response consumer is strictly serial and synchronous** — `platform/agentbase/client.go:77`,
+  `// Process synchronously to avoid race conditions / Don't use goroutine here`. Whatever
+  `continueExecution` does inline, the pod processes **no further responses** until it returns.
+- **It carries no deadline.** `c.ctx` is the agent-lifetime context, so nothing on this path can be
+  killed by a context timeout — which is the third independent reason candidate 1 is dead.
+- The message is **committed only on success**, so a death here leaves the response uncommitted.
+
+`[UNVERIFIED]` and NOT claimed as the cause — the shapes worth testing next, in order:
+1. **What is different about an iteration entered from the error path**, given `call_handler`
+   registers normally on every healthy iteration of the same orchestration (`23eb0107` did it three
+   times before wedging). `skipToNextLoopIteration` reaches the spawn through
+   `createContinuationContext`, and the spawn's own registration goes through
+   `persistAwaitingStateWithRetry`, which **reloads fresh state and copies only awaited entries +
+   status onto it** — the discard documented in `LANDMINES.md`. Whether the `iter_N_error` /
+   `error_count` keys it just wrote survive that park is a question with a definite answer I have
+   not yet obtained.
+2. Pod death at that instant (OOM/crash) would produce an identical trace. Untestable now — the
+   pods are two days gone — but **cheap to settle on the next burst**, and worth adding to the
+   capture.
+
+### 5. ⚠ A check that CANNOT test this, and looks like it refutes it
+
+"Did `build-dispatch-loop` ever log a `context deadline exceeded`?" — it never has (the fleet has
+thousands, dominated by `vet-practice-verifier scrape_website`; `build-dispatch-loop` has **zero**).
+That reads as a clean refutation of any context hypothesis. **It is blind.** `agenterrors.Write`
+issues `db.ExecContext(ctx, …)` on the **caller's** context, so on any path where the context is the
+thing that died, the error-log write dies with it. The absence is the *expected* reading under the
+hypothesis, not evidence against it. Candidate 1 is refuted by §2, on measurements that could have
+come out otherwise — not by this.

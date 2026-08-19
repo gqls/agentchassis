@@ -351,3 +351,49 @@ The investigation was right to refuse.
 Monday is still live and still correct on the new build, and the reason this bug has been
 impossible to investigate — that its evidence evaporates within a day — is now fixed. The next
 occurrence is the one we will finally be able to look at.
+
+---
+
+**2026-08-19, late morning.** I picked this up cold and the first thing I did was re-check the
+things we had written down. One of them was wrong, and it was the important one.
+
+**We told ourselves the evidence had evaporated. It hadn't.** We keep two records of what the
+system does. One is a record of each *job* — that one is wiped after about a day, and it really
+had been wiped, so the twenty frozen jobs from Sunday were gone from it. The other is a record of
+each *step within* a job, and **that one is kept for a week**. Every one of Sunday's frozen jobs is
+still sitting in it. In fact it holds **twenty** of them, where the record we lost only ever showed
+us eighteen — so we have slightly more evidence now than we thought we had at the time.
+
+This matters because it is the reason this morning's investigation came back "not confirmed". It
+did not fail. **We pointed it at the drawer we had emptied and asked it whether the drawer was
+empty.** It correctly said yes. The evidence was in the other drawer the whole time. So that
+investigation can be re-run today — it does not have to wait for the problem to happen again, which
+is what the handoff told the next person, and I have corrected that.
+
+**The other thing that changed is that we can now say where the freeze is not.** We had two
+suspects. The first — that a background repair process gives each job a sixty-second budget and
+shares it between up to twenty-five jobs at once, so a job runs out of time mid-way — is now
+**ruled out**, three separate ways. The budget is never actually shared: I counted every one of
+**31,548** of these repairs over the past week and **every single one handled exactly one job**,
+never two. The jobs do not run out of time either: they die about **twelve to thirty-five seconds**
+into a sixty-second allowance. And the place they actually die has no time limit on it at all.
+
+I nearly got this wrong in the other direction, and it is worth saying how. My first attempt at
+counting produced batches that took fifty-three seconds out of a sixty-second budget — a beautiful
+fit for the theory, and I had already written the sum down. It was an artefact of *how I counted*:
+I was counting jobs by when they were re-sent, and the jobs we care about are precisely the ones
+that give up and are never re-sent, so my measurement had quietly excluded every single case under
+investigation. **The number I wanted came from a filter that had removed the patients from the
+trial.** A different column, one the system stamps once and never touches again, gave the real
+answer immediately.
+
+**And we now know much more precisely where the freeze happens.** Before, it was "something kills
+the job shortly after it successfully starts its helper". Now: the helper starts, **answers**, the
+job records that answer and saves its progress — and dies in the very next instruction, when it
+tries to hand the real work to the helper it just started. That last save and the helper's reply
+are the same event, which we had been reading as two. So the target is one step of one function,
+on one thread, rather than a vague window. That is a much smaller haystack.
+
+**What I would do next is re-run the investigation today** against the twenty jobs we still have,
+telling it plainly which record to read and that the other one is empty for ordinary housekeeping
+reasons rather than because nothing happened. The evidence is good until roughly Sunday the 24th.

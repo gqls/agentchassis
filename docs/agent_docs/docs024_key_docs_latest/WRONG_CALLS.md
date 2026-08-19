@@ -37360,3 +37360,44 @@ batch). It gives the exact answer: **31,548 of 31,548 claims are batches of ONE*
 test" is now at least the third entry in this file. The generalisable form is one question, asked
 before any count: **could this measurement have come out otherwise, for the rows I actually care
 about?**
+
+---
+
+## 2026-08-19 — `bugs_open/315` lane: I proposed re-adding a column that had been DELIBERATELY dropped, and called it a restoration.
+
+**The claim, and it went into a council submission:** that `pages` should gain a `deploy_commit`
+column, on the reasoning *"pages has no commit column — it once did and it was dropped — so restore
+it under the name `page_components` already uses, keeping the two tables consistent."*
+
+**What was actually true.** `sql_for_agents/356_retire_dead_config_keys_commit_from…sql:105-108`
+records it plainly: *"`pages.deploy_commit` was dropped by `sql_for_tables/003` as **'belongs in
+page_components'**"*. It was a design decision with a stated reason, and the column that survived is
+the one the estate deliberately kept. So my edit was not restoring an accident — it was **reversing
+a decision**, on the strength of noticing the column's absence and not once asking why it was
+absent.
+
+Worse, the same migration header carries an instruction addressed to exactly the person I was being:
+*"whoever ever implements 'stamp the deploying commit' should know the column is already there, that
+NULL in it today means 'never implemented', NOT 'never deployed' — and that **deciding whether to
+wire it or drop it is an owner call, not a bug fix**."* I was about to take an owner call inside a
+bug fix.
+
+**What caught it:** the council gate's `prior_art_librarian` seat, which objected that repurposing
+the two dead columns was "load-bearing and directly checkable" and had not been checked. It did not
+know about migration 356; it simply refused to let a load-bearing absence-claim pass unverified, and
+the check it forced is what surfaced the ruling. **The REVISE round paid for itself on this one
+objection alone.**
+
+**The cheap check that would have:** `grep -rn "deploy_commit" --include=*.sql docs/` — one command,
+and the migration that explains the whole thing is the second hit. I had already run the *Go* grep
+(`--include=*.go`, which correctly returned nothing) and treated that as the whole answer. **A
+column's history lives in the migrations, not in the code that fails to write it.**
+
+**The generalisable half.** I had the right evidence for "this column is dead" and drew from it a
+conclusion it does not support: *dead* and *unwanted* are different findings, and only the first is
+visible in a population count. **An absent or empty thing has a reason, and the reason is not
+discoverable by measuring the absence harder** — 0 of 786 rows tells you nothing about whether
+someone emptied it on purpose. Before proposing to fill, rename, restore or revive anything, search
+for the commit or migration that removed it. This is the same failure as
+`a-model-upgrade-can-invert-a-closed-bugs-premise` seen from the other end: there, a scope-out
+expired; here, a scope-out was never read at all.

@@ -1467,3 +1467,56 @@ how this file read on 2026-08-18.
 ~26 hours** (retention), and a `090` filed against them while they exist. The symptom text is in
 the lane's NOTES (2026-08-18 17:05Z) and the tree is now correct, so filing is a single command
 once there are instances.
+
+### 2026-08-19 (later, same lane) — the evidence was NEVER lost, and candidate 1 is REFUTED
+
+**Correcting the section immediately above, which is mine and which was wrong.** It says the wedge
+evidence expired and that the only remaining work is to wait for the next burst. Both halves fail:
+
+**1. `awaited_requests` retains SEVEN DAYS and kept everything that mattered.** Only
+`orchestration_states` expired (~26 h — that part is right, and 0 wedged rows remain there). The
+wedge signature is fully reconstructible without it: an `iter_N_call_handler` at
+`retry_version>=3 / status='error'`, the following `iter_{N+1}_spawn_handler`, and **no**
+`iter_{N+1}_call_handler` row. `[MEASURED 2026-08-19]` **20 instances on 2026-08-17 — two MORE than
+`orchestration_states` ever showed** — including `23eb0107`, the worked example already published
+here. **20 of 20 have no next `call_handler`.** Usable until ~2026-08-24.
+
+So the 090's `NOT CONFIRMED (UNVERIFIABLE)` earlier that day was **a correct refutation of a false
+premise**: the loop was told the burst had "aged out of retention" and looked in the table where
+that was true. It is filable **now**, and the symptom must name `awaited_requests` and state that
+`orchestration_states` is empty *by retention*, so the loop does not re-refute on the same absence.
+
+**2. The ticker's shared 60-second context does not do it.** `cleanupExpiredAwaitedRequests`
+(`coordinator.go:4348`) is exactly as described — one 60 s context per tick, up to 25 globally
+claimed rows driven **serially** under it. But:
+
+- **The budget is never shared.** `ClaimExpiredAwaitedRequestsForRetry` stamps
+  `processing_started_at = NOW()` (transaction time, identical across one batch), so batches are
+  directly countable: **31,548 of 31,548 claims are batches of exactly ONE**, whole 7-day window,
+  burst included, 98.7% row coverage. Never 2, never 25.
+- **Nor is it exhausted.** Claim → next spawn sent is **3–19 s**; spawn → the parent's last write is
+  **9–16 s**. The continuation dies **~12–35 s into 60**.
+- **The path it dies on has no deadline at all.** `c.ctx` in `platform/agentbase/client.go` is the
+  agent-lifetime context.
+
+**3. Where it actually dies, narrowed to one transition.** The spawn row's `processed_at` and "the
+parent's last state write" are the **same event** — `handleCompleteResponse` stamps `processed_at`
+before `continueExecution` runs, and **37/37 spawn rows are `processed`** at exactly the 9–16 s
+offset. So the child answered, the parent handled the answer and wrote state, and then died **inside
+`continueExecution` for `iter_{N+1}_call_handler`, on the response-consumer goroutine** — which is
+strictly serial and synchronous (`client.go:77`, *"Don't use goroutine here"*) and commits the Kafka
+message only on success. Not the ticker, not the spawn, not the retry path.
+
+Still `[UNVERIFIED]`, in priority order: what differs about an iteration entered from the **error**
+path (the same orchestration registers `call_handler` fine on healthy iterations — `23eb0107` did it
+three times), where `persistAwaitingStateWithRetry`'s reload-and-discard is the obvious suspect for
+losing what the next step needs; and pod death at that instant, which would leave an identical trace
+and is cheap to settle on the next capture.
+
+**⚠ And one check that cannot test any of this while looking like it refutes it:** `build-dispatch-loop`
+has **zero** `context deadline exceeded` rows in `agent_error_log`. That is blindness, not absence —
+`agenterrors.Write` uses `db.ExecContext(ctx, …)` on the **caller's** context, so wherever the context
+is what died, the error-log write dies with it.
+
+Full working, including a survivorship-filtered near-miss that fitted the 60-second story and was
+killed by its own control: `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/NOTES_retry_kills_live_child.md`, 2026-08-19 entry.
