@@ -1922,3 +1922,61 @@ has now spent three runs learning that the status field is the least informative
 **And the fix's own result is already banked and independent of this**: the bundle renders the table
 (NOTES §11), proven against four pre-fix bundles with a positive control. Whatever `d02a6958`
 returns, that does not change.
+
+### 14. Run `d02a6958`: UNVERIFIABLE, and it is the best result this lane has had — it ran out of ROAD, not out of evidence
+
+**Outcome: `UNVERIFIABLE`, 3 iterations, `stopped_reason` empty.** My §13 pre-registration guessed
+it would hit the **5**-iteration cap; **it did not — it stopped at 3.** Recording that my prediction
+was wrong before drawing anything from the result.
+
+**What is genuinely new: it read the recovered evidence and cited it.** The final verdict carries a
+**Tier 1 citation, `Fresh: 2026-08-17`**, quoting an actual row:
+
+```
+838f8c14-5d49-4cd3-9432-489121f538c2 | process_item_iter_0_call_handler | 3 | error |
+2026-08-17 18:47:15 | 2026-08-17 18:52:15 | 2026-08-17 18:52:15
+   — awaited_requests (data_request: candidate retry_version-3 error call_handlers)
+```
+
+That is one of the twenty. **Two runs ago the loop could not see this table at all; now it is citing
+its rows by hand.** The bundle fix is doing exactly what it was built to do.
+
+Its Tier 0 citations are the right code, too — `skipToNextLoopIterationForAsync` →
+`skipToNextLoopIteration` → `createContinuationContext` + `continueExecution`, and
+`handleCompleteResponse`'s own continuation. That is the transition this lane narrowed to
+independently in §4, reached by the loop from the other direction.
+
+**Why it stopped, in its own words:** it had established the **precondition** (a `call_handler` at
+rv3/error) and not the **outcome** (the following `spawn_handler` processed with no
+`iter_{N+1}_call_handler` ever created), and it wrote the exact SQL it still needed — a filtered
+query over the ten candidate `orchestration_id`s it had found. **It ran out of iterations one query
+short of the answer.**
+
+#### The trap it hit and RECOVERED from — and whose fault each half is
+
+Iteration 1 asked for the reconstruction with `ORDER BY orchestration_id, sent_at` and **no LIMIT**.
+The harness capped the result at **200 rows** (`row_cap`, default 200 —
+`diagnose_load_runtime_action.go:260` and `diagnose_run_checks_action.go:99`). Alphabetical order
+plus a cap returns the **lexicographically first** orchestrations only, and every one of the ten
+candidates sorts past the `03…` range that fitted. In its words: *"the dump is silent on the
+mechanism, not confirming or refuting it."*
+
+**Apportioning this honestly:** the **cap is ours**, the **`ORDER BY` was its**, and **the harness
+behaved well** — it announced the truncation, which is why the loop knew to route around it and did,
+with a properly filtered query in iteration 2 that found the candidates. This is the estate's own
+rule arriving from outside: *a capped census cannot say WHO was cut — read the `ORDER BY`.*
+
+> **So do NOT record this run as "blocked by the harness".** The previous two were. This one was
+> not: it had the evidence, cited it, self-corrected a truncation, and stopped one question short.
+
+#### What would settle it, and it is cheap
+
+Hand the next run the reconstruction **as SQL it can execute in iteration 1**, so it starts where
+this one ended. Note the tension with the runbook's symptom-authoring rule (*"assert neither rows
+nor counts — the loop fetches and cites them"*): the resolution is to supply **the query, not the
+answer**. A pointer preserves the loop's independent grading; a stated count would not.
+
+`NextScope` at the stop — where three iterations of narrowing pointed — is worth carrying:
+`executeStep`, `executeLocalAction`, **`processAwaitResponse`**, **`createContinuationContext`**,
+`ProcessResponse`, `HandleResponse`, `handleRecoverableError`, `createAwaitedRequest`,
+`extractRequestID`, `executeRemoteAction`.
