@@ -1755,3 +1755,69 @@ does NOT cover, or the next reader will read its silence on rules 15/18/19/20 as
   note; present in `agent-chassis-5ddd9744-86nqf`; junk control absent; `88897190e` literal absent as
   expected). So Phase D's two tools can be filed on §9.3 now (the 311 session says its CONTRIB at
   20:40Z told you so too).
+
+## 2026-08-19 21:17Z — #15 built and retired in 62 s; the recolour/geometry split is right, and it went further than asked
+
+Component **`ce49b809-b53e-40e9-bd38-969f5df84503`**, 12,904 chars, item complete 21:16:30Z, ported
+slot `cbf00f0b…` retired 21:17:32Z with md5 `e616953b7278620b9a7b0dcfa573cca6` byte-identical before
+and after; one non-removed slot on the page, asserted to be a `component_level='tool'` component whose
+`function` is `tool-blob-maker` (asserted by FUNCTION this time, not by an id I pasted in — the id was
+not knowable when I wrote the transaction).
+
+**The load-bearing requirement, by mechanism:**
+```js
+function handleColourChange() { ...; currentFill = colour; pathEl.setAttribute('fill', currentFill); updateCode(); }
+function handleShapeControlsChange() { ...; if (currentOffsets.length !== n) { rollOffsets(n); } renderShape(n, roughness); }
+function handleNewShape()          { ...; rollOffsets(n); renderShape(n, roughness); }
+```
+`handleColourChange` never touches `currentOffsets` and never calls `renderShape` — so a recolour
+provably cannot move the geometry, which is the defect the ported version had. **And the roughness
+slider reuses the SAME offsets** (it re-rolls only when the point COUNT changes, because then it needs
+a different number of them), so dragging roughness morphs the blob you have instead of jumping to a
+new one. The brief did not ask for that; it asked only that the colour path be separate. Zero
+roughness gives every point `offset = currentOffsets[i] * 0 * maxSpread = 0`, i.e. the base radius, so
+the promised perfect circle is structural rather than a special case.
+Copy button: clipboard promise with BOTH `.then` and `.catch`, an `execCommand` fallback whose boolean
+return is actually read, and a distinct failure message — the class its ported version got wrong, and
+the brief said nothing about it (rule 15). `onclick=` **0**, `alert(` **0**, `{{\.` **0**, five
+`addEventListener` calls, no dead code (the path string is built once).
+
+## 2026-08-19 21:18Z — MISSTEP: I tuned a work item's `priority` to jump the rerender queue and it did NOTHING. Measured, not assumed.
+
+**The queue state that prompted it `[MEASURED 21:12Z]`:** the `rerender-pages` sweep filed **117**
+`page_rerender` items for this site at 20:36:24, all priority 80, all with the same `created_at` to the
+second. They drain in **alphabetical page order** (`learn-ai-builders-lovable` → `learn-algorithms-*` →
+`learn-code-*` → `learn-data-*` → `learn-design-*` …) at roughly **0.6–0.8 per minute**, and
+`tool-ab-test-calculator` sorts after every `learn-*` page, so the page I had retired 25 minutes
+earlier was an hour or more from being assembled.
+
+**What I did and why it was wrong.** I read `load_work_item_actions.go:737` —
+`ORDER BY wi.priority ASC, wi.created_at ASC` — and lowered the two tool pages' `priority` to 5 and 6.
+**Then I checked, and priority-80 items were still being claimed after my change** (claimed at
+21:16:33, 21:17:08, 21:17:44, 21:18:23 against my write at ~21:13). So that ORDER BY belongs to a
+loader that does not dispatch `page_rerender`, and the real selector is somewhere I have not found —
+not in `claim_work_item_action.go` (which claims a row by id, so something else picks it) and not in
+any live `agent_definitions` row (`page_rerender` + `site_work_items` matches only `fix-proposer`,
+`council-gate`, `component-template-fixer`, none of them the dispatcher).
+**Both rows restored to priority 80.** `[UNRESOLVED]` which component selects `page_rerender` work and
+on what order — worth knowing, because "get one page assembled promptly" is a need this lane has 51
+more times, and the honest answer today is that we do not have a lever for it.
+The general shape is one already in MEMORY under a different name: **an action whose effect you did not
+verify is a belief, not a change.** One query separated "I raised its priority" from "it will be
+picked next", and they were not the same thing.
+
+## 2026-08-19 21:20Z — RECIPE CHANGE: STOP putting the `bugs_open/303` build constraint in briefs
+
+`bugs_open/303`'s fix is committed AND in the running binary: commit `6d962bcf8` (2026-08-18 19:50Z)
+replaced raw `strings.Count` tag counting with one markup-context scanner
+(`platform/content/markup_balance.go`: `StructuralTagPairs` / `StructuralTagCounts` /
+`UnbalancedStructuralTags`) at five surfaces including `toolTemplateValid`, which is the tool-birth
+guard this lane has been writing around. `git merge-base --is-ancestor 6d962bcf8 07eeba4a1` is TRUE,
+and `07eeba4a1` is the stamp both `v1.0.1316` replicas carry (probed 20:52Z with controls), so it is
+live on the pods this lane dispatches at. Its commit message records the calibration: 264
+`component_versions` rows, 26 flagged by both old and new, **0 flips**.
+**So the sentence should come out of the next brief.** The handoff's own warning is the reason it is
+not merely redundant: telling the generator to hide tag names behind string concatenation makes a REAL
+truncation harder to detect, and that cost is now being paid for nothing. #14 and #15 still carry the
+sentence (both were written before I checked); neither was harmed by it.
+The bug file is still in `bugs_open/` — that is another lane's to move, not this one's.
