@@ -402,3 +402,53 @@ stated "next run" — pointed at, not pre-empted.
   action's "already exists" check (`create_tool_component_action.go:228-237`) returns early if
   an ACTIVE tool component with that function is linked to one of the site's pages — so the
   ported slot's state at build time decides whether the fork branch is even reached.
+
+## 2026-08-19 21:05Z — CONTRIB IN from the `webdesign_tool_rebuilds` lane: the tool-half DEMAND test RAN, and §9.3 PASSES
+
+Fired from that lane (its own NOTES,
+`docs/agent_docs/docs024_key_docs_latest/webdesign_tool_rebuilds/NOTES_native_rebuild_of_ported_tools.md`,
+entries 20:52Z and 20:58Z, hold the full working). Specimen: `tool-ab-test-calculator` on
+webdesign.co.uk, work item `3a3e480c-321c-46fb-adae-0d58c05bf2aa`, generator orchestration
+`d6ce0591-6906-472a-8302-9a598b0f4789`, build completed **20:57:04Z**.
+
+**Result: PASS on four of your five assertions, and the fifth is unanswerable for a reason worth
+recording.**
+
+1. ✅ New row **`8a315006-2170-4ba7-b517-4abaf9619e45`**, name
+   `tool-ab-test-calculator-webdesign-co-uk`, `component_level='tool'`, `is_active`,
+   **`forked_from='8c9a6e06-e2b2-4f21-baf6-651585375f0c'`**, `created_from='generated'`,
+   `source_agent_type='tool-generator'`.
+2. ✅ `save_tool` COMPLETED. No SQLSTATE 23505 on the item (`error` NULL) or the orchestration
+   (`current_step=complete`, `status=COMPLETED`, `page_adopted=true`, `already_exists` NULL,
+   `__step_error` NULL). The `create_result.component_id` equals the component the page actually
+   carries, so this is provably the run that built the artefact.
+3. ⚠ **The §9.3 Info log line could NOT be checked, and its absence is not evidence.** Both
+   replicas return 0 matches for `library tool claims this function` — and the control says why:
+   **`kubectl logs --since=6h` on either chassis replica returns lines beginning at 21:01:50Z /
+   21:02:07Z, a retention window of ~2.2 minutes** (458 / 1,110 lines). The 20:57 build had already
+   rotated out. Worth knowing for any future demand test on this service: **that grep is only valid
+   inside ~2 minutes of the event, and it fails silently.**
+   The DB is the better evidence anyway: `forked_from` is written from `libraryToolFork`
+   (`create_tool_component_action.go:262-285`), which is nil unless your branch runs, and nothing
+   else sets that column on a `created_from='generated'` row. The column proves the branch executed;
+   the log line would only have proved it spoke.
+4. ✅ **Library row `8c9a6e06` UNTOUCHED after the build**: html md5 `8673be08f969504f5a9ceb46e45d7656`,
+   schema md5 `688e1188b91ccef0674cd527daa05ec3`, `updated_at` 2026-05-06 18:12:16 — all three
+   identical to your 20:38Z pins. Both existing forks untouched.
+5. ✅ Artefact: component 10,086 chars, `{{\.` 0, `onclick=` 0, `alert(` 0, zero bare hex, page
+   gained the slot, ported slot retired 94 s later with its bytes byte-identical (md5
+   `6b99651c11b7dbfa939c5296bdb5704b` before and after). Served-page grade follows when the page's
+   rerender drains (`ad2a2dc4-4fbb-489f-9b74-bcd00e6f09ff`, still queued at 21:05Z).
+
+**On your "one thing to read first" — it mattered, and the answer was favourable.** The
+`already_exists` probe needs an ACTIVE tool-level component with that function linked to a page of
+the site. At build time: `cd60486c` had a placement on the site but `is_active=false`; `58da6570` was
+active but its only placement is on idea.uk; the library row is active with no placement anywhere. So
+the probe returned nothing and the fork branch was reached. Anyone repeating this on a tool whose
+local fork is still ACTIVE must deactivate it first (the RUNBOOK's "Before REFILING a tool that
+already has a native component" step) or the run short-circuits and the fork branch is never tested.
+
+**Consequence for your precondition pair: the tool half is now demand-proven, not just built.**
+Phase D's second tool (`tool-meme-generator`, library claim `6ae53f32-be86-4c29-bc52-983c35d23b18`)
+is the remaining one and is a Phase B rich app, so it goes later by the owner's standing instruction.
+§11's known follow-up (`deploy_tool_to_site`'s fork lookup) did not bite: this route never calls it.
