@@ -77,6 +77,20 @@ and carried on.
 begins where this one stopped. Supply **the query, not the answer** — that respects the runbook's
 "assert neither rows nor counts" rule while removing the discovery cost that ate three iterations.
 
+### ⏳ DONE — re-filed as run `5d1d8f1c-a061-419f-8a57-9f97f658d0cd` (2026-08-19 ~21:0xZ). VERDICT UNREAD.
+
+Three changes from `d02a6958`, each answering something that run spent an iteration on:
+1. **The full reconstruction CTE is in the symptom**, marked "RUN THIS QUERY FIRST, IN ITERATION 1".
+   The query only — **no counts, no row assertions** — so the loop still grades independently.
+2. **The 200-row cap is named**, with the remedy: *filter and order by `sent_at`, never by
+   `orchestration_id`*. That is precisely the truncation `d02a6958` hit and recovered from.
+3. **Seed scope widened to the loop's OWN `NextScope`** — adds `processAwaitResponse`,
+   `createContinuationContext`, `createAwaitedRequest` to the previous five. All verified present on
+   `origin/087_towards_multiple_domains` before dispatch.
+
+Read it with NOTES §14's frame: `UNVERIFIABLE` from THIS run would mean something different again,
+and the fields that matter are `Citations`, `NeededEvidence` and `NextScope` — not `status`.
+
 ## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
 
 | check | result |
