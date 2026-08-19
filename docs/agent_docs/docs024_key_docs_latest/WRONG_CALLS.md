@@ -37514,3 +37514,49 @@ counting a document rather than the part with a reader. **Same family every time
 the measurement doing the arguing, while the marker discipline made each one look checked.**
 
 ---
+
+---
+
+## 2026-08-19 — I told the owner his live page showed 2 lenders. His screenshots show the full directory. My check was one client from one network, repeated.
+
+**The claim:** that `https://remortgagecalculator.uk/mortgage-lenders.html` was serving only Family
+Building Society and Mansfield Building Society, and therefore that the 25-lender directory had
+not reached the live site. I put it in the owner's log, the NOTES, the handoff's "one open item"
+and the 08-19 SUMMARY, and I offered to re-render the page to fix it.
+
+**What was actually true:** the owner's screenshots (taken after Shift+Ctrl+R) show the page with
+**The Mortgage Lender, United Trust Bank, Foundation Home Loans, Vida Homeloans, Mansfield
+Building Society and Kensington Mortgages** — the widened set. His page and mine are *different
+renders*, and the section heading proves it rather than the card count: his reads **"UK mortgage
+lenders, with cited facts"**, mine reads **"UK mortgage lenders, listed by what's verifiable about
+each one"**. Two different generations of the same page, served at the same URL, at the same time.
+
+**What caught it:** the owner disagreeing and sending screenshots. Nothing in my own method
+would have — and that is the actual finding.
+
+**Why my check could not have come out right, and this is the transferable bit.** I fetched the
+URL, read the body, and repeated it — three times with `Cache-Control: no-cache`, plus URL
+variants, plus a cache-busting query string, plus browser headers. **Every one of those is the
+same vantage point.** Repetition from one machine measures *consistency*, not *correctness*: a
+stale copy served to me consistently looks exactly like a page that is genuinely stale. The
+owner was on a VPN (visible in his screenshots), i.e. a different network position and plausibly
+a different Cloudflare PoP.
+
+**The tell I had in hand and read past:** `Last-Modified: Wed, 19 Aug 2026 12:20:46 GMT` — a
+timestamp AFTER the directory widening — attached to a body containing the PRE-widening content.
+**A fresh Last-Modified on a stale body is self-contradictory**, and I quoted that header as
+evidence the object was current while simultaneously reporting its body as old. That
+contradiction was visible in my own output and I did not act on it.
+
+**The cheap checks, and there are two:**
+1. **Fetch from a second network before reporting a serving defect** — the cluster, a different
+   egress, anything not this machine. One client's view of a CDN is not the site's state.
+2. **Cross-check the body against `Last-Modified`.** If the header is newer than the change you
+   are looking for and the body does not contain it, the fault is in the path, not the page —
+   stop and say so, rather than reporting the page as stale.
+
+**Cost:** I recommended re-rendering a live page that may not have needed it, and told the owner
+his site was worse than it is, across five documents and one milestone summary.
+
+Tally for "reported a serving state from a single vantage point": 1.
+Tally for "quoted a header as fresh while reporting its body as stale": 1.
