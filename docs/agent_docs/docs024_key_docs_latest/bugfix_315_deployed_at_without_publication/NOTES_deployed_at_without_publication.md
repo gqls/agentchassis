@@ -953,3 +953,86 @@ version that guesses.
 internal tables), exactly as `MEMORY/a-fresh-deploy-can-ship-no-new-code` warns. The git-adapter's
 own startup log line is what answered it, because it is a quiet service and the line was still in
 range; on the chassis it had already scrolled.
+
+## 2026-08-19 ~21:00Z — COUNCIL ROUND 3: **APPROVED**
+
+`377167cd` round 3 — **`approved`**, *"approved with 2 advisory objection(s) — none high-severity"*,
+7 abstained. The trail is round 1 REVISE (plan) → round 2 REVISE (implemented code, found a real
+false claim) → round 3 APPROVED.
+
+`Council-Reviewed: 377167cd-6324-4bc7-a866-87ad8c435132` — written only now, having read an approved
+verdict. Earlier commits on this trail carry `Council-Submitted:`, which asserts nothing and which
+`098` resolves at report time.
+
+### The advisory I ACTED on — and it was a real latent bug
+
+`editquality` (medium): the stamp statement includes a `content_hash` clause **conditionally** and
+appends its arg **conditionally**, while the placeholder was written as a literal `"$3"`. Those are
+two facts that must agree and nothing forced them to.
+
+Today it happens to be correct — with two base args, the hash is genuinely `$3`. **But the literal is
+a trap set for the next person who adds an arg**, and the failure is a runtime `psql` error on the
+deploy path, invisible to the compiler and to any test that exercises only one branch.
+
+Fixed by **deriving** the index from the slice: `fmt.Sprintf("content_hash = $%d,", len(args))`.
+
+⚠ **And my first test for it was worthless, which is the more useful lesson.** I wrote it to *mirror*
+the construction rather than call it — so it would have passed happily while production was broken,
+which is precisely the failure it was written to prevent. The construction is now extracted as
+`buildPageDeployStampQuery` and the test calls the real thing.
+
+**Mutation-proved that the test can fail at all** — a test that cannot fail is worth nothing, and this
+one passes against BOTH the literal and the derived form today. So the mutation had to simulate the
+future it protects against: add a third arg AND hardcode `$3`. Result:
+
+```
+guardRan=false: statement references up to $2 but 3 args are supplied
+guardRan=true : statement references up to $3 but 4 args are supplied
+```
+
+Both branches fail; restored, green.
+
+### The advisories I did NOT act on, and why
+
+- `bug_historian` (medium): *"one call site of a shared judgement gets the rigorous fix; the sibling
+  stays heuristic"* — `collectUniqueValue` gives THIS caller unique-or-refuse while
+  `findFieldRecursive` still resolves conflicts for everyone else. **Correct, and it is RFC_029 Phase
+  2's job, which carries its own stated precondition** (zero conflict WARNs over an observation
+  window, or explicit mappings first). Recorded as a real follow-up in the submission's risk 2, in
+  `DGH-013`, and in the strengthened landmine: **delete `collectUniqueValue` when Phase 2 ships.**
+- `debug_historian` (medium): the "v1.0.1316 carries the flawed resolver" claim rests on the
+  git-adapter's build-provenance LOG plus `merge-base`, not a binary grep. **That IS the pod, and the
+  binary grep was measured unusable here** — absent for a commit the image demonstrably carries,
+  PRESENT for a 40-zero control. Recorded in `494`'s header so the next person does not reach for it.
+- `guardian` (low ×2): flags that the conditional clause touches the shared page-stamping path, and
+  asks me to confirm `494` stays HELD. Confirmed — this round does not arm it, and `494`'s gate
+  commit was moved to `f0dd97c71` precisely so it cannot be armed against the flawed build.
+
+### ⚠ ONE COMMIT IS BLOCKED, and deliberately so
+
+`platform/orchestration/actions/v3_site_actions.go` **cannot be committed right now.** Another
+session is mid-flight in the SAME FILE: the working tree's copy now contains their
+`refuseMistypedLLMFields(config)` call, whose definition lives in two files that are still
+**untracked** (`actions/mistyped_llm_fields_gate.go`, `datahelpers/content_type_violations.go`).
+
+A pathspec commit takes the working-tree file whole, so committing mine would carry their call
+without its definition and **HEAD would not compile** — and `make build-*` builds from committed
+HEAD, so that breaks builds for every session. This is the documented same-file-passenger landmine,
+met in its worst form.
+
+**Verified my earlier commit did NOT carry it:** `git show f0dd97c71 -- <file> | grep -c
+refuseMistypedLLMFields` → **0**. Their call arrived afterwards.
+
+So the extraction is proven and held. What is pending, as one atomic set:
+`deploy_evidence.go` (the builder) + `deploy_evidence_test.go` (the test) +
+`v3_site_actions.go` (the call site). **Splitting them is worse than waiting** — committing the
+builder alone would leave HEAD with an unused helper beside a live inline copy, and the test would
+then exercise the helper while production used the duplicate. That is the mirror problem relocated,
+not solved.
+
+Proven meanwhile against a clean `git archive HEAD` tree with my three files applied: build clean,
+vet clean apart from the pre-existing `load_component_library_actions.go:207` warning, all 11
+deploy-evidence tests green.
+
+**Nothing is at risk from the wait:** the code is inert (`deploy_result_field` set nowhere, `494`
+held), and the placeholder fix is protection against a future arg, not a live defect.
