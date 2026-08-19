@@ -90,8 +90,14 @@ routing on it silently.
   shared guarantee changes (absent key ⇒ identical behaviour); owner 2026-08-02 §2 — new authority
   on a shared seam as an opt-in field, unsafe default OFF; RFC_022 — all three conditions hold
   and the consumers are **enumerated, not asserted**: exactly one config names the key
-  (`internal-linker.check_candidates`, via 490). Optional-key budget: `conditional` moves from
-  unregistered to 1 optional key against N=10. Registered in the concept register (WFA-018/019)
+  (`internal-linker.check_candidates`, via 490). ~~Optional-key budget: `conditional` moves from
+  unregistered to 1 optional key against N=10.~~ **CORRECTED 2026-08-19 (council round 1 caught
+  it):** the RFC_022 counter counts `spec.Optional` only; this key is `ConfigKeys`-class (a
+  setting — the semantically correct declaration for an action that does not use
+  ExtractActionInputs), so the budget count stays 0 and the parity cron literal is untouched
+  (full audit suite incl. the parity test passes). The honest residual — a ConfigKeys-class
+  opt-in setting is invisible to the budget as built — is surfaced as an observation for the
+  counter's owner, not silently relied on. WRONG_CALLS.md 2026-08-19 has the row. Registered in the concept register (WFA-018/019)
   **in the same commit** (2026-07-28 ruling, condition 2).
 
 ### 4. What we are deliberately NOT doing

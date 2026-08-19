@@ -37918,3 +37918,27 @@ are hard-wrapped (the memory index's own unwrap-before-grep warning, applied to 
 
 **Cost:** one commit message that misdescribes its own contents, permanently (forward-only);
 corrected by the immediately following commit, which names it.
+
+## 2026-08-19 — a claim about what a counter counts, made without reading the counter (bugfix 313 lane)
+
+**The wrong call:** the 313 lane's PLAN and round-1 council submission both said the new
+`fail_on_non_numeric` key moves `conditional` to "1 optional key against N=10" — i.e. that the
+RFC_022 optional-key budget would see it. It will not: the budget counter counts
+`spec.Optional` only (`cmd/config-key-audit/optionalbudget.go`, and the WFA-013 index row says
+so verbatim — "len(spec.Optional) per action"), while the key is declared under `ConfigKeys`,
+the semantically correct class for a setting. The claim asserted surveillance that does not
+exist — the exact "counted as ZERO and invisible" shape RFC_022's own history warns about,
+recreated in prose while citing that history.
+
+**What caught it:** the council's round-1 REVISE (reuse_agent's parity objection forced a
+precise re-read of what the counter actually counts).
+
+**The cheap check that would have:** before claiming a detector/counter/budget covers your
+change, read the one line that defines its universe — here `len(spec.Optional)` — the same
+rule as "grep the config key before calling it a win", one level up: grep the METER before
+claiming you are on it.
+
+**Cost:** one imprecise sentence in a PLAN and a council submission; corrected in round 2
+(claim retracted there), the PLAN corrected in place, and the honest residual surfaced to the
+counter's owner: a ConfigKeys-class opt-in setting is structurally invisible to the budget as
+built.

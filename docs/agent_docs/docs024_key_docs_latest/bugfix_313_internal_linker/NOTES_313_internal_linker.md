@@ -137,3 +137,36 @@ was a durable claim in a commit/bug file, a WRONG_CALLS.md row.
   verdict-or-first-run.
 - **321 lane landed their `--loop-sitewide-item-keys` mode in main.go on top of my commit** — the
   two modes coexist; their internal-linker suffix migration is still to apply on their side.
+
+## 2026-08-19 (evening) — council round 1: REVISE, answered by measurement; round 2 dispatched
+
+- **Verdict: REVISE, gated by prior_art_librarian (HIGH)** — the round-1 submission failed to
+  carry the internal-linker vs internal-link-resolver landmine in grounded_in, so the reviewer
+  could not see the correct-agent question had been settled. Fair catch: it WAS settled in the
+  lane docs (RUNBOOK §1) and not in the submission. Round-2 evidence, newly measured:
+  handler_agent='internal-linker' → **75 work items (50 complete needs_internal_links)**;
+  handler_agent='internal-link-resolver' → **0**; resolver llm_call_log → **0**. (⚠ counts move
+  with the reaper — 82→75 between morning and evening reads; direction stable.)
+- **Two objections found real things:**
+  1. **debug_historian: 490's `snapshot_agent` fires BEFORE the double-apply guard** — a re-run of
+     the applied file writes one redundant backup row labelled 'pre-update' before the first gate
+     RAISEs. **Accepted explicitly** (the objection's own second branch): the file is applied and
+     recorded, and editing a recorded migration trips the checksum drift guard. Cost bounded: one
+     spurious `agent_definitions_backup` row per accidental re-run, zero mutation. **Adopted
+     forward: snapshot AFTER the pre-state gates in every future migration this lane writes.**
+  2. **reuse_agent forced precision on the budget claim** — "1 optional key against N=10" was
+     wrong: the RFC_022 counter counts `spec.Optional`; `fail_on_non_numeric` is ConfigKeys-class,
+     so the budget count stays 0 and the parity literal is untouched (suite incl. parity test:
+     PASS). Claim retracted in round 2, PLAN corrected in place, **WRONG_CALLS.md row added**
+     ("grep the METER before claiming you are on it"). Residual surfaced for the counter's owner:
+     ConfigKeys-class opt-in settings are structurally invisible to the budget as built.
+- Remaining objections answered by existing measurements now quoted in grounded_in: repo-wide
+  census proves "first ActionInputSpec" (no spec under any conditional spelling); 0 prior council
+  rounds on conditional_branch_action.go; 124/WFA-009/WFA-010 precedent quotes attached; edit-3
+  sketch now shows the strict returns INSIDE the numericOps loop (the null-probe carve-out is
+  structural); pod-probe with controls added to WFA-019 verify-later; cron follow-up shown tracked
+  in three places.
+- **Round 2 dispatched with `RESUBMIT_CORR=aef24a7f`** (same correlation, trail accumulates).
+  Note for the reader: the reviewers' round-1 checks read back the POST-apply state because 490
+  applied between submission and review — the estate's review-after-the-fact norm, stated in the
+  round-2 header.
