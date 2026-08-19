@@ -11,6 +11,36 @@ of my own claims** — most of them caught inside the session that made them.
 > as stalled (UTC vs BST), and the cadence as broken (same clock error, second time). **Every
 > number below is dated; treat an undated inference as suspect, including mine.**
 
+## ⚠ UPDATE 2026-08-19 — **`bugs_open/301` WAS TAKEN AND FIXED BY ANOTHER LANE, and is PROVEN.** Do not re-take it
+
+Read this before the rest. `301`'s fix shipped as commit `6be66bceb` + migration **488** (opt-in
+`refuse_owned_page` on `load_page_record`, default OFF, save-path guard KEPT as backstop), live on
+`v1.0.1314`, now `v1.0.1315`. **Not this lane's work.** This lane contributed the verification the
+file said it owed — see the CONTRIB block in `bugs_open/301`.
+
+**Proven at the per-run level, on a fresh burst (the join `301` declared UNMEASURED):** six
+`page-build-handler` runs since the roll — the three reaching `validate_content` each spawned a
+`page-content-writer` within a minute (12:18:20→12:18:39, 12:21:01→12:21:55, 12:28:58→12:29:36);
+the three refused at `load_page_record` (13:37:08, 13:37:59, 13:38:35, `OWNED_PAGE_GUARD` quoted)
+spawned **none**. Both halves of the file's own verify recipe, on real traffic.
+
+⚠ **THE TRAP, and it will mislead the next person: `refused_by='load_page_record'` reads ZERO and
+that is CORRECT.** The emit is `ON CONFLICT DO NOTHING` on `(site_id, item_key)`, keyed on the PAGE,
+and `needs_human_review` is **not** in `idx_swi_dedup`'s excluded status list — so it sits inside
+the open set and blocks re-filing indefinitely. Both pages refused today already carried rows filed
+by the *save* path on 08-17, so the new emission deduped away and the survivor kept the old
+`refused_by`. **Verify at `__step_error` and at the ABSENCE of a writer run, never at the row count.**
+Now a LANDMINE (2026-08-19), because the 2026-08-02 ruling actively encourages this producer shape.
+
+**Also today:** two of this lane's offer-analysis items were `cancelled` by the
+`staged_component_build` session under an owner directive — casualties of a **fleet-wide
+`git-adapter` 404 burst, 2026-08-17 13:31–16:14Z**. That burst window also forced a **correction to
+`bugs_closed/295`**: I proved one `tool-ttk-calculator` failure (13:02:18, before the burst) and
+*inferred* its neighbour (13:37:24, inside it). The second is now past retention and unprovable.
+See the correction appended to the closed file, and `WRONG_CALLS.md`.
+
+**So the next action list below is unchanged EXCEPT that item 1 is done.** Start at **v2(d)**.
+
 ## The one-line state
 
 > **B4 is enrolled, sweep-driven, and proven to grow the estate unattended.** `offer_ordering` is on
