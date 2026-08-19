@@ -372,3 +372,27 @@ selector re-measurement — written by the audit, read by nothing in this workfl
 
 Candidates 2–4 are the owning lane's to sequence; candidate 1 plus the five per-site
 restores can be run by any lane holding this file's recipe.
+
+### 2026-08-19 (later, idea.uk lane) — the two sections above are ONE incident wave, written concurrently; reconciliation
+
+The noted-rebuild lane's SECOND LIVE INCIDENT section and the idea.uk lane's ROUND 2
+section were appended within the hour, neither seeing the other. Read them as one:
+
+- **One mechanism, two halves.** noted has the SEED (`fork_theme_from_site` inserts a
+  theme row born empty — with an `[INFERRED]` link left to verify) and the pre-symptom
+  one-query tell; ROUND 2 has the fleet census (11 of 21 rows empty — so the born-empty
+  seed, or something like it, is the NORM, not a noted one-off), the self-amplification
+  measurements, and the loancash `complete_no_css` arm.
+- **Restore state fleet-wide:** relojistas (08-04), **noted (08-19, all layers, via
+  git-adapter `repo_name:"vm-sites"`)**, **idea.uk (08-19, DB v6 done; deploy riding
+  canary item `01a4dbca` — if it stalls, the noted lane's git-adapter route is the
+  proven fallback)**. **Still clobbered and unowned-for-restore: dartsonline.com,
+  vonc.com, cookly.uk, oufe.com** — recipe in either section; note their
+  `sites.github_repo` is empty, so resolve the repo the git-adapter's way.
+- **Fix candidates converge** — both lanes independently rank the deploy-side shrink
+  guard first. Union list for the owning lane: (1) deploy-side shrink guard [both] ·
+  (2) birth guard on `fork_theme_from_site` [noted] · (3) DB↔file drift discovery
+  check [noted; ROUND 2's fleet backfill is the one-time data half of the same idea] ·
+  (4) use the spec's own `acceptance_test` post-deploy + stop `complete_no_css`
+  minting `complete` [ROUND 2] · (5) route mass-1.00:1 to a stylesheet-integrity item
+  [ROUND 2]. Two LANDMINES landed adjacent in the file, cross-linked.
