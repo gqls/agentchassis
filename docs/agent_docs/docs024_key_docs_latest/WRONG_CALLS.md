@@ -38139,3 +38139,51 @@ measurement was earlier, say when.
 **Cost:** four places to correct (done, in place, dated); no action taken on the wrong belief.
 The evidence itself survives — both builds carry the section fix by ancestry — only the labels
 were wrong.
+
+---
+
+## 2026-08-19 — `bugs_open/315` lane: I quoted a code comment's RULING and skipped the paragraph saying the ruling is not implemented yet.
+
+**The claim, and it was load-bearing in shipped code and in a council submission:** that
+`datahelpers.ExtractFields` gives *"collect-all / unique-or-nothing (RFC_029 §9)"*, so an ambiguous
+subtree "resolves to nothing rather than to a guess" — which was my entire justification for
+pointing a fingerprint resolver at a subtree that might contain two `git_commit` results.
+
+**What the comment actually says**, four lines further down than I read:
+
+> *"**PHASE 1 (this build — instrument first, refuse second): conflicts still resolve**, to the
+> STABLE shallowest-first winner, and emit the WARN below … **PHASE 2 (a later build) flips
+> conflicts to refusal.** Do not flip without reading RFC_029 §9 D2's precondition."*
+
+So the ruling is real, the behaviour is the opposite of the ruling, and the comment says so plainly
+in the paragraph immediately after the one I quoted. I read far enough to find a sentence that
+supported what I wanted and stopped there.
+
+**What caught it:** the council gate's `prior_art_librarian` seat, which cross-checked my claim
+against a `LANDMINES.md` entry describing the same function as a *"RANDOMISED recursive search — the
+wrong sibling's id wins"*, and objected that both cannot be true. It did not know which was right;
+it refused to let a contradiction pass. **That is the second time in this bug that this seat's
+"you asserted something checkable and did not check it" has found a real defect.**
+
+**Why it mattered more than usual.** For most callers a shallowest-first guess is survivable. For a
+content fingerprint it is the worst available outcome: a hash taken from the wrong commit is
+silently and permanently wrong, and every later comparison convicts a healthy page. *No* fingerprint
+is recoverable; *someone else's* is not.
+
+**The cheap check that would have:** read the comment to the end of its own section — the words
+"this build" were in it. Failing that, `grep -n "PHASE" <file>`.
+
+**The generalisable half, and it is not "read more carefully".** A long doc comment on a shared
+helper is usually TWO documents: what the mechanism is *meant* to guarantee, and what it *currently*
+does. This estate writes both, deliberately and well — and the second is where the ruling gets
+qualified. **When you borrow a safety property from someone else's code, quote the sentence that
+describes the BEHAVIOUR, not the sentence that describes the DECISION.** If the only sentence you
+can find is a decision, the property is aspirational and you must implement it yourself. That is
+what the fix does.
+
+**Corollary, which cost a second defect in the same file.** Having borrowed one wrong premise I
+then reasoned from it: `content_hash` was written with `COALESCE`, on the argument that a stamp
+without a fingerprint "must leave the previous one alone". Backwards — a stamp means new bytes went
+out, so the previous fingerprint is stale by definition, and preserving it makes the divergence
+check convict a healthy page. Nobody objected to that one; it fell out of re-deriving the first.
+**A false premise does not stay in the place you put it.**
