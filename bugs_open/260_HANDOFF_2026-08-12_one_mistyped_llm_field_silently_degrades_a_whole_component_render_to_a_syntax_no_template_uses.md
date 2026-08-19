@@ -176,10 +176,26 @@ Evidence run: orchestration `07983216-929b-4494-8131-87c523058ea5` (fundamentall
    to catch. **Shared-mechanism change on rendering plumbing → council round + register entry.**
 2. **Type-check `content_data` against `input_schema` before rendering.** The hook already
    exists: `missingRequiredLLMFields` (`platform/orchestration/actions/json_envelope.go:451`)
-   checks **presence** only, and has exactly **one** production caller
+   checks **presence** only, and has ~~exactly **one** production caller
    (`rerender_page_sections_action.go:333`) — so the page-**build** path has no schema gate at
-   all. Extending it to validate declared types, and calling it on both paths, catches this
+   all~~ **TWO production callers — see the correction below.** Extending it to validate declared
+   types, and calling it on both paths, catches this
    class before any render. Reuse-first; complements (1) rather than competing.
+   > **⚠ CORRECTED 2026-08-19 (the `bugfix_260_render_fallback` lane, verified at HEAD).**
+   > **"The page-BUILD path has no schema gate at all" is FALSE, and it is the sentence a
+   > reviewer will check first.** `missingRequiredLLMFields` has **two** production callers:
+   > `rerender_page_sections_action.go:396` **and `v3_site_actions.go:2252`** — the latter inside
+   > `RenderComponentAction`, i.e. the build render step itself, with `WarnIfLegacyDialect`
+   > immediately beside it at `:2251`. The build path **does** have a presence gate; what it
+   > lacks is the **type** half, and a present-but-mistyped field sails straight through a
+   > presence check — which is consistent with all 26 recorded events. The remedy in this
+   > candidate is unchanged; only its grounding was wrong, and the wrong version understates
+   > how much machinery is already there to extend.
+   > **Line numbers in this candidate have also drifted** (`:333` → `:396`; and §2's
+   > `RenderTemplateReportingMissing` caller is `v3_site_actions.go:2273`, not `:2179`). Re-cite
+   > at commit time rather than copying from here. Note `render_content_envelope_guard.go:13`
+   > carries the same stale citation in the opposite direction (`v3_site_actions.go:1843`), so
+   > the code comments are not a safe source for this either.
    > **⚠ CORRECTED 2026-08-12 (the `copy_quality_two_stage` lane's CONTRIB_…12c caught this, and
    > it would have shipped inert).** As first written, "against `input_schema`" implied the JSON
    > Schema shape `mechanism-flow` uses. **The library is overwhelmingly NOT that shape.** Of 255
@@ -675,3 +691,41 @@ It is an argument **for** the seam fix and **against** touching `checkUnrendered
   AFTER, not another BEFORE.
 - **The fix is Go, so it is inert until an image is rebuilt and rolled.** Both lanes have been
   told, since one is sequencing an end-to-end re-run around it.
+
+### 13g. A THIRTEENTH render seam nobody has named, and its failure mode is worse than the fallback's
+
+`RenderTemplateWithMap` (`rerender_pages_actions.go:782`) is a **second, independent** Go template
+executor — not the seam §2 describes, and not covered by any measurement in this file. It has its
+own `template.New("component").Parse(...)` with **no FuncMap and no `missingkey=zero`**, and on
+either a parse or an execute error it logs at `Warn` and **returns `""`**.
+
+Its one caller renders the site's `contact-info` component and then does
+(`rerender_pages_actions.go:722`):
+
+```go
+renderedContactInfo := RenderTemplateWithMap(htmlTemplate, templateData, logger)
+html = contactInfoRe.ReplaceAllString(html, renderedContactInfo)
+```
+
+**So a template error there does not mangle the contact block — it DELETES it** from the page
+being rerendered, silently, at `Warn`. Destroying content is a worse outcome than the fallback's
+mangling, and unlike the fallback it leaves nothing for `validate_content` to detect: an absent
+section is well-formed HTML.
+
+`[MEASURED 2026-08-19]` **Latent, not firing.** There is exactly one active `contact-info`
+component and it renders clean on that path today (2,453 bytes, no error, no `<no value>`).
+Probed with the seam's *own* configuration — no FuncMap, no `missingkey` option — and
+positive-controlled both ways: `{{safe .x}}` MUST fail there (it did, proving the probe is
+faithful to the missing FuncMap) and a plain `{{.email}}` template MUST pass (it did).
+
+⚠ **But the trigger is one ordinary edit away.** Because this path registers **none** of the
+seven functions the main seam provides, anyone adding `{{safe .phone}}`, `{{default "…" .hours}}`
+or `{{isset .email}}` to the `contact-info` template — all of them normal usage elsewhere in the
+library, and all of them fine in every other render path — makes this template fail to **parse**
+here and erases the contact block from every page this rerenderer touches. The two seams do not
+accept the same language, and nothing says so.
+
+Being fixed as part of this lane's change (return the input HTML unchanged on error) rather than
+filed separately: it is one line, in the same class, and naming it without fixing it would leave
+the worse of the two seams as the survivor. `dead_url_guard.go:66` already lists it as a known
+second render path, so it was documented as existing — just never as *destructive*.
