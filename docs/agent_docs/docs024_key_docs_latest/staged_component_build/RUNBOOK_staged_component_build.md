@@ -595,6 +595,22 @@ FROM agent_error_log
 WHERE error_code LIKE 'RESOLVER_%' ORDER BY occurred_at DESC LIMIT 50;
 ```
 
+Which subtree the WINNER came from, per class (the 306 candidate-3 blast-radius query,
+2026-08-19 — swap `retry_payload` for any subtree you suspect):
+```sql
+SELECT agent_type, context->>'field' AS field, count(*) AS conflicts,
+       count(*) FILTER (WHERE context->>'winner_path' LIKE '%retry_payload%') AS rp_wins,
+       count(*) FILTER (WHERE (context->'candidate_paths')::text LIKE '%retry_payload%') AS rp_cand
+FROM agent_error_log
+WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES'
+GROUP BY 1,2 ORDER BY conflicts DESC;
+```
+Gotcha that costs two failed runs: `context->'candidate_paths'::text` parses as
+`context->('candidate_paths'::text)` (still jsonb, `LIKE` then errors) — the cast needs the
+parens: `(context->'candidate_paths')::text`. And remember what this CANNOT say: a
+unique-candidate resolution writes no row, so a class where the echo is the ONLY copy is
+invisible here (the reason candidate 3's risk block names it).
+
 Gotchas, all measured:
 - **`orchestration_id` and `step_name` are EMPTY on these rows by design** — the resolver
   cannot know them; attribute by `pod_name` + `agent_type` (`identity_scope` in the context

@@ -5101,3 +5101,31 @@ step 3's post-roll read per §10.13; documented now so it is buildable then):
 **Correction to the handoff/§10.13 step-4 row:** the worked example named
 `save_page_sections`; the live producer is `generate_content`, and the "one rename at the
 producer" is the RenderContext JSON tag, not a save-path change. Corrected in the handoff.
+
+## 2026-08-19 (midday) — bugs_open/306 candidate 3: blast radius measured, skip built (contributed by the bugs_open/306 session, per who-owns "contribute into the bug")
+
+- **Roll-check trap recorded in the bug file §3b:** `v1.0.1314` (pods 08:52 BST) PREDATES
+  `846496906` (11:14 BST). Binary-probed with both controls: fix sha ABSENT, source literal
+  PRESENT. Step 2 is still inert; do not close 306 on "a roll happened on the 19th".
+- **Candidate 3's blast-radius question ("who relies on recovering fields from a retry
+  payload?") answered: nobody.** Sole Go reader `coordinator.go extractRetryPayload` reads the
+  action result by direct key BEFORE the collected_data merge; replay reads
+  `awaited_requests.request_payload`; ZERO active agent_definitions name the key;
+  `isInfrastructureKey` has one call site. Decomposition of all 8,402
+  `RESOLVER_CONFLICTING_CANDIDATES` rows: the echo WINS only in build-dispatch-loop/
+  current_page (4,370 — the no-reader slot the f42e03720 gate kills in the same roll); it only
+  LOSES in every reader-bearing class (pbh 45/45 candidate sets, 0 wins; pcw 794 conflicts,
+  0 rp candidates — the shape class, untouchable by cand 3). Query + jsonb-cast gotcha added
+  to the RUNBOOK.
+- **Built:** `types.RetryPayloadKey` case in `isInfrastructureKey` + 3 tests
+  (`unified_extractor_retrypayload_test.go`). Mutation-proved from archive: flip the case's
+  return → exactly the 2 skip tests fail, all 6 step-2 rank tests still pass (independent
+  guards). Package + ./platform/orchestration/... green from `git archive HEAD` overlay.
+  NOTE for step 5's arithmetic: cand 3 removes the pbh ambiguity class entirely (45→0
+  expected), leaving pcw's shape class as the flip-blocker — exactly step 4's population.
+- **Misstep (mine, caught in-session):** first mutation attempt replaced the whole `case`
+  line, orphaning the `types` import → build failure, which proves nothing (the §4 trap note
+  already said so). Re-mutated the RETURN value with the package compiling; then the failure
+  was the discriminating kind.
+- 090 run on the mechanism: corr `a9a33be9-5b17-4f66-b418-084f33e7735b` (dispatched 10:41Z).
+  Council submission prepared (scratchpad `council_submission_306_cand3.json`); corr to follow.

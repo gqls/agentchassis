@@ -77,6 +77,54 @@ skipping `retry_payload` subtrees) — needs its own blast-radius check and is N
 the bug stays open until the roll makes the declared tie-break LIVE. Close when: the roll is
 verified by label+digest AND `TestTieBreakUnwrapHopBeatsSibling` is in the stamped revision.
 
+## 3b. STATUS 2026-08-19 (second session) — the 08-19 morning roll does NOT carry 1+2, and candidate 3 is BUILT with its blast radius measured
+
+- **⚠ Do not close on "a roll happened on the 19th."** `v1.0.1314` rolled with pods up at
+  08:52 BST — `846496906` was committed at **11:14 BST**, after the build. Probed at the
+  binary with both controls (`grep -aq` on `/proc/1/exe`, pod `agent-chassis-65445946fd-l5h6l`):
+  fix sha **ABSENT**, known source literal **PRESENT**. The close condition in §3a is still
+  unmet; the premise re-verified live (page-build-handler conflicts still firing 10:22Z 08-19).
+- **Candidate 3's blast-radius check ran, and the answer is decisive** (queries in the lane
+  RUNBOOK; `agent_error_log` `RESOLVER_CONFLICTING_CANDIDATES`, all history 08-16 → 08-19
+  10:31Z, n=8,402):
+  | class | conflicts | rp candidates | rp WINS |
+  |---|---|---|---|
+  | build-dispatch-loop / current_page | 4,494 | 4,494 | **4,370** |
+  | build-dispatch-loop / work_item_id | 2,466 | 2,465 | 0 (class killed by the prune, gone post-roll) |
+  | page-content-writer / current_page | 794 | **0** | 0 (the shape class — cand 3 cannot touch it) |
+  | page-build-handler / current_page (THIS bug's §2) | 45 | 45 | 0 |
+
+  So the echo WINS only in build-dispatch-loop/current_page — the slot the lane's decision-3
+  sweep found no reader of, and the class the already-committed `ensureCoreFields` gate
+  (`f42e03720`) kills in the SAME next roll, so no production interim exists where that
+  winner-change is observable. For every reader-bearing population the echo only ever LOSES —
+  skipping it removes the manufactured ambiguity and preserves every winner.
+- **Who relies on recovering fields from a retry payload? Nobody, measured three ways:**
+  (1) sole Go reader is `coordinator.go` `extractRetryPayload` — direct map-key lookup on the
+  action result BEFORE it reaches `collected_data`; replay reads
+  `awaited_requests.request_payload` (`state.go`), never the search. (2) ZERO active
+  `agent_definitions` name `retry_payload` anywhere in `default_config`. (3)
+  `isInfrastructureKey` has exactly one call site — the search's sibling-recursion loop — so
+  dotted-path mappings and direct requests for the key are structurally untouched.
+- **Candidate 3 BUILT**: `types.RetryPayloadKey` case in `isInfrastructureKey` (keyed to the
+  const so the literals cannot drift), three tests in
+  `unified_extractor_retrypayload_test.go` (production shape resolves with ZERO conflict
+  WARNs; a shallower echo cannot outrank live data; a direct request for the key still
+  resolves). Mutation-proved from a clean `git archive` build: flipping the case's return
+  fails exactly the two skip tests while all six §3a rank tests still pass — independent
+  guards, not in series. The §3a tie-break stays load-bearing for the conflicts the skip
+  cannot remove (page-content-writer's shape class, 0 rp candidates).
+- **The at-source alternative** (strip `retry_payload` when the result merges into
+  `collected_data`) was analysed and deliberately NOT bundled: four coordinator write sites
+  (`coordinator.go` ~1902/~2797/~2848/~2888), an ordering dependency on the
+  `extractRetryPayload` lift, and it would change the `{retry_payload, response}`
+  stored-result shape that 287/migration 452 documented as satisfying their criterion. A
+  candidate for its own round if wanted; the skip already closes the door this bug is about,
+  including for echoes already persisted in long-running orchestrations, which a merge-time
+  strip can never reach.
+- 090 diagnosis run on the mechanism + blast-radius claim: `a9a33be9-5b17-4f66-b418-084f33e7735b`
+  (dispatched 10:41Z 08-19). Council submission prepared; corr recorded here when submitted.
+
 ## 4. Fix candidates, ordered by what closes the door
 
 1. **Declare the tie-break and pin it** (small, no behaviour change): make the sort
