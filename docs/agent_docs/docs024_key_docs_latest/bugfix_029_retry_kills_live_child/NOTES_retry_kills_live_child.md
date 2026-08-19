@@ -1751,3 +1751,38 @@ for any future one within ~26 h. **RSH-011's hourly capture is what closes that*
 live wedge with its full `awaited_requests` set. So the honest sequence is: *the next burst is what
 confirms this, and the capture job is already armed for it.* Nothing further is owed to the loop
 until then.
+
+### 12. C1/C2 survive the one test the table could have killed them with — 17/17 gaps clear the 5-minute takeover threshold
+
+`[MEASURED]` 2026-08-19 ~16:50Z. All duplicate `iter_N_spawn_handler` pairs on 2026-08-17:
+
+| | |
+|---|---|
+| duplicate pairs | **17** |
+| gap `sent_at(2) − sent_at(1)` **> 300 s** | **17 of 17** |
+| min / max gap | **414 s / 577 s** |
+| pairs whose two rows share one `processing_pod` | **17 of 17** |
+
+`StuckOrchestrationTimeout = 5 * time.Minute` (`coordinator.go:38`). The stuck-orchestration takeover
+(**C1**, `handleOrchestrationStatus`'s `StatusExecutingStep` arm, `:761-775`) fires on an inbound
+message when `LastActivity` is older than that, clears the executing step and re-runs `CurrentStep`
+from scratch — a fresh execution, hence rv0 and a new request id. Its prediction is *gap = 300 s + the
+trigger message's cadence*. **414–577 s is 300 s plus 114–277 s**, and **nothing lands under 300 s.**
+
+> **This is a SURVIVAL, not a confirmation, and the difference matters.** A single pair under 300 s
+> would have refuted C1 outright; none is, so C1 passed a test it could have failed — that is the
+> disconfirmable-measurement bar this lane keeps failing to clear, cleared. But **C2** (the
+> `StatusRunning` arm, `:782-801`) predicts an *identical* table signature, and nothing in
+> `awaited_requests` separates them. So the honest state is **C1 and C2 both survive; C3 refuted at
+> source (§11a); C4 and C5 disfavoured** (row 1 is `processed` in every pair; the gaps are minutes,
+> not seconds).
+
+⚠ **The same-pod figure is weaker than it looks — do not quote it as "one pod re-executed the step".**
+`processing_pod` is stamped by the consumer that **claimed the reply**, not by whatever sent the
+request. So 17/17 says both *replies* were claimed by one pod, which on a 2-replica deployment is
+unremarkable and says nothing about who re-ran the step body. It grounds the draft plan's
+`[UNVERIFIED]` 6/6 sample at 17/17 and is recorded for completeness, not as evidence for C1.
+
+**Separating C1 from C2 needs logs**, and the 08-17 pods are two days gone — so it waits for the next
+burst, where RSH-011's hourly capture is already armed. Nothing further is extractable from the table
+on this question.
