@@ -464,3 +464,65 @@ cause — this file's own timestamps make it a partial match, not a full one:
 Not filed as a new bug, not claiming to resolve either case — leaving both open with
 this cross-check recorded so nobody re-derives it. Full account and the Prometheus
 figures: `bugs_open/040` §11.
+
+---
+
+## 2026-08-19 — re-verification at owner request: the symptom is GONE, the banner is nine days stale
+
+Measured today by the `bugs_open 294` lane, at the owner's instruction to re-ground this file
+before anyone plans work from it. **I am reporting numbers, not claiming a cause** — see the
+attribution caveat at the end.
+
+| | when filed (2026-08-10) | now (2026-08-19) |
+|---|---|---|
+| topics, total | **25,042** | **5,370** |
+| `job.*` topics | 24,131 orphans | **4,395** |
+| `kafka-scheduler` memory limit | 128Mi | **256Mi** |
+| memory in use | at the limit, OOMKilled | **35Mi** (14% of limit) |
+| restarts | **132 OOMKills in 13 h** | **0**, `lastState` `<none>` |
+| topics pinned by non-terminal orchestrations | — | **0** |
+
+**The topic count was measured the file's own safe way** (§ the counting-trap landmine, added by
+this file's lane on 08-10): listed in-pod to a file, counted **in-pod**, only the count returned
+down the `exec` channel, and the file cleaned up afterwards. Free space on the broker `/tmp` was
+checked first (4,784K, above the 3,000K floor the sweep script refuses under). My first attempt —
+piping a `kcat -L` through `exec` — returned **0**, which is exactly the silent truncation this
+file warned about, so the warning earned its place twice.
+
+**Both mitigations are live and dated:** `55e992e8b` (2026-08-10, *"240 C3 (mitigation):
+GOMEMLIMIT=192MiB + 256Mi limit on kafka-scheduler"*), which this file's own 08-11 section already
+confirmed live on `v1.0.1284`. The production overlay declares `256Mi` while `base/deployment.yaml`
+still declares `128Mi`, so the mitigation lives in the overlay only — worth knowing before anyone
+deploys this service anywhere else.
+
+**What this does and does not license.**
+
+- It **does** say the incident this file describes is not currently happening: 35Mi against a
+  256Mi ceiling is not a service about to OOM, and the pressure that caused it has fallen ~79%.
+- It **does not** say the root cause is fixed. This file's §"fix candidates" records that C1
+  (`MetadataTopics`) was *"VERIFIED AND REFUTED in its naive form"*, and I did not re-open that.
+  The door described in §"Why nobody noticed" may still be open; what has changed is the load
+  pressing against it.
+- **The restart figure is a short window.** `0 restarts` is on a pod that started **07:52:27Z
+  today**, i.e. about two hours, because the fleet rolled this morning. It is consistent with a
+  service in good health and it is *not* thirteen days of evidence.
+- **I am not attributing the topic drop.** This file's 08-11 section already recorded an overnight
+  drop as *"unattributed"*; nine days later the number is lower again and I did not establish what
+  removed them. `scripts/kafka-orphan-topic-sweep.sh` exists and is the obvious candidate, but
+  "the obvious candidate" is not a measurement.
+
+**The one change I would suggest to whoever owns this:** the banner at the head still reads
+*"OPEN, live incident, fleet-wide degradation"* and *"the whole scheduled layer runs at roughly a
+14% duty cycle"*. That was true on 2026-08-10 and is not true today. A reader who greps for open
+criticals gets a nine-day-old emergency. Whether the bug closes is a judgement about the root
+cause, not about the symptom — but the banner should stop asserting a live incident either way.
+
+*Contributed, not competing: I have not changed this file's banner, candidates or conclusions.*
+
+### The `294` link, discharged
+
+`bugs_closed/294` named this file as a downstream victim: each orchestration stranded in a
+non-terminal status pinned its `requests_topic` and `responses_topic` against
+`getActiveOrchestrationTopics`, permanently. That contribution is now **zero and structurally
+bounded**: migrations `463`, `464` and `465` mean no non-terminal row survives past 4 h, so the
+pin cannot outlive that. Measured today, topics pinned by non-terminal orchestrations: **0**.
