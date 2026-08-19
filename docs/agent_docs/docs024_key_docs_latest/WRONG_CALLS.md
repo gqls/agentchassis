@@ -36628,3 +36628,19 @@ clobber is worst exactly when the other session was right.**
 
 Tally for "wrote to a path without reading it first": 1. Tally for "repeated a figure from another
 document without re-deriving it": 2 (the `bugs_open/295` path 08-18, and `480`'s 47% blend today).
+
+- **2026-08-19 (bugfix_275 lane): a commit message said the register recorded the failed
+  WARN-witness attempt. It did not — one of two string replacements in the same script had
+  silently matched nothing.** The script did `s=s.replace(A,...); s=s.replace(B,...)` and then
+  `assert s != orig`. A landed, B did not, and the aggregate assertion passed on A's strength
+  alone. Every visible signal was green: the script printed its success line, `git commit`
+  reported the file changed, and the diff was real — just half of it.
+  **What caught it:** trying to make a *further* edit to the same line a day later and finding
+  the text I believed I had replaced still sitting there.
+  **The cheap check:** assert per replacement, on the occurrence count, before writing —
+  `assert s.count(old) == 1, f"found {s.count(old)}"` — which fails loudly on both the
+  "already replaced" and the "never matched" cases. `assert s != orig` cannot distinguish
+  "all my edits landed" from "at least one did", and the more edits in the script the weaker
+  it gets. Same shape as a test asserting `len(results) > 0` when it means `== 3`.
+  Tally for "a batch of edits guarded by one aggregate assertion, where a silent no-op then
+  rode out under a truthful-looking commit": 1.
