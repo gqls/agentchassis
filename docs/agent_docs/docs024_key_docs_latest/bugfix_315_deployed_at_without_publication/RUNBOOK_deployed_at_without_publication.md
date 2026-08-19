@@ -119,3 +119,112 @@ council gate was completing `complete_approved` / `complete_revise` runs **in th
 other calls were being refused. **Check whether the fleet is still completing LLM work before
 reporting an outage** — `orchestration_states WHERE orchestration_name ILIKE '%council%'` is the
 cheap read.
+
+---
+
+# Part 2 — applying and shipping the fix (added 2026-08-19)
+
+## Applying a migration WITHOUT sweeping other threads' pending files
+
+At the time of writing the runner listed **129 pending** files belonging to a dozen lanes. `--apply`
+takes every one of them, in order. Scope it with a scratch directory holding only your file:
+
+```bash
+SCOPE=<scratch>/mig491; mkdir -p "$SCOPE"
+cp docs/agent_docs/sql_for_agents/491_*.sql "$SCOPE/"
+MIGRATIONS_DIR="$SCOPE" ./scripts/migration/run-migrations.sh            # expect: Pending (1)
+MIGRATIONS_DIR="$SCOPE" ./scripts/migration/run-migrations.sh --apply
+```
+
+⚠ **The assignment must be on the SAME LINE as the command.** On its own line it scopes nothing and
+the run sweeps the fleet. The scratch dir is the mechanism; the env var alone is not.
+⚠ The dry run **executes** each pending file inside a doomed transaction to probe it — brief row
+locks, sequences may advance. `--no-probe` if that matters.
+
+## Holding a migration that must NOT be applied yet
+
+Rename it, do not add a banner — **the runner does not read comments.**
+
+```bash
+# NNN_name_HOLD.sql — SIDECAR_RE '_[A-Z][A-Z0-9_]*\.sql$' excludes it from --apply
+./scripts/migration/run-migrations.sh --no-probe | sed -n '/^Sidecars/,/^$/p' | grep NNN   # must appear
+./scripts/migration/run-migrations.sh --no-probe | sed -n '/^Pending/,/^$/p'  | grep NNN   # must NOT
+```
+
+Held visibly, not hidden. Put the by-hand apply commands in the file's own header — the person who
+runs them will not be you.
+
+⚠ **A `_HOLD` file is a sidecar, so the runner will never apply it even when you want it to.** Pipe
+it to psql by hand, then `--record-only <file> --note "<why>"`.
+
+## Snapshotting an agent before a config change
+
+```sql
+SELECT snapshot_agent('<type>', '<file>: pre-update');   -- TWO args: writes agent_definitions_backup
+```
+
+⚠ **Do not ask whether a snapshot exists — ask whether it holds the PRE-change config.** A row
+carrying the post-change value restores nothing:
+
+```sql
+SELECT type, snapshot_taken_at, snapshot_reason,
+       (default_config->'workflow'->'steps' ? '<the step you removed>') AS holds_pre_change_step
+FROM agent_definitions_backup WHERE snapshot_reason LIKE '<your file>%'
+ORDER BY snapshot_taken_at DESC;
+```
+
+⚠ `ORDER BY created_at` returns an **arbitrary** snapshot — `agent_definitions_backup` copies the
+SOURCE row's `id` AND `created_at`, so every backup row for one agent shares them. Order by
+`snapshot_taken_at`, and find yours by the distinctive `snapshot_reason` you passed.
+
+## Migration numbering on a shared tree
+
+`ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]+' | sort -n | uniq | tail -4`
+
+⚠ **Re-check at commit time, not at write time.** 492 and 493 were both claimed by other lanes while
+this lane's 492 was being drafted; it shipped as 494. Duplicates already exist in the tree (488
+twice), so a collision is untidy rather than fatal — but it makes `git log <number>` ambiguous.
+
+## Two prerequisites before the held config can go in
+
+```bash
+# 1. Which image is actually running?
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"  "}{.spec.containers[0].image}{"\n"}{end}'
+# 2. Does that image carry the key? Ask the binary's own stamp, not git:
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 086f9b7b7 <the stamped sha> && echo CARRIES-THE-KEY
+```
+
+⚠ An **empty** provenance grep means "not in log range", NOT "unstamped" — it is a startup line and
+it scrolls on a busy service.
+
+## Proving a guard rather than trusting a green test
+
+Both new guards were mutation-proved, and the mutation is the evidence — a passing test on
+unmutated code proves only that the code compiles.
+
+```bash
+cp <file> /tmp/f.bak
+# break exactly the thing the test claims to catch, e.g. skip the base64 decode
+go test ./<pkg>/ -run <Test>      # MUST fail, and on the intended assertion
+cp /tmp/f.bak <file>
+go test ./<pkg>/ -run <Test>      # MUST pass again
+```
+
+⚠ Check *which* test failed. A mutation that fails several tests may have hit a guard in series; one
+that fails none means the test was never testing that.
+
+## Reading a council verdict
+
+```sql
+SELECT created_at, metadata->>'decision', body
+FROM diagnosis_artifacts
+WHERE correlation_id='<YOUR SUBMISSION_CORR>' AND kind='council_report'
+ORDER BY created_at DESC;
+```
+
+⚠ **Never** the `doc_notes` query the trigger prints (`WHERE categories ? 'council-gate' ORDER BY
+created_at DESC LIMIT 1`) — the table is fleet-shared and that returned **another lane's APPROVED
+verdict** while mine was `revise`. Read by correlation, always.
+⚠ On a resubmission the correlation is reused, so filter by `created_at` to get the new round.
