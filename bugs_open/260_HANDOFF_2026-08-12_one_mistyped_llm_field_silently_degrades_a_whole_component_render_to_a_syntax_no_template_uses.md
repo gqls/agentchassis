@@ -483,3 +483,49 @@ created in this run). So the trigger does not require an aged or hand-edited com
 No diagnosis run filed: the mechanism is already proven in §2 with a control, and this
 contribution asserts only an occurrence and its cost, both read directly from the persisted
 blocker rows and the live site.
+
+## 12. CONTRIBUTION 2026-08-19 — §11's prediction, tested on a FOURTH site and confirmed at the live artefact: every page carries two dead links (from the `portfolio_positioning` lane)
+
+§11 (loanzy lane) predicted that a page blocked by this defect leaves the live site carrying a
+dead internal link, and asked whether the neighbouring lane's blocked pages were similarly
+linked-to. **They are. Measured 2026-08-19 on `remortgagecalculator.uk`, which is live.**
+
+Its four `needs_page` items sitting in `needs_human_review` all failed at `validate_content`
+with **`20 blockers, 0 errors`** — the same signature and the same count as §11's `your-rights`
+page and as the two pages named in the `HANDOFF_2026-08-18` TODO. Two pages were never built:
+`six-month-checklist` and `what-your-number-means`. Both exist as `pages` rows with
+`status='active'` and **zero `page_components`**.
+
+**The live consequence, read from the served HTML rather than inferred:**
+
+| served page | links to the blocked pages? |
+|---|---|
+| `/` (home) | ✅ both |
+| `/about.html` | ✅ both |
+| `/next-steps.html` | ✅ both |
+
+and the targets themselves:
+
+```
+https://remortgagecalculator.uk/six-month-checklist.html     404
+https://remortgagecalculator.uk/what-your-number-means.html  404
+```
+
+So **three of the four pages this site actually serves each carry two dead internal links**, and
+the site is missing two of the six pages it was planned with. Nothing in any served page shows a
+reader that something failed — the links are ordinary nav links.
+
+**Why this is worth another row rather than a "same again":** it is a fourth site, a different
+lane, and — unlike §11's single blocked page — here the dead links are on **every** serving page,
+because the blocked pages are in the navigation rather than referenced once in body copy. That
+raises the exposure from "one dead link on one page" to "two dead links site-wide", which is the
+shape a link checker or a crawler will report as a site-quality problem rather than a content gap.
+
+**It also corrects a count in this lane's own account.** Our `HANDOFF_2026-08-18` treated the
+`{{end}}` blockers and the dead-internal-link finding as two separate TODOs. §11 suggested they
+might be one defect counted twice; on this site they are — **the dead links exist *because* the
+pages were blocked**, so repairing 260 removes both without any link-level work.
+
+Still reads `no live damage` in this file's headline. On the evidence of §11 and this note, that
+line is now wrong on two live sites and should be restated by whoever owns the file — we have not
+edited the headline ourselves.
