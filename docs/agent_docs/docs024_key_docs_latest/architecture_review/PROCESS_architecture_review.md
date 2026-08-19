@@ -222,7 +222,25 @@ Sections, all required:
   33 agents** carry a timeout and are re-executed up to four times; how many are
   side-effecting is the open question. OPEN, needs an owner ruling.
 
+- **RFC_040** — a migration cannot ask the binary what it can do, so all **32**
+  migrations that assert a binary precondition enforce it in prose and **0**
+  enforce it mechanically. Raised out of `bugs_open/299`'s council round
+  (`bug_historian`, medium: "a recorded user decision with no enforcement point
+  is decorative"). The sharp part is not that it is manual — it is that the
+  PRESCRIBED check is frequently *impossible*: the provenance line is a startup
+  line that scrolls (measured: gone 3h after a roll) and the binary carries ONE
+  stamp, not its ancestry, so the documented fallback returns "absent" for a
+  commit it certainly contains. Proposes persisting the registries the binaries
+  already enumerate, and a fail-closed `assert_live_capability()` for migrations.
+  DRAFT, needs an owner ruling.
+
 Claim the next number by adding a line here in the same commit as the RFC —
 the same collision discipline as migrations, and this list is the ledger.
-**The next free number is `RFC_027`** — derived from the directory on 2026-08-12, not carried
-forward. Re-derive it before you trust it; the line has been wrong by eight before.
+> **CORRECTED 2026-08-19:** this line read **"The next free number is `RFC_027`"**,
+> derived 2026-08-12 and carried forward untouched while thirteen RFCs (027-039)
+> were filed. It was wrong by THIRTEEN — worse than the "wrong by eight" its own
+> warning cites, which is the tell that a self-warning line does not maintain
+> itself. Re-derived from the directory 2026-08-19:
+> `ls RFC_*.md | sed 's/.*RFC_//' | cut -c1-3 | sort -n | tail -1` ⇒ 040 taken by
+> this entry, so **the next free number is `RFC_041`**. Run the command; do not
+> trust this sentence either.
