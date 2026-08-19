@@ -153,3 +153,70 @@ documentation: the ingestion step is described internally as writing feed items
 sources. It does not. It only skips an article whose exact web address we have
 already stored for that site. Reuters and the BBC covering one story are two
 separate rows, by design.
+
+### And then a second search turned up the most important document of all
+
+I went back with different search words, and found two more discussions — one of
+which is closer to what you asked me for today than anything else in the repo.
+
+**On 28 July you raised this same idea against the Thames Water dossier**, and
+you said at the time it was generic for "this type of site and similar to the
+news editorial requirement". The note that came out of that conversation is
+`docs/agent_docs/docs024_key_docs_latest/oufe/DESIGN_2026-07-28_premise_branching_and_deepthink.md`.
+My first search missed it because it calls itself neither "editorial" nor
+"feature article".
+
+It contains the sharpest idea in the whole collection, and I think it is the one
+that should shape what we build.
+
+**The distinction is between a topic and a premise.** A topic — "the
+stakeholders in the restructuring" — produces an encyclopaedia page. Nobody needs
+it; it is a worse Wikipedia. A premise — "the outcome turns on whether the court
+accepts this particular valuation" — produces a page with a reason to exist, and
+it tells you what graph and what tool belong on it, because a premise is a claim
+that can be tested and a tool is a way to test it.
+
+The test for whether something is a premise is mechanical: **if this turned out
+to be false, would the main article change?** If not, it is background, and it
+belongs in a sentence rather than a page. That also answers "which one or two
+points do we branch on" by ranking rather than by taste.
+
+This matters directly for what you asked. "Extracting the concepts out of the
+articles" could mean either thing. The tags we already produce on 9,622 articles
+are the topic kind — useful for spotting that four articles are about the same
+story, useless for deciding what the feature should argue. **Those are two
+different extractions, and we have a weak version of the first and none of the
+second.**
+
+That note also spotted something I would have got wrong: the July idea spreads
+one topic across many *sites*, and the Thames idea spreads one topic across many
+*pages of one site*. They are the same feature seen from two directions — and
+what you have asked for today wants both at once. The warning attached is that if
+we build either half without noticing, the shared research gets invented twice in
+incompatible ways.
+
+**The best news is at the end of it.** That note said the real blocker was not
+the drawing but the data — that our facts each carry a single value and no sense
+of *when* that value applied, so a historical graph had nothing honest to plot,
+and building the chart first would just tempt a writer to make the numbers up. It
+recommended four steps, in order.
+
+I checked the live system, and **the first two of those four are done.** The
+series data shape was built and one site has a real one registered; the
+time-series chart component is live and has served a real five-point series on a
+public page. Both landed the day after that note was written.
+
+So we are not at "design a pipeline". We are at **step three: hand-build one
+worked example**, human-written, so we learn what good looks like before
+automating anything. That was the recommendation then and everything I checked
+today still supports it.
+
+One last thing worth flagging, because it is a rule rather than a fact. There is
+an existing defect where a tool that fails its own quality check automatically
+raises a repair job carrying the failing criteria as the specification — and on
+one occasion the only way to satisfy that was to delete a legally required
+consent notice. It was caught by hand. That is fine while a person is watching
+one tool at a time. A workflow generating pages and tools automatically, across
+premises and sites, takes the person out of exactly that position. So the rule
+the earlier note proposed, and I would keep: **anything this lane generates goes
+to human review, and never into automatic repair.**
