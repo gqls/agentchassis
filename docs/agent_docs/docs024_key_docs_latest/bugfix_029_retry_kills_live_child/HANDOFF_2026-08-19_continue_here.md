@@ -88,8 +88,29 @@ Three changes from `d02a6958`, each answering something that run spent an iterat
    `createContinuationContext`, `createAwaitedRequest` to the previous five. All verified present on
    `origin/087_towards_multiple_domains` before dispatch.
 
-Read it with NOTES §14's frame: `UNVERIFIABLE` from THIS run would mean something different again,
-and the fields that matter are `Citations`, `NeededEvidence` and `NextScope` — not `status`.
+**VERDICT READ: `UNVERIFIABLE`, `stopped_by = scope-not-narrowing`, ONE iteration. This is a
+REGRESSION and it is mine.** `d02a6958` managed three iterations and real Tier-1 citations; this
+managed one. It *did* issue the reconstruction CTE as its first `DataRequest` — so that mechanism
+works — but stopped before iteration 2, where the results would have arrived.
+
+⚠ **I changed THREE things at once (SQL in symptom; cap warning; seed scope widened 5 → 6 with the
+previous run's `NextScope`), so the regression cannot be attributed.** Seed widening is the obvious
+suspect on the stop reason — `scope-not-narrowing` judges against what you handed it, and I handed it
+a wider start — but that is a hypothesis, not a measurement. NOTES §15, `WRONG_CALLS.md` 2026-08-19.
+
+### ➡️ THE NEXT RE-FILE: CHANGE ONE THING
+
+Take `d02a6958`'s symptom and seed scope **byte-identical** (the original FIVE symbols —
+`continueExecution`, `handleCompleteResponse`, `persistAwaitingStateWithRetry`,
+`skipToNextLoopIteration`, `processResponse`) and add **only** the reconstruction SQL. Then the
+result means something:
+- reaches iteration 2 and reads the results → the seed widening caused the regression, and the rule
+  is **never seed with the previous run's `NextScope`; that is what the loop is for**;
+- stops at `scope-not-narrowing` again → the SQL (or the longer symptom) is implicated, and the
+  reconstruction should be delivered some other way.
+
+**`d02a6958` remains the high-water mark** and its findings stand. Today's regression is about how the
+tool was driven, not about the evidence.
 
 ## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
 
