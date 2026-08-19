@@ -11,6 +11,68 @@ site: **39 full chains run and discarded in ~2.5 hours.**
 
 ---
 
+## CONTRIB 2026-08-19 (filing lane) — **the fix is PROVEN at the per-run level, and the obvious way to verify it reads as a failure**
+
+Not my fix — taken and shipped by another lane (`6be66bceb`, migration 488, live on `v1.0.1314`,
+now `v1.0.1315`). This contributes the two things I owed this file: **the per-orchestration join it
+declared UNMEASURED**, done on a fresh burst as required, and **a trap in the natural verification**.
+
+### 1. The join is closed, and it is a clean natural experiment with both controls
+
+Six `page-build-handler` runs since the roll (pods ~12:16 UTC). Times are `created_at`:
+
+| build | failed step | matching `page-content-writer` run |
+|---|---|---|
+| 12:18:20 | `validate_content` | **12:18:39** (+19s) |
+| 12:21:01 | `validate_content` | **12:21:55** (+54s) |
+| 12:28:58 | `validate_content` | **12:29:36** (+38s) |
+| **13:37:08** | **`load_page_record`** | **none** |
+| **13:37:59** | **`load_page_record`** | **none** |
+| **13:38:35** | **`load_page_record`** | **none** |
+
+**3 writer runs, 3 link-resolver runs, 6 builds** — and the three that reached `validate_content`
+each spawned a writer within a minute while the three refused at `load_page_record` spawned
+**none**. That is this file's own "How to verify" recipe satisfied on real traffic, both halves:
+owned pages refuse at step 2 with no writer, **and** generic pages still run the writer normally,
+which is the control that separates "the guard works" from "the writer is broken".
+The three refusals quote `OWNED_PAGE_GUARD: page <name> is rebuild_policy=owned …` from
+`load_page_record`, on `learn-algorithms-bayesian-theory` (×2) and
+`learn-algorithms-p-values-explained`.
+
+> **This supersedes the caveat in "The evidence" below.** That section's 39/39/39 was three
+> aggregates over one window and said so; this is the per-run linkage it asked for. Note it had to
+> be a **fresh** burst — the 08-18 rows are now past the ~24h retention and both counts read **0**
+> today. ⚠ **A reader re-running the original query now gets `burst_0818 = 0` and could conclude
+> the burst never happened.** It did; it was measured live on 08-18.
+
+### 2. ⚠ THE TRAP: `refused_by='load_page_record'` reads **ZERO**, and that is CORRECT
+
+The obvious check — "did the new guard file its rows?" — returns **0 rows** with
+`spec->>'refused_by'='load_page_record'`, against 66 from `save_page_sections`. **That is not a
+failure and the guard is not silent.**
+
+`emitOwnedPageReviewItem` inserts `ON CONFLICT DO NOTHING` on `(site_id, item_key)`, and
+`idx_swi_dedup`'s partial predicate excludes only
+`complete, verified, rejected, wont_fix, failed, unresolved, cancelled` — **`needs_human_review` is
+NOT excluded, so it sits INSIDE the open set.** Both pages refused today already carry an open
+`owned_page_review` row filed by the *save* path on 2026-08-17 (`bayesian-theory` 20:45:20,
+`p-values-explained` 20:47:47, both `needs_human_review`). So the new emission was correctly
+deduped away, and the surviving row keeps `refused_by='save_page_sections'` — the first filer wins.
+
+**The consequence for anyone verifying this fix:** on exactly the pages most likely to be
+re-attempted — the ones already refused once — the new path can **never** file a row. Counting by
+`refused_by` therefore understates the new guard by construction, and on a mature estate it may
+read zero for ever. **Verify at `orchestration_states.__step_error` (`failed_step='load_page_record'`
+with `OWNED_PAGE_GUARD` in the message) and at the ABSENCE of a writer run, not at the row count.**
+
+### 3. What this measures for the estate
+
+`owned_page_review` totals are now **66 via `save_page_sections`** (newest **11:43:24 today**,
+i.e. before the roll) and **0 via `load_page_record`**. The save-path guard has not filed since
+the roll — consistent with the earlier refusal now catching these builds first, which is the
+intended outcome. ⚠ **Three refusals is a small sample over three hours**; the 08-18 burst was
+overnight, so **the real test of the rate is the next overnight window**, not this afternoon.
+
 ## The evidence
 
 `[MEASURED 2026-08-18 12:20 UTC]` on webdesign.co.uk, window 02:30–05:00:
