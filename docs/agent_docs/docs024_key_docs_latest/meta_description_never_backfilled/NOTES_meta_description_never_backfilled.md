@@ -283,3 +283,82 @@ unguarded clause) was run too, and does fail.
 cap. It is cited as a **contributor** — it supplied M2 and named the `site_snapshots`
 test — and never as ratification. Every figure in `320` is first-hand and carries its
 query or `file:line`.
+
+---
+
+## 2026-08-19 — council round 1: REVISE, and it found a real defect
+
+Correlation `46734ae9-91c5-47d6-9a8a-4cd1fa213d21`. Decision **REVISE**, gated by
+`bug_historian` (HIGH), seconded by `guardian` (HIGH). 11 of 16 seats approved.
+
+### Misstep 5 — I fixed ONE of FOUR write paths and called M2 closed
+
+The objection, near enough verbatim:
+
+> *Landmine on record: 'There are THREE `pages` upsert helpers and they have OPPOSITE
+> collision policies'. This plan patches ONE. This is exactly the recurring shape at
+> 016b §9: 'one call site of a shared judgement gets the rigorous fix; the sibling stays
+> heuristic.'*
+
+I checked instead of arguing, and **there were three more**, each with the same
+empty-default upstream:
+
+| site | why its value can be `""` |
+|---|---|
+| `apply_adoption_plan_action.go:546` | `metaDesc, _ := pm["meta_description"].(string)` — a bare type assertion |
+| `adopt_verbatim.go:470` | `extractHTMLMetaDescription` **explicitly `return ""`** when the source HTML has no meta tag |
+| `cmd/webdesignport/import.go:182` | `p.MetaDescription` is `""` for an imported page carrying none |
+
+`adopt_verbatim` is the one I would bet actually fired: **re-adopting a page whose source
+HTML lacks a description blanked a good one.** All four now carry the guard; the sweep
+`grep -rn 'meta_description = EXCLUDED' --include='*.go' . | grep -v COALESCE` returns
+**0 live sites**.
+
+**The check I skipped, and it is in MEMORY under my nose:** *grep LANDMINES for the
+SYMBOL you are about to trust — the SessionStart hook only matches files already DIRTY,
+so a shared helper is never shown.* `site_db_actions.go` was not dirty when I started, so
+the hook showed me nothing, and there were `doc_notes` landmines keyed
+`pages.meta_description` from **08-14, 08-15 and 08-18**. One grep before touching the
+file would have handed me the sibling list in the first round.
+
+### And the prior art I missed entirely
+
+`idea_uk_vm_site/sql/2026-08-15_fix_head_title_meta.sql:40`, four days before I filed
+`320`:
+
+> *"pages is a materialised cache; site_db_actions.go:1173 re-upserts
+> meta_description = EXCLUDED.meta_description unconditionally, so 6a alone regresses on
+> the next plan sync."*
+
+Another lane had the mechanism, in writing, in a committed file. They were fixing copy on
+two sites and noted in passing that the cache would regress. I filed it as a new
+discovery. **The finding stands, and it was not new.**
+
+That prior art also gave me something round 1 lacked: `pages` is a CACHE, and
+`site_plan_pages` is the SOURCE. Which lets me verify `485` end to end rather than
+assert it — `write_site_plan_action.go:535` reads
+`GetStringField(raw,"meta_description","")`, **exactly the key 485 adds to the planner's
+template**, and `:631` inserts it into `site_plan_pages`, from which `upsertPage` binds
+it into `pages`. That was round 1's very first reviewer check, and I could not have
+answered it then.
+
+### What I could answer with evidence
+
+- **`UpsertPageForRole` is safe by construction** — it rewrites only columns the caller
+  names in `Refresh`, and all five live callers name `url`/`title`/`sections` or `{}`.
+  **Enumerated, because asserting it without the query is itself the objection.**
+- **Sibling columns** (medium): `meta_description` was the **only** column in
+  `upsertPage`'s clause with an empty default — `name`→`page-N`, `title`→`name`,
+  `url`→computed, `page_type`→`"content"`, `nav_label`→`title` and already guarded. That
+  asymmetry is *why* this column and no other produced the defect.
+- **`103` is CLOSED**, checked at the path
+  (`bugs_closed/103_HANDOFF_2026-07-27_…`). The objection's premise that the index lists
+  it as open is mistaken — noted rather than accepted, since a wrong status accepted
+  quietly is how the next reader inherits it.
+
+Round 2 resubmitted on the SAME correlation so the trail accumulates.
+
+**The tally that matters: two council rounds, and round 1 found a defect that would have
+shipped as "M2 closed" while three paths still blanked descriptions.** That is the second
+time this lane's confident conclusion needed an outside check — the first was the `090`
+loop refusing my "frozen at creation" framing.
