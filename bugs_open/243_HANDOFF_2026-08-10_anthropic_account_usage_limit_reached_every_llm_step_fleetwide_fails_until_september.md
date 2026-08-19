@@ -476,3 +476,73 @@ alone does not tell you whether the failures are still arriving.
 **Does not reopen or close anything here.** The bug's own point stands unchanged and this is
 evidence for it: adding credit restores service and prevents nothing, and `bugs_open/244` remains
 the actionable prevention.
+
+---
+
+## CONTRIBUTION 2026-08-19, from the `bugfix_302_design_repair_verification` lane — this bug's cost on the COUNCIL GATE is roughly a coin-flip per round, and the reason is one config line ×17
+
+Not a new instance; a measured consequence on a specific consumer, contributed rather than
+filed separately.
+
+**What happened.** Two council submissions ended `complete_invalid` within minutes of each other,
+neither reviewed. The step error is this bug verbatim: *"step review_editquality failed: failed to
+execute action execute_llm_prompt: AI endpoint unavailable … status 400 … You have reached your
+specified API usage limits. You will regain access on 2026-09-01"*.
+
+**Read correctly, per this file's own §the-message-is-not-the-calendar** — which stopped me
+reporting a fleet outage. [MEASURED 2026-08-19 10:33Z] `llm_call_log` for the current hour reads
+**57 ok / 7 failed**, and over three hours only **5** of the failures are the cap. **The fleet is
+not down; the cap is intermittent at roughly 5% of calls.** The September date carried, as this
+file establishes, no information at all.
+
+**The finding: the council gate has no tolerance for a per-seat transient, and that is a config
+line repeated 17 times.**
+
+```sql
+SELECT COALESCE(v->'config'->>'error_step','(none)'), count(*)
+FROM agent_definitions, LATERAL jsonb_each(default_config #> '{workflow,steps}') AS s(k,v)
+WHERE type='council-gate' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND (k LIKE 'review_%' OR k LIKE 'gate_%') GROUP BY 1;
+--  complete_invalid | 17
+--  (none)           | 12
+```
+
+⚠ **Note the nesting, because I got it wrong first time**: `error_step` sits inside `config`, not at
+the step level. Read at the step level the same query returns "(none) | 29" — a clean, confident,
+completely wrong answer that would have hidden this.
+
+**The asymmetry is the point.** A seat that returns *unparseable* output is tolerated — the verdict
+metadata carries `unreadable` and `abstained` counters for exactly that, and a round with 7
+abstentions still decided. A seat whose LLM call *errors* takes `error_step: complete_invalid` and
+**discards the entire round**, including the 9 seats that already answered. Garbage is survivable;
+a transient is fatal.
+
+**The arithmetic, and its limits.** A round fires ~10 relevance-gated seats, each making at least
+one call. At the measured ~5% per-call cap rate, P(at least one seat 400s) ≈ 1 − 0.95¹⁰ ≈ **40%**.
+[MEASURED, n=4 — a small sample and stated as such] of this lane's four rounds over two days, two
+completed (one APPROVED, one REVISE) and two died `complete_invalid`. Consistent with ~40%, and not
+evidence for a precise rate.
+
+**Why it matters beyond annoyance:** a discarded round costs the full credit spend of every seat
+that had already answered, and it is indistinguishable at a glance from a submission being
+*rejected* — the orchestration reaches `complete_invalid`, which reads like a verdict and is not
+one. **A `complete_invalid` with a 400 in `__step_error` is a TRANSIENT: resubmit.** That is the
+opposite of the standing advice for a missing orchestration row (which is latency — do not retry),
+so the two cases need telling apart before acting:
+
+```sql
+SELECT collected_data->>'__step_error' FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+```
+
+**Cheapest fix, in this file's existing idiom:** point the seats' `error_step` at a
+tolerate-this-seat path rather than `complete_invalid`, so a transient costs one seat's opinion
+instead of the round — the machinery already exists, since abstention is a first-class outcome the
+decision rule handles. A retry on the seat would also work and is more expensive. Both are config,
+not code.
+
+⚠ **And one trap for whoever fixes it:** resubmitting without `RESUBMIT_CORR` mints a NEW submission
+correlation, which silently orphans any commit already carrying the old one in a
+`Council-Submitted:` trailer — the `098` report joins on that id and the old run has no verdict to
+resolve to, for ever. I did this on one of the two resubmissions and had to record the new
+correlation in a follow-up commit.
