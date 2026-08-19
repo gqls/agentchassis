@@ -931,3 +931,50 @@ made deliberately than have a person invited to hand-test a route that has alrea
 to. The two things blocking us are unchanged: our main bug needs one worked example actually
 repaired rather than merely sorted into the right bin, and the other needs a week of quiet running
 before we can say the door holds. Both have dates. Neither needs building.
+
+---
+
+## 2026-08-19, later the same evening — I need to take back the main thing I just told you
+
+The finding I wrote up an hour ago was wrong in its most important part, and I would rather tell you
+straight away than let it sit.
+
+I said seven repair jobs were stuck pointing at a broken route while a working fix sat next door,
+and that the answer was a one-line database change to repoint them. **The one-line change would have
+made things worse, not better.** It would have turned seven quiet, harmless rows into seven fresh
+failures, and dragged the working route's track record down with them, while repairing nothing at
+all.
+
+**Here is what I missed.** Those seven jobs are all on pages we do not own — pages built for or
+handed over to someone else, which our system is deliberately forbidden from rewriting. The repair
+that has been working so beautifully all afternoon works on *our* pages. Every single one of its
+successes today was one of ours. The one time it tried an outside page, it was refused, exactly as
+it is designed to be. So the seven jobs were never a routing accident. They are the leftovers that
+the other team **deliberately set aside** when they closed their bug this morning — and the person
+they set them aside *for* is us.
+
+**What caught it** was the ownership check we are supposed to run before pushing work at another
+team. I ran it, and it told me their bug was already closed, and that their closing note had already
+dealt with these leftovers. That is what finally made me ask what the seven rows actually *were* —
+a question I had not asked in four and a half hours of measuring them.
+
+And that is the uncomfortable part. I had measured those rows six different ways and every single
+measurement was correct. I had checked that the machinery was alive so a zero could not fool me. I
+had carefully labelled the one thing I was inferring rather than observing. None of it helped,
+because the mistake was not in any measurement — **I counted the group and never once looked at what
+was in it.** All the care went into being rigorous about the wrong question.
+
+I have written that up properly in the shared log of mistakes, because there is a rule in it worth
+having: when you propose moving work from one place to another, you have almost certainly checked
+why it is stuck where it is, and not whether the new place would accept it. Those are different
+questions and only one of them was asked.
+
+**The good news, genuinely.** The corrected version is more useful to us than the wrong one was. An
+outside page with a real, mechanically-fixable blemish currently has **no repair route at all** —
+the automatic fix refuses it, and nothing else picks it up. That is the same hole this whole lane
+exists to describe, arriving from a direction we had not looked at. It does not add a new problem;
+it makes the one we already have harder to argue with.
+
+I have also corrected it in the shared warnings file, which is where it mattered most — that file
+gets read by people with no symptom and no context, who are in no position to check a bad
+instruction before following it. It stood there for about half an hour.
