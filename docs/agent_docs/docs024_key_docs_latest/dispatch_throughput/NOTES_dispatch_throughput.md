@@ -63,3 +63,19 @@ on the same subsystem).
 - The `job.*`-topic and adapter-serialisation facts above are the 08-18 state; the adapter
   "treadmill" 0/5 failure and the chassis 8-concurrent ceiling are from
   chassis_replica_scaling's measured record (07-28), not re-measured today.
+
+## 2026-08-19 — PLAN §3 items 2 and 3 dissolved on contact with the record
+
+- §3.2 (reconcile 029's mechanism): **already done, 2026-07-21, in 029's own file** —
+  "CORRECTED DIAGNOSIS 2026-07-21 … the title mechanism is wrong; this is bug 003's blast
+  radius, not a concurrency-group bug", with the countInFlight row-count analysis this PLAN
+  wanted written. The PLAN's author (08-18) missed it; I nearly re-derived it. The cheap
+  check that caught it: grep the bug file for "CORRECTED" BEFORE planning a correction.
+- §3.3 (wedged-loop diagnosis): **actively owned by the 029 lane as of this morning** —
+  six 029 commits on 08-19; their `cfdb247c4` shows the morning's 090 refuted the wedge on
+  a false premise (awaited_requests retains 7d, 20 instances live) and narrows the death to
+  `continueExecution` for `iter_N+1_call_handler` on the response-consumer goroutine.
+  NOT re-filing. Also noted: 029 "part A" (inverted retry window) FIXED, behaviourally
+  proven 08-18 18:28Z, live on v1.0.1309; fleet now at **v1.0.1314** (my 08-18 baselines
+  were taken on the 1310 fleet — dated accordingly).
+- Both corrections written into PLAN §3 visibly (strikethrough + CORRECTED blocks).

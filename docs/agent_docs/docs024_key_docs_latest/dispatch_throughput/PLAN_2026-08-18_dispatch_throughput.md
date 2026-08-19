@@ -60,21 +60,22 @@ Median handler runtime is 36 s; the items are fast, the turns are scarce.
    `loadDueTasks` enforces single-flight per row" — point at `cmd/scheduler/main.go`
    (`countInFlight`, `loadDueTasks`, the cap test at `:181`), `scheduled_tasks`,
    `orchestration_states`. No counts in the symptom; the loop fetches its own.
-2. **Reconcile `bugs_open/029`.** It models the halt as hung orchestrations filling a
-   pool of 8. That does not match today's `countInFlight` (which never reads
-   `orchestration_states`). Either 029 described an older scheduler (the 048 fix
-   rewrote this area 2026-07-21, two days after 029 was filed) or its mechanism section
-   was never right. `git log` the July history of `cmd/scheduler/main.go`, then correct
-   029 **in its file, visibly** — its fix candidates 1/2 (reap/discount stale
-   orchestrations) aim at a counter that no longer exists, while its observed
-   consequence is real and today routes through the per-task guard + `call_dispatch`
-   waits. Run `scripts/who-owns.py 029` first.
-3. **Check the wedged-loop diagnosis** (`needs_diagnosis` filed 2026-08-18 12:14,
-   status `failed` at last read: a `build-dispatch-loop` frozen at
-   `process_item_iter_N_spawn_handler` after a retry replay). Under single-flight, one
-   wedged loop stalls the **fleet** for up to `timeout_seconds` per tick — it is this
-   workstream's availability twin. If the diagnosis stays failed, re-file it with the
-   090 trigger rather than leaving it dead.
+2. ~~**Reconcile `bugs_open/029`.**~~ > **CORRECTED 2026-08-19 (pickup session): this
+   step's premise was stale when written — 029's file has carried the exact
+   reconciliation since 2026-07-21** ("CORRECTED DIAGNOSIS 2026-07-21 … the title
+   mechanism is wrong; this is bug 003's blast radius, not a concurrency-group bug",
+   including the countInFlight row-count analysis). Caught by reading the file before
+   editing it, after `who-owns` showed six 029 commits on 2026-08-19 alone. Nothing to
+   correct; do not edit 029 — it is ACTIVELY OWNED (part A fixed + behaviourally proven
+   2026-08-18, live v1.0.1309/1314).
+3. ~~**Check the wedged-loop diagnosis**~~ > **CORRECTED 2026-08-19: owned — do not
+   re-file.** The 029 lane ran a 090 on the wedge the morning of 08-19, found it refuted
+   on a false premise (`awaited_requests` retains 7 days and held 20 instances), and has
+   narrowed the death to `continueExecution` for `iter_N+1_call_handler` on the
+   response-consumer goroutine (`cfdb247c4`). This workstream's stake stands: one wedged
+   loop stalls the fleet for up to `timeout_seconds` per tick under single-flight —
+   track their fix, contribute measurements into their file if dispatch metering
+   surfaces a wedge.
 
 **Exit criteria:** 090 verdict recorded; 029 corrected or confirmed; NOTES started.
 
