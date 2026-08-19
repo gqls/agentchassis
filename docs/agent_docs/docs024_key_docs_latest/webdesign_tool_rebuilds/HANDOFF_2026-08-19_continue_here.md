@@ -60,6 +60,38 @@ and it costs ~2 minutes per tool. That has become the lane's main product.
   on three pages, including two that were serving correctly). One page was skipped by four completed
   rerenders and published itself ~6 h later.
 
+## TRACK 1 IS DONE — the generator now carries the quality rules (migration 481, APPLIED 2026-08-19)
+
+**Owner ruling 2026-08-19: fixes must extend into the framework.** Six defect classes this lane had
+been fixing one brief at a time are now **rules 15-20 of the tool-generator's own contract**
+(`agent_definitions` → `{workflow,steps,generate_tool_html,config,prompt_template}`, 2,865 → 4,340
+chars, config-only, live immediately, snapshot-backed rollback in `481_..._ROLLBACK.sql`):
+
+| rule | class | measured on |
+|---|---|---|
+| 15 | never report success you have not verified | copy buttons calling `showCopied()` unconditionally |
+| 16 | real listeners, never inline `onclick` / a global | 42 of the 55 remaining ported tools |
+| 17 | no `alert()` / `confirm()` / `prompt()` | 25 of 55 |
+| 18 | validate parsed values; never silently do nothing | `json-cleaner`'s NaN limit |
+| 19 | errors never destroy the user's output | `json-cleaner` writing a parse error into the output box |
+| 20 | show input/output sizes on any transformer | `html-minifier` legitimately changing 2.9% and looking broken |
+
+**CONSEQUENCE FOR EVERY FUTURE BRIEF: do not repeat these. Delete them.** A requirement stated in both
+the contract and the brief is the drift surface — the day they disagree nobody knows which is
+authoritative. **A brief should say only what is true of THIS tool.** The first brief written this way
+is `tool-noise-generator` (item `49536dc1`), which is also the live test of 481.
+
+**Still owed (Tracks 2 and 3), and they need code, not config:**
+- **Track 2, a checker.** Rules bind only what is generated NEXT; they cannot see the 55 already
+  deployed. A discovery check in `platform/orchestration/actions/discovery_checks/` — same shape as
+  `orphan_element_refs` (TL-032) — is what makes the classes self-detecting. Council gate + roll.
+- **Track 3, a handler.** A check that files an item nobody handles is a queue, not a fix
+  (`bugs_open/161`'s dead `needs_rebuild` is the cautionary case). Confirm the raised item type has a
+  live handler BEFORE shipping the check.
+- ⚠ **Do NOT put the `bugs_open/303` workaround into the contract.** It would bake tag-obfuscation
+  into every generated tool. Keep it per-brief, only for tools that emit or manipulate markup, until
+  303 is fixed.
+
 ## THE PATH TO 63/63 (owner ruling 2026-08-19: framework ownership of ALL 63 tools)
 
 **The audit question is settled and it is NOT extra work.** Reading the live script is step 1 of every
