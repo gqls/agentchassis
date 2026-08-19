@@ -603,3 +603,29 @@ same blindness in the SHARED guard). The REVISE loop earned its cost twice over.
 `35d2e0f9c`/`79fa79fb4` — v1.0.1315 predates both) → digest+ancestry verify BOTH → 486 → 487 →
 drain → --bindings exit 0 → LMC judged sequence. Commits applying 486/487 may carry
 `Council-Reviewed: 07635a2f` — the verdict has been READ.
+
+## 2026-08-19 (session 7) — GATE CLEARED: v1.0.1316 verified, 486+487 APPLIED, 67-item repair batch draining
+
+Roll verified per RUNBOOK §1: both pods v1.0.1316 at one digest (`2d0d3defc…`), local tag
+digest MATCHES, revision `07eeba4a1` — `35d2e0f9c` AND `79fa79fb4` both ancestors. Binary
+probes with controls: `scriptStubRegression` 3 / absent-control 0; `repair_instance_scope_bindings`
+5 / `no_such_symbol_283_xyzzy` 0. Round-9 verdict RE-READ first-hand from diagnosis_artifacts
+before writing the trailer (approved, 2026-08-19 15:53).
+
+**486 applied by hand** (ON_ERROR_STOP): pre-image snapshot `076455bf`, both guarded UPDATEs
+hit 1 row, verify DO passed incl. the PREPARE-compile. **487 applied**: enforced 486-first
+precondition passed; **seeded 67 items, 42 high**. ⚠ 42 ≠ the 14 "serving-broken" measured at
+design time, and that is TWO effects, not one defect: (a) the severity predicate marks
+serving-CONVERTED bytes, a SUPERSET of serving-broken (confirmed live: `tool-css-unit-converter`
+was high yet repaired as "already sound"); (b) pages keep rerendering onto converted templates,
+so the serving set grows hour by hour. Severity is prioritisation only — no action.
+Both files renamed away from _HOLD and `--record-only`'d; renames committed `88ad91433` with
+`Council-Reviewed: 07635a2f` (verdict read).
+
+**Drain under monitor** (poll 60s, exits when nothing in-flight). Early spot-checks match the
+design exactly: fixed:true with named repairs (css-specificity: 2 binding literals;
+supplier-comparison: concat prefixes) + "already sound" no-ops + auto-filed `page_rerender`
+items. **First live owned-page delivery observed**: `section_edit_tplfix_f99de4cc…`
+(tool-fuel-cost-estimator) — 486's create_section_edit_delivery firing in production; its
+completion + the page's redeploy is the runtime proof of the empty-field_updates link the
+canary was to establish. Watch it to completion before citing the link as verified.
