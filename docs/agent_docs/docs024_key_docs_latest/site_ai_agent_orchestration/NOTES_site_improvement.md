@@ -761,3 +761,34 @@ are not equivalent:
 
 **NOT ACTED ON.** Recorded and put to the owner. Nothing is queued, nothing is at risk, and the
 page has been in this state since April.
+
+### `pricing` shrink investigation — STARTED, first finding: the text the floor is PROTECTING is itself defective
+
+Owner chose "investigate the shrink first" (2026-08-18 evening). First step only — the **existing**
+call-to-action's visible text, the 483 chars the floor refused to let drop to 213:
+
+> Ready to Talk Architecture, Not Estimates? If you're evaluating AI agent infrastructure for
+> production, the real costs are in failure modes, re-architecture, and provider lock-in — not the
+> initial build. Before we talk scope, use our **`[LLM Provider Cost Comparison Calculator](/tools/tool-llm-cost-calculator.html)`**
+> to get a concrete number on token costs across providers and whether self-hosting makes sense at
+> your scale. Then let's have a direct conversation about what your system actually needs to run
+> reliably. Discuss Your Requirements Explore Our Services
+
+⚠ **That is LITERAL MARKDOWN being served as visible text on the live page** — the link syntax is
+not rendered, it is printed. So a meaningful slice of the 483 chars the guard is defending is a
+defect, not copy: the URL and the bracket/paren punctuation are only "text" because the markdown
+was never converted. This site already carries open `literal_markdown` work items (1 failed, 2
+needs_human_review), so it is a known family here.
+
+**Why this matters for the decision, and why it is NOT yet an answer:** it means the 44%-kept figure
+is measured against an inflated baseline, so the regenerated CTA may be losing far less real copy
+than 56%. It does **not** yet establish that the replacement is acceptable — that needs the
+regenerated text itself, which was never written (the save was refused, correctly).
+
+**NEXT STEP, not taken:** recover what the rebuild actually generated. It is not in
+`page_components` (nothing was written). Look in the orchestration for item
+`889a0687-cc0a-4f5e-8693-9ee6ca98751a` — `orchestration_states.collected_data` for the
+`page-build-handler` run of 2026-08-17 20:28Z — and compare its `call-to-action` section against
+the text above **on the visible-text axis**, not tag-stripped (LANDMINES: the two axes agree on
+zero pairs in eight days). ⚠ Chassis log retention here is ~4 minutes, so a log grep cannot recover
+this and its control will also be zero.
