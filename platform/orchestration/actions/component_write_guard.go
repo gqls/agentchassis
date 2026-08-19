@@ -100,6 +100,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/content"
@@ -235,6 +236,27 @@ func componentRegressionIssues(currentHTML, newHTML string) []string {
 		issues = append(issues, issue)
 	}
 
+	// 4. Script elements KEPT but their bodies STUBBED (council round 8,
+	//    bugs_open/324's judged-gate control generalised): an LLM whole-template
+	//    rewrite can keep every <script> tag and return near-empty bodies — the
+	//    page keeps its markup, loses its program, and no check above sees it
+	//    (the control retained 58% overall and passed this guard clean).
+	//    Deliberately NARROWER than "the script shrank": removing the script
+	//    ELEMENT entirely is the legitimate redesign/extraction shape (6 such
+	//    transitions in history: provocation-card and tool-list dropping JS,
+	//    the js-extraction pattern moving a body behind src=), and a shrunken-
+	//    but-substantial script is a rework (tool-arena-interface v3→v4 kept a
+	//    7KB clean program at 30% of its predecessor). The stub shape is: the
+	//    current row has ≥1000 bytes of inline (non-src) script, the
+	//    replacement still carries inline script elements, and EVERY one of
+	//    their bodies is under 200 bytes.
+	//    Calibration (2026-08-19, per this file's own rule): simulated over all
+	//    235 distinct consecutive component_versions transitions + current
+	//    rows — 0 legitimate transitions match; the gutted-script control does.
+	if stubbedScriptIssue := scriptStubRegression(currentHTML, newHTML); stubbedScriptIssue != "" {
+		issues = append(issues, stubbedScriptIssue)
+	}
+
 	if endsCleanly(currentHTML) && !endsCleanly(newHTML) {
 		issues = append(issues, fmt.Sprintf(
 			"replacement ends mid-token (%q) where the current template ends on a closed tag — the completion was cut mid-stream",
@@ -243,6 +265,53 @@ func componentRegressionIssues(currentHTML, newHTML string) []string {
 
 	return issues
 }
+
+// reInlineScriptElem captures (open tag, body) of each script element so src=
+// elements can be excluded — an empty body behind src= is the js-extraction
+// pattern, not a stub.
+var reInlineScriptElem = regexp.MustCompile(`(?is)(<script\b[^>]*>)(.*?)</script>`)
+
+// scriptStubRegression implements check 4 above. Pure, like everything here.
+func scriptStubRegression(currentHTML, newHTML string) string {
+	if len(newHTML) > len(currentHTML) {
+		return "" // truncation cannot grow an artifact — same exemption as checks 2/3
+	}
+	inlineBodies := func(t string) []string {
+		var out []string
+		for _, m := range reInlineScriptElem.FindAllStringSubmatch(t, -1) {
+			if reScriptSrcAttr.MatchString(m[1]) {
+				continue
+			}
+			out = append(out, m[2])
+		}
+		return out
+	}
+	curMass := 0
+	for _, b := range inlineBodies(currentHTML) {
+		curMass += len(b)
+	}
+	if curMass < 1000 {
+		return ""
+	}
+	newBodies := inlineBodies(newHTML)
+	if len(newBodies) == 0 {
+		return "" // element removed or extracted — the deliberate class
+	}
+	maxLen := 0
+	for _, b := range newBodies {
+		if l := len(strings.TrimSpace(b)); l > maxLen {
+			maxLen = l
+		}
+	}
+	if maxLen >= 200 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"replacement keeps %d inline script element(s) but every body is a stub (largest %d bytes) where the current template carries %d bytes of inline script — the program was deleted while the markup survived",
+		len(newBodies), maxLen, curMass)
+}
+
+var reScriptSrcAttr = regexp.MustCompile(`(?i)\ssrc\s*=`)
 
 // endsCleanly reports whether s finishes on a closed tag, ignoring trailing
 // whitespace.

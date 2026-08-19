@@ -152,12 +152,26 @@ func scriptMass(tpl string) int {
 // judgedScriptMassFloor: the candidate's inline-script mass must retain at
 // least this fraction of the baseline's. The brief only ADDS script text
 // (IIFE wrapper, addEventListener rewiring, DOMContentLoaded registration), so
-// any real shrink is deleted logic. 0.7 rather than 1.0 leaves room for the
-// LLM tightening whitespace/comments; REASONED, not measured against live
-// rewrites (none exist yet) — revisit against the canary's actual ratio.
+// any real shrink is deleted logic — or forbidden tidying.
+//
+// MEASURED against the actual judged pool (2026-08-19, all 30 rows): the worst
+// comment+whitespace fraction of any script is 46.5% (mortgages-stamp-duty),
+// so a rewrite that (against the brief) strips comments and collapses
+// whitespace could legitimately land at 0.54 — BELOW this floor — and refuse
+// to a human. That is the chosen failure direction and stays: refusal costs a
+// triage look; a lowered floor widens the band where genuine partial logic
+// loss passes. The floor is NOT the defence against partial loss that lands
+// above it — no structural check can be (deleting a computation branch while
+// keeping every lookup moves little mass); the per-tool behavioural oracle is,
+// which is why the owner ruled LMC-first. Recalibrate against real rewrite
+// ratios once the canary produces them.
+//
 // Added after council round 7's gating objection, with the confirming control:
 // a script-gutted rewrite of the 22KB affordability template retained 58%
 // overall and passed EVERY pre-existing check (gate + write guard, 2026-08-19).
+// The gut case itself is now ALSO caught by the shared write guard's
+// scriptStubRegression (calibrated: 0/235 historical transitions), so tool-
+// improver's path is covered too.
 const judgedScriptMassFloor = 0.7
 
 // JudgedConversionIssues is the acceptance gate for an LLM-rewritten template.

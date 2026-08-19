@@ -209,3 +209,42 @@ func TestHasUnbalancedStructuralTags(t *testing.T) {
 		})
 	}
 }
+
+// Check 4 (scriptStubRegression, council round 8): the LLM-stub shape — script
+// elements kept, bodies emptied — must refuse; the two shapes history proves
+// legitimate must not. All three fixtures are real bytes: the affordability
+// row (gut control), and the two calibration cases that would have been false
+// positives under a naive mass check (js-extraction to src=, and a rework that
+// keeps a substantial program).
+func TestScriptStubRegression_calibratedShapes(t *testing.T) {
+	base := readFixture(t, "instance_bindings_converted_affordability_283.html")
+
+	gutted := reInlineScriptElem.ReplaceAllString(base, "${1}(function(){ 'use strict'; })();</script>")
+	if issue := scriptStubRegression(base, gutted); issue == "" {
+		t.Fatal("CONTROL FAILED: the gutted-script rewrite must trip the stub check")
+	}
+	if issues := componentRegressionIssues(base, gutted); len(issues) == 0 {
+		t.Fatal("the shared guard must now refuse the gutted rewrite (round-8 HIGH)")
+	}
+
+	// js-extraction shape: inline body moves behind src=; element remains,
+	// body legitimately empty. Must NOT match (the heat-rater transition).
+	extracted := reInlineScriptElem.ReplaceAllString(base, `<script src="/tools/assets/x.js"></script>`)
+	if issue := scriptStubRegression(base, extracted); issue != "" {
+		t.Fatalf("js-extraction must not read as a stub: %s", issue)
+	}
+
+	// element-removed shape: the deliberate redesign (provocation-card class).
+	removed := reInlineScriptElem.ReplaceAllString(base, "")
+	if issue := scriptStubRegression(base, removed); issue != "" {
+		t.Fatalf("whole-element removal must not read as a stub: %s", issue)
+	}
+
+	// identity and growth are exempt.
+	if issue := scriptStubRegression(base, base); issue != "" {
+		t.Fatalf("identity must not trip: %s", issue)
+	}
+	if issue := scriptStubRegression(base, base+"<div>more</div>"); issue != "" {
+		t.Fatalf("growth is exempt by the file's organising principle: %s", issue)
+	}
+}
