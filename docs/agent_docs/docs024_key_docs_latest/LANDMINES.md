@@ -5939,6 +5939,19 @@ a STRING array — check the shape before trusting the prune.
   action reachable only through a registry entry (no Go call site) makes the second half exact:
   the action name is the whole attack surface.
 - **source:** 2026-08-05, `bugs_closed/199` lane, verifying PBP-032's render seam on v1.0.1254
+- **⚠ THE STRONGER CHECK IS THE DIGEST, NOT THE TAG — one command, and it closes the same-tag-cache trap in the same breath (added 2026-08-19).** Enumerating by image proves which *tag* each pod carries; it cannot tell you two pods on the same tag hold the same **bytes**, which is exactly what a same-tag rebuild breaks. `status.containerStatuses[].imageID` is the resolved digest:
+  ```bash
+  kubectl -n ai-persona-system get pods -o json | python3 -c "
+  import json,sys,collections
+  d=json.load(sys.stdin); c=collections.Counter()
+  for p in d['items']:
+      for st in p['status'].get('containerStatuses',[]) or []:
+          if 'agent-chassis' in st.get('image',''): c[(st['image'], st.get('imageID','(none)'))]+=1
+  for (img,iid),v in c.items(): print(v, img, iid)
+  print('distinct digests:', len({k[1] for k in c}))"
+  ```
+  **`distinct digests: 1` is the claim you actually want** — it upgrades "I probed 2 replicas" into "those 2 replicas' bytes are every pod's bytes", fleet-wide, without exec'ing 57 pods. More than 1 means the fleet is genuinely split and a per-pod probe is now mandatory. **[MEASURED 2026-08-19 20:35Z: 57 pods on the chassis image, only 2 labelled `app=agent-chassis`, and `distinct digests: 1` (`sha256:2d0d3def…`, `v1.0.1316`)]** — so the count has grown from the 41 in this heading to **57**, and the label still shows 2. ⚠ **Digest identity is not reachability** — it says every pod runs your code, not that any of them executes it; the positive-control query above is still the other half.
+- **added:** 2026-08-19, `bugfix_277_required_fields_repair` lane — the `301` council's `debug_historian` seat raised this entry's exact concern as an advisory against our deploy proof; checking it turned a valid objection into a better check than the one it criticised
 
 ---
 
