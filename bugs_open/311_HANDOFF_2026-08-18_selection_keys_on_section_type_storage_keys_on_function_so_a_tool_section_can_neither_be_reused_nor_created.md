@@ -121,3 +121,43 @@ check and is the exact damage the guard was built to prevent.
 - `bugs_open/283` — interactive components cannot be reused on one page because
   element ids are literal. A different obstacle to the same goal (reuse).
 - Register `CLC-*` (component library), `DIR-001` (directory pipeline).
+
+## CONTRIBUTION 2026-08-18 (evening) — a third site, 7 of 7 tool functions lost, and the served artefact measured (from the `loanzy_uk_example_site` lane)
+
+An independent reproduction, same day, different lane, **greenfield site with zero prior
+components** — so nothing here depends on aged or hand-edited rows.
+
+`[MEASURED]` `loanzy.uk` (site `55213ded-…`) was built from its domain name alone. Its plan
+contained seven tool sections. **All seven `needs_new_component` items ended `failed`**: six at
+`store_component` with this bug's exact refusal, one at `generate_template` with
+`stop_reason=max_tokens` (a genuine truncation, unrelated). Verbatim, for
+`loans-car-finance-calculator`:
+
+> `rejected by pre-store validation: regeneration removes/renames 10 existing schema field(s)
+> (button_1, button_2, heading_1, heading_2, label_1, label_2, label_3, label_4, label_5,
+> para_1) that dependents' content_data is keyed on — overwriting would strand stored content`
+
+**The incumbent is again `loanandmortgagecalculator.co.uk`** — identified by schema shape, since
+it cannot be found by the name the writer used: `SELECT … WHERE input_schema::text LIKE
+'%label_5%' AND '%button_2%' AND '%para_1%'` returns *"Loans Car Finance Calculator
+(loanandmortgagecalculator.co.uk)"* and three siblings. Searching `content_components` for
+`name LIKE 'loans-%'` returns **0 rows**, which is the §-mechanism showing through: the writer's
+key and the stored name are not the same thing, so the component is unfindable by the identity
+the failing build has.
+
+**The consequence, measured at the served page rather than inferred:**
+`https://loanzy.uk/tools/loan-comparison-calculator/index.html` returns **200, 22,600 bytes,
+and contains ZERO `<input>` elements** (1 button, 2 inline script blocks). It is a calculator
+page with no calculator — prose explaining a tool that is not there, live on the public web,
+with no failure visible to a reader. That is this bug's *"built, deployed and served without
+it"* clause, with a URL attached.
+
+**Scale, stated because this lane's neighbour is about to multiply it:** the portfolio buildout
+plans ~140 finance domains, and the L-family propositions share calculator functions by
+construction (`loans-compare-loans`, `loans-overpayment-calculator`,
+`loans-settlement-calculator`, `loans-interest-rate-stress-test` all failed here). **Whichever
+site creates a function name first owns it, and every later site ships that tool hollow.**
+7/7 is the rate for a site whose whole proposition is calculators — not a tail case.
+
+No `090` filed: the mechanism is already proven in this file with a control; this contribution
+asserts only an occurrence, its incumbent, and its served consequence, each read directly.
