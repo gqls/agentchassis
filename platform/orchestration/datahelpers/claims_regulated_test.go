@@ -2,6 +2,7 @@ package datahelpers
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -200,3 +201,164 @@ func TestAttestationRoundTripsThroughJSON(t *testing.T) {
 		t.Fatalf("field mapping wrong: %+v", eb.Regulated)
 	}
 }
+
+// ── Round 1 council objections (correlation aac38d5b), answered as tests ──────
+
+// TestRegulatedOnlyBaseIsNotSafeToWriteBack answers the guardian's HIGH-severity
+// objection, and it does so by PINNING THE HAZARD rather than claiming it is
+// absent.
+//
+// The objection: LANDMINES names EvidenceBase/ParseEvidenceBase in a cluster
+// warning that "parsing evidence_base through its own typed struct and writing it
+// back DELETES every citation, writer_line, fact field not captured by the
+// struct". Relaxing ParseEvidenceBase's nil-return means rows carrying ONLY an
+// attestation now parse non-nil where before they parsed to nil — so IF any
+// caller persisted the struct, this would newly arm that deletion for a class of
+// rows previously immune.
+//
+// Enumerated 2026-08-19, every caller of ParseEvidenceBase in the tree:
+//
+//	validate_page_content.go:1157, validate_page_content_stats.go:143,
+//	discovery_checks/check_unverified_claims.go:318, cmd/regcheck, cmd/claimscan.
+//
+// All five READ. None writes back. The two real writers
+// (refresh_evidence_base_action.go:683, evidence_citations.go:350) work on
+// map[string]interface{} and never touch the struct, which is what makes the
+// estate safe today.
+//
+// A caller enumeration goes stale the moment someone adds a caller, so this test
+// pins the LOSS instead: it asserts, concretely, what a write-back would destroy.
+// If someone ever makes the struct lossless, this test fails and they must delete
+// it deliberately — which is the right way for that decision to be made.
+func TestRegulatedOnlyBaseIsNotSafeToWriteBack(t *testing.T) {
+	raw := []byte(`{
+	  "writer_block": "house rules the writer must follow",
+	  "schema_notes": "notes the struct does not model",
+	  "facts": [{"id":"f1","claim":"x","kind":"metric",
+	             "source":{"type":"url","citation":{"url":"https://example.gov.uk","quote":"verbatim"}},
+	             "writer_line":"how to phrase it","verified_at":"2026-08-19"}],
+	  "banned_claims": [],
+	  "regulated": {"firm_name":"Example Mortgages Ltd","frn":"305432","regulator":"FCA",
+	                "attested_by":"owner","attested_at":"2026-08-19","evidence":"email + register"}
+	}`)
+	eb, err := ParseEvidenceBase(raw)
+	if err != nil || eb == nil {
+		t.Fatalf("parse: %v / %v", err, eb)
+	}
+	if !eb.RegulatedAttested() {
+		t.Fatal("attestation should have survived PARSING — only writing back is lossy")
+	}
+
+	roundTripped, err := json.Marshal(eb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, lost := range []string{"writer_block", "schema_notes", "citation", "writer_line"} {
+		if strings.Contains(string(roundTripped), lost) {
+			t.Fatalf("%q survived a struct round trip — the documented landmine may have been "+
+				"fixed. If so this test should be deleted DELIBERATELY, and the ParseEvidenceBase "+
+				"caller list re-checked, not just made green.", lost)
+		}
+	}
+	t.Log("confirmed lossy: writer_block, schema_notes, source.citation and fact.writer_line " +
+		"are all destroyed by parse+marshal. No ParseEvidenceBase caller may persist the struct.")
+}
+
+// TestUnattestedSitesSeeOnlyRegulatedAdditions answers the guardian's medium
+// objection: ScanAllBannedClaimsWithSuppressed is the choke point for the deploy
+// gate, the save guard AND the post-deploy audit, so this change is fleet-wide on
+// every scan, not just new builds.
+//
+// "Byte-identical output pre/post" cannot be tested after the fact without the old
+// binary, so this pins the equivalent invariant, which is the one that actually
+// matters: every finding the global+site scan would have produced is STILL
+// produced, and anything new belongs to the regulated family. A site with no
+// regulated language in its copy sees no change at all.
+func TestUnattestedSitesSeeOnlyRegulatedAdditions(t *testing.T) {
+	regulatedPatterns := map[string]bool{}
+	for _, b := range regulatedEvidence().BannedClaims {
+		regulatedPatterns[b.Pattern] = true
+	}
+
+	siteEB := &EvidenceBase{BannedClaims: []BannedClaim{
+		{Pattern: `\bguaranteed (acceptance|approval)\b`, Reason: "site rule"},
+	}}
+	for i := range siteEB.BannedClaims {
+		siteEB.BannedClaims[i].re = mustCompileCI(siteEB.BannedClaims[i].Pattern)
+	}
+
+	corpus := []string{
+		"Figures without a source do not appear here.",
+		"Guaranteed approval for every applicant.",
+		"Nationwide Building Society is authorised and regulated by the Financial Conduct Authority.",
+		"Rates change daily, so check with the lender.",
+		"We are authorised and regulated by the Financial Conduct Authority.",
+	}
+	for _, s := range corpus {
+		combined := ScanAllBannedClaims([]string{s}, siteEB)
+		baseline := dedupeByPattern(
+			globalEvidence().ScanBannedClaims([]string{s}),
+			siteEB.ScanBannedClaims([]string{s}),
+		)
+		seen := map[string]bool{}
+		for _, f := range combined {
+			seen[f.Pattern] = true
+		}
+		// Nothing the pre-change scan raised may have gone missing.
+		for _, b := range baseline {
+			if !seen[b.Pattern] {
+				t.Errorf("pre-existing finding LOST on %q: %s", s, b.Pattern)
+			}
+		}
+		// Anything extra must belong to the regulated family and nothing else.
+		base := map[string]bool{}
+		for _, b := range baseline {
+			base[b.Pattern] = true
+		}
+		for _, f := range combined {
+			if !base[f.Pattern] && !regulatedPatterns[f.Pattern] {
+				t.Errorf("NEW non-regulated finding on %q: %s", s, f.Pattern)
+			}
+		}
+	}
+}
+
+// TestNegatedRegulatedClaimsNeverReachTheNegationGuard answers the edit-quality
+// objection, and it CORRECTS the claim my calibration implied.
+//
+// The objection: all six patterns are subject-to-verb spans, the shape the
+// documented negation-guard defect targets (negatedClaimMatch scans BACKWARDS
+// from match start), and the calibration showed a negated sentence passing
+// without showing the guard's backward scan was exercised.
+//
+// Measured answer: it was NOT exercised, and cannot be. On every negated form the
+// UNGUARDED scan (ScanBannedClaimsIgnoringNegation) also returns zero — the
+// patterns require "authorised and regulated" / "we are <role>" ADJACENCY, and an
+// interposed "not" breaks the match before any guard is consulted. So these
+// patterns are negation-safe BY CONSTRUCTION, not by the negation guard.
+//
+// That distinction is the maintenance hazard this test exists to hold: loosen any
+// of these patterns to tolerate intervening words and they WILL start depending on
+// the backward scan, which this file has never tested and which has a documented
+// defect.
+func TestNegatedRegulatedClaimsNeverReachTheNegationGuard(t *testing.T) {
+	negated := []string{
+		"We are not authorised and regulated by the Financial Conduct Authority.",
+		"We are not a credit broker.",
+		"We are not FCA regulated.",
+		"We do not hold FCA authorisation.",
+		"We are not, and have never been, authorised and regulated by the FCA.",
+	}
+	for _, s := range negated {
+		if got := ScanAllBannedClaims([]string{s}, nil); len(got) != 0 {
+			t.Errorf("negated sentence flagged: %q → %s", s, got[0].Pattern)
+		}
+		if raw := regulatedEvidence().ScanBannedClaimsIgnoringNegation([]string{s}); len(raw) != 0 {
+			t.Errorf("pattern MATCHED %q and was only saved by the negation guard — these "+
+				"patterns are supposed to miss negated forms outright. The guard has a documented "+
+				"backward-scan defect; do not start relying on it.", s)
+		}
+	}
+}
+
+func mustCompileCI(p string) *regexp.Regexp { return regexp.MustCompile("(?i)" + p) }
