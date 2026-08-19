@@ -792,3 +792,57 @@ regenerated text itself, which was never written (the save was refused, correctl
 the text above **on the visible-text axis**, not tag-stripped (LANDMINES: the two axes agree on
 zero pairs in eight days). ⚠ Chassis log retention here is ~4 minutes, so a log grep cannot recover
 this and its control will also be zero.
+
+### Step 2 — the original run's output is UNRECOVERABLE, and the search for it found my own verifier
+
+**The generated sections from the 2026-08-17 20:28Z rebuild are gone.** `orchestration_states` is
+pruned by the `database-cleanup` task, and `COMPLETED` rows now reach back only to **2026-08-18
+14:32** — the run predates that by ~18 hours. Nothing else holds it: `page_components` was never
+written (the save refused), and chassis log retention here is ~4 minutes.
+
+⚠ **The obvious search for it returns a CONFIDENT FALSE POSITIVE, and it is one I created.**
+
+```sql
+SELECT orchestration_id, status, created_at FROM orchestration_states
+WHERE collected_data::text LIKE '%889a0687-cc0a-4f5e-8693-9ee6ca98751a%';
+--> 1 row: 4700bcb3…, COMPLETED, 2026-08-18 18:41:52
+```
+
+That row is **my own `landmine-verifier` dispatch** (correlation
+`f30975fb-d7da-4764-a79c-b64de97143a5`), which matched because the LANDMINES entry I had written
+minutes earlier **quotes that item id**, and the verifier collects the entry text. Read quickly it
+looks exactly like "found it, and it COMPLETED" — the opposite of the truth on both counts.
+**A `collected_data` search finds runs that MENTION an id, not runs that ARE it**, and after you
+document something, the estate's own machinery starts quoting you back. Same family as
+[[your-action-moves-you-to-the-back-of-the-selector]] and
+[[prompt-text-poisons-its-own-detector]]. The tell was the timestamp: it postdated the failure by a
+day and landed inside the minute I ran the dispatch script.
+
+A second near-miss in the same search: a `FAILED` row from 2026-08-19 09:28 matching `%pricing%`
+turned out to be **`webdesign.co.uk`**, matching because its *site plan* names a pricing page.
+
+### Step 3 — re-firing the rebuild is SAFE here, and that is a property of THIS workflow only
+
+To see the copy the floor refuses, the only route left is to regenerate it. Checked before firing,
+because the estate has a recorded trap in exactly this shape (LANDMINES: the composition loops
+`assemble_page → deploy_page(git_commit) → save_sections`, where **freshly LLM-written HTML is
+committed to the deploying repo one step BEFORE the DB refusal**, so a "refused" save can still
+have shipped).
+
+**`page-build-handler` is ordered the other way**, read from the live agent row:
+
+```
+validate_content → save_sections → update_status → spawn_rerender_agent → deploy_page → complete
+```
+
+`deploy_page` is strictly **after** `save_sections`, so a refusal fails the workflow before
+anything deploys. Corroborated by the artefact: the 08-17 refusal left `pricing` serving its April
+render, and all five components still read `updated_at` 2026-04-09/13.
+
+⚠ **Do not generalise this.** Which side of the refusal `deploy_page` sits on is a property of the
+handler, not of `save_page_sections`. `page-build-handler` is safe; `page-rebuild`,
+`pageflow-builder` and `site-work-orchestrator` are the ones that deploy first.
+
+Filed one evidence item (`created_by='aiao-shrink-investigation'`), expected to FAIL at
+`save_sections`. **Baselined all five `pricing` components by `md5(rendered_html)` first**, so
+"nothing was written" can be proven rather than assumed.
