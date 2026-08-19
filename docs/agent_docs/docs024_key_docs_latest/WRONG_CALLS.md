@@ -36994,7 +36994,7 @@ contradicted.
 
 ---
 
-## 2026-08-19 (third entry) — I made the exact mistake I had diagnosed, written a migration to fix, and documented, four days earlier
+## 2026-08-19 (third entry) — I made the exact mistake I had diagnosed, written a migration to fix, and documented, ONE DAY earlier
 
 **Session:** `bugfix-277/083`. Sixth this week. This one is different in kind from the other five and
 that is why it is here rather than folded in.
@@ -37008,10 +37008,15 @@ roughly a 7-day window. The class figure I gave was likewise understated — re-
 `site_work_items UNION ALL site_work_items_archive`, it is **331 completed work items against 55
 pages that contain nothing**, not the handful my numbers implied.
 
-**Why this one is worse than the other five:** *this is my own lane's diagnosed trap.* On 2026-08-14
-this lane established that the promoter's "lifetime" success history was really a 7-day window
+**Why this one is worse than the other five:** *this is my own lane's diagnosed trap, from
+yesterday.* ~~On 2026-08-14~~ **CORRECTED within the hour of writing this entry — it was
+2026-08-18, ONE day before, not four.** I checked the commit date only after writing "four days
+earlier", and being wrong about the interval in an entry about being wrong is exactly the sort of
+thing that should not stand: `a62809d29`, 2026-08-18, *"465: the promoter's 'lifetime' history was
+the last 7 DAYS"*. This lane established that the promoter's history was really a 7-day window
 because it read only the live table, and **I wrote the migration that fixed it** —
-`465_promoter_reads_archived_history.sql`. The whole of `bugs_open/083`'s floor arithmetic depends on
+`465_promoter_reads_archived_history.sql`. **The shorter interval makes the entry's point stronger,
+not weaker.** The whole of `bugs_open/083`'s floor arithmetic depends on
 that UNION. It is in this lane's NOTES, in the migration's own header, and in two handoffs. **Then I
 wrote a work-item count without it.**
 
