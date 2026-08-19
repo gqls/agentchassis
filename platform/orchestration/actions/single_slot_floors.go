@@ -48,10 +48,17 @@ import (
 //	           changes component_id AND slot_name AND html: the markup is SUPPOSED
 //	           to change because the component is a different one. A floor here
 //	           would refuse the operation for doing its job.
-//	N/A        create_tool_component, deploy_tool — INSERT only, ZERO
-//	           `UPDATE ... SET rendered_html` sites (measured 2026-08-13). Not
-//	           rewriters at all, so out of scope by CONSTRUCTION, not by
-//	           exemption — they never appear before the coverage test.
+//	N/A        deploy_tool — INSERT only, ZERO `UPDATE ... SET rendered_html`
+//	           sites (measured 2026-08-13). Not a rewriter at all, so out of
+//	           scope by CONSTRUCTION, not by exemption — it never appears before
+//	           the coverage test.
+//	EXEMPT     create_tool_component — ⚠ CORRECTED 2026-08-19: it WAS create-only
+//	           and listed beside deploy_tool above; its replace_existing arm
+//	           (create_tool_component_regenerate.go, bugs_open/331) now UPDATEs
+//	           the incumbent slot's rendered_html in place. Exempt for the
+//	           component_swap reason — a per-item rebuild of the tool is SUPPOSED
+//	           to change the markup — declared in the coverage test with what
+//	           guards it instead (shared fence, birth gates, archive trigger).
 //	EXEMPT     adopt_verbatim — writes the ORIGINAL adopted document, i.e. it
 //	           creates the prior that everything else is measured against.
 //	EXEMPT     create_report_page — ⚠ CORRECTED: an earlier draft of this comment

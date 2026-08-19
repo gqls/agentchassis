@@ -94,7 +94,7 @@ OPTIONAL_KEY_COUNTS = {
     "compute_component_quality": 5,
     "create_blog_posts": 1,
     "create_rerender_items": 7,
-    "create_tool_component": 3,
+    "create_tool_component": 4,
     "create_tool_cross_link_items": 1,
     "create_work_item": 5,
     "deploy_image_asset": 4,

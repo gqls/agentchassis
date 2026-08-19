@@ -78,6 +78,19 @@ var exemptWriters = map[string]string{
 	// The row is never a decomposed prose block: it is created and owned by this
 	// action, so there is no hand-authored layout for a floor to protect.
 	"create_report_page_action.go": "machine-rendered dossier section it owns; regenerated wholesale, never a decomposed prose row",
+
+	// The REPLACE arm of create_tool_component (bugs_open/331, TL-047): the item
+	// explicitly asked for the site's tool to be rebuilt, so the markup is
+	// SUPPOSED to differ — the component_swap judgement in single_slot_floors.go's
+	// scope table, on a whole-tool scale. A class-retention or text-shrink floor
+	// would refuse the operation for doing its job. What guards the write instead:
+	// the birth gates upstream (tool-doc header + componentTemplateValid), the
+	// shared-template fence (sharedComponentWriteCheck, called in the arm), the
+	// per-item opt-in, and the archive trigger the rendered_html UPDATE fires
+	// (page_component_history keeps the old bytes). Residual exposure, stated in
+	// bugs_open/331 and the lane's 286 "related finding": a hollow regeneration
+	// (zero visible text) passes every gate — a text-content floor is still owed.
+	"create_tool_component_regenerate.go": "per-item replacement of the site's own tool; markup is supposed to change (component_swap shape); fence + birth gates + archive trigger guard it instead",
 }
 
 func TestEveryRenderedHTMLRewriterEnforcesTheFloorsOrIsDeclaredExempt(t *testing.T) {

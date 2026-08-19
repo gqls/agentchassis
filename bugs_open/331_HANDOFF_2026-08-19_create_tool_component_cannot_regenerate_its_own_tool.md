@@ -1,7 +1,7 @@
 # 331 — `create_tool_component` can CREATE a tool for a site but cannot REPLACE one it built there: the per-site probe no-ops, `UNIQUE(name)` collides, and the old slot is retired by hand in a race
 
-**Filed 2026-08-19 by the `bugs_open/286` session while closing 286 (the PAGE half of the same wall). Status: OPEN — fix BEING BUILT (this session), council pending, inert until a chassis roll + a HOLD seed.**
-Diagnosis: `090` intake `b6e461d0-0374-41cf-8f60-71e22af2ea89`, run `44ada235-64a7-4f25-b8bd-8fadb0c78a4e`, filed 20:58Z — **verdict: pending at time of writing; see §6.**
+**Filed 2026-08-19 by the `bugs_open/286` session while closing 286 (the PAGE half of the same wall). Status: OPEN — FIX BUILT + TESTED 2026-08-19 (register **TL-047**, council round `7a82c943-a68a-4e12-bd4b-80db5b4cad72` SUBMITTED 21:45Z), inert until a chassis roll + seed `496_tool_generator_replace_existing_HOLD.sql`.**
+Diagnosis: `090` intake `b6e461d0-0374-41cf-8f60-71e22af2ea89`, run `44ada235-64a7-4f25-b8bd-8fadb0c78a4e`, filed 20:58Z — **CONFIRMED, first iteration (21:02Z); see §6.**
 Owner of the affected lane: `docs024_key_docs_latest/webdesign_tool_rebuilds/` (the lane that walked into every gate below; their RUNBOOK works round all of them by hand). This bug is filed INTO that lane's problem, not beside it.
 
 ## 1. Symptom, in the lane's own words
@@ -48,7 +48,11 @@ Three consecutive days, three gates, each found by walking into it. That pattern
 
 ## 6. Diagnosis-loop verdict
 
-_pending — `SELECT collected_data->'verdict' FROM orchestration_states WHERE correlation_id='44ada235-64a7-4f25-b8bd-8fadb0c78a4e'` (code-tier run: verdict lives there, no `doc_notes` row by design). This section is appended when it lands; a REFUTED verdict goes to WRONG_CALLS and changes §4, not the record above._
+**CONFIRMED, first iteration, 2026-08-19 21:02Z** (run corr `44ada235-64a7-4f25-b8bd-8fadb0c78a4e`; `orchestration_states.collected_data->'verdict'->'result'`, code-tier run, no `doc_notes` row by design). Six citations: three static — the probe SQL (`… cc.is_active = true LIMIT 1`, "already-exists probe"), `componentName := fmt.Sprintf("%s-%s", function, domainSlug)`, the bare `INSERT INTO content_components` — and three runtime, the three `agent_error_log` rows above (`fresh` 08-15 / 08-17 / 08-18). Its `symptom_check`: *"the name is derived deterministically … the bare INSERT carries no ON CONFLICT/collision handling … for the same site the log shows successive regeneration attempts dying on three different uniqueness constraints in turn"* — `explained: true`. **One honest caveat:** the INSERT it quotes has nine bind parameters (no `forked_from`), i.e. the loop read a code snapshot that predates `e24bc9c0f` (§9.3, committed 16:01Z the same day) — so parts (a) and (b) of the symptom are CONFIRMED on evidence and part (c) (the §9.3 fork-of-the-replaced wrinkle) was not examined against the new lookup; it stays `[INFERRED from the code]` above. The fix taken makes (c) moot (no second row is ever written), so nothing rests on it.
+
+## 7. Fix BUILT 2026-08-19 (TL-047) — what shipped in the commit
+
+`create_tool_component_regenerate.go` (the arm + `replaceExistingRequested`), the Optional entry + a 6-line probe branch in `create_tool_component_action.go`, `create_tool_component_regenerate_test.go` (5 arms; two mutation-proven: deleting the slot UPDATE breaks the walk at COMMIT, deleting the zero-placement guard turns the typed refusal into an unexpected UPDATE), `single_slot_floors.go` scope-table correction + `page_component_writer_coverage_test.go` declared exemption with reason, `check.py` `OPTIONAL_KEY_COUNTS["create_tool_component"]` 3→4 (parity test green; **re-apply the overlay after the roll or the daily cron keeps the old literal**), seed `496_…_HOLD.sql`, RFC_036 §12, register TL-047. Full `platform/orchestration/actions` suite green on archive-HEAD + these files. Council `7a82c943` submitted with the rationale naming the write history, the race, the §9.3 interaction and the section writer's convention; consumers = 1 step; RFC_022 Optional 3→4.
 
 ## Relations
 `bugs_closed/286` (page half; TL-044) · `architecture_review/RFC_036` §9.3 (library half, live) + §11/§12 (conventions) · `bugs_open/311` / CLC-020 (section writer's in-place regeneration + `resolveStorageIdentity`) · CTS-009 · LANDMINES "already exists probe ignores build_status" · lane: `docs024_key_docs_latest/webdesign_tool_rebuilds/` (RUNBOOK §"Before REFILING", §"The retire race"; NOTES 2026-08-18 13:51Z).

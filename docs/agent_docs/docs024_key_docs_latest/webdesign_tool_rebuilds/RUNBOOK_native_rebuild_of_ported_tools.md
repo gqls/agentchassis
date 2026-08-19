@@ -245,3 +245,20 @@ you fetch the live tool to write the brief — roughly 40 minutes before the rer
 asymmetry: a **pass** through a stale cache is impossible (a stale copy serves the OLD page, so it
 cannot show the new ids), but a **fail** through one is exactly what staleness looks like. Never
 report a served-page failure from an un-busted fetch.
+
+## ⚠ COMING — re-fixes stop needing the three hand steps once TL-047 rolls + seed 496 applies (added 2026-08-19 by the 286/331 session)
+
+`bugs_open/331` (fix built, council `7a82c943` submitted, inert until the next chassis roll AND
+`sql_for_agents/496_tool_generator_replace_existing_HOLD.sql` is applied): `create_tool_component`
+gains a per-ITEM `replace_existing` input. For a RE-FIX of a tool that is already native on the site,
+put `"replace_existing": true` in the `add_tool` item's `spec` and file — **no deactivate, no rename,
+no retire race**: the generator regenerates the existing component IN PLACE (same `component_id`), rewrites
+the live slot's `rendered_html` in the same transaction (`page_component_history` archives the old bytes
+— the revert handle the md5 step used to stand in for), and the page never holds two tool slots.
+Grade the RUN with the same query as today: `page_adopted='true'`, no `already_exists`, **plus
+`create_result.regenerated='true'`**; the component id will be the OLD id. The PORTED→native first
+replacement (adopt route) is unchanged — the retire step still applies there.
+**Until roll + seed, every section above stands as written.** How to know: the chassis stamp's ancestry
+must include the TL-047 commit, and `SELECT default_config#>>'{workflow,steps,save_tool,config,replace_existing!}'
+FROM agent_definitions WHERE type='tool-generator' AND is_active AND NOT COALESCE(is_snapshot,false)` must
+return `input_data.spec.replace_existing`.

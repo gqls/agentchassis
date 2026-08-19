@@ -46,7 +46,12 @@ var CreateToolComponentInputSpec = datahelpers.ActionInputSpec{
 	// tool's cross-link items can be emitted from THIS path, which knows the
 	// page's real URL, instead of at suggestion time where it can only be
 	// guessed (bugs_open/029).
-	Optional:   []string{"description", "category", "related_pages"},
+	// replace_existing (bugs_open/331, TL-047): per-ITEM authority to regenerate
+	// the site's existing tool component for this function IN PLACE instead of
+	// taking the already_exists short-circuit. Mapped STRICTLY by the generator
+	// seed ("replace_existing!": "input_data.spec.replace_existing") so the
+	// whole-tree search (RFC_029) can never supply it; absent ⇒ today's path.
+	Optional:   []string{"description", "category", "related_pages", "replace_existing"},
 	Defaults:   map[string]interface{}{"category": "interactive"},
 	Deprecated: map[string]string{},
 }
@@ -237,6 +242,21 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	`, function, siteID).Scan(&existingID)
 
 	if err == nil && existingID != "" {
+		// REPLACE arm (bugs_open/331): the item asked for a regeneration of the
+		// tool it knows the site already has — regenerate the incumbent in place
+		// (create_tool_component_regenerate.go). Without the flag the
+		// short-circuit below stands: it is the per-site throttle.
+		if replaceExistingRequested(inputs) {
+			return regenerateToolComponentInPlace(ctx, params, logger, toolRegenerateRequest{
+				siteID:      siteID,
+				incumbentID: existingID,
+				function:    function,
+				displayName: displayName,
+				description: description,
+				category:    category,
+				htmlContent: htmlContent,
+			})
+		}
 		logger.Info("CreateToolComponentAction: Tool already exists for this site",
 			zap.String("existing_id", existingID))
 		return map[string]interface{}{
