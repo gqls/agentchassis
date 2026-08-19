@@ -1958,9 +1958,17 @@ WHERE ad.type='page-content-writer' AND ad.is_active
 `identity.target_audience`, `evidence_base.writer_block`, `design_intent.imagery_direction`.
 That both confirms the landmine we filed for `finetuning_uk_service` (which named the first two)
 and **extends it** — `evidence_base.writer_block` is in the surface and nobody here had looked
-at it. On `leopardessconsulting.co.uk` it carries **31 of that site's 45 tells**, more than the
-whole `content_direction` brief. The tool derives this list at runtime instead of hardcoding it,
-so it cannot go stale the way a copied list does.
+at it. On **`webdesign.uk`** it carries **31 of that site's 45 tells**, more than the whole
+`content_direction` brief. The tool derives this list at runtime instead of hardcoding it, so it
+cannot go stale the way a copied list does.
+
+> **⚠ CORRECTED 2026-08-19, same session:** the sentence above first named
+> **`leopardessconsulting.co.uk`** as the site with 31 writer_block tells. **Wrong site** — that
+> is `webdesign.uk`; leopardess has 10 tells in total and none in `writer_block`. Caught by
+> re-running the tool per-site to write a CONTRIB, an hour after committing the claim. Both
+> numbers were real and came from the same run; only the subject was wrong, which is why nothing
+> looked off. **The check: quote a per-site figure only from a single-site run** — a `--fleet`
+> report is for ranking, not for quoting. Logged in `WRONG_CALLS.md`.
 
 ### The unplanned finding: `formatted` is computed from the PARTIAL, before the merge
 

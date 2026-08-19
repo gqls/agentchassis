@@ -37669,3 +37669,36 @@ prediction makes you *look*, which is good, but it also supplies the interpretat
 enumeration of mine "felt exhaustive because I built it from the mechanisms I already owned". I then
 made the identical error, in the same hour, about the same migration. **Writing the lesson down does
 not install it — the next instance does not announce itself as an instance.**
+
+---
+
+## 2026-08-19 — `copy_quality_two_stage`: I attributed a per-site figure to the wrong site, off my own fleet report, in a doc I had already committed
+
+**The claim.** In `NOTES_two_stage_copy.md` I wrote that `evidence_base.writer_block` "on
+`leopardessconsulting.co.uk` carries **31 of that site's 45 tells**, more than the whole
+`content_direction` brief" — offered as the evidence that a spec field nobody in this lane had
+looked at was a large carrier.
+
+**The truth.** Those numbers are **`webdesign.uk`'s**. `leopardessconsulting.co.uk` has 10 tells
+in total across a 1,149-word visible brief, and its `writer_block` contributes **none**.
+
+**What caught it.** Re-running the tool on two named sites to write a CONTRIB, and noticing the
+totals did not match what I had written an hour earlier. Nothing flagged it: both figures were
+real, both came out of my own tool on the same run, and the sentence read as a measurement
+because it was one — of a different site.
+
+**How it happened.** I read the figure off the scrolling per-site section of a 25-site `--fleet`
+run and carried it into prose without re-anchoring it to the site heading. The fleet summary
+table on the same screen said `webdesign.uk 45` and `leopardessconsulting.co.uk 10`, which is to
+say **the disconfirming evidence was in the same output, four lines away.**
+
+**The cheap check, and it takes seconds:** *quote a per-site figure only from a single-site run.*
+`audit_writer_brief.py <domain>` prints one heading and one set of numbers, and there is nothing
+to mis-attribute. A multi-site report is for ranking, not for quoting.
+
+**Why it is worth a row despite being caught quickly.** The general shape is not "I misread a
+table" — it is that **a figure inherits its subject from layout, not from the number**, so a
+correct number in the wrong sentence carries every signal of having been measured, including a
+`[MEASURED]` marker, a date and a method. That is the same property that made this lane's
+withdrawn `content_direction` census look trustworthy two days ago: the arithmetic was never the
+weak point.
