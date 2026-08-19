@@ -125,7 +125,7 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
    **✅ THE CONVERSATION IS OPEN — do not re-open it, and do not design ahead of the reply.**
    CONTRIB filed and committed (`7574482c7`) at
    `docs024_key_docs_latest/copy_quality_two_stage/CONTRIB_2026-08-19_from_the_277_083_lane_your_stage_2_output_is_the_shape_two_stuck_repair_queues_need.md`.
-   See §6.
+   See §5.
 4. **`314`** — owner's call between the four candidates; candidate 1 is one line plus a credit cost
    somebody should size.
 5. **Two loose ends nobody owns**, both `[UNMEASURED]`:
@@ -137,7 +137,7 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
 > ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
 
 
-## 6. THE OUTBOUND ASK — filed 2026-08-19, awaiting a reply
+## 5. THE OUTBOUND ASK — filed 2026-08-19, awaiting a reply
 
 **To the `copy_quality_two_stage` lane** (register **CQ-024**; migrations `447` seed + `462`
 budget). ⚠ **NOT `loanandmortgagecalculator_couk`** — see the correction boxes above; I had the
@@ -179,7 +179,7 @@ day before reading silence as a no.
 
 ---
 
-## 5. Session-start checklist
+## 6. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,
 `083`, `300`, `301`, `307`, and **`copy-editor` belongs to another lane** · re-measure §1's probe ·
 then §4 step 1.
@@ -212,7 +212,7 @@ Also correct the closure dates from §0/§4 above, not from the overwriting sess
 the worked example must be REPAIRED, and nothing repairs `no_content_data` at all** — which is a
 harder blocker than the churn-guard clock, and the more useful thing to know.
 
-## What the overwritten version added that is NOT above — kept because it is additive
+## 7. The escalation clock, and other additive detail kept from a concurrent edit of this file
 
 ### A. The escalation clock: three dated ticks, and 08-19's ZERO IS CORRECT
 
