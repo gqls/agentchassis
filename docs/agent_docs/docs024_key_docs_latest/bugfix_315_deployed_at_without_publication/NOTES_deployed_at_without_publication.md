@@ -808,3 +808,43 @@ UPDATE page_components SET build_status = $1, reviewed_at = $2, reviewed_by = $3
 It never touches `pages.deployed_at` or `content_hash`, so **it makes no publication claim and does
 not carry this defect.** Extending it would mean writing `page_components.deploy_commit` — which the
 owner ruled out the same day. Not-changing it is right twice over.
+
+## 2026-08-19 ~17:05Z — I hit a landmine that was ALREADY DOCUMENTED, twice
+
+The council-verdict trap I recorded earlier today — reading `doc_notes … ORDER BY created_at DESC
+LIMIT 1` and getting another lane's APPROVED verdict while mine was `revise` — is already in
+`LANDMINES.md`, at **two** separate entries (lines ~667 and ~9064), the second titled almost exactly
+what happened to me.
+
+So I have not added a third copy. What is worth recording is **why the existing entries did not
+reach me**: the `SessionStart` hook matches landmines against files already **dirty in the working
+tree**, and this trap's footprint is a *query* and a *table*, which no path can match. The remedy is
+the one the memory index already states and I did not follow —
+
+> **grep `LANDMINES.md` for the SYMBOL, TABLE or COMMAND you are about to trust, not just the path.**
+
+One `grep -n "council-gate" LANDMINES.md` before running the verdict query would have cost seconds.
+This is the second time in this session the same class has bitten: the first was believing three
+empty greps that were empty because of a stale working directory. Both are "the tool answered a
+question I had not checked I was asking".
+
+## 2026-08-19 ~17:10Z — what is DONE, and what is left
+
+**Done and live:** migration 491 (pre-deploy stamp removed from the two handlers; verified at the
+config and at runtime — 31 pages since, none stranded).
+
+**Done, committed, NOT live** — both need an image:
+- `0c5b94725` git-adapter: `CommitOutcome`, `commit_sha`, `files_sha256`.
+- `086f9b7b7` chassis: `deploy_result_field`, the skip refusal, `pages.content_hash` written at the
+  stamp.
+- `494_stamp_reads_deploy_evidence_HOLD.sql` — **held on purpose**, must not be applied until the
+  rebuilt chassis is running (StrictConfig).
+- Registered as **DGH-013** with its index row, in the session it shipped.
+
+**Blocked on the owner:** the build. Releases are whole-fleet and the owner runs them
+(`MEMORY/releases-are-whole-fleet-make-release`), so building and rolling the git-adapter and
+agent-chassis images is not mine to do.
+
+**Designed, not built:** the divergence sweep (PLAN D5) — the piece that would actually have caught
+this bug at 15:18 on the day it happened. It is gated on `content_hash` being populated, which is
+gated on the roll. Until then this change is **provenance, not detection**, and DGH-013 says so.
