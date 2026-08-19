@@ -3,11 +3,20 @@
 **Status:** OPEN — **FIX COMMITTED 2026-08-19 (`17d883333`), council APPROVED round 1
 (`fc3ac5f4`, 4 advisories none high), and LIVE on v1.0.1315** (proven at the binary
 ~16:00 UTC: both replicas stamp `590ca3a20`, ancestry TRUE, `COMPONENT_COLLISION_DIVERTED`
-literal present, fake-sha control clean — but **ZERO real exercises yet**, a no-demand
-zero; the loanzy lane's next build is the real-world test and incumbent md5 baselines are
-pinned in the fix lane's NOTES). Stays OPEN until the both-halves verification passes on a
-real case AND per the OWNER RULING 2026-08-19 the TOOL-level writer (`create_tool_component`,
-RFC_036 §9.3) ships too — one logical change, both writers, a PRECONDITION for wave 1.
+literal present, fake-sha control clean). **REAL-WORLD TEST PASSED 2026-08-19 20:16 UTC, all
+three legs** (`bugfix_311_component_keys/NOTES_311_fix.md`): loanzy.uk
+`loans-car-finance-calculator` re-driven → the LLM chose the incumbent's name → store
+DIVERTED to base row `2e497429` `loans-car-finance-calculator-loanzy-uk` (one
+`COMPONENT_COLLISION_DIVERTED` finding, item complete attempt 0); all EIGHT
+loanandmortgagecalculator.co.uk incumbents byte-identical to pre-pinned md5s; the page's
+rebuild resolved the slot to the new row via the selector and the served page went from
+**0 to 4 `<input>`** with its suffixed JS asset serving. Section half: fixed, live, exercised.
+**Stays OPEN** because per the OWNER RULING 2026-08-19 the TOOL-level writer
+(`create_tool_component`, RFC_036 §9.3, commit `e24bc9c0f`, council `ceae30f2` APPROVED) has
+NOT ROLLED — chassis still v1.0.1315 — and the pair is one logical change, a PRECONDITION for
+wave 1. Also: a parked page does NOT heal by itself (`needs_rebuild` has no consumer) — each
+needs a `needs_page` re-render filed; loanzy's other six tool pages are still hollow
+(RUNBOOK recipe).
 Diagnosed
 2026-08-18, `090` verdict **CONFIRMED on the first iteration** (run correlation
 `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`);

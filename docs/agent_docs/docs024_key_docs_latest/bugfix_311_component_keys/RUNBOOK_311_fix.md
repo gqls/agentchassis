@@ -119,3 +119,31 @@ re-drive `tool-ab-test-calculator`'s generation; assert the new row has
 `forked_from = <library row id>` and `component_level='tool'`, save_tool COMPLETES (no
 SQLSTATE 23505), and the library row is untouched. Baseline the library row's md5 BEFORE,
 as with the section half.
+
+## The re-drive that WORKED (2026-08-19, section half, loanzy car-finance) — two items, not one
+
+`needs_rebuild` on the page is NOT enough (no consumer; `page-rebuild` never runs). Two hand-filed
+items, both mirroring the code's own shape so dispatch treats them as native:
+```sql
+-- 1. the component (mirrors CreateNeedsNewComponentItem; idx_swi_dedup ignores 'failed' so a
+--    fresh row is allowed; created_by is not a dispatch filter; keep source=component_selector
+--    because it becomes component_versions.change_source)
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary, spec, priority, handler_agent, status, created_by, item_key)
+VALUES ('<site_id>', 'component_selector', 'build', 'needs_new_component', 'medium',
+ 'Need component template for section type: <section>',
+ '{"site_type":"","description":"Component for section type \"<section>\" on page \"<page>\" ( site)","page_context":"<page>","section_type":"<section>","design_direction":"modern-light"}'::jsonb,
+ 50, 'component-creator', 'triaged', 'bugfix_311_redrive', 'needs_new_component:<section>') RETURNING id;
+-- wait for status=complete, then read result->'response'->'stored_component'->>'diverted_from_component_id'
+-- 2. the page (mirrors flag_page_image_rebuild; previous page_rerender:<page> must be terminal)
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary, spec, priority, handler_agent, status, created_by, item_key, batch_id)
+VALUES ('<site_id>', 'bugfix_311_redrive', 'build', 'needs_page', 'medium', 'Re-render <page> to link the diverted component',
+ '{"reason":"bugfix_311_redrive_relink","page_name":"<page>"}'::jsonb, 99, 'page-build-handler', 'triaged', 'bugfix_311_redrive', 'page_rerender:<page>', gen_random_uuid()) RETURNING id;
+```
+Gotchas: the trigger dispatches ONE unlocked site per 60s tick, oldest item first — check
+`find_dispatchable_site`'s order if it does not claim within ~2 min; a site with any `claimed`
+item is skipped until it clears. Assert at the artefact: `page_components` row for the new id
+with build_status deployed, AND `curl` the tool URL and count `<input` (tags span lines — use
+`grep -c '<input'`, not a one-line regex). Pin the served page's md5 and byte count BEFORE.
+Loanzy's six remaining: settlement / overpayment / standard-calc / compare-loans /
+interest-rate-stress-test (collision class) and credit-health-check (fails UPSTREAM on
+max_tokens 16000 — a different defect; do not spend attempts on it until that is raised).

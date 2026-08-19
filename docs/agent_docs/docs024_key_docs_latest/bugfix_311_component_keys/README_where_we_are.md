@@ -104,3 +104,49 @@ fails loudly rather than silently if it ever happens.
 One process slip recorded in WRONG_CALLS: a commit message claimed a document edit that had
 actually failed; the next commit corrected it and says so. The bug stays open until the
 real-world test passes and a roll carries the tool half.
+
+## 2026-08-19, evening — the real-world test ran, and the fix did exactly what it was built to do
+
+Nobody else had run the real test (the loanzy team had no new domain lined up; the portfolio
+sites are frozen under your halt), so I drove it from here on loanzy.uk, the site that first
+showed the bug. I picked the car-finance calculator: it had failed three times at the exact
+wall this fix removes. (The credit-health one fails for a different reason — the AI's answer is
+too long for the limit — so it could not have tested anything here.)
+
+What happened, in order. The build asked for a car-finance calculator. The AI chose the same
+name as the existing calculator that belongs to loanandmortgagecalculator.co.uk — the
+collision we were waiting for. Instead of failing, the platform noticed the name was taken by a
+component another live site depends on, created loanzy's own copy under a site-specific name,
+filed it in a way the library can find and reuse, and wrote a record saying exactly what it did
+and why. The work item completed first time, no error. And the other site's calculator — all
+eight of its calculators, in fact, which I fingerprinted before starting — is byte-for-byte
+untouched.
+
+One thing I got wrong earlier and have corrected in the notes: I had said the parked failures
+would "converge by themselves" once the fix was live, because a background check keeps
+re-flagging the pages. The flag is real, but nothing acts on it — a page only gets rebuilt when
+something actually files a rebuild job for it. So the fix makes the next build succeed; it does
+not start one. For loanzy that means each of the seven calculator pages needs a rebuild job
+filed (or the loanzy lane's full rebuild, which files them all). I have filed one now, for the
+car-finance page, to prove the last step: that the page really picks up the new calculator and
+serves it. The page as served right now has zero input fields — that is the "before".
+
+## 2026-08-19, later that evening — the page picked up its calculator; the test is passed end to end
+
+The rebuild I filed for loanzy's car-finance page ran through cleanly. The page now carries the
+new calculator as its second section, and the live page at loanzy.uk/tools/car-finance-calculator
+has gone from a page with no controls at all to one with four — price, deposit, term and
+interest-rate — with its own script loading. No stray template code on the page, and the other
+site's eight calculators are still exactly as they were before I started.
+
+So for the section half of this bug: fixed, live, and now proven on the real case it was built
+for, with the "before" measured so nobody has to take the "after" on trust.
+
+Two things keep the bug open, and neither is a fault in the fix. First, your ruling: the
+calculator fix is a pair, and the second half (the tool-level writer) is written and approved but
+is still waiting for the next chassis image — nothing to do until that rolls. Second, loanzy's
+other six calculator pages are still hollow; each needs its own rebuild filed (the recipe is
+written down), or the loanzy lane's full rebuild does them all. I stopped at one on purpose —
+that is their site and their planned run — but it is a ten-minute job per page if you'd rather
+it just happened. One of the six (credit-health-check) will still fail for an unrelated reason:
+the AI's answer is longer than the limit allows, which is a separate small bug to raise.

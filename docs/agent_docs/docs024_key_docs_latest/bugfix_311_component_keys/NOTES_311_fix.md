@@ -236,3 +236,130 @@ Triage, with the measurement each advisory asked for:
   the section-half recipe: same two-control probe, ancestry on `e24bc9c0f`, and the
   demand signal is the §9.3 Info log line / a successful save_tool for a function the
   library claims (tool-ab-test-calculator is the natural first case).
+
+## 2026-08-19 ~16:20Z — new session: the real-world test of the SECTION half is being driven from THIS lane
+
+- State on pickup [MEASURED 16:15Z]: chassis still v1.0.1315 (both pods started 12:15Z) — the tool
+  half (`e24bc9c0f`) has NOT rolled; `needs_new_component` items created/updated since the roll:
+  0; `COMPONENT_COLLISION_DIVERTED` findings: 0; scoped `*-loanzy-uk` rows: 0. The loanzy lane's
+  16:08Z page touches were another lane's meta-description backfiller, not a build. Neither the
+  loanzy lane (no next domain chosen) nor the portfolio lane (sites locked under the owner's
+  halt) has run the agreed test, so a no-demand zero is all we have. Driving it here, per the
+  PLAN's own verification section.
+- Specimen chosen: `loans-car-finance-calculator`, NOT `loans-credit-health-check` — both
+  loanzy attempts at credit-health-check died UPSTREAM of the store (`generate_template`,
+  `stop_reason=max_tokens`, 47k chars at the 16000 cap), so it cannot exercise the diversion;
+  car-finance generated fine three times and was refused at the store each time (the
+  10-field contract guard). Incumbent `7d8b0503-0446-456c-a85e-d398264e8136`, dependents =
+  loanandmortgagecalculator.co.uk only (1 page_components row, 0 site_components).
+- Baselines RE-PINNED 16:18Z for all seven incumbents (values, not refs) — all three previously
+  pinned are UNCHANGED; the other four added:
+  7d8b0503 car-finance html 5f9534982e7f2bd776605ed78e755010 / schema 8e2cfe0afb1863b178390d6a048409b0 ·
+  9cbfe279 compare-loans f3fd6e9cc9980c2a2eb971e9484cbbb0 / 3bba8e7d9d13338ea0370971f9ef487c ·
+  824e3309 credit-health e6ee4b07f11d0b43c1c5a62667f4999f / dd8f9863c84f8a5a7ec3e99154241f43 ·
+  2cf33f06 stress-test 6ca2074d036c177920101a1a3f97c46b / a805b2af699f1c28a9d7833ff35405e6 ·
+  b7a499f4 overpayment 5291eedc497dc1cd5338d55f1cf217b7 / fd2a6336dd159833892afdad62863f19 ·
+  70b72b3e settlement 66ea98791a002de25870cf072e1d313f / b7a1e6090d00f0bc1f17178d9ade3a45 ·
+  b420389f standard-calc 85d673794c5ac0638595817760b59794 / a5790bcfeb1d46da94cb8ef3d9fc5fdc ·
+  b89f91e1 mortgages-repayment a2c00f1c66ce6f4ef72b48083f1e3da6 / 8265ae5a931b735305b1fe007b148acb.
+- Re-drive mechanism: a FRESH item, not a reset — `idx_swi_dedup` excludes `failed`, and
+  `CreateNeedsNewComponentItem` inserts `status='triaged'`, `handler_agent='component-creator'`,
+  `pipeline='build'`, priority 50; mirrored by hand with `created_by='bugfix_311_redrive'`
+  (dispatch filters on status/attempts/approval/pipeline/handler, never created_by; `source`
+  kept `component_selector` because it becomes `component_versions.change_source`).
+  Item **`9d16951e-439d-4c8c-8c9c-8ee9251d83e6`**, 16:20:04Z. Pre-flight: loanzy `locked_at`
+  NULL, no claimed items on the site, no other unlocked dispatchable site ahead of it,
+  build-pipeline-trigger ticking every 60s (last 16:19:17Z).
+- Caveat stated BEFORE the result: the diversion only fires if the LLM picks the incumbent's
+  function name again (CLC-006: keyed on the LLM-chosen function). `loans-loan-vs-savings`
+  succeeded yesterday precisely because the LLM chose `loan-vs-savings` — a plain creation,
+  not a collision. If this run creates a fresh-named row, that is a pass for loanzy but NOT a
+  diversion exercise; read `diverted_from` in the result / the finding row, not the status.
+
+## 2026-08-19 16:23Z — RESULT leg 1+2: THE DIVERSION FIRED ON A REAL CASE, and no incumbent moved
+
+- Item `9d16951e` claimed 16:21Z by build-dispatch-loop, **complete 16:23:00Z on attempt 0**
+  (child orchestration `c399e282`). `stored_component`: `status=created`,
+  `requested_function=loans-car-finance-calculator`, `function=loans-car-finance-calculator-loanzy-uk`,
+  `diverted_from_component_id=7d8b0503-0446-456c-a85e-d398264e8136`, `section_type=loans-car-finance-calculator`,
+  quality_score 100, template 13,738 chars, has_js. So the LLM DID pick the incumbent's name
+  (the caveat above did not bite) — this is a genuine collision exercise.
+- New row `2e497429-b2de-46f6-9e1e-9799b33912a3`: base (`forked_from` NULL), active,
+  `created_from='generated'`, section_type = the request vocabulary, html contains `</section>`
+  (so `sectionTemplateValid` will NOT guard-drop it — unlike the incumbents). The selector's
+  own predicate (`section_type='loans-car-finance-calculator' AND component_level='section' AND
+  is_active AND forked_from IS NULL`) returns EXACTLY this one row [MEASURED].
+- Durable record: ONE `agent_error_log` row, `error_code='COMPONENT_COLLISION_DIVERTED'`,
+  severity warning, agent_type component-creator, step store_component, work_item_id 9d16951e,
+  context {incumbent_id, requested_function, final_function, section_type} — the council's
+  editquality-low provenance question answered at the row: provenance is the diverting actor.
+- **No collateral damage [MEASURED 16:24Z]**: all EIGHT incumbents' `md5(html_template)` and
+  `md5(input_schema::text)` equal the 16:18Z baselines; 7d8b0503's `updated_at` is still
+  2026-08-13 14:18:58Z.
+- Loud-failure check: the `error` column on the item is empty; no SQLSTATE 23505; no
+  `selector_error`.
+
+### CORRECTION to my own earlier claim (this file, "council verdict" entry, debug_historian medium)
+
+> **CORRECTED 2026-08-19 20:00Z:** I wrote that `check_unresolved_sections` "keeps re-arming
+> deployed pages … the exact loop that today livelocks becomes the convergence engine once the
+> diverted row exists." Half true. The check DOES flip the page to `build_status='needs_rebuild'`
+> (loanzy `tool-car-finance-calculator` sits there now), but **nothing consumes `needs_rebuild`
+> on its own**: the `page-rebuild` agent that reads it has NO scheduled task and ZERO
+> orchestrations in history, and `seed_build_queue`/`write_build_items` key on `planned`. The
+> page's two real builds were both `needs_page` items → `page-build-handler` (the second one
+> filed by `image-build-handler`'s `flag_page_image_rebuild`, key `page_rerender:<page>`). So the
+> convergence path is: a `needs_page` item must be FILED (by image-landed, reconcile, or by
+> hand) — the diverted row makes that build succeed, it does not cause the build. Caught by
+> reading the consumer (`grep needs_rebuild` → page-rebuild → scheduled_tasks: none) before
+> claiming the page would heal; memory's "needs_rebuild is a DEAD queue" (bugfix 161) was right.
+> What this means for the 6 other loanzy tool pages: each needs its own needs_new_component
+> re-drive AND a needs_page re-render — or the loanzy lane's full build, which files both.
+
+## 2026-08-19 20:04Z — leg 3 in flight: needs_page re-render filed for the car-finance page
+
+- Mirrored `flag_page_image_rebuild`'s shape exactly: `needs_page`, spec
+  `{"reason":"bugfix_311_redrive_relink","page_name":"tool-car-finance-calculator"}`, priority
+  99, handler `page-build-handler`, status triaged, item_key `page_rerender:tool-car-finance-calculator`
+  (previous holder `25c73782` is complete → dedup permits). Item **`1f8e8563-0ff1-485b-8c35-ace3ad05bd1c`**.
+- Served-page baseline BEFORE [MEASURED 20:05Z]: `https://loanzy.uk/tools/car-finance-calculator/index.html`
+  → HTTP 200, 25,703 bytes, **0 `<input>`**, md5 42b9e15d8ce02c09ff013016a587bc2a. The pass
+  condition for leg 3 is a `page_components` row linking `2e497429` with build_status deployed
+  AND a served page with >0 `<input>` — the second independently of the first (loanzy lane's
+  protocol: stored+linked ≠ a good calculator).
+- 20:06Z: item `1f8e8563` claimed; page-build-handler `214074b9`. **plan_sections resolved the
+  slot [MEASURED from collected_data.section_plan]:** `name=loans-car-finance-calculator`,
+  `status=ready`, `component_id=2e497429…`, `function=loans-car-finance-calculator-loanzy-uk`,
+  render_mode agent — the selector-visibility claim (section_type unsuffixed → Path 2 finds it)
+  is now demonstrated on a real build, not asserted from the predicate. No new
+  needs_new_component item filed. Content writer running.
+
+## 2026-08-19 20:16Z — RESULT leg 3: the page links the diverted row AND serves a real calculator — ALL THREE LEGS PASS
+
+- page-build-handler `214074b9` COMPLETED 20:16:13Z (steps: plan_sections → content writer
+  `60dc0d61` → save_sections → rerender → deploy_page). Item `1f8e8563` complete, attempt 0.
+- `page_components` for `41ad4a72` (tool-car-finance-calculator) [MEASURED 20:17Z]: position 2 =
+  **`2e497429` (loans-car-finance-calculator-loanzy-uk), build_status deployed, rendered_html
+  14,002 chars**; hero-tool / generic-text-block / faq re-linked around it. `pages.build_status`
+  = deployed (was needs_rebuild).
+- Served artefact, independently [MEASURED 20:17Z]: `https://loanzy.uk/tools/car-finance-calculator/index.html`
+  → 200, **38,912 bytes (was 25,703), 4 `<input>` (was 0)** — `#car-price`, `#deposit`,
+  `#loan-term` range sliders + `#interest-rate` number; md5 12b488fcd83cf1b942df4c30574180f3
+  (before 42b9e15d…). Zero `{{` / Go control syntax (the 260 class did NOT fire here). The
+  extracted JS reference carries the FINAL (suffixed) name — `/tools/assets/loans-car-finance-calculator-loanzy-uk.js`
+  → 200, 3,516 B = the store result's `js_size` — which is the E2 ordering point (identity
+  resolved before `separateInlineJS`) demonstrated live.
+- Incumbents re-read AFTER the whole run: all eight md5 pairs unchanged, `updated_at` untouched.
+- Cost: one component-creator run + one page build. Wall clock: 16:20→16:23 (store) and
+  20:04→20:16 (page), the gap between being this session's usage-limit pause, not the system.
+
+**Verdict for the SECTION half: fixed AND live AND exercised on a real collision, all three
+protocol legs, with the "before" pinned.** What keeps 311 OPEN: the owner's precondition pair —
+the TOOL half (`e24bc9c0f`, council ceae30f2 APPROVED) has not rolled (chassis still v1.0.1315
+at 20:17Z); and the other six loanzy tool pages are still hollow until each gets a re-drive +
+re-render (recipe in RUNBOOK) or the loanzy lane's full rebuild. Not done here, deliberately:
+the PLAN's verification scope was one item, and the rest is the loanzy lane's site and their
+stated "next run" — pointed at, not pre-empted.
+- (The needs_rebuild dead-queue trap already has a LANDMINES entry — "A data repair RACES the
+  sweep that publishes it", trap 1, footprint `pages.build_status` — so no new entry; the
+  WRONG_CALLS row for my claim points there.)
