@@ -1635,3 +1635,61 @@ fails with `0x0a must be escaped`, a double quote with `Token "…" is invalid` 
 `SAVE: CORRELATION_ID=…` *before* the insert runs. Both times the banner looked like a successful
 dispatch and no work item existed. Flatten and de-quote first; the honest positive signal is the
 later, differently-named `SAVE: RUN_CORRELATION_ID=` line.
+
+### 10. Third stall, third distinct reason — and this one names a REAL framework gap: the bundle lists `awaited_requests`'s schema but renders NONE of its rows
+
+Run `be89750f-c2ab-4c0a-bc21-751e75d9b19b`, dispatched 16:07Z, terminal ~16:12Z, **UNVERIFIABLE**.
+
+**First, what WORKED.** Inlining `\d awaited_requests` into the symptom did its job, and the proof is
+in the loop's own output: its `data_requests` SQL is
+`SELECT orchestration_id, step_name, retry_version, status, sent_at, timeout_at, processed_at,
+target_agent_type FROM awaited_requests WHERE correlation_id = '…' ORDER BY sent_at` — **every column
+name correct**, which it could only get from the inline. `d8af5f78` could not write that query at all.
+
+> ⚠ **Correction to something I said an hour ago in this session.** I checked the bundle, found
+> `awaited_requests` in it 8 times, and read that as "the schema reached the bundle". It did not —
+> `0132a3683` is Go and is **inert until the next roll**. Those 8 occurrences were **my own symptom
+> text echoed back**. The inline is what worked; the committed fix has still never been exercised.
+> A string being present in an artefact does not tell you which input put it there.
+
+**Why it stalled anyway,** in the loop's own words: *"The bundle contains zero rows for
+build-dispatch-loop … Without an orchestration_id or correlation_id known to belong to a frozen
+build-dispatch-loop instance, this cannot be pulled from the current bundle."*
+
+**And it is right, structurally.** `diagnose_load_runtime_action.go` renders three row sections —
+`### agent_error_log` (:274), `### site_work_items` (:309), `### orchestration_states` (:344). There
+is **no `### awaited_requests` section**. So:
+
+| | `orchestration_states` | `awaited_requests` |
+|---|---|---|
+| in `schemaAlwaysTables` (columns described) | yes | **yes, since `0132a3683`** |
+| **rows rendered into the bundle** | **yes, :344** | **NO** |
+| retention | ~26 hours | **7 days** |
+
+**That table is the finding.** For any hang older than about a day, `orchestration_states` is empty
+by retention and `awaited_requests` is the only table still holding the incident — and the bundle
+renders rows from exactly the one that is empty. The `0132a3683` comment block (:784–795) says this
+in terms: *"the per-request rows … that any orchestration-hang question is actually answered from …
+routinely the ONLY table still holding the incident."* The author understood it and still fixed only
+the schema half. **Describing a table's columns while carrying none of its rows is a bundle that can
+write a perfect query and never run it** — necessary, not sufficient, for the third time on this
+lane in one day.
+
+**Fix candidate, framework-wide (not filed as a bug yet):** an `### awaited_requests` rows section in
+`diagnose_load_runtime`, keyed as `orchestration_states` already is. Ranked by CLAUDE.md's
+close-the-door rule this beats any per-symptom workaround, because the workaround (paste the ids)
+has to be remembered by every future filer of an orchestration-hang symptom, and the ones who forget
+get a bundle that looks complete.
+
+**Interim, and it is only interim:** re-filed as `d52c3407-14e7-4b9e-be46-c8ee741b2532` (16:14Z) with
+six frozen `orchestration_id`s **and a same-day healthy control** (`002141d6-8964-47a9-8a45-063da7994aed`,
+1 spawn + 1 call per iteration) named in the symptom, plus the instruction to query by
+`orchestration_id` and **not** by `correlation_id` — the mistake the previous run made unprompted,
+because the only correlation it had was the diagnosis's own.
+
+**Tally for `WRONG_CALLS`, three stalls, three causes, all ours:** (1) pointed at the wrong table;
+(2) right table, no schema; (3) right table, right schema, **no rows and no ids**. Each fix was
+necessary and none was sufficient, and each time the previous fix's success made the next gap look
+like the same failure. The general shape: **when a run refutes on absence, establish WHICH absence
+before re-filing** — the loop's `needed_evidence` says so precisely every time, and reading it as
+"still not enough evidence" rather than as a specific unmet precondition is what cost the repeats.
