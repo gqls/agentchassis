@@ -1,6 +1,6 @@
-# 318 — `cta_improvement`: the handler says in its own payload that it cannot do this work, and 468 items completed anyway
+# 323 — `cta_improvement`: the handler says in its own payload that it cannot do this work, and 468 items completed anyway
 
-**Filed 2026-08-19** by the `bugfix_302_design_repair_verification` lane, found while measuring
+**Filed 2026-08-19** by the `bugfix_302_design_repair_verification` lane (briefly numbered 318 for ~4 minutes until another session's 318 was found — renumbered rather than adding a seventh double-used number to the list CLAUDE.md already calls out), found while measuring
 `spacing_fix` for an owner decision. **OPEN, UNOWNED.** Same class as `bugs_closed/302` /
 `bugs_closed/213` D1 — a handler reporting it did nothing while its item closes green — at
 **18× the scale** of the case that lane was filed on.
