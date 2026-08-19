@@ -33,7 +33,7 @@ Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two co
 
 | | |
 |---|---|
-| chassis | `v1.0.1314`, digest `d0257576…` — real roll (verify by DIGEST, not a binary probe) |
+| chassis | `v1.0.1316`, digest `2d0d3def…`, pods 17:13Z — real roll (verify by DIGEST, not a binary probe) |
 | **replaced, live, graded at the served bytes** | **11** — aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator, smooth-shadow, json-cleaner, seo-injector, noise-generator, rls-architect, css-variables |
 | owner-approved on sight | aspect-ratio, markdown-tables, html-minifier, svg-optimizer |
 | **remaining** | **52** — 2 blocked (RFC_036), 13 external-script, and the rest split simple / larger |
@@ -148,9 +148,21 @@ to work. Phase D runs whenever RFC_036 lands — it is not a sequencing dependen
 **63/63 replaced, each graded at the served bytes with a cache-buster and a negative control.** If
 RFC_036 is never built, the honest terminal claim is **"61 of 63, 2 blocked on RFC_036"** — not "done".
 
+## IN FLIGHT RIGHT NOW (2026-08-19 20:35Z) — pick this up first
+
+**#13 `tool-prompt-permutator` is BUILDING.** Item `c860210f-6264-4b22-b87c-29fcfc7f3f78`,
+page `fdaf3c75-b848-4f23-ab90-d75896d90f66`, `/tools/prompt-permutator/index.html`.
+**Revert handle already recorded:** ported slot `b5db3257-8711-41df-95cc-673d91aae25c`,
+6,411 chars, md5 `48f609219a2e4da8230bb9835ae12100`.
+When it completes: grade the RUN, grade the COMPONENT, then **retire that slot immediately** and watch
+the rerender. Its load-bearing requirement is a **cap of 5,000 variants computed BEFORE generating**,
+plus a group-count limit and the "1 variant" singular.
+⚠ **A watcher was armed but a fresh session will not inherit it** — re-check the item directly:
+`SELECT status, now()-created_at AS age, now()-claimed_at AS claimed_for FROM site_work_items WHERE id='c860210f-6264-4b22-b87c-29fcfc7f3f78';`
+
 ## Next actions — start here in a fresh session
 
-1. **Phase A, next tool: `tool-prompt-permutator` (6,411 B), then `tool-blob-maker` (6,550 B).**
+1. **Finish #13 (above), then Phase A continues with `tool-blob-maker` (6,550 B).**
    Order the rest with the RUNBOOK's "Scope the batch correctly" query. Run the six steps above.
    **Do not file a rebuild you cannot attend** — the retire race has been as short as 2 minutes and was
    lost once at 96.
