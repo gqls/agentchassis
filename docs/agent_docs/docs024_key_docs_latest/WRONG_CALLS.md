@@ -37899,3 +37899,22 @@ reached a doc because the third attempt was checked at the work item rather than
 the near-miss is the point: **a script that prints its success line before its failing statement
 will be believed.** Now a LANDMINES entry with the flatten/de-quote recipe and the
 `RUN_CORRELATION_ID` distinction.
+
+## 2026-08-19 — a commit message claimed a doc edit that had silently failed (bugfix 311 lane)
+
+**The wrong call:** commit `acb96a14c`'s message said "double-copy follow-up TRACKED in
+RFC_036" — but the RFC_036 edit had FAILED (a Python in-place replace whose anchor string
+was split across a hard line break; the AssertionError printed and the compound shell
+command carried on to `git commit` anyway). Two files landed, the third claimed one did not.
+
+**What caught it:** reading the command's own output after the commit — the traceback was
+right there above the commit summary.
+
+**The cheap check that would have:** never chain an edit and the commit that claims it in
+one `&&`-less compound command — `python3 …; git commit …` commits regardless of the edit's
+exit; use `&&`, or verify the diff (`git diff --stat <file>`) between edit and commit. Also:
+anchors for in-place doc edits must be single-line or the file's ACTUAL bytes — these docs
+are hard-wrapped (the memory index's own unwrap-before-grep warning, applied to writes).
+
+**Cost:** one commit message that misdescribes its own contents, permanently (forward-only);
+corrected by the immediately following commit, which names it.
