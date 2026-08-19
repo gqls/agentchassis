@@ -423,3 +423,67 @@ induced test fires **both ways in one tick** — the 870 h row FAILED with the r
 **Not proven, and cannot be without applying:** that the *scheduled* tick fires it. Every test above
 executes the `pre_query` directly and bypasses the scheduler. That is the gap the owner's apply
 decision opens, and it is stated as such in `310`.
+
+---
+
+## 2026-08-19 (morning) — post-roll verification on `v1.0.1314`, and the lane's remaining item is a judgement call, not a task
+
+**The build.** `IMAGE_TAG` is `v1.0.1314`; chassis pods started 07:52:27Z / 08:05:39Z, image
+digest `sha256:d0257576…`. Read the commit from the **image's own label** rather than the tag or
+the pod age (`docker inspect … org.opencontainers.image.revision`) → **`d3590ca46`**, and
+`git merge-base --is-ancestor 50467bc74 d3590ca46` is true, so the build contains everything this
+lane committed. The `build provenance` startup line had already scrolled out of `--tail=3000`,
+which is "not in range", **not** "unstamped" — the label is the durable answer.
+
+**Nothing of this lane's was waiting on the build.** Everything committed 08-18 was docs plus one
+SQL config change; the only Go item left (residual 6) is not written.
+
+**All three fixes re-verified against the new binary, each with the control that makes the zero mean
+something:**
+
+- **289 (loop doubling).** Per-lap `_iter_N_done` keys on the largest multi-lap runs since the roll:
+  **77 bytes flat, ratio 1.00.** Demand control: 123 runs across 6 agent types since 07:52Z, so the
+  flatness is not an idle fleet. Size alone remains the wrong test — see the 08-18 entry.
+- **294 (`RUNNING`) + 310 (`INITIALIZED`).** Both reaper arms present in the live `pre_query`;
+  the task last ticked 09:01:23Z. **Non-terminal rows older than 4 h fleet-wide: 0.** In fact
+  non-terminal rows of *any* age were 0 at 09:02Z — which needed the same demand control before it
+  could be read as health rather than silence.
+- **Residual 6's precondition, re-measured and now cleaner than on 08-18.** `loop_complete` steps
+  carrying `loop_iteration`: **1,196 across 357 COMPLETED runs all carry the explicit
+  `loop_iteration_terminal` flag** (newest 08:42 today), and **0 need the fallback**. The only
+  unflagged steps left are 22 in 6 **CANCELLED** runs from 2026-07-24 — terminal, never re-executed,
+  and never pruned because `database-cleanup` does not name that status. The 08-18 cohort (19
+  COMPLETED + 40 FAILED) has aged out entirely.
+
+**A correction to my own 08-18 reading of the lane's scope.** I wrote that `281` was the lane's
+originating bug and treated it as open. **It is CLOSED** — `bugs_closed/281`. I had run
+`ls bugs_open/ bugs_closed/ | grep 281`, which spans both directories and prints only the basename,
+so it cannot tell you which one the file is in. `git ls-tree -r --name-only HEAD -- bugs_open/
+bugs_closed/ | grep '/281_'` answers it in one command and is the same check the `git mv` landmine
+already prescribes for verifying a move.
+
+**Chasing the per-page `audit_review` residual, and stopping.** The loop-engine handoff lists it as
+"the 281 lane's item". Looked for it and could not find the artefact: `item_type='audit_review'`
+returns **0 rows in `site_work_items` AND in `site_work_items_archive`** — and I checked the archive
+because of the standing 7-day-window landmine, so the zero is not a retention artefact. The real
+types are `audit_tool` (39) and `audit_finding_{audience,tone,brief_fidelity}` (39 total), all with
+`design-audit_*` keys dated 2026-03→08-09, i.e. a different and older mechanism. `audit_review` is
+an item **KEY prefix**, not an item_type — that is what 289's close was quoting. **The row 289 cited
+(`734fa16b`, created 08-16) is in neither table.** Not investigated further: it belongs to the
+285/281 sub-lane, not the loop engine. Flagged because **the residual is recorded only inside CLOSED
+bug files**, which is where a residual goes to be forgotten.
+
+### Residual 6: the precondition is met and I am NOT taking it unilaterally
+
+One injection site sets the flag — `loop_expansion_handler.go:182`, guarded by
+`if substep.Action == "loop_complete"` — and `loop_iteration` is set on every injected step at
+`:153`. So deleting the `loop_iteration`-presence fallback in `isLoopIterationTerminal` is safe
+*given* the precondition, which holds.
+
+**But the trade-off the council's architecture seat did not weigh is that the fallback is no longer
+merely redundant — it is a second, independent discriminator against the exact failure that caused
+`289`,** a 2^N blow-up that reached 22 MB rows and left `tool-auditor` completing 1 run in 63.
+Deleting it makes the system depend on one line being right. The gain is structural tidiness; the
+seat itself framed the wider `action`-overloading observation as the RFC signal and "**not** this
+fix". Two lines of defence in depth against a recently-severe bug is a poor thing to trade for
+tidiness, so this goes to the owner rather than into a commit.
