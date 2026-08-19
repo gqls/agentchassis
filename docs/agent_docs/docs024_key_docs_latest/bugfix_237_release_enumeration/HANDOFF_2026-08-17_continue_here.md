@@ -1,4 +1,20 @@
-# HANDOFF — `bugs_open/237` release-enumeration class fix · 2026-08-17
+# HANDOFF — `bugs_closed/237` release-enumeration class fix · 2026-08-17
+
+> # ✅ THIS LANE IS CLOSED — 2026-08-19. Nothing below is live work.
+>
+> `237` is **fixed, LIVE and verified** on `v1.0.1314` and has moved to
+> `bugs_closed/`. Both owner decisions are ruled and implemented; the acceptance
+> test (registry census **170/170**, empty diff) passed at the artefact.
+>
+> **If you are picking something up, it is one of these two — not this file:**
+> - **`bugs_open/318`** — a service whose image the release does not build is still
+>   invisible to `check-release-coverage`. The owner's follow-on (the content-change
+>   trigger) plus the unpoliced `build-backend == RELEASE_IMAGES` invariant.
+> - **`bugs_open/153`**, contribution 2026-08-19 — the release set is now 19 images
+>   and the 5 this lane added carry no `buildinfo` stamp.
+>
+> **Read-out for the owner:** `SUMMARY_2026-08-19_live_and_verified.md`.
+> **Commands + every trap:** `RUNBOOK_release_enumeration.md`.
 
 **Cold start: read this file, then `bugs_open/237_HANDOFF_2026-08-09_render_audit_adapter_is_in_no_release_path_so_it_has_never_been_rolled.md` from the bottom up.**
 The bug file is the shared account and is authoritative; this file is the lane's
