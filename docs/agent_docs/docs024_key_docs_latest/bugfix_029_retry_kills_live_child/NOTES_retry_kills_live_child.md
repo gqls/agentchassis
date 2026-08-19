@@ -1549,3 +1549,31 @@ is arbitrary); or inline the `\d awaited_requests` output into the symptom text 
 not have to ask; or answer the data request and resume. **Do not re-file the same symptom unchanged
 a third time** — it will stall in the same place, and that would be the third run spent on one
 avoidable gap.
+
+### 9. My bundle fix does NOT close the class — stated before anyone can read it as if it did
+
+Having added `awaited_requests` to `schemaAlwaysTables` (`0132a3683`), I asked the loop's own
+history which OTHER tables it has been unable to see. Two hits, both 2026-08-19 — mine, and a
+different lane's run `dd61df1b`, which asked for:
+
+```
+workflow_templates, workflow_contract_chain, v_active_workflows, v_all_workflows
+```
+
+**None of those is covered by my change.** And the reason they are missing is worth more than the
+list: the relevance include is applied as `table_name ILIKE $n` — a **prefix** match — so the
+pattern `flow%` **does not match `workflow%`**. Whoever wrote `flow%` very likely meant workflow
+tables to be in scope; they never have been. The two `v_` views miss for the same reason (the filter
+has no `table_type` clause, so views are eligible once a pattern matches them — they simply never
+match).
+
+`[MEASURED 2026-08-19]`, and the count is a **floor set by the instrument**: `orchestration_states`
+retains ~26 h, so this census structurally cannot see the `074beb8a`/236 runs that made the same
+complaint, and it will not see today's by tomorrow. **Two distinct lanes hit it in one morning** —
+that rate is the finding, not the total of two.
+
+**So: one table fixed, class open.** The evidenced follow-up is to widen `defaultSchemaInclude` to
+cover `workflow%` and rule on `v_%`. I have deliberately NOT folded that into the in-flight council
+round (`e03f7122`) — changing the diff under a running review desyncs the submission from the code,
+and the widening is a different lane's symptom that deserves its own rationale. Recorded in 016b §9
+so it does not depend on this file being read.

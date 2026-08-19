@@ -757,6 +757,16 @@ class** — `orchestration_states` retains ~26 hours, so this query structurally
 tomorrow. **Run it as an alert, not as an audit**: two distinct lanes hit this in one morning,
 which is the rate that matters, not the total.
 
+**⚠ `flow%` is a PREFIX pattern and does NOT match `workflow%` — this is almost certainly not
+what was intended, and it cost a live run on 2026-08-19.** The include is applied as
+`table_name ILIKE $n` (prefix, no leading wildcard), so `workflow_templates`,
+`workflow_contract_chain` and the views `v_active_workflows` / `v_all_workflows` are all
+outside it — which is exactly the set run `dd61df1b` asked for and could not get. Adding
+`awaited_requests` to the always-list (commit `0132a3683`) does **not** help that run: **the
+class is not closed, and one table was fixed.** The evidenced follow-up is to widen the
+include to cover `workflow%` (and to decide whether `v_%` views belong); the filter has no
+`table_type` clause, so views ARE eligible once a pattern matches them.
+
 Anything an orchestration question actually lives in but whose name does not begin
 `site`/`page`/`content`/`flow` is exposed. `awaited_requests` is the sharpest case —
 it is the step-level twin of `orchestration_states`, and it **retains ~7 days against that
