@@ -79,3 +79,32 @@ contaminated per the 277 lane's §8 correction.)
   pre-registered prediction was WRONG in a fourth-outcome way — the 184/277 lanes' story,
   not mine, but the re-route "created a pair OUR gate holds"; my fix does not change that
   either way (early refusal lands `wont_fix`, which the gate ignores).
+
+> **CORRECTED 2026-08-19:** the timestamps in this file reading "~12:00 UTC"/"~12:10 UTC"/
+> "~12:35Z" above are BST misread as UTC — the real times are ~1h earlier (the 488 ledger
+> row, written immediately after the council submission, reads 11:05:25+00). The measured
+> DATA is unaffected (queries carried their own timestamps); only my narration drifted.
+> Caught by the schema_migrations `applied_at`.
+
+## 2026-08-19 — 488 APPLIED and ledger-recorded (11:05:25Z)
+
+`488 OK` NOTICE fired; ledger row `applied_by='bugfix_301_owned_guard_ordering lane'`.
+The config half is now LIVE (old binary: warns once + ignores the key; the error-routing
+alignment for genuine load errors is active now). The refusal activates at the next
+chassis roll carrying commit `6be66bceb`.
+
+## 2026-08-19 — checkpoint (session pausing on usage limit)
+
+DONE: fix committed `6be66bceb` (Go + tests + 488 + PBP-045 + bug-file note + standing
+five); 488 APPLIED + ledger-recorded 11:05:25Z; parity drift fixed separately
+(`1c16eb692`, one line, overlay re-applied — cronjob `configured`).
+
+STILL OPEN, in order:
+1. **READ the council verdict** — corr `c7bc1b9e-97c8-4f3e-8a4f-b3a7029505ee`. Query in
+   CLAUDE.md/097 output; act on REVISE/REJECTED (code is already on the shared branch).
+2. **READ the 090 verdict** — run `dd61df1b`, was at call_diagnoser ~11:10Z. If it refutes
+   the "no write path bypasses save_sections" premise, act BEFORE the next roll (rollback
+   file exists and is exercised).
+3. **Post-roll behavioural verification** — RUNBOOK, BOTH controls (owned → wont_fix +
+   refused_by='load_page_record' + no writer child; generic → writer runs and saves).
+   Then, and only then, 301 moves toward closed (fixed-AND-live bar).
