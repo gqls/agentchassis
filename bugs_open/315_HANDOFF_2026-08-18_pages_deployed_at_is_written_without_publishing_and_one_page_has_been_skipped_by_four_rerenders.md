@@ -201,3 +201,101 @@ with a number attached.
 
 **Still claiming no cause**, and still not ours: neither this lane, nor `agentchassis-22` who found
 the first page, nor the `302/201` session is taking `315`.
+
+---
+
+## Contribution, 2026-08-19 (later) — diagnosis + a fix plan at the council. Three corrections to this file.
+
+Picked up as a **fix** lane (`docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/`,
+standing five present). The filing lane says twice it is not theirs to fix and `who-owns.py` confirms
+no competing fix thread. **Nothing has shipped**; phases 0–2 are at the council gate as
+`Council-Submitted: 377167cd-6324-4bc7-a866-87ad8c435132`.
+
+### §2 is RIGHT, and its evidence table is two findings, not one
+
+Register `DGH-009` (`docs026_concept_register/register/deployment-github.md:101`) records the
+mechanism that explains the table:
+
+> *"**`success:true` from the git-adapter is not evidence anything changed.** An unchanged file
+> commits as an EMPTY commit and the adapter reports success with the file listed in `deploy_result`."*
+
+A byte-identical rerender ⇒ empty commit ⇒ `b2 sync` rewrites no object ⇒ `last-modified` correctly
+stays put. **So `tool-json-cleaner` and `tool-smooth-shadow` are not defects** — their bytes did not
+need rewriting, and the column is not lying about them. Only the `seo-injector` row is the bug.
+
+This does not weaken §2, it sharpens it: `deployed_at` honestly means *"a rerender ran and its
+output was committed"*, has never meant *"the origin now serves these bytes"*, and the gap only does
+damage when the bytes **did** change and still did not arrive.
+
+**But it kills §5 candidate 4 as written.** A `deployed_at`-vs-`last-modified` sweep would have
+convicted both healthy pages above. `[MEASURED 2026-08-19]` it is worse than that: 40 sampled
+deployed pages ALL have an origin `last-modified` older than their own stamp, and **all 40 share one
+three-second window** (09:33:56–58) while their stamps spread over the following hour — that is the
+whole-domain `b2 sync` batch, seen directly. The comparison cannot separate *not synced yet* from
+*will never sync*; only elapsed time can, and the known bad case took six hours. **Only an
+intent-vs-reality content hash separates the three rows**, which makes candidate 1 a prerequisite
+for candidate 4 rather than an alternative to it.
+
+### §2's core claim is now measured at the config, not inferred from three pages
+
+`[MEASURED 2026-08-19]`, joining every live `agent_definitions` step on `next_step` (**not** on
+`jsonb_each` key order, which is arbitrary and reverses this particular answer): **19 `git_commit`
+steps across 16 agents; 6 `update_page_status` steps across 6 agents.** Five stamp `deployed`:
+
+| agent | preceded by | so the stamp is |
+|---|---|---|
+| `page-build-handler` | `save_page_sections` | **BEFORE any deploy is dispatched** |
+| `tool-recreation-handler` | `save_page_sections` | **BEFORE any deploy is dispatched** |
+| `page-rerender` | `git_commit` | after a commit whose result it discards |
+| `report-builder` | `git_commit` | after a commit whose result it discards |
+| `section-editor` | `git_commit` | after a commit it discards, then deploys again |
+
+`deploy_result` appears **nowhere** in `v3_site_actions.go`. There is no arrangement of these five
+under which the column could be evidence of publication.
+
+### Correction to the 08-19 contribution's sizing — none of its three named instances is this bug
+
+Checked at the DB and at the served artefact:
+
+| named instance | measured | verdict |
+|---|---|---|
+| `vetcomparison.uk` `tool-compliance-deadline-calculator` | `build_status='planned'`, **`deployed_at` IS NULL**, still 404 today | real, but **nothing ever stamped it** — an active-never-built page, not a false claim |
+| `idea.uk` `/tools.html#audience-check` | `deployed_at` **NULL**; a separate `/tools.html` row with 4 components serves 200 | a **phantom row whose `url` is a FRAGMENT** of another page |
+| `ai-agent-orchestration.com` `/roi-estimator.html` | `deployed_at` 2026-05-02, **serves 200, rewritten today 08:37:59** | a stale duplicate row; the URL is live and current |
+
+The "42 / 11 / 2" table sizes *componentless active pages* — a real, overlapping population already
+targeted by `check_componentless_pages` — but it **does not size this bug**, and the two rows it
+offers as the sharpest cases are the two that are not cases. Flagging it because it is the only
+sizing this file carries and a fix aimed at it would be aimed at the wrong population.
+
+### The two columns this needs already exist, and are dead
+
+`[MEASURED 2026-08-19]` `pages.content_hash` **0 of 786**; `page_components.deploy_commit` **0 of
+1,775**; and `grep -rn "deploy_commit" --include=*.go .` over the whole repo **including tests**
+returns **zero lines**. `pages` and `site_work_items` have no commit/sha column at all.
+`CommitToRepo` computes `newCommitSHA` and returns `repo.HTMLURL` — a per-repo constant — so the sha
+never leaves the adapter.
+
+`UpdatePageStatusInputSpec.RemovedConfigKeys["commit_from"]` already describes this feature and says
+*"Implement it as a feature if wanted, do not re-add the key"*, and
+`sql_for_agents/034_page_rerender_agent.sql:99` already promises
+`"deploy_result": "git commit result with commit_sha"`. **So §5 candidate 1 is wiring up
+designed-and-abandoned machinery, not inventing it** — which is why it is cheaper than it reads.
+
+⚠ I corrected register `DGH-001` in place: it claimed *"Commit SHAs are recorded on pages and work
+items for traceability"*, which is false in all three parts. Council seats read register entries as
+ground truth, so that line would have drawn an objection to a proposal to add what it says exists.
+
+### Two things I could NOT settle
+
+- **§5 candidate 3 (why one page falls outside the batch) is not diagnosed.** The runner workflow
+  lives in `gqls/sites/.github/workflows`; the repo is **private** (`api.github.com` → `Not Found`
+  unauthenticated) and the chassis holds no B2 credentials, so neither the ref nor the bucket is
+  readable from here. The proposed sweep is deliberately designed to *detect* that failure from this
+  side without reading the runner.
+- **The diagnosis loop returned no verdict.** Two dispatches
+  (`6f900e18-2106-4145-a84c-811baeceaa0d`, `f1433782-6ba7-4304-a7f9-8bd830dfb7c9`) both died at the
+  `verdict` step on the Anthropic usage cap. Per the owner ruling of 2026-07-31 I state the
+  substitute plainly: every function above read at source, the workflow graph measured live, 744
+  `deploy_result` rows censused over 7 days, 40 pages graded at the artefact with cache-busters, and
+  the runner pods' own job logs read. If the loop ever completes and refutes any of this, it wins.
