@@ -30,6 +30,7 @@ independently.**
 | **Still shipping on `v1.0.1314`** | build point `d3590ca46` PRESENT both replicas, `deadbeef…` control absent; `bf7646a29`/`2a3d30ec3` are ancestors of it. rv0 windows unchanged on the new build |
 | **Initial-wait lead REFUTED** | `call_diagnoser` rv0 is 30:00 in **29/29** rows, whole history; 18 agent/step pairs joined per owning agent, **18 honoured, 0 mismatches** |
 | **Wedge signature measured** | 18/18 entered from the ERROR path; final spawn registered **twice** in 17/18; last state write **9–16s** after that final send; lifetimes **25:14–25:22** |
+| **Evidence loss CLOSED (RSH-011)** | `wedge-evidence-capture`, hourly CronJob at `:17`, LIVE 2026-08-19. Captures LIVE wedges at freeze+30min **and** reaped ones, with the full `awaited_requests` set, into `doc_notes`. **Proven by induction:** 5 real orchestrations captured at threshold 0; re-run captured 0 (dedupe holds); induced rows deleted |
 | **Dormant twin re-checked 08-19** | `helpers.go retryTimedOutRequest` (hard 30s) — still no constructor in this repo; only a test-file *comment* references `TimeoutMonitor` outside `helpers.go`. Scoped claim holds |
 
 ## THE OPEN QUESTION, unchanged
@@ -49,7 +50,7 @@ a candidate for the **duplicate** registration).
   retained. All 18 aged out on schedule. The loop reads the LIVE DB, so a 090 filed today would
   have **no instances to cite**.
 
-**So do not file the 090 today on an empty table.** File it when there are instances — the
+~~**So do not file the 090 today on an empty table.**~~ **It WAS filed on 2026-08-19 (the owner asked for it) and returned NOT CONFIRMED on exactly that ground — see the banner at the top. The instruction stands for the NEXT one: file it when there are instances** — the
 symptom text is ready in NOTES (2026-08-18 17:05Z), the seed scope is
 `coordinator.go:continueExecution,handleSpawnRetry,createContinuationContext,handleRecoverableError`,
 and `FORCE=1` is legitimate (the only coverage hit is a terminal `failed` item from 08-12).
