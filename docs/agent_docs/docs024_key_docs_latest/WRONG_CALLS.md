@@ -37970,3 +37970,69 @@ roll would have failed **every** discovery run on four agents fleet-wide, and ta
 already-collected findings down with it (the error returns before `tx.Commit()`, inside
 `defer tx.Rollback()`). Recorded because the near-miss was luck, not design: nothing in the
 process compares the two sections.
+
+## 2026-08-19 — "same field, same value, opposite meanings; only the `reason` separates them" — a bug file asserted two payloads were the same shape without listing their keys (bugfix 302 lane's filing of 323; found by the 323 lane)
+
+**The wrong call:** `bugs_open/323` (and the roster comment in `complete_work_item_no_change.go`)
+state that `spacing_fix`'s "already has flex CSS" and `cta_improvement`'s "requires LLM-driven
+changes" are the SAME shape (`fixed:false`) and that only the free-text `reason` tells a refusal
+from an idempotent no-op — so gate 1b "cannot express this handler's report at all without a
+contract change". Not so: every refusal arm in `fix_component_template_action.go` (13 sites)
+carries `action:"needs_review"` and every no-op arm carries no `action` key. Measured over the
+handler's entire history: 470 refusals with the key, 299 no-ops without, zero overlap. The
+discriminator existed; it had no reader. The fix that followed is one conditional in the
+handler's own workflow (migration 495), not a contract change.
+
+**What caught it:** reading the handler's source arm by arm before designing, and a
+`jsonb_object_keys` census of the payloads rather than a `fixed=false` filter — the 302 lane's
+own query kept only `result #>> '{response,fix_result,fixed}'`, so it could never have seen the
+key beside it.
+
+**The cheap check that would have:** before asserting two payloads are "the same shape", list
+their KEYS — `SELECT string_agg(k, ','), count(*) FROM …, jsonb_object_keys(result->'response'->'fix_result') k GROUP BY 1` —
+and read the producer's return statements. A shape claim built from one field's value is a claim
+about that field, not the shape.
+
+**Cost:** the bug file's "why not gate 1b" section is built on it, and its fix candidates skip
+the cheapest layer (the handler's own flag). One lane-day would have been spent designing a
+boolean-counter contract for gate 1b had the census not been re-run. Corrected in the bug file's
+status block.
+
+## 2026-08-19 — a five-month-old code comment said a result key "stops the dispatch loop recording the work item as done"; nothing read the key (fix_component_template_action.go; found by the 323 lane)
+
+**The wrong call:** `chromeFixLockSkip`'s header (bugs_open/069 era) asserted that returning
+`fixed:false` + `action:"needs_review"` "is what stops the dispatch loop recording the work item as
+done. Without it the handler reports success…". Every refusal the handler ever made closed
+`complete` — 993 `cta_improvement` items, 22 sites, 0 fixed.
+
+**What caught it:** `grep -rn '\["action"\]' --include=*.go platform/orchestration` (no reader of
+a result's action key) plus a census of live workflow `condition` strings for `needs_review` (0
+rows). Two commands.
+
+**The cheap check that would have:** a comment that says "X stops/causes Y" owes the NAME of the
+reader — grep the key in Go, then in live `agent_definitions` step conditions. Same check as the
+311 lane's "who reads this status?" entry directly above; this is the third tally mark for
+"a control asserted without naming its consumer" in two days.
+
+**Cost:** five months of green-closed refusals; the lane that wrote the comment (069) relied on it
+for the chrome-lock refusal, which has also been completing green since (2 responsive_fix rows,
+plus every locked-slot case). Corrected in place in the comment; landmine appended.
+
+## 2026-08-19 — a temporary-index commit left the SHARED index reading as a staged REVERT of the committed hunk (bugfix 323 lane, near-miss)
+
+**The wrong call (almost):** to commit only my hunk of `LANDMINES.md` while another session had
+an uncommitted edit in the same file, I used `GIT_INDEX_FILE=<tmp> git read-tree HEAD; git apply
+--cached <my hunk>; write-tree; commit-tree; update-ref HEAD <new> <old>`. Correct and safe for
+the commit — but I had earlier `git reset -- <path>`'d the shared index to the OLD head's blob,
+so after `update-ref` the shared index carried a blob WITHOUT my hunk against a HEAD WITH it:
+`git status` read `MM`, i.e. a STAGED change that deleted my landmine entry. Any session's bare
+`git commit -m` in the next minutes would have shipped that deletion under their message.
+
+**What caught it:** `git status --short <path>` immediately after, read for the FIRST column, not
+just the second.
+
+**The cheap check that would have:** after any plumbing commit (`commit-tree`/`update-ref`), run
+`git reset -q -- <paths you touched>` to re-sync the shared index to the new HEAD, then
+`git diff --cached --name-only` must not list them. Added to the 323 RUNBOOK.
+
+**Cost:** none realised — caught within a minute; `git reset -- <path>` cleared it.
