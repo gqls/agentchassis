@@ -239,3 +239,56 @@
   (item_key digest join exercised, not vacuously empty). Driver for wiring
   the sweep remains the 230 rotation once 083 drains — nothing wired today,
   by design (a sweep with no driver is a helper with no callers).
+
+## 2026-08-19 — second standing-watch reading (new session picking the lane up); closure re-verified; FILE MOVED; watch (a) TRIPPED
+
+- **Closure re-verified before anything else** (the fixed-AND-live bar was
+  restored by the owner on 08-12, superseding the 08-06 keep-in-bugs_open
+  direction, so the first question was whether the move is earned TODAY):
+  both fix commits ancestors of the live chassis build `d3590ca46`
+  (provenance verified at the binary with controls this morning by another
+  session, `c0ed34c13`); both triggers enabled 'O'; zero fail-closed
+  refusals in `agent_error_log` since 08-09; 20 open
+  `page_divergence_overwritten` items prove the loud half fires. Full
+  evidence written into the bug file as a dated section; file moved
+  `bugs_open/` → `bugs_closed/` with both paths named on the commit.
+- **Watch (a) volume: TRIPPED.** 63MB total (was 30MB on 08-10) — ~3.5MB/day
+  against the ~0.9MB/day worst-case projection, 4×. Cut by op/divergence
+  since 08-10: delete/machine_made **4,085** (75%), delete/unstamped 1,075,
+  overwrite/machine_made 189, overwrite/unstamped 101, delete/hand_patched
+  22, overwrite/hand_patched 6. By site: robot-hands.com 660 rows / 4.7MB
+  is the biggest single contributor; the rest spread across the loan/vet
+  calculators, vonc, webdesign. The driver is the delete arm archiving
+  machine_made bytes on routine DELETE+INSERT saves — the projection
+  underestimated save frequency, not a defect. **Retention design now due
+  on the design's own terms** ("volume/pruning decided on page-side
+  measurements" — we have 9 days of them). Being taken up as its own
+  council-gated change, this lane, next entry.
+- **Watch (e) sweep: 6 unsurfaced** (was 0). All `application_name='psql'`,
+  all webdesign.uk hero, two three-row same-transaction bursts (08-13
+  16:40:58, 08-14 20:14:19) — a psql session iterating its own hand-patch;
+  each write archived-but-did-not-surface its predecessor. No net loss (the
+  final patches' destruction by stamped writers raised items — webdesign's
+  17), but two lessons recorded in STY-056: the sweep counts same-actor
+  self-iterations, and raw-psql patching is live behaviour, not a
+  hypothetical. Driver for wiring remains 230-rotation-once-083-drains;
+  083 (`detected_findings_never_reach_a_handler`) still open, so still not
+  wired — and the 20 undrained items above are that bug's live cost here.
+- **Reader census for the retention design** (do NOT prune without this):
+  runtime readers of `page_component_history` = save_page_sections_action,
+  rerender_page_sections_action, content_data_envelope_guard,
+  section_visible_text, save_sections_prune_floor (calibration),
+  page_component_divergence (ledger read-back), save_component_history_action,
+  core-manager page_admin_handlers; plus one-off restore recipes (mig 287,
+  378, 431) which read **content_data** from history rows. Key precedent for
+  what may be dropped: the save-path snapshot's own COALESCE policy has
+  always dropped the artefact when content_data exists (14,831/14,863 rows)
+  — machine-reproducible artefact bytes are the class the platform already
+  declines to keep, and the trigger arm was built to catch the DIVERGENT
+  class. Retention that nulls only old machine_made trigger payloads (never
+  hand_patched/unstamped, never content_data, never the ledger row) is
+  inside the established semantics.
+- **Misstep to own**: my first `agent_error_log` query guessed `created_at`
+  as the timestamp column (it is `occurred_at`) — caught by the error, fixed
+  by `\d` per the schema-first rule. In-flight, never asserted anywhere, so
+  recorded here rather than WRONG_CALLS.

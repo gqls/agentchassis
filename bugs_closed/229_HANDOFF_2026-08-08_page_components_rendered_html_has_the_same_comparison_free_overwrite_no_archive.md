@@ -1,7 +1,19 @@
 # 229 — `page_components.rendered_html` has the same comparison-free overwrite as bug 226, and no archive: a section rebuild can still silently destroy artefact-only content
 
-> **STATUS: DONE IN SUBSTANCE 2026-08-09 — stays in `bugs_open/` per the owner
-> ruling of 2026-08-06.** Owner ruled candidate 1 (extend the 344 shape); built,
+> **✅ CLOSED 2026-08-19 → `bugs_closed/` — fixed AND live, re-verified end-to-end
+> ten days after the fix shipped.** The ~~stays in `bugs_open/` per the owner
+> ruling of 2026-08-06~~ clause below is SUPERSEDED: the owner restored the
+> fixed-AND-live bar on 2026-08-12 ("if it is fixed and live it should be moved",
+> 239 moved same day, `2aa3014a3`), so this file moves. Re-verification evidence
+> of 2026-08-19 is in the dated section immediately below; the standing watches
+> (STY-056 open-review (a) volume, (e) unsurfaced-writer sweep) live in the
+> register entry, not here, and both were re-read the same day — (a) has TRIPPED
+> its projection (63MB, ~4× worst case) and the retention design is being taken
+> up by the `bugfix_229_page_component_archive` lane as its own council-gated
+> change.
+>
+> **STATUS: DONE IN SUBSTANCE 2026-08-09** (original banner, kept for history).
+> Owner ruled candidate 1 (extend the 344 shape); built,
 > council-APPROVED (round 4 of trail `eee2888b`, 1 advisory = the
 > unsurfaced-writer sweep, STY-056 open-review e), released on v1.0.1276,
 > pod-verified both main replicas, and the e2e protocol RUN AND PASSED on
@@ -16,6 +28,52 @@
 > content flag from all four stamped writers. Trail:
 > `bugfix_229_page_component_archive/` · register STY-056 · sibling
 > `bugs_open/226` (chrome, same mechanism, done).
+
+## RE-VERIFIED 2026-08-19 — the closure holds at today's live state (evidence inline)
+
+Checked by the session moving this file, ten days and one chassis generation after
+the close, rather than trusting the 08-09 verification to have survived:
+
+- **Go half in the live binary**: both fix commits (`1930ef86f`, `ebb879fc1`) are
+  ancestors of `d3590ca46` — the commit the running chassis states as its build
+  provenance, itself binary-verified with controls the same morning by another
+  session (`c0ed34c13`). `git merge-base --is-ancestor` both ways: IN.
+- **DB half intact**: both triggers present and enabled
+  (`trg_page_component_artefact_archive_upd`/`_del`, `tgenabled='O'`).
+- **Zero fail-closed refusals**: no `agent_error_log` rows mentioning
+  `page_component_history` since 2026-08-09 — no writer has been blocked by the
+  trigger erroring.
+- **The loud half fires in production**: 21 `page_divergence_overwritten` items
+  all-time (20 `needs_human_review` — 17 webdesign.uk, 3 mortgagecalculator.co.uk —
+  plus the cancelled e2e probe). Demand is real, the signal reaches the queue.
+  Those 20 have no drain — that is `bugs_open/083` (detected findings never reach
+  a handler), not this bug.
+- **The archive works at volume**: 5,478 trigger-arm rows since 08-10
+  (4,085 delete/machine_made · 1,075 delete/unstamped · 189 overwrite/machine_made
+  · 101 overwrite/unstamped · 22 delete/hand_patched · 6 overwrite/hand_patched).
+  Every destruction recoverable; the restamp-through-churn curve continues
+  (unstamped share falling).
+- **Watch (e) sweep re-run**: **6 unsurfaced** hand-patched overwrites (was 0 on
+  08-10) — all `application_name='psql'`, all webdesign.uk hero slots, two
+  three-row same-transaction bursts (08-13 16:40:58, 08-14 20:14:19). Read: a
+  psql session iterating its own hand-patch, each write archiving-but-not-
+  surfacing its predecessor. The final states' later destruction by stamped
+  writers WAS surfaced (the webdesign items above), so no net unsurfaced loss —
+  but this is the predicted unenumerated-writer class occurring, and it shows
+  the sweep counts same-actor self-iterations as "unsurfaced". Noted in STY-056.
+- **Watch (a) volume**: `page_component_history` **63MB, up from 30MB on 08-10**
+  (~3.5MB/day vs the ~0.9MB/day worst-case projection — 4×). Driver:
+  delete/machine_made, 75% of trigger rows — the delete arm faithfully archiving
+  bytes the stamp itself classifies as reproducible. **The deferred pruning
+  design (open-review (a)) is now DUE on the design's own terms**; taken up by
+  the lane as a separate council-gated change (see the lane NOTES 08-19 entry).
+
+**090 substitution, stated per the owner ruling of 2026-07-31:** this
+re-verification is direct first-hand measurement of a mechanism the diagnosis
+loop already saw through four council rounds and an e2e protocol; every figure
+above is from today's live DB/git, queries in the lane RUNBOOK/NOTES.
+
+---
 
 **Filed 2026-08-08 by the `bugfix_226_chrome_divergence` lane**, at the council's
 direction in substance: the round-1 `bug_historian` seat (corr `cffbfec4`)

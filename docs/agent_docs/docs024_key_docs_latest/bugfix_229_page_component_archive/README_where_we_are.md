@@ -57,3 +57,30 @@ losses from *unlisted* writers to raise tickets too (the copies already
 exist; the query is written; it needs the discovery plumbing from bugs 83/230
 to run it), and nothing prunes the archive yet — we sized the growth and it
 is modest, but it is not zero.
+
+## 2026-08-19 — ten days on: everything still working, the ticket retired, and the archive needs a diet
+
+A fresh session picked this up, checked everything again from scratch before
+believing the 9th-of-August close, and it all holds: the safety net is in the
+running software, both database triggers are on, nothing has ever been
+wrongly blocked, and the alarm has raised twenty real tickets since. On your
+12th-of-August direction that finished-and-live bugs move to the closed list,
+the bug file has now moved there, with today's evidence written inside it.
+
+Two things from the routine check-up are worth your attention. First, the
+archive is growing about four times faster than we projected — 63MB now
+against 30MB nine days ago. Nothing is wrong; pages simply get rebuilt more
+often than the estimate assumed, and every rebuild files copies. But "decide
+pruning once we have real numbers" was the deal, and we have them, so a
+retention proposal is going through the reviewers next: throw away only the
+old copies that the machine can recreate anyway, keep every copy of hand-made
+work indefinitely, and keep the record of who-destroyed-what forever either
+way. Second, those twenty tickets the alarm raised are sitting unread —
+that's the old "findings never reach a handler" problem (bug 83), not this
+one, but you should know the queue exists.
+
+One small human note: the copies also caught someone (one of us, via the
+database prompt) polishing the webdesign.uk hero three times over two
+evenings. The net archived each draft faithfully and said nothing — exactly
+as designed for self-edits, and proof the "unlisted writers" thread above is
+about real behaviour, not theory.
