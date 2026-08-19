@@ -359,6 +359,71 @@ moot.
 **Neither of us owns `473` and neither may see it land**, which is why this is in a file rather than
 in a session.
 
+### 7c-RESULT. THE PREDICTION WAS WRONG — there was a FOURTH outcome, and my enumeration said "exactly one of three"
+
+**`473`/`474` applied 2026-08-19 10:34:26Z / 10:34:35Z, ledger-recorded.** The 184 lane took all
+three suggestions (scope statement in the header, the `rebuild_policy` caveat, and the verify block's
+at-apply split — which read **30 generic / 41 owned open items**, my 16 having been terminal refusals
+only).
+
+**The owned-page canary took NEITHER predicted branch.** Not the ownership refusal (outcome 1, mine),
+not the silent skip (outcome 2, `agentchassis-22`'s). It was **refused by the COMPLETION VERIFIER**,
+on a ported-page slot's `rendered_html` code_span: ported/tool slots have **no `content_data` to
+strip** and carry their HTML through, so the verifier — `item_type`-keyed, runs on every completion —
+blocked it honestly, **before `pageIsOwnedForGuard` was ever reached.**
+
+**Two things this changes in our model, and the second matters more than the first:**
+
+1. **An owned-page `literal_markdown` item can terminally fail without ever touching the ownership
+   guard**, and that failure is *honest*. So a `failed` row on an owned page is not even reliably a
+   refusal at the *route* level, let alone the policy-column level (§2). Another reason the error
+   text is the only discriminator.
+2. **The "completes having written nothing" path CANNOT false-green for this item_type** — the
+   verifier re-scans both stored surfaces. That is a real floor under `315`'s failure mode, for
+   the types that have a registered verifier.
+
+> ⚠ **THE LESSON, and it is this week's shape again.** I wrote *"each owned-page item lands in
+> exactly one of three outcomes"*. It landed in a fourth. **The enumeration felt exhaustive because I
+> had derived it from the two mechanisms I happened to know about** — the guard I own and the
+> escalation path a peer had just told me about — and I never asked what else runs on a completion.
+> **A pre-registered prediction that is wrong is worth more than a vague one that is right**, and it
+> is only because it was written down beforehand that the fourth outcome is legible as a finding
+> rather than as "well, obviously".
+
+### 7e. ⚠ CONSEQUENCE OF THE RE-ROUTE THAT IS OURS TO OWN: `473` created a new pair, and OUR gate holds it
+
+[MEASURED 2026-08-19, post-apply, live+archive]
+
+| `literal_markdown` pair | complete/verified | failed |
+|---|---|---|
+| `page-build-handler` (the old route) | 3 | 35 |
+| **`page-rerender` (the NEW route)** | **0** | **3** |
+
+**The promoter's `known_good` gate requires ≥1 lifetime `complete` or `verified` for the pair.
+`(literal_markdown, page-rerender)` has none.** So it is held — reason *"pair has never completed one
+(awaiting a hand canary)"* — and after 3 days `held-pair-canary-escalation` escalates it asking a
+human to canary it.
+
+**So even once the fleet roll carries `f3939f27d` and the mechanism works, our gate will not dispatch
+this type on the new route until someone hand-canaries it.** Their fix is gated by our mechanism, and
+they had no way to know.
+
+**The good news, and it is what I told them:** the canary they will run anyway to prove the fix *is*
+the unblock — **one** successful completion flips `known_good` and releases the rest.
+
+> **The transferable property, which is bigger than this case: RE-ROUTING AN `item_type` TO FIX IT
+> CREATES A NEW `(item_type, handler_agent)` PAIR WITH NO HISTORY, AND THE PROMOTER HOLDS IT BY
+> DEFAULT.** The old pair's record does not transfer. Any lane that repairs a type by re-pointing its
+> handler will hit this, will see "held — never completed one", and may read it as their fix having
+> failed. **This is the promoter working as designed and it still needs saying out loud.**
+
+⚠ **And do NOT read the 3 `page-rerender` failures as the route being wrong.** They are pre-roll: the
+generic canaries showed the strip fires and the save succeeds, but news-listing items are
+**query-resolved** and `plan.ResolvedData` merges last, re-imposing markdown from source in the same
+run (root: `content_feed_items.source_summary` carries raw markdown in **~700 of 10,855 rows**).
+Fixed by `f3939f27d`, **pending the next fleet roll.** The pair's ratio should recover after that
+roll, not now.
+
 ### 7d. The discriminator worth keeping, from `agentchassis-8d`
 
 > **Is success expressible as a diff assertion?**
