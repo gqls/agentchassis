@@ -304,3 +304,20 @@ an all-zeros must-miss control hits legitimately in Go binaries; and extracting 
 discovery `grep -aoE "[0-9a-f]{40}"` fails a different way — Go's string table concatenates
 without separators, so maximal-munch tokenisation splits the sha across arbitrary boundaries and
 it never appears as a clean token. Known-value substring probes are the only reliable read.
+
+> **CORRECTED 2026-08-19 (second session, asked to action the residual): the residual's remedy
+> sentence — "Complete them normally; the verifier (new binary) resolves them as balanced" —
+> named a path that cannot fire.** The registered verifier runs only inside
+> `CompleteWorkItemAction`, whose closing UPDATE excludes `needs_human_review`
+> (`load_work_item_actions.go:1025`) — and every item of this type is BORN in that status with
+> no handler (`check_truncated_component.go:217`). Nothing had ever closed one (closer census
+> 2026-08-19: 3 rows ever, all parked, zero resolution_paths) and nothing could. The row
+> `91007600` even carries a 2026-08-04 revalidation stamp saying "no revalidator registered for
+> item_type truncated_component" — the queue's real drain said so itself, before this close-out
+> assumed the completion path would do it. What caught it: reading the completion guard's
+> status list when actually asked to complete them. The actual fix: a `truncated_component`
+> revalidator in `revalidate_review_queue` delegating to the SAME
+> `VerifyTruncatedComponentResolved` (`bugs_open/325`, commit `c117c1bba`, inert until a roll;
+> the daily sweep then closes all three items — including `e7a4a7dd`, the repaired
+> tool-llm-cost-calculator, which this file's residual paragraph did not list). Trap distilled
+> in LANDMINES ("`RegisterVerifier` is not a drain"); incident in WRONG_CALLS 2026-08-19.

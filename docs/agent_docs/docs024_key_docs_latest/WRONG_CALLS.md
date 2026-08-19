@@ -37424,3 +37424,30 @@ edit in THIS commit inside the reviewed plan?" — a ten-second diff-against-pla
 An approved correlation is not a badge for the lane; it is a statement about specific
 edits. (Corollary of the standing `a-submission-is-not-a-review` memory: an approval is
 not a review of what you wrote afterwards either.)
+
+## 2026-08-19 — "complete them normally and the verifier resolves them": a close-out prescribed a completion path the completion guard forbids
+
+**The claim** (bugs_closed/303, close-out + residual paragraph, 2026-08-19 morning): the two
+false-alarm `truncated_component` items "should be completed normally so the new binary's
+verifier resolves them as balanced". Stated as the residual's remedy and repeated by the
+re-verifying second session's report the same morning.
+
+**What was actually true:** the verifier registered for the type runs only inside
+`CompleteWorkItemAction`, whose closing UPDATE excludes `needs_human_review`
+(`load_work_item_actions.go:1025`) — and `check_truncated_component` files every item AT
+`needs_human_review` (`check_truncated_component.go:217`). No completion of any item of the
+type has ever happened or could. The queue's real drain (`revalidate_review_queue`) had no
+revalidator for the type — and had SAID so, on row `91007600`'s own `result.revalidation`
+stamp of 2026-08-04.
+
+**What caught it:** being asked to actually DO the residual. The first concrete question —
+"which mechanism moves this row?" — required reading the completion UPDATE's WHERE clause, and
+the claim died there. Fixed as `bugs_open/325` (`c117c1bba`).
+
+**The cheap check that would have:** before naming a mechanism as a remedy, run the CLOSER
+CENSUS for the item type (`SELECT status, count(*), count(DISTINCT resolution_path) …`) — "has
+this path ever once closed one of these?" — and if the answer is zero, read the deciding
+WHERE clause before writing the sentence. Ten seconds of SQL; the census was already the
+documented adoption bar in `revalidate_review_queue`'s own tests, two files away. (Same family
+as [[detection-works-schedule-and-dispatch-do-not]]: the verifier DETECTED correctly; the path
+that was supposed to DRIVE it was never wired, and a remedy sentence inherited the gap.)
