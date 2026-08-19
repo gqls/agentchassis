@@ -99,3 +99,23 @@ when it checks "does this tool already exist?", it does not care whether the exi
 off. So the A/B test tool, whose failed rebuild we withdrew this morning, would block its own
 replacement — and the run would finish successfully having built nothing at all. That is now written
 down with the one-line fix, before it cost us a cycle rather than after.
+
+## 2026-08-19, late evening — from the session that closed bug 286 (plain account)
+
+Bug 286 — "the tool generator couldn't rebuild a tool at an address that already had a page" — has
+been fixed and running since the 16th. Nobody had moved the file, so I checked it properly (the
+running binary really carries the fix; the switch is on; seven rebuilds have gone through it; the
+original error has not happened since the day it was filed) and closed it.
+
+While doing that I found the next wall, which this lane has been climbing by hand every time it
+re-fixes a tool it already rebuilt once: the generator can CREATE a tool for a site, but it cannot
+REPLACE one it made. Three separate safety catches each stopped it on three consecutive days in
+August, and the recipe grew three manual database edits plus a race to retire the old copy before
+the page re-rendered. I filed that as bug 331, had the diagnosis loop confirm it (it did, first go),
+and built the fix: an item can now say "replace the existing one", and the generator rewrites the
+tool in place — same identity, old version kept automatically for a revert, page never shows two
+tools. It is written, tested, and submitted to the reviewers; it goes live on the next chassis roll
+plus one config line (held until then). After that, a re-fix is one filing and nothing else.
+
+Also: the library-collision fix the 311 session built today is already live on the 17:13 roll, so
+the two "blocked" tools (ab-test, meme-generator) are not blocked any more.

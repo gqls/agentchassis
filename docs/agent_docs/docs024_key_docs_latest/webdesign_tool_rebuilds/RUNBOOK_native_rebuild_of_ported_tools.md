@@ -125,7 +125,10 @@ POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.
 kubectl -n ai-persona-system logs $POD --tail=400 | grep -m1 'build provenance'          # startup line; scrolls fast on chassis
 # if it has scrolled: probe each commit in the build window (pod startTime minus ~40 min):
 for s in $(git log --format=%h --since='<start>' --until='<pod start>'); do
+  [ -n "$s" ] || continue      # an EMPTY pattern matches every byte and prints "= STAMP" for nothing (WRONG_CALLS 2026-08-19 late)
   kubectl -n ai-persona-system exec $POD -- grep -aq "$s" /proc/1/exe 2>/dev/null && echo "$s = STAMP"; done
+# and before you merge-base against anything you copied from a NOTES line: `git cat-file -t <it>` must say commit —
+# a 9-hex IMAGE DIGEST prefix (e.g. 2d0d3defc for v1.0.1316) looks exactly like a short sha and is not one
 git merge-base --is-ancestor <your-commit> <STAMP> && echo LIVE || echo NOT_LIVE
 kubectl -n ai-persona-system exec $POD -- grep -aq "0123456789abcdef0123" /proc/1/exe && echo CONTROL_BROKEN || echo control_ok
 ```

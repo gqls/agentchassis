@@ -38391,3 +38391,39 @@ accidentally correct today. **A test that cannot fail is worth nothing**, so the
 simulate the future the fix protects against — add a third arg AND hardcode `$3` — at which point
 both branches failed as designed. **"Mutation-proved" means the mutation has to be the one the code
 will actually meet**, not merely any edit that turns the test red.
+
+## 2026-08-19 (late) — `bugs_open/286`/`331` session: two stamp probes that "found" the build point, one on an image DIGEST, one on an EMPTY string — both caught in the same minute, neither recorded; logged because the second is a check that keeps appearing
+
+**What I nearly recorded.** Verifying that `v1.0.1316` carries 286's fix and RFC_036 §9.3: (1) I took
+`2d0d3defc…` from another lane's NOTES line ("both pods v1.0.1316 at one digest (`2d0d3defc…`)") and
+ran `git merge-base --is-ancestor 88897190e 2d0d3defc` — git said "unknown revision", which is what
+saved it: that string is the **image digest**, not a commit. (2) I then shelled `b=$(git log -S'v1.0.1316' -- makefile | tail -1)`,
+got an EMPTY `$b` (the bump was not committed yet — the makefile is dirty at 1316), and the next line
+printed **"bump sha PRESENT in pod/agent-chassis-…"** — because `grep -aq "$(git rev-parse "")" /proc/1/exe`
+is `grep -aq "" …`, which matches every byte of every file. A PRESENT that proves nothing, printed
+in the exact shape of the proof I was looking for. The `NOT ancestor` lines beside it were equally
+void (`merge-base` had printed usage and exited non-zero).
+
+**What caught it.** Reading the usage text git printed two lines above the PRESENT, and the fact that
+`88897190e NOT ancestor` contradicted what I had already verified on the 1315 stamp. A result that
+contradicts an established fact is the tell — but only if you look at the whole output, not the one
+line you wanted.
+
+**The cheap check that would have.** Never interpolate a sha you have not asserted non-empty:
+`[ -n "$b" ] || { echo "no sha"; exit 1; }` before any `grep -aq "$b"`; and run the junk-hex control
+IN THE SAME COMMAND, which I did — but the control cannot save you here, because the empty-string
+grep matches the junk too and the control would have read PRESENT as well, had I printed it in that
+branch. **An empty pattern is the one control that defeats the control.** This is the MEMORY entry
+"a control that matches everything (40 zeros) hides it", met from the other side: not a pattern that
+matches everything, a pattern that is nothing.
+
+**The right way, which worked a minute later:** find the build point by reading another lane's
+ancestry-checked note (`07eeba4a1`), `git log -1` it (it must be a COMMIT), `merge-base --is-ancestor`
+the fix INTO it, then probe that sha with a junk control and the fix's own literal as the
+expected-absent control. Recorded in `bugs_closed/286`'s CLOSED block with all three outputs.
+
+**Tally line.** "Probe a sha you have not checked is non-empty / is a commit" — 1 (this). `[UNMEASURED]`
+whether earlier entries in this file are the same class (an uninspected shell variable read as a
+result) — I started to write "third time" from memory and that is exactly the unchecked figure this
+file exists to stop, so: count it when the next one lands. The fix is mechanical and belongs in the
+lane RUNBOOK's probe block as an `[ -n "$sha" ]` guard, not in memory.

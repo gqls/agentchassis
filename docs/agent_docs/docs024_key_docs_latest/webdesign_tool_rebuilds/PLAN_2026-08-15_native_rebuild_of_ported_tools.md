@@ -176,3 +176,12 @@ in this order of leverage:
 **Consequence for the briefs**: once a rule is in Track 1, DELETE it from the per-tool description.
 A requirement repeated in both places is the drift surface — the day they disagree, nobody knows which
 is authoritative. The per-tool brief should say only what is TRUE OF THIS TOOL.
+
+> **CORRECTION 2026-08-19 (contrib, `bugs_open/286`→`331` session).** Wherever this PLAN or the
+> RUNBOOK treats "deactivate the old row / rename it / retire the old slot before the rerender claims"
+> as the recipe for a RE-FIX of an already-native tool: that was the workaround for a framework gap,
+> not the design. `bugs_open/331` (fix built `d375a0801`, TL-047, council `7a82c943`, inert until roll
+> + seed 496) makes a re-fix one filing with `"replace_existing": true` in the item spec — regeneration
+> in place, archive trigger as the revert handle. The ported→native FIRST replacement (286's adopt
+> route, LIVE since `v1.0.1304`, 286 now CLOSED) is unchanged. Owner ruling 2026-08-19 ("fixes must
+> extend into the framework") applied to the lane's own recipe.

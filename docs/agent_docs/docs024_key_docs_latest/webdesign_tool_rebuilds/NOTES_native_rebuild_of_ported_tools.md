@@ -1724,3 +1724,34 @@ three sites twice) and get ONE undispatchable `capability_gap` per site per chec
 `ported_tool_fix` rows. `PartitionByRemit` + `CapabilityGapItem` are already written and already used
 by two other checks. **Do not build a rule-18 checker.** And say out loud in the header what this
 does NOT cover, or the next reader will read its silence on rules 15/18/19/20 as a clean bill.
+
+## 2026-08-19 21:00Z–22:00Z — (contrib, `bugs_open/286`→`331` session) 331 filed, 090 CONFIRMED, fix BUILT + council submitted; what changes for this lane once it rolls
+
+- **Renumbered:** the new bug is **`bugs_open/331`** (330 was taken by another session minutes earlier; the
+  286 close commit `1f70a645b` and two doc refs said 330 — corrected in-file in `7beeef024`).
+- **090 `44ada235`: CONFIRMED first iteration (21:02Z)** — cites the probe SQL, `componentName :=
+  fmt.Sprintf("%s-%s", function, domainSlug)`, the bare INSERT, and the three `agent_error_log` rows (one
+  per gate, 08-15/17/18). Caveat recorded in the bug file: the loop's INSERT citation is the 9-param
+  pre-§9.3 shape, so it read code predating `e24bc9c0f`; parts (a)+(b) confirmed on evidence, (c) stays
+  inferred (and is moot under the fix taken).
+- **Fix built (`d375a0801`, register TL-047, council `7a82c943` submitted, `Council-Submitted` trailer):**
+  per-ITEM `replace_existing` on `create_tool_component`; when the item says so and the probe finds the
+  site's own incumbent, the action regenerates it IN PLACE (snapshot → shared fence → one tx: row +
+  live slot(s) `rendered_html` rewritten, `deployed`; archive trigger keeps the old bytes). Same
+  `component_id`; `forked_from`/`name` untouched. Default OFF byte-identical (pinned); flag + no
+  incumbent = today's greenfield walk (pinned). Two guards caught the new writer and were answered,
+  not bypassed: the 285 fence is CALLED; the 253/178 floors are a declared exemption (a rebuild is
+  supposed to change the markup — `component_swap` shape), with the hollow-regeneration residual
+  stated. `check.py` literal 3→4 + overlay re-applied (live ConfigMap read back: 4).
+- **What it means for THIS lane (after roll + seed 496):** a RE-FIX of an already-native tool is one
+  filing with `"replace_existing": true` in the spec — no deactivate, no rename, no retire race, and
+  `page_component_history` replaces the md5 hand-record for the revert. The ported→native FIRST
+  replacement (adopt route) is unchanged. RUNBOOK block added ("COMING"). Until roll + seed the
+  recipe stands exactly as written.
+- **Two near-misses on my own stamp probe, caught in the minute, logged in WRONG_CALLS (2026-08-19
+  late):** a digest prefix read as a commit; an EMPTY `$sha` grep printing PRESENT. RUNBOOK probe
+  block gains the `[ -n "$s" ]` guard and the `git cat-file -t` check.
+- **Verified 1316 carries BOTH 286 and §9.3** (stamp `07eeba4a1` from the 029 lane's ancestry-checked
+  note; present in `agent-chassis-5ddd9744-86nqf`; junk control absent; `88897190e` literal absent as
+  expected). So Phase D's two tools can be filed on §9.3 now (the 311 session says its CONTRIB at
+  20:40Z told you so too).
