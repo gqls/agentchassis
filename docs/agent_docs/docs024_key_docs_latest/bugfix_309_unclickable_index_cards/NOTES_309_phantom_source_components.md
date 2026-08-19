@@ -166,3 +166,36 @@ credited automatically by 098. Advisory triage, each answered or routed:
    verify-later: binary probe with present+absent controls is the primary.
 7. **architecture/reuse (low): five bespoke Layer-1 guards, consolidation owed.**
    Already in CLC-018 relations as the known refactor direction.
+
+## 2026-08-19 — post-roll verification (first-hand) and LANE CLOSE
+
+- **The guard is LIVE.** v1.0.1314, verified at the artefact myself (the 272
+  lane's §10 table said the same; re-proven rather than quoted): pod imageID
+  sha256:d0257576… == local RepoDigests (not a cached same-tag rebuild); label
+  revision `d3590ca4638d…`; binary probe with BOTH controls (revision sha
+  PRESENT in /proc/1/exe, fake sha ABSENT); `0df9f1be9`, `e21b172f0`,
+  `e5c9029dc` all ancestors of the revision.
+- **Not yet exercised in production**: 0 SOURCE_GUARD/rejection rows since the
+  roll; the only 2 post-roll component writes are TOOL components via
+  tool-generator (a different birth route — not the gated store path). Per the
+  CLC-015 precedent this is the expected steady state: refusal branch proven by
+  unit test + mutation + binary probe; do not read its silence as "never
+  worked". First natural component-creator generation is the demand control.
+- **The case repair moved a long way overnight (272/284 lane, then closed):**
+  migration 478 retired all 7 phantom fields (collection dialect,
+  `articles ← query.blog_posts`) — and **passes this lane's now-live gate by
+  construction**, which also makes a 478 rollback non-free. The rerender is
+  BLOCKED by the section-shrink guard doing its job: 5 of 8 articles have empty
+  `meta_description`, root-caused fleet-wide as `bugs_open/320` (407/731 pages;
+  never asked for + unguarded upsert clobber; NO framework backfill mechanism
+  exists). Bug 309 §10 is the definitive handoff: (1) owner decision on 320 §8's
+  options, (2) re-dispatch the §9 rerender (`spec.reason=template_changed`),
+  (3) verify at the served page (8 cards, 8 anchors, archived guide absent).
+- **LANE CLOSED.** This lane's deliverable — the class guard — is committed,
+  council-APPROVED (fdb032c6 r2), live, and verified with controls. Remaining
+  advisory debt, stated not hidden: WithArgs tightening on the second wiring
+  test (editquality, low-value until the finding row shape matters); "does
+  component-creator surface the refusal loudly?" — unverifiable until a live
+  rejection exists; check it against the first SOURCE_GUARD row that appears.
+  Bug 309 itself stays OPEN, blocked on the owner's 320 decision — not on this
+  lane.

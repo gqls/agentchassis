@@ -61,3 +61,25 @@ the machine-generated route. A component added by hand-written database script
 walks around it — the same gap that eventually forced a database-level rule for
 an earlier problem of this shape. If phantom sources reappear via hand seeds,
 that is the next move.
+
+## 2026-08-19 — the lock is live and proven; this lane's work is done
+
+The new software release went out this morning and we checked it the careful way:
+the running service's own binary carries our changes (checked with both a
+should-be-there and a should-not-be-there probe, so the check itself can fail).
+The door-lock is live. It hasn't been triggered by a real generation yet — that's
+expected; the first component that tries a made-up source will be its live proof.
+
+Overnight the other session applied the page repair (the card list now asks the
+database for the site's real articles — and, satisfyingly, that repaired component
+passes our new lock by construction). But re-rendering the page hit a different
+safety guard, and the guard is right: five of the eight articles have no summary
+text to put on their cards. Digging into why turned up something much bigger than
+this page — more than half the site pages across the whole fleet have no summary
+text, because no part of the pipeline was ever asked to write one. That's filed as
+bug 320 with the options laid out for you.
+
+So: this lane is closed — the read-out is in SUMMARY_2026-08-19. The one decision
+waiting on you is bug 320's: how summaries should get filled in. Once you pick,
+finishing the Platform Log page is two mechanical steps written out in the bug
+file, and any session can run them.
