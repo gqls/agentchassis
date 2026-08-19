@@ -251,3 +251,62 @@ council seat has now independently said the arms want a guard.
 
 **Trailers:** the work went out with `Council-Submitted: 7b0e2833-…`, which `098` resolves to this
 approval at report time. No amend (forward-only).
+
+---
+
+## 2026-08-19 — measured against THIS FILE'S OWN verify criterion: half of it is met, half is not, and 277 does not close
+
+Checked at the roll (`agent-chassis:v1.0.1314`) while closing out the `083` half of this lane. The
+criterion in §"Verify (when built)" has two clauses, and they have come out differently.
+
+**Clause 2 — MET.** *"a fresh `required_fields_missing` filed anywhere gets claimed within the
+dispatch loop's normal cadence instead of escalating."* The router is live (1 active definition),
+and the type moves: **130 complete / 30 needs_human_review** lifetime, with handler activity as
+recent as **2026-08-19 08:45**. Every one of the 30 parked rows carries a route —
+`no_content_data` 27, `asset_sourced` 2, `no_plan_owned` 1, **zero unrouted**. Nothing strands
+unclassified any more, which is what this bug was filed about.
+
+**Clause 1 — NOT MET.** *"The gas converter's three items go `needs_human_review` → repaired → the
+page serves real content."* The gas converter's item is still at `needs_human_review`, routed
+`no_plan_owned`, updated today:
+
+```
+required_fields_missing:7e576bc4-fb8b-46a4-b035-2842c481f35a:tool-gas-unit-converter
+  status=needs_human_review  route=no_plan_owned  updated 2026-08-19
+```
+
+**It has been classified, not repaired.**
+
+### The general form, which is the part worth acting on
+
+**Nothing repairs a `required_fields_missing` item.** Of the completions in the live table:
+
+| how it reached `complete` | rows |
+|---|---|
+| `resolution_path='auto:revalidated'` — a sweep found the defect had gone | **44** |
+| `handled_by='build-dispatch-loop'`, no resolution path | **37** |
+| repaired by the router | **0** |
+
+The 44 are the honest number to look at: those items closed because the page acquired content **by
+some other route**, and the sweep noticed. That is the mechanism doing its job as an accountant, not
+as a repairer — and it is why the queue looks healthier than the pages are.
+
+**This is not a criticism of the router, which does exactly what it was built and approved to do**
+(corr `7b0e2833`, round 5). It is that the owner's ruling — *"we should create a repair handler
+fleet wide"* — has been half-delivered: the routing half exists and is proven; the repairing half
+does not exist for the largest route, `no_content_data` (27 of the 30 parked).
+
+### So: 277 stays OPEN, and this is what "done" would need
+
+1. Something that acts on `no_content_data` — the 27-row majority. That is a content-acquisition
+   problem, not a routing one, and it is plausibly the same missing piece as the owned-page repair
+   route (`bugs_open/301`, Tier 2): **a finding-to-edit converter**. ⚠ Note `copy-editor` already
+   produces `apply_section_edit`'s exact input shape and is owned by the
+   `loanandmortgagecalculator_couk` lane — talk to them before designing anything.
+2. The worked example served: `tool-gas-unit-converter` carrying real content, checked at the served
+   page and not at the item's status (`bugs_closed/287`: a `complete` work item is not a repaired
+   artefact — and here the items are not even complete).
+3. Only then does clause 1 pass.
+
+**Closing this on clause 2 alone would be exactly the error this estate keeps logging:** the queue
+is tidy, every row is labelled, and the page the bug was filed about still does not serve content.

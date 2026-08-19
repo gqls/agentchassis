@@ -328,3 +328,41 @@ before it was read.
 mechanism I had declared nonexistent, then immediately characterised it ("2 runs, barely exercised")
 from numbers I had not lined up. **Finding the thing you missed is not the end of the correction —
 the first description of it is written in the same hurry that produced the original claim.**
+
+---
+
+## ⚠ 2026-08-19 — two corrections to my own §3 contribution, one of which weakens my own argument
+
+Measured at the roll (`v1.0.1314`), while verifying the Tier 1 status change.
+
+**1. `phantom_internal_link` is 62.7% blended, not 47%.** Lifetime, live+archive, terminal only:
+generic **101 ok / 46 failed = 68.7%**, owned **0 / 14**, **total 101 / 60 = 62.7%**. My §3 quoted
+"69% on generic pages, 47% overall" — the two component figures were right and the blend was
+arithmetic I got wrong, then repeated in four documents. The floor is 25%; from 101/60, crossing it
+needs **243 more failures**. So my sentence *"Add enough and a 69%-effective repair path switches
+off"* is true only in a very long run, and read as more imminent than the numbers support.
+
+**2. And this one matters more: "owned page + failed" IS NOT "ownership refusal".** I built §3's
+table by joining to `pages.rebuild_policy`. Discriminating instead by the guard's own error text —
+which is the only thing that actually says a refusal happened — of **87** `owned`+`failed` rows in
+the live table, **85 name the guard and 2 do not.** Those 2 are `placeholder_contact`'s, and their
+error is:
+
+```
+step process_sections_loop_iter_0_generate_content failed: ...
+```
+
+— the content generator failing on an owned page, not the guard refusing to touch one. **So
+`placeholder_contact`'s 0-for-4 on owned pages is not "never had a fair test"; at least two of those
+were fair tests that failed.** My §4's own caution ("too small a sample to say whether it has an
+independent problem") turns out to have been the right instinct, and the table above it overstated.
+
+**What this does NOT change:** your ordering finding, the wasted-chain cost, and the fact that the
+five MODIFY-shaped types are refused 0-for-39 — 85 of the refusals are exactly what the guard says
+they are. What it changes is that a remedy keyed on `rebuild_policy` would mis-classify ~3% of the
+population, and the 3% was the entire pair I had started designing a remedy around.
+
+> **Method note, because it is the same shape as the two errors I logged last night:** I
+> discriminated a category by the attribute that was *convenient to query* rather than the one that
+> *defines* it. The convenient column agreed 97% of the time, which is precisely why the
+> disagreement was invisible until I went looking for a specific pair.

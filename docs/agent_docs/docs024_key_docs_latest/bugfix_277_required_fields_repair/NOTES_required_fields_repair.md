@@ -1275,3 +1275,87 @@ on 08-14…08-18, outcomes **946 complete vs 79 failed (92%)** — criterion 1 h
 **The zero was well-formed, instant, and about a column the mechanism never writes.** Same family as
 the five already logged; the check that caught it was censusing the column instead of trusting the
 predicate. Read the mechanism's own `SET` clause before keying a health check on a value.
+
+---
+
+## 2026-08-19 — the roll landed. Both changes are LIVE and PROVEN at the binary; and verifying them corrected two of my own numbers, one of them load-bearing
+
+### The deploy, proven at the artefact on both replicas
+
+`agent-chassis:v1.0.1314`, pods `-l5h6l` (07:52Z) and `-nxmkf` (08:05Z). The `build provenance`
+startup line had already scrolled out of `--tail=3000` — **which means "not in range", not
+"unstamped"** — so the binary probe, single pass, four needles:
+
+```
+grep -aoE 'owned_page_refusal_status|resolveStatusRepairComponent|OWNED_PAGE_GUARD|ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST' /proc/1/exe
+  -> owned_page_refusal_status        PRESENT   (Tier 1's Go half)
+  -> resolveStatusRepairComponent     PRESENT   (300's Go half)
+  -> OWNED_PAGE_GUARD                 PRESENT   (long-lived control: the probe works)
+  -> ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST  ABSENT    (negative control: the probe discriminates)
+```
+Both replicas, same result. Config half intact (`owned_page_refusal_status: wont_fix` still on
+`page-build-handler.mark_item_failed`).
+
+### Behaviourally UNVERIFIED, and the demand control is why I am not claiming otherwise
+
+Zero owned-page refusals since 07:52Z — **and zero `page-build-handler` orchestrations either.** So
+the zero is explained by nothing having been dispatched, not by the fix working. Same for `300`:
+`page_component_status_drift` has had no dispatch since 08-18. **A post-fix zero with no demand is
+not evidence**, and refusals occur naturally at roughly 4/hour on live traffic (`bugs_open/301`
+measured 59 in 14 hours), so the right move is to check again rather than to induce one and burn an
+LLM chain — which is the exact waste `301` exists about.
+
+### ⚠ CORRECTION 1 — "47% overall" for `phantom_internal_link` is WRONG. It is 62.7%.
+
+I have repeated 47% in the council submission, register **WII-019**, both handoffs and my
+`bugs_open/301` contribution. Measured today over live+archive, terminal outcomes only:
+
+| `phantom_internal_link → page-build-handler` | ok | failed | % |
+|---|---|---|---|
+| on `generic` pages | 101 | 46 | **68.7%** |
+| on `owned` pages | 0 | 14 | 0% |
+| **TOTAL** | **101** | **60** | **62.7%** |
+
+101/161 = 62.7%. **47% was arithmetic I got wrong and then carried**, and the two component figures
+I quoted alongside it (69% and 0/14) were right the whole time — anyone could have divided them.
+
+**Why it matters rather than being a typo:** the floor is 25%. From 101/60, crossing it needs
+**243 more failures**. So *"a 69%-effective repair path is one bad stretch from switching off"* was
+**overstated**. The change is still correct — a refusal is not incompetence — but the urgency was not.
+
+### ⚠ CORRECTION 2 — and this one refutes a remedy I was about to propose
+
+Having found that Tier 1 only affects FUTURE refusals, I went looking for the pairs it would release
+if the historical rows were re-classified, and read `placeholder_contact` as held by 4 ownership
+refusals. **It is not.** Its owned-page failures read:
+
+```
+step process_sections_loop_iter_0_generate_content failed: ...
+```
+
+— the **content generator** failing, not the guard refusing. I had inferred "owned page + failed =
+ownership refusal" **from the page's policy column**, when the only thing that says so is the
+guard's own error string. Discriminated properly (`error LIKE '%rebuild_policy=owned%'`), of 87
+`owned`+`failed` rows **85 name the guard and 2 do not — and those 2 are exactly these.**
+
+### So what Tier 1 actually buys, stated honestly
+
+**It releases nothing that is held today**, and would not have even applied retroactively:
+
+| held pair | why it is held | does Tier 1 touch it? |
+|---|---|---|
+| `literal_markdown` | 3 ok / 16 real failures = still below the floor with refusals excluded | **no** — real defect, `bugs_open/184` |
+| `placeholder_contact` | never completed one; its owned failures are generator errors | **no** |
+| `dead_fragment_link` | never completed one — awaiting a hand canary | no |
+| `missing_conversion_path` | never completed one — and `bugs_open/255` says its handler cannot read its spec | no |
+
+**Its value is PREVENTIVE and it is real:** 85 identified ownership refusals already sit in the
+`failed` bucket in the live table alone, and ~134 findings are queued behind the refusal on owned
+pages — every one of which would otherwise add to a denominator it has nothing to do with. But
+"protects `phantom_internal_link`'s path immediately" is wrong on both words: not immediately, and
+that pair was never close to the floor.
+
+> **The transferable bit, and it is the same shape as last night's two:** I discriminated a category
+> by the attribute that was *convenient to query* (`pages.rebuild_policy`) rather than the one that
+> actually *defines* it (the guard's error text). The convenient column was 97% right, which is
+> exactly why the 3% was invisible — and the 3% was the entire pair I was building a remedy for.
