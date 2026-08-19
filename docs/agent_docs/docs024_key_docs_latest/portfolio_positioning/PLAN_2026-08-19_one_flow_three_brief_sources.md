@@ -245,3 +245,114 @@ but it removes the worst failure mode while the rest is designed.
    for it, the planner degrades explicitly and records a `capability_gap`. The live question is
    now *who reads the gap queue*, since 41 of 42 sit deferred.
 4. **Should the brief-writer read the register instead of / as well as the classifier?** (§3.)
+
+---
+
+# ADDENDUM 2026-08-19b — owner decisions, and the register question evaluated properly
+
+## A. Review is PER-BRIEF with annotation, not sampling
+
+Owner: *"I'd like to briefly look at each one. I may have a few words of direction on many of
+them that I'd like to add to or change with the automated brief."*
+
+This supersedes §6 question 1 and it changes the mechanism, not just the volume:
+
+- **The brief is not generated-then-approved, it is generated-then-EDITED.** A pure
+  approve/reject gate is the wrong shape; the owner needs to add or change wording. So the
+  artefact must be reviewable and writable in its stored form, and the edit must survive the
+  build rather than being overwritten by a re-run of the generator.
+- **`approval_mode` gives the hold, not the edit.** The existing switch
+  (`load_work_item_actions.go:709`) withholds a work item until `status='approved'` — that is
+  exactly the pause needed and it needs no building. What it does NOT provide is a place to put
+  the owner's words. That is a `mission_brief` spec revision, and `site_specs` already supersedes
+  rather than mutates, so the owner's edited version becomes the current one with the generated
+  version preserved underneath. **The provenance matters**: a brief the owner touched should be
+  distinguishable from one he waved through, so the edited revision should record that.
+- **Ordering falls out of the volume.** ~1,500 briefs read "briefly" is still ~1,500 decisions.
+  Generate in batches, hold the batch, and let the owner work a queue — the generator must not
+  run ahead of the review or the queue becomes the thing nobody reads (which is precisely what
+  happened to `capability_gap`: 42 raised, 41 deferred).
+
+## B. Third-party briefs need SECURITY and REASONABILITY screening — and they are a different population
+
+Owner: *"A third party brief will need security and reasonability screening."*
+
+Worth separating the two, because they fail differently:
+
+- **Security** — the brief is untrusted text that reaches an LLM prompt and then a build.
+  Prompt-injection ("ignore your instructions and…"), attempts to name internal systems, links
+  to material we should not fetch, and anything trying to steer the site toward a regulated
+  identity (now backstopped by CGV-033, but the brief is where the ask arrives).
+- **Reasonability** — is this a site we are willing to build at all? Legality, sector, claims it
+  wants to make, and whether it is coherent enough to build from.
+
+**And they are not on our domains.** Owner: *"I don't want to use my domains for their sites."*
+That draws a clean boundary this plan did not have: **the positioning register covers OUR estate
+only.** A third-party site is outside it entirely — no register entry, no neighbour rule, no
+collision invariant, because it does not compete with our portfolio for our benefit. It also
+means the register-reading question below applies to our briefs and not to theirs.
+
+**Consequence:** third-party sites need domains, which we do not own. Recorded as a separate
+workstream in §D.
+
+## C. Should the brief-writer read the register? — EVALUATED, and the answer changed
+
+The owner asked for this to be worked through rather than asserted. Having done so, I think the
+answer is **yes, and it should REPLACE the classifier input rather than sit beside it** — which
+is a stronger claim than §3 made.
+
+**The argument that decides it is new, and it comes from decision A above.** The owner is going
+to read every brief. The brief is the human-readable artefact he reviews; the classifier's
+prompt input is not. **Positioning that lands in the brief is positioning he can see and
+correct. Positioning fed straight to the classifier is invisible to him** — it would shape the
+site with no point at which a human could disagree with it. For an estate whose entire premise
+is that 1,500 domains are 1,500 different businesses, putting the differentiation where the
+owner can edit it is worth more than putting it one step earlier.
+
+Three supporting reasons:
+
+1. **Reach.** The classifier is one agent. The brief is read by the classifier AND inherited by
+   the strategist, briefing agent and planner through the specs derived from it. Feeding the
+   register to the brief-writer gets the neighbours and must-nots into every downstream
+   decision; feeding the classifier leaves the rest blind, which is the gap `RFC_037` §4 itself
+   identifies.
+2. **Risk.** `RFC_037`'s change adds an input to `classify_and_extract` — a shared seam every
+   fleet site passes through, needing a council round and careful inertness for the ~40
+   non-register sites. A brief-writer is a NEW agent that nothing depends on yet. Same
+   information, materially lower blast radius.
+3. **One reader, not two.** Two consumers of the same register table, with different shapes and
+   different update paths, is the drift class `099_SYNC_gate_roster.py` exists to prevent.
+
+**What this costs, stated because it is a real loss:** the classifier would no longer see its
+siblings *as siblings*. If a binding collision check is ever wanted — and §A's volume argues for
+one, since review-on-collision is the only sampling rule that scales — it needs sibling data at
+a point where it can fail a classification. That is an argument for keeping `RFC_037` open as
+the home for the **binding** check, while the **advisory** half moves to the brief-writer.
+
+**Recommendation:** build the brief-writer as the register's reader; narrow `RFC_037` to the
+binding collision check and leave it unbuilt until the brief-writer has run enough to show
+whether convergence still happens. Do NOT build both readers.
+
+## D. NEW WORKSTREAM — finding and buying domains for third-party customers
+
+Owner: *"We still need to look at search and buy domains for the third parties — I don't want to
+use my domains for their sites. That might be a completely separate workflow."*
+
+Agreed that it is separate, and it is genuinely a different kind of thing from anything this
+lane does. Recording the shape so it is not lost:
+
+- **Search** — availability lookup across registrars, plus a name-suggestion step given the
+  customer's brief. The brief-writer's output is a natural input.
+- **Buy** — a spend action with a real financial consequence, on a customer's behalf. Nothing in
+  this estate currently spends money; that is a first, and it should be a deliberate one.
+- **Ownership and handover** — whose account holds it, what happens if the customer leaves,
+  who renews it. This is the question that decides the design, and it is commercial, not
+  technical.
+- **What already exists to build on:** `scripts/domains/classify_nameservers.py` (is a domain
+  live or parked, from public DNS), the Cloudflare zone + worker-route recipe in
+  `RUNBOOK_dns_pointing_a_domain_at_the_serving_worker.md`, and the registrar credential state
+  in `domains_cloudflare_rollout/`. **What does not exist:** any availability search, any
+  purchase path, and any registrar API key beyond Nominet's EPP (Dynadot / Porkbun / Spaceship
+  keys are still outstanding).
+
+**Not started. Needs its own lane and a commercial decision first.**
