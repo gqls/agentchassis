@@ -459,8 +459,19 @@ lane's `NOTES` `## 2026-08-16 (afternoon…)`.*
 
 `[MEASURED 2026-08-18 21:0xZ]` A greenfield build of `loanzy.uk` had its **`your-rights` page
 refused at `validate_content`: "20 blockers, 0 errors"** — and the persisted detail
-(`agent_error_log.error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`) is **20 × identical
-`unrendered_template` / `{{end}}`**, this bug's exact fingerprint. The page is **not built and
+(`agent_error_log.error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`) is **20 `unrendered_template`
+blockers**, this bug's exact fingerprint.
+
+> **CORRECTED 2026-08-19 by this section's own author, after the owning lane checked it:**
+> ~~"20 × identical `{{end}}`"~~ is **WRONG**. The real distribution is **9 × `{{if` · 9 ×
+> `{{end}}` · 1 × `{{.label}}` · 1 × `{{range`** — the same four-token set the owning lane
+> measured across 25 of 26 events, and it **does** include the discriminating `{{.label}}`
+> token that lane traced to `mechanism-flow`. So this greenfield case supports that finding
+> rather than sitting beside it. **What caught it:** the owning lane read the census; what
+> produced the error: I read the first entries of a `head`-truncated JSON dump and generalised
+> to all twenty without ever grouping them. The one-line check that would have been decisive
+> from the start:
+> `SELECT i->>'value', count(*) FROM agent_error_log, LATERAL jsonb_array_elements(context->'issues') i WHERE … GROUP BY 1;` The page is **not built and
 not deployed**; the site went live without it.
 
 **Two lanes, three pages, one day.** `portfolio_positioning` recorded *"2 pages blocked by

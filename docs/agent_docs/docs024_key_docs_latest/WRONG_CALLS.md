@@ -37560,3 +37560,24 @@ his site was worse than it is, across five documents and one milestone summary.
 
 Tally for "reported a serving state from a single vantage point": 1.
 Tally for "quoted a header as fresh while reporting its body as stale": 1.
+
+## 2026-08-19 — I reported 20 identical blocker tokens after reading only the first few of them
+
+**The claim:** in a contribution to `bugs_open/260`, that loanzy.uk's blocked page carried
+"20 × identical `unrendered_template` `{{end}}`". **What caught it:** the lane that OWNS 260,
+which maintains the fleet census and knew the fingerprint is a four-token set.
+
+`[MEASURED]` the real distribution: **9 × `{{if` · 9 × `{{end}}` · 1 × `{{.label}}` · 1 ×
+`{{range`**. I had dumped the JSON with `head -50`, seen `{{end}}` in every visible entry, and
+generalised to all twenty — a sample of the first ~6 of 20, taken from a dump I had truncated
+myself, reported as a property of the whole.
+
+**Why it mattered rather than being a detail:** `{{.label}}` is the DISCRIMINATING token — the
+owning lane traced it to one specific component — so "all identical `{{end}}`" quietly removed
+the only evidence in my case that pointed at the producer. A wrong fingerprint in a bug file is
+worse than no fingerprint, because the next reader treats it as a second data point.
+
+**The cheap check, which is one line and could have come out differently:**
+`SELECT i->>'value', count(*) FROM agent_error_log, LATERAL jsonb_array_elements(context->'issues') i WHERE … GROUP BY 1;`
+**The general form: never characterise a set from a dump you truncated. `GROUP BY` the whole
+set, or say explicitly that you looked at the first N.**
