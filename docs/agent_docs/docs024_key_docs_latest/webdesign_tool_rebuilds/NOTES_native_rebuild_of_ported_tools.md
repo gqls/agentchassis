@@ -1480,3 +1480,76 @@ md5 `48f609219a2e4da8230bb9835ae12100` byte-identical. Asserted one deployed slo
   writer (`store_generated_component`, CTS-009, `lookupBaseComponent` omitting `is_active` precisely to avoid
   the name collision) showed the estate had already chosen in-place regeneration for exactly this class.
   Recorded here rather than WRONG_CALLS because it never left the plan.
+
+## 2026-08-19 20:47Z — #13 GRADED AT THE SERVED PAGE: PASS. 12 replaced, 51 remain.
+
+Rerender `0d32abae` completed **20:46:15Z**. Cache-busted grade of `/tools/prompt-permutator/index.html`:
+`http=200`, 16,997 B · `class="ported-page"` **0** · `{{\.` **0** · `onclick=` **0** · `alert(` **0** ·
+`last-modified` **20:46:40Z** against the rerender's `completed_at` **20:46:15Z** — the origin
+republished, so this is not a cache reading.
+
+**Negative controls (only the OLD version could satisfy them), all 0:** `id="templateInput"`,
+`id="outputList"`, `id="variantCount"` — the three ids enumerated from the retired slot's own bytes.
+**Positive controls present:** `permutatorMessage`, `permutatorStats`, `permutatorCopyMsg` (2 each).
+
+**The load-bearing requirement verified IN THE SERVED BYTES, by order and not by presence:**
+`MAX_VARIANTS = 5000`, `MAX_GROUPS = 12`, and at served line 400 `if (total > MAX_VARIANTS) { showMessage(...); return; }`
+sits **above** the `generateVariants(...)` call at line 408. So the product is computed first and the
+function returns before anything is generated. A `5000` anywhere in the file would have satisfied a
+grep while the tab still froze.
+
+## 2026-08-19 20:52Z — #14 FILED: `tool-ab-test-calculator` — PHASE D, previously unreachable
+
+Item **`3a3e480c-321c-46fb-adae-0d58c05bf2aa`**, page `d8875fbf-4c3b-470b-b8c1-8895d9735572`,
+`/tools/ab-test-calculator/index.html`. Revert handle: ported slot
+**`ebe3c57a-9f8a-43e6-933f-9dcbb74babc7`, 5,772 chars, md5 `6b99651c11b7dbfa939c5296bdb5704b`**.
+
+**Why it is filable today.** The `bugfix_311` lane shipped RFC_036 §9.3 (`create_tool_component_action.go:249-285`,
+commit `e24bc9c0f`, council `ceae30f2` APPROVED) — a library claim on the function now sets
+`forked_from` on the new row instead of dying at `save_tool` on SQLSTATE 23505. Their CONTRIB is
+`webdesign_tool_rebuilds/CONTRIB_2026-08-19_from_311_lane_RFC_036_s9_3_is_BUILT_and_LIVE_phase_D_is_unblocked.md`.
+**I re-verified it in the binary rather than taking the tag** (20:52Z): both `v1.0.1316` replicas
+(`…-86nqf`, `…-8jlqh`) carry the literal `library tool claims this function` and the stamp `07eeba4a1`;
+`git merge-base --is-ancestor e24bc9c0f 07eeba4a1` is TRUE; a fake sha is ABSENT on the same pods.
+Positive and negative control in the same breath, on both replicas, not one.
+
+**Gate 1 had to be INVERTED for this tool, and that is the whole point of the run.** The standing rule
+is "`idx_cc_tool_function_unique` must return 0 rows, and a non-empty result is a STOP". Here it
+returns 1 by design. So the pre-assert asserts the *identity* of the claim instead of its absence:
+exactly one claim, it is `8c9a6e06-e2b2-4f21-baf6-651585375f0c`, and its `html_template` md5 is still
+`8673be08f969504f5a9ceb46e45d7656` (the value the 311 lane pinned at 20:38Z) — so if the fork branch
+misbehaves and writes the library row, the md5 after the run proves it. Gates 2 and 3 unchanged and
+both empty: no `content_components` row named `tool-ab-test-calculator-webdesign-co-uk`, and the
+generator's `already_exists` probe (copied verbatim from `create_tool_component_action.go:227-237`)
+returns 0 — the local fork `cd60486c` is `is_active=false`, and `58da6570` is active but its only
+placement is on idea.uk. Serial throttle asserted too. All four as `DO`/`RAISE` inside the
+transaction, because a verify block of bare `SELECT`s cannot stop a `COMMIT`.
+
+**The ported tool's defects, read from its own 5,772-char slot (not from the page).** The worst is that
+it states a significance verdict computed from values that are not numbers:
+```js
+const vA = parseInt(document.getElementById('visA').value);   // blank -> NaN
+const pA = cA / vA;                                            // 0/0   -> NaN
+const se = Math.sqrt((pA*(1-pA)/vA) + (pB*(1-pB)/vB));         // conversions>visitors -> sqrt(neg) -> NaN
+if (Math.abs(zScore) > 1.96) { ... } else { verdict = "Not Significant"; }
+```
+`Math.abs(NaN) > 1.96` is **false**, so every invalid input falls into the else arm and the tool prints
+*"Not Significant. We cannot be sure yet. Keep running the test. Z-Score: NaN"* — statistical advice
+derived from no data, in the shape of an answer. Clear the visitors box and that is what you get.
+Three more: (a) it tests `Math.abs(zScore)`, so a variant that performed significantly **worse** is
+announced with the win wording, immediately under a panel promising to say whether B is *better*;
+(b) when both rates are identical at exactly 0% or 100% the standard error is zero and Z is 0/0;
+(c) the markup ships the literal words `Significant!` and *"We are 95% confident that B is better than
+A"* as static text, which is what a visitor sees before or without the script — a confident claim
+about numbers nobody has entered. Also `document.querySelectorAll('input')` binds every input on the
+whole page, not the tool's four.
+
+**This is the fourth tool of the fourteen examined whose output asserts something untrue about itself**
+(after rls-architect's prose-as-SQL, css-variables' "Auto-generated grey", noise-generator's dead
+colour control) — and the first where the false statement is a **verdict**, not a comment. The class is
+holding at roughly a quarter of the tools read.
+
+Fifth brief written against the 481 contract; rules 15-20 omitted. What the brief does state is
+tool-specific and not reachable from the contract: the *relationships* between the four fields
+(visitors ≥ 1, conversions ≤ visitors), the zero-standard-error case, the direction of the verdict,
+and that a stale verdict must be replaced rather than left standing.
