@@ -1249,3 +1249,41 @@ that; the value for this type is `page-rerender`.
   | larger self-contained, ≥8 KB | **22** | includes the rich apps the owner ruled in scope as reimplementations |
   Replaced so far: aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator,
   smooth-shadow, json-cleaner, seo-injector.
+
+## 2026-08-19 09:26Z — #10 `tool-noise-generator`: MIGRATION 481 PROVEN. Every rule 15-20 honoured, none of them in the brief.
+
+**This build is the test of Track 1, and it passed.** The brief deliberately said nothing about copy
+buttons, listeners, dialogs, validation, error placement or size readouts — those are now rules 15-20
+of the generator's contract. Component `a0454e0b-0512-489e-9984-f8e6f3906c34`, 9,871 chars, `{{\.` 0.
+ids: `freqRange`/`freqValue`, `opacityRange`/`opacityValue`, `colorPicker`, **`errorMessage`**,
+`previewLight`/`previewDark`, `cssOutput`, `copyBtn`, **`copyStatus`**.
+
+| rule | asked for in the brief? | delivered? | evidence |
+|---|---|---|---|
+| 15 verified success | **no** | **yes** | `execCommand`'s return captured, promise rejection handled, a failure state |
+| 16 real listeners | **no** | **yes** | `addEventListener` ×4, inline `onclick` **0** |
+| 17 no blocking dialogs | **no** | **yes** | `alert`/`confirm`/`prompt` **0** (the ported version had `alert("Copied!")`) |
+| 18 validated input | **no** | **yes** | `isValidHex`, plus clamping on the numeric ranges |
+| 19 errors keep output | **no** | **yes** | dedicated `errorMessage` and `copyStatus` elements |
+| 20 size readout | n/a | n/a | not a transformer; correctly absent |
+
+**A prompt rule is cheaper AND more reliable than my prose**: six requirements that took ~40 lines of
+description per tool now cost zero and are applied to every tool the fleet generates, by any lane.
+The brief for this tool is the shortest of the batch and the component is the most complete.
+
+**The tool's OWN requirement also landed** — the ported version read the colour into a variable and
+never used it, so the picker did nothing. The rebuild passes it into `buildSVG(freq, opacity, color)`
+and tints the turbulence via `feFlood flood-color`, validates it with `isValidHex`, and binds the
+picker. It also honoured "readable against light and dark" with `previewLight`/`previewDark`.
+
+**MISSTEP (caught, third of this class): my first colour check under-reported.** Grepping
+`colou?r[A-Za-z]*\.value|colorInput` returned a single hit — the same shape as the ported defect — and
+I was one step from concluding the bug had been reproduced. The uses are via a `color` PARAMETER,
+which that pattern cannot see. **I traced the variable before concluding**, which is the discipline
+the two earlier false negatives bought. Recording it because the pattern is now unmistakable: **three
+times this session a grep for an imagined code shape has under-reported a correct implementation, and
+zero times has reading the code misled me.**
+
+**Ported slot retired 09:28:30Z — 118 s after the build.** `7f6df4cc…` to `removed`, 6,113 chars,
+md5 `06e5535215ef1d728a0d3dab734997a2` byte-identical. Asserted one deployed slot and that it is
+`a0454e0b`. Rerender `7cbd01b1-58db-435d-8bfc-e788c23fae8b` queued and watched.
