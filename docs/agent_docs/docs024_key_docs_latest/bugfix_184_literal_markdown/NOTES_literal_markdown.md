@@ -370,3 +370,30 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   after the next roll, probe EVERY agent-chassis pod for the kill-switch literal with two
   controls (RUNBOOK); the kill switch itself is exercised only by the unit test until an
   operator ever needs it — stated, not hidden.
+
+## 2026-08-19 ~21:20Z — ROUND 6 APPROVED (run `60e14994…`, 14 reviewers, 3 abstained, 4 advisory objections, none high); advisories acted on
+
+- Decision text: "approved with 4 advisory objection(s) — none high-severity". Objecting
+  seats: editquality (2), guardian (3), bug_historian (1), prior_art (4). Approving:
+  architecture, constitution, debug_historian, diagnosis_guardian, guidelines,
+  improvement_guardian, mission, render_guardian, reuse_agent, tooling_provenance.
+- **Acted on:**
+  - bug_historian LOW "named, not tracked" → **`bugs_open/332` filed** for the RSS sibling.
+    Measured before filing, and the measurement changed the framing: the 574/2,382
+    fleet-wide feed rows with headings are ALL on sites that publish no RSS; exactly one
+    site has `rss_feed` enabled (relojistas.com) and its live feed serves 0 markdown
+    descriptions of 25 (its own rows: 0/79). So 332 is LATENT with a named re-review
+    trigger, not a live bug. Pointer added to `bugs_closed/184`'s residuals.
+  - prior_art MEDIUM "no reproducible SQL" → the exhaustiveness queries are now verbatim in
+    the RUNBOOK (deep `jsonb_path_query '$.**'` step enumeration; the grep for reason
+    writers; the grep for projectNewsItems callers; the kill-switch precedent by name).
+  - guardian LOW "confirm the two callers" → confirmed by grep: `news_items.go:334` and
+    `:351`, nothing else outside tests.
+- **Noted, no action:** editquality/guardian on edit 3 being a stale hunk already at HEAD —
+  correct; it was listed for the record with that said; a no-op, not a conflict. prior_art
+  on the f0dd97c71 git-state claim being outside its check tier — true of every git claim;
+  the verification path is `git show f0dd97c71 -- …v3_site_actions.go | grep -c 'FLAG-ONLY HERE'` → 1.
+- The duplicate run `cf86d0db…` is still executing; its verdict will be recorded here when
+  it lands, whatever it says — the correlation is already approved by the first.
+- `f6d632291` carries `Council-Submitted:`; 098 credits it at report time. NOT amending.
+- SUMMARY_2026-08-19 written (the close + the approved follow-up is the inflection).

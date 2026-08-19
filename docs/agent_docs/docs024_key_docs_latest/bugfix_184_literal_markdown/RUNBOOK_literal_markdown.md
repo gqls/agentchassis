@@ -173,3 +173,33 @@ Gotcha (cost me a duplicate round, 2026-08-19): the 097 trigger PUBLISHES within
 first seconds; its printed output is in your scrollback or the task's output file. Two
 rows with the same payload md5 seconds apart are one submission sent twice — both run,
 both verdicts are valid, the second is pure credit cost.
+
+## The exhaustiveness queries behind round 6 (prior_art asked for them verbatim, not prose)
+
+Every live step at ANY depth running `render_component` / `rerender_page_sections`, with the
+merge_with + strip flag (the shallow `jsonb_each(...->'steps')` misses sub_workflows — the
+same trap as the strip-flag query above):
+```sql
+SELECT ad.type, s->>'action' AS action, s->'config'->>'merge_with' AS merge_with,
+       s->'config'->>'strip_literal_markdown' AS strip, s->'config'->>'content_from' AS content_from
+  FROM agent_definitions ad, jsonb_path_query(ad.default_config, '$.**') s
+ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+   AND jsonb_typeof(s)='object' AND s->>'action' IN ('render_component','rerender_page_sections')
+ ORDER BY 1,2;
+-- 2026-08-19 20:50Z: page-content-writer|render_component|current_section.resolved_data|true|generated_content.result  (render_section)
+--                    page-content-writer|render_component|current_section.resolved_data|<null>|render_context          (render_from_template)
+--                    page-rerender|rerender_page_sections||true|
+```
+Step NAMES (the deep query above loses the key): name page-content-writer's loop steps with
+`jsonb_each(default_config->'workflow'->'steps'->'process_sections_loop'->'config'->'sub_workflow'->'steps')`.
+
+Writers of `reason='literal_markdown'` (a grep over bodies, which the code index cannot do):
+```bash
+grep -rn '"literal_markdown"' --include=*.go platform/ | grep -v _test | grep -i reason
+# 2026-08-19: check_literal_markdown.go:376 only (+ the operator UPDATE in §Rollout step 4)
+```
+Callers of `projectNewsItems` (the signature changed in r6):
+```bash
+grep -rn 'projectNewsItems(' --include=*.go platform/ | grep -v _test   # two, both news_items.go
+```
+Precedent for the kill switch, by name: `grep -n DISABLE_UNREGISTERED_HANDLER_DEMOTION platform/orchestration/actions/load_work_item_actions.go`.

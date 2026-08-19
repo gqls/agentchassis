@@ -695,6 +695,11 @@ open** (the code is live and proven; the objections are kill-switch/consistency 
 - robot-hands.com/learning-center/index.html → 404 (dead page row), robot-hands lane.
 - Markdown TABLES in 8 `content_feed_items` rows serve as pipe-text (outside the pattern
   set) → feed-quality follow-up.
+- **ADDED 2026-08-19 (round 6, council `bug_historian`):** the RSS surface
+  (`render_rss_feed` copies `source_summary` raw into `<description>`) is now TRACKED as
+  `bugs_open/332` — LATENT: one RSS-enabled site, 0 served defects measured; re-review
+  trigger = a second site enabling `rss_feed`. Round 6 of `060bcc0a` APPROVED 2026-08-19
+  ~21:15Z (kill switch `DISABLE_NEWS_MARKDOWN_STRIP`, commit `f6d632291`, inert till roll).
 - Duplicate sibling rows on repaired pages → the check's `Resolved` retraction closes
   them on the next discovery pass (pages now scan clean).
 
