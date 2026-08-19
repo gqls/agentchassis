@@ -1362,3 +1362,13 @@ not whether its prose is true. Candidate for Track 2's checker, or at minimum a 
 brief-writing step: **read what the tool SAYS about itself and check the code does it.**
 
 Brief written against the contract; generic rules omitted for the third time.
+
+## 2026-08-19 11:06Z — #11 LIVE and PASS
+
+Rerender `20d280e0` complete 11:06:19Z. Cache-busted grade of `/tools/rls-architect/index.html`:
+`http=200`, 20,535 B · `class="ported-page"` **0** · `{{\.` **0** · **`CREATE POLICY` 12 and
+`WITH CHECK` 7 in the SERVED bytes** (the fix is reaching visitors, not just the DB) ·
+`id="rlsSqlOutput"` 1 · **old id `t-name` 0** · `onclick=` **0**, `alert(` **0** · controls 0/7 ·
+`last-modified` **11:06:35** against the rerender completing **11:06:19** — published correctly.
+
+**11 live and proven. 52 ported tools remain (2 blocked).**
