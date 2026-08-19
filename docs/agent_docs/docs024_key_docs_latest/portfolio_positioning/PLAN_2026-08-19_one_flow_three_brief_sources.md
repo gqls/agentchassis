@@ -41,7 +41,40 @@ ones arrived via its `--mission-file` argument). So a brief-writer step sits bes
 `domain-submitter` and writes the same aspect. **Nothing downstream changes** — which is the
 strongest argument for this shape over any alternative.
 
-## 2. What "comprehensive" has to mean, or the briefs will promise things we cannot build
+## 2. ~~What "comprehensive" has to mean~~ — CORRECTED: the planner already knows, and games are buildable
+
+> **⚠ CORRECTED 2026-08-19, twice, both times by the owner and both times verifiable in one
+> query. This whole section rested on two claims of mine that are false.**
+>
+> **(a) "The brief-writer needs the capability catalogue, because the planner does not know what
+> we can build." WRONG.** `build-site-planner` has a **`load_components`** step that queries the
+> live library — `SELECT name, display_name, function, category, description FROM
+> content_components WHERE is_active = true …` — and `plan_site`'s `input_fields` are
+> `["input_data","site_specs","available_components","available_styles","existing_pages"]`.
+> The planner is handed the catalogue every run. Nothing needed building; I had not looked.
+>
+> **⚠ But the query has a restriction worth knowing, and it connects to `bugs_open/311`:**
+> `component_level IN ('section','element')` is unconditional, while `component_level='tool'`
+> rows are included **only if** the site already has `structure.plan_includes_tools = true`
+> **and** the tool is already on one of that site's pages. So on a **greenfield** build the
+> planner can see no library tool at all. That is exactly why tools arrive afterwards via
+> `tool-suggester` → `add_tool`, and it is the upstream half of 311: the planner, unable to see
+> `tool-mortgage-repayment`, names a bespoke section instead, and the generator then collides
+> with another site's component of that name.
+>
+> **(b) "Games have no mechanism." WRONG.** Owner: *"games can be created in the framework."*
+> Confirmed: the tool framework generates arbitrary interactive components with real JS —
+> `tool-drop-rate-tuner` (22,230 chars), `tool-xp-curve-designer` (17,787),
+> `tool-gacha-pity-designer` (13,161), all live on `gamesdesign.co.uk`, plus section-level
+> `game-list` and `game-master-explanation` and an interactive `tool-archetype-taster-quiz`.
+> **A game is an interactive tool**, and that is a mechanism the estate already runs.
+>
+> **What survives from this section:** only the `capability_gap` observation — 42 raised, 41
+> `deferred` — and it survives for a different reason than I gave. It is not evidence that
+> briefs over-reach; it is evidence that **when the planner does hit a genuine gap, the record
+> of it goes nowhere.** That is still worth fixing before 1,500 briefs multiply it.
+
+## 2b. Superseded reasoning (kept so the correction is legible)
 
 The owner wants briefs rich in *"content types and sections, news, directories, tools, games,
 editorials, research, and the rest as appropriate."* Every one of those already maps to a real
