@@ -9,7 +9,7 @@ writing any `Council-Reviewed:`; the commit carries `Council-Submitted:`.
 ## Do next, in order (all gated on a roll carrying the 2026-08-19 commit)
 
 1. **Verify the roll at the DIGEST** (RUNBOOK §1) AND
-   `git merge-base --is-ancestor <the 2026-08-19 283 commit> <pod revision>`.
+   `git merge-base --is-ancestor 35d2e0f9c <pod revision>` (the GATE-HARDENED commit — NOT ffef54338; v1.0.1315 lacks judged-gate checks 5a/5b).
 2. **Read the round-6 verdict** (RUNBOOK §7). REVISE → answer with measurements.
 3. **Apply migration 486** (`sql_for_agents/486_judged_instance_scope_pipeline_HOLD.sql` —
    rename away from _HOLD first; its verify block PREPARE-compiles and asserts

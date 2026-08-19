@@ -518,3 +518,34 @@ controls in the header. Edit 7 re-filed as config_change naming component-templa
 Round 7 submitted, same correlation. Open architecture note recorded for a human (bug_historian
 + architecture, converging): the judged writer and tool-improver are now TWO paths authorised
 to rewrite shared templates — one shared fan-out-safety gate, or two maintained arguments?
+
+## 2026-08-19 (session 6, later still) — roll v1.0.1315 VERIFIED (carries the 324 fix); round 7 REVISE produced a REAL catch; gate hardened; round 8 submitted
+
+Roll verified three ways: digest match, revision `590ca3a20` has `ffef54338` as ancestor, and
+the pod binary itself (grep -ac `repair_instance_scope_bindings` /proc/1/exe → 5; absent
+control → 0). The repair machinery is LIVE-CAPABLE; 486/487 stay _HOLD pending the verdict
+AND the next roll (see below).
+
+**Round 7: REVISE, 10 approve / 3 object — and the gating HIGH was RIGHT.** bug_historian:
+markup parity excludes script bodies by design, so what asserts the script still EXISTS?
+Answer before fixing: NOTHING — control run on the 22,791 B affordability fixture: every
+inline script body replaced by an empty IIFE retains 58% (over the 50% collapse floor) and
+drew ZERO issues from the judged gate and the write guard. The exact blindness class 324 is
+about, in my own gate, caught by the council before it could ship. Closed (`35d2e0f9c`):
+check 5a prefixed script-reference parity (the brief only ADDS references), 5b comparative
+script-mass floor 0.7 ([REASONED, not measured] — recalibrate at the canary). Regression pair
+pinned: gutted refuses on both; a single dropped lookup refuses on parity; identity trips
+neither. Full suite green on the archive overlay.
+
+**The rest:** compositionHazards confirmed BLOCKING at the code (UnprefixedBindings → gate
+refusal, both paths; fuel-budget's JUDGED classification is its live proof); 486 gained
+double-apply guards BOTH directions (a hand-reapply would snapshot the patched row as a
+"pre-image", poisoning newest-first rollback — debug_historian); prior_art's asked-for SQL
+evidence attached verbatim to round 8 (19 owned-page section_edit completions; 69 pre-images;
+the pod probes).
+
+**⚠ Sequencing consequence: 486 must NOT be applied until a roll carries `35d2e0f9c`.** On
+v1.0.1315 the judged gate lacks 5a/5b — un-holding 486 there would let the 5 refusal-routed
+rows through an LLM whose gutted output could pass (and fuel-budget/loot-table currently serve
+WORKING pre-conversion pages that a bad judged write + owned delivery could break). The
+CONTINUE file's step 1 ancestry check must name `35d2e0f9c`, not `ffef54338`.
