@@ -958,8 +958,10 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	// Countable, because a SILENT fail-open is precisely how this bug survived
 	// four completed rerenders with every layer reporting success.
 	var deployContentHash, deployCommitSHA string
+	deployGuardRan := false
 	if newStatus == "deployed" {
 		if field, _ := config["deploy_result_field"].(string); strings.TrimSpace(field) != "" {
+			deployGuardRan = true
 			ev, ok := resolveDeployEvidence(params.CollectedData, field, params.Logger)
 			switch {
 			case !ok:
@@ -1019,26 +1021,41 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		// four-step archaeology — pull rendered_html, cut a needle, fetch the
 		// page, grep — into one comparison.
 		//
-		// COALESCE, not a bare assignment: a stamp with no fingerprint available
-		// (an older git-adapter, an unusable file shape) must leave the previous
-		// fingerprint alone. Overwriting a good hash with NULL would destroy the
-		// only evidence there is, which is worse than not adding any.
+		// THE COLUMN IS TOUCHED ONLY WHEN THE GUARD RAN, and then it is ASSIGNED
+		// rather than COALESCEd. Both halves matter and an earlier version of
+		// this code got the second one wrong:
+		//
+		//   * guard OFF (no deploy_result_field — every live step today, and
+		//     every git_commit step with no stamp after it): the clause is not
+		//     in the statement at all, so an unarmed path cannot disturb a hash
+		//     some other path wrote.
+		//   * guard ON: this stamp means NEW BYTES WENT OUT. Any previous
+		//     fingerprint therefore describes an OLDER deploy and is stale by
+		//     definition. COALESCE would preserve it, and the divergence check
+		//     would then compare live bytes against a superseded intent and
+		//     report a healthy page as diverged. NULL means "we do not know what
+		//     we sent", which is what the check's `content_hash IS NOT NULL`
+		//     predicate is for. An honest unknown beats a confident stale value.
 		//
 		// page_components.deploy_commit is deliberately NOT written — owner
 		// ruling, same day: a section is not a file, so a section-level commit
 		// reference cannot answer the publish question. See RFC_038 §8.
-		query = `UPDATE pages
+		hashClause := ""
+		if deployGuardRan {
+			hashClause = "content_hash = $3,"
+			args = append(args, sql.NullString{String: deployContentHash, Valid: deployContentHash != ""})
+		}
+		query = fmt.Sprintf(`UPDATE pages
 		         SET build_status = $2,
 		             deployed_at = NOW(),
-		             content_hash = COALESCE($3, content_hash),
+		             %s
 		             built_from_plan_version = COALESCE(
 		                 (SELECT sp.id FROM site_plans sp
 		                   WHERE sp.site_id = pages.site_id AND sp.is_current = true),
 		                 built_from_plan_version
 		             ),
 		             updated_at = NOW()
-		         WHERE id = $1`
-		args = append(args, sql.NullString{String: deployContentHash, Valid: deployContentHash != ""})
+		         WHERE id = $1`, hashClause)
 	} else {
 		query = `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	}
@@ -2288,7 +2305,24 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 			// not enough when the RESOLVED source is dirty (measured:
 			// content_feed_items.source_summary carries markdown in ~700
 			// rows, re-poisoning news-listing items on every render). Same
-			// gated strip on the overlay, before it lands in both surfaces.
+			// strip on the overlay, before it lands in both surfaces.
+			//
+			// FLAG-ONLY HERE, BY DESIGN — not the rerender path's double gate
+			// (council 060bcc0a r5, editquality HIGH: the r5 rationale said
+			// "same double gate" and was wrong; the sketch was right). The
+			// reason gate (shouldStripLiteralMarkdown's spec.reason ==
+			// "literal_markdown") scopes a REPAIR to the work item that
+			// dispatched it. This is the WRITER seam: a section being born,
+			// no work item, no spec, no reason to gate on — so the step flag
+			// is the whole gate, exactly as it is for the LLM-map strip a few
+			// lines above, which rounds 1-4 approved. Who reaches this branch
+			// with merge_with, measured live 2026-08-19 (every step, any
+			// depth): page-content-writer's render_section (flag ON, migration
+			// 474) and render_from_template (flag UNSET → this branch is a
+			// no-op there; the news resolver's own producer-side strip is what
+			// covers that template-only path). No other live agent runs
+			// render_component with merge_with.
+			//
 			// In-place on the CollectedData map, deliberately — the cleaned
 			// values become canonical for later steps, the same aliasing
 			// contract save_sections_content_data_links.go documents.

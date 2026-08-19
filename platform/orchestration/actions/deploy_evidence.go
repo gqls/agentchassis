@@ -24,16 +24,33 @@
 //     because the deploy was performed by a called sub-agent rather than inline.
 //     Indexing a fixed path reports those as "no evidence".
 //
-// So resolution goes through the estate's own whole-tree search
-// (`datahelpers.ExtractFields`) scoped to the named subtree. That search is
-// COLLECT-ALL / UNIQUE-OR-NOTHING (RFC_029 §9): if a key appears twice with
-// different values it resolves to nothing rather than guessing, which is what
-// makes it safe to point at an agent carrying several `git_commit` steps.
+// So resolution searches the named subtree for the keys by name rather than
+// indexing a fixed path.
+//
+// ⚠ CORRECTED 2026-08-19, and this is why the collector below is ours rather
+// than `datahelpers.ExtractFields`. An earlier version of this file claimed
+// ExtractFields gives "collect-all / unique-or-nothing (RFC_029 §9)", so an
+// ambiguous subtree would resolve to nothing rather than to a guess. **That
+// claim was false for this build, and the council gate's prior_art_librarian
+// seat caught it against a landmine entry that said the opposite.** Reading
+// `findFieldRecursive` to the END settles it: the RULING is unique-or-nothing,
+// but "PHASE 1 (this build — instrument first, refuse second): conflicts still
+// resolve, to the STABLE shallowest-first winner, and emit the WARN below".
+// Phase 2 flips conflicts to refusal and has not shipped.
+//
+// For this caller a guess is the worst possible outcome: a fingerprint taken
+// from the WRONG git_commit is silently, permanently wrong, and every later
+// comparison reports a page as diverged when it is fine. "No fingerprint" is
+// recoverable; "someone else's fingerprint" is not. So we do not borrow a
+// safety property that does not exist yet — we collect the candidates
+// ourselves and REFUSE on conflict.
 package actions
 
 import (
 	"context"
 	"database/sql"
+	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -89,7 +106,21 @@ func resolveDeployEvidence(collected map[string]interface{}, field string, logge
 		return deployEvidence{}, false
 	}
 
-	found := datahelpers.ExtractFields(subtree, deployEvidenceKeys, logger)
+	found := make(map[string]interface{}, len(deployEvidenceKeys))
+	for _, k := range deployEvidenceKeys {
+		v, ok, conflict := collectUniqueValue(subtree, k, 0)
+		if conflict {
+			// Ambiguous: two git_commit results under one field. Refuse the whole
+			// resolution rather than fingerprint the page from an arbitrary one.
+			logger.Warn("deploy evidence: CONFLICTING candidates in the named subtree — refusing rather than guessing",
+				zap.String("deploy_result_field", field),
+				zap.String("key", k))
+			return deployEvidence{}, false
+		}
+		if ok {
+			found[k] = v
+		}
+	}
 
 	var ev deployEvidence
 	if reason, _ := found["skip_reason"].(string); strings.TrimSpace(reason) != "" {
@@ -161,4 +192,66 @@ func pageURLForHash(ctx context.Context, db *sql.DB, pageID uuid.UUID) string {
 		return ""
 	}
 	return url
+}
+
+// collectUniqueValue walks a decoded-JSON subtree for every occurrence of a key
+// and returns its value only if every occurrence AGREES.
+//
+// It exists because the shared whole-tree search resolves conflicts in this
+// build instead of refusing them (see the file header). It is deliberately
+// small and deliberately dumber than that search: no unwrap patterns, no
+// aliases, no ranking — just "find this key, and tell me if the answers
+// disagree". Ranking is only needed when you intend to PICK a winner, and the
+// whole point here is that we will not.
+//
+// conflict=true beats found=true: a caller that ignored the conflict flag would
+// get the shallowest value, which is precisely the guess this avoids.
+func collectUniqueValue(node interface{}, key string, depth int) (value interface{}, found bool, conflict bool) {
+	if depth > 12 {
+		return nil, false, false
+	}
+	switch v := node.(type) {
+	case map[string]interface{}:
+		// Sorted keys so a conflict is reported identically on every run — an
+		// intermittent refusal would be worse than a consistent one.
+		names := make([]string, 0, len(v))
+		for k := range v {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+		for _, k := range names {
+			child := v[k]
+			if k == key {
+				value, found, conflict = merge(value, found, conflict, child, true, false)
+				// Do NOT descend into a matched key: its own sub-tree cannot
+				// hold a more authoritative copy of itself.
+				continue
+			}
+			cv, cf, cc := collectUniqueValue(child, key, depth+1)
+			value, found, conflict = merge(value, found, conflict, cv, cf, cc)
+		}
+	case []interface{}:
+		for _, item := range v {
+			cv, cf, cc := collectUniqueValue(item, key, depth+1)
+			value, found, conflict = merge(value, found, conflict, cv, cf, cc)
+		}
+	}
+	return value, found, conflict
+}
+
+// merge folds one candidate into the running answer.
+func merge(cur interface{}, curFound, curConflict bool, next interface{}, nextFound, nextConflict bool) (interface{}, bool, bool) {
+	if curConflict || nextConflict {
+		return cur, curFound || nextFound, true
+	}
+	if !nextFound {
+		return cur, curFound, curConflict
+	}
+	if !curFound {
+		return next, true, false
+	}
+	if !reflect.DeepEqual(cur, next) {
+		return cur, true, true
+	}
+	return cur, true, false
 }

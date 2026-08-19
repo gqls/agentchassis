@@ -159,3 +159,78 @@ func TestHashForPageFile_KeyIsTheCommittedPath(t *testing.T) {
 		t.Errorf("an empty fingerprint map produced %q", got)
 	}
 }
+
+// THE OBJECTION THIS TEST ANSWERS (council round 2, 377167cd — gating objection
+// from prior_art_librarian, seconded by editquality).
+//
+// The earlier version of deploy_evidence.go justified its safety by borrowing a
+// property from datahelpers.ExtractFields: "collect-all / unique-or-nothing
+// (RFC_029 §9)", i.e. an ambiguous subtree resolves to nothing rather than to a
+// guess. THAT CLAIM WAS FALSE FOR THIS BUILD. findFieldRecursive's own comment
+// says the ruling is unique-or-nothing but "PHASE 1 (this build — instrument
+// first, refuse second): conflicts still resolve, to the STABLE shallowest-first
+// winner, and emit the WARN". Phase 2 has not shipped.
+//
+// For this caller a guess is the worst outcome available: a fingerprint taken
+// from the WRONG git_commit is silently and permanently wrong, and every later
+// comparison reports a healthy page as diverged. So the resolver now collects
+// candidates itself and REFUSES on conflict, and this pins that.
+
+func TestResolveDeployEvidence_AmbiguousSubtreeREFUSES(t *testing.T) {
+	// Two git_commit results under ONE named field — the shape that arises when
+	// a called sub-agent performed more than one commit.
+	ambiguous := map[string]interface{}{
+		"deploy_result": map[string]interface{}{
+			"response": map[string]interface{}{
+				"page_commit": map[string]interface{}{"data": map[string]interface{}{
+					"commit_sha":   "aaaaaaaaaaaa",
+					"files_sha256": map[string]interface{}{"tools/x/index.html": "hash-A"},
+				}},
+				"asset_commit": map[string]interface{}{"data": map[string]interface{}{
+					"commit_sha":   "bbbbbbbbbbbb",
+					"files_sha256": map[string]interface{}{"tools/x/index.html": "hash-B"},
+				}},
+			},
+		},
+	}
+
+	ev, ok := resolveDeployEvidence(ambiguous, "deploy_result", zap.NewNop())
+	if ok {
+		t.Fatalf("ambiguous subtree RESOLVED to %+v — it must refuse. A fingerprint from the wrong commit is silently and permanently wrong, and 'no fingerprint' is the recoverable direction", ev)
+	}
+}
+
+func TestResolveDeployEvidence_AgreeingDuplicatesStillResolve(t *testing.T) {
+	// The other half of unique-or-nothing: the SAME value appearing twice (the
+	// envelope legitimately echoes a reply at two depths) is not a conflict, and
+	// refusing it would make the guard useless on ordinary nested runs.
+	agreeing := map[string]interface{}{
+		"deploy_result": map[string]interface{}{
+			"deploy_result": directReply(),
+			"response":      map[string]interface{}{"deploy_result": directReply()},
+		},
+	}
+	ev, ok := resolveDeployEvidence(agreeing, "deploy_result", zap.NewNop())
+	if !ok {
+		t.Fatal("duplicate but AGREEING candidates were refused — only a genuine disagreement may refuse")
+	}
+	if ev.CommitSHA != "abc123def456" {
+		t.Errorf("CommitSHA = %q, want abc123def456", ev.CommitSHA)
+	}
+}
+
+func TestCollectUniqueValue_ConflictBeatsFound(t *testing.T) {
+	// A caller that read `found` and ignored `conflict` would get the shallowest
+	// value — exactly the guess this design exists to avoid. Pin the precedence.
+	tree := map[string]interface{}{
+		"a": map[string]interface{}{"commit_sha": "one"},
+		"b": map[string]interface{}{"commit_sha": "two"},
+	}
+	_, found, conflict := collectUniqueValue(tree, "commit_sha", 0)
+	if !conflict {
+		t.Fatal("disagreeing values did not report a conflict")
+	}
+	if !found {
+		t.Error("found should still be true — the caller distinguishes 'absent' from 'ambiguous'")
+	}
+}
