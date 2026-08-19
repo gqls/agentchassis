@@ -374,3 +374,24 @@ And the *misdirect* half of the calibration (17/17 true) is not re-proven here e
 proven is that the check runs, files, and catches the motivating case. The fleet number arrives
 with the normal rotation; query it with:
 `SELECT item_type, count(*) FROM site_work_items WHERE item_type IN ('cta_names_nonpage_destination','cta_tel_malformed') GROUP BY 1;`
+
+### Closing checks, and a transient red that was not ours (second time for this lane)
+
+`go test ./platform/orchestration/actions/` failed once on
+`TestStepContractRenamesStayRare` — *"renderContextStepContractRenames has 2 entries, 1
+declared"*. Investigated before concluding anything: the failing file is the
+`staged_component_build` lane's, the symbol is theirs, and my only Go change this session is
+one string appended to a fixture list in a different file. Minutes later the map read exactly
+one entry against `declared = 1` and the package was green — I had run the suite while their
+edit was half-landed. **The 08-18 entry above records the same phenomenon from the other
+direction** (their tree transiently not compiling), so this is now twice: on this tree a red
+test is a claim about a *moment*, and the first move is `git status --short -- '*.go'` plus a
+re-run, not a bisect. Their tripwire was doing its job, which is why it was so legible.
+
+**Final state of this session's checks:** `actions`, `discovery_checks` and `datahelpers` all
+green at HEAD; the roster fixture mutation-proven; migrations 475 and 476 applied, verified in
+`agent_definitions`, and recorded in `schema_migrations`; 477 still `_HOLD`; the induced
+discovery run COMPLETED with the new check firing 6 true findings. Nothing of mine is
+uncommitted, and no Go change of mine needs a build — the binary half was already committed by
+the 08-18 session and is already live on v1.0.1316, so **the next chassis build is not a
+prerequisite for anything in this lane.**
