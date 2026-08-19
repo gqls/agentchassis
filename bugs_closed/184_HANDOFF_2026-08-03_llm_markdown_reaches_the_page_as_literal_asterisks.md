@@ -664,3 +664,40 @@ promote the ~28 remaining generic items, artefact-verify a sample; the 41 owned/
 items are out of this route's reach (301 / tool rebuilds). An earlier cross-lane claim
 that the new handler pair was promoter-held was retracted by its author — nothing holds
 the rollout.
+
+## CLOSED 2026-08-19 — fixed, live, verified at the artefact on the founding pages and the widened-symptom pages
+
+**The bar this file set at filing and in every progress note is met:**
+- this file's own §Scope SQL → **0 rows** (2026-08-19 17:25Z);
+- the three founding pages serve **0 defects**: mortgagecalculator.co.uk first-time-buyer,
+  gaswholesalers.com how-pricing-works, webdesign.co.uk news/index;
+- the widened-symptom pages (ATX headings + md links on `/news` listings) repaired through
+  the mechanical route and verified served clean: fundamentallyai news (13→0), dartsonline
+  news, robot-hands news/index, robot-hands gripper-catalog, webdesign news — each
+  completed at attempt 0, verifier-certified, curl-verified with text intact.
+
+**What closed it:** detect (fleet-wide check, md_link added) + mechanical repair (a
+reason-gated page-rerender that strips stored content_data AND the fresh resolver overlay)
++ opt-in birth-time prevention + an unconditional producer-local strip in the news
+resolver — live on v1.0.1315, migrations 473/474 applied. Council corr `060bcc0a`:
+approved r4; r5 (the resolver layer) REVISE with dispositions recorded in the lane NOTES —
+**a round-6 answer is owed as follow-up work on the lane, not a reason to hold the bug
+open** (the code is live and proven; the objections are kill-switch/consistency polish).
+
+**Residuals, routed — different defects, not this bug:**
+- 41 items on OWNED/ported pages: the markdown lives in ported tool HTML, not
+  content_data; structurally out of this route's reach → tool-rebuild programme /
+  bugs_open/301's routing question. They fail honestly at the verifier.
+- ai-agent-orchestration news: behind a `needs_human_review` sibling (human decision).
+- robot-hands.com/news.html: stored components clean, served page stale —
+  `pages.deployed_at` 2026-08-11, the rerender's deploy step did not republish → rerender
+  pipeline gap (DB-is-not-the-website), owner of the rerender lane to pick up.
+- robot-hands.com/learning-center/index.html → 404 (dead page row), robot-hands lane.
+- Markdown TABLES in 8 `content_feed_items` rows serve as pipe-text (outside the pattern
+  set) → feed-quality follow-up.
+- Duplicate sibling rows on repaired pages → the check's `Resolved` retraction closes
+  them on the next discovery pass (pages now scan clean).
+
+Lane: `docs024_key_docs_latest/bugfix_184_literal_markdown/` (PLAN, RUNBOOK, NOTES,
+README, SUMMARY). Register: CQ-019. 016b §9: "repair-by-regeneration cannot fix a defect
+the regenerator has the habit of producing".
