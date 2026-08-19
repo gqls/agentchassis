@@ -66,8 +66,20 @@ var LoadPageRecordInputSpec = datahelpers.ActionInputSpec{
 	CheckConfig: true,
 	Required:    []string{"site_id"},
 	Optional:    []string{"page_name", "page_id", "authoritative_page_id"},
-	Defaults:    map[string]interface{}{},
-	Deprecated:  map[string]string{},
+	// refuse_owned_page (bugs_open/301): when true, a loaded page whose
+	// pages.rebuild_policy is 'owned' is REFUSED here — before the content
+	// writer is spawned — instead of at save_page_sections, the last step,
+	// where the same refusal today costs a completed LLM chain first. A
+	// setting, not a data reference, so it lives in ConfigKeys; note that the
+	// RFC_022 optional-key budget counts Optional only, a trade-off named in
+	// the council submission for this change. Opt-in with the unsafe default
+	// OFF (owner ruling 2026-08-02 §2): of the two live carriers of this
+	// action, page-build-handler opts in (migration 488) and
+	// tool-recreation-handler — the tool pipeline, the legitimate owner of
+	// owned pages — must never carry it.
+	ConfigKeys: []string{"refuse_owned_page"},
+	Defaults:   map[string]interface{}{},
+	Deprecated: map[string]string{},
 }
 
 func init() {
@@ -120,7 +132,11 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 			// which is the exact defect this input exists to close.
 			return nil, fmt.Errorf("invalid authoritative_page_id %q: %w", authIDStr, err)
 		}
-		return loadPageRecordByID(ctx, params, siteID, authID, logger)
+		res, err := loadPageRecordByID(ctx, params, siteID, authID, logger)
+		if err != nil {
+			return nil, err
+		}
+		return refuseOwnedPageIfConfigured(ctx, params, res, siteID, logger)
 	}
 
 	pageName := strings.TrimSpace(inputs.Get("page_name"))
@@ -181,7 +197,90 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 		return nil, fmt.Errorf("either page_name or page_id is required")
 	}
 
-	return queryPageRecordRow(ctx, params.DB, siteID, pageName, pageIDInput, logger)
+	res, err := queryPageRecordRow(ctx, params.DB, siteID, pageName, pageIDInput, logger)
+	if err != nil {
+		return nil, err
+	}
+	return refuseOwnedPageIfConfigured(ctx, params, res, siteID, logger)
+}
+
+// refuseOwnedPageIfConfigured is the opt-in EARLY ownership refusal
+// (bugs_open/301). The owned-page guard's refusal already exists and is not in
+// question — but in page-build-handler it lives at save_page_sections, the LAST
+// step, so a build aimed at a rebuild_policy='owned' page runs the
+// page-content-writer LLM chain to completion and is only then refused (39
+// discarded chains in 2.5h measured on one site, 2026-08-18). rebuild_policy is
+// knowable the moment this action has loaded the row; with refuse_owned_page
+// set, the refusal happens here instead and the writer is never spawned.
+//
+// The three pieces are deliberately the guard's own, not copies:
+//   - pageIsOwnedForGuard — the single ownership predicate (owned_page_guard.go;
+//     a second predicate is the drift class the council's reuse_agent seat
+//     already objected to once);
+//   - emitOwnedPageReviewItem — same deduped owned_page_review row the save
+//     path files, refused_by='load_page_record';
+//   - ownedPageSkipReasonPrefix LEADING the error — routeToErrorStep copies the
+//     message verbatim into __step_error.message, which is what
+//     update_work_item_status' owned_page_refusal_status (migration 480) matches
+//     to stamp the item wont_fix rather than failed. An early refusal composes
+//     with that Tier 1 change with zero new vocabulary, via the step's
+//     error_step (migration 488 sets both the key and the routing).
+//
+// Fail-open when the policy cannot be read, matching the predicate's own
+// posture — and cheaply here: the save-path guard is still downstream as the
+// backstop (removing it would re-open bugs_closed/295), so an unchecked page
+// costs at most one wasted chain, never a clobber. The unset key is the
+// unchanged default: every caller that does not name it — today that is
+// tool-recreation-handler, the tool pipeline, which legitimately builds owned
+// pages — behaves exactly as before (owner ruling 2026-08-02 §2).
+func refuseOwnedPageIfConfigured(ctx context.Context, params ActionParams, res interface{}, siteID uuid.UUID, logger *zap.Logger) (interface{}, error) {
+	refuse, _ := params.StepConfig.Config["refuse_owned_page"].(bool)
+	if !refuse {
+		return res, nil
+	}
+	m, ok := res.(map[string]interface{})
+	if !ok {
+		return res, nil
+	}
+	if found, _ := m["found"].(bool); !found {
+		return res, nil
+	}
+	pageIDStr, _ := m["id"].(string)
+	pageID, err := uuid.Parse(pageIDStr)
+	if err != nil {
+		// No usable id on a found row is a shape this action never produces;
+		// stand down rather than block — the save-path guard still holds.
+		logger.Warn("LoadPageRecordAction: refuse_owned_page set but page id unparsable — ownership unchecked here, save-path guard remains",
+			zap.String("page_id", pageIDStr))
+		return res, nil
+	}
+	pageName, _ := m["name"].(string)
+
+	owned, checked := pageIsOwnedForGuard(ctx, params.DB, pageID, logger)
+	if !checked {
+		logger.Warn("LoadPageRecordAction: rebuild_policy unreadable — early guard standing down, save-path guard remains",
+			zap.String("page_id", pageID.String()),
+			zap.String("page_name", pageName))
+		return res, nil
+	}
+	if !owned {
+		return res, nil
+	}
+
+	reason := fmt.Sprintf(
+		"%s: page %s is rebuild_policy=owned (tool/widget-owned); refused at load, before the "+
+			"content writer runs — a generic section save would be refused at save_page_sections "+
+			"anyway, after the LLM work was already spent. Use apply_section_edit for targeted "+
+			"edits or the tool pipeline for rebuilds.",
+		ownedPageSkipReasonPrefix, pageName)
+
+	logger.Warn("LoadPageRecordAction: OWNED PAGE — generic build refused before the writer",
+		zap.String("page_name", pageName),
+		zap.String("page_id", pageID.String()))
+
+	emitOwnedPageReviewItem(ctx, params.DB, siteID, pageName, "load_page_record", reason, logger)
+
+	return nil, fmt.Errorf("%s", reason)
 }
 
 // loadPageRecordByID serves the authoritative_page_id path: lookup strictly by

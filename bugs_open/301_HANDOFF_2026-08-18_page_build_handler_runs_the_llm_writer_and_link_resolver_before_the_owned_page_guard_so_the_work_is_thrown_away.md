@@ -369,3 +369,42 @@ population, and the 3% was the entire pair I had started designing a remedy arou
 > discriminated a category by the attribute that was *convenient to query* rather than the one that
 > *defines* it. The convenient column agreed 97% of the time, which is precisely why the
 > disagreement was invisible until I went looking for a specific pair.
+
+---
+
+## 2026-08-19 — FIX CANDIDATE 1 TAKEN AND BUILT (`bugfix_301_owned_guard_ordering` lane)
+
+The filing lane offered this bug unowned; taking it. **The ordering fix is built, committed
+and council-submitted today** — the standing five live in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_301_owned_guard_ordering/`.
+
+**Still valid before fixing** [MEASURED 2026-08-19 ~12:00 UTC, post-roll v1.0.1314]: the
+10:18 chain shows the exact filed shape (handler `complete_error` 10:18:27, writer child
+COMPLETED 10:18:42, resolver child COMPLETED 10:19:16), and **146 open findings on owned
+pages are routed at `page-build-handler`** — each a guaranteed wasted chain.
+
+**The shape shipped** (candidate 1, plus the §3 status question already answered by Tier 1):
+- `load_page_record` (Go) gains opt-in `refuse_owned_page` — when set and the loaded page is
+  owned per `pageIsOwnedForGuard` (still the single predicate), it files the same deduped
+  `owned_page_review` row (`refused_by='load_page_record'`) and errors LEADING with
+  `OWNED_PAGE_GUARD`, so `error_step → mark_item_failed → owned_page_refusal_status`
+  (migration 480, live) stamps the item **`wont_fix`** — the Tier 1 semantics survive the
+  reorder by construction, answering that submission's risk 5.
+- Migration `488` opts in exactly one step: `page-build-handler.load_page_record`
+  (key + `error_step`). Order-tolerant; guard ABORTS unless 480's key is present.
+- **The save-path guard stays** — backstop for other callers and the fail-open window
+  (removing it would re-open 295), exactly as this file's candidate 1 asked.
+- The census that forces the opt-in: exactly TWO live carriers of `load_page_record`;
+  the other is `tool-recreation-handler`, the tool pipeline, which must never refuse
+  owned pages. 488's verify block aborts if any other step acquires the key.
+
+**Verification pending** (the file's own positive+negative controls, in the lane RUNBOOK):
+refusal activates at the next chassis roll past the commit. Until an owned-page dispatch
+lands `wont_fix` with NO writer child AND a generic-page dispatch still builds normally,
+this bug stays OPEN (fixed-and-live bar). Council corr `c7bc1b9e-97c8-4f3e-8a4f-b3a7029505ee`;
+090 diagnosis run `dd61df1b` filed on the "no write path bypasses save_sections" premise
+before submission — verdict to be recorded in the lane NOTES either way.
+
+**Not taken here, still open on this file:** candidate 3 (producers stop filing generic
+content items against owned pages — the real upstream repair) and the Tier 2 finding-to-edit
+routing (with `copy_quality_two_stage` / migration 473's deterministic route).

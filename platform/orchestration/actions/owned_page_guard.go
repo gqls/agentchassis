@@ -70,6 +70,11 @@ const ownedRebuildPolicy = "owned"
 // >	UpdateWorkItemStatusAction — __step_error.message (chooses the terminal status)
 // >
 // > Changing this literal changes an item's terminal STATUS, not only a log line.
+// >
+// > EMITTERS (errors that LEAD with it, added 2026-08-19, bugs_open/301):
+// > SavePageSectionsAction's refusal, and LoadPageRecordAction's early refusal
+// > (refuseOwnedPageIfConfigured, behind the refuse_owned_page opt-in) — both
+// > feed UpdateWorkItemStatusAction's matcher above via error_step routing.
 const ownedPageSkipReasonPrefix = "OWNED_PAGE_GUARD"
 
 // resolveGuardedPage finds the page a composition step is working on.
