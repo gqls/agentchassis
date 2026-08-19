@@ -9,7 +9,37 @@ machine with network access and no registrar credentials at all.
 
 ---
 
-## 1. ⛔ THE ONE COMMAND A SESSION CANNOT RUN — enumerating from Nominet
+## 1. ✅ NOMINET LOGIN PROVEN 2026-08-19 — the allowlist is good, the walk is next
+
+The owner ran the login. It returned:
+
+```
+GREETING_BYTES=2527
+LOGIN_CODE=1000
+LOGIN_MSG=Command completed successfully
+```
+
+**So the egress allowlist, the TAG and the password are all correct**, and the client works.
+That was the only genuinely uncertain part — a session cannot run it (see below), and the
+greeting alone would have proved nothing.
+
+**Estate size, per the owner 2026-08-19: ~1,500 `.uk` domains, not 2,000.**
+
+**Still to run — the twelve-month expiry walk**, which is what actually produces the list:
+
+```sh
+for m in 2026-09 2026-10 2026-11 2026-12 2027-01 2027-02 2027-03 2027-04 2027-05 2027-06 2027-07 2027-08; do
+  ( set -a; . ~/.config/nominet/credentials; set +a; printf '%s\n%s\n' "$TAG" "$EPP_PASSWORD" ) \
+    | kubectl -n ai-persona-system exec -i postgres-clients-0 -- perl /tmp/epp.pl list "$m"
+done | grep '^DOMAIN' | cut -f2 | sort -u > all_domains.txt; wc -l all_domains.txt
+```
+
+**Sanity-check the total against ~1,500 before trusting it.** The walk covers twelve months of
+expiry dates; a domain whose expiry falls outside that window is silently absent, and the
+symptom is a plausible-looking list that is simply short. If the count is well under 1,500,
+widen the range rather than assume the estate shrank.
+
+## 1b. ⛔ WHY A SESSION CANNOT RUN IT — enumerating from Nominet
 
 Nominet is **EPP over TLS on `epp.nominet.org.uk:700`**, not a REST API with a bearer token.
 Credentials are present and complete as of 2026-08-19: `~/.config/nominet/credentials` holds
@@ -104,11 +134,16 @@ matched anything is not evidence of absence.
 `bankingequipment.co.uk/.uk`, `mortgagerepaymentsinsurance.co.uk/.uk`,
 `privatehealthinsurancequotation.uk`, `bestlandlordinsurancerates.co.uk`.
 
-**`NXDOMAIN` on a `.uk` name can mean the registration has lapsed.** These are in
-`PORTFOLIO_domains.txt` as owned; DNS says the name does not resolve at all. That is a
-discrepancy worth checking at the registrar before any of them is planned into a build —
-**a domain we do not actually own cannot be built on**, and the register would happily assign
-it a proposition.
+> **⚠ CORRECTED 2026-08-19 by the owner: *"No nameserver usually means I never set a
+> nameserver."*** So the ordinary reading of both `NXDOMAIN` and `SERVFAIL` on this estate is
+> **"registered but never delegated"**, not "the registration lapsed". My original text said
+> lapsed, which would have sent someone to the registrar to re-buy domains he already owns.
+>
+> The distinction still matters for a different reason: these 17 are the domains that need
+> **nameservers set before anything can be built on them**, which is a real step the Cloudflare
+> rollout has to cover. They are not a problem, they are a to-do list. Treat a `NO_NS` /
+> `SERVFAIL` / `NXDOMAIN` result as **"not yet pointed anywhere"** and only investigate
+> ownership if the registrar list disagrees.
 
 ---
 
