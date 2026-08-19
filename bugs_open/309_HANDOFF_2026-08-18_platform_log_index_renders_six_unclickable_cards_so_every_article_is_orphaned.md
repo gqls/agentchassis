@@ -610,3 +610,58 @@ Routes checked and rejected:
 
 Nothing else about the repair needs to change. Everything upstream of the content gap
 is built, applied, live and proven.
+
+
+---
+
+## 13. FIXED AND VERIFIED AT THE SERVED PAGE — 2026-08-19 21:02Z (by the `320` lane)
+
+**The blocker was a content gap and it is closed.** `bugs_open/320` built the mechanism
+that fills `pages.meta_description`, ran it, and the five articles this page needed now
+have descriptions written by the framework. The rerender was then dispatched exactly as
+§9 prescribed and **it wrote**.
+
+### The rerender
+
+`page-rerender`, `spec.reason=template_changed` (the recognised reason — without one
+`check_rerender_mode` takes `else_step → render_page` and renders an empty grid, §9's
+trap). Correlation `e4456c4c-4eb2-4ef2-8c5d-eefb758e72d6`, `COMPLETED`.
+
+**The shrink guard passed rather than being bypassed.** Nothing about
+`section_shrink_floor` was touched.
+
+| | before | after |
+|---|---|---|
+| `blog-listing` stored | 14,212 chars, md5 `c0b05ba7…`, 08-17 | **11,470 chars, md5 `7396452a…`, 08-19 21:02Z** |
+| served page | 32,594 bytes | 30,136 bytes |
+| **cards** | **6** | **8** |
+| **anchors inside cards** | **0** | **16 (2 per card)** |
+
+### Verified at the SERVED page, with every link checked
+
+`[MEASURED 2026-08-19]` all **8** card targets return **HTTP 200**:
+`/blog/automation-savings-estimator-guide`, `/blog/llm-cost-calculator-guide`,
+`/blog/model-approach-selector-guide`, `/blog/review-council-simulator-guide`,
+`/blog/self-correction-leopardessconsulting`, `/guides/tool-ai-readiness-checker-guide`,
+`/guides/tool-automation-savings-estimator-guide`,
+`/guides/tool-model-approach-selector-guide`.
+
+- **Card 4 points at `/guides/tool-ai-readiness-checker-guide.html`** — the LIVE sibling.
+  The archived `/blog/ai-readiness-checker-guide` is **not referenced anywhere on the
+  page**, which is §9's "fixed by construction" holding at the artefact.
+- **The excerpts render**, and they are the descriptions the backfiller wrote — e.g. card 2
+  carries *"Compare LLM costs across providers for your expected usage and workload."* So
+  the whole chain is visible end to end: planner → column → card excerpt.
+
+⚠ **One reading that needed a retry, recorded so nobody repeats it:** the first check of
+the `/guides/tool-ai-readiness-checker-guide` URL returned **`000`**, which is a curl
+transport failure and **not** a 404. Re-run, it is 200 with a 26,738-byte body. A `000` is
+the client failing to ask, and reading it as "the page is missing" would have manufactured
+a defect that is not there.
+
+### What this does NOT close
+
+`309`'s **class** half (the source-vocabulary birth gate) was already done and verified
+live by the `bugfix_309_unclickable_index_cards` lane. This section closes the **case**
+half only. Whether any sibling site still carries a numbered-flat list component is that
+lane's question, not this one's.

@@ -30,7 +30,16 @@ have been run.**
 
 ## 3. WHAT TO DO NEXT, in order
 
-### (a) Measure whether `bugs_open/309` is actually unblocked — do NOT assume it
+> **UPDATED 2026-08-19 21:00Z — (a) is DONE and 309 is FIXED; (b) is essentially DONE.**
+> The fleet backfill ran: **407/731 empty → 50/737 (6.8%)**, ~571 pages filled, mean
+> description length **129** chars. Of the 50 left, **43 have ZERO components** and are a
+> floor, not a backlog — a page with no content cannot be described from its content, and
+> the alternative is invention. 7 are reachable and need one more pass.
+> **309's rerender was dispatched and WROTE**: 8 cards, 16 anchors, all 8 targets HTTP 200,
+> card 4 on the live sibling, archived guide unreferenced, shrink guard PASSED untouched.
+> See `bugs_open/309` §13 and `320` §12. What is left is §3(c) and the items in §4/§7 below.
+
+### (a) ~~Measure whether `bugs_open/309` is actually unblocked~~ — DONE, it is fixed
 All five pages blocking `309` now have descriptions. **That is not the same as `309` being
 fixed**, and the arithmetic says so:
 
