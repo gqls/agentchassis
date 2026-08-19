@@ -1821,3 +1821,8 @@ not merely redundant: telling the generator to hide tag names behind string conc
 truncation harder to detect, and that cost is now being paid for nothing. #14 and #15 still carry the
 sentence (both were written before I checked); neither was harmed by it.
 The bug file is still in `bugs_open/` — that is another lane's to move, not this one's.
+- **22:25Z — council round 1 on 331: REVISE (bug_historian, high): the arm overwrites a working tool with
+  no non-hollow check on the incoming template — the 012/056 class, and exactly your ab-test hollow-shell
+  finding. Accepted; the revise (a visible-text gate reusing the floor helpers, as the SUBSTITUTE for the
+  floor exemption) is specified in `bugs_open/331` §9 and not yet built. Code is inert + HOLD, so nothing
+  live is exposed. Your 286 "related finding" (text-content floor) gets its first home here.
