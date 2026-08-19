@@ -257,3 +257,38 @@ to the known-good structural header? (b) keeps the site up but silently swaps a 
 for a generic one — a degradation of the same family as the bug being fixed, just less visible.
 Flagging it rather than assuming; it is exactly the "order fix candidates by what closes the
 door" question.
+
+## 2026-08-19 (later still) — ⚠ THE SECTION-EDITOR PATH HAS NO `validate_content` GATE, and it writes to LIVE pages
+
+This is the finding of the day and the bug file does not state it. §4 says *"the gate is why"* —
+`validate_content` refuses before persisting. **That is true of the page-BUILD path only.**
+
+`applyContentEdit` (`section_editor_actions.go:886`) and `applyComponentSwap` (`:996`) render
+through the same `RenderTemplate`, and their output is written by `updatePageComponentAfterEdit`
+(`:1233`) with a plain `UPDATE page_components SET rendered_html = $2` (`:1251-1252`). Grepping
+the whole file for `validate`/`unrendered` returns **one comment about a review-queue sweep and
+nothing else**. There is no content validation between that render and that write.
+
+So on this path the mangled fallback output would be **stored and served on an already-live
+page**, with no gate to refuse it. The copy lane flagged the same seam from the other direction
+in §9c (their stage-2 executor supplies agent-written `content_data` and re-renders here).
+
+**Both editor sites already guard `if rendered == ""` — and that guard CANNOT catch this bug**,
+because the fallback never returns empty; it returns well-formed HTML with the directives left
+in. An existing check written for roughly this class, blind to the actual failure. (Same family
+as `[VERIFIED]` off an echo: the guard exists, reads as protection, and tests the wrong thing.)
+
+`[MEASURED 2026-08-19]` The path is live and busy: **271 `content_rewrite`/`content_edit` work
+items, 117 complete, 2026-04-08 → today.** (`orchestration_states` has no `agent_type` column and
+prunes ~24h anyway, so the durable count comes from work items; §9d's "132 section-editor
+orchestrations" was a same-day read of the pruned table and cannot be re-derived now.)
+
+**So the correct risk statement is not "no live damage is possible" — it is "the ungated path has
+not yet been unlucky."** 117 completed live edits and 0 of 1,789 stored components carry the
+leak, which is a real demand control (the path is exercised, not idle) but is not a guarantee of
+anything about the 118th. Chrome is the same shape: no gate downstream, currently clean.
+
+**This changes the fix's justification.** It is not only "convert a confusing failure into a
+clear one on a path that already refuses" — on the editor and chrome paths it is "close a route
+by which mangled markup reaches a live page with nothing to stop it." The build path is where it
+FIRES today; the editor path is where it would COST the most.
