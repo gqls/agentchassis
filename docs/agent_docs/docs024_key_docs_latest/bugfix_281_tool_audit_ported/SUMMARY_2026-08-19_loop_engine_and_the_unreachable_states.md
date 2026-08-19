@@ -60,7 +60,8 @@ label rather than from the tag, because a rebuild at the same tag can ship no ne
   idle fleet.
 - **No job anywhere is stuck for more than four hours.** Both recovery arms are live and the
   tidy-up job is ticking normally.
-- The loop engine's remaining cleanup item is safe to do but is **not** done — see below.
+- The loop engine's one remaining cleanup item was **ruled on and deliberately not taken** — see
+  "Where we're going", item 1. Nothing on this lane is now waiting on anyone.
 
 The single most useful thing we learned is not in any of the fixes. Twice this lane argued that a
 state was safe because of what the code does, and the second time that was **wrong**. One of those
