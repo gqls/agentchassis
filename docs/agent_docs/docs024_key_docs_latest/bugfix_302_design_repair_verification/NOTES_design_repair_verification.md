@@ -752,3 +752,60 @@ LLM-driven changes, not programmatic"`** — the handler saying, in its own payl
 this kind of work. Not "already done". ⚠ **NOT yet established:** whether the LLM work happens by
 another route (there is no second handler for the type, but a differently-typed item could carry
 it). Filed rather than asserted.
+
+---
+
+## 2026-08-19 — council outcomes, and the objections that changed the work
+
+### Decision 1 (routing): **APPROVED at round 2**, corr `93f7e3ee`, 11 reviewers, 6 abstained, 0 unreadable, 1 advisory objection none high.
+
+Round 1 was REVISE and both of its substantive objections improved the change:
+
+- **Gating HIGH (`editquality`)** — *"the map is keyed on `dark_section` while everything refers to
+  `dark_section_audit`; if the key is wrong this edit is a silent no-op."* The right question, and
+  answerable only at the data: [MEASURED] all 30 rows carry `spec.category='dark_section'` **and**
+  `handler_agent='color-variable-fixer'`. So the key is not merely live — it is demonstrably the one
+  that set that column on 30 rows. A dead key could not have.
+- **Two mediums, one from `editquality` and one from `architecture`, saying the same thing:** a
+  comment recording the void licence is *"enforced by nobody"*. Both correct. It is now a checked
+  invariant — `noChangeRule.MeasuredAgainstHandler` + `.LicenceVoided`, pinned by
+  `TestNoChangeRosterMatchesLiveRouting` across the two files that nothing previously connected.
+  **The invariant is deliberately NOT "these must always agree"** — that would forbid the legitimate
+  window between fixing a routing and being able to measure the new handler at all. It is: *they
+  agree, OR the entry declares that they do not and names the new handler.* **An entry may be stale,
+  but only out loud.** Mutation-proven both ways.
+- **`reuse_agent`'s MISSING** was the most substantive thing raised and I had not checked it: does
+  `css-patch-agent` actually emit an ADDITIVE scoped block, or only patch existing declarations? Its
+  39 deploys prove it writes `styles.css`, not that it writes *this*. Read the live prompt — it is
+  **append-only by construction**: *"Write ONLY the new or overriding CSS rules… The platform APPENDS
+  your rules to the END of the stylesheet above — you never return the stylesheet itself, and you
+  cannot delete or edit existing rules."* It cannot do anything but additive, and it already consumes
+  every spec field these items carry. ⚠ One limit found in the same read and stated rather than
+  buried: *"only use `var(--x)` names that are DEFINED in the stylesheet above"* — defining a new
+  `--section-*` property is unaffected, but a finding asking it to REFERENCE an undefined token gets
+  a literal instead.
+
+### `317` went REVISE **twice**, and the second one is the one I should not have needed
+
+Round 2's gating objection: my rationale said the pre-image *"is now recorded in the lane"* — a
+completed action — while **no edit in the plan created that file**. The file genuinely exists
+(`845c0a362`); the plan simply did not list it. **This is the SECOND time in two days a seat has
+caught this exact shape from me** (yesterday: claiming WII-011 was amended when I had amended
+WII-017). Logged again in `WRONG_CALLS.md`. The mechanical check, which I am now applying before
+every submission: **for every file the prose says changed, confirm an edit names it.**
+
+Round 2's best objection was `guardian`'s and it found a real gap: the migration verified the
+**text** of the rewritten predicate, never that it still **runs** — *"a single misplaced comma is
+invisible until the next scheduler tick"*, on a task firing every 120s. Answered empirically:
+`EXPLAIN` on the live predicate parses and plans cleanly (⚠ `EXPLAIN` without `ANALYZE` plans
+without executing, which matters because the predicate contains an `UPDATE` inside a CTE), and
+better — `last_triggered_at` = `last_completed_at` at 10:47:53Z with **zero** errors mentioning the
+task since 10:03Z, i.e. ~22 clean executions on the rewritten SQL. **The objection is still right as
+discipline**: prove it runs, then let the scheduler find out — not the reverse.
+
+`reuse_agent` also asked whether the existing `TestEveryItemTypeIsVerifiedOrAnAcknowledgedGap`
+already covered this, its name describing a "verified OR acknowledged gap" contract. **It does not,
+and the demonstration is exact:** `dark_section_audit` is ALREADY in `itemTypesWithoutVerifiers`
+(catMechanical, with a written reason), so that test was **fully green in precisely the state this
+lockstep exists to catch** — an acknowledged verifier gap, a gate-1b entry, and no sweep exclusion.
+Two tests, two different lists.
