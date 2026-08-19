@@ -304,37 +304,44 @@ was followed by proving the gate can still fail. "It complained, so I changed it
 check becomes decorative.
 
 
-## NEXT STEP, designed but NOT built — the spec-side detector, and the distinction that makes it honest
+## NEXT STEP — the measurement is DONE, and it re-specified the detector
 
-The owner's second half (*"ensure that that sort of copy never leaves this framework again"*)
-points at a detector on the BRIEF, not the writer — `bugs_open/305`'s root-cause section says
-why. Design work done 2026-08-19, **nothing built**:
+**Run 2026-08-19 evening, with the refutation condition stated before looking.** Result:
+**instructional brief text does not reach the writer at all**, so the detector must read only
+the fields that do.
 
-**`content_direction` mixes two kinds of text, and only one is evidenced.** Inspected on
-`ai-agent-orchestration.com`:
+**What was tested and what came back** `[MEASURED]`:
 
-- **Supplied-for-reuse fields** — the canonical tagline, `avoid_phrases`, `key_terms`,
-  `example_phrases` elsewhere. These are handed to the writer to USE. **Proven transfer:** the
-  tagline appears in 1,348 rendered prompts and 408 responses. A contrastive construction here
-  is a defect with literal evidence behind it.
-- **Instructional prose** — `cta_style.approach` (*"…a technical conversation, not a sales
-  process"*), `terminology.approach`, `voice`, `emphasis`. These tell the writer HOW to write;
-  a contrast here is a reasonable way to give guidance. **Transfer NOT established.**
+- `not a sales process` and `rather than transaction` are both in `ai-agent-orchestration.com`'s
+  `content_direction.cta_style.approach`. Across every `page-content-writer` call they appear
+  in **ZERO prompts**, while appearing in **35** and **21** responses — **only where the prompt
+  did NOT contain them.** So those echoes are the model's own phrasing, not transfer.
+- **The writer reads `content_direction.formatted`** — 3,558 of that spec's 15,760 chars
+  (~23%). The structured fields (`cta_style`, `terminology`) have no prompt exposure.
+- **The supplied half transfers, and that is untouched:** the canonical tagline IS in
+  `formatted`, in **1,348 prompts → 408 responses**.
 
-**So the detector should FLAG the first kind and merely REPORT the second**, and say which is
-which in its output. Building one that treats all matches alike would fire on 24 of 25 sites
-at 24–38 instances each — a number nobody can act on, and mostly aimed at text whose transfer
-is unproven. ⚠ `count_negation_tells.py` as written does exactly that (it counts a whole
-document), so it is the wrong tool pointed at a spec until it learns the split.
+**⚠ This invalidated my own published counts** — they were over the whole document. Corrected
+in `bugs_open/305` (correction block above the root-cause section), the SUMMARY, the
+`portfolio_positioning` CONTRIB, and `WRONG_CALLS`. Corrected figures: complained-of site
+**2** (not seven, which was also a `LIMIT 10` sample read as a total); fleet worst
+`remortgagecalculator.uk` **19** (not 38); **23 of 25** sites carry it in what the writer sees.
 
-**Before building it, the falsifiable measurement is still owed** (`305 §D.4`): do the
-INSTRUCTIONAL uses transfer to output at all? Design it so it can come out either way —
-per-site brief-instance count vs per-site output rate, with the refutation condition stated
-BEFORE looking, and with enough calls per site to beat the 0.38–4.27 weekly variance that
-already produced one withdrawn finding. ⚠ Attributing calls to sites is the awkward part:
-`llm_call_log` has no `site_id`, the join through `orchestration_states` timed out at ~7
-minutes, and `prompt_rendered ILIKE '%<domain>%'` is the cheap substitute.
+### So the detector spec is now settled, and simpler than the design it replaces
 
+1. **Read `data->>'formatted'`, never `data::text`.** Counting the document inflates ~2× and
+   aims most of the count at text with no consumer. Same rule for any future "the config says
+   X" claim: establish which part reaches the consumer first, with a known-present phrase as
+   the control.
+2. **Flag supplied-for-reuse phrases** — the canonical tagline above all, since that is the one
+   with a proven verbatim chain. Instructional prose needs no flag at all: the writer never
+   sees it.
+3. `count_negation_tells.py` counts whole documents, so it is still the wrong tool pointed at a
+   spec until it learns to read `formatted`. **That is the build.**
+
+⚠ **Still not established:** whether *form* (as opposed to a supplied phrase) transfers from
+`formatted` into output. The tagline proves phrase transfer only. Do not assume the 19 on
+`remortgagecalculator.uk` all matter equally — the tagline-shaped ones are the evidenced class.
 
 ## Next work, in the order that closes doors
 
