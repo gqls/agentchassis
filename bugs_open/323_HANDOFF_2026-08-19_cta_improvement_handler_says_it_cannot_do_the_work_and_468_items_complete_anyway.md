@@ -1,5 +1,35 @@
 # 323 — `cta_improvement`: the handler says in its own payload that it cannot do this work, and 468 items completed anyway
 
+> ## STATUS 2026-08-19 evening — OWNED by `bugfix_323_cta_improvement_refusal`; half LIVE+PROVEN, half committed and inert until the next chassis roll
+>
+> Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_323_cta_improvement_refusal/` (PLAN, RUNBOOK,
+> NOTES, README_where_we_are, council submission). Diagnosis run `b218f39d` **CONFIRMED** the mechanism.
+>
+> **Correction to this file's premise, measured:** the handler's vocabulary ALREADY separates refusal from
+> no-op — every refusal arm in `fix_component_template_action.go` carries `action:"needs_review"`, every
+> idempotent no-op carries no `action` key (470 vs 299 rows lifetime, zero overlap). The "same field, same
+> value, opposite meanings; only the `reason` separates them" claim below is wrong; only a READER was missing.
+> The comment at `fix_component_template_action.go:58` claiming the flag stopped the loop was false.
+>
+> - **Layer 1 — LIVE + PROVEN (config, migration `495`, 20:02Z).** The fixer's own workflow now branches on
+>   that key: refusals park at `needs_human_review` via `fail_work_item` (the page-build-handler pattern);
+>   no-ops unchanged. Proven by dispatching the real fixer at a probe item (`claimed → needs_human_review`,
+>   note `## refused: cta_improvement`), probe torn down. Composes with the 283 lane's `486_HOLD`.
+> - **Layer 2 — committed `0e4622bab`, INERT until roll.** `classifyFinding` Rule 3 files `cta` /
+>   `nav_restructure` as `capability_gap` (`handler_missing`, deferred, no handler, detail preserved, one
+>   open row per site per category — `bugs_closed/077`) instead of dispatching at the fixer.
+> - **Layer 3 — same commit.** `fixTypesRefusedByDesign` + `TestAuditRoutingNeverTargetsAFixerRefusalArm`:
+>   the router can no longer name the fixer with a fix_type the fixer refuses (mutation-proven).
+> - Council: `Council-Submitted: 92829711-aecb-4e1a-8457-d011b4a635af` (round 1).
+>
+> **The open question below is answered, by class:** DESTINATION defects are repaired by the resolver /
+> `cta_links_stale` recompute regardless of the item (robot-hands.com/index, ~2h later, graded at
+> `page_component_history`); LABEL/COPY defects have no handler at all — that handler ("one named
+> component, one named defect → `field_updates` for section-editor") is the same missing piece the `277`
+> and `301/083` lanes asked the `copy_quality_two_stage` lane for on 2026-08-19; this lane is its third
+> customer and does NOT build it. **Candidate 3 (gate 1b boolean) is not needed.** Stays OPEN until the
+> Go half is live (CLAUDE.md bar: fixed AND live).
+
 **Filed 2026-08-19** by the `bugfix_302_design_repair_verification` lane (briefly numbered 318 for ~4 minutes until another session's 318 was found — renumbered rather than adding a seventh double-used number to the list CLAUDE.md already calls out), found while measuring
 `spacing_fix` for an owner decision. **OPEN, UNOWNED.** Same class as `bugs_closed/302` /
 `bugs_closed/213` D1 — a handler reporting it did nothing while its item closes green — at
