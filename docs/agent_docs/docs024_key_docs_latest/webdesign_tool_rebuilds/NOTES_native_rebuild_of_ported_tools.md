@@ -1227,3 +1227,25 @@ If it completes and `last-modified` still does not move, that is a publish-seam 
 and gets its own bug; if it publishes, the three prior rerenders were dropped silently, which is also
 worth a bug. **Note `handler_agent` is NOT NULL on `site_work_items`** — the first attempt failed on
 that; the value for this type is `page-rerender`.
+
+## 2026-08-19 09:00Z — #9 published overnight (315's live instance cleared itself); `v1.0.1314`; lane inventory for the owner's close/continue decision
+
+- **`v1.0.1314` is a real roll** — tag 1309 → 1314 AND digest `d45a76fa…` → `d0257576…`. Pods 07:52/08:05Z.
+  Digest comparison again; no binary probe needed.
+- **`tool-seo-injector` IS now live and PASS.** Origin `last-modified` moved **14:12:06 → Wed 19 Aug
+  02:42:54Z**, i.e. a later publish batch picked it up **~6 hours after the fourth rerender completed**
+  and with no further action from this lane. Cache-busted grade: `class="ported-page"` **0**,
+  `scriptOpenTag` **2**, old `id="b-type"` **0**, 6 options, `onclick=` **0**, controls 0/7.
+  **`bugs_open/315` stays OPEN and its severity is unchanged** — the live instance resolving itself
+  does not touch the measurement defect (`deployed_at` stamped without a write, measured stale on
+  three pages including two that were serving correctly), and "it fixed itself after six hours and
+  four completed rerenders" is a description of the bug, not evidence against it. Recorded there.
+- **Inventory `[MEASURED 2026-08-19 09:00Z]` — 8 replaced, 55 ported tools remain:**
+  | class | count | note |
+  |---|---|---|
+  | blocked by RFC_036 | **2** | ab-test, meme-generator — need the fork mechanism, not more effort |
+  | external `<script src>` | **13** | TL-032's class; spec must come from the live tool, asset retired with the slot |
+  | simple, self-contained, <8 KB | **18** | the proven path; ~5–10 min of attention each |
+  | larger self-contained, ≥8 KB | **22** | includes the rich apps the owner ruled in scope as reimplementations |
+  Replaced so far: aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator,
+  smooth-shadow, json-cleaner, seo-injector.
