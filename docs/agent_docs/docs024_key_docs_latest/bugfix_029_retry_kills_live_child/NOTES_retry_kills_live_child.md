@@ -1819,3 +1819,52 @@ one reason: run `d02a6958` is in flight, and if it needs further tables the righ
 widening that covers everything rather than two council rounds a day apart. If the run comes back
 clean, submit the widening on its own evidence — and per the 2026-07-29 ruling, tell the lane whose
 run `dd61df1b` stalled, since it is their symptom being fixed.
+
+### 11. The bundle fix is **BEHAVIOURALLY PROVEN** on `v1.0.1316` — before/after, with a positive control
+
+`0132a3683` is an ancestor of build point `07eeba4a1` (present on both replicas, previous build
+point absent), so the fix is aboard. That is *shipped*. This is *proven*:
+
+```sql
+SELECT left(correlation_id,8) AS run, iteration, created_at::timestamp(0),
+       (body LIKE '%awaited_requests(%')     AS schema_renders_it,
+       (body LIKE '%orchestration_states(%') AS control
+  FROM diagnosis_artifacts WHERE kind='bundle' AND correlation_id IN (…three runs…) ORDER BY created_at;
+```
+
+| run | when | `awaited_requests(` | control `orchestration_states(` |
+|---|---|---|---|
+| `b346d0d4` iter 1–3 | 09:47–09:51 (pre-fix) | **f, f, f** | t, t, t |
+| `d8af5f78` iter 1 | 11:06 (pre-fix) | **f** | t |
+| **`d02a6958` iter 1** | **20:38 (post-fix)** | **t** | t |
+
+And the rendered line is the Schema section's own format, carrying the columns the earlier run had
+to ask for and could not get:
+
+```
+awaited_requests(request_id varchar, orchestration_id uuid, correlation_id varchar, step_id varchar,
+ step_name varchar, retry_version integer, target_agent_id varchar, target_agent_type varchar,
+ responses_topic varchar, requests_topic varchar, sent_at timestamp, timeout_at timestamp,
+ reply_to_request_id varchar, status varchar, processed_at timestamp, processing_started_at timestamp,
+ processing_pod text, request_payl…
+```
+
+**Why the control is load-bearing.** `orchestration_states(` is `t` in **all five** bundles, so the
+Schema section was rendering perfectly well before — the absence was specific to my table, not a
+broken section. Without that column the before/after would be equally consistent with "the section
+was empty in those runs".
+
+> **⚠ My FIRST check was blind and I nearly recorded it.** I began with
+> `body LIKE '%awaited_requests%'` and `body LIKE '%awaited_requests%retry_version%'`, both of which
+> returned **true** — and both are worthless, because **the symptom text I wrote names that table
+> and those column names**, and the symptom is quoted inside the bundle. The discriminating form is
+> `awaited_requests(` with the opening parenthesis: that is the *renderer's* syntax, which no prose
+> in my symptom can produce. **A check that my own input can satisfy is not a check.**
+
+`[MEASURED 2026-08-19 20:40Z]`. Register note: this is the behavioural half of `0132a3683`
+(council-approved round 1, corr `e03f7122`).
+
+**Runtime detail worth carrying:** the live bundle reports *"33 of 479 public tables are shown"* —
+so the include actually in force at runtime is much narrower than the package default I measured
+(86 base tables). Whoever proposes the `workflow%` widening should read the live agent config's
+`schema_include_patterns`, not the Go default, before arguing about the cap.
