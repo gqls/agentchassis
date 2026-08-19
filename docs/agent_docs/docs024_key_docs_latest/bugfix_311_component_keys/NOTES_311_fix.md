@@ -183,3 +183,24 @@ values, not refs):
 The loanzy lane will re-run a build as the free real-world test and report either way.
 Owner context relayed by them: ALL sites must be capable of having tools — "pick a
 vertical without calculators" is off the table as a workaround.
+
+## 2026-08-19 (late afternoon) — the TOOL-writer half BUILT + SUBMITTED (the owner's precondition pair is now code-complete)
+
+- Answered the loanzy lane's gating question first: their clean-domain test is NOT premature —
+  their path is entirely the section writer (live); create_tool_component only runs on the
+  add_tool route their builds never trigger. Two caveats sent: the fix guarantees storage +
+  linkage, not LLM generation quality (their zero-`<input>` served-page check stays); and the
+  tool half still gates wave 1.
+- Built RFC_036 §9.3 as written: library-claim lookup (the idx_cc_tool_function_unique
+  predicate verbatim, so the check and the index cannot drift) → INSERT carries
+  `forked_from = <library id>`; no claim → byte-identical write (pinned); lookup read error →
+  fail-OPEN to today's loud index refusal (pinned). Mutation proof run: fork wiring deleted →
+  `TestCreateToolComponent_LibraryClaimForcesFork` failed on "argument 9 expected [library id]
+  … actual [nil]" → restored → suite green. Full actions suite + archive-HEAD overlay green.
+- `expectPreamble` in the 286 lane's adopt tests updated to pin the new lookup — without it
+  those ordered walks would "pass" by silently exercising the fail-open branch.
+- Council round `ceae30f2-b03f-42b4-a5dc-a07837d7bbe0` submitted, rationale naming BOTH
+  writers + the ruling + fc3ac5f4's state, per the one-submission ruling. Verdict pending.
+- The pair's state: section half LIVE (v1.0.1315, zero real exercises); tool half committed
+  alongside this note, inert until the next roll. Wave 1's precondition is code-complete,
+  pending the ceae30f2 verdict + a roll + the loanzy real-world test.

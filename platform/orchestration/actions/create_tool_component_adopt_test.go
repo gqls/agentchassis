@@ -72,13 +72,16 @@ func adoptTestParams(db *sql.DB, adopt interface{}) ActionParams {
 }
 
 // expectPreamble mocks everything up to and including the component INSERT:
-// site-domain load, the already-exists probe (empty), the component write,
-// and the CanonicalisePage url_shape read.
+// site-domain load, the already-exists probe (empty), the RFC_036 §9.3
+// library-claim lookup (no claim), the component write, and the
+// CanonicalisePage url_shape read.
 func expectPreamble(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery("SELECT domain FROM sites").
 		WillReturnRows(sqlmock.NewRows([]string{"domain"}).AddRow("webdesign.co.uk"))
 	mock.ExpectQuery("FROM content_components cc").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	mock.ExpectQuery(`forked_from IS NULL`).
+		WillReturnError(sql.ErrNoRows)
 	mock.ExpectExec("INSERT INTO content_components").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("url_shape").

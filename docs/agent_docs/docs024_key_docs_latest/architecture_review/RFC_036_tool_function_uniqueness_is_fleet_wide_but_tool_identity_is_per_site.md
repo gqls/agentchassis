@@ -284,3 +284,16 @@ third census, and record in this section which convention the tool writer adopts
 honest-fallback sentence this RFC asked for now reads: **the section-level half is fixed
 (inert until a chassis roll ships it); the tool-level half (`create_tool_component`) remains
 open and is this RFC's question.**
+
+**§11 addendum, 2026-08-19 (later): §9.3 IS NOW BUILT** — by the 311 fix lane per the owner's
+one-submission ruling. `create_tool_component_action.go` gains the library-claim lookup (the
+index's own predicate, verbatim) and the INSERT carries `forked_from`; three mutation-proven
+tests pin the fork arm, the no-claim byte-identical arm, and the fail-open-on-read-error arm
+(mutation run: fork wiring deleted → test failed on the forked_from argument → restored).
+Council round `ceae30f2` submitted 2026-08-19 naming BOTH writers; inert until a chassis roll.
+The §9.5 fallback line is superseded on the tool half: nothing is "blocked on RFC_036" once
+this rolls — the 2 parked tools (`tool-ab-test-calculator`, `tool-meme-generator`) build via
+the §9.3 fork. Known tail recorded in the submission's risks: a generated fork + a later
+`deploy_tool_to_site` of the same library tool on the same site are not recognised as the same
+copy (different name conventions) — surfaces loudly at the page layer; widening deploy's fork
+lookup is the follow-up if that tail ever fires.

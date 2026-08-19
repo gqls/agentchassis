@@ -25,6 +25,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -245,6 +246,44 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		}, nil
 	}
 
+	// --- Library claim check (RFC_036 §9.3) ---
+	// idx_cc_tool_function_unique is partial on `component_level='tool' AND
+	// forked_from IS NULL AND is_active`, so if a LIBRARY tool already claims
+	// this function, the bare INSERT below dies on SQLSTATE 23505 at save_tool
+	// — while the work item reports complete (RFC_036 §1). A site-specific
+	// native build of a tool the library also offers IS a site copy of that
+	// tool — which is what forked_from means everywhere else, and the shape
+	// deploy_tool_to_site already creates (deploy_tool_action.go) — so the new
+	// row forks from the library entry and the index keeps guaranteeing what
+	// it exists for: one canonical library entry per tool function. The
+	// section-level sibling of this collision is bugs_open/311 (CLC-020),
+	// resolved differently on measured grounds recorded in RFC_036 §11.
+	// A lookup read error degrades to today's behaviour (no fork → the index
+	// refuses LOUDLY on a real collision), never to a silent guess.
+	var libraryToolFork interface{} // nil unless a library entry claims the function
+	{
+		var libID string
+		lookupErr := params.DB.QueryRowContext(ctx, `
+			SELECT id::text FROM content_components
+			WHERE function = $1
+			  AND component_level = 'tool'
+			  AND forked_from IS NULL
+			  AND is_active = true
+			LIMIT 1
+		`, function).Scan(&libID)
+		switch {
+		case lookupErr == nil && libID != "":
+			libraryToolFork = libID
+			logger.Info("CreateToolComponentAction: library tool claims this function — new component forks from it (RFC_036 §9.3)",
+				zap.String("function", function),
+				zap.String("library_tool_id", libID))
+		case lookupErr != nil && lookupErr != sql.ErrNoRows:
+			logger.Warn("CreateToolComponentAction: library-claim lookup failed — proceeding without fork; a real collision will be refused loudly by idx_cc_tool_function_unique",
+				zap.String("function", function),
+				zap.Error(lookupErr))
+		}
+	}
+
 	// --- Create component ---
 	componentID := uuid.New()
 
@@ -256,12 +295,13 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			id, name, display_name, function, component_level,
 			category, description, html_template,
 			is_active, is_dark_section, created_from,
-			source_agent_type, source_orchestration_id
-		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'generated', $8, $9)
+			source_agent_type, source_orchestration_id, forked_from
+		) VALUES ($1, $2, $3, $4, 'tool', $5, $6, $7, true, false, 'generated', $8, $9, $10::uuid)
 	`, componentID, componentName, displayName, function,
 		category, description, htmlContent,
 		nullIfEmpty(params.ExecutionContext.Sender.AgentType),
-		nullIfEmpty(params.ExecutionContext.OrchestrationID))
+		nullIfEmpty(params.ExecutionContext.OrchestrationID),
+		libraryToolFork)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tool component: %w", err)
 	}
