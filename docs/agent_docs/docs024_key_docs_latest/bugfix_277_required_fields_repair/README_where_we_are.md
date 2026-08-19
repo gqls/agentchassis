@@ -748,3 +748,67 @@ writing down: the list looks healthy and the page is still broken.
 turns "this is wrong" into "here is the corrected text". Another thread built the beginnings of that
 yesterday. My recommendation is that the next step is a conversation with them, not a design
 document written past them.
+
+---
+
+## 2026-08-19, later — a second thread took the two leftover questions, and one of them turned out to be based on a misreading (including mine)
+
+I am a different session from the one that wrote everything above. The owner handed me this lane's
+handoff and told me to talk to the thread already working it rather than duplicate it. I did that
+first, we agreed who takes what, and I only touched the two items their handoff had explicitly
+marked as nobody's.
+
+**The first question was: why does one part of the system quietly overwrite pages it is supposed to
+leave alone, thousands of times, while another part gets stopped every single time? Same protection,
+opposite results.** It was a good question. It was also based on a number that meant something other
+than what it looked like.
+
+Some background, plainly. Certain pages are marked "not ours to rebuild" — these are the interactive
+tools and anything hand-finished. There is a single piece of protective code that refuses to let the
+general-purpose rebuild machinery flatten one of those pages. The worry was that one route was
+somehow walking straight past it.
+
+**It is not.** The figure that suggested it — roughly 3,754 successful runs against protected pages
+— is real, and I re-derived it from scratch rather than trusting it (it is now 3,818, having grown
+overnight). But it counts *jobs that finished*, not *attempts to overwrite a page*. When I looked at
+what those jobs actually did, about nine in ten of them never went near the protective code at all:
+they were re-publishing a page from content already stored, which is a different and harmless
+operation. The protection was reached about 461 times, not 3,754. And when it was reached, **it
+fired** — 81 refusals, correctly recorded. The other route is refused too, and also succeeds 74
+times, so "stopped every time" was not right either.
+
+So the alarming comparison dissolves. Both routes are protected by the same code and are stopped in
+proportion to how often they actually try. **Nothing needs fixing here**, which is worth saying
+plainly because two documents now carry the worrying version.
+
+There is one genuinely odd thing left, and it is narrower and more interesting than the original
+question: two jobs that go through the *identical* step get opposite treatment depending on why they
+were triggered. One kind is refused; the other sails through 122 times without a single refusal. I
+have a likely explanation from reading the code — the second kind bails out earlier and completes
+without ever writing anything, which means those jobs are "succeeding" while doing nothing at all —
+but I have deliberately marked that as unconfirmed, because I read it rather than measured it, and
+I have written down the exact check that would settle it.
+
+**The second question was whether some tool pages are marked wrongly.** They are. There are 89 pages
+that look in every respect like tools — named like tools, served from the tools section, not
+write-ups about tools — that are marked as ordinary rebuildable pages, sitting alongside 95
+pages of identical shape marked as protected. Near enough a coin flip. The example the other thread
+gave me from a vet site checked out when I looked at it myself.
+
+**Now the part I want to be straight about, because I got something wrong.** I tried to work out how
+much harm that mismarking has actually done, and produced a figure of 107 damaged rebuilds. Then I
+ran one more check — the kind that can only embarrass you — and it contradicted me outright. **So I
+withdrew the number in the same document I had just written it in, before it went anywhere.**
+
+The reason it was wrong is worth a sentence, because it is a trap anyone here could fall into: I was
+judging things that happened weeks ago against how those pages are labelled *today*, and the label
+can be changed at any time. It is the difference between asking "was this page protected when that
+job ran?" and "is it protected now?" — and only the first one is a real question about the past.
+
+Where that leaves the two: **how many pages are mislabelled is settled and solid. How much damage it
+caused is genuinely unknown, and I would rather hand over a gap than a number I cannot stand behind.**
+My recommendation is that this should become a proper bug file, but not yet — a bug file that
+asserted the harm without being able to price it would be repeating the exact habit we keep logging
+against ourselves.
+
+Everything the other thread was already working on is untouched and still theirs.
