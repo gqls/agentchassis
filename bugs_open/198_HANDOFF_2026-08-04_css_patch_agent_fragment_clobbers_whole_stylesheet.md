@@ -197,3 +197,62 @@ binary. Config half re-probed same day: `commit_message_field=css_saved.commit_m
 live. The ONLY thing keeping this file open is the witnessed end-to-end run** (next
 real contrast finding → promote → append → next audit stops re-filing), which is the
 vigilant_designer lane's to dispatch. DGH-007's register status updated to deployed.
+
+---
+
+## SECOND LIVE INCIDENT — 2026-08-18, noted.co.uk: candidate 3 held, and the OTHER named door was walked through (appended 2026-08-19, noted-rebuild lane)
+
+**The fix worked; the site still lost its stylesheet.** This file's own words from
+08-04 — *"the guard the platform already learned to build (the shrink guard) is
+absent on BOTH writers"* — candidate 3 (live v1.0.1277, verified 08-10) made
+shrink unrepresentable on the **DB** writer. The **git** writer (`deploy_css` →
+`git_commit` of `css_saved.css_content`, the whole DB value) still has no guard,
+and this incident went through it.
+
+**The new seed — a theme row BORN EMPTY.** `theme-noted-co-uk`
+(`07f5cc32…`, `origin='adopted'`, `forked_from=NULL`) was created 2026-08-15
+18:17:32, **67 seconds before** webdesign-agent committed the real 17,475-byte
+stylesheet to vm-sites (`abe1b617a7`, 18:18:39). The DB row held **empty
+css_content** from birth; git held the real file; nothing compares them.
+`[INFERRED at the one unwitnessed link: that `fork_theme_from_site` inserted
+`renderedCSS=''` in that run — the insert carries rendered content by code, so
+either the render was empty or a different path made the row. Verifying step for
+the fixing thread: instrument/read the 08-15 run's `fork_theme` inputs, or induce
+a fork with empty spec and watch the insert.]`
+
+**Then the guarded append did exactly its job, onto the wrong baseline.** 21
+contrast findings on 08-18 (11:36–11:52Z) → 21 correct, guarded appends (v2:
+**91 chars**, growing to v22: 2,381) → 21 `deploy_css` commits each replacing the
+17,475-byte file with the accumulation. First commit `7a5d4fc0a1` 11:36Z is the
+kill; the file's own history shows 17,475 → 91 → … → 2,381. **The DB guard
+cannot see the FILE, and the deploy trusts the DB as the one truth.**
+
+**Amplification, worth its own line:** most of the 21 findings were filed by the
+contrast auditor looking at a page that had already lost its stylesheet — the
+loop was patching damage it had itself deployed, quickly (21 versions in 16
+minutes), every run reporting success.
+
+**Detection gap, restated for the fix:** (1) no shrink/size-delta guard on the
+git writer — the door this file named and nobody closed; (2) no birth guard —
+`fork_theme_from_site` will insert empty `css_content` silently; (3) no
+DB↔deployed-file drift check — noted ran 3 days split (git full / DB empty) with
+every page green.
+
+**Repair (noted, DONE 2026-08-19, all layers verified):** css_themes v23 =
+17,475-byte base (git `abe1b617a7`) + provenance comment + all 21 patches
+(20,190 chars); deployed via the git-adapter (`repo_name: "vm-sites"` — NOT the
+default) → repo 20,367 bytes → box → live 200/20,367, 98 base-selector lines, 41
+patch markers. DB and file now identical, so the next patch cycle deploys a true
+whole.
+
+**Fix candidates, ordered by what closes the door (this lane's addition):**
+1. **Deploy-side shrink guard** (the one 198 already named): `deploy_css` — or
+   `git_commit` generally, opt-in per config — refuses a payload smaller than
+   N% of the file it replaces without an explicit override. Closes BOTH known
+   routes (LLM fragment AND wrong-baseline) at the last writer.
+2. **Birth guard**: `fork_theme_from_site` refuses or `needs_review=true`s an
+   insert whose `css_content` is empty/tiny.
+3. **Drift check** (detection): a discovery check comparing `css_themes` length
+   vs the deployed `styles.css` size per site.
+Candidates 1–2 are platform Go → council gate; the noted lane has NOT built them
+(ownership respected — this file's lane holds the defect).
