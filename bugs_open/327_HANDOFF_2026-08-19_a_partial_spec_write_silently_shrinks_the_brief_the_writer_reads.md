@@ -148,3 +148,61 @@ is a separate, larger defect that happens to live in the same field.
 - **No edit to any spec.** ⚠ **Anyone about to "fix the briefs" must read §1 first**: a
   targeted correction written as a partial will itself collapse the brief to whatever it
   touched. That trap is filed in `LANDMINES.md`.
+
+---
+
+# ⚠ `090` VERDICT IS IN — `UNVERIFIABLE`, and it named its four gaps. All four are closed below, first-hand.
+
+**Run `8be5f6e9-d0b3-43f7-9ee4-dee2432dd8b1`, orchestration `6073488a-3082-447d-8bd0-d8ee53000136`.**
+Outcome **`UNVERIFIABLE`** — which here means *not closed by the loop*, not *refuted*. Read its
+own words before mine: it **confirmed the ordering** from the code it could see —
+
+> *"FormatContentDirection(specMap) runs on the incoming partial spec_data **before currentData
+> is even read from the DB**, and siteSpecDeepMerge is called afterward."*
+
+— with two `static`-tier citations at `site_spec_actions.go:WriteSiteSpecAction`, and then
+declined to conclude, because its bundle contained neither of the two function bodies the
+hypothesis turns on, nor any `site_specs` rows. **That is a bundle-assembly limit, not a
+counter-argument** — the same class of gap the previous `090` run in this lane hit when symbol
+bodies came back "unavailable". Per the owner ruling of 2026-07-31 I am **stating plainly that
+first-hand verification is substituted here**, and naming what for, rather than leaving the
+outcome to read as agreement.
+
+**Its gap 1 — `siteSpecDeepMerge`'s body**, *"unverified whether it overwrites the prior
+'formatted' string with the new partial's value"*. It does, unconditionally
+(`site_spec_actions.go:512-535`):
+
+```go
+srcMap, srcIsMap := srcVal.(map[string]interface{})
+dstMap, dstIsMap := dstVal.(map[string]interface{})
+if srcIsMap && dstIsMap {
+    result[k] = siteSpecDeepMerge(dstMap, srcMap)
+} else {
+    result[k] = srcVal          // <- `formatted` is a STRING, so this arm always runs
+}
+```
+
+`formatted` is a scalar, so the map-merge arm is unreachable for it and the newest — shortest —
+value wins outright. **This is the load-bearing step and it behaves exactly as the hypothesis
+required.**
+
+**Its gap 2 — what `FormatContentDirection` renders, and whether it could reach `currentData`.**
+It cannot: its only parameter is the map it is handed
+(`format_content_direction.go`, `func FormatContentDirection(spec map[string]interface{}) string`),
+it has no DB handle, no context, and its whole body is `for key, val := range spec`. Handed the
+partial, it can only render the partial.
+
+**Its gap 3 — the second write path it could not see.** `apply_adoption_plan_action.go:280`:
+`formatted := datahelpers.FormatContentDirection(directionData)`, where `directionData` is what
+that run produced. Same ordering, same consequence, independently reachable.
+
+**Its gap 4 — *"no observed instance where `jsonb_object_keys(data)` contains labels absent from
+`data->>'formatted'`"*.** That is §2 and §3 of this file, run before the verdict arrived, and it
+is the loop's own requested query shape: 8 of 25 sites, three of them 12–14 keys, with the
+`2026-04-18` classifier→planner transition dated and its surviving key set identified as the
+planner's own partial. The tooling for it is `audit_writer_brief.py --fleet` (register CQ-025).
+
+**What the verdict is worth keeping for.** It was right that the bundle could not close this,
+and its `next_scope` list — `siteSpecDeepMerge`, `format_content_direction.go`,
+`apply_adoption_plan_action.go` — is exactly the three places the answer was. A run that names
+its own gaps precisely is doing its job even when it stops short.
