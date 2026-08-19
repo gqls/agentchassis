@@ -210,3 +210,29 @@ vertical without calculators" is off the table as a workaround.
   zero in this commit's hunks); that class is `bugs_open/136`'s, owned elsewhere. Noted,
   not acted on: pulling an unrelated behaviour change into this round would be scope creep
   on a council-submitted change.
+
+## 2026-08-19 — ceae30f2 verdict: APPROVED round 1 (tool-writer half; 10 reviewers, 3 advisories none high)
+
+Triage, with the measurement each advisory asked for:
+- **bug_historian medium — prove fork-invisibility is irrelevant at tool level:** MEASURED:
+  16 active tool-level FORKS already exist beside 84 base rows (deploy_tool_to_site has been
+  minting them all along), so §9.3 adds rows to an ALREADY-POPULATED class every tool reader
+  already lives with; and a repo-wide grep finds exactly TWO code sites pairing
+  `component_level='tool'` with `forked_from IS NULL` — my new lookup and deploy_tool's
+  library-vs-fork definition — i.e. the fork mechanism itself; no discovery/health/
+  eligibility path (check_tool_health, check_missing_tools, …) filters tool rows on
+  forked_from. Whatever treatment deploy forks get today, generated forks get identically.
+- **reuse_agent medium / guardian medium / architecture low — the double-copy tail needs a
+  TRACKED follow-up, not an accepted risk:** now tracked concretely in RFC_036 §11 (this
+  commit): widen deploy_tool_to_site's existing-fork lookup from `forked_from=$1 AND name=$2`
+  to also match the generator's name shape (`<function>-<slug>`), so the two fork producers
+  recognise each other's copies. Follow-up, not this round: it changes deploy behaviour and
+  deserves its own small round if/when the tail fires (it fails loudly at the page layer
+  today — pages_site_id_name_key).
+- **guardian low — forked_from's second meaning (site copy, not byte lineage):** stands as
+  stated in the risks block; RFC_036 §9.3's own definition; consumers that assume byte
+  lineage would misread deploy forks equally (they copy then drift via rerender).
+- **debug_historian low — name the deploy-verification recipe:** added to the RUNBOOK below
+  the section-half recipe: same two-control probe, ancestry on `e24bc9c0f`, and the
+  demand signal is the §9.3 Info log line / a successful save_tool for a function the
+  library claims (tool-ab-test-calculator is the natural first case).

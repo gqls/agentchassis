@@ -101,3 +101,20 @@ WHERE s.domain='loanzy.uk' AND p.name='tool-credit-health-check';
 ```
 Gotcha: `agent_error_log`'s column names — check `\d agent_error_log` before trusting the
 query above; the finding writer is `LogActionFindings` and the code is in `Context` too.
+
+## Post-roll verification — TOOL half (RFC_036 §9.3, commit e24bc9c0f, council ceae30f2)
+
+Same discipline as the section half — per SERVICE, controls both ways:
+```bash
+# stamp + ancestry (the stamp is the BUILD commit, not your commit):
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aoE "[0-9a-f]{40}" /proc/1/exe | head -0  # do NOT discovery-grep; probe candidates
+# probe the known build sha once identified, then:
+git merge-base --is-ancestor e24bc9c0f <stamp>   # TRUE = the fork fix is in the binary
+kubectl -n ai-persona-system exec <pod> -- grep -aq "library tool claims this function" /proc/1/exe && echo literal-present
+kubectl -n ai-persona-system exec <pod> -- grep -aq "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" /proc/1/exe || echo control-clean
+```
+Demand test (the webdesign lane's 2 parked tools are the natural cases):
+re-drive `tool-ab-test-calculator`'s generation; assert the new row has
+`forked_from = <library row id>` and `component_level='tool'`, save_tool COMPLETES (no
+SQLSTATE 23505), and the library row is untouched. Baseline the library row's md5 BEFORE,
+as with the section half.
