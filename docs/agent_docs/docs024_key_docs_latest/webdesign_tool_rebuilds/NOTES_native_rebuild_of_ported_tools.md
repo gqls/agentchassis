@@ -1553,3 +1553,78 @@ Fifth brief written against the 481 contract; rules 15-20 omitted. What the brie
 tool-specific and not reachable from the contract: the *relationships* between the four fields
 (visitors ≥ 1, conversions ≤ visitors), the zero-standard-error case, the direction of the verdict,
 and that a stale verdict must be replaced rather than left standing.
+
+## 2026-08-19 20:58Z — #14 BUILT, THE FORK BRANCH FIRED, retired in 94 s. Phase D is real.
+
+Resolved by the ARTEFACT again: the page gained slot `710bbee7-0480-4b30-b36c-2188194d5dfa`, component
+**`8a315006-2170-4ba7-b517-4abaf9619e45`**, 10,086 chars. Item complete **20:57:04Z**, `error` NULL.
+Run graded on all four signals (correlation `d6ce0591-6906-472a-8302-9a598b0f4789`):
+`current_step=complete`, `status=COMPLETED`, **`page_adopted=true`**, `already_exists` NULL,
+`__step_error` NULL — and its `create_result.component_id` is the same `8a315006` the page carries, so
+the run I graded is provably the run that built the artefact, not the most recent run of the type.
+
+**RFC_036 §9.3 — the four DB assertions the 311 lane asked for, all PASS:**
+1. New row `8a315006`, name `tool-ab-test-calculator-webdesign-co-uk`, `component_level='tool'`,
+   `is_active`, **`forked_from = 8c9a6e06-e2b2-4f21-baf6-651585375f0c`**, `created_from='generated'`,
+   `source_agent_type='tool-generator'`.
+2. `save_tool` COMPLETED — no SQLSTATE 23505 on the item or the orchestration. The old failure mode is gone.
+3. **Library row `8c9a6e06` UNTOUCHED**: html md5 `8673be08f969504f5a9ceb46e45d7656`, schema md5
+   `688e1188b91ccef0674cd527daa05ec3`, `updated_at` still 2026-05-06 18:12:16 — the three values the
+   311 lane pinned at 20:38Z, re-read after the build.
+4. Its two existing forks are untouched (`cd60486c` inactive, `58da6570` on idea.uk).
+
+**Assert 3 of their list (the Info log line) is NOT ANSWERABLE, and the absence means nothing.** I
+grepped both replicas for `library tool claims this function` and got 0 — then ran the control, which
+is the only reason that 0 is not a finding: **asking for SIX HOURS of chassis logs returns lines
+starting at 21:01:50Z / 21:02:07Z, i.e. a retention window of ~2.2 minutes** (458 and 1,110 lines).
+The build was 20:57. The line had already rotated away before I could look.
+**What proves the branch fired is the DB, and it is stronger than the log would have been:**
+`forked_from` on the new row is written from `libraryToolFork`
+(`create_tool_component_action.go:262-285`), which is `nil` unless that branch runs, and no other
+writer sets it on a `created_from='generated'` row. A log line says the code said something; the
+column says the code DID something.
+
+**Component graded by MECHANISM, and the mechanism is not the one a grep would have looked for.**
+`isNaN` / `Number.isFinite` / `isFinite` all count **0** — read literally that says "no NaN guard",
+which is what this tool's whole brief was about. It is wrong. The guard is a REGEX and it is stronger
+than an isNaN test, because it refuses the bad value before it is ever parsed:
+```js
+if (raw === '')          { errorEl.textContent = 'Enter a whole number.'; return null; }
+if (!/^\d+$/.test(raw))  { errorEl.textContent = 'Must be a whole number of zero or more.'; return null; }
+var num = parseInt(raw, 10);            // cannot be NaN by here
+if (isVisitors && num < 1) { ...; return null; }
+...
+if (valid && conversions > visitors) { conversionsError.textContent = 'Conversions cannot exceed visitors.'; valid = false; }
+```
+and `recalc()` returns BEFORE any arithmetic when either group is invalid, replacing the verdict with a
+sentence saying why there is none. So: no rate, no Z, no verdict from an unusable number — the defect
+is closed at the door rather than downstream of it. **A `grep -c isNaN` would have failed this tool.**
+The other three requirements, by mechanism: `se === 0` has its own early-returning branch;
+`bWon = z > 0` names the winner and gives both the percentage-point and the relative difference (with
+a `loserRate > 0` guard so the relative figure cannot divide by zero), and the inconclusive arm names
+no winner; the static verdict paragraph is neutral ("Enter valid visitor and conversion numbers…"),
+`Significant` appears **0** times in the markup. Listeners bound to the four ids by
+`addEventListener`, `querySelectorAll(` **0**. `{{\.` **0**, `onclick=` **0**, `alert(` **0**,
+`confirm(` **0**. Zero bare hex; 44px targets; `fieldset`/`legend`/`label for`; `role="alert"` per
+field and `aria-live="polite"` on the results box (none of which the brief asked for — the contract did).
+
+**Ported slot retired 20:58:38Z, 94 s after the build.** `ebe3c57a…` to `removed`, 5,772 chars, md5
+`6b99651c11b7dbfa939c5296bdb5704b` byte-identical before and after. Asserted exactly one non-removed
+slot on the page and that its component is `8a315006`.
+
+**MISSTEP, and it is the same one twice in one session:** `min(id)` on a uuid column — `function
+min(uuid) does not exist` — first in the filing pre-asserts, then again in the retire's post-assert.
+The second one aborted the transaction AFTER the `UPDATE 1` printed, so the retire silently rolled
+back and the page was still serving both tools when it looked like it had worked. **`UPDATE 1` in the
+output of an aborted transaction is not a write.** Cast to `::text` in a `DO` block, or use
+`string_agg(id::text)`. Cost: ~40 s of the retire race, which I happened to have.
+
+**A race I did not create and would not have seen.** The `page_rerender` on that page,
+`ad2a2dc4-4fbb-489f-9b74-bcd00e6f09ff`, was filed by **`rerender-pages` at 20:36:24Z — 21 minutes
+BEFORE my build** — and it is assemble-only with the right `page_id`/`filename`, so it is also the row
+that deduped my generator's own request away (one open `page_rerender` per page by `item_key`). Had it
+been claimed in the 94 seconds between build and retire, the page would have served BOTH tools, and
+nothing in my pre-flight would have told me: I asserted no open `add_tool`, but not "no open
+`page_rerender` on this page". **Add that to the pre-asserts** — the RUNBOOK already says to check for
+one before filing a NEW rerender; the sharper reason is that an already-queued assemble can fire in
+the retire window.
