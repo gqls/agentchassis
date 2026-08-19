@@ -55,10 +55,20 @@ import (
 // skip-RESULT when the slot carries an active human lock, or nil to proceed.
 //
 // The result speaks this file's existing vocabulary: fixed:false plus
-// action:"needs_review", which is what stops the dispatch loop recording the
-// work item as done. Without it the handler reports success, discovery
-// re-detects the same defect, and the two-strike rule parks the item
-// 'unresolved' two cycles later — a silent skip traded for a mislabelled one.
+// action:"needs_review" — the REFUSAL flag. ⚠ Until 2026-08-19 this comment said
+// the flag "is what stops the dispatch loop recording the work item as done". It
+// was not: nothing in Go read it, the agent's workflow branched on fix_result.fixed
+// only, and complete_work_item's gates read response.status (never set here) and
+// the numeric no-change roster — so every refusal this file ever made closed
+// 'complete' (bugs_open/323: 470 rows, 468 of them cta_improvement). What honours
+// it NOW is the agent's OWN workflow (migration 495: check_refused → park_refused,
+// fail_work_item status_override=needs_human_review), which complete_work_item's
+// flagged-status guard then preserves. The vocabulary contract this file keeps:
+// a REFUSAL carries action:"needs_review"; an idempotent NO-OP ("already has flex
+// CSS", "already deployed", "already patched") carries NO action key. Measured
+// 2026-08-19 over every row this handler ever produced: zero overlap either way.
+// Do not add action:"needs_review" to a no-op arm, and do not omit it from a
+// refusal — the workflow's branch is exactly that key.
 //
 // A check failure is non-fatal: the writes below carry the lock predicate
 // themselves, so enforcement never depends on this read.
@@ -121,6 +131,27 @@ var FixComponentTemplateInputSpec = datahelpers.ActionInputSpec{
 
 func init() {
 	datahelpers.RegisterActionInputSpec("fix_component_template", FixComponentTemplateInputSpec)
+}
+
+// fixTypesRefusedByDesign is the set of fix_type values this handler KNOWS and
+// DECLINES: work that needs an LLM to rewrite copy or restructure navigation,
+// which a programmatic HTML/CSS patcher cannot do. Each maps to the reason the
+// handler returns (fixed:false, action:"needs_review").
+//
+// It is a package-level value rather than a switch case so that the ROUTER can
+// be held to it at build time: TestAuditRoutingNeverTargetsAFixerRefusalArm
+// drives write_audit_findings_action.go's classifyFinding through the category
+// universe and fails if any route hands this handler a fix_type in this map.
+// Until 2026-08-19 classifyFinding routed every `cta`/`nav_restructure` audit
+// finding here (bugs_open/323: 993 items, 22 sites, 0 ever fixed — the refusal
+// closed 'complete' because nothing read the flag). Routing now files those as
+// capability_gap (handler_missing) until a handler that can do the work exists.
+//
+// Keep the reason text stable: the bugs_open/323 census keys on it.
+var fixTypesRefusedByDesign = map[string]string{
+	"cta_improvement": "fix_type requires LLM-driven changes, not programmatic HTML edits",
+	"cta":             "fix_type requires LLM-driven changes, not programmatic HTML edits", // raw category value from SQL-patched items
+	"nav_restructure": "fix_type requires LLM-driven changes, not programmatic HTML edits",
 }
 
 // inferFixTypeFromCategory maps audit category names to actionable fix_type values.
@@ -269,19 +300,20 @@ func FixComponentTemplateAction(ctx context.Context, params ActionParams) (inter
 		// header-nav CSS — it is not a general responsive fixer. See
 		// chrome_overflow_fix above for the targeted version.
 		return fixInjectResponsiveCSS(ctx, params, siteID, logger)
-	case "cta_improvement", "cta", "nav_restructure":
-		// "cta" is a raw category value from SQL-patched items.
-		// These need LLM-driven content changes, not programmatic HTML edits.
-		// Return skipped so the item doesn't fail repeatedly.
-		logger.Info("Fix type requires LLM involvement, marking for review",
-			zap.String("fix_type", fixType))
-		return map[string]interface{}{
-			"fixed":    false,
-			"fix_type": fixType,
-			"reason":   "fix_type requires LLM-driven changes, not programmatic HTML edits",
-			"action":   "needs_review",
-		}, nil
 	default:
+		if reason, refused := fixTypesRefusedByDesign[fixType]; refused {
+			// A BY-DESIGN refusal, not an unrecognised value: this handler knows the
+			// fix_type and declines it. The reason string is the one the census in
+			// bugs_open/323 keys on — change it there too if you change it here.
+			logger.Info("Fix type is refused by design (needs a different handler), marking for review",
+				zap.String("fix_type", fixType), zap.String("reason", reason))
+			return map[string]interface{}{
+				"fixed":    false,
+				"fix_type": fixType,
+				"reason":   reason,
+				"action":   "needs_review",
+			}, nil
+		}
 		logger.Warn("Unrecognised fix_type, marking for review",
 			zap.String("fix_type", fixType))
 		return map[string]interface{}{

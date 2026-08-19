@@ -200,8 +200,10 @@ var classifyEmittableItemTypes = map[string]string{
 	"dark_section_audit":     "color-variable-fixer (designRouting; own type per bugs_open/213)",
 	"responsive_fix":         "component-template-fixer (designRouting)",
 	"needs_spec_update":      "spec-updater (Rule 2)",
-	"cta_improvement":        "component-template-fixer (Rule 3)",
-	"nav_restructure":        "component-template-fixer (Rule 3)",
+	// cta_improvement / nav_restructure were emitted here (Rule 3 →
+	// component-template-fixer) until 2026-08-19; that handler refuses both by
+	// design and nothing read the refusal (bugs_open/323). Rule 3 now files
+	// capability_gap for them — see TestNoHandlerCategoriesFileACapabilityGap.
 	"needs_content_page":     "page-build-handler (Rule 4)",
 	"tone_shift":             "page-build-handler (Rule 4)",
 	"content_rewrite":        "page-build-handler (Rule 4)",
@@ -220,7 +222,7 @@ func classifyCategoryUniverse() []string {
 	for c := range metadataCategories {
 		cats = append(cats, c)
 	}
-	for c := range componentCategories {
+	for c := range noHandlerCategories {
 		cats = append(cats, c)
 	}
 	// Rule 4/5/6 literals (content categories, not held in a package var).

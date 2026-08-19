@@ -544,8 +544,10 @@ func retractionFor(t *testing.T, out interface{}, itemType string) silenceRetrac
 // so on its own it would leave the other five unevidenced — which is exactly
 // what the guardian seat objected to.
 //
-// This drives a NON-gated item_type (cta -> cta_improvement, absent from
-// silenceRetractionGates) through the full filter chain and pins that the order
+// This drives a NON-gated item_type (tone -> tone_shift, absent from
+// silenceRetractionGates; it was cta -> cta_improvement until bugs_open/323
+// moved `cta` to the capability_gap arm, and a deferred capability_gap takes a
+// different insert shape) through the full filter chain and pins that the order
 // and the effects are unchanged: blocked-key load, per-finding blocked EXISTS,
 // dedup EXISTS, then the INSERT carrying that finding's own item_type, handler
 // and dedup key. sqlmock is ordered, so a reordering of these four fails here.
@@ -571,19 +573,19 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 	// the regex AND the args proves the clause and the value are both in the
 	// query this action actually runs.
 	mock.ExpectQuery(`SELECT EXISTS[\s\S]*spec->>'audit_source'`).
-		WithArgs(siteID, "cta_improvement", pageID, "visual-design-audit").
+		WithArgs(siteID, "tone_shift", pageID, "visual-design-audit").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	mock.ExpectQuery("SELECT EXISTS").
-		WithArgs(siteID, "visual-design-audit_cta_improvement_index_"+siteID.String()).
+		WithArgs(siteID, "visual-design-audit_tone_shift_index_"+siteID.String()).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	// `status` became a parameter (position 10) when the bugs_open/279 fix let
 	// the capability_gap fallback file as 'deferred'; a routed finding still
 	// inserts 'detected', and this control pins that.
 	mock.ExpectExec("INSERT INTO site_work_items").
-		WithArgs(siteID, "discovery", "cta_improvement", "medium", sqlmock.AnyArg(),
+		WithArgs(siteID, "discovery", "tone_shift", "medium", sqlmock.AnyArg(),
 			argJSONContains{`"audit_source":"visual-design-audit"`}, pageID, sqlmock.AnyArg(),
-			"component-template-fixer", "detected", "visual-design-audit",
-			"visual-design-audit_cta_improvement_index_"+siteID.String(), sqlmock.AnyArg()).
+			"page-build-handler", "detected", "visual-design-audit",
+			"visual-design-audit_tone_shift_index_"+siteID.String(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// The retraction pass still runs — and asks about dark_section_audit ONLY.
@@ -597,9 +599,9 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 
 	out, err := WriteAuditFindingsAction(context.Background(),
 		auditParams(db, siteID, []interface{}{map[string]interface{}{
-			"category":    "cta",
+			"category":    "tone",
 			"severity":    "medium",
-			"description": "the hero call to action is below the fold",
+			"description": "the hero copy talks about the company, not the reader",
 			"page":        "index",
 		}}))
 	if err != nil {
@@ -610,7 +612,7 @@ func TestWriteAuditFindings_UngatedProducerPathIsUnchanged(t *testing.T) {
 		t.Fatalf("the ungated producer must still file its item: %#v", m)
 	}
 	stats, _ := m["classification_stats"].(map[string]int)
-	if stats["cta_improvement"] != 1 {
+	if stats["tone_shift"] != 1 {
 		t.Fatalf("classification_stats lost the ungated type: %#v", m["classification_stats"])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -643,7 +645,7 @@ func TestWriteAuditFindings_UngatedProducerDedupStillSuppresses(t *testing.T) {
 
 	out, err := WriteAuditFindingsAction(context.Background(),
 		auditParams(db, siteID, []interface{}{map[string]interface{}{
-			"category": "cta", "severity": "medium", "description": "d", "page": "index",
+			"category": "tone", "severity": "medium", "description": "d", "page": "index",
 		}}))
 	if err != nil {
 		t.Fatalf("action failed: %v", err)

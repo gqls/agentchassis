@@ -65,8 +65,21 @@ var metadataCategories = map[string]struct{}{
 	"contact_mismatch": {},
 }
 
-// Categories that indicate CTA/component-level fixes on existing pages
-var componentCategories = map[string]struct{}{
+// Categories whose ONLY route was a handler that refuses them by design.
+//
+// Until 2026-08-19 these filed cta_improvement / nav_restructure at
+// component-template-fixer, whose dispatch table has returned
+// {fixed:false, action:"needs_review", reason:"fix_type requires LLM-driven
+// changes, not programmatic HTML edits"} for both since 2026-03-14
+// (fix_component_template_action.go, fixTypesRefusedByDesign). Nothing read the
+// flag, so [MEASURED 2026-08-19, archive-inclusive] 993 cta_improvement items
+// across 22 sites closed 'complete' with 0 ever fixed (bugs_open/323). Rule 3
+// below now files them as the estate's "found work I have no handler for" record
+// (capability_gap, bugs_closed/077) until a handler that can do LLM-driven CTA /
+// navigation copy work exists — at which point this map's categories move to a
+// real route and TestAuditRoutingNeverTargetsAFixerRefusalArm keeps that route
+// honest.
+var noHandlerCategories = map[string]struct{}{
 	"cta": {}, "nav_restructure": {},
 }
 
@@ -141,11 +154,14 @@ var designRouting = map[string]string{
 
 // Category → fix_type mapping for component-template-fixer
 // Ensures fix_type is always set in spec when routing to that handler.
+//
+// Every value here must be a fix_type the handler ACCEPTS — not one in its
+// fixTypesRefusedByDesign set (bugs_open/323; pinned by
+// TestAuditRoutingNeverTargetsAFixerRefusalArm). "cta" → "cta_improvement" and
+// "nav_restructure" lived here until 2026-08-19 and were refused on every run.
 var categoryToFixType = map[string]string{
-	"spacing":         "inject_nav_flex_css",
-	"responsive":      "responsive_fix",
-	"cta":             "cta_improvement",
-	"nav_restructure": "nav_restructure",
+	"spacing":    "inject_nav_flex_css",
+	"responsive": "responsive_fix",
 }
 
 // Design category → item type
@@ -356,27 +372,48 @@ func classifyFinding(f auditFinding, pages map[string]pageInfo, siteID uuid.UUID
 		}
 	}
 
-	// ── Rule 3: Component-level categories on existing pages
-	if _, isComponent := componentCategories[category]; isComponent {
-		var pageID *uuid.UUID
-		if p, exists := pages[pageName]; exists {
-			pageID = &p.ID
-		}
-		itemType := "cta_improvement"
-		if category == "nav_restructure" {
-			itemType = "nav_restructure"
-		}
+	// ── Rule 3: Categories with NO capable handler → capability_gap (bugs_open/323)
+	//
+	// These used to dispatch cta_improvement / nav_restructure at
+	// component-template-fixer, which refuses both by design (see
+	// noHandlerCategories). A finding the estate cannot act on is still worth
+	// recording — it is the demand signal for the missing handler — so it takes
+	// the bugs_closed/077 shape: status 'deferred', empty handler_agent, low
+	// severity, priority 200, gap_kind handler_missing. The finding's own
+	// severity, description, suggestion and acceptance_test stay in spec for
+	// whoever builds the handler. One open row per site per category (dedup on
+	// the category, not the page): the missing thing is a HANDLER, however many
+	// pages or producers report it.
+	//
+	// Distinct from the unknown-category fallback at the bottom of this function
+	// (gap_kind rule_missing): there the ROUTER lacks a rule; here the router
+	// knows exactly what the finding is and the estate has nothing to send it to.
+	if _, noHandler := noHandlerCategories[category]; noHandler {
 		spec["page_name"] = pageName
-
+		spec["finding_severity"] = severity
+		spec["gap_kind"] = checks.GapHandlerMissing
+		spec["builder_needed"] = fmt.Sprintf(
+			"a handler for LLM-driven %s work (CTA / navigation copy: rewrite labels and destinations "+
+				"on one named component via section-editor field_updates); component-template-fixer "+
+				"refuses this fix_type by design (bugs_open/323)", category)
+		spec["capability"] = fmt.Sprintf(
+			"%s findings from %s have no handler: the only programmatic fixer declines them "+
+				"(fix_component_template_action.go fixTypesRefusedByDesign) and no LLM copy editor is routed",
+			category, auditSource)
+		spec["not_dispatchable"] = "status 'deferred' + empty handler_agent — deliberate; " +
+			"promoting this row dispatches work no handler can do (bugs_open/077, bugs_open/323)"
 		return classifiedFinding{
-			ItemType:     itemType,
-			HandlerAgent: "component-template-fixer",
-			Severity:     severity,
-			Priority:     priority,
-			PageID:       pageID,
+			ItemType:     "capability_gap",
+			HandlerAgent: "",
+			Severity:     "low",
+			Priority:     200,
+			Status:       "deferred",
+			PageID:       nil,
 			PageName:     pageName,
-			Spec:         spec,
-			DedupKey:     fmt.Sprintf("%s_%s_%s_%s", auditSource, itemType, pageName, siteID),
+			Summary: fmt.Sprintf("no handler for audit category %q (%s): %s",
+				category, auditSource, f.Description),
+			Spec:     spec,
+			DedupKey: fmt.Sprintf("capability_gap:no_handler_for_audit_category:%s", category),
 		}
 	}
 
