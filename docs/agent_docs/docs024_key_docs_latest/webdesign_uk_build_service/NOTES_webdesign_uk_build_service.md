@@ -4465,3 +4465,100 @@ thing, the ban is doing its job and the copy is the defect.
 right, because nothing attested an unbounded window. So the entry above is written as
 a test to apply, not a precedent to follow. Not changed — owner's ruling
 (2026-08-12), and the last time I assumed over-block I was wrong.
+
+### 2026-08-19 (~15:5xZ) — the guide unblocked WITHOUT touching the ban, and the wording was scanned before it was briefed
+
+The `round of changes` ruling is still the owner's and I have not taken it. But the
+page does not have to wait for it: only that **phrasing** is banned, and the position
+it states is attested (`no_changes_included`), so the writer can say the same thing in
+words the scanner allows.
+
+**I did not guess which words.** `cmd/claimscan` runs the same engine as the deploy
+gate, so I exported the live register and scanned six candidate sentences through it
+**with the blocked sentence as a control**:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c \
+  "SELECT ss.data::text FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+    WHERE s.domain='webdesign.uk' AND ss.aspect='evidence_base' AND ss.is_current" > eb.json
+# cands.tsv: page <TAB> slot <TAB> base64(html) <TAB> page_type
+go run ./cmd/claimscan -evidence eb.json -components cands.tsv
+```
+
+Result: **1 finding across 7 components** — the control, and only the control. The
+six alternatives all pass: *"no changes are included"*, *"the site is built once and
+handed over as it is"*, *"we do not make revisions to it afterwards"*, *"nothing is
+changed after the build"*, and two combined forms. Without the control this run would
+have been worthless: six sentences that fail to match prove nothing about a scanner
+you have not seen match anything.
+
+Item `79db855f` re-triaged (status `triaged`, claim cleared, error cleared) with the
+permitted wordings written into the brief and an explicit "do not write *round of
+changes* in any form, including to deny it". Guarded on `status='needs_human_review'
+AND claimed_by='build-dispatch-loop'` so an automatic re-triage between my read and my
+write would have made the UPDATE a no-op rather than clobbering it — this path does
+re-triage itself sometimes (observed 2026-08-19 12:04). Claimed by the dispatch loop
+at 15:51:46Z.
+
+### CORRECTION, mine, to this file: the site writer does NOT read ban reasons
+
+Earlier today I wrote of the two stale caps bans: *"The patterns are correct; only the
+prose the writer reads is out of date."* **The first half is right and the second half
+is wrong** — the prose is out of date, but the writer never sees it.
+
+```sql
+SELECT type FROM agent_definitions WHERE is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config::text ILIKE '%banned_claims%';     -- fix-proposer, council-gate
+```
+and `page-content-writer` matches neither `%banned%` nor `%banned_claims%`. Its
+template pulls `{{.site_specs.specs.evidence_base.writer_block}}` and nothing else
+from the register. Every Go consumer of `BannedClaims` is a **validator**
+(`validate_page_content`, `save_sections_claims_guard`, `save_page_meta_description`,
+`provocation_gate`, `revalidate_unverified_claims`); none composes a writer prompt,
+and nothing feeds a `ValidationIssue` back into one.
+
+So the steering lever on this path is `writer_block` and the work-item brief. **A ban
+cannot teach; it can only stop.** That is worth knowing before the next session tries
+to fix a copy problem by editing a ban's reason.
+
+### The reasons still needed fixing, for the readers that DO read them — `SQL_2026-08-19d`
+
+Seven of the 33 reasons were stale, and five of those did more than describe a
+retirement: they stated the **current** position of the business, and the position had
+moved underneath them.
+
+| pattern | the reason said | actually |
+|---|---|---|
+| `(100%\|fully) (guaranteed\|satisfaction)` | "a refund **is available** until the customer accepts the site" | no refund at all (`no_refund`, 08-11) |
+| `\bdeposits?\b` | payment is taken "after the customer approves the site" | payment is up front (`payment_upfront`, 08-18) |
+| `\byou only pay if you …\b` | cites fact `payment_after_approval` | fact absent; the switch it warned about flipped |
+| `(unlimited\|no limit to\|…)` | cites fact `revision_rounds_included` | fact absent; NO changes are included |
+| `(at any point\|whenever you like\|…)` | "the review window is the bound" | window retired 08-11; the bound is "within the next month" |
+| `(instant\|…\|same day)` | "about three or four days" | two or three days |
+| `\bthree (or\|to) four days\b` | "usually ready the next day" | two or three days — the reason for one dead figure pointed at another |
+
+Why it matters when the writer cannot read them: `checkBannedClaims` copies `reason`
+**verbatim** into the ValidationIssue description, which is what lands in
+`agent_error_log` and is the whole of what a session triaging a stopped page sees. A
+blocker that explains itself with *"a refund is available until the customer accepts
+the site"* hands the next reader the retired commercial model as fact. And the
+register is its own audit trail.
+
+Patterns, facts and `writer_block` untouched. Each new reason states the current
+position, names the fact that attests it, and keeps a dated note of what it used to
+say, so the correction is visible rather than silently applied.
+
+**The guard failed twice before it passed, both times usefully.**
+1. **On the probe run** (`COMMIT`→`ROLLBACK`): *"a stale reason string survives"*. It
+   did — inside my own replacements, which quote the wording they replace. **A
+   visible-correction convention and a bare-absence assertion are incompatible**, and
+   I had written both without noticing. Rewritten to assert the stale strings survive
+   *only* on rows that also carry `REASON CORRECTED 2026-08-19`.
+2. **On a mutation**, with one marker changed to match nothing: *"expected exactly 7
+   reasons to change, got 6"*. A second mutation, writing the new text to `{pattern}`
+   instead of `{reason}`, raised *"a banned_claims PATTERN changed, none may"*. Both
+   assertions have now been seen to fail on real data, which is the only thing that
+   makes the passing run evidence.
+
+Applied: `INSERT 0 1`, `DO`, `COMMIT`. Verified at the live row: **7 corrected of 33**.
