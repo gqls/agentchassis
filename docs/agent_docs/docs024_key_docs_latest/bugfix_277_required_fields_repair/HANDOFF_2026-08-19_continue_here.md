@@ -12,8 +12,8 @@ Its §2 (`bugs_open/300`) and §3 (`bugs_open/314`) still read true. **Read this
 | bug | state | what blocks the close |
 |---|---|---|
 | **`bugs_open/277`** | router BUILT, LIVE, council-approved r5, **and doing its job** | **its own verify criterion, clause 1: the worked example must be REPAIRED. It is classified, not repaired.** Nothing repairs this type at all — see §3 |
-| **`bugs_open/083`** | fix complete + artefact-proven | the door soak, ~2026-08-25 (owner decision 5). Also: `479`'s reclaim arm has still never fired on a real row |
-| `bugs_open/300` | **fix LIVE on `v1.0.1314`**, council APPROVED r1 | behaviourally unexercised — nothing has dispatched this type since 08-18 |
+| **`bugs_open/083`** | fix complete + artefact-proven; **Tier 1 now BEHAVIOURALLY PROVEN too (§1)** | the door soak, ~2026-08-25 (owner decision 5). Also: `479`'s reclaim arm has still never fired on a real row |
+| `bugs_open/300` | **fix LIVE on `v1.0.1315`**, council APPROVED r1 | **still behaviourally unexercised, and the reason is DEMAND** — no `page_component_status_drift` dispatch since 08-18 09:49; 66 complete, 16 `deferred` and parked by another lane. Nothing to verify against until a new finding is filed |
 | `bugs_open/314` | filed 08-18, unfixed | it is a proposal for the gate; owner's call which candidate |
 
 Neither of this lane's two bugs is closeable today. **`277` is the interesting one** — it is much
@@ -35,7 +35,36 @@ kubectl -n ai-persona-system exec <pod> -- sh -c \
 `OWNED_PAGE_GUARD` **PRESENT** (long-lived control — the probe works) · nonsense needle **ABSENT**
 (the probe discriminates). Config half intact.
 
-**⚠ Neither is behaviourally verified, and do not let the quiet read as success.** Zero owned-page
+> ## ✅ UPDATE 2026-08-19 (second roll, `v1.0.1315`) — TIER 1 IS NOW BEHAVIOURALLY PROVEN, BOTH CONTROLS
+>
+> Re-probed on `v1.0.1315` (pods up 12:15Z): `owned_page_refusal_status` **PRESENT**,
+> `resolveStatusRepairComponent` **PRESENT**, nonsense needle **ABSENT**.
+>
+> **And the behaviour, over the whole period the code has been live (since 07:52Z), in ONE query so
+> the two arms had to come out opposite ways:**
+>
+> | arm | status | rows | `result ? 'owned_page_refusal'` |
+> |---|---|---|---|
+> | ownership REFUSAL | **`wont_fix`** | **8** | **true** |
+> | **CONTROL: genuine failure** | **`failed`** | **1** | **false** |
+>
+> **That is the discrimination the change exists to make, observed in production.** A refusal is
+> recorded as a refusal and kept out of the promoter's floor; a handler that genuinely failed is
+> still recorded as `failed` and still counts.
+>
+> ⚠ **The control is n=1 and I am not dressing it up.** In the window since the second roll alone it
+> was **zero**, which by this section's own rule means "no genuine failures happened", not "the split
+> works" — so I widened to the full live period to get a control that could come out either way. One
+> row is thin. It is non-zero, it came out the right way, and a second one would strengthen it.
+>
+> **`300` remains unexercised, and the reason is DEMAND, not a defect:** no
+> `page_component_status_drift` has dispatched since 08-18 09:49 — 66 are `complete` and the 16
+> `deferred` are parked by the loancalculator lane. **There is nothing for it to run on.** It stays
+> "live, unproven" until a new drift finding is filed, and that is an honest resting state rather
+> than something to chase.
+
+~~**⚠ Neither is behaviourally verified, and do not let the quiet read as success.**~~ (superseded by
+the box above; the original text follows for the record.) Zero owned-page
 refusals since the roll — **and zero `page-build-handler` orchestrations either**, so the zero is a
 DEMAND artefact. Same for `300`: no `page_component_status_drift` dispatch since 08-18.
 
