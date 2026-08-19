@@ -4661,3 +4661,23 @@ tell from an offer, a fact whose own wording invited an unbounded promise, and a
 pattern that could not do what its reason claimed. **Two of the three were defects in
 the rules, not in the writer**, and only the third attempt's failure looked like a
 false positive on sight. Requeued a fourth time with all three fixed at source.
+
+### 2026-08-19 (~16:2xZ) — where this stands, mid-flight
+
+- **Guide item `79db855f` is CLAIMED and running** (fourth attempt, 16:16Z). All three
+  blockers it hit are fixed at source, so this attempt should land. **Verify at the
+  SERVED page, not the status:**
+  `curl -s "https://preview.webdesign.uk/guides/tool-website-brief-starter-guide.html?cb=$(date +%s%N)" | grep -c "next day"` → want **0**.
+- **`SQL_2026-08-19e` is WRITTEN, TESTED AND DELIBERATELY NOT APPLIED** — the ban on
+  the retired next-day turnaround. Its census guard currently REFUSES (proven on real
+  data: *"REFUSING TO ARM: 1 component(s) still carry the retired turnaround
+  (tool-website-brief-starter-guide/article-body)"*). **Apply it the moment the page
+  above verifies clean, and not before** — order is load-bearing. It is measured: +1
+  finding, −0, over the whole corpus, and it is a promise shape, not a bare token.
+- **Phase 4 not started.** `sites.handed_over_at` still does not exist (re-checked).
+  The owner has ruled it is next, and the delivery email's domain paragraph is now
+  unblocked by `SQL_2026-08-19g`.
+- **Owner ruling not yet actioned: lengthen the ZIP presign from 7 to 30 days**
+  (`expiry_minutes: 10080` → `43200` in `zip_deliverable_action.go`). Go change, so it
+  needs a build and a roll, and it is the only one of tonight's four rulings still
+  outstanding.
