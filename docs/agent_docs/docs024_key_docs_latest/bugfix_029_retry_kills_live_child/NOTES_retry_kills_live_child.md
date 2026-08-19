@@ -1900,3 +1900,25 @@ observation could not:
 > concluding "the cleanup only marks rows expired" is wrong — the DELETE is one statement further
 > down, in a place `grep -rn "DELETE FROM awaited_requests" platform/ --include=*.go` returns
 > **nothing** for. **That grep returning zero is why this was assumed rather than checked.**
+
+### 13. Pre-registering how to read run `d02a6958`'s outcome — written BEFORE the verdict, deliberately
+
+`[MEASURED]` the `diagnose-agent` cap is **5 iterations**
+(`jsonb_path_query_first(default_config,'$.**.max_iterations')` = 5). At the time of writing this
+run has produced bundles for iterations 1–3 (44,963 → 103,699 chars, both carrying the
+`awaited_requests` schema) and has gone `verdict → route` twice, i.e. it is **entering iteration 4**.
+So it may terminate at the cap. Three outcomes and what each is worth — fixed now, so I cannot
+choose an interpretation after seeing the answer:
+
+| outcome | what it means | what it does NOT mean |
+|---|---|---|
+| **CONFIRMED** with citations | a cause, gradable against the code | not a fix — the citations still need checking against the tree, per this lane's own history of confident-and-wrong |
+| **REFUTED** on a named mechanism | genuinely useful; it eliminates a candidate the way the shared-60s-context measurement did | not "the bug is not real" |
+| **UNVERIFIABLE at the iteration cap** | **the most likely, and it is NOT the same result as the two earlier ones.** Those two stopped because they could not SEE the evidence — one was told it had expired, one could not read the table. This one had four bundles' worth and still could not converge. That is a statement about the **difficulty of the question**, and its `NextScope` at the cap is a real finding: it is where four iterations of narrowing pointed | not a failure of the fix, and **not evidence the wedge has no cause** |
+
+**The thing to read in every case is `NextScope` and the last `Verdict`, not `status`.** This lane
+has now spent three runs learning that the status field is the least informative part of the record.
+
+**And the fix's own result is already banked and independent of this**: the bundle renders the table
+(NOTES §11), proven against four pre-fix bundles with a positive control. Whatever `d02a6958`
+returns, that does not change.
