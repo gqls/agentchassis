@@ -12782,3 +12782,53 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/320` §10 · the sibling landmine on a printed correlation not being a dispatched run (`bugs_open/309` §C) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] (same shape: the status is not the outcome)
 - **source:** 2026-08-19, first `090` run on the `meta_description` mechanism (`d7a9ab39-4917-4479-b1d5-68aae982f79c`) — cost one full round trip
 - **added:** 2026-08-19, `meta_description_never_backfilled` lane
+
+### `WriteFeedItemsAction` is registered as writing feed items "with dedup" — and that dedup is EXACT-URL-PER-SITE, not cross-source
+
+- **footprint:** `platform/orchestration/actions/feed_actions.go`, `platform/orchestration/actions/registry.go`, `content_feed_items`, `idx_cfi_dedup`, `WriteFeedItemsAction`
+- **fires when:** you are planning anything that needs to know whether one story arriving from several publishers is one row or many — a topic feature, a story cluster, a duplicate-content measurement, a "how many distinct stories do we hold" count.
+- **the mechanism:** `registry.go:1386` describes the action as *"Normalise and write feed items to `content_feed_items` **with dedup**"*, and `feed_actions.go:769` repeats it in the doc comment. The implementation (`feed_actions.go:777-778`, `896-905`) skips an item **whose `source_url` already exists for this site**, via the `idx_cfi_dedup` partial index on `source_url`. That is it. Reuters and the BBC covering one story are two rows **by design**; a syndicated copy at a different URL is two rows; the same URL on two sites is two rows.
+- **why it is a landmine:** "dedup" in a pipeline that ingests from four source types reads as *cross-source de-duplication*, which is the expensive, interesting kind — and the word appears in the two places a session checks first (the registry description and the action's own doc comment) without ever appearing next to the word `source_url`. The wrong reading produces the right-looking conclusion: you conclude story-level grouping exists, plan on top of it, and nothing contradicts you until you query the data.
+- **the check** — ask the columns, not the description. Both write-side and read-side, with a control so an empty result is evidence:
+  ```sql
+  SELECT count(*)                                        AS total,
+         count(*) FILTER (WHERE duplicate_of IS NOT NULL) AS grouped,
+         count(*) FILTER (WHERE relevance_score IS NOT NULL) AS scored  -- the control: a column that IS written
+    FROM content_feed_items;
+  -- 2026-08-19: 10855 | 0 | (non-zero)
+  ```
+  ```bash
+  grep -rn "duplicate_of" --include=*.go platform/ internal/ pkg/     # 0 hits
+  grep -rn "relevance_score" --include=*.go platform/ internal/ pkg/  # 7 hits — the control
+  ```
+  `duplicate_of` and `entity_ids` are declared on the table and written by **no code path in the repo**. Zero across 10,855 rows, and zero writers — the pair is what makes it structural rather than merely unpopulated.
+- **relations:** the inverted-cluster-detector entry below (the near-miss that DOES exist) · `docs024_key_docs_latest/news_editorial_features/` (the lane, and the `090` verdict `3802fb10-c34f-4eff-9914-b2959c723bd5` that confirmed it) · MEMORY [[writes-the-field-is-not-reads-the-field]], [[grep-the-config-key-before-calling-it-a-win]]
+- **source:** 2026-08-19, collecting prior art for news editorial features
+- **added:** 2026-08-19, `news_editorial_features` lane
+
+### The news render path ALREADY detects same-story clusters — and exists to DISCARD them, so reusing it inverts a contract the feed page depends on
+
+- **footprint:** `platform/orchestration/actions/queryresolve/news_items.go`, `newsTopicalTokens`, `capNewsItemsPerTool`, `titleToolKeys`, `QueryNewsItems`
+- **fires when:** you go looking for "does anything group news items by story?" — for a topic feature, an editorial lane, a diversity measurement — and conclude from a grep for `cluster` / `group` / `duplicate` that nothing does.
+- **the mechanism:** `newsTopicalTokens:185` builds a topical vocabulary from the site's own source queries **and additionally derives one by document frequency over item titles** once the pool reaches 12 items (threshold `len(items)/4`, floor 5). `capNewsItemsPerTool:222` then walks the ranked items and **drops** any whose title shares a tool key with `maxPer` already-kept items. So the cluster is found and then deliberately thinned, because the display requirement is that no one story dominates the feed.
+- **why it is a landmine:** it is findable by no obvious search term — it contains neither "cluster" nor "duplicate" nor "group", it lives under `queryresolve/` rather than with the other `feed_*` actions, and its purpose is stated as a *cap*. A session concludes "no grouping exists", builds one from scratch, and either duplicates a tuned heuristic or — worse — bolts the new grouping onto this call site and silently breaks feed diversity on every site that renders news. The author's own comment names the exact tension and is worth reading before touching it: *"Frequency derivation needs a pool large enough that 'appears a lot' means 'is the subject matter', not 'is one well-covered story'. Below 12 items a genuine tool cluster (four Firefox headlines) would cross any workable threshold."*
+- **the check:** search the **table**, not the concept — `grep -rn "content_feed_items" --include=*.go platform/ internal/ pkg/` enumerates every file in the pipeline in one command and reaches `news_items.go`, which no synonym of "cluster" does. Then read what the render path can actually select on: `QueryNewsItems` filters `site_id` + `status IN ('relevant','ingested')` and projects title/summary/url/published/source-name/**topics** — `duplicate_of` and `entity_ids` are not selected at all, so a grouping key needs a read-side change too, not only a writer.
+- **relations:** the `WriteFeedItemsAction` "with dedup" entry above · `docs024_key_docs_latest/news_editorial_features/PLAN_2026-08-19_news_editorial_features.md` §3a
+- **source:** 2026-08-19, found by a `090` scope walk after a manual grep sweep missed it; logged in `WRONG_CALLS.md` the same day
+- **added:** 2026-08-19, `news_editorial_features` lane
+
+### UPDATE to "A `090` diagnosis on a CODE-ONLY symptom dies with 'no scope' unless you pass `SEED_SCOPE`" — it does NOT always die, and the recovery has its own trap
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh`, `diagnose_assemble_bundle`, `lookup_symbols`, `diagnosis_artifacts`
+- **what happened:** a code-only `090` fired on 2026-08-19 with **no `SEED_SCOPE`** (correlation `3802fb10-c34f-4eff-9914-b2959c723bd5`) did **not** abort. It ran three iterations, wrote three bundles and returned **CONFIRMED**. So the entry above, read literally, would tell a session that a run it just watched succeed was impossible.
+- **the narrowing:** the abort is the *third* branch. Scope resolution tries `route.scope.Symbols`, then `input_data.seed_scope`, then `code_results` — and when the symbol-lookup step finds symbols, the run proceeds on those. Passing `SEED_SCOPE` remains the right thing to do; the failure it prevents is **not guaranteed**, so *"my run produced artifacts"* is not evidence that scope was delivered.
+- **the trap in the recovery, and it is the reason to still pass `SEED_SCOPE`:** iteration 1's bundle carried the **wrong files** — the symbol-search fallback returned `intake_repo.go`, `plan_sections_action.go`, `contentcreator/agent.go`, `evolution.go`, none of them in the requested scope, plus runtime evidence from an unrelated pipeline. The loop **noticed and said so** in `evidence_trail[0].Verdict.NeededEvidence` (naming `bugs_open/174`), re-scoped, and got the right files by iteration 2. A run that recovers still burns iterations, and an early iteration read in isolation looks confident and is built on the wrong files.
+- **the check:** before trusting any early iteration of a verdict, read the scope complaint, not just the outcome:
+  ```sql
+  SELECT jsonb_pretty(collected_data->'diagnosis'->'evidence_trail'->0->'Verdict'->'NeededEvidence')
+    FROM orchestration_states WHERE correlation_id::text='<RUN_CORR>';
+  ```
+  Non-empty means that iteration reasoned from files it did not ask for.
+- **relations:** the entry it narrows (same footprint, `meta_description_never_backfilled` lane, 2026-08-19) · `bugs_open/174` · MEMORY [[a-subagent-report-is-another-doc]]
+- **source:** 2026-08-19, `news_editorial_features` lane's first `090`
+- **added:** 2026-08-19, `news_editorial_features` lane
