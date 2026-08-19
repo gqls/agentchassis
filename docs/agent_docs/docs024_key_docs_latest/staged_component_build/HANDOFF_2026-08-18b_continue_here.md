@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-18b, fresh chat starts here: the prune is BUILT and under council review; 306+307 are FILED; the gating blast radius is MEASURED; and Phase 2 is **RULED — sequence A (RFC_029 §10.13)**. The next builds are steps 2 and 3 of that path.
+# HANDOFF — 2026-08-18b (updated 2026-08-19), fresh chat starts here: path step 1 DONE (prune live, 0 work_item_id rows/16 h); step 2 BUILT+APPROVED (846496906); step 3 config APPLIED (483) and gate BUILT+SUBMITTED (f42e03720, corr 07468ec0); both inert until the next roll. Next: read the gate verdict, then step 4 once the roll lands.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
 was CORRECTED before building** — the mis-citation and its consequences are RFC_029 §10.11, the
@@ -62,9 +62,9 @@ lane's next builds and are independent of each other and of step 1's roll.
 
 | step | what | precondition | done when |
 |---|---|---|---|
-| 1 | Prune ships; window re-read | council APPROVED on `ae0dfb93` + next fleet roll (owner's) | `work_item_id` class gone; `current_page` class INTACT (that is success — see the code comment) |
-| 2 | `bugs_open/306` candidates 1+2: pin the tie-break (depth, then source-class), sort `tryUnwrapMapPatterns` pattern 1's keys | none — buildable NOW; behaviour-identical today, council-gated | tests pin both; mutation-proved |
-| 3 | Gate `current_page`/`current_section`/`render_context` in `ensureCoreFields` (requested-only). **`domain`/`objective`/`model` stay UNCONDITIONAL — 39/10/6 undeclared consumers, never gate.** | **config edit FIRST**: add `current_page` to `html-developer-chunked`'s 3 `input_fields` lists (live immediately). Go gate is an RFC_029 AMENDMENT — name and tell consumers per the 2026-07-29 ruling; the NOTES enumeration is the evidence | class-1 63% gone from the window after the roll |
+| 1 | ~~Prune ships; window re-read~~ **DONE 2026-08-19**: live v1.0.1310, 16 h read = **0** `work_item_id` rows, `current_page` class intact as predicted | — | — |
+| 2 | ~~306 cands 1+2~~ **BUILT + APPROVED all-approve** (`846496906`, corr `96ac93e6`): `rank` on each candidate, sort reads it; pattern 1 sorted. 6 tests, mutation-proved both ways | **inert until the next chassis roll** | roll verified by label+digest; then close 306 (cand 3 stays open, unbundled) |
+| 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | **READ THE VERDICT** (`…fix_correlation_id='07468ec0-…'`; a watcher was armed); then the roll | class-1 63% gone from the window after the roll |
 | 4 | Fix surviving shape conflicts AT SOURCE (worked example: `save_page_sections` sees the page OBJECT at `input_data.current_page` vs its NAME STRING at `render_context.current_page` — one rename ends it). **`!` cannot fix these** — Go-side request lists, config-side marker | step 3's window read | window reads zero, or every survivor carries a written safe-by-inspection note |
 | 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
 
@@ -89,10 +89,14 @@ sweep (NOTES, evening entry, last paragraph).
 ## 5. Session-start checklist
 
 1. `git log --oneline -10`; re-read this file from disk.
-2. Verdict already APPROVED and dispositioned (§1) — nothing owed on it.
-3. Re-read the window over 24 h from 2026-08-18 18:05Z (post-drain) for the honest
-   before/after rate — the 17-min mechanism read is already clean (§1); expect work_item_id ≈ 0,
-   current_page class INTACT (correct, not a failed fix; the comment in action_inputs.go says
-   why).
-4. Build the ruled path (§3): step 2 (306 candidates 1+2) is buildable immediately; step 3
-   starts with the html-developer-chunked config edit, then the gate as an RFC_029 amendment.
+2. Read the GATE verdict (corr `07468ec0`, §3 row 3) and act on it — REVISE/REJECTED must be
+   acted on, the code is on the shared branch with a `Council-Submitted:` trailer.
+3. When the next chassis roll lands: verify by label+digest+`/proc/1/exe`; confirm `846496906`
+   AND `f42e03720` are ancestors; re-read the window — expect `build-dispatch-loop current_page`
+   → ~0 (the 63% class), `page-content-writer current_page` INTACT (step 4's population). Close
+   306 (cands 1+2) on that evidence.
+4. Step 4: fix the surviving shape conflicts AT SOURCE. Worked example: `save_page_sections`
+   requests `current_page` and sees the page OBJECT at `input_data.current_page` and its NAME
+   STRING at `build_render_context.current_page` / `render_context.current_page` — one rename at
+   the producer ends it. `!` cannot help (Go-side request list). One small change per conflict,
+   council-gated. Then step 5 on what is left.

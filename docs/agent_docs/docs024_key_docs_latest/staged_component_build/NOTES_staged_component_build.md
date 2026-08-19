@@ -4970,3 +4970,53 @@ the old ratio (~1:2.2) those 15 would have come with ~6–7 `work_item_id` rows;
 zero. `page-content-writer`'s class-3 row also present post-roll — intact as predicted.
 **Path step 1's "done when" is met on the mechanism read**; the remaining formality is the
 longer window, which also gives the honest before/after rate the next SUMMARY can quote.
+
+## 2026-08-19 — path steps 1 (rate read), 2 (built+approved) and 3 (config applied, gate built+submitted) in one session
+
+**Step 1 closed on the rate read.** 16 h post-drain (from 2026-08-18 18:05Z): `work_item_id`
+conflict rows = **0** (was ~510/12 h); `build-dispatch-loop current_page` 369 (23/h),
+`page-content-writer current_page` 91 (5.7/h), `page-build-handler current_page` 2,
+`tool-generator reason/related_pages` 4 each. Exactly the predicted shape: the prune's class gone,
+the `ensureCoreFields` class intact for step 3.
+
+**Step 2 built, approved all-approve round 1 (corr `96ac93e6`), commit `846496906`.** Design
+choice worth recording: the tie-break is declared as an explicit `rank` on each candidate —
+inherited from the FIRST hop off the root — rather than by sorting on path prefix. Reason: the
+collector is depth-first and exhausts each root branch before the next, so "rank of the first
+hop" IS global append order across branches, while within a branch everything is rank-equal and
+DFS order (already deterministic) decides — unchanged. That is why inverting the rank comparison
+fails the two cross-rank tests but leaves `TestRankDeclarationChangesNoExistingWinner` green:
+the declaration touched exactly the previously-unpinned tie and nothing else. editquality's low
+advisory asked precisely this and is answered in the commit trailer. Pattern-1 sort:
+mutation fails **30/30** under `-count=30`, because the 200-iteration inner loop turns a
+sometimes-flip into an every-run failure.
+
+**Step 3 — the config half first, and a finding about it.** `html-developer-chunked` is not
+merely "one soft consumer": it is **dormant** — 0 orchestrations ALL TIME, 0 live steps name it
+as `agent_type`, and none of its 3 `generate_html` steps carries `input_fields` at all, so it
+rides `buildContextSmart`'s fixed fallback list (which never held `current_page`). It was
+getting `current_page` purely by injection and nobody has ever observed it either way. That is
+the *most* dangerous kind of consumer to leave undeclared — it breaks the day someone wakes it,
+long after the gate shipped — so migration **483** gives all three steps an explicit 5-entry
+list (the fallback's four + `current_page`). Exercised forward+rollback in one aborted
+transaction first (both NOTICEs, UPDATE 1 twice, ROLLBACK), then applied via psql and recorded
+in `schema_migrations` with checksum, the way 482 was. Live read-back confirms all three.
+
+**Step 3 — the Go gate, built, submitted (corr `07468ec0`), commit `f42e03720`.** The change
+is three `&& requested("…")` clauses plus a `fieldNames` parameter threaded from the one call
+site. Two observations that belong in the record:
+- **The pre-gate suite passed with the gate applied and nothing failing.** Not one test in the
+  package pinned the injection. That is the mechanism by which an undeclared behaviour came to
+  carry 63% of an observation window, and it is why the new test file pins BOTH halves — the
+  gate AND the exemption — with a mutation that ADDS a gate to `domain` and watches the
+  never-happen test fail.
+- **The working tree's `actions` package is broken by another lane's untracked WIP**
+  (`component_instance_judged.go`, `reWindowOnload` redeclared). My change is in `datahelpers`,
+  which builds alone; the evidence that it compiles against committed HEAD is the `git archive
+  HEAD` + my files build — 9 orchestration packages ok. This is the exact case the
+  "test against git archive HEAD" memory exists for, and it bit on the first day it mattered.
+
+**Registered** (CTS-060 (4), same session); 306 §3a updated; both verdict watchers armed.
+**Step 4's population is now visible by construction**: whatever survives after the gate rolls
+is requested-field shape conflicts — `save_page_sections` (object vs name-string) is the worked
+example and is fixed at the PRODUCER, not at the resolver.
