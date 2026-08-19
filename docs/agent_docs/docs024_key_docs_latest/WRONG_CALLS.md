@@ -37039,3 +37039,44 @@ different bug in someone else's lane, the topic changed and the check did not co
 window-limited half wrong and the unlimited half right in a single query set**, which is exactly why
 "was my measurement scoped correctly?" is not answerable as one question — it is one question per
 table.
+
+---
+
+## 2026-08-19 — `bugs_open/315` lane: I read three empty greps as absences. The shell had changed directory under me.
+
+**The claim I made (to myself, before it reached a doc):** that `portfolio-sites` appears nowhere
+in the Go source, and that the concept register has no entry for the publish seam. Both were used
+to steer the investigation for several minutes: if the register says nothing about publishing, the
+delivery path has to be reconstructed from code alone.
+
+**Both were false, and the second was the expensive one.** `docs026_concept_register/register/
+deployment-github.md` holds the single most useful document in this investigation — it names the
+whole delivery mechanism (`b2 sync --delete --skip-newer` per changed domain directory, fired by a
+self-hosted GitHub Actions runner, "commit is deploy"), which is *the batch boundary the bug is
+about*, and it also carries the false traceability claim that turned out to be a finding in its
+own right.
+
+**What caused it:** an earlier tool call had ended with the shell inside
+`docs/agent_docs/docs024_key_docs_latest/bugfix_315_…/`. **The Bash tool's working directory
+persists between calls** — it is stated in the tool's own description, and I still read the next
+three results as facts about the repository rather than facts about a subdirectory of it. A
+relative-path `grep -rn … .` in a directory containing one markdown file returns nothing, exits 0,
+and looks exactly like a well-formed negative.
+
+**What caught it:** `ls docs/agent_docs/docs026_concept_register/register/` returned empty while
+`git status` had listed a modified file *inside that very directory* two minutes earlier. The
+contradiction was visible only because both facts happened to be in the same context.
+
+**The cheap check that would have:** `pwd` in the same call, or — better, because it needs no
+discipline — **never `cd` in a compound command; pass absolute paths.** Every one of these greps
+would have been correct with `/home/ant/projects/agentchassis/...` in front of it, and absolute
+paths cost nothing.
+
+**The generalisable half, which is not "remember pwd":** an empty grep is the *same output* whether
+the corpus is empty, the pattern is wrong, or **you are not standing where you think you are** —
+and only the third is invisible to re-reading the command. This joins the existing family
+(`grep_silent_on_non_utf8`, `comm-and-sort-disagree-on-collation`): the failure is that a
+zero-result search has no way to report *what it searched*. **Before believing any absence, make
+the search state the corpus it covered** — `grep -rn … <abs-path> --include=*.go -l | wc -l` on a
+pattern you KNOW is present is a one-line positive control, and it is the same discipline the
+estate already requires of detectors ("a post-fix zero needs a demand control").
