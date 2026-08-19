@@ -1899,3 +1899,32 @@ point should have almost nothing left to refuse — which is exactly the state w
 armed in, as a permanent guarantee rather than a cleanup. Each step waits on evidence from
 the recorder, not on a calendar. The full path is in the handoff as a table a fresh session
 can execute.
+
+**2026-08-19 — three of the five steps on your path moved today, and one thing I found along
+the way is worth your attention.**
+
+First, the efficiency fix you approved yesterday shipped in last night's build, and sixteen hours
+of data says it did exactly what I claimed: the class of noise it targets has gone to zero, and
+the class it deliberately cannot touch is still there, waiting for the next step. That step is
+done.
+
+Second, the two small safety fixes — writing down the tie-break rule the code already follows,
+and removing the last remaining lucky-dip — are built, tested, and approved by the reviewers
+without a single objection. They change nothing visible today; they exist so that nobody can
+break the current behaviour by accident. They ship with the next build.
+
+Third, the bigger one: switching off the safety net for the three page values. The settings fix
+for the one affected agent is already applied and live. While doing it I found that agent has
+**never run** — not once, ever — and had no settings at all for what it reads. That is exactly
+the kind of thing that breaks a year from now when somebody wakes it up, long after everyone has
+forgotten why; giving it an explicit list was cheap and closes that door for good. The code
+change itself is built and sitting with the reviewers now. One more honest note on it: when I
+applied the change, **every existing test still passed** — nothing had ever checked that the
+safety net did what it did. That is the same pattern as the tie-break: behaviour nobody wrote
+down, doing real work. The new tests check both that the net is off for those three values and,
+more importantly, that it stays firmly on for the three business values that fifty-five places
+depend on.
+
+Nothing has shipped beyond the first fix; the other two ride the next build. What remains after
+that is the handful of places that genuinely store the same page in two shapes — the last step
+before "refuse rather than guess" gets switched on.
