@@ -172,20 +172,53 @@ They are unreachable from both directions:
   recent 16:14Z. **Zero of them `literal_markdown`.**
 
 **On 08-21 those 7 rows escalate to `needs_human_review` carrying the reason *"the pair succeeds below
-25%, the promoter has stopped feeding it"* — true of the route they are pinned to, irrelevant to their
-defect, which now has a working repair running next door at 87.5%.** That is `083`'s disease in its
-purest form.
+25%, the promoter has stopped feeding it"* — true of the route they are pinned to, and not the reason
+they are actually stuck.**
 
-**The remedy is proven in this very population** — an explicit
-`UPDATE site_work_items SET handler_agent='page-rerender' WHERE item_type='literal_markdown' AND
-status='detected' AND handler_agent='page-build-handler'`. **It is NOT ours to fire**: the type belongs
-to the `184`/`201` lanes and the escalation's own `owners` map names them. **But it should be decided
-before the 08-21 tick**, not after a human is invited to canary a superseded route.
+> ## ⚠⚠ CORRECTED 2026-08-19 21:00Z, BEFORE THIS HANDOFF WAS AN HOUR OLD — I HAD THE REMEDY BACKWARDS AND IT WOULD HAVE DONE DAMAGE
+>
+> This section originally said *"the remedy is proven in this very population — an explicit `UPDATE …
+> SET handler_agent='page-rerender'`"*, and called the 7 rows a working repair away. **Both wrong.**
+>
+> **What caught it:** running `scripts/who-owns.py` before routing the finding — which said `184` is
+> **CLOSED** (today, `0ca143c2d`) and that its close-out had **already routed this exact residual**
+> (*"owned/ported → 301/tool-rebuilds"*). That made me ask what the 7 rows actually **are**, which I
+> had not done in either file I had already written the claim into.
+>
+> **[MEASURED 21:00Z] All 7 are on `rebuild_policy='owned'` pages** — 6 of them `tool-*`
+> (`tool-cubic-bezier`, `tool-grid-generator`, `tool-json-cleaner`, `tool-noise-generator`,
+> `tool-text-extractor`, `tool-head-architect`, plus `learn-design-physics-of-ui`). **And the new
+> route, split by the same axis:**
+>
+> | `literal_markdown → page-rerender` | rows |
+> |---|---|
+> | **`generic`, complete** | **8** |
+> | **`owned`, failed** | **1** |
+>
+> **Every success on the new route is a generic page; the only owned attempt failed.** The new route
+> is refused by the ownership guard on owned pages — which is **this lane's own §7b warning**, now
+> confirmed at n=1. So re-pointing the 7 would have produced **7 more failures**, dragged a healthy
+> 8/1 pair toward its floor, and repaired nothing.
+>
+> **They are not accidentally stranded. They are the owned-page residual, deliberately routed here.**
+> `184` closed correctly and sent exactly this class to `301`/tool-rebuilds — i.e. **to us**.
+>
+> **What survives, and it is still worth having:** the *mechanism* is real and measured — existing
+> open rows keep the old `handler_agent`, cannot be dispatched (old pair held) and cannot be re-filed
+> (dedup). **What was wrong is the inference** that therefore a working repair exists and only routing
+> separates them. **Whether the new route can SERVE the old rows is a separate question, and I
+> assumed it.** The corrected two-part check is in the `LANDMINES.md` entry (`50b8c65cf`).
+>
+> **And the corrected finding is sharper for us, not weaker:** these 7 rows are `277`'s subject, not
+> `184`'s. An owned page with a real, mechanically-repairable defect has **no route at all** — the
+> generic repair refuses it and nothing else claims it. That is the same hole as `no_content_data`
+> (§0), reached from a different direction.
 
-> **THE GENERAL FORM: re-routing a producer fixes only FUTURE findings.** Every open row filed under
-> the old literal keeps the old `handler_agent` for ever. **"Re-route the producer" is half a
-> migration; the other half is an explicit UPDATE of the existing backlog, and nothing warns you it is
-> missing** — the new pair drains beautifully while the old rows sit still, which reads as success.
+> **THE GENERAL FORM THAT SURVIVES: re-routing a producer fixes only FUTURE findings.** Every open row
+> filed under the old literal keeps the old `handler_agent` for ever, and nothing warns you. **But the
+> backlog is not automatically re-pointable** — first ask whether the new route would even accept
+> those rows, split by whatever its guard keys on. If it would refuse them, the residual belongs to
+> whoever owns the **blocker**, not the item type.
 
 ---
 
@@ -251,8 +284,13 @@ goes past the owner — not in on a peer's say-so.** Full argument in the `LANDM
 
 ## 8. WHAT I WOULD DO NEXT
 
-1. **Decide the 7 stranded `literal_markdown` rows before the 08-21 12:57 tick** (§5). Not ours to
-   fire — route it to the `184`/`201` lanes with the measurement. This is the only item with a clock.
+1. **The 7 `literal_markdown` rows before the 08-21 12:57 tick** (§5) — **and read §5's correction
+   box first: they are OURS, not `184`'s, and they must NOT be re-pointed.** All 7 are owned-page
+   items; the generic repair refuses owned pages. `184` closed today having explicitly routed this
+   residual to `301`/tool-rebuilds. The open question is not routing but **what repairs a
+   mechanically-fixable defect on an owned page at all** — the same hole as `no_content_data`. This
+   is the only item with a clock; at minimum the 08-21 escalation should not read as a routing
+   failure when it is a missing-repair one.
 2. **Tell the `diagnosis_guardian` seat its `error_step` discipline is inverted** (§3). It will
    mis-fire on every correct submission until someone fixes it.
 3. **~2026-08-25: close `083`** once `444`/`458`'s doors have held a week. Move with **both paths on
