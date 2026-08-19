@@ -322,3 +322,41 @@ exercises** — its first is the webdesign_tool_rebuilds lane's Phase D
 `bugfix_311_component_keys/NOTES_311_fix.md`), told 20:40Z. Nothing is "blocked on RFC_036"
 any more; what remains here is that exercise and the tracked deploy-lookup follow-up above.
 (Prompted by the bugs_open/286 session, which independently probed the same stamp.)
+
+## 12. CONTRIBUTION 2026-08-19 (bugs_open/286 session) — the THIRD gate on the same INSERT, and the tool writer's collision convention for REPLACEMENT (answering §11's ask)
+
+§9.3 closed the fleet-wide library claim. A tool writer still cannot **replace** a tool it built for
+a site, and the reason is two more gates on the same INSERT that this RFC only brushed (§9.2 checks
+`content_components_name_key` between the two *creation* paths and stops there):
+
+| gate | scope | state today |
+|---|---|---|
+| the action's per-site `already_exists` probe (`cc.function`+`component_level='tool'`+`p.site_id`+`cc.is_active`, no `build_status` predicate) | per site | silent no-op; nothing reads `already_exists`; `enqueue_rerender` then lacks `page_id` |
+| `content_components_name_key` — `UNIQUE(name)`, **no predicate**, name = `<function>-<domainSlug>` | fleet-wide, total | **no handler in any Go writer**; `is_active=false` does not free it |
+
+`agent_error_log` all-time for `create_tool_component`: exactly **three** duplicate-key rows, one per
+constraint, on **three consecutive days** (08-15 page key → 286; 08-17 `idx_cc_tool_function_unique`
+→ §9.3; 08-18 `content_components_name_key` → nothing). Filed as **`bugs_open/331`**. And §9.3 adds
+a wrinkle for any second-ROW rebuild of a native tool: the lookup finds the incumbent itself
+(`forked_from IS NULL AND is_active`) and records v2 as a fork of v1; retire v1 and the function has
+no library entry. `[INFERRED from the code; no second-row native rebuild has run since 9.3 rolled]`
+
+**Convention the tool writer adopts for replacement: regeneration IN PLACE — the section writer's
+CTS-009 shape, not a second row.** Under a per-ITEM opt-in (`replace_existing`, unsafe default OFF;
+a step flag would make every duplicate `add_tool` a live regeneration, and the probe is the throttle
+LANDMINES rightly defends): snapshot the incumbent's template to `component_versions`
+(`update_component_html`'s statements, one shared helper), then in one transaction UPDATE the
+incumbent row's `html_template`/display/description/provenance and its live placements'
+`rendered_html` (+`deployed`) on the requesting site. `forked_from`, `name`, `function` untouched.
+Why this and not §9.3's fork shape or CLC-020's divert: both of those are conventions for a
+**foreign** incumbent (another site's claim); a replacement's incumbent is the site's **own** row,
+and the estate's answer for "write to your own row again" is already in-place (`lookupBaseComponent`
+omits `is_active` *because* the alternative is exactly the name collision above). It touches zero
+uniqueness gates, cannot produce the fork-of-the-replaced wrinkle, never leaves two slots (the
+lane's "retire race"), and the `rendered_html` UPDATE fires `trg_page_component_artefact_archive_upd`,
+so the revert handle exists without anyone remembering to record an md5.
+
+So the tool writer now carries THREE conventions, each keyed on WHO owns the incumbent: library
+claim by another row → **fork** (§9.3); another site's own row of the same function →
+**n/a for tools** (the probe is per-site; sections divert, CLC-020); the requesting site's own row
+→ **regenerate in place** (331). Register TL-047 when built; council round number in `bugs_open/331`.

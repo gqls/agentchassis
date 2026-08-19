@@ -83,7 +83,7 @@ shows the lane walking into each on consecutive days:
   a re-fix of a native tool needs the old row deactivated AND renamed by hand (lane RUNBOOK / NOTES 08-18
   13:51Z), and the old slot retired by hand before the generator's own rerender claims (RUNBOOK "the retire
   race", margins 2–96 min, lost once). Filed as its own bug from this session:
-  `bugs_open/330_HANDOFF_2026-08-19_create_tool_component_cannot_regenerate_its_own_tool.md` (with the
+  `bugs_open/331_HANDOFF_2026-08-19_create_tool_component_cannot_regenerate_its_own_tool.md (numbered 330 in commit 1f70a645b's message and in this file's first write; 330 was taken by another session minutes earlier — renumbered)` (with the
   `090` run and the RFC_036 §12 note). Not this bug's: this bug's page collision is gone.
 - The "related finding" above (ab-test hollow shell, text-content floor) stays an open question for a floor
   owner; it was never this bug's mechanism.

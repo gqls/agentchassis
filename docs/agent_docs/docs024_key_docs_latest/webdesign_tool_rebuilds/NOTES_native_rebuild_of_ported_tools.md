@@ -1464,17 +1464,17 @@ md5 `48f609219a2e4da8230bb9835ae12100` byte-identical. Asserted one deployed slo
 - **Write-history census of `create_tool_component` duplicate-key failures, all-time:** exactly three rows,
   one per constraint, on consecutive days — `pages_site_id_name_key` 08-15 (286, fixed), `idx_cc_tool_function_unique`
   08-17 (RFC_036 §9.3), `content_components_name_key` 08-18 (no handler anywhere). Each gate was found by
-  walking into it. That pattern is what 330 is about.
+  walking into it. That pattern is what 331 is about.
 - **RFC_036 §9.3 is LIVE, not inert:** `e24bc9c0f` (16:01Z) is an ancestor of `07eeba4a1` (the 1316 build
   point, rolled 17:13Z) and round `ceae30f2` is APPROVED r1. The §11 addendum's "inert until a roll" is
   already stale; so the 2 parked tools (ab-test, meme-generator) can be filed now on §9.3 alone — via the
   adopt route, with the ported slot retired by hand as before.
-- **Filed `bugs_open/330`** (`create_tool_component` cannot regenerate its own tool: the per-site probe +
+- **Filed `bugs_open/331`** (330 was taken concurrently; the 286 close commit's message says 330) (`create_tool_component` cannot regenerate its own tool: the per-site probe +
   `UNIQUE(name)` + the by-hand slot retire). The fix being built there is regeneration IN PLACE under a per-ITEM
   `replace_existing` input — the section writer's CTS-009 convention applied to the tool writer — which would
   retire this RUNBOOK's "deactivate first" / "rename the old row" / "retire before the rerender claims" steps
   for re-fixes once it rolls + its seed applies. Until then the recipe stands unchanged.
-- Misstep of my own, caught before it cost anything: my first design for 330 was rename-old-row + insert new
+- Misstep of my own, caught before it cost anything: my first design for 331 was rename-old-row + insert new
   row + atomic slot swap — it would have needed the incumbent deactivated BEFORE the §9.3 lookup or v2 would
   be recorded as a fork of v1 and retiring v1 would delete the function from the library. Reading the sibling
   writer (`store_generated_component`, CTS-009, `lookupBaseComponent` omitting `is_active` precisely to avoid
