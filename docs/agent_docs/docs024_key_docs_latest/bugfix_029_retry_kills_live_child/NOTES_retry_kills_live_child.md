@@ -1465,3 +1465,50 @@ issues `db.ExecContext(ctx, …)` on the **caller's** context, so on any path wh
 thing that died, the error-log write dies with it. The absence is the *expected* reading under the
 hypothesis, not evidence against it. Candidate 1 is refuted by §2, on measurements that could have
 come out otherwise — not by this.
+
+### 6. A source-level defect found while waiting on the 090 — the park's arrival check is keyed by STEP NAME, not request id
+
+`persistAwaitingStateWithRetry` (`coordinator.go:2103`) opens each attempt with an "did the reply
+beat the park?" check. It is keyed on the **step name**:
+
+```go
+for reqID := range state.AwaitedRequests {
+    if existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{}); exists {
+        if _, hasResponse := existingData["response"]; hasResponse {
+            return nil   // early — WITHOUT persisting status or the awaited entry
+        }
+    }
+}
+```
+
+`response` is `awaitedResponseMarker`, and its own doc comment says it is what `applyResponseToState`
+writes when a reply lands, read here "to decide a reply beat the park".
+
+**It cannot distinguish "a reply to THIS request beat the park" from "a reply to a PREVIOUS request
+on the same step name landed nine minutes ago."** So on any **re-registration of a step name that
+has already been answered once** — exactly what the takeover does when it re-runs
+`iter_N_spawn_handler` — the check fires spuriously and returns `nil` **without saving**. The caller
+treats `nil` as success and goes on to `InsertAwaitedRequest`, so the row lands in the **table**
+while the orchestration's JSONB never records the awaited entry and the status is never moved to
+`AWAITING_RESPONSES`.
+
+`[VERIFIED at source]` on the defect. `[UNVERIFIED]` as the wedge's cause, and **it does not fit as
+the FIRST failure** — the ordering says the parent already failed to advance after spawn #1, whose
+park has no prior marker to trip on. Recorded because it is real on its own terms, and because it is
+a plausible reason the *second* attempt cannot recover what the first one lost. Whoever fixes it:
+key the check on the **request id**, which is what the question actually asks.
+
+Note this is adjacent to but distinct from `bugs_open/236` / RFC_012 (a), whose fix
+(`carryCollectedDataOntoFreshState`, committed **2026-08-15**, `3ba384c63`) addressed the *discard*
+in the same function and left this check untouched.
+
+### 7. ⚠ Marker correction on my own §4, made before anyone else has to make it
+
+I wrote that the spawn row's `processed_at` and "the parent's last state write" **are the same
+event**. That is stronger than what I measured. What is `[MEASURED]`: the lane recorded a 9–16 s gap
+between the final send and the last `orchestration_states` write; I measure a 9–16 s gap between
+`sent_at` and `processed_at` on 37/37 spawn rows in `awaited_requests`. What is `[VERIFIED at
+source]`: `handleCompleteResponse` stamps `processed_at` before `continueExecution` runs. The
+identity of the two events is `[INFERRED]` from those three facts — well supported, not observed.
+The narrowing in §4 survives either way, because both readings put the death after the reply was
+handled; but the word "same" was doing work the evidence had not paid for.
