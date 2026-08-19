@@ -54,8 +54,17 @@ since 07-20).
 1. **Dispatch: one site at a time, ~83 items/hour fleet-wide** `[MEASURED 08-18, STARTER §2]`.
    `max_concurrent: 8` is dead config — `countInFlight` counts task *rows* per group (the
    dispatch group has one), and `loadDueTasks` separately enforces single-flight per row
-   (`cmd/scheduler/main.go:414, :368, :181`). Independently verified by the 090 loop
-   (run `a16b82cd`, verdict recorded in NOTES). Config-only remedy exists (PLAN Phases 2–3:
+   (`cmd/scheduler/main.go:414, :368, :181`). > **CORRECTED 2026-08-19: the 090 run
+   (`a16b82cd`) FAILED at its verdict step — its verdict LLM call hit `max_tokens=32000`
+   (`stop_reason=max_tokens`, 0 chars recovered) — so NO loop verdict exists.** Per the
+   2026-07-31 owner ruling, first-hand verification is substituted and stated plainly:
+   (a) measured trigger cadence — 17 runs in 25 minutes, never 2 in the same minute, and
+   per-minute `count(DISTINCT site_id)` of claims reads 1 across 6 hours `[MEASURED 08-18,
+   STARTER §2]`; (b) two independent code reads of `countInFlight`/`loadDueTasks`/the cap
+   test (the STARTER's author and this workstream's exploration agent, both 08-18);
+   (c) the 83/hr ceiling arithmetic matches measured fleet completions (50–180/hr with
+   idle windows). The verdict-step cap failure is contributed to the bugs_open/183
+   step-token-pressure lane. Config-only remedy exists (PLAN Phases 2–3:
    sibling rows + batch; predicted ~1.8–3× at N=2, ceiling ~×12 at N=8×batch-8).
 2. **Chassis worker pool: 8 concurrent orchestrations fleet-wide** (`CHASSIS_INTAKE_WORKERS`
    default 4 × 2 pods; the env var is set nowhere) `[CONFIG-READ 08-18]`. One env var + a

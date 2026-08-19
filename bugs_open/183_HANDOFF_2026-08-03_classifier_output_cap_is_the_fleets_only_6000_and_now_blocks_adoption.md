@@ -270,3 +270,20 @@ population and **refuted**; and the causal chain contains no unread hop — the 
 is one JSON path, read directly, and the shadowing interaction that could have
 falsified the fix was checked explicitly. What remains genuinely unknown is marked
 `[UNEXPLAINED]` above rather than argued.
+
+---
+
+## CONTRIBUTED 2026-08-19 (dispatch_throughput lane) — a fresh instance of the class: diagnose-dispatch-loop's `verdict` step fails permanently at max_tokens=32000
+
+A `needs_diagnosis` run (correlation `a16b82cd-b89a-45d5-b5df-4370c754e2fd`, filed on the
+scheduler single-flight mechanism) completed `call_handler` and `call_diagnoser`, then died
+at `verdict`: `step verdict failed: failed to execute action execute_llm_prompt: AI call
+failed with unhandled error: response truncated: stop_reason=max_tokens
+(output_tokens=32000 reached the configured cap, 0 chars recovered)` [MEASURED 2026-08-19
+15:32:06Z, orchestration_states.error]. The refusal-to-persist is correct (bugs 012 class
+handled right), but the run fails PERMANENTLY — a diagnosis whose verdict prose exceeds the
+cap can never return a verdict, and the full diagnoser spend is lost with it. Note for any
+cap raise: LCO-007's wall-clock ceiling (~58k tokens on Sonnet 5 through the non-streaming
+600s client) leaves headroom for ~48k but not much more — and per that register entry,
+raising a cap in response to a clock kill (C) is actively wrong; this one is a genuine
+output-volume kill, not a clock kill. Not filing separately — this lane owns the class.

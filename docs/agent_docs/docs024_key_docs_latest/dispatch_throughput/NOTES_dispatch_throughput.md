@@ -108,3 +108,14 @@ figure still owed before pricing tiers (RESEARCH §6).
 `RESEARCH_2026-08-18_throughput_to_thousands_of_domains.md` written (9 sections, decision
 table D0a–D16). 090 run a16b82cd at `verdict` step (EXECUTING_STEP) as of ~15:45 UTC;
 verdict to be appended here when it lands.
+
+## 2026-08-19 — 090 outcome: run FAILED at verdict (max_tokens), NO verdict exists
+
+The a16b82cd run completed handler+diagnoser then died at `verdict`:
+`stop_reason=max_tokens (output_tokens=32000 …, 0 chars recovered)` [MEASURED 15:32:06Z].
+So the RESEARCH doc's "independently verified by the 090" line was FALSE as written —
+corrected visibly in §2.1, substituting first-hand verification per the 2026-07-31 ruling
+(measured cadence + two independent code reads + matching ceiling arithmetic). NOT
+re-filing: a re-run would face the same cap, and the failure class is owned by
+bugs_open/183 (step token pressure) — observation contributed into that file. The claim's
+verification status is: strong first-hand, loop-unverified, stated as such wherever cited.
