@@ -256,3 +256,119 @@ whole.
    vs the deployed `styles.css` size per site.
 Candidates 1–2 are platform Go → council gate; the noted lane has NOT built them
 (ownership respected — this file's lane holds the defect).
+
+## 2026-08-19 — ROUND 2 (idea.uk lane): the fix held, its UNTESTED ARM fired — six more sites clobbered through the guarded door
+
+**090 substitution stated plainly (owner ruling 2026-07-31):** first-hand,
+artefact-verified end to end in one session, same shape as this file's original filing —
+live workflow config read from `agent_definitions`, vm-sites commit history, `css_themes`
+rows, the driving work items, and the served bytes. A 090 would re-read the same
+artefacts.
+
+### Mechanism — the append fix assumed `css_themes` holds the stylesheet; on ~11 sites it holds NOTHING
+
+The candidate-1 fix is working exactly as built: the model returns only `css_added`, the
+DB append is monotonic, `deploy_css` ships the row as returned — "so repo and DB cannot
+diverge through this workflow" (the 08-05 section above). What the 08-05 work did not
+test is the **empty base**: `assets/css/styles.css` is written ONLY by a
+webdesign-agent design run and was **never sourced from `css_themes`**
+(`bugs_open/072`'s finding, quoted at `rerender_single_page_action.go:396`). Fleet
+measurement 2026-08-19: **11 of 21 linked themes have `css_content` of 0 bytes** while
+their sites serve 13–25KB stylesheets carrying every `:root` variable definition.
+relojistas — the one site this file's restore backfilled — is the only site where
+"DB = the file" is true.
+
+So on any of those sites, the guarded chain does this: append 100–400 bytes to `''` →
+deploy the result **wholesale** over the 20KB file. The DB writer cannot shrink; the
+FILE shrinks ~98%. Convergence in the wrong direction. The 08-05 in-transaction proof
+ran on the real relojistas row — the populated-base arm only.
+
+### What fired it, and when
+
+`detected-item-promoter` (bugs_open/083's fix, live 2026-08-16/17) began routinely
+promoting render-audit `contrast_failure` findings, so css-patch-agent started receiving
+real dispatch waves for the first time. Verified clobbers, all at the artefact
+(served `/assets/css/styles.css`, 2026-08-19, `:root` count 0 on every one):
+
+| site | served styles.css now | pre-clobber | clobber evidence |
+|---|---|---|---|
+| **idea.uk** | 428 B | **23,650 B** (vm-sites `8c407a18f`, 08-09) | 4 commits `CSS fix: contrast (theme v2..v5)` 08-17 21:40–21:41Z; **RESTORED, see below** |
+| dartsonline.com | 164 B | unmeasured | theme row 164 B, patched 08-18 04:39 |
+| vonc.com | 176 B | unmeasured | theme row 176 B, patched 08-18 09:33 |
+| cookly.uk | 504 B | unmeasured | theme row 948 B, patched 08-17 17:21 |
+| noted.co.uk | 2,381 B | unmeasured | theme row 2,381 B, patched 08-18 11:41–11:52 (14+ items) |
+| oufe.com | 1,336 B | unmeasured | theme row 1,336 B, patched 08-18 10:40 |
+
+Reader-visible effect: every `--color-*` definition vanishes. Sections whose templates
+carry dark fallbacks (`background: var(--color-background, #0d0d0d)`) go dark while
+their text colour vars fail to `inherit` (black) → black-on-black; heroes hard-code
+`--hero-ink:#fff` over a background that failed to transparent → white-on-white. On
+idea.uk this is **most of the text on every page**.
+
+### It is SELF-AMPLIFYING, and completions lie twice
+
+1. The render audit measures the post-clobber page, finds **1.00:1** pairings (that is
+   invisible text), files `contrast_failure` → promoter → **css-patch-agent again** —
+   which cannot restore definitions it has never seen (its prompt correctly forbids
+   inventing `var()` names, so it emits literal-colour selector patches) and re-deploys
+   the still-themeless file. loancash.co.uk took **11 items in 8 minutes**
+   (08-18 16:34–16:42Z), every one `complete`.
+2. loancash has **no linked style_collection at all**, so those 11 runs exited via
+   `complete_no_css` ("cannot patch") — and the items still read `complete`. A
+   completion from this handler currently proves nothing about the artefact in either
+   arm (`a-complete-work-item-is-not-a-repaired-artefact`).
+
+Note each spec already carries an `acceptance_test` field naming the exact single-
+selector re-measurement — written by the audit, read by nothing in this workflow.
+
+### Why the framework did not catch it
+
+- The workflow's only post-write check is `css_saved.count >= 1` — the DB append took.
+  Nothing compares against the artefact being replaced.
+- The git leg accepted a 23,650 → 428 byte replacement of a site-wide asset without
+  comment; there is no shrink guard at the SECOND writer (this file's original
+  candidate 2 was delivered "by construction" on the DB side only).
+- The audit DOES re-detect — but routes the finding to the agent that caused it, and
+  per-site audit eligibility (hourly rotation, LIMIT 1 site, 7-day window) means a
+  clobbered site can serve invisible text for days before it is even measured: idea.uk
+  was clobbered 08-17 21:41 and never re-audited before the owner saw it 08-19.
+
+### idea.uk RESTORED 2026-08-19 (this file's own relojistas recipe)
+
+- `css_themes` `4734d51c` → **v6, md5 `4841523e47aec4e181fc976aaedd1ae6`**, content =
+  vm-sites `8c407a18f` base (23,650 B) + provenance comment + the four legitimate 08-17
+  patch rules. Guarded UPDATE (matched md5 `0e8637f5…` of the 428 B state), byte-identity
+  verified local-vs-DB by md5. The DB is now the durable restoration source for idea.uk,
+  as it already is for relojistas.
+- **Deploy leg is framework-native and in flight:** deferred item `01a4dbca` (a real
+  08-10 finding; its `parked_reason` condition "restore to detected when 213 is fixed"
+  was met 08-15) restored to `detected` as a single-item canary. Promoter → dispatch →
+  css-patch run will append its fix and ship **the full restored row** to vm-sites;
+  the live host pulls on its ~1.5 h cycle. Verify at the artefact:
+  `curl -s https://idea.uk/assets/css/styles.css | grep -c ':root'` → expect 3.
+- **The other five sites are OTHER LANES' — same recipe, one run each:** recover the
+  pre-clobber file from the site repo's history (the commit before the first
+  `CSS fix:` commit on `<domain>/assets/css/styles.css`), append the patch rules the
+  clobber-era commits added, write it into the site's `css_themes` row md5-guarded,
+  then let (or make) one real css-patch item run. NOTE `sites.github_repo` is empty for
+  dartsonline/vonc/cookly/oufe — resolve the repo the way the git-adapter does, not by
+  assuming vm-sites.
+
+### Fix candidates for the CLASS, ordered by what closes the door
+
+1. **Make the divergence unrepresentable: backfill `css_themes` from every site's live
+   deployed `styles.css` wherever file > row** (the relojistas restore, applied
+   fleet-wide, one-time). After that, "deploy the DB row wholesale" is actually safe,
+   which is the assumption the 08-05 fix already ships under.
+2. **Shrink guard at the second writer**: refuse (or require `allow_shrink`) a deploy
+   that replaces `assets/css/styles.css` with content < ~50% of the repo-HEAD file.
+   Lives naturally in the git-adapter (it can see the file it replaces) — platform
+   seam, council round.
+3. **Use the spec's own `acceptance_test`**: a post-deploy step re-measures the one
+   pairing at the served page; the item completes only on measured improvement. Also
+   closes the loancash arm (a `complete_no_css` exit must not mint `complete`).
+4. **Route the mass-1.00:1 signature away from css-patch-agent**: N same-run 1.00:1
+   findings is a stylesheet-integrity symptom, not N selector defects.
+
+Candidates 2–4 are the owning lane's to sequence; candidate 1 plus the five per-site
+restores can be run by any lane holding this file's recipe.
