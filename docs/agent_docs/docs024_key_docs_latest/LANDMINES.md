@@ -12677,3 +12677,40 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the remedy, and why it is this one:** put the label in `spec` and leave `handler_agent` **empty**. That makes the bad state *unrepresentable* rather than merely refused, and it reuses a mechanism the pre_query already explains. An exclusion list in the promoter is the alternative and is worse: a second place to maintain, and drift between two rosters is the class this estate keeps filing bugs about. ⚠ **Whichever you choose, cite the owner decision next to it** — here, **D2 (2026-08-12): stage 2's output queues for human review, no unreviewed auto-rewrite.** A guarantee with no citation at the point of enforcement is one refactor from being optimised away.
 - **relations:** register **SCH-026** (the promoter) · **CQ-024** (`copy-editor`, whose migration `447` asserts the no-page-write property at APPLY time with a guarded `DO` that RAISEs — the right way to hold a guarantee) · `bugs_open/083` · LANDMINES "a scheduled task N-day limit is really N-to-N+1" (the same escalation task) · MEMORY [[order-fix-candidates-by-what-closes-the-door]]
 - **added:** 2026-08-19, jointly — raised by the `copy_quality_two_stage` lane (`agentchassis-8d`) asking whether their type needed explicit exclusion, measured and written up by the `bugfix_277_required_fields_repair` lane, which owns the promoter
+
+---
+
+## Retention on `orchestration_states` is 24h/4h in the LIVE row and 7d/24h in the repo seed — and your evidence is gone before you know you needed it
+
+- **footprint:** `orchestration_states` · `awaited_requests` · `scheduled_tasks` (`database-cleanup`) · `docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql`
+- **fires when:** you find a handful of instances of an intermittent orchestration failure, write them up carefully, and plan to diagnose them tomorrow — or when you size how far back a census can see by reading the cleanup SQL in the repo.
+- **the trap.** The repo seed says `COMPLETED/FAILED` are deleted after **7 days** and stale `EXECUTING_STEP` after **24 hours**. The **LIVE** `scheduled_tasks.pre_query` (task `database-cleanup`, hourly) says **24 HOURS** and **4 HOURS**. `awaited_requests` — where the step-by-step signature lives — goes with the parent by **CASCADE**, so the detail dies with the row. [MEASURED 2026-08-19] `bugs_open/029`'s wedge fired **18 times on 08-17**; by the morning of **08-19** the table's oldest row was 08-18 07:58 and **all 18 were gone**, taking a filed diagnosis run's entire evidence base with them.
+- **why the wrong result looks exactly like the right one:** the census still returns rows and still looks like a census. **The oldest retained row silently becomes your "first occurrence"** — on 08-18 the earliest surviving row *was* the first wedge, which reads as "the problem started at 14:35 on 08-17" and is really "the window starts at 14:35 on 08-17". A start date that sits on the retention edge is the boundary talking.
+- **the check — ask the table how deep it goes before reading anything into a date:**
+  ```sql
+  SELECT min(created_at) FROM orchestration_states WHERE created_at > now() - interval '10 days';
+  -- if that equals your earliest instance, you have measured the retention policy, not the fleet.
+  SELECT pre_query FROM scheduled_tasks WHERE name='database-cleanup';   -- the LIVE arms, not the seed
+  ```
+- **the second-order trap, which is worse:** the stale reaper terminates a frozen orchestration at **4 hours** and cleanup arm 4 **DELETES** `EXECUTING_STEP`/`AWAITING_RESPONSES` at **4 hours**. Same threshold, two processes. Where the reaper wins you get a `FAILED` row carrying `reaper: stale EXECUTING_STEP` that survives 24h more; **where cleanup wins the orchestration is deleted having never been recorded at all.** So any rate you compute from reaped rows is **a LOWER BOUND on a population you cannot enumerate**, and "we only ever see 18 of these" may be an artefact of who won a race.
+- **the remedy:** register **RSH-011** — the hourly `wedge-evidence-capture` CronJob snapshots frozen orchestrations *and their full `awaited_requests` set* into `doc_notes` at freeze+30min, ~3.5h before either process reaches the row. If you are chasing an intermittent orchestration failure of a DIFFERENT shape, copy that job rather than trusting you will get to the rows in time — you have hours, not days, and the clock starts before you notice.
+- **relations:** register **RSH-011**, **RSH-010** · `bugs_open/029` · `docs024_key_docs_latest/bugfix_029_retry_kills_live_child/NOTES` (2026-08-19) · MEMORY [[seed-sql-is-history-live-row-is-fact]], [[a-record-goes-stale-faster-than-its-reader-can-tell]]
+- **added:** 2026-08-19 by the `bugfix_029_retry_kills_live_child` lane, after losing its own evidence to it
+
+---
+
+## `doc_notes.subject_type` is CHECK-constrained to eight values — your insert is fine locally and fails only where it runs
+
+- **footprint:** `doc_notes` · `deployments/kustomize/services/*/base/check.py`
+- **fires when:** you write a new checker/capture job that reports into `doc_notes` and pick a `subject_type` that describes your subject honestly — `'orchestration'`, `'site'`, `'page'`, `'run'`.
+- **the trap.** `CHECK (subject_type = ANY (ARRAY['tool','pipeline','experience','action','experience-pattern','landmine','component','decision']))`. Nothing else is permitted. Your SQL renders correctly, your query returns correct data, `psql` from your shell reads fine — and the INSERT fails **in-cluster, in a CronJob, on the first real run**, with the job marked failed and the finding never written. [MEASURED 2026-08-19] this took `wedge-evidence-capture`'s first deploy: the whole capture ran, found its answer, printed it, and then threw away the write.
+- **why the wrong result looks exactly like the right one:** `\d doc_notes` shows the columns and the indexes; the check constraints are **below** the index list and easy to cut off with a `head`. The column is a bare `text` with no default, so it reads as free-form.
+- **the check — before writing any new note type:**
+  ```sql
+  SELECT pg_get_constraintdef(oid) FROM pg_constraint
+   WHERE conrelid='doc_notes'::regclass AND contype='c';
+  SELECT subject_type, count(*) FROM doc_notes GROUP BY 1 ORDER BY 2 DESC;   -- what is actually in use
+  ```
+  Use **`pipeline`** for a scheduled checker — every sibling job does — and put the identity in `subject_key`, **prefixed** (`wedge-evidence:<uuid>`), never a bare uuid: a bare uuid in a shared store says nothing about what it keys and can collide with another lane's uuid-keyed notes.
+- **relations:** register **RSH-011** · `site-discovery-staleness-check`, `single-owner-carriers-check` (the sibling jobs) · MEMORY [[go-build-cannot-parse-your-sql]] (same class: the thing that would catch it does not run where you are)
+- **added:** 2026-08-19 by the `bugfix_029_retry_kills_live_child` lane, on the first deploy of RSH-011

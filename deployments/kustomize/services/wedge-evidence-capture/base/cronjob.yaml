@@ -1,0 +1,88 @@
+# deployments/kustomize/services/wedge-evidence-capture/base/cronjob.yaml
+#
+# bugs_open/029: on 2026-08-17 the orchestration wedge fired 18 times in four hours; by
+# 2026-08-19 every row was gone and the diagnosis that needed them read an empty table.
+# Nothing was misconfigured — it is ordinary retention. The LIVE `database-cleanup`
+# pre_query deletes COMPLETED/FAILED orchestration_states at 24h and
+# EXECUTING_STEP/AWAITING_RESPONSES at 4h, and awaited_requests goes by CASCADE.
+#
+# ⚠ The repo seed (docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql) says 7 days /
+# 24 hours for those arms. The LIVE row says 24 hours / 4 hours. Read the live row.
+#
+# THE RACE IT EXISTS TO WIN: the stale reaper terminates a frozen orchestration at 4h and
+# cleanup DELETES an EXECUTING_STEP row at 4h — the same threshold. Where the reaper wins you
+# get a FAILED row that lives 24h more; where cleanup wins the wedge is deleted having never
+# been recorded. So capturing only reaped rows inherits that survivorship bias, and the live
+# arm of this job is the half that matters.
+#
+# WHY HOURLY AND NOT DAILY: a live wedge is visible from freeze+30min until freeze+4h — a
+# 3.5-hour window. Hourly gives three attempts inside it and survives a missed run; daily
+# would miss it outright. To keep that cadence from putting ~8,700 near-empty rows a year
+# into doc_notes (a SHARED store council seats read), a CLEAN run writes its summary only
+# once per UTC day. A run that captures something ALWAYS writes one.
+#
+# Modelled on site-discovery-staleness-check: same image, same secret, same doc_notes
+# convention, same direct-Postgres constraint (no pods/exec RBAC here).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wedge-evidence-capture
+  labels:
+    app: wedge-evidence-capture
+    component: pipeline-integrity
+spec:
+  # :17 past the hour — clear of the daily 06:xx/07:xx check crowd and of database-backup
+  # (02:00). It does not need to beat database-cleanup to a row: the shortest retention arm
+  # is 4 hours, so any hour of the day will do.
+  schedule: "17 * * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Two queries plus one insert per captured wedge. Five minutes is generous; a hanging
+      # job must not sit in the schedule blocking the next hour's attempt.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: wedge-evidence-capture
+            component: pipeline-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: capture
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: capture-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: capture-script
+              configMap:
+                name: wedge-evidence-capture-script
+                defaultMode: 365
