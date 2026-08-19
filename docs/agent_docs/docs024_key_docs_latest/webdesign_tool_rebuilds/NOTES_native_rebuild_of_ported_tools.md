@@ -1628,3 +1628,99 @@ nothing in my pre-flight would have told me: I asserted no open `add_tool`, but 
 `page_rerender` on this page". **Add that to the pre-asserts** — the RUNBOOK already says to check for
 one before filing a NEW rerender; the sharper reason is that an already-queued assemble can fire in
 the retire window.
+
+## 2026-08-19 21:15Z — #15 `tool-blob-maker` FILED, and the same "control wired to nothing" class again
+
+Item **`c9f93dbe-2037-40ff-aa98-c029503e8850`**, page `c6a57b2b-2fc2-4114-bd52-d181e1ca94d2`,
+`/tools/blob-maker/index.html`. Revert handle: ported slot
+**`cbf00f0b-3693-4ed9-b9d3-5b469fdd8c04`, 6,550 chars, md5 `e616953b7278620b9a7b0dcfa573cca6`**.
+All four gates asserted empty in the transaction (no library claim, derived name free, `already_exists`
+probe empty, no open `add_tool`).
+
+**The defect: three controls, zero listeners.** The script ends with `generate();` and binds nothing —
+the complexity slider, the roughness slider and the colour picker have no `addEventListener` and no
+`oninput`. The only wired control is `onclick="generate()"` on a "New Shape" button, and `generate()`
+re-rolls `Math.random()` every time. **So the visitor who likes the current blob and wants it in
+another colour cannot have it: changing the colour does nothing until they press the button, and the
+button destroys the shape.** The colour control looks broken even though the code reads its value —
+the fifth tool in fourteen where a control's *appearance* of working is the defect.
+Plus the copy button: `navigator.clipboard.writeText(...)` with the promise dropped, then
+`alert("Copied!")` unconditionally — rules 15 and 17 in one line, so the brief says nothing about it.
+Plus dead code shipped to view-source: the path string is built in full, discarded unused, and rebuilt
+a second way, with three leftover debugging comments.
+
+The brief's one tool-specific requirement is therefore the SPLIT: geometry controls re-derive the
+shape, the colour control refills the existing path and must leave the geometry alone, and only the
+re-roll button may change the random offsets (so the offsets have to be held in a variable).
+
+## 2026-08-19 21:20Z — TRACK 2 (the checker): prior art says build much LESS than the handoff plans, and one of the six rules must NOT be checked statically
+
+The handoff's next-action 2 is "build a discovery check for the 481 classes, shaped on
+`orphan_element_refs`". Before writing any Go I read the package and measured the queue it would file
+into. Both answers change the design, so recording them here rather than in a commit message.
+
+**1. Detection of these classes ALREADY EXISTS, and it is not a static check — it is `tool-auditor`.**
+On this very site it has already reported, in its own words: *"Division by zero is certain when
+visitors is 0. The z-score formula uses `p * (1 - p) / n` under a square root…"* — **the exact defect
+I found by hand this evening and wrote #14's brief around**, filed on 2026-08-15, four days before I
+looked. Also in the same batch: a missing copy button, an unguarded negative input, `input` and
+`change` both bound to every control, hardcoded hex outside `var()`. So a new detector for the
+behavioural classes would be the estate's SECOND opinion on them, not its first.
+
+**2. What `tool_health` already covers, and what it does not.** `check_tool_health.go` runs 10
+sub-checks over BOTH populations — real forks and the 63 ported instances (widened 2026-08-15 under
+`bugs_open/281`, this lane's own arc) — and it is DRIVEN: `design-discovery-agent`'s `checks` array
+contains `tool_health`, `tool_acceptance`, `tool_acceptance_due` `[MEASURED at the live row]`. Its ten
+are structural: page deployed, html present, template present, has script, has style, `@media`
+present, no bare hex, no `fetch`/external `src`, tool-doc header present, header shape.
+**None of rules 15-20.** So the gap the handoff describes is real — it is just much narrower than
+"the six classes", because two of the six are already someone else's job and one of them cannot be
+done this way at all.
+
+**3. `check_dead_controls.go` DECLINED this exact judgement, on purpose, and says why.** Its header:
+*"`<button>` with no handler is NOT judged statically (JS binds at runtime); the post-hydration
+equivalent lives in the Tier-4 browser tier."* That is precisely the blob-maker defect I filed 20
+minutes ago. Whatever Track 2 becomes, it must not silently overturn a boundary another check states
+in its own header — `dead_controls`' owner drew it deliberately, and a static "this control has no
+listener" rule is exactly what it refused.
+
+**4. Rule 18 MUST NOT be checked statically, and #14 is the counterexample — measured, not imagined.**
+The obvious static test for "validate every value you parse" is: script calls `parseInt`/`parseFloat`
+and contains no `isNaN` / `Number.isFinite` / `isFinite`. **Run that against the ab-test tool built
+today and it FAILS a tool whose validation is exemplary**: `isNaN` count 0, because the guard is
+`/^\d+$/.test(raw)` *before* the parse, which is strictly stronger than an isNaN test afterwards. A
+checker shipped on that rule would have filed an item against the best-validated tool on the site.
+Rules 15, 19 and 20 are semantic in the same way (was the success label reached only on success? did
+the error land outside the output area? is this tool a transformer at all?).
+**Rules 16 and 17 are different in kind:** an inline `onclick=`/`oninput=`/`onchange=` attribute and a
+call to `alert(`/`confirm(`/`prompt(` are LITERAL and cannot be satisfied by a better implementation.
+They are decidable; the other four are not.
+
+**5. The queue: I nearly recorded a dead queue that is NOT dead, and the correction is the useful part.**
+First measurement `[2026-08-19 21:00Z]`: `improve_tool` over 30 days is **205 `unresolved`** against 35
+complete — and `unresolved` is terminal to the dispatcher, so that reads as "the fixer is a graveyard;
+do not file into it". **Wrong, and the row-level look says why.** On webdesign, 20 of those 205 share
+ONE `item_key` — `audit_fix_webdesign.co.uk`, no per-tool discriminator — were all filed between 15:55
+and 16:46 on 2026-08-15, and every one was BORN carrying "[unresolved after 2 attempts]" although
+**zero rows with that key have ever reached `complete` or `failed`**. Then look at what came next:
+from **17:24** that day the keys change shape to `audit_fix_webdesign.co.uk_<page_id>`, and those rows
+DISPATCH — 3 complete, 1 failed, plus an `acceptance_fail:` one complete on 08-16.
+**Migration `425_tool_auditor_ported_instances.sql` was applied at 17:17:19Z** — seven minutes before
+the first per-page key. Its own header names the defect: *"Today's keys are SITE-wide
+(`audit_fix_<domain>`…)"*. `434_spec_data_map_is_never_read_four_producers_file_empty_specs.sql`
+followed at 22:29Z, measuring "233/233 audit_fix improve_tool" items filed with an empty spec.
+So: **the 205 are a pre-425 scar, not the current behaviour**, and `improve_tool` is a live path today.
+A count over 30 days answered a question about the past in the tense of the present — the lesson is
+the one already in MEMORY as "pin the clock to before the failure", arriving from the other direction.
+
+**Recommendation, then, and it is smaller than the handoff's:** ONE sub-check pair inside
+`check_tool_health.go` (not a new registered check — `tool_health` is already in the live `checks`
+array, so extending it needs no config change and cannot become an undriven mechanism), covering
+**only** rules 16 and 17, over both populations. Route per the package's own doctrine in `remit.go`,
+which exists for exactly the Track 3 question: forks are in-remit (tool-improver rewrites
+`html_template`) and get `improve_tool` with a PER-INSTANCE `item_key`; ported instances are residue
+(no per-instance fixer — `tool_health`'s header records why, a shared wrapper write fanned out to
+three sites twice) and get ONE undispatchable `capability_gap` per site per check rather than 42
+`ported_tool_fix` rows. `PartitionByRemit` + `CapabilityGapItem` are already written and already used
+by two other checks. **Do not build a rule-18 checker.** And say out loud in the header what this
+does NOT cover, or the next reader will read its silence on rules 15/18/19/20 as a clean bill.
