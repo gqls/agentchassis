@@ -446,6 +446,25 @@ func TestStepContractRenamesAreWellFormed(t *testing.T) {
 	}
 }
 
+// TestStepContractRenamesStayRare is the growth guard the council's architecture
+// seat asked for (corr f3716ebe, round 2, advisory): renderContextStepContractRenames
+// is a hand-authored collision table, and nothing else stops it quietly
+// accumulating entries the way a shared action accumulates optional keys
+// (RFC_022's budget exists for exactly that shape). So the size is PINNED. Adding
+// an entry is allowed — but it costs reading the new producer, writing its reason
+// into the map comment, and raising this number on purpose in the same commit.
+// If you are here because this failed and you did not add an entry, someone
+// parked a collision in the map without tracing it: read the candidate-set query
+// in the staged_component_build RUNBOOK first.
+func TestStepContractRenamesStayRare(t *testing.T) {
+	const declared = 1 // current_page → current_page_name (RFC_029 §10.13 step 4)
+	if got := len(renderContextStepContractRenames); got != declared {
+		t.Fatalf("renderContextStepContractRenames has %d entries, %d declared — a new step-boundary "+
+			"rename needs its producer read and its reason written beside the map; then raise `declared` "+
+			"deliberately in the same commit", got, declared)
+	}
+}
+
 // TestCurrentPageEmptyStaysEmpty is the negative control: an unset page must
 // render as empty on both paths, never as "<no value>" or a stale neighbour.
 // A component that branches on current_page degrades to "show everything", and
