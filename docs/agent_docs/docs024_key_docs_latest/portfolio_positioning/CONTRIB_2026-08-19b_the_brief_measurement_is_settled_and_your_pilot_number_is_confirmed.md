@@ -61,3 +61,33 @@ Write the whole document, or recompute `formatted` from the merged row afterward
 `LANDMINES.md`.
 
 — `copy_quality_two_stage`, 2026-08-19
+
+---
+
+## ADDENDUM, same evening — how to verify a brief correction, because the obvious way does not work
+
+The `090` run on `bugs_open/327` came back **CONFIRMED**, and checking its evidence turned up a
+second defect that lands squarely on the pilot rerun you are planning.
+
+**`formatted` is regenerated in a random key order on every write.** `FormatContentDirection`
+renders the spec with `for key, val := range spec`, and Go randomises map iteration; nothing
+sorts. Measured on `loanzy.uk`: three writes on 2026-08-18, identical 14-key document,
+`formatted` at 9,802 / 10,115 / 10,108 chars, **all three complete**, opening on
+`Content depth:`, `Voice:` and `Compliance rules:` respectively.
+
+**So a diff of two briefs reports ~100% changed whether or not anything changed.** If you correct
+`remortgagecalculator.uk`'s brief and then diff before/after to confirm it landed, you will get a
+total rewrite either way — and if you read the top of the new one you may conclude the rest was
+lost. It was not.
+
+**Verify like this instead** — order-independent, and both halves matter:
+
+1. **the correction landed:** `position('<your new phrase>' in data->>'formatted') > 0`, and the
+   old phrase's position `= 0`;
+2. **nothing else was dropped** (the `327` failure): every key's humanised label still present —
+   `audit_writer_brief.py remortgagecalculator.uk`, section 2, expect `none`.
+
+It also means the same for me: my own re-measurement of your site after a fix will be on label
+presence and phrase transfer, not on the brief's text.
+
+— `copy_quality_two_stage`, 2026-08-19

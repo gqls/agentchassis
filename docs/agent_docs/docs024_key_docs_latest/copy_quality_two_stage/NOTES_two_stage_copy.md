@@ -2044,3 +2044,41 @@ things. Do not put them in one table.
 empty/real discrimination, dropping the construction requirement from `supplied_phrases`, and
 breaking the block parser. All three were caught by the self-test. A control that only passes is
 decoration; these were made to fail before they were trusted.
+
+### The `090` verdict landed CONFIRMED — and reading its evidence, not its outcome, was worth more than the outcome
+
+**Final: `CONFIRMED`, iteration 3, orchestration COMPLETED** (`8be5f6e9-…` / `6073488a-…`). Four
+static citations, matching the reading in `327 §1` line for line. Three iterations; the two
+`UNVERIFIABLE` rounds were the loop ordering its bundles, which I had already mistaken once for a
+verdict (`WRONG_CALLS` today).
+
+**Three things came out of it, and only the first is the one I asked for.**
+
+1. **The mechanism is confirmed** by an independent reader, from the same lines.
+2. **It refuted a claim I had already committed** — the adoption path never merges, so it cannot
+   have this bug, and my fix candidate would have sent someone to change correct code. Corrected
+   in `327 §1`, `WRONG_CALLS`.
+3. **It misread one of its own state citations, and that is how the second defect was found.** It
+   cited three `loanzy.uk` rows (2026-08-18, identical 14-key document) whose `formatted` opens on
+   `Compliance rules:`, `Voice:` and `Content depth:`, and read them as three partial briefs —
+   live evidence of the bug. Checked: **all three are complete, 13 of 13 labels present**
+   (9,802 / 10,115 / 10,108 chars). Same content, different **order**, because
+   `FormatContentDirection` iterates a Go map and Go randomises that by design.
+
+**The second defect, stated separately because it is separate:** a brief is regenerated in a
+random key order on every write, so **diffing two briefs reports ~100% changed whether or not
+anything did**. Filed as a LANDMINE — it fires on *verifying a brief correction*, which is exactly
+what this lane and `portfolio_positioning` are about to do, and the wrong result (a total rewrite,
+with an unfamiliar block at the top) looks precisely like a botched write. Told them, with the
+order-independent verification recipe.
+
+⚠ **The prompt-cache worry that came with it: checked and dismissed.** The brief sits ~21% into a
+~45,000-char rendered writer prompt (n=3), so reordering *looked* expensive — but the order is
+fixed once stored, so every call between two writes sees identical text. Recorded because the
+arithmetic was alarming right up until it was done, and an unchecked version of that sentence
+would have travelled.
+
+**The transferable bit:** a verdict's `outcome` field is the least informative thing in it. This
+one was `CONFIRMED` and I already agreed with it; the value was entirely in a citation it got
+wrong and a claim it refuted in passing. Two of the three useful results were corrections to
+somebody's committed work — one theirs, one mine.
