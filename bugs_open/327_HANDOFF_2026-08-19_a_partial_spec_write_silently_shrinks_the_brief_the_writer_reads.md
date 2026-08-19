@@ -245,3 +245,68 @@ planner's own partial. The tooling for it is `audit_writer_brief.py --fleet` (re
 and its `next_scope` list — `siteSpecDeepMerge`, `format_content_direction.go`,
 `apply_adoption_plan_action.go` — is exactly the three places the answer was. A run that names
 its own gaps precisely is doing its job even when it stops short.
+
+---
+
+# ✅ FINAL `090` VERDICT: **CONFIRMED** (iteration 3, orchestration COMPLETED) — with one of its own citations corrected, and a SECOND defect it surfaced by accident
+
+**Run `8be5f6e9-d0b3-43f7-9ee4-dee2432dd8b1`. Item `complete`, orchestration
+`6073488a-3082-447d-8bd0-d8ee53000136` `COMPLETED`, outcome `CONFIRMED`.** It took three
+iterations; the two `UNVERIFIABLE` rounds above were it ordering the bundles it needed.
+
+**Its four static citations are the mechanism, and they match the reading in §1 exactly** —
+`formatted := datahelpers.FormatContentDirection(specMap)` and
+`merged := siteSpecDeepMerge(currentData, specMap)` both in `WriteSiteSpecAction`, the
+`else { result[k] = srcVal }` arm in `siteSpecDeepMerge`, and the action's own comment that the
+writer reads `formatted` *"as one field regardless of how the structured data is organised"*.
+Its own summary of the third: the writer *"has no other path to the deeper keys."*
+
+## ⚠ But its STATE evidence does not say what it says — and checking it found something else
+
+The verdict's fourth `symptom_check` cites three `loanzy.uk` rows from 2026-08-18 (13:36, 15:58,
+20:19) with an **identical 14-key document**, whose `formatted` opens on *"Compliance rules:"*,
+*"Voice:"* and *"Content depth:"* respectively — read as *"'formatted' switches wholesale between
+… each describing only the [subset]"*, i.e. the bug firing live last week.
+
+**It is not.** All three rows are **complete** `[MEASURED 2026-08-19]`:
+
+| row | `formatted` chars | labels present / keys | opens on |
+|---|---|---|---|
+| 13:36 | 9,802 | **13 / 13** | `Content depth:` |
+| 15:58 | 10,115 | **13 / 13** | `Voice:` |
+| 20:19 | 10,108 | **13 / 13** | `Compliance rules:` |
+
+Same content, **different order**. The loop compared opening lines and inferred subsets.
+
+## The second defect: `formatted` is regenerated in a RANDOM key order on every write
+
+`FormatContentDirection` builds its output with `for key, val := range spec` — and **Go
+randomises map iteration order by design**. Nothing sorts the keys before or after. So two writes
+of an identical document produce two completely different briefs, character for character, with
+the same content shuffled.
+
+**This is a separate defect from the one this file is about** — different failure, same function,
+and the remedy is one line (iterate a sorted key list). Consequences, in the order they bite:
+
+1. **You cannot tell whether a brief changed by comparing `formatted`.** A text diff between two
+   writes reports ~100% changed whether or not anything did. ⚠ **That lands directly on the work
+   this lane and `portfolio_positioning` are about to do**: correcting a brief and then verifying
+   the correction landed. Verify by **label presence and key content**, never by diffing the
+   rendered brief — which is what `audit_writer_brief.py` already does, by luck rather than
+   design when it was written.
+2. **The writer meets its instructions in an arbitrary order** that changes on every spec write —
+   compliance rules first on one write, content depth first on the next. Whether that moves
+   output is **[UNMEASURED]**, and it is a genuinely testable question.
+3. **Prompt-cache cost: checked and DISMISSED.** The brief sits ~21% into a ~45,000-char rendered
+   prompt (position ~9,450, n=3), so a reordering would invalidate the cached prefix from there
+   on — **but the order is fixed once stored**, so every call between two spec writes sees the
+   same text, and a spec write would break the prefix anyway by changing content. No additional
+   cost. Recorded because the arithmetic looked alarming until it was done.
+
+## What the run was worth, stated plainly
+
+It **confirmed** the mechanism from citations I had also read, **refuted** a claim I had already
+committed (the adoption path — see §1's correction block), and **misread one state citation**,
+which is how the ordering defect was found. Three useful outcomes, two of them corrections to
+somebody's committed work. That is a good return on one run, and it is an argument for reading a
+verdict's evidence rather than its outcome field.

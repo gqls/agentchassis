@@ -93,9 +93,15 @@ Both in `WRONG_CALLS.md` with the cheap check; NOTES corrected in place.
 
 ## Next work, in the order that closes doors
 
-1. **Read the FINAL `090` verdict** (`8be5f6e9-…`, orch `6073488a-…`) and update `327` — the file
-   currently carries iteration 1 plus a correction block. One query:
-   `SELECT current_step, status FROM orchestration_states WHERE correlation_id='8be5f6e9-…';`
+1. ~~**Read the FINAL `090` verdict**~~ **DONE, same session — `CONFIRMED` at iteration 3**
+   (orch `6073488a-…` `COMPLETED`). Four static citations matching §1's reading. ⚠ Two things
+   came out of checking its evidence rather than its outcome, both now in `327`: it **refuted**
+   my adoption-path claim (correct — that path never merges), and it **misread one state
+   citation**, which surfaced a **second defect**: `formatted` is regenerated in a **random key
+   order** on every write (Go map iteration, nothing sorts). Consequence that lands on the brief
+   corrections we and `portfolio_positioning` are about to make: **a text diff of two briefs
+   reports ~100% changed whether or not anything did** — verify by label presence and key
+   content, never by diffing the rendered brief.
 2. **`327`'s platform fix is NOT this lane's to make** — shared seam, council + roll. What is open
    is who takes it. The one-line invariant: compute `formatted` from `merged`, never from the
    incoming partial (both `site_spec_actions.go` and `apply_adoption_plan_action.go:280`). ⚠ The
