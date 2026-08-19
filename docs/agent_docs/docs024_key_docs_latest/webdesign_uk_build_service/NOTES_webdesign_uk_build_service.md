@@ -4562,3 +4562,102 @@ say, so the correction is visible rather than silently applied.
    makes the passing run evidence.
 
 Applied: `INSERT 0 1`, `DO`, `COMMIT`. Verified at the live row: **7 corrected of 33**.
+
+### 2026-08-19 (~16:1xZ) — FOUR owner rulings, and the guide turned out to be blocked by THREE different defects, not one
+
+Put four decisions to the owner in one go, with the evidence for each. His answers:
+
+1. **Narrow the `round of changes` ban to offer shapes.** Applied as `SQL_2026-08-19f`.
+2. **The £200 buys the domain ONLY, and the customer transfers it.** *"Keep
+   nobody's-time-included absolute. We document the steps and hand over what they
+   need; the transfer itself is theirs to do."* Applied as `SQL_2026-08-19g`.
+   **This resolves this morning's collision in `no_presales_service`'s favour, and
+   supersedes the hand-holding half of decision 6** — that fact is UNCHANGED and
+   stays absolute; there is no carve-out for the £200.
+3. **Lengthen the ZIP download link to 30 days** (presign is 7 today). Not yet done:
+   it is a Go change in `zip_deliverable_action.go`, so it needs a build and a roll.
+4. **Phase 4 handover state next** — `handed_over_at`, the 6-week live-link expiry,
+   and the tokenised confirm-click.
+
+#### `SQL_2026-08-19f` — the changes ban, narrowed to offer shapes
+
+The first alternative was the bare token `\brounds? of (revisions?|changes)\b`. The
+negation guard scans backwards for `not`/`never`/contractions and **deliberately
+excludes bare "no"**, so *"we do not include a round of changes"* was always fine and
+*"no round of changes"* never was.
+
+Measured with `claimscan`, five offer shapes and six denials:
+
+| | offers blocked | denials blocked |
+|---|---|---|
+| before | 5 of 5 | **3 of 6** |
+| after | 5 of 5 | 0 of 6 |
+
+Over the whole 27-component corpus the narrowing loses nothing and gains nothing.
+**An earlier candidate let *"We give you a round of changes after the build."*
+through** — the object pronoun sits between the verb and the quantifier. Caught by
+the BLOCK half of the probe set, which is the half that is easy to skip: a narrowing
+that only checks its denials pass has not checked that it still bans.
+
+#### `SQL_2026-08-19g` — `domain_buy_once` re-attested
+
+Old: *"the customer is then free to transfer it to their own registrar or host."*
+Wrong twice — "free to" is an option where the owner means an obligation, and it
+**generated banned copy**: the 15:56Z blocker was *"a one-off £200, after which
+you're free to move it to your own registrar whenever you like"*, the writer
+elaborating an optional-sounding freedom into an unbounded one. Second page-blocking
+this fact's wording caused today.
+
+New writer_line: *"Buying the domain is a one-off £200. It is then yours, and you
+move it to your own registrar; we give you what you need to do that."* The claim, the
+writer_line and a natural paragraph built from them all scan clean.
+
+> **Recorded, not written into copy:** for a `.uk` domain the transfer is executed by
+> the LOSING registrar changing the IPS TAG, so the final action is ours however the
+> commercial terms read. The new wording survives that without promising anyone's
+> time. **Which TLDs we actually sell is still unowned** and still blocks documenting
+> this properly.
+
+#### `SQL_2026-08-19h` — the testimonial ban could never have worked, and it was blocking any quotation
+
+The guide's THIRD blocker, at 16:09Z, was nothing to do with commercial terms:
+
+> banned claim `"A joiner in Leeds who wants a one-page site with a contact form and photos of finished jobs" tells t`
+
+The pattern is `"[^"]{20,}" ?[—,-]? ?[A-Z][a-z]+ [A-Z]` and its reason says it catches
+"a long quotation followed by an attributed name". The `[A-Z][a-z]+ [A-Z]` tail IS the
+name — it is the only thing separating a testimonial from any other quotation.
+
+**But `claims.go:296` compiles every site pattern as `regexp.Compile("(?i)" + p)`**
+(and `claims_global.go:223` does the same fleet-wide). So `[A-Z]` matches any letter,
+`[a-z]+` matches any word, and the tail degrades to *"the quotation is followed by
+more prose"*. Measured:
+
+| probe | before | after |
+|---|---|---|
+| three real testimonials | blocked | blocked |
+| a quoted example brief | **blocked** | clean |
+| a quoted anti-example (*"Modern and professional"*) | **blocked** | clean |
+| a quoted question | **blocked** | clean |
+
+Fix is four characters: `(?-i)` before the name part. Go's RE2 supports inline flag
+groups, so the forced `(?i)` can be locally reversed without touching platform code.
+
+**Why nobody noticed: the damage is an ABSENCE.** A page blocked at save never becomes
+a stored component, so the corpus diff for this fix is empty in both directions and no
+census of live content could ever have found it. A guide about writing briefs quotes
+example briefs; it could not have avoided this.
+
+Fleet census before assuming it was general: `b->>'pattern' ~ '\[A-Z\]'` over every
+current `evidence_base` returns **exactly one row**, this one, and the fleet-wide Go
+set has none. Contained — but filed in `LANDMINES.md`, because the failure is silent
+and points the wrong way: a case-dependent pattern fails by BLOCKING, which looks like
+a strict gate rather than a broken one.
+
+#### What this page cost, and what it bought
+
+Three attempts, three different blockers: a commercial-terms denial the ban could not
+tell from an offer, a fact whose own wording invited an unbounded promise, and a
+pattern that could not do what its reason claimed. **Two of the three were defects in
+the rules, not in the writer**, and only the third attempt's failure looked like a
+false positive on sight. Requeued a fourth time with all three fixed at source.
