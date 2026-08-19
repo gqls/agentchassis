@@ -1693,3 +1693,61 @@ necessary and none was sufficient, and each time the previous fix's success made
 like the same failure. The general shape: **when a run refutes on absence, establish WHICH absence
 before re-filing** — the loop's `needed_evidence` says so precisely every time, and reading it as
 "still not enough evidence" rather than as a specific unmet precondition is what cost the repeats.
+
+### 11. The fourth 090 is the first one to READ the wedge — verdict UNVERIFIABLE, and it is a real result, not a stall
+
+Run `d52c3407-14e7-4b9e-be46-c8ee741b2532`, filed 16:14Z with six frozen `orchestration_id`s and a
+healthy control seeded into the symptom. **`UNVERIFIABLE`, with four citations — three of them
+`tier: state`, quoting real rows.** The seeding worked: it pulled `04518118`'s rows, aggregated them,
+and pulled the control for comparison.
+
+**What it confirmed, in its own citation:**
+
+> `04518118… | process_item_iter_1_call_handler | 1 | {3} | {error}`
+> `04518118… | process_item_iter_2_spawn_handler | 2 | {0} | {processed}`
+> control `002141d6… | process_item_iter_2_call_handler | 1 | {0} | {processed}`
+> control `002141d6… | process_item_iter_2_spawn_handler | 1 | {0} | {processed}`
+
+**Why it abstained, and it is right to.** The bundle carries no bodies for `handleCompleteResponse`
+or `continueExecution`, and `orchestration_states` — the only place that could show the map missing
+an entry the table has — is gone by retention for all six. So the row signature is *compatible with*
+the hypothesis and is not an observation of the mechanism. **A cite-or-abstain verdict that abstains
+on exactly that distinction is the loop working, not failing.**
+
+#### 11a. It raised a real alternative against my own correction — and here is the check
+
+Its `needed_evidence` asks for the retry-claim code *"to rule out a legitimate retry path resetting
+`retry_version` to 0 on a fresh `request_id`, which would explain the duplicate spawn rows without
+the map/table divergence."* That would falsify §9 and the `WRONG_CALLS` entry built on it. **Checked
+at source rather than defended:**
+
+| | |
+|---|---|
+| every `INSERT INTO awaited_requests` in the tree | **two**, `state.go:1611` (`InsertAwaitedRequest`) and `spawn_actions.go:166` (`preRegisterAwaitedRequest`) — **neither is on a retry path** |
+| every `retry_version` writer | **three**, all `UPDATE … WHERE request_id = …`: `coordinator.go:3329` (commented out), `coordinator.go:3341` (`UpdateAwaitedRequestRetry`, live), `state.go:1965` (`UpdateAwaitedRequestForRetry`) |
+| `UpdateAwaitedRequestForRetry` (`state.go:1962`) | **DEAD — zero callers in the tree.** The live writer is `UpdateAwaitedRequestRetry` at `coordinator.go:3337` |
+
+**A retry mutates the existing row in place and cannot mint a second one.** So two distinct
+`request_id`s at rv0 on one step name are not reachable from the retry driver.
+
+**And the loop's own citation already proved it, inside a single orchestration:** `04518118`'s
+`call_handler` is **one row at rv3** (a retry, bumped in place) while its `spawn_handler` is **two
+rows at rv0 with distinct ids** (two registrations). The contrast is within one orchestration on one
+day, so no cross-instance confound. **§9 and the `WRONG_CALLS` entry stand.**
+
+> ⚠ Note for anyone reading Fable's plan doc alongside this: it reached the same conclusion but
+> cited **`state.go:1962`**, the function with no callers. Right answer, wrong citation — the live
+> writer is `coordinator.go:3337`. `[VERIFIED]` by `grep -rn 'UpdateAwaitedRequestForRetry'`
+> returning only its own definition and doc comment.
+
+#### 11b. What the loop wants next, and it is cheap
+
+`next_scope` names `handleCompleteResponse`, `continueExecution`, `ClaimAwaitedRequestForRetry`,
+`UpdateAwaitedRequestForRetry`, `retryExpiredAwaitedRequest`. Three of those are already read and
+recorded here; the seed scope on the next run should carry the **function bodies**, which is what its
+abstention actually turned on. **But note the ceiling:** the map-vs-table divergence it says it needs
+is only observable in `orchestration_states`, which is purged for the 08-17 cohort and will be purged
+for any future one within ~26 h. **RSH-011's hourly capture is what closes that** — it snapshots the
+live wedge with its full `awaited_requests` set. So the honest sequence is: *the next burst is what
+confirms this, and the capture job is already armed for it.* Nothing further is owed to the loop
+until then.
