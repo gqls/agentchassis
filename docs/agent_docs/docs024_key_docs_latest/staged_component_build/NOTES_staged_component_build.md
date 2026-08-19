@@ -5172,3 +5172,36 @@ Round 2 submitted under the same correlation (`RESUBMIT_CORR=07468ec0`, run `bd6
   in `02777cd5f`. Net for your step 5 arithmetic: pbh's rp-ambiguity class should read 45→0
   after the roll; pcw's shape class (794) is untouched and remains step 4's population.
 - Roll gate for BOTH 306 halves is now: stamped sha carries `393f15bfd` (⊇ `846496906`).
+
+## 2026-08-19 (~11:2xZ) — gate APPROVED round 2 (4 advisories, none high). Step 3's code is fully reviewed; everything now waits on the roll.
+
+Corr `07468ec0`, run `bd6e8188`: **APPROVED**. Advisory dispositions:
+
+1. **editquality medium** (rationale claims a log change the sketch does not show): the code
+   change and its test EXIST and were committed before the resubmission (`393f15bfd`) — the
+   round-2 plan's edit SKETCHES were stale while its rationale was current. Submission-side
+   mismatch only; nothing owed in code. Lesson: when a revision adds code, update the sketch,
+   not just the rationale.
+2. **editquality low / guardian low** (other callers of the changed signature): verified —
+   `ensureCoreFields` has exactly one call site plus its definition (grep: 2 occurrences, both
+   in `unified_extractor.go`), and the package compiles, which a second caller could not have
+   survived. `ExtractFields`' signature is unchanged.
+3. **bug_historian medium** (a new way for a field to go silently missing): answered by the
+   round-2 additions themselves — zero undeclared consumers at any nesting depth, plus the
+   skip named on the standing log line.
+4. **debug_historian medium — the actionable one:** the submission carried no POST-DEPLOY
+   verification plan. Correct; it now exists in the handoff checklist: after the roll, (a)
+   label+digest+`/proc/1/exe` with `393f15bfd` as the ancestor check, (b) the WINDOW read
+   (class-1 `build-dispatch-loop current_page` → ~0 while `page-content-writer` rows persist
+   as the demand control), (c) a live-behaviour probe better than a binary grep: the new
+   `unrequested_page_fields_not_injected` field appearing in a chassis pod's
+   "Ensuring core fields present" lines.
+5. **debug_historian low** (archive extraction fills tmpfs): measured both runs — /tmp flat
+   (94M→113M), and extraction goes to the session scratchpad, not /tmp.
+
+**098 bookkeeping, stated so the report reads correctly:** `f42e03720` carries
+`Council-Submitted: 07468ec0` and auto-credits now the verdict is approved. **`393f15bfd`
+carries NO trailer** (the commit-msg hook warned; forward-only forbids the amend) — it is the
+round-2 revision code and was reviewed as part of this approval; a 098 reader finding it
+un-reviewed should read this entry. The same-file passenger note: my WRONG_CALLS commit
+(`05bebd935`) swept two other lanes' entries (311, 283) — the known same-file case, no loss.
