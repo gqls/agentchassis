@@ -1159,6 +1159,17 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	//     deployed page on every sync and churned pages deployed before the plan
 	//     existed (tools). NULL is normalised to 'planned'; other states are left
 	//     intact for the reconciler / dispatch to act on.
+	//   - meta_description is COALESCE(NULLIF(EXCLUDED,''), existing) — an incoming
+	//     BLANK never destroys a description the page already has (bugs_open/320).
+	//     It used to be a bare `= EXCLUDED.meta_description`, three lines below a
+	//     nav_label clause that WAS guarded, which is what made the asymmetry read
+	//     as deliberate. It was not: metaDescription above defaults to "" whenever
+	//     the incoming page map omits the key, and build-site-planner's page object
+	//     never carried the key at all — so every replan of an existing page wrote
+	//     a blank over whatever was there. Measured 2026-08-19: four robot-hands.com
+	//     pages holding 97/120/169/329 chars in an April site_snapshot read 0 today.
+	//     A NON-blank incoming value still wins, so a plan that DOES supply one
+	//     continues to update the page; only the destructive direction is closed.
 	query := `
 		INSERT INTO pages (site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, meta_description, sections, build_status, status, built_from_plan_version)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'planned', 'active', $12)
@@ -1170,7 +1181,7 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			nav_order = EXCLUDED.nav_order,
 			in_header = EXCLUDED.in_header,
 			in_footer = EXCLUDED.in_footer,
-			meta_description = EXCLUDED.meta_description,
+			meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description),
 			sections = EXCLUDED.sections,
 			built_from_plan_version = COALESCE(pages.built_from_plan_version, EXCLUDED.built_from_plan_version),
 			build_status = CASE

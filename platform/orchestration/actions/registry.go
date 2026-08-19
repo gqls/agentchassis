@@ -695,6 +695,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Rebuild blog listing page_component from published posts",
 		IsLocal:     true,
 	},
+	"save_page_meta_description": {
+		Handler:     SavePageMetaDescriptionAction,
+		Category:    "site",
+		Description: "Persist an LLM-written meta description onto a page (bugs_open/320); fills a blank by default, replaces existing copy only with overwrite_existing=true",
+		IsLocal:     true,
+	},
 	"ch_detail_fetch": {
 		Handler:     CHDetailFetchAction,
 		Category:    "data",
