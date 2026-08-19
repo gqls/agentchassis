@@ -165,3 +165,22 @@ DGH-001, updated in the same commit as each shipping phase.
 Phases are **not implemented**. This document is the design; nothing here has shipped.
 The diagnosis loop produced no verdict (LLM usage cap, twice) — see NOTES for the first-hand
 substitute, stated plainly per the owner ruling of 2026-07-31.
+
+---
+
+## Council gate
+
+Submitted 2026-08-19 (phases 0–2 — the config reorder, the adapter return contract, the guard).
+
+**`SUBMISSION_CORR = 377167cd-6324-4bc7-a866-87ad8c435132`**
+
+Five edits, twelve `grounded_in` evidence quotes, risks stated including the two `[UNVERIFIED]`
+items (whether the two handlers' `complete_workflow` output fields tolerate the removed
+`status_updated`, and whether anything downstream of the commit rewrites page bytes — the private
+`gqls/sites` workflow could not be read).
+
+Read the verdict with:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='377167cd-6324-4bc7-a866-87ad8c435132' AND kind='council_report' ORDER BY created_at;
+```
