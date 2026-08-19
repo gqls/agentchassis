@@ -43,3 +43,19 @@ One coordination note: another session was fixing a different bug in the same fi
 moment. We sequenced the commits between us so the build never broke, and both fixes are now in.
 The change goes live with the next fleet deployment; until then the old behaviour (and the
 workaround) still applies. The review council has the change; verdict pending.
+
+## 2026-08-19 — deployed, verified, closed
+
+The fleet was redeployed overnight and we confirmed — by probing the running binaries themselves
+on both server replicas, not by trusting the deploy — that the new counter is what's actually
+running. Since the deploy, two new tools have been born with no false refusals, and the safety
+side is unchanged (a genuinely cut-off generation is still refused, proven by the test suite that
+ships with the code). The bug is closed. The one workaround people had been using — avoiding
+angle brackets when describing tools — is no longer needed and has been retired everywhere it was
+written down. Two review-queue entries that turned out to be false alarms are now clearly labelled
+as such, so nobody follows their original (and harmful) advice; they'll clear when someone
+processes them normally.
+
+One honest footnote: while verifying the deploy, the verification instructions I'd written the
+day before failed twice in my own hands — both were mistakes in the checking method, not in the
+fix — and both are recorded in the shared mistakes log with the corrected method in place.

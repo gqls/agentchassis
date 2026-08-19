@@ -2,7 +2,14 @@
 
 **Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane, which hit it building an HTML minifier.
 ~~**Status: OPEN, UNOWNED. Live. It is blocking real work right now.**~~
-**Status: FIXED AT SOURCE 2026-08-18 (`6d962bcf8` + `e21b172f0`), OPEN until a chassis image rolls** — Go changes are inert until then, so the birth refusal is still live in the fleet today and the LANDMINES workaround (tag names without angle brackets in `add_tool` descriptions) still applies. Owner: session "303, bugs_open/298", lane `bugfix_303_tool_birth_guard`. Council: `Council-Submitted: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc`. Fix record at the bottom of this file.
+~~**Status: FIXED AT SOURCE 2026-08-18 (`6d962bcf8` + `e21b172f0`), OPEN until a chassis image rolls**~~
+**Status: CLOSED 2026-08-19 — fixed AND live** on `v1.0.1314` (build commit `d3590ca46`,
+binary-probed on both replicas; all three fix commits are ancestors). Two tools born post-roll,
+zero refusals with demand present; the mention-class differential is pinned by tests at the
+shipped code (not yet naturally exercised live — stated plainly in the close-out). The LANDMINES
+workaround (no angle brackets in `add_tool` descriptions) is **RETIRED**. Owner: session
+"303, bugs_open/298", lane `bugfix_303_tool_birth_guard`. Council: APPROVED round 2,
+`Council-Reviewed: 70cf0da5-e91a-42f0-8dd6-0cb5710b51dc`. Fix record + close-out at the bottom.
 
 ## The one-paragraph version
 
@@ -212,7 +219,10 @@ kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'bu
 #    log out of range? restart-fresh pod, or the release record, gives the stamp instead.
 # 2. confirm the stamp is really in THIS binary — known-value probe with BOTH controls:
 kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "<stamp sha>" /proc/1/exe && echo stamp-confirmed   # must hit
-kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "0000000000000000000000000000000000000000" /proc/1/exe && echo BAD-CONTROL  # must miss
+#    ⚠ must-miss control: use a HIGH-ENTROPY sha that is in no repo — NOT all zeros.
+#    40 zeros occur legitimately in Go binaries (measured on this very check, 2026-08-19,
+#    WRONG_CALLS) — an all-zeros control screams BAD-CONTROL on every healthy binary.
+kubectl -n ai-persona-system exec <chassis-pod> -- grep -aq "df3a9b2c4e1f57a6089b3c2d1e0f4a5b6c7d8e9f" /proc/1/exe && echo BAD-CONTROL  # must miss
 # 3. ancestry — the question you actually care about:
 git merge-base --is-ancestor 6d962bcf8 "<stamp sha>" && echo carries-303-scanner
 git merge-base --is-ancestor e21b172f0 "<stamp sha>" && echo carries-store-generated-half
@@ -243,3 +253,40 @@ likely to be truncated, and — the part that matters for the guard's actual pur
 mid-generation cut in the concatenated version would now be HARDER to detect**, because the file no
 longer contains the tag text the predicate looks for. The workaround degrades the very signal the
 guard exists to measure.
+
+## CLOSED 2026-08-19 — fixed AND live, verified at the binary on both replicas
+
+**The roll:** image `v1.0.1314`, pods restarted 07:52Z 2026-08-19. Stamp found by known-value
+probe (the log line had rotated, as this file's own caveat predicts): build commit
+**`d3590ca46`** (2026-08-18 22:17 BST), confirmed present in `/proc/1/exe` on BOTH replicas
+(`l5h6l`, `nxmkf`), with a high-entropy must-miss control clean. Ancestry, all three halves:
+
+```
+git merge-base --is-ancestor 6d962bcf8 d3590ca46   ✓ scanner + four surfaces + tests
+git merge-base --is-ancestor e21b172f0 d3590ca46   ✓ store_generated half (the 309 lane's commit)
+git merge-base --is-ancestor d71e8abc7 d3590ca46   ✓ advisory Warn enrichment + completeness tests
+```
+
+**Live behaviour since the roll** (queried 2026-08-19 ~10:00Z):
+- **Two tools BORN post-roll** on the new binary (`tool-noise-generator-webdesign-co-uk` 09:26Z,
+  `tool-rls-architect-webdesign-co-uk` 09:39Z) — the birth gate passes real generations.
+- **Zero `tool_birth_truncation_blocked` rows** since the roll, with the demand control present
+  (4 `tool-generator` LLM calls ran).
+- **Honestly stated:** neither newborn exercises the DIFFERENTIAL — both pass under the old
+  counter too (checked over their stored templates). The differential (a mention-class tool old
+  refuses, new accepts) is proven by the pinned unit tests and the fleet calibration at the same
+  code the binary carries; its first natural live exercise will be the next HTML-manipulating
+  tool built WITHOUT the guard-avoidance phrasing. The LANDMINES workaround is RETIRED as of
+  this roll — stop writing the no-angle-brackets constraint into `add_tool` descriptions.
+
+**Residual, owned by the queue:** the two false-alarm items (`91007600` info-card-grid,
+`6e2c9ebf` gauntlet-round-record) are still `needs_human_review`. Their summaries now carry a
+false-alarm annotation (see below) because their original remedy text is DANGEROUS — restoring
+info-card-grid's v1 would replace a good current template. Complete them normally; the verifier
+(new binary) resolves them as balanced. Do not act on their original remedy text.
+
+**Two instrument lessons from the close-out itself** (both in WRONG_CALLS / the recipe above):
+an all-zeros must-miss control hits legitimately in Go binaries; and extracting the stamp with a
+discovery `grep -aoE "[0-9a-f]{40}"` fails a different way — Go's string table concatenates
+without separators, so maximal-munch tokenisation splits the sha across arbitrary boundaries and
+it never appears as a clean token. Known-value substring probes are the only reliable read.

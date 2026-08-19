@@ -95,3 +95,26 @@ improvements, and none required defending the design.
   first (with the scrolls-out-of-range caveat), known-value binary probe with both controls,
   THEN merge-base ancestry. **Caught my own false-miss probe while doing it** (grep the binary for
   my commit sha — misses on every later build that carries the fix): WRONG_CALLS 2026-08-18.
+
+## 2026-08-19 — roll verified at the binary, bug CLOSED; two instrument defects in my own recipe
+
+- Fresh chassis deployed: `v1.0.1314`, pods 07:52Z. The provenance log line had already rotated
+  (as the LANDMINE predicts), so the stamp came from known-value binary probes: build commit
+  `d3590ca46` (22:17 BST last night), present on BOTH replicas; `git merge-base --is-ancestor`
+  ✓ for all three fix commits (6d962bcf8, e21b172f0, d71e8abc7).
+- **Live behaviour:** two tools born post-roll (09:26Z, 09:39Z), zero `tool_birth_truncation_blocked`
+  rows, 4 tool-generator calls (demand present). Neither newborn exercises the DIFFERENTIAL —
+  both pass under the old counter too (measured over their stored templates) — so the differential
+  rests on the pinned tests + calibration at the shipped code; stated plainly in the close-out.
+- **My own recipe failed twice while I ran it, both instrument defects, both now in WRONG_CALLS:**
+  (1) yesterday's false-miss probe (grep the binary for MY commit — misses on any later build);
+  (2) the all-zeros must-miss control HITS legitimately in Go binaries — a control that always
+  fires, published unmeasured. Recipe corrected in the bug file; LANDMINES entry refined.
+  Also re-derived live what LANDMINES line ~8903 already said (grep -aoE splits the sha via
+  maximal munch in Go's string table) — I grepped LANDMINES for the guard's symbols but not for
+  the probe recipe I was following. Cheap lesson: grep it for the CHECK you run, not just the
+  code you touch.
+- The two false-alarm items' summaries now carry a `[FALSE ALARM per bugs_closed/303 …]` prefix
+  (UPDATE 2 confirmed) so nobody acts on the dangerous original remedy text before completing.
+- **Bug MOVED to bugs_closed/** (fixed AND live bar met). Register CLC-019 → LIVE+VERIFIED;
+  MEMORY workstream line → CLOSED; LANDMINES entry → historical, workaround retired.

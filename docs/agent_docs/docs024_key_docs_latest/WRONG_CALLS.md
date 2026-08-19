@@ -37115,3 +37115,21 @@ record was CURRENT and I didn't read it.
 and the handoff I wrote was corrected before a fresh session could act on it.
 The exposure was a next session spending a council round on a candidate that
 owes "an argument against a specific recorded reason, not a fresh start".
+
+## 2026-08-19 — the must-miss control I published was a control that always fires (bugfix 303 close-out)
+
+**The wrong call:** the pod-verification recipe I wrote into `bugs_open/303` yesterday (answering a
+council advisory) used `grep -aq "0000...0" /proc/1/exe` (40 zeros) as the must-miss control.
+Running it today during close-out: **the control HIT on a healthy binary** — 40 zeros occur
+legitimately in Go binaries. Anyone following the recipe would read BAD-CONTROL on every healthy
+pod and conclude their instrument was broken (or worse, ignore the control's failure and trust the
+probe anyway, which un-controls it).
+
+**What caught it:** running my own recipe for real during close-out — the control fired first try.
+
+**The cheap check that would have:** run the control ONCE against a known-good binary before
+publishing it — a must-miss control is itself a claim ("this string is absent from healthy
+binaries") and I published it unmeasured. Same session, same recipe, second instrument defect
+(yesterday's was the false-miss commit-sha probe): a verification recipe is CODE that ships to
+other sessions, and it deserves the same negative-control discipline as the check it teaches.
+Replacement: a high-entropy sha in no repo. Recorded in the recipe itself and the LANDMINES entry.
