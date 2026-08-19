@@ -1,5 +1,12 @@
 # HANDOFF — ⛔ BUILDS STILL HALTED · two owner decisions open · two new items need the owner's hands — 2026-08-18 late evening
 
+> **⚠ SUPERSEDED 2026-08-19 by `HANDOFF_2026-08-19_continue_here.md` — start there.**
+> Accurate on its own history. What has moved since: the chassis rolled to `v1.0.1314`
+> (`d3590ca46`, ~120 commits on); `bugs_open/311` gained a third site at **7 of 7 tool
+> sections lost** and a served calculator page with **zero inputs**; and `RFC_036` was found
+> to be the same design fact at TOOL level with a written path whose scope would leave 311
+> live. The halt, the two decisions and the traps below are unchanged.
+
 Supersedes `HANDOFF_2026-08-18b_continue_here.md` (still accurate on its own history;
 **§1 and §2 below are unchanged from it and remain the gate**). Everything in §3–§6 is new
 since that file. Chassis at HEAD (`0b185bad2`, both pods, verified from the pods' own

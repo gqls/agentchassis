@@ -764,3 +764,47 @@ and try again — would have destroyed a correct change. Both are now written do
 **The only thing still waiting on you** is whether I refresh the pilot's lender page, which
 still shows 2 lenders instead of the 25 we now have. The site is locked under your build
 halt, so nothing will do it by itself.
+
+### Wednesday 19 August — what moved underneath us overnight, and a read-out you can hand to someone
+
+About a hundred and twenty commits landed on the shared tree overnight from other threads, so
+before doing anything I re-checked the things I had told you were true. They still are: the two
+sites are still locked as you asked, the directory still holds 25 lenders, `www` still redirects
+on every domain I sampled, and the missing-calculator bug is still unfixed — none of the three
+files that would have to change has been touched.
+
+The machine everything runs on was rebuilt overnight and is now several hundred commits further
+on than when we spoke. I confirmed that from the running program itself rather than from the
+version label, using a check that would have failed if I were wrong: the new build's fingerprint
+is present, yesterday's is absent, and a made-up one is absent too.
+
+**One thing got materially worse, and it is worth knowing.** Another thread hit the same
+missing-tools bug on a site built from scratch and lost **seven of seven** calculators. They then
+did the thing I had not: they looked at the finished page a visitor sees. It is live, it loads
+fine, it is 22,000 bytes of prose about a calculator — and it contains no calculator at all. Not
+a broken one. None. Nothing on the page tells a reader anything failed.
+
+**And one thing got better.** A different thread had independently walked into the same wall from
+the other side and written out exactly how to fix it. Neither of us knew about the other — I
+checked, and each document mentioned the other precisely zero times. I have now linked them, and
+found something that matters: their fix and ours are the same idea applied to two different parts
+of the code, and **their version, as written, would fix their half and leave ours untouched.** If
+someone had built it, we would have announced that tools were fixed and been wrong. Both
+documents now say so.
+
+**On your question about a summary — yes, and I have written one.** The last one, from Monday,
+says the pilot is "built but not published". That is no longer where we are, so the series had a
+genuine gap. The new one is
+`SUMMARY_2026-08-19_first_sites_live_and_the_wall_the_fleet_would_have_hit.md`, and it is written
+to be read aloud: what we are trying to do, where we came from, what we have done, where we are
+now, where we are going. The short version of "where we are now" is: the machinery is proved, the
+first sites are live, and the thing that would have quietly degraded the next fifty is understood
+but not yet fixed.
+
+**To start again in a fresh session, point it at:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-19_continue_here.md`
+
+That file re-verifies the state at the top, carries the halt and your two open decisions, explains
+the wall, and sets out the path in five steps in the order they have to happen. The one thing
+still waiting on a word from you is whether I refresh the pilot's lender page — it still shows 2
+lenders instead of 25, and it will stay that way while the site is locked.
