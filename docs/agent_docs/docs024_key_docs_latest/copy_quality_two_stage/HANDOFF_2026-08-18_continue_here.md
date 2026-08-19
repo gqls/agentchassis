@@ -88,28 +88,40 @@ Full evidence in `bugs_open/305`'s final section. In short `[MEASURED 2026-08-19
 
 ### ⚠ A pending migration changes stage 2's write-path guarantee
 
-`bugs_open/184`'s `strip_literal_markdown` mutates the merged content map — **LLM
-`field_updates` included** — before render, on `section-editor`'s `apply_edit`. **Code is LIVE**
-(`019fb0616`/`6fa9f5673` are ancestors of the running build); **migration 474 is PENDING**
-(absent from `schema_migrations`; the flag appears in zero live agent configs), so it is inert
-today and *"what the gate graded is what lands"* still holds.
+> **⚠ SUPERSEDED WITHIN THE HOUR — 474 IS APPLIED. `2026-08-19 10:34:35Z`** (473 at 10:34:26Z).
+> My "PENDING / inert today" reading below was true when measured and false minutes later; the
+> 184 lane told me, and I verified independently: both rows in `schema_migrations`, and
+> `strip_literal_markdown = true` on **all three** agents (`section-editor.apply_edit`,
+> `page-rerender.rerender_sections`, and `page-content-writer`'s nested sub_workflow step —
+> which a top-level-steps query does NOT see; use `jsonb_path_query_array(default_config,
+> '$.**.strip_literal_markdown')`).
 
-**When 474 lands, that stops being exactly true for plain-text fields.** The tell is
-`stripped_markdown_fields` on the action result — non-empty means the persisted content is not
-byte-identical to what the gate passed. Their HTML guard (`!HTMLMarkupRe.MatchString`) means
-HTML-bearing fields take the conservative path.
+**So, from 10:34:35Z, `"what the gate graded is what lands"` no longer holds unconditionally.**
+`section-editor`'s `apply_edit` runs the merged content map — LLM `field_updates` included —
+through `StripLiteralMarkdownFromContentData` before render and persist.
 
-⚠ **`bugs_open/184` IS ANOTHER THREAD'S ACTIVE WORK — do not touch the bug file, 473 or 474.**
-Contribute in, as this lane did: CONTRIB filed in their dir
-(`bugfix_184_literal_markdown/CONTRIB_2026-08-19_a_new_consumer_of_apply_edit_appeared_after_you_wrote_474.md`,
-commit `629dcbe2d`) plus a direct message to the live `bug 184` session, asking only to be told
-when 474 is applied. **The verification burden is OURS, not theirs:** after any stage-2 apply
-once 474 is live, compare the graded proposal against the persisted `content_data`, and read
-`stripped_markdown_fields`.
+**The exemption is per-VALUE and asymmetric — an HTML field is NOT exempt** (supplied by the
+184 lane, confirmed by me in `literal_markdown.go:112-121`): `mdLinkStripRe` and
+`mdCodeSpanStripRe` are gated behind `includeCodeSpan = !HTMLMarkupRe.MatchString(value)`, but
+**`mdBoldStripRe` and `mdHeadingStripRe` run UNCONDITIONALLY.** So `ported-prose.content`
+skips two of four transforms and is exposed to the other two.
 
-⚠ **`git log --author` cannot tell sessions apart on this tree** — every session commits as
-`cqls`. When checking "did I touch their work?", the discriminators are the **lane directory**
-and the **commit message**, not the author field.
+**What was done about it, so the burden stays ours:**
+
+- `gate_stage2_edit.py` now prints a `⚠ strip <field>` advisory when a proposed value carries
+  markers the strip will act on — **advisory, never a failure** (a strip firing on stage-2
+  output is arguably fixing the agent's mistake). It is a heads-up keyed on markers, and
+  deliberately **not** a reimplementation: a second copy of production's regexes would drift.
+  Nine-case control committed.
+- **The authority remains `stripped_markdown_fields` on the apply result** — non-empty iff it
+  fired, with the exact field paths. Read it after every apply.
+- Their canary found a deeper layer (news-listing items are query-resolved, and the resolver
+  overlay merges raw markdown over the stripped copy). Fix committed, pending roll. **Stage 2
+  is unaffected by that layer** — `apply_edit` has no resolver overlay.
+
+⚠ **The dangling-address landmine FIRED, within 24h of being filed.** Re-grading run 3's
+proposal (`d2378b77`) now exits `no page_component 3eb70551…` — those components were
+re-rendered and carry new ids. Resolve a parked proposal by `(page_name, slot_name)`.
 
 ### From the `bugfix 083` / 277 lane (live exchange, both directions answered)
 
