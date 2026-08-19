@@ -1,3 +1,7 @@
+> **SUPERSEDED 2026-08-19 by `HANDOFF_2026-08-19_continue_here.md`.** Its recipe is still correct but
+> incomplete: it predates the third uniqueness gate (`content_components_name_key`), `bugs_open/303`,
+> `bugs_open/315`, and the cache-vs-origin distinction.
+
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-17 18:35Z. Supersedes `HANDOFF_2026-08-16_continue_here.md`.
 
 Read: this file → `PLAN_2026-08-15_…` (design + THREE owner rulings + two corrections) →
