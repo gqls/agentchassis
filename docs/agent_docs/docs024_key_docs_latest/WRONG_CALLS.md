@@ -36719,3 +36719,45 @@ I did not expect to need turned out to be the corroboration: `recordIdentitySnap
 **zero** rows fleet-wide since 08-11 — with the code proven live by a controlled binary probe —
 say the layers are declining, not missing. **A durable zero is evidence; the same zero from a log
 would have been nothing.**
+
+---
+
+## 2026-08-19 — I priced a defect by joining historical work items against a MUTABLE column, and the control I ran to check myself is the only reason the number never left the session
+
+**Lane:** `bugfix_277_required_fields_repair` §4.5(b), measuring whether tool pages marked
+`rebuild_policy='generic'` had actually been clobbered by the generic pipeline.
+
+**The claim I wrote down:** 107 completed generic section-saves on tool pages "that the guard would
+have refused had the page been marked owned". I had already done the hard half correctly — stripped
+581 assemble-only `page-rerender` runs out of a raw 688, because a completed work item is not a
+save. That success is exactly what made the remaining number feel earned.
+
+**What caught it:** one split I ran *expecting it to confirm* — outcomes by guard era. If the
+classification held, `owned` pages should show ~no completions on the guarded route after the guard
+shipped. They showed **174**. A number that cannot be true if my own model is true.
+
+**The two faults, both of which produce a confident figure:**
+1. **`pages.rebuild_policy` is mutable and read at query time.** Every historical row was being
+   judged against **today's** marking, not the marking in force when it ran. This lane already
+   knows the shape — its landmine 3 is "the row set is not stable" — but I met it as a *column*
+   rather than a *row set* and did not recognise it.
+2. **My route classification was an assumption wearing a measurement's clothes.** I labelled whole
+   agents "calls `save_page_sections`" from a workflow's step list. `component-template-fixer` is
+   150 complete / 0 failed on owned pages, which alone says it never reaches that action — the
+   disproof was already sitting in a table I had printed twenty minutes earlier and read past.
+
+**The cheap check that would have:** before joining outcomes against a policy/status/config column,
+ask **whether that column can have changed since the row was written** — and if it can, use what the
+run itself recorded instead. Here that was already available and already mandated: the guard's own
+error text. The lane had ruled on 2026-08-19 that "owned + failed" is not "refusal" and to
+discriminate on error text; **that rule had a second reason I only found by breaking it.**
+
+**What limited the cost:** the figure was withdrawn in the same NOTES entry that introduced it and
+was never sent onward as a finding — the peer thread was told "do not quote an exposure figure from
+me" in the same message that reported the sound half. **The population figure (89 tool pages marked
+`generic` against 95 identically-shaped marked `owned`) stands; the damage figure does not exist.**
+
+**The transferable line:** *a control is only worth running if it can come out against you — and the
+one that does is worth more than the twelve that confirm.* This is the sixth entry in this lane's
+"population or domain assumed rather than enumerated" family, and the first where the assumption was
+about **time** rather than about membership.
