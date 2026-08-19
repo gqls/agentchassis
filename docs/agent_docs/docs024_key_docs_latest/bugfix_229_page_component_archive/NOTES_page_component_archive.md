@@ -333,3 +333,27 @@
   name='page-component-history-retention'` is live immediately).
 - **Rollback**: 489_ROLLBACK removes task + index; nulled payloads are not
   recoverable — stated in both files.
+
+## 2026-08-19, later — post-roll verification + verify-later (1) CLOSED; LANE CLOSED
+
+- **Verify-later (1) closed the same hour it was written, and better than
+  expected**: `scheduled_tasks.last_triggered_at = 11:04:23Z` with a
+  scheduler-written doc_notes row at 11:04:23 — the scheduler fired the task
+  within a minute of the row landing, BEFORE my 11:05:03 manual induction.
+  So the "manual + scheduled = 2 rows" prediction inverted (scheduled came
+  first); the mechanism is scheduler-driven, proven, day one.
+- **Fresh chassis rolled ~12:15Z; re-verified at the binary**: pods
+  `7597f54b9-*`, startup log line already out of retention (~4h of busy
+  logs), so probed `/proc/1/exe`: extracted 40-hex candidates and verified
+  against git's object store — exactly ONE is a real commit, **`590ca3a20`**
+  (11:38Z), independently matching another lane's v1.0.1315 verification.
+  Controls: `classifyPageComponentArtefacts` PRESENT, fake sha clean.
+  Ancestry: 229 Go half (`1930ef86f`, `ebb879fc1`) and this session's two
+  commits (`3ba85c7b1`, `f7f47a581`) all IN. No regression rode the roll.
+- **LANE CLOSED.** SUMMARY_2026-08-19 is the closing read-out; the 08-09
+  handoff carries a superseded banner. Remaining, parked with dates/owners:
+  (1) ~2026-09-09 retention proof (query above, 63MB baseline);
+  (2) STY-056 (d) snapshot double-embedding, open design question;
+  (3) STY-056 (e) sweep wiring, parked on 083's drain. The 20 undrained
+  divergence items are 083's cost; sibling 226's file also qualifies for the
+  bugs_closed move but is left for its own lane/owner decision.

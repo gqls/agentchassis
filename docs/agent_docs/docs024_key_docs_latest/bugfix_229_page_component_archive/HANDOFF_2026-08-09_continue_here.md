@@ -1,5 +1,13 @@
 # HANDOFF 2026-08-09 — bugfix 229 page component archive: continue here
 
+> **⛔ LANE CLOSED 2026-08-19 — read `SUMMARY_2026-08-19_page_component_archive.md`
+> instead of this file.** Everything below was true on 08-09 and two claims have
+> since expired: the bug file no longer "stays in bugs_open" (the owner restored
+> the fixed-AND-live bar on 08-12; moved to `bugs_closed/` on 08-19, `3ba85c7b1`),
+> and the volume watch is no longer a passive watch (it TRIPPED 08-19 — 63MB, 4×
+> projection — and retention shipped as migration 489, `f7f47a581`). Remaining
+> residuals and their dates/owners are in the SUMMARY's "where we are now".
+
 > **LANE COMPLETE 2026-08-09 (late evening). Nothing is owed.** Steps 1-4 all
 > landed: council APPROVED round 4; the release arrived as v1.0.1276 and both
 > main replicas pod-verified (4/1/2 + chrome control 2); the e2e protocol ran
