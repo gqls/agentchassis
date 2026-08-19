@@ -385,3 +385,34 @@ this evening's fix has rolled, the held configuration can go in and the fingerpr
 recorded for real. I've put the exact verification command in the migration file itself, so whoever
 applies it can confirm the running image is the right one first rather than trusting the version
 number.
+
+## 2026-08-19, night — approved
+
+The reviewers passed it on the third round: **approved**, with two advisory notes and nothing
+serious. The trail is worth recording because it is the argument for bothering with review at all —
+round one reviewed the *plan* and found I had promised more than I was delivering; round two reviewed
+the *code* and found a claim in it that was flatly untrue; round three approved the corrected
+version. The second round is the one that earned its keep.
+
+**I acted on one of the two advisories, and it was a real if latent bug.** The statement that marks a
+page includes an optional piece, and I had written the position of one of its values as a fixed
+number. It happens to be right today. It is a trap for whoever next adds a value to that statement,
+and it would fail at run time, on the deployment path, invisible to the compiler.
+
+**More usefully: the test I wrote for it was worthless and I caught that myself.** It contained its
+own copy of the code rather than calling the real thing — so it would have passed cheerfully while
+the actual code was broken, which is exactly what it existed to prevent. What caught it was writing
+the commit message: I typed "pins the invariant" and had to ask *pins it where*. The answer was "in
+the test file". It now calls the real code, and I proved the test can fail at all by simulating the
+future it protects against.
+
+**One commit is stuck, deliberately.** Another session is working inside the same file as me and has
+called a function whose definition they haven't committed yet. Because a commit takes the whole file
+as it stands, committing mine would carry their half-finished call without its other half — and since
+builds are made from committed code, that would break the build for every session on the machine. So
+it waits. I have a watcher on it and it will go in the moment their side lands. Nothing is at risk:
+the code involved cannot run at all until the held configuration is applied, and that is still held.
+
+**Where that leaves you:** the position is unchanged from this evening — one more build, then the held
+migration. The only difference is that the fix inside that build has now been through review and
+come out the other side.

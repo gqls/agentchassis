@@ -170,14 +170,14 @@ steps; the `webdesign_tool_rebuilds` lane that filed this; retraction owners (`d
 semantics for non-active pages are unchanged, and D5 depends on that); and `deployment-github.md`
 DGH-001, updated in the same commit as each shipping phase.
 
-## Status — updated 2026-08-19 evening
+## Status — updated 2026-08-19 late evening (council **APPROVED**, round 3 of trail `377167cd`)
 
 | phase | state |
 |---|---|
 | **0a** — drop the pre-deploy stamp (D4) | **APPLIED and LIVE** (migration 491, 15:20Z). Verified at the config AND at runtime: 31 pages since, all `deployed`, none stranded, stamps coming from the rerender |
 | **0b** — drive the silenced `deployed_zero_components` detector | **not done** — still undriven |
 | **1** — adapter returns `CommitOutcome` + `commit_sha`/`files_sha256` (D2) | **BUILT, committed `0c5b94725`, NOT ROLLED** (needs a git-adapter image) |
-| **2** — `deploy_result_field` guard + `pages.content_hash` (D3) | **BUILT, committed `086f9b7b7`, NOT ROLLED** (needs a chassis image) |
+| **2** — `deploy_result_field` guard + `pages.content_hash` (D3) | **BUILT and APPROVED.** `086f9b7b7` shipped in `v1.0.1316` but its resolver was unsafe; **corrected by `f0dd97c71`, which is NOT yet rolled.** One further commit (the derived placeholder + `buildPageDeployStampQuery`) is written, tested and **BLOCKED** — another session's uncommitted symbol shares `v3_site_actions.go` |
 | **3** — arm the key on the three stamping steps | **WRITTEN and HELD** — `sql_for_agents/494_stamp_reads_deploy_evidence_HOLD.sql`. Must not be applied until the rebuilt chassis runs: `StrictConfig` makes an undeclared key a validation FAILURE, not a no-op |
 | **4** — the divergence sweep (D5) | **not built.** Gated on `content_hash` being populated, which is gated on the roll |
 
