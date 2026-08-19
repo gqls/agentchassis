@@ -644,3 +644,72 @@ A sweep built that way would file 40 work items today, all wrong, on the fleet's
 The settle-window mitigation in the PLAN is **not sufficient on its own** — 85 minutes had elapsed
 and the answer was still "fine". Only the hash separates them. Recorded in the PLAN as a hard
 constraint, not a preference.
+
+## 2026-08-19 15:20Z — MIGRATION 491 APPLIED (owner authorised). 2 of 5 → 0 of 4.
+
+Applied **scoped**, because three other lanes had pending files (488 ×2, 489, 490) and an unscoped
+`--apply` takes every one of them:
+
+```bash
+SCOPE=<scratch>/mig491; cp docs/agent_docs/sql_for_agents/491_*.sql "$SCOPE/"
+MIGRATIONS_DIR="$SCOPE" ./scripts/migration/run-migrations.sh          # Pending (1) — probe ok
+MIGRATIONS_DIR="$SCOPE" ./scripts/migration/run-migrations.sh --apply  # DO DO UPDATE 1 UPDATE 1 DO COMMIT
+```
+
+⚠ The assignment is on the **same line** as the command — on its own line it scopes nothing and the
+run sweeps every other thread's pending migration. The scratch dir is the scoping mechanism.
+
+### Verified at the live config, not at the migration's own say-so
+
+```
+type                     still_has_stamp   save_next               target_exists
+page-build-handler       f                 spawn_rerender_agent    t
+tool-recreation-handler  f                 spawn_rerender          t
+```
+
+And **the census re-run — the number the whole change exists to move:**
+
+| agent | status | preceded by |
+|---|---|---|
+| `content-reviewer` | needs_attention | `handle_rejection` (not a deploy stamp) |
+| `page-rerender` | deployed | **`deploy_page(git_commit)`** |
+| `report-builder` | deployed | **`deploy_page(git_commit)`** |
+| `section-editor` | deployed | **`deploy_page(git_commit)`** |
+
+**Every remaining `deployed` stamper is now preceded by a `git_commit`. Zero stamp before a deploy —
+down from 2 of 5.**
+
+### The snapshot check the landmine demands
+
+Not *"does a snapshot exist"* but *"does it hold the PRE-change config"* — a snapshot carrying the
+post-change value restores nothing:
+
+```
+type                     snapshot_taken_at    snapshot_reason                                  holds_pre_change_step
+page-build-handler       2026-08-19 15:20:41  491_drop_pre_deploy_deployed_stamp: pre-update   t
+tool-recreation-handler  2026-08-19 15:20:41  491_drop_pre_deploy_deployed_stamp: pre-update   t
+```
+
+Found by `snapshot_reason` (the distinctive second argument) and ordered by `snapshot_taken_at`, per
+the two `snapshot_agent` landmines — `agent_definitions_backup` copies the SOURCE row's `id` and
+`created_at`, so `ORDER BY created_at` returns an arbitrary snapshot.
+
+### What is NOT yet verified, and what to watch
+
+**This is verified at the config; it has not yet been observed at RUNTIME.** No first build has run
+through the rewired path since 15:20Z. The failure direction is the recoverable one — un-stamped
+rather than falsely stamped — but the thing to check on the next `page-build-handler` run is that
+`page-rerender`'s stamp actually lands:
+
+```sql
+-- a page built since 15:20Z should end up with a deployed_at from the RERENDER, not from the handler
+SELECT p.name, p.build_status, p.deployed_at
+FROM pages p WHERE p.updated_at > '2026-08-19 15:20:00+00' AND p.build_status='deployed'
+ORDER BY p.deployed_at DESC LIMIT 10;
+```
+
+If pages start accumulating at `planned`/`needs_rebuild` with no `deployed_at` after a successful
+build, the rerender's stamp is not firing and
+`491_drop_pre_deploy_deployed_stamp_ROLLBACK.sql` restores both steps surgically (deliberately not a
+blob restore — 488 is still pending against `page-build-handler` from another lane, and a whole-config
+restore would silently revert it).
