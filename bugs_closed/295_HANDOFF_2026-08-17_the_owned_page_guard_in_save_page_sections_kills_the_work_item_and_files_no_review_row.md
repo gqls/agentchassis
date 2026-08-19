@@ -428,3 +428,49 @@ failure stamped deployed — same family: the build path's failure reporting) ·
 `features_open/030` + BIZ-032 (the offer analyser, whose findings were the two casualties) ·
 `bugs_open/115` (findings that terminate nowhere — this is the same harm reached by a different
 route).
+
+
+---
+
+## ⚠ CORRECTION 2026-08-19 (filing lane) — I overstated the second `tool-ttk-calculator` failure, and this file's own baseline row has since been RE-LABELLED by another lane
+
+Two things surfaced today. The close and its proof are unaffected; one sentence of mine was wrong,
+and one piece of evidence this file leans on now reads differently in the database than it did.
+
+**1. My claim that BOTH ttk failures died on this guard is not supported — only the first is.**
+In the churn correction above I wrote that the repetition was *"many producers independently
+arriving at the same owned page and each dying silently"*. What I actually proved:
+
+| item | failed | cause |
+|---|---|---|
+| `offer-analysis_content_rewrite_tool-ttk-calculator_…` (orch `763b227b`) | 13:02:18 | **PROVEN** — `__step_error` read and quoted while it existed: the owned-page guard |
+| `gap_plan_add_tool-ttk-calculator_…` (orch `3826a169`) | 13:37:24 | **NEVER READ.** Inferred from "same page, same shape". |
+
+**And the inference now looks wrong.** An owner directive of 2026-08-18 records a **fleet-wide
+`git-adapter` 404 burst (branch `master` lookup) from 2026-08-17 13:31–16:14Z**, whose casualties
+were to be marked not-active. `13:37:24` falls **inside** that window; `13:02:18` falls 29 minutes
+**before** it. So the second failure is at least as likely a burst casualty as a guard refusal, and
+**both orchestrations are now past the ~24h retention and unreadable**, so it can never be settled.
+`[UNMEASURED, PERMANENTLY]`. **Read the churn correction above as: the repetition was real, one
+instance is proven to be this guard, and the second has an unproven and now unprovable cause.**
+The load-bearing point of that correction — that the two rows are *different producers' keys*, not
+one key re-filing — is unaffected, because it rests on the `item_key`s, which are still readable.
+
+**2. This file's proven baseline row is now labelled as something else in the database.** Both ttk
+items were `cancelled` on 2026-08-18 16:06:40 by the `staged_component_build` session with
+`cancelled_reason` = *"owner directive 2026-08-18: casualties of the 2026-08-17 13:31-16:14Z
+fleet-wide git-adapter 404 burst"*. For the `gap_plan` row that is plausible. **For the
+offer-analysis row it is inconsistent with that row's own proven failure**, which happened 29
+minutes before the burst began and whose guard message I quoted verbatim in the STATE block above.
+**Not raised as a defect** — the item was terminal either way and nothing downstream turns on it —
+but recorded here because **this file cites that row as its pre-fix baseline**, and a reader who
+checks the row today will find a cause that contradicts this file. The evidence that matters is the
+quotation preserved above, taken while the orchestration existed; the row's label was applied a day
+later by a sweep working from a time range.
+
+**The transferable lesson, which is the reason this is written up rather than shrugged off:** I
+proved one failure and inferred a neighbouring one from its shape, and the inference was the half
+that turned out to have a competing explanation sitting in another lane's incident log. **A cause
+you did not read is not a weaker version of one you did — it is a different kind of claim**, and on
+a tree with ~24h retention the window to convert it closes overnight. Both entries in
+`WRONG_CALLS.md` for this lane are now this shape.
