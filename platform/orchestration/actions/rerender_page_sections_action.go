@@ -275,9 +275,8 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			}
 		}
 	}
-	if len(strippedMarkdownFields) > 0 {
-		out["stripped_markdown_fields"] = strippedMarkdownFields
-	}
+	// (out["stripped_markdown_fields"] is set after the section loop, which can
+	// append resolved-data strips — see the plan.ResolvedData block below.)
 	if len(stored) == 0 {
 		logger.Info("rerender_page_sections: page has no stored components, nothing to re-render",
 			zap.String("page", pageName))
@@ -547,6 +546,30 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 			}
 		}
 
+		// bugs_open/184 (canary finding, 2026-08-19): stripping stored
+		// content_data alone DOES NOT CONVERGE for query-resolved fields —
+		// plan.ResolvedData merges LAST and wins, so a dirty resolver source
+		// (content_feed_items.source_summary carries markdown in ~700 rows)
+		// re-poisons the very field the strip just cleaned, in the same run.
+		// Proven live: dartsonline news-index, items[18].summary stripped then
+		// re-imposed, verifier refused. So the SAME double-gated strip runs on
+		// the fresh resolved data too — then both the render context below and
+		// the persisted mergedContent compose from clean parts. URL-typed
+		// resolved fields are safe by pattern construction (a bare URL matches
+		// nothing; only [text](url) composites match, which a URL field never
+		// carries). The news resolver additionally strips at source
+		// (queryresolve/news_items.go) so unflagged callers are covered too.
+		if shouldStripLiteralMarkdown(params.StepConfig.Config, reason) && plan.ResolvedData != nil {
+			if changed := datahelpers.StripLiteralMarkdownFromContentData(plan.ResolvedData); len(changed) > 0 {
+				for _, f := range changed {
+					strippedMarkdownFields = append(strippedMarkdownFields, s.slotName+":resolved:"+f)
+				}
+				logger.Info("rerender_page_sections: stripped literal markdown from fresh resolved_data",
+					zap.String("slot", s.slotName),
+					zap.Strings("fields", changed))
+			}
+		}
+
 		// Render context: base ⊕ stored content_data ⊕ fresh resolved_data
 		// (resolved_data merged last so it overrides stale values — matching
 		// RenderComponentAction's content_from-then-merge_with ordering).
@@ -672,6 +695,11 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	out["section_count"] = len(sectionsMetadata)
 	out["rerendered"] = reRendered
 	out["carried"] = carried
+	if len(strippedMarkdownFields) > 0 {
+		// Durable record of every strip this run performed — stored AND
+		// resolved surfaces (bugs_open/184; council 060bcc0a r2).
+		out["stripped_markdown_fields"] = strippedMarkdownFields
+	}
 	// Per-reason breakdown for the legitimate (non-fatal) carries, so an
 	// operator or a discovery check can tell "the run did nothing because
 	// every section is a deliberate fallback" from the fatal case below

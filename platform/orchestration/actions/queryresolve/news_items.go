@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -352,12 +353,26 @@ func resolveNewsArchive(ctx context.Context, db *sql.DB, siteID uuid.UUID, limit
 // projectNewsItems shapes raw items for template rendering: HTML-escaped
 // text, truncated summaries, display-ready dates. includeTopics mirrors the
 // JSON path's archive-only topics.
+//
+// LITERAL MARKDOWN IS STRIPPED HERE, unconditionally (bugs_open/184, canary
+// finding 2026-08-19): content_feed_items.source_summary is a faithful INGEST
+// record and legitimately carries the source's raw markdown (~700 of 10,855
+// rows measured) — but this projection's output is a PLAIN-TEXT render value
+// fed to text/template, where `# headings` and `[text](url)` reach the visitor
+// verbatim. Producer-local hygiene, the same posture as the EscapeString calls
+// below and directory_items.go's summary escaping: this producer's contract is
+// display text, so markdown syntax is never correct in its output. Strip runs
+// BEFORE truncation — truncating "[Luke Littler](https://…" mid-URL leaves a
+// half-pattern nothing can match. The raw record stays raw; the JSON path's
+// projection is untouched (client scripts own their own rendering).
 func projectNewsItems(items []NewsItem, includeTopics bool) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(items))
 	for _, it := range items {
+		title, _ := datahelpers.StripLiteralMarkdown(it.Title, !datahelpers.HTMLMarkupRe.MatchString(it.Title))
+		summary, _ := datahelpers.StripLiteralMarkdown(it.Summary, !datahelpers.HTMLMarkupRe.MatchString(it.Summary))
 		m := map[string]interface{}{
-			"title":   html.EscapeString(it.Title),
-			"summary": html.EscapeString(truncateSummary(it.Summary, 200)),
+			"title":   html.EscapeString(title),
+			"summary": html.EscapeString(truncateSummary(summary, 200)),
 			"url":     html.EscapeString(it.URL),
 			"source":  html.EscapeString(it.Source),
 			"date":    newsDisplayDate(it.PublishedAt),

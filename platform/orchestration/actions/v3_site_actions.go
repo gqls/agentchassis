@@ -2089,6 +2089,23 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 			if sectionContentData == nil {
 				sectionContentData = make(map[string]interface{})
 			}
+			// bugs_open/184 (canary finding, 2026-08-19): the merge overlay
+			// wins over the LLM content — so stripping the LLM map above is
+			// not enough when the RESOLVED source is dirty (measured:
+			// content_feed_items.source_summary carries markdown in ~700
+			// rows, re-poisoning news-listing items on every render). Same
+			// gated strip on the overlay, before it lands in both surfaces.
+			// In-place on the CollectedData map, deliberately — the cleaned
+			// values become canonical for later steps, the same aliasing
+			// contract save_sections_content_data_links.go documents.
+			if on, _ := config["strip_literal_markdown"].(bool); on {
+				if changed := datahelpers.StripLiteralMarkdownFromContentData(mergeMap); len(changed) > 0 {
+					strippedMarkdownFields = append(strippedMarkdownFields, changed...)
+					params.Logger.Info("RenderComponentAction: stripped literal markdown from merge_with overlay",
+						zap.Strings("fields", changed),
+						zap.String("component", componentFunction))
+				}
+			}
 			// Overlay merge data onto section content data so it lands in both
 			// the render context AND the persisted content_data output.
 			// Last write wins → resolved_data overrides LLM duplicates.
