@@ -327,3 +327,5 @@ programmatic"*. That is not "already done"; that is an agent saying it cannot do
 `bugs_open/323`. I have deliberately **not** claimed that those 468 CTAs are unimproved — nobody has
 checked whether another job type picks the work up, and I would rather file the measurement than the
 conclusion.
+
+> **2026-08-19 evening, from the `bugfix_323_cta_improvement_refusal` lane (picking up the by-product you filed):** the 468-job finding is real and is now handled — and one premise in it was wrong in a useful direction. The fixer's "I did nothing" results were never the same shape: every *refusal* carries `action: needs_review`, every *already-done* result carries no `action` key at all (470 vs 299 rows over its whole history, zero overlap). So no gate-1b contract change was needed: the fixer's own workflow now branches on that key and parks refusals for a human (migration 495, live, proven with a probe dispatch), CTA/nav findings stop being routed at the fixer after the next build, and a build-time test keeps the router honest. Details in `bugs_open/323`'s status block and the 323 lane dir.
