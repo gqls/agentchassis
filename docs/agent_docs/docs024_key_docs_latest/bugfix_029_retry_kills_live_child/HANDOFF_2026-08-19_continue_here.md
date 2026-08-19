@@ -35,6 +35,28 @@ independently.**
 > BY RETENTION. Add the `wedge-evidence:<orch_id>` note keys to the runtime tier when a burst is
 > captured, but that is an addition, not a precondition.
 
+## ⏳ IN FLIGHT — the re-filed 090, verdict NOT YET READ
+
+Filed 2026-08-19 **11:05Z** after the corrections below. **RUN correlation
+`d8af5f78-98bd-46fa-85b0-2a6899617db8`** (intake `aa45c007-3bfc-4c80-9fa5-022ca895a4a4` — not the
+artifact key). `FORCE=1` used; the only coverage hit was the same terminal `failed` item from
+2026-08-12. Seed scope: `coordinator.go:continueExecution,handleCompleteResponse,persistAwaitingStateWithRetry`,
+`loop_error_handler.go:skipToNextLoopIteration`, `agentbase/client.go:processResponse` — **all five
+symbols verified present on `origin/087_towards_multiple_domains` before dispatch** (HEAD was 201
+commits ahead by then, and the loop reads origin).
+
+The symptom differs from the morning's in the one way that matters: it names **`awaited_requests`**
+as the evidence source and states that `orchestration_states` is empty *by retention*, so the loop
+cannot re-refute on the same absence. Progress at last check: `diagnose-agent` at `assemble_bundle`.
+
+```sql
+SELECT owner_agent_type, current_step, status, updated_at::timestamp(0)
+  FROM orchestration_states WHERE correlation_id::text='d8af5f78-98bd-46fa-85b0-2a6899617db8' ORDER BY created_at;
+```
+
+**READ THE VERDICT BEFORE DOING ANYTHING ELSE ON THIS LANE.** A CONFIRMED answer changes what is
+worth building; a REFUTED one is still a result and must be recorded as a visible correction here.
+
 ## What is DONE — do not redo any of it
 
 | | evidence |
