@@ -198,6 +198,18 @@ is the general form of the same wall.
 The lane finishes 61 of 63 and stops. That is the honest fallback and it should be stated in any
 "complete" claim: **"61 of 63, with 2 blocked on RFC_036"** — not "done".
 
+> **RESTATED 2026-08-19 (the fallback line above is HALF the problem, and the owner has ruled):**
+> "2 blocked on RFC_036" names only the TOOL-writer half. The same design fact at SECTION level
+> is `bugs_open/311` (three sites hit; loanzy.uk lost 7 of 7 tool sections greenfield; the
+> section half's fix is committed `17d883333`, council APPROVED `fc3ac5f4`, inert until a roll).
+> **OWNER RULING 2026-08-19 (relayed via the portfolio_positioning lane, verbatim intent): "For
+> the calculators — one submission covering both writers and treat it as a precondition."** So:
+> (a) §9.3 is to be built and submitted in a round whose rationale explicitly names BOTH writers
+> — never a round that reads as "tools are fixed" while section-level stays live, or vice versa;
+> (b) the pair is a PRECONDITION for the ~50-site portfolio wave 1, not an improvement to it.
+> The 311 fix lane owns building §9.3 (accepted 2026-08-19); §11 below carries the census helper
+> to reuse and the measured reason the two remedies differ in shape.
+
 ---
 
 ## 10. CONTRIBUTION 2026-08-19 (portfolio_positioning lane) — the same wall exists at SECTION level, on a different writer, and §9.3 fixes only half of it
@@ -242,7 +254,7 @@ cheaper than two rounds, and it removes the risk of a "tools are fixed" claim th
 §9.5's honest-fallback sentence** — "2 blocked on RFC_036" would otherwise read as the whole of
 the problem, and it is not.
 
-## §10 — CROSS-LANE 2026-08-19: the SECTION-level half is now BUILT (CLC-020), and this RFC is the tracking home for both mechanisms (council architecture seat's ask)
+## 11. CROSS-LANE 2026-08-19: the SECTION-level half is now BUILT (CLC-020), and this RFC is the tracking home for both mechanisms (council architecture seat's ask)
 
 The 311 fix lane built the section-writer half the same day this RFC's cross-lane note asked
 for it: `resolveStorageIdentity` (`platform/orchestration/actions/component_storage_identity.go`,

@@ -143,3 +143,21 @@ the refinement stands on the stated first-hand verification (2026-07-31 ruling);
 independent check ran out of budget before reaching a verdict, twice for different reasons
 (API cap, then iteration cap) — recorded here so nobody reads "090 was run" as "090
 confirmed it".
+
+## 2026-08-19 — OWNER RULING arrived (via portfolio_positioning lane, cross-session): scope widens to BOTH writers, as a PRECONDITION
+
+Verbatim intent: **"For the calculators — one submission covering both writers and treat it
+as a precondition."** Meaning: (1) ONE council submission covering both
+`store_generated_component` (done: `17d883333`, APPROVED `fc3ac5f4`) AND
+`create_tool_component` (RFC_036 §9.3 — NOT YET BUILT); (2) the pair gates the ~50-site
+portfolio wave 1. The ruling arrived AFTER the section-half round was approved, so
+compliance path (forward-only, cannot unsubmit): build §9.3 now and submit a round whose
+rationale explicitly names both writers, cites this ruling and `fc3ac5f4`, and frames the
+two rounds as one logical change — no half may ever read as the whole. §9.5's
+honest-fallback line restated in RFC_036 (the peer's ask); my duplicate "§10" header
+renumbered to §11. Technical trap the peer flagged for §9.3: its lookup predicate is
+`component_level='tool' AND forked_from IS NULL` — a LIBRARY row; a section-level incumbent
+claims nothing in that predicate (correct for the index, but never claim §9.3 covers 311).
+Peer's offer: their pilot sits frozen under a build-halt as a stable failing specimen for
+on-demand queries — use it for post-roll verification. THE §9.3 IMPLEMENTATION IS THE NEXT
+WORK ITEM IN THIS LANE and is not started at the time of this note.
