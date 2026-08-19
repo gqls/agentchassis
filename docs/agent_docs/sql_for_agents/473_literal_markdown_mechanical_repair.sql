@@ -15,6 +15,22 @@
 --      existing keys (reason/page_name/target_site_id) are read from in
 --      production.
 --
+-- SCOPE (stated per the bugfix_277 lane's CONTRIB of 2026-08-19, measured, and
+-- correct): this migration repairs literal_markdown on GENERIC pages only. On
+-- OWNED pages (rebuild_policy='owned') the sections branch this opens reaches
+-- save_page_sections' owned-page guard and is REFUSED — by design, and the
+-- refusal is BY CONSTRUCTION: this migration is precisely what moves the
+-- population off the assemble-only branch onto the branch that calls the save.
+-- The owned-page residual is bugs_open/301's (route repairs through the owning
+-- pipeline), NOT evidence this migration failed. At apply time the verify
+-- block RAISES NOTICE with the open items' generic/owned split so the residual
+-- is a recorded expectation. (pages.rebuild_policy is mutable — an at-apply
+-- count is honest; any RETROSPECTIVE split must use the run's own error text,
+-- error LIKE '%rebuild_policy=owned%', not the column.) Every no-write path an
+-- owned page can take (guard refusal, resolve-miss skip, no-content_data
+-- escalation) still ends honestly: VerifyLiteralMarkdownResolved gates every
+-- completion and refuses a page that still scans dirty — nothing false-greens.
+--
 -- ORDERING: safe to apply BEFORE the image carrying the 184 fix-2 code —
 --   - the extra OR clause references a spec.reason value nothing emits until
 --     the re-routed check ships, so no dispatch can reach it early;
@@ -103,6 +119,22 @@ BEGIN
   END IF;
 
   RAISE NOTICE '473 OK: condition = %', cond;
+END $$;
+
+-- Scope record (see SCOPE in the header): the open literal_markdown population
+-- by page ownership AT APPLY TIME. The owned count is the EXPECTED residual
+-- this migration does not repair (bugs_open/301's remit).
+DO $$
+DECLARE n_generic int; n_owned int; n_orphan int;
+BEGIN
+  SELECT count(*) FILTER (WHERE COALESCE(p.rebuild_policy,'generic') <> 'owned' AND p.id IS NOT NULL),
+         count(*) FILTER (WHERE p.rebuild_policy = 'owned'),
+         count(*) FILTER (WHERE p.id IS NULL)
+    INTO n_generic, n_owned, n_orphan
+    FROM site_work_items swi LEFT JOIN pages p ON p.id = swi.page_id
+   WHERE swi.item_type = 'literal_markdown'
+     AND swi.status NOT IN ('complete','cancelled','rejected');
+  RAISE NOTICE '473 SCOPE at apply: open literal_markdown items — % generic (repairable via this route), % owned (EXPECTED residual, bugs_open/301), % with no page row', n_generic, n_owned, n_orphan;
 END $$;
 
 COMMIT;
