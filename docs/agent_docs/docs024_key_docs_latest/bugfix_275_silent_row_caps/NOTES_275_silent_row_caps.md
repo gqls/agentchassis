@@ -761,3 +761,64 @@ still produced nothing to show. Three instrument bugs of my own had to be fixed 
 the recommendation: LCO-009's WARN is a hint for someone already watching; `collected_data` is the
 record. LCO-009's `verify-later` should now read "witness the WARN once" as an open item that has been
 *attempted and failed*, not as untried.
+
+## 2026-08-19 09:00Z — new build verified, and the census turns up a harm the class analysis had explicitly waved through
+
+### The build, at the artefact
+
+`v1.0.1314`, rolled **07:50–07:52Z**; 44 of 45 chassis-image pods carry it (one v1.0.1310 straggler).
+Probed `/proc/1/exe` with **three** controls this time — a fabricated sha, a real-but-ancient sha, and
+**yesterday's stamp `0b185bad2`**. All three ABSENT; one match:
+`d3590ca4638d49bb6a3874db681814c4b0a99bbe` (08-18 22:17). Adding yesterday's stamp as a control is the
+cheap way to prove a roll shipped **new code** rather than serving the node's cached image — the
+"a fresh build can ship no new code" trap, answered with a query instead of trust. 158 commits between
+the two stamps; `git merge-base --is-ancestor` confirms the detector is still in the binary, and none of
+those 158 touched `query_row_cap.go`, `database_actions.go` or `conditional_branch_action.go`. **313 is
+still live and unfixed**; the live config still reads `array / candidate_pages.count > 0`.
+
+### The census, now with five runs of history
+
+| agent | cap | runs retained | hit the cap |
+|---|---|---|---|
+| `content-feed-trigger` | 5 | 5 | **5 — every single run** |
+| `model-directory-trigger` | 12 | 4 | **0** (4 rows each time) |
+
+Yesterday's "3 of 4" has become **5 of 5**: the run that came in under (08-18 02:32Z, 4 rows) has aged
+out of the ~2-day window. **Do not read the improvement as a change in the fleet** — it is the same
+queue, measured over a window that now excludes its one quiet run. The negative control is unchanged
+and still discriminating.
+
+### ⚠ Which prompted the question the cap census does not ask: WHO does the cap cut?
+
+`ORDER BY s.domain` is alphabetical and stable, so I checked whether the tail is starved. It is, and
+the boundary is exact:
+
+```
+rank 1-5  (ai-agent-orchestration … mortgagecalculator)  overdue by 0        <- served 08:34-08:42
+rank 6-9  (relojistas, robot-hands, vetcomparison, webdesign.co.uk)  all overdue <- served 02:36-02:42
+```
+
+Measured against each site's **own** `content_sources.fetch_interval`, `relojistas.com` is **117% of its
+own cycle late** — and it is worst-hit precisely *because* it asked for the most (3-hourly, so it comes
+due twice per 6-hourly window while sitting one place past the cut).
+
+**And the queue is 2.10× oversubscribed** — 42 site-fetches demanded per day by the configured cadences
+against 20 slots supplied (4 runs × cap 5). **Removing the cap does not close that**: 4 × 9 = 36 vs 42.
+So ordering fixes *who* absorbs the shortfall; only capacity fixes the shortfall.
+
+**Filed as `bugs_open/316`.** It explicitly narrows a gloss THIS LANE wrote into register LCO-009 — that
+a work-queue cap means "coverage is eventual, not a defect". Coverage is eventual; it is also
+deterministically unfair, and nobody had looked. The register note was reasoning, not measurement, and
+it was written by the same session that built the detector — the "read the WARN" advice told a future
+reader to dismiss exactly this case.
+
+**The transferable lesson:** the cap census answers *whether a result was truncated*. It cannot answer
+*who was cut*, and for a work queue that second question is the whole defect. One `ORDER BY` inspection
+per capped step is the cheap check, and I only ran it because five identical HITs in a row looked too
+tidy.
+
+### §3a, day 4
+
+**0 `suggest_tools` runs since migration 445**; last in all history 2026-08-15 20:29Z. Four days quiet
+against a historical cadence of 1–9 runs on roughly half of days. `plan_links` likewise still **0 rows
+all history**, which is 313's disconfirming arm staying clean.

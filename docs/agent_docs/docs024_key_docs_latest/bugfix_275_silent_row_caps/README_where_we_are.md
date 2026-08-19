@@ -183,3 +183,39 @@ version could not have shown.
 18:00, so the warning would be visible — but only if someone is watching at the moment it fires. I have
 left a recorder attached until 20:45 that writes any warning to a file. Either way, the database check
 above will tell us what happened whenever anyone next looks.
+
+## 2026-08-19 — the fix works, and looking at who it cuts turned up something we had written off
+
+The new build is live and I checked it properly rather than trusting the tag: I asked the running
+program which commit it was built from, and included **yesterday's** commit in the list of things it
+must NOT match. It didn't match it, so this is genuinely new code and not the cached-image trap we have
+been caught by before.
+
+**The detector is doing its job, and the database tells us what it found.** Over the two days the
+records go back, the news-feed job has taken exactly five sites on **every single run** — five for five.
+The model-directory job, which has a limit of twelve and only ever finds four things, has hit its limit
+**zero** times out of four. That contrast is what makes the first number trustworthy rather than just a
+number.
+
+**Then I asked a question we had not asked, and it changed my mind about this case.** When we wrote up
+the detector, we said a cap on a *work queue* was harmless — it takes five now, the rest come next time,
+coverage is eventual. That is true. What nobody checked is **who** gets left behind, and the answer is
+that it is decided by the alphabet, permanently:
+
+- The five sites whose names sort first are **exactly on schedule** — none of them is late at all.
+- The four whose names sort last are **all late**, every time.
+
+The worst-affected is `relojistas.com`, and it is worst-affected *because it asked for the most*: it
+wants refreshing every three hours, which means it comes due twice as often as everyone else, while
+sitting one place the wrong side of the cut. It is currently more than a full cycle overdue, and by this
+afternoon it will be about nine hours late on a three-hour schedule.
+
+**There is also a plain capacity problem underneath it.** Adding up what the sites are configured to
+want, the queue needs 42 refreshes a day and the schedule supplies 20. Even if we removed the limit
+completely it would supply 36. So the ordering decides *who* suffers; the capacity decides *whether
+anyone does*. Those are two different decisions and I have written both up as `bugs_open/316`.
+
+**What I would like you to decide** is in the reply I have sent you alongside this — briefly, whether to
+fix the internal linker (which has never once produced a link in four months), whether to make the feed
+queue fair and/or bigger, and whether to keep waiting for the one proof that is still outstanding on the
+original bug. None of them are urgent in the sense of anything being on fire; all of them are cheap.

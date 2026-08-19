@@ -461,3 +461,25 @@ means.
 **The conclusion the lane should carry:** the WARN is a hint for someone already watching;
 `collected_data` is the record, and it answered the same question in one query, retroactively, with
 controls.
+
+### §2026-08-19 — five for five, and the class analysis had a blind spot this file should own
+
+New build `v1.0.1314` (07:52Z) verified at the binary with **yesterday's stamp as a third control** —
+absent, so this shipped new code rather than a cached image. Detector still an ancestor of the stamp.
+
+**Census over the retained window: `content-feed-trigger` hit its cap on ALL FIVE runs**
+(08-18 08:32/14:32/20:32, 08-19 02:33/08:33); `model-directory-trigger` **0 of 4** (4 rows against a cap
+of 12). ⚠ Yesterday's "3 of 4" became "5 of 5" only because the one under-cap run aged out of the ~2-day
+retention — **the fleet did not change; the window did.**
+
+**And the cap census cannot answer the question that turned out to matter: WHO gets cut.**
+`find_news_sites` orders `BY s.domain`, alphabetically and stably, so the same names win every
+contention. Measured against each site's own configured cadence: ranks 1–5 are **0% late**, ranks 6–9
+are **all late**, and the split is exactly the cap boundary. The worst-hit site is the one that asked to
+be refreshed most often. The queue is also **2.10× oversubscribed** (42 demanded/day vs 20 supplied),
+which removing the cap would not close (36 vs 42).
+
+**Filed as `bugs_open/316`, and it narrows a claim this file's own work put into register LCO-009** —
+that a work-queue cap means "coverage is eventual, not a defect". That was reasoning, not measurement,
+and it told future readers to dismiss the case this bug turned out to have. **For every capped step, read
+the `ORDER BY` as well as the count.**
