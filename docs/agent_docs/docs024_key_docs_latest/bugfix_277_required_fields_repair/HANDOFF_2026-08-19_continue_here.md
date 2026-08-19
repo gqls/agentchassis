@@ -464,6 +464,39 @@ retrospective, only the second is evidence.
 
 ---
 
+## 8b. ⚠ THE TRAP THIS LANE KEEPS SETTING FOR ITSELF — read before writing any work-item count
+
+**`site_work_items` is a ~7-DAY WINDOW.** `work-item-archiver` moves terminal rows to
+`site_work_items_archive` — measured 2026-08-18 by another lane, **20,184 archived against 10,689
+live**. Any count of work items over the live table alone silently answers *"in the last week"*.
+
+**This lane diagnosed that, shipped the fix, and then fell for it the next day.** Migration
+`465_promoter_reads_archived_history.sql` (`a62809d29`, 2026-08-18) exists precisely because the
+promoter's "lifetime" success history was really 7 days; **`bugs_open/083`'s entire floor arithmetic
+depends on that UNION.** On 2026-08-19 I wrote a work-item count into `bugs_open/315` without it and
+was **4x low** (3 rerenders, actually 13; class-wide the real figure is **331 completed items against
+55 pages with zero components**).
+
+**The lesson is not "remember the archive".** I had bound the check to a **topic** — the promoter's
+floor — rather than to an **operation**. When the topic changed, the check did not travel.
+
+> **Bind it to the operation: every `count(*) FROM site_work_items` is a 7-day answer until proven
+> otherwise, whatever it is about.**
+> ```sql
+> FROM (SELECT ... FROM site_work_items
+>       UNION ALL SELECT ... FROM site_work_items_archive) x
+> ```
+> ⚠ **The archive does NOT carry every column** — `error` is absent, so the guard's-error-text
+> discriminator (§2) only works on the live table. When you need both scope *and* the error text,
+> say which one you traded away.
+
+⚠ **And "was my measurement scoped correctly?" is ONE QUESTION PER TABLE, not one question.** In the
+same query set that got this wrong, the counts over `pages` / `page_components` were right — those
+tables are not archived. **The window-limited half and the unlimited half were wrong and right
+together, in one breath.**
+
+---
+
 ## 9. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,
 `083`, `300`, `301`, `307`, and **`copy-editor` belongs to another lane** · re-measure §1's probe ·
