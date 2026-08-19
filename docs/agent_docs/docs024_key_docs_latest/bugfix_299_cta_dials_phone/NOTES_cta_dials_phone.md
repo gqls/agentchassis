@@ -184,3 +184,46 @@ mutation-proven by the 248 lane). Resubmitted with RESUBMIT_CORR on the same cor
 report time. Verdict-parsing note for the next reader: the verdict body QUOTES other rounds'
 objections inside its reviewers'-checks evidence — a regex sweep attributes them to your
 round; slice from your round's `decided_by` block only.
+
+## 2026-08-19 — lane picked up again: bug RE-VALIDATED, the Go half is LIVE, three switches still held
+
+**Bug still valid [MEASURED 2026-08-19].** Served `preview.webdesign.uk/index.html` still
+carries `href="tel:+44 (0) 7934 524 911"` on `cta-btn-secondary`. The label changed a THIRD
+time (stored row `updated_at` 2026-08-19 10:17:38; history shows `Or answer a couple of quick
+questions…` → `See how it works` (08-18 12:10) → `Read the full terms in our FAQ before you
+pay.` (08-19 10:17)) and the href did not move. Three rewrites, three labels, one tel:. The
+carry re-ships it exactly as 312 predicts.
+
+**The Go half IS live [MEASURED, controls both ways].** agent-chassis pods
+`agent-chassis-7597f54b9-*` started 2026-08-19 12:15Z on `v1.0.1315`; the lane's fix
+`757a0890a` and the comment follow-up `678e16ce4` are both ancestors of the live stamp
+`590ca3a20`; binary probe `grep -aq 590ca3a20 /proc/1/exe` PRESENT, absent-control
+(`deadbeefcafe0000`) correctly absent, and `NormalizeTelHref` present in the binary (2 hits).
+So the pod-verification that migrations 475/476 were held for is now SATISFIED for this lane's
+half. 248's `53a8d3c1d` was already live on v1.0.1310, so BOTH keep halves are in the running
+binary — 477's stated ancestry precondition is met.
+
+**Council round 2 verdict READ (corr 1f1fecc9, run 5091d0b7): APPROVED, 6 advisory
+objections, none high.** Four are checkable and were NOT closed before the switches were
+written; they are this session's work, because three of them bear directly on whether the
+holds can be lifted safely:
+- `bug_historian` (medium): the 312 ordering interlock is enforced by DOCUMENTATION ONLY —
+  "a recorded decision with no enforcement point is decorative". Fleet-wide blast radius.
+- `prior_art_librarian` (medium): the plan asserts BOTH "old binaries warn+skip an unknown
+  check name" and "an unregistered name fails the whole run_discovery_checks step". Both are
+  claims about existing code and cannot both be true; 475's hold rationale rests on the second.
+- `debug_historian` (medium): the archived-page filter's `p.status NOT IN ('deleted','archived')`
+  was scoped from ONE anecdote, with no `GROUP BY status` enumeration — the pages.status
+  literal-that-never-occurs trap.
+- `reuse_agent` / `prior_art_librarian`: the import-cycle justification for duplicating
+  `ctaComponentScanQuery`, and whether `IsAuthoredNonPageCTADestination` collided with an
+  existing symbol, were both asserted without a check.
+
+**090 diagnosis DISPATCHED on 312's mechanism** (intake corr `a26efb3c`, RUN corr
+`d1434dd5-4c5c-4097-9223-be8aca0dcd69`). `FORCE=1` used and the reason is recorded: the
+coverage refusal listed 30+ items on `webdesign.uk/index`, all pre-dating this lane or
+belonging to other classes (`cta_unknown_dest`, `dead_control`, `design-audit`, the failed
+`misdirected_cta:index-rejected-v1-20260806`); the freshest open item is the webdesign lane's
+own `needs_content_page`. Nothing open touches the select_sections seam. Filed per the
+2026-07-31 owner ruling — 312 asserts a structural cause, so it gets the loop rather than a
+declared substitution this time.
