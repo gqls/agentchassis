@@ -37220,3 +37220,79 @@ without an accompanying `jsonb_path_query` would have caught this at commit time
 
 **Cost:** one council round (REVISE) and the re-measurement. The second traced consumer was
 found before anything shipped.
+
+## 2026-08-19 — held finished, tested code uncommitted "until the 090 verdict lands", on the tree where holding is the documented hazard (bugs_open/306 candidate 3)
+
+**The call.** Candidate 3's code and tests were green and mutation-proved by ~10:40Z. I decided
+to hold the commit until the 090 diagnosis run confirmed the blast-radius claim — reasoning
+that committing on shared HEAD is a deploy, so a refuted claim would mean a shipped wrong fix.
+
+**What was actually true.** On this tree the choice was never "committed vs safely private" —
+it was "committed under MY message vs swept under someone else's". Within the hour the owning
+lane committed its own edit to the SAME FILE (`ensureCoreFields` lives in
+`unified_extractor.go`) and `393f15bfd` took my uncommitted `isInfrastructureKey` case as a
+same-file passenger — platform code on HEAD, uncredited, with its tests still untracked and
+its council round not yet submitted. CLAUDE.md §git states the general rule ("a long-lived
+dirty tree is not a private workspace") and the commit-scope hook explicitly cannot see
+same-file passengers; my own session had READ both this morning.
+
+**What caught it.** A routine `git diff --numstat` before commit read 0/0 where 15/0 was
+expected; `git show 393f15bfd` found my case inside the lane's diff.
+
+**The cheap check that would have.** None needed — the rule already existed: **commit the
+moment the work is coherent; a verdict you are waiting on changes what you write in the
+TRAILER (`Council-Submitted:`), never whether you commit.** The 090-refutation worry was also
+answerable without holding: a refuted claim is fixed forward in minutes on this tree, while a
+passenger commit is permanent misattribution.
+
+**Cost:** near-zero this time — the passenger was behaviour-identical to what I intended to
+ship and the test half followed 40 minutes later (`02777cd5f`) naming the sweep. The cost the
+pattern risks is the 2026-07-16 one: half-finished code shipping under a stranger's message.
+
+> **On a shared-HEAD tree, "not yet committed" is not a holding state you control — it is an
+> open offer to every other session's pathspec.**
+
+---
+
+## 2026-08-19 — the SAME shape as yesterday's entry, caught by the same seat, one day later: prose claiming a change the plan did not contain
+
+**Lane:** `bugfix_302_design_repair_verification`, on `bugs_open/317`'s round-2 submission.
+
+**The claim.** My rationale said the debug_historian's backup objection was *"accepted and acted on:
+… The pre-image row is now recorded in the lane (PREIMAGE_2026-08-19_*.txt)"* — stated as a
+completed action.
+
+**What was actually true.** The file exists and was committed (`845c0a362`). But **no edit in the
+plan created it**, so the submission asserted a change its own diff did not show. `editquality`
+returned it: *"Either add the PREIMAGE edit or strike the claim from the rationale; as written, the
+plan asserts a change that isn't in the diff."* Gating, and right.
+
+**Why this is worth a second row rather than a footnote on the first.** Yesterday's entry, one day
+earlier, is the same shape: I wrote *"WII-011's landmine … is amended in the same commit"* having
+amended WII-017 instead. Same seat, same failure mode, consecutive days. **The first entry recorded
+the lesson and did not change my behaviour**, which is the actual finding here — writing a
+WRONG_CALLS row is not itself a control.
+
+**Both instances share a precise shape, and it is not "I lied".** In one the claim was false; in the
+other it was TRUE but unevidenced where the reviewer could see it. **From the reviewer's seat those
+are identical**, because a plan is judged on what it contains. So the honest generalisation is not
+"be accurate" — it is that **a rationale and an edit list are two documents that can disagree, and
+nothing in the submission tooling compares them.**
+
+**The mechanical check, which I am now applying and which is cheap enough to have no excuse:**
+before submitting, for every file the prose says was changed, confirm an edit names it. It is
+`grep`-able against my own JSON:
+
+```bash
+python3 -c "
+import json,sys,re
+d=json.load(open(sys.argv[1]))
+files={e['file'] for e in d['plan']['edits']}
+for m in re.findall(r'[\w/]+\.(?:go|sql|md|txt|json)', d['rationale']):
+    if m not in files and not any(m in f for f in files): print('CLAIMED IN PROSE, NOT AN EDIT:', m)
+" SUBMISSION.json
+```
+
+**Tally for "the rationale claims a change the edit list does not contain": 2 in 2 days**, both
+caught by `editquality`, neither by me. The cost is one full council round each — roughly 10 seats'
+credits — which is why the check above is worth running even though it feels like bookkeeping.
