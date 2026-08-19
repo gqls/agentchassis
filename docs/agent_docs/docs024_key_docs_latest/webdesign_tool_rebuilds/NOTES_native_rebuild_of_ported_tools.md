@@ -1422,3 +1422,33 @@ Rerender `20d280e0` complete 11:06:19Z. Cache-busted grade of `/tools/rls-archit
   data point for Track 2's scope: the checker will need to reason about resource bounds, not just
   input hygiene.
 - Fourth brief written against the contract; generic rules omitted throughout.
+
+## 2026-08-19 20:35Z — #13 built, the cap is CORRECT, retired in 99 s
+
+Resolved by the ARTEFACT (the page gained a 10,681-char slot), not by "the most recent tool-generator
+run" — applying the trap recorded at 11:37Z. Component **`6e44b3da-f324-4ded-8941-a8d4666f6437`**,
+`{{\.` 0, `onclick=` **0**, `alert(` **0**.
+
+**The load-bearing requirement is right, and I checked the ORDER rather than the presence of a
+number:**
+```js
+var sizes = groups.map(function (g) { return g.length; });
+var total = sizes.reduce(function (a, b) { return a * b; }, 1);
+if (total > MAX_VARIANTS) {
+  showMessage('This template would produce ' + total.toLocaleString() + ' variants, which is over the
+   cap of ' + MAX_VARIANTS.toLocaleString() + '. Remove a group or an option to bring it under the limit.');
+  return;                                   // <-- returns BEFORE generating anything
+}
+```
+A `5000` appearing somewhere in the file would have satisfied a grep while the tool still froze; what
+matters is that the product is computed from the group sizes and the function **returns** on the
+over-cap branch. `MAX_GROUPS` guard present too, and the singular is handled.
+
+**Contract rules again unprompted** (fourth consecutive proof of 481): `permutatorMessage` (18/19),
+`permutatorStats` (20), `permutatorCopyMsg` (15) — none in the brief.
+
+**Ported slot retired 20:37:01Z — 99 s after the build.** `b5db3257…` to `removed`, 6,411 chars,
+md5 `48f609219a2e4da8230bb9835ae12100` byte-identical. Asserted one deployed slot and that it is
+`6e44b3da`. Rerender `0d32abae-2e18-4923-8103-3f21d0fe2bd7` queued and watched.
+
+**12 replaced, 51 ported tools remain (2 blocked).**
