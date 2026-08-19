@@ -15,6 +15,22 @@ import (
 	"go.uber.org/zap"
 )
 
+func init() {
+	// Declared for BOTH registered names of this handler (125 + 20 live steps).
+	// Fleet census 2026-08-19: live conditional steps carry exactly
+	// condition/then_step/else_step, so this set is complete, not aspirational.
+	// ConfigKeys (not Required/Optional) because these are settings, not
+	// extractor fields; StrictConfig stays false.
+	spec := datahelpers.ActionInputSpec{
+		ConfigKeys: []string{"condition", "then_step", "else_step", "fail_on_non_numeric"},
+		ConditionalKeys: map[string]string{
+			"fail_on_non_numeric": "takes effect only on string-form conditions containing a numeric comparison (>, >=, <, <=); ==, !=, truthy checks and object-form conditions are unchanged",
+		},
+	}
+	datahelpers.RegisterActionInputSpec("conditional_branch", spec)
+	datahelpers.RegisterActionInputSpec("conditional", spec)
+}
+
 // ConditionalBranchAction provides if/then/else logic in workflows
 // Supports both object-style conditions and string expressions with AND/OR
 //
@@ -28,12 +44,24 @@ import (
 // Object format (legacy):
 //
 //	{"field": "path.to.field", "operator": "equals", "value": true}
+//
+// Opt-in `fail_on_non_numeric: true` (default false, absent key preserves the
+// historical behaviour byte for byte): a numeric comparison whose left or right
+// side does not resolve to a number FAILS THE STEP instead of silently
+// evaluating false and routing to else_step. Scoped to the numeric operators
+// only — for ==/!=/truthy a nil operand is a legitimate null probe, while for
+// >, >=, <, < it is always a config-or-data defect (bugs_open/313: an
+// unresolvable `candidate_pages.count > 0` silently skipped the agent's only
+// LLM step on every run for four months).
 func ConditionalBranchAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 
 	// Get then/else steps
 	thenStep, _ := config["then_step"].(string)
 	elseStep, _ := config["else_step"].(string)
+
+	failOnNonNumeric := datahelpers.GetBoolFieldLoud(config, "fail_on_non_numeric", false,
+		params.Logger, zap.String("step_name", params.ExecutionContext.StepName))
 
 	var conditionMet bool
 	var err error
@@ -60,7 +88,7 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 	case string:
 		conditionDebug = cond
 		// Parse string expression like "site_plan.needs_logo == true OR site_plan.needs_images == true"
-		conditionMet, err = evaluateStringCondition(cond, params.CollectedData, params.Logger)
+		conditionMet, err = evaluateStringConditionMode(cond, params.CollectedData, params.Logger, failOnNonNumeric)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate condition '%s': %w", cond, err)
 		}
@@ -103,7 +131,14 @@ func ConditionalBranchAction(ctx context.Context, params ActionParams) (interfac
 // - "site_plan.needs_logo == true AND site_plan.needs_images == true"
 //
 // Precedence: AND binds tighter than OR (standard boolean precedence)
+//
+// Kept with this signature (lenient mode) because callers outside this file use
+// it; the mode-carrying variant below is the implementation.
 func evaluateStringCondition(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
+	return evaluateStringConditionMode(expr, data, logger, false)
+}
+
+func evaluateStringConditionMode(expr string, data map[string]interface{}, logger *zap.Logger, failOnNonNumeric bool) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
 	logger.Debug("Evaluating string condition", zap.String("expression", expr))
@@ -115,7 +150,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 
 		for i, part := range parts {
 			cleanPart := cleanExpressionPart(strings.TrimSpace(part))
-			result, err := evaluateStringCondition(cleanPart, data, logger)
+			result, err := evaluateStringConditionMode(cleanPart, data, logger, failOnNonNumeric)
 			if err != nil {
 				return false, fmt.Errorf("OR clause %d: %w", i, err)
 			}
@@ -134,7 +169,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 
 		for i, part := range parts {
 			cleanPart := cleanExpressionPart(strings.TrimSpace(part))
-			result, err := evaluateStringCondition(cleanPart, data, logger)
+			result, err := evaluateStringConditionMode(cleanPart, data, logger, failOnNonNumeric)
 			if err != nil {
 				return false, fmt.Errorf("AND clause %d: %w", i, err)
 			}
@@ -148,7 +183,7 @@ func evaluateStringCondition(expr string, data map[string]interface{}, logger *z
 
 	// No AND/OR - evaluate single comparison (also clean parens here)
 	cleanExpr := cleanExpressionPart(expr)
-	return evaluateSingleComparison(cleanExpr, data, logger)
+	return evaluateSingleComparison(cleanExpr, data, logger, failOnNonNumeric)
 }
 
 // cleanExpressionPart removes unbalanced parentheses from expression parts
@@ -186,7 +221,7 @@ func splitOnOperator(expr string, operator string) []string {
 
 // evaluateSingleComparison evaluates a single comparison expression
 // Supports: ==, !=
-func evaluateSingleComparison(expr string, data map[string]interface{}, logger *zap.Logger) (bool, error) {
+func evaluateSingleComparison(expr string, data map[string]interface{}, logger *zap.Logger, failOnNonNumeric bool) (bool, error) {
 	expr = strings.TrimSpace(expr)
 
 	// Clean unbalanced parentheses from grouping
@@ -276,6 +311,9 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 			expectedNum, expectedOk := datahelpers.ToFloat64(expectedStr)
 
 			if !actualOk {
+				if failOnNonNumeric {
+					return false, fmt.Errorf("condition %q: left side %q is not numeric (resolved to %v, type %T) and fail_on_non_numeric is set — refusing to route silently to else_step", expr, field, actual, actual)
+				}
 				logger.Warn("Numeric comparison: left side is not numeric",
 					zap.String("field", field),
 					zap.Any("actual", actual),
@@ -283,6 +321,9 @@ func evaluateSingleComparison(expr string, data map[string]interface{}, logger *
 				return false, nil
 			}
 			if !expectedOk {
+				if failOnNonNumeric {
+					return false, fmt.Errorf("condition %q: right side %q is not numeric and fail_on_non_numeric is set — refusing to route silently to else_step", expr, expectedStr)
+				}
 				logger.Warn("Numeric comparison: right side is not numeric",
 					zap.String("expected", expectedStr),
 					zap.String("operator", op.symbol))

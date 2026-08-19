@@ -226,6 +226,10 @@ func main() {
 		emitSharedOutputFields()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--array-producer-conditions" {
+		emitArrayProducerConditions()
+		return
+	}
 	declared := datahelpers.ListDeclaredConfigKeys()
 	conditional := datahelpers.ListConditionalConfigKeys()
 
