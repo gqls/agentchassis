@@ -255,3 +255,75 @@ one by me, one by a peer session, one by a reviewer. They were the same mistake 
 clothes: *a thing that exists, or was written down, is not a thing that operates, or was done.* The
 fourth near-miss was in this very proof — my first "must be absent" control turned out to be a commit
 that couldn't have been absent. A control is only a control once you've checked it can fail.
+
+---
+
+## 2026-08-19 — your five decisions, carried out
+
+**1. Route dark-section findings at something that can fix them. Done.** They now go to the
+CSS-patch agent instead of the colour-variable fixer. The reason the old route could never work, in
+one line: these findings ask for a small block of CSS to be *added* to the stylesheet, and the old
+agent's only trick is *replacing* dark colour codes it finds inside page components — it has two
+words in its vocabulary and the findings ask for five others. That is why all 26 of them, across 17
+sites, reported changing nothing.
+
+I picked the CSS-patch agent over the design agent that handles every *other* colour finding, and
+the reason is worth knowing because it is the same trap in a new coat: that design agent produces
+an *analysis*, which is exactly what you ruled its own job to be — so sending a repair to it would
+repeat the mistake we are fixing. The CSS-patch agent, by contrast, has 39 real commits to live
+stylesheets, the most recent yesterday.
+
+**One thing I want to flag rather than bury:** that agent has an open bug of its own — it once wrote
+a fragment over an entire stylesheet and a live site served a broken page. Two guards for it are
+live and it has completed 98 jobs since with no repeat, so I judged it safe and said so first in the
+review submission rather than waiting to be asked. If you would rather wait for that bug's final
+sign-off, nothing is lost: with both schedulers off, the new route cannot run anyway.
+
+**2. Keep the schedulers off. Nothing to build** — but it is the reason 1 and 3 are safe to do now:
+neither can fire until you turn one back on.
+
+**3. Fix 317. Done and live.** The 15-minute cleanup sweep can no longer complete these jobs behind
+the checks' backs. Applied to the live configuration and verified by re-reading it, with the change
+refusing to apply twice and a rollback script beside it. The reviewer panel sent it back once — see
+below — and it was right to.
+
+**4. The park-instead-of-retry option: not yet.** Agreed, and unchanged: the cost still hasn't shown
+up in the numbers.
+
+**5. The two job-type questions. Both answered, and the second came out NEGATIVE — which is the
+useful kind.** Your ruling that the analysis *is* the deliverable is now recorded in the code, at
+the exact spot where someone would otherwise add a rule for it. And the spacing job type **must not**
+get one: of 247 completions, **226** say "not fixed — already has flex CSS". That is a repair
+finding its work already done, and gating it would have blocked 226 correct completions. The
+sibling responsive type measures the same way. Both are now written down beside the one type that
+*does* qualify, because the contrast is the whole point: two job types report the identical words
+"I changed nothing" and mean opposite things.
+
+**What came back on the review, and what it caught.** The 317 change was sent back with a gating
+objection, and the objection was fair: my write-up mentioned that the migration's own comment had
+nearly broken the guard during drafting, without showing whether that was fixed. It was — but a fix
+that rests on my having noticed is not a fix. So the warning is now a check: the guard verifies that
+what it read is actually a list of job types, and fails clearly if a stray comment hijacked it. I
+reproduced the original trap deliberately to confirm the check catches it.
+
+**Two rounds then died without being reviewed at all** — the account hit its API usage limit
+mid-round. Before reporting an outage I checked, because a previous investigation established that
+the "you regain access on 1 September" message carries no information about duration whatsoever:
+the same words have accompanied a three-minute blip and a three-hour one. Measured: 57 successful
+calls against 7 failures in that hour. **The fleet is not down; the cap is intermittent.** I
+resubmitted and both are running.
+
+That did turn up something worth your attention, which I've added to the existing bug: **a single
+transient failure on any one reviewer discards the entire review round**, including the nine
+reviewers who already answered and their cost. Unreadable output from a reviewer is tolerated by
+design; an *error* is not. At the measured failure rate that is roughly a coin-flip per round, and
+of my four rounds over two days, two died that way. The fix is a configuration line repeated
+seventeen times, not code.
+
+**And a by-product I filed rather than chased:** while measuring the spacing job type I found the
+same problem as the original bug at eighteen times the scale — **468 jobs across 22 sites** closed
+green while the handler said, in its own words, *"this requires LLM-driven changes, not
+programmatic"*. That is not "already done"; that is an agent saying it cannot do the work. It is
+`bugs_open/323`. I have deliberately **not** claimed that those 468 CTAs are unimproved — nobody has
+checked whether another job type picks the work up, and I would rather file the measurement than the
+conclusion.
