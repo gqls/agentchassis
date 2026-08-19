@@ -471,3 +471,19 @@ step is a **`call_agent`**, not a `git_commit`. That is exactly the shape that p
 doubly-nested `deploy_result.response.deploy_result.…` envelope measured earlier at **57 of 744
 rows** — the sub-agent's whole collected data comes back under `response`. The two findings were
 made independently and agree, which is worth more than either on its own.
+
+## 2026-08-19 ~10:50Z — the plan's fourth risk, closed at the register
+
+Risk 4 asked whether anything downstream of the commit rewrites page bytes — because if it does,
+hashing what the adapter was handed would not be comparable with served bytes, and the whole
+divergence check would need to hash somewhere else.
+
+**It does not.** Register `DGH` on the serving hop (`deployment-github.md:125`):
+
+> *"The `portfolio-sites-router` worker maps `hostname + path` **straight onto a B2 object key**."*
+
+A pure key mapping (its only logic is appending `index.html` to a path ending in `/`), and the hop
+before it is a `b2 sync`, which copies rather than transforms. So the bytes committed are the bytes
+served, and `files_sha256` taken at the adapter is directly comparable with a sha256 of the served
+response. **Risks 1 and 4 of the council submission are now both closed**; risks 2, 3 and 5 stand as
+stated (they are design choices, not unknowns).
