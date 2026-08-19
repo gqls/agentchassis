@@ -110,3 +110,30 @@ was a durable claim in a commit/bug file, a WRONG_CALLS.md row.
   **HEAD + only-my-files** build: `git archive HEAD` + my six code files → build green, tests
   green (`cmd/config-key-audit`, `actions`) — my change does not lean on other sessions'
   uncommitted work.
+
+## 2026-08-19 (late afternoon) — committed, applied, and the detector's first scalp
+
+- **Committed `5315c8a19`** (15 files, pathspec, `Council-Submitted: aef24a7f`), after: same-file
+  passenger scan clean (additions only, counts match) and a HEAD+only-my-files archive build+test
+  (green — no dependence on other sessions' dirty tree state).
+- **Migration 490 APPLIED** 2026-08-19 (direct psql): snapshot row, gates passed, **UPDATE 1**,
+  verify incl. PREPARE parse-check passed, COMMIT. Recorded via `--record-only` (note names this
+  lane + commit). Post-apply read-back: `output_format=object` · no row LIMIT · truncation marked ·
+  template on `.rows` · `fail_on_non_numeric=true` · condition/routing untouched.
+- **Post-fix audit run: internal-linker CLEAN — and the detector caught a NEW second instance that
+  did not exist this morning.** `meta-description-backfiller.check_has_pages` tests
+  `pages_missing_meta.count > 0` against an `output_format: array` producer (fleet moved
+  191→193 agents, 145→146 conditionals — the 320 lane seeded the agent today). So "blast radius
+  is ONE" was true at filing and was already going stale the same day; the class detector is the
+  half that mattered. Contributed to the 320 lane's NOTES + committed `ab02e8145` + messaged the
+  likely session. **My RUNBOOK's "clean fleet expected post-490" line is therefore wrong as
+  written** — the honest pass is "0 findings once the 320 lane fixes theirs"; the audit exits 1
+  until then and that exit is CORRECT.
+- **313/298 bug files: FIXED banners added** (`9be3a2202`); both stay OPEN pending their own
+  §How-to-verify — the first `plan_links` row in `llm_call_log` (still 0), the prompt listing
+  pages, a run passing `check_candidates`. Natural traffic ~2/day, 20 open items queued.
+- **Council round mid-flight** at `review_guardian` (orchestration row found by payload, per the
+  runbook — not by printed id). Verdict owed a read; background watcher armed for
+  verdict-or-first-run.
+- **321 lane landed their `--loop-sitewide-item-keys` mode in main.go on top of my commit** — the
+  two modes coexist; their internal-linker suffix migration is still to apply on their side.

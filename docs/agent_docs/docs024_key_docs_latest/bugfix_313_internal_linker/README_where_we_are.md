@@ -33,3 +33,24 @@ ever drifting back.
 Next: write the migration and the Go pieces, put the whole thing through the council, commit,
 apply, and then watch for the first real link plan in the logs — the agent runs a couple of times
 a day naturally, so the proof should arrive on its own.
+
+## 2026-08-19 (afternoon) — fixed and live; waiting on the proof
+
+The fix is in. The configuration change went through review submission, was committed, and has
+been applied to the live database — the linker's broken "any candidates?" test can now actually
+pass, the 15-page cap is gone, and the prompt was updated to match. I read the live row back
+afterwards and every piece is exactly as intended.
+
+Two things happened that are worth telling. First, the new fleet checker I built for this bug
+paid for itself within the hour: on its first run after the fix it found a brand-new agent —
+seeded today by another workstream — carrying the exact same defect (a test asking a list for a
+property lists don't have). That agent's team has the finding in their notes now, with the worked
+fix pointed at. Four months for the first one; hours for the second. Second, another workstream
+spotted that once our linker starts producing links, a separate known bug (work items colliding
+on their dedup key) would silently throw away all but one link per plan — they're fixing that
+independently, and we've confirmed the two changes can't interfere with each other.
+
+What's left: the review verdict (the council round is running now), and the real-world proof —
+the first actual link plan in the logs, which should arrive on its own within hours since the
+agent runs a couple of times a day and has twenty jobs queued. Once that lands, both bug files
+move to closed. The two code-level safety nets ride the next platform build.
