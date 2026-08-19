@@ -264,3 +264,22 @@ by machine, and the five genuinely tricky ones join the language-model queue we 
 yesterday — which is also now built, gates and all. Everything is submitted for review and
 waits only for the next release to roll out; the repair job is written so the broken-and-live
 pages go first.
+
+**2026-08-19, evening.** The release rolled and it carries everything we were waiting for —
+checked three separate ways down to the bytes running in the pods, because we have been burned
+before by "new" deploys serving old code. The review council had already approved the whole
+package on its ninth round that afternoon. So both switches were flipped tonight: the careful
+LLM branch is live in the fixer, and the repair batch was seeded — sixty-seven jobs, one per
+converted component, with the pages currently serving broken bytes pushed to the front of the
+queue. One honest surprise in the numbers: forty-two components are now serving converted bytes,
+against fourteen when we measured this morning. That is not new damage — pages have simply kept
+re-rendering onto the converted templates all day, which is exactly why the repair could not
+wait, and most of those forty-two are sound anyway (the counter can't tell "serving the new
+style" from "serving broken" — only the repair pass can, and it no-ops politely on the sound
+ones).
+
+The fleet is working through the queue on its own as I write: real repairs are landing with the
+right shape, sound components are being waved through, and each genuine fix files the re-render
+that carries it to visitors. One first: a fix just went out to an owner-managed page through the
+new hand-off we built for exactly that case — the one link in the chain we had never seen run
+for real. If that page re-renders and deploys cleanly, the last unverified box gets ticked.
