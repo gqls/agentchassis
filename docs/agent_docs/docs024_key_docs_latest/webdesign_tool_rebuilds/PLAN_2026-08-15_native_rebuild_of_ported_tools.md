@@ -135,3 +135,44 @@ Both put to the owner after rebuild #3 proved the recipe a second time, with the
    `architecture_review/RFC_036_…`, with the interim recorded in it.
 
 **Batch state after these rulings: 59 clear, 2 blocked, 2 live and proven.**
+
+### OWNER RULING 2026-08-19 — framework ownership of all 63, AND fixes must extend into the framework
+
+Two parts, and the second changes how this lane works.
+
+1. **All 63 tools are to be framework-owned.** The path is in `HANDOFF_2026-08-19_continue_here.md`
+   (Phases A–D). The audit question is settled: reading the live script is step 1 of every rebuild, so
+   rebuilding all 55 audits all 55 — no separate audit pass.
+2. **"All fixes should extend into the framework so the problems don't recur, and we have checkers and
+   handlers that can find and fix the problems."**
+
+**What (2) makes wrong about how this lane has been working.** Every defect found so far has been
+fixed by writing a requirement into ONE work item's description: honest copy buttons, guarded numeric
+input, no blocking `alert()`, real listeners instead of inline `onclick`, errors that do not overwrite
+the output. That fixes one tool. **The next tool the generator builds — for any site, by any lane —
+is born with the same defect**, because the requirement lived in my prose, not in the platform.
+Measured cost of that mistake so far: the owner reported a copy button that lied on a tool THIS LANE
+had just built and graded PASS, because "report success only on success" was in my head and not in the
+generator's contract.
+
+**So the standing order for Phase A onwards is: fix the CLASS, then the instance.** Three tracks,
+in this order of leverage:
+
+- **Track 1 — the generator's own contract (config, live immediately, no roll).** The tool-quality
+  rules live in `agent_definitions.default_config` at
+  `{workflow,steps,generate_tool_html,config,prompt_template}` — 2,868 chars, 14 numbered rules
+  covering self-containment, CSS variables, mobile, semantic HTML, the tool-doc header and prose
+  punctuation. **This is the framework's tool-quality contract and it is where every recurring
+  requirement belongs.** A rule added here applies to every tool generated fleet-wide, for ever, and
+  costs nothing per tool. Adding to it is the single highest-leverage act available to this lane.
+- **Track 2 — a checker (code; council gate + roll).** Rules only bind what is generated NEXT. A
+  discovery check in `platform/orchestration/actions/discovery_checks/` is what FINDS the defect in
+  what is already deployed and files work items — the same shape as `orphan_element_refs` (TL-032).
+  This is what makes the class self-detecting rather than dependent on someone reading 55 scripts.
+- **Track 3 — the handler.** A check that files an item nobody handles is a queue, not a fix
+  (`bugs_open/161`'s `needs_rebuild` is the cautionary case: a dead queue). Confirm the item type this
+  check raises has a live handler before shipping the check.
+
+**Consequence for the briefs**: once a rule is in Track 1, DELETE it from the per-tool description.
+A requirement repeated in both places is the drift surface — the day they disagree, nobody knows which
+is authoritative. The per-tool brief should say only what is TRUE OF THIS TOOL.
