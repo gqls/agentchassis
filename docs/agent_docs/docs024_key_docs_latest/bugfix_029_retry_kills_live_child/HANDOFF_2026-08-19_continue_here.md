@@ -35,6 +35,25 @@ independently.**
 > BY RETENTION. Add the `wedge-evidence:<orch_id>` note keys to the runtime tier when a burst is
 > captured, but that is an addition, not a precondition.
 
+## STATE ON `v1.0.1316` (roll 2026-08-19 17:13Z) — the gating dependency is MET
+
+| check | result |
+|---|---|
+| build point | **`07eeba4a1`** PRESENT on **both** replicas. Negative controls: previous build point `590ca3a20` **absent on both**; `deadbeef…` absent (confirmed on the first replica — the second probe was cut by a command timeout, so that one cell is `[UNVERIFIED]` and the PREV control carries the weight) |
+| **the bundle fix is ABOARD** | `0132a3683` is an ancestor of `07eeba4a1` — so `awaited_requests` is now in `schemaAlwaysTables` **in the running binary**. Part A (`bf7646a29`, `2a3d30ec3`) also aboard |
+| evidence still retained | **20 instances, all 08-17**, still reconstructible. `awaited_requests` floor has advanced to **2026-08-12 20:30**, so the 08-17 rows have roughly **three days** left |
+| new build, wedges | none. 2 COMPLETED, 1 healthy `AWAITING_RESPONSES` at `process_item_iter_0_call_handler` |
+
+**090 RE-FILED on this build: run corr `d02a6958-ddb5-4b3b-af58-0857094100d9`** (2026-08-19
+~20:40Z, `FORCE=1`, same seed scope, all five symbols re-verified on origin — HEAD was 428 commits
+ahead by then). The symptom now also **names the two refuted mechanisms so they are not
+re-proposed** (the ticker's shared 60 s context; the response-consumer context).
+
+⚠ **Two things this run is expected to settle, and they are separate.** (1) Whether the wedge has a
+cause — the actual question. (2) **Whether my bundle fix works** — the behavioural proof is that its
+stored bundle's Schema section now describes `awaited_requests`. **Shipped is not proven**; check the
+bundle, not the commit.
+
 ## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
 
 | check | result |
