@@ -547,9 +547,39 @@ promoted or actioned. That is precisely `bugs_open/083`'s subject (detected find
 never reach a handler), and it is why the five missing descriptions have not
 self-healed and will not.
 
+> **CORRECTED 2026-08-19 (the session that picked this up to execute §10):** the fact is
+> right and the INFERENCE from it is wrong. `head_essentials_missing` **does not look at
+> meta descriptions at all** — `HeadEssentialsMissingCheck` asserts exactly three things,
+> a non-empty `<title>`, a skip-link and a `<footer>`
+> (`check_site_structural_validity.go:991-1044`; `headEssentials()` is nine lines). It
+> would never have fired for these five pages, so its 606 handler-less rows are not the
+> reason they are empty and **fixing `083` would not fill them.** What caught it: reading
+> the check's own source instead of its name.
+>
+> **The real reason, and it is much bigger than five pages:** `[MEASURED 2026-08-19]`
+> **407 of 731 active pages (55.7%) across 26 of 27 sites have no meta description**, by
+> two live mechanisms — `build-site-planner` is never asked for one (its `Return JSON:`
+> page object has no such field, so `upsertPage` takes its `""` default), and the same
+> upsert's `ON CONFLICT` sets `meta_description = EXCLUDED.meta_description` **unguarded**
+> (`nav_label` two lines above IS guarded), which is **proven to have blanked** four
+> robot-hands.com pages that held 97-329 chars in an April snapshot. Nothing detects it
+> (0 of 58 discovery checks name the column) and nothing repairs it (all seven writers are
+> create-or-upsert; no `UPDATE` path exists in Go or in any agent config).
+>
+> Filed as **`bugs_open/320`** (slug `meta_description_is_never_asked_for`), which
+> supersedes this subsection as the account of WHY. Working docs:
+> `docs024_key_docs_latest/meta_description_never_backfilled/`.
+
 Routes checked and rejected:
 - **`maintenance_actions.go`** only READS `meta_description` (line 1045); it does not
   backfill it.
+- **`content_rewrite` → `page-build-handler`** — ADDED 2026-08-19, and it is the route
+  that looks most promising and is the most expensive: two such items about missing meta
+  descriptions are `complete` and **neither wrote a description**
+  (`ec701bb3-85e7-40e7-bff1-2ce1ae104861` gaswholesalers `about`,
+  `13522562-2392-4db9-96b5-204ab67cb999` webdesign.co.uk `index`; both targets read 0
+  chars today, and the first page's own `updated_at` is AFTER the item closed). Filing
+  these for the five would come back green and change nothing.
 - **Regenerating the five article pages** would fill them, but it rewrites real
   published content to obtain a side effect, costs LLM spend, and lands on
   `bugs_open/238`'s own trap (a regeneration drops resolver-sourced keys). Not a
@@ -563,6 +593,13 @@ Routes checked and rejected:
    `llm-cost-calculator-guide`, `model-approach-selector-guide`,
    `review-council-simulator-guide`, `self-correction-leopardessconsulting`. By the
    framework, not by hand (owner ruling 2026-08-06). This is the whole blocker.
+   > **CORRECTED 2026-08-19: there is no framework mechanism that can do this today.**
+   > All seven writers of `pages.meta_description` are create-or-upsert paths; no `UPDATE`
+   > path exists, no discovery check names the column, and it is not a field a writer agent
+   > can reach (`llm_fields` are per-SECTION; this is a `pages` column). By the owner's own
+   > 2026-08-06 ruling — *"if the generator does not exist yet, that is the finding to
+   > report, not a gap to fill personally"* — this step is **blocked on an owner decision**,
+   > not on effort. Options are ranked in `bugs_open/320` §8.
 2. **Re-dispatch the identical rerender.** Envelope and gotchas in §9; the reason MUST
    be one `check_rerender_mode` recognises (`template_changed` is what was used).
    Expected result: 8 cards, 2 anchors each, archived guide absent, ~73% text retained

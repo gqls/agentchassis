@@ -1,0 +1,201 @@
+# NOTES — `pages.meta_description` never backfilled
+
+Append-only, newest at the bottom.
+
+---
+
+## 2026-08-19 — picking up `bugs_open/309`'s case repair, and finding it is not what it says
+
+**Where I started.** Handed the `bugfix_284` lane's two handoffs. Both say the 284 lane
+is CLOSED and hand on `bugs_open/309`, whose §9/§10 are the live text. §10's remaining
+step: backfill `meta_description` on five fundamentallyai.com pages, *by the framework,
+not by hand*, then re-dispatch the rerender.
+
+**Re-measured before trusting anything** (the handoff says to, and it was right):
+
+- served `platform-log/index.html`: HTTP 200, 32,594 bytes, **6 cards, 0 anchors each** —
+  unchanged from 08-18.
+- the five pages: all still `meta_description` length **0**.
+- **Control, and it is what makes the zero readable**: the three `/guides/tool-*`
+  siblings serve a real description (156 chars on
+  `tool-automation-savings-estimator-guide`), and all six pages return 200 with 27–29 KB
+  bodies. So these are not 404s and not a fetch artefact — the trap 309 §C already
+  logged once ("a zero from a guessed URL is a false zero").
+
+### Misstep 1 — I nearly accepted §10's routing without reading the check
+
+§10 says the five have not self-healed because `head_essentials_missing` carries no
+handler on all 606 rows, and routes that to `bugs_open/083`. That is a clean, plausible
+story and I was one step from repeating it.
+
+**It is wrong.** `HeadEssentialsMissingCheck` asserts exactly three things — non-empty
+`<title>`, a skip-link, a `<footer>` (`check_site_structural_validity.go:991-1044`; the
+`headEssentials()` helper is nine lines and reads `doc.Find("title")`, `doc.Find("footer")`
+and an `href="#content"` match). **It never looks at a meta description.** So it would
+not have fired for these pages whatever `083` does, and fixing `083` would not fill them.
+
+The check that caught it was cheap and I should have run it first: **grep the check's own
+source for the field before believing a claim about what it detects.** One command.
+
+### Then the size turned out to be wrong too
+
+`[MEASURED 2026-08-19]` `pages` where `status='active'`:
+
+| | |
+|---|---|
+| active pages | **731** |
+| empty `meta_description` | **407 (55.7%)** |
+| sites with at least one | **26 of 27** |
+| sites at 100% | `loancalculator.co.uk` 43/43, `adversecreditmortgage.co.uk` 19/19, `loanzy.uk` 13/13 |
+
+So the five are ordinary members of a fleet-wide class, not a local content gap.
+
+### The mechanism
+
+Every writer of the column is a create-or-upsert path (`upsertPage`,
+`create_tool_component_action`, `deploy_tool_action`, `create_report_page_action`,
+`ApplyAdoptionPlanAction`, `adopt_verbatim`, `cmd/webdesignport/import`). A
+multiline-aware scan for `UPDATE pages`/`INSERT INTO pages` blocks containing the column
+returns **no UPDATE path at all**. Nothing repairs an existing page.
+
+Nor can a writer agent reach it: `llm_fields` / `llm_field_specs` are **per-section**
+(`plan_sections_action.go:864-897`), scoped to a component's `input_schema`, and
+`meta_description` is a **`pages` column**. Exactly the bugfix-203 shape — *ask who owns
+the field before asking the framework for it.*
+
+And of the **58** checks under `discovery_checks/`, **none names the column.**
+
+### The live proof, which is the part I would not have believed from code alone
+
+`content_rewrite` items **are** filed about missing meta descriptions and routed to
+`page-build-handler`. Two are `complete`:
+
+| item | target | completed | `meta_description` today |
+|---|---|---|---|
+| `ec701bb3-…` *"neither page carries a meta description"* | gaswholesalers.com `about` | 2026-08-15 16:30Z | **0** |
+| `13522562-…` *"the home page meta description … leads with a self-description of inventory"* | webdesign.co.uk `index` | 2026-08-15 19:15Z | **0** |
+
+The gaswholesalers page's own `updated_at` is 19:46Z that day — **the handler ran and
+touched the page, and the column stayed empty.** A `complete` work item is not a
+repaired artefact. This is what rules out the obvious unblock: filing a `content_rewrite`
+for the five would complete and do nothing.
+
+### The finding that changes the fix ranking
+
+I assumed this was historical debt to be backfilled. It is not.
+
+`[MEASURED 2026-08-19]` active pages by creation month, % born with an empty description:
+2026-02 **94.1%**, 03 **86.0%**, 04 **50.7%**, 05 **90.9%**, 06 **38.5%**, 07 **54.4%**,
+**08 52.7%**. August, by page_type: `content` **60 of 64**, `landing` 16/17,
+`blog-post` 18/68, `tool` 15/53.
+
+**The tap is still running.** A backfill alone would be mopping under it, so any option
+put to the owner has to say what it does about birth as well as about the 407.
+
+### Misstep 2 — my first diagnosis run failed and reported `complete`
+
+Fired `090` at 09:36Z, run correlation `d7a9ab39-4917-4479-b1d5-68aae982f79c`. It ran
+`lookup_symbols` → `assemble_bundle` → **FAILED**, and the orchestration's last row then
+reads `current_step=complete, status=COMPLETED`. Zero artifacts.
+
+The real error is only in `collected_data->>'__step_error'` on **that last row** — the
+two FAILED rows carry `(none)`:
+
+```
+diagnose_assemble_bundle: no scope (tried "route.scope.Symbols",
+"input_data.seed_scope", then code_results)
+```
+
+Cause: my symptom named **files**, not **symbols**, and nothing seeded a scope. The
+trigger takes `SEED_SCOPE="path:Symbol,path:Symbol"` (090 script, lines 117 / 282-346)
+and I had not read that far. Re-fired 09:47Z with five `path:Symbol` entries —
+run correlation **`7375631a-dfa1-4145-9a07-d13586f1a7cf`**.
+
+⚠ **Two things worth carrying:** a failed diagnosis run's terminal row says
+`COMPLETED`, so "did my diagnosis produce anything?" is `count(*) FROM
+diagnosis_artifacts`, never the orchestration status. And a `090` symptom that names
+only paths can be accepted, dispatched and then fail to scope — pass `SEED_SCOPE`.
+
+---
+
+## 2026-08-19, later — the diagnosis came back UNVERIFIABLE, and was more useful than a CONFIRMED
+
+Run `7375631a-dfa1-4145-9a07-d13586f1a7cf` reached **`status: UNVERIFIABLE`**, stopped on
+the **iteration cap** after 5 bundles. **It did not confirm my hypothesis and I am not
+going to write it up as though it had.** What it did was better: it refused my framing
+and handed back a sharper one plus the exact test that would settle it.
+
+Its last hypothesis, in its own words:
+
+> *"meta_description is NOT frozen at creation. upsertPage's ON CONFLICT DO UPDATE sets
+> meta_description = EXCLUDED.meta_description unconditionally on every upsert of an
+> existing page, with no COALESCE/NULLIF guard the way nav_label has … any resync/replan
+> pass whose page map omits that field will overwrite an existing, previously-populated
+> meta_description with an empty string — the opposite failure mode from 'set once at
+> creation and never touched again'."*
+
+And its discipline, which I should copy:
+
+> *"The code proves the mechanism EXISTS … What is missing is proof the mechanism
+> OCCURRED … consistent-with is not direct."*
+
+It also recorded that its own join of `site_plan_pages` against `pages` **returned 0 rows
+and that this was inconclusive**, not a refutation — a distinction I have got wrong
+before. Then it named the settling evidence: an earlier `site_snapshots.pages_snapshot`
+entry showing a non-empty description for a page now empty.
+
+### I ran that test. The overwrite has FIRED.
+
+`[MEASURED 2026-08-19]` `site_snapshots.pages_snapshot` does carry `meta_description`
+(the key list per page element includes it):
+
+| domain | page | snapshot | chars then | chars now | page updated |
+|---|---|---|---|---|---|
+| robot-hands.com | `index` | 2026-04-10 | **120** | **0** | 2026-08-19 |
+| robot-hands.com | `product-detail` | 2026-04-10 | **97** | **0** | 2026-08-17 |
+| robot-hands.com | `tool-gripper-payload-calculator-guide` | 2026-04-10 | **169** | **0** | 2026-08-17 |
+| robot-hands.com | `tool-gripper-payload-calculator` | 2026-04-10 | **329** | **0** | 2026-08-17 |
+
+**All four are `built_from_plan_version IS NOT NULL`** — plan-managed, i.e. reachable by
+the one writer that overwrites unconditionally. `index` was updated at 02:40Z **today**,
+so this site is actively being replanned.
+
+### The denominator, because 4 on its own is not a rate
+
+| | |
+|---|---|
+| pages covered by any snapshot | **139** (7 sites, most snapshots 2026-04-10) |
+| of those, had a description then | **30** |
+| **lost it** | **4** (13% of the 30) |
+| gained one | 10 |
+
+⚠ **This sample cannot be extrapolated to the 407.** It is 139 of 731 pages, 7 of 27
+sites, and almost all of it is one day in April. What it establishes is **existence** —
+the overwrite is not merely representable, it has happened to four named pages — and
+nothing about scale. Anyone quoting "13%" as a fleet rate is quoting a 30-page
+denominator from four months ago.
+
+### So there are TWO mechanisms, not one, and I had only found one
+
+- **M1 — born empty.** `build-site-planner`'s `Return JSON:` page object asks for `name`,
+  `title`, `page_type`, `nav_label`, `nav_order`, `in_header`, `in_footer`, `sections`
+  and **no description field**; `upsertPage` reads
+  `GetStringField(page,"meta_description","")` and takes the empty default. Certain from
+  the live agent row + the code. Explains the bulk (`content` 81.4%, `landing` 85.3%).
+- **M2 — blanked later.** The same upsert's `ON CONFLICT … DO UPDATE SET
+  meta_description = EXCLUDED.meta_description`, unguarded, against `nav_label`'s
+  `COALESCE(NULLIF(pages.nav_label,''), EXCLUDED.nav_label)` two lines above. Proven to
+  have fired on the four pages above. **Unsized.**
+
+M2 is the one I would have missed, and it matters for the fix: an option that only teaches
+the planner to emit a description leaves the unguarded overwrite in place, so any later
+pass that omits the key still blanks the field.
+
+### Misstep 3 — I was ready to call M2 "the likely explanation" off the code alone
+
+I had spotted the missing `COALESCE` myself and written it up as a code-certain fact with
+the firing marked `[UNMEASURED]`. That was the right marker, but I had stopped there and
+would have shipped the file that way. The loop's "consistent-with is not direct" is what
+sent me to `site_snapshots` — a table I had not thought to look for, and which settled it
+in one query. **The check to carry: when you mark something `[UNMEASURED]`, spend one
+minute asking what evidence WOULD measure it before accepting the marker as the answer.**
