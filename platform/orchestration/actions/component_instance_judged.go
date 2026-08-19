@@ -122,6 +122,44 @@ func declaredIDs(tpl string) []string {
 	return out
 }
 
+// rePrefixedRef matches one instance-scoped reference token wherever it
+// appears — id attribute, lookup string, concatenation half.
+var rePrefixedRef = regexp.MustCompile(`\{\{\.InstanceID\}\}-[A-Za-z0-9_-]+`)
+
+// scriptBindingRefs returns the set of prefixed references appearing in the
+// template's inline SCRIPT bodies (outside comments). The judged brief can only
+// ADD script references (rewired handlers look elements up; reworked bindings
+// gain the prefix), so every baseline reference must survive into the rewrite —
+// a missing one is deleted logic.
+func scriptBindingRefs(tpl string) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range rePrefixedRef.FindAllString(scriptBodiesOutsideComments(tpl), -1) {
+		out[m] = true
+	}
+	return out
+}
+
+// scriptMass is the total byte count of inline script BODIES. src-only script
+// elements have empty bodies and contribute nothing.
+func scriptMass(tpl string) int {
+	n := 0
+	for _, m := range reScriptElement.FindAllStringSubmatch(tpl, -1) {
+		n += len(m[2])
+	}
+	return n
+}
+
+// judgedScriptMassFloor: the candidate's inline-script mass must retain at
+// least this fraction of the baseline's. The brief only ADDS script text
+// (IIFE wrapper, addEventListener rewiring, DOMContentLoaded registration), so
+// any real shrink is deleted logic. 0.7 rather than 1.0 leaves room for the
+// LLM tightening whitespace/comments; REASONED, not measured against live
+// rewrites (none exist yet) — revisit against the canary's actual ratio.
+// Added after council round 7's gating objection, with the confirming control:
+// a script-gutted rewrite of the 22KB affordability template retained 58%
+// overall and passed EVERY pre-existing check (gate + write guard, 2026-08-19).
+const judgedScriptMassFloor = 0.7
+
 // JudgedConversionIssues is the acceptance gate for an LLM-rewritten template.
 // `baseline` is the IDS-CONVERTED template the LLM was given (re-derived by the
 // caller from the live row, never trusted from the workflow); `candidate` is
@@ -179,7 +217,39 @@ func JudgedConversionIssues(function, baseline, candidate string, logger *zap.Lo
 		issues = append(issues, "unprefixed bindings: "+strings.Join(ub, "; "))
 	}
 
-	// 5. No inline handler may survive — the gate above catches a surviving
+	// 5. The script content itself (council round 7, bug_historian HIGH — the
+	//    checks above are all markup-side or reference-side, and a rewrite
+	//    that GUTS the script passes every one of them: proven by control on
+	//    the affordability fixture, 58% retained, zero issues). Two comparative
+	//    checks close it:
+	//    5a. every prefixed reference in the baseline's script bodies must
+	//        survive into the candidate's — the brief only ADDS references;
+	//    5b. the candidate's inline-script mass must retain ≥70% of the
+	//        baseline's — wrapper text only grows a script.
+	if base := scriptBindingRefs(baseline); len(base) > 0 {
+		cand := scriptBindingRefs(candidate)
+		var dropped []string
+		for ref := range base {
+			if !cand[ref] {
+				dropped = append(dropped, ref)
+			}
+		}
+		if len(dropped) > 0 {
+			sort.Strings(dropped)
+			issues = append(issues, fmt.Sprintf(
+				"script bindings dropped: %d prefixed reference(s) present in the baseline's scripts are gone from the rewrite (%s) — deleted logic, not surgery",
+				len(dropped), strings.Join(dropped, ", ")))
+		}
+	}
+	if bm := scriptMass(baseline); bm > 0 {
+		if cm := scriptMass(candidate); float64(cm) < judgedScriptMassFloor*float64(bm) {
+			issues = append(issues, fmt.Sprintf(
+				"script mass collapsed: candidate inline scripts total %d bytes against the baseline's %d (%.0f%% retained, floor %.0f%%) — the brief only adds wrapper text, so a shrink this large is deleted logic",
+				cm, bm, 100*float64(cm)/float64(bm), 100*judgedScriptMassFloor))
+		}
+	}
+
+	// 6. No inline handler may survive — the gate above catches a surviving
 	//    handler only if it resolves to a global; a handler left pointing at a
 	//    now-IIFE-private function throws at click time and the gate is blind
 	//    to it. Count them directly.

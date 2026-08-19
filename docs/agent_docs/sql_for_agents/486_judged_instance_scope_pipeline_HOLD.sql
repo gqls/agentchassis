@@ -22,6 +22,24 @@
 -- Verify block PREPARE-compiles the embedded delivery query (the 460→461 lesson).
 BEGIN;
 
+-- Double-application guard (council round 7, debug_historian): _HOLD files are not
+-- ledger-recorded, so a hand-reapply is possible — and it would take a SECOND
+-- snapshot_agent labelled "pre-image" of an already-patched row, poisoning any
+-- newest-first rollback. Abort BEFORE the snapshot.
+DO $$
+DECLARE cfg jsonb;
+BEGIN
+  SELECT default_config INTO cfg FROM agent_definitions
+   WHERE type='component-template-fixer' AND is_active
+     AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  IF cfg IS NULL THEN
+    RAISE EXCEPTION '486: no active component-template-fixer row';
+  END IF;
+  IF (cfg #> '{workflow,steps}') ? 'check_scope_route' THEN
+    RAISE EXCEPTION '486: already applied (check_scope_route present) — a second apply would snapshot the patched row as a "pre-image". Nothing to do.';
+  END IF;
+END $$;
+
 SELECT snapshot_agent('component-template-fixer', '486 pre-image: judged branch + owned-page section_edit delivery');
 
 -- 1. The six new steps.

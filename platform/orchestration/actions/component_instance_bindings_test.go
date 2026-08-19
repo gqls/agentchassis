@@ -293,3 +293,59 @@ func TestJudged_refusesUnprefixedBindingInRewrite(t *testing.T) {
 		t.Fatalf("CONTROL FAILED: the judged gate must refuse the unprefixed array, got %v", issues)
 	}
 }
+
+// Council round 7's gating objection, kept as a permanent regression pair: a
+// rewrite that GUTS the script passed every pre-existing check (markup parity
+// excludes scripts BY DESIGN; ids and collapse floor are blind to a small
+// script inside a large template — control measured 58% retained on this very
+// fixture). Checks 5a/5b must refuse it, and a single dropped lookup must
+// refuse via reference parity alone.
+func TestJudged_guttedOrThinnedScriptIsRefused(t *testing.T) {
+	shipped := readFixture(t, "instance_bindings_converted_affordability_283.html")
+	baseline, _, rejects, ok := RepairConvertedTemplateBindings(shipped)
+	if !ok {
+		t.Fatalf("repair refused: %v", rejects)
+	}
+
+	// Gutted: every inline script body replaced by an empty IIFE.
+	gutted := reScriptElement.ReplaceAllString(baseline, "${1}(function(){ 'use strict'; })();${3}")
+	issues := JudgedConversionIssues("tool-affordability-complaint-checker", baseline, gutted, zap.NewNop())
+	joined := strings.Join(issues, " | ")
+	if !strings.Contains(joined, "script bindings dropped") || !strings.Contains(joined, "script mass collapsed") {
+		t.Fatalf("CONTROL FAILED: a gutted script must refuse on BOTH script checks, got: %v", issues)
+	}
+
+	// Thinned: a plausible rewrite that silently drops ONE lookup. Take a real
+	// prefixed reference from the baseline scripts and delete just its lines.
+	refs := scriptBindingRefs(baseline)
+	if len(refs) == 0 {
+		t.Fatal("fixture must carry prefixed script references")
+	}
+	var victim string
+	for r := range refs {
+		victim = r
+		break
+	}
+	var kept []string
+	for _, line := range strings.Split(baseline, "\n") {
+		if strings.Contains(line, victim) && strings.Contains(scriptBodiesOutsideComments(baseline), victim) &&
+			!strings.Contains(line, "<") { // drop only pure-script lines
+			continue
+		}
+		kept = append(kept, line)
+	}
+	thinned := strings.Join(kept, "\n")
+	if scriptMass(thinned) < int(judgedScriptMassFloor*float64(scriptMass(baseline))) {
+		t.Skipf("victim %q dominates the script; thinned case would double-count the mass floor", victim)
+	}
+	issues = JudgedConversionIssues("tool-affordability-complaint-checker", baseline, thinned, zap.NewNop())
+	if !strings.Contains(strings.Join(issues, " "), "script bindings dropped") {
+		t.Fatalf("a single dropped lookup (%s) must refuse via reference parity, got: %v", victim, issues)
+	}
+
+	// And the identity rewrite (baseline vs itself) must NOT trip 5a/5b.
+	if issues := JudgedConversionIssues("tool-affordability-complaint-checker", baseline, baseline, zap.NewNop()); strings.Contains(strings.Join(issues, " "), "script") &&
+		(strings.Contains(strings.Join(issues, " "), "dropped") || strings.Contains(strings.Join(issues, " "), "collapsed")) {
+		t.Fatalf("identity must not trip the script checks: %v", issues)
+	}
+}
