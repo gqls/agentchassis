@@ -550,3 +550,17 @@
   transfer-out path is new and belongs in Phase 4's email links and the
   domain programme's Stripe products. Recorded in webdesign.uk's register
   as facts domain_rent_monthly (value 10) and domain_buy_once (value 200).
+
+## 2026-08-19 — the seeded "whole-architecture scale review" is being executed elsewhere
+
+The scale review this lane seeded (this file, 2026-08-17, "(b) whole-architecture scale
+review incl. own cluster(s) — AFTER the working site") has been brought forward at the
+owner's direct request and is being executed by the `dispatch_throughput/` workstream —
+deliverable `dispatch_throughput/RESEARCH_2026-08-18_throughput_to_thousands_of_domains.md`.
+Its seeded agenda items (CF zone cap, CF-for-SaaS vs zones, runner-per-repo, monorepo build
+throughput, pod-per-tick economics, cluster capacity, per-hostname metering, abuse posture)
+are all carried there. One addition that concerns THIS lane directly: the owner now expects
+promotion-driven onboarding BURSTS (many domains/day), which makes the request-phase build
+wait UX and a priority lane for paying builds first-class inputs to Phase 4+ — see the
+research doc's burst section and decisions D0b/D2/D15. Nothing in this lane's Phase 4 plan
+is changed by that work; this is a pointer, not a handoff.

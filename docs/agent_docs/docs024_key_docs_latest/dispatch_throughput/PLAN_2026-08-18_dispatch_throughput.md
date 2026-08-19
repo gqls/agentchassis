@@ -1,10 +1,18 @@
 # PLAN — fleet dispatch throughput & per-site turn latency
 
 **Started 2026-08-18** (seeded from the idea.uk lane's question "how do we speed up the
-drain rate?"). **Owner: unclaimed — whoever picks this up owns it.** On pickup: create
-the remaining standing docs (`RUNBOOK_`, `NOTES_`, `README_where_we_are.md`) in this
-directory, and re-run the baseline queries before believing any number in here —
-everything below is `[MEASURED 2026-08-18]` unless marked, and this fleet moves fast.
+drain rate?"). ~~**Owner: unclaimed — whoever picks this up owns it.**~~
+**CLAIMED 2026-08-19 by the "throughput" session, at the owner's direct request — and the
+scope is WIDENED**: the owner asked for the whole-architecture scale review (several
+thousand domains, promotion-driven onboarding bursts of many domains/day), which brings
+forward the review the site_delivery lane had seeded for "after the working site" — the
+owner's direct ask supersedes that sequencing. The standing docs now exist in this
+directory; baselines were re-run 2026-08-18 evening (NOTES). The wider deliverable is
+`RESEARCH_2026-08-18_throughput_to_thousands_of_domains.md`; this PLAN's Phases 1–4 stand
+unchanged as the dispatch-specific slice (Phase 1 in flight: 090 run
+`a16b82cd-b89a-45d5-b5df-4370c754e2fd`). Owner scope ruling 2026-08-18: research +
+diagnosis only — Phase 2+ config changes wait on decisions D0/D1 (see the RESEARCH doc's
+decision table, which extends this file's §9).
 
 **Companion evidence file (read first):**
 `STARTER_2026-08-18_fleet_dispatch_drain_rate.md` — the measurements, the mechanism,
