@@ -36868,3 +36868,53 @@ costs one query. **The fix is `SEED_SCOPE="path:Symbol,…"`**, documented at li
 **Cost:** one full round trip (~10 min plus credits). Cheap, and only because I checked
 the artifact count instead of the status. **Naming files in prose is not naming symbols**,
 and a run that "looks accepted" is not a run that has scope.
+
+---
+
+## 2026-08-19 — I flagged a customer promise as "ahead of the mechanism" having only looked for the mechanism I expected, and got the RISK DIRECTION backwards
+
+**Lane:** webdesign_uk_build_service. **The claim I wrote**, on 2026-08-18, into the
+lane handoff *and* a cross-lane note *and* the owner-facing README:
+
+> *"a preview link … about a month" — **no month-long preview serving found at all**.
+> The live bot makes both promises in pre-sale right now. Either Phase 4 builds them
+> or the owner re-words."*
+
+**What is actually true.** Delivered sites are served from a git repo synced to B2
+(`b2 sync --delete` + a Cloudflare purge on every push) and **nothing takes them
+down**. There is no scheduled retraction, no retention job, no TTL: checked
+`scheduled_tasks` (the only match is a disabled one-shot, unrelated), the k8s
+CronJobs (none), and `retract_asset_files` — which is manual, asset-scoped, and
+called by **no** agent config. Serving is **unbounded**. So the customer gets a
+month or more by default, which is exactly what the owner ruled on 2026-08-19 he
+wanted.
+
+**The error, precisely.** The absence I found was real — there is no explicit
+month-long serving mechanism. What I got wrong was the **inference from the
+absence**: I read "no bounded month-long mechanism" as "the customer may get LESS
+than a month", when the same absence means they get MORE. I looked for the
+mechanism I expected to exist, did not find it, and reported the gap in the
+direction that fitted my hypothesis. **An absent limit is not an absent capability.**
+
+**Why it mattered more than an ordinary slip:** it was written into a handoff, a
+cross-lane note to another session, and the owner's own log — three places where a
+reader inherits it as a finding, and one of them is read by someone deciding what
+Phase 4 must build. It could have bought work that was not needed.
+
+**The cheap check that would have caught it, and that I did not run:** ask what
+REMOVES the thing, not what preserves it. One query against `scheduled_tasks` plus
+one `grep` for a caller of the retraction action — under a minute, and it is the
+disconfirming question. I had run neither before writing "either Phase 4 builds them
+or the owner re-words".
+
+**What replaces it, and it is the opposite exposure.** Because serving is unbounded,
+fact `keep_it_online` ("keeping the site online beyond the included month means the
+customer hosts it themselves") is **unenforced**: nothing stops a customer keeping
+our hosting indefinitely, free. That is a commercial decision for the owner, not a
+broken promise, and it is now recorded in the handoff as such.
+
+**Still standing, and genuinely half-true:** the ZIP. `zip_deliverable_action.go`
+presigns for `expiry_minutes: 10080` = **7 days**. "The ZIP is theirs permanently" is
+true once downloaded; the LINK to fetch it dies at 7 days, and the claim does not say
+so. That one is a real, if small, gap — narrower than I originally wrote it, and it
+belongs to the owner to rule on.

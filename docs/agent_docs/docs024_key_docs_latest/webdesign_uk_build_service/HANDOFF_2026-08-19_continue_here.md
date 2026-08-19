@@ -79,11 +79,30 @@ in the same commit.
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe
 webhook edge exception; second Nominet TAG (domain programme only).
 
-> ⚠ **Two attested delivery claims are still ahead of the mechanism** (flagged
-> 2026-08-18, never ruled on): "a ZIP to keep" — the presign defaults to **7 days**
-> (`zip_deliverable_action.go`, `expiry_minutes: 10080`); and the "about a month"
-> live link — no month-long serving mechanism was found. The bot promises both in
-> pre-sale **now**. Either Phase 4 builds them or the owner re-words the facts.
+> **THE LIVE LINK IS FINE — and my 2026-08-18 flag on it was WRONG IN DIRECTION.**
+> Owner ruling 2026-08-19: *"The live link should be for a month or more; in reality
+> the text should say a month."* The text already says "about a month"
+> (`delivery_live_link_and_zip`), so **no wording change is needed**, and the
+> mechanism already delivers it: sites serve from a git repo synced to B2 and
+> **nothing takes them down** — no scheduled retraction, no retention job, no TTL
+> (checked `scheduled_tasks`, the CronJobs, and `retract_asset_files`, which is
+> manual, asset-scoped and called by no agent config). Serving is **unbounded**.
+> I had reported "no month-long serving found" as a risk that customers might get
+> LESS than a month; the same absence means they get MORE. Full correction in
+> `WRONG_CALLS.md`, 2026-08-19. **Do not build a month-long serving mechanism.**
+>
+> ⚠ **The real exposure is the opposite one, and it is the owner's call:** because
+> serving is unbounded, fact `keep_it_online` ("keeping the site online beyond the
+> included month means the customer hosts it themselves") is **unenforced** —
+> nothing stops a customer keeping our hosting indefinitely, free. Commercial
+> decision, not a broken promise.
+>
+> ⚠ **The ZIP gap is real but narrower than I first wrote it.** The presign is
+> `expiry_minutes: 10080` = **7 days** (`zip_deliverable_action.go`). "The ZIP is
+> theirs permanently" is true once downloaded; the LINK to fetch it dies at 7 days
+> and the claim does not say so. Under a 2-3 day build that is probably comfortable,
+> but a customer away for a week loses the download. Owner to rule: lengthen the
+> presign, or say so in the copy.
 
 ---
 

@@ -4175,3 +4175,33 @@ bare-token defect fixed yesterday. Re-triaged, no register change.
 - **Phase 4 has NOT started**: `sites.handed_over_at` does not exist.
 - **The register had not been touched since my 08-18 sweep** — the newest rows
   before today were my own (13:23/13:25). No cross-lane collision.
+
+### 2026-08-19 (~10:2xZ) — owner ruling on the live link, and a CORRECTION to my own 08-18 flag
+
+**Owner, 2026-08-19:** *"The live link should be for a month or more; in reality the
+text should say a month."*
+
+**No change was needed, and my flag was wrong in direction.** The text already says
+"about a month". The mechanism already delivers a month or more: delivered sites
+serve from a git repo synced to B2 and **nothing takes them down** — no scheduled
+retraction, no retention job, no TTL. Checked three ways: `scheduled_tasks` (only
+match is a disabled one-shot, unrelated), k8s CronJobs (none), and
+`retract_asset_files`, which is manual, asset-scoped and called by **no** agent
+config. Serving is unbounded.
+
+> **CORRECTED 2026-08-19:** on 08-18 I wrote *"no month-long preview serving found at
+> all"* and filed it as a claim **ahead of** the mechanism, in this NOTES, the
+> handoff, a cross-lane note and the owner's README. The absence was real; the
+> inference was backwards. I looked for the bounded mechanism I expected, did not
+> find it, and read the gap as "the customer may get LESS than a month" when the same
+> absence means they get MORE. **An absent limit is not an absent capability.** The
+> disconfirming check — ask what REMOVES the thing, not what preserves it — was two
+> commands and I ran neither before writing it. Full entry in `WRONG_CALLS.md`.
+
+**What replaces it is the opposite exposure:** unbounded serving means
+`keep_it_online` is unenforced — nothing stops a customer keeping our hosting
+indefinitely, free. Commercial decision for the owner, recorded in the handoff.
+
+**Still standing, narrower than I first wrote it:** the ZIP presign is 7 days
+(`expiry_minutes: 10080`). "Theirs permanently" is true once downloaded; the link to
+fetch it dies at 7 days and the copy does not say so.
