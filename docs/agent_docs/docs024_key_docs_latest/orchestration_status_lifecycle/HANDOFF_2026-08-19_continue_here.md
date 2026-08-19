@@ -1,8 +1,17 @@
 # HANDOFF 2026-08-19 — orchestration status lifecycle, cold start
 
-**Read this first, then `NOTES_…md` (missteps) and `RUNBOOK_…md` (commands).** The lane is
-**substantially DONE**. What remains is one council round in flight and four items that are
-*decided but not built*.
+> ## ✅ LANE CLOSED 2026-08-19 16:05Z — the round that was in flight came back **APPROVED**
+>
+> `466` round 2: **APPROVED**, 4 advisories, none high-severity (`Council-Reviewed: f0e95e58`).
+> All four migrations live and approved; the Go half live on `v1.0.1315` across **all 27** chassis
+> pods. **Nothing on this lane is outstanding.** Read `SUMMARY_2026-08-19_….md` for the read-out.
+>
+> The three items below under "decided, not yet built" are tracked **elsewhere by design** and are
+> not this lane's work: **RFC_039** awaits an owner ruling, **`bugs_open/329`** is filed with no
+> known incident, and `kafka-scheduler`'s `base/deployment.yaml` still declares `128Mi` (noted at the
+> head of `bugs_closed/240`).
+
+**Read this first, then `NOTES_…md` (missteps) and `RUNBOOK_…md` (commands).** The lane is **DONE**.
 
 ---
 
