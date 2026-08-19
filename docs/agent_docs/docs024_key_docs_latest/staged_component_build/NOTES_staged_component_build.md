@@ -5205,3 +5205,23 @@ carries NO trailer** (the commit-msg hook warned; forward-only forbids the amend
 round-2 revision code and was reviewed as part of this approval; a 098 reader finding it
 un-reviewed should read this entry. The same-file passenger note: my WRONG_CALLS commit
 (`05bebd935`) swept two other lanes' entries (311, 283) — the known same-file case, no loss.
+
+## 2026-08-19 (afternoon) — 306 CLOSED on the v1.0.1315 roll; steps 1–3 of the ruled path now ALL LIVE AND PROVEN (306 session)
+
+- Roll verified at the artefact: stamp `590ca3a20` on `/proc/1/exe` (known-absent control =
+  then-HEAD, ABSENT; known-present literal, PRESENT); `393f15bfd` ancestor ⊇ `846496906`,
+  `f42e03720`, `02777cd5f`. Image digest `sha256:1c422c61…` recorded in the bug file §7.
+- Window 12:16→15:58Z, every zero given its demand control: **bdl → 0 both fields** (84
+  post-roll orchestrations reference the loop — the GATE works); **pbh echo class 45→0**
+  (6 post-roll orchestrations carry `page_content ? retry_payload` — cand 3 works); **pcw
+  persists, 20 rows, 0 rp candidates** (instrument alive; step 4's population confirmed as
+  the sole survivor). The gate's log line `unrequested_page_fields_not_injected` was NOT
+  witnessed (0 in tail=5000, ~90s retention — not-in-range, not not-firing); noted honestly
+  in the handoff checklist.
+- **306 moved to `bugs_closed/`** (all three candidates fixed AND live; §7 = evidence).
+  Handoff step-2 row + checklist item 3 corrected; RFC_029 §10.12 pointer and register
+  CTS-060(4) statuses corrected (both said "inert until a roll" after the roll).
+- What this leaves the lane: **step 4** (pcw shape conflicts at source — the RenderContext
+  `current_page` → `current_page_name` tag rename designed in the earlier NOTES entry, with
+  its 3 enumerated consumers) then **step 5** (flip to refusal). Nothing else remains from
+  306.

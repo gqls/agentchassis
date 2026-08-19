@@ -5,7 +5,7 @@ was CORRECTED before building** — the mis-citation and its consequences are RF
 population split is §10.12, and the residual finding is `bugs_open/306`. Do not build anything
 from the 08-18 handoff's §2/§3; this file replaces them.
 
-**Read in this order:** this file → `bugs_open/306` + `bugs_open/307` (the two filings) →
+**Read in this order:** this file → `bugs_closed/306` (CLOSED 08-19, evidence §7) + `bugs_open/307` →
 RFC_029 §10.11–§10.12 (corrections + measurement record) → NOTES `## 2026-08-18 (evening)`.
 
 ## 1. What is true now (all measured 2026-08-18 evening; evidence cited at each)
@@ -63,7 +63,7 @@ lane's next builds and are independent of each other and of step 1's roll.
 | step | what | precondition | done when |
 |---|---|---|---|
 | 1 | ~~Prune ships; window re-read~~ **DONE 2026-08-19**: live v1.0.1310, 16 h read = **0** `work_item_id` rows, `current_page` class intact as predicted | — | — |
-| 2 | ~~306 cands 1+2~~ **BUILT + APPROVED all-approve** (`846496906`, corr `96ac93e6`): `rank` on each candidate, sort reads it; pattern 1 sorted. 6 tests, mutation-proved both ways | **inert until the next chassis roll** | roll verified by label+digest; then close 306 (cand 3 stays open, unbundled) |
+| 2 | ~~306 cands 1+2~~ **DONE 2026-08-19 ~16:00Z, 306 CLOSED → `bugs_closed/`** (by the 306 session): cands 1+2 (`846496906`, corr `96ac93e6`) AND cand 3 (the retry_payload skip — code rode `393f15bfd` as a same-file passenger, tests `02777cd5f`, corr `e4840008` APPROVED r1, 090 CONFIRMED) all LIVE in `v1.0.1315` (stamp `590ca3a20`, both controls). Window: pbh echo class 45→0 against 6 echo-shaped demand rows; rp in candidate_paths fleet-wide 0. Evidence: bug file §7 | — | — |
 | 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | ⚠ **NO VERDICT — run ended `complete_invalid` at 10:24Z because the Anthropic ACCOUNT hit its usage limit** (fleet-wide, not ours; NOTES 10:30Z entry). **APPROVED round 2, 2026-08-19 ~11:2xZ** (REVISE round 1 was RIGHT — the census was top-level-only; redone recursively, conclusion held; skip now named on the log). Code fully reviewed: `f42e03720` + `393f15bfd`. **Waits only on the roll** | class-1 63% gone from the window after the roll |
 | 4 | Fix surviving shape conflicts AT SOURCE. **TRACED 2026-08-19 (NOTES ~10:40Z): the producer is `generate_content` (declares `current_page`, prompt needs the OBJECT), colliding with `RenderContext`'s `CurrentPage string` JSON-tagged `current_page` (`component_library.go:79`) — two TYPES sharing one key. Fix = rename the tag to `current_page_name` + the 3 enumerated string-consumers (envelope guard chain, 1 of 251 templates, struct readers unaffected). Design written; NOT built — gated on step 3's read per the ruling** | step 3's post-roll window read | window reads zero, or every survivor carries a written safe-by-inspection note |
 | 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
@@ -92,13 +92,15 @@ sweep (NOTES, evening entry, last paragraph).
 2. Nothing owed on reviews: prune APPROVED (`ae0dfb93`), tie-break APPROVED all-approve
    (`96ac93e6`), gate APPROVED round 2 (`07468ec0`). `393f15bfd` shows as un-reviewed in 098
    by trailer-absence only — NOTES "(~11:2xZ)" entry explains.
-3. When the next chassis roll lands — the POST-DEPLOY VERIFICATION PLAN (owed to the
-   debug_historian seat, now the standing recipe): (a) label + digest + `/proc/1/exe`, ancestor
-   check on **`393f15bfd`** (it contains `846496906` and `f42e03720`); (b) window read —
-   `build-dispatch-loop current_page` → ~0 (the 63% class) while `page-content-writer` rows
-   persist (demand control); (c) live-behaviour probe: `unrequested_page_fields_not_injected`
-   appearing in a chassis pod's "Ensuring core fields present" log lines. Close 306 (cands 1+2)
-   on (a)+(b).
+3. ~~When the next chassis roll lands~~ **DONE 2026-08-19 ~16:00Z (306 session, v1.0.1315):**
+   (a) ✓ stamp `590ca3a20` on `/proc/1/exe` with known-absent + known-present controls;
+   `393f15bfd` is an ancestor (⊇ `846496906`, `f42e03720`). (b) ✓ window 12:16→15:58Z: bdl
+   BOTH fields → 0 against live demand (84 post-roll orchestrations reference the loop), pcw
+   persists (20 rows, last 15:54Z — instrument alive); BONUS: pbh retry-echo class 45→0
+   against 6 echo-shaped demand rows (cand 3). (c) ⚠ log line NOT WITNESSED — 0 hits in
+   `--tail=5000` on both pods, which at ~90s chassis retention means "not in range", not
+   "not firing"; the (b) row-disappearance against demand is the standing behaviour evidence.
+   **306 CLOSED → `bugs_closed/` (all three candidates; §7 is the evidence record).**
 4. Step 4: fix the surviving shape conflicts AT SOURCE. Worked example: `save_page_sections`
    requests `current_page` and sees the page OBJECT at `input_data.current_page` and its NAME
    STRING at `build_render_context.current_page` / `render_context.current_page` — one rename at

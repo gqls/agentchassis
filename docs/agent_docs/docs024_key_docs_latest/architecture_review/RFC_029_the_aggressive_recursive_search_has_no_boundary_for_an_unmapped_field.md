@@ -1021,6 +1021,10 @@ check is one query against `candidate_paths` values and is **not** done.
 > `bugs_open/306_HANDOFF_2026-08-18_resolver_tie_break_is_undeclared_insertion_order.md`, with
 > fix candidates ordered. This section stays as the measurement record the bug cites; **do not
 > update the finding here — update the bug file.**
+> **CLOSED 2026-08-19 → now at `bugs_closed/306_…` (same filename).** All three candidates
+> fixed AND live in `v1.0.1315` (stamp `590ca3a20`, probed with controls); the window read
+> with demand + instrument controls is the bug file §7. The surviving conflict population is
+> exactly §10.13 step 4's shape class (pcw, 20 rows post-roll, zero retry_payload candidates).
 
 §10.11 left one question open and flagged it `[OPEN]`: are the conflicting `current_page`
 candidates materially different pages, or the same page in different shapes?
