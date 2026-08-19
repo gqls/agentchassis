@@ -76,3 +76,57 @@ The shape it will take: make the commit step report what it actually committed, 
 the columns that already exist, and then add a periodic check that compares what we believe we
 published against what the website is really serving. The last of those is the piece that would
 have caught this bug the first time it happened, six hours before anyone noticed.
+
+## 2026-08-19, late morning — the plan, and what changed my mind twice
+
+The plan is written and it is at the review council now. Two things I found along the way changed
+what the fix should be, and both of them are the kind of thing worth saying out loud.
+
+**The first is that part of the reported symptom turned out to be correct behaviour.** The bug's
+evidence table lists three pages whose "published" timestamp was newer than the file actually on the
+website, and treats all three as the same problem. They are not. The platform's own notes record
+that when a page is rebuilt and comes out **byte-for-byte identical**, the commit that carries it is
+an *empty* commit — nothing changes, so nothing gets copied to the website, so the file's date
+rightly stays where it was. Two of those three pages are exactly that case. They were fine.
+
+That matters because the bug file's suggested fix number four was "alert whenever the timestamp is
+newer than the website's file". That check would have raised the alarm on both healthy pages. And
+when I ran it properly across forty pages, it flagged **all forty** — because the website is updated
+in one batch per site, tens of minutes after the rebuild, so at any given moment most perfectly
+healthy pages look "stale" by that test. So the cheap check does not work, and the more careful one
+(compare a fingerprint of what we meant to publish against what is actually being served) is not an
+alternative to the fingerprint work — it *depends* on it.
+
+**The second is that I nearly reported an outage that was not one.** For about an hour I could see a
+steady stream of successful commits and no corresponding updates to the website, and both deployment
+machines sitting idle. That reads like a broken pipeline. Then I looked at the machines' own history:
+they do not run continuously, they run in bursts twenty-five to fifty minutes apart, and the gap I
+was staring at was inside that normal range. So I stopped and set a background check running instead
+of writing it up. **At the time of writing that gap has reached seventy minutes**, which is longer
+than any normal spacing I can see in the history, so it may yet turn out to be real — but it will be
+reported as a measurement, not as an alarm.
+
+**What the fix does.** In plain terms: at the moment we hand a page to the deployment system, we
+write down two things we currently throw away — the identifier of the commit that carried it, and a
+fingerprint of the exact bytes we sent. Both have a place waiting for them in the database already.
+Then the timestamp is only written if the deployment step actually reported doing something, and
+separately, on a schedule, we compare the fingerprint against what the website is really serving and
+raise a flag when they disagree for longer than the normal delivery window.
+
+The first step of that needs no new code at all: two of the five places that mark a page as deployed
+do it *before* the deployment is even requested, and both of them go on to call a routine that marks
+it properly afterwards. Deleting the premature step is a configuration change that takes effect
+immediately, and on its own it removes the worst half of the problem.
+
+**One more correction, and it is about our own records.** The platform's internal reference document
+states that commit identifiers are recorded against pages for traceability. They are not — there is
+no such field, and the one related field that does exist has never been written to by any code in
+the repository. I have corrected that entry, because the automated reviewers treat it as fact, and
+it would have led one of them to object that we were adding something that already existed.
+
+**A note on what I could not do.** The final "why was this one page skipped" question cannot be
+answered from here: that logic lives in a private repository we have no read access to from this
+machine. The plan works around it deliberately — the fingerprint check detects the failure from our
+side without needing to see inside the deployment machinery. And the automated diagnosis service I
+would normally run this past refused twice on an API spending limit, so I have said plainly in the
+record that I substituted my own first-hand checks and listed exactly what they were.
