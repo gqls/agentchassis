@@ -550,3 +550,76 @@ the live one, and `310` credits it. Two things in `310` that are **not** in this
   reuse `463`'s structural argument and measuring instead (see the `464` section above). Same gap,
   same SQL, and the two lanes differed only on whether a licence transfers between sibling states.
   That difference is the transferable lesson, not the arm.
+
+## 2026-08-19 — the CLASS is closed: migration `465` reaps on an INVARIANT, not a list
+
+Owner decision, taking the wider of the options offered. `463` and `464` closed two *instances*;
+this closes the *defect*.
+
+**The reaper's `failed_running` and `failed_initialized` arms are gone**, replaced by one
+`failed_orphaned` arm: *non-terminal AND not pausable AND awaiting nothing AND stale*. The three
+specific arms stay — 30 min / 90 min / 4 h are deliberate policy — and the invariant excludes the
+rows they took. **That exclusion is load-bearing, not tidiness:** two data-modifying CTEs updating
+the same row in one statement is undefined in Postgres, and the invariant overlaps `failed_wedged`
+on every `EXECUTING_STEP` row. It reuses `failed_orchs`' own existing `NOT IN (SELECT … FROM <cte>)`
+idiom rather than inventing one.
+
+**`database-cleanup` is converged too** — the second enumeration `310`'s lane found. Its rule 4
+deleted `EXECUTING_STEP`/`AWAITING_RESPONSES` at **4 h**, the same clock as the reaper but a
+`DELETE` rather than a status change, so whichever fired first decided whether the cause was ever
+recorded. It now uses the same invariant at **24 h**, strictly behind the reaper: mark `FAILED`
+with a reason at 4 h → delete at 24 h. A backstop instead of a competitor.
+
+### The inversion is the point, and the cost is stated
+
+This does not abolish enumeration — it inverts **which side** is enumerated, and that changes the
+failure mode:
+
+> **Before:** forget to list a non-terminal status → rows live for ever, **silently**. That is
+> exactly how `294` and `310` happened.
+> **After:** forget to list a new **terminal** status → those rows get `FAILED`, **visibly**.
+
+Loud-and-wrong is recoverable; silent is not. But this is a real new way to be wrong: a terminal
+status added without updating both lists **will** be reaped. Note `CANCELLED` already has **no Go
+constant** (24 rows, all hand-written, all with non-empty `awaited_requests`), so the terminal set
+is already wider than the enum — the lists are not derivable from the code and must be maintained.
+
+### Evidence
+
+Equivalence matrix (scratch rows, rolled back) — a **strict superset**:
+
+| status | age | awaited | old arms | new invariant |
+|---|---|---|---|---|
+| `RUNNING` | >4h | no | t | t |
+| `INITIALIZED` | >4h | no | t | t |
+| **`WEIRD_NEW_STATE`** | **>4h** | **no** | **f** | **t** ← the point |
+| `PAUSED_FOR_HUMAN` | >4h | no | f | f ← guard holds |
+| `RUNNING` | fresh | no | f | f |
+| `AWAITING_RESPONSES` | >4h | **yes** | f | f |
+| `CANCELLED` | >4h | no | f | f |
+
+Then **induced on the live reaper's own tick**: `WEIRD_NEW_STATE` aged 5 h → `FAILED` with
+`reaper: orphaned non-terminal (was WEIRD_NEW_STATE) for >4h with no awaited requests`;
+`PAUSED_FOR_HUMAN` aged 5 h → **survived**; `WEIRD_NEW_STATE` aged 0 → **survived**. That proves the
+new capability, not merely the absence of regression.
+
+### `case StatusRunning` added (the last residual)
+
+`handleOrchestrationStatus` now handles the status instead of falling to
+`default: unknown orchestration status`. Deliberately **not** an unconditional resume — `RUNNING` is
+normally a millisecond window, so a message arriving inside it belongs to a pod already resuming and
+resuming again would double-execute the step. It mirrors the `StatusExecutingStep` arm, taking over
+only past `StuckOrchestrationTimeout`. **Inert until the next roll**; the reaper bounds such rows at
+4 h regardless, so there is **no ordering constraint between the two halves** — the interim state is
+today's behaviour plus the invariant reaper, and I am not claiming one I do not have.
+
+### A trap found while designing it — `PAUSED_FOR_HUMAN` protects nothing
+
+The invariant would reap a legitimately paused orchestration, so pausable statuses had to be
+excluded — and there is **no single right spelling to exclude**. Go declares `PAUSED_FOR_HUMAN` and
+nothing writes it; four production SQL guards say `PAUSED_FOR_HUMAN_INPUT`; a diagnostic tool says
+`PAUSED_FOR_HUMAN`; `fuel.go` prices a `pause_for_human_input` action that is not registered; zero
+agent configs name it; zero rows have ever existed; and there is **no CHECK constraint**. `465`
+excludes **both** spellings — a workaround, not a fix. Filed in `LANDMINES.md`.
+
+**Council:** `Council-Submitted: 1c212b15-e23d-4037-9cf7-be3a2327c587`.
