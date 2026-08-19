@@ -1,8 +1,40 @@
 # 237 — `render-audit-adapter` is in no release path, so it has never been rolled
 
-**Status: FIXED IN THE MAKEFILE 2026-08-10 (owner asked for it directly).
-STILL OPEN until a release actually rolls the pod off v1.0.1194** — the repo
-change cannot move a running pod, and releases are whole-fleet and owner-run.
+> # ✅ CLOSED 2026-08-19 — fixed, LIVE and verified on `v1.0.1314`. Owner ruled to close.
+>
+> **The individual case AND the class.** `render-audit-adapter` was unfrozen 2026-08-10;
+> the class fix (one declaration per set + `check-release-coverage`, BLD-022) shipped
+> 08-17; the residual six own-lineage services were costed 08-18, ruled by the owner
+> the same day, implemented (`b1480f008`) and carried live by the first release after
+> the ruling.
+>
+> **Acceptance, at the artefact** [MEASURED 2026-08-19]: all four check CronJobs and
+> both runner Deployments serve `v1.0.1314`; `github-actions-runner` and
+> `github-actions-runner-vmsites` both serve the **same** image, which is the
+> `<service>:<image>` declaration proven in production; the release was built from
+> `d3590ca46`, of which `b1480f008` is an ancestor; and the registry census reads
+> **170 / 170, empty diff**, with all four formerly-invisible actions present.
+> `-vmsites` moved for the first time since 2026-07-16 and `github-actions-runner`
+> for the first time since **April**, closing its missing `rsync`/`ssh` on the same roll.
+>
+> **What is explicitly NOT claimed:** no behavioural difference was observed, and
+> there may be none to observe — see the 2026-08-19 section. An unchanged check
+> report here is evidence in **neither** direction.
+>
+> **Carried forward, deliberately, so closing this does not lose them:**
+> `bugs_open/318` (a service whose image the release does not build is still
+> invisible to the gate — the door-closer for a *seventh* service, and the owner's
+> stated follow-on) and a contribution into `bugs_open/153` (the release set is now
+> 19 images and 5 of them carry no provenance stamp — this lane's own change moved
+> that denominator).
+>
+> Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_237_release_enumeration/`
+> (standing five; `SUMMARY_2026-08-19_live_and_verified.md` is the read-out).
+
+**(historical status line, kept for the record) Status: FIXED IN THE MAKEFILE
+2026-08-10 (owner asked for it directly). STILL OPEN until a release actually
+rolls the pod off v1.0.1194** — the repo change cannot move a running pod, and
+releases are whole-fleet and owner-run.
 
 Found 2026-08-09 while verifying `bugs_open/233`'s fix at the pod: every
 storage-touching service had picked up the fix on v1.0.1274 except this one,

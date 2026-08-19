@@ -633,3 +633,50 @@ whatsoever except BLD-019's stamp. That is candidate 2's argument stated as an e
 than an assertion: a tag that implied its build could not have produced the first outcome.
 
 The trap itself is **unfixed**; only this instance is closed.
+
+---
+
+## Contribution 2026-08-19 (from the `bugs_open/237` lane) — the "14 of 14" DENOMINATOR has moved, and 5 of the new 19 are unstamped
+
+Not a defect in this bug's fix. **This lane's own change is what made the coverage
+claim stale**, and it is exactly the shape 153 exists to catch, so it belongs here
+rather than in a competing file.
+
+`237`'s Decision B (owner ruling 2026-08-18, `b1480f008`) folded six previously
+own-lineage services into the fleet release. `RELEASE_IMAGES` went **14 → 19**:
+the four daily check CronJob images (`component-render-check`,
+`shared-output-fields-check`, `removed-config-keys-check`, `verifier-remit-check`)
+plus `github-actions-runner`, which also serves `github-actions-runner-vmsites`.
+
+**None of the five carries the stamp** [MEASURED 2026-08-19]. Their dockerfiles
+build with a plain `RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o
+<bin> ./cmd/<pkg>` — no `-ldflags`, no `pkg/buildinfo` import. So this file's
+header — *"14 of 14 backend services now say what commit built them"* — was true
+when written and is now **14 of 19**.
+
+**Why it matters more than a tidy-up:** BLD-019 exists so "did my fix ship?" is a
+query rather than an inference. For these five it is back to an inference. Proving
+one of them moved on 2026-08-19 required reading the chassis stamp, then asserting
+the release was one revision, then a `git merge-base --is-ancestor` against a
+*different* service's stamp — which is precisely the chain `249` ("one release tag
+ships three source revisions") says you cannot rely on. The four checks are the
+estate's daily immune system, so "which code is this check actually running?" is a
+question that will be asked again.
+
+**The fix is small and mechanical:** add the `-ldflags` stamp and the
+`pkg/buildinfo` import to the five, exactly as the original 14 were done. The
+verification is this file's own control pair — a real sha must match and a
+fabricated sha must not.
+
+**⚠ Note for whoever does it:** four of the five are **CronJobs**, not long-lived
+Deployments, so the startup-log route (`logs -l app=… | grep 'build provenance'`)
+is useless for them — the pod exists for seconds and, measured 2026-08-19, a
+`Completed` check pod that is still *listed* returns *"unable to retrieve container
+logs"*. The binary probe is the only route that will work, and it needs a pod that
+still exists. Consider having these five write their stamp into the `doc_notes` row
+they already emit on every run (`writeDocNote`, `cmd/config-key-audit/fleetdb.go:99`)
+— for a CronJob that is a strictly better carrier than either a log line or an
+exec, because the record outlives the pod.
+
+Filed as a contribution rather than a new number after `scripts/who-owns.py 153`
+showed this bug OWNED and active (last touched 2026-08-17).
