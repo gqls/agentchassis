@@ -292,3 +292,44 @@
   as the timestamp column (it is `occurred_at`) — caught by the error, fixed
   by `\d` per the schema-first rule. In-flight, never asserted anywhere, so
   recorded here rather than WRONG_CALLS.
+
+## 2026-08-19 — retention SHIPPED (mig 489): open-review (a) resolved on the watch's own trip
+
+- **Design**: PLAN_2026-08-19_history_retention.md (measurements, preservation
+  contract, reader census, why machine_made is the droppable class — the
+  save-path snapshot's own COALESCE policy, not this session's invention).
+- **Mechanism**: scheduled task `page-component-history-retention` — the
+  `database-cleanup` pure-pre_query shape, fire_message=false, daily. NULLs
+  `rendered_html` on trigger-arm rows machine_made AND >30d; everything else
+  survives (ledger row, content_data, digest, slot/position). One doc_notes
+  row per run, on zero too (WFA-013 precedent). Partial index
+  `idx_pch_retention_candidates` keeps the daily scan bounded.
+- **Applied + verified 2026-08-19 ~11:05Z**: single-file psql, ON_ERROR_STOP,
+  in-transaction DO/RAISE probe (three synthetic rows on a real page FK: old
+  machine_made pruned with content_data surviving; old hand_patched untouched;
+  recent machine_made untouched; self-cleaned). Ledger row recorded
+  (`--record-only` with note). **Run 0 induced manually with the pre_query
+  verbatim**: `payloads_nulled=0, bytes_freed=0, note_written=1` — the zero is
+  the predicted one (the trigger is younger than the 30-day window; first
+  eligible row ages ~2026-09-08), and the report row proves the mechanism
+  executes end-to-end. **Verify-later, dated**: (1) within 24h, a
+  SCHEDULER-driven doc_notes row should appear —
+  `SELECT created_at, body FROM doc_notes WHERE
+  subject_key='page-component-history-retention' ORDER BY created_at DESC;`
+  (2 rows = manual + scheduled; a missing second row means the scheduler is
+  not running the task); (2) ~2026-09-09, the daily row should show non-zero
+  prunes and table growth should flatten (`pg_size_pretty(
+  pg_total_relation_size('page_component_history'))`, 63MB baseline today).
+- **Council: NOT submitted, disposition stated** (the norm asks for the gate
+  on platform-code changes; this is config-only): 097 refuses client-side —
+  no edit touches platform/, internal/, pkg/ (owner scope ruling 07-17) —
+  and, decisively, `scheduled_tasks` is OUTSIDE every seat's hardcoded
+  11-table schema view, which the RUNBOOK itself records as making such a
+  round "unwinnable by construction". Review surfaces used instead: the
+  induced probe, run-0 induction, the ledger note, STY-056's updated entry,
+  a LANDMINES entry (NULL payload after 09-08 = retention, not a broken
+  trigger), and the ~20-day structural abort runway
+  (`UPDATE scheduled_tasks SET enabled=false WHERE
+  name='page-component-history-retention'` is live immediately).
+- **Rollback**: 489_ROLLBACK removes task + index; nulled payloads are not
+  recoverable — stated in both files.

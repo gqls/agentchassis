@@ -84,3 +84,26 @@ database prompt) polishing the webdesign.uk hero three times over two
 evenings. The net archived each draft faithfully and said nothing — exactly
 as designed for self-edits, and proof the "unlisted writers" thread above is
 about real behaviour, not theory.
+
+## 2026-08-19, later — the diet is on, and nothing goes in the bin for three weeks
+
+The retention decision you delegated to "once we have real numbers" is now
+taken and running. Every day, a housekeeping job throws away one narrow class
+of old copies: those more than a month old that the machine can regenerate
+anyway (its own fingerprint says so). Everything irreplaceable — hand-made
+work, the underlying content, and the permanent record of who destroyed what
+and when — is kept for ever.
+
+Two safety properties worth saying out loud. First, because the copying only
+began on the 9th of August, nothing is even eligible for disposal until
+around the 8th of September — the job will run daily, report "nothing to do"
+in writing each time, and you have those three weeks to veto it at zero cost
+(one switch, effective immediately). Second, the job writes a receipt every
+day even when it does nothing, so a missing receipt means the job is broken —
+silence can never be mistaken for health.
+
+One process note: this change couldn't go through the usual reviewer panel —
+their remit is code files, and this is pure configuration they structurally
+cannot see into. In its place: the change proves itself on synthetic data as
+it installs, it was run once by hand to show it works, and the register and
+trap-list entries tell the next person exactly what changed and why.
