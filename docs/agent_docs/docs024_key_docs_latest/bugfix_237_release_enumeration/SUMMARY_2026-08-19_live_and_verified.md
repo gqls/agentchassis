@@ -89,5 +89,9 @@ declined to assert it in either direction.
 
 Close `bugs_open/237` and carry the two residuals as their own items, so the
 trigger does not evaporate when the bug does. Build the trigger as its own change
-with its own review — it touches more than the makefile, so unlike everything in
-this lane it can actually go through the council gate.
+with its own review — noting that whether it is *reviewable* depends on where it
+lands: a makefile-only implementation is refused by the council gate on scope, as
+everything in this lane was, whereas the service→sources map it needs may well
+want a small Go helper, which would be in scope. **That is a design question, not
+a settled fact — do not plan on the review being available until the shape is
+decided.**
