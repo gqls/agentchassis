@@ -1,6 +1,21 @@
 # 260 — One mistyped LLM field silently degrades a WHOLE component render to a regex path that no template on the estate uses, leaking Go control syntax into the page
 
-**Filed 2026-08-12.** Status: **OPEN, root cause proven, no live damage, nothing fixed yet.**
+**Filed 2026-08-12.** Status: **OPEN, root cause proven, ~~no live damage~~ ZERO CORRUPTION OF
+STORED CONTENT BUT REAL LIVE DAMAGE, fix TAKEN UP 2026-08-19.**
+
+> **HEADLINE CORRECTED 2026-08-19** by the lane now fixing the renderer half, at the request of
+> the `portfolio_positioning` and `loanzy_uk_example_site` lanes, who both declined to edit it
+> themselves. **"No live damage" was wrong and §4's actual result was narrower than the phrase
+> it got compressed into.** What §4 proved, and what re-measurement today confirms, is that
+> **nothing broken ever reaches STORED content** — `validate_content` refuses first. That still
+> holds: 0 of 1,789 stored `page_components` and 0 of 72 stored `site_components` leak a control
+> directive. What it never proved is that nothing is damaged, and §§10c/11/12 have since shown
+> the opposite on three live sites: **a page this defect refuses is a page that never exists,
+> while the pages that DID build keep linking to it.** loanzy.uk serves a 404 at
+> `/your-rights.html`; remortgagecalculator.uk carries two dead nav links on every serving page.
+> A census of stored rows reports this defect as harmless **because its entire effect is that
+> nothing is stored** — survivorship, not safety. See §13 for the current numbers, and
+> `bugs_open/328` for the dead-link class as a class.
 Supersedes the open question in `brochure_component_library/HANDOFF_2026-08-12_fact_assignment_front_continue_here.md`
 UPDATE-late ("the assembler lead named … Unowned"). That handoff's hypothesis is **refuted as
 stated** and replaced by the mechanism below; its page-rebuild halt is **narrowed**, see §6.
@@ -540,3 +555,123 @@ pages were blocked**, so repairing 260 removes both without any link-level work.
 Still reads `no live damage` in this file's headline. On the evidence of §11 and this note, that
 line is now wrong on two live sites and should be restated by whoever owns the file — we have not
 edited the headline ourselves.
+
+## 13. TAKEN UP 2026-08-19 — the fix is claimed, and two measurements the file never had settle candidate 1
+
+Workstream: `docs024_key_docs_latest/bugfix_260_render_fallback/` (standing five + the probe
+harnesses). This lane owns **the renderer half only** — the writer-output half stays with
+`copy_quality_two_stage` per the 08-12 split, and the dead-link consequence is now
+`bugs_open/328`'s class, not this file's.
+
+**Unclaimed before I started:** `who-owns.py` names five lanes with commits here and every one
+states in its own words that it is not fixing this; the filing lane's owner log parks the
+fallback removal as *"a decision eventually, not now"*.
+
+### 13a. The census, re-measured `[MEASURED 2026-08-19]`
+
+**26 events · 7 domains · 25 work items · 08-11 15:39Z → 08-18 23:36Z** — against §4's 6/4 and
+§10b's 11/4/10. **It is accelerating**: 08-18 alone was 9 events across three domains. **24 of
+the 25 items are parked at `needs_human_review`.**
+
+Same isolating query as §10b. Note the item types are mixed — `needs_page`,
+`unbuilt_internal_link`, `content_rewrite`, `needs_content_page` — and **an
+`unbuilt_internal_link` row here is a genuine occurrence, not a duplicate**: the item is filed
+because a link points at a missing page, is then dispatched to BUILD that page, and that build
+is what the leak refused. The type records why the build was requested. (I briefly told two
+lanes the opposite; corrected, and logged in `WRONG_CALLS.md`.)
+
+**Leaked-token discriminator:** 25 of 26 occurrences carry an identical distinct set —
+`{{end}}` · `{{if ` · `{{.label}}` · `{{range ` — across all six of the affected content
+domains. The 26th (webdesign.co.uk, `4d1094c0`) carries `{{ variable }}`, spaces inside the
+braces: content *about* templates, not a failed range, and almost certainly §4's known-benign
+prompt-library row. ⚠ **`[CEILING, NOT COUNT]`** — these lists inherit
+`checkUnrenderedTemplates`'s 10-per-regex cap, so read them as *consistent with* the
+`portfolio_positioning` lane's `mechanism-flow` trace, **not** as proof of it. §4 fell into this
+exact trap once already.
+
+### 13b. The two measurements that de-risk candidate 1 completely
+
+Both harnesses carry controls that could have come out otherwise; both are in the lane's NOTES
+with their reasoning.
+
+- **`[MEASURED]` 0 of 251 active component templates fail to PARSE.** Data-independent, so no
+  `RenderContext` replica is involved; the seven FuncMap names were extracted mechanically from
+  `executeGoTemplate` rather than typed, because an undefined function is itself a parse error.
+  Controls, both fired: an unclosed `{{if}}` must fail; a valid nested template must pass.
+  **So the fallback is never entered via a parse error today — every occurrence is an EXECUTE
+  error, i.e. a data type violation.**
+- **`[MEASURED]` 0 of 1,778 stored sections fail to EXECUTE** against their own stored
+  `content_data`. Faithful without a replica because `contextToInterfaceMap` merges
+  `ContentData` at the **top level** (`component_library.go:1266-1268`) and `missingkey=zero`
+  makes absent site fields safe — §2's own finding. Conservative, not inflated: it cannot
+  manufacture a failure from a missing site field. Controls: §2's A/B pair, both fired.
+
+**Together: deleting the fallback changes the behaviour of nothing that currently works.**
+Nothing parses through it, nothing executes into it, nothing is written in its dialect, and no
+stored artefact depends on it.
+
+### 13c. §4's zeros re-verified, plus chrome — which the file never measured
+
+| | §4, 08-12 | `[MEASURED 2026-08-19]` |
+|---|---|---|
+| components using `{{#` handlebars blocks | 0 of 255 | **0 of 253 active** |
+| using `{{nav_items_html}}` / `{{quick_links_html}}` | 0 / 0 | **0 / 0** |
+| stored `page_components` leaking control directives | 0 of 1,452 | **0 of 1,789** |
+| stored rows containing any `{{` | 1 (benign) | **1** (the same row) |
+| **stored `site_components` (CHROME) leaking** | *not measured* | **0 of 72, and 0 contain braces at all** |
+
+Chrome matters more than the page numbers: those paths have **no `validate_content`
+downstream**, so a chrome template failure ships mangled markup to a live site silently
+(LANDMINES carries this as its own entry). Today nothing is in that state — which is the
+window to fix it in.
+
+**Exposed population: 110 active components use Go control syntax**, wider than §4's "33 with a
+`{{range}}`".
+
+### 13d. ⚠ CORRECTION — §5 candidate 2's blocker has GONE, and §9b's adjacent defect with it
+
+§5's boxed correction says a type gate *"would cover 4 components and report a clean sweep over
+the other 251"* because of the dialect split (4 `properties` / 164 `fields` / 87 neither), and
+§9b filed those 4 as an ongoing reintroduction of an extinct dialect.
+
+**`[MEASURED 2026-08-19]` The `properties` dialect is extinct again: 0 components, active or
+inactive.** Of §9b's four, `report-dossier` and `loans-consolidation` no longer exist under
+those names; `mechanism-flow` and `evidence-timeseries` are active and **both now carry the
+house `fields` dialect**. Someone converted them in the intervening week. Active shapes today:
+**175 `fields` · 75 NULL · 2 empty · 1 other · 0 `properties`.**
+
+And the figure that actually decides feasibility — coverage over the **exposed** population
+rather than over all components:
+
+> **Of the 110 active components whose template uses Go control syntax, 107 carry a `fields`
+> schema.** Two have no schema at all.
+
+So candidate 2 is **97% covering where it matters**, not armed-but-inert. §5's warning was
+right when written; the expiry date its own addendum predicted has arrived, in the favourable
+direction. **Do not design around a dialect split that no longer exists.** The acute set is now
+**14 llm-authored `array` fields across 14 components** (§9a said 13) and **all 14 declare
+`items`**, so the array-of-objects check is expressible with what `SchemaContentFields` carries
+forward.
+
+### 13e. A constraint the code cannot tell you, and it binds the fix
+
+The owner has ruled that **all sites should be capable of having tools**, and tool pages
+legitimately carry `{{ }}` literals in their copy — a prompt library, a syntax gallery. §13a's
+26th event is exactly that shape. **So any fix must distinguish "the renderer failed to execute"
+from "this content contains braces", and the positive control must be a tool page whose copy
+contains braces and which must still PASS.** A fix tested only against failing pages cannot
+detect that it has begun refusing good ones.
+
+This cuts one way, and it is worth stating: with the seam failing loud, **no leaked HTML reaches
+`validate_content` at all**, so the hazard only bites if someone tightens that detector's regex.
+It is an argument **for** the seam fix and **against** touching `checkUnrenderedTemplates`.
+
+### 13f. What the fixing lane owes, and to whom
+
+- **Not touching** any other lane's sites, items or handoffs. `portfolio_positioning` is holding
+  remortgagecalculator.uk locked and reproducing as a stable specimen; `loanzy_uk_example_site`
+  will run a **clean greenfield build after the roll** and report the result either way,
+  including if it still fires. Both were asked to hold their reproductions — this lane needs an
+  AFTER, not another BEFORE.
+- **The fix is Go, so it is inert until an image is rebuilt and rolled.** Both lanes have been
+  told, since one is sequencing an end-to-end re-run around it.
