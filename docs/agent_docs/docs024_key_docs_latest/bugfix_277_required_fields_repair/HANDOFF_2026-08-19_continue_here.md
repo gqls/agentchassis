@@ -128,9 +128,11 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
    See §5.
 4. **`314`** — owner's call between the four candidates; candidate 1 is one line plus a credit cost
    somebody should size.
-5. **Two loose ends nobody owns**, both `[UNMEASURED]`:
-   - `page-rerender` saves to owned pages ~3,754 times without refusal while `page-build-handler` is
-     refused every time. Same guard. One of those needs explaining.
+5. ~~**Two loose ends nobody owns**, both `[UNMEASURED]`~~ **BOTH MEASURED 2026-08-19 by
+   `agentchassis-22` — see §10. (a)'s PREMISE WAS VOID; (b) has a population but no mechanism.**
+   - ~~`page-rerender` saves to owned pages ~3,754 times without refusal while `page-build-handler` is
+     refused every time. Same guard. One of those needs explaining.~~ **There was no asymmetry to
+     explain.**
    - a page named/URL'd `tool-…` carrying `rebuild_policy='generic'` looks like a data defect;
      nobody has counted how many.
 
@@ -237,6 +239,134 @@ than absent.
 **0 `page-build-handler` orchestrations since the roll, while 20 of its work items were updated at
 08:45:58.** A handler apparently acting with no orchestration to show for it. Noticed, not chased,
 not recorded until now — **treat my zero as unverified.**
+
+---
+
+## 9. OWED WORK from the peer exchange — one migration, and one measured warning already sent
+
+### 9a. OWED: an explicit `copy_edit_proposed` exclusion in the promoter's `pre_query`, citing D2
+
+**I changed my mind and this is owed.** I first declined (see §6) on "a second place to maintain is
+the drift class we keep filing bugs about". `agentchassis-8d` came back with two facts that beat the
+objection:
+
+- **`handler_agent=''` is not available to them.** `checkpoint_for_review_action.go:202` hardcodes
+  the literal in the INSERT (`… $7, 'human-review', 'needs_human_review', $8`). Making it settable is
+  a Go change to a shared action (4 live agents, 9 items) — council + roll, not a config edit.
+- **`status` is hardcoded in that same INSERT**, so `copy_edit_proposed` **cannot be born `detected`
+  through its only producer**. Barrier 1 is structural, not conventional — better than my reading —
+  and the residual is now precisely characterised: **a human hand-filing such a row at `detected`,
+  whom `held-pair-canary-escalation` would then invite to canary the pair.**
+
+My objection was aimed at a *roster of types*; this is **one named exclusion guarding a
+characterised residual**, with no second half to drift from. That is a different thing and it is
+cheaper than the failure it prevents.
+
+**⚠ NOT done, and deliberately not done quietly.** It is a config change to a live shared scheduled
+task; this lane already has four migrations on that `pre_query`. It needs a numbered migration with
+a guard + `_ROLLBACK.sql`, exercised in a rolled-back transaction first, **and it goes past the owner
+— not in on a peer's say-so, however good the reasoning.** Cite **owner decision D2 (2026-08-12):
+stage 2's output queues for human review, no unreviewed auto-rewrite.** If someone gets there first,
+the full argument is in the `LANDMINES.md` entry.
+
+### 9b. SENT: `473` will be refused on the 16 owned pages — warning delivered before the apply
+
+Raised by `agentchassis-8d`, measured by me, filed to the 184 lane at `e7b009483` and messaged to
+the live `bug 184` peer. **`473` is not applied** (absent from `schema_migrations`), so it landed in
+time.
+
+`473` re-routes `literal_markdown` onto **`page-rerender`** and contains no `rebuild_policy`
+handling. All **74** `literal_markdown` rows route at `page-build-handler` today, so the re-route
+moves the whole population onto an unused route — and **that route is not exempt from the guard:
+16 `failed` + 1 `cancelled` `page_rerender` items on `owned` pages name it, most recent 2026-08-18.**
+So `473` should fix the generic pages (the real target, 13% today) and hit the identical refusal on
+the **16 owned** ones.
+
+⚠ **Stated limit, which matters if you follow up:** the 17 rows prove the route *can* be refused, not
+that an item arriving via `473`'s new `spec.reason` condition *will* be. `page-rerender`'s
+`save_sections` resolves its page from `input_data.spec.page_name` and has an **early return
+reporting `success:true, skipped:true`** when that misses — a third path reaching neither guard nor
+repair. **A one-item canary on a known owned page settles it; check the served page, not the item
+status.**
+
+⚠ **And do not use the 1,769 `page-rerender` completions on owned pages as evidence of anything** —
+whether they are real writes or that silent-skip path is unestablished, and is precisely §4.5(a),
+now with `agentchassis-22`.
+
+**Why this matters to us and not only to them:** `literal_markdown` is the largest held pair
+(3 ok / 16 real failures) and 16 of its refusals are ours. If `473` lands, its floor arithmetic
+improves with nothing of ours changing — **which is exactly why I declared that incentive to them
+while telling them it will not cover 16 rows.**
+
+### 9c. The discriminator worth keeping, from `agentchassis-8d`
+
+> **Is success expressible as a diff assertion?**
+
+"Are the asterisks gone and the text otherwise byte-identical" fully is; "does this read like a
+person wrote it" cannot be. **A repair whose success condition is completely assertable does not need
+a human-review posture — it needs a gate that fails loudly.** That is a sharper test than anything
+this lane had written for when a repair needs HITL, and it independently argues for `473` over any
+LLM route for this class.
+
+---
+
+## 10. §4.5 ANSWERED — and (a)'s premise was VOID, including in a figure I repeated
+
+Measured by `agentchassis-22`, committed at `a43f99bb4` as a dated appendix in this lane's NOTES.
+**Read their appendix, not this summary, before building on any of it.**
+
+### (a) There was no asymmetry. The denominator was ~8x too big — and the figure was one I repeated.
+
+**The 3,754 (now 3,818) figure counts WORK-ITEM OUTCOMES, NOT SAVES.** `page-rerender` gates
+`save_sections` behind `check_rerender_mode`, whose condition is four reasons
+(`image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`); everything else
+routes to `render_page` and **never calls `save_page_sections`**. Of 4,171 owned-page items,
+**3,710 take that assemble-only branch. The guard is reached ~461 times, not 3,754.**
+
+**And `page-rerender` IS refused — 81 times**: 81 of its 89 owned-page failures name the guard,
+against **0** on generic pages. `page-build-handler` is 100 of 112 — **and is not "refused every
+time" either: it completes 74 items on owned pages.**
+
+**So both handlers call the same action and are refused in proportion to how often they reach it.**
+`page-rerender` looked unrefused because the denominator counted items that never tried.
+
+> ⚠ **I inherited that figure from another session's table in `bugs_open/301` and repeated it in a
+> handoff with no marker. It was right as a COUNT and wrong as a MEANING** — which is the more
+> dangerous failure, because re-deriving the number confirms it.
+
+### THE REAL ANOMALY, which is sharper than the question asked — and it may bear on §3
+
+Post-guard, on owned pages, through the **same** `save_sections` step: `section_data_resolved`
+**122 complete / 0 refused** vs `cta_links_stale` **112 / 19**. Same agent, same step, same guard.
+
+Candidate mechanism, **`[INFERRED]`** by them from code and not measured per row:
+`rerender_page_sections_action.go:401-419` escalates a section with **no `content_data`** to the
+writer, returns `escalated=true`, and `check_escalated` routes to `complete` — **skipping the save
+entirely, so the item completes having written nothing.** `isSelfContainedSection` exempts tool
+sections, which is how two reasons diverge through one step.
+
+**That is `277`'s `no_content_data` population appearing on a second route**, so it plausibly bears
+on §3's missing half — and it is a third way a repair can report success without touching the page.
+
+### (b) Population established, damage NOT — and they withdrew their own figure
+
+**89** pages named `tool-%`, under `/tools/`, not guides, carry `generic` — against **95
+identically-shaped** pages marked `owned`, plus 4 more under `/tools/` without the prefix. The 70
+`tool-…-guide` pages are correctly generic, **so the name test alone over-counts and the two axes
+must stay independent.** My seed case re-verified first-hand by them.
+
+**They priced the damage at 107, then withdrew it in the same entry** — splitting by guard era showed
+174 post-guard completions on the route they had classified as guarded, which is impossible if the
+classification held. Two confounds they named: their per-agent route classification was an
+assumption, and **`pages.rebuild_policy` is MUTABLE and read at query time**, so historical rows get
+judged against today's marking. **Do not quote an exposure figure for (b) from anyone yet.**
+
+### ⚠ A SECOND, INDEPENDENT REASON FOR THE ERROR-TEXT RULE — worth carrying beyond this lane
+
+§2 says classify by the guard's error text because *owned + failed ≠ refusal*. There is a second
+reason: **`rebuild_policy` can have CHANGED since the run.** The policy column tells you what the
+page is marked as *now*; the error text is what the run itself *recorded*. For anything
+retrospective, only the second is evidence.
 
 ---
 

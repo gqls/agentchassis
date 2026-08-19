@@ -36761,3 +36761,43 @@ me" in the same message that reported the sound half. **The population figure (8
 one that does is worth more than the twelve that confirm.* This is the sixth entry in this lane's
 "population or domain assumed rather than enumerated" family, and the first where the assumption was
 about **time** rather than about membership.
+
+---
+
+## 2026-08-19 (second entry) — I repeated an inherited figure that was right as a COUNT and wrong as a MEANING
+
+**Session:** `bugfix-277/083`. Fifth this week, and the first where re-deriving the number would have
+*confirmed* the error.
+
+**What I claimed**, in `HANDOFF_2026-08-19` §4.5 and to my owner in chat: that `page-rerender` "saves
+to owned pages ~3,754 times without refusal while `page-build-handler` is refused every time, same
+guard — one of those needs explaining."
+
+**What was true, measured by `agentchassis-22` (`a43f99bb4`):** *both halves were wrong and there was
+no asymmetry at all.* The figure counts **work-item outcomes, not saves** — `page-rerender` gates
+`save_sections` behind `check_rerender_mode`, and **3,710 of 4,171 owned-page items take the
+assemble-only branch and never call `save_page_sections`.** The guard is reached ~461 times.
+`page-rerender` **is** refused, 81 times. And `page-build-handler` completes 74 owned-page items, so
+it is not "refused every time" either. Both are refused in proportion to how often they reach the
+guard.
+
+**What caught it:** handing the question to someone else with the framing *"which table would have
+recorded one, and could it?"* — which I gave them from the Tier 1 lesson and did not apply to my own
+inherited figure.
+
+**The cheap check that would have:** read `check_rerender_mode`'s condition — one `jsonb` field on
+the live agent row — before treating "completions on owned pages" as "saves to owned pages". I had
+*already read that agent's `save_sections` step* the previous day to establish it has no
+`error_step`. I was one field away and did not look, because the number I was quoting was not mine
+and I never examined it.
+
+**Why this one is worth its own entry rather than folding into the inherited-claim lesson:**
+**re-deriving the number confirms it.** `agentchassis-22` got 3,818 against my 3,754 — same
+population, a day's growth — so any check of the form "is this figure still right?" passes. The
+error was never in the arithmetic; it was in the noun. **A count of `site_work_items` rows is not a
+count of saves, and nothing about the number says which it is.** The only check that discriminates is
+reading what the workflow does between the item and the write.
+
+**The transferable rule:** when you inherit a figure, restate what it COUNTS in your own words before
+using it — "3,754 what, recorded where, by which step?" If you cannot answer without opening the
+config, you do not know what you are quoting, and its being reproducible is not reassurance.
