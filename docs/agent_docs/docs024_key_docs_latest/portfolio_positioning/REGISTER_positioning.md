@@ -16,6 +16,52 @@ Status legend: LIVE (serving) · BUILT (repo, not adopted) · ADOPTED · — (gr
 
 ---
 
+## ⚠ OWNER RULING 2026-08-19 — THIS FILE STOPS BEING THE SOURCE OF TRUTH, AND THE REGISTRY COVERS EVERY DOMAIN
+
+Two rulings, both from the RFC_037 round. **Read them before adding an entry here**, because the
+second changes what "adding an entry" will mean.
+
+**1. The register moves to a DATABASE, and the DATABASE becomes authoritative.** The owner chose
+the larger of the two options offered: not "markdown stays the source and syncs to a table", but
+**the database is the source of truth**. This markdown file becomes a rendering of it, an input
+to a one-time migration, or is retired — that call is part of the build, and it must be made
+explicitly. **Do not end up with both writable.** Two hand-maintained copies of one roster is the
+exact drift class `099_SYNC_gate_roster.py` exists to prevent and that this estate has already
+paid for twice.
+
+**2. Every domain gets an entry — not just the finance portfolio.** Verbatim instruction: *"For
+the 40 non finance sites add a registry, also for the rest of the 2000 .uk domains."* So the
+~40 non-finance lane sites are in scope, and so is the rest of the domain estate.
+
+**What that does to the numbers** [MEASURED 2026-08-19]:
+
+| | today | after |
+|---|---|---|
+| entries in this file | **44** | ~2,000 |
+| domains listed in `PORTFOLIO_domains.txt` | **153** | ~2,000 |
+| rows in `sites` | **43** | unchanged by this (a registry entry is not a built site) |
+
+**⚠ THE PREREQUISITE NOBODY HAS: there is no inventory of the ~2,000 domains.** Searched
+2026-08-19 — the repo has no such list (`z_bundles/old/domainsubmit1.txt` is a log dump, not
+domains), and no table in the database holds one (checked every `information_schema` column named
+`domain`/`domain_name`). **The list must come from the owner.** Recorded as an open ask, not an
+assumption, and it blocks the build rather than the design.
+
+**Two design consequences that a builder must not discover late:**
+- **The collision invariant stops being a document rule.** "No two entries may share
+  (family × audience × mode)" is checkable by hand and by `check_register.py` at 44 entries. At
+  ~2,000 it is not, which is an argument for the database and possibly for reviving the *binding*
+  collision check that the same ruling has just deferred (advisory was chosen for now).
+- **Neighbour selection becomes load-bearing.** RFC_037 feeds the classifier "each neighbour named
+  in the entry". At 44 entries neighbours are hand-named; at ~2,000 they cannot be, so the
+  mechanism needs a rule for *which* siblings a site is told about (nearest by family, by
+  vertical, by TLD twin). That rule does not exist yet.
+
+Full ruling and the other two answers (advisory, not binding; data in a DB):
+`architecture_review/RFC_037_…md` §5.
+
+---
+
 ## Family: MORTGAGE
 
 ### M1 — crossing-point (loans × mortgage) — LIVE+ADOPTED
