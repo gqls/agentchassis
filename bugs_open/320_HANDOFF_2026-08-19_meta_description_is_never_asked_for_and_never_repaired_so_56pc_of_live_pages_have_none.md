@@ -211,3 +211,41 @@ and no `SEED_SCOPE` was passed. ⚠ Its terminal orchestration row still reads
 
 Working docs, including the full misstep log:
 `docs/agent_docs/docs024_key_docs_latest/meta_description_never_backfilled/`.
+
+---
+
+## 11. OWNER RULING 2026-08-19 (given in the bugfix-309 session, recorded verbatim in intent)
+
+The owner was walked through §8's candidates as four decisions and ruled on each:
+
+1. **Guard the overwrite (M2): YES.** ("Stop the ongoing damage.")
+2. **Ask the planner for descriptions (M1): YES.**
+3. **The backfill producer: YES — GO AHEAD, and the owner does NOT require a
+   review pass of the output.** ("I don't need a review.") This supersedes the
+   one-site-at-a-time-with-someone-reading caution in this lane's README §"I have
+   also not put it on a schedule" — the mechanism's kill-switch/opt-in SHAPE should
+   stay (2026-08-02 §2 is about how authority ships, and it survives the owner
+   waiving the review), but the rollout is authorised fleet-wide without a
+   read-first gate.
+4. **The 309 page: WAIT for the writer/replan** — no regeneration of the five
+   articles, no shrink-floor change. (Consistent with what this lane already
+   concluded; now ruled, not just reasoned.)
+
+**Plus one NEW requirement, given in the same exchange (2026-08-19, mid-morning):**
+
+> "please make sure the summaries go through the copy guidance and checks so they
+> don't sound like AI"
+
+So the backfiller's generation is NOT bare "write a meta description": it must
+carry the house copy-style guidance
+(`docs024_key_docs_latest/travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`
+— the plain-human copy preference, owner 2026-08-06 family), and its output must
+pass the voice/claims controls before being SAVED, not after being published —
+the define-by-negation suppression (`bugs_open/305`'s subject), the banned-claims
+sweep, and whatever `check_voice_tells` asserts. A description that fails reads
+as AI boilerplate on 407 pages under the owner's name, which is the exact class
+of damage the review pass would have caught — the checks are what replace it.
+
+Recorded by the bugfix-309 session; the live 320 lane (session "bugfix 284") was
+messaged the same content at the time of this commit. Division: the 320 lane owns
+execution; this section is the durable record of the authority it acts under.
