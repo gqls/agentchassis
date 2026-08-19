@@ -1,3 +1,7 @@
+> # ⚠ SUPERSEDED 2026-08-19 (evening) — read `HANDOFF_2026-08-19_continue_here.md` first.
+> This file's state lines are stale. Kept for its peer-lane exchanges, the apply recipe, and the
+> `090`/`57b2dcd2` history. Its "Next work" list has been carried forward and re-ordered there.
+
 # HANDOFF 2026-08-18 (current as of 2026-08-19 evening) — continue here
 
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-17_continue_here.md`**
