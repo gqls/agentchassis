@@ -185,3 +185,30 @@ verified by label+digest AND `TestTieBreakUnwrapHopBeatsSibling` is in the stamp
 RFC_029 §10.12 (the measurement record) · §10.11 (why the field-list prune cannot reach this
 population) · `bugs_open/085` (what an absent current_page does downstream) · the Phase 2
 decision, which is gated behind this bug's population going to zero or being declared safe.
+
+## 7. CLOSED 2026-08-19 ~16:00Z — all three candidates FIXED AND LIVE, every stated condition met with evidence
+
+**The roll:** `v1.0.1315`, pods up 12:15Z, image
+`docker.io/aqls/agent-chassis@sha256:1c422c614bd7f15457401d57abc0f918140388d74f7461283a1c4694c54d56a8`.
+Verified at the artefact, not the tag: binary stamp `590ca3a20` (probed on
+`agent-chassis-7597f54b9-bfw5n`, known-absent control = then-HEAD `f893d39dd` ABSENT,
+known-present literal PRESENT). Ancestry on the probed stamp: `846496906` (cands 1+2, incl.
+`TestTieBreakUnwrapHopBeatsSibling`) ✓ · `393f15bfd` (cand 3 code, as the §3b passenger) ✓ ·
+`02777cd5f` (cand 3 tests) ✓ · `f42e03720` (the step-3 gate, same roll as predicted in §3b) ✓.
+
+**The window (12:16Z → 15:58Z), with the demand and instrument controls the zeros need:**
+- `page-build-handler` rp-candidate class: **45 (pre-roll all-history) → 0**, against live
+  demand — **6 post-roll orchestrations carry the exact `page_content ? retry_payload` echo
+  shape** and produced no conflict row; the agent itself demonstrably ran (15 unrelated
+  content-validation rows in the same window).
+- `retry_payload` in ANY candidate_path fleet-wide: **0**.
+- `build-dispatch-loop` (both fields): **0** — the gate's class, gone as §3b predicted.
+- `page-content-writer / current_page`: **20 rows, last 15:54Z** — persists exactly as it
+  must (zero rp candidates; the SHAPE class, §10.13 step 4's population). This is also the
+  instrument-alive control: the detector still writes rows post-roll, so the zeros above are
+  real zeros, not a dead recorder.
+
+**Residual, tracked elsewhere by design:** the surviving pcw shape conflicts are RFC_029
+§10.13 step 4 (fix at source), then step 5 (flip to refusal) — the staged_component_build
+lane's ruled path, not this bug's. §4 candidate 4 was never this bug's to decide and its
+mechanism (the `ensureCoreFields` gate) shipped in this same roll.
