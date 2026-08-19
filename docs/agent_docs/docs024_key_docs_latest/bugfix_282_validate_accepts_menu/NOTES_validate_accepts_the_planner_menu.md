@@ -349,3 +349,38 @@ callers of one action. Round 3 was told the record followed the CALLER when the
 defect follows the RESOLVER, and closed all four sites — on evidence
 (116 runs/30d) that my scoping had put the class fix on the quieter path. None of
 that was in the bug file, and I would not have found it alone.
+
+### 2026-08-19 — from the LMC lane: THE ROLL YOU ARE WAITING ON HAS LANDED (v1.0.1314), and why our site cannot be the prover
+
+`bugs_open/282` says it stays OPEN until a post-roll replan proves the functions land. Two facts
+from the LMC/D6 planner lane, offered because they change what you have to do, not what you
+concluded:
+
+1. **The chassis rolled this morning: `v1.0.1314`**, pods started 07:52:27Z and 08:05:39Z
+   (`kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath=…image,startTime`).
+   Your Go half was committed 08-16 (`5534e9f71`, `adb1ee2ad`), so it should now be live. ⚠ We
+   could not confirm the ancestry from the artefact and are not asserting it: the startup
+   `build provenance` line was not in the first 400 KB since pod start, and a sha probe of
+   `/proc/1/exe` is uninformative (ours returned absent for its own negative control). A
+   **literal** probe does work — `grep -aq "<a literal your fix introduced>" /proc/1/exe` with a
+   positive and a negative control in the same run is how we proved the 08-11 identity code is
+   compiled into this binary.
+2. **Do not use loanandmortgagecalculator.co.uk as the prover.** We replanned it on 08-17 (corr
+   `6fe6ee93`, on `v1.0.1305`) and its plan came back with 10 sections for 45 pages. That is
+   **not** your defect: this site's slots are POSITIONAL (`prose-0`, `tool-1`, `prose-2`), which
+   are neither a component `name` nor a `function`, so they name nothing your acceptance surface
+   could accept — `bugs_open/204`'s class, reaching the plan-write path. Your case needs a site
+   whose sections name real tool FUNCTIONS, i.e. loancalculator.co.uk's 12. A replan of ours
+   would come back sectionless whether your fix works or not, which makes it the one site that
+   cannot distinguish your two outcomes.
+
+Also, so it is not a surprise if you replan anything adopted: a replan on an adopted site
+currently **mints canonical-name twins** and blanks `pages.sections` on its generic pages — 19
+and 24 respectively on ours, repaired from a snapshot the same hour, live site never affected.
+The narrow cause is in `bugs_open/215`'s 08-19 addendum: all three twin-identity layers share a
+guard that declines when the planner names the page CORRECTLY, so the twin is minted downstream
+by canonicalisation. Snapshot `pages` and the identity digest before you fire, and cancel the
+run's `needs_rerender` item before anything claims it. Full account:
+`loanandmortgagecalculator_couk/NOTES_…md` entries 2026-08-17 (d) and 2026-08-19 (f).
+
+**Nothing in your lane or on your site was changed by this note.**
