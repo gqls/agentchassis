@@ -663,6 +663,15 @@ var RenderComponentInputSpec = datahelpers.ActionInputSpec{
 		// bugs_open/184: gates the literal-markdown strip on LLM content at
 		// birth. Default OFF; enabled per step by migration 474.
 		"strip_literal_markdown",
+		// bugs_open/315 / RFC_038: names the DEPLOY step's output field, so this
+		// action can read what the deploy actually did before claiming it
+		// happened. OPT-IN with the unsafe side as the default: absent means
+		// today's behaviour byte for byte, and zero live steps set it as this
+		// ships. It cannot be a literal — the 19 live git_commit steps carry
+		// NINE distinct output_field names (deploy_result on only three;
+		// section-editor uses git_result), so a hard-coded name would be blind
+		// on 16 of 19 and would fail open on all of them in silence.
+		"deploy_result_field",
 	},
 }
 
@@ -931,8 +940,70 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
+	// DEPLOY EVIDENCE (bugs_open/315 / RFC_038). Everything above this point
+	// asks the DATABASE whether the page deserves a stamp. This asks the DEPLOY
+	// STEP whether anything was actually sent — the question nothing has ever
+	// asked, and the reason a `git_commit` that returned
+	// {"status":"skipped","skip_reason":"no files to commit"} was followed one
+	// step later by a fresh deployed_at.
+	//
+	// OPT-IN, unsafe default OFF: with no deploy_result_field configured this
+	// block does nothing at all and behaviour is unchanged.
+	//
+	// FAIL-OPEN, DELIBERATELY, AND COUNTABLE. If the field is named but no
+	// evidence resolves we stamp anyway and write an agent_error_log row. Open,
+	// because a config typo — or simply a git-adapter image older than RFC_038,
+	// which is the normal state during a partial roll, the chassis and the
+	// adapter being separate images — must not freeze deploy stamps fleet-wide.
+	// Countable, because a SILENT fail-open is precisely how this bug survived
+	// four completed rerenders with every layer reporting success.
+	var deployContentHash, deployCommitSHA string
+	if newStatus == "deployed" {
+		if field, _ := config["deploy_result_field"].(string); strings.TrimSpace(field) != "" {
+			ev, ok := resolveDeployEvidence(params.CollectedData, field, params.Logger)
+			switch {
+			case !ok:
+				params.Logger.Warn("UpdatePageStatusAction: deploy_result_field set but no deploy evidence resolved; stamping anyway",
+					zap.String("page_id", pageID.String()),
+					zap.String("deploy_result_field", field))
+				LogActionError(ctx, params,
+					datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+					datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+					"update_page_status", "DEPLOY_EVIDENCE_UNREADABLE", "warning",
+					fmt.Sprintf("deploy_result_field %q resolved no commit evidence for page %s; the deploy stamp proceeded unverified", field, pageID),
+					map[string]interface{}{"page_id": pageID.String(), "deploy_result_field": field},
+					params.Logger)
+
+			case ev.Skipped:
+				// Dispatch on the same reason prefixes the guards above use, so
+				// a skip means the same thing wherever it is noticed.
+				params.Logger.Warn("UpdatePageStatusAction: refusing to stamp deployed — the deploy step reported it skipped",
+					zap.String("page_id", pageID.String()),
+					zap.String("skip_reason", ev.SkipReason))
+				if strings.Contains(ev.SkipReason, ownedPageSkipReasonPrefix) ||
+					strings.Contains(ev.SkipReason, archivedPageSkipReasonPrefix) {
+					// No status flip: an owned page is parked by reconcile's own
+					// protocol, and needs_rebuild for an ARCHIVED page would
+					// re-queue the very build being closed off.
+					return map[string]interface{}{
+						"updated": false,
+						"page_id": pageID.String(),
+						"skipped": true,
+						"reason":  "refused deploy stamp: deploy skipped — " + ev.SkipReason,
+					}, nil
+				}
+				return refuseDeployStampOnSkip(ctx, params, pageID, "deploy skipped — "+ev.SkipReason), nil
+
+			default:
+				deployCommitSHA = ev.CommitSHA
+				deployContentHash = hashForPageFile(ev.FilesSHA256, pageURLForHash(ctx, params.DB, pageID))
+			}
+		}
+	}
+
 	// Build the query - use build_status column (not status)
 	var query string
+	args := []interface{}{pageID, newStatus}
 	if newStatus == "deployed" {
 		// Also set deployed_at, and stamp built_from_plan_version with the site's
 		// current plan id. This is the build-time drift stamp the reconciler
@@ -942,9 +1013,24 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		// plan — and SyncPagesToDBAction then fills it on its first pass. With this
 		// stamp in place the reconciler detects genuine drift (built_from_plan_version
 		// != current) rather than relying on the blunt deployed->needs_rebuild flip.
+		// content_hash is the sha256 of the bytes this page was actually
+		// committed as (bugs_open/315; owner ruling 2026-08-19 "wire up the page
+		// fingerprint"). It turns "is the origin serving what we sent?" from a
+		// four-step archaeology — pull rendered_html, cut a needle, fetch the
+		// page, grep — into one comparison.
+		//
+		// COALESCE, not a bare assignment: a stamp with no fingerprint available
+		// (an older git-adapter, an unusable file shape) must leave the previous
+		// fingerprint alone. Overwriting a good hash with NULL would destroy the
+		// only evidence there is, which is worse than not adding any.
+		//
+		// page_components.deploy_commit is deliberately NOT written — owner
+		// ruling, same day: a section is not a file, so a section-level commit
+		// reference cannot answer the publish question. See RFC_038 §8.
 		query = `UPDATE pages
 		         SET build_status = $2,
 		             deployed_at = NOW(),
+		             content_hash = COALESCE($3, content_hash),
 		             built_from_plan_version = COALESCE(
 		                 (SELECT sp.id FROM site_plans sp
 		                   WHERE sp.site_id = pages.site_id AND sp.is_current = true),
@@ -952,11 +1038,12 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		             ),
 		             updated_at = NOW()
 		         WHERE id = $1`
+		args = append(args, sql.NullString{String: deployContentHash, Valid: deployContentHash != ""})
 	} else {
 		query = `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	}
 
-	result, err := params.DB.ExecContext(ctx, query, pageID, newStatus)
+	result, err := params.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		params.Logger.Error("UpdatePageStatusAction: Failed to update page",
 			zap.String("page_id", pageID.String()),
@@ -970,6 +1057,13 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("UpdatePageStatusAction: Updated page",
 		zap.String("page_id", pageID.String()),
 		zap.String("build_status", newStatus),
+		// The commit this page's bytes went out in. There is no column for it —
+		// pages.deploy_commit was dropped deliberately as "belongs in
+		// page_components", and the owner ruled 2026-08-19 not to wire the
+		// section-level one. So it is logged, and it also lives in the
+		// orchestration's own collected_data.
+		zap.String("deploy_commit_sha", deployCommitSHA),
+		zap.String("content_hash", deployContentHash),
 		zap.Int64("rows_affected", rowsAffected))
 
 	if newStatus == "deployed" {
