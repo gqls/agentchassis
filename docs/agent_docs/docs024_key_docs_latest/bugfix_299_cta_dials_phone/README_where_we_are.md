@@ -117,3 +117,62 @@ been improvising this check privately. There are 32 places in the system that pr
 this check and none that can enforce it. We have written a proposal (RFC_040) to fix it
 properly, and in the meantime written down the reliable method so the next person does not
 have to rediscover it.
+
+## 2026-08-19, later — the four decisions, explained, and one of them changed shape
+
+You asked what you actually need to decide. Four things, and the second one is not what it was
+this morning, because we found the evidence that settles it.
+
+**1. Do we apply the wiring fix?** It is one line of configuration. The page writer looks for
+the link resolver's answers under a name that does not exist, finds nothing, and quietly uses
+the last build's values instead. Applying it corrects the name. The reason it has been held is
+that configuration goes live everywhere the instant it is applied, and until yesterday using
+the resolver's answers would have overwritten hand-written "contact us" buttons on other
+sites. The protective code is now live and verified, so that danger is closed — but it has
+never actually run, because its output has always been thrown away, so this is the first time
+it does real work. Two things make the risk small: we can see exactly what it will release
+(below), and the fleet only rebuilds **one to seven pages an hour across five sites**, so a
+mistake shows on the first build and reverts in one line, having touched a handful of pages.
+Recommendation: apply it, and watch leopardessconsulting.co.uk, which has four hand-written
+contact buttons that must survive untouched.
+
+**2. What should your home page's second button be?** This changed. We found the last build of
+that page still on record, and it shows the new code already computing the right answer and
+having it discarded: it kept the phone link, **tidied it into a dialable form**
+(`tel:+447934524911`), and wrote a plain note saying the destination is "a phone call to
++44 (0) 7934 524 911" for the copy writer to work from. So after the wiring fix, that button
+becomes a working phone button and the words should be rewritten to match it — the mismatch
+resolves itself, in favour of the phone.
+
+The thing worth your attention: that phone link looks like it arrived by accident. On 13
+August the section read "Prefer to talk it through first? Call +44 (0) 7934 524 911 or
+email…", which is a real phone button. The words have been rewritten four times since and the
+link never moved. **The system cannot tell a deliberate phone link from an inherited one** — it
+now treats any phone or email link as intentional and defends it, which is exactly what stops
+your FAQ and how-it-works "call us" buttons being destroyed. The cost of that protection is
+that it will also faithfully protect a leftover. So the question is simply: should that button
+be a phone call, or the Brief Starter tool? Phone means do nothing. Tool means say so, and we
+change the stored value, because otherwise the protection keeps the phone link indefinitely.
+
+**3. The contact page's number.** A separate, genuinely broken one: the "(0)" has been
+swallowed into the digits, leaving something no phone can dial. The code repairs only what is
+unambiguous and **refuses** this one rather than inventing digits, and has filed it for a human.
+We think the intended number is +44 7934 524 911. Confirm and it is a one-line fix.
+
+**4. Is RFC_040 worth building?** Plainly: every service knows what it can do, but that
+knowledge only exists inside the running program and in one line it prints when it starts,
+which scrolls out of the log within hours. This matters because code needs a rebuild and a roll
+while configuration is live immediately, so many changes arrive in two halves that must land in
+order. Thirty-two of our configuration changes promise to check that the code half is live
+first. **None of them can**, because a database cannot ask a running program what it can do.
+Worse, the check we tell everyone to perform often cannot be performed at all — yesterday the
+startup line was gone three hours after the roll and the documented fallback told me a fix was
+missing when it was certainly there. Another thread hit exactly the same wall on 11 August.
+
+The honest argument against building it: nothing has actually gone wrong yet. It works because
+people are careful. That is a near-miss, not damage, and you should weigh it as one.
+Recommendation: agree the problem is real, and build only the small half — have each service
+write down what it can do when it starts. That alone ends "I cannot find out what is running",
+costs little, and changes no behaviour. The part where a configuration change refuses to apply
+itself can wait until something else wants it; building a contract for a single user is how
+mechanisms rot unused.
