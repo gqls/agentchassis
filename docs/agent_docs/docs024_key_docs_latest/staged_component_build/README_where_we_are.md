@@ -1928,3 +1928,26 @@ depend on.
 Nothing has shipped beyond the first fix; the other two ride the next build. What remains after
 that is the handful of places that genuinely store the same page in two shapes — the last step
 before "refuse rather than guess" gets switched on.
+
+**2026-08-19, later — the safety-net change is approved, after a review round that earned its
+keep.**
+
+The reviewers sent it back once, and they were right to. The whole safety case rested on my
+census of who consumes the injected values — and my census had only looked at the top layer of
+each agent's workflow, missing everything nested inside loops. Embarrassingly, one of the steps
+it missed was the very step I had traced by hand two hours earlier; it should have collided
+with my own count and I did not notice the absence. I redid the census properly — every level,
+every agent — and the conclusion survived: still nobody consumes the three page values without
+declaring them, and the do-not-touch list for the three business values actually grew by one.
+The lesson is logged in the wrong-calls file with a note that this exact trap was already
+written down three times in our landmines file and I had not looked. On their smaller points:
+the "never ran" claim about the dormant agent had been read from a table that only keeps five
+weeks of history — re-checked against records going back to March and a counter that has read
+zero since December, so the fact stands on proper ground now. And a reviewer's fair complaint
+that a missing value would vanish silently became a small addition: the system now says, on a
+log line it already writes, exactly which values it declined to inject and why.
+
+Second round: approved, no blocking objections. So all three code changes on your path are now
+built, tested, and reviewed — the first is already live and proven, the other two wait only on
+the next build you roll. After that roll, the recorder should go quiet on the big noisy class,
+what remains is the one name-collision repair, and then the final switch.
