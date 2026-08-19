@@ -65,9 +65,9 @@ func NewGitHubClient(token, org, apiBase string, log *zap.Logger) (*GitHubClient
 // call is what gives a retraction the ref-race retry below, the domain-prefixing
 // convention, and atomicity with any writes in the same request — see the type
 // comment on GitCommitData.Deletions.
-func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (string, error) {
+func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (CommitOutcome, error) {
 	if data.RepoName == "" || (len(data.Files) == 0 && len(data.Deletions) == 0) {
-		return "", fmt.Errorf("repo_name and at least one of files/deletions are required")
+		return CommitOutcome{}, fmt.Errorf("repo_name and at least one of files/deletions are required")
 	}
 
 	// Deletion paths are validated BEFORE anything is prefixed, and writes are
@@ -79,7 +79,7 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 	// because the chassis-side caller is not the only possible one.
 	for _, p := range data.Deletions {
 		if err := validateDeletionPath(p); err != nil {
-			return "", err
+			return CommitOutcome{}, err
 		}
 	}
 
@@ -113,7 +113,7 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 	// 1. Create or Get the Repo
 	repo, err := c.createOrGetRepo(ctx, data.RepoName)
 	if err != nil {
-		return "", fmt.Errorf("failed to create/get repo: %w", err)
+		return CommitOutcome{}, fmt.Errorf("failed to create/get repo: %w", err)
 	}
 
 	// Target branch: explicit request or the repo default.
@@ -147,12 +147,12 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 				encoding = "utf-8"
 			}
 		default:
-			return "", fmt.Errorf("invalid file data type for %s: %T", path, fileData)
+			return CommitOutcome{}, fmt.Errorf("invalid file data type for %s: %T", path, fileData)
 		}
 
 		blobSHA, err := c.createBlob(ctx, repo.Owner.Login, repo.Name, content, encoding)
 		if err != nil {
-			return "", fmt.Errorf("failed to create blob for %s: %w", path, err)
+			return CommitOutcome{}, fmt.Errorf("failed to create blob for %s: %w", path, err)
 		}
 		sha := blobSHA
 		treeEntries = append(treeEntries, TreeEntry{
@@ -184,7 +184,7 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		if err != nil {
 			latestSHA, err = c.getBaseTreeSHA(ctx, repo.Owner.Login, repo.Name, branch)
 			if err != nil {
-				return "", fmt.Errorf("failed to get latest commit/base tree for branch %q: %w", branch, err)
+				return CommitOutcome{}, fmt.Errorf("failed to get latest commit/base tree for branch %q: %w", branch, err)
 			}
 		}
 
@@ -220,7 +220,7 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		if len(data.Deletions) > 0 {
 			present, missing, err := c.partitionExistingPaths(ctx, repo.Owner.Login, repo.Name, branch, data.Deletions)
 			if err != nil {
-				return "", fmt.Errorf("failed to resolve deletion paths on branch %q: %w", branch, err)
+				return CommitOutcome{}, fmt.Errorf("failed to resolve deletion paths on branch %q: %w", branch, err)
 			}
 			absent = missing
 			// Copy: treeEntries is reused by the next attempt and must not
@@ -245,25 +245,25 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 				zap.String("repo", repo.Name),
 				zap.String("branch", branch),
 				zap.Strings("absent", absent))
-			return repo.HTMLURL, nil
+			return CommitOutcome{RepoURL: repo.HTMLURL, Branch: branch, AbsentPaths: absent}, nil
 		}
 
 		newTreeSHA, err := c.createTree(ctx, repo.Owner.Login, repo.Name, latestSHA, entries)
 		if err != nil {
-			return "", fmt.Errorf("failed to create tree: %w", err)
+			return CommitOutcome{}, fmt.Errorf("failed to create tree: %w", err)
 		}
 
 		newCommitSHA, err := c.createCommit(ctx, repo.Owner.Login, repo.Name, data.CommitMessage, newTreeSHA, latestSHA)
 		if err != nil {
-			return "", fmt.Errorf("failed to create commit: %w", err)
+			return CommitOutcome{}, fmt.Errorf("failed to create commit: %w", err)
 		}
 
 		err = c.updateRef(ctx, repo.Owner.Login, repo.Name, branch, newCommitSHA)
 		if err == nil {
-			return repo.HTMLURL, nil
+			return CommitOutcome{RepoURL: repo.HTMLURL, CommitSHA: newCommitSHA, Branch: branch}, nil
 		}
 		if !isNonFastForward(err) || attempt >= maxRefRaceRetries {
-			return "", fmt.Errorf("failed to update ref for branch %q: %w", branch, err)
+			return CommitOutcome{}, fmt.Errorf("failed to update ref for branch %q: %w", branch, err)
 		}
 
 		c.log.Warn("REF_RACE_RETRY: non-fast-forward — a concurrent commit won; re-basing on the new head",

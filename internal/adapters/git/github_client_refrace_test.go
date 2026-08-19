@@ -100,7 +100,7 @@ func TestRefRaceRetriesRebaseOnNewHead(t *testing.T) {
 		t.Fatalf("NewGitHubClient: %v", err)
 	}
 
-	htmlURL, err := client.CommitToRepo(context.Background(), GitCommitData{
+	outcome, err := client.CommitToRepo(context.Background(), GitCommitData{
 		RepoName:      "sites",
 		Branch:        "master",
 		CommitMessage: "test rerender",
@@ -109,8 +109,18 @@ func TestRefRaceRetriesRebaseOnNewHead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CommitToRepo should succeed after re-basing, got: %v", err)
 	}
-	if htmlURL != "https://github.com/testorg/sites" {
-		t.Errorf("unexpected html url %q", htmlURL)
+	if outcome.RepoURL != "https://github.com/testorg/sites" {
+		t.Errorf("unexpected html url %q", outcome.RepoURL)
+	}
+	// bugs_open/315: the sha is the whole reason CommitToRepo returns a struct.
+	// Pin it on the RE-BASED path specifically — the retry rebuilds the commit,
+	// so the sha reported must be the one the WINNING attempt created, not the
+	// one the losing attempt did.
+	if outcome.CommitSHA == "" {
+		t.Error("CommitOutcome.CommitSHA is empty after a successful commit — the sha CommitToRepo computed was discarded, which is the bugs_open/315 defect")
+	}
+	if outcome.Branch != "master" {
+		t.Errorf("CommitOutcome.Branch = %q, want the requested branch", outcome.Branch)
 	}
 
 	if got := refPatches.Load(); got != 2 {

@@ -3,6 +3,9 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -434,8 +437,19 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
 	defer cancel()
 
+	// Hash the bytes we are about to hand over, BEFORE CommitToRepo touches the
+	// map. Two reasons this lives here rather than in the client:
+	//   * the keys are still the caller's own paths — CommitToRepo prefixes them
+	//     with {domain}/ on its private copy, and the chassis looks a page up by
+	//     the path IT sent;
+	//   * hashing is pure and local, so it has no business inside the git plumbing.
+	// This is the fingerprint bugs_open/315 turns on: it is what lets a later
+	// check ask "are the bytes on the website the bytes we sent?" as a comparison
+	// instead of the four-step archaeology it is today.
+	fileHashes := sha256OfFiles(commitData.Files, a.logger)
+
 	// Perform the commit
-	repoURL, err := a.githubClient.CommitToRepo(ctx, commitData)
+	outcome, err := a.githubClient.CommitToRepo(ctx, commitData)
 	if err != nil {
 		a.logger.Error("Failed to commit to repo",
 			zap.Error(err),
@@ -449,14 +463,29 @@ func (a *GitAdapter) handleCommitAction(data json.RawMessage) interface{} {
 
 	a.logger.Info("Successfully committed to repo",
 		zap.String("repo", commitData.RepoName),
-		zap.String("url", repoURL),
+		zap.String("commit_sha", outcome.CommitSHA),
+		zap.String("branch", outcome.Branch),
 		zap.Int("files", len(commitData.Files)),
 	)
 
-	// Return success payload
+	// Return success payload.
+	//
+	// commit_sha and files_sha256 are the two ADDITIONS (bugs_open/315, RFC_038).
+	// Everything above them is unchanged, and no consumer parses this reply today
+	// — surveyed 2026-08-19: every reference to a git_commit step's output_field
+	// in the live fleet is complete_workflow re-exporting the whole blob, and
+	// every apparent Go reader is a writer. So this widens the shape for nobody
+	// and is available for the deploy-evidence guard that reads it deliberately.
+	//
+	// files_sha256 is keyed by the path the CALLER used, not the domain-prefixed
+	// path in the repo, and hashes the DECODED bytes for base64 files — so it is
+	// directly comparable with a sha256 of what the origin serves.
 	return map[string]interface{}{
 		"success":        true,
-		"repo_url":       repoURL,
+		"repo_url":       outcome.RepoURL,
+		"commit_sha":     outcome.CommitSHA,
+		"branch":         outcome.Branch,
+		"files_sha256":   fileHashes,
 		"repo_name":      commitData.RepoName,
 		"domain":         commitData.Domain,
 		"files_count":    len(commitData.Files),
@@ -515,7 +544,7 @@ func (a *GitAdapter) handleDeleteFileAction(data json.RawMessage) interface{} {
 	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
 	defer cancel()
 
-	repoURL, err := a.githubClient.CommitToRepo(ctx, GitCommitData{
+	outcome, err := a.githubClient.CommitToRepo(ctx, GitCommitData{
 		RepoName:      deleteData.RepoName,
 		Domain:        deleteData.Domain,
 		Deletions:     deleteData.Paths,
@@ -542,7 +571,9 @@ func (a *GitAdapter) handleDeleteFileAction(data json.RawMessage) interface{} {
 
 	return map[string]interface{}{
 		"success":        true,
-		"repo_url":       repoURL,
+		"repo_url":       outcome.RepoURL,
+		"commit_sha":     outcome.CommitSHA,
+		"absent_paths":   outcome.AbsentPaths,
 		"repo_name":      deleteData.RepoName,
 		"domain":         deleteData.Domain,
 		"paths":          getDeletionPaths(deleteData.Paths, deleteData.Domain),
@@ -550,6 +581,61 @@ func (a *GitAdapter) handleDeleteFileAction(data json.RawMessage) interface{} {
 		"commit_message": commitMessage,
 		"timestamp":      time.Now().UTC().Format(time.RFC3339),
 	}
+}
+
+// sha256OfFiles fingerprints the exact bytes each file will be committed as,
+// keyed by the path the CALLER used (unprefixed — CommitToRepo adds {domain}/ to
+// its own copy afterwards).
+//
+// THE ENCODING BRANCH IS THE WHOLE POINT, and it mirrors CommitToRepo's own file
+// switch deliberately: a base64 file's `content` string is not the file, it is a
+// transport wrapper around it. Hashing the wrapper would produce a value that
+// can never equal a sha256 of what the origin serves, and the failure would be
+// silent and permanent — every base64 asset would read as "diverged" for ever.
+// Text files hash as-is.
+//
+// A file we cannot make sense of is OMITTED rather than hashed wrongly, and says
+// so in the log. A missing key means "no fingerprint available", which a reader
+// can act on; a wrong one means "this page is broken", which it cannot.
+func sha256OfFiles(files map[string]interface{}, log *zap.Logger) map[string]string {
+	out := make(map[string]string, len(files))
+	for p, fd := range files {
+		var content, encoding string
+		switch v := fd.(type) {
+		case string:
+			content, encoding = v, "utf-8"
+		case map[string]interface{}:
+			content, _ = v["content"].(string)
+			encoding, _ = v["encoding"].(string)
+			if encoding == "" {
+				encoding = "utf-8"
+			}
+		default:
+			log.Warn("sha256OfFiles: unhashable file data type; omitting fingerprint",
+				zap.String("path", p), zap.String("type", fmt.Sprintf("%T", fd)))
+			continue
+		}
+
+		raw := []byte(content)
+		if encoding == "base64" {
+			decoded, err := base64.StdEncoding.DecodeString(content)
+			if err != nil {
+				log.Warn("sha256OfFiles: base64 file did not decode; omitting fingerprint rather than hashing the wrapper",
+					zap.String("path", p), zap.Error(err))
+				continue
+			}
+			raw = decoded
+		}
+		out[p] = hex.EncodeToString(sha256Sum(raw))
+	}
+	return out
+}
+
+// sha256Sum is a one-liner so the array-to-slice conversion happens in exactly
+// one place.
+func sha256Sum(b []byte) []byte {
+	sum := sha256.Sum256(b)
+	return sum[:]
 }
 
 // getDeletionPaths mirrors getFilePaths: report the paths as they were written
@@ -707,7 +793,7 @@ func (a *GitAdapter) handleCreateRepoAction(data json.RawMessage) interface{} {
 		CommitMessage: "Initial commit",
 	}
 
-	repoURL, err := a.githubClient.CommitToRepo(ctx, commitData)
+	outcome, err := a.githubClient.CommitToRepo(ctx, commitData)
 	if err != nil {
 		a.logger.Error("Failed to create repo",
 			zap.Error(err),
@@ -721,12 +807,12 @@ func (a *GitAdapter) handleCreateRepoAction(data json.RawMessage) interface{} {
 
 	a.logger.Info("Successfully created repo",
 		zap.String("repo", repoData.RepoName),
-		zap.String("url", repoURL),
+		zap.String("url", outcome.RepoURL),
 	)
 
 	return map[string]interface{}{
 		"success":     true,
-		"repo_url":    repoURL,
+		"repo_url":    outcome.RepoURL,
 		"repo_name":   repoData.RepoName,
 		"description": repoData.Description,
 		"private":     repoData.Private,

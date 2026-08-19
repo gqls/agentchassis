@@ -150,6 +150,44 @@ type ErrorInfo struct {
 // commit is why deletion lives here rather than in a verb of its own (a page is
 // then never absent from both the old path and the new one, which is exactly the
 // half-move that bugs_closed/125's orphans are).
+// CommitOutcome is what a commit/delete actually DID, as opposed to that it was
+// accepted. It exists because CommitToRepo used to return repo.HTMLURL — a
+// per-repo CONSTANT, identical for every commit to that repo, for ever — while
+// discarding the commit sha it had just computed. Nothing downstream could name
+// what had been written, which is the measurement half of bugs_open/315:
+// pages.deployed_at was stamped on the strength of a reply that said only "the
+// request was accepted".
+//
+// CommitSHA is empty when nothing was committed (the all-deletions-already-absent
+// no-op), which is the one case a caller can distinguish for free.
+//
+// DELIBERATELY ABSENT — a NoChange flag. Reporting "this commit changed nothing"
+// needs the PARENT commit's tree sha to compare against the new one, and the
+// parent tree is not on the hot path: getLatestCommitSHA returns a commit sha,
+// and getBaseTreeSHA (which does read a tree sha) is only ever called as its
+// error fallback. So NoChange would cost an extra GitHub round-trip on EVERY
+// commit across 19 live git_commit steps, to populate a field the council gate
+// ruled report-only (round 1 of 377167cd: acting on it would change what the
+// seam guarantees, and is architecture-scope). The per-file hashes below answer
+// the same question better and for free: they compare at the grain of the PAGE,
+// which is the grain the site actually serves, rather than the whole tree.
+// See architecture_review/RFC_038.
+type CommitOutcome struct {
+	// RepoURL is the repo's HTML URL — a per-repo constant. Kept only because
+	// the adapter's reply has always carried it; it identifies NOTHING about
+	// this commit and must not be used as evidence.
+	RepoURL string `json:"repo_url"`
+	// CommitSHA is the commit this call created and moved the branch ref to.
+	// Empty means no commit was created.
+	CommitSHA string `json:"commit_sha"`
+	// Branch is the ref that was moved (resolved: the request's branch, or the
+	// repo default when the request named none).
+	Branch string `json:"branch"`
+	// AbsentPaths are requested deletions that were already gone. Absent is the
+	// state the caller asked for, so these are a success, not a failure.
+	AbsentPaths []string `json:"absent_paths,omitempty"`
+}
+
 type GitCommitData struct {
 	RepoName      string                 `json:"repo_name"`
 	Domain        string                 `json:"domain"`
