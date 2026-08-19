@@ -3,8 +3,10 @@
 **Filed 2026-08-19** by the session dispatched at bugs_closed/303's residual ("complete the
 two false-alarm items normally").
 **Status: FIXED AT SOURCE 2026-08-19 (`c117c1bba`), OPEN until a chassis image rolls AND the
-next daily sweep runs.** Council: `Council-Submitted: 70fc8ff0-b50a-41fd-a358-a94decb269e0`
-(verdict pending at filing time; check `diagnosis_artifacts` on that correlation).
+next daily sweep runs.** Council: **APPROVED round 1, all reviewers** (14 seats, 3 abstained,
+0 unreadable), correlation `70fc8ff0-b50a-41fd-a358-a94decb269e0`. The commit carries
+`Council-Submitted:` and is credited automatically by the 098 report (forward-only forbids
+amending the trailer to `Council-Reviewed:`).
 
 ## The one-paragraph version
 
