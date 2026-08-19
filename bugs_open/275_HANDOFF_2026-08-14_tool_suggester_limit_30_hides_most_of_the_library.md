@@ -483,3 +483,40 @@ which removing the cap would not close (36 vs 42).
 that a work-queue cap means "coverage is eventual, not a defect". That was reasoning, not measurement,
 and it told future readers to dismiss the case this bug turned out to have. **For every capped step, read
 the `ORDER BY` as well as the count.**
+
+## ✅ §2026-08-19 09:44Z — THE "AFTER" HALF IS PROVEN AT THE ARTEFACT, and the same run exposed a regression this fix caused
+
+**Owner authorised a deliberate dispatch** (waiting could not have worked — `check_missing_tools.go`
+applies a 30-day cooldown and every candidate site was evaluated 08-10..08-15, so the next natural run
+was mid-September). Dispatched via a direct `orchestrate` message to `gamesdesign.co.uk` after the work
+item route proved to be ~158 items deep and idling.
+
+### The disconfirming pair is now COMPLETE
+
+| | tools in prompt | past rank 30 | highest rank present |
+|---|---|---|---|
+| **BEFORE** (last pre-fix prompt, 71-tool library) | 29 | **0** | **exactly 30** |
+| **AFTER** (2026-08-19 09:44:26Z, 81-tool library) | **80** | **51** | **81** |
+
+Ranked against the library **as it stood at each prompt's timestamp**. The three highest-ranked tools in
+the new prompt are `Write` (79), `XP Curve Designer` (80) and `Your notes from the old Noted` (81) — the
+alphabetical tail the old `LIMIT 30` could never reach. Migration 446's truncation marker is present in
+the prompt (`[…truncated]`), and the payload cost of the whole library is 33,818 chars against 24,327 for
+thirty tools — **+39% for 2.7× the menu**, which is what bounding `description` bought.
+
+**So the defect this file describes is fixed, live, and proven at the artefact.**
+
+### ⚠ And the same run FAILED — filed as `bugs_open/319`
+
+`suggest_tools` returned `stop_reason=max_tokens`: the answer hit the step's own 3,000-token cap and the
+step errored. **This fix caused it.** A bigger menu means a longer answer, and the answer budget was
+never raised to match — across 59 historical calls the output high-water mark was **2,921, i.e. 97.4% of
+the cap**, *before* the menu tripled. The margin was already nearly gone and nobody (including me) looked.
+
+**Nothing was corrupted** — the platform failed closed, discarded the truncated text, and never reached
+`create_items_loop`, so **zero `add_tool` items** were created. That is CLAUDE.md's
+`output_tokens == max_tokens` rule doing its job.
+
+**The lesson for this file: bounding an INPUT payload can move the failure to the OUTPUT budget.** This
+bug measured the prompt per column and never asked what the answer costs. See `bugs_open/319` for the fix
+candidates and the one query that would have caught it before migration 445 shipped.
