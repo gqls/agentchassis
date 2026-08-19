@@ -37296,3 +37296,67 @@ for m in re.findall(r'[\w/]+\.(?:go|sql|md|txt|json)', d['rationale']):
 **Tally for "the rationale claims a change the edit list does not contain": 2 in 2 days**, both
 caught by `editquality`, neither by me. The cost is one full council round each — roughly 10 seats'
 credits — which is why the check above is worth running even though it feels like bookkeeping.
+
+---
+
+## 2026-08-19 — "the wedge evidence has expired": a whole-table retention claim measured in ONE table, and it sent a diagnosis run to refute a live bug
+
+**Lane:** `bugfix_029_retry_kills_live_child` (`bugs_open/029`). **The claim, published in three
+places** (the bug file, the 08-19 handoff, and the lane NOTES): *"the wedge evidence has EXPIRED …
+0 wedged rows retained … a 090 filed today has no live instances to cite."*
+
+**It was false when written, and the cost was immediate.** The 08-17 burst had aged out of
+`orchestration_states` (~26 h retention) — that much was measured and correct. But the same
+population sits in **`awaited_requests`, which retains SEVEN DAYS**, and the wedge signature is
+fully reconstructible there without `orchestration_states` at all: `iter_N_call_handler` at
+`retry_version>=3/status='error'`, the following `iter_{N+1}_spawn_handler`, and no
+`iter_{N+1}_call_handler` row. That query returns **20 instances — two MORE than the 18 the
+"complete" population was ever thought to be.**
+
+**What it cost.** A `090` diagnosis run was filed that morning and returned **NOT CONFIRMED
+(UNVERIFIABLE)**, refuting on absence of evidence and quoting the lane's own premise back:
+*"to substitute fresh occurrence evidence for the 2026-08-17 burst that has already aged out of
+retention."* The loop reasoned correctly from what it was told. **We refuted a live bug by pointing
+the instrument at the one table where the evidence was gone.** It also produced a false "nothing
+left to do but wait for the next burst" in the cold-start handoff, which would have parked the lane
+for days.
+
+**What caught it.** Nothing systematic — a fresh session re-running the retention check by hand and
+noticing `awaited_requests` went back to 08-12 while writing an unrelated query.
+
+**The cheap checks that would have.** Two, both one line:
+- **Before declaring evidence gone, enumerate the tables that hold it.** The wedge signature was
+  already known to live in `awaited_requests` (this lane measured the 9–16 s freeze offset FROM that
+  table on 08-18). *"Retention" is a property of a table, never of a fact.*
+- **Never measure retention with a whole-table `min()`.** `SELECT min(created_at) FROM
+  orchestration_states` returns **2026-07-13** — five weeks — because `CANCELLED` rows and one
+  stray `FAILED` are never pruned. Grouped by status the table holds two days. The error runs in the
+  *reassuring* direction, so the naive query tells a session checking "is it still there?" yes, and
+  it tells a session checking "how long do I have?" five weeks. Both readings are wrong.
+  **Measure retention `GROUP BY status`.**
+
+> **An absence is a property of where you looked. This file already says "an absence is true only
+> when you looked" about time; this is the same error in the space dimension — one table, declared
+> as the fleet.**
+
+### Same session, second call — caught before publication, recorded because the shape is the trap
+
+Sizing the ticker's retry batches, I bucketed `sent_at` by minute over `retry_version >= 1` and got
+batches of 2–3 spanning **53–54 seconds** against a **60-second** shared context. It fits so well I
+had written the arithmetic down. **Two independent things were wrong.** (a) `retry_version >= 1`
+with a `sent_at` measure is a **survivorship filter over exactly the population under test** — a row
+that exhausts at rv=3 never resends, so `sent_at` never moves, so the wedge-path rows are the ones
+the measure cannot see (this lane had *already* written "`retry_version=0` is a SURVIVORSHIP filter"
+in its own RUNBOOK). (b) The control killed it: co-timed rows carry **different `processing_pod`s
+belonging to different agent deployments** — independent pods retrying independently inside one
+minute, not one serial batch.
+
+**The cheap check:** measure a batch by a column the code stamps **once, at claim time, and never
+resets** — `processing_started_at`, set to `NOW()` (transaction time, so byte-identical across a
+batch). It gives the exact answer: **31,548 of 31,548 claims are batches of ONE**, and the
+60-second-starvation hypothesis dies.
+
+**Cost:** none — caught pre-publication. **Tally note:** "a filter that removes the population under
+test" is now at least the third entry in this file. The generalisable form is one question, asked
+before any count: **could this measurement have come out otherwise, for the rows I actually care
+about?**

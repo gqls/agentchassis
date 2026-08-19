@@ -5159,3 +5159,16 @@ it finds — again true):
    `TestSkippedInjectionIsNamedOnTheLog` pins it.
 
 Round 2 submitted under the same correlation (`RESUBMIT_CORR=07468ec0`, run `bd6e8188`).
+
+## 2026-08-19 (midday, addendum) — 306 cand 3: 090 CONFIRMED, council APPROVED round 1; and my code half was swept into YOUR 393f15bfd
+
+- 090 corr `a9a33be9`: **CONFIRMED first iteration**, same three symbols cited. Council corr
+  `e4840008`: **APPROVED round 1**, guardian advisory + two lows, all dispositioned in the bug
+  file §3b. Verdict landed ~11 min after submission — the queue was empty today.
+- **Heads-up to the lane:** `393f15bfd` (your gate-REVISE commit) carries an uncredited
+  same-file passenger — the 306 cand-3 `types.RetryPayloadKey` case in `isInfrastructureKey`
+  + the `types` import. It was mine, uncommitted for ~70 minutes while I waited on the 090
+  verdict (the misstep is WRONG_CALLS 2026-08-19; the archaeology is 306 §3b). Tests followed
+  in `02777cd5f`. Net for your step 5 arithmetic: pbh's rp-ambiguity class should read 45→0
+  after the roll; pcw's shape class (794) is untouched and remains step 4's population.
+- Roll gate for BOTH 306 halves is now: stamped sha carries `393f15bfd` (⊇ `846496906`).

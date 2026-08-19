@@ -122,8 +122,38 @@ verified by label+digest AND `TestTieBreakUnwrapHopBeatsSibling` is in the stamp
   candidate for its own round if wanted; the skip already closes the door this bug is about,
   including for echoes already persisted in long-running orchestrations, which a merge-time
   strip can never reach.
-- 090 diagnosis run on the mechanism + blast-radius claim: `a9a33be9-5b17-4f66-b418-084f33e7735b`
-  (dispatched 10:41Z 08-19). Council submission prepared; corr recorded here when submitted.
+- **090 diagnosis: CONFIRMED, first iteration** (corr `a9a33be9-5b17-4f66-b418-084f33e7735b`,
+  10:41→10:52Z 08-19), independently citing the same three symbols. Note its static citations
+  quote the pre-`846496906` code shape (the index trails HEAD by hours) — correct for the claim
+  as filed, which described the un-skipped state.
+- **Council: APPROVED, round 1** (corr `e4840008-3de1-49ab-aa4e-744e41f6fb2d`; 10 seats fired,
+  6 abstained, none high-severity). Objections, each dispositioned:
+  1. *guardian (advisory object)* — the unmeasurable class: a workflow whose ONLY copy of a
+     field lives inside a retry echo would lose it silently. Disposition: bounded by
+     construction (an echo is a copy of the sender's own `collected_data` at send time, so the
+     original sits at equal-or-shallower depth unless a later step deleted it), and RFC_029
+     Phase 2's flip-to-refusal converts any such dependency into a LOUD missing-field, which is
+     the owner's stated preference over a silently wrong one. The conflict instrument shows
+     zero rp wins in any reader-bearing class.
+  2. *debug_historian (low)* — no pod-verification step named. Disposition: candidate 3's code
+     rides commit `393f15bfd` (see below); the roll check is the same stamp probe §3b opens
+     with — `git merge-base --is-ancestor 393f15bfd <the pod's stamped sha>`, with the
+     known-present/known-absent controls.
+  3. *tooling_provenance (low)* — commit to updating this file when it ships. Disposition: this
+     section IS that chain; the close condition below names it.
+- **⚠ COMMIT ARCHAEOLOGY, so the trail stays honest:** candidate 3's CODE half (the
+  `types.RetryPayloadKey` case + import) is inside **`393f15bfd`** — the lane's gate-REVISE
+  commit swept it as a same-file passenger while it sat uncommitted awaiting the 090 verdict
+  (`ensureCoreFields` lives in the same file; that commit's message does not mention the skip).
+  The TEST half + full account is **`02777cd5f`** (`Council-Submitted:` trailer; 098 credits it
+  on this approval). WRONG_CALLS 2026-08-19 records the held-code misstep. Nine
+  `./platform/orchestration/...` packages green from a clean `git archive HEAD` after both.
+- **CLOSE CONDITION for candidate 3**: a chassis roll whose stamped sha has `393f15bfd` as an
+  ancestor (binary probe with controls, per service), then the window read shows the
+  page-build-handler rp-candidate class at zero (expected 45→0) while page-content-writer's
+  shape class persists (cand 3 cannot and must not touch it — that is §10.13 step 4's
+  population). Candidates 1+2's own close condition in §3a is unchanged and will be met by the
+  same roll (`846496906` is also an ancestor of any build carrying `393f15bfd`).
 
 ## 4. Fix candidates, ordered by what closes the door
 
