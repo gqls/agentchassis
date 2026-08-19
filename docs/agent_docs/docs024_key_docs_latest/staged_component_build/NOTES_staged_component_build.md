@@ -5225,3 +5225,76 @@ un-reviewed should read this entry. The same-file passenger note: my WRONG_CALLS
   `current_page` → `current_page_name` tag rename designed in the earlier NOTES entry, with
   its 3 enumerated consumers) then **step 5** (flip to refusal). Nothing else remains from
   306.
+
+## 2026-08-19 (late afternoon) — step 4 BUILT + SUBMITTED: the page name crosses the step boundary as `current_page_name`; the template key is NOT renamed, and the NOTES design from ~10:40Z was narrowed on measurement
+
+Fresh session off `HANDOFF_2026-08-18b` + `bugs_closed/306` §7. Steps 1–3 live and proven,
+so step 4's gate (step 3's post-roll read) was already met.
+
+**What the window says (post-roll 12:16→16:08Z, `agent_error_log`, grouped by candidate set):
+ONE surviving set.** `page-content-writer` / `current_page` /
+`["~unwrap.current_page","build_render_context.current_page","input_data.current_page",
+"render_context.current_page"]` / winner `~unwrap.current_page` / **23 rows**. Nothing else.
+(`[MEASURED]` — the grouped query is in the RUNBOOK under "step 4's done-condition".)
+
+**The ~10:40Z design said "rename the JSON tag" and flagged the template sweep `[UNMEASURED]`.
+Measured it, and it changed the design:**
+- Template readers of `.current_page`: **1 of 306** `content_components` (every
+  `component_level`, active AND inactive — `evidence-chart`), **0 of 265** `component_versions`,
+  **0** Go-embedded templates, **0** agent prompts advertise `{{.current_page}}` as a bare variable
+  (16 live definitions mention `current_page`; all as the OBJECT — `.current_page.x` or an
+  `input_fields` entry). `structuralFields` in `v3_site_actions.go` lists it as a template field.
+- Config readers of the STEP-BOUNDARY key `render_context.current_page` /
+  `build_render_context.current_page`: **0** live agent definitions.
+- Go readers of the step-boundary key: `renderEnvelopeIdentity`'s chain (3rd rung) — and the
+  restore contract's SECOND producer the design missed: `buildRerenderBaseData`
+  (`rerender_page_sections_action.go:1058`) hand-builds `base["current_page"]` and its comment
+  says "mergeIntoRenderContext restores this into RenderContext.CurrentPage". A tag rename
+  alone would have silently broken the rerender path's page identity (bugs_open/085's second
+  fix) on the regex-fallback renderer.
+- Live `build_render_context` callers: **ONE** (pcw step `build_render_context`, output_field
+  `render_context`; the chassis also files it under the step name — hence both depth-1 paths).
+
+**So: the collision is in collected_data only; the template namespace has no defect.** The json
+tag is the single declaration of the TEMPLATE key (109) and had thereby become the step-boundary
+key too. Renaming the tag (design A) renames every template's key as a side effect, needs a live
+template edit ordered against the roll, and widens scope into a namespace with no defect. Built
+instead: a declared rename map `renderContextStepContractRenames = {current_page →
+current_page_name}` + `renderContextStepContractKey`, applied symmetrically at the two ends of
+the step contract — `renderCtxToMap` emits `current_page_name` (and skips renamed template names
+in its trailing ContentData merge, so no content can smuggle the old key back);
+`setRenderContextScalarsFromData` reads `current_page_name` first, then tolerates a STRING under
+`current_page` (pre-roll trees; read side only). `buildRerenderBaseData` uses the helper;
+`renderEnvelopeIdentity` gains `render_context.current_page_name` ahead of the old path.
+Templates see exactly what they saw. Rejected as well: a type-aware search (schema knowledge in a
+shared resolver) and `!` (the request list is Go-side).
+
+**Proof.** 7 tests; six mutations each fail a NAMED test with the package compiling (emit under
+the template key → 3 tests; drop the ContentData skip → 1; drop the legacy read → 1; drop the
+step-name read → 5; base under the old key → 1; envelope chain without the new path → 1). Plus
+`render_context_step_boundary_resolver_test.go`: the REAL `datahelpers.ExtractFields` over a
+live-shaped tree with the REAL `renderCtxToMap` output, findings read through
+`SetResolverFindingRecorder` → **0 conflicts, the record wins**; and a CONTROL with the
+pre-rename shape → **still conflicts** (the zero is not a silenced instrument; M1 also fails the
+resolver test). `go test` actions + datahelpers: ok on the working tree AND from `git archive
+HEAD` (HEAD `f2525b3c8` by then — another session had committed on top).
+
+**Shipped:** commit `1a82225ec`, 8 platform files + the submission JSON
+(`COUNCIL_SUBMISSION_2026-08-19_rfc029_step4_current_page_name.json`). Council corr
+**`f3716ebe-e420-4ae9-ba4a-9a649e3d7124`**, trailer `Council-Submitted:` (verdict NOT read yet —
+owed). Inert until the next chassis roll. `go vet` on the package reports one pre-existing
+"unreachable code" in `load_component_library_actions.go:207` (untouched since its creation
+commit) — not ours, noted so nobody re-diagnoses it as this change's.
+
+**Correction to my own earlier session's design (the ~10:40Z entry):** "Rename the JSON tag …
+ONE template must move to `.current_page_name`" — superseded: the tag and the template are
+untouched; only the step-boundary name changes. The `[UNMEASURED]` flag did its job.
+
+**Misstep worth a check:** I ran the full package tests on the WORKING TREE first, which carried
+three other sessions' dirty files in the same package (`write_audit_findings_*`,
+`fix_component_template_action.go`, `check_endpoint_health_action.go`, two untracked tests) — a
+green there is not a green HEAD. The archive run is the one that counts; do it before declaring.
+
+**Next:** read the verdict (query in the handoff checklist); after the roll, stamp the binary
+(two controls) and read the done-condition query — pcw/`current_page` rows must be 0 against live
+pcw demand — then step 5 (flip at the marked sites, council-gated).

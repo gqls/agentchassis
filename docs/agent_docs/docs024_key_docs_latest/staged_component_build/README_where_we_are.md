@@ -1951,3 +1951,38 @@ Second round: approved, no blocking objections. So all three code changes on you
 built, tested, and reviewed — the first is already live and proven, the other two wait only on
 the next build you roll. After that roll, the recorder should go quiet on the big noisy class,
 what remains is the one name-collision repair, and then the final switch.
+
+**2026-08-19, late afternoon — the name-collision repair is built and in review. It turned out to
+be smaller and in a different place than I had said this morning.**
+
+The build you rolled at lunchtime carried all three of the earlier changes, and the recorder did
+what we predicted: the big noisy class went to zero, the retry-echo class went to zero, and
+exactly one thing was left — the same row, over and over, twenty-three times in four hours. It
+is the collision I described this morning: when the writer asks for "the current page", the
+system finds the page itself in one place and, one level down, a plain text label with the same
+name — the page's name string that the layout step writes for the navigation. Two different
+things, one name, in one tree, so the recorder flags it every run even though it always picks
+the right one.
+
+This morning's plan was to rename the label at its definition. Before building it I measured
+who actually reads that label, and the measurement changed the plan. The label's name is also
+what every component template reads to know which page it is on — and while only one template
+in three hundred actually uses it today, renaming it there means editing live templates in step
+with a build, and it touches a place that has no problem. The re-render path also builds the
+same label by hand and depends on the same name. So the repair is narrower: the label keeps its
+name everywhere templates see it, and only the copy that gets filed into the shared data tree —
+where it collides with the page record — is filed under a longer name, "current page name". The
+reader side accepts both spellings for a while so anything mid-flight when the build rolls is
+unaffected. Templates see exactly what they saw before.
+
+I proved it three ways: tests that fail if the old name is ever filed again (including sneaking
+in through a side door), tests that fail if the new name is not read back, and a test that runs
+the real lookup over a tree shaped like the live run and checks the recorder stays silent — with
+a control that runs the old shape and checks the recorder still fires, so a quiet recorder cannot
+be mistaken for a fixed one. It is committed and with the reviewers; it goes live on your next
+build. After that, the recorder should be completely quiet on this class, and the last step — the
+switch from "pick one and log it" to "refuse to guess" — is the next thing to build.
+
+One note for honesty: this morning's handoff described this fix as a rename of the definition.
+That was the right target and the wrong tool; the notes file records the correction and what
+caught it (measuring before building).

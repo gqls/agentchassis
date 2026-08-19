@@ -1143,3 +1143,37 @@ whole-fleet). §9 D2's original precondition ("zero conflict WARNs over the wind
 observed field/caller pair given an explicit mapping") is **superseded by this sequence** —
 it was written before §10.12 showed the population is four mechanisms, only one of which an
 explicit mapping can reach.
+
+### 10.14 STEP 4 BUILT — 2026-08-19: the page-name string leaves the step boundary as `current_page_name`; the template key is NOT renamed
+
+Steps 1–3 were LIVE and proven on `v1.0.1315` (bugs_closed/306 §7), so step 4's gate was met.
+The post-roll window held ONE candidate set (23 rows, 12:16→16:08Z, 100% of the class):
+`page-content-writer` / `current_page` / `[~unwrap.current_page, build_render_context.current_page,
+input_data.current_page, render_context.current_page]`. The §10.13 step-4 row's worked example
+named `save_page_sections`; the live producer is `generate_content` (it declares `current_page`
+because its prompt reads `{{.current_page.title}}` — it needs the RECORD), and the string is
+`RenderContext.CurrentPage` (`component_library.go:79`, json-tagged `current_page`) as
+`build_render_context` files it into collected_data under its output_field AND its step name.
+
+**Built (`1a82225ec`, corr `f3716ebe`, council-submitted):** the json tag is the single
+declaration of a field's TEMPLATE key (bugs_open/109) and had thereby become its step-boundary
+key. Rather than rename the tag — which renames every component template's `.current_page` as
+a side effect, needs a live template edit ordered against a roll, and widens scope into a
+namespace with no defect (1 of 306 templates reads it; 0 prompts advertise it) — a declared
+rename map `renderContextStepContractRenames = {current_page → current_page_name}` splits the
+two at the STEP BOUNDARY only, applied symmetrically: `renderCtxToMap` emits `current_page_name`
+(and will not re-emit the old key from its ContentData merge); `setRenderContextScalarsFromData`
+reads `current_page_name` first and tolerates a STRING under the old spelling for trees written
+before the roll (read side only). The restore contract's second producer,
+`buildRerenderBaseData` (bugs_open/085's rerender-path fix, which the tag-rename design had
+missed), and `renderEnvelopeIdentity`'s chain follow. 0 live agent definitions name the
+step-boundary key. Seven tests, six mutations each failing a named test, and a test at the
+resolver seam (real `ExtractFields`, real `renderCtxToMap` output → 0 conflicts; a CONTROL with
+the pre-rename shape still conflicts).
+
+**Gate to step 5, restated in the terms of §10.13:** after the roll that carries `1a82225ec`,
+the candidate-set query (staged_component_build RUNBOOK, "step 4's done-condition") reads zero
+for pcw/`current_page` against live pcw demand. Any NEW set is a new producer of a `current_page`
+string — trace it; do not widen the rename map without reading the producer. Step 5 (flip
+conflicts → refusal at the marked sites, council-gated) is then buildable, and per the ruling it
+is built even on an empty population.

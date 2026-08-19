@@ -702,3 +702,34 @@ noise; the same conflict on a consumed field is exposure. Read the action's spec
 `inputs.Get(` calls. `ensureCoreFields` injects `current_page`/`current_section`/`render_context`
 into EVERY `ExtractFields` result whether or not the spec declares them — so "the field is in the
 inputs" does not mean anyone asked for it, and the spec is the place that says who did.
+
+## Step 4's done-condition: the surviving conflict population, grouped by CANDIDATE SET (2026-08-19)
+
+The per-field count hides WHICH shape survives; group by the candidate set so a new producer
+shows up as a new row rather than a bump in an old one. Set the clock to the roll you mean.
+
+```sql
+SELECT agent_type, context->>'field' AS field,
+       context->'candidate_paths' AS candidate_paths, context->>'winner_path' AS winner,
+       count(*) n, min(occurred_at) first_seen, max(occurred_at) last_seen
+FROM agent_error_log
+WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES' AND occurred_at >= '<roll time>Z'
+GROUP BY 1,2,3,4 ORDER BY n DESC;
+```
+
+Read on 2026-08-19 for 12:16→16:08Z (v1.0.1315): ONE row — pcw / current_page /
+`["~unwrap.current_page","build_render_context.current_page","input_data.current_page",
+"render_context.current_page"]` / 23. Step 4 (`1a82225ec`) renames the string's step-boundary
+key to `current_page_name`, so after ITS roll this row must be absent. The demand control — the
+zero is only evidence if pcw ran:
+
+```sql
+SELECT count(*) FROM orchestration_states
+WHERE agent_type='page-content-writer' AND created_at >= '<roll time>Z';
+```
+
+Gotchas: `~unwrap.current_page` and `input_data.current_page` are two PATHS to one object and
+never conflict with each other (reflect.DeepEqual); a row that names ONLY those two is a
+different bug. A new candidate set containing any `*.current_page` STRING path is a new producer
+— trace it at `orchestration_states.collected_data` (the four-step method above), do not widen
+`renderContextStepContractRenames` to cover it without reading the producer.

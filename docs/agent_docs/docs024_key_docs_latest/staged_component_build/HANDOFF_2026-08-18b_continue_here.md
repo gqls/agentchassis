@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-18b (updated 2026-08-19), fresh chat starts here: path step 1 DONE (prune live, 0 work_item_id rows/16 h); step 2 BUILT+APPROVED (846496906); step 3 config APPLIED (483) and gate BUILT+SUBMITTED (f42e03720, corr 07468ec0); both inert until the next roll. Next: read the gate verdict, then step 4 once the roll lands.
+# HANDOFF — 2026-08-18b (updated 2026-08-19 late), fresh chat starts here: steps 1–3 LIVE+PROVEN (v1.0.1315); step 4 BUILT+SUBMITTED (`1a82225ec`, corr `f3716ebe`) — inert until the next roll. Next: read the step-4 verdict; after the roll, read the done-condition; then step 5.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
 was CORRECTED before building** — the mis-citation and its consequences are RFC_029 §10.11, the
@@ -65,7 +65,7 @@ lane's next builds and are independent of each other and of step 1's roll.
 | 1 | ~~Prune ships; window re-read~~ **DONE 2026-08-19**: live v1.0.1310, 16 h read = **0** `work_item_id` rows, `current_page` class intact as predicted | — | — |
 | 2 | ~~306 cands 1+2~~ **DONE 2026-08-19 ~16:00Z, 306 CLOSED → `bugs_closed/`** (by the 306 session): cands 1+2 (`846496906`, corr `96ac93e6`) AND cand 3 (the retry_payload skip — code rode `393f15bfd` as a same-file passenger, tests `02777cd5f`, corr `e4840008` APPROVED r1, 090 CONFIRMED) all LIVE in `v1.0.1315` (stamp `590ca3a20`, both controls). Window: pbh echo class 45→0 against 6 echo-shaped demand rows; rp in candidate_paths fleet-wide 0. Evidence: bug file §7 | — | — |
 | 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | ⚠ **NO VERDICT — run ended `complete_invalid` at 10:24Z because the Anthropic ACCOUNT hit its usage limit** (fleet-wide, not ours; NOTES 10:30Z entry). **APPROVED round 2, 2026-08-19 ~11:2xZ** (REVISE round 1 was RIGHT — the census was top-level-only; redone recursively, conclusion held; skip now named on the log). Code fully reviewed: `f42e03720` + `393f15bfd`. **Waits only on the roll** | class-1 63% gone from the window after the roll |
-| 4 | Fix surviving shape conflicts AT SOURCE. **TRACED 2026-08-19 (NOTES ~10:40Z): the producer is `generate_content` (declares `current_page`, prompt needs the OBJECT), colliding with `RenderContext`'s `CurrentPage string` JSON-tagged `current_page` (`component_library.go:79`) — two TYPES sharing one key. Fix = rename the tag to `current_page_name` + the 3 enumerated string-consumers (envelope guard chain, 1 of 251 templates, struct readers unaffected). Design written; NOT built — gated on step 3's read per the ruling** | step 3's post-roll window read | window reads zero, or every survivor carries a written safe-by-inspection note |
+| 4 | ~~Fix surviving shape conflicts AT SOURCE … Fix = rename the tag~~ **BUILT + SUBMITTED 2026-08-19 late (commit `1a82225ec`, corr `f3716ebe-e420-4ae9-ba4a-9a649e3d7124`, `Council-Submitted:`):** the residual was ONE candidate set (23 rows/4 h post-roll, 100%): pcw `generate_content` wants the page RECORD under `current_page`; `build_render_context` filed the page NAME string under `render_context.current_page` / `build_render_context.current_page`. **Design NARROWED on measurement (NOTES "late afternoon"): the json tag and the TEMPLATE key are NOT renamed** (1/306 template reader, 0 prompts advertise it, and the rerender path hand-builds the same key for the restore contract). Built: `renderContextStepContractRenames = {current_page → current_page_name}` applied symmetrically at the STEP BOUNDARY (`renderCtxToMap` emits, `setRenderContextScalarsFromData` reads, with a read-side tolerance for pre-roll trees); `buildRerenderBaseData` + `renderEnvelopeIdentity` follow. 7 tests mutation-proved six ways + a resolver-seam test with a CONTROL. Inert until the next roll | ~~step 3's post-roll window read~~ met | window reads zero for pcw/`current_page` against live pcw demand (query: RUNBOOK "step 4's done-condition") |
 | 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
 
 Carried correction: my §10.12 claim that `page-build-handler` "reads" the resolved value is
@@ -101,8 +101,22 @@ sweep (NOTES, evening entry, last paragraph).
    `--tail=5000` on both pods, which at ~90s chassis retention means "not in range", not
    "not firing"; the (b) row-disappearance against demand is the standing behaviour evidence.
    **306 CLOSED → `bugs_closed/` (all three candidates; §7 is the evidence record).**
-4. Step 4: fix the surviving shape conflicts AT SOURCE. Worked example: `save_page_sections`
-   requests `current_page` and sees the page OBJECT at `input_data.current_page` and its NAME
-   STRING at `build_render_context.current_page` / `render_context.current_page` — one rename at
-   the producer ends it. `!` cannot help (Go-side request list). One small change per conflict,
-   council-gated. Then step 5 on what is left.
+4. ~~Step 4: fix the surviving shape conflicts AT SOURCE …~~ **DONE (built+submitted) 2026-08-19
+   late — see the step-4 row.** What is now owed, in order:
+   (a) **Read the step-4 verdict** (a REVISE/REJECTED must be acted on — the code is already on
+   the shared branch):
+   `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='f3716ebe-e420-4ae9-ba4a-9a649e3d7124' AND kind='council_report' ORDER BY created_at;`
+   — and the note: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
+   Budget ~30 min from submission (~16:45Z); a missing row is latency, not a drop — find it by
+   payload (`collected_data->'input_data'->>'fix_correlation_id'` on `orchestration_states`),
+   never re-trigger.
+   (b) **After the next chassis roll:** stamp the binary (`/proc/1/exe` grep for the stamp with a
+   known-ABSENT and a known-PRESENT control), confirm `1a82225ec` is an ancestor, then read the
+   done-condition (RUNBOOK "step 4's done-condition"): pcw/`current_page` conflict rows post-roll
+   must be **0 against live pcw demand** (pcw orchestrations in the window > 0). Any NEW candidate
+   set that appears is a new producer of a `current_page` string — trace it, do not widen the
+   rename.
+   (c) **Step 5**: flip conflicts → refusal at the marked flip sites
+   (`unified_extractor_search_test.go` header names them), council-gated. §9's "never guess"
+   made mechanical. The flip happens even on an empty population — the reason the owner chose A
+   over C.
