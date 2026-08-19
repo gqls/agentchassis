@@ -1468,7 +1468,7 @@ how this file read on 2026-08-18.
 the lane's NOTES (2026-08-18 17:05Z) and the tree is now correct, so filing is a single command
 once there are instances.
 
-### 2026-08-19 (later, same lane) — the evidence was NEVER lost, and candidate 1 is REFUTED
+### 2026-08-19 (later — a SECOND, CONCURRENT session, not the same lane; see the correction below it) — the evidence was NEVER lost, and candidate 1 is REFUTED
 
 **Correcting the section immediately above, which is mine and which was wrong.** It says the wedge
 evidence expired and that the only remaining work is to wait for the next burst. Both halves fail:
@@ -1520,6 +1520,12 @@ is what died, the error-log write dies with it.
 
 Full working, including a survivorship-filtered near-miss that fitted the 60-second story and was
 killed by its own control: `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/NOTES_retry_kills_live_child.md`, 2026-08-19 entry.
+
+> **⚠ ATTRIBUTION CORRECTED 2026-08-19 ~22:30Z.** I wrote "same lane" above; it was not. A second
+> session was working 029 concurrently all day and I had not checked (`scripts/who-owns.py`,
+> `git log` on the lane dir — neither run). **The section immediately below this one is theirs and is
+> PRIMARY**, and it refutes a claim of mine: the duplicate spawn is `retry_version=0` on both rows, so
+> it is NOT the takeover re-running the step. Read theirs first. `WRONG_CALLS.md` 2026-08-19.
 
 ---
 
