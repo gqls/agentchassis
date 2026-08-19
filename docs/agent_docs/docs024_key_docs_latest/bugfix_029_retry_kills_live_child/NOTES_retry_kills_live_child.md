@@ -1231,3 +1231,78 @@ data cannot separate those. `[MEASURED]` distribution; `[UNKNOWN]` effect of Par
 biting. What we can say is that it is rare, bursty, unexplained, and that its one observed
 occurrence coincided with an external outage. That is a materially different open state from
 "unexplained and actively biting", and the bug file now says so.
+
+---
+
+## 2026-08-19 10:00Z — the capture is BUILT and PROVEN (RSH-011); the 090 ran and returned NOT CONFIRMED, for exactly the reason the capture exists
+
+### 1. `wedge-evidence-capture` — RSH-011, live and induced
+
+Hourly CronJob at `:17` UTC, `deployments/kustomize/services/wedge-evidence-capture/`. It
+snapshots frozen orchestrations **and their full `awaited_requests` set** into `doc_notes`
+(`subject_type='pipeline'`, `categories ? 'wedge-evidence'`, key `wedge-evidence:<orch_id>`).
+
+**Why it captures LIVE wedges and not just reaped ones — this is the whole design.** Reading
+the live `database-cleanup` `pre_query` turned up a fact the lane did not have:
+
+| arm | live threshold | repo seed says |
+|---|---|---|
+| `COMPLETED`/`FAILED` deleted | **24 hours** | 7 days |
+| `EXECUTING_STEP`/`AWAITING_RESPONSES` deleted | **4 hours** | 24 hours |
+
+The stale reaper terminates a frozen orchestration at **4 hours**. Cleanup **deletes** an
+`EXECUTING_STEP` row at **4 hours**. **Same threshold, two processes, one row.** Where the
+reaper wins you get a `FAILED` row carrying the stale marker that lives 24h more; **where
+cleanup wins the orchestration is deleted having never been recorded at all.** So the 18
+instances of 08-17 are the ones where the reaper happened to win, and **any rate computed from
+reaped rows is a lower bound on a population we cannot enumerate.** `[MEASURED]` on the
+thresholds, `[INFERRED]` on how often cleanup wins — that is unmeasurable for the same reason.
+The capture takes the row at freeze+30min, ~3.5h before either process reaches it.
+
+**Proven by induction, not by deployment.** A job that has only ever reported "nothing to
+capture" has not shown it can capture, so `WEDGE_FROZEN_MINUTES` is env-overridable and was
+driven to 0:
+
+| run | result |
+|---|---|
+| clean (threshold 30) | exit 0, one summary row, 0 captured — correct, nothing is wedged |
+| **induced (threshold 0)** | **5 real orchestrations captured**, each with its full iteration sequence; exit 1 |
+| **immediate re-run** | **0 captured, no duplicate `subject_key`** — dedupe holds |
+| cleanup | all 7 induced rows deleted; production starts clean |
+
+⚠ **The first deploy FAILED in-cluster** on `doc_notes`'s `subject_type` CHECK constraint —
+`orchestration` is not among the eight permitted values. The query was right, the data was
+right, the report printed, and the write was thrown away. **Local SQL cannot catch it because
+the constraint is only met where the job runs.** Both this and the retention discrepancy are
+now in `LANDMINES.md`.
+
+### 2. The 090 ran to completion — and returned **NOT CONFIRMED (UNVERIFIABLE)**
+
+Run correlation `b346d0d4-bf9b-4068-9db7-5af18d719706`, 3 iterations, ~12 minutes, terminal
+`complete`. **This is the first diagnosis run this lane has got a terminal answer from** — the
+2026-08-18 attempt was killed at 12:54:27 by the very inversion Part A fixed.
+
+**Verdict: `NOT CONFIRMED (stopped: scope-not-narrowing)`, last verdict REFUTED, no fix
+proposed, handed to a human with the trail.** And the loop's own `data_requests` say precisely
+why, in its words:
+
+> *"Looks for a currently-stuck instance of the same shape (EXECUTING_STEP parked at a
+> `*_spawn_handler` step) **to substitute fresh occurrence evidence for the 2026-08-17 burst
+> that has already aged out of retention**."*
+
+It then found a candidate — a `build-dispatch-loop` at `process_item_iter_4_spawn_handler` —
+asked whether the preceding `iter_3_call_handler` had ended in error and whether the spawn was
+registered twice, and **refuted it**. Checked afterwards: that orchestration
+(`6f8c447b-c9e3-40ed-ac60-234fbfb109af`) **COMPLETED normally at 09:52:14**. It was in flight,
+not wedged. **The loop was right to refute**, and the refutation is a transient in-flight row
+being mistaken for a wedge — which is the exact false positive the capture's 30-minute
+threshold exists to exclude, arrived at independently.
+
+**So: a well-run refutation on absence of evidence, not a wrong answer.** It cost one run and it
+established something worth having — the hypothesis cannot be tested against a table with no
+instances in it, and the loop said so rather than confabulating a cause from the code alone.
+
+**The two now compose:** the next burst is captured within 30 minutes and preserved
+indefinitely; the 090 re-filed against those rows has the occurrence evidence this one went
+looking for and could not find. Re-file the symptom verbatim from the 2026-08-18 17:05Z section
+and add the captured `doc_notes` keys to the runtime tier.

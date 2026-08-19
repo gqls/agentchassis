@@ -6,8 +6,21 @@ Read this, then `NOTES_retry_kills_live_child.md` (newest at the bottom).
 
 ## State in one line
 
-**Part A is fixed, approved, live and PROVEN. 029 stays OPEN — but it is no longer "actively
-biting and unexplained"; it is "rare, bursty, unexplained, and not currently reproducing".**
+**Part A is fixed, approved, live and PROVEN. The evidence-loss hole is CLOSED (RSH-011,
+`wedge-evidence-capture` — live, and its capture path proven by induction). 029 stays OPEN —
+"rare, bursty, unexplained, not currently reproducing" — and the diagnosis loop has now said so
+independently.**
+
+> **UPDATED 2026-08-19 10:10Z.** The 090 below is no longer "not dispatched": it RAN and
+> returned **NOT CONFIRMED (UNVERIFIABLE)**, refuting on absence of evidence exactly as this
+> handoff predicted. Run corr `b346d0d4-bf9b-4068-9db7-5af18d719706`, 3 iterations, ~12 min —
+> the first terminal answer this lane has had from the loop. Its own data request asked for *"a
+> currently-stuck instance ... to substitute fresh occurrence evidence for the 2026-08-17 burst
+> that has already aged out of retention"*; it found a candidate at
+> `process_item_iter_4_spawn_handler`, tested it, and refuted — that orchestration COMPLETED
+> normally at 09:52:14, i.e. in flight, not wedged. **The loop was RIGHT to refute.**
+> **Re-file when there are CAPTURED instances**, adding the `wedge-evidence:<orch_id>` note keys
+> to the runtime tier; the symptom text itself is unchanged and correct.
 
 ## What is DONE — do not redo any of it
 
@@ -61,10 +74,16 @@ quiet.**
 1. **Wait for the next burst, then act inside ~26 hours.** That is the whole of the remaining
    work on the wedge. Check with the RUNBOOK's wedge census; if rows exist, transcribe them AND
    file the 090 the same day.
-2. **Decide whether the 26-hour evidence window is acceptable.** If this bug is worth solving,
-   something has to capture the wedge rows before retention eats them — otherwise every burst
-   costs a full evidence cycle to notice and loses it before it can be diagnosed. **Not built,
-   not designed, and it is a real decision, not a task.**
+2. ~~**Decide whether the 26-hour evidence window is acceptable.**~~ **DONE 2026-08-19 —
+   RSH-011 `wedge-evidence-capture`.** Hourly CronJob at `:17`; captures LIVE wedges at
+   freeze+30min (~3.5h before either the reaper or cleanup reaches the row) **and** reaped ones,
+   with the full `awaited_requests` set, into `doc_notes` keyed `wedge-evidence:<orch_id>`.
+   **Capture path proven by induction** (5 real orchestrations captured at
+   `WEDGE_FROZEN_MINUTES=0`; re-run captured 0, so dedupe holds; induced rows then deleted).
+   ⚠ **Why LIVE capture and not just reaped:** the reaper terminates at 4h and cleanup DELETES
+   `EXECUTING_STEP` at 4h — the same threshold — so reaped-only evidence is **a lower bound on a
+   population nobody can enumerate**. Nothing further is owed here; read the notes when a burst
+   happens.
 3. **Nothing else.** Part A is closed out; the initial-wait lead is refuted; the dormant twin is
    deliberately unfixed with a re-verified scoped claim.
 

@@ -314,3 +314,40 @@ explained it, and it hasn't shown itself since.** The next burst is what would s
 there's a catch worth a decision from you: we'd have about a day to notice and capture it before
 the records vanish, exactly as they just did. If this bug matters, something needs to grab that
 evidence automatically. If it doesn't, we let it lie and reopen when it bites.
+
+---
+
+## 2026-08-19, late morning — the capture is built, and the investigation told us honestly that it had nothing to work with
+
+**The capture exists and it works.** There is now a job that runs every hour and takes a full
+snapshot of any frozen build job — the job itself and every request it was waiting on — and
+files it somewhere retention cannot reach. The next time this happens we will still have the
+evidence next week, instead of losing it overnight as we just did.
+
+I did not want to install something that had only ever reported "nothing to see", so I forced
+it: dropped its threshold to zero so every job in flight counted as frozen, and it correctly
+captured five real ones with their complete history, then captured nothing on a second run
+because it recognised it had already stored them. I deleted those test records afterwards, so
+what is running now starts clean.
+
+**Building it turned up something I did not know and did not like.** When a job freezes, two
+different processes reach it at exactly the same age — four hours. One writes a record saying
+"this froze"; the other simply deletes it. Whichever gets there first wins. So the eighteen
+frozen jobs we studied on Monday are the ones where the recording process happened to win the
+race, and there may have been more that were quietly deleted having never been recorded at
+all. **Our count of this failure has always been a floor, not a measurement.** The new capture
+takes its snapshot three and a half hours before either process gets near the job, which is the
+point of doing it that way rather than the easy way.
+
+**I also sent the investigation off, and it came back "not confirmed".** That is the honest
+outcome and I would rather have it than a confident guess. It ran properly this time — the last
+attempt was killed by the very bug we fixed on Monday — and it did something I thought was
+impressive: it recognised that the evidence it needed had expired, went looking for a live
+example to use instead, found a candidate, checked it, and rejected it. I checked the candidate
+myself afterwards and it had simply finished normally a few minutes later. It was never frozen.
+The investigation was right to refuse.
+
+**So we are where we were on the bug itself, with two things gained:** the fix we proved on
+Monday is still live and still correct on the new build, and the reason this bug has been
+impossible to investigate — that its evidence evaporates within a day — is now fixed. The next
+occurrence is the one we will finally be able to look at.
