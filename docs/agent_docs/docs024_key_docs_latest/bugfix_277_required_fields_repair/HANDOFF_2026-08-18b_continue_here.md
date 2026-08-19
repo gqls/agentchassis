@@ -5,6 +5,15 @@
 
 ## 0. Build state
 
+> **UPDATED 2026-08-19 09:02Z — FRESH CHASSIS, verified at the BINARY.** `agent-chassis` is on
+> **`d3590ca4638d49bb6a3874db681814c4b0a99bbe`**, **158 commits** on from yesterday (HEAD 3 further).
+> The startup line was **absent from `--tail=20000` on both pods** (scrolled, not unstamped), so this
+> was probed at `/proc/1/exe` with controls: the sha PRESENT, current HEAD `db6ae7254` ABSENT,
+> yesterday's `0b185bad2` ABSENT — a real build, not a same-tag cached no-op. `kafka-scheduler`
+> reports the same sha. **This roll carries `480`'s Go half** (see §3 item 2) and `184` part 2
+> (the `literal_markdown` detector widened to `md_link`); `465`/`466`/`471`/`472` are config-only and
+> were already live.
+>
 > **UPDATED 2026-08-18 18:20Z:** the fleet has rolled again since. `kafka-scheduler` now reports its
 > own `build provenance` as **`0b185bad2a49c6e032352fa9e7d0b429f0a95104`** (pod 17m old at the time).
 > `agent-chassis` provenance was **absent from `--tail=3000`** — that is the documented "startup line
@@ -134,8 +143,21 @@ Live after apply: **watching 15 rows — 5 canary-held, 10 floor-held.**
      makes an error message's *wording* load-bearing across services — reword it, silently change what
      the promoter dispatches, no test fails. The sound fix is a **structured refusal signal** (a
      distinct terminal status, or a `result` key the handler sets), which is a new shared vocabulary
-     on a shared seam ⇒ **architecture-scope**, to be taken with `bugs_open/295`. **Left open
-     deliberately; named so the omission reads as a decision.**
+     on a shared seam ⇒ **architecture-scope**, to be taken with `bugs_closed/295`. ~~Left open
+     deliberately; named so the omission reads as a decision.~~
+     > **⚠ SUPERSEDED 2026-08-19 — DO NOT BUILD THIS; IT EXISTS.** Another session built exactly it
+     > the same evening, with an **owner decision** (2026-08-18 №1): `480_owned_page_refusal_is_not_a_handler_failure.sql`
+     > (applied 20:24; Go half `save_page_sections_action.go` + `v3_site_actions.go`, live in the
+     > `d3590ca46` roll) makes `page-build-handler` write an ownership refusal as **`wont_fix`, not
+     > `failed`** — neither bucket of the floor — shipped as an **opt-in field with the unsafe default
+     > OFF** (`owned_page_refusal_status`), the 2026-08-02 §2 shape. Its author reached the same
+     > conclusion from a different pair (`phantom_internal_link`: 69% generic / 0% owned, blended 47%,
+     > ~134 findings queued behind it).
+     > **It is FORWARD-ONLY and backfills nothing**, so `literal_markdown → page-build-handler` is
+     > unchanged (3/36, 16 protective, 16% corrected) and `471`/`472`'s remedy text is still needed on
+     > 08-21. **And it is UNPROVEN:** zero `wont_fix` owned refusals since it applied *and* zero owned
+     > refusals written `failed` since the roll — that second half is the demand control, so this is
+     > "not yet exercised", not "working". **Owed: grade `480` at the first real owned refusal.**
    - **What WAS fixed (`471`, applied + ledger-recorded + `_ROLLBACK.sql`):** the floor-held
      escalation payload. `466`(b) told the reader *"FIX THE HANDLER"*; on the **08-21 12:57Z** tick
      that would have gone to `literal_markdown → page-build-handler`, **16 of whose 36 lifetime
