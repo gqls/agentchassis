@@ -4326,3 +4326,48 @@ not currently attested either way. It would also sit oddly with `no_presales_ser
 since a reseller buying repeatedly is exactly the customer who expects an account
 relationship. **None of that is a recommendation; it is the list of questions the
 supposition would raise if it were promoted from a thought to a direction.**
+
+### 2026-08-19 (~11:2xZ) — owner clarifications, and I corrected my own three-hour-old writer_block rule
+
+**Owner:** *"the zip is theirs forever, our hosting is temporally limited. The domain
+will need to be moved to their registrar. The confirmed transfer state need only be
+their confirmation by clicking a link that we record."*
+
+**`SQL_2026-08-19c` corrects `19b`, which I applied this morning.** 19b bounded the
+timing of moving the site, then carved the bought domain out as the one genuinely
+open-ended thing: *"they own it, so where and when they move THAT is their business
+for ever."* I reasoned from ownership. That is true about the **property** and false
+about the **arrangement**: a bought domain sits in OUR registrar account until it is
+transferred out, so it needs moving too, and telling the writer it is open-ended
+invites the exact promise the caps ban exists to stop.
+
+**Second time in one day that reasoning from what is TRUE about ownership produced
+the wrong answer about TIMING.** The first was the live link (I inferred "may get
+less than a month" from an absent limit). The shape both times: I established a fact
+about the durable thing and let it license a claim about the operational thing. They
+are different objects with different lifetimes.
+
+The rule that replaces the carve-out is simpler and has no exceptions: **permanent =
+what they OWN (the ZIP, and a bought domain). Temporary = anything WE OPERATE (the
+hosting, the registrar account). Nothing we run is open-ended.**
+
+**Left for the owner, deliberately:** fact `domain_buy_once` still says *"then FREE
+to transfer it"*. "Free to" is an option; he says it *"will need to be moved"*, an
+obligation. Real difference to a buyer, his to word, fact untouched.
+
+**The confirmed-transferred state got smaller.** Not a form, not reply parsing, not a
+support thread: a tokenised link in the chase email, and recording the click IS the
+state. And the chase has TWO subjects — the site off our hosting, and a bought domain
+off our registrar account.
+
+> **CORRECTION 2026-08-19, mine, stated in chat:** I told the owner *"every current
+> spec describes the opposite — mission_brief and identity both say 'business owners
+> who need a decent website…'"*. **False.** My own 08-18 sweep had already removed
+> "business owners" from `mission_brief` entirely and broadened
+> `identity.target_audience` to "Anyone in the UK who needs a website … but equally
+> people building a personal, community, club or project site". I quoted the
+> pre-sweep text from memory instead of re-reading the live spec — the exact thing
+> the working-docs rule "ground every figure against the live system before repeating
+> it" exists to stop, and worse for being my own edit. He may have replied *"our
+> websites aren't necessarily for business owners"* because I told him they were.
+> Verified and corrected the same session.

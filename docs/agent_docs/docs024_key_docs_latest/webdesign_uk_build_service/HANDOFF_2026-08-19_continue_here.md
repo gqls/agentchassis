@@ -76,10 +76,16 @@ Stripe hosted portal. Needs the `sites.handed_over_at` migration plus a single
 reader. `platform/mailer` is the sanctioned mailer. One council run; register entry
 in the same commit.
 
-**Plus, decided 2026-08-19 and not yet built:** a **6-week expiry** on the live link
-(nothing expires today — serving is unbounded), and a **weekly chase email until the
-customer confirms they have moved their files**, which needs a confirmed-transferred
-state alongside `sites.handed_over_at`.
+**Plus, decided 2026-08-19 and not yet built:**
+- a **6-week expiry** on the live link — nothing expires today, serving is unbounded,
+  so this is a mechanism to build from nothing;
+- a **weekly chase email until the customer confirms they have moved their files**;
+- the **confirmed-transferred state**, which the owner has scoped down to the
+  simplest possible thing: *a tokenised link in the email, and recording the click*.
+  No form, no reply parsing. It lands alongside `sites.handed_over_at`.
+
+Note the chase has TWO subjects, not one: the customer must move **the site** off our
+hosting **and** a bought domain off our registrar account.
 
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe
 webhook edge exception; second Nominet TAG (domain programme only).
@@ -98,14 +104,33 @@ webhook edge exception; second Nominet TAG (domain programme only).
 >    *confirmed-transferred* state to stop it. No such state exists —
 >    `sites.handed_over_at` does not exist either, so both land together.
 > 3. **The move-it-yourself window is bounded: "within the next month."** Applied
->    2026-08-19 as `SQL_2026-08-19b` (writer_block only). **This RESOLVED the caps-ban
->    question the other way:** I was about to propose narrowing the 2026-08-09
->    "whenever you like" ban as an over-block, because it stopped a sentence stating
->    an attested freedom. The owner ruled the **ban is right and the copy was wrong** —
->    our hosting is not indefinite, so an unbounded time phrase is exactly the promise
->    that ban exists to stop. **Do not narrow that ban.** The carve-out written into
->    writer_block: a domain BOUGHT outright for £200 is the customer's property and is
->    genuinely theirs to move whenever, for ever. Bind the move, never the ownership.
+>    2026-08-19 as `SQL_2026-08-19b`, then CORRECTED by `SQL_2026-08-19c` (both
+>    writer_block only). **This RESOLVED the caps-ban question the other way:** I was
+>    about to propose narrowing the 2026-08-09 "whenever you like" ban as an
+>    over-block, because it stopped a sentence stating an attested freedom. The owner
+>    ruled the **ban is right and the copy was wrong** — our hosting is not
+>    indefinite, so an unbounded time phrase is exactly the promise that ban exists to
+>    stop. **Do not narrow that ban.**
+> 4. **OWNERSHIP is permanent; anything WE OPERATE is temporary. There is no
+>    open-ended carve-out.** Owner, 2026-08-19: *"the zip is theirs forever, our
+>    hosting is temporally limited. The domain will need to be moved to their
+>    registrar."* My first attempt (`19b`) carved the bought domain out as genuinely
+>    open-ended, reasoning that they own it so nobody can make them move it. True
+>    about the property, false about the arrangement: a bought domain sits in OUR
+>    registrar account until transferred out, so it needs moving too. `19c` replaces
+>    the carve-out with the rule — permanent: the ZIP, and ownership of a bought
+>    domain. Temporary: the hosting and the registrar account. **Nothing we run is
+>    open-ended.**
+> 5. **The confirmed-transferred state is just a click.** Owner: *"their confirmation
+>    by clicking a link that we record."* No form, no reply parsing, no support
+>    thread — a tokenised link in the chase email, and recording the click IS the
+>    state. Build the simplest thing that records it.
+>
+> ⚠ **ONE WORDING QUESTION LEFT FOR THE OWNER, deliberately not changed:** fact
+> `domain_buy_once` says the customer is *"then **free to** transfer it to their own
+> registrar or host"*. "Free to" reads as an option they may decline; the owner says
+> it *"will need to be moved"*, which is an obligation. That is a real difference in
+> what a buyer is told, and it is his to word. The fact is untouched.
 >
 > **CORRECTION to the paragraph below:** it says "do not build a month-long serving
 > mechanism", written when the only question was whether customers might get *less*
@@ -195,7 +220,23 @@ webhook edge exception; second Nominet TAG (domain programme only).
    `brief_answers` 0, `hitl_mode` 0 across 369 briefing orchestrations, against
    `briefing_answers` = 3 as the control. No consumer found for
    `system.notifications.ui`.
-6. **A prompt-maker follow-up:** the conduct deliberately does NOT name the Website
+6. **Reseller market supposition — PARKED by the owner, do not develop.** He raised
+   (2026-08-19) that the likely market may be small web-design outfits, Fiverr/Upwork
+   sellers and domain owners, then: *"We can leave the reseller stuff for now. I'll
+   revisit it later."* It is **discussion only** and is written to NO fact,
+   writer_block, mission or spec. Do not encode it, and do not re-open it unasked.
+   The thinking, and the questions it would raise if promoted, are in this lane's
+   NOTES under 2026-08-19.
+   **Separately and NOT parked:** he also said *"our websites aren't necessarily for
+   business owners though, they are more varied than that."* That is already encoded
+   — the 08-18 sweep broadened `identity.target_audience` to *"Anyone in the UK who
+   needs a website … small and medium business owners, but equally people building a
+   personal, community, club or project site"* and removed "business owners" from
+   `mission_brief` entirely, and fact `any_site_type` attests it. **Verified
+   2026-08-19; no action needed.** (I told the owner the opposite in chat by quoting
+   the pre-sweep text from memory instead of re-reading the live spec. Ground the
+   claim, then repeat it.)
+7. **A prompt-maker follow-up:** the conduct deliberately does NOT name the Website
    Brief Starter tool, because that tool's guide page was still selling the retired
    model. Once `881c95ef` lands, add the pointer.
 
