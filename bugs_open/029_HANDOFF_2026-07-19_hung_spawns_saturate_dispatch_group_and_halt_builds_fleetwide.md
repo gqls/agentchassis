@@ -1520,3 +1520,70 @@ is what died, the error-log write dies with it.
 
 Full working, including a survivorship-filtered near-miss that fitted the 60-second story and was
 killed by its own control: `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/NOTES_retry_kills_live_child.md`, 2026-08-19 entry.
+
+---
+
+## 2026-08-19 (owning lane) — the duplicate spawn registration is `retry_version=0` on BOTH rows, which retires the takeover reading; and the wedge now has a named CLASS with three verified source sites
+
+**Status unchanged: OPEN.** Part A (the inverted retry window) stays fixed, approved, live and
+behaviourally proven. This entry is about the wedge, which is still the unexplained half.
+
+### The measurement that changes the reading
+
+`[MEASURED]` 2026-08-19 ~16:00Z from `awaited_requests` (the **7-day** table; `orchestration_states`
+retains ~26h and holds none of these — its emptiness is retention, not absence). Signature: an
+`iter_N_call_handler` at `status='error'`, the following `iter_{N+1}_spawn_handler` row(s) on the
+same `orchestration_id`, and a count of `iter_{N+1}_call_handler` rows.
+
+| | |
+|---|---|
+| instances | **20**, all 2026-08-17 (14:52:29Z → 18:52:22Z), none since, seven-day window |
+| duplicate `spawn_handler` registration | **17 of 20** (3 have a single row) |
+| both duplicate rows `status='processed'` | 17 of 17 — **both children answered** |
+| **`retry_version`, every spawn row** | **0** |
+| `iter_{N+1}_call_handler` rows | **0 of 20** |
+
+> **⚠ CORRECTION to this lane's own earlier reading.** The duplicate has been explained here and in
+> the lane NOTES as the retry/takeover path re-running the spawn step, with `handleSpawnRetry`
+> carried as the candidate. **`retry_version=0` on both halves of every pair falsifies that** — a
+> retry bumps `retry_version`, which is precisely the column Part A's fix operates on. Two rv0
+> registrations mean **the step body executed twice**. Whatever does that sits upstream of the retry
+> machinery, so candidate generation had been aimed at the wrong subsystem. The corroborating
+> "06:54–09:37 duplicate gap consistent with a >5-min takeover" was consistent with the hypothesis
+> and with everything else; it discriminated nothing. Logged in `WRONG_CALLS.md`.
+
+### The class, stated as a claim and not as a cause
+
+**The set of outstanding awaited requests has two representations, and nothing reconciles them.**
+
+| # | site | `[VERIFIED at source]` |
+|---|---|---|
+| 1 | `platform/orchestration/coordinator.go:2113` (`persistAwaitingStateWithRetry`) | the "did a reply beat the park?" check reads `freshState.CollectedData[<StepName>]` for the `response` marker — keyed on **step name**, not on the request id being registered. On a hit it returns `nil` **without** writing the awaited entry and **without** setting `AWAITING_RESPONSES`. The caller reads `nil` as success and still calls `InsertAwaitedRequest` (`state.go:1609`), so the row lands in the **table** while the state map never learns of it |
+| 2 | `coordinator.go:2671` (`handleCompleteResponse`) | `allDone := len(freshState.AwaitedRequests) == 0` — computed from the **JSONB map alone**. That one boolean decides whether `CurrentStep` advances, whether `Status` returns to `EXECUTING_STEP`, and whether `continueExecution` runs. **The `awaited_requests` table is never consulted** |
+| 3 | `coordinator.go:848` (`continueExecution`) | early `return nil` when the loaded `Status == AWAITING_RESPONSES` — logged at Info, otherwise silent |
+
+Site 1 is a path that **creates** table-vs-map divergence; site 2 is the path that turns divergence
+into a wrong advance-or-park decision; site 3 is what makes the result a silent freeze rather than a
+failure. `[UNVERIFIED]` that this composition is what wedged the 20 — that is the question now with
+the diagnosis loop, not a conclusion this file asserts.
+
+### Diagnosis run in flight
+
+**090 run correlation `be89750f-c2ab-4c0a-bc21-751e75d9b19b`**, dispatched 2026-08-19 16:07Z.
+The two previous runs died on a harness gap — `awaited_requests` was in neither filter that
+populates the diagnosis bundle's Schema section, so the loop could not discover the columns of the
+only table holding the evidence. **Fixed in code** (`0132a3683`, `awaited_requests` joins
+`schemaAlwaysTables`; council **APPROVED all reviewers round 1**, `e03f7122-7895-4b81-8add-5a93f69ed553`)
+but Go, so inert until the next chassis roll. This run therefore carries the `\d awaited_requests`
+output **inlined in the symptom text**; the bundle mentions the table 8 times and the run cleared
+`assemble_bundle`, which is where `d8af5f78` stalled.
+
+### Why this is still OPEN and not closeable
+
+The bar is fixed AND live. Nothing about the wedge is fixed yet. The 08-17 burst remains the only
+observed occurrence and **six of the eight surrounding days are also zero on the entry condition** —
+so post-roll quiet is a baseline, not evidence. Evidence capture is no longer the constraint
+(RSH-011 `wedge-evidence-capture`, hourly, live 2026-08-19, capture path proven by induction).
+
+**Lane docs:** `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/` —
+`HANDOFF_2026-08-19_continue_here.md` first, then `NOTES_retry_kills_live_child.md` §9.

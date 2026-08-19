@@ -428,3 +428,68 @@ to look at. Those examples are good until about Sunday.
 **One caution I want on the record.** The bug has been quiet since Sunday and it would be easy to
 read that as progress. It is not. Six of the eight days we can see are also quiet. This bug comes in
 bursts, and a quiet stretch is what it looks like when it is doing nothing in particular.
+
+---
+
+## 2026-08-19, late afternoon — we had the wrong subsystem in mind all week, and one column said so
+
+Quick recap of what this bug is, because the detail has piled up. When the system builds a site it
+runs a loop, and each turn of the loop asks another agent to do a piece of work — it "spawns a
+child" and waits for the answer. Sometimes the parent gets its answer back, handles it properly,
+and then simply stops. It never moves on to the next thing, never fails, never times out. It just
+sits there for ever holding the site's build slot. That freeze is what is left of this bug.
+
+Earlier this month we fixed a genuinely separate half of it — a retry timer that had been written
+inside out, so retries got a shorter grace period instead of a longer one. That is fixed, reviewed,
+shipped and proved working on the real fleet. Nobody needs to revisit it. It was never the freeze,
+though, and every document we wrote said so at the time.
+
+**Today's finding is a correction to ourselves.** When one of these freezes happens, the parent has
+usually registered the same piece of work *twice* — two requests where there should be one. All week
+we have explained that as the retry machinery kicking in and re-doing the step, and we had been
+lining up suspects inside the retry code accordingly. This afternoon I added one extra column to a
+query we were already running, and it says the retry counter is **zero on both of them**. A retry
+increments that counter — that is the whole point of it, and it is the exact counter the fix above
+operates on. So the second registration is not a retry at all. Something is running the step body
+twice, and it is nothing to do with the machinery we had been staring at. A week of suspects,
+pointed at the wrong subsystem, undone by one field.
+
+I have written that up as a wrong call in the shared log, because the interesting part is *why* it
+survived. We did have a supporting measurement — the two registrations arrive several minutes apart,
+which fits a retry taking over. It also fits absolutely anything else that happens minutes apart. It
+agreed with our theory without ever being capable of disagreeing with it, and that is the thing to
+watch for rather than the specific mistake.
+
+**What we do now have is a much better-shaped question.** Reading the code around the freeze, there
+are three places that fit together uncomfortably. The system keeps track of what it is waiting for in
+**two separate places** — a proper database table, and a copy inside the orchestration's own record —
+and nothing ever checks that the two agree. One function can quietly write to the table but skip the
+copy, and still report success to its caller. A second function decides "have all my answers come
+back, shall I move on?" by looking **only at the copy**. A third returns silently when it thinks it
+is still waiting, which is why a freeze looks like nothing rather than like an error. Each of those
+is verified in the source; what I have *not* established is that they are what froze the twenty
+cases we can see, and I am deliberately not claiming that yet.
+
+So it has gone to the diagnosis loop to be confirmed or knocked down. That has taken three attempts,
+and the first two failures were ours, not the bug's. The loop could not read the one table that holds
+this evidence, because that table had never been added to the list of schemas it gets shown — an
+oversight rather than a decision. That is now fixed in code and the review council approved it
+unanimously first time, but it is Go code so it does nothing until the next build goes out. For today
+I have simply pasted the table's structure into the question itself, and this time the run has got
+past the point where the last two died.
+
+Two smaller things worth knowing. The tool we use to file these diagnosis requests silently ate two
+of my attempts this afternoon — it prints a reassuring "saved, here is your reference" line *before*
+the step that actually fails, so both times it looked like the request had gone in when nothing had.
+I have written that trap up so the next person does not lose an hour to it. And separately, while I
+was working, another session committed a shared log file and swept up an entry I had just written
+into their commit. Nothing is lost — it is in the history, just under someone else's message — and
+that is the normal weather on a tree this many sessions share.
+
+**Can we close this bug? Still no, and I want to be straight about why.** The freeze has not happened
+since 17 August. That sounds like good news and it is not evidence: six of the eight days around that
+burst also had zero, so quiet is what this bug looks like most of the time whether or not it is
+fixed. We have fixed nothing about the freeze itself yet. What has genuinely improved is that we can
+no longer lose the evidence — there is now an hourly job that captures a freeze while it is still
+happening, and we proved it captures by making it capture. So the next occurrence will be much
+cheaper to understand than this one was.
