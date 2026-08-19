@@ -280,3 +280,53 @@ principle rather than merely unfixed.
 Just one answer, really: **wire up the page fingerprint, yes or no?** If yes, RFC 038 becomes worth
 pushing through and the rest follows from it. The section-level field is a tidy-up either way and I
 am happy to take silence on it as "leave it alone".
+
+## 2026-08-19, late afternoon — the fingerprint is built, and it needs your build
+
+**Your decision is implemented, both halves, tested and committed.**
+
+**One:** the deployment service now reports what it actually did. It used to hand back the
+repository's web address — the same string every time, for every page, for ever — while throwing
+away the reference to the save it had just made. It now returns that reference, plus a fingerprint
+of the exact bytes of each file it was given.
+
+**Two:** the page-marking step now reads that. When a deployment reports it did nothing, the page is
+no longer marked as deployed. When it succeeds, the fingerprint is written to the page. If nothing
+can be read at all it marks the page anyway and logs a countable warning — deliberately, because a
+typo in configuration must not freeze the whole fleet's deployments, and because a *silent*
+fall-through is precisely how this bug survived four rebuilds.
+
+**Two places I narrowed my own plan, both for reasons I'd rather state than bury.** I dropped a
+"nothing changed" flag I had promised: producing it needs an extra call to GitHub on *every* save
+across nineteen places in the system, to fill in a field the reviewers had already ruled
+advisory-only — and the fingerprint answers the same question better. And I graded the "couldn't read
+the evidence" warning lower than planned, because until *both* services are rebuilt the newer one
+will fail to read the older one on every single deployment; logging that at high severity would have
+made the error log useless for a day.
+
+**The riskiest thing I found while building it** is that files sent as images are wrapped in an
+encoding, and fingerprinting the wrapper instead of the file would produce a value that could never
+match what the website serves — silently, permanently, on every image. That is live code, not a
+hypothetical. I wrote the test first, then deliberately broke the fix to confirm the test catches it,
+then restored it.
+
+**The earlier change is confirmed working in the wild.** Thirty-one pages have been built since this
+morning's configuration change and every one of them is marked deployed, with the mark coming from
+the rebuild step as intended. None stranded. No rollback needed. (A second session, working at your
+request, spotted this first; I re-ran it myself before recording it, because a report from another
+session is still just a report.)
+
+**What I need from you: a build.** Nothing above is live. Two images need rebuilding and rolling —
+the deployment service and the main chassis — and by our own rules releases are yours to run, not
+mine. Everything is committed, so a build will pick it up.
+
+**And one thing must happen in an unusual order.** The configuration that switches the new checking
+on is *deliberately held back* and will not be applied by the normal migration run. It has to wait
+until the rebuilt chassis is actually running, because the page-marking step rejects configuration
+keys its own code does not recognise — so applying it early would break page-marking everywhere at
+once. The file carries the exact commands and the verification step at the top, and the migration
+tool lists it as held rather than pending, so it cannot go in by accident.
+
+Once that is done, the platform will finally be recording *what it sent*. The last piece — a
+scheduled check comparing that against what the website is actually serving — is designed and not
+yet built, and it is the piece that would have caught this bug six hours before anyone noticed.
