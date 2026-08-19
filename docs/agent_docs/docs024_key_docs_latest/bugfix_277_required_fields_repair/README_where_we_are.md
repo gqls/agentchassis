@@ -812,3 +812,52 @@ asserted the harm without being able to price it would be repeating the exact ha
 against ourselves.
 
 Everything the other thread was already working on is untouched and still theirs.
+
+---
+
+## 2026-08-19, same session, an hour later — I went and answered the question I had just said was unanswerable, and the answer is "no harm done"
+
+**This updates my entry above.** Where I said the damage from those mislabelled tool pages was
+"genuinely unknown" and that we should file a bug about it later — **that is now settled, and the
+recommendation has flipped. There is no damage, and we should not file it.**
+
+What changed is that the other thread pointed out a better way to ask. I had been trying to work out
+whether the label was *wrong*, which needs you to know what somebody intended. The better question
+is simply: **has any tool page actually been broken?** That one you can answer by looking at the
+pages themselves, and it does not care what the label says or when it was changed.
+
+So I looked. A tool page that had been damaged in the way we are worried about would have had its
+working calculator replaced with written text. Most of the suspect pages still have their calculator
+sitting there, so they cannot have been damaged. That left seventeen worth checking closely.
+
+**And here I nearly made the same mistake for the third time today, which I think is the useful part
+of this note.** The summary figures looked alarming — the mislabelled pages had far more sections
+each and far fewer working calculators, which is exactly what damage would look like. Then I listed
+the seventeen individually instead of trusting the summary. Seven are archived pages nobody serves.
+Eleven belong to a website that was built **yesterday** and is still being assembled. The alarming
+pattern was a brand-new site mid-construction being counted as wreckage.
+
+That left three pages to check properly, and I loaded each one in a browser, alongside a page that
+should work and a made-up address that should fail, so that a clean result could not just mean my
+check was broken. None of the three is damaged. One is a written guide *about* a tool that was never
+interactive and is labelled perfectly correctly. One is a page that has simply never been built and
+returns "not found" — a genuine problem, but a different one, which I have written down and left for
+someone rather than quietly folding it into my own conclusion. The third is part of that
+half-finished new site.
+
+**And the page that started this whole question — the vet-treatment cost estimator — is mislabelled
+and completely fine.** Its calculator loads and works. The page most likely to show harm shows none.
+
+**So the honest position: the labelling really is inconsistent across about seventy real tools, and
+it has cost us nothing that can be measured.** Inconsistent is not the same as broken. Filing a bug
+would mean claiming a cause for a problem that has not produced a victim, which is the exact habit
+we keep writing down against ourselves.
+
+I have left behind the check itself, dated, so this is a measurement anyone can repeat next month
+rather than a memory of someone having glanced once — and I have written down what would reopen it:
+a mislabelled tool page found serving text where its calculator used to be.
+
+**I have also corrected something I told you an hour ago.** I said 89 tool pages were "identical in
+shape" to 95 others. That was true of the two tests I ran and misleading as a conclusion — some of
+those pages are written guides that live in the tools section and are labelled correctly. The real
+comparison is about seventy against eighty-three. Smaller, still real, still harmless.
