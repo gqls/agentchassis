@@ -72,6 +72,17 @@
 //	  Needs input_contract in the export. Exit 1 on findings OR on an unmatched
 //	  registry entry, which means an assertion stopped running.
 //
+//	go run ./cmd/config-key-audit --loop-sitewide-item-keys [--report] < live-workflows.json
+//	  {"agents_scanned": N, "findings": [{"agent": "...", "path": "...",
+//	    "loop_path": "...", "loop_variable": "...", "item_key_prefix": "...", ...}]}
+//	  Which create_work_item step, filed PER ITEM inside a loop, still keys its
+//	  item_key PER SITE — so iterations 2..N collide on idx_swi_dedup and are
+//	  silently dropped (bugs_open/321: tool-suggester lost ~72% of its
+//	  suggestions this way)? Once-per-site steps and loops over SITES are not
+//	  findings — the site-wide key is the intended dedupe there. --report writes
+//	  one doc_notes row per run, clean runs included (the CronJob route). Exit 1
+//	  on findings.
+//
 // --specs answers the ADOPTION question rather than the coverage one: not "who has
 // opted in?" but "who is one line away?". An action whose spec already enumerates
 // every key its live steps carry can opt in with `CheckConfig: true` and assert
@@ -228,6 +239,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--array-producer-conditions" {
 		emitArrayProducerConditions()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--loop-sitewide-item-keys" {
+		emitLoopSitewideItemKeys()
 		return
 	}
 	declared := datahelpers.ListDeclaredConfigKeys()

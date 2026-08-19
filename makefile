@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1311
+IMAGE_TAG ?= v1.0.1315
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -81,7 +81,8 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	thunder-adapter analyser-adapter browser-runner-adapter \
 	content-creator-agent remote-job-spawner kafka-scheduler \
 	component-render-check shared-output-fields-check \
-	removed-config-keys-check verifier-remit-check github-actions-runner
+	removed-config-keys-check verifier-remit-check \
+	loop-sitewide-item-key-check github-actions-runner
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -107,6 +108,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	business-intel:agent-chassis \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
+	loop-sitewide-item-key-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -203,7 +205,7 @@ build-backend: build-auth-service build-core-manager build-agents build-adapters
 # binaries compile the action registry IN, a frozen image silently under-reports
 # on the estate it audits (see RELEASE_IMAGES above for the measured figures).
 .PHONY: build-checks
-build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check ## Build all four daily check CronJob images
+build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check build-loop-sitewide-item-key-check ## Build all five daily check CronJob images
 
 .PHONY: build-frontends
 build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
@@ -324,6 +326,13 @@ build-component-render-check: ## Build component-render-check CronJob image (com
 .PHONY: build-shared-output-fields-check
 build-shared-output-fields-check: ## Build shared-output-fields-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,shared-output-fields-check)
+
+# Same binary as the other config-key-audit checks; different CMD. Flags loop-
+# nested create_work_item steps whose item_key is still per-site, so every
+# iteration after the first is silently dropped (bugs_open/321).
+.PHONY: build-loop-sitewide-item-key-check
+build-loop-sitewide-item-key-check: ## Build loop-sitewide-item-key-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,loop-sitewide-item-key-check)
 
 # Ships the SAME Go binary the offline audit uses, so the scheduled check walks
 # workflow steps with validation.WalkSteps rather than a re-implementation
@@ -2112,6 +2121,23 @@ shared-output-fields-check-now: ## Trigger an immediate shared-output-fields-che
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
 		--from=cronjob/shared-output-fields-check \
 		shared-output-fields-check-manual-$$(date +%Y%m%d-%H%M%S)
+
+.PHONY: push-loop-sitewide-item-key-check
+push-loop-sitewide-item-key-check: ## Push the loop-sitewide-item-key-check CronJob image
+	docker push $(REGISTRY)/loop-sitewide-item-key-check:$(IMAGE_TAG)
+
+.PHONY: deploy-loop-sitewide-item-key-check
+deploy-loop-sitewide-item-key-check: ## Deploy the daily loop-sitewide-item-key-check CronJob (bugs_open/321)
+	@echo "$(YELLOW)Deploying loop-sitewide-item-key-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/loop-sitewide-item-key-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob loop-sitewide-item-key-check
+
+.PHONY: loop-sitewide-item-key-check-now
+loop-sitewide-item-key-check-now: ## Trigger an immediate loop-sitewide-item-key-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/loop-sitewide-item-key-check \
+		loop-sitewide-item-key-check-manual-$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: push-verifier-remit-check
 push-verifier-remit-check: ## Push the verifier-remit-check CronJob image

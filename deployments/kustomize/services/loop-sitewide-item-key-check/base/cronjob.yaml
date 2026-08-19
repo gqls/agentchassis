@@ -1,0 +1,112 @@
+# deployments/kustomize/services/loop-sitewide-item-key-check/base/cronjob.yaml
+#
+# bugs_open/321, the standing half. The instance: tool-suggester filed one
+# add_tool work item per LLM suggestion inside a loop, every item on a site
+# shared the key 'add_tool[_novel]_<domain>', and iterations 2..N collided on
+# idx_swi_dedup and were SILENTLY dropped — 40 suggestions became 11 items
+# (~72% lost) before migration 493 added the per-item suffix. The class is
+# older than the instance: LANDMINES.md's "a keyed work item whose KEY is
+# coarser than its FINDING" entry (2026-08-02, measured on stale_evidence)
+# states the rule as a question a session must remember to ask, and the class
+# recurred anyway in a different seam. This job is the mechanical version that
+# asks it of every live loop, daily.
+#
+# WHAT IT CHECKS. Every create_work_item step nested inside a loop that carries
+# item_key_prefix without an HONOURED item_key_suffix_field (a suffix declared
+# as "" or a non-string is silently ignored at execution and convicted here
+# too). Once-per-site steps and loops over SITES are structurally excluded —
+# the site-wide key is the intended dedupe there. No run of a defective agent
+# can ever reveal the defect (the loop reports success either way; the
+# evidence is split across llm_call_log and site_work_items), so the check has
+# to be offline and fleet-wide.
+#
+# WHY AN IMAGE AND NOT A ConfigMap SCRIPT. Following shared-output-fields-check
+# and component-render-check (CGV-030), deliberately NOT the RFC_006 Python
+# mirror: the check is a Go binary walking workflow definitions through
+# platform/validation.WalkSteps — the SAME traversal the runtime validator
+# enforces against. A Python re-implementation would be a replica, and a
+# replica proves the replica works; the image dissolves both of RFC_006's
+# named drift risks.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec. The ai-persona-app
+# service account has no pods/exec RBAC in this namespace; PG_CLIENTS_HOST
+# being set is how this job declares the DB route (cmd/config-key-audit/
+# fleetdb.go, shared decoder with the stdin route on purpose).
+#
+# IT REPORTS ON EVERY RUN, INCLUDING CLEAN ONES. A check that only speaks when
+# it fails is indistinguishable from one that has stopped running
+# (bugs_open/140). A MISSING doc_notes row means THE JOB DID NOT RUN and must
+# never be read as "nothing is wrong":
+#   SELECT created_at, left(body, 200) FROM doc_notes
+#   WHERE source = 'loop_sitewide_item_key_check' ORDER BY created_at DESC LIMIT 7;
+# The body states the SCOPE of the run (agents scanned), because a finding
+# count alone cannot tell "looked at 193 agents and found nothing" from
+# "looked at 3 and found nothing" — the second is a broken export reporting
+# success.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: loop-sitewide-item-key-check
+  labels:
+    app: loop-sitewide-item-key-check
+    component: config-integrity
+spec:
+  # Daily, 07:55 UTC. Verified against the live cluster 2026-08-19 (not a list
+  # in a handoff): the 06:20-06:55 cluster, then shared-output-fields-check
+  # 07:10 and verifier-remit-check 07:25 — 07:55 leaves the last of those a
+  # clear 30 minutes. (agent-job-cleanup runs */10 and is cheap;
+  # wedge-evidence-capture runs :17 hourly.)
+  schedule: "55 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip should get one retry, because a
+      # failed run here is indistinguishable at a glance from a NEW finding and
+      # both page a human. Not more than 1 — a retried job that keeps failing
+      # on a real finding just writes the same row three times.
+      backoffLimit: 1
+      # One query plus an in-memory walk over ~193 workflows; measured ~2s by
+      # hand against the live fleet. 300s is a wide margin that still stops a
+      # hung job blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: loop-sitewide-item-key-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED, and easy to miss by copying a job that pulls a public
+          # image: aqls/ is private. Without it the job sits in
+          # ImagePullBackOff — which reports as a Job still "Running", never as
+          # a failure, so a scheduled check would go permanently silent while
+          # looking merely slow (component-render-check caught this on its
+          # first manual run; this job inherits the fix).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/loop-sitewide-item-key-check:latest
+              # CMD is already --loop-sitewide-item-keys --report (in the
+              # image), so this job fails ONLY on findings. No ack file: a
+              # finding here is always silently-lost work, never a blessed
+              # exception — see the dockerfile.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi
