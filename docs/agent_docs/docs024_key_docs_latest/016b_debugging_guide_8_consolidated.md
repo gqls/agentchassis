@@ -733,8 +733,32 @@ the second (corr `d8af5f78`, 2026-08-19) naming the gap in its own words. **The 
 the lesson: the remedy is known and the list is not consulted when a new lane starts, so
 check the pack covers your table BEFORE you spend the run.**
 
-**Which tables are exposed.** Anything an orchestration question actually lives in but whose
-name does not begin `site`/`page`/`content`/`flow`. `awaited_requests` is the sharpest case —
+**Which tables are exposed — and why this is NOT a one-table fix.** The loop records its own
+blind spots, so the class is countable:
+
+```sql
+SELECT substring(dr->>'why' from '([a-z_]+)[[:space:]]+is not in the bundle') AS table_named, count(*)
+  FROM orchestration_states os
+  CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(os.collected_data->'diagnosis'->'evidence_trail')='array'
+       THEN os.collected_data->'diagnosis'->'evidence_trail' ELSE '[]'::jsonb END) it
+  CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(it->'Verdict'->'DataRequests')='array'
+       THEN it->'Verdict'->'DataRequests' ELSE '[]'::jsonb END) dr
+ WHERE os.owner_agent_type='diagnose-agent' AND dr->>'why' ILIKE '%not in the bundle%' GROUP BY 1;
+```
+
+(The `jsonb_typeof` guards are load-bearing — without them the query dies with *"cannot extract
+elements from a scalar"* on the first run whose `DataRequests` is null.)
+
+`[MEASURED 2026-08-19]` two hits, **both from that day**: one naming `awaited_requests`, one
+naming several tables at once (*"These tables … are not in the bundle's schema listing"*) on a
+different lane's run. ⚠ **And that count is a floor set by the instrument, not a census of the
+class** — `orchestration_states` retains ~26 hours, so this query structurally cannot see the
+`074beb8a`/236 runs that produced the same complaint, and it will not see today's either by
+tomorrow. **Run it as an alert, not as an audit**: two distinct lanes hit this in one morning,
+which is the rate that matters, not the total.
+
+Anything an orchestration question actually lives in but whose name does not begin
+`site`/`page`/`content`/`flow` is exposed. `awaited_requests` is the sharpest case —
 it is the step-level twin of `orchestration_states`, and it **retains ~7 days against that
 table's ~26 hours**, so it is frequently the only table still holding the incident at all.
 
