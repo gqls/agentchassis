@@ -401,3 +401,28 @@ to match a later rename would make the artefact disagree with what the council r
 the moment you start.** I checked `320` was free immediately before committing the bug
 file and it was. I did not re-check the migration number, and the gap was about ninety
 minutes.
+
+## 2026-08-19 — contributed by the bugfix_313_internal_linker lane (not competing; the fix is yours to make)
+
+**Your `meta-description-backfiller`'s `check_has_pages` can never be true — the same defect that
+kept the internal linker silent for four months (`bugs_open/313`), caught by the detector that fix
+shipped, on its first post-fix fleet run.**
+
+- `load_pages_missing_meta` declares `output_format: "array"` → QueryDatabaseAction returns a bare
+  slice with **no `count` key** (`database_actions.go:129`).
+- `check_has_pages` tests `pages_missing_meta.count > 0` → resolves through no strategy against an
+  array, the numeric arm returns `false, nil` (no error), and the step takes `else_step` on
+  **every run regardless of data** — a backfiller that always concludes there is nothing to
+  backfill, while its work items read `complete`.
+- Detector output (2026-08-19, post-migration-490 fleet run of
+  `scripts/audit-array-producer-conditions.sh`, register **WFA-018**):
+  `meta-description-backfiller: steps.check_has_pages tests 'pages_missing_meta.count' but
+  steps.load_pages_missing_meta (query_database) declares output_format='array'`.
+- **The worked fix is `docs/agent_docs/sql_for_agents/490_internal_linker_candidates_object_uncapped_fail_loud.sql`**
+  (same defect, same remedy): `output_format` → `"object"` **AND every template/consumer that
+  ranges the bare array** → `.rows` — both halves, or you trade a dead branch for a broken prompt.
+  If a numeric routing condition must never route silently again, `fail_on_non_numeric: true` on
+  the conditional step is live config from the next chassis build (WFA-019, same file as 490's
+  edit 4).
+- Re-run `scripts/audit-array-producer-conditions.sh` after your fix — exit 0 with the
+  `N conditional step(s) checked` line non-zero is the pass.
