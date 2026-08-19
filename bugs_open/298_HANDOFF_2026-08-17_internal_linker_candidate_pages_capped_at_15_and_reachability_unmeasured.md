@@ -1,5 +1,26 @@
 # 298 — `internal-linker` picks link targets from at most 15 candidates, alphabetically — and whether it has ever reached that step is UNMEASURED
 
+> ## ✅ FIXED 2026-08-19 — the cap is GONE, in the same migration that fixed 313
+>
+> **Fixed by the `bugfix_313_internal_linker` lane**, in this file's own required order (313's
+> branch first — same transaction, so neither could land alone). Migration
+> `490_internal_linker_candidates_object_uncapped_fail_loud.sql`, applied 2026-08-19, recorded in
+> `schema_migrations`.
+>
+> - **Fix candidate 2 as prescribed, the 275-approved shape:** `LIMIT 15` dropped; the payload is
+>   bounded instead of the coverage — `content_sample` stays `LEFT(…, 800)` and the cut is now
+>   **marked** (`' […truncated]'`, migration 446's remedy). Worst site today: 69 candidates ≈
+>   ~60 kB of prompt, comfortably within the model's context. `ORDER BY p.name` stays as
+>   deterministic presentation — no longer a cut, so candidate 3 (relevance ranking) is cosmetic
+>   and deliberately not done.
+> - **Census check (this file's §How to verify):** "0 sites over the cap, or no cap" — satisfied
+>   by construction (no cap); re-measured 2026-08-19 pre-fix as 26 sites / 8 over / worst 69.
+> - **The disconfirming pair still needs one live run** (a page sorting past position 15 present in
+>   `prompt_rendered`) — pending the first natural run post-490, same gate as 313's proof; queries
+>   in `docs/agent_docs/docs024_key_docs_latest/bugfix_313_internal_linker/RUNBOOK_313_internal_linker.md`.
+> - **Adjacent finding in this file ("15 of 38 completed items found NO target page") remains
+>   unaddressed and unclaimed** — still a candidate for its own ticket.
+
 **Filed 2026-08-17** by the `bugfix_275_silent_row_caps` lane. **Same defect class as
 `bugs_open/275`**, third instance. **Deliberately filed with a weaker severity claim than
 `bugs_open/297`**, because the reachability evidence does not support a stronger one — see §Reachability.

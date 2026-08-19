@@ -1,5 +1,40 @@
 # 313 — `internal-linker`'s `check_candidates` can never be true, so `plan_links` has never run: the agent has completed 57 link jobs and produced no link plan
 
+> ## ✅ FIXED 2026-08-19 — config LIVE on apply; artefact proof pending the first natural run
+>
+> **Fixed by the `bugfix_313_internal_linker` lane** (session `bugs_open/313`; lane docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_313_internal_linker/`). Together with
+> `bugs_open/298`, in one migration, in this file's own ordering.
+>
+> - **Migration `490_internal_linker_candidates_object_uncapped_fail_loud.sql`** — applied 2026-08-19
+>   (direct psql, clean `UPDATE 1`, recorded in `schema_migrations`; snapshot taken first). Fix
+>   candidate 1, both halves: `load_candidate_pages.output_format` → `object` AND `plan_links`'
+>   template → `{{range .candidate_pages.rows}}`. Post-apply read-back: `output_format=object`,
+>   no row LIMIT, truncation marked, template on `.rows`, condition/routing untouched.
+> - **Fix candidate 2 BUILT: `config-key-audit --array-producer-conditions`** (register **WFA-018**,
+>   `scripts/audit-array-producer-conditions.sh`). Pre-fix fleet run: 191 agents, 145 conditionals,
+>   exactly this one finding. **Post-fix run: internal-linker clean — and it caught a brand-new
+>   SECOND instance seeded the same day** (`meta-description-backfiller.check_has_pages`, the 320
+>   lane's agent; finding contributed to their NOTES, commit `ab02e8145`). §Blast radius said the
+>   affected set was one and was right at filing time; the class detector is why the next one cost
+>   hours, not months.
+> - **Fix candidate 3 SHIPPED in the sanctioned opt-in shape** (register **WFA-019**): `conditional`
+>   gains `fail_on_non_numeric` (default OFF, lenient behaviour frozen by test, mutation-proven);
+>   `check_candidates` opts in via the same migration as a re-drift tripwire. Go halves ride the
+>   next chassis build after commit `5315c8a19` (v1.0.1315 predates it). Fix candidate 4
+>   (resolveFieldValue synthesis) deliberately NOT done, per this file's own warning.
+> - **Council:** `Council-Submitted: aef24a7f-2992-4d4f-a6e0-422cd77fcca3` (admitted in scope via
+>   the platform/ files — cf. `bugs_open/314`).
+> - **Residual, named:** `create_rewrite_item` files items under `item_key_prefix: internal_link`
+>   with no suffix field, so until the `bugs_open/321` lane's disjoint config fix applies, an
+>   N-link plan yields ONE `content_rewrite` item (up to ~2/3 of output dropped). Confirmed
+>   disjoint both sides; do not misread 1-item-per-plan as this fix failing.
+> - **Still OPEN pending this file's own §How to verify:** the first `plan_links` row in
+>   `llm_call_log` (zero all-history is the established "before" arm), page names under
+>   `## Candidate Pages` in `prompt_rendered`, and a completed run with non-empty candidates not
+>   ending at `complete_no_candidates`. Natural traffic is ~2 runs/day with 20 open work items
+>   queued, so the proof should arrive within hours; queries in the lane RUNBOOK.
+
 **Filed 2026-08-18** by the `bugfix_275_silent_row_caps` lane, while answering `bugs_open/298`'s
 reachability question. **Diagnosis loop: CONFIRMED, first iteration** (`RUN_CORRELATION_ID=
 c4aa3559-86b1-4356-a28b-c71dfa661465`) — it re-read the same config and code independently and cited
