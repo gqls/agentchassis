@@ -5020,3 +5020,34 @@ site. Two observations that belong in the record:
 **Step 4's population is now visible by construction**: whatever survives after the gate rolls
 is requested-field shape conflicts — `save_page_sections` (object vs name-string) is the worked
 example and is fixed at the PRODUCER, not at the resolver.
+
+## 2026-08-19 ~10:30Z — the gate's council run returned NO VERDICT: the Anthropic account hit its usage limit mid-run. Not a judgement on the change.
+
+Run `6cecf9cc` (corr `07468ec0`) terminated at **`complete_invalid`** — the council-gate's
+"nothing was decided" branch, wired as the `error_step` of every review seat. `__step_error`:
+
+    step review_guidelines failed: ... AI endpoint unavailable: provider=anthropic
+    model=claude-sonnet-5 ... status 400: "You have reached your specified API usage
+    limits. You will regain access on 2026-09-01 at 00:00 UTC."
+
+**Scope, measured:** `llm_call_log` shows `claude-sonnet-5` succeeding 62 times up to
+**10:24:49Z** and failing from **10:24:53Z**; the same minute, `diagnose-agent` /
+`diagnose-dispatch-loop` / `diagnose-orchestrator` failed on the same message. So the
+**fleet's Anthropic calls stopped at 10:24:5xZ** — an account-level limit, not this lane's.
+The `claude-opus-4-6` and `claude-sonnet-4-6` calls that succeeded in the same window were
+**before** the cut, not evidence of a per-model split (`[MEASURED]` last opus success 10:23:48Z).
+
+**What it means for step 3:** the submission was structurally VALID (the `fix_plan` artifact
+was persisted at 10:20:47Z; validation is `persist_submission`, which passed). The seats that
+ran before `review_guidelines` produced no recorded report because `council_decide` never ran.
+**The commit `f42e03720` carries `Council-Submitted: 07468ec0`** — honest, and it will NOT
+auto-credit, because no verdict exists under that correlation. **Owed: a RE-SUBMISSION once the
+account has access again, with `RESUBMIT_CORR=07468ec0-8f3a-4c80-b381-2f408a486164`** so the
+trail accumulates in one place. Do NOT re-trigger while the limit stands — it will burn another
+round to the same `complete_invalid`.
+
+**Owner-facing consequence, plain:** the whole fleet's LLM work is paused until the limit resets
+or the owner raises it — council reviews, diagnosis runs, page writers, everything that calls
+Anthropic. The 2026-09-01 date in the error is the API's stated reset. This lane's Go work is
+unaffected (it is code + tests, no LLM), and the roll of `846496906`/`f42e03720` does not need
+an LLM either — but the gate's review must complete before it is honest to call step 3 reviewed.

@@ -64,7 +64,7 @@ lane's next builds and are independent of each other and of step 1's roll.
 |---|---|---|---|
 | 1 | ~~Prune ships; window re-read~~ **DONE 2026-08-19**: live v1.0.1310, 16 h read = **0** `work_item_id` rows, `current_page` class intact as predicted | — | — |
 | 2 | ~~306 cands 1+2~~ **BUILT + APPROVED all-approve** (`846496906`, corr `96ac93e6`): `rank` on each candidate, sort reads it; pattern 1 sorted. 6 tests, mutation-proved both ways | **inert until the next chassis roll** | roll verified by label+digest; then close 306 (cand 3 stays open, unbundled) |
-| 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | **READ THE VERDICT** (`…fix_correlation_id='07468ec0-…'`; a watcher was armed); then the roll | class-1 63% gone from the window after the roll |
+| 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | ⚠ **NO VERDICT — run ended `complete_invalid` at 10:24Z because the Anthropic ACCOUNT hit its usage limit** (fleet-wide, not ours; NOTES 10:30Z entry). **RE-SUBMIT with `RESUBMIT_CORR=07468ec0-8f3a-4c80-b381-2f408a486164` once LLM calls succeed again** (check: `SELECT max(created_at) FROM llm_call_log WHERE success`). Do NOT re-trigger while the limit stands. Then the roll | class-1 63% gone from the window after the roll |
 | 4 | Fix surviving shape conflicts AT SOURCE (worked example: `save_page_sections` sees the page OBJECT at `input_data.current_page` vs its NAME STRING at `render_context.current_page` — one rename ends it). **`!` cannot fix these** — Go-side request lists, config-side marker | step 3's window read | window reads zero, or every survivor carries a written safe-by-inspection note |
 | 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
 
@@ -89,8 +89,11 @@ sweep (NOTES, evening entry, last paragraph).
 ## 5. Session-start checklist
 
 1. `git log --oneline -10`; re-read this file from disk.
-2. Read the GATE verdict (corr `07468ec0`, §3 row 3) and act on it — REVISE/REJECTED must be
-   acted on, the code is on the shared branch with a `Council-Submitted:` trailer.
+2. The gate's council run returned NO VERDICT (account usage limit, 2026-08-19 10:24Z). Check
+   whether Anthropic calls succeed again (`llm_call_log`), then RE-SUBMIT the gate with
+   `RESUBMIT_CORR=07468ec0-…` (submission JSON: scratchpad `council_submission_gate.json`, or
+   rebuild from the commit message of `f42e03720`). Until reviewed, step 3's Go half is
+   committed-but-unreviewed on the shared branch — honest via its `Council-Submitted:` trailer.
 3. When the next chassis roll lands: verify by label+digest+`/proc/1/exe`; confirm `846496906`
    AND `f42e03720` are ancestors; re-read the window — expect `build-dispatch-loop current_page`
    → ~0 (the 63% class), `page-content-writer current_page` INTACT (step 4's population). Close
