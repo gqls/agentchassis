@@ -330,3 +330,58 @@ tool lists it as held rather than pending, so it cannot go in by accident.
 Once that is done, the platform will finally be recording *what it sent*. The last piece — a
 scheduled check comparing that against what the website is actually serving — is designed and not
 yet built, and it is the piece that would have caught this bug six hours before anyone noticed.
+
+## 2026-08-19, evening — the build shipped it, the reviewers found a real flaw in it, and it is fixed
+
+**First, the good news about your build.** Both services rolled at 17:13 as `v1.0.1316`, and I
+confirmed they genuinely carry my code — not by trusting the version number, which proves nothing,
+but by reading the commit reference the deployment service prints about itself at startup and
+checking my commits are behind it. (The other method, searching the running binary, was actively
+misleading here: it reported my code absent *and* reported a deliberately fake control as present,
+which is a known trap.)
+
+**Now the important part: the reviewers found a genuine flaw and they were right.**
+
+I had justified a piece of the design by relying on a promise made by a shared helper elsewhere in
+the codebase — that when it finds two conflicting answers it returns nothing rather than picking one.
+A reviewer cross-checked that against our own hazard register, which said the opposite, and objected
+that both could not be true.
+
+They were right and I was wrong. The helper's comment states that rule as the *intention* — and then,
+four lines further down, states that the current version still picks a winner, and that the refusing
+version is a later piece of work that has not been done. **I read far enough to find a sentence that
+supported what I wanted, and stopped.**
+
+That mattered more here than it usually would. A fingerprint taken from the wrong deployment is
+silently and permanently wrong, and every future check would then report a perfectly healthy page as
+broken. No fingerprint at all is recoverable; someone else's fingerprint is not.
+
+**The fix is to make the promise true rather than restate it.** My code now collects the candidates
+itself and refuses outright when they disagree. I proved it by deliberately restoring the old
+guessing behaviour and confirming the new tests fail — then restoring the fix and confirming they
+pass.
+
+**And re-deriving that turned up a second mistake nobody had objected to.** I had been careful to
+*preserve* an existing fingerprint when a new one could not be worked out. That is backwards: marking
+a page deployed means new bytes went out, so the old fingerprint is out of date by definition, and
+keeping it would make the future check compare live content against a superseded record — convicting
+a healthy page, which is exactly the false-alarm problem I spent the morning proving was fatal to the
+cheap version of this fix. It now records "unknown" instead, which the check is designed to skip.
+
+**One objection I could answer rather than act on.** A reviewer worried that only three deployment
+steps get the new protection while sixteen others do not. I measured it: of the nineteen, exactly
+three are followed by a step that marks a page as deployed — and those three are precisely the ones
+being switched on. The other sixteen publish stylesheets, scripts and feeds, and make no claim about
+a page at all. Coverage is complete, not partial.
+
+## What this means for the next step
+
+**The build you just did carries the flawed version.** It is completely harmless as things stand,
+because the switch that would activate it is still held back and set nowhere — the code cannot run.
+But it does mean:
+
+**Please don't apply the held migration yet, and one more build is needed.** Once a build carrying
+this evening's fix has rolled, the held configuration can go in and the fingerprint starts being
+recorded for real. I've put the exact verification command in the migration file itself, so whoever
+applies it can confirm the running image is the right one first rather than trusting the version
+number.
