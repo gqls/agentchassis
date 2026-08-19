@@ -29,10 +29,26 @@
 --          -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}'
 --        kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
 --          | grep -m1 'build provenance'
---        git merge-base --is-ancestor 086f9b7b7 <the stamped sha> && echo CARRIES-THE-KEY
---      086f9b7b7 is the commit that declared `deploy_result_field`. An EMPTY
---      grep means "not in log range", NOT "unstamped" — the provenance line is
---      a startup line and scrolls.
+--        git merge-base --is-ancestor f0dd97c71 <the stamped sha> && echo SAFE-TO-ARM
+--
+--      ⚠ THE REQUIRED COMMIT IS f0dd97c71, NOT 086f9b7b7. 086f9b7b7 declared the
+--      key and SHIPPED IN v1.0.1316 (17:13Z 2026-08-19) — but the council gate's
+--      round-2 review (corr 377167cd, prior_art_librarian, gating) found its
+--      resolver unsafe: it borrowed a "unique-or-nothing" guarantee from
+--      datahelpers.ExtractFields that RFC_029 Phase 1 does not actually provide
+--      (Phase 1 still resolves conflicts to a shallowest-first winner; Phase 2
+--      flips them to refusal and has not shipped). Against v1.0.1316 an
+--      ambiguous subtree would fingerprint the page from an ARBITRARY
+--      git_commit, which is silently and permanently wrong. f0dd97c71 makes the
+--      resolver collect candidates itself and REFUSE on conflict.
+--      ARMING THIS AGAINST v1.0.1316 IS THE ONE THING THAT MAKES IT DANGEROUS.
+--
+--      An EMPTY provenance grep means "not in log range", NOT "unstamped" — it
+--      is a startup line and it scrolls on a busy service. The git-adapter is
+--      quiet and usually still has it; the chassis usually does not. Do NOT
+--      fall back to `grep -a <sha> /proc/1/exe`: measured 2026-08-19, that
+--      returned ABSENT for a commit the image demonstrably carried while
+--      returning PRESENT for a 40-zero control (Go's internal tables).
 --
 --   2. Then, scoped so it cannot sweep other threads' pending files (the
 --      assignment MUST be on the same line as the command):
