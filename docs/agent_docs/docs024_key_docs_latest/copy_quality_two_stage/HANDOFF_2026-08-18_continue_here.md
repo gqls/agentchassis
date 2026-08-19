@@ -97,8 +97,19 @@ today and *"what the gate graded is what lands"* still holds.
 **When 474 lands, that stops being exactly true for plain-text fields.** The tell is
 `stripped_markdown_fields` on the action result — non-empty means the persisted content is not
 byte-identical to what the gate passed. Their HTML guard (`!HTMLMarkupRe.MatchString`) means
-HTML-bearing fields take the conservative path. CONTRIB filed telling them a consumer appeared
-after they wrote it, and asking to be pinged on apply.
+HTML-bearing fields take the conservative path.
+
+⚠ **`bugs_open/184` IS ANOTHER THREAD'S ACTIVE WORK — do not touch the bug file, 473 or 474.**
+Contribute in, as this lane did: CONTRIB filed in their dir
+(`bugfix_184_literal_markdown/CONTRIB_2026-08-19_a_new_consumer_of_apply_edit_appeared_after_you_wrote_474.md`,
+commit `629dcbe2d`) plus a direct message to the live `bug 184` session, asking only to be told
+when 474 is applied. **The verification burden is OURS, not theirs:** after any stage-2 apply
+once 474 is live, compare the graded proposal against the persisted `content_data`, and read
+`stripped_markdown_fields`.
+
+⚠ **`git log --author` cannot tell sessions apart on this tree** — every session commits as
+`cqls`. When checking "did I touch their work?", the discriminators are the **lane directory**
+and the **commit message**, not the author field.
 
 ### From the `bugfix 083` / 277 lane (live exchange, both directions answered)
 
