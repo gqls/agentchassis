@@ -36918,3 +36918,76 @@ presigns for `expiry_minutes: 10080` = **7 days**. "The ZIP is theirs permanentl
 true once downloaded; the LINK to fetch it dies at 7 days, and the claim does not say
 so. That one is a real, if small, gap — narrower than I originally wrote it, and it
 belongs to the owner to rule on.
+
+---
+
+## 2026-08-19 (news_editorial_features lane) — I wrote "no mechanism at all" for the thing the ask depends on, and the closest prior art in the repo was invisible to every term I searched
+
+Two related misses in one collection pass, both caught the same way — by something
+that read files I had not.
+
+**The claim.** Asked to collect past discussions of building editorial feature
+articles from clustered news, I ran a `grep -rli` sweep on `editorial`,
+`feature article`, `long-form`, `infographic`, `explainer`, `chart`, `graph` over
+`docs/`, `bugs_open/`, `bugs_closed/`, `features_open/`, cross-checked it against
+the concept register's category list, and wrote into the lane's PLAN that the
+"different channels" half of the ask **"has no mechanism at all"**.
+
+**What was actually true.** `platform/orchestration/actions/queryresolve/news_items.go`
+already detects when several headlines are about one story:
+`newsTopicalTokens:185` derives a topical vocabulary by document frequency over
+item titles once the pool reaches 12 items (threshold `len/4`, floor 5), and
+`capNewsItemsPerTool:222` then **drops** items sharing a tool key with `maxPer`
+already-kept ones. The detection exists; it is pointed the other way, because the
+display layer's job is to suppress the cluster. Its own comment states this
+workstream's central problem better than any of its design docs, while solving the
+opposite one — *"appears a lot" must mean "is the subject matter", not "is one
+well-covered story"*, with "four Firefox headlines" as the case it must not
+mistake. **Four headlines on one subject is exactly the editorial input.**
+
+**What caught it:** the `090` diagnosis run I had fired on the same mechanism
+(correlation `3802fb10-c34f-4eff-9914-b2959c723bd5`, verdict CONFIRMED). Its scope
+walk opened the file; I then read it first-hand rather than taking the report's
+word, which is how the "detection exists but is inverted" framing was arrived at
+rather than "the loop says there is a cap".
+
+**The cheap check I did not run:** I searched for what the feature would be
+*called* and never for the columns it would have to *touch*. One
+`grep -rn "content_feed_items" --include=*.go` enumerates every file in the
+pipeline in one command — it is 421 lines of `news_items.go` and I never opened
+it. **Grep the TABLE, not the topic.** A capability is named by its authors after
+the problem they were solving, which is rarely the problem you are searching for.
+
+### The second miss, same pass, worse consequence
+
+The same sweep missed
+`docs/agent_docs/docs024_key_docs_latest/oufe/DESIGN_2026-07-28_premise_branching_and_deepthink.md`,
+which is **the closest prior art in the repo** and says so in its own second line:
+raised by the owner as generic for *"this type of site and similar to the news
+editorial requirement"*. A second pass on `deep dive` / `topic package` /
+`living dossier` / `insights section` found it.
+
+Had I stopped at the first sweep I would have reported three prior designs and a
+"design the pipeline" next step. The note's own recommendation is the opposite —
+hand-build one worked example first — and, checked live, **two of the four steps
+it asked for first had already shipped the day after it was written**
+(`claims_series.go`; `evidence-timeseries` active with a real first use). The lane
+would have been pointed at work that was done and away from the work that is not.
+
+**Why the search failed:** the best prior art on a subject is frequently filed
+under the *instance* it was raised against, not the *category* it generalises to.
+This one lives in a site directory (`oufe/`) and is titled after its primitive
+(`premise_branching`), so no synonym of "editorial" or "news" reaches it.
+
+**The cheap check, and it is one command:** when collecting prior art, grep the
+**owner's own phrasing** from the current request, not your paraphrase of it. The
+request said "extracting the concepts out of the various news articles" — and
+`grep -rn "pertinent points"` finds the note immediately, because that is the
+owner's recurring phrase across both conversations.
+
+**The tally this belongs to:** "an absence is true only when you looked" is
+already in `MEMORY.md` for *prior-art staleness*. This is the sibling failure —
+the record was current, and I looked in the wrong index. Both entries in this lane
+were found by reading code and files rather than by a better query, which is the
+argument for spending the `090` run before asserting rather than after being
+contradicted.
