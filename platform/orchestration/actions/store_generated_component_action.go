@@ -102,6 +102,55 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		return nil, fmt.Errorf("generated template is empty for section_type %q", sectionType)
 	}
 
+	// ── Resolve the storage identity (bugs_open/311) ────────────────────
+	// Decided HERE, before anything derives from the function name:
+	// separateInlineJS below writes a `/tools/assets/<function>.js` src
+	// reference into the template, so a diverted (site-suffixed) identity
+	// must be final first. resolveStorageIdentity also carries the
+	// regen-vs-create decision that used to live just above the write —
+	// including the rule that a base row OTHER sites depend on is never
+	// this build's regeneration target (see component_storage_identity.go).
+	requesterSiteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.site_id")
+	requesterDomain := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.domain")
+	ident, err := resolveStorageIdentity(ctx, params.DB, functionName, requesterSiteID, requesterDomain, logger)
+	if err != nil {
+		return nil, fmt.Errorf("storage identity resolution failed for %q: %w", functionName, err)
+	}
+	if ident.Diverted {
+		logger.Info("store_generated_component: foreign collision — write diverted to site-scoped identity",
+			zap.String("requested_function", ident.DivertedFromFunc),
+			zap.String("final_function", ident.FunctionName),
+			zap.String("incumbent_id", ident.DivertedFromID),
+			zap.Strings("incumbent_dependent_domains", ident.ForeignDomains))
+		LogActionFindings(ctx, params, requesterSiteID, "",
+			"store_generated_component", []agenterrors.Finding{{
+				ErrorCode: "COMPONENT_COLLISION_DIVERTED",
+				Severity:  "warning",
+				Message: fmt.Sprintf("function %q is held by component %s, depended on by %s — write diverted to new base component %q (section_type %q) instead of regenerating another site's row",
+					ident.DivertedFromFunc, ident.DivertedFromID,
+					strings.Join(ident.ForeignDomains, ", "), ident.FunctionName, sectionType),
+				Context: map[string]interface{}{
+					"requested_function": ident.DivertedFromFunc,
+					"final_function":     ident.FunctionName,
+					"incumbent_id":       ident.DivertedFromID,
+					"section_type":       sectionType,
+				},
+			}}, logger)
+	}
+	if ident.DivertBlocked != "" {
+		logger.Warn("store_generated_component: foreign collision seen but not divertible",
+			zap.String("function", functionName),
+			zap.String("reason", ident.DivertBlocked))
+		LogActionFindings(ctx, params, requesterSiteID, "",
+			"store_generated_component", []agenterrors.Finding{{
+				ErrorCode: "COMPONENT_COLLISION_DIVERT_BLOCKED",
+				Severity:  "warning",
+				Message:   ident.DivertBlocked,
+				Context:   map[string]interface{}{"function": functionName, "section_type": sectionType},
+			}}, logger)
+	}
+	functionName = ident.FunctionName
+
 	// Separate inline <script> blocks into js_content.
 	// The template keeps a <script src="/tools/assets/{function}.js"> reference.
 	// Components without inline JS are unaffected (jsContent will be empty).
@@ -205,55 +254,24 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		zap.Int("template_length", len(htmlTemplate)),
 		zap.Bool("is_dark", isDark))
 
-	// ── Check for existing component (regeneration vs creation) ─────────
-	// If a component with this function name already exists, we're in the
-	// regeneration path: the new template will REPLACE the existing one,
-	// with the old state snapshotted to component_versions first. If not,
-	// we're creating a new component.
+	// ── Regeneration vs creation ────────────────────────────────────────
+	// Decided by resolveStorageIdentity above (component_storage_identity.go
+	// carries the lookup, its is_active-ordering history note, and the
+	// site-aware diversion rule). If regenerating, the new template will
+	// REPLACE the existing one, with the old state snapshotted to
+	// component_versions first.
 	//
 	// Either way, Layer 1 validation below MUST pass before we touch the
 	// DB. An existing broken component is NOT grounds to silently accept
 	// another broken template.
-	var (
-		existingID      string
-		existingHTML    string
-		existingSchema  string
-		existingJS      sql.NullString
-		existingVersion int // max version_number from component_versions; 0 if none
-		isRegeneration  bool
-	)
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT id::text,
-		       COALESCE(html_template, ''),
-		       COALESCE(input_schema::text, '{}'),
-		       js_content
-		FROM content_components
-		WHERE function = $1 AND forked_from IS NULL
-		ORDER BY is_active DESC, updated_at DESC
-		LIMIT 1
-	`, functionName).Scan(&existingID, &existingHTML, &existingSchema, &existingJS)
+	existingID := ident.ExistingID
+	existingHTML := ident.ExistingHTML
+	existingSchema := ident.ExistingSchema
+	existingJS := ident.ExistingJS
+	isRegeneration := ident.IsRegeneration
+	var existingVersion int // max version_number from component_versions; 0 if none
 
-	// Note on the is_active filter (changed 2026-05-06):
-	// Previously this query had `AND is_active = true`, which meant
-	// regeneration of a deactivated row would fall through to the
-	// creation branch and hit the unique-on-name constraint when the
-	// old row had name == function. Removing the filter and ordering
-	// by `is_active DESC, updated_at DESC` preserves the previous
-	// behaviour when active rows exist (the active row sorts first)
-	// and fixes the regeneration path when only an inactive row
-	// exists.
-	//
-	// Reactivation: the UPDATE branch below sets is_active = true
-	// unconditionally. A regenerated template that passes all
-	// pre-store quality gates is by definition healthy, and the
-	// most common reason for a component being inactive is "broken
-	// template, awaiting regeneration" (migration 036 set 42 rows
-	// inactive on this basis). Resurrecting an operator-deactivated
-	// component is acceptable here: if the operator wanted it gone
-	// permanently, they'd delete it, not deactivate it.
-
-	if err == nil {
-		isRegeneration = true
+	if isRegeneration {
 		// Find the latest version_number so the snapshot we write gets
 		// MAX+1. Unique index (component_id, version_number) enforces
 		// monotonic numbering.
@@ -273,8 +291,6 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			zap.String("function", functionName),
 			zap.String("existing_id", existingID),
 			zap.Int("current_max_version", existingVersion))
-	} else if err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to check existing component: %w", err)
 	}
 
 	// ── Layer 1 pre-store validation ────────────────────────────────────
@@ -521,6 +537,11 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		// UPDATE in place: preserves component_id so all foreign key
 		// references (page_components, site_components, link_registry,
 		// etc.) keep resolving without any relink step.
+		// section_type self-heal (bugs_open/311): a manually-seeded row can
+		// carry function without section_type, leaving it invisible to the
+		// selector for ever. Every successful regeneration repairs that —
+		// COALESCE so an already-set value is never overwritten (the two
+		// columns legitimately differ on 26 live rows).
 		result, err := params.DB.ExecContext(ctx, `
 			UPDATE content_components
 			SET html_template   = $1,
@@ -528,15 +549,17 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			    js_content      = $3,
 			    is_dark_section = $4,
 			    render_mode     = $5,
+			    section_type    = COALESCE(section_type, $6),
 			    is_active       = true,
 			    updated_at      = NOW()
-			WHERE id = $6::uuid
+			WHERE id = $7::uuid
 		`,
 			htmlTemplate,
 			inputSchemaJSON,
 			nullIfEmpty(jsContent),
 			isDark,
 			deriveRenderMode(inputSchemaJSON), // derived from schema, not hardcoded
+			nullIfEmpty(sectionType),
 			existingID,
 		)
 		if err != nil {
@@ -677,6 +700,10 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 		response["pages_marked_rebuild"] = regenPagesMarked
 	} else if newVersion > 0 {
 		response["new_version"] = newVersion
+	}
+	if ident.Diverted {
+		response["diverted_from_component_id"] = ident.DivertedFromID
+		response["requested_function"] = ident.DivertedFromFunc
 	}
 	return response, nil
 }

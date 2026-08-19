@@ -92,10 +92,18 @@ planner named that section type. The site did not need a new component at all.
    `deploy_tool_action.go` already uses (`tool-llm-cost-calculator-…-webdesign-co-uk`).
    Closes the door: one site's component can no longer block another's, ever.
    Platform-scope, shared seam — needs a council round.
-2. **Make the two keys agree.** Either the selector also matches on `function`
+2. ~~**Make the two keys agree.** Either the selector also matches on `function`
    when `section_type` is absent, or `section_type` is backfilled and made
    NOT NULL for `component_level='section'`. (1) without this still leaves 26
-   unreusable components; this without (1) still lets the writer collide.
+   unreusable components; this without (1) still lets the writer collide.~~
+   > **CORRECTED 2026-08-19 (fix lane): REFUTED by reading the resolution chain
+   > end-to-end — see the 2026-08-19 contribution below.** Path 1 of
+   > `plan_sections` ALREADY matches by `function` (before the selector), so
+   > a function-match fallback adds nothing, and the backfill is a no-op for
+   > guard-passing rows and actively harmful for guard-dropped ones (it turns
+   > a self-healing `not_found` into a `selector_error` → "pass the section to
+   > the content writer as-is" silent degrade). The narrow surviving piece:
+   > the regen UPDATE now self-heals `section_type = COALESCE(section_type, …)`.
 3. **Refuse to deploy a page whose planned sections did not all resolve.** The
    `needs_section_data` item already exists and already says `component_id: ""` —
    nothing reads it as a blocker. This does not fix the cause; it stops the cause
@@ -204,3 +212,76 @@ submission rather than two.
 Not filed as a duplicate and not merged: RFC_036 has an owner direction and a costed path of its
 own, and this file has a `090` verdict and three sites. They should stay separate documents that
 cite each other, which they now do.
+
+## CONTRIBUTION 2026-08-19 (fix lane) — the mechanism refined, candidate 1 BUILT for the section writer, candidate 2 refuted
+
+Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_311_component_keys/`.
+
+### The refinement: the incumbents are found by function and then THROWN AWAY by the template guard
+
+This file's step 2 says the selector's `section_type` key is why the incumbent is never
+reused. That is only the second half of the miss. Read end-to-end, the resolution order in
+`plan_sections` is: Path 0 (stored `page_components` identity) → **Path 1: name/function
+lookup** (`loadSectionComponents`, `v3_site_actions.go`, pass 2 matches
+`content_components.function`, no `component_level` filter) → Path 2 (the selector) → Path 3
+(`needs_new_component`). The incumbents (`function='mortgages-repayment'` etc.) ARE found at
+Path 1 — and then dropped by `componentInfoFromRaw` → `componentTemplateValid` →
+`sectionTemplateValid` (`plan_sections_action.go`), which requires a `</section>` substring.
+All three are hand-seeded (`created_from='manual'`, 2026-08-13/15) **tool-shaped templates
+ending `</script>`** — measured, none contains `</section>`, all >100 chars — so the loader
+reads them as truncated and falls through. THAT drop is what reaches the selector; the NULL
+`section_type` then completes the miss. Independent artefact: work item `3d775f99`
+(2026-08-15) defers with *"stored component 824e3309 … failed the template guard"* verbatim.
+
+Consequence (correction marked at candidate 2 above): **backfilling `section_type` fixes
+nothing** — a guard-passing row already resolves at Path 1 by function; a guard-dropped row
+with a backfilled `section_type` would be SELECTED by the selector and then dropped by
+`loadSingleComponentSchema`, turning `not_found` (self-healing: raises the work item) into
+`selector_error` (silent: *"passing section to content writer as-is"*).
+
+A `090` on this refinement was filed (intake `1306e72c`, run `f1433782`); the run **failed on
+infrastructure** — the fleet's Anthropic API returned *"You have reached your specified API
+usage limits"* at the verdict step (so did the neighbouring run `6f900e18`) — and the intake
+sits at `triaged` for automatic re-dispatch. Stated substitute verification (per the
+2026-07-31 ruling): the verbatim guard message on `3d775f99` naming the exact component id;
+the measured `</section>` absence on all three templates against the guard's
+`strings.Contains` predicate; the resolution chain read function-by-function and cited above.
+
+### What is BUILT (candidate 1, section writer) — commit alongside this note
+
+`resolveStorageIdentity` (`platform/orchestration/actions/component_storage_identity.go`,
+register **CLC-020**): `store_generated_component` now takes a dependent census
+(`page_components→pages` UNION `site_components`) before treating a function-matched row as
+its regeneration target. Foreign dependents → the write DIVERTS to a fresh **base** row
+`<function>-<domainSlug(requester)>` with `section_type` = the requested section name —
+selector-visible, so the requesting page's rebuild links it and later sites REUSE it instead
+of failing (the library heals itself at first collision). Own-site collisions, and callers
+with no `input_data.site_id`, keep today's semantics; base+scoped both foreign refuses
+loudly. The regen UPDATE self-heals `section_type = COALESCE(section_type, requested)`.
+Mutation-proven tests (`component_storage_identity_test.go`): deleting the diversion routes
+the foreign-collision test into an uncovered incumbent UPDATE and fails.
+
+Why NOT `forked_from = incumbent` here (vs. RFC_036 §9.3 at tool level, deliberately
+different): every section selection path filters `forked_from IS NULL`, so a fork is
+invisible to the rebuild that must link it; and the generation is fresh, not the incumbent's
+lineage. At tool level the fork escapes a partial unique index and the deploy path links
+pages itself — the same wall wants different bricks on the two writers.
+
+### Stated plainly, per the cross-lane note: which writer was left alone
+
+**`create_tool_component` (RFC_036's writer) is untouched by this round.** RFC_036 is OPEN,
+its lane proposed no code, and the owner holds a contained interim there. When that half is
+built, `foreignDependents` (CLC-020) is the reusable census. Also left open: candidate 3
+(nothing gates a deploy on planned-sections-present — the silent-ship half the owner saw;
+`check_unresolved_sections` re-arms pages but nothing blocks the deploy), and the three
+tool-shaped section-level incumbent rows themselves (mis-shelved; their sites serve stored
+`rendered_html`; repair belongs to their lane, through the framework per the RFC_034 bar).
+
+### Verification once a chassis image ships this (the file's own recipe, made concrete)
+
+Re-drive one failed `needs_new_component` (loanzy.uk, `loans-credit-health-check`) and
+assert BOTH halves: a new base row `function='loans-credit-health-check-loanzy-uk'`,
+`section_type='loans-credit-health-check'`, AND incumbent `824e3309`'s `md5(html_template)`
+unchanged with its dependents' `content_data` keys untouched; then the loanzy page links a
+non-empty `component_id` after its rebuild. The `COMPONENT_COLLISION_DIVERTED` row in
+`agent_error_log` is the queryable demand signal.
