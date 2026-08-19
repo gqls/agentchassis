@@ -861,3 +861,73 @@ a mislabelled tool page found serving text where its calculator used to be.
 shape" to 95 others. That was true of the two tests I ran and misleading as a conclusion — some of
 those pages are written guides that live in the tools section and are labelled correctly. The real
 comparison is about seventy against eighty-three. Smaller, still real, still harmless.
+
+---
+
+## 2026-08-19, evening — a fix that works, sitting next door to seven jobs that cannot reach it
+
+Picked this lane up cold this afternoon and worked through its own start-of-session checklist. Three
+things happened worth telling you about, and the third is the one that matters.
+
+**First, the small one: I told you the running software had not changed, and it had.** At about
+half past four I checked which version was live, concluded there was nothing new to re-verify, and
+wrote that down. A fresh build went out at quarter past five. You caught it, not me. Nothing broke —
+I have since re-checked the new build properly and everything this lane has shipped is in it — but
+it is worth saying plainly, because "I checked, and it was fine" has a shelf life of about an hour
+on this system, and I wrote it as though it were a settled fact.
+
+While re-checking, I found a better way to do it. We have been proving a new build is live by
+looking inside two of the running programs. It turns out those two are a tiny fraction of what is
+actually running, and the number swings wildly — I counted 57 at one point and 85 ten minutes later,
+and another session counted 22 in the same half hour. All three of us were right; most of those are
+short-lived helpers that come and go constantly. **The reliable check is to ask whether every
+running copy is byte-for-byte the same one**, which is a single command and covers everything at
+once. That is now written down for everyone.
+
+**Second: the ownership fix passed its review.** The change that stops us running an expensive
+writing job on a page we are not allowed to change came back **approved** by the review council,
+second time round, in eleven minutes. Another session is already filing it as closed, which is the
+right call — it works, it is live, and it has been watched doing its job in production.
+
+The council attached three notes of concern. I checked all three rather than accepting them, and
+**two of them were simply wrong.** One reviewer said we had built on top of a known unfixed bug —
+that bug was fixed and closed three weeks ago. Another said our error-handling was written in a
+place the system ignores — the system's own source code says that place is the *preferred* one, and
+has done for some time. The reviewer has it backwards, which matters beyond us: it will keep
+raising the same false objection against anyone who does it correctly. The third concern was fair,
+and led directly to the better verification method above.
+
+I mention this because it cuts both ways. We keep telling ourselves to take review seriously, and
+we should — but "a reviewer raised it" is not the same as "it is true", and both of these took
+about a minute to check.
+
+**Third, and this is the real finding.** There is a class of page defect — stray formatting marks
+showing up as literal asterisks in the text — that another team has just fixed properly. Their fix
+works: I watched seven of these jobs complete successfully this afternoon, one after another, at a
+success rate near ninety per cent. Genuinely good news.
+
+**But seven more jobs, describing exactly the same defect, filed by exactly the same automatic check
+within the same second, cannot reach that fix and never will.** They are pointed at the old, broken
+route. Nothing repoints them: the automatic checker will not re-file them because it can see a job
+already exists for those pages, and the dispatcher will not send them because the old route's track
+record is too poor to trust. So they sit still. In two days' time they will be escalated to a human
+with a message saying "this route keeps failing, someone should test it by hand" — which is true of
+the route they are stuck on, and completely beside the point, because the repair they need is
+already working ten feet away.
+
+This is the exact disease this lane exists to describe: **a real problem, a working repair, and no
+path between the two.** What makes it worth your attention is that it is not a mistake anyone made.
+The team fixing this did everything right. The general rule nobody had written down is that
+**pointing a checker at a better repair only helps the problems it finds tomorrow** — everything
+already in the queue stays pointed at the old one, permanently, and the queue drains so nicely that
+it looks like the whole thing worked.
+
+The fix is one line of database update, and it is not mine to run — those jobs belong to another
+team, and their tooling names them as the owner. I have written the measurement down and flagged it
+so somebody decides before Friday's escalation rather than after. I would rather that decision were
+made deliberately than have a person invited to hand-test a route that has already been replaced.
+
+**Nothing in this lane became closeable today**, and I want to be honest that I did not expect it
+to. The two things blocking us are unchanged: our main bug needs one worked example actually
+repaired rather than merely sorted into the right bin, and the other needs a week of quiet running
+before we can say the door holds. Both have dates. Neither needs building.
