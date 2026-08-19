@@ -1,5 +1,24 @@
 # 317 — the claimed-item-timeout sweep can complete an item with NEITHER completion gate running, because its exclusion list is locked to gate 2 only
 
+
+> ## ✅ FIXED, LIVE and council-APPROVED 2026-08-19 — the contract is now the UNION of both gate rosters
+> Migration `482` applied at 10:03Z and verified at the live column (14 item types, set identical to
+> the declared file; idempotence proven by re-running it; ledger row recorded). The guard moved to
+> `platform/orchestration/actions/claim_timeout_exclusion_lockstep_test.go` as
+> `TestClaimTimeoutExclusionCoversBothCompletionGates` — it had to change package, because
+> `noChangeGates` lives in `actions` which IMPORTS `discovery_checks`, so the second roster was
+> unreadable from where the old guard stood. Council **APPROVED at round 3**, corr `ff58ee4a`
+> (10 reviewers, 2 advisory objections, none high). Registered as **WII-021**.
+>
+> **Rounds 1 and 2 were REVISE and both found something real** — the authoring trap was documented
+> rather than fixed (now a check, mutation-proven by reproducing it), and the migration had verified
+> the rewritten SQL's TEXT but never that it still RUNS. Both are recorded in WII-021.
+>
+> ⚠ **Still latent, and still worth the guard:** 0 of 30 and 0 of 498 completions ever took this
+> path, because both carriers are `enabled=false`. Re-enabling one re-arms it — which is why this was
+> fixed before that decision rather than after.
+
+
 **Filed 2026-08-19** by the `bugfix_302_design_repair_verification` lane, spun out of
 `bugs_closed/302` so it is not lost when that file closes. **OPEN, UNOWNED. Latent — measured
 zero occurrences, filed for the door rather than the damage.**
