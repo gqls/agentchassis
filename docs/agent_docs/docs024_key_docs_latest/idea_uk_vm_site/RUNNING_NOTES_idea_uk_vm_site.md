@@ -5440,3 +5440,34 @@ lane, in short:
   banner added to the 08-16 file. Class C formally retired there (owner ruling 08-17
   keeps funding-fit as-is); class B's "filed" claim flagged again — still no
   `bugs_open/` case exists.
+
+## 2026-08-19 — owner: "the css has made most of the text invisible" — traced, restored, filed (198 round 2)
+
+- **Symptom at the artefact:** served pages use ~20 `--color-*` vars in 130+ places and
+  define NONE — no `:root` anywhere; `/assets/css/styles.css` is 428 bytes holding only
+  four `css-patch-agent 2026-08-17: contrast` rules. Dark-fallback sections
+  (`var(--color-background, #0d0d0d)`) go dark while text vars fail to inherited black;
+  hero hard-codes `--hero-ink:#fff` over a failed background. Hence "most of the text".
+- **Cause (fleet-level, not ours):** css-patch-agent's post-198 deploy ships the whole
+  `css_themes` row; idea.uk's row was EMPTY (the real stylesheet is written only by
+  webdesign-agent runs — bugs_open/072), so the 08-17 21:40–21:41Z wave (4 items, 4
+  vm-sites commits v2–v5) appended patches to '' and deployed 428B over 23,650B.
+  Same wave hit dartsonline/vonc/cookly/noted/oufe. Full write-up: bugs_open/198
+  "ROUND 2" section; LANDMINES entry added + verifier dispatched.
+- **Why nothing caught it:** the workflow verifies only that the DB append took; the
+  git leg accepted a 98% shrink silently; the audit re-detects (1.00:1) but routes back
+  to the same agent (self-amplifying — loancash took 11 items in 8 min on 08-18); and
+  idea.uk was never re-audited between clobber and the owner noticing.
+- **Restore done at the DB, deploy riding the framework:** css_themes v6 (md5
+  `4841523e47aec4e181fc976aaedd1ae6` = local file, byte-identical; guarded UPDATE
+  matched the 428B state's md5). Canary = deferred item `01a4dbca` restored to
+  `detected` (its parked_reason condition — 213 fixed — was met 08-15); one spec key
+  `unparked` added for audit. When css-patch runs it appends the real P.meta fix and
+  deploys the full restored row. **Watch:** `grep -c ':root'` on the served styles.css
+  → 3; vm-sites new commit on `idea.uk/assets/css/styles.css`; item `01a4dbca`
+  complete with attempt_count 1.
+- ⚠ Note for the regrowth question (§X.57 etc.): the four 08-17 "contrast fixes" ARE
+  legitimate and preserved in the restore. Do not strip them.
+- Misstep register: none new — but the 08-18 handoff §1 described the 08-17 drain as
+  healthy throughput; two of those 42 "completions" were the clobber commits. A
+  completion count is not an artefact check, again.

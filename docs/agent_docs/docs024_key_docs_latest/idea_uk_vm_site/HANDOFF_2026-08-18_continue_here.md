@@ -8,6 +8,23 @@ is done or ruled dead; do not work from it.
 Cold-start order: **this file → `HANDOFF_2026-08-16` §4 + §7 → `HANDOFF_2026-08-11` §3
 (RFC_015) → `README_where_we_are.md`**.
 
+> ## ⚠ 2026-08-19 — LIVE INCIDENT FOUND AND RESTORE IN FLIGHT: most text on idea.uk went invisible on 2026-08-17 21:41Z
+> The 08-17 css-patch-agent wave (the four `contrast_failure` completions this file's §1
+> counted as ordinary drain) **deployed the near-empty `css_themes` row over the site's
+> real 23,650-byte stylesheet** — every `:root` colour variable vanished; dark-fallback
+> sections render black-on-black, heroes white-on-white. Fleet-wide defect (6 sites),
+> filed as **`bugs_open/198` round 2** (owned lane notified there; full mechanism, fleet
+> table, per-site recipe). LANDMINE added (`css_themes` footprint).
+> **idea.uk is RESTORED at the DB** (`css_themes` v6, md5 `4841523e…`, base = vm-sites
+> `8c407a18f` + the four legitimate patch rules) and the deploy is riding a single
+> unparked canary item `01a4dbca` (promoter → dispatch → css-patch run ships the full
+> row → live host pulls ~1.5h). **Verify at the artefact before doing anything else
+> here:** `curl -s https://idea.uk/assets/css/styles.css | grep -c ':root'` → expect
+> **3** (currently 0). If the canary sits `detected`/`triaged` for a day, check for a
+> stuck `claimed` row on the site, then the promoter (`detected-item-promoter`).
+> Until it lands, §4's ordering is suspended — this outranks everything.
+
+
 ---
 
 ## 1. What closed since 08-16 — all three verified at the artefact

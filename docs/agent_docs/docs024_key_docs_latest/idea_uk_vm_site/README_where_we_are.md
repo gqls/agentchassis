@@ -2349,3 +2349,30 @@ above. The news feed is still the oldest gap on the site (the page asks for a ne
 that isn't there, and nothing is set up to supply one). The queue is otherwise empty of
 anything waiting to run — the 31 findings sitting there are the kind that name no
 handler, which a different thread already owns fixing fleet-wide.
+
+## 2026-08-19 — why the text went invisible, and where the fix stands
+
+You reported most of the text unreadable. Found it, and it wasn't a design change — the
+site's colour definitions were deleted wholesale on Sunday evening by the platform's own
+CSS repair agent. The site keeps its colours in one shared stylesheet file; a repair
+agent that fixes small contrast problems keeps its own copy of that stylesheet in the
+database, and its copy was empty. On Sunday it made four small (correct!) fixes, and
+then published its nearly-empty copy over the real 24KB file. Every colour rule
+vanished; whole sections ended up black text on black, and the big headline white on
+white. Five other sites were hit the same way the next day. The safety check added
+after the August 4th incident with this same agent only protected the database copy —
+nobody had noticed the database copy and the real file had drifted apart on most sites.
+
+I've put the real stylesheet back (recovered from the site's own git history, with the
+four legitimate fixes kept) into the database copy — so the two now agree — and set one
+genuine queued repair item going, which will make the agent republish the full file
+through the normal pipeline. The live site should recover within a couple of hours of
+that item running; the check is whether the stylesheet the site serves grows from 428
+bytes back to ~24KB. The fleet-wide problem and the fix that stops it happening again
+are filed on the existing bug (198) for the team that owns that agent, including the
+other five sites' recovery recipe — those aren't this thread's to touch.
+
+Worth saying plainly: the framework did detect the damage — its page audit measures
+colour contrast and correctly flagged "1.00:1", which means invisible — but it handed
+the finding straight back to the agent that caused it, which can't restore what it
+never saw. That loop is one of the four things the bug file now asks to be closed.
