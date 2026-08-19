@@ -113,6 +113,16 @@ and archived pages (which deliberately keep `deployed_at`) → predicate on `sta
 with no hash yet → predicate `content_hash IS NOT NULL`, so the check is structurally inert until D2
 has shipped and reports nothing before then.
 
+> **HARD CONSTRAINT, measured on this lane 2026-08-19 — a settle window is NOT sufficient.**
+> I ran candidate 4's own method (origin `last-modified` vs `deployed_at`) across 40 live pages and
+> got a clean, confident **40 of 40 stale**. Every one of them was **fine**: the served bytes matched
+> the current database content, the pages simply had not needed rewriting, and the apparent staleness
+> persisted for **85 minutes** — well past any settle window one would reasonably configure. A sweep
+> built on timestamps, with or without a grace period, would have filed 40 false work items on the
+> fleet's busiest site. **The hash is not an optimisation over the timestamp comparison; it is the
+> only version of this check that works at all**, because "did not need publishing" and "failed to
+> publish" are indistinguishable in every signal the platform exposes today.
+
 Emission: a new item type, per-page dedup key, **no handler agent in v1** — re-filing a rerender is
 the loop that already failed four times; the honest first move is visibility.
 

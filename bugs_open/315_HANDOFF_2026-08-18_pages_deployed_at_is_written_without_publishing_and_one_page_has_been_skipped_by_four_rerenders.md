@@ -299,3 +299,30 @@ ground truth, so that line would have drawn an objection to a proposal to add wh
   substitute plainly: every function above read at source, the workflow graph measured live, 744
   `deploy_result` rows censused over 7 days, 40 pages graded at the artefact with cache-busters, and
   the runner pods' own job logs read. If the loop ever completes and refutes any of this, it wins.
+
+### Addendum, 2026-08-19 — I ran §5 candidate 4's own method and it returned 40 false positives
+
+Worth its own note because it is the cheapest way to get this wrong, and I got it wrong first.
+
+`[MEASURED 2026-08-19]` cache-busted `HEAD` on 40 live deployed pages, comparing origin
+`last-modified` to `deployed_at` — candidate 4 exactly as written. Result: **40 of 40 "stale"**,
+persisting for **85 minutes**, on `webdesign.co.uk`. It looked like a fleet-wide incident.
+
+**All 40 were fine.** The check that settled it: pull `page_components.rendered_html` from the DB,
+cut a 120-char needle from it, fetch the served page cache-busted, `grep -F`. The needle is present —
+**the origin is serving the current database content.** The component had not changed since
+2026-08-15; the origin was last written at 09:33:57 that morning; every rerender since produced
+byte-identical output, committed an **empty commit** (register `DGH-009`), and `b2 sync` correctly
+rewrote nothing. A deploy job even ran at 10:54:06Z and wrote nothing, as it should have.
+
+**So candidate 4 cannot be built on timestamps, and a settle window does not rescue it** — 85 minutes
+had elapsed and the honest answer was still "fine". A sweep built that way files 40 wrong items on
+the busiest site in the estate.
+
+**The generalisable point, which is really §2's point sharpened one more turn:** it took four steps
+and a judgement call to answer *"is this one page correctly published?"*, because *"the bytes never
+changed"* and *"the bytes changed and never arrived"* are **indistinguishable in every signal the
+platform exposes** — same item status, same orchestration outcome, same `deployed_at`, same
+`success: true` from the adapter, same unmoved `last-modified`. **The defect is not that pages fail
+to publish; it is that nothing can tell those two apart.** Which is why candidate 1 is load-bearing
+and candidate 4 is worthless without it.
