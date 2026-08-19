@@ -62,3 +62,58 @@ is only safe after the next build of the system is rolled out and verified, beca
 the resolver's answers today would overwrite good contact buttons on other sites. After the
 roll: verify, throw the switches in order, canary one site, then rebuild the webdesign.uk
 home page through the normal pipeline and check the button by its text.
+
+## 2026-08-19 — the detector is on, the button is not fixed yet, and one thing needs your decision
+
+Short version: the protective machinery we built on the 18th is now running in production,
+two of the three switches are thrown, and the third — the one that actually makes your home
+page button behave — is waiting on you.
+
+**Your button is still wrong, and it told us something useful by staying wrong.** The label
+changed again yesterday morning; it now reads "Read the full terms in our FAQ before you pay."
+and it still dials the phone. That is the fourth different sentence over the same unchanged
+phone link. Whatever writes the words and whatever writes the destination are two different
+things, and only one of them is being updated. That is exactly the fault we diagnosed, so
+seeing it happen a fourth time is confirmation rather than bad news.
+
+**We proved the diagnosis properly this time.** On the 18th we had one build traced in detail.
+Now we have the whole fleet: across every recent page build we could examine, the link
+resolver worked out the right destinations 26 times and **not one of those answers survived**
+to the part of the system that writes the page. Along the way we found a much better way to
+measure it. The resolver also writes a little note recording what each button points AT, and
+nothing else in the system produces those notes — so if the note is missing downstream, the
+answer was thrown away, full stop. That test works even on the builds where the link happens
+to be right already, which the old test could not distinguish from a healthy one.
+
+**What went live today.** The code shipped with the fleet's overnight roll, and we confirmed
+it is genuinely running by asking the running program directly (with a deliberate wrong
+answer included as a control, to prove the question was being answered honestly rather than
+always saying yes). We then switched on the detector that finds this class of fault — it was
+completely blind to phone and email links before, which is why your button never appeared in
+any queue and had to reach your eye instead. We also switched on the part that tells the copy
+writer what a button actually points at, so it can write words that match. That second one is
+correctly doing nothing at the moment, and will keep doing nothing until the third switch is
+thrown — we have written that into the file itself, because otherwise the next person to check
+will see zero and think it is broken.
+
+**What needs your decision.** The third switch is the repair to the hand-off — the one that
+makes the system actually use the link resolver's answers. It is safe now in the sense that
+both protective pieces are live and verified. But it changes how buttons are written on
+**every** site at the moment it is applied, and the sensible thing is to watch one site
+closely as it happens. So: may we apply it and use leopardessconsulting.co.uk as the canary
+(it has four hand-written "contact us" buttons that must survive untouched)? Two smaller
+questions from the 18th are also still open: whether your home page button should end up as a
+phone button with honest wording or as a link to the Brief Starter tool, and confirmation that
+the intended phone number is +44 7934 524 911.
+
+**One broader thing we found, and wrote up for you separately.** While doing the safety check
+that was supposed to gate all this — "is the new code definitely running before we switch
+anything on?" — we discovered the standard way of doing that check does not actually work most
+of the time. The program announces which version it is when it starts up, but that
+announcement scrolls out of the log within a couple of hours, and the alternative check gives
+a confidently wrong answer. We got a "no, your fix is not there" for code that was certainly
+there. Nobody has been harmed by this yet, as far as we can tell, but it means everyone has
+been improvising this check privately. There are 32 places in the system that promise to do
+this check and none that can enforce it. We have written a proposal (RFC_040) to fix it
+properly, and in the meantime written down the reliable method so the next person does not
+have to rediscover it.
