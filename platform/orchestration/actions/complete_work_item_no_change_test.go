@@ -418,3 +418,70 @@ func TestBlockedCompletionReasonDistinguishesNoChange(t *testing.T) {
 		})
 	}
 }
+
+// TestNoChangeRosterMatchesLiveRouting pins a pair that lives in two files and that
+// nothing previously connected: a roster entry's CounterPaths, and the handler the
+// item_type is actually routed to.
+//
+// WHY IT EXISTS (council editquality medium + architecture low, corr 93f7e3ee, on the
+// 2026-08-19 routing change). CounterPaths are a claim about ONE agent's reply shape.
+// The agent is chosen in write_audit_findings_action.go's designRouting, a different
+// file with different reviewers. Change the routing and the entry silently becomes a
+// claim about a handler the type no longer uses — its block arm dies, and with
+// unreadableRefuses declared, every completion is refused instead. The seats' objection
+// was that a comment recording this is "enforced by nobody". Correct, so it is enforced
+// here.
+//
+// The invariant is NOT "these must always agree" — that would forbid the legitimate
+// window between fixing a routing and being able to re-measure the new handler, which
+// cannot be closed until that handler has actually run the type. It is:
+//
+//	they agree, OR the entry DECLARES that they do not and names the new handler.
+//
+// So an entry may be stale, but only out loud.
+func TestNoChangeRosterMatchesLiveRouting(t *testing.T) {
+	// item_type → the categories that produce it, from the live producer map.
+	producingCategories := map[string][]string{}
+	for category, itemType := range designItemTypes {
+		producingCategories[itemType] = append(producingCategories[itemType], category)
+	}
+
+	for itemType, rule := range noChangeGates {
+		if strings.TrimSpace(rule.MeasuredAgainstHandler) == "" {
+			t.Errorf("%s: no MeasuredAgainstHandler — CounterPaths are a claim about one agent's payload, "+
+				"and without naming it nothing can notice when the type is routed somewhere else", itemType)
+			continue
+		}
+
+		categories := producingCategories[itemType]
+		if len(categories) == 0 {
+			// Produced outside designItemTypes (a check, a planner, a direct enqueue).
+			// Nothing to cross-check against, and that is not a defect — but the entry
+			// must still name what it was measured against, which is asserted above.
+			continue
+		}
+
+		for _, category := range categories {
+			routed := designRouting[category]
+			if routed == "" {
+				routed = "component-template-fixer" // the default in the same call site
+			}
+			if routed == rule.MeasuredAgainstHandler {
+				continue
+			}
+			if strings.TrimSpace(rule.LicenceVoided) == "" {
+				t.Errorf("%s: measured against %q but category %q now routes to %q, and the entry does not say so.\n"+
+					"Its CounterPaths describe a handler this type no longer uses, so the block arm is dead and — with\n"+
+					"OnUnreadable set to refuse — every completion would be REFUSED. Either re-measure against %q and\n"+
+					"update Why/CounterPaths/MeasuredAgainstHandler, or set LicenceVoided to declare the gap.",
+					itemType, rule.MeasuredAgainstHandler, category, routed, routed)
+				continue
+			}
+			if !strings.Contains(rule.LicenceVoided, routed) {
+				t.Errorf("%s: LicenceVoided is set but does not name the handler now routed for category %q (%q).\n"+
+					"Whoever reads this entry needs to know WHICH handler it must be re-measured against.",
+					itemType, category, routed)
+			}
+		}
+	}
+}

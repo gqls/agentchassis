@@ -110,6 +110,29 @@ type noChangeRule struct {
 	// completions by accident.
 	OnUnreadable unreadableOutcome
 
+	// MeasuredAgainstHandler names the handler whose reply shape CounterPaths were
+	// measured against. It exists to make a specific kind of silent staleness
+	// IMPOSSIBLE rather than merely documented (council editquality + architecture,
+	// corr 93f7e3ee): CounterPaths are a claim about ONE agent's payload, and the
+	// agent a type routes to is decided in a different file entirely
+	// (write_audit_findings_action.go's designRouting). Change the routing and this
+	// entry silently becomes a claim about a handler the type no longer uses — which
+	// is exactly what happened on 2026-08-19. TestNoChangeRosterMatchesLiveRouting
+	// pins the pair, so the mismatch is a build failure rather than a comment nobody
+	// reads.
+	MeasuredAgainstHandler string
+
+	// LicenceVoided, when non-empty, DECLARES that the routed handler has changed and
+	// that this entry's measurements no longer describe it. It is the honest escape
+	// hatch for the window between "the routing was fixed" and "the entry has been
+	// re-measured against the new handler" — a window that is legitimate (you cannot
+	// measure a handler that has not run the type yet) but must never be silent.
+	//
+	// The roster test requires it whenever the live routing disagrees with
+	// MeasuredAgainstHandler, and requires it to name the new handler. So the entry
+	// can be stale, but only out loud.
+	LicenceVoided string
+
 	// UnreadableWhy is the measurement licensing OnUnreadable: unreadableRefuses,
 	// and is required for it (roster test). It is a SEPARATE field from Why on
 	// purpose: Why licenses "zero counters cannot be a repair", which is a claim
@@ -274,6 +297,15 @@ var noChangeGates = map[string]noChangeRule{
 			"response.fix_result.total_fixed",
 			"response.text_color_result.total_fixed",
 		},
+		MeasuredAgainstHandler: "color-variable-fixer",
+		LicenceVoided: "routing changed to css-patch-agent on 2026-08-19 (owner ruling; " +
+			"write_audit_findings_action.go designRouting[\"dark_section\"]). css-patch-agent emits " +
+			"css_fix/css_deployed and 56 of 103 of its completions carry no response envelope at all — " +
+			"there is NO numeric counter in its shape, so the CounterPaths below are dead and every " +
+			"payload reads as unreadable. Not rewritten because that handler has never run this type, " +
+			"so any CounterPaths would be the guess about somebody else's handler this roster forbids. " +
+			"Re-measure and rewrite, or delete this entry AND its claim-timeout exclusion row, before a " +
+			"carrier is re-enabled (both are enabled=false today).",
 		OnUnreadable: unreadableRefuses,
 		UnreadableWhy: "no unreadable payload this type has ever received was a repair: of the 11 " +
 			"abstain-completions 2026-08-14→08-17, 7 were a SPAWN RECORD (bugs_closed/287, fixed and " +
