@@ -250,3 +250,27 @@ It is written up as `bugs_open/319` with the fix options. The main one is a sing
 raise the answer limit, ideally alongside telling the model to return at most so many suggestions, so
 the ceiling does not just get hit again the next time the library grows. **That is a decision I would
 like from you rather than take myself**, because it costs money per call.
+
+## 2026-08-19 (closing) — fixed, and the fix is confirmed working
+
+You authorised the budget raise, so I wrote the migration, rehearsed it against the live database with
+the final commit swapped for a rollback (it passed, and the live row was untouched by the rehearsal),
+then applied it and re-ran the suggester.
+
+**It works.** The run completed, and the answer came back at **1,761 tokens against the new 6,000
+limit** — under a third of what it is allowed, and *smaller than the average answer before we widened
+anything*. That last part is the interesting bit. The limit was never really the problem: the prompt was
+asking the model to write a justification for rejecting **every single tool it was shown**, which was
+between a third and two thirds of every answer it has ever given. Bounding that to five is what fixed
+it; the bigger budget is just headroom so the next time the library grows we do not land here again.
+
+**One more thing that run showed us, and it is worth knowing.** The model made seven suggestions and
+only **one** of them became a job. Every suggestion for a site is filed under the same identifier, so
+they collide and all but one are quietly discarded — about 72% lost across the runs I checked, and one
+run where all four went. That is the same shape as the bug we set out to fix: real work done, then
+dropped where nobody can see it. It is written up as `bugs_open/321`, and the fix is a setting the code
+already supports.
+
+**The lane is closed.** Two bugs fixed, live and proven; three tickets left standing on their own, none
+of them urgent, all of them cheap. There is a plain-English read-out in
+`SUMMARY_2026-08-19_275_silent_row_caps.md` if you want the whole story in one place.

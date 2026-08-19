@@ -4,6 +4,28 @@
 council-approved and live. Both are essentially done. What remains is **three owed verifications, all
 gated on fleet traffic rather than on work**, plus two new tickets nobody has started.
 
+> # ✅ THIS LANE IS CLOSED — 2026-08-19 10:30Z
+>
+> **Do not continue it. Everything below is history**, kept because the missteps are the useful part.
+> The read-out is `SUMMARY_2026-08-19_275_silent_row_caps.md`.
+>
+> `bugs_closed/275` — fixed, live, **proven at the artefact** (before: 29 tools, 0 past rank 30, highest
+> exactly 30 · after: 80 of 81, 51 past rank 30, highest rank 81).
+> `bugs_closed/319` — the answer budget 275's fix overran; migration **484** live, verified
+> `success=true` with output **1,761 against a 6,000 cap**.
+>
+> **THREE TICKETS STAND ON THEIR OWN — they are not this lane and nobody owns them:**
+>
+> | ticket | what | suggested order |
+> |---|---|---|
+> | `bugs_open/321` | ~72% of tool-suggester suggestions collide on a site-wide `item_key` and are dropped (40 → 11 over 8 runs) | **first** — unblocks value already paid for; remedy already exists in the code (`item_key_suffix_field`) |
+> | `bugs_open/313` → `bugs_open/298` | the internal linker has never made a link in 4 months; the check after its fetch can never be true. 298's cap is meaningless until 313 is fixed | second |
+> | `bugs_open/316` | the news-feed cap serves the alphabet (ranks 1–5 never late, 6–9 always); separately ~2.1× oversubscribed | third; its capacity half is an owner spend decision |
+>
+> **The one habit worth carrying out of here:** when you widen what a model is shown, measure what it
+> says back (`output_tokens` vs that step's `max_tokens`), then check what happens to what it said.
+> Both follow-on defects were one query away the whole time.
+
 > ## ⚠ STATE AS AT 2026-08-19 09:00Z — READ THIS FIRST, THEN THE 08-18 BLOCK BELOW
 >
 > **Build:** `v1.0.1314`, rolled 07:50–07:52Z, verified at the binary (stamp `d3590ca46`; three
