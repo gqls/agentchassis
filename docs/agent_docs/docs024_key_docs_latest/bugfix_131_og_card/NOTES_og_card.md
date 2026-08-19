@@ -910,3 +910,13 @@ citation (line ~12663, `bugs_open/131` → `bugs_closed/131`) + move the memory 
 per MEMORY_closed rules. If the witness instead shows `_verification` ERROR or
 defect_persists on serving artefacts, that is a live verifier defect — do NOT close; file
 it. Redrives verify at the wire + eyeball, as ever.
+
+**(16) 2026-08-19 ~13:00 UTC — close GATE PASSED; executing the move.** Witness item
+`32e169d3` completed with **`result._verification.status='verified'`**, detail "active
+assets row(s) record the published path for [favicon og_card]" — gate 2 fired live for
+this type on a real completion and graded correctly; first ever. loanzy.uk redrive
+`ad5f8d8c` also verified, and the wire agrees: 404→**200/200** (favicon 1,913B, og-card
+29,740B). remortgagecalculator `dc3270dd` still triaged (queue) — its outcome belongs to
+the wire check in 322's verify recipe, not to this close. New build probed: pod
+`agent-chassis-7597f54b9-bfw5n` stamp **`590ca3a20`** (12:38 BST), neighbours miss;
+`c121d5a73`/`7d6f187db`/`e066c9677` all ancestors. Moving the file.

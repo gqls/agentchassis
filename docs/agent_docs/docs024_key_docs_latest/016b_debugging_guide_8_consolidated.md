@@ -12663,7 +12663,7 @@ fell through. The fix shape that closes it: resolve identity from the work
 item's own spec (the producer already knew exactly which instance it filed
 for), never re-derive it from a key the new members do not carry.
 
-### A guard's REFUSAL travels the SUCCESS path — so a mis-routed item completes on the refusal of an action it should never have reached (2026-08-18, `bugs_open/131` og-card slug)
+### A guard's REFUSAL travels the SUCCESS path — so a mis-routed item completes on the refusal of an action it should never have reached (2026-08-18, `bugs_closed/131` og-card slug — CLOSED 2026-08-19)
 
 **Shape.** A router keys on one spec field. A producer omits it. The item falls through to
 the router's default branch, whose guard correctly REFUSES this class of work — and the
