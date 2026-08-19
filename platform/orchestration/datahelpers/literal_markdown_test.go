@@ -132,3 +132,34 @@ func TestStripFromContentDataWalks(t *testing.T) {
 		t.Errorf("markup-bearing value was touched: %q", cd["body_html"])
 	}
 }
+
+// Strip-to-empty cannot manufacture a blank (council 060bcc0a r5,
+// render_guardian): every strip pattern keeps at least one letter/digit of
+// visible text — bold/code/link captures start with [A-Za-z0-9] — and the
+// heading strip deletes only the `#… ` prefix. So if the strip yields "", the
+// input had no letter or digit in it, i.e. it was already displayably empty.
+// Bare image markdown, the case the seat named, keeps its alt text.
+func TestStripToEmptyOnlyFromAlreadyEmptyInput(t *testing.T) {
+	hasAlnum := func(s string) bool {
+		return strings.IndexFunc(s, func(r rune) bool {
+			return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		}) >= 0
+	}
+	inputs := []string{
+		"# ", "## \n### ", "# \n", "**x**", "`1`", "[a](https://e.com)",
+		"![alt](https://e.com/i.png)", "![](https://e.com/i.png)", "# **Bold**",
+		"## `code`", "**`x`**", "# ![alt](https://e.com/i.png)", "---", "   ",
+	}
+	for _, in := range inputs {
+		got, _ := StripLiteralMarkdown(in, true)
+		if got == "" && hasAlnum(in) {
+			t.Errorf("StripLiteralMarkdown(%q) emptied a value that had visible text", in)
+		}
+		if got != "" && !hasAlnum(got) && hasAlnum(in) {
+			t.Errorf("StripLiteralMarkdown(%q) = %q lost every letter/digit", in, got)
+		}
+	}
+	if got, _ := StripLiteralMarkdown("![alt](https://e.com/i.png)", true); got != "!alt" {
+		t.Errorf("bare image markdown = %q, want the alt text kept (%q)", got, "!alt")
+	}
+}

@@ -559,6 +559,32 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// nothing; only [text](url) composites match, which a URL field never
 		// carries). The news resolver additionally strips at source
 		// (queryresolve/news_items.go) so unflagged callers are covered too.
+		//
+		// ALIASING, stated (council 060bcc0a r5, editquality/guardian): the
+		// strip is in place. plan.ResolvedData is a map planSection allocates
+		// fresh per call (plan_sections_action.go, `resolvedData := make(...)`
+		// — the doc_notes correction b6e374fc2 is about exactly this: a fresh
+		// local map per section), and `plan` is this iteration's local. Its
+		// only readers after this line are the render-context merge and
+		// mergedContent below, both in this iteration. Nested values MAY alias
+		// the resolver's per-invocation caches (sourceResolver.specs /
+		// storedContent), whose only other readers are later sections of this
+		// same run — and StripLiteralMarkdown is a fixpoint, so a value seen
+		// twice is stripped once. Nothing outside this action holds a
+		// reference. Callers: rerender_page_sections is run by ONE live step,
+		// page-rerender's rerender_sections (measured 2026-08-19, every step,
+		// any depth); the reason gate reads the dispatching item's spec, which
+		// only the literal_markdown route writes as "literal_markdown".
+		//
+		// STRIP-TO-EMPTY cannot make a new blank (render_guardian r5): every
+		// strip pattern keeps at least one letter/digit of visible text, and
+		// the heading strip removes only the `#… ` prefix — so the only input
+		// that strips to "" had no letter or digit to begin with
+		// (datahelpers/literal_markdown_test.go pins the property). A bare
+		// image token `![alt](url)` strips to `!alt`, not to nothing. And the
+		// stored-content strip above runs BEFORE the required-field pre-check,
+		// whose test is isEmptyContentValue, so an emptied required LLM field
+		// would escalate, not render blank.
 		if shouldStripLiteralMarkdown(params.StepConfig.Config, reason) && plan.ResolvedData != nil {
 			if changed := datahelpers.StripLiteralMarkdownFromContentData(plan.ResolvedData); len(changed) > 0 {
 				for _, f := range changed {

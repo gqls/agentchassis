@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"os"
 	"strings"
 	"time"
 
@@ -330,7 +331,7 @@ func resolveLatestNews(ctx context.Context, db *sql.DB, siteID uuid.UUID, limit 
 		return nil, err
 	}
 	logger.Info("queryresolve: resolved latest_news", zap.Int("items", len(items)))
-	return projectNewsItems(items, false), nil
+	return projectNewsItems(items, false, logger), nil
 }
 
 // resolveNewsArchive backs `source: "query.news_archive"` — the news-index
@@ -347,29 +348,88 @@ func resolveNewsArchive(ctx context.Context, db *sql.DB, siteID uuid.UUID, limit
 		return nil, err
 	}
 	logger.Info("queryresolve: resolved news_archive", zap.Int("items", len(items)))
-	return projectNewsItems(items, true), nil
+	return projectNewsItems(items, true, logger), nil
 }
+
+// newsMarkdownStripDisabledEnv is the redeploy-free kill switch for the
+// markdown strip in projectNewsItems. Set to any non-empty value on the
+// agent-chassis deployment to disarm the strip fleet-wide without a binary
+// roll; the projection then returns to HTML-escaped raw feed text, the exact
+// pre-strip behaviour. Same pattern and same reasoning as
+// DISABLE_UNREGISTERED_HANDLER_DEMOTION (load_work_item_actions.go): ships
+// ARMED — the owner has ruled against default-OFF switches that rot
+// unexercised — and exists because council 060bcc0a round 5 (guardian)
+// objected that an unconditional, fleet-wide lossy transform with no
+// off-switch short of a deploy is a posture this estate does not accept.
+const newsMarkdownStripDisabledEnv = "DISABLE_NEWS_MARKDOWN_STRIP"
+
+// newsMarkdownStripEnabled reads the kill switch. A func, not a package var,
+// so a test can set the env and see the change without process restart.
+func newsMarkdownStripEnabled() bool { return os.Getenv(newsMarkdownStripDisabledEnv) == "" }
 
 // projectNewsItems shapes raw items for template rendering: HTML-escaped
 // text, truncated summaries, display-ready dates. includeTopics mirrors the
 // JSON path's archive-only topics.
 //
-// LITERAL MARKDOWN IS STRIPPED HERE, unconditionally (bugs_open/184, canary
-// finding 2026-08-19): content_feed_items.source_summary is a faithful INGEST
-// record and legitimately carries the source's raw markdown (~700 of 10,855
-// rows measured) — but this projection's output is a PLAIN-TEXT render value
-// fed to text/template, where `# headings` and `[text](url)` reach the visitor
-// verbatim. Producer-local hygiene, the same posture as the EscapeString calls
-// below and directory_items.go's summary escaping: this producer's contract is
-// display text, so markdown syntax is never correct in its output. Strip runs
-// BEFORE truncation — truncating "[Luke Littler](https://…" mid-URL leaves a
-// half-pattern nothing can match. The raw record stays raw; the JSON path's
-// projection is untouched (client scripts own their own rendering).
-func projectNewsItems(items []NewsItem, includeTopics bool) []map[string]interface{} {
+// LITERAL MARKDOWN IS STRIPPED HERE, by default and independent of any step
+// flag (bugs_open/184, canary finding 2026-08-19): content_feed_items.
+// source_summary is a faithful INGEST record and legitimately carries the
+// source's raw markdown (~700 of 10,855 rows measured) — but this
+// projection's output is a PLAIN-TEXT render value fed to text/template,
+// where `# headings` and `[text](url)` reach the visitor verbatim.
+//
+// WHY AT THE PRODUCER, NOT ONLY BEHIND THE STEP FLAG (council 060bcc0a r5/r6):
+// the step-flag strips (render_component's strip_literal_markdown, the
+// reason-gated rerender) only run where a step opted in. page-content-writer
+// has TWO render_component steps over the same merge_with overlay —
+// render_section (flagged ON by migration 474) and render_from_template
+// (template-only sections; flag UNSET, measured live 2026-08-19) — so a
+// template-only section listing news would still receive raw markdown from
+// this resolver. The producer-local strip is what covers the unflagged
+// caller, and it is the only layer that knows the value is display text.
+//
+// PRECEDENT, stated precisely (reuse_agent/architecture seats, r5): the
+// posture — a query resolver sanitises its own display output — is the one
+// this file's EscapeString calls and directory_items.go's projection already
+// take. The BEHAVIOUR is not the same: those escape HTML (loss-free) and do
+// not strip markdown (lossy by design: marker characters are deleted). That
+// asymmetry is why this strip has the kill switch above and the escaping
+// does not.
+//
+// ORDER, verified in code: the tool-key cap and topical dedup
+// (newsTopicalTokens / capNewsItemsPerTool / titleToolKeys) run inside
+// QueryNewsItems on the RAW titles, before this projection is called, so the
+// strip changes no clustering decision. Strip runs BEFORE truncation —
+// truncating "[Luke Littler](https://…" mid-URL leaves a half-pattern
+// nothing can match. The raw record stays raw; the JSON path's projection is
+// untouched (client scripts own their own rendering).
+//
+// OTHER READERS of source_summary, named rather than implied (bug_historian
+// r5): feed_triage_actions.go feeds it to the triage LLM as INPUT — raw is
+// correct there, markdown is data not display; render_rss_feed_action.go
+// emits it on the RSS surface, independently of this projection — a different
+// output with its own (XML) escaping and no literal_markdown detector over
+// it, so it is left alone here and named as the feed-quality follow-up
+// alongside the scraped markdown tables (bugs_closed/184 residuals).
+//
+// OBSERVABILITY: every projection that stripped anything logs the count at
+// Info (the strip is otherwise silent — bug_historian r5). The page-level
+// record is the verifier's: a served page that still scans dirty fails the
+// item honestly.
+func projectNewsItems(items []NewsItem, includeTopics bool, logger *zap.Logger) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(items))
+	strip := newsMarkdownStripEnabled()
+	stripped := 0
 	for _, it := range items {
-		title, _ := datahelpers.StripLiteralMarkdown(it.Title, !datahelpers.HTMLMarkupRe.MatchString(it.Title))
-		summary, _ := datahelpers.StripLiteralMarkdown(it.Summary, !datahelpers.HTMLMarkupRe.MatchString(it.Summary))
+		title, summary := it.Title, it.Summary
+		if strip {
+			var didT, didS bool
+			title, didT = datahelpers.StripLiteralMarkdown(it.Title, !datahelpers.HTMLMarkupRe.MatchString(it.Title))
+			summary, didS = datahelpers.StripLiteralMarkdown(it.Summary, !datahelpers.HTMLMarkupRe.MatchString(it.Summary))
+			if didT || didS {
+				stripped++
+			}
+		}
 		m := map[string]interface{}{
 			"title":   html.EscapeString(title),
 			"summary": html.EscapeString(truncateSummary(summary, 200)),
@@ -387,6 +447,11 @@ func projectNewsItems(items []NewsItem, includeTopics bool) []map[string]interfa
 			m["topics"] = topics
 		}
 		out = append(out, m)
+	}
+	if stripped > 0 && logger != nil {
+		logger.Info("queryresolve: stripped literal markdown from news items",
+			zap.Int("items_stripped", stripped),
+			zap.Int("items", len(items)))
 	}
 	return out
 }
