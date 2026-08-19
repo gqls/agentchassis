@@ -161,3 +161,46 @@ site creates a function name first owns it, and every later site ships that tool
 
 No `090` filed: the mechanism is already proven in this file with a control; this contribution
 asserts only an occurrence, its incumbent, and its served consequence, each read directly.
+
+## CROSS-LANE 2026-08-19 — `RFC_036` is THIS WALL at the tool level, with the fix already written out, and neither file knew about the other
+
+`architecture_review/RFC_036_tool_function_uniqueness_is_fleet_wide_but_tool_identity_is_per_site.md`
+(filed independently, `webdesign_uk` tool-rebuild lane) states the same underlying design fact
+this bug is an instance of: **a component's `function` is unique fleet-wide while its identity
+is per-site.** As of this note, `grep 311` in RFC_036 and `grep 036` in this file both returned
+**0** — two lanes walked into the same wall from opposite ends and neither could see the other.
+
+**They are NOT the same defect, and it matters which you are looking at** [MEASURED 2026-08-19]:
+
+| | this bug (311) | RFC_036 |
+|---|---|---|
+| `component_level` of the blocked rows | **`section`** | **`tool`** |
+| what refuses | the **regeneration field-contract guard**, `store_generated_component_action.go:397-412` | the **unique index** `idx_cc_tool_function_unique` (`WHERE component_level='tool' AND forked_from IS NULL AND is_active`) |
+| the writer | `store_generated_component` | `create_tool_component` |
+| how it presents | `needs_new_component` **`failed`**, section left with `component_id=''` | a **`complete`** work item (RFC_036 §title) |
+
+Confirmed by querying the incumbents directly: `mortgages-repayment`,
+`loans-credit-health-check` and `loans-car-finance-calculator` are all
+`component_level='section'`, so `idx_cc_tool_function_unique` — which is partial on
+`component_level='tool'` — **cannot** be what refuses them. Conversely
+`tool-ab-test-calculator` and `tool-meme-generator` are `tool`-level and are not touched by the
+schema-field guard.
+
+**The remedy is the same shape in both, on two different writers, and that is the point.**
+RFC_036 §9.3 says: before the INSERT in `create_tool_component_action.go`, look up a library
+tool claiming this `function` and, if one exists, **set the new row's `forked_from` to its id** —
+because a site-specific build of a tool the library also offers *is* a site copy, which is what
+`forked_from` means everywhere else, and `deploy_tool_to_site` already creates exactly that shape
+(`deploy_tool_action.go:294-312`). **That is fix candidate 1 of this file, written out by
+someone else for the neighbouring writer.**
+
+**So whoever builds either should build both**, or say plainly which writer they left alone.
+Fixing `create_tool_component` and not `store_generated_component` leaves 311 live for every
+section-level tool — which is the 7-of-7 case on `loanzy.uk` and the calculator page serving
+**zero `<input>` elements** recorded in the contribution above. Both are shared-seam changes on
+the component write path: **council gate + a chassis roll**, and they would sensibly go as one
+submission rather than two.
+
+Not filed as a duplicate and not merged: RFC_036 has an owner direction and a costed path of its
+own, and this file has a `090` verdict and three sites. They should stay separate documents that
+cite each other, which they now do.
