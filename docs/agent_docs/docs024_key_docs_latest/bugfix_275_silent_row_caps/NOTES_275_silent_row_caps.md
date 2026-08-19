@@ -891,3 +891,47 @@ looks exactly like a slow one:
 prompt must contain tools ranked **past 30** by `display_name`, ranked against the library **as it stood
 at the prompt's timestamp**. For this site the eligible library is **79 tools, 49 of them past rank 30**,
 so a post-fix prompt cannot pass by accident and a pre-fix one could not have passed at all.
+
+### 2026-08-19 09:44Z — the dispatch: proof obtained, regression exposed, and three dead ends before the message landed
+
+**Three failed dispatch attempts, all instructive:**
+
+1. **The work-item route was a dead end on the clock.** Filed the item correctly (framework shape,
+   `status=detected`), verified every gate — promoter doors all pass, 10 eligible ahead of it against a
+   20-per-tick limit — and then read the *dispatcher's* ordering: `ORDER BY wi.created_at ASC … LIMIT 1`,
+   **one site per 60 s tick, oldest work item first**. My item was the newest of **158**. ETA ~9 hours at
+   the observed drain rate (18/hour) — and worse than that, `build-pipeline-trigger` was returning
+   `complete_idle` while those 158 waited, because the two sites holding them were excluded (one had a
+   live claim). **Checking that a queue will reach you is a different question from checking you are
+   validly in it, and I only asked the second.**
+2. **The documented direct-dispatch script is stale.** `140_tool_suggester/076_tool_suggester.sh` (March)
+   uses `correlation_id:tool-eval-gas-001` — a non-UUID. `orchestration_states.correlation_id` is a `uuid`
+   column now, and the message was dropped.
+3. **A UUID was not enough either.** The chassis logged
+   `validation/validator.go:81 "Incoming message missing required fields"` and discarded it.
+   `ValidateIncomingMessage` requires **`client_id`, `correlation_id` AND `orchestration_id`**; the old
+   script supplies only the first two. Working header set copied from `082_submit_domain_unified.sh`,
+   which is current. **The tell was cheap and I nearly missed it: grep the chassis log for your own
+   correlation id within ~60 s of publishing — 5 lines on one pod, and the warn was one of them.**
+
+**Then it ran, and both results matter.**
+
+**✅ The proof.** Prompt at 09:44:26Z: **80 of 81** eligible library tools present, **51 past rank 30**,
+highest rank **81** (`Your notes from the old Noted`), truncation marker present. Against the recorded
+"before" half — 29 tools, 0 past rank 30, highest exactly 30 — the disconfirming pair is complete and
+275 is proven at the artefact.
+
+**❌ The regression.** The same call died on `stop_reason=max_tokens`: output hit the step's own 3,000
+cap, 11,090 chars recovered and discarded, step FAILED. **275's fix caused it** — 2.7× the menu means a
+longer answer. Filed as `bugs_open/319`.
+
+**The number that should have been read before migration 445 shipped:** across 59 historical
+`suggest_tools` calls, output tokens ran 1,178–2,921 against a 3,000 cap — an all-time high-water mark of
+**97.4%**, with 5 calls within 15% of the ceiling, *before* the library was widened. One query. This lane
+measured the prompt per column to find that `description` was 80% of the payload, and never once asked
+what the answer costs. **Bounding an input can move the failure to the output budget.**
+
+**Blast radius of the dispatch itself: nil.** The step failed before `create_items_loop`, so **zero
+`add_tool` items** were created on `gamesdesign.co.uk`. Both work items I filed are `cancelled`. The
+platform failed closed — the `output_tokens == max_tokens` rule is why one run was enough to find this
+rather than weeks of quietly odd suggestions.

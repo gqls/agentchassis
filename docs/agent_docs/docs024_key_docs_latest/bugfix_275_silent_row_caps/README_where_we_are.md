@@ -219,3 +219,34 @@ anyone does*. Those are two different decisions and I have written both up as `b
 fix the internal linker (which has never once produced a link in four months), whether to make the feed
 queue fair and/or bigger, and whether to keep waiting for the one proof that is still outstanding on the
 original bug. None of them are urgent in the sense of anything being on fire; all of them are cheap.
+
+## 2026-08-19 (later) — the proof worked, and it broke something
+
+You asked me to stop chasing the log warning and to trigger the tool-suggester deliberately rather than
+wait for it. Both done, and the second one turned up something I did not expect.
+
+**The good half.** The suggester ran, and the fix is now proven at the thing itself rather than at the
+configuration. The old version showed the model **29 tools, none ranked past thirtieth alphabetically**.
+The run this morning showed it **80 tools, 51 of them past that line**, right down to the last name in
+the alphabet. That is exactly the pair of results the bug asked for, and it is the strongest form of
+evidence available — one measurement that could only have come out this way if the fix works, against a
+recorded one from before that could only have come out the way it did if it was broken.
+
+**The bad half, and it is ours.** The same run then failed. Giving the model a menu nearly three times
+longer made its answer longer too, and the answer ran into a size limit that nobody had raised. The step
+stopped with an error rather than saving a half-finished answer — which is the system behaving correctly,
+and it is the only reason we found this in one run instead of noticing odd tool suggestions weeks later.
+
+I want to be straight about this: **the fix we shipped last week caused it**, and the warning sign was
+readable beforehand. Across the 59 previous runs the answers had come within 3% of that limit at their
+peak, while the menu was a third of the size. Anybody who had looked at that number before widening the
+menu would have raised the limit in the same change. We measured the question we were asking about very
+carefully — how big the prompt was — and never asked what the reply costs.
+
+**Nothing was damaged.** No tools were added to the site, no half-written suggestions were saved, and
+both queue entries I created are cancelled.
+
+It is written up as `bugs_open/319` with the fix options. The main one is a single configuration value —
+raise the answer limit, ideally alongside telling the model to return at most so many suggestions, so
+the ceiling does not just get hit again the next time the library grows. **That is a decision I would
+like from you rather than take myself**, because it costs money per call.
