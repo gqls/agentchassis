@@ -677,3 +677,78 @@ and I had only checked the columns I intended to set. The agent-definition INSER
 committed by then (no explicit transaction, so statements autocommit), which is why the teardown
 deletes both independently rather than assuming they arrived together. **Check `is_nullable='NO' AND
 column_default IS NULL` for the whole table before an insert, not just the columns you plan to fill.**
+
+---
+
+## 2026-08-19 — the owner's five decisions, and what each turned into
+
+| # | ruling | what shipped |
+|---|---|---|
+| 1 | route `dark_section` to a capable handler | `designRouting["dark_section"] = "css-patch-agent"` (`ab61b6bc5`), council corr `93f7e3ee` |
+| 2 | keep the carriers off for now | nothing to build — but it makes 1 and 3 **inert**, which is why 3 was done first |
+| 3 | fix `317` | migration `482` applied + verified live, guard widened and moved package (`29670a50f`), r1 REVISE → r2 `ff58ee4a` |
+| 4 | RFC_017 option 3 — not yet | nothing; the retry cost still has not shown up in the numbers |
+| 5 | `needs_design_review`: the analysis IS the deliverable; take `spacing_fix` | both recorded AT the roster (`710ec0738`) |
+
+### Decision 5 came out NEGATIVE, which is the useful kind
+
+`spacing_fix` **must not** get a roster entry, and the measurement is decisive rather than
+marginal: [MEASURED archive-inclusive] of 247 completions, **226 carry `fixed=false` with
+`reason: "already has flex CSS"`** and 21 carry `fixed=true`. A zero-change run there is an
+idempotent repair finding its work already done — the legitimate success gate 1b's own header
+names. Gating it would have blocked 226 correct completions. `responsive_fix` measures the same way
+(72 × "already has responsive CSS"). Its report is also a **boolean**, so it could not have used
+`CounterPaths` regardless — `lookupNumericPath` reads a bool as not-present, and every row would
+have read as unreadable.
+
+**The contrast is now recorded at the roster, because it is the whole case for per-type opt-in:**
+`dark_section_audit` and `spacing_fix` report the SAME shape — "I changed nothing" — and mean
+OPPOSITE things. One cannot touch the defect; the other found the CSS already correct. Nothing but a
+measurement per type separates them, which is why this roster can never be applied by analogy.
+
+### Decision 1: how the target was chosen, including the candidate I rejected
+
+The findings ask for **scoped CSS blocks defining section tokens** (live `spec.suggestion`: *"add a
+scoped style block for `.cta-section` that defines `--section-text: #ffffff` …"*). That is an
+additive stylesheet rule. `color-variable-fixer` rewrites dark hex literals inside component bodies
+and its whole output alphabet is `var(--color-primary)`/`var(--color-secondary)` — hence 26 of 26
+completions across 17 sites reporting zero repairs.
+
+- **Chosen: `css-patch-agent`.** Its workflow *is* the job (`load_current_css → plan_css_fix →
+  save_css_to_db → deploy_css`), it already carries the sibling `contrast_failure` workload, and
+  capability was confirmed **at the artefact**: 39 completions carry a git-adapter response
+  deploying `assets/css/styles.css`, most recent 2026-08-18.
+- **Rejected: `webdesign-agent`**, which takes every *other* colour category and was the
+  consistency-argument choice. [MEASURED] all **1,268** of its `needs_design_review` completions
+  carry **no response envelope at all** — and the owner ruled the same day that for that type the
+  analysis IS the deliverable. Routing a repair need at an analysis producer is the mistake being
+  fixed, wearing different clothes.
+- **Risk stated first, not left for a reviewer:** `css-patch-agent` has an OPEN bug
+  (`bugs_open/198`, stylesheet clobber). Both its guards are live (migration 318; chassis
+  `v1.0.1277`, pod-verified) and that file's own last note says only the witnessed run keeps it
+  open; 98 completions since with no recurrence.
+
+### ⚠ And decision 1 VOIDS gate 1b's licence for this type — recorded, not quietly left
+
+The roster entry's `Why` and `CounterPaths` describe `color-variable-fixer`. `css-patch-agent` emits
+`css_fix`/`css_deployed` and **56 of 103 completions carry no response envelope at all** — there is
+**no numeric counter in its shape**, so the block arm is dead and every payload would read as
+unreadable. I did not rewrite the entry, because I cannot write a justified one: that handler has
+never run this type, so any `CounterPaths` I invented would be exactly the guess about somebody
+else's handler the roster forbids.
+
+**Left in place deliberately**, with the reasoning at both code sites: its failure direction is a
+REFUSAL (safe, non-destructive, routed to human review), and removing it would drop the type out of
+the claim-timeout exclusion list — reversing a live change under review, to no benefit while there
+is no traffic. **The precondition is written where it will be met: before a carrier is re-enabled,
+re-measure and rewrite the entry, or delete it together with its exclusion row.**
+
+### A by-product worth its own bug: `cta_improvement`
+
+While measuring `spacing_fix` I found the same 302 class at 18× the scale. [MEASURED,
+archive-inclusive] `cta_improvement` has **993 completions across 22 sites**, all handled by
+`component-template-fixer`, and **468 of them carry `fixed: false` with `reason: "fix_type requires
+LLM-driven changes, not programmatic"`** — the handler saying, in its own payload, that it cannot do
+this kind of work. Not "already done". ⚠ **NOT yet established:** whether the LLM work happens by
+another route (there is no second handler for the type, but a differently-typed item could carry
+it). Filed rather than asserted.
