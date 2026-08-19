@@ -432,3 +432,45 @@ none high; round 1 was REVISE and both its conceded defects are fixed in `e066c9
 `input_contract` is `{}` — neither the pre-existing `spec.mode` reads nor 467's
 `spec.purpose` read is declared; declare both together after reading how `input_contract`
 is enforced (measured + reasoning in the lane NOTES (13)).
+
+---
+
+## CLOSED 2026-08-19 — fixed AND live, each diagnosed mechanism verified at the artefact
+
+**The headline defect** ("every page advertises a social preview image that does not
+exist") **is gone on every site it was filed against, and the mechanisms that produced it
+are each closed at source, live, and witnessed:**
+
+- **The generator existed all along** (07-28 finding) and is reachable; relojistas piloted
+  it in 18 seconds.
+- **The mis-route** (08-17 finding: items filed without `spec.mode` fell through to a
+  refusing deploy branch and completed on the refusal) is closed at all three doors —
+  producer emits the mode (`c121d5a73`), a completion verifier gates the item type (same
+  commit + 220/468 lockstep), and migration 467's last-in-chain purpose fallback routes
+  stragglers (WITNESSED via proof item `8c964f93`, whose result records every mode check
+  declining then `check_brand_head_purpose → derive_head_assets, derived:true`).
+- **Live per the binary, not the tag** (2026-08-19): chassis pod stamp `d3590ca46`;
+  `git merge-base --is-ancestor` confirms `c121d5a73`, `7d6f187db`, `e066c9677` all in the
+  running binary. Council trail: round 1 REVISE (both conceded defects fixed), round 2
+  **APPROVED** 12/12, corr `85afbafc-9daa-4a7b-808d-cbfef9f9af05`.
+- **Fleet census 2026-08-19 (wire, all 26 domains with deployed components):** 18 public
+  sites serve both artefacts 200 (was 2 of 14 on 2026-07-28); webdesign.uk 302s to its
+  twin; 2 `.internal` pool domains out of scope.
+
+**The residual 404s are OTHER bugs' mechanisms, routed there rather than kept here:**
+- loanzy.uk + remortgagecalculator.uk: active logo, but NO brand-head item ever filed —
+  the no-recurring-discovery gap (`bugs_open/230`). Redriven 2026-08-19 (items `ad5f8d8c`,
+  `dc3270dd`) using this file's own runbook shape.
+- loancalculator.co.uk, loanandmortgagecalculator.co.uk, loancash.co.uk: **no active
+  `logo` asset** — the deriver's stated precondition. That is `bugs_open/210`'s
+  (needs_logo slug) population; a brand-head redrive without a logo now fails closed,
+  visibly, by design. (Corrects this file's 08-18 note that left loancalculator "the
+  one-liner": logo first.)
+
+**The still-open defects documented in this file moved to `bugs_open/322`** (brand head
+block is page-blind and ungated): the emitter cluster — page-blind `og:url`/no canonical,
+bare-domain `og:title`, skipped `og:description`, the unconditional `og:image` tag (with
+the leopardess row-gate landmine restated), the `rel="icon"` skip that muted
+webdesign.co.uk — and the square-favicon-source gap (wide-logo sites illegible at 16px).
+All re-verified present in current code on the day of the split. Detector blindness and
+the sibling lock gap were long since spun out (`bugs_open/142`, `143`).

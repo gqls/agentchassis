@@ -860,3 +860,53 @@ automatically.** Advisory triage:
 - Housekeeping: my WRONG_CALLS entry from earlier tonight rode the 302 lane's commit
   `38c776f65` as a same-file passenger (benign, documented shape), so my `76cc277f1`
   message names a file it does not contain. Nothing lost; noting for the next reader.
+
+---
+
+## (14) 2026-08-19 — the roll landed: Go halves PROVEN LIVE per service; fleet census; the loan-family tail
+
+**Deploy proven at the artefact, not the tag.** The chassis provenance line had scrolled
+(known: startup line, pods started 07:52/08:05 UTC and the log window had rotated), so the
+binary probe: `grep -aq <sha> /proc/1/exe` on pod `agent-chassis-65445946fd-l5h6l` found
+the stamp **`d3590ca46` (2026-08-18 22:17)** with the adjacent candidate shas MISSING
+(discriminating hit — the neighbours are the absent-controls). Ancestry:
+`git merge-base --is-ancestor` says **`c121d5a73`, `7d6f187db`, `e066c9677` are ALL in the
+running binary** — the producer mode fix and `VerifyBrandHeadAssetsResolved` are live.
+Witness item `32e169d3` (lendzy, mode shape, artefacts already 200) filed to observe
+`result._verification.status='verified'` — the first live firing of completion gate 2 for
+this type; result pending at time of writing.
+
+**Fleet census (all 26 domains with deployed page_components, wire, 2026-08-19):**
+18 public sites serve 200/200; webdesign.uk 302→webdesign.co.uk (covered); 2 `.internal`
+pool domains out of scope; **5 loan-family sites serve 404/404** — loancalculator.co.uk,
+loanandmortgagecalculator.co.uk, loancash.co.uk, loanzy.uk, remortgagecalculator.uk.
+
+**The 5 split into two different residuals, neither of them this bug's mechanism:**
+- **loanzy.uk + remortgagecalculator.uk have active logos and ZERO brand-head items ever
+  filed** (live + archive) — the no-recurring-discovery gap (`bugs_open/230`), not the
+  mis-route. Redriven by this lane: items `ad5f8d8c` / `dc3270dd`
+  (`created_by='claude-bugfix131-brandhead-20260819'`). loanzy's active build lane
+  (transcript-verified, working the one-shot build route) is untouched by this — the
+  deriver writes only the two artefact paths.
+- **loancalculator.co.uk, loanandmortgagecalculator.co.uk, loancash.co.uk have NO active
+  `logo` asset** — the deriver's precondition is absent, so a brand-head redrive would now
+  fail-closed (correctly, visibly, thanks to the verifier). Their remedy is a LOGO first —
+  `bugs_open/210` (needs_logo slug) territory and their lanes' brand work.
+  > **CORRECTED (from (11b)/bug file):** yesterday's note left loancalculator "the runbook
+  > one-liner" — WRONG as a remedy: its 2 `deferred` items are logo-blocked, and the
+  > one-liner would burn to `failed`. Logo first; the one-liner second.
+
+**(15) 2026-08-19 ~11:30 UTC — CHECKPOINT, close staged but NOT executed.** The 131 og-card
+file carries its CLOSED section and `bugs_open/322` holds the spun-out residuals, but the
+**file move to bugs_closed/ is deliberately held** on one gate: witness item `32e169d3`
+(lendzy, mode shape) must complete with `result._verification.status='verified'` — the
+first live firing of gate 2 for this type. It and the two loan-site redrives (`ad5f8d8c`
+loanzy, `dc3270dd` remortgagecalculator) sit `triaged`, unclaimed: dispatch is slow
+fleet-wide right now (60 triaged, oldest 2026-08-18 13:47 — the dispatch_throughput lane's
+subject, not ours). When they run: witness verified → execute the move (`git mv`, BOTH
+paths on the commit, verify at HEAD: `git ls-tree -r --name-only HEAD -- bugs_open/
+bugs_closed/ | grep og_image` → exactly one line, in bugs_closed) + repoint the 016b §9
+citation (line ~12663, `bugs_open/131` → `bugs_closed/131`) + move the memory index line
+per MEMORY_closed rules. If the witness instead shows `_verification` ERROR or
+defect_persists on serving artefacts, that is a live verifier defect — do NOT close; file
+it. Redrives verify at the wire + eyeball, as ever.
