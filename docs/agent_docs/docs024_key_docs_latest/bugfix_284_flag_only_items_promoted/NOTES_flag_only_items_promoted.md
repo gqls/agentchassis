@@ -566,3 +566,33 @@ for, and it keeps getting stronger on its own.
 completion since 2026-08-17 19:00, 2 `failed` (both the transient deployer timeout, not
 the 404), 4 assets created in 24h, and `image_url_404` still shows **41** open findings —
 the census population is unchanged. That lane's queue, not this one's.
+
+## 2026-08-19 — fourth roll (v1.0.1314), and the cleanest reading this lane has taken
+
+Label method again, digest matched to the pods first:
+
+```
+revision = d3590ca4638d49bb6a3874db681814c4b0a99bbe   (created 2026-08-19T07:26:52Z)
+RepoDigests contains sha256:d0257576…  ==  the pods' imageID
+```
+
+`git merge-base --is-ancestor` vs `d3590ca4`: **284 guard IN · unification IN · comment
+repair IN**. Unshipped backlog **3 commits** — the fleet is essentially current
+(215 → 42 → 28 → 3 across four rolls).
+
+| check | reading |
+|---|---|
+| handler-less rows in `blocked` | **0** |
+| **rows in `blocked` FLEET-WIDE, any cause** | **0** |
+| flag-only rows held at `detected`/`deferred` | **722** |
+| `swi_no_handlerless_promotable` | `convalidated = true` |
+| `hitl-review` blocked (`291`) | **0** |
+
+The second row is new and is the strongest statement available: the `blocked` state is
+**empty across the whole estate**, while 722 rows that the pre-fix promoter would have
+put there sit correctly parked. Four rolls, no regression, and the population that proves
+the guard discriminates has held steady around 700.
+
+**Lane closed on this evidence.** The reopen conditions are written into
+`HANDOFF_2026-08-18b_bugfix_284_lane.md` §8 as four specific readings, so a future session
+does not have to reconstruct what "still fine" looks like.

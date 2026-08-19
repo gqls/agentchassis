@@ -36,7 +36,8 @@ function, so the bad outcome is unreachable rather than merely unlikely.
 | Born-dispatchable hole | **CLOSED** | migration `443`, CHECK `swi_no_handlerless_promotable`, `NOT VALID` then `VALIDATE`d, induced with two negative controls |
 | Council | **APPROVED** round 2, verdict read | corr `c22998e8-41df-4145-a7b9-f132a7c77426`; all 4 advisories answered |
 | Owner tie-break (predicate copies) | **RULED (a) and LIVE** | `10fc61184`; one definition fleet-wide; register **WDS-017** |
-| Standing check today | **0 blocked / 723 flag-only held** | see NOTES 2026-08-18 |
+| Standing check, re-measured 2026-08-19 on `v1.0.1314` | **0 blocked FLEET-WIDE of any cause / 722 flag-only held** | see NOTES 2026-08-19 |
+| **Lane status** | **CLOSED 2026-08-19 — nothing left on it; do not staff it** | §8 below |
 
 **The standing check, and the control that makes it mean anything:**
 
@@ -166,3 +167,34 @@ rolls since: 215 → 42 → 28 unshipped.
 4. Do not repair `image_url_404` rows expecting them to self-clear — that check has **no**
    `CheckResult.Resolved` arm (0 sites, versus 1/1/5 for its three flag-only siblings), so
    its rows stay open until a human acts. Not a fault of the guard.
+
+
+## 8. LANE CLOSED 2026-08-19 — the conditions that would reopen it
+
+Everything this lane existed to do is done, verified and live across **four** chassis
+rolls (`v1.0.1305` → `1307` → `1309` → `1314`). No session should sit on it. The
+directory stays as the record; the five standing docs are complete and the bug is in
+`bugs_closed/`.
+
+**Reopen ONLY on one of these, and each is a specific reading, not a hunch:**
+
+1. `SELECT count(*) FROM site_work_items WHERE status='blocked' AND handler_agent='';`
+   returns non-zero — quote the flag-only population beside it (§2) or the number means
+   nothing.
+2. `swi_no_handlerless_promotable` disappears or shows `convalidated = false`
+   (`SELECT conname, convalidated FROM pg_constraint WHERE conname='swi_no_handlerless_promotable';`).
+3. A fourth rendering of the agent-registration predicate appears — i.e. anything other
+   than `discovery_checks.HandlerRegisteredSQL` computing "does this handler exist".
+   `grep -rn "FROM agent_definitions" --include='*.go' platform/ internal/ | grep -i exists`
+   should show only that function and the core-manager admin API (a different binary,
+   different question).
+4. `improvement-sweep` is re-enabled — not a defect, but it is the first time this guard
+   runs on its own cadence rather than by single-step dispatch, so the first sweep is
+   worth watching once (`not_promotable` should be non-zero on any site holding flag-only
+   findings; today that is most of them).
+
+**Everything else that came out of this lane belongs elsewhere and is written up there:**
+`bugs_open/114` (the image census + the `page_type='content'` surface-list gap),
+`bugs_open/131` (favicon/og-card), `bugs_open/227` (the owner-raised row's one-field
+routing, held by the owner's decision until 227's prompt fix lands), and `bugs_open/291`
+(filed by this lane, fixed by another, arm reads 0).
