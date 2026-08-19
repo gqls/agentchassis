@@ -147,3 +147,59 @@ happily. The note had been wishful thinking, and if I had not tried it, we would
 had a protection that existed only in a comment. I fixed the test, re-ran the deletion,
 and it now fails as it should. I mention it because "we have a test for that" is exactly
 the sort of reassurance that is worth spending two minutes verifying.
+
+---
+
+## 2026-08-19, evening — it is running, and 26 pages have real descriptions
+
+The release went out this afternoon and carried everything. I checked that properly rather
+than trusting the version number: the image the servers are actually running matches the
+one built locally, and the four changes are all inside it. I also asked the running program
+directly whether it contains the new code, with a deliberate wrong answer mixed in to prove
+the question could come back "no". It could.
+
+Then I ran it on one small site before letting it near anything of yours. **That was worth
+doing, because the first run was broken in a way nothing would have told us about.** It
+reported success. It finished cleanly. It wrote nothing at all, and it would have gone on
+reporting success while writing nothing across every site.
+
+The cause is worth knowing because it is embarrassing in a useful way. A step that fetches
+a list of pages can return that list in two shapes, and only one of them carries a count.
+Mine used the shape without a count, and the next step asked "is the count greater than
+zero?" — which quietly answered no, forever. **This is a bug already on file here, and I
+walked into it by copying an existing agent as my model — the very agent the bug was filed
+against.** Copying working code copies its faults.
+
+The second problem the test run found: I was about to hand the writer the raw page markup,
+which on most of these pages is mostly stylesheet. It would have been asked to describe a
+page from its CSS. It would have produced something confident and wrong, and the quality
+checks cannot catch a sentence that reads well but is about nothing.
+
+Both are fixed, and now it works. On the small site, 11 of its 13 pages have descriptions.
+The two that don't have no content on them at all, so it correctly declined to invent
+something rather than making it up. On fundamentallyai.com, 20 of 25. **Including all five
+of the pages that were blocking your Platform Log index.**
+
+The writing is good. A sample: *"Lending terms explained in plain English so you know what
+you're agreeing to before you sign."* That is the house style guidance doing its job — plain
+words, a contraction, no dash, and it starts with what the reader gets instead of announcing
+itself.
+
+I also proved it will not overwrite anything. Running it a second time touched only the one
+page still missing a description and left the others completely alone.
+
+### One thing I want to flag rather than bury
+
+The descriptions are coming out **shorter than I asked for** — about 102 characters against
+a target of 120 to 155. Harmless for search results, which simply print what is there. But
+it matters for your Platform Log page specifically: that page refused to rebuild because
+the new version was less than half the length of the old one, and the sum I did earlier
+assumed descriptions around 157 characters. At 102 the margin is thinner, so **I do not yet
+know whether that page will now rebuild.** I have not claimed it is fixed. The way to find
+out is to trigger the rebuild and look, which is the next step rather than a guess.
+
+### Where the numbers stand
+
+Fleet-wide we have gone from 407 pages with no description to 381. That is only two sites
+done. The rest is one command per site, and the biggest are webdesign.co.uk with 78 and
+loancalculator.co.uk with 43.
