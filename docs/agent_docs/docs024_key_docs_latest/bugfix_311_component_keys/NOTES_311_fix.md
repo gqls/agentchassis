@@ -123,3 +123,23 @@ with what was DONE about each:
   `needs_rebuild`; `check_unresolved_sections` keeps re-arming deployed pages because the
   incumbent matches by function — the exact loop that today livelocks becomes the
   convergence engine once the diverted row exists. RUNBOOK also scripts a manual re-drive.
+
+## 2026-08-19 — the re-run 090 verdict: UNVERIFIABLE (iteration-cap), with one fair nuance
+
+The re-armed diagnosis (dispatch corr `a8ec7411`) completed `UNVERIFIABLE` — stopped at the
+iteration cap, explicitly "NOT CONFIRMED", not refuted, "hand to a human with the full
+trail". Its last hypothesis raises a branch nuance my contribution should carry: work item
+`3d775f99`'s "repair that component; do not create a new one" message is emitted by
+**Path 0** (the stored-slot `byIDDrops` branch — loancalculator's page PINS incumbent
+`824e3309` in `page_components`), not by Path 1's name lookup. That does not contradict the
+refinement — `3d775f99` was cited as proof the GUARD DROPS these templates at load (the
+loop: "the load-time guard-drop mechanism itself may still be real"), and the greenfield
+sites (loanzy, remortgagecalculator — no stored pin, so Path 0 is skipped) are the ones
+whose artefacts show the Path-1-drop → selector → `needs_new_component` route. Two branches
+consume the same drop: pinned slots defer LOUDLY (human review), unpinned ones fall through
+to the deadlock. The corollary (backfill → selector_error → "as-is") remains a code-read
+claim, cited line-by-line, unrefuted and unconfirmed by the loop. Status of the record:
+the refinement stands on the stated first-hand verification (2026-07-31 ruling); the loop's
+independent check ran out of budget before reaching a verdict, twice for different reasons
+(API cap, then iteration cap) — recorded here so nobody reads "090 was run" as "090
+confirmed it".
