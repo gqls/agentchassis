@@ -68,8 +68,11 @@ finance brokers unless asked. The first `loanzy.uk` build was cleared on that ba
 waiting: which build flow we use, and whether the classifier is given the positioning register
 to read. Nothing should be unlocked before those are answered.
 
-**Two sites are live; neither is finished.** The pilot serves, but without its calculator and
-still listing 2 lenders rather than 25, because it is locked and nothing will refresh it. The
+**Two sites are live; neither is finished.** The pilot serves, but without its calculator.
+*(Corrected 2026-08-19: this sentence also said the pilot listed 2 lenders rather than 25. It
+does not — the owner's screenshots show the full widened directory. The claim came from fetching
+the page repeatedly from one machine, which measures consistency and not correctness;
+`WRONG_CALLS.md` 2026-08-19 has the account and the two checks that would have caught it.)* The
 second site, `adversecreditmortgage.co.uk`, was dispatched and halted mid-build with 41 items
 held.
 

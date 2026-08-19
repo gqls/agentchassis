@@ -274,14 +274,32 @@ Owner asked for the Nominet inventory, parked-vs-live separation, people's-name 
 2. **Decide who builds the 311/RFC_036 fix, and as one submission or two.** It needs the gate
    and a roll. Until it lands, **every site built on a shared calculator name ships that tool
    hollow** — so building the fifty first means fifty sites to repair afterwards.
-3. **Refresh the pilot's lender page** (see §6 — it is the one thing waiting on a single word),
-   and note that the pilot ALSO needs `bugs_open/260` before it is presentable: two of its six
-   pages do not exist and every serving page links to them (§3b).
+3. ~~Refresh the pilot's lender page~~ — **not needed, see §6.** The pilot does still need
+   `bugs_open/260` before it is presentable: two of its six pages do not exist and every serving
+   page links to them (§3b).
 4. **Lift the halt** and let build #1 continue from its 41 held items.
 5. **Then wave 1 of the fifty**, one at a time and supervised, per
    `PLAN_2026-08-18_first_50_build_order_FOR_APPROVAL.md` (approved).
 
-## 6. THE ONE OPEN ITEM WAITING ON A SINGLE WORD
+## 6. ~~THE ONE OPEN ITEM~~ — CORRECTED 2026-08-19: the lender page is NOT stale
+
+> **⚠ CORRECTION.** This section said the pilot's lender page served 2 lenders and needed a
+> re-render. **That was wrong.** The owner's screenshots (after a hard refresh) show the full
+> widened directory — The Mortgage Lender, United Trust Bank, Foundation Home Loans, Vida
+> Homeloans, Mansfield, Kensington. The section headings differ between his render and the one
+> my fetches receive ("with cited facts" vs "listed by what's verifiable about each one"), so
+> they are two generations of the same page served at one URL.
+>
+> **Do not "fix" this by re-rendering.** The page reaching real visitors is current; what is
+> uncertain is why one client keeps receiving an older body. **Cross-check before acting:** the
+> response carries `Last-Modified: 19 Aug 2026 12:20:46 GMT` — later than the widening — on a
+> body without the new lenders, which is self-contradictory and points at the delivery path, not
+> the page. Full account: `WRONG_CALLS.md` 2026-08-19.
+>
+> **The transferable rule, now also in `LANDMINES.md`: one client's view of a CDN is not the
+> site's state.** Repeating a fetch from the same machine measures consistency, not correctness.
+
+## 6b. Superseded text (kept so the correction is legible)
 
 **The pilot's lender page serves 2 lenders; the register holds 25.** Confirmed still stale at
 the artefact this morning — `https://remortgagecalculator.uk/mortgage-lenders.html` names only
