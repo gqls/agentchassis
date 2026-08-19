@@ -210,3 +210,20 @@ the 309 page WAITS for the writer/replan. Durable record: bugs_open/320 §11
 (9ae8971c2). The live 320 lane (session "bugfix 284") was messaged directly and
 owns execution. Also measured and passed on: aeccfc595 is NOT an ancestor of
 v1.0.1314, so their hold's release precondition is still unmet.
+
+## 2026-08-19 ~17:00 — v1.0.1315 rolled; 320's prerequisites now LIVE; lane stays CLOSED
+
+- **v1.0.1315** (revision `590ca3a20…`), digest-matched at the pod (sha256:1c422c61…
+  == local RepoDigests). My `e5c9029dc` remains an ancestor (guard still live), and
+  **`aeccfc595` (320's overwrite guard + writer action) IS an ancestor now** — the
+  hold's release precondition that 1314 failed is met by 1315.
+- Post-roll gate exercise: still 0 SOURCE_GUARD rows (checked the same way as this
+  morning). Expected steady state, unchanged reading.
+- **The 320 lane (session "bugfix 284") is ALIVE and executing right now**: transcript
+  mtime within seconds, currently committing `488_meta_description_backfiller…`; it
+  received my relay (`4674454a`) and its seed cites `STYLE_PROMPT_v3` with the
+  voice/claims checks running IN the action before the write — the owner's
+  "don't sound like AI" requirement is being built in, not bolted on. No commits
+  from it since the relay yet because it is mid-commit. I am NOT touching execution.
+- Nothing on THIS lane changes with the roll. Lane remains closed; its one live
+  residual is still "first real component-creator generation = demand control".
