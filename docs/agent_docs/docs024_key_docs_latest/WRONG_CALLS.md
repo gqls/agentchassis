@@ -37942,3 +37942,31 @@ claiming you are on it.
 (claim retracted there), the PLAN corrected in place, and the honest residual surfaced to the
 counter's owner: a ConfigKeys-class opt-in setting is structurally invisible to the budget as
 built.
+
+## 2026-08-19 — a council submission that asserted BOTH arms of a contradiction about existing code (bugfix 299 lane)
+
+**The wrong call:** the 299 submission described the same existing mechanism two ways in one
+document. Edit 6's rationale said an old binary **warn+skips** an unregistered discovery-check
+name (which is what made arming the check look harmless); the risks section said an
+unregistered name **fails the whole `run_discovery_checks` step** (which is why migration 475
+was held). Both are claims about code that already shipped, and they cannot both be true. The
+truth is fail-fast by default — `discovery_checks.go:198-216` returns an error on a registry
+miss unless the step sets `allow_unregistered_checks: true`, a lever that defaults false and
+that 475 does not set. So the safety-critical half was right and the reassuring half was wrong.
+
+**What caught it:** the council's `prior_art_librarian` seat, at medium severity, **with no
+code access** — the contradiction is visible on the face of the document. Confirmed here by
+reading the dispatch loop.
+
+**The cheap check that would have:** when a submission states a behaviour of existing code
+twice, in two sections written for two audiences, read the branch once and make both sentences
+quote it. The general form — a rationale is written to make an edit sound safe, a risks block
+to make it sound guarded, and nothing joins them up; this is the same seam as the LANDMINES
+entry "a bug file's FIX CANDIDATE can be refuted by that same file's own MEASUREMENT NOTES".
+
+**Cost:** none realised — the hold was set from the correct (pessimistic) half, so the wrong
+half never governed an action. Had it been the other way round, arming the check before the
+roll would have failed **every** discovery run on four agents fleet-wide, and taken each run's
+already-collected findings down with it (the error returns before `tx.Commit()`, inside
+`defer tx.Rollback()`). Recorded because the near-miss was luck, not design: nothing in the
+process compares the two sections.

@@ -227,3 +227,61 @@ belonging to other classes (`cta_unknown_dest`, `dead_control`, `design-audit`, 
 own `needs_content_page`. Nothing open touches the select_sections seam. Filed per the
 2026-07-31 owner ruling — 312 asserts a structural cause, so it gets the loop rather than a
 declared substitution this time.
+
+### The four council advisories, ANSWERED by check (2026-08-19)
+
+**1. `run_discovery_checks` on an unregistered name: FAIL-FAST by default** — the
+`prior_art_librarian` seat's contradiction is resolved, and it resolves AGAINST the plan's
+edit-6 rationale. `discovery_checks.go:198-216`: `allowUnregistered :=
+configBoolOrDefault(config, "allow_unregistered_checks", false)`; on a registry miss with the
+lever false it `return nil, fmt.Errorf("discovery check %q is not registered …")`. Two
+deliberately different arms (comment block `:154-184`): an UNREGISTERED NAME fails the step;
+a check that ERRORS at runtime is recorded in `checks_failed` and the run continues. So
+migration 475's hold rationale ("an unregistered check name fails the WHOLE step on an old
+binary") is CORRECT and the edit-6 rationale ("old binaries warn+skip") was FALSE — see
+WRONG_CALLS 2026-08-19.
+Two facts worth carrying past this lane:
+- the `return` at `:208` happens BEFORE `tx.Commit()` (`:284`) inside `defer tx.Rollback()`,
+  so one bad name discards **every earlier check's findings in the same run**, not just its own;
+- the fail-fast arm has **no mutation-sensitive test**. `TestEveryLiveConfiguredCheckResolves`
+  (`discovery_checks_registration_test.go:91-109`) pins the live roster — it asserts the names
+  resolve, never that an unknown one fails. The behaviour rests on a comment plus a fixture.
+  [UNTESTED — recorded, not fixed by this lane; it is `bugs_open/149` B4's territory.]
+
+**2. The check IS in the running binary [MEASURED 2026-08-19, control both ways].** Probed
+`/proc/1/exe` on `agent-chassis-7597f54b9-bfw5n`: `cta_nonpage_destination`,
+`cta_names_nonpage_destination`, `cta_tel_malformed` and `allow_unregistered_checks` all
+PRESENT; negative control `cta_nonpage_destination_NOTREAL` correctly absent. And **no live
+agent has it armed**: of the four agents carrying a `run_checks.config.checks` array
+(design 23, quality 9, availability 1, completeness 43), `? 'cta_nonpage_destination'` is
+FALSE on all four. So 475 is now safe to apply, and it is the thing that arms it — the
+image-before-config ordering that `bugs_closed/084`'s `asset_reference_404` lane walked
+(probe the binary, THEN edit the checks array) is satisfied in the same order here.
+
+**3. The import cycle is REAL, but the plan overstated what was duplicated.** `actions` imports
+`discovery_checks` in 8 non-test files (e.g. `load_work_item_actions.go:24`); `discovery_checks`
+imports `actions` nowhere; `go list -deps` confirms both directions. So the cycle rules out the
+import. BUT what was actually copied is not a query — it is the five-word predicate fragment
+`status NOT IN ('deleted','archived')`, whose shared spelling lives at
+`prepare_link_context_action.go:54` (`linkablePageStatusPredicate`, documented there as
+deliberately a fragment). `ctaComponentScanQuery` itself exists only once, at
+`check_misdirected_cta.go:84`, and is shared with the new check — that half of the plan is
+sound. **The correction that matters for the next author: `datahelpers` is importable from
+BOTH packages** (39 files in `discovery_checks` already import it, and `links.go:355-360`
+already discusses this very predicate), so hoisting the predicate there was available and the
+cycle argument does not rule it out. Same shape as `ctaExcludedAreas` at
+`check_misdirected_cta.go:66-70`, duplicated for the same stated reason. [NOT DONE by this
+lane — a third spelling of the predicate is the drift risk, and it is now named.]
+
+**4. The reuse seat's collision worry is UNFOUNDED, on evidence.**
+`datahelpers.IsAuthoredNonPageCTADestination` (`links_tel.go:36`) has exactly one commit in
+`git log --follow` — `757a0890a`, this lane. `git log -S` finds the name in two earlier commits
+the same evening, both DOCS announcing the intent (which is what the landmine corpus entry the
+seat saw actually was — a landmine written ahead of the symbol, not a pre-existing symbol). The
+three predicates are disjoint by construction and the file says so at `links_tel.go:12-14`:
+`IsAuthoredNonPageCTADestination` tests SCHEME shape (tel/mailto/http/named fragment, never
+`javascript:` or a page path); `ctaExcludedDestination`
+(`resolve_internal_links_action.go:628`) tests whether a PAGE path's first segment is a utility
+area; `storedCTADestinationIsAuthored` (`:669`) is `ctaExcludedDestination(url) &&
+validPages.Contains(url)` — 248's, and it requires page membership, which the non-page
+predicate can never satisfy. No url can satisfy both keeps.
