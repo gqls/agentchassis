@@ -1577,3 +1577,61 @@ cover `workflow%` and rule on `v_%`. I have deliberately NOT folded that into th
 round (`e03f7122`) — changing the diff under a running review desyncs the submission from the code,
 and the widening is a different lane's symptom that deserves its own rationale. Recorded in 016b §9
 so it does not depend on this file being read.
+
+### 9. The duplicate registration is at `retry_version=0` on BOTH rows — so the step BODY ran twice; and `allDone` is computed from a map that a known code path declines to write
+
+`[MEASURED]` 2026-08-19 ~16:00Z, against the 20 retained instances in `awaited_requests`
+(the 7-day table; `orchestration_states` holds none of them, by retention). Query: an
+`iter_N_call_handler` row at `status='error'`, the following `iter_{N+1}_spawn_handler` rows for
+the same `orchestration_id`, and a count of `iter_{N+1}_call_handler` rows.
+
+| | |
+|---|---|
+| instances | **20**, all 2026-08-17, first 14:52:29Z, last 18:52:22Z |
+| two `spawn_handler` rows for the same step | **17 of 20** |
+| one `spawn_handler` row | 3 of 20 |
+| both duplicate rows `status='processed'` | **17 of 17** |
+| **`retry_version` on every spawn row, duplicate or not** | **0** |
+| `iter_{N+1}_call_handler` rows | **0 of 20** |
+
+**The `retry_version=0` on BOTH halves of the pair is the new fact, and it changes the reading.**
+The lane has been treating the duplicate as the retry/takeover path re-registering. It is not:
+a retry bumps `retry_version`, and nothing here is above 0. Two rv0 registrations of one step name
+mean **the step body executed twice**, which is a different question — loop expansion, the recursive
+`continueExecution`, or a second consumer taking the same work — not the retry clock.
+
+> ⚠ This **downgrades** §6's framing. §6 said the arrival check "fires spuriously on any
+> re-registration of a step name, exactly what the takeover does when it re-runs
+> `iter_N_spawn_handler`". The mechanism at source is unchanged and still `[VERIFIED at source]`,
+> but **the takeover is not what re-runs it here** — `retry_version` says so on all 37 rows.
+> Whatever runs the step twice is upstream of the retry machinery. Corrected here rather than in
+> §6 so the sequence of belief survives.
+
+**Two more source facts fetched today, both `[VERIFIED at source]`:**
+
+- `coordinator.go:2671-2678`, `handleCompleteResponse` — `allDone := len(freshState.AwaitedRequests) == 0`,
+  computed from the **state's JSONB map alone**. That single boolean decides whether `CurrentStep`
+  advances to `NextStep`, whether `Status` goes back to `EXECUTING_STEP`, and whether
+  `continueExecution` is called at all. **The `awaited_requests` TABLE is never consulted here.**
+- `coordinator.go:848-852`, `continueExecution` — an unconditional early `return nil` when the
+  loaded `state.Status == StatusAwaitingResponses`, logged at Info and otherwise silent.
+
+**So the shape of the class, stated as a claim and not yet as a cause:** the set of outstanding
+awaited requests has **two representations and nothing reconciles them** — the table (which the
+response consumer processes rows from) and the JSONB map (which every advance/park decision is
+computed from). §6's arrival check is a code path that makes them diverge *by returning success
+without writing the map*; `allDone` is the path that turns a divergence into a wrong advance-or-park
+decision; and the `continueExecution` early return is what makes the result silent instead of loud.
+
+`[UNVERIFIED]` that this composition is what wedged the 20. It is filed, not concluded — 090 run
+correlation **`be89750f-c2ab-4c0a-bc21-751e75d9b19b`**, dispatched 16:07Z with the
+`awaited_requests` schema **inlined into the symptom text**, which is what the previous two runs
+died for want of. It cleared `assemble_bundle` and reached `lookup_symbols`, so the harness gap
+that killed run `d8af5f78` is not blocking this one.
+
+**Misstep on the way in, now a LANDMINE entry:** two dispatches were lost before this one because
+the 090 trigger interpolates the symptom into a `$json$` psql literal **unescaped** — a newline
+fails with `0x0a must be escaped`, a double quote with `Token "…" is invalid` — and it prints
+`SAVE: CORRELATION_ID=…` *before* the insert runs. Both times the banner looked like a successful
+dispatch and no work item existed. Flatten and de-quote first; the honest positive signal is the
+later, differently-named `SAVE: RUN_CORRELATION_ID=` line.

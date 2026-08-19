@@ -12990,3 +12990,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/327` (mechanism, per-site measurements, fix candidates) · `copy_quality_two_stage/NOTES_two_stage_copy.md` 2026-08-19
 - **relations:** `bugs_open/305` (found while investigating it — and **explicitly not its cause**, §4 of 327) · MEMORY [[writes-the-field-is-not-reads-the-field]] · [[a-config-key-that-nothing-reads.md]] · register CQ-025
 - **added:** 2026-08-19, copy_quality_two_stage lane
+
+### The 090 trigger prints `SAVE: CORRELATION_ID=…` and THEN fails the intake insert — a newline or a double quote in your symptom loses the run, and you walk away holding an id for something that does not exist
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh` (`INPUT_DATA` assembly at `:339`, the `$json$…$json$` intake insert) · `site_work_items` (`item_type='needs_diagnosis'`) · any trigger script that interpolates free text into a `$json$`-quoted psql literal
+- **fires when:** you author a symptom the way every guideline in CLAUDE.md tells you to — several paragraphs, the mechanism first, symbol names quoted. Heredoc it to a file, `"$(cat …)"` it into the trigger, and the newlines and quotes travel with it. **No symptom beforehand**: the script's own banner block prints in full, including the item_key, the anchor site, the repo/ref and a correlation id under the words `SAVE: CORRELATION_ID=`.
+- **the trap:** `INPUT_DATA` is built by shell string concatenation — `INPUT_DATA="{\"symptom\":\"$SYMPTOM\",…"` — with **no JSON escaping of `$SYMPTOM`**, and the banner is printed *before* the insert runs. So the order you experience is: id printed, then `ERROR: invalid input syntax for type json`. A raw newline fails with `Character with value 0x0a must be escaped`; a double quote fails with `Token "…" is invalid`. **Both leave no work item and no run**, while the id you were told to save is real-looking and joins to nothing. The usage comment at `:83` warns about `"` and `\` only — it says nothing about newlines, which is the one a multi-paragraph symptom hits first.
+- **the check:** flatten and de-quote before dispatching, and **verify the intake landed rather than trusting the banner** —
+  ```bash
+  tr '\n' ' ' < sym.txt | tr -s ' ' | sed "s/\"/'/g" > sym_safe.txt
+  ... 090_TRIGGER_needs_diagnosis_v1.sh "$(cat sym_safe.txt)"
+  ```
+  The positive signal is the script reaching `Waiting up to 180s for the loop to claim it …` and printing **`SAVE: RUN_CORRELATION_ID=`** (a *different*, later line from the `CORRELATION_ID=` one). If you only ever saw `SAVE: CORRELATION_ID=`, the insert failed. Settle it in SQL rather than by scrollback: `SELECT status, created_at FROM site_work_items WHERE item_key='needs_diagnosis:<your-slug>';` — no row means no run, however much output you got.
+- **⚠ the two ids are not interchangeable, and this is where the trap compounds.** `CORRELATION_ID` is the intake correlation; `RUN_CORRELATION_ID` is minted by `diagnose-dispatch-loop` and is the key the artifacts are written under. Querying `orchestration_states` on the intake id returns nothing, which reads identically to "the dispatch was dropped" — the exact evidence CLAUDE.md warns not to retry on.
+- **source:** 2026-08-19, `bugs_open/029` lane — two consecutive dispatches lost this way (newline first, then a quoted `"response"` marker name) while re-filing the wedge diagnosis; third attempt with the flattened, de-quoted text reached `RUN_CORRELATION_ID=be89750f`
+- **relations:** `bugs_open/174` / the `SEED_SCOPE` comma-string entry above (same script, same class: free text crossing an unescaped boundary) · MEMORY [[shell-tool-traps-committing]] · [[kcat-publish-silently-drops]] (a publish that exits 0 having sent nothing — this is its intake-side twin) · [[escape-sequence-emission-trap]]
+- **added:** 2026-08-19, `bugs_open/029` retry-kills-live-child lane
