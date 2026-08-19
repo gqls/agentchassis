@@ -253,7 +253,7 @@ not recorded until now — **treat my zero as unverified.**
 
 ## 7. OWED WORK from the peer exchange — one migration, and one measured warning already sent
 
-### 9a. OWED: an explicit `copy_edit_proposed` exclusion in the promoter's `pre_query`, citing D2
+### 7a. OWED: an explicit `copy_edit_proposed` exclusion in the promoter's `pre_query`, citing D2
 
 **I changed my mind and this is owed.** I first declined (see §6) on "a second place to maintain is
 the drift class we keep filing bugs about". `agentchassis-8d` came back with two facts that beat the
@@ -278,7 +278,7 @@ a guard + `_ROLLBACK.sql`, exercised in a rolled-back transaction first, **and i
 stage 2's output queues for human review, no unreviewed auto-rewrite.** If someone gets there first,
 the full argument is in the `LANDMINES.md` entry.
 
-### 9b. SENT: `473` will be refused on the 16 owned pages — warning delivered before the apply
+### 7b. SENT: `473` will be refused on the 16 owned pages — warning delivered before the apply
 
 Raised by `agentchassis-8d`, measured by me, filed to the 184 lane at `e7b009483` and messaged to
 the live `bug 184` peer. **`473` is not applied** (absent from `schema_migrations`), so it landed in
@@ -307,7 +307,59 @@ now with `agentchassis-22`.
 improves with nothing of ours changing — **which is exactly why I declared that incentive to them
 while telling them it will not cover 16 rows.**
 
-### 9c. The discriminator worth keeping, from `agentchassis-8d`
+### 7c. PRE-REGISTERED PREDICTION for `473`'s apply — written while it is STILL UNAPPLIED
+
+**Why pre-registered rather than "check afterwards".** This lane has been bitten four times this week
+by classifying a population *after* seeing it — a policy column standing in for a refusal, an
+inherited count standing in for saves, an aggregate standing in for rows. **A prediction written
+before the event cannot be reverse-fitted**, and it costs two minutes. `473` is confirmed absent from
+`schema_migrations` at the time of writing.
+
+**BASELINE, `literal_markdown` by the page's policy [MEASURED 2026-08-19, PRE-APPLY]:**
+
+| policy | failed | unresolved | detected | needs_human_review | complete | total |
+|---|---|---|---|---|---|---|
+| `generic` | 16 | 10 | 2 | 2 | 3 | **33** |
+| **`owned`** | 8 | 24 | 8 | 1 | 0 | **41** |
+
+**PREDICTION.** After `473` applies and these dispatch, each owned-page item lands in one of three
+outcomes — and **2 and 3 are INDISTINGUISHABLE at the work-item row**, which is the whole reason to
+write this down first:
+
+1. **REFUSED** — `failed`, `error LIKE '%rebuild_policy=owned%'`. **My prediction**, because `473`
+   puts this population on the branch that calls `save_page_sections`, and the escalation path that
+   would divert it needs a section with *no* `content_data` — which a `literal_markdown` section by
+   definition has.
+2. **COMPLETES WITHOUT WRITING** — `complete`, but the served page still carries the asterisks.
+   **This is `agentchassis-22`'s `check_escalated` mechanism
+   (`rerender_page_sections_action.go:401-419`), currently `[INFERRED]` from code and never
+   measured.** If this is what happens, their inference becomes a measurement.
+3. **ACTUALLY REPAIRED** — complete, and the asterisks are gone at the served page.
+
+**THE CHECK, and it must reach the served page:**
+```sql
+-- item level: outcome 1 separates cleanly; 2 and 3 do NOT
+SELECT COALESCE(p.rebuild_policy,'(gone)') AS policy, wi.status,
+       count(*) FILTER (WHERE wi.error LIKE '%rebuild_policy=owned%') AS refused,
+       count(*) AS rows
+FROM site_work_items wi LEFT JOIN pages p ON p.id = wi.page_id
+WHERE wi.item_type='literal_markdown' AND wi.updated_at > '<the apply>'
+GROUP BY 1,2 ORDER BY 1,4 DESC;
+```
+Then for anything `complete` on an `owned` page, **fetch the page and look for the asterisks**. That
+is the only thing separating 2 from 3; `page_components.updated_at` is a corroborator, **not** a
+substitute (`bugs_open/315`: a rerender completes and stamps without writing bytes).
+
+**Read the `generic` column FIRST — it is the positive control.** Expected there: mostly outcome 3.
+If generic pages also land on 2, the migration is not working at all and the owned-page question is
+moot.
+
+⚠ **Record it either way.** Outcome 1 closes my warning to the 184 lane; outcome 2 promotes
+`agentchassis-22`'s `[INFERRED]` mechanism to measured and matters well beyond `literal_markdown`.
+**Neither of us owns `473` and neither may see it land**, which is why this is in a file rather than
+in a session.
+
+### 7d. The discriminator worth keeping, from `agentchassis-8d`
 
 > **Is success expressible as a diff assertion?**
 
