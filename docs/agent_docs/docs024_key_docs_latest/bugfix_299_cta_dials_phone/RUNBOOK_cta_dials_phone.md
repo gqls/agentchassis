@@ -94,3 +94,74 @@ grep -n "cta_links_stale" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
 ```
 **Gotcha:** `who-owns` reads COMMITS — a session mid-fix is invisible. `ListAgents` + live
 `.jsonl` transcripts are the uncommitted check. The `bugfix 248` peer session exists.
+
+## Is the fix actually in the running binary? (the check that ISN'T available)
+
+**Do not start with `git merge-base --is-ancestor <commit> <stamp>`.** Twice out of twice on
+2026-08-19 the stamp was unobtainable and the obvious fallback lied. Full trap in
+`LANDMINES.md` ("Probing the live binary for YOUR commit returns ABSENT…"). In short: the
+`build provenance` line is a STARTUP line (gone from a full `kubectl logs` three hours after
+the roll), and `buildinfo.GitCommit` is ONE string, so grepping the binary for your own
+commit says *absent* for a binary that contains it.
+
+**Ask for the CAPABILITY instead, on every pod, always with a control that must fail:**
+
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+               -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+  echo "== $POD"
+  for s in NormalizeTelHref IsAuthoredNonPageCTADestination DescribeCTADestination \
+           storedCTADestinationIsAuthored cta_nonpage_destination NormalizeTelHrefXX; do
+    printf '   %-34s ' "$s"
+    kubectl -n ai-persona-system exec $POD -- grep -aq "$s" /proc/1/exe && echo PRESENT || echo absent
+  done
+done
+# 2026-08-19, v1.0.1316: all five PRESENT on both pods; NormalizeTelHrefXX absent (control).
+```
+**Gotchas:** (1) unexported Go helpers DO probe (pclntab keeps names for stack traces) — 2 hits
+each is normal. (2) `grep -c` inside `exec` exits 1 on zero matches and kills a `&&`-chain, so
+use `-q` with an explicit `|| echo`. (3) One pod is not the fleet — a partial roll makes
+replicas disagree and the failing run is the one that lands on the old one. (4) Six symbols ×
+two pods through `kubectl exec` takes >2 minutes; budget for it or split the loop.
+
+## Applying ONE migration when 25 other lanes' files are pending
+
+`--apply` takes EVERY pending file. On 2026-08-19 the pending set was 25+ files from other
+lanes, several with drifted pre-gates. The narrow, sanctioned path:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/NNN_x.sql
+./scripts/migration/run-migrations.sh --record-only NNN_x.sql --note "<what you verified>"
+```
+**Gotchas:** (1) stdin-to-psql has `-f` semantics — that satisfies "run files, never paste".
+(2) `--record-only` takes the filename as its OWN argument (`--record-only F`), and is mutually
+exclusive with `--apply`. (3) The dry run probes every pending file through `kubectl exec` and
+took ~10 minutes with no output until the end — it is not hung; do not kill it. (4) The README
+rule "every migration touching `agent_definitions` opens with `snapshot_agent('<type>', …)`"
+is easy to miss when you have written a bespoke `_backup_NNN` table instead — 475 and 476 both
+had, and both needed the snapshot added before applying.
+
+## The discard control, measured correctly (the trap is in the cast)
+
+```sql
+WITH r AS (
+  SELECT jsonb_path_query_array(collected_data->'resolved_links'->'response',
+           '$.sections_ready[*].resolved_data')::text AS res,
+         jsonb_path_query_array(collected_data->'sections_for_render',
+           '$.sections_ready[*].resolved_data')::text AS ren
+  FROM orchestration_states
+  WHERE collected_data ? 'resolved_links' AND collected_data ? 'sections_for_render'
+)
+SELECT count(*) AS runs,
+       count(*) FILTER (WHERE res LIKE '%_target_title%')                          AS resolver_minted,
+       count(*) FILTER (WHERE res LIKE '%_target_title%' AND ren LIKE '%_target_title%')     AS survived,
+       count(*) FILTER (WHERE res LIKE '%_target_title%' AND ren NOT LIKE '%_target_title%') AS discarded,
+       count(*) FILTER (WHERE res = ren) AS identical, count(*) FILTER (WHERE res <> ren) AS differ
+FROM r;
+-- 2026-08-19: 48 | 26 | 0 | 26 | 18 | 30
+```
+**Gotcha, and it inverts the answer:** casting the CONTAINER
+(`(collected_data->'sections_for_render')::text LIKE '%_target_title%'`) matches the string
+elsewhere in the structure and returns **31 / 31 / 0** — "everything survives", the comfortable
+and wrong result. Anchor the cast to `resolved_data` on BOTH sides. Logged in `WRONG_CALLS.md`.
