@@ -117,3 +117,53 @@ that can genuinely fail.
 There is also no council review on any of this, and that is not an oversight —
 the gate refuses makefile-only submissions by scope, client-side, so no commit
 here claims one.
+
+---
+
+## 2026-08-19 — it worked, and the lane is essentially done
+
+Your release picked it all up. Every one of the six moved on the first release
+after the ruling, with nobody having to remember anything, which was the whole
+point.
+
+The four daily checks are now on the current build and ran this morning on it. Both
+GitHub runners moved too — and this is the one I would call out, because the
+`-vmsites` runner had not moved since mid-July and the other one had not moved
+since **April**. That older one was the one missing `rsync` and `ssh`. That gap is
+closed now, on the same roll, without anyone doing anything special for it.
+
+The test I said should be run is the one that could have failed, and it passed: the
+inventory the checks carry now matches the platform exactly, 170 out of 170,
+including all four of the actions that were invisible on Monday. Worth noting the
+platform added a new action overnight — 169 became 170 — which is precisely the
+churn that caused this problem in the first place, and it is now covered
+automatically.
+
+I want to be straight about one thing I could not show you. I tried to prove the
+difference at the check's own output rather than just at the version number, and I
+could not. The check's report is identical to the day before. That is not a
+problem — it turns out none of the four newly-visible actions is the kind that
+would show up in that particular report, so the report *couldn't* have changed. But
+it also means the honest evidence here is "the right code is demonstrably in the
+image", not "we watched the behaviour change". I have written that down rather than
+quietly presenting the version numbers as if they were the same thing.
+
+One small thing I found while checking. The four check images and the runner image
+are built without the stamp that lets you ask a binary which commit it came from —
+every other backend service has it. It did not matter while they were nobody's
+concern; now that they are release images, it means proving one of them moved
+requires reasoning about the release instead of just asking it. That is a small,
+separate fix and I have written it up as its own item rather than letting it
+enlarge this one.
+
+**So: what is left.** Two things, and neither is this bug. The first is the trigger
+you asked for as the follow-on — the rule that fails a release when a service's
+pinned image is older than the code it is built from, which is what would catch a
+*seventh* service without anyone remembering. The second is that stamp fix. There
+is also one loose end I have deliberately never claimed either way: whether the
+render check was ever actually wrong. My honest answer is that we do not know, it
+is now moot going forward, and finding out is optional.
+
+My recommendation is that we close this bug and carry the trigger separately, since
+the thing the bug describes is fixed, live and verified — but the trigger is what
+stops the *next* one, so it should not quietly evaporate when the bug closes.

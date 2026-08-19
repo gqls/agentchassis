@@ -707,3 +707,59 @@ agrees with today's tree.
 3. Open, non-blocking: read `rendercheck.go` against the current
    `actions.RenderContext` and record whether `component-render-check` was ever
    functionally affected. Suspect, unproven, and deliberately not asserted.
+
+---
+
+## 2026-08-19 — IT IS LIVE, and the acceptance test PASSES
+
+`v1.0.1314` carried the fold. All six moved on the first release after the ruling,
+with no manual step.
+
+### What is proven [MEASURED 2026-08-19]
+
+1. **All six serve the new tag, read at the cluster.** Four CronJobs on
+   `…/component-render-check:v1.0.1314`, `…/shared-output-fields-check:v1.0.1314`,
+   `…/removed-config-keys-check:v1.0.1314`, `…/verifier-remit-check:v1.0.1314`,
+   all four having run this morning (06:25/06:55/07:10/07:25Z). Both runner
+   Deployments on `v1.0.1314`.
+2. **The `<service>:<image>` mapping worked in production.** `github-actions-runner`
+   AND `github-actions-runner-vmsites` both serve
+   `docker.io/aqls/github-actions-runner:v1.0.1314` — one image, two Deployments,
+   which is what the declaration says and what the cluster now shows. `-vmsites`
+   has moved for the first time since 2026-07-16, and `github-actions-runner` for
+   the first time since **April** (it was on v1.0.948), so the missing `rsync`/`ssh`
+   gap is closed by the same roll.
+3. **The release genuinely carries the fold.** Chassis provenance stamp
+   `d3590ca46` (2026-08-18 22:17), and `git merge-base --is-ancestor b1480f008
+   d3590ca46` → true.
+4. **The registry acceptance test passes: 170 / 170, empty diff.** All four
+   actions that were invisible on 08-18 — `evaluate_directory_features`,
+   `publish_site`, `retract_asset_files`, `zip_deliverable` — are present in the
+   source the release was built from. (The registry itself grew 169 → 170
+   overnight, which is exactly the churn that caused the freeze, and it is now
+   covered.)
+
+### What is NOT proven, stated plainly
+
+- **No behavioural difference was observed, and there may be none to observe.**
+  `removed-config-keys-check`'s `doc_notes` row is byte-identical across the
+  frozen (08-18, v1.0.1285) and unfrozen (08-19, v1.0.1314) runs in the field that
+  would show it: `keys declared removed:` lists the same four keys both days.
+  That is **expected, not a failure** — none of the four newly-visible actions
+  declares a removed config key, so this check's output cannot discriminate here.
+  The field that did move (`live agent definitions walked: 189 → 191`) reads the
+  live DB, not the compiled registry, so it is not evidence either way.
+  **Do not cite the identical row as evidence the fix did nothing.**
+- **The check pods' logs are gone** (node GC), so the direct before/after at the
+  log was unavailable — the completed pods survive, `kubectl logs` on them does not.
+
+### ⚠ RESIDUAL FOUND WHILE VERIFYING — the check images carry NO provenance stamp
+
+`build/docker/backend/*-check.dockerfile` build with a plain
+`RUN CGO_ENABLED=0 GOOS=linux go build -o <bin> ./cmd/<pkg>` — **no `buildinfo`
+ldflags**. So BLD-019's "ask the binary what commit built it" does **not** work for
+these four, nor for `github-actions-runner`. Proving one of them moved therefore
+falls back to the image tag plus the release's ancestry, which is exactly the
+weaker, inference-shaped proof BLD-019 exists to replace. Now that they are
+release images this is worth closing; it is small (add the ldflags to five
+dockerfiles) and it is **not** part of 237's class. File it as its own item.

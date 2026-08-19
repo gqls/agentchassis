@@ -144,3 +144,52 @@ build of ours, so they are outside this class. Decision B's scope is six.
   165/169.** It links the package that holds the registry but never reads it, and
   neither symbol it does use has changed. A count inherited from a linked package
   is not a property of the service. Kept out of the "blind" group deliberately.
+
+---
+
+## 2026-08-19 — the fold went live on `v1.0.1314`; acceptance test passes
+
+Release built from `d3590ca46`; `b1480f008` is an ancestor, so it carries the fold.
+
+| what | reading |
+|---|---|
+| four check CronJobs | all on `v1.0.1314`, all ran 06:25–07:25Z |
+| both runners | both on `docker.io/aqls/github-actions-runner:v1.0.1314` |
+| registry at the release ref vs HEAD | **170 / 170, empty diff** |
+| the four formerly-invisible actions | all four PRESENT |
+
+`-vmsites` moved for the first time since 2026-07-16 and `github-actions-runner`
+for the first time since April, so the `rsync`/`ssh` gap closed on the same roll.
+The registry grew 169 → 170 overnight — the exact churn that caused the freeze,
+now covered.
+
+### The behavioural check I tried, and why it came back empty
+
+I wanted an artefact-level before/after, not just "the tag changed". Two attempts:
+
+1. **Pod logs** — the completed pods from both days are still listed
+   (`removed-config-keys-check-29783905-wl6vv`, 26h; `-29785345-79l4w`, 161m) but
+   `kubectl logs` on either returns *"unable to retrieve container logs"*. The pod
+   object outliving its logs is worth knowing: a `Completed` pod in the listing is
+   **not** a promise that its output is still readable.
+2. **`doc_notes`** — better, because `writeDocNote` records every run, clean or
+   not. And the answer is a clean negative: the `keys declared removed:` line is
+   **byte-identical** across the frozen and unfrozen runs (same four keys). None of
+   the four newly-visible actions declares a removed config key, so this check's
+   output *cannot* discriminate here. The line that did move,
+   `live agent definitions walked: 189 → 191`, reads the live DB rather than the
+   compiled registry, so it is not evidence either.
+
+**Recorded because the trap is obvious in hindsight and would have been easy to
+misreport in either direction:** an unchanged report here is neither proof the fix
+worked nor proof it did nothing. The measurement that *can* come out either way is
+the registry census against the build ref, which is why that is the acceptance
+test and this is not.
+
+### Residual found while verifying
+
+The five newly-added release images (four checks + `github-actions-runner`) build
+with a plain `go build -o <bin> ./cmd/<pkg>` and **no `buildinfo` ldflags**, so
+BLD-019's binary-provenance probe does not work on any of them. Proving one moved
+falls back to tag + release ancestry — the inference-shaped proof BLD-019 exists to
+replace. Small to fix, not part of 237's class, so it wants its own item.
