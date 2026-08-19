@@ -249,3 +249,23 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
 - Their canary-model updates recorded: an owned-page item can terminally fail WITHOUT
   touching the ownership guard (verifier blocks first on ported-slot rendered_html);
   and no verifier-registered type can false-green via "completed having written nothing".
+
+## 2026-08-19 ~17:00Z — FIRST ARTEFACT-VERIFIED REPAIR; 083 notice RETRACTED; r5 code shipped by another session's roll
+
+- **083 lane RETRACTED its held-pair claim** (measured by them): 473 touches no work
+  items; their 0/3 rows pre-date the apply; the repair lands on `(page_rerender,
+  page-rerender)` 14,454/142 — never held. **Delete the "promoter-held, escalates in 3
+  days" bullet from the previous checkpoint; nothing blocks rollout.** The general
+  property (re-pointing a handler mints a history-less pair) survives only as derived.
+- **v1.0.1315 rolled at 12:15Z (another session's release) and CARRIES `f3939f27d`** —
+  binary-probed both replicas for the resolved-strip literal, control clean. Review is
+  after the fact by design (owner ruling 07-29); the r5 REVISE fixes become a follow-up
+  roll, not a pre-ship gate. Stated plainly: code under REVISE is live.
+- **Re-armed the fundamentallyai canary → `complete` at attempt 0** (first-ever for
+  this item), verifier record: *"no literal markdown on either surface across 2
+  component(s)"*. **Served page: 13 defects this morning → 0 now, 12,092 visible
+  chars** (not emptied). **The mechanism is proven end-to-end at the artefact.**
+- Next: answer r5 in code (dispositions in the previous section), promote the remaining
+  generic items (~28: statuses detected/failed/unresolved on non-owned pages), verify a
+  sample at the artefact, let retraction close leftovers. Owned/ported 41 → 301 / tool
+  rebuilds. Bug closes when the founding + widened-symptom pages verify clean served.

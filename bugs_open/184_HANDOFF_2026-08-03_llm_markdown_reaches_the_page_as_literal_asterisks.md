@@ -654,3 +654,13 @@ structurally out of this route's reach — the defect lives in ported HTML, not
 content_data; that is the tool-rebuild programme's remit and bugs_open/301's routing
 question. (3) The two burned generic canaries need re-arming after the roll
 (attempt_count reset — the lane RUNBOOK scripts it).
+
+**Update 2026-08-19 ~17:00Z — FIRST REPAIR VERIFIED AT THE ARTEFACT.** With the
+resolver-layer fix live on v1.0.1315, the fundamentallyai.com/news canary completed at
+attempt 0 (verifier: "no literal markdown on either surface across 2 components") and
+the **served page went from 13 markdown defects to 0** with its text intact. The repair
+route works end to end. Remaining: council r5 objections to answer in code (lane NOTES),
+promote the ~28 remaining generic items, artefact-verify a sample; the 41 owned/ported
+items are out of this route's reach (301 / tool rebuilds). An earlier cross-lane claim
+that the new handler pair was promoter-held was retracted by its author — nothing holds
+the rollout.
