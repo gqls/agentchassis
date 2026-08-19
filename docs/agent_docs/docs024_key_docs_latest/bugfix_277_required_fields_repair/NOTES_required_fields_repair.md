@@ -1708,3 +1708,55 @@ and is not. Unowned as far as I can see; not filed by me because I have not look
 > carries both `gatherNavLinkedNeverBuilt` and `deployed_zero_components`, and a fleet-wide all-time
 > query returns zero rows. Undriven, not missing, which decides whether the fix is code or a
 > schedule. **Neither this session nor the lane thread owns 315; it is genuinely available.**
+
+---
+
+## 2026-08-19, end of day — `473` applied, my prediction was wrong, and the shared-ledger passenger problem happened to me in BOTH directions in one session
+
+### The prediction failed, which is why it was worth writing down
+
+`473`/`474` applied 10:34Z. I had pre-registered (handoff §7c) that an owned-page `literal_markdown`
+item would land in **"exactly one of three outcomes"**. **It landed in a fourth** — refused by the
+**completion verifier** on a ported slot's `rendered_html` code_span, *before* `pageIsOwnedForGuard`
+was reached, because ported/tool slots have no `content_data` to strip and carry their HTML through.
+
+**The enumeration felt exhaustive because I built it from the two mechanisms I happened to know
+about** — my own guard, and the escalation path a peer had described that morning. I never asked
+what else runs on a completion. Full account in handoff §7c-RESULT; the two model changes it forces
+are there too, and the second (a registered verifier means the silent-completion path cannot
+false-green) is a genuine floor under `bugs_open/315`.
+
+### And a consequence that is ours, which I would not have found without getting the prediction wrong
+
+Re-routing created a **new pair**: `(literal_markdown, page-rerender)` at **0 complete / 3 failed**,
+while the old `page-build-handler` pair keeps its 3/35. **Our `known_good` gate needs ≥1 lifetime
+completion, so our promoter now holds their fix**, and `held-pair-canary-escalation` will escalate it
+in three days asking for a canary — which reads like an escalation *about* the fix. Told them, with
+the remedy (their post-roll canary IS the unblock; one completion releases the queue). Written up as
+a `LANDMINES.md` entry because they are the second lane it could bite.
+
+### ⚠ THE SHARED-LEDGER PASSENGER PROBLEM, observed in BOTH directions within one session
+
+CLAUDE.md warns that a pathspec commit cannot exclude a **same-file** edit. Both halves happened here
+today, which is better evidence about the ledger's real behaviour than either alone:
+
+1. **I carried someone else's work.** Committing my `copy_edit_proposed` landmine (`8af48db0c`) took
+   another session's in-flight edit to the twin-identity entry — a "SHARPENED 2026-08-19" bullet and
+   an anchor fix. **I declared it in the commit message and credited them**, which is the whole
+   remedy available.
+2. **Someone else carried mine.** My re-route landmine was appended, the verifier dispatched, and
+   before I could commit it the file was committed by another session as part of `b2066634f`
+   (a `pages.deployed_at` entry). **Nothing was lost** — the text is in HEAD and the verifier is
+   armed — but `git log` for that entry now points at a commit about something else.
+
+**What this means practically, and it is not "be more careful":** on a fleet-wide append-only ledger,
+**authorship is not recoverable from `git log` and should not be relied on.** The remedy that works is
+the one already in the format — every entry carries its own `- **added:** <date>, <lane>` line, which
+survives whoever's commit happens to carry it. **That footer is the attribution, not the commit.**
+I would not have believed how quickly both directions occur: the window between my append and my
+commit attempt was under two minutes.
+
+⚠ Corollary for anyone checking their own diff before committing a shared ledger: **a clean
+`git diff` is not evidence your edit is uncommitted** — it may mean somebody has already committed it
+for you. `git log -S '<a phrase from your entry>'` is the check that distinguishes the two, and it is
+what I used here.
