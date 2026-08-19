@@ -38347,3 +38347,47 @@ parenthesis) or the query's output values.
 > it twice on bundle greps the same evening.
 
 **Cost:** one diagnosis run, and the comparability of a good baseline.
+
+---
+
+## 2026-08-19 — `bugs_open/315` lane: I wrote a test that MIRRORED the code instead of calling it, to catch a bug that mirroring cannot catch.
+
+**The claim:** that `TestStampStatementPlaceholdersMatchArgs` pinned the invariant "the highest `$N`
+the stamp statement names equals the number of args supplied" — the exact drift the council's
+`editquality` seat had just flagged as a latent runtime error.
+
+**What it actually did.** The test contained its own copy of the construction:
+
+```go
+build := func(guardRan bool) (string, int) {
+    args := []interface{}{"page-id", "deployed"}
+    hashClause := ""
+    if guardRan { args = append(args, "hash"); hashClause = fmt.Sprintf("content_hash = $%d,", len(args)) }
+    ...
+}
+```
+
+Production built the statement inline in a 400-line function and the test never touched it. **So the
+test would have gone green against a production copy that was arbitrarily broken** — including
+against the literal `"$3"` it was written to replace. It tested my understanding of the invariant,
+which was never in doubt, rather than the code, which was.
+
+**What caught it:** writing the commit message. Describing the test as "pins the invariant" made me
+ask *pins it where*, and the answer was "in the test file".
+
+**The cheap check that would have:** ask of any new test — **what line of production code does this
+execute?** If the answer is "none, it re-implements it", the test is a specification, not a check.
+Grepping the test for the production symbol it claims to cover is a one-command version of the same
+question.
+
+**The fix, and it is the general one:** extract the thing so the test can call it.
+`buildPageDeployStampQuery` now exists precisely so there is one construction and one caller of it.
+Extraction is usually described as a tidiness move; here it is the only thing that makes the test
+real.
+
+**And a second-order trap the fix exposed.** Once the test called real code it *still* passed
+against both the broken and the fixed version, because with two base args the literal `$3` is
+accidentally correct today. **A test that cannot fail is worth nothing**, so the mutation had to
+simulate the future the fix protects against — add a third arg AND hardcode `$3` — at which point
+both branches failed as designed. **"Mutation-proved" means the mutation has to be the one the code
+will actually meet**, not merely any edit that turns the test red.
