@@ -82,3 +82,72 @@ rerender completes, on the page named above. Negative control: a page nobody rer
 - The publish-seam canary from another lane (commit `a2a9912c2`, "served sha256 == pre-publish origin
   hash, published_hash written only after acceptance") — that canary proves the seam CAN work; this is
   a page it is not reaching, and the acceptance idea in it is fix candidate 1.
+
+---
+
+## Contribution, 2026-08-19 — a SECOND live instance, and the class is 42 pages across 14 sites
+
+**Not a rival diagnosis and not a fix attempt.** Found by the `agentchassis-22` session while
+measuring an unrelated question for the `bugfix_277_required_fields_repair` lane; verified and sized
+by that lane. **Neither of us owns this bug and neither is picking it up** — this is here so it is not
+lost in a NOTES appendix.
+
+### A second instance of your §3, on a different site and a different site's lane
+
+`vetcomparison.uk` — page `tool-compliance-deadline-calculator`:
+
+| | |
+|---|---|
+| `pages.status` | **`active`** |
+| `pages.build_status` | **`planned`** |
+| `page_components` | **0** |
+| created / last updated | 2026-07-17 / 2026-07-26 |
+| served | **404** (byte-identical to a fabricated-URL control at 2,690 bytes, so the 404 is a real absence, not a fetch artefact) |
+| `page_rerender` work items | **3, all `complete`** — 2026-08-11, 08-12, **08-18** |
+
+**Three rerenders completed successfully on a page with nothing to render.** Same shape as your four,
+one month older, and it has been `active` and unserved since 2026-07-17.
+
+⚠ It also carries **4 `unbuilt_internal_link` items parked at `needs_human_review`** (2026-08-11).
+So the estate *did* detect that links point at an unbuilt page and then stranded the finding — that
+half is `bugs_open/083`'s disease, not yours, and is noted only so nobody reads the parked items as
+this bug being handled.
+
+### The class, measured — your §3 is not a singleton
+
+[MEASURED 2026-08-19] pages with `status='active'` and **zero** `page_components`:
+
+| `build_status` | pages | sites |
+|---|---|---|
+| `planned` | **42** | **14** |
+| `needs_rebuild` | 11 | 6 |
+| **`deployed`** | **2** | 2 |
+
+**The 2 at `deployed` are the sharper version of your bug** — the estate believes those are published
+and they have no components at all. The 42 at `planned` are the softer one: never built, but
+`status='active'` and therefore link-target-eligible.
+
+### And the detector that should see this files nothing
+
+`diagnose_silent_check_action.go` already carries **two** checks for exactly these shapes:
+
+- `gatherNavLinkedNeverBuilt` — `build_status='planned'` past a grace period, nav-linked, uncovered;
+- `deployed_zero_components` — *"page built/deployed but serving zero components"*, and it is
+  **`EmitDefault: false`**, described in its own registration as **REPORT-ONLY** because it *"may be
+  a deliberate content removal"*.
+
+[MEASURED 2026-08-19] `SELECT ... WHERE item_type ILIKE '%never_built%' OR '%nav_linked%'` returns
+**zero rows fleet-wide, all time.** So the detection exists and has produced nothing — **undriven
+rather than missing**, which is the distinction that decides whether the fix is code or a schedule.
+
+⚠ **This matters to your §2 specifically:** you argue the measurement defect is the more important
+finding. This supports that from a second direction — there are at least two checks that would have
+surfaced this class, and one is deliberately silenced by an `EmitDefault: false` whose stated reason
+("may be a deliberate content removal") is a judgement nobody has re-examined against a population of
+2.
+
+### What we are NOT claiming
+
+The cause of any of it. We have not looked at why the rerenders complete, why the 42 sit at
+`planned`, or whether `deployed_zero_components`' report-only default is still the right call. All
+first-hand, all re-runnable, none diagnosed.
