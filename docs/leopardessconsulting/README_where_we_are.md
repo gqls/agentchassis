@@ -1175,3 +1175,65 @@ shut. Good thing too — when I looked at the new chart by eye, one of its two b
 drawn in a colour so close to its background that it read as empty. The number beside it
 was right, the bar was the right length, and every automatic check was happy. It is now
 gold and unmistakable, and I have written the trap down so the next site does not repeat it.
+
+**2026-08-19 — I ran the design review you asked for. Most of what came back was wrong, and I have not acted on any of it.**
+
+Two things to say before the findings, because they change what the exercise was worth.
+
+The agent called "visual designer" is not a designer. Its own description is "handles
+images, logos, and visual assets" — it makes picture files. The one that judges design is
+the visual design auditor, so that is the one I ran. But it cannot do what you asked
+either, and this is built into it rather than bad luck: it is only ever allowed to report
+five kinds of problem — colour, spacing, typography, dark sections, and responsive CSS —
+and every finding has to come with a test another machine can check. It is a tidiness
+inspector for stylesheets. It will never say "this list would work better as a carousel",
+because it is not permitted to say anything that cannot be mechanically verified.
+
+And the findings it did give us were mostly wrong. It reported five problems. I checked
+all five against the actual rendered page rather than taking its word, and **one was
+real**. It told us the site is styled in corporate blue when the brand colours are exactly
+what is running; it told us the body text is in a serif font it is not using; it said a
+section had no padding when it has eighty pixels of it; and it said the main headline
+would overflow on a phone, which it does not. The one real finding is that the hero's
+background overlay is written directly into the page rather than into the stylesheet, so
+if we ever change the theme the hero will not follow.
+
+The reason all four wrong answers were wrong is the same: it reads the stylesheet as text
+rather than looking at the finished page. Where our stylesheets say "use the brand colour,
+or this blue if it is missing", it read the "or this blue" as the answer. I have written
+that up so nobody runs it again and believes it — and I will own that I made the identical
+mistake myself yesterday, quoting a colour out of the page source that is not the colour
+being used. Corrected.
+
+**Important: I stopped these findings from being acted on.** Findings like these are filed
+into the work queue, and a job on a two-minute timer promotes them into actual repairs.
+Left alone, the fleet would have repainted a perfectly good palette within minutes. All
+nine are on hold with my grading attached, and nothing has been changed. That is the "come
+back to me first" you asked for, made real rather than just intended.
+
+The offer analysis was more useful. It is genuinely good on what the site should lead
+with, and it caught two real things: the insights page still describes itself as being
+about "digital transformation for business leaders", which is exactly the language our own
+content rules ban, and the careers page is written in company-values language rather than
+to the engineers it is meant to reach. But it is also still working from an out-of-date
+record — it says we run eight sites when the real figure is twenty-two — and its top
+recommendation is to put that eight in the headline. So it needs its inputs refreshed
+before we take direction from it.
+
+**On your actual questions, which neither agent answered, here is what I found by looking:**
+
+Carousels: we have the machinery, but it fits exactly one component. Only the info-card
+grid can become a carousel. The two blocks on the home page cannot, today — making them
+carousels means either swapping them for that component or widening the machinery to
+cover them. Both are doable; neither is a switch.
+
+Imagery: your instinct is right, and it now has a number. **Twenty-nine of our thirty-six
+pages carry one image or none.** The whole site serves fifty-two images, and a quarter of
+those are on the two pages that got illustrated back in July. Meanwhile the framework has
+several components with picture slots we simply do not use.
+
+Also worth knowing: the new figures band on the home page is supposed to count up when it
+scrolls into view. It does not — the animation is wired to a list of component names that
+does not include it. One line to fix, and it affects every site using that band.
+
+Nothing has been changed. Tell me which of these you want and I will do it.

@@ -2896,7 +2896,7 @@ number beside it was correct, the length was correct, and every automated check 
 the render audit measures TEXT contrast and a bar is not text, and the claims gate
 cannot see inside graphical furniture at all (VIZ-009). The only prior live example
 (fundamentallyai) has that bar at 0%, so its colour had never mattered.
-Switched to `tone: "accent"` (`--color-accent: #d97706`) in the aspect, rerendered,
+Switched to `tone: "accent"` in the aspect, rerendered,
 re-clipped the same element — now unmistakable. Both landmines are filed and their
 verifiers armed (`700e8d8f`, `c5116f4b`).
 
@@ -2921,3 +2921,97 @@ Backups: `bak_leo_home_pc_20260818`, `bak_leo_home_pc_20260818b`,
 2. Read a render-audit "0 failures" as a pass for about a minute before noticing the
    ERROR line above it. That is the exact shape this estate keeps writing down, and I
    still nearly banked it — hence the tool fix rather than just a note.
+
+---
+
+## 2026-08-19 — the design review the owner asked for: both agents ran, and most of what came back was wrong
+
+Owner ask: trigger the visual designer and the offer-analysis agent to make a design and
+usability judgement together — *"more decorative and functional carousels rather than just
+lists of cards"*, *"more imagery"*, unconstrained design thinking, **report back before we
+go ahead.**
+
+### First, what the framework's "visual designer" actually is
+
+`visual-designer` is live, and its description is *"Handles images, logos, and visual
+assets"* — a two-step asset agent. It does not think about layout. The design-judgement
+agent is `visual-design-auditor` (spawned by `design-audit-agent`), so that is what was
+dispatched. **Neither can produce the thinking that was asked for**, and that is a
+property of the prompt, not of the run: `run_visual_llm_audit` asks for *"the TOP 5 most
+impactful issues"* in exactly five categories — colour, spacing, typography, dark
+sections, responsive CSS — and requires a machine-verifiable `acceptance_test` per
+finding. It is a CSS-hygiene checker. It cannot say "this list should be a carousel", and
+the constraint is deliberate: every finding must be checkable by a different agent.
+
+Both were dispatched with `orchestrate_safe.sh` (payload in the container command,
+`PUBLISH_OK` receipt). Both COMPLETED: `ee564430` (visual), `d00f8fe3` (offer).
+
+### The visual findings, graded at the rendered page — 1 of 5 holds
+
+A subagent's report is another doc, so all five were re-asked of the live page with
+`getComputedStyle` (`scripts/verify_audit.py`), not read from CSS text.
+
+| finding | severity | verdict |
+|---|---|---|
+| palette is corporate blue, `--color-primary #1e40af`, `--color-accent #d97706` | high | **FALSE** — computed `:root` is `#0D0D0D` / `#836E32` / header `#0D0D0D` |
+| body font is Merriweather serif | medium | **FALSE** — computed body and h1 are `Inter, -apple-system, …, sans-serif` |
+| `.stat-band` padding shorthand malformed, section has no padding | medium | **FALSE** — computed padding **80px**; and a `var()` fallback may legally hold a shorthand |
+| hero h1 has no responsive scaling, will overflow | medium | **MISDIAGNOSED** — 56px→32px at 375, `scrollWidth == clientWidth == 375`, no overflow |
+| hero carries an inline rgba overlay + `--hero-btn-ink`, so a theme change cannot cascade | high | **CONFIRMED** — verbatim in the `style` attribute |
+
+**The failure is structural, not bad luck.** The agent is fed `design_context.css_excerpt`
+and HTML samples — **source text** — so it read `var(--color-primary, #1e40af)` FALLBACKS
+as the site's palette. Every false positive is a value decided at cascade time, which its
+inputs cannot show it. The platform already owns a renderer-side witness (`render_audit`,
+VIZ-010) and this agent does not use it. Filed as a LANDMINE with the measurements.
+
+> **CORRECTION, and it is the same trap.** This file said yesterday that
+> `--color-accent` is `#d97706`, quoted from a `grep` of the served HTML. The computed
+> `:root` value is **`#836E32`**. A hex in the source is not a hex in effect — I made the
+> auditor's mistake one day before grading it. Corrected in place above.
+
+### The offer analysis — useful, and carrying a stale number
+
+`offer-analyser` produced 5 findings plus a refreshed `offer_ordering`. Its reader-goal
+framing is sound (a CTO deciding whether to trust or rule out) and two findings are real:
+the `insights` meta description still says *"digital transformation … for business
+leaders"*, which the site's own content strategy bans; and the careers page is written in
+brand-values register rather than to the recorded audience.
+
+**But the run is still `degraded: true` (`inputs_missing: ["recurring_value"]`) and it
+repeats "eight live sites" — the stale figure this lane corrected on 08-16.** Register
+`C6-sites-deployed` is **22**, floor form. Its rank-1 suggestion is to open the home page
+with that number, i.e. to put a false claim in the hero. Recorded on the item.
+
+### The nine items were HELD, because the owner asked to see this first
+
+Both agents file findings at `status='detected'`, and `detected-item-promoter` takes
+exactly that status to `triaged` on a ~2-minute tick, after which the build pipeline
+dispatches the named handler — `webdesign-agent` for the false palette finding. So
+"report before we go ahead" and leaving them at `detected` are incompatible. All nine
+moved to `needs_human_review` with the grading written onto each row's `result`
+(`bak_leo_audit_items_20260819` holds the originals). Nothing dispatched.
+
+### What actually answers the owner's question, measured
+
+Neither agent addressed carousels or imagery, so:
+
+- **Carousels are ONE component wide.** `js_snippets.hero-card-carousel.applies_to` is
+  `["hero-card-carousel","info-card-grid"]`, and exactly one active component declares a
+  `carousel` field: `info-card-grid` (`carousel [config]`). The home page's `features` and
+  `differentiators` have no carousel arm at all, so "make these carousels" is a component
+  swap or a snippet widening, not a flag.
+- **The stat band's count-up does not fire.** Its own `llm_guidance` says the value is
+  *"code-rendered and count-up animated"*; `counter-animate.applies_to` is
+  `["stats","numbers","social-proof"]` — it does **not** cover `stat-band`, and the served
+  page carries **0** counter attributes. One-line fix to a shared `js_snippets` row.
+- **The imagery instinct is right and now has a number: 29 of 36 live pages carry one
+  image or none.** 52 `<img>` site-wide, and 13 of those sit on the two pages that got the
+  07-31 icon work (services 7, who-we-help 6). The framework has plenty of image-capable
+  components that this site does not use — `case-studies-grid` (5 image slots),
+  `content-block-about`, `people-feature-block`, `featured-content`.
+
+### Owed / next, pending the owner's decision
+
+Nothing was changed on the site today. The nine held items are readable at
+`site_work_items … status='needs_human_review' AND result ? 'grading'`.
