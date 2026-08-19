@@ -510,3 +510,62 @@ and another said **314**, on data whose `page_components.updated_at` had not mov
 my check query was faulty.** I nearly wrote up "the homepage has no text" as a finding.
 The habit that caught it: when two of your own measurements disagree, neither is evidence
 until you can say which is wrong and why.
+
+---
+
+## 2026-08-19, night — the fleet backfill ran, and the tripwire was proven to FIRE
+
+### v1.0.1316 arrived mid-session, and it changed one thing that mattered
+
+`[MEASURED]` chassis **`v1.0.1316`**, revision `07eeba4a1…` (which is this lane's own
+handoff commit), pod digest == local `RepoDigests`. **`fail_on_non_numeric` is now PRESENT
+in the binary** — probed with a positive control (`save_page_meta_description`) and a
+negative control (a fake symbol), both behaving. It was ABSENT on `v1.0.1315`.
+
+So the guard I set on the gate in migration `493` — **and explicitly recorded as inert at
+the time rather than implying it worked** — armed itself on this roll, with no further
+action. That is what writing down "this is declared but not in the running binary" buys.
+
+### The tripwire FIRES — proven both ways, on the live chassis
+
+The 313 lane asked for exactly this (a guard nobody has seen fire is not a guard). Two
+identical read-only workflows, same array-format producer returning the same 3 rows,
+differing only in the flag:
+
+| workflow | `fail_on_non_numeric` | outcome |
+|---|---|---|
+| tripwire (`e41e9ba8-…`) | **true** | `current_step=gate`, **status=FAILED**; `took_then` false AND `took_else` false — **neither branch taken** |
+| control (`82472c81-…`) | *omitted* | `current_step=took_else`, **COMPLETED** — **the silent skip reproduced exactly** |
+
+The control is the part that makes it evidence: it shows the probe *could* have come out
+the other way, and it reproduces `bugs_open/313`'s failure on demand. Before this flag, an
+unresolvable `.count` routed to else and reported success; now it stops.
+
+### The fleet backfill
+
+Run site by site with `./scripts/backfill-meta-descriptions.sh`, several passes because
+the workflow takes 25 pages per run.
+
+| | |
+|---|---|
+| **fleet empty** | 407 / 731 (55.7%) → **50 / 737 (6.8%)** |
+| **pages filled today** | **~571** |
+| mean description length | **129 chars** (was 102 on the first small sample — the larger population sits inside the 120-155 band) |
+| still empty | **43 with ZERO components** (no content to describe — they need content, not a description) + **7 reachable** |
+
+⚠ **The 43 are a floor, not a backlog.** A page with no rendered components cannot be
+described from its own content, and the alternative — describing it from its title alone —
+is invention. The workflow declines them on purpose.
+
+### Correction to my own earlier note
+
+Earlier today I recorded the descriptions as coming in at a mean of **102** chars against a
+120-155 ask, and flagged that as a shortfall bearing on `309`'s shrink guard. **On the full
+population it is 129, inside the band.** The 102 figure was a 26-page sample from two
+sites; it was correctly marked `[MEASURED]` and correctly dated, and it was still
+unrepresentative. A measurement can be honest, marked, and too small all at once — the
+marker says how it was obtained, not how far it generalises.
+
+That materially improves `309`'s arithmetic versus what I wrote this afternoon, but it does
+**not** settle it: the shrink guard's answer still has to come from dispatching the rerender
+and reading the served page.
