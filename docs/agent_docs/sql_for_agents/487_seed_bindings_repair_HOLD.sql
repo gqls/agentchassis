@@ -1,9 +1,18 @@
 -- 487 — seed the bindings-repair batch (bugs_open/324; parent 283 §14).
 --
--- ⚠ _HOLD: ORDERING-CRITICAL, TWICE. (1) fix_type 'repair_instance_scope_bindings' exists
--- only in chassis builds carrying the 2026-08-19 code — RUNBOOK §1 digest-verify first.
--- (2) Apply AFTER 486 (the judged branch): 5 of these rows will refuse to the judged pool,
--- and without 484 a refusal completes as a quiet no-op instead of failing to a human.
+-- ⚠ _HOLD: ORDERING-CRITICAL, TWICE — and BOTH preconditions are ENFORCED, not prose
+-- (council round 6, guardian + debug_historian):
+-- (1) fix_type 'repair_instance_scope_bindings' exists only in chassis builds carrying the
+--     2026-08-19 code. RUNBOOK §1 digest-verify first, THEN ask the pod binary itself, with
+--     a present AND an absent control in the same breath (the documented discipline):
+--       POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+--       kubectl -n ai-persona-system exec ${POD#pod/} -- grep -ac "repair_instance_scope_bindings" /proc/1/exe   # MUST be >0
+--       kubectl -n ai-persona-system exec ${POD#pod/} -- grep -ac "no_such_symbol_283_xyzzy"      /proc/1/exe   # MUST be 0
+--     (both >0 or both 0 = your probe is broken, not the binary.)
+-- (2) 486 (the judged branch) must be applied FIRST: 5 of these rows will refuse to the
+--     judged pool, and without 486 a refusal completes as a quiet no-op instead of failing
+--     to a human. The DO block below RAISES if the fixer's workflow lacks 486's steps, so a
+--     manual apply-order mistake fails loudly inside the transaction.
 -- Rename away from _HOLD when applying.
 --
 -- One item per CONVERTED row, derived at apply time (never a pasted id list — the corpus
@@ -18,6 +27,18 @@
 -- Done-check: cmd/instanceaudit <converted-export> --bindings exits 0 (the 5 judged rows
 --             leave via the judged pipeline, not this batch).
 BEGIN;
+
+-- Precondition (enforced): 486 must already be live in the fixer's workflow.
+DO $$
+DECLARE cfg jsonb;
+BEGIN
+  SELECT default_config INTO cfg FROM agent_definitions
+   WHERE type='component-template-fixer' AND is_active
+     AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  IF cfg IS NULL OR NOT (cfg #> '{workflow,steps}') ?& array['check_scope_route','judged_refusal'] THEN
+    RAISE EXCEPTION '487: migration 486 (judged branch) is NOT applied — without it a judged refusal completes as a quiet no-op. Apply 486 first.';
+  END IF;
+END $$;
 
 INSERT INTO site_work_items
   (site_id, source, pipeline, item_type, severity, summary, priority, handler_agent, status, created_by, spec, item_key)

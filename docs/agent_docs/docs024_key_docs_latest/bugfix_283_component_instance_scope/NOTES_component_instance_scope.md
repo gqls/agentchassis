@@ -501,3 +501,20 @@ did not). Index rows added after CLC-019 (CLC-020's index row is the 311 lane's 
 486 → rename+apply 487 → drain (27 fixed / 5 needs_human_review expected; monitor) →
 `--bindings` exit 0 → per-page spot-checks with a BINDING check this time → then the LMC
 judged sequence (owed steps, canary, 22, generic pair + the 5).
+
+## 2026-08-19 (session 6, later) — round 6 REVISE, all objections answered by measurement, round 7 SUBMITTED
+
+Round 6: REVISE (guardian gating; 8 object / 4 approve). Every objection checked against the
+live system rather than defended: only ONE workflow dispatches fix_component_template; fixer
+has NO root ai_service; 69 pre-images exist (change_source='scope_component_instance' — the
+"no backup" concern measured false); 19 section_edit completions on OWNED pages (the refusal
+landmine covers save_page_sections' generic save, not the targeted section-editor);
+applyContentEdit (section_editor_actions.go:793-850) re-renders even on an EMPTY field_updates
+map — the owned-delivery [UNVERIFIED] narrows to runtime-only, canary-first; create_rerender
+carries reason='template_changed' with no site filter (cross-site placements covered); LMC
+locked sections = 0. Two real hardenings applied to 487: an enforced DO-block precondition
+(RAISES unless 486's steps are live) and the /proc/1/exe symbol grep with present+absent
+controls in the header. Edit 7 re-filed as config_change naming component-template-fixer.
+Round 7 submitted, same correlation. Open architecture note recorded for a human (bug_historian
++ architecture, converging): the judged writer and tool-improver are now TWO paths authorised
+to rewrite shared templates — one shared fan-out-safety gate, or two maintained arguments?
