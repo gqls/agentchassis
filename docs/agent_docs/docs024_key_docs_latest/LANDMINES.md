@@ -13029,3 +13029,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/327` (final `090` verdict section, 2026-08-19); `copy_quality_two_stage/NOTES_two_stage_copy.md`
 - **relations:** the sibling entry above (the partial-write collapse — same function, same footprint, different failure) · register CQ-025 · MEMORY [[a-subagent-report-is-another-doc]] (a verdict's citation is another doc: check what it measured, not what it concluded)
 - **added:** 2026-08-19, copy_quality_two_stage lane
+
+### Every `banned_claims` pattern is compiled with a forced `(?i)` — so a pattern that leans on CAPITALISATION silently matches everything, and it fails by BLOCKING pages, which looks like a strict gate
+
+- **footprint:** `platform/orchestration/datahelpers/claims.go` (`regexp.Compile("(?i)" + p)` at `:296`) · `platform/orchestration/datahelpers/claims_global.go` (`:223`, same) · `site_specs` aspect `evidence_base`, key `banned_claims` · `cmd/claimscan` · `validate_page_content` check 8 / `save_sections_claims_guard` / `save_page_meta_description_action`
+- **fires when:** you write or review a `banned_claims` pattern whose discriminator is a capital letter — an attributed name (`[A-Z][a-z]+ [A-Z]`), a proper noun, a brand, an initialism, a sentence start. **No symptom needed, and the failure is invisible from the live corpus.** Also fires when you read such a pattern's `reason` and believe it describes what the pattern does.
+- **the trap:** the compile site prefixes `(?i)` to EVERY pattern, site-level and fleet-wide, and nothing in the register's schema, the `reason` field or the author's editor shows it. `[A-Z]` then matches any letter and `[a-z]+` any word. Worked case, webdesign.uk 2026-08-19: the testimonial ban `"[^"]{20,}" ?[—,-]? ?[A-Z][a-z]+ [A-Z]` — whose reason says "a long quotation followed by an attributed name" — degraded to *"a quotation followed by more prose"*. It blocked a quoted example brief, a quoted anti-example and a quoted **question** exactly as readily as a real testimonial, and stopped a guide page whose whole subject is quoting example briefs.
+- **⚠ why no census will find it: the damage is an ABSENCE.** A page blocked at save never becomes a stored component, so a scan of `page_components` before and after the fix returns the SAME findings in both directions (measured: 0 added, 0 removed over 27 components). The only evidence is a probe set you author yourself. And the direction of failure is the reassuring one — an over-broad ban reads as a strict gate, not a broken one, so it draws no suspicion and each blocked page looks like the writer's fault.
+- **the check:** before trusting any pattern containing `[A-Z]`, assume it is case-insensitive and re-read it that way. Census the estate in one query —
+  ```sql
+  SELECT s.domain, b->>'pattern'
+    FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+         jsonb_array_elements(ss.data->'banned_claims') b
+   WHERE ss.aspect='evidence_base' AND ss.is_current AND b->>'pattern' ~ '\[A-Z\]';
+  ```
+  (2026-08-19: exactly one row fleet-wide, now fixed; the Go fleet-wide set has none.) **Then prove it with `cmd/claimscan` on a probe set carrying BOTH halves** — the shapes that must still block *and* the innocent shapes that must pass. A probe set of only must-pass sentences cannot tell a narrowed ban from a disarmed one.
+- **the fix, when you need case:** Go's RE2 honours inline flag groups, so `(?-i)` inside the pattern locally reverses the forced prefix — `"[^"]{20,}" ?[—,-]? ?(?-i)[A-Z][a-z]+ [A-Z]`. No platform change needed.
+- **relations:** the same file's negation guard is the sibling trap — it scans BACKWARDS only and excludes bare "no" by design, so a bare-token ban blocks the DENIAL of the thing it bans (three cases on webdesign.uk in two days: `\brefunds?\b`, `whenever you like`, `round of changes`). Both are "the pattern does not mean what its author read it as". MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]] · [[mutate-the-code-to-prove-the-guard]]
+- **source:** 2026-08-19, `webdesign_uk_build_service` lane · `docs024_key_docs_latest/webdesign_uk_build_service/SQL_2026-08-19h_testimonial_ban_needs_case_sensitivity.sql` and the NOTES entry of the same date
+- **added:** 2026-08-19, webdesign_uk_build_service lane
