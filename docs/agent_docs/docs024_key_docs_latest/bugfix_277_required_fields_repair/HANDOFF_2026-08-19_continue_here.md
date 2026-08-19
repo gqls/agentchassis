@@ -170,8 +170,18 @@ is **Required** and their payload does not carry one, and the **RFC_015 citation
 (`acknowledges_decision` / `supersedes_decision`) is a control against precisely what an automated
 editorial pass could get wrong. Whether they compose is their call.
 
-**⚠ A direct `SendMessage` did NOT reach them** — their session runs under the title
-`copy quality two stage` but is not a reachable peer, so **the committed CONTRIB is the channel**.
+> ⚠ **CORRECTED same day — "not a reachable peer" was wrong, and the distinction matters.** They
+> ARE reachable; their peer name is **derived** (`agentchassis-8d`), not lane-shaped, so searching
+> `ListAgents` for "copy quality two stage" misses it. Resolve names via `~/.claude/sessions/*.json`
+> (`name` + `sessionId` → `af212352`), then map to transcripts in
+> `~/.claude/projects/-home-ant-projects-agentchassis/`. **`ListAgents`' `[ref]` is NOT the
+> session-id prefix**, which is what makes the obvious lookup fail. My claim should have been "I
+> could not find the name", which is a different thing. (Told to me by `agentchassis-22`; verified
+> before acting on it.)
+
+**✅ ANSWERED — they reached me independently within the hour and their reply cites the CONTRIB**, so
+the durable file was still the right thing to file. **See §6 for what came back, including a live
+hazard they found in the promoter.** The committed CONTRIB remains the channel of record.
 That is the estate's normal convention and it demonstrably works: their own handoff records two
 inbound asks from other lanes, both answered. **Check for a reply in their lane dir, in
 `bugs_open/277`, or in this lane's directory before assuming silence** — and give it more than a
@@ -179,7 +189,58 @@ day before reading silence as a no.
 
 ---
 
-## 6. Session-start checklist
+## 6. WHAT CAME BACK — and a hazard the other lane found in OUR promoter
+
+**`copy_quality_two_stage` replied the same hour** (peer `agentchassis-8d`). Their answer to the
+CONTRIB is not yet the narrow yes/no, but they volunteered something more important.
+
+**`copy_edit_proposed` / `human-review` must NEVER be promoted or auto-dispatched — owner decision
+D2 (2026-08-12): stage 2's output queues for human review, no unreviewed auto-rewrite.** Migration
+`447` asserts the no-page-write property **at apply time**, with a guarded `DO` that RAISEs if any
+step's action is one of six page-writing actions — a guarantee held by a check rather than a comment.
+
+**Their question was whether our promoter needs it recorded as never-promotable. Measured answer:
+safe today by TWO barriers, but the second one is rotten.**
+
+1. `checkpoint_for_review` files at `needs_human_review` (`:223`); `scored` selects `status='detected'`
+   only. Never looked at.
+2. At `detected` it would fail `handler_ok` — `human-review` is not a live `agent_definitions` row (0).
+
+⚠ **But a held row's reason is *"handler not a live agent"*, which reads as a broken routing config —
+and `held-pair-canary-escalation` (ours) escalates after 3 days ASKING A HUMAN TO CANARY THE PAIR.**
+So our own machinery would invite someone to break D2. **Safe by accident is indistinguishable from
+safe by design until somebody acts on the hold reason.**
+
+**Recommended to them (their call, not ours):** move the label into `spec` and file with
+`handler_agent = ''`, which is what `voice_tells` does (43 rows) and which `scored` excludes
+**outright** — the pre_query's own comment says such rows belong at `detected` permanently and
+"holding is not what is happening to them". **I explicitly declined to add an exclusion list to the
+promoter** — a second roster to maintain is the drift class this estate keeps filing bugs about, and
+an empty handler makes the bad state unrepresentable rather than merely refused. If they push back,
+the alternative offered is an explicit `item_type` exclusion in the `pre_query` **with D2 cited next
+to it**. `LANDMINES.md` entry added jointly; verifier dispatched.
+
+**Their two gifts, both worth keeping:** an all-history denominator can flip a before/after rate
+depending on the window (same family as our "lifetime meant 7 days"); and they hand-file
+`section_edit` rows born `triaged` then self-claim before publishing, because `section_edit` claim
+latency is **1,695s mean with a 21,757s tail (n=172)**. That pattern is invisible to our promoter
+(it selects `detected`) and needs no change.
+
+**§4.5 is handed to `agentchassis-22`** — both loose ends, read-only, their own dated appendix. What
+they were given that is not otherwise written down: the 3,754 figure is **inherited, not ours** and
+must be re-derived; classify by the guard's **error text**, never `pages.rebuild_policy`; and
+`page-rerender`'s `save_sections` has **no `error_step`**, so a refusal there fails the workflow
+rather than routing — a candidate explanation for refusals being *invisible* on that route rather
+than absent.
+
+⚠ **One observation from this session that had never reached a file, now handed over with it:**
+**0 `page-build-handler` orchestrations since the roll, while 20 of its work items were updated at
+08:45:58.** A handler apparently acting with no orchestration to show for it. Noticed, not chased,
+not recorded until now — **treat my zero as unverified.**
+
+---
+
+## 7. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,
 `083`, `300`, `301`, `307`, and **`copy-editor` belongs to another lane** · re-measure §1's probe ·
 then §4 step 1.
@@ -212,7 +273,7 @@ Also correct the closure dates from §0/§4 above, not from the overwriting sess
 the worked example must be REPAIRED, and nothing repairs `no_content_data` at all** — which is a
 harder blocker than the churn-guard clock, and the more useful thing to know.
 
-## 7. The escalation clock, and other additive detail kept from a concurrent edit of this file
+## 8. The escalation clock, and other additive detail kept from a concurrent edit of this file
 
 ### A. The escalation clock: three dated ticks, and 08-19's ZERO IS CORRECT
 

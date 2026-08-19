@@ -1396,3 +1396,89 @@ churn-guard clock I quoted but by **its own verify clause 1 — the worked examp
 and nothing repairs `no_content_data` at all** (44 completions are `auto:revalidated`, 37
 `build-dispatch-loop`, **0 by the router**). `083` closes **~08-25** (owner decision 5), not 08-24.
 **Their handoff is authoritative; read it, not my §3.**
+
+---
+
+## 2026-08-19 (cont.) — two peer lanes made contact, and one of them found a live hazard in MY machinery
+
+### The CONTRIB got read the same hour, and my "not reachable" was wrong
+
+I recorded in §5 of the handoff that a direct `SendMessage` to the `copy_quality_two_stage` lane
+failed and the committed CONTRIB was therefore the only channel. **That was half wrong.** The
+session IS reachable — its peer name is **derived** (`agentchassis-8d`), not lane-shaped, so
+searching `ListAgents` for "copy quality two stage" misses it. The mapping is in
+`~/.claude/sessions/*.json` (`name` + `sessionId` → `af212352`), and ⚠ **`ListAgents`' `[ref]` is
+NOT the session-id prefix**, which is exactly what made my obvious lookup fail. Told to me by
+`agentchassis-22`, verified by me before acting on it.
+
+It resolved in the best way: **they reached me independently within the hour, and their reply cites
+the CONTRIB.** So the durable file was still the right thing to file — but "not reachable" should
+have been "I could not find the name", which is a different claim.
+
+### The hazard they found, which is in the promoter and therefore mine
+
+They asked a careful question: does the promoter need `copy_edit_proposed` recorded as
+**never-promotable**, or is it safe merely by not being a known-good pair? Their words:
+*"I would rather it be excluded on purpose than inert by accident, because inert by accident changes
+the day someone canaries it without knowing the D2 constraint."*
+
+**Measured, not reasoned. It is safe today, by TWO independent barriers:**
+
+1. `checkpoint_for_review` files at `needs_human_review` (`checkpoint_for_review_action.go:223`) and
+   the promoter's `scored` CTE takes `WHERE wi.status = 'detected'` only — so the rows are never
+   looked at. Both live `copy_edit_proposed` rows are `complete`.
+2. Even at `detected`, `handler_ok` would fail: `human-review` is **not** a live `agent_definitions`
+   row (0).
+
+**But their instinct was right, and the second barrier is the rotten one.** A held row's reason
+string is *"handler not a live agent"* — indistinguishable from a broken routing config, and an
+invitation to "fix" it. **And the next step is mine:** `held-pair-canary-escalation` escalates a
+held row after 3 days **asking a human to hand-canary the pair**. So my own task would surface a
+type whose entire design is "never auto-dispatch" to a person as *awaiting a canary*.
+
+**The estate already has the right mechanism and they had already cited it without connecting it:**
+`voice_tells` files `handler_agent = ''` (43 rows), and `scored` excludes empty handlers **outright**
+— the pre_query's own comment says those rows belong at `detected` permanently and *"holding is not
+what is happening to them"*. So:
+
+| | `handler_agent` | what the promoter does | how it reads |
+|---|---|---|---|
+| `voice_tells` | `''` | excluded by construction | deliberate, and documented |
+| `copy_edit_proposed` | `'human-review'` | selected, then HELD | **like a defect to fix** |
+
+I recommended they move the label into `spec` and empty `handler_agent` — it makes the bad state
+unrepresentable rather than merely refused, and needs nothing from my roster. I explicitly declined
+to add an exclusion list to the promoter: a second roster to maintain is the drift class this estate
+keeps filing bugs about. Offered as their call, with the alternative named.
+
+`LANDMINES.md` entry added jointly, D2 cited at the point of enforcement, verifier dispatched.
+
+> **The bit worth carrying:** the guarantee was never in danger, and the question was still worth
+> asking. *"Safe by accident is indistinguishable from safe by design until the day someone acts on
+> the hold reason"* is a better test than "is it currently dispatching?" — and it took an outside
+> lane to ask it, because from inside my own mechanism the hold looked like the system working.
+
+### Work handed to `agentchassis-22`, with the split agreed
+
+They take handoff §4.5 — the two `[UNMEASURED]` loose ends nobody owns: (a) `page-rerender` saving
+to owned pages while `page-build-handler` is refused, same guard; (b) `tool-…` pages carrying
+`rebuild_policy='generic'`. Both read-only. I kept §4.1–§4.4 (post-roll checks, `083`'s close, the
+`277` conversation I had just opened, and `314` which is the owner's call).
+
+**Three things I gave them that they would otherwise have re-derived:**
+
+- ⚠ **the 3,754 figure is not mine.** I inherited it from another session's table in `bugs_open/301`
+  and repeated it in my handoff with no marker. **Re-derive before building on it.**
+- ⚠ **the discriminator trap** — classify by the guard's error text, never by `pages.rebuild_policy`.
+  85 of 87 vs 2 of 87; the 2 were the whole population I nearly built a remedy around.
+- **`page-rerender`'s `save_sections` has no `error_step` at all**, so a refusal there fails the
+  workflow rather than routing to a status write — a candidate explanation for refusals being
+  *invisible* on that route rather than *absent*. All three agents call the same action, so the
+  guard predicate is identical by construction; the difference is in what reaches it or what happens
+  after.
+
+**And the one thing in my scrollback that had never reached a file**, which is exactly the
+duplication `who-owns.py` cannot see: today I measured **0 `page-build-handler` orchestrations since
+the roll** while **20 of its work items were updated at 08:45:58** — a handler apparently acting with
+no orchestration to show for it. I noticed, did not chase it, did not record it. Same shape as their
+(a). Handed over with my zero explicitly marked unverified.
