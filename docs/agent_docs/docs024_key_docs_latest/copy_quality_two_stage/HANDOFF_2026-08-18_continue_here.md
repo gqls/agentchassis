@@ -60,6 +60,83 @@ BIRTH rather than on an existing page. **That last one is a real gap** — every
 so far is stage 2 editing a page that already exists.
 
 
+
+## ⚠ UPDATED 2026-08-19 — ROOT CAUSE FOUND, and it is the BRIEF. Plus a pending change to stage 2's write path.
+
+### The cause of the owner's directory-page complaint: `content_direction` is written in the construction
+
+Full evidence in `bugs_open/305`'s final section. In short `[MEASURED 2026-08-19]`:
+
+- **All three flagged pages are PRE-v2** — adoption-tracker and protocol-tracker CTAs written
+  **2026-07-26**, model-directory 08-06/08-08, and the hero phrase first seen **2026-04-10**
+  across 251 calls. The symptom contains no post-v2 output at all, which is why every
+  v2-based explanation failed, mine included.
+- **The site's brief carries the shape seven times and hands down the tagline verbatim** —
+  *"deployed to production in days, not months"* appears in **1,348 rendered prompts and 408
+  responses** across 21,078 writer calls. Literal chain, not a rate.
+- **Fleet census: 24 of 25 `content_direction` specs carry it**, at 24–38 instances —
+  `ai-agent-orchestration.com` has SEVEN, i.e. the complaint came from one of the LEAST
+  saturated briefs. ⚠ Top of the list is `remortgagecalculator.uk`, the Phase C pilot
+  `portfolio_positioning` offered to rerun — warned them: rerunning against that brief
+  regenerates the register from a worse source and would read as the fix failing.
+- **The fix is the SPEC, not the writer.** A detector pointed at specs
+  (`count_negation_tells.py` aimed at `content_direction` instead of a page) catches it before
+  a page is written. ⚠ Site-config on other lanes' sites — coordinate, do not edit unilaterally.
+- **Not proven:** that the briefs' *instructional* uses of contrast transfer to output. One
+  literal transfer is proven (the tagline). Design that measurement so it can come out either
+  way — see `305 §3`'s correction for why that sentence is there.
+
+### ⚠ A pending migration changes stage 2's write-path guarantee
+
+`bugs_open/184`'s `strip_literal_markdown` mutates the merged content map — **LLM
+`field_updates` included** — before render, on `section-editor`'s `apply_edit`. **Code is LIVE**
+(`019fb0616`/`6fa9f5673` are ancestors of the running build); **migration 474 is PENDING**
+(absent from `schema_migrations`; the flag appears in zero live agent configs), so it is inert
+today and *"what the gate graded is what lands"* still holds.
+
+**When 474 lands, that stops being exactly true for plain-text fields.** The tell is
+`stripped_markdown_fields` on the action result — non-empty means the persisted content is not
+byte-identical to what the gate passed. Their HTML guard (`!HTMLMarkupRe.MatchString`) means
+HTML-bearing fields take the conservative path. CONTRIB filed telling them a consumer appeared
+after they wrote it, and asking to be pinged on apply.
+
+### From the `bugfix 083` / 277 lane (live exchange, both directions answered)
+
+- **Their promoter cannot reach `copy_edit_proposed`, structurally.** `checkpoint_for_review_action.go:202`
+  hardcodes BOTH `handler_agent='human-review'` and `status='needs_human_review'` in one INSERT,
+  so the type cannot be born `detected` by its only producer. Their suggested
+  `handler_agent=''` fix is therefore **not available to me** — it is a Go change on a shared
+  action (4 agents, 9 items), council + roll.
+- ⚠ **Their `held-pair-canary-escalation` would, after 3 days, ask a human to hand-canary any
+  `copy_edit_proposed` row that ever did reach `detected`** — inviting exactly the D2 breach.
+  They are landmining it; I accepted their offer of an explicit `item_type` exclusion + D2
+  citation in the promoter's `pre_query`, as a guard on that narrow residual.
+- **`apply_section_edit` has an RFC_015 citation gate** (`acknowledges_decision` /
+  `supersedes_decision`) that a hand-filed `section_edit` can silently omit. Mine omitted it —
+  **no harm done, and provably so**: the gate returns a SKIP, and all four of my applies
+  changed content, so no decision covered those slots.
+- **Answered their design question** (`bugfix_277_required_fields_repair/CONTRIB_2026-08-19_reply_…`):
+  a one-component-one-defect repair is a **different agent** — stage 2's page-scoped read is
+  its whole reason to exist and is pure cost for a named defect — and they should check
+  **migration 473** first, which makes a page-rerender the mechanical repair for
+  `literal_markdown` with no LLM at all.
+
+### Two self-inflicted evidence losses, worth not repeating
+
+1. **Closing an item by writing `result` DESTROYS the handler's own record** — my four applies'
+   `content_edit_mode` / `updated_field_count` are gone. Use `result = result || jsonb_build_object(…)`.
+2. **Orchestration rows are not an archive.** The 08-17 apply orchestration **no longer exists**
+   (count 0) while rows from 2026-07-13 survive, so it was not age-based. Between (1) and (2)
+   there is now no record of those applies except the artefact and this lane's docs.
+
+### Chassis today
+
+**`v1.0.1314` = `d3590ca46`** (both replicas, binary-probed with a negative control; the
+startup line had scrolled). Mode-split still in. The 07:51:10Z bulk update to 195 agent rows
+was the **release stamping `image_tag`** fleet-wide — `copy-editor`'s `default_config` is
+otherwise exactly as 462 left it (max_tokens 32000, budget and voice references intact).
+
+
 ## ⚠ UPDATED 2026-08-18 (evening) — BOTH inbound asks are ANSWERED, and one produced a bug + a landmine
 
 **Neither ask is outstanding any more.** What replaced them:
