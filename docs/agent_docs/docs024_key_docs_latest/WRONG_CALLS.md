@@ -37729,3 +37729,61 @@ I had read that hours earlier. This is the identical impatience pointed the othe
 present row read as finished.** The general form is that *the tell for "not done yet" is almost
 never in the field you are reading for the answer* — and a document that names a verdict is far
 harder to walk back than a note saying a run is still going.
+
+---
+
+## 2026-08-19 — `315 advisory read`: I reported a live session as "idle and blocked", then over-corrected to "the question was already settled". Both were snapshots read as states
+
+**The claim, twice, in opposite directions.**
+
+1. To the owner: *"A session named `bugs_open/315` holds this bug and is currently **idle, blocked
+   on a question it escalated to you**"* — and on that basis I asked him to re-decide the lane's
+   open `content_hash` question.
+2. Then, on finding `RFC_038 §8 OWNER RULING` in the file: *"I asked you to decide something that
+   was settled on disk"* — i.e. I told him I had wasted his attention.
+
+**The truth: neither.** The session was **working the whole time**. Inside the ten minutes between
+my two statements it committed `adada2575` (§7 consumer survey + §8 the ruling) at 16:54 and
+`0c5b94725` (**RFC_038 half 1 — the git-adapter now reports what it did**) at 16:57. And claim 2
+was also wrong: §8 entered the repo at 16:54, *after* I asked at ~16:50, so the question was open
+when I put it. The owner's answer to me and the ruling recorded in §8 agree, which is the only
+reason this cost nothing.
+
+**What I actually read, and why each was stale.**
+
+- `ListAgents` said `idle` at 16:47:22. That is a between-turns instant, not a state — a session
+  mid-task reads `idle` every time it is not inside a tool call.
+- `RFC_038`'s **top-line** `**Status: OPEN, awaiting the consumer survey it asks for.**` — while
+  **§7 of the same file** said the survey was done and decisive. I ran `head -25` and never looked
+  further down.
+- The lane's `README_where_we_are.md` closing *"What I need from you: wire up the page fingerprint,
+  yes or no?"* — true when written at 16:22, answered by 16:54.
+
+**What caught it.** `git log -S'## 8. OWNER RULING'` plus `git log --since='16:47'`, run only
+because the ruling's wording matched the owner's answer too exactly to be coincidence. The tell was
+never in any of the three things I had read.
+
+**The cheap check, and it is one command:** ask what the lane has *committed lately*, not what its
+docs say about themselves —
+
+```bash
+git log --since='<n> minutes ago' --format='%h %ad %s' --date=format:'%H:%M' -- <lane dir> <bug file>
+```
+
+A dir with commits in the last ten minutes is **occupied**, whatever `ListAgents` reports and
+whatever a `Status:` line claims. On this tree that is not a marginal signal: the same
+`--since 16:47` window showed **~40 commits across ~20 lanes in 17 minutes**.
+
+**The general shape, which is the part worth keeping.** A `Status:` line sits at the *top* of a
+document and is therefore the **oldest** sentence in it, while the newest work is appended at the
+bottom — so `head` on a living doc systematically returns the most stale claim it contains, wearing
+the most authoritative formatting. This is the SessionStart landmine *"a concept-register STATUS
+line is a snapshot that outlives its truth"* firing on an **RFC** rather than a register entry, and
+it fired at me in the same session it was shown to me.
+
+And the second-order lesson is about the correction, not the error: **on a tree this concurrent, an
+apparent contradiction between what you measured and what you now see is more often two valid
+observations minutes apart than one mistake.** My instinct was to assume the older reading was
+wrong; the honest resolution was that both were right and the system had moved. I should reach for
+`git log --since` *before* apologising, because a wrong retraction is still something the owner has
+to unpick.
