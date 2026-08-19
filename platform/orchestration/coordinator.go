@@ -2016,7 +2016,9 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	}
 	state.AwaitedRequests[requestID] = awaitedReq
 
-	// Set status to awaiting (must happen before persist)
+	// Set status to awaiting (must happen before persist). Capture the prior
+	// status first: the failure path below must restore it, not blank it.
+	priorStatus := state.Status
 	state.Status = StatusAwaitingResponses
 
 	// PERSIST STATE BEFORE TABLE INSERT to prevent race condition
@@ -2032,7 +2034,12 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 			zap.Error(err))
 		// Remove from in-memory state since we failed
 		delete(state.AwaitedRequests, requestID)
-		state.Status = "" // Reset status
+		// Restore the prior status rather than blanking it. "" is not a member of
+		// the status vocabulary, and this state IS persisted afterwards:
+		// returning false sends control back to continueExecution, which — seeing
+		// a status that is not StatusAwaitingResponses — falls through to
+		// saveStepResultWithRetry. A blank status therefore reached the database.
+		state.Status = priorStatus
 		return false
 	}
 

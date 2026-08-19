@@ -350,7 +350,7 @@ func (h *DashboardHandlers) getSystemHealth(ctx context.Context) SystemHealthMet
 	// Get active workflows count
 	h.clientsDB.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM orchestration_states 
-		WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT')
+		WHERE status IN ('RUNNING', 'AWAITING_RESPONSES')
 	`).Scan(&metrics.ActiveWorkflows)
 
 	// Mock metrics - in production these would come from Prometheus

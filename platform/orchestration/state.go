@@ -25,7 +25,6 @@ type OrchestrationStatus string
 const (
 	StatusInitialized       OrchestrationStatus = "INITIALIZED"
 	StatusRunning           OrchestrationStatus = "RUNNING"
-	StatusPausedForHuman    OrchestrationStatus = "PAUSED_FOR_HUMAN"
 	StatusExecutingStep     OrchestrationStatus = "EXECUTING_STEP"
 	StatusAwaitingResponses OrchestrationStatus = "AWAITING_RESPONSES"
 	StatusCompleted         OrchestrationStatus = "COMPLETED"

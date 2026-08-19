@@ -102,10 +102,16 @@ func TestHumanInLoopWorkflow(t *testing.T) {
 	if err != nil {
 		t.Logf("State not found yet, workflow may still be initializing")
 	} else {
-		// If using pause_for_human_input action, status should be PAUSED_FOR_HUMAN
-		if state.CurrentStep == "pause_for_approval" {
-			assert.Equal(t, orchestration.StatusPausedForHuman, state.Status)
-		}
+		// NOTE (2026-08-19): this used to assert StatusPausedForHuman. That status
+		// was declared and NEVER WRITTEN — no code set it, no row ever held it,
+		// and the four production guards that claimed to protect it spelled it
+		// PAUSED_FOR_HUMAN_INPUT, a different string. The declarations were removed
+		// and orchestration_status_vocabulary is now the single source of truth
+		// (migration 466), enforced by a foreign key. The `pause_for_human_input`
+		// ACTION referenced by this test is likewise not registered.
+		// To implement pausing: add the status to the vocabulary table with
+		// is_pausable = true (the reaper's invariant reads that column, so no sweep
+		// needs changing), register the action, then restore an assertion here.
 	}
 
 	// Simulate human approval

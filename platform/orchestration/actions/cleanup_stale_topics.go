@@ -206,11 +206,11 @@ func getActiveOrchestrationTopics(ctx context.Context, db *sql.DB, logger *zap.L
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT topic FROM (
 			SELECT requests_topic AS topic FROM orchestration_states
-			WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT', 'EXECUTING_STEP')
+			WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'EXECUTING_STEP')
 			  AND requests_topic IS NOT NULL AND requests_topic != ''
 			UNION ALL
 			SELECT responses_topic AS topic FROM orchestration_states
-			WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT', 'EXECUTING_STEP')
+			WHERE status IN ('RUNNING', 'AWAITING_RESPONSES', 'EXECUTING_STEP')
 			  AND responses_topic IS NOT NULL AND responses_topic != ''
 		) active_topics
 	`)

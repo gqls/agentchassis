@@ -124,7 +124,7 @@ func listActiveWorkflows(db *sql.DB, clientID string) {
                execution_metadata->>'total_steps' as total
         FROM orchestrator_state
         WHERE client_id = $1
-          AND status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN')
+          AND status IN ('RUNNING', 'AWAITING_RESPONSES')
         ORDER BY updated_at DESC
         LIMIT 20
     `, clientID)

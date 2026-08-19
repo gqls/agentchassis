@@ -82,7 +82,7 @@ func (h *SystemHandlers) HandleCleanupStaleTopics(c *gin.Context) {
 
 	// Step 2: Get topics referenced by active orchestrations
 	activeTopics, err := queryOrchestrationTopics(ctx, h.clientsDB,
-		`status IN ('RUNNING', 'AWAITING_RESPONSES', 'PAUSED_FOR_HUMAN_INPUT', 'EXECUTING_STEP')`)
+		`status IN ('RUNNING', 'AWAITING_RESPONSES', 'EXECUTING_STEP')`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query active topics: " + err.Error()})
 		return
