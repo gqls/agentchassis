@@ -372,3 +372,73 @@ of the four columns distinguishes *a commit that wrote a blob* from *a commit th
 because `CommitToRepo` never returns the sha it computed. **So the census also says the guard cannot
 be built from the data as it stands** — step 1 of the house pattern (make the layer that knows say
 what it knows) is a genuine prerequisite, not a nice-to-have.
+
+## 2026-08-19 ~10:55Z — the fix plan came back; I grounded its load-bearing claims before using them
+
+A subagent's report is another doc with no seam showing where its measuring stopped, so I re-checked
+every claim this plan rests on. **All held**, and two of them change the shape of the fix:
+
+| claim | verified at | result |
+|---|---|---|
+| `UpdatePageStatusInputSpec` is `StrictConfig: true` | `v3_site_actions.go:636` | ✔ — so a NEW config key fails validation on a binary whose spec lacks it: **config must follow the image**, the inverse of the usual seed rule |
+| a retired key `commit_from` already describes this feature | `v3_site_actions.go:615-621` | ✔ — *"recording which git commit a page's content was DEPLOYED in, from the git_commit step's output … unimplemented — pages has no such column. Implement it as a feature if wanted, do not re-add the key"* |
+| the page-rerender seed already PROMISES a commit sha | `sql_for_agents/034_page_rerender_agent.sql:99` | ✔ — `"deploy_result": "git commit result with commit_sha"` |
+| `CommitToRepo` has few callers | `adapter.go:438,518,710` | ✔ — **3 production callers, all in the adapter**; `CreateBranch`/`CreatePullRequest` do not call it. Tests are almost all `_, err :=` and compile unchanged |
+| `section-editor`'s deploy output field is not `deploy_result` | live `agent_definitions` | ✔ — it is **`git_result`** |
+
+### Two things this settles that the bug file left open
+
+**1. The bug's §2 table is partly EXPLAINED, and for two of its three rows the behaviour is
+correct.** Register `DGH-009`'s landmine (`deployment-github.md:101`):
+
+> *"**`success:true` from the git-adapter is not evidence anything changed.** An unchanged file
+> commits as an EMPTY commit and the adapter reports success with the file listed in
+> `deploy_result`."*
+
+A rerender that produces byte-identical output commits an empty commit; `b2 sync` then rewrites no
+object; `last-modified` stays where it was. **So `tool-json-cleaner` and `tool-smooth-shadow` —
+§2's two "stale but serving correctly" rows — are not defects at all.** Their bytes did not need
+rewriting. §2 read all three rows as one finding; they are two findings, and only the
+`seo-injector` row is the bug.
+
+That does **not** weaken §2's conclusion, it sharpens it: `deployed_at` honestly means *"a rerender
+ran and its output was committed"*. It has never meant *"the origin now serves these bytes"*, and
+the gap only does damage when the bytes **did** change and still did not arrive.
+
+It also kills the timestamp comparison for good: a check on `deployed_at` vs `last-modified` would
+have convicted both healthy pages. **Only an intent-vs-reality content hash separates the three
+rows**, which is why fix candidate 1 is load-bearing for candidate 4 rather than merely adjacent to
+it.
+
+**2. A guard keyed on a literal field name would be blind on most of the fleet.** The plan spotted
+`section-editor`; the full census is worse. `[MEASURED 2026-08-19]` the `output_field` of all 19
+live `git_commit` steps — **nine distinct names, and two steps set none at all**:
+
+```
+js_snippets_deployed   6      deploy_result          3   (page-rerender, report-builder, site-asset-renderer)
+css_deployed           2      (none)                 2   (deployer-agent, site-deployer)
+news_commit_result     1      rss_commit_result      1
+directory_commit_result 1     sidecar_deployed       1     failed_sidecar_deployed 1   git_result 1
+```
+
+So `deploy_result` names only **3 of 19**. Any guard that hard-codes it inherits a 16/19 blind spot,
+and — because it must fail open — would wave those through silently. **The guard has to take the
+field name from its own step config**, which is also what makes it opt-in and default-OFF, and
+therefore not architecture-scope under RFC_022.
+
+### Status of the diagnosis loop, stated plainly
+
+**It did not produce a verdict.** Two dispatches (`6f900e18-2106-4145-a84c-811baeceaa0d`, then
+`f1433782-6ba7-4304-a7f9-8bd830dfb7c9`) both died at the `verdict` step on
+`AI endpoint unavailable … "You have reached your specified API usage limits"`. The item is parked
+at `triaged`.
+
+Per CLAUDE.md's owner ruling of 2026-07-31, a cross-cutting root-cause claim is not "filed" until it
+has been through the loop **or the filing session states plainly why it substituted equivalent
+first-hand verification**. Stating it: I read every function named in this account at source
+(`GitCommitAction`, `CommitToRepo`, `handleCommitAction`, `UpdatePageStatusAction`,
+`upstreamAssemblySkipped`), measured the live workflow graph by joining on `next_step` rather than
+trusting key order, censused 744 live `deploy_result` rows over 7 days, probed 40 pages at the
+served artefact with cache-busters, and read the runner pods' own job logs. **The loop is still
+queued and should be read if it ever completes** — and if it refutes any of this, the refutation
+wins.
