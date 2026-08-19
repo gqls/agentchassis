@@ -2368,3 +2368,18 @@ already carries sibling presentation knobs; migrating later is one UPDATE + one
 COALESCE. Also: the trigger refuses a pseudo-path in `edits[].file` ("ONE EDIT =
 ONE FILE, repo-relative") — a DB config change is pointed at the doc that records
 it.
+
+---
+
+## 2026-08-19 — noted lost its CSS on the 18th; diagnosed, repaired, contributed to bug 198
+
+Full mechanism, evidence and repair are in `bugs_open/198` (second-incident
+section, appended today — that lane owns the defect) and the new LANDMINE
+("A `css_themes` row can be BORN EMPTY…"). One-paragraph record: theme row born
+empty 08-15 (git got the real 17,475 bytes, DB got nothing, no check compares);
+21 contrast patches 08-18 appended correctly to the empty base under 198's
+candidate-3 guard and `deploy_css` committed the DB value wholesale over the
+file (17,475 → 91 → 2,381); the contrast loop amplified its own damage. Repaired
+v23 = base + provenance + patches; DB==repo==box==live (20,367 B), 98 base
+selectors serving. The git-writer shrink guard 198 named on 08-04 is still the
+open door. New standalone handoff: `HANDOFF_2026-08-19_continue_here.md`.
