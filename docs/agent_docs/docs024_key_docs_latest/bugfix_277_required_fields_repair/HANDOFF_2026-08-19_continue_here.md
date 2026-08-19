@@ -117,29 +117,38 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
 
 1. **Tomorrow: re-run the two post-roll checks** (RUNBOOK), each with both controls. Minutes. This
    is the only thing standing between `300` and "proven", and between Tier 1 and the same.
+   **This is now the top item — everything else on this list is either answered, owner's-call, or
+   dated.**
 2. **~2026-08-25: close `083`** once `444`/`458`'s doors have held a week (owner decision 5). Move
    with **both paths on the commit** (`git mv` landmine) and verify at HEAD with `git ls-tree`.
    ⚠ Before closing, check `479`'s reclaim arm has fired at least once — it still never has, so it
    is shipped-but-unexercised, and the close should say so rather than imply it works.
 3. **`277`'s remaining half** — the `no_content_data` repair. This is also Tier 2.
-   **✅ THE CONVERSATION IS OPEN — do not re-open it, and do not design ahead of the reply.**
-   CONTRIB filed and committed (`7574482c7`) at
-   `docs024_key_docs_latest/copy_quality_two_stage/CONTRIB_2026-08-19_from_the_277_083_lane_your_stage_2_output_is_the_shape_two_stuck_repair_queues_need.md`.
-   See §5.
+   **✅ ASKED AND ANSWERED SAME DAY — the answer is "DIFFERENT AGENT". Do not re-open it, and do not
+   design around `copy-editor`.** Stage 2's whole value is the *page-scoped read*; for "this
+   component, this defect" that read is pure cost (78KB of prompt, a ~100s call, to change a field
+   you already know is wrong), and its three-edit budget is a **symptom of page scope, not a feature
+   to inherit**. §5–§7. CONTRIB `7574482c7`, their reply
+   `bugfix_277_required_fields_repair/CONTRIB_2026-08-19_reply_different_agent_and_check_473_before_you_build_anything.md`.
+   ⚠ **AND CHECK `473` FIRST** — a deterministic, no-LLM repair for `literal_markdown` ships this
+   week and would make an LLM route for that class redundant. See §7b for what it does and does not
+   cover.
 4. **`314`** — owner's call between the four candidates; candidate 1 is one line plus a credit cost
    somebody should size.
 5. ~~**Two loose ends nobody owns**, both `[UNMEASURED]`~~ **BOTH MEASURED 2026-08-19 by
-   `agentchassis-22` — see §10. (a)'s PREMISE WAS VOID; (b) has a population but no mechanism.**
+   `agentchassis-22` — see §8. (a)'s PREMISE WAS VOID; (b) has a population but no mechanism.**
    - ~~`page-rerender` saves to owned pages ~3,754 times without refusal while `page-build-handler` is
      refused every time. Same guard. One of those needs explaining.~~ **There was no asymmetry to
      explain.**
-   - a page named/URL'd `tool-…` carrying `rebuild_policy='generic'` looks like a data defect;
-     nobody has counted how many.
+   - ~~a page named/URL'd `tool-…` carrying `rebuild_policy='generic'` looks like a data defect;
+     nobody has counted how many.~~ **COUNTED, AND THE DAMAGE IS ZERO — recommendation: DO NOT FILE.**
+     ~69 real tools are inconsistently marked, and **inconsistent is not damaged**: no tool page has
+     been clobbered, and the seed case serves its tool fully intact. §8.
 
 > ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
 
 
-## 5. THE OUTBOUND ASK — filed 2026-08-19, awaiting a reply
+## 5. THE OUTBOUND ASK — filed 2026-08-19, ANSWERED same day (see §6)
 
 **To the `copy_quality_two_stage` lane** (register **CQ-024**; migrations `447` seed + `462`
 budget). ⚠ **NOT `loanandmortgagecalculator_couk`** — see the correction boxes above; I had the
@@ -242,7 +251,7 @@ not recorded until now — **treat my zero as unverified.**
 
 ---
 
-## 9. OWED WORK from the peer exchange — one migration, and one measured warning already sent
+## 7. OWED WORK from the peer exchange — one migration, and one measured warning already sent
 
 ### 9a. OWED: an explicit `copy_edit_proposed` exclusion in the promoter's `pre_query`, citing D2
 
@@ -310,7 +319,7 @@ LLM route for this class.
 
 ---
 
-## 10. §4.5 ANSWERED — and (a)'s premise was VOID, including in a figure I repeated
+## 8. §4.5 ANSWERED — and (a)'s premise was VOID, including in a figure I repeated
 
 Measured by `agentchassis-22`, committed at `a43f99bb4` as a dated appendix in this lane's NOTES.
 **Read their appendix, not this summary, before building on any of it.**
@@ -368,7 +377,7 @@ likely to show harm shows none.
 with a `tool-` name. Counting only pages carrying interactive controls it is **69 of 89 against 83 of
 95**. **The marking is inconsistent across ~69 real tools — and inconsistent is not damaged.**
 
-**RECOMMENDATION, theirs and I agree: DO NOT FILE (b).** My own §10 criterion decides it — (b) has no
+**RECOMMENDATION, theirs and I agree: DO NOT FILE (b).** My own §8 criterion decides it — (b) has no
 mechanism read at source, and now a **priced consequence of zero**. Filing would assert a
 cross-cutting cause behind a harmless inconsistency, which is the 2026-07-31 ruling's target. Route 1
 (find the writer) is now the wrong spend: it would buy a tidier database and no protection.
@@ -403,7 +412,7 @@ retrospective, only the second is evidence.
 
 ---
 
-## 7. Session-start checklist
+## 9. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,
 `083`, `300`, `301`, `307`, and **`copy-editor` belongs to another lane** · re-measure §1's probe ·
 then §4 step 1.
@@ -436,7 +445,7 @@ Also correct the closure dates from §0/§4 above, not from the overwriting sess
 the worked example must be REPAIRED, and nothing repairs `no_content_data` at all** — which is a
 harder blocker than the churn-guard clock, and the more useful thing to know.
 
-## 8. The escalation clock, and other additive detail kept from a concurrent edit of this file
+## 10. The escalation clock, and other additive detail kept from a concurrent edit of this file
 
 ### A. The escalation clock: three dated ticks, and 08-19's ZERO IS CORRECT
 
