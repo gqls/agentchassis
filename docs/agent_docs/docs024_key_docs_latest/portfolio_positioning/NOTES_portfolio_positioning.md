@@ -2484,3 +2484,61 @@ the reference zone**, and wrong in both directions: 8 of 39 zones already had a 
 in four distinct states, and two of those (`cookly.uk`, `dartsonline.com`) were already doing
 exactly what the owner asked for. The exceptions were precisely the zones a blind fan-out
 would have broken — which is the argument for classifying per zone rather than looping.
+
+---
+
+## 2026-08-19 — drift check against ~120 overnight commits, and two things that changed the picture
+
+### 1. What was re-verified rather than assumed
+
+| claim | state 2026-08-19 | how |
+|---|---|---|
+| chassis build | **v1.0.1314, `d3590ca46`** | binary probe, **three-way control**: build sha PRESENT · yesterday's `0b185bad2` **ABSENT** · nonsense sha ABSENT. The `build provenance` startup line had scrolled past `--tail=20000` on both pods, so the log route was unavailable |
+| both sites locked | ✅ still, `locked_by` names this lane | `sites.locked_at` |
+| directory | **25 mortgage lenders, 17 savings** | unchanged overnight |
+| `www` → apex | 301 on all 5 sampled zones incl. the two that were resolver-stale | followed the redirect |
+| `bugs_open/311` fixed? | **no** — `store_generated_component_action.go`, `create_tool_component_action.go`, `component_selector.go` all untouched since filing | `git log <sha>..HEAD -- <paths>` returned empty |
+
+### 2. 311 got worse, and then got a cross-lane answer
+
+**Worse:** the `loanzy_uk_example_site` lane reproduced it on a greenfield build and lost **7 of
+7** tool sections, then measured the served artefact — `loanzy.uk/tools/loan-comparison-calculator/index.html`
+returns 200, 22,600 bytes, **zero `<input>` elements**. A calculator page with no calculator,
+live, with nothing in the page to show a reader that anything failed. Our filing had asserted
+"built, deployed and served without it"; they attached a URL to it.
+
+**Answer:** `architecture_review/RFC_036` is the same design fact (function fleet-wide, identity
+per-site) at the **tool** level, filed independently, with an owner direction and a written path
+(§9.3). Until this morning `grep 311` there and `grep 036` here both returned **0** — two lanes
+at the same wall, invisible to each other.
+
+**They are distinct, and I checked rather than assumed** — the incumbents
+(`mortgages-repayment`, `loans-credit-health-check`, `loans-car-finance-calculator`) are all
+`component_level='section'`, and `idx_cc_tool_function_unique` is **partial on
+`component_level='tool'`**, so the index cannot be what refuses them; the field-contract guard
+is. RFC_036's rows are `tool`-level and are not touched by that guard.
+
+**The consequence that made the cross-link worth writing:** RFC_036 §9.3's change fires only
+when a **library (`tool`-level)** row claims the function — so building it would fix their half
+and **leave 311 entirely live**, while reading as "tools are fixed". Both files now cite each
+other. One council submission covering both writers is cheaper than two rounds.
+
+### 3. The pilot's blocked pages are `bugs_open/260`, and the dead links are the SAME defect
+
+An inbound note from the loanzy lane pointed out that our `HANDOFF_2026-08-18` TODO 6 (file the
+`{{end}}` leak) was already `bugs_open/260`, and predicted that blocked pages leave dead internal
+links. **Tested on our live site and confirmed:** `/`, `/about.html` and `/next-steps.html` each
+link to `/six-month-checklist.html` and `/what-your-number-means.html`, **both 404**. They are
+nav links, so it is site-wide, not one stray reference.
+
+So the lane's `{{end}}` TODO and its dead-internal-link TODO were **one defect counted twice** —
+the links are dead *because* the pages were blocked. Contributed as §12 of 260. Their headline
+still says "no live damage"; it is now wrong on two live sites, and I left the headline to its
+owner rather than editing it.
+
+### 4. Summary written
+
+`SUMMARY_2026-08-19_first_sites_live_and_the_wall_the_fleet_would_have_hit.md`. The test in
+CLAUDE.md is whether the five headings would differ substantially from the last one: 08-17's
+"where we are now" reads *"the pilot site is built but not published… nothing is live yet"*,
+which is no longer true in either half. A genuine inflection, so a new file rather than silence.
