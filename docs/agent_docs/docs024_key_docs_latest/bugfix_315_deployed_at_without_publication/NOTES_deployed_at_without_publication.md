@@ -487,3 +487,110 @@ before it is a `b2 sync`, which copies rather than transforms. So the bytes comm
 served, and `files_sha256` taken at the adapter is directly comparable with a sha256 of the served
 response. **Risks 1 and 4 of the council submission are now both closed**; risks 2, 3 and 5 stand as
 stated (they are design choices, not unknowns).
+
+## 2026-08-19 ~10:55Z — COUNCIL VERDICT: **REVISE**, and it was worth the round
+
+`SUBMISSION_CORR 377167cd-6324-4bc7-a866-87ad8c435132` — **revise**, `decided_by: "gating objection
+from editquality"`. Five seats approved (reuse_agent, diagnosis_guardian, render_guardian,
+constitution, mission, debug_historian), five objected, five abstained.
+
+⚠ **Reading trap, hit and caught:** `SELECT body FROM doc_notes WHERE categories ? 'council-gate'
+ORDER BY created_at DESC LIMIT 1` — the query printed in the trigger's own output — returned a
+**different lane's APPROVED verdict** (`e4840008-…`). The table is fleet-shared and a bare `LIMIT 1`
+races every other submitting session. **Read the verdict by correlation**, from
+`diagnosis_artifacts WHERE correlation_id='<yours>' AND kind='council_report'`. Had I not checked
+the correlation I would have recorded an approval that belonged to someone else.
+
+### The objections that are RIGHT and change the plan
+
+**1. `editquality` (HIGH) — the summary overclaims, and it is my error.** `deploy_result_field` is
+opt-in/default-OFF and this submission ships no migration setting it, so *"deployed_at only ever
+written downstream of a real commit result"* is **false for 3 of the 5 agents** on merge. Only an
+unused capability would exist. Correct, and not curable by better wording alone — the scope limit
+has to be stated as a scope limit.
+
+**2. `editquality` (MEDIUM) — edit 1 relocates the unguarded stamp, it does not gate it.** Dropping
+the pre-deploy stamp hands the job to `page-rerender`'s own `update_status` — but `page-rerender` is
+*itself* one of the three ungated post-commit stampers. **I missed this.** The edit is still an
+improvement (post-commit on a page id beats pre-dispatch on a page name) but it is a smaller claim
+than I made.
+
+**3. `architecture` (needs_rfc) — edits 2–3 widen a SHARED wire shape and are not gated by the
+opt-in key.** The adapter's reply is consumed by 19 live `git_commit` steps across 16 agents, and I
+surveyed none of them for how they parse it. Recommendation: **ship edit 1 now; take the adapter
+contract + payload through architecture review with the 19-step consumer list.** That is the
+2026-07-28 platform-seams ruling applied to my own change, and it is right.
+
+**4. `guidelines` (MEDIUM) — nested additions to an already-flowing shared object must be named in
+the seam's concept-register entry IN THE SAME COMMIT.** I cited `deployment-github.md` for DGH-009
+and then did not update it. A process omission, and the register entry is exactly what I corrected
+earlier today for being stale.
+
+**5. `debug_historian` (MEDIUM) — the migration needs a counted needle-gate and an explicit
+`snapshot_agent()`,** not a post-hoc existence assertion as its only verify step.
+
+### The objection I can ANSWER with evidence rather than revise
+
+**`guardian` / `prior_art_librarian` — "is `CommitToRepo` behind an interface? the 3-caller claim is
+asserted, and this package has a `TreeEntry` landmine for exactly that."** Fair challenge, and now
+settled: `[MEASURED 2026-08-19]` `grep -rn "CommitToRepo(ctx context.Context" --include=*.go .`
+returns **one line** — the concrete method on `*GitHubClient`. `interface.go` does not mention it,
+and `grep -rln "GitClient\b" --include=*.go .` returns **nothing**: no such interface exists
+anywhere in the repo. So it is a 3-caller change, and the answer is a citation, not a redesign.
+
+### And the one that found a REAL DEFECT in my plan
+
+`prior_art_librarian` objected that repurposing the two dead columns is "load-bearing and directly
+checkable". Checking it found something worse than it suspected — in the estate's own SQL:
+
+`sql_for_agents/356_retire_dead_config_keys_commit_from...sql:105-118`:
+
+> *"`page_components.deploy_commit` EXISTS … **`pages.deploy_commit` was dropped by
+> `sql_for_tables/003` as "belongs in page_components"** … NULL in it today means "never
+> implemented", NOT "never deployed" — and **deciding whether to wire it or drop it is an owner
+> call, not a bug fix.**"*
+
+**Two things follow, and both change the plan.**
+
+- **My edit 5 must go.** It proposed `ALTER TABLE pages ADD COLUMN deploy_commit`, justified as
+  *"it once did and it was dropped — so restore it"*. It was dropped **deliberately, on a stated
+  design ground**. Re-adding it is a reversal of someone's decision, not a restoration, and the
+  column that survived (`page_components.deploy_commit`) is the one the estate chose. Logged to
+  `WRONG_CALLS.md`.
+- **Wiring `deploy_commit` at all is flagged in-tree as an OWNER CALL.** That is not mine to take
+  inside a bug fix. It goes to the owner as a question.
+
+Also found in the same pass: `sql_for_agents/291:24-26` independently measured `content_hash` dead
+(0 of 1,183 rows, 2026-08-02) and **deliberately did not use it**, hashing `md5(rendered_html)`
+instead. So content_hash's emptiness has now been discovered independently three times and acted on
+zero times — which strengthens the case for wiring it, but again as a stated decision rather than a
+silent one.
+
+## 2026-08-19 ~11:00Z — the revised submission is OUT OF THE GATE'S SCOPE, and that is the correct outcome
+
+Revised per round 1 and resubmitted with `RESUBMIT_CORR=377167cd-…`. The gate refused it
+**client-side, before spending anything**:
+
+> `REFUSED: no edit touches the review scope (platform/, internal/, pkg/ — owner ruling 2026-07-17).`
+> `Docs and site content do not spend council credits. FORCE=1 to override.`
+
+**I did not force it, and that is the point.** Once the architecture seat's ruling is honoured —
+edits 2–3 out to architecture review, edit 4's guard out with them because it can only reference
+fields they add, edit 5 withdrawn as an owner call — **what remains is a config migration and a
+register update, which is not platform code.** The gate is telling me the narrowed change is not the
+kind of thing it reviews, which is true.
+
+So there is no round-2 verdict to obtain, and the honest position is:
+
+- **Round 1 = REVISE**, and the record is `377167cd-6324-4bc7-a866-87ad8c435132`.
+- The surviving change is the one the **architecture seat cleared in that round in so many words**:
+  *"Edit 1 (config reorder) is a clean point fix — proceed."*
+- The commit carries **`Council-Submitted:`**, never `Council-Reviewed:` — the verdict I read was
+  `revise`, and writing `Council-Reviewed:` on it would be the MISMATCH the coverage report exists
+  to catch.
+- The register update the `guidelines` seat required ships **in the same commit** as the migration,
+  per platform-seams condition 2.
+
+Forcing would have spent credits re-reviewing a config change the gate declares out of scope, on a
+round whose substantive review has already happened. Cost of not forcing: nothing. Cost of forcing:
+a duplicate round and a weaker signal for the platform-code case the gate exists for.
