@@ -471,7 +471,10 @@ func applyVerbatimAdoption(
 				url = EXCLUDED.url,
 				title = EXCLUDED.title,
 				page_type = EXCLUDED.page_type,
-				meta_description = EXCLUDED.meta_description,
+				-- bugs_open/320 M2: extractHTMLMetaDescription returns "" when the
+				-- source HTML carries no meta tag, so re-adopting such a page would
+				-- blank a description the page already had. Same guard as upsertPage.
+				meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description),
 				sections = EXCLUDED.sections,
 				rebuild_policy = 'owned',
 				build_status = 'deployed',

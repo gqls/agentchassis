@@ -183,7 +183,9 @@ func upsertPage(db *sql.DB, siteID, componentID string, p ManifestPage, body str
 		   SET url = EXCLUDED.url,
 		       title = EXCLUDED.title,
 		       page_type = EXCLUDED.page_type,
-		       meta_description = EXCLUDED.meta_description,
+		       -- bugs_open/320 M2: p.MetaDescription is "" whenever the imported
+		       -- page carries no description; unguarded, a re-import blanks one.
+		       meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description),
 		       sections = EXCLUDED.sections,
 		       rebuild_policy = 'owned',
 		       updated_at = NOW()

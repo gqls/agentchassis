@@ -546,7 +546,10 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 			ON CONFLICT (site_id, name) DO UPDATE SET
 				title = EXCLUDED.title, url = EXCLUDED.url,
 				page_type = EXCLUDED.page_type, sections = EXCLUDED.sections,
-				meta_description = EXCLUDED.meta_description, updated_at = NOW()
+				-- bugs_open/320 M2: an adoption plan that omits meta_description binds ""
+				-- (metaDesc is a bare type assertion above), and an unguarded EXCLUDED
+				-- would write that over a real description. Same guard as upsertPage.
+				meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description), updated_at = NOW()
 			RETURNING id
 		`, siteID, pageName, pageURL, pageTitle, pageType,
 			string(sectionsJSON), metaDesc, navLabel, inHeader, inFooter,
