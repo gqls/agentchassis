@@ -31,7 +31,38 @@ not started.**
 
 ---
 
-## 1. FIRST: four page rebuilds are in flight (queued 2026-08-19 ~10:00Z)
+## 1. FIRST: the turnaround rebuilds — four DONE, one still wrong
+
+**DONE and verified at the served pages, in BOTH directions** (a zero on "next day"
+alone is also satisfied by copy that dropped the turnaround entirely, so the new
+phrase was counted too):
+
+| page | "next day" | "two or three days" |
+|---|---|---|
+| index | 0 | 4 |
+| faq | 0 | 3 |
+| how-it-works | 0 | 3 |
+| what-you-get | 0 | 0 — correct, it never discussed turnaround |
+
+**STILL WRONG, and requeued:** `/guides/tool-website-brief-starter-guide.html`. Its
+2026-08-19 rebuild fixed the retired pay-after-approval copy (gone: "until you've
+seen", "approved it", "agree the scope") but **kept "usually ready the next day"**.
+Not propagation — the components were rewritten at 11:22:02 and the old figure is in
+the stored `article-body`. Cause: item `881c95ef`'s brief was about the approval
+model and never mentioned turnaround, so the writer had no reason to revisit it.
+Requeued at priority 15 with a brief that names the fact.
+
+> **Then, and only then, consider arming a ban on the retired turnaround** so this
+> class cannot come back. **ORDER IS LOAD-BEARING: repair the copy FIRST, then arm.**
+> A `banned_claims` entry is BLOCKER severity, so arming it while offending copy is
+> still stored makes every affected page refuse to save — the falsehood stays
+> published *and* becomes unfixable through the normal path. (That trap is in
+> `LANDMINES.md` under the `bugs_open/161` entry.) Put a guard in the arming SQL that
+> counts still-offending components and refuses on non-zero.
+
+### How to verify any of this
+
+
 
 The register now says "two or three days"; four pages still published "next day",
 so they contradict the bot until they rebuild.

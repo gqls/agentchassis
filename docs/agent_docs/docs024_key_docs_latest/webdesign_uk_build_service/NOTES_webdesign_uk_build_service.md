@@ -4371,3 +4371,29 @@ off our registrar account.
 > it" exists to stop, and worse for being my own edit. He may have replied *"our
 > websites aren't necessarily for business owners"* because I told him they were.
 > Verified and corrected the same session.
+
+### 2026-08-19 (~11:3xZ) — the guide rebuilt, half-fixed, and the discriminator earned its keep
+
+`881c95ef` completed at 11:22 and the served page still said "next day". This
+morning's how-it-works case looked identical and was pure propagation lag, so the
+discriminator I wrote down then got its first real use: **check whether the stored
+components changed.** They had (11:22:02), and the old figure was still in
+`article-body` — so this was a genuine miss, not lag. Two identical-looking symptoms,
+opposite causes, separated by one query.
+
+**Why it missed:** `881c95ef` was queued yesterday about the retired
+pay-after-approval copy, before the turnaround changed. Its brief never mentioned
+turnaround, so the writer fixed what it was asked about and left the rest. The three
+pages I queued *for the turnaround* all landed correctly. **A rewrite brief is scoped
+to what it names** — a page can be simultaneously repaired and still wrong, and the
+item will read `complete` either way.
+
+Requeued at priority 15 with a brief naming `build_duration` and its writer_line.
+
+**Follow-up worth doing once it lands, and NOT before:** arm a `banned_claims` entry
+on the retired next-day turnaround so the class cannot return. **The order is
+load-bearing** — a ban is BLOCKER severity, so arming it while the offending copy is
+still stored would make the page refuse to save, leaving the falsehood published and
+unfixable through the normal path. That is the `bugs_open/161` landmine, and this is
+exactly its shape: repair first, then arm, with a guard in the arming SQL that counts
+still-offending components and refuses on non-zero.
