@@ -13079,3 +13079,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/323` · `bugs_closed/302`/`213` D1 (the sibling class, where the handler had NO discriminator) · `bugs_closed/077` (router files `capability_gap` for work with no handler) · MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]] · [[writes-the-field-is-not-reads-the-field]]
 - **source:** 2026-08-19, `bugfix_323_cta_improvement_refusal` lane · `docs024_key_docs_latest/bugfix_323_cta_improvement_refusal/NOTES_cta_improvement_refusal.md`, diagnosis run `b218f39d` (CONFIRMED), probe run `64f89f97`
 - **added:** 2026-08-19, bugfix_323_cta_improvement_refusal lane
+
+### Probing the live binary for YOUR commit returns ABSENT on a binary that certainly contains it — the artefact carries ONE stamp, not its ancestry, and the log line that holds it has already scrolled
+
+- **footprint:** `pkg/buildinfo/buildinfo.go` (`GitCommit`) · every `cmd/*/main.go` "build provenance" log line · any `_HOLD`-suffixed file in `docs/agent_docs/sql_for_agents/` · `kubectl … exec <pod> -- grep -a … /proc/1/exe` · CLAUDE.md §"Building & deploying images"
+- **fires when:** you are discharging a deploy interlock — "apply this migration only after commit X is live" — which is the standing shape for 32 migrations in the corpus and all 16 `_HOLD` files. No symptom precedes it: you are doing the careful thing, in the documented way.
+- **the trap, and it fails in the SAFE-LOOKING direction only by luck.** CLAUDE.md prescribes: read the service's `build provenance` line, then `git merge-base --is-ancestor <your-commit> <the stamp>`. Two things defeat it, and they compound:
+  1. **The line is a STARTUP line, so it scrolls.** Measured 2026-08-19: `agent-chassis` pods up at 17:13Z, earliest retained log line 20:08Z — the stamp was unreachable **three hours** after the roll, on a full `kubectl logs` (not a `--tail`). CLAUDE.md already warns an empty result means "not in range", not "unstamped"; what it does not say is how routinely there is no answer at all.
+  2. **`buildinfo.GitCommit` is ONE string, not a set.** So the obvious fallback — `grep -aq <my-commit> /proc/1/exe` — is a category error: it asks "was the binary built at exactly this commit", when the question is "does the binary contain this commit's code". Measured the same day: three commits proven by `git merge-base` to be ancestors of the previous stamp all probed **absent**. A session that stops there concludes its fix did not ship, and either re-ships it or, worse, leaves a correct interlock undischarged for ever.
+  3. The third fallback is already banned in this file: a *discovery* grep for "some 40-hex string" matches Go's internal digit table and returns the same wrong answer on every service.
+- **the check — probe for the CAPABILITY, never for the commit.** Ask the binary for the thing the interlock exists to guarantee: the check name you are about to put in a `checks` array, the config key you are about to set, the literal the code emits when it acts. On **every pod** (a partial roll makes replicas disagree, and the run that fails is the one that lands on the old one), always with a control that must come out absent:
+  ```bash
+  for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+                 -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+    kubectl -n ai-persona-system exec $POD -- grep -aq "cta_nonpage_destination"        /proc/1/exe && echo "$POD present"
+    kubectl -n ai-persona-system exec $POD -- grep -aq "cta_nonpage_destination_NOTREAL" /proc/1/exe && echo "$POD CONTROL FAILED"
+  done
+  ```
+  Go function names survive in the pclntab for stack traces, so unexported helpers probe fine (`NormalizeTelHref`, `storedCTADestinationIsAuthored` — 2 hits each). This is **strictly stronger** than commit ancestry: it asserts the property rather than a proxy, it is immune to the same-tag-rebuild trap (MEMORY: *a FRESH BUILD CAN SHIP NO NEW CODE*), and unlike a log line or a git ref it **has no shelf life** — the symbol is in the artefact for as long as the artefact runs.
+- **the second-order trap:** having improvised a substitute, sessions do not write it down, so the next one re-derives it under time pressure. That is why this entry exists, and why `RFC_040` proposes making it mechanical rather than remembered.
+- **relations:** `RFC_040` (DRAFT — persist what the binaries already enumerate; a fail-closed `assert_live_capability()` for migrations) · this file's `logs deploy/X reads one pod of N` and the `strings`/discovery-grep entries · `bugs_open/312` (the interlock that motivated it) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[a-fresh-deploy-can-ship-no-new-code]]
+- **source:** 2026-08-19, `bugfix_299_cta_dials_phone` lane · `docs024_key_docs_latest/bugfix_299_cta_dials_phone/NOTES_cta_dials_phone.md` (2026-08-19 entries) · migrations 475/476 headers, which record the discharge in full
+- **added:** 2026-08-19, bugfix_299_cta_dials_phone lane
