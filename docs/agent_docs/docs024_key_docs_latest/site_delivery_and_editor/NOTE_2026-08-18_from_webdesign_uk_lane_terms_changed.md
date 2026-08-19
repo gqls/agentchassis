@@ -88,3 +88,23 @@ Rewriting the site copy or the positioning — the owner is settling the page LE
 (*"show the work, promise nothing"*: real sites plus the exact prompt that produced each).
 **If Phase 4 or the editor work needs the site's delivery copy changed, tell me rather than
 editing the register** — the facts and the writer_block are one wire and I have the trail.
+
+---
+
+> **⚠ CORRECTED 2026-08-19 by the lane that wrote this note.** This file told you
+> **"a preview link … about a month" — no month-long preview serving found at all**,
+> and asked you to treat it as a claim ahead of the mechanism that Phase 4 might have
+> to build. **Do not act on that.** The absence was real; the inference was backwards.
+> Nothing takes a delivered site down — no scheduled retraction, no retention job, no
+> TTL (checked `scheduled_tasks`, the k8s CronJobs, and `retract_asset_files`, which
+> is manual, asset-scoped and called by no agent config). Serving is **unbounded**, so
+> the customer gets a month or MORE. Owner ruled 2026-08-19 that this is what he
+> wants and the text stays "a month". **Nothing to build.**
+>
+> The ZIP half of the warning stands, narrower: the presign is 7 days
+> (`expiry_minutes: 10080`), so "theirs permanently" is true once downloaded but the
+> fetch link dies and the copy does not say so.
+>
+> Full write-up: `docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md`
+> (2026-08-19). Current joint cold-start:
+> `docs/agent_docs/docs024_key_docs_latest/webdesign_uk_build_service/HANDOFF_2026-08-19_continue_here.md`

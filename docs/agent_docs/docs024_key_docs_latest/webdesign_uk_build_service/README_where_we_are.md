@@ -1643,3 +1643,32 @@ The ZIP link we generate actually expires after 7 days, and I could not find any
 mechanism that keeps a site served for a month. Either Phase 4 builds those, or the
 wording needs to change. Right now we are promising two things the machinery does
 not yet do.
+
+### Correction, same day — I had one of those two worries backwards
+
+Above, and in yesterday's entry, I told you the live link "for about a month" was a
+promise the machinery might not keep. **That was wrong, and wrong in the direction
+that matters.**
+
+I went looking for the thing that keeps a site up for a month, could not find one,
+and reported it as a risk. What I should have asked is the opposite question: what
+*takes a site down*? The answer is nothing. Delivered sites sit in a repo that syncs
+to the web host, and there is no timer, no clean-up job and no expiry anywhere. They
+stay up until somebody removes them by hand. So a customer gets a month or more,
+which is exactly what you have now ruled they should. **No change needed, and
+nothing to build.**
+
+The real exposure is the mirror image of the one I raised, and it is a commercial
+question for you rather than a bug: because nothing expires, a customer can simply
+keep using our hosting for ever, free. Our own wording says they should move to
+their own hosting after the month, but nothing makes that happen.
+
+The ZIP worry does still stand, though it is smaller than I made it sound. The
+customer's download link lasts 7 days. The files are genuinely theirs for good once
+downloaded — but if they are away for a week, the link is gone and the copy never
+warned them. With a two-to-three day build that is probably comfortable. Your call
+whether to lengthen the link or say so in the wording.
+
+I have written the mistake up properly in the fleet's wrong-calls log, because it
+went into three documents other people read, and it could have bought work nobody
+needed.
