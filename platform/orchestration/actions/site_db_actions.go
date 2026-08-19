@@ -1163,7 +1163,23 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	//     BLANK never destroys a description the page already has (bugs_open/320).
 	//     It used to be a bare `= EXCLUDED.meta_description`, three lines below a
 	//     nav_label clause that WAS guarded, which is what made the asymmetry read
-	//     as deliberate. It was not: metaDescription above defaults to "" whenever
+	//     as deliberate.
+	//
+	//     ⚠ CORRECTED 2026-08-19 (council round 2, editquality): this comment and
+	//     bugs_open/320 both said the new clause "matches nav_label three lines
+	//     above". IT IS THE MIRROR IMAGE, and the difference is the whole policy:
+	//         nav_label        = COALESCE(NULLIF(pages.nav_label,''), EXCLUDED…)
+	//                            -> the EXISTING value wins; effectively write-once.
+	//         meta_description = COALESCE(NULLIF(EXCLUDED…,''), pages.meta_description)
+	//                            -> the INCOMING value wins unless it is blank.
+	//     Both are deliberate and they are deliberately different. A description is
+	//     content the plan owns and should be able to REVISE, so a real incoming
+	//     value must win; only a blank is refused. A nav label, once a human or an
+	//     earlier build has set it, should not be churned by a replan. Do not
+	//     "make them consistent" — that would either freeze descriptions for ever
+	//     or hand nav labels back to every replan.
+	//
+	//     The underlying defect was not the clause shape but the input: metaDescription above defaults to "" whenever
 	//     the incoming page map omits the key, and build-site-planner's page object
 	//     never carried the key at all — so every replan of an existing page wrote
 	//     a blank over whatever was there. Measured 2026-08-19: four robot-hands.com

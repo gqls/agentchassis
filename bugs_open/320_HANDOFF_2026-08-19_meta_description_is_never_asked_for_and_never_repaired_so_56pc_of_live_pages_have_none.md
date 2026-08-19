@@ -65,6 +65,19 @@ ON CONFLICT (site_id, name) DO UPDATE SET
 with the `""` default above, **any replan or resync pass whose page map omits the key
 overwrites a real description with an empty string.**
 
+> **⚠ CORRECTED 2026-08-19 (council round 2, `editquality`): this file said the new clause "matches the `nav_label` clause". IT IS THE MIRROR IMAGE.**
+> ```
+> nav_label        = COALESCE(NULLIF(pages.nav_label, ''),         EXCLUDED.nav_label)       -- EXISTING wins
+> meta_description = COALESCE(NULLIF(EXCLUDED.meta_description,''), pages.meta_description)  -- INCOMING wins unless blank
+> ```
+> The code is right and the sentence was wrong. The two policies are deliberately
+> OPPOSITE: a description is content the plan owns and must be able to REVISE, so a real
+> incoming value has to win and only a blank is refused; a nav label, once set, should not
+> be churned by every replan. **Do not "make them consistent"** — that would either freeze
+> descriptions for ever or hand nav labels back to the planner. What the two clauses share
+> is the NULLIF idiom, not the polarity, and "matches nav_label" papered over the one
+> difference that carries the meaning.
+
 **This is not merely representable — it has fired.** `[MEASURED 2026-08-19]` from
 `site_snapshots.pages_snapshot`, which carries the column:
 
@@ -164,7 +177,8 @@ print the byte count. A zero from a guessed URL is a 404 (`309` §C paid for tha
 
 1. **Guard the overwrite** (M2). Change one clause to
    `meta_description = COALESCE(NULLIF(EXCLUDED.meta_description,''), pages.meta_description)`,
-   matching `nav_label` directly above it. Makes "a replan silently destroys published
+   borrowing `nav_label`'s NULLIF idiom but with the OPPOSITE polarity (see the
+   correction in §3). Makes "a replan silently destroys published
    copy" **unrepresentable**, is ~1 line, and needs no new authority. Does not fill
    anything. **Cheapest and most defensible; it is also the only candidate that stops
    active damage.**
