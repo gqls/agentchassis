@@ -38427,3 +38427,49 @@ whether earlier entries in this file are the same class (an uninspected shell va
 result) — I started to write "third time" from memory and that is exactly the unchecked figure this
 file exists to stop, so: count it when the next one lands. The fix is mechanical and belongs in the
 lane RUNBOOK's probe block as an `[ -n "$sha" ]` guard, not in memory.
+
+---
+
+## 2026-08-19 (late) — I worked a lane another session owned all day, never checked, and then OVERWROTE their handoff with `cat >`
+
+**The two failures are separate and the second is worse than the first.**
+
+**1. I never checked ownership.** I picked up `bugs_open/029` from a bare filename and worked it for a
+full session. I did not run `scripts/who-owns.py 029`, and I did not `git log` the lane directory. A
+second session was working the same bug the whole time, committing to the same directory
+(`d609cedad`, `805eba66b`, `7853605ce`, `b6bd7a590`, `9857c0b2e`). CLAUDE.md has a section on exactly
+this, with a worked example of the same mistake in July. **Cost:** duplicated analysis, and **two 090
+runs fired against their standing "do not re-file, wait for the burst" instruction** — an instruction
+I could not have known about, because I never looked.
+
+**2. I overwrote their cold-start handoff with a shell redirect.** I wrote
+`HANDOFF_2026-08-19b_continue_here.md` with `cat > …` believing I was creating it. They had created it
+at 17:19 and updated it at 21:06. **CLAUDE.md's rule is verbatim: "Read before write on any file you
+did not create; prefer the Write tool, which refuses an unread file, over a shell redirect, which does
+not."** I used the redirect. The Write tool would have refused.
+
+**What caught it.** `git show --stat` on my own commit: `239 ++++----` with **106 deletions** on a
+file I thought was new, and no `create mode` line for it. I nearly did not look — the commit summary
+said "5 files changed, 196 insertions" and the deletions were the only tell.
+
+**Recovery cost: nothing, because it was committed.** Restored byte-identically from `9857c0b2e` and
+my material appended below theirs. **This is precisely the argument CLAUDE.md makes for versioning the
+memory directory** — the same mistake there was once unrecoverable.
+
+**And their work refutes mine, which is the real lesson about duplicated lanes.** Their measurement:
+`retry_version` is **0 on all 37 spawn rows**, and a retry bumps `retry_version` — so the duplicate
+spawn is **not** the takeover re-running the step, the step BODY ran twice. My notes had called the
+06:54–09:37 duplicate gap "consistent with the >5-min takeover". **The refuting data was in my own
+query output, on screen, hours earlier** — every spawn row printed `retry_version 0`. I read past it
+because the takeover story already fitted the gap. Two sessions on one bug produced one correct
+reading and one confirmation-shaped one; the duplication is what exposed it, but that is luck, not a
+method.
+
+**The cheap checks that would have caught each:**
+- `scripts/who-owns.py 029` — advisory, ~0.3s, no cluster calls. One command, at the start.
+- `git log --oneline -5 -- <lane dir>` before writing anything into a shared workstream directory.
+- Use **Write**, not `cat >`, for any file you did not create in this session — it refuses an unread
+  file, which is the whole point.
+
+> **A lane is not unowned because the file you were handed does not name an owner.** And a filename
+> you have not read is not a new file.
