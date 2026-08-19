@@ -623,3 +623,63 @@ agent configs name it; zero rows have ever existed; and there is **no CHECK cons
 excludes **both** spellings — a workaround, not a fix. Filed in `LANDMINES.md`.
 
 **Council:** `Council-Submitted: 1c212b15-e23d-4037-9cf7-be3a2327c587`.
+
+### Council on the class fix — **APPROVED** (`1c212b15`), 8 reviewers, 0 unreadable
+
+*"approved with 2 advisory objection(s) — none high-severity."* The substantive ones, answered:
+
+**`guardian` [medium] — "the `StatusRunning` resume is gated by a staleness heuristic, not a lock;
+if `LastActivity` is updated late by a pod genuinely mid-`continueExecution`, this can
+double-execute a step."** **Correct, and I am not going to argue it down.** There is no CAS on this
+path: `SetExecutingStep` ends in `r.UpdateState(...)`, not `UpdateStateWithVersion`. What I *can*
+say is that the risk is **not new** — `ClearExecutingStep`, the pre-existing takeover arm directly
+above mine, ends in the same unversioned `UpdateState` and is gated on the same
+`StuckOrchestrationTimeout` heuristic. My arm reuses the estate's existing takeover guard rather
+than inventing a weaker one, and the threshold (5 min) is enormous against a window that is
+normally milliseconds. **A real fix is to give BOTH arms a compare-and-swap** — `TakeOverOrchestration`
+already exists as a guarded CAS for exactly this shape — and that is separate work, not something to
+bolt onto one arm and leave the other asymmetric.
+
+**`debug_historian` [medium] — "verified only via gofmt/build/vet; no pod-grep plan for when it
+rolls out."** Fair, and here is the recipe, written down so the next person does not have to invent
+it. The Go half is **inert until the next roll**. When it rolls, on a chassis pod:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+# MUST be PRESENT after the roll (73 and 61 chars — long enough to reach rodata):
+kubectl -n ai-persona-system exec $POD -- grep -ac "Orchestration is between steps (RUNNING) - another process is resuming it" /proc/1/exe
+kubectl -n ai-persona-system exec $POD -- grep -ac "Found orchestration stalled between steps (RUNNING), resuming" /proc/1/exe
+# CONTROLS that must be PRESENT on old and new alike, or the probe proves nothing:
+kubectl -n ai-persona-system exec $POD -- grep -ac "Found stuck orchestration, taking over" /proc/1/exe
+kubectl -n ai-persona-system exec $POD -- grep -ac "unknown orchestration status" /proc/1/exe
+```
+Never `strings` (absent from these images), and never a bare discovery grep. Note the second control
+(`unknown orchestration status`) stays present either way — the `default:` arm still exists for a
+genuinely unknown status; what changed is that `RUNNING` no longer reaches it.
+
+**`architecture` [medium] — "no CHECK constraint; the terminal/pausable literal sets must stay in
+sync across SQL and 4+ Go call sites; consider a status-metadata table or a shared constant list SQL
+can query."** Agreed and **not done here** — it is the right next step and it is a design decision,
+not a patch. Recorded as an open question below.
+
+**`guardian` [low] — "the invariant's correctness for `CANCELLED` rests on the non-empty
+`awaited_requests` pattern holding for future hand-written `CANCELLED` rows."** **This one is
+mistaken, and the evidence is in the matrix above.** `CANCELLED` is excluded by *status*
+(`status NOT IN ('COMPLETED','FAILED','CANCELLED')`), not by the awaited check — verified directly:
+a `CANCELLED` row with **empty** `awaited_requests` aged 5 h does **not** match the invariant. The
+matrix row `CANCELLED | >4h | no | f | f` was chosen to test exactly this. Recorded rather than
+silently ignored, because an unanswered objection reads as an accepted one.
+
+**`editquality` [low] ×2** — the sketches elided the surrounding CTEs (true of the submission; the
+file was built by programmatic insertion into the live text, diffed, and parse-checked), and a
+rollback fully re-opens the RUNNING/INITIALIZED defect (true, and the rollback file's header says so
+in as many words).
+
+### Open question left for a decision, not closed here
+
+**The status vocabulary has no single source of truth.** `465`'s terminal and pausable sets are SQL
+literals; the Go enum is a separate list; `CANCELLED` is in neither the Go enum nor any Go writer;
+and there is no CHECK constraint. Adding a status today means finding every enumeration by hand —
+which is the shape that produced `294` and `310` in the first place, one level up. The architecture
+seat's suggestion (a status-metadata table SQL can join, or a generated shared list) would close it
+properly.
