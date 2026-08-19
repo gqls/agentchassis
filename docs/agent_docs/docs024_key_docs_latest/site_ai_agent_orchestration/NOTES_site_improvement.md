@@ -846,3 +846,30 @@ handler, not of `save_page_sections`. `page-build-handler` is safe; `page-rebuil
 Filed one evidence item (`created_by='aiao-shrink-investigation'`), expected to FAIL at
 `save_sections`. **Baselined all five `pricing` components by `md5(rendered_html)` first**, so
 "nothing was written" can be proven rather than assumed.
+
+### The 17 parked `contrast_failure` items will NOT drain yet — and this site is now a clean test of `bugs_open/296`
+
+The handoff's §3b says the parked items "drain by themselves" once the page is fixed and the site's
+render audit runs. **Half true, and the missing half is the schedule.** [MEASURED 2026-08-19]
+
+- The 17 rows are still `deferred`, `updated_at` **2026-08-11 12:31** — untouched for 8 days.
+- The last render-audit-authored item on this site is **2026-08-10 22:00**. The instrument that
+  files them, and the only one that can retract them, **has not run here since**.
+
+So my fix cannot close them today, and their continued presence is **not** evidence that the fix
+failed. `bugs_open/296` (owned, `bugs_open/113` lane) is the file for this and its §9 records that
+the rotation swept 14 sites overnight on 08-18 and retracted **40** parked rows — correcting its own
+earlier prediction that "approximately none" would close. **This site was not in that sweep**, which
+its `updated_at` of 08-11 shows directly.
+
+**Why that makes this site useful to them rather than just late.** It is now a natural experiment
+with a prediction that can fail: `index` and `about` genuinely measure **0** firm failures at the
+artefact, while `pricing` still measures **8**. So when the rotation next reaches
+`ai-agent-orchestration.com`, the retraction should close the parked rows belonging to `index`/
+`about` and correctly decline the `pricing` ones. If it closes none, the mechanism is not doing what
+§9 says; if it closes all 17, it is retracting rows it should have kept.
+
+⚠ **NOT contributed into `bugs_open/296` itself**: that file is currently dirty in the shared
+working tree from another session, and a same-file edit would ride along with theirs on whoever
+commits first (LANDMINES: a pathspec commit still takes a same-file passenger). Recorded here
+instead; whoever picks that lane up can lift it.
