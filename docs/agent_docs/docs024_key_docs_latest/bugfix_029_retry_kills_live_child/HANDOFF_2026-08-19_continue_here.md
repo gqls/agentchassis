@@ -59,7 +59,23 @@ working before and the absence was specific to this table. NOTES §11.
 on a pre-fix bundle, because the SYMPTOM TEXT names the table and its columns and is quoted inside
 the bundle. I ran that blind check first. **A check your own input can satisfy is not a check.**
 
-**(1) Whether the wedge has a cause — still the open question, and what run `d02a6958` is for.**
+**(1) Whether the wedge has a cause — STILL OPEN. Run `d02a6958` returned `UNVERIFIABLE` at
+3 iterations (cap is 5; it stopped early, `stopped_reason` empty).**
+
+**But read WHY before filing it with the other two — it is not the same result.** It **cited a real
+08-17 `awaited_requests` row** (Tier 1, `Fresh: 2026-08-17`, orchestration `838f8c14`) and the right
+code path (`skipToNextLoopIterationForAsync` → `skipToNextLoopIteration` → `createContinuationContext`
++ `continueExecution`, plus `handleCompleteResponse`'s continuation — the §4 transition, reached
+independently). It established the **precondition** and not the **outcome**, and wrote the exact SQL
+it still needed. **It ran out of iterations one query short.** Full read-out: NOTES §14.
+
+⚠ **Do not record it as "blocked by the harness".** The first two were. This one self-corrected a
+200-row truncation (`row_cap`, default 200) that its own `ORDER BY orchestration_id` had made fatal,
+and carried on.
+
+**THE NEXT RUN'S ONE CHANGE:** hand it the reconstruction **as SQL to execute in iteration 1**, so it
+begins where this one stopped. Supply **the query, not the answer** — that respects the runbook's
+"assert neither rows nor counts" rule while removing the discovery cost that ate three iterations.
 
 ## STATE ON `v1.0.1315` (fresh roll, pods up 2026-08-19 12:15Z) — verified at the artefact
 
