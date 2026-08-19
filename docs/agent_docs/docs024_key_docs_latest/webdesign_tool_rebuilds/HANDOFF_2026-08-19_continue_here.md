@@ -6,7 +6,7 @@ asked whether to continue, stop, or scope it down.
 
 Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two corrections) →
 `RUNBOOK_…` (every command) → `NOTES_…` (evidence, newest at bottom) →
-`SUMMARY_2026-08-18_…` → `architecture_review/RFC_036` + `bugs_open/303` + `bugs_open/315`.
+`SUMMARY_2026-08-19_the_framework_owns_the_fix.md` (the read-aloud account) → `architecture_review/RFC_036` + `bugs_open/303` + `bugs_open/315`.
 
 ## The recipe — PROVEN, 8 tools, and now routine
 
@@ -29,14 +29,21 @@ Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two co
    and include a NEGATIVE that only the old version could satisfy (an old element id) — that is what
    rules out a stale render.
 
-## Where this stands `[MEASURED 2026-08-19 09:00Z]`
+## Where this stands `[MEASURED 2026-08-19 11:45Z]`
 
 | | |
 |---|---|
 | chassis | `v1.0.1314`, digest `d0257576…` — real roll (verify by DIGEST, not a binary probe) |
-| **replaced, live, graded** | **8** — aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator, smooth-shadow, json-cleaner, seo-injector |
+| **replaced, live, graded at the served bytes** | **11** — aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator, smooth-shadow, json-cleaner, seo-injector, noise-generator, rls-architect, css-variables |
 | owner-approved on sight | aspect-ratio, markdown-tables, html-minifier, svg-optimizer |
-| **remaining** | **55** — 2 blocked (RFC_036), 13 external-script, 18 simple <8 KB, 22 larger ≥8 KB |
+| **remaining** | **52** — 2 blocked (RFC_036), 13 external-script, and the rest split simple / larger |
+| **Track 1 (generator contract)** | **DONE** — migration 481 applied, proven twice |
+| **Tracks 2 + 3 (checker, handler)** | **NOT BUILT** — the highest-value work left |
+
+**DB check for the tally, so it is never guessed:**
+`SELECT pc.build_status, count(*) FROM pages p JOIN page_components pc ON pc.page_id=p.id
+ WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND pc.slot_name='ported-page'
+   AND p.name LIKE 'tool-%' GROUP BY 1;` → `removed` = replaced, `deployed` = remaining.
 
 **Five of the nine ported tools examined were measurably broken in production** — two with a checkbox
 whose implementation sat inside its own comment, one corrupting `pre`/`script` content, one silently
@@ -141,13 +148,29 @@ to work. Phase D runs whenever RFC_036 lands — it is not a sequencing dependen
 **63/63 replaced, each graded at the served bytes with a cache-buster and a negative control.** If
 RFC_036 is never built, the honest terminal claim is **"61 of 63, 2 blocked on RFC_036"** — not "done".
 
-## Next actions
+## Next actions — start here in a fresh session
 
-1. **Phase A, next tool by size.**
-2. If continuing: next by size from the 18 simple ones; run the six steps; ~5–10 min of attention each,
-   wall-clock dominated by queue depth. **Do not file a rebuild you cannot attend** — the retire race
-   has been as short as 2 minutes and was lost once at 96.
-3. Rich apps last and one at a time (owner ruling 2026-08-16 put them in scope as reimplementations).
+1. **Phase A, next tool: `tool-prompt-permutator` (6,411 B), then `tool-blob-maker` (6,550 B).**
+   Order the rest with the RUNBOOK's "Scope the batch correctly" query. Run the six steps above.
+   **Do not file a rebuild you cannot attend** — the retire race has been as short as 2 minutes and was
+   lost once at 96.
+2. **Build Track 2, the checker** — the highest-leverage work left, and the half of the owner's
+   directive still owed. Migration 481 stops the NEXT tool being born broken; nothing finds the faults
+   in the 52 already deployed. Shape it on `orphan_element_refs` (TL-032) in
+   `platform/orchestration/actions/discovery_checks/`. Go + council gate + roll.
+   **Track 3 goes with it**: confirm the item type it raises has a LIVE handler before shipping —
+   a check that files items nobody handles is a queue, not a fix (`bugs_open/161`'s dead
+   `needs_rebuild` is the cautionary case).
+3. **Decide how to catch the "tool lies about itself" class.** Three of twelve tools assert in their
+   own output that they did something they did not (SQL that was prose; "Auto-generated grey" on a
+   fixed hex; a colour picker wired to nothing). **481's rules cannot reach it** — they govern
+   behaviour, not whether the tool's prose about itself is true — and a static check would struggle,
+   because verifying a claim against code is closer to the Tier-2 acceptance evaluator's job than to a
+   grep. Decide whether it is a checker at all or a line in the tool-acceptance criteria. Until then it
+   is a standing step when writing a brief: **read what the tool SAYS about itself and check the code
+   does it.**
+4. **RFC_036 §9** is written and needs no more investigation — a ~10-line change setting `forked_from`,
+   then council + roll. It unblocks the last 2 tools. **There is no config-only interim; §9.1 proves it.**
 
 ## Traps that each cost a real cycle (full detail in NOTES / WRONG_CALLS / LANDMINES)
 
