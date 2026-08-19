@@ -5417,3 +5417,87 @@ what survives is the pcw shape class = §10.13 step 4.
 **The window read that gates step 4 is DONE: the survivor population is exactly the traced
 name collision** (13 rows/3.2 h, all page-content-writer `current_page`, object-vs-string).
 Step 4 proceeds.
+
+## 2026-08-19 (night) — step 5's precondition is NOT met, and the instrument caught a second live bug
+
+**Session-start state.** `v1.0.1316` (= `07eeba4a1`) on both chassis pods, started 17:13Z. Step
+4's commit `1a82225ec` is on HEAD but **is NOT an ancestor of the live stamp** — checked, not
+assumed (`git merge-base --is-ancestor 1a82225ec 07eeba4a1` → false). So checklist 4(b) is
+blocked on a roll exactly as the handoff predicted, and nothing in it can be read early.
+
+**Step 4's pre-roll DEMAND CONTROL, banked while the class is still alive.** A post-roll zero is
+only evidence if the class was firing beforehand, so I recorded it under 1316 rather than
+waiting: pcw/`current_page` = **15 rows between 17:13Z and 20:44Z, last at 20:43:51Z** — one
+minute before the read. Same single candidate set as the RUNBOOK's 12:16→16:08Z read
+(`~unwrap.current_page`, `build_render_context.current_page`, `input_data.current_page`,
+`render_context.current_page`). The step-4 done-condition now has both halves of its evidence.
+
+**The finding that changes step 5.** I read the WHOLE conflict population rather than just the
+step-4 target, and the instrument's own precondition — stated in `findFieldRecursive`'s comment,
+*"zero conflict WARNs observed over the window, OR every observed field/caller pair given an
+explicit mapping first"* — is a long way from met. **19 field/caller pairs since the instrument
+went live on 08-16** (that date is the instrument's start, not a retention floor:
+`agent_error_log` holds rows back to 07-20). Steps 1–4 account for five of them
+(bdl/`work_item_id`, bdl/`current_page`, bdl/`result`, pbh/`current_page`, pcw/`current_page`).
+**That leaves ~14 pairs with no mapping and no plan.**
+
+**"Quiet" is traffic, not repair — the demand control is what shows it.** Several of the
+survivors last fired 08-17/08-18, which reads as extinct until you ask whether the agent ran:
+
+| agent | runs/24h | conflict last seen |
+|---|---|---|
+| page-rerender | 396 | 08-18 13:07 |
+| generic | 178 | 08-17 |
+| build-dispatch-loop | 171 | **08-19 20:40 (new `commit_sha` class)** |
+| page-build-handler | 56 | 08-18 12:07 |
+| component-creator | 32 | 08-18 17:58 |
+| tool-generator | 5 | **08-19 20:35 — its ONE run since the roll conflicted** |
+| site-review-agent | 0 | 08-17 (dormant agent) |
+
+page-rerender ran 396 times in 24 h and its conflict class is quiet — so that class is
+*condition-dependent*, waiting on a data shape, not fixed. tool-generator conflicts on
+essentially every run. **None of these are addressed by steps 1–4.**
+
+**Four mechanical shapes, not fourteen problems** — worth grouping before designing step 5:
+- **spec-array collision**: the field name is an ordinary word that recurs across an array of
+  unrelated objects (`specs.tools.rejected_tools[N].reason`, `specs.identity.services[N].description`,
+  `specs.tools.suggestions[N].related_pages`, `findings[N].page_id`). Biggest group.
+- **loop-iteration echo**: one action's result under N aliases across iterations
+  (bdl/`commit_sha`: `handler_result` / `handler_result_1..3` / `process_item_iter_N_call_handler`).
+  Same family as the pbh retry-echo class candidate 3 killed — **new since the roll, worth
+  watching**, and `commit_sha` is the field 315's page-stamp work depends on.
+- **stored content_data**: page-rerender's `sections_metadata[N].content_data.current_page` — a
+  page NAME string inside stored component data. **Step 4 deliberately did not rename the
+  template key, so this route survives the step-4 rename by design.**
+- **config self-reference**: `generic`/`summary` resolving to
+  `config.workflow.steps.probe_*.config.summary` — the search reached into the agent's own
+  workflow config. Three rows, 08-17, but the shape is worth a second look.
+
+**Then the instrument caught a live bug — `bugs_open/330`.** Chasing the biggest spec-array
+member end to end: when an `add_tool` work item carries no `related_pages`, the declared config
+path (migration 211's `input_data.spec.related_pages`) resolves to nothing, the cascade falls
+through to the whole-tree search, and it returns `suggestions[0].related_pages`. Nine distinct
+tools on webdesign.co.uk are cross-linked to the same two statistics pages; the constancy is the
+tell, and it matches `suggestions[0]` exactly. **0 of 32 reached live content**, and four other
+sites cross-link coherently as a negative control. Full chain, damage and fix candidates in the
+bug file; 090 filed (corr in the bug file's §8 neighbourhood, dispatched 21:53Z).
+
+Two things from it that belong to THIS lane rather than to 330:
+1. **The cascade cannot tell "declared but empty" from "undeclared".** That is the shared
+   defect, and it is the resolver's, not tool-generator's. Fix candidate 2 in the bug file
+   (don't fall through for an explicitly-wired field) is the only one that makes the bad state
+   unrepresentable for the silent cases too — and it is **resolver-scope, i.e. ours**.
+2. **The instrument UNDER-COUNTS its own class `[INFERRED, UNMEASURED]`.** A conflict row needs
+   the candidates to DIFFER. A tree holding one `related_pages` — or several that agree —
+   substitutes the wrong value silently, with no WARN and no row. So "zero conflict WARNs" can
+   never be sufficient evidence that the whole-tree search is safe to keep; it can only ever be
+   evidence about the conflicting subset. **This weakens the "or" branch of the flip's own
+   stated precondition**, and step 5's design should say so out loud rather than inherit it.
+
+**My wrong turn, in full:** I concluded migration 211's wiring had regressed, because
+`config->'params'->>'related_pages'` was NULL on every live step. 211 writes to
+`config.related_pages`. The NULL meant "not at that path", not "not present", and the two are
+indistinguishable in that result. Caught by opening the migration before asserting.
+→ `WRONG_CALLS.md` (swept into the 277 lane's commit `7a235468f` as a same-file passenger
+~20 minutes after I appended it — nothing lost, noted here because the entry's provenance is
+now invisible in `git log`).

@@ -66,11 +66,18 @@ lane's next builds and are independent of each other and of step 1's roll.
 | 2 | ~~306 cands 1+2~~ **DONE 2026-08-19 ~16:00Z, 306 CLOSED → `bugs_closed/`** (by the 306 session): cands 1+2 (`846496906`, corr `96ac93e6`) AND cand 3 (the retry_payload skip — code rode `393f15bfd` as a same-file passenger, tests `02777cd5f`, corr `e4840008` APPROVED r1, 090 CONFIRMED) all LIVE in `v1.0.1315` (stamp `590ca3a20`, both controls). Window: pbh echo class 45→0 against 6 echo-shaped demand rows; rp in candidate_paths fleet-wide 0. Evidence: bug file §7 | — | — |
 | 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | ⚠ **NO VERDICT — run ended `complete_invalid` at 10:24Z because the Anthropic ACCOUNT hit its usage limit** (fleet-wide, not ours; NOTES 10:30Z entry). **APPROVED round 2, 2026-08-19 ~11:2xZ** (REVISE round 1 was RIGHT — the census was top-level-only; redone recursively, conclusion held; skip now named on the log). Code fully reviewed: `f42e03720` + `393f15bfd`. **Waits only on the roll** | class-1 63% gone from the window after the roll |
 | 4 | ~~Fix surviving shape conflicts AT SOURCE … Fix = rename the tag~~ **BUILT + SUBMITTED 2026-08-19 late (commit `1a82225ec`, corr `f3716ebe-e420-4ae9-ba4a-9a649e3d7124`, `Council-Submitted:`):** the residual was ONE candidate set (23 rows/4 h post-roll, 100%): pcw `generate_content` wants the page RECORD under `current_page`; `build_render_context` filed the page NAME string under `render_context.current_page` / `build_render_context.current_page`. **Design NARROWED on measurement (NOTES "late afternoon"): the json tag and the TEMPLATE key are NOT renamed** (1/306 template reader, 0 prompts advertise it, and the rerender path hand-builds the same key for the restore contract). Built: `renderContextStepContractRenames = {current_page → current_page_name}` applied symmetrically at the STEP BOUNDARY (`renderCtxToMap` emits, `setRenderContextScalarsFromData` reads, with a read-side tolerance for pre-roll trees); `buildRerenderBaseData` + `renderEnvelopeIdentity` follow. 7 tests mutation-proved six ways + a resolver-seam test with a CONTROL. Inert until the next roll | ~~step 3's post-roll window read~~ met | window reads zero for pcw/`current_page` against live pcw demand (query: RUNBOOK "step 4's done-condition") |
-| 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header) | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
+| 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header). ⚠ **The population is NOT near-empty and the flip's own stated precondition is UNMET — 19 field/caller pairs logged, ~14 unaddressed by steps 1–4, measured 08-19 night. Read §5.4(c) before designing this.** | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
 
 Carried correction: my §10.12 claim that `page-build-handler` "reads" the resolved value is
 downgraded to `[INFERRED]` — no named reader of the injected copy was found in the decision-3
 sweep (NOTES, evening entry, last paragraph).
+
+### Step 4's pre-roll DEMAND CONTROL — banked 2026-08-19 20:44Z, do not re-derive
+
+The post-roll zero is only evidence if the class was firing first, so it was recorded under
+`v1.0.1316` while still alive: pcw/`current_page` = **15 rows 17:13Z→20:44Z, last 20:43:51Z**,
+same single candidate set as the RUNBOOK's 12:16→16:08Z read. Compare the post-roll window
+against THIS, not against the 08-19 afternoon figure.
 
 ## 4. Traps for a fresh session (beyond the standing ones in the 08-18 handoff §4, all still live)
 
@@ -126,7 +133,24 @@ sweep (NOTES, evening entry, last paragraph).
    must be **0 against live pcw demand** (pcw orchestrations in the window > 0). Any NEW candidate
    set that appears is a new producer of a `current_page` string — trace it, do not widen the
    rename.
-   (c) **Step 5**: flip conflicts → refusal at the marked flip sites — **AND in the same commit
+   (c) **Step 5**: ⚠ **READ THIS FIRST — its stated precondition is NOT met (measured
+   2026-08-19 night, NOTES "(night)").** `findFieldRecursive`'s own comment gates the flip on
+   *"zero conflict WARNs observed over the window, OR every observed field/caller pair given an
+   explicit mapping first"*. The instrument has logged **19 field/caller pairs since 08-16**;
+   steps 1–4 account for five; **~14 have no mapping and no plan.** Do not read the survivors'
+   old `last_seen` dates as extinction — the demand control says otherwise (page-rerender ran
+   396×/24 h with its class quiet; tool-generator's single run since the roll conflicted). They
+   group into four shapes (spec-array collision, loop-iteration echo, stored `content_data`,
+   config self-reference) — the grouping and the per-agent demand table are in NOTES. Two of
+   them are NOT reachable by step 4 by design: page-rerender's
+   `sections_metadata[N].content_data.current_page` survives because step 4 deliberately left
+   the template key alone, and bdl/`commit_sha` is a new loop-echo class first seen 08-19 20:40.
+   **AND**: the instrument under-counts its own class `[INFERRED]` — a conflict row requires the
+   candidates to DIFFER, so a tree with one (or several agreeing) candidates substitutes the
+   wrong value silently. That weakens the "zero WARNs" branch of the precondition permanently,
+   and step 5's design should say so rather than inherit it. Worked example of the damage this
+   does when it goes unflagged: `bugs_open/330`, which this read turned up.
+   Then, as planned: flip conflicts → refusal at the marked flip sites — **AND in the same commit
    retire the read-side tolerance** in `setRenderContextScalarsFromData` (the second `if`; plus the
    "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll`) — the comment
    above that function names this commit as its owner; by step 5's gate the step-4 roll has

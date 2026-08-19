@@ -5,6 +5,15 @@
 (`RESOLVER_CONFLICTING_CANDIDATES` in `agent_error_log`) — not by a symptom report.
 **Status** OPEN. Mechanism confirmed end to end first-hand; damage measured; a negative
 control at four other sites behaves correctly.
+**090 diagnosis filed** 2026-08-19 21:56Z — `RUN_CORRELATION_ID=fad0675b-007e-4343-8887-5e6aede6e415`
+(intake `5a47d9a2-…`; the RUN id is the one the artifacts are written under). Filed per the owner
+ruling of 2026-07-31: this asserts a cross-cutting cause that lives in shared infra
+(`extractSingleField`'s arm chain), not in the symptom's own file. Read it before acting on §6:
+```sql
+SELECT created_at, kind, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='fad0675b-007e-4343-8887-5e6aede6e415' ORDER BY created_at;
+```
+A missing row is latency, not a drop — do not re-trigger.
 
 ## 1. Symptom
 
