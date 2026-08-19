@@ -1,4 +1,4 @@
-# 275 — tool-suggester's `load_library_tools` LIMIT 30 silently hides 38 of 68 library tools, alphabetically
+# ✅ 275 (CLOSED 2026-08-19 — fixed, live, and proven at the artefact) — tool-suggester's `load_library_tools` LIMIT 30 silently hides 38 of 68 library tools, alphabetically
 
 **Filed 2026-08-14, webdesign_uk_build_service lane**, found while shipping
 migration 406 (the requires-backend gate) through the same query. Not run
@@ -520,3 +520,24 @@ the cap**, *before* the menu tripled. The margin was already nearly gone and nob
 **The lesson for this file: bounding an INPUT payload can move the failure to the OUTPUT budget.** This
 bug measured the prompt per column and never asked what the answer costs. See `bugs_open/319` for the fix
 candidates and the one query that would have caught it before migration 445 shipped.
+
+## ✅ CLOSED 2026-08-19
+
+**Fixed, live, and proven at the artefact**, which is the bar. The disconfirming pair is complete
+(before: 29 tools, 0 past rank 30, highest exactly 30 — after: 80 of 81, 51 past rank 30, highest rank
+81), the truncation marker from migration 446 is present in the live prompt, and a full suggester run
+now completes end to end (`COMPLETED`, 2026-08-19 10:25Z).
+
+**Three descendants stay open and are NOT this bug:**
+
+- `bugs_open/319` — the answer budget this fix overran. **Also fixed and live** the same day
+  (migration 484), verified with the strict inequality: `success=true`, output 1,761 against a 6,000
+  cap. Closed alongside this one.
+- `bugs_open/321` — ~72% of the model's suggestions collide on a site-wide `item_key` and are silently
+  dropped. **Open.** This is why widening the menu has produced fewer built tools than it should.
+- `bugs_open/316` — the news-feed cap serves the alphabet (ranks 1–5 never late, 6–9 always). **Open.**
+  Found by the same census method this lane built.
+
+**And the lesson this bug paid for twice:** it bounded the INPUT payload carefully — per column, to
+find `description` was 80% of it — and never asked what the ANSWER costs, nor what happens to the
+answer once given. Both were one query away. `319` and `321` are the two halves of that omission.

@@ -1,4 +1,4 @@
-# 319 — the tool-suggester now FAILS on `max_tokens`: `bugs_open/275`'s fix widened its menu from 30 tools to 80 and nobody raised the answer budget
+# ✅ 319 (FIXED AND LIVE 2026-08-19) — the tool-suggester now FAILS on `max_tokens`: `bugs_open/275`'s fix widened its menu from 30 tools to 80 and nobody raised the answer budget
 
 **Filed 2026-08-19** by the `bugfix_275_silent_row_caps` lane. **This is a regression caused by this
 lane's own fix**, found by the very run dispatched to prove that fix worked. **Live now.**
@@ -104,3 +104,41 @@ says back.**
 `bugs_open/257` (why the step's `ai_service.max_tokens` is now the live lever) · register **LCO-009** ·
 CLAUDE.md, *"`output_tokens == max_tokens` means the completion was CUT"* · `bugs_open/012` (the class:
 a truncated completion persisted as success — which is exactly what did NOT happen here).
+
+## ✅ FIXED AND LIVE — 2026-08-19 10:25Z, migration 484
+
+**The cause was one instruction, not "answers got longer".** The prompt asked the model to list every
+library tool it rejected, with a reason, so `rejected_tools` carried roughly one entry per tool SHOWN.
+Measured across the five most recent successful answers it was **37–66% of the response**, with counts
+of 28, 30, 26, 30, 19 — i.e. the menu size. Tripling the menu tripled that section: ~4,400 chars
+becomes ~11,500, which is exactly the 11,090 recovered before truncation.
+
+**Migration `484_tool_suggester_answer_budget_and_bounded_lists.sql`** (applied by hand, single-file
+psql, rehearsed `COMMIT`→`ROLLBACK` first with the live row verified unchanged; recorded in
+`schema_migrations`; `_ROLLBACK` sidecar committed before the apply):
+
+1. `suggest_tools.config.ai_service.max_tokens` **3000 → 6000** (owner-authorised).
+2. **AT MOST 8** entries in `suggestions` — the highest any run has ever produced, so no observed
+   behaviour is cut.
+3. **AT MOST 5** entries in `rejected_tools` — the term that scales with the library, and the one
+   nothing downstream reads (`save_tool_spec` does not persist it).
+
+### Verified at the artefact, with the strict inequality the file asked for
+
+| | before (2026-08-19 09:44) | after (2026-08-19 10:25) |
+|---|---|---|
+| `success` | **false** | **true** |
+| `output_tokens` | **3000** (= cap, truncated) | **1761** |
+| `max_tokens` | 3000 | 6000 |
+| **strictly under cap** | **no** | **yes — 29% of budget** |
+| `rejected_tools` listed | ~78 (cut mid-list) | **5** (bound held exactly) |
+| `suggestions` | — (never returned) | 7 (under the 8 ceiling) |
+| orchestration | FAILED at `suggest_tools` | **COMPLETED** |
+
+**The answer is now smaller than the pre-fix average (1,761 vs 1,932) despite a 2.7× bigger menu** —
+which is the evidence that the bound, not the raised ceiling, did the work. The extra 3,000 tokens of
+headroom were not consumed; they are there so the next library growth does not re-open this bug.
+
+⚠ **The run also exposed `bugs_open/321`:** of those 7 suggestions only **1** became a work item,
+because every novel suggestion for a site collides on the same `item_key`. Fixing this bug made the
+model's reply reachable; 321 is why most of it still goes nowhere.
