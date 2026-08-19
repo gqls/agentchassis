@@ -397,3 +397,34 @@ on one thread, rather than a vague window. That is a much smaller haystack.
 **What I would do next is re-run the investigation today** against the twenty jobs we still have,
 telling it plainly which record to read and that the other one is empty for ordinary housekeeping
 reasons rather than because nothing happened. The evidence is good until roughly Sunday the 24th.
+
+**2026-08-19, afternoon — the new build, and a fix to our own instrument.**
+
+The fresh build is out and I checked it properly rather than assuming: I asked the running programs
+directly which version of the code they were built from, on both copies, and also asked them about
+two versions they should *not* contain — both correctly came back no. Monday's retry fix is still
+aboard. The freeze has not recurred, and I can now say that over a week rather than over a day,
+which is the practical benefit of getting the old evidence back this morning.
+
+**The thing I actually fixed today is not the bug — it is the reason we could not investigate it.**
+When we send the automated diagnosis service after a problem, we hand it a pack of evidence that
+includes a description of the database tables it might need. That pack did not describe the table
+where this bug's evidence lives. So this morning's second attempt went to exactly the right place,
+started reading exactly the right code, and then had to stop and ask us what the columns were
+called. It could not write the query.
+
+We have hit this before, on a different bug and a neighbouring table, and it cost two investigations
+then as well. The fix both times is the same one line: add the table to the list of ones we always
+describe. I have made that change, and I have added a test to stop someone removing it later —
+because the existing tests are derived automatically from the code, and they cannot see why this
+particular entry matters, so they would have stayed green if it were deleted. I broke the test
+deliberately first to make sure it actually catches the problem, then put it back.
+
+That change is with the review council now. It is written in Go, so like everything else it does
+nothing until the next build goes out. **Once that build is live, the diagnosis service can be sent
+in a third time with everything it needs** — the right table, its shape, and twenty real frozen jobs
+to look at. Those examples are good until about Sunday.
+
+**One caution I want on the record.** The bug has been quiet since Sunday and it would be easy to
+read that as progress. It is not. Six of the eight days we can see are also quiet. This bug comes in
+bursts, and a quiet stretch is what it looks like when it is doing nothing in particular.
