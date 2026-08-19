@@ -5709,6 +5709,45 @@ without a generic build completing writer → save → deploy in the same window
 consistent with having broken the writer. Worked case, queries and probe:
 `bugfix_301_owned_guard_ordering/`.
 
+### A writer with a CREATE path and no REPLACE path — each uniqueness gate is found by walking into it, one per day (bugs_closed/286 → bugs_open/331, 2026-08-19)
+
+**Pattern.** An action that INSERTs a component + page + link was written for first creation.
+The moment a lane needs to REPLACE what it made (rebuild a ported tool at its URL; re-fix a
+native tool; retry a withdrawn build), every uniqueness constraint on the table becomes a
+separate, sequential failure — and each one reads as a fresh bug with its own SQLSTATE 23505,
+its own workaround, and its own bug file. `create_tool_component`: `pages_site_id_name_key`
+(08-15 → 286, adopt_existing_page), `idx_cc_tool_function_unique` (08-17 → RFC_036 §9.3, fork),
+`content_components_name_key` (08-18 → nothing; rename the old row by hand), plus the silent one
+— the action's own "already exists" probe, which returns `{already_exists:true}`, writes nothing,
+and is read by nobody. By the third day the lane's RUNBOOK carried three pre-build DB edits and a
+race to retire the old slot before the generator's own rerender claimed.
+
+**The tell.** `agent_error_log`, all-time, for the action, grouped by the constraint NAME inside
+the message (NOT the SQLSTATE, NOT the leading 140 chars — the lane nearly misread gate 3 as gate 2
+because its grading query truncated the only distinguishing token): **one row per constraint on
+consecutive days** is the signature of a lane walking a CREATE-only writer through a REPLACE
+workflow. A "write-history census" (MEMORY: census the write history before designing a guard)
+names the gates the bug file does not. Second tell: a RUNBOOK step that says "deactivate / rename /
+retire by hand before filing" — operator memory standing in for a missing code path.
+
+**Why it hides.** Each gate fires only after the previous one is worked round, so no single run
+ever shows more than one; each fix is correct and local (a page attach, a fork on claim); and the
+work item reports `complete` with `error` NULL on every one of them (the 099 landmine — read
+`__step_error`). The class is only visible from the error-log census or from the RUNBOOK's growth.
+
+**Fix shape.** Do NOT add a fourth per-gate fix. Ask what the sibling writer already does: the
+section writer (`store_generated_component`, CTS-009) regenerates IN PLACE — same id, FKs intact,
+and `lookupBaseComponent` omits `is_active` precisely to avoid the name collision. Apply the same
+convention under PER-ITEM authority (an optional input mapped STRICTLY from the item spec —
+`"replace_existing!"` — never a step flag, because the existing probe is the per-site throttle
+that keeps a duplicate request a no-op): snapshot → shared-template fence → one transaction
+(lock live placements, UPDATE row, UPDATE placements' rendered_html) → return the keys downstream
+steps read. No second row ⇒ no uniqueness gate, no fork-of-the-replaced wrinkle, no two-slot page,
+and the rendered_html UPDATE fires the archive trigger so the revert handle exists by
+construction. Expect the estate's source-scan guards (285 fence, 253/178 floors) to catch the new
+writer — answer them (call / declared exemption with reason), do not allow-list around them.
+Worked case: `bugs_open/331`, TL-047, RFC_036 §12.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
