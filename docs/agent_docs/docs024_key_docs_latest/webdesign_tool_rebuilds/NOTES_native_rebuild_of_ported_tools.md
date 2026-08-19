@@ -1312,3 +1312,30 @@ implied operation with the right `FOR`/`TO`/`USING`, and specifically that **INS
 security-definer options it must emit a comment saying no direct policy is created, rather than a
 policy that contradicts the choice.
 Second brief written against the 481 contract; generic rules again omitted.
+
+## 2026-08-19 09:39Z — #11 `tool-rls-architect` built, retired in 60 s. The contract held a SECOND time.
+
+Run `complete`, `page_adopted=true`, component **`43049462-f221-4224-b3e2-736759f78c9c`**, 14,345
+chars (the largest yet — the SQL branches account for it), `{{\.` 0, `onclick=` **0**, `alert(` **0**.
+
+**The tool's own requirement — real, runnable SQL instead of a prose label — landed in full:**
+`ALTER TABLE … ENABLE ROW LEVEL SECURITY` ×1 · `CREATE POLICY` ×13 · `FOR <op>` ×12 · `TO <role>` ×12 ·
+`USING (` ×9 · `WITH CHECK` ×9 · `auth.uid()` ×10 · security-definer notes ×8.
+**The correctness detail I called out is correct in the generated code:**
+`… FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());` — `WITH CHECK`, not `USING`.
+An INSERT policy written with `USING` does not run, and that is exactly the kind of thing a
+reimplementation gets wrong when the brief only says "emit SQL".
+
+**Contract rules appeared again with none of them in the brief** (second consecutive proof of 481):
+ids include **`rlsSqlStats`** (rule 20, a size readout), **`rlsTableMessage`** (rule 18, validation
+message on a blank table name), and **`rlsCopyInstructionMsg`** / **`rlsCopySqlMsg`** (rule 15, per-copy
+status elements for the two separate copy buttons). Nothing in the description mentioned any of them.
+
+**Ported slot retired 09:40:44Z — 60 s after the build**, `4981b7bd…` to `removed`, 6,093 chars,
+md5 `54557439876ff313c1fdebdc7cf2083e` byte-identical. Asserted one deployed slot and that it is
+`43049462`. Rerender `20d280e0-59a9-4b71-a175-0a4c4e474243` queued and watched.
+
+**MISSTEP, trivial but twice now: my grading query windowed on `created_at > <the item's completion>`,
+which is AFTER the orchestration started, so it returned 0 rows and read as "no run happened".**
+The run begins before the item completes. Window on the item's `claimed_at` minus a minute, or just
+use a wide window and `ORDER BY created_at DESC LIMIT 1`.
