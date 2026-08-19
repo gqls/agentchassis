@@ -5629,6 +5629,48 @@ mitigation: it reaches Strategy 0 and skips the search entirely.
 **Worked case + the counting traps it taught:** `bugs_closed/287` (spawn_record slug),
 `RFC_029` §10.5–10.6a, `bugs_closed/213` §D.
 
+### A handler's DECLARED REFUSAL ("I cannot do this") completes green when no reader exists for its refusal vocabulary — and the comment beside it will tell you there is one
+
+**Symptom.** An item_type completes at a high rate with the handler's own payload saying it
+did nothing it was asked to — `cta_improvement`: 993 completions, 22 sites, **0 ever
+`fixed:true`**, 468 of them carrying `reason: "fix_type requires LLM-driven changes, not
+programmatic HTML edits"` (the rest carry a FOREIGN payload — spawn record / design-token
+blob / triage decision — so a `fixed=false` filter undercounts). The finding the item was
+filed for is still on the page afterwards, and `item_key` dedup (two-strike relabel,
+`idx_swi_dedup` terminal set) keeps the next audit's refile quiet.
+
+**Mechanism.** The handler has a refusal vocabulary (`fixed:false` + `action:"needs_review"`)
+distinct from its no-op vocabulary (`fixed:false`, no `action`), and NOTHING reads the
+discriminator: its own workflow branches on `fixed` only, then a success-labelled
+`complete_workflow`; gate 1 (`handlerReportedFailure`) reads `response.status`, which a
+config-defined workflow cannot set; gate 1b is opt-in and numeric; no verifier is registered
+for a judgement type. Meanwhile the ROUTER (`classifyFinding`) keeps naming that handler
+for the category because its routing table and the handler's dispatch table are two files
+that never meet. Sibling of `bugs_closed/302`/`213` D1 — there the handler had NO
+discriminator and gate 1b had to be built; here it had one and it was unread.
+
+**Diagnose.** (1) List the payload's KEYS, not one field's value:
+`SELECT string_agg(k,','), count(*) FROM a, jsonb_object_keys(result->'response'->'fix_result') k GROUP BY 1` —
+a shape claim built from `fixed` alone is a claim about `fixed`. (2) For any key the handler
+emits as a verdict, find its READER: `grep -rn '\["<key>"\]' --include=*.go platform/orchestration`
+AND the live workflow conditions (`… steps->k->'config'->>'condition' LIKE '%<key>%'`). A
+key with no reader is a claim, not a control — whatever the comment beside it says.
+(3) Census refusal vs no-op over the handler's WHOLE history (archive-inclusive) — the
+fix below is only safe if the two never overlap. (4) Grade "was the work done anyway" at
+`page_component_history` per defect CLASS — destinations may be repaired by a deterministic
+route (resolver / `cta_links_stale`) that owes nothing to the item.
+
+**Fix, in the order that closes the door** (`bugs_open/323`, 2026-08-19). (1) The handler's
+OWN workflow honours its own flag — one conditional + `fail_work_item status_override
+needs_human_review` (page-build-handler's "park visibly" pattern; migration 495, live,
+probe-proven) — covering every refusal arm at once, not one type. (2) The router stops
+naming a handler that refuses the type: file `capability_gap` (`handler_missing`, the
+`bugs_closed/077` shape) until a capable handler exists. (3) Lockstep test: the refused set
+becomes a package var and `TestAuditRoutingNeverTargetsAFixerRefusalArm` drives the category
+universe through the router, resolving the fix_type the HANDLER would see via its own fallback
+ladder. Do NOT widen gate 1b to read a boolean for one consumer — with (1)–(3) there is no
+consumer left. Worked case, queries and probe: `bugfix_323_cta_improvement_refusal/`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
