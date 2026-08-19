@@ -121,8 +121,11 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
    with **both paths on the commit** (`git mv` landmine) and verify at HEAD with `git ls-tree`.
    ⚠ Before closing, check `479`'s reclaim arm has fired at least once — it still never has, so it
    is shipped-but-unexercised, and the close should say so rather than imply it works.
-3. **`277`'s remaining half** — the `no_content_data` repair. **Start with a conversation with the
-   `loanandmortgagecalculator_couk` lane**, not a design. This is also Tier 2.
+3. **`277`'s remaining half** — the `no_content_data` repair. This is also Tier 2.
+   **✅ THE CONVERSATION IS OPEN — do not re-open it, and do not design ahead of the reply.**
+   CONTRIB filed and committed (`7574482c7`) at
+   `docs024_key_docs_latest/copy_quality_two_stage/CONTRIB_2026-08-19_from_the_277_083_lane_your_stage_2_output_is_the_shape_two_stuck_repair_queues_need.md`.
+   See §6.
 4. **`314`** — owner's call between the four candidates; candidate 1 is one line plus a credit cost
    somebody should size.
 5. **Two loose ends nobody owns**, both `[UNMEASURED]`:
@@ -130,6 +133,51 @@ exists and is proven, repairing does not exist for `no_content_data`, which is 2
      refused every time. Same guard. One of those needs explaining.
    - a page named/URL'd `tool-…` carrying `rebuild_policy='generic'` looks like a data defect;
      nobody has counted how many.
+
+> ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
+
+
+## 6. THE OUTBOUND ASK — filed 2026-08-19, awaiting a reply
+
+**To the `copy_quality_two_stage` lane** (register **CQ-024**; migrations `447` seed + `462`
+budget). ⚠ **NOT `loanandmortgagecalculator_couk`** — see the correction boxes above; I had the
+wrong lane for a day.
+
+**The question asked:** can stage 2 be aimed at ONE named component with ONE named defect, rather
+than at a whole page for editorial quality — is that something the design can accommodate,
+deliberately excludes, or has already rejected?
+
+**Why it is phrased as a question and not a proposal, which matters if you pick this up.** Their
+handoff states two things are deliberate, and both are exactly what this use would press on:
+
+1. *"Nothing dispatches `copy-editor`. No item_type routes to it, by choice."* — routing a finding
+   at it **is** a dispatch.
+2. It **cannot write to a page** — no step can, and the migration RAISEs if one is added. Output
+   goes to `copy_edit_proposed` at `needs_human_review`; both proposals to date were owner-approved
+   and **applied by hand**. A queue of ~134 wants less than one human approval each, which is a
+   change to their safety posture — **theirs to rule on, not ours to assume.**
+
+**"Build your own, here is what we learned" is named in the CONTRIB as a complete and welcome
+answer.** If that is the reply, the parts that look hardest-won from outside are: enumerating the
+page's required links as **data** (their own comment: *"a prose instruction to preserve a set is not
+reliably followed"*), the declared-schema-in / same-type-out rule, and the **3-edit budget** added
+by `462` after run 2 broke stage 2 on a harder page.
+
+**What was offered back, so this is not purely extractive:** their two proposals are applied by
+hand, and `apply_section_edit` consumes their exact output shape at **220/5 = 98%** on owned pages.
+⚠ Stated to them as a **near-match with the gaps named from the spec**, not a drop-in: `edit_type`
+is **Required** and their payload does not carry one, and the **RFC_015 citation gate**
+(`acknowledges_decision` / `supersedes_decision`) is a control against precisely what an automated
+editorial pass could get wrong. Whether they compose is their call.
+
+**⚠ A direct `SendMessage` did NOT reach them** — their session runs under the title
+`copy quality two stage` but is not a reachable peer, so **the committed CONTRIB is the channel**.
+That is the estate's normal convention and it demonstrably works: their own handoff records two
+inbound asks from other lanes, both answered. **Check for a reply in their lane dir, in
+`bugs_open/277`, or in this lane's directory before assuming silence** — and give it more than a
+day before reading silence as a no.
+
+---
 
 ## 5. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `277`,

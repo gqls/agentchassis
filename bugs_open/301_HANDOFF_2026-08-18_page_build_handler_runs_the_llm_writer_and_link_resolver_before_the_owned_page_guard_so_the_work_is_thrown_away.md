@@ -317,6 +317,9 @@ WHERE handler_agent IN ('copy-editor','section-editor') GROUP BY 1;
    lane (migrations `447`, `462`; commit `b04493b7b` — *"stage 2 BUILT and PROVEN on its proof
    case"*).
 
+> ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
+
+
 **Why that changes the advice rather than just the record.** I wrote that Tier 2 should "aim an
 existing producer at a finding". That still holds, but the producer has an **owner who is iterating
 on it right now**. So the next step is not to write an RFC that designs around it — it is to talk to

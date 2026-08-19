@@ -1160,6 +1160,9 @@ FROM orchestration_states WHERE owner_agent_type IN ('copy-editor','section-edit
    `2026-08-18 17:59`, both runs today, **owned by the `loanandmortgagecalculator_couk` lane**
    (migrations `447`/`462`; `b04493b7b` — *"stage 2 BUILT and PROVEN on its proof case"*).
 
+> ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
+
+
 **That changes the Tier 2 advice, not just the record.** "Aim an existing producer at a finding"
 still holds, but the producer has an owner iterating on it *right now*, so the next step is to talk
 to that lane — not to draft an RFC around a `field_updates` contract that has changed twice in two

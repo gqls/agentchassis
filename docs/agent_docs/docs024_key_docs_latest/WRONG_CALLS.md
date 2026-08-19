@@ -36644,3 +36644,39 @@ document without re-deriving it": 2 (the `bugs_open/295` path 08-18, and `480`'s
   it gets. Same shape as a test asserting `len(results) > 0` when it means `== 3`.
   Tally for "a batch of edits guarded by one aggregate assertion, where a silent no-op then
   rode out under a truthful-looking commit": 1.
+
+---
+
+## 2026-08-19 — I attributed a mechanism to the wrong lane from a grep hit, and there is a tool whose entire job is that distinction
+
+**Session:** `bugfix-277/083`. Fourth in three days, same family as the other three.
+
+**What I claimed:** that `copy-editor` — the mechanism I had just discovered and built a whole
+follow-on recommendation around — is owned by the **`loanandmortgagecalculator_couk`** lane. Written
+into my handoff twice, `bugs_open/301`, `bugs_open/277`, NOTES, the owner-facing README, and told to
+the owner in chat, who then asked me to go and talk to that lane.
+
+**What was true:** it belongs to **`copy_quality_two_stage`** (register `CQ-024`). The defining
+evidence is one command — what the commits shipping migrations `447`/`462` actually touch:
+`git show --name-only <sha> | grep docs024_key_docs_latest/` returns `copy_quality_two_stage/`.
+
+**How I got it wrong:** I ran `grep -rln "copy-editor" docs/agent_docs/…` and LMC's
+`README_where_we_are.md` was in the hit list. **A mention.** I read a file that *talks about* the
+thing as the file that *owns* it.
+
+**What caught it:** the owner asking me to initiate the conversation. Getting ready to write to
+someone makes you check who they are in a way that writing *about* them does not — which is an
+argument for the estate's contribute-into-the-other-lane's-file convention beyond politeness.
+
+**The cheap check that would have:** `scripts/who-owns.py`, which **exists for exactly this** and
+prints "likely OWNING workstream(s)" and "also cites it (probably just a cross-reference)" as
+separate sections. I used it three times this session — for `083`, `301`, `307` — and did not think
+to use it for a mechanism rather than a bug number. **It takes a slug.**
+
+**The transferable lesson, and the reason this is a fourth entry rather than a footnote on the
+third:** all four errors this week were *identifying something by an accessible signal rather than
+its defining one* — readers instead of writers, a page's policy column instead of the guard's error
+string, my own arithmetic instead of the query, and now a grep mention instead of the commit
+history. **When a tool exists whose whole purpose is that distinction, the absence of the thought
+"should I run it?" is the failure, not the absence of the tool.** Ask what would DEFINE the answer,
+then check whether something already computes it.

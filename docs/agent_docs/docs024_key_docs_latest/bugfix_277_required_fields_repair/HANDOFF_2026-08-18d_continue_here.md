@@ -226,6 +226,9 @@ evidence about your case.
    - **`08-18c` §4's follow-on**: a page whose name and URL are `tool-…` carrying
      `rebuild_policy='generic'` looks like a data defect. Nobody has counted how many.
 
+> ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
+
+
 ## 5. Session-start checklist
 `git log --oneline -10` · re-read this file from disk · `scripts/who-owns.py` **by slug** for `083`,
 `300`, `301`, `307` · grep live `.jsonl` for `save_page_sections|fail_work_item|301|307` · re-measure

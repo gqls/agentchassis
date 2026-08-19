@@ -308,5 +308,8 @@ does not exist for the largest route, `no_content_data` (27 of the 30 parked).
    artefact — and here the items are not even complete).
 3. Only then does clause 1 pass.
 
+> ⚠ **CORRECTED 2026-08-19 — `copy-editor` is owned by the `copy_quality_two_stage` lane, NOT `loanandmortgagecalculator_couk`.** I got the wrong lane from a `grep -rl "copy-editor"` hit in LMC's `README_where_we_are.md` — a *mention* — and read it as ownership. `scripts/who-owns.py` exists to separate those two, and I did not run it. The defining evidence is what the commits shipping migrations `447`/`462` actually touch: `docs024_key_docs_latest/copy_quality_two_stage/`. Register entry **CQ-024**. A CONTRIB is filed in their lane dir (`CONTRIB_2026-08-19_from_the_277_083_lane_…`, commit `7574482c7`).
+
+
 **Closing this on clause 2 alone would be exactly the error this estate keeps logging:** the queue
 is tidy, every row is labelled, and the page the bug was filed about still does not serve content.
