@@ -120,3 +120,25 @@ reach by design — that's the tool-rebuild programme's job.
 One thing still owed on this lane (not a reason to keep the bug open): the review
 council asked for some polish on the last piece of code — mainly a kill switch for the
 news-feed cleaner — which I've written up for a follow-up round.
+
+## 2026-08-19 late evening — the follow-up the council asked for is written and sent
+
+The bug stays closed; this is the polish I owed. The reviewers' main asks were fair and
+I did them: the news-feed cleaner now has an off switch an operator can flip without a
+rebuild (it ships switched ON, matching how we did the last switch of this kind), it
+says in the logs when it cleaned something, and I corrected two places where my earlier
+write-up over-claimed — I had said a second safety gate was present where by design it
+is not, and I had cited a precedent that turned out to be similar in spirit but not in
+what it actually does. I also found the concrete case that justifies cleaning at the
+feed source: one step in the page writer renders template-only sections with no
+cleaning in front of it, so the source-side clean is the only thing protecting those.
+
+Two things to own up to. First, one of my comment edits was carried into another
+session's commit a few minutes before I committed — nothing lost, just an odd-looking
+trail, and I said so in my commit. Second, I sent the review submission twice by
+mistake (I re-ran the send script to read its output instead of reading the file it
+wrote). There's no clean way to cancel a review mid-run, so it costs us one duplicate
+round of reviewer credits. Logged as a wrong call with the check that prevents it.
+
+The code change is committed but won't be in the running system until the next
+release; when it is, the runbook says how to prove it landed on every pod, not just two.

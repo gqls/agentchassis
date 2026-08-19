@@ -38187,3 +38187,32 @@ without a fingerprint "must leave the previous one alone". Backwards — a stamp
 out, so the previous fingerprint is stale by definition, and preserving it makes the divergence
 check convict a healthy page. Nobody objected to that one; it fell out of re-deriving the first.
 **A false premise does not stay in the place you put it.**
+
+## 2026-08-19 — I re-ran the council trigger "to see its output again" and submitted the same round twice (bugfix 184 lane)
+
+**The call.** Round 6 of `060bcc0a` went through `097_TRIGGER_council_review_v1.sh` once and
+printed its tail. I wanted the HEAD of that output. Instead of reading the task's output file
+(or my own scrollback), I re-invoked the script with `| head -40` under a 5-second timeout —
+as if the script were a *viewer* of something it had done, rather than the thing that does it.
+It published again in under five seconds; I killed it at five. Two `council-gate` rows,
+identical payload md5, 28 s apart (`60e14994…` 20:45:52Z, `cf86d0db…` 20:46:20Z).
+
+**What caught it:** the runbook's own "find your run by payload" query, run to confirm the first
+submission had landed — it returned two rows. Nothing in the trigger guards against a repeat;
+it is designed to allow resubmission.
+
+**Cost.** One duplicate round of seat credits (~10 seats). There is no coordinator-level cancel a
+mid-flight council honours, and hand-editing a live `orchestration_states` row is how stuck rows
+are made, so both run to completion. Both verdicts are valid — same payload — so nothing is
+lost but money.
+
+**The cheap check that would have:** a script whose first effect is a PUBLISH (kcat, kubectl
+apply, a dispatch) is never the way to re-read its output. The output is in the task's output
+file / scrollback. The tell was already in the command I typed: `| head -40` on a script I had
+just watched finish is a request to see the past, and re-running is not how you see the past.
+
+**The generalisable half.** This is the same shape as the two landmines about `make deploy-*`
+and `kubectl apply` reporting success on a no-op — except inverted: there, re-running looks like
+it did something and did nothing; here, re-running looked like a read and did the thing again.
+**Classify the command before re-running it: does its first line of effect leave the machine?**
+If yes, re-running is a second act, not a second look.

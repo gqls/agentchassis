@@ -301,3 +301,72 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   Remaining open: ai-agent-orchestration news (behind a needs_human_review sibling — a
   human decision, left alone), the 24→sibling duplicates (retraction will close them on
   the next discovery pass now the pages are clean), and the 41 owned/ported (301).
+
+## 2026-08-19 ~21:00Z — ROUND 6 written, committed (`f6d632291`), submitted; one self-inflicted duplicate submission
+
+- **Context on pickup**: the bug was CLOSED at 17:25Z (`0ca143c2d`, owner note `a3497ddfc`);
+  the one thing owed on the lane was the round-6 answer to the r5 REVISE on `f3939f27d`
+  (live since v1.0.1315). Read the r5 seat payloads from `orchestration_states
+  a460f0f6…` (11 reviewers, 6 abstained, gating = editquality) rather than my own
+  summary — two seats (bug_historian ×2 objections, debug_historian ×2) had detail the
+  checkpoint bullet had compressed.
+- **What round 6 changes vs. states.** ONE behaviour change: `projectNewsItems` now reads
+  `DISABLE_NEWS_MARKDOWN_STRIP` (ships ARMED; set = HTML-escaped raw text, the exact
+  pre-strip output) and logs `items_stripped/items` when anything changed; signature
+  gains the logger. Everything else is corrected comments and tests. Precedent REUSED,
+  not minted: `DISABLE_UNREGISTERED_HANDLER_DEMOTION` in `load_work_item_actions.go` is
+  a council-round-1 guardian ask with the owner's "no default-OFF switches" stance
+  already reconciled in its comment — the guardian r5 text ("default-on is fine, but
+  make it a flag") asks for exactly that shape.
+- **Measurements that answered seats** (all live, 2026-08-19 ~20:50Z):
+  - `render_component` with `merge_with`, every step any depth (`jsonb_path_query
+    '$.**'`): exactly two live steps, both page-content-writer's — `render_section`
+    (flag ON, 474) and **`render_from_template` (flag UNSET)**. The second one is the
+    unflagged consumer the producer-side strip exists for — a fact I had asserted in
+    f3939f27d's comment ("unflagged callers") without naming one.
+  - `rerender_page_sections`: ONE live step (page-rerender). `reason='literal_markdown'`:
+    ONE Go writer (`check_literal_markdown.go:376`) + operator hand-promotion.
+  - dedup/cap order: `newsTopicalTokens`/`capNewsItemsPerTool` run in `QueryNewsItems`
+    (:143-144) on RAW titles, before projection. Strip changes no clustering.
+  - `directory_items.go` precedent: escapes only, no strip — reuse_agent was right that
+    I asserted it; conceded precisely in the comment (posture-similar, behaviour-different).
+  - strip-to-empty: every pattern keeps ≥1 letter/digit; `![alt](url)` → `!alt`; the
+    stored strip runs BEFORE the pre-check whose predicate is `isEmptyContentValue`
+    (`json_envelope.go:468`) — an emptied required field ESCALATES. Pinned by
+    `TestStripToEmptyOnlyFromAlreadyEmptyInput`.
+  - aliasing: `planSection` allocates `resolvedData := make(...)` per call
+    (`plan_sections_action.go:2077`); readers after the strip are the rc merge and
+    mergedContent in the same iteration; nested values may alias `sourceResolver.specs`
+    / `storedContent` (per-invocation); Strip is a fixpoint.
+- **Mutation check on the kill-switch test**: predicate forced to `true || …` →
+  `TestProjectNewsItemsKillSwitchRestoresRawText` FAILS ("got 'Read the full
+  report.'"); restored → ok. Build/vet/test in the WORKING TREE (no scratchpad archive):
+  `go build ./platform/orchestration/...` 0; vet clean on the edited packages (one
+  pre-existing vet warning in `load_component_library_actions.go:207`, not mine); `go
+  test ./platform/orchestration/actions/... ./platform/orchestration/datahelpers/` all ok.
+- **My first test fixture was wrong, not the code**: `TestProjectNewsItemsStripsBefore
+  Truncating` asserted the link TEXT survived a 200-char cut while the fixture put the
+  text itself astride the cut (190 + 14 chars). The load-bearing assertion (no `](`
+  half-pattern) held throughout; shortened the prose to 180 so the stripped text sits
+  before the boundary and the raw link would have straddled it.
+- **⚠ SAME-FILE PASSENGER, outbound this time**: my `v3_site_actions.go` comment hunk
+  (the "FLAG-ONLY HERE, BY DESIGN" block) was swept into the 315 lane's commit
+  `f0dd97c71` (21:42:37 +0100) before I committed — `git show f0dd97c71 -- …v3_site_actions.go
+  | grep -c 'FLAG-ONLY HERE'` → 1. Forward-only; named in my commit message and in the
+  submission (edit 3, "already at HEAD"). Nothing lost; the trail just reads odd.
+- **⚠ WRONG CALL — I DOUBLE-SUBMITTED ROUND 6.** The trigger ran once and printed its
+  tail; wanting the HEAD of the output I re-invoked the script with `| head -40` instead
+  of reading the output file — it published again before I killed it at 5 s. Two
+  council-gate rows, identical payload md5: `60e14994…` (20:45:52Z) and `cf86d0db…`
+  (20:46:20Z). No coordinator-level cancel exists that a mid-flight council honours and
+  hand-editing a live orchestration row is how stuck rows are made, so BOTH run; cost =
+  one duplicate round of seat credits. Either verdict is valid for the round (same
+  payload); I'll record both. Logged in WRONG_CALLS. **Cheap check: a publishing script's
+  output is in the task's output file / scrollback — READ it, never re-run the script
+  to see it again.**
+- Commit `f6d632291` carries `Council-Submitted: 060bcc0a-…` (not Reviewed — the r5
+  premature-trailer lesson).
+- Next: read the r6 verdict(s) (budget ~30 min; find by payload); act on REVISE if any;
+  after the next roll, probe EVERY agent-chassis pod for the kill-switch literal with two
+  controls (RUNBOOK); the kill switch itself is exercised only by the unit test until an
+  operator ever needs it — stated, not hidden.

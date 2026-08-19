@@ -132,3 +132,44 @@ SELECT type, jsonb_path_query_array(default_config, '$.**.strip_literal_markdown
    honestly (301's remit / tool-rebuild programme). Verify at the served page; the
    dartsonline items[18] summary will still show TABLE pipes (outside the pattern set —
    feed-quality follow-up).
+
+## After the roll that carries round 6 (`f6d632291`): the kill switch, and probing EVERY pod
+
+1. The r6 code is INERT until a roll. Prove it shipped at the binary, on EVERY
+   agent-chassis pod — not two replicas (debug_historian, council r5). The
+   kill-switch env NAME is the literal to probe, with both controls in the same breath:
+   ```bash
+   for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+     printf '%s ' "$p"
+     kubectl -n ai-persona-system exec ${p#pod/} -- sh -c \
+       'grep -aq DISABLE_NEWS_MARKDOWN_STRIP /proc/1/exe && printf PRESENT || printf absent; printf " | ctrl+:"; grep -aq DISABLE_UNREGISTERED_HANDLER_DEMOTION /proc/1/exe && printf ok || printf FAIL; printf " ctrl-:"; grep -aq ZZ_NOT_A_REAL_SYMBOL_QQ /proc/1/exe && printf FAIL || echo ok'
+   done
+   ```
+   Gotcha: the positive control (`DISABLE_UNREGISTERED_HANDLER_DEMOTION`) is a literal
+   that has been in the binary since before v1.0.1300, so a pod where it is absent is a
+   pod whose `/proc/1/exe` you are not reading, not a pod missing the feature.
+2. **Disarming the news strip without a roll** (only if a feed shape ever needs raw
+   markdown displayed — none known): set `DISABLE_NEWS_MARKDOWN_STRIP=1` in the
+   agent-chassis deployment env (overlay patch + `apply -k`, or `kubectl set env` —
+   remember the next `apply -k` reverts an imperative `set env`, the same way it reverts
+   `kubectl scale`). Unset = strip ON. It is process-wide, not per-site. Re-arming is
+   removing the variable. The only thing that exercises it otherwise is
+   `TestProjectNewsItemsKillSwitchRestoresRawText`.
+3. **Where the strip is visible**: `kubectl logs -l app=agent-chassis --tail=2000 | grep
+   'stripped literal markdown from news items'` — `items_stripped`/`items` per
+   projection. Zero lines over a day with news pages rendering means either the feed
+   rows are clean (check `content_feed_items.source_summary` with the §Scope regexes) or
+   the switch is set (check the env) — do not read silence as "working".
+
+## Council rounds: find the run by PAYLOAD, and never re-run the trigger to re-read it
+```sql
+SELECT orchestration_id, created_at, current_step, status,
+       md5(collected_data->'input_data'->>'rationale') AS payload
+  FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' LIKE '060bcc0a%'
+ ORDER BY created_at;
+```
+Gotcha (cost me a duplicate round, 2026-08-19): the 097 trigger PUBLISHES within its
+first seconds; its printed output is in your scrollback or the task's output file. Two
+rows with the same payload md5 seconds apart are one submission sent twice — both run,
+both verdicts are valid, the second is pure credit cost.
