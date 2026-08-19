@@ -202,6 +202,15 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			// have ever carried refused_by='save_page_sections', against 172 of 704
 			// pages estate-wide being rebuild_policy='owned'.
 			//
+			// UPDATED 2026-08-19: that zero was the BEFORE reading and it now reads as
+			// a live claim, which it is not. This emit has filed 64 rows (2026-08-17 →
+			// 08-18) — the mechanism works and is filing. Flagged by the
+			// copy_quality_two_stage lane while reading this file; the figure is dated
+			// rather than wrong, but a dated zero in a comment is indistinguishable
+			// from a broken emit to anyone who does not check the date. Re-measure:
+			//   SELECT count(*) FROM site_work_items WHERE item_type='owned_page_review'
+			//     AND spec->>'refused_by'='save_page_sections';
+			//
 			// The work item still fails — the save genuinely did not happen, and saying
 			// otherwise would be worse. What changes is that the refusal now leaves the
 			// same deduped, human-routable row its siblings leave, whose spec.fix already
