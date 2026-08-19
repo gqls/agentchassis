@@ -1899,3 +1899,39 @@ edits changed content, therefore no decision covered them."* **That inference br
 so content changing does not distinguish "no decision" from "check failed open". **Looked
 instead:** 10 `decision-record` rows fleet-wide, **zero** on either site. Harmless, established
 rather than inferred.
+
+### 2026-08-19 (later) — 474 went live mid-session, and my "pending" reading aged out in twenty minutes
+
+The 184 lane applied **473 at 10:34:26Z and 474 at 10:34:35Z**. My measurement earlier this
+session — *"474 is PENDING, the flag appears in zero live agent configs, so the strip is inert
+and our guarantee holds"* — was **true when taken and false about twenty minutes later.**
+Verified their report independently (both rows in `schema_migrations`; flag `true` on all
+three agents) rather than taking it on trust, and corrected the handoff.
+
+**So from 10:34:35Z, `"what the gate graded is what lands"` no longer holds unconditionally**
+for stage 2: `apply_edit` runs the merged map — LLM `field_updates` included — through
+`StripLiteralMarkdownFromContentData` before render and persist.
+
+⚠ **My own query under-reported, and it looked exactly like a half-applied migration.** They
+said three agents; my check found two. Cause: `jsonb_each(default_config->'workflow'->'steps')`
+reaches only TOP-LEVEL steps, and `page-content-writer`'s flag lives inside
+`process_sections_loop`'s sub_workflow. `jsonb_path_query_array(default_config,
+'$.**.strip_literal_markdown')` finds all three. **I nearly wrote the discrepancy back to them
+as a finding.** Same family as everything else this week: the query, not the system.
+
+⚠ **And my yesterday reading was too generous to myself.** I wrote that HTML-bearing fields
+"take the conservative path". Confirmed in `literal_markdown.go:112-121`: only `mdLinkStripRe`
+and `mdCodeSpanStripRe` are gated behind `includeCodeSpan`; **`mdBoldStripRe` and
+`mdHeadingStripRe` run unconditionally.** `ported-prose.content` is exempt from **two of four**
+transforms, not exempt.
+
+**What the gate does about it now:** prints `⚠ strip <field>` when a proposed value carries
+markers the strip will act on — **advisory, never a failure** (a strip firing on stage-2 output
+is arguably fixing the agent's mistake). Keyed on markers, **not** a reimplementation: a second
+copy of production's regexes would drift, which this lane has twice written down the cost of.
+`stripped_markdown_fields` on the apply result stays the authority. Nine-case control, including
+the HTML asymmetry.
+
+⚠ **The dangling-address landmine FIRED within 24 hours of being filed.** Re-grading run 3's
+proposal now exits `no page_component 3eb70551…` — those components were re-rendered and carry
+new ids. The parked payload is unusable by its stored address, exactly as written.
