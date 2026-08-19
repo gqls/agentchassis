@@ -53,8 +53,26 @@ single assertion, and the missing email makes the hallucinated-email check fail 
 > **prohibition on regulated-intermediary positioning** (or a check that refuses the plan).
 > That is new work and it is **not costed** in the decision doc.
 
-**(b) RFC_037 — the classifier reads the register.** Owner chose option 2. Filed, not built.
-Measured case: 7 finance sites → 2 distinct classifications, `industry` null on all 7.
+**(b) RFC_037 — the classifier reads the register. ✅ ALL FOUR OPEN QUESTIONS RULED
+2026-08-19 — this is now a BUILD, not a decision.** Measured case that motivated it: 7 finance
+sites → 2 distinct classifications, `industry` null on all 7.
+
+| question | ruling |
+|---|---|
+| where does the data live? | **a database** — not markdown, not a generated JSON artefact |
+| what is authoritative? | **the database is the source of truth**; `REGISTER_positioning.md` stops being it |
+| advisory or binding? | **advisory** — a prompt input, not a collision check that fails a duplicate |
+| the ~40 non-register sites? | **superseded — give them a registry too, and the rest of the ~2,000 .uk domains** |
+
+**⚠ The last one changed the size of the job by an order of magnitude**, and it has a hard
+prerequisite: **there is no inventory of the ~2,000 domains anywhere** — not in the repo, not in
+any `domain`-named column in the database (both searched 2026-08-19). **That list must come from
+the owner and it blocks the build.** Today: 44 register entries, 153 domains listed, 43 `sites`
+rows. Two knock-ons recorded in `REGISTER_positioning.md` and RFC_037 §5: the
+(family × audience × mode) collision invariant stops being checkable as a document rule, and
+"which neighbours is a site told about?" becomes a real design question that does not currently
+have an answer. Engineering default still required: **inert for a domain with no entry yet** —
+that is now transitional, not the permanent design.
 
 **Settled, so it need not be re-litigated:** the "two flows" are ONE flow. Measured at the
 handler, not asserted from the script — all three sites produced identical item types handled by
@@ -102,6 +120,12 @@ are shared-seam changes on the component write path: **council gate + chassis ro
 submission covering both writers is cheaper than two rounds. Cross-references are now in both
 files (they cited each other nowhere before today).
 
+**✅ OWNER RULING 2026-08-19: "one submission covering both writers and treat it as a
+precondition."** So: ONE council submission naming both `store_generated_component` and
+`create_tool_component`, not two rounds; and **wave 1 of the fifty does not start until it
+lands.** Relayed to the `bugs_open/311` session and recorded here; the RFC_036 lane needs to hear
+it too, including that its §9.5 fallback line ("2 blocked on RFC_036") understates the problem.
+
 **Nothing here is built. This is a precondition for the fifty, not an improvement to them.**
 
 ## 3b. 🔗 THE PILOT IS LIVE WITH TWO DEAD LINKS ON EVERY PAGE — `bugs_open/260`, and it is ONE defect not two
@@ -143,8 +167,9 @@ wrong on two live sites, though we did not edit another lane's headline.
 
 ## 5. THE PATH FROM HERE — in order, with the reason for the order
 
-1. **Answer §2 (a) and (b).** Owner decisions; nothing else is safely startable. (a) is now a
-   three-part choice — flow, auto-seed, *and* the regulated-identity prohibition.
+1. **Answer §2 (a) — the ONLY decision still open.** It is a three-part choice: flow, auto-seed,
+   *and* the regulated-identity prohibition. **(b) is ruled and is now build work**, whose first
+   blocker is getting the ~2,000-domain inventory from the owner.
 2. **Decide who builds the 311/RFC_036 fix, and as one submission or two.** It needs the gate
    and a roll. Until it lands, **every site built on a shared calculator name ships that tool
    hollow** — so building the fifty first means fifty sites to repair afterwards.
