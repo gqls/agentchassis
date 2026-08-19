@@ -513,3 +513,63 @@ the thread to pull, and it is why this has not self-healed.
   display title, which is a shared-resolver change affecting `tool-list`/`game-list`/
   `guide-list` too — out of scope here, noted so the next reader does not think it was
   missed.
+
+---
+
+## 10. STATE AT 2026-08-19 after the v1.0.1314 roll — nothing changed, and that is the expected result
+
+`[MEASURED 2026-08-19]` Chassis **`v1.0.1314`**, revision `d3590ca4638d…`, proven at
+the artefact: pod `imageID` sha256:d0257576… **equals** the local `RepoDigests` entry,
+so this is a real build and not a same-tag rebuild serving a cached image.
+
+| fact | value |
+|---|---|
+| both lanes' 309 code live in this build | **yes** — `0df9f1be9`, `e21b172f0`, `e5c9029dc`, `16c8ee062` are all ancestors of `d3590ca4` |
+| served page | HTTP 200, 32,594 bytes, **6 cards / 0 anchors** — unchanged |
+| articles with empty `meta_description` | **5 of 8** — unchanged |
+| `head_essentials_missing` queue | **606, every one `status='detected'`** — unchanged |
+| migration 478 | applied + ledger-recorded, config live |
+
+**The roll was never going to move this**, and the table says so rather than implying
+it: the repair is DB config (live since 19:40Z on 08-18) and the blocker is content.
+A chassis build changes neither.
+
+**The migrated component passes the now-live birth gate by construction** — all seven
+fields verdict `ok`, zero phantom sources. Which also means **rolling 478 back is no
+longer a free action**: it would restore a `site_specs.blog.*` shape that the gate
+(now live in this build) refuses.
+
+### The blocker is confirmed unreachable by the obvious routes
+
+`[MEASURED 2026-08-19]` **`head_essentials_missing` carries NO handler agent on all
+606 rows.** Not "a handler that fails" — no handler at all, so the type can never be
+promoted or actioned. That is precisely `bugs_open/083`'s subject (detected findings
+never reach a handler), and it is why the five missing descriptions have not
+self-healed and will not.
+
+Routes checked and rejected:
+- **`maintenance_actions.go`** only READS `meta_description` (line 1045); it does not
+  backfill it.
+- **Regenerating the five article pages** would fill them, but it rewrites real
+  published content to obtain a side effect, costs LLM spend, and lands on
+  `bugs_open/238`'s own trap (a regeneration drops resolver-sourced keys). Not a
+  proportionate move for five meta descriptions, and not a session's call.
+- **Lowering `section_shrink_floor`** — see §9. Step-config only, therefore
+  fleet-wide. Still no.
+
+### What is left, exactly
+
+1. **Backfill `meta_description` on five pages** — `automation-savings-estimator-guide`,
+   `llm-cost-calculator-guide`, `model-approach-selector-guide`,
+   `review-council-simulator-guide`, `self-correction-leopardessconsulting`. By the
+   framework, not by hand (owner ruling 2026-08-06). This is the whole blocker.
+2. **Re-dispatch the identical rerender.** Envelope and gotchas in §9; the reason MUST
+   be one `check_rerender_mode` recognises (`template_changed` is what was used).
+   Expected result: 8 cards, 2 anchors each, archived guide absent, ~73% text retained
+   so the shrink guard passes.
+3. **Verify at the SERVED page**, never the stored HTML: 8 cards each containing an
+   `<a>`, and the AI-Readiness card pointing at
+   `/guides/tool-ai-readiness-checker-guide.html`.
+
+Nothing else about the repair needs to change. Everything upstream of the content gap
+is built, applied, live and proven.

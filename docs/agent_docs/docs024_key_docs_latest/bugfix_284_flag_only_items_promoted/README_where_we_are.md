@@ -525,3 +525,40 @@ noise, and I would rather the next person spent their time elsewhere.
 What is left over from this work lives with the people who own it: the image census and the
 page-type gap with bug 114, the favicon and social cards with 131, and the one row of yours
 waiting on 227. None of it needs me.
+
+**2026-08-19 — the new build is live, I checked what it changed, and the answer is nothing on this lane. Which is correct.**
+
+I verified the build properly rather than trusting the version number: the running pod's
+image fingerprint matches the one built locally, so this is genuinely new code and not
+the cached-image trap that has bitten this estate before. All of yesterday's work is in
+it, both mine and the other team's.
+
+The index page is still unchanged, and that was always going to be the case — the part
+I fixed is configuration, which went live the moment it was applied, and the part that
+is stuck is missing text on five of your articles. A new build of the software changes
+neither. I would rather say that plainly than let a fresh deploy imply progress.
+
+**The lane is finished, and the last loose end tied itself off overnight.** There was one
+thing I could not prove yesterday: we added a database rule that blocks a bad kind of
+record, and I could argue it was safe but had not yet seen anything real pass through
+it. Overnight forty-two items went through correctly, every one properly routed. That is
+the proof, and it came from ordinary traffic rather than a test I built to reassure
+myself.
+
+I also gave myself a scare this morning and want to record it, because it is the same
+mistake this estate keeps paying for. I counted the bad-category records and got six,
+where yesterday's note says zero — for a moment it read like the fix had come undone.
+It had not: all six are from before the fix, and I had dropped the date filter that made
+the original number mean anything. The number was real; the question I asked it was
+wrong.
+
+**So: one thing left, and it is not mine to do.** Five articles need their summary text
+written, by the framework rather than by hand. Then the same command I already ran
+finishes the job. I have measured that it would clear the safety guard with room to
+spare, so this is not a hope, it is arithmetic.
+
+The reason it has not happened on its own is the thing this whole lane was about. The
+system already spotted those missing summaries — six hundred and six times across all
+your sites — and every one of those notices is filed under a category with nothing
+attached to act on it. The fault we just spent this lane fixing is the same fault
+standing between us and the last step, one level up.

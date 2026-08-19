@@ -4,6 +4,25 @@
 RFC verification and one site item, across 2026-08-15 → 08-18. Everything below was
 verified at the artefact; where a claim is unproven it says so.
 
+> # ⛔ THIS LANE IS CLOSED — 2026-08-19. Do not pick it up; pick up `bugs_open/309`.
+>
+> All four bugs (279, 115, 284, 290) are fixed, live and in `bugs_closed/`. The owner's
+> three decisions of 08-17 were executed, his content-strategy question was ruled on
+> 08-18, and **the last open residual closed itself by observation on 08-19**: the
+> scheduled promoter has now written through CHECK `443` in production — 42 rows
+> promoted to `triaged` across five item types since 08-18 12:00Z, **every one carrying
+> a real handler**. Compatibility is proven by an observed promotion, not merely by
+> construction and a clean run. Invariants re-checked the same day: 0 handler-less
+> `blocked` rows, CHECK `443` still `convalidated`, and **0** `audit_finding_%` items
+> minted since 279's fix (the 6 rows in the table all predate it, 2026-07-24 → 08-13 —
+> counting them without the date filter manufactures a regression that is not there).
+>
+> **What survives this lane is `bugs_open/309`**, which is a different bug, co-owned
+> with the `bugfix_309_unclickable_index_cards` lane, and blocked on a content gap.
+> Its §9 and §10 are the live handoff — read those, not this file.
+>
+> The `083` canary decision was contributed to and remains `083`'s own call.
+
 ## 1. State as at 2026-08-18 15:45 UTC (re-measure before trusting — this decays)
 
 | fact | value | how to re-check |
