@@ -147,3 +147,66 @@ wrong fix.
 `bugs_open/311` first (it is the one with fleet-scale multiplication and it is already
 diagnosed), then §1 (retry impossible — cheap, and it is the customer-visible one), then §3's
 dead-link suppression. §4 is a one-line addition to the trigger.
+
+---
+
+## UPDATE 2026-08-19 (afternoon) — conferred with the owning lanes; §2 is now LIVE-FIXED and the next run is its test
+
+**`bugs_open/311` — FIX IS LIVE on `v1.0.1315`.** Settled by that lane with controls, not
+asserted: the running binary stamps `590ca3a20…` (positive) with a fake sha absent on the same
+pod (negative), `git merge-base --is-ancestor 17d883333 590ca3a20` is TRUE, and the fix's own
+literal `COMPONENT_COLLISION_DIVERTED` probes PRESENT.
+
+> **⚠ My own probe said ABSENT and was measuring the wrong question.** The binary carries only
+> the BUILD commit's sha, so **any ancestor commit reads ABSENT even when its code is in the
+> image**. Grepping for your own fix's sha is not the check; getting the stamp and then
+> `merge-base --is-ancestor` is — exactly as CLAUDE.md already says. I did not follow it.
+
+**The section/tool distinction, which decides whether our run tests anything** (from the 311
+lane, verbatim in substance): the one-shot path — `plan_sections → needs_new_component →
+component-creator → store_generated_component` — is **entirely the SECTION-level writer**, and
+that is the half now live. `create_tool_component` belongs to the **other** route
+(`tool-suggester → add_tool → tool-generator`), which neither finance build has ever triggered:
+no `add_tool` item exists on either site. So the outstanding tool-level half — the owner's
+stated precondition for wave 1 — **does not gate a clean-domain run**, though it will fire on
+portfolio sites later and on webdesign's two parked tools.
+
+### The protocol for the next clean-domain run (agreed with the 311 lane)
+
+Check BOTH halves, and the artefact independently of both:
+
+1. **Diversion worked.** Per diverted section: a new `content_components` row
+   (`function='<function>-<domain>'`, `forked_from` NULL, `section_type` = the requested section
+   name, so the selector can see it), one `COMPONENT_COLLISION_DIVERTED` row in
+   `agent_error_log`, and the work item **complete** rather than failed. Expect **6 of 7** —
+   the `generate_template` / `stop_reason=max_tokens` failure is upstream of the store and this
+   fix does not touch it.
+2. **No collateral damage.** The 311 lane pinned the incumbents' HTML md5s BEFORE our run
+   (`bugfix_311_component_keys/NOTES_311_fix.md`, commit `527193376`): `824e3309` →
+   `e6ee4b07f11d0b43c1c5a62667f4999f`, `b89f91e1` → `a2c00f1c66ce6f4ef72b48083f1e3da6`,
+   `7d8b0503` → `5f9534982e7f2bd776605ed78e755010`. **Re-read them after the run; they must be
+   UNCHANGED.** A run where our site gets its calculator by overwriting
+   `loanandmortgagecalculator.co.uk`'s is the exact damage the old guard prevented.
+3. **The served page, independently.** *"The fix guarantees the diverted component gets STORED
+   and LINKED, not that the LLM generates a GOOD calculator."* So keep the artefact check that
+   caught the hollow page last time: fetch the tool URL and **count `<input>` elements**. A
+   stored, linked, selector-visible component that still renders no tool is a different failure
+   and must not be reported as success.
+
+### `bugs_open/260` — owned, fix in flight, and it WILL still fire
+
+That lane took the renderer half this morning and is the only session on it. The defect is Go
+(the silent fallback in `RenderTemplateReportingMissing`, `component_library.go:965`, fallback
+at `:1032-1057`), so **inert until an image rolls; there is no config half that can land
+sooner.** Two things they asked for and got: occurrence contributions continue as two-line
+pointers (domain · date · work item · what differs), and the reproduction is **held** until
+after the roll, when this lane runs the greenfield build as their "after" test.
+
+**A design constraint the owner's tools ruling created for them, recorded because it will shape
+what "fixed" means:** tool pages legitimately contain brace literals (a prompt library, a syntax
+gallery), so a fix keying on "contains `{{ }}`" would start refusing pages that work. The
+discriminating shape is Go CONTROL syntax with no executed output, not brace presence.
+
+**And a measurement caveat that now applies to this lane's numbers too:** distinct-token sets
+inherit `validate_content`'s 10-per-detector cap, so any "N tokens" figure is a **ceiling**, not
+a count. Report it as such.
