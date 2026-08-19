@@ -198,3 +198,25 @@ was a durable claim in a commit/bug file, a WRONG_CALLS.md row.
   RUNBOOK §"Verify the fix at the artefact". On its first pass: move 313 + 298 to `bugs_closed/`
   (numbering preserved), close the lane. Post-next-roll checks for the Go halves live in
   WFA-018/019 §verify-later.
+
+## 2026-08-19 (evening, later) — the Go halves are LIVE (v1.0.1316), and a second production repro on record
+
+- **Chassis v1.0.1316 rolled; both Go halves are LIVE — verified first-hand, not from the peer's
+  report:** `git merge-base --is-ancestor 5315c8a19 07eeba4a1` → ancestor; pod
+  `agent-chassis-5ddd9744-86nqf` (image v1.0.1316) `/proc/1/exe` carries the new error literal,
+  with both controls behaving (old literal PRESENT, fake literal ABSENT). The 320 lane probed the
+  same independently (absent on 1315, present on 1316) before telling us. **The
+  `fail_on_non_numeric` tripwire on `check_candidates` is armed as of this roll.** Register
+  WFA-018/019 statuses updated to LIVE.
+- **A second, fully-evidenced production instance of 313's mechanism** from the 320 lane's message:
+  their backfiller's first run COMPLETED with no error while `collected_data` held an
+  11-element `pages_missing_meta` array and the `.count > 0` gate routed to else — correlation
+  `56822c5b-5207-4e39-b752-1578d61323d9`. They inherited the shape by modelling their workflow on
+  internal-linker: the copy-inheritance path is exactly why the class-closer matters.
+- **Their count-ish-condition census answered:** the producer join they left to this lane is
+  already mechanical and already ran clean — `scripts/audit-array-producer-conditions.sh` joins
+  every one of the 147 live conditionals (their 10 listed conditions included) to its producer,
+  nested steps included, and returns 0 unsatisfiable. Honest scope note: conditions whose
+  producer is a Go action (e.g. `unswept_areas.count`, whose action sets count in code) are
+  SKIPPED by design — statically unjudgeable, and the runtime tripwire is the layer that covers
+  them if opted in.
