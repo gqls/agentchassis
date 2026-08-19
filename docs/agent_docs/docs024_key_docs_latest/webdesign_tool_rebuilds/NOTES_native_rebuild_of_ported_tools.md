@@ -1287,3 +1287,28 @@ zero times has reading the code misled me.**
 **Ported slot retired 09:28:30Z — 118 s after the build.** `7f6df4cc…` to `removed`, 6,113 chars,
 md5 `06e5535215ef1d728a0d3dab734997a2` byte-identical. Asserted one deployed slot and that it is
 `a0454e0b`. Rerender `7cbd01b1-58db-435d-8bfc-e788c23fae8b` queued and watched.
+
+## 2026-08-19 09:34Z — #10 LIVE and PASS; #11 `tool-rls-architect` filed
+
+**#10 graded at the served bytes** (cache-busted): `http=200`, 16,205 B · `class="ported-page"` **0** ·
+`{{\.` **0** · new ids `colorPicker` / `errorMessage` / `previewDark` **1 each** · **old id `freq` 0**
+(the decisive negative) · **`onclick=` 0** and **`alert(` 0** across the whole page (the ported version
+had both) · controls 0/7 · **`last-modified` 09:34:17 against the rerender completing 09:34:03** — the
+`bugs_open/315` check, and this page published correctly.
+
+**Tally confirmed at the DB: 9 replaced, 54 ported tools remain** (2 of those blocked on RFC_036).
+
+**#11 FILED: `tool-rls-architect`** — item `f9f1796e-96ed-4719-ae66-670467b4faa6`, page `55d51746…`.
+Revert handle: slot **`4981b7bd-1158-48c7-92d5-b76262238738`, 6,093 chars,
+md5 `54557439876ff313c1fdebdc7cf2083e`**.
+**Ported defect, and it is the worst kind found so far because the tool states its own contract and
+then breaks it:** the output reads *"Implement the following SQL policies exactly: 1. READ POLICY:
+…"* and interpolates `options[selectedIndex].text` — **the human-readable dropdown label**. So a tool
+whose entire product is SQL emits no SQL at all, only prose, while telling the reader it is exact.
+Anyone pasting that into an assistant gets a plausible-looking instruction with nothing runnable in it.
+The brief requires real statements: `ALTER TABLE … ENABLE ROW LEVEL SECURITY`, a `CREATE POLICY` per
+implied operation with the right `FOR`/`TO`/`USING`, and specifically that **INSERT policies take
+`WITH CHECK`, not `USING`** — getting that wrong emits SQL that does not run. For the two
+security-definer options it must emit a comment saying no direct policy is created, rather than a
+policy that contradicts the choice.
+Second brief written against the 481 contract; generic rules again omitted.
