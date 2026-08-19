@@ -235,14 +235,14 @@ Read the output schema, not the census.
 | M2 guard | `upsertPage` ON CONFLICT → `COALESCE(NULLIF(EXCLUDED.meta_description,''), pages.meta_description)` | committed `aeccfc595`, **rides the next fleet roll** |
 | M1 fix | migration `485` — the planner's page object gains the field + an authoring rule | **APPLIED + ledger-recorded 2026-08-19**, config is live on apply |
 | the missing mechanism | `save_page_meta_description` (register **SEO-004**) — the persist half only | committed `aeccfc595`, **rides the roll** |
-| the driver | migration `486` — `meta-description-backfiller` agent | **HELD**, see below |
+| the driver | migration `488` — `meta-description-backfiller` agent | **HELD**, see below |
 
 **Why only the persist half.** Finding the pages is `query_database` and writing the
 sentence is `execute_llm_prompt`; both already exist. Building a monolithic Go action
 that did all three would have re-implemented two working things and taken authorship
 away from the framework, which is the 2026-08-06 ruling's whole point.
 
-### `486` is HELD, and the suffix is the control
+### `488` is HELD, and the suffix is the control
 
 CLAUDE.md: *image first, then seeds — a seed naming an unregistered action fails at
 runtime.* `[MEASURED 2026-08-19]` the live chassis is `v1.0.1314`, revision
@@ -250,7 +250,7 @@ runtime.* `[MEASURED 2026-08-19]` the live chassis is `v1.0.1314`, revision
 (145 commits unshipped). So the action does not exist in the running binary.
 
 A banner would not have held it — **a migration's guard checks DRIFT, not ORDER**. The
-file is named `486_..._HOLD.sql` so the runner's `SIDECAR_RE` excludes it from
+file is named `488_..._HOLD.sql` so the runner's `SIDECAR_RE` excludes it from
 `--apply` while still listing it. Verified rather than assumed: `--no-probe` shows it
 under *"Sidecars (hand-run only, NOT applied by this runner)"* and not in Pending.
 
@@ -362,3 +362,42 @@ Round 2 resubmitted on the SAME correlation so the trail accumulates.
 shipped as "M2 closed" while three paths still blanked descriptions.** That is the second
 time this lane's confident conclusion needed an outside check — the first was the `090`
 loop refusing my "frozen at creation" framing.
+
+---
+
+## 2026-08-19 — two concurrency incidents in ten minutes, neither of them damage
+
+**1. My LANDMINES correction was swept into another lane's commit.** The four-write-sites
+correction went into `ffef54338` (the 283 lane), not into a commit of mine — they
+committed the file while my edit sat in the working tree. Nothing was lost; it is in HEAD
+and byte-correct. CLAUDE.md's rule applies exactly: *finish the task and commit the
+remainder; say so in the message*, no amend. Recorded so the trail is followable rather
+than silently attributed.
+
+⚠ The near-miss worth noting is the **other** direction: when I went to commit that file,
+`git diff --numstat` showed **11 lines already there that were not mine** — two other
+lanes' in-flight appends. Had my commit landed first I would have taken their work under
+my subject. **`--numstat` before AND after touching any fleet-wide file** is what turns
+that from an accident into a decision; I had it in my RUNBOOK and it paid for itself.
+
+**2. Migration number 486 was taken twice.** The 283 lane created
+`486_judged_instance_scope_pipeline_HOLD.sql` and `487_seed_bindings_repair_HOLD.sql`
+while I was writing `486_meta_description_backfiller_agent_HOLD.sql`. Both `_HOLD`, so
+neither was applied and there was no database consequence — but a duplicated migration
+number is the same ambiguity CLAUDE.md already warns about for bug numbers: **a bare
+number stops identifying one thing.**
+
+Mine renumbered to **488** (theirs is referenced by name in their commit message and
+register entries, so mine was the lower-impact side). Internal references swept
+including the `snapshot_agent` reason literal in the ROLLBACK — `grep 486` over both
+files returns 0 — and the hold **re-verified after the rename**, because a rename is
+exactly when a `_HOLD` suffix could be lost: `--no-probe` still lists it under Sidecars.
+
+The one stale `486` left is inside `COUNCIL_RESUBMISSION_2026-08-19_r2.json`, deliberately
+**not** edited: that file is the record of what was actually submitted, and rewriting it
+to match a later rename would make the artefact disagree with what the council received.
+
+**The transferable bit: check the number is still free at the moment you commit, not at
+the moment you start.** I checked `320` was free immediately before committing the bug
+file and it was. I did not re-check the migration number, and the gap was about ninety
+minutes.

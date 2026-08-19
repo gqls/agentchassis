@@ -123,7 +123,7 @@ original plan are done; the plan below is what that turned into.
 | 5 | M2 guard — `upsertPage` ON CONFLICT | **DONE**, committed `aeccfc595`. **Rides the next fleet roll** |
 | 6 | M1 fix — migration `485`, the planner is asked | **DONE + APPLIED + ledger-recorded.** Config, live on apply |
 | 7 | `save_page_meta_description` (SEO-004) | **DONE**, committed `aeccfc595`. Rides the roll |
-| 8 | The driver — migration `486` | **WRITTEN, HELD.** `_HOLD` suffix; runner lists it under Sidecars, verified with `--no-probe` |
+| 8 | The driver — migration `488` | **WRITTEN, HELD.** `_HOLD` suffix; runner lists it under Sidecars, verified with `--no-probe` |
 | 9 | Council gate | **SUBMITTED** `46734ae9-…`; committed with `Council-Submitted:` per the pre-verdict rule. **Still owed: read the verdict and act on a REVISE/REJECTED** — the code is already on the shared branch |
 
 ## The decisions taken while building, and why
@@ -134,13 +134,13 @@ original plan are done; the plan below is what that turned into.
   2026-08-06 ruling exists to prevent.
 - **`overwrite_existing` defaults FALSE** (owner ruling 2026-08-02 §2). The unsafe
   authority is replacing published copy, so that is the side that must be asked for. The
-  workflow omits the key entirely, and `486`'s verify block RAISEs if a later edit adds it.
+  workflow omits the key entirely, and `488`'s verify block RAISEs if a later edit adds it.
 - **The policy lives in the UPDATE's `WHERE`**, not in a read-then-write, so it cannot
   race a concurrent writer.
 - **Reuse `MetaDescriptionLooksInternal`** rather than re-derive the brief-vs-public rule.
   Its own doc comment says it is exported so "a discovery check or a backfill" can ask the
   same question; this is that backfill.
-- **`486` is NOT scheduled.** Nothing dispatches it. A generator of public copy on a timer,
+- **`488` is NOT scheduled.** Nothing dispatches it. A generator of public copy on a timer,
   before anyone has read its first page, is how `bugs_closed/103` published 1,206 characters
   of build brief to Google. Hand-driven, one site at a time, until the output has been read.
 - **A discovery check was ranked BELOW the fixes and not built.** Detection with no handler
@@ -152,7 +152,7 @@ original plan are done; the plan below is what that turned into.
 
 1. **No page has been filled yet.** 407 of 731 remain empty. Phases 5-8 stop the cause and
    supply the tool; they do not do the work.
-2. **`486` cannot be applied until the roll.** `[MEASURED 2026-08-19]` live chassis
+2. **`488` cannot be applied until the roll.** `[MEASURED 2026-08-19]` live chassis
    `v1.0.1314` / `d3590ca4…`, `merge-base --is-ancestor aeccfc595 d3590ca4` FALSE, 145
    commits unshipped.
 3. **`save_page_meta_description` is UNEXERCISED.** Registered SEO-004 as *"built, not yet
@@ -161,6 +161,6 @@ original plan are done; the plan below is what that turned into.
 4. **The council verdict is unread.**
 5. **`bugs_open/309` is still blocked.** Its five pages are plan-managed, so they are
    reachable once the roll lands and fundamentallyai.com is replanned — or directly by
-   `486`. Neither has happened.
+   `488`. Neither has happened.
 6. **M2's scale is unknown and should stay marked so.** Four pages proven blanked, out of a
    139-page / 7-site / mostly-April sample. Existence, not a rate.
