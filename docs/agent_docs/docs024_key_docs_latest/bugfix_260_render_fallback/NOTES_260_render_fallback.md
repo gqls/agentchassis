@@ -209,3 +209,51 @@ clean greenfield build once the fix rolls and report the result either way.
 
 **Fix is Go, so it is inert until an image is rebuilt and rolled.** Told both lanes so, since
 one of them is sequencing an end-to-end re-run around it.
+
+---
+
+## 2026-08-19 (later) — the detection half re-verified, and the code comment disagrees with the live roster
+
+§7 says *"the registered `unrendered_templates` discovery check is configured in no agent and has
+never run"*. Confirmed today, and the evidence is sharper than the file's:
+
+- **The check exists in code**: `UnrenderedTemplatesCheck` at
+  `platform/orchestration/actions/discovery_checks/check_integrity.go:676`, scanning both
+  `site_components` and `page_components`.
+- **Its own header comment claims an owner it does not have.** `check_integrity.go:9` reads
+  *"completeness-discovery-agent: cross_site_contamination, unrendered_templates"*. The live
+  `completeness-discovery-agent` configures **44 checks and `unrendered_templates` is not among
+  them** (read from `agent_definitions.default_config`, active non-snapshot rows only). No other
+  discovery agent configures it either — `design`, `quality` and `availability` rosters were all
+  read in the same query.
+- The only live config mentioning the string is `page-build-handler`, and that is the
+  **blocker type** `validate_content` emits, not the discovery check.
+- **`[MEASURED]` 0 `site_work_items` of type `unrendered_template` have ever been created**, all
+  history.
+
+⚠ **Demand control, stated honestly:** that zero does NOT prove the check would have caught
+anything. It scans STORED components, and stored components are clean (0 of 1,789 — §13c). So
+"never configured" and "configured but nothing to find" are indistinguishable from the item count
+alone. What the absence does mean is that **if the seam fix ever regresses, or a chrome template
+starts failing, nothing sweeps for it** — and chrome is the path with no `validate_content`
+downstream. This is a gap in the safety net rather than a current miss.
+
+**Not fixing it in this lane** — it is `bugs_open/149` §B1's item and wiring a discovery check to
+an agent roster is that lane's seam, not mine. Recorded here because "the detector exists" is the
+kind of claim a future reader will take from the code comment, and the comment is wrong.
+
+## 2026-08-19 (later) — chrome call sites already carry an error return
+
+Reading the three chrome renders before judging any plan: `RenderHeader`
+(`component_library.go:1969`), `RenderFooter` (`:2038`) and `RenderHead` (`:2311`) **already
+return `(string, error)`**, so propagating a render failure needs no signature change at those
+sites. Each also already has a *structural* fallback — `RenderFallbackHeader`/`Footer`/`Head` —
+used when no eligible component resolves, which is a different and much better-behaved thing than
+the regex render fallback: it produces a real working header rather than mangled markup.
+
+That opens a per-site design question worth deciding deliberately rather than by default: on a
+template execution failure, does chrome (a) return the error and fail the step, or (b) fall back
+to the known-good structural header? (b) keeps the site up but silently swaps a designed header
+for a generic one — a degradation of the same family as the bug being fixed, just less visible.
+Flagging it rather than assuming; it is exactly the "order fix candidates by what closes the
+door" question.
