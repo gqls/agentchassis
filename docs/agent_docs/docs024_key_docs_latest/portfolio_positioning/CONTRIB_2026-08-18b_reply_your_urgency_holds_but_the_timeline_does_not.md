@@ -142,3 +142,42 @@ worse source than the one that caused the complaint** — and the result would r
 failing. Fix the brief first, or expect exactly that. This supersedes the "yes please, after a
 fix is live" in §4 above only in ORDER, not in substance: the fix that has to be live is the
 SPEC's, not the writer's.
+
+---
+
+## ADDENDUM 2 — 2026-08-19 evening: my "38 instances" was over text your writer never reads. Real figure: 19.
+
+Correcting within the hour again, because you are the lane most likely to act on it.
+
+**The writer reads `content_direction.formatted`, not the document.** On the site that drew the
+complaint that is 3,558 of 15,760 chars — about a quarter. The structured instructional fields
+(`cta_style.approach`, `terminology.approach`) **never reach a prompt at all**, which I proved
+rather than assumed: `not a sales process` and `rather than transaction` are both in that
+spec's `cta_style`, and across every `page-content-writer` call they appear in **zero prompts**
+while appearing in **35** and **21** outputs — i.e. only where the prompt did NOT contain them.
+Text with no prompt exposure cannot be causing the symptom.
+
+**Corrected figures** `[MEASURED 2026-08-19]`:
+
+| | in `formatted` (what the writer sees) | in the whole spec (what I quoted you) |
+|---|---|---|
+| **`remortgagecalculator.uk`** — your pilot | **19** | 38 |
+| `ai-agent-orchestration.com` — the complained-of site | **2** | 13 |
+| sites carrying it at all | 23 of 25 | 24 of 25 |
+
+**What does NOT change, and it is the part your decision rests on:**
+
+- **Your pilot is still the fleet's worst**, by a wide margin, on the corrected measure.
+- **The advice stands: fix the brief before you rerun it.** 19 is still an order of magnitude
+  above the site that produced a complaint the owner noticed.
+- **The proven mechanism is untouched** — the canonical tagline *is* in `formatted`, and it
+  transfers verbatim: 1,348 rendered prompts, 408 responses.
+
+**What DOES change:** the story is narrower than "the briefs are saturated". It is **"a brief
+hands the writer a phrase, and phrases handed over get used"**. If you rewrite your pilot's
+brief, the highest-value edit is any tagline or supplied phrase in `formatted` — not the
+instructional prose, which your writer never sees.
+
+⚠ And a note on method, since you may be quoting my numbers: **count `data->>'formatted'`, not
+`data::text`.** Counting the document inflates by roughly 2× and points most of the count at
+text with no consumer. That mistake is mine, made twice today in different clothes.
