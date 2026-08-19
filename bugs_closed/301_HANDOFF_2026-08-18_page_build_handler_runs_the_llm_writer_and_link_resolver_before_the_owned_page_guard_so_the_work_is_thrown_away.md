@@ -1,8 +1,13 @@
 # 301 — `page-build-handler` runs the LLM writer AND the link resolver BEFORE the owned-page guard, so the expensive work is done and then thrown away
 
+> **STATUS 2026-08-19: CLOSED — fixed (`6be66bceb` + migration 488), live on every chassis
+> pod, behaviourally proven with both controls, council APPROVED (corr `c7bc1b9e`).** The
+> closing section at the bottom carries the evidence and the one residual that outlives this
+> file (candidate 3, the producer-side routing — an owner decision, flagged not taken).
+
 **Filed 2026-08-18** by the `vigilant_designer_offer_analysis` lane. Found only because
 `bugs_closed/295` made the refusals visible — before that fix this was invisible in every record.
-**OPEN, unowned.**
+~~**OPEN, unowned.**~~ Taken 2026-08-19 by `bugfix_301_owned_guard_ordering`; closed the same day.
 
 **One line:** the ownership guard sits at `save_sections`, the LAST step of the workflow, so a
 build targeting a `rebuild_policy='owned'` page runs `page-content-writer` (an LLM call) and
@@ -497,3 +502,86 @@ production proof above.
 read the round-2 verdict, and observe one end-to-end generic completion post-roll. The
 residuals that outlive this file (candidate 3's producer-side routing; Tier 2 finding-to-edit)
 are owned by other lanes and recorded above.
+
+## ✅ CLOSED 2026-08-19 (~21:00 UTC) — FIXED, LIVE, PROVEN WITH BOTH CONTROLS, COUNCIL APPROVED
+
+The two reads the last entry said were owed have both been done, and both came back the right way.
+Everything below was measured in this closing session, not carried forward (queries in the lane
+RUNBOOK, `docs/agent_docs/docs024_key_docs_latest/bugfix_301_owned_guard_ordering/RUNBOOK_owned_guard_ordering.md`).
+
+**What the defect was, in one line:** the owned-page guard sat at the LAST workflow step, so every
+refusal paid for the LLM writer and the link resolver first. **What the fix is:** the same guard,
+opt-in, at step 2 (`load_page_record`), with the save-path guard kept as a backstop.
+
+**Fixed by:** `6be66bceb` (Go: `refuse_owned_page` on `load_page_record`, both return paths, 4 tests
+incl. the key-absent control) + migration `488` (opts in exactly `page-build-handler.load_page_record`
+and routes its error to `mark_item_failed`; applied 11:05:25Z, ledger-recorded, `snapshot_agent`
+remediation in the lane dir).
+
+**Live on every pod that can run the workflow** [MEASURED 2026-08-19 ~20:50Z]: the whole chassis
+image fleet — 22 pods across `agent-chassis`, `dynamic-agent`, `business-intel`, `vet-intel` — is on
+`v1.0.1316` at ONE digest (`sha256:2d0d3def…`), and both current `agent-chassis` replicas (started
+17:13Z, i.e. AFTER the probe recorded earlier in this file) were re-probed: `refuse_owned_page`
+PRESENT, `OWNED_PAGE_GUARD` PRESENT (long-lived control), `ZZQQ_ABSENT_NEEDLE` absent. This answers
+the council's `debug_historian` advisory directly (which label was checked; same-tag cached-binary
+trap) — one digest fleet-wide, and the literal is in the running binary.
+
+**Behaviourally proven, both controls, on live demand (nothing induced):**
+- **Owned page (positive):** **4** `page-build-handler` runs since the 12:15Z roll failed at
+  `load_page_record` with `__step_error.message` leading `OWNED_PAGE_GUARD` (3 at 13:37–13:38Z, a 4th
+  at 20:37:46Z on `tool-prompt-permutator`). All 4 work items are `wont_fix` with
+  `result.owned_page_refusal`. **0** `page-content-writer` orchestrations in any of their windows. The
+  4th produced a NEW `owned_page_review` row with `refused_by='load_page_record'` — the first direct
+  new-row evidence (the earlier three were deduped onto existing open rows, as this file's CONTRIB
+  warned).
+- **Generic page (negative):** the end-to-end gap is closed — **2** generic builds COMPLETED post-roll
+  (`78a7f1ea` 16:16–16:22Z, `214074b9` 20:06–20:16Z), and their `collected_data` carries
+  `call_content_writer`, `save_sections`/`sections_saved` AND `deploy_page`/`deploy_result`: writer →
+  save → deploy all ran. (The remaining 10 post-roll `complete_error` runs have no guard marker — the
+  pre-existing `validate_content` failure mode, untouched by this fix.)
+- **Save-path refusals since the roll: 0** (by guard text on `__step_error`, not by `error` — which
+  is NULL on a routed failure, the `bugs_open/099` landmine, and not by a `rebuild_policy` join). The
+  save guard is backstop-only now, exactly as candidate 1 specified.
+
+**Council, corr `c7bc1b9e-97c8-4f3e-8a4f-b3a7029505ee` — round 2 APPROVED 16:19:04Z**
+("approved with 3 advisory objection(s) — none high-severity", 3 abstained). Round 1 was REVISE
+(snapshot opener; conceded, remediated). The advisories were READ and each is answered here, by an
+independent check rather than by the submission's own words:
+- `bug_historian` (medium): "does this rest on `bugs_open/086` — step-level `error_step` dropped by the
+  plan converter — which may still be open?" → **086 is in `bugs_closed/`, CLOSED 2026-07-27, both
+  halves live.**
+- `diagnosis_guardian` (medium): "confirm independently that `coordinator.go` honours STEP-level
+  `error_step`, not only `step.config.error_step`" → `platform/orchestration/coordinator.go:3671-3676`
+  (`routeToErrorStepOrFail`) reads `step.ErrorStep` FIRST and falls back to `step.Config["error_step"]`;
+  `:3393-3399` does the same in the other path. 488's placement is the one the engine reads first.
+- `debug_historian` (medium/low): which pods, and was the digest checked → answered above (22 pods,
+  one digest, both replicas re-probed).
+- `bug_historian`/`editquality` (low): the `ownedPageSkipReasonPrefix` matcher comment "left
+  un-updated" → it was updated in `6be66bceb` itself (`owned_page_guard.go:74-77`, EMITTERS block
+  naming `LoadPageRecordAction`); verified against every call site this session — the 3 matchers it
+  lists are the 3 that exist.
+- `guardian`/`prior_art_librarian` (low/medium): the two-carrier census is a point-in-time read →
+  true, and 488's verify block aborts if a third step acquires the key; the residual is a FUTURE
+  third carrier of `load_page_record` (default OFF, so inert), recorded in PBP-045.
+- `tooling_provenance` (medium): leave a NOTES trail on the agent's own doc subject, not only
+  WRONG_CALLS → the lane's five docs + this file are the trail; no `doc_plans` row exists for
+  `page-build-handler` to annotate (not created: that is a convention question for the tooling lane).
+
+**Close bar:** fixed AND live AND proven AND verdict read — met. Moving to `bugs_closed/` in the
+same commit as this section (`git mv`, both paths on the commit).
+
+**What outlives this file (NOT closed here):**
+- **Candidate 3 — the real upstream defect — is now the untaken candidate in TWO closed files (295
+  and this one).** Producers hard-code `handler_agent='page-build-handler'` for content findings
+  (12 sites in `platform/orchestration/actions/` — `apply_adoption_plan`, `apply_gap_plan`,
+  `create_tool_cross_link_items`, `flag_page_image_rebuild`, `load_work_item_actions` ×3,
+  `render_directory`, `reconcile_section_data`, …) without consulting `pages.rebuild_policy`, so owned
+  pages keep accumulating findings that can only ever be refused: **142 open today** — 84 failed /
+  36 unresolved / 13 needs_human_review / 9 detected [MEASURED 2026-08-19 ~20:55Z; moves with traffic,
+  keep the split]. No open bug file carries it as its subject (grep `rebuild_policy` in `bugs_open/`:
+  208 is the rebuild-route sibling, not this). **Owner decision, flagged not taken:** (a) file it as
+  its own small `bugs_open` entry, or (b) hand it to the Tier 2 / `copy_quality_two_stage` exchange
+  that owns the adjacent repair question. The lane's recommendation stands: (a), cross-referencing (b)
+  — a routing defect and a repair-design question are different bugs.
+- Tier 2 finding-to-edit routing (owned by the 277/083 lanes, recorded in §3 above).
+- `bugs_open/208` — the sibling ordering defect on the rebuild route (guard behind a git commit).

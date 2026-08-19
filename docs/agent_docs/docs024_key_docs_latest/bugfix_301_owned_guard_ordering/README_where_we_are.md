@@ -60,3 +60,39 @@ demonstrated the behaviour directly, which is stronger evidence than any code re
 What's left before this can be closed: read the second review verdict, and see one ordinary
 page build complete end-to-end on the new version (none has yet, only because of that
 unrelated content-quality rejection plus low traffic — worth one more look tomorrow).
+
+## 2026-08-19, evening — closed
+
+Both outstanding reads came back the right way, so this bug is now closed and its file has
+moved to the closed folder.
+
+The second review verdict is **approved** — eleven reviewers approved, none raised anything
+serious, and the three advisory comments were questions I could answer by checking rather than
+by arguing. One reviewer asked whether our fix leans on a mechanism that an older open bug says
+is unreliable; that older bug was closed three weeks ago. Another asked for an independent
+confirmation that the workflow engine really honours the setting the way we placed it; I read
+the engine's code and it does — it checks our placement first. A third asked which pods had
+been checked and whether the image could be a stale cached one; I re-checked this evening and
+every one of the 22 pods that can run this workflow is on the same build, down to the exact
+image fingerprint, and the two main pods (which had been replaced since the earlier check)
+both carry the change.
+
+And the thing I was waiting to see happened: two ordinary page builds have now gone all the
+way through on the new version — writer, save, publish — so "ordinary pages still work" is
+observed, not inferred. Meanwhile a fourth tool page was turned away at the load step this
+evening with no AI writing run, and this one left a fresh review row stamped by the new step
+(the earlier three had been deduplicated onto existing rows, which is why I'd only had the
+indirect evidence before). Refusals at the old, late position since the roll: zero.
+
+**One decision for you, which I have flagged and deliberately not taken.** This fix stops the
+waste; it does not stop the *cause*. Twelve places in the code still send "rewrite the content
+of this page" jobs to the generic page builder without first checking whether the page is a
+tool page the builder is not allowed to touch. So tool pages keep accumulating jobs that can
+only ever be refused — 142 of them sitting in the queue tonight. That upstream defect is now
+the "not addressed here" footnote of TWO closed bug files (295 and this one), and no open bug
+file carries it as its subject, which is exactly how a known problem gets buried. Options:
+(a) file it as its own small open bug now, cross-referenced to the Tier 2 repair discussion, or
+(b) hand it to the Tier 2 / copy-quality lane that owns the adjacent "how do we actually repair
+an owned page" question. My recommendation is (a): "jobs are routed to the wrong handler" is a
+routing defect with a small fix; "how should these pages be repaired" is a design question —
+different bugs, and the first should not wait for the second.

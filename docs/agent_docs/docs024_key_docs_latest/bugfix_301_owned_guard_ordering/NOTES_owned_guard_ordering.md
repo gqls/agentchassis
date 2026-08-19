@@ -151,3 +151,62 @@ needs_human_review / 9 detected (=142, moves with traffic; reviewer's 64 = narro
 
 **Round 2 RESUBMITTED** on the same correlation: `RESUBMIT_CORR=c7bc1b9e`, run orch
 `6469c138-3e88-492d-b2ba-5b60ab63a1ea`. Verdict owed a read (~30 min budget).
+
+## 2026-08-19 — session 3 (fresh, from the HANDOFF): both reads clean → CLOSED
+
+**§1 council round 2: APPROVED** 16:19:04Z (`diagnosis_artifacts`, corr `c7bc1b9e`, kind
+`council_report`): "approved with 3 advisory objection(s) — none high-severity", 3 abstained. Every
+advisory answered by an independent check this session (not by re-asserting the submission):
+- `bug_historian` medium — "rests on `bugs_open/086` (step-level error_step dropped by the plan
+  converter), still open?" → `ls bugs_open bugs_closed | grep ^086` → **`bugs_closed/`, CLOSED
+  2026-07-27**, both halves live. The seat's "OPEN case" premise was stale.
+- `diagnosis_guardian` medium — "confirm independently that coordinator.go honours STEP-level
+  error_step" → `platform/orchestration/coordinator.go:3671-3676` (`routeToErrorStepOrFail`):
+  `if step.ErrorStep != "" { routeToErrorStep(..., step.ErrorStep) }` FIRST, then the
+  `step.Config["error_step"]` fallback; `:3393-3399` same order in the other path. The seat's
+  "standing discipline" (config-only) is wrong for THIS engine — it may be right for the diagnosis
+  loop's coordinator, which is what the round-2 rebuttal said.
+- `debug_historian` medium/low — which label/pods, and was the digest checked →
+  `kubectl get pods -o jsonpath=…image…imageID` over the namespace: **22 pods on
+  `agent-chassis:v1.0.1316`, ONE imageID (`sha256:2d0d3def…`)**, spread `agent-chassis` 2 /
+  `dynamic-agent` 17 / `business-intel` 1 / `vet-intel` 1. Both `agent-chassis` replicas were
+  REPLACED at 17:13Z (after the 12:15Z probe), so re-probed `-86nqf`/`-8jlqh`: `refuse_owned_page`
+  PRESENT, `OWNED_PAGE_GUARD` PRESENT, `ZZQQ_ABSENT_NEEDLE` absent on both. (First exec timed out at
+  2 min on the second pod — a kubectl flake; retried alone with `timeout 90`, clean.)
+- `bug_historian`/`editquality` low — matcher comment not updated → it WAS, in `6be66bceb`
+  (`owned_page_guard.go:74-77` EMITTERS block); grep of every `ownedPageSkipReasonPrefix` site
+  (`save_page_sections_action.go:79,225,242`, `v3_site_actions.go:822,985,5781`, `multipage_actions.go:65`
+  = AssemblePage's skip_reason emitter, `load_page_record_action.go:275`) agrees with the 3 matchers
+  listed. No platform edit needed post-verdict.
+- `tooling_provenance` medium — leave a NOTES trail on the agent's doc subject → no `doc_plans`
+  row exists for `page-build-handler`; not created (convention question, not this lane's).
+
+**§2 completion: CLOSED.** `current_step='complete', status='COMPLETED'`: **2** post-roll
+(`78a7f1ea` 16:16:55→16:22:07Z, `214074b9` 20:06:11→20:16:13Z). `collected_data` keys on both
+include `call_content_writer`, `save_sections`, `sections_saved`, `deploy_page`, `deploy_result`.
+⚠ misstep caught in-session: my first check tested `collected_data ? 'save_page_sections'` (the
+ACTION name) and read FALSE — the STEP key is `save_sections`. Read the step names off the live
+row (`jsonb_object_keys(default_config->'workflow'->'steps')`) before keying on them.
+
+**Refusals re-measured, by `__step_error` not `error`** (my first `error LIKE '%OWNED_PAGE_GUARD%'`
+count read **0** — `error` is NULL on a routed failure, the 099 landmine; I knew it and still typed
+it first): post-roll `complete_error` = 10 unmarked (validate_content class) + **4 marked**
+(13:37:08, 13:37:59, 13:38:35, **20:37:46Z** new — `tool-prompt-permutator`). All 4 work items
+`wont_fix` + `result.owned_page_refusal` (5b683259, 9996bc0c, d0a2a069, 629e4a36). Writer children
+20:30–20:45Z: **0**. `owned_page_review` since roll: **1 row, `refused_by='load_page_record'`** —
+the first direct new-row evidence (the 4th page had no open row to dedup onto). Save-path
+refusals since roll: 0.
+
+**Candidate 3 census for the owner decision** [MEASURED ~20:55Z]: owned-page queue at
+`page-build-handler` = 84 failed / 36 unresolved / 13 needs_human_review / 9 detected (=142).
+Producers hard-coding the handler: 12 grep hits in `platform/orchestration/actions/` (listed in
+the bug file's closing section). `grep -l rebuild_policy bugs_open/*` → 146, 208, 232, 224, 283,
+263 — none is the producer-routing defect (208 is the rebuild-route sibling). So it is the untaken
+candidate in TWO closed files (295 + 301) and nowhere else. Flagged, not filed (HANDOFF said the
+owner decides; README carries the question and the recommendation (a)).
+
+**Close actions:** closing section appended to the bug file; `git mv` → `bugs_closed/` (same
+commit); 016b §10 row 301 + §9 pattern "a guard at the LAST step…" (additions only, 39/0);
+`MEMORY_closed.md` line + topic file `bugfix-301-owned-guard-ordering.md` (no line in the capped
+index — this lane never had one, and the practice lives in 016b §9). No platform code touched
+this session.
