@@ -1,32 +1,31 @@
--- ⛔ HELD — DO NOT APPLY UNTIL THE CHASSIS CARRYING `save_page_meta_description`
---    IS LIVE. The `_HOLD` suffix is the real control, not this banner: the
---    runner's SIDECAR_RE (`_[A-Z][A-Z0-9_]*\.sql$`) excludes the file from
---    `--apply` while still LISTING it under "Sidecars (hand-run only)". A banner
---    alone would not hold it, because a migration's guard checks DRIFT, not ORDER.
+-- ✅ HOLD SATISFIED 2026-08-19 — the precondition was MET at the artefact, not assumed.
+--    ⚠ AND THE `_HOLD` SUFFIX HAD TO GO, for a reason worth knowing before you use the
+--    convention: `--record-only` REFUSES an uppercase-suffixed sidecar ("Sidecars are
+--    never applied by the runner, so recording one is meaningless"). So a file that is
+--    held, then hand-applied, then left named `_HOLD` is APPLIED WITH NO LEDGER ROW —
+--    invisible to every "what is applied" query and to the drift check. Rename it back
+--    the moment the hold is satisfied, then record. Applied by hand while still held;
+--    renamed and recorded immediately after.
 --
---    WHY IT IS HELD. "Image first, then seeds — a seed naming an unregistered
---    action fails at runtime." Measured 2026-08-19: the live chassis is
---    `v1.0.1314`, revision `d3590ca4638d…`, and `git merge-base --is-ancestor
---    aeccfc595 d3590ca4` is FALSE (145 commits unshipped). The action this agent
---    calls does not exist in the running binary.
+--    THE EVIDENCE, in the order CLAUDE.md asks for it:
+--      chassis           v1.0.1315
+--      pod imageID       sha256:1c422c614bd7f15457401d57abc0f918140388d74f7461283a1c4694c54d56a8
+--      local RepoDigests CONTAINS that digest  -> a real build, not a same-tag rebuild
+--                                                 serving the node's cached image
+--      revision label    590ca3a20cca99e0f6e9c6a2545bd8e94c11b9ae
+--      ancestry          aeccfc595 (action+guard), f2dd88f31 (3 more guards),
+--                        5b236ccc8, 6cb82f1d7 (copy gates) are ALL ancestors of it
+--      control           HEAD is correctly NOT an ancestor, so the check discriminates
+--      binary probe      `save_page_meta_description` PRESENT and `voice_gate_unreadable`
+--                        PRESENT in /proc/1/exe; positive control `rebuild_blog_listing`
+--                        PRESENT, negative control (a fake symbol) ABSENT
 --
---    THE GATE, and ask the ARTEFACT rather than git:
---      P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
---      IMG=$(kubectl -n ai-persona-system get pod $P -o jsonpath='{.spec.containers[0].image}')
---      kubectl -n ai-persona-system get pod $P -o jsonpath='{.status.containerStatuses[0].imageID}'   # must equal:
---      docker image inspect "$IMG" --format '{{range .RepoDigests}}{{.}}{{end}}'                       # (digest match = a real build,
---      REV=$(docker image inspect "$IMG" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
---      git merge-base --is-ancestor aeccfc595 "$REV" && echo SAFE TO APPLY
---    Per SERVICE, not per fleet. The digest step is not optional: a same-tag
---    rebuild serves the node's cached image, so pods can look new while the
---    binary is unchanged.
---
---    THEN APPLY BY HAND (not `--apply`, which takes every pending file including
---    other sessions'):
+--    APPLY BY HAND (not `--apply`, which takes every pending file including other
+--    sessions'), then record:
 --      kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --        psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
---        < docs/agent_docs/sql_for_agents/488_meta_description_backfiller_agent_HOLD.sql
---      ./scripts/migration/run-migrations.sh --record-only 488_meta_description_backfiller_agent_HOLD.sql --note "<why>"
+--        < docs/agent_docs/sql_for_agents/488_meta_description_backfiller_agent.sql
+--      ./scripts/migration/run-migrations.sh --record-only 488_meta_description_backfiller_agent.sql --note "<why>"
 --
 -- 488 — seed `meta-description-backfiller`, the workflow that DRIVES SEO-004
 --       (bugs_open/320; owner chose the full fix 2026-08-19)
@@ -67,13 +66,42 @@
 --     bugs_closed/103 guard) and anything over 320 chars, so a bad LLM answer is
 --     dropped with a named reason rather than published.
 --
--- ⚠ NOT SCHEDULED, AND THAT IS DELIBERATE. No cron, no trigger, nothing dispatches
--- this. It is driven by hand, one site at a time, until its output has been read
--- on a real site. A generator of public copy that starts on a timer before anyone
--- has read its first page is how bugs_closed/103 put 1,206 characters of build
--- brief under a Google result. Dispatch:
+-- ⚠ NOT SCHEDULED, and the reason CHANGED on 2026-08-19 — read this before wiring a cron.
 --
---   input_data: {"site_id": "<uuid>"}   (or {"domain": "<domain>"})
+-- OWNER RULING 2026-08-19 (recorded as `bugs_open/320` §11): the backfill is authorised
+-- FLEET-WIDE and the owner explicitly WAIVED the read-first review pass ("I don't need a
+-- review"). So the earlier "one site at a time with someone reading it" caution in this
+-- lane's README is SUPERSEDED and must not be quoted back as policy.
+--
+-- What the owner attached as the CONDITION of that waiver, in the same exchange:
+--
+--     "please make sure the summaries go through the copy guidance and checks so they
+--      don't sound like AI"
+--
+-- The checks REPLACE the review, so both halves are load-bearing:
+--   * the GUIDANCE is in this prompt (the "House style" block above, taken from
+--     REVERSE_ENGINEERED_STYLE_PROMPT_v3.md);
+--   * the CHECKS run in the ACTION, before the write, and cannot be skipped by editing
+--     this workflow: `save_page_meta_description` runs the site's own VoiceGate and the
+--     banned-claims sweep over the candidate and refuses with a named reason.
+--     ⚠ It deliberately does NOT call `check_voice_tells`, which scans
+--     `page_components.rendered_html` and is BLIND to `pages.meta_description` — wiring
+--     that would have produced a confident pass over text it never examined.
+--
+-- ONLY THE STYLE RULES THAT GOVERN A SINGLE SENTENCE WERE CARRIED OVER, and that is a
+-- judgement worth stating rather than hiding: v3 is 202 lines written for pitch prose,
+-- and its rules 7-13 are about headings, markdown tables, paragraph rhythm and landing
+-- beats. Pasting those into a prompt for a 155-character sentence would invite the model
+-- to emit a table. Rules 1-6 (one idea per sentence, no em dash, no negative-frame
+-- opening, word-weight in both directions, no self-flagging hedges, contractions) are
+-- the ones that apply, and they are the ones present.
+--
+-- STILL NO CRON, for an engineering reason rather than a review one: this is the first
+-- execution of brand-new code, so run ONE site, read the `save_result` reasons, and only
+-- then widen. That is the bugfix-203 canary lesson (run it on one page against a pinned
+-- before-state), not the review the owner waived.
+--
+-- Dispatch: input_data {"site_id": "<uuid>"}  (or {"domain": "<domain>"})
 --
 -- VERIFY AT THE SERVED PAGE, not at the row: curl the page and read
 -- `<meta name="description" ...>`. `rerender_single_page_action.go` strips an
@@ -96,10 +124,17 @@ BEGIN
   END IF;
 END $$;
 
-INSERT INTO agent_definitions (type, description, is_active, default_config)
+-- display_name and category are NOT NULL with no default (checked with
+-- information_schema before writing this, after a first attempt omitted
+-- display_name and was refused — the transaction rolled back cleanly, 0 rows).
+-- Values follow the house convention: Title Case of the type, category
+-- 'specialist' (as build-site-planner, internal-linker and tool-suggester use).
+INSERT INTO agent_definitions (type, display_name, category, description, is_active, default_config)
 VALUES (
   'meta-description-backfiller',
-  'Fills pages.meta_description on pages that have none, one site at a time (bugs_open/320, SEO-004). Cannot overwrite existing copy: save_page_meta_description defaults overwrite_existing=false.',
+  'Meta Description Backfiller',
+  'specialist',
+  'Fills pages.meta_description on pages that have none (bugs_open/320, SEO-004). Cannot overwrite existing copy: save_page_meta_description defaults overwrite_existing=false, and the action runs the site voice gate and banned-claims sweep before any write.',
   true,
   jsonb_build_object(
     'workflow', jsonb_build_object(
@@ -177,6 +212,15 @@ VALUES (
               E'type: {{.page_type}}\n' ||
               E'content: {{.content_sample}}\n\n' ||
               E'{{end}}\n' ||
+              E'## House style (from REVERSE_ENGINEERED_STYLE_PROMPT_v3.md, the rules that govern a single sentence)\n' ||
+              E'These were reverse-engineered from copy the owner hand-edited and judged more readable. Follow them.\n' ||
+              E'- One idea, one sentence. Do not chain clauses with commas or semicolons to fit more in.\n' ||
+              E'- No em dashes. Not one.\n' ||
+              E'- Never open with what something is NOT. "Not just a calculator, but a..." and "More than a guide" are the same move: a manufactured twist. Start with the fact, the way a person saying it out loud would.\n' ||
+              E'- Match word-weight to the claim, in BOTH directions. "Powerful", "seamless", "comprehensive", "revolutionary" overclaim upward; "simple", "just", "nothing fancy" overclaim downward, which still asks the reader to be impressed. Neither belongs in a description of a web page.\n' ||
+              E'- Cut self-flagging commentary and hedges: crucially, genuinely, exactly, deliberately, what matters here is, at its core, in essence, delve, leverage, robust, seamless, furthermore, moreover. Do not tell the reader something is important. State it.\n' ||
+              E'- Contractions are fine and usually better: it is -> it''s, does not -> doesn''t.\n' ||
+              E'- Do not name the site or brand. The search engine already prints it above this line.\n\n' ||
               E'## Rules\n' ||
               E'- 120-155 characters. Shorter wastes the slot; longer is cut off mid-word.\n' ||
               E'- One sentence, plain English, British spelling.\n' ||
