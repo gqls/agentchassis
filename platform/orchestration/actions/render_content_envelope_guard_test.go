@@ -358,7 +358,16 @@ func TestRenderEnvelopeIdentityFallbacks(t *testing.T) {
 			wantSite: siteID, wantPage: "how-pricing-works", wantDomain: "gaswholesalers.com",
 		},
 		{
-			name: "render_context fallbacks — current_page is a plain STRING here, not a map",
+			name: "render_context fallbacks, the shape build_render_context writes since the step-4 rename: current_page_name (a STRING)",
+			collected: map[string]interface{}{
+				"render_context": map[string]interface{}{
+					"site_id": siteID, "current_page_name": "services", "domain": "gaswholesalers.com",
+				},
+			},
+			wantSite: siteID, wantPage: "services", wantDomain: "gaswholesalers.com",
+		},
+		{
+			name: "render_context fallbacks, a tree written BEFORE the rename — current_page is a plain STRING here, not a map; still read",
 			collected: map[string]interface{}{
 				"render_context": map[string]interface{}{
 					"site_id": siteID, "current_page": "services", "domain": "gaswholesalers.com",

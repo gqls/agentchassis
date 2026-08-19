@@ -118,13 +118,22 @@ func TestBuildRerenderBaseDataCarriesPageIdentity(t *testing.T) {
 
 			base := buildRerenderBaseData(context.Background(), db, siteID, "example.com", tc.pageName, zap.NewNop())
 
-			got, present := base["current_page"]
+			// Under the STEP-BOUNDARY name: the base map is the restore contract's
+			// input, and that contract files the page's name as current_page_name
+			// so it can never share a key with the page RECORD
+			// (renderContextStepContractRenames, RFC_029 §10.13 step 4). The old
+			// spelling must be ABSENT — two producers of one value is how the
+			// collision arose.
+			if _, old := base["current_page"]; old {
+				t.Fatalf("base carries the template name `current_page` — the restore contract's key is current_page_name")
+			}
+			got, present := base["current_page_name"]
 			if present != tc.wantKey {
-				t.Fatalf("base has current_page = %v, want %v", present, tc.wantKey)
+				t.Fatalf("base has current_page_name = %v, want %v", present, tc.wantKey)
 			}
 			if tc.wantKey {
 				if s, _ := got.(string); s != tc.want {
-					t.Errorf("base[current_page] = %q, want %q", s, tc.want)
+					t.Errorf("base[current_page_name] = %q, want %q", s, tc.want)
 				}
 				// The value is only useful if it survives into the struct field —
 				// the regex-fallback renderer reads that, not ContentData.

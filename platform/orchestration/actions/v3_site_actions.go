@@ -1732,6 +1732,56 @@ func renderContextStepContractExcluded(key string) bool {
 	return unserialised
 }
 
+// renderContextStepContractRenames maps a TEMPLATE key (the json tag) to the
+// DIFFERENT name it carries across the STEP BOUNDARY — the key renderCtxToMap
+// writes into collected_data and setRenderContextScalarsFromData reads back.
+// Every other scalar crosses under its tag; an entry here is a deliberate
+// split between the two namespaces, and needs its reason.
+//
+// RFC_029 §10.13 step 4 (staged_component_build lane). The tag is the single
+// declaration of a field's template name (bugs_open/109), which made it the
+// step-boundary name too — and for ONE field those two namespaces disagree
+// about what the key means:
+//
+//   - In collected_data, `current_page` is the page RECORD by fleet convention
+//     (input_data.current_page; five live agents request it as an input field;
+//     page-content-writer's generate_content prompt reads
+//     {{.current_page.title}}).
+//   - In component template data, `current_page` is the page's NAME STRING
+//     (the nav/active-page field; the `structuralFields` list in this file;
+//     bugs_open/085's fix).
+//
+// build_render_context's output is filed into collected_data, so its string
+// `current_page` sat one level below the page object of the same name — and
+// the resolver's whole-tree search, asked for `current_page`, collected both
+// and recorded a conflict on EVERY page-content-writer run (23 rows in the
+// four hours after v1.0.1315; 100% of the surviving class). The winner was
+// always the object, pinned by bugs_open/306's declared tie-break, so no page
+// was wrong — but a permanent false-positive population blocks RFC_029 §10.13
+// step 5 (conflicts → refusal) for ever: refusing would strip the page object
+// from generate_content in every run.
+//
+// The fix is one name for the object and another for the string, at the
+// boundary where they met. The template contract is NOT renamed: there the key
+// is unambiguous (one reader fleet-wide, `evidence-chart`), it is advertised to
+// component authors, and renaming it would have to be coordinated with a live
+// template edit across a roll. The step-boundary name is read by exactly one
+// Go site outside this contract (render_content_envelope_guard.go's identity
+// chain, updated with it) and by no live agent definition (0 of the active
+// rows mention render_context.current_page, measured 2026-08-19).
+var renderContextStepContractRenames = map[string]string{
+	"current_page": "current_page_name",
+}
+
+// renderContextStepContractKey returns the key under which a template-tag
+// scalar crosses the step boundary: its rename if it has one, else the tag.
+func renderContextStepContractKey(templateKey string) string {
+	if renamed, ok := renderContextStepContractRenames[templateKey]; ok {
+		return renamed
+	}
+	return templateKey
+}
+
 // setRenderContextScalarsFromData is the write-side twin of
 // renderContextScalarFields (bugs_open/109): every tagged string field in the
 // step contract is set from data[tag] when data carries a non-empty string.
@@ -1740,6 +1790,13 @@ func renderContextStepContractExcluded(key string) bool {
 // in. A non-string value under a contract key (e.g. current_page as an object
 // on some envelopes) fails the type assertion and is left to the caller's
 // structured handling.
+//
+// A renamed key (renderContextStepContractRenames) is read under its
+// step-boundary name first. Its TEMPLATE name is still accepted as a fallback
+// when it holds a string: restore runs against trees written before the rename
+// (orchestrations in flight across the roll, and any caller that hand-builds a
+// context map under the old name). That tolerance is on the READ side only —
+// renderCtxToMap never emits the old name, which is what ends the collision.
 func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interface{}) {
 	v := reflect.ValueOf(ctx).Elem()
 	t := v.Type()
@@ -1752,8 +1809,14 @@ func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interfa
 		if key == "" || key == "-" || renderContextStepContractExcluded(key) {
 			continue
 		}
-		if s, ok := data[key].(string); ok && s != "" {
+		if s, ok := data[renderContextStepContractKey(key)].(string); ok && s != "" {
 			v.Field(i).SetString(s)
+			continue
+		}
+		if stepKey := renderContextStepContractKey(key); stepKey != key {
+			if s, ok := data[key].(string); ok && s != "" {
+				v.Field(i).SetString(s)
+			}
 		}
 	}
 }
@@ -1797,7 +1860,11 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 		if renderContextStepContractExcluded(key) {
 			continue
 		}
-		result[key] = value
+		// Under the step-boundary name, which differs from the template name
+		// for the entries of renderContextStepContractRenames (current_page →
+		// current_page_name: the page object and the page's name must not share
+		// a key in one collected_data tree).
+		result[renderContextStepContractKey(key)] = value
 	}
 
 	if ctx.SiteID != uuid.Nil {
@@ -1883,6 +1950,13 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 		for key, value := range ctx.ContentData {
 			// Don't overwrite explicit fields
 			if _, exists := result[key]; !exists {
+				// A renamed template name never crosses the boundary under its
+				// old spelling, whatever ContentData happens to carry — the
+				// invariant the resolver relies on is "the step output has no
+				// `current_page`", not "the struct field is renamed".
+				if _, renamed := renderContextStepContractRenames[key]; renamed {
+					continue
+				}
 				result[key] = value
 			}
 		}

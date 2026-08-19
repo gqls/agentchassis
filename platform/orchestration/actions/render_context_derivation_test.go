@@ -137,7 +137,9 @@ func TestBuildAcceptsEveryStepContractScalar(t *testing.T) {
 			continue
 		}
 		ctx := &RenderContext{}
-		mergeIntoRenderContextEnhanced(ctx, map[string]interface{}{key: "value-for-" + key}, "test", logger)
+		// A source supplies the scalar under its STEP name (the same as the
+		// template name for all but renderContextStepContractRenames).
+		mergeIntoRenderContextEnhanced(ctx, map[string]interface{}{renderContextStepContractKey(key): "value-for-" + key}, "test", logger)
 		if got := renderContextScalarFields(ctx)[key]; got != "value-for-"+key {
 			t.Errorf("build map dropped step-contract scalar %q (got %q) — "+
 				"a source supplying it is silently ignored", key, got)

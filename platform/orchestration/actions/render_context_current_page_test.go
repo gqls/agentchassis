@@ -159,7 +159,12 @@ func TestRenderContextSerialisationCoversTemplateContract(t *testing.T) {
 
 	var unexpected, staleAllowance []string
 	for key := range advertised {
-		if _, ok := serialised[key]; ok {
+		// A template key crosses the boundary under its STEP name — the same
+		// key for every field but the renderContextStepContractRenames entries
+		// (current_page → current_page_name). Looking the slot up under the
+		// step name is what keeps this a check on "can it arrive", not on
+		// "is it spelt the same".
+		if _, ok := serialised[renderContextStepContractKey(key)]; ok {
 			if known[key] {
 				staleAllowance = append(staleAllowance, key)
 			}
@@ -315,10 +320,13 @@ func TestResolveCurrentPageName(t *testing.T) {
 func TestCurrentPageSurvivesBothRenderPaths(t *testing.T) {
 	built := &RenderContext{Domain: "fundamentallyai.com", CurrentPage: "capabilities"}
 
-	// build_render_context stores this map in collected_data.
+	// build_render_context stores this map in collected_data — under the STEP
+	// name, current_page_name (RFC_029 §10.13 step 4: the page's name string
+	// must not share a key with the page RECORD, input_data.current_page, in
+	// one collected_data tree; see TestStepOutputNeverCarriesCurrentPage).
 	stored := renderCtxToMap(built)
-	if got, _ := stored["current_page"].(string); got != "capabilities" {
-		t.Fatalf("renderCtxToMap dropped current_page: got %q", got)
+	if got, _ := stored["current_page_name"].(string); got != "capabilities" {
+		t.Fatalf("renderCtxToMap dropped current_page (expected under current_page_name): got %q", got)
 	}
 
 	// render_component reads it back out of collected_data.
@@ -341,6 +349,100 @@ func TestCurrentPageSurvivesBothRenderPaths(t *testing.T) {
 	// easy to delete without noticing.
 	if got := contextToMap(revived)["current_page"]; got != "capabilities" {
 		t.Errorf("regex fallback data has current_page = %q, want %q", got, "capabilities")
+	}
+}
+
+// TestStepOutputNeverCarriesCurrentPage is the door RFC_029 §10.13 step 4
+// closes. The resolver's whole-tree search, asked for `current_page` on behalf
+// of page-content-writer's generate_content step, used to collect the page
+// RECORD (input_data.current_page) AND build_render_context's page-NAME string
+// (render_context.current_page) and record a conflict on every run — 23 rows in
+// the four hours after v1.0.1315, the whole surviving class. The string now
+// crosses the boundary as current_page_name, and nothing in the step output may
+// reintroduce the old key — not the scalar projection and not the ContentData
+// merge that follows it.
+//
+// MUTATION THAT MUST BREAK IT: emit `result[key]` instead of
+// `result[renderContextStepContractKey(key)]` in renderCtxToMap (first
+// subtest), or drop the renamed-key skip from its ContentData loop (second).
+func TestStepOutputNeverCarriesCurrentPage(t *testing.T) {
+	t.Run("the scalar crosses under the step name only", func(t *testing.T) {
+		stored := renderCtxToMap(&RenderContext{Domain: "example.com", CurrentPage: "about"})
+		if _, present := stored["current_page"]; present {
+			t.Fatalf("step output carries `current_page` = %v — the page-name string shares a key "+
+				"with the page record again and the resolver conflict is back", stored["current_page"])
+		}
+		if got, _ := stored["current_page_name"].(string); got != "about" {
+			t.Fatalf("step output current_page_name = %q, want %q", got, "about")
+		}
+	})
+
+	t.Run("ContentData cannot smuggle the old key across", func(t *testing.T) {
+		ctx := &RenderContext{Domain: "example.com", CurrentPage: "about",
+			ContentData: map[string]interface{}{"current_page": "smuggled", "hero_url": "/h.png"}}
+		stored := renderCtxToMap(ctx)
+		if _, present := stored["current_page"]; present {
+			t.Errorf("ContentData[\"current_page\"] reached the step output — the merge loop must skip renamed template names")
+		}
+		if stored["hero_url"] != "/h.png" {
+			t.Errorf("the ContentData merge stopped carrying ordinary keys (hero_url = %v)", stored["hero_url"])
+		}
+	})
+}
+
+// TestRestoreAcceptsBothSpellingsAcrossTheRoll: orchestrations in flight when
+// the renamed binary rolls hold a render_context written under the OLD key, and
+// the rerender path's hand-built base map used the old key until this change.
+// Restore reads the step name first and tolerates the template name when it is
+// a string — read side only; the emit side is pinned by the test above. The
+// page RECORD under the old key (an object, not a string) is never adopted.
+func TestRestoreAcceptsBothSpellingsAcrossTheRoll(t *testing.T) {
+	cases := []struct {
+		name string
+		data map[string]interface{}
+		want string
+	}{
+		{"new tree: current_page_name", map[string]interface{}{"current_page_name": "about"}, "about"},
+		{"old tree: current_page as a string", map[string]interface{}{"current_page": "about"}, "about"},
+		{"both present: the step name wins", map[string]interface{}{"current_page_name": "new", "current_page": "old"}, "new"},
+		{"the page RECORD under the old key is not a name", map[string]interface{}{"current_page": map[string]interface{}{"name": "about"}}, ""},
+		{"neither: stays empty", map[string]interface{}{"domain": "example.com"}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := &RenderContext{}
+			mergeIntoRenderContext(ctx, tc.data)
+			if ctx.CurrentPage != tc.want {
+				t.Errorf("CurrentPage = %q, want %q", ctx.CurrentPage, tc.want)
+			}
+		})
+	}
+}
+
+// TestStepContractRenamesAreWellFormed keeps the rename map honest: every
+// entry must name a real template tag, its target must not collide with any
+// other tag (or the rename would overwrite a sibling in the step output — the
+// same silent-overwrite TestRenderContextJSONTagsAreUnique guards), and the
+// template contract must still advertise the ORIGINAL name — a rename is a
+// step-boundary split, never a template rename.
+func TestStepContractRenamesAreWellFormed(t *testing.T) {
+	tags := renderContextScalarFields(&RenderContext{})
+	for from, to := range renderContextStepContractRenames {
+		if _, ok := tags[from]; !ok {
+			t.Errorf("renderContextStepContractRenames[%q] names no RenderContext json tag", from)
+		}
+		if _, collides := tags[to]; collides {
+			t.Errorf("rename %q → %q collides with an existing tag %q — the step output would overwrite it", from, to, to)
+		}
+		if from == to {
+			t.Errorf("rename %q → %q is a no-op entry", from, to)
+		}
+		if _, advertised := contextToInterfaceMap(&RenderContext{})[from]; !advertised {
+			t.Errorf("template data no longer advertises %q — the rename leaked into the template contract", from)
+		}
+		if _, advertisedNew := contextToMap(&RenderContext{})[to]; advertisedNew {
+			t.Errorf("regex-fallback template data advertises the step name %q — the rename leaked into the template contract", to)
+		}
 	}
 }
 

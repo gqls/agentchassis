@@ -226,6 +226,11 @@ func normalizeRenderContentEnvelope(
 // paths because 110 runs is one retention window, not the shape of every caller.
 // A miss degrades to uuid.Nil / "" , which writeContentDataEnvelopeLog's sibling
 // already tolerates — an unattributed row still counts the firing.
+//
+// 2026-08-19: build_render_context now files the page's name under
+// `render_context.current_page_name` (renderContextStepContractRenames — the
+// string and the page record must not share a key in one tree). The new path
+// leads the chain; the old one stays for trees written before the roll.
 func renderEnvelopeIdentity(params ActionParams) (uuid.UUID, string, string) {
 	siteID := uuid.Nil
 	for _, path := range []string{"input_data.site_id", "render_context.site_id", "site_record.site_id"} {
@@ -238,7 +243,7 @@ func renderEnvelopeIdentity(params ActionParams) (uuid.UUID, string, string) {
 	}
 
 	pageName := ""
-	for _, path := range []string{"input_data.current_page.name", "input_data.page_name", "render_context.current_page"} {
+	for _, path := range []string{"input_data.current_page.name", "input_data.page_name", "render_context.current_page_name", "render_context.current_page"} {
 		if v := datahelpers.ExtractNestedFieldString(params.CollectedData, path); v != "" {
 			pageName = v
 			break

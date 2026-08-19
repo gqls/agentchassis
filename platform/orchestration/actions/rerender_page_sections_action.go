@@ -1054,8 +1054,15 @@ func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, do
 	// mergeIntoRenderContext restores this into RenderContext.CurrentPage, so
 	// setting the map key is all that is needed. Trimmed to match
 	// buildHeaderConfig, which is the form every other producer uses.
+	//
+	// Under the STEP-BOUNDARY name (current_page_name), not the template name:
+	// this map is the restore contract's input, and that contract renamed the
+	// page-name string so it can never share a key with the page RECORD in a
+	// collected_data tree (renderContextStepContractRenames, RFC_029 §10.13
+	// step 4). Templates still see it as {{.current_page}} — the struct field
+	// is projected under its tag on the render side.
 	if pageName != "" {
-		base["current_page"] = strings.TrimSuffix(pageName, ".html")
+		base[renderContextStepContractKey("current_page")] = strings.TrimSuffix(pageName, ".html")
 	} else {
 		logger.Warn("rerender_page_sections: no page name for the render base — every section will see an empty current_page and cannot vary per page (bugs_open/085)")
 	}
