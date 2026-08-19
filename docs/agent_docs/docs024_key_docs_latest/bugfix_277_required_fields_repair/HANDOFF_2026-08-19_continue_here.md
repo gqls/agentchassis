@@ -490,6 +490,53 @@ run (root: `content_feed_items.source_summary` carries raw markdown in **~700 of
 Fixed by `f3939f27d`, **pending the next fleet roll.** The pair's ratio should recover after that
 roll, not now.
 
+### 7f. RESOLVED 2026-08-19 16:00Z — the `literal_markdown` class has its FIRST artefact-verified repair, and our gate now passes it
+
+**This closes the `473` thread and supersedes both of my wrong predictions about it.**
+
+**What the 184 lane proved**, artefact-first: the `fundamentallyai` news canary ran on the live code,
+completed at attempt 0, verifier recorded *"no literal markdown on either surface across 2
+component(s)"*, and **the SERVED page went from 13 markdown defects to 0 with 12,092 visible chars
+intact.** First artefact-verified repair of this class. They probed both replicas for a literal
+unique to `f3939f27d` with a negative control — a better check than mine, which used a needle from
+`a9ae2210c` and therefore proved only that the file shipped.
+
+**What it means for OUR gate, evaluated against the predicate rather than assumed:** the canary landed
+as exactly `literal_markdown → page-rerender`, so that pair is now **1 complete / 2 failed** and all
+four doors pass —
+
+| door | value | passes |
+|---|---|---|
+| `known_good` (≥1 lifetime complete/verified) | c=1 | **yes** |
+| `floor_ok` (`(c+f) < 5 OR c ≥ 25%`) | 3 outcomes, under the threshold | **yes** |
+| `handler_ok` | `page-rerender` live/active/non-snapshot | yes |
+| `pipe_ok` | producer files `Pipeline: "content"` | yes |
+
+**So new findings on this route will be promoted and dispatched automatically.** And the producer
+*was* re-routed — by **`763bb5d55`** (08-18 20:08, *"detector widened to md_link, repair re-routed at
+page-rerender"*), which sets `HandlerAgent: "page-rerender"` in `check_literal_markdown.go:402`.
+⚠ **Not by `473`**, which is where I went wrong: I attributed the re-route to the migration I was
+watching rather than to the Go commit that actually did it.
+
+**⚠ THE ONE NUMBER TO WATCH — arithmetic, not a prediction.** `floor_ok` is not yet binding (3
+outcomes < 5). It **becomes binding at the 5th**, and **2 failures are already banked** from before
+the fix:
+
+- next two complete → 3/2, comfortable · one of each → 2/3, passes
+- **next two both fail → 1/4 → below the floor → the pair is HELD**
+
+That is less headroom than a fresh pair, purely because the pre-fix failures sit in the denominator
+for ever. **If dispatch stops, that is the arithmetic and not a regression**; one completion restores
+it.
+
+**⚠ AND THE PART THAT IS OURS: the 8 `detected` rows at the OLD pair do not drain.**
+`literal_markdown → page-build-handler` is 3 complete / 35 failed = 8%, held below the floor, and all
+8 rows cross the 3-day escalation limit on **2026-08-21** — landing at `needs_human_review` with a
+held-pair reason. **They are pre-re-route rows; the new path does not reach them, and nothing re-files
+them.** That is `083`'s disease in its purest form — a real finding, a working repair that exists,
+and no path between the two — and it is worth someone deciding whether re-filing on the new route is
+a general remedy or a one-off.
+
 ### 7d. The discriminator worth keeping, from `agentchassis-8d`
 
 > **Is success expressible as a diff assertion?**
