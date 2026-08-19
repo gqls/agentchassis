@@ -49,6 +49,10 @@ const claimTimeoutMigrationGlob = "../../../docs/agent_docs/sql_for_agents/*_cla
 
 var claimTimeoutExclusionRe = regexp.MustCompile(`item_type NOT IN \(([^)]*)\)`)
 
+// itemTypeShapeRe is what a real item_type looks like. Anything else in the parsed
+// list means the regex matched prose rather than the declaration.
+var itemTypeShapeRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
 func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
 	matches, err := filepath.Glob(claimTimeoutMigrationGlob)
 	if err != nil {
@@ -82,6 +86,25 @@ func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
 	for _, raw := range strings.Split(string(found[1]), ",") {
 		if itemType := strings.Trim(strings.TrimSpace(raw), "'"); itemType != "" {
 			excluded[itemType] = true
+		}
+	}
+
+	// WELL-FORMEDNESS, and it guards this guard against the trap that nearly bit the
+	// migration it reads (council editquality, gating objection, corr ff58ee4a).
+	//
+	// The regex takes the FIRST match in the file, so ANY prose above the real
+	// declaration that spells the exclusion clause out is parsed instead of it — and
+	// 482's own explanatory comment did exactly that while being written. The failure
+	// is not silent (every gated type then reports as "NOT excluded"), but it reports
+	// 14 confusing errors about the roster rather than the one true cause, which is
+	// that the parse is looking at prose. Assert the shape so the real cause is named.
+	for itemType := range excluded {
+		if !itemTypeShapeRe.MatchString(itemType) {
+			t.Fatalf("the exclusion clause in %s parsed to %q, which is not an item_type.\n"+
+				"The regex takes the FIRST `item_type NOT IN (...)` in the file, so a COMMENT above the real\n"+
+				"declaration that spells the clause out is read instead of it. Describe the clause in prose;\n"+
+				"never spell it. (This is how 482 was authored — the trap is real and this is its check.)",
+				filepath.Base(newest), itemType)
 		}
 	}
 

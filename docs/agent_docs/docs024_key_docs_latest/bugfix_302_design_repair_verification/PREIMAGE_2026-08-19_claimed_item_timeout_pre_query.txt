@@ -1,0 +1,23 @@
+PRE-IMAGE of scheduled_tasks.pre_query for 'claimed-item-timeout', captured BEFORE
+migration 482 was applied on 2026-08-19 ~10:03Z (bugs_open/317).
+
+Recorded at the council debug_historian seat's request (corr ff58ee4a, advisory low):
+"no explicit dump/backup step is described for the scheduled_tasks.pre_query mutation
+before the guarded UPDATE runs... a snapshot of the pre-image row is cheaper insurance".
+Fair, and it is the one form of insurance the rollback sidecar does not provide: the
+sidecar reverses the KNOWN edit, whereas this restores the exact prior text whatever
+happened to it.
+
+The exclusion clause as it stood before (13 item types — the verifier registry exactly):
+
+item_type NOT IN ('truncated_component', 'hardcoded_section_colors', 'empty_section', 'orphan_element_refs', 'content_duplication', 'page_canonical_collision', 'dead_fragment_link', 'literal_markdown', 'unbuilt_internal_link', 'revenue_shape_cta', 'missing_conversion_path', 'decision_regression', 'needs_brand_head_assets')
+
+⚠ This file is a RECORD, not a restore script — it must never be applied by a runner.
+It carries the clause deliberately, which is exactly what the guard's own
+well-formedness check exists to stop happening inside a MIGRATION; it is safe here
+because this file does not match the guard's glob (*_claimed_item_timeout_generic_evidence.sql).
+
+To restore the prior state, use the rollback sidecar
+docs/agent_docs/sql_for_agents/482_ROLLBACK_claim_timeout_exclusion.sql — it removes the
+single added entry and RAISEs if the removal did not take. Applying it re-opens
+bugs_open/317.
