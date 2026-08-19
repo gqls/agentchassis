@@ -504,3 +504,49 @@ the real fix. `Council-Submitted: e973d2aa-a1fc-4b0d-bf2f-b90ef7f39c1f`.
    snippet."* True of the submission. The file itself was built by inserting into the live text
    programmatically and then diffed against it (11 added, 0 removed) and parse-checked, so
    placement is verified even though the sketch elided it.
+
+## 2026-08-19 — the `WorkflowMonitor` deletion is now LIVE, proven at the binary
+
+The reaper arms (`463`, `464`) were live config and needed no build. The **deletion** was Go, so
+it was committed-but-inert until a roll. It has now shipped.
+
+`v1.0.1314`, chassis pods started **2026-08-19 07:52:27Z / 08:05:39Z**, binary carries commit
+`d3590ca46`; `git merge-base --is-ancestor 0e169319b d3590ca46` confirms the deletion commit is in
+that tree.
+
+**Proven by absence, with a discriminating control pair** — because an absence probe with no
+positive control cannot tell "gone" from "the probe cannot see strings of this kind":
+
+| needle | expected | result |
+|---|---|---|
+| `orchestration_states` (real table, used fleet-wide) | PRESENT | **PRESENT** |
+| `orchestrator_state` (phantom, existed only in the deleted file) | absent | **absent** |
+| `Workflow recovered by another process` (coordinator, live) | PRESENT | **PRESENT** |
+| `unknown orchestration status` (coordinator default arm, live) | PRESENT | **PRESENT** |
+| `Found stuck orchestration, taking over` (the `ClearExecutingStep` caller, live) | PRESENT | **PRESENT** |
+
+The first pair is the load-bearing one: it shows the probe *can* see table names inside SQL string
+literals in this binary, so `orchestrator_state` reading absent means the code is gone, not that
+the method is blind. (`strings` is absent from these images and a bare discovery grep for "some
+40-hex string" matches Go's internal digit table — both traps are in `LANDMINES.md`.)
+
+**Fleet state 2026-08-19, ~09:00Z, after a full night:** non-terminal rows older than 4 h **0**;
+`RUNNING` **0**; `INITIALIZED` **0**. The only statuses present fleet-wide are `COMPLETED` (3,866),
+`FAILED` (142) and `CANCELLED` (24). Both arms are armed and idle, which is what a closed leak
+looks like.
+
+## A parallel lane filed the same gap as `bugs_closed/310` — and its file is worth reading
+
+Two sessions worked the `INITIALIZED` gap simultaneously and produced **byte-identical** SQL (both
+payloads md5 `421dfc4f…`). Their migration `470` was retired as the duplicate; this lane's `464` is
+the live one, and `310` credits it. Two things in `310` that are **not** in this file:
+
+- **`database-cleanup` never mentions `INITIALIZED` either.** It deletes `COMPLETED`/`FAILED` after
+  24 h and `EXECUTING_STEP`/`AWAITING_RESPONSES` after 4 h. So before `464` a stranded row was not
+  merely unreaped, it was un-*deleted* too — two independent enumerations both missing the same
+  status. It also means the rows `464` reaps now do get pruned, because they become `FAILED`.
+- **`310` records that its own "the window is milliseconds" claim was DERIVED and the measurement
+  disagreed** — max **6.31 s**, ~1000× out. This lane reached the opposite conclusion by refusing to
+  reuse `463`'s structural argument and measuring instead (see the `464` section above). Same gap,
+  same SQL, and the two lanes differed only on whether a licence transfers between sibling states.
+  That difference is the transferable lesson, not the arm.
