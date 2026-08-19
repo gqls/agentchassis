@@ -267,6 +267,19 @@ func ScanAllBannedClaimsWithSuppressed(blocks []string, eb *EvidenceBase) (findi
 		eb.ScanBannedClaims(blocks),
 	)
 
+	// The regulated-identity family (claims_regulated.go) applies to every site
+	// EXCEPT one carrying a complete regulated attestation. It is scanned
+	// separately rather than merged into globalBannedClaims precisely so the
+	// exemption cannot widen: switching it off can only ever drop these
+	// patterns, never the accuracy-overclaim set.
+	//
+	// The default is the safe one — no attestation, no exemption — so a site
+	// that has never heard of this field is protected, which is the state every
+	// newly built site starts in.
+	if !eb.RegulatedAttested() {
+		findings = dedupeByPattern(findings, regulatedEvidence().ScanBannedClaims(blocks))
+	}
+
 	// Suppressed = what the unguarded scan would have raised, minus what the
 	// guarded scan actually raised. Derived by subtraction rather than by a
 	// second guard implementation, so the two can never disagree.
@@ -274,10 +287,14 @@ func ScanAllBannedClaimsWithSuppressed(blocks []string, eb *EvidenceBase) (findi
 	for _, f := range findings {
 		raised[f.Pattern] = true
 	}
-	for _, f := range dedupeByPattern(
+	unguarded := dedupeByPattern(
 		globalEvidence().ScanBannedClaimsIgnoringNegation(blocks),
 		eb.ScanBannedClaimsIgnoringNegation(blocks),
-	) {
+	)
+	if !eb.RegulatedAttested() {
+		unguarded = dedupeByPattern(unguarded, regulatedEvidence().ScanBannedClaimsIgnoringNegation(blocks))
+	}
+	for _, f := range unguarded {
 		if raised[f.Pattern] {
 			continue
 		}

@@ -262,6 +262,12 @@ type EvidenceBase struct {
 	Facts           []EvidenceFact `json:"facts"`
 	BannedClaims    []BannedClaim  `json:"banned_claims"`
 	AllowedEntities []string       `json:"allowed_entities,omitempty"`
+
+	// Regulated, when present AND complete, exempts this site from the
+	// fleet-wide regulated-identity family (claims_regulated.go) — the one
+	// legitimate way for a site to describe itself as an authorised firm.
+	// Absent or incomplete means NOT exempt; see RegulatedAttestation.Attested.
+	Regulated *RegulatedAttestation `json:"regulated,omitempty"`
 }
 
 // ParseEvidenceBase decodes the site_specs data JSONB into an EvidenceBase and
@@ -277,7 +283,12 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	if err := json.Unmarshal(data, &eb); err != nil {
 		return nil, fmt.Errorf("evidence_base unmarshal: %w", err)
 	}
-	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 {
+	// A site carrying ONLY a regulated attestation must still parse to a
+	// non-nil base, or its attestation would be silently discarded here and the
+	// exemption would never fire — the caller would see "site not opted in" and
+	// apply the regulated family anyway. Failing safe is right; failing safe
+	// while the operator believes they have recorded an attestation is not.
+	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil {
 		return nil, nil
 	}
 	for i := range eb.BannedClaims {
