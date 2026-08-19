@@ -1,5 +1,17 @@
 # HANDOFF 2026-08-18 — JOINT cold-start: site delivery (Phase 4 next) + webdesign.uk build service — SUPERSEDES HANDOFF_2026-08-17_phase3_zip (complete) and, for operational pickup, webdesign_uk_build_service/HANDOFF_2026-08-18_continue_here.md (still holds that lane's detail)
 
+> **⛔ SUPERSEDED 2026-08-19 — MERGED into `../webdesign_uk_build_service/HANDOFF_2026-08-19_continue_here.md`. START THERE.**
+> At the owner's direction the two lanes now share ONE cold-start, held in the
+> webdesign_uk_build_service directory. Each lane still keeps its own NOTES / PLAN /
+> RUNBOOK / README / SUMMARY and its own register.
+>
+> Changed since this file: delivery re-attested to **"two or three days"** (owner
+> 2026-08-19) with four page rebuilds queued to follow it; the chat prompt-maker is
+> **live** on the box and the Mythic Beasts deploy is now `make box-release`; the
+> retired £1,200 offer was swept out of all nine site_specs; the briefing
+> questionnaire was reshaped for any site type; and the owner ruled the apex 302
+> **stays**. Phase 4 is still the next build and still has not started.
+
 **Why joint (owner, 2026-08-18):** one session now drives both lanes and the
 owner has asked whether to merge the threads. The merge is OPERATIONAL: one
 session, one cold-start (this file), because the work joins for real — the

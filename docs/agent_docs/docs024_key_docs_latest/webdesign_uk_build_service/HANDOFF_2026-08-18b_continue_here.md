@@ -1,5 +1,17 @@
 # HANDOFF 2026-08-18b — the retired £1,200 offer is out of the machinery, the briefing questionnaire serves any site type, and the owner has RULED on build quality vs delivery speed — SUPERSEDES HANDOFF_2026-08-18
 
+> **⛔ SUPERSEDED 2026-08-19 — MERGED into `webdesign_uk_build_service/HANDOFF_2026-08-19_continue_here.md`. START THERE.**
+> At the owner's direction the two lanes now share ONE cold-start, held in the
+> webdesign_uk_build_service directory. Each lane still keeps its own NOTES / PLAN /
+> RUNBOOK / README / SUMMARY and its own register.
+>
+> Changed since this file: delivery re-attested to **"two or three days"** (owner
+> 2026-08-19) with four page rebuilds queued to follow it; the chat prompt-maker is
+> **live** on the box and the Mythic Beasts deploy is now `make box-release`; the
+> retired £1,200 offer was swept out of all nine site_specs; the briefing
+> questionnaire was reshaped for any site type; and the owner ruled the apex 302
+> **stays**. Phase 4 is still the next build and still has not started.
+
 
 > **⚠ UPDATED 2026-08-18 ~16:10Z. Two of this file's open items are CLOSED and one
 > has hardened into a decision the owner must make.**
