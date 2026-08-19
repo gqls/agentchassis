@@ -136,3 +136,64 @@ fork on another site. Existing forks are separate rows and would keep working; w
 *future* site's ability to fork them. So the direction reads as an argument for **keeping** those
 templates active, which leaves the two tools blocked until option 2 is built.
 **Do not deactivate `8c9a6e06` or `6ae53f32` on the strength of §8 alone.**
+
+## 9. THE PATH (owner directed 2026-08-19: framework ownership of all 63 tools, so the 2 blocked tools must be unblocked)
+
+### 9.1 There is no config-only interim, and here is the proof
+
+`deploy_tool_action.go:11-12` defines a library tool in the platform's own words:
+
+> `Library tool: content_components WHERE component_level='tool' AND forked_from IS NULL`
+> `Site fork:    new content_components row with forked_from = library tool ID`
+
+**That predicate is the index predicate.** `idx_cc_tool_function_unique` fires on
+`component_level='tool' AND forked_from IS NULL AND is_active` — so **"this row is forkable by other
+sites" and "this row blocks any rebuild of that tool" are the same condition.** You cannot free the
+index without making the template un-forkable, which is exactly what the owner's direction
+(2026-08-17: other sites fork) forbids. Every workaround this lane considered is therefore dead:
+- deactivate the template → un-forkable (and it is `is_active` that the fork lookup requires);
+- set `forked_from` on the template to dodge the index → it stops being a library tool by definition;
+- rename the template → does not help; the index keys on `function`, not `name`.
+
+### 9.2 The mechanism is already half-built — `deploy_tool_to_site` does the correct thing
+
+`deploy_tool_action.go:294-312` already creates a **site-owned copy with `forked_from` set to the
+library tool's id**, which is exempt from the index by construction. So the estate already has, and
+relies on, exactly the shape option 2 proposes. What that path does NOT do is generate fresh HTML —
+it copies the library template.
+
+**Naming does not collide between the two paths** (checked, because it would have been a hidden
+blocker): the fork builds `name = <library component NAME> + '-' + domainSlug`
+(`tool-ab-test-calculator_pre_037-webdesign-co-uk`, matching the live fork `cd60486c`), while the
+generator builds `name = <FUNCTION> + '-' + domainSlug` (`tool-ab-test-calculator-webdesign-co-uk`).
+Different strings, so `content_components_name_key` does not stand in the way of option 2.
+
+### 9.3 The change, stated so someone can pick it up
+
+In `create_tool_component_action.go`, immediately before the INSERT: look up a library tool claiming
+this `function` (`component_level='tool' AND forked_from IS NULL AND is_active`, no site filter). If
+one exists, **set the new component's `forked_from` to its id**. Nothing else changes.
+
+- **It is semantically true, not a dodge.** A site-specific native build of a tool the library also
+  offers IS a site copy of that tool — which is precisely what `forked_from` means everywhere else.
+- **It makes the index correct rather than bypassed.** After the change the index still guarantees
+  what it is for: one canonical library entry per tool function. Site copies, however they were
+  produced, are exempt — as they already are when `deploy_tool_to_site` makes them.
+- **Blast radius is small and enumerable:** it only fires when a library entry already claims the
+  function. Fleet-wide that is **4 of this site's 63 tools** today, 76 of 116 tool components hold a
+  slot. Every other generation is unaffected because the lookup returns nothing.
+- **Council + roll**: it is a shared-seam change on `create_tool_component`, so it needs the gate and
+  a chassis roll before the 2 parked tools can build. It does not need an image for anything else in
+  this lane.
+
+### 9.4 What it unblocks
+
+`tool-ab-test-calculator` and `tool-meme-generator` — the last 2 of the 63 that cannot be reached by
+the proven recipe. Both currently serve their ported versions and are safe; they are parked, not broken.
+Beyond this lane it unblocks **any** site rebuilding a tool whose name the library also carries, which
+is the general form of the same wall.
+
+### 9.5 If nobody builds it
+
+The lane finishes 61 of 63 and stops. That is the honest fallback and it should be stated in any
+"complete" claim: **"61 of 63, with 2 blocked on RFC_036"** — not "done".
