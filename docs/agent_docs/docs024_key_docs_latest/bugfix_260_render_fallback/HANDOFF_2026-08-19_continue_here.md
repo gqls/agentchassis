@@ -27,10 +27,11 @@ still at `:1032-1057`, both signatures still error-free).
 | `…/LANDMINES.md` | the ungated-path entry; synced + verifier armed |
 | `…/WRONG_CALLS.md` | my misstep (item TYPE names the trigger, not the event) |
 
-Probe harnesses live in the session scratchpad under `probe260/` — **they are not committed**.
-`parseprobe.go`, `execprobe.go`, `contactprobe.go` plus `components.json` / `sections.json`
-dumps. Re-dumping is two `psql` calls (queries are in NOTES). If you want them durable, they
-arguably belong in `cmd/component-render-check/` rather than as scratch.
+Probe harnesses are **committed** at `probes/` in this directory — `parseprobe.go`,
+`execprobe.go`, `contactprobe.go`, with `probes/README.md` carrying the two `psql` dumps they
+need, the `kubectl exec` truncation flake, and why each probe's control is load-bearing. The
+JSON dumps themselves are not committed (~13MB); regenerate them. If these earn a permanent
+home they belong in `cmd/component-render-check/` rather than in a lane directory.
 
 ## The evidence that decides the design — do not re-derive, but DO re-date
 
@@ -79,8 +80,8 @@ time; code comments are not a safe source here.**
 
 ### 1. Council submission (do this first, or alongside the commit)
 
-Rationale is **drafted**: `probe260/rationale.md` in the scratchpad — copy it into the submission
-JSON. Schema is `{rationale, submitter, plan:{summary, edits:[{file, symbol, operation,
+Rationale is **drafted and committed**: `RATIONALE_draft_for_council_submission.md` in this
+directory — copy it into the submission JSON. Schema is `{rationale, submitter, plan:{summary, edits:[{file, symbol, operation,
 rationale, sketch}]}}` plus `grounded_in` evidence quotes; worked example is
 `bugfix_277_required_fields_repair/submission_277_required_fields_router.json`.
 
