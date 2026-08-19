@@ -1359,3 +1359,37 @@ that pair was never close to the floor.
 > by the attribute that was *convenient to query* (`pages.rebuild_policy`) rather than the one that
 > actually *defines* it (the guard's error text). The convenient column was 97% right, which is
 > exactly why the 3% was invisible — and the 3% was the entire pair I was building a remedy for.
+
+### ⚠ CORRECTIONS to this morning's 09:00Z entry — two figures, and I destroyed a file to find them
+
+**I overwrote another session's `HANDOFF_2026-08-19_continue_here.md`** with a `cat >` heredoc,
+having never read the path. It was written at 10:14Z (`917a5de9f`) and I clobbered it ~15 minutes
+later. Recovered byte-identical (md5 `271f1df6…`) from `git show 917a5de9f:<path>` and restored
+forward-only; my material is now an appendix below theirs. **This is the exact failure CLAUDE.md
+names** — *read before write on any file you did not create; prefer the Write tool, which refuses an
+unread file, over a shell redirect, which does not.* The tell I ignored: `git commit` printed **no
+`create mode` line** and reported **137 deletions** on what I believed was a new file.
+
+Their file corrects two things I wrote at 09:00Z above:
+
+1. **`phantom_internal_link` is 62.7% lifetime, not 47%.** Generic **101/46 = 68.7%**, owned
+   **0/14**, total **101/60 = 62.7%**. I quoted "blended 47%" **straight out of `480`'s own header
+   without re-deriving it** — the same failure as the `bugs_open/295` path: repeating a figure from
+   another document because it was in a document. Crossing the 25% floor from 62.7% needs **243 more
+   failures**, so any "one bad stretch from being switched off" reading is overstated.
+2. **"owned page + `failed`" is NOT the set "ownership refusal".** Of **87** `owned`+`failed` rows,
+   **85 name the guard and 2 do not** — those 2 are `placeholder_contact`'s, failing in
+   `process_sections_loop_iter_0_generate_content`, i.e. the **content generator**, not the guard.
+   So discriminate on the guard's **error text**, never on `pages.rebuild_policy`. My own partition
+   did key on the error text (`error ILIKE '%rebuild_policy=owned%'`), so my 434/16 figures stand —
+   but the distinction is one I never stated, and stating it is what makes the number safe to reuse.
+
+**What my figures got right, independently confirmed:** their `literal_markdown` line reads
+*"3 ok / 16 REAL failures — still below floor with refusals excluded"*, which is exactly my
+3/(3+16) = 16%. Two lanes, two methods, same number.
+
+**And they are ahead of me on closure, which is the part that matters:** `277` is blocked not by the
+churn-guard clock I quoted but by **its own verify clause 1 — the worked example must be REPAIRED,
+and nothing repairs `no_content_data` at all** (44 completions are `auto:revalidated`, 37
+`build-dispatch-loop`, **0 by the router**). `083` closes **~08-25** (owner decision 5), not 08-24.
+**Their handoff is authoritative; read it, not my §3.**
