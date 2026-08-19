@@ -197,6 +197,39 @@ const (
 //
 // Keep the roster small and each entry evidenced. A type here without a
 // measurement in its Why is a guess about somebody else's handler.
+//
+// ── TYPES THAT LOOK LIKE CANDIDATES AND MUST NOT BE ADDED ───────────────────
+// Recorded here rather than in a doc because this is where the mistake would be
+// made. All three were examined on 2026-08-19 at the owner's direction, and all
+// three answer the roster's bar — "can a zero-change run be a repair for this
+// type?" — with YES, which is the disqualifying answer.
+//
+//   - `spacing_fix` (handler component-template-fixer). Its report is
+//     response.fix_result.fixed, a BOOLEAN, not a counter — so it could not use
+//     CounterPaths anyway (lookupNumericPath returns not-present for a bool, which
+//     would make every row read as unreadable). More decisively: [MEASURED
+//     2026-08-19, archive-inclusive] of 247 completions, 226 carry
+//     fixed=false with reason "already has flex CSS" and 21 carry fixed=true.
+//     A zero-change run here is an IDEMPOTENT REPAIR FINDING ITS WORK ALREADY
+//     DONE — the legitimate success this file's header names. Gating it would
+//     block 226 correct completions.
+//   - `responsive_fix` (same handler, same shape). [MEASURED] 123 fixed=true,
+//     72 fixed=false "already has responsive CSS", 2 refusals for a missing
+//     spec.slot_name. Same verdict, same reason.
+//   - `needs_design_review`. OWNER RULING 2026-08-19: for this type the ANALYSIS
+//     IS THE DELIVERABLE. The agent is asked for a design opinion, not a repair,
+//     so "the handler changed nothing" is not merely a legitimate success — it is
+//     the expected outcome, and a no-change rule would be a category error. This
+//     also settles the question bugs_closed/302 left open for it. (It is separately
+//     the estate's worst case for verifier work: four distinct producers file it,
+//     over 1,296 lifetime rows.)
+//
+// ⚠ The contrast with the one entry below is the whole point of per-type opt-in,
+// and it is why this roster can never be applied by analogy: `dark_section_audit`
+// and `spacing_fix` report the SAME SHAPE ("I changed nothing") and mean OPPOSITE
+// things — one because its transform provably cannot touch the defect, the other
+// because the CSS was already correct. Only a measurement per type tells them
+// apart.
 var noChangeGates = map[string]noChangeRule{
 	// The two counters are color-variable-fixer's two repair steps
 	// (fix_hardcoded_colors and the forced-text-colour step). Both zero means
