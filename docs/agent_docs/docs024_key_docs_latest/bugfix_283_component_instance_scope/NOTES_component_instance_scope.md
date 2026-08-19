@@ -572,3 +572,34 @@ the first two attempts were refused for a 10-edit array and submitted NOTHING; c
 trigger's tail, not just its exit). Fleet state pinned in the submission: v1.0.1315 carries
 round-6 code (symbol probe 5/0), NOT `35d2e0f9c`/`79fa79fb4` — 486/487 stay HOLD until a roll
 carries BOTH hardening commits.
+
+## 2026-08-19 (session 6, close) — ROUND 9 APPROVED (15 seats, 2 abstained). The trail on `07635a2f…` closes for the second time; advisory triage below
+
+Verdict READ (15:53). The arc this correlation now carries: REVISE → APPROVED → APPROVED →
+REVISE → APPROVED (r5, mechanical close) → REVISE → REVISE → REVISE → **APPROVED (r9)** — and
+rounds 7 and 8 each found a REAL defect in my own gates (the gutted-script blindness, then the
+same blindness in the SHARED guard). The REVISE loop earned its cost twice over.
+
+**Advisory triage (none gating; each checked before recording):**
+- *editquality bundling ×2*: artefact of the trigger's 8-edit cap (the 10-edit array was
+  refused outright); the ROLLBACK + coverage-test files ARE in the commits. No action.
+- *reuse_agent/guardian "create_section_edit_delivery action undefined"*: misreading — it is a
+  STEP whose action is `query_database` (486 line 113), the same registered action
+  create_rerender uses. No runtime gap. No action.
+- *guardian "calibration may not include tool-improver's transitions"*: the 235 pairs are ALL
+  of component_versions (checked: components with completed improve_tool items carry versions
+  in the set). No action.
+- *bug_historian "other html_template writers uncovered"*: REAL follow-up — scriptStubRegression
+  guards the 3 componentRegressionIssues call sites; store_generated_component's REGEN path has
+  its own birth gates but no comparative stub check. Recorded in `bugs_open/324` as a named
+  residual (route: wire the same pure check into the regen compare; separate round).
+- *llm_reliability thinking-spend*: refusal-not-silent is the direction; canary refusal rate is
+  the observable (already in the floor's comment). No config guess shipped.
+- *prior_art "{{.ComponentID}} convention unchecked"*: it is checked — RFC_032 is the standing
+  open question, in the LANDMINE and §13's traps. Pointer recorded.
+- *debug_historian derived-vs-pinned seed*: deliberate (counts drift daily; documented in 487).
+
+**Execution from here is unchanged and gated:** next chassis BUILD (none yet carries
+`35d2e0f9c`/`79fa79fb4` — v1.0.1315 predates both) → digest+ancestry verify BOTH → 486 → 487 →
+drain → --bindings exit 0 → LMC judged sequence. Commits applying 486/487 may carry
+`Council-Reviewed: 07635a2f` — the verdict has been READ.

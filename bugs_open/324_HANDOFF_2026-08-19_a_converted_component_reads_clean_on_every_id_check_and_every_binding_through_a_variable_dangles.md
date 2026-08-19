@@ -94,3 +94,13 @@ migration `486_judged_instance_scope_pipeline_HOLD.sql`). The 4 serving automati
 placements (ai-agent-orchestration.com, fundamentallyai.com, leopardessconsulting.co.uk,
 finetuning.uk) are live-broken until then — if the judged pipeline slips, the contained
 alternative is a snapshot rollback of those 3 rows + rerender, an owner call.
+
+## Residual (council round 9, bug_historian advisory, 2026-08-19)
+
+`scriptStubRegression` guards the three `componentRegressionIssues` call sites (both 283 arms +
+tool-improver's `update_component_html`). **`store_generated_component_action.go`'s REGEN path
+writes `html_template` behind its own birth gates (field-contract, TemplateClosed/quality) and
+has NO comparative stub check** — a regeneration that keeps script elements and stubs their
+bodies would pass if its schema fields survive. The check is pure and importable; wiring it
+into the regen compare is a separate, small round for whoever touches that file next. Until
+then: the writer-census test names every writer, so the gap is enumerable, not silent.
