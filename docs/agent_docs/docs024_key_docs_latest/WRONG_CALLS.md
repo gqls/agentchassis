@@ -36519,3 +36519,75 @@ one artefact other lanes read as ground truth.
 a codebase and a live config — the single most expensive claim shape there is, and the one this file
 already has an entry for from earlier tonight. **A sentence beginning "nothing"/"no such"/"there is
 no" is a query, not a conclusion — including, and especially, when someone you trust wrote it first.**
+
+---
+
+## 2026-08-19 — a pooled rate across a bursty process manufactured a p-value that felt like evidence (029 lane)
+
+**The claim:** that bug 029's wedge **entry condition** (a `call_handler` awaited request reaching
+terminal `error`) had stopped occurring after the Part A fix rolled — pre-roll 31 of 6,260 rows
+(0.50%), post-roll **0 of 504**. I wrote it up as "suggestive, not decisive", computed a Poisson
+tail (expected 2.5, P(0)=0.082), and went looking for the sample size that would make it
+significant (606 rows).
+
+**What was wrong:** the 31 errors are not spread across the pre-roll period. **Thirty of them are
+on 08-17 alone**; one is on 08-15; **every other day is zero — including 08-18, which had 1,603
+`call_handler` rows and zero errors, most of them BEFORE the fix rolled at 15:45.** The entry
+condition was already absent for a full day on the *unfixed* binary, on three times the traffic of
+the post-roll sample. The post-roll zero therefore carries **no information** about the fix.
+
+**Why it read as sound:** the arithmetic was right and the marker discipline was followed — dated,
+`[MEASURED]`, hedged as "not decisive". What made it worthless was **pooling**: averaging one
+30-error day with six zero-days produces a "0.50% expected rate" for a process that is plainly
+bursty, and a Poisson model assumes exactly the uniformity the data denies. A hedge on the
+*strength* of the evidence is not a substitute for asking whether it is evidence at all. Note the
+control that was already in the file and that I did not connect: this lane had **18 wedges in one
+four-hour window and none outside it** — the burstiness was recorded a day earlier, by me.
+
+**The cheap check that would have caught it:** before comparing a rate across two eras, plot the
+numerator **by day** — one `GROUP BY sent_at::date`. If the events cluster in one bucket, the
+pooled rate is fiction and the correct question is "when did the burst happen and why", not "has
+the rate changed". **A quiet period only means something if the baseline is not also quiet.**
+
+**Cost:** none shipped — caught before the claim left NOTES, by stopping to ask whether the
+08-17 burst was the whole population. Recorded as a visible correction in the 029 lane's NOTES.
+
+---
+
+## 2026-08-19 — I discriminated a category by the column that was easy to query, not the one that defines it
+
+**Session:** `bugfix-277/083`, verifying the Tier 1 status change at the roll. Third entry in two
+days, and the same family as the other two.
+
+**What I claimed:** that `placeholder_contact → page-build-handler` is held by the promoter partly
+because 4 of its terminal outcomes are owned-page *refusals* — and I was one step from proposing a
+migration to re-classify those historical rows so the pair would be released.
+
+**What was true:** they are not refusals. Their error is
+`step process_sections_loop_iter_0_generate_content failed` — the content generator failing on an
+owned page. I had built the whole table by joining to `pages.rebuild_policy`, i.e. **"the page is
+owned and the item failed" treated as "the guard refused it"**. Discriminating by the thing that
+actually records a refusal — the guard's own error string — of 87 `owned`+`failed` rows, **85 name
+the guard and 2 do not, and those 2 were the entire pair I was building the remedy around.**
+
+**What caught it:** nothing external. I only found it because I went looking for *which specific
+pair* the remedy would release, which forced me from an aggregate to individual rows. Had I stopped
+at the aggregate — which was 97% right — I would have shipped a migration that re-classified two
+genuine handler failures as refusals, i.e. **hidden two real failures from the gate whose whole
+purpose is to see them.**
+
+**The cheap check that would have:** `SELECT error FROM ...` on the rows, before believing the
+`GROUP BY`. Ninety seconds.
+
+**The transferable lesson.** A proxy attribute that agrees with the real one 97% of the time is more
+dangerous than one that agrees 60% of the time, because nothing in the aggregate ever looks wrong.
+**When a category has a defining artefact — an error string, a marker, a resolution_path — group by
+THAT, and use the convenient column only to cross-check.** If the two disagree at all, the
+disagreement is the interesting population, not noise. Related: the 2026-08-18 entry on censusing
+readers but not writers — both are cases of measuring the accessible thing and calling it the real
+thing.
+
+**And a second-order note worth keeping:** this error was *produced by* correcting an earlier one.
+I had just discovered that Tier 1 only affects future refusals, went hunting for a retroactive
+remedy, and in that hurry reached for the nearest column. **The window right after a correction is
+when the next one gets made** — three times in two days now, each while cleaning up the last.

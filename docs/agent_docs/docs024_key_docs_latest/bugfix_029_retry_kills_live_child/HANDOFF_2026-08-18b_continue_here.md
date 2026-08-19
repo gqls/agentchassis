@@ -1,3 +1,16 @@
+> # ⚠ SUPERSEDED by `HANDOFF_2026-08-19_continue_here.md` (2026-08-19 09:15Z)
+>
+> **Three of its statements have changed and are corrected there:**
+> 1. Its 090 blocker (**"origin does not have this fix"**) is **GONE** — origin advanced overnight
+>    and `retryWindow` is on it. HEAD is 17 commits ahead, not 233.
+> 2. Its wedge evidence (**18 rows**) has **EXPIRED** on schedule — 0 retained. A 090 filed now
+>    has no live instances to cite.
+> 3. Its measured wedge signature stands, but the phenomenon is now known to be **EPISODIC** —
+>    30 of 31 entry-condition errors fall on 08-17 alone, and 08-18 was already zero on the
+>    UNFIXED binary. Do not read post-roll quiet as the fix working.
+>
+> Everything else — the proof of Part A, the refuted initial-wait lead, the traps table — stands.
+
 # HANDOFF — 2026-08-18b — `bugs_open/029`, continue here
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`** (bannered). Read this, then

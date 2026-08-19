@@ -1156,3 +1156,78 @@ today — 18/18 on the error path, the final spawn registered twice, the parent'
 after it — is untouched by this and remains unexplained. **A proven fix to a contributing defect
 is not a closed bug**, and the artefacts have said "part A only" in those words since the first
 commit precisely so that this moment could not be misread as the bug closing.
+
+---
+
+## 2026-08-19 09:10Z — v1.0.1314 verified; the wedge evidence EXPIRED as predicted; and I talked myself into a suppression claim the data does not support
+
+### 1. The new build, at the artefact
+
+`v1.0.1314`, both replicas (`07:52:27Z` / `08:05:39Z`). The `build provenance` line was **not in
+range** again (startup line, ~4 min retention) — so, binary probe with controls:
+
+| probe | result |
+|---|---|
+| `d3590ca46` (08-18 22:17 BST) | **PRESENT on both replicas** — the build point |
+| `8e3f29197`, `f110d0397` | absent |
+| `deadbeef…` negative control | absent — control OK |
+
+**Part A is still aboard**, by the ancestor test rather than a sha probe:
+`bf7646a29` and `2a3d30ec3` are both ancestors of `d3590ca46`; a later commit (`d8065ea87`)
+correctly is not. rv0 windows on the new build are unchanged (`call_dispatch` 15:00,
+`process_item_iter_0_call_handler` 20:00). **No retries yet on 1314**, so RSH-010's proof still
+rests on the 18:28:21Z row from 1309 — which is fine: the code is byte-identical by ancestry.
+
+### 2. The wedge evidence is GONE, exactly as this file predicted
+
+`orchestration_states` now starts at **2026-08-18 07:58:20**. Wedged rows retained: **0**. All 18
+instances aged out overnight, on the schedule the 08-18 handoff named. Nothing was lost that was
+not already transcribed here — but the diagnosis loop reads the LIVE DB, so **a `090` filed today
+has no instances to cite.**
+
+### 3. ⚠ CORRECTION, within ten minutes, to a claim I had already started writing up
+
+I measured the wedge's entry condition — a `call_handler` reaching terminal `error` — and got:
+
+| era | errored | rows | rate |
+|---|---|---|---|
+| pre-roll (08-12 → 08-18 15:45) | 31 | 6,260 | 0.50% |
+| post-roll | **0** | 504 | 0% |
+
+I wrote "**the entry condition has stopped occurring**", computed a Poisson tail
+(expected 2.5, P(0) = 0.082), called it *suggestive but not decisive*, and went looking for the
+sample size that would settle it (606 rows). **Every number there is correct and the framing is
+worthless**, because I had not asked how those 31 errors are distributed:
+
+| day | errored | call_handler rows |
+|---|---|---|
+| 08-12 | 0 | 448 |
+| 08-13 | 0 | 232 |
+| 08-14 | 0 | 1,241 |
+| 08-15 | 1 | 1,302 |
+| 08-16 | 0 | 481 |
+| **08-17** | **30** | 1,436 |
+| **08-18** | **0** | **1,603** |
+| 08-19 | 0 | 20 |
+
+**30 of the 31 are one day.** And the day that matters most is **08-18: 1,603 call_handler rows,
+zero errors — the majority of them BEFORE the fix rolled at 15:45.** The entry condition was
+already absent on the unfixed binary, for a full day, on more traffic than the post-roll sample.
+
+**So the post-roll zero carries no information about Part A.** A quiet day is the baseline: six
+of eight days have zero. My Poisson arithmetic assumed a uniform rate on a process that is
+plainly **bursty**, and pooling a 30-error day with six zero-days to manufacture a "0.50%
+expected rate" is what produced a p-value that felt like evidence. **The disconfirming result
+was one `GROUP BY` away and I ran it only because I stopped to ask whether the burst was the
+whole population.**
+
+**What can honestly be said:** the wedge, and the `call_handler` errors that precede it, are
+**EPISODIC** — one observed burst (08-17, 30 errors, 18 wedges, ~4 hours) against seven quiet
+days. That burst overlaps the GitHub API incident already recorded in this file. Post-roll quiet
+is consistent with the fix having suppressed it AND with the fix having done nothing, and this
+data cannot separate those. `[MEASURED]` distribution; `[UNKNOWN]` effect of Part A on it.
+
+**Consequence for closing 029:** we cannot say the wedge is fixed, and we cannot say it is still
+biting. What we can say is that it is rare, bursty, unexplained, and that its one observed
+occurrence coincided with an external outage. That is a materially different open state from
+"unexplained and actively biting", and the bug file now says so.

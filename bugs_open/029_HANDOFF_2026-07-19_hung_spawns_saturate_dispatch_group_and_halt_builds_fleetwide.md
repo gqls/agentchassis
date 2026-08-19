@@ -1433,3 +1433,37 @@ are present; the oldest retained row IS the first wedge row, which is why "the w
 14:35 on 08-17" is the retention boundary talking and not a fact about the fleet). **All 18
 instances age out during 2026-08-19.** A diagnosis run filed after that reads a table with no
 instances left in it.
+
+### 2026-08-19 — state on `v1.0.1314`: still OPEN, and the reason has CHANGED
+
+**Part A is still shipping.** Build point `d3590ca46` PRESENT on both replicas (negative control
+absent); `bf7646a29` and `2a3d30ec3` are ancestors of it. rv0 windows unchanged. RSH-010 remains
+**PROVEN** on the 18:28:21Z row from `v1.0.1309`; the code is identical by ancestry.
+
+**The wedge evidence has EXPIRED.** `orchestration_states` now starts 2026-08-18 07:58; wedged
+rows retained: **0**. All 18 instances aged out overnight. A `090` filed today therefore has **no
+live instances to cite** — the loop reads the live DB.
+
+**The 090's other blocker is GONE:** origin has advanced overnight and `retryWindow` **is now on
+`origin/087_towards_multiple_domains`**. HEAD is 17 commits ahead, not 233. A diagnosis filed now
+would read a tree that carries the fix. **Tree unblocked, evidence gone — the two conditions
+swapped places overnight.**
+
+**⚠ Do NOT read the post-roll quiet as the fix working.** Measured and then corrected the same
+morning: `call_handler` awaited rows reaching terminal `error` — the wedge's entry condition —
+run **0/448, 0/232, 0/1241, 1/1302, 0/481, 30/1436 (08-17), 0/1603 (08-18), 0/20 (08-19)**.
+**Thirty of the thirty-one are one day**, and **08-18 was already zero across 1,603 rows, mostly
+on the UNFIXED binary.** The phenomenon is **EPISODIC**, its one observed burst overlaps the
+GitHub API incident, and post-roll silence is indistinguishable from the six other quiet days.
+Any "the entry condition stopped" claim built on a pooled rate is fiction — see `WRONG_CALLS.md`
+2026-08-19.
+
+**So the open state is now:** the wedge is **rare, bursty, unexplained**, its single observed
+occurrence coincided with an external outage, and Part A's effect on it is **UNKNOWN** — not
+zero, not proven. That is materially different from "unexplained and actively biting", which is
+how this file read on 2026-08-18.
+
+**What would move it:** the next burst. It needs to be caught and its rows transcribed **within
+~26 hours** (retention), and a `090` filed against them while they exist. The symptom text is in
+the lane's NOTES (2026-08-18 17:05Z) and the tree is now correct, so filing is a single command
+once there are instances.

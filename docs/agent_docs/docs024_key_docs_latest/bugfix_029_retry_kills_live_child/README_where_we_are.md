@@ -275,3 +275,42 @@ Publishing all 233 isn't something I think one session should decide on its own,
 and left it with you. **There is a clock on it:** we only keep about a day of these records, so
 the eighteen frozen jobs disappear tomorrow, and after that the investigation would be looking at
 an empty table.
+
+---
+
+## 2026-08-19, morning — the new build checked out, and I caught myself claiming a win we haven't got
+
+**The new build is fine and our fix is still in it.** I checked it the reliable way — asking the
+running program which version of the code it was built from, with a deliberately wrong answer
+mixed in to prove the check can fail — and both copies agree. First attempts still get the times
+they ask for, so nothing has regressed.
+
+**The records of the frozen jobs are gone.** We only keep about a day of them, and yesterday I
+flagged that they'd disappear this morning. They have. Eighteen frozen jobs, all from Monday,
+now unrecoverable from the system — though everything we learned from them is written down.
+
+**Meanwhile the other obstacle cleared itself.** The reason I couldn't hand the investigation to
+our automated diagnosis yesterday was that it reads code from the shared server and our fix
+wasn't there. Someone published overnight, so it is now. The two problems have swapped places:
+yesterday we had evidence and no way to use it; today we have the means and no evidence. I'm not
+spending a diagnosis run on an empty table.
+
+**And here is the bit I'd rather tell you than bury.** I measured whether the failure that
+precedes a freeze had stopped happening since our fix, got a clean zero, and started writing it
+up as encouraging. Then I checked how those failures were spread out over time, and the answer
+was that thirty of the thirty-one all happened on Monday. Every other day was zero — **including
+Sunday and Tuesday, before our fix was anywhere near production.** So "it hasn't happened since"
+describes six of the last eight days and tells us nothing at all about whether we helped. I had
+even hedged it carefully, which made it worse: a cautious sentence about weak evidence still
+reads as evidence.
+
+**What that means for the bug.** It is rare and it comes in bursts — one bad afternoon on Monday,
+which happens to line up with a GitHub outage we'd already noticed. We can't say we fixed it and
+we can't say it's still biting. What we can say is that the one real defect we found on the way
+is fixed, proven, and worth having on its own terms.
+
+**So: not closeable, and the honest reason isn't "it's still broken" — it's that we never
+explained it, and it hasn't shown itself since.** The next burst is what would settle it, and
+there's a catch worth a decision from you: we'd have about a day to notice and capture it before
+the records vanish, exactly as they just did. If this bug matters, something needs to grab that
+evidence automatically. If it doesn't, we let it lie and reopen when it bites.
