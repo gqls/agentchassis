@@ -170,9 +170,36 @@ steps; the `webdesign_tool_rebuilds` lane that filed this; retraction owners (`d
 semantics for non-active pages are unchanged, and D5 depends on that); and `deployment-github.md`
 DGH-001, updated in the same commit as each shipping phase.
 
-## Status
+## Status — updated 2026-08-19 evening
 
-Phases are **not implemented**. This document is the design; nothing here has shipped.
+| phase | state |
+|---|---|
+| **0a** — drop the pre-deploy stamp (D4) | **APPLIED and LIVE** (migration 491, 15:20Z). Verified at the config AND at runtime: 31 pages since, all `deployed`, none stranded, stamps coming from the rerender |
+| **0b** — drive the silenced `deployed_zero_components` detector | **not done** — still undriven |
+| **1** — adapter returns `CommitOutcome` + `commit_sha`/`files_sha256` (D2) | **BUILT, committed `0c5b94725`, NOT ROLLED** (needs a git-adapter image) |
+| **2** — `deploy_result_field` guard + `pages.content_hash` (D3) | **BUILT, committed `086f9b7b7`, NOT ROLLED** (needs a chassis image) |
+| **3** — arm the key on the three stamping steps | **WRITTEN and HELD** — `sql_for_agents/494_stamp_reads_deploy_evidence_HOLD.sql`. Must not be applied until the rebuilt chassis runs: `StrictConfig` makes an undeclared key a validation FAILURE, not a no-op |
+| **4** — the divergence sweep (D5) | **not built.** Gated on `content_hash` being populated, which is gated on the roll |
+
+**Two deliberate narrowings of this plan, made while building it:**
+
+- **No `no_change` flag.** It needs the parent commit's tree sha, which is off the hot path
+  (`getBaseTreeSHA` is only `getLatestCommitSHA`'s error fallback), so it would cost a GitHub
+  round-trip on every commit across 19 live `git_commit` steps — to populate a field the council
+  ruled report-only. `files_sha256` answers the same question at the grain the site serves.
+- **`DEPLOY_EVIDENCE_UNREADABLE` logs at `warning`, not `high`.** Chassis and git-adapter are
+  separate images, so a chassis carrying the key against an older adapter resolves nothing on
+  *every* deploy. That window is expected and bounded; `high` would make the fleet error log
+  useless for a day.
+
+**And one edit withdrawn** (round-1 `prior_art_librarian`): the plan's `ALTER TABLE pages ADD COLUMN
+deploy_commit` is gone. `sql_for_agents/356` records that column was dropped **deliberately** as
+"belongs in page_components", and that wiring it "is an owner call, not a bug fix". Owner ruled
+2026-08-19: wire `pages.content_hash`, leave `page_components.deploy_commit` alone.
+
+⚠ **D5's hard constraint, measured rather than assumed** — see the block under D5: a settle window
+does NOT rescue a timestamp comparison. Only the hash separates "did not need publishing" from
+"failed to publish".
 The diagnosis loop produced no verdict (LLM usage cap, twice) — see NOTES for the first-hand
 substitute, stated plainly per the owner ruling of 2026-07-31.
 
