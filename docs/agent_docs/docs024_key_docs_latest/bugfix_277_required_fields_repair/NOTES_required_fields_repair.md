@@ -1760,3 +1760,182 @@ commit attempt was under two minutes.
 `git diff` is not evidence your edit is uncommitted** — it may mean somebody has already committed it
 for you. `git log -S '<a phrase from your entry>'` is the check that distinguishes the two, and it is
 what I used here.
+
+---
+
+## 2026-08-19 ~16:20Z — the re-route landmine gets its FIRST MEASURED INSTANCE, and the half nobody wrote down is that re-pointing is PARTIAL
+
+Session picked the lane up from `HANDOFF_2026-08-19_continue_here.md` and ran its §9 checklist. Chassis
+still `v1.0.1315` (pods `bfw5n` 12:15:19Z, `nkdkl` 12:15:42Z) — **no new roll, so §1's binary probe
+still describes the running binary** and was not re-run. Lane tree clean, everything committed.
+
+### 1. Today's escalation tick: the load-bearing half of the §10.A prediction HELD
+
+`held-pair-canary-escalation` fired **2026-08-19 12:58:16 UTC** [MEASURED, `kafka-scheduler` logs,
+`pre_query_result`]:
+
+```
+escalated=0  reclaimed=0  watching=13
+```
+
+**§10.A predicted `escalated=0, watching=15`.** The `escalated=0` half — the one the row exists to
+defend, *"ZERO IS CORRECT, not a failed migration"* — is **confirmed**. The count was 13 because the
+held pile had already dropped 15 → 13, which §7e recorded earlier the same day. A stale count, not a
+wrong prediction; recording the distinction because the row was written to stop a future reader
+reading the zero as breakage, and it did its job.
+
+⚠ **`watching` had moved again by the time I measured (13 at the tick, 12 at 16:15Z).** One
+`literal_markdown` row left the held population in those three hours — see §3. **The held set is not
+stable between a tick and your query**, which is landmine-family item 3 in §10.D and bit me inside
+twenty minutes of reading the warning.
+
+### 2. TWO DEFECTS IN THE INSTRUMENT §10.A NAMES — `watching_detail` cannot be read the way that row reads it
+
+I went to the readout to check tomorrow's prediction and found the same pair listed **twice**:
+
+```
+placeholder_contact->page-build-handler (canary, day 1 of 3),
+placeholder_contact->page-build-handler (canary, day 3 of 3)
+```
+
+Read the `pre_query` rather than guessing (`SELECT pre_query FROM scheduled_tasks WHERE
+name='held-pair-canary-escalation'` — note the column is `name`, **not** `task_name`). Both defects
+are in one line, and both make the readout say something milder than the truth:
+
+```sql
+string_agg(DISTINCT item_type||'->'||handler_agent||' ('||hold_kind
+           ||', day '||(now()::date - created_at::date)||' of 3)', ', ') FROM classified
+```
+
+**(i) `DISTINCT` is applied to a string containing the PER-ROW `created_at`, while the clock runs on
+`min(created_at)` per PAIR.** So a pair whose rows span two dates appears as two entries at two
+different day-counts. Confirmed exactly [MEASURED]: `count(DISTINCT created_at::date)` per pair is
+`2,1,1,1` and the readout has `5` entries for `4` pairs — the only pair with two dates is the only one
+printed twice. **You cannot count held pairs off this line, and the low entry is a lie about the
+pair**: the `overdue` CTE joins *every* classified row of the pair, so the "day 1 of 3" rows escalate
+in the same tick as the "day 3 of 3" ones.
+
+**(ii) The day counter is DATE arithmetic; the predicate is TIMESTAMP arithmetic.**
+`(now()::date - created_at::date)` vs `HAVING min(created_at) < now() - interval '3 days'`. So
+**"day 3 of 3" does NOT mean "fires this tick"** — `placeholder_contact` printed *day 3 of 3* at
+12:58Z while its clock does not expire until **19:17:45Z**, six hours after the tick that said so.
+
+⚠ This is §10.A's own "off by a full tick" landmine — **except it is not the reader's arithmetic, it
+is inside the instrument**, which is why writing that warning did not protect against it. The
+trustworthy reading is the clock itself, not the readout:
+
+```sql
+SELECT item_type||' -> '||handler_agent, count(*), min(created_at),
+       min(created_at) + interval '3 days' AS escalates_after
+FROM classified GROUP BY 1;   -- classified = the pre_query's own CTE, copied verbatim
+```
+
+**The four held pairs and their REAL clocks [MEASURED 2026-08-19 16:15Z]:**
+
+| pair | kind | detected rows | oldest | clock expires | escalates at tick |
+|---|---|---|---|---|---|
+| `placeholder_contact → page-build-handler` | canary | **3** | 08-16 19:17:45 | **08-19 19:17:45Z** | **08-20 12:57** |
+| `missing_conversion_path → content-gap-planner` | canary | 1 | 08-17 22:21:46 | 08-20 22:21:46Z | 08-21 12:57 |
+| `dead_fragment_link → page-build-handler` | canary | 1 | 08-18 01:38:47 | 08-21 01:38:47Z | 08-21 12:57 |
+| `literal_markdown → page-build-handler` | floor | **7** | 08-18 07:23:16 | 08-21 07:23:16Z | 08-21 12:57 |
+
+**Every DATE in §10.A is confirmed by this.** One row count is stale: §10.A says `literal_markdown`
+escalates **10** rows on 08-21 and §7f says **8**; it is **7** now. Not a contradiction — the
+population drains (§3). **Do not carry a row count forward from any of the three; re-derive it at the
+tick.**
+
+⚠ **Do not canary `missing_conversion_path → content-gap-planner`** — `bugs_open/255` owns it, and
+that has not changed.
+
+### 3. `literal_markdown` — §7f's "one number to watch" is ANSWERED, and the answer is comfortable
+
+§7f left the pair at 1 complete / 2 failed and flagged the arithmetic: `floor_ok` becomes binding at
+the 5th outcome with 2 failures banked, so *"next two both fail → 1/4 → below the floor → HELD"*.
+
+**[MEASURED 2026-08-19 16:16Z, live + archive per §8b]:**
+
+| `literal_markdown` handler | complete/verified | failed | detected | % of outcomes |
+|---|---|---|---|---|
+| `page-rerender` (**the new route**) | **7** | **1** | 0 | **87.5%** |
+| `page-build-handler` (the old route) | 3 | 34 | **7** | 8.1% |
+| `page-content-writer` (older still) | 2 | 9 | 0 | 18.2% |
+
+**Eight outcomes, 87.5% — the floor is not going to bind, and the worry in §7f is closed.** Seven of
+those completions landed **between 16:00Z and 16:11Z today**, i.e. while I was reading the handoff.
+
+⚠ **A third handler exists.** `page-content-writer` (2/9) is in neither §7e nor §7f, which both frame
+this as a two-route story. The producer's own header records the chain —
+`page-content-writer → page-build-handler` (08-05) `→ page-rerender` (08-18). **Three eras, three
+pairs, and each one keeps its own record for ever.**
+
+### 4. THE FINDING: the re-route landmine's missing instance is here, and re-pointing is PARTIAL
+
+`LANDMINES.md` ("Re-routing an `item_type` to REPAIR it creates a NEW pair…") was retracted to a
+**derived property with no measured instance**, and says explicitly: *"Nobody has yet been observed
+doing it. If you hit a real instance, replace this bullet with it."*
+
+**This is the instance, and the evidence is that rows OUTLIVED the literal that filed them.**
+`check_literal_markdown.go:402` sets `HandlerAgent: "page-rerender"`, changed by `763bb5d55` on
+**08-18 20:08** and live only since the **12:15Z** roll today. So any row created *before* that was
+filed with `page-build-handler`. Yet [MEASURED]:
+
+| created_at (batch) | on `page-build-handler` | on `page-rerender` |
+|---|---|---|
+| 2026-08-18 07:23:16.545362+00 | **7 `detected`** | 1 `failed`, 1 `triaged`→`claimed` |
+| 2026-08-17 12:31:06.459751+00 | — | 4 `complete` |
+| 2026-08-17 19:21:16 / 01:18:44 | — | 1 `complete` each |
+
+**Rows from one detector run, to the microsecond, now sit on both handlers.** The producer cannot have
+done that. **`handler_agent` was mutated on existing rows after creation.**
+
+**And the dispatch provenance shows the landmine's own prescribed sequence being executed:**
+4 of the new-route rows carry `pipeline='build'` + `spec.original_pipeline='content'` — **the
+hand-canary recipe verbatim from migration `466`'s `what_to_do` text** — and 5 carry the promoter's
+plain `pipeline='content'` with no `original_pipeline`. Ordered by `updated_at`, the `build` ones come
+**first** and the `content` ones **after**. That is *re-point → hand-canary → `known_good` flips →
+promoter takes the rest*, observed in the artefacts rather than predicted. **The landmine's remedy is
+now measured, not just reasoned.**
+
+#### The half that is NOT in the entry, and it is the one that costs something
+
+**Re-pointing was partial, and the rows left behind cannot be reached by anything.** Seven rows of the
+08-18 07:23:16 batch still carry `page-build-handler`, and their `updated_at` **equals their
+`created_at`** — untouched for 33 hours while their siblings were repaired.
+
+- The **promoter** will not dispatch them: their pair is 3/34 = 8.1%, held under the floor.
+- The **producer** cannot re-file them onto the new route: `idx_swi_dedup` holds one open row per
+  `(site_id, item_key)` and the key is `literal_markdown:<page_id>`, so a re-detection of the same
+  page is dropped while the old row is open. **[INFERRED from the index semantics + the codebase's own
+  "silently drop" language — I did not read the INSERT itself.]** What is **[MEASURED]** is that the
+  rows have not moved in 33 hours.
+- **Demand control, because this lane keeps shipping zeros that mean nothing:** the discovery
+  machinery is emphatically alive — **60 rows across 11 item types filed since the 12:15Z roll**, most
+  recent 16:14Z. It is not "the checks stopped running". **Zero `literal_markdown` rows have been
+  filed since 08-18 07:23:16.**
+
+**So on 08-21 those 7 rows escalate to `needs_human_review` carrying the reason *"the pair succeeds
+below 25%, the promoter has stopped feeding it"* — which is TRUE of the route they are pinned to and
+IRRELEVANT to their defect, which now has a working, artefact-verified repair completing at 87.5% on
+the adjacent route.** That is `083`'s disease at its purest, and §7f called it before it was
+measurable: *a real finding, a working repair that exists, and no path between the two.*
+
+**The remedy is known and already proven in this very population** — an explicit `UPDATE … SET
+handler_agent='page-rerender'` on the stranded rows, which is what somebody did by hand for the ones
+that drained. **It is not ours to fire** (the type belongs to the `184`/`201` lanes, and the
+escalation's own `owners` map names them), but it should be *decided* before the 08-21 tick rather
+than after a human is invited to canary a route that has already been superseded.
+
+> **THE TRANSFERABLE PROPERTY, and it is the sharper half:** re-routing a producer fixes only
+> **FUTURE** findings. Every open row filed under the old literal keeps the old `handler_agent` for
+> ever — the producer cannot re-file over it (dedup) and the promoter will not dispatch it (old pair
+> held). **"Re-route the producer" is half a migration; the other half is an explicit UPDATE of the
+> existing backlog, and nothing warns you it is missing** — the new pair drains beautifully while the
+> old rows sit still, which reads as success.
+
+### 5. Council round 2 on `301` was mid-flight while I wrote this
+
+`RESUBMIT_CORR=c7bc1b9e`, orchestration `6469c138`, started **16:08:21Z**; at `review_bug_historian`
+16:11Z, `review_architecture` 16:17Z. Round 1 came back `complete_revise` at 11:12Z. **Verdict not yet
+read — do not write a `Council-Reviewed:` trailer for it until someone has actually read it**
+(the commit that resubmitted correctly used `Council-Submitted:`). ⚠ The architecture seat is in this
+round, and its known landmine is truncation — check the verdict is whole before believing it is mild.
