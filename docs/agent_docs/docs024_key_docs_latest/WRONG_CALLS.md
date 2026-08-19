@@ -38216,3 +38216,90 @@ and `kubectl apply` reporting success on a no-op — except inverted: there, re-
 it did something and did nothing; here, re-running looked like a read and did the thing again.
 **Classify the command before re-running it: does its first line of effect leave the machine?**
 If yes, re-running is a second act, not a second look.
+
+## 2026-08-19 — I probed the key I EXPECTED and nearly filed "migration 211 has regressed" (staged_component_build lane)
+
+**The call.** Tracing why the resolver was guessing `related_pages` for `create_tool_component`,
+I checked whether migration 211's wiring was still on the live agent definition. I queried
+`s.value->'config'->'params'->>'related_pages'`, got NULL for every step in the fleet, and
+concluded the wiring was gone — "exactly ONE live step runs `create_tool_component`, and it has
+no `related_pages` wiring". I had started drafting that as the root cause, with `bugs_open/029`
+(phantom tool links, CLOSED) named as a regression.
+
+**It was false.** 211 writes to `config.related_pages`, not `config.params.related_pages`. The
+wiring is present and correct on both `tool-generator/save_tool` and `tool-deployer/deploy_tool`,
+and has never regressed. The real cause was one layer down: the declared path resolves to
+nothing (the spec has no such key), and the resolver cascade then falls through to the
+whole-tree search — `bugs_open/330`.
+
+**What caught it:** opening `211_tool_crosslink_emit_at_build.sql` to quote what it had wired,
+before asserting that the wiring was missing. The migration's own `jsonb_set` path
+(`'{workflow,steps,save_tool,config,related_pages}'`) is four lines long and says it plainly.
+
+**The cheap check that would have:** **a NULL from a nested-key probe means "not at that path",
+never "not present"** — and the two are indistinguishable in the result. When the answer to
+"is X configured?" is NULL, dump the whole `config` object for one step and look, rather than
+probing a second guessed key. One `SELECT jsonb_pretty(s.value->'config')` would have ended it.
+
+**The generalisable half.** This is the absence-shaped sibling of the marker rule: a query that
+can only return NULL-or-value cannot distinguish *absent* from *elsewhere*, so its NULL is not
+evidence of absence unless you have separately established the path. My query was disconfirmable
+in form — it could have returned a value — but not in substance, because the value it was
+looking for was never going to be at the path I typed. **Before a NULL becomes a finding, prove
+the path exists by finding something else at it.**
+
+---
+
+## 2026-08-19 — I counted a population, measured it six ways, and never once described it — then wrote an actionable remedy that would have manufactured 7 failures (bugfix 277 lane)
+
+**The call.** I found 7 `literal_markdown` work items still pointed at the old handler
+(`page-build-handler`) after that detector's producer was re-routed to `page-rerender`, while
+their siblings from the *same detector run, identical to the microsecond*, had been repaired at
+87.5% on the new route. I concluded they were **stranded** — undispatchable by the promoter (old
+pair held under its floor) and un-re-filable by the producer (`idx_swi_dedup` holds one open row
+per key) — and that *"a working repair exists next door and only routing separates them"*. I
+wrote the remedy as an explicit `UPDATE site_work_items SET handler_agent='page-rerender' …`,
+called it *"proven in this very population"*, and put it in **three files including
+`LANDMINES.md`**, which is fleet-wide and prescriptive.
+
+**It was false, and actionably so.** All 7 rows sit on `rebuild_policy='owned'` pages (6 of them
+`tool-*`). Splitting the new route's outcomes by the same axis: **8 complete, every one
+`generic`; 1 failed, the only `owned` one.** `page-rerender` calls `save_page_sections` and is
+**refused by the ownership guard** on owned pages. So the `UPDATE` would have converted 7 quiet
+rows into 7 loud failures and dragged a healthy 8/1 pair toward its floor, repairing nothing.
+The rows were never accidentally stranded: they are the owned-page residual that the `184` lane
+**explicitly routed** when it closed the bug that morning (*"residuals routed (owned/ported →
+301/tool-rebuilds)"*).
+
+**What caught it:** going to route the finding at the owning lane and running
+`scripts/who-owns.py` **first**, as the rules require. It reported `184` CLOSED — that day — and
+its close-out named this exact residual. *A lane does not route a residual it has not
+characterised*, which finally prompted the question I had skipped for four and a half hours.
+
+**The cheap check that would have:** **one `GROUP BY` on the thing the destination's guard keys
+on.** `SELECT p.rebuild_policy, count(*) … WHERE status='detected' AND handler_agent='<old>'` —
+one line, and it returns `owned | 7`, which ends the theory instantly. I had already joined
+`pages` in three other queries that session for other columns.
+
+**The generalisable half, and it is not "measure more".** Every measurement I took was correct
+and I marked them properly: a demand control (60 rows / 11 item types filed since the roll, zero
+of them this type), an `[INFERRED]` tag on the dedup half, a measured 33-hour untouched gap, a
+same-microsecond creation batch as the smoking gun. **All true. All irrelevant.** The error sat
+upstream of every marker: **I counted the population and never described it.** The lane's own
+landmine-family item 1 — *a population assumed rather than enumerated* — for the seventh time,
+and **the marker discipline structurally cannot catch this one, because nothing I wrote was
+unmeasured.**
+
+The transferable rule is directional: **when you propose moving rows from A to B, you have
+measured the transport and not the destination.** "Why are these rows still at A?" is a different
+question from "would B accept them?", and answering only the first produces a remedy that is
+confidently actionable and wrong. **Before writing any re-point, re-file or re-queue remedy,
+split the source rows by whatever the destination's guard tests, and compare against the
+destination's own outcomes split the same way.** If the destination has never succeeded on rows
+of that shape, the residual belongs to whoever owns the **blocker**, not the item type.
+
+⚠ **Aggravating factor worth naming: I wrote it into `LANDMINES.md` before checking it.** That
+file is prospective and prescriptive — it is read by sessions with no symptom, who are in no
+position to sanity-check a remedy against a population they have never seen. **A landmine entry
+that tells you to run a mutation deserves the same bar as the mutation.** Corrected in place
+`50b8c65cf`, ~30 minutes after it landed.
