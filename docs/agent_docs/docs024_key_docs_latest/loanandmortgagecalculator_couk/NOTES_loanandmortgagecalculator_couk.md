@@ -3453,3 +3453,14 @@ substitution the owner ruling of 2026-07-31 allows when it is declared. Declarin
 > (`git diff` over the interval shows no change to any identity/snap symbol). **Anchor on
 > `reconcilePlanWithRealised` / the `eligible` closure, not on line numbers**, on a tree taking
 > ~350 commits a day. Corrected in place in all four places today.
+
+**Provenance note, same day:** this lane's LANDMINES correction (the "SHARPENED 2026-08-19"
+line withdrawing the snap-layer remedy) is **in HEAD but inside another lane's commit** —
+`8af48db0c`, the `copy_quality_two_stage` lane's HITL-terminal-handler entry, committed 10:47
+while my edit sat uncommitted in the shared working tree. Nothing is lost and forward-only
+holds; recorded because `git log -- LANDMINES.md` will attribute the sharpening to a commit
+about `handler_agent`, and because I had spent the previous ten minutes preparing to name
+*their* entry as a passenger in *my* commit. **The hazard runs both ways and the window is
+minutes.** Same practice as `1e37e58b2`. (Content verified present at HEAD by an unwrapped
+`tr -s ' ' | grep`, not a line-oriented grep — these files are hard-wrapped and a long phrase
+reports a false absence otherwise.)
