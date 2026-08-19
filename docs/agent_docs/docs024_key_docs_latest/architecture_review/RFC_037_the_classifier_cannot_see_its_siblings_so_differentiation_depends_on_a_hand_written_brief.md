@@ -85,7 +85,52 @@ neighbours' one-line propositions**, plus the entry's explicit must-nots. Concre
 - for each neighbour named in the entry: domain, one-line proposition, and the boundary rule;
 - nothing else — this is a differentiation contract, not the whole register.
 
-**Open design questions for the round** (I have deliberately not chosen):
+### OWNER RULING 2026-08-19 — all four open questions ANSWERED, and the scope widened
+
+Recorded verbatim in intent, at the place the design decision is made.
+
+1. **Where does the data live? → A DATABASE.** Not markdown, not a generated JSON artefact.
+2. **Who writes it / what is authoritative? → THE DATABASE IS THE SOURCE OF TRUTH.** This is the
+   bigger of the two options offered and the owner took it deliberately:
+   `REGISTER_positioning.md` **stops being the source of truth** and becomes a rendering of, or
+   an input to, the database. Whoever builds this owes a migration path for the 44 entries that
+   live in markdown today, and a decision about what the markdown file becomes afterwards (a
+   generated view, or retired). **Do not leave both writable — two hand-maintained copies of one
+   roster is precisely the drift class `099` demonstrates and this estate has already paid for.**
+3. **Advisory or binding? → ADVISORY.** A prompt input the classifier may weigh; **not** a
+   post-classification collision check that fails a duplicate. The binding check stays available
+   as a later addition (§5 note: "they compose") but is NOT in scope now.
+4. **Blast radius / the ~40 non-register sites? → SUPERSEDED BY A WIDER RULING: give them a
+   registry too.** The owner's instruction is *"For the 40 non finance sites add a registry, also
+   for the rest of the 2000 .uk domains."* So the answer is not "be inert for sites with no
+   entry" — it is **there should not be sites with no entry.** Inertness is still required as the
+   *engineering* default (a site whose entry has not been written yet must be unaffected, and the
+   change must never fail closed on a missing row), but it is now a transitional state, not the
+   permanent design.
+
+**⚠ What this ruling turns RFC_037 into.** It was scoped as "feed the finance register to the
+classifier". It is now **"the portfolio register becomes a database-backed asset covering the
+whole domain estate, and the classifier reads it."** The mechanism is unchanged; the corpus is
+roughly an order of magnitude larger. Consequences a builder must not discover late:
+
+- **The register today is 44 entries covering 153 domains** (`REGISTER_positioning.md`,
+  `PORTFOLIO_domains.txt`, counted 2026-08-19). The `sites` table holds **43** rows.
+- **There is no inventory of the ~2,000 domains anywhere in this repo or the database**
+  [MEASURED 2026-08-19 — searched the repo for a domain list, and every `information_schema`
+  column named `domain`/`domain_name`]. `z_bundles/old/domainsubmit1.txt` is a log dump, not a
+  list. **The inventory is a prerequisite and it must come from the owner** — this is recorded as
+  an open ask, not an assumption.
+- **The collision invariant does not obviously scale.** The register's rule is "no two entries
+  may share (family × audience × mode)", checked by hand and by `check_register.py`. At 44
+  entries that is tractable; at ~2,000 it is not a document rule any more, which is an argument
+  *for* the database and possibly for reviving the binding check that question 3 just deferred.
+- **Neighbour selection becomes a real design problem.** §5 says the input carries "each
+  neighbour named in the entry". With 44 entries neighbours are hand-named. With 2,000 they
+  cannot be, so the mechanism needs a rule for *which* siblings a site is told about — nearest by
+  family, by vertical, by TLD twin — and that rule is now load-bearing rather than incidental.
+
+**Open design questions for the round** (superseded above where the owner has ruled; the
+remainder stand):
 1. **Where does the data live?** The register is markdown. Options: a `site_specs` aspect per
    site (fits existing machinery, needs a writer); a new table (clean, more surface); or a
    generated JSON artefact the classifier reads (cheapest, another sync-drift risk of exactly
