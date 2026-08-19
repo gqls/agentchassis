@@ -469,3 +469,67 @@ One more thing worth knowing for the future: when I first checked the live page 
 edits, it still showed the old text, and I nearly wrote down that the naming fix had failed.
 It hadn't — the site simply hadn't finished publishing. Checking a page seconds after a
 deploy tests the publishing, not the edit.
+
+---
+
+**2026-08-19, evening.** I set out to build one small thing and found something bigger on the
+way. Both are worth your time, and the second one is not what I was looking for.
+
+**The small thing, first.** Yesterday I told you the fault was in the brief rather than in the
+writer, and then had to correct my own numbers within the hour because I had counted the whole
+brief document when the writer only ever reads part of it. The fix for that was a proper tool,
+and it now exists. Before measuring anything it asks the writing agent itself which parts of a
+site's brief it actually reads — rather than me assuming — and it turns out to be five fields.
+It then measures only those. It also has a way of settling the question that matters: whether a
+phrase in the brief genuinely ends up in the copy. You give it a phrase and it tells you how
+many times that phrase went in and how many times it came back out.
+
+That test is what makes the rest trustworthy, because it can say no. The tagline on the AI
+orchestration site went into 1,369 prompts and came back in 409 pieces of copy — supplied by the
+brief and reused, exactly as I said yesterday. But two other phrases I might have blamed went
+into **zero** prompts and still appeared in 35 and 21 pieces of copy. Those are the model's own
+words, not the brief's. Without that check I would have blamed the brief for both.
+
+One thing did sharpen. That site's brief does not merely happen to contain the mannerism — it
+**instructs** the writer to put that exact tagline in the homepage hero, the services hero, the
+footer and every page description. It is the only instruction of its kind anywhere in the
+estate. You objected to a hero; the brief ordered that hero.
+
+**Now the bigger thing.** While reading the code to write the tool, I found that the brief the
+writer reads is, on some sites, a fragment of the brief we wrote.
+
+A brief is a document of about twenty parts — voice, things to avoid, example phrases, heading
+style. The writer doesn't read that document. It reads a single readable summary of it, which is
+rebuilt every time anyone edits the brief. The rebuild uses **only the part being edited**. So
+if someone updates two sections, the summary becomes those two sections, and the other eighteen
+silently stop reaching the writer. They stay in the document, so everything looks complete to
+anyone who checks.
+
+This actually happened, on the 18th of April, to four sites. A planning step wrote a small
+update nine minutes after the full brief was created, and the writer's copy of the brief shrank
+from about nine thousand characters to about three thousand. One of the four was repaired by
+accident later. **The other three have been writing pages against a fragment for four months** —
+including the AI orchestration site you complained about. Its list of things to avoid — don't
+say "seamless", no urgency language, no AI hype vocabulary — has not reached a single page since
+April.
+
+**I want to be careful here, because there is a tidy story available and it is wrong.** This is
+not the cause of the copy you objected to. The parts that went missing never mentioned the
+mannerism, and one of the missing parts — the example phrases — is itself written in it, so
+restoring it carelessly would make that particular fault worse, not better. Two separate
+problems that happen to live in the same place. I have written that down in the bug file so the
+next person can't quietly merge them.
+
+**What I have not done:** I have not changed the code, because it is shared machinery that every
+site's brief passes through, and that goes through review rather than round me. I have not
+restored the three shrunken briefs, because restoring ten thousand characters of instruction
+changes what every future page on those sites says, and someone should read that diff rather
+than run a sweep. And I have not touched anyone's brief, because the trap here is nasty: a
+careful, narrow correction to a brief is exactly the thing that destroys the rest of it. That
+warning is now filed where a session will meet it before they act, not after.
+
+**One admission.** My own tool lost data on its first full run — three sites vanished from a
+twenty-five-site report and a fourth was truncated, because of how I was splitting the database
+output. Nothing errored. I only caught it because one site's number had changed since a run ten
+minutes earlier. That is the same lesson as the deploy-checking one further up this page: the
+absence of an error message is not evidence that anything worked.

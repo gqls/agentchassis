@@ -1935,3 +1935,104 @@ the HTML asymmetry.
 ⚠ **The dangling-address landmine FIRED within 24 hours of being filed.** Re-grading run 3's
 proposal now exits `no page_component 3eb70551…` — those components were re-rendered and carry
 new ids. The parked payload is unusable by its stored address, exactly as written.
+
+---
+
+## 2026-08-19 (evening, second session) — the detector got built, and building it found a bigger defect than the one it was for
+
+**Starting point: the NEXT STEP the previous session left.** `count_negation_tells.py` counts
+whole documents, so it is the wrong tool pointed at a spec until it learns to read `formatted`.
+That was the build.
+
+**First thing done, and it changed the design before a line was written.** Rather than assume
+which spec fields reach the writer, I asked the live agent config:
+
+```sql
+SELECT DISTINCT m[1] FROM agent_definitions ad,
+LATERAL regexp_matches(ad.default_config::text, '\{\{[^}]*site_specs[^}]*\}\}', 'g') m
+WHERE ad.type='page-content-writer' AND ad.is_active
+  AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+```
+
+**Five fields, and only five:** `content_direction.formatted`, `identity.key_differentiators`,
+`identity.target_audience`, `evidence_base.writer_block`, `design_intent.imagery_direction`.
+That both confirms the landmine we filed for `finetuning_uk_service` (which named the first two)
+and **extends it** — `evidence_base.writer_block` is in the surface and nobody here had looked
+at it. On `leopardessconsulting.co.uk` it carries **31 of that site's 45 tells**, more than the
+whole `content_direction` brief. The tool derives this list at runtime instead of hardcoding it,
+so it cannot go stale the way a copied list does.
+
+### The unplanned finding: `formatted` is computed from the PARTIAL, before the merge
+
+Reading `FormatContentDirection` to write the parser, the ordering in `write_site_spec` is:
+
+```
+site_spec_actions.go:212   formatted := FormatContentDirection(specMap)   // the INCOMING partial
+site_spec_actions.go:247   merged := siteSpecDeepMerge(currentData, specMap)
+```
+
+So a partial write renders the partial and the merge then puts that short `formatted` over the
+full one. **Predicted signature: `formatted`'s key set equals the newest write's key set, not
+the merged document's.** Tested, and it holds — `ai-agent-orchestration.com`, 2026-04-18:
+`domain-research-classifier` wrote 13 keys into the brief at 18:31Z; `build-site-planner` wrote
+5 at 18:40Z; the brief has been those 5 ever since, while the document went to 19 keys.
+`blog_strategy` is new in the planner's row and appears in no earlier `formatted`, which is what
+identifies the surviving set as the planner's own partial rather than a coincidence.
+
+Fleet: 4 sites collapsed, all on 2026-04-18, all the same transition; `finetuning.uk` recovered
+on 08-12 via a full operator write; **three still serve a fragment.** Filed as `bugs_open/327`
+with a `090` run (`8be5f6e9-…`) per the 07-31 ruling, and as a LANDMINE — because the trap fires
+on **the fix this lane is about to do**: a targeted brief correction written as a partial will
+delete the rest of the brief from the writer's view.
+
+⚠ **What I did NOT do with it, and the discipline is the point.** It would have been easy and
+wrong to attach this to the owner's complaint — same field, same site, same week. It does not
+explain it. The dropped `things_to_avoid` bans hype vocabulary and urgency language and never
+mentions the construction; and the dropped `example_phrases.characteristic` is **itself written
+in the construction** (*"Agents fail in isolation — not in cascades"*), so restoring it naively
+pushes the writer toward the shape the owner objected to. Written into `327 §4` explicitly so
+the next reader cannot pick the tidier story.
+
+### The detector: `audit_writer_brief.py`
+
+Reports four things per site — surface, silent drops, tells over the **visible** text only, and
+supplied phrases. `--transfer "<phrase>"` runs the prompt→response chain.
+
+**It reproduced yesterday's two figures independently**, which is the control that makes the
+tool trustworthy rather than merely agreeable: `in days, not months` → **1,369 prompts / 409
+responses** (yesterday 1,348/408; 21 new prompts overnight, consistent with a fleet still
+writing); `not a sales process` → **0 prompts / 35 responses**, i.e. present in output and in no
+prompt, therefore the model's own phrasing. Both arms of the transfer test fire.
+
+**Exactly ONE mandated supplied phrase fleet-wide** — `ai-agent-orchestration.com`'s canonical
+tagline, in a block that also orders it into *"the homepage hero, services page hero, site
+footer, and meta descriptions"*. That is stronger than "the brief carries the shape": the brief
+**commands** it into the hero, and the owner then objected to a hero.
+
+⚠ **The fleet tell counts here are NOT comparable with yesterday's corrected figures.** Mine
+count five visible fields with five patterns; yesterday's counted `content_direction.formatted`
+alone. `remortgagecalculator.uk` is 35 here and 19 there, and both are right about different
+things. Do not put them in one table.
+
+### Three ways I got it wrong while building it, all caught, all worth repeating
+
+1. **An apostrophe is not a quote mark.** The first fleet run reported *"s own voice, or one
+   short set of fields. Not a long form…"* as a supplied phrase: `['"]` treated the `'` in
+   `client's` as an opening quote. Fixed so single quotes only count when not adjacent to a
+   letter; controls added for both arms.
+2. **`splitlines()` silently lost data.** Parsing psql's tab-separated output that way **dropped
+   three sites from a 25-site run and truncated a fourth to 2 chars** — `splitlines()` also
+   breaks on `\r`, `\x0b`, `\x0c`, `\x1c-\x1e` and ` `, which occur in authored prose, and a
+   row that fails to parse is skipped in silence. The fleet fetch is now one `jsonb_agg`
+   document, so there is no delimiter to get wrong. **The tell was `vetcomparison.uk` reporting
+   `doc 2` where it had reported `37,606` ten minutes earlier** — a number that changed between
+   runs, not an error message. Nothing else would have shown it.
+3. **A correct answer via an accidental mechanism.** `identity.key_differentiators` entries were
+   being flagged only because `json.dumps` had put quote marks round each element. Right
+   answer, wrong reason — so the list case is now a stated rule (a field the template injects
+   verbatim supplies every element) rather than a side effect of serialisation.
+
+**Controls: 15, both arms of every check, and three mutation probes** — breaking `silent_drops`'
+empty/real discrimination, dropping the construction requirement from `supplied_phrases`, and
+breaking the block parser. All three were caught by the self-test. A control that only passes is
+decoration; these were made to fail before they were trusted.
