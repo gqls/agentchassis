@@ -1,5 +1,36 @@
 # 302 — design-repair item types have no registered verifier, so a no-op "repair" completes unverified
 
+> ## ✅ CLOSED 2026-08-19 — **FIXED, LIVE and PROVEN IN PRODUCTION on `v1.0.1314`.** Council APPROVED r1 (`edfef8cc`).
+>
+> **What was fixed:** gate 1b's unreadable-payload arm, which silently waived the very assertion a
+> roster entry exists to make — and [MEASURED] on 5 of 11 occasions completed an item this gate had
+> **already refused** one attempt earlier. It is now a per-type declaration whose zero value is not a
+> policy: undeclared is a build failure, and undeclared at runtime abstains.
+>
+> **Proven four-way, 2026-08-19 09:15Z** (induced, with the owner's authorisation — natural demand
+> never arrived): **A** no result → REFUSED `handler_result_unreadable`; **B** readable all-zero →
+> refused `handler_reported_no_change` (distinct); **C** non-zero counter → COMPLETES; **D**
+> non-roster type, no result → COMPLETES. A alone would have proved almost nothing.
+>
+> **What was ANSWERED rather than fixed:** the filing's headline — should the design-audit family get
+> artefact verifiers — is answered **"not by this route"**, with the reasons already on the record in
+> `verifier_coverage_test.go` (a browser on the completion path; `catJudgement` with nothing to
+> re-run) and a producer split showing `needs_design_review` has FOUR producers over 1,296 lifetime
+> rows. That is a decision, not a gap.
+>
+> **What was spun out so closing this loses nothing:** `bugs_open/317` (the claimed-item-timeout
+> sweep bypasses both gates — latent, 0 occurrences, reachable the moment a carrier is re-enabled).
+> Two further follow-ups need a DECISION before any rule could be written honestly and are recorded
+> in §"the three follow-ups" below: `needs_design_review` semantics (an analysis blob may legitimately
+> BE the deliverable) and `spacing_fix`/`responsive_fix` success-envelope shapes.
+>
+> **Not claimed:** the refusal's cost is real — a refused row burns `max_attempts` and waits at
+> `failed` for a human, because WII-018's retraction has never run and this producer's carrier is off.
+> That is RFC_017's knowingly-accepted cost, not a tidy-up.
+>
+> Lane: `docs024_key_docs_latest/bugfix_302_design_repair_verification/`. Register: WII-017 (amended
+> + proven), WII-011 (fifth `_verification.status` value).
+
 **Filed 2026-08-18 by the `finetuning_uk_service` (merged) lane.**
 
 ## Verification statement (owner ruling 2026-07-31 compliance)
