@@ -57,6 +57,16 @@ assumption, and it blocks the build rather than the design.
   mechanism needs a rule for *which* siblings a site is told about (nearest by family, by
   vertical, by TLD twin). That rule does not exist yet.
 
+**3. A slice of the estate is DELIBERATELY exempt.** Owner, 2026-08-19: *"leave me a bunch of
+domains (50?) unregistered as test domains that I can run without the register."* Those domains
+must carry **no entry here** — and, critically, must be marked as reserved somewhere, because
+once the registry covers everything, "no entry" otherwise reads as "nobody has got to it yet"
+and the next person to fill gaps destroys the control. The record and the rule live in
+**`RESERVED_test_domains.md`**; when the register becomes a database this becomes a **state on
+the row** (`reserved_test`), never a second roster. **Nothing is reserved yet** — measured
+2026-08-19, all 152 portfolio domains are already named here, so the test set must come from the
+wider (uninventoried) estate; picking it is one command once that list exists.
+
 Full ruling and the other two answers (advisory, not binding; data in a DB):
 `architecture_review/RFC_037_…md` §5.
 
