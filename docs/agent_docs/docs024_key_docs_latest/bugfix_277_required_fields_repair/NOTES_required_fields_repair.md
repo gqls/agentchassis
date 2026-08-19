@@ -1692,3 +1692,19 @@ zero is dated and re-runnable rather than remembered as "someone looked once".
 `vetcomparison.uk/tools/compliance-deadline-calculator` is `status='active'` with zero components
 and serves **404** since at least 2026-07-17. That is a page the estate believes it is publishing
 and is not. Unowned as far as I can see; not filed by me because I have not looked for its cause.
+
+> **UPDATE 2026-08-19, same session — the "live defect found in passing" above HAS A HOME, and it is
+> a class, not a page. Do not re-file it.** I wrote "unowned as far as I can see"; that was true when
+> I wrote it and is now wrong. The lane thread verified it first-hand and contributed it to
+> **`bugs_open/315`** (`83459d0d2`) — *"`pages.deployed_at` is stamped whether or not the object is
+> written"*, filed 08-18 by `webdesign_tool_rebuilds`, **OPEN and UNOWNED**. Grounded rather than
+> relayed: I checked the commit and the file, and 315 §"Contribution, 2026-08-19" now names the page.
+> **The page is a second instance one month older than 315's own**, and the class is **42 pages
+> across 14 sites** at `active`+`planned`+zero components, plus **2 at `active`+`deployed`+zero
+> components** — that pair being the sharper form, where the estate believes it is publishing and has
+> nothing. My page also carries **3 completed `page_rerender` items** (08-11, 08-12, 08-18): three
+> rerenders that completed on a page with nothing to render.
+> **And the detector for this already exists and files nothing** — `diagnose_silent_check_action.go`
+> carries both `gatherNavLinkedNeverBuilt` and `deployed_zero_components`, and a fleet-wide all-time
+> query returns zero rows. Undriven, not missing, which decides whether the fix is code or a
+> schedule. **Neither this session nor the lane thread owns 315; it is genuinely available.**
