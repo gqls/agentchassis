@@ -109,3 +109,38 @@ the guarded CAS; both takeover arms currently decide by a 5-minute clock, not a 
 leave it open because what is holding is a *mitigation* and its root-cause candidate was "verified
 and refuted". Closing is the owner's call; record the distinction in the file so a reader does not
 mistake symptom-gone for cause-fixed.
+
+## 2026-08-19 (close) — 466 round 2 APPROVED, and three advisories that were right to ask
+
+**APPROVED, 4 advisory objections, none high-severity.** All three substantive ones checked rather
+than waved through, and one is a genuine near-miss.
+
+**`debug_historian` — "you verified 2 pods, but the landmine says many more run that binary."**
+**Right, and my check was label-scoped and could have been wrong.** I probed
+`items[0]` of `-l app=agent-chassis`. The check I *should* have run:
+
+```bash
+kubectl -n ai-persona-system get pods -o custom-columns='IMG:.spec.containers[0].image' --no-headers \
+  | grep agent-chassis | sort | uniq -c
+```
+
+**27 pods run the chassis image, and all 27 are on `v1.0.1315`.** So the answer is uniform and the
+conclusion holds — but it holds by luck of the roll, not by the strength of my check. Recorded
+because "I got the right answer from a check that could have lied" is the useful half.
+
+**`debug_historian` + `prior_art_librarian` — "was the ZERO census a `->'workflow'->'steps'` walk?
+That is blind to `sub_workflow`/substeps."** A real trap, and **my census avoided it by form**: it
+was a column-wide `default_config::text ~* '(UPDATE|INSERT INTO|DELETE FROM)\s+orchestration_states'`,
+which sees every character including nested steps. Confirmed the trap is live here, not theoretical:
+**20 rows contain `sub_workflow`/`substeps`**, so a scoped walk really would have missed them. The
+seats could not tell which form I used from the submission — that is a reporting failure of mine, not
+a method failure.
+
+**`guardian` + `editquality` — "the edit deletes the dead `PAUSED_FOR_HUMAN_INPUT` but does not add
+the live `PAUSED_FOR_HUMAN`."** There is no live constant to add: `StatusPausedForHuman` was deleted
+in the same commit (only an explanatory comment in the e2e test now mentions it), and
+`PAUSED_FOR_HUMAN` is **not in the vocabulary**, so the FK refuses it. A guard for it would protect a
+state that cannot exist. The objection assumed the constant survived.
+
+**`reuse_agent` — the two-pattern asymmetry.** Answered by **RFC_039**, raised and committed the same
+day at the owner's direction.
