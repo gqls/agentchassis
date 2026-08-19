@@ -873,3 +873,77 @@ artefact, while `pricing` still measures **8**. So when the rotation next reache
 working tree from another session, and a same-file edit would ride along with theirs on whoever
 commits first (LANDMINES: a pathspec commit still takes a same-file passenger). Recorded here
 instead; whoever picks that lane up can lift it.
+
+### ✅ SHRINK INVESTIGATION ANSWERED — the floor was right, the remedy was to RE-RUN, and the real blocker is a stale number
+
+Evidence run completed 2026-08-19 15:17Z (orchestration `1c438d16-d991-48d1-8619-9f045a9d2a3d`).
+
+**FIRST, THE CONTROL: nothing was written.** All five `pricing` components' `md5(rendered_html)`
+are byte-identical to the baseline taken before firing, and every `updated_at` still reads
+2026-04-09/13. The ordering argument held in practice, not just on paper.
+
+**1. The shrink floor is NOT the blocker, and lowering it would have been the WRONG call.**
+
+| call-to-action | visible chars |
+|---|---|
+| currently live (April render) | **483** |
+| 2026-08-17 generation — refused at 44% | **213** |
+| 2026-08-19 generation — this run | **489** |
+
+The regeneration is **non-deterministic**, and 08-17 caught a bad draw. Today's is *fractionally
+longer than the page it would replace*, so the floor would not have fired at all. **Had we set
+`section_shrink_floor` to admit the 213-char version, we would have permanently lowered a safety
+control to accommodate a one-off, and shipped the worse of two drafts.** The floor did precisely
+its job: it refused a bad generation, wrote nothing, and cost one re-run.
+
+⚠ **The corollary is about method, not this page.** A guard that fires on a *sampled* output cannot
+be assessed from one firing. The question "is this floor too strict?" is unanswerable from the
+refusal alone — you have to re-draw. One observation of a stochastic step is not a measurement of
+it, and the fix that looks obvious from a single failure (loosen the threshold) is the one that
+removes the protection.
+
+**And the new copy is better, not merely longer** — clean prose, no literal markdown:
+
+> *"What does this actually cost against building it yourself? That is the real comparison, not a
+> feature list. A Technical Discovery Call gets you a scoped estimate against your own agent count,
+> message volume and compliance requirements, worked through by someone who has configured the
+> Kafka consumer groups and Postgres locking for systems like it. No sales deck, just the numbers
+> your board is asking for."*
+
+Compare the live one, which serves `[LLM Provider Cost Comparison Calculator](/tools/…)` as visible
+text. **So the shrink floor was defending the worse copy of the two** — which is the shape the
+`copy_quality_two_stage` CONTRIB warned about, confirmed here from the other end.
+
+**2. The ACTUAL blocker is one stale number, and the claims gate is right.**
+
+The run died at `validate_content`, **not** `save_sections` — it never reached the shrink floor.
+`0 blockers, 1 error`, recovered from `agent_error_log` (`CONTENT_VALIDATION_BLOCKER_DETAIL`, which
+persists the structured issues precisely so this does not need pod logs):
+
+```
+type: unregistered_number   severity: error   category: claims
+value: "170"
+location: ", Kubernetes, Kafka, and Postgres, drawing on a registry of 170+ agents
+           already built and running in production."
+```
+
+The site's `evidence_base` (7 facts) registers **196** — *"active agent definitions in the
+registry"* / *"distinct agent types"* — and `17` backend services. **There is no 170.** So the
+writer asserted a stale figure and the gate refused the page. The gate is correct; the copy is wrong.
+
+⚠ **And the same stale number is ALREADY LIVE on this site.** `about` / `leadership-team` serves
+*"The framework now coordinates 170+ agent types on Kubernetes and Kafka"*. That page passed
+because it was rendered in April, long before this gate existed — so the gate is not inconsistent,
+it is simply newer than the page. **A claims gate only ever guards writes; it cannot see what is
+already served.** Anything asserting 170 on this site today predates the check.
+
+**What this means for the owner's decision:** the choice put on 2026-08-18 (accept the shorter copy
+vs investigate) is **retired** — there is no shorter copy to accept. The pricing rebuild needs one
+of:
+- **(a)** the `170` corrected to the registered `196` at source, so the writer stops asserting it —
+  this also fixes the live `about` page's stale claim; or
+- **(b)** `170+` registered as a fact if it is the figure the owner actually wants to publish,
+  which given `196` is registered would be publishing a *lower* number than the truth.
+
+**(a) looks right and is not mine to decide** — it changes a public claim about the business.
+Nothing is queued; the evidence item is at `needs_human_review` and wrote nothing.
