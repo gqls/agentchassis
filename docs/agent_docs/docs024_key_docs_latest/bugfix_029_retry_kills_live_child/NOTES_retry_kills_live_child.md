@@ -1786,3 +1786,36 @@ unremarkable and says nothing about who re-ran the step body. It grounds the dra
 **Separating C1 from C2 needs logs**, and the 08-17 pods are two days gone — so it waits for the next
 burst, where RSH-011's hourly capture is already armed. Nothing further is extractable from the table
 on this question.
+
+### 10. Blast radius of the `workflow%` follow-up, measured before proposing it — and a source figure I could NOT reconcile
+
+`[MEASURED 2026-08-19]`, live DB:
+
+| quantity | value |
+|---|---|
+| `schema_table_cap` (default) | **120** (`diagnose_load_runtime_action.go:440`) |
+| tables the current include matches | **86** base tables + 1 view |
+| `schemaAlwaysTables` | 7 (they sort FIRST, so truncation cannot reach them) |
+| **added by `workflow%`** | **2** |
+| added by `v\_%` | 11 views |
+
+So the widening is safe on the cap: ~94 in use today, `workflow%` takes it to ~96, and even adding
+every `v_` view lands ~107 — all under 120. **Worth stating because the obvious objection to
+widening a relevance include is that it pushes something else out, and here it measurably does not.**
+
+> **⚠ A figure in that file's own comment does NOT reconcile, and I am recording the discrepancy
+> rather than quietly overwriting it.** The comment says *"Measured 2026-08-10 against the live DB:
+> the default include (site%|page%|content%|flow%) selected **26 of 433** public tables"*. The same
+> four patterns today select **86 of 457** base tables. Nine days is not obviously enough for a
+> 3.3× jump in matches against a 5% growth in tables, so this is **either real growth in `site_*` /
+> `page_*` tables or a method difference** (the original may have counted post-exclude, or counted
+> only tables actually rendered). **I did not resolve it, and I am not calling the comment stale on
+> a measurement I cannot show is like-for-like** — the honest state is "two numbers, one method
+> unknown". Whoever widens the include should settle it in passing, because the cap headroom
+> argument above depends on the larger number being the right one.
+
+**Held deliberately, not forgotten.** I have not shipped the `workflow%` change in this session, for
+one reason: run `d02a6958` is in flight, and if it needs further tables the right move is **one**
+widening that covers everything rather than two council rounds a day apart. If the run comes back
+clean, submit the widening on its own evidence — and per the 2026-07-29 ruling, tell the lane whose
+run `dd61df1b` stalled, since it is their symptom being fixed.
