@@ -5129,3 +5129,33 @@ producer" is the RenderContext JSON tag, not a save-path change. Corrected in th
   was the discriminating kind.
 - 090 run on the mechanism: corr `a9a33be9-5b17-4f66-b418-084f33e7735b` (dispatched 10:41Z).
   Council submission prepared (scratchpad `council_submission_306_cand3.json`); corr to follow.
+
+## 2026-08-19 (~11:0xZ) — gate round 1 (post-outage): REVISE, and the gating objection was RIGHT. Every objection verified at the data; two confirmed; one became code; round 2 submitted.
+
+The REVISE round earned its cost twice over (MEMORY: a REVISE round is cheaper than the defect
+it finds — again true):
+
+1. **guardian HIGH, CONFIRMED:** my prompt sweep walked only TOP-LEVEL steps. Sub-workflow
+   prompts were invisible — and the proof is embarrassing in the good way: `generate_content`,
+   the nested step I had personally traced two hours earlier, was absent from my own sweep.
+   Re-measured with a recursive CTE over EVERY jsonb node (object+array, any depth):
+   page-ish trio still ZERO undeclared consumers; `domain` gains one more undeclared consumer
+   (40, not 39 — page-content-writer itself, nested). **Conclusion survives; evidence was
+   unsound and is redone.** The blind spot is the same census class the guardian cited (~80
+   missed invocations elsewhere) — top-level-steps sweeps over agent_definitions are NOT a
+   census, and any future sweep in this lane must use the recursive form (now in this entry
+   and the round-2 submission).
+2. **guardian MEDIUM, CONFIRMED overclaim:** "0 orchestrations all-time" was read from
+   `orchestration_states`, whose earliest row is 2026-07-13. Re-grounded: `usage_count=0`
+   since 2025-12-06 AND zero `llm_call_log` rows in a log reaching back to 2026-03-25.
+   The label was wrong; the fact stands, now on sources that could have said otherwise.
+3. **editquality MEDIUM (two active rows):** already closed by 483's own guard (RAISE unless
+   exactly 1 live row); measured: the type has exactly ONE row in ANY state.
+4. **bug_historian MEDIUM (check 085):** read it — 085 is the RENDER pipeline's context
+   assembly dropping the page NAME; never touches ensureCoreFields' injection. Disjoint.
+5. **bug_historian LOW (silent absence) → CODE (`393f15bfd`):** the skip is named on the
+   existing "Ensuring core fields present" line (`unrequested_page_fields_not_injected`), so
+   a missing page field is diagnosable from the exact call that skipped it, at zero volume.
+   `TestSkippedInjectionIsNamedOnTheLog` pins it.
+
+Round 2 submitted under the same correlation (`RESUBMIT_CORR=07468ec0`, run `bd6e8188`).
