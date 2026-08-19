@@ -4,6 +4,30 @@
 council-approved and live. Both are essentially done. What remains is **three owed verifications, all
 gated on fleet traffic rather than on work**, plus two new tickets nobody has started.
 
+> ## ⚠ STATE AS AT 2026-08-19 09:00Z — READ THIS FIRST, THEN THE 08-18 BLOCK BELOW
+>
+> **Build:** `v1.0.1314`, rolled 07:50–07:52Z, verified at the binary (stamp `d3590ca46`; three
+> controls absent, **including the previous build's stamp**, so this shipped new code rather than a
+> cached image). Detector still an ancestor. **Nothing in this lane is fixed by that roll** — 313 and
+> 316 are config defects, and 313's live config still reads `array` / `candidate_pages.count > 0`.
+>
+> **Census (durable, `collected_data`, ~2-day retention):** `content-feed-trigger` **5 of 5 runs hit
+> its cap**; `model-directory-trigger` **0 of 4** (the control). ⚠ Yesterday's "3 of 4" became "5 of 5"
+> because the one under-cap run **aged out of the window** — the fleet did not change.
+>
+> **THREE DECISIONS ARE OWED BY THE OWNER, none urgent, all cheap** — see `README_where_we_are.md`,
+> entry of 2026-08-19:
+> 1. **Fix `bugs_open/313`?** The internal linker has produced no link in four months. Config-only,
+>    live on apply, but BOTH halves (`output_format: object` **and** the `plan_links` template) or it
+>    trades a dead branch for a broken prompt. Fixing it makes `bugs_open/298`'s cap live on 8 sites.
+> 2. **Fix `bugs_open/316`?** Ordering (fairness, one config change) and capacity (spend-vs-freshness,
+>    genuinely the owner's call) are separable — do not conflate them.
+> 3. **Keep waiting on §3a?** `suggest_tools` has not run since 2026-08-15. The alternative is to
+>    dispatch one deliberately, which creates real work at a site.
+>
+> **Witnessing the WARN: tried, failed, unattributed** (08-18 20:32Z — see the 08-18 block and NOTES).
+> `collected_data` answers the same question retroactively; **do not spend more time on the log line.**
+
 > ## ⚠ CORRECTED 2026-08-18 (evening) — READ THIS BEFORE §3b, §3c AND §4
 >
 > **The census instrument specified below cannot work, and its zero is not a negative result.**
@@ -47,6 +71,8 @@ gated on fleet traffic rather than on work**, plus two new tickets nobody has st
 | register **MDL-041** (budget at the client) | registered, index row present | live |
 | register **LCO-009** (silent row-cap detector) | registered, index row present | live, **but see §4** |
 | `bugs_open/297` — tool-recreation, 10 of up to 107 | **FILED, not started** | n/a |
+| `bugs_open/313` — **internal-linker has NEVER made a link** (branch after the capped step can never be true) | **FILED 08-18, diagnosis CONFIRMED (`c4aa3559`). NOT FIXED.** Live config still `array` / `.count > 0` as at 08-19 09:00Z | n/a |
+| `bugs_open/316` — **the news-feed cap serves the alphabet**: ranks 1–5 0% late, ranks 6–9 always late; queue 2.1× oversubscribed | **FILED 08-19. NOT FIXED.** Narrows LCO-009's "eventual coverage is not a defect" gloss | n/a |
 | `bugs_open/298` — internal-linker, 15 of up to 68 | **reachability ANSWERED 08-18** — the cap is moot; the agent never reaches `plan_links` at all (diagnosis `c4aa3559`) | n/a |
 
 **Nothing is half-committed.** Working tree is clean for every file either lane touched; the clean
