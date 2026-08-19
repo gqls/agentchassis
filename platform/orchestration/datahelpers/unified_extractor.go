@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 )
 
 // ExtractFields is THE ONLY function you should use to extract fields
@@ -726,6 +728,19 @@ func isInfrastructureKey(key string) bool {
 		"__parent_responses_topic__",
 		"__reply_to_request_id__":
 		return true
+	case types.RetryPayloadKey:
+		// bugs_open/306 candidate 3. A retry_payload subtree is the VERBATIM
+		// Kafka message an awaited-request action produced, kept so the
+		// coordinator can replay it on timeout (bugs_open/129) — including a
+		// frozen copy of every input field the sender sent, which is exactly
+		// the stale echo behind the genuinely-different-page candidate sets
+		// (13/139 measured 2026-08-18). Its ONLY reader takes it by direct key
+		// from the action result before that result reaches CollectedData
+		// (coordinator.go extractRetryPayload → awaited_requests.request_payload);
+		// nothing resolves fields OUT of it, so the search must not treat its
+		// contents as live data. Like agent_config above, a direct request FOR
+		// the key itself still resolves — this guards recursion only.
+		return true
 	}
 	return false
 }
@@ -809,8 +824,21 @@ func ensureCoreFields(
 	fieldNames []string,
 	logger *zap.Logger,
 ) {
-	logger.Info("Ensuring core fields present")
 	requested := func(name string) bool { return contains(fieldNames, name) }
+	// Name the fields the gate is about to skip ON the line this function has
+	// always emitted, so "why is current_page missing here?" is answerable from
+	// the log of the very call that skipped it — the alternative (silence) is
+	// the no-error-no-warning shape this estate keeps re-learning about
+	// (council REVISE round on this change, bug_historian seat, 2026-08-19).
+	// Empty when everything page-ish was requested or nothing was.
+	var skippedPageFields []string
+	for _, f := range []string{"current_page", "current_section", "render_context"} {
+		if !requested(f) {
+			skippedPageFields = append(skippedPageFields, f)
+		}
+	}
+	logger.Info("Ensuring core fields present",
+		zap.Strings("unrequested_page_fields_not_injected", skippedPageFields))
 
 	// Check domain
 	if _, hasDomain := result["domain"]; !hasDomain {

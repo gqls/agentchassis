@@ -15,6 +15,8 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // A tree where every one of the six core fields is findable by the whole-tree
@@ -110,5 +112,27 @@ func TestGateThroughExtractActionInputs_DispatchLoopShape(t *testing.T) {
 	}
 	if _, present := inputs.Values["current_page"]; present {
 		t.Fatalf("current_page = %v was injected into a step that declares only work_item_id — the gate must close this", inputs.Values["current_page"])
+	}
+}
+
+func TestSkippedInjectionIsNamedOnTheLog(t *testing.T) {
+	// The gate's skip must be diagnosable from the call that did it (council
+	// REVISE, bug_historian seat): the long-standing "Ensuring core fields
+	// present" line now names the unrequested page-ish fields it will not
+	// inject. Absence stays cheap — no search runs — but it is no longer silent.
+	core, logs := observer.New(zapcore.InfoLevel)
+	ExtractFields(coreFieldsFixture(), []string{"brief"}, zap.New(core))
+
+	entries := logs.FilterMessage("Ensuring core fields present").All()
+	if len(entries) != 1 {
+		t.Fatalf("core-fields log fired %d times, want 1", len(entries))
+	}
+	enc := zapcore.NewMapObjectEncoder()
+	for _, f := range entries[0].Context {
+		f.AddTo(enc)
+	}
+	skipped, _ := enc.Fields["unrequested_page_fields_not_injected"].([]interface{})
+	if len(skipped) != 3 {
+		t.Fatalf("unrequested_page_fields_not_injected = %v, want all three page-ish fields named", enc.Fields["unrequested_page_fields_not_injected"])
 	}
 }
