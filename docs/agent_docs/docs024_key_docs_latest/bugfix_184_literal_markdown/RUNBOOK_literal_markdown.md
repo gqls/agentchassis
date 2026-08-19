@@ -109,3 +109,26 @@ A hit can be loaded context (MEMORY/LANDMINES), so read the hit lines before con
   (verifiers.go — RFC_017 fail-closed), not just canaries; a carried dirty section keeps
   the page's scan non-empty, so completion is refused and the item rides the attempt
   machinery to human review. Honest failure, not silent success.
+
+## Verifying the strip flags (gotcha from the 8d lane, 2026-08-19)
+
+A shallow query (`jsonb_each(default_config->'workflow'->'steps')`) finds only TWO of the
+three flags and reads exactly like a half-applied 474 — page-content-writer's flag lives
+inside `process_sections_loop`'s sub_workflow. Use the deep query:
+```sql
+SELECT type, jsonb_path_query_array(default_config, '$.**.strip_literal_markdown')
+  FROM agent_definitions
+ WHERE type IN ('page-rerender','page-content-writer','section-editor')
+   AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+## Re-arming after the NEXT roll (the resolver-layer fix, f3939f27d)
+
+1. Binary-probe both replicas for the new layer: `grep -aq "stripped literal markdown from fresh resolved_data" /proc/1/exe`
+   (plus nonsense control).
+2. Re-arm the two burned generic canaries + remaining generic items (same UPDATE as §Rollout
+   step 4; they are `failed` at attempt 3, so reset `attempt_count=0`).
+3. Expect news-page items to now converge; expect owned/ported-slot items to keep failing
+   honestly (301's remit / tool-rebuild programme). Verify at the served page; the
+   dartsonline items[18] summary will still show TABLE pipes (outside the pattern set —
+   feed-quality follow-up).

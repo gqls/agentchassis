@@ -37401,3 +37401,26 @@ someone emptied it on purpose. Before proposing to fill, rename, restore or revi
 for the commit or migration that removed it. This is the same failure as
 `a-model-upgrade-can-invert-a-closed-bugs-premise` seen from the other end: there, a scope-out
 expired; here, a scope-out was never read at all.
+
+## 2026-08-19 — bug 184: wrote `Council-Reviewed:` on a commit whose content the council had not reviewed (caught by myself, minutes later; corrected by a same-hour round-5 submission)
+
+**The claim:** commit `f3939f27d` (the resolver-layer strips, a canary-driven follow-on)
+carries `Council-Reviewed: 060bcc0a…`. That trailer asserts the commit's content passed
+review under that correlation. The approved rounds 1–4 reviewed the seam mechanism; the
+resolver-layer edits (incl. a NEW unconditional producer-local strip in the news
+resolver) were written AFTER the approval and were in no reviewed plan.
+
+**What caught it:** my own re-read of the trailer rules while writing the commit's NOTES
+entry — "Never write Council-Reviewed: on a verdict you have not read" extends to
+"…covering content the verdict did not cover". The 098 report may bucket this as a
+MISMATCH; it should, that is its job.
+
+**The correction:** round 5 submitted the same hour on the same correlation, covering
+exactly those three edits and disclosing the premature trailer in its own grounded_in.
+Forward-only forbids an amend; a REVISE verdict will be acted on in code.
+
+**The cheap check that would have:** before typing `Council-Reviewed:`, ask "is every
+edit in THIS commit inside the reviewed plan?" — a ten-second diff-against-plan glance.
+An approved correlation is not a badge for the lane; it is a statement about specific
+edits. (Corollary of the standing `a-submission-is-not-a-review` memory: an approval is
+not a review of what you wrote afterwards either.)

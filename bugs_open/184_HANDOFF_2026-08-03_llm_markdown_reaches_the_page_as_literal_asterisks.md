@@ -621,3 +621,36 @@ on the action result). All code at HEAD through `9c77e0dff`; IMAGE_TAG bumped to
 v1.0.1311. **Remaining: the owner's fleet release, then migrations 473/474, then the
 canary + batch promotion per the lane RUNBOOK.** Bug stays OPEN until the pages verify
 clean at the served artefact.
+
+## Progress — 2026-08-19 — migrations LIVE, canaries run: the seam works, and the canaries found the layer below
+
+Image v1.0.1314 binary-probed (both replicas, controls); **473+474 applied 10:34Z** and
+ledger-recorded, with the 083 lane's owned-page CONTRIB folded into 473's header first
+(SCOPE: owned pages are the expected residual, bugs_open/301's remit — measured split at
+promotion: 30 generic / 41 owned open items).
+
+**Canaries (2 generic + 1 owned): the strip fired, the save succeeded, and the verifier
+correctly refused — because news-listing items are QUERY-RESOLVED.** `plan.ResolvedData`
+merges last and wins, so the fresh resolver output re-imposed the markdown onto the very
+field the strip had cleaned, in the same run (dartsonline items[18].summary, proven at
+the post-save row). **Root, measured: `content_feed_items.source_summary` carries raw
+markdown in ~700 of 10,855 rows** (699 headings, 272 links, 81 bold, 8 whole scraped
+ranking tables). The bug's original diagnosis ("LLM writers emit markdown") was
+incomplete: the third source of literal markdown on live pages is the NEWS INGEST FEED,
+served verbatim through the resolver on every render — no LLM in that loop at all.
+
+**Fix committed `f3939f27d` (inert until the next fleet roll):** the same double-gated
+strip on the resolved overlay at both render seams, plus an unconditional producer-local
+strip in `projectNewsItems` (ingest record stays raw; render value cleaned; strip before
+truncation). Round-5 council submission covers it (same correlation). Until the roll,
+news-page repairs keep failing HONESTLY at the verifier — read those failures as
+pending-roll, not mechanism-wrong.
+
+**Named follow-ups, not silently absorbed:** (1) markdown TABLES are outside the 184
+pattern set — 8 feed rows will serve pipe-text even after the strip; a feed-quality
+issue (a whole scraped rankings table is not a "summary"), file separately if it matters
+commercially. (2) Owned/ported-slot findings (most of webdesign.co.uk's 41) are
+structurally out of this route's reach — the defect lives in ported HTML, not
+content_data; that is the tool-rebuild programme's remit and bugs_open/301's routing
+question. (3) The two burned generic canaries need re-arming after the roll
+(attempt_count reset — the lane RUNBOOK scripts it).

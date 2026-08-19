@@ -169,3 +169,48 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   defects (blast radius; audit trail) — the revise-is-cheaper rule, proven again.
 - SUMMARY_2026-08-18_literal_markdown.md written (milestone: design+code+council done;
   rollout pending the owner's fleet release).
+
+## 2026-08-19 — image live, migrations applied, canaries run: the seam WORKS and found the next layer down
+
+- **Deploy verified at the binary**: v1.0.1314 both replicas — `strip_literal_markdown`,
+  `shouldStripLiteralMarkdown`, `md_link` all present, nonsense control absent. (The
+  provenance log line had scrolled; the binary probe has no shelf life.)
+- **473 + 474 APPLIED 10:34:26Z / 10:34:35Z**, ledger-recorded via `--record-only`
+  (the runner's pending list carries a dozen other threads' files — `--apply` untouchable).
+  473 first got the 083 lane's CONTRIB folded in: SCOPE header (owned pages = expected
+  residual, bugs_open/301's) + at-apply generic/owned split NOTICE. Open population at
+  promotion time: **30 generic / 41 owned**.
+- **Canaries (2 generic + 1 owned, per the CONTRIB's ask). The mechanism worked end to
+  end and the verifier caught a REAL deeper layer:**
+  - dartsonline news-index: strip FIRED (`stripped_markdown_fields:
+    [news-listing:items[18].summary]`), save succeeded (3 sections) — and the verifier
+    refused: the SAME field dirty again. Post-save DB read shows resolver output
+    (`## Updated PDC…` + a raw markdown TABLE). **Query-resolved fields cannot converge
+    by stripping the stored copy: `plan.ResolvedData` merges LAST and wins.**
+  - Root measured: **`content_feed_items.source_summary` carries raw markdown in ~700
+    of 10,855 rows** (699 headings, 272 links, 81 bold, 8 whole scraped tables). The
+    resolver (news_items.go:95) feeds it verbatim on every render.
+  - Owned canary (webdesign learn-index): verifier-refused on a `ported-page` slot's
+    rendered_html code_span — it did NOT hit the ownership guard (no save attempt on the
+    residue path); honest failure either way, exactly the 473 SCOPE prediction's shape.
+    Ported/tool-slot findings are structurally out of this route's reach (defect lives in
+    ported HTML, not content_data) — the tool-rebuild programme's remit.
+- **Fix committed `f3939f27d`** (inert until next roll): gated strip extended to
+  `plan.ResolvedData` (rerender) and the `merge_with` overlay (v3), both under the same
+  double gate; PLUS an **unconditional producer-local strip in `projectNewsItems`**
+  (strip-before-truncate — truncating mid-`[text](url)` leaves an unmatchable
+  half-pattern; ingest record stays raw, render value cleaned, the directory_items
+  EscapeString posture). Verified against git-archive HEAD + my 3 files — the working
+  tree carries another session's WIP referencing undefined `refuseOwnedPageIfConfigured`.
+- **Process miss, owned**: `f3939f27d` carries `Council-Reviewed:` but its content was
+  NOT in the approved r1–r4 plan — premature trailer. Correction: **round 5 submitted
+  the same hour** on the same correlation (RUN_ORCH a460f0f6) covering exactly these
+  three edits + the honesty disclosure. WRONG_CALLS entry appended. A REVISE verdict
+  will be acted on forward.
+- **Markdown TABLES are outside the 184 pattern set** — 8 source rows serve pipe-text
+  even after the strip; recorded as a feed-quality follow-up, not silently absorbed.
+- Both canary generic items are terminally `failed` (3 attempts each) — **re-arm them
+  after the next roll**, along with the remaining generic population.
+- Cross-session: 083/277 lane's two messages folded in (their by-construction owned-page
+  analysis was right; their canary ask ran); 8d lane confirmed 473/474 independently and
+  contributed the shallow-jsonb query gotcha (now in RUNBOOK). All replies sent.

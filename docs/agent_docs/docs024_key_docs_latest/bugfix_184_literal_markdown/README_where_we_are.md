@@ -71,3 +71,31 @@ improved the migrations (I switched to the standard backup mechanism, and re-mea
 the success statistics including the archive — which made the case for the new repair
 path stronger, not weaker: the rerender machinery is 99% reliable over ~14,000 runs).
 Round two is submitted with the evidence.
+
+## 2026-08-19 — the new build is live, the switches are on, and the test run taught us something real
+
+The fleet release happened, I checked the running programs actually contain the new code
+(they do), and switched the two database settings on. Then the test run: I fed three
+defective pages through the new repair — two ordinary pages and, at another session's
+sensible suggestion, one "owned" page where we expected an honest refusal.
+
+The repair machinery itself worked exactly as designed: it removed the markdown symbols
+and saved the page. But our honesty-checker then refused to call the job done — and it
+was right. The news listings on these pages are refreshed from a news feed database on
+every rebuild, and THAT database contains raw markdown in about 700 stored articles. So
+the repair cleaned the page and the news refresh immediately wrote the symbols back, in
+the same run. The bug was one layer deeper than anyone had looked: it isn't only our AI
+writers typing markdown — our news ingestion has been storing it, and the page builder
+serves it verbatim.
+
+The fix for that layer is written and committed: the news feed's stored articles stay as
+they came in (they're a faithful record), but everything that turns them into page text
+now cleans them first. This code rides the NEXT release — so the ask stands again: one
+more fleet release when convenient, after which I re-run the repairs and expect the
+ordinary pages to come clean. The "owned" pages (mostly webdesign.co.uk's ported tool
+pages) will keep refusing honestly — fixing those belongs to the tool-rebuild programme,
+not this bug.
+
+One process note in the interest of honesty: I put the council's approval stamp on
+today's follow-up commit before the council had seen the follow-up. I caught it myself,
+sent the follow-up for review the same hour, and logged the mistake where we log those.
