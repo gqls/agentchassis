@@ -299,6 +299,16 @@ var reviewRevalidators = map[string]reviewRevalidator{
 	// established that, and for the correction to this lane's earlier "two
 	// producers" claim.
 	"claims_unverified": revalidateUnverifiedClaims,
+	// spec.component_id: "fc56f085-…" — asks whether the component's stored
+	// template still carries an unterminated structural tag. Delegates to the
+	// SAME function complete_work_item's gate runs
+	// (checks.VerifyTruncatedComponentResolved), so the queue drain and the
+	// completion gate cannot answer the same question differently.
+	// Added 2026-08-19 (bugs_closed/303 residual): 3 items, ONE producer,
+	// nothing had ever closed one — and nothing could: the type is born
+	// needs_human_review, which CompleteWorkItemAction refuses to leave. See
+	// revalidate_truncated_component.go for both censuses.
+	"truncated_component": revalidateTruncatedComponent,
 }
 
 // coveredItemTypes is the selection's source of truth, derived from

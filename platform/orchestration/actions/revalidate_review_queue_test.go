@@ -195,7 +195,16 @@ func TestRevalidatorCoverageIsDeliberate(t *testing.T) {
 	// registers no check and emits no work item, it is a helper called from inside
 	// the shared scan. Retraction is not the auto-rewrite that check's `fix` text
 	// forbids — see revalidate_unverified_claims.go for both.
-	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified"}
+	// truncated_component added 2026-08-19 (bugs_closed/303 residual), and it
+	// cleared the same bar: the CLOSER census (item_type='truncated_component'
+	// AND status IN ('complete','verified')) returned ZERO rows — all 3 items
+	// ever filed sit at needs_human_review, where CompleteWorkItemAction's
+	// status guard means the type's registered completion verifier can never
+	// run. ONE producer, check_truncated_component.go. The revalidator only
+	// retracts findings the current template no longer supports; the remedy
+	// decision (restore/regenerate/remove) stays human — see
+	// revalidate_truncated_component.go.
+	want := []string{"unresolved_cta", "required_fields_missing", "needs_section_data", "needs_page", "voice_tells", "claims_unverified", "truncated_component"}
 	for _, itemType := range want {
 		if _, ok := reviewRevalidators[itemType]; !ok {
 			t.Errorf("revalidator for %q is missing", itemType)
