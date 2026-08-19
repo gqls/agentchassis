@@ -2027,3 +2027,34 @@ authored (`awaited_requests`, then `next_call_registered`) and both returned tru
 was just **my own symptom text quoted back into the bundle**. The general rule: **any check against
 the bundle body for a string you wrote is blind.** Discriminate on the *renderer's* syntax
 (`awaited_requests(` with the parenthesis) or on the query's *output values*, never on its name.
+
+
+### 16. ⚠ WITHDRAWN: my duplicate-spawn account, and the numbering collision in this file
+
+**Two corrections, both from discovering at ~22:15Z that a second session worked this lane all day
+and I never checked (`scripts/who-owns.py`, `git log` on the lane dir — neither run).**
+
+**(a) My takeover account of the duplicate spawn is WITHDRAWN.** I wrote that the 06:54–09:37
+duplicate-registration gap was "consistent with the already-established >5-min takeover sampled by a
+5-min replay cycle". The other session measured the thing that settles it: **`retry_version` is 0 on
+all 37 spawn rows, and a retry bumps `retry_version`** — so the duplicate is not the takeover
+re-running the step, **the step BODY executed twice**. Their sections in
+`HANDOFF_2026-08-19b_continue_here.md` are primary on this.
+
+**The part worth keeping is how I got it wrong: the refuting data was in my own output.** Every spawn
+row I printed in §3 shows `retry_version 0`, hours before I wrote the takeover line. I read past it
+because a 5-min threshold sampled by a 5-min cycle *explains* a 5–10 minute gap, and the gap was in
+range. **An explanation that fits is not evidence, and a fit cannot disconfirm.** Same failure shape
+as the 53-second batch fit in §2 — which I caught, in the same session, and then repeated.
+
+**(b) This file now has TWO §9, §10 and §11 sequences**, written by two sessions appending
+concurrently without seeing each other. Neither set is wrong; the numbers are. **Resolve by date and
+subject, not by number** — mine run from ~10:45Z (retention, the ticker refutation, the bundle fix,
+the two 090s); theirs cover the rv0 finding, the framework gap and the `d52c3407` verdict. Do not
+renumber either: both are cited by number from other documents already.
+
+**(c) Their ranking beat mine on the framework gap.** I fixed the *schema* half and then worked
+around the *rows* half by putting a reconstruction query in the symptom — a workaround that must be
+remembered by every future filer. They ranked building the `### awaited_requests` rows section above
+any such workaround, on the close-the-door rule. **My workaround was then tried and it regressed the
+run** (§15). Their ranking was right before the evidence arrived, which is the stronger position.
