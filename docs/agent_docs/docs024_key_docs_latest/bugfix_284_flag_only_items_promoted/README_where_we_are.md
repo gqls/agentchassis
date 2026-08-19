@@ -498,3 +498,30 @@ That is the thread to pull, and it is why this hasn't fixed itself.
 Everything is recorded, including a warning for whoever migrates the next component
 like this, because the error message politely invites you to disable the very guard
 that is protecting you.
+
+---
+
+**2026-08-19 — closing this one off.**
+
+The new build is out and carries everything; the fleet is now within three commits of the
+branch, which is the healthiest it has been all week. I re-ran the checks on it and got
+the cleanest reading this work has produced: **not a single work item anywhere in the
+estate is sitting in the "blocked" state**, for any reason at all — while 722 findings of
+exactly the kind that used to end up there sit correctly parked, waiting for a human. Four
+builds in a row now, no regression.
+
+So yes — **this lane can close, and I have closed it.** The bug is in the closed pile, the
+fix is live and has been watched working, the damaged rows are repaired, the hole that
+allowed it is shut at the database level, and the decisions you made have all either
+landed or been handed to the lane that owns them.
+
+I have written into the handoff the four specific things that would justify anyone opening
+it again — a blocked row reappearing, the database rule losing its guarantee, a fourth copy
+of the shared check turning up, or the improvement sweep being switched back on (that last
+one is not a fault; it is simply the first time the guard would run on its own schedule
+rather than being fired by hand, so it is worth one look). Anything short of those is
+noise, and I would rather the next person spent their time elsewhere.
+
+What is left over from this work lives with the people who own it: the image census and the
+page-type gap with bug 114, the favicon and social cards with 131, and the one row of yours
+waiting on 227. None of it needs me.
