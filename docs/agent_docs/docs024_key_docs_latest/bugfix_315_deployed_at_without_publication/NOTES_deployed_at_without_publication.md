@@ -848,3 +848,108 @@ agent-chassis images is not mine to do.
 **Designed, not built:** the divergence sweep (PLAN D5) — the piece that would actually have caught
 this bug at 15:18 on the day it happened. It is gated on `content_hash` being populated, which is
 gated on the roll. Until then this change is **provenance, not detection**, and DGH-013 says so.
+
+## 2026-08-19 ~20:30Z — COUNCIL ROUND 2: **REVISE**, and it caught a false claim of mine
+
+`377167cd` round 2 (the IMPLEMENTED code, submitted after the fact because round 1 judged a *plan*
+and what shipped was narrower). **`revise`**, `decided_by: "gating objection from
+prior_art_librarian"`, 7 abstained.
+
+### The gating objection was right, and it is the most valuable thing the gate has done here
+
+I wrote, in `deploy_evidence.go` and in the submission, that resolution is safe because
+`datahelpers.ExtractFields` is **"collect-all / unique-or-nothing (RFC_029 §9)"** — so an agent with
+several `git_commit` steps "resolves to nothing rather than to a guess". The seat checked that
+against a `LANDMINES.md` entry stating the opposite (*"resolves its inputs by RANDOMISED recursive
+search — the wrong sibling's id wins"*) and objected that the two claims cannot both be true.
+
+**Reading `findFieldRecursive` TO THE END settles it against me.** The ruling *is*
+unique-or-nothing — and then:
+
+> *"**PHASE 1 (this build — instrument first, refuse second): conflicts still resolve**, to the
+> STABLE shallowest-first winner, and emit the WARN below … **PHASE 2 (a later build) flips
+> conflicts to refusal.**"*
+
+Phase 2 has not shipped. **I quoted a comment I had not read to the end**, and built a safety
+argument on the half that stated the intention rather than the half that stated the behaviour.
+
+### Why it mattered here more than it would elsewhere
+
+For most callers a shallowest-first guess is survivable. For this one it is the worst outcome
+available: a fingerprint taken from the WRONG `git_commit` is **silently and permanently wrong**, and
+every later comparison would report a healthy page as diverged. *No* fingerprint is recoverable;
+*someone else's* fingerprint is not.
+
+### The fix — make the property true rather than restate it
+
+`resolveDeployEvidence` no longer borrows the guarantee. It collects candidates itself
+(`collectUniqueValue`, a deliberately dumber walk — no unwrap patterns, no aliases, no ranking,
+because ranking is only needed when you intend to PICK) and **refuses on conflict**. Agreeing
+duplicates still resolve, or the guard would be useless on ordinary nested runs.
+
+**Mutation-proved**, which is what the `editquality` seat asked for by name: restoring the Phase-1
+guess (`return cur, true, false` on disagreement) fails exactly
+`TestResolveDeployEvidence_AmbiguousSubtreeREFUSES` and `TestCollectUniqueValue_ConflictBeatsFound`
+— and nothing else. Restored, green.
+
+### A second defect the same reasoning exposed, which nobody objected to
+
+`content_hash` was written with `COALESCE($3, content_hash)` — my own round-1 reasoning, *"a stamp
+with no fingerprint must leave the previous one alone"*. **That is backwards.** A stamp means new
+bytes went out, so any prior fingerprint describes an OLDER deploy and is stale by definition.
+`COALESCE` preserves it, and the divergence check would then compare live bytes against a superseded
+intent and **convict a healthy page** — the exact false-positive class I spent the morning proving
+was fatal to candidate 4.
+
+Now: the column is touched **only when the guard ran**, and then **assigned**, NULL included. NULL
+means "we do not know what we sent", which is precisely what the check's `content_hash IS NOT NULL`
+predicate is for. Guard off ⇒ the clause is not in the statement at all, so an unarmed path cannot
+disturb a hash another path wrote.
+
+### `bug_historian`'s coverage objection — answered with the measurement it asked for
+
+The objection: the key is opt-in, 494 arms only 3 steps, so *"the defect remains fully live and
+silent on every unconfigured step"* of the other ~16.
+
+`[MEASURED 2026-08-19 20:35Z]` of the **19** live `git_commit` steps, exactly **3** are followed by
+an `update_page_status`:
+
+```
+report-builder : deploy_page(deploy_result) -> update_status
+page-rerender  : deploy_page(deploy_result) -> update_status
+section-editor : deploy_page(git_result)    -> update_page_status
+```
+
+**Those are exactly the three 494 arms, with exactly those field names.** The other 16 deploy CSS,
+JS snippets, RSS and directory files and have **no page stamp after them at all** — there is no
+`deployed_at` claim to guard. So coverage of *this defect* is complete, not partial. (The objection
+would be right about a different defect: those 16 also get no commit-evidence check. Nothing
+currently claims anything about them.)
+
+### Two seats I did NOT act on, and why
+
+- `reuse_agent` (medium): should `deploy_result_field` extend `ActionInputSpec`/`input_fields`
+  instead of a bespoke resolver? Fair in shape, but the *reason* for the bespoke path is now
+  stronger, not weaker: the shared resolution ladder **resolves conflicts in this build**, and this
+  caller must refuse them. Extending the shared mechanism to refuse is RFC_029 Phase 2's job and has
+  a stated precondition (zero conflict WARNs over an observation window). Recorded rather than done.
+- `prior_art_librarian` (medium): the absence claims (`content_hash` 0/790; "no step reads a field
+  out of the reply") are *"stated as MEASURED but not independently checkable from this review"*.
+  True and unavoidable — the seat cannot run queries. The queries are in the RUNBOOK and in
+  RFC_038 §7 so the next reader can re-run them.
+
+### ⚠ THE OPERATIONAL CONSEQUENCE
+
+`v1.0.1316` (rolled 17:13Z) **carries the flawed resolver** — proven at the artefact, not the tag:
+the git-adapter's own stamp is `git_commit: 07eeba4a1…`, and `git merge-base --is-ancestor` puts
+both `0c5b94725` and `086f9b7b7` behind it.
+
+It is **inert**, because `deploy_result_field` is set nowhere and 494 is still held. **So 494 MUST
+NOT be armed until a build carrying `f0dd97c71` has rolled.** Arming it against 1316 would run the
+version that guesses.
+
+⚠ Also noted: the binary probe was **useless** here — `grep -a <full sha> /proc/1/exe` returned
+*absent* for my commit AND for an older one, while the all-zeros control returned **PRESENT** (Go's
+internal tables), exactly as `MEMORY/a-fresh-deploy-can-ship-no-new-code` warns. The git-adapter's
+own startup log line is what answered it, because it is a quiet service and the line was still in
+range; on the chassis it had already scrolled.
