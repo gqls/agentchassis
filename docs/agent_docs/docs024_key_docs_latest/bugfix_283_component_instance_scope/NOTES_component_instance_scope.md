@@ -549,3 +549,26 @@ v1.0.1315 the judged gate lacks 5a/5b — un-holding 486 there would let the 5 r
 rows through an LLM whose gutted output could pass (and fuel-budget/loot-table currently serve
 WORKING pre-conversion pages that a bad judged write + owned delivery could break). The
 CONTINUE file's step 1 ancestry check must name `35d2e0f9c`, not `ffef54338`.
+
+## 2026-08-19 (session 6, round 8→9) — the REVISE loop keeps finding real things; the shared guard is now stub-aware, CALIBRATED
+
+Round 8 REVISE (gating HIGH, bug_historian, 10 approve / 3 object): my round-7 control proved
+BOTH guards blind and I had patched only the judged gate — componentRegressionIssues (which
+also guards tool-improver's update_component_html; caller grep: exactly 3 sites) stayed
+gut-blind. Closed at the SHARED guard (`79fa79fb4`): `scriptStubRegression` — elements kept,
+every inline (non-src) body <200 B while current carries ≥1000 B inline. **Calibrated per the
+guard file's own rule, and the calibration EARNED its keep:** the naive <30%-mass variant
+flagged two REAL legitimate shapes — the js-extraction pattern (heat-rater: body moved behind
+src=, empty by design) and the arena v3→v4 rework (a 7,189 B clean program at 29.7%) — the
+refined signature matches 0 of 235 historical transitions and still catches the gutted
+control. Both negative shapes pinned in `TestScriptStubRegression_calibratedShapes`.
+
+The 0.7 judged floor is now MEASURED against the pool (all 30 rows): worst script
+comment+whitespace fraction 46.5% (mortgages-stamp-duty) — so a brief-violating tidy could
+refuse to a human at 0.54 (chosen direction, kept), and the honest statement is in the
+constant's comment: no structural check sees partial logic deletion that keeps its lookups;
+the ORACLE does, which is why LMC-first. Round 9 submitted (edits consolidated to the 8-cap —
+the first two attempts were refused for a 10-edit array and submitted NOTHING; check the
+trigger's tail, not just its exit). Fleet state pinned in the submission: v1.0.1315 carries
+round-6 code (symbol probe 5/0), NOT `35d2e0f9c`/`79fa79fb4` — 486/487 stay HOLD until a roll
+carries BOTH hardening commits.
