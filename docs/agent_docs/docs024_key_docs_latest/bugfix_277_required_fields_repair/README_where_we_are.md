@@ -697,3 +697,54 @@ the time anyone reads it.
 Nothing is running differently in production yet — both fixes wait for the next routine rebuild of
 the services, and I have written down exactly what to check afterwards, including the control that
 stops a good-looking result from being mistaken for a working one.
+
+---
+
+**2026-08-19 — the rebuild went out, both fixes are live, and checking them cost me two numbers.**
+
+The services were rebuilt this morning, so both changes are now actually running. I checked that
+properly rather than trusting the version tag: I asked each of the two running copies of the service
+whether the new code is inside it, and included a deliberately fake thing to look for as a control —
+so that a "yes" means something. Both copies: yes to both changes, no to the fake. That part is
+settled.
+
+**What is not settled is whether they behave correctly, and I want to be straight about why.** No
+page has been refused since the rebuild — but no page build has run either, so the silence tells us
+nothing. It is the difference between "the alarm didn't go off" and "nobody opened the door". These
+refusals happen about four times an hour on ordinary traffic, so the answer will arrive on its own
+by tomorrow. I could force one, but forcing one wastes exactly the expensive work that the related
+bug exists to complain about, so I would rather wait a day.
+
+**Two things I told you were wrong, and one of them matters.**
+
+The first is arithmetic. I said one of our repair types was running at 47% success and was close to
+being switched off automatically. It is at 62.7%, and the automatic cut-off is 25% — it would need
+another 243 failures to get there. The two numbers I quoted either side of it were right; I simply
+divided them wrong and then repeated it in four places.
+
+The second is worse, and I caught it only because I went looking for something specific. I had been
+treating "this page is owned by a tool **and** the job failed" as meaning "our guard refused it". It
+does not always. Two of those failures were the content writer genuinely failing, not the guard
+refusing — and those two were the entire case I was about to build a follow-up fix around. **So the
+honest position is that yesterday's change protects us from future noise but does not release
+anything that is currently stuck.** That is still worth having — there are 85 refusals already
+recorded and 134 more jobs queued behind the same refusal — but I had it sounding more like a rescue
+than it is.
+
+**On whether we can close this lane: not yet, and the reason is worth your attention.**
+
+The original job here was "a page with missing content has no repair handler anywhere". We built the
+router, it works, and every stuck job now carries a label saying why it is stuck — 27 say "there is
+no content to work with", two say "the picture was sourced", one says "no plan, owned page". Nothing
+strands silently any more.
+
+**But nothing repairs them.** Of the jobs that reached "done", forty-four got there because a sweep
+noticed the problem had gone away by itself — the page acquired content some other way. None was
+repaired by what we built. The specific page the bug was filed about is still sitting there,
+labelled, unrepaired. Closing on the strength of a tidy queue would be exactly the mistake we keep
+writing down: the list looks healthy and the page is still broken.
+
+**And the missing piece is probably the same missing piece as the other big job** — something that
+turns "this is wrong" into "here is the corrected text". Another thread built the beginnings of that
+yesterday. My recommendation is that the next step is a conversation with them, not a design
+document written past them.
