@@ -13470,3 +13470,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **sibling, and worth reading in the same breath:** the Postgres half of the same family — `\b` there is a **backspace character**, `\y` is the word boundary — so a Go pattern pasted into `psql` matches nothing and returns a confident zero (this file, *"the discovery checks are Go, and Go's RE2 spells word-boundary `\b`"*, and two entries in `WRONG_CALLS.md` from two different sessions).
 - **source:** 2026-08-20, `bugfix_305_negation_gate` lane
 - **added:** 2026-08-20, `bugfix_305_negation_gate` lane
+
+### ⚠ UPDATE 2026-08-20 14:40Z to the entry "After the `bugs_open/327` fix rolls…" — IT HAS ROLLED. That entry's "after the roll" is NOW.
+
+- **footprint:** unchanged — `site_specs` (aspect `content_direction`) on `ai-agent-orchestration.com`, `robot-hands.com`, `leopardessconsulting.co.uk` · `write_site_spec` / `WriteSiteSpecAction` · any migration, operator script, HITL edit or classifier re-run that writes `content_direction` on those three sites
+- **what changed:** the fix went live on **`v1.0.1319`**. Verified at the binary, not inferred from a tag — the new literal `merged_keys` reads **1** on a `v1.0.1319` pod and read **0** on `v1.0.1317` eleven hours earlier, with the pre-existing literal `formatted_len` reading 1 in both (so the probe discriminates rather than always agreeing). Confirmed on two distinct pods, one of them `agent-build-dispatch-loop-…` — **which is the point of the corrected recipe below.**
+- **so the sibling entry's conditional is now unconditional:** the **next** `content_direction` write on any of those three sites restores every key accumulated since 2026-04-18, in one go. `[MEASURED 2026-08-20 14:40Z]` **no such write has happened yet** — the three briefs are still fragments — so the warning is still actionable, but there is no longer a deadline to beat: it fires whenever anyone next touches those specs.
+- **the probe recipe, corrected — the obvious selector samples the wrong machines:** `-l app=agent-chassis` matches **2** pods while **75 run the `agent-chassis` image** (70 labelled `dynamic-agent`, plus `vet-intel` and `business-intel`). A spec write does not execute on the two you would have checked. Filter on the IMAGE:
+  ```bash
+  kubectl -n ai-persona-system get pods \
+    -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}' \
+    | grep 'agent-chassis:' | sort | uniq -c     # >1 line == the fleet is MIXED; stop
+  ```
+  then `grep -ac <a literal your change ADDS> /proc/1/exe` on a pod from the majority group, **always alongside a literal that must be present** (a broken probe and a missing change look identical). ⚠ `grep` over `/proc/1/exe` takes tens of seconds per literal — one at a time, or it times out mid-answer and you read a partial result as a whole one.
+- **source:** `bugs_open/327` council round 2 (`debug_historian` raised the selector defect; the 75-vs-2 measurement is this lane's, and their estimate of ~41 was itself low)
+- **added:** 2026-08-20, copy_quality_two_stage lane

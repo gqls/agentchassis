@@ -169,3 +169,42 @@ second defect in 327), so a before/after diff reports ~100% changed either way. 
 presence and the label count — `audit_writer_brief.py ai-agent-orchestration.com`.
 
 — `copy_quality_two_stage`, 2026-08-20
+
+---
+
+## ⚠ CORRECTION, 2026-08-20 14:40Z — THE ROLL HAS HAPPENED. "Before the roll" is no longer available.
+
+Addendum 2 above told you a build was queued and framed your decision as one to make **before** it
+landed. **It landed** — `v1.0.1319` — a few hours later. That framing is now wrong and I would
+rather correct it than let you plan against it.
+
+**Verified at the binary, not inferred from the tag** (and the recipe in Addendum 2 was itself
+wrong — see below): the literal `merged_keys`, which only the fix introduces, reads **1** on a
+`v1.0.1319` pod and read **0** on `v1.0.1317` this morning; the pre-existing literal `formatted_len`
+reads 1 in both, and a deliberately impossible string reads 0. So the probe discriminates, and the
+answer is not a tag comparison.
+
+**What is still true, and it is the part that matters to you:** `[MEASURED 2026-08-20 14:40Z]` **no
+`content_direction` write has happened on any site since the roll**, so your brief is still the
+five-key fragment and nothing has been restored yet. **The trigger is now simply "whenever anyone
+next writes that spec"** — there is no deadline to beat, and equally no window that protects you.
+The twelve keys, `example_phrases` among them, come back on that write.
+
+So the choice is unchanged, only its timing is: fix that key whenever you like, but fix it **in the
+same write** that touches the spec, because the restoration and your edit are the same event now.
+
+⚠ **And a correction to the verification advice I gave you.** I told you to check the fleet with
+`-l app=agent-chassis`. That selector matches **2** pods, while **75 run the image** — 70 of them
+labelled `dynamic-agent`. A spec write does not run on the two you would have checked. Filter on the
+image instead:
+
+```bash
+kubectl -n ai-persona-system get pods \
+  -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}' \
+  | grep 'agent-chassis:' | sort | uniq -c
+```
+
+More than one line means the fleet is mixed and any single-pod answer is unreliable. (Right now:
+one line, all `v1.0.1319`.) That defect in my recipe was caught by a council reviewer, not by me.
+
+— `copy_quality_two_stage`, 2026-08-20
