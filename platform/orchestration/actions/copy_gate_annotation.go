@@ -5,13 +5,32 @@
 // change nothing else. There is no gate here, no refusal, and no LLM call — the
 // repair is a separate, opt-in action.
 //
-// WHY IT IS COUNTED UNCONDITIONALLY. The repair (rewrite_negations) is opt-in per
-// step and today runs on ONE agent. Every other writer that renders through this
-// package still needs its fault to be VISIBLE, or the fleet figure is whatever
-// the wired agents happen to produce, and "the copy improved" cannot be told
-// apart from "the check was not wired here". The rule is the one the
-// meta-description gate states in its own header: "a gate a workflow author can
-// forget to wire is a comment".
+// ⚠ OPT-IN PER STEP, DEFAULT OFF — AND THAT IS A CHANGE MADE UNDER A VETO.
+//
+// It was default-ON fleet-wide, for a reason I still think is good: the repair
+// runs on one agent, so counting everywhere is what stops "the copy improved"
+// being indistinguishable from "the check was not wired here" — the rule the
+// meta-description gate states in its own header, that "a gate a workflow author
+// can forget to wire is a comment".
+//
+// The council's guardian seat VETOED it (correlation c48b7612, round 3) and was
+// right on the point that mattered: render_component and compile_page_sections
+// are two of the most-invoked actions in the platform, consumed by every
+// pipeline that renders or compiles a page, and a default-ON scanner on them is
+// a change to a shared contract — which is not licensed by having filed an RFC
+// about it. Verbatim: *"Routing a scope objection to architecture review does
+// not license deploying the disputed change"*, and *"'we wrote it down and
+// routed it' is not the same as 'it was contained'"*.
+//
+// So the scanner runs only where a step asks for it (`copy_gate_annotate: true`),
+// which today is page-content-writer's own render and compile steps, set by
+// migration 509 — the same "default OFF in code, the migration is the entire
+// enablement surface" shape as migration 474's strip_literal_markdown.
+//
+// WHAT THAT COSTS, stated so nobody has to rediscover it: the fleet-wide count is
+// gone. The number these keys produce is now a number about the wired agents, and
+// **`RFC_044` is the open question of whether it should go back to default-ON**.
+// Anyone reading `copy_gate_findings` fleet-wide should read that RFC first.
 //
 // WHY IT IS A WRAPPER RATHER THAN TWO HUNKS INSIDE THE ACTIONS.
 //
@@ -54,6 +73,15 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
+// copyGateAnnotateEnabled is the opt-in. Absent or false = this wrapper is a
+// pass-through and the action behaves exactly as it did before it existed, which
+// is what "contained" has to mean for a shared action: not "it only adds keys",
+// but "no caller that did not ask for it can tell the difference".
+func copyGateAnnotateEnabled(params ActionParams) bool {
+	on, _ := params.StepConfig.Config["copy_gate_annotate"].(bool)
+	return on
+}
+
 // annotateSectionNegation wraps a component-render handler: on success it counts
 // the define-by-negation constructions in the content the section was rendered
 // from, and attaches them as `copy_gate_findings`.
@@ -65,7 +93,7 @@ import (
 func annotateSectionNegation(inner ActionFunc) ActionFunc {
 	return func(ctx context.Context, params ActionParams) (interface{}, error) {
 		out, err := inner(ctx, params)
-		if err != nil {
+		if err != nil || !copyGateAnnotateEnabled(params) {
 			return out, err
 		}
 		result, ok := out.(map[string]interface{})
@@ -101,7 +129,7 @@ func annotateSectionNegation(inner ActionFunc) ActionFunc {
 func annotatePageNegation(inner ActionFunc) ActionFunc {
 	return func(ctx context.Context, params ActionParams) (interface{}, error) {
 		out, err := inner(ctx, params)
-		if err != nil {
+		if err != nil || !copyGateAnnotateEnabled(params) {
 			return out, err
 		}
 		result, ok := out.(map[string]interface{})

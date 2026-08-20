@@ -17,10 +17,49 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/pkg/models"
 )
 
+// annotationParams returns params with the opt-in ON, because every test below
+// is about what the annotation DOES. The default is pinned separately by
+// TestAnnotationIsOffUnlessTheStepAsksForIt — which is the property the council's
+// guardian veto turned into a requirement.
 func annotationParams() ActionParams {
-	return ActionParams{Logger: zap.NewNop(), CollectedData: map[string]interface{}{}}
+	return ActionParams{Logger: zap.NewNop(), CollectedData: map[string]interface{}{},
+		StepConfig: models.Step{Config: map[string]interface{}{"copy_gate_annotate": true}}}
+}
+
+// A step that did not ask for it must not be able to tell the wrapper exists.
+// "It only adds keys" is not containment on a shared action; "no caller that did
+// not opt in can tell the difference" is.
+func TestAnnotationIsOffUnlessTheStepAsksForIt(t *testing.T) {
+	off := ActionParams{Logger: zap.NewNop(), CollectedData: map[string]interface{}{},
+		StepConfig: models.Step{Config: map[string]interface{}{}}}
+	inner := func(ctx context.Context, p ActionParams) (interface{}, error) {
+		return map[string]interface{}{
+			"content_data": map[string]interface{}{
+				"headline": "The registry shows you what's possible, not what survives production."},
+			"sections_metadata": []map[string]interface{}{{
+				"content_data": map[string]interface{}{
+					"headline": "It shows what is possible, not what survives."}}},
+		}, nil
+	}
+	for name, wrapped := range map[string]ActionFunc{
+		"section": annotateSectionNegation(inner),
+		"page":    annotatePageNegation(inner),
+	} {
+		out, err := wrapped(context.Background(), off)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		res := out.(map[string]interface{})
+		for _, k := range []string{"copy_gate_findings", "copy_gate_page_hits", "copy_gate_page_fields"} {
+			if _, present := res[k]; present {
+				t.Errorf("%s: %s attached without the step opting in — the wrapper is not contained", name, k)
+			}
+		}
+	}
 }
 
 func TestSectionAnnotationAttachesFindings(t *testing.T) {

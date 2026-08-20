@@ -25,6 +25,14 @@ UPDATE agent_definitions
    AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,next_step}' = 'rewrite_negations';
 
 UPDATE agent_definitions
+   SET default_config = (default_config
+         #- '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,copy_gate_annotate}')
+         #- '{workflow,steps,compile_page,config,copy_gate_annotate}',
+       updated_at = now()
+ WHERE type = 'page-content-writer' AND is_active
+   AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+
+UPDATE agent_definitions
    SET default_config = default_config #- '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations}',
        updated_at = now()
  WHERE type = 'page-content-writer' AND is_active

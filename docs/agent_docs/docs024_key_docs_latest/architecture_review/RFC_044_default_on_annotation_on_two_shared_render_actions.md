@@ -1,7 +1,27 @@
 # RFC_044 — a default-ON annotation on `render_component` and `compile_page_sections` is a shared-contract change, and it arrived inside a bug fix
 
 **Status:** FILED 2026-08-20 by the `bugfix_305_negation_gate` lane. **Needs an owner or architecture
-decision.** The code is live-on-next-roll and additive; the question is whether it should be.
+decision.**
+
+> ## ⚠ UPDATED SAME DAY — THE DISPUTED CHANGE IS NOW CONTAINED, AND THE RFC IS THE QUESTION OF WHETHER TO UNDO THAT
+>
+> Filing this RFC was **not** enough, and the council's `guardian` seat said so by **VETOING** round 3
+> (correlation `c48b7612`). Its reasoning is correct and is now recorded here rather than argued with:
+>
+> > *"This is round 3 and the code under review for edit 4 has not changed since round 2's HIGH
+> > objection — only the paperwork around it has (an architecture_review doc was filed) … Routing a
+> > scope objection to architecture review does not license deploying the disputed change … 'we wrote
+> > it down and routed it' is not the same as 'it was contained.'"*
+>
+> **What changed in response:** the annotation is now **opt-in per step, default OFF**
+> (`copy_gate_annotate`), enabled only on `page-content-writer`'s own render and compile steps by
+> migration `509` — the same "default OFF in code, the migration is the entire enablement surface"
+> shape as migration `474`. A step that did not ask for it cannot tell the wrapper exists, and that
+> property is pinned by a test (`TestAnnotationIsOffUnlessTheStepAsksForIt`).
+>
+> **So this RFC's question has flipped, and is now the smaller one:** not *"may this stay default-ON?"*
+> but *"should it BECOME default-ON fleet-wide?"* — with the cost of the current answer stated plainly
+> in §5.
 
 **Why this is here rather than in the bug file.** Two council seats objected to the same thing in
 round 2 of `c48b7612` — `guardian` at HIGH and `architecture` at medium — and per the owner ruling of
@@ -51,7 +71,12 @@ architecture seat is right to say so.
   Deleting both keys from the result changes no downstream behaviour today.
 - It has **zero consumers**. Nothing reads `copy_gate_findings` — measured by grep at the time of
   filing. It is a measurement surface, not a contract anyone is holding.
-- The cost is a regex sweep over a content map already in memory (~µs per section).
+- The cost is a regex sweep over a content map already in memory. **Estimated per the architecture
+  seat's request (edit 4, low):** five compiled patterns over the prose fields of one section — on the
+  measured corpus that is a few kilobytes and about 10–60 µs per section, against a render that
+  already costs milliseconds and an LLM call that costs seconds. At the fleet's measured ~215 writer
+  sections a day plus rerenders, the annual cost is seconds of CPU. **Cost is not the argument
+  against it; contract is.**
 
 ## 3. The case that it IS, and it is the stronger one
 
@@ -67,9 +92,9 @@ architecture seat is right to say so.
 
 ## 4. Options
 
-**(a) Leave it.** Cheapest, and honest only if this RFC is decided rather than filed and forgotten.
-Requires: a register entry (exists, **CQ-026**) and an accepted statement that the key is
-observational and unconsumed.
+**(a) Return it to default-ON.** Requires an explicit architecture or owner decision — which is what
+the guardian veto says it always required. Requires: the register entry (exists, **CQ-026**) and an
+accepted statement that an unconsumed observational key on a shared action is not a contract.
 
 **(b) Give both actions an `ActionInputSpec` and declare the key.** Makes the surface visible to the
 optional-key budget, so the tenth key on these actions is noticed by the mechanism built for it.
@@ -77,19 +102,22 @@ Costs a declaration of every config key those two actions already read — `rend
 around a dozen, and getting that list wrong is worse than the key (`ActionInputSpec`'s own header:
 *"an over-strict validator is a considerably worse bug than the inert key it is chasing"*).
 
-**(c) Make the annotation opt-in per step, default OFF, enabled by the same migration.** Satisfies
-RFC_022's exception exactly. **Gives up the property the annotation exists for** — the fleet count
-becomes a count of the wired agents, and the estate has a measured record of what happens to
-mechanisms nobody remembers to wire (`copy-editor`: live since 2026-08-17, dispatched by nothing).
+**(c) Opt-in per step, default OFF, enabled by the migration. — THIS IS WHAT IS NOW SHIPPED**, under
+the veto. It satisfies RFC_022's exception exactly. **It gives up the property the annotation exists
+for**: the fleet count is now a count of the wired agents, so "the copy improved" and "the check was
+not wired here" are once again the same number outside `page-content-writer` — and this estate has a
+measured record of what happens to mechanisms nobody remembers to wire (`copy-editor`: live since
+2026-08-17, dispatched by nothing). That cost is the case for (a).
 
 **(d) Scope the wrapper to the writer's own steps** (wrap only when the step config names it).
 Equivalent to (c) with extra machinery.
 
 ## 5. What this lane recommends, and what it is NOT deciding
 
-**(a) if the estate accepts that an unconsumed observational key on a shared action is not a
-contract; otherwise (b).** Not (c): an unwired counter is the failure this whole bug is an instance
-of — a rule that exists and does not hold.
+**(a) or (b) — but the decision is now unhurried, because (c) is what is live.** The recommendation
+stands that an unwired counter is the failure this whole bug is an instance of: a rule that exists
+and does not hold. What the veto establishes, and it is worth keeping, is that the fix for that is a
+DECISION by someone entitled to make it, not a session shipping the wider default and filing a note.
 
 **This lane is not deciding it.** The code is committed and inert until the next roll, so there is
 time. What would make the decision concrete: whoever adds the FIRST reader of `copy_gate_findings`

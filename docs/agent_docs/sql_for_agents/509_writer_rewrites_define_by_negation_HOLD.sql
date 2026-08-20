@@ -15,10 +15,21 @@
 -- one (the second was added at the council's request, round 1, editquality and
 -- bug_historian both on edit 7):
 --
---   (1) THE IMAGE IS LIVE. Ask the binary, per service — not git, not the tag:
---       kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
---       git merge-base --is-ancestor a5d5d0728 <that sha>
---       (an empty grep means the line SCROLLED, not that it is unstamped)
+--   (1) THE BINARY CAN RESOLVE THE ACTION. ⚠ NOT a build-provenance + merge-base
+--       check, which is the documented anti-pattern for exactly this shape: a
+--       config-backed fix ships in TWO halves, the stamp proves the BINARY and
+--       says nothing about the migration, and `make release` resolves HEAD
+--       separately per service so one release is not one source revision
+--       (council round 3, debug_historian, HIGH — it was right, and this file
+--       used to carry the wrong check). PROBE THE CAPABILITY:
+--         POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+--                 -o jsonpath='{.items[0].metadata.name}')
+--         kubectl -n ai-persona-system exec $POD -- \
+--           grep -ac 'rewrite_negations' /proc/1/exe        # must be >0
+--         kubectl -n ai-persona-system exec $POD -- \
+--           grep -ac 'rewrite_negationz' /proc/1/exe        # CONTROL: must be 0
+--       Run BOTH. A probe with no absent-control cannot tell "present" from "this
+--       grep matches anything". Check every replica, not one.
 --
 --   (2) THE PER-PAGE BUDGET CANARY HAS PASSED. The budget assumes CollectedData
 --       persists across process_sections_loop iterations; that is read from the
@@ -101,6 +112,37 @@ UPDATE agent_definitions
    AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,next_step}' = 'render_section'
    AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations,action}' = 'rewrite_negations';
 
+-- 3. Turn the COUNTING on, for this agent's own render and compile steps only.
+--
+-- The scanner that counts define-by-negation is compiled into render_component
+-- and compile_page_sections but is DEFAULT OFF, and this is its entire
+-- enablement surface — the same shape as migration 474's strip_literal_markdown,
+-- and for a stronger reason: it shipped default-ON and the council's guardian
+-- seat VETOED that (correlation c48b7612, round 3). Those two actions are
+-- consumed by every pipeline that renders or compiles a page, so a scanner
+-- running on all of them is a shared-contract change. Whether it should go back
+-- to default-ON fleet-wide is RFC_044, and it is open.
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,
+         '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,copy_gate_annotate}',
+         'true'::jsonb),
+       updated_at = now()
+ WHERE type = 'page-content-writer' AND is_active
+   AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+   AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,action}' = 'render_component'
+   AND (default_config #> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,copy_gate_annotate}')::text
+       IS DISTINCT FROM 'true';
+
+UPDATE agent_definitions
+   SET default_config = jsonb_set(default_config,
+         '{workflow,steps,compile_page,config,copy_gate_annotate}', 'true'::jsonb),
+       updated_at = now()
+ WHERE type = 'page-content-writer' AND is_active
+   AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+   AND default_config #>> '{workflow,steps,compile_page,action}' = 'compile_page_sections'
+   AND (default_config #> '{workflow,steps,compile_page,config,copy_gate_annotate}')::text
+       IS DISTINCT FROM 'true';
+
 DO $$
 DECLARE n int;
 BEGIN
@@ -109,11 +151,14 @@ BEGIN
      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
      AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations,action}' = 'rewrite_negations'
      AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations,next_step}' = 'render_section'
-     AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,next_step}' = 'rewrite_negations';
+     AND default_config #>> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,next_step}' = 'rewrite_negations'
+     -- and the counting is on, on this agent's own two steps
+     AND (default_config #> '{workflow,steps,process_sections_loop,config,sub_workflow,steps,render_section,config,copy_gate_annotate}')::text = 'true'
+     AND (default_config #> '{workflow,steps,compile_page,config,copy_gate_annotate}')::text = 'true';
   IF n <> 1 THEN
-    RAISE EXCEPTION '509 FAILED: expected exactly 1 page-content-writer with the chain generate_content -> rewrite_negations -> render_section, got % — read the live row and re-anchor before retrying', n;
+    RAISE EXCEPTION '509 FAILED: expected exactly 1 page-content-writer with the chain generate_content -> rewrite_negations -> render_section AND copy_gate_annotate true on render_section and compile_page, got % — read the live row and re-anchor before retrying', n;
   END IF;
-  RAISE NOTICE '509 OK: generate_content -> rewrite_negations -> render_section';
+  RAISE NOTICE '509 OK: chain wired and counting enabled on this agent only';
 END $$;
 
 COMMIT;
