@@ -89,6 +89,37 @@ not — only two runs existed. Checked and submitted properly. *Claiming a submi
 cheapest possible false claim to make and the easiest to check: count the runs for the
 correlation.*
 
+## 3b. ✅ THE BRIEF WRITER IS BUILT AND LIVE — register **BLD-024**, migration `510`
+
+`brief-writer`, 8 steps: research the subject from the domain name, write a comprehensive
+`mission_brief`, then **hold**. Fired by `scripts/fire-brief-writer.sh <domain> [direction]`.
+
+- **It writes the SAME `mission_brief` aspect a hand-written brief uses**, so nothing downstream
+  changes — the classifier already reads `site_specs` wholesale.
+- **Aspirational by instruction**, per the owner's ruling. Each `content_plan` entry carries
+  `priority: core|valuable|aspirational` so the planner's degradation is legible.
+- **The hold was PROVEN in both directions** against the dispatcher's own predicate before it was
+  built on: `approval_mode='manual'`+`triaged` is withheld, flipping to `approved` releases
+  (rolled back, nothing persisted). ⚠ `create_work_item` has **no `approval_mode` key**, so the
+  agent uses `status='needs_human_review'` — which the dispatcher also cannot pick up, needs zero
+  code, and is the estate's existing HITL idiom. Adding `approval_mode` to `create_work_item` is
+  the better long-term shape and is recorded as a residual.
+- **Generate-then-EDIT, not approve/reject.** Because it is a normal `site_specs` write, the
+  owner's edited brief supersedes the generated one **with the generated one preserved
+  underneath** — the diff between what the machine proposed and what he changed survives free.
+- **Nothing dispatches it automatically.** `domain-submitter` is untouched, so a hand-written
+  mission still wins and no existing flow changed.
+
+**Deliberately not done:** it does not read the register yet (next piece, and the addendum argues
+it should REPLACE RFC_037's classifier input); it does not screen third-party briefs (a different
+job — this WRITES, that VETS).
+
+**First run:** `indoorplanters.co.uk` (a **locked** test site, so nothing could build even by
+accident), orchestration `1ea45228-2135-4754-b3d9-d3d792b87df0`. ⚠ **The thing to check is the
+OUTPUT quality** — is the brief specific to the subject, or generic with the nouns swapped? That
+is the failure mode the prompt argues against and the only thing that decides whether this is
+useful. **A completed run is not a good brief.**
+
 ## 4. ✅ THE DOMAIN ESTATE — inventoried and classified
 
 `domain-list-2026-07-30.csv` (owner-supplied, slightly stale): **1,567 domains, all registered,
@@ -109,9 +140,22 @@ Probed: the CLOOK ones serve substantial content (`cartoon.co.uk` 133 kB,
 **People's-name domains: 5** — `katherineappleby.co.uk`, `oliverappleby.co.uk`,
 `williamappleby.co.uk`, `williama.co.uk`, `billz.uk`.
 
-**50 test-domain CANDIDATES picked** — `RESERVED_test_domains.md`. **Candidates, not reserved,
-until the owner says yes.** They must be *marked* reserved: once the registry covers everything,
-"no entry" otherwise reads as "nobody got to it yet" and the next gap-filler destroys the control.
+**50 test domains** — `RESERVED_test_domains.md`. ⚠ **SIMPLIFIED by the owner 2026-08-20: they
+need NO special status** — *"they are for us testing here… just keep them out of the list to build
+for now."* So there is no `reserved_test` state to build and no register ceremony; they are an
+exclusion list for the build queue, nothing more. **Plus one extra for immediate use in another
+lane: `garden-tools.uk`** (parked, not in the register, not among the 50).
+
+**The 62 hosted domains are listed for the owner in `HOSTED_domains_for_owner_decision.md`**, in
+three decision groups: **25 serving real sites** (`cartoon.co.uk` 133 kB — anything here is a
+migration, not a build), **13 empty stubs** (several are mail infrastructure — do not assume
+free), **24 on hosting but serving nothing** (the readiest build candidates; note seven
+`healthinsurance*` names are already register entries, and `interestrates.co.uk` is finance and
+would inherit the compliance machinery).
+
+⚠ **`billz.uk` is NOT a person's name** — owner: it is about *bills*. The extractor's
+forename+initial rule is its loosest, so it now carries a small not-a-name exception list;
+`alexj.uk` still reads as a person.
 
 Tools (all take any domain list; the classifier prefers a registry CSV to live DNS, because the
 export answers for domains that were never delegated where a live lookup returns an ambiguous
