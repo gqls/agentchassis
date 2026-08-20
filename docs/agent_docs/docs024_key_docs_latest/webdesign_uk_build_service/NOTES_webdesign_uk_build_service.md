@@ -4718,3 +4718,55 @@ the documented behaviour on this service and means "not in range", **not**
 "unstamped". It does not matter for any of yesterday's work: every change was register
 config, which is live immediately, and no Go was touched. It DOES matter for the one
 outstanding ruling — the ZIP presign — which is Go and will need its own build.
+
+### 2026-08-20 (~16:3xZ) — the ZIP-link ruling CANNOT be delivered as stated, and the reason is a protocol ceiling, not a setting
+
+**Owner, 2026-08-20:** *"The zip download link can be the longest time we have which I
+think is 6 weeks."* The intent is clear and right — the download should last as long as
+we host the site. **The number cannot be done, and the current value is already the
+maximum.**
+
+A presigned URL's lifetime is bounded by the **SigV4 signing protocol at 604,800
+seconds (7 days)**. `expiry_minutes: 10080` is therefore not a cautious default, it is
+the ceiling. And **nothing in this stack enforces it**: `aws-sdk-go-v2 v1.25.1`'s
+`aws/signer/v4` has no cap and `service/s3 v1.51.0` has none, so `PresignGetObject`
+signs whatever you ask for and returns a well-formed URL. B2 refuses it only when the
+customer clicks.
+
+**`[MEASURED 2026-08-20]` against the live bucket (`personae-prod-uk001-images`), with a
+control, using a key that does not exist so the STATUS is the whole answer:**
+
+| `X-Amz-Expires` | result |
+|---|---|
+| `604800` (7 days exactly) | **HTTP 404 `NoSuchKey`** — signature accepted |
+| `604801` (7 days + **one second**) | HTTP 403 `SignatureDoesNotMatch` |
+| `3628800` (6 weeks) | HTTP 403 `SignatureDoesNotMatch` |
+
+The boundary is exact, to the second. **The 404 arm is the control and it is what makes
+this evidence** — without it, three 403s are indistinguishable from broken credentials,
+and a probe against a real object could not have separated "expiry refused" from
+"object missing" at all.
+
+**The error is the nasty part: `SignatureDoesNotMatch`.** Not "expires too long". So a
+6-week link would have failed looking like a credentials or clock problem, sending the
+next person to debug the one thing that was healthy. Filed in `LANDMINES.md` (verifier
+dispatched, correlation `5c958a5f-9461-4223-a7a0-9c14962057fa`).
+
+**So I have NOT changed the presign, and I have not quietly substituted a different
+number either.** Yesterday's ruling was 30 days; today's is 6 weeks; both are above the
+ceiling, so the code stays at 10080 until the owner has seen this. Every live caller
+already sits exactly on the ceiling (`10080`, `7*24*60`, `60*24*7` at five sites), so
+nothing is broken today and nobody has hit this yet.
+
+**What DOES deliver the intent, and it is Phase 4 work either way:** stop making the
+presigned URL the customer-facing link. The delivery email carries a link of ours with
+a token; clicking it mints a fresh ≤7-day presign server-side and redirects. The window
+then belongs to our token, which we set to whatever the hosting window is — so "as long
+as we host it" becomes true by construction rather than by a number. **It is the same
+token mechanism the confirmed-transferred click needs**, so the two land together and
+the 6-week figure lives in one place instead of two.
+
+**Chassis rolled again: `v1.0.1320`** (was 1317), pods started 2026-08-20T16:09Z. The
+`build provenance` startup line is out of range in `--tail=600` — "not in range", not
+"unstamped". Irrelevant to today's work: nothing Go was changed, and the register
+changes are live immediately.
