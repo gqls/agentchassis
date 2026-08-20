@@ -690,3 +690,23 @@ its pin must be IMPORTED, not restated (LMC trap, poisoned-ref history).
 under a monitor watching item + section_edit delivery. Next after chain completes: verify
 served page (prefixed ids, 0 unrendered tokens, binding check), move oracle selectors
 #id → #c-loans-standard-calc-<id>, PASS 170 restored + mutate control, one commit.
+
+## 2026-08-20 (session 7, cont.) — canary judged write CLEAN; its delivery was collateral of a cross-lane outage (bugs_open/336), already rolled back by that lane; delivery requeued
+
+**Canary (loans-standard-calc): the judged pipeline half is PROVEN.** Item completed fixed:true
+via `scope_component_instance_judged` (2,475 → 2,858 B, 6 ids, snapshot v1). The written
+template audited clean the same hour: `instanceaudit --bindings` on the written row = script
+scoped, 0 collisions doubled, 0 dangling, exit 0.
+
+**Its section_edit delivery FAILED twice (07:07–07:10) — NOT ours.** WORKFLOW_INVALID:
+`update_page_status` refused config key `deploy_result_field`. Cause: migration 494 (315 lane)
+armed that key on three agents at 06:49:49Z, but the key is declared on `render_component`'s
+spec, NOT `update_page_status`'s — whose spec is CheckConfig:true (strict), so every
+page-stamping workflow died at dispatch, fleet-wide (12 failures 06:58–07:29). **Diagnosed and
+FIXED by another session while we were diagnosing it**: `bugs_open/336` filed, 494 rolled back
+07:22:40Z with its own ROLLBACK, restoration proven WITH DEMAND, four orphaned items requeued —
+including our canary's section_edit (triaged 07:27:36). LANDMINE appended by them
+(`8e413afae`): a key on the WRONG action's spec passes every instrument — binary literal
+present, git log -S names the reader — while the strict spec refuses it at runtime. Our own
+07:13 binary probe hit exactly that: 3 hits / 0 control, and it was evidence of nothing.
+Delivery re-monitored; oracle lockstep still owed after it lands.
