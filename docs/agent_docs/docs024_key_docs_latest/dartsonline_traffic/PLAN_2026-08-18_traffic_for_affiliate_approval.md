@@ -21,7 +21,7 @@ verified at the artefact, so the plan's Phase 0 is largely history rather than p
 | 1.4 | `/shipping-returns.html` | **RETIRED** — owner's decision. Page archived, file deleted from the deploy repo (`sites@2af7c17dd`), live **404** confirmed |
 | 2.2 | sitemap + robots | **LIVE**. `sitemap.xml` 200 with 23 `<loc>`s, **all 23 probed 200**; our `robots.txt` is served after Cloudflare's prepended block and its `Sitemap:` directive is live |
 | 2.2 | `llms.txt` | generated, **NOT shipped** — it is an AI-facing surface and belongs with the owner's AI-crawler decision |
-| — | privacy **link** | **IN FLIGHT.** The page is live and **orphaned**: no nav row, 0 footer links. `nav_drift` item `0e157a6c` filed at `triaged`. **Grade at the served bytes across the sitemap** — this item type refreshed stored chrome on all 25 pages here on 08-16 and redeployed only 6 |
+| — | privacy **link** | **DONE — 23/23 served pages**, graded at the bytes. The page went live orphaned (no nav row, 0 footer links); `nav_drift` `0e157a6c` fixed the nav table but republished only 2 pages, exactly as the 08-16 trap predicts. `reconcile_footer_nav.sh` (leopardess lane, reused unchanged) took it 2 → 6 → 8 → **23/23** in assemble mode. **The four restored guide figures survive** (1 in-body `<img>` each on flight-shapes, tungsten-guide, steel-tip-vs-soft-tip, beginners) — assemble mode re-assembles stored sections and never rewrites a body, which is the whole reason not to send `spec.reason` |
 | 2.3 | the number | **STILL OPEN — owner action.** Cloudflare analytics / Search Console. Everything below still has no X in it |
 
 **Owner decisions taken 2026-08-20**, so §6's list is answered except the AI-crawler one:

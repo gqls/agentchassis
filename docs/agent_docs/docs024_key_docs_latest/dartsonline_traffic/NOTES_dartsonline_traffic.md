@@ -939,3 +939,32 @@ the answer was a true negative. The retraction then reported `editorial_inbound:
   minute. Do it from a **detached worktree at `origin/master`** (never the shared checkout,
   which was 6,424 behind and 1 ahead of a commit nobody here wrote), in a fetch→reset→re-copy
   →commit→push retry loop. Landed on attempt 1 of the loop.
+
+### 2026-08-20 (later) — the footer propagation, and the regression check that had to come with it
+
+`nav_drift` `0e157a6c` completed at 10:32 and did its half correctly: `site_nav_items` gained
+a **`legal`** group carrying Privacy, and `site_components.footer` had the link at 10:32:08.
+Then the documented split: **served pages carrying `href="/privacy.html"` went 1 → 2**, and
+stopped. `pages.rendered_footer` said `f` for **every** page including the homepage, which
+*was* serving the link — so that column is not the served footer and cannot grade this. The
+08-16 landmine says exactly this; it is now confirmed twice on this site.
+
+Fixed by reusing `docs/leopardessconsulting/scripts/reconcile_footer_nav.sh` **unchanged**
+(site_id, domain, marker `href="/privacy.html"`, 3 rounds). It fires `page-rerender` with
+**no `spec.reason`** — assemble mode — and re-probes the served page each round, so a dropped
+publish self-heals. Trajectory measured at the bytes: **2 → 6 → 8 → 21 → 23 of 23**.
+
+**The two 'stragglers' at 10:40:37 were not stragglers.** `tool-setup-builder` and its guide
+were `deployed_at` 10:40:16 and 10:40:33 — I measured 4 and 21 seconds after their own
+deploy stamp, i.e. inside the B2 sync window. Both read 1 on the next probe. **That is the
+same misread as the privacy 404 this morning, made twice in one session**: on this stack the
+DB stamp precedes the served bytes by tens of seconds, so any census taken immediately after
+a deploy will report false negatives. Wait, or check the deploy repo.
+
+**The regression check that matters more than the link.** Assemble mode was the load-bearing
+choice, not a detail: `article-body` holds figure and prose in ONE llm-owned field, so a
+section rerender (`spec.reason='section_data_resolved'`) can escalate a page to the writer
+and destroy the four guide figures this lane spent days recovering. After the reconcile:
+**1 in-body `<img>` on each of flight-shapes, tungsten-guide, steel-tip-vs-soft-tip and
+beginners** — all four intact. Any future chrome propagation on this site must use the same
+mode and must re-run this check, because the failure is silent and looks like success.
