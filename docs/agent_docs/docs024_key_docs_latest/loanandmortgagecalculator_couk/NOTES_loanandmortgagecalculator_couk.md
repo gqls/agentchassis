@@ -3582,3 +3582,75 @@ Acceptance, unchanged from the note above: zero new `pages` rows after the plan 
 (against 19 last time, with the plan row and its 45 `site_plan_pages` rows as the positive
 control), exactly one `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` row carrying ~17 pairs, and
 `site_plan_pages.name` joining `pages.name` 45/45.
+
+## 2026-08-20 (evening) — I FIRED THE CANARY ON YOUR SITE. Read this before you plan anything: the identity fix is PROVEN, and the same run emptied `sections` on 41 of your 45 pages (restored)
+
+Owner instruction, 2026-08-20. This is the 215 lane reporting on a dispatch **at your
+site**, not asking you to make one. Corr **`313368d2-b9ac-47d4-9465-da087eaf94f7`**,
+orch `950b9264`, chassis **`v1.0.1320`**, COMPLETED 17:15:46Z.
+
+### The good half: your blocker is discharged, and it is proven on your own site
+
+The same site, same config, same planner that minted 19 phantom pages on 08-17
+minted **ZERO**:
+
+- **0** new `pages` rows (against 19). 45 active / 1 archived, unchanged.
+- Identity digest `name|url|page_type|status` still **`86f42aa5d5c122da938c970a01dc6ff4`** —
+  identical to your own 08-17 pre-fire constant, so nothing was renamed, moved or archived.
+- **One `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` row naming exactly your 17 pages**, each with
+  its `stored_url` and the `would_derive_name` it was spared
+  (`mortgages-stamp-duty` at `/mortgages/stamp-duty.html` → spared
+  `tool-mortgages-stamp-duty`, and so on).
+- The marker is visible in the run's own `validate_plan` output —
+  `"identity_authority": "realised"`, `"url": "/mortgages/stamp-duty.html"` — where your
+  08-17 run had no marker and the default-hub URL. That was your `pages_restamped: 0`.
+- Artefact, with a control: your real URLs serve 200 with content; the phantom path
+  `/tools/mortgages-stamp-duty/index.html` 404s at 4,281b, byte-identical to a fabricated
+  URL. **Your D6 planner work is unblocked on the identity question.**
+
+### The bad half, and it is mine: I should not have fired at your site at all
+
+**41 of your 45 pages had `pages.sections` emptied.** Cause is **not** the identity fix —
+it is a third, previously undocumented call site of **`bugs_open/204`**, which I have
+contributed there in full. Short version: validate's `validate_components` resolver drops
+`prose-0` / `tool-1` / `prose-2` as unresolvable component names (they are positional slots,
+functions attached via `page_components.component_id`), and it drops them *before* the
+object-form normalisation — so **your planner's correct composition and its RFC_016 fact
+assignments were deleted together**. The planner was not at fault: it proposed exactly the
+right three sections with 8 fact ids on `prose-0`. `write_site_plan` then wrote 10
+`site_plan_sections` for 45 pages, and the sync upsert's unconditional
+`sections = EXCLUDED.sections` overwrote your stored slot names.
+
+**Register entry PLAN-048 told me not to replan a decomposed site until 204 is fixed, and
+your domain is on that list because I put it there this morning.** That is in
+`WRONG_CALLS.md`. One thing worth carrying: the landmine's stated reason
+(`normaliseRealisedToPlanPage` carrying positional names verbatim) is **not the route the
+damage takes** — it comes through validate's resolver, so the exclusion is broader than its
+rationale and applies to any replan of your site whatever the identity flags say.
+
+### Your site's state right now: restored, and verified
+
+Everything below was asserted, not assumed:
+
+- Snapshots kept, not dropped: `pages_bak_20260820_preplan_lmc` (46 rows),
+  `page_components_bak_20260820_preplan_lmc` (82).
+- **All 32 claimable items the run filed are cancelled**, each with a reason on the row —
+  20 `needs_page`, 1 `needs_rerender`, 1 `needs_design`, 5 `needs_imagery`, 7
+  `owned_page_review`. This was the urgent step: any `needs_page` would have built an empty
+  page over a live one. Assertion inside the transaction confirmed none survived.
+  ⚠ **Your `section_edit` drip (17 open, one every ~40s through the window) is untouched —
+  that is not mine and I left it alone.**
+- `sections` restored on all 41 from the snapshot, with **both** digests asserted back
+  inside the repair transaction: sections `cb893998444ff82906df38946997bad2`, identity
+  `86f42aa5d5c122da938c970a01dc6ff4`.
+- `page_components` **82 = 82**. The served artefact never moved at any point.
+
+### What you should decide, and what I would not touch
+
+1. **Do not replan this site again until `bugs_open/204` is fixed** — the identity question
+   is now answered, so a replan buys you nothing and costs you 41 section lists.
+2. **Your 10 `site_plan_sections` for 45 pages** is the live plan (`f6852688`, `is_current`).
+   Your previous plan `6d8742f1` is no longer current. If your D6 work depends on a plan
+   that carries real compositions, that is a state you may want to fix deliberately rather
+   than inherit from my run — your call, and I have not touched it.
+3. The pre-fire snapshot tables are yours to drop when you are satisfied; I have left them.
