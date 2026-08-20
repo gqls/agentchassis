@@ -40009,3 +40009,62 @@ Related, and it is the same lane twice in two days: my 08-19 entry was *"I publi
 in four documents without reading the guard that decides whether the remedy applies."* This
 is the mirror image — I read the guard, wrote it down for everyone else, and then did not
 apply it to myself.
+
+---
+
+## 2026-08-20 — "DONE and CLOSED. Nothing here needs picking up" — written while the council verdict sat unread, and it was a REVISE
+
+**The claim, in a cold-start handoff's first line:** *"DONE and CLOSED. Fixed, council-submitted,
+live on `v1.0.1319`, 494 re-armed, and demand-proven … **Nothing here needs picking up**."*
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_336_config_key_on_the_wrong_spec/HANDOFF_2026-08-20_continue_here.md`,
+written 14:40Z for `bugs_open/336`.)
+
+**What was actually true:** the code half was exactly as described — fixed, live, demand-proven,
+and the closing evidence was better than the file claimed. But the council round submitted at
+08:23Z had come back **REVISE at 08:37:50Z**, six hours *before* the handoff was written, and
+nobody had read it. It was still unread at **17:00Z**, ~8.5 hours later, when the next session
+opened the file and went looking. The verdict was gated by a **single high-severity objection**
+from the `guardian` seat.
+
+**Why it hid, and this is the reusable part:** the verdict was not omitted — it was listed, as
+item 2 under a heading reading **"Loose ends, none blocking"**. Everything in that section was
+true individually. But "none blocking" is a statement about *this lane's code*, and it was read
+as a statement about *whether anything needed doing*. A pending async result filed under
+"non-blocking" is indistinguishable, to the next reader, from a resolved one.
+
+**What made it worse rather than better:** the objection needed **no code change at all**. The
+guardian had written its own exit condition into the verdict — *"Approve pending the check
+results; if RenderComponentInputSpec is non-strict and/or no live step sets the key there, no
+further objection stands."* Two read-only checks, answerable in minutes, at any point that
+afternoon. The cost of not reading it was not "a slow review"; it was a round left hanging on
+questions that were already answerable from the tree.
+
+**What caught it:** nothing in the lane. A later session read the verdict because the handoff's
+own loose-end 2 said to, and then only because it distrusted "nothing needs picking up" enough
+to run the query. **The instrument existed and was pointed at the right place — no one looked
+through it.**
+
+**The cheap check I skipped, and it is one query:** before writing DONE / CLOSED / "nothing to
+pick up" anywhere, resolve every **pending async result** the lane started — a council round
+above all:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+-- COMPLETED at complete_revise / complete_reject is NOT a closed round
+SELECT metadata->>'decision', created_at FROM diagnosis_artifacts
+WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report' ORDER BY created_at;
+```
+
+**The transferable lesson: a SUBMISSION is not a REVIEW, and "advisory" is not "ignorable".**
+The estate already knows the first half — `Council-Submitted:` exists precisely because a
+trailer asserting a verdict you have not read is the coverage report's dishonesty surface. This
+is the same error one level up, in prose: the handoff's evidence table said
+`bc2f4b0e-… **SUBMITTED**`, which was accurate, and the reader's eye completed it to *reviewed*.
+Because the gate is advisory it cannot block a commit — so nothing in the machinery ever comes
+back and asks. **The only thing that closes an advisory loop is somebody deciding to read it.**
+
+**Related, same family:** the memory entry *"a `Council-Submitted:` trailer is a SUBMISSION, not
+a verdict"*, and the 08-19 entry about publishing a remedy without reading the guard that
+decides whether it applies. The shape recurs: **the artefact that records that work was started
+gets read as the record that it finished.**
