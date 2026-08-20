@@ -70,6 +70,11 @@
 -- names this key as unrecognised. That is cosmetic and it is the stated cost of
 -- arming detection today rather than after a roll.
 --
+-- ✅ RESOLVED 2026-08-20 (same day): bb6600e48 shipped on v1.0.1319 (revision
+-- 447f3a8a8, merge-base with controls both ways). The interim window lasted one
+-- build. The key is now declared on the action that reads it, so the config
+-- report no longer names a live working setting as unrecognised.
+--
 -- WHAT IT COSTS. One work item per (page, slot, dead-field-set) on any re-render
 -- of a section that renders an empty src=/href=. `insertWorkItem`'s dedup
 -- (idx_swi_dedup-matched ON CONFLICT) and two-strike anti-churn label bound the
