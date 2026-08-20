@@ -1092,3 +1092,46 @@ before-reading: a watcher is now waiting for the first non-zero.
 
 **Nothing is proven until it moves.** Config being right is not the artefact — that is this bug's
 entire lesson, and it applies to the fix as much as to the defect.
+
+## 2026-08-20 ~06:55Z — armed but UNEXERCISED, and the zero is traffic, not failure
+
+`[MEASURED 2026-08-20 06:55Z]` after arming: `count(content_hash)` = **0**;
+`agent_error_log WHERE error_code='DEPLOY_EVIDENCE_UNREADABLE'` = **0**; pages stamped since
+06:50Z = **0**; and the most recent `page-rerender` orchestration of any kind completed
+**2026-08-19 15:19:01Z**, roughly fifteen hours ago.
+
+**So both zeros are consistent with "nothing has run", and neither is evidence the guard works or
+that it doesn't.** A post-change zero with nothing driving it is the shape
+`MEMORY/a-post-fix-zero-needs-a-demand-control` exists to warn about, and it is the same mistake
+this bug is about — reading a green status that no traffic has tested. Recording it as unproven
+rather than as a pass.
+
+### Why I have NOT driven one myself
+
+`docs/leopardessconsulting/scripts/rerender_page_safe.sh` is the documented safe trigger and the
+chassis is well past its 300s post-restart window, so it is available. I did not use it, for a
+reason worth stating rather than assuming:
+
+**a rerender is not content-neutral.** That script sets `input_data.spec.reason` to
+`section_data_resolved`, which its own header says makes page-rerender **REGENERATE** section HTML
+from `content_data` rather than re-assemble the stored HTML. Regenerated output is not guaranteed
+byte-identical to what is live — which is the whole point of
+`MEMORY/repro-regenerated-from-source-is-destroyed-by-the-render`. Every candidate target is a live
+customer page belonging to another lane (`webdesign.co.uk`'s tools are the
+`webdesign_tool_rebuilds` lane's active work), so firing one to test **my** fix would risk changing
+**their** page.
+
+The content-neutral variant — a rerender WITHOUT that reason, which re-assembles the stored HTML and
+so commits byte-identical output — would be the right instrument, and is a payload change rather
+than a script that exists. Offered to the owner rather than taken unilaterally.
+
+**Meanwhile a watcher is running** for the first non-zero `content_hash`, so organic traffic will
+answer it: the fleet stamped 31 pages yesterday afternoon, so this is hours, not days.
+
+### What each outcome will mean when it lands
+
+| observation | reading |
+|---|---|
+| `content_hash` non-zero after a rerender | the guard resolved real evidence and the fingerprint is live — **the thing this lane exists for** |
+| `DEPLOY_EVIDENCE_UNREADABLE` rows instead | the chassis is armed against something it cannot read. With `v1.0.1317` carrying BOTH halves this would NOT be the expected partial-roll window — it would be a real defect in the resolution path and the first thing to read is the field name per agent |
+| a `deployed` stamp with neither | the guard did not run at all — check `deploy_result_field` is still set (another session edits these agents constantly) |
