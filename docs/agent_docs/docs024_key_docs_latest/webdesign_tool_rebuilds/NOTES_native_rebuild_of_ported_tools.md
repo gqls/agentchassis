@@ -2225,3 +2225,24 @@ slot asserted by FUNCTION, all in one committed transaction.
 `Strip the Code`. POSITIVES (≥1): `id="htx-input"`, `id="htx-preserve"`, `id="htx-copy-status"`,
 `Characters in:`. Generator's rerender `ac167cc8` (09:13:16Z, triaged) — created BEFORE the retire but
 not yet claimed, so it will assemble the retired state; watcher armed on it.
+
+## 2026-08-20 09:20Z — #16 shadow-stacker PASSES at the served bytes (19 of 63 live-confirmed); #21 mesh-gradient FILED
+
+**#16 serve-grade:** its replacement rerender (`baaf8ec5`, refiled by the platform after the 336
+failure) completed 09:15:14Z; served page `http=200`, 21,541 B, `last-modified 09:15:40` > 09:15:14.
+Standard 0·0·0·0 with 5 `<script>`. NEGATIVES all 0 — `id="preview"`, `updateCSS`, `renderLayers`
+(⚠ `id="cssOutput"` and `id="layersContainer"` exist in BOTH versions and were EXCLUDED — third
+occurrence of the shared-id trap; the check is always grep-the-new-template, never "looks old").
+POSITIVES: `id="addLayerBtn"` 1, `id="copyBtn"` 1, `setFieldError` 6, `parseField` 6.
+**All 19 rebuilds to date are now confirmed at the served bytes. 44 ported slots remain deployed.**
+
+**#21 `tool-mesh-gradient` FILED** — item **`147db11c-48cc-43fa-a86e-3da0622ed932`** (09:17:34Z), page
+`e07d5c67-9193-4360-932b-f9cba18b5ad7`. Revert handle: ported slot
+**`5188a849-0767-4160-9be0-84faa9a09531`, 7,052 chars, md5 `f270dd9eb75fa8e990acccf5a262a04b`**.
+Gates: library 0, local fork 0, no queued rerender on the page, open add_tool 0.
+The ported defects: **"We use a physics-based randomization algorithm" — it is six `Math.random()`
+calls** (untrue-self-claim #10); and **every control input re-rolls the whole composition** — the
+`input` listeners call `draw()`, which re-randomises positions/radii/colour picks, so adjusting blur
+on a composition you like destroys it. The brief's load-bearing requirement: composition is HELD
+STATE — palette/blur re-render the same composition; only Regenerate rolls. Plus: blur slider needs a
+numeric readout; a missing canvas-filter API must be said, not silently rendered as hard circles.
