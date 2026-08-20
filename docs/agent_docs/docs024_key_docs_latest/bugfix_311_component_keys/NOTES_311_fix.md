@@ -452,3 +452,90 @@ already has a native component" step) or the run short-circuits and the fork bra
 Phase D's second tool (`tool-meme-generator`, library claim `6ae53f32-be86-4c29-bc52-983c35d23b18`)
 is the remaining one and is a Phase B rich app, so it goes later by the owner's standing instruction.
 §11's known follow-up (`deploy_tool_to_site`'s fork lookup) did not bite: this route never calls it.
+
+## 2026-08-20 ~08:00Z — new session: both halves RE-VERIFIED on v1.0.1317, the tool half's served page GRADED, and the residual measured honestly (it is not "six pages")
+
+**Nothing named `HANDOFF_2026-08-19_continue_here.md` exists in this lane** — the pickup pointed at
+one and it was never written (`git log` on the directory confirms it). Picked up from
+`NOTES` + `RUNBOOK` + `README_where_we_are` instead. Worth one line in a future handoff commit:
+a lane that never wrote a cold-start file sends its next session hunting.
+
+### 1. Both halves are live on the CURRENT image, not just the one they shipped on
+
+The fleet rolled again overnight: chassis **v1.0.1317**, pods `agent-chassis-c7d6d875b-{67cgh,x5tgn}`,
+started **2026-08-19 22:26Z** — i.e. every version statement in this file below 20:35Z is about a
+retired image. Re-verified at the binary rather than assumed forward [MEASURED 08:12Z]:
+
+- stamp **`2d13d530d2943831641ff6e51e4c92d8eb4b6c10`** PRESENT in `/proc/1/exe`; the two other
+  candidate shas from the same build window (`5022305cf`, `d4950c53c`) **ABSENT** — so the probe
+  discriminates, which a single positive can never show on its own;
+- `git merge-base --is-ancestor` TRUE for **both** `17d883333` (section half) and `e24bc9c0f`
+  (tool half) against that stamp;
+- capability literals `COMPONENT_COLLISION_DIVERTED` and `library tool claims this function`
+  both PRESENT on **both** replicas; invented literal `zzzz_no_such_literal_311_control` ABSENT.
+
+### 2. The tool half's LAST open assertion is now answered — at the served page
+
+Yesterday's 21:05Z contrib closed four of five assertions and left "served-page grade follows when
+the page's rerender drains". It drained (item `ad2a2dc4` complete 21:36Z) and the page grades
+[MEASURED 08:15Z]: `https://webdesign.co.uk/tools/ab-test-calculator/index.html` → 200,
+**16,172 bytes, 5 `<input>`, 1 `<button>`, zero `{{`**, ids `a-visitors` / `b-visitors` /
+`a-conversions` / `b-conversions` / `panel-a` / `panel-b` / `results` / `verdict`.
+
+**Discriminated, not just observed.** Three components have carried that page. Querying which one
+holds the served markup: `a-visitors` appears in `8a315006`'s `rendered_html` (the forked row,
+`build_status=deployed`) and in **neither** of the two `removed` slots (`a7daa5c5` the ported
+original, `cd60486c` the old inactive fork). `id="verdict"` alone would NOT have discriminated —
+the ported slot has it too. So the served calculator is provably the row that `forked_from` points
+at the library claim, which is the whole of RFC_036 §9.3.
+
+**Consequence: the owner's precondition pair is demand-proven on both halves, at the artefact.**
+
+### 3. The residual is NOT "six hollow pages" — measured, it is four different things
+
+Every loanzy tool page fetched and its `<input>` count taken [MEASURED 08:16Z], then cross-read
+against the eight `failed` `needs_new_component` items. The RUNBOOK's list was close but wrong in
+three ways, and the differences change what each page needs:
+
+| class | pages | what it needs |
+|---|---|---|
+| **fixed** | `tool-car-finance-calculator` (4 inputs) | done 08-19 |
+| **collision class — `store_component` died, 311's exact defect** | `tool-interest-rate-stress-test`, `tool-loan-comparison-calculator` (`loans-compare-loans`), `tool-loan-repayment-calculator` (`loans-standard-calc`), `tool-overpayment-calculator`, `tool-settlement-calculator` | re-drive + re-render (both legs) |
+| **upstream `max_tokens`, NOT this bug** | `tool-credit-health-check` AND `tool-eligibility-checker` — *two* pages, both planned the same `loans-credit-health-check` section | a cap decision; see §5 |
+| **render leg only** | `tool-loan-vs-savings` — its component was created fine on 08-19 (plain creation, no collision) and the page still serves **0 inputs** | one `needs_page`, no generation |
+| **never planned a section** | `tool-compare-loans`, `tool-is-a-loan-right-for-me` (both 404, zero `page_components`) | not a 311 case at all |
+
+Three corrections to this lane's own earlier record: the count was **five** collision-class pages
+plus a render-only one, not six; `tool-eligibility-checker` was missed entirely (it is the second
+victim of the `max_tokens` failure, same section type, different page); and `tool-loan-vs-savings`
+was being counted as needing a re-drive when it only ever needed the render leg.
+
+### 4. Two measurement traps hit while pinning the baselines, both worth the ink
+
+**(a) An "incumbent untouched" control can be broken by a mechanism that is nothing to do with
+you.** Re-pinning all eight incumbents before this run, `b420389f` (`loans-standard-calc`) had
+MOVED: html md5 `85d67379…` → **`a9dea7cd…`**, 2,469 → 2,852 chars, `updated_at` **2026-08-20
+07:02:57Z** — one hour before I looked, and after yesterday's pin. Attributed rather than
+suspected: `component_versions` holds exactly one archived row for it, `change_source =
+**scope_component_instance_judged**`, and the archived bytes ARE yesterday's md5. So a concurrent
+component-scoping mechanism rewrote a shared incumbent this morning. Every other loans incumbent
+has zero version rows. **Do not re-use a day-old baseline on a shared row, and if one has moved,
+read `component_versions.change_source` before blaming your own run.**
+
+**(b) A single 404 is not a baseline.** My first sweep read `tool-loan-comparison-calculator` as
+**404**; two later reads, same URL from `pages.url`, both **200 / 22,600 bytes / 0 inputs**, and
+nothing deployed in between (`max(page_components.updated_at)` for it is 08-18 22:31Z). Recorded
+as an unexplained transient, NOT as a mechanism — but note which way it would have cut: had I kept
+the 404 as the "before", the fix would have been credited with publishing a page it never touched.
+Pinned baseline is the reproducible one.
+
+### 5. Filed the owner's choice: the five collision-class re-drives (08:18Z)
+
+Owner ruled "repair the 5 collision-class pages" (credit-health-check's pair and the two
+never-planned pages left alone). Preconditions checked before inserting, not after: site
+`55213ded` **unlocked**, zero claimed items, all five `needs_new_component:<section>` keys held
+only by `failed` rows and all five `page_rerender:<page>` keys held only by `complete` rows —
+`idx_swi_dedup` excludes both statuses (index definition read, not recalled), so a fresh insert
+cannot 23505. Items, all `triaged`/`component-creator`/priority 50/`created_by=bugfix_311_redrive`:
+`8ce63159` stress-test · `dcaead88` compare-loans · `a1daabc8` standard-calc ·
+`9a249bfa` overpayment · `d1add6d3` settlement.

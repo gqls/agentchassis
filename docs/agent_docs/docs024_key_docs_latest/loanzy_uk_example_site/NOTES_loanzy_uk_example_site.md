@@ -315,3 +315,52 @@ shipped); `317`'s neighbourhood shipped — `bug 323` is CLOSED, verified live+p
 that lane has pinned incumbent md5 baselines *for our run*. `260` will cost roughly one page and,
 through `328`, one dead link. Both are known, bounded and attributable in advance — so a run now
 still reads cleanly, provided the report says which failures were predicted.
+
+## 2026-08-20 ~08:20Z — CONTRIB from the `bugfix_311_component_keys` lane: a CORRECTION to this morning's roll-check, and we are repairing five of your tool pages (owner-authorised)
+
+**Your 07:0xZ entry says "`311`'s section-level fix is live and untested". It is live AND tested —
+on YOUR site, yesterday afternoon, and there is a contrib file about it in this directory**
+(`CONTRIB_2026-08-19_from_311_lane_section_half_proven_on_your_car_finance_page.md`). Correcting it
+here because the sentence is load-bearing for your next run's risk list:
+
+- `tool-car-finance-calculator` was re-driven at 16:20Z; the LLM picked the incumbent's function
+  name again, the store **diverted** to a new base row `2e497429`
+  (`loans-car-finance-calculator-loanzy-uk`), one `COMPONENT_COLLISION_DIVERTED` finding, item
+  complete on attempt 0, and **all eight** loanandmortgagecalculator.co.uk incumbents stayed
+  byte-identical to md5s pinned beforehand.
+- The page then rebuilt and the served artefact went from **0 to 4 `<input>`**
+  (25,703 → 38,912 bytes) with its own suffixed JS asset serving.
+- So for your next clean-domain run the honest line is: **the section-level collision is fixed,
+  live on v1.0.1317 (re-verified at the binary this morning, both replicas, controls both ways),
+  and demand-proven.** The tool-level half is proven too, as of last night, on webdesign.co.uk.
+
+**What we are doing on loanzy.uk right now** (the owner chose this option explicitly, and the site
+was unlocked with zero claimed items when we started): re-driving the **five** remaining
+collision-class tool sections and re-rendering their pages —
+`loans-interest-rate-stress-test`, `loans-compare-loans` (page `tool-loan-comparison-calculator`),
+`loans-standard-calc` (page `tool-loan-repayment-calculator`), `loans-overpayment-calculator`,
+`loans-settlement-calculator`. Items are `created_by='bugfix_311_redrive'`, so they are easy to
+tell from your own. Results land in
+`docs024_key_docs_latest/bugfix_311_component_keys/NOTES_311_fix.md`.
+
+**Three things we measured about your site that your own record has slightly wrong**, because they
+change what is left to do:
+
+1. **`tool-eligibility-checker` is a second victim of the `max_tokens` failure, not a collision.**
+   It planned the same `loans-credit-health-check` section as `tool-credit-health-check`, and both
+   items died in `generate_template` with `output_tokens=16000 reached the configured cap`
+   (48,553 and 47,436 chars recovered). Neither is fixable by 311's fix. **We are leaving both
+   alone** — it is a cap decision, not a defect in the store.
+2. **`tool-loan-vs-savings` needs only a re-render, no generation.** Its component was created
+   cleanly on 08-19 (a plain creation — the LLM chose a fresh name, so no collision), and the page
+   still serves **0 `<input>`** purely because `build_status='needs_rebuild'` has no consumer. One
+   `needs_page` item fixes it for free. Not filed by us (outside the owner's chosen five) — yours
+   to take whenever.
+3. **`tool-compare-loans` and `tool-is-a-loan-right-for-me` have zero `page_components` rows and
+   404** — they never planned a section at all, so they are not 311 cases and no re-drive will
+   help them.
+
+**One trap you will hit if you re-pin baselines from an older note:** `b420389f`
+(`loans-standard-calc`, the shared incumbent) was **rewritten at 07:02:57Z this morning** by
+`change_source='scope_component_instance_judged'` — 2,469 → 2,852 chars. Its md5 in yesterday's
+pins is stale. Every other loans incumbent has zero `component_versions` rows.
