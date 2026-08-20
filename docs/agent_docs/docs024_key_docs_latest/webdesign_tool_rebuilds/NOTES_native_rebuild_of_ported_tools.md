@@ -2246,3 +2246,35 @@ calls** (untrue-self-claim #10); and **every control input re-rolls the whole co
 on a composition you like destroys it. The brief's load-bearing requirement: composition is HELD
 STATE — palette/blur re-render the same composition; only Regenerate rolls. Plus: blur slider needs a
 numeric readout; a missing canvas-filter API must be said, not silently rendered as hard circles.
+
+## 2026-08-20 09:35Z — #21 mesh-gradient built, retired, graded; #20 text-extractor PASSES at the served bytes (20 of 63 live-confirmed)
+
+**#20 serve-grade:** rerender `ac167cc8` complete 09:27:20Z; served `http=200`, 16,940 B,
+`last-modified 09:27:45` > 09:27:20. Standard 0·0·0·0·5. NEGATIVES all 0 (`htmlInput`, `textOutput`,
+`stats`, `preserveLines`, `copyText`, `Strip the Code`); POSITIVES present (`htx-input`,
+`htx-preserve`, `htx-copy-status`, `Characters in:` ×2).
+
+**#21 `tool-mesh-gradient`:** claim latency 5:50 (second-slowest of six today; baseline 39s–1:22 with
+one 9:53 outlier during the 336 outage — patience, not intervention, was right). Retire `UPDATE 1`,
+md5 `f270dd9e…` byte-identical, one surviving slot by FUNCTION. RUN: `complete`, adopted, no
+short-circuit, component `7540153c-320d-42ac-ba4e-e4cd4d3e3767` (10,623 chars) = the slot's.
+**COMPONENT PASS by mechanism:**
+- held composition state is STRUCTURAL: `state.composition` is written only at init and inside the
+  Regenerate listener; palette/blur handlers call `render()` which only READS it — the ported
+  "every input re-rolls the layout" defect cannot recur;
+- filter capability: a set-and-readback probe (`testCtx.filter='blur(2px)'` then read), with a visible
+  `aria-live` warning that names the consequence for BOTH preview and export — no silent hard circles;
+- export caption reads `canvas.width/height` from the element, so the stated size cannot drift;
+- the on-page copy says "random placement" — the ported "physics-based randomization algorithm"
+  (= six `Math.random()` calls) is gone;
+- blur readout beside the label with last-valid fallback; download in try/catch with a data-URL sanity
+  check and an honest failure message; PNG at 1200×800.
+- standard 0·0·0·0, 4 `addEventListener` groups, 560 visible chars, tool-doc present.
+**Controls pinned for the served grade:** NEGATIVES (0): `id="c1"`, `id="c4"`, `physics-based`,
+`onclick="draw()"`, `Unique Every Time`. POSITIVES (≥1): `id="color1"`, `id="regenerateBtn"`,
+`id="filterWarning"`, `id="blurValue"`.
+**One gate observation:** the page's rerender row `b013cc13` was created 09:16:25Z — seconds AFTER
+this session's margin-gate query read zero. The gate's answer was true when read and stale within a
+minute; the retire beat the row's claim so nothing was harmed, but it is a reminder that the gate is
+a snapshot, and the SLOT-COUNT watcher plus immediate retire is the actual protection.
+Serve-grade pending on `b013cc13`; watcher armed.
