@@ -89,7 +89,7 @@ type compiledPhrase struct {
 
 // VoiceFinding is one tell located in scanned copy.
 type VoiceFinding struct {
-	Check       string  `json:"check"` // banned_phrase | em_dash_density | triad_density | contrast_density | long_sentences | no_contractions | flourish_ending | strawman
+	Check       string  `json:"check"` // banned_phrase | em_dash_density | triad_density | negation_density | long_sentences | no_contractions | flourish_ending | strawman
 	Matched     string  `json:"matched"`
 	Reason      string  `json:"reason"`
 	Snippet     string  `json:"snippet"`
@@ -188,18 +188,20 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 	longWords := defaultI(g.cfg.LongSentenceWords, 25)
 	meanTrip := defaultF(g.cfg.MeanSentenceWords, 22)
 	minSentences := defaultI(g.cfg.MinSentencesForContractionCheck, 15)
-	contrastTrip := defaultI(g.cfg.ContrastsPerPage, 2)
+	familyTrip := defaultI(g.cfg.ContrastsPerPage, 12)
 	if longForm {
 		emDashTrip = defaultF(g.cfg.LongForm.EmDashPer1000Words, 5)
 		triadTrip = defaultI(g.cfg.LongForm.TriadsPerPage, 8)
 		longShareTrip = defaultF(g.cfg.LongForm.LongSentenceShare, 0.40)
-		contrastTrip = defaultI(g.cfg.LongForm.ContrastsPerPage, 4)
+		familyTrip = defaultI(g.cfg.LongForm.ContrastsPerPage, 18)
 	}
 
 	var findings []VoiceFinding
 	var totalWords, totalSentences, longSentences, emDashes, triads, contractions int
 	var sumSentenceWords int
-	var ratherThanHits int
+	familyHits := 0
+	strawmanSeen := map[string]NegationHit{}
+	strawmanCount := map[string]int{}
 
 	for _, block := range blocks {
 		// Banned phrases — every hit is a finding with its snippet.
@@ -216,45 +218,38 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 			})
 		}
 
-		// Strawman shapes — the FAMILY, not just the ", but" form.
+		// Strawman shapes.
 		//
-		// This used to be two regexes local to this file, and between them they
-		// matched "not X, but Y" and the staccato form only. That is 1.5% of
-		// writer sections, and it missed both sentences the owner quoted in
-		// bugs_open/305 ("…what's possible, not what survives production").
-		// ScanDefineByNegation carries the whole family and is shared with the
-		// writer-seam gate, so the two ends cannot disagree about what the
-		// construction IS — the same reason ScanVoiceTells is shared between the
-		// emit side and the revalidator.
+		// ⚠ ONLY THE TWO ORIGINAL SHAPES ARE PER-HIT FINDINGS HERE, and that is a
+		// deliberate limit on this check's VOLUME, not on what the scanner can
+		// see. The other three shapes of the family (x_not_y, rather_than,
+		// negative_reveal) feed the page-level density below instead.
 		//
-		// ONE finding per shape per block, carrying that shape's count. Per-HIT
-		// findings would drown this check: the broadest arm is present in 43% of
-		// sections, and a post-deploy audit that flags almost every page tells a
-		// human nothing. `rather_than` is excluded here entirely and handled as a
-		// page-level density below, for the same reason.
-		shapeFirst := map[string]NegationHit{}
-		shapeCount := map[string]int{}
+		// Measured 2026-08-20 over the 189 live, unlocked pages of the 9 sites
+		// that have opted into a voice gate: this check flags 14 pages today; if
+		// x_not_y were a per-hit finding it would flag 139, plus 46 for the
+		// reveal and 39 for the contrast arm. That is a tenfold flood into a
+		// queue that already holds 45 parked voice_tells items and has had
+		// exactly one closed by a human, ever. A check that flags three quarters
+		// of the estate's pages tells nobody anything, and it lands on another
+		// lane's review queue rather than on the author's.
+		//
+		// The division of labour that follows is the honest one: the WRITER-SEAM
+		// gate (bugs_open/305) enforces the real standard — the house voice's
+		// "earned once or twice per page at most" — at the moment the copy is
+		// written, where a repair is automatic and costs no human. This
+		// post-deploy check keeps its own bar higher, because every finding here
+		// costs a person.
 		for _, h := range ScanDefineByNegation(block) {
-			if h.Shape == "rather_than" {
-				ratherThanHits++
-				continue
+			switch h.Shape {
+			case "not_x_but_y", "staccato":
+				if _, seen := strawmanSeen[h.Shape]; !seen {
+					strawmanSeen[h.Shape] = h
+				}
+				strawmanCount[h.Shape]++
+			default:
+				familyHits++
 			}
-			if _, seen := shapeFirst[h.Shape]; !seen {
-				shapeFirst[h.Shape] = h
-			}
-			shapeCount[h.Shape]++
-		}
-		for _, shape := range NegationShapeNames() {
-			h, ok := shapeFirst[shape]
-			if !ok {
-				continue
-			}
-			at := h.SentenceStart + h.MatchInSent
-			findings = append(findings, VoiceFinding{
-				Check: "strawman", Matched: h.Matched,
-				Reason:  "defines by negation (" + shape + ") — say what the thing IS",
-				Snippet: voiceSnippet(block, at, at+len(h.Matched)), Occurrences: shapeCount[shape],
-			})
 		}
 
 		// Density inputs.
@@ -290,6 +285,19 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 		}
 	}
 
+	// The two per-hit shapes, one finding each with its count.
+	for _, shape := range NegationShapeNames() {
+		h, ok := strawmanSeen[shape]
+		if !ok {
+			continue
+		}
+		findings = append(findings, VoiceFinding{
+			Check: "strawman", Matched: h.Matched,
+			Reason:  "defines by negation (" + shape + ") — say what the thing IS",
+			Snippet: firstWords(h.Sentence, 24), Occurrences: strawmanCount[shape],
+		})
+	}
+
 	// Page-level densities.
 	if totalWords > 0 {
 		density := float64(emDashes) / float64(totalWords) * 1000
@@ -301,15 +309,19 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 			})
 		}
 	}
-	// "rather than" as a DENSITY, mirroring triads: the house voice's own standard
-	// is that a matched contrasting pair is "earned once or twice per page at
-	// most", so the third one on a page is the signal — not the first, which is
-	// usually the clearest way to say a true thing.
-	if ratherThanHits > contrastTrip {
+	// The define-by-negation FAMILY as a page-level density (bugs_open/305).
+	//
+	// The threshold is set from a measurement rather than from taste: at >12 it
+	// flags 14 of the 189 live pages on the opted-in sites, which is exactly
+	// this check's volume today. So the check gains a new KIND of finding
+	// without gaining VOLUME on a queue that has closed one item ever. Lower it
+	// per site once that queue has a working surface — 8 flags 43 pages, 5 flags
+	// 61, 3 flags 87, and 1 would flag 150.
+	if familyHits > familyTrip {
 		findings = append(findings, VoiceFinding{
-			Check: "contrast_density", Matched: "rather than",
-			Reason: "contrast by reflex — a matched contrasting pair is earned once or twice per page",
-			Value:  float64(ratherThanHits), Threshold: float64(contrastTrip), Occurrences: ratherThanHits,
+			Check: "negation_density", Matched: "X, not Y / rather than / it doesn't",
+			Reason: "defining by negation as a habit — the house voice earns a matched contrasting pair once or twice a page",
+			Value:  float64(familyHits), Threshold: float64(familyTrip), Occurrences: familyHits,
 		})
 	}
 	if triads > triadTrip {

@@ -7,7 +7,10 @@
 
 package datahelpers
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 const testGateJSON = `{
   "voice_gate": {
@@ -157,53 +160,49 @@ func repeatN(s string, n int) string {
 	return out
 }
 
-// bugs_open/305: the gate used to be blind to the shape the owner actually
-// complained about, because strawmanCommaRe required a trailing ", but". This is
-// the regression test for that hole — it fails against the pre-305 scanner.
-func TestOwnerQuotedShapeNowTrips(t *testing.T) {
+// bugs_open/305, and the volume argument that shapes it.
+//
+// The two ORIGINAL shapes stay per-hit findings; the other three feed a page
+// DENSITY, because per-hit x_not_y would take this check from 14 flagged pages
+// to 139 of 189 on the opted-in sites — a tenfold flood into a queue holding 45
+// parked items that has had one closed, ever. The real standard is enforced at
+// the writer seam, where a repair is automatic; this check keeps a higher bar
+// because every finding here costs a person.
+func TestOriginalStrawmanShapesStayPerHit(t *testing.T) {
 	g := mustGate(t)
-	html := `<p>170+ agents defined, 174 agent types. The registry shows you what's possible, not what survives production.</p>`
+	html := `<p>Not a demo environment. Not a proof of concept. This is not just a framework, but a system that ships.</p>`
 	fs := g.ScanVoice(ExtractAssertionText(html), false)
-	if checksIn(fs)["strawman"] == 0 {
-		t.Errorf("the owner's own sentence must trip strawman, got %+v", fs)
+	if got := checksIn(fs)["strawman"]; got != 2 {
+		t.Errorf("both original shapes must still trip per-hit, got %d (%+v)", got, fs)
 	}
 }
 
-// One finding per SHAPE per block, carrying that shape's count — not one finding
-// per hit. A post-deploy audit that flags almost every page tells a human nothing.
-func TestStrawmanFindingsAreShapeScopedWithCounts(t *testing.T) {
+// One or two of the broad shapes on a page must NOT flag it here — that is the
+// whole volume argument. The writer-seam gate is what holds the tighter line.
+func TestBroadShapesDoNotFlagAPageOnTheirOwn(t *testing.T) {
 	g := mustGate(t)
-	html := `<p>It shows what is possible, not what survives. It lists what exists, not what works.</p>`
+	html := `<p>The registry shows you what's possible, not what survives production. The reader is persuaded rather than sold to.</p>`
 	fs := g.ScanVoice(ExtractAssertionText(html), false)
-	n := 0
-	for _, f := range fs {
-		if f.Check == "strawman" {
-			n++
-			if f.Occurrences != 2 {
-				t.Errorf("expected Occurrences 2 for two hits of one shape, got %d", f.Occurrences)
-			}
-		}
+	if got := checksIn(fs)["strawman"]; got != 0 {
+		t.Errorf("a broad shape must not become a per-hit strawman finding, got %d", got)
 	}
-	if n != 1 {
-		t.Errorf("expected exactly one strawman finding for one shape, got %d (%+v)", n, fs)
+	if got := checksIn(fs)["negation_density"]; got != 0 {
+		t.Errorf("two hits must not trip the page density, got %d", got)
 	}
 }
 
-// "rather than" is a DENSITY, never a per-hit finding: it is present in 43% of
-// writer sections, and the house voice allows a contrasting pair once or twice
-// per page. Two must pass; three must trip.
-func TestContrastDensityArm(t *testing.T) {
+// A page that does it as a HABIT is what this check is for.
+func TestFamilyDensityTripsOnAHabit(t *testing.T) {
 	g := mustGate(t)
-	two := `<p>The reader is persuaded rather than sold to. We name the action rather than gesturing at it.</p>`
-	if got := checksIn(g.ScanVoice(ExtractAssertionText(two), false))["contrast_density"]; got != 0 {
-		t.Errorf("two contrasts must pass, got %d findings", got)
+	one := `<p>It shows what is possible, not what survives. We build rather than describe. It doesn't tell you how it holds up. `
+	var b strings.Builder
+	b.WriteString(one)
+	for i := 0; i < 5; i++ { // 5 x 3 shapes = 15 > the default 12
+		b.WriteString(`It lists what exists, not what works. We ship rather than promise. It isn't a roadmap. `)
 	}
-	three := two + `<p>We build it rather than describing it.</p>`
-	if got := checksIn(g.ScanVoice(ExtractAssertionText(three), false))["contrast_density"]; got != 1 {
-		t.Errorf("three contrasts must trip the density arm, got %d findings", got)
-	}
-	// And it must not arrive as a strawman finding as well — one fault, one class.
-	if got := checksIn(g.ScanVoice(ExtractAssertionText(three), false))["strawman"]; got != 0 {
-		t.Errorf("'rather than' must not also be reported as strawman, got %d", got)
+	b.WriteString(`</p>`)
+	fs := g.ScanVoice(ExtractAssertionText(b.String()), false)
+	if got := checksIn(fs)["negation_density"]; got != 1 {
+		t.Errorf("a page doing it a dozen times must trip the density, got %d (%+v)", got, fs)
 	}
 }
