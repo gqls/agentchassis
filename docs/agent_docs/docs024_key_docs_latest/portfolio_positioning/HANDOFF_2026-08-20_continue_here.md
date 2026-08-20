@@ -68,8 +68,26 @@ prime customer"*):
    locked there has been no demand. **A zero here is no-demand, not a working guard.** The first
    real build after the halt lifts is the test.
 
-**Council: round 2 REVISE, round 3 submitted** (`aac38d5b-61cd-4cd7-b1e1-90d41c67a96f`). Both
-rounds found real defects — see §7.
+**Council: rounds 1 and 2 both REVISE; round 3 submitted 2026-08-20** (trail correlation
+`aac38d5b-61cd-4cd7-b1e1-90d41c67a96f`). Both completed rounds found REAL defects, which is the
+argument for submitting rather than defending:
+- **round 1 (guardian, high):** relaxing `ParseEvidenceBase`'s nil-return could arm a documented
+  landmine — parsing `evidence_base` through the typed struct and writing it back destroys
+  citations and writer blocks. All five callers are read-only, but a caller list goes stale, so a
+  test now **pins the loss** instead of claiming absence.
+- **round 1 (edit-quality):** my calibration implied the negation guard handled negated forms. It
+  does not — it is **never reached**. `ScanBannedClaimsIgnoringNegation` returns zero on all five,
+  because the patterns need adjacency and an interposed "not" breaks the match first. Safer, but
+  a maintenance hazard now pinned: loosen a pattern and it starts depending on a backward scan
+  with a documented defect.
+- **round 2 (edit-quality, high):** the claim that the scan is "the single function every
+  enforcement surface calls" was **false** — the section editor ran no claims guard at all. Fixed
+  in code (§3 item 1), not argued.
+
+⚠ **Correction to this file's own first draft:** it said round 3 was already submitted. It was
+not — only two runs existed. Checked and submitted properly. *Claiming a submission is the
+cheapest possible false claim to make and the easiest to check: count the runs for the
+correlation.*
 
 ## 4. ✅ THE DOMAIN ESTATE — inventoried and classified
 
