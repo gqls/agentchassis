@@ -655,3 +655,25 @@ the honest next step is one run's logs, which the next scheduled fire (or a manu
 half of the deploy is right — but that is the tag, not the binary, and the render-check image was
 NOT probed the way the chassis was. `[INFERRED, not measured]` that it carries the change, from
 its being built by the same release off the same HEAD.
+
+### 17:10Z — the fleet rolled AGAIN (v1.0.1320) and the claim was re-probed, not assumed
+
+Two hours after I wrote "LIVE on v1.0.1319", the fleet rolled to **v1.0.1320** (pods started
+16:09Z). That is the landmine firing exactly as written: *a "FIXED AND LIVE on v1.0.NNNN" close-out
+EXPIRES — the fleet rolls past your image within hours, and the sentence still reads as current.*
+
+Re-probed on the new replicas rather than reasoned about. Same four needles, same results on both:
+added literal PRESENT, deleted fallback's literal **ABSENT**, long-lived control present, nonsense
+control absent. Gate still armed (config lives in the DB, so a roll cannot disarm it — checked
+anyway rather than assumed). Census unchanged at **0 since the first roll**, most recent event still
+2026-08-18 23:36Z, and **10 sections saved across 4 pages in the hour since 1320** — so the happy
+path is healthy on the new build too, which is the control that keeps the zero meaningful.
+
+**Why re-probe when a later build should carry an earlier commit for free?** Because "should" is
+the whole trap: `make build-*` builds from committed HEAD, so a later build normally does carry it
+— and the failure mode when it does not (a same-tag rebuild serving a cached image, a release built
+from an older REF) looks identical to success from the outside. One probe costs two minutes and
+converts an inference into a measurement.
+
+Citations in `STY-057` and `bugs_closed/260` now name **both** tags with times, and 260's close-out
+tells the next reader to re-probe if they are on a later tag.

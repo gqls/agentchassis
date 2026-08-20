@@ -1,7 +1,11 @@
 # 260 — One mistyped LLM field silently degrades a WHOLE component render to a regex path that no template on the estate uses, leaking Go control syntax into the page
 
-**Filed 2026-08-12.** Status: **CLOSED 2026-08-20 — the renderer half is FIXED AND LIVE on
-`agent-chassis` v1.0.1319** (`80b9c6235`, council-approved on trail `a44d9eb8`). Moved to
+**Filed 2026-08-12.** Status: **CLOSED 2026-08-20 — the renderer half is FIXED AND LIVE, verified on
+`agent-chassis` v1.0.1319 (14:45Z) and RE-VERIFIED on v1.0.1320 (17:10Z) after the fleet rolled
+again** (`80b9c6235`, council-approved on trail `a44d9eb8`). ⚠ Both citations carry a tag AND a
+time on purpose: a bare "live" reads as current for ever, and this fleet rolled twice in seven
+hours. If you are reading this on a later tag, re-probe — the recipe is in the box below and takes
+two minutes. Moved to
 `bugs_closed/` on the fixed-AND-live bar. Root cause proven; ~~no live damage~~ ZERO CORRUPTION OF
 STORED CONTENT BUT REAL LIVE DAMAGE.
 
