@@ -39456,3 +39456,118 @@ message that way.
 
 **Tally for "I overrode a documented authoring constraint because my case felt like the
 exception": 1.** The constraint was one line long, in the tool's own trigger, and I read it.
+
+## 2026-08-20 — I wrote "the same guard its two siblings already have" and used a DIFFERENT list, reintroducing the defect I was fixing, one arm over (bugfix 307 lane)
+
+**What I did.** The whole point of `bugs_open/307`'s guard half is that a deliberate handler
+decision must not be silently overwritten. I built the failure-path guard list carefully, and
+argued at length — in the code, in the register and in the council submission — why it must
+*differ* from the completion path's: `failed` and `unresolved` have to stay overwritable on the
+failure path, because moving a row through them **is** the retry ladder.
+
+Then I added a guard to `update_work_item_status`'s **`complete`** arm and reused the same
+constant. On that path the omission inverts: a `complete` write could now silently overwrite a row
+that had already failed or been given up. **I reintroduced the exact defect class I was fixing,
+in the same change, one arm over.** And I wrote in the rationale that the arm gained *"the same
+guard its two siblings already have"* — which was false in precisely the two entries that mattered.
+
+**What caught it.** The council's `editquality` seat, round 1, gating. It did the one thing I
+hadn't: read my list *against the sibling list I had cited*, rather than against my argument for
+why my list was right.
+
+**Why my own reasoning couldn't catch it.** I had spent the effort on "these two lists must
+differ" and then treated "differ" as a property of the constant rather than of the **call site**.
+The constant was correct for its own path. The defect was that a second path used it. My tests
+covered the failure path thoroughly — 15 of them, five mutations — and **not one drove the
+completion arm**, because in my head that arm was a one-line freebie I was adding on the way past.
+
+**The cheap check that would have:** when you add a guard to a second call site, assert the
+call site, not the constant. The test I have now reads the source of the `complete` arm and fails
+if it interpolates the failure list — and it fails on the exact mutation of reverting my fix. Five
+lines, and it would have caught this before it ever reached a reviewer.
+
+**The transferable shape, which is not "check your lists":** *the by-the-way edit is the one with
+no test.* This change had 15 tests and a mutation table for the part I was thinking about; the
+defect was in the part I added because it seemed obviously correct while I was already there.
+An edit that feels like a freebie is an edit nobody is reviewing — including me.
+
+**Cost:** one council round. Nothing shipped: the Go half was inert pending a roll, so the defect
+never reached production. **A REVISE round is cheaper than the defect it finds** — this is the
+second entry in this file saying so, and it keeps being true.
+
+**Tally for "I asserted a similarity I never checked": 1.** The check was `diff` on two lists I
+had both written.
+
+## 2026-08-20 — I published "141 of 270" from a table that only holds seven days, in the same session I wrote a runbook telling people not to (bugfix 307 lane)
+
+**What I did.** Reported that 141 of 270 failed work items in 14 days died before exhausting their
+retry budget — 52% — as the headline justification for a core-dispatch change. Put it in the bug
+file, the register entry, the commit message and the council submission.
+
+The figure came from `site_work_items` alone. The `work-item-archiver` moves terminal rows to
+`site_work_items_archive` after ~7 days. **It was a 14-day claim measured over a 7-day table.**
+
+**What caught it.** The council's `guardian` seat: *"a 14-day window read from the live table alone
+is measuring a partially-purged population; the severity claim ('the larger half') should be re-run
+joined against the archive before it's treated as load-bearing."*
+
+**The true figure, archive-inclusive: 401 of 558 — 72%.** I had understated my own case by nearly
+three-fold, and the proportion by twenty points.
+
+**Why this one stings.** In the same session, in this lane's own RUNBOOK, I wrote:
+> *"`site_work_items` is a **~7-day window**; the `work-item-archiver` moves terminal rows to
+> `site_work_items_archive`. Any *lifetime* claim must `UNION ALL` the archive."*
+I wrote the check down, in a file whose entire purpose is to hold checks that were hard to get
+right, and then did not run it on my own headline number. The LANDMINES entry it came from has
+been there since 2026-08-18, and `WRONG_CALLS` already carries an entry from another lane for the
+identical mistake two days earlier.
+
+**Why "it made the case stronger" is not a defence.** An understated figure is as wrong as an
+overstated one, and it is *more* dangerous in one specific way: nobody re-checks a number that
+argues against their own conclusion. I would have gone on quoting 141 indefinitely, and the next
+person to build on it would have inherited it.
+
+**The cheap check:** before any count over `site_work_items` that spans more than ~7 days, write
+the `UNION ALL site_work_items_archive` first and *then* decide whether you need it. It is one
+extra line, and the version without it is silently wrong rather than loudly missing.
+
+**Tally for "a count over a table whose retention I knew about and did not apply": 1** — and it is
+the fourth entry in this file's 7-day-window family, the second in three days.
+
+---
+
+## 2026-08-20 — `bugs_open/315` lane: I dated a change from when I LOOKED at something related, not from when the change happened — and nearly filed a bug against working code.
+
+**The claim, built up over four or five queries and one paragraph from being written into the bug
+file:** that the newly-armed deploy-evidence guard was broken. My evidence read well —
+*"113 pages stamped since arming, 26 orchestrations ran, the agents are still armed, and yet there is
+no fingerprint AND no error row. That is none of the four outcomes I predicted."* I had even written
+those four outcomes down in advance, which made the fifth feel like a real finding.
+
+**The baseline was wrong.** I used **10:22Z** as the arming time. That is when I *verified the
+build*. The migration actually ran at **14:27:33Z** — four hours later, after a gap in the session I
+had not accounted for. Every one of those 113 stamps predates the guard's existence. The correct
+query returns **0 pages stamped since arming**, and a column that has had no opportunity to be
+written is not a symptom of anything.
+
+**What caught it:** running out of code-level explanations. The resolver worked against the real
+payload, the adapter's reply had every key, the page URL converted to the file key correctly — the
+whole chain checked out, which meant the anomaly had to be in the *measurement* rather than the
+mechanism. Only then did I read `agent_definitions.updated_at` and see the real time.
+
+**The cheap check that would have:** take the "when did this take effect" timestamp **from the row
+you changed**, not from your memory of the session. `SELECT updated_at FROM agent_definitions WHERE
+type = …` IS the arming time. It cost one query and I ran it fifth instead of first.
+
+**The generalisable half, and it is not "check the clock".** I had a *narrative* timestamp — "I
+armed it after checking the build" — and a *recorded* one, and I never noticed they were different
+things. A narrative timestamp is an artefact of how the work felt in sequence; it drifts with every
+pause, interruption and context switch, and on a session that spans hours it can be wrong by hours
+while feeling precise. **Any "since X" query is only as good as X, and X should be read from the
+system, not from the story you are telling yourself about the system.**
+
+**Worth noting what saved me from filing it:** the four predicted outcomes I had written down before
+arming. They were meant as a convenience for whoever read the result first. What they actually did
+was make the discrepancy *legible* — "this is none of the four" is a much sharper prompt to keep
+digging than "hmm, zero". Pre-registering what the outcomes mean is cheap and it paid for itself the
+first time it was used.
