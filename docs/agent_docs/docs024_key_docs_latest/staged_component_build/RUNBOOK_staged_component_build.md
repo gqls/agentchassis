@@ -845,3 +845,28 @@ If that returns nothing, the asker is an ACTION INPUT SPEC, not a config key:
 `grep -rn "<field>" --include=*.go platform/orchestration/actions/*.go | grep -E "Optional|Required"`.
 A field declared Optional in a spec and wired nowhere is **resolved by the whole-tree search** —
 which is the `bugs_open/330` shape and the `commit_sha` shape both.
+
+## Sizing the wired-but-missing rescue population (330 §9 / step-5 precondition work, 2026-08-20)
+
+Three stages; each had a trap that cost a run.
+
+1. **Fleet JSON** — same export as `audit-optional-key-budget.sh` (live defs, `type` +
+   `workflow`). ⚠ a truncated `kubectl exec` stream exits 0; VALIDATE with `json.load` and
+   retry until it parses (one fetch in three arrived cut).
+2. **Specs** — the per-action Required/Optional field lists live only in Go
+   (`RegisterActionInputSpec` init()s, 172 actions). Dump them from a **HEAD archive**, never
+   the working tree (another session's WIP can break the build): `git archive HEAD | tar -x`,
+   append a scratch-only `ListRegisteredActionNames()` shim to `datahelpers`, and a 20-line
+   `cmd/specdump` main that imports the actions package. Do not commit either.
+3. **Census + sampling** — python-walk the fleet JSON (descend `config.sub_workflow.steps` —
+   the top-level trap again), collect (agent, step, field, marker, path) where the config key's
+   base is a spec field and the value contains a dot; then generate per-agent SQL: per wire,
+   `count(*) FILTER (WHERE collected_data #> '{p,a,t,h}' IS NULL)` and the same AND
+   `collected_data::text LIKE '%"<field>"%'` over the last ≤12 runs.
+   ⚠ parse results POSITIONALLY from a manifest (`-At -F'|'`); `-x` expanded output merges
+   records across queries and mis-attributes every number.
+   ⚠ the LIKE probe over-counts rescues (no infrastructure-key exclusion) and the FINAL tree
+   under-counts step-time misses — state both when quoting figures.
+
+Result 2026-08-20 in `bugs_open/330` §9. Scratch artifacts: `plain_wires.json`,
+`audit_manifest.json`, `rescue_prone.json` (session scratchpad — regenerate, don't hunt).

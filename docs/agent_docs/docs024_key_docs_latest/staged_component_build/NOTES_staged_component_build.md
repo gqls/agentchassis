@@ -5661,3 +5661,24 @@ construction since every iteration gets a different bundle; appended as a second
 016b §9's UNVERIFIABLE entry (system-claims are salvageable, bundle-claims are the spiral).
 Lane state unchanged: step 5 still gated on ~14 unmapped pairs; 334 is build-ready for whoever
 takes it after the 315 lane's judgment on the CONTRIB.
+
+## 2026-08-20 (~10:0xZ) — the owed candidate-2 audit is DONE: 451 wires fleet-wide, 10 rescue-prone on the high-demand agents, and pbh's envelope family is 8 of the 10
+
+The "(night)" entry said 330's fix candidate 2 (wired-but-missing must not fall through to the
+search) was resolver-scope — ours — and unsized. Sized it (330 §9 is the record; RUNBOOK has the
+method + its three traps):
+- **Static**: 451 plain Strategy-0 wires / 309 (agent, field) pairs / 83 agents (recursive walk,
+  sub-workflows included; only 3 wires are `!`-strict). This is candidate 2's whole surface.
+- **Runtime** (8 highest-demand agents, last ≤12 runs, 40 wires): 30 always resolve; **10
+  RESCUE-PRONE** — the search is doing live silent work TODAY. §4's [INFERRED] silent
+  population now has a measured floor. pbh dominates (8/10, incl. `mode` 12/12 and the
+  `page_record.*` family 7/12 — almost certainly the DUAL-ENVELOPE case where the field is
+  wired at two steps from two sources and the search rescues one from the other's envelope);
+  page-rerender `reason` 12/12; tool-generator `related_pages` 7/12 (= 330 itself).
+- **Consequence for step 5's design**: candidate 2 cannot be a bare flip. Either config grows
+  per-field fallback CHAINS (declare the dual-envelope reads that are today rescued by luck), or
+  the 10 wires get repaired first and this audit becomes the gate, re-run fleet-wide. The pbh
+  envelope family is the first work item by both demand and count.
+- Working-tree note: `v3_site_actions.go` was mid-edit by another session (syntax error) the
+  whole time — everything here ran from a `git archive HEAD` copy; the specdump shim and
+  cmd/specdump are SCRATCH-ONLY and were not committed.

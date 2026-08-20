@@ -191,3 +191,48 @@ Another session filed a `needs_diagnosis` on `create_tool_component` at 2026-08-
 **different** mechanism (regeneration/replacement of an existing tool component, item
 `79980f18-…`). This bug is in `create_tool_cross_link_items.go` + the resolver cascade. The
 files are adjacent; coordinate before editing `create_tool_component_action.go`.
+
+## 9. ADDENDUM 2026-08-20 — candidate 2 SIZED (the audit §6.2 called for), and §4's silent population now has a measured floor
+
+By the staged_component_build lane (the owner of the resolver-scope half, per §6.2's own note).
+Method and caveats in the lane RUNBOOK ("Sizing the wired-but-missing rescue population");
+scripts regenerate it from live data.
+
+**Static surface (fleet-wide, live definitions, recursive walk incl. sub-workflows):**
+**451 plain Strategy-0 wires** — a spec field (Required∪Optional) whose step config carries a
+dotted-path value — across **309 (agent, field) pairs on 83 agents**; only 3 wires are `!`-strict.
+That is the full surface whose behaviour candidate 2 could change.
+
+**Runtime sample (the 8 highest-demand agents, last ≤12 runs each, 40 non-array-indexed wires
+evaluated against FINAL collected_data):** 30 wires resolve on every sampled run; **10 are
+RESCUE-PRONE** — the wired path missed AND the field name exists elsewhere in the tree, so the
+whole-tree search is (upper bound) supplying the value today:
+
+| agent | field ← wired path | miss rate |
+|---|---|---|
+| page-build-handler | `mode` ← input_data.spec.mode | **12/12** |
+| page-build-handler | `section_facts` ← spec_sections.section_facts | 11/12 |
+| page-build-handler | `page_id` ← page_record.id · `page_name` ← page_record.name · `page_sections_fallback` ← page_record.sections · `sections` ← spec_sections.sections | 7/12 each |
+| page-build-handler | `page_id` ← input_data.spec.page_id · `authoritative_page_id` ← input_data.page_id | 1/12 each |
+| page-rerender | `reason` ← input_data.spec.reason | **12/12** |
+| tool-generator | `related_pages` ← input_data.spec.related_pages | 7/12 (**this bug**) |
+
+build-dispatch-loop, page-content-writer, component-creator, tool-deployer: all wires resolved
+on every sampled run. rerender-pages: 0 recent runs — unsampled, not clean.
+
+**Caveats, load-bearing:** (a) "rescueable" is an UPPER bound — the LIKE probe does not honour
+the search's infrastructure-key exclusions (e.g. `retry_payload` is skipped since 306 cand 3),
+and finding the name is not finding a usable value; (b) sampled against the FINAL tree — a path
+filled after the reading step counts as resolved here but was absent at step time; (c) 34
+array-indexed wires were skipped; (d) the other 75 agents (269 pairs) are UNSAMPLED — this is
+the high-demand slice, not the fleet.
+
+**What it means for candidate 2:** flipping "wired-but-missing → absent" fleet-wide would
+change behaviour at 10 live wire-sites immediately — including pbh's `mode` (every run) and the
+`page_record.*` family, where the rescue is very likely finding the RIGHT value from a sibling
+envelope (two wires for the same field at different steps; when one misses the search finds the
+other's source). So candidate 2 needs one of: (i) per-field fallback CHAINS in config (ordered
+paths — the shape `renderEnvelopeIdentity` uses in Go), so the legitimate dual-envelope cases
+are declared rather than rescued; or (ii) config repairs on the 10 wires first, then the flip,
+then this audit re-run fleet-wide as the gate. Either way the pbh envelope family is the first
+work item, not tool-generator: it is 8 of the 10 wires and 56 runs/24 h of demand.
