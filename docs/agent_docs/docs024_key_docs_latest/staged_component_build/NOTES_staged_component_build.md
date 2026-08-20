@@ -5945,3 +5945,12 @@ Three things worth keeping:
 Lane state after this session: step 5's live blockers are **bdl/`commit_sha`** (315 lane owns the
 path), **tg/`related_pages`** (= 330, refusal is the fix) and **pbh/`page_type`** (needs the
 `plan_sections` wire above — new, and the newest of the four). `tg/reason` is done.
+
+**Addendum (~17:45Z) — 512's verification is UNRUN, and the demand control is why I can say so
+rather than claim a win.** Read at 17:44:15Z, 6 minutes after the apply: tg/`reason` rows since the
+17:38:34Z boundary = **0**. That number is worthless on its own and the control says why —
+**tool-generator runs since the boundary = 0 too.** At ~16 runs/24 h (one per ~90 min) a 6-minute
+window cannot contain a test. Left as owed in handoff §2.2 with the query and the pass condition
+(`reason` 0 **while `related_pages` keeps firing**, no `component_id` class); the honest state today
+is *applied and council-approved, effect not yet observable*. Writing "the class went quiet" here
+would have been true, meaningless, and indistinguishable in six months from evidence.

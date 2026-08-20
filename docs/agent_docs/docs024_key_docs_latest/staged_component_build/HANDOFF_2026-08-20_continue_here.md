@@ -116,10 +116,22 @@ it is the design step 5 needed:
 > value, not by design**. Fixed with `input_fields: ["site_id","domain"]` (483's shape — `?` is the
 > wrong tool here: there is no path we want, we want absence). Council **APPROVED r1**, corr
 > `2bd7fb37-cac2-409a-8452-50a7ed933467`; applied 17:38Z, `UPDATE 1`, live row read back.
-> **Verification owed with its floor stated:** baseline at the apply boundary 17:38:34Z was reason 16
-> rows/24h (last 17:08:01Z) against 16 tg runs/24h; the test is reason → 0 **while `related_pages`
-> keeps firing** (if both go quiet the instrument died), and at ~16 runs/24h *n* post-apply runs
-> cannot detect a residual rarer than ~1 in *n*.
+> **⚠ VERIFICATION IS NOT RUN — DO NOT READ "APPLIED" AS "PROVEN".** Baseline banked at the apply
+> boundary 17:38:34Z: reason **16** rows/24h (last 17:08:01Z), `related_pages` **12** (last 17:07:43Z),
+> against **16** tg runs/24h (last run 17:06:09Z). Read at **17:44:15Z**: reason rows since the
+> boundary = 0 — **and tool-generator runs since the boundary = 0.** So the zero is *no demand*, not
+> *no defect*; at ~16 runs/24h (one per ~90 min) this needs hours, not minutes. The test, for
+> whoever reads it next:
+> ```sql
+> SELECT count(*) FROM orchestration_states            -- the DEMAND CONTROL: must be > 0 first
+>  WHERE owner_agent_type='tool-generator' AND created_at > '2026-08-20 17:38:34Z';
+> SELECT context->>'field', count(*), max(occurred_at)  -- then: reason 0, related_pages STILL FIRING
+>   FROM agent_error_log WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES'
+>    AND agent_type='tool-generator' AND occurred_at > '2026-08-20 17:38:34Z' GROUP BY 1;
+> ```
+> Pass = `reason` 0 **while `related_pages` keeps firing** (if both go quiet the instrument died and
+> the zero means nothing) and no `component_id` class appears. State *n* runs observed and the floor
+> it buys — *n* runs cannot detect a residual rarer than ~1 in *n* — never the word "fixed".
 >
 > Full working: NOTES `## 2026-08-20 (~17:4xZ)`. The `?` marker's two-surface trap and its shelf
 > life (inert on `v1.0.1320`; `ecc419bd1` is 17:20Z) are in `LANDMINES.md`, and my own wrong call
