@@ -622,3 +622,60 @@ weaker sourcing than robot-hands' IFR press releases and is written as weaker.
 header already carries 6 items, so it fits, but one feature does not need a hub —
 the robot-hands hub was built because the owner asked for nav placement and that
 site had the first feature. Second feature on dartsonline is the trigger.
+
+### MISSTEP 5 — every editorial article was appending itself to every page's footer
+
+Caught by the **`dartsonline_traffic` lane**, which messaged this session
+unprompted with five measured warnings. The one that landed:
+
+> "if you set a flag on each article, every article you publish appends itself to
+> the footer of every page. With no flag it's omitted from nav entirely and is
+> reachable only from its listing."
+
+**Verified before acting** rather than taken on trust:
+
+```
+pages: robot-demand-step-change  in_header=f  in_footer=t
+       darts-calendar-density    in_header=f  in_footer=t
+curl https://robot-hands.com/about.html | grep robot-demand-step-change  → HIT
+```
+
+So the article was in the footer of a page it has nothing to do with, and the
+clutter would have grown **linearly with every feature shipped** — invisible on
+the feature page itself, which is where I was looking.
+
+**Why I got it wrong:** I reasoned correctly that `/insights/` articles cannot
+reach the *primary* nav and set `in_footer=true` so they would not be "omitted
+from nav entirely". That is the right reading of the classifier and the wrong
+conclusion about what to want — the hub page IS the listing, so an article needs
+no nav membership at all. **Fixed: both articles now `in_header=f, in_footer=f`**,
+with a `nav_drift` filed to rebuild.
+
+**What I got right and will keep:** the section-index hub (their point 1 is the
+same mechanism I found independently), letting `nav_drift`/`populate_nav_tables`
+derive rows rather than inserting `site_nav_items` by hand (their point 2), and
+**assemble-only rerenders with no `spec.reason`** (their point 4 — sending
+`reason=section_data_resolved` can escalate a page to the content writer, and on
+`article-body` that destroys in-body figures; they lost 4 guide figures that way).
+
+**Two things of theirs I have not yet acted on:**
+1. **Chrome propagation.** They measured a nav change reaching **2 of 23 served
+   pages**, with `pages.rendered_footer` reading "absent" even for a page that
+   was serving it — so that column cannot grade it, only served bytes can. Here
+   the Insights link DID reach `/about.html` [MEASURED], so propagation is better
+   on robot-hands than their case — but "better on one sample" is not "fine", and
+   `docs/leopardessconsulting/scripts/reconcile_footer_nav.sh` is the proven fix
+   if it is patchy.
+2. **`sitemap.xml` on dartsonline is a static generated file** and does not
+   update itself, so `/insights/darts-calendar-density.html` is absent from it
+   until `scripts/site-discovery-files.py dartsonline.com --write` is re-run and
+   pushed. Theirs to run (they offered); flagged in the reply.
+
+**Also from them, and it matters for 494:** dartsonline's `evidence_base` aspect
+existed with an empty `facts[]` *deliberately*, and they would rather the shape
+were agreed than each lane invented one. I had already populated it with 5 facts
+(migration 494) — so the reply states the shape I used and invites correction
+rather than presenting it as settled. Their related point checks out in our
+favour: `validate_page_content.go` gates the unregistered-number scan on
+`evidence_base` existing, and **`blog-post` is on the exempt list**
+(`claims.go:752`), which is the page_type both features use.
