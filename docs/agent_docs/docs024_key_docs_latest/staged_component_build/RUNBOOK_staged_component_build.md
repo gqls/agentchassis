@@ -753,3 +753,95 @@ ORDER BY 1;
 If the text ceiling and the `jsonb_each` count disagree, the difference is nested steps — open the
 definition. (Quote the action name with its JSON quotes in the `replace`, or `build_render_context`
 also counts `output_field: "render_context"` matches' neighbours and prose.)
+
+## Verifying a roll when the provenance line has scrolled (2026-08-20, step 4's verification)
+
+`grep 'build provenance'` on a chassis pod returned nothing **8 h after the roll**, even at
+`--tail=20000`. That is the documented case, not a fault: it is a STARTUP line. Do not conclude
+"unstamped" and do not reach for `strings` (absent from the image). Probe the **capability** —
+strictly stronger than commit ancestry, and it has no shelf life:
+
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+               -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+  echo "=== $POD ==="
+  kubectl -n ai-persona-system exec $POD -- grep -aq "current_page_name"          /proc/1/exe && echo "  step4 PRESENT"
+  kubectl -n ai-persona-system exec $POD -- grep -aq "build_render_context"       /proc/1/exe && echo "  control(PRESENT) ok"
+  kubectl -n ai-persona-system exec $POD -- grep -aq "current_page_name_NOTREAL"  /proc/1/exe && echo "  control(ABSENT) FAILED"
+done
+```
+**Both controls or it is not evidence** — a probe that finds everything and a probe that finds
+nothing are indistinguishable from a true answer without them. Note `grep -aq` exits 1 on no
+match, so an `&& echo` prints nothing and the shell prints `command terminated with exit code 1`;
+that IS the absent-control passing. Also confirm both pods report **one digest**
+(`.status.containerStatuses[0].imageID`) — different digests mean a partial roll and the run that
+matters may land on the old pod.
+
+## Sizing a post-fix ZERO: compute the per-run rate first (2026-08-20)
+
+A zero is worthless without knowing what the sample could have detected. Get both windows'
+runs AND rows, and divide:
+
+```sql
+SELECT (SELECT count(*) FROM orchestration_states WHERE owner_agent_type='page-content-writer'
+          AND created_at >= '<pre-window start>' AND created_at < '<roll>')            AS runs_pre,
+       (SELECT count(*) FROM agent_error_log WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES'
+          AND agent_type='page-content-writer' AND context->>'field'='current_page'
+          AND occurred_at >= '<pre-window start>' AND occurred_at < '<roll>')          AS rows_pre,
+       (SELECT count(*) FROM orchestration_states WHERE owner_agent_type='page-content-writer'
+          AND created_at >= '<roll>')                                                  AS runs_post,
+       (SELECT count(*) FROM agent_error_log WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES'
+          AND agent_type='page-content-writer' AND occurred_at >= '<roll>')            AS rows_post;
+```
+Step 4's read: 11 runs / 34 rows pre (**3.1 per run**), 3 runs / **0** rows post (~9 expected).
+State the floor in the write-up: *n* post-roll runs cannot detect a residual rarer than ~1 in *n*.
+
+## The demand-control join — never read a conflict class without it (2026-08-20)
+
+A class whose `last_seen` is two days old may be fixed, or may simply not have been provoked.
+Only the agent's run count separates them:
+
+```sql
+WITH conflicted AS (SELECT DISTINCT agent_type FROM agent_error_log
+                    WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES')
+SELECT c.agent_type,
+       count(o.orchestration_id) FILTER (WHERE o.created_at >= now() - interval '24 hours') AS runs_24h,
+       max(o.created_at) AS last_run
+FROM conflicted c LEFT JOIN orchestration_states o ON o.owner_agent_type = c.agent_type
+GROUP BY 1 ORDER BY runs_24h DESC;
+```
+⚠ the join column is **`owner_agent_type`** — `orchestration_states` has no `agent_type`.
+High `runs_24h` + quiet class = **armed, not fixed**.
+
+## Answering "are these candidates really different?" — values, never paths (2026-08-20)
+
+The instrument stores candidate PATHS. To judge a class you must read the VALUES out of the tree.
+Worked on the `commit_sha` class:
+
+```sql
+SELECT orchestration_id,
+       collected_data->'handler_result'  ->'response'->'deploy_result'->'response'->'data'->>'commit_sha' AS unsuffixed,
+       collected_data->'handler_result_0'->'response'->'deploy_result'->'response'->'data'->>'commit_sha' AS iter_0,
+       collected_data->'handler_result_1'->'response'->'deploy_result'->'response'->'data'->>'commit_sha' AS iter_1
+FROM orchestration_states
+WHERE owner_agent_type='build-dispatch-loop' AND created_at >= '<roll>'
+  AND collected_data ? 'handler_result_1' ORDER BY created_at DESC LIMIT 5;
+```
+Gotcha: some trees nest `deploy_result.data` and others `deploy_result.response.data` — a NULL
+column here may be shape, not absence. Widen before concluding the value is missing.
+
+## Finding which live steps consume a field, and how (2026-08-20)
+
+Two different questions with two different answers, and confusing them cost a false root cause
+(WRONG_CALLS 08-19): **config wiring** lives at `config.<field>`, NOT `config.params.<field>`:
+
+```sql
+SELECT d.type, s.key AS step, s.value->>'action' AS action, s.value->'config'->>'<field>' AS wired
+FROM agent_definitions d, jsonb_each(d.default_config->'workflow'->'steps') s
+WHERE d.is_active AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL
+  AND (s.value->'config')::text LIKE '%<field>%';
+```
+If that returns nothing, the asker is an ACTION INPUT SPEC, not a config key:
+`grep -rn "<field>" --include=*.go platform/orchestration/actions/*.go | grep -E "Optional|Required"`.
+A field declared Optional in a spec and wired nowhere is **resolved by the whole-tree search** —
+which is the `bugs_open/330` shape and the `commit_sha` shape both.
