@@ -90,3 +90,46 @@ better Phase B acceptance criterion than "looks nicer".
 limit"**. Fourth failure of the same kind across sessions. No substitution made.
 Everything it needs to read is catalogued in the PLAN §2 and in
 `news_editorial_features/NOTES` — it is blocked on capacity, not knowledge.
+
+## 2026-08-20 — Phase A3 attempted and TIMED OUT (recorded, not glossed)
+
+Dispatched `render-audit-agent` at robot-hands.com, correlation
+`505b4fa4-3c3f-4255-8136-0cc585fa2441`. This is the run that would actually
+measure OUR pages — contrast and overflow at the served artefact, including
+chart furniture under the 3.0 non-text threshold (VIZ-011).
+
+**It failed.** And it failed in exactly the shape this repo has a landmine for:
+
+```
+status = COMPLETED
+current_step = complete_error
+__step_error = {"message": "Request timed out (code: TIMEOUT)", "failed_step": "audit"}
+```
+
+**A `COMPLETED` orchestration whose `current_step` is `complete_error`.** Reading
+the status alone would have recorded a successful audit with no findings — i.e.
+"the editorial pages are clean" — which is the false-negative this lane must not
+publish. `__step_error` is where the truth is.
+
+**Why it timed out, and the fix.** The agent enumerates every `deployed` page on
+the site and renders each in headless Chromium. robot-hands has far more pages
+than the two we care about, and the audit step has a bounded timeout.
+`request_render_audit` accepts **`page_names`** and `max_pages` — but as **step
+config**, not `input_data`, so scoping the run to the two editorial pages needs
+a config change to `render-audit-agent` (council-gated, since it is an agent
+definition), or a lower `max_pages`.
+
+**So Phase A3 remains OPEN, and the editorial pages remain UNMEASURED for
+contrast and overflow.** That matters for the honest reading of Phase A1: the
+five visual findings are SITE-scoped, every one names `page: index`, and now the
+one run that would have been page-scoped did not complete. **Nothing in this lane
+has yet measured an editorial page's rendered appearance.** Any design work
+starting before that is starting from taste plus inference, and should say so.
+
+Retry options, in order of cost: (1) re-dispatch with a `max_pages` low enough to
+finish and accept that it audits an arbitrary subset — cheap but the subset is
+"the same pages every run" per the action's own warning, so it may never reach
+ours; (2) a `page_names`-scoped step config on `render-audit-agent` — correct,
+council-gated; (3) run `scripts/render_audit.py` by hand against the two URLs —
+it is the hand-run predecessor (VIZ-010) and needs no dispatch at all. **(3) is
+the right next move** and needs no platform change.
