@@ -1672,3 +1672,56 @@ whether to lengthen the link or say so in the wording.
 I have written the mistake up properly in the fleet's wrong-calls log, because it
 went into three documents other people read, and it could have bought work nobody
 needed.
+
+---
+
+## 19–20 August — the last stubborn page, and why it was so stubborn
+
+The guide page that kept publishing the old "ready the next day" promise is finally
+fixed. Every page on the site now says two or three days, and I have checked that on
+the pages themselves rather than trusting the job that rebuilt them.
+
+It took four goes, and this is the part worth knowing: it was stopped three times, and
+**only one of those three was the writer's fault.** The other two were faults in our
+own rules.
+
+We keep a list of banned phrases. If a page contains one, it refuses to save. That
+list is what stops a page quietly promising something we retired months ago, and it
+has earned its keep. But two entries on it were doing damage.
+
+The first banned the phrase "round of changes". We armed it back when we were selling
+"one round of changes included", to kill that offer off. The trouble is that we now
+tell customers the opposite — no changes are included — and when the page tried to
+*say* that, the same rule stopped it. The checker matches words; it cannot tell an
+offer from a denial. You ruled we should narrow it, so now it blocks anyone offering
+changes and lets anyone deny them. Denials went from three-in-six blocked to none.
+
+The second was worse, and it had never worked properly since the day it was written.
+It was meant to catch fake testimonials — a quotation followed by someone's name. It
+identified the name by looking for capital letters. But every rule on the list gets
+run in a way that ignores capitals, so "a quotation followed by a name" quietly became
+"a quotation followed by anything at all". It was blocking any page that quoted
+anything. On a guide about how to write a good brief — which naturally quotes example
+briefs — it was unavoidable. Four characters fixed it.
+
+The reason nobody had noticed is that this kind of fault leaves no trace. A page that
+is refused never gets saved, so there is nothing to find afterwards. Looking at the
+site tells you nothing. I have written it into the fleet's landmines file so the next
+person who writes one of these rules knows.
+
+I also found seven of these rules explaining themselves with facts that are no longer
+true. One of them said, in the message a person reads when a page gets blocked, that
+"a refund is available until the customer accepts the site". We stopped offering
+refunds in June. Those are all corrected, each one saying plainly what it used to say
+so the correction is visible.
+
+**Four things you decided last night, all now done except one.** The changes rule is
+narrowed. The £200 domain now reads properly — it is theirs, they move it to their own
+registrar, we give them what they need, and we are not promising your time. The one
+still outstanding is lengthening the download link from 7 days to 30; that one is a
+change to the program itself, so it needs a rebuild rather than a settings change.
+
+**Next is the handover machinery** — the stamp that says a site has been delivered, the
+six-week limit on the live link, and the link a customer clicks to tell us they have
+moved their files. None of that exists yet. It is the last big piece before a real
+customer can be taken end to end.
