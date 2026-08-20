@@ -165,3 +165,56 @@ FROM r;
 (`(collected_data->'sections_for_render')::text LIKE '%_target_title%'`) matches the string
 elsewhere in the structure and returns **31 / 31 / 0** — "everything survives", the comfortable
 and wrong result. Anchor the cast to `resolved_data` on BOTH sides. Logged in `WRONG_CALLS.md`.
+
+## Pushing a `content_data` fix to the served page (three tries, all reporting success)
+
+```bash
+# BOTH keys are required. reason -> re-render the sections; page_name -> SAVE them.
+kubectl -n kafka run -i --rm kcat-rr-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$(uuidgen) -H orchestration_id=$(uuidgen) -H request_id=$(uuidgen) \
+  -H message_id=$(uuidgen) -H message_type=request -H client_id=demo_client -H action=orchestrate \
+  -H sender_agent_type=cli -H sender_agent_id=cli-user \
+  -H responses_topic=system.agent.generic.responses -H timestamp=$(date -u +%FT%TZ) <<'JSON'
+{"action":"orchestrate","config":{"agent_type":"page-rerender"},"input_data":{
+  "site_id":"<site uuid>","domain":"<domain>","page_id":"<page uuid>",
+  "spec":{"reason":"cta_links_stale","page_name":"<page name>"}}}
+JSON
+```
+**Gotchas — and all three failure modes report success** (full trap in `LANDMINES.md`,
+*"A `page-rerender` dispatched without `spec.page_name`…"*):
+1. **No `spec.reason`** → `check_rerender_mode` routes to `render_page`, which assembles the
+   components' STORED `rendered_html`. Your `content_data` fix never reaches the page and a real
+   git commit ships the old bytes.
+2. **No `spec.page_name`** → sections ARE re-rendered, then `save_page_sections` returns
+   `{"success": true, "sections_saved": 0, "skipped": true, "reason": "no page name"}` and the
+   workflow deploys the stale assembly anyway.
+3. `cta_links_stale` is only safe on a chassis carrying bug 299's KEEP #3 (**≥ v1.0.1317**); on
+   an older binary that reason IS the clobber trigger (register LNK-034).
+
+**Assert on the save and then on the artefact, never on the orchestration status:**
+```sql
+SELECT collected_data->'sections_saved'->>'sections_saved' AS saved,
+       collected_data->'sections_saved'->>'reason'         AS skip_reason
+  FROM orchestration_states WHERE orchestration_id='<yours>';   -- saved must be NON-ZERO
+```
+then confirm `page_components.updated_at` MOVED and `rendered_html` contains the new value. A
+row still carrying the timestamp of *your own SQL fix* is the tell it was never touched.
+Finally read the deployed commit, which is authoritative before the CDN catches up:
+```bash
+gh api repos/gqls/vm-sites/contents/<domain>/index.html?ref=<commit_sha> --jq '.content' \
+  | base64 -d | grep -o '<a[^>]*cta-btn-secondary[^>]*>[^<]*</a>'
+```
+
+## Pruning `service_binary_capabilities` (BLD-023) until the next roll
+
+The retention prune ships in the Go half and is **inert until a chassis roll carries it**. Until
+then the table grows ~20k rows/hour, because the binary runs as ephemeral per-job pods:
+```sql
+DELETE FROM service_binary_capabilities WHERE last_seen_at < now() - interval '2 hours';
+VACUUM (ANALYZE) service_binary_capabilities;
+```
+**Gotcha:** plain `VACUUM` marks space reusable, it does not return it to the OS — so
+`pg_total_relation_size` still reads the old figure after a big delete. That is expected; judge
+by `count(*)`, not by size.
