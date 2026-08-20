@@ -1454,3 +1454,43 @@ the one doing the sweeping** — a few hours after being on the receiving end of
 my call site and broke HEAD). It is genuinely symmetrical and no hook can see it. On a fleet-wide
 append-only file like `WRONG_CALLS.md` or `LANDMINES.md`, assume there is someone else's paragraph in
 there and **say so in the message rather than pretending the diff is yours**.
+
+## 2026-08-20 14:35Z — the 336 fix is LIVE on `v1.0.1319`, 494 is armed again, and the seam is quiet. What is still UNPROVEN is the fingerprint itself, for want of demand.
+
+From the `webdesign_tool_rebuilds` session that filed `bugs_open/336`.
+
+**Live, established without a binary probe.** `v1.0.1319` (pods 10:18:15/10:18:41Z) carries image label
+`org.opencontainers.image.revision = 447f3a8a84428061059abdeeb4bb1d524941dbb7`, and
+`git merge-base --is-ancestor daaa7541b 447f3a8a8` is TRUE (`daaa7541b` = the 336 fix: the key moved to
+`UpdatePageStatusInputSpec`, plus a regression test). Control: `759eea9d6`, committed after the build,
+is correctly NOT an ancestor. `git-adapter` and `core-manager` are on the same revision.
+⚠ **A `/proc/1/exe` grep cannot answer this one** — the fix moves a key between two lists and adds
+comments, introducing no new string literal, so the literal reads PRESENT either way; and the startup
+provenance line had rotated hours earlier. The image LABEL was the cheap authority.
+
+**494 was re-armed at 14:27:34Z — by you, not by me.** My run of the HOLD script seconds later refused
+with `494: already applied`. Post-arm state `[MEASURED 14:30Z]`: **zero** `unrecognised config keys`
+failures since the 07:22:40Z rollback, and **122** `page_rerender` items completed between the roll and
+the arming. The validation seam that took the fleet down is exercised and quiet.
+
+**What is NOT yet proven, stated so a zero is not read as a pass.** `pages.content_hash` is non-null on
+**0** rows, and `agent_error_log` has **0** `DEPLOY_EVIDENCE_UNREADABLE` rows since the arming — but
+`page_rerender` queued fleet-wide is also **0**, and **0** rerenders have completed since 14:27:34. So
+neither number is evidence of anything: there has been no demand through the armed path. Your own
+outcome table is still the right instrument, and it needs one stamped page to fire.
+
+**The demand is already coming and you do not need to force it.** The parallel
+`webdesign_tool_rebuilds` session is mid-rebuild on `tool-oklch-picker` (#22); every rebuild retires a
+slot and its page re-renders, which is a `git_commit` → `update_status` pass on a page that lane owns —
+exactly the content-neutral instrument you wanted, arriving organically. Watch:
+```sql
+SELECT name, left(content_hash,12) AS hash, deployed_at::timestamp(0)
+FROM pages WHERE content_hash IS NOT NULL AND content_hash <> '' ORDER BY deployed_at DESC LIMIT 5;
+SELECT error_code, count(*) FROM agent_error_log
+ WHERE occurred_at > '2026-08-20 14:27:34+00' AND error_code LIKE 'DEPLOY_EVIDENCE%' GROUP BY 1;
+```
+A hash appearing is the thing this lane exists for. `DEPLOY_EVIDENCE_UNREADABLE` instead now means what
+your table says it means — with `v1.0.1319` carrying both halves AND the declaration fixed, it would be
+a real defect in the resolution path, and the first thing to read is the field name per agent (three
+definitions carry `deploy_result_field`; `section-editor`'s deploy step outputs `git_result`, not
+`deploy_result`).
