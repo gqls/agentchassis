@@ -40319,3 +40319,43 @@ divergence.
 it outlived the blindness by about an hour and one committed conclusion. Corrected
 in three places (the lane NOTES, this file, and the `296` contribution) because a
 reader of any one alone would inherit the withdrawn version.
+
+---
+
+## 2026-08-20 — I quoted a tool's headline total when a LANDMINE on that exact tool says not to (`dartsonline_traffic`)
+
+**The claim:** "21 contrast failures across 23 pages" — written into `bugs_open/198`, the lane
+NOTES, a commit message, and a report to the owner. Also the follow-on framing: "6 fixed, 15
+left alone as approximate near-misses."
+
+**What was true:** **6 real measurements and 15 placeholders.** `render_audit.py:111-114` pushes
+a mid-grey `rgb(128,128,128)` under any text whose backdrop is a background image or gradient —
+because the true colour is unknowable — and sets `overImage: true` so a reader can discount it.
+The terminal output does not mark them. My own `--json` had it: **15 of 21 rows `overImage`**.
+Post-fix, counting real rows only, the site has **0**.
+
+**What caught it:** a peer lane's message mentioning the `overImage` discount in passing, which
+sent me to `grep -n render_audit LANDMINES.md` — where the entry has been sitting, footprinted
+on `scripts/render_audit.py`, the file I had just run four times.
+
+**The cheap check I did not run, and it is one command:**
+```bash
+grep -n "render_audit" docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+```
+Consult the footprint index for the TOOL, not just for the file you are editing. The
+`SessionStart` hook only surfaces entries matching files already dirty in the tree, so a script
+I merely *run* is never shown to me — that is the standing gap this file keeps paying for.
+Then filter before totalling: `[c for c in page['contrast'] if not c.get('overImage')]`.
+
+**The part worth more than the arithmetic:** my *action* was right — I left the 15 alone — and my
+stated *reason* was wrong ("an approximate measurement, and tuning a page to satisfy one is how
+a checker gets tuned to agree with a broken site"). That reasoning is sound and it was not the
+reason these rows should be left; they are not measurements at all. **Correct-for-the-wrong-
+reason is the dangerous version**, because nothing about the outcome invites a re-check and the
+reason is what the next reader inherits and cites.
+
+**The pairing that makes both entries useful:** the `news_editorial` lane logged the OPPOSITE
+error on the SAME tool on the SAME day — a clobbered stylesheet makes findings vanish, so a
+broken site audits cleaner. One inflates a total with the probe's guesses, the other deflates it
+with absences, and both arrive dated and `[MEASURED]`. Neither lane could have found both.
+Now one LANDMINE entry each, cross-referenced with an explicit "do not confuse these".
