@@ -454,3 +454,57 @@ is stronger than a synthetic canary because it is the actual page in dispute.
 **Still owed, and armed rather than assumed:** a *post*-477 build on one of the six
 keep-carrying sites. A monitor is watching for exactly that and will report the first one; the
 diff query and the 7-row leopardess baseline are in the RUNBOOK and inside migration 477 itself.
+
+## 2026-08-20 (later) — RFC_040 stage 1+2 BUILT (register BLD-023), council-submitted
+
+Owner decision 4 ("build as you suggest") executed, and the **scope boundary is the part worth
+re-reading**: RFC §0 now records that the assertion half is NOT authorised. There is no
+`assert_live_capability()` and no migration calling one. A fail-closed helper with exactly one
+caller is a mechanism nobody exercises — this estate's own documented failure mode, and the same
+reasoning behind the 2026-07-29 ruling that declined to *require* default-OFF switches. **A
+future author adding it should be able to name two migrations that want it.**
+
+**Shipped:** `platform/buildcapability` (`Record`, `Touch`, `Set`), migration **503** (applied +
+ledger-recorded), call site `recordBuildCapabilities` in `cmd/agent-chassis/main.go`, register
+**BLD-023** + index row. Council submission **`06ce6aab-24ee-4ac8-ae5b-98775a6dac55`** — note
+the gate's scope was widened 2026-08-19 (`bugs_open/314`) to include appliable migrations, so
+this qualifies on both halves where the CTA work qualified only on its Go.
+
+**The design decision that will matter to the next author:** the package is deliberately DUMB —
+it imports only `pkg/buildinfo` and `database/sql`, and **callers pass the capability lists in.**
+That is what makes it importable from anywhere: `actions` imports `discovery_checks`, so a
+package reaching into either would inherit that direction and could never be imported by both.
+**Adding a service means adding a CALL SITE, never teaching this package about your registry.**
+`cmd/agent-chassis/main.go` was chosen because it is the one place that can already see both
+enumerations and has config in hand; `agentbase` was considered and rejected — it imports
+neither, so the lists would have to be plumbed through it anyway.
+
+**Soft where softness is right, hard where it is not — and both halves mutation-proven.** Every
+arm of the call site logs `Warn` and returns, because a capability registry that can stop the
+chassis starting is a worse bargain than the problem it solves. But the refusals that would
+corrupt the *meaning of an absence* are hard: an empty service/pod name is rejected **before
+touching the DB** (an unattributable row would satisfy a presence check for every service at
+once) and a failed insert rolls the whole list back (a truncated list is indistinguishable from
+a short one). Mutations run 2026-08-20: dropping the provenance sentinel fails **four** tests;
+removing the service/pod guard fails all **three** subtests of the refusal test. Restored and
+green after each.
+
+### Two omissions recorded so nobody files them as gaps
+
+- **No `image_tag` column.** RFC §2.1 sketched one; it is not obtainable from inside the pod —
+  checked, the chassis container's environment carries `HOSTNAME` and `AGENT_TYPE` and no tag.
+  A column that could only ever be `''` reads as "we record this" while answering nothing. This
+  is a correction to my own RFC, made before anyone implemented from it.
+- **`Touch()` exists and NOTHING CALLS IT.** Stated in the code, the register entry and 503's
+  header rather than hidden, because a dead pod's rows looking current is precisely the class of
+  error this table exists to end. **Until a caller exists, every reader MUST filter on
+  `last_seen_at`.**
+
+### State: built, committed, INERT
+
+The Go half cannot run until a chassis image carries it. The fleet is on **v1.0.1317**, which
+predates this commit, so `service_binary_capabilities` is **empty and correctly so** — 503's
+header says this in place so a post-apply zero is not misread as failure. **I did not roll the
+fleet:** releases are whole-fleet and the owner runs `make release` (a one-service apply at its
+own tag is the documented mistake). First evidence to collect after the next roll, with its
+control, is in 503's footer.
