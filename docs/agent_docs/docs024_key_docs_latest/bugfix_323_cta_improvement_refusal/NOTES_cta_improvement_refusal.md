@@ -187,3 +187,39 @@ Verdict READ (diagnosis_artifacts `council_report`, corr `92829711`). Advisory t
 - architecture: "ARCHITECTURE_SIGNAL: point_fix" — and names the copy-editor sibling as the RFC-shaped
   decision if built, which matches the PLAN.
 Follow-up commit carries `Council-Reviewed: 92829711-aecb-4e1a-8457-d011b4a635af`.
+
+## 2026-08-20 (session 2) — the roll landed; all three layers verified live; bug CLOSED
+
+**The roll:** both `agent-chassis` replicas on `v1.0.1317`, started 2026-08-19 22:26Z. The
+`build provenance` startup line had ALREADY SCROLLED (`--tail=100000`, both pods, zero hits — same
+as the 08-11 measurement in CLAUDE.md), so the stamp/ancestry route was unavailable; fell back to
+the binary literal-pair probe, which needs no stamp.
+
+**Binary proof, BOTH replicas** (`grep -aqm1 <literal> /proc/1/exe`; note `grep -ac` over the whole
+binary times out at ~2min per probe — use `-aqm1`):
+- ADDED literals PRESENT: `Fix type is refused by design (needs a different handler), marking for
+  review` (the new dispatch-default log line) and `no handler for audit category` (the new Rule 3
+  summary) — pod 67cgh also confirmed `capability_gap:no_handler_for_audit_category:` before a probe
+  timed out mid-list.
+- REMOVED literal ABSENT: `Fix type requires LLM involvement, marking for review` (the old case arm's
+  log line — deleted by this change, so its absence discriminates).
+- Controls: `unresolved after %d attempts` PRESENT; `zz-not-a-real-literal-323-zz` ABSENT.
+
+**Behavioural proof at the live router** (corr `500d8d87`, COMPLETED): temporary probe agent
+`proof-323-router-probe` (302-lane pattern — one `write_audit_findings` step, `findings_field:
+input_data.findings`) fired ONE synthetic `category:cta` finding at `system.internal`. The live
+classifyFinding filed: `item_type=capability_gap`, handler ``, `status=deferred`, priority 200,
+severity low, `item_key=capability_gap:no_handler_for_audit_category:cta`,
+`spec.gap_kind=handler_missing`, and the finding's suggestion/acceptance_test/description/
+finding_severity all preserved. The disconfirming outcome — a `cta_improvement` row at
+`component-template-fixer`, which is exactly what the pre-roll binary would have filed — did not
+occur. Probe row (`30bec774`) and probe agent (`5fa5dd35`) DELETED; both counts re-read 0.
+
+**Post-roll real traffic:** zero `cta_improvement`/`nav_restructure` rows created since 22:00Z and
+zero real `capability_gap:no_handler…` rows yet — audits run on their own cadence; the probe is the
+proof. Watch queries stay in the RUNBOOK.
+
+**Bug CLOSED** → `bugs_closed/` (`b9b8233ae`; both paths on the commit, verified at HEAD — one line).
+Residuals named in the CLOSED block: the copy-class handler gap (now visible as capability_gap; the
+copy_quality_two_stage sibling question, three customers), the coarse first-finding-only key (077
+shape), and the ~993 historical rows staying `complete`.

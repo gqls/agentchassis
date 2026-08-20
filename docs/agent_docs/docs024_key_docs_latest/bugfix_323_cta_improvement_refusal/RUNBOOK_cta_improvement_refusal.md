@@ -150,3 +150,20 @@ Q -At -c "SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body 
 kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'   # then
 git merge-base --is-ancestor 0e4622bab <stamp> && echo SHIPPED
 ```
+
+## Post-roll verification (done 2026-08-20, v1.0.1317)
+
+```bash
+# provenance line scrolls fast — when absent from a deep tail, use the literal-pair probe:
+kubectl -n ai-persona-system logs <pod> --tail=100000 | grep -m1 'build provenance'
+# ⚠ grep -ac over /proc/1/exe times out (~2min/probe); -aqm1 returns on first match:
+kubectl -n ai-persona-system exec <pod> -- sh -c "grep -aqm1 'Fix type is refused by design (needs a different handler), marking for review' /proc/1/exe && echo PRESENT || echo ABSENT"   # ADDED — want PRESENT
+kubectl -n ai-persona-system exec <pod> -- sh -c "grep -aqm1 'Fix type requires LLM involvement, marking for review' /proc/1/exe && echo PRESENT || echo ABSENT"                            # REMOVED — want ABSENT
+# controls: 'unresolved after %d attempts' must be PRESENT; a nonsense literal must be ABSENT. BOTH replicas.
+```
+
+Router proof: temporary agent `proof-323-router-probe` (one write_audit_findings step,
+`findings_field: input_data.findings`), one `category:cta` finding at system.internal, confirmed-publish
+kcat; expect a `capability_gap` row with `gap_kind=handler_missing`, key
+`capability_gap:no_handler_for_audit_category:cta`, detail preserved. Teardown: DELETE the work item
+(`created_by=<audit_source>`) and the agent row. Done corr `500d8d87`, both deleted.

@@ -102,3 +102,22 @@ roll, the "no handler" roadmap row keeps only the first CTA finding's detail per
 on the same site are counted but not stored. That is how the 077 shape works everywhere, and the
 auditors re-raise every run, so the detail comes back the moment a real handler exists. Nothing
 left for you to decide tonight.
+
+## 2026-08-20 — the new build landed; everything checked out; the bug is closed
+
+The overnight chassis build carries the routing half. I proved it two ways rather than trusting the
+version number: the running binaries (both replicas) contain the new code's tell-tale strings and no
+longer contain the old refusal arm's string — with a positive and a negative control so the check
+itself is proven — and then I pushed one synthetic CTA finding through the live router and watched it
+file the "no handler for this work" roadmap row, detail intact, instead of a job for the fixer.
+Probe cleaned up after itself.
+
+So: a refusal can no longer complete green on any path — routed findings become roadmap rows; anything
+reaching the fixer some other way parks for a human. The bug file has moved to `bugs_closed/` with the
+evidence and three named leftovers: the actual CTA copy-writer still doesn't exist (that's now a
+visible roadmap row per site, and the copy-editor lane owns the question, three lanes wanting it);
+the roadmap row keeps only the first finding's detail per site (standard for that shape); and the
+993 historical jobs stay as they were — history, not damage we can undo.
+
+Nothing waiting on you. The one decision still out there belongs to the copy-editor lane's question:
+whether a small LLM editor may write one-component field edits to live pages, and under what approval.
