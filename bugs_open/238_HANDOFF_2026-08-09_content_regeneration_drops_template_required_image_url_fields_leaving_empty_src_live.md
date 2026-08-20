@@ -432,3 +432,215 @@ extension on **PBP-039** (whose stale "INERT until roll" status is corrected
 in the same edit — 9.1 here already said §8 was stale). No change to this
 file's own arms; the 16:37–17:23 history re-run this file says is owed was
 fired by the 268 lane (run correlation `38e53a03-…`).
+
+---
+
+## §11 — 2026-08-20, the 238 lane resumed: the detection half is ARMED at last, the RFC is filed, and the remediation population is MEASURED (and it is not what §7 or any plan assumed)
+
+Worked by the original lane (`docs/agent_docs/docs024_key_docs_latest/bugfix_238_regeneration_key_loss/`),
+resumed after eight days dormant. Ownership re-checked before starting: `scripts/who-owns.py 238`
+names this lane; no open work item or diagnosis run targeted the bug.
+
+### 11.1 §8 and the register were BOTH stale, and the staleness was load-bearing
+
+§9.1 corrected §8 on 2026-08-12 ("the carry has rolled"). **The concept register was never
+corrected**, and it is what council seats and later sessions read. PBP-040's status line still said
+*"Go half built and committed 2026-08-11, INERT until the chassis image rolls; the config half is
+HELD"* — both clauses false, for nine days.
+
+The consequence was not just misinformation. **The config half stayed unarmed BECAUSE arming it
+looked premature.** Measured 2026-08-19/20: ZERO active `agent_definitions` rows carried
+`record_dead_url_controls` or `refuse_dead_url_controls`, and ZERO `dead_url_control` items existed
+in all platform history. A filed bug's detection half sat switched off after its blocker had
+cleared, because a snapshot outlived its truth. Corrected visibly in the register (strike-through +
+date + cost), not quietly overwritten.
+
+Provenance re-verified rather than assumed: image `v1.0.1317`, revision label `2d13d530d`,
+`git merge-base --is-ancestor 51f56d0c9 2d13d530d` PASSES, with controls both ways (the stamp is
+trivially its own ancestor; that day's HEAD is correctly NOT an ancestor, so the probe
+discriminates). Not `strings` — see `bugs_open/249`.
+
+### 11.2 ARMED: the record-only half (migration `504`, applied 2026-08-20)
+
+`sql_for_agents/504_bugfix_238_arm_dead_url_record_on_rerender.sql` sets
+`record_dead_url_controls: true` on `page-rerender`'s `rerender_sections` step. Applied; verify
+block reported **1 of 1** `rerender_page_sections` steps armed fleet-wide; re-checked independently
+after COMMIT; recorded in `schema_migrations`. Council `8a2aab7c`.
+
+Three things worth carrying out of it:
+
+- **The step path is NOT 380's.** `page-content-writer` nests its render steps inside a
+  `process_sections_loop` sub_workflow; `page-rerender` does not. Copying 380's nested path finds
+  nothing and reads as "no such step".
+- **The key was UNDECLARED on `RerenderPageSectionsInputSpec`** — the same omission
+  `refuse_dead_url_controls` had on `RenderComponentInputSpec` until 2026-08-19, and for the same
+  reason: both are read through a helper taking `config`, so no literal `config["..."]` appears in
+  either function body and a grep-based census cannot see them. Declared in `bb6600e48`, with a
+  test whose mutation is exactly the omission. Arming an undeclared key here is warn-only
+  (`CheckConfig`, not `StrictConfig` — read at the deciding arm before touching anything, because
+  the same mistake on a StrictConfig spec took the fleet's page-publishing path down for 33 minutes
+  on 2026-08-19).
+- **The refusal half (`380_*_HOLD`) is still held, but on a NEW ground.** Its original hold
+  condition (the binary carries the Go half) has been satisfied since 08-12. It is now held on the
+  owner's 2026-08-20 sequencing decision: the refusal blocks the rebuild of a page whose data is
+  still damaged, so it follows the drain. `504` carries a **negative control** asserting the
+  refusal is armed nowhere, so a later edit cannot make that owner-facing decision silently.
+
+### 11.3 FILED: `RFC_042`, discharging the seat instruction PBP-039 collected eighteen days ago
+
+`architecture_review/RFC_042_content_data_has_nine_writers_two_write_disciplines_and_one_carried_funnel.md`.
+The `architecture` seat returned `needs_rfc` on PBP-039 and said the asymmetry itself was the thing
+an RFC would be about; it was "routed for a human call" and no file was ever written.
+
+**The delay is itself evidence and the RFC opens with it:** in the interval the divergence was
+re-reached — `bugs_open/268`, 214 CTA anchors, 19 sites, through a branch older than the carry.
+
+Census in the RFC: **nine writers** of `page_components.content_data`, one carried funnel, most of
+the rest REPLACE. Recorded with how it was obtained, because a grep for the SQL literal finds
+**eight** and reads as complete — the admin handler builds its SET clause dynamically. Four options
+costed; (d) "make the save merge" stays rejected but with one earlier ground corrected rather than
+inherited ("merge of two versions of prose is ill-defined" is true of LLM fields, which nobody
+proposed merging). Recommendation: contract-plus-`planSection`-completion now, the unified detector
+next, the shared write seam only if the detector shows real non-funnel losses — **build the detector
+before the guard, because the guard's population is currently an inference.** Flagged to be answered
+jointly with `RFC_008`, the same question about the sibling column of the same table.
+
+### 11.4 ⚠ MEASURED: the remediation population, and it refutes the plan it was meant to serve
+
+The plan for this session was a route-and-classify remediation: send carry-misses whose source now
+resolves to a no-LLM rebuild, and those with a recoverable history value to a validated restore.
+**Both routes have ZERO population. Measured before building, which is the only reason the work was
+not wasted.**
+
+| measurement | result |
+|---|---|
+| open `required_fields_missing` items whose still-empty fields are resolver-sourced | **0** (29 are llm-sourced, 1 asset-sourced) |
+| of the 25 field slots the 28 carry-miss findings name, how many have a declared `site_specs.*` source that resolves today | **0** — *not one aspect row exists* for any of them |
+| how many hold a recoverable value in history, unambiguously | **11** (aao `/index` `case-studies-grid`; exactly 1 deployed component declares each field, so the field name attributes it) |
+| ambiguous — history holds the field but several components on the page declare it | **1** (gamesdesign `/index` `system-stats` `cta_url`; **5** components declare `cta_url`, and the rows that hold it have `slot_name` NULL) |
+| never held a value at all | **13** (fundamentallyai `platform-log-index` `post1..6_url` — whose current schema does not even declare them, the `bugs_open/309` class; `contact_email` ×6; `result_cta_primary_url`) |
+
+**Why the router cannot help as designed: the detector never files these items.**
+`check_required_fields_missing` deliberately skips `site_specs.*` / `pages.*` / `query.*` sources
+("a separate change with its own census"), so the population the router would classify does not
+exist as work items. **The gap is in the producer, not the router** — and widening the router first
+would have been a change that ships and moves nothing (`WRONG_CALLS` 2026-07-25).
+
+**What the population actually is:** almost entirely *"the declared source has never existed on this
+site"*. The remedy for that is to populate the source or amend the schema — content and owner work,
+not a rebuild. `378` seeding finetuning.uk's `case_studies`/`pages` aspects remains the only
+instance of either aspect on any site.
+
+So §3's open question, which §2 of the addendum answered by component count, now has its answer by
+*field slot and by cause*, and the causes have opposite remedies. **Do not plan a restore path off
+the aggregate.**
+
+### 11.5 Two probe traps recorded, because I hit both, in opposite directions, in ten minutes
+
+Both are in `WRONG_CALLS.md` 2026-08-20 in full. Short form, because anyone re-measuring this will
+meet them:
+
+- a history probe joined on `page_id` alone **over-counts by slot** — it credited `system-stats`
+  with 103 `cta_url` values belonging to `tool-list`/`game-list`/`hero`, and I nearly filed that as
+  a new regression;
+- the obvious tightening (`slot_name` match + `source='artefact_archive_trigger'`) **under-counts by
+  writer** and returned 0 for all 25 — including the page §7 correctly calls a genuine regression.
+  `page_component_history` has five writers and only the trigger populates `slot_name`, so
+  **selecting on provenance silently selects on schema completeness**: aao has 1,184 app-written
+  rows with NULL slot (42 holding the value) against 211 trigger rows (0 holding it).
+
+The working discriminator is **content identity** — how many deployed components on that page
+declare the field — which is what produced the three-way split above.
+
+### 11.6 Status
+
+**STILL OPEN**, and the reason has changed again:
+
+- prevention: LIVE (carry + the 268 renderer/static extension), verified in the running binary;
+- detection, ungated class: **ARMED** on the re-render path as of today; refusal sequenced behind
+  the drain;
+- detection, **gated class**: still only the carry-miss findings, which still have no automated
+  consumer. This is the honest residual and it is now precisely bounded: the producer skips the
+  source families, and the discovery rotations that would drive a widened producer are paused on
+  the owner's cost instruction (`bugs_open/230`);
+- remediation: the population is measured and parked-or-parkable, but **10 (page, slot) pairs are
+  not yet visible as work items at all** — the backfill is the next concrete step, and it must land
+  with a park route for resolver-sourced fields or those items will misroute to the prose writer,
+  which structurally cannot fill them (proven by the `410` `asset_sourced` canary refusal).
+
+### 11.7 The `090` came back UNVERIFIABLE — and chasing what it asked for produced the behavioural proof PBP-039's "verify-later" has been owing since 2026-08-11
+
+Run `68b3f9b6-1674-41a0-bc9e-c251192daaa1` (intake `5477195a`), fired on the two carry gaps §11.8
+names. Verdict: **UNVERIFIABLE, stopped at iteration-cap** — not confirmed, not refuted. Its own
+account of why is worth keeping, because two of the four gaps are tooling and two are substantive:
+
+- it could not read `planSection`'s field loop, `storedFieldValue` or `carryStored` at all — the
+  symbol search for `handlemissingfield` returned 0 rows and `carrystored` matched only
+  `carryStoredSection` in the *rerender* file. Per its own rule 10(b) that is UNKNOWN, not absent,
+  and it said so rather than concluding;
+- **substantively**, it observed that every `plan_sections` record it could find says *"no
+  previously-built row held a value, so there was nothing to carry"* — i.e. in every observed
+  occurrence there was no stored value to destroy, **which is the opposite of the hypothesised
+  scenario.** That independently corroborates §11.4's census from the work-item side.
+
+**What it asked for to settle it:** *"a state/runtime instance where a field HAD a non-empty
+previously-stored `content_data` value and a subsequent run overwrote it with an empty value without
+a carry — e.g. `page_component_history` rows for the same page/slot across two consecutive builds
+showing a populated field becoming blank."* That is a query, so it was run.
+
+**The result, and it is the useful output of this whole thread:**
+
+| measurement | result |
+|---|---|
+| consecutive archived generations of the same (page, slot) where ANY field went non-empty → blank | 348 events / 127 slots / 58 fields |
+| …restricted to **non-LLM-sourced** fields (an LLM field changing is the writer working) | **66 events**, 11 sites — **all `renderer` (48) or `static` (18)** |
+| …the window those 66 occupy | **2026-08-11 → 2026-08-14 18:36 UTC**, and nothing since |
+| …events with a `site_specs.*` / `site_assets.*` / `query.*` source, at any time | **0** |
+| **demand control** — archived generation-pairs since the last loss event | **3,033**, 2026-08-14 → 2026-08-20 |
+
+**`renderer`/`static` is exactly the class `bugs_open/268` fixed** (`8f899cc8d`, committed
+2026-08-14 09:13 BST). The losses stop on the day it landed and have not recurred across 3,033
+subsequent archived generations. **That is the behavioural acceptance test PBP-039's `verify-later`
+asked for and nobody ever ran** — "dispatch a regeneration at a page whose component declares a
+non-llm URL field, and assert the persisted `content_data` still holds that key afterwards" — except
+it is better than the single dispatch it specifies, because it is the whole fleet's ordinary traffic
+rather than one induced case.
+
+⚠ **State the window, because it bounds the claim.** The `artefact_archive_trigger` archive begins
+**2026-08-09** (migration 357), so this can see eleven days, not the bug's whole life. There are two
+clear days inside the window before the first loss event, so the window is not the only reason the
+series starts on 08-11 — but a longer history would be a stronger claim, and this is not one.
+The `save_page_sections_overwrite` rows reach back to 2026-03-16 and **cannot** be used the same
+way: they carry no `slot_name` (§11.5), so consecutive generations of one slot cannot be paired.
+
+### 11.8 The two carry gaps: REAL IN THE CODE, UNOBSERVED IN PRODUCTION — and therefore NOT shipped
+
+Both were read directly in `plan_sections_action.go` and both are reachable:
+
+1. **A blank resolved value beats a good stored one.** The generic branch stores whenever
+   `found && value != nil`; `resolveSpecPath` / `resolveSpecAlias` / the `site_assets` lookup can
+   each return a present-but-empty string, which is non-nil, so it lands in `resolvedData` and
+   `carryStored` never runs. `storedFieldValue` refuses empties on the *stored* side; nothing
+   refuses them on the *resolved* side.
+2. **A `query.*` resolver ERROR drops the key.** That branch deliberately does not route into
+   `on_missing` (`bugs_open/054`: an error must not be masked as "no data"), applies a declared
+   fallback if there is one, and otherwise `continue`s with the field **absent from
+   `resolvedData`** — so the wholesale save drops it, while the re-render merge would have kept it.
+   One unregistered query name in a schema destroys that key on every regeneration, for ever, with
+   a `Warn` as the only trace.
+
+**Neither has a single observed instance.** 0 loss events for those source families across the whole
+archive window; the fleet-wide census found only **2** empty-string spec values behind declared
+sources; and the `090` reached the same conclusion from the work-item side.
+
+**So they are recorded, not shipped.** Writing 3 lines of Go and a mutation-proved test would have
+been easy and would have looked like diligence — but it would be a fix sized from a code reading
+rather than from evidence, and this estate has a name for that (`WRONG_CALLS` 2026-07-25: counting
+the population a fix is ABOUT instead of the population it would ACT on). They belong to `RFC_042`
+option (e) — "declare `planSection` the sole complete producer" — as its concrete content, with the
+honest label: **reachable by reading, unobserved in production.**
+
+**What would justify shipping them**, stated so the next session need not re-derive it: one loss
+event with a `site_specs.*`/`site_assets.*`/`query.*` source in the pairing query above, or a
+`STRUCTURAL_KEY_CARRY_MISS` row whose page/slot DID hold the value in the prior generation. Re-run
+the query; it is in the lane RUNBOOK.
