@@ -13680,3 +13680,39 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register CQ-028 (where this was found, building `bugs_open/277`'s repair route) · MEMORY [[mutate-the-code-to-prove-the-guard]] — the reorder is precisely a mutation that an all-lowercase suite cannot catch
 - **source:** 2026-08-20, `bugfix_277_required_fields_repair` lane — found by reading the tokenizer's source before trusting the API, not by a symptom
 - **added:** 2026-08-20, `bugfix_277_required_fields_repair` lane
+
+---
+
+### An UNAPPLIED stylesheet cannot fail a contrast check — a clobbered site audits CLEANER, and the error points at a false PASS
+
+- **footprint:** `scripts/render_audit.py` · `internal/adapters/browserrunner/render_audit_action.go` · `contrast_failure` · `css_themes.css_content` · `<domain>/assets/css/styles.css` in `gqls/sites` · any parked-findings census or component "narrowing" · `bugs_open/198` · `bugs_open/296`
+- **fires when:** you render-audit a site, or compare two sites, while one of them is serving a clobbered `styles.css` (the `bugs_open/198` class: `css-patch-agent` deploys the whole `css_themes` row over a file the row never held, leaving 94–1,336 bytes where 17–26 KB should be). **Every declaration that is missing is a declaration that cannot fail**, so the broken site returns FEWER findings than the healthy one. There is no error, no warning, and the page renders — just unstyled.
+- **why the wrong result looks exactly right:** a low finding count is the *reassuring* direction, and nobody re-checks a clean result. Worse, it survives every discipline we normally apply: the figure is dated, it is measured, it is reproducible, and it **could not have come out any other way** — so a `[MEASURED]` marker on it is honest and still wrong. Worst, it is the perfect shape for a false NARROWING: audit the suspect site, audit a second site as a "control", find the defect absent there, and conclude the component is fine and the first site's palette is fragile.
+- **the worked case, 2026-08-20, and it cost a committed conclusion.** The `news_editorial` lane cleared the `evidence-chart` component using dartsonline.com as a control while dartsonline was serving **164 bytes** of CSS. Same URL, same content, no change to the page, before and after this lane's restore:
+
+  | | clobbered | restored |
+  |---|---|---|
+  | total findings | 2 | **8** |
+  | `.evidence-chart__eyebrow` | absent | **1.11:1** |
+  | citation links | absent | **3.71:1 ×5** |
+  | `.ev-ts__eyebrow` | absent | **4.24:1** |
+
+  The narrowing was false and the proposed remedy was worse than false: the fix was to point the eyebrow at `--color-accent` *"like its sibling `evidence-timeseries`, which does not appear in the failure list at all"* — and on the restored page that sibling fails at 4.24:1. **A target value validated on one palette is not a target value.** That remedy would have shipped and failed its own acceptance test on the second site it touched.
+- **the second-order damage, which is the reason this is a landmine and not an anecdote:** the clobber class **suppresses the evidence about the sites it hits**. Any `contrast_failure` census, parked-backlog count or fleet total taken while cookly.uk, oufe.com or vonc.com were serving near-empty stylesheets is a **FLOOR, not a count** — and those are precisely the sites `bugs_open/198` lists as unowned-for-restore. Two independent undercounts in the same direction now sit under `bugs_open/296`'s totals.
+- **the check — one command, before you trust any audit result and *especially* a clean one:**
+  ```bash
+  curl -sL "https://<domain>/assets/css/styles.css" | wc -c   # healthy is 13–27 KB on these sites
+  ```
+  Fleet-wide, from the deploy repo rather than 21 curls — current blob vs the blob a week ago, which is how the four clobbered sites were found in one pass:
+  ```bash
+  OLD=$(git rev-list -1 --before='7 days ago' origin/master)
+  for f in $(git ls-tree -r --name-only origin/master | grep -E '^[^/]+/assets/css/styles\.css$'); do
+    new=$(git cat-file -s $(git rev-parse origin/master:$f)); old=$(git cat-file -s $(git rev-parse $OLD:$f) 2>/dev/null || echo 0)
+    [ "$old" -gt 0 ] && [ "$new" -lt $((old/2)) ] && echo "SHRANK $f $old -> $new"
+  done
+  ```
+  And the DB half, which is the *pre-symptom* tell (an empty row is the clobber waiting to happen, not the clobber): `SELECT s.domain, length(ct.css_content) FROM sites s JOIN style_collections sc ON sc.id=s.style_collection_id JOIN css_themes ct ON ct.id=sc.css_theme_id ORDER BY 2;` — **11 of 21 rows were empty** on 2026-08-19.
+- **⚠ do not confuse this with the `overImage` entry above it.** That one says the probe's `rgb(128,128,128)` rows are placeholders to discount from a total; this one says the rows that are *missing entirely* are the dangerous ones. One inflates a total with guesses, the other deflates it with absences, and the checks are different.
+- **relations:** `bugs_open/198` (the clobber; §2026-08-20 carries the restore recipe and the verified-identical method) · `bugs_open/296` §10.4 (the withdrawal) · `WRONG_CALLS.md` 2026-08-20 · the `overImage` entry on the same footprint · `a PASS from a BLIND check outlives the blindness` · `a post-fix ZERO needs a DEMAND control`
+- **source:** 2026-08-20. Found by the `news_editorial` lane re-measuring after the `dartsonline_traffic` lane restored dartsonline's stylesheet — neither lane could have found it alone: one held the audit, the other the restore.
+- **added:** 2026-08-20, dartsonline_traffic lane, from the news_editorial lane's measurement.
