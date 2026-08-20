@@ -348,3 +348,116 @@ committed (the adoption path — see §1's correction block), and **misread one 
 which is how the ordering defect was found. Three useful outcomes, two of them corrections to
 somebody's committed work. That is a good return on one run, and it is an argument for reading a
 verdict's evidence rather than its outcome field.
+
+---
+
+# COUNCIL ROUND 1: **REVISE** (gating objection from editquality), 12 reviewers, 5 abstained. What each objection produced.
+
+⚠ **Read the verdict BY CORRELATION, not from the newest `doc_notes` row.** My first attempt
+returned another lane's `bugs_open/336` verdict, which is the documented trap:
+`SELECT body FROM diagnosis_artifacts WHERE correlation_id='db3c158b-4dab-4a1b-bb2b-875dbac98358' AND kind='council_report';`
+
+**Round 2 submitted on the same correlation** (`RESUBMIT_CORR`, so the trail accumulates), run
+orch `8f5b5dfe-0459-47a8-98ef-2112374504fe`. Two objections changed the submission; the rest were
+answered with a check.
+
+### editquality, HIGH — "the formatter might embed the OLD brief inside the NEW one"
+
+The best objection of the round, and it was right that the assumption was **asserted, not shown**.
+Rendering from `merged` means the previous `formatted` string is present at call time (the partial
+has no such key, so the merge keeps the old one). If the formatter walked it, every write would
+nest the whole previous brief inside the new one — **compounding, and worse than the data loss it
+replaces.**
+
+It does not, and never did: `format_content_direction.go:41-44` has carried
+`// Skip the formatted field itself / if key == "formatted" { continue }` all along. **But nothing
+tested it**, which is the whole of the criticism. Now something does —
+`TestBriefDoesNotNestItsOwnPreviousRendering` asserts every label appears **exactly once**, because
+a nested render repeats every label the old one held. Mutation: delete the skip and it fails with
+`label "Voice:" appears 2 times, want exactly 1`.
+
+### editquality, LOW — "sorting covers only two levels" · and the shape measurement it asked for
+
+Factually the sort is applied wherever a map is rendered and `FormatSpecValue` recurses into
+itself, so **every** depth goes through it — but that was asserted too. `[MEASURED 2026-08-20]`
+across all 25 current specs: **224 object / 102 array / 24 string** top-level values, **zero**
+three-level maps, **zero** arrays-of-objects. So production is at most two levels deep today, and
+the new `TestBriefIsDeterministicAtEveryDepth` uses a deliberately **four**-level fixture, deeper
+than anything live, plus an assertion that the deepest values actually render so stability cannot
+be satisfied trivially. Mutation: unsorting **only** the nested level fails it.
+
+⚠ **Separate pre-existing drop, found by that measurement and NOT fixed here:** an array whose
+elements are objects is discarded entirely by `InterfaceSliceToStrings`. Zero live instances, so it
+is a landmine to record rather than a change to smuggle into a bugfix round.
+
+### bug_historian, MEDIUM — "you are patching one aspect branch of a shared mechanism that has two other recorded silent-drop shapes"
+
+Audited, and the answer is clean. `grep -n 'if aspect == ' site_spec_actions.go` returns exactly
+three: `:180` an emptiness guard, `:240` `identity` → `normaliseServicesField(merged)`, `:265`
+`content_direction`. **`normaliseServicesField` already operates on `merged`, so after this change
+there is NO remaining pre-merge derivation in the function** — the shape being worried about does
+not exist elsewhere in it.
+
+The two siblings are **different root causes**, checked not assumed:
+- **`pinned` ignored** — `grep -c pinned site_spec_actions.go` = **0**. That defect is "the column
+  is never read", not "a derived value is computed pre-merge".
+- **`structure` opt-in flags dropped on re-adoption** — that is in `apply_adoption_plan_action.go`,
+  which does not merge at all (supersede + wholesale insert, `:386-421`) and already carries its
+  own `carryForwardStructureSpecKeys` remedy.
+
+### prior_art_librarian, MEDIUM — "the reused matcher and the no-tests claim are asserted"
+
+Both confirmed. `captureArg` is at `tool_acceptance_convergence_test.go:61` (added `b13238be6`);
+my file declares no second copy — the **first build failed with `captureArg redeclared`, which is
+how I found it**, and reusing it was the fix. And
+`grep -rln 'FormatContentDirection|siteSpecDeepMerge' --include=*_test.go platform/` returned
+nothing before this change, so there was no colliding file.
+
+### debug_historian, MEDIUM — "no pod-verification recipe" · ACCEPTED, and this is the close-out
+
+Primary — ask the service, per SERVICE not per fleet:
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --limit-bytes=900000 | grep -m1 'build provenance'
+git merge-base --is-ancestor 90930a4a8 <the stamped sha>
+```
+If the startup line has scrolled (it had on 2026-08-19), probe the binary for a literal this change
+**adds**, with a control in the same breath: `grep -aq 'merged_keys' /proc/1/exe` must hit,
+`incoming_keys` must hit, and a sha created after the build must be absent. Never `strings`; never a
+discovery grep for "some 40-hex string".
+
+### architecture, APPROVE with a follow-up — recorded here so it is not left in a verdict nobody re-reads
+
+*"This pattern (format-before-merge racing a partial write) is generic to any `WriteSiteSpecAction`
+aspect that also auto-derives a formatted/summary field from `specMap` before the merge — if other
+aspects grow that shape, the fix belongs in `siteSpecDeepMerge` or a shared post-merge hook, not
+per-aspect."* Agreed. **The general shape stays reachable for any future aspect that copies it**,
+and closing it properly would be architecture-scope. Named latent risk, not a to-do for this round.
+
+### guardian MEDIUM + compliance HIGH — "the fix un-suppresses known-bad brief content automatically; add a scrub or a key-skip guard"
+
+**Decision: no code gate, and this is the reasoning rather than a dismissal.** The seats are right
+that the fix converts a latent exposure into an active one.
+
+1. **A measurement that lowers the severity, and it is checkable.** The phrase with the *proven*
+   transfer chain — the canonical tagline, 1,369 prompts → 409 responses — is **already in the live
+   brief today**, in `emphasis`, one of the five keys that survived the collapse, in a block that
+   also **orders** it into every hero, the footer and every meta description. What the fix restores
+   is `example_phrases`, whose transfer into output is **unmeasured**. The worst payload is live
+   now and this change does not touch it.
+2. **A site-specific key-skip in a shared action is the wrong shape.** "Skip a key flagged in
+   `bugs_open/305`" hardcodes one bug's payload into the merge path for every site and every
+   aspect, with no expiry — the accumulation-on-a-shared-seam the architecture seat exists to
+   catch, and it makes correctness conditional on a content list somebody must remember to prune.
+3. **The suppression being removed is an ACCIDENT, not a control.** The bad content is in the
+   document and reaches nothing only because of a data-loss bug. Keeping that is keeping a defect
+   as a safety feature — and an undetectable one, which is how it lasted four months.
+4. **So the remedy is the payload, and it is another lane's site config.** Contained instead by:
+   three CONTRIBs, a fleet LANDMINE (2026-08-20) so a session that never reads them still meets the
+   warning, and a per-site command that lists exactly which keys will reappear, largest first, so
+   the call is made deliberately **in the same write**. The roll gives that decision a deadline,
+   which beats a status quo where nobody knew the keys existed. I have offered to make the
+   `example_phrases` edit myself if that lane wants it.
+5. **If the seats still want a gate**, the containable version is a per-site **opt-in field with
+   the unsafe default OFF** (the 2026-08-02 ruling's shape), not a hardcoded key list. I do not
+   think one instance of unmeasured-transfer exemplars justifies a new opt-in on this seam, and
+   putting that judgement to the round is the point of submitting.
