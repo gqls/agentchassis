@@ -66,3 +66,48 @@ since it was built.
 Next: build it, put it through the review council, and then it needs a deploy before any of
 the code half takes effect. The database half goes live the moment it is applied and is
 harmless before the deploy.
+
+## 2026-08-20, later — built, submitted, and half of it is live
+
+It is built and committed. Here is what actually happened, in order.
+
+**The code.** One new file does the whole job: every failure path in the fleet now goes
+through a single piece of code that counts the attempt, waits before allowing the next one,
+refuses to overwrite a decision a handler deliberately made, and — when it can see the whole
+fleet failing the same way at once — puts the item back without spending an attempt. The two
+places that used to do this differently now both call it. That is the entire fix; the rest is
+plumbing so the wait is actually honoured.
+
+**The waiting.** An item now carries a "not before this time" stamp, and the four places that
+pick work up all check it. Two of those are in the program, two live in the database as
+configuration. The waiting periods themselves come from a small policy table that already
+existed for exactly this and had been waiting since it was built for a second user — so the
+numbers are yours to retune with one line of SQL, no rebuild.
+
+**What is live right now, and what is not.** The database half is applied and I have verified
+it changes nothing yet: the column exists, no item carries a stamp, and both dispatch queries
+respect it. That was deliberate — it is inert until the program half ships, so there is no
+window where work could be withheld by accident. I confirmed the dispatcher is still running
+normally afterwards and that zero items are being held back by the new rule. The program half
+is committed but does nothing until the next chassis deploy, which any lane's build will carry.
+
+**Three things I got wrong on the way, all caught before they shipped.** I would have parked
+waiting items in the "blocked" state, which a cleanup job empties every ten minutes while
+wiping the reason. I would have detected outages by counting distinct *sites*, and that column
+is empty on nine rows out of ten — it would have failed to fire during the very outage it was
+written for. And my own change nearly wrote an empty value into a column whose *emptiness* is
+how two other people's investigations tell the two writers apart. All three are written up in
+the technical notes rather than tidied away, because they are the useful part.
+
+**One honest gap.** The guard — the part that stops a deliberate decision being overwritten —
+cannot be proven from the data we have, because until this week both paths wrote the same word,
+so no query can tell a correct write from an overwrite. Nine items now carry a distinct
+"won't fix" decision, and those are the ones where an overwrite would finally be visible. I
+have written down in advance that "the guard did nothing" is the *expected* reading of a
+prophylactic, so nobody later mistakes silence for failure.
+
+**Where it goes next.** It is with the review council now (the architecture seat is reading it,
+which is right for a change to something this shared). After the next deploy I will check the
+running binary really carries it, watch a normal failure take the new path, and then the real
+test is the next outage: it should leave nothing dead behind. The bug stays open until then —
+a fix that is committed but not yet running is still a bug in production.
