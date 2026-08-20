@@ -39959,3 +39959,53 @@ reason I gave was not.
 example as the extent of the question is how a real objection gets a narrow answer that reads as
 complete. And: **when you have written down a limitation of your own change, grep your own
 submission for the class it excludes before claiming that class as a benefit.**
+
+## 2026-08-20 — I fired a replan at a site that an exclusion list forbids, and the exclusion was in a register entry I had edited myself six hours earlier (bugs_open/215 same-name lane)
+
+I had a fix to prove in production, an owner's go-ahead, and a site that looked ideal:
+`loanandmortgagecalculator.co.uk` had `honour_realised_identity` on, both snap layers
+correctly off, and a population of exactly 17 pages the fix existed for. I checked the
+gates. I checked the page count, the preservation set, `bugs_open/340`'s unpreserved shape,
+the pod age against the 300s dispatch window, and the pre-fire digests — which matched the
+lane's own 08-17 constants to the character. I took a snapshot. Then I fired.
+
+**What I did not check was whether that site was on a list saying "do not replan this".**
+It is. Register entry **PLAN-048** carries the landmine *"`pages.sections` on the decomposed
+sites holds positional slot names (`bugs_open/204`) … **do not opt those sites in until 204
+is fixed**"* — and the six-domain list naming `loanandmortgagecalculator.co.uk` is in that
+entry **because I put it there myself, six hours earlier, in the same edit that recorded my
+fix.** I wrote the exclusion down and then walked into it.
+
+**Result:** the identity half worked perfectly (that half is now proven in production, which
+is the one good thing here). And **41 of 45 live pages had `pages.sections` emptied** —
+because validate's component resolver drops positional slot names, a third call site of
+`bugs_open/204` that nobody had documented. The run also filed 20 `needs_page`, a
+`needs_rerender` and 6 more items, all `triaged` and claimable within seconds; any one of
+them would have built an empty page over a live one.
+
+**What limited it to a DB-only regression, reversed inside the hour:** a pre-fire snapshot,
+a `sections` digest I had added to the lane's script specifically to catch this class,
+cancelling all 32 claimable items *before* repairing (assertion inside the transaction), and
+restoring from the snapshot with **both** digests asserted inside the repair transaction. The
+served artefact never moved — 82 `page_components` unchanged, real URLs 200, phantom paths
+404 at the control's byte size. So the process saved it; the decision did not.
+
+**What caught it:** the digest, not the reasoning. I only went looking for the *cause* after
+a number moved that I had predicted would not.
+
+**The cheap check I skipped, and it is one line:** before firing anything at a site, grep the
+register and `LANDMINES.md` for that domain — `grep -rn "$DOMAIN" docs/agent_docs/docs026_concept_register/register/ docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`.
+Two seconds, and it would have printed my own exclusion back at me.
+
+**The transferable lesson, which is not "read the docs":** I did read them — I *wrote* them.
+The failure was that I checked every precondition **of my own change** and none of the
+preconditions **of the action I was taking**. A canary is a dispatch at a live site, and a
+dispatch has its own eligibility rules that have nothing to do with the fix being tested.
+**Two different checklists, and I ran one of them twice.** The tell is the shape of the
+confidence: every check I ran came back green, because they were all about the thing I had
+just built and understood well.
+
+Related, and it is the same lane twice in two days: my 08-19 entry was *"I published a remedy
+in four documents without reading the guard that decides whether the remedy applies."* This
+is the mirror image — I read the guard, wrote it down for everyone else, and then did not
+apply it to myself.
