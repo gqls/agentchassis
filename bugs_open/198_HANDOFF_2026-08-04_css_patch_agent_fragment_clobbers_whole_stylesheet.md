@@ -496,3 +496,45 @@ source there; robot-hands 0/25,559 — divergent and unpatched), and the per-com
 four sites from the deploy repo's own history. The one thing I got wrong on the way is recorded
 in the lane's NOTES: I read a live 404 as a failed deploy twice, when the B2 sync simply had not
 landed.
+
+> **CORRECTED 2026-08-20, same lane, hours later — my "21 failures" figure was inflated by 15,
+> and the corrected number strengthens candidate (6) rather than weakening it.**
+>
+> `render_audit.py`'s 21 rows were **6 real measurements + 15 `overImage` placeholders**
+> (`[c.get('overImage') for c in page['contrast']]` in the `--json` output: 15 of 21 true). The
+> probe pushes a mid-grey `rgb(128,128,128)` under any text whose backdrop is a background
+> image or gradient because the real colour is unknowable — every `rgb(255,255,255) on
+> rgb(128,128,128) = 3.95:1` row is that guess. **LANDMINES already carried this entry, on this
+> exact footprint, and I quoted the terminal total without applying it.** I had reasoned my way
+> to leaving those 15 alone ("fixing a page to satisfy an approximate measurement…"), which was
+> the right action for the wrong reason: they are not near-misses to defer, they are not
+> measurements.
+>
+> **Post-fix, site-wide, all 23 pages: 15 rows, 15 placeholders, REAL failures = 0.** So
+> dartsonline carries no measured contrast failure, and the six that existed were all one cause.
+>
+> **And the sharper evidence for candidate (6), now enumerated rather than asserted.** All six
+> real failures map to filed `contrast_failure` items — but not all of them were parked:
+>
+> | measured today | filed item | its status |
+> |---|---|---|
+> | contact `h2` 1.06:1 | `H2.H2 on /contact.html` (08-11) | deferred |
+> | contact `h3` ×2 1.11:1 | `H3.H3 on /contact.html` (08-18) | **complete** |
+> | comparator `legend` ×2 1.06:1 | `LEGEND.LEGEND on /tools/dart-weight-comparator` (08-11) | deferred |
+> | comparator `.btn-compare` 1.11:1 | `BUTTON.btn-compare on /tools/dart-weight-comparator` (08-11, filed at 1.14:1) | deferred |
+>
+> **The `H3` row is the instance this file needs: an item marked `complete` by
+> `css-patch-agent`, whose text was still invisible when I measured it two days later.** Its
+> patch was `H3.H3 { color:#ffffff }` — which matches nothing, because no element carries
+> `class="H3"`. So that completion is false twice over: written against an empty `current_css`,
+> and aimed at a selector the agent inferred from `render_audit`'s uppercased-tag label. Even a
+> correct rule would have lost, because `.contact-card h3`'s declaration is emitted after the
+> stylesheet the agent edits. **This is "processed, correctly fixed, and never applied" with a
+> row id behind it** — the news_editorial lane's phrase for what a subset of 296's durable 185
+> may actually be.
+>
+> Also worth one line for whoever restores cookly/oufe/vonc: `BUTTON.form-submit` on contact
+> (filed 4.30:1, marked complete, patched with `background-color:#c8180a`) does **not** appear
+> in the post-restore sweep at all. Its patch was dropped with the clobbered file and the real
+> stylesheet styles that button adequately on its own — i.e. one of the two rules I declined to
+> carry forward was addressing a defect that only existed *because* the stylesheet was missing.

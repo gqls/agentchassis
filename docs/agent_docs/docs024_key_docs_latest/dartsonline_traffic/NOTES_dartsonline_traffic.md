@@ -1052,3 +1052,34 @@ The owner said the token now has analytics read. It does not, on any token prese
 `com.cloudflare.api.account.zone.analytics.read` for zone `79797324fe7423429f5a91178406bd79`.
 `/user/tokens/verify` says the portfolio token is active, so this is a scope gap, not an expiry.
 **Do not report a traffic figure until one of these succeeds** — there is no other source.
+
+### CORRECTION 2026-08-20 (same session) — I quoted a total that a LANDMINE on the same tool tells you not to quote
+
+The "21 contrast failures" figure in this file, in `bugs_open/198` and in what I told the owner
+was **6 real measurements + 15 of the probe's own placeholders**. `render_audit.py:111-114`
+pushes a mid-grey `rgb(128,128,128)` under any text whose backdrop is a background image or
+gradient and sets `overImage: true` "so a reader can discount it"; the terminal output does not
+mark them. Verified in my own JSON: **15 of 21 rows `overImage: true`.**
+
+`LANDMINES.md` already carried that entry, footprinted on `scripts/render_audit.py` — the very
+file I was running. I read the terminal total and quoted it. The action I took was right (I left
+those 15 alone) and my stated reason was wrong ("an approximate measurement I should not tune
+to" — they are not measurements at all), which is the kind of correct-for-the-wrong-reason that
+survives review and then gets cited as precedent.
+
+**Post-fix site-wide, counting only real rows: 23 pages, 15 rows, 15 placeholders, 0 REAL
+failures.** So the honest headline is "dartsonline now has no measured contrast failure", not
+"6 of 21 fixed".
+
+Two checks that would have caught it, in order of cheapness:
+1. `grep -n "render_audit" LANDMINES.md` **before** quoting any number the tool prints — the
+   footprint index exists for exactly this and I ran the tool without consulting it.
+2. Filter the `--json` before totalling anything:
+   `[c for c in page['contrast'] if not c.get('overImage')]`. The terminal view cannot express
+   the distinction, so any figure taken from it inherits the inflation.
+
+Related, and the reason this matters beyond arithmetic: the news_editorial lane found the
+*opposite* error on the same tool the same day — a clobbered stylesheet makes findings VANISH,
+so a broken site audits cleaner. One inflates a total with guesses, the other deflates it with
+absences, and both look like measurements. Now a LANDMINE entry of its own, cross-referenced to
+the `overImage` one with an explicit "do not confuse these".
