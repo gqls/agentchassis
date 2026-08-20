@@ -1130,3 +1130,56 @@ duplicate dispatch is the documented cost of reading latency as a drop (`bugs_op
 CLAUDE.md's council-gate note about the same mistake). The cheap check that distinguishes the two
 is the one above: is the site self-blocked by a `claimed` row, and how many older triaged items
 stand in front of it.
+
+### 2026-08-20 (late) — the reconcile script's owned-page exclusion is over-broad by 170 pages, and a claim of mine on 198 is WRONG
+
+Three findings from the news_editorial lane's reply, checked at the source rather than adopted.
+
+**1. My oufe caveat on `bugs_open/198` is WRONG and needs correcting.** I wrote that the three
+outstanding stylesheet restores are "a DEPENDENCY of the fleet fix, not housekeeping", because a
+component switched to `--color-primary-ink` would render an invalid `var()` on oufe (whose
+clobbered file has no such token). The opt-in form is two-level —
+`var(--color-primary-ink, var(--color-primary))` — so an absent companion falls through to the
+raw palette colour, i.e. the pre-2026-08-06 behaviour, and the change is a **no-op** there rather
+than a breakage. Their lane got this from `buildLegibleInkDefaults`'s own comment; it is also how
+its kill-switch works. **The restores are still worth doing for their own sake and are NOT
+blocking that fix.** Correcting on 198 is the outstanding item.
+
+Two refinements to the same note: the token targets `inkMinContrast = 5.0`, not AA's 4.5
+(`inkFloorContrast` 4.5 is a separate constant for `-text` slots, with a test that fails if the
+two are merged) — so my table's "clears AA" understated it. And the failure mode that neither of
+us can measure: between 08-06 and 08-14 `-ink` resolved to `--color-text` in practice, so a
+repoint could silently strip the brand — **and de-branding scores a CLEAN contrast pass**, so the
+tool we are both leaning on cannot see it. Their check: compare the ink against the accent's hue
+family (robot-hands `#E8500A`/`#f77f47`, dartsonline `#E8311A`/`#f18072` — lighter members of the
+accent's own family, nothing like the text colour), which is the control a contrast audit cannot
+supply.
+
+**2. `reconcile_footer_nav.sh` excludes owned pages for a reason its own mode never reaches.**
+Its header says `save_sections` refuses `rebuild_policy='owned'`, so firing "only produces FAILED
+orchestrations". But `save_sections` is on the SECTION path (`spec.reason='section_data_resolved'`)
+and this script deliberately never sends a reason. Read at the source:
+`rerender_single_page_action.go` contains **no `save_sections` reference at all**; its only
+`rebuild_policy='owned'` use is `loadVerbatimPageHTML`, which is a FEATURE — an owned page with
+exactly one component carrying `content_data.deploy_mode='verbatim'` ships its stored document
+byte-for-byte. The peer's evidence agrees: they have deployed owned editorial pages in assemble
+mode **six times**.
+
+So the exclusion should be narrowed to **owned AND verbatim** — those genuinely cannot pick up new
+chrome, because assembly is bypassed by design. Measured fleet-wide 2026-08-20:
+
+```
+owned active pages: 173      verbatim: 3      NOT verbatim: 170
+```
+
+**170 pages are being skipped that the script could safely reconcile** — and owned pages are
+exactly the ones that otherwise stay stale for ever, which is the gap that makes a de-listing need
+"both halves". dartsonline's own `darts-calendar-density` is owned, 6 components, 0 verbatim.
+
+**3. The three stale owned pages on robot-hands are now clean, and my census was right when
+taken.** Re-fetched all three cache-busted with positive controls on the same response (94,205 /
+96,204 / 86,008 bytes, `<footer>` present, `/insights/index.html` ×3): **marker=0 on all three.**
+Something redeployed them between my census and theirs; robot-hands had `page_rerender` items
+completing roughly every minute at the time, which is the likeliest explanation. Recorded because
+"it fixed itself" is worth distinguishing from "I measured it wrong" — the positive controls are
+what separate the two.
