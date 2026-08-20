@@ -1,5 +1,16 @@
 # 336 — `deploy_result_field` is declared on `render_component`'s spec, not `update_page_status`'s, so arming it (migration 494) makes EVERY workflow that stamps a page fail validation
 
+**FIX COMMITTED `daaa7541b` (2026-08-20 08:4xZ) — INERT UNTIL A ROLL, then re-arm 494. Council
+`bc2f4b0e-45db-49c8-9f45-6af74a344cce` SUBMITTED (the fix commit carries no trailer: I committed
+immediately because this file's own hazard section explains why holding it was unsafe, and
+forward-only forbids an amend — so the correlation is recorded HERE instead).**
+
+**Verified at the commit, in a clean worktree at `daaa7541b`:** `go build ./platform/...` rc=0; the
+three new tests in `platform/orchestration/actions/update_page_status_config_contract_test.go` PASS,
+and all three FAILED against the pre-fix state, so they discriminate; `go test` green on
+`./platform/orchestration/actions/`, `./platform/validation/...` and
+`./platform/orchestration/datahelpers/...`.
+
 **Filed 2026-08-20 07:25Z by the `webdesign_tool_rebuilds` lane, which found it as a blocked
 served-page grade. Status: OPEN. CAUSE IDENTIFIED, one-line fix. SERVICE RESTORED by running the
 owning lane's own rollback — the fleet is NOT broken as you read this, but the defect is still at HEAD
@@ -122,3 +133,28 @@ that had bounced to `triaged` and then ran fine. Filter on `status`, and use `er
 4. **Demand control**: assert a rerender COMPLETED after the re-arm. "No failures" is not evidence
    while the queue is empty — the hour before this incident shows zero completions too, because
    nothing was queued.
+
+
+## Two things found while fixing it, both worth someone's attention
+
+**1. My first attempt at this fix was LOST to a same-file commit, which is this repo's stated hazard
+and is worth the datapoint.** I edited `v3_site_actions.go` at ~08:05Z; the file also held ~345 lines
+of another session's uncommitted `bugs_open/260` work, so a pathspec commit of it would have taken
+their unfinished refactor to HEAD. While I was verifying in a worktree instead, that session committed
+the file (`80b9c6235`) and my edit was gone — `git diff` on the file returned clean and the key was
+back on the wrong spec. Nothing was destroyed and forward-only held: I re-applied and committed inside
+a minute. **The lesson is the ordering: on a file another session is editing, verify BEFORE you edit,
+then edit and commit in one motion.** A worktree is the right place to verify and the wrong place to
+hold your only copy.
+
+**2. The sibling-key check is INCONCLUSIVE, deliberately recorded as such.** While in the file I
+checked whether any other key on `RenderComponentInputSpec` is declared without being read. Two came
+back with zero read-sites — `refuse_dead_url_controls` and `refuse_mistyped_llm_fields`
+`[UNVERIFIED, grep-only]`. That is very likely a grep artefact rather than a finding: the spec's own
+comment records that `refuse_dead_url_controls` is read through
+`shouldRefuseDeadURLControls(config, ...)` and NOT through a literal `config["..."]`, which is exactly
+what my pattern could not see — the same "a grep is not a read" mistake this bug is about, so I am not
+asserting it. **It also would not be an outage if true:** `render_component`'s spec is warning-only,
+with no `StrictConfig`, so a misplaced key there is inert. Whoever builds the general check
+(`cmd/config-key-audit`, read-vs-declared per action) should settle it properly — following the reads
+through the helpers, not the literals.
