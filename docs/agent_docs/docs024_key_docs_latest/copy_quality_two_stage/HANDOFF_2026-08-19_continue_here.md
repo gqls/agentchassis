@@ -1,3 +1,7 @@
+> # ⚠ SUPERSEDED 2026-08-20 — read `HANDOFF_2026-08-20_continue_here.md` first.
+> Its state lines are stale in one way that matters: it says `bugs_open/327`'s platform fix is not
+> this lane's to make and awaits an owner. **This lane took it, and it is LIVE on `v1.0.1319`.**
+
 # HANDOFF 2026-08-19 (evening) — continue here
 
 **Lane:** `copy_quality_two_stage`. **Supersedes `HANDOFF_2026-08-18_continue_here.md`**, whose
