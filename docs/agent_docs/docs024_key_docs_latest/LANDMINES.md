@@ -13187,7 +13187,17 @@ code change owed at the next roll, tracked in RFC_015 §5.
   FROM conflicted c LEFT JOIN orchestration_states o ON o.owner_agent_type = c.agent_type
   GROUP BY 1 ORDER BY runs_24h DESC;
   ```
-  `runs_24h` high + class quiet = **armed, not fixed**. `runs_24h` zero = the class is unfalsifiable from this table; go and read the producer. And group the population by candidate SET (`context->'candidate_paths'`), not by field — a per-field count hides which shape survives and turns a brand-new producer into a bump in an old number (2026-08-19: a `build-dispatch-loop`/`commit_sha` loop-echo class appeared this way, invisible in the per-field view).
+  `runs_24h` high + class quiet = **armed, not fixed**. `runs_24h` zero = the class is unfalsifiable from this table; go and read the producer.
+  > **⚠ CORRECTED 2026-08-20 by the same lane — the join is narrower than this entry first implied.**
+  > It answers **"is this agent running NOW?"** and nothing more. It CANNOT size a class
+  > historically, because the two tables have wildly different retention: `agent_error_log` holds
+  > rows back to **2026-07-20**, while `orchestration_states` keeps only ~**24 h** of `COMPLETED`
+  > rows. Worked case: `site-review-agent` has **58 conflict-era rows in `agent_error_log`** and
+  > **zero trace in `orchestration_states` by ANY column** — `owner_agent_type`, `workflow_plan`
+  > and `execution_metadata` all return 0 — because its runs aged out. So `runs_24h = 0` licenses
+  > *"cannot fire right now"* and **NOT** *"retired"*, *"never ran"*, or any claim about the period
+  > when the class was actually firing. For that, use the error log's own history. A table read as
+  > "agent idle" on this join is a **retention artefact suspect** until you check a second column. And group the population by candidate SET (`context->'candidate_paths'`), not by field — a per-field count hides which shape survives and turns a brand-new producer into a bump in an old number (2026-08-19: a `build-dispatch-loop`/`commit_sha` loop-echo class appeared this way, invisible in the per-field view).
 - **relations:** `bugs_open/330` (the silent-substitution worked case) · `bugs_closed/306` (the tie-break this instrument exposed) · RFC_029 §10.13 step 5 · this file's `A component's input_schema fallback is NEVER consulted at render time` (same family: a fallback that looks live and is never reached) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[zero-adoption-means-read-the-mechanism]] · [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-19, `staged_component_build` lane · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md` (`## 2026-08-19 (night)`) · `HANDOFF_2026-08-18b_continue_here.md` §5.4(c)
 - **added:** 2026-08-19, staged_component_build lane
