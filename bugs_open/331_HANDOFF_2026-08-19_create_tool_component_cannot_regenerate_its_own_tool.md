@@ -99,3 +99,22 @@ The code on HEAD (`d375a0801`) is inert until a roll and behind the HOLD seed, s
   `_HOLD`) and the default-OFF path is byte-identical, so the round-1 gap was never reachable in
   production. **Order to close:** round 2 APPROVED → a roll whose stamp's ancestry includes the GATE
   commit (not just `d375a0801`) → lift + apply seed 496 → the live re-fix in §5.
+
+## 11. Round 2 (21:56Z 08-20): REVISE again — and the gating objection was aimed at a STALE LANDMINE, not the code; round 3 submitted with measurements
+
+Round 2's gating objection (editquality, high): the gate's premise contradicts the LANDMINE "the
+per-slot TEXT floor counts CSS and JAVASCRIPT as text". **Reconciled, not conceded:** that landmine
+describes the RETIRED tag-stripped axis (`shrinkGuardTagStripper`); its own "the check" line
+prescribes `datahelpers.VisibleTextFromHTML` — the parsed walk `visibleTextLength` delegates to and
+the gate uses; both `evaluateSectionShrink` callers moved to it 2026-08-17 (`bugs_open/293`), the
+coverage test holds every caller to it, and arm F is the mechanical proof (fixture's only content
+inside `<script>` measures 0). **The landmine headline was corrected in place** (dated, with the cost
+— it misled the council's own seat) and re-synced via `landmines-verify-dispatch.sh`. The remaining
+seats' asks, each answered with a run measurement in the round-3 rationale: fixture consumers = 2
+sites, no shape assertions; shared helpers diff = 0 lines (read-only callers); the census re-run over
+the WHOLE config document (sub_workflow-visible) = 1 row; round 1's report row quoted with its query
+(the prior_art seat could not find it). Operations corrected to `modify` (the round-1 file is at HEAD).
+**Round 3 = round 2's code byte-identical**, run orch `4dd5bea8-524d-4ef1-9f5e-21f176b78579`; verdict
+pending. Note for whoever reads the trail: two of three rounds' objections found real defects (round
+1: the missing hollow gate — real; round 2: a stale landmine — real, but in the DOCS, and the fix was
+correcting the landmine, not the code).
