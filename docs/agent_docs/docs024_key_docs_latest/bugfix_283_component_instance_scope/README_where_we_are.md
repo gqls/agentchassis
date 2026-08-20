@@ -311,3 +311,15 @@ jobs their outage had killed, one of ours came back looking queued but was actua
 unrunnable for ever — a subtle bookkeeping trap (the retry counter was spent) that we
 diagnosed, fixed in one line, and wrote into the shared trap register so nobody hits it again.
 The queue picked our job up within a minute of the fix.
+
+**2026-08-20, late.** The last three tools went through tonight and the planned conversion is
+done. Every one of the twenty-four components the careful pipeline touched is live and proven:
+the arithmetic referee reads identical-to-the-penny across the loan site, and on the three
+game-design tools — which have no referee — we drove the live pages in a real browser and
+watched them respond: type into the ranking tool and eight figures recompute; press the clash
+calculator's button and the results panel fills. That responding-at-all is exactly what the
+broken batch from last week couldn't do, so it is the right thing to have watched. What's left:
+six components the gate refused now wait on people — three of those are the broken savings
+estimator that needs your rollback-or-hand-fix call — and the estate keeps minting new tools
+faster than anyone converts them, which needs a decision about whether the front door enforces
+the rule at birth or a sweeper converts arrivals on a schedule.
