@@ -13197,7 +13197,9 @@ code change owed at the next roll, tracked in RFC_015 §5.
   > and `execution_metadata` all return 0 — because its runs aged out. So `runs_24h = 0` licenses
   > *"cannot fire right now"* and **NOT** *"retired"*, *"never ran"*, or any claim about the period
   > when the class was actually firing. For that, use the error log's own history. A table read as
-  > "agent idle" on this join is a **retention artefact suspect** until you check a second column. And group the population by candidate SET (`context->'candidate_paths'`), not by field — a per-field count hides which shape survives and turns a brand-new producer into a bump in an old number (2026-08-19: a `build-dispatch-loop`/`commit_sha` loop-echo class appeared this way, invisible in the per-field view).
+  > "agent idle" on this join is a **retention artefact suspect** until you check a second column.
+
+  And group the population by candidate SET (`context->'candidate_paths'`), not by field — a per-field count hides which shape survives and turns a brand-new producer into a bump in an old number (2026-08-19: a `build-dispatch-loop`/`commit_sha` loop-echo class appeared this way, invisible in the per-field view).
 - **relations:** `bugs_open/330` (the silent-substitution worked case) · `bugs_closed/306` (the tie-break this instrument exposed) · RFC_029 §10.13 step 5 · this file's `A component's input_schema fallback is NEVER consulted at render time` (same family: a fallback that looks live and is never reached) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[zero-adoption-means-read-the-mechanism]] · [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-19, `staged_component_build` lane · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md` (`## 2026-08-19 (night)`) · `HANDOFF_2026-08-18b_continue_here.md` §5.4(c)
 - **added:** 2026-08-19, staged_component_build lane
