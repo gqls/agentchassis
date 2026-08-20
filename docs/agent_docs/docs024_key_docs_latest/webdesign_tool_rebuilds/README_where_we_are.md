@@ -119,3 +119,59 @@ plus one config line (held until then). After that, a re-fix is one filing and n
 
 Also: the library-collision fix the 311 session built today is already live on the 17:13 roll, so
 the two "blocked" tools (ab-test, meme-generator) are not blocked any more.
+
+## 2026-08-19 late evening into 2026-08-20 morning — the two stuck tools, and a checker we mostly did not need to build
+
+**The two tools that could not be rebuilt are no longer stuck, and one of them is done.** The other
+session's fix for the library collision went live on the 17:13 roll, so I picked up the A/B test
+significance calculator — the one that had defeated three attempts across three days — and it rebuilt
+first time. I checked their fix the way you would want it checked: not "the version number went up",
+but the running program on both machines, and then the database row afterwards to prove the shared
+library copy of that tool had not been touched. It had not. I have written the result back into their
+notes, because their fix was half of a pair the owner asked to be proven together.
+
+**We are at 14 of 63, and every one of the 14 has been checked on the live page, not just in the
+database.** Two of them (the A/B tool and the blob maker) were finished late last night and their pages
+re-published overnight; I confirmed both this morning by fetching the real pages with the caches
+defeated, and by checking that identifiers which only the OLD versions contained are now absent. That
+last part is the bit that actually rules out looking at a stale copy.
+
+**What the tools were doing wrong, again.** The A/B test calculator would tell you "not significant,
+keep running the test" when you had entered no data at all — clear the visitor count and it printed a
+verdict with a Z-score of "NaN". It also announced a variant that had performed significantly WORSE
+using the same wording as a win. The blob maker had three controls and no wiring: dragging a slider or
+picking a colour did nothing, and the only button that worked also re-rolled the random shape, so you
+could never keep a blob you liked and change its colour. The shadow stacker, which is building now,
+turns the whole shadow off if you clear any one of six number fields, and still offers you the broken
+text as CSS to paste. That is now ten of the fourteen tools we have opened that were measurably broken,
+and four of those ten lie about themselves in their own output — a claim, a comment or a control that
+says work happened when it did not. Those are the ones nobody would ever catch by looking at the page.
+
+**The checker we said we owed: most of it exists, and one part of it would have been wrong.** The plan
+was to write something that scans the tools we have not rebuilt yet and finds these faults
+automatically. Before writing it I went and read what the platform already has. Two things came out.
+First, we already own an automatic reviewer for tools, and it had ALREADY reported the A/B test
+division-by-zero — in its own words, four days before I found it by hand. So the value of a new scanner
+is much smaller than we thought. Second, and more useful: one of the six rules we wanted to check
+cannot be checked this way at all. The obvious test for "does this tool validate its numbers" is to
+look for the standard guard against a bad number — and the A/B tool we built last night does not
+contain that guard, because it uses a stricter check earlier on instead. A scanner written the obvious
+way would have raised a complaint against the best-validated tool on the site. So what is worth
+building shrank to two small rules that cannot be wrong (a tool must not use pop-up alert boxes, and
+must not wire its buttons the old inline way), and both go inside a check that already exists and
+already runs.
+
+**One scare that turned out to be a fixed bug.** While measuring whether it was even worth filing these
+findings, I found 205 tool-improvement jobs sitting in a dead state — which reads as "the fixer never
+works, do not bother". Looking at the actual rows: twenty of them had been filed under one shared name
+instead of one name per tool, so the system's own "this has failed twice already" rule stamped them all
+as failures before anything ran. Then the timestamps: a migration fixing exactly that was applied at
+17:17 that afternoon, and from 17:24 the jobs carry proper individual names and do get done. So the
+graveyard is a scar from before the fix, not the current state. I nearly wrote the opposite down.
+
+**Where we go next.** Finish the shadow stacker, then keep going down the list smallest first — the
+recipe is boring now, which is what we want. There is one more piece of good news I have written into
+the handoff: another session has just built a "replace the tool in place" capability, which removes the
+three manual database edits and the small race we have been running on every single rebuild. It needs
+the next chassis roll and one configuration line, and they have explicitly asked this lane to be the
+one to test it on our next re-fix. After that, each rebuild is one filing and nothing else.
