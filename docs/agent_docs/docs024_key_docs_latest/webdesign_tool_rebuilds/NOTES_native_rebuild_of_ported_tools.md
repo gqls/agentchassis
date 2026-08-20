@@ -2104,3 +2104,57 @@ rows already had live replacements, which `idx_swi_dedup` told me by refusing th
 3. **`grep -aq "<key>" /proc/1/exe` cannot answer "is this key DECLARED?"** — the literal is in the
    binary from the reader and two `zap.String` calls regardless of which spec lists it. It returned
    PRESENT here while the running binary was rejecting the key. The list has to be read at the commit.
+
+## 2026-08-20 08:25Z — #19 `tool-grid-generator` retired and graded (this session); the two-slot window never rendered
+
+The fresh session (this one) is the writer from here; the entries above from 07:2x–08:1x are the prior
+session's (336 diagnosis + service restore) — two sessions worked one lane this morning, coordinated
+through the DB's guards rather than by talking, and nothing was double-written.
+
+**Retire:** `UPDATE 1` this time (the prior session's watcher covered #18 only). Ported slot
+`44428101…` → `removed`, md5 `0a83f2c4c1fc38e34cc6dc733d1c7334` byte-identical before/after, one
+non-removed slot asserted by FUNCTION (`tool-grid-generator`), all inside one committed transaction.
+
+**The attendance rule nearly bit, and was saved by the outage of all things:** build completed
+07:25:34Z, but this session's turn had ended — the retire only ran ~50 min later. In that window the
+page held BOTH tools in the DB. No harm reached the served page for two reasons that were luck, not
+design: the 336 outage froze the queue for 13 of those minutes, and the alphabetical drain had only
+reached `tool-b*` by 08:18. The sweep row for this page (`40619573`, 06:58:24Z) is still `triaged`,
+never claimed; `pages.deployed_at` still 2026-08-19 21:53Z. **The rule stands: do not file a rebuild
+you cannot attend — a wake-up watcher is attendance only if the session is still awake to receive it.**
+
+**RUN grade:** item `4ad57d9f` complete 07:25:34Z; orchestration `complete`, `page_adopted=true`,
+`already_exists` NULL, `__step_error` NULL, `create_result.component_id` = `9fc7acd9-8ea3-41e3-b0c0-e3e2e498047e`
+= the component the page gained, input spec function `tool-grid-generator`.
+
+**COMPONENT grade, by mechanism — all brief requirements met:**
+- per-control value readouts: each `<label>` contains an `<output for=…>` (`colsValue`/`rowsValue`/
+  `gapValue`), updated in `render()` — the ported version's unknowable gap is now a number on screen;
+- the cannot-disagree invariant is STRUCTURAL: preview styles and `buildCss` both read the one `state`
+  object, and `state` is only written after validation passes — there is no second source to drift;
+- validation keeps the last valid state and shows a per-field message (`aria-describedby` wired);
+  bounds as ported (cols/rows 1–6, gap 0–50). `validate` is `parseInt`+`isNaN`+range — on a range
+  input the browser already guarantees a numeric string, so no stronger gate is needed here;
+- copy: promise `.then(ok,fail)` + `execCommand` boolean read, `role="status" aria-live="polite"`,
+  and `copyStatus` is CLEARED on every render — a stale "copied" claim cannot outlive the CSS it
+  described, which is a nice inversion of the ported tool's unconditional `alert("Copied!")`;
+- fr explainer present, correct, and free of the ported guide box's literal markdown backticks;
+- `onclick=` 0 · `oninput=` 0 · `alert(` 0 · `{{\.` 0 · `addEventListener` 4 · visible chars 624
+  (not a shell) · tool-doc header present · controls and copy button at ≥44px.
+
+**Controls pinned for the served grade** (verified old-only/new-only against both artefacts):
+NEGATIVES (must be 0): `id="gridPreview"`, `id="cols"`, `id="rows"`, `id="gap"`, `copyCSS`,
+`Visualizing the Grid`. POSITIVES (must be ≥1): `id="colsRange"`, `id="gapValue"`, `id="copyStatus"`,
+`Why fr units instead of percentages`. ⚠ `id="cssOutput"` exists in BOTH versions — excluded, the
+`id="verdict"` trap again; the check that catches it is grepping the NEW template for each candidate,
+not judging whether an id "looks old".
+
+**[OBSERVED, not attributed]** all three affected agent definitions were re-written in one transaction
+at 08:16:00.775Z with the disarmed state unchanged (`deploy_result_field` absent) — consistent with an
+idempotent re-run of the 494 rollback or a verify pass; the 315/336 lanes own the attribution. What
+matters to this lane is verified directly: key absent on all three, and the rerender queue is draining
+(43 complete by 08:19, drain at `tool-b*`).
+
+**Serve-grades pending for FOUR pages** (shadow-stacker, diff-checker, touch-target, grid-generator) —
+a monitor keyed on `status='complete'` rerender rows is armed; grade each at the served bytes with
+`?cb=`, `http=200` first, negatives + positives per page as pinned above and at 07:15Z.
