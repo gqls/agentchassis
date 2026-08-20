@@ -129,6 +129,15 @@
 
 BEGIN;
 
+-- The shop convention for any migration touching agent_definitions
+-- (scripts/migration/run-migrations.sh header; followed by 484/485/486/502/504).
+-- NOT caught by any council seat, and it is the one thing here with real recovery
+-- value: this file's ROLLBACK refuses unless input_fields is EXACTLY the list 512
+-- wrote, which is correct — it must not delete a wider list another session added
+-- — but it means the rollback is unavailable precisely when someone else has
+-- edited the step since. The snapshot is the escape hatch for that case.
+SELECT snapshot_agent('tool-generator', '512_tool_generator_declares_what_enqueue_rerender_reads: pre-update');
+
 -- GUARD: refuse unless the live row is the one this file was written against.
 DO $$
 DECLARE
