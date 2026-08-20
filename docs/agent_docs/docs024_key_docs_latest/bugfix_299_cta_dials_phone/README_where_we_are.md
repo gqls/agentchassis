@@ -176,3 +176,46 @@ write down what it can do when it starts. That alone ends "I cannot find out wha
 costs little, and changes no behaviour. The part where a configuration change refuses to apply
 itself can wait until something else wants it; building a contract for a single user is how
 mechanisms rot unused.
+
+## 2026-08-20 — your button is fixed and live; and the new machinery caught its own mistake within four hours
+
+**The button.** It now reads "Read the full terms in our FAQ before you pay." and it goes to the
+FAQ page. Words and link finally agree. Confirmed on the live site, checked the way this bug
+taught us to check — by looking at the button itself, not by searching the page for the right
+address (the navigation and footer always had the right links, so a page-wide search would have
+said "fine" every day this was broken).
+
+Your three decisions all landed. The link fix went out fleet-wide and I watched a neighbouring
+site closely: an ordinary rebuild there kept its hand-written "contact us" button untouched,
+which is the proof that the protection, not luck, made it safe. Across every page rebuilt since,
+nothing had a good link taken away. The phone number you confirmed is now correct on the contact
+page — that one the system deliberately refused to guess, because the "(0)" had been swallowed
+into the digits and inventing a phone number is not a machine's job.
+
+**Something worth knowing about the phone button.** It was, as you thought, a leftover — a week
+ago that section genuinely said "Prefer to talk it through first? Call…". The copy was rewritten
+four times and the link never moved. The awkward part is that our fix would have *protected* it
+for ever: the whole point of the change is to teach the system that a phone link is deliberate
+and must be kept, which is what stops your genuine "call us" buttons on the FAQ and how-it-works
+pages being destroyed. The system cannot tell a deliberate phone link from an inherited one. So
+it needed a person to say "that one was a mistake", and you did.
+
+**Getting it onto the live page took three attempts, and all three said they had worked.** That
+is the part worth your attention. The first rebuilt nothing and published the old page. The
+second rebuilt everything correctly and then threw the work away — it reported "success" with
+"sections saved: 0" — and published the old page again. Only the third, with one more field in
+the request, actually saved. Each time the system reported completed, produced a real deployment
+and a real commit. Only the page itself disagreed. I have written that up as a trap so the next
+person loses minutes rather than an afternoon.
+
+**And the new "what is actually running?" machinery you approved found a fault in itself.** It
+went live, and within four hours it had written seventy-five thousand rows and twenty-four
+megabytes. The reason is that our main program does not only run as a handful of long-lived
+services — it also starts as short-lived one-off workers, dozens an hour, each of which recorded
+itself and then vanished. I had checked and found five copies running; the real figure is about
+fifty starts an hour. A reviewer had raised exactly this concern and I was one step from
+dismissing it with my wrong number. The new tool is what caught me — it answered a question I
+had not asked and contradicted me in writing. It now cleans up after itself; I have cleared the
+backlog by hand, and it will tidy itself properly from the next system update onwards.
+
+Nothing here needs a decision from you. The remaining work is small and written down.
