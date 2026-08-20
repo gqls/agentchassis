@@ -430,8 +430,18 @@ func flatten(v interface{}) string {
 
 func itemKey(siteID string) string { return "brief-negation:" + siteID }
 
-// fileFinding writes one row per site. ON CONFLICT DO NOTHING against
-// idx_swi_dedup: a daily re-run of an unfixed brief must not mint a second row.
+// fileFinding writes one row per site.
+//
+// ON CONFLICT DO NOTHING against idx_swi_dedup, and NOT "DO UPDATE the counts",
+// which is the obvious improvement and would be a bug. `trg_site_work_items_updated_at`
+// bumps `updated_at` on every write, and the stale-item reaper keys on that
+// column: a daily UPDATE would make every one of these items immortal — the
+// mechanism of `bugs_closed/213`, whose damage was an ABSENCE and therefore
+// invisible. The cost of DO NOTHING is that an open item's summary and spec
+// describe the FIRST observation: if a brief is partly corrected the counts go
+// stale until the item closes. That is the right trade — the item is a pointer
+// to a site, the report of record is the doc_notes row written on every run, and
+// a stale count on a pointer is cheaper than a queue that cannot be drained.
 func fileFinding(db *sql.DB, a siteAssessment) (bool, error) {
 	spec, _ := json.Marshal(map[string]interface{}{
 		"check":                 "brief_supplies_negation",
