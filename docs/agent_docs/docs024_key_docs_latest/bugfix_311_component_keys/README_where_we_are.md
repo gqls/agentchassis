@@ -216,3 +216,34 @@ and it is real — the builder inserts a stub and carries on, and the only trace
 in a log. Twelve pages across six sites are live in that state today. Detection for it exists and
 even flags the page for rebuild; the flag just has nothing listening to it. That deserves its own
 bug file rather than living on inside this one, and that is what I am writing next.
+
+## 2026-08-20, midday — three of the five pages are fixed, and the two that are not are both something else stopping them
+
+The repairs are done as far as they can go. Every one of the five calculators was created
+correctly — that is the part this bug was about, and it worked five times out of five, first time,
+without touching the other site's originals. Three of the five pages now serve a real, working
+calculator where they served none: loan comparison, overpayment and settlement, with six, five and
+five input controls respectively. Loanzy now has four working calculator pages, against one this
+time yesterday.
+
+The two that did not land are worth understanding, because neither is this fix failing.
+
+The loan repayment page was built perfectly and then refused publication at the last step, because
+the page is **archived**. That is a guard doing exactly its job — it will not publish a page
+somebody retired — but I should have checked that before spending the work, and I did not. It cost
+one generation and one page build. I have written the missing check into the runbook. Un-archiving
+that page is the loanzy lane's decision, not mine.
+
+The interest-rate stress-test page is blocked by a different protection. Re-rendering a page
+rewrites all of its sections, and on this page the writer produces a much plainer version of the
+banner at the top — twelve styled elements down to five. There is a guard that refuses to save when
+a section loses more than half its layout that way, and it refused, twice, with identical numbers.
+Nothing was written either time, so the page is exactly as it was. The identical numbers matter:
+they mean this is not bad luck that a third attempt would clear, so I stopped. The proper fix,
+according to the note left by whoever built that guard, is to tell the writer what the site's
+layout vocabulary is, rather than to lower the bar — but that is a change to how every page on
+loanzy is written, so it is their call and not a repair I should make from here.
+
+One thing I got wrong twice today and want on the record. I predicted that retry would work, and I
+had written the exact diagnostic that would have told me it would not — four hours earlier, in this
+same session, into the debugging guide. Writing a check down is not the same as using it.

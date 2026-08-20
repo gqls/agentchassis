@@ -694,3 +694,42 @@ loanzy lane's call, not a repair to take from here.
 One blocked by archival (owner/lane call). `tool-credit-health-check` blocked by `337`.
 `tool-loan-vs-savings` still needs only a re-render — not filed here, it is outside the owner's
 chosen five and costs nothing whenever that lane wants it.
+
+## 2026-08-20 14:05Z — the stress-test retry FAILED IDENTICALLY, which refutes my own prediction and settles the page as blocked
+
+Retry `84e586b9` refused at the same step with **the same figures as the first run**:
+`hero-tool 12→5 class attributes (42% kept, floor 50%)`, twice. I had written in the RUNBOOK that
+"a floor refusal is content-writer variance and may well pass on a second run" — **wrong, and
+wrong against a diagnostic I had added to `016b` §9 four hours earlier in this same session**
+("N identical failures with IDENTICAL numbers is a deterministic refusal, not a flaky one"). I
+wrote the check and then reasoned straight past it on the first case it applied to. Corrected in
+the RUNBOOK; the cheap check is literally the one in my own entry — extract the numbers from both
+errors and compare them before spending the second build.
+
+**No damage from either attempt, confirmed at the artefact:** the page still serves 200 /
+**18,312 bytes / 0 `<input>` / md5 `4374adb383d3270bdcfd184e42c361ef`** — byte-identical to the
+08:17Z baseline. The guard writes nothing when it refuses, and that held twice.
+
+**Why it is deterministic and what the remedy is.** The page's stored `hero-tool` carries 12
+class-carrying elements; the content writer regenerates it with 5, every time, from the same
+inputs. The guard's own guidance (`save_sections_component_floor.go:225-231`) names the fix and it
+is not a knob: *"give it the component vocabulary in `content_direction` rather than lowering the
+floor, which is what fixed the motivating page"*, with `section_component_floor=0` marked "the
+deliberate escape hatch, not a fix". The floor is **step config** (default 0.5, slots under 10
+class attributes out of scope), so there is no per-item override. **Not taken here:** editing
+loanzy's `content_direction` changes how every page on that site is written, and that is the
+loanzy lane's decision, not this lane's repair. **Stopped at two attempts — no third.**
+
+### Final state of the owner's five
+
+| page | outcome |
+|---|---|
+| `tool-loan-comparison-calculator` | ✅ serves 6 `<input>` (was 0) |
+| `tool-overpayment-calculator` | ✅ serves 5 (was 0) |
+| `tool-settlement-calculator` | ✅ serves 5 (was 0) |
+| `tool-interest-rate-stress-test` | ⛔ blocked by the `253` floor guard on an unrelated slot — deterministic, page undamaged, remedy is a content-direction change on that site |
+| `tool-loan-repayment-calculator` | ⛔ `pages.status='archived'` — component and page built fine, deploy stamp correctly refused; unarchiving is the loanzy lane's call |
+
+**Component leg: 5 of 5.** **Page leg: 3 of 5, both misses attributable to other mechanisms working
+correctly rather than to 311's fix.** Loanzy now serves four working tool calculators
+(these three plus car-finance from 08-19), against one before this lane started.

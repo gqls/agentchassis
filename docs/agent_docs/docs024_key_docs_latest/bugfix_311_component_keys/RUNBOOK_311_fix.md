@@ -253,8 +253,23 @@ Read, not assumed: `page-build-handler`'s `mark_item_failed` step is
 "attempt counted", which reads as though a retry follows. It does not.
 **So: to try again you file a FRESH `needs_page` item** — the `failed` status is excluded from
 `idx_swi_dedup`, so the same `page_rerender:<page>` key is available immediately. Whether a retry
-is worth it depends on why it failed: a floor refusal is content-writer variance and may well pass
-on a second run, while a deterministic refusal will not.
+is worth it depends on why it failed. ~~a floor refusal is content-writer variance and may well
+pass on a second run, while a deterministic refusal will not.~~
+> **CORRECTED 2026-08-20 14:05Z — I retried it and that guess was wrong, in a way my own §9 entry
+> written hours earlier would have caught.** The fresh item (`84e586b9`) failed at the same step
+> with figures identical to the first: **`hero-tool 12→5 class attributes (42% kept, floor 50%)`**,
+> both runs. Identical numbers across independent runs is the deterministic-refusal tell
+> (`016b` §9, added this same session from `bugs_open/337`) — so a floor refusal is NOT
+> content-writer variance to be retried; it is a stable property of what the writer produces for
+> that page from those inputs. **Stop after the first one and read the guard's own remedy** instead
+> of spending a second build:
+>
+> `save_sections_component_floor.go:225-231` states it — *"give it the component vocabulary in
+> `content_direction` rather than lowering the floor, which is what fixed the motivating page"* —
+> and marks `section_component_floor=0` as "the deliberate escape hatch, not a fix". The floor is a
+> **step-config** key (`sectionComponentFloorKey`, default 0.5, slots under 10 class attributes out
+> of scope), so there is no per-item override to reach for: the choice is a content-direction fix on
+> the site, or leaving the page alone. On another lane's site, that is their call.
 
 ## ⚠ PRE-FLIGHT CHECK THE RECIPE ABOVE WAS MISSING: `pages.status`, not just `build_status` (2026-08-20, cost one generation + one page build)
 
