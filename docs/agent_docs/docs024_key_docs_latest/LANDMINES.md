@@ -13431,3 +13431,42 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register **WII-024** (the failure-write contract) · **SCH-024 / RFC_018** (`reaper_policies`, whose numbers this reads — the second consumer that RFC was waiting for) · this file's *"a periodic write to an open work item makes it UNREAPABLE for ever"* (WII-018 — the ladder writes ONCE per failure event for exactly that reason, and now also clears `claimed_at`, which makes a re-triaged row reapable at 48h where it was previously immortal) · this file's *"`deferred` is the ONLY parking state — a `blocked` one un-parks itself within 600s"* (the entry that made the column the right answer) · `bugs_open/307`
 - **source:** 2026-08-20, `bugfix_307_terminal_write_contract` lane — written when the mechanism shipped, before anyone has had the symptom
 - **added:** 2026-08-20, `bugfix_307_terminal_write_contract` lane
+
+## A "supplied phrase" passes the define-by-negation gate BY DESIGN — so the gate cannot fix the page that made you look
+
+- **footprint:** `platform/orchestration/datahelpers/negationtells.go` (`ScanDefineByNegation`, `NegationExempt`, `AcceptNegationRewrite`), `negation_content.go`, `platform/orchestration/actions/rewrite_negations_action.go`, `copy_gate_annotation.go`, `cmd/brief-negation-check/`, `site_specs` aspect `content_direction` (key `formatted`), `bugs_open/305`, register **CQ-026** / **CQ-027**
+- **fires when:** the copy gate is live, a page still reads "X, not Y", and you conclude the gate is broken or was never wired. It is very likely doing exactly what it says. **A sentence the site's own brief supplied is EXEMPT** — counted, reported, and deliberately not rewritten, because the house voice's first line is *"A site's own voice specification outranks these rules"* and rewriting a brief's own words would put the platform in the position of overruling a site owner. The measured case is the one that started the bug: `ai-agent-orchestration.com`'s `content_direction` supplies *"…in days, not months"*, it reaches the writer in ~1,350 rendered prompts and comes back in ~410 responses, and **the gate will never remove it.**
+- **the check — ask WHICH class the sentence is in before you debug anything:**
+  ```sql
+  -- 1. did the gate see it at all, and what did it decide?
+  SELECT collected_data->'__copy_gate'
+    FROM orchestration_states
+   WHERE collected_data ? '__copy_gate' ORDER BY updated_at DESC LIMIT 5;
+  --    exempt>0 with rewritten=0 means "the brief supplied it", NOT "the gate failed"
+  -- 2. is it in the brief? (\y, never \b — Postgres has no \b)
+  SELECT s.domain, sp.data->>'formatted' ~ '\yin days, not months\y'
+    FROM site_specs sp JOIN sites s ON s.id = sp.site_id
+   WHERE sp.aspect = 'content_direction' AND sp.is_current AND s.domain = '<domain>';
+  ```
+  Fixing a supplied phrase means **editing the brief**, which belongs to the site's owning lane, and then re-rendering. `brief-negation-check` (daily, 07:40 UTC) files exactly these as `brief_supplies_negation` work items so they are visible rather than inferred.
+- **the second face — the counting half is ALWAYS on, the repair half is NOT.** `copy_gate_findings` (per section) and `copy_gate_page_hits` (per page) are attached by wrappers at the `render_component` and `compile_page_sections` registry entries, for every writer and every site, with no config. The REPAIR is one step in `page-content-writer` only, added by migration `509`. So **finding the construction counted but not repaired is the normal state everywhere except that one agent** — and an ABSENT `copy_gate_findings` key means "clean **or** this binary predates the check", never "clean" on its own.
+- **the third face — the budget is per PAGE and rides in `CollectedData`.** Read one section in isolation and the gate looks unbudgeted: the first two non-exempt hits ON THE PAGE are allowed (the house voice's "earned once or twice per page at most"), and only a hit in a headline-class field is repaired regardless. ⚠ The cross-iteration persistence of that counter was read from the loop design and is **not yet observed in production** — the canary is a stated precondition in `509`'s header. If it turns out false the gate budgets per section, which is weaker, not wrong.
+- **relations:** CQ-026 (the gate), CQ-027 (the brief-side check), CQ-022 (the house voice whose rule this makes mechanical), CQ-024 (`copy-editor` — the page-scoped editor this does NOT replace), `bugs_open/327` (a partial `content_direction` write shrinks the brief the writer reads: correct the WHOLE object, never a patch), `bugs_open/305`
+- **source:** 2026-08-20, `bugfix_305_negation_gate` lane — written when the mechanism shipped, before anyone has had the symptom
+- **added:** 2026-08-20, `bugfix_305_negation_gate` lane
+
+## `\pLu` is not `\p{Lu}` — Go's one-letter Unicode class form takes exactly ONE letter, and the rest is a literal
+
+- **footprint:** any Go `regexp.MustCompile` containing `\pL`, `\pN`, `\pZ`, `\pS` followed by another letter — grep `\\p[A-Za-z][A-Za-z]` across `platform/`, `internal/`, `pkg/`, `cmd/`
+- **fires when:** you write `\pLu` meaning "an uppercase letter". Go parses it as `\pL` (any letter) followed by a **literal `u`**, so `\b\pLu[\pL]*\b` matches `running` and `our` and misses `Kubernetes`. It compiles, it reads correctly at a glance, and `regexp.MustCompile` never complains — the class is valid, just not the one you meant. The two-letter class needs braces: `\p{Lu}`.
+- **why it is worse than an ordinary typo:** the failure is usually silent and often fails CLOSED. In `bugs_open/305` this sat inside an "did the rewrite invent a proper noun?" guard, so **every** proposed rewrite was rejected as `invented_name` — which reads exactly like a strict guard doing its job, not like a broken regex. A pattern that over-matches shows up as noise; one that fails closed shows up as *nothing happening*, and nothing happening is what a cautious gate is supposed to look like.
+- **the check — assert what it MATCHES, not what the function using it returns:**
+  ```go
+  // in a test, print or assert the matched text on a two-arm fixture
+  got := capTokenRe.FindAllString("The registry lists the agent definitions running in our fleet", -1)
+  // want ["The"] — if you get ["running" "our"] the class name is being truncated
+  ```
+  A test asserting the enclosing function's verdict passes for the wrong reason (the verdict was "reject", which was expected on the failing case). Assert the tokens.
+- **sibling, and worth reading in the same breath:** the Postgres half of the same family — `\b` there is a **backspace character**, `\y` is the word boundary — so a Go pattern pasted into `psql` matches nothing and returns a confident zero (this file, *"the discovery checks are Go, and Go's RE2 spells word-boundary `\b`"*, and two entries in `WRONG_CALLS.md` from two different sessions).
+- **source:** 2026-08-20, `bugfix_305_negation_gate` lane
+- **added:** 2026-08-20, `bugfix_305_negation_gate` lane

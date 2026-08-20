@@ -39597,3 +39597,72 @@ regardless. What was wrong was the **urgency**, and urgency is what a reader act
 reading "160 MB/day" might reasonably have interrupted a release for it. Corrected in place in
 all three documents, with the honest range (3–52 pod starts/hour, depending on rerender
 activity) rather than a single figure that will be wrong again next week.
+
+## 2026-08-20 — three regexes that were confidently wrong, in three different engines, in one session (bugs_open/305 lane)
+
+All three came from the same habit — **trusting a pattern because it reads correctly** — and all three
+produced a plausible number or a plausible verdict rather than an error. They are logged together
+because the cheap check is the same one for all of them.
+
+**(a) `\b` in a Postgres census, where `\b` is BACKSPACE.** My first distribution census over 1,503
+`page-content-writer` calls reported `not X, but Y` = **0** and `rather than` = **0**. Both are false;
+the real figures are 23 (1.5%) and 646 (43%). I had pasted Go-shaped patterns into `psql`, and Postgres
+ARE has no `\b` word boundary — there it is a literal backspace character, and `\y` is the boundary.
+Already a LANDMINE (`:4219`) and already in this file (`:17787`) from another session making the
+identical mistake, which is the part worth sitting with: **it is written down twice and I still did it.**
+Caught by running the pattern against a sentence I knew matched and getting 0.
+
+**(b) `\pLu` in Go, which is `\pL` followed by a literal `u`.** The one-letter Unicode class form takes
+exactly one letter of class name, so `\b\pLu[...]*\b` means "a letter, then a u" — it matched `running`
+and `our`. That regex was the "did the rewrite invent a proper noun?" check, so **every proposed rewrite
+was rejected as `invented_name`**. It compiles, it looks right, and it fails CLOSED — which reads as a
+strict guard rather than a broken one. The two-letter class needs braces: `\p{Lu}`.
+
+**(c) A shape that was right about grammar and wrong about meaning.** My `negative_reveal` pattern
+included first-person subjects, so it flagged *"we do not offer refunds"*, *"we do not invent figures"*
+and *"we do not charge for the first call"* as define-by-negation. Those are statements of policy or
+limit — which the writer's own STRICT RULE 19 explicitly **asks** for ("name the limit, the failure
+mode, or what the thing cannot do"). A check built on it would have sent a human to edit a company's
+stated policy, and the repair step would have been asked to delete a commitment. Caught only by running
+the finished check against 25 live briefs and reading what it flagged.
+
+**The cheap check, one line, and it covers all three: assert what the regex MATCHES on a two-arm
+fixture — one string that must match and one that must not — before you quote a count or trust a
+verdict from it.** Not "does the function return what I expected" (that passes for the wrong reason);
+the matched text itself. For (a) that is one `SELECT regexp_matches(<known-positive>, <pattern>)` before
+the census. For (b) a test that printed `capTokenRe.FindAllString(...)` found it in seconds after
+reading the code had not. For (c) the two arms have to be drawn from **live data**, because the
+distinction "policy statement vs rhetorical mannerism" does not exist in the pattern at all — it only
+exists in the corpus.
+
+**Cost:** (a) two wrong figures in my own working notes, caught before they reached a document anyone
+else reads. (b) about twenty minutes, and it would have made the whole repair path inert in a way that
+looked deliberate. (c) nothing shipped — but the check had already FILED 12 findings against live sites
+by the time I fixed it, two of which were wrong and were closed by the check's own close-out arm on the
+next run. That close-out existing is the only reason (c) cost nothing.
+
+## 2026-08-20 — my two-line edit to a shared file would have broken the compile at HEAD for every session (bugs_open/305 lane)
+
+**The wrong call, nearly:** I put the copy-gate annotation inline in `RenderComponentAction` and
+`CompilePageSectionsAction` (`platform/orchestration/actions/v3_site_actions.go`). It built clean and
+every test passed. What I had missed is that the file already carried **another session's uncommitted
+work** — two hunks in `UpdateWorkItemStatusAction` calling `applyWorkItemFailureLadder`, which lives in
+`work_item_failure_ladder.go`, which is **untracked**. A pathspec commit of that file takes same-file
+passengers (documented, unpreventable), so my commit would have shipped their half-finished change and
+`make build-*` — which builds from **committed HEAD** — would have failed for every session on the tree.
+**My local build was green precisely BECAUSE their untracked file was sitting in my working tree.**
+
+**What caught it:** building `git archive HEAD` into a scratch directory, copying only MY files over it,
+and running `go build ./...` there. Two undefined symbols, immediately.
+
+**The cheap check, and it is now this lane's rule before any platform commit:**
+```bash
+rm -rf $SCRATCH/head && git archive HEAD | tar -x -C $SCRATCH/head
+cp <only your own files> $SCRATCH/head/…   &&   cd $SCRATCH/head && go build ./... && go test ./<your pkgs>/
+```
+**A green build in your working tree says nothing about HEAD on a tree this many sessions share** — it
+is the one place where "it compiles" is measuring somebody else's work as well as your own.
+
+**What I did instead:** reverted **only my hunks** (`git diff` → keep my two hunk headers → `git apply -R`),
+leaving their work untouched, and moved my change into a new file of my own, wrapping the two handlers at
+their `registry.go` entries. It is the better structure anyway, which is the honest reason it stays.
