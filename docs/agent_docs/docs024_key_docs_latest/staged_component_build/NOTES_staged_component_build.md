@@ -5576,3 +5576,46 @@ first iteration, and it read the link I had inferred rather than opened — `str
 identically one layer above the cascade. It explicitly declined the scope-widening half rather
 than guessing it; that audit is still owed and is what sizes fix candidate 2. The landmine
 appended last night verified **STILL_VALID**.
+
+## 2026-08-20 (morning) — step 4's done-condition MET on v1.0.1317; and the window's zero exposed the historian's predicted "next pair" — TWO new surviving populations, neither ours by mechanism, both step-4 work by ruling
+
+**The roll:** `v1.0.1317`, pods up 22:26Z 08-19, binary stamp `2d13d530d` on `/proc/1/exe`
+(both replicas; known-absent control = post-stamp HEAD `f15d7c952`, ABSENT). Ancestry:
+`1a82225ec` ✓ `916c8b22b` ✓ `c16836d86` ✓ — **step 4 is LIVE.**
+
+**Done-condition (window 22:26Z → 06:55Z, the RUNBOOK candidate-set query):**
+- **pcw / `current_page`: ZERO rows** (was 23/4 h). Demand: 3 pcw runs post-roll — thin, so the
+  count alone would be weak; the MECHANISM read settles it: **3/3 post-roll pcw trees carry
+  `render_context.current_page_name` and 0/3 carry the old string key** — the colliding key no
+  longer exists in the trees, so the conflict is unrepresentable, not merely unobserved.
+  Instrument alive (82 RESOLVER_CONFLICTING_CANDIDATES rows post-roll, other classes).
+- **NEW population 1 — `build-dispatch-loop` / `commit_sha`, ~78 rows post-roll** (and 101
+  pre-roll back to **2026-08-19 20:40Z — NOT this chassis roll's doing**; the class begins when
+  git_commit replies started carrying `commit_sha`, i.e. DGH-013's git-adapter half went live
+  ~20:40Z `[UNVERIFIED which adapter tag — current pods are 22:26Z, same fleet roll]`).
+  Mechanism, read at code: `CompleteWorkItemInputSpec` declares `commit_sha` **Optional**
+  (`load_work_item_actions.go:52–62`; note the DEPRECATED `commit_sha_field` — an explicit
+  mapping existed and was retired), so `complete_work_item` recovers it via the whole-tree
+  search; bdl calls it once per loop iteration and the loop accumulates every prior handler
+  result (`handler_result`, `handler_result_N`, `process_item_iter_N_call_handler`), each with a
+  DIFFERENT sha → genuine conflict every completion. Winner is `handler_result.…` (sorted-key
+  DFS puts the unsuffixed key first) = the CURRENT iteration = the right value `[INFERRED from
+  the sort; not yet proven against a specific item's own handler run]`. The values ARE landing:
+  250/323 items completed since 20:40Z carry `result.commit_sha`. **This is NOT
+  resolveDeployEvidence** — the RFC_038 reader has its own refuse-on-conflict collector
+  (`deploy_evidence.go`) and never uses the shared search; the colliding requester is the
+  work-item bookkeeping, a third mechanism.
+- **NEW-to-the-read population 2 — `tool-generator` / `reason` + `related_pages`** (2 rows this
+  window; 23+19 rows back to **08-16** — pre-existing low-rate tail, invisible in the 08-19
+  afternoon read only because tool-generator did not run then). Generic field names matching
+  dozens of spec-array keys (`rejected_tools[N].reason`…). Not traced further this session.
+
+**What this means for the ruled path:** §10.13 step 4's gate to step 5 is "the window reads
+zero, or every surviving pair carries a written safe-by-inspection note". The pcw pair — the one
+this lane built for — is CLOSED. The gate is NOT yet met: two surviving populations need either
+a source fix or a safe-by-inspection note each. Filed the bdl/commit_sha one properly (below);
+the tool-generator tail is the next session's trace.
+
+**Filed:** `bugs_open/334` + 090 run (corr in the bug file) — cross-cutting by the 07-31 ruling
+(spans the git-adapter reply change, complete_work_item's registered spec, and RFC_029's
+resolver), so it goes through the loop before the root cause is asserted as settled.

@@ -2132,3 +2132,27 @@ night, when it was fourteen unknowns.
 > handoff, which is the only reason the two documents don't now disagree. The precise list, with
 > the evidence beside each row, is in
 > `docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md` §3.
+
+**2026-08-20, morning — the repair is live and proven, and the silence it created let us hear
+two quieter problems.**
+
+Your overnight build carries the rename. I verified it the strict way — asked the running
+binary what it was built from, with a control that must be absent — and then read the recorder:
+the collision that fired twenty-three times in four hours yesterday has fired **zero** times
+since the roll. Better than the zero: the three page-writer runs since the roll all file the
+label under its new name and none file the old one, so the clash isn't just quiet, it's
+impossible.
+
+But the plan's last step — flipping the recorder from "log it" to "refuse to guess" — needs the
+recorder to be quiet across the board, and with the loudest class gone two smaller ones are now
+audible. One is brand new as of last night and fires on every build the dispatcher completes:
+a bookkeeping step wants to note "which commit shipped this work", the reply from the git
+service only started carrying that information yesterday (a different team's improvement), and
+the dispatcher's loop keeps every previous item's reply lying around — so the search finds five
+copies with five different answers. It picks the right one, deterministically, thanks to the
+tie-break we shipped last week — but "right by sort order" is exactly the situation we've been
+draining. I filed it properly (bug 334, with the diagnosis loop dispatched) with three ranked
+fixes; the cheapest is a one-line config change. The other is an older, slower drip from the
+tool generator asking for very generic names like "reason" — untraced yet, next session's job.
+
+So: step four done and proven; step five waits on those two; nothing waits on you.
