@@ -88,7 +88,7 @@ and the row-per-completion population blocks §10.13 step 5 for ever if left sta
 
 ## 4. Fix candidates, ordered by what closes the door
 
-> **CORRECTED 2026-08-20 ~18:0xZ by the staged_component_build lane — THE `?` SPELLING BELOW IS
+> **CORRECTED 2026-08-20 ~17:3xZ by the staged_component_build lane — THE `?` SPELLING BELOW IS
 > NOT A MARKER ON THIS SURFACE, AND CANDIDATE 1 AS WRITTEN WOULD SHIP A DEAD KEY.** `?` and `!`
 > are both real on **`input_mapping`** (`platform/orchestration/input_contracts/input_mapping.go:110-139`
 > — unmarked hard-fails, `?` skips, `!` hard-fails naming the marker). A step's action **`config`**
@@ -106,6 +106,29 @@ and the row-per-completion population blocks §10.13 step 5 for ever if left sta
 > step config, so this file would have been the first to break the convention. Caught while
 > dispositioning step 5's census — the check that would have caught it sooner is grepping for the
 > marker's own `TrimSuffix` in the code that reads the surface you are writing to.
+>
+> > **SUPERSEDED IN PART, 2026-08-20 ~17:4xZ, same day, same lane — `?` NOW PARSES ON THIS SURFACE
+> > AT HEAD, AND IS THE BETTER SPELLING ONCE IT ROLLS.** A parallel `staged_component_build`
+> > session BUILT the missing half at `ecc419bd1` (17:20Z, minutes before the correction above was
+> > committed): a `?` step-config key means OPTIONAL-EXPLICIT — resolve by the named reference or be
+> > **ABSENT**, never the whole-tree search, the nested-object fallback or the deprecated bridge,
+> > and unlike `!` a miss is not an error. So what looked like a typo was a **missing feature**, and
+> > the same "zero live keys on this surface" census is what let them ship it RFC_022-exempt.
+> > **Which spelling candidate 1 should use now depends on the reading binary, and the difference is
+> > load-bearing for THIS bug:**
+> > - **`?` (post-roll) is strictly better than unmarked.** The unmarked key resolves the path and
+> > then, *on a miss*, **falls back to the whole-tree search** — which is precisely the 7.7% deeper
+> > `…deploy_result.response.deploy_result…` shape, i.e. the conflict row would return for exactly
+> > the population §4.1 was worried about. `?` makes that population resolve to nothing instead.
+> > - **`?` is INERT until a chassis carrying `ecc419bd1` rolls.** Both pods started 2026-08-20
+> > 16:09Z on `v1.0.1320`; the marker commit is 17:20Z, so no live binary has it. Their commit says
+> > adopter migrations are `_HOLD` until the parsing binary rolls — so **an adopter migration for
+> > this bug must be named `_HOLD.sql`**, and the liveness check before applying it is
+> > `git merge-base --is-ancestor ecc419bd1 <the chassis stamp>`.
+> >
+> > Net for a fixing session: candidate 1 is now `"commit_sha?": "<path>"` in a `_HOLD` migration
+> > applied after the roll, and the unmarked key only if you need it live before then, accepting
+> > that the deeper shape keeps conflicting. The 315 lane still owns which path is correct.
 
 1. **Explicit mapping in bdl's `complete_work_item` step config** (config-only, live
    immediately): `"commit_sha": "handler_result.response.deploy_result.response.data.commit_sha"`
