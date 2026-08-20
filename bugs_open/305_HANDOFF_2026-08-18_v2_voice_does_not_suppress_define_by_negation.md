@@ -474,3 +474,37 @@ reveal stayed exactly where it was, and the gate would have reported a repair th
 mattered. Fixed (the anchor now skips the terminator onto the construction itself) and pinned by a test
 that also re-asserts both splice invariants. **Run this canary after any change to the shapes** — the
 fixture a unit test would use is the one I wrote, and it passed.
+
+## §16. Council round 3: REJECTED — a guardian veto, upheld, and what it changed
+
+**The veto, verbatim, because it is a better statement of the principle than anything I would write:**
+
+> *"This is round 3 and the code under review for edit 4 has not changed since round 2's HIGH
+> objection — only the paperwork around it has (an architecture_review doc was filed) … Routing a
+> scope objection to architecture review does not license deploying the disputed change … 'we wrote it
+> down and routed it' is not the same as 'it was contained.'"*
+
+I had read the owner ruling of 2026-07-28 as licensing *"the code stays, file an RFC"*. That ruling was
+an owner's decision about one case, not standing permission for a session to ship a disputed shared
+seam and write a note about it. **Two of the fourteen seats had flagged the same thing at HIGH for two
+consecutive rounds and I had answered with a document.**
+
+**What changed in response, in code:** the fleet-wide counting is now **opt-in per step
+(`copy_gate_annotate`), default OFF**, enabled only on `page-content-writer`'s own render and compile
+steps by migration `509` — the same shape as migration `474`. Containment is the strong form and is
+pinned by a test: *a step that did not opt in cannot tell the wrapper exists.*
+
+**What it costs, stated plainly:** outside that one agent, *"the copy improved"* and *"the check was
+not wired here"* are once again the same number. `RFC_044`'s question flips from *"may this stay
+default-ON?"* to *"should it BECOME default-ON?"*, and nobody is now under time pressure to answer it.
+
+**The same round also corrected `509`'s un-hold check** (`debug_historian`, HIGH): it was build
+provenance + `git merge-base`, which is the documented anti-pattern for a fix that ships in two halves
+— the stamp proves the BINARY and says nothing about the migration, and one `make release` resolves
+HEAD separately per service. It now probes the **capability** in the running pod (`grep -ac
+'rewrite_negations' /proc/1/exe`) with a mandatory absent-control, on every replica.
+
+**Seats that approved:** editquality, bug_historian, reuse_agent, improvement_guardian,
+tooling_provenance, adoption_guardian, compliance, render_guardian, constitution, mission,
+prior_art_librarian. The two round-1 objections that had most force — no claim scan on rewrites, and
+the truncation arm — are approved as fixed.
