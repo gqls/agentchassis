@@ -13510,3 +13510,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the fix:** double every literal `$` to `$$` in the `.env`. Single quotes work too; **double quotes do NOT** (measured: `PASS="$AbCd…"` still truncates). Escape on write, not by hand later: `sed 's/\$/$$/g'` over the block being appended. To verify without printing the secret, hash both sides and compare — un-escape the island copy first: `grep '^KEY=' .env | cut -d= -f2- | sed 's/\$\$/$/g' | md5sum`.
 - **source:** 2026-08-16/20, gripper dossier lane — found while walking the owner through writing the gripper SMTP credential onto the island; the password the hosting panel issued began with `$`. Caught before the write, so it never reached production. `RUNBOOK_island` "Tenant 2" step 2 now carries the escaping requirement; `~/.config/gripper-dossier/append-env.sh` does it automatically.
 - **added:** 2026-08-20, gripper dossier lane
+
+### `kubectl exec … psql > file` TRUNCATES INTERMITTENTLY on a large result — no error in the file, a well-formed final line, and a DIFFERENT shortfall every run
+
+- **footprint:** any `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql … > file` or `| tee`, any evidence export / census / backup taken through `kubectl exec`, `EVIDENCE_*.tsv` and similar preserved-row files, and any claim of the form "exported N rows" that was not asserted against the source
+- **fires when:** you export more than a few thousand rows through `kubectl exec` and then use the file — as evidence, as a backup before a delete, or as the input to a count. No symptom: the file ends on a complete, well-formed row.
+- **the mechanism:** the stream can die mid-copy (`"Copying stdout failed" err="next reader: unexpected EOF"` on stderr, which a `2>/dev/null` or a redirect of stdout alone will hide). psql has already emitted whole rows, so the truncation lands on a row boundary. **The file is syntactically perfect and silently short.**
+- **the measurement, because "intermittent" understates it** `[MEASURED 2026-08-20]`: the **same command**, run three times against the same unchanged table, returned **4,243**, then **5,186**, then **6,484** rows. So a retry does not reliably fix it, two runs can disagree with each other, and neither the shortfall nor its direction is stable. A single export you did not count is a random prefix of the truth.
+- **why it is worse than an ordinary flake:** exports of this kind are usually taken *because the source is about to disappear* (a retention delete, a purge, a migration). The check that would catch it — comparing against the source — is exactly the thing that stops being possible later. A short backup of a deleted table is undetectable and permanent.
+- **the check:** get the expected count from the DB first, then **assert it**, and loop:
+  ```bash
+  n_expected=$(kubectl … psql -tA -c "SELECT count(*) FROM … WHERE …;")
+  for i in 1 2 3; do kubectl … psql -t -A -F$'\t' -c "SELECT …;" > "$OUT"; \
+    n=$(grep -vc '^$' "$OUT"); [ "$n" -eq "$n_expected" ] && break; done
+  [ "$n" -eq "$n_expected" ] || { echo "SHORT EXPORT: $n/$n_expected"; exit 1; }
+  ```
+  Then **round-trip it**: re-derive a known figure from the FILE and check it matches what the DB gave. An export that has not reconstructed something is not preserved evidence. And record the expected count *inside* the file, so a later reader can re-check without the source.
+- **do NOT judge it by the tail:** `-t` suppresses psql's `(N rows)` footer, so its absence proves nothing, and with the footer present a truncated file simply lacks it — which looks like the `-t` you asked for.
+- **relations:** `bugs_open/029` `EVIDENCE_2026-08-15_to_17_awaited_requests.tsv` (the worked case — a 6,484-row export accepted only on assertion, after two silent short runs) · the `WRONG_CALLS.md` family on filters that remove the population under test — this is the same failure with no filter at all · MEMORY [[measurement-discipline-index]]
+- **source:** 2026-08-20, `bugfix_029_retry_kills_live_child` lane, preserving evidence ahead of a 7-day retention delete
+- **added:** 2026-08-20, 029 lane
