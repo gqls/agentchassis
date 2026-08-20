@@ -68,7 +68,12 @@ Supporting magnitude facts for a second chart and the prose (same verification):
 2024 operational stock 4,664,000 (+9%); 2025 forecast 575,000 (+6%); regional
 split Asia 74% / Europe 16% / Americas 9%; China 295,000, Japan 44,500.
 
-**Page composition** (all existing components, nothing new built):
+**Page composition** (all existing components, nothing new built). **Hero
+ruling, owner 2026-08-20: an image hero with a semi-transparent overlay is the
+DEFAULT for editorial features, ahead of a gradient-only hero.** The live `hero`
+template already implements exactly that when given an image — its image branch
+emits `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(<hero_url>)` — so
+this is a content/data default and a generation step, **not a new component**:
 
 | slot | component | carries |
 |---|---|---|
@@ -88,7 +93,14 @@ pattern (`sql_for_agents/252`, `266`) verbatim. Claimscan runs before deploy.
 stated up front so it can be falsified: the expensive step is **choosing the
 story and its premises**, not generating the page.
 
-## 3. Lifecycle policy — proposed for the owner's ratification
+## 3. Lifecycle policy — **RATIFIED by the owner 2026-08-20**
+
+> **RATIFIED 2026-08-20.** The owner accepted all three parts as proposed:
+> *"I'm ok with the retention decision, pages can stay up indefinitely and be
+> deliberately de-listed when we want to. Cadence per fact is a great idea too,
+> let's do that. The tiers are good too."* This section is therefore the RULE for
+> every page this workstream ships, not a proposal. The heading below is left in
+> its original wording so the change is visible rather than silently edited away.
 
 The owner's framing: *"possibly a long time, and for some pages every day or even
 more often, for others weekly or monthly."* Proposal:

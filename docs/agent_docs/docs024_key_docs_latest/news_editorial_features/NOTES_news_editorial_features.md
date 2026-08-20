@@ -463,3 +463,82 @@ not after a suspicious clean pass — worth recording because a malformed TSV
 produces **"0 findings"** with only a stderr warning per line, which reads
 exactly like a clean scan if you don't check the component count in the
 summary line ("across 6 component(s)" is the tell).
+
+---
+
+## 2026-08-20 — owner rulings, and the start of rollout + design uplift
+
+### Rulings recorded (owner, 2026-08-20)
+
+1. **Lifecycle policy RATIFIED in full** — indefinite retention at one stable URL,
+   deliberate de-listing rather than deletion, **cadence per fact**, and the
+   tracker/feature/explainer tiers. `DESIGN_2026-08-19_starting_point.md` §3 is
+   now the RULE, marked as ratified in place.
+2. **Hero default = image + semi-transparent overlay**, ahead of gradient-only.
+   Verified before acting: the live `hero` template **already** emits exactly
+   that when given an image —
+   `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url('<hero_url>')`
+   — and falls back to the `--color-primary` gradient only when `hero_url` and
+   `background_image` are both absent. So this is a **content/data default plus a
+   generation step, not a new component**. The live editorial page was rendering
+   the fallback branch, confirmed by curl:
+   `class="hero" ... style="--hero-ink: var(--color-primary-text); background: linear-gradient(135deg, var(--color-primary) ...)"`
+   — no `background-image`, which is the gap.
+3. **Rollout** across other sites, **top nav** under Insights/Blog, and
+   **news → editorial "further analysis" links**.
+4. **Design uplift is its own workstream**, and the composition plan is to be
+   written by **Fable** specifically.
+
+### The two discussions the owner remembered — found, and they are ONE document
+
+`docs024_key_docs_latest/inline_guide_imagery/PLAN_2026-08-14_durable_inline_guide_imagery.md`
+(design-only, **nothing built**):
+
+- **§1–8 = interleaving copy with images/graphs.** Owner ask 2026-08-13. The
+  problem it exists to solve: `article-body` holds the whole article in ONE
+  llm-owned `content` field, so an in-body `<figure>` **works today and is
+  destroyed by the next prose rewrite** — there is a LANDMINE for it, with a
+  measured ~90ms loss window on `dartsonline.com/blog/flight-shapes.html`.
+  Recommended remedy is **plan-as-truth**: one locked `site_plan_imagery` row per
+  figure (`scope='section'`, `scope_ref='<page>:<ordinal>'`), consumed by the
+  **already-live IMG-056 kind-alias resolver** (`ensureAssets`,
+  `plan_sections_action.go:475-518`), plus a Phase-3 `style_hints.placement`
+  splice injecting the figure into `rendered_html` only — writer marker optional
+  and never load-bearing. Blast radius named: `article-body` = 93 instances /
+  18 sites. `style_hints.placement` rows fleet-wide: **0** [MEASURED 2026-08-14].
+- **§9 = components comprising other components** — the owner's steer of
+  2026-08-15, quoted in full there.
+
+### Composition: designed three times, exercised zero times [MEASURED 2026-08-20]
+
+| mechanism | state |
+|---|---|
+| `page_components.parent_instance_id` | column + FK + index exist; **0 of 1580 rows**; **zero Go references** |
+| `content_components.render_mode='composite'` + `child_components` | columns exist; `deriveRenderMode` (`store_generated_component_action.go:1481-1506`) can only emit `agent` or `template`, so `composite` is **unreachable by construction** (CTS-039, status partial) |
+| `component_level` (site/page/section/element/…) | used as a flat classification filter only, never as a containment tree |
+
+Assembly today is flat concatenation (`assemble_from_library.go:256-296`); the
+single template executor (`executeGoTemplate`, `call_agent.go:1170-1220`) has no
+`{{template}}`/partial support and a six-function funcmap. The deepest hierarchy
+in the estate is `{{range}}` over nested JSON — `evidence-chart`'s charts→points,
+which this lane is already using.
+
+**So adopting composition is build-and-prove, not wiring** — and that inverts the
+phasing and probably the architecture-scope call in the inline plan. Which is
+exactly what §9 says the revision must re-take.
+
+### MISSTEP 3 — Fable is blocked, and I did NOT substitute
+
+`features_open/035_FEATURE_component_hierarchy.md` is a slot reserved on
+2026-08-15 and still unwritten because **three prior Fable agents died on model
+limits**. The handoff's instruction is explicit: *"The owner specifically wanted
+Fable for the design work — do not silently substitute a model; ask."* The owner
+confirmed it again on 2026-08-20 ("We want to be using Fable for the plan").
+
+Dispatched a Fable agent with the full brief; it failed on
+**"You've reached your Fable 5 limit"** — an account limit, not a transient
+error, so an immediate retry would fail identically and was not attempted.
+**035 remains unwritten, deliberately.** It is the fourth failure of the same
+kind, which makes the pattern itself the finding: *this plan is blocked on
+capacity, not on knowledge* — the brief is ready and everything it must read is
+catalogued above.
