@@ -29,7 +29,35 @@
 --          -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}'
 --        kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 \
 --          | grep -m1 'build provenance'
---        git merge-base --is-ancestor f0dd97c71 <the stamped sha> && echo SAFE-TO-ARM
+--        git merge-base --is-ancestor daaa7541b <the stamped sha> && echo SAFE-TO-ARM
+--
+--      ⚠⚠ THE GATE COMMIT IS NOW daaa7541b, AND THE TWO EARLIER ANSWERS WERE
+--      BOTH WRONG. This migration was armed at 06:49:49Z on 2026-08-20 with
+--      the f0dd97c71 precondition MET, and it BROKE THE FLEET'S ENTIRE
+--      PAGE-PUBLISHING PATH for 33 minutes: `deploy_result_field` had been
+--      declared on RenderComponentInputSpec instead of UpdatePageStatusInputSpec
+--      (same file, forty lines apart), and because the reader's spec is
+--      StrictConfig:true an undeclared key is a HARD VALIDATION FAILURE for the
+--      whole workflow. 8 items failed, 123 page_rerender items queued and did
+--      not drain. See bugs_open/336; service was restored by running this
+--      file's own ROLLBACK. daaa7541b moves the declaration to the right spec.
+--
+--      THE LESSON FOR WHOEVER ARMS THIS: the earlier preconditions were about
+--      the READER shipping. They cannot see a declaration on the wrong spec.
+--      So check the LIST, inside the RIGHT struct, at the commit the running
+--      binary was built from:
+--        git show <stamp>:platform/orchestration/actions/v3_site_actions.go \
+--          | awk '/^var UpdatePageStatusInputSpec/,/^}/' | grep deploy_result_field
+--      A binary grep for the literal CANNOT see this and WILL mislead you: the
+--      string is in the chassis three times over (the reader and two zap calls),
+--      so it reads PRESENT even when the declaration is on the wrong spec.
+--
+--      AND AFTER ARMING, THE FIRST QUERY IS 'WHAT DID I BREAK?', NOT 'DID IT
+--      WORK?':
+--        SELECT count(*) FROM orchestration_states WHERE error ILIKE '%deploy_result_field%';
+--        SELECT status, count(*) FROM site_work_items WHERE item_type='page_rerender' GROUP BY status;
+--      A zero in `count(pages.content_hash)` looks the same whether nothing has
+--      run or nothing CAN run. That is how the 33 minutes happened.
 --
 --      ⚠ THE REQUIRED COMMIT IS f0dd97c71, NOT 086f9b7b7. 086f9b7b7 declared the
 --      key and SHIPPED IN v1.0.1316 (17:13Z 2026-08-19) — but the council gate's
