@@ -2382,3 +2382,14 @@ call-site scan test is mutation-proven. Go — INERT until the next chassis roll
 `2ff9e215` is OWED a read, and a REVISE/REJECTED must be acted on** (the code is already on the
 shared branch). The 12-row live repair and the growing NON-tool writer sub-class stay with the
 `meta_description_never_backfilled` lane per 339 §7b.
+
+## 2026-08-20 17:35Z — #23 PASSES at the served bytes. 23 of 63 live-confirmed, 40 ported slots remain
+
+Rerender `ee1585dd` complete 17:13:12Z (assembled AFTER the in-turn retire); served 20,184 B,
+`last-modified 17:15:39` > 17:13:12; standard 0·0·0·0·0 (incl. `onchange=`) with 5 `<script>`;
+all five negatives 0; all three positives present. Session total today: #16–#23 — eight tools
+built, retired, graded and live-confirmed, one lost-race repaired (#22), one platform outage
+diagnosed by the sibling session and its seam fix (339/TL-048) committed with a council round open.
+Next: read verdict `2ff9e215`; then #24 `tool-social-card` (analysis already in NOTES-adjacent prep:
+unescaped quotes break the emitted meta tags, twitter block uses `property=` where the card spec
+wants `name=`, preview/code disagree on empty fields) — file it ONLY with in-turn attendance.
