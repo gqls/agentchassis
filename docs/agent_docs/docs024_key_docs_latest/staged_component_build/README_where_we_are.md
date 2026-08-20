@@ -2189,3 +2189,48 @@ odd run on the re-render path, to be looked at once. And exactly ONE is the wron
 the cross-links bug from last night, where the fix IS "answer nothing". So the road to the
 switch is: the named clashes (each now filed or grouped), one note, and one trace — not
 fourteen unknowns.
+
+---
+
+**2026-08-20, evening.** Short answer to "can we close this lane": **not yet, but the end is now in
+sight and it is smaller than it looked this morning.**
+
+The build that rolled at 16:09 contains nothing of ours — the last of our four changes went out in
+the previous one and the fifth isn't written. I checked rather than assuming, and I'm noting the
+non-event so nobody invents a job for it.
+
+The useful work today was turning the remaining step from a count into a shape. Yesterday I told
+you there were about thirteen places still relying on the guessing, and that was true but not very
+actionable. Today I checked each one against what the receiving code actually *requires*, and they
+fall into three groups of very different size:
+
+- **Two are genuinely hard.** The receiving code treats the value as mandatory, so switching the
+  guessing off turns today's silent wrong answer into an outright failure. That may well be the
+  right outcome — better to stop than to build a tool under another tool's name — but it is a
+  decision to take deliberately, not something to find out about afterwards.
+- **One is the real gate.** It's the "which code change deployed this" value I wrote to the other
+  workstream about yesterday. It's optional to the receiving code, and that is exactly why it's
+  dangerous: nothing fails, the value just quietly stops being recorded. It needs a one-line
+  configuration change, and I still want their answer for what the correct source is rather than
+  choosing one myself.
+- **About ten are paperwork.** For these, "no value" is the *correct* answer — that is the whole
+  point of the change. So satisfying the rule means writing down, once per case, that nothing is
+  the right answer. A paragraph each, not a piece of engineering.
+
+So: one external answer, two decisions, and ten paragraphs — then the switch, then the lane closes.
+
+Two other things worth telling you. Another session was working this same lane this morning and did
+a substantial piece of measurement I'd flagged as needed — sizing how widely this guessing actually
+rescues missing values across the estate. They found four real cases out of 451 candidates, and
+notably they caught and corrected their own first answer of ten within the hour. That materially
+shrinks the risk of the final switch, and I've credited it in our notes.
+
+And a mistake of mine, which cost nothing but could have. I wrote a new "start here" document this
+morning and marked the old one obsolete — while that other session was still updating the old one.
+For about nine hours we had two documents each claiming to be the single entry point, and the one I
+called obsolete had the newer content. I've merged them into one and logged the lesson: declaring
+another document dead is a claim about it being dead, and that's the one thing a single session
+can't see on its own.
+
+**Nothing waits on you.** The next session has one external answer to chase and a list to work
+down.
