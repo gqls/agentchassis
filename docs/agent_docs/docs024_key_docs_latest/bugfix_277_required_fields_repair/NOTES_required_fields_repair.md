@@ -2452,7 +2452,7 @@ inapplicable BY CONSTRUCTION.**
 ### 3. Measured with a control that could have come out the other way
 
 Rendered the real template against the real `content_data`, production's own engine and option
-(`text/template`, `Option("missingkey=zero")`, `component_library.go:861`):
+(`text/template`, `Option("missingkey=zero")`, `call_agent.go:1171` (`executeGoTemplate`, reached via `component_library.go:1062`)):
 
 | payload | rendered | body region | visible non-ws chars | err |
 |---|---|---|---|---|
@@ -2507,3 +2507,30 @@ the wrong property.
 whether `content_data` can reproduce `rendered_html`. **A named target is only ever right for the
 population its author was looking at; a test travels.** That is the day's most durable output and it
 came from being wrong three times in the same string.
+
+### 8. The landmine VERIFIER caught a real error in my own entry, and the error is a nice shape
+
+`landmines-verify-dispatch.sh` returned **NEEDS_HUMAN_REVIEW** on the new entry: 8 of 10 footprint
+items resolved, and it named the two that did not — `missingkey=zero` (a string literal, unsearchable
+by a symbol index) and **the cited line `component_library.go:861`**. I checked it rather than waving
+it through, and **the citation was wrong.**
+
+Line 861 is `missingBareFields`, a **scanning helper**; the real chain is
+`RenderTemplate` → `RenderTemplateReportingMissing` → `component_library.go:1062` →
+`executeGoTemplate` at **`call_agent.go:1171`**. The conclusion is untouched — the real renderer does
+use `Option("missingkey=zero")`, so the measurement was made with production's actual option — but
+the pointer sent readers to the wrong function.
+
+> ⚠ **Why it was invisible: I grepped for the VALUE and the first hit had the right value for the
+> wrong reason.** `missingkey=zero` appears in both the scanner and the renderer. Had the scanner
+> used a different option I would have noticed instantly; because it agreed, nothing looked wrong.
+> **A grep for a value cannot tell you that you are in the right function** — it can only tell you
+> the value exists somewhere. This is the memory rule *cite the ARM, not the function* with the
+> failure one level further out: I cited an arm, it was simply an arm of something else.
+> Corrected in `bugs_open/277` §5.3, here, and in the `LANDMINES.md` footprint. It also stands
+> uncorrected in `499`'s file header, which is committed and applied — forward-only, and the LIVE
+> config string carries no line number, so there is no live impact.
+
+**And the process point, since this lane keeps asking whether these mechanisms pay:** a
+NEEDS_HUMAN_REVIEW verdict that names exactly which two claims it could not check is worth more than
+a green one. It cost one `sed` to act on and it found a real defect.

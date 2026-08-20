@@ -492,7 +492,7 @@ repro regenerated from source is destroyed by the render; it cannot reproduce a 
 ### 5.3 Proven, not reasoned — and the control could have come out the other way
 
 Rendered the real template against the real `content_data`, with production's own engine and option
-(`text/template`, `Option("missingkey=zero")`, `component_library.go:861`):
+(`text/template`, `Option("missingkey=zero")`, `call_agent.go:1171` (`executeGoTemplate`, reached via `component_library.go:1062`)):
 
 | payload | rendered | body region | visible non-whitespace chars | err |
 |---|---|---|---|---|
