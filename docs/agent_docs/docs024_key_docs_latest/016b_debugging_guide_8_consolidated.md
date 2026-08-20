@@ -12374,6 +12374,28 @@ means generation succeeded and something rendered; directives surviving means th
 rendered was not a template engine. So it is neither "the LLM emitted braces" (check the model
 output — it will be clean) nor "the template is mis-authored". It is a **fallback**.
 
+> **⚠ CORRECTED 2026-08-20 — THE MECHANISM BELOW IS NO LONGER LIVE, but the FINGERPRINT above
+> still is.** The fallback described in the present tense in the next paragraph was **deleted**
+> and the fix is live on `agent-chassis` **v1.0.1319** (verified on both replicas at the binary:
+> the added literal present, the deleted fallback's literal ABSENT). `RenderTemplate*` now returns
+> an **error**, so a component render either executed or errored — there is no third state, and no
+> new page can acquire this fingerprint through this seam.
+>
+> **Why the entry stays rather than being rewritten:** (1) the diagnostic reasoning — *values
+> resolved means generation succeeded; directives surviving means no template engine rendered it*
+> — is the transferable half, and it still identifies the class wherever a weaker fallback exists;
+> (2) **pages that already carry the fingerprint were rendered before the roll**, so anyone
+> reading a stored artefact or an `agent_error_log` row from before 2026-08-20 needs exactly this
+> account to interpret it. Read the paragraph below as history from here on.
+>
+> **What replaced it, if you land here from a NEW symptom:** the render now fails loudly, so the
+> symptom to expect is a failed build step naming the component and the field
+> (`steps[2].branches: declared array (items: object), got string`), not a page full of directives.
+> ⚠ **And the sibling case is NOT fixed:** a field that is ABSENT rather than mistyped still
+> renders empty and silent under `missingkey=zero`, covered at only 2 of the 15 render call sites.
+> See `bugs_closed/260`, concept `STY-057`, and `RFC_041` §5 (which costs that gap three ways and
+> records it as UNOWNED).
+
 **Diagnose.** `RenderTemplateReportingMissing` (`component_library.go:965`) runs Go
 `text/template`, and on ANY error drops silently to a regex renderer written for *handlebars*
 (`{{#each}}`, `{{#if}}`) that cannot see `{{if .x}}`, `{{range}}` or `{{end}}`, yet still
@@ -12390,7 +12412,10 @@ Ask of any fallback: **is there any input the fallback handles that the primary 
 Here the answer was measurable and it was no — 0 of 255 components use handlebars syntax, so
 the fallback is a path nothing on the estate can be rendered by. A fallback with no
 constituency is not resilience, it is a silent corruption channel; the fix that closes the door
-is deleting it so the real error stops the build.
+is deleting it so the real error stops the build. **That fix was made and is live (2026-08-20,
+v1.0.1319) — the census that licensed it re-ran at 0 of 253 components using the dialect, 0 of 251
+templates failing to Parse, and 0 of 1,778 stored sections failing to Execute, each with a control
+that could have come out otherwise.**
 
 **Two measurement traps this bug also pays.** (1) `checkUnrenderedTemplates` caps each regex at
 10 matches (`validate_page_content.go:793,804`), so "20 blockers" is the CAP — every instance

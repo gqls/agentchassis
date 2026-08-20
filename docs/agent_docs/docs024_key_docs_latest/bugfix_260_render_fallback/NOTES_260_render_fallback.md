@@ -628,3 +628,30 @@ missing field as empty, covered at 2 of the 15 call sites, and it needs its own 
 plus a pathspec commit otherwise ships a COPY, and `ls` cannot tell you, because the file is gone
 from disk either way:
 `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 260` must return exactly one line.
+
+### Two loose ends recorded rather than left for the next reader to trip over
+
+**1. The `016b` §9 entry described the fallback in the PRESENT TENSE.** It said
+`RenderTemplateReportingMissing` "runs Go `text/template`, and on ANY error drops silently to a
+regex renderer" — true when written, false since v1.0.1319. Corrected in place with a dated banner
+rather than rewritten, for two reasons: the diagnostic half (*values resolved + directives
+surviving ⇒ no template engine rendered this*) is the transferable part and still identifies the
+class; and **pages and `agent_error_log` rows from before 2026-08-20 still carry the fingerprint**,
+so a reader interpreting one needs the old account. The banner says what replaced it and points at
+the absent-field gap. Correcting the entry, not just my own notes, is the rule — the next reader
+inherits whichever they find.
+
+**2. `component-render-check`'s CronJob has failed its last THREE runs** (06:55Z today, 31h, 2d7h)
+— **all three predate the roll at 10:18Z**, so none of them is this change. Recorded because the
+NEXT run will be the first on a binary carrying my `rendercheck.go` edit, and the attribution cuts
+both ways: nobody should blame a fourth failure on this change without reading the logs, and I
+should not assume a fourth failure is unrelated either. The pods are already garbage-collected so
+there are no logs to read for these three; `describe job` gives only "2 Failed", no reason.
+`who-owns.py` finds no owner and no bug file names it. **Not filed as a bug by this lane** —
+filing without being able to state a mechanism would put an unevidenced claim in `bugs_open/`, and
+the honest next step is one run's logs, which the next scheduled fire (or a manual
+`kubectl create job --from=cronjob/component-render-check`) will provide.
+⚠ Its image IS at v1.0.1319 (`newTag` in the overlay matches the CronJob's live spec), so the tag
+half of the deploy is right — but that is the tag, not the binary, and the render-check image was
+NOT probed the way the chassis was. `[INFERRED, not measured]` that it carries the change, from
+its being built by the same release off the same HEAD.
