@@ -167,3 +167,67 @@ og:image — a tag outside my strip set, so nothing cleans it. **Order swapped i
 **Note M1's first row.** The mutation that reproduces *the fix candidate written in the bug file* —
 fill blank placeholders only — fails five tests. That is the clearest statement of why the design
 changed shape, and it is worth putting in the council submission rather than arguing it in prose.
+
+## 2026-08-20 (d) — the 090 verdict: UNVERIFIABLE, and the reason is worth more than a CONFIRMED would have been
+
+Run corr `af31ec22-5662-4798-91b9-b12132ebca70` completed at 09:24Z. **Verdict: UNVERIFIABLE,
+`stopped_by: iteration-cap`** — "Diagnosis NOT confirmed. Best-effort trail attached for a human;
+no fix proposed."
+
+**Read it honestly: this is NOT a refutation, and it does not touch the premise.** The loop's own
+`still needed` text says what it could not do, and both blockers are structural rather than
+evidential:
+
+1. **`pages.rendered_head` returned 0 rows across every attempt, fleet-wide.** Those three `pages`
+   columns are VESTIGIAL — already a documented landmine, and the subject of `bugs_closed/270`. The
+   loop reached for the obvious per-page head store and there has never been anything in it.
+2. **Every `site_components.rendered_html` row it fetched was TRUNCATED before the tail near
+   `</head>`** — precisely where `injectBrandHeadTags`' block sits. So it fetched the one row holding
+   the evidence and got the half that does not contain it.
+
+Its conclusion is therefore: the static mechanism is confirmed from source (its citations quote
+`b.WriteString("  <meta property=\"og:title\" cont…` and it enumerated 18 symbols including
+`injectBrandHeadTags`, `assemblePage`, `InjectHead`, `RenderHead`), but nothing in its bundle shows
+the mechanism *having produced* a duplicated or homepage-rooted tag on a real page.
+
+**That gap is exactly what I had already closed before filing, by the instrument the loop does not
+have.** Two `curl`s against `ai-agent-orchestration.com/about.html` show the duplicated `og:title`
+and the homepage `og:url` beside a correct per-page canonical. That evidence is in the bug file, the
+commit messages, register SEO-005 and the council submission's `grounded_in` — it does not depend on
+this run. **So: premise unchanged, no claim weakened, and no second run spent** (spending one would
+buy the same answer, since the blockers are not iteration-count problems).
+
+**What the run DID earn, and it is not nothing:** it independently re-derived the mechanism from the
+same functions without my framing, which is the half it is good at. And its failure mode is a
+transferable trap, now filed as a LANDMINES entry footprinted on `090_TRIGGER…`, `pages.rendered_head`
+and `site_components.rendered_html`: **the loop cannot see served bytes, so for a defect that lives in
+deployed markup it returns UNVERIFIABLE, which reads exactly like "your claim is doubtful".** The
+dangerous next move is to weaken a claim you have artefact evidence for because a DB-shaped tool could
+not reach the artefact. The 090 authoring guidance ("point at the tables where the evidence lives")
+quietly assumes there IS a table; for this class there is not.
+
+## 2026-08-20 (e) — the migration-number collision I had just documented, then walked into
+
+Committed 502/503; both had been taken while I was writing them (bug-260's
+`arm_mistyped_llm_fields`, and `service_binary_capabilities`), and 504–506 had gone too. Renumbered
+forward to **507/508** — a `git mv` plus a commit naming **both** old and new paths, because a
+pathspec commit that names only one side ships a COPY and leaves the old files at HEAD. Verified with
+`git ls-tree -r --name-only HEAD` (4 files, not 8), not with `ls`.
+
+Two details worth keeping. The renumbering sed used `\b502\b`, which deliberately does NOT touch the
+component UUID `aec98dbe-76b7-4e13-9641-e5b6ba2502aa` (no word boundary inside `ba2502aa`) or the
+template md5s; I re-counted all five literals after the rename rather than assuming. And the INSERT's
+`created_by` marker moved with it (`migration-503-locale-lang` → `migration-508-locale-lang`) because
+the ROLLBACK matches rows on that exact string — a renumber that missed it would leave a rollback
+that silently deletes nothing.
+
+*The check, now in the RUNBOOK:* **read the migration directory at the moment you COMMIT, not when you
+start authoring.** Note NOTES (b) had already recorded that 497 and 498 are each doubled — I wrote the
+hazard down and still picked my number from a read that was an hour stale by the time it mattered. The
+directory is shared mutable state exactly like the working tree.
+
+**Also, in the harmless direction:** my `WRONG_CALLS.md` entry and my `000_concept_index.md` row were
+already at HEAD by the time I named them on my own commit — swept in by another session's commit
+(`0c33ff690`) between my write and my commit. Nothing lost, forward-only holds, and it is the
+same-file passenger trap firing the way round that costs nothing. Worth noting only because the
+inverse — my commit taking THEIR half-finished edit — is the same mechanism.
