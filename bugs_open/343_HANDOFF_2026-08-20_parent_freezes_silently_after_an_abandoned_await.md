@@ -49,6 +49,26 @@ completed anyway**, so a 503 is not sufficient. **Any** future cause of a child 
 1200 s — a slow dependency, a crashed child, a network partition — re-triggers this. The trigger was
 external; the freeze is ours.
 
+### The observed wedge is ENTIRELY inside the outage window — state this limit, do not overstate it
+
+`[MEASURED 2026-08-20]` **All 20 wedge instances are on 08-17, inside the outage.** There is **no
+observed wedge outside an outage window at all**, and that is a real bound on what we know: every
+inference in this file about the wedge comes from one day on which an external dependency was
+failing at ~300× its base rate.
+
+**The 31st instance is NOT a counter-example, and it is worth being precise about because it looks
+like one.** One entry-condition occurrence sits outside the outage — `51e9a384`, 2026-08-15 08:16Z,
+on a day with **zero** GitHub errors (control: 08-17 returns 954, so the query sees what it should).
+But it is a **STOPPED** case, not a wedge: no iteration-1 `spawn_handler`, and `max_iter_seen = 0`,
+meaning **iteration 0 was the only iteration that orchestration ever had.** That is the most benign
+shape available — the error fell on the loop's first and only item, so no next iteration was ever
+owed. It therefore **strengthens** the benign reading of the 11 stopped cases rather than providing
+non-outage evidence for the wedge.
+
+> **So: `n=0` outside the outage for the wedge, not `n=1`.** If you want to know whether this freeze
+> can happen without a 503 storm, the honest answer today is **that is unobserved**, and the way to
+> learn it is the next natural occurrence (RSH-011 is armed), not this row.
+
 ## Where to look
 
 `PLAN_2026-08-19_wedge_fix_park_advance_divergence.md` in the lane directory is **still valid and was
