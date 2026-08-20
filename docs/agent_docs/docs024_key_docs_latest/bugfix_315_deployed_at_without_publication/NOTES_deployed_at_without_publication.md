@@ -1306,3 +1306,24 @@ structs it is a coin flip, and I lost it.
 - The durable guard `336` proposes — every key an action reads is declared on its own spec, and no
   spec declares a key its action never reads — is the right answer and I have deliberately not
   claimed it. My lane should not grade its own homework on this seam.
+
+## 2026-08-20 — the content_hash watcher is MOOT while 494 is unarmed; do not restart it as-is
+
+The background watcher waiting for the first non-zero `count(pages.content_hash)` has been stopped.
+**It should not simply be restarted**, and the reason is the same mistake in miniature: with 494
+unarmed, `deploy_result_field` is set nowhere, so the guard never runs and `content_hash` **cannot**
+be written. A watcher on that column would sit at zero indefinitely and its silence would read as
+"still waiting for traffic" — which is precisely the misreading that let the 33-minute outage stand
+unnoticed for twelve minutes.
+
+**Whoever arms 494 should start it then, not before**, and should pair it with the damage query, not
+run it alone:
+
+```sql
+-- run BOTH, and read the damage one first
+SELECT count(*) FROM orchestration_states WHERE error ILIKE '%deploy_result_field%';   -- must stay 0
+SELECT count(content_hash) FROM pages;                                                  -- the benefit
+```
+
+A watcher on the second alone cannot distinguish *nothing has run* from *nothing can run*. That is
+not a hypothetical — it is what happened.
