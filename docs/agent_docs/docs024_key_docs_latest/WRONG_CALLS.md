@@ -38642,3 +38642,38 @@ claim to hold "the verdict", the one the guard reads is the one written *at the 
 protective, and the peer's own §15 suspicion (that widening caused the regression) was wrong in
 direction too. Both of us were wrong about the same mechanism from opposite sides; only the operand
 settled it.
+
+### Addendum, same session, same day — TWO more asserted-not-checked calls, both inside the correction above
+
+Both caught by the owning session within the hour, both with harmless conclusions, which is the only
+reason they are cheap. Logged together because they are one habit, not two incidents: I had just
+written "verifying a formula is not verifying its inputs" and then twice more supplied an input from
+recollection.
+
+**1. An unmeasured TIMESTAMP, used to reassure someone.** I told the peer my `HANDOFF_2026-08-19b`
+banner was written "at ~21:1xZ" and therefore "nothing of mine was lost" to their 22:15 `cat >`
+overwrite. I never looked at a clock. `git log -S` puts the banner's first appearance in
+`5022305cf` at **22:21:40** — four minutes *after* their 22:17:55 restore — and my edit sequence ran
+continuously into that commit, so it was authored once, after the restore. **The conclusion was
+right and the evidence for it was invented.** The peer could not separate "wrote it once, late" from
+"wrote it early, lost it, re-typed it from memory", and neither could git; only my own session record
+could, which is exactly the LANDMINE about the snapshot hook capturing the *previous* state rather
+than the clobbering write. **The cheap check:** `git log -S '<the string>' -- <file>` before making
+any claim about when your own text appeared — and never offer "nothing was lost" about a working
+tree, which is unversioned by definition. Say "nothing was lost from the committed record" or say
+nothing.
+
+**2. AUTHORSHIP credited without reading the rows' own attribution.** In `400269574`'s message I
+declared two same-file passenger rows in this file and credited them to the `029` peer. They are the
+**313/298** lane's: the rows self-identify inline — *"`bugs_open/313`'s FIXED banner and the
+`bugfix_313_internal_linker` SUMMARY, both mine"* (line ~38554) and *"`bugs_open/313` and `/298`,
+§How to verify, mine"* (~38579). I inferred authorship from *who I happened to be talking to*. The
+declaration itself was right and necessary; the credit inside it was wrong, and forward-only rules
+out an amend, so the commit message stays wrong for ever and this is the correction of record.
+**The cheap check:** a WRONG_CALLS row states its own lane in its first sentence — read it. When
+declaring a passenger, quote its self-attribution rather than naming a session. **A tally counted by
+`git log` author will mis-assign these two; count by reading the rows.**
+
+**The pattern worth the tally:** three asserted-not-checked calls in one session, each one caught by
+someone else, each conclusion coincidentally sound. Coincidentally-sound is the failure mode with no
+feedback signal — nothing downstream ever looks wrong, so the habit survives every correction.
