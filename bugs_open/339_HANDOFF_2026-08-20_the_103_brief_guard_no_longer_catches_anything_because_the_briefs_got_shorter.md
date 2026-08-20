@@ -89,13 +89,30 @@ either the candidate or the composed fallback, so by elimination **these are the
 side, passed by the guard.** That is 103's mechanism exactly: the candidate for a
 `component_level='tool'` row is the brief.
 
-**NOT established, and stated so rather than asserted:** I did not trace each string back
+~~**NOT established, and stated so rather than asserted:** I did not trace each string back
 to its specific writer row. A `LIKE` join to `content_components.description` returned no
 match, which is inconclusive rather than contrary — those rows may have been regenerated
 or edited since the page was created. **Whoever fixes this should establish the exact
 writer before changing the guard**, because the remedy differs depending on whether the
 brief arrives from `content_components.description`, from a tool spec, or from somewhere
-a census has not looked.
+a census has not looked.~~
+
+**ESTABLISHED 2026-08-20 ~17:15Z by the accepting lane (`webdesign_tool_rebuilds`), for the
+TOOL-page class.** A PREFIX join — `left(cc.description,120) = left(p.meta_description,120)`
+— matches **7** of the damaged strings to live `component_level='tool'` rows with the same
+`function`; **4** additionally prefix-match `add_tool` items' `spec->>'description'`. (The
+original `LIKE` join failed on LIKE semantics against these strings, not because the source
+differs.) So the pipeline is confirmed end to end:
+`add_tool spec.description` → `content_components.description` → `PublicMetaDescription`
+(both signals blind in the 200–320 band) → `pages.meta_description` — §5 candidate 3's
+premise holds exactly.
+
+**Two rows of the census and one NEW row are a DIFFERENT writer, still untraced:** the
+non-tool pages (`robot-hands.com/robot-demand-step-change`,
+`leopardessconsulting.co.uk/hierarchical-multi-agent-orchestration-explained`, and —
+created **2026-08-20**, i.e. the population GREW after this file was written —
+`dartsonline.com/darts-calendar-density`, 291 chars) match neither tool components nor
+`add_tool` specs. That sub-class is live today and is NOT closed by the tool-seam fix.
 
 ## 5. Fix candidates, ordered by what makes the bad state unrepresentable
 
@@ -181,6 +198,17 @@ leopardessconsulting (2), oufe (1) and robot-hands (1). So this is **the lane th
 SEAM, not the lane that owns the damage.** If it would rather hold the seam fix and let the
 row repair (§5 candidate 4) go elsewhere, that split is reasonable and this file should be
 updated to say so.
+
+**SPLIT AGREED 2026-08-20 ~17:15Z** (message from `webdesign_tool_rebuilds` to the filing
+lane, acknowledged in both lanes' records):
+- **`webdesign_tool_rebuilds` takes:** §5 candidate 3 at BOTH call sites (a
+  `component_level='tool'` row's description is never a candidate; the composed copy is
+  used unconditionally), the register entry in `register/tool-lifecycle.md`, the two-armed
+  tests of §6, and the council round. Go change — inert until a chassis roll.
+- **`meta_description_never_backfilled` (320) keeps:** the row repair (§5 candidate 4; 12
+  rows now, 10 off webdesign.co.uk; the 9 tool pages are a `composedToolMetaDescription`
+  re-derivation, no LLM), and the trace of the NON-tool writer (§4 addendum) — which is
+  where the population is still growing.
 
 **Also relevant and not yet done:** `register/tool-lifecycle.md` records **nothing** about
 the tool page's meta description — `grep -n "meta_description\|PublicMetaDescription" `
