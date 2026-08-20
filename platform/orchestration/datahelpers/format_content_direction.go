@@ -13,16 +13,28 @@
 package datahelpers
 
 import (
+	"sort"
 	"strings"
 )
 
 // FormatContentDirection recursively formats the entire content_direction
 // spec into a single readable text block. Handles any structure — strings,
 // arrays, nested maps. Unknown fields are included automatically.
+//
+// ⚠ KEYS ARE SORTED, AND THAT IS LOAD-BEARING RATHER THAN TIDY. `range` over a Go
+// map is randomised by design, so this function used to render an identical spec into
+// a different text on every call — same content, no shared line order. Two costs, both
+// measured 2026-08-19: a diff of two briefs reported ~100% changed whether or not
+// anything had changed (which is how anyone verifies that a brief correction landed),
+// and a diagnosis run read three such renderings of ONE unchanged `loanzy.uk` document
+// as three different partial briefs and cited it as evidence of a different bug. If you
+// need a semantic ordering rather than an alphabetical one, that is a deliberate change
+// with an argument attached — but it must still be DETERMINISTIC.
 func FormatContentDirection(spec map[string]interface{}) string {
 	var sections []string
 
-	for key, val := range spec {
+	for _, key := range sortedKeys(spec) {
+		val := spec[key]
 		if val == nil {
 			continue
 		}
@@ -71,8 +83,10 @@ func FormatSpecValue(label string, val interface{}) string {
 			return ""
 		}
 		var parts []string
-		for subKey, subVal := range v {
-			formatted := FormatSpecValue(HumaniseKey(subKey), subVal)
+		// Sorted for the same reason as the top level — a nested map is just as
+		// randomly ordered, and one unsorted level makes the whole output unstable.
+		for _, subKey := range sortedKeys(v) {
+			formatted := FormatSpecValue(HumaniseKey(subKey), v[subKey])
 			if formatted != "" {
 				parts = append(parts, formatted)
 			}
@@ -85,6 +99,17 @@ func FormatSpecValue(label string, val interface{}) string {
 	default:
 		return ""
 	}
+}
+
+// sortedKeys returns a map's keys in a stable order, so the rendered brief is a
+// function of the spec's CONTENT and nothing else.
+func sortedKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // HumaniseKey converts snake_case to Title case labels

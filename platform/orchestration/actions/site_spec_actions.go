@@ -203,19 +203,9 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 	if createdBy == "" {
 		createdBy = source
 	}
-	// Auto-format content_direction specs: add a "formatted" field that
-	// contains the entire spec as readable text. The content writer reads
-	// {{.site_specs.specs.content_direction.formatted}} — one field regardless
-	// of how the structured data is organised.
-	// This runs for every content_direction write — classifier, adoption, HITL.
-	if aspect == "content_direction" {
-		formatted := datahelpers.FormatContentDirection(specMap)
-		if formatted != "" {
-			specMap["formatted"] = formatted
-			logger.Info("Auto-formatted content_direction spec",
-				zap.Int("formatted_len", len(formatted)))
-		}
-	}
+	// NOTE: content_direction's "formatted" field used to be built HERE, from the
+	// incoming partial, before the merge below. See step 2b — it must be built from
+	// the MERGED document, and `bugs_open/327` is what that cost.
 
 	// --- Begin transaction ---
 	tx, err := params.DB.BeginTx(ctx, nil)
@@ -249,6 +239,38 @@ func WriteSiteSpecAction(ctx context.Context, params ActionParams) (interface{},
 	// Normalise services to object format if this is an identity spec
 	if aspect == "identity" {
 		normaliseServicesField(merged)
+	}
+
+	// 2b. Auto-format content_direction specs: a "formatted" field holding the entire
+	// spec as readable text. The content writer reads
+	// {{.site_specs.specs.content_direction.formatted}} and has NO other path to the
+	// structured keys, so this field IS the brief as far as generation is concerned.
+	// Runs for every content_direction write — classifier, planner, adoption, HITL.
+	//
+	// ⚠ IT MUST RUN ON `merged`, NOT ON THE INCOMING `specMap`, AND THE ORDER OF THESE
+	// TWO STATEMENTS IS THE WHOLE BUG IN `bugs_open/327`.
+	// `formatted` is a plain string, so siteSpecDeepMerge takes its scalar-overwrite
+	// arm (`result[k] = srcVal`) and whatever `formatted` the incoming partial carries
+	// replaces the previous one outright. Built from the partial, it therefore described
+	// only the keys of the newest write, while the stored document kept every key it had
+	// ever been given — so a careful two-key correction silently removed eighteen keys
+	// from the writer's view, with the document still reading complete, the write
+	// logging success, and no error anywhere. Measured 2026-08-19: it fired on four
+	// sites on 2026-04-18 and three were still serving a fragment four months later
+	// (one at 5 of 18 keys). Diagnosed CONFIRMED by the 090 loop, run
+	// 8be5f6e9-d0b3-43f7-9ee4-dee2432dd8b1.
+	//
+	// FormatContentDirection skips the "formatted" key itself, so feeding it the merged
+	// document (which carries the previous rendering) does not nest one inside another.
+	if aspect == "content_direction" {
+		formatted := datahelpers.FormatContentDirection(merged)
+		if formatted != "" {
+			merged["formatted"] = formatted
+			logger.Info("Auto-formatted content_direction spec",
+				zap.Int("formatted_len", len(formatted)),
+				zap.Int("merged_keys", len(merged)),
+				zap.Int("incoming_keys", len(specMap)))
+		}
 	}
 
 	mergedJSON, err := json.Marshal(merged)
