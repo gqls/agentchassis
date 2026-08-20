@@ -1431,3 +1431,26 @@ pages stamped since arming  0        <- so content_hash 0 is EXPECTED, not a sym
 that no page has been stamped since the guard went live, so the column has had no opportunity to be
 written. Whoever next sees a page rerender should check `count(pages.content_hash)`; the damage query
 must be read first and must stay at 0.
+
+## 2026-08-20 — commit `fdbde6cc8` swept two other lanes' WRONG_CALLS entries under my message
+
+`fdbde6cc8` is described as my "narrative timestamp" entry. It actually contains **three** entries:
+mine, plus two belonging to other sessions that were sitting uncommitted in the shared
+`WRONG_CALLS.md` —
+
+- *"I wrote 'the same guard its two siblings already have' and used a DIFFERENT list…"*
+- *"I published '141 of 270' from a table that only holds seven days…"*
+
+**Nothing is lost and nothing needs undoing:** the file is append-only, both entries are complete and
+intact, and they are attributed in their own text. But the commit message names only mine, so anyone
+bisecting or reviewing `fdbde6cc8` would be misled — hence this note, which is the forward-only
+correction (no amends).
+
+**Caught by the line count**, not by inspection: 115 insertions for a ~35-line entry. `git diff
+--numstat` before committing an append-only shared file is the cheap check, and I only ran it *after*.
+
+⚠ **This is the same-file-passenger landmine for the third time in one session, and this time I was
+the one doing the sweeping** — a few hours after being on the receiving end of it (`80b9c6235` took
+my call site and broke HEAD). It is genuinely symmetrical and no hook can see it. On a fleet-wide
+append-only file like `WRONG_CALLS.md` or `LANDMINES.md`, assume there is someone else's paragraph in
+there and **say so in the message rather than pretending the diff is yours**.
