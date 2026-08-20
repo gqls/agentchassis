@@ -13102,3 +13102,53 @@ residual, one from the errors and one from reading the handler's own step config
   some inputs skip. The question to ask of any gated feature is not *"is it on?"* but
   *"what has to happen upstream for it to have anything to act on, and what does that step
   refuse?"*
+
+### A PER-SITE artefact reused by every page cannot carry a PER-PAGE value — bake one in and every page confidently asserts the same wrong identity, which is worse than the absence you set out to fix (2026-08-20, `bugs_open/252` og/lang slug)
+
+- **the shape:** one stored row (`site_components.rendered_html`, one per site) is spliced into every
+  page a builder assembles. Something writes a page-scoped value into that row — because at the moment
+  it runs, there is no page to ask, and a plausible site-level default is right there. Every page then
+  serves it. Measured here: 22 of 24 stored heads carried `og:url` pointing at the site homepage, so
+  **700 assembled pages across 26 sites** told every scraper they were the homepage.
+- **why it outranks the absence it replaced.** The bug was originally filed as "assembled pages LOSE
+  their per-page tags". Between filing and pickup, a well-meant change (`d3f73a724`) started emitting
+  those tags at site level — so the defect stopped being silence and became a **false statement**. A
+  missing tag is a fallback; a present, wrong one is followed. **A fix that populates a field can turn
+  a silence into a lie, and the population count will look like progress.**
+- **the tell, and it is free:** the artefact contradicts *itself*. Here, one page served
+  `og:url = https://site/` beside `rel="canonical" href="https://site/about.html"` — two mechanisms
+  asserting the same thing and disagreeing, in the same `<head>`. **When two tags mean the same thing,
+  diff them across pages: the one that is constant is the one being served from the shared artefact.**
+  Also count duplicates — 4 sites served TWO `og:title` tags, one blank and one filled, because the
+  emitter's idempotency guard tested for a *different* tag (`rel="icon"` OR `og:image`) and could not
+  see the blank one the template had already left.
+- **the fix shape: state it where the page is known, and REMOVE before you write.** Filling a blank
+  placeholder — the idiom the codebase already used for the description — was the wrong tool once a
+  second producer was writing the same tag filled: placeholders existed on 4 of 24 rows and were
+  already shadowed. Remove-then-inject is idempotent by construction, repairs a wrong or duplicated
+  value rather than adding a third, and **self-heals at assembly time with no rebuild of the shared
+  artefact** — which matters more than it sounds (below). Then stop the site-level producer asserting
+  it at all, or the stripper is load-bearing for ever.
+- **check whether a code change can even reach the stored artefact.** Chrome here regenerates only on
+  a fingerprint of *DB inputs* (`chrome_render_inputs.go` hashes template + specs by value); **Go is
+  not an input**. So a fix that depended on re-rendering those 24 rows would have shipped and done
+  nothing until something unrelated touched a template. Ask what actually invalidates the stored copy
+  before choosing where to fix — and if the answer is "a config row", your migration IS the
+  propagation mechanism, which is a reason to sequence it *after* the binary, never before.
+- **two traps for whoever fixes one of these:**
+  1. **Removing tags redefines "first" for any neighbouring function that keys on position.** A
+     sibling splice filled *the first blank attribute in the document* as its fallback; stripping the
+     blanks we owned promoted a tag we deliberately did **not** own into that slot, and it received
+     the page description. Order the calls so the positional consumer runs while its likely targets
+     are still tags you are about to rewrite. Pin it with a test, and **check the test can fail** —
+     ours could not, because a fixture copied from a live row took the branch where the hazard cannot
+     fire (see the existing entry on passing mutation tests).
+  2. **The premises other checks encode become false the moment you fix it, silently.** Two live
+     checks here documented "the shared `<head>` cannot carry a per-page value" as settled — one
+     exempting the tag from validation, one skipping it entirely. Neither fails loudly when it stops
+     being true; both just keep passing. **Grep for your defect's *rationale* in the checkers, not
+     just for its code, and retire the exemptions in the same lane.**
+- **generalises past markup.** Any shared, cached, or templated artefact re-used across instances:
+  chrome, a rendered nav, a config blob stamped per tenant, a header injected into every response. The
+  question is not "is this value right?" but **"is this value the same for every consumer of this
+  row?"** — and if it is not, no amount of correctness at write time can save it.
