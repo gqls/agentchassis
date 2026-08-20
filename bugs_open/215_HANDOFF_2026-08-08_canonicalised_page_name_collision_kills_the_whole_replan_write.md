@@ -1166,3 +1166,80 @@ and `bugs_open/215` stays OPEN precisely because none of it has been run yet. `g
 just opted-in ones — one summary row per re-plan per site, and re-plans are rare enough
 that this lane has spent two weeks waiting for one; if that changes the volume claim should
 be re-measured rather than re-argued.
+
+### 2026-08-20 — THE FIX IS LIVE on chassis `v1.0.1319`, artefact-verified. It is also UNEXERCISED, and nothing in the estate will exercise it on its own
+
+**Live, verified at the artefact on both replicas** (`agent-chassis-86b95b967b-2fqm5`,
+`-jwdb5`, image `v1.0.1319`, pods started 2026-08-20T10:18Z, probed ~14:35Z) — not at git,
+not at the tag, and not from the fact that a build was announced:
+
+```
+PRESENT   PLAN_PAGE_SAME_NAME_TWIN_PENDING       <- the fix's own literal
+PRESENT   PLAN_PAGE_SAME_NAME_IDENTITY_HELD
+PRESENT   PLAN_PAGE_IDENTITY_TYPE_CONFLICT
+PRESENT   stampSameNameRealisedIdentity          <- the symbol itself
+PRESENT   PLAN_PAGE_MERGE_LOSSY                  <- instrument positive: predates this lane,
+                                                    so the probe can find things generally
+absent    PLAN_PAGE_SAME_NAME_TWIN_PENDINQ       <- one-letter near miss
+absent    PLAN_PAGE_SAME_NAME_ZZZFAKE
+```
+
+Read from `/proc/1/exe`, never with `strings` (absent from these images, and behind the
+customary `2>/dev/null` its failure is indistinguishable from "not stamped" — the trap that
+made the 08-17 sha probe *uninformative rather than negative*). The near-miss pair is the
+load-bearing half: same exec, same binary, differing by one letter, opposite answers.
+
+**Cite this as "live on `v1.0.1319` as at 2026-08-20", never bare "live".** The fleet rolls
+past a tag within hours and this file has already carried one close-out sentence that
+outlived its image.
+
+> **Note on the probe's cost, since the next person will hit it:** a grep for a literal that
+> IS present exits early; one for a literal that is ABSENT must scan the whole binary, and
+> each took over a minute. Run the negative controls in the background rather than assuming
+> the exec has hung — and do not be tempted to drop them, because they are the only half
+> that proves the positives mean anything.
+
+#### Nothing has run through it, and that zero is the readable kind
+
+[MEASURED 2026-08-20 14:33Z] All three new codes read **0**. The demand control says why,
+and it is the ordinary reason rather than the alarming one:
+
+- **No plan of any kind has been written fleet-wide since the pods started.** The most
+  recent plan anywhere is `loanzy.uk`, 2026-08-18 20:42Z — nearly two days before this roll.
+- **Instrument control:** `agent_error_log` took **615 rows in the last 24h**, newest
+  seconds before the read. The table is alive; the codes are simply unreached.
+
+**So this zero means "nothing has run", and nothing else.** It is emphatically *not* a
+repeat of the falsified prediction recorded above — that failure was a counter structurally
+blind to a population that HAD occurred. These two look identical in a query result and are
+told apart only by the demand control, which is exactly why it is mandatory before reading
+any of these codes.
+
+#### And nothing will exercise it on its own — re-confirmed at HEAD
+
+The 08-12 note in this file said *"waiting for the counter to fill on its own is not [the
+cheap experiment], because nothing schedules a replan."* Re-checked today rather than
+carried forward: **zero `scheduled_tasks` rows target `build-site-planner` or
+`site-planner`**, and **zero open work items** of any planning type. A re-plan happens only
+when a lane deliberately fires one. **Do not treat "the counters are still zero next week"
+as information.**
+
+#### The first canary is ready, and it is deliberately not mine to fire
+
+`loanandmortgagecalculator.co.uk` re-measured today and unchanged from 08-17:
+`honour_realised_identity` = `true`, **both snap layers absent** (the correct configuration
+after the 08-19 correction — they cannot reach this shape and carry false-positive risk),
+**45** active pages, **17** that a re-derivation would rename, **0** in `bugs_open/340`'s
+unpreserved shape. That lane owns the run and has been told the build is live.
+
+⚠ **What a canary still does NOT fix, and this is why the run is not a formality:** the
+same-name stamp closes the *twin-minting* half only. The other damage that lane measured on
+08-17 — **21 moved URLs, 24 pages with `sections` cleared to `[]`, and 2 `site_nav_items`
+repointed at undeployed files** — is untouched by this fix and still live. The `LANDMINES.md`
+pre-fire procedure (asserted digest snapshot of `pages`/`page_components`; cancel the run's
+`needs_rerender` item before anything claims it) therefore applies in full.
+
+**This bug stays OPEN.** It is now fixed-and-live for the same-name mode, which clears the
+CLAUDE.md bar for that mode alone — but the remaining scope is untouched: O2's seven
+both-deployed twin pairs (2 of 7 remediated, the rest owner-decision per pair) and the
+behavioural proof above. `bugs_open/340` carries the preservation-set gap that was spun out.
