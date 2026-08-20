@@ -537,3 +537,19 @@ reviewer cannot check what the plan does not list.
 **Trailer:** the code commit `80b9c6235` carries `Council-Submitted: a44d9eb8…`, which 098 credits
 automatically now approval has landed — no amend, and forward-only forbids one anyway. The docs
 commit carries `Council-Reviewed:` because by then the approved verdict had been read.
+
+### The landmine verifier's `NEEDS_HUMAN_REVIEW` was the INDEX, not the entry — and that is a general fact worth keeping
+
+Both new LANDMINES entries were dispatched (`landmines-verify-dispatch.sh`, 2 published). The
+empty-string one came back **`NEEDS_HUMAN_REVIEW`** at 09:17Z, reporting
+`content_type_violations.go` and its three functions as "0 rows" — and its own evidence line says
+why: *"Answers describe indexed commit `c2ccc345` … **the last pushed tip, not the present tree***
+(2026-08-18 21:02Z)". My file is in local commits on an unpushed branch. It confirmed the half it
+could see (`missingRequiredLLMFields` L451-474, `isEmptyContentValue` L478-490).
+
+Annotated in the entry itself rather than only here, because the `doc_notes` row is what council
+seats and agents read: **a verifier verdict on a brand-new entry is a statement about the pushed
+tip.** Re-verify after a push; do not "fix" a footprint the index cannot see yet. Confirmed the
+annotation reached the rows the consumers actually query — `categories ? 'landmine'`, keyed by
+FOOTPRINT (four rows: the two Go files, the config key, the schema surface), not by the entry slug
+that the verification channel uses.
