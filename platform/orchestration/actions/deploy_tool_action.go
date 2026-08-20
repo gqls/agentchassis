@@ -388,20 +388,20 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		toolFunction,
 	)
 
-	// bugs_open/103. The tool's own description is the BUILD BRIEF, so it is
-	// checked before it can reach a public column, and a rejection is LOGGED —
-	// the council objected, correctly, that a silent swap is a new silent-drop
-	// path introduced by the fix for a silent-content problem.
-	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
-		toolDescription.String,
+	// bugs_open/103, and bugs_open/339 where 103's remedy was found blind. The
+	// tool's own description is the BUILD BRIEF by definition, so it is never a
+	// candidate for public copy at all: 339 measured today's briefs at 200-320
+	// chars — under the guard's threshold, matching none of its July briefMarkers
+	// — and nine live tool pages were publishing their spec verbatim. The empty
+	// candidate keeps PublicMetaDescription vetting the COMPOSED side only, and
+	// the old rejection log goes with the rejection: `replaced` is
+	// definitionally false when nothing is offered. (Mirror of the same change
+	// in create_tool_component_action.go — the two sites shipped half a fix once
+	// already, bugs_open/093/112.)
+	toolMeta, _ := datahelpers.PublicMetaDescription(
+		"",
 		composedToolMetaDescription(toolDisplayName),
 	)
-	if metaReplaced {
-		logger.Warn("DeployToolToSiteAction: tool description rejected as a build brief, composed copy used instead",
-			zap.String("tool_function", toolFunction),
-			zap.Int("rejected_length", len(toolDescription.String)),
-			zap.String("published", toolMeta))
-	}
 
 	// bugs_open/175. The DO UPDATE SET here named url, title and sections but NOT
 	// page_type, so deploying a tool onto a name already held by a page of another

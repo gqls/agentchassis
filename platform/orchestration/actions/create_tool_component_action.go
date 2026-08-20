@@ -353,22 +353,24 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	}
 	pageTitle := fmt.Sprintf("%s | %s", displayName, navSection)
 
-	// bugs_open/103, SECOND CALL SITE. The bug file names only
-	// deploy_tool_action.go:341, but this action creates tool pages too and bound
-	// the same `description` — the tool's BUILD BRIEF — into the public
-	// meta_description. Found by grepping for the other writers of the column
-	// rather than trusting the filed call site; a second unguarded call site is
-	// how bugs_open/093 and bugs_open/112 each shipped half a fix.
-	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
-		description,
+	// bugs_open/103, SECOND CALL SITE — and bugs_open/339, where 103's remedy was
+	// found blind. This action's `description` is the tool's BUILD BRIEF by
+	// definition (datahelpers/meta_description.go's own header says exactly that
+	// of a component_level='tool' row), so it is NEVER a candidate for public
+	// copy: 339 measured the current brief population at 200-320 chars, under the
+	// guard's 320 threshold and matching none of its July-census briefMarkers, so
+	// nine live tool pages published their spec verbatim. A guard re-fitted to
+	// today's brief style would go stale the same way; not offering the brief at
+	// all is the version that cannot. The empty candidate makes
+	// PublicMetaDescription vet only the COMPOSED side (a brief-shaped composed
+	// line is a caller bug and must yield "" rather than publish), and `replaced`
+	// is definitionally false, so the old rejection log has nothing to report.
+	// If a future path wants real marketing copy on a tool page, it needs its own
+	// vetted field; this column's candidate slot is closed on purpose.
+	toolMeta, _ := datahelpers.PublicMetaDescription(
+		"",
 		composedToolMetaDescription(displayName),
 	)
-	if metaReplaced {
-		logger.Warn("CreateToolComponentAction: tool description rejected as a build brief, composed copy used instead",
-			zap.String("function", function),
-			zap.Int("rejected_length", len(description)),
-			zap.String("published", toolMeta))
-	}
 
 	// in_header / in_footer are written EXPLICITLY (bugs_open/149 A4's recordable
 	// half). They used to be omitted, so both inherited the column default — which
