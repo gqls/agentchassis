@@ -474,3 +474,26 @@ this can never have been slowness) → replay to the **same** child (§23, at so
 > **correlation** id, and `agent_error_log` has **no `correlation_id` column** — it keys it inside
 > `context` jsonb. **A join on a column that cannot match returns a clean, confident zero.** Always
 > run the same join over rows that MUST match before believing one.
+
+## 2026-08-20 — LANE STATE CHANGED: the BURST is explained, the WEDGE is the only open question
+
+**Confirmed independently by a second session (NOTES §25), at a different join key and unit —
+100% vs 20.8% against §24's 100% vs 21.1%, plus the 954-vs-1/3/3/2/1 census reproduced exactly.**
+So the association is not a join artefact.
+
+| | status |
+|---|---|
+| **the 08-17 BURST** | **EXPLAINED.** A GitHub 503 outage that day (~300× base rate, 13:00–18:00, wedge window inside it) stopped `page-rerender` children answering. A child that never answers blows its **1200 s** rv0 window — 229 s beyond the slowest response ever observed — so the entry condition is an **outage artefact, not a coordinator phenomenon** |
+| **the WEDGE** | **UNCHANGED and OPEN.** What the parent does with an abandoned await, and the 20-advanced-vs-10-stopped split, are exactly as unexplained as before |
+| `PLAN_2026-08-19`'s candidates | **never wrong, but they only ever spoke to the WEDGE.** They cannot explain the burst — and the burst is what made 029 look active |
+| a 503 as cause | **NOT sufficient.** ~1 in 5 healthy pages saw one and answered anyway. Association, not mechanism |
+
+**⚠ Before you write ANY parent↔child join against `agent_error_log`, read NOTES §25.** Parent and
+child are logged under **different `orchestration_id`s** and the table holds **no key spanning them**
+(no `correlation_id` column; 0 of 367 correlation ids appear as an `orchestration_id`; neither 8-hex
+topic prefix matches a child row — the second is the PARENT's id, 367/367). The obvious key, the
+parent's `orchestration_id`, is **populated, non-null, and structurally blind**: it returns 27% vs
+20%, which **reads as a refutation of the outage finding**. Four joins in this family have now come
+out blind between two sessions. **The only sound linkage is the payload's `page_name`**
+(`request_payload → message.body.input_data.spec.page_name` = the child's `context->>'page_name'`),
+and the check that catches it is a **must-be-non-zero control in the SAME query as the claim**.
