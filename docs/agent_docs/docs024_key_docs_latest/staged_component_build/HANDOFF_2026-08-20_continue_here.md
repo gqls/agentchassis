@@ -46,7 +46,94 @@ Every conflicting field was checked against the `ActionInputSpec` that declares 
 are `Optional`.** That splits the ~13 pairs into three tiers with completely different costs, and
 it is the design step 5 needed:
 
+> ### ⚠ 2.0 — SECOND AXIS, added ~17:5xZ by the other session of this lane: cross the tiers with **WIRED?** and **WHICH SIDE OF THE PRUNE ROLL?**, and Tier A empties
+>
+> The tiering asks *what does the spec say*. The complementary question is *does the step's config
+> WIRE the field, and did the row arrive before or after the step-1 prune shipped*. Crossing the two
+> **dissolves both Tier A entries and six of Tier C**, and it answers the trigger §2's Tier A note
+> calls "unidentified".
+>
+> **The mechanism, and it is in the prune's own comment** (`action_inputs.go:767-781`): the prune
+> (step 1, live `v1.0.1310`) removes a Strategy-0-resolved field from what Strategy 1/2 request.
+> **Before it shipped, an already-resolved field was STILL handed to `ExtractFields`** — the search
+> ran, `findFieldRecursive` wrote its conflict row, and then the merge threw the answer away
+> (`if _, alreadyResolved := result.Values[k]; alreadyResolved { continue }`, both Strategy 1 and 2).
+> The comment quantifies exactly this population: *"~28% of all conflict rows, measured 2026-08-18"*.
+> So a pre-prune row on a WIRED field is **noise that never affected a value** — the winner never won.
+>
+> **Measured `2026-08-20 17:5xZ`, and the boundary is sharp.** The prune's own target class
+> (`bdl`/`work_item_id`) stops at **18:02:24Z** on 08-18. Every row of all three wired "blockers"
+> precedes it:
+>
+> | pair | rows | first row | last row | after 18:02:24Z | wired to |
+> |---|---|---|---|---|---|
+> | tool-generator / `function` (Tier A) | 11 | 08-16 15:48 | **08-18 16:33** | **0** | `input_data.spec.function` |
+> | tool-generator / `description` (Tier C) | 11 | 08-16 15:48 | **08-18 16:33** | **0** | `input_data.spec.description` |
+> | site-review-agent / `audit_source` (Tier A) | 2 | 08-17 12:20 | **08-17 12:37** | **0** | `audit_source_literal.audit_source` |
+>
+> **So `tg/function`'s trigger is a DATE, not config drift or a rebuild path.** It is also exactly
+> what §2's own durable baseline predicts: `function` present **46/46** ⇒ Strategy 0 always resolves
+> ⇒ post-prune the search is never asked ⇒ no row can be written. The two facts were already in this
+> file and only needed joining. **`tg/function` is not a hard blocker; it is closed by step 1**, and
+> the demand control agrees (tool-generator 16 runs/24h, class silent since 08-18 16:33).
+> `audit_source` gets the same explanation but keeps a weaker warrant — 0 runs in 24 h, so the wire
+> is unconfirmed rather than confirmed; treat it as *explained, not demonstrated*.
+>
+> **Consequence for the "binding constraint".** §2's call to add step/orchestration attribution to
+> the `resolver_findings` bridge stands on its own merits, but it is **no longer needed for
+> `tg/function`** — the join that answers that case is a timestamp against a roll, which the
+> instrument already carries. Do not spend step 5's first commit on the bridge believing Tier A is
+> waiting on it.
+>
+> **The same cross also fixes the wired/unwired split for the live classes**, which is what the
+> remaining work actually turns on:
+>
+> | live class (rows since step-4 roll) | wired? | disposition |
+> |---|---|---|
+> | bdl / `commit_sha` — 348 | **no** | 315 lane owns the path (Tier B, unchanged) |
+> | tg / `related_pages` — 9 | **yes, and it MISSES** | = `bugs_open/330`; refusal is the DESIRED outcome |
+> | **pbh / `page_type` — 3** | **no** | ⚠ **NEW/REAWAKENED, see §2.1** |
+> | tg / `reason` — 9 | no | ✅ **CLOSED: migration 512, APPROVED + APPLIED 17:38Z** |
+>
+> ### 2.1 pbh / `page_type` — live again, and it is NOT a record-a-decision item
+>
+> It read as quiet-since-08-18 12:07 at 14:30Z and had fired three more times by 15:11Z
+> (15:03 / 15:07 / 15:11Z). Candidates: `load_page_record.page_type`, `page_record.page_type`, and
+> 28 × `{ensure_site_record,site_record}.content_data.pages[N].page_type`. **The winner is
+> `load_page_record.page_type` — the page's OWN record, i.e. almost certainly the RIGHT value** — so
+> under the flip this LOSES a good value. The asker is `plan_sections` (`plan_sections_action.go:54`
+> declares `page_type` Optional; pbh's `plan_sections` step wires nothing), and the explicit mapping
+> is `"page_type": "load_page_record.page_type"` on that step. One key, one migration, **not built**
+> (this session's one migration went to `reason`).
+>
+> ### 2.2 tg / `reason` — CLOSED
+>
+> `create_rerender_items` declares `reason` Optional, `enqueue_rerender` wired nothing, and the
+> search handed it `load_brand_context.specs.classification.content_features.news_feed.reason` out of
+> **42** candidates. Damage nil and the reason is what matters: `reason` acts only when it equals
+> `section_data_resolved` / `image_landed` / `cta_links_stale`
+> (`create_rerender_items_action.go:216-231`), so the substituted prose is inert **by luck of its
+> value, not by design**. Fixed with `input_fields: ["site_id","domain"]` (483's shape — `?` is the
+> wrong tool here: there is no path we want, we want absence). Council **APPROVED r1**, corr
+> `2bd7fb37-cac2-409a-8452-50a7ed933467`; applied 17:38Z, `UPDATE 1`, live row read back.
+> **Verification owed with its floor stated:** baseline at the apply boundary 17:38:34Z was reason 16
+> rows/24h (last 17:08:01Z) against 16 tg runs/24h; the test is reason → 0 **while `related_pages`
+> keeps firing** (if both go quiet the instrument died), and at ~16 runs/24h *n* post-apply runs
+> cannot detect a residual rarer than ~1 in *n*.
+>
+> Full working: NOTES `## 2026-08-20 (~17:4xZ)`. The `?` marker's two-surface trap and its shelf
+> life (inert on `v1.0.1320`; `ecc419bd1` is 17:20Z) are in `LANDMINES.md`, and my own wrong call
+> about it — reading an absence census as proof of a typo when it was an unbuilt feature — is in
+> `WRONG_CALLS.md`.
+
 ### Tier A — HARD BLOCKERS: the field is `Required`, so the flip turns a guess into a FAILURE (2)
+
+⚠ **BOTH ENTRIES IN THIS TIER ARE DISSOLVED BY §2.0 — read it before acting on this table.** Every
+row of both classes pre-dates the step-1 prune roll (18:02:24Z on 08-18), where a wired field's
+search ran and its answer was DISCARDED at the merge. `tg/function` is closed by step 1 with a
+live demand control; `audit_source` is explained on the same grounds but has 0 runs in 24 h, so it
+is *explained, not demonstrated*. The "unidentified trigger" note below is **answered: it is a
+date.**
 
 | pair | action | spec | note |
 |---|---|---|---|
