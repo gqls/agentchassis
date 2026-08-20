@@ -644,3 +644,60 @@ honest label: **reachable by reading, unobserved in production.**
 event with a `site_specs.*`/`site_assets.*`/`query.*` source in the pairing query above, or a
 `STRUCTURAL_KEY_CARRY_MISS` row whose page/slot DID hold the value in the prior generation. Re-run
 the query; it is in the lane RUNBOOK.
+
+### 11.9 — 2026-08-20 later: council APPROVED at round 2, the declaration shipped on v1.0.1319, and the emit still has not fired (because nothing has run)
+
+**Council `8a2aab7c` — APPROVED at round 2** (round 1 REVISE, verdict read before claiming it).
+The round-2 advisory objections and what was done about each:
+
+- **`editquality` (medium) — a `grounded_in` line contradicted the plan's own arming claim.** It
+  was right, and the cause is worth naming because it is a generic resubmission hazard: the line
+  read *"0 rows … the guard is armed nowhere"*, which was TRUE at round 1 and was made false **by
+  migration 504 applying between the rounds**. Round-2 evidence carried forward unchanged becomes
+  a claim about the present. Corrected visibly in the submission rather than deleted, so the trail
+  shows both states.
+- **`tooling_provenance` (medium) — does `subject_type='decision'` / `categories ? 'decision'`
+  collide with `decision_guard.go`?** Checked rather than argued. **It does not, and the reason is
+  that someone already split the vocabulary for exactly this:** the ENFORCEABLE tag is
+  `'decision-record'`, separated from bare `'decision'` on 2026-08-10 *because three pre-existing
+  rows already used `'decision'` to mean "a note ABOUT a decision" — prose, not an enforceable
+  record*. The row written here carries `'decision'` and **not** `'decision-record'`, has no
+  `site_id` and no fences, so it is invisible to enforcement by design and matches the prose
+  meaning exactly. The seat's "missing" item is also answered: `doc_notes_subject_type_check`
+  permits `'decision'` (one of eight allowed values).
+- **`guardian` (medium) — arming a new work-item emitter into a pipeline that is itself paused and
+  backlogged, with no handler and no drain path.** Accurate, and stated in the plan rather than
+  discovered: `dead_url_control` items are born `needs_human_review` with **no handler, by design**
+  — nothing automated can invent a missing image or destination. The drain path is a human, and
+  the volume bound is `insertWorkItem`'s dedup plus the two-strike label. It is a real gap in the
+  sense that items will accumulate unattended; it is not a new one — see §11.4, where the
+  *existing* `image_url_404:empty-src` item for aao `/index.html` has sat at `detected` unworked
+  since before this change.
+
+**The declaration shipped.** `bb6600e48` is an ancestor of **v1.0.1319** (revision `447f3a8a8`,
+controls both ways). So the interim window §11.2 flagged — where the config report named a live,
+working setting as unrecognised, whose stated remedy is to delete it — **is now closed**. That was
+the one cosmetic cost of arming config ahead of a roll, and it lasted one build.
+
+**⚠ The emit has still never fired, and the reason is measured, not assumed.** Since arming:
+**0 `dead_url_control` items, 0 `page_rerender` items, 0 archived generations.** The fleet has not
+re-rendered anything at all. That is the "sustained zero has two readings" case in its benign
+form — the archive count independently establishes "no traffic" rather than leaving it ambiguous —
+but it means the arming is verified **at the config and at the code path, not at the artefact**.
+
+The code-path verification, done because this exact file has been bitten by it before (council
+round 1 on migration `473` objected that the action might read `ExecutionContext.Config` while the
+migration wrote step-level config — *"two distinct maps"*):
+`recordDeadURLControls(params.StepConfig.Config)` reads the **same map** as
+`shouldStripLiteralMarkdown(params.StepConfig.Config, reason)`, and `strip_literal_markdown` is
+already `true` at the identical path — visible in 504's own BEFORE output, shipped by `473`, and
+documented live. **The key is in the map the code reads, proven by a sibling flag already working
+there**, with no production dispatch.
+
+**The one experiment that would close it is named and NOT run** (§11.10 in the lane NOTES): a
+379-shape `page_rerender` at aao `/index.html`. It is an outward-facing action on a live customer
+site, and `bugs_open/229` says a rebuild silently discards hand-patched `rendered_html` with no
+divergence warning. The merge cannot lose a KEY — that is structural — but that is not the same
+claim as "cannot overwrite hand-edited markup". **Owner's call.** Check first whether ordinary
+traffic has already done it: `SELECT count(*), max(created_at) FROM site_work_items WHERE
+item_type='dead_url_control';`
