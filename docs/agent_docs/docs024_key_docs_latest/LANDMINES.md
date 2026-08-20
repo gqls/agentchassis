@@ -13401,3 +13401,33 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's `pages.rendered_header`/`rendered_footer`/`rendered_head` VESTIGIAL entry (the same columns, met from the other side — a human looking for chrome vs a loop looking for it) · `bugs_closed/270` (the check that reads those columns and therefore flags every page) · `bugs_open/252` og/lang slug (the filing that produced this) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] and the standing rule "trust the rendered artefact, not the status" — same lesson, met at the diagnosis layer rather than the repair layer
 - **source:** 2026-08-20, `bugfix_252_og_lang_assembly` lane — the run was filed deliberately under CLAUDE.md's 2026-07-31 ruling for a cross-cutting claim, and its limitation is the finding
 - **added:** 2026-08-20, `bugfix_252_og_lang_assembly` lane
+
+### A `triaged` work item can now be LEGITIMATELY UNCLAIMABLE for hours — and every "why is this stuck?" query written before 2026-08-20 omits the column that says so
+
+- **footprint:** `site_work_items.retry_after`, `claim_work_item_action.go`, `LoadWorkItemsAction` (`load_work_item_actions.go`), `scheduled_tasks.build-pipeline-trigger.pre_query`, the `find_dispatchable_site` query inside `agent_definitions`, `applyWorkItemFailureLadder` (`work_item_failure_ladder.go`), migrations `505`/`506`, `reaper_policies`
+- **fires when:** you look at a `triaged` row with `attempt_count < max_attempts` on an unlocked site, see that nothing has claimed it for an hour, and start diagnosing a wedged dispatcher, a dead queue or a starved loop. Since `bugs_open/307` (migration `505`, applied 2026-08-20) a failed attempt stamps `retry_after` and **four** read sites refuse to claim before it: both Go ones and both DB-resident ones. A waiting row and a wedged row are **byte-identical** in every column anyone was looking at before that date.
+- **the check — one column, and it is not in any pre-2026-08-20 query:**
+  ```sql
+  SELECT id, status, attempt_count, max_attempts, retry_after,
+         retry_after > NOW() AS waiting_deliberately,
+         spec->>'transient_releases' AS free_releases_used, error
+  FROM site_work_items WHERE id = '<the row>';
+  ```
+  `waiting_deliberately = t` means the system is working, not stuck. The wait is `reaper_policies.backoff_minutes × attempt` (queue `site_work_items`, per-`item_type` row overriding `__default__`, default 30) — so 30 min then 60 min on a `max_attempts=3` item, and up to 15 min per burst release on top.
+  **The fleet-wide version, which is the one to run before alarming:**
+  ```sql
+  SELECT count(*) FILTER (WHERE retry_after > NOW()) AS waiting,
+         count(*) FILTER (WHERE retry_after IS NULL OR retry_after <= NOW()) AS claimable
+  FROM site_work_items WHERE status IN ('triaged','approved') AND attempt_count < max_attempts;
+  ```
+  If `claimable` is 0 and `waiting` is not, the queue is **paused, not broken** — and that is very likely an infrastructure outage in progress, which is the whole point.
+- **THE SECOND FACE, and it is the dangerous one: the backoff can be SILENTLY INERT while everything reports success.** The chassis binary deliberately tolerates the column being absent — it latches the pre-migration statement shape on SQLSTATE 42703 and logs it once — so a rolled-back `505`, or a binary that reached a database where the migration was never applied, keeps writing failures perfectly happily **with no wait at all**, which is the pre-307 behaviour that let 88 of 100 items die in one outage. Nothing in the row, the status or the step result says so. **Prove the backoff is live by finding a stamp, never by the absence of complaints:**
+  ```sql
+  SELECT count(*) FROM site_work_items WHERE retry_after IS NOT NULL;   -- 0 = NOT LIVE (or no failures yet)
+  ```
+  ⚠ That query cannot distinguish "inert" from "nothing has failed since the roll", so pair it with a demand control — a known recent failure. On a healthy fleet the honest reading of 0 is *"I have not yet seen it work."*
+- **the third face: `retry_after` is NULL on a terminal row by design.** The ladder clears it when the item reaches `failed`, so you cannot use "has a stamp" to find items that were ever retried. The durable trace of a *free* retry is `spec.transient_releases` (and `spec.last_transient_release`), not `retry_after`.
+- **do NOT reach for a parking status instead** if you are tempted to build something similar: `blocked` is drained every 600s by `feasibility-recheck`, which has **no timestamp condition** and sets `error = NULL`, so a cooldown parked there survives ten minutes and loses its reason (this is also why the table has held **zero** `blocked` rows for its entire history — drained, not unused); `deferred` is absent from `idx_swi_dedup`'s exclusion list, so the row keeps its dedup slot and its own detector cannot re-file it. A nullable timestamp on a row that stays `triaged` was chosen because it perturbs neither.
+- **relations:** register **WII-024** (the failure-write contract) · **SCH-024 / RFC_018** (`reaper_policies`, whose numbers this reads — the second consumer that RFC was waiting for) · this file's *"a periodic write to an open work item makes it UNREAPABLE for ever"* (WII-018 — the ladder writes ONCE per failure event for exactly that reason, and now also clears `claimed_at`, which makes a re-triaged row reapable at 48h where it was previously immortal) · this file's *"`deferred` is the ONLY parking state — a `blocked` one un-parks itself within 600s"* (the entry that made the column the right answer) · `bugs_open/307`
+- **source:** 2026-08-20, `bugfix_307_terminal_write_contract` lane — written when the mechanism shipped, before anyone has had the symptom
+- **added:** 2026-08-20, `bugfix_307_terminal_write_contract` lane

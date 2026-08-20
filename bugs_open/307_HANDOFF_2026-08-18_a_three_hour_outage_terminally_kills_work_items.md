@@ -208,3 +208,112 @@ the item to queued"). Interaction warning inherited from the contribution: the o
 should land before or with anything that widens status vocabulary further. This is a coherent
 council-gated piece; whoever builds it should treat this section as the spec's skeleton and
 the two measured populations (88/100, 12/100 → five agents) as its regression fixtures.
+
+---
+
+## §8 — 2026-08-20: §7's converged contract is BUILT, submitted and half-live (`bugfix_307_terminal_write_contract` lane)
+
+**Status: Go half COMMITTED (`069015add`) and INERT until the next chassis roll; DB half
+APPLIED and deliberately inert until then.** Council corr `4cdec68b-fa17-436d-8e25-8c422ee6c8c5`
+(`Council-Submitted:` trailer — **no verdict claimed**). Register entry **WII-024**, written in
+the same commit as the seam. Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_307_terminal_write_contract/`.
+
+**This bug stays OPEN.** The defect is still reproducible until the chassis rolls, and the
+acceptance evidence in §5 is a live one: the next adapter outage leaving zero terminal `failed`
+rows attributable to it.
+
+### What was built, against §7's skeleton
+
+One helper, `applyWorkItemFailureLadder` (`platform/orchestration/actions/work_item_failure_ladder.go`),
+through which **both Go failure writers** now write. It carries all four of §7's requirements:
+attempts honoured (the ladder), terminal decisions never overwritten (the guard), transient
+classification releasing without consuming an attempt **but always with a not-claimable-before
+cooldown**, and §4.1's burst detector as the transient signal. New column
+`site_work_items.retry_after` (migration `505`), honoured by **four** read sites — `claim_work_item`
+and `LoadWorkItemsAction` in Go, `build-pipeline-trigger.pre_query` and its `find_dispatchable_site`
+selector in SQL (migration `506`).
+
+§4's candidates as they landed: **candidate 1** (burst, not string) and **candidate 2** (backoff)
+both shipped, together, because §7 is right that separately they leave the seam as it was.
+**Candidate 3** (extending `isAIUnavailable`'s string list) was **not** done and should not be —
+see the correction below. **§4.4's demand** — that the 12-at-attempt-1 path be put through the
+same ladder — is met: `update_work_item_status`'s `failed` arm now calls the same helper.
+
+### Corrections to this file, from building it
+
+1. **§2.2's tell is contaminated, and the correction matters to anyone re-running its census.**
+   `handled_by IS NULL` does not mean "written by `update_work_item_status`". A **fifth** writer
+   leaves it NULL too: the `claimed-item-timeout` scheduled task (enabled, every 120s) runs its
+   **own** copy of the CASE ladder in raw SQL. [MEASURED 2026-08-19] 23 `failed` rows in 14 days
+   carry its `Claim timed out…` error, 18 of them `tool-auditor` at `attempt_count=3` with
+   `handled_by` NULL. Two further writers set `handled_by` on `complete`-only paths
+   (`plan_sections_action.go:2606`, `apply_gap_plan_action.go:1164`). The §2.2 attribution still
+   holds for the rows it named, but the predicate needs `AND error NOT LIKE 'Claim timed out%'`
+   to stay honest. **That task is left unchanged and is now the one remaining divergent writer** —
+   named as a residual rather than quietly folded in.
+2. **The outage is not the larger half of this bug.** [MEASURED 2026-08-19] **141 of 270** failed
+   rows in 14 days died before exhausting their budget — **52%**, rising to **71%** over the last
+   48 hours — and **139 of those 141** were at `attempt_count=1` with `max_attempts=3` and
+   `handled_by` NULL, i.e. the §2.2 path, in fair weather. `content_rewrite` (61), `needs_page`
+   (35) and `needs_content_page` (18) are 114 of the 159 `handled_by`-NULL failures, all routed
+   to `page-build-handler.mark_item_failed`. **The incident was the alarm; the daily bleed is the
+   fire.** A fix that had shipped candidate 2 alone would have repaired 88% of the incident and
+   none of this.
+3. **§4.1's "release to `triaged` … or a `blocked` status until a timestamp" — the `blocked` half
+   is not available.** `feasibility-recheck` (enabled, every 600s) releases **every** `blocked`
+   row whose handler exists, with **no timestamp condition**, and sets `error = NULL`, destroying
+   the reason. That is also why the table holds **zero** `blocked` rows and always has: drained,
+   not unused. `deferred` fails differently — absent from `idx_swi_dedup`'s exclusion list, so the
+   row holds its dedup slot and its own detector cannot re-file it. Hence a column.
+4. **§4.3 is weaker than written, and for a reason worth recording: the shared classifier does not
+   match this incident either.** `RetryDisposition` (RSH-007) returns `(false, "")` for
+   `github API request failed with status: 404 Not Found` — both needle lists miss it. §2.3 says
+   "the git-adapter error never enters `isAIUnavailable`"; the fuller truth is that **no string
+   classifier in the estate classifies it, and none should**, because a deleted repo emits the
+   same bytes. This is what makes §4.1 the only candidate that can satisfy the owner's ruling for
+   this class, and it is why the two classifiers are **layered** here rather than one replacing
+   the other (their needle sets disagree in both directions — `EOF`/`401`/`402`/`credit`/`api key`
+   on one side, `temporary`/`service unavailable`/`bad gateway` on the other).
+5. **`agent_error_log.site_id` is 89.8% NULL over 7 days** — and **2,025 of 2,084 rows were NULL
+   inside the 2026-08-17 outage window itself**. A burst detector keyed on distinct *sites*, which
+   is the natural reading of §4.1's "DIFFERENT sites/types", **would not have fired during the very
+   outage it exists for**. It keys on `domain` (0% NULL). It also cannot key on `error_code`:
+   `agenterrors.ClassifyError` labels this 404 `LLM_API_ERROR`.
+
+### The false-positive measurement §4.1 needs, and its limit
+
+[MEASURED 2026-08-19, 7 days excluding the outage] With the conjunction ≥10 matching rows, **≥2
+distinct domains AND ≥2 distinct agent types** in 10 minutes: exactly **three** signatures fire —
+Kafka partition-leader (3,517 rows / 47 agent types / 23 domains), an Anthropic usage-limit, and
+this git 404. **All three are genuine infrastructure outages; zero single-item permanent faults
+fire**, including ones that failed repeatedly (`rebuild_protected`, `save_page_sections: SEC…`,
+claims-floor blocks) — they are single-domain and single-agent-type by nature, which is the
+conjunction doing its job. ⚠ **That evidence rests on ONE dominant incident**, so it establishes
+that the *conjunction* discriminates, not that N=10 is the right N. Thresholds are env-tunable and
+this limit is stated in the submission rather than hidden.
+
+### §5's verification, as implemented
+
+The replay-shaped test exists (`work_item_failure_ladder_test.go`, 15 tests — the **first** ever to
+drive this path; before today `grep fail_work_item` across `*_test.go` returned two prose mentions
+and no test). It includes §5(c), the disconfirming case: a lone permanent 404, same error text as
+the outage, must still reach `failed` in three attempts. Five mutations were applied, run and
+restored — dropping `wont_fix` from the guard list, never building the guard clause, never stamping
+`retry_after`, dropping the agent-type leg of the conjunction, and releasing a `max_attempts=1`
+one-shot item — each caught by a named test.
+
+**Still owed before this bug closes:** the roll, then the artefact check (build-provenance stamp
+per service + `merge-base`), then §5's live acceptance. Plus one demand control on the guard, whose
+effect is currently **unprovable from data** — both writers write `failed`, so no query separates
+"the handler said failed and it stood" from "the loop overwrote it". The 9 live `wont_fix` rows are
+the population where an overwrite would now be visible.
+
+### Residuals deliberately left open, with their owners
+
+- `fail_work_item`'s `status_override` branch: untouched. `bugs_open/033` **D2** owns it, with its
+  own owner ruling of 2026-07-25.
+- `claimed-item-timeout`'s duplicate SQL ladder: the fifth writer, unchanged (WII-002).
+- `update_work_item_status`'s six `needs_human_review` and six `complete` steps still increment
+  `attempt_count` on every write. Not a failure path, so out of scope here — but it means a
+  parked item's attempt count is not a count of attempts.
