@@ -1,6 +1,9 @@
 package actions
 
 import (
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -232,5 +235,41 @@ func TestCollectUniqueValue_ConflictBeatsFound(t *testing.T) {
 	}
 	if !found {
 		t.Error("found should still be true — the caller distinguishes 'absent' from 'ambiguous'")
+	}
+}
+
+// Council round 3, editquality advisory: the stamp statement is built with a
+// conditionally-included clause AND a conditionally-appended arg. Those are two
+// facts that must agree and nothing forces them to — a literal "$3" beside an
+// append is a runtime error waiting on whichever branch the tests miss.
+//
+// This calls the REAL construction (buildPageDeployStampQuery), which is why it
+// was extracted: the first version of this test mirrored the code, and a mirror
+// passes happily while production is broken.
+func TestStampStatementPlaceholdersMatchArgs(t *testing.T) {
+	re := regexp.MustCompile(`\$(\d+)`)
+	for _, guardRan := range []bool{false, true} {
+		q, args := buildPageDeployStampQuery([]interface{}{"page-id", "deployed"}, guardRan, "abc123")
+
+		highest := 0
+		for _, m := range re.FindAllStringSubmatch(q, -1) {
+			n, err := strconv.Atoi(m[1])
+			if err != nil {
+				t.Fatalf("unparsable placeholder %q", m[1])
+			}
+			if n > highest {
+				highest = n
+			}
+		}
+		if highest != len(args) {
+			t.Errorf("guardRan=%v: statement references up to $%d but %d args are supplied — psql would reject this at runtime on the deploy path",
+				guardRan, highest, len(args))
+		}
+		if guardRan && !strings.Contains(q, "content_hash") {
+			t.Error("guardRan=true but the statement does not write content_hash")
+		}
+		if !guardRan && strings.Contains(q, "content_hash") {
+			t.Error("guardRan=false but the statement touches content_hash — an unarmed path must leave the column entirely alone")
+		}
 	}
 }
