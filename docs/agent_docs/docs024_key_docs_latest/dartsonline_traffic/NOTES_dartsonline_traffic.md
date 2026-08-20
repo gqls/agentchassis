@@ -1083,3 +1083,50 @@ Related, and the reason this matters beyond arithmetic: the news_editorial lane 
 so a broken site audits cleaner. One inflates a total with guesses, the other deflates it with
 absences, and both look like measurements. Now a LANDMINE entry of its own, cross-referenced to
 the `overImage` one with an explicit "do not confuse these".
+
+### CORRECTION 2026-08-20 (evening) — `retry_after` DOES exist now, and my inference from its absence is withdrawn
+
+Earlier today this file recorded, under "Two facts worth carrying":
+
+> **`retry_after` does not exist in the live `site_work_items`**, though HEAD's
+> `claim_work_item_action.go` references it (bugs_open/307, migration 503). So the running
+> chassis predates that clause. […] it dates the deployed image relative to the tree.
+
+**The measurement was true at 10:22 and is false at 18:20** — `information_schema.columns` now
+returns `retry_after` for `site_work_items`. Someone applied migration 503 during the day. The
+observation stands as a timestamped fact; **the inference built on it does not**, and that is the
+part to withdraw: a missing column dates nothing on its own, because a migration can land between
+two of your own queries. On this tree that is not a remote possibility — it is a Wednesday.
+
+Concretely, the claim "the running chassis predates that clause" was never supported by the
+absence of the column: the column is applied by a migration, the clause ships in an image, and
+the two move independently. Had I wanted to date the image, the one command that does it is
+`kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'`,
+or the binary probe when that has scrolled — per CLAUDE.md, and per the standing rule that a
+deploy is proven at the artefact and never inferred.
+
+**What the column's arrival actually changed:** the `build-pipeline-trigger`'s selector reads
+`AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())`. Had that column still been missing at
+18:20, that query would error on every 60-second tick and NOTHING would dispatch fleet-wide.
+It doesn't, and the fleet is draining — so this correction is also the check that the batch below
+is queued rather than broken.
+
+### Why the week-1 batch sat at `triaged` for 40+ minutes — queued, not stuck
+
+Measured rather than assumed, because "it will come" and "nothing will ever claim this" look
+identical from the item's own row:
+
+- dartsonline has **no `claimed` item**, so it is not blocked by itself — the selector skips any
+  site with one (`NOT EXISTS (… active.status = 'claimed')`).
+- The trigger takes **ONE site per 60-second tick**, `ORDER BY wi.created_at ASC … LIMIT 1` — i.e.
+  the site owning the single oldest triaged item fleet-wide.
+- **63 triaged items across 4 other sites are older than mine**, the oldest dating from
+  **2026-08-18 18:16** — two days. So dartsonline is fifth in line by oldest-item age.
+- The fleet IS moving: `page_rerender` items on webdesign.co.uk and robot-hands.com completing
+  roughly every minute at the time of checking.
+
+So: expect the four articles over the evening, not in minutes, and **do not re-fire them** — a
+duplicate dispatch is the documented cost of reading latency as a drop (`bugs_open/030`, and
+CLAUDE.md's council-gate note about the same mistake). The cheap check that distinguishes the two
+is the one above: is the site self-blocked by a `claimed` row, and how many older triaged items
+stand in front of it.
