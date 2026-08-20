@@ -39375,3 +39375,38 @@ spending the second build.
 file whose whole purpose is that lookup, and in one case I was the author. A written check only
 fires if something makes you go and read it — so the moment to grep the corpus is **when you form
 the plan**, not when the result looks wrong, because by then the spend has happened.
+
+## 2026-08-20 — I answered a council objection with a pod COUNT when the quantity that mattered was pod STARTS (bugfix 299 lane, RFC_040/BLD-023)
+
+**The wrong call:** the council's `guardian` seat raised a medium objection against the new
+capability writer — a new DB connection at chassis startup, "on every pod of a ~41-replica
+fleet, every roll … connection-budget risk against pgbouncer … this needs confirmation, not
+assumption." I set out to close it by measuring, and measured **5**: `kubectl get pods` showed
+2 `agent-chassis`, 1 `business-intel`, 1 `vet-intel`. Against `max_connections=400` with 10 in
+use, I was ready to record the concern as negligible and the seat's figure as mistaken.
+
+**The seat was right and my measurement was the wrong measurement.** The chassis binary does not
+only run in long-lived Deployments — it also runs as **ephemeral per-job pods**
+(`agent-page-rerender-*`, `agent-page-build-handler-*`, `agent-build-dispatch-loop-*`,
+`agent-site-publisher-*`). A snapshot count of live pods cannot see them, because each exists
+for seconds. The real rate is roughly **52 pod starts per hour**, ~191 distinct pods in the
+first 3h40m.
+
+**What caught it:** the mechanism's own first live run. Reading `service_binary_capabilities`
+to collect RFC_040's acceptance evidence showed **191 distinct `pod_name` values** when only
+82 pods existed — and 75,827 rows / 24 MB accumulated in under four hours. The registry I built
+to answer "what is actually running" answered a question I had not asked, and contradicted me.
+
+**The cheap check that would have:** when a claim is about load, the denominator is almost never
+a snapshot. Ask for the RATE, not the count — `SELECT count(DISTINCT pod_name) … WHERE
+started_at > now() - interval '1 hour'`, or for an unlaunched mechanism, enumerate the
+*workload kinds* that run the binary (`Deployment` AND `Job`/`CronJob`), not the pods that
+happen to exist. This is the memory index's *"a label-scoped pod grep samples a fraction of the
+fleet"* one level up: there, the snapshot was too narrow; here, a snapshot of ANY width was the
+wrong shape of number.
+
+**Cost:** a real defect shipped — the table had no retention and would have grown ~160 MB/day
+unbounded. Caught the same day by its own evidence, fixed with a self-limiting prune on the
+write path, 73,445 dead rows removed by hand. **And a near-miss worth more than the defect: I
+was one step from writing "measured 5, concern does not apply" into a council record, which
+would have retired a correct objection with a confident wrong number.**
