@@ -460,3 +460,25 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   still shows defects. That is the check's design (DB-is-not-the-website); the served
   gap remains the rerender lane's routed follow-up, and closing the repair rows is
   correct because the repair half genuinely succeeded.
+
+## 2026-08-20 ~07:40Z — RETRACTION PROVEN LIVE: 16 stale rows drained, dirty rows correctly stayed; one kcat drop caught by three absences
+
+- The three induced discovery runs COMPLETED within a minute of dispatch. **Retraction at
+  the artefact:** dartsonline.com 3→0 open (all `complete`, result reason "literal_markdown
+  re-scan: page's unlocked components carry no markdown syntax on either surface");
+  robot-hands.com 9→0; webdesign.co.uk 4 closed, **42 correctly remain** (owned/ported
+  pages scan dirty in stored rendered_html — the 301/tool-rebuild population, plus the
+  human-review row). The closed bug's last self-closing claim is now witnessed, not
+  assumed. My worry that the orchestrate wrapper was a no-op ("scheduled task pre_query
+  already did the work") was wrong in the way that matters: the dispatch DID drive the
+  checks; the artefact (the drained queue) is the proof, per house rules.
+- The robot-hands stale-deploy caveat stands as pre-stated: its items closed on stored
+  surfaces while news.html still serves the 08-11 file — the rerender lane's routed gap,
+  not a retraction defect.
+- **The FIRST rerender witness dispatch (corr `343edda2`) never arrived** — kcat -P
+  silent-drop landmine, live: kcat exited clean, but (1) no row by corr, (2) zero
+  page-rerender rows in a window where 32 other orchestrations spawned, (3) zero hits in
+  either label pod's logs. One drop in four dispatches through the identical `-c 1`
+  heredoc pattern — `-c 1` reduces, does not eliminate. **Re-dispatched as corr
+  `5dc60934`** — a legitimate re-run because the first act provably never happened
+  (contrast yesterday's council double-submit, where it had).
