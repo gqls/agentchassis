@@ -123,6 +123,14 @@ wells west wheeler white wilkinson williams williamson willis wilson wood woods
 wright young
 """.split())
 
+# Words that look like "forename + initial" but are ordinary nouns. `billz.uk`
+# was returned as NAME ("bill" + initial "z") and the owner corrected it: it is
+# about BILLS. The forename+initial rule is the loosest in the tool — a
+# three-or-fewer-letter forename plus one letter matches a great many plurals and
+# brandables — so this is the exception list it needs rather than a rule change,
+# because "alexj.uk" is still a person.
+NOT_NAMES = {"billz", "billsz", "markz", "jobz", "dealz", "cashz", "loanz"}
+
 PERSONAL_TLDS = {"me.uk", "name"}
 
 
@@ -157,6 +165,8 @@ def classify(domain, words):
         return d, "NO", "label has unexpected characters"
 
     clean = label.replace("-", "")
+    if clean in NOT_NAMES:
+        return d, "NO", "on the not-a-name list (an ordinary word, not a person)"
     # An explicit commercial token anywhere settles it.
     for tok in re.split(r"[-]", label):
         if tok in COMMERCIAL:

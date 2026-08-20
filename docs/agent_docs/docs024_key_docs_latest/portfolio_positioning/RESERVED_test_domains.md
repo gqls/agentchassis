@@ -1,5 +1,27 @@
 # RESERVED — register-free test domains
 
+> **⚠ SIMPLIFIED BY THE OWNER, 2026-08-20:** *"The 50 test domains are for us testing here, so no
+> special status needed, just keep them out of the list to build for now."*
+>
+> **So the reservation MECHANISM below is not wanted, and should not be built.** No
+> `reserved_test` state on the register row, no exemption from the collision invariant, no
+> ceremony. These are simply **an exclusion list for the build queue** — do not build them yet,
+> use them for testing here.
+>
+> That removes the concern this file was written around (that "no entry" would read as "nobody
+> got to it yet" and a gap-filler would destroy the control). It only mattered if the domains
+> needed to stay register-free permanently. They do not: they are our test bench, and if one
+> later earns a register entry, nothing is lost.
+>
+> **What survives is the list itself and the selection rules** — not in the register, not a
+> near-variant of a registered domain, parked not serving, not a person's name. Those still
+> matter, because a test build on a twin of a live site would compete with it.
+>
+> **Plus one extra, for use right now in another lane: `garden-tools.uk`** — parked, not in the
+> register, not among the 50. Chosen deliberately: a subject that naturally exercises guides, a
+> supplier/brand directory, a calculator-shaped tool and editorial, with no regulated angle to
+> entangle the first test in compliance machinery.
+
 **Owner instruction, 2026-08-19:** *"also leave me a bunch of domains (50?) unregistered as test
 domains that I can run without the register."*
 
