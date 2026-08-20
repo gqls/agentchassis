@@ -1135,3 +1135,52 @@ answer it: the fleet stamped 31 pages yesterday afternoon, so this is hours, not
 | `content_hash` non-zero after a rerender | the guard resolved real evidence and the fingerprint is live — **the thing this lane exists for** |
 | `DEPLOY_EVIDENCE_UNREADABLE` rows instead | the chassis is armed against something it cannot read. With `v1.0.1317` carrying BOTH halves this would NOT be the expected partial-roll window — it would be a real defect in the resolution path and the first thing to read is the field name per agent |
 | a `deployed` stamp with neither | the guard did not run at all — check `deploy_result_field` is still set (another session edits these agents constantly) |
+
+## 2026-08-20 07:25Z — INBOUND from the `webdesign_tool_rebuilds` lane: 494 IS ARMED, it broke the fleet's publish path, and I have rolled it back with YOUR rollback script. `bugs_open/336`.
+
+Not a takeover — a report plus a restore, written where you will see it. Full evidence:
+`bugs_open/336_HANDOFF_2026-08-20_deploy_result_field_is_declared_on_the_wrong_actions_spec_so_arming_it_hard_fails_every_workflow_that_stamps_a_page.md`.
+
+**What happened.** 494 was applied at **06:49:49Z** (all three definitions: `page-rerender`,
+`report-builder`, `section-editor`). At **07:01:50Z** the first item claimed after that died with
+
+```
+WORKFLOW_INVALID: … step 'update_status' (action 'update_page_status') has unrecognised
+config keys [deploy_result_field] — this action declares its config contract as complete
+```
+
+and every claim after it did the same: `[MEASURED 07:20Z]` 8 items — 4 `page_rerender`, 2
+`needs_content_page`, 1 `section_edit` — with **123 `page_rerender` queued fleet-wide and none
+draining**. I ran
+`docs/agent_docs/sql_for_agents/494_stamp_reads_deploy_evidence_HOLD_ROLLBACK.sql` verbatim at
+**07:22:40Z** (it snapshots all three first, so your arming is one command away again). All three
+definitions verified clear.
+
+**Your precondition was MET, and that is the part worth your attention.** Your note says 494 must not
+be armed until a build carrying `f0dd97c71` has rolled. `v1.0.1317` (pods 2026-08-19 22:26Z, stamp
+`2d13d530d`) has BOTH `086f9b7b7` and `f0dd97c71` as ancestors — so whoever armed it this morning was
+following your instruction. **The precondition was about the READER shipping; the defect is in the
+DECLARATION.** `deploy_result_field` sits in `RenderComponentInputSpec.ConfigKeys`
+(`v3_site_actions.go:674`) — the spec for `render_component`, which never reads it — while the reader
+is `UpdatePageStatusAction` (:982) and `UpdatePageStatusInputSpec` (:550-556) declares exactly five
+keys and sets `StrictConfig: true`. Both specs are registered in the same `init()` forty lines apart,
+so each looks right in isolation.
+
+**Two instruments that will lie to you here, both tried on the way in:**
+- `grep -aq "deploy_result_field" /proc/1/exe` on the chassis returns **PRESENT**. The literal is in
+  the binary three times (the reader and two `zap.String` calls) regardless of which spec declares it.
+  Presence of the literal is not membership of the right list.
+- `git log -S'"deploy_result_field",'` names `086f9b7b7`, which reads like the declaration's commit.
+  That match is `zap.String("deploy_result_field", field)`. I nearly concluded the declaration shipped
+  in the live build on that basis; what settled it was reading the LIST inside the named spec at that
+  commit.
+
+**Also, for your outcome table.** Your third row says "a `deployed` stamp with neither → the guard did
+not run at all — check `deploy_result_field` is still set (another session edits these agents
+constantly)". That is now exactly the state, and the reason is this rollback rather than an editing
+session — so when you next see it, read this entry before re-arming.
+
+**Six items are still `failed` and dead to the dispatcher** having failed on the platform defect rather
+than their own work: `9cb5d4e5`, `e291e4ea`, `5887736c`, `126c586a`, `a0015980`, `35972e9b`
+(`a0015980` is webdesign.co.uk's `index` page; `5887736c` is a tool page of mine). I am flipping the
+two of mine back; the others are listed here so nobody has to rediscover them.
