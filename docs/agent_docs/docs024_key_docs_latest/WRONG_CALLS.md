@@ -39571,3 +39571,29 @@ arming. They were meant as a convenience for whoever read the result first. What
 was make the discrepancy *legible* — "this is none of the four" is a much sharper prompt to keep
 digging than "hmm, zero". Pre-registering what the outcomes mean is cheap and it paid for itself the
 first time it was used.
+
+## 2026-08-20 — I extrapolated a daily rate from a burst window, and published it three times (bugfix 299 lane, BLD-023)
+
+**The wrong call:** having found the capability table leaking, I measured its first 3h40m —
+75,827 rows across 191 pods, 24 MB — and wrote "~500k rows and ~160 MB **per day**, unbounded"
+into a commit message, the concept register and `RFC_040`. Re-measured over the next three quiet
+hours: **3, 1 and 5 pod starts per hour**, about 1,200 rows/hour. **The daily figure was roughly
+17× too high.** The window I happened to measure contained a fleet rerender wave — including my
+own three rerenders of the very page I was fixing.
+
+**What caught it:** re-reading the table hours later to check whether a new build had rolled.
+The number had stopped moving anything like as fast, and the per-hour breakdown said why in one
+`GROUP BY date_trunc('hour', …)`.
+
+**The cheap check that would have:** before extrapolating any rate, **bucket the window you
+measured** — one `GROUP BY hour` shows immediately whether you sampled a plateau or a spike.
+And ask what was running: I knew a rerender batch was in flight, because part of it was mine.
+General form, and it is the sibling of "your measurement answers the question you ENCODED": **a
+rate is a claim about a period, so a single interval cannot establish one** — the same shape as
+"2 clean runs cannot establish stability", pointed the other way.
+
+**Cost:** none operationally — the fix (a retention prune) is correct either way and was needed
+regardless. What was wrong was the **urgency**, and urgency is what a reader acts on: an owner
+reading "160 MB/day" might reasonably have interrupted a release for it. Corrected in place in
+all three documents, with the honest range (3–52 pod starts/hour, depending on rerender
+activity) rather than a single figure that will be wrong again next week.

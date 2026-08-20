@@ -396,7 +396,16 @@ scale the design did not anticipate.
 per-job pods** — `agent-page-rerender-*`, `agent-page-build-handler-*`,
 `agent-build-dispatch-loop-*`, `agent-site-publisher-*` — at roughly **52 pod starts per hour**,
 each writing ~400 rows and dying. Measured 3h40m after go-live: **75,827 rows, 191 pods,
-24 MB**, extrapolating to ~500k rows and ~160 MB **per day, unbounded**.
+24 MB**, which I extrapolated to ~500k rows and ~160 MB **per day**.
+
+> **CORRECTED 2026-08-20, same day: that daily figure was ~17× too high, because I extrapolated
+> a BURST.** The 3h40m window I measured in contained a fleet rerender wave (plus my own three
+> rerenders of webdesign.uk/index). Re-measured over the three quiet hours after the manual
+> prune: **3, 1 and 5 pod starts per hour** — about 1,200 rows/hour, not 20,000. The leak is
+> still real and still unbounded without a prune, but its *urgency* was overstated: the honest
+> statement is **3–52 pod starts/hour depending on whether a rerender batch is running**, and a
+> day's growth depends entirely on fleet activity. Recorded because the fix was right and the
+> number was not, and a number in an RFC outlives the session that wrote it.
 
 So `Touch` being uncalled was not the "stated gap" this RFC filed it as — it was half of a live
 leak. **Corrected in the same session:** a retention prune on the same path that creates the
