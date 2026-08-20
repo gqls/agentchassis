@@ -140,3 +140,47 @@ it"* stopped being the assumption the seat objected to.
 `ade78a426`]: 173 registered specs · 82 opted into unknown-key detection · 16 with non-empty
 `ConfigKeys` · **91 not opted in at all** · exactly **2** `StrictConfig`, both verified clean. So the
 LOUD class has zero live instances and the SILENT class is the whole of the surface.
+
+---
+
+## Round 2 verdict, 17:40:03Z — APPROVED, and what the two surviving objections were worth
+
+**APPROVED, "all reviewers approve", 13 seats, none gating.** `guardian` went from a high-severity
+gating objection to **zero** on the evidence alone — no code changed between rounds. `bug_historian`
+and `reuse_agent`, whose round-1 objections produced RFC_045, both approved with none.
+
+**Neither surviving objection was banked, and both paid.**
+
+- `prior_art_librarian [medium]` called my "none of the twelve modes does the read half" an
+  **asserted absence** — its exact remit, and a fair hit. Checked:
+  `grep -ln "go/ast\|go/parser\|go/token\|packages.Load" cmd/config-key-audit/*.go` → no matches;
+  the package's only two `os.ReadFile` calls (`optionalbudget.go:90`, `sharedoutputs.go:270`) read
+  **acknowledgement files**, not source. **The absence HOLDS**, and is now measured instead of
+  asserted.
+- **The same check refuted a different claim — the one in the handoff that sent me here.** Loose
+  end 3 said the mode belongs in that tool *"where the source-scanning machinery lives"*. It does
+  not live there: `cmd/config-key-audit` scans the fleet DB and imports the live spec registry, and
+  has never read a line of Go. A package with no parser import cannot be where a source scanner
+  lives. Corrected in `RFC_045` §8.2 and in the handoff itself. **One check, run for claim A,
+  falsified claim B that nobody had questioned** — worth remembering as a reason to run the check
+  even when you are confident of the claim it targets.
+
+### My own misstep this round, and it drew a real objection
+
+`editquality [low]` flagged that Test 3's sketch depended on `specHasKey`, `handlerBody` and
+`configReads`, "not defined in this file and not shown to exist elsewhere". **Correct: only
+`specHasKey` exists.** I reconstructed the sketch from the test's *header comment* rather than
+pasting its *body*, and invented two plausible helper names. The shipped test does the scan inline
+and passes; the fiction was entirely in my submission.
+
+The runbook warns in bold that reviewers judge the sketch because it is the only view of the code
+they get, and the documented failure there is a *stale* sketch. This is a worse variant — a
+**fabricated** one — and it survived into an approved verdict. **The cheap check is one line before
+submitting:** for every symbol a sketch names, `grep -n "func <name>" <file>`; or simply paste the
+real body, which costs nothing and cannot be wrong.
+
+Reading the real Test 3 afterwards showed it is *better* than my sketch implied: it strips comment
+lines so a key merely discussed in prose is not read as an access (this file documents its own keys
+at length), it skips framework-injected keys via the exported `datahelpers.IsFrameworkStepConfigKey`,
+and it carries two `t.Fatal` guards whose only job is to stop a broken scan passing silently. Those
+are the three things a fleet-wide version will need at 173× the scale, and they are already written.
