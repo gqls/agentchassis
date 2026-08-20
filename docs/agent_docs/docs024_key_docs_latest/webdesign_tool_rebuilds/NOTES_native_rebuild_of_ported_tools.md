@@ -2294,3 +2294,48 @@ text ("Aa Large Text" / "Normal Text 16px") whose colour is picked by `l > 50` a
 text-shadow to fake legibility, on a page whose guide box sells "accessible palettes". The brief
 requires computed contrast (via the browser-resolved RGB, not reimplemented colour maths), the ratio
 displayed against the 4.5/3 thresholds, and a labelled hex fallback line in the CSS output.
+
+## 2026-08-20 17:05Z — #21 mesh PASSES; #22 oklch-picker: the retire race was LOST and the page served BOTH tools for six hours. Repaired, graded, PASSED. 22 of 63 live-confirmed
+
+**#21 mesh serve-grade [PASS]:** rerender `b013cc13` complete 10:46:16Z; served 17,109 B,
+`last-modified 10:49:31` > 10:46:16; standard clean; negatives (`c1`,`c4`,`physics-based`,
+`onclick="draw()"`,`Unique Every Time`) all 0; positives (`color1`,`regenerateBtn`,`filterWarning`,
+`blurValue`) all present.
+
+**#22 — the incident, in order:**
+1. Run 1 (orch 09:35:41Z) built everything — component `517002ab` created 09:36:58Z, page adopted —
+   then its `complete_workflow` step FAILED to write its Kafka response ("topic partition has no
+   leader", the `bugfix-040` class). The item stayed claimed with the error text.
+2. Retry run 2 (09:48:49Z) short-circuited `already_exists=true` — CORRECT behaviour, and the item
+   completed 09:50:36Z **with run 1's error text persisting on a `complete` row** (the 336 file's
+   "`error` is not a failure census" trap, live in this lane's own item).
+   ⚠ Grading lesson: `already_exists=true` on the LATEST orchestration row does not mean nothing was
+   built — enumerate ALL runs for the item's window before reading the newest.
+3. **The slot existed from 09:36:58Z. The session's slot-watcher FIRED on time (~09:37) but its
+   notification was DELIVERED ~16:52Z — six hours later.** The retire therefore ran at 16:52.
+4. Inside that window the 09:16 sweep's rerender for this page (`5fd7710e`) was claimed 10:48:49 and
+   assembled the page with BOTH slots live: **the served page carried both tools (27,915 B,
+   `ported-page`=1, old `inputL` present) from 10:49:20Z until 16:57:53Z.**
+5. Repair per RUNBOOK: retire was already done; ONE assemble-only `page_rerender` (`8994c49e`,
+   16:55:55Z, empty queue) completed 16:57:53Z.
+**Serve-grade [PASS] after repair:** 21,053 B, `last-modified 16:58:24` > 16:57:53; standard clean;
+negatives (`inputL`,`inputC`,`valL`,`Aa Large Text`,`copyCSS`) all 0; positives (`contrast-info`,
+`sample-normal`, `fallback for older browsers`, `getComputedStyle`) present.
+
+**COMPONENT grade [PASS, one recorded defect for the re-fix queue]:** contrast is COMPUTED, not
+guessed — probe element + `getComputedStyle` resolved RGB + correct WCAG luminance/ratio maths, ratio
+displayed against both thresholds (4.5/3) with per-threshold pass/fail; sample text colour picked by
+the better ratio; honest unsupported-browser branch; readouts on all three sliders; copy honest.
+**Defect found in grading (brief under-specified it): the emitted CSS orders the pair
+`oklch(...)` THEN hex — the later hex wins in every modern browser, so the oklch declaration is dead
+where it is supported.** Harmless visually in-gamut (both resolve identically) but wrong as taught
+CSS and wrong on wide-gamut displays. Correct order: hex first, oklch second. **Queue a re-fix via
+`replace_existing` when TL-047 + seed 496 are live** (RUNBOOK "COMING" section) — do NOT hand-edit
+the component (owner 08-06: the framework writes the content).
+
+**The lesson, promoted to WRONG_CALLS: an armed background watcher is NOT attendance.** The firing
+was on time; the DELIVERY was six hours late, and no property of the watcher can bound that latency.
+Attendance means the session keeps its turn alive — polling in-turn — from filing until the retire
+lands. The two earlier same-day near-misses (#19's 50-min gap, saved by the 336 freeze; #22's loss)
+are one mechanism: the notification channel's latency is unbounded and invisible to the arming
+session.
