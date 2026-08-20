@@ -69,6 +69,20 @@ spec:
             - name: check
               # Tag is set by the overlay, as every other service here does it.
               image: docker.io/aqls/brief-negation-check:latest
+              # ⚠ Always, and it is NOT belt-and-braces on this job.
+              #
+              # This service is in RELEASE_IMAGES, so a fleet release REBUILDS it
+              # AT THE SAME TAG the overlay pins — and the default policy for a
+              # pinned tag is IfNotPresent, which serves whatever that node
+              # cached the first time it saw that tag. That is this estate's
+              # oldest recorded trap ("a FRESH BUILD can ship no new code"), and
+              # on a once-a-day job it is invisible: the run succeeds, writes its
+              # doc_notes row, and reports findings from the old binary.
+              # Measured here on 2026-08-20 — a fleet sweep repinned this job
+              # from v1.0.1322 to v1.0.1320 while the code moved on, and nothing
+              # about the job would have said so.
+              # One pull a day is not a cost worth defending against.
+              imagePullPolicy: Always
               # No args: the image's CMD is the bare binary and writing is its
               # DEFAULT. Exit 1 on findings, so the Job shows failed — the same
               # posture as its siblings.
