@@ -44,8 +44,10 @@ and the remaining work is a decision and some content, not code.
    `source='artefact_archive_trigger'`) under-counts by writer and returns a confident **0** —
    app-written rows carry NULL `slot_name` and they are the ones holding the values. Discriminator
    that works: **content identity** (how many deployed components on that page declare the field).
-3. **A zero from the emit is currently "no traffic", not "no damage".** Establish which with the
-   archive count, never by waiting.
+3. **A zero from this emit means "nothing re-rendered", not "no damage"** — it fired the first time
+   a re-render actually ran, so the nine days of zero were traffic, not blindness. Establish which
+   with the archive count (`page_component_history` rows in the window), never by waiting. And
+   note it can only ever report UNGATED fields, so its silence says nothing about the gated class.
 
 ## 4. Next actions, in order
 
@@ -61,6 +63,8 @@ and it refuted a claim the council round rested on. `href=""` is already covered
 `empty_internal_href`; the gated/vanished class is covered by **nothing**, including this. So the
 detector picture is now **three producers on the ungated symptom, none on the gated one**. A fourth
 producer here should consolidate, not add (`WRONG_CALLS` 2026-08-20; `RFC_030`'s instinct).
+
+### 4.2 ⏸ OWNER DECISION — *(was the demand control; done, folded into 4.1)*
 
 ### 4.3 The real next build: make the 10 damaged (page, slot) pairs visible
 They exist only as `agent_error_log` findings today. Two halves that **must land together**:
@@ -102,7 +106,7 @@ guard's population is currently an inference. Flagged to be answered **jointly w
 
 ## 6. Closing the bug
 
-Bar is fixed **AND** live. Prevention: done and proven. Detection (ungated): armed, unfired.
+Bar is fixed **AND** live. Prevention: done and proven. Detection (ungated): armed and **proven at the artefact** (§4.1).
 Detection (gated): **still nothing** — the honest residual, precisely bounded in §11.6. Remediation:
 10 pairs need §4.3 then human decisions. When it moves, **name both paths on the commit**
 (`git commit bugs_open/OLD.md bugs_closed/NEW.md`) and verify at HEAD with `git ls-tree`, not `ls`.
