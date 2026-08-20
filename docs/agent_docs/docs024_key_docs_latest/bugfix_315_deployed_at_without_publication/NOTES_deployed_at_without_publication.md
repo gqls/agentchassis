@@ -1036,3 +1036,59 @@ deploy-evidence tests green.
 
 **Nothing is at risk from the wait:** the code is inert (`deploy_result_field` set nowhere, `494`
 held), and the placeholder fix is protection against a future arg, not a live defect.
+
+## 2026-08-19 22:26Z build → **494 ARMED 2026-08-20 ~06:50Z.** The fingerprint is switched on.
+
+### The gate was checked per SERVICE, and the control discriminated both ways
+
+`v1.0.1317` rolled 22:26:03–22:26:27Z (chassis and git-adapter). 494's gate is
+`git merge-base --is-ancestor f0dd97c71 <stamp>`, and `f0dd97c71` is the **corrected** resolver —
+`086f9b7b7` alone would have passed a check written before round 2 and armed the version that
+guesses.
+
+- **git-adapter**, from its own startup line: `build provenance git_commit=2d13d530d…`, and
+  `f0dd97c71` **is** an ancestor of it.
+- ⚠ **My first "negative control" was worthless and I caught it**: I used a commit of my own that
+  turned out to predate the build, so of course it read as present. The second attempt was
+  degenerate too — HEAD *is* the build stamp, and a commit is its own ancestor. The probe was only
+  shown to discriminate by the **reverse** test: `--is-ancestor <stamp> f0dd97c71` is FALSE.
+- **chassis**, probed per service because the landmine says per service, not per fleet — and its
+  provenance line had already scrolled. Symbol probe with a **present/absent pair**:
+
+  | symbol | in `f0dd97c71`? | probe result |
+  |---|---|---|
+  | `collectUniqueValue` | yes | **PRESENT** |
+  | `resolveDeployEvidence` | yes | **PRESENT** |
+  | `buildPageDeployStampQuery` | **no** — only in my still-blocked commit | **absent** ✓ control |
+
+  This is the landmine's own prescription (*"verify a KNOWN value … always run a control in the same
+  breath — a sha that must be absent, and one that must be present"*) and it worked where the
+  40-hex-sha probe failed completely yesterday.
+
+### Applied, and verified at the live config
+
+```
+type            armed_with
+--------------  -------------
+page-rerender   deploy_result
+report-builder  deploy_result
+section-editor  git_result
+```
+
+Three different field names, as measured — `section-editor` really does use `git_result`, and a
+literal would have missed it.
+
+⚠ **`--record-only` does not work on a `_HOLD` file** and my own header and runbook both told the
+next person to run it: the runner refuses (*"is an UPPERCASE-suffixed sidecar … recording one is
+meaningless"*). Harmless — a sidecar never appears in Pending so it cannot be double-applied, and
+the file's `RAISE '494: already applied'` guard catches a human re-run. **Both instructions
+corrected; the apply is recorded HERE instead, which is now the only place it exists.**
+
+### Baseline before the first armed deploy
+
+`[MEASURED 2026-08-20 06:50:18Z]` `SELECT count(*), count(content_hash) FROM pages` → **802 pages,
+0 with a hash.** That is the number this whole lane exists to move, and it is the honest
+before-reading: a watcher is now waiting for the first non-zero.
+
+**Nothing is proven until it moves.** Config being right is not the artefact — that is this bug's
+entire lesson, and it applies to the fix as much as to the defect.
