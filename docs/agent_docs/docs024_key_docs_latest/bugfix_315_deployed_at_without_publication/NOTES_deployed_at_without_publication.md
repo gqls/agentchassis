@@ -1226,3 +1226,83 @@ tree; only ordering is. Logged to `WRONG_CALLS.md` with that as the rule.
 Everything is now in HEAD and consistent: the corrected resolver (`f0dd97c71`), the extracted
 builder + its real test (`460ff6b3d`), and the call site (via `80b9c6235`). Nothing of mine is dirty.
 `494` is armed. What remains is runtime evidence, which needs a deploy.
+
+## 2026-08-20 06:49–07:22Z — **I BROKE THE FLEET'S PAGE-PUBLISHING PATH.** Corrected account.
+
+My 07:52Z entry above says "armed but UNEXERCISED … both zeros mean 'nothing ran'". **That entry is
+WRONG and I am leaving it in place with this correction beneath it**, because the way it was wrong is
+the most useful thing in this file.
+
+The zeros did not mean *nothing ran*. They meant **nothing could run.** Arming 494 made
+`deploy_result_field` an **undeclared key on a `StrictConfig: true` spec**, which the validator turns
+into a hard failure for the entire workflow:
+
+```
+WORKFLOW_INVALID: step 'update_status' (action 'update_page_status') has unrecognised
+config keys [deploy_result_field] — this action declares its config contract as
+complete, so an unknown key is a definition error, not a no-op
+```
+
+**Cause, and it is mine:** I appended the key to **`RenderComponentInputSpec.ConfigKeys`** instead of
+`UpdatePageStatusInputSpec.ConfigKeys` — the same file, forty lines apart, two specs registered in one
+`init()`. I anchored the insertion on the literal `"strip_literal_markdown"`, which belongs to the
+other spec, and never checked which block I had landed in.
+
+**Damage:** every workflow with an `update_page_status` step died at validation. 8 items carried it
+(4 `page_rerender`, 2 `needs_content_page`, 1 `section_edit`; 6 left `failed`), with **123
+`page_rerender` items queued fleet-wide and none draining.** Armed 06:49:49Z, first failure 07:01:50Z,
+restored 07:22:40Z.
+
+**Found and restored by the `webdesign_tool_rebuilds` lane** — as a blocked served-page grade, of all
+things — who diagnosed it to the line, filed `bugs_open/336`, ran **my own rollback file**, and framed
+it as a report rather than a takeover. Their rollback ran twice (07:22:39 and 08:16:00), which is why
+the arming was gone when I looked.
+
+### Why every check I ran passed. This is the part to keep.
+
+- **My arming precondition was correct, met, and aimed at the wrong thing.** I had established 494
+  must wait for `f0dd97c71` — and it had. But that condition was about the **reader** shipping.
+  Nothing in it could see a declaration on the wrong spec.
+- **The binary probe would have said PRESENT and been useless.** The literal is in the chassis three
+  times (the reader and two `zap.String` calls). An hour earlier I had used a present/absent control
+  pair on *function names* and been pleased that the probe discriminated. It does — for symbols.
+  **Presence of a literal is not membership of the right list.**
+- **I verified the config and never verified the artefact.** I ran the three-agent query, got the
+  three expected field names, wrote "verified at the live config" — and it was already broken as I
+  typed it. **That is `bugs_open/315`'s own defect, committed by the lane fixing `bugs_open/315`.**
+  The entry directly above this one contains the sentence *"Config being right is not the artefact —
+  that is this bug's entire lesson, and it applies to the fix as much as to the defect."* I wrote it
+  and then did not do it.
+
+### The rule, and it is not "be more careful"
+
+**When you arm a switch, the FIRST query is "what did I break?", not "did it work?"** They hit
+different tables and the second returning zero looks identical either way:
+
+```sql
+-- what did I break  (I never ran this)
+SELECT count(*) FROM orchestration_states WHERE error ILIKE '%<your new key>%';
+SELECT status, count(*) FROM site_work_items WHERE item_type='<the affected type>' GROUP BY status;
+-- did it work      (I ran only this, and read its zero as "no traffic")
+SELECT count(content_hash) FROM pages;
+```
+
+And at the edit, scope the grep to the block you believe you changed:
+`awk '/^var UpdatePageStatusInputSpec/,/^}/' v3_site_actions.go | grep deploy_result_field`.
+**Anchoring on a nearby literal is not anchoring in the right scope** — in a file with two sibling
+structs it is a coin flip, and I lost it.
+
+### State now
+
+- Declaration **fixed at HEAD** by `daaa7541b` (not my commit): the key is in
+  `UpdatePageStatusInputSpec` and absent from `RenderComponentInputSpec`; the "five ConfigKeys"
+  census comment corrected.
+- **Fleet healthy, checked rather than assumed:** `orchestration_states WHERE error ILIKE
+  '%deploy_result_field%'` → **0**; `page_rerender` 5,189 complete / 1 claimed / 0 blocked on this.
+- ⚠ **494 is UNARMED and MUST STAY UNARMED.** `[MEASURED]` `daaa7541b` is **not** an ancestor of the
+  running build (`v1.0.1317`, stamp `2d13d530d`, built 2026-08-19 22:21:54). **Re-arming today
+  reproduces the outage exactly.** 494's header now gates on `daaa7541b` and carries the post-arm
+  damage queries.
+- The durable guard `336` proposes — every key an action reads is declared on its own spec, and no
+  spec declares a key its action never reads — is the right answer and I have deliberately not
+  claimed it. My lane should not grade its own homework on this seam.
