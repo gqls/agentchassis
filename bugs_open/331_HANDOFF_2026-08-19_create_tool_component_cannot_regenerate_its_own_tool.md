@@ -151,3 +151,32 @@ in-place path: same component id ⇒ TL-045 fence facts, fork lineage and the ac
 survive by construction. Round 5 = run orch `9675234d-87c0-40b1-b84e-f14d097c7669`; the register/RFC
 edit slot was dropped to honour the ≤8 cap (docs; travels in the commits regardless). Tally: r1 real
 code gap, r2 real docs defect, r3–r5 evidence/format — code byte-identical since round 2.
+
+## 14. Round 5: **APPROVED** (`7a82c943`, decided "approved with 6 advisory objection(s) — none high-severity", 4 abstained)
+
+The commits already on HEAD carry `Council-Submitted: 7a82c943…`; 098 credits them automatically now
+the correlation is approved — no amend (forward-only). Advisories triaged:
+- **Acted on now:** the `component_versions` snapshot description read "Regenerated in place…" on the
+  row holding the OLD template (debug_historian — the documented misleading-snapshot-label landmine
+  shape); reworded to "Pre-regeneration snapshot: the template as it stood BEFORE…". Tests green.
+- **Already answered by the code:** (guardian) multiple pages on the SAME site sharing the row — the
+  arm's `FOR UPDATE` query takes EVERY live agent-writable placement on the site's pages and the tx
+  updates them all, asserting the row count matches; (debug_historian) the HOLD's pre-assert on a
+  two-active-rows type FAILS CLOSED (count ≠ 1 refuses to apply).
+- **Follow-up candidates, recorded not shipped:** (bug_historian, medium) `update_component_html` —
+  the OTHER in-place template writer — has no non-hollow gate of its own; same fix shape applies
+  (call `visibleTextLength` + `evaluateSectionShrink` before its UPDATE). Whoever owns tool-improver
+  should take it; noted here so it is not folklore. (bug_historian, low) a regeneration that breaks
+  the JS while keeping static text passes any text floor — that is `tool_acceptance`'s job, stated in
+  round 2's risks. (tooling_provenance, low) the register entry rode the commits rather than an edit
+  slot — it is in `d375a0801`/successors, verifiable by `git show`.
+
+## How to close (supersedes §5's step 1 with the exact order)
+1. Next chassis roll whose stamp's ancestry includes **`c0d60a97d`** (the gate commit — `v1.0.1320`'s
+   stamp `a255551e0` predates it, so the CURRENT fleet does NOT carry the gate; the round-1 code it
+   does carry is unreachable: flag unmapped, default byte-identical).
+2. Lift + apply seed `496_tool_generator_replace_existing_HOLD.sql` (pre-assert fails closed).
+3. The live re-fix per §5.3 — expect `regenerated=true`, same `component_id`, a
+   `page_component_history` row with the OLD bytes, one deployed slot, no new `content_components`
+   row, and a served-page grade with an old element id as the negative control.
+4. Then this file → `bugs_closed/`, and the lane RUNBOOK's manual re-fix steps retire.

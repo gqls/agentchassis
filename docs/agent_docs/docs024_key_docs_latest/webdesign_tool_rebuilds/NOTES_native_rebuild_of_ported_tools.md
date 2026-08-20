@@ -2399,3 +2399,8 @@ wants `name=`, preview/code disagree on empty fields) — file it ONLY with in-t
   per the swept-work practice. Round 2 verdict was REVISE (editquality high, citing exactly that stale
   landmine); round 3 submitted 22:40Z, run orch `4dd5bea8`, code byte-identical to round 2 — the
   objections were answered with measurements and the landmine correction, not code.
+- **2026-08-21 ~00:4xZ — 331 council: APPROVED round 5** (`7a82c943`; r1 real code gap → the non-hollow
+  gate, r2 real docs defect → the LANDMINE corrected, r3–r5 evidence/format). One advisory acted on
+  (snapshot description wording), the update_component_html gate gap recorded as a follow-up for the
+  tool-improver owner. Close order: a roll carrying `c0d60a97d` → seed 496 → the live re-fix. The lane's
+  manual re-fix recipe retires at that point, not before.

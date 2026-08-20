@@ -172,7 +172,7 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 		if err := snapshotComponentVersion(
 			ctx, db, req.incumbentID, previousVersion,
 			currentHTML, currentSchema, "",
-			"Regenerated in place by tool-generator (replace_existing, bugs_open/331)",
+			"Pre-regeneration snapshot: the template as it stood BEFORE tool-generator regenerated it in place (replace_existing, bugs_open/331)",
 			"tool-generator:replace_existing",
 			nullStringOrEmpty(params.ExecutionContext.OrchestrationID),
 			logger,
