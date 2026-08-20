@@ -162,10 +162,10 @@ def build_tools():
     # -- mortgages/simple ---------------------------------------------------
     def simple(p, r, y, label):
         n = y * MONTHS
-        return case(label, {"#amt": p, "#rate": r, "#years": y},
-                    [chk("#monthlyResult", O.monthly_payment(p, r, n),
+        return case(label, {"#c-mortgages-simple-amt": p, "#c-mortgages-simple-rate": r, "#c-mortgages-simple-years": y},
+                    [chk("#c-mortgages-simple-monthlyResult", O.monthly_payment(p, r, n),
                          "monthly payment")],
-                    press="button[onclick='doSimpleCalc()']")
+                    press="#c-mortgages-simple-btn-calculate")
 
     T["mortgages/simple.html"] = {
         "cls": "A", "oracle": "annuity",
@@ -179,15 +179,15 @@ def build_tools():
         n = y * MONTHS
         m = O.monthly_payment(p, r, n)
         ti = O.total_interest(p, r, n)
-        return case(label, {"#loanAmount": p, "#interestRate": r, "#termYears": y},
-                    [chk("#displayMonthly", m, "monthly payment"),
-                     chk("#displayTotalInterest", ti, "total interest",
+        return case(label, {"#c-mortgages-repayment-loanAmount": p, "#c-mortgages-repayment-interestRate": r, "#c-mortgages-repayment-termYears": y},
+                    [chk("#c-mortgages-repayment-displayMonthly", m, "monthly payment"),
+                     chk("#c-mortgages-repayment-displayTotalInterest", ti, "total interest",
                          alt={"billed (payment rounded first)":
                               O.total_interest(p, r, n, round_payment=True)}),
-                     chk("#displayTotalRepayable", p + ti, "total repayable",
+                     chk("#c-mortgages-repayment-displayTotalRepayable", p + ti, "total repayable",
                          alt={"billed (payment rounded first)":
                               p + O.total_interest(p, r, n, round_payment=True)})],
-                    press="button[onclick='runCalc()']")
+                    press="#c-mortgages-repayment-btn-calculate")
 
     T["mortgages/repayment.html"] = {
         "cls": "A", "oracle": "annuity + total cost",
@@ -205,15 +205,15 @@ def build_tools():
         ia = O.total_interest(a[0], a[1], na)
         ib = O.total_interest(b[0], b[1], nb)
         return case(label,
-                    {"#amt-a": a[0], "#apr-a": a[1], "#term-a": a[2],
-                     "#amt-b": b[0], "#apr-b": b[1], "#term-b": b[2]},
-                    [chk("#res-m-a", O.monthly_payment(a[0], a[1], na), "option A monthly"),
-                     chk("#res-i-a", ia, "option A total interest",
+                    {"#c-loans-compare-loans-amt-a": a[0], "#c-loans-compare-loans-apr-a": a[1], "#c-loans-compare-loans-term-a": a[2],
+                     "#c-loans-compare-loans-amt-b": b[0], "#c-loans-compare-loans-apr-b": b[1], "#c-loans-compare-loans-term-b": b[2]},
+                    [chk("#c-loans-compare-loans-res-m-a", O.monthly_payment(a[0], a[1], na), "option A monthly"),
+                     chk("#c-loans-compare-loans-res-i-a", ia, "option A total interest",
                          alt={"billed": O.total_interest(a[0], a[1], na, True)}),
-                     chk("#res-m-b", O.monthly_payment(b[0], b[1], nb), "option B monthly"),
-                     chk("#res-i-b", ib, "option B total interest",
+                     chk("#c-loans-compare-loans-res-m-b", O.monthly_payment(b[0], b[1], nb), "option B monthly"),
+                     chk("#c-loans-compare-loans-res-i-b", ib, "option B total interest",
                          alt={"billed": O.total_interest(b[0], b[1], nb, True)}),
-                     chk("#verdict", None,
+                     chk("#c-loans-compare-loans-verdict", None,
                          "verdict names the cheaper option (oracle: %s, "
                          "£%.2f vs £%.2f)"
                          % ("A" if ia < ib else "B", ia, ib),
@@ -239,10 +239,10 @@ def build_tools():
         n = y * MONTHS
         cur = O.monthly_payment(bal, apr, n)
         new = O.monthly_payment(bal, apr + 2.0, n)
-        return case(label, {"#stress-bal": bal, "#stress-apr": apr, "#stress-term": y},
-                    [chk("#curr-pay", cur, "current payment"),
-                     chk("#new-pay", new, "payment at +2%"),
-                     chk("#extra-cost", new - cur, "extra per month",
+        return case(label, {"#c-loans-interest-rate-stress-test-stress-bal": bal, "#c-loans-interest-rate-stress-test-stress-apr": apr, "#c-loans-interest-rate-stress-test-stress-term": y},
+                    [chk("#c-loans-interest-rate-stress-test-curr-pay", cur, "current payment"),
+                     chk("#c-loans-interest-rate-stress-test-new-pay", new, "payment at +2%"),
+                     chk("#c-loans-interest-rate-stress-test-extra-cost", new - cur, "extra per month",
                          alt={"extra over the whole term": (new - cur) * n})],
                     prime=prime)
 
@@ -250,8 +250,8 @@ def build_tools():
         "cls": "A", "oracle": "annuity at r and r+2pp",
         "cases": [stress(10000, 8.5, 3, "site defaults"),
                   stress(10000, 0, 3, "BOUNDARY 0% base rate",
-                         prime={"#stress-bal": 25000, "#stress-apr": 14.0,
-                                "#stress-term": 7}),
+                         prime={"#c-loans-interest-rate-stress-test-stress-bal": 25000, "#c-loans-interest-rate-stress-test-stress-apr": 14.0,
+                                "#c-loans-interest-rate-stress-test-stress-term": 7}),
                   stress(200000, 4.5, 25, "mortgage-sized")]}
 
     # -- mortgages/rate-forecaster ------------------------------------------
@@ -264,18 +264,18 @@ def build_tools():
         p1, p2, p3 = O.reprice_schedule(amt, n, [(r1, 24), (r2, 36), (r3, n - 60)])
         naive = [O.monthly_payment(amt, r, n) for r in (r1, r2, r3)]
         return case(label,
-                    {"#fcAmount": amt, "#fcTerm": term,
-                     "#rate1": r1, "#rate2": r2, "#rate3": r3},
-                    [chk("#pay1", p1, "years 1-2 payment"),
-                     chk("#pay2", p2, "years 3-5 payment",
+                    {"#c-mortgages-rate-forecaster-fcAmount": amt, "#c-mortgages-rate-forecaster-fcTerm": term,
+                     "#c-mortgages-rate-forecaster-rate1": r1, "#c-mortgages-rate-forecaster-rate2": r2, "#c-mortgages-rate-forecaster-rate3": r3},
+                    [chk("#c-mortgages-rate-forecaster-pay1", p1, "years 1-2 payment"),
+                     chk("#c-mortgages-rate-forecaster-pay2", p2, "years 3-5 payment",
                          defect_alt={"the naive model: the FULL original "
                                      "principal re-amortised over the FULL "
                                      "original term": naive[1]}),
-                     chk("#pay3", p3, "years 6+ payment",
+                     chk("#c-mortgages-rate-forecaster-pay3", p3, "years 6+ payment",
                          defect_alt={"the naive model: the FULL original "
                                      "principal re-amortised over the FULL "
                                      "original term": naive[2]})],
-                    press="button[onclick='calcForecast()']")
+                    press="#c-mortgages-rate-forecaster-btn-calculate")
 
     T["mortgages/rate-forecaster.html"] = {
         "cls": "A", "oracle": "each window's payment amortises the balance "
@@ -292,9 +292,9 @@ def build_tools():
     def over_loans(bal, rate, y, extra, label):
         n = y * MONTHS
         saved, months_saved = O.overpayment_saving(bal, rate, n, extra)
-        return case(label, {"#bal": bal, "#rate": rate, "#term": y, "#over": extra},
-                    [chk("#save-display", saved, "interest saved"),
-                     chk("#time-display", months_saved, "months saved",
+        return case(label, {"#c-loans-overpayment-calculator-bal": bal, "#c-loans-overpayment-calculator-rate": rate, "#c-loans-overpayment-calculator-term": y, "#c-loans-overpayment-calculator-over": extra},
+                    [chk("#c-loans-overpayment-calculator-save-display", saved, "interest saved"),
+                     chk("#c-loans-overpayment-calculator-time-display", months_saved, "months saved",
                          alt={"years saved": months_saved / 12.0})])
 
     T["loans/overpayment-calculator.html"] = {
@@ -314,13 +314,13 @@ def build_tools():
         n = y * MONTHS
         saved, months_saved = O.overpayment_saving(bal, rate, n, extra)
         return case(label,
-                    {"#opBalance": bal, "#opRate": rate, "#opYears": y,
-                     "#opAmount": extra},
-                    [chk("#saveInterest", saved, "interest saved"),
-                     chk("#saveTime", None, "time saved (prose)",
+                    {"#c-mortgages-overpayment-opBalance": bal, "#c-mortgages-overpayment-opRate": rate, "#c-mortgages-overpayment-opYears": y,
+                     "#c-mortgages-overpayment-opAmount": extra},
+                    [chk("#c-mortgages-overpayment-saveInterest", saved, "interest saved"),
+                     chk("#c-mortgages-overpayment-saveTime", None, "time saved (prose)",
                          raw_contains="%d Year" % (months_saved // 12)),
-                     chk("#dispYearsEarlier", months_saved // 12, "whole years earlier")],
-                    press="button[onclick='runOverpayment()']")
+                     chk("#c-mortgages-overpayment-dispYearsEarlier", months_saved // 12, "whole years earlier")],
+                    press="#c-mortgages-overpayment-btn-calculate")
 
     T["mortgages/overpayment.html"] = {
         "cls": "A", "oracle": "amortisation schedule with and without the extra",
@@ -335,11 +335,11 @@ def build_tools():
     # One year's comparison: interest avoided vs interest earned net of tax.
     def lvs(loan_r, save_r, cash, tax, label):
         return case(label,
-                    {"#loan-rate": loan_r, "#save-rate": save_r,
-                     "#spare-cash": cash, "#tax-bracket": str(tax)},
-                    [chk("#loan-benefit", cash * loan_r / 100.0,
+                    {"#c-loans-loan-vs-savings-loan-rate": loan_r, "#c-loans-loan-vs-savings-save-rate": save_r,
+                     "#c-loans-loan-vs-savings-spare-cash": cash, "#c-loans-loan-vs-savings-tax-bracket": str(tax)},
+                    [chk("#c-loans-loan-vs-savings-loan-benefit", cash * loan_r / 100.0,
                          "interest avoided by repaying"),
-                     chk("#save-benefit", cash * save_r / 100.0 * (1 - tax),
+                     chk("#c-loans-loan-vs-savings-save-benefit", cash * save_r / 100.0 * (1 - tax),
                          "interest earned, net of tax",
                          alt={"gross of tax": cash * save_r / 100.0})])
 
@@ -363,8 +363,8 @@ def build_tools():
                "28 days": O.early_settlement_58day(bal, apr, 28)}
         if apr != 0:
             alt["balance only, no deferment interest"] = float(bal)
-        return case(label, {"#settle-bal": bal, "#settle-apr": apr},
-                    [chk("#settle-result", O.early_settlement_58day(bal, apr),
+        return case(label, {"#c-loans-settlement-calculator-settle-bal": bal, "#c-loans-settlement-calculator-settle-apr": apr},
+                    [chk("#c-loans-settlement-calculator-settle-result", O.early_settlement_58day(bal, apr),
                          "settlement figure (balance + 58 days' interest)",
                          alt=alt)],
                     prime=prime)
@@ -374,29 +374,29 @@ def build_tools():
                               "58 days' simple interest",
         "cases": [settle(5000, 9.9, "site defaults"),
                   settle(5000, 0, "BOUNDARY 0% APR — settlement must equal the balance",
-                         prime={"#settle-bal": 12000, "#settle-apr": 19.9}),
+                         prime={"#c-loans-settlement-calculator-settle-bal": 12000, "#c-loans-settlement-calculator-settle-apr": 19.9}),
                   settle(20000, 24.9, "high APR")],
         "determinism": [
             {"name": "0% APR reached from two different prior rates",
-             "prime_a": {"#settle-bal": 12000, "#settle-apr": 19.9},
-             "prime_b": {"#settle-bal": 800, "#settle-apr": 3.0},
-             "vector": {"#settle-bal": 5000, "#settle-apr": 0},
-             "sels": ["#settle-result", "#settle-breakdown"]},
+             "prime_a": {"#c-loans-settlement-calculator-settle-bal": 12000, "#c-loans-settlement-calculator-settle-apr": 19.9},
+             "prime_b": {"#c-loans-settlement-calculator-settle-bal": 800, "#c-loans-settlement-calculator-settle-apr": 3.0},
+             "vector": {"#c-loans-settlement-calculator-settle-bal": 5000, "#c-loans-settlement-calculator-settle-apr": 0},
+             "sels": ["#c-loans-settlement-calculator-settle-result", "#c-loans-settlement-calculator-settle-breakdown"]},
         ]}
 
     # -- mortgages/investor (yield AND LTV — two tools in one page) ----------
     def inv(price, rent, val, loan, label):
         return case(label,
-                    {"#btlPrice": price, "#btlRent": rent,
-                     "#ltvPrice": val, "#ltvLoan": loan},
-                    [chk("#yieldResult", O.gross_yield_pct(rent, price),
+                    {"#c-mortgages-investor-btlPrice": price, "#c-mortgages-investor-btlRent": rent,
+                     "#c-mortgages-investor-ltvPrice": val, "#c-mortgages-investor-ltvLoan": loan},
+                    [chk("#c-mortgages-investor-yieldResult", O.gross_yield_pct(rent, price),
                          "gross annual yield", pct=True),
-                     chk("#ltvResult", O.ltv_pct(loan, val), "LTV", pct=True)],
-                    press="button[onclick='calcYield()']")
+                     chk("#c-mortgages-investor-ltvResult", O.ltv_pct(loan, val), "LTV", pct=True)],
+                    press="#c-mortgages-investor-btn-calculate-yield")
 
     T["mortgages/investor.html"] = {
         "cls": "A", "oracle": "yield = 12·rent/price; LTV = loan/value",
-        "second_press": "button[onclick='calcLTV()']",
+        "second_press": "#c-mortgages-investor-btn-calculate-ltv",
         "cases": [inv(250000, 1200, 300000, 225000, "site defaults"),
                   # Asymmetric: a ratio is scale-invariant, so scaling both
                   # sides cannot move it — that is what defeated toolgolden here.
@@ -408,16 +408,16 @@ def build_tools():
         g = O.bridging_gross(net, rate, months, fee)
         serviced = net / (1.0 - fee / 100.0)
         return case(label,
-                    {"#brLoan": net, "#brRate": rate, "#brTerm": months, "#brFee": fee},
-                    [chk("#resGross", g["gross"], "gross facility",
+                    {"#c-mortgages-bridging-loan-brLoan": net, "#c-mortgages-bridging-loan-brRate": rate, "#c-mortgages-bridging-loan-brTerm": months, "#c-mortgages-bridging-loan-brFee": fee},
+                    [chk("#c-mortgages-bridging-loan-resGross", g["gross"], "gross facility",
                          alt={"serviced (interest paid monthly, not retained)": serviced}),
-                     chk("#resInterest", g["interest"], "retained interest",
+                     chk("#c-mortgages-bridging-loan-resInterest", g["interest"], "retained interest",
                          alt={"interest on the NET advance":
                               net * rate / 100.0 * months}),
-                     chk("#resFee", g["fee"], "arrangement fee",
+                     chk("#c-mortgages-bridging-loan-resFee", g["fee"], "arrangement fee",
                          alt={"fee on the NET advance": net * fee / 100.0}),
-                     chk("#dispNet", net, "net advance echoed back")],
-                    press="button[onclick='calcBridge()']")
+                     chk("#c-mortgages-bridging-loan-dispNet", net, "net advance echoed back")],
+                    press="#c-mortgages-bridging-loan-btn-calculate")
 
     T["mortgages/bridging-loan.html"] = {
         "cls": "A", "oracle": "retained-interest gross-up: gross·(1−m·r−fee) = net",
@@ -428,11 +428,11 @@ def build_tools():
     # -- mortgages/equity-release (roll-up; the LTV limit is a house table) --
     def equity(value, age, loan, rate, label):
         return case(label,
-                    {"#erValue": value, "#erAge": age, "#erLoan": loan, "#erRate": rate},
-                    [chk("#debt10", O.compound(loan, rate, 10), "debt after 10 years"),
-                     chk("#debt20", O.compound(loan, rate, 20), "debt after 20 years"),
-                     chk("#debt30", O.compound(loan, rate, 30), "debt after 30 years")],
-                    press="button[onclick='calcCompound()']")
+                    {"#c-mortgages-equity-release-erValue": value, "#c-mortgages-equity-release-erAge": age, "#c-mortgages-equity-release-erLoan": loan, "#c-mortgages-equity-release-erRate": rate},
+                    [chk("#c-mortgages-equity-release-debt10", O.compound(loan, rate, 10), "debt after 10 years"),
+                     chk("#c-mortgages-equity-release-debt20", O.compound(loan, rate, 20), "debt after 20 years"),
+                     chk("#c-mortgages-equity-release-debt30", O.compound(loan, rate, 30), "debt after 30 years")],
+                    press="#c-mortgages-equity-release-btn-project")
 
     T["mortgages/equity-release.html"] = {
         "cls": "A", "oracle": "compound roll-up P·(1+r)^n, annual compounding",
@@ -449,18 +449,18 @@ def build_tools():
         c = O.car_finance(price, dep, apr, years, balloon if mode == "PCP" else 0.0)
         key = "pcp" if mode == "PCP" else "hp"
         return case(label,
-                    {"#price": price, "#deposit": dep, "#car-apr": apr,
-                     "#car-term": years, "#balloon": balloon},
-                    [chk("#car-monthly", c[key + "_monthly"],
+                    {"#c-loans-car-finance-calculator-price": price, "#c-loans-car-finance-calculator-deposit": dep, "#c-loans-car-finance-calculator-car-apr": apr,
+                     "#c-loans-car-finance-calculator-car-term": years, "#c-loans-car-finance-calculator-balloon": balloon},
+                    [chk("#c-loans-car-finance-calculator-car-monthly", c[key + "_monthly"],
                          "%s monthly payment" % mode,
                          alt={"balloon subtracted UNdiscounted":
                               O.monthly_payment(price - dep - (balloon if mode == "PCP" else 0),
                                                 apr, int(years * MONTHS)),
                               "balloon ignored entirely":
                               O.monthly_payment(price - dep, apr, int(years * MONTHS))}),
-                     chk("#car-total-int", c[key + "_interest"],
+                     chk("#c-loans-car-finance-calculator-car-total-int", c[key + "_interest"],
                          "%s total interest" % mode)],
-                    press="button[onclick=\"setType('%s')\"]" % mode,
+                    press="#c-loans-car-finance-calculator-btn-%s" % key,
                     prime=prime)
 
     T["loans/car-finance-calculator.html"] = {
@@ -471,19 +471,19 @@ def build_tools():
                   car(25000, 5000, 8.9, 4, 0, "PCP",
                       "BOUNDARY zero balloon — PCP must equal HP"),
                   car(30000, 0, 0, 3, 12000, "PCP", "BOUNDARY 0% APR, no deposit",
-                      prime={"#price": 30000, "#deposit": 0, "#car-apr": 8.9,
-                             "#car-term": 4, "#balloon": 12000})],
+                      prime={"#c-loans-car-finance-calculator-price": 30000, "#c-loans-car-finance-calculator-deposit": 0, "#c-loans-car-finance-calculator-car-apr": 8.9,
+                             "#c-loans-car-finance-calculator-car-term": 4, "#c-loans-car-finance-calculator-balloon": 12000})],
         "determinism": [
             {"name": "0% APR (a real product: manufacturer 0% finance) from "
                      "two different prior rates",
-             "prime_a": {"#price": 40000, "#deposit": 8000, "#car-apr": 12.9,
-                         "#car-term": 5, "#balloon": 15000},
-             "prime_b": {"#price": 9000, "#deposit": 500, "#car-apr": 4.0,
-                         "#car-term": 2, "#balloon": 2000},
-             "vector": {"#price": 30000, "#deposit": 0, "#car-apr": 0,
-                        "#car-term": 3, "#balloon": 12000},
-             "press": "button[onclick=\"setType('PCP')\"]",
-             "sels": ["#car-monthly", "#car-total-int"]},
+             "prime_a": {"#c-loans-car-finance-calculator-price": 40000, "#c-loans-car-finance-calculator-deposit": 8000, "#c-loans-car-finance-calculator-car-apr": 12.9,
+                         "#c-loans-car-finance-calculator-car-term": 5, "#c-loans-car-finance-calculator-balloon": 15000},
+             "prime_b": {"#c-loans-car-finance-calculator-price": 9000, "#c-loans-car-finance-calculator-deposit": 500, "#c-loans-car-finance-calculator-car-apr": 4.0,
+                         "#c-loans-car-finance-calculator-car-term": 2, "#c-loans-car-finance-calculator-balloon": 2000},
+             "vector": {"#c-loans-car-finance-calculator-price": 30000, "#c-loans-car-finance-calculator-deposit": 0, "#c-loans-car-finance-calculator-car-apr": 0,
+                        "#c-loans-car-finance-calculator-car-term": 3, "#c-loans-car-finance-calculator-balloon": 12000},
+             "press": "#c-loans-car-finance-calculator-btn-pcp",
+             "sels": ["#c-loans-car-finance-calculator-car-monthly", "#c-loans-car-finance-calculator-car-total-int"]},
         ]}
 
     # -- loans/consolidation -------------------------------------------------
@@ -535,9 +535,9 @@ def build_tools():
             bad["the 5% higher rate on a purchase below the £40,000 floor, "
                 "where the higher rates do not apply at all"] = \
                 O._banded(price, O.SURCHARGE_ADDITIONAL)
-        return case(label, {"#price": price, "#buyerType": buyer},
-                    [chk("#sdltResult", want, "SDLT payable", defect_alt=bad)],
-                    press="button[onclick='calcSDLT()']")
+        return case(label, {"#c-mortgages-stamp-duty-price": price, "#c-mortgages-stamp-duty-buyerType": buyer},
+                    [chk("#c-mortgages-stamp-duty-sdltResult", want, "SDLT payable", defect_alt=bad)],
+                    press="#c-mortgages-stamp-duty-btn-calculate")
 
     T["mortgages/stamp-duty.html"] = {
         "cls": "B",
@@ -568,13 +568,13 @@ def build_tools():
     # -- mortgages/affordability (class B — the model is the page's, the
     #    4.5× LTI framing is the page's own caption and is checkable) --------
     def afford(i1, i2, exp, label):
-        return case(label, {"#income1": i1, "#income2": i2, "#expenses": exp},
-                    [chk("#resHigh", O.income_multiple(i1 + i2, exp, 4.5),
+        return case(label, {"#c-mortgages-affordability-income1": i1, "#c-mortgages-affordability-income2": i2, "#c-mortgages-affordability-expenses": exp},
+                    [chk("#c-mortgages-affordability-resHigh", O.income_multiple(i1 + i2, exp, 4.5),
                          "upper estimate at 4.5× LTI"),
-                     chk("#resLow", O.income_multiple(i1 + i2, exp, 4.0),
+                     chk("#c-mortgages-affordability-resLow", O.income_multiple(i1 + i2, exp, 4.0),
                          "lower estimate at 4.0× LTI",
                          alt={"4.25×": O.income_multiple(i1 + i2, exp, 4.25)})],
-                    press="button[onclick='calcAffordability()']")
+                    press="#c-mortgages-affordability-btn-calculate")
 
     T["mortgages/affordability.html"] = {
         "cls": "B", "oracle": "(income − 12·commitments) × multiple; the 4.5× "
@@ -592,13 +592,13 @@ def build_tools():
         d_short = O.deal_period_cost(amount, rate, deal, fee, other,
                                      term_years=deal)
         return case(label,
-                    {"#tcAmount": amount, "#tcRate": rate, "#tcDeal": deal,
-                     "#tcFee": fee, "#tcOther": other},
-                    [chk("#tcTotal", d["total"], "total cost over the deal period",
+                    {"#c-mortgages-fee-analyser-tcAmount": amount, "#c-mortgages-fee-analyser-tcRate": rate, "#c-mortgages-fee-analyser-tcDeal": deal,
+                     "#c-mortgages-fee-analyser-tcFee": fee, "#c-mortgages-fee-analyser-tcOther": other},
+                    [chk("#c-mortgages-fee-analyser-tcTotal", d["total"], "total cost over the deal period",
                          alt={"payments only, fees excluded": d["payments"],
                               "term treated as the DEAL length, not the mortgage "
                               "term": d_short["total"]})],
-                    press="button[onclick='calcTrueCost()']")
+                    press="#c-mortgages-fee-analyser-btn-calculate")
 
     T["mortgages/fee-analyser.html"] = {
         "cls": "B", "oracle": "payments over the deal window at the deal rate "

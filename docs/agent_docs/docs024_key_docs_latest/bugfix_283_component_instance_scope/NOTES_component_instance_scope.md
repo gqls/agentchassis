@@ -739,3 +739,42 @@ Fleet zombie census after repair: 0.
 Remaining §5 sequence: b2_verify rebaseline (owed), then the 22-calculator batch (oracle per
 wave, mortgages-repayment's 2 pages get a deliberate look), then the generic pool
 (bayesian-ranking + archetype-clash ×2), and the 4 parked judged refusals stay an owner call.
+
+## 2026-08-20 (session 7, night) — THE 22-CALCULATOR BATCH IS DONE: 20 converted+delivered+live, 2 gate-refused to humans, oracle PASS 170 across the whole estate
+
+**Batch tally:** 22 seeded → **20 fixed** (all `scope_component_instance_judged`) + **2 refused**:
+`loans-application-tracker` (rewrite touched markup outside script bodies — LLM overreach,
+gate right) and `loans-consolidation` (dynamic `${n}` template-literal ids; the LLM's
+prefixing broke id-set parity vs baseline — conservative-gate-vs-plausible-fix, designed to
+go to a human). Both join the parked pool (now 6 total with the repair batch's 4).
+
+**Verified at every layer:**
+- all 20 written templates: `instanceaudit --bindings` exit 0, zero collisions doubled.
+- 21 section_edit deliveries complete; 20 published. The 21st (`mortgages-repayment-demo`)
+  was SKIPPED by `ARCHIVED_PAGE_GUARD` — page is status=archived; the guard refused to
+  re-publish a retired page and named it in the result. Correct behaviour; the PLAN's
+  "2 pages" for repayment predates the archiving. The deliberate look §5.3 asked for was
+  worth it: `deployed_at` unmoved on that page is the guard, not a failure.
+- live spot-checks (repayment, settlement-calculator, stamp-duty): prefixed ids served,
+  all lookups resolve, 0 bare, 0 unrendered tokens.
+- **oracle: PASS 170 / FAIL 0 / CONV 6 / N/A 0** — full estate, identical to the
+  pre-conversion baseline; `--mutate expectation` full-suite control: 161 FAIL / 0 PASS,
+  CONTROL OK.
+
+**Selector-move gotchas found and handled (for the next converter):**
+- 11 press selectors were `button[onclick='F()']` — the conversion REMOVES inline on*=
+  attributes, so every one would have gone N/A. The rewiring pass gives its target buttons
+  ids (`{{.InstanceID}}-btn-*`), so each press became `#c-<fn>-btn-*`. Mapping read from the
+  converted scripts' own addEventListener bindings, NOT guessed — equity-release's
+  `calcCompound` is `btn-project`, not `btn-calculate`.
+- the loans/mortgages OVERPAYMENT block covers TWO pages in one block — split at
+  `def over_mort` before prefixing, or one tool's prefix corrupts the other's selectors.
+- `second_press` (investor LTV) and car-finance's parameterised `setType('%s')` (→ 
+  `"#c-…-btn-%s" % key`) don't match the simple press pattern — grep `button[onclick`
+  afterwards; the ONE legitimate survivor is consolidation's `addDebtRow` driver line
+  (page unconverted, refused).
+
+Remaining: the generic pool (bayesian-ranking, archetype-clash ×2), b2_verify red-by-design
+on its 7 seeded pages until the LMC lane recaptures, the 6 parked rows (owner call on the 3
+live-broken automation-savings placements), and the 08-15-vintage estate drift (18 new
+class-A tools) as follow-on.
