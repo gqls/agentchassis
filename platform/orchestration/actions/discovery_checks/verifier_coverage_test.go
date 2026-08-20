@@ -471,7 +471,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// The row is undispatchable by construction (status 'deferred' + empty
 	// handler_agent, remit.go's double lock), because the remedy is a code change
 	// by a person, and there is no handler that could ever claim it.
-	"verifier_remit_gap": {catMechanical, "a VERIFIED item_type has accumulated rows from more than one producer shape while its verifier declares no remit — bugs_open/213 one level up, from the class detector (cmd/verifier-remit-check). Predicate: discovery_checks.VerifierDeclaresRemit(spec.subject_type), or the subject collapsing back to one producer family. The detector closes its own findings on a positive observation, so completion-side verification is a follow-on rather than the only guard"},
+	"verifier_remit_gap":      {catMechanical, "a VERIFIED item_type has accumulated rows from more than one producer shape while its verifier declares no remit — bugs_open/213 one level up, from the class detector (cmd/verifier-remit-check). Predicate: discovery_checks.VerifierDeclaresRemit(spec.subject_type), or the subject collapsing back to one producer family. The detector closes its own findings on a positive observation, so completion-side verification is a follow-on rather than the only guard"},
+	"brief_supplies_negation": {catJudgement, "a site's writer-visible brief HANDS the writer a phrase built on define-by-negation, from cmd/brief-negation-check (bugs_open/305). Filed against the site, terminal at needs_human_review with no handler, and deliberately so: the remedy is the SITE OWNER editing their own brief, and the writer-seam gate exempts brief-supplied phrases precisely because a site's voice specification outranks the fleet rules. There IS a mechanical re-observation — the phrase is either still in the visible surface or it is not — and the detector performs it, closing its own finding on a positive result; what is judgement is whether the phrase SHOULD go, which is why it is not catMechanical"},
 
 	// ---- creation: "make X exist" ----
 	"needs_page":          {catCreation, "page existence; 49 of 365 carry page_id"},
@@ -784,5 +785,9 @@ var liveItemTypes = []string{
 	// this snapshot. Its producer is cmd/verifier-remit-check, outside this package,
 	// so the SENSOR half cannot see it at all.
 	"verifier_remit_gap",
+	// brief_supplies_negation is listed from the moment it is minted, same rule
+	// (bugs_open/305): a type this file cannot see is a type whose completions
+	// nobody is recording a choice about.
+	"brief_supplies_negation",
 	"unfulfilled_hero_variant", "unresolved_cta", "voice_tells",
 }

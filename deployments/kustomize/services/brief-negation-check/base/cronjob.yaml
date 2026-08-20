@@ -1,0 +1,89 @@
+# deployments/kustomize/services/brief-negation-check/base/cronjob.yaml
+#
+# bugs_open/305 — the SOURCE-side detector for define-by-negation.
+#
+# WHAT IT ASKS, once a day: does any site's brief HAND the writer a phrase built
+# on define-by-negation, in the text the writer actually reads?
+#
+# WHY IT EXISTS ALONGSIDE THE WRITER-SEAM GATE. The gate repairs what the writer
+# invents and deliberately EXEMPTS anything the brief supplied, because a site's
+# own voice specification outranks the fleet rules and a phrase in the brief is
+# its owner's decision. That leaves exactly one gap — and it is the gap the
+# owner's own complaint came through. Measured 2026-08-19: the complained-of
+# site's canonical tagline reaches the writer in 1,369 rendered prompts and comes
+# back in 409 responses. No code change will remove it. This job is what puts it
+# in front of a human.
+#
+# WHY DAILY. A brief is edited by config, with no commit and no build, so the
+# thing this watches can change at any moment and leave no trace in git. The cost
+# of a late catch is every page written from that brief in the meantime.
+#
+# IT WRITES ONE doc_notes ROW PER RUN, INCLUDING A CLEAN ONE. A check that only
+# speaks when it fails is indistinguishable from one that has stopped running, so
+# a MISSING row means the job did not run — it must never read as "nothing is
+# wrong". With backoffLimit 1, a failing day writes two rows.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec: ai-persona-app has no
+# pods/exec RBAC in this namespace. The binary detects this itself (PG_CLIENTS_HOST)
+# and a run without it says, in its own report, that it wrote nothing.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: brief-negation-check
+  labels:
+    app: brief-negation-check
+    component: copy-quality
+spec:
+  # Daily, 07:40 UTC — after the 06:00–07:25 cluster (…, shared-output-fields-check
+  # 07:10, verifier-remit-check 07:25) and before loop-sitewide-item-key-check at
+  # 07:55, so the daily checks stay serialised rather than contending on one
+  # database.
+  schedule: "40 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip should get one retry, because a failed
+      # run looks at a glance exactly like a new finding. The insert is idempotent
+      # (ON CONFLICT DO NOTHING), so a retry on a real finding costs nothing.
+      backoffLimit: 1
+      # Two queries and an in-memory walk over ~25 sites' specs. Measured ~3s by
+      # hand against the live database; 300s is a wide margin that still stops a
+      # hung job blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: brief-negation-check
+            component: copy-quality
+        spec:
+          restartPolicy: Never
+          # REQUIRED: aqls/ is private. Without it the job sits in ImagePullBackOff,
+          # which reports as a Job still "Running" and never as a failure — so a
+          # scheduled check would go permanently silent while looking merely slow.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/brief-negation-check:latest
+              # No args: the image's CMD is the bare binary and writing is its
+              # DEFAULT. Exit 1 on findings, so the Job shows failed — the same
+              # posture as its siblings.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi

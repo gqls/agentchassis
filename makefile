@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1318
+IMAGE_TAG ?= v1.0.1319
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -82,7 +82,7 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	content-creator-agent remote-job-spawner kafka-scheduler \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
-	loop-sitewide-item-key-check github-actions-runner
+	loop-sitewide-item-key-check brief-negation-check github-actions-runner
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -108,7 +108,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	business-intel:agent-chassis \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
-	loop-sitewide-item-key-check \
+	loop-sitewide-item-key-check brief-negation-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -205,7 +205,7 @@ build-backend: build-auth-service build-core-manager build-agents build-adapters
 # binaries compile the action registry IN, a frozen image silently under-reports
 # on the estate it audits (see RELEASE_IMAGES above for the measured figures).
 .PHONY: build-checks
-build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check build-loop-sitewide-item-key-check ## Build all five daily check CronJob images
+build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check build-loop-sitewide-item-key-check build-brief-negation-check ## Build all six daily check CronJob images
 
 .PHONY: build-frontends
 build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
@@ -352,6 +352,10 @@ build-removed-config-keys-check: ## Build removed-config-keys-check CronJob imag
 .PHONY: build-verifier-remit-check
 build-verifier-remit-check: ## Build verifier-remit-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,verifier-remit-check)
+
+.PHONY: build-brief-negation-check
+build-brief-negation-check: ## Build brief-negation-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,brief-negation-check)
 
 .PHONY: build-web-scrape-adapter
 build-web-scrape-adapter: ## Build web-scrape-adapter (committed HEAD; REF=<ref> to pin, -tree for WIP)
@@ -2155,6 +2159,23 @@ verifier-remit-check-now: ## Trigger an immediate verifier-remit-check run
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
 		--from=cronjob/verifier-remit-check \
 		verifier-remit-check-manual-$$(date +%Y%m%d-%H%M%S)
+
+.PHONY: push-brief-negation-check
+push-brief-negation-check: ## Push the brief-negation-check CronJob image
+	docker push $(REGISTRY)/brief-negation-check:$(IMAGE_TAG)
+
+.PHONY: deploy-brief-negation-check
+deploy-brief-negation-check: ## Deploy the daily brief-negation-check CronJob (bugs_open/305)
+	@echo "$(YELLOW)Deploying brief-negation-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/brief-negation-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob brief-negation-check
+
+.PHONY: brief-negation-check-now
+brief-negation-check-now: ## Trigger an immediate brief-negation-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/brief-negation-check \
+		brief-negation-check-manual-$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: bugs-open-staleness-sweep-now
 bugs-open-staleness-sweep-now: ## Trigger an immediate sweep run (creates a Job from the CronJob)
