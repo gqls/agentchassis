@@ -13165,3 +13165,39 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/330` (the silent-substitution worked case) · `bugs_closed/306` (the tie-break this instrument exposed) · RFC_029 §10.13 step 5 · this file's `A component's input_schema fallback is NEVER consulted at render time` (same family: a fallback that looks live and is never reached) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · [[zero-adoption-means-read-the-mechanism]] · [[a-pass-from-a-blind-check-outlives-the-blindness]]
 - **source:** 2026-08-19, `staged_component_build` lane · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md` (`## 2026-08-19 (night)`) · `HANDOFF_2026-08-18b_continue_here.md` §5.4(c)
 - **added:** 2026-08-19, staged_component_build lane
+
+### `query_database` STRINGIFIES a jsonb column, so `{{range}}` over it iterates nothing — and it looks perfect in psql, in the logs, and in `collected_data`
+
+- **footprint:** `platform/orchestration/actions/database_actions.go` · any `query_database` step whose SQL builds a column with `jsonb_agg` / `jsonb_build_object` / `to_jsonb` / `array_agg(...)::jsonb` · any `prompt_template` that `{{range}}`s over such a field · `agent_definitions` `default_config`
+- **fires when:** you want a LIST inside one row — a set of rules, tags, sibling pages — and reach for `jsonb_agg` because it is the natural SQL, then iterate it in a Go template.
+- **the mechanism, measured 2026-08-20:** pgx scans a `jsonb` column into `[]byte`, and the action's own scan loop converts every `[]byte` to a Go `string`. So the value that reaches `collected_data` is a **JSON string**, not a structure:
+  ```
+  voice_rules        -> object   (correct)
+  voice_rules.rules  -> string   "[{\"reason\": \"banned_language: ...\", \"pattern\": \"\\\\bproduction[- ]grade\\\\b\"}, …"
+  ```
+  `{{range}}` over a string is not iteration, and the step **FAILED** (`current_step=write_descriptions, status=FAILED`).
+- **why it is a landmine and not just a bug:** every surface you would check says it worked. The SQL is right in psql. The column is populated. `collected_data` shows the full, correct, human-readable JSON — you have to ask `jsonb_typeof` to see it is a string, and nobody asks that about a value they can read. **The tell is the TYPE, never the content.**
+- **the check, before you write the template:**
+  ```sql
+  SELECT jsonb_typeof(collected_data->'<field>'),
+         jsonb_typeof(collected_data#>'{<field>,<subfield>}')
+  FROM orchestration_states WHERE correlation_id::text='<corr>';
+  -- the inner one must NOT be "string"
+  ```
+- **the fix is the SHAPE, not the template.** Do not `jsonb_agg`. Return **one row per element** with plain text columns and iterate `output_format: "object"`'s own `rows` array, which the action builds as real structures (`{"rows": results, "count": …}`). `{{range .field.rows}}` then works and `{{.column}}` resolves — and you get `.count` for the `{{if}}` as a free side effect.
+  ⚠ And note `output_format: "array"` is NOT the answer either: that returns a bare slice with no addressable keys, which is `bugs_open/313`'s trap in the other direction.
+- **relations:** `bugs_open/313` (the sibling: `.count` against a bare array) · `bugs_open/320` migrations `499` (shipped it) and `500` (fixed it) · MEMORY [[a-print-statement-is-not-a-config-row]] (same family: the readable surface is not the operative one)
+- **source:** 2026-08-20, `bugs_open/320` — cost one broken live agent on an hourly schedule, caught by reading the artefact rather than the orchestration status
+- **added:** 2026-08-20, `meta_description_never_backfilled` lane
+
+### The voice gate's DENSITY rules are statistics over a CORPUS — applied to one sentence they refuse good copy, and 7 of 9 gated sites have already switched them off by hand
+
+- **footprint:** `platform/orchestration/datahelpers/voicetells.go` (`VoiceGate.ScanVoice`, `MeanSentenceWords`, `LongSentenceWords`, `LongSentenceShare`, `EmDashPer1000Words`, `TriadsPerPage`, `ExpectContractions`) · `site_specs` `aspect='voice'` → `voice_gate` · any caller applying the gate to a SHORT single-value field rather than to page prose
+- **fires when:** you reuse the voice gate on something that is not a page — a meta description, a title, a nav label, an alt text — which is the right instinct, because the BANNED-PHRASE half genuinely belongs there.
+- **the mechanism:** the gate carries two kinds of rule and only one of them travels. **Content rules** (banned phrases) are true of any string. **Density and distribution rules** are statistics computed across a page's blocks by `ScanVoiceTells`. Over a single sentence they degenerate: "mean sentence length" of one sentence is just its length, "long-sentence share" is 0 or 1, "expects contractions" over 25 words is noise. A 24-word meta description — good, ordinary copy, inside Google's display budget — is refused as `long_sentences: mean sentence length 24.0 words` against a default trip of 22 (`voicetells.go:179-180`).
+- **⚠ THE PART THAT PROVES IT IS NOT JUST MY OPINION:** `[MEASURED 2026-08-20]` of the **9** sites with an enabled voice gate, **SEVEN** set `mean_sentence_words: 100000` and `long_sentence_words: 10000` — thresholds chosen to disable the length checks while keeping the banned-phrase list. Only `leopardessconsulting.co.uk` and `oufe.com` leave them unset and inherit the defaults. **The estate has already voted on this with its own config**, one site at a time, without anyone writing down why.
+- **the check, before you wire the gate to a new field:** ask whether the field is a CORPUS. If it is one value, filter to the content findings (`check == "banned_phrase"`) and skip the distribution ones. And before believing a refusal, read `save_result.detail` — the finding names which `check` fired, so a density refusal is distinguishable from a real one at a glance.
+- **do NOT fix it by raising the site's thresholds**: that is relaxing a checker to fit the content, and it disables the rule for the site's *pages* too, which is where it does work.
+- **relations:** `bugs_open/320` (SEO-004's copy gates; migration `501` mitigates in the prompt and says so) · MEMORY [[fixing-a-checker-to-agree-with-a-broken-site]] · the sibling landmine that `check_voice_tells` cannot see `pages.meta_description` at all
+- **source:** 2026-08-20, `bugs_open/320`, first scheduled run of the meta-description backfiller
+- **added:** 2026-08-20, `meta_description_never_backfilled` lane
