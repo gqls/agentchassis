@@ -706,6 +706,13 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
 		  AND wi.attempt_count < wi.max_attempts
+		  -- bugs_open/307: a failed attempt now carries a not-claimable-before
+		  -- stamp, so three attempts cannot all land inside one outage. NULL
+		  -- means "claimable now" and is what every pre-307 row holds, so this
+		  -- clause is a no-op until the ladder starts writing it. The same
+		  -- predicate is in claim_work_item_action.go and in three SQL read
+		  -- sites (migration 503); they are one contract and must not drift.
+		  AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
 		  AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved')
 		  AND (
 		    wi.depends_on IS NULL 
@@ -1106,6 +1113,14 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// Check for status_override — used for HITL gates like needs_human_review.
 	// When set, the item gets that status directly without incrementing attempt_count.
+	//
+	// DELIBERATELY LEFT ALONE by bugs_open/307's failure-write contract. This
+	// branch's "parks without ever ageing out" semantics is bugs_open/033's open
+	// decision D2, which has its own owner ruling (2026-07-25: the framework
+	// should resolve these classes, not park them). Routing it through the
+	// ladder would change what four live agents' refusal steps mean —
+	// component-template-fixer ×2, page-build-handler, tool-improver — from
+	// inside a patch about something else.
 	statusOverride, _ := params.StepConfig.Config["status_override"].(string)
 
 	var newStatus string
@@ -1124,55 +1139,72 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 		logger.Info("FailWorkItemAction: using status_override",
 			zap.String("item_id", itemIDStr),
 			zap.String("status_override", statusOverride))
-	} else if isAIUnavailable(fmt.Errorf("%s", errorMsg)) {
-		// AI endpoint unavailable (connection refused, credit exhaustion, etc.)
-		// Release back to triaged WITHOUT incrementing attempt_count.
-		// The item will be retried when the endpoint recovers.
-		err = params.DB.QueryRowContext(ctx, `
-			UPDATE site_work_items
-			SET error = $2,
-			    status = 'triaged',
-			    claimed_by = NULL,
-			    claimed_at = NULL,
-			    handled_by = NULL,
-			    updated_at = NOW()
-			WHERE id = $1
-			RETURNING status, max_attempts - attempt_count
-		`, itemID, "AI unavailable: "+errorMsg).Scan(&newStatus, &attemptsLeft)
 
-		logger.Info("FailWorkItemAction: AI unavailable — released to triaged without counting attempt",
+		if err != nil {
+			return nil, fmt.Errorf("failed to update work item: %w", err)
+		}
+
+		logger.Info("FailWorkItemAction: Done",
 			zap.String("item_id", itemIDStr),
-			zap.String("error", errorMsg))
-	} else {
-		err = params.DB.QueryRowContext(ctx, `
-			UPDATE site_work_items
-			SET attempt_count = attempt_count + 1,
-			    error = $2,
-			    status = CASE
-			        WHEN attempt_count + 1 >= max_attempts THEN 'failed'
-			        ELSE 'triaged'
-			    END,
-			    handled_by = $3
-			WHERE id = $1
-			RETURNING status, max_attempts - (attempt_count)
-		`, itemID, errorMsg, agentType).Scan(&newStatus, &attemptsLeft)
+			zap.String("new_status", newStatus),
+			zap.Int("attempts_left", attemptsLeft),
+		)
+
+		return map[string]interface{}{
+			"item_id":       itemIDStr,
+			"new_status":    newStatus,
+			"attempts_left": attemptsLeft,
+			"will_retry":    newStatus == "triaged",
+		}, nil
 	}
 
+	// ── Every other failure goes through the ONE contract (bugs_open/307).
+	//
+	// What used to be here: an isAIUnavailable branch that released to triaged
+	// forever without counting or waiting, and a CASE ladder that counted but
+	// re-triaged with NO DELAY — so three attempts could land inside the same
+	// five minutes of an outage, which is what killed 88 of 100 items on
+	// 2026-08-17. Neither had a terminal-decision guard, where both sibling
+	// writers on the completion path do.
+	//
+	// All of that — ladder, cooldown from reaper_policies, layered transient
+	// classification, burst detection, and the guard — now lives in
+	// work_item_failure_ladder.go, which update_work_item_status's `failed` arm
+	// also calls. One mechanism, one guarantee.
+	outcome, err := applyWorkItemFailureLadder(ctx, params.DB, logger, itemID, errorMsg, agentType, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update work item: %w", err)
+		return nil, err
+	}
+
+	if outcome.Skipped {
+		// A handler had already recorded a deliberate decision on this row.
+		// Reported, not an error — the saga did fail, and the item's status is
+		// simply not ours to overwrite (the WII-003 pattern, one writer over).
+		return map[string]interface{}{
+			"item_id":    itemIDStr,
+			"failed":     false,
+			"skipped":    true,
+			"reason":     outcome.SkipReason,
+			"will_retry": false,
+		}, nil
 	}
 
 	logger.Info("FailWorkItemAction: Done",
 		zap.String("item_id", itemIDStr),
-		zap.String("new_status", newStatus),
-		zap.Int("attempts_left", attemptsLeft),
+		zap.String("new_status", outcome.NewStatus),
+		zap.Int("attempts_left", outcome.AttemptsLeft),
+		zap.Bool("released_without_counting", outcome.Released),
+		zap.Int("backoff_minutes", outcome.BackoffMins),
 	)
 
 	return map[string]interface{}{
-		"item_id":       itemIDStr,
-		"new_status":    newStatus,
-		"attempts_left": attemptsLeft,
-		"will_retry":    newStatus == "triaged",
+		"item_id":         itemIDStr,
+		"new_status":      outcome.NewStatus,
+		"attempts_left":   outcome.AttemptsLeft,
+		"will_retry":      outcome.NewStatus == "triaged",
+		"released":        outcome.Released,
+		"release_reason":  outcome.ReleaseReason,
+		"backoff_minutes": outcome.BackoffMins,
 	}, nil
 }
 

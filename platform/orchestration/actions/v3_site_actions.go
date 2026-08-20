@@ -6041,8 +6041,69 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("failed to marshal result payload: %w", err)
 	}
 
+	// ── A FAILURE goes through the shared failure-write contract, not through
+	// this statement (bugs_open/307).
+	//
+	// WHAT WAS WRONG HERE, and it is the larger half of that bug. This UPDATE
+	// incremented attempt_count and wrote the configured status under
+	// `WHERE id = $1` — no CASE ladder and no terminal-status guard. So a step
+	// configured `status: 'failed'` was TERMINAL ON ITS FIRST FAILURE however
+	// many max_attempts the row declared, in fair weather as much as in an
+	// outage. Five live agents carry such a step (page-build-handler,
+	// image-build-handler, image-source-unsatisfiable-handler,
+	// image-url-404-handler, required-fields-missing-handler) and the bleed is
+	// measurable: 141 of 270 failed rows in the 14 days to 2026-08-19 died
+	// before exhausting their budget, 139 of them at attempt_count=1 of 3.
+	//
+	// Scoped to `failed` on purpose. An ownership REFUSAL (WII-019's
+	// owned_page_refusal_status, which lands `wont_fix` here) is a DECISION, not
+	// a failure, and must not be re-triaged; nor must the six
+	// needs_human_review steps or the six `complete` ones. The condition below
+	// therefore excludes the refusal substitution explicitly rather than trusting
+	// that `failed` implies "not a decision".
+	if newStatus == "failed" && !ownedPageRefusal {
+		outcome, lerr := applyWorkItemFailureLadder(ctx, params.DB, params.Logger,
+			workItemID, errorMessage, "", resultJSON)
+		if lerr != nil {
+			return nil, lerr
+		}
+		if outcome.Skipped {
+			params.Logger.Info("UpdateWorkItemStatusAction: skipped — a deliberate status is already recorded, not overwriting",
+				zap.String("work_item_id", workItemIDStr),
+				zap.String("reason", outcome.SkipReason))
+			return map[string]interface{}{
+				"updated": false,
+				"skipped": true,
+				"reason":  outcome.SkipReason,
+			}, nil
+		}
+		params.Logger.Info("UpdateWorkItemStatusAction: failure recorded through the work-item failure ladder",
+			zap.String("work_item_id", workItemIDStr),
+			zap.String("status", outcome.NewStatus),
+			zap.Int("attempts_left", outcome.AttemptsLeft),
+			zap.Bool("released_without_counting", outcome.Released),
+			zap.Int("backoff_minutes", outcome.BackoffMins))
+		return map[string]interface{}{
+			"updated":         true,
+			"status":          outcome.NewStatus,
+			"work_item_id":    workItemIDStr,
+			"attempts_left":   outcome.AttemptsLeft,
+			"released":        outcome.Released,
+			"release_reason":  outcome.ReleaseReason,
+			"backoff_minutes": outcome.BackoffMins,
+		}, nil
+	}
+
 	// Build query. completed_at only set when transitioning to complete; for
-	// other statuses (failed, etc.) leave it alone and just update status.
+	// other statuses leave it alone and just update status.
+	//
+	// The `complete` arm carries the same terminal-decision guard as
+	// CompleteWorkItemAction's (WII-003, load_work_item_actions.go) — this
+	// action is a third writer of `complete` and had no guard at all, so a
+	// handler that deliberately flagged its item could be re-stamped complete
+	// from here. Same defect, same remedy, one writer over. `failed` and
+	// `unresolved` stay overwritable here for the same reason as in the ladder:
+	// re-deciding a failed row is legitimate, undoing a human's decision is not.
 	var query string
 	if newStatus == "complete" {
 		query = `UPDATE site_work_items
@@ -6052,7 +6113,8 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		                attempt_count = attempt_count + 1,
 		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb,
 		                error = COALESCE(NULLIF($4, ''), error)
-		          WHERE id = $1`
+		          WHERE id = $1
+		            AND status NOT IN (` + sqlInList(workItemDecisionStatuses) + `)`
 	} else {
 		query = `UPDATE site_work_items
 		            SET status = $2,

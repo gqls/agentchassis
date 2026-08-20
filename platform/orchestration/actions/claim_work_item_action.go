@@ -101,6 +101,14 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		WHERE id = $1
 		  AND status IN ('triaged', 'approved')
 		  AND attempt_count < max_attempts
+		  -- bugs_open/307: honour the failure ladder's cooldown. Without this
+		  -- clause the ladder's backoff would be decorative — a re-triaged item
+		  -- is otherwise claimable on the very next dispatch tick, which is how
+		  -- 88 of 100 items burned three attempts inside one 2h43m outage.
+		  -- NULL = claimable now (every pre-307 row), so this is inert until the
+		  -- ladder writes a stamp. Lockstep: LoadWorkItemsAction's selection and
+		  -- migration 503's three SQL read sites carry the same predicate.
+		  AND (retry_after IS NULL OR retry_after <= NOW())
 		RETURNING id::text
 	`, itemID, claimedBy).Scan(&claimedItemID)
 

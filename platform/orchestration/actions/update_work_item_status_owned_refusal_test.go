@@ -56,7 +56,22 @@ func (m captureTextArg) Match(v driver.Value) bool {
 
 // runStatusUpdate drives UpdateWorkItemStatusAction against sqlmock and returns
 // the status, result JSONB and error column it wrote.
-func runStatusUpdate(t *testing.T, config map[string]interface{}, collected map[string]interface{}) ownedRefusalRun {
+//
+// wantStatus is what the action is expected to write, and the helper uses it to
+// arm the right statement — which makes it a load-bearing assertion rather than
+// bookkeeping (bugs_open/307). Since the failure-write contract landed, `failed`
+// is the ONLY status that goes through applyWorkItemFailureLadder; the whole
+// point of scoping it that narrowly is that a REFUSAL is a decision, not a
+// failure, and must never be re-triaged by a retry ladder. So if the scoping
+// ever widened to cover the wont_fix substitution, the refusal cases below would
+// stop matching their expected statement and fail here.
+// routedMessagePresent says whether __step_error carries a readable message.
+// It gates the burst-probe expectation, because the detector refuses to query on
+// an empty signature — an empty one would collapse every blank-message failure
+// in the fleet into a single group that matches itself. The malformed-shape
+// cases below are exactly that: a __step_error that is a bare string, a number
+// or an array yields no message at all.
+func runStatusUpdate(t *testing.T, config map[string]interface{}, collected map[string]interface{}, wantStatus string, routedMessagePresent bool) ownedRefusalRun {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -74,12 +89,31 @@ func runStatusUpdate(t *testing.T, config map[string]interface{}, collected map[
 	}
 
 	var got ownedRefusalRun
-	mock.ExpectExec(`UPDATE site_work_items`).
-		WithArgs(itemID,
-			captureArg{got: &got.status},
-			captureTextArg{got: &got.resultJSN},
-			captureArg{got: &got.errCol}).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	if wantStatus == "failed" {
+		// Through the shared ladder: state pre-read, burst probe (healthy
+		// fleet — a burst would release instead of recording), then the
+		// UPDATE ... RETURNING. The fixture sits on the last attempt so the
+		// ladder is terminal and no reaper_policies lookup occurs.
+		got.status = "failed"
+		expectStateRead(mock, ladderState{status: "claimed", attemptCount: 2, maxAttempts: 3, itemType: "content_rewrite"})
+		if routedMessagePresent {
+			expectBurstProbe(mock, 1, 1, 1)
+		}
+		mock.ExpectQuery(`UPDATE site_work_items`).
+			WithArgs(itemID,
+				captureArg{got: &got.errCol},
+				sqlmock.AnyArg(),
+				sqlmock.AnyArg(),
+				captureTextArg{got: &got.resultJSN}).
+			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("failed", 0))
+	} else {
+		mock.ExpectExec(`UPDATE site_work_items`).
+			WithArgs(itemID,
+				captureArg{got: &got.status},
+				captureTextArg{got: &got.resultJSN},
+				captureArg{got: &got.errCol}).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+	}
 
 	params := ActionParams{
 		Context:          context.Background(),
@@ -139,7 +173,7 @@ func TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure(t *testing.T) {
 	asConfiguredToday := map[string]interface{}{"status": "failed"}
 
 	t.Run("opted in, ownership refusal — records wont_fix", func(t *testing.T) {
-		got := runStatusUpdate(t, withRefusal, ownedRefusalError(t))
+		got := runStatusUpdate(t, withRefusal, ownedRefusalError(t), "wont_fix", true)
 		if got.status != "wont_fix" {
 			t.Errorf("status: got %q, want %q — the refusal is still voting in the promoter's floor", got.status, "wont_fix")
 		}
@@ -159,7 +193,7 @@ func TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure(t *testing.T) {
 	})
 
 	t.Run("field absent — an ownership refusal still records failed (default OFF)", func(t *testing.T) {
-		got := runStatusUpdate(t, asConfiguredToday, ownedRefusalError(t))
+		got := runStatusUpdate(t, asConfiguredToday, ownedRefusalError(t), "failed", true)
 		if got.status != "failed" {
 			t.Errorf("status: got %q, want %q — the unsafe default must be OFF for every caller that has not opted in", got.status, "failed")
 		}
@@ -169,7 +203,7 @@ func TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure(t *testing.T) {
 	})
 
 	t.Run("opted in, genuine save failure — still records failed", func(t *testing.T) {
-		got := runStatusUpdate(t, withRefusal, genuineSaveFailure())
+		got := runStatusUpdate(t, withRefusal, genuineSaveFailure(), "failed", true)
 		if got.status != "failed" {
 			t.Errorf("status: got %q, want %q — a handler that tried and could not must keep counting, or the floor goes blind", got.status, "failed")
 		}
@@ -184,7 +218,7 @@ func TestUpdateWorkItemStatus_OwnedPageRefusalIsNotAFailure(t *testing.T) {
 		got := runStatusUpdate(t, map[string]interface{}{
 			"status":                    "complete",
 			"owned_page_refusal_status": "wont_fix",
-		}, map[string]interface{}{})
+		}, map[string]interface{}{}, "complete", false)
 		if got.status != "complete" {
 			t.Errorf("status: got %q, want %q", got.status, "complete")
 		}
@@ -207,26 +241,34 @@ func TestUpdateWorkItemStatus_RefusalBlockIsCrashSafeForEveryCaller(t *testing.T
 		name      string
 		config    map[string]interface{}
 		collected map[string]interface{}
+		// A malformed __step_error yields NO message, so the burst detector
+		// never queries — stated per case rather than inferred, so that a
+		// change in what counts as "readable" shows up here.
+		routedMessagePresent bool
 	}{
 		{
-			name:      "refusal_status is a number, not a string",
-			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": 42},
-			collected: ownedRefusalError(t),
+			name:                 "refusal_status is a number, not a string",
+			config:               map[string]interface{}{"status": "failed", "owned_page_refusal_status": 42},
+			collected:            ownedRefusalError(t),
+			routedMessagePresent: true,
 		},
 		{
-			name:      "refusal_status is a bool",
-			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": true},
-			collected: ownedRefusalError(t),
+			name:                 "refusal_status is a bool",
+			config:               map[string]interface{}{"status": "failed", "owned_page_refusal_status": true},
+			collected:            ownedRefusalError(t),
+			routedMessagePresent: true,
 		},
 		{
-			name:      "refusal_status is an empty string — treated as absent",
-			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": ""},
-			collected: ownedRefusalError(t),
+			name:                 "refusal_status is an empty string — treated as absent",
+			config:               map[string]interface{}{"status": "failed", "owned_page_refusal_status": ""},
+			collected:            ownedRefusalError(t),
+			routedMessagePresent: true,
 		},
 		{
-			name:      "refusal_status is nil",
-			config:    map[string]interface{}{"status": "failed", "owned_page_refusal_status": nil},
-			collected: ownedRefusalError(t),
+			name:                 "refusal_status is nil",
+			config:               map[string]interface{}{"status": "failed", "owned_page_refusal_status": nil},
+			collected:            ownedRefusalError(t),
+			routedMessagePresent: true,
 		},
 		{
 			name:   "__step_error is a string, not a map",
@@ -255,7 +297,7 @@ func TestUpdateWorkItemStatus_RefusalBlockIsCrashSafeForEveryCaller(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			// runStatusUpdate t.Fatal's on an action error, so reaching the
 			// assertion at all is the no-panic / no-error half.
-			got := runStatusUpdate(t, tc.config, tc.collected)
+			got := runStatusUpdate(t, tc.config, tc.collected, "failed", tc.routedMessagePresent)
 			if got.status != "failed" {
 				t.Errorf("status = %q, want %q — a malformed shape must leave the configured status alone, not substitute one", got.status, "failed")
 			}

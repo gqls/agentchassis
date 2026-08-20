@@ -29,7 +29,16 @@ import (
 
 // captureStatusUpdate runs UpdateWorkItemStatusAction against sqlmock and
 // returns the value it wrote to the error column.
-func captureStatusUpdate(t *testing.T, config map[string]interface{}, collected map[string]interface{}) string {
+//
+// viaLadder says which write to expect, and stating it per case is itself an
+// assertion (bugs_open/307). Since the failure-write contract landed, a
+// `status: failed` write goes through applyWorkItemFailureLadder — a state
+// pre-read, a burst probe, then an UPDATE ... RETURNING with the error as $2 —
+// while every other status still takes this action's own single Exec. If the
+// scoping ever slipped, so that an ownership refusal or a needs_human_review
+// park started going through the ladder (and could therefore be re-triaged),
+// the case that says viaLadder=false would fail here.
+func captureStatusUpdate(t *testing.T, config map[string]interface{}, collected map[string]interface{}, viaLadder bool, wantErr string) string {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -47,9 +56,27 @@ func captureStatusUpdate(t *testing.T, config map[string]interface{}, collected 
 	}
 
 	var gotError string
-	mock.ExpectExec(`UPDATE site_work_items`).
-		WithArgs(itemID, sqlmock.AnyArg(), sqlmock.AnyArg(), captureArg{got: &gotError}).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	if viaLadder {
+		// The fixture is the LAST attempt (2 of 3), which keeps the shape to
+		// three statements: the ladder is terminal, so no reaper_policies
+		// lookup happens. The burst probe reports a healthy fleet — these
+		// cases are about the error column, and a burst would release instead.
+		expectStateRead(mock, ladderState{status: "claimed", attemptCount: 2, maxAttempts: 3, itemType: "content_rewrite"})
+		// No burst probe when there is no message to match on: an empty
+		// signature would collapse every blank-message failure in the fleet
+		// into one group and match itself en masse, so the detector refuses
+		// before it queries. The case with want:"" exercises exactly that.
+		if wantErr != "" {
+			expectBurstProbe(mock, 1, 1, 1)
+		}
+		mock.ExpectQuery(`UPDATE site_work_items`).
+			WithArgs(itemID, captureArg{got: &gotError}, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("failed", 0))
+	} else {
+		mock.ExpectExec(`UPDATE site_work_items`).
+			WithArgs(itemID, sqlmock.AnyArg(), sqlmock.AnyArg(), captureArg{got: &gotError}).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+	}
 
 	params := ActionParams{
 		Context:          context.Background(),
@@ -88,18 +115,21 @@ func TestUpdateWorkItemStatus_RecordsRoutedStepError(t *testing.T) {
 		config    map[string]interface{}
 		collected map[string]interface{}
 		want      string
+		viaLadder bool // a `failed` write goes through the shared contract
 	}{
 		{
 			name:      "failed with no literal — records the routed error, named by step",
 			config:    map[string]interface{}{"status": "failed"},
 			collected: routed("deploy_page", "Request 59150fa3-2e93-4661-855a-e56abbf8012d timed out after 3 retries"),
 			want:      "step deploy_page failed: Request 59150fa3-2e93-4661-855a-e56abbf8012d timed out after 3 retries",
+			viaLadder: true,
 		},
 		{
 			name:      "message already names its step — not prefixed twice",
 			config:    map[string]interface{}{"status": "failed"},
 			collected: routed("validate_content", "step validate_content failed: failed to execute action validate_page_content: content validation failed"),
 			want:      "step validate_content failed: failed to execute action validate_page_content: content validation failed",
+			viaLadder: true,
 		},
 		{
 			// A configured literal is the workflow author's deliberate wording
@@ -127,6 +157,7 @@ func TestUpdateWorkItemStatus_RecordsRoutedStepError(t *testing.T) {
 			config:    map[string]interface{}{"status": "failed"},
 			collected: map[string]interface{}{},
 			want:      "",
+			viaLadder: true,
 		},
 		{
 			// Defensive: a routed entry with no failed_step still yields the
@@ -136,13 +167,14 @@ func TestUpdateWorkItemStatus_RecordsRoutedStepError(t *testing.T) {
 			collected: map[string]interface{}{
 				"__step_error": map[string]interface{}{"message": "handler pod died"},
 			},
-			want: "handler pod died",
+			want:      "handler pod died",
+			viaLadder: true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := captureStatusUpdate(t, tc.config, tc.collected); got != tc.want {
+			if got := captureStatusUpdate(t, tc.config, tc.collected, tc.viaLadder, tc.want); got != tc.want {
 				t.Errorf("error column:\n got  %q\n want %q", got, tc.want)
 			}
 		})
