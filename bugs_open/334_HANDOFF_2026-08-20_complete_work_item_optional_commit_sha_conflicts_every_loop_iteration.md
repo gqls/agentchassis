@@ -129,3 +129,31 @@ The RUNBOOK candidate-set query (staged_component_build, "step 4's done-conditio
 rows for `build-dispatch-loop`/`commit_sha` against live demand (completions in the window:
 `site_work_items` rows newly `complete`), AND completed items that deployed still carry
 `result.commit_sha` (the fix must not silently drop the value — 250/323 is the baseline).
+
+## 7. ADDENDUM 2026-08-20 ~09:00Z — the live step config, read recursively (it is NOT top-level; the jsonb_each census returns zero)
+
+The step is `build-dispatch-loop → workflow.steps.process_item.config.sub_workflow.steps.mark_complete`
+(recursive jsonb walk; the top-level `jsonb_each(steps)` census finds nothing — the RUNBOOK's
+"top-level only" trap, third occurrence in two days on this lane). Its live config, verbatim:
+
+```json
+{"result!": "handler_result", "error_step": "mark_failed", "work_item_id!": "current_item.id"}
+```
+
+Three consequences for §4:
+
+1. **Candidate 1 is precedented INSIDE THIS VERY STEP**: `result!` and `work_item_id!` are
+   already strict-mapped (bugfix-287's `!` work, CTS-060). `commit_sha` is the only spec field
+   of this step left floating on the whole-tree search. The fix is one key in one nested config:
+   `"commit_sha?": "handler_result.response.deploy_result.response.data.commit_sha"` (`?`, not
+   `!` — the 7.7% deeper shape and any non-deploy item type must stay optional, not hard-fail).
+2. **Candidate 2 gets stronger**: `result!` already maps the WHOLE `handler_result` into
+   `result`, and the handler_result CONTAINS the sha at `response.deploy_result…data.commit_sha`
+   — so the top-level `result.commit_sha` copy is a convenience duplicate of data the result
+   already carries. And the copy has only EXISTED since 2026-08-19 20:40Z (no reply carried the
+   key before), so any consumer of `result->>'commit_sha'` is at most hours old — census it
+   before preserving it.
+3. Whoever builds either candidate: mutate the NESTED path; a migration editing
+   `{workflow,steps,mark_complete,…}` top-level would silently create a dead step. And the 315
+   lane holds a CONTRIB on this (staged_component_build NOTES, first 08-20 morning entry) —
+   their judgment on whether `result.commit_sha` is wanted comes first.
