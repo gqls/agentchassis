@@ -49,6 +49,23 @@ reproducible damage.**
 > **91 not opted in at all**). Loose end 4 is settled the same way: `render_component` is
 > warning-only, so a misplaced key there is inert.
 >
+> **ROUND 2 VERDICT: APPROVED at 17:40:03Z — "all reviewers approve", 13 seats, none gating.**
+> The `guardian` withdrew its round-1 objection to **zero** once the two checks it named were
+> supplied, and `bug_historian` and `reuse_agent` — the seats whose objections produced RFC_045 —
+> both approved with none. **Loose end 2 is CLOSED and the lane's council trail is complete.**
+> Two advisory objections remained and both were checked rather than banked:
+> `prior_art_librarian` was right that "no mode scans handler bodies" was an asserted absence — it
+> was checked and **HOLDS** (no `go/ast`/`go/parser`/`packages.Load` anywhere in
+> `cmd/config-key-audit`, no `.go` path walked, its only two file reads are ack files) — and the
+> same check **REFUTED this handoff's own line** that the tool is "where the source-scanning
+> machinery lives": it is not, and never has been. `editquality` was right that my round-2 sketch
+> named two helper functions that do not exist. All three are recorded in `RFC_045` §8.
+>
+> **Trailer note:** the fix commit `daaa7541b` still carries none and cannot (forward-only), so
+> `098` will keep listing it as un-reviewed. That is now purely a reporting artefact — the verdict
+> is APPROVED and readable at the correlation. `Council-Reviewed: bc2f4b0e-45db-49c8-9f45-6af74a344cce`
+> is carried by the RFC_045 §8 commit instead.
+>
 > **The reusable part — a submitted council round is not a closed one.** The close-out condition
 > here was about the code being live, which it was; the verdict was parked under "loose ends, none
 > blocking" and so nobody read it. Logged in `WRONG_CALLS.md`.
