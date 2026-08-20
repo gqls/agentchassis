@@ -1327,3 +1327,45 @@ SELECT count(content_hash) FROM pages;                                          
 
 A watcher on the second alone cannot distinguish *nothing has run* from *nothing can run*. That is
 not a hypothetical — it is what happened.
+
+## 2026-08-20 ~10:20Z — **494 RE-ARMED against `v1.0.1319`, and this time the check was the right one**
+
+Build `v1.0.1319`, pods 10:18:15–10:18:41Z, git-adapter stamp **`447f3a8a8`**.
+
+### The gate, checked the way `336` taught rather than the way I did it last time
+
+| check | result |
+|---|---|
+| `git merge-base --is-ancestor daaa7541b 447f3a8a8` | **IN the build** |
+| reverse test (must be false, or the probe is vacuous) | **probe discriminates** |
+| **the one that actually sees the defect** — `git show <stamp>:v3_site_actions.go \| awk '/^var UpdatePageStatusInputSpec/,/^}/' \| grep '"deploy_result_field"'` | **2 matches** |
+| same, scoped to `RenderComponentInputSpec` | **0** ✔ |
+
+⚠ **The "2" is why you read the lines instead of the count.** One is the ConfigKeys entry; the other
+is a comment quoting `git log -S'"deploy_result_field",'`. Expecting 1 and seeing 2 is exactly where
+I would have shrugged yesterday. Inspected: line 34 is the entry, line 30 is prose. Correct.
+
+**No binary probe was used**, deliberately — `336` measured that it reads PRESENT regardless, because
+the literal is in the chassis three times over.
+
+### Damage checked FIRST, before looking for the benefit
+
+```
+validation errors matching the key      0     <- last time this was the smoking gun
+new failed work items, last 5 min       0
+page_rerender failed                   31     (was 38 before arming — DOWN, not up)
+agents armed                            3
+```
+
+`[MEASURED 2026-08-20 ~10:22Z]`. Last time the equivalent query would have returned non-zero within
+twelve minutes; it was never run.
+
+### The watcher now reads BOTH signals
+
+Started `scratchpad/watch494.sh` — it polls validation errors, `DEPLOY_EVIDENCE_UNREADABLE`, and
+`count(content_hash)` together, **exits 2 on damage** naming the rollback file, and exits 0 on the
+first fingerprint. A benefit-only watcher cannot distinguish *nothing has run* from *nothing can
+run*; that distinction is the whole of `bugs_open/336`.
+
+**Still not a pass until a fingerprint appears.** Armed and undamaged is not the artefact — which is
+this lane's own lesson, applied correctly this time rather than written down and ignored.
