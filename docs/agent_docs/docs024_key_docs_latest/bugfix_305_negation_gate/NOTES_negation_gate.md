@@ -233,3 +233,23 @@ Answered with evidence rather than changed: `apply_section_edit` needs a `page_c
 | drop the per-page carry in `CollectedData` | `TestBudgetIsPerPageNotPerSection` |
 | drop the `nonProseFieldRe` test in `prosey()` | `TestWalkerSkipsNonProse` |
 | drop the `err != nil` early return in the wrapper | `TestAnnotationPassesErrorsThrough` |
+
+### Anchors RE-VERIFIED after the config moved under me (2026-08-20 ~15:40Z)
+
+`page-content-writer`'s row was updated at **10:16:39Z** — after I read it at ~09:20 and after the
+council's round-1 check quoted it. Another session's edit. Re-checked every anchor migration `509`
+depends on, because a step-chain migration written against a stale read is the failure this whole file
+is about:
+
+| anchor | value now |
+|---|---|
+| `…sub_workflow,steps,generate_content,action` | `execute_llm_prompt` ✓ |
+| `…sub_workflow,steps,generate_content,next_step` | `render_section` ✓ |
+| `…sub_workflow,steps,render_section,action` | `render_component` ✓ |
+| `…sub_workflow,steps,rewrite_negations` | absent ✓ |
+| `…sub_workflow,substeps` | **absent** ✓ (the council's gating concern, still answered) |
+
+All hold, so `509` is unaffected. **This is the argument for anchoring and needle-gating rather than a
+blind `jsonb_set`**: the migration would have refused (0 rows, loud RAISE) if any of them had moved,
+instead of minting an orphan key on a chain that no longer exists. Re-run this table before applying
+`509` regardless of what this note says — it was true at 15:40Z and the tree moves hourly.
