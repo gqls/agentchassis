@@ -623,6 +623,28 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 		// neutral, it is the page describing itself as nothing (measured
 		// 2026-08-02: every lendzy page shipped one).
 		head = spliceMetaDescription(head, page.MetaDesc)
+		// Replace whatever the SITE-level head claims about this page's Open
+		// Graph identity with the page's own (bugs_open/252). The stored head
+		// is one row per site, so a page-scoped value baked into it is a claim
+		// about every page: measured 2026-08-19, 22 of 24 heads carried
+		// og:url pointing at the homepage, on 700 assembled pages.
+		//
+		// ORDER IS LOAD-BEARING, AND THIS MUST RUN *AFTER*
+		// spliceMetaDescription — the reverse of what it looks like it wants.
+		// That function's legacy fallback fills the FIRST `content="">` found
+		// anywhere in the head when the exact blank description tag is absent,
+		// and 4 sites' heads carry blank og placeholders. Running the og
+		// splice first CLEARS the blanks it owns, which promotes the next
+		// blank tag — `og:image` — to first, and the description then lands in
+		// it: a corrupt og:image this file does not own and does not clean
+		// (og:image is deliberately outside spliceOpenGraph's strip set, per
+		// bugs_open/322's landmine). Running the og splice LAST means the
+		// fallback can only ever consume a blank og:title/og:description/og:url
+		// — every one of which the splice then strips and rewrites — so the
+		// collision is absorbed instead of displaced.
+		// Pinned by TestSpliceOpenGraphRunsAfterTheDescriptionSpliceForAReason,
+		// which fails if these two lines are swapped.
+		head = spliceOpenGraph(head, page, logger)
 	}
 
 	// 5a. Inject per-page JSON-LD (schema.org). Structured data is how an answer
@@ -667,7 +689,12 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 
 	// 6. Assemble
 	var html strings.Builder
-	html.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n")
+	// The document's language comes from the head component, not from Go
+	// (bugs_open/252 §B, owner decision 2026-08-11 option 3). A site that
+	// declares none still gets lang="en" — byte-identical to the hardcoded
+	// line this replaced — so nothing moves until a site opts in via
+	// site_specs `site_config.locale.lang`.
+	html.WriteString(htmlDocumentOpen(headLangAttr(head)))
 	html.WriteString(head)
 	html.WriteString("\n<body>\n")
 

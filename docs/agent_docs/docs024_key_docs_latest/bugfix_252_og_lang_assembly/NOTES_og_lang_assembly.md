@@ -109,3 +109,61 @@ appliable migrations (`docs/agent_docs/sql_for_agents/NNN_name.sql`) are now IN 
 (`bugs_open/314`), with the scope single-sourced in `scripts/council-scope.sh` and `DRY_RUN=1` on the
 097 trigger available to test admission for free. So both migrations go through the gate with the Go,
 in one submission, rather than the Go alone.
+
+## 2026-08-20 (c) — the Go half, and the two things mutation testing caught
+
+**Written:** `platform/orchestration/actions/head_assembly.go` (`spliceOpenGraph`, `headLangAttr`,
+`htmlDocumentOpen`) + `head_assembly_test.go`; wired into `assemblePage` at two points
+(`rerender_single_page_action.go` — the splice inside the stored-head branch, and the doctype write).
+
+**The package would not compile in the working tree, and it was not my change.** Another session had
+just added an untracked `platform/orchestration/actions/work_item_failure_ladder.go` declaring
+`nullableJSON`, which already exists at HEAD in `hitl_persistence.go` — `redeclared in this block`,
+whole package dead. Confirmed not mine (`grep -c nullableJSON` on both my files = 0; the offender is
+`??` in `git status`, and HEAD has exactly one declaration). Worked around exactly as planned:
+`git archive HEAD | tar -x` into the scratchpad, copy my three files over it, build and test there.
+**Full package suite green in that extraction** (`ok … 2.539s`), so the change is clean against HEAD
+and the breakage is theirs to land.
+
+**Misstep 1 — I wrote tests against a shared fixture's assumed contents.** Three tests failed on
+first run asserting an `og:description` that never appeared. Cause: `canonicalTestPage()`
+(`inject_canonical_link_test.go:29`) carries **no `MetaDesc`** — deliberately, because the canonical
+tests want that shape and most of the fleet has no meta description. I had assumed it did. Fixed by
+adding a local `ogTestPage()` helper rather than mutating a fixture four other tests read.
+*The check:* read a shared fixture before asserting against its contents — it is another test's
+input, not yours, and its emptiness may be the point.
+
+**Misstep 2 — a mutation reported PASS because the mutation never applied.** The `\b`-removal
+mutation on the head-lang regex came back green. The `sed` escaping had silently failed and the file
+was unchanged. Applied via Python (with an `assert s != before`) it fails correctly:
+`headLangAttr = "fr", want ""` — the `\b` is load-bearing, without it `<header lang="fr">` matches.
+*The check:* `grep` the mutated line and confirm it changed before reading the verdict, or the run is
+telling you about code you never touched. A false PASS from a failed mutation looks exactly like a
+test that does not discriminate.
+
+**Misstep 3, the expensive one — my ordering claim was backwards, and my own test could not fail.**
+Full account in `WRONG_CALLS.md` and PLAN D3's correction block. Short version: reversing the call
+order inside `Test…DoNotCollide` left it passing, because the fixture (copied from a live head)
+carries the exact blank `<meta name="description" content="">` and so drives
+`spliceMetaDescription` down its *targeted* path, where the fallback hazard cannot fire at all. A
+discriminating fixture (blank og placeholders, **no** blank description tag) showed that og-splice-first
+strips the blanks it owns, promotes `og:image` to "first blank", and the page description lands in
+og:image — a tag outside my strip set, so nothing cleans it. **Order swapped in the shipped code**;
+`TestSpliceOpenGraphRunsAfterTheDescriptionSpliceForAReason` now fails on the swap, verified.
+
+**Mutation ledger — every test proven load-bearing by a mutation actually run:**
+
+| # | mutation | tests that failed |
+|---|---|---|
+| M1 | strip narrowed to blank-only og tags (the bug file's original fix candidate) | SelfHeals, OmitsDescription, Idempotent, SkipsAnOgURL, ordering |
+| M2 | inject without stripping | SelfHeals, OmitsDescription, Idempotent, SkipsAnOgURL, ordering |
+| M3 | og:url from raw `page.URL` instead of `preferredPageURL` | AgreesWithCanonicalAndJSONLD |
+| M4 | emit og:description even when empty | OmitsDescription |
+| M5 | drop `\b` from the head-lang regex | HeadLangAttrReadsTheHeadAndNotTheHeader |
+| M6 | change the lang default away from `en` | HTMLDocumentOpenDefaultsToTodaysBytes |
+| M7 | drop the og:url eligibility guards | SkipsAnOgURL |
+| M8 | swap the two splice calls | RunsAfterTheDescriptionSpliceForAReason |
+
+**Note M1's first row.** The mutation that reproduces *the fix candidate written in the bug file* —
+fill blank placeholders only — fails five tests. That is the clearest statement of why the design
+changed shape, and it is worth putting in the council submission rather than arguing it in prose.

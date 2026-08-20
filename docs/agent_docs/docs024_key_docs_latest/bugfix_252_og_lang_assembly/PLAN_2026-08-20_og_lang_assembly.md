@@ -80,10 +80,27 @@ change every assembled page, and that is the point: the value being removed is f
 site-level and their defects belong to `bugs_open/322`. Narrow blast radius, and it keeps this
 task's claim reviewable.
 
-**D3 — ordering: og splice runs BEFORE `spliceMetaDescription`.** That function's legacy fallback
-fills the FIRST `content="">` anywhere in the head when the exact blank description tag is absent.
-With blank og placeholders present, running it first could put the page description into an og tag.
-Stripping first removes the hazard. The order is pinned by a test, not by a comment.
+**D3 — ordering: og splice runs AFTER `spliceMetaDescription`.**
+
+> **CORRECTED 2026-08-20, same session, before commit.** This decision originally read "og splice
+> runs BEFORE `spliceMetaDescription`", reasoning that the description splice's legacy fallback
+> (which fills the FIRST `content=""` anywhere in the head when the exact blank description tag is
+> absent) might otherwise write the page description into a blank og placeholder. **That is
+> backwards, and the order I first chose was the damaging one.** Stripping the og blanks FIRST
+> promotes the next blank tag — `og:image` — to first, and the description lands in *that*; og:image
+> is deliberately outside the strip set (it is `bugs_open/322`'s, under a landmine), so nothing
+> cleans it. Running the og splice LAST means the fallback can only consume a blank og tag the splice
+> is about to strip and rewrite, so the collision is absorbed rather than displaced.
+>
+> **What caught it:** mutation-testing my own test. Reversing the order inside it left it PASSING,
+> because the fixture (copied from a live head) carries the exact blank description tag and so takes
+> the targeted path where the hazard cannot fire. The discriminating fixture — blank og placeholders,
+> no blank description tag — showed the og:image leak in one run. Logged in `WRONG_CALLS.md`. All 24
+> real heads take the targeted path today, so the order is currently unobservable on live data; that
+> is why it is pinned rather than left to comment.
+
+The order is pinned by `TestSpliceOpenGraphRunsAfterTheDescriptionSpliceForAReason`, which was
+verified to FAIL when the two call-site lines are swapped.
 
 **D4 — lang travels as a `<head>` attribute, sourced from `site_specs`.** Head template emits
 `<head{{if .lang}} lang="{{.lang}}"{{end}}>`; the value comes from `site_config.locale.lang` via the
