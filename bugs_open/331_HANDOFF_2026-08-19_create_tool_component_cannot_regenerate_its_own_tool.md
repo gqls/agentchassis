@@ -134,3 +134,20 @@ visible 684→0; and both tool-slot writers binding the TEMPLATE into `rendered_
 `ec04b29b-43b8-4f3b-9a14-87dbd175920e`; verdict pending. The round tally so far: r1 caught a real code
 gap (the hollow gate), r2 caught a real DOCS defect (a stale landmine headline), r3–r4 are evidence
 formatting for a seat that cannot read HEAD — each round cheaper than the one before.
+
+## 13. Round 4 REVISE → round 5 submitted (code unchanged since round 2)
+
+Round 4's two HIGHs: (a) editquality — the round-2 "merge edits 4+5" advisory collided with the
+one-file-per-edit validator; split back into three single-file edits. (b) tooling_provenance — "does
+`tool-recreation-handler` already do this?" **No, and the difference is the bug itself, now measured
+into the submission (EVIDENCE-6):** that handler's only persistence is `save_page_sections` (three
+steps in seed 099; `content_components` appears ZERO times; live step census has no component writer)
+— it regenerates the PAGE INSTANCE and leaves the component row untouched, right for ported tools
+(identity = page, TL-033), wrong for a native re-fix (identity = component): routing 331's case
+through it would ship new bytes to the slot while `html_template` stays old — manufacturing the
+template/slot divergence class — and would bypass migration 481's contract (which lives on
+tool-generator's generate step). Migration 366's evidence-register concern lands better on the
+in-place path: same component id ⇒ TL-045 fence facts, fork lineage and the acceptance subject
+survive by construction. Round 5 = run orch `9675234d-87c0-40b1-b84e-f14d097c7669`; the register/RFC
+edit slot was dropped to honour the ≤8 cap (docs; travels in the commits regardless). Tally: r1 real
+code gap, r2 real docs defect, r3–r5 evidence/format — code byte-identical since round 2.
