@@ -66,7 +66,7 @@ func TestConvert_realScopedComponent_convertsAndGatesClean(t *testing.T) {
 	for _, tok := range toks {
 		rc := &RenderContext{}
 		BindInstanceToken(rc, tok)
-		page.WriteString(RenderTemplate(converted, rc, zap.NewNop()))
+		page.WriteString(mustRender(t, converted, rc, zap.NewNop()))
 	}
 	if d := DetectInstanceCollisions(page.String()); !d.Clean() {
 		t.Fatalf("two instances of the converted component must be clean, got: %s", d.Summary())

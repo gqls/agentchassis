@@ -289,7 +289,13 @@ func TestRenderLockedSlotIsNotRewritten(t *testing.T) {
 			AddRow(time.Now(), "069-verify", "permanent", nil, false, nil, uuid.New().String(), true))
 	expectChromeLockItem(mock)
 
-	ok, locked, degraded := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, true, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	ok, locked, degraded, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, true, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	if fatal != nil {
+		// bugs_open/260 added a fourth return that escalates ONE condition — a
+		// render failure with no stored chrome to keep serving. A lock refusal
+		// is not that, and must never escalate: the slot is still serving.
+		t.Errorf("a lock refusal must not raise the render-failure error: %v", fatal)
+	}
 	if degraded != "" {
 		t.Errorf("a lock refusal resolves no component, so it must report no chrome degradation; got %q", degraded)
 	}
@@ -318,7 +324,13 @@ func TestRenderLockedButEmptySlotReportsNotServing(t *testing.T) {
 			AddRow(time.Now(), "069-verify", "permanent", nil, false, nil, uuid.New().String(), false))
 	expectChromeLockItem(mock)
 
-	ok, locked, _ := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "footer", nil, true, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "footer", nil, true, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	if fatal != nil {
+		// Locked-and-empty is a HUMAN decision the site must live with, not a
+		// render failure — it reports ok=false and stops there (bugs_open/260's
+		// error is only for a template that would not execute).
+		t.Errorf("a lock over an empty slot must not raise the render-failure error: %v", fatal)
+	}
 	if !locked || ok {
 		t.Errorf("locked+empty must report locked=true, ok=false; got ok=%v locked=%v", ok, locked)
 	}
@@ -338,7 +350,10 @@ func TestRenderUnforcedExitsBeforeTheLockCheck(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
-	ok, locked, _ := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, false, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, false, ChromeLinkPolicy{unfiltered: true}, zap.NewNop())
+	if fatal != nil {
+		t.Errorf("the idempotence exit must not raise the render-failure error: %v", fatal)
+	}
 	if !ok || locked {
 		t.Errorf("an already-rendered slot must short-circuit as ok, not locked: ok=%v locked=%v", ok, locked)
 	}

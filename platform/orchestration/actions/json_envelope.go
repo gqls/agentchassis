@@ -473,18 +473,13 @@ func missingRequiredLLMFields(inputSchema map[string]interface{}, content map[st
 	return missing
 }
 
-// isEmptyContentValue reports whether a content field carries no usable value —
-// nil, a blank/whitespace string, or an empty collection.
+// isEmptyContentValue reports whether a content field carries no usable value.
+// MOVED 2026-08-19 to datahelpers.IsEmptyContentValue (bugs_open/260): the new
+// declared-TYPE checker has to skip exactly the values this presence gate
+// claims, and two copies of "empty" would let the two gates disagree about the
+// same field — which is not hypothetical, see that function's header for the
+// live row that caught it. Kept as a one-line alias because this package reads
+// better with the short name at its two call sites.
 func isEmptyContentValue(v interface{}) bool {
-	switch t := v.(type) {
-	case nil:
-		return true
-	case string:
-		return strings.TrimSpace(t) == ""
-	case []interface{}:
-		return len(t) == 0
-	case map[string]interface{}:
-		return len(t) == 0
-	}
-	return false
+	return datahelpers.IsEmptyContentValue(v)
 }

@@ -209,7 +209,7 @@ func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		rc := &RenderContext{}
 		BindInstanceToken(rc, instances.Next("mortgages-repayment"))
-		out := RenderTemplate(tmpl, rc, logger)
+		out := mustRender(t, tmpl, rc, logger)
 		if strings.Contains(out, "{{") {
 			t.Fatalf("instance %d did not render: %q", i, out)
 		}
@@ -232,7 +232,7 @@ func TestRenderLayer_twoInstancesOnOnePageGetDifferentIDs(t *testing.T) {
 	// template happening to be harmless.
 	var unbound strings.Builder
 	for i := 0; i < 2; i++ {
-		unbound.WriteString(RenderTemplate(tmpl, &RenderContext{}, logger))
+		unbound.WriteString(mustRender(t, tmpl, &RenderContext{}, logger))
 	}
 	if DetectInstanceCollisions(unbound.String()).Clean() {
 		t.Fatal("CONTROL FAILED: an unbound InstanceID must produce colliding ids — " +

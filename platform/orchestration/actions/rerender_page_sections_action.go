@@ -402,7 +402,8 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 				zap.String("page", pageName),
 				zap.String("section", s.slotName),
 				zap.String("reason", reason))
-			disposition, err := escalateRerenderToWriter(ctx, params.DB, siteID, pageName, logger)
+			disposition, err := escalateRerenderToWriter(ctx, params.DB, siteID, pageName,
+				"a section had no stored content_data", logger)
 			if err != nil {
 				return nil, fmt.Errorf("escalate to writer: %w", err)
 			}
@@ -623,7 +624,45 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// tokens after it move, and that re-render is not byte-identical.
 		BindInstanceToken(rc, instances.Next(comp.Function))
 
-		rendered, _, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
+		rendered, _, deadURLFields, renderErr := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
+
+		// bugs_open/260: the seam no longer substitutes a regex render for a
+		// failed one, so an execution failure arrives here for the first time.
+		// CARRY the stored HTML — this path's own existing answer to "this
+		// section cannot be safely re-rendered" (four sibling branches above,
+		// carryStoredSection). Never replace good stored bytes with a failed
+		// render, and never fail the whole page: this action IS the repair
+		// vehicle, and a re-render that refuses on the state it was dispatched
+		// to fix would deadlock its own remedy.
+		//
+		// Named in the diagnostic, not merely logged, for the bugs_open/182
+		// reason the other carries cite: a run in which every section took a
+		// carry branch is otherwise indistinguishable from one that worked.
+		//
+		// The type report is an ENRICHER — unconditional because the render has
+		// ALREADY failed, so it can refuse nothing that works. There is
+		// deliberately NO opt-in pre-render refusal on this path (unlike the
+		// build path): the checker keys on the schema rather than the template,
+		// so arming one here would carry a page that renders perfectly well,
+		// which on the repair vehicle is a regression, not a guard.
+		if renderErr != nil {
+			var schema map[string]interface{}
+			if comp.Raw != nil {
+				schema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
+			}
+			diagnosis := datahelpers.DescribeTypeViolations(
+				datahelpers.ContentTypeViolations(schema, rc.ContentData))
+			logger.Error("rerender_page_sections: template execution failed — carrying stored HTML, the live section is unchanged",
+				zap.String("section", s.slotName),
+				zap.String("component_function", comp.Function),
+				zap.Error(renderErr),
+				zap.String("type_violations", diagnosis),
+			)
+			resolution.RenderFailedSlots = append(resolution.RenderFailedSlots, slotLabel(s))
+			sectionsMetadata = append(sectionsMetadata, carryStoredSection(s))
+			carried++
+			continue
+		}
 
 		// RECORD-ONLY here, deliberately, where the build path refuses
 		// (dead_url_guard.go). Two reasons, and neither is squeamishness. First,
@@ -736,6 +775,41 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	if len(resolution.EmptyTemplateSlots) > 0 {
 		out["carried_empty_template"] = resolution.EmptyTemplateSlots
 	}
+	if len(resolution.RenderFailedSlots) > 0 {
+		out["carried_render_failed"] = resolution.RenderFailedSlots
+
+		// ESCALATE, don't just name it (council a44d9eb8 round 1 — three seats
+		// made this point: bug_historian, guardian and render_guardian all read
+		// the first version as "reports complete but degraded", which is the
+		// shape bugs_closed/028 and /040 were about, and render_guardian named
+		// the asymmetry exactly: a mistyped field that breaks the render is the
+		// same class as a MISSING required field, which this action already
+		// escalates to the writer in its pre-check. So it takes the same route,
+		// through the same helper, keyed the same way.
+		//
+		// Two differences from the pre-check, both deliberate. It does NOT
+		// return early: the pre-check fires before anything is rendered, while
+		// here the other sections have re-rendered correctly and their bytes
+		// are worth saving — a failed section keeps its stored HTML either way.
+		// And a FAILED escalation does not fail the action: a record that gates
+		// the repair it describes is worse than a record that is missing, which
+		// is the same reasoning emitSectionDeadControlItem states for its own
+		// write.
+		//
+		// This is not new authority over content that works today: it fires
+		// only where a render ACTUALLY failed, a state that could not exist
+		// before this change because the fallback swallowed it.
+		disposition, escErr := escalateRerenderToWriter(ctx, params.DB, siteID, pageName,
+			"a section's template could not execute against its stored content (bugs_open/260)", logger)
+		if escErr != nil {
+			logger.Error("rerender_page_sections: could not escalate a render failure to the writer — the carried sections still save",
+				zap.String("page", pageName),
+				zap.Strings("sections", resolution.RenderFailedSlots),
+				zap.Error(escErr))
+		}
+		out["escalation"] = disposition
+		out["escalated"] = disposition == "raised"
+	}
 
 	logger.Info("rerender_page_sections: done",
 		zap.String("page", pageName),
@@ -789,6 +863,12 @@ type rerenderResolution struct {
 	InvalidTemplateSlots []string
 	NotReadySlots        []string
 	EmptyTemplateSlots   []string
+	// RenderFailedSlots names sections whose component template FAILED TO
+	// EXECUTE (bugs_open/260) and were therefore carried with their stored
+	// HTML. Non-fatal on purpose — see the carry at the render call — but it is
+	// a real defect in the content, not a legitimate fallback like the two
+	// above, so it is reported separately rather than folded into either.
+	RenderFailedSlots []string
 	// DeadURLSlots names sections that RENDERED, but with a URL attribute left
 	// empty (bugs_open/238). Deliberately NOT part of fatal(): this path merges
 	// stored ⊕ fresh and so cannot lose a key — it can only re-ship damage that
@@ -809,8 +889,8 @@ func (r rerenderResolution) fatal() bool {
 // (or the immune-system failure sweep) sees exactly which sections and why,
 // the same shape as pageAssembly.describe() one layer up.
 func (r rerenderResolution) describe() string {
-	return fmt.Sprintf("unresolved component %v; invalid template %v; not ready (legitimate) %v; empty template (legitimate) %v; dead URL controls (recorded, non-fatal) %v",
-		r.UnresolvedSlots, r.InvalidTemplateSlots, r.NotReadySlots, r.EmptyTemplateSlots, r.DeadURLSlots)
+	return fmt.Sprintf("unresolved component %v; invalid template %v; not ready (legitimate) %v; empty template (legitimate) %v; dead URL controls (recorded, non-fatal) %v; render failed, stored HTML carried (bugs_open/260) %v",
+		r.UnresolvedSlots, r.InvalidTemplateSlots, r.NotReadySlots, r.EmptyTemplateSlots, r.DeadURLSlots, r.RenderFailedSlots)
 }
 
 // slotLabel names a slot together with its position, so a duplicate slot_name
@@ -1181,7 +1261,12 @@ func isSelfContainedSection(comp componentInfo) bool {
 // "raised", "skipped_sectionless_page", or "escalate_failed" alongside a
 // non-nil error. A no-op that only the absence of a row records is a silent
 // no-op (bugs_open/182).
-func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) (string, error) {
+// `cause` is the human half of the summary only. The spec's machine reason
+// stays content_data_backfill for BOTH callers because the remedy is the same
+// one — regenerate the page's content through the writer and backfill
+// content_data — and the item_key is unchanged, so the two causes co-dedup on
+// one page exactly as they should.
+func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, cause string, logger *zap.Logger) (string, error) {
 	satisfiable, _, sectionSource := pageSectionsSatisfiable(ctx, db, logger, siteID, pageName)
 	if !satisfiable {
 		logger.Info("rerender_page_sections: skipped_sectionless_page — the page resolves no sections and is in no current plan, so the writer has no plan to rebuild from; see bugs_open/187",
@@ -1205,7 +1290,7 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		pipeline:     "build",
 		itemType:     "needs_page",
 		severity:     "medium",
-		summary:      fmt.Sprintf("Full rebuild of %s — a section had no stored content_data", pageName),
+		summary:      fmt.Sprintf("Full rebuild of %s — %s", pageName, cause),
 		spec:         spec,
 		priority:     90,
 		handlerAgent: "page-build-handler",

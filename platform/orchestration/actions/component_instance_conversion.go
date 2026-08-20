@@ -268,7 +268,14 @@ func GateConvertedTemplate(function, converted string, logger *zap.Logger) (need
 	for _, tok := range toks {
 		rc := &RenderContext{}
 		BindInstanceToken(rc, tok)
-		rendered := RenderTemplate(converted, rc, logger)
+		// bugs_open/260: the gate must not green-light a template the REAL
+		// renderer cannot execute. Before the seam had an error channel this
+		// call returned regex-substituted output, so a converted template that
+		// fails to execute could pass every check below and ship.
+		rendered, err := RenderTemplate(converted, rc, logger)
+		if err != nil {
+			return false, fmt.Errorf("gate: converted template failed to execute in the real renderer: %w", err)
+		}
 		if strings.Contains(rendered, "{{.InstanceID}}") {
 			return false, fmt.Errorf("gate: {{.InstanceID}} survived rendering — mangled placeholder")
 		}

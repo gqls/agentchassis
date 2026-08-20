@@ -650,7 +650,18 @@ func main() {
 		for name, child := range an.root.children {
 			full[name] = synthesize(child, []string{name})
 		}
-		baseRender := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
+		// bugs_open/260: the render seam now returns an error instead of
+		// silently regex-substituting. A baseline that cannot execute is an
+		// UNCOVERED component, not a clean one — the same bucket a parse
+		// failure goes to, which already refuses --write-baseline and counts
+		// the component's baseline keys as uncovered rather than fixed.
+		baseRender, baseErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
+		if baseErr != nil {
+			unanalysed = append(unanalysed, fmt.Sprintf("%s (baseline render: %v)", c.Name, baseErr))
+			unanalysedNames[c.Name] = true
+			checked--
+			continue
+		}
 		baseCounts := shapeCounts(baseRender)
 		for shapeName, n := range baseCounts {
 			hardcoded = append(hardcoded, finding{Component: c.Name, Shape: shapeName, Count: n, RuntimeFill: runtimeFill})
@@ -677,7 +688,20 @@ func main() {
 					probe[k] = v
 				}
 			}
-			out := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: probe}, logger)
+			out, probeErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: probe}, logger)
+			if probeErr != nil {
+				// ⚠ THE DETECTOR CAN BE BLINDED BY ITS OWN FIX. This probe
+				// deliberately REMOVES one field and re-renders; since
+				// bugs_open/260 that render can fail outright, and a failed
+				// render returns "" — whose shapeCounts are all zero, i.e.
+				// indistinguishable from "this field is safely gated". Left
+				// unhandled, the strictest possible seam would have made this
+				// audit quietly report fewer findings. Recorded as uncovered
+				// instead, per field, so it can never read as a pass.
+				unanalysed = append(unanalysed, fmt.Sprintf("%s.%s (probe render: %v)", c.Name, f, probeErr))
+				unanalysedNames[c.Name] = true
+				continue
+			}
 			for shapeName, n := range shapeCounts(out) {
 				if n > baseCounts[shapeName] {
 					findings = append(findings, finding{

@@ -11,7 +11,12 @@
 
 package actions
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"go.uber.org/zap"
+)
 
 func TestContextToInterfaceMapLeavesCTAUrlAbsentWhenUnresolved(t *testing.T) {
 	ctx := fullyPopulatedRenderContext()
@@ -33,19 +38,41 @@ func TestContextToInterfaceMapLeavesCTAUrlAbsentWhenUnresolved(t *testing.T) {
 	}
 }
 
-func TestContextToMapLeavesCTAUrlAbsentWhenUnresolved(t *testing.T) {
+// This test used to assert the same contract against contextToMap, the string
+// map the deleted regex fallback rendered from (bugs_open/260 deleted both).
+// Asserting it against a function that no longer exists would have been the
+// cheapest possible rework and the emptiest: the property that matters was
+// never "the map has no fabricated value", it was "no fabricated destination
+// reaches a rendered page". So it now asserts that at the SEAM, which is the
+// only surviving surface and the one a live page actually goes through.
+//
+// It also covers bugs_open/203's other two members (primary_cta_url ->
+// /contact.html, secondary_cta_url -> /about.html), which lived in the same
+// deleted function: nothing else in the suite would notice their return.
+func TestRenderedOutputNeverFabricatesAnUnresolvedCTADestination(t *testing.T) {
 	ctx := fullyPopulatedRenderContext()
 	ctx.CTAUrl = ""
 	ctx.ContentData = map[string]interface{}{
 		"cta_text": "Read the tungsten percentage guide",
 	}
 
-	got := contextToMap(ctx)
+	const tmpl = `<section>
+{{if and .cta_text .cta_url}}<a class="cta" href="{{.cta_url}}">{{.cta_text}}</a>{{end}}
+<a class="primary" href="{{.primary_cta_url}}">go</a>
+<a class="secondary" href="{{.secondary_cta_url}}">go</a>
+</section>`
 
-	if v := got["cta_url"]; v != "" {
-		t.Errorf("cta_url = %q, want empty — same correct-or-absent contract "+
-			"as contextToInterfaceMap (bugs_open/109: the two paths must not "+
-			"diverge on what they default)", v)
+	out := mustRender(t, tmpl, ctx, zap.NewNop())
+
+	for _, fabricated := range []string{"/contact.html", "/about.html"} {
+		if strings.Contains(out, fabricated) {
+			t.Errorf("rendered output contains the fabricated destination %q — "+
+				"correct-or-absent (LNK-005, bugs_open/203) means an unresolved "+
+				"CTA renders no destination at all:\n%s", fabricated, out)
+		}
+	}
+	if strings.Contains(out, `class="cta"`) {
+		t.Errorf("the guarded CTA anchor rendered with no resolved cta_url:\n%s", out)
 	}
 }
 

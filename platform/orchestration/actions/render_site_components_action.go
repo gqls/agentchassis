@@ -305,8 +305,10 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	rendered := make(map[string]bool)
 	lockedSlots := []string{}
 	ineligibleChrome := map[string]string{}
+	chromeRenderFailed := map[string]string{} // slot -> render error (bugs_open/260)
+	chromeUnserved := []string{}              // of those, the slots with nothing stored to serve
 	for _, slot := range slots {
-		success, locked, degraded := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, chromeLinks, params.Logger)
+		success, locked, degraded, renderErr := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, chromeLinks, params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
@@ -314,6 +316,34 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		if degraded != "" {
 			ineligibleChrome[slot] = degraded
 		}
+		if renderErr != nil {
+			// bugs_open/260. SURFACED, not just logged (council a44d9eb8 round
+			// 1, bug_historian): a degraded chrome slot reported only in a log
+			// line, inside a step that still returns success, is the shape
+			// bugs_closed/028 and bugs_closed/040 were about — "reports
+			// complete" while the artefact is stale. So it lands in the action
+			// result, AND it files a human-review item, AND the one case with
+			// nothing to fall back on fails the step outright.
+			chromeRenderFailed[slot] = renderErr.Error()
+			if !chromeSlotHasStoredHTML(ctx, params.DB, siteID, slot) {
+				chromeUnserved = append(chromeUnserved, slot)
+			}
+		}
+	}
+
+	if len(chromeRenderFailed) > 0 {
+		params.Logger.Error("RenderSiteComponentsAction: chrome slot(s) failed to render",
+			zap.Any("slots", chromeRenderFailed),
+			zap.Strings("with_nothing_serving", chromeUnserved))
+	}
+	if len(chromeUnserved) > 0 {
+		// A site must not go live with an empty header, footer or head. This is
+		// a deliberate behaviour change for GREENFIELD builds, flagged as such
+		// to the site-provisioning path (council a44d9eb8 round 1, guardian):
+		// before this, a first build with an unexecutable chrome template
+		// shipped the mangled regex render instead, and reported success.
+		return nil, fmt.Errorf("site chrome could not be rendered for slot(s) %s and this site has nothing stored to serve instead (bugs_open/260)",
+			strings.Join(chromeUnserved, ", "))
 	}
 
 	params.Logger.Info("RenderSiteComponentsAction: Complete",
@@ -337,6 +367,11 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 		"rendered":               rendered,
 		"locked_slots_preserved": lockedSlots,
 		"ineligible_chrome":      ineligibleChrome,
+		// Empty on every healthy run. Non-empty means the slot's stored chrome
+		// is STALE-BUT-SERVING because this run's render would not execute — a
+		// degraded success, named so a reader of the result can see it without
+		// reading the logs (bugs_open/260).
+		"chrome_render_failed": chromeRenderFailed,
 	}, nil
 }
 
@@ -355,8 +390,8 @@ type SiteDataFull struct {
 	// that every existing site gets today.
 	HeaderCTAURL  string
 	HeaderCTAText string
-	LogoText    string
-	LogoURL     string
+	LogoText      string
+	LogoURL       string
 
 	// Style collection data (loaded via sites.style_collection_id)
 	PrimaryColor    string
@@ -639,10 +674,17 @@ func renderAndStoreSiteComponent(
 	force bool,
 	chromeLinks ChromeLinkPolicy,
 	logger *zap.Logger,
-) (ok bool, locked bool, degraded string) {
+) (ok bool, locked bool, degraded string, fatal error) {
 	// degraded names the component this slot fell back to when the library held
 	// no ELIGIBLE chrome for the slot's function (bugs_open/118). Empty on every
 	// healthy path, including the ones that do no work at all.
+	//
+	// fatal is NON-NIL for exactly one condition (bugs_open/260): the slot's
+	// template failed to EXECUTE and this site has no stored chrome for the slot
+	// to fall back on — i.e. a first build that would otherwise go live with a
+	// missing header, footer or head. Every other failure keeps its existing
+	// report-and-continue behaviour, because every other failure leaves the
+	// previously stored bytes serving.
 
 	// Retire a RETIRED assignment before the idempotence exit below can
 	// declare the slot finished (bugs_open/166). This has to run first: the exit
@@ -691,7 +733,7 @@ func renderAndStoreSiteComponent(
 		if exists {
 			logger.Debug("Site component already rendered, skipping",
 				zap.String("slot", slot))
-			return true, false, ""
+			return true, false, "", nil
 		}
 	}
 
@@ -719,7 +761,7 @@ func renderAndStoreSiteComponent(
 		// ok reports whether the slot still SERVES chrome, which is what the
 		// caller's map means. A lock over a populated slot is a success from
 		// the page's point of view; a lock over an empty one is not.
-		return lock.HasHTML, true, ""
+		return lock.HasHTML, true, "", nil
 	}
 
 	// Get component template + its declared input_schema. The schema is what
@@ -751,7 +793,7 @@ func renderAndStoreSiteComponent(
 				zap.String("slot", slot),
 				zap.String("function", funcName),
 				zap.Error(resolveErr))
-			return false, false, ""
+			return false, false, "", nil
 		}
 
 		parsedID, parseErr := uuid.Parse(comp.ID)
@@ -760,7 +802,7 @@ func renderAndStoreSiteComponent(
 				zap.String("slot", slot),
 				zap.String("component_id", comp.ID),
 				zap.Error(parseErr))
-			return false, false, ""
+			return false, false, "", nil
 		}
 		componentID = parsedID
 		htmlTemplate = comp.HTMLTemplate
@@ -861,7 +903,7 @@ func renderAndStoreSiteComponent(
 					// {{range}}-consumed (53) or unreferenced (16), zero are
 					// bare-output — so this can only ever un-degrade a render,
 					// never break a working one.
-					if declared, _ := def["type"].(string); !resolvedValueSatisfiesDeclaredType(declared, v) {
+					if declared, _ := def["type"].(string); !datahelpers.DeclaredTypeSatisfied(declared, v) {
 						logger.Warn("site chrome: resolved value does not satisfy the field's declared type — refusing the fill (gated template renders without it)",
 							zap.String("slot", slot),
 							zap.String("field", name),
@@ -886,7 +928,36 @@ func renderAndStoreSiteComponent(
 	// Render the template, reporting which placeholders rendered empty so a dead
 	// chrome control is named (Error, via the mechanism) and combined here with
 	// the site/slot/component only this caller knows.
-	renderedHTML, missing, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, renderCtx, logger)
+	renderedHTML, missing, deadURLFields, renderErr := RenderTemplateReportingMissing(htmlTemplate, renderCtx, logger)
+
+	// bugs_open/260: this path has NO gate downstream — whatever it stores is
+	// what the site serves — so a failed render must not be stored. Doing
+	// nothing leaves the existing row serving, which is strictly better than
+	// replacing working chrome with chrome carrying unexecuted {{if}}/{{range}}
+	// directives. The one case that is not better is a site with no stored
+	// chrome for this slot at all: there the alternative to storing is NOTHING,
+	// and a site must not go live with a missing header, footer or head — so
+	// that case, and only that case, escalates to the caller.
+	//
+	// Note the `renderedHTML == ""` guard below could never have caught this:
+	// the deleted fallback returned MANGLED html, never empty.
+	if renderErr != nil {
+		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
+		logger.Error("site chrome: template execution failed — not storing",
+			zap.String("slot", slot),
+			zap.String("component_id", componentID.String()),
+			zap.String("site_id", siteID.String()),
+			zap.Bool("existing_row_keeps_serving", serving),
+			zap.Error(renderErr),
+		)
+		// File the human record whichever branch the caller takes: a chrome
+		// template that cannot execute is not something a re-render fixes, and
+		// a signal that exists only inside a failed step is a signal nobody
+		// reads (the same reasoning as the dead-control emit above).
+		emitChromeRenderFailedItem(ctx, db, siteID, componentID, slot, renderErr, serving, logger)
+		return false, false, degraded, fmt.Errorf("chrome slot %q failed to render: %w", slot, renderErr)
+	}
+
 	if len(unresolved) > 0 || len(missing) > 0 {
 		logger.Warn("site chrome: fields rendered empty — template must gate these",
 			zap.String("slot", slot),
@@ -927,7 +998,7 @@ func renderAndStoreSiteComponent(
 	if renderedHTML == "" {
 		logger.Warn("Template rendered to empty string",
 			zap.String("slot", slot))
-		return false, false, degraded
+		return false, false, degraded, nil
 	}
 
 	// Phase I1 (G8): inject favicon + Open Graph tags into <head>. Head
@@ -1003,7 +1074,7 @@ func renderAndStoreSiteComponent(
 		logger.Error("Failed to store rendered component",
 			zap.String("slot", slot),
 			zap.Error(err))
-		return false, false, degraded
+		return false, false, degraded, nil
 	}
 
 	// Zero rows means the row is locked or gone. Before this gate the result
@@ -1017,11 +1088,11 @@ func renderAndStoreSiteComponent(
 				zap.String("slot", slot), zap.String("locked_by", lock.LockedBy))
 			emitChromeLockBlockedChangeItem(ctx, db, siteID, slot, lock,
 				"overwrite", "render_site_components", logger)
-			return lock.HasHTML, true, degraded
+			return lock.HasHTML, true, degraded, nil
 		}
 		logger.Error("Failed to store rendered component: no row matched",
 			zap.String("slot", slot), zap.String("site_id", siteID.String()))
-		return false, false, degraded
+		return false, false, degraded, nil
 	}
 
 	// Divergence gate, loud half (bugs_open/226): the store wrote (rows>0), so
@@ -1056,7 +1127,7 @@ func renderAndStoreSiteComponent(
 		zap.Int("html_length", len(renderedHTML)),
 		zap.String("repointed_from", repointed))
 
-	return true, false, degraded
+	return true, false, degraded, nil
 }
 
 // emitChromeDeadControlItem files ONE work item when a site-chrome component
@@ -1298,22 +1369,120 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 	return strings.Join(parts, "\n                ")
 }
 
-// resolvedValueSatisfiesDeclaredType reports whether a resolved data-source
-// value may be handed to a schema field declaring this type. Deliberately
-// narrow: only the shapes whose mismatch DESTROYS the render are enforced —
-// a non-array under {{range}} errors the whole template into the silent
-// regex-fallback renderer (the bug_historian objection on council corr
-// 56ab6e23). Every other declared type ("text", "url", "number", unknown,
-// absent) is allowed through untouched: enforcing those would change
-// behaviour on ~2,200 live fields on unmeasured ground for no render-safety
-// gain, and a wrong scalar in a bare output slot renders wrong text, not a
-// destroyed slot.
-func resolvedValueSatisfiesDeclaredType(declared string, v interface{}) bool {
-	switch declared {
-	case "array", "list":
-		_, ok := v.([]interface{})
-		return ok
-	default:
-		return true
+// resolvedValueSatisfiesDeclaredType MOVED 2026-08-19 to
+// datahelpers.DeclaredTypeSatisfied (bugs_open/260, council a44d9eb8 round 1,
+// reuse_agent seat). It is now the shared leaf primitive for BOTH declared-type
+// questions on this estate — this path's "may a resolver fill this field?" and
+// the new ContentTypeViolations' "did the writer produce the declared shape?" —
+// rather than two independently-maintained answers to the same question. The
+// seat's objection was exactly right: this file's own header cites it as the
+// live precedent for the new checker, and citing a precedent while writing a
+// parallel copy of it is the fork-path pattern.
+
+// emitChromeRenderFailedItem files ONE work item when a site-chrome component
+// template fails to EXECUTE (bugs_open/260). Sibling of
+// emitChromeDeadControlItem and deliberately its shape: the shared
+// insertWorkItem helper (so it inherits the idx_swi_dedup-matched ON CONFLICT
+// and the two-strike anti-churn label), needs_human_review with NO handler —
+// nothing automated can decide whether the template or the content is wrong —
+// and every failure logged rather than returned, because the refusal to store
+// must not depend on the record being written.
+//
+// The item key carries site and slot, never the component id: a repoint to a
+// different component is not a new problem while the slot is still broken, and
+// a key that changes under repointing would mint a second open item for one
+// defect (the lesson emitSectionDeadControlItem's own header records from
+// image_url_404's site-wide key going the other way).
+func emitChromeRenderFailedItem(ctx context.Context, db *sql.DB, siteID, componentID uuid.UUID,
+	slot string, renderErr error, stillServing bool, logger *zap.Logger) {
+
+	if db == nil || siteID == uuid.Nil {
+		logger.Warn("render_site_components: no site identity available, chrome_render_failed item not filed",
+			zap.String("slot", slot))
+		return
 	}
+
+	spec := map[string]interface{}{
+		"surface":       "site_component",
+		"slot_name":     slot,
+		"component_id":  componentID.String(),
+		"render_error":  renderErr.Error(),
+		"still_serving": stillServing,
+		"source":        "render_site_components",
+		"fix": "This chrome component's template could not be executed, so the " +
+			"render was NOT stored (bugs_open/260). If still_serving is true the " +
+			"slot keeps its previous bytes and the site is stale, not broken; if " +
+			"false the slot has never rendered and the build was failed. The " +
+			"error names the template expression and the offending value: fix " +
+			"the component template, or the site data the template reads, then " +
+			"re-render the site chrome. Do not 'fix' it by reinstating a " +
+			"fallback renderer — that is the defect this replaced.",
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	summary := fmt.Sprintf("Chrome %s failed to render: %v", slot, renderErr)
+	if len(summary) > 250 {
+		summary = summary[:247] + "..."
+	}
+
+	compID := componentID
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn("render_site_components: begin tx for chrome_render_failed failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:      siteID,
+		componentID: &compID,
+		source:      "render-site-components",
+		pipeline:    "build",
+		itemType:    "chrome_render_failed",
+		severity:    "high",
+		summary:     summary,
+		spec:        string(specJSON),
+		priority:    40,
+		status:      "needs_human_review",
+		createdBy:   "render_site_components",
+		itemKey:     fmt.Sprintf("chrome_render_failed:%s:%s", siteID, slot),
+	}, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Warn("render_site_components: insert chrome_render_failed item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("render_site_components: commit chrome_render_failed item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if inserted {
+		logger.Info("render_site_components: chrome_render_failed item filed for review",
+			zap.String("slot", slot), zap.Bool("still_serving", stillServing))
+	}
+}
+
+// chromeSlotHasStoredHTML reports whether this site already serves stored chrome
+// for a slot. It answers ONE question, asked at one place (bugs_open/260): when
+// a chrome render fails, is doing nothing safe? It is safe exactly when there
+// are bytes already serving; otherwise the slot would be empty on a live site.
+//
+// build_status is deliberately NOT part of the predicate, unlike the
+// idempotence exit above: stale-but-serving bytes are still a fallback, and the
+// question here is "is anything there", not "is it up to date". A query error
+// answers false — the conservative side, because it escalates rather than
+// silently accepting a missing slot.
+func chromeSlotHasStoredHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, slot string) bool {
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM site_components
+			WHERE site_id = $1 AND slot_name = $2
+			AND rendered_html IS NOT NULL AND rendered_html != ''
+		)
+	`, siteID, slot).Scan(&exists); err != nil {
+		return false
+	}
+	return exists
 }

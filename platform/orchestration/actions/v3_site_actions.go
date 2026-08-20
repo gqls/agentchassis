@@ -672,6 +672,25 @@ var RenderComponentInputSpec = datahelpers.ActionInputSpec{
 		// section-editor uses git_result), so a hard-coded name would be blind
 		// on 16 of 19 and would fail open on all of them in silence.
 		"deploy_result_field",
+		// bugs_open/260: arms the PRE-render declared-type refusal
+		// (mistyped_llm_fields_gate.go). Opt-in, unsafe default OFF, zero live
+		// steps set it as this ships; the seam's hard error is unconditional
+		// and is NOT gated by this key.
+		"refuse_mistyped_llm_fields",
+		// bugs_open/238's guard, DECLARED here 2026-08-19 rather than added:
+		// this action has read it since the guard shipped, but through
+		// shouldRefuseDeadURLControls(config, ...) rather than a literal
+		// config["..."] in the function body — so the 2026-08-18 census, which
+		// was a grep over the function, could not see it.
+		//
+		// What that costs is the unknown-config-key REPORT (a live step setting
+		// it read as an unknown key) and this list's own honesty, NOT the
+		// RFC_022 budget: that counter reads spec.Optional only and skips
+		// ConfigKeys on purpose — settings are not the accumulated authority it
+		// was built to notice (cmd/config-key-audit/optionalbudget.go:14-21).
+		// Both flags here are settings, so ConfigKeys is where they belong and
+		// neither moves the budget.
+		"refuse_dead_url_controls",
 	},
 }
 
@@ -1040,22 +1059,7 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		// page_components.deploy_commit is deliberately NOT written — owner
 		// ruling, same day: a section is not a file, so a section-level commit
 		// reference cannot answer the publish question. See RFC_038 §8.
-		hashClause := ""
-		if deployGuardRan {
-			hashClause = "content_hash = $3,"
-			args = append(args, sql.NullString{String: deployContentHash, Valid: deployContentHash != ""})
-		}
-		query = fmt.Sprintf(`UPDATE pages
-		         SET build_status = $2,
-		             deployed_at = NOW(),
-		             %s
-		             built_from_plan_version = COALESCE(
-		                 (SELECT sp.id FROM site_plans sp
-		                   WHERE sp.site_id = pages.site_id AND sp.is_current = true),
-		                 built_from_plan_version
-		             ),
-		             updated_at = NOW()
-		         WHERE id = $1`, hashClause)
+		query, args = buildPageDeployStampQuery(args, deployGuardRan, deployContentHash)
 	} else {
 		query = `UPDATE pages SET build_status = $2, updated_at = NOW() WHERE id = $1`
 	}
@@ -2394,6 +2398,30 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 					"(likely LLM truncation or an unparseable response); leaving existing content untouched",
 				comp.Function, missing)
 		}
+
+		// The TYPE half of the same gate (bugs_open/260). The presence check
+		// above catches a field that never arrived; this one catches a field
+		// that arrived as the wrong SHAPE — a sentence where the schema
+		// declares a list of objects — which is what every one of the 26
+		// recorded render failures actually was.
+		//
+		// OPT-IN, unsafe default OFF (mistyped_llm_fields_gate.go): unlike the
+		// presence check, a mistyped field the template never references
+		// renders fine today, so refusing unconditionally would be new
+		// authority over content that currently ships. The seam's hard error
+		// remains the complete detector; this is the early, named one.
+		if refuseMistypedLLMFields(config) {
+			if violations := datahelpers.ContentTypeViolations(comp.InputSchema, renderCtx.ContentData); len(violations) > 0 {
+				params.Logger.Error("RenderComponentAction: content field(s) contradict the component's declared types — refusing to render",
+					zap.String("component_function", comp.Function),
+					zap.String("component_name", comp.Name),
+					zap.String("type_violations", datahelpers.DescribeTypeViolations(violations)),
+				)
+				return nil, fmt.Errorf(
+					"component %q: content does not match the declared field type(s) — %s; refusing to render (bugs_open/260)",
+					comp.Function, datahelpers.DescribeTypeViolations(violations))
+			}
+		}
 	}
 
 	// Render template.
@@ -2404,7 +2432,33 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// bugs_open/238 shipped five <img src=""> to a live homepage while this very
 	// call had the field names in hand. See dead_url_guard.go for why the guard
 	// refuses rather than dropping, and why it is opt-in with the unsafe default.
-	rendered, _, deadURLFields := RenderTemplateReportingMissing(comp.HTMLTemplate, renderCtx, params.Logger)
+	rendered, _, deadURLFields, renderErr := RenderTemplateReportingMissing(comp.HTMLTemplate, renderCtx, params.Logger)
+
+	// bugs_open/260: the seam no longer invents output it could not execute, so
+	// a render error arrives here for the first time. Fail the step, in the same
+	// shape as the two refusals either side of this line — the parked work item
+	// then carries the CAUSE ("steps[2].branches: declared array (items:
+	// object), got string") instead of 20 capped symptoms from a downstream
+	// regex, which is what the 24 items sitting at needs_human_review carry.
+	//
+	// The type report is an ENRICHER here, not a gate: it runs unconditionally
+	// because the render has ALREADY failed, so it can refuse nothing that
+	// works. Only the PRE-render refusal above is opt-in.
+	if renderErr != nil {
+		violations := datahelpers.ContentTypeViolations(comp.InputSchema, renderCtx.ContentData)
+		diagnosis := datahelpers.DescribeTypeViolations(violations)
+		params.Logger.Error("RenderComponentAction: component template failed to execute — refusing to ship output that was not rendered",
+			zap.String("component_function", comp.Function),
+			zap.String("component_name", comp.Name),
+			zap.Error(renderErr),
+			zap.String("type_violations", diagnosis),
+		)
+		if diagnosis != "" {
+			return nil, fmt.Errorf("component %q failed to render: %w — %s (bugs_open/260)",
+				comp.Function, renderErr, diagnosis)
+		}
+		return nil, fmt.Errorf("component %q failed to render: %w (bugs_open/260)", comp.Function, renderErr)
+	}
 
 	if shouldRefuseDeadURLControls(config, deadURLFields, rendered) {
 		// File the human record BEFORE refusing: the refusal fails the step, and
@@ -3572,9 +3626,15 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	// they would have done — read TwinIdentityObserved / StemTwinObserved and the
 	// durable PLAN_PAGE_*_OBSERVED rows before turning either on.
 	reconcileOpts := reconcileOptions{}
+	// Held beyond the block below because the same-name identity record needs to
+	// say which side of honour_realised_identity this run is on: the same set of
+	// pages is a no-op record with the flag on and a list of twins about to be
+	// written with it off. A failed site-id parse leaves it false, which is the
+	// same conservative reading every other consumer of this policy takes.
+	var policy siteIdentityPolicy
 	if params.DB != nil {
 		if sid, err := uuid.Parse(datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")); err == nil {
-			policy := siteIdentityPolicyFor(ctx, params.DB, sid, params.Logger)
+			policy = siteIdentityPolicyFor(ctx, params.DB, sid, params.Logger)
 			reconcileOpts.TwinIdentitySnap = policy.TwinIdentitySnap
 			reconcileOpts.StemTwinSnap = policy.StemTwinSnap
 		}
@@ -3595,10 +3655,13 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("twin_identity_observed", counts.TwinIdentityObserved),
 		zap.Int("stem_twin_observed", counts.StemTwinObserved),
 		zap.Int("stem_twin_ambiguous", counts.StemTwinAmbiguous),
+		zap.Int("same_name_stamped", len(counts.SameNameStamps)),
+		zap.Int("same_name_type_conflicts", len(counts.SameNameTypeConflicts)),
 		zap.Int("pages_after", len(pages)))
 	recordFactCarryMisses(ctx, params, counts.FactCarryMisses)
 	recordFactAssignmentAbsent(ctx, params, counts.FactAssignmentAbsent)
 	recordIdentitySnaps(ctx, params, counts.IdentitySnaps)
+	recordSameNameIdentityOutcomes(ctx, params, counts, policy.HonourRealisedIdentity)
 	recordRecomposeOutcomes(ctx, params, recomposeOutcomes(pages, recomposeRealised))
 
 	// ── Truncate, preserving first-plan AND built pages ─────────────────────
@@ -3985,6 +4048,98 @@ func recordIdentitySnaps(ctx context.Context, params ActionParams, snaps []ident
 			},
 		})
 	}
+	LogActionFindings(ctx, params, siteID, "", "validate_plan", findings, params.Logger)
+}
+
+// buildSameNameIdentityFindings turns the same-name stamps and refusals into the
+// durable rows a later reader actually needs (bugs_open/215's same-name hole).
+// Pure, so the shape of what gets recorded is unit-testable without a database.
+//
+// ONE SUMMARY ROW, NOT ONE PER PAGE. The stamp is the fix working normally and
+// fires on every same-name pairing — measured populations are ~17 pages per
+// re-plan on loanandmortgagecalculator.co.uk and ~31 on webdesign.co.uk. A row
+// each would bury the events that mean something under the ones that do not, so
+// only the DIVERGING stamps (those where the canonicaliser's answer differs from
+// the stored name — i.e. where a second identity was actually prevented) are
+// summarised into a single row per run, carrying every pair in its context.
+//
+// TWO CODES, BECAUSE THE SAME OBSERVATION MEANS OPPOSITE THINGS EITHER SIDE OF
+// THE FLAG. With honour_realised_identity ON the stored identities will be kept
+// and the row is an info-level record that the mechanism engaged. With it OFF the
+// same pairs are a warning: both write surfaces will re-derive each of these, and
+// each re-derivation is a twin. Reading a count from either code without joining
+// would_derive_name back against the pages table conflates a twin about to be
+// MINTED with one that already exists and is merely being re-detected — the trap
+// this lane already recorded once for the dark-launch counters.
+func buildSameNameIdentityFindings(counts reconcileCounts, honour bool) []agenterrors.Finding {
+	var findings []agenterrors.Finding
+
+	var diverging []map[string]interface{}
+	for _, s := range counts.SameNameStamps {
+		if s.WouldDeriveName == "" {
+			continue
+		}
+		diverging = append(diverging, map[string]interface{}{
+			"plan_name":         s.PlanName,
+			"stored_url":        s.StoredURL,
+			"would_derive_name": s.WouldDeriveName,
+		})
+	}
+
+	if len(diverging) > 0 {
+		code, severity := "PLAN_PAGE_SAME_NAME_IDENTITY_HELD", "info"
+		message := fmt.Sprintf("%d plan page(s) named exactly as they are stored carry identities the canonicaliser would re-derive; honour_realised_identity is ON, so the stored identities were kept and no twin will be written",
+			len(diverging))
+		remedy := "no action needed — this is the same-name identity stamp doing its job (bugs_open/215). To confirm at the artefact, check that no new pages row appears for any would_derive_name after this run."
+		if !honour {
+			code, severity = "PLAN_PAGE_SAME_NAME_TWIN_PENDING", "warning"
+			message = fmt.Sprintf("%d plan page(s) named exactly as they are stored carry identities the canonicaliser will re-derive, and honour_realised_identity is OFF — both write surfaces will write each would_derive_name as a SECOND identity for a page that already exists",
+				len(diverging))
+			remedy = "dark signal, and it is per-page damage, not a summary of it. Join each would_derive_name against pages for this site BEFORE reading a count: a row that already exists means this run re-detects an existing twin, an absent row means this run mints a fresh phantom. Setting honour_realised_identity on the site's structure spec is what stops it (bugs_open/215)."
+		}
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: code,
+			Severity:  severity,
+			Message:   message,
+			Context: map[string]interface{}{
+				"pages":                    diverging,
+				"diverging_pages":          len(diverging),
+				"same_name_pages_total":    len(counts.SameNameStamps),
+				"honour_realised_identity": honour,
+				"remedy":                   remedy,
+			},
+		})
+	}
+
+	for _, c := range counts.SameNameTypeConflicts {
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "PLAN_PAGE_IDENTITY_TYPE_CONFLICT",
+			Severity:  "warning",
+			Message: fmt.Sprintf("plan page %q names a realised page exactly but calls it a %q where the stored page is a %q; its identity was NOT stamped and the write path will re-derive it",
+				c.PlanName, c.PlanType, c.RealisedType),
+			Context: map[string]interface{}{
+				"plan_name":     c.PlanName,
+				"plan_type":     c.PlanType,
+				"realised_type": c.RealisedType,
+				"realised_url":  c.RealisedURL,
+				"remedy":        "a refusal, not a failure: honouring would silently retype a live page. If the two really are one page, one of the two types is wrong — fix the stored page_type or the planner's role, and this page keeps today's re-derivation behaviour until then (bugs_open/215).",
+			},
+		})
+	}
+
+	return findings
+}
+
+// recordSameNameIdentityOutcomes persists what buildSameNameIdentityFindings
+// produced. Takes the honour flag rather than reading it, so the recorder stays
+// a function of the run's own facts — the reconciler itself stamps
+// unconditionally, and only the writers gate on the flag.
+func recordSameNameIdentityOutcomes(ctx context.Context, params ActionParams, counts reconcileCounts, honour bool) {
+	findings := buildSameNameIdentityFindings(counts, honour)
+	if len(findings) == 0 {
+		return
+	}
+	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
 	LogActionFindings(ctx, params, siteID, "", "validate_plan", findings, params.Logger)
 }
 
@@ -6290,6 +6445,125 @@ func snapPlanPageOntoRealised(
 	return snapped
 }
 
+// stampSameNameRealisedIdentity records that a plan entry which names a realised
+// page by its EXACT stored name is derived from that page, so the write path
+// stops re-deriving its identity (bugs_open/215, the same-name hole).
+//
+// WHY THIS EXISTS AT ALL, and why it is the case nobody built for. The three
+// twin layers above all answer "is this plan entry a page we have realised under
+// a DIFFERENT spelling?", and their shared eligible closure refuses a same-name
+// candidate — correctly, because such a candidate is not a twin, it is the page
+// itself. It does so through EITHER of two clauses, redundantly (see the closure:
+// rname == lname, and planNames[rname]), which is why relaxing one of them cannot
+// reach this case. Pass B2 below then pairs exactly that case and
+// reconciles only the page's COMPOSITION. So until this function existed, the
+// well-behaved case — the planner reproducing a page's stored name verbatim, which
+// is what we ask it to do — was reachable by no marker-minting path at all, and
+// honour_realised_identity could not fire for it however the site was configured.
+//
+// MEASURED, and this is the incident that found it: loanandmortgagecalculator.co.uk
+// seeded honour_realised_identity='true', fired one canary replan on 2026-08-17
+// (corr 6fe6ee93-67b9-4831-bf17-2ca473e1d30c, chassis v1.0.1305), and had 19
+// phantom page rows INSERTed anyway — 17 of them the predicted tool-<name> twins
+// of pages the planner had named CORRECTLY. reconcile_result recorded
+// pages_restamped: 0. The flag was not broken; it was unreachable.
+//
+// WHAT IS STAMPED, AND WHY EACH FIELD IS SAFE WHEN THE FLAG IS OFF. This function
+// runs unconditionally — like Pass B's snap and Pass A's union, which also stamp
+// without consulting a gate — because the reconciler decides identity and the two
+// writers decide whether to honour it. That division is only safe if every field
+// written here is inert to a writer that is NOT honouring:
+//   - identity_authority: read by nothing except realisedIdentityOf, whose two
+//     call sites are both inside `if identityPolicy.HonourRealisedIdentity`.
+//   - url: both write surfaces derive and overwrite the URL themselves when they
+//     are not honouring, so a stamped URL cannot reach an artefact through them.
+//     It is stamped because realisedIdentityOf refuses an incomplete triple.
+//   - page_type: NOT inert — it feeds the writers' Role, hence CanonicalisePage.
+//     Which is why the type-equality precondition below is a precondition and not
+//     a nicety: we only ever write back the value the writer would have derived
+//     anyway, so the flag-off write is a no-op by construction.
+//
+// WHAT IS DELIBERATELY NOT STAMPED. parent_section and slug both feed the writers'
+// canonicalisation directly, so writing them would change flag-OFF behaviour and
+// this fix's entire safety argument with it. (normaliseRealisedToPlanPage does
+// stamp parent_section, for a union or a snap — there the whole entry is already
+// realised-derived and the bugs_open/241 URL-move hazard makes it necessary. Here
+// the entry keeps the planner's own copy, so it is not that kind of entry.)
+// from_realised is likewise not set: a B2-paired entry is NOT wholly derived from
+// the realised row — it keeps the LLM's title, meta and nav, which is Pass B2's
+// standing contract and the reason this stamp does not simply route through
+// snapPlanPageOntoRealised.
+//
+// LIMITATION, stated because it is invisible from here: realisedByName is built
+// over the PRESERVED set only, so a realised row that is neither deployed nor
+// needs_rebuild (on a site that already has a current plan) never reaches this
+// function and keeps today's re-derivation behaviour.
+func stampSameNameRealisedIdentity(
+	lm map[string]interface{},
+	rp map[string]interface{},
+	counts *reconcileCounts,
+	logger *zap.Logger,
+) {
+	lname, _ := lm["name"].(string)
+	rname, _ := rp["name"].(string)
+	rurl, _ := rp["url"].(string)
+	rtype, _ := rp["page_type"].(string)
+
+	// Mirror realisedIdentityOf's own refusal. Claiming a stamp the reader would
+	// reject would put a lie in the counters — the shape this lane has already
+	// been caught by once, where a guard that never fires is indistinguishable
+	// from one that is not there.
+	if rname == "" || rurl == "" || rtype == "" {
+		return
+	}
+
+	// The type the WRITERS will use, derived exactly as they derive it
+	// (firstNonEmptyField over page_type, type, role — write_site_plan_action.go
+	// and site_db_actions.go both). Comparing lm["page_type"] alone would miss an
+	// entry whose type arrived under one of the other two keys and would then
+	// overwrite a Role the writer was about to use.
+	planType := firstNonEmptyField(lm, "page_type", "type", "role")
+	if !strings.EqualFold(strings.TrimSpace(planType), strings.TrimSpace(rtype)) {
+		// Two pages with one name and two roles is not a reconciliation this
+		// function may perform: honouring would silently retype a live page, and
+		// re-deriving keeps today's behaviour. Refuse, and record it — a chassis
+		// pod retains under a second of log (bugs_open/136 §11), so a Warn here
+		// would be no record at all.
+		counts.SameNameTypeConflicts = append(counts.SameNameTypeConflicts, sameNameTypeConflict{
+			PlanName:     lname,
+			PlanType:     planType,
+			RealisedType: rtype,
+			RealisedURL:  rurl,
+		})
+		logger.Warn("validate: same-name plan page disagrees with the realised page's type; identity not stamped",
+			zap.String("page", lname),
+			zap.String("plan_type", planType),
+			zap.String("realised_type", rtype))
+		return
+	}
+
+	lm["identity_authority"] = "realised"
+	lm["url"] = rurl
+	lm["page_type"] = rtype
+
+	// Which of these stamps actually CHANGES an outcome: the ones whose stored
+	// name the canonicaliser would not have returned. Name-only, derived the way
+	// the write path derives it (slug then name) — this is a classification for
+	// the durable record, never a gate on the stamp itself, because predicting
+	// the writers' full answer would need parent_section and the site's URL shape,
+	// which this function does not have and must not read.
+	wouldDerive := datahelpers.PageCanonicalNameForRow(
+		firstNonEmpty(datahelpers.GetStringField(lm, "slug", ""), lname), rtype)
+	if wouldDerive == rname {
+		wouldDerive = ""
+	}
+	counts.SameNameStamps = append(counts.SameNameStamps, sameNameStamp{
+		PlanName:        lname,
+		StoredURL:       rurl,
+		WouldDeriveName: wouldDerive,
+	})
+}
+
 // matchTwinIdentity asks whether an LLM plan entry denotes a page that is
 // already realised under a different spelling, and returns the snapped entry if
 // so (bugs_open/215 quiet mode).
@@ -6332,8 +6606,21 @@ func matchTwinIdentity(
 	// eligible rejects a candidate that must not be snapped onto, whatever key
 	// found it. Shared by all three layers so a guard cannot be true of one and
 	// forgotten in another.
+	// TWO OF THESE CLAUSES ARE REDUNDANT IN SERIES, and knowing which matters —
+	// [MEASURED by mutation 2026-08-19] removing EITHER one alone changes no
+	// behaviour and fails no test; removing BOTH lets the canonical layer snap a
+	// page onto itself. The reason is arithmetic: a realised candidate whose name
+	// equals the plan entry's name is, by construction, a name the plan carries,
+	// so planNames[rname] is true wherever rname == lname is. That refutes the
+	// remedy the 2026-08-19 investigation proposed for bugs_open/215's same-name
+	// hole ("drop rname == lname from the canonical layer's eligibility") — that
+	// edit is INERT, and the hole is closed at Pass B2 instead. Keep both: each
+	// states a different intent, and neither costs anything.
 	eligible := func(rp map[string]interface{}) (string, bool) {
 		rname, _ := rp["name"].(string)
+		// The candidate IS the entry under consideration, not a twin of it. Its
+		// identity is settled by Pass B2's same-name stamp, which keeps the
+		// planner's copy; snapping here would replace the whole entry.
 		if rname == "" || rname == lname {
 			return rname, false
 		}
@@ -6537,6 +6824,19 @@ type reconcileCounts struct {
 	// retains under a second of log, so the Info lines these carry are not a
 	// record of anything (bugs_open/136 §11).
 	IdentitySnaps []identitySnap
+	// SameNameStamps: plan entries paired with a realised page by EXACT name and
+	// stamped with its stored identity (bugs_open/215, the same-name hole). Every
+	// pairing is recorded, but only those whose WouldDeriveName is non-empty
+	// changed an outcome — the rest are pages the canonicaliser would have
+	// reproduced anyway. The caller records the diverging subset durably; a row
+	// per stamp would be ~17 rows per re-plan on one site and ~31 on another, for
+	// an event that is the fix working normally.
+	SameNameStamps []sameNameStamp
+	// SameNameTypeConflicts: same-name pairs where the plan's role and the
+	// realised page's page_type disagree, so no identity was stamped. Recorded
+	// per event, because unlike a stamp this is a state nobody intended: two
+	// pages, one name, two roles.
+	SameNameTypeConflicts []sameNameTypeConflict
 }
 
 // identitySnap is one twin-identity event: a plan page recognised as denoting
@@ -6552,6 +6852,28 @@ type identitySnap struct {
 	RealisedURL  string
 	// Reason is set on the refusal/observation rows only: why nothing was done.
 	Reason string
+}
+
+// sameNameStamp is one exact-name pairing that received the realised identity
+// marker (bugs_open/215). WouldDeriveName is the name CanonicalisePage would have
+// produced for this entry, and is empty when that equals the stored name — i.e. it
+// is set only for the pages where the stamp actually prevented a second identity.
+// Carries the stored URL so the event stays diagnosable after the orchestration
+// row expires.
+type sameNameStamp struct {
+	PlanName        string
+	StoredURL       string
+	WouldDeriveName string
+}
+
+// sameNameTypeConflict is an exact-name pair the stamp REFUSED because the two
+// sides disagree about the page's role. Carries both types so the reader can tell
+// planner disobedience from a deliberate retype without re-running the plan.
+type sameNameTypeConflict struct {
+	PlanName     string
+	PlanType     string
+	RealisedType string
+	RealisedURL  string
 }
 
 // reconcileOptions carries the parts of reconcilePlanWithRealised's behaviour a
@@ -6857,7 +7179,10 @@ func reconcilePlanWithRealised(
 		// This function is the ONLY minter of the realised-identity marker: it is
 		// what tells the write path to stop re-deriving a page's name and URL, so
 		// an LLM (or a replayed plan) that emits it must not be believed. Stripped
-		// before any pass can read it, and re-stamped only by a snap or a union.
+		// before any pass can read it, and re-stamped only by a snap, a union, or
+		// Pass B2's same-name stamp (bugs_open/215 — the exact-name case, which no
+		// snap can reach because the twin layers refuse a candidate equal to the
+		// plan's own name).
 		delete(lm, "identity_authority")
 		delete(lm, "from_realised")
 		lname, _ := lm["name"].(string)
@@ -6930,10 +7255,16 @@ func reconcilePlanWithRealised(
 			continue
 		}
 
-		// Pass B2: same NAME as a preserved realised page -> reconcile the LLM's
-		// sections against the realised composition (bugs_open/050). Only
-		// "sections" is touched — title/meta/nav stay the LLM's, so a re-plan can
-		// still refresh copy and navigation without touching the layout.
+		// Pass B2: same NAME as a preserved realised page -> stamp the realised
+		// IDENTITY (bugs_open/215's same-name hole; see
+		// stampSameNameRealisedIdentity), then reconcile the LLM's sections
+		// against the realised composition (bugs_open/050). Beyond the identity
+		// fields, only "sections" is touched — title/meta/nav stay the LLM's, so a
+		// re-plan can still refresh copy and navigation without touching the
+		// layout. That is why this case is NOT routed through
+		// snapPlanPageOntoRealised: a snap replaces the whole entry and would
+		// throw the refreshed copy away for every page the planner named
+		// correctly.
 		//   - realised NON-EMPTY: restore those sections over the LLM's; a page
 		//     built through the section composer must not be re-composed.
 		//   - realised EMPTY + deployed: force the LLM's proposal back to empty; the
@@ -6942,6 +7273,14 @@ func reconcilePlanWithRealised(
 		//   - realised EMPTY + not-deployed: keep the LLM's proposal (fall through);
 		//     a catalogued page is finally composed.
 		if rp, ok := realisedByName[lname]; ok {
+			// Identity first, and independently of composition: the planner naming
+			// a page exactly as it is stored is the case no twin layer can reach
+			// (their shared eligible closure refuses rname == lname, rightly — such
+			// a candidate is the page itself, not a twin of it). Runs on every
+			// branch below, including the fall-through, because whether a page's
+			// composition is restored, forced empty or left alone says nothing
+			// about who owns its name.
+			stampSameNameRealisedIdentity(lm, rp, &counts, logger)
 			if rs := realisedSectionsOf(rp); len(rs) > 0 {
 				// Same names in the same order: the composition is unchanged, so
 				// there is nothing to restore and the LLM's entries stay as they

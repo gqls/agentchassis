@@ -11,6 +11,7 @@ package actions
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -63,47 +64,15 @@ func TestContextToInterfaceMapDerivationIsBehaviourPreserving(t *testing.T) {
 	}
 }
 
-// TestContextToMapDerivationClosesTheLogoURLGap transcribes the regex-fallback
-// map's old key set PLUS the one deliberate addition: logo_url, which the main
-// path advertised and the fallback lacked — the two hand-written literals had
-// already drifted, which is the drift class bugs_open/109 exists to end.
-func TestContextToMapDerivationClosesTheLogoURLGap(t *testing.T) {
-	wasLiteral := []string{
-		"domain", "logo_text", "company_name", "tagline", "current_page",
-		"primary_color", "secondary_color", "accent_color", "text_color",
-		"background_color", "theme_css", "title", "description", "email",
-		"contact_email", "phone", "cta_text", "cta_url", "year", "industry",
-		"tone", "target_audience",
-	}
-	deliberateAdditions := []string{"logo_url"}
-
-	// ContentData nil so alias/default sections add nothing data-driven; the
-	// alias targets (primary_cta etc.) are part of the old behaviour and
-	// present in both before and after.
-	got := contextToMap(fullyPopulatedRenderContext())
-
-	for _, k := range append(wasLiteral, deliberateAdditions...) {
-		if _, ok := got[k]; !ok {
-			t.Errorf("key %q missing from the fallback template data", k)
-		}
-		delete(got, k)
-	}
-	// The aliasing/default machinery adds its fixed targets; they predate the
-	// derivation and are not part of what it changed.
-	for _, k := range []string{"primary_cta", "primary_cta_url", "secondary_cta", "secondary_cta_url"} {
-		delete(got, k)
-	}
-	var added []string
-	for k := range got {
-		added = append(added, k)
-	}
-	sort.Strings(added)
-	if len(added) > 0 {
-		t.Errorf("key(s) %v are newly present in the fallback map beyond the "+
-			"documented logo_url closure — decide deliberately and update this "+
-			"transcription.", added)
-	}
-}
+// ── TestContextToMapDerivationClosesTheLogoURLGap DELETED 2026-08-19 with its
+// subject (bugs_open/260). It transcribed the REGEX-FALLBACK map's key set —
+// contextToMap's 22 literals plus the deliberate logo_url closure — and existed
+// because the two hand-written key lists had already drifted apart, which is
+// the drift class bugs_open/109 exists to end.
+//
+// The drift is now unrepresentable rather than merely tested: there is ONE map
+// builder left. Its key set is still transcribed, by the sibling test above,
+// and that test is what a contract change now has to argue with.
 
 // TestSchemaModeNeverReachesTemplatesOrStruct: control fields are the one
 // class the derivation must NOT liberate. schema_mode steers validation; if
@@ -112,10 +81,6 @@ func TestSchemaModeNeverReachesTemplatesOrStruct(t *testing.T) {
 	if _, ok := contextToInterfaceMap(fullyPopulatedRenderContext())["schema_mode"]; ok {
 		t.Error("schema_mode is advertised to templates — control fields must stay out of the contract")
 	}
-	if _, ok := contextToMap(fullyPopulatedRenderContext())["schema_mode"]; ok {
-		t.Error("schema_mode is in the fallback template data — control fields must stay out")
-	}
-
 	ctx := &RenderContext{}
 	setRenderContextScalarsFromData(ctx, map[string]interface{}{"schema_mode": "strict"})
 	if ctx.SchemaMode != "" {
@@ -190,15 +155,16 @@ func TestStepContractScalarsSurviveTheRoundTrip(t *testing.T) {
 	}
 
 	// And the concrete symptom that motivated it: real colours must reach the
-	// fallback renderer, not the hard-coded defaults.
-	fallback := contextToMap(revived)
-	if fallback["primary_color"] != "#1" {
-		t.Errorf("fallback path renders primary_color %q, want the restored %q — "+
-			"it fell back to the hard-coded default", fallback["primary_color"], "#1")
-	}
-	if fallback["industry"] != "i" || fallback["year"] != "2026" {
-		t.Errorf("fallback path lost restored metadata (industry=%q year=%q)",
-			fallback["industry"], fallback["year"])
+	// RENDER, not the hard-coded defaults. This used to be asserted against
+	// contextToMap, the regex fallback's map — deleted with the fallback
+	// (bugs_open/260) — so it is asserted through the seam, which is both the
+	// only remaining consumer and the place the symptom was actually seen.
+	out := mustRender(t, `<div data-primary="{{.primary_color}}" data-industry="{{.industry}}" data-year="{{.year}}">`,
+		revived, zap.NewNop())
+	for field, want := range map[string]string{"primary": "#1", "industry": "i", "year": "2026"} {
+		if !strings.Contains(out, `data-`+field+`="`+want+`"`) {
+			t.Errorf("restored %s did not reach the render (want %q):\n%s", field, want, out)
+		}
 	}
 }
 

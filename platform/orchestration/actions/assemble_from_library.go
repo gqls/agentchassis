@@ -294,7 +294,15 @@ func assembleComponents(ctx context.Context, db interface{}, componentNames []st
 		// element ids — see component_instance_scope.go, bugs_open/283.
 		BindInstanceToken(renderCtx, instances.Next(comp.Function))
 
-		renderedHTML := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+		// bugs_open/260: fail rather than stitch a page around a section that
+		// did not render. No writer content is in scope on this path — the
+		// library supplies both template and data — so an execution failure
+		// here means a corrupt template, and a page assembled with the section
+		// silently missing is the bugs_open/018 class.
+		renderedHTML, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+		if err != nil {
+			return nil, fmt.Errorf("assemble_from_library: component %q failed to render: %w (bugs_open/260)", comp.Function, err)
+		}
 
 		// Also handle old-style {{.ComponentID}} placeholder
 		renderedHTML = strings.ReplaceAll(renderedHTML, "{{.ComponentID}}", componentID)

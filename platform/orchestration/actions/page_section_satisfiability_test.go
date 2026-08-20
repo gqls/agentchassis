@@ -431,7 +431,7 @@ func TestEscalateRerenderToWriter_SectionlessPage_SkipsEmit(t *testing.T) {
 	expectNoDeclaredSections(mock)
 	expectPlanMembership(mock, false)
 
-	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "grip-styles-tool", zap.NewNop())
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "grip-styles-tool", "a section had no stored content_data", zap.NewNop())
 	if err != nil {
 		t.Fatalf("the skip must be a clean return, got error: %v", err)
 	}
@@ -454,7 +454,7 @@ func TestEscalateRerenderToWriter_SectionedPage_StillEmits(t *testing.T) {
 	expectPlanMembership(mock, false)
 	expectNeedsPageInsert(mock, "page-rerender")
 
-	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "tungsten-guide", zap.NewNop())
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "tungsten-guide", "a section had no stored content_data", zap.NewNop())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestEscalateRerenderToWriter_PlanMemberWithoutSections_StillEmits(t *testin
 	expectPlanMembership(mock, true)
 	expectNeedsPageInsert(mock, "page-rerender")
 
-	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "brands-index", zap.NewNop())
+	disposition, err := escalateRerenderToWriter(context.Background(), db, uuid.New(), "brands-index", "a section had no stored content_data", zap.NewNop())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

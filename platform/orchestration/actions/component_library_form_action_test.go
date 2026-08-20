@@ -175,63 +175,48 @@ func TestFormActionSurvivesContentDataMerge(t *testing.T) {
 	}
 }
 
-// TestFormActionSanitisedOnRegexFallbackPath covers the SECOND render branch.
+// ── The three "regex fallback path" tests that stood here are GONE, and their
+// subject with them (bugs_open/260, 2026-08-19).
 //
-// RenderTemplate falls back to regex substitution (contextToMap) whenever Go
-// template execution errors. That path merges ContentData too, so it can carry
-// the same "#contact". Fixing only contextToInterfaceMap would leave a branch
-// that still renders a dead form while the change reads as complete — the
-// failure mode 016b §9 calls out and which the pre-commit pattern check caught
-// here as an untouched twin.
-func TestFormActionSanitisedOnRegexFallbackPath(t *testing.T) {
+// They existed because RenderTemplate had a SECOND render branch: on any Go
+// template execution error it fell back to regex substitution over contextToMap,
+// which merged ContentData too and could therefore carry the same "#contact"
+// form action, fabricate a mailto from a synthesised info@<domain> address, and
+// generally re-open every defect the primary path had just been fixed for. The
+// tests pinned the twin so a fix to one path could not read as complete while
+// the other still shipped the bug.
+//
+// That branch is deleted. There is exactly ONE render path now, and a template
+// that cannot execute produces an error and no output at all — which is what
+// the test below asserts. It is deliberately a property of the SEAM rather than
+// of a map builder: what those tests were really protecting is "no second,
+// weaker renderer can ship a page", and this is the assertion that stays true
+// however the internals are rearranged.
+func TestSecondRenderPathNoLongerExists(t *testing.T) {
 	ctx := &RenderContext{
 		Domain: "gaswholesalers.com",
 		Email:  "gas@contactforsales.com",
 		ContentData: map[string]interface{}{
 			"form_action": "#contact",
+			// A string where the template ranges — the exact shape behind all 26
+			// recorded occurrences of bugs_open/260.
+			"steps": "We assess, then we advise.",
 		},
 	}
 
-	data := contextToMap(ctx)
+	out, err := RenderTemplate(
+		`<form action="{{.form_action}}">{{range .steps}}<li>{{.}}</li>{{end}}</form>`,
+		ctx, zap.NewNop())
 
-	if data["form_action"] == "#contact" {
-		t.Fatal("form_action is still #contact on the regex fallback path — " +
-			"the Go-template path was fixed and its twin was not, so a template " +
-			"execution error silently restores the original defect.")
+	if err == nil {
+		t.Fatalf("a template that cannot execute must return an error, got output:\n%s", out)
 	}
-	if want := "mailto:gas@contactforsales.com?subject=gaswholesalers.com enquiry"; data["form_action"] != want {
-		t.Errorf("form_action = %q, want %q", data["form_action"], want)
+	if out != "" {
+		t.Errorf("a failed render must produce NO output — anything else is a "+
+			"second, weaker renderer by another name. Got:\n%s", out)
 	}
-}
-
-// The honesty rule must hold identically on both paths — a site with no address
-// must not acquire a fabricated one just because rendering took the fallback.
-func TestFormActionNotFabricatedOnRegexFallbackPath(t *testing.T) {
-	ctx := &RenderContext{
-		Domain:      "robot-hands.com",
-		ContentData: map[string]interface{}{"form_action": "#contact"},
-	}
-
-	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
-		t.Errorf("form_action = %q, want it left as #contact — no address is "+
-			"resolvable and a synthesised one would hide the breakage", got)
-	}
-}
-
-// The info@<domain> honesty guard must also hold on the regex fallback path.
-// Here ctx.Email is the synthesised "info@"+Domain value some render paths set
-// before rendering; if template execution errors and drops to contextToMap, a
-// fabricated mailto:info@<domain> must NOT appear on the page.
-func TestFormActionInfoFallbackNotFabricatedOnRegexFallbackPath(t *testing.T) {
-	ctx := &RenderContext{
-		Domain:      "robot-hands.com",
-		Email:       "info@robot-hands.com", // the section_editor/multipage synth fallback
-		ContentData: map[string]interface{}{"form_action": "#contact"},
-	}
-
-	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
-		t.Errorf("form_action = %q, want it left as #contact — info@<own domain> "+
-			"is the synthesised display fallback, not a real inbox", got)
+	if strings.Contains(out, "#contact") || strings.Contains(out, "mailto:") {
+		t.Errorf("failed render leaked a form action: %s", out)
 	}
 }
 
@@ -250,7 +235,7 @@ func TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt(t
 		},
 	}
 
-	out, _, _ := RenderTemplateReportingMissing(
+	out := mustRenderReporting(t,
 		`<form action="{{.form_action}}" method="POST"><h2>{{.heading}}</h2></form>`,
 		ctx, zap.NewNop(),
 	)
@@ -276,7 +261,7 @@ func TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress(t *te
 		ContentData: map[string]interface{}{},
 	}
 
-	out, _, _ := RenderTemplateReportingMissing(
+	out := mustRenderReporting(t,
 		`<form action="{{.form_action}}" method="POST"></form>`,
 		ctx, zap.NewNop(),
 	)
@@ -303,7 +288,7 @@ func TestRenderTemplateReportingMissingDoesNotSeedFormActionForUnrelatedTemplate
 		ContentData: map[string]interface{}{"heading": "No form here"},
 	}
 
-	RenderTemplateReportingMissing(`<h2>{{.heading}}</h2>`, ctx, zap.NewNop())
+	mustRenderReporting(t, `<h2>{{.heading}}</h2>`, ctx, zap.NewNop())
 
 	if _, present := ctx.ContentData["form_action"]; present {
 		t.Fatalf("form_action was seeded into ContentData for a template that never "+

@@ -284,8 +284,8 @@ func headerRenderCtx(extra map[string]interface{}) *RenderContext {
 func TestFooterNoteUnsetRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew, footerRenderCtx(nil), logger)
-	newOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeWithNote, footerRenderCtx(nil), logger)
+	oldOut := mustRenderReporting(t, footerThemeChromeNew, footerRenderCtx(nil), logger)
+	newOut := mustRenderReporting(t, footerThemeChromeWithNote, footerRenderCtx(nil), logger)
 
 	if oldOut != newOut {
 		t.Fatalf("unset footer_note must render byte-identically.\nold (%d bytes):\n%s\nnew (%d bytes):\n%s",
@@ -302,8 +302,8 @@ func TestFooterNoteUnsetRendersByteIdentical(t *testing.T) {
 func TestFooterNoteEmptyStringRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew, footerRenderCtx(nil), logger)
-	newOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeWithNote,
+	oldOut := mustRenderReporting(t, footerThemeChromeNew, footerRenderCtx(nil), logger)
+	newOut := mustRenderReporting(t, footerThemeChromeWithNote,
 		footerRenderCtx(map[string]interface{}{"footer_note": ""}), logger)
 
 	if oldOut != newOut {
@@ -318,7 +318,7 @@ func TestFooterNoteRendersOnSetSites(t *testing.T) {
 	logger := zap.NewNop()
 
 	lines := []interface{}{"This site does not lend."}
-	out, _, _ := RenderTemplateReportingMissing(footerThemeChromeWithNote,
+	out := mustRenderReporting(t, footerThemeChromeWithNote,
 		footerRenderCtx(map[string]interface{}{
 			"footer_note":      oufeFooterNote,
 			"compliance_lines": lines,
@@ -344,8 +344,8 @@ func TestFooterNoteRendersOnSetSites(t *testing.T) {
 func TestHeaderCTAOverrideUnsetRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(headerThemeChromeLive, headerRenderCtx(nil), logger)
-	newOut, _, _ := RenderTemplateReportingMissing(headerThemeChromeCTAOverride, headerRenderCtx(nil), logger)
+	oldOut := mustRenderReporting(t, headerThemeChromeLive, headerRenderCtx(nil), logger)
+	newOut := mustRenderReporting(t, headerThemeChromeCTAOverride, headerRenderCtx(nil), logger)
 
 	if oldOut != newOut {
 		t.Fatalf("unset header CTA override must render byte-identically.\nold (%d bytes):\n%s\nnew (%d bytes):\n%s",
@@ -361,12 +361,12 @@ func TestHeaderCTAOverrideUnsetRendersByteIdentical(t *testing.T) {
 func TestHeaderCTAOverridePartialConfigRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(headerThemeChromeLive, headerRenderCtx(nil), logger)
+	oldOut := mustRenderReporting(t, headerThemeChromeLive, headerRenderCtx(nil), logger)
 	for _, partial := range []map[string]interface{}{
 		{"header_cta_url": "/cases/index.html"},
 		{"header_cta_label": "Read the cases"},
 	} {
-		newOut, _, _ := RenderTemplateReportingMissing(headerThemeChromeCTAOverride, headerRenderCtx(partial), logger)
+		newOut := mustRenderReporting(t, headerThemeChromeCTAOverride, headerRenderCtx(partial), logger)
 		if oldOut != newOut {
 			t.Fatalf("partial override %v must render byte-identically.\nold:\n%s\nnew:\n%s", partial, oldOut, newOut)
 		}
@@ -376,7 +376,7 @@ func TestHeaderCTAOverridePartialConfigRendersByteIdentical(t *testing.T) {
 func TestHeaderCTAOverrideRendersOnSetSites(t *testing.T) {
 	logger := zap.NewNop()
 
-	out, _, _ := RenderTemplateReportingMissing(headerThemeChromeCTAOverride,
+	out := mustRenderReporting(t, headerThemeChromeCTAOverride,
 		headerRenderCtx(map[string]interface{}{
 			"header_cta_url":   "/cases/index.html",
 			"header_cta_label": "Read the cases",
@@ -401,7 +401,7 @@ func TestHeaderCTAOverrideRendersOnSetSites(t *testing.T) {
 func TestHeaderCTAOverrideRendersWhenDefaultCTAAbsent(t *testing.T) {
 	logger := zap.NewNop()
 
-	out, _, _ := RenderTemplateReportingMissing(headerThemeChromeCTAOverride,
+	out := mustRenderReporting(t, headerThemeChromeCTAOverride,
 		headerRenderCtx(map[string]interface{}{
 			"cta_url":          "",
 			"header_cta_url":   "/cases/index.html",

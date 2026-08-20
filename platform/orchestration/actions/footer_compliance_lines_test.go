@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -150,8 +151,8 @@ func footerRenderCtx(extra map[string]interface{}) *RenderContext {
 func TestFooterComplianceUnsetRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeOld, footerRenderCtx(nil), logger)
-	newOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew, footerRenderCtx(nil), logger)
+	oldOut := mustRenderReporting(t, footerThemeChromeOld, footerRenderCtx(nil), logger)
+	newOut := mustRenderReporting(t, footerThemeChromeNew, footerRenderCtx(nil), logger)
 
 	if oldOut != newOut {
 		t.Fatalf("unset compliance_lines must render byte-identically.\nold (%d bytes):\n%s\nnew (%d bytes):\n%s",
@@ -165,8 +166,8 @@ func TestFooterComplianceUnsetRendersByteIdentical(t *testing.T) {
 func TestFooterComplianceEmptyArrayRendersByteIdentical(t *testing.T) {
 	logger := zap.NewNop()
 
-	oldOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeOld, footerRenderCtx(nil), logger)
-	newOut, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew,
+	oldOut := mustRenderReporting(t, footerThemeChromeOld, footerRenderCtx(nil), logger)
+	newOut := mustRenderReporting(t, footerThemeChromeNew,
 		footerRenderCtx(map[string]interface{}{"compliance_lines": []interface{}{}}), logger)
 
 	if oldOut != newOut {
@@ -181,7 +182,7 @@ func TestFooterComplianceLinesRenderOnSetSites(t *testing.T) {
 		"This site does not lend, never will, takes no applications and does no lead generation.",
 		"We are independent of, and not affiliated with, the Financial Conduct Authority.",
 	}
-	out, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew,
+	out := mustRenderReporting(t, footerThemeChromeNew,
 		footerRenderCtx(map[string]interface{}{"compliance_lines": lines}), logger)
 
 	if !strings.Contains(out, `<div class="footer-compliance">`) {
@@ -202,18 +203,41 @@ func TestFooterComplianceLinesRenderOnSetSites(t *testing.T) {
 }
 
 // A wrong-typed value (string instead of array) must not take the footer down.
-// text/template errors on {{range}} over a string, which drops the whole
-// template to the regex fallback renderer — degraded output is acceptable,
-// an empty or panicking footer is not. The schema documents array-of-strings;
-// this pins the blast radius of getting that wrong.
-func TestFooterComplianceWrongTypeDoesNotDestroyFooter(t *testing.T) {
+// THE GUARANTEE IS UNCHANGED; THE MECHANISM IS INVERTED (bugs_open/260,
+// 2026-08-19). This test used to read: "text/template errors on {{range}} over
+// a string, which drops the whole template to the regex fallback renderer —
+// degraded output is acceptable". That fallback was the bug: its "degraded
+// output" is well-formed HTML with every {{if}}/{{range}} left in it, and 26
+// page builds across 7 domains were refused for exactly that in eight days.
+//
+// So the seam now REFUSES, and the footer is protected one layer up instead,
+// by a ladder that already existed: RenderFooter returns the error, InjectFooter
+// answers it with RenderFallbackFooter. Same promise to the page — a real
+// footer, never an empty or half-rendered one — kept by a mechanism that cannot
+// ship template directives to a reader.
+func TestFooterComplianceWrongTypeIsRefusedAtTheSeamAndFallsBackWhole(t *testing.T) {
 	logger := zap.NewNop()
+	ctx := footerRenderCtx(map[string]interface{}{"compliance_lines": "not-an-array"})
 
-	out, _, _ := RenderTemplateReportingMissing(footerThemeChromeNew,
-		footerRenderCtx(map[string]interface{}{"compliance_lines": "not-an-array"}), logger)
+	out, err := RenderTemplate(footerThemeChromeNew, ctx, logger)
+	if err == nil {
+		t.Fatalf("a {{range}} over a string must fail the render, not degrade it; got:\n%s", out)
+	}
+	if out != "" {
+		t.Errorf("a refused render must produce no output, got:\n%s", out)
+	}
+	if strings.Contains(out, "{{") {
+		t.Errorf("CONTROL: unexecuted directives escaped a failed render:\n%s", out)
+	}
 
-	if !strings.Contains(out, "All rights reserved.") {
-		t.Fatalf("footer destroyed by a wrong-typed compliance_lines value:\n%s", out)
+	// The blast radius, still pinned: what the page gets instead is a whole
+	// footer, not an absence.
+	fallback := RenderFallbackFooter(ctx)
+	if !strings.Contains(fallback, "All rights reserved.") || !strings.Contains(fallback, "<footer") {
+		t.Fatalf("the chrome fallback must still produce a complete footer:\n%s", fallback)
+	}
+	if strings.Contains(fallback, "{{") {
+		t.Fatalf("the chrome fallback leaked a template directive:\n%s", fallback)
 	}
 }
 
@@ -243,7 +267,7 @@ func TestResolvedValueSatisfiesDeclaredType(t *testing.T) {
 		{"unknown-type", 42, true},
 	}
 	for _, c := range cases {
-		if got := resolvedValueSatisfiesDeclaredType(c.declared, c.value); got != c.want {
+		if got := datahelpers.DeclaredTypeSatisfied(c.declared, c.value); got != c.want {
 			t.Fatalf("declared=%q value=%T: got %v, want %v", c.declared, c.value, got, c.want)
 		}
 	}

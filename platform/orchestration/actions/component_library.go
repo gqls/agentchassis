@@ -944,14 +944,22 @@ func missingBareFieldsRegex(tpl string, data map[string]interface{}) (missing, i
 	return
 }
 
-// RenderTemplate renders a component template with the given context.
-// It keeps its original signature; every existing caller is unchanged. It is a
+// RenderTemplate renders a component template with the given context. It is a
 // thin wrapper over RenderTemplateReportingMissing, which also returns the set
 // of placeholders that rendered empty (consumed by the site-chrome renderer to
 // name dead controls — bugs_open/018).
-func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) string {
-	out, _, _ := RenderTemplateReportingMissing(templateStr, ctx, logger)
-	return out
+//
+// It RETURNS AN ERROR (bugs_open/260). The previous signature returned a bare
+// string, which is why the regex fallback below it could exist at all: there
+// was no channel through which "this template did not execute" could reach a
+// caller, so the seam invented output instead. Returning "" on error was
+// rejected as the replacement — that is a SECOND silent shape, and
+// assembleComponents would stitch a page with a section missing while
+// GateConvertedTemplate would gate an empty render. The compile break is the
+// feature: it puts every caller's failure decision in the diff.
+func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, error) {
+	out, _, _, err := RenderTemplateReportingMissing(templateStr, ctx, logger)
+	return out, err
 }
 
 // RenderTemplateReportingMissing renders a component template and additionally
@@ -962,9 +970,13 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 // <no value> log, which named nothing and let 30 dead controls ship silently on
 // idea.uk (bugs_open/018). Uses Go's text/template for full support of {{if}},
 // {{range}}, {{with}}, etc.
-func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, []string, []string) {
+func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, []string, []string, error) {
 	if templateStr == "" {
-		return "", nil, nil
+		// Not an error: an intentionally empty template stub is a real thing on
+		// this estate (rerender_page_sections carries such a section rather than
+		// failing it). "Executed and produced nothing" is a different fact from
+		// "could not execute", and only the second one is the error channel's.
+		return "", nil, nil, nil
 	}
 
 	// sanitiseFormAction's presence gate ("Absent is only a defect if this
@@ -1025,33 +1037,42 @@ func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logg
 		zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
 	)
 
-	// Try Go template execution first
+	// Execute, or fail. There is no third state (bugs_open/260).
+	//
+	// What stood here was a silent fallback to a regex renderer written for
+	// HANDLEBARS syntax: on ANY error it logged at Warn and substituted
+	// {{.field}} values while leaving every {{if}}, {{range}} and {{end}} it
+	// could not execute sitting in the output. The result was well-formed HTML
+	// with the control directives still in it and the values already resolved —
+	// so nothing downstream could tell a rendered page from an unrendered one
+	// except a final regex check, which refused the whole page. 26 occurrences
+	// across 7 domains in the eight days to 2026-08-18, every one of them an
+	// EXECUTE error (a content field of the wrong shape), never a parse error.
+	//
+	// Deleting it was measured, not argued: 0 of 251 active component templates
+	// fail to Parse, 0 of 1,778 stored sections fail to Execute against their
+	// own content_data, and 0 of 253 active components are even written in the
+	// fallback's dialect ({{#…}}, {{nav_items_html}}, {{quick_links_html}}).
+	// Each figure had a control that could have come out otherwise.
+	//
+	// ⚠ THE RETIRED DIALECT IS NOW UNRENDERABLE, not merely unused: a template
+	// naming {{nav_items_html}} cannot Parse at all ("function not defined"),
+	// so it hard-fails here rather than being quietly regex-patched. Nav HTML
+	// reaches a template through ctx.NavItems and the FuncMap, nowhere else.
 	result, err := executeGoTemplate(templateStr, data, logger)
 	if err != nil {
-		logger.Warn("Go template execution failed, using regex fallback",
+		// Error, not Warn: this is a section that will not exist. The wrapped
+		// error from executeGoTemplate already carries the template line, the
+		// field and the offending value ("range can't iterate over …"), which
+		// is the diagnosis the 26 occurrences never had.
+		logger.Error("RenderTemplate: template execution failed — refusing to emit output that was not executed",
 			zap.Error(err),
 			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
 		)
-
-		// Fallback to old regex-based method
-		result = templateStr
-		stringData := contextToMap(ctx) // Use existing function for fallback
-
-		result = renderEachBlocks(result, ctx)
-		result = renderIfBlocks(result, stringData)
-		result = renderGoStyleSubstitutions(result, stringData)
-		result = renderHandlebarsSubstitutions(result, stringData)
-
-		navItemsHTML := buildNavItemsHTML(ctx.NavItems)
-		result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
-		result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
-
-		// Quick links for footer — primary + utility items (set by render_site_components)
-		if len(ctx.FooterNavItems) > 0 {
-			quickLinksHTML := buildNavItemsHTML(ctx.FooterNavItems)
-			result = strings.ReplaceAll(result, "{{quick_links_html}}", quickLinksHTML)
-			result = strings.ReplaceAll(result, "{{.quick_links_html}}", quickLinksHTML)
-		}
+		// No missing-field report on this path: there is no output to report
+		// against, and a list of empty placeholders would read as if a render
+		// had happened.
+		return "", nil, nil, fmt.Errorf("component template execution failed: %w", err)
 	}
 
 	// =====================================================================
@@ -1081,127 +1102,32 @@ func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logg
 		)
 	}
 
-	return result, missing, inURLAttr
+	return result, missing, inURLAttr, nil
 }
 
-// contextToMap converts RenderContext to a map for template substitution
-// Includes field aliasing to handle common naming variations
-func contextToMap(ctx *RenderContext) map[string]string {
-	if ctx.Year == "" {
-		ctx.Year = fmt.Sprintf("%d", time.Now().Year())
-	}
-
-	// Fallback for logo text - extract from domain if empty
-	logoText := ctx.LogoText
-	if logoText == "" && ctx.CompanyName != "" {
-		logoText = ctx.CompanyName
-	}
-	if logoText == "" && ctx.Domain != "" {
-		// Extract from domain: "leopardessconsulting.co.uk" -> "Leopardessconsulting"
-		parts := strings.Split(ctx.Domain, ".")
-		if len(parts) > 0 && len(parts[0]) > 0 {
-			name := parts[0]
-			logoText = strings.ToUpper(name[:1]) + name[1:]
-		}
-	}
-	if logoText == "" {
-		logoText = "Company"
-	}
-
-	// Derived from the struct's json tags, same as contextToInterfaceMap
-	// (bugs_open/109) — the two render paths advertise ONE scalar contract.
-	// Deriving both from the same projection is what keeps them from
-	// diverging; the old hand-written literals had already drifted (this one
-	// lacked logo_url, so the fallback path rendered it empty while the main
-	// path had it).
-	result := make(map[string]string, 40)
-	for key, value := range renderContextScalarFields(ctx) {
-		if _, control := renderContextControlFields[key]; control {
-			continue
-		}
-		result[key] = value
-	}
-	result["logo_text"] = logoText
-	result["company_name"] = defaultString(ctx.CompanyName, logoText)
-	result["primary_color"] = defaultString(ctx.PrimaryColor, "#1a1a2e")
-	result["secondary_color"] = defaultString(ctx.SecondaryColor, "#2d2d44")
-	result["accent_color"] = defaultString(ctx.AccentColor, "#16a085")
-	result["text_color"] = defaultString(ctx.TextColor, "#333333")
-	result["background_color"] = defaultString(ctx.BackgroundColor, "#ffffff")
-	result["cta_text"] = defaultString(ctx.CTAText, "Get Started")
-	// Correct-or-absent (LNK-005): no fabricated fallback. ctx.CTAUrl is empty
-	// for every LLM-authored section, so a hardcoded default here paired a
-	// real, resolver-written cta_text with a fake /contact.html href on every
-	// page whose CTA target the resolver couldn't match (bugs_open/NNN) — the
-	// ContentData merge below only ever overwrites a key it actually contains,
-	// so the fake value survived untouched whenever the real one was absent.
-	result["cta_url"] = ctx.CTAUrl
-	result["contact_email"] = ctx.Email
-
-	// Add all content data fields
-	for key, value := range ctx.ContentData {
-		// Don't override known fields - they have priority
-		if _, exists := result[key]; exists {
-			continue
-		}
-		result[key] = datahelpers.InterfaceToString(value)
-	}
-
-	// =========================================================================
-	// FIELD ALIASING - Map common variations to expected template names
-	// =========================================================================
-	aliases := map[string][]string{
-		// CTA variations
-		"primary_cta":       {"cta_text", "cta", "button_text", "action_text"},
-		"primary_cta_url":   {"cta_url", "cta_link", "button_url", "action_url"},
-		"secondary_cta":     {"secondary_button", "alt_cta", "secondary_text"},
-		"secondary_cta_url": {"secondary_url", "alt_cta_url", "secondary_link"},
-
-		// Content variations
-		"subheadline": {"subtitle", "sub_headline", "lead"},
-		"headline":    {"main_title", "header"},
-		"body":        {"content", "text", "paragraph"},
-		"heading":     {"section_title", "section_heading"},
-	}
-
-	// Apply aliases - if target field is empty, try source fields
-	for targetField, sourceFields := range aliases {
-		// Skip if target already has a value
-		if result[targetField] != "" {
-			continue
-		}
-		// Try each source field
-		for _, sourceField := range sourceFields {
-			if val, exists := result[sourceField]; exists && val != "" {
-				result[targetField] = val
-				break
-			}
-		}
-	}
-
-	// =========================================================================
-	// DEFAULT VALUES for common template fields to prevent raw {{.field}}
-	// =========================================================================
-	defaults := map[string]string{
-		"primary_cta":       "Get Started",
-		"primary_cta_url":   "/contact.html",
-		"secondary_cta":     "Learn More",
-		"secondary_cta_url": "/about.html",
-	}
-
-	for field, defaultVal := range defaults {
-		if result[field] == "" {
-			result[field] = defaultVal
-		}
-	}
-
-	// Same post-merge sanitisation as the Go-template path. This is the regex
-	// fallback RenderTemplate drops to when template execution fails; without
-	// this it would render the dead form the other path now repairs.
-	sanitiseFormActionStrings(result, ctx)
-
-	return result
-}
+// ── RETIRED 2026-08-19 (bugs_open/260): the handlebars regex renderers ──
+//
+// contextToMap, renderEachBlocks, renderIfBlocks, renderGoStyleSubstitutions,
+// renderHandlebarsSubstitutions, applyBidirectionalAliases,
+// RenderTemplateWithValidation (already caller-less) and
+// validateContentAgainstSchema were deleted with the silent fallback they
+// existed to serve. They spoke a DIFFERENT DIALECT from every template on the
+// estate — {{#each}}, {{nav_items_html}}, {{quick_links_html}} — so when
+// text/template failed they substituted values and left the control directives
+// in the output, which is bugs_open/260 in one sentence.
+//
+// Measured before deletion (2026-08-19, each with a control that could have
+// come out otherwise): 0 of 253 active components use that dialect, 0 of 251
+// active templates fail to Parse, 0 of 1,778 stored sections fail to Execute.
+//
+// contextToMap's death also removes bugs_open/203's last two fabricate-a-URL
+// members (primary_cta_url → /contact.html, secondary_cta_url → /about.html).
+// The surviving map builder is contextToInterfaceMap, which sets cta_url from
+// the context and invents nothing.
+//
+// DO NOT REINSTATE ONE OF THESE AS A "SMALL" REPAIR. Any of them, re-added,
+// restores the third state this seam exists to remove: output that no template
+// engine produced.
 
 // contextToInterfaceMap converts RenderContext to map[string]interface{}
 // This preserves nested structures (slices, maps) required for {{range}}
@@ -1396,122 +1322,6 @@ func applySafeAliases(data map[string]interface{}) {
 	// These should be set explicitly by each section's LLM content
 }
 
-// applyBidirectionalAliases ensures templates work regardless of field naming
-func applyBidirectionalAliases(data map[string]interface{}) {
-	// Map of field -> aliases (bidirectional)
-	aliasGroups := [][]string{
-		{"headline", "heading", "title", "section_title"},
-		{"subheadline", "subtitle", "sub_headline", "lead", "description"},
-		{"cta_text", "primary_cta", "button_text"},
-		{"cta_url", "primary_cta_url", "button_url"},
-		{"content", "body", "text", "paragraph"},
-	}
-
-	for _, group := range aliasGroups {
-		// Find first non-empty value in group
-		var foundValue interface{}
-		for _, field := range group {
-			if val, exists := data[field]; exists && val != nil && val != "" {
-				foundValue = val
-				break
-			}
-		}
-
-		// If found, ensure all aliases have this value
-		if foundValue != nil {
-			for _, field := range group {
-				if _, exists := data[field]; !exists {
-					data[field] = foundValue
-				}
-			}
-		}
-	}
-}
-
-// RenderTemplateWithValidation renders a template with optional schema validation
-func RenderTemplateWithValidation(
-	template string,
-	ctx *RenderContext,
-	opts RenderOptions,
-) (string, error) {
-
-	logger := opts.Logger
-	if logger == nil {
-		logger = zap.NewNop()
-	}
-
-	// Default to flexible mode
-	schemaMode := opts.SchemaMode
-	if schemaMode == "" {
-		schemaMode = "flexible"
-	}
-
-	// Convert context to template data
-	data := contextToMap(ctx)
-
-	// In strict mode, validate against schema
-	if schemaMode == "strict" && opts.SchemaSnapshot != nil {
-		if err := validateContentAgainstSchema(data, opts.SchemaSnapshot, logger); err != nil {
-			return "", fmt.Errorf("schema validation failed: %w", err)
-		}
-	}
-
-	// Perform template substitution
-	result := template
-	result = renderEachBlocks(result, ctx)
-	result = renderIfBlocks(result, data)
-	result = renderGoStyleSubstitutions(result, data)
-	result = renderHandlebarsSubstitutions(result, data)
-
-	// Build nav items HTML
-	navItemsHTML := buildNavItemsHTML(ctx.NavItems)
-	result = strings.ReplaceAll(result, "{{nav_items_html}}", navItemsHTML)
-	result = strings.ReplaceAll(result, "{{.nav_items_html}}", navItemsHTML)
-
-	// Quick links for footer — primary + utility items
-	if len(ctx.FooterNavItems) > 0 {
-		quickLinksHTML := buildNavItemsHTML(ctx.FooterNavItems)
-		result = strings.ReplaceAll(result, "{{quick_links_html}}", quickLinksHTML)
-		result = strings.ReplaceAll(result, "{{.quick_links_html}}", quickLinksHTML)
-	}
-
-	// Check for unsubstituted placeholders
-	unsubstituted := findUnsubstitutedPlaceholders(result)
-	if len(unsubstituted) > 0 {
-		if schemaMode == "strict" {
-			return "", fmt.Errorf("unsubstituted placeholders in strict mode: %v", unsubstituted)
-		}
-		// In flexible mode, just warn
-		logger.Warn("Template has unsubstituted placeholders (flexible mode)",
-			zap.Strings("placeholders", unsubstituted),
-			zap.Int("count", len(unsubstituted)))
-	}
-
-	return result, nil
-}
-
-// validateContentAgainstSchema checks if data has all required fields from schema
-func validateContentAgainstSchema(data map[string]string, schema map[string]interface{}, logger *zap.Logger) error {
-	// Check required fields
-	if required, ok := schema["required"].([]interface{}); ok {
-		var missing []string
-		for _, field := range required {
-			fieldName, ok := field.(string)
-			if !ok {
-				continue
-			}
-			if val, exists := data[fieldName]; !exists || val == "" {
-				missing = append(missing, fieldName)
-			}
-		}
-		if len(missing) > 0 {
-			return fmt.Errorf("missing required fields: %v", missing)
-		}
-	}
-
-	return nil
-}
-
 // findUnsubstitutedPlaceholders finds any remaining {{...}} or {{.xxx}} in template
 func findUnsubstitutedPlaceholders(template string) []string {
 	var placeholders []string
@@ -1536,87 +1346,6 @@ func findUnsubstitutedPlaceholders(template string) []string {
 	}
 
 	return placeholders
-}
-
-// renderEachBlocks handles {{#each <collection>}}...{{/each}} for known collections
-// Supported collections: nav_items, services, quick_links
-func renderEachBlocks(template string, ctx *RenderContext) string {
-	// Pattern to match any {{#each <name>}}...{{/each}}
-	eachRe := regexp.MustCompile(`(?s)\{\{#each\s+(\w+)\}\}(.*?)\{\{/each\}\}`)
-
-	return eachRe.ReplaceAllStringFunc(template, func(match string) string {
-		matches := eachRe.FindStringSubmatch(match)
-		if len(matches) < 3 {
-			return match
-		}
-
-		collectionName := matches[1]
-		itemTemplate := matches[2]
-
-		var result strings.Builder
-
-		switch collectionName {
-		case "nav_items":
-			for _, item := range ctx.NavItems {
-				itemStr := itemTemplate
-				itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
-				itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
-
-				// Handle {{#if this.is_active}}...{{/if}}
-				activeRe := regexp.MustCompile(`(?s)\{\{#if\s+this\.is_active\}\}(.*?)\{\{/if\}\}`)
-				itemStr = activeRe.ReplaceAllStringFunc(itemStr, func(m string) string {
-					innerMatches := activeRe.FindStringSubmatch(m)
-					if len(innerMatches) < 2 {
-						return m
-					}
-					if item.IsActive {
-						return innerMatches[1]
-					}
-					return ""
-				})
-
-				result.WriteString(itemStr)
-			}
-
-		case "services":
-			// Get services from ContentData
-			services := extractServicesFromContext(ctx)
-			for _, svc := range services {
-				itemStr := itemTemplate
-				itemStr = strings.ReplaceAll(itemStr, "{{this.name}}", svc.Name)
-				itemStr = strings.ReplaceAll(itemStr, "{{this.slug}}", svc.Slug)
-				itemStr = strings.ReplaceAll(itemStr, "{{this.description}}", svc.Description)
-				result.WriteString(itemStr)
-			}
-
-		case "quick_links":
-			// Quick links for footer - prefer FooterNavItems if available
-			navItems := ctx.NavItems
-			if len(ctx.FooterNavItems) > 0 {
-				navItems = ctx.FooterNavItems
-			}
-			for _, item := range navItems {
-				itemStr := itemTemplate
-				itemStr = strings.ReplaceAll(itemStr, "{{this.url}}", item.URL)
-				itemStr = strings.ReplaceAll(itemStr, "{{this.label}}", item.Label)
-				result.WriteString(itemStr)
-			}
-
-		default:
-			// Unknown collection - try to get from ContentData as generic array
-			if items := extractGenericArray(ctx.ContentData, collectionName); len(items) > 0 {
-				for _, item := range items {
-					itemStr := renderGenericItem(itemTemplate, item)
-					result.WriteString(itemStr)
-				}
-			} else {
-				// Return original if we can't process it
-				return match
-			}
-		}
-
-		return result.String()
-	})
 }
 
 // ServiceItem represents a service for template rendering
@@ -1742,76 +1471,6 @@ func renderGenericItem(template string, item map[string]interface{}) string {
 		}
 	}
 	return result
-}
-
-// renderIfBlocks handles {{#if field}}...{{/if}}
-func renderIfBlocks(template string, data map[string]string) string {
-	ifRe := regexp.MustCompile(`(?s)\{\{#if\s+(\w+)\}\}(.*?)\{\{/if\}\}`)
-
-	return ifRe.ReplaceAllStringFunc(template, func(match string) string {
-		matches := ifRe.FindStringSubmatch(match)
-		if len(matches) < 3 {
-			return match
-		}
-
-		fieldName := matches[1]
-		content := matches[2]
-
-		value, exists := data[fieldName]
-		if !exists || value == "" {
-			return ""
-		}
-		return content
-	})
-}
-
-// renderGoStyleSubstitutions handles {{.field}} placeholders
-func renderGoStyleSubstitutions(template string, data map[string]string) string {
-	goRe := regexp.MustCompile(`\{\{\.(\w+)\}\}`)
-
-	return goRe.ReplaceAllStringFunc(template, func(match string) string {
-		matches := goRe.FindStringSubmatch(match)
-		if len(matches) < 2 {
-			return match
-		}
-
-		fieldName := matches[1]
-		if value, ok := data[fieldName]; ok {
-			return value
-		}
-		return match // Keep placeholder if no value
-	})
-}
-
-// renderHandlebarsSubstitutions handles {{field}} placeholders
-func renderHandlebarsSubstitutions(template string, data map[string]string) string {
-	// Match all {{...}} patterns, then filter in the replacement function
-	// Go's regexp doesn't support negative lookahead, so we check manually
-	hbRe := regexp.MustCompile(`\{\{([^}]+)\}\}`)
-
-	return hbRe.ReplaceAllStringFunc(template, func(match string) string {
-		// Extract content between {{ and }}
-		inner := match[2 : len(match)-2]
-
-		// Skip special patterns: #if, /if, #each, /each, this.field
-		if strings.HasPrefix(inner, "#") ||
-			strings.HasPrefix(inner, "/") ||
-			strings.HasPrefix(inner, "this.") {
-			return match
-		}
-
-		// Skip if contains spaces (likely a block expression we missed)
-		if strings.Contains(inner, " ") {
-			return match
-		}
-
-		// Look up simple field name
-		fieldName := strings.TrimSpace(inner)
-		if value, ok := data[fieldName]; ok {
-			return value
-		}
-		return match
-	})
 }
 
 // buildNavItemsHTML creates pre-rendered nav items HTML
@@ -1965,8 +1624,15 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		source = "component-db:" + comp.Name
 	}
 
-	// Render template
-	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	// Render template. An execution failure is returned, not swallowed
+	// (bugs_open/260): InjectHeader already answers an error from here with
+	// RenderFallbackHeader, so the page gets well-formed fallback chrome
+	// instead of a header with {{if}} directives left in it. Chrome needed
+	// error PLUMBING, not new mechanism — the ladder was already built.
+	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	if err != nil {
+		return "", fmt.Errorf("header component %q failed to render: %w", comp.Name, err)
+	}
 	return fmt.Sprintf("<!-- HEADER SOURCE: %s -->\n%s", source, rendered), nil
 }
 
@@ -2035,7 +1701,12 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 		source = "component-db:" + comp.Name
 	}
 
-	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	// See RenderHeader: the error goes back to InjectFooter's existing fallback
+	// branch rather than being rendered around (bugs_open/260).
+	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	if err != nil {
+		return "", fmt.Errorf("footer component %q failed to render: %w", comp.Name, err)
+	}
 	return fmt.Sprintf("<!-- FOOTER SOURCE: %s -->\n%s", source, rendered), nil
 }
 
@@ -2140,8 +1811,13 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 
 	headerHTML, err := RenderHeader(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
-		logger.Warn("Failed to render header", zap.Error(err))
-		headerHTML = RenderFallbackHeader(renderCtx)
+		// Labelled, because since bugs_open/260 this branch is also how a
+		// FAILED RENDER lands here, not only a missing component — and an
+		// operator looking at a plain-looking header needs to be able to grep
+		// for which it was. The strip regex below matches
+		// `<!--\s*HEADER\s+SOURCE:[^>]*-->`, which this text still satisfies.
+		logger.Warn("Failed to render header, using fallback", zap.Error(err))
+		headerHTML = "<!-- HEADER SOURCE: fallback (render error) -->\n" + RenderFallbackHeader(renderCtx)
 	}
 
 	// Remove existing header AND its trailing <style> and <script> blocks
@@ -2185,8 +1861,10 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 
 	footerHTML, err := RenderFooter(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
-		logger.Warn("Failed to render footer", zap.Error(err))
-		footerHTML = RenderFallbackFooter(renderCtx)
+		// See InjectHeader: labelled so a render failure is distinguishable
+		// from an absent component (bugs_open/260).
+		logger.Warn("Failed to render footer, using fallback", zap.Error(err))
+		footerHTML = "<!-- FOOTER SOURCE: fallback (render error) -->\n" + RenderFallbackFooter(renderCtx)
 	}
 
 	// Remove existing footer AND its trailing <style> block
@@ -2307,8 +1985,14 @@ func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx
 	}
 	source = "component-db:" + comp.Name
 
-	// Render template with context (title, description, colors etc.)
-	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	// Render template with context (title, description, colors etc.). As with
+	// the header and footer, an execution failure returns to InjectHead's
+	// existing fallback branch (bugs_open/260) — a <head> carrying unexecuted
+	// directives is worse than the plain fallback head.
+	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	if err != nil {
+		return "", fmt.Errorf("head component %q failed to render: %w", comp.Name, err)
+	}
 
 	logger.Info("RenderHead: Rendered head component",
 		zap.String("source", source),
@@ -2348,6 +2032,10 @@ func RenderFallbackHead(ctx *RenderContext) string {
 func InjectHead(ctx context.Context, db interface{}, html string, siteID uuid.UUID, renderCtx *RenderContext, logger *zap.Logger) string {
 	headHTML, err := RenderHead(ctx, db, siteID, renderCtx, logger)
 	if err != nil {
+		// No SOURCE marker here: unlike the header and footer, the head is
+		// stripped and rebuilt by tag, and a comment before <head> would sit
+		// outside the element. The log line is the provenance record
+		// (bugs_open/260).
 		logger.Warn("InjectHead: Failed to render head, using fallback", zap.Error(err))
 		headHTML = RenderFallbackHead(renderCtx)
 	}

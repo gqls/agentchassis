@@ -527,9 +527,24 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 	html.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n")
 
 	// Head section - use component or fallback
+	//
+	// bugs_open/260: an execution failure drops through to the fallback-head
+	// else-branch below, which this function already had — a <head> carrying
+	// unexecuted {{if}}/{{range}} directives is worse than the plain fallback,
+	// and this legacy path has no guard downstream (dead_url_guard.go's header
+	// makes the same point about this exact call site).
+	var renderedHead string
 	if headTemplate != "" {
-		// Render head template with page data
-		renderedHead := RenderTemplate(headTemplate, renderCtx, logger)
+		out, headErr := RenderTemplate(headTemplate, renderCtx, logger)
+		if headErr != nil {
+			logger.Error("rerender: head template failed to execute — using the fallback head",
+				zap.String("page", page.Name), zap.Error(headErr))
+			headTemplate = "" // takes the else-branch below
+		} else {
+			renderedHead = out
+		}
+	}
+	if headTemplate != "" {
 		// Ensure title is set correctly for this page
 		if strings.Contains(renderedHead, "<title>") {
 			// Replace any placeholder title with actual page title
@@ -718,7 +733,28 @@ func rerenderInjectContactInfo(ctx context.Context, db *sql.DB, html string, sit
 		"title":         "Contact Information",
 		"hours":         "Monday – Friday, 9am – 6pm GMT",
 	}
-	renderedContactInfo := RenderTemplateWithMap(htmlTemplate, templateData, logger)
+	renderedContactInfo, err := RenderTemplateWithMap(htmlTemplate, templateData, logger)
+	if err != nil {
+		// ⚠ REACHABILITY, stated so nobody reads this fix as urgent (council
+		// a44d9eb8 round 1, prior_art_librarian — and the correction is this
+		// lane's own): the chain RenderTemplateWithMap ← rerenderInjectContactInfo
+		// ← rerenderSinglePage ← RerenderSitePagesAction ends at an action that
+		// is in NO entry of GlobalActionRegistry (registry.go, 320 handlers,
+		// checked 2026-08-19), so no workflow can dispatch it and the linker
+		// eliminates the function — which is exactly what the idea_uk_vm_site
+		// lane measured when it found `RenderTemplateWithMap = 0` in the binary.
+		// This is a trap disarmed BEFORE the path is revived, not damage being
+		// stopped today.
+		// DO NOT DELETE A LIVE BLOCK BECAUSE A RENDER FAILED (bugs_open/260
+		// §13g). The replace below is unconditional, so before this guard an
+		// error blanked the contact-info section of the page being re-rendered
+		// — losing the email and phone number that were serving — and left no
+		// leaked directive for any detector to notice. Leaving the existing
+		// block in place is the only behaviour that cannot make the page worse.
+		logger.Error("contact-info re-render failed — leaving the existing block in place",
+			zap.Error(err))
+		return html
+	}
 
 	// Replace the existing contact-info section (and its style block)
 	html = contactInfoRe.ReplaceAllString(html, renderedContactInfo)
@@ -779,17 +815,24 @@ func rerenderLoadContactFromSite(ctx context.Context, db *sql.DB, siteID uuid.UU
 // round-3 audit of the idea.uk chrome fix warned must not be left untouched
 // (bugs_open/018) — before this it left "<no value>" visible and logged only on
 // parse/execute error.
-func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logger *zap.Logger) string {
+func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logger *zap.Logger) (string, error) {
 	tmpl, err := template.New("component").Parse(templateStr)
 	if err != nil {
-		logger.Warn("Template parse error in RenderTemplateWithMap", zap.Error(err))
-		return ""
+		// ⚠ THIS SEAM DOES NOT SPEAK THE SAME LANGUAGE AS THE OTHER ONE
+		// (bugs_open/260 §13g). No FuncMap and no missingkey=zero, so an
+		// ordinary {{safe}}, {{default}} or {{isset}} — normal in every
+		// component_library template — is a PARSE ERROR here. Returning "" used
+		// to make the caller DELETE the live block it was re-rendering, which
+		// is worse than mangling it: it leaves nothing for any detector to
+		// find. The error is returned so the caller can leave the block alone.
+		logger.Error("Template parse error in RenderTemplateWithMap", zap.Error(err))
+		return "", fmt.Errorf("contact-info template parse failed: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		logger.Warn("Template execute error in RenderTemplateWithMap", zap.Error(err))
-		return ""
+		logger.Error("Template execute error in RenderTemplateWithMap", zap.Error(err))
+		return "", fmt.Errorf("contact-info template execution failed: %w", err)
 	}
 
 	result := buf.String()
@@ -811,5 +854,5 @@ func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logg
 		)
 	}
 
-	return result
+	return result, nil
 }

@@ -16,6 +16,11 @@
 // someone "tidies" the restore in mergeIntoRenderContext away: the html/template
 // path would keep working (ContentData wins there) while the regex fallback
 // silently went back to empty — a half-fix that reads as a whole one.
+//
+// UPDATED 2026-08-19 (bugs_open/260): there is no longer a regex fallback, and
+// contextToMap — the "context-to-map serialiser" named above — is deleted. The
+// assertions that named it now render through the seam instead, which is the
+// same journey with one fewer place to drop the value.
 
 package actions
 
@@ -26,6 +31,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -342,13 +348,14 @@ func TestCurrentPageSurvivesBothRenderPaths(t *testing.T) {
 		t.Errorf("html/template data has current_page = %q, want %q", got, "capabilities")
 	}
 
-	// Path 2: the regex fallback, used whenever template execution errors.
-	// contextToMap skips any ContentData key the base map already holds, and
-	// the base map holds ctx.CurrentPage — so this passes ONLY because the
-	// struct field was restored above. This is the half of the fix that is
-	// easy to delete without noticing.
-	if got := contextToMap(revived)["current_page"]; got != "capabilities" {
-		t.Errorf("regex fallback data has current_page = %q, want %q", got, "capabilities")
+	// Path 2 WAS the regex fallback, used whenever template execution errored.
+	// It is deleted (bugs_open/260) along with contextToMap, so there is no
+	// second map builder that can disagree with the first. What the assertion
+	// protected — that a revived context reaches the RENDER with its
+	// current_page intact — is now asserted where it actually matters, at the
+	// seam, since that is the only remaining consumer.
+	if out := mustRender(t, `<body class="page-{{.current_page}}">`, revived, zap.NewNop()); !strings.Contains(out, `page-capabilities`) {
+		t.Errorf("rendered output lost current_page: %s", out)
 	}
 }
 
@@ -440,8 +447,11 @@ func TestStepContractRenamesAreWellFormed(t *testing.T) {
 		if _, advertised := contextToInterfaceMap(&RenderContext{})[from]; !advertised {
 			t.Errorf("template data no longer advertises %q — the rename leaked into the template contract", from)
 		}
-		if _, advertisedNew := contextToMap(&RenderContext{})[to]; advertisedNew {
-			t.Errorf("regex-fallback template data advertises the step name %q — the rename leaked into the template contract", to)
+		// The regex-fallback half of this check went with contextToMap
+		// (bugs_open/260): with one map builder left, contextToInterfaceMap
+		// above is the whole template contract.
+		if _, advertisedNew := contextToInterfaceMap(&RenderContext{})[to]; advertisedNew {
+			t.Errorf("template data advertises the step name %q — the rename leaked into the template contract", to)
 		}
 	}
 }
@@ -476,8 +486,11 @@ func TestCurrentPageEmptyStaysEmpty(t *testing.T) {
 	if got, _ := contextToInterfaceMap(revived)["current_page"].(string); got != "" {
 		t.Errorf("html/template data has current_page = %q, want empty", got)
 	}
-	if got := contextToMap(revived)["current_page"]; got != "" {
-		t.Errorf("regex fallback data has current_page = %q, want empty", got)
+	// The former regex-fallback assertion is now made at the seam, which is
+	// where an unset field could still surface as Go's "<no value>" artefact
+	// (bugs_open/260 deleted the fallback, not the missingkey handling).
+	if out := mustRender(t, `<body class="page-{{.current_page}}">`, revived, zap.NewNop()); !strings.Contains(out, `class="page-"`) {
+		t.Errorf("an unset current_page must render as empty, got: %s", out)
 	}
 }
 
