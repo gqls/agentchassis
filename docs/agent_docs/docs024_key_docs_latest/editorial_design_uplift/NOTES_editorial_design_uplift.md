@@ -206,3 +206,42 @@ contrast defects in our own components, then typography"** — with real numbers
 control, and a target value taken from a sibling component that already passes.
 That is a better Phase B than the one I would have written from taste this
 morning, and it came from a one-minute script rather than the orchestration.
+
+### Same-day refinement: the eyebrow defect is PALETTE-fragile, not component-broken
+
+Audited the second editorial feature the moment it went live
+(`dartsonline.com/insights/darts-calendar-density.html`, same six components,
+same content shapes):
+
+```
+FAIL contrast=2  broken-img=0
+  3.95:1  .hero-subheadline   (over an image — ratio approximate)
+  3.95:1  .btn btn-secondary  (over an image — ratio approximate)
+```
+
+**Two failures, both the over-an-image approximations the tool itself flags as
+approximate. No eyebrow failure. No citation-link failure.** The same
+`evidence-chart` and `evidence-timeseries` components, with the same
+`section_eyebrow`/`eyebrow` content and the same citation blocks, pass here.
+
+So Finding 2 above is **narrowed and improved**: `evidence-chart`'s eyebrow is not
+wrong in itself — it is **fragile against a palette where `--color-primary` sits
+within a shade of `--color-background`**, which is robot-hands' case (#1A1F2E on
+#0F1218) and is not dartsonline's. Same for the 4.38:1 citation links.
+
+Two consequences, and the second is the one worth carrying:
+
+1. The remedy still stands and is still worth doing at the component (use the
+   accent, as `evidence-timeseries` already does) — because a component that
+   only reads correctly on some palettes is a latent defect on every site that
+   adopts it next, and this lane is about to adopt it on several more.
+2. **A single-site render audit cannot tell a component defect from a palette
+   defect.** It took two sites to see which this was, and I had already written
+   the stronger claim ("ours") in the entry above. Corrected here rather than
+   edited away. **For any future finding on a shared component: measure it on a
+   second site before deciding whose bug it is.** That is the cheap check, and it
+   is the same shape as the pre-existing/ours control one entry up — a control
+   in the *other* dimension.
+
+`/insights/index.html` on robot-hands scored **0 failures**, and dartsonline has
+no hub page yet, so nothing here reflects on the hub pattern.

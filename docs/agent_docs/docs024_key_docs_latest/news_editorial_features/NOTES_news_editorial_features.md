@@ -587,3 +587,38 @@ anyway because it is the convenient flag. The honest one-liner is
 - **Rollout to a second site** — the plan pauses here deliberately for the owner
   to look before batching.
 - **035 / Fable** — blocked on capacity.
+
+## 2026-08-20 — rollout site 2: dartsonline.com, LIVE
+
+`/insights/darts-calendar-density.html` — 39,867 bytes, hero image present,
+series ticks 2022-2026, claimscan 0/6, render audit **2 approximate failures and
+no firm ones**.
+
+**The premise, and why it is a premise rather than a topic:** the cluster (Hearn's
+warning, Littler's Euro Tour withdrawals, Van der Voort's criticism, The Sun on
+circuit life) reads as four discipline stories. The load-bearing claim is that it
+is a **schedule-density** story — falsifiable against exactly one series, the
+number of Players Championship events per season. Flat count → the argument dies
+and the discipline framing stands. Not flat: **30/30/30** through 2022-24, then
+**34** in 2025 and 2026, with the European Tour moving 14 → 15.
+
+**Kept the dissenting item deliberately again.** On robot-hands it was the
+weak-US-orders headline; here it is The Sun's "disheartening" piece — the same
+story from the inside, and the reason to look at the calendar at all. Two for two
+on the rule that the contradicting channel is the most valuable one in the cluster.
+
+**Firsts on this page:** the hero shipped WITH its image (the owner's ruling
+applied from the start rather than retrofitted), and 495's verify block asserts
+it mechanically — the page cannot be seeded on the gradient fallback branch.
+
+**Source honesty:** the calendar counts come from each season's own summary page
+on Wikipedia, not the PDC's own calendar. Verified verbatim in-session, publisher
+named in every citation, and the chart footnote says so on the page. That is
+weaker sourcing than robot-hands' IFR press releases and is written as weaker.
+
+`published_page_id` now stands at **15 rows across 2 pages** fleet-wide.
+
+**Not done on dartsonline:** the `/insights/` hub + top-nav entry. The site's
+header already carries 6 items, so it fits, but one feature does not need a hub —
+the robot-hands hub was built because the owner asked for nav placement and that
+site had the first feature. Second feature on dartsonline is the trigger.
