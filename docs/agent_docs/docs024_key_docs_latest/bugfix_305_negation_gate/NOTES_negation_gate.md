@@ -160,3 +160,76 @@ cd $SP/head && go build ./... && go test ./<your packages>/
 
 A green build in the working tree says nothing about HEAD on a tree this many sessions share.
 Logged in `WRONG_CALLS.md`.
+
+## 2026-08-20 — the build, and the four things that changed the design after it started
+
+### Phase 1 built and committed (inert until the next chassis roll)
+
+`negationtells.go` (scanner + neighbours + exemption + acceptance) · `negation_content.go` (the content-map
+walker, with a `Set` closure so a repair writes THROUGH to the map the renderer reads) · `voicetells.go`
+(the strawman arm now calls the family; `rather_than` as a density) · `copy_gate_annotation.go` (two
+registry wrappers, counting, default ON) · `rewrite_negations_action.go` (the repair, its own
+`ActionInputSpec`, registered) · migration `509` **_HOLD** + `_HOLD_ROLLBACK`.
+
+⚠ **The migration is `509`, not `497`.** 497 was taken by another session between writing the plan and
+writing the file — and the council's editquality seat flagged exactly that risk in the same round.
+**Check `ls docs/agent_docs/sql_for_agents | grep '^NNN'` at WRITE time, not at plan time.**
+
+### Phase 2 built, deployed and PROVEN LIVE
+
+`cmd/brief-negation-check` + CronJob at 07:40 UTC, image `v1.0.1321`. Verified at the artefact, not the
+log: 12 findings filed, **2 closed by the close-out arm on positive re-observation**, 10 open, and 4
+`doc_notes` rows for 2 runs (two per run, because `backoffLimit: 1` retries a run that exits 1 — exactly
+what the design says a red day looks like).
+
+### ⚠ MISSTEP 3 — my inline edit would have broken the compile at HEAD for every session
+
+Covered in full in `WRONG_CALLS.md`. Short version: `v3_site_actions.go` carried another session's
+uncommitted work calling `applyWorkItemFailureLadder`, which lives in an **untracked** file. A pathspec
+commit takes same-file passengers, so committing my two hunks would have shipped their half-finished
+change to HEAD — which `make build-*` builds from. My local build was green *because* their untracked
+file was in my tree. Caught by the HEAD-overlay build; fixed by reverting only my hunks (`git apply -R`
+on a patch holding just my hunk headers) and moving the change into a file of my own.
+
+### ⚠ MISSTEP 4 — the check flagged a company's policy as a mannerism
+
+The first live fleet run flagged *"we do not offer refunds"*, *"we do not invent figures"* and *"we do not
+charge"*. Those are limit statements, which the writer's own STRICT RULE 19 **asks for**. My
+`negative_reveal` shape had first-person subjects in it. Fixed: third-person only (`it/this/that/they/
+these`), both arms tested, fleet 12 → 10 sites, and the demand control still passes (the complained-of
+site still shows its one MANDATED tagline). **The lesson is where it was caught: reading the finished
+detector's output against live data, not reading the regex.**
+
+### Council round 1: REVISE — and it was worth far more than the 20 minutes it cost
+
+Gating objection: a `sub_workflow`'s running half is often keyed `substeps`, not `steps`, in which case
+the migration inserts a step nothing runs while the RAISE still passes. **The council's own read-only
+check answered it** (`has_substeps=false, has_steps=true`) — and the seat was still right that the guard
+was checking the wrong thing, so the migration now anchors on the container path.
+
+**The one I would not have found:** compliance, HIGH — nothing scanned the accepted replacement for
+**banned claims**. The acceptance test was structural (facts, links, markup, displacement) and could not
+tell an honest reframing from an overclaim. "Say what it IS" is precisely the pressure that fills the
+affirmative slot with an invented superlative, and no gate downstream inspects a spliced sentence: by
+deploy time it IS the page. Now every candidate goes through `checkBannedClaims` + `loadEvidenceBase`
+with the fleet arm on, BEFORE the structural test.
+
+Also fixed from that round: truncation (a cut repair splices nothing, both arms); the repair prompt now
+forbids new capability/reliability claims explicitly; tag comparison moved from multiset to **sequence**
+(`<b><i>x</b></i>` has the same tags as the well-formed version); and un-holding `509` now has TWO
+preconditions, the image AND the per-page budget canary.
+
+Answered with evidence rather than changed: `apply_section_edit` needs a `page_component_id` and edits a
+**persisted** row, so it cannot be reused at a seam where the section does not exist yet; the
+`bugs_open/119` re-ask fires only on an unparseable answer and re-asks the whole section.
+
+### Mutation probes, phase 1 repair (all fail a NAMED test; package green when restored)
+
+| probe | test that fails |
+|---|---|
+| count exempt hits against the budget | `TestExemptHitsDoNotConsumeTheBudget` |
+| make headline hits obey the budget | `TestHeadlineHitIsAlwaysATarget` |
+| key `matchTarget` on the FIELD name | `TestMatchTargetIgnoresRenamedField` |
+| drop the per-page carry in `CollectedData` | `TestBudgetIsPerPageNotPerSection` |
+| drop the `nonProseFieldRe` test in `prosey()` | `TestWalkerSkipsNonProse` |
+| drop the `err != nil` early return in the wrapper | `TestAnnotationPassesErrorsThrough` |

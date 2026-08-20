@@ -54,3 +54,45 @@ reads every site's brief and reports where a brief is handing the writer a phras
 mannerism. The other team built exactly that as a tool a human runs; the owner's view is that an
 unrun check goes stale, so it becomes a job that reports every day, including on the days it finds
 nothing — because a silent job and a clean one need to look different.
+
+## 2026-08-20 evening — it is built, half of it is live, and one thing needs saying plainly
+
+The mechanical check is written, tested and committed. It counts the mannerism on every page the
+framework writes, for every site, whether or not anyone remembers to switch anything on — and on the
+one agent that writes almost all our page copy it now also repairs it, by sending the offending
+sentences back once and asking for the direct version. Nothing about it can lose a page: if the model
+does not answer, or answers badly, or answers too long, the original copy stands.
+
+That half only starts working when the next build of the platform goes out, which is somebody else's
+release to run. The database change that switches it on is deliberately parked until then, with the two
+things that must be true before anyone unparks it written at the top of the file.
+
+The other half is live today. Every morning at twenty to eight a job reads every site's instructions —
+only the part the writer actually sees — and asks whether the instructions themselves hand the writer
+one of these phrases. Ten of our twenty-five sites do. It ran twice this afternoon, found twelve, and
+then, after I corrected it, closed two of its own findings because they were no longer true. That
+self-correction is the bit I am most pleased with: a check that can only ever accuse is a check nobody
+can trust.
+
+**The thing that needs saying plainly: this will not change the three pages you read.** The sentence
+you objected to — *"deployed to production in days, not months"* — is not the writer's invention. It is
+in that site's own instructions, which order it onto the homepage hero, the services hero, the footer
+and every meta description. The check deliberately leaves alone anything a site's own instructions
+supplied, because the alternative is the platform quietly overruling what a site has been told to say.
+So it counts that sentence, reports it, and leaves it. Changing it means editing that site's
+instructions and rebuilding those pages, which belongs to the team that owns the site — and they have
+the exact queries to do it and to check it worked.
+
+I also want to be honest about what was got wrong along the way, because two of the four mistakes are
+the kind that look like success. A regex I wrote to stop the machine inventing names was silently
+broken in a way that made it reject *every* repair — which reads exactly like a strict, careful guard
+doing its job. And the daily check's first run flagged "we do not offer refunds" as bad writing. It is
+not bad writing; it is a policy, and our own house rules ask writers to state limits like that plainly.
+Both were caught by looking at what the thing actually did on real data, not by re-reading the code.
+
+The review council rejected my first submission and it was worth every minute. One of its objections
+found a genuine hole nobody in this lane had seen: the repair checked that a rewritten sentence kept
+every number, link and name — and never checked whether it had introduced a *claim* we cannot support.
+Asking a machine to say what something *is*, rather than what it isn't, is exactly the pressure that
+produces "the definitive source" and "fully verified". Fixed: every rewrite now goes through the same
+banned-claims check the rest of the estate uses before it is allowed anywhere near a page.
