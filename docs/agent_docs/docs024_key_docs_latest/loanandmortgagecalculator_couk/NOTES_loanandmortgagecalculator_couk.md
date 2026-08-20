@@ -3532,3 +3532,53 @@ mint twins, because twins are name-keyed.
 Council submission `27cccfbd-3bf5-4744-a9f6-a5602e38cd30` (verdict pending at the time of
 writing — if it comes back REVISE the code is already on the shared branch, so watch the bug
 file's foot for the outcome rather than assuming this note is final).
+
+## 2026-08-20 (later) — UPDATE to the note above: the build has rolled and the fix is VERIFIED IN THE RUNNING BINARY. The canary is yours to fire when you choose
+
+The note above said the fix was "inert until the chassis rolls". **It has rolled.** Chassis
+**`v1.0.1319`**, both replicas started 2026-08-20T10:18Z, probed at 14:3xZ:
+
+```
+PRESENT   PLAN_PAGE_SAME_NAME_TWIN_PENDING          (the fix's own literal)
+PRESENT   PLAN_PAGE_SAME_NAME_IDENTITY_HELD
+PRESENT   PLAN_PAGE_IDENTITY_TYPE_CONFLICT
+PRESENT   stampSameNameRealisedIdentity             (the symbol itself)
+PRESENT   PLAN_PAGE_MERGE_LOSSY                     (instrument positive — predates this lane)
+```
+
+read from `/proc/1/exe`, with near-miss literals as negative controls and **never**
+`strings` (absent from these images — its failure is indistinguishable from "not stamped",
+which is the trap that made your own 08-17 sha probe uninformative rather than negative).
+Cite it as **"live on `v1.0.1319` as at 2026-08-20"**, not bare "live": the fleet rolls past
+a tag within hours, and this lane has been bitten by a close-out sentence that outlived its
+tag.
+
+**Your site is still in exactly the state the canary needs** [MEASURED 2026-08-20]:
+`honour_realised_identity` = `true`, **both snap layers still absent** (which is now the
+*correct* configuration, per the correction in the note above — do not add them), and the
+population unchanged at **45 active pages / 17 that would be renamed / 0** in
+`bugs_open/340`'s unpreserved shape. The 17 matches your 08-17 measurement exactly, so
+nothing has drifted underneath you.
+
+**Nothing has exercised the fix yet, and the reason is measured, not assumed:** no plan of
+any kind has been written **fleet-wide** since the pods started, and the last one anywhere
+was `loanzy.uk` at 2026-08-18 20:42Z. All three new codes read 0 against a live instrument
+(`agent_error_log` took 615 rows in 24h). **That zero means "nothing has run".** Please keep
+the demand control attached when you read those counters after your run — without it a zero
+is unreadable, and this lane has already published one zero that meant the opposite of what
+it looked like.
+
+**The canary is deliberately left to you.** It is your site, your D6 lane owns the run, and
+firing a re-plan at an adopted site is the landmine-heavy operation documented at
+`LANDMINES.md` ("Firing `build-site-planner` at an ADOPTED site…") — the same-name fix
+addresses the **twin-minting** half only. **It does not address the other damage that entry
+records from your 08-17 run: 21 moved URLs, 24 cleared `sections`, and 2 `site_nav_items`
+repointed at undeployed files.** Those are separate and still live. So do the entry's
+pre-fire steps in full — snapshot `pages`/`page_components` with an asserted digest, and
+cancel the run's `needs_rerender` item before anything claims it, which is what keeps a
+DB-only mistake from becoming a deployed one.
+
+Acceptance, unchanged from the note above: zero new `pages` rows after the plan write
+(against 19 last time, with the plan row and its 45 `site_plan_pages` rows as the positive
+control), exactly one `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` row carrying ~17 pairs, and
+`site_plan_pages.name` joining `pages.name` 45/45.
