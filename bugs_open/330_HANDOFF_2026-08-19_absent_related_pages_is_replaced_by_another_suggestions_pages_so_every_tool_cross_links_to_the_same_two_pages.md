@@ -236,3 +236,30 @@ paths — the shape `renderEnvelopeIdentity` uses in Go), so the legitimate dual
 are declared rather than rescued; or (ii) config repairs on the 10 wires first, then the flip,
 then this audit re-run fleet-wide as the gate. Either way the pbh envelope family is the first
 work item, not tool-generator: it is 8 of the 10 wires and 56 runs/24 h of demand.
+
+> **CORRECTED 2026-08-20 ~10:3xZ, same session, ~1 h after §9 — the "10 RESCUE-PRONE / needs
+> fallback chains" conclusion was an artefact of my own probe.** The LIKE test encoded "the
+> field name appears anywhere in the RAW tree", but the search skips `agent_config`,
+> `__raw_message__` (and siblings) and `retry_payload` (`isInfrastructureKey`,
+> `unified_extractor.go:720`) — and enumerating actual paths on a missing run showed most hits
+> lived exactly there. Re-run with those subtrees stripped, same 12-run samples:
+>
+> | wire | miss | genuinely rescueable |
+> |---|---|---|
+> | pbh `page_id` ← page_record.id | 6/12 | **6** (run's own input: input_data.page_id / current_page.page_id / spec.page_id all present 6/6 — right value, dual-envelope) |
+> | pbh `page_name` ← page_record.name | 6/12 | **6** (same family) |
+> | tool-generator `related_pages` | 8/12 | **8** (THIS bug — the rescue is the wrong value) |
+> | page-rerender `reason` | 12/12 | **1** |
+> | pbh mode / sections / section_facts / page_sections_fallback / authoritative_page_id / page_id←spec | 1–12/12 | **0 — clean absences** |
+>
+> **So candidate 2's real behaviour-change population on the high-demand agents is FOUR wires,
+> not ten, and it decomposes cleanly:** (a) pbh page_id+page_name — declare the fallback the
+> search performs today (one config edit on the reading step, e.g. a `?`-optional wire at
+> input_data.page_id, or re-point; the value is proven present in-run 6/6); (b) related_pages —
+> absence is the DESIRED outcome (this bug's whole point); (c) reason — 1/12, trace that one
+> run before deciding. **"Needs per-field fallback chains" is WITHDRAWN as a general
+> requirement** — with (a) repaired, candidate 2 is close to a straight flip on this slice.
+> The 75-agent / 269-pair unsampled remainder still needs the (corrected) probe before a
+> fleet-wide flip; the RUNBOOK method now includes the strip.
+> What caught it: enumerating real paths on one missing run instead of trusting the LIKE —
+> "your measurement answers the question you ENCODED, not the one you asked."

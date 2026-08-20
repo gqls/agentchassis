@@ -865,8 +865,11 @@ Three stages; each had a trap that cost a run.
    `collected_data::text LIKE '%"<field>"%'` over the last ≤12 runs.
    ⚠ parse results POSITIONALLY from a manifest (`-At -F'|'`); `-x` expanded output merges
    records across queries and mis-attributes every number.
-   ⚠ the LIKE probe over-counts rescues (no infrastructure-key exclusion) and the FINAL tree
-   under-counts step-time misses — state both when quoting figures.
+   ⚠ the LIKE probe over-counts rescues UNLESS you strip what the search skips — subtract
+   `agent_config`, `__raw_message__` + siblings and `retry_payload` from the jsonb before the
+   LIKE (`isInfrastructureKey`, unified_extractor.go:720). Measured 2026-08-20: the naive probe
+   said 10 rescue-prone wires, the stripped probe said 4 — the conclusion flipped. The FINAL
+   tree still under-counts step-time misses; state both when quoting figures.
 
 Result 2026-08-20 in `bugs_open/330` §9. Scratch artifacts: `plain_wires.json`,
 `audit_manifest.json`, `rescue_prone.json` (session scratchpad — regenerate, don't hunt).

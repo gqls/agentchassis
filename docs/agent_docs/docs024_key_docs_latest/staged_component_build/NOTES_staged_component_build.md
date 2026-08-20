@@ -5682,3 +5682,19 @@ method + its three traps):
 - Working-tree note: `v3_site_actions.go` was mid-edit by another session (syntax error) the
   whole time — everything here ran from a `git archive HEAD` copy; the specdump shim and
   cmd/specdump are SCRATCH-ONLY and were not committed.
+
+## 2026-08-20 (~10:3xZ) — my own audit corrected within the hour: 10 rescue-prone was the PROBE, 4 is the population; and the pbh repair shrank to one config edit
+
+The §9 LIKE probe counted `agent_config`/`__raw_message__`/`retry_payload` text, which the
+search skips (`isInfrastructureKey`). Stripped probe on the same samples: **4 genuinely
+rescue-prone wires** — pbh `page_id`+`page_name` (6/12, and on all 6 the run's own
+`input_data.page_id`/`current_page.page_id`/`spec.page_id` are present: the search finds the
+RIGHT value, silently, agreeing → invisible to the conflict instrument, exactly §4's silent
+class, now measured on the benign side); tool-generator `related_pages` (8/12 — 330 itself,
+where absence is the fix); page-rerender `reason` (1/12 — trace that run before deciding).
+Everything else flagged was a clean absence. **"Needs fallback chains" withdrawn** — repair the
+two pbh wires (one config edit, value proven in-run 6/6), then candidate 2 on this slice is
+near a straight flip. Remainder: 269 pairs / 75 agents unsampled; the corrected probe is in the
+RUNBOOK. 330 §9 carries the dated correction. The catch, again: the measurement answered the
+question the LIKE encoded — enumerate real paths on ONE missing run before trusting any
+name-presence probe.
