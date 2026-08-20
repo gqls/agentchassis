@@ -94,7 +94,49 @@ an anchor (e.g. match the startup line's own prefix).
 
 **Recommend:** tighten the recipe in CLAUDE.md to an anchored match.
 
-### B4. `rerender-chrome` reports COMPLETED having skipped its own start step
+### B4. ~~`rerender-chrome` reports COMPLETED having skipped its own start step~~ — **WITHDRAWN, THE FAULT WAS MINE**
+
+> **RETRACTED 2026-08-20, same session, before it reached a bug file.** I wrote this up as a platform
+> defect in two agents (`rerender-chrome`, then `rerender-pages`). **Both were working correctly. My
+> dispatch envelope was incomplete.**
+>
+> The `049b_deploy_single_page.sh` script that *did* work sends five Kafka headers I omitted —
+> `action=orchestrate`, `sender_agent_type`, `sender_agent_id`, `responses_topic`, `timestamp`. I had
+> put `action` only in the JSON **body**. With the headers added and nothing else changed, the same
+> agent ran all fourteen of its steps and wrote `<head lang="en-GB">` into the stored head.
+>
+> **What made the wrong conclusion so easy to reach:** the run returned `COMPLETED` with no
+> `__step_error` and no `error`, and `collected_data` held only `complete` — whose `result` was a
+> verbatim echo of my request. That is *exactly* what a workflow skipping its own start step would
+> look like. I then checked the live definition, found `start_step`, `force_rerender: true` and the
+> step key all correct, and read that as confirming a platform bug rather than as evidence that the
+> problem was upstream of the workflow.
+>
+> **The check that settled it, and should have been first:** diff `collected_data`'s keys against a
+> run of the same shape that DID work. The working page-rerender had fourteen step keys; mine had one.
+> That comparison points at the envelope immediately, because a broken workflow and an unrouted
+> message differ in *how many* steps appear, not in the status.
+>
+> **Kept visible rather than deleted** because the *sharp edge* is real and worth knowing: an
+> incompletely-headed orchestrate message is accepted, acknowledged, and recorded as `COMPLETED`
+> having run nothing. That is a genuine trap — it is just not a defect in the agent I accused. Logged
+> in `WRONG_CALLS.md`.
+
+### B4b. An orchestrate message missing its headers completes successfully having run nothing
+**Certainty: MEASURED twice (corr `83d980c2`, `b4b55324`), then fixed and re-measured (`5dba9a92`).**
+Not the agent's fault — see the retraction above — but the platform's behaviour here deserves an
+entry of its own. A message whose `action` is in the JSON body but not in the Kafka headers is
+**accepted, given an orchestration row, and marked `COMPLETED`** with no error and no step output.
+Nothing distinguishes it from a successful run except the *absence* of step keys in `collected_data`.
+
+**Recommend:** reject an orchestrate message that resolves to no workflow, rather than completing it.
+Failing that, the dispatch envelope should live in one documented place — every lane currently
+copy-pastes a header block from whichever script it found, and mine was a partial copy.
+
+### B4c. `rerender-chrome` — untested by this lane, claim withdrawn
+The `rerender-chrome` agent may or may not work; **my run cannot tell you**, because it carried the
+same incomplete envelope. I did not re-test it (the `rerender-pages` route did what I needed). Anyone
+reaching for it should send the full header set first and not inherit my conclusion.
 **Certainty: MEASURED on corr `83d980c2` (2026-08-20).** Dispatched with the envelope its own seed
 header documents. Returned `complete | COMPLETED` in seconds. The stored head was **untouched**
 (`updated_at` still 2026-08-18), and `collected_data` contains **no `site_components_result` and no
@@ -112,10 +154,8 @@ fan-out — and it is the thing a session reaches for when the scheduled pipe is
 **succeeds without doing anything**, which is the platform's own "a `complete` status is not a
 repaired artefact" failure in its purest form.
 
-**Not chased by this lane** — it belongs to the 226/351 lane and my propagation path (the
-`stale_chrome` fingerprint) does not need it.
-**Recommend:** a bug file against seed `351`. Until then, anyone using it must diff
-`site_components.updated_at` before and after rather than trusting the COMPLETED.
+**The evidence above is left as written** so the retraction is legible against it. Do NOT file a bug
+against seed `351` on this basis — the observation is real, the attribution was wrong.
 
 ### B5. New sites default to `en` and nothing will ever notice
 **Certainty: INFERRED from mechanism, but the mechanism is now measured.** Migration 508 sets

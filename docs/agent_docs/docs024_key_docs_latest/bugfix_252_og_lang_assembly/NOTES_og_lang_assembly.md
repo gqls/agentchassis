@@ -366,3 +366,50 @@ did nothing** — the platform's own "trust the artefact, not the status" rule, 
 Not chased: it belongs to the 226/351 lane and my propagation path does not need it. Filed in
 `FINDINGS_2026-08-20_errors_caught.md` §B4 so it is not lost. ⚠ Anyone reaching for `rerender-chrome`
 as a lever should verify it wrote something before believing it.
+
+## 2026-08-20 (h) — BOTH HALVES PROVEN AT THE ARTEFACT, and I withdrew a wrong finding to get there
+
+**The lang half, end to end.** Dispatched `rerender-pages` with `spec.refresh_site_components: true`
+(corr `5dba9a92`) → 14 steps ran including `render_site_components` → stored head became
+`<head lang="en-GB">` (`updated_at` 17:33:04) → page rerender (corr `e554bc8e`) →
+
+```
+$ curl -s https://ai-agent-orchestration.com/about.html | grep -oE '<html[^>]*>|<meta property="og:(title|description|url)"[^>]*>|<link rel="canonical"[^>]*>'
+<html lang="en-GB">
+<meta property="og:title" content="About | AI Agent Orchestration">
+<meta property="og:description" content="Fix multi-agent systems failing in production: …">
+<meta property="og:url" content="https://ai-agent-orchestration.com/about.html">
+<link rel="canonical" href="https://ai-agent-orchestration.com/about.html">
+```
+
+**That is the whole fix, on the wire**: the document declares British English, and the page states its
+own Open Graph identity in agreement with its canonical. The full chain is proven —
+`site_specs.site_config.locale.lang` → `input_schema` `source: config.locale.lang` → the gated
+`<head{{if .lang}}…>` → `headLangAttr` → `htmlDocumentOpen`.
+
+### ⚠ MISSTEP, and it nearly became a bug filed against working code
+
+Between (g) and here I wrote up **two agents as broken** — `rerender-chrome`, then `rerender-pages`
+"reporting COMPLETED having skipped their own start step". **Both were fine. My dispatch envelope was
+incomplete.** `049b_deploy_single_page.sh` sends five Kafka **headers** I omitted (`action=orchestrate`,
+`sender_agent_type`, `sender_agent_id`, `responses_topic`, `timestamp`); I had `action` only in the JSON
+**body**. Headers added, nothing else changed, and the same agent ran all 14 steps first try.
+
+**Why the wrong story fitted:** `COMPLETED`, `error` NULL, no `__step_error`, and `collected_data`
+holding exactly one key — `complete`, echoing my own request. Indistinguishable from a skipped start
+step. I then read the live definition, found `start_step`/`force_rerender`/the step key all correct,
+and treated that as confirming a platform bug — when a correct definition beside a no-op run should
+have pointed **upstream of the workflow**, not into it.
+
+**The check that settles it in one command, and which I had the材料 for the whole time:** diff
+`collected_data`'s keys against a run of the same shape that WORKED. Fourteen step keys versus one.
+**A broken workflow and an unrouted message differ in how many steps appear, never in the status.**
+
+**And a second instance was not corroboration**, because both runs shared my method. The
+discriminating experiment was to vary the envelope, not the agent. Retracted in FINDINGS §B4 (kept
+visible, struck through, with the evidence left in place) and logged in `WRONG_CALLS.md`.
+
+**What survives as a real finding — FINDINGS §B4b:** an orchestrate message missing its headers is
+**accepted, given an orchestration row, and marked `COMPLETED` having run nothing**. That is a
+dispatch-surface trap worth fixing, and it is not the agents I accused. The `rerender-chrome` claim is
+**withdrawn entirely** — my run cannot speak to it, since it carried the same broken envelope.

@@ -40068,3 +40068,46 @@ back and asks. **The only thing that closes an advisory loop is somebody decidin
 a verdict"*, and the 08-19 entry about publishing a remedy without reading the guard that
 decides whether it applies. The shape recurs: **the artefact that records that work was started
 gets read as the record that it finished.**
+
+## 2026-08-20 — I wrote up TWO agents as broken when my own dispatch envelope was incomplete, and a COMPLETED-with-no-error made the wrong story fit perfectly
+
+**The claim, written into a lane FINDINGS file and a commit message before I caught it:**
+`rerender-chrome` "reports COMPLETED having skipped its own start step" — it "succeeds without doing
+anything", which I called "the platform's own *a complete status is not a repaired artefact* failure in
+its purest form". I recommended a bug file against its seed. When `rerender-pages` did the same thing
+minutes later I took that as corroboration.
+
+**What is actually true: both agents were fine.** The script that *did* work
+(`049b_deploy_single_page.sh`) sends five Kafka **headers** I had omitted — `action=orchestrate`,
+`sender_agent_type`, `sender_agent_id`, `responses_topic`, `timestamp`. I had put `action` only in the
+JSON **body**. Adding the headers and changing nothing else, the same agent ran all fourteen steps and
+wrote `<head lang="en-GB">` into the stored head on the first try.
+
+**Why the wrong conclusion fitted so well — this is the transferable part.** The run returned
+`COMPLETED`, `error` was NULL, `__step_error` was absent, and `collected_data` held exactly one key,
+`complete`, whose `result` was a verbatim echo of my own request. **That is indistinguishable from a
+workflow that skipped its start step.** I then went and read the live agent definition, found
+`start_step`, `force_rerender: true` and the step key all present and correct, and read *that* as
+confirming a platform defect — when it was in fact evidence that the fault lay **upstream of the
+workflow entirely**. A correct definition plus a no-op run should have pointed outward, not inward.
+
+**The cheap check I skipped:** **diff `collected_data`'s keys against a run of the same shape that
+worked.** One command. The working page-rerender had fourteen step keys; mine had one. A broken
+workflow and an unrouted message differ in *how many* steps appear, not in the status — so the key
+count discriminates instantly and the status never can. I had that working run in hand the whole time;
+I'd dispatched it myself twenty minutes earlier.
+
+**Three second-order lessons:**
+- **A second instance of a symptom is not corroboration when both instances share my method.** Two
+  agents "failing" identically felt like strong evidence of a platform bug. It was one bug in the
+  thing both runs had in common — me. **Vary the suspect, not the subject:** the discriminating
+  experiment was to change my envelope, not to try another agent.
+- **The error direction was "the estate is more broken than it is",** which is the expensive
+  direction: it would have spent a bug number, pointed another lane at working code, and left a false
+  "this agent doesn't work" note in a findings doc that other sessions read.
+- **I own the residual, and it is smaller than I claimed.** There *is* a real trap here — an
+  orchestrate message missing its headers is accepted, given an orchestration row and marked
+  `COMPLETED` having run nothing. That is worth fixing (reject what resolves to no workflow) and is
+  now recorded as its own finding. But it is a dispatch-surface defect, not the two agents I accused,
+  and I have withdrawn the claim about `rerender-chrome` entirely — my run cannot speak to it, because
+  it carried the same broken envelope.
