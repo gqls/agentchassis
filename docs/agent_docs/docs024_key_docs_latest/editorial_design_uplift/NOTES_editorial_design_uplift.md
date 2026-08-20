@@ -395,3 +395,59 @@ No value to defend at the council gate — a token swap onto a mechanism the est
 already ships, with a fallback chain that makes it inert wherever the companion is
 absent. Locked pages keep their stored HTML until deliberately re-rendered, so the
 live blast radius is only what this lane re-renders.
+
+## 2026-08-20 — Phase B SHIPPED and MEASURED: every one of our findings is gone
+
+Migration `496` (+ `_ROLLBACK`) repointed three selectors onto the ink companions,
+in the two-level form. Applied, four locked sections re-rendered against the fixed
+templates, both pages redeployed by assemble-only rerender.
+
+**Stylesheet control run FIRST** (a clobbered stylesheet fakes a pass — the
+mistake logged earlier today): robot-hands 25,559 B, dartsonline 26,918 B. Both
+healthy, so the audit means something.
+
+| page | before | after | what remains |
+|---|---|---|---|
+| robot-hands `/insights/robot-demand-step-change.html` | **10** | **4** | the 4 pre-existing shared-component ones, unchanged |
+| dartsonline `/insights/darts-calendar-density.html` | **8** | **1** | 1 over-image approximation |
+
+**All 6 findings that were ours on robot-hands, and all 7 on dartsonline, are
+gone** — the `evidence-chart` eyebrow (1.14:1 / 1.11:1), the `ev-ts` eyebrow
+(4.24:1 on dartsonline) and every citation link (4.38:1 ×5 / 3.71:1 ×5). What
+survives on robot-hands is exactly the set the control page also has: the 1.00:1
+white-on-white `.cta-btn cta-btn-primary` (bug 296's, not ours) and three
+over-an-image approximations the tool itself marks approximate.
+
+### The disconfirming test VIZ-014 demands — run, and passed
+
+VIZ-014's own corrected history warns that between 2026-08-06 and 08-14 the `-ink`
+slots resolved to `--color-text` in practice, so a repoint silently **stripped the
+brand colour** — and *because `render_audit.py` measures contrast, de-branding
+scores a CLEAN PASS.* A clean audit therefore cannot tell a fix from a
+de-branding, and this result would look identical either way. So:
+
+| site | `--color-accent` | `--color-accent-ink` | `--color-text` |
+|---|---|---|---|
+| robot-hands | `#E8500A` | `#f77f47` | `#E2E8F0` |
+| dartsonline | `#E8311A` | `#f18072` | `#F0F2F7` |
+
+The ink is a lighter member of the **accent's own hue family** and is nothing like
+`--color-text` on either site; `--color-primary-ink` (#94a0c2) is likewise a light
+blue-grey from `#1A1F2E`'s hue, not the near-white text colour. So the
+2026-08-14 `colour.LegibleVariant` repair is doing what it claims — HSL lightness
+only, hue and saturation preserved — and **the brand survived the fix.** Without
+this check the entry's stated trap would have been indistinguishable from success.
+
+### MISSTEP — my own verify block asserted the wrong population, and caught it
+
+The section-update transaction first asserted "exactly 4 sections carry an ink
+token" over the two pages. It aborted: **6**. The extra two are the `hero`
+sections, which already carried ink tokens from migration `338`'s repoints. My
+assertion was scoped to *pages* where the change was scoped to *slots*.
+
+Two things worth keeping: the guard **failed closed** and rolled the whole
+transaction back rather than half-applying, and the surprise was informative
+rather than alarming — `hero` already using `var(--x-ink, var(--x))` is
+independent confirmation that the two-level form is the house idiom and not
+something I invented. Re-run scoped to the four slot names, plus a second
+assertion that none still carries the unwrapped colour: both passed.
