@@ -3,6 +3,9 @@ package actions
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -257,5 +260,63 @@ func TestBriefIsDeterministicAtEveryDepth(t *testing.T) {
 		if !strings.Contains(first, want) {
 			t.Errorf("deepest level is not rendered at all: %q missing from\n%s", want, first)
 		}
+	}
+}
+
+// TestNoAspectBranchDerivesBeforeTheMerge is the guard a council reviewer asked for
+// (bug_historian, round 2): the fix closes the three aspect branches that exist TODAY, but
+// the shape — a per-aspect field derived from the pre-merge `specMap` — stays reachable by
+// any future branch, and this corpus has closed cases (086, 093, 042) that are exactly
+// "the underlying rule stayed generic and got hit again on the untouched branch". Their
+// point about a bug-file note being the unread verdict is well made, so this is a test.
+//
+// ⚠ IT SCANS SOURCE, so it is deliberately built to survive the known trap that a
+// source-scanning test makes COMMENTS load-bearing: comment lines are stripped before
+// anything is counted, which is why the long explanatory comments added around both call
+// sites do not affect it.
+func TestNoAspectBranchDerivesBeforeTheMerge(t *testing.T) {
+	raw, err := os.ReadFile("site_spec_actions.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	var code []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if t := strings.TrimSpace(line); strings.HasPrefix(t, "//") {
+			continue // comments must not be able to satisfy or break this test
+		}
+		code = append(code, line)
+	}
+	src := strings.Join(code, "\n")
+
+	// 1. The aspect branches are enumerated. A fourth one must fail here and be
+	//    accounted for deliberately — that is the whole point of the assertion.
+	got := regexp.MustCompile(`if aspect == "([a-z_]+)"`).FindAllStringSubmatch(src, -1)
+	var aspects []string
+	for _, m := range got {
+		aspects = append(aspects, m[1])
+	}
+	want := []string{"identity", "content_direction"}
+	if !reflect.DeepEqual(aspects, want) {
+		t.Errorf("aspect branches in WriteSiteSpecAction are %v, want %v.\n"+
+			"A new branch is fine — but if it DERIVES a field (a formatted/summary/normalised "+
+			"value) it must do so from `merged`, never from the incoming `specMap`, or it "+
+			"reintroduces bugs_open/327. Account for it here.", aspects, want)
+	}
+
+	// 2. Ordering: every derivation must sit after the merge. Positions, not prose.
+	merge := strings.Index(src, "merged := siteSpecDeepMerge(")
+	format := strings.Index(src, "FormatContentDirection(")
+	normalise := strings.Index(src, "normaliseServicesField(")
+	if merge < 0 || format < 0 || normalise < 0 {
+		t.Fatalf("could not locate the call sites (merge=%d format=%d normalise=%d) — "+
+			"if one was renamed, update this test rather than deleting it", merge, format, normalise)
+	}
+	if format < merge {
+		t.Error("FormatContentDirection is called BEFORE siteSpecDeepMerge — this is " +
+			"bugs_open/327 exactly: the brief would describe only the incoming partial")
+	}
+	if normalise < merge {
+		t.Error("normaliseServicesField is called BEFORE siteSpecDeepMerge, so identity " +
+			"normalisation would run on the partial rather than the merged document")
 	}
 }

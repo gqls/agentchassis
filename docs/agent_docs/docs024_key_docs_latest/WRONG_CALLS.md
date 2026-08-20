@@ -39160,3 +39160,88 @@ rather than only here.
 RFC numbers, bug numbers, `IMAGE_TAG`. The failure is not arithmetic, it is that **allocation and
 use were separated by a long write**, and on a tree this many sessions share, "next free" is a
 measurement with a half-life of minutes. Allocate last, not first.
+
+## 2026-08-20 — I wrote "ORDER IS LOAD-BEARING" into a code comment and a test name, shipped the order, and the mutation showed my test could not fail — then the discriminating fixture showed the order mattered in the OPPOSITE direction and my choice was the damaging one
+
+**The claim, in a code comment at the call site in `assemblePage`, in a test name, and in the lane
+PLAN (decision D3):** the new `spliceOpenGraph` must run **before** `spliceMetaDescription`, because
+that function's legacy fallback fills the first `content=""` anywhere in the head, and 4 sites' heads
+carry blank `og:` placeholders ahead of the description tag — so splicing the description first could
+write the page description into an og tag. Stated as settled, with "Pinned by
+Test…DoNotCollide" attached.
+
+**What is actually true.** Running the og splice FIRST is the harmful order. It strips the blanks it
+owns (`og:title`/`og:description`/`og:url`), which **promotes the next blank tag — `og:image` — to
+first**, and the description then lands in *that*: `<meta property="og:image" content="Plain answers
+on UK loan rules.">`. og:image is deliberately outside my strip set (it is `bugs_open/322`'s, under a
+standing landmine), so nothing cleans it. Running the og splice **last** means the fallback can only
+ever consume a blank og tag the splice is about to strip and rewrite — the collision is absorbed
+instead of displaced. Order swapped in the shipped code; the comment now says so and says why it
+looks backwards.
+
+**What caught it: mutation-testing the test, not the code.** I reversed the call order inside my own
+ordering test and it still **passed**. The reason is that my fixture (`testStoredHeadBrandDup`,
+copied from a live head) contains the exact blank `<meta name="description" content="">`, so
+`spliceMetaDescription` takes its *targeted* path and never reaches the fallback at all. **My test
+exercised the one shape in which the property it claimed to pin cannot be observed.** Building the
+discriminating fixture — blank og placeholders, no exact blank description tag — is what produced the
+og:image leak, in one run.
+
+**The cheap check I skipped:** before writing a hazard into a comment as settled, construct the input
+on which the hazard actually fires and print both orders side by side. That is a 15-line throwaway
+test and it answered the question definitively. I reasoned about the interaction from reading the two
+functions instead, and got the direction backwards — reading tells you the fallback exists; only the
+fixture tells you which tag it reaches after your change has moved the others.
+
+**Three second-order lessons, and the last is the general one:**
+- **A comment asserting an ordering constraint is a claim with no enforcement** — the same shape
+  CLAUDE.md warns about for shared seams. The fix is a test that fails on the swap, which is now
+  there (`TestSpliceOpenGraphRunsAfterTheDescriptionSpliceForAReason`), verified by running the swap.
+- **All 24 real stored heads today take the targeted path, so on live data the order does not matter
+  yet.** That is exactly why it needed pinning rather than leaving: the day a head loses its blank
+  description tag, the wrong order starts corrupting a tag this change does not own, silently.
+- **My change altered the meaning of "first" for an unrelated consumer.** Removing tags is not a
+  local edit when a neighbouring function's behaviour is defined by positional order. Before
+  deleting from a shared artefact, ask what else keys on position — and note that the same
+  displacement hazard exists for any blank tag in the head, which is a pre-existing sharp edge in
+  `spliceMetaDescription`'s legacy fallback that I have narrowed for og but not removed.
+
+**Same session, related:** an earlier mutation (`\b` removed from the head-lang regex) reported PASS
+because my `sed` escaping silently failed and the file was never modified — a **false pass**, caught
+only by grepping the mutated file before believing the result. Applied properly it fails as intended.
+**Verify the mutation landed before reading its verdict**: `grep` the mutated line, or the run tells
+you about code you never changed.
+
+---
+
+## 2026-08-20 — `copy_quality_two_stage`: twice in one session my mutation test did not test what I thought, and the second time the evidence was an EMPTY RESULT
+
+**The pattern, which is the point of this entry.** Two separate mutation checks on the same
+`bugs_open/327` fix, both of which I initially read as informative and neither of which was faithful:
+
+1. **Mutated the argument, not the position.** To prove the label test caught the real defect I
+   changed `FormatContentDirection(merged)` back to `(specMap)` — but left the call in its NEW
+   position, after the merge. The test failed, so I accepted it. It was failing for a different
+   reason (one missing key, `blog_strategy`) than the real bug produces (six missing keys), because
+   with the block after the merge the old row's full `formatted` is inherited rather than replaced.
+   Caught by restoring both files from `git show HEAD:` and seeing a *different* failure.
+2. **The revert silently did not happen, and the tell was NO OUTPUT.** Proving the new ordering
+   guard, I wrote `git show HEAD~4:<file> > <file> 2>/dev/null || git show <sha>~1:<file> > <file>`.
+   `HEAD~4` resolved fine — to a commit that already contained the fix — so the fallback never ran
+   and the guard was run against *fixed* source. My grep for `FAIL|BEFORE` printed **nothing**, and
+   "nothing" is exactly what a non-load-bearing assertion also prints. I nearly recorded the
+   assertion as unproven. Re-running with the sha pinned explicitly, after printing the pre-fix
+   file's line numbers to confirm the content, made it fail correctly.
+
+**The cheap checks, and they are different for the two cases.** For (1): mutate by **reverting to
+the real prior code**, never by hand-editing towards the bug you believe in — your edit encodes
+your belief, and that is the thing under test. For (2): **assert the mutation applied before
+reading its result** — print a line number, a `grep -c`, a diff, anything from the mutated file —
+and never use a relative ref (`HEAD~n`) in a shared tree where HEAD moves under you, which this
+file's own [relative-git-refs] rule already says.
+
+**Why it belongs here rather than in NOTES.** The estate's existing lesson is *"a mutation that
+PASSES may have hit a guard in series"*. This adds the two adjacent shapes: **a mutation that FAILS
+may be failing for the wrong reason**, and **a mutation that prints NOTHING may never have been
+applied**. All three have the same root: the mutation is itself an untested change, and I kept
+granting it the trust I was busy withholding from the code.
