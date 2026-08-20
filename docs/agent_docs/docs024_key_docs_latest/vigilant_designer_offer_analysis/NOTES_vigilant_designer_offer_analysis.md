@@ -2468,3 +2468,55 @@ still existed at the time, skipped because the first had already told me what I 
 
 **Estate unchanged today:** `offer_ordering` 5 of 23; offer-analysis items 18 complete / 3 failed /
 3 needs_human_review / **2 cancelled** (the burst casualties above); sweep still disabled.
+
+## 2026-08-20 — checked what moved beneath us (298 commits), and found this lane's own agent had written a false claim
+
+Session opened by sweeping for changes rather than continuing. That was the right order: **298
+commits** had landed in ~16 hours and three of them touched this lane's territory.
+
+**What moved:** `bugs_open/301` → **`bugs_closed/301`** (another lane fixed, council-approved at
+round 2, rolled, proven both ways — this lane's CONTRIB is in the file); **`bugs_open/333`** filed
+on the residual that BOTH our closed files left untaken (producers hard-code `page-build-handler`
+without reading `rebuild_policy`; their census: 142 open on 57 pages / 9 sites, largest producer the
+tool pipeline itself); and an **additive cross-reference into our closed `295`** noting **0
+save-path refusals since the 08-19 roll** — the earlier guard doing exactly what the CONTRIB
+predicted. Our lane directory itself: untouched.
+
+### The find: `bugs_open/335`, and it is ours
+
+Chasing why offer-analysis `needs_human_review` had gone 3 → 8, I found B4 had been re-run on
+leopardess (08-19 15:14:56) and **the leopardess lane had deliberately held all five findings**,
+recording in each `result`: *"the run is still degraded:true and repeats the stale 'eight live
+sites' figure … so its rank-1 suggestion would put a false number in the hero."*
+
+Read at the artefact: `offer_ordering.lead_with[0].point` = *"…the same stack that runs **eight live
+sites** built by this team…"*, `from_field` = **`trust_threshold`**. True deployed count: **23**.
+Searching **every** `is_current` spec for the phrase returns **only `offer_ordering` itself**; two
+pages carry it in `meta_description`, which `load_offer_surface` passes in.
+
+**So the mechanism is: the analyser lifted an unverified page claim into the strategy layer and
+attributed it to a premise field that does not contain it.** The staleness is bad; the attribution
+is the defect, because `from_field` is the machinery this lane built so a reader could tell a
+sourced point from an invented one — and here it vouches for the import.
+
+**Three things worth sitting with:**
+1. **Another lane caught it, not us.** The artefact passed every structural check B4 makes:
+   7 keys, `degraded` correctly true, `inputs_missing` correct, ranks well-formed, a coherent `why`.
+   **Every check we built was satisfied by a finding carrying a false number at rank 1.**
+2. **This is the honest limit from 08-14 arriving at its real cost.** That note said the surface is
+   metadata so *"some findings are hypotheses"*. The sharper consequence is not weak findings — it
+   is **page copy entering the premise layer with a premise-field stamp on it.**
+3. **It reframes `features_open/034` without replacing it.** 034 claim-checks premise prose *after*
+   it is written; `335` stops the import. Both are needed, and 034's case is stronger now that a
+   producer is demonstrably feeding it.
+
+⚠ **Do not "fix" this by dropping `meta_description` from the surface.** Those metas are
+load-bearing — two of the first five gaswholesalers findings were grounded in missing or generic
+ones. The fix is a constraint on numerals, with a **negative control** (gaswholesalers' legitimately
+premise-sourced specifics must survive) or "no numbers anywhere" passes trivially.
+
+**Also corrected today, my own:** yesterday's LANDMINE said a new producer's row count "can read
+zero permanently". It read 0 on 08-19 and **3** on 08-20. Suppression is **per subject**, not
+global — corrected in place with strike-through, and the corrected form is the worse one: a non-zero
+count now reads as proof the producer works while saying nothing about the repeat cases it was added
+to catch.
