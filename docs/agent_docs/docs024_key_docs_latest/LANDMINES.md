@@ -11938,8 +11938,14 @@ code change owed at the next roll, tracked in RFC_015 §5.
   read by 097 (admission), `scripts/council-coverage-nudge.sh` (the commit-msg nudge) and 098
   (the coverage report) — three hand-maintained copies before this. In scope now:
   `platform/`/`internal/`/`pkg/` **or** `docs/agent_docs/sql_for_agents/NNN_name.sql`. Still
-  refused, and controlled for: prose, site content, and the hand-run `_ROLLBACK`/`_VERIFY`/
-  `_HOLD` sidecars. `DRY_RUN=1 ./097_TRIGGER_council_review_v1.sh <sub.json>` decides admission
+  refused, and controlled for: prose, site content, and the SQL that is NOT the change
+  (`_ROLLBACK`, `_VERIFY`, `_SUPERSEDED`). ⚠ **`_HOLD.sql` IS in scope** — the first cut
+  excluded it by reusing the runner's `SIDECAR_RE`, which answers *"will `--apply` run
+  this?"*, as a proxy for *"is this the change?"*. A `_HOLD` is held back for ORDERING and
+  applied BY HAND (see this file's own `_HOLD` entry at the `--no-probe` check), so it is
+  live config reaching production — exactly what this fix exists to catch. Caught by the
+  council's editquality seat at medium severity, corrected 2026-08-20; the drift guard now
+  censuses the directory for UNCLASSIFIED suffixes rather than only confirming a copy. `DRY_RUN=1 ./097_TRIGGER_council_review_v1.sh <sub.json>` decides admission
   and stops, so admission is testable for free in both directions.
   **What is left of this entry, and it still bites:** the FORCE-and-say-so rule above is
   unchanged for everything the widening does NOT cover — a submission whose edits are all
@@ -13485,3 +13491,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
   then `grep -ac <a literal your change ADDS> /proc/1/exe` on a pod from the majority group, **always alongside a literal that must be present** (a broken probe and a missing change look identical). ⚠ `grep` over `/proc/1/exe` takes tens of seconds per literal — one at a time, or it times out mid-answer and you read a partial result as a whole one.
 - **source:** `bugs_open/327` council round 2 (`debug_historian` raised the selector defect; the 75-vs-2 measurement is this lane's, and their estimate of ~41 was itself low)
 - **added:** 2026-08-20, copy_quality_two_stage lane
+
+## A `$` in a secret written to a Compose `.env` is SILENTLY EATEN — the container gets a truncated value, and it looks exactly like a wrong password
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/infra/island/docker-compose.yml` · `/opt/island/.env` on the island · any `docker-compose.yml` consuming `${VAR}` / `${VAR:-default}` from a `.env`, and any credential written into one (`GRIPPER_SMTP_PASS`, `POSTGRES_PASSWORD`, API keys, anything a provider generated for you)
+- **fires when:** you paste a generated password containing `$` into a Compose `.env`. Compose interpolates `.env` values, so `PASS=$AbCd([xy{ZW.qrs` has `$AbCd` resolved as an **undefined variable** — it expands to empty and the container receives `([xy{ZW.qrs`. No warning, no error, no log line. cPanel, hosting panels and password generators emit `$`-leading passwords routinely, so this is a normal input, not an exotic one.
+- **why it is worse than an ordinary typo:** the failure surfaces far from the cause and wearing a convincing disguise. The service starts fine; the value is present and non-empty; the shape looks plausible. The first symptom is an SMTP `535` (or a DB auth failure) at the moment of first real use — which reads as *"the credential is wrong, ask the owner to re-check it"*, sending you back to re-verify a password that was correct all along. On this estate the first real use is **after a visitor has been told an email is coming**, so the cost lands on a customer, not a test. Dev-box verification cannot catch it either: the credential authenticates perfectly from a shell, because no Compose layer is involved there.
+- **the check — read the value INSIDE the container, and induce the failure to prove your probe works:**
+  ```bash
+  # in a scratch dir on the target host, with a FAKE password of the same SHAPE
+  printf 'TESTPASS=$AbCd([xy{ZW.qrs\n' > .env      # negative control: expect CORRUPTED
+  docker compose run --rm --no-TTY t sh -c 'printf "%s" "$TESTPASS"' | od -c
+  printf 'TESTPASS=$$AbCd([xy{ZW.qrs\n' > .env     # the fix: expect the literal back
+  docker compose run --rm --no-TTY t sh -c 'printf "%s" "$TESTPASS"' | od -c
+  ```
+  Measured on the island 2026-08-16: unescaped → `( [ x y { Z W . q r s` (the `$AbCd` gone); `$$`-escaped → `$ A b C d ( [ x y { Z W . q r s`, exact. **`od -c`, not `echo`** — trailing-whitespace and partial-truncation differences are invisible otherwise.
+- **⚠ `docker compose config` is NOT the check, and it will mislead you.** It re-escapes for display: the correct `$$`-escaped value renders as `$$AbCd…` in its output, so the rendered config and the container's actual value differ by exactly the thing you are trying to verify. Reading `config` alone, `$$`-escaped and double-quoted forms look identical — but the container gets the right value from one and the truncated value from the other. Go to the container.
+- **the fix:** double every literal `$` to `$$` in the `.env`. Single quotes work too; **double quotes do NOT** (measured: `PASS="$AbCd…"` still truncates). Escape on write, not by hand later: `sed 's/\$/$$/g'` over the block being appended. To verify without printing the secret, hash both sides and compare — un-escape the island copy first: `grep '^KEY=' .env | cut -d= -f2- | sed 's/\$\$/$/g' | md5sum`.
+- **source:** 2026-08-16/20, gripper dossier lane — found while walking the owner through writing the gripper SMTP credential onto the island; the password the hosting panel issued began with `$`. Caught before the write, so it never reached production. `RUNBOOK_island` "Tenant 2" step 2 now carries the escaping requirement; `~/.config/gripper-dossier/append-env.sh` does it automatically.
+- **added:** 2026-08-20, gripper dossier lane

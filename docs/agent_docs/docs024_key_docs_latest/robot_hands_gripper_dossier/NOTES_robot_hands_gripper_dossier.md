@@ -2025,3 +2025,77 @@ from "port blocked". Grep for `^220` instead of taking the head. Fixed in the ru
 **Still not mine and deliberately not taken:** the council REVISE resubmit (`623da25b`) is the
 build session's — they read the round-1 report and left themselves the recipe, and racing them
 to it would be exactly the compete-don't-contribute failure `who-owns.py` exists to prevent.
+
+---
+
+## 2026-08-20 — credentials ON the island (runbook step 2 done), and a `$` that Compose would have eaten
+
+Walked the owner through `RUNBOOK_island` "Tenant 2" step 2. All seven `GRIPPER_*` vars are now
+in `/opt/island/.env`. **The interesting part is what nearly shipped broken.**
+
+**The finding: Compose interpolates `.env`, and the SMTP password starts with `$`.**
+`docker-compose.yml` reads the password as `${GRIPPER_SMTP_PASS:-}`, so the `.env` value goes
+through Compose's variable interpolation. The password the hosting panel issued begins with a
+literal `$` followed by letters — which Compose resolves as an **undefined variable**, expanding
+it to nothing.
+
+Measured on the island before writing anything, using a **fake password of identical shape**
+(`$AbCd([xy{ZW.qrs` — never the real one), read from **inside a running container**, with a
+negative control:
+
+| `.env` line | value inside the container (`od -c`) |
+|---|---|
+| `TESTPASS=$AbCd([xy{ZW.qrs` (unescaped) | `([xy{ZW.qrs` — **`$AbCd` gone** |
+| `TESTPASS=$$AbCd([xy{ZW.qrs` | `$AbCd([xy{ZW.qrs` — exact |
+| `TESTPASS="$AbCd([xy{ZW.qrs"` (double-quoted) | `([xy{ZW.qrs` — **also broken** |
+
+**`docker compose config` is not the check and actively misleads here.** It re-escapes for
+display: the *correct* `$$` value renders as `$$AbCd…`, so config output and the container's
+real value differ by exactly the thing under test. Read `config` alone and the `$$`-escaped and
+double-quoted forms look identical — yet one delivers the right password and the other a
+truncated one. The artefact is the container; `config` is a status. (Same shape as this lane's
+standing habit from the fixture work: trust the rendered artefact, not the status.)
+
+**Why this mattered more than a formatting nit.** The truncated password is *present and
+non-empty*, so nothing fails at boot. The first symptom would be an SMTP `535` at first real
+send — which reads as "the owner gave us a bad password", sending the next session to re-verify
+a credential that was correct all along. And on this pipeline the first real send happens
+**after the visitor has been told an email is coming**. My 08-15 dev-box AUTH check could never
+have caught it either: no Compose layer is involved in a direct `smtplib` login. Filed in
+`LANDMINES.md` with the induce-the-failure recipe, footprinted on the compose file and `.env`.
+
+**What was actually done, and verified:**
+- Backup first (`/opt/island/.env.bak-20260820-143819`, 194 B, mode 600) — that file holds the
+  live gauntlet secrets, so a bad append would have taken down a running service.
+- Pull key minted locally, 48 hex chars, `600`, at `~/.config/gripper-dossier/pull-key`. **Keep
+  it** — seed 208 on the cluster must carry the *same* value or the pull 401s every tick.
+- Seven vars appended via `~/.config/gripper-dossier/append-env.sh --apply`, which reads the
+  local credential files, applies `sed 's/\$/$$/g'`, and pipes over ssh — **no value printed to
+  screen or transcript at any point**. It has a `--dry-run` that prints the block with values
+  masked (lengths only); the dry run was read before applying and every length matched what had
+  been independently verified (key 108, pull 48, port 3, host 24, user/from 31, pass 17 = 16+1
+  for the escape).
+- **Verified without disclosure:** md5 of the dev-box password vs md5 of the island value
+  *un-escaped back* → equal. Names-only listing shows all 7 present; `uniq -d` shows no
+  duplicate keys; gauntlet's two secrets intact.
+- **Blast-radius check on the shared service:** `tools-api` shows `Up 2 weeks` — it never
+  restarted, because the live compose does not reference `GRIPPER_*` yet (measured: `grep -c`
+  = 0) and the running image `v1.0.1216` predates the gripper code (`gripper/poller` absent).
+  So step 2 is genuinely inert until steps 3–4, exactly as the runbook claims. Gauntlet
+  re-checked afterwards with a **discriminating pair** rather than a single call: real origin
+  `vonc.com` → 200, bogus origin → 403. Zero errors in 30 min of logs.
+
+**One correction to my own first attempt at that check:** I initially curled the gauntlet with
+`Origin: https://vonc.uk` and got a 403, and nearly reported that as "service healthy, CORS
+working". It was a guessed domain — the island's `sites` table holds **`vonc.com`**. A 403 from
+a wrong-origin guess is indistinguishable from a 403 caused by a broken service, so it proves
+nothing. Queried the table, re-ran with the real origin, got the 200 that actually discriminates.
+
+**Also learned while there:** the island `sites` table currently holds **only `vonc.com`** —
+`robot-hands.com` arrives with migration 436 (step 1, not yet run), and until then the widget
+would get a 403 from CORS. Expected per the runbook, recorded so it is not diagnosed as a bug.
+
+**Operational note for whoever runs the remaining steps:** long commands pasted into the
+terminal wrap and break — step 2's original one-liner failed silently that way (the file was
+never created; caught by checking for it rather than assuming). Everything since is a short
+command calling a script. Prefer that shape for steps 3–7.

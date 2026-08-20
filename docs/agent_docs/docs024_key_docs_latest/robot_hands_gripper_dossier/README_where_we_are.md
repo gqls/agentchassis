@@ -724,3 +724,38 @@ spotted it, and I've fixed it where I originally wrote it.
 
 Everything else on that list still needs your go-ahead, and still needs the credentials put on
 the box by you or someone you've authorised.
+
+---
+
+**2026-08-20.** The credentials are on the island now. You ran the write; I checked it before
+and after.
+
+Worth telling you about the thing we nearly walked into, because it would have been genuinely
+horrible to debug. The password your hosting panel issued starts with a dollar sign. It turns
+out the software that passes settings into our service treats a dollar sign as the start of a
+placeholder — so it would have quietly swallowed the first few characters and handed the mail
+server a shortened password. Nothing would have complained. The service would have started
+normally, the setting would have looked present and correct, and the only symptom would have
+been an email failing to send — at which point the obvious conclusion is "the password is
+wrong", and someone spends an afternoon re-checking a password that was right all along. On
+this pipeline that failure lands *after* we've told a visitor their report is on the way.
+
+I found it by testing with a made-up password of the same shape rather than yours, and by
+reading the value from inside the running container rather than trusting the tool's own summary
+— which, it turns out, displays it differently from how it actually delivers it. The fix is to
+double the dollar sign in the settings file, which the script now does automatically. I've
+written it up so the next person hits the warning rather than the bug.
+
+The write itself: I backed up the existing settings file first (it holds the other tool's live
+passwords, so a bad edit would have taken that down), and afterwards confirmed all seven
+settings are present, nothing was duplicated, the other tool's passwords are untouched, and the
+running service never so much as restarted. I also confirmed the other tool still works
+properly — and I'll admit I got that check wrong the first time, testing against a domain I'd
+guessed rather than looked up, which gave a "refused" answer that told me nothing. Looked up the
+real one, retested, got a clean pass.
+
+Your password never appeared on screen at any point, including in my own checks — where I
+needed to confirm it arrived intact, I compared fingerprints of it rather than the thing itself.
+
+Next up is creating the database tables and swapping in the new version of the service. Those
+are bigger steps than this one, and I'd want your go-ahead before starting.
