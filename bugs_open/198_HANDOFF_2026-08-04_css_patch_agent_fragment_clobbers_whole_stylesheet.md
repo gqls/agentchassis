@@ -538,3 +538,59 @@ landed.
 > in the post-restore sweep at all. Its patch was dropped with the clobbered file and the real
 > stylesheet styles that button adequately on its own — i.e. one of the two rules I declined to
 > carry forward was addressing a defect that only existed *because* the stylesheet was missing.
+
+### 2026-08-20 (later) — the cause stated one level down: ONE artefact, TWO writers, neither reading the other
+
+This file's ROUND 2 says the append fix "assumed `css_themes` holds the stylesheet; on ~11 sites
+it holds NOTHING". True, and the reason it holds nothing is worth naming, because it changes
+which candidate is the real fix and it makes every site-level repair (including mine today)
+temporary by construction.
+
+**`assets/css/styles.css` has two independent producers.** Read from the live agent rows:
+
+| producer | writes the file from | reads `css_themes.css_content`? |
+|---|---|---|
+| `webdesign-agent` | `render_css_from_spec` → `generated_css.result`, built from palette + layout + typography rows + the `design_spec` + `css_snippets` | **no** |
+| `css-patch-agent` | `css_saved.css_content` — the whole `css_themes` row | it IS the row |
+
+`render_css_from_spec_action.go`'s own header lists its inputs (the three FK'd rows, the spec
+merge rules, the `css_snippets` append, `buildSectionDefaults`); the only `css_content` it reads
+is `css_snippets.css_content`. So **whichever agent ran last owns the file, entirely.** The
+theme row is not "stale" — it was never in that path. `webdesign-agent` also carries
+`fork_theme_from_site`, which is the born-empty seed the noted lane left `[INFERRED]`; on this
+reading it is not a bug in the fork but the fork doing its job for a producer that never uses it.
+
+**Consequences, in order of how much they change:**
+
+1. **Candidate (3) is mis-named.** "DB↔file drift discovery check" implies one source of truth
+   drifting from its copy. It is two writers with no reconciliation, so a drift check can only
+   ever report the disagreement — it cannot say which side is right, and on a site where
+   `webdesign-agent` ran last the DB is the WRONG side. A check that assumes the DB is
+   authoritative would "repair" a healthy site by overwriting its real stylesheet.
+2. **Every site-level CSS repair has an expiry, mine included.** The override block I appended
+   today lives in the theme row and the file; the next `webdesign-agent` run on dartsonline
+   regenerates from the spec and drops it. That agent has run **seven times since 2026-07-06**,
+   most recently 08-15, i.e. roughly weekly. So today's contrast fix is a stopgap and should be
+   removed rather than maintained once the durable fix lands. Recorded here so nobody reads it
+   as settled.
+3. **The durable fix for the invisible-ink family is a token that already exists.**
+   `--color-primary-ink` is computed per palette by `palette_specialised_slots.go`
+   (`legibleInkFor`) and **emitted into every healthy stylesheet** — measured on the served CSS
+   2026-08-20, each site's own token against its own background and surface:
+
+   ```
+   dartsonline #94a0c2  7.00:1 / 5.93:1      leopardess  #0D0D0D 18.32:1 / 19.44:1
+   robot-hands #94a0c2  7.20:1 / 5.88:1      noted       #1A1A18 16.00:1 / 14.50:1
+   fundament'l #86ADDE  8.30:1 / 7.19:1      webdesign   #5c6b5d  5.32:1 /  5.65:1
+   ```
+
+   All six clear AA on both, dark palettes and light. So the shared-component fix is
+   `color: var(--color-primary)` → `var(--color-primary-ink)` — a token swap, no value to
+   defend — and it **survives regeneration**, because the generator is what emits the token.
+   Note what this rules out: no single literal can serve both families (dartsonline needs a
+   light ink, noted a near-black one), so any "prove one value across five palettes" exercise
+   converges on a value that fails two of them, honestly.
+4. **`oufe.com` has no `--color-primary-ink` at all** `[MEASURED]`, because its file is still
+   clobbered — the token is emitted into the file, so a clobbered file loses it. Any component
+   switched to the token renders an invalid `var()` there until the file is restored. **That
+   makes the three outstanding restores a dependency of the fleet fix, not housekeeping.**
