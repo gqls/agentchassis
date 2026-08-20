@@ -39831,3 +39831,32 @@ filing until the retire lands. If the turn must end, do not file.
 
 **Cost:** a visibly broken double-tool page on the flagship demo site for six hours, one corrective
 rerender, and the grading time to untangle a Kafka-retry run pair from the race damage.
+
+## 2026-08-20 — I wrote a second "continue here" handoff while another session was still updating the first (staged_component_build lane)
+
+**The call.** At 07:59 I created `HANDOFF_2026-08-20_continue_here.md` for my lane, with a header
+declaring it superseded `HANDOFF_2026-08-18b_continue_here.md`. That was the lane's own convention
+(dated successors) and the old file's name was two days stale, so it felt like tidying. A parallel
+session of the **same lane** then kept updating **08-18b** until 10:17Z — including the sizing
+audit my file had listed as "still owed" — so for ~9 hours the lane carried two files both saying
+"fresh chat starts here", and the one with the newer content was the one mine called obsolete.
+
+**What caught it:** being asked to check whether other threads had worked beneath us. `git log` on
+the lane directory showed four commits to 08-18b *after* my supersede header went in. Nothing in my
+own session could have told me — I never re-read the file I had declared dead.
+
+**Cost.** None realised: they preserved my corrections verbatim, and I folded their audit into the
+surviving file. The unrealised cost is the whole point — a fresh session reading my file would have
+re-run a completed 451-wire audit, and would have believed 334 unfiled.
+
+**The cheap check that would have:** before writing a dated successor to any lane doc, `ls` the
+directory for other `*_continue_here.md` **and `git log` each one for commits newer than your last
+read**. A supersede header is a claim about another file's liveness, and liveness is exactly the
+property a single session cannot observe. Two seconds of `git log`.
+
+**The generalisable half.** This is the shared-tree hazard in a form the existing rules do not
+cover: our pathspec-commit discipline stops me *committing* another session's work, and the
+same-file passenger landmine covers two sessions editing one file — but **nothing warns about two
+sessions writing two files that each claim to be the single entry point.** A rename would have
+collided visibly; creating a sibling collided invisibly. **Superseding is a WRITE to the other
+file's meaning, so it deserves the same read-before-write discipline as a write to its bytes.**
