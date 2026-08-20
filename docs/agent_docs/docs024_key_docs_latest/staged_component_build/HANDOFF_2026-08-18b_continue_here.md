@@ -1,3 +1,7 @@
+> # ⚠ SUPERSEDED 2026-08-20 ~17:15Z — read `HANDOFF_2026-08-20_continue_here.md` first.
+> Its content (including this file's 10:17Z sizing-audit results) is folded in there, credited.
+> This file stays for the step-1→4 evidence trail. Do not add to it.
+
 # HANDOFF — 2026-08-18b (updated 2026-08-20 ~07:00Z), fresh chat starts here: steps 1–4 ALL LIVE+PROVEN (step 4 verified on `v1.0.1317`, 2026-08-20). Next and ONLY remaining work: **step 5**, whose precondition is measured UNMET — read §5.4(c) before designing it.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
