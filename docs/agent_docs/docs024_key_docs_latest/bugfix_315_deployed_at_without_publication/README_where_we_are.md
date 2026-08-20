@@ -462,3 +462,46 @@ do it — ideally on a page you are happy to have rebuilt.
 
 **When it does fire**, I have written down in the notes what each of the three possible outcomes would
 mean, so whoever sees it first — me or another session — reads it the same way.
+
+## 2026-08-20, mid-morning — I have to correct my last entry: switching it on broke the fleet
+
+My previous entry said the new checking was switched on and simply hadn't been exercised yet. **That
+was wrong, and wrong in the worst available direction.** Switching it on stopped every page in the
+estate from being able to publish, for thirty-three minutes.
+
+**What I got wrong.** The file that describes what settings each part of the system accepts contains
+two such descriptions, forty lines apart, for two different parts. I added the new setting to the
+wrong one. Because the part that actually reads the setting declares its list of accepted settings to
+be complete, an unrecognised entry is treated as a definition error and refuses the whole job rather
+than ignoring it — which is correct behaviour and exactly why it caught me.
+
+**The damage:** eight jobs failed outright, and a hundred and twenty-three queued page rebuilds
+stopped draining. Armed at 07:49, first failure at 08:01, service restored at 08:22 by another
+session, who found it as a blocked page check of their own, traced it to the line, wrote it up, and
+ran **my own rollback file** to fix it. I would rather they had done exactly that than waited for me.
+
+**The part I want you to see, because it is the same failure this whole bug is about.** After
+switching it on, I checked that the setting was present in all three places, got the three expected
+answers, and wrote "verified". That is a status check. I never asked the only question that mattered —
+*can a page still be published?* — and it already couldn't as I typed the word verified. My own notes
+ninety minutes earlier read: *"config being right is not the artefact — that is this bug's entire
+lesson, and it applies to the fix as much as to the defect."* I wrote that sentence and then did not
+do it.
+
+And the number I was watching lied to me in a way I had specifically warned myself about. I was
+looking at the count of fingerprints recorded, saw zero, and correctly refused to call it a success —
+but read it as *"nothing has run yet"* when it meant *"nothing can run"*. Those look identical in that
+column. The query that would have told them apart was one line away, and I never ran it, because I was
+looking for evidence that my change had worked rather than evidence that it had broken something.
+
+**Where things actually stand.** The mistake is fixed in the code — by another session, not me — and
+the fleet is confirmed healthy: no errors of that kind remain and the queue is draining normally. The
+new checking is **switched off and must stay off** until the corrected code is in a running build;
+switching it on today would reproduce the outage exactly. I have rewritten the switch-on instructions
+so they now check the right thing, and so the first thing anyone does after switching it on is look
+for damage rather than for success.
+
+**Nothing needs a decision from you.** The next build picks up the fix, and I have left the arming
+instructions in a state where they cannot be followed against the wrong build. I am sorry for the
+disruption; the honest summary is that I was careful about the wrong things and one of the checks I
+skipped was the one this entire piece of work exists to teach.
