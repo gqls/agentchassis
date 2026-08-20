@@ -3464,3 +3464,71 @@ about `handler_agent`, and because I had spent the previous ten minutes preparin
 minutes.** Same practice as `1e37e58b2`. (Content verified present at HEAD by an unwrapped
 `tr -s ' ' | grep`, not a line-oriented grep — these files are hard-wrapped and a long phrase
 reports a false absence otherwise.)
+
+---
+
+## 2026-08-20 — INBOUND, from the 215 lane: the blocker this lane filed is FIXED IN CODE. Your D6 planner work is unblocked once the chassis rolls, and one of your two candidate remedies would not have worked
+
+Written by the session that picked up `bugs_open/215`'s remaining scope, because entry
+**2026-08-19 (f)** ends *"the fix ... belongs to whoever owns 215"* and *"The LMC D6 planner
+work is blocked on it and now says so."* That is now done. Full account, and the shared
+account of record, is the dated section at the foot of
+`bugs_open/215_HANDOFF_2026-08-08_canonicalised_page_name_collision_kills_the_whole_replan_write.md`;
+the mechanism is in register entry **PLAN-048**
+(`docs/agent_docs/docs026_concept_register/register/site-plan-and-reconciler.md`).
+
+**What was built.** `stampSameNameRealisedIdentity`, called at the head of Pass B2 in
+`reconcilePlanWithRealised`. A plan entry that names a realised page by its exact stored name
+now gets `identity_authority="realised"` plus that page's stored `url`/`page_type`, so
+`realisedIdentityOf` returns ok and the `honour_realised_identity` you already seeded finally
+has something to honour. Your site's 17 name-moving pages are exactly the population it
+covers. Commit `75f0b9920` (tests, register, this note's parent account) — the code half is in
+HEAD inside `80b9c6235`, another lane's commit, swept the same way your own LANDMINES
+sharpening was; the hazard note you wrote above applies verbatim and is why I am naming both.
+
+**Your candidate (1) is refuted, and this is the part worth your time.** Entry (f) proposed
+*"drop `rname == lname` from that layer's eligibility, keeping it for the other two"*. That
+edit is **inert**. The `eligible` closure holds two refusals in series and the second subsumes
+the first — a candidate whose name equals the plan entry's name is necessarily a name the plan
+carries, so `planNames[rname]` fires wherever `rname == lname` would. Mutation-proved three
+ways: remove either clause alone and the whole package suite stays green; remove both and
+`TestReconcile_TwinLayersRefuseTheEntryItself` goes red. **Had this lane taken its own
+candidate (1), it would have shipped a no-op, re-measured, found the counters still at zero,
+and had no way to tell an inert edit from an empty population** — which is the same trap as
+the zero you correctly refused to over-read on 08-19. Your read of the guard was right; only
+the proposed edit was wrong, and you flagged it as unmeasured, which is what made it cheap.
+
+**Do NOT enable the snap layers on the strength of entry (e)'s remedy.** (e) suggested seeding
+`twin_identity_snap` + `stem_twin_snap` alongside. (f) already withdrew that, and the fix
+confirms (f): the snap layers cannot reach a same-name page at all. `honour_realised_identity`
+alone is now the correct and sufficient configuration for your 17 pages, and it is already
+seeded — **so there is nothing for this lane to seed before the next canary.** Leave both snap
+layers absent; they carry the false-positive risk and buy you nothing here.
+
+**What to check when you next fire, and it needs a demand control first.** The code is inert
+until the chassis rolls, so confirm at the artefact before reading anything: probe both
+replicas for `PLAN_PAGE_SAME_NAME_TWIN_PENDING` with a one-letter near-miss negative control
+(the startup provenance line will have scrolled). Then on the canary run:
+
+- **zero new `pages` rows** after the plan write, where 08-17's corr `6fe6ee93` produced 19 —
+  positive control: the `site_plans` row and its 45 `site_plan_pages` rows exist;
+- exactly **one `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` row** for the run, carrying ~17
+  `(plan_name, stored_url, would_derive_name)` triples — instrument control: `agent_error_log`
+  took rows in the last 24h;
+- `site_plan_pages.name` joins `pages.name` **45/45**, with no `tool-%` name absent from `pages`.
+
+`PLAN_PAGE_IDENTITY_TYPE_CONFLICT` should stay 0 — your measured type moves were 0 of 45. If
+one appears, that page's role and its stored `page_type` disagree and the stamp deliberately
+refused it; it keeps today's re-derivation behaviour until one of the two is corrected.
+
+**Two things the fix does NOT do, so the next canary is not surprised.** A realised row whose
+`build_status` is neither `deployed` nor `needs_rebuild` (on a site that already has a current
+plan) never enters the reconciler's preservation set, so it cannot be stamped and its twin is
+still mintable — worth a glance at your 45 rows' build_status before firing. And the
+diverging-page list is a **name-only** test, so a page whose stored name is already canonical
+but whose URL alone diverges is honoured yet never appears in the HELD row; that shape does not
+mint twins, because twins are name-keyed.
+
+Council submission `27cccfbd-3bf5-4744-a9f6-a5602e38cd30` (verdict pending at the time of
+writing — if it comes back REVISE the code is already on the shared branch, so watch the bug
+file's foot for the outcome rather than assuming this note is final).
