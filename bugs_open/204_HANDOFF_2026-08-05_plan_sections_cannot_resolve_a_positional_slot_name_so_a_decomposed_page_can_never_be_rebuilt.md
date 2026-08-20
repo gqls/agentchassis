@@ -452,3 +452,91 @@ Evidence, if this turns out to be yours: the plan rows above, plus snapshot tabl
 `pages_bak_20260817_preplan_lmc` which holds the pre-run `sections` for all 46 pages. Full
 account: `docs024_key_docs_latest/loanandmortgagecalculator_couk/NOTES_…md` entry
 **2026-08-17 (d)**.
+
+---
+
+## CONTRIBUTION 2026-08-20 (from the `bugs_open/215` same-name identity lane) — a THIRD call site of this blindness, and it is the worst of the three: `validate_plan` DELETES the sections rather than deferring them, and takes the plan-time fact assignments with them
+
+Found by firing a replan canary at `loanandmortgagecalculator.co.uk` (corr
+`313368d2-b9ac-47d4-9465-da087eaf94f7`, chassis `v1.0.1320`) to prove an unrelated
+identity fix. The identity half worked; **41 of 45 live pages had `pages.sections`
+emptied**, and this file's defect is why. Detected by a pre-fire digest, contained, and
+fully reversed within the hour (see below) — so this is a measurement, not an outage.
+
+### The new call site
+
+This file documents `plan_sections` (build path) and cites `bugs_closed/182` for
+`rerender_page_sections`. The third is **`ValidateSitePlanAction`'s `validate_components`
+resolver** (`v3_site_actions.go`, the block whose own comment reads *"unresolvable names
+are dropped + logged"*), enabled by `"validate_components": true` in the
+`build-site-planner` and `site-planner` step configs.
+
+Same blindness, worse consequence. `plan_sections` **defers** an unresolvable slot;
+validate **drops** it, and the drop happens *before* the object-form→string
+normalisation, so the RFC_016 plan-time fact assignments travelling inside each entry
+are destroyed with the entry.
+
+### The chain, read from the run's own stored output rather than inferred
+
+1. `load_existing_pages` returned the page correctly:
+   `"sections": "[\"prose-0\", \"tool-1\", \"prose-2\"]"` (stringified jsonb — handled).
+2. The planner proposed the **right** composition, in object form, with facts attached:
+   `[{"name":"prose-0","facts":["sdlt-standard-nil-band-upper", …8 ids]}, {"name":"tool-1", …}, …]`.
+   So this is not planner disobedience — the plan was correct.
+3. `collected_data->'validate_plan'->'pages'` for that page: **`"sections": []`**.
+   `prose-0` / `tool-1` / `prose-2` are positional slot names, not
+   `content_components.function` values (the functions are `ported-prose` etc., attached
+   via `page_components.component_id`) — so all three were unresolvable and dropped.
+4. `write_site_plan` wrote **10 `site_plan_sections` rows for 45 planned pages**.
+5. `sync_pages`' upsert does `sections = EXCLUDED.sections` **unconditionally** (no
+   COALESCE, unlike its `nav_label`/`meta_description` neighbours), so `[]` overwrote
+   three real slot names on each affected page.
+
+**Population on this site [MEASURED 2026-08-20]: 41 active pages carry at least one
+positional slot name** (`~ '-[0-9]+$'`) — and 41 is exactly the number that emptied. The
+match is the confirmation.
+
+### Why this is not `bugs_open/282`
+
+282 is the same resolver dropping **tool** sections the widened menu had legitimately
+offered — a menu-membership problem, fixed by teaching the resolver what the planner was
+offered. This is different: a positional slot name is not in any menu and never will be,
+because it is not a component identity at all. **Fixing 282 does not fix this.** The fix
+is this file's fix — resolve `page_components.component_id` first, name second, exactly
+as `bugs_closed/182` did for the re-render path — applied at a third call site.
+
+### Severity, and why it is higher than it looks from the re-render path
+
+`pages.sections` is the *only* record of a decomposed page's composition. Once emptied:
+- `page_components` still holds the real rows (82 unchanged here, and the live artefact
+  never moved — all real URLs 200, phantom paths 404 at the control's byte size), so the
+  **site keeps serving** and nothing looks wrong;
+- but the page's composition is now unrepresentable in the plan, so the next rebuild has
+  nothing to rebuild, and every `needs_page` the run filed would have built an empty
+  page over a live one.
+
+That last part is the live hazard: the run filed **20 `needs_page` + 1 `needs_rerender`
++ 1 `needs_design` + 5 `needs_imagery`**, all `triaged` and claimable within seconds. I
+cancelled all 32 (assertion inside the transaction, reason recorded on each row) and
+restored `sections` on the 41 pages from a pre-fire snapshot, asserting both the sections
+digest and the identity digest back to their pre-fire values inside the repair
+transaction. **Anyone reproducing this must take the snapshot first and cancel the queue
+before repairing** — the queue is what turns a DB-only regression into a deployed one.
+
+### What this adds to this file's own fix candidates
+
+The existing candidates target `plan_sections`. Add: **whatever fixes the resolution must
+be applied at all three call sites, or the next one re-lands the damage** — and validate
+is the one that must additionally *preserve* the entry rather than drop it, because an
+unresolvable name there is not evidence the section is junk (here it was evidence the
+site is decomposed). A conservative shape for validate alone: leave an unresolved name in
+place when the page's realised `sections` already contains it, i.e. trust stored state
+over the component catalogue.
+
+**Cross-reference:** register PLAN-048's landmine already says *"do not opt the decomposed
+sites in until 204 is fixed"* — that instruction is correct, and the reason it gives
+(`normaliseRealisedToPlanPage` carrying positional names verbatim) is **adjacent to but not
+the actual route**. The damage arrives through validate's resolver, which makes the
+exclusion broader than its stated rationale: it applies to any replan of a decomposed
+site, whatever the identity flags say. I did not read that landmine before firing —
+recorded in `WRONG_CALLS.md`.
