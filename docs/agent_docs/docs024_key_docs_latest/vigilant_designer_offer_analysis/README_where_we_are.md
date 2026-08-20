@@ -1159,3 +1159,46 @@ rest without you opening the sweep again — about four and a half hours of runn
 estate, and it stays shut until you say. The next piece of building work is making the analyser's
 own "what would fixed look like" tests machine-checkable, which is where we found it quietly
 reintroducing the very fault it had flagged.
+
+---
+
+## 2026-08-20 — the analyser wrote something that isn't true, and someone else caught it
+
+I started today by checking what had changed rather than carrying on, because a lot happens here
+overnight. Nearly three hundred commits had landed. Two of them closed out the tool-owned-page work
+— another thread took the fix I filed, shipped it and proved it, and then filed the remaining piece
+as its own job. That is all good and none of it needs anything from us.
+
+**The thing that does need us is ours, and it is not comfortable.**
+
+Yesterday the analyser was run again against the Leopardess site. Its number-one recommendation —
+the single thing it says that site should lead with — contains the phrase *"the same stack that runs
+eight live sites"*. **We run twenty-three.** The figure is wrong, and it is the kind of wrong that
+would have gone straight into a headline.
+
+Worse, it is tagged as having come from the site's recorded strategy. It did not. I checked every
+strategy record we hold and none of them contains that phrase. **Two of the site's own web pages
+contain it, in their search descriptions** — and the analyser reads those descriptions as part of
+what it looks at. So it picked a stale claim off a page, promoted it into the strategic record, and
+labelled it as though the strategy had said it.
+
+**We did not catch this. The Leopardess thread did.** They held all five of the analyser's findings
+and wrote down exactly why, one step before any of it reached a writer. I want to be plain about
+what that means: every check we built passed. The record had all its fields, correctly flagged the
+one piece of missing input, ranked its points properly and explained its reasoning coherently — and
+carried a false number at the top. **Our checks confirm the shape of the answer, and nothing we had
+was looking at whether the facts in it were true.**
+
+I have written it up as a bug against our own analyser, with a fix that makes the mistake hard to
+make rather than asking the model to be careful: if a recommendation contains a number, that number
+has to appear in the record it claims to have come from, or it does not get written. There is a
+trap in the obvious version of that fix — ban numbers outright and the recommendations become
+useless — so the test includes a site where the numbers *are* properly sourced and must survive.
+
+**One connection worth drawing.** Back on the 14th you approved checking our written strategy
+records for invented claims. That job is still not started, and today makes the case for it
+stronger — but it would have caught this *after* the false sentence was written, not stopped it
+being imported. Both are needed. This one is the tap; that one is the mop.
+
+**Where we are otherwise:** five of twenty-three sites carry the ranked record, and the sweep stays
+shut until you open it — about four and a half hours of running to finish the estate.
