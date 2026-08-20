@@ -386,6 +386,15 @@ population, not a broken query.
    did not.** Same day, same entry condition, different outcomes, and it does **not** need
    `orchestration_states`. It is the one comparison still available if no burst arrives before 08-24.
 
+**One door CLOSED since (NOTES §20): the freeze is NOT a dead worker.** `build-dispatch-loop` runs an
+ephemeral pod per orchestration (`spawn_actions.go:2388`) with `BackoffLimit: 3`, so "the pod died and
+K8s replaced it" was a live infrastructure explanation that would have retired the whole
+`coordinator.go` candidate set. It is **refuted**: the 17 duplicate spawn pairs are **17/17 same
+`processing_pod`**, and all 98 rows across those orchestrations resolve to **exactly 17 pods** — one
+each, never replaced. `ActiveDeadlineSeconds` is 86400, so a job deadline is out too. C1 survives
+(a dedicated pod consumes its own message, so same-pod is what a takeover predicts); C5 stays
+disfavoured on the minutes-scale gaps.
+
 **Unchanged:** 029 OPEN, nothing fired, `NEXT_090_single_variable.sh` unrun, rows-section withdrawn,
 wait-for-the-burst standing. **Also unchanged: none of this explains the first death** — it sharpens
 where to look, and no edit should be described as if it had.

@@ -2344,3 +2344,43 @@ Deletion is `processed_at + 7 days` (§12), so **08-14 expires ~08-21 (tomorrow)
 **08-17 cohort ~08-24**. Nothing here needs the 08-14 rows; the 08-17 twenty remain the evidence, and
 they have about four days. If a burst does not arrive by then, the population that supports every
 claim in this file is gone and RSH-011's capture is the only remaining route.
+
+### 20. 2026-08-20 — I raised an infrastructure explanation and REFUTED it myself; the defect stays in the coordinator
+
+**How it came up.** Comparing the wedged 20 against the stopped 10 (§19e), `count(DISTINCT
+processing_pod)` came back equal to the row count in *both* groups — 20 pods for 20 rows. That looks
+like a discriminator and is not one: `build-dispatch-loop` runs as an **ephemeral pod per
+orchestration**, named `agent-build-dispatch-loop-<agentID[:8]>-<suffix>` by
+`spawn_actions.go:2388`. One pod each is the architecture, not a finding.
+
+**But it suggested a hypothesis nothing in this file had considered: the parent stops writing state
+because the PROCESS IS GONE.** That fits the symptom uncomfortably well — a silent freeze, no error
+row, no further writes, and only the 4-hour stale reaper noticing. It would also have made every
+`coordinator.go` candidate in `PLAN_2026-08-19` beside the point. The Job carries
+`BackoffLimit: 3` (`spawn_actions.go:2772`), so Kubernetes *does* replace a failed pod, up to three
+times.
+
+**Refuted, on the retained rows.** If a pod had died and been replaced, the orchestration's later
+rows would carry a **different** `processing_pod`. `[MEASURED 2026-08-20]`:
+
+| check | result |
+|---|---|
+| the 17 duplicate `spawn_handler` pairs | **17/17 have `distinct_pods = 1`** — both rows written by the SAME pod |
+| gap between the pair | **6:54 – 9:37**, independently reproducing §12's 414–577 s |
+| **control** — all steps of those 17 orchestrations | **98 rows, 17 distinct pods** = exactly one pod per orchestration, start to finish |
+
+**No orchestration was ever moved to a second pod.** The process did not restart, so the freeze is
+not a dead worker and not a Kubernetes replacement. `ActiveDeadlineSeconds` is **86400** (24 h) — far
+too long to bound an 8-minute freeze — so a job deadline is out on the same evidence.
+
+**What this is worth.** It is a negative result and it earns its place by *closing a door*: "the pods
+were just dying" is the kind of explanation that would have retired the whole `coordinator.go`
+candidate set, and it is now excluded rather than merely unconsidered. It also leaves **C1 intact** —
+a stuck-orchestration takeover does *not* imply a different pod, because a dedicated pod consumes its
+own incoming message, so same-pod is exactly what C1 predicts — and it leaves **C5 disfavoured** on
+the same grounds the plan already gave: minutes-scale gaps, not the seconds-scale of a double-drive
+in one goroutine.
+
+> **Method note, and it is the third time today.** I raised this, then wrote the query that could
+> kill it, and it did. The control is what makes it a refutation rather than an absence: 98 rows
+> resolving to 17 pods could have come out as 34, and did not.
