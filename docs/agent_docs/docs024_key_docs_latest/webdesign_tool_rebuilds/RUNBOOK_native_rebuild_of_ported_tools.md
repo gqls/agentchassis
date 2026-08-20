@@ -276,6 +276,12 @@ If the build lands while nobody is looking, the page serves BOTH tools until som
 
 - **Do not file a rebuild you cannot attend.** The window opens when the `add_tool` item completes,
   and the build itself takes under a minute once claimed.
+- **"Attend" means the SESSION'S TURN STAYS ALIVE, polling, from filing until the retire lands —
+  a background watcher is NOT attendance (lost again 2026-08-20, WRONG_CALLS).** A watcher's FIRING
+  is on time; its DELIVERY to the session waits for the next interaction and is unbounded — measured
+  six hours, during which a sweep rerender assembled the oklch page with both slots live and the
+  public page served two stacked tools all afternoon. Same day, same mechanism, smaller lags: 50 min
+  (saved only by an unrelated queue freeze) and ~2 min (worked). If the turn must end, do not file.
 - **If you lose it, it is repairable and self-healing** — no data is lost. Retire the ported slot as
   normal; any queued `page_rerender` for that page then assembles it correctly. Check for one before
   filing a new one:
