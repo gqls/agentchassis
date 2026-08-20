@@ -13588,3 +13588,33 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/153`-era build-provenance lesson (ask the artefact, not the config) — same shape: the recorded `expiry_minutes` is a statement of intent, not evidence the link works. MEMORY [[writes-the-field-is-not-reads-the-field]] · [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-20, `webdesign_uk_build_service` lane, after the owner ruled the ZIP download link should last "the longest time we have, which I think is 6 weeks" · `docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md`, 2026-08-20 entry
 - **added:** 2026-08-20, webdesign_uk_build_service lane
+
+
+### A `?`-suffixed config key is a REAL marker on `input_mapping` and INERT in a step's action `config` — and the inert one applies cleanly, reports success and changes nothing
+
+- **footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`strictFields` :669, `UnknownConfigKeys` :279-298) · `platform/orchestration/input_contracts/input_mapping.go` (`ResolveInputMapping` :110-139) · `docs/agent_docs/sql_for_agents/` — any migration writing a marker-suffixed key into `{workflow,steps,<step>,config}` · `agent_definitions.default_config` · `RESOLVER_CONFLICTING_CANDIDATES` remediation of any shape "give the field an explicit mapping"
+- **fires when:** you fix a resolver guess — a whole-tree search substituting a foreign value — by wiring the field explicitly, and you copy the marker spelling from a working example. The estate has **two** config surfaces that look identical inside a migration, and they do not share the vocabulary:
+  - **`input_mapping`** (cross-agent, `call_agent`/`spawn`): unmarked = **hard fail**, `?` = optional skip, `!` = strict hard-fail naming the marker. Both markers real.
+  - **a step's action `config`** (read by `ExtractActionInputs`): only `!` is stripped. A key named `commit_sha?` never matches the spec field `commit_sha`, so **Strategy 0 never reads it** — the whole-tree search still runs, the conflict rows keep coming, and the value is still a guess.
+- **why the wrong result looks right:** every signal you would check says pass. The migration's guard passes, the `UPDATE` matches, `jsonb_set` writes the key, `COMMIT` succeeds, and the live row genuinely contains `"commit_sha?": "<path>"` — so reading the config back **confirms your edit landed**. The only tell is a class that keeps firing, which reads as "the fix needs a roll" (it does not: config is live on apply) or "I picked the wrong path". `UnknownConfigKeys` *does* report the dead key, but only where the action set `CheckConfig: true`, and its output is an advisory audit nobody greps while celebrating a green migration.
+- **the semantics are also INVERTED, which is why the copy feels safe:** on `input_mapping` unmarked hard-fails, so `?` is how you make a field optional. In a step config unmarked is **already** optional-with-fallthrough — Strategy 0 tries the path and falls through when it misses — so `?` is unnecessary as well as inert. **The plain unmarked key is the correct spelling for "map this, but do not hard-fail".**
+- **the check, and it is one command against the surface you are actually writing to:** grep for the marker's own `TrimSuffix` in the code that reads that surface —
+  ```bash
+  grep -n 'TrimSuffix(k, "!")\|TrimSuffix(.*"?")' platform/orchestration/datahelpers/action_inputs.go \
+                                                  platform/orchestration/input_contracts/input_mapping.go
+  ```
+  `action_inputs.go` strips `!` only; `input_mapping.go` strips both. **Estate control, and it is unanimous** `[MEASURED 2026-08-20 17:2xZ]` — a recursive walk of live `agent_definitions` for objects holding a `%?` key returns **21 sites, every one of them an `input_mapping`, zero in a step config**:
+  ```sql
+  WITH RECURSIVE walk(type, path, obj) AS (
+    SELECT d.type, ARRAY[]::text[], d.default_config FROM agent_definitions d
+     WHERE d.is_active AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL
+    UNION ALL SELECT w.type, w.path || e.key, e.value FROM walk w, jsonb_each(w.obj) e
+     WHERE jsonb_typeof(w.obj)='object')
+  SELECT type, array_to_string(path,'.') FROM walk
+   WHERE jsonb_typeof(obj)='object'
+     AND EXISTS (SELECT 1 FROM jsonb_object_keys(obj) k WHERE k LIKE '%?') ORDER BY 1,2;
+  ```
+  So the convention is real and consistent; a `?` in a step config would be the estate's first, which is the strongest available evidence that it is a mistake rather than a feature you have not met.
+- **relations:** `bugs_open/334` §4 and `bugs_open/330` §9 both ranked this spelling as a fix candidate and are corrected in place (2026-08-20); 334's was the `staged_component_build` handoff's own "step 5, item 1", so it was next to be built. Same family as MEMORY [[grep-the-config-key-before-calling-it-a-win]] and [[a-config-key-that-nothing-reads]] — a dead config key looks exactly like a live one — and [[a-doc-comment-is-not-an-enforcement-mechanism]]. The working spelling for this job is migration `512_tool_generator_declares_what_enqueue_rerender_reads.sql`, which sidesteps the marker question entirely by declaring `input_fields`.
+- **source:** 2026-08-20, `staged_component_build` lane, while dispositioning RFC_029 step 5's conflict census · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md`, 2026-08-20 (evening) entry
+- **added:** 2026-08-20, staged_component_build lane
