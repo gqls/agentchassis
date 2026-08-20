@@ -37,7 +37,8 @@ links from the homepage, i.e. a single-pager.
 
 ### The one thing "overwrite all of them" does not settle: the twin pairs
 
-Three of the 23 are pairs serving one site on two names:
+**Two** of the 22 free domains are pairs serving one site on two names (a third pair,
+`leopardess` .co.uk/.uk, is protected and so not in scope here):
 
 - `businesschristmasgifts.co.uk` + `.uk`
 - `fatherchristmas.uk` + `santaclaus.uk`
