@@ -14,6 +14,45 @@ reproducible damage.**
 > whose foot carries the full evidence. **The three-way branch below is retained on purpose** — it is the
 > right instrument if the seam ever needs re-checking, and the "hash appears" arm is the one that fired.
 
+> **UPDATE 2026-08-20 17:29Z — the "DONE and CLOSED" line above was WRONG about loose end 2, and
+> a later session had to find that out by looking. The council verdict came back REVISE at
+> 08:37:50Z and sat UNREAD for ~8.5 hours** while this file's header said nothing needed picking
+> up. The round was gated by a SINGLE high-severity objection from the `guardian` seat, and that
+> objection was explicitly conditional: *"Approve pending the check results; if
+> RenderComponentInputSpec is non-strict and/or no live step sets the key there, no further
+> objection stands."* It needed evidence, not a code change — so it could have been answered in
+> minutes at any point that afternoon.
+>
+> **Both arms hold, each measured with a control that could have come out the other way:**
+> `IsStrictConfigAction("render_component")` **executes to false** (control:
+> `update_page_status` → true, so the predicate discriminates), and only TWO `StrictConfig: true`
+> exist tree-wide — `v3_site_actions.go:665` (inside `UpdatePageStatusInputSpec`, 549–685) and
+> `create_work_item_action.go:145`. **Zero** live `render_component` steps carry the key at ALL
+> depths via `jsonb_path_query(j, '$.** ? (exists(@.action))')` — closing the sub_workflow caveat
+> that made round 1's own check inconclusive — with the control that the identical query finds it
+> on **3 of 7** `update_page_status` steps, cross-checked by a raw-text count over the whole table
+> (2 occurrences, 1 definition, snapshots included). A `render_component` step carrying the key
+> post-fix yields `unknown=[deploy_result_field], checked=true` — a **warning**, never the
+> `WORKFLOW_INVALID` the seat feared.
+>
+> **And the category, not just the file the seat named:** exactly ONE declaration of the key
+> (`v3_site_actions.go:582`) and exactly ONE read site (`:1002`, inside `UpdatePageStatusAction`);
+> `RenderComponentAction` (from `:2095`) never reads it. "An action that never reads it" is now
+> verified rather than assumed.
+>
+> **Round 2 resubmitted** on the same correlation (`RESUBMIT_CORR=bc2f4b0e-…`), answering the
+> guardian plus `bug_historian`, `reuse_agent`, `debug_historian` and `tooling_provenance`.
+> **Loose end 3 is no longer an intention:** the fleet-wide read-vs-declared audit is filed as
+> `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_045_an_action_reading_a_config_key_its_own_spec_does_not_declare.md`
+> (commit `0c26c5a07`), and it is filed MEASURED — the LOUD class is bounded to the two strict
+> actions and **both are clean at HEAD**; the surface is the SILENT class (173 specs, 82 opted in,
+> **91 not opted in at all**). Loose end 4 is settled the same way: `render_component` is
+> warning-only, so a misplaced key there is inert.
+>
+> **The reusable part — a submitted council round is not a closed one.** The close-out condition
+> here was about the code being live, which it was; the verdict was parked under "loose ends, none
+> blocking" and so nobody read it. Logged in `WRONG_CALLS.md`.
+
 Full case file: `bugs_closed/336_HANDOFF_2026-08-20_deploy_result_field_is_declared_on_the_wrong_actions_spec_so_arming_it_hard_fails_every_workflow_that_stamps_a_page.md`
 
 ## What happened, in four sentences
