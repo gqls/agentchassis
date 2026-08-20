@@ -60,10 +60,30 @@ every unresolved section name a **stub** behind one `logger.Warn`.
 item, not a hole — and two others lost their slots *after* the stamp, which no stamp-time gate can
 catch. **An open work item is not a live defect; the artefact is.**
 
-**What a filer needs, in order:** (1) does a stub actually become a `page_components` row on a real
-build — read `save_page_sections`' writer, or watch one build; (2) a per-page **artefact** check
-(does the served page contain the planned section's markup) instead of a work-item join; (3) then
-`090`, because the claim is structural and CLAUDE.md's default applies.
+~~**What a filer needs, in order:** (1) does a stub actually become a `page_components` row … (3) then `090`.~~
+**DONE, 2026-08-20 14:45Z — all three steps taken, and the answer changed the claim again.**
+
+- **(1) The stub hypothesis is REFUTED by measurement.** Only **11 of 1,855** `page_components` rows
+  have `component_id IS NULL`, and they are not stubs standing in for holes: two are `lendzy.co.uk`
+  tool pages carrying 13,262 / 14,747 chars whose served pages return **2 and 3 `<input>`**. The
+  count is not being inflated.
+- **(2) The artefact check, on the ORIGINATING case.** `remortgagecalculator.uk`/`index` plans six
+  sections, holds five, and the missing one is **`mortgages-repayment`** — this bug's own step 1.
+  `build_status='needs_rebuild'` (so **the gate fired and was right**), and the page nonetheless
+  serves 200 / **40,726 bytes / 0 `<input>`**.
+- **The mechanism, therefore:** *the refusal is a status write — it neither retracts the published
+  artefact nor reaches a worker, and `needs_rebuild` has no consumer, so the page serves the hole
+  indefinitely while the DB reads correct.* A **convergence** defect, not an absent gate. Nothing
+  else in `bugs_open/` carries it (`210` is the inverse: a stamp wrongly APPLIED).
+- **(3) `090` fired — `RUN_CORRELATION_ID=e9555fad-5b25-46bc-9908-f40db98e16a4`.** Verdict queries in
+  the RUNBOOK. **File the bug on the verdict, not before** — this lane was wrong twice in one day
+  asserting things about this same code path.
+
+**Repairing the originating page is BLOCKED, not forgotten:** that site is locked,
+`locked_by = "portfolio_positioning: owner HALT 2026-08-18 pending classifier register-input (RFC) +
+builder-flow decision"`. The incumbent (`b89f91e1`, html `a2c00f1c66ce6f4ef72b48083f1e3da6`) is
+re-pinned and the `needs_new_component:mortgages-repayment` key is held only by `cancelled`/`failed`
+rows, so the two-item recipe is insertable the moment the halt lifts.
 
 ## What to do next (ranked)
 
