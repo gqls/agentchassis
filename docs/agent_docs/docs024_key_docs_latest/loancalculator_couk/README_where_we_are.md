@@ -2180,3 +2180,48 @@ no-op pages" as a good sign. I checked how that signal is recorded and it has ne
 anything, anywhere, in the system's whole history — so my reassurance was worth nothing. The
 sign wasn't wrong, it just couldn't have been anything else. I'd applied exactly that kind of
 scepticism to another number the same morning and then failed to apply it to my own.
+
+---
+
+## 2026-08-20 — the duplicate pages are out of the site; one command left to delete the files
+
+Picking this up after a couple of days, I re-checked everything before touching anything,
+because a lot of other work has gone through the repo since (nearly seven hundred commits,
+though none of them on this site). Two things I specifically wanted to confirm and both
+were good: nobody else had worked this site, and the switch I turned on for you on the 18th
+was **still on**. That second one matters because re-adopting a site quietly wipes those
+settings, and it would have looked identical to it having worked.
+
+The new chassis build is genuinely live this time — I checked it the reliable way, by asking
+the running program which commit it was built from and confirming the previous one is
+absent, so the check could have failed and didn't.
+
+**What I've done.** The fourteen duplicate pages are now archived, so the site is back to
+twenty-nine real pages. They are out of the site's page list, they won't be maintained or
+re-rendered, and the publishing path refuses to republish an archived page, so they cannot
+come back on their own. Your guides are untouched and serving normally.
+
+**What's left is one command, and I couldn't run it.** The actual files are still sitting on
+the web server, so those /blog/ addresses still load if you type them. Removing published
+files goes through a proper mechanism — it checks nothing still links to the page, retires
+any menu entries, and warns about anything left stranded — and I ran all of those checks by
+hand first: nothing links to them from menus, from the shared header and footer, or from any
+other page. So it will go through cleanly rather than refuse.
+
+The command itself was blocked by my own permissions here, because it has to start a small
+job on the cluster to send the instruction. It's written, committed and ready:
+
+```
+! ./docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/retract_blog_duplicates.sh
+```
+
+**One trap I found and defused while preparing it**, worth knowing because it would have
+been silent: left to its own devices, that mechanism removes *every* archived page that was
+ever published — and this site has one other, the old standard calculator page archived
+back on the 3rd, which happens to hold one of the twelve protected calculator copies. Its
+file is already gone so nothing would actually have been lost, but it would have been an
+undecided change riding along on yours. The script names the fourteen pages explicitly so
+that cannot happen.
+
+Still outstanding after that: the Guides index page is the only genuine broken address on
+the site, and it still cannot build because nothing has composed any sections for it.
