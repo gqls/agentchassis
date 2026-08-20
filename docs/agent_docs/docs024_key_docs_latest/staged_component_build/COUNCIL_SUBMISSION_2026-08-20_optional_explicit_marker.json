@@ -1,0 +1,48 @@
+{
+  "rationale": "RFC_029 §10.13 step 5's precondition ('zero conflict WARNs, or every observed field/caller pair given an explicit mapping first') is unsatisfiable as stated for most surviving pairs: an UNMARKED wire falls through to the whole-tree search when its declared path is empty (bugs_open/330, 090-CONFIRMED: nine tools cross-linked to one unrelated tool's related_pages because 'declared-but-empty' and 'never-asked' are recorded identically), while the `!` strict marker hard-fails on a missing reference — wrong for Optional fields whose absence is legitimate and handled (related_pages absent in 4/5 recent add_tool specs; absence = emit no cross-links, the DESIRED outcome). The missing middle already exists on the OTHER mapping surface: ResolveInputMapping's `?` ('a path that resolves is forwarded; a missing one is skipped', WDS-014), and CTS-060 describes `!` as 'the mirror of `?` on both mapping surfaces' — ExtractActionInputs only ever got the `!` half. This change completes the mirror: `\"field?\": \"<reference>\"` = explicit resolution or absence; never the search, the nested-object fallback, or the deprecated bridge; a spec Default stands (declared behaviour, not a search guess); a Required field that ends absent fails ordinary missing-required validation. `!` beats `?` on a both-markers collision, matching input_mapping's degenerate-combo rule. Scope measured before submission: opt-in, unsafe (searching) default OFF, ZERO live `?` keys on this surface (recursive walk over all live definitions incl. sub_workflow steps, 2026-08-20) — RFC_022-exempt from architecture scope. Adds no resolver arm (no new write site into result.Values; arm-budget test unchanged). Two lanes were already writing this syntax as though it existed (bugs_open/334 candidate 1 is literally '\"commit_sha?\": ...'; 330 §9's correction proposes 'a ?-optional wire') — demand for exactly this semantics, currently unparseable. Mutation-proved twice: no-op the exclusion (explicitOnly → strictFields only) fails 4 named tests; no-op the key peel fails 2 named tests. Full datahelpers suite green; git-archive-HEAD + these two files builds ./platform/... clean.",
+  "plan": {
+    "summary": "Add the `?` OPTIONAL-EXPLICIT marker to ExtractActionInputs, mirroring ResolveInputMapping's existing `?` semantics: explicit path or absence, never any guess arm; no error on non-resolution (unlike `!`). Register in CTS-060 + RFC_029 §10.15 in the same commit.",
+    "edits": [
+      {
+        "file": "platform/orchestration/datahelpers/action_inputs.go",
+        "operation": "modify",
+        "rationale": "Peel `?` alongside `!` in the marker normalisation (strict wins a both-markers collision); introduce explicitOnly(field) = strict OR optional-explicit; use it in the Strategy 1/2 request-list exclusion (withoutStrict), both merge guards, the nested-object fallback, and the Strategy 3 deprecated-bridge guard. Strict enforcement and required-field validation are UNCHANGED — a `?` field passes through to Defaults/absence/ordinary validation. Contract-of-record comment block gains the `?` paragraph (it is the stated single source; the other four documentation sites point at it).",
+        "sketch": "strictFields/optionalExplicit built in one pass; `for base := range strictFields { delete(optionalExplicit, base) }`; normalised[base]=v for `?` keys unless a `!` twin claimed the base; explicitOnly := func(f) bool { return strictFields[f] || optionalExplicit[f] }; withoutStrict/merges/nested/bridge guards switch from strictFields[x] to explicitOnly(x)."
+      },
+      {
+        "file": "platform/orchestration/datahelpers/action_inputs.go",
+        "operation": "modify",
+        "rationale": "UnknownConfigKeys recognises the `?` spelling exactly when the base field is declared, reporting an unrecognised base in the spelling the author wrote — same rule as `!`.",
+        "sketch": "base := strings.TrimSuffix(strings.TrimSuffix(k, \"!\"), \"?\") — same double-peel order input_mapping.go uses."
+      },
+      {
+        "file": "platform/orchestration/datahelpers/action_inputs_optional_explicit_test.go",
+        "operation": "add",
+        "rationale": "Nine tests in the strict-file's decoy+control discipline: happy path; absence-instead-of-search WITH the unmarked control proving the search would win; Default stands (contrast pinned against TestStrictMarkerWithDefaultStillFailsWhenUnresolved); single-segment reference; Required-`?`-missing fails ordinary validation (and NOT the strict error); `!` beats `?`; bridge takes nothing (with control); nested-object fallback takes nothing (with control); UnknownConfigKeys recognises the spelling. File header records both mutation proofs and their expected failing tests.",
+        "sketch": "TestOptionalExplicitMarkerYieldsAbsenceInsteadOfSearching: decoy in tree, `related_pages?` path misses -> GetRaw nil, no error; control without marker resolves decoy 'page-WRONG'."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/contracts-and-standards.md",
+        "operation": "modify",
+        "rationale": "CTS-060 point (5): the seam registered in the same commit that ships it (2026-07-28 ruling condition 2), carrying the same _HOLD landmine as `!` (a `?` key applied before the parsing binary rolls loses its Strategy-0 wire) and the named adopters-in-waiting.",
+        "sketch": "dated addendum before verify-later; adopters: 334 cand 1 (blocked on 315 lane), tool-generator x4, component-creator x2, pbh page_type."
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
+        "operation": "modify",
+        "rationale": "§10.15: why step 5's precondition needed this vehicle, the measured scope (0 live consumers, recursive census), what it unblocks pair-by-pair, and what it deliberately does NOT do (330's silent half for unmarked fields stays open, gated on the 269-pair unsampled audit; `?` misses are silent by design so adoption is counted in config keys, not logs).",
+        "sketch": "appended section after §10.14."
+      }
+    ],
+    "grounded_in": [
+      "CTS-060 register entry: 'An opt-in `!` STRICT marker, the mirror of `?`, on both mapping surfaces' — the mirror's `?` half was never built on the ExtractActionInputs surface.",
+      "input_mapping.go:111-114: 'Suffix markers: \"?\" optional, \"!\" strict (strict wins a degenerate combo)' — the semantics and the collision rule this change mirrors.",
+      "bugs_open/334 §4.1 and §8.2: candidate 1 is written as '\"commit_sha?\": \"handler_result....commit_sha\"' with the note '(`?`, not `!` — the 7.7% deeper shape and any non-deploy item type must stay optional, not hard-fail)' — a lane already depending on this syntax parsing.",
+      "bugs_open/330 090 verdict (CONFIRMED, corr fad0675b): 'a field whose declared dot-path yields nothing is never marked resolved, so it is handed to ExtractFields under its bare name exactly as an undeclared field would be' — the fall-through this marker lets a field opt out of.",
+      "action_inputs.go strict enforcement comment: 'a `!` field that did not resolve via its explicit reference is a HARD error, whatever the spec says about the field being optional or defaulted' — why `!` cannot serve legitimately-absent fields.",
+      "Recursive live census 2026-08-20 (walk over agent_definitions workflow.steps incl. sub_workflow.steps, key LIKE '%?' on step config objects): 0 rows — zero live consumers at ship time.",
+      "create_rerender_items_action.go:216-231: the junk `reason` winner is inert there ONLY because stampReason literal-matches three known values — the accidental guard the explicit `reason?` wire replaces with a declared one."
+    ],
+    "risks": "A `?` key applied to live config BEFORE the binary that parses it rolls is read as an unknown key and the field loses its Strategy-0 wire entirely (worse than today). Mitigation: registered as the same landmine class as `!` (CTS-060), adopter migrations are _HOLD until the roll; this commit ships ZERO adopters. A `?` field that misses is silent by design — no log, no row. Stated in RFC_029 §10.15 so nobody measures adoption from log lines; the conflict instrument's own under-count caveat (330 §4) already covers the class. Degenerate spellings (`field!?`) follow input_mapping's TrimSuffix order rather than being rejected; documented, matching the sibling surface's existing behaviour."
+  }
+}

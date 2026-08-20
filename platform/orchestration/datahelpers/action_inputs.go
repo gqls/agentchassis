@@ -278,10 +278,11 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 
 	for k := range config {
 		// A `!`-suffixed key is the STRICT spelling of the base field
-		// (RFC_029 §9 D3) — recognised exactly when the base is. The original
+		// (RFC_029 §9 D3) and a `?`-suffixed key the OPTIONAL-EXPLICIT one
+		// (§9 D2) — each recognised exactly when the base is. The original
 		// spelling is what gets reported if it is not, so the author sees the
 		// key they actually wrote.
-		base := strings.TrimSuffix(k, "!")
+		base := strings.TrimSuffix(strings.TrimSuffix(k, "!"), "?")
 		if base == "" {
 			base = k
 		}
@@ -643,6 +644,21 @@ func IsDottedPathReference(s string) bool {
 //     does not resolve, extraction FAILS with an error naming the field — for a
 //     strict field, no value is better than a searched one (the owner's stated
 //     ranking). An unmarked key behaves exactly as it always did.
+//   - A `?`-SUFFIXED CONFIG KEY IS AN OPTIONAL-EXPLICIT MAPPING (RFC_029 §9 D2's
+//     explicit-mapping vehicle; same opt-in shape as `!`). `"field?": "<reference>"`
+//     means the field resolves via that explicit reference OR IS ABSENT: like `!`
+//     it never meets the whole-tree search, the nested-object fallback or the
+//     deprecated bridge — but an unresolved reference is NOT an error. A spec
+//     Default still stands (a Default is declared behaviour, not a search guess,
+//     which is exactly where `?` and `!` part company), a field with no Default is
+//     simply absent (handlers gate on presence), and a spec-REQUIRED field that
+//     ends absent fails the ordinary required-field validation, not a strict
+//     error. This is ResolveInputMapping's long-standing `?` semantics ("a path
+//     that resolves is forwarded; a missing one is skipped") arriving on this
+//     surface — CTS-060 already describes `!` as "the mirror of `?` on both
+//     mapping surfaces"; before this, only one surface had the mirror's other
+//     half. When one field carries BOTH markers, `!` wins (an author who wrote
+//     the strict marker demanded resolution; `?` merely declines the search).
 func ExtractActionInputs(
 	collectedData map[string]interface{},
 	config map[string]interface{},
@@ -656,33 +672,59 @@ func ExtractActionInputs(
 		Defaulted:      make(map[string]bool),
 	}
 
-	// The `!` STRICT marker (RFC_029 §9 D3): peel it off the config key and
-	// remember which fields carry it. Strictness is declared where the mapping is
-	// written — beside the path it protects — not in the spec: the author of the
-	// step config is the one asserting "this reference is the only truth". A `!`
-	// key for a field the spec does not declare is inert here (nothing extracts
-	// undeclared fields) and is reported by UnknownConfigKeys where the action
-	// has opted in. If a step carries BOTH spellings, the strict one wins: an
-	// author who wrote the marker did not mean the unmarked entry to override it.
+	// The `!` STRICT and `?` OPTIONAL-EXPLICIT markers (RFC_029 §9 D3 / D2): peel
+	// them off the config key and remember which fields carry which. Both are
+	// declared where the mapping is written — beside the path each protects — not
+	// in the spec: the author of the step config is the one asserting "this
+	// reference is the only truth" (`!`: or fail) / "this reference or nothing"
+	// (`?`: or absent). A marked key for a field the spec does not declare is
+	// inert here (nothing extracts undeclared fields) and is reported by
+	// UnknownConfigKeys where the action has opted in. If a step carries a marked
+	// and an unmarked spelling, the marked one wins: an author who wrote a marker
+	// did not mean the unmarked entry to override it. If a step carries BOTH
+	// markers for one field, `!` wins — the same rule input_mapping.go applies to
+	// its degenerate combo.
 	strictFields := map[string]bool{}
+	optionalExplicit := map[string]bool{}
 	for k := range config {
 		if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
 			strictFields[base] = true
+			continue
+		}
+		if base := strings.TrimSuffix(k, "?"); base != k && base != "" {
+			optionalExplicit[base] = true
 		}
 	}
-	if len(strictFields) > 0 {
+	for base := range strictFields {
+		delete(optionalExplicit, base) // `!` beats `?` when both name one field
+	}
+	if len(strictFields)+len(optionalExplicit) > 0 {
 		normalised := make(map[string]interface{}, len(config))
 		for k, v := range config {
 			if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
 				normalised[base] = v
 				continue
 			}
-			if strictFields[k] {
-				continue // unmarked twin of a strict key: the marker wins
+			if base := strings.TrimSuffix(k, "?"); base != k && base != "" {
+				if !strictFields[base] { // a `!` twin already claimed the base
+					normalised[base] = v
+				}
+				continue
+			}
+			if strictFields[k] || optionalExplicit[k] {
+				continue // unmarked twin of a marked key: the marker wins
 			}
 			normalised[k] = v
 		}
 		config = normalised
+	}
+
+	// explicitOnly answers "does this field decline every non-explicit arm?" —
+	// true for both markers. Only the CONSEQUENCE of non-resolution differs
+	// (strict enforcement at the bottom fails `!` fields; `?` fields pass
+	// through to Defaults / absence / ordinary required validation).
+	explicitOnly := func(field string) bool {
+		return strictFields[field] || optionalExplicit[field]
 	}
 
 	// Apply defaults first
@@ -725,17 +767,19 @@ func ExtractActionInputs(
 		}
 	}
 
-	// A STRICT field never meets ExtractFields (RFC_029 §9 D3): it is excluded
-	// from what Strategy 1/2 request AND from what they merge back, because
-	// ExtractFields is the doorway to the whole-tree search — and "explicit
-	// resolution only" is the marker's entire meaning.
+	// A MARKED field (`!` or `?`) never meets ExtractFields (RFC_029 §9 D3/D2):
+	// it is excluded from what Strategy 1/2 request AND from what they merge
+	// back, because ExtractFields is the doorway to the whole-tree search — and
+	// "explicit resolution only" is both markers' shared meaning. This exclusion
+	// is what stops the search's conflict rows AND its silent agreeing-candidate
+	// substitutions (bugs_open/330's two halves) for every field that opts in.
 	withoutStrict := func(fields []string) []string {
-		if len(strictFields) == 0 {
+		if len(strictFields)+len(optionalExplicit) == 0 {
 			return fields
 		}
 		kept := make([]string, 0, len(fields))
 		for _, f := range fields {
-			if !strictFields[f] {
+			if !explicitOnly(f) {
 				kept = append(kept, f)
 			}
 		}
@@ -797,8 +841,8 @@ func ExtractActionInputs(
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
 				continue
 			}
-			if strictFields[k] {
-				continue // ExtractFields' core-field recovery may still emit one; a strict field takes nothing from it
+			if explicitOnly(k) {
+				continue // ExtractFields' core-field recovery may still emit one; a marked field takes nothing from it
 			}
 			if v != nil {
 				result.Values[k] = v
@@ -812,8 +856,8 @@ func ExtractActionInputs(
 			if _, alreadyResolved := result.Values[k]; alreadyResolved {
 				continue
 			}
-			if strictFields[k] {
-				continue // ExtractFields' core-field recovery may still emit one; a strict field takes nothing from it
+			if explicitOnly(k) {
+				continue // ExtractFields' core-field recovery may still emit one; a marked field takes nothing from it
 			}
 			if v != nil {
 				result.Values[k] = v
@@ -830,7 +874,9 @@ func ExtractActionInputs(
 	// single foreign key is "unique" and resolves with full confidence. This
 	// block measures the class during the Phase 1 observation window and changes
 	// NOTHING — same window, same WARN-grep as the conflict instrument. A field
-	// marked `!` never meets the search, so it cannot appear here.
+	// marked `!` or `?` never meets the search, so it cannot appear here (for
+	// `?` the has-value guard below is what skips it: the search was excluded,
+	// so an unresolved `?` field holds nothing to compare).
 	for _, field := range allFields {
 		if strictFields[field] || result.Defaulted[field] {
 			continue
@@ -877,13 +923,14 @@ func ExtractActionInputs(
 
 	// Strategy 3: Check deprecated *_field patterns for any missing fields
 	for oldKey, newField := range spec.Deprecated {
-		// A STRICT field takes nothing from the bridge (RFC_029 §9 D3): its own
-		// `!` mapping is the only reference allowed to decide it. A step carrying
-		// both a strict canonical key and a deprecated alias for the same field
-		// is asking two sources to be the single truth; the marker wins, and if
-		// its reference fails the loud strict error below names the field rather
-		// than letting the alias quietly stand in.
-		if strictFields[newField] {
+		// A MARKED field takes nothing from the bridge (RFC_029 §9 D3/D2): its
+		// own `!`/`?` mapping is the only reference allowed to decide it. A step
+		// carrying both a marked canonical key and a deprecated alias for the
+		// same field is asking two sources to be the single truth; the marker
+		// wins — for `!` the loud strict error below then names the field rather
+		// than letting the alias quietly stand in; for `?` the field is absent,
+		// which is the marker's stated meaning.
+		if explicitOnly(newField) {
 			continue
 		}
 		// Only use deprecated pattern if we don't already have the value.
@@ -930,8 +977,8 @@ func ExtractActionInputs(
 	// Check for nested object access (backward compat)
 	// e.g., if we need "page_id" but got "current_page" object containing "page_id"
 	for _, field := range allFields {
-		if strictFields[field] {
-			continue // implicit parent-object hunting is exactly what `!` forbids
+		if explicitOnly(field) {
+			continue // implicit parent-object hunting is exactly what `!` and `?` forbid
 		}
 		if _, hasValue := result.Values[field]; hasValue {
 			continue

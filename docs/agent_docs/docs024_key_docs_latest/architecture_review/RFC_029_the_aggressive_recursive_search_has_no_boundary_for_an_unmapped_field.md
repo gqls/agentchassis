@@ -1177,3 +1177,54 @@ for pcw/`current_page` against live pcw demand. Any NEW set is a new producer of
 string — trace it; do not widen the rename map without reading the producer. Step 5 (flip
 conflicts → refusal at the marked sites, council-gated) is then buildable, and per the ruling it
 is built even on an empty population.
+
+### 10.15 THE `?` OPTIONAL-EXPLICIT MARKER BUILT — 2026-08-20: D2's "explicit mapping first" precondition gets its vehicle for fields whose absence is legitimate
+
+Step 5's precondition ("zero conflict WARNs, or every observed field/caller pair given an
+explicit mapping first") turned out to be unsatisfiable **as stated** for most of the surviving
+pairs, because neither existing spelling can express their correct behaviour:
+
+- an UNMARKED wire falls through to the whole-tree search when its path is empty — that
+  fall-through IS the defect (`bugs_open/330`: nine tools cross-linked to one unrelated tool's
+  `related_pages` because "declared-but-empty" and "never-asked" are recorded identically);
+- the `!` STRICT marker hard-fails on a missing reference, "Defaults included" — wrong for a
+  field like `related_pages`, which is legitimately absent in most `add_tool` specs and whose
+  documented absent-behaviour (emit no cross-links) is the *desired* outcome.
+
+The missing middle is the semantics `ResolveInputMapping` has carried all along ("a `?` path
+that resolves is forwarded; a missing one is skipped" — WDS-014), and CTS-060 already describes
+`!` as *"the mirror of `?`, on both mapping surfaces"* — but `ExtractActionInputs` only ever
+got the `!` half of the mirror. **Built 2026-08-20:** `"field?": "<reference>"` on the
+step-config surface means the field resolves via that explicit reference OR IS ABSENT — like
+`!` it never meets the whole-tree search, the nested-object fallback or the deprecated bridge;
+unlike `!`, non-resolution is not an error: a spec Default stands (declared behaviour, not a
+search guess), an Optional field is absent (handlers gate on presence), a Required field fails
+the ordinary missing-required validation. `!` wins a both-markers collision, matching
+input_mapping's degenerate-combo rule. `UnknownConfigKeys` recognises the `?` spelling exactly
+when the base is declared.
+
+**Scope, measured before submission:** opt-in, unsafe (searching) default OFF, and **zero live
+consumers name it** — recursive walk over every live definition's step configs (sub-workflows
+included) found 0 keys ending `?` on the ExtractActionInputs surface. Per the RFC_022 ruling
+(all three conditions hold, consumers enumerated by query) this is NOT architecture-scope; it
+goes through the ordinary council gate. It adds no resolver arm (no new write site into
+`result.Values`; the arm-budget test is unchanged) — it only removes reachability, which is
+this RFC's whole direction of travel.
+
+**What it unblocks, named so the mapping work is mechanical:** 334's candidate 1 is *literally
+written* as `"commit_sha?": …` (blocked only on the 315 lane's judgment, not on this marker
+any more); tool-generator's `related_pages?`/`description?`/`function?` and
+component-creator's `description?`/`site_type?` (the spec-array shape — `save_tool` and
+`store_component` already carry the unmarked wires, so each migration is a key rename);
+tool-generator's `"reason?": "input_data.spec.reason"` (today unwired; the junk winner is
+inert at `create_rerender_items` only because `stampReason` literal-matches three known
+values); pbh's `"page_type?": "load_page_record.page_type"`. Each adopter migration is
+`_HOLD` until the binary that parses `?` has rolled — under the old binary a renamed key
+`field?` is an unknown key and the field loses its Strategy-0 wire entirely (the same landmine
+CTS-060 records for `!`, same remedy).
+
+**What it does NOT do:** it does not close 330's silent half for UNMARKED fields — an unmarked
+wired-but-empty field still falls through to the search (candidate 2's global form stays open,
+gated on the 269-pair/75-agent unsampled remainder of the 08-20 audit, 330 §9). And a `?`
+field that misses is *silent by design* — absence is the contract, so nothing logs; anyone
+measuring adoption must count config keys, not log lines.
