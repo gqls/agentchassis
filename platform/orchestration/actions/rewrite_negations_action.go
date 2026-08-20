@@ -71,8 +71,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/aiservice"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -366,8 +368,14 @@ is meaningless without it.
 Keep, exactly as they are: every number, every name, every link or URL, and any
 markup (tags like <p> or <a>) the sentence already contains. Keep any statement
 of something we do not do, cannot promise, or cannot guarantee — those are there
-on purpose. Keep the same voice and roughly the same length; do not add a new
-claim, a new figure or a new name.
+on purpose. Keep the same voice and roughly the same length.
+
+Say only what the original sentence already supports. Do not add a claim about
+capability, coverage, speed, reliability, accuracy or completeness, and do not
+reach for a superlative to fill the gap the removed contrast leaves: "the
+definitive", "fully verified", "guaranteed", "always", "every" are all worse than
+the sentence you were given. If what remains is a plain, modest statement, that
+is the right answer.
 
 Return ONLY this JSON object, nothing before or after it:
 
@@ -427,6 +435,18 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	raw, callErr := client.GenerateText(ctx, prompt, options)
 	latency := int(time.Since(start).Milliseconds())
 
+	// A TRUNCATED repair is not a smaller repair — it is an answer that was cut,
+	// and a `to` string cut mid-sentence can still look like prose. The provider
+	// surfaces this as a typed error; a provider that does not is caught by the
+	// usage check below, because a call that stopped AT its ceiling is the shape
+	// of a cut answer. Either way: log it and splice nothing (council round 1,
+	// llm_reliability seat).
+	truncated := false
+	if te, isTrunc := aiservice.IsTruncated(callErr); isTrunc {
+		truncated = true
+		_ = te
+	}
+
 	// One call, one forensic row — the rule every LLM caller in this package
 	// follows. The marker makes a census able to separate repair calls from the
 	// writer's own; note it is present on SUCCESSFUL repairs too, so filter
@@ -461,6 +481,14 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			zap.Error(callErr))
 		return rewritten, rejected, callErr.Error()
 	}
+	if sent, ok := options["max_tokens"].(int); ok && sent > 0 && outTok >= sent {
+		truncated = true
+	}
+	if truncated {
+		params.Logger.Warn("rewrite_negations: the repair answer hit the output ceiling — splicing nothing",
+			zap.Int("output_tokens", outTok), zap.Any("max_tokens", options["max_tokens"]))
+		return rewritten, rejected, "repair answer truncated at the output ceiling"
+	}
 
 	parsed, _, perr := ParseLLMJSONWithProvenance(stripMarkdownFromResponse(raw))
 	if perr != nil {
@@ -474,6 +502,23 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			rejected = append(rejected, map[string]interface{}{
 				"field": r.Field, "reason": "no_such_sentence",
 				"from": datahelpers.TruncateString(r.From, 120)})
+			continue
+		}
+		// CLAIM SAFETY, before structure (council round 1, compliance seat, HIGH).
+		// AcceptNegationRewrite is purely structural — it cannot tell an honest
+		// reframing from an overclaim. "Say what it IS" is exactly the pressure
+		// that fills an affirmative slot with an invented superlative ("the
+		// definitive source", "fully verified"), and nothing downstream inspects
+		// a spliced sentence for claim content: the deploy-time claims gate reads
+		// the page, and by then this sentence is the page. So the candidate goes
+		// through the SAME banned-claims scan the meta-description gate uses,
+		// including its fleet-wide arm, which applies to a site with no evidence
+		// register at all.
+		if reason := negationRewriteClaimSafe(ctx, params, r.To); reason != "" {
+			rejected = append(rejected, map[string]interface{}{
+				"field": t.Field, "reason": reason, "shape": t.Shape,
+				"from": datahelpers.TruncateString(t.Sentence, 160),
+				"to":   datahelpers.TruncateString(r.To, 160)})
 			continue
 		}
 		if ok, why := datahelpers.AcceptNegationRewrite(t.Sentence, r.To, t.MatchAt); !ok {
@@ -500,6 +545,37 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			"to":   datahelpers.TruncateString(strings.TrimSpace(r.To), 160)})
 	}
 	return rewritten, rejected, ""
+}
+
+// negationRewriteClaimSafe returns a rejection reason when the candidate
+// replacement introduces a banned or unevidenced claim. Empty string = safe.
+//
+// It reuses the estate's one banned-claims implementation rather than adding a
+// second opinion about what an overclaim is. A site with no evidence register
+// still gets the fleet-wide arm (RFC 003 / bugs_closed/104), which is the arm
+// that matters here: the register is sparse, and this seam is where new text is
+// born.
+func negationRewriteClaimSafe(ctx context.Context, params ActionParams, candidate string) string {
+	if params.DB == nil {
+		return "" // no database, no register, and no way to ask — never a silent block
+	}
+	siteID := uuid.Nil
+	for _, path := range []string{"site_record.site_id", "site_record.id", "input_data.site_id", "site_id"} {
+		if s := datahelpers.ExtractNestedFieldString(params.CollectedData, path); s != "" {
+			if id, err := uuid.Parse(s); err == nil {
+				siteID = id
+				break
+			}
+		}
+	}
+	if siteID == uuid.Nil {
+		return ""
+	}
+	eb := loadEvidenceBase(ctx, params.DB, siteID, params.Logger)
+	if issues := checkBannedClaims([]string{candidate}, eb, true, siteID.String(), params.Logger); len(issues) > 0 {
+		return "banned_claim_" + issues[0].Category
+	}
+	return ""
 }
 
 type negationReplacement struct {

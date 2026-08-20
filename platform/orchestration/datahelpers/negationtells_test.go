@@ -256,3 +256,15 @@ func TestShapeVocabularyIsStable(t *testing.T) {
 		}
 	}
 }
+
+// Tag COUNTS equal is not markup preserved: inverted nesting keeps every tag and
+// produces malformed HTML. (Council round 1, render_guardian seat.)
+func TestRewriteRejectsInvertedNesting(t *testing.T) {
+	from := "<b><i>It shows what is possible, not what survives.</i></b>"
+	if ok, why := AcceptNegationRewrite(from, "<b><i>It shows what runs in production today.</b></i>", 30); ok {
+		t.Errorf("inverted nesting was accepted (%q) — tag order, not tag counts", why)
+	}
+	if ok, why := AcceptNegationRewrite(from, "<b><i>It shows what runs in production today.</i></b>", 30); !ok {
+		t.Errorf("well-formed markup preserved must be accepted, got %q", why)
+	}
+}

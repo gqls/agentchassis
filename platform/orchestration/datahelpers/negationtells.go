@@ -479,7 +479,7 @@ func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
 			return false, "dropped_link"
 		}
 	}
-	if !sameTagMultiset(from, to) {
+	if !sameTagSequence(from, to) {
 		return false, "markup_changed"
 	}
 	fromLower := strings.ToLower(from)
@@ -502,16 +502,22 @@ func neighbourCounts(s string) map[string]int {
 	return m
 }
 
-func sameTagMultiset(a, b string) bool {
-	ca := map[string]int{}
-	for _, t := range htmlTagRe.FindAllString(a, -1) {
-		ca[strings.ToLower(t)]++
+// sameTagSequence compares markup by ORDER, not by count.
+//
+// A multiset comparison was the first version and it accepts inverted nesting:
+// "<b><i>x</i></b>" and "<b><i>x</b></i>" hold the same tags in the same
+// numbers, and the second is malformed. Tag counts equal is not markup
+// preserved (council round 1, render_guardian seat). Order equality is not a
+// well-formedness proof either, but it is strictly stronger and costs nothing —
+// and any doubt keeps the original sentence, so the strict direction is free.
+func sameTagSequence(a, b string) bool {
+	ta := htmlTagRe.FindAllString(a, -1)
+	tb := htmlTagRe.FindAllString(b, -1)
+	if len(ta) != len(tb) {
+		return false
 	}
-	for _, t := range htmlTagRe.FindAllString(b, -1) {
-		ca[strings.ToLower(t)]--
-	}
-	for _, n := range ca {
-		if n != 0 {
+	for i := range ta {
+		if !strings.EqualFold(ta[i], tb[i]) {
 			return false
 		}
 	}
