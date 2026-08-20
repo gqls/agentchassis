@@ -2413,6 +2413,13 @@ columns, and the table that would hold it (`orchestration_states`) is purged. **
 proposal as a route** — do not spend another session on it expecting a different answer; the control
 was worth running and the answer is no.
 
+> **CORRECTED 2026-08-20 (§23, caught by the peer's §22): the 300 s figure below is DEFINITIONAL and
+> is NOT evidence.** Pre-Part-A, `handleRecoverableError` capped every rv≥1 window at 300 s, so *any*
+> rv3 row necessarily reads 300 s — the same grouping-variable-re-expressed trap this very section
+> names two paragraphs above, and I walked into it while writing the warning. What follows is true
+> and worthless on its own; the non-definitional measurement is the peer's §22 (healthy-child
+> response times) and the conclusion is §23.
+
 **One genuinely new fact fell out, and it sharpens the entry condition.** All 30 errored
 `call_handler`s ran **299.9996 s – 300.48 s** — every one at the 300-second budget, within half a
 second. **The entry condition is a TIMEOUT EXHAUSTION, not an application error.** The child never
@@ -2477,3 +2484,59 @@ and whether a new request is produced — and **it is the peer's active thread (
 **Either way, one thing is now settled and it is worth having:** the bug file's standing line that
 Part A "plausibly makes the entry condition rarer, `[INFERRED]`" can be sharpened in one direction or
 retired in the other, on a measurement rather than a guess.
+
+### 23. The source question §22 handed over, ANSWERED: a retry replays to the SAME child — so reading (b) holds and Part A converts none of the 31
+
+§22 measured what nobody had (healthy-child response times) and stopped at two readings, saying the
+decider was a source question on this path: **does each retry re-produce the request to a FRESH
+child, or re-wait on the ORIGINAL one?** Answered here, at source and in the data.
+
+**At source — `handleRecoverableError` (`coordinator.go:3108`), the non-adapter arm:**
+- `awaited.RetryVersion++`, then `newTimeout := retryWindow(...)` — Part A's fix, replacing the block
+  that capped retries at 5 min and dropped to 3 for steps declaring over 30.
+- `repo.UpdateAwaitedRequestRetry(ctx, requestID, awaited.RetryVersion, awaited.TimeoutAt)` — **the
+  SAME `request_id` row; it writes `retry_version` and `timeout_at` and nothing else.**
+- `payload.ReplayRequest(...)` → sent to **`awaited.RequestsTopic`**, the topic *stored on the awaited
+  row*. A retry is deliberately a **replay of the original bytes** (`bugs_open/129` — it used to
+  synthesise a fresh message carrying the parent's own id). **Neither the target nor the topic is
+  ever recomputed.**
+
+**In the data — the topic is per-child-instance, so "the same topic" means "the same child":**
+
+| check | result |
+|---|---|
+| the 30 rv3/error `call_handler`s | **30 distinct `requests_topic`, 30 distinct `target_agent_id`** — one each |
+| shape | `job.<child8>-<parent8>-page-rerender-process_item_iter_N_spawn_handler.requests` |
+| **control** — healthy `processed` `call_handler`s, 08-17 | **1,387 distinct topics / 1,387 rows** — the per-instance shape is universal, not special to failures |
+
+**⇒ A retry re-sends the original request to the dedicated topic of the child that has already failed
+to answer. There is no fresh child and no fresh clock.**
+
+**That settles it for reading (b), and the premise is now MEASURED rather than asserted:**
+
+| link | evidence |
+|---|---|
+| the rv0 window is **1200 s** | `[MEASURED]` uniform across **1,386** `call_handler` rows on 08-17 (rv1 and rv3 rows read 300 s — the old cap) |
+| the slowest healthy child answers in **971.3 s** | §22, n=3,150; **zero** exceed 1200 s |
+| a retry replays to the **same** child | this section, source + 30/30 |
+
+So a request reaching rv1 has a child that already missed a window **229 s longer than the slowest
+response ever observed**. It is not slow; it is hung or gone. Replaying to its topic — at 300 s or at
+1200 s — cannot convert it. **Part A widens a window that none of these 31 were ever going to use.**
+
+**What this retires, and what it does NOT.** The bug file's standing line that Part A *"plausibly
+makes the entry condition rarer"* `[INFERRED]` should be **retired, not sharpened** — on this
+evidence it makes it rarer for **none** of the observed population. **Part A remains correct and
+worth having:** it fixed a real inversion (the longer a step declared, the less it got), which bites
+any step whose child is genuinely slow rather than dead. It simply is not a fix for *this* entry
+condition, and the bug file should stop implying it might be.
+
+**Where this points instead.** If the children never answered, the question leaves the parent
+entirely: **what happened to 30 `page-rerender` children on 08-17?** §22 notes the GitHub API
+incident that day is still an unpulled thread. That is now the highest-value lead in this lane, and
+it is a different subsystem from every candidate in `PLAN_2026-08-19`.
+
+> **Method note.** My §21 "the entry condition is a 300 s timeout" was **definitional** — pre-Part-A
+> every rv≥1 window was capped at 300 s, so the number could not have come out otherwise. The peer
+> caught it *because* §21 had just named that exact trap in the paragraph above it. Naming a trap in
+> writing does not stop you walking into it four lines later; only someone else reading it does.

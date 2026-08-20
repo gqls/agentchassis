@@ -1416,6 +1416,20 @@ path moved; nothing else did.
 > to 300s — but **nothing about what kills the continuation afterwards has been explained or
 > touched.** `[INFERRED]` on the rarity, `[UNEXPLAINED]` on the mechanism.
 
+> **RETIRED 2026-08-20 — the rarity claim is WRONG, not merely unverified (lane NOTES §22/§23).**
+> Part A widens a window **none of these instances were ever going to use**, so it converts
+> **zero** of the 31 observed. Three measured links: the rv0 window is **1200 s** (uniform over
+> 1,386 `call_handler` rows), the slowest healthy child answers in **971 s** (n=3,150, none over
+> 1200 s), and a retry **replays the original request to the SAME child's dedicated topic** — 30/30
+> distinct per-instance topics, and `handleRecoverableError` recomputes neither target nor topic
+> (`coordinator.go:3108`; `UpdateAwaitedRequestRetry` writes only `retry_version` and `timeout_at`).
+> So a request reaching rv1 has a child that missed a window 229 s longer than any response ever
+> observed: it is **hung or gone, not slow**, and re-sending to its topic cannot convert it.
+> **Part A is still correct and worth having** — it fixed a real inversion for steps whose children
+> are genuinely slow — but it is not a fix for this entry condition and must stop being described as
+> one. `[UNEXPLAINED]` on the mechanism still stands. The lead this opens: **what happened to 30
+> `page-rerender` CHILDREN on 08-17** — a different subsystem from every candidate in the lane plan.
+
 **Diagnosis run on the wedge: authored, seeded, NOT dispatched.** `090`'s coverage check refuses
 on four rows that are all one **`failed`** item from 2026-08-12 (`failed` is not in the clause's
 exclusion list, so a terminal item reads as live coverage — `FORCE=1` is the documented override
