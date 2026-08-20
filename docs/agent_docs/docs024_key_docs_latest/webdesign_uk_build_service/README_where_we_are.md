@@ -1725,3 +1725,43 @@ change to the program itself, so it needs a rebuild rather than a settings chang
 six-week limit on the live link, and the link a customer clicks to tell us they have
 moved their files. None of that exists yet. It is the last big piece before a real
 customer can be taken end to end.
+
+---
+
+## 20 August — the download link cannot be six weeks, and it is already as long as it can be
+
+You asked for the ZIP download link to last the longest time we have, which you thought
+was six weeks. I went to change it and found the answer is no, and that we are already
+at the limit.
+
+The link works by us signing a web address that Backblaze will honour for a set time.
+That signing scheme has a **hard maximum of seven days**. It is not a setting of ours
+and not something Backblaze chose — it is part of how the signature is defined. Our
+current setting is seven days, so it is already the longest a link of that kind can be.
+
+What made this worth checking rather than assuming: **nothing would have stopped me
+setting it to six weeks.** Our code would have signed it happily, the job would have
+reported success, and the record would have said six weeks. It would only have broken
+when a customer clicked it — and the error Backblaze gives back is "signature does not
+match", which reads like our credentials have gone wrong. So the next person to look at
+it would have spent their time on the one thing that was working fine.
+
+I measured it rather than trusting my reading. Seven days exactly: accepted. Seven days
+**plus one second**: refused. Six weeks: refused. I have written that up in the fleet's
+landmines file, because every one of our five download links is sitting exactly on that
+limit and the next person to raise one will get no warning at all.
+
+**So I have not changed it, and I have not quietly picked a different number either.**
+Your instruction was clear and it is the code that cannot comply.
+
+**There is a way to get what you actually asked for**, and it is work we need to do
+anyway. Instead of emailing the customer the signed Backblaze address, we email them a
+link of *ours*. When they click it, we sign a fresh seven-day address behind the scenes
+and send them straight on to the file. The customer never sees the seven days, and the
+link lasts exactly as long as we decide — six weeks, or however long we are hosting
+their site. It also means the six-week figure lives in one place rather than two.
+
+The reason this is not extra work: the handover machinery already needs a clickable
+link with a token in it, for the customer to confirm they have moved their files. It is
+the same mechanism. So both get built together, and the download link stops being a
+number we have to remember.
