@@ -1,6 +1,6 @@
 # RFC_040 — a migration cannot ask the binary what it can do, so every config-ahead-of-binary interlock on this estate is enforced by prose
 
-**Status: DRAFT** · raised 2026-08-19 by the `bugfix_299_cta_dials_phone` lane
+**Status: RATIFIED (owner, 2026-08-20) — SCOPED TO STAGE 1-2 ONLY** · raised 2026-08-19 by the `bugfix_299_cta_dials_phone` lane
 · motivating cases `bugs_open/299` (slug
 `home_page_cta_names_the_brief_starter_tool_and_dials_the_phone_instead`) and
 `bugs_open/312` · prompted by a **medium-severity council objection** on this
@@ -10,6 +10,40 @@ lane's own approved submission (corr `1f1fecc9`, `bug_historian` seat).
 > unrelated skipped-render-audit case.
 
 ---
+
+## 0. The owner's ruling (2026-08-20) — what is authorised, and what is NOT
+
+**Ratified: the problem is real and the small half gets built.** The owner's decision, in his
+words, was to "build as you suggest", against a recommendation that was explicitly narrower
+than this RFC's full design:
+
+> *"Agree the problem is real, and build only the small half — have each service write down what
+> it can do when it starts. That alone ends 'I cannot find out what is running', costs little,
+> and changes no behaviour. The part where a configuration change refuses to apply itself can
+> wait until something else wants it; building a contract for a single user is how mechanisms
+> rot unused."*
+
+So the authorised scope is **§5 stages 1 and 2 only**: the table, and services writing to it at
+startup. Concretely:
+
+- ✅ **IN SCOPE:** `service_binary_capabilities`, the startup write, and a read path a human or
+  a script can query. This is inert — nothing's behaviour changes, and nothing depends on it.
+- ⛔ **NOT AUTHORISED YET:** `assert_live_capability()` (§2.2) and any migration calling it
+  (§2.3, §5.3). **Do not build the assertion function as part of this work**, even though it is
+  small and tempting and this RFC argues for it. It waits for a second caller.
+
+**The reason that boundary is load-bearing, not bureaucratic.** A fail-closed assertion helper
+with exactly one caller is a mechanism nobody exercises — and this estate has been bitten by
+precisely that before (it is why the 2026-07-29 ruling declined to *require* default-OFF
+switches: "its cost is a mechanism rotting unexercised"). The honest sequencing is: make the
+fact durable first, let people query it by hand for a while, and let the second real demand
+tell us what shape the assertion should be. **A future author who adds the helper should be
+able to name two migrations that want it.**
+
+**What this means for the acceptance evidence in §7:** items 1 and 3 (rows per live pod with a
+negative control; the stale-row proof) are in scope and owed. Item 2 (induced-fault results for
+the helper) and item 4 (count of migrations carrying a mechanical assertion) are **deferred with
+the helper** — do not report them as gaps of this work.
 
 ## 1. Problem + evidence
 
