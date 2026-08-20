@@ -416,3 +416,49 @@ the code involved cannot run at all until the held configuration is applied, and
 **Where that leaves you:** the position is unchanged from this evening — one more build, then the held
 migration. The only difference is that the fix inside that build has now been through review and
 come out the other side.
+
+## 2026-08-20, early morning — it is switched on
+
+**Your build did it.** `v1.0.1317` carries the corrected, reviewed version, and I have switched the
+new checking on for all three places that mark a page as deployed.
+
+I want to be precise about how I checked, because the version number proves nothing on its own.
+The deployment service prints the exact code revision it was built from when it starts, and the fix
+is behind that. For the main chassis that line had already scrolled out of reach, so I searched the
+running program for two function names instead — one that exists only in the corrected version, and
+one that exists only in work I have *not* shipped yet. The first was present, the second absent. A
+check that can only ever say "yes" is worth nothing; this one could have said no, and didn't.
+
+Two of my own checks along the way were worthless and I threw them out: my first "this should be
+absent" comparison used a commit that turned out to predate the build, and the second compared the
+build against itself. Recorded, because a bad control is worse than no control — it manufactures
+confidence.
+
+**The switch-on is confirmed in the live configuration**: all three agents now name the right field,
+and they are genuinely three different names — one of them would have been missed entirely by the
+obvious approach of hard-coding a single name.
+
+**One instruction of mine was wrong and is now fixed.** I had told whoever applied the held migration
+to register it with the migration tool afterwards. The tool refuses — held files are deliberately
+outside its remit. Harmless, but the instruction has to be right, so both the file and the runbook
+now say to record it in the working notes instead, which is what I did.
+
+## What is not yet proven, and I would rather say so
+
+**The fingerprint count is still zero, and that is because nothing has run.** No page has been
+rebuilt since three o'clock yesterday afternoon, so the new code has not been exercised once. A zero
+with no traffic behind it is exactly the kind of green light this whole bug is about — I am not going
+to report it as a pass.
+
+I have a watcher running, and the fleet rebuilt thirty-one pages yesterday afternoon, so ordinary
+traffic should answer this within hours rather than days.
+
+**I could force it, and chose not to without asking you.** The documented tool for rebuilding a single
+page regenerates that page's content from source rather than re-publishing what is already stored —
+so it is not guaranteed to leave the page identical. Every page I could point it at belongs to another
+lane's live customer site. Testing my fix by risking their page is not a trade I will make on my own
+initiative. If you would like it proven now rather than on the next natural rebuild, say so and I will
+do it — ideally on a page you are happy to have rebuilt.
+
+**When it does fire**, I have written down in the notes what each of the three possible outcomes would
+mean, so whoever sees it first — me or another session — reads it the same way.
