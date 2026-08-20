@@ -167,3 +167,72 @@ an instance appears.
 
 Either answer is defensible on today's evidence. What is not defensible is a third round of
 "recorded, not actioned" — which is how this file came to exist.
+
+---
+
+## 8. Round 2 outcome, and two corrections the round forced [added 2026-08-20 17:44Z]
+
+Council correlation `bc2f4b0e-45db-49c8-9f45-6af74a344cce` round 2 returned **APPROVED — "all
+reviewers approve"** at 17:40:03Z, 13 seats, none gating. The `guardian` withdrew its round-1
+objection outright (0 objections) once the two checks it named were supplied, and both
+`bug_historian` and `reuse_agent` — the seats whose objections produced this file — approved with
+none. Two advisory objections remained, and **both were right, so both were checked. One confirmed a
+claim in this RFC and one refuted a claim in the handoff that sent me here.**
+
+### 8.1 `prior_art_librarian` was right to demand it, and the absence HOLDS — now verified
+
+> `prior_art_librarian [medium]`: "Round 2 prose asserts `cmd/config-key-audit` has 'twelve modes'
+> and that ... no existing mode scans handler bodies for `config[...]` reads. This is exactly the
+> asserted-absence shape this seat exists to catch ... The rationale gives the mode names but not a
+> check that none of them walk handler source for reads."
+
+Fair, and the check is cheap. It was run rather than argued:
+
+```bash
+grep -ln "go/ast\|go/parser\|go/token\|packages.Load" cmd/config-key-audit/*.go   # no matches
+grep -n 'ReadFile\|filepath.Walk\|\.go"' cmd/config-key-audit/*.go | grep -v _test
+#   optionalbudget.go:90   -> os.ReadFile(path)   the ACKS file (JSON)
+#   sharedoutputs.go:270   -> os.ReadFile(path)   the ACK LIST (text, one key per line)
+```
+
+**No Go parser is imported anywhere in the package, no `.go` path is walked, and the only two file
+reads are acknowledgement files.** So the asserted absence is now a measured one: **§5's claim
+stands.**
+
+### 8.2 …but it REFUTES the premise this RFC inherited — the source-scanning machinery is NOT there
+
+`bugs_open/336`'s handoff justified routing the work here with *"A fleet-wide read-vs-declared mode
+belongs in that tool, **where the source-scanning machinery lives**"*, and §5 above was written in
+that spirit. **That premise is false.** `cmd/config-key-audit` scans the FLEET DATABASE
+(`agent_definitions`) and reads the live spec registry by importing the actions package; it has never
+read a line of Go source. The same check that vindicated §5's absence claim disproves this one — a
+package with no parser import cannot be where the source-scanning machinery lives.
+
+**What this changes:** option 1 in §5 is somewhat more expensive than implied, because the mode would
+introduce the package's FIRST source-reading capability rather than extend an existing one. It does
+not change where the mode belongs — the declared half, the fleet plumbing, the twelve-mode CLI and
+the daily CronJob wiring are all still here, and `reuse_agent`'s argument is unaffected. It does mean
+whoever builds it should not expect to find a scanner to copy.
+
+**Where the working prototype actually is:**
+`platform/orchestration/actions/update_page_status_config_contract_test.go` (Test 3). It is a better
+starting point than §5's sketch suggested, and it already solves two problems the sketch did not
+mention: it strips comment lines, so a key *discussed in prose* in a file that documents its own keys
+at length cannot be mistaken for an access; and it skips framework-injected keys through the exported
+`datahelpers.IsFrameworkStepConfigKey` — which is the helper a fleet-wide mode needs and which
+already exists. It also carries two `t.Fatal` guards whose only job is to stop a broken scan passing
+silently ("found no config accesses … the scan is broken, and a broken scan passes silently"), which
+is the failure mode any fleet-wide version will have at 173× the scale.
+
+### 8.3 A correction about this RFC's own submission, recorded because it is the same class
+
+`editquality [low]` objected that Test 3's sketch depended on `specHasKey`, `handlerBody` and
+`configReads`, "not defined in this file and not shown to exist elsewhere". **The seat was right and
+the fault was mine, in the sketch, not in the code**: `specHasKey` exists, `handlerBody` and
+`configReads` **do not** — I reconstructed the sketch from the test's header comment instead of
+pasting its body, and invented two plausible helper names. The shipped test does the scan inline and
+passes. The runbook's standing warning is *"on a resubmit, update the sketch fields — reviewers judge
+the sketch; it is the only view of your code they get"*; I updated them and still put fiction in one.
+An approved verdict resting partly on a sketch that names functions which do not exist is worth
+recording next to an RFC whose whole subject is a declaration that did not match the code it
+described.
