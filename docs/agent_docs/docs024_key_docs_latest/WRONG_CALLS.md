@@ -39900,3 +39900,62 @@ call it.**
 earlier one delayed a finding; this one would have redirected the successor bug's primary hypothesis.
 All five were caught by the other session. In each case the author had the rule written nearby or the
 refuting value in their own output.
+
+## 2026-08-20 — I won a council APPROVAL partly on a justification that was FALSE, and the mechanism's own first-ever output is what disproved it (bugfix 238 lane)
+
+**Asserted**, to the council's `reuse_agent` seat at round 2, answering its (correct) objection that
+I had not checked overlap with the existing dead/placeholder-URL detectors:
+
+> *"`check_image_url_404.go` contains ZERO references to `href` or `<a` — it is `<img>`-only. So the
+> vanished-ANCHOR class (238 lost five card links and a section CTA that rendered as nothing at all)
+> has **NO other detector** on this estate. That is the non-overlapping half and **it is the larger
+> one**."*
+
+The verdict came back APPROVED. That sentence is wrong twice, and it was load-bearing in the answer.
+
+**Wrong (a): `href=""` IS already covered, by a detector I never looked for.**
+`empty_internal_href` — produced by `validate_page_content.go:909` and
+`discovery_checks/check_phantom_internal_links.go` — fires on exactly that shape.
+`datahelpers/links.go:133` states the division explicitly: *"`href=""` is NOT included [in
+`IsNoopHref`] — the empty class belongs to `phantom_internal_links` (`empty_internal_href`)"*. I
+grepped the ONE file the seat named and generalised to "the estate". **The seat asked me to check
+for overlap and I checked for overlap in one place.**
+
+**Wrong (b), and worse: the class I claimed as the non-overlapping half is not covered by my own
+change either.** A `{{if .cardN_link_url}}`-gated anchor renders *nothing* — no element, no empty
+attribute. `missingBareFields` walks root-scope actions only, so a gated field never appears in its
+report. I had **documented that limitation correctly in three other places** (the migration header,
+the bug file, the `doc_notes` row: *"gated fields are NOT covered by this and cannot be"*) and then
+offered the same class to the council as the change's unique contribution. Two true statements I
+wrote myself, contradicting each other, three days apart in the same session.
+
+**What caught it:** the queue, incidentally. Checking for conflicting work before dispatching the
+demand control, I saw
+`empty_internal_href:page_component:index:case-studies-grid:` — on the exact component, dated
+2026-07-24, parked ever since. I was looking for dispatch conflicts, not auditing my own claim.
+
+**Then the mechanism disproved it in public.** The first `dead_url_control` item ever filed
+(2026-08-20 17:21, aao `/index`) names **five** fields —
+`card1..5_image_url`, the ungated `src=` ones — and **not one** of the six gated `*_link_url`
+fields. The output of the thing I was defending is the cleanest possible refutation of the defence.
+
+**The cheap check that would have caught it:** grep the ITEM TYPE space, not the file the objector
+named — `grep -rn "ItemType:" discovery_checks/ | sort` is one command and enumerates every
+detector's subject. And when answering "does anything else cover this?", the honest form of the
+answer names *what my change covers* first, because the overlap question is a set comparison and I
+only computed one side.
+
+**What actually justifies the change**, stated correctly so the record is not left resting on the
+false version: it is **not** a class nobody else covers. It is (1) that it names the **schema
+field**, which an HTML-scanning detector structurally cannot — the item says `card3_image_url`,
+where `image_url_404` can only say "an img has no src"; (2) that it fires **synchronously at
+render** while the others are async discovery checks, and the discovery rotations are paused on cost
+(`bugs_open/230`); and (3) that its key carries **page+slot**, where `image_url_404:empty-src` is
+site-wide and one `blocked` row jams a whole site. Those three are real and measured. The fourth
+reason I gave was not.
+
+**Generalises to:** an objection of the form "did you check X?" is answered by checking the
+**category**, not the exemplar. A seat names one file because it is naming a *kind*; treating the
+example as the extent of the question is how a real objection gets a narrow answer that reads as
+complete. And: **when you have written down a limitation of your own change, grep your own
+submission for the class it excludes before claiming that class as a benefit.**

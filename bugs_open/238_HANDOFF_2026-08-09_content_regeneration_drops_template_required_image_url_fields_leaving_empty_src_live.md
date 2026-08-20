@@ -701,3 +701,63 @@ divergence warning. The merge cannot lose a KEY — that is structural — but t
 claim as "cannot overwrite hand-edited markup". **Owner's call.** Check first whether ordinary
 traffic has already done it: `SELECT count(*), max(created_at) FROM site_work_items WHERE
 item_type='dead_url_control';`
+
+### 11.10 — 2026-08-20, owner-authorised: the demand control RAN, the emit FIRED, and its first output disproved the justification I gave the council
+
+**Owner authorisation** (2026-08-20): *"Re run ai-agent-orchestration home page if you like because
+there shouldn't be any hand patches so it is ok to overwrite them."* The hand-patch check was run
+anyway, because it is a twenty-second read and it either confirms the expectation or surfaces
+something worth knowing: **all 8 deployed sections stamp machine-made** (`rendered_html_digest =
+md5(rendered_html)`). Expectation confirmed. Dispatch pre-checks also clear: 6 open items on the
+page, all parked at `needs_human_review`, none dispatchable; chassis pods 70 minutes old (past the
+~300s post-restart window in which a spawn is silently dropped).
+
+**THE EMIT FIRED. This is the first `dead_url_control` item in the platform's history** (the count
+was 0 for all time before it):
+
+```
+key      dead_url_control:index:case-studies-grid:card1_image_url,card2_image_url,card3_image_url,card4_image_url,card5_image_url
+status   needs_human_review     handler  (none — by design)
+refused  false                  (record-only on the re-render path, as designed)
+summary  Dead URL control on index/case-studies-grid: no destination for card1..card5_image_url — recorded (the section still rendered)
+```
+
+So PBP-040 is now verified **at the artefact**, not merely at the config and the code path. Item
+`page_rerender:238-demand-control:index` reached `complete` on its first attempt.
+
+**The page was not harmed, and the one change is instructive.** Served bytes 64,139 → 64,184;
+empty `src` **5 → 5**; `csg-card-link` anchors **0 → 0** — exactly as predicted, because the
+declared sources still resolve to nothing (§11.4). The entire 45-byte delta is **another lane's
+Open Graph improvement** arriving for free: two empty `og:title`/`og:description` tags and a
+duplicate set were replaced by one correct per-page set (SEO-005). A live instance of *"a stale page
+holds every improvement since it rendered"* — this page had not been re-rendered since before that
+mechanism landed.
+
+**⚠ AND THE ITEM DISPROVED MY OWN COUNCIL ARGUMENT.** It names **five** fields — the ungated `src=`
+ones — and **not one** of the six gated `*_link_url` fields. At round 2 I had told the
+`reuse_agent` seat that *"the vanished-ANCHOR class has NO other detector on this estate — that is
+the non-overlapping half and it is the larger one"*. Wrong twice:
+
+- **`href=""` is already covered** by `empty_internal_href` (`validate_page_content.go:909`,
+  `discovery_checks/check_phantom_internal_links.go`; `datahelpers/links.go:133` states the division
+  explicitly). I grepped the one file the seat named and generalised to the estate. The live proof
+  is on this very component: `empty_internal_href:page_component:index:case-studies-grid:`, dated
+  **2026-07-24**, parked ever since.
+- **The gated class is not covered by `dead_url_control` either** — and I had already written that
+  down correctly in the migration header, in §11.2 and in the `doc_notes` row, before offering the
+  same class to the council as the change's unique contribution.
+
+**What actually justifies the arming** (three reasons, all measured, recorded so the file does not
+rest on the false one): it names the **schema field**, which an HTML-scanning detector structurally
+cannot — this item says `card3_image_url` where `image_url_404` can only say "an img has no src";
+it fires **synchronously at render** while the others are async discovery checks whose rotations are
+paused on cost; and its key carries **page+slot**, where `image_url_404:empty-src` is site-wide and
+one `blocked` row jams a site. Correction filed in `WRONG_CALLS.md` and appended to the `doc_notes`
+decision row (2 rows now under that `subject_key`, the second being the correction).
+
+**Consequence for the detector picture, corrected:** this class now has **three** producers on the
+ungated symptom (`image_url_404` for `<img>`, `empty_internal_href` for `<a>`, `dead_url_control`
+for both, field-named and synchronous) and still **none** for the gated/vanished class. That is the
+honest residual and it is unchanged by today's work — with the added point, which the
+`reuse_agent` seat's instinct was right about even though my answer was wrong, that a fourth
+producer in this space would need consolidating rather than adding.
