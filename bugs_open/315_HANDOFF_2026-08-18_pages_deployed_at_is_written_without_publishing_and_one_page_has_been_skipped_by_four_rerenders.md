@@ -326,3 +326,42 @@ platform exposes** — same item status, same orchestration outcome, same `deplo
 `success: true` from the adapter, same unmoved `last-modified`. **The defect is not that pages fail
 to publish; it is that nothing can tell those two apart.** Which is why candidate 1 is load-bearing
 and candidate 4 is worthless without it.
+
+## CONTRIBUTION 2026-08-20 (from the `bugfix_311_component_keys` lane) — the INVERSE case: published WITHOUT the stamp, and the rebuild flag left set
+
+Found while chasing something else, and offered here rather than filed as a new number because it
+is this file's defect class from the other side: **`pages`' status columns do not track the artefact
+in either direction.** §2 records `deployed_at` stamped when nothing was written. This is the
+opposite — the object WAS rewritten and the columns never moved.
+
+**The case** [MEASURED 2026-08-20 15:28Z], and it is your own page:
+`webdesign.co.uk` / `tool-ab-test-calculator`.
+
+- `page_rerender` item `ad2a2dc4-4fbb-489f-9b74-bcd00e6f09ff`, handler **`page-rerender`**,
+  `created_by='rerender-pages'`, **`status='complete'`** at 2026-08-19 21:36:17Z.
+- The page **is** serving the rebuilt tool: 200, 16,172 bytes, **5 `<input>`**, and the markup is
+  discriminated to the natively rebuilt component `8a315006` (its `a-visitors`/`b-visitors` ids
+  appear in that row's `rendered_html` and in **neither** of the two `removed` slots — `id="verdict"`
+  alone would not have told them apart, since the ported original carries it too).
+- And yet: **`pages.build_status = 'needs_rebuild'`** and **`pages.deployed_at = 2026-08-14
+  22:10:57`** — six days stale, through a successful republish.
+
+**Why it matters to your §2 argument, and it strengthens it:** `deployed_at` is not merely
+*optimistic*, it is **uncorrelated** — it can be fresh when nothing was written (§2) and stale when
+something was. A reader cannot use it in either direction, and neither can a checker.
+
+**The discriminator that makes it actionable:** the two rebuild paths behave differently.
+Items filed at **`page-build-handler`** DO maintain the columns — five such items on `loanzy.uk`
+this morning all flipped `build_status` to `deployed` with a fresh `deployed_at`. Items handled by
+**`page-rerender`** apparently do not. If that holds beyond this one page, then "which handler
+touched it last" predicts whether the row can be trusted, which is a cheaper fix surface than
+auditing every writer. **Stated as a lead, not a finding — it rests on one page each way**, and the
+census that would settle it is a comparison of `pages.updated_at` / `deployed_at` movement against
+completed items grouped by `handler_agent`.
+
+**One knock-on for anyone reading `build_status` as evidence:** a `needs_rebuild` row has **at least
+four possible authors** (`refuseDeployStampOnSkip`, `UpdatePageStatusAction`'s shortfall arm,
+`check_unresolved_sections`, `flagPagesForRebuild`) and **no attribution column**; a `090` run on
+2026-08-20 (`e9555fad-5b25-46bc-9908-f40db98e16a4`) returned **UNVERIFIABLE** partly for that
+reason, having found **zero** `agent_error_log` rows for three shortfall pages. So "the page is
+flagged for rebuild" tells you neither who flagged it nor whether it has since been rebuilt.

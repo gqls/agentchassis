@@ -796,3 +796,55 @@ so a fresh item is insertable the moment the halt lifts.
 **Next: `090`, not a bug file.** The claim above is structural (a refusal path that converges
 nowhere) and CLAUDE.md's default applies — and this session has already been wrong twice today
 asserting things about this exact code path. Filing it after a verdict, not before.
+
+## 2026-08-20 15:30Z — `090` verdict: **UNVERIFIABLE (stopped: scope-not-narrowing)** — and it is worth more than a CONFIRMED would have been, because it named a discriminator I skipped
+
+Run `e9555fad-5b25-46bc-9908-f40db98e16a4`, five evidence bundles over five iterations, item
+`e0e0d7cb` complete. Verdict **UNVERIFIABLE**, *"Hand to a human with the full trail; do NOT
+auto-conclude."* It cited `pageSectionShortfall`'s counting query and `UpdatePageStatusAction`'s
+`} else if rendered < planned {` arm at Tier 0 — so the arm exists, as I read it — and then listed
+three gaps. **Two of them land on claims I made in §"14:45Z" of this file an hour ago.**
+
+> ### ⚠ CORRECTION to my own 14:45Z entry, within the hour
+>
+> **(a) "The gate FIRED and was RIGHT" on `remortgagecalculator.uk` is NOT established — it is an
+> attribution I had no evidence for.** The loop's objection: *"the two guards write identical page
+> rows, so the state alone is 'consistent with' the hypothesis, not direct confirmation of which
+> guard fired"* — it looked for `agent_error_log` rows to attribute three shortfall pages and got
+> **zero**. `refuseDeployStampOnSkip` (`page_build_failure_guard.go`), the shortfall arm,
+> `check_unresolved_sections`, and `flagPagesForRebuild` (`maintenance_actions.go`) all leave the
+> same `build_status='needs_rebuild'` row. I inferred the shortfall arm because planned(6) >
+> rendered(5) — suggestive, and not proof. **`needs_rebuild` + cleared stamp is a row with at least
+> four possible authors and no attribution column.**
+>
+> **(b) "`needs_rebuild` has no consumer" is REFUTED by a case that was in my own output this
+> morning.** The loop noticed repeated `page_rerender` completions on `tool-ab-test-calculator`
+> while `build_status` stayed `needs_rebuild`. Checked [15:28Z]: that page's rerender item
+> `ad2a2dc4` is **`complete`**, handler **`page-rerender`** (not `page-build-handler`), and the page
+> **does serve the new forked calculator** (5 `<input>`, graded at 08:15Z) — while
+> `build_status='needs_rebuild'` and `deployed_at` is still **2026-08-14 22:10:57**. So the page WAS
+> reprocessed and republished; the flag simply was never cleared. Contrast today's five loanzy
+> repairs, filed at `page-build-handler`, which all flipped to `deployed` with a fresh `deployed_at`.
+> **Two rebuild paths, only one of which maintains the status columns.** I had this page's
+> `needs_rebuild`-while-serving in front of me at 09:05Z and read straight past it.
+
+**What still stands, because it is an artefact fact and not an inference:**
+`remortgagecalculator.uk/index.html` serves 200 / 40,726 bytes / **0 `<input>`**; its planned
+`mortgages-repayment` section has no `page_components` row; and 311's fix now makes that section
+creatable. Everything about *why* the page is in that state is unestablished.
+
+**Consequences, and they are the useful output of the run:**
+1. **Candidate 3 stays OPEN and UNFILED**, with a sharper next step than the one I wrote at 14:45Z:
+   the missing piece is **attribution**, not observation. Either the guards must log distinguishably
+   (`refuseDeployStampOnSkip` already writes an `agent_error_log` row; the shortfall arm appears not
+   to), or a filer must catch one in the act. The loop's own "still needed" list also asks for
+   `sites.deploy_config` / `published_hash` / `published_at`, since nothing in the bundle can even
+   see the deploy bucket — **the "does the refusal retract the published file" half is not
+   answerable from the Go code at all.**
+2. **The status-column half belongs to `bugs_open/315`'s family, not to a new bug.** 315 is
+   "`deployed_at` stamped WITHOUT publishing"; this is the inverse — **published without the stamp,
+   and the flag left set.** Same defect class (the `pages` status columns do not track the
+   artefact in either direction), different direction. Contributed there rather than filed here.
+3. **A `090` that comes back UNVERIFIABLE is not a wasted run.** It cost one dispatch and it killed
+   two of my claims — one of which I had already committed to a bug file. That is the cheapest
+   place for those to die.
