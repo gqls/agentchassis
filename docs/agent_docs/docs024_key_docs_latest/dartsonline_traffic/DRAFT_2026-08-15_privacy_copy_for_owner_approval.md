@@ -56,6 +56,28 @@ draft — flagging it because the owner's stated goal is the application.**
 
 ---
 
+> **CORRECTED 2026-08-20 — the last sentence of "Affiliate links" has been REMOVED at the
+> owner's instruction, and this is the copy that ships.** It read: *"This never changes what
+> we recommend: our guides are written on specifications and how equipment behaves, and a
+> product does not appear here because it pays better."* The owner's reason: it leads the
+> reader away from the product and its benefits, and into legalese and unhelpful detail.
+> Two things are worth recording next to it, because the change was not purely editorial.
+>
+> The framework had already REFUSED to build the page on that exact sentence
+> `[MEASURED 2026-08-17]`. `validate_page_content` returned one blocker — banned claim
+> `"does not appear here"`, a fleet-wide *completeness-of-exclusion* pattern
+> (`platform/orchestration/datahelpers/claims_global.go:130`) that exists to stop
+> unverifiable claims of the form "nothing unsourced appears here". The sentence meant
+> something honest and different — affiliate independence — but matched the shape, and the
+> work item sat parked at `needs_human_review` from 2026-08-17 12:24 until this correction.
+>
+> So the machine and the owner reached the same verdict from opposite directions, and the
+> owner's is the one recorded here: the sentence is not reworded, it is gone. **What
+> remains is the disclosure itself** — that links may be affiliate links, that we may earn
+> a commission at no extra cost, and that the retailer may set its own cookie. That is the
+> part a reader and a regulator need; the promise about editorial independence was the part
+> that read as legalese.
+
 ## The draft copy
 
 > **Privacy and Cookies**
@@ -96,9 +118,7 @@ draft — flagging it because the owner's stated goal is the application.**
 >
 > Some links to retailers on this site may be affiliate links. If you follow one and buy
 > something, we may earn a commission from that retailer at no extra cost to you. The
-> retailer may set its own cookie to record that the visit came from us. This never changes
-> what we recommend: our guides are written on specifications and how equipment behaves, and
-> a product does not appear here because it pays better.
+> retailer may set its own cookie to record that the visit came from us.
 >
 > **Your rights**
 >
