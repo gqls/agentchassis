@@ -1,3 +1,9 @@
+> **⚠ SUPERSEDED 2026-08-20 by `HANDOFF_2026-08-20_continue_here.md`** (same directory).
+> Its §1 is CLOSED — the last turnaround rebuild landed 2026-08-19 16:21:39Z and the
+> next-day ban is armed. Its `round of changes` question was RULED (narrow it), and so
+> was the £200 domain question (domain only; the customer transfers it; `no_presales_service`
+> stays absolute). Read the newer file; this one is kept for the trail.
+
 # HANDOFF 2026-08-19 — MERGED cold-start: webdesign.uk build service + site delivery (Phase 4 next)
 
 **SUPERSEDES** `HANDOFF_2026-08-18b_continue_here.md` (this lane) **and**
