@@ -13050,3 +13050,55 @@ and be permanently stopped, because a handler that marks failure via
 only takes `triaged`/`approved` (`claim_work_item_action.go:97-105`) — so "attempts remaining" in
 the row is not a queue position. Both halves of this entry were found while repairing `311`'s
 residual, one from the errors and one from reading the handler's own step config.
+
+### An opt-in whose effect depends on a DIFFERENT step marking the object is unreachable for whatever that step cannot see — and the mechanism's own dark-launch counter inherits the same blindness (2026-08-20, `bugs_open/215` same-name identity)
+
+- **the shape:** feature F is gated by a per-site (or per-tenant) switch, and F acts only on
+  objects some *earlier* step has marked. The switch is documented, the population is
+  measured, the switch is turned on — and nothing happens, for the subset the marking step
+  never reaches. **The gate is not the reachability condition. The marker is.** Turning the
+  switch on tells you nothing about whether any object can arrive marked.
+- **why it survives review, and it survived nine days here:** every artefact reads healthy.
+  The switch is present and true in config; the code is provably compiled into the running
+  binary; the flag's own reader is correct and well tested; the docs describe exactly what F
+  does *when it fires*. Nothing anywhere states the condition under which it cannot fire at
+  all. Five council seats had reviewed the mechanism and none asked.
+- **the killer, and this is the part to carry:** the *counters built to measure the
+  mechanism sit downstream of the same marking step*, so the unreachable population is
+  invisible to the instrument. Worked case: the marking step's shared eligibility guard
+  declined a candidate **before** any observation was recorded, so a live run that created
+  19 phantom rows moved all three dark-launch counters by zero. A reader checking "has this
+  ever fired / is there a problem here?" got the strongest possible clean signal, pointing
+  exactly the wrong way. **A zero from a counter that shares a predicate with the thing it
+  measures is not evidence of absence — it is no evidence at all.**
+- **the tell:** an enabled feature with no effect, and a metric that has never been non-zero
+  since it shipped, *and a demand control that says the work DID run*. Two of the three is
+  ordinary (nothing has happened yet); all three together means the instrument is blind, not
+  the population empty. The demand control is what separates them, and it is the check most
+  often skipped — here it was `max(created_at)` on the plan table plus "did that site have
+  pages predating its plan".
+- **the check, before you conclude a flag is broken or a population is empty:**
+  1. **Enumerate the routes that produce the marker**, by symbol, and for each one say what
+     it *cannot* reach. Grep for writes of the marker key, not for readers of the flag —
+     the readers are the half that works.
+  2. **Ask whether the counter is upstream or downstream of the marking decision.** If the
+     guard that declines your case runs before the record is written, the counter cannot see
+     your case. Read the ordering in the function, not the counter's name.
+  3. **Take the disconfirming case to the code, not to the metric**: pick one object you
+     know is in the unreachable subset and trace it by hand to the field the consumer reads.
+  4. **Mutate each guard on the path SEPARATELY** before believing any "this clause is what
+     declines it" attribution — redundant guards in series read exactly like load-bearing
+     ones (see the existing entry on a passing mutation test), and here the clause a
+     write-up had indicted by name turned out to be inert, which made the remedy it proposed
+     inert too.
+- **the fix shape:** add the missing marking route at the step that already owns marking —
+  not at the consumer, and not by relaxing the guard that declined you (it was probably
+  right; a same-name candidate really is not a twin). Then document the *reachability*
+  condition where the flag is documented, because "what it does when it fires" is the half
+  every reader already has.
+- **generalises past this seam.** Any two-part mechanism where part A classifies and part B
+  acts on the classification: `needs_rebuild`-style queues whose producer never files the
+  member, verdict keys with no writer for one branch, allow-lists consulted only on a path
+  some inputs skip. The question to ask of any gated feature is not *"is it on?"* but
+  *"what has to happen upstream for it to have anything to act on, and what does that step
+  refuse?"*
