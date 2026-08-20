@@ -395,3 +395,62 @@ discovery run COMPLETED with the new check firing 6 true findings. Nothing of mi
 uncommitted, and no Go change of mine needs a build — the binary half was already committed by
 the 08-18 session and is already live on v1.0.1316, so **the next chassis build is not a
 prerequisite for anything in this lane.**
+
+## 2026-08-20 — 477 APPLIED on the owner's decision; 312 is FIXED and PROVEN LIVE
+
+**Owner decisions received 2026-08-20:** (1) apply 477 with leopardess watched; (2) the phone
+button was **NOT intentional**, but may be used to verify the fix; (3) `+44 7934 524 911`
+CONFIRMED ⇒ `tel:+447934524911`; (4) build RFC_040's small half as recommended.
+
+**Precondition re-verified against the CURRENT build, and this mattered.** The fleet had rolled
+again — **v1.0.1317**, pods `c7d6d875b-*` started 2026-08-19 22:26Z — which invalidates
+yesterday's verification against v1.0.1316. Re-probed both new pods: `storedCTADestinationIsAuthored`,
+`IsAuthoredNonPageCTADestination`, `NormalizeTelHref`, `cta_nonpage_destination` all PRESENT,
+control `cta_nonpage_destination_NOTREAL` absent. **A roll is a reason to re-run the probe, not
+to reuse the answer** — the capability question is about the artefact now running.
+
+**477 applied 2026-08-20 07:17:41Z**, pre-gate matched exactly 1 row, post-state verified,
+snapshot `5946a27b`, recorded in `schema_migrations` via `--record-only` (the pending set is
+still full of other lanes' files, so `--apply` remains unavailable).
+
+### The result, with the before/after the whole lane was built to produce
+
+Same control, split on the apply timestamp:
+
+| | runs | resolver minted `*_target_title` | SURVIVED to render | DISCARDED | byte-identical |
+|---|---|---|---|---|---|
+| **before 477** | 41 | 33 | **0** | **33** | 8 |
+| **after 477** | 4 | 4 | **4** | **0** | 4 |
+
+**0 of 33 → 4 of 4, and all four post-477 runs are byte-identical between what the resolver
+computed and what the render consumed.** `bugs_open/312` is fixed and proven at the artefact.
+Visible downstream too: the four pages built since carry `*_target_title` VALUES in their
+stored `content_data` for the first time (e.g. `tool-diff-checker-guide/hero` →
+"Visual Code Diff Checker | webdesign.co.uk") — the datum the writer was told to consult and
+could never see (measured 0 of 182 prompts on 08-18) now exists on the page row.
+
+### The canary, honestly: armed and NOT yet satisfied
+
+The four post-477 builds were all `webdesign.co.uk` tool-guide pages, and **that site carries
+zero authored contact/tel CTAs** (censused: webdesign.uk 10, leopardess 7,
+ai-agent-orchestration 5, gaswholesalers 3, fundamentallyai 1, robot-hands 1, webdesign.co.uk
+**0**). So they exercised the resolver→render path but **not the keep branches**. The clobber
+question is not yet answered by a post-477 observation.
+
+**I did not force one, and the reason is worth recording:** the `page-rebuild` route selects on
+`build_status='needs_rebuild'`, and leopardess already has **11** pages sitting in that state
+from another lane's queue — firing it would have rebuilt all 11 live client pages (22+ LLM
+calls) instead of one canary. A canary that triggers someone else's queued work is not a canary.
+
+**What IS already established about the keeps, on production data:** the last real build of
+webdesign.uk `index` (2026-08-19 10:12, pre-477) shows the resolver's own output as
+`primary_cta_url = /contact.html` and `secondary_cta_url = tel:+447934524911` with
+`secondary_cta_target_title = "a phone call to +44 (0) 7934 524 911"`. The stored value was the
+**unnormalised** `tel:+44 (0) 7934 524 911`, so KEEP #3 demonstrably **fired, kept, and
+normalised** on the motivating page itself. The keeps were producing the right answer all along;
+477 only stopped that answer being thrown away. That is the substantive safety argument, and it
+is stronger than a synthetic canary because it is the actual page in dispute.
+
+**Still owed, and armed rather than assumed:** a *post*-477 build on one of the six
+keep-carrying sites. A monitor is watching for exactly that and will report the first one; the
+diff query and the 7-row leopardess baseline are in the RUNBOOK and inside migration 477 itself.
