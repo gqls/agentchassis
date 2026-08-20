@@ -1,4 +1,4 @@
-# HANDOFF 2026-08-19 (final) — meta descriptions, `bugs_open/320`: DONE, and it unblocked `309`
+# HANDOFF 2026-08-19/20 — meta descriptions, `bugs_open/320`: DONE, and it unblocked `309`
 
 **Read this first if you are picking this up cold.** Everything below was verified at the
 artefact; where a claim is unproven it says so.
@@ -35,6 +35,30 @@ the rerender was dispatched, and **309 is fixed and verified at the served page.
 
 **Fleet: 407/731 empty (55.7%) → 47/737 (6.4%).** Mean description length **129** chars.
 Of the 47, **43 have zero components** — the floor — leaving **4** reachable.
+
+> ## UPDATE 2026-08-20 — SCHEDULED, and the first scheduled run found three things
+>
+> **The backfiller is now on an hourly schedule** (owner instruction, migration `498`):
+> own concurrency group, `max_concurrent=1`, and it goes quiet by itself because a
+> `pre_query` with no rows is a clean no-op. **It never needs switching off.**
+>
+> **The first scheduled run refused its own output** — the writer produced *"AI adoption,
+> trust gaps, and governance"* and the gate quoted the site's own rule back
+> (`banned_phrase`, owner 2026-07-18, *"say what is checked/verified instead"*). The
+> owner's condition for waiving the review pass is working. **I only know because I read
+> the artefact: the task fired, the orchestration said COMPLETED, and the page was blank.**
+>
+> Three fixes followed — `499` (tell the writer the site's banned phrases before it
+> writes; 9 sites have a gate), `500` (⚠ `499` broke the live agent: **`query_database`
+> stringifies a jsonb column**, so `{{range}}` had nothing to iterate — fixed by shape,
+> one row per rule), `501` (≤20 words). Proven end to end on the refused site afterwards.
+>
+> **Two things left open, both written up in `320` §13:** the action applies the *whole*
+> voice gate to one sentence including density rules that are statistics over a corpus
+> (a Go fix, needs a roll; bites 2 of 27 sites — 7 of the 9 gated sites already disabled
+> those checks by hand). And a **separate finding flagged not fixed**: `bugs_closed/103`
+> is leaking — 11 live pages carry 200-320 char descriptions, 9 of them tool pages
+> publishing plain build briefs, all *under* 103's 320-char guard.
 
 ## 3. What is actually left
 
