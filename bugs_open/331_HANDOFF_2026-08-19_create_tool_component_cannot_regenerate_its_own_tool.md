@@ -118,3 +118,19 @@ the WHOLE config document (sub_workflow-visible) = 1 row; round 1's report row q
 pending. Note for whoever reads the trail: two of three rounds' objections found real defects (round
 1: the missing hollow gate — real; round 2: a stale landmine — real, but in the DOCS, and the fix was
 correcting the landmine, not the code).
+
+## 12. Round 3 (23:5xZ 08-20): REVISE — prior_art_librarian, two HIGHs, both "true claim, no attached evidence"; round 4 submitted with the code IN the submission
+
+Round 3 gated on exactly two things, both evidentiary: (a) the claim that `update_component_html`
+does not write `rendered_html` and flips placements fleet-wide to `pending` (the reason it cannot be
+the tool path) had no attached code; (b) the visible-text-axis claims (both callers moved 08-17, the
+coverage test enforces it, the 117-pair calibration) were "specific, checkable, unverified". Both are
+true at HEAD; the seat's index is declarations-only and could not see them. **Round 4 = the same code,
+with the evidence quoted verbatim into `grounded_in`** (EVIDENCE-1…5: the whole update_component_html
+write block including its own "Do NOT set rendered_html here" comment and the unfiltered
+`WHERE component_id = $1`; the floor maps built with `visibleTextLength`; the coverage test's regex,
+failure message and caller-count assertion; the calibration header with both ab-test hollow pairs at
+visible 684→0; and both tool-slot writers binding the TEMPLATE into `rendered_html`). Run orch
+`ec04b29b-43b8-4f3b-9a14-87dbd175920e`; verdict pending. The round tally so far: r1 caught a real code
+gap (the hollow gate), r2 caught a real DOCS defect (a stale landmine headline), r3–r4 are evidence
+formatting for a seat that cannot read HEAD — each round cheaper than the one before.
