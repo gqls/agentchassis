@@ -64,6 +64,30 @@ func TestCleanProsePasses(t *testing.T) {
 	}
 }
 
+// A statement of policy or limit is not the mannerism. The house voice asks for
+// these ("name the limit, the failure mode, or what the thing cannot do"), and a
+// check that flagged them would send a human to edit a company's stated policy.
+// Found by running the fleet check on live briefs, not by reading the regex.
+func TestFirstPersonLimitStatementsAreNotTheMannerism(t *testing.T) {
+	for _, s := range []string{
+		"We do not offer refunds.",
+		"We do not invent figures and we do not publish prices we cannot source.",
+		"We do not charge for the first call.",
+		"We cannot tell you which lender will accept you.",
+	} {
+		if hits := ScanDefineByNegation(s); len(hits) > 0 {
+			t.Errorf("a first-person limit statement must not trip: %q -> %v", s, shapesOf(hits))
+		}
+	}
+	// The owner's own example still trips: it negates a THING, not a policy.
+	if hits := ScanDefineByNegation("A model directory tells you which agents exist. It doesn't tell you how they hold up."); shapesOf(hits)["negative_reveal"] == 0 {
+		t.Error("the third-person reveal must still trip — that is the owner's second quoted sentence")
+	}
+	if hits := ScanDefineByNegation("This is a working registry. It is not a vendor roadmap."); shapesOf(hits)["negative_reveal"] == 0 {
+		t.Error("a third-person reveal about a thing must trip")
+	}
+}
+
 // A factual comparison must not read as the construction — this is the arm that
 // keeps the neighbour set from firing on ordinary numbers.
 func TestNeighbourSetIgnoresFactualComparison(t *testing.T) {

@@ -90,7 +90,18 @@ var (
 	// they hold up…" — the construction spread over two sentences, which is the
 	// owner's second quoted example and is invisible to every single-sentence
 	// pattern.
-	negReveseRe = regexp.MustCompile(`(?i)(?:\A|[.!?]["'’)]?\s+)(?:it|this|that|they|these|we)\s+(?:does\s?n['’]t|does not|is\s?n['’]t|is not|wo\s?n['’]t|will not|ca\s?n['’]t|cannot|are\s?n['’]t|are not|do\s?n['’]t|do not)\b`)
+	//
+	// ⚠ THE SUBJECT LIST IS THIRD-PERSON ONLY, AND DELIBERATELY SO. An earlier
+	// version included "we", and the first live fleet run showed what that
+	// costs: it flagged "we do not offer refunds", "we do not invent figures"
+	// and "we do not charge for the first call". Those are statements of a
+	// POLICY OR A LIMIT — which the writer's own STRICT RULE 19 explicitly asks
+	// for ("name the limit, the failure mode, or what the thing cannot do") —
+	// not a thing being defined by what it is not. Flagging them sends a human
+	// to edit a company's stated policy, and would ask the repair to delete a
+	// commitment. The mannerism the owner objected to negates a THING: "It
+	// doesn't tell you how they hold up."
+	negReveseRe = regexp.MustCompile(`(?i)(?:\A|[.!?]["'’)]?\s+)(?:it|this|that|they|these)\s+(?:does\s?n['’]t|does not|is\s?n['’]t|is not|wo\s?n['’]t|will not|ca\s?n['’]t|cannot|are\s?n['’]t|are not|do\s?n['’]t|do not)\b`)
 )
 
 var negationShapes = []struct {
