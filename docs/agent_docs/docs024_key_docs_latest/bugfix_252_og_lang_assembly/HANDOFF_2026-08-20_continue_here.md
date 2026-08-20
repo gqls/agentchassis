@@ -1,7 +1,22 @@
 # HANDOFF — bug 252 (og/lang slug), 2026-08-20 · COLD-START, read this first
 
-**State: code COMPLETE, council APPROVED, BLOCKED on a chassis build.** Nothing is live. Nothing has
-been applied. No page has changed.
+> **SUPERSEDED IN PART, 2026-08-20 evening — read this box first.** The build arrived
+> (**v1.0.1320**, probed PRESENT for all three new symbols on both replicas with controls), **both
+> migrations are APPLIED and recorded** (now `507_head_components_carry_lang.sql` /
+> `508_site_specs_locale_lang.sql` — `_HOLD` dropped once released), and **both halves are PROVEN AT
+> THE ARTEFACT**: `https://ai-agent-orchestration.com/about.html` serves
+> `<html lang="en-GB">` with per-page `og:title`/`og:description`/`og:url`, the og:url agreeing with
+> its canonical; the homepage serves the bare `/` form. **Fleet chrome is fully repaired** — drift 0
+> of 24, 22 heads carry `lang`, 0 still bake a homepage og:url, 0 blank duplicates.
+>
+> **THE ONE THING LEFT is page-level propagation:** ~698 assembled pages still serve their OLD head
+> until they re-assemble. The defect is no longer reproducible; the damage persists. See §4-REVISED.
+>
+> **Also: I retracted a wrong finding.** I wrote up `rerender-chrome` and `rerender-pages` as broken;
+> both were fine and **my dispatch envelope was missing five Kafka headers**. Details in NOTES (h)
+> and `WRONG_CALLS.md` — do not inherit the claim, and do send the full header set.
+
+**Original state at time of writing: code COMPLETE, council APPROVED, BLOCKED on a chassis build.**
 
 Target bug: `bugs_open/252_HANDOFF_2026-08-11_assembly_drops_per_page_og_tags_and_hardcodes_html_lang_en_on_503_pages.md`
 ⚠ **252 is an ambiguous number** — the other one (disk/scheduler) is CLOSED. Refer to this by slug:
@@ -57,7 +72,31 @@ one per-page set (`og:url` via the existing `preferredPageURL`, so og:url == can
 `@id` **by construction**); `headLangAttr` + `htmlDocumentOpen` move the document language into the
 head component per the owner's option-3 ruling, defaulting to `en`.
 
-## 4. Resume here — the exact sequence
+## 4-REVISED. Resume here (2026-08-20 evening)
+
+**Steps 1-5 of the original sequence below are DONE.** What remains:
+
+1. **Decide the page wave — this is an owner trade-off, not a task.** ~698 pages still serve the old
+   head. Forcing them means ~698 `page_rerender` items into a queue whose drain half is
+   `bugs_open/083`, and seed `351`'s header warns that route is "two orders of magnitude more churn
+   than the goal". Letting natural rebuild traffic carry it is free and slow. The og half needs no
+   migration and the lang half is already in every stored head, so **any** rerender from now produces
+   a correct page.
+2. **Per-site sweep as pages land**, across all four head families:
+   ```bash
+   curl -s "https://<domain>/<inner-page>" | grep -oE '<html[^>]*>|<meta property="og:[^>]*>|<link rel="canonical"[^>]*>'
+   ```
+3. **Retire the two checks whose premises this falsified** — see §6 item 1. Neither fails loudly.
+4. **Then close** to `bugs_closed/`, naming both paths on the commit.
+
+**The working dispatch envelope** (five headers I initially omitted — this is what cost the retraction):
+```bash
+-H action=orchestrate -H sender_agent_type=cli -H sender_agent_id=cli-user -H responses_topic=system.agent.generic.responses -H timestamp=$TS
+```
+⚠ And a `while read` loop with `kubectl run -i` inside exits after ONE iteration (`-i` eats the loop's
+stdin). Write the payload to a file and redirect it.
+
+## 4-ORIGINAL. The sequence as first written
 
 1. **Owner cuts a chassis build from HEAD and rolls it.**
 2. **Probe every replica** for `spliceOpenGraph` with both controls (recipe in §1 and in

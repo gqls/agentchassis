@@ -413,3 +413,48 @@ visible, struck through, with the evidence left in place) and logged in `WRONG_C
 **accepted, given an orchestration row, and marked `COMPLETED` having run nothing**. That is a
 dispatch-surface trap worth fixing, and it is not the agents I accused. The `rerender-chrome` claim is
 **withdrawn entirely** — my run cannot speak to it, since it carried the same broken envelope.
+
+## 2026-08-20 (i) — fleet CHROME fully repaired; PAGES are the remaining work, and I have sized it
+
+Drove `rerender-chrome` across every drifted site (correct envelope this time), in foreground batches
+— a `while read` loop with `kubectl run -i` inside it exits after ONE iteration, because `kubectl -i`
+competes for the loop's stdin. Fixed by writing the payload to a file and redirecting (`< msg.json`)
+so the loop keeps its own stdin. Worth remembering: the loop reported success and had silently done
+1 of 20.
+
+**Fleet chrome, before → after (all 24 head rows):**
+
+| measure | before | after |
+|---|---|---|
+| fingerprint drifted | 22 | **0** |
+| heads carrying `<head lang=…>` | 0 | **22** |
+| heads still baking a homepage `og:url` | 22 | **0** |
+| heads with a blank `og:title` placeholder | 4 | **0** |
+
+All four head families verified individually at the stored artefact:
+`relojistas.com` → **`<head lang="es-ES">`** (the owner's non-English ruling, working),
+`leopardessconsulting.co.uk` (head-seo-standard) → `en-GB`,
+`noted.co.uk` (Document Head) → `en-GB`,
+`webdesign.co.uk` → unchanged fragment, no `<head>` tag to carry it — **expected, documented, not a
+failure.**
+
+`rerender-chrome` deliberately touches no pages, so it cost 22 chrome renders and zero page churn.
+
+### What is NOT done, measured rather than assumed
+
+Spot-checked two live pages on non-canary sites:
+
+```
+https://noted.co.uk/index.html            -> <html lang="en">  og:url = https://noted.co.uk/
+https://leopardessconsulting.co.uk/about.html -> <html lang="en">  og:url = https://leopardessconsulting.co.uk/
+```
+
+**Stored heads are fixed; deployed pages are not, and will not be until each re-assembles.** That is
+~698 pages (700 minus the two canaries). The defect is no longer *reproducible* — any rerender now
+produces a correct page, proven — but the *damage* persists on every page that has not re-rendered.
+
+**So the lane cannot close yet**, and the remaining decision is a real trade-off rather than a task:
+forcing the pages means ~698 `page_rerender` items into a queue whose drain half is `bugs_open/083`,
+which is other lanes' risk too — and seed `351`'s own header warns that route is "two orders of
+magnitude more churn than the goal". Letting natural rebuild traffic carry it is free and slow.
+Recorded for the owner rather than chosen unilaterally.
