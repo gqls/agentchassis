@@ -277,7 +277,7 @@ func TestFailureLadder_GuardListIsNotTheCompletionPathList(t *testing.T) {
 	}
 	// And the decision statuses must all actually be there — a shortened list
 	// is the mutation this pins.
-	for _, want := range []string{"needs_human_review", "wont_fix", "rejected", "verified", "blocked", "cancelled"} {
+	for _, want := range []string{"needs_human_review", "wont_fix", "rejected", "verified", "blocked", "cancelled", "deferred"} {
 		found := false
 		for _, s := range workItemDecisionStatuses {
 			if s == want {
@@ -318,7 +318,13 @@ func TestFailureLadder_TheGuardIsActuallyInTheStatement(t *testing.T) {
 	expectStateRead(mock2, st)
 	expectBurstProbe(mock2, 1, 1, 1)
 	expectPolicyLookup(mock2, 30)
-	mock2.ExpectQuery(regexp.QuoteMeta(`AND status NOT IN ('needs_human_review','wont_fix','rejected','verified','blocked','cancelled')`)).
+	// Derived from the constant, NOT hard-coded: this test's job is "the clause is
+	// IN the statement", and a literal here goes stale the moment the vocabulary
+	// changes (it did — `deferred` was added answering a round-2 advisory, and
+	// this line failed rather than the guard). MEMBERSHIP is pinned separately by
+	// TestGuardLists_TheFailureAndCompletionListsDifferByExactlyTwo, which is the
+	// test that must fail if someone shortens the list.
+	mock2.ExpectQuery(regexp.QuoteMeta(`AND status NOT IN (` + sqlInList(workItemDecisionStatuses) + `)`)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 	if _, err := applyWorkItemFailureLadder(context.Background(), db2, zap.NewNop(),
 		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
@@ -793,6 +799,8 @@ func TestGuardLists_TheFailureAndCompletionListsDifferByExactlyTwo(t *testing.T)
 
 	// And they must not be the same constant, which is how they drifted in the
 	// first place.
+	// `deferred` is in BOTH (a park is a decision either way), so the delta stays
+	// exactly failed+unresolved regardless of what else is added to both.
 	if len(workItemCompletionGuardStatuses) != len(workItemDecisionStatuses)+2 {
 		t.Errorf("completion list has %d entries, failure list %d — expected exactly two more "+
 			"(failed, unresolved); if that changed, the divergence needs re-arguing, not re-sizing",

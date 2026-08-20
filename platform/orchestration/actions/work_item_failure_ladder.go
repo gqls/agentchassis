@@ -175,6 +175,22 @@ var workItemDecisionStatuses = []string{
 	"verified",
 	"blocked",
 	"cancelled",
+	// `deferred` added 2026-08-20 answering the council's bug_historian seat
+	// (round 2, medium, advisory): these lists are stated as exhaustive, so an
+	// omission is a claim — and it was one. `deferred` is the estate's canonical
+	// PARKING state (LANDMINES: "`deferred` is the ONLY parking state — a
+	// `blocked` one un-parks itself within 600s"), and a park is a decision by
+	// exactly the definition this list uses. [MEASURED 2026-08-20] 344 live rows
+	// carry it — capability_gap items born deferred, plus migration 389's
+	// parked-with-provenance rows — against ZERO for `blocked`, which was in the
+	// list from the start. Same class, opposite treatment, and the inconsistency
+	// ran in the wrong direction.
+	//
+	// Unreachable in practice either way, since claim takes only
+	// triaged/approved so no handler saga can fail on a deferred row — which is
+	// precisely why it belongs here: this list is defence in depth, and `blocked`
+	// earns its place on identical reasoning.
+	"deferred",
 }
 
 // workItemCompletionGuardStatuses is the guard list for a COMPLETION write, and
@@ -205,7 +221,16 @@ var workItemDecisionStatuses = []string{
 // (load_work_item_actions.go, complete_work_item_verification.go). That is a
 // deliberate addition, not a transcription slip: [MEASURED 2026-08-19] 400 rows
 // in 14 days carry it, every one an owner disposition, and stamping `complete`
-// over one would undo a human's decision. The siblings are NOT edited here —
+// over one would undo a human's decision.
+//
+// ANSWERING THE COUNCIL'S reuse_agent SEAT (round 2, advisory): it asked
+// whether the siblings' list is a named Go constant this could import rather
+// than re-declare. It is NOT — it is two independently-written INLINE literals
+// that happen to match, at load_work_item_actions.go:1032 and
+// complete_work_item_verification.go:429, with no named constant for it
+// anywhere in the package (verified 2026-08-20). So there was nothing to
+// import, and this is the FIRST named version of that vocabulary rather than a
+// fifth copy of it. The siblings are NOT edited here —
 // converging their inlined copies onto this constant changes THEIR behaviour and
 // belongs in its own change.
 var workItemCompletionGuardStatuses = []string{
@@ -217,6 +242,8 @@ var workItemCompletionGuardStatuses = []string{
 	"verified",
 	"blocked",
 	"cancelled",
+	// See the failure list above: a park is a decision on both paths.
+	"deferred",
 }
 
 // jsonbIntFragment reads an integer out of jsonb without trusting its type. A
