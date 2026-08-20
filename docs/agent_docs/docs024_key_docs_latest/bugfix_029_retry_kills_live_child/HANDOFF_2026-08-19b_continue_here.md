@@ -192,3 +192,122 @@ committed** — exactly the case CLAUDE.md makes for the versioned-memory hook. 
   approval); `row_cap` is **200** and an unfiltered dump `ORDER BY orchestration_id` returns a
   lexicographic slice; and flattening a `.sql` file to one line **without stripping its `--`
   comments** comments out the whole query and returns **zero rows with no error**.
+
+---
+
+# 2026-08-20 09:10Z — START HERE IN A FRESH SESSION
+
+Appended by the session that wrote the appendix above. **THREE sessions have worked 029** (the
+file's original author, the §17 contributor, and me). Everything below is current as of this
+timestamp and supersedes anything above it that conflicts.
+
+## FIRST, BEFORE YOU TOUCH ANYTHING
+
+```bash
+python3 scripts/who-owns.py 029          # I skipped this and worked an owned lane all day
+git log --oneline -8 -- docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/
+ListAgents                                # "bugfix 029" is a live peer session
+```
+**Use the Write tool, never `cat >`, on any file in this directory.** I overwrote this very file with
+a redirect; Write would have refused. Recovered from git only because it was committed.
+
+## DO NOT FIRE `NEXT_090_single_variable.sh` YET
+
+It is armed, correct, and **not** the right next action. The standing instruction from this file's
+author holds: **wait for the next burst**, which RSH-011 captures automatically. Three 090s have been
+spent; the loop's remaining abstention turns on evidence that no longer exists for the 08-17 cohort.
+The script exists for whenever a re-file IS warranted.
+
+## The scope guard is fully explained — do not re-open it
+
+`[VERIFIED at source + MEASURED 2026-08-20]`, NOTES **§18**. Guard: `pkg/diagnose/loop.go:432`,
+`next.size() > prevSize+2`; `size()` = `len(Symbols)` (:205); `namedScope` (:398) takes Symbols from
+`v.NextScope` **alone**; init `PrevScopeSize = seed.size()+1` (`advance.go:68`); on a stop
+`advance.go` returns at :104-111 **before** :120 overwrites it, so persisted `prev_scope_size` is
+pre-guard. **Read `route.stopped_by`** — `diagnosis.stopped_reason` is a different, empty key.
+
+| run | seed | init prev | trip | persisted |
+|---|---|---|---|---|
+| `d02a6958` | 5 | 6 | iter1 named 8 (8>8 **false**) → prev 8; iter2 named 5 → prev 5; **iter3 named 12: 12>7 TRIPS** | 5 ✓ |
+| `5d1d8f1c` | 6 | 7 | **iter1 named 13: 13>9 TRIPS** | 7 ✓ |
+
+**Three claims are now dead. Do not resurrect any of them:**
+- ~~`d02a6958` "ran out of iterations one query short"~~ — it stopped at 3 of 5 **on the guard**.
+- ~~seed widening caused `5d1d8f1c`'s halt~~ — **wrong in direction.** Threshold is `prevSize+2` and
+  `prevSize` starts at `seed.size()+1`, so a **wider seed is PROTECTIVE**. `5d1d8f1c` had the wider
+  seed *and* the higher threshold and tripped anyway.
+- ~~`5d1d8f1c` does not reconcile~~ (peer §17) — it does; their operand was named 9, it is **13**.
+
+What actually differed: the model named **13** symbols in iteration 1 where the baseline named **8**.
+Symptom length or variance — `[UNVERIFIED]`, and one run per condition cannot separate them.
+`d02a6958` survived iteration 1 **by exactly one symbol** (8 > 8 is false).
+
+## The `### awaited_requests` rows section: DO NOT BUILD IT
+
+Ranked as "best next platform change" earlier in this file, and I endorsed it in NOTES §16(c).
+**Both withdrawn** (peer §17, verified). Every static row section is scoped to the diagnosis **target**
+(`diagnose_load_runtime_action.go:279-280, :314, :349-350`); the target correlation has **0**
+`awaited_requests` rows against **1,469** in the 08-17 window. The natural experiment is already in the
+bundle: `orchestration_states` is scoped identically, renders *"(no orchestration rows for this
+correlation/site)"*, and **that empty string is a verdict's own first citation.** A new section renders
+`(no rows…)` for any historical incident described in prose.
+
+**The schema half was the whole blocker and it is shipped, live and proven.** Residual is narrow:
+unfiltered dump + `row_cap=200` + alphabetical `ORDER BY`.
+
+## Live on `v1.0.1316` — verified at the artefact
+
+Build point **`07eeba4a1`** present on both replicas; previous build point `590ca3a20` **absent** as a
+control. `bf7646a29`, `2a3d30ec3`, `0132a3683`, `3ba384c63` are all ancestors. **This retires the
+"`0132a3683` is NOT aboard" line earlier in this file.** Behavioural proof of the bundle fix: a fresh
+bundle renders `awaited_requests(request_id varchar, …)`; **four pre-fix bundles render nothing**;
+control `orchestration_states(` present in **all five**.
+
+## ⏱ EVIDENCE DEADLINE: ~2026-08-24 (about four days)
+
+`[VERIFIED at source]` `cleanup_expired_awaited_requests()`, called every minute:
+`DELETE FROM awaited_requests WHERE status IN ('processed','expired','cancelled','error') AND
+processed_at < NOW() - INTERVAL '7 days'`. Keyed on **`processed_at`**, **terminal rows only**,
+continuous — no nightly-job grace. A Go-only grep for that DELETE returns **nothing**; the retention
+is DB-resident.
+
+## What is actually left
+
+1. **Wait for the next burst.** RSH-011 (`wedge-evidence-capture`, hourly at `:17`) captures it with
+   the full `awaited_requests` set. That is the whole remaining path on the wedge — separating the
+   author's C1 from C2 needs logs the 08-17 pods no longer have.
+2. **The live hypothesis is the author's three-site class** (divergence created at
+   `persistAwaitingStateWithRetry`'s step-name-keyed arrival check; turned into a wrong decision by
+   `allDone` computed from the **map alone** at `handleCompleteResponse`; hidden by
+   `continueExecution`'s silent early return). My independently-found arrival-check defect is a
+   **fragment** of this — fix it as part of the class, not solo.
+3. **Answer "what runs the step body twice at rv0"** — `retry_version` is 0 on all 37 spawn rows, so
+   it is **not** the takeover. Loop expansion / `ErrLoopExpansionHandled`, the recursive
+   `continueExecution`, or a second consumer. **Do not re-enter the retry machinery.**
+4. **`workflow%` include widening — TOLD, not taken.** `flow%` is a prefix pattern that never matched
+   `workflow%`; the 301 lane's run `dd61df1b` stalled on exactly that. **They have been told**
+   (`bugfix_301_owned_guard_ordering/NOTES_owned_guard_ordering.md`, CONTRIB 2026-08-20) with the
+   blast radius measured: cap **120**, ~94 in use, `workflow%` adds **2**. ⚠ read the LIVE config's
+   `schema_include_patterns`, not the Go default — a running bundle says *"33 of 479 shown"*.
+5. **Do not close 029.** Bar is fixed AND live; nothing about the wedge is fixed. Quiet since 08-17 is
+   the baseline (six of eight surrounding days are also zero), not evidence.
+
+## ⚠ NOTES numbering is collided across three sessions
+
+`NOTES_retry_kills_live_child.md` has **two §9–§11 sequences** and then §§16–18 from two different
+sessions. **Resolve by date and subject, never by number** — several are already cited by number from
+other documents, so renumbering would break references.
+
+## Traps paid for, that are not in the sections above
+
+- **Any check against a bundle for a string YOU authored is blind** — the symptom is quoted in
+  verbatim, *and* `orchestration_states` has a **column** named `awaited_requests jsonb` rendered in
+  every bundle ever. So `LIKE '%awaited_requests%'` reads true for two independent wrong reasons.
+  Match the renderer's `(`.
+- **Resolve a council verdict BY CORRELATION.** `ORDER BY created_at DESC LIMIT 1` on `doc_notes`
+  returned another lane's APPROVED note; I nearly recorded it as ours.
+- **Retention is PER STATUS.** `min(created_at)` on `orchestration_states` reads five weeks because
+  `CANCELLED` is never pruned; grouped by status it holds two days. Errs *reassuringly*.
+- **Flattening a `.sql` to one line without stripping `--` comments** comments out the whole query and
+  returns **zero rows with no error**.
+- **`row_cap` is 200.** An unfiltered dump `ORDER BY orchestration_id` returns a lexicographic slice.
