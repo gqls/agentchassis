@@ -11930,6 +11930,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **added:** 2026-08-17, `bugfix_297_tool_recreation_context` lane (migration 453, corr
   `4b9265c3`), after reading the enforcement block rather than the header comment —
   the header says "is refused", line 146-153 is where it `exit 2`s.
+- **✅ FIXED 2026-08-19 (`bugs_open/314`, owner direction) — the gate now ADMITS appliable
+  migrations without `FORCE=1`.** `scripts/council-scope.sh` is the single source of the scope,
+  read by 097 (admission), `scripts/council-coverage-nudge.sh` (the commit-msg nudge) and 098
+  (the coverage report) — three hand-maintained copies before this. In scope now:
+  `platform/`/`internal/`/`pkg/` **or** `docs/agent_docs/sql_for_agents/NNN_name.sql`. Still
+  refused, and controlled for: prose, site content, and the hand-run `_ROLLBACK`/`_VERIFY`/
+  `_HOLD` sidecars. `DRY_RUN=1 ./097_TRIGGER_council_review_v1.sh <sub.json>` decides admission
+  and stops, so admission is testable for free in both directions.
+  **What is left of this entry, and it still bites:** the FORCE-and-say-so rule above is
+  unchanged for everything the widening does NOT cover — a submission whose edits are all
+  *tooling* (`scripts/`, the 097/098 scripts themselves under `docs/`), all prose, or all
+  sidecars is still refused, correctly, and still needs the force explained in the first
+  paragraph of the rationale. The fix for this entry was itself submitted that way.
+  Also: 098's pathspec now over-selects `sql_for_agents/` and applies the exact predicate as a
+  post-filter per commit — so a sidecar-only commit is not counted as unreviewed in-scope work
+  (verified: three `494_*_HOLD.sql` commits excluded, the `490` migration commit included).
 - **verifier note 2026-08-17:** the landmine-verifier returned **UNVERIFIABLE** on this entry, and **that is not doubt about it** — the verifier reads the Go code index, which covers only `.go` files, so a makefile-footprinted entry is outside what it can see (the neighbouring `IMAGE_TAG`/`imagePullPolicy` entry drew `NEEDS_HUMAN_REVIEW` the same afternoon for the same reason). Verified by hand instead, on this tree: `make -n release | grep -c render-audit-adapter` → **0**, while `make -n deploy-agents | grep -c render-audit-adapter` → **non-zero** and the pod runs `browser-runner-adapter:v1.0.1305`. **Any landmine whose footprint is a makefile, a manifest or SQL needs a hand-run check written into the entry, because the automated one cannot grade it.**
 
 ### `orchestration_states.owner_agent_type` is NOT "which agent ran" — it reads ZERO for a demonstrably active agent, and a dormancy claim built on it inverts a bug's severity
@@ -13258,3 +13274,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** CLAUDE.md, "Read before write on any file you did not create; prefer the Write tool, which refuses an unread file, over a shell redirect, which does not" — **the Write tool would have refused this file and is the actual prevention** · `WRONG_CALLS.md` 2026-08-19 (worked a lane another session owned, then overwrote their handoff) and its 2026-08-20 addendum · MEMORY [[a-subagent-report-is-another-doc]]
 - **source:** 2026-08-19/20, `bugfix_029_retry_kills_live_child` and the peer `029` session, jointly — neither could settle it alone
 - **added:** 2026-08-20, 029 lane
+
+### After the `bugs_open/327` fix rolls, the FIRST trivial write to one of the three shrunken briefs silently RESTORES ~10,000 chars of instruction — and every page written afterwards changes character for a reason nobody logged
+
+- **footprint:** `site_specs` (aspect `content_direction`) on `ai-agent-orchestration.com`, `robot-hands.com`, `leopardessconsulting.co.uk` · `write_site_spec` / `WriteSiteSpecAction` · `page-content-writer` · any migration, operator script, HITL edit or classifier re-run that writes `content_direction` on those three sites
+- **fires when:** you make **any** `content_direction` write on one of those sites after the fix is live — a one-key tweak, a tagline correction, a classifier re-run. Nothing about your edit says "and also restore four months of missing brief".
+- **the trap, and note it is the INVERSE of the two entries above:** the fix rebuilds `formatted` from the **merged** document, so the first write of any size re-renders **every key the document has accumulated since 2026-04-18**. On `ai-agent-orchestration.com` that is 3,558 → ~10,000 chars: twelve keys returning at once, including `writing_rules`, `things_to_avoid` and `example_phrases`. **The brief triples as a side effect of a one-line edit, and every page written afterwards is written against instructions that have not been in play since April.** The repair is correct and it is also a large, unannounced content change attributable to the wrong edit — a lane will see its copy change character and have nothing in its own diff to explain it.
+- ⚠ **and on at least one site part of what returns makes a known fault WORSE.** `ai-agent-orchestration.com`'s restored `example_phrases.characteristic` is itself written in the define-by-negation construction the owner objected to (`bugs_open/305`) — *"Agents fail in isolation — not in cascades"*, *"Speed comes from engineering discipline, not from skipping the hard parts"*. On this estate's measured principle that the example is the instruction, restoring that key unchanged pushes the writer **towards** the complaint.
+- **the check, before you write to one of those three:** read what is about to come back, and decide about it deliberately —
+  ```
+  docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/audit_writer_brief.py <domain>
+  ```
+  Section 2 lists exactly the keys that will reappear, largest first. Fix or delete the ones you do not want restored **in the same write**, because there is no second chance: once `formatted` is rebuilt, the next page render uses it. On the other two sites nobody has yet read the returning keys at all.
+- **why it is a landmine rather than a line in the bug file:** the damage lands on whoever makes the next unrelated edit, not on whoever fixed the bug, and it looks like their change caused it. The three sites are all **other lanes'**.
+- **source:** `bugs_open/327` (slug `a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads` — the number is ambiguous); fix `c9a71388f`, inert until the next chassis roll
+- **relations:** the two sibling entries above (the partial-write collapse this fixes, and the random-order rendering) · `bugs_open/305` · register CQ-025 / SPEC-002's 2026-08-20 correction
+- **added:** 2026-08-20, copy_quality_two_stage lane
