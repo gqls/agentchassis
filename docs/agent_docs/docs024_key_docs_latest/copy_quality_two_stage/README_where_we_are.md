@@ -533,3 +533,70 @@ twenty-five-site report and a fourth was truncated, because of how I was splitti
 output. Nothing errored. I only caught it because one site's number had changed since a run ten
 minutes earlier. That is the same lesson as the deploy-checking one further up this page: the
 absence of an error message is not evidence that anything worked.
+
+---
+
+**2026-08-20.** I fixed the code defect I described yesterday, and I need a decision from you about
+one consequence of it. The decision is at the bottom; the rest is what happened.
+
+**The fix.** Yesterday's finding was that the brief our writer reads is rebuilt every time anyone
+edits a site's brief, and rebuilt from **only the part being edited** — so eighteen sections quietly
+stop reaching the writer while the stored document still looks complete. Nobody had picked it up
+overnight, so I did it. Two lines of substance: build the brief from the merged document rather than
+from the edit, and put its sections in a fixed order so that two identical briefs actually read
+identically. It is committed. It does nothing until the next fleet release, which looks imminent —
+someone has already set the next version number.
+
+**The test was the interesting part, and it is worth a paragraph.** There were no tests at all on
+either function. And the obvious test would have been useless: the code that formats the brief was
+never wrong — hand it a document and it renders that document faithfully. The bug was in **which
+document it was handed**. So the test drives the real write path end to end and checks what actually
+gets stored. I then proved the test works by putting the old code back and watching it fail — and
+that step caught me being sloppy twice, which I have written up: once my "old code" wasn't the old
+code, and once my check printed nothing at all, which looks exactly the same as a check that doesn't
+work. I nearly recorded both as proof.
+
+**The review found things, and I was glad of it.** I put the change through the reviewer council. It
+came back "revise" twice. The best objection was that the fix rests on an assumption I had asserted
+rather than tested — that when the brief is rebuilt from the merged document, the *previous* version
+of the brief (which is sitting in that same document) doesn't get swallowed into the new one. That
+would have been worse than the bug: every edit nesting the whole previous brief inside the new one,
+for ever. It doesn't happen, and it never did — the code has always skipped that field. But nothing
+tested it, which was exactly the reviewer's point. It does now.
+
+Another reviewer told me my instructions for checking whether the fix had actually shipped were
+pointing at the wrong machines. They were right, and worse than they thought: seventy-five machines
+run this program and the command I published looks at two of them. I have replaced it.
+
+**Now the decision, and it is a real trade-off rather than a formality.**
+
+Fixing the bug means the missing brief sections come back — which is the point. But on the
+AI-orchestration site, one of the sections coming back is a list of example sentences for the writer
+to imitate, and those examples are written in **exactly the mannerism you objected to last week**
+("Agents fail in isolation — not in cascades", "Speed comes from engineering discipline, not from
+skipping the hard parts"). So the moment anyone next edits that site's brief, the writer will be
+handed those examples as models to follow.
+
+One of the council's reviewers blocked the change over this, twice, and its argument is one you have
+made yourself: telling other teams about a hazard in a document is not a control, because they may
+not read it before they act. It wanted a per-site switch, defaulting to off.
+
+I did not add the switch, and here is the honest cost of both choices:
+
+- **Ship it as written.** The briefs repair themselves the next time anyone touches them. Risk: on
+  that one site, bad examples reach the writer with no human in the loop.
+- **Add the switch, defaulting to off.** Risk: the bug stays live on all twenty-five sites until
+  somebody remembers to turn each one on — we would be keeping a fault as a safety feature, and this
+  platform has been bitten before by switches nobody ever flips.
+
+**My recommendation is to ship it, and fix that one list of examples first** — it is content on
+another team's site, so it is their edit to make; I have told them the release is coming and offered
+to make whatever change they specify. I have not written replacement examples myself, because your
+ruling is that the framework writes the copy, not me.
+
+I also went and measured the thing my own argument was resting on, rather than leaving it as a
+guess: across every site whose examples do reach the writer, only three of fifty-two turn up
+word-for-word in published copy, eighteen times in total — while the one *mandated* tagline turns up
+four hundred and nine times. So examples do get copied, but nowhere near as much as an instruction
+that says "use this sentence". That narrows the risk. It does not remove it, and I should say plainly
+that my sample was the first sixty alphabetically rather than a proper random one.
