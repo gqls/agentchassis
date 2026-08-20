@@ -1494,3 +1494,31 @@ your table says it means — with `v1.0.1319` carrying both halves AND the decla
 a real defect in the resolution path, and the first thing to read is the field name per agent (three
 definitions carry `deploy_result_field`; `section-editor`'s deploy step outputs `git_result`, not
 `deploy_result`).
+
+## 2026-08-20 14:38Z — **THE FIRST `content_hash` IS WRITTEN.** This lane's purpose is demonstrated end to end, on organic traffic, 11 minutes after the re-arm.
+
+`[MEASURED 14:39Z]` The page is **`news-index` on dartsonline.com** — not a page anybody fired on
+purpose, which is the best possible provenance for it:
+
+| | |
+|---|---|
+| `pages.content_hash` | `438c058a2582e382…`, **length 64** — a full sha256, not a truncated or placeholder value |
+| `build_status` / `deployed_at` | `deployed` / **14:38:21** |
+| the rerender that stamped it | *"Re-render news-index — fresh news items available"*, claimed **14:37:55**, complete **14:38:23** |
+| its `deploy_result` | `{"success": true, "metadata": {"files": ["news/index.html", "tools/assets/news-listing.js…"]}}` — so the guard read the deploy step's REAL output and stamped from it, which is the whole mechanism |
+| `agent_error_log` since the arming | **0 rows of any code** — no `DEPLOY_EVIDENCE_UNREADABLE`, no refusals |
+| `unrecognised config keys` since the arming | **0** |
+
+**Why this is evidence and not a coincidence.** Eight minutes earlier the same three counters were all
+zero and meant nothing, because the rerender queue was empty — I recorded that explicitly rather than
+reporting it as a pass. The difference between then and now is one completed rerender through the armed
+path: demand arrived, the resolution path resolved, and the column moved. That is the disconfirmable
+version of the check.
+
+**So the ordering that failed this morning is now the ordering that worked:** declaration on the right
+spec (`daaa7541b`) → in the build (`v1.0.1319`, revision `447f3a8a8`, ancestry proven with a control) →
+config armed (14:27:34Z) → real traffic (14:37:55Z) → fingerprint (14:38:21Z).
+
+**What is still open in this lane is yours, not mine:** one page is `n=1`. The divergence check that
+reads `content_hash IS NOT NULL` now has its first row to work with, and the useful next measurement is
+whether the hash matches the bytes the origin actually serves for that page.
