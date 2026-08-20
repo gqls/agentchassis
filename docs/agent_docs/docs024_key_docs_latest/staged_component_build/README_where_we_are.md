@@ -2125,3 +2125,10 @@ this one. It is a list, not a mystery — which is a much better position than w
 night, when it was fourteen unknowns.
 
 **Nothing waits on you right now.** The next chat picks up the list.
+
+> **CORRECTED 2026-08-20, same morning:** I said "about fourteen places" above. The final census
+> puts it at **thirteen** — one more (the page-build-handler case) turned out to have been killed
+> by an earlier step than I had credited. Caught by re-running the count before writing the
+> handoff, which is the only reason the two documents don't now disagree. The precise list, with
+> the evidence beside each row, is in
+> `docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md` §3.
