@@ -514,3 +514,14 @@ parent's `orchestration_id`, is **populated, non-null, and structurally blind**:
 out blind between two sessions. **The only sound linkage is the payload's `page_name`**
 (`request_payload → message.body.input_data.spec.page_name` = the child's `context->>'page_name'`),
 and the check that catches it is a **must-be-non-zero control in the SAME query as the claim**.
+
+### 2026-08-20 17:10Z status, `v1.0.1320` (pods 16:09Z) — no change, nothing owed
+
+Wedges **20, all 08-17** (no recurrence). Abandoned calls **0/439 today, 0/736, 0/1595** — three
+clear days. GitHub-`503` rows **still 08-17 only** (954, against 1–3 base) — the outage has not
+returned. Capture cron last scheduled **16:17Z**. Evidence preserved, so nothing expires.
+Build point not probed: no 029 code has shipped since `v1.0.1316` and both fixes are ancestors of
+everything since, so it is not load-bearing — see the 08-20 14:30Z note.
+
+**Nothing is owed on this lane.** The only open question is the wedge, it is not reproducing, its
+evidence is preserved, and the split is with the owner.
