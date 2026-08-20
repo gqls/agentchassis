@@ -1920,3 +1920,70 @@ completed** — so `created_by` does NOT distinguish the generator's own enqueue
 rows; both are written under that name. The way to tell them apart is `created_at` against the build,
 not the writer. (Yesterday's ab-test row was 21 minutes older than its build, which is what made it a
 sweep row and a race.)
+
+## 2026-08-20 07:00Z — #17 `tool-diff-checker` built, graded and retired
+
+Filed 06:58:10Z, build landed 07:00Z, component **`5d466de0-2c71-4c8b-bc7c-598ee6cc1af2`** (11,278
+chars), ported slot `1775863b…` retired immediately with md5 `2471f0eb0c5385438b0f2b69835e9d55`
+byte-identical and one non-removed slot asserted by FUNCTION. The build was resolved by the artefact
+(the page gained a second slot) — the watcher for this one keyed on the SLOT COUNT rather than the item
+status, which is the sharper signal since the slot is what the retire race is about.
+
+**The ported defect was a discarded variable, and this is the third tool where the author's intent is
+present in the code and wired to nothing.**
+```js
+appendLine('-', i+1, line1, 'removed');            // computes the marker
+function appendLine(symbol, num, text, type) {     // ...and never uses `symbol`
+  div.innerHTML = '<div class="diff-num">'+num+'</div><div class="diff-content">'+escapeHtml(text||'')+'</div>';
+}
+```
+So added and removed lines were distinguished **by background colour alone** — nothing for a
+colour-blind visitor, nothing in high-contrast mode, and nothing at all once the result is copied. The
+second defect is quieter: ONE line-number column, printing `i+1` on unchanged and removed rows and
+`j+1` on added rows, so the numbers appear to run backwards wherever something was inserted and no
+label says which file they belong to.
+
+**Graded by mechanism, all four requirements met:**
+- marker in its own cell as literal text — `markerCell.textContent = '+' / '-' / ' '` — with the colour
+  kept as a row class, so the two signals are independent;
+- **two** number cells per row, `origCell` / `modCell`, each carrying an em dash on the side where the
+  line does not exist (the sanctioned use of an em dash under rule 14, as a not-applicable placeholder);
+- the empty-input and cap branches both `return` BEFORE `computeDiff` is called, and the cap message
+  names both line counts and the limit (`MAX_LINES`, 5,000) — the same order-of-operations that made
+  the permutator's cap real rather than decorative;
+- identical inputs get their own early return: *"No differences found: both versions are identical, line
+  for line."* with the table hidden, instead of a wall of unchanged rows.
+- pasted text goes in via `textCell.textContent`, which is stronger than the ported version's
+  hand-rolled `escapeHtml` — there is no markup path to get wrong.
+`onclick=` 0, `oninput=` 0, `alert(` 0, `{{\.` 0.
+
+## 2026-08-20 07:04Z — #18 `tool-touch-target` FILED, and the RACE GUARD had to be re-thought
+
+Item **`324bae81-f219-4e02-999c-f1441e38a4f3`**, page `f1afc893-b9ca-4e95-a91c-c22c4eda1ee5`. Revert
+handle: ported slot **`9f58deb3-7fde-4c5e-a32d-d957c2f1819e`, 6,732 chars, md5
+`a543715ca4f675b35f3920531747a8f0`**.
+
+**A second site-wide sweep of 121 `page_rerender` items was filed at ~07:00Z**, one per page including
+every tool page and the guide pages. That immediately broke yesterday's new pre-assert: "refuse if the
+target page has an open `page_rerender`" would have blocked **every** filing for the ~3 hours the sweep
+takes to drain. The assert as written tested the wrong thing. **What actually matters is whether that
+queued assemble can fire inside the build-plus-retire window**, so the guard now measures the margin:
+count the items ahead of it and refuse only under 20 (at the measured ~0.7/min drain, that is ~25
+minutes of headroom). For this page it printed `RACE GUARD: … 97 items ahead of it — safe margin,
+proceeding`. **A guard that would fire on every ordinary day is not a guard, it is an outage.**
+
+**The ported defects, and both are the "asserts something untrue" class — now 6 of 18 tools:**
+1. The caption says *"The pink circle represents the minimum tappable area (44px)"*. `.finger-overlay`
+   sets `position`, `transform`, `background`, `border`, `border-radius` — and **no width and no
+   height**. It is an inline-flex box shrink-wrapped around the text "44px", so it renders at roughly
+   35×18 px, about a third of the area it claims to represent, and `update()` never touches it. The
+   tool's entire visual argument is a decoration.
+2. It labels 44×44 as **"Passes WCAG AA (Mobile)"**. 44×44 CSS px is WCAG **2.5.5 Target Size
+   (Enhanced), level AAA** (and Apple's 44pt); the AA criterion is **2.5.8 Target Size (Minimum),
+   24×24**, in WCAG 2.2. So the tool is wrong in both directions: a 30×30 button is told it fails
+   "WCAG AA" when it passes 2.5.8 and fails only the enhanced threshold. For an accessibility tool,
+   naming the wrong criterion is the defect, not a nicety — so the brief requires three named
+   thresholds, each with its own verdict line (24 AA, 44 AAA/Apple, 48 Material) and forbids putting
+   the words "WCAG AA" next to 44.
+Also `parseInt(...) || 0`: a cleared field becomes a real zero and the tool emits a CSS fix for a
+button with no width.
