@@ -41,9 +41,24 @@
 # lazy rationale gets you objections, and the seed cannot catch it (missingkey
 # =zero renders a missing field as blank, silently), so this script refuses it.
 #
-# SCOPE (owner ruling 2026-07-17): platform/, internal/, pkg/. A submission
-# touching none of those is refused (docs/site content never spends council
-# credits) — FORCE=1 overrides if you know better.
+# SCOPE (owner ruling 2026-07-17, widened 2026-08-19 per bugs_open/314):
+#   platform/, internal/, pkg/                          — platform code
+#   docs/agent_docs/sql_for_agents/NNN_name.sql          — appliable migrations
+# A submission touching none of those is refused — prose, site content and the
+# hand-run sidecars (_ROLLBACK/_VERIFY/_HOLD) never spend council credits.
+# FORCE=1 overrides if you know better.
+#
+# The migration arm exists because the 2026-07-17 ruling is about SUBJECT MATTER
+# ("prose does not spend credits") and was implemented as a PATH test — and on this
+# estate a migration IS the running system: it rewrites what a live agent does, is
+# live the moment it applies, and has no image tag to roll back. 67% of
+# migration-shipping commits could previously only be reviewed with FORCE=1.
+#
+# The definition itself lives in scripts/council-scope.sh, shared with
+# scripts/council-coverage-nudge.sh and 098_REPORT_unreviewed_commits_v1.sh.
+#
+# DRY_RUN=1 runs every validation and the scope check, then stops without
+# dispatching — use it to test admission for free (bugs_open/314 §6).
 #
 # RESUBMISSION: pass the previous correlation as RESUBMIT_CORR (or arg 2) so
 # the artifact trail (fix_plan rounds, council_reports, verdict notes)
@@ -84,7 +99,27 @@ FIX_CORR="${2:-${RESUBMIT_CORR:-}}"
 # wrapper forwards the submission verbatim and the CHILD writes the artifacts.
 TARGET_AGENT_TYPE="${TARGET_AGENT_TYPE:-council-gate}"
 CLIENT_ID='demo_client'
-SCOPE_RE='^(platform|internal|pkg)/'
+
+# ── SCOPE: single-sourced (bugs_open/314) ───────────────────────────────────
+# The scope used to be a literal here, and two more copies of it lived in
+# scripts/council-coverage-nudge.sh and 098_REPORT_unreviewed_commits_v1.sh.
+# Three hand-maintained copies of one rule is the drift class this estate keeps
+# filing bugs about, so there is now ONE definition and three callers.
+#
+# THIS consumer fails LOUD on a missing definition — exit 1, deliberately NOT the
+# refusal's exit 2. This is the admission gate: with no scope it must neither
+# admit everything (spending credits on prose) nor refuse everything (locking
+# every thread out of review). "I cannot tell" is its own answer.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/scripts/council-scope.sh" ]; then
+  echo "ERROR: scripts/council-scope.sh not found (repo root: ${REPO_ROOT:-<not in a git repo>})." >&2
+  echo "  The admission gate cannot run without its scope definition, and it will not guess —" >&2
+  echo "  guessing means either spending credits on prose or locking everyone out. bugs_open/314." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/council-scope.sh"
+# WARN-only: a drifted copy of the migration vocabulary must be noisy, never fatal.
+council_scope_drift_warn "$REPO_ROOT"
 
 [ -f "$SUBMISSION_FILE" ] || { echo "ERROR: no such file: $SUBMISSION_FILE" >&2; exit 1; }
 command -v jq >/dev/null || { echo "ERROR: jq is required" >&2; exit 1; }
@@ -143,9 +178,22 @@ jq -e '[.plan.edits[].file | select(test("[[:space:]]") or startswith("/") or co
 
 # Scope pre-filter (the cheap deterministic filter from the design — keeps
 # docs/site-content submissions from spending council credits at all).
-if ! jq -e --arg re "$SCOPE_RE" '[.plan.edits[].file | select(test($re))] | length > 0' "$SUBMISSION_FILE" >/dev/null; then
+#
+# Two arms, ORed, matching scripts/council-scope.sh: platform code, or an
+# APPLIABLE migration (match the NNN_name.sql shape, then reject the hand-run
+# _ROLLBACK/_VERIFY/_HOLD sidecars). The migration arm is the bugs_open/314
+# widening: a migration under docs/ is not prose, it is the running system.
+if ! jq -e --arg code "$COUNCIL_SCOPE_CODE_RE" \
+           --arg mig  "$COUNCIL_SCOPE_MIGRATION_RE" \
+           --arg side "$COUNCIL_SCOPE_SIDECAR_RE" \
+   '[.plan.edits[].file
+     | select( test($code) or (test($mig) and (test($side) | not)) )
+    ] | length > 0' "$SUBMISSION_FILE" >/dev/null; then
   if [ "${FORCE:-0}" != "1" ]; then
-    echo "REFUSED: no edit touches the review scope (platform/, internal/, pkg/ — owner ruling 2026-07-17)." >&2
+    echo "REFUSED: no edit touches the review scope." >&2
+    echo "  In scope: platform/, internal/, pkg/ (owner ruling 2026-07-17)" >&2
+    echo "            docs/agent_docs/sql_for_agents/NNN_name.sql — appliable migrations (bugs_open/314, widened 2026-08-19)" >&2
+    echo "  Out:      prose, site content, and hand-run sidecars (_ROLLBACK/_VERIFY/_HOLD .sql)." >&2
     echo "Docs and site content do not spend council credits. FORCE=1 to override." >&2
     exit 2
   fi
@@ -154,6 +202,22 @@ fi
 
 BYTES=$(jq -c '.plan' "$SUBMISSION_FILE" | wc -c)
 [ "$BYTES" -le 65536 ] || { echo "ERROR: plan is ${BYTES} bytes (cap 65536) — trim the diff sketches" >&2; exit 1; }
+
+# ── DRY_RUN: validate and decide ADMISSION, then stop (added 2026-08-19, bugs_open/314) ──
+# Everything above this line is client-side and free; everything below it mints a
+# correlation and dispatches a real council round. So DRY_RUN=1 answers "would this
+# submission be admitted?" without spending anything.
+#
+# WHY IT EXISTS: bugs_open/314 §6 requires a POSITIVE control ("a config-only
+# submission is ACCEPTED without FORCE=1") alongside the negatives. The negatives
+# are free — they exit 2 up there — but proving the positive used to cost a real
+# round, which meant the scope check could only be half-tested. Now it is free in
+# both directions, permanently, for anyone changing this filter again.
+if [ "${DRY_RUN:-0}" = "1" ]; then
+  echo "DRY_RUN=1 — every client-side validation and the scope ADMISSION check passed."
+  echo "  Nothing dispatched, no correlation minted, no credits spent."
+  exit 0
+fi
 
 # ── envelope ─────────────────────────────────────────────────────────────────
 [ -n "$FIX_CORR" ] || FIX_CORR=$(cat /proc/sys/kernel/random/uuid)

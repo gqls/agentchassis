@@ -30,6 +30,19 @@ digest gate-verdicts section the handoff names as the channel to extend).
 
 1. **Scope:** `platform/`, `internal/`, `pkg/`. Docs/site content never spend
    council credits (the 097 script refuses them client-side; `FORCE=1` overrides).
+   > **AMENDED 2026-08-19** (`bugs_open/314`, owner direction — the decision above is
+   > left as recorded, not rewritten). **Appliable migrations
+   > (`docs/agent_docs/sql_for_agents/NNN_name.sql`) are now IN scope.** The 2026-07-17
+   > ruling is about subject matter — prose does not spend credits — but it was
+   > implemented as a path test, and on this estate a migration under `docs/` is not
+   > prose: it rewrites what a live agent does, is live on apply, and has no image to
+   > roll back. Measured: **152 of 227 (67%)** migration-shipping commits over a
+   > fortnight were config-only and so refused by construction; and the config-only
+   > rounds were empirically where this council found its most severe defects
+   > (`314` §9). Prose, site content and the hand-run `_ROLLBACK`/`_VERIFY`/`_HOLD`
+   > sidecars remain refused. The definition is single-sourced in
+   > `scripts/council-scope.sh` (shared with the commit-msg nudge and the 098 report);
+   > `DRY_RUN=1` on 097 tests admission without spending anything.
 2. **Mode at launch:** advisory first (steps 1–3). PR-mode stays a later,
    separate owner call.
 3. **Credit policy:** one council run per submission = per task/commit,

@@ -85,8 +85,15 @@ If a paragraph needs a second read to find the one number that mattered, it is d
 
 Any thread can put a change through the fix loop's own reviewer council before
 committing it. Advisory: it records a verdict, it cannot block you. Scope is
-`platform/`, `internal/`, `pkg/` — docs and site content are refused client-side
-and never spend credits. Full runbook + submission schema:
+`platform/`, `internal/`, `pkg/`, **plus appliable DB migrations
+(`docs/agent_docs/sql_for_agents/NNN_name.sql`) — widened 2026-08-19, `bugs_open/314`:
+a migration IS the running system, live the moment it applies, with no image tag to
+roll back, and 67% of migration-shipping commits could previously only be reviewed
+with `FORCE=1`.** Prose, site content and the hand-run `_ROLLBACK`/`_VERIFY`/`_HOLD`
+sidecars are still refused client-side and never spend credits. **The scope is
+single-sourced in `scripts/council-scope.sh`** — 097, the commit-msg nudge and the
+098 report all read it, so do not re-hardcode it; `DRY_RUN=1 097_TRIGGER…` tests
+admission for free. Full runbook + submission schema:
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/RUNBOOK_council_gate.md`.
 
 **Approval is now reachable, so this is a real norm — not a formality (owner

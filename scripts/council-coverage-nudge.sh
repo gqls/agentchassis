@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # council-coverage-nudge.sh — ADVISORY. Runs from the commit-msg hook. If this
-# commit touches platform CODE (platform/ internal/ pkg/) and the message carries
-# NO `Council-Reviewed:` trailer, print a short nudge. It NEVER blocks — it always
-# exits 0 — so a bug here can never stop the fleet committing.
+# commit touches an IN-SCOPE file — platform code (platform/ internal/ pkg/), or an
+# appliable migration (sql_for_agents/NNN_name.sql, added 2026-08-19 per
+# bugs_open/314) — and the message carries NO `Council-Reviewed:` trailer, print a
+# short nudge. It NEVER blocks — it always exits 0 — so a bug here can never stop
+# the fleet committing. The scope itself is single-sourced in
+# scripts/council-scope.sh; see the block above the `plat=` assignment for why a
+# missing fragment must make this hook silent rather than loud.
 #
 # WHY (owner ruling 2026-07-24: "strengthen advisory, defer structural"). The
 # council gate is deliberately advisory — it cannot intercept a direct commit to
@@ -52,10 +56,26 @@ for trailer_name in Council-Submitted Council-Reviewed; do
   fi
 done
 
-# Platform CODE only (owner scope: platform/ internal/ pkg/). Docs/site content
-# never spend council credits and never need the trailer, so never nudge on them.
+# In-scope changes only. Prose and site content never spend council credits and
+# never need the trailer, so never nudge on them.
+#
+# Scope is SINGLE-SOURCED in scripts/council-scope.sh (bugs_open/314) — it used to
+# be a literal grep here, one of three hand-maintained copies. Since 2026-08-19 it
+# also covers appliable migrations (sql_for_agents/NNN_name.sql), which are live on
+# apply with no roll to gate them.
+#
+# ADVISORY RULE, and it is absolute: if the fragment is missing or unsourceable,
+# exit 0 SILENTLY. This runs from commit-msg on every commit in every session — a
+# bug here must never be able to block one. (The `trap 'exit 0' ERR` at the top of
+# this file is the second net; these checks are the first.)
+SCOPE_FRAG="$(git rev-parse --show-toplevel 2>/dev/null || true)/scripts/council-scope.sh"
+[ -f "$SCOPE_FRAG" ] || exit 0
+# shellcheck source=/dev/null
+. "$SCOPE_FRAG" 2>/dev/null || exit 0
+command -v in_council_scope >/dev/null 2>&1 || exit 0
+
 plat=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null \
-        | grep -E '^(platform|internal|pkg)/' || true)
+        | in_council_scope 2>/dev/null | grep . || true)
 [ -z "$plat" ] && exit 0
 
 # Already reviewed? An APPROVED verdict earns the trailer; its presence means the
@@ -80,7 +100,7 @@ n=$(printf '%s\n' "$plat" | grep -c . || true)
 # `Council-Submitted:` for a submission that was mid-council at the time.
 if grep -qiE '^[[:space:]]*Council-Submitted:' "$MSGFILE"; then
   printf '\n\033[1;36m── council coverage · advisory ──\033[0m\n'
-  printf '  %s platform-code file(s) staged with a \033[1mCouncil-Submitted\033[0m trailer — verdict pending.\n' "$n"
+  printf '  %s in-scope file(s) staged with a \033[1mCouncil-Submitted\033[0m trailer — verdict pending.\n' "$n"
   printf '  Correct for a pre-verdict commit: 098 credits this automatically once the\n'
   printf '  correlation is approved, with no amend. Still owed: READ the verdict, and act\n'
   printf '  on a REVISE/REJECTED (the code is already on the shared branch).\n'
@@ -88,7 +108,8 @@ if grep -qiE '^[[:space:]]*Council-Submitted:' "$MSGFILE"; then
 fi
 
 printf '\n\033[1;36m── council coverage · advisory ──\033[0m\n'
-printf '  %s platform-code file(s) staged, no \033[1mCouncil-Reviewed\033[0m trailer.\n' "$n"
+printf '  %s in-scope file(s) staged (platform code, or an appliable migration — live on apply,\n' "$n"
+printf '  no roll to gate it), no \033[1mCouncil-Reviewed\033[0m trailer.\n'
 printf '  The gate now approves ~80%% of sound changes in ~30 min (submit: 097_TRIGGER_council_review_v1.sh).\n'
 printf '  Committing before the verdict? Use \033[1mCouncil-Submitted: <corr>\033[0m — it asserts nothing,\n'
 printf '  and 098 credits the commit when approval lands.\n'

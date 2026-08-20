@@ -3,8 +3,10 @@
 # (build-order step 3: visibility BEFORE enforcement, the standing rule).
 #
 # WHAT. A deterministic join of git history against council verdicts: every
-# commit in the window touching the review scope (platform/, internal/, pkg/ —
-# owner ruling 2026-07-17) is bucketed as
+# commit in the window touching the review scope — platform/, internal/, pkg/
+# (owner ruling 2026-07-17) or an appliable migration under
+# docs/agent_docs/sql_for_agents/ (NNN_name.sql, sidecars excluded; widened
+# 2026-08-19 per bugs_open/314) — is bucketed as
 #   REVIEWED   — carries "Council-Reviewed:" or "Council-Submitted: <correlation>"
 #                AND the latest council_report on that correlation says approved;
 #   AWAITING   — carries "Council-Submitted:" and the verdict is not (yet) approved;
@@ -73,13 +75,32 @@
 set -euo pipefail
 
 WINDOW_DAYS="${1:-7}"
-SCOPE_PATHS=(platform internal pkg)
+# The git PATHSPEC used to select candidate commits. It deliberately OVER-selects
+# the migrations directory: a pathspec cannot express "NNN_name.sql but not the
+# _ROLLBACK/_VERIFY/_HOLD sidecars" (wildmatch's [A-Z] over-matches names with
+# interior capitals). The exact predicate — the same one 097 admits on — is applied
+# as a POST-FILTER at the top of the commit loop below, so a sidecar-only or
+# prose-only commit under that directory is not miscounted as an unreviewed
+# in-scope change. Stated here rather than hidden (bugs_open/314).
+SCOPE_PATHS=(platform internal pkg docs/agent_docs/sql_for_agents)
 NS='ai-persona-system'
 PG_POD='postgres-clients-0'
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) \
   || { echo "ERROR: not inside a git repository" >&2; exit 1; }
 cd "$REPO_ROOT"
+
+# Scope is single-sourced in scripts/council-scope.sh (bugs_open/314). This is a
+# REPORT, so it fails LOUD: a coverage report that silently reverts to a different
+# scope than the gate admits on is worse than no report — it would accuse threads
+# of skipping a review the gate never offered them, or quietly stop counting a
+# class it should.
+if [ ! -f "$REPO_ROOT/scripts/council-scope.sh" ]; then
+  echo "ERROR: scripts/council-scope.sh not found — cannot report coverage against a scope it cannot read. bugs_open/314." >&2
+  exit 1
+fi
+. "$REPO_ROOT/scripts/council-scope.sh"
+council_scope_drift_warn "$REPO_ROOT"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 HEAD_SHA=$(git rev-parse --short HEAD)
 NOW_UTC=$(date -u '+%Y-%m-%d %H:%M UTC')
@@ -116,6 +137,13 @@ count=0
 
 while IFS='|' read -r sha short date subject; do
   [ -n "$sha" ] || continue
+  # POST-FILTER (bugs_open/314). SCOPE_PATHS over-selects the migrations directory;
+  # keep only commits with >=1 file passing the SAME predicate 097 admits on. Without
+  # this, a commit touching only _ROLLBACK.sql sidecars, an archived sql_for_agents_v*
+  # tree, or a README in that directory would be reported as an unreviewed in-scope
+  # change — an accusation the gate would never have let the author answer.
+  git diff-tree --no-commit-id --name-only -r "$sha" 2>/dev/null \
+    | in_council_scope | grep -q . || continue
   count=$((count+1))
   # The trailer VALUE is its first whitespace-delimited token; anything after it
   # is prose, not part of the id. Take only $1 — a commit that jammed
@@ -182,7 +210,10 @@ REPORT=$(
   echo "# Un-reviewed platform commits — council-gate visibility report"
   echo ""
   echo "Window: last ${WINDOW_DAYS} days, ending ${NOW_UTC}. Branch: ${BRANCH} @ ${HEAD_SHA}."
-  echo "Scope: commits touching ${SCOPE_PATHS[*]} (owner ruling 2026-07-17)."
+  echo "Scope: commits touching platform/ internal/ pkg/ (owner ruling 2026-07-17), or an"
+  echo "       appliable migration under docs/agent_docs/sql_for_agents/ — NNN_name.sql, hand-run"
+  echo "       _ROLLBACK/_VERIFY/_HOLD sidecars excluded (widened 2026-08-19: bugs_open/314)."
+  echo "       Definition: scripts/council-scope.sh, shared with 097 and the commit-msg nudge."
   echo "In-scope commits found: ${count}. Advisory mode: this is visibility, not enforcement."
   echo ""
   print_bucket "REVIEWED (either trailer + approved council_report)" reviewed
