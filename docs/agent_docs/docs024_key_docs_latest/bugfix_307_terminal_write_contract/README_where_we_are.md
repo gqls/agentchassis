@@ -111,3 +111,52 @@ which is right for a change to something this shared). After the next deploy I w
 running binary really carries it, watch a normal failure take the new path, and then the real
 test is the next outage: it should leave nothing dead behind. The bug stays open until then —
 a fix that is committed but not yet running is still a bug in production.
+
+## 2026-08-20, evening — the review council sent it back, and it was right to
+
+The council reviewed it and returned "revise". I want to be plain about why, because the thing it
+caught was mine and it was real.
+
+**It found me reintroducing the exact bug I was fixing, one line away from where I fixed it.** Part
+of this change stops a deliberate decision being silently overwritten when work *fails*. While I
+was in that file I added the same protection to the neighbouring path — the one that runs when work
+*succeeds* — and reused the same list of protected statuses. But the two lists have to differ, and
+I knew that: I had written three paragraphs explaining why. The failure list deliberately leaves
+two statuses unprotected, because moving through them is what a retry *is*. On the success path
+those same two must be protected, or completing an item could quietly paper over one that had
+already failed. So the one-line freebie I added on the way past would have re-opened the hole.
+
+Worse, I had written in the submission that this new guard was "the same as the two existing ones".
+It wasn't — it differed in precisely the two entries that mattered. The reviewer did the one thing
+I hadn't: compared my list against the existing one I was citing, instead of against my argument
+for why mine was right. Fixed, with two tests that fail if anyone reverts it, and I've written the
+lesson up: **the by-the-way edit is the one nobody reviews, including me.** Fifteen tests covered
+the part I was concentrating on and not one covered the part I added because it seemed obvious.
+
+**A second reviewer caught me understating my own headline number.** I had said 141 of 270 failed
+items in a fortnight died before using up their retries. That came from a table that only keeps
+about a week — the older rows move to an archive. Counted properly it is **401 of 558**, seventy-two
+per cent rather than fifty-two. My case was nearly three times stronger than I claimed. That sounds
+like good news and I've logged it as a mistake anyway, because nobody ever re-checks a number that
+argues *against* their own conclusion, so I'd have kept repeating it forever. What stings is that
+I'd written the very check into this project's own runbook that same morning, and didn't run it.
+
+**Three reviewers independently refused to accept a promise.** I had written that one leftover
+piece — an old copy of this same retry logic that lives in the database rather than the program —
+was "a known residual". They said, in three different ways, that a sentence in a rationale is not
+a tracked piece of work. They're right, and one of them put it well: the untreated sibling is where
+the next incident comes from, not a footnote. It is now filed as its own bug with the options
+costed, including the honest obstacle — that database-resident code can't call program code, so
+converging them is a question about ownership rather than a patch.
+
+Two smaller ones: a reviewer caught me claiming retried items become reapable after 48 hours when
+in fact the clock restarts on every write, so it's 48 hours after the *last* one; and another
+pointed out that my database change overwrote a piece of configuration without first checking it
+was still what I'd read minutes earlier. That one hadn't caused harm — I verified nothing was
+clobbered — but the *undo* script is the thing somebody runs months later in a hurry, so it now
+refuses to run if the configuration has changed underneath it.
+
+All of it is fixed and resubmitted. Nothing had reached production: the program half doesn't run
+until the next deploy, which is exactly the window this review exists to use. A round that finds a
+real defect is cheaper than the defect, and this is the second time on this project that's proved
+true.
