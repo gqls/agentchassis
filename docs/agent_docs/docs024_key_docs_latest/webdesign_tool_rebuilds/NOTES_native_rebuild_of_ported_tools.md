@@ -2175,3 +2175,53 @@ The tally: **18 replaced** (14 prior + diff-checker, touch-target, grid-generato
 shadow-stacker built+retired 06:58Z, its replacement rerender still queued behind the sweep — the
 monitor is armed). **45 remain.** The touch-target and grid-generator pages now assert the AA/AAA
 distinction and per-control readouts on the live site respectively.
+
+## 2026-08-20 09:20Z — #20 `tool-text-extractor` FILED, built, retired and graded — the innerText-without-layout defect class
+
+Item **`26c9f27f-55d3-49a1-8079-001d682639b4`** (09:10:44Z), page `a0210519-7ee4-4552-ae0f-74ff0567acb5`.
+Revert handle: ported slot **`d0919324-eaff-4ffe-b7f6-25d62c4cd43a`, 6,908 chars, md5
+`bc0b0c748103a7cce934a1181e0551f3`**. Gates: library-claim 0 rows, local fork 0 rows, open add_tool 0;
+the page's sweep rerender had ALREADY COMPLETED (08:53:34Z), so `ahead=0` meant "nothing queued to
+race", the safe reading of an ambiguous zero — disambiguated by querying the page's open rerenders
+directly, which is the check the margin guard needs appended to it.
+
+**The ported defects:**
+1. **The comment claims `innerText` "handles line breaks and visibility better" — on a `DOMParser`
+   document there is NO LAYOUT, so `innerText` degrades to `textContent` behaviour: block boundaries
+   produce no separator at all.** Paste `<p>one</p><p>two</p>` → `onetwo`. The "Preserve Line Breaks"
+   checkbox only ever preserved newlines already literal in the SOURCE markup. Untrue-self-claim
+   sighting #8, and this one is also a hard behavioural defect (words fuse across every block boundary
+   in minified HTML — most real HTML).
+2. The guide box claims it removes "hidden elements" — it removes none (untrue-self-claim #9; two in
+   one tool).
+3. The same unconditional-`alert("Copied!")` copy as grid-generator, promise unread, throws where
+   `navigator.clipboard` is absent (rule 15/17 classes, contract-covered).
+4. "Perfect for word counting" — no word count anywhere.
+
+**Retire:** `UPDATE 1` at ~09:15Z, ~1 min after the slot landed; md5 byte-identical, one surviving
+slot asserted by FUNCTION, all in one committed transaction.
+
+**RUN:** item complete; orchestration `complete`, `page_adopted=true`, no `already_exists`, no
+`__step_error`, `component_id=0e40cb68-0be1-4712-b2c2-7e263ce0eb12` = the slot's component
+(`tool-text-extractor-webdesign-co-uk`, 10,449 chars).
+
+**COMPONENT, by mechanism — PASS:**
+- the separator invariant is structural: `walk()` pushes a boundary BEFORE and AFTER every
+  `BLOCK_TAGS` element (38 tags incl. `td`/`th`/`tr`/`li`) and for each `br`, so adjacent blocks
+  cannot fuse; inline elements insert nothing (correct);
+- the self-account is TRUE this time: the tool-doc's skip list (script/style/noscript/template/
+  iframe/object/svg/head + `hidden` + `aria-hidden="true"`) is exactly what `isSkippable` implements;
+- preserve mode collapses 3+ newlines to 2 and trims; collapsed mode single-spaces — both as briefed;
+- stats: characters in, characters out, signed % change, words (rule 20 + the word-count intent);
+- copy: empty-output guard with its own message, `isSecureContext` check, promise awaited in
+  try/catch → `execCommand` fallback boolean read, `aria-live` status cleared on any input change;
+- `onclick=` 0 · `oninput=` 0 · `alert(` 0 · `{{\.` 0 · 3 listeners · labels associated.
+- Known limitation, noted not failed: text inside `<pre>` flattens to one line (source newlines in
+  text nodes collapse; only structural boundaries emit breaks). If a visitor complains, that is the
+  next brief's first line.
+
+**Controls pinned for the served grade** (verified against both artefacts): NEGATIVES (0):
+`id="htmlInput"`, `id="textOutput"`, `id="stats"`, `id="preserveLines"`, `copyText`,
+`Strip the Code`. POSITIVES (≥1): `id="htx-input"`, `id="htx-preserve"`, `id="htx-copy-status"`,
+`Characters in:`. Generator's rerender `ac167cc8` (09:13:16Z, triaged) — created BEFORE the retire but
+not yet claimed, so it will assemble the retired state; watcher armed on it.
