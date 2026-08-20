@@ -355,3 +355,27 @@ fleet-wide trap and that this wants to be a shared helper — something like
 it means touching other actions' truncation handling inside a round whose whole purpose was to CONTAIN
 scope. It is the next reuse step, and whoever takes it should audit the other call sites of that
 predicate at the same time rather than moving one.
+
+### Council round 4: APPROVED (`c48b7612`) — REVISE → REVISE → REJECTED → APPROVED
+
+11 of 14 seats approved outright, including `guardian` once the seam was contained. 4 advisories at
+medium, none high. Two closed in code the same hour:
+
+- **`compliance`** — the anti-fabrication guard leaned entirely on `checkBannedClaims`, which only
+  catches patterns a site has **armed**, and the register is sparse. `AcceptNegationRewrite` now
+  rejects a rewrite that INTRODUCES a superlative the original did not carry (`invented_superlative`),
+  with the author's own words explicitly allowed through. This is the objection I would least have
+  found myself: my guard checked that nothing was LOST and never that something was GAINED.
+- **`bug_historian`** — "never returns an error for a style outcome" read as swallowing infrastructure
+  failures too. Still never fails the step, but an infra failure is stamped `repair_unavailable` and
+  logged at Error, so a census can find runs where the gate was **present and blind**.
+
+Two recorded and deliberately not acted on: `architecture` (RFC_022's exception is still not claimable
+even with the default OFF — its third condition is not literally met, because migration `509` names
+the key; **contained is not exempt**, and RFC_044 is where that is settled) and `reuse_agent` (the
+truncation three-state wants to be a shared `aiservice` helper — the next reuse step, and whoever
+takes it should audit the other call sites of that predicate rather than move one).
+
+**All 11 platform commits are credited to the approved correlation automatically** — the
+`Council-Submitted:` trailers resolved at report time, with no amend, exactly as that mechanism is
+designed. Verified in the `098` report.
