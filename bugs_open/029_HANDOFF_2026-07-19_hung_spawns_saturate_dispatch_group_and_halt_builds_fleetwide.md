@@ -1,5 +1,42 @@
 # 029 — hung spawns saturate the `dispatch` concurrency group and silently halt ALL builds fleet-wide
 
+> ## ⚠ CURRENT STATE, 2026-08-20 — read this before the 2026-07-19 framing below
+>
+> **Still OPEN, but it is NOT the "fleet-wide outage class" the title and opening describe, and it
+> is not currently biting.** Two sessions worked it 08-18 → 08-20; the file below is chronological,
+> so the oldest and most alarming account is the first thing you read. What is true today:
+>
+> **1. The one visible burst was an EXTERNAL OUTAGE, not this platform.** All 30 failures were on
+> 2026-08-17, a day carrying **954** GitHub-`503` errors against **1–3 on every other retained day**.
+> Controlled two independent ways: **30/30 (100%)** of abandoned calls belong to a correlation whose
+> `page-rerender` child hit a 503, against **71/337 (21.1%)** of healthy same-day calls; and by page
+> identity, **17/17 (100%)** vs **86/413 (20.8%)**. The child never answered, so the parent's 1200s
+> window expired. *(NOTES §§24–25.)*
+>
+> **2. What PART A FIXED, precisely — and what it did NOT.** Part A (**RSH-010**, `bf7646a29`,
+> council-approved, live, behaviourally proven 2026-08-18 18:28:21Z) fixed **an inverted retry
+> window**: a step that declared a LONGER timeout was given a SHORTER one on retry (>30-minute
+> declarations fell to 3 minutes, everything else to 5). That is a real defect and the fix is real.
+> **It does NOT address the hang.** The earlier claim that it "plausibly makes the entry condition
+> rarer" was **RETIRED as wrong on 2026-08-20**: a retry replays to the *same* child, and no observed
+> child ever exceeds 1200s (n=3,150, max 971.3s), so these requests were **hung, not slow** — Part A
+> converts **zero** of the 31. **Do not read a fixed Part A as a fixed hang.**
+>
+> **3. What is ACTUALLY still open** — and it is all that is: **what the parent does after an
+> abandoned await.** 20 orchestrations froze at `process_item_iter_N_spawn_handler` and never
+> registered the next `call_handler`; 11 more never advanced at all. Unexplained. Rare, bursty, and
+> not reproducing — the entry condition has been **0** for three days running (0/1595, 0/736, 0/380).
+>
+> **4. The evidence is PRESERVED and no longer expires.**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/EVIDENCE_2026-08-15_to_17_awaited_requests.tsv`
+> — 6,484 rows, round-trip proven to rebuild 31/20/11/0 from the file alone.
+>
+> **Cold start:** `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/HANDOFF_2026-08-19b_continue_here.md`,
+> 2026-08-20 block. **A split has been proposed to the owner and NOT actioned** — close 029 for the
+> retry-window inversion, re-file the wedge under its own number with the preserved rows. Until they
+> rule, this file stays open and whole.
+
+
 **Filed 2026-07-19** (relojistas thread). **Status: OPEN.** Fleet-wide outage class. Nothing
 errors, nothing alerts, no site reports a failure — builds simply stop happening
 **everywhere**, and the scheduler keeps firing every 30 seconds into a full pool.
