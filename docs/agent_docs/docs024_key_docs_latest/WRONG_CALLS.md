@@ -40359,3 +40359,54 @@ error on the SAME tool on the SAME day — a clobbered stylesheet makes findings
 broken site audits cleaner. One inflates a total with the probe's guesses, the other deflates it
 with absences, and both arrive dated and `[MEASURED]`. Neither lane could have found both.
 Now one LANDMINE entry each, cross-referenced with an explicit "do not confuse these".
+
+---
+
+## 2026-08-20 — I published a `[MEASURED]` census of "six presign call sites". There are nine. A pattern-based census cannot see a call site that passes a VARIABLE.
+
+**The claim.** In `LANDMINES.md`, in `platform/storage/presign_expiry.go`'s file comment, in a
+council submission and in a commit message: *"Six sites, six hand-written spellings of the same
+magic number, no clamp"*, and *"every live caller already sits exactly on the ceiling"*. Dated,
+enumerated, and presented as the evidence for a change to a shared helper.
+
+**What caught it.** Not a failure — a council seat's **advisory** note, on an already-APPROVED
+round. `reuse_agent`: *"the plan's search was grep-based and could miss a call site not matching
+the searched patterns; not independently verifiable here."* It could, and it did.
+
+**What I actually did.** I grepped for the *values*: `604800`, `10080`, `7\s*\*\s*24\s*\*\s*60`,
+`60\s*\*\s*24\s*\*\s*7`. So `internal/adapters/thunder/data_url_actions.go` — which presigns
+**three times** — was invisible, because it passes a variable named `expiry`, sourced from a
+caller-supplied JSON field `expiry_minutes`. My census could only ever have found the call sites
+that had already spelled the answer out in the source.
+
+**The cheap check that would have.** Enumerate by the **interface**, not the value:
+
+```bash
+grep -rn "GetPresignedURL(\|GetPresignedPutURL(" --include=*.go platform/ internal/ cmd/   # 9
+grep -rn "NewPresignClient\|PresignGetObject\|PresignPutObject" --include=*.go .           # bypasses
+```
+
+The second one is the claim I actually wanted and had not thought to make: it matches **only**
+inside `platform/storage/s3.go`, so there is no path around the clamped helpers at all. **The
+stronger claim was one grep away and I never reached for it, because the weaker one had already
+produced a satisfying number.**
+
+**And the miss hid a defect the fix itself introduced.** Thunder computes a user-visible
+`ExpiresAt` from the same `expiry` variable it passes down. Clamping only inside the helper would
+have made the reply **advertise a lifetime the URL did not have** — a new inconsistency, created
+by a change whose whole purpose was to stop links promising what they cannot deliver. Fixed in the
+same commit by clamping at those three call sites too. **I could not have found that while I
+believed thunder was not a caller.**
+
+**The transferable half.** This is [[a-cap-census-cannot-say-who-was-cut]]'s sibling: *a census
+keyed on how a value is WRITTEN cannot see a caller that computes it.* Two rules fall out —
+**enumerate by the seam every caller must pass through, not by the literal you expect to find
+there**; and when a census returns a tidy number, ask what shape of caller it was structurally
+incapable of returning. Mine could not return a variable, and "six" looked like an answer rather
+than a filter.
+
+**Cost:** the wrong figure lived in four artefacts for about forty minutes and was corrected in
+all four. No decision was taken on it — the clamp was already going to the shared helper, so the
+undercount changed the *justification*, not the change. **Nothing was broken in production:**
+thunder's defaults are 60 / 1440 / 360 minutes, all under the ceiling, so the exposure was
+reachable rather than live. That is luck, not design — the field is caller-supplied.

@@ -726,3 +726,58 @@ Round 2 submitted on the same trail correlation, so the commit's existing
 it — which is precisely what puts you in "applied before submitted". The two traps hand
 you to each other. **A REVISE round is cheaper than the defect it finds, and this one
 found two — they were just both in the submission.**
+
+### 2026-08-20 — council APPROVED at round 3, and the approval's ADVISORY notes found one more defect
+
+`905d9078-86c2-47a7-af0a-781723a46c08`, 18:06:02Z, **all reviewers approve**, 5 advisory
+objections all `low`. Trailer `Council-Reviewed:` written on `fa3b665ed` after reading it.
+
+**Three rounds, three findings, none of them in the state layer.** Worth recording as the
+argument for submitting at all — the change under review was fine every time:
+
+| round | what it caught | where the defect was |
+|---|---|---|
+| 1 (5 of 10 seats) | I applied the migration 6 min before submitting, so the council's live Schema section showed my own change back as pre-existing state; and my defence rested on a check I had run and cited nowhere | the **submission** |
+| 2 (`editquality` high) | `applied_by='record-only'` cannot prove the file's SQL ran | the **evidence** |
+| 2 (`reuse_agent`, `prior_art_librarian`) | **the presign clamp was in the wrong place** | the **design** |
+| 3 (advisory, post-approval) | **my call-site census said SIX; it is NINE** | the **measurement** |
+
+**Round 2's design finding is the one that paid for the whole exercise.** I had put
+`MaxPresignWindow` in `platform/delivery` — the one package that could not yet get it wrong —
+leaving every existing presign caller unprotected. The ceiling now lives in `platform/storage`
+and is enforced inside both presigners, so every caller inherits it.
+
+**Round 2's evidence finding was the sharpest.** I cited the `schema_migrations` row as proof the
+file ran; the row says `applied_by='record-only'`, which is the estate's marker for *not run by
+the runner*. The seat was right that it proves nothing. The answer that rests on nothing I
+remember: the file leaves a fingerprint a bare `ALTER TABLE` cannot — four `COMMENT`s, two
+**partial** indexes, three named CHECKs. All present. **Nobody hand-types that.**
+
+**Round 3's advisory then caught the census.** `reuse_agent`: *"the plan's search was grep-based
+and could miss a call site."* It did — three of them, in `thunder/data_url_actions.go`, invisible
+because they pass a **variable** (`req.ExpiryMinutes`, a caller-supplied JSON field) rather than
+one of the magic numbers I grepped for. **Enumerate by the interface, not the value.** And the
+claim I actually wanted was one grep away and I never reached for it: `NewPresignClient` /
+`PresignGetObject` / `PresignPutObject` match **only** inside `platform/storage/s3.go`, so there
+is no bypass path at all. Full entry in `WRONG_CALLS.md`.
+
+**The miss was hiding a defect the clamp itself introduced.** Thunder reports an `ExpiresAt`
+computed from the same `expiry` variable it passes down, so clamping only inside the helper would
+have made the reply **advertise a lifetime the URL did not have** — a fresh inconsistency from a
+change whose entire purpose was to stop links promising what they cannot deliver. The three
+thunder sites now clamp locally too. **That defect was unreachable while I believed thunder was
+not a caller**, which is the real cost of an undercount: not the number, the blind spot.
+
+**Two advisories deliberately NOT acted on, recorded in the register so they are not lost:**
+- the clamp is **silent** (`S3Client` carries no logger, only its constructor takes one), so a
+  caller that starts requesting above-ceiling *by design* would be invisible. Revisit with a
+  metric hook then, not now;
+- the clamp is **inert until each service rolls** — nine call sites across ~6 services, so a
+  same-tag rebuild could leave an old unclamped binary serving. Verify per SERVICE at the
+  artefact: `logs -l app=<service> | grep 'build provenance'`, then
+  `git merge-base --is-ancestor 882622629 <stamp>`.
+
+**Housekeeping note:** the commit-scope pattern check flagged one removed line from
+`LANDMINES.md`. Verified before moving on — `git diff --numstat` says `2 1`, and the removed line
+is my own bullet from this morning, replaced by its struck-through corrected form. Not another
+session's entry.
