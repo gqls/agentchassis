@@ -40219,3 +40219,45 @@ boring part instead** — and the ordering trap that put me here is now in `LAND
 **Cost:** one council round, ~12 minutes of fleet time, five seats' attention, and zero
 defects found in the code under review. **Worth it** — the submission was genuinely weaker
 than the change, and I would not have known.
+
+---
+
+## 2026-08-20 — I wrote a council submission sketch naming three helper functions; only one existed. It was approved.
+
+**The claim:** a round-2 council sketch for `update_page_status_config_contract_test.go` presenting
+Test 3 as `body := handlerBody(t, string(src), "UpdatePageStatusAction")` and
+`for _, key := range configReads(body)`.
+
+**What was true:** `specHasKey` exists. **`handlerBody` and `configReads` do not exist anywhere.** I
+reconstructed the sketch from the test's *header comment* rather than pasting its *body*, and
+invented two plausible helper names to fit the description. The shipped test does the scan inline
+and passes; the fiction was entirely in the submission.
+
+**What caught it:** the `editquality` seat, same round — *"Test 3 depends on helper functions
+specHasKey, handlerBody, configReads that are not defined in this file and not shown to exist
+elsewhere in the sketch — if any of the three doesn't already exist … the test either fails to
+compile or silently passes without checking what it claims."* Rated **low**, non-gating, and **the
+round was APPROVED with the fiction in it.**
+
+**Why this is worse than the failure already on record.** The council runbook warns in bold that
+*"on a resubmit, update the `sketch` fields — reviewers judge the sketch; it is the only view of your
+code they get"*, and its worked example is a **stale** sketch that drew objections about code which
+no longer existed. Mine is the **fabricated** variant: not code that used to be there, but code that
+never was. A stale sketch at least described a real past state and can be caught by re-reading the
+file. A fabricated one is internally consistent, reads as more polished than the truth, and there is
+nothing to compare it against except the source — which is the one thing I had skipped.
+
+**The cheap check, one line, before submitting:** for every symbol the sketch names,
+`grep -n "func <name>" <file>` — or just **paste the real body**, which costs nothing, cannot be
+wrong, and was available the whole time. The reason I did not is worth naming: I had already read
+the function's header comment while writing the rationale, felt I knew what it did, and wrote the
+sketch from that understanding. **The sketch is not a description of the code; it IS the code, for
+everyone who reads the round.**
+
+**The irony, which is the reason it is logged rather than quietly fixed:** the submission this
+appeared in was about `bugs_open/336` — a bug whose entire content is *a declaration that did not
+match the code it described*. I reproduced the bug's own shape inside the document proposing its fix,
+and eleven seats approved it.
+
+**Related:** the 2026-08-20 entry above (a submission read as a review); the runbook's stale-sketch
+trap; and the general family of *a claim about behaviour is not the behaviour*.
