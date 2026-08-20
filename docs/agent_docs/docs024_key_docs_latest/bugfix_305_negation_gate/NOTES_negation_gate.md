@@ -253,3 +253,37 @@ All hold, so `509` is unaffected. **This is the argument for anchoring and needl
 blind `jsonb_set`**: the migration would have refused (0 rows, loud RAISE) if any of them had moved,
 instead of minting an orphan key on a chain that no longer exists. Re-run this table before applying
 `509` regardless of what this note says — it was true at 15:40Z and the tree moves hourly.
+
+### Council round 2 (REVISE) — and it found the estate's own trap in my code
+
+compliance and render_guardian flipped to **approve**, so round 1's fixes held. Two new real defects:
+
+1. **`guidelines`: my `item_key` was coarser than my finding.** `brief-negation:<site_id>` against a
+   finding that is a LIST of phrases — and a brief is edited by config at any moment. That is the
+   documented trap almost word for word: *"the second, DIFFERENT finding hits `ON CONFLICT DO NOTHING`
+   and is gone, and the open row goes on describing the first thing it ever saw"* (measured elsewhere
+   at four of five open items naming the WRONG facts, with nothing ever erroring). I had even written
+   the consequence into the code comment as an acceptable cost, and justified it by the reaper
+   landmine — which is the more interesting mistake: **I reasoned about one landmine carefully enough
+   to talk myself past another.**
+   Fixed: the key carries a sha256 digest of the sorted phrase set. Both landmines now hold — no
+   finding is dropped, and no open row is rewritten daily. **Proven in production on the same
+   afternoon** (v1.0.1322): one run closed all 12 site-keyed items and refiled 9 under phrase-set keys.
+2. **`llm_reliability` (HIGH): my truncation second arm could not fire.** `outTok >= sent` with
+   `outTok` defaulting to 0 when a provider reports no usage is always false, so the arm silently
+   never ran — indistinguishable from "the answer was complete". The three states are distinct now and
+   UNKNOWN is logged. Stated plainly in the code: that arm was never the load-bearing protection.
+
+**The scope objection was ROUTED, not argued.** `guardian` (HIGH) and `architecture` both said the
+default-ON annotation on two of the most-invoked actions is a shared-contract change that arrived
+inside a single-agent bug fix, and that RFC_022's exception does not cover default-ON. Both are
+correct. Per the 2026-07-28 ruling that a scope veto is recorded and routed rather than resubmitted
+with better measurements: `architecture_review/RFC_044_default_on_annotation_on_two_shared_render_actions.md`.
+
+**One consequence worth recording, because it looked like a loss and was a gain:** after the
+attribution fix, `loanzy.uk` moved from *1 supplied / 1 regulatory* to *0 / 2* and the fleet went 10 →
+9 sites. Checked rather than assumed: its phrase is *"not a lender, not a broker"*, and the reveal hit
+now attributes to the sentence that actually carries it, which the regulatory rule then correctly
+exempts. A better answer, not a dropped one.
+
+Round 3 dispatched on the same correlation.
