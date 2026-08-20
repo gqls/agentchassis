@@ -1,6 +1,6 @@
 # RFC_040 — a migration cannot ask the binary what it can do, so every config-ahead-of-binary interlock on this estate is enforced by prose
 
-**Status: RATIFIED (owner, 2026-08-20) — SCOPED TO STAGE 1-2 ONLY** · raised 2026-08-19 by the `bugfix_299_cta_dials_phone` lane
+**Status: IMPLEMENTED (stages 1-2, 2026-08-20) — RATIFIED and SCOPED by the owner to those stages only** · raised 2026-08-19 by the `bugfix_299_cta_dials_phone` lane
 · motivating cases `bugs_open/299` (slug
 `home_page_cta_names_the_brief_starter_tool_and_dials_the_phone_instead`) and
 `bugs_open/312` · prompted by a **medium-severity council objection** on this
@@ -373,3 +373,47 @@ then **COMPLETED**, filing 6 findings from the new check alongside the existing 
 probe been wrong, the fail-fast arm would have failed the whole step and rolled back every
 other check's findings in that run. **That is one worked instance of the proposed gate's
 predicate being both checkable in advance and correct** — a sample of one, stated as such.
+
+---
+
+## 11. Acceptance evidence — COLLECTED 2026-08-20, and it found a defect in this RFC's own design
+
+Live on chassis **v1.0.1319** (capability-probed on the pod, negative control absent).
+
+**§7 item 1 — rows per live pod, with a control: PASS.** Every reporting pod carries
+`git_commit = 447f3a8a84428061059abdeeb4bb1d524941dbb7`, **82** `discovery_check` rows, **314**
+`action` rows and **1** `build` sentinel. The must-be-absent control (`buildcapability_NOTREAL`)
+is absent from the binary; a name not in the registry does not appear in the table.
+
+**§7 item 3 — the stale-row proof: PASS, and it FAILED OPEN, which is the finding.** 191
+distinct `pod_name` values had reported while only **82** pods existed — so the staleness this
+RFC warned about in §2.1 was not hypothetical, it was already happening within hours, and at a
+scale the design did not anticipate.
+
+### The design defect, stated plainly
+
+**§2.1 assumed one row-set per long-lived pod. The chassis binary also runs as EPHEMERAL
+per-job pods** — `agent-page-rerender-*`, `agent-page-build-handler-*`,
+`agent-build-dispatch-loop-*`, `agent-site-publisher-*` — at roughly **52 pod starts per hour**,
+each writing ~400 rows and dying. Measured 3h40m after go-live: **75,827 rows, 191 pods,
+24 MB**, extrapolating to ~500k rows and ~160 MB **per day, unbounded**.
+
+So `Touch` being uncalled was not the "stated gap" this RFC filed it as — it was half of a live
+leak. **Corrected in the same session:** a retention prune on the same path that creates the
+rows (self-limiting, no scheduler), `RetentionWindow` = 2h, `TouchInterval` = 15m, with the
+ordering between them pinned by a test because a window shorter than the heartbeat would sweep
+a pod that is still serving. 73,445 dead rows removed by hand as the interim; **the table
+regrows at ~20k rows/hour until the next fleet roll carries the prune.**
+
+### What this says about the RFC itself
+
+The mechanism's first live run contradicted its author, in writing, within four hours — which is
+the strongest argument this document can make for its own thesis. The estate's existing answer
+to "what is actually running?" could not have told me any of this: the provenance line had
+scrolled, the commit probe cannot enumerate, and a `kubectl get pods` snapshot **actively misled
+me** (I measured 5 pods and was one step from writing that into a council record — see
+`WRONG_CALLS.md`, 2026-08-20). A registry that can be queried caught in one SELECT what three
+documented checks could not see at all.
+
+**Deferred with the assertion helper, unchanged:** §7 items 2 and 4. Do not report them as gaps
+of this work.
