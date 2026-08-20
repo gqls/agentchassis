@@ -1,5 +1,29 @@
 # SUMMARY — 2026-08-20 — the blocker changed shape: outside pages were thought to have no repair route at all, and it turns out there is one, at thirty-six successes out of thirty-seven
 
+> ## ⚠⚠ CORRECTED THE SAME DAY, ~10:15Z — THE HEADLINE CLAIM IS RETRACTED
+>
+> **Left standing rather than rewritten, deliberately: this is what we believed at the milestone,
+> and the series is the record.** Read it as that, not as current state.
+>
+> **What is wrong:** the route is real (36 of 37 on outside pages) but it **cannot reach these
+> pages**. Their blemish is in the *finished* HTML, and every repair route we have rewrites the
+> *source data* — which on these pages holds only a fingerprint and a note of where the page came
+> from, no words at all. So there was nothing for the repair to work on. Measured: re-rendering one
+> of these pages from its source data produces a page with **zero words**, and no error.
+>
+> **What that means for the read-out:** "the blocker changed shape" is **retracted**. It is where it
+> was — these pages have no repair route, and giving them one means building something that edits
+> finished HTML, which nothing here does. For seven instances of the mildest blemish (backticks
+> around code words on developer pages), that is the owner's judgement call, not an obvious yes.
+>
+> **The one thing that genuinely did change**, and it survives: we had been blaming *ownership* for
+> three days. It was never ownership. On this component, "we do not own it" and "its words cannot be
+> regenerated" happen to be the same 100 pages — so the ownership guard took the blame for a
+> problem it was not causing, and every fix anyone proposed, including both of mine, was about
+> getting around it. Getting around it would have repaired nothing.
+>
+> Full account: `bugs_open/277` §5, and the correction box in `HANDOFF_2026-08-20_continue_here.md`.
+
 ## What we are trying to do
 
 When our system inspects a website it has built, it files a note for anything it finds wrong — a

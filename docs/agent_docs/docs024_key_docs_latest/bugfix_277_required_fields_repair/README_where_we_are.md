@@ -1105,3 +1105,53 @@ any of this, and I am not claiming otherwise. Nothing has actually been repaired
 
 Today's escalation runs at about ten to one and will hand four jobs to a person, each now carrying a
 correct pointer to us. That part is working.
+
+---
+
+## 2026-08-20, late morning — I have to take back the good news I gave you two hours ago, and the thing underneath it is better than either version
+
+**The route I found does not work on these pages.** I am sorry to hand you a reversal twice in one
+morning. Here is what happened and what it actually means.
+
+**What I checked, and what I never checked.** The route is real — 36 successes out of 37 on outside
+pages. Before recommending it I looked up the one recorded warning that would have disqualified it,
+ran that check, and cleared it correctly. Then I wrote it into our bug file and into the live
+system. What I never asked was the simplest question available: **can the repair actually reach the
+thing that is wrong?**
+
+It cannot. Every repair we have works by rewriting a page's *source data* and regenerating the page
+from it. On these seven pages the blemish is in the *finished* page, and their source data holds no
+words at all — just a fingerprint and a note of which site the page was copied from. So the repair
+would have rewritten an empty cupboard. I proved it rather than assuming: I took the real page
+template and the real source data and rendered it exactly the way the live system would. **It
+produces a page with zero words on it, and reports no error.** I ran the same test on a page whose
+source data *does* hold its words, and that one came out complete — so the test could have gone
+either way, which is what I have been failing to do all week.
+
+**The thing underneath, which is worth more than the route was.** For three days everyone — this
+lane, the neighbouring one, the closed bug before it — has said these pages cannot be repaired
+*because we do not own them*. **That was never the reason.** On this component, "we do not own it"
+and "its words cannot be regenerated" happen to describe exactly the same 100 pages. So the
+ownership guard has been taking the blame for a problem it is not causing, and every fix anyone has
+proposed, mine included, was a scheme to get around that guard. Getting around it would have
+repaired nothing at all. I have written that up where people will hit it before they start.
+
+**What I am not saying.** I nearly wrote you a much more alarming note claiming 100 live pages were
+one edit away from being wiped. They are not. There is a second safeguard that measures how much
+visible text a change would remove, and it would refuse this one flatly. The pages are safe. They
+are simply not repairable by the means we have.
+
+**Where that leaves the main bug.** Back where it was this morning, honestly: these pages have no
+repair route. Giving them one means building something that edits finished HTML directly, which
+nothing here does. And I would not start that without asking you, because the blemish is seven
+instances of the mildest kind — backticks around code words like `fetch()` on developer pages, where
+a reader would mostly see them as intentional. It is a real defect and it is a small one. **That
+trade is your call, and I have left it in the handoff as your decision rather than starting it.**
+
+**One more correction, about my own work.** I have now changed that same live instruction three times
+today. The first fixed a dead pointer, the second fixed figures of mine that went stale overnight,
+and this third one is different in kind: the value was *right* and I applied it to the wrong
+situation. So instead of writing a better answer, I have written the **question** — the next person
+is told to check whether the repair can reach their particular page, rather than being handed my
+conclusion about mine. An answer is only ever right for the case its author was looking at. A
+question travels.
