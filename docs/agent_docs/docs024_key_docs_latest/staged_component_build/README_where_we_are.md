@@ -2084,3 +2084,44 @@ wrong-calls log.
 **What waits on you is unchanged: one more build roll.** What changes is what comes after it.
 The final switch now needs a piece of design work first — deciding what each of those fourteen
 places should get instead of a guess — rather than being the quick flip we had penciled in.
+
+---
+
+**2026-08-20, morning.** Your build rolled overnight and **step four is done — live, and proven
+properly.** The service's own startup line that says which code it is running had already
+scrolled away by the time I looked (it lasts hours, not days), so I asked the running binary
+directly whether it contains the new code, on both machines, with two control checks either side
+so a broken probe couldn't pass for a good answer. It does. And the warning step four was built
+to eliminate has gone silent: zero occurrences overnight, where the rate beforehand predicted
+about nine. I'll be straight about the limit — only three of the relevant jobs ran in that
+window, so I can say the old every-time behaviour is gone, but not that some rare version of it
+is. If that distinction matters we can look again in a day.
+
+**That leaves one step, and it is no longer the quick flip we had penciled in.** Two things came
+out of the checking.
+
+The first is a correction to our own plan, and I'd rather record it than quietly work around it.
+The plan said we could safely delete a bit of backwards-compatibility code because old records
+expire after a day. They don't — there are records in that table from mid-July. More to the
+point, that compatibility code is also used when re-rendering a page, and page data never expires
+at all; twenty live pages across twelve sites still hold data in the old shape. **The conclusion
+turned out to be right anyway**, for two better reasons I've now written down and can prove with a
+query. But the reason we had was wrong, and if nobody had checked, we'd have deleted the code on
+the strength of it.
+
+The second is a real cost, and it's the useful kind — specific and fixable. When the system
+finishes a piece of work it records which code change deployed it. Nobody ever configured where
+that value comes from, so it is being found by the same "search everywhere and hope" mechanism
+this whole workstream exists to remove. It appears to be landing on the right answer today, by
+luck rather than design. **The final step would switch that mechanism off, and this value would
+quietly stop being recorded** — no error, just an empty field, on something another workstream's
+page-publishing fix depends on. So I have written to that workstream, told them what we found and
+what we plan, and asked them for the correct answer rather than picking one myself, since the
+whole point is to stop guessing. It needs a one-line configuration change, not a code change.
+
+That is the shape of the remaining work: about fourteen places like it, each needing to be told
+explicitly where its value comes from before we turn the guessing off. Most will be quicker than
+this one. It is a list, not a mystery — which is a much better position than we were in last
+night, when it was fourteen unknowns.
+
+**Nothing waits on you right now.** The next chat picks up the list.
