@@ -215,6 +215,15 @@ ListAgents                                # "bugfix 029" is a live peer session
 **Use the Write tool, never `cat >`, on any file in this directory.** I overwrote this very file with
 a redirect; Write would have refused. Recovered from git only because it was committed.
 
+**SETTLED 2026-08-20 — nothing was lost, and note WHAT KIND of fact that is.** A `SUPERSEDED` banner
+of this file's author first appears in a commit **four minutes after my restore**, and they recalled
+writing it about an hour earlier — which would have put it inside my clobber window. **Git cannot
+separate "written once, late" from "destroyed and re-typed from memory": `git log -S` dates the first
+COMMIT, never the first keystroke.** It was settled only by the authoring session reading its own
+transcript (one `Edit`, running continuously into that commit), so it is **attested by them and
+unverifiable from git** — not measured. The transferable move, now a `LANDMINES.md` entry: after any
+overwrite of a shared file, **ask the authoring session "did you type this once or twice?"**
+
 ## DO NOT FIRE `NEXT_090_single_variable.sh` YET
 
 It is armed, correct, and **not** the right next action. The standing instruction from this file's
