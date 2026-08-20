@@ -300,3 +300,32 @@ func TestNegativeRevealAttributesToTheSentenceThatMustChange(t *testing.T) {
 		t.Error("SentenceStart no longer addresses the raw text")
 	}
 }
+
+// "Say what it IS" is the pressure that fills the slot the removed contrast
+// leaves with an absolute. checkBannedClaims only catches patterns a site has
+// ARMED, and the register is sparse — so an unarmed site would have had nothing
+// between an invented superlative and the page. (Council round 4, compliance.)
+func TestRewriteRejectsInventedSuperlatives(t *testing.T) {
+	from := "The registry shows you what's possible, not what survives production."
+	protect := ScanDefineByNegation(from)[0].MatchInSent
+	for _, to := range []string{
+		"The registry is the definitive record of what runs in production.",
+		"The registry shows every single agent running in production.",
+		"The registry gives you a fully verified view of production.",
+		"The registry is always accurate about what runs in production.",
+	} {
+		if ok, why := AcceptNegationRewrite(from, to, protect); ok {
+			t.Errorf("an invented absolute was accepted (%q): %q", why, to)
+		}
+	}
+	// The word was the AUTHOR's, so keeping it is not an invention.
+	keeps := "It always lists what is possible, not what survives."
+	if ok, why := AcceptNegationRewrite(keeps, "It always lists what runs in production today.",
+		ScanDefineByNegation(keeps)[0].MatchInSent); !ok {
+		t.Errorf("a superlative the original already carried must not be a rejection, got %q", why)
+	}
+	// And a plain rewrite still passes.
+	if ok, why := AcceptNegationRewrite(from, "The registry lists the agent definitions running in production today.", protect); !ok {
+		t.Errorf("a plain rewrite was rejected as %q", why)
+	}
+}

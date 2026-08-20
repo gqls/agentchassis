@@ -157,8 +157,18 @@ func RewriteNegationsAction(ctx context.Context, params ActionParams) (interface
 	marker["hits_after"] = countNegationHits(content)
 	marker["status"] = "repaired"
 	if callErr != "" {
+		// NOT the same thing as "nothing needed rewriting", and the distinction is
+		// deliberate (council round 4, bug_historian): this action never fails the
+		// STEP for a style outcome, but an infrastructure failure — no AI client,
+		// a provider error, an answer that would not parse — is a different event
+		// and must not read as a quiet pass. It is stamped with its own status and
+		// logged at Error, so a census can find the runs where the gate was
+		// PRESENT and BLIND rather than present and satisfied.
 		marker["status"] = "repair_unavailable"
 		marker["error"] = callErr
+		params.Logger.Error("rewrite_negations: the repair could not run — the copy stands as written, and this is NOT a clean result",
+			zap.String("reason", callErr),
+			zap.Int("targets", len(plan.targets)))
 	}
 	stampCopyGate(params, marker)
 

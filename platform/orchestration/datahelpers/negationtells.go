@@ -150,6 +150,19 @@ var regulatoryNegationRe = regexp.MustCompile(`(?i)\bnot (?:financial|legal|medi
 	`|\bnot guaranteed\b|\bno guarantee\b|\bnot a (?:quote|offer|recommendation|substitute)\b` +
 	`|\bnot intended as\b|\bcan (?:still )?be wrong\b|\bcan give a wrong answer\b|\bwe cannot tell you\b`)
 
+// Superlatives and absolutes. A rewrite may not INTRODUCE one that the original
+// did not have.
+//
+// This exists because the council's compliance seat pointed out (round 4) that
+// the claim guard leaned entirely on checkBannedClaims, which only catches
+// patterns a site has actually armed — and the register is sparse. "Say what it
+// IS" is exactly the pressure that fills the slot the removed contrast leaves
+// with an absolute, and an unarmed site would have had nothing standing between
+// that and the page. It is deliberately a short, closed list of words that are
+// almost never true and never necessary: the check is "did the rewrite reach for
+// one the author had not", not "is this word banned".
+var superlativeRe = regexp.MustCompile(`(?i)\b(definitive|guaranteed?|guarantees|unmatched|unrivalled|unrivaled|flawless|foolproof|industry[- ]leading|best[- ]in[- ]class|world[- ]class|cutting[- ]edge|state[- ]of[- ]the[- ]art|always|never fails?|every single|fully (?:verified|accurate|automated|managed)|100%|perfect(?:ly)?|seamless(?:ly)?)\b`)
+
 var (
 	htmlTagRe     = regexp.MustCompile(`</?[A-Za-z][^>]*>`)
 	numberTokenRe = regexp.MustCompile(`\d[\d,.]*`)
@@ -512,6 +525,13 @@ func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
 	}
 	if !sameTagSequence(from, to) {
 		return false, "markup_changed"
+	}
+	// An absolute the original did not claim is an invented claim, whether or not
+	// the site has armed a pattern for it.
+	for _, w := range superlativeRe.FindAllString(to, -1) {
+		if !strings.Contains(strings.ToLower(from), strings.ToLower(w)) {
+			return false, "invented_superlative"
+		}
 	}
 	fromLower := strings.ToLower(from)
 	for i, tok := range capTokenRe.FindAllString(to, -1) {

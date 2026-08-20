@@ -62,8 +62,14 @@ meta-description gate's own (`save_page_meta_description_action.go:44-48`): *"a 
 can forget to wire is a comment"*.
 
 **Why RFC_022's narrow exception does NOT cover it, stated plainly:** that exception requires the
-unsafe side to be the DEFAULT-OFF one. This is default ON. The exception does not apply and the
-architecture seat is right to say so.
+unsafe side to be the DEFAULT-OFF one. It was default ON.
+
+> **AND IT STILL DOES NOT COVER IT NOW THAT THE DEFAULT IS OFF** — recorded here because claiming the
+> exception would be the easy, wrong move. The architecture seat put it exactly (round 4, approved with
+> this as an advisory): *"It is contained today (opt-in, default off, one named consumer via migration
+> 509) but the RFC_022 exception's third condition — 'zero live consumers name it' — is not literally
+> met."* Migration `509` names it. So the change is CONTAINED, which is what the veto asked for, but it
+> is not EXEMPT, and this RFC remains the place the question is settled rather than a formality.
 
 ## 2. The case that it is not architecture-scope
 
