@@ -354,6 +354,28 @@ func TestSpliceOpenGraphHandlesAHeadWithNoCloseTag(t *testing.T) {
 	}
 }
 
+func TestInjectBrandHeadTagsEmitsNoOgURL(t *testing.T) {
+	// The emitter half of bugs_open/252. injectBrandHeadTags writes into the
+	// PER-SITE stored head, so it must not assert a page URL — it has no page
+	// to ask, and its origin-rooted og:url is what made 700 assembled pages
+	// claim the homepage. The site-scoped tags it DOES own must survive.
+	ctx := &RenderContext{
+		Domain:      "lendzy.co.uk",
+		CompanyName: "Lendzy",
+		Tagline:     "Know the rules before you borrow",
+	}
+	out := injectBrandHeadTags("<head><title>t</title></head>", ctx, false, zap.NewNop())
+
+	if strings.Contains(out, "og:url") {
+		t.Fatalf("the per-site brand block still asserts a page URL:\n%s", out)
+	}
+	for _, keep := range []string{"og:type", "og:site_name", "og:title", "og:description", "og:image", "twitter:card"} {
+		if !strings.Contains(out, keep) {
+			t.Fatalf("removing og:url took %s with it:\n%s", keep, out)
+		}
+	}
+}
+
 func TestHeadLangAttrReadsTheHeadAndNotTheHeader(t *testing.T) {
 	cases := []struct {
 		name string

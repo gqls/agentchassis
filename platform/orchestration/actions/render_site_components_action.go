@@ -527,7 +527,15 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 		b.WriteString("  <meta property=\"og:description\" content=\"" + desc + "\">\n")
 	}
 	b.WriteString("  <meta property=\"og:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
-	b.WriteString("  <meta property=\"og:url\" content=\"" + origin + "/\">\n")
+	// NO og:url here, deliberately. This block is written into the PER-SITE
+	// stored head (site_components.rendered_html) and reused by every page
+	// assemblePage builds, so an origin-rooted og:url made every assembled
+	// SUBPAGE claim the homepage's identity: 22 of 24 heads, 700 pages,
+	// 26 sites (bugs_open/252, verified on the wire 2026-08-19 beside a
+	// canonical that correctly named the page). A per-site artefact cannot
+	// carry a per-page value, and this function has no page to ask.
+	// Per-page Open Graph identity belongs to assembly: spliceOpenGraph in
+	// head_assembly.go, which strips this property and states the page's own.
 	b.WriteString("  <meta name=\"twitter:card\" content=\"summary_large_image\">\n")
 	b.WriteString("  <meta name=\"twitter:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
 	// Phase I2: link the site's committed sprite stylesheet (styled bullets,
