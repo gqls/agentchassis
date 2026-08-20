@@ -362,3 +362,36 @@ func TestNegatedRegulatedClaimsNeverReachTheNegationGuard(t *testing.T) {
 }
 
 func mustCompileCI(p string) *regexp.Regexp { return regexp.MustCompile("(?i)" + p) }
+
+// TestScanRegulatedClaimsIsFamilyOnlyAndHonoursAttestation covers the narrow
+// entry point added for the section-editor path (round 3). Two properties, and
+// the second is the one that keeps the editor's blast radius small: it must scan
+// the regulated family and NOTHING else, or wiring it into the editor would
+// quietly turn on the whole claims gate on another lane's seam.
+func TestScanRegulatedClaimsIsFamilyOnlyAndHonoursAttestation(t *testing.T) {
+	regulated := "We are authorised and regulated by the Financial Conduct Authority."
+	otherFleetPattern := "Figures without a source do not appear here."
+
+	if got := ScanRegulatedClaims([]string{regulated}, nil); len(got) == 0 {
+		t.Error("unattested site: a regulated claim must be caught")
+	}
+	// The control that matters: a sentence the FULL fleet set catches must NOT
+	// be caught here, or the editor guard is really the whole gate in disguise.
+	if len(ScanAllBannedClaims([]string{otherFleetPattern}, nil)) == 0 {
+		t.Skip("control sentence no longer matches any global pattern; pick another")
+	}
+	if got := ScanRegulatedClaims([]string{otherFleetPattern}, nil); len(got) != 0 {
+		t.Errorf("family-only scan caught a NON-regulated fleet pattern: %s", got[0].Pattern)
+	}
+	// And the attested site is admitted, which is the whole point of the design.
+	eb := &EvidenceBase{Regulated: completeAttestation()}
+	if got := ScanRegulatedClaims([]string{regulated}, eb); len(got) != 0 {
+		t.Error("attested site: a regulated claim must be allowed")
+	}
+	// An incomplete attestation must not admit it.
+	bad := completeAttestation()
+	bad.FRN = "nope"
+	if got := ScanRegulatedClaims([]string{regulated}, &EvidenceBase{Regulated: bad}); len(got) == 0 {
+		t.Error("incomplete attestation admitted a regulated claim")
+	}
+}

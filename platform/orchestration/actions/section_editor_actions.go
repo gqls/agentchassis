@@ -452,6 +452,15 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 			pageName, slotName, existingHTML, outcome.HTML); floorErr != nil {
 			return nil, floorErr
 		}
+		// Regulated-identity refusal (CGV-033). Wired HERE for the same reason
+		// the floors above are: a guard wired only into SavePageSectionsAction
+		// has a hole exactly the shape of this path. Regulated family ONLY, so
+		// no other claim behaviour on this seam changes — see
+		// section_editor_regulated_guard.go.
+		if regErr := refuseRegulatedIdentityEdit(ctx, params, siteID,
+			pageName, slotName, outcome.HTML, logger); regErr != nil {
+			return nil, regErr
+		}
 		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, outcome.ContentData)
 	case "component_swap":
 		err = updatePageComponentSwap(ctx, params.DB, pcID,
@@ -883,7 +892,19 @@ func applyContentEdit(
 	// this the template's {{.InstanceID}} renders as "" under missingkey=zero and
 	// every instance on the page lands back on identical element ids.
 	BindSingleSectionInstanceToken(renderCtx, getStringVal(componentData, "function"))
-	rendered := RenderTemplate(htmlTemplate, renderCtx, logger)
+	rendered, err := RenderTemplate(htmlTemplate, renderCtx, logger)
+	if err != nil {
+		// bugs_open/260. THIS PATH HAS NO GATE DOWNSTREAM: the caller writes
+		// rendered_html straight to an already-live page, with no
+		// validate_content between — so the seam's error IS the gate, and
+		// refusing here is what leaves the live section untouched.
+		//
+		// The `rendered == ""` check below is kept but was never able to catch
+		// this: the deleted regex fallback returned MANGLED html, never empty,
+		// so this route could ship a section with its {{if}}/{{range}}
+		// directives intact to a page already serving traffic.
+		return sectionEditOutcome{}, fmt.Errorf("template rendering failed, live section left unchanged: %w", err)
+	}
 	if rendered == "" {
 		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output")
 	}
@@ -993,7 +1014,12 @@ func applyComponentSwap(
 
 	// Same single-section case as applyContentEdit above.
 	BindSingleSectionInstanceToken(renderCtx, comp.Function)
-	rendered := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	if err != nil {
+		// Same ungated live-page route as applyContentEdit above (bugs_open/260):
+		// refuse the swap rather than write a section that did not render.
+		return sectionEditOutcome{}, fmt.Errorf("template rendering failed after swap, live section left unchanged: %w", err)
+	}
 	if rendered == "" {
 		return sectionEditOutcome{}, fmt.Errorf("template rendering produced empty output after swap")
 	}

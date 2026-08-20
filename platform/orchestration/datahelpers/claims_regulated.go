@@ -188,6 +188,32 @@ func regulatedEvidence() *EvidenceBase {
 	return regulatedEvidenceBase
 }
 
+// ScanRegulatedClaims scans blocks against the regulated family ALONE, honouring
+// the attestation exemption. It exists for enforcement points that are not the
+// full claims gate and must not become one.
+//
+// WHY A NARROW ENTRY POINT. The council's round-2 objection (correlation
+// aac38d5b) was that `ScanAllBannedClaimsWithSuppressed` is NOT on every path
+// that can introduce first-person regulated language — and it was right:
+// `section_editor_actions.go` writes `page_components.rendered_html` directly and
+// runs no claims guard at all (verified 2026-08-19: zero `checkBannedClaims` /
+// `ScanAll` references in that file). That is the same class the council already
+// caught once on that file — its own comment records "both floors were wired only
+// into SavePageSectionsAction, so this path … bypassed them".
+//
+// The editor path therefore needs A guard, but not THE guard: turning on the full
+// banned-claim set there would change refusal behaviour for every copy edit the
+// estate makes, on another lane's seam, for reasons unrelated to this change.
+// This function is the minimum that closes the named hole — regulated identity
+// only, nothing else — so the blast radius is confined to claims nobody should be
+// inserting by any route.
+func ScanRegulatedClaims(blocks []string, eb *EvidenceBase) []ClaimFinding {
+	if eb.RegulatedAttested() {
+		return nil
+	}
+	return regulatedEvidence().ScanBannedClaims(blocks)
+}
+
 // RegulatedClaimCount reports how many regulated-family patterns are active.
 // For operator tooling and for tests that assert the family is wired at all — a
 // silently empty family and a working one are indistinguishable from outside,
