@@ -138,3 +138,111 @@ not the table. The two are unrelated despite the name.
 It probes each pending file by executing it inside a doomed transaction, so a dry
 run takes minutes and takes brief row locks. Run it in the background and read the
 output file; do not assume it hung.
+
+---
+
+## 2026-08-20 additions — the queries that were hard to get right
+
+### The one that matters: did a field ever go from a VALUE to blank across generations?
+
+This is the settling check the `090` asked for, and it is what proved the `bugs_open/268` carry
+extension works in production. Pair consecutive archived generations of the SAME (page, slot) and
+look for a field that held a non-empty value and then did not.
+
+```sql
+WITH h AS (
+  SELECT h.page_id, h.slot_name, h.created_at, h.content_data,
+         lag(h.content_data) OVER (PARTITION BY h.page_id, h.slot_name ORDER BY h.created_at) AS prev
+  FROM page_component_history h
+  WHERE h.source = 'artefact_archive_trigger'      -- ⚠ see the two gotchas below
+    AND h.slot_name IS NOT NULL
+), lost AS (
+  SELECT p.page_id, p.slot_name, p.created_at, k.key AS fld
+  FROM h p, LATERAL jsonb_object_keys(p.prev) k(key)
+  WHERE p.prev IS NOT NULL
+    AND btrim(COALESCE(p.prev->>k.key, '')) <> ''
+    AND btrim(COALESCE(p.content_data->>k.key, '')) = ''
+), typed AS (                                       -- llm fields changing is the writer WORKING
+  SELECT l.*, COALESCE(cc.input_schema->'fields'->l.fld->>'source', '(undeclared)') AS src
+  FROM lost l
+  LEFT JOIN page_components pc
+         ON pc.page_id = l.page_id AND pc.slot_name = l.slot_name AND pc.build_status = 'deployed'
+  LEFT JOIN content_components cc ON cc.id = pc.component_id
+)
+SELECT src, count(*) AS events, max(created_at) AS newest
+FROM typed WHERE src NOT IN ('llm', '(undeclared)', '') GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**Always pair it with the demand control**, or a zero means nothing — a quiet fleet and a working
+fix look identical:
+
+```sql
+WITH h AS (SELECT h.page_id, h.slot_name, h.created_at,
+                  lag(h.content_data) OVER (PARTITION BY h.page_id, h.slot_name ORDER BY h.created_at) AS prev
+           FROM page_component_history h
+           WHERE h.source='artefact_archive_trigger' AND h.slot_name IS NOT NULL)
+SELECT count(*) AS archive_pairs FROM h
+WHERE prev IS NOT NULL AND created_at > timestamptz '<the last loss event>';
+```
+
+Result 2026-08-20: 66 non-llm losses, all `renderer`/`static`, all 2026-08-11 → 08-14 18:36 UTC,
+**none since**, against **3,033** archived pairs. The 268 fix (`8f899cc8d`) landed 08-14 09:13 BST.
+
+**⚠ Gotcha 1 — the window is not the bug's life.** `artefact_archive_trigger` rows begin
+**2026-08-09** (migration 357). Eleven days, not five months.
+
+**⚠ Gotcha 2 — you cannot widen it with the older rows.** `save_page_sections_overwrite` reaches
+back to 2026-03-16 (20,351 rows) but writes **`slot_name` NULL**, so consecutive generations of one
+slot cannot be paired at all. Provenance and schema completeness are the same choice here.
+
+### The EXISTS probe — did this row EVER hold the value? Run it at BOTH tightnesses
+
+Wrong in two opposite directions, both hit on 2026-08-20 (`WRONG_CALLS`):
+
+- joined on `page_id` **alone** → over-counts by slot (credited `system-stats` with 103 `cta_url`
+  values belonging to `tool-list`/`game-list`/`hero`);
+- tightened to `slot_name` + `source='artefact_archive_trigger'` → under-counts by writer, returned
+  **0 for all 25** field slots, contradicting the bug file's correct claim that aao IS a regression
+  (that page: 1,184 app rows with NULL slot, 42 holding the value; 211 trigger rows, 0 holding it).
+
+The working discriminator is **content identity** — how many deployed components on that page
+declare the field:
+
+```sql
+SELECT count(DISTINCT pc.id)
+FROM page_components pc JOIN content_components cc ON cc.id = pc.component_id
+WHERE pc.page_id = '<page>' AND pc.build_status = 'deployed'
+  AND cc.input_schema->'fields' ? '<field>';
+-- 1 ⇒ the field name attributes the value.  >1 ⇒ no data-only recovery is possible.
+```
+
+### Would the declared source resolve today?
+
+Answers "is this a restore, or does the value not exist anywhere?" — 0 of 14 resolved on 08-20.
+
+```sql
+SELECT ss.aspect,
+       ss.data #>> string_to_array('<leaf.path>', '.') AS resolves_to
+FROM site_specs ss WHERE ss.site_id = '<site>' AND ss.aspect = '<aspect>';
+-- no rows ⇒ the source has NEVER existed on this site; a rebuild restores nothing.
+```
+
+### Is the dead-URL guard armed? Count STEPS, fleet-wide, never agents
+
+```sql
+SELECT k.key AS step, (k.value->'config'->>'record_dead_url_controls')::boolean AS record_armed,
+       (k.value->'config'->>'refuse_dead_url_controls')::boolean  AS refuse_armed
+FROM agent_definitions ad,
+     LATERAL jsonb_path_query(ad.default_config, 'strict $.**.steps') steps,
+     LATERAL jsonb_each(steps) k
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND k.value->>'action' IN ('rerender_page_sections','render_component');
+```
+
+⚠ A `default_config::text LIKE '%rerender_page_sections%'` returns **three agent types** and the
+honest answer is **one step**. `_` is a SQL wildcard too. Counting agents when the question is steps
+is the 2026-08-11 error in this bug's own slice B.
+
+⚠ `page-rerender` keeps its steps at `{workflow,steps,<name>}`; `page-content-writer` nests them in
+`process_sections_loop.config.sub_workflow.steps`. A path copied from `380` finds nothing here and
+reads as "no such step".

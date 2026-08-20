@@ -326,3 +326,77 @@ something I had **assumed and not checked**. Not one was about the design. My
 risks blocks got longer each round and caught none of them — because they
 enumerated what I had considered, and the failures were all in what I had
 measured badly or not at all.
+
+---
+
+## 2026-08-20 — lane resumed. Armed the detector, filed the RFC, measured the population, and did NOT ship the code I planned to
+
+Session working `bugs_open/238` end to end. Ownership re-checked first (`who-owns.py 238` → this
+lane, dormant since 08-11; no open work item or diagnosis run on the target).
+
+**Order of events, including the two things I got wrong.**
+
+1. **Verified the bug is still real, and found the shape had changed.** Prevention live (merge-base
+   against v1.0.1317's revision label, controls both ways). Detection code live but **armed
+   nowhere** — 0 agent_definitions rows with either key, 0 `dead_url_control` items in all history.
+   The register still said "INERT until the roll; config HELD", false in both clauses since 08-12.
+2. **Declared the config key before arming it** (`bb6600e48`). `record_dead_url_controls` was
+   undeclared on `RerenderPageSectionsInputSpec` — same omission `refuse_dead_url_controls` had on
+   `RenderComponentInputSpec` until 08-19, same cause (read via a helper taking `config`, so a
+   function-body grep cannot see it). Checked `CheckConfig` vs `StrictConfig` **at the deciding
+   arm** first, because the same mistake on a StrictConfig spec cost the fleet 33 minutes of
+   page-publishing the day before. Warn-only here. Test + mutation M1 (undeclare → fails with the
+   exact report text the arming would have produced).
+3. **Armed the record half** (migration `504`, applied; 1/1 steps fleet-wide; negative control
+   confirming the refusal stays unarmed; recorded in `schema_migrations`).
+4. **MISSTEP — the number.** Wrote it as `497`. Two other lanes took 497 AND 498 while I wrote;
+   the tree was at 503. Caught by the runner's dry run printing the collision adjacently, not by
+   any deliberate check. Renumbered to 504 before any apply. The council submission had already
+   gone out naming 497 and forward-only forbids amending it, so the reconciliation is in 504's
+   header. `WRONG_CALLS` 2026-08-20: allocate the number immediately before naming the file.
+5. **Filed `RFC_042`** — the content_data write-discipline split, discharging the `architecture`
+   seat's `needs_rfc` on PBP-039 from eighteen days ago that never became a file. Nine writers, one
+   carried funnel. Flagged to be answered jointly with `RFC_008` (same question, sibling column).
+   ⚠ RFC_041 was taken by another lane between reading the free number and writing — same
+   collision as the migration, one hour apart. Claimed 042 on disk *before* writing it.
+6. **MISSTEP — the history probe, wrong in both directions inside ten minutes.** Loose (page_id
+   only) it over-counted by slot and nearly produced a fabricated "new regression" on
+   gamesdesign; strict (slot + trigger source) it under-counted by writer and returned 0 for all
+   25, contradicting §7's correct claim about aao. Full account in `WRONG_CALLS`. The working
+   discriminator is content identity. **What caught the second one was the bug file disagreeing
+   with my query** — and "0 of 25, nothing recoverable" is the comfortable answer, because it makes
+   the remediation smaller.
+7. **Measured the remediation population BEFORE building it, and it refuted the plan.** 0 open
+   `required_fields_missing` items are resolver-sourced; 0 of the 25 carry-miss field slots have a
+   `site_specs.*` source that resolves today. The class is "the source has never existed on this
+   site". The router cannot help because the producer deliberately never files these — **the gap is
+   in the detector, not the router.** Building the routes first would have shipped and moved
+   nothing.
+8. **Ran the `090`; it came back UNVERIFIABLE** (iteration-cap; it could not read `planSection`,
+   `storedFieldValue` or `carryStored` at all — the symbol search missed them and it said UNKNOWN
+   rather than concluding, correctly). Its substantive observation corroborated the census from the
+   work-item side. Its "what would settle it" was a query, so I ran it.
+9. **That query produced the session's best result** — and it is the acceptance test PBP-039's
+   `verify-later` has been owing since 08-11. 66 non-llm field losses across archived generations,
+   all `renderer`/`static`, all 08-11 → 08-14 18:36, **none since**, against 3,033 archived pairs.
+   The `bugs_open/268` fix landed 08-14 09:13. **Proof on ordinary fleet traffic rather than one
+   induced case.** Window stated (archive starts 08-09) because it bounds the claim.
+10. **Did NOT ship the two carry-gap fixes.** Both are real in the code and I can cite the branches;
+    neither has a single observed instance (0 loss events for those source families; 2 empty spec
+    values fleet-wide; the 090 agreeing). Three lines of Go and a mutation-proved test would have
+    looked like diligence and would have been sized from a code reading. Recorded in RFC_042 option
+    (e) as "reachable by reading, unobserved in production", with the query that would justify
+    shipping them written down.
+11. **Council REVISE, acted on rather than argued with.** `reuse_agent` was right that I had not
+    checked overlap with the existing detectors — and measuring it found something better than a
+    defence: `check_image_url_404.go` has ZERO `href` handling, so the vanished-anchor class has no
+    other detector at all, while on `<img src="">` the overlap is real and aao already holds an
+    unworked `image_url_404:empty-src` item for the exact page. Also wrote the `doc_notes` decision
+    row (`tooling_provenance`), named the 1-of-11 partial coverage explicitly (`bug_historian`), and
+    the register correction (`editquality`'s "missing") which I had already committed before the
+    verdict landed. Resubmitted on the same correlation.
+
+**The through-line, and it is the same lesson twice:** the two things that would have wasted the
+session — building the router, shipping the carry fixes — were both stopped by measuring the
+population first, and the thing that produced the most value (proving 268 works) came from taking a
+diagnosis loop's "what would settle it" literally and running it.
