@@ -431,3 +431,46 @@ is their "what does a thrice-retried, abandoned await do to the loop" thread. Do
 **If (b) holds**, the 08-17 burst is 30 children that never answered, which points away from the
 coordinator entirely and at **whatever was happening to the children that day — and the GitHub API
 incident overlapping 08-17 is still an unpulled thread.**
+
+## 2026-08-20 16:20Z — THE BURST IS EXPLAINED. The wedge is not. Read this before deciding anything
+
+**The 08-17 entry condition was a GitHub outage, not a coordinator defect.** `agent_error_log`
+carries **954** rows matching `%github%` on 2026-08-17 against **1–3 on every other retained day**
+(08-10, 08-09, 08-05, 07-27, 07-24) — ~300× base rate, confined to one day. Hourly 13:00–18:00,
+peak 495 at 14:00; the wedge window (14:52 → 18:52) sits **inside** it. `page-rerender` — the wedges'
+child type — dominates every hour. The error is **GitHub `503 Service Unavailable`** on
+`create blob` / `create commit` / `get latest commit-base tree`.
+
+**The controlled join** — 08-17 `call_handler` correlations, split by whether the call was abandoned,
+joined on `agent_error_log.context->>'correlation_id'`:
+
+| group | correlations | with a GitHub error | rate |
+|---|---|---|---|
+| **abandoned (rv3/error)** | 30 | **30** | **100.0%** |
+| healthy, same day | 337 | 71 | **21.1%** |
+
+Same day, same agent, same hours; **the control could have come out otherwise.**
+
+**Chain, now closed end to end:** GitHub 503s → `page-rerender` children fail and never answer →
+the parent's **1200s** rv0 window expires (§22: no observed child ever exceeds 1200s, max 971.3s, so
+this can never have been slowness) → replay to the **same** child (§23, at source) → rv3 → abandoned.
+
+### What this changes
+
+- **Part A converts none of the 31** and the bug file's "plausibly makes the entry condition rarer"
+  is **retired** (peer §23). Part A remains correct and worth having — it fixed a real inversion for
+  steps whose children are genuinely slow. It is simply not a fix for this.
+- **`PLAN_2026-08-19`'s coordinator candidate set may still explain the WEDGE but cannot explain the
+  BURST** — and the burst is what made 029 look active.
+- **The wedge is now the ONLY open question**: what the parent does after an abandoned await, and the
+  20-wedged vs 11-never-advanced split, are exactly as unexplained as before. **A 503 is not
+  sufficient on its own** — 21% of healthy correlations saw one and answered anyway.
+
+> ⚠ **The blind join that nearly closed this lead.** Matching the 31 `request_id`s against
+> `error_message` finds all 31 and **zero** GitHub rows — the only rows carrying those ids are the
+> *parent's own* "timed out after 3 retries" entries. Joining children on
+> `orchestration_id LIKE '<topic prefix>%'` returns **0 of 31 with any log row**, which reads as
+> "the children were silent, GitHub exonerated". **Both are blind:** the topic prefix is the
+> **correlation** id, and `agent_error_log` has **no `correlation_id` column** — it keys it inside
+> `context` jsonb. **A join on a column that cannot match returns a clean, confident zero.** Always
+> run the same join over rows that MUST match before believing one.
