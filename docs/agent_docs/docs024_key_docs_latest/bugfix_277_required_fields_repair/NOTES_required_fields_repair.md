@@ -2613,3 +2613,28 @@ Two objections were answered by checks the reviewers had themselves already run:
 has exactly ONE active row (their query), and their 104-completes count corroborates the pair
 history. Round 2 resubmitted on the same corr (`submission_277_rendered_html_transform_r2.json`,
 8 edits, 14 grounded_in). Monitor armed for the report.
+
+### ~18:35Z — round 2: **APPROVED** ("3 advisory objections — none high-severity", 3 abstained)
+
+Verdict READ (diagnosis_artifacts council_report 18:26:44Z). Acted on the advisories that named real
+work rather than banking them:
+- **editquality medium** (the "structurally unable to write content_data" claim rested on one
+  helper branch with no test): `section_editor_html_only_persist_test.go` now pins it — a capturing
+  QueryMatcher asserts the nil-branch statement does not NAME content_data (arity alone would miss
+  an inline `= NULL`), with a positive control, **mutation-proven** (adding `content_data = NULL`
+  to the nil branch fails exactly that test; restore verified byte-clean vs HEAD).
+- **prior_art_librarian low** (novelty overstated): CQ-028 rescoped to "first markup-INSERTION
+  repair" — the dead-link repair is standing precedent for rewriting. **debug_historian low**: the
+  entry now names it a third MODE (edit the output when nothing can regenerate). **render_guardian
+  medium**: the by-design divergence note added — digest stamped same-statement, audit tooling must
+  read ported-population divergence as expected.
+- **guardian medium** (metadata): a migration edit should be `operation: config_change`, not `add`
+  — noted for future submissions; no code consequence this round.
+- Banked as stated risks, no action owed: bug_historian's missingkey=zero lineage (the routing
+  helper now documents it), guardian's new-divergence-class and small-architecture-shape flags
+  (both explicitly "not blocking given the gating"), architecture's registry-growth advisory
+  (rule stands at the switch).
+
+**The trail: REVISE (r1, sketch defect) → APPROVED (r2).** Both code commits already carry
+`Council-Submitted:` and are credited automatically by 098; this round's follow-up carries
+`Council-Reviewed:` — the verdict is read, so the strong trailer is now honest.
