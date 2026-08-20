@@ -1,3 +1,8 @@
+> # ⚠ LANE CLOSED 2026-08-20 — this file is HISTORY, not instructions.
+> **Read `OWNER_ATTENTION_2026-08-20.md` and `SUMMARY_2026-08-20_lane_closed.md` instead.**
+> The one live thread is housekeeping (a roll picks up the capability-table prune; one-line
+> interim in the RUNBOOK) and it belongs to whoever runs the next release, not to this lane.
+>
 > # ⚠ SUPERSEDED 2026-08-20 (later the same day) — most of this is DONE.
 > **`bugs_open/299` is CLOSED** (moved to `bugs_closed/`, fixed AND live at the served page:
 > `href="/faq.html"` with copy naming the FAQ). 477 APPLIED; the canary SATISFIED;
