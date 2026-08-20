@@ -1,11 +1,19 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-19 09:05Z. Supersedes `HANDOFF_2026-08-17_continue_here.md`.
 
-**UPDATED 2026-08-19 21:30Z. 14 of 63 replaced, 49 remain, and PHASE D IS NO LONGER BLOCKED — the
-platform fix it needed landed today and this lane demand-proved it.** The owner has ruled: framework
-ownership of all 63 (see "THE PATH TO 63/63"), so there is no open decision — the work is 49 more
-repetitions of a routine recipe. All 14 are graded at the served bytes
-(the last two, `tool-ab-test-calculator` and `tool-blob-maker`, at 2026-08-20 06:50Z). **#16
-`tool-shadow-stacker` is BUILDING — see "IN FLIGHT" and pick it up first.**
+**UPDATED 2026-08-20 09:35Z. 20 of 63 replaced (19 CONFIRMED at the served bytes; #20
+`tool-text-extractor` retired and graded, its rerender queued), 43 ported slots remain deployed, and
+`#21 tool-mesh-gradient` is FILED (item `147db11c`) — check its state in NOTES before filing anything.**
+The owner has ruled: framework ownership of all 63 (see "THE PATH TO 63/63"), so there is no open
+decision — the work is repetitions of a routine recipe. Newest evidence and per-tool controls: NOTES,
+entries 2026-08-20 07:15Z onward. ⚠ Also read `bugs_open/336` (filed by this lane 07:25Z): migration
+494 armed a config key the running binary declares on the WRONG action's spec and every page-stamping
+workflow failed validation for ~13 minutes; service was restored by running the 315 lane's rollback,
+and re-arming 494 before the one-line spec fix has ROLLED will reproduce the outage.
+**Phase A remainder after mesh-gradient (smallest first): oklch-picker, aria-builder, social-card,
+regex-tester, jwt-inspector, token-calculator, clip-path — then the ≥8 KB Phase B line.**
+
+*(Superseded tally from 2026-08-19 21:30Z: 14 of 63, #16 building — kept below for the recipe and
+rulings, which are unchanged.)*
 
 Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two corrections) →
 `RUNBOOK_…` (every command) → `NOTES_…` (evidence, newest at bottom) →
