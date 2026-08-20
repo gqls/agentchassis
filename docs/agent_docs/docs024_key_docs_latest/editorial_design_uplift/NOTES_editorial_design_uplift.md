@@ -133,3 +133,76 @@ ours; (2) a `page_names`-scoped step config on `render-audit-agent` — correct,
 council-gated; (3) run `scripts/render_audit.py` by hand against the two URLs —
 it is the hand-run predecessor (VIZ-010) and needs no dispatch at all. **(3) is
 the right next move** and needs no platform change.
+
+## 2026-08-20 — Phase A3 DONE the cheap way, and the editorial page has 10 contrast failures
+
+Took option (3) from the entry above: ran `scripts/render_audit.py` by hand
+against the two editorial URLs. No dispatch, no config change, ~1 minute. **The
+dispatched agent that timed out was the expensive way to get a worse answer.**
+
+```
+FAIL /insights/robot-demand-step-change.html   contrast=10  broken-img=0
+ok   /insights/index.html                      contrast=0   broken-img=0
+```
+
+### The accounting — and the control that makes it meaningful
+
+Ran the SAME audit against a page this lane never touched
+(`/pneumatic-vs-electric-grippers.html`): **exactly 4 failures, and all 4 are
+byte-for-byte the same ones**. `matchmatrix.html`: also 4. So:
+
+| failure | ratio | pre-existing? |
+|---|---|---|
+| `.cta-btn cta-btn-primary` white on white — "Run MatchMatrix" | **1.00:1** | **YES** — identical on untouched pages |
+| `.btn btn-secondary`, `.H2`, `.cta-btn cta-btn-secondary` over the hero image | 3.95:1 (approx) | **YES** — identical on untouched pages |
+| `.evidence-chart__eyebrow` — "Where the machines went" | **1.14:1** | **NO — ours** |
+| citation links in the timeseries sources block (×5) | 4.38:1 | **NO — ours** |
+
+4 pre-existing + 1 + 5 = 10. **Without the control I would have reported ten
+failures as ours and spent Phase B on somebody else's bug.**
+
+### Finding 1 — a fleet-wide invisible button, and it is NOT ours
+
+`.cta-btn cta-btn-primary` renders **white text on white, 1.00:1**. The label
+"Run MatchMatrix" is *literally invisible* on every page using the shared
+`call-to-action` component — measured on two pages this lane never touched.
+That is a bug in a shared component, not a design-taste item, and it belongs in
+`bugs_open/` for whoever owns that component rather than in this lane's backlog.
+**Not filed by me yet** — grep `/bugs_open/` for `cta-btn` first; the CTA lane
+may already have it.
+
+### Finding 2 — ours, and the visual auditor predicted it
+
+`.evidence-chart__eyebrow` is `rgb(26,31,46)` on `rgb(15,18,24)` = **1.14:1**.
+That is `--color-primary` (#1A1F2E) used as *text* on `--color-background`
+(#0F1218) — near-invisible.
+
+**This is exactly the class the visual auditor flagged on `tool-list-section`
+hours earlier** ("eyebrow uses `var(--color-primary-ink, var(--color-primary))`
+and `--color-primary` IS the dark background"). I wrote in the A1 notes that our
+components use an eyebrow and should be checked. They should have been, and it
+fails.
+
+**The fix has a proven target value inside our own component set.**
+`evidence-timeseries`'s eyebrow (`.ev-ts__eyebrow`) uses
+`var(--color-accent, #c49a3c)` and **does not appear in the failure list at all**.
+So the remedy is to make `evidence-chart`'s eyebrow match its sibling's accent
+rather than invent a colour. Shared-component edit → council-gated, blast radius
+counted first (evidence-chart is live on fundamentallyai, oufe, robot-hands and
+now dartsonline).
+
+### Finding 3 — ours, marginal but systematic
+
+The per-observation citation links render `rgb(232,80,10)` on `rgb(28,31,36)` =
+**4.38:1**, just under the 4.5 body-text threshold, ×5 (one per observation). It
+is the site's accent on the sources-block surface. Marginal, and it is *every*
+citation on *every* series chart, which is exactly the provenance we most want
+read. Same Phase B fix family as Finding 2.
+
+### What this does to the plan
+
+Phase B was "typography and graphic treatment". It is now **"fix the measured
+contrast defects in our own components, then typography"** — with real numbers, a
+control, and a target value taken from a sibling component that already passes.
+That is a better Phase B than the one I would have written from taste this
+morning, and it came from a one-minute script rather than the orchestration.
