@@ -2393,3 +2393,9 @@ diagnosed by the sibling session and its seam fix (339/TL-048) committed with a 
 Next: read verdict `2ff9e215`; then #24 `tool-social-card` (analysis already in NOTES-adjacent prep:
 unescaped quotes break the emitted meta tags, twitter block uses `property=` where the card spec
 wants `name=`, preview/code disagree on empty fields) — file it ONLY with in-turn attendance.
+- **22:45Z bookkeeping:** my LANDMINES correction (the stale tag-stripped-axis headline) rode a PARALLEL
+  session's commit `6ee6f2b54` (18:33 +0100) as a same-file passenger — my own pathspec commit
+  `e2822cc58` then found the file clean and silently took 2 of its 3 named paths. Nothing lost; noted
+  per the swept-work practice. Round 2 verdict was REVISE (editquality high, citing exactly that stale
+  landmine); round 3 submitted 22:40Z, run orch `4dd5bea8`, code byte-identical to round 2 — the
+  objections were answered with measurements and the landmine correction, not code.
