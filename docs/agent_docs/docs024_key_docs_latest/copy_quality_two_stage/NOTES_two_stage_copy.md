@@ -2082,3 +2082,82 @@ would have travelled.
 one was `CONFIRMED` and I already agreed with it; the value was entirely in a citation it got
 wrong and a claim it refuted in passing. Two of the three useful results were corrections to
 somebody's committed work — one theirs, one mine.
+
+---
+
+## 2026-08-20 — took the platform fix, and the council's REVISE was worth more than the approval would have been
+
+**Nobody had taken `bugs_open/327` overnight** (`git log` on both files: untouched; `who-owns.py`:
+no owner — though it now prints the **ambiguous-number** warning, because another lane filed a
+different 327 the same day; refer to this one by slug). So this lane took it.
+
+**Fixed both defects, `c9a71388f`:** `formatted` is built from `merged`, and the renderer sorts its
+keys at every level. **Committed with `Council-Submitted: db3c158b-…`**, which is the sanctioned
+shape — holding code for a verdict is not available on a shared HEAD.
+
+### The test was the interesting part, exactly as the bug file predicted
+
+There were **no tests for either function**. And a formatter-only test is useless here: handed a
+map, `FormatContentDirection` renders it faithfully — the defect was in **which map the action
+handed it**. So the test drives the real `WriteSiteSpecAction` through `sqlmock` and asserts on the
+`data` JSONB actually inserted.
+
+⚠ **My first mutation was too weak and I nearly accepted it.** I changed only the call's ARGUMENT
+(`merged` → `specMap`) and the test failed — but naming only ONE missing key (`blog_strategy`),
+because the format block was still in its new POSITION, after the merge, so the old row's full
+`formatted` was inherited rather than replaced. Restoring both files from `git show HEAD:` gave the
+faithful comparison, and then the test named the six keys that really vanish. **A mutation that
+fails can still be failing for the wrong reason** — the fix is to mutate by reverting to the real
+prior code, not by hand-editing towards what you think the bug was.
+
+### The council said REVISE, and two of the objections were right
+
+Full account in `bugs_open/327`'s council section. The two that changed the work:
+
+1. **editquality, HIGH — the no-nesting assumption was "asserted, not shown".** Rendering from
+   `merged` means the PREVIOUS `formatted` string is present at call time; if the formatter walked
+   it, every write would embed the old brief inside the new one, compounding for ever. It does not,
+   and never did — the skip is at `format_content_direction.go:41-44` and predates all of this. **But
+   nothing tested it**, which was the entire point. Now something does, and deleting the skip makes
+   it fail with `label "Voice:" appears 2 times`.
+2. **editquality, LOW — "sorting covers only two levels".** Factually wrong (the recursion sorts at
+   every depth) but I had asserted that too, so it got a four-level fixture, deeper than any live
+   spec. `[MEASURED]` fleet-wide: **zero three-level maps, zero arrays-of-objects**, 224 objects /
+   102 arrays / 24 strings at the top level. That census also turned up a **pre-existing silent
+   drop** — an array of OBJECTS is discarded entirely by `InterfaceSliceToStrings` — with zero live
+   instances, so it is a landmine rather than a change smuggled into a bugfix round.
+
+⚠ **Reading the verdict from the newest `doc_notes` row returned ANOTHER LANE's `bugs_open/336`
+verdict.** That is the documented trap and I walked into it for about a minute. Read by correlation
+from `diagnosis_artifacts`, always.
+
+### The objection I declined, and why it is written down rather than waved away
+
+**compliance, HIGH:** the fix un-suppresses known-bad brief content, and on
+`ai-agent-orchestration.com` part of what returns is written in the very construction the owner
+objected to — so a correctness fix delivers a poisoned instruction as a byproduct. Their remedy: a
+scrub, or a guard skipping keys flagged in `bugs_open/305`.
+
+I said no to the code gate, on five stated grounds (327's council section has them all). The one
+worth repeating here: **the suppression being removed is an ACCIDENT, not a control.** Keeping it
+would mean preserving a data-loss bug as a safety feature — an undetectable one, which is how it
+survived four months.
+
+⚠ **But the load-bearing part of my own answer was `[UNMEASURED]`**, and I said so to the round: I
+argued the restored `example_phrases` have unproven transfer, while the phrase with the PROVEN chain
+(the tagline, 1,369 prompts → 409 responses) is already live in `emphasis` and untouched by the fix.
+"Unproven" is not "harmless", so I am measuring it rather than leaving my own case resting on an
+absence of evidence.
+
+**PRE-REGISTERED, before the result is back — what the measurement can and cannot show.** It takes
+60 distinct exemplar phrases from the 21 sites whose `example_phrases` DO reach the writer, and
+counts verbatim appearances in `page-content-writer` prompts and responses.
+
+- **A high verbatim rate** would mean exemplars behave like the tagline — supplied text that gets
+  reused — and **compliance is right**, the restoration needs handling before the roll, and I should
+  reconsider the gate.
+- **A near-zero verbatim rate does NOT vindicate me.** Exemplars are style models, not text handed
+  over for reuse; a writer influenced by them would not copy them word for word. Zero would show
+  only that there is **no literal chain** — which is the same class of claim as the tagline's, and
+  silent on whether FORM transfers. That question is open in `305` and this measurement cannot close
+  it. **Whatever the number, it does not license "the restoration is safe".**
