@@ -289,3 +289,29 @@ same 10 minutes, so the chassis was consuming normally. That is the documented `
 trap, hit for real. The second dispatch (corr `f7e4dec3-58aa-4509-b15a-8f9e83861888`) landed and
 filed `needs_domain_research` / `research_loanzy.uk` / `triaged`. **Always verify the ITEM, never
 the exit code — and note the first attempt cost nothing precisely because it was checked.**
+
+## 2026-08-20 07:0xZ — roll check after the fresh chassis build: the blocker has NOT moved
+
+Fleet is on **`v1.0.1317`** (pods `c7d6d875b-*`, started 2026-08-19 22:26Z). The startup
+provenance line has already scrolled on both replicas (`--since=10h` finds nothing), which is
+the documented shelf-life of that line on a busy service.
+
+**`bugs_open/260` is NOT in this image, and no image can contain it yet** — not inferred from a
+probe, read from the owning lane's own record: their handoff commit `7b6195a36` states *"designed
+and evidenced, NOT coded — the 08-19 roll does NOT contain this fix and the seam is re-verified
+unchanged at HEAD"*, and their tree is docs-only. Corroborated here independently:
+`git log -1 -- platform/orchestration/actions/component_library.go` is **`32d6e980a`, 2026-08-16**
+— older than both rolls, so the seam has not been touched. **260 will fire on the next build.**
+
+⚠ **The right question after a roll is "has the code been written", not "is it in the image".**
+I nearly spent the probe budget again on a binary that could not possibly carry it.
+
+Elsewhere since yesterday: `307` has a converged design and a Tier-1 approval at round 3 (not
+shipped); `317`'s neighbourhood shipped — `bug 323` is CLOSED, verified live+proven on
+`v1.0.1317` with a binary literal-pair probe on both replicas; `286` grew a sibling, **`331`**
+(`create_tool_component` cannot REGENERATE a tool it built) — relevant later, not to our route.
+
+**Position for the next clean-domain run:** `311`'s section-level fix is live and untested, and
+that lane has pinned incumbent md5 baselines *for our run*. `260` will cost roughly one page and,
+through `328`, one dead link. Both are known, bounded and attributable in advance — so a run now
+still reads cleanly, provided the report says which failures were predicted.
