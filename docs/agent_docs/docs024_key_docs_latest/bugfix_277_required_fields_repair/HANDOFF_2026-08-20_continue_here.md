@@ -82,7 +82,25 @@ none is affected by one.
 **⚠ The chassis rolled at 10:18Z: `v1.0.1319`, `distinct digests: 1`, `sha256:9be1aa50…`.**
 The digest **CHANGED** from `v1.0.1316`'s `sha256:2d0d3def…`, so this is genuinely new bytes and
 **not** the same-tag-cached-image trap. §2's 5-needle probe describes `2d0d3def…` and **no longer
-describes what is running** — do not quote it. ⚠ And do not quote a pod count: it read **8** at
+describes what is running** — do not quote it.
+
+**Re-probed on `v1.0.1319` [MEASURED 14:35Z] — and note this probes the CAPABILITY, not the commit,
+which is the more useful question:** every symbol §4/§5's conclusions rest on is in the running
+binary.
+
+| needle | hits | role |
+|---|---|---|
+| `executeGoTemplate` | 12 | the real render path (`call_agent.go:1171`) |
+| `missingkey=zero` | 1 | the option that makes a missing `{{.body}}` render EMPTY |
+| `StripLiteralMarkdownFromContentData` | 4 | the strip `473`/`474` gate |
+| `enforceSingleSlotFloors` | 2 | the floor that refuses a hollowing |
+| `OWNED_PAGE_GUARD` | 3 | **positive control** — the probe works |
+| `ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST` | **absent** | **negative control** — it discriminates |
+
+⚠ `missingkey=zero` hits **once** though it appears twice in source — Go dedupes identical string
+constants. That is consistent, not contradictory; **do not read a binary hit count as a call-site
+count.** ⚠ And digest identity proves every pod runs these bytes; it does **not** prove any pod
+executes this code. ⚠ And do not quote a pod count: it read **8** at
 14:29Z against **94** at 08:00Z, because the `Job`-owned per-work-item pods spawn and age out
 continuously (4 `ReplicaSet` both times).
 
