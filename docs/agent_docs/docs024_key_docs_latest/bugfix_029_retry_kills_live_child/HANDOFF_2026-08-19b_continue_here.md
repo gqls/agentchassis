@@ -335,3 +335,20 @@ other documents, so renumbering would break references.
 - **Flattening a `.sql` to one line without stripping `--` comments** comments out the whole query and
   returns **zero rows with no error**.
 - **`row_cap` is 200.** An unfiltered dump `ORDER BY orchestration_id` returns a lexicographic slice.
+
+
+---
+
+## 2026-08-20 14:30Z — status check on `v1.0.1319`. NOTHING HAS CHANGED ON THE GROUND
+
+| check | result |
+|---|---|
+| chassis build | pods on **`v1.0.1319`**, started 10:18Z |
+| build point | **NOT ESTABLISHED — stated rather than guessed.** The `build provenance` line had long scrolled (~4h uptime, ~4min retention) and the binary probe could not be completed: 160 candidate commits, one `exec` each is ~5s and a single alternation grep over the binary both exceeded the command timeout. **This does not gate anything** — no 029 code has shipped since `v1.0.1316`, where Part A and `0132a3683` were both verified present with controls, and both are ancestors of every later commit. If you need it, narrow the candidate window first |
+| **wedge recurrence** | **NONE.** Still 20 instances, all 2026-08-17 |
+| entry condition (terminal-`error` `call_handler`) | 08-18 **0/1595**, 08-19 **0/736**, 08-20 **0/380**. The 08-17 spike (30/1432) remains the only one |
+| evidence expiry | 2,901 `awaited_requests` rows for 08-17; oldest `processed_at` 00:32:27, so deletion begins **2026-08-24 00:32** and rolls through the day. **~3.5 days left** |
+| RSH-011 capture cron | **alive** — last scheduled 14:17Z, job `Complete` in 15s, as it has been hourly |
+
+**So the lane is exactly where the 08-20 09:10Z block left it: rare, bursty, unexplained, not
+reproducing, with a capture armed and an evidence clock running.**
