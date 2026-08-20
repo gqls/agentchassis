@@ -679,3 +679,21 @@ rather than presenting it as settled. Their related point checks out in our
 favour: `validate_page_content.go` gates the unregistered-number scan on
 `evidence_base` existing, and **`blog-post` is on the exempt list**
 (`claims.go:752`), which is the page_type both features use.
+
+**Footer fix: applied at source, propagation PENDING.** `pages.in_footer=false` on
+both articles [MEASURED]. The `nav_drift` that republishes chrome sat at
+`triaged` through ~8 minutes of polling (`attempt_count=0`, priority 100,
+handler `nav-updater`) while an identical item three hours earlier completed in
+about two minutes — so this is **dispatch latency, not a defect**: the site
+carries a large non-claimable backlog (45 `undeployed_asset` unresolved, 33
+`contrast_failure` deferred, 29 `head_essentials_missing` detected) and its turn
+in the build rotation had not come round.
+
+**So the served footer still lists the article at time of writing.** Two honest
+readings to avoid: the DB is not the page (the fix is real but not yet visible),
+and a `triaged` item is not a failed one (nothing needs re-filing). If it has not
+drained by the next session, the manual path is
+`docs/leopardessconsulting/scripts/reconcile_footer_nav.sh <site_id> <domain> <marker> [rounds]`
+— the peer lane's proven fix, which took them from 2/23 to 23/23 served pages.
+**Grade it on served bytes, not on `pages.rendered_footer`**, which they measured
+reading "absent" for a page that was in fact serving the change.
