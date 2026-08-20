@@ -13017,3 +13017,35 @@ The transferable rules:
 - **Beware the composition hazard when prefixing**: if `p` is concatenated (`'fg-'+id`) and
   both `x` and `p+x` are declared ids, prefixing both halves composes to a name that exists
   nowhere. A repair that fixes each half independently makes it worse; route to judgement.
+
+### N identical failures with IDENTICAL numbers is a deterministic refusal, not a flaky one — the retry budget is being spent on an outcome that cannot change (2026-08-20, `bugs_open/337`)
+
+**The tell.** Three `needs_new_component` items across two sites each reported
+`output_tokens=16000 reached the configured cap` — three attempts apiece, nine generations, and the
+recovered lengths were 46,637 / 47,436 / 48,553 chars. The *numbers being the same to within 4%* is
+the signal: a transient failure scatters, a ceiling does not. Read as "the LLM was verbose that
+time" it looks like bad luck; read as nine samples of the same distribution against a fixed
+threshold, it is a ceiling roughly a third of what the brief produces, and no number of retries will
+clear it.
+
+**Why it matters beyond the wasted spend.** A retry loop over a deterministic refusal *looks* like
+the system trying, so the item ends `failed` with a plausible story ("we attempted it three times")
+and the real statement — *this task cannot fit through this step as configured* — never gets made.
+The same shape appears wherever a bound is fixed and the work is not: an output cap, a payload size
+limit, a uniqueness gate, a field-contract guard. Contrast `bugs_open/040`'s partial-build case,
+where a retry genuinely can succeed.
+
+**The check, before you spend attempts.** Group the failures by their error text and compare the
+NUMBERS, not the messages:
+```sql
+SELECT substring(error from '[0-9]+ chars recovered'), count(*), count(DISTINCT site_id)
+FROM site_work_items WHERE error ILIKE '%reached the configured cap%' GROUP BY 1 ORDER BY 2 DESC;
+```
+Identical or near-identical figures across independent sites ⇒ raise the bound, bound the input, or
+handle the truncation — do not re-dispatch. **And check whether the retries are even reachable
+before assuming they happened:** an item can read `attempt_count=1, max_attempts=3, status='failed'`
+and be permanently stopped, because a handler that marks failure via
+`update_work_item_status {"status":"failed"}` writes a terminal status while `ClaimWorkItemAction`
+only takes `triaged`/`approved` (`claim_work_item_action.go:97-105`) — so "attempts remaining" in
+the row is not a queue position. Both halves of this entry were found while repairing `311`'s
+residual, one from the errors and one from reading the handler's own step config.
