@@ -2421,3 +2421,59 @@ should be read against it: the question is what a *timed-out, thrice-retried, ab
 to the loop, not what an error return does.
 
 **What remains, unchanged:** the burst (RSH-011 armed), and the 08-17 rows until ~08-24.
+
+### 22. 2026-08-20 — the child response-time distribution, measured from the PRESERVED file: 0 of 3,150 children exceed 1200s, and 2.89% exceed 300s
+
+Taken from `EVIDENCE_2026-08-15_to_17_awaited_requests.tsv` (see §21-adjacent note on the export),
+**not** from the live DB — the first use of the preserved substrate, and it worked.
+
+**First, confirming the peer's §21 finding independently:** all **31** rv3/`error` `call_handler`
+rows show `timeout_at - sent_at` of **299.95–300.00s** and elapsed-to-give-up
+(`processed_at - sent_at`) of **299.9996–300.4814s**. Every one is a clean **300-second timeout
+exhaustion**, not an application error. Confirmed from a different substrate than they used.
+
+> **⚠ But the 300s figure by itself is DEFINITIONAL and proves nothing.** Under the pre-Part-A code
+> `handleRecoverableError` capped every rv≥1 window to 300s for a step declaring ≤30 min, and
+> `call_handler` declares 1200s. So *any* rv3 row necessarily reads 300s. Finding it is not evidence
+> about cause. This is the same shape as the peer's own circular `error_was_on_last_iter` — a
+> variable re-expressing the grouping. **The non-definitional question is how long children actually
+> take when they DO answer**, which nobody had measured.
+
+`[MEASURED 2026-08-20]` healthy `call_handler` rows, `processed_at - sent_at`, **n = 3,150**:
+
+| median | p90 | p95 | p99 | max |
+|---|---|---|---|---|
+| **10.4s** | 121.4s | 226.1s | 454.9s | **971.3s** |
+
+| threshold | children exceeding it |
+|---|---|
+| > 300s (the old retry cap) | **91 / 3,150 — 2.89%** |
+| > 600s | 11 / 3,150 — 0.35% |
+| > 1200s (the declared window) | **0 / 3,150 — 0.00%** |
+
+**This could have come out otherwise** and the p99 of 455s is the discriminating number: had the
+distribution's tail sat above 1200s, the reading below would reverse.
+
+#### Two readings, and I am deliberately not picking one
+
+**(a) It strengthens Part A's relevance.** A retry re-dispatches to a *fresh* child, which starts its
+own clock. Under the old cap that child got 300s, and **2.89% of real children need more than that**;
+under Part A it gets the declared 1200s, which covers **100%** of observed responses with 229s of
+headroom (max 971.3s). On the retry path the truncation demonstrably abandoned live, answering work.
+
+**(b) It may make Part A irrelevant to THESE 31, which is the uncomfortable reading.** Reaching rv3
+means the request already missed an rv0 window of **1200s** (`call_diagnoser`-style rv0 windows were
+measured at the declared value, 29/29). **No observed child exceeds 1200s.** So a request that blows
+its rv0 window is not *slow*, it is **hung or never answered** — and a hung child is abandoned at any
+window. On that reading the 300s cap is incidental to the 31, and widening it would not have
+converted one of them.
+
+**What separates (a) from (b):** whether each retry actually re-dispatches to a new child, or waits
+again on the original. If it re-dispatches, (a) bites on the fresh child; if it re-waits, (b) holds.
+That is a source question about the retry path — `handleRecoverableError` → `UpdateAwaitedRequestRetry`
+and whether a new request is produced — and **it is the peer's active thread (their §21 carry-forward:
+"what a timed-out, thrice-retried, ABANDONED await does to the loop"). Handed over, not taken.**
+
+**Either way, one thing is now settled and it is worth having:** the bug file's standing line that
+Part A "plausibly makes the entry condition rarer, `[INFERRED]`" can be sharpened in one direction or
+retired in the other, on a measurement rather than a guess.
