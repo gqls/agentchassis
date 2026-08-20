@@ -3263,3 +3263,70 @@ days. I went with three rather than two because the checker has to compete with 
 for its slot — I measured it being turned away on 9 of 14 attempts during a busy spell — and
 at two days it would quietly start missing turns. The next check moves from the 24th to the
 20th.
+
+---
+
+**2026-08-20 — the duplicate-page bug: the switch we shipped nine days ago could never have worked for the commonest case, and that's now fixed**
+
+Some background, because this one is easy to lose the thread of. Bug 215 is the "one page,
+two names" problem. When the planner re-plans a site, the framework works out each page's
+name and web address from scratch. For a lot of older pages it gets a *different* answer
+from the name the page is actually stored under — so it writes a second page instead of
+updating the first. You end up with two entries for one page, and one of them serves nothing.
+
+Nine days ago we shipped the cure: a per-site switch that tells the framework "for this
+site, keep the name the page already has, don't recompute it." It was deliberately off
+everywhere, to be turned on site by site after measuring.
+
+**Three days ago another team turned it on for one site, ran a test, and got 19 duplicate
+pages anyway.** They deleted them and wrote up what they found. That write-up is what I
+picked up.
+
+**What was actually wrong.** The switch only takes effect on pages the framework has
+*recognised* as already existing. And it had three ways of recognising one — all three
+designed for pages the planner had named *differently* from how they're stored. Nobody had
+built the case where the planner names the page **exactly right**. Which is the good case.
+It's what we ask the planner to do, and it's what it did on all 45 pages of that site.
+
+So the better the planner behaved, the more certain the duplicate. The switch wasn't
+broken — it was unreachable. You could not have configured your way to it.
+
+**That's now fixed** and the fix is committed. It's inert until the next chassis build picks
+it up, and no live re-plan has been through it yet, so I'm not calling it proven — I've
+written down exactly what to check when it does run, including how to tell a real zero from
+a zero that just means "nothing has run."
+
+**Two things worth your attention, because they're both about how we check our own work.**
+
+The first is a small save. The other team's write-up suggested a specific one-line fix, and
+I nearly took it — it looked right and it was in the file. Before writing anything I deleted
+that line to watch a test fail, and **the test didn't fail.** There turned out to be a
+second, redundant check sitting right behind it doing the same job. Their suggested fix
+would have changed *nothing at all* — and the way you'd have discovered that is by shipping
+it, re-measuring, finding the same zero, and being unable to tell "my fix did nothing" from
+"there was nothing to find." Cheap to catch now, expensive later. I also caught myself
+making the same mistake in the opposite direction: I'd written in my own test that it
+guarded that line, and it didn't. That's logged.
+
+The second is worse and it's ours. When we shipped the switch nine days ago, we wrote down a
+prediction: "the counters will start moving as soon as any site re-plans." **They never
+moved — and it wasn't for lack of a re-plan.** The re-plan that created those 19 duplicates
+ran straight through, and every counter stayed at zero, because the counters were built on
+the same three recognition rules and were blind to exactly the case that was going wrong.
+Anyone reading that zero would have concluded there was no problem. It was the strongest
+possible signal, pointing the wrong way.
+
+I've marked that prediction as failed in our own records rather than quietly replacing it,
+because the lesson is more useful than the correction: **when we promise that a number will
+tell us something, we should also say what that number cannot see.**
+
+**What's still open.** The seven sites with genuine live duplicates — where both versions of
+a page are real and serving — are untouched by this; that still needs your call on which name
+survives, per pair, and two of the seven are done. And there's one narrower gap I've written
+down rather than fixed: pages that were planned but never built are outside what the fix can
+see. That's the duplicate of a page nobody has built, so I've left it, visibly, rather than
+widen the change.
+
+The fix has gone to the review council; the verdict wasn't back when I wrote this, and if it
+comes back wanting changes the code is already on the shared branch, so the bug file's foot
+is where the outcome will be.
