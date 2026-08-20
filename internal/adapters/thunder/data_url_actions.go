@@ -149,11 +149,17 @@ func (d *DataURLAction) ObjectURL(ctx context.Context, req ObjectURLRequest) (*P
 		if expiry <= 0 {
 			expiry = defaultDatasetURLExpiryMin
 		}
+		// Clamp HERE as well as in the helper, because ExpiresAt below is computed
+		// from this variable: the helper's clamp would otherwise make the reply
+		// ADVERTISE a lifetime the URL does not have. expiry_minutes is a
+		// caller-supplied JSON field, so an above-ceiling request is reachable.
+		expiry = storage.ClampPresignExpiryMinutes(expiry)
 		url, err = d.storage.GetPresignedURL(ctx, req.Key, expiry)
 	case "PUT":
 		if expiry <= 0 {
 			expiry = defaultArtefactURLExpiryMin
 		}
+		expiry = storage.ClampPresignExpiryMinutes(expiry) // see the GET arm above
 		url, err = d.storage.GetPresignedPutURL(ctx, req.Key, expiry)
 	default:
 		return nil, fmt.Errorf("unsupported method %q (want GET or PUT)", method)
@@ -531,6 +537,9 @@ func (d *DataURLAction) ResumeURL(ctx context.Context, req ResumeURLRequest) (*R
 	if expiry <= 0 {
 		expiry = defaultResumeURLExpiryMin
 	}
+	// Clamped here too: ExpiresAt below is derived from this value, so the reply
+	// must not advertise longer than the signature will actually be honoured.
+	expiry = storage.ClampPresignExpiryMinutes(expiry)
 	url, err := d.storage.GetPresignedURL(ctx, key, expiry)
 	if err != nil {
 		return nil, fmt.Errorf("presign GET %s: %w", key, err)

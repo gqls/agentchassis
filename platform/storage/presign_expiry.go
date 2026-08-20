@@ -34,11 +34,18 @@
 //	internal/adapters/webscrape/adapter.go:1025                    10080
 //	internal/adapters/imagegenerator/dynamic_adapter.go:635        10080
 //	internal/adapters/browserrunner/screenshots.go:42              7*24*60 (const)
+//	internal/adapters/thunder/data_url_actions.go:152, :157, :534  req.ExpiryMinutes
 //
-// Six sites, six hand-written spellings of the same magic number, no clamp. The
-// first one is the live exposure: `expiry_minutes` is an ACTION INPUT, so a seed
-// or a dispatch payload can set it to anything, and before this clamp that minted
-// a link which reported success and then 403'd in a customer's browser.
+// NINE sites. Two of them take the value from OUTSIDE the code — zip_deliverable's
+// `expiry_minutes` is an action input, and thunder's is a caller-supplied JSON
+// field — so before this clamp either could mint a link that reported success and
+// then 403'd in someone's browser. Thunder's defaults (60 / 1440 / 360 min) are all
+// under the ceiling, so nothing was broken; the exposure was reachable, not live.
+//
+// AND THERE IS NO BYPASS PATH, which is the stronger claim and the one worth
+// keeping: `grep -rn "NewPresignClient|PresignGetObject|PresignPutObject"` over the
+// whole repo returns matches ONLY inside this package's s3.go. Every presign in the
+// estate goes through the two functions clamped here.
 //
 // WHY CLAMPING SILENTLY IS RIGHT HERE, and it is not the usual answer. Normally a
 // helper that quietly alters its caller's request is hiding a bug. This one cannot
