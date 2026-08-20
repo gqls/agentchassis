@@ -447,3 +447,30 @@ taken, exactly as the seat suspected — it is `509`.
 - **Does *instructional* contrast transfer?** Still `[UNMEASURED]`, still open in two lanes, and nothing
   in this fix depends on it — but the gate now produces the corpus that would answer it: every rewritten
   sentence is a before/after pair with the brief text alongside.
+
+## §15. The demand control: the shipped scanner, run over these three pages' real `content_data` `[MEASURED 2026-08-20]`
+
+Not a unit test — the actual `datahelpers` functions, over the actual `page_components.content_data` of
+`model-directory`, `adoption-tracker` and `protocol-tracker`, with that site's actual
+`content_direction.formatted` + `identity.key_differentiators` as the exemption corpus. Recipe and
+expected output in the lane RUNBOOK.
+
+```
+TOTAL 7 | exempt (brief-supplied or regulatory) 1 | repairable 6, of which headline-class 6
+```
+
+- **Both sentences the owner quoted come back REPAIRABLE:**
+  `model-directory` call-to-action headline — *"The registry shows you what's possible, not what
+  survives production."* (`x_not_y`), and its subheadline — *"It doesn't tell you how they hold up
+  under real Kafka throughput…"* (`negative_reveal`).
+- **The canonical tagline comes back `exempt:brief_supplied_sentence`** (`adoption-tracker` hero) — the
+  designed behaviour, and the whole of §11 in one line of output.
+- All six repairable hits are headline-class, so all six are repaired regardless of the page budget.
+
+**This canary found a defect three test files had missed.** `negative_reveal`'s pattern begins at the
+PREVIOUS sentence's full stop, so the hit was being attributed to *"A model directory tells you which
+agents exist."* — a true, clean sentence. The repair would have been handed that to rewrite while the
+reveal stayed exactly where it was, and the gate would have reported a repair that changed nothing that
+mattered. Fixed (the anchor now skips the terminator onto the construction itself) and pinned by a test
+that also re-asserts both splice invariants. **Run this canary after any change to the shapes** — the
+fixture a unit test would use is the one I wrote, and it passed.
