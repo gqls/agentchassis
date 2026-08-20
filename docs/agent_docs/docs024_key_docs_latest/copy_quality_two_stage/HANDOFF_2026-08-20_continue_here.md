@@ -103,7 +103,26 @@ defect in my published recipe; I had it wrong.
 3. **`ai-agent-orchestration.com`'s `example_phrases`** — the payload the compliance seat objected
    to. Their call on their own site config; they have been told twice and offered the edit. **Do not
    write replacement copy** (owner ruling 2026-08-06: the framework writes the content).
-4. **A fourth run on `ai-agent-orchestration.com/index`** — unchanged and still the cheapest open
+4. **A fourth run on `ai-agent-orchestration.com/index`** — **the dispatch recipe is now known; it was
+   the blocker, and it is not written down anywhere else in this lane.** Runs 1–3 were hand-fired and
+   **their orchestration rows are gone** (this lane already recorded that `orchestration_states` is
+   not an archive), so the envelope is not recoverable from the DB. Build it from the working
+   template: **`scripts/fire-internal-linker.sh`** — same class of job, and its header documents the
+   traps. What `copy-editor` needs specifically:
+   - **`input_data.page_id`** — that is all `load_page_target` binds
+     (`query_database`, `params: ["input_data.page_id"]`).
+   - **`input_data.domain`** — `ensure_site_record` reads it via
+     `site_db_actions.go:617 extractDomainFromInput`. Without it the run dies at step 1.
+   - Publish **one line** of JSON to `system.agent.generic.requests` (kcat -P sends one message per
+     line, so a pretty-printed envelope arrives as N invalid fragments), reading the live workflow out
+     of `agent_definitions` so what runs is what is seeded.
+   - ⚠ **`kcat -P` exits 0 having sent nothing.** The orchestration row is the only proof of dispatch.
+   - ⚠ **Dispatch readiness is the DEPLOYMENT, not pod churn:**
+     `kubectl -n ai-persona-system rollout status deploy/agent-chassis` plus the age of the two
+     `-l app=agent-chassis` pods. Waiting for "no chassis-image pod started in 300s" **never
+     terminates** — 70 of the 75 are `dynamic-agent` pods spawned per orchestration. I lost fifteen
+     minutes to that today.
+   Still the cheapest open
    question about stage 2 itself. ⚠ Deliberately deferred today: that site's brief is about to change
    materially, so editorial output measured against today's brief would not be comparable with
    tomorrow's. Reconsider once its spec is settled.
