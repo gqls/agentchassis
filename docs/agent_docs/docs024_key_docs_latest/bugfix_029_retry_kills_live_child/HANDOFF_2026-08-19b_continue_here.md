@@ -466,6 +466,23 @@ this can never have been slowness) → replay to the **same** child (§23, at so
   20-wedged vs 11-never-advanced split, are exactly as unexplained as before. **A 503 is not
   sufficient on its own** — 21% of healthy correlations saw one and answered anyway.
 
+**INDEPENDENTLY REPRODUCED at a different key and unit** (peer §25), which is what makes it not a
+join artefact: keyed on the **page identity** (`context->>'page_name'`) over distinct pages rather
+than on correlation over orchestrations, it returns **17/17 = 100% abandoned vs 86/413 = 20.8%
+healthy**. Two independent routes, same separation. Limits unchanged: ~1 in 5 healthy pages saw a 503
+and answered anyway, so this is association, not mechanism.
+
+⚠ **AND THERE IS A FOURTH BLIND JOIN, WORSE THAN MINE, NOW LANDMINED.** Joining on the **parent's
+`orchestration_id`** — a real, populated, obviously-correct column — returns **abandoned 8/30 (27%)
+vs healthy 66/337 (20%)**: no separation, reading as a **clean refutation** of everything above.
+Structurally blind because **parent and child log under different `orchestration_id`s and
+`agent_error_log` has no column spanning them** (verified: 47 `page-rerender` rows under this cohort
+carry 47 distinct orchestration ids, none the parent's; all carry the correlation in `context`). A
+parent-keyed join therefore sees only `Request <id> timed out after 3 retries` — true, and carrying
+none of the child's cause. **The wrong key does not look wrong; it looks like evidence against the
+true answer.** Full entry, with all three wrong-key shapes and the same-query non-zero control that
+catches them: `LANDMINES.md`.
+
 > ⚠ **The blind join that nearly closed this lead.** Matching the 31 `request_id`s against
 > `error_message` finds all 31 and **zero** GitHub rows — the only rows carrying those ids are the
 > *parent's own* "timed out after 3 retries" entries. Joining children on
