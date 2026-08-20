@@ -11932,6 +11932,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
   licence for docs: if what you changed is prose, the refusal is right and the credits
   are better spent elsewhere.
 - **added:** 2026-08-17, `bugfix_297_tool_recreation_context` lane (migration 453, corr
+
+> ### ⚠ THE CRONJOB FACE OF THIS, added 2026-08-20 — a DAILY job makes it invisible
+>
+> Everything above is about a Deployment you can look at. On a **CronJob** the same trap has no
+> observer at all: the job runs once a day, exits 0 (or 1 for findings), writes its report row, and
+> **reports findings computed by whatever binary the node had cached** — the schedule, the history and
+> the doc_notes row all look exactly as they should.
+>
+> It fires the moment a check image is enrolled in `RELEASE_IMAGES` / `AGENT_DEPLOY_SERVICES`, because
+> a fleet release then REBUILDS it **at the tag the overlay already pins**, and the default policy for
+> a pinned tag is `IfNotPresent`. **Measured 2026-08-20:** a fleet sweep repinned four check overlays
+> to `v1.0.1320` while one of those services' code had moved to `v1.0.1322`; the live CronJob was
+> already serving the older image, and nothing in the CronJob, the Job history or the report said so.
+>
+> **the check — probe the BEHAVIOUR, never the tag,** because the tag is what lied. Pick a
+> discriminator only the new code can produce (a new column in its report, a count only the new logic
+> yields) and fire a manual run:
+> ```bash
+> make <check>-now
+> kubectl -n ai-persona-system logs -l job-name=<the job> --tail=400 | grep -E '<discriminator>'
+> ```
+> In the measured case the new binary reported `9 of 25` with a `regulatory (left alone)` column and
+> the old one reported `12` with no such column — one grep, decisive.
+>
+> **the fix, and it belongs in the base manifest rather than in a habit:** `imagePullPolicy: Always`
+> on any CronJob whose image rides a shared tag sequence. One pull a day is not a cost worth defending
+> against, and it removes the only version of this trap nobody is watching.
+
   `4b9265c3`), after reading the enforcement block rather than the header comment —
   the header says "is refused", line 146-153 is where it `exit 2`s.
 - **✅ FIXED 2026-08-19 (`bugs_open/314`, owner direction) — the gate now ADMITS appliable
