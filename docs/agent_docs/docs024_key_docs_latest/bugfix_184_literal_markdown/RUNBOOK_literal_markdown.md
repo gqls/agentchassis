@@ -150,7 +150,14 @@ SELECT type, jsonb_path_query_array(default_config, '$.**.strip_literal_markdown
       printf "ctrl-: "; grep -aq ZZ_NOT_A_REAL_SYMBOL_QQ /proc/1/exe && echo FAIL || echo ok'
    ```
    Measured 2026-08-19 21:30Z on v1.0.1316 (94 pods, one tag): r6 **absent**, ctrl+ ok,
-   ctrl- ok, r5 literal present — i.e. 1316 carries f3939f27d, not f6d632291. Gotcha: the
+   ctrl- ok, r5 literal present — i.e. 1316 carries f3939f27d, not f6d632291.
+   **Measured 2026-08-20 on v1.0.1317 (one tag, 9 chassis-image pods — the pod count
+   swings with spawned agents; the TAG count is the assertion): r6 PRESENT (both the env
+   name and the log literal), ctrl+ ok, ctrl- ok — f6d632291 IS SHIPPED. Env unset on the
+   pod (`printenv DISABLE_NEWS_MARKDOWN_STRIP` exits 1) → strip ARMED. Gotcha: do not
+   grep the binary for your COMMIT's sha — the provenance stamp carries only the build's
+   own HEAD sha, so an ancestor commit's sha is legitimately absent; the literal probe is
+   the decisive check.** Gotcha: the
    positive control has been in the binary since before v1.0.1300; a pod where it is
    absent is a pod whose `/proc/1/exe` you are not reading, not one missing the feature.
 2. **Disarming the news strip without a roll** (only if a feed shape ever needs raw

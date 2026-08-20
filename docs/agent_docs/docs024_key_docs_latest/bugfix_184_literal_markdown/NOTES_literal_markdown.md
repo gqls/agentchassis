@@ -417,3 +417,46 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
   — fair; cosmetic, noted for the next submission.
 - The remaining advisories repeat run 1's (stale edit-3 hunk, prose-not-SQL, precedent
   not code-verified by the seat) — all answered in the previous section and the RUNBOOK.
+
+## 2026-08-20 ~07:15Z — v1.0.1317 CARRIES ROUND 6 (probed, controls ok, switch armed); discovery cadence measured: the retraction premise was resting on a hand-dispatch
+
+- **Roll verification (RUNBOOK step, tag-based):** fleet is ONE tag, v1.0.1317 (9
+  chassis-image pods this morning — the count swings with spawned agents; the TAG count
+  is the assertion). Probe on a label pod: `DISABLE_NEWS_MARKDOWN_STRIP` PRESENT, the r6
+  log literal PRESENT, ctrl+ (DISABLE_UNREGISTERED_HANDLER_DEMOTION) ok, ctrl−
+  (nonsense) ok. `printenv DISABLE_NEWS_MARKDOWN_STRIP` exits 1 on the pod → env unset →
+  **strip ARMED**. `f6d632291` IS LIVE. Gotcha recorded in the RUNBOOK: my commit's own
+  sha is legitimately ABSENT from the binary — the provenance stamp carries only the
+  build's HEAD sha, so the literal probe (with controls) is the decisive check, not a
+  sha grep.
+- **Strip-log demand control:** 0 strip lines since the roll, and 0 news resolutions of
+  any kind across ALL chassis-image pods — the zero is demand-starved, not evidence.
+  Induced one standard light rerender (049b, reason=section_data_resolved) on
+  fundamentallyai.com news-index after simulating the resolver's own selection:
+  **12 of its top-20 news_archive rows carry markdown right now**, so the run MUST strip
+  and log if the mechanism works. corr `343edda2`. Pre-flighted: no NULL content_data,
+  no open items on the page.
+- **⚠ FINDING (cadence, not detection): quality-discovery-agent has run exactly TWICE in
+  the month orchestration_states retains (min created_at 07-19) — both 2026-08-19
+  10:26Z, both hand-dispatched** (initial_request_data is a bare cli-style orchestrate).
+  So the closed bug's "retraction closes the duplicates on the next discovery pass" was
+  really "on the next HAND-dispatched pass", which nobody owed. The
+  detection-works/schedule-doesn't pattern, on this check's drain path. Confirmed the
+  retraction REACHES the stale rows before dispatching: `work_item_retraction.go:103` —
+  status predicate is workItemClosedStatuses, so `failed`/`unresolved`/`detected` all
+  close; the gate is scannedPages (only pages the run positively re-scanned and found
+  clean on both STORED surfaces).
+- Dispatched scoped discovery for the three sites with drainable rows (same envelope as
+  the 08-19 runs): dartsonline.com corr `5a9d4142` (3 unresolved, page verified clean
+  yesterday and re-verified stored+served this morning: 0 defects, 8,402 visible chars),
+  robot-hands.com corr `759ccae4` (9 failed), webdesign.co.uk corr `e3eb4252` (45 rows —
+  only the repaired news page's should drain; the owned/ported pages scan dirty in
+  stored rendered_html and correctly STAY). ai-agent-orchestration deliberately NOT
+  dispatched: its news page is unrepaired behind a needs_human_review sibling — a
+  discovery run there drains nothing and the human decision is not mine to nudge.
+- **⚠ Stated for the robot-hands arm before the result arrives:** the check scans STORED
+  surfaces, and robot-hands news.html is the STALE-DEPLOY page (stored clean, served
+  stale since 08-11) — so retraction there closes items for a page whose SERVED copy
+  still shows defects. That is the check's design (DB-is-not-the-website); the served
+  gap remains the rerender lane's routed follow-up, and closing the repair rows is
+  correct because the repair half genuinely succeeded.
