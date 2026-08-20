@@ -2353,3 +2353,32 @@ session.
 - For THIS lane: nothing changes yet — the recipe stands until roll + seed, exactly as the RUNBOOK's
   "COMING" block says. Your text-content-floor open question (286 related finding) now has its first
   enforced instance: this gate is that floor, scoped to the regeneration path.
+
+## 2026-08-20 17:30Z — #23 aria-builder built, retired IN-TURN (race won), graded; and the 339 seam fix is committed with a council round open
+
+**#23 `tool-aria-builder`:** item `e1ccf9b3` (17:03:57Z), complete ~17:08. **Attendance done the
+corrected way — in-turn polling between units of other work, no background watcher as the primary —
+and the retire landed while the generator's own rerender (`ee1585dd`, 17:08:01Z) was still
+unclaimed.** Retire `UPDATE 1`, ported slot `d12c855d` md5 `16cb720c…` byte-identical, one surviving
+slot by FUNCTION. RUN: complete, adopted, no short-circuit, component `b486bb24` (13,253 chars).
+**COMPONENT PASS by mechanism:** `htmlEscape` (all five entities) applied everywhere the visitor's
+name enters an attribute or text node; `slugify` (with a `label` fallback) derives the
+`aria-labelledby` sample's heading id from the entered name and reuses it; the empty-name branch
+hides the sample, disables the copy button and shows the message — a `<button></button>` with no
+accessible name is unrepresentable; the second question only appears when the first is "no"; samples
+via `textContent`; 0·0·0·0 standard counts, 4 listeners, 614 visible chars.
+**Controls pinned:** NEGATIVES (0): `id="funcName"`, `id="output"`, `id="explanation"`,
+`Loading logic`, `id="step2"`, `onchange="update()"`. POSITIVES (≥1): `id="rec-title"`,
+`id="code-sample"`, `id="copy-status"`. Serve-grade on `ee1585dd`.
+
+**bugs_open/339 (rehomed to this lane by the 320 lane, split accepted):** the seam fix is COMMITTED
+(`e3dee9243`, `Council-Submitted: 2ff9e215-4ef7-4c5e-939d-66a6911e2915`, register **TL-048** same
+commit) — both tool-page creators now pass the EMPTY candidate to `PublicMetaDescription`, so the
+build brief can never again be published as a tool page's meta description; the guard is unchanged
+for SEO-004. Writer was ESTABLISHED before coding (prefix join: 7 component matches + 4 item-spec
+matches; the 320 lane's LIKE join failed on LIKE, not on the source). Proven against
+`git archive HEAD` + the three changed files (the tree carries other lanes' broken WIP); the
+call-site scan test is mutation-proven. Go — INERT until the next chassis roll; **verdict for
+`2ff9e215` is OWED a read, and a REVISE/REJECTED must be acted on** (the code is already on the
+shared branch). The 12-row live repair and the growing NON-tool writer sub-class stay with the
+`meta_description_never_backfilled` lane per 339 §7b.
