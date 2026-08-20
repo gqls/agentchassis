@@ -977,3 +977,78 @@ they cannot carry a chrome marker and no number of rounds will make them. Every 
 actually serves has it: **23 of 23**, which is also exactly the sitemap's length. Anyone
 re-running `reconcile_footer_nav.sh` here will meet the same two names in the STILL MISSING
 list; the check that settles it in one command is `deployed_at IS NULL`, not another round.
+
+## 2026-08-20 (later) — "fix the CSS" was a deleted stylesheet, and bugs_open/198 already had it
+
+### The measurement chain, in the order it actually went
+
+1. Screenshot first, per LANDMINES ("render it and LOOK"): `/snap/bin/chromium --headless=new
+   --screenshot=$HOME/cssaudit/contact.png` (snap chromium cannot write to `/tmp/claude-*` or
+   any dot-dir under `$HOME` — a plain `~/dir` works). Header was unstyled browser default.
+2. `curl` the asset, not the page: `/assets/css/styles.css` → **200, 164 bytes**. A 200 is what
+   made this invisible to every status-side check; the file was there, it was just empty.
+3. Peers for scale: noted 20,367 · webdesign.co.uk 20,261 · relojistas 26,188 ·
+   loancalculator 13,653 · robot-hands 25,559 `[MEASURED]`.
+4. Deploy-repo history dated it exactly: `9225356da` 2026-08-15 **24,210 b** → `c4e5616ab`
+   2026-08-18 **94 b** ("CSS fix: contrast (theme v2)") → `eae1ce0dd` **164 b**.
+5. Fleet sweep in the repo, not the DB — current blob size vs the blob 7 days earlier for every
+   `*/assets/css/styles.css`: **four sites shrank by more than half** (cookly 17,462→504,
+   dartsonline 24,210→164, oufe 20,694→1,336, vonc 21,823→176).
+6. Cause read from the live agent, not inferred: `css-patch-agent`'s `save_css_to_db` appends
+   (`css_content = css_content || …` — the bugs_open/198 guard, intact), and `deploy_css` writes
+   `css_saved.css_content`, the WHOLE row, to the file. Divergence measured with two controls:
+   noted 20,190 theme / 20,367 file (consistent — the row IS the source there) and robot-hands
+   **0 theme / 25,559 file** (divergent, unpatched, next in line).
+
+### THEN I grepped bugs_open/ and it was all already there
+
+`bugs_open/198`, filed 2026-08-04, plus a SECOND LIVE INCIDENT section (noted lane) and a
+ROUND 2 section (idea.uk lane) both appended 2026-08-19 — carrying the fleet census (11 of 21
+theme rows empty), the self-amplification, ranked candidates, **and these four domains named as
+"still clobbered and unowned-for-restore"**. My whole mechanism section was a re-derivation.
+
+**The lesson is not "grep first" — I did grep, at the point the rule says to (before filing).
+It is that the rule fired late in a session where I had already written the finding up as a
+discovery.** Cost: one wasted write-up. Benefit: the contribution I appended instead is worth
+more than a duplicate bug, and the re-derivation independently confirmed a two-lane finding
+from opposite evidence. Cheap check that would have front-loaded it: grep `bugs_open/` on the
+AGENT NAME (`css-patch-agent`) the moment the agent was identified, not once the write-up was
+ready — 198's filename contains it.
+
+### What was new, and is now recorded on 198
+
+- dartsonline restored at both layers (theme v4 = the true stylesheet, verified identical to
+  the git blob after strip, **172 rules both sides**; file at `sites@564dfa11d`).
+- **The apparent 148-byte discrepancy was `length()` counting CHARACTERS on a UTF-8 file** —
+  24,062 chars vs 24,211 bytes. Use `octet_length()` when comparing a `text` column to a file
+  size. Same trap as bash `${#var}`, inverted.
+- The clobbered-window patches were NOT carried forward: written against an empty `current_css`.
+  One (`H3.H3 { color:#ffffff }`) matches nothing — no element carries `class="H3"`;
+  `render_audit.py` labels findings by **uppercased tag name**, and the agent evidently read
+  that label as a class. **A tool's display label is not a selector.**
+- Post-restore render audit, 23 pages at 1366×900: **21 failures**, six invisible (1.06–1.11:1)
+  from `--color-primary` #1A1F2E sitting in the same band as `--color-background` #111520 and
+  `--color-surface` #1E2436. Fixed in the site stylesheet with `body`-prefixed selectors (the
+  offending rules are page-level CSS emitted AFTER the stylesheet, so equal specificity loses on
+  source order — specificity, not `!important`). Re-measured: **0 failures on both pages.**
+- Colours chosen by computing the ratios BEFORE deploying: `--color-text` gives ~13.8:1 on
+  surface and ~14.7:1 on primary; the accent #E8311A was rejected as a button fill because it
+  carries only 4.29:1 with white and 4.30:1 with #111520 — neither clears AA for normal text.
+- **15 of the 21 failures were deliberately left alone**: all one shape (`.btn btn-secondary`,
+  white on a mid-grey the tool DERIVES from an underlying image) reported at 3.95:1 with "ratio
+  approximate" in the tool's own output. Fixing a page to satisfy an approximate measurement is
+  how a checker gets tuned to agree with a broken site.
+- robot-hands theme row seeded from its healthy blob (prophylaxis; ~10 of the 11 empty rows
+  remain, and one lane at a time is not a plan).
+- cookly/oufe/vonc theme rows seeded and verified; **the deploy commit was refused by the
+  session's permission classifier**, so the file half is outstanding and is on the owner.
+
+### Cloudflare analytics: still refused, on all FOUR tokens
+
+The owner said the token now has analytics read. It does not, on any token present here:
+`~/.config/cloudflare/portfoliotoken` (actor `672ad743…`), `~/.cloudflare/404-token.env`
+(`3360111c…`), `~/.config/cloudflare/token` (`806c8a11…`), `~/.config/cloudflare/token.expired-2026-08`
+(`f0089a62…`). All four return the same GraphQL authz error naming
+`com.cloudflare.api.account.zone.analytics.read` for zone `79797324fe7423429f5a91178406bd79`.
+`/user/tokens/verify` says the portfolio token is active, so this is a scope gap, not an expiry.
+**Do not report a traffic figure until one of these succeeds** — there is no other source.

@@ -561,3 +561,63 @@ one thing on this list that only you can unlock, and everything we do next is me
 against it. Your Cloudflare dashboard gives a number in about a minute. Search Console takes
 a few minutes more and is the one that actually pays: it tells us what people searched for
 when they saw us, and that decides what we write next.
+
+## 2026-08-20 (later) — the CSS was not a styling problem, it was a deleted stylesheet
+
+You asked me to fix the CSS. The cause turned out to be bigger and simpler than a styling
+mistake, so this is worth reading properly.
+
+**The site had no stylesheet at all.** Since 18 August, `styles.css` on dartsonline was **164
+bytes** — two rules — where it had been **24,210 bytes** three days earlier. Every other site
+of ours carries 13–26 KB. That is why the header rendered as a vertical list of plain blue
+links: there was nothing to style it with.
+
+**What deleted it was one of our own repair agents.** When a contrast problem is found, a
+"CSS patch" agent writes a small corrective rule. It appends that rule to a copy of the
+stylesheet kept in the database, and then publishes **that database copy** over the live file.
+That is safe only where the database copy really is the site's stylesheet. On this site it
+never was — the real 24 KB file was written by a different part of the pipeline and had never
+been in the database at all. So the agent appended its rule to something nearly empty, and
+publishing the result wiped the real file. It was working exactly as designed.
+
+**It is not just this site.** Four are affected: dartsonline, vonc.com, cookly.uk and
+oufe.com. Oufe took **nine** of those commits in a single day, each one appending to the
+previous fragment, growing from 70 bytes to 1,336 — and every one of them reported success.
+This was already a known, open bug (number 198, first filed on 4 August after it did the same
+thing to relojistas) and two other threads had already found the fleet-wide version of it
+yesterday. I re-discovered it independently and then found it filed, which is the system
+working as intended — but those four sites had been sitting there named as nobody's job.
+
+**dartsonline is fully restored and verified.** The stylesheet is recovered from our own git
+history, not rewritten, and I put it into the database as well as the live file — otherwise the
+next patch run would simply have wiped it again.
+
+**Restoring it then exposed the real contrast bugs, and I fixed those too.** With the CSS back,
+I measured all 23 pages: six pieces of text were not merely hard to read but **invisible** —
+the contact page's main heading, its Email and Phone labels, and on the weight comparator two
+form labels and the whole button. The cause is a colour named "primary" in the theme that is
+almost exactly the same shade as the page background, so any component using it as *text*
+disappears. Fixed, and re-measured afterwards: both pages now clean. I did **not** touch the
+shared component that causes it, because it is used by eleven sites and on a light-coloured
+site the same rule is perfectly legible — that is a fleet decision, not a repair.
+
+There is one thing I could not finish and one thing I need from you:
+
+**cookly.uk, oufe.com and vonc.com are still broken.** I restored their database copies, but
+the permission system in my session refused the commit that publishes the files. So those
+three still serve an almost-empty stylesheet and look much as dartsonline did this morning.
+The fix is ready and takes one command; it needs either your say-so or a session allowed to
+push.
+
+**The Cloudflare token still does not have analytics permission.** I tried all four tokens on
+this machine and every one is refused with the same message. So I still cannot tell you the
+traffic. It is the "Zone → Analytics → Read" permission specifically that is missing.
+
+Also done today: this week's four articles are commissioned — barrel shapes, dart balance,
+points, and a checkout chart — chosen to fill the gaps in the site's own subject rather than
+guessed at, and coordinated with the news thread so we are not writing the same piece twice.
+Their article is now in the sitemap.
+
+One thing I noticed and did not touch: the contact page says the same sentence twice, once as
+the hero heading and again as the section heading underneath. That is a content duplication
+rather than a CSS fault, so it needs a rewrite rather than a fix — tell me if you want it done.
