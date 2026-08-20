@@ -808,3 +808,49 @@ That file re-verifies the state at the top, carries the halt and your two open d
 the wall, and sets out the path in five steps in the order they have to happen. The one thing
 still waiting on a word from you is whether I refresh the pilot's lender page — it still shows 2
 lenders instead of 25, and it will stay that way while the site is locked.
+
+### Thursday 20 August — the regulated guard is live, and your domain list answered three questions at once
+
+**The guard is running.** Since last night's build, every site the platform builds is checked for
+claiming to be an authorised firm about itself, and refused unless there is a record saying
+otherwise. That record is the part you asked for: a client who emails proof gets a proper entry —
+firm name, registration number, who checked it, what they saw — and then may say it, and the
+number itself becomes a fact the system can check their pages against. Both tools are written:
+one to record it, one to tell you whether a site is covered and, if not, exactly which detail is
+missing.
+
+Three honest limits. The version that shipped covers the main page-building path; the fix for one
+other editing route was written today and needs the next build. Site headers and footers are not
+covered at all — and the footer is exactly where a firm's registration line normally sits, so
+that is a real gap rather than a technicality. And nothing has actually been refused yet, because
+both our sites are locked under your halt — so I can tell you it is installed, not that it works.
+
+**The reviewers made this change better twice, and I want to say so plainly.** They caught two
+things I had got wrong. The first: I had claimed a particular safety check covered every route
+into a page. It does not — one editing route ran no checks whatsoever, which is precisely the
+loophole the whole change exists to close. The second was subtler: I said the guard handled
+sentences like "we are *not* regulated". It turned out those are safe for a completely different
+reason than I thought, and knowing which reason matters, because the one I assumed has a known
+fault in it. Neither would have surfaced without the review.
+
+**Your domain list answered three questions in one go.** Of the 1,567 domains: about 1,250 are
+parked at marketplaces, 207 have never had nameservers set at all, 14 are the sites we have
+built, and **62 are on real hosting and genuinely serving** — those are the live ones, and some
+carry substantial sites. Five domains are family names. And I have picked 50 candidates for your
+test set, spread deliberately across quite different subjects — audio, insurance, chocolate,
+farming, gardens, jewellery, vets, web design — so they exercise different kinds of brief rather
+than fifty variations of one. They are candidates until you say yes; reserving a domain is a
+decision about an asset, not something a script should settle.
+
+**Three things I had told you were wrong, and you corrected two of them.** The planner does know
+what the framework can build — it reads the component library every run, and I simply had not
+looked. Games are buildable, as interactive tools; there is a 22,000-character one running on the
+game design site. And "no nameserver" means you never set one, not that a registration has
+lapsed — my version would have had someone re-buying domains you already own. I have corrected
+all three where they were read, not just noted them.
+
+One more, which nobody caught but me: I wrote in the new handoff that a review round had been
+submitted when it had not. Counting them is a one-line check. It is submitted now.
+
+**To pick this up in a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/HANDOFF_2026-08-20_continue_here.md`
