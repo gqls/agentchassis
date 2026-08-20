@@ -493,3 +493,40 @@ fixed. We have fixed nothing about the freeze itself yet. What has genuinely imp
 no longer lose the evidence — there is now an hourly job that captures a freeze while it is still
 happening, and we proved it captures by making it capture. So the next occurrence will be much
 cheaper to understand than this one was.
+
+---
+
+**20 August, evening — a new chassis build went out, and one question turned out to be worth asking.**
+
+A fresh build (v1.0.1319) rolled at 10:18 this morning. Nothing we were waiting on rode in on it —
+the diagnosis-bundle fix has been live and proven since the previous build — so the only thing that
+mattered was whether restarting every pod mid-flight would shake the freeze loose. It did not. Four
+hours in, zero. I want to repeat the caution from the last entry: that is not good news, it is the
+normal weather. This bug is quiet most days whether or not anything is wrong with it.
+
+The useful thing today came from a number that had been sitting in plain sight. We already knew the
+freeze only happens after a particular kind of failure — a step that has retried three times and
+given up. Another session had counted how often that failure happened on the bad day: thirty times.
+Nobody had asked what those thirty did next.
+
+**The answer is that not one of them recovered.** All thirty ended the job. Twenty of them froze in
+the way this bug describes; the other ten simply stopped dead one step earlier. To be sure that was
+a real finding and not a broken query, I ran the same check against the healthy steps from the same
+day: of 1,387 of those, 1,054 carried on normally. So the check can see recovery — it just never
+finds any after that particular failure.
+
+Why that matters: we have been asking "what kills the job *after* it moves to the next item?" That
+question quietly assumes the moving-on part is where it breaks. A hundred-per-cent failure rate in
+*two different shapes* says the damage is done earlier, in how the system handles the give-up itself.
+There is already a suspect written down in our plan from yesterday — a spot in the give-up path where
+a bookkeeping update can be lost — which until today was only "this could happen"; it is now sitting
+on the exact path that has thirty-one failures and no survivors.
+
+It also hands us a comparison we can make right now without waiting for the bug to happen again:
+same day, same failure, twenty froze and ten did not. Whatever separates those two groups is the
+thing worth finding. That is the next piece of work, and it is worth starting soon — the records
+these findings rest on are deleted seven days after the event, so this particular evidence disappears
+on 24 August.
+
+**Still not closing it.** We have explained nothing about the freeze itself yet; we have narrowed
+where to look, which is not the same thing.

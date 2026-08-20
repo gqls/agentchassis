@@ -2237,3 +2237,110 @@ writing its own query and `runDataRequests` returning 215 lines over 37 orchestr
 **One addition to my §15 blind-check warning, from the peer:** `orchestration_states` has a **column**
 named `awaited_requests jsonb`, rendered in every bundle ever — so a bare `LIKE '%awaited_requests%'`
 reads true for a *second* reason beyond my symptom text. Same remedy: match the renderer's `(`.
+
+### 19. 2026-08-20, `v1.0.1319` — no burst; the rv3/error entry condition gets a CONTROL, and turns out to be 100% TERMINAL (0 of 31 recover) in TWO failure modes
+
+**Build state, observed not proven, and deliberately so.** Pods `agent-chassis-86b95b967b-{2fqm5,jwdb5}`
+on `v1.0.1319` since **2026-08-20 10:18Z** (previously `v1.0.1316`). **No ancestry claim is made here
+and none is needed:** nothing in this lane was pending a roll — `0132a3683` was already aboard and
+behaviourally proven on `1316` (§11, §17a) — so there is no fix whose liveness turns on this build.
+Read that as "the tag and pod times were read off the pod spec", not as a stamp probe.
+
+**(a) NO RECURRENCE, including none from today's roll.** `[MEASURED 2026-08-20 14:33Z]` over
+`awaited_requests`, the wedge shape stated as its definition rather than by its duplicate tell —
+a `process_item_iter_N_spawn_handler` with **no `process_item_iter_N_call_handler` ever registered**,
+excluding anything sent in the last hour so in-flight work cannot masquerade as wedged:
+
+| day | wedged | spawns total |
+|---|---|---|
+| 08-13 | 0 | 85 |
+| 08-14 | 7 | 1,244 |
+| 08-15 | 3 | 1,300 |
+| 08-16 | 0 | 478 |
+| **08-17** | **20** | 1,452 |
+| 08-18 | 0 | 1,594 |
+| 08-19 | 0 | 736 |
+| **08-20** | **0** | 380 |
+
+A chassis roll restarts pods mid-orchestration and was a plausible burst trigger; ~4 h in, it
+produced none. **The standing "wait for the burst" instruction is unchanged** — 08-20 is another
+zero, not evidence of a fix.
+
+**(b) The 08-17 cohort reproduces EXACTLY from an independently-written query.** 20 instances, and
+their spawn rows number **37, every one `processed` at `retry_version` 0** — the same two figures §9
+established from a different direction. Neither was copied; the query was written from the shape, and
+it could have disagreed.
+
+**(c) THE FINDING: the rv3/error precondition DISCRIMINATES, which nothing had shown before.**
+§9 established that all 20 08-17 instances follow a `call_handler` at `retry_version` 3 / status
+`error`. That was consistent with the mechanism — and also consistent with "every spawn looks like
+that", which no one had excluded. The broader definition supplies the missing arm:
+
+| cohort | n | preceding `iter_{N-1}_call_handler` |
+|---|---|---|
+| **08-17** | **20/20** | `rv=3`, `status=error` — **100%** |
+| 08-14 | 7 | **none** at rv3/error: 5 have *no* preceding call at all, 2 follow a **healthy** `rv=0 / processed` |
+| 08-15 | 3 | **none** — all at iter 0 |
+
+**20/20 versus 0/10.** The precondition is not an artefact of how spawns generally look; it selects
+the 08-17 population and nothing else in the retained window. This is the control §12 wanted when it
+recorded that "C1 and C2 both survive — nothing separates them", and it is evidence the *entry path*
+is real even though the mechanism inside it is still unexplained.
+
+**(d) ⚠ DO NOT reuse (a)'s query as "the wedge count" — it is DELIBERATELY broader than the wedge.**
+The 08-14/15 rows are a different, largely self-explaining population, and saying so is what makes
+(c) honest rather than a scare: of those ten, **two are spawns that themselves ERRORED at rv3**
+(`status='error'`), which trivially have no following `call_handler` because the spawn failed, not
+because a parent froze; the rest sit at **iter 0**, where there is no preceding iteration to have
+errored. `[UNVERIFIED]` whether the iter-0 group is benign loop termination or a second defect — it
+is a different question and belongs to a different run. **I first read this table as "the wedge
+predates 08-17" and that reading is WRONG**; recorded here rather than quietly dropped, because it is
+the same assert-before-checking shape this session already logged twice in `WRONG_CALLS`.
+
+**(e) THE STRONGEST RESULT OF THE DAY: the entry condition is 100% TERMINAL, and it splits the
+failure into TWO modes — so the wedge is the majority case, not the whole defect.**
+
+The peer's 14:30Z block records the entry condition's frequency (08-17: 30/1432; every other day 0).
+Neither of us had asked what those 30 *did next*. `[MEASURED 2026-08-20 14:4xZ]`, whole retained
+window:
+
+| population | n | went on to register ANOTHER `call_handler` |
+|---|---|---|
+| `call_handler` at `retry_version=3`, `status='error'` | **31** (30 on 08-17, 1 on 08-15) | **0** |
+| **positive control** — healthy `processed` `call_handler`s, 08-17 | 1,387 | **1,054 (76%)** |
+
+**The control is the point and it could have come out otherwise — it did.** The same `EXISTS`
+detects continuation 1,054 times, so a zero against the error population is a fact about that
+population, not a broken query. (My *first* control here was `retry_version<3 AND status='error'`,
+which returned **0 occurrences** — vacuous, and it would have "passed" while proving nothing. Third
+time this session; the habit is the finding.)
+
+Of the 30 on 08-17, the outcomes are exhaustive and there is no third kind:
+- **20 — WEDGED:** iteration N+1's `spawn_handler` IS registered, its `call_handler` never is. The
+  population this file is about.
+- **10 — NEVER ADVANCED:** no `spawn_handler` for N+1 either. The loop stopped dead at the error.
+  `[UNVERIFIED]` whether these are benign (the error fell on the loop's LAST item, so no N+1 was
+  owed) or a second freeze — `orchestration_states` is purged, so it is **not decidable from the
+  retained data**. Do not count them as wedges and do not dismiss them either.
+
+**What this changes about the target.** The lane has been asking "what kills the parent inside
+`continueExecution` *after* the spawn". That framing assumes the post-spawn continuation is the
+broken part. But **nothing that reaches rv3/error on a `call_handler` ever recovers, in either
+mode** — so the suspect widens from the post-spawn continuation to the **error path itself**. That
+is exactly where the 090's own `NextScope` kept pointing (`handleRecoverableError`,
+`skipToNextLoopIterationForAsync`, `createContinuationContext`), and it **promotes `PLAN_2026-08-19`
+§2's P2** — `skipToNextLoopIterationForAsync` losing a delete-plus-advance to a non-retrying
+`UpdateState`, filed there as `[VERIFIED as a path; UNVERIFIED as ever having fired]`. It is still
+not proof that P2 fires, but the path it lives on now has **31 terminal outcomes and zero
+survivors**, which is a much better reason to open it than when it was one reviewer's observation.
+
+**The 10-vs-20 split is a within-day control that costs nothing to exploit** — same day, same entry
+condition, two different outcomes. If a burst never arrives, this is the comparison still available
+in the retained rows until 08-24, and it does not need `orchestration_states` to ask *"what differs
+about the 20 that advanced far enough to spawn?"*
+
+**(f) Retention is now the binding constraint, and it bites soonest on the least useful cohort.**
+Deletion is `processed_at + 7 days` (§12), so **08-14 expires ~08-21 (tomorrow)** and the load-bearing
+**08-17 cohort ~08-24**. Nothing here needs the 08-14 rows; the 08-17 twenty remain the evidence, and
+they have about four days. If a burst does not arrive by then, the population that supports every
+claim in this file is gone and RSH-011's capture is the only remaining route.

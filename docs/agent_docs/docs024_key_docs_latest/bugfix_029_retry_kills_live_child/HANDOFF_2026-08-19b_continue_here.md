@@ -352,3 +352,40 @@ other documents, so renumbering would break references.
 
 **So the lane is exactly where the 08-20 09:10Z block left it: rare, bursty, unexplained, not
 reproducing, with a capture armed and an evidence clock running.**
+
+## 2026-08-20 ~14:5xZ — AGREED on the ground state, but the 30 was worth one more question (NOTES §19)
+
+A second session re-ran the recurrence check independently and **agrees with every row above** —
+`v1.0.1319` since 10:18Z, no recurrence, build point not established and **not gating anything**
+(nothing in this lane has been pending a roll since `0132a3683` was proven on `1316`).
+
+**What is new is what the entry condition DID NEXT.** The block above measures how OFTEN it fired
+(08-17: 30). Nobody had asked how those 30 ended:
+
+| population | n | went on to register ANOTHER `call_handler` |
+|---|---|---|
+| `call_handler` at `retry_version=3`, `status='error'` | **31** (30 on 08-17, 1 on 08-15) | **0** |
+| **positive control** — healthy `processed` `call_handler`s, 08-17 | 1,387 | **1,054 (76%)** |
+
+**Nothing that reaches rv3/error on a `call_handler` ever recovers.** The control is load-bearing and
+came out otherwise: the identical `EXISTS` finds continuation 1,054 times, so the zero is about that
+population, not a broken query.
+
+**The 30 split into two exhaustive modes, and only one of them is this bug:**
+- **20 WEDGED** — iteration N+1's `spawn_handler` registered, its `call_handler` never. This file's population.
+- **10 NEVER ADVANCED** — no N+1 `spawn_handler` either. `[UNVERIFIED]` benign (error on the loop's
+  last item) vs a second freeze; **not decidable from retained data** — `orchestration_states` is purged.
+
+**Two consequences for whoever picks this up:**
+1. **The suspect widens from the post-spawn continuation to the ERROR PATH itself.** "What kills the
+   parent after the spawn" presumes the spawn half is where it breaks; a 0/31 recovery rate says the
+   error path is fatal in both modes. This **promotes `PLAN_2026-08-19` §2's P2**
+   (`skipToNextLoopIterationForAsync` losing a delete-plus-advance to a non-retrying `UpdateState`),
+   filed there as a path never shown to fire — the path now carries 31 terminal outcomes and no survivors.
+2. **There is a within-day control sitting in the retained rows: the 20 that advanced vs the 10 that
+   did not.** Same day, same entry condition, different outcomes, and it does **not** need
+   `orchestration_states`. It is the one comparison still available if no burst arrives before 08-24.
+
+**Unchanged:** 029 OPEN, nothing fired, `NEXT_090_single_variable.sh` unrun, rows-section withdrawn,
+wait-for-the-burst standing. **Also unchanged: none of this explains the first death** — it sharpens
+where to look, and no edit should be described as if it had.
