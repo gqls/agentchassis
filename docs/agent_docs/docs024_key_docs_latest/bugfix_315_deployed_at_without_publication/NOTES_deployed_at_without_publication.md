@@ -1522,3 +1522,59 @@ config armed (14:27:34Z) → real traffic (14:37:55Z) → fingerprint (14:38:21Z
 **What is still open in this lane is yours, not mine:** one page is `n=1`. The divergence check that
 reads `content_hash IS NOT NULL` now has its first row to work with, and the useful next measurement is
 whether the hash matches the bytes the origin actually serves for that page.
+
+## 2026-08-20 ~17:00Z — **IT WORKS END TO END, PROVEN AT THE ARTEFACT**
+
+`[MEASURED 2026-08-20 ~17:00Z]` `pages.content_hash` = **38 populated** (was 0 of 802 all estate
+history), spanning **14:38:21 → 16:57:49** across **four domains** — `webdesign.co.uk`,
+`loanandmortgagecalculator.co.uk`, `robot-hands.com`, and more. Written continuously from ~11 minutes
+after arming.
+
+### The check that closes the bug
+
+```
+page:   https://robot-hands.com/product-detail.html
+stored: e9d7090facaaddd3733d11885982979b9710d855df97297c062099bb5b09940b
+served: e9d7090facaaddd3733d11885982979b9710d855df97297c062099bb5b09940b   (cache-busted sha256)
+        *** MATCH ***
+```
+
+**The stored fingerprint equals the sha256 of the bytes the origin actually serves.** So the question
+this bug was filed about — *is this page serving what we sent?* — is now **one comparison**, where on
+2026-08-19 it took pulling `rendered_html` out of the database, cutting a needle from it, fetching the
+page and grepping, with a judgement call at the end.
+
+It also confirms three design choices that could each have been consistent-but-wrong:
+- hashing the **decoded** bytes (the base64 branch) — a wrapper hash could never have matched;
+- keying by the **caller's unprefixed path**, and converting `pages.url` through
+  `PageFilePathFromURL`;
+- the assumption that **nothing transforms the bytes downstream** (`b2 sync` + a key-mapping worker) —
+  now measured rather than argued, because a transform would have shown up as a mismatch here.
+
+### Damage, still clean
+
+```
+validation errors matching the key   0
+DEPLOY_EVIDENCE_UNREADABLE           0
+agents armed                         3   (survived the v1.0.1320 roll — config is DB-side)
+```
+
+Zero `DEPLOY_EVIDENCE_UNREADABLE` across ~38 armed deploys is itself a result: the resolver is
+finding real evidence every time, on the live nested-and-direct shapes, not falling through to
+fail-open.
+
+⚠ **One reconciliation note, so nobody repeats yesterday's error.** A "stamped since arming" query
+keyed on `agent_definitions.updated_at` currently under-reports: that timestamp reads **16:08:07**,
+having been bumped again after my 14:27:33 arming (another session touching `page-rerender`, or a
+re-apply). The hashes themselves start at 14:38, which is the honest evidence. **`updated_at` on a
+shared agent row is not a durable "when I armed it" marker** — it is whenever anyone last wrote the
+row. Pin the arming time from your own migration's apply, or from the first hash.
+
+### What this means for the bug
+
+`bugs_open/315`'s §5 candidate 1 — *"stamp it only after a confirmed object write, and record the
+written hash alongside"* — **is delivered and live.** Candidate 2 (refuse the stamp when the publish
+wrote nothing) is delivered and armed, and has had nothing to refuse yet. Candidate 4 (the divergence
+sweep) is now **buildable for the first time**, because the thing it must compare against finally
+exists on 38 pages and counting. Candidate 3 (why one page fell out of the batch) remains
+undiagnosable from here — the runner workflow is in a private repo.
