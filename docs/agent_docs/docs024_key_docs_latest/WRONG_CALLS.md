@@ -39120,3 +39120,43 @@ a claim to check, not assume.
 direction it failed in: it produced a **false alarm about my own just-applied fleet-wide
 migration**, and the tempting response to that is to revert something that was working. A
 detector that cries wolf about your own change is as dangerous as one that stays quiet.
+
+## 2026-08-20 — I named a migration 497 on a number I had read an hour earlier; two other lanes had taken 497 AND 498 by the time the file landed (bugfix 238 lane)
+
+**Asserted:** that `497` was the next free migration number, because
+`ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]+' | sort -n | tail` returned `496` as the
+highest. I wrote the whole file, its `_ROLLBACK` sidecar, and a council submission naming it — then
+the migration runner's dry run showed `497_escalation_owners_map_points_at_three_dead_destinations.sql`
+and `498_escalation_literal_markdown_owner_devolatilised.sql` sitting next to mine, from another lane.
+
+**Actually:** the highest was **503** by then, and 497/498 each already carried **two different
+lanes' files** (`498_escalation_literal_markdown…` and `498_schedule_meta_description_backfiller…`
+still both exist). My gap between reading the number and writing the file was about an hour, during
+which this tree took at least seven migration numbers.
+
+**What caught it.** The migration runner's dry run, which lists pending files in numeric order and
+therefore prints collisions adjacently — not any check I ran deliberately. I ran it for a different
+reason (the per-session dry-run discipline), and the collision was visible in its output as two
+`497_*` lines.
+
+**The cheap check that would have caught it:** re-read the number **immediately before naming the
+file**, and again before committing — one `ls | tail`, two seconds. The reason it is not "pick a
+higher number" is that a higher number is stale the same way; only the *timing* of the read helps.
+
+**Why it matters more than a rename.** A duplicate migration number is not cosmetic on this estate:
+the runner applies in numeric order, so two files sharing a number have **no defined order between
+them**, and `--record-only <file>` and `schema_migrations` join on the filename — so the ledger can
+say "497 applied" while meaning the other lane's 497. My file was renumbered to **504** before any
+apply, so nothing was mis-ordered; the two OTHER 497/498 pairs are still live in the tree and are
+not mine to fix, which is exactly why nobody should trust `ls | tail -1` here.
+
+**The residue I could not undo, recorded because it will confuse a reader:** the council submission
+(`8a2aab7c-2ffa-469d-bb55-ce5a11126613`) was dispatched while the file was still `497`, so the
+verdict will name a path that no longer exists. Forward-only forbids amending it. The renumber and
+the correlation are both written into 504's own header, so the reconciliation lives with the file
+rather than only here.
+
+**Generalises to:** any shared, monotonically-allocated identifier on this tree — migration numbers,
+RFC numbers, bug numbers, `IMAGE_TAG`. The failure is not arithmetic, it is that **allocation and
+use were separated by a long write**, and on a tree this many sessions share, "next free" is a
+measurement with a half-life of minutes. Allocate last, not first.

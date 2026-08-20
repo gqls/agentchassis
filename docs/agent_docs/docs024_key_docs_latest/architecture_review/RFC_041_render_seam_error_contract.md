@@ -109,7 +109,20 @@ mechanical widening rather than a behaviour change.
 
 - the **absent-field sibling** (`missingkey=zero` renders an absent field as empty, silently) is
   untouched by this change and is covered at only two of fifteen call sites, by
-  `missingRequiredLLMFields`, and only for fields marked both `source:"llm"` and `required`;
+  `missingRequiredLLMFields`, and only for fields marked both `source:"llm"` and `required`.
+  **UNOWNED, and stated as unowned rather than left as an open-ended note** — the council's
+  `bug_historian` and `architecture` seats both asked for an owner and a date in round 2, and this
+  lane cannot assign either. What closing it would take, so the next reader is choosing rather
+  than scoping: (a) the honest fix is at the SEAM, not at more call sites — have the render report
+  which declared-required `source:"llm"` fields were absent, which it can already do
+  (`missingBareFields` walks the template and tests the data map) and which would make the
+  coverage question disappear rather than move; (b) the cheap fix is to call the existing presence
+  gate at the other thirteen call sites, which is thirteen edits and leaves optional fields and
+  schema-less components uncovered exactly as they are now; (c) doing nothing has a known cost —
+  it is the mechanism behind `bugs_closed/004/005`' fleet-wide blanking, and this change's own
+  measurement says **75 of 253 active components declare no schema at all**, so for those neither
+  gate can ever fire. **A reader who takes this on should file it as its own bug and claim it**;
+  it is deliberately not folded into 260, whose renderer half is now closed;
 - **75 of 253 active components declare no schema at all**, so the type gate is silent for them
   by construction — the seam's error, not the gate, is the complete detector;
 - `carried_render_failed` and `chrome_render_failed` are surfaced in an action result and a work

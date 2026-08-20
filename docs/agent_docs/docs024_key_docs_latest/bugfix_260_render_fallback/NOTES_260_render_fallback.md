@@ -292,3 +292,248 @@ anything about the 118th. Chrome is the same shape: no gate downstream, currentl
 clear one on a path that already refuses" — on the editor and chrome paths it is "close a route
 by which mangled markup reaches a live page with nothing to stop it." The build path is where it
 FIRES today; the editor path is where it would COST the most.
+
+---
+
+## 2026-08-19 late → 2026-08-20 — the fix is BUILT and COMMITTED, one council round found three real defects, and I broke HEAD once in the process
+
+### Council round 1 (`a44d9eb8`) came back REVISE in 14 minutes and was right on every gated count
+
+Submitted 20:50Z, verdict 21:00:50Z. Two councils were already executing ahead of it and it still
+landed in a quarter of an hour, so **the "budget ~30 minutes" line in CLAUDE.md is a ceiling, not
+an estimate.** 13 seats ran, 3 abstained, `decided_by: gating objection from bug_historian`.
+
+Verdicts: `editquality` object · `bug_historian` object (the gate, one HIGH) · `reuse_agent`
+object · `guardian` object (one HIGH) · `prior_art_librarian` object · `architecture` object
+(`needs_rfc`) · approve from `guidelines`, `diagnosis_guardian`, `improvement_guardian`,
+`compliance`, `render_guardian`, `debug_historian`, `constitution`, `mission`.
+
+**What it found that I had actually got wrong** — not stylistic, not process:
+
+1. **`editquality` + `guardian`: three call sites named in the plan with no edit.** My submission
+   said they were "in this change" and cited the 8-edit schema cap. The seat's reply is the one
+   that matters: *"the plan's own risk section states all 15 call sites must land in one commit or
+   HEAD does not compile — this is not a stylistic gap, it is an admitted incompleteness."* Right.
+   All three are implemented (`assemble_from_library`, `GateConvertedTemplate`, the audit binary).
+2. **`bug_historian` (GATING, high): I treated `missingkey=zero` as a safety property.** My own
+   rationale used it to argue the execute-probe was conservative, while the estate's history says
+   that default is the mechanism behind fleet-wide silent blanking. The absent-field sibling is
+   NOT closed by this change, and saying "absent is never a violation" without saying what DOES
+   cover absence reads as declaring it safe. Now stated as a known-open gap in three places, with
+   the measurement: the presence gate covers **2 of the 15** render call sites and only fields
+   marked BOTH `source:"llm"` AND `required`.
+3. **`reuse_agent`: I cited `resolvedValueSatisfiesDeclaredType` as the live precedent and then
+   wrote a parallel copy of it.** That is the fork-path pattern with the evidence in my own
+   `grounded_in`. Moved to `datahelpers.DeclaredTypeSatisfied`; both questions now share it.
+4. **`prior_art_librarian`: two of my claims did not hold.** Below, because they are the
+   expensive kind.
+5. **`bug_historian` + `guardian` + `render_guardian`, converging from three directions on the
+   same shape**: chrome "not stored, logged" and rerender "carried, named in the output" are both
+   *reports-complete-but-degraded*, which is `bugs_closed/028`/`040`. `render_guardian` put the
+   sharpest version of it: a mistyped field that breaks the render is *the same class* as a
+   missing required field, which this very action already escalates. Answered by using the same
+   escalation, not by arguing the difference.
+
+**The cheap lesson: three seats independently finding the same shape is not three objections, it
+is one design error.** I had written the chrome and rerender arms in different sittings and never
+compared them against each other.
+
+### The two prior-art claims I withdrew
+
+**(a) "A 13th render seam nobody had named."** FALSE, and one `grep` would have shown it:
+
+- the concept register already names it — `page-build-pipeline.md`: *"`RenderTemplateWithMap` …
+  is deliberately EXEMPT, named rather than silently skipped"*;
+- `bugs_open/238`'s council round enumerated it as one of **eight** unguarded call sites;
+- `idea_uk_vm_site`'s own `bug_historian` seat FOUND it and routed it through the `<no value>`
+  detector — *and that lane's notes say it measured the symbol as absent from the binary.*
+
+What survives is narrower and still worth the edit: its caller `ReplaceAllString`s the live
+contact block with the result, so an error **deletes** it; and its language **diverges** (no
+FuncMap, so `{{safe}}` is a parse error there while it works on the component seam).
+
+**(b) "Latent, one ordinary edit away."** Also wrong, and I found this one by chasing the seat's
+question rather than the seat finding it: the chain ends at `RerenderSitePagesAction`, which is
+in **no entry of `GlobalActionRegistry`** (320 handlers). The path cannot be dispatched. My DB
+query that "found 3 live agents naming `rerender_pages`" was measuring a STEP NAME
+(`rerender_pages.pages` is `get_pages_for_rerender`'s output field), not an action — the exact
+"your measurement answers the question you encoded" trap. So the edit is a trap disarmed before
+revival, not damage stopped today, and the honest framing is in the code, the RFC and the bug
+file.
+
+**(c) A third, smaller one, mine and unprompted:** I wrote in a code comment that declaring
+`refuse_dead_url_controls` in `ConfigKeys` had cost the RFC_022 budget its visibility. It had
+not. `cmd/config-key-audit/optionalbudget.go:14-21` counts `spec.Optional` only and skips
+`ConfigKeys` **on purpose** ("settings rather than input references"). What the declaration buys
+is the unknown-config-key report. Corrected in the comment before commit.
+
+**And I checked the dead-URL precedent claim I had repeated from `dead_url_guard.go`'s header
+("three seats independently demanded default-OFF").** The corpus says **two** — `guardian` and
+`architecture` on council `98852baa`; `render_guardian`'s objection that round was that the
+rerender path records without refusing, which is adjacent, not the same. The design is unchanged;
+the citation is corrected. This is the second time in two days on this tree that a *code comment's
+account of a council round* turned out to be looser than the round — see `WRONG_CALLS.md`.
+
+### The defect my own census found in my own checker — the best evidence this round produced
+
+Writing the arming migration's "known population" section meant asking: **what would the gate
+refuse today?** Two queries, and the second one came back non-zero:
+
+- top-level declared-array fields holding a non-array, across every stored `page_components`
+  row: **0**;
+- the nested case: **5 elements on ONE page** — `fundamentallyai.com`
+  `/production-backend-engineering`, `mechanism-flow`, `steps[].branches`.
+
+That page is **deployed, serving, 8,824 bytes, no braces in its HTML.** Every one of the five
+`branches` is the **empty string**, and the template gates them (`{{if $s.branches}}` precedes
+`{{range $s.branches}}`). My first checker reported `""` as "a string where an array is declared"
+— so an armed gate would have **refused a rebuild of a healthy live page**, and it is the only
+such row on the estate, so no test I would have thought to write would have caught it.
+
+Fixed by making the checker share ONE emptiness predicate with the presence gate:
+`isEmptyContentValue` → `datahelpers.IsEmptyContentValue`. My round-1 doc comment had *asserted*
+that the two gates "must not disagree"; it took the census to notice they already did.
+
+**The transferable bit: the question "what population would this refuse today" is not a
+formality for the migration header. It is the only test that runs against the whole estate, and
+it found a false positive that nine hand-written unit tests did not.**
+
+### The mutation proof, including the part that did NOT fail
+
+Re-added a one-line fallback (`return templateStr, nil, nil, nil`) and ran the suite:
+**5 tests fail** — `TestRenderFailsOnAMistypedNestedField`, `TestParseErrorIsRefusedNotDegraded`,
+`TestRetiredHandlebarsDialectHardFails`, `TestSecondRenderPathNoLongerExists`,
+`TestFooterComplianceWrongTypeIsRefusedAtTheSeamAndFallsBackWhole`. The control
+(`TestRenderSucceedsOnCorrectlyShapedContent`) still passed, as it must.
+
+**`TestConversionGateRefusesATemplateTheRendererCannotExecute` PASSED under the mutation**, and
+that is worth writing down rather than quietly enjoying the 5: `GateConvertedTemplate` has a
+guard **in series** — with the fallback restored, the mangled `{{.InstanceID}}` survives the
+render and its own placeholder check catches it. So that test does not prove the seam; it proves
+the gate's second line of defence. A mutation that passes has usually hit a guard in series.
+
+### Two tests whose PREMISE this change inverts, reworked rather than deleted
+
+- `TestFooterComplianceWrongTypeDoesNotDestroyFooter` said, in its own comment, *"degraded output
+  is acceptable"* — it was pinning the fallback as a FEATURE. Rewritten as
+  `…IsRefusedAtTheSeamAndFallsBackWhole`: same promise to the page (a real footer, never a
+  half-rendered one), kept by `Inject*`'s existing ladder instead of by the regex renderer.
+- three `…OnRegexFallbackPath` form-action tests tested a branch that no longer exists. Replaced
+  by one test of the property that actually mattered — *no second, weaker renderer can ship a
+  page* — with the deleted tests' reasoning preserved above it.
+
+### Then HEAD broke, twice, and the second one was me
+
+1. **08:06Z, `ae7a8d739`** (an unrelated section-editor claims-guard commit) swept two lines of
+   this work into HEAD as a **same-file passenger**. HEAD stopped compiling:
+   `section_editor_actions.go` called `RenderTemplate` with two returns while the seam still
+   returned one. `make build-*` builds from committed HEAD, so **every session's image build was
+   broken** and nothing in `git status` would tell them why.
+2. I committed my half (`80b9c6235`), which fixed that — and **broke it again in a new way**,
+   because my pathspec included `v3_site_actions.go`, which in the shared tree already carried
+   another lane's uncommitted call to `buildPageDeployStampQuery`. The call shipped; the
+   definition (in `deploy_evidence.go`, still uncommitted) did not.
+3. Fixed forward with `a0bb2d867`, a declared `sweep:` of that one file, saying whose it is and
+   why deleting their line was the worse option.
+
+**The tell, and the only reliable one: a clean `git worktree` at HEAD.** My own tree built fine
+in all three states, because it holds everyone's uncommitted work. `git worktree add <scratch>
+HEAD` then `go build ./...` is a 90-second check that answers a question no amount of local
+building can.
+
+### The test failure that was not mine, proven rather than assumed
+
+While all this ran, `v3_site_reconcile_identity_test.go` failed in my tree on **a different
+reconcile test each run** and passed in isolation. Two checks settled it: it touches no render
+code, and at clean HEAD in the worktree the package passes **3/3**. The cause is another lane's
+**uncommitted** edits to that very test file (plus an untracked `plan_sections_item_fields_
+dialect_test.go`), which compile into the package in the shared tree and not at HEAD. Left as
+found, named in the commit message.
+
+**Practice worth keeping: on this tree, "the package fails locally" is not evidence about your
+change until you have run it at HEAD in a worktree.**
+
+### State at 2026-08-20 10:10Z
+
+- **Committed:** `80b9c6235` (the change, 27 files, with `STY-057` + its index row and `RFC_041`
+  in the same commit — ordering-exemption condition 2) and `a0bb2d867` (the sweep).
+- **Council round 2** submitted on the same trail `a44d9eb8`; run correlation
+  `efd19ef7-79cf-4603-b97e-e905ad0e3094`, orchestration `10acf41b-55f0-4bb5-ab88-2809b435f4a9`.
+- **NOT LIVE.** Go, so inert until a chassis built from `80b9c6235` rolls. Verify per SERVICE at
+  the binary's provenance stamp, never at git or the tag.
+- **The arming migration is `502_bugfix_260_arm_mistyped_llm_fields_HOLD.sql`** (+ ROLLBACK
+  sidecar). ⚠ **I first numbered it 498 and three other sessions had already used 498 today** —
+  the sequence is contended, so `ls` the directory immediately before naming a file, not before
+  writing it.
+
+### Council round 2 (same trail `a44d9eb8`): **APPROVED** 2026-08-20 08:34:52Z, ~10 minutes after submission
+
+`decided_by: approved with 5 advisory objection(s) — none high-severity`. 16 seats, 3 abstained,
+not truncated. Round 1's three gating findings are gone: the three call sites are implemented, the
+absent-field gap is registered rather than implied safe, and the prior-art claims are withdrawn.
+
+**Advisories acted on, with the evidence the seats asked for:**
+
+- **`reuse_agent` (medium) — "`SchemaContentFields` already normalises dialect differences; was it
+  checked before writing your own `items` handling?"** Fair, and now answered *in the code* rather
+  than in a submission: `SchemaContentFields` normalises the **field-set** dialect (v2 `fields`
+  vs legacy top-level `properties`) and `ContentTypeViolations` calls it for exactly that; it
+  copies `items` through **verbatim** (with `source`, `on_missing`, `fallback`, `missing_reason`,
+  `min_items`), so there was no element-shape normalisation to extend. Widening it would change
+  what all three of its other callers read for the benefit of the one that walks into items.
+- **`prior_art_librarian` (medium) — the registry-absence claim is asserted, not quoted.** Right,
+  and it is load-bearing (it is what makes the contact-info edit a disarmed trap rather than a
+  live save). The evidence, run 2026-08-19:
+  ```
+  $ grep -c "Handler:" platform/orchestration/actions/registry.go
+  320
+  $ grep -rn "RerenderSitePagesAction\b" --include=*.go . | grep -v rerender_pages_actions.go
+  (no output)
+  $ grep -n "rerender" platform/orchestration/actions/registry.go
+  873: "get_pages_for_rerender": {    879: "rerender_single_page": {
+  885: "rerender_page_sections": {    891: "create_rerender_items": {
+  ```
+  320 registered handlers, no entry for it, and no non-test caller outside its own file. Now a
+  LANDMINE entry with the same commands.
+- **`debug_historian` (low) — "no needle-gate count of live templates relying on any of the
+  deleted substitutions beyond `{{#`, `{{nav_items_html}}`, `{{quick_links_html}}`."** The seat is
+  right that I named three markers, and the better answer is that I do not need an enumeration:
+  **every dialect only the fallback could render is, by definition, a Go-template PARSE error** —
+  `{{#each}}`, `{{nav_items_html}}` and bare `{{field}}` (no dot, which `renderHandlebarsSubstitutions`
+  handled) all fail `template.Parse` with "function not defined" or a bad-character error. The
+  measured **0 of 251 active templates fail to Parse** therefore covers the whole class, not just
+  the three I greped. Recorded here because that argument is stronger than the greps and I had not
+  stated it.
+- **`architecture` (low) — cite the optional-key budget for these actions post-change.**
+  `./scripts/audit-optional-key-budget.sh`: *"122 actions declare optional keys; 22 of them are
+  SHARED (>=2 live carriers) — budget: 10 — **0 shared action(s) over it**"*, and
+  `render_component` does not appear in the counted set at all, because the counter reads
+  `spec.Optional` and both new flags are `ConfigKeys` (settings). The cron parity test passes 6/6.
+- **`guardian` (low) — "enumerate every caller migrated, or the two gates can drift again."**
+  Checked: `grep -rn "resolvedValueSatisfiesDeclaredType\|func isEmptyContentValue"` returns the
+  MOVED comment, the one-line alias, and nothing else — **zero surviving copies of either logic.**
+- **`guardian` (low) — "confirm nothing downstream reads `unanalysed`."** Checked across Go, SQL,
+  Python and shell: **no consumer outside `rendercheck.go` itself.** The bucket's printed label
+  already says "NOT cleared", which is precisely the meaning the new members carry.
+
+**One advisory is WRONG and is recorded as refuted rather than quietly dropped.** `guidelines`
+(low): *"the platform's WORK-ITEM DEDUP rule requires DELETE+INSERT against idx_swi_dedup, not ON
+CONFLICT"*. `insertWorkItem` (`load_work_item_actions.go:1509-1518`) is an
+`INSERT INTO site_work_items … ON CONFLICT (site_id, item_key) …`, and the surrounding comments
+say so explicitly — the file's own header warns against a caller writing its **own**
+`INSERT … ON CONFLICT DO NOTHING` and thereby *inheriting none of* the shared helper's anti-churn
+behaviour, which is the opposite of the seat's reading. `emitChromeRenderFailedItem` uses the
+shared helper, so it inherits whatever that helper does; my sketch described it correctly. **Second
+time this week a medium/low advisory on this estate has been wrong on a checkable point — read
+them, then check them.**
+
+**Two advisories accepted as fair criticism of the SUBMISSION rather than the code**, recorded
+because the next resubmission on any lane can avoid them: `editquality` objected that edit 6
+described changes to two files not named in its `file` field, and that the register entry and the
+RFC were claimed in prose with no edit entry tracking them. Both true. The 8-edit cap is the cause
+and the fix is to spend a slot on the registration artefacts rather than mention them — a
+reviewer cannot check what the plan does not list.
+
+**Trailer:** the code commit `80b9c6235` carries `Council-Submitted: a44d9eb8…`, which 098 credits
+automatically now approval has landed — no amend, and forward-only forbids one anyway. The docs
+commit carries `Council-Reviewed:` because by then the approved verdict had been read.

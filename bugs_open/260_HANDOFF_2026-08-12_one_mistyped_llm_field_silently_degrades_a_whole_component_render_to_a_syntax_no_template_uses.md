@@ -1,7 +1,35 @@
 # 260 — One mistyped LLM field silently degrades a WHOLE component render to a regex path that no template on the estate uses, leaking Go control syntax into the page
 
-**Filed 2026-08-12.** Status: **OPEN, root cause proven, ~~no live damage~~ ZERO CORRUPTION OF
-STORED CONTENT BUT REAL LIVE DAMAGE, fix TAKEN UP 2026-08-19.**
+**Filed 2026-08-12.** Status: **OPEN — the renderer-half fix is BUILT AND COMMITTED
+(`80b9c6235`, 2026-08-20) and is INERT until a chassis image built from that commit rolls.** Stays
+OPEN by the fixed-AND-live bar: the defect is reproducible on every live site until the roll. Root
+cause proven; ~~no live damage~~ ZERO CORRUPTION OF STORED CONTENT BUT REAL LIVE DAMAGE.
+
+> **THE FIX, in one paragraph, for whoever reads this next.** The silent regex fallback is
+> DELETED and `RenderTemplateReportingMissing`/`RenderTemplate` return an **error**, so a
+> component render either executed or errored and there is no third state. All fifteen call sites
+> make an explicit failure decision: the build path fails the step naming the field, the rerender
+> path carries its stored HTML and escalates the page to the writer through the same helper the
+> missing-required-field pre-check uses, the chrome store declines to store (existing row keeps
+> serving) and fails the step only when nothing is stored to serve, the chrome renderers fall into
+> `Inject*`'s existing fallback ladder, and the two ungated live-edit routes refuse the edit.
+> `datahelpers.ContentTypeViolations` supplies the named diagnosis with an indexed path
+> (`steps[2].branches: declared array (items: object), got string`) — unconditionally as an
+> enricher on an already-failed render, and as an opt-in pre-render refusal
+> (`refuse_mistyped_llm_fields`, unsafe default OFF, arming migration
+> `sql_for_agents/502_..._HOLD.sql`, which must not be applied before the roll).
+> Registered as concept **STY-057**; the contract change has **RFC_041**. Council trail
+> `a44d9eb8` (round 1 REVISE, acted on; round 2 submitted). Full record:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_260_render_fallback/NOTES_260_render_fallback.md`.
+>
+> **⚠ WHAT THE FIX DOES NOT DO, so nobody closes this expecting it.** It makes no page that
+> currently fails succeed. The 24 items parked at `needs_human_review` still hold content of the
+> wrong shape; making it correct is the **writer** half's job (`copy_quality_two_stage`, owner
+> direction 2026-08-12). And it leaves the ABSENT-field sibling exactly as it was: Go's
+> `missingkey=zero` still renders a missing field as empty with no error, and the presence gate
+> that covers that case runs at **2 of the 15** render call sites, only for fields marked both
+> `source:"llm"` and `required`. That gap is stated in the checker's header, in STY-057's landmine
+> list, and in RFC_041 §5 — it was the council's gating objection and it is not closed.
 
 > **HEADLINE CORRECTED 2026-08-19** by the lane now fixing the renderer half, at the request of
 > the `portfolio_positioning` and `loanzy_uk_example_site` lanes, who both declined to edit it
@@ -692,7 +720,42 @@ It is an argument **for** the seam fix and **against** touching `checkUnrendered
 - **The fix is Go, so it is inert until an image is rebuilt and rolled.** Both lanes have been
   told, since one is sequencing an end-to-end re-run around it.
 
-### 13g. A THIRTEENTH render seam nobody has named, and its failure mode is worse than the fallback's
+### 13g. ~~A THIRTEENTH render seam nobody has named~~ — CORRECTED: it was named THREE TIMES before, and it is UNREACHABLE
+
+> **⚠ CORRECTED 2026-08-20 by the lane that wrote this section, after the council gate's
+> `prior_art_librarian` seat (round 1 of trail `a44d9eb8`) asked for the precedent check I had not
+> run. Two claims in this section were wrong; the finding underneath them survives, narrower.**
+>
+> **"Nobody has named it" is FALSE.** One grep of the docs would have shown three prior namings:
+> the concept register itself (`docs026_concept_register/register/page-build-pipeline.md`:
+> *"`RenderTemplateWithMap` … is deliberately EXEMPT, named rather than silently skipped: one
+> caller (the contact-info block on the legacy whole-page path) … its blast radius is a contact
+> line, not a section artefact"*); `bugs_open/238`'s own council round, which enumerated it as one
+> of **eight** unguarded `RenderTemplate*` call sites; and the `idea_uk_vm_site` lane, whose
+> `bug_historian` seat FOUND it as a sibling silent-drop path and routed it through the same
+> `<no value>` detector.
+>
+> **"Latent, one ordinary edit away" is also wrong, and worse than the first error because it
+> inflated urgency.** The chain is `RenderTemplateWithMap` ← `rerenderInjectContactInfo` ←
+> `rerenderSinglePage` ← `RerenderSitePagesAction`, and `RerenderSitePagesAction` appears in **no
+> entry of `GlobalActionRegistry`** (320 handlers, checked 2026-08-19). No workflow can dispatch
+> it; the linker eliminates the function, which is exactly what the `idea_uk_vm_site` lane
+> measured when it recorded the symbol as absent from the binary. ⚠ **And the query I used to
+> claim it was live measured the wrong thing** — "3 live agents name `rerender_pages`" was
+> counting a STEP NAME (`rerender_pages.pages` is `get_pages_for_rerender`'s output field), not an
+> action.
+>
+> **What survives, and is fixed in the same commit as the seam:** (a) the caller does
+> `html = contactInfoRe.ReplaceAllString(html, rendered)`, so an error there **deletes the live
+> contact block** rather than mangling it — which revises 238's stated exemption reasoning, since
+> "a contact line" understates deleting the block; and (b) the two seams **do not accept the same
+> language** — no FuncMap and no `missingkey=zero` here, so `{{safe}}`, `{{default}}` and
+> `{{isset}}`, ordinary everywhere else in this library, are PARSE errors in this one. A test pins
+> that asymmetry and fails loudly if the two languages ever converge.
+>
+> So this is **a trap disarmed before the path is revived**, not damage being stopped today.
+> Anyone reviving `RerenderSitePagesAction` inherits both (a) and (b). The rest of this section
+> stands as originally written, apart from the two claims struck above.
 
 `RenderTemplateWithMap` (`rerender_pages_actions.go:782`) is a **second, independent** Go template
 executor — not the seam §2 describes, and not covered by any measurement in this file. It has its

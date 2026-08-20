@@ -92,3 +92,59 @@ bug being counted twice. They were not — I reasoned from the name of the item 
 evidence that contradicted it was already on my screen. One lane said it would have written my
 version into its own notes as fact. Corrected with both, and logged in the fleet-wide
 wrong-calls file.
+
+---
+
+## 2026-08-20 — the fix is written, reviewed once, and committed; it is not yet live
+
+**What we changed, in plain terms.** When the proper template engine hit a problem, our code
+quietly handed the job to a much older renderer that speaks a different dialect of instruction.
+That older code filled in the words it recognised and left every instruction it did not
+understand sitting in the page. It is now deleted. The renderer either carries out the
+instructions or it says it could not — there is no third outcome any more.
+
+That change breaks, deliberately, every piece of code that asked the renderer for a page and had
+no way to be told "I could not render it". There were fifteen of those. Each one now makes a
+decision you can read: the page builder **stops and names the field**; the repair path **keeps
+the good page it already has** and asks the writer to fix the content; the site header/footer
+code **falls back to a plain version** rather than shipping gibberish; the two paths that edit a
+page that is already live **refuse the edit and leave the live page alone**. That last pair is
+the one worth knowing about: they write straight to a published page with no check in between,
+and the guard they did have could never have caught this problem.
+
+**The review found three things I had genuinely got wrong**, which is the best argument for
+sending work through it. It caught that I had left three of the fifteen sites unwritten while
+claiming they were done; that I had described a known-unsafe piece of Go behaviour as if it were
+a safety feature; and that a "nobody had ever noticed this" claim of mine was simply not true —
+three earlier pieces of work had noticed it, one of them had even half-fixed it. All three are
+corrected. It cost fifteen minutes.
+
+**And writing the deployment file caught a mistake nothing else would have.** Before turning on
+the optional early check, I asked what it would refuse if we switched it on today. The answer was
+"nothing, except five items on one page" — a live, perfectly healthy page on fundamentallyai.com,
+where those five items are simply blank. My check was treating "blank" as "the wrong type". Had we
+switched it on, that page would have stopped rebuilding, and it is the only page on the estate
+shaped that way, so no test I would have thought to write would have found it. It now shares one
+definition of "blank" with the check that already existed, so the two cannot disagree.
+
+**One rough edge, and it cut both ways this morning.** We all share one working copy of the code.
+Another session's commit accidentally took two lines of my work with it, which left the shared
+code unable to compile for anyone — nothing in the usual status view would tell you why. My fix
+for that then took two lines of *their* work in the same way, and briefly broke it again
+differently. Both are repaired, both are recorded, and I have written down the ninety-second check
+that catches it (build the committed code in a separate scratch copy, not in the shared one). It
+is not a fault in anyone's care; it is what happens when two people edit one file and either of
+them commits.
+
+**Where this leaves things.** The code is committed and reviewed once; a second review round is
+running. It does nothing until the next fleet release builds and ships it — Go changes are inert
+until then, so nothing has changed on any live site today. After the release, the loanzy lane runs
+a clean build from scratch and reports either way; that is the real test. The optional early check
+stays switched off until then, and its switch-on file is written and deliberately held back.
+
+**What to expect when it does ship, stated so it is not misread as a regression:** builds that
+would previously have failed late with twenty confusing "blockers" will now fail **early, naming
+one field**. The twenty-four pieces of work sitting in the review queue still hold content of the
+wrong shape — making that content correct is the writer's job, not this change's. What this buys
+is that the failure is honest, immediate, names the field, and can no longer reach a published
+page through the two unguarded routes.

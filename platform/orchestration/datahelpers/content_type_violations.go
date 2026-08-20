@@ -279,8 +279,23 @@ func describeArrayDecl(def map[string]interface{}) string {
 }
 
 // itemsDeclareObject reports whether an `items` block says "each element is an
-// object". BOTH live dialects mean that and neither is going away, so both are
-// read here rather than one being declared canonical:
+// object".
+//
+// WHY THIS IS NOT SchemaContentFields' JOB (council a44d9eb8 round 2,
+// reuse_agent — a fair question, and the answer is a boundary rather than a
+// refusal). SchemaContentFields normalises the FIELD-SET dialect: v2 `fields`
+// versus legacy top-level `properties`, and ContentTypeViolations calls it for
+// exactly that. It does NOT normalise the `items` sub-dialect — it copies
+// `items` through verbatim, along with `source`, `on_missing`, `fallback`,
+// `missing_reason` and `min_items` — so there was nothing there to extend.
+// Adding element-shape normalisation to it would change what every one of its
+// callers reads (the generation planner, the render gate, the post-deploy
+// audit) for the benefit of the one caller that walks INTO items, which is the
+// widening this estate's own reuse discipline warns about in the other
+// direction.
+//
+// BOTH live dialects mean "each element is an object" and neither is going
+// away, so both are read here rather than one being declared canonical:
 //
 //   - JSON-Schema-ish (2 components, incl. mechanism-flow, the motivating case):
 //     {"type":"object","required":[...],"properties":{...}}
