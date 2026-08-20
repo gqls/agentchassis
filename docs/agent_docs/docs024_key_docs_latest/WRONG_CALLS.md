@@ -40111,3 +40111,59 @@ I'd dispatched it myself twenty minutes earlier.
   now recorded as its own finding. But it is a dispatch-surface defect, not the two agents I accused,
   and I have withdrawn the claim about `rerender-chrome` entirely — my run cannot speak to it, because
   it carried the same broken envelope.
+
+---
+
+## 2026-08-20 — I read "nobody in the estate writes this syntax" as proof it was a typo, when it was an unbuilt feature — and corrected two bug files in the wrong direction (staged_component_build lane)
+
+**The call.** Dispositioning RFC_029 step 5's conflict census, I found that `bugs_open/334`'s
+top-ranked fix candidate and `bugs_open/330` §9's suggestion both wrote a step-config key as
+`"commit_sha?": "<path>"`, and that `ExtractActionInputs` strips only `!`. So the key would never
+match the spec field: applies clean, reports success, resolves nothing. That much was right, and it
+mattered — 334's candidate 1 was the lane handoff's own "step 5, item 1", so it was next to be built.
+
+Then I went one step further than the evidence. I ran a recursive census of live `agent_definitions`
+for `?`-suffixed keys: **21 sites, every one an `input_mapping`, zero in a step config.** I wrote
+that up as *"a `?` in a step config would be the estate's first, which is the strongest available
+evidence that it is a mistake rather than a feature you have not met"* — and corrected both bug
+files to use the plain unmarked key.
+
+**What caught it:** `git log` on the lane directory, run because a *different* wrong call in this
+same file (my lane's duplicate-handoff entry, earlier today) prescribes it before writing a dated
+successor to any lane doc. A parallel session of the same lane had committed `ecc419bd1` — **building
+the `?` marker on that surface** — 17:20Z, six minutes before my landmine committed at 17:26Z.
+
+**Why the same number supported the opposite conclusion.** Their commit message cites the identical
+census: *"Zero live `?` keys on this surface … so RFC_022-exempt: opt-in, unsafe default OFF,
+consumers enumerated."* Zero live keys is exactly what makes a new opt-in field safe to ship. I used
+it as evidence of a typo; they used it as evidence there was nobody to break. **An absence census
+separates a typo from a CONVENTION. It cannot separate a typo from a GAP** — both look like zero.
+Only the code that reads the surface tells you which, and it was telling me "unimplemented", which is
+a fact about the present, not a verdict on the syntax.
+
+**And my correction was worse than the thing I corrected, post-roll.** The unmarked key I recommended
+resolves the path and then, *on a miss*, **falls back to the whole-tree search**. For 334 that is
+precisely the 7.7% deeper `…deploy_result.response.deploy_result…` shape whose conflict row would
+come straight back; for 330 the fallthrough IS the defect. `?` — resolve or be absent — is the
+spelling both bugs actually needed. So I did not merely overreach on the reasoning; I steered two
+files toward the weaker fix.
+
+**The cheap check, and it is one line beyond the one I ran:** I greped the reader
+(`grep -n 'TrimSuffix' action_inputs.go input_mapping.go`) and I censused the estate, and both were
+right. What I never ran was **`git log --since=<today> -- <the file I was about to declare wrong
+about>`** — the reader I quoted was HEAD-of-an-hour-ago, on a tree where ~40 sessions commit. On this
+tree "the code does not do X" has a half-life measured in hours, exactly like every other measured
+claim, and I treated it as a structural fact because code feels more permanent than data.
+
+**What survived, and why the landmine stays.** The trap is real with a **shelf life**: both chassis
+pods started 16:09Z on `v1.0.1320` and the marker commit is 17:20Z, so no live binary parses `?`
+today — a `?` key applied now is still dead, and *replacing* an existing unmarked wire with one
+**loses** the Strategy-0 wire outright. Entry corrected in place with that boundary, and both bug
+files re-corrected. Cost: two commits pointing the wrong way for roughly twenty minutes, and no
+migration was written from them.
+
+**The transferable half.** This is [[a-record-goes-stale-faster-than-its-reader-can-tell]] applied to
+SOURCE rather than to data, plus a sharper one: when your evidence is an **absence**, name both
+readings before you pick — "nobody does this because it is wrong" and "nobody does this because it
+does not exist yet" — and go and look at what would distinguish them. I named neither, so I never
+noticed I had chosen.
