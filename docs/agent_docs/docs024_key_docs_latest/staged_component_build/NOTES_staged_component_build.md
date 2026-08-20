@@ -5954,3 +5954,25 @@ window cannot contain a test. Left as owed in handoff §2.2 with the query and t
 (`reason` 0 **while `related_pages` keeps firing**, no `component_id` class); the honest state today
 is *applied and council-approved, effect not yet observable*. Writing "the class went quiet" here
 would have been true, meaningless, and indistinguishable in six months from evidence.
+
+> **CORRECTED 2026-08-20 ~17:5xZ, on the 306 session's cross-session message (their handoff
+> §2.0 + migration 512) — my adopter list above is STALE in three places.** (1) tg/`reason` is
+> CLOSED — their migration 512 (corr `2bd7fb37`, APPROVED r1, applied 17:38Z) sets
+> `input_fields: ["site_id","domain"]` on enqueue_rerender, so `reason` is never handed to the
+> search at all; absence achieved without `?` because there is no path we WANT there. My
+> "reason? wire" adopter is withdrawn. (2) tg/`function` + tg/`description` (and site-review/
+> `audit_source`) are PRE-PRUNE NOISE, not live pairs: every row pre-dates the step-1 roll
+> (18:02:24Z 08-18 — my own 15:25Z census agrees: 16:33Z / 16:33Z / 08-17), and pre-prune an
+> already-Strategy-0-resolved field was still searched with the answer then DISCARDED at merge
+> (the prune comment's own ~28% class). A wired field whose path always resolves needs no
+> marker — the `?` adopters shrink to the fields that genuinely MISS: `related_pages` (330,
+> absence desired) and 334's `commit_sha?` (blocked on 315). cc/`description`+`site_type`
+> (last 17:58Z 08-18, also pre-prune, both wired) are very likely the same noise class
+> [INFERRED — timestamps consistent, resolution rate unmeasured at 5 runs/24h]. (3)
+> pbh/`page_type` is LIVE (3 rows today) and its remedy is a PLAIN wire
+> (`"page_type": "load_page_record.page_type"` on plan_sections — the winner is the right
+> value, so `?`-absence would be worse on a miss); named by the 306 session, deliberately not
+> built. Also theirs to note: the same zero-`?`-keys census I cited as the RFC_022 exemption
+> they first read as proof of a typo — an absence census separates a typo from a convention
+> but not from a gap; their landmine now carries a shelf life (inert until the roll carrying
+> `ecc419bd1`).
