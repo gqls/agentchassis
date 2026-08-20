@@ -222,3 +222,36 @@ assertion is otherwise a coin flip against every other mechanism that touches sh
 `pages.url`, nothing deployed in between) returned **200 / 22,600 bytes / 0 `<input>`**. Had the
 404 been kept as the "before", the re-render would have been credited with publishing a page it
 never touched. Read the before twice; record the reproducible one.
+
+## The RE-RENDER leg is not free — two ways it fails that have nothing to do with 311 (2026-08-20)
+
+**1. The `253` section-component floor can refuse the whole save because of an UNRELATED slot.**
+First of the five 09:06Z re-renders came back:
+```
+step save_sections failed: save_page_sections: SECTION COMPONENT FLOOR REFUSED for page
+"tool-interest-rate-stress-test" — hero-tool 12→5 class attributes (42% kept, floor 50%).
+A same-named slot may not lose more than 50% of the elements carrying layout classes in one
+save, even when its TEXT survives; if this flattening is intended, set section_component_floor
+in the step config. Nothing was written (bugs_open/253, framework_rewrite_of_a_prose_block).
+```
+Read it carefully: the refusal is about **`hero-tool`**, not about the calculator you are trying to
+land. A `page_rerender` regenerates *every* section, so any slot the content writer happens to
+flatten this time takes the whole page's save down with it — **and nothing is written, so the page
+is exactly as it was.** No damage, no partial state; you simply do not get your component.
+Do NOT reach for `section_component_floor` in the step config to get past it: that is a shared
+step's config on a fleet seam, and the guard exists because a framework rewrite once stripped every
+layout component from a prose block (`bugs_closed/253_…framework_rewrite_of_a_prose_block…`).
+
+**2. A refused page build parks the item TERMINALLY at attempt 1 of 3 — it will not retry itself.**
+Read, not assumed: `page-build-handler`'s `mark_item_failed` step is
+`{"action":"update_work_item_status","config":{"status":"failed",…}}`, so a real step error writes
+`status='failed'` outright. `ClaimWorkItemAction` only takes `status IN ('triaged','approved')`
+(`claim_work_item_action.go:97-105`), so the item's remaining `max_attempts` are unreachable —
+`attempt_count=1, max_attempts=3, status=failed` is a **stopped** item, not a queued one. (Contrast
+`FailWorkItemAction`, `load_work_item_actions.go:1147-1158`, which WOULD have returned it to
+`triaged`; this handler does not route through that arm.) The step's own description says
+"attempt counted", which reads as though a retry follows. It does not.
+**So: to try again you file a FRESH `needs_page` item** — the `failed` status is excluded from
+`idx_swi_dedup`, so the same `page_rerender:<page>` key is available immediately. Whether a retry
+is worth it depends on why it failed: a floor refusal is content-writer variance and may well pass
+on a second run, while a deterministic refusal will not.
