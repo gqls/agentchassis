@@ -157,7 +157,11 @@ committed** — exactly the case CLAUDE.md makes for the versioned-memory hook. 
 
 ## What is genuinely NEW from my session
 
-- **⚠ YOUR LINE "`0132a3683` … is NOT aboard" IS NOW STALE — the roll happened.** Pods are on
+- ~~**⚠ YOUR LINE "`0132a3683` … is NOT aboard" IS NOW STALE**~~ — **CORRECTED 2026-08-20: it is
+  not stale, it is deliberately SUPERSEDED IN PLACE.** Its author added a banner directly above it
+  (line ~96) recording the roll, and kept the original sentence beneath as the record of what was
+  true at 17:00Z. **Leave the pair intact; do not delete the original line** — without it the next
+  reader loses why the file ever said that. What follows was my addition to the same fact:** Pods are on
   **`v1.0.1316`** (17:13Z), build point **`07eeba4a1`** present on both replicas with the previous
   build point absent as a control; `0132a3683` **is an ancestor**. So the schema half is live.
 - **And it is behaviourally PROVEN, by the check you specified.** A fresh bundle's Schema section
@@ -258,8 +262,9 @@ unfiltered dump + `row_cap=200` + alphabetical `ORDER BY`.
 ## Live on `v1.0.1316` — verified at the artefact
 
 Build point **`07eeba4a1`** present on both replicas; previous build point `590ca3a20` **absent** as a
-control. `bf7646a29`, `2a3d30ec3`, `0132a3683`, `3ba384c63` are all ancestors. **This retires the
-"`0132a3683` is NOT aboard" line earlier in this file.** Behavioural proof of the bundle fix: a fresh
+control. `bf7646a29`, `2a3d30ec3`, `0132a3683`, `3ba384c63` are all ancestors. **This is the same fact as the SUPERSEDED banner at
+line ~96 — that banner and the original "not aboard" sentence beneath it are a deliberate PAIR.
+Do not delete either half.** Behavioural proof of the bundle fix: a fresh
 bundle renders `awaited_requests(request_id varchar, …)`; **four pre-fix bundles render nothing**;
 control `orchestration_states(` present in **all five**.
 
@@ -291,6 +296,16 @@ is DB-resident.
    `schema_include_patterns`, not the Go default — a running bundle says *"33 of 479 shown"*.
 5. **Do not close 029.** Bar is fixed AND live; nothing about the wedge is fixed. Quiet since 08-17 is
    the baseline (six of eight surrounding days are also zero), not evidence.
+
+## ⚠ A mis-attribution in a commit message, correctable only by note
+
+`400269574`'s message credits **me** with two `WRONG_CALLS.md` rows that are **not mine** — the
+*"I called 20 rows an open queue"* row and the *"cannot be faked"* row. Both self-identify inside
+the file as the **`bugfix_313_internal_linker`** lane's (`bugs_open/313`, `/298`). They were sitting
+uncommitted in the shared tree and rode along in a pathspec commit, which is unavoidable and was
+declared in good faith — the credit is simply wrong. **The rows themselves are correctly attributed;
+only the commit message is not**, and forward-only forbids an amend. If you are counting this file's
+tally by lane, read the rows, not `git log`.
 
 ## ⚠ NOTES numbering is collided across three sessions
 
