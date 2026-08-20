@@ -1,6 +1,8 @@
 # 336 — `deploy_result_field` is declared on `render_component`'s spec, not `update_page_status`'s, so arming it (migration 494) makes EVERY workflow that stamps a page fail validation
 
-**FIXED AND LIVE ON `v1.0.1319` as at 2026-08-20 14:30Z, AND 494 IS RE-ARMED. Council
+**CLOSED 2026-08-20 14:40Z — fixed, live on `v1.0.1319`, 494 re-armed, AND DEMAND-PROVEN: a real page
+was stamped through the armed path at 14:38:21Z with zero validation failures. Evidence in the
+"proven" section at the foot. Council
 `bc2f4b0e-45db-49c8-9f45-6af74a344cce` SUBMITTED (the fix commit carries no trailer: I committed
 immediately because this file's own hazard section explains why holding it was unsafe, and
 forward-only forbids an amend — so the correlation is recorded HERE instead).**
@@ -265,3 +267,31 @@ belongs with whoever owns the spec/validation seam, and my lane has just demonst
 be the one grading its own homework here. Flagging only that it wants to run over
 `RegisterActionInputSpec`'s registry rather than per-file, since the whole failure mode is two
 sibling specs in one file each looking correct alone.
+
+
+## PROVEN, and this is what closes it (2026-08-20 14:38Z)
+
+The defect was never "a key is in the wrong list" — it was "arming this key takes the fleet's publish
+path down". So the close-out condition is a page stamped through the ARMED path, not a green build.
+
+`[MEASURED 14:39Z]` **`news-index` on dartsonline.com** — organic traffic, nobody fired it:
+`pages.content_hash` = `438c058a2582e382…` at **length 64** (a full sha256), `build_status='deployed'`,
+`deployed_at` **14:38:21**, written by the rerender *"Re-render news-index — fresh news items
+available"* (claimed 14:37:55, complete 14:38:23) whose `deploy_result` carried
+`{"success": true, "metadata": {"files": ["news/index.html", …]}}`. Alongside it: **0** rows in
+`agent_error_log` of any code since the arming, and **0** items carrying `unrecognised config keys`.
+
+**The full ordering, which is the reusable part** — the same sequence that failed this morning, with the
+one missing link supplied: declaration on the spec that READS the key (`daaa7541b`) → in the build
+(`v1.0.1319`, revision `447f3a8a8`, ancestry proven with a control) → config armed (14:27:34Z) → real
+demand (14:37:55Z) → fingerprint (14:38:21Z). Eight minutes before that stamp the same three counters
+were all zero and meant NOTHING, because the rerender queue was empty; the difference between the two
+readings is one completed item, not one more look.
+
+**Two things stay open and are NOT this bug** (kept here because this is where a reader will look):
+the fleet-wide read-vs-declared check that would catch this class rather than this instance, and the
+inconclusive sibling-key question — both described under "loose ends" above. Neither is reproducible
+damage, which is why this file moves.
+
+**Ongoing thread:** `docs/agent_docs/docs024_key_docs_latest/bugfix_336_config_key_on_the_wrong_spec/HANDOFF_2026-08-20_continue_here.md`
+(and the fingerprint work itself belongs to `bugs_open/315`, whose NOTES carry the same evidence).
