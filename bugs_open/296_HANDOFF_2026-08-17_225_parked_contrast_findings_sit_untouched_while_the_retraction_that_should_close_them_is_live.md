@@ -496,3 +496,65 @@ site, and repairing the component would be the wrong fix — or, worse, would be
 graded as ineffective because the component was never the problem.
 **Before repairing a shared component named in a parked finding, re-measure it on
 a second site carrying the same component.** Cheap, and it changes the remedy.
+
+### 10.4 CORRECTION to §10.3, same day — and it strengthens the bug rather than weakening it
+
+**§10.3 is WITHDRAWN as written.** It claimed that identical components failing on
+robot-hands and passing on dartsonline proved a parked finding might be a
+*palette* defect rather than a component one. The dartsonline measurement was
+taken while that site was **serving a near-empty stylesheet** — the `198` clobber
+class, `css_themes` at 164 bytes — so most of the CSS I believed I was testing was
+never applied. The `dartsonline_traffic` lane restored it and said so.
+
+Re-measured after the restore, same URL, same content:
+
+| | before restore | after restore |
+|---|---|---|
+| total failures | 2 | **8** |
+| `.evidence-chart__eyebrow` | absent | **1.11:1** |
+| series citation links | absent | **3.71:1** ×5 |
+| `.ev-ts__eyebrow` | absent | **4.24:1** |
+
+So the component defect is real on **both** sites (1.14:1 and 1.11:1), and the
+palette-vs-component caution in §10.3 was built on a false pass.
+
+**Why this matters to THIS bug specifically, and it is the reason the correction
+belongs here rather than only in my own notes:** *unapplied CSS cannot fail a
+contrast check.* A site whose stylesheet has been clobbered will produce **fewer**
+`contrast_failure` findings, not more — so `198`'s clobber class does not merely
+break sites, **it suppresses this bug's own evidence about them**. §10.2 already
+noted the park undercounts because a timed-out audit files nothing; this is a
+second, independent undercount in the same direction, and it hits precisely the
+sites `198` names as unowned-for-restore. **Any parked-findings census taken while
+cookly, oufe or vonc were serving a near-empty stylesheet is a floor, not a
+count.** Cheap check before trusting a per-site total:
+`curl -sL https://<domain>/assets/css/styles.css | wc -c`.
+
+### 10.5 The severity distinction has a CAUSE distinction under it (from the `dartsonline_traffic` lane)
+
+Offered by that lane and recorded here because it bears directly on why some
+parked rows look untouched after going through the agent:
+
+- **~4.4:1 near-miss** → a palette-tuning problem. `css-patch-agent`'s appended
+  rule can plausibly win.
+- **~1.0x:1 collapse** → almost always **one token used in two roles**. On these
+  dark themes `--color-primary` (#1A1F2E) sits in the same tonal band as
+  `--color-background` and `--color-surface`, so every component using "primary"
+  as an ink or a button fill collapses into its own background.
+
+And the operational consequence, which is their finding not mine: for that second
+class the declaration the agent must beat **lives in page-level component CSS
+emitted after the stylesheet it edits**, so its appended rule **loses on source
+order however correct it is**. They have added to `198` the candidate that the
+agent should *refuse and re-file* when the offending declaration is not in
+`css_themes`, rather than append a rule that cannot win. If that is right, it
+explains a subset of the durable 185 directly: they were processed, the fix was
+correct, and it never applied.
+
+Cross-checks from my side, consistent with theirs: the 1.00:1 white-on-white
+`.cta-btn cta-btn-primary` in §10.1 is the fill-and-ink collapse in its purest
+form, and on dartsonline the same root cause produced six *invisible* failures
+(1.06–1.11:1) on `contact-info` headings and weight-comparator legends once the
+stylesheet was restored — which is also why they fixed it in that site's
+stylesheet rather than in `contact-info`, a component serving 12 pages across 11
+sites where the same ink is a legible brand heading on a light theme.
