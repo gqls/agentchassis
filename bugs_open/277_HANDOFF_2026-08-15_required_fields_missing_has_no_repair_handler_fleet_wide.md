@@ -336,8 +336,25 @@ should name it as the owned-page handler rather than demoting; say so in 333 if 
 
 ## 2026-08-20 — "an owned page has NO route at all" is TOO STRONG. There is a candidate, it is 92% on owned pages, and the landmine that should have killed it does not apply
 
+> # ⚠⚠ CORRECTED SAME DAY, ~09:30Z — READ §5 BELOW BEFORE ACTING ON THIS SECTION
+>
+> **The 36/1 measurement is right. The TARGET named in §2 is wrong, and it is wrong for the
+> population this file is about.** All 7 findings are `source: rendered_html`, and the
+> `ported-page` component's `content_data` holds **no prose** — so `section_edit` +
+> `strip_literal_markdown`, which strips `content_data`, **cannot reach them**. §2's table asks
+> whether the tool forks were safe; it never asks the prior question, **which is whether the
+> component I was pointing at can be re-rendered at all.** It cannot: its template's only field
+> is `{{.body}}` and `body` is not a key.
+>
+> **What survives:** `section_edit → section-editor` really is 36/1 on owned pages and really is
+> the right route where `content_data` can fill the template. **What is retracted:** that it is
+> the route for *these* rows, and that clause 1's blocker had narrowed to "one code question".
+> **What caught it:** reading the items' actual `findings` array — which I had not done — while
+> checking whether a producer could file a `section_edit`. Full evidence, and the render measured
+> against production's own engine, in §5.
+
 **This narrows clause 1's blocker from "nothing exists" to "one thing exists and one question
-remains", which is a materially different bug.** The 08-19 evening finding (recorded in the lane
+remains", which is a materially different bug.** ~~(Retracted — see the box above and §5.)~~ The 08-19 evening finding (recorded in the lane
 NOTES and in `LANDMINES.md`) concluded that *an owned page carrying a real, mechanically-repairable
 defect has no repair route at all — the generic repair refuses it and nothing else claims it.*
 The first half is confirmed below at n=7. **The second half is wrong.**
@@ -436,3 +453,92 @@ exists".
 *Escalation-task config updated to match, so the next human to read it is not told the refuted
 version: migrations `497` (the owners map pointed at three dead destinations) and `498`
 (de-volatilising `497`'s own figures, which went stale in twelve hours).*
+
+## 5. 2026-08-20 ~09:30Z — CORRECTION to §§1–4 above: the content is in `rendered_html`, so NO content_data route reaches it, and clause 1's blocker has NOT narrowed
+
+**§4 said the remaining unknown was "whether a producer can file a `section_edit` item". Answering
+that question is what refuted §2.** The producer side turned out to be easy — and then reading the
+items' own `findings` array, which I had never done, made the whole route moot.
+
+### 5.1 What the findings actually say [MEASURED 2026-08-20 ~09:30Z]
+
+| page | `source` | `pattern` | `slot` | `field` | `matched` |
+|---|---|---|---|---|---|
+| learn-design-physics-of-ui | **`rendered_html`** | `code_span` | `ported-page` | *(empty)* | `` `ease` `` |
+| tool-cubic-bezier | **`rendered_html`** | `code_span` | `ported-page` | *(empty)* | `` `ease-in-out` `` |
+| tool-grid-generator | **`rendered_html`** | `code_span` | `ported-page` | *(empty)* | `` `33%` `` |
+| tool-head-architect / json-cleaner / text-extractor | **`rendered_html`** | `code_span` | `ported-page` | *(empty)* | `` `fetch()` `` |
+| tool-noise-generator | **`rendered_html`** | `code_span` | `ported-page` | *(empty)* | `` `feTurbulence` `` |
+
+**All 7 are `rendered_html`, not `content_data`.** The detector scans both surfaces —
+`literalMarkdownFinding.Source` is documented `content_data | rendered_html`, and `Field` is
+*"empty for rendered_html"* (`check_literal_markdown.go:135-140`). These are backticked code tokens
+in ported technical prose, i.e. the mildest form: markdown that should have become `<code>`.
+
+### 5.2 Why that kills BOTH routes this lane has proposed
+
+The `ported-page` component's `content_data` is **215 bytes of metadata** —
+`{schema, sha256, source, qa_tier, generator}` — and the template's **only** field is `{{.body}}`,
+which is **not a key**. So:
+
+- **`473`'s rerender** regenerates from `content_data` → nothing to regenerate from;
+- **`section_edit` + `strip_literal_markdown`** calls `StripLiteralMarkdownFromContentData` on that
+  same map → **no prose to strip**.
+
+**Both are inapplicable BY CONSTRUCTION, not by policy.** This is the lane's own memory rule — *a
+repro regenerated from source is destroyed by the render; it cannot reproduce a defect living in
+`rendered_html`* — arriving as a **repair** problem rather than a reproduction one.
+
+### 5.3 Proven, not reasoned — and the control could have come out the other way
+
+Rendered the real template against the real `content_data`, with production's own engine and option
+(`text/template`, `Option("missingkey=zero")`, `component_library.go:861`):
+
+| payload | rendered | body region | visible non-whitespace chars | err |
+|---|---|---|---|---|
+| **owned** (`ported-page`, no `body`) | 4,665 B | 188 B | **0** | `<nil>` |
+| **generic** control (has `body`) | 11,035 B | 6,568 B | full prose | `<nil>` |
+
+Same component, same template, two real payloads, opposite results. The body region of the owned
+render is `<section><div><article>` and nothing inside. **Note `err=<nil>` both times** — the empty
+render *succeeds*.
+
+### 5.4 What is NOT true, stated because I nearly wrote it
+
+**This is not "100 pages are one edit from being blanked."** `apply_section_edit` calls
+`enforceSingleSlotFloors` (`section_editor_actions.go:451` → `single_slot_floors.go:161`), whose axis
+is **visible** text with style/script content excluded, engaging above `minShrinkGuardVisibleChars`
+(200) on the existing side. Thousands existing against **zero** incoming → refused, *"nothing was
+written and the existing component still stands."* The outcome would be a **third refusal mode**,
+not damage.
+
+### 5.5 The fleet census, which explains the whole pattern
+
+`Ported Page (webdesign.co.uk)`: **115 instances; 100 lack the `body` key.** The split is **total**:
+
+| site | policy | instances | missing `body` |
+|---|---|---|---|
+| webdesign.co.uk | **owned** | 97 | **97** |
+| loancash.co.uk | generic | 15 | **0** |
+| loancash.co.uk | **owned** | 3 | **3** |
+
+**Every missing-`body` instance is `owned`; every instance that has it is `generic`.** That is why
+generic `literal_markdown` repairs complete (16 did, in one hour this morning) and owned ones never
+can. The operative property was never ownership — it is that the owned ported pages carry **no
+regenerable content**. Ownership and un-regenerability happen to coincide here, and mistaking the
+first for the cause is what produced three wrong routes in two days.
+
+### 5.6 Where clause 1 actually stands
+
+**Retract "the blocker has narrowed to one code question."** For this population it has not moved:
+a `rendered_html`-only defect on a component with no regenerable source has **no route**, and the
+08-19 evening claim was right about *these rows* even though it was too strong as a general law.
+
+What a repair would need is an **HTML-level transform on `rendered_html`** (`` `x` `` → `<code>x</code>`),
+which nothing currently does — a different shape from every route considered so far. Whether that is
+worth building for 7 findings of the mildest pattern is a judgement for the owner, not an obvious
+yes: these are backticks in developer-tool prose, not broken pages.
+
+*Live config corrected again so no human is handed the wrong target at an escalation: migration
+`499` replaces `498`'s named target with the TEST — read the finding's `source`, then ask whether
+`content_data` can reproduce `rendered_html`.*

@@ -83,6 +83,32 @@ tick; the held set is not stable between a query and a tick.
 
 ## 4. THE FINDING — "an owned page has NO route at all" is REFUTED, and the route was in this task's own prose
 
+> # ⚠⚠ CORRECTED ~10:15Z, SAME DAY — THE ROUTE BELOW DOES NOT APPLY TO THIS POPULATION
+>
+> **The 36/1 measurement stands. The target does not.** Answering §7's own item 1 ("can a producer
+> file a `section_edit`?") refuted this section within two hours of writing it.
+>
+> **All 7 findings are `source: rendered_html`** (`pattern: code_span`, `slot: ported-page` —
+> backticked code tokens like `` `fetch()` `` in ported prose). The `ported-page` component's
+> `content_data` is 215 bytes of provenance metadata; its template's only field is `{{.body}}`,
+> which is **not a key**. So `section_edit` + `strip_literal_markdown` strips a map with no prose,
+> and `473`'s rerender regenerates from nothing — **both inapplicable BY CONSTRUCTION.**
+> Measured against production's own engine: the owned payload renders **0 visible characters**,
+> `err=<nil>`; a generic control on the same template renders 6,568 bytes of prose.
+>
+> **Fleet census, and it reframes three days of this lane:** the component has 115 instances, 100
+> missing `body` — **all 100 are `owned`, all 15 that have it are `generic`.** Ownership and
+> un-regenerability *coincide*, so the ownership guard takes the blame while the operative property
+> is whether the content is reachable from `content_data` at all.
+>
+> **NOT "100 pages one edit from blanked"** — `enforceSingleSlotFloors` measures VISIBLE text and
+> refuses at zero, leaving the component standing. A third refusal mode, not damage.
+>
+> **Clause 1's blocker is RETRACTED to where it was**: no route, and repairing these needs an
+> HTML-level transform on `rendered_html` that nothing does. Full evidence: `bugs_open/277` §5,
+> NOTES `~10:15Z`, `LANDMINES.md` *"A component whose `content_data` CANNOT REPRODUCE…"*, and
+> migration `499`, which replaces the target below with a TEST.
+
 **This is the day's result and it changes `277`'s blocker rather than closing it.**
 
 `466`'s `what_to_do` — the prose our own escalation hands a human — already names the route, quoting
@@ -155,8 +181,16 @@ owned-page class.
 
 ## 7. WHAT I WOULD DO NEXT
 
-1. **§4's code question.** It is the only thing standing between clause 1 and a worked example, and
-   it is a read, not a design.
+1. ~~**§4's code question.**~~ **DONE — and it refuted §4.** See §4's correction box and
+   `bugs_open/277` §5. **The live successor question is for the OWNER, not a session:** repairing
+   these 7 needs an **HTML-level transform on `rendered_html`** (`` `x` `` → `<code>x</code>`) that
+   no route performs. They are 7 findings of the mildest pattern — backticks in developer-tool
+   prose, not broken pages — so "build a new repair shape" is not an obvious yes. **Put the choice
+   to the owner rather than starting it.**
+   ⚠ **And do not re-derive the route from the 36/1 figure.** It is real, it is kept in the config
+   string on purpose, and it is aimed at a different property. The gate is
+   *"can `content_data` reproduce `rendered_html` for the target component?"* — two lines of SQL,
+   in the `LANDMINES.md` entry.
 2. **Watch today's 12:58Z tick land** and confirm the 4 rows carry the corrected owner
    (`result->'held_pair_escalation'->>'owner'`). First real test of `497` in production.
 3. **The `diagnosis_guardian` message** (§6) — cheap, and it degrades every future submission.

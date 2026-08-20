@@ -2409,3 +2409,101 @@ cannot ADD) fits too: literal asterisks in existing prose are a rewrite.
   once, and the consequence for a reader — *a healthy ratio on a MIXED-POLICY pair is not evidence
   its owned-page rows are being repaired, it is evidence their failures stopped counting.* Filed as
   a CONTRIB into 333, not as a bug.
+
+---
+
+## 2026-08-20 ~10:15Z — I answered §4's "one code question" and it REFUTED the entry above. The content is in `rendered_html`; no `content_data` route reaches it
+
+**The entry above is wrong in its central recommendation and I have corrected it in place in
+`bugs_open/277` (§5) and in live config (`499`).** Recording the sequence here because the way it
+came apart is more useful than the conclusion.
+
+### 1. The question that did it
+
+§4 above listed the remaining unknown as *"can a producer file a `section_edit` item for a
+`literal_markdown`-shaped finding?"* Chasing that answered itself quickly and encouragingly:
+
+- **`ApplySectionEditInputSpec.ConfigKeys` contains `strip_literal_markdown`** — the route has a
+  purpose-built setting for exactly this defect;
+- **it is LIVE and `true`** on `section-editor.apply_edit` (migration `474`), read from the live
+  `agent_definitions` row, not the seed;
+- **an empty `field_updates` is a legal payload.** `applyContentEdit` takes the merge branch on any
+  non-nil value, iterates zero times, and **then** strips — so `{"edit_type":"content_edit",
+  "page_name":X,"slot_name":Y,"field_updates":{}}` is a pure mechanical repair with no LLM. The 229
+  existing `section_edit` items have exactly that shape, and 12 runs in production show
+  `content_edit_mode: field_updates, updated_field_count: 0`.
+
+**Everything pointed the right way.** Then I read the items' own `findings` array, which I had never
+done in three days of measuring them.
+
+### 2. What the findings say, and why it ends the route
+
+**All 7: `source: rendered_html`, `pattern: code_span`, `slot: ported-page`, `field:` empty.**
+The matches are backticked code tokens in ported technical prose — `` `fetch()` ``,
+`` `feTurbulence` ``, `` `ease-in-out` ``, `` `33%` ``. The detector scans **both** surfaces
+(`literalMarkdownFinding.Source` is `content_data | rendered_html`); these fired on the second.
+
+And the `ported-page` component's `content_data` is **215 bytes of provenance metadata** —
+`{schema, sha256, source, qa_tier, generator}` — while its template's only field is `{{.body}}`,
+which is **not a key**. So `StripLiteralMarkdownFromContentData` would strip a map holding no prose,
+and `473`'s rerender would regenerate from nothing. **Both routes this lane has proposed are
+inapplicable BY CONSTRUCTION.**
+
+### 3. Measured with a control that could have come out the other way
+
+Rendered the real template against the real `content_data`, production's own engine and option
+(`text/template`, `Option("missingkey=zero")`, `component_library.go:861`):
+
+| payload | rendered | body region | visible non-ws chars | err |
+|---|---|---|---|---|
+| owned `ported-page` (no `body`) | 4,665 B | 188 B | **0** | `<nil>` |
+| generic control (has `body`) | 11,035 B | 6,568 B | full prose | `<nil>` |
+
+**Same component, same template, two real payloads, opposite results.** After two days of running
+checks that could only return one answer, this one is the shape I should have been building all
+along — and note `err=<nil>` on both: the empty render *succeeds*.
+
+### 4. The census that explains three days of confusion
+
+`Ported Page (webdesign.co.uk)`: **115 instances, 100 missing the `body` key.** The split is
+**total** — all 100 missing-`body` are `owned` (webdesign.co.uk 97, loancash.co.uk 3); all 15 that
+have it are `generic`.
+
+> **So "owned pages cannot be repaired" was the wrong diagnosis all along.** Ownership and
+> un-regenerability *coincide* on this component. The ownership guard therefore takes the blame,
+> and every fix anyone proposes — including both of mine — is about routing around it. **Route
+> around it successfully and you still repair nothing.** Ownership is the correlate; the operative
+> property is whether the content is reachable from `content_data`. Now a `LANDMINES.md` entry.
+
+### 5. What I did NOT claim, and nearly did
+
+**"100 pages are one edit from being blanked" is FALSE.** `apply_section_edit` calls
+`enforceSingleSlotFloors` → `evaluateSectionShrink` on the **VISIBLE**-text axis (style and script
+content excluded, `minShrinkGuardVisibleChars` = 200 on the existing side). Thousands existing
+against **zero** incoming → refused, *"nothing was written and the existing component still
+stands."* The realistic outcome is a **third refusal mode**, not damage. I wrote the alarming
+version first and checked it before it left the scratchpad; the guard is real and calibrated on
+exactly this failure (`bugs_closed/285`).
+
+### 6. Where clause 1 actually stands — RETRACTED to where it was
+
+The entry above said the blocker had narrowed to "one code question". **It has not moved.** A
+`rendered_html`-only defect on a component with no regenerable source has **no route**, and the
+08-19 evening claim was right about *these rows* even while too strong as a general law. Repairing
+them needs an **HTML-level transform on `rendered_html`** (`` `x` `` → `<code>x</code>`), which
+nothing does — a different shape from every route considered. Whether that is worth building for 7
+findings of the mildest pattern is the owner's call and not an obvious yes.
+
+**What survives and is worth keeping:** `section_edit → section-editor` really is 36/1 on owned
+pages, really is the right route where `content_data` can fill the template, and `473`'s own header
+already said the owned-page refusal was by construction. None of that was wasted; it was aimed at
+the wrong property.
+
+### 7. Live config corrected a THIRD time in one day — and the shape of the fix changed
+
+`497` fixed a dead pointer. `498` fixed stale figures. Both were fixed by writing a better **value**.
+`499` is different: the value was *right* and its **application** was wrong, so the fix is a
+**question the reader must answer about their own rows** — read the finding's `source`, then ask
+whether `content_data` can reproduce `rendered_html`. **A named target is only ever right for the
+population its author was looking at; a test travels.** That is the day's most durable output and it
+came from being wrong three times in the same string.
