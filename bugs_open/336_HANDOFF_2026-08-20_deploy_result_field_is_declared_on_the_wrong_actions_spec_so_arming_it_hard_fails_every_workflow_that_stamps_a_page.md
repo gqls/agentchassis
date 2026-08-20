@@ -1,9 +1,29 @@
 # 336 — `deploy_result_field` is declared on `render_component`'s spec, not `update_page_status`'s, so arming it (migration 494) makes EVERY workflow that stamps a page fail validation
 
-**FIX COMMITTED `daaa7541b` (2026-08-20 08:4xZ) — INERT UNTIL A ROLL, then re-arm 494. Council
+**FIXED AND LIVE ON `v1.0.1319` as at 2026-08-20 14:30Z, AND 494 IS RE-ARMED. Council
 `bc2f4b0e-45db-49c8-9f45-6af74a344cce` SUBMITTED (the fix commit carries no trailer: I committed
 immediately because this file's own hazard section explains why holding it was unsafe, and
 forward-only forbids an amend — so the correlation is recorded HERE instead).**
+
+**How "live" was established, because a tag is not evidence and the usual probes could not answer it
+here.** `v1.0.1319` (pods started 2026-08-20 10:18:15/10:18:41Z) carries image label
+`org.opencontainers.image.revision = 447f3a8a84428061059abdeeb4bb1d524941dbb7`, and
+`git merge-base --is-ancestor daaa7541b 447f3a8a8` is TRUE. Control: `759eea9d6`, committed after the
+build, is correctly NOT an ancestor. `git-adapter` and `core-manager` carry the same revision, so this
+release does not straddle commits per service (`bugs_open/249`).
+⚠ **Do not try to settle this one with a binary probe.** The fix moves a key between two lists and adds
+comments — it introduces NO new string literal — so `grep -a` on `/proc/1/exe` cannot distinguish fixed
+from unfixed, and the startup provenance line had rotated (~2 min retention, four hours earlier). The
+image LABEL is the cheap authority when the pod is still running a locally built image; probing 8
+candidate shas cost two minutes of exec time and returned nothing but "absent".
+
+**Re-armed, and NOT by me.** Running `494_..._HOLD.sql` at ~14:27:40Z refused with
+`494: already applied — all three steps already name a deploy_result_field`; the three definitions show
+`updated_at = 14:27:34Z`, i.e. another session armed it seconds earlier — the roll was announced and the
+315 lane was waiting for it. Post-arm state `[MEASURED 14:30Z]`: **zero** items carrying
+`unrecognised config keys` since the 07:22:40Z rollback (the 2 rows a naive `error LIKE` count returns
+are the stale-text rows from 07:25 that then COMPLETED), and **122** `page_rerender` items completed
+since the roll. So the seam that took the fleet down is exercised and quiet.
 
 **Verified at the commit, in a clean worktree at `daaa7541b`:** `go build ./platform/...` rc=0; the
 three new tests in `platform/orchestration/actions/update_page_status_config_contract_test.go` PASS,
