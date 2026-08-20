@@ -254,8 +254,17 @@ work item, not tool-generator: it is 8 of the 10 wires and 56 runs/24 h of deman
 >
 > **So candidate 2's real behaviour-change population on the high-demand agents is FOUR wires,
 > not ten, and it decomposes cleanly:** (a) pbh page_id+page_name — declare the fallback the
-> search performs today (one config edit on the reading step, e.g. a `?`-optional wire at
-> input_data.page_id, or re-point; the value is proven present in-run 6/6); (b) related_pages —
+> search performs today (one config edit on the reading step, e.g. an **unmarked** wire at
+> input_data.page_id, or re-point; the value is proven present in-run 6/6)
+> — ~~a `?`-optional wire~~ **CORRECTED 2026-08-20 ~18:0xZ, same lane: `?` is NOT a marker on the
+> step-config surface.** It is real on `input_mapping` only
+> (`platform/orchestration/input_contracts/input_mapping.go:110-139`); `ExtractActionInputs`
+> strips only `!` (`action_inputs.go:669`), so a `page_id?` config key never matches the spec
+> field, Strategy 0 never reads it, and the search still runs. The unmarked key already IS
+> optional-with-fallthrough on this surface, which is what was wanted. All 21 live `?`-suffixed
+> config keys fleet-wide sit in an `input_mapping`; zero in a step config. The same error was
+> ranked as fix candidate 1 in `bugs_open/334` and is corrected there too;
+> (b) related_pages —
 > absence is the DESIRED outcome (this bug's whole point); (c) reason — 1/12, trace that one
 > run before deciding. **"Needs per-field fallback chains" is WITHDRAWN as a general
 > requirement** — with (a) repaired, candidate 2 is close to a straight flip on this slice.

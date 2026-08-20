@@ -88,10 +88,31 @@ and the row-per-completion population blocks §10.13 step 5 for ever if left sta
 
 ## 4. Fix candidates, ordered by what closes the door
 
+> **CORRECTED 2026-08-20 ~18:0xZ by the staged_component_build lane — THE `?` SPELLING BELOW IS
+> NOT A MARKER ON THIS SURFACE, AND CANDIDATE 1 AS WRITTEN WOULD SHIP A DEAD KEY.** `?` and `!`
+> are both real on **`input_mapping`** (`platform/orchestration/input_contracts/input_mapping.go:110-139`
+> — unmarked hard-fails, `?` skips, `!` hard-fails naming the marker). A step's action **`config`**
+> is a different surface: `ExtractActionInputs` strips only `!` (`action_inputs.go:669`), so a key
+> named `commit_sha?` never matches the spec field `commit_sha`, **Strategy 0 never reads it**, the
+> whole-tree search still runs, the conflict rows continue — and `UnknownConfigKeys`
+> (`action_inputs.go:279-298`) reports it, which this very spec has opted into with
+> `CheckConfig: true`. The migration would apply, report success, and change nothing.
+> The semantics are also INVERTED between the surfaces: on `input_mapping` unmarked hard-fails so
+> `?` softens it; in a step config unmarked is **already** soft (Strategy 0 tries the path and
+> falls through if it misses), so `?` is unnecessary as well as inert. **Use the plain unmarked key
+> `"commit_sha": "<path>"`** — that is exactly the optional-with-fallthrough behaviour this
+> candidate wants. Estate evidence: all **21** live `?`-suffixed config keys sit in an
+> `input_mapping` (recursive walk of live `agent_definitions`, 2026-08-20 17:2xZ); zero are in a
+> step config, so this file would have been the first to break the convention. Caught while
+> dispositioning step 5's census — the check that would have caught it sooner is grepping for the
+> marker's own `TrimSuffix` in the code that reads the surface you are writing to.
+
 1. **Explicit mapping in bdl's `complete_work_item` step config** (config-only, live
-   immediately): `"commit_sha?": "handler_result.response.deploy_result.response.data.commit_sha"`.
+   immediately): `"commit_sha": "handler_result.response.deploy_result.response.data.commit_sha"`
+   (~~`"commit_sha?"`~~ — see the correction above).
    Strategy-0 resolution + the LIVE step-1 prune (v1.0.1310) means the whole-tree search never
-   runs for a Strategy-0-resolved field → rows stop. The `?` keeps it optional for the 7.7%
+   runs for a Strategy-0-resolved field → rows stop. The **unmarked** key keeps it optional for
+   the 7.7%
    deeper shape (those items would lose the sha unless a second alias row handles them — count
    that population before choosing). Check first what bdl's step config actually looks like
    (`jsonb` of the live definition, not the seed) and whether the deprecated `commit_sha_field`
@@ -147,8 +168,10 @@ Three consequences for §4:
 1. **Candidate 1 is precedented INSIDE THIS VERY STEP**: `result!` and `work_item_id!` are
    already strict-mapped (bugfix-287's `!` work, CTS-060). `commit_sha` is the only spec field
    of this step left floating on the whole-tree search. The fix is one key in one nested config:
-   `"commit_sha?": "handler_result.response.deploy_result.response.data.commit_sha"` (`?`, not
-   `!` — the 7.7% deeper shape and any non-deploy item type must stay optional, not hard-fail).
+   `"commit_sha": "handler_result.response.deploy_result.response.data.commit_sha"` (**unmarked**,
+   not `!` — the 7.7% deeper shape and any non-deploy item type must stay optional, not hard-fail;
+   ~~`"commit_sha?"`~~ corrected 2026-08-20, see the block at the head of §4 — `?` is an
+   `input_mapping` marker and is inert in a step config).
 2. **Candidate 2 gets stronger**: `result!` already maps the WHOLE `handler_result` into
    `result`, and the handler_result CONTAINS the sha at `response.deploy_result…data.commit_sha`
    — so the top-level `result.commit_sha` copy is a convenience duplicate of data the result
@@ -178,7 +201,8 @@ two iterations were substantive and both survive checking at the file:
    the winner's value, so **setting `commit_sha_field` in config cannot stop the search or the
    conflict row**. This ANSWERS §4.1's open question ("whether the deprecated commit_sha_field
    still parses"): it parses, and it is useless for this purpose. Candidate 1 must be the
-   Strategy-0 form (`"commit_sha?": "<path>"`), which runs FIRST and whose resolved fields the
+   Strategy-0 form (`"commit_sha": "<path>"`, unmarked — ~~`"commit_sha?"`~~ corrected
+   2026-08-20, §4's head block), which runs FIRST and whose resolved fields the
    LIVE step-1 prune withholds from the search (`action_inputs.go:698–755`). Strict fields
    additionally skip the bridge entirely.
 3. **Iterations 3–5 were spent on bundle meta-claims** — each revised hypothesis asserted what
