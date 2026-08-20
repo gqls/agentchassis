@@ -4,10 +4,16 @@
 the tick proof, the ownership retraction); read THIS for what changed after the owner answered its §7
 question. NOTES has one new entry (~17:30Z); the PLAN carries the design addendum with every "why".
 
-> **Written ~18:00Z.** Chassis was **`v1.0.1320`** before this session's commit; the commit
-> (`af0f00bb5`) is on the shared branch and ships with whatever fleet roll happens next. Migration
-> `513` is APPLIED (section-editor config md5 **`b6076c7d…`** — re-read, do not quote). Council corr
-> **`b72a4029-f925-48bc-81d6-1552b7d25099`** was EXECUTING at write time — **READ THE VERDICT** (§4).
+> **Written ~18:00Z; verdict box updated ~18:45Z.** Chassis was **`v1.0.1320`** before this session's
+> commit; the commit (`af0f00bb5`) is on the shared branch and ships with whatever fleet roll happens
+> next. Migration `513` is APPLIED (section-editor config md5 **`b6076c7d…`** — re-read, do not quote).
+>
+> **COUNCIL: APPROVED, round 2** (corr `b72a4029-…`, report 18:26:44Z, "3 advisory objections — none
+> high-severity"). Round 1 was REVISE on a real sketch defect (backtick-quoted regex hid its own
+> anchors); the r1/r2 responses are commits `25d00cfe9` and `6011f9657` (the latter carries
+> `Council-Reviewed:` — verdict read). NOTES ~18:20Z and ~18:35Z hold the round-by-round record,
+> including the advisories acted on (nil-persist pin test, mutation-proven; CQ-028 rescoped to
+> "first markup-INSERTION repair"). **Nothing council-related is owed any more.**
 
 ---
 
@@ -68,15 +74,12 @@ and verifier-armed.
 
 ## 4. STILL OWED
 
-- **READ the council verdict** for corr `b72a4029-…` and act on REVISE/REJECTED (code is already on
-  the shared branch; forward-only): `SELECT body FROM doc_notes WHERE categories ? 'council-gate'
-  ORDER BY created_at DESC LIMIT 1;` — was EXECUTING at ~17:55Z, so it has almost certainly landed
-  by the time anyone reads this.
+- ~~READ the council verdict~~ **DONE — APPROVED r2, acted on, see the banner box.**
 - Everything in the morning handoff's §6 (diagnosis_guardian message · 083 close ~08-25 ·
   `copy_edit_proposed` exclusion, owner-gated · 277's `no_content_data` half).
 - After the canary: update `bugs_open/277` §6 with the worked example, then weigh the close.
 
 ## 5. Session-start checklist
-`git log --oneline -10` · re-read this from disk · verdict query above FIRST (it may demand action) ·
+`git log --oneline -10` · re-read this from disk ·
 `distinct digests` on the chassis + `git merge-base --is-ancestor af0f00bb5 <stamp>` to know whether
 step 1 has happened · then §2 from wherever the sequence stands.
