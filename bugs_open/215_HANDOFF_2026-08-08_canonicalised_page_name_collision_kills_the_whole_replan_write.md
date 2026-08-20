@@ -1088,3 +1088,81 @@ the first-hand code walk above plus the 08-17 live incident, both cited.
    in a durable row.
 4. **O2: the seven both-deployed pairs** — untouched by this, 2 of 7 remediated, the rest
    owner-decision per pair.
+
+### 2026-08-20 — COUNCIL: APPROVED at round 1, and four of its advisory objections were worth answering with evidence rather than prose
+
+Verdict **approved**, corr `27cccfbd-3bf5-4744-a9f6-a5602e38cd30`, *"approved with 2
+advisory objection(s) — none high-severity"*, 7 seats abstained. `editquality` and
+`guardian` objected on record without blocking; `reuse_agent`, `architecture`,
+`constitution`, `tooling_provenance`, `debug_historian`, `diagnosis_guardian`, `mission`
+and `prior_art_librarian` approved. Approval is not the useful part — four objections were
+checkable, and one of them found something.
+
+**1. `guardian`: "enumerate all consumers — if another workflow shares this reconcile call
+the blast radius is wider than the 3-site claim." IT IS WIDER, and my submission was
+wrong.** [MEASURED 2026-08-20] Two active agent definitions run the action that calls
+`reconcilePlanWithRealised`, not one:
+
+```
+build-site-planner   validate_plan    max_pages 80, menu_field available_components
+site-planner         validate_plan    max_pages 20, ensure_pages [index, contact]
+```
+
+`site-planner` is a distinct live row with its own step config. My submission named only
+`build-site-planner`. **The correction does not move the safety argument** — flag-off
+inertness is a property of the fields stamped, not of the caller, so it holds for any
+consumer of the shared function — but "one consumer" was an assertion I had not checked,
+and the seat was right to refuse it. ⚠ **And do NOT try to settle whether `site-planner`
+is dormant from `orchestration_states`:** it returns zero rows for BOTH agent types,
+including the one that demonstrably ran on 08-17, because that table is retention-limited.
+That is this bug file's own landmine (the 08-09 correction about its own verification step)
+biting in a new place. Its liveness is unresolved and stated as such.
+
+**2. `editquality`: the claim "`identity_authority` has no reader outside
+`realisedIdentityOf`" is asserted, not demonstrated — "if a third, ungated call site
+exists, the whole plan's safety rests on it."** Fair, and now enumerated exhaustively
+rather than argued. Production Go, every occurrence of the key: **six** — two comments, one
+READ (`site_identity_policy.go:167`, inside `realisedIdentityOf`), two writes
+(`normaliseRealisedToPlanPage`, and the new stamp), one delete (the forgery strip).
+`realisedIdentityOf` has exactly **two** call sites, and each is immediately preceded by
+`if identityPolicy.HonourRealisedIdentity` — verified by reading the two lines above each,
+not by trusting the grep. Non-Go carriers (`*.sql`, `*.json`, `*.yaml`): **none** outside
+`docs/`, where the only three hits are two council submissions and one seed's *comment*.
+Negative control (`identity_authority`+`ZZZ`) returns 0, so the probe discriminates.
+**The claim holds.**
+
+**3. `editquality`: `PageCanonicalNameForRow` / `GetStringField` are called but never cited
+as existing — "the fix silently fails at build time rather than at review time."** The
+strongest form of this answer is that it already did not: `go build ./platform/...` is
+clean, the full `actions` and `datahelpers` suites pass, and they pass on a
+`git archive HEAD` shadow tree with only my files copied in. A submission cannot cite a
+compiler, which is a real limitation of the format and worth remembering when writing the
+next one — the sketch should have quoted the helpers' signatures from
+`datahelpers/page_identity.go`.
+
+**4. `architecture` (low): the preservation-set hole "is named as out-of-scope prose only,
+with no bug filed — it will be re-discovered by another incident the same way this one
+was."** Correct, and it is the diagnosis of how *this* defect survived nine days. **Filed
+as `bugs_open/340`** with the mechanism cited by symbol, four ranked candidates, and a
+measurement that could have come out otherwise: **40 unpreserved active pages across 13
+domains, of which 0 would actually be renamed by a re-derivation** — against 64 across 9
+domains for the whole active population, so the predicate discriminates. The gap is live in
+mechanism and empty in fact, which is exactly the state that needs a tracked item rather
+than a paragraph.
+
+**Also noted, not acted on.** `reuse_agent` (low): the new
+`buildSameNameIdentityFindings`/`recordSameNameIdentityOutcomes` pair sits beside
+`recordIdentitySnaps` without a stated reason for not widening the existing recorder. It is
+a fair reading; the reason is that `recordIdentitySnaps` maps ONE `identitySnap` to one row
+by layer name, while this record is a per-RUN summary over a different struct with a
+flag-dependent code — folding both into one function means a parameter that selects between
+two unrelated shapes. Both call the shared `LogActionFindings` primitive, which is the reuse
+that matters. Recorded here rather than changed, so the next person to touch either can
+disagree with a reason in front of them. `debug_historian` (medium): no pod-level deploy
+verification is specified — it is, in PLAN-048's new verify-later and the note to the LMC
+lane (artefact probe on both replicas, near-miss negative control, instrument positive),
+and `bugs_open/215` stays OPEN precisely because none of it has been run yet. `guardian`
+(low): the new durable rows are a write-volume increase on a shared path for all sites, not
+just opted-in ones — one summary row per re-plan per site, and re-plans are rare enough
+that this lane has spent two weeks waiting for one; if that changes the volume claim should
+be re-measured rather than re-argued.
