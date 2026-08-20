@@ -1,10 +1,25 @@
 # 029 — hung spawns saturate the `dispatch` concurrency group and silently halt ALL builds fleet-wide
 
+> ## ✅ CLOSED 2026-08-20 — for the RETRY-WINDOW defect only. The hang moved to `bugs_open/343`.
+>
+> **Owner ruling, 2026-08-20: SPLIT.** This file covered two defects in different states. The one it
+> is closed for — **Part A's inverted retry window** — is fixed, live and behaviourally proven (see
+> point 2). The one it is **not** closed for — what a parent does after abandoning an await — was
+> never explained and is now
+> **`bugs_open/343_HANDOFF_2026-08-20_parent_freezes_silently_after_an_abandoned_await.md`**,
+> carried out under its own number precisely so that a fixed Part A can never read as a fixed hang.
+>
+> **⚠ If you arrived here looking for the silent freeze, you are in the wrong file — go to 343.**
+> Everything below is retained as the record of how it was found, including the wrong turns.
+>
+> **This number is also ambiguous:** `bugs_closed/029_HANDOFF_2026-07-19_tool_suggester_writes_phantom_tool_links.md`
+> is an unrelated case sharing it. Resolve 029 by slug, never by number.
+>
 > ## ⚠ CURRENT STATE, 2026-08-20 — read this before the 2026-07-19 framing below
 >
-> **Still OPEN, but it is NOT the "fleet-wide outage class" the title and opening describe, and it
-> is not currently biting.** Two sessions worked it 08-18 → 08-20; the file below is chronological,
-> so the oldest and most alarming account is the first thing you read. What is true today:
+> **It is NOT the "fleet-wide outage class" the title and opening describe, and it was not biting
+> when it closed.** Two sessions worked it 08-18 → 08-20; the file below is chronological, so the
+> oldest and most alarming account is the first thing you read. What is true today:
 >
 > **1. The one visible burst was an EXTERNAL OUTAGE, not this platform.** All 30 failures were on
 > 2026-08-17, a day carrying **954** GitHub-`503` errors against **1–3 on every other retained day**.
@@ -32,9 +47,16 @@
 > — 6,484 rows, round-trip proven to rebuild 31/20/11/0 from the file alone.
 >
 > **Cold start:** `docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/HANDOFF_2026-08-19b_continue_here.md`,
-> 2026-08-20 block. **A split has been proposed to the owner and NOT actioned** — close 029 for the
-> retry-window inversion, re-file the wedge under its own number with the preserved rows. Until they
-> rule, this file stays open and whole.
+> 2026-08-20 block. **The split was APPROVED by the owner on 2026-08-20 and is ACTIONED** — this file
+> closed for the retry-window inversion, the hang re-filed as **`bugs_open/343`** with the preserved
+> rows. The lane directory keeps its `bugfix_029_...` name: that is history, not a claim about which
+> bug it now serves.
+>
+> **What closing this does NOT assert.** Not that the freeze was fixed — it was not, and 343 is open
+> on it. Not that the burst proved a platform defect — it was an external GitHub outage. Not that
+> three quiet days mean anything: six of the eight days around the burst were also zero *before*
+> anything changed. **What it asserts is exactly one thing: the inverted retry window is fixed and
+> live.**
 
 
 **Filed 2026-07-19** (relojistas thread). **Status: OPEN.** Fleet-wide outage class. Nothing
