@@ -139,7 +139,10 @@ exemption corpus. **It found a defect the unit tests could not** (the two-senten
 attributed to the clean sentence before it), so run it again after any change to the shapes.
 
 ⚠ Write it into a SCRATCH copy of the tree, never into the repo: any `.go` file under the module root
-joins the build, and a throwaway in `docs/` would break `go build ./...` for everyone.
+joins the build, and a throwaway in `docs/` would break `go build ./...` for everyone. **`cmd/gatecanary`
+is deliberately NOT a real command and must never become one** — it exists for the length of one
+verification and is thrown away with the scratch tree. The pattern checker flags the path as a proposed
+new capability surface; this paragraph is the answer to that flag.
 
 ```bash
 SP=<your scratch dir>
