@@ -5791,3 +5791,41 @@ One tidy-up worth recording because it is the file's own trap firing on me: that
 a **substring** of a longer line, so the tail ("group the population by candidate SET…") survived
 but ended up swallowed inside my blockquote. The pattern check flagged "1 line removed"; grepping
 for **both halves** rather than trusting the diff is what found it. Fixed in `146910c1e`.
+
+## 2026-08-20 (~15:30–16:00Z) — the `?` OPTIONAL-EXPLICIT marker is BUILT (`ecc419bd1`, corr `5f82423b`): step 5's mappings become writable
+
+**Census re-run 15:25Z** (RUNBOOK demand-control join): bdl/`commit_sha` 181→**442**, last
+15:23Z (live+growing; 315 lane has NOT answered the CONTRIB — checked their NOTES + git log);
+pbh/`page_type` 37→40, last **15:11Z today** (was "armed", now live; winner is
+`load_page_record.page_type` — the RIGHT value, rescued from 28 spec-array echoes);
+tg/`reason`+`related_pages` fired 09:50Z. Everything steps 1–4 killed stays quiet against
+demand (bdl 199, pcw 34, pbh 74 runs/24h).
+
+**Traces done this session:**
+- **tg/`reason` junk is INERT at its consumer** — `create_rerender_items_action.go:216–231`:
+  `stampReason` literal-matches (`section_data_resolved`|`image_landed`+component_id|
+  `cta_links_stale`); junk fails the match → item stays assemble-only, keyReason "". An
+  accidental guard; safe-by-inspection note writable, but the explicit `reason?` wire is the
+  declared version.
+- **tg `related_pages`/`description`/`function` and cc `description`/`site_type` are all
+  WIRED at `input_data.spec.*`** (save_tool / store_component) — 330's exact fall-through
+  shape, five pairs, one mechanism. `function` is spec-REQUIRED on create_tool_component;
+  `replace_existing!` in the same spec is the in-file precedent for marker opt-out.
+- **334 candidate 1 as written was UNPARSEABLE** — no `?` marker existed in
+  ExtractActionInputs; `"commit_sha?"` would have been a dead unknown key (the
+  config-key-that-nothing-reads class). The syntax exists in ResolveInputMapping (WDS-014)
+  and CTS-060 calls `!` "the mirror of `?` on both mapping surfaces" — the mirror's `?` half
+  was simply never built on this surface.
+
+**Built: the `?` marker** (`ecc419bd1`; council corr `5f82423b-097d-4a49-8afe-deff05f98580`,
+Council-Submitted, verdict OWED — read it). Semantics: explicit path or ABSENT; never
+search/nested/bridge; Defaults stand; Required-miss = ordinary validation error; `!` beats
+`?`. Mutation-proved twice (no-op `explicitOnly` → 4 named tests fail incl. bridge+nested;
+no-op the peel → 2 resolution tests fail — the two guards are in series, both proven).
+Recursive live census: **0 `?` keys on this surface** → RFC_022-exempt. Registered
+CTS-060(5) + RFC_029 §10.15 same commit. **Adopter migrations are _HOLD until the binary
+rolls** — a pre-roll `?` key LOSES its Strategy-0 wire (CTS-060's `!` landmine, same class).
+
+**Two client-side 097 schema refusals** before the publish (edits[].operation `create`→`add`;
+`risks` must be a STRING not an array) — no rounds spent; the traps-list already covers the
+plan-is-an-object one, these are two more spellings of it.
