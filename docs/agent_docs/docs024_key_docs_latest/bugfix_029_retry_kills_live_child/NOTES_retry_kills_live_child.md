@@ -2540,3 +2540,66 @@ it is a different subsystem from every candidate in `PLAN_2026-08-19`.
 > every rv≥1 window was capped at 300 s, so the number could not have come out otherwise. The peer
 > caught it *because* §21 had just named that exact trap in the paragraph above it. Naming a trap in
 > writing does not stop you walking into it four lines later; only someone else reading it does.
+
+### 24. 2026-08-20 — THE CHILDREN LEAD PAYS OUT: every abandoned call on 08-17 belongs to a correlation whose child hit GitHub 503s. 100% vs 21% against a same-day control
+
+Taken up after the peer settled reading **(b)** at source (a retry replays to the SAME child, so a
+timed-out request means the child never answered — NOTES §23). If the children never answered, the
+question leaves the parent. It does.
+
+**The outage is real and it is confined to one day.** `agent_error_log`, whole retained window:
+
+| day | rows matching `%github%` |
+|---|---|
+| **2026-08-17** | **954** |
+| 08-10 | 1 |
+| 08-09 | 2 |
+| 08-05 | 3 |
+| 07-27 | 3 |
+| 07-24 | 1 |
+
+**~300× the base rate, on exactly the day of the burst, and nothing before or since.** Hourly it runs
+13:00–18:00 (peak 495 at 14:00), and the wedge window (first rv3 claim 14:52, last 18:52) sits
+**inside** it. `page-rerender` — the wedges' child type — is the dominant contributor every hour
+(112/218, 312/495, 56/76, 70/131, 12/20, 6/14). The error is
+**`github API request failed with status: 503 Service Unavailable — "No server is currently available
+to service your request"`**, on `create blob` / `create commit` / `get latest commit-base tree`.
+
+#### The controlled join
+
+Correlations of `process_item_iter_N_call_handler` rows on 08-17, split by whether the call was
+abandoned (rv3/`error`) or not, joined to `agent_error_log` on `context->>'correlation_id'`:
+
+| group | correlations | with a GitHub error | rate |
+|---|---|---|---|
+| **abandoned** | 30 | **30** | **100.0%** |
+| healthy, same day | 337 | 71 | **21.1%** |
+
+**Same day, same agent type, same hours.** The control could have come out otherwise — had healthy
+correlations also run near 100%, this would prove nothing. At 21% it separates hard.
+
+#### What this does and does not establish
+
+- **Establishes:** the entry condition is not a coordinator phenomenon. The children went silent
+  because they were failing against GitHub, and a child that never answers blows its 1200s rv0 window
+  — which §22 showed is 229s longer than any response ever observed, so it cannot be slowness.
+- **Does NOT establish:** the wedge itself. What the parent does *after* an abandoned await — the
+  20-wedged vs 11-never-advanced split — is untouched by this and remains unexplained. A 100%/21%
+  association is not a mechanism either: 21% of healthy correlations saw 503s and answered anyway, so
+  a 503 is not sufficient on its own.
+- **Retires a line of enquiry:** the coordinator candidate set in `PLAN_2026-08-19` is aimed at the
+  parent. It may still explain the *wedge*, but it cannot explain the *burst*, and the burst is what
+  made 029 look active.
+
+> **⚠ I NEARLY PUBLISHED THE EXACT OPPOSITE, and the only thing that caught it was asking whether my
+> join could find anything at all.** My first attempt matched the 31 request_ids against
+> `error_message`, found all 31, and found **zero** GitHub rows — because the only rows carrying those
+> ids are the *parent's own* "timed out after 3 retries" entries. My second attempt joined the
+> children on `orchestration_id LIKE '<topic prefix>%'` and returned **0 of 31 with any log row at
+> all**, which I was one step from writing up as *"the children were silent; GitHub is exonerated"*.
+> **Both were blind:** the topic prefix is the **correlation** id, not the orchestration id, and
+> `agent_error_log` has no `correlation_id` column — it keys it inside `context` jsonb. A join on a
+> column that cannot match returns a clean, confident zero. **The fix was a positive control: run the
+> same join over rows that MUST match.** Third time it returned 30/31 with child logs.
+> This is the fourth blind check of this shape in two days, and the first where the wrong answer would
+> have *closed* a live lead rather than merely delayed one.
