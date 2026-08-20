@@ -53,6 +53,36 @@ it is the design step 5 needed:
 | **tool-generator / `function`** | `create_tool_component` | **Required** (`create_tool_component_action.go:44`) | Confirmed by elimination — `create_tool_component` is the only action in tool-generator's 10 steps that takes `function`. Wired by migration 211 (`config.function = input_data.spec.function`); the conflict fires only when that path is empty, and then the search rescues it. **Post-flip the action fails hard.** Arguably correct (better than building a tool under another tool's function name) but it WILL surface as failures — decide deliberately, do not discover it |
 | **site-review-agent / `audit_source`** | `write_audit_findings` | **Required** (`write_audit_findings_action.go:43`) | Agent has **0 runs in 24 h** and no trace in `orchestration_states` at all, so low risk today — but see the §6 caveat: that is not the same as retired |
 
+**MEASURED 2026-08-20 evening, on a DURABLE 15-day baseline (46 `add_tool` items, 08-05→08-20 — the
+work-item specs persist, unlike `orchestration_states`, which keeps only ~24 h and gave a
+misleading 16-run sample):**
+
+| wired field | present | missing | reading |
+|---|---|---|---|
+| `function` | **46/46** | 0 | the known producer NEVER omits it |
+| `description` | **46/46** | 0 | never omits it |
+| `related_pages` | 18/46 | **28/46 (61%)** | **330's population, now on a durable baseline** |
+
+⚠ **This does NOT clear `tg/function` — it deepens the question, so do not wave it through.** If
+`input_data.spec.function` is always populated, Strategy 0 resolves it and the whole-tree search
+should never run for that field — yet there are 11 conflict rows with winner
+`~unwrap.current_page.function`. And no OTHER action in tool-generator's 10 steps declares
+`function` (checked `create_rerender_items`, `read_site_spec`, `write_doc_plan`, `rag_index`,
+`ensure_site_record`, `execute_llm_prompt`, `complete_workflow`). So **the trigger is unidentified**
+— candidates: config drift at the time (the wire is newer than the rows), a rebuild path with a
+different `input_data.spec`, or a step whose config lacked the wire on 08-16→08-18. **Identify it
+before deciding; a Required field is exactly where a wrong assumption becomes a hard failure.**
+
+🔴 **THE BINDING CONSTRAINT ON FINISHING STEP 5 IS NOW THE INSTRUMENT ITSELF.** The
+`resolver_findings` bridge writes `agent_type` but leaves **`step_name`, `action` and
+`orchestration_id` empty** (`action` is the literal `"input-resolver"`), so a conflict row cannot be
+joined to the run or the step that caused it — which is exactly the join `tg/function` needs, and
+the join every remaining Tier A/C decision would need if it turns out to be non-obvious. This is
+the observability point the prune's council round recorded for "step 5's design"; it has now become
+load-bearing rather than nice-to-have. **Consider adding step/orchestration attribution to the
+bridge as step 5's FIRST commit** — it is small, it is inside our own footprint, and every
+remaining decision gets cheaper with it.
+
 ### Tier B — SILENT-LOSS BLOCKER: `Optional`, but something downstream depends on the value (1)
 
 **bdl / `commit_sha`** — `Optional` in `CompleteWorkItemInputSpec`, written to `result.commit_sha`
