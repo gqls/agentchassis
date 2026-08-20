@@ -18,6 +18,8 @@ package actions
 import (
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 func TestShouldRefuseDeadURLControls(t *testing.T) {
@@ -163,4 +165,41 @@ func TestMissingBareFields_ScopeAwarenessOnTheCaseStudiesGridShape(t *testing.T)
 			t.Error("the guard fired on a section the carry had already repaired — the two mechanisms must compose, not collide")
 		}
 	})
+}
+
+// TestDeadURLGuardConfigKeysAreDeclared pins that BOTH dead-URL flags are
+// declared on the spec of the action that reads them.
+//
+// Why this is a test and not a comment. Neither flag reaches its action through
+// the input extractor — the code calls recordDeadURLControls(config) /
+// shouldRefuseDeadURLControls(config, ...), so a grep over the function body
+// finds no literal config["..."] and the 2026-08-18 declaration census missed
+// both. The cost of the omission is not a broken render: it is
+// platform/validation/workflow.go reporting a LIVE, WORKING setting as a key
+// "this action does not read — silently ignored at execution", whose stated fix
+// is to delete it. A report that tells the next reader to disarm a working
+// guard is worse than no report.
+//
+// MUTATION THAT MUST BREAK IT: remove "record_dead_url_controls" from
+// RerenderPageSectionsInputSpec.ConfigKeys (or "refuse_dead_url_controls" from
+// RenderComponentInputSpec.ConfigKeys) — the arm for that action then reports
+// its own armed key as unknown.
+func TestDeadURLGuardConfigKeysAreDeclared(t *testing.T) {
+	for _, tc := range []struct {
+		action string
+		key    string
+	}{
+		{"rerender_page_sections", deadURLRecordConfigKey},
+		{"render_component", deadURLGuardConfigKey},
+	} {
+		t.Run(tc.action, func(t *testing.T) {
+			unknown, checked := datahelpers.UnknownConfigKeys(tc.action, map[string]interface{}{tc.key: true})
+			if !checked {
+				t.Fatalf("%s is not opted into unknown-config-key detection, so this test proves nothing — a green result here would be vacuous", tc.action)
+			}
+			if len(unknown) != 0 {
+				t.Errorf("%s arms %q, but the action reports it as unrecognised %v — the migration that sets it would read as a no-op in the config report", tc.action, tc.key, unknown)
+			}
+		})
+	}
 }

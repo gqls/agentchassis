@@ -98,7 +98,31 @@ var RerenderPageSectionsInputSpec = datahelpers.ActionInputSpec{
 	// render context and the persisted mergedContent — which is what makes a
 	// plain rerender the mechanical repair for literal_markdown items. Default
 	// OFF; enabled on page-rerender's rerender_sections step by migration 473.
-	ConfigKeys: []string{"strip_literal_markdown"},
+	//
+	// record_dead_url_controls is bugs_open/238's RECORD-ONLY half (PBP-040),
+	// DECLARED here 2026-08-20 rather than added: this action has read it since
+	// the guard shipped, but through recordDeadURLControls(params.StepConfig.Config)
+	// rather than a literal config["..."] in the function body — the same reason
+	// refuse_dead_url_controls went undeclared on RenderComponentInputSpec until
+	// 2026-08-19, and a grep over the function body cannot see either.
+	//
+	// Declaring it costs nothing and buys the unknown-config-key report's
+	// honesty: without this line, migration 497 arming the key on
+	// page-rerender's rerender_sections step makes a LIVE, WORKING setting read
+	// as "keys this action does not read — silently ignored at execution"
+	// (platform/validation/workflow.go). That is the report's one dishonesty
+	// surface, and it points the next reader at deleting the key.
+	//
+	// It is NOT a StrictConfig spec, so the undeclared state warns rather than
+	// failing — verified at the deciding arm before arming, because the same
+	// mistake on a StrictConfig spec took the fleet's page-publishing path down
+	// for 33 minutes on 2026-08-19 (WRONG_CALLS, migration 494).
+	//
+	// No RFC_022 budget impact: the optional-key counter reads spec.Optional and
+	// skips ConfigKeys on purpose (cmd/config-key-audit/optionalbudget.go) —
+	// settings are not the accumulated authority it was built to notice, and
+	// both dead-URL flags are settings.
+	ConfigKeys: []string{"strip_literal_markdown", "record_dead_url_controls"},
 	Defaults:   map[string]interface{}{},
 }
 
