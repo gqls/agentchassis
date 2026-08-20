@@ -62,3 +62,48 @@ needs one clean measurement before pricing anything. The document ends with a de
 list; the two that block everything else are: how much upkeep per domain per day do you
 actually want, and how big a sign-up burst should we design for, with what promise on
 "your site will be ready in…".
+
+## 2026-08-20 — the decision list, explained in plain terms (owner asked)
+
+The two that size everything: D0a is how much upkeep per domain per day you actually want
+once a site is built — the whole requirement swings 100× on it (one item/domain/day for
+3,000 domains is nearly reachable with config changes; "hundreds of thousands of jobs a
+day" needs the structural tier). D0b is the burst: the peak signups/day to design for and
+the promise in the signup flow ("ready in about X hours") — the promise sets the required
+drain rate, and one measured build (213 items, 410 runs, ~$20 AI, 10.5h) says fifty
+signups in a day exceeds what the whole fleet currently does.
+
+The queue (D1–D3): D1 is how many dispatch turns run in parallel — each also multiplies
+spend, default stop at 2, and 2 is the safe limit until the adapter work is done. D2 is
+who gets served first — today strictly oldest-item-first fleet-wide, which under a burst
+puts a paying customer's build behind days of old maintenance; the priority-lane constant
+is yours because any priority scheme risks starving someone. D3 is whether batch size and
+the scheduler's timeout always move in lockstep (default: yes).
+
+The AI account (D4–D7): D4 is a spending governor — nothing in the code limits AI spend,
+the monthly cap was hit twice in eleven days, and without a governor a successful
+promotion likely ends in a mid-burst AI outage; it's a promotion prerequisite. D5 is
+whether maintenance may fail over to a second provider (the stay-on-Sonnet ruling was made
+for the council, where caching makes mixing costlier). D6 is which work classes may wait a
+day for half-price batch processing. D7 is the Anthropic account tier itself.
+
+The two forks to pick before code is written: D8 — pages reach production either by the
+platform writing storage directly (git becomes the audit record) or by keeping the
+Actions-per-commit path with batching and more runners; mutually exclusive investments.
+D9 — either fix the scheduler properly or retire polling for workers pulling from the
+database queue (a pattern the chassis already proved); same exclusivity; the sibling-row
+stopgap is reversible under both.
+
+How we work: D10 — releases are owner-only, serial, no CI; decide on CI/delegation.
+D11 — worktrees for code sessions, deferred in July at a quarter of today's commit rate.
+
+The estate: D12 — DNS plan B timing is calendar-shaped: at fifty domains/day the ~1k
+Cloudflare zone cap arrives about three weeks into a promotion, so plan B may need
+building BEFORE it. D13 — satellites: domains per satellite, the second-satellite
+trigger, and whether to build the five cheap seams now.
+
+Hygiene: D14 spot-node floor/autoscaling; D15 a backlog ceiling and whether maintenance
+pauses during bursts; D16 retention for the two database tables growing toward the 100 GB
+disk. Defaults exist for everything but amount to "stay as we are" — fine for details,
+risky for D0b/D4/D12 if a promotion is coming. Rough answers to D0a and D0b turn the rest
+into a costed, ordered build queue.
