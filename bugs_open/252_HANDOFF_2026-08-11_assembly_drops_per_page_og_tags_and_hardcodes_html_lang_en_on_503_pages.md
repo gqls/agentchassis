@@ -157,6 +157,67 @@ made lang-aware; the other four are left hardcoded, each for a reason recorded i
 council corr `33fb41cb` APPROVED r1, verified live. `og:url` calls it, so og:url == canonical ==
 JSON-LD `@id` by construction.
 
+### What is now BUILT (2026-08-20) — committed, not yet live
+
+**Go** (`Council-Submitted: 3b6712d4-4565-4bfe-87f6-c47ecefd6a93`):
+- NEW `platform/orchestration/actions/head_assembly.go` — `spliceOpenGraph` (remove-then-inject:
+  strips `og:title`/`og:description`/`og:url` from the stored head, injects one per-page set;
+  `og:url` via `preferredPageURL`, so og:url == canonical == JSON-LD `@id` **by construction**;
+  correct-or-absent), `headLangAttr`, `htmlDocumentOpen`.
+- `rerender_single_page_action.go` — both call sites in `assemblePage`. **The og splice runs AFTER
+  `spliceMetaDescription`**, which looks backwards; see the code comment and the correction note in
+  the lane PLAN D3.
+- `render_site_components_action.go` — one line: `injectBrandHeadTags` no longer emits `og:url`.
+- 11 claims in `head_assembly_test.go`, **every one mutation-proven** (M1–M9 ledger in the lane NOTES).
+  M1 is worth knowing: the mutation reproducing **this file's own fix candidate** fails five of them.
+
+**Config, both `_HOLD`** — `docs/agent_docs/sql_for_agents/507_head_components_carry_lang_HOLD.sql`
+(+`_ROLLBACK`) and `508_site_specs_locale_lang_HOLD.sql` (+`_ROLLBACK`). 507 gives both shared head
+templates a gated `lang` attribute (map-valued schema entry; the two components use DIFFERENT schema
+shapes) and removes `head-seo-standard`'s two blank-rendering og lines. 508 sets `site_config.locale.lang`
+for the 25 real sites. **⚠ Do NOT apply either before the binary carrying `head_assembly.go` is proven
+running on every replica** — DB config is live on apply, Go is inert until the roll, and the old code
+would consume the staleness edge, restamp `render_inputs`, and leave the pipe quiet with the fleet
+still wrong.
+
+Registered as **SEO-005**; 016b §9 pattern filed; `LANDMINES.md` gained the 090-cannot-see-served-bytes
+entry. Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/`.
+
+**⚠ ONE SITE IS NOT ENGLISH.** `relojistas.com` is a Spanish-language publication (identity location
+`España`, Spanish tagline, Spanish headings on the served page). It gets `es-ES`; a blanket en-GB
+would have been false metadata stated more confidently than the `en` it says today — the exact defect
+class this file is about. This is why 508 names every domain explicitly instead of deriving from the
+TLD, which §B of this file had already rejected.
+
+**⚠ `webdesign.co.uk` will keep serving `lang="en"` and that is NOT a failure.** Its head component
+(`webdesign-couk-head`, its own `function`, 1 site, **117 assembled pages — the most in the fleet**)
+is a bare fragment with no `<head>` open tag to carry the attribute. Its pages still gain per-page og
+from the Go half; the append path is pinned by a test.
+
+### Still owed before this can close
+
+1. Fleet roll, then **prove the binary per service** (stamp + `merge-base --is-ancestor`, or a binary
+   probe with BOTH controls).
+2. Canary two pages on a duplicated-tag site (the og half needs no migration), verified at the artefact.
+3. Apply 507 then 508; let the `stale_chrome` pipe fan out; sweep all 26 sites across **all four head
+   families**.
+4. **Retire the premises this fix falsifies, which will NOT fail loudly:** `verify_site.py`'s
+   `OG_PER_PAGE` accepted-loss exemption (`…/loanandmortgagecalculator_couk/verify_site.py:71`) and
+   the og:url-exclusion rationale in
+   `discovery_checks/check_site_structural_validity.go` (~`:55`, `:1029`). Both currently document
+   "the shared `<head>` cannot carry a per-page value" as settled fact.
+
+### `090` outcome, recorded rather than buried
+
+Run corr `af31ec22-5662-4798-91b9-b12132ebca70`: **UNVERIFIABLE, stopped at the iteration cap — not
+REFUTED.** It confirmed the static mechanism from source (18 symbols, citations quoting
+`injectBrandHeadTags`' own `WriteString`) and could not reach an occurrence, for two structural
+reasons it states itself: `pages.rendered_head` returns 0 rows fleet-wide (those columns are
+VESTIGIAL — `bugs_closed/270`), and every `site_components.rendered_html` row it fetched was truncated
+before the `</head>` tail where the block sits. **The gap it names is closed by the `curl` evidence
+above, which predates the run.** Filed as a LANDMINE so the next session does not read an UNVERIFIABLE
+about served markup as doubt about their claim.
+
 **Division of work with `bugs_open/322`** (filed 08-19, the emitter-side twin): this lane takes 322's
 item 1 *at the assembly end* (per-page og identity) plus the one-line removal of the injector's
 `og:url` emission. **322 keeps** item 2 (og:title/description fallback quality), item 3 (og:image
