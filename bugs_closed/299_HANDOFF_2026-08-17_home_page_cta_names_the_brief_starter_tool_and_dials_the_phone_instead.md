@@ -170,3 +170,65 @@ the two sides. The `*_target_title` keys are the sharp instrument here — only 
 mints them, so their absence downstream IS the discard, and it stays visible even on the runs
 where the URLs coincidentally agree (18 of 48 are byte-identical, and a url-diff would score
 those as healthy).
+
+---
+
+## 2026-08-20 — CLOSED: fixed AND live at the served page
+
+```html
+<a href="/faq.html" class="cta-btn cta-btn-secondary">Read the full terms in our FAQ before you pay.</a>
+```
+
+Fetched from `https://preview.webdesign.uk/index.html` (cache-busted), 2026-08-20. **The copy and
+the destination agree.** Asserted on the anchor's TEXT, per this file's own control — never on
+the URL's presence in the page, because nav and footer link the Brief Starter correctly and
+would pass that grep regardless.
+
+### What actually fixed it, in the order it happened
+
+1. **The producer** (`bugs_open/312`): migration **477** repointed `select_sections` at the path
+   the resolver's response really has. Before: 41 runs, 33 minted `*_target_title`, **0 survived**
+   to the render. After: **4 of 4 survive, byte-identical**. The resolver's answers stopped being
+   computed and thrown away.
+2. **The keeps** (chassis v1.0.1317, capability-probed on both pods): the tel: was kept and
+   **normalised** — `tel:+44 (0) 7934 524 911` → `tel:+447934524911` — with a computed destination
+   title. Three of the five malformed tel: CTAs on this site self-repaired this way as their
+   pages rerendered, with no human involved.
+3. **The detector** (migration 475): `cta_nonpage_destination` went live and its **first run
+   filed this very button** as `cta_names_nonpage_destination`. The element that had to reach the
+   owner's eye because no queue could see it is now something a queue sees.
+4. **The two a machine must not decide** (`SQL_2026-08-20_close_299_…sql`, owner-answered):
+   the undialable `tel:+4407934524911` on contact/hero → `tel:+447934524911` (**owner confirmed
+   the number**; `NormalizeTelHref` refuses this shape by design rather than inventing digits),
+   and this button → `/faq.html`, matching its own copy. **The owner confirmed the phone button
+   was never intentional** — and it would otherwise have been preserved for ever, because the fix
+   teaches the framework that a tel: is *authored*, and the framework cannot tell
+   authored-on-purpose from inherited-by-accident. It appears to have been a leftover from the
+   2026-08-13 copy "Prefer to talk it through first? Call +44 (0) 7934 524 911 or email…".
+5. **The rerender that made it live** — and it took three attempts, all of which reported
+   success. See `LANDMINES.md`, *"A `page-rerender` dispatched without `spec.page_name` throws
+   away everything it re-rendered…"*: without `spec.reason` it assembles stored HTML; with the
+   reason but no `spec.page_name` it re-renders and then **discards** the result
+   (`sections_saved: 0`, `success: true`) and deploys the stale assembly. Working envelope and
+   the checks that catch it are in that entry and in the lane RUNBOOK.
+
+### Not closed by this, and where it went instead
+
+- **Two more instances of the same class on this site**, both now filed by the new detector and
+  sitting in `needs_human_review`: `faq/hero` ("See what you get for it" → a phone) and
+  `how-it-works/call-to-action` ("Still deciding? The FAQ page covers the full terms…" → a
+  phone). Those tel: hrefs are believed **genuine** call-us buttons, so the fix there is the
+  COPY, not the href — which is exactly what migration 476's destination stamp now feeds the
+  writer. They are the first real test of it.
+- `how-it-works/call-to-action` still carries the unnormalised `tel:+44 (0) 7934 524 911`; it
+  will self-heal on its next rerender through the keep. No action needed.
+- **`bugs_open/312` stays OPEN** on its own merits: its candidates 2 (a loud fallback) and 3 (a
+  lockstep test binding the writer's configured path to the resolver's actual response shape)
+  are unbuilt, and that seam has now failed silently in BOTH directions twice.
+
+### Platform residue this bug leaves behind (all registered)
+
+`LNK-034` (the non-page CTA vocabulary + detector), `BLD-023` / `RFC_040` (a binary publishes
+what it can do — raised by the discovery that the estate's prescribed "is my fix live?" check
+frequently cannot be performed at all), and three `LANDMINES.md` entries: the capability-probe
+one, the rerender-dispatch one above, and LNK-034's ordering-dependency note.
