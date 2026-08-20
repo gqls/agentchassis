@@ -475,10 +475,44 @@ Round 3 submitted on the same correlation (RUN_ORCH_ID 381fc44e). All code commi
 - The robot-hands stale-deploy caveat stands as pre-stated: its items closed on stored
   surfaces while news.html still serves the 08-11 file — the rerender lane's routed gap,
   not a retraction defect.
-- **The FIRST rerender witness dispatch (corr `343edda2`) never arrived** — kcat -P
+- ~~**The FIRST rerender witness dispatch (corr `343edda2`) never arrived** — kcat -P
   silent-drop landmine, live: kcat exited clean, but (1) no row by corr, (2) zero
   page-rerender rows in a window where 32 other orchestrations spawned, (3) zero hits in
-  either label pod's logs. One drop in four dispatches through the identical `-c 1`
-  heredoc pattern — `-c 1` reduces, does not eliminate. **Re-dispatched as corr
-  `5dc60934`** — a legitimate re-run because the first act provably never happened
-  (contrast yesterday's council double-submit, where it had).
+  either label pod's logs.~~ > **CORRECTED 2026-08-20 ~08:30Z, same session: the message
+  ARRIVED and was VALIDATION-REFUSED — `agent_error_log` holds the delivery record at
+  07:01:02Z (`VALIDATION_ERROR_DROPPED`, corr `343edda2`).** All three "absences" were
+  blind: (1)+(2) because a refused spawn creates NO orchestration row, (3) because busy-pod
+  logs rotate past a 30-minute-old line. The refusal was migration 494's mis-declared
+  `deploy_result_field` (bugs_open/336, another lane's outage 06:49–07:22Z). What caught
+  it: reading the pod's OTHER log lines instead of grepping only for my corr. The cheap
+  check that would have: **grep `agent_error_log` before declaring a message dropped** —
+  it is the durable record refusals are dropped TO. Re-dispatch `5dc60934` (07:09Z) was
+  refused the same way; the third, post-restore, completed.
+
+## 2026-08-20 ~08:45Z — WITNESS LANDED (strip proven at the artefact on v1.0.1317); the morning's detour was another lane's outage; two of my own claims corrected
+
+- **The lane's last open verification is done.** Post-restore rerender (orch `ee78c307`,
+  fundamentallyai news-index, reason=section_data_resolved — deliberately NOT the repair
+  reason, so the double-gated strips stayed off and only the producer layer was under
+  test): COMPLETED; output carries 20 freshly resolved items, **0 markdown hits**;
+  row-by-row proof: source `# Google shakes up AI leadership…` (heading=t in
+  content_feed_items) appears in the output with the `# ` stripped.
+  `stripped_markdown_fields` correctly ABSENT (that record is the repair path's).
+  The Info log line itself was not witnessed — the executing context's logs were not
+  retained (`processing_node` names a pod whose logs never mention the orch) — the
+  artefact evidence is stronger and is the record.
+- **The outage detour** (06:49–07:22Z, bugs_open/336): migration 494 armed
+  `deploy_result_field` on live update_page_status steps while the binary declares the
+  key on the WRONG spec (RenderComponentInputSpec, not UpdatePageStatusInputSpec) — my
+  two witness dispatches were among the 28 refusals. Another lane restored service at
+  07:22:39Z with 494's own rollback and committed the one-line fix + tests
+  (`daaa7541b`). **My 08:16Z rollback was a REDUNDANT idempotent re-run**: my
+  "keys still armed" check ran at ~07:21, the session idled on the user prompt, and I
+  acted at 08:16 on a ~55-minute-stale reading. No damage (keys already gone; the run's
+  only effect was an `updated_at` bump on the three definitions + a snapshot triple),
+  recorded in the 336 file so its snapshot trail reads correctly. Wrong call logged:
+  **re-check state in the same breath as a corrective action** — an idempotent rollback
+  reports success either way, so only the snapshot trail shows who actually acted.
+- The 184 lane now has NOTHING outstanding: r6 approved ×2, shipped (v1.0.1317, probed
+  with controls), armed (env unset), retraction proven (16 drained), producer strip
+  proven at the artefact. Residuals live where routed (332 latent; 301; rerender lane).

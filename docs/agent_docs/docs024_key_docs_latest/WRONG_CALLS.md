@@ -38867,3 +38867,86 @@ looking for success.
 a test that every key an action READS appears in ITS OWN spec, and that no spec declares a key its
 action never reads. **This defect is invisible to per-spec review because both halves are in the same
 file, forty lines apart, and each looks correct on its own.**
+
+## 2026-08-19 — I wrote that my new test "pins the clause", named the clause in its own doc comment, and the mutation run proved it pinned nothing of the kind (bugs_open/215, same-name identity lane)
+
+The 2026-08-19 addendum to `bugs_open/215` indicts one guard by name: the `rname == lname`
+clause in `matchTwinIdentity`'s shared `eligible` closure, which it says makes
+`honour_realised_identity` unreachable for a page the planner names correctly. It also
+offers, as candidate remedy (1), *"drop `rname == lname` from that layer's eligibility"*.
+
+I designed around keeping that clause, and wrote a test I named
+`TestReconcile_TwinLayersRefuseTheEntryItself` with a doc comment stating it **"pins the
+eligible closure's `rname == lname` clause, which nothing pinned before"**. That sentence
+was in the plan, in the code, and in the mutation table I was about to submit.
+
+**Then I mutated the clause away and the test stayed green.** So did every other test in
+the package.
+
+**Why.** `eligible` holds two refusals in series, and the second subsumes the first:
+`rname == lname` and then `planNames[rname]`. A realised candidate whose name equals the
+plan entry's name is *necessarily* a name the plan carries, so the second clause always
+fires too. Removing either alone is behaviour-neutral; only removing **both** turns the
+test red (verified — that is what makes the test worth having, once it says so honestly).
+
+**What this cost, and what it saved.** It cost nothing, because the mutation run caught it
+before the submission. It saved the lane from something larger: **candidate (1) in the bug
+file is an inert edit.** Anyone who had taken it would have dropped the named clause,
+shipped, re-measured, found the counters still at zero, and had no way to distinguish "my
+fix did nothing" from "the population is empty" — the two readings this lane has already
+been burned by. The refutation is now in the bug file and the register, mutation-proved
+three ways rather than argued.
+
+**What caught it:** running the mutation I had already written down as evidence, instead of
+treating the table as the evidence. The claim "removing X fails test Y" is a *prediction*
+until you have watched it fail.
+
+**The transferable check, and it is the sharper version of the landmine already on file
+("a mutation that PASSES usually hit a guard in SERIES"):** when you attribute a behaviour
+to one named guard — especially a guard some other document has indicted by name — mutate
+**each** guard on the path **separately** before you believe the attribution. A guard that
+is redundant reads exactly like a guard that is load-bearing, from the code, from the
+comment, and from a green test suite. And note the direction of the error: the risk is not
+that you fail to protect the behaviour, it is that you **publish a remedy that cannot
+work** — which is this same lane's own 08-19 lesson ("a mechanism's doc comment tells you
+what it does when it fires; only its guard tells you whether it fires for you") arriving
+one rung down, at the level of *which* guard.
+
+## 2026-08-20 — "the kcat publish silently dropped": I declared a message lost from three absences while the durable error log held its delivery record (bugfix 184 lane)
+
+**The call.** A dispatched page-rerender never produced an orchestration row. I checked three
+places — no row by corr, no page-rerender rows in a window where 32 other orchestrations
+spawned, no hits in the label pods' logs — declared the known `kcat -P` silent-drop landmine
+live, wrote it into the lane NOTES, and re-dispatched.
+
+**What was true.** The message arrived and was VALIDATION-REFUSED (`agent_error_log`,
+`VALIDATION_ERROR_DROPPED`, 07:01:02Z) — another lane's migration had armed a config key the
+binary declares on the wrong spec (bugs_open/336). All three absences were blind to a refusal:
+a refused spawn creates no orchestration row by design, and busy-pod logs rotate in minutes.
+Three blind instruments agreeing is not triangulation.
+
+**What caught it:** reading the pod's other recent lines for a later dispatch — the refusal was
+right there with a different corr, which led to the error table, which held MY corr too.
+
+**The cheap check that would have:** `SELECT * FROM agent_error_log WHERE occurred_at > <dispatch>
+ORDER BY occurred_at` — refusals are DROPPED TO a durable table precisely so this question has an
+answer. Grep it before declaring any dispatch lost.
+
+**The generalisable half.** "Dropped" and "refused" have identical signatures in every place that
+only records successes. Before asserting non-delivery, find the place failures are recorded — and
+if you cannot name one, that is the finding.
+
+## 2026-08-20 — I applied a corrective rollback against a 55-minute-stale state check; it had already been run by the lane that owned it (bugfix 184 lane → bugs_open/336)
+
+**The call.** Having diagnosed 336's outage, I verified "keys still armed" (~07:21Z), then read two
+long migration files, then the session idled on a user prompt — and on "carry on" I applied the
+rollback at 08:16Z. The owning responder had rolled back at 07:22:39Z, one minute after my check.
+
+**Cost.** None operationally (the rollback is idempotent) — but it wrote a second snapshot triple
+and bumped `updated_at` on three agent definitions, which a later reader would misread as a
+re-arm or a second incident, and my own narrative said "stopping the bleeding" about a no-op.
+
+**The cheap check that would have:** re-run the one-line state query in the same breath as the
+corrective command — or make the command conditional on the state it corrects. On a tree this many
+sessions share, the interval between check and act is where someone else acts; my own memory index
+already says every ownership check is LAGGING, and a state check is the same class.
