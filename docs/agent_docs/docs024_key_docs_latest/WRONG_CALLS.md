@@ -39666,3 +39666,69 @@ is the one place where "it compiles" is measuring somebody else's work as well a
 **What I did instead:** reverted **only my hunks** (`git diff` → keep my two hunk headers → `git apply -R`),
 leaving their work untouched, and moved my change into a new file of my own, wrapping the two handlers at
 their `registry.go` entries. It is the better structure anyway, which is the honest reason it stays.
+
+## 2026-08-20 — fixing "a path proxy stood in for the intent", I used a different path proxy for the intent, one level down
+
+**The claim** (`scripts/council-scope.sh`, first cut, and the council submission that carried it):
+that the files to exclude from council scope are "the hand-run sidecars
+(`_ROLLBACK`/`_VERIFY`/`_HOLD`)", justified by `run-migrations.sh:33` — "run by hand,
+deliberately" — and implemented by reusing the runner's own `SIDECAR_RE`.
+
+**What was actually true:** the runner's `SIDECAR_RE` answers *"will `--apply` run this?"*.
+Council scope needs *"is this the change?"*. **Those are different questions**, and `_HOLD` is
+exactly where they diverge: a `_HOLD.sql` is a real migration held back from the runner **for
+ordering**, and LANDMINES' own entry for it says *"write the two commands to apply it by hand
+into the file's own header, because the person who runs them will not be you."* It is live agent
+config reaching production, merely not ledger-recorded — the precise risk `bugs_open/314` exists
+to catch, and my regex exempted it. Measured when correcting: 157 `_ROLLBACK`, 12 `_HOLD`, 7
+`_VERIFY`, 2 `_SUPERSEDED`; all four `_HOLD` files sampled carried real `UPDATE`/`jsonb_set`
+writes, two carried hand-apply instructions in their headers.
+
+**Why it is worth its own entry rather than a footnote:** `bugs_open/314` IS the bug "a PATH
+filter stood in for an INTENT". I read that sentence, wrote it into my own rationale, quoted it
+in the fix's header comment — and then reached for the nearest available path proxy anyway,
+because it was authoritative, adjacent and already written. **Proximity to the lesson is not
+protection from it.** The fix now enumerates the not-the-change suffixes explicitly, so a suffix
+must be *shown* to be excludable; anything unrecognised defaults to IN scope — a wasted credit,
+never an unreviewed config change.
+
+**What caught it:** the council's `editquality` seat, medium severity, round 1 — it cited the
+estate's own `_HOLD` landmines back at me. **The council found a real defect in the change that
+widens what the council may review**, which is the strongest possible argument for the change.
+I then verified it first-hand rather than taking the report at face value.
+
+**The cheap check:** when excluding a class from a rule, state the PROPERTY the exclusion rests on
+("this is not the change") and test each member against **that property**, not against a
+convenient existing regex that correlates with it. And: a drift check that only confirms *"my copy
+still matches theirs"* cannot notice that **the rule itself is wrong** — mine passed happily while
+excluding `_HOLD`. It now censuses the directory for unclassified suffixes instead, which is a
+check that can fail for the right reason.
+
+## 2026-08-20 — I added a pipeline to a sourced fragment and omitted the `|| true` the file's own comment demanded; it broke the gate only when everything was healthy
+
+**The claim:** implicit — that the new unclassified-suffix census in
+`council_scope_drift_warn()` was a safe, WARN-only addition.
+
+**What was actually true:** when every suffix IS classified, the census pipeline's final
+`grep -v` matches nothing and exits 1. The command substitution inherits that status, and both
+consumers (`097`, `098`) run under `set -euo pipefail` — so the script **died silently, with no
+output, before the scope check**, and every submission failed with a bare `exit 1`. **It fires
+only in the healthy case**: a clean census breaks the gate, a dirty one works.
+
+**The file already contained the warning, written by me, eleven lines above:** *"Every grep
+carries `|| true`: a no-match grep exits 1, and 097/098 run under `set -euo pipefail`."* I
+applied it to `in_council_scope()` and not to the function I added afterwards.
+
+**What caught it:** an unexplained `exit 1` with no output in a control run, then `bash -x`. **Not
+the control matrix** — the matrix was reporting `exit=0` for every case at the time, because its
+own harness expanded `$(basename "$file")` inside the same `printf` as `$?`, and the command
+substitution reset `$?` before it was read. Two independent instrument failures stacked: the
+harness could not report the exit code, and the code under test had a fault only visible in the
+exit code. The tell was that *everything* passed, including cases that must fail.
+
+**The cheap checks, both mechanical:** (1) any command substitution whose last stage is a filter
+needs `{ …; } || true` — grep for `=$(` in shell that will be sourced by `set -e` callers, and
+induce the empty-result case, which is the one nobody tries. (2) Capture `$?` into a variable on
+the very next line, before any other command — `local got=$?` — because `$(…)`, `[`, `echo` and
+`printf` all overwrite it. A test harness that cannot distinguish pass from fail will report a
+clean sweep, which is the most convincing wrong answer there is.

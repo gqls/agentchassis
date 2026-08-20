@@ -29,11 +29,25 @@
 # faster than any Go change, and it was empirically the half the council found the
 # sharpest objections in (bugs_open/314 §9; bugs_open/275's round).
 #
-# STILL OUT OF SCOPE, deliberately: all prose, site content, and the hand-run
-# sidecars (NNN_name_ROLLBACK.sql / _VERIFY.sql / _HOLD.sql). A sidecar is not
-# applied by scripts/migration/run-migrations.sh and is therefore not the change.
+# STILL OUT OF SCOPE, deliberately: all prose and site content, plus the SQL files
+# that are not the change — `_ROLLBACK` (the undo), `_VERIFY` (the check) and
+# `_SUPERSEDED` (retired). Everything else matching NNN_name.sql is in scope.
 #
-# THE MIGRATION VOCABULARY IS A VERBATIM COPY of the runner's own, because sourcing
+# ⚠ `_HOLD.sql` IS IN SCOPE, and getting this wrong was a real defect in the first
+# cut of this file (caught by the council's editquality seat, corr 85fac99c,
+# 2026-08-20). The first version excluded every uppercase-suffixed sidecar by reusing
+# the runner's own SIDECAR_RE — which answers "will `--apply` run this?" — as a proxy
+# for "is this the change?". Those are DIFFERENT QUESTIONS, and conflating a proxy
+# with the intent is precisely the defect bugs_open/314 exists to fix: it is the same
+# mistake one level down. A `_HOLD.sql` is a migration deliberately held back from the
+# runner FOR ORDERING (LANDMINES: "write the two commands to apply it by hand into the
+# file's own header, because the person who runs them will not be you"). It is live
+# agent config, hand-applied, and merely not ledger-recorded — so excluding it exempted
+# exactly the risk this fix exists to catch. Measured in the directory when this was
+# corrected: 157 `_ROLLBACK`, 12 `_HOLD`, 7 `_VERIFY`, 2 `_SUPERSEDED`; the four HOLD
+# files sampled all carried real UPDATE/jsonb_set writes.
+#
+# THE MIGRATION-NAME PATTERN IS A VERBATIM COPY of the runner's own, because sourcing
 # this file FROM the runner was considered and rejected: it would couple the review
 # gate to the APPLY path, so a syntax error here would stop migrations being
 # applied — a bigger blast radius than the bug being fixed. The copy is held honest
@@ -41,19 +55,24 @@
 
 # Platform code (owner ruling 2026-07-17).
 COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/'
-# VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep)
-# and :65 (SIDECAR_RE). Change these only together with the runner.
+# VERBATIM from scripts/migration/run-migrations.sh:283 (the appliable-name grep).
+# Change this only together with the runner.
 COUNCIL_SCOPE_MIGRATION_RE='^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$'
-COUNCIL_SCOPE_SIDECAR_RE='_[A-Z][A-Z0-9_]*\.sql$'
+# The NOT-THE-CHANGE suffixes. Deliberately an ENUMERATION, not the runner's
+# catch-all SIDECAR_RE: a suffix must be shown to be "not the change" to be excluded,
+# so anything new (including a suffix nobody here anticipated) defaults to IN scope —
+# a wasted credit, never an unreviewed config change. The trailing [A-Z0-9_]* catches
+# stacked suffixes such as 470_..._ROLLBACK_SUPERSEDED.sql.
+COUNCIL_SCOPE_NOT_THE_CHANGE_RE='_(ROLLBACK|VERIFY|SUPERSEDED)[A-Z0-9_]*\.sql$'
 
 # in_council_scope — reads paths on stdin (one per line), prints the in-scope ones.
 #
 # TWO SEPARATE TESTS, ORed — not one clever regex. The migration arm is
-# match-then-reject-sidecar, which is the runner's own idiom (:283-284, a
-# `grep -E ... | grep -vE "$SIDECAR_RE"` pipe); a single negative-class regex for a
-# trailing _TOKEN is unwritable in ERE. Keeping the arms separate also means a
-# platform/ path containing an uppercase-suffixed .sql cannot be knocked out by the
-# sidecar rule, which only applies to the migration arm.
+# match-then-reject-not-the-change, following the runner's own idiom (:283-284, a
+# `grep -E ... | grep -vE ...` pipe); a single negative-class regex for a trailing
+# _TOKEN is unwritable in ERE. Keeping the arms separate also means a platform/ path
+# containing an uppercase-suffixed .sql cannot be knocked out by the exclusion, which
+# only applies to the migration arm.
 #
 # Every grep carries `|| true`: a no-match grep exits 1, and 097/098 run under
 # `set -euo pipefail`. This function never exits and never returns non-zero.
@@ -63,24 +82,55 @@ in_council_scope() {
   {
     printf '%s\n' "$paths" | grep -E  "$COUNCIL_SCOPE_CODE_RE" || true
     printf '%s\n' "$paths" | grep -E  "$COUNCIL_SCOPE_MIGRATION_RE" \
-                           | grep -vE "$COUNCIL_SCOPE_SIDECAR_RE" || true
+                           | grep -vE "$COUNCIL_SCOPE_NOT_THE_CHANGE_RE" || true
   } | sort -u
   return 0
 }
 
 # council_scope_drift_warn — $1 = repo root. WARNS on stderr, never blocks.
 #
-# The two patterns above are copies of the runner's. This asserts the originals are
-# still byte-identical, by verbatim fixed-string match (grep -qF) on the runner's
-# own lines. It fires on every 097/098 run — 11-43 times a day — so a divergence
-# cannot sit silent. It deliberately cannot fail a consumer: a stale rule must not
-# brick submissions, it must be noisy.
+# TWO checks, and the second is the one that earns its keep.
+#
+# (1) The migration-NAME pattern above is a copy of the runner's :283. Assert the
+#     original is still byte-identical, by verbatim fixed-string match (grep -qF).
+#
+# (2) Census the ACTUAL uppercase suffixes in the migrations directory and warn about
+#     any this file has not classified. This is what a drift check should watch here.
+#     The first cut of this file checked (1) only — it asserted "my copy matches the
+#     runner's SIDECAR_RE" and passed happily while the RULE was wrong, because the
+#     runner's question ("will --apply run this?") is not this file's question ("is
+#     this the change?"). A check that can only confirm a copy cannot notice a
+#     misclassification. This one can: a new `_STAGED`/`_PENDING`/whatever suffix
+#     appears, and the next 097/098 run says so. Until someone classifies it, such a
+#     file is IN scope by default — a wasted credit, never an unreviewed change.
+#
+# Fires on every 097/098 run — 11-43 times a day — so a divergence cannot sit silent,
+# and deliberately cannot fail a consumer: a stale rule must be noisy, not blocking.
 council_scope_drift_warn() {
-  local runner="${1:-}/scripts/migration/run-migrations.sh"
-  [ -f "$runner" ] || return 0
-  if ! grep -qF "SIDECAR_RE='_[A-Z][A-Z0-9_]*\\.sql\$'" "$runner" \
-     || ! grep -qF "grep -E '^[0-9]{3}_[A-Za-z0-9_]+\\.sql\$'" "$runner"; then
-    echo "WARN: council scope's migration vocabulary no longer matches run-migrations.sh (:65, :283) — reconcile scripts/council-scope.sh (bugs_open/314)." >&2
+  local root="${1:-}"
+  local runner="$root/scripts/migration/run-migrations.sh"
+  if [ -f "$runner" ] \
+     && ! grep -qF "grep -E '^[0-9]{3}_[A-Za-z0-9_]+\\.sql\$'" "$runner"; then
+    echo "WARN: council scope's migration-name pattern no longer matches run-migrations.sh:283 — reconcile scripts/council-scope.sh (bugs_open/314)." >&2
+  fi
+
+  local dir="$root/docs/agent_docs/sql_for_agents"
+  [ -d "$dir" ] || return 0
+  # ⚠ THE `|| true` IS LOAD-BEARING, and omitting it broke the gate outright during
+  # this very fix: with every suffix classified the final `grep -v` matches nothing,
+  # exits 1, the command substitution inherits that status, and a caller running
+  # `set -euo pipefail` (097 and 098 both do) DIES — with no output, before the scope
+  # check, so every submission fails. It fires only when the census is CLEAN, i.e. the
+  # healthy case. Caught by tracing an unexplained `exit 1`, not by the control matrix.
+  local unclassified
+  unclassified=$( { ls -1 "$dir" 2>/dev/null \
+    | grep -E '^[0-9]{3}_[A-Za-z0-9_]+\.sql$' \
+    | grep -E '_[A-Z][A-Z0-9_]*\.sql$' \
+    | grep -vE "$COUNCIL_SCOPE_NOT_THE_CHANGE_RE" \
+    | grep -vE '_HOLD[A-Z0-9_]*\.sql$' \
+    | sed -E 's/.*(_[A-Z][A-Z0-9_]*)\.sql$/\1/' | sort -u | tr '\n' ' '; } || true )
+  if [ -n "${unclassified// /}" ]; then
+    echo "WARN: unclassified migration suffix(es) in sql_for_agents: ${unclassified}— scripts/council-scope.sh treats these as IN scope (the safe default). If one is not the change, add it to COUNCIL_SCOPE_NOT_THE_CHANGE_RE (bugs_open/314)." >&2
   fi
   return 0
 }

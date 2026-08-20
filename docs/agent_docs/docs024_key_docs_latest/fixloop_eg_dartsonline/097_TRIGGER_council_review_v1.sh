@@ -179,21 +179,24 @@ jq -e '[.plan.edits[].file | select(test("[[:space:]]") or startswith("/") or co
 # Scope pre-filter (the cheap deterministic filter from the design — keeps
 # docs/site-content submissions from spending council credits at all).
 #
-# Two arms, ORed, matching scripts/council-scope.sh: platform code, or an
-# APPLIABLE migration (match the NNN_name.sql shape, then reject the hand-run
-# _ROLLBACK/_VERIFY/_HOLD sidecars). The migration arm is the bugs_open/314
-# widening: a migration under docs/ is not prose, it is the running system.
+# Two arms, ORed, matching scripts/council-scope.sh: platform code, or a migration
+# (match the NNN_name.sql shape, then reject the files that are NOT the change —
+# _ROLLBACK, _VERIFY, _SUPERSEDED). The migration arm is the bugs_open/314 widening:
+# a migration under docs/ is not prose, it is the running system.
+# ⚠ `_HOLD.sql` is IN scope — it is the change, held back from the runner for
+# ORDERING and applied by hand. Excluding it was a real defect in the first cut,
+# caught by the council (corr 85fac99c); see scripts/council-scope.sh for why.
 if ! jq -e --arg code "$COUNCIL_SCOPE_CODE_RE" \
            --arg mig  "$COUNCIL_SCOPE_MIGRATION_RE" \
-           --arg side "$COUNCIL_SCOPE_SIDECAR_RE" \
+           --arg side "$COUNCIL_SCOPE_NOT_THE_CHANGE_RE" \
    '[.plan.edits[].file
      | select( test($code) or (test($mig) and (test($side) | not)) )
     ] | length > 0' "$SUBMISSION_FILE" >/dev/null; then
   if [ "${FORCE:-0}" != "1" ]; then
     echo "REFUSED: no edit touches the review scope." >&2
     echo "  In scope: platform/, internal/, pkg/ (owner ruling 2026-07-17)" >&2
-    echo "            docs/agent_docs/sql_for_agents/NNN_name.sql — appliable migrations (bugs_open/314, widened 2026-08-19)" >&2
-    echo "  Out:      prose, site content, and hand-run sidecars (_ROLLBACK/_VERIFY/_HOLD .sql)." >&2
+    echo "            docs/agent_docs/sql_for_agents/NNN_name.sql — migrations, INCLUDING _HOLD (bugs_open/314, widened 2026-08-19)" >&2
+    echo "  Out:      prose, site content, and the SQL that is not the change (_ROLLBACK/_VERIFY/_SUPERSEDED)." >&2
     echo "Docs and site content do not spend council credits. FORCE=1 to override." >&2
     exit 2
   fi

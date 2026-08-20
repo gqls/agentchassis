@@ -25,7 +25,9 @@ echo "$T" | jq --arg f '<path>' '.plan.edits[0].file=$f' > ctrl.json
 |---|---|---|---|
 | NEG prose | `…/docs024_key_docs_latest/LANDMINES.md` | REFUSED, exit 2 | ✅ |
 | NEG sidecar | `…/sql_for_agents/490_…_ROLLBACK.sql` | REFUSED, exit 2 | ✅ |
-| NEG sidecar | `…/sql_for_agents/446_asset_retraction_agent_HOLD.sql` | REFUSED, exit 2 | ✅ |
+| **POS `_HOLD`** | `…/sql_for_agents/417_…_HOLD.sql` | **ADMITTED, exit 0** | ✅ |
+| NEG `_SUPERSEDED` | `…/sql_for_agents/470_reaper_initialized_arm_SUPERSEDED.sql` | REFUSED, exit 2 | ✅ |
+| NEG stacked | `…/sql_for_agents/494_…_HOLD_ROLLBACK.sql` | REFUSED, exit 2 | ✅ |
 | NEG prose-in-migrations-dir | `…/sql_for_agents/README.md` | REFUSED, exit 2 | ✅ |
 | POS migration | `…/sql_for_agents/490_internal_linker_….sql` | ADMITTED, exit 0, no FORCE | ✅ |
 | POS code (regression) | `platform/orchestration/actions/database_actions.go` | ADMITTED, exit 0 | ✅ |
@@ -93,3 +95,37 @@ Just submit it — no `FORCE=1`, and no explanation owed:
 ⚠ `FORCE=1` is still needed, and still needs saying so in the FIRST paragraph of the rationale, for
 anything the widening does not cover: **tooling** (`scripts/`, the 097/098 scripts themselves),
 prose, and sidecars. This fix's own submission was in exactly that position.
+
+## ⚠ `_HOLD.sql` is IN scope — and the harness that told me otherwise
+
+Corrected 2026-08-20 after the council's `editquality` seat objected at medium severity in the
+round that approved the change. `_HOLD` is a migration held back from the runner **for ordering**
+and applied **by hand**; it is live config reaching production. The first cut excluded it by
+reusing `run-migrations.sh`'s `SIDECAR_RE`, which answers a different question. Census when
+corrected: **157 `_ROLLBACK`, 12 `_HOLD`, 7 `_VERIFY`, 2 `_SUPERSEDED`**.
+
+Edge cases the anchoring must keep getting right — all in the matrix above:
+- `482_ROLLBACK_claim_timeout_exclusion.sql` — `ROLLBACK` at the **start** of the name is a REAL
+  migration (the runner lists it under Pending, not Sidecars). IN scope. The exclusion regex is
+  anchored to the end for exactly this reason.
+- `494_…_HOLD_ROLLBACK.sql` — a rollback OF a hold. OUT.
+
+### Two harness traps that stacked, and hid each other
+
+1. **`local got=$?` must be the very next line.** A harness that did
+   `printf '%s %s exit=%s' "$label" "$(basename "$file")" "$?"` reported **exit=0 for every
+   case**, because the command substitution ran first and reset `$?`. Every negative "passed"
+   while actually returning 0. The tell was that nothing failed, including cases that must.
+2. **A sourced pipeline needs `{ …; } || true`.** The unclassified-suffix census ends in a
+   `grep -v` that matches nothing when the census is CLEAN — exit 1, inherited by the command
+   substitution, fatal under the callers' `set -euo pipefail`. **It broke the gate only when
+   everything was healthy**, with no output at all. Induce the empty-result case; it is the one
+   nobody tries.
+
+```bash
+# the induction that catches it — source under set -e with a clean census
+bash -c 'set -euo pipefail; . scripts/council-scope.sh; council_scope_drift_warn "$(pwd)"; echo "SURVIVED"'
+# and the guard still fires when a suffix is unclassified
+touch /tmp/x/docs/agent_docs/sql_for_agents/503_thing_STAGED.sql   # in a scratch tree
+bash -c 'set -euo pipefail; . scripts/council-scope.sh; council_scope_drift_warn /tmp/x'
+```

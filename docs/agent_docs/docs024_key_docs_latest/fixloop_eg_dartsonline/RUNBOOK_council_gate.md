@@ -39,8 +39,11 @@ digest gate-verdicts section the handoff names as the channel to extend).
    > roll back. Measured: **152 of 227 (67%)** migration-shipping commits over a
    > fortnight were config-only and so refused by construction; and the config-only
    > rounds were empirically where this council found its most severe defects
-   > (`314` §9). Prose, site content and the hand-run `_ROLLBACK`/`_VERIFY`/`_HOLD`
-   > sidecars remain refused. The definition is single-sourced in
+   > (`314` §9). Prose, site content and the SQL that is NOT the change (`_ROLLBACK`,
+   > `_VERIFY`, `_SUPERSEDED`) remain refused — but **`_HOLD.sql` is IN scope**: it is the
+   > change, held back from the runner for ORDERING and applied by hand, so excluding it
+   > exempted the very risk this fixes. That was a real defect in the first cut, caught by
+   > the council's editquality seat (corr `85fac99c`) and corrected 2026-08-20. The definition is single-sourced in
    > `scripts/council-scope.sh` (shared with the commit-msg nudge and the 098 report);
    > `DRY_RUN=1` on 097 tests admission without spending anything.
 2. **Mode at launch:** advisory first (steps 1–3). PR-mode stays a later,

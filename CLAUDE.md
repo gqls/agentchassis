@@ -89,8 +89,10 @@ committing it. Advisory: it records a verdict, it cannot block you. Scope is
 (`docs/agent_docs/sql_for_agents/NNN_name.sql`) — widened 2026-08-19, `bugs_open/314`:
 a migration IS the running system, live the moment it applies, with no image tag to
 roll back, and 67% of migration-shipping commits could previously only be reviewed
-with `FORCE=1`.** Prose, site content and the hand-run `_ROLLBACK`/`_VERIFY`/`_HOLD`
-sidecars are still refused client-side and never spend credits. **The scope is
+with `FORCE=1`.** Prose, site content and the SQL that is **not the change** (`_ROLLBACK`, `_VERIFY`,
+`_SUPERSEDED`) are still refused client-side and never spend credits. **`_HOLD.sql` IS in
+scope** — it is the change, held back from the runner for ordering and applied by hand
+(excluding it was a real defect in the first cut, caught by the council). **The scope is
 single-sourced in `scripts/council-scope.sh`** — 097, the commit-msg nudge and the
 098 report all read it, so do not re-hardcode it; `DRY_RUN=1 097_TRIGGER…` tests
 admission for free. Full runbook + submission schema:
