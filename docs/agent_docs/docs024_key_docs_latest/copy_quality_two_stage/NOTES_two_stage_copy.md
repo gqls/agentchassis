@@ -2161,3 +2161,61 @@ counts verbatim appearances in `page-content-writer` prompts and responses.
   only that there is **no literal chain** — which is the same class of claim as the tagline's, and
   silent on whether FORM transfers. That question is open in `305` and this measurement cannot close
   it. **Whatever the number, it does not license "the restoration is safe".**
+
+### The exemplar-transfer measurement came back, and it says LOW-BUT-REAL, with a sampling caveat I have to own
+
+`[MEASURED 2026-08-20]` 60 distinct `example_phrases` strings (45–160 chars) from the 21 sites whose
+exemplars DO reach the writer, checked verbatim against every successful `page-content-writer` call:
+
+| | |
+|---|---|
+| phrases tested | 60 |
+| reached at least one rendered prompt | **52** |
+| appeared verbatim in at least one output | **3** |
+| total output appearances | **18** |
+
+**And none of the three carries the construction.** They are hooky opening lines — *"Because pure
+randomness feels unfair, modern game designers cheat."* (10 outputs), *"Did you know that paying for
+your car insurance monthly is technically a loan?"* (7), and one about overpaying a loan (1).
+
+**The contrast that matters for the council argument:** ONE mandated tagline produced **409**
+responses. All sixty exemplars together produced **18**. Two different orders of magnitude, which is
+the difference between *"the brief hands over a phrase and orders it onto every hero"* and *"the
+brief shows the writer some examples"*.
+
+⚠ **Two limits, and the first is a flaw in my own sampling.** The 60 were taken with
+`ORDER BY 1 LIMIT 60` over 194 — that is the **alphabetically first 60**, not a random sample. So
+5.8% (3 of 52) is indicative, not a rate to quote. Doing it properly means sampling randomly or
+testing all 194.
+
+⚠ **And per the pre-registration above, this does NOT license "the restoration is safe."** Exemplars
+are style models; a writer influenced by one would not copy it word for word. What is now measured is
+that there is **no strong literal chain** from exemplars — the same class of claim as the tagline's,
+and silent on whether FORM transfers. That question is open in `bugs_open/305` and this does not close
+it. It does mean my answer to the compliance seat rests on a measurement rather than an absence of
+one, which is what I owed the round.
+
+### The tool found something else: the writer's LEAD field is absent on 19 of 25 sites
+
+Running `--fleet` again to check which writer-visible fields are missing entirely, rather than
+merely dropped:
+
+| field | sites where it is ABSENT |
+|---|---|
+| `identity.key_differentiators` | **19 of 25** |
+| `evidence_base.writer_block` | 8 of 25 |
+| `content_direction.formatted` | 1 (`gaswholesalers.com`, a stub) |
+
+**Verified independently in SQL rather than trusting my own tool** — `count(*) FILTER (WHERE data ?
+'key_differentiators')` over current `identity` specs returns **6 present, 19 missing**. Only
+`ai-agent-orchestration.com`, `finetuning.uk` (949 chars, the fleet's largest), `lendzy.co.uk`,
+`leopardessconsulting.co.uk`, `loanandmortgagecalculator.co.uk` and `loancash.co.uk` use it at all.
+
+**This sharpens this lane's own landmine** ("where register lands, in measured order of force:
+`identity.key_differentiators` (the lead)"). That is where register *should* go, and it is a channel
+**19 of 25 sites are not using** — so the advice is sound and mostly unexercised, which is a
+different thing from wrong. Anyone quoting "the lead carrier" should say so.
+
+**And it clears a loop:** we told `finetuning_uk_service` to put their register in that field.
+Checked — **finetuning.uk has it, at 949 chars, the largest in the fleet.** The advice was right for
+their site. Worth confirming rather than assuming, since it would have been inert on 19 of 25.
