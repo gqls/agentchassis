@@ -38677,3 +38677,43 @@ declaring a passenger, quote its self-attribution rather than naming a session. 
 **The pattern worth the tally:** three asserted-not-checked calls in one session, each one caught by
 someone else, each conclusion coincidentally sound. Coincidentally-sound is the failure mode with no
 feedback signal — nothing downstream ever looks wrong, so the habit survives every correction.
+
+---
+
+## 2026-08-20 — `bugs_open/315` lane: I held a two-file set together to protect HEAD, and that choice is what let HEAD break.
+
+**The claim, written into my own NOTES and my report to the owner:** that holding
+`deploy_evidence.go` (a new function) and `v3_site_actions.go` (its only caller) as one atomic
+commit was the safe course, because *"splitting them is worse than waiting — committing the builder
+alone would leave HEAD with an unused helper beside a live inline copy, and the test would then
+exercise the helper while production used the duplicate."*
+
+**Every word of that is true and the conclusion is still wrong.** What I described is a **quality**
+wart: a duplicated construction and a test pointed at the wrong copy, for as long as the wait lasted.
+What I traded it for is a **breakage** risk — and on a tree where a dozen sessions run `git add -A`,
+that risk is not hypothetical. It fired: commit `80b9c6235`, an unrelated change from the
+`bugs_open/260` lane about the component render seam, took `v3_site_actions.go` from the working tree
+and my call site rode along as a **same-file passenger**. Its definition was still uncommitted, so
+HEAD stopped compiling — `undefined: buildPageDeployStampQuery` — and `make build-*` builds from
+HEAD, so builds were broken for every session.
+
+**Measured: HEAD was broken for 1.8 minutes** (09:17:27 → 09:19:17), and no build started inside that
+window, so nothing was actually lost. It was short only because I had a watcher on those files for an
+unrelated reason and it fired immediately. **That is luck wearing the costume of process.**
+
+**The check that would have prevented it, and it is a rule not a reminder:** when an extraction
+spans a definition and its caller, **commit the DEFINITION FIRST, on its own.** The asymmetry is
+absolute and it is a property of the compiler, not of anyone's discipline:
+
+- a function with **no caller** compiles — Go permits unused functions;
+- a caller with **no definition** does not compile, and takes the whole repo with it.
+
+So the two orderings are not symmetric halves of one atomic set. One of them is inert if it is left
+half-done for an hour; the other is a fleet-wide build outage. **Atomicity is not available on a
+shared working tree — only ordering is.** Choose the order whose half-done state is harmless.
+
+**The generalisable half.** I framed this as "atomic or not atomic" and then optimised inside the
+wrong frame. The real question was *"which half of this can survive being stranded?"* — and I never
+asked it, because I had already decided the set was indivisible. **When you catch yourself defending
+a hold, price the half-done state of each ordering rather than the tidiness of the whole.** A
+temporary duplicate is a code smell someone tuts at; a temporary undefined symbol stops the estate.

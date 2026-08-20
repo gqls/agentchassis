@@ -1184,3 +1184,45 @@ session — so when you next see it, read this entry before re-arming.
 than their own work: `9cb5d4e5`, `e291e4ea`, `5887736c`, `126c586a`, `a0015980`, `35972e9b`
 (`a0015980` is webdesign.co.uk's `index` page; `5887736c` is a tool page of mine). I am flipping the
 two of mine back; the others are listed here so nobody has to rediscover them.
+
+## 2026-08-20 09:17–09:19Z — the held commit was taken from me, HEAD broke, and it is fixed
+
+The peer symbols I was waiting on (`mistyped_llm_fields_gate.go`,
+`datahelpers/content_type_violations.go`) landed in HEAD. But by then my hold had already been
+defeated:
+
+**`80b9c6235`** — the `bugs_open/260` lane, an unrelated commit about the component render seam —
+took `v3_site_actions.go` from the working tree, and **my `buildPageDeployStampQuery` call site rode
+along as a same-file passenger** while its definition was still uncommitted.
+
+`[MEASURED]` a clean `git archive HEAD` build then failed:
+`v3_site_actions.go:1062:17: undefined: buildPageDeployStampQuery`. **HEAD did not compile, and
+`make build-*` builds from committed HEAD**, so builds were broken fleet-wide.
+
+Fixed by `460ff6b3d`, landing the definition. **HEAD was broken for 1.8 minutes** (09:17:27 →
+09:19:17) and no build started inside it — the chassis pods are still the 22:26Z ones. Verified after:
+clean-archive build clean, `DeployEvidence|CollectUnique|StampStatement` green.
+
+### This is my misjudgement, not the 260 lane's
+
+CLAUDE.md predicts this exactly — *"committing per task stops **you** sweeping up others' WIP; it
+cannot stop a session that still runs `git add -A` from sweeping up **yours**"* — and no hook can see
+a same-file passenger. So the fault is not in their commit; it is in my having left a caller
+uncommitted where a broad commit could find it.
+
+**And I had a better option, which I reasoned my way past.** I wrote that splitting the set was
+"worse than waiting" because it would leave a duplicated construction and a test pointed at the wrong
+copy. True — and a *quality* wart, traded for a *breakage* risk. The asymmetry I missed is the
+compiler's, not anyone's discipline:
+
+- a function with **no caller** compiles;
+- a caller with **no definition** does not, and takes the repo with it.
+
+**So the definition should have gone first, alone.** Atomicity is not available on a shared working
+tree; only ordering is. Logged to `WRONG_CALLS.md` with that as the rule.
+
+### Current state of the code half
+
+Everything is now in HEAD and consistent: the corrected resolver (`f0dd97c71`), the extracted
+builder + its real test (`460ff6b3d`), and the call site (via `80b9c6235`). Nothing of mine is dirty.
+`494` is armed. What remains is runtime evidence, which needs a deploy.
