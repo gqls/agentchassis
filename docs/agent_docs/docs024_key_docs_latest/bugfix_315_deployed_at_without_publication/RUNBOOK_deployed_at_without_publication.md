@@ -155,7 +155,18 @@ Held visibly, not hidden. Put the by-hand apply commands in the file's own heade
 runs them will not be you.
 
 ⚠ **A `_HOLD` file is a sidecar, so the runner will never apply it even when you want it to.** Pipe
-it to psql by hand, then `--record-only <file> --note "<why>"`.
+it to psql by hand:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/NNN_..._HOLD.sql
+```
+
+⚠ **And do NOT then reach for `--record-only`** — the runner refuses it: *"is an UPPERCASE-suffixed
+sidecar … recording one is meaningless"*. Measured 2026-08-19, after this runbook told me to do
+exactly that. It is harmless: a sidecar never appears in Pending, so the runner cannot double-apply
+it, and the file's own already-applied guard catches a human re-run. **Record the apply in the lane's
+NOTES instead** — that is the only place it will be found.
 
 ## Snapshotting an agent before a config change
 

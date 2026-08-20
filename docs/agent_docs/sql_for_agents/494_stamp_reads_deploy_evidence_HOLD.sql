@@ -57,9 +57,13 @@
 --        kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db < docs/agent_docs/sql_for_agents/494_stamp_reads_deploy_evidence_HOLD.sql
 --      (a _HOLD file is a sidecar, so the runner will not apply it; pipe it.)
---      Then record it: ./scripts/migration/run-migrations.sh --record-only \
---          docs/agent_docs/sql_for_agents/494_stamp_reads_deploy_evidence_HOLD.sql \
---          --note "held for the chassis roll; applied by hand after verifying the image"
+--      ⚠ DO NOT bother with --record-only: the runner REFUSES a sidecar
+--      ("'..._HOLD.sql' is an UPPERCASE-suffixed sidecar ... recording one is
+--      meaningless"). Measured 2026-08-19 — an earlier version of this header
+--      told you to do it and it does not work. That is harmless: a sidecar
+--      never appears in Pending, so the runner cannot double-apply it, and the
+--      already-applied guard above (RAISE '494: already applied') catches a
+--      human re-run. Record the apply in the lane's NOTES instead.
 --
 -- WHAT TURNING IT ON DOES. For these three steps the action will, before
 -- stamping: refuse the stamp when the deploy step reported it skipped, and on
