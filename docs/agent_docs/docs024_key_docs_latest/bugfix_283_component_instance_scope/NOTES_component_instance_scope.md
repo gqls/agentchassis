@@ -629,3 +629,64 @@ items. **First live owned-page delivery observed**: `section_edit_tplfix_f99de4c
 (tool-fuel-cost-estimator) — 486's create_section_edit_delivery firing in production; its
 completion + the page's redeploy is the runtime proof of the empty-field_updates link the
 canary was to establish. Watch it to completion before citing the link as verified.
+
+## 2026-08-20 (session 7, cont.) — batch DRAINED and verified at the artefact; the [UNVERIFIED] owned-delivery link is now VERIFIED; oracle baseline PASS 170; judged canary SEEDED
+
+**Drain tally (final):** 67 = 28 fixed + 35 no-ops + 4 needs_human_review. Matches design
+(~27/~37/5) with two explained deltas: corpus is 67 rows today not 69 (drift; the seed derives,
+so nothing was missed — verified by the not-seeded query returning zero rows), and only 4
+parked because **the judged pipeline SUCCEEDED on one judged row**
+(automation-savings 16a0bf97, fix_type=scope_component_instance_judged, gate accepted,
+snapshot v3) — the judged branch's first production success. The 4 refusals are all
+"refused by the judged gate" with the failing checks named (composition hazards; loot-table's
+dynamic unprefixable ids) — the designed refusal-not-silent path, exercised in production.
+
+**Done-check:** `instanceaudit --bindings` over a fresh 67-row export: all 67 script bodies
+scoped, 0 duplicate ids if doubled, dangling rows = EXACTLY the 4 parked (0 mechanically
+repairable) — exit 3 naming them. ⚠ first export TRUNCATED mid-stream (kubectl exec EOF error,
+1,052,667 B, JSON unterminated) — parse-validate any exec'd export before trusting it; the
+retry parsed clean.
+
+**Artefact verification (not just statuses):** all 7 owned-page section_edit deliveries
+checked at stored rendered_html — every id c-prefixed, every literal getElementById lookup
+resolves to a declared id, zero bare. One fetched LIVE
+(gaswholesalers.com/tools/tool-fuel-cost-estimator.html, deployed_at 21:22): 14 prefixed ids,
+0 bare lookups. **That closes §5.2's [UNVERIFIED] link at the artefact — an empty-field_updates
+section_edit re-rendered and deployed an owned page end-to-end** (on gaswholesalers, before the
+LMC canary even ran). Fleet-wide: 51 placements serve converted bytes, 0 with bare literal
+lookups. [SCOPE OF THAT CHECK: literal lookups only — composition-class breakage is invisible
+to it, which is exactly the class of the parked rows.]
+
+**Residuals, named:**
+- **3 automation-savings placements live-broken** (ai-agent-orchestration.com, finetuning.uk,
+  fundamentallyai.com; rows 795c34e6 + c243e0e0) — composition-class, judged gate refused the
+  LLM rewrite twice, parked for a human. Contained alternative stays as named in 324: snapshot
+  rollback + rerender — **owner call**. fuel-budget + loot-table placements serve
+  pre-conversion (WORKING) bytes — no visitor harm.
+- **1 page_rerender FAILED (contained):** tool-model-approach-selector on fundamentallyai.com —
+  save_page_sections' prune-floor guard refused 3× (plan re-confirmed 1 of 3 stored sections;
+  NOTHING deleted). Page serves pre-conversion working bytes; its template is repaired in
+  store. The refusal is another lane's protection working; the FAILED orchestrations are on
+  record for the immune sweep. Not a 283 defect.
+- **Estate drift:** 18 new class-A (already-scoped) tool rows arrived unconverted since the
+  census, and the judged pool's "2 generic tools" is now 3 rows (archetype-clash ×2 +
+  bayesian-ranking). Follow-on, not this session's scope.
+
+**LMC CONTRIB reply read** (their dir + copy in ours): NO VETO; canary sized (3 components,
+9/170 checks on the page); they hold their planner phase 4 until our canary lands — tell them
+via these NOTES. **Their §4 gap resolved by measurement:** tool-overpayment-priority is
+ALREADY CONVERTED — it was in the MECHANICAL pool (ids-only; clean in today's --bindings
+audit), so no LLM touches its arithmetic and it is NOT in the remaining judged set. The oracle
+gap on it is their follow-on (c), not a blocker of ours. Their sequencing ask accepted:
+no build-site-planner runs from us; any such run is not them.
+
+**Owed steps before canary: DONE.** Oracle baseline on the repaired estate:
+**PASS 170 / FAIL 0 / CONVENTION 6 / N/A 0** (2026-08-20). Instrument control in the same
+session: `--mutate expectation --tools standard-calc` → 12 FAIL / 0 PASS, CONTROL OK.
+b2_verify rebaseline is owed AFTER conversion (baseline must be of the converted estate);
+its pin must be IMPORTED, not restated (LMC trap, poisoned-ref history).
+
+**Canary seeded** (item_key instance-scope:b420389f, created_by 283-judged-canary, prio 30)
+under a monitor watching item + section_edit delivery. Next after chain completes: verify
+served page (prefixed ids, 0 unrendered tokens, binding check), move oracle selectors
+#id → #c-loans-standard-calc-<id>, PASS 170 restored + mutate control, one commit.
