@@ -911,10 +911,17 @@ the answer was a true negative. The retraction then reported `editorial_inbound:
    theorising about the edge** — `git ls-tree origin/master dartsonline.com/` showed
    `privacy.html` present and `shipping-returns.html` gone, which dated the whole chain in one
    command. A plausible cause for a NULL is when to doubt the instrument, not the system.
-2. **I told the owner Adtraction's login was down after probing a hostname I invented.**
-   `login.adtraction.com` has **no DNS record**; the real login is `adtraction.com/login` and
-   it returns 200. Same shape as the `.co.uk` misstep logged on 08-18 — a `000` from a guessed
-   host reads exactly like an outage. `getent hosts` first, every time.
+2. **I nearly corroborated the owner's "Adtraction is down" from a hostname I invented.**
+   He reported it unreachable; I probed `login.adtraction.com`, got `000`, and had a tidy
+   confirmation — of nothing. That host has **no DNS record at all**. The real login is
+   `adtraction.com/login` and it returns 200, as do the main site and the Darts Corner
+   programme page. Same shape as the `.co.uk` misstep logged on 08-18: a `000` from a guessed
+   host reads exactly like an outage, and it is worse when it agrees with what you were told.
+   `getent hosts` first, every time.
+   > **CORRECTED, same session:** this entry first read *"I told the owner Adtraction's login
+   > was down"*. I did not — he told me, and I checked. Overstating my own error is still
+   > getting the record wrong, and a missteps log is the last place to be loose about who
+   > said what.
 3. **My own explanatory note nearly re-blocked the page.** The first run of
    `update_privacy_evidence_base.py` aborted on its own `banned_absent` guard because the
    `revision_note` I had just written quoted the removed sentence verbatim — the aspect is
