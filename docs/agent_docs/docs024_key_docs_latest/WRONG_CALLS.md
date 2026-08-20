@@ -39341,3 +39341,37 @@ in its own right.
 **Cost:** one wrong section committed to a bug file (`cf6d48861`) and one wrong instruction live in
 a one-shot annotation for about ninety minutes (`498` 08:40Z → `499` 10:10Z). Corrected in place in
 both, visibly, with the retraction above the claim rather than below it.
+
+## 2026-08-20 — TWICE in one session I was wrong about something a written check already covered: one entry was in `LANDMINES.md` before I started, and the other I wrote MYSELF four hours earlier
+
+Two separate mistakes, same shape, worth one row because the shape is the lesson: **having the
+check written down is not using it.**
+
+**(1) Spent a full generation + page build on an ARCHIVED page.** Repairing loanzy's tool pages, I
+pre-flighted `pages.build_status` and never read `pages.status`.
+`tool-loan-repayment-calculator` re-drove, diverted, rebuilt, reported **complete on attempt 0**
+with four slots rendered — and still 404s, because it is `status='archived'`; the archived-page
+guard refused the deploy stamp at the last step (`ARCHIVED_PAGE_DEPLOY_REFUSED` ×2). **The check
+was already in `LANDMINES.md`**, with the exact predicate: *"Archiving sets `status` and leaves
+`build_status` untouched … pair them — `AND p.build_status='deployed' AND p.status='active'`"*.
+Why I did not see it: the SessionStart hook only surfaces landmines whose footprint matches a file
+already **dirty in the tree**, and this one's footprint is a **table**. That is exactly the case
+the memory index flags ("grep LANDMINES for the SYMBOL you are about to trust"). **Cheap check
+skipped:** `grep -n "pages.status" LANDMINES.md` before touching page repair — seconds, and it
+would have saved a build and prevented a second wrong claim (I then wrote that two other 404 pages
+"never planned a section", when they carry 5 and 4 planned sections and are simply archived; a 404
+plus zero slots cannot tell those apart).
+
+**(2) Predicted a retry would clear a guard refusal, against a diagnostic I had added to
+`016b` §9 that same morning.** A `save_sections` floor refusal (`hero-tool 12→5 class attributes,
+42% kept, floor 50%`) — I wrote in the RUNBOOK that it was "content-writer variance and may well
+pass on a second run", filed a fresh item, and it failed with **figures identical to the digit**.
+My own §9 entry, written four hours earlier from `bugs_open/337`, is titled *"N identical failures
+with IDENTICAL numbers is a deterministic refusal, not a flaky one"*. **Cheap check skipped:**
+extract the numbers from both errors and compare them — one `substring(error from '…')` — before
+spending the second build.
+
+**The transferable bit:** both errors were about a fact I could have looked up in seconds, in a
+file whose whole purpose is that lookup, and in one case I was the author. A written check only
+fires if something makes you go and read it — so the moment to grep the corpus is **when you form
+the plan**, not when the result looks wrong, because by then the spend has happened.

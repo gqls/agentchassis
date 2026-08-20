@@ -54,7 +54,17 @@ six tool pages are still hollow (RUNBOOK recipe).~~
 > including `b420389f`, which a different mechanism (`change_source =
 > 'scope_component_instance_judged'`) had rewritten at **07:02:57Z the same morning**; the
 > diversion left even that row alone. Page re-renders filed 09:06Z (`page_rerender:*`, the second
-> leg — a parked page still does not heal itself).
+> leg — a parked page still does not heal itself). **Outcome of that second leg [14:05Z]: three of
+> the five pages now SERVE real calculators** — `tool-loan-comparison-calculator` 0 → **6**
+> `<input>` (22,600 → 42,791 B), `tool-overpayment-calculator` 0 → **5**,
+> `tool-settlement-calculator` 0 → **5**, all graded against pinned befores, zero `{{`. The two
+> misses are **other mechanisms working correctly, not this fix**:
+> `tool-loan-repayment-calculator` is `pages.status='archived'` (built fine, deploy stamp refused —
+> `ARCHIVED_PAGE_DEPLOY_REFUSED`), and `tool-interest-rate-stress-test` is refused by the
+> `bugs_open/253` component floor over an **unrelated** `hero-tool` slot (12→5 class attributes),
+> deterministically — a retry produced figures identical to the digit, and the page is
+> byte-identical to its baseline after both refusals. Loanzy now serves **four** working tool
+> calculators against one yesterday.
 >
 > **What is left, and it is not this defect:** two loanzy pages
 > (`tool-credit-health-check`, `tool-eligibility-checker`) plan the same section and die UPSTREAM
