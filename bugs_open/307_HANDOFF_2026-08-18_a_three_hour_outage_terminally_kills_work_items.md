@@ -352,3 +352,33 @@ Not accepted, with reasons: `debug_historian` asked for a pre-state needle gate 
 occurred** (mine is the only write to that row: `updated_at` 14:14:08Z, no other lane's migration
 touched that agent in the window) and added the gate to the ROLLBACK sidecar instead.
 `architecture` asked for an `architecture_review` record and explicitly did not gate on it.
+
+### §8c — 2026-08-20: council APPROVED at round 2, and the three advisories dispositioned
+
+Corr `4cdec68b-fa17-436d-8e25-8c422ee6c8c5`, round 2: **approved, 3 advisory objections, none
+high-severity**, verdict read. All three answered with a change or a measurement rather than a note:
+
+- **`bug_historian` (medium) — the guard lists are stated as exhaustive, so an omission is a claim.**
+  It was one: `deferred` — the estate's canonical parking state, **344 live rows** — was in neither
+  list, while `blocked` (**0 rows**, self-unparking within 600s) was in both. Same class, opposite
+  treatment, inconsistency running the wrong way. `deferred` now in both. The seat's specific worry
+  (a `PAUSED_FOR_HUMAN` spelling) does **not** apply: no such constant in the tree, no such status
+  in the data live or archived.
+- **`reuse_agent` (medium) — is the siblings' list a named constant to import?** No: two
+  independently-written **inline literals** that happen to match
+  (`load_work_item_actions.go:1032`, `complete_work_item_verification.go:429`), no named constant
+  anywhere in the package. So `workItemCompletionGuardStatuses` is the **first** named version of
+  that vocabulary, not a fifth copy. Answered in the code where the next reader stands.
+- **`guardian` (low) — does any live step write a terminal status other than `failed`/`complete`
+  through `update_work_item_status`, and so bypass the ladder?** The seat noted SQL could not see
+  this. It can, via the nested walk: all **17 live steps across 5 agents** configure exactly three
+  statuses — `complete` (6), `needs_human_review` (6), `failed` (5). No `rejected`, `cancelled` or
+  `unresolved`. **The `failed`-only scoping is complete for the live population**, not merely for
+  the population I had enumerated.
+
+Coverage: all three 307 commits are credited REVIEWED against this correlation by `098`, no
+MISMATCH — the `Council-Submitted:` trailer resolved automatically on approval, as designed.
+
+**The bug still does not close.** Nothing has changed about that: the Go half is committed and
+inert until the next chassis roll, and §5's acceptance evidence is live — the next adapter outage
+leaving zero terminal `failed` rows attributable to it.
