@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinrose - Elevated Tastes</title>
+    <meta name="description" content="Vinrose: Exceptional wines for extraordinary venues.">
+    <style>
+        /* General Reset & Base Styles */
+        *, ::before, ::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --background: hsl(252, 252%, 99%);
+            --foreground: hsl(25, 23%, 17%);
+            --card: hsl(255, 255%, 100%);
+            --card-foreground: hsl(25, 23%, 17%);
+            --primary: hsl(25, 23%, 17%);
+            --primary-foreground: hsl(252, 252%, 99%);
+            --secondary: hsl(248, 246%, 95%);
+            --secondary-foreground: hsl(25, 23%, 17%);
+            --muted-foreground: hsl(102, 102%, 40%);
+            --gold: hsl(45, 95%, 50%);
+            --gold-light: hsl(45, 85%, 65%);
+            --cream: hsl(40, 25%, 95%);
+            --charcoal: hsl(240, 8%, 15%);
+            --wine-red: hsl(340, 75%, 35%);
+            --wine-rose: hsl(345, 40%, 80%);
+            --wine-white: hsl(50, 20%, 95%);
+            --border-white-20: rgba(255, 255, 255, 0.2);
+            --border-wine-rose-20: hsl(345, 40%, 80%, 0.2);
+            --border-wine-red-20: hsl(340, 75%, 35%, 0.2);
+            --border-wine-white-20: hsl(50, 20%, 95%, 0.2);
+            --bg-black-40: rgba(0, 0, 0, 0.4);
+            --bg-wine-rose-30: hsl(345, 40%, 80%, 0.3);
+            --bg-wine-red-30: hsl(340, 75%, 35%, 0.3);
+            --bg-wine-white-50: hsl(50, 20%, 95%, 0.5);
+            --radius: 0.5rem;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            color: hsl(var(--foreground));
+            background-color: hsl(var(--background));
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Playfair Display', 'Georgia', serif;
+            font-weight: 700;
+            line-height: 1;
+            color: hsl(var(--charcoal));
+        }
+
+        p {
+            line-height: 1.625;
+            color: hsl(var(--muted-foreground));
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .container {
+            max-width: 1152px; /* max-w-6xl equivalent */
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 1.5rem; /* px-6 equivalent */
+            padding-right: 1.5rem; /* px-6 equivalent */
+        }
+
+        /* Hero Section */
+        .hero-section {
+            position: relative;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #fff;
+            text-align: center;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--bg-black-40); /* bg-black/40 */
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            max-width: 56rem; /* max-w-4xl */
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 1.5rem; /* px-6 */
+            padding-right: 1.5rem; /* px-6 */
+        }
+
+        .hero-title {
+            font-size: 3.75rem; /* text-6xl */
+            font-weight: 700;
+            margin-bottom: 1.5rem; /* mb-6 */
+            letter-spacing: 0.05em; /* tracking-wider */
+        }
+        .hero-title .wine-rose-color {
+            color: var(--wine-rose);
+        }
+
+        .hero-subtitle-1 {
+            font-size: 1.25rem; /* text-xl */
+            margin-bottom: 2rem; /* mb-8 */
+            font-weight: 300; /* font-light */
+            letter-spacing: 0.025em; /* tracking-wide */
+            opacity: 0.9;
+        }
+
+        .hero-subtitle-2 {
+            font-size: 1.125rem; /* text-lg */
+            opacity: 0.8;
+            max-width: 42rem; /* max-w-2xl */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Collection Section (removed as per previous request) */
+
+        /* Exclusivity Section */
+        .exclusivity-section {
+            padding-top: 6rem; /* py-24 */
+            padding-bottom: 6rem; /* py-24 */
+            background-color: hsl(var(--secondary), 0.5); /* bg-secondary/50 */
+            text-align: center;
+        }
+
+        .exclusivity-title {
+            font-size: 2.25rem; /* text-4xl */
+            margin-bottom: 2rem; /* mb-8 */
+        }
+
+        /* Contact Section */
+        .contact-section {
+            padding-top: 6rem; /* py-24 */
+            padding-bottom: 6rem; /* py-24 */
+            background-color: hsl(var(--charcoal)); /* bg-charcoal */
+            color: #fff;
+            text-align: center;
+            background-size: cover; /* Added for image background */
+            background-position: center; /* Added for image background */
+            position: relative; /* Added for overlay */
+        }
+
+        /* Overlay for contact section when it has a background image */
+        .contact-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6); /* Darker overlay to make text pop */
+            z-index: 1;
+        }
+
+        .contact-section > .container {
+            position: relative; /* Ensure content is above overlay */
+            z-index: 2; /* Ensure content is above overlay */
+        }
+
+        .contact-title {
+            font-size: 2.25rem; /* text-4xl */
+            margin-bottom: 2rem; /* mb-8 */
+            color: #fff; /* Ensure white text on dark background */
+        }
+        .contact-title .gold-text {
+            color: hsl(var(--gold));
+        }
+
+        .contact-description {
+            font-size: 1.25rem; /* text-xl */
+            margin-bottom: 3rem; /* mb-12 */
+            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.9); /* Lighter white for description */
+        }
+
+        .contact-buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* gap-6 */
+        }
+
+        .contact-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            height: 2.75rem; /* h-11 */
+            border-radius: var(--radius); /* rounded-md */
+            padding-left: 2rem; /* px-8 */
+            padding-right: 2rem; /* px-8 */
+            padding-top: 1.5rem; /* py-6 */
+            padding-bottom: 1.5rem; /* py-6 */
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600;
+            letter-spacing: 0.05em; /* tracking-wide */
+            transition: background-color 0.15s ease-in-out;
+            color: hsl(var(--charcoal));
+            background-color: hsl(var(--gold));
+        }
+
+        .contact-button:hover {
+            background-color: hsl(var(--gold-light));
+        }
+
+        .contact-info-block {
+            padding-top: 2rem; /* pt-8 */
+            border-top: 1px solid var(--border-white-20); /* border-t border-white/20 */
+        }
+
+        .contact-label {
+            font-size: 1.125rem; /* text-lg */
+            opacity: 0.75;
+            margin-bottom: 0.5rem; /* mb-2 */
+            color: rgba(255, 255, 255, 0.75); /* Lighter white for label */
+        }
+
+        .contact-email {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600;
+            color: hsl(var(--gold));
+            transition: color 0.15s ease-in-out;
+        }
+
+        .contact-email:hover {
+            color: hsl(var(--gold-light));
+        }
+
+        /* Footer */
+        .footer-section {
+            padding-top: 3rem; /* py-12 */
+            padding-bottom: 3rem; /* py-12 */
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            text-align: center;
+        }
+
+        .footer-title {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: 700;
+            margin-bottom: 1rem; /* mb-4 */
+        }
+        .footer-title .wine-rose-color {
+            color: var(--wine-rose);
+        }
+
+        .footer-description {
+            font-size: 1.125rem; /* text-lg */
+            opacity: 0.75;
+        }
+
+        /* Responsive Design */
+        @media (min-width: 768px) {
+            .hero-title {
+                font-size: 6rem; /* md:text-8xl */
+            }
+            .hero-subtitle-1 {
+                font-size: 1.5rem; /* md:text-2xl */
+            }
+            .section-title {
+                font-size: 3.75rem; /* md:text-6xl */
+            }
+            .wine-cards-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr)); /* md:grid-cols-3 */
+            }
+            .exclusivity-title {
+                font-size: 3rem; /* md:text-5xl */
+            }
+            .contact-title {
+                font-size: 3rem; /* md:text-5xl */
+            }
+            .contact-buttons-container {
+                flex-direction: row; /* md:flex-row */
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="root">
+    <section class="hero-section" style="background-image: url('hero-wine-dining.jpg');">
+        <div class="overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">VIN<span class="wine-rose-color">ROSE</span></h1>
+            <p class="hero-subtitle-1">Exceptional wines for extraordinary venues</p>
+            <p class="hero-subtitle-2">Curating the finest selection of premium wines for discerning establishments</p>
+        </div>
+    </section>
+
+    <section class="exclusivity-section">
+        <div class="container">
+            <h2 class="section-title exclusivity-title">Exclusively for Premium Establishments</h2>
+            <p>Vinrose partners exclusively with the world's finest restaurants, hotels, and venues. </p>
+            <p>Our wines are carefully selected to complement the exceptional standards of luxury hospitality.</p>
+        </div>
+    </section>
+
+    <section class="contact-section" style="background-image: url('wine-dining-bg.jpg');">
+        <div class="container">
+            <h2 class="contact-title">Begin Your <span class="gold-text">Partnership</span></h2>
+            <p class="contact-description">Ready to elevate your establishment with Vinrose? </p>
+            <div class="contact-info-block">
+                <p class="contact-label">For partnership inquiries:</p>
+                <a href="mailto:vinrose-enquiries@contactforsales.com" class="contact-email">vinrose-enquiries@contactforsales.com</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer-section">
+        <div class="container">
+            <h3 class="footer-title">VIN<span class="wine-rose-color">ROSE</span></h3>
+            <p class="footer-description">Exceptional wines for extraordinary venues</p>
+        </div>
+    </footer>
+</div>
+</body>
+</html>
