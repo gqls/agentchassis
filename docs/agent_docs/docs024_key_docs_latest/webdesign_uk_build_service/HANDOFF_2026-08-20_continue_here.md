@@ -101,7 +101,28 @@ it to your own registrar; we give you what you need to do that."*
 
 ## 2. THEN: Phase 4 — handover state (the next build), and the one ruling still owed
 
-**Not started: `sites.handed_over_at` does not exist** (re-checked 2026-08-20).
+> **UPDATE 2026-08-20, later the same day: the STATE half is BUILT and LIVE.** Register
+> entry **DGH-014**, migration **511** applied and recorded, `platform/delivery` in the
+> build, council submitted (`905d9078-86c2-47a7-af0a-781723a46c08`). Schema:
+> `sites.handed_over_at`, `sites.live_link_expires_at`, `sites.transfer_confirmed_at`,
+> and `customer_access_tokens` — ONE hashed/expiring token table for every
+> customer-facing link, `purpose` a CLOSED CHECK (`zip_download`, `confirm_transfer`;
+> Phase 5's `editor_session` next, and it costs a migration on purpose).
+>
+> **What remains, in order:** the HTTP surface (`/d/<token>` mints a clamped presign and
+> redirects; `/c/<token>` records the confirmation), then the delivery email through
+> `platform/mailer`, then the weekly chase, then the retraction job that gives
+> `live_link_expires_at` teeth. **Nothing mints or redeems a token in production yet and
+> the helper has no live caller** — treat its deployment contract as unverified until
+> something real calls it.
+>
+> **Migration practice, learned here:** `--apply` takes EVERY pending file and the pending
+> list is other lanes' work, several of whose probes come back "inconclusive, the live
+> config has drifted". Apply yours BY HAND, then register it with `--record-only <file>
+> --note "<why>"`. 511 was done that way.
+>
+> Full account, including the two mutations that proved the harness: this lane's sibling,
+> `../site_delivery_and_editor/NOTES_site_delivery_and_editor.md`, 2026-08-20 entry.
 
 Source of truth: `PLAN_2026-08-14` §Phase 4 mechanics + `PLAN_2026-08-17` decision 3.
 Owner confirmed 2026-08-19 evening that this is what to pick up next, and that the
@@ -227,12 +248,14 @@ edge exception; second Nominet TAG (domain programme only).
 | Phase 3 ZIP deliverable | **LIVE** | register DGH-011, canary 8/8 byte-verified |
 | Chassis | **`v1.0.1320`** | pod image, 2026-08-20T16:09Z (was 1317, was 1314). The `build provenance` line is out of range in `--tail=600`, which means **"not in range", not "unstamped"**. It rolls several times a day |
 | Presign ceiling is 7 days | **MEASURED** 08-20 | 604800 → 404 `NoSuchKey`; 604801 and 6 weeks → 403 `SignatureDoesNotMatch`. See §2 |
+| Phase 4 handover STATE | **schema LIVE** 08-20, helper UNCALLED | migration 511 recorded; 10 SQL semantics checks against real Postgres in a rolled-back transaction, harness mutation-proved twice; `go build`/`go test` green from a clean `git archive HEAD` |
 
 ---
 
 ## 5. STILL OPEN
 
-1. **Phase 4** (§2) and the ZIP presign ruling.
+1. **Phase 4's REMAINING half** (§2): the HTTP surface, the delivery email, the weekly
+   chase, and the retraction job. The state half is built (DGH-014, migration 511).
 2. **The prompt-maker pointer is now DUE.** The chat conduct deliberately does not name
    the Website Brief Starter tool, because that tool's guide page was still selling the
    retired model. **It no longer is** — the guide landed 2026-08-19. Read the live
@@ -312,6 +335,10 @@ edge exception; second Nominet TAG (domain programme only).
 - The register's ban count (**34**) and fact count (**22**) — two lanes write this row.
 - Whether Stripe keys / the webhook exception / the second Nominet TAG have landed.
 - The chassis tag (**v1.0.1320**); it rolls several times a day.
+- **The council verdict on `905d9078-86c2-47a7-af0a-781723a46c08`** (DGH-014). Budget ~30
+  minutes and find it by payload, not by the printed id:
+  `SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '905d9078-86c2-47a7-af0a-781723a46c08';`
+  A missing row is latency, not a dropped dispatch — do not resubmit on that evidence.
 - The landmine verifier's verdicts on the two entries filed by this lane — the `(?i)`
   compile trap (`cf717466`) and the 7-day presign ceiling (`5c958a5f`):
   `SELECT subject_key, left(body,200), created_at FROM doc_notes WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;`
