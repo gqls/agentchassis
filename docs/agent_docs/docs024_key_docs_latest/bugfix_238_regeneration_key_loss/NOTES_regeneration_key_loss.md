@@ -400,3 +400,44 @@ lane, dormant since 08-11; no open work item or diagnosis run on the target).
 session — building the router, shipping the carry fixes — were both stopped by measuring the
 population first, and the thing that produced the most value (proving 268 works) came from taking a
 diagnosis loop's "what would settle it" literally and running it.
+
+### 2026-08-20 addendum — the arming is WIRED-VERIFIED without touching a live site, and the demand control is NOT fired (owner call)
+
+**The wiring question is the one that has bitten this exact file before.** Council round 1 on
+migration `473` objected that `rerender_page_sections_action.go` might read
+`params.ExecutionContext.Config` while the migration wrote to the STEP-level config — *"if step
+config and ExecutionContext.Config are not the same map (they are two distinct maps), the flag is
+written where nothing reads it"*. That objection applies verbatim to `504`.
+
+**Settled by reading, and by a working sibling at the identical path:**
+`recordDeadURLControls(params.StepConfig.Config)` (`:709`) reads the **same map** as
+`shouldStripLiteralMarkdown(params.StepConfig.Config, reason)` (`:287`, `:613`) — and
+`strip_literal_markdown` is already `true` at
+`{workflow,steps,rerender_sections,config,strip_literal_markdown}`, visible in `504`'s own BEFORE
+output, shipped by `473`, and documented as live and working. **So the key is in the map the code
+reads, proven by a sibling flag that is already working at the same path in the same map** — not by
+argument, and without a production dispatch.
+
+**What is still unproven, stated as such:** the emit has never *fired*, because nothing has
+exercised it. Measured after arming: **0 `page_rerender` items and 0 archive rows since 14:00 UTC**
+— the fleet is simply quiet. So the standing "a sustained zero has two readings" warning is live
+right now, and the reading is "no traffic", which the archive count independently establishes.
+
+**The demand control is NOT fired, deliberately, and it needs the owner's word.** `504`'s WATCH
+section proposes one 379-shape `page_rerender` at ai-agent-orchestration.com `/index.html` — the
+page with five bare `card*_image_url` fields inside `src=`, which would force `missingBareFields`
+non-empty and make the emit fire or prove it does not. Two reasons this thread did not do it:
+
+1. **It is an outward-facing action on a live customer site**, not a read. It re-renders and
+   redeploys a real page to test our own detector.
+2. **`bugs_open/229` is the specific risk**: a rebuild silently discards hand-patched
+   `rendered_html` with no divergence warning. Nobody has established that aao's homepage carries
+   no hand patch, and the sibling lanes have hand-patched pages on other sites this month. The
+   re-render path merges `content_data` and cannot lose a KEY — that much is structural — but that
+   is not the same claim as "cannot overwrite hand-edited markup", and conflating the two is
+   exactly the shape this bug family keeps punishing.
+
+**So the honest position: the arming is verified at the config and at the code path, and unverified
+at the artefact, with the one experiment that would close it named, costed and waiting on a
+decision.** Check for it having fired naturally first — the fleet will not stay quiet for long:
+`SELECT count(*), max(created_at) FROM site_work_items WHERE item_type='dead_url_control';`
