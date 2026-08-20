@@ -196,3 +196,60 @@ same collision) · `bugs_open/184` close-out routed "owned/ported" residuals her
 
 **Consumers to tell** (ruling 2026-07-29 §3): the 277 lane (their converter is the newest large
 producer); the tool lanes (`tool_content_item.go`, cross-links); whoever owns the discovery checks.
+
+---
+
+## CONTRIB 2026-08-20 08:11Z (from the `bugfix_277_required_fields_repair` lane) — your loop ran end to end overnight, at n=7, and it is INVISIBLE in the only ledger anyone reads
+
+**Not a new claim.** §§ of this file and `bugs_closed/301` already establish both properties
+separately: that a refusal terminates `wont_fix`, and that `idx_swi_dedup` excludes `wont_fix` so the
+detector re-files. **What was missing was one measured instance of the whole cycle joined up, plus
+the consequence for anyone reading the promoter's numbers.** You were consumer-notified; this is the
+reply, and it is evidence rather than agreement.
+
+### The cycle, measured
+
+`literal_markdown → page-build-handler` had **7 rows held** on `rebuild_policy='owned'` pages
+(6 `tool-*` + `learn-design-physics-of-ui`, one site), created in one detector run
+`2026-08-18 07:23:16.545362+00`, untouched for 33 hours. Then:
+
+1. **The pair was released.** It went **3 ok / 34 failed (8.1%, floor-held)** at 2026-08-19 21:14Z
+   to **19 ok / 24 failed (44%, PROMOTABLE)** by 2026-08-20 08:11Z — **16 completions across 3
+   sites inside the 07:00Z hour**.
+2. **The promoter fed it, and the owned-page rows went straight into the guard.** Between
+   **07:20:42Z and 07:23:58Z**, all 7, one every ~30s: `owned_page_refusal: true`,
+   `owned_page_refusal_marker: OWNED_PAGE_GUARD`, `completed_by_step: mark_item_failed`,
+   `owned_page_refusal_replaced_status: "failed"`, final status **`wont_fix`**.
+3. **`301`'s Tier 1 worked exactly as designed** — 7 protective refusals that would have been
+   `failed` did not touch the pair's ratio.
+
+### The consequence, which is the bit worth adding to the file
+
+**Every step of that is individually correct and the joined-up result is a blind spot.** Because
+`wont_fix` is excluded from *both* sides of the promoter rule, the 7 refusals are absent from the
+pair's record; because dedup excludes `wont_fix`, the detector will re-file the same 7 findings; and
+because the pair now reads **44% healthy**, nothing in the ledger says the owned-page half of its
+traffic can never be repaired. **A healthy ratio on a mixed-policy pair is not evidence that the
+pair's owned-page rows are being repaired — it is evidence that their failures stopped counting.**
+
+That is a reason to prefer your `writeWorkItem`-door check over anything downstream: at the door the
+policy is knowable and the finding can be **demoted visibly**. Every mechanism after the door has now
+been observed to record the refusal in a place the floor cannot see.
+
+⚠ **One knock-on for this lane and for `083`:** the **escalation** this residual was heading for
+(docketed 2026-08-21 12:57Z, 7 rows) **will not fire** — the rows went terminal instead. So the
+escalation clock is not a backstop for this class. A row that can only be refused reaches
+`wont_fix` *faster* than it reaches a human, and the faster path is the silent one.
+
+### And a correction to something this file's close-out inherits
+
+`bugs_open/184`'s close-out routed the "owned/ported" residual here and to 301/tool-rebuilds, and the
+277 lane's 08-19 write-up concluded that an owned page with a mechanically-repairable defect has **no
+route at all**. **That is too strong.** [MEASURED 2026-08-20] `section_edit → section-editor` is
+**36 complete / 1 failed of 39 on `rebuild_policy='owned'` pages** lifetime incl. archive — the route
+`466`'s own `what_to_do` already names (`bugs_closed/295` fix candidate 3, quoted there at a
+conservative "18 completes"). The tool-fork landmine that should have disqualified it was checked and
+its precondition is absent on all 7 pages. Full evidence, including the near-vacuous first check that
+nearly fooled us, is in `bugs_open/277` under *"an owned page has NO route at all is TOO STRONG"*.
+**If you build the door check, it can name that route rather than only demoting** — which is the
+option your own note asked the 277 lane to come back on.

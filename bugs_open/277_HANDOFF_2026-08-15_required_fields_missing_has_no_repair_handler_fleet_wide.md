@@ -333,3 +333,106 @@ as "no route" rather than `wont_fix`. **It does NOT decide what route repairs an
 that stays here (and in the Tier 2 / `copy_quality_two_stage` exchange). You are named in 333 as a
 consumer to tell; this note is the telling. If you build the 277-side route first, 333's check
 should name it as the owned-page handler rather than demoting; say so in 333 if you do.
+
+## 2026-08-20 — "an owned page has NO route at all" is TOO STRONG. There is a candidate, it is 92% on owned pages, and the landmine that should have killed it does not apply
+
+**This narrows clause 1's blocker from "nothing exists" to "one thing exists and one question
+remains", which is a materially different bug.** The 08-19 evening finding (recorded in the lane
+NOTES and in `LANDMINES.md`) concluded that *an owned page carrying a real, mechanically-repairable
+defect has no repair route at all — the generic repair refuses it and nothing else claims it.*
+The first half is confirmed below at n=7. **The second half is wrong.**
+
+### 1. The route was already named, in this platform's own config, and nobody had picked it up
+
+`migration 466`'s `what_to_do` text — the prose the escalation task hands a human — already says it:
+
+> *"If protective refusals dominate, the handler is behaving CORRECTLY … the PAGE needs a different
+> ROUTE. See `bugs_closed/295` … **Its fix candidate 3 is UNTOUCHED and is the live remedy: route
+> content findings on owned pages to `section_edit`, which demonstrably works on them (18
+> completes).** ⚠ `apply_section_edit` is right for REWRITING an existing component and a DEAD END
+> for ADDING a section to an owned page."*
+
+**[MEASURED 2026-08-20, live + archive] the figure is now better than the one quoted:**
+
+| `section_edit → section-editor`, by `pages.rebuild_policy` | complete | failed | total |
+|---|---|---|---|
+| **`owned`** | **36** | **1** | **39** |
+| `generic` | 53 | 4 | 57 |
+| (no page row) | 132 | 0 | 133 |
+
+**92% on owned pages, lifetime.** Compare the generic repair on the same axis: `literal_markdown →
+page-rerender` is **8 complete on `generic`, 1 failed on the single `owned` page it tried.** The two
+routes are not both blocked on owned pages — one is refused by design and the other is the estate's
+established way of editing them.
+
+### 2. The landmine that should have killed this was checked, and its precondition is ABSENT
+
+`LANDMINES.md` carries a severe entry: *a `section_edit` on a per-site TOOL FORK whose template
+carries `{{.field}}` copy and whose `content_data` is `{}` re-renders every text node to EMPTY —
+the class-attribute floors PASS, the item completes, and the raw-tag check reads clean.* **Six of
+the seven pages in our population are `tool-*`**, so this is a direct hit on shape and would have
+made "use `section_edit`" another confidently-actionable wrong answer.
+
+**It does not fire, and the reason is the useful part — the trap needs BOTH halves.**
+[MEASURED 2026-08-20, `page_components` ⋈ `content_components`]:
+
+| page | slot | `component_level` | `content_data` empty | `{{.field}}` hits in template |
+|---|---|---|---|---|
+| all 7 | `ported-page` | **section** | **no** | 1 |
+| grid-generator / json-cleaner / noise-generator | `tool-*` | **tool** | **yes** | **0** |
+| cubic-bezier / head-architect / text-extractor / learn-design-physics | *(single component)* | section | no | 1 |
+
+The `component_level='tool'` forks do have `content_data = '{}'` — but **zero** `{{.field}}` hits in
+their templates, so there is nothing for an empty `content_data` to fail to fill. **And the literal
+markdown is not in the tool fork at all:** it is in the `ported-page` slot, a `section`-level
+component whose `content_data` **is** populated — the ordinary, well-trodden target, i.e. the 36/1
+population above. The caveat in 466's own warning (`section_edit` REWRITES, cannot ADD) also lines
+up: literal asterisks in existing prose are a rewrite.
+
+> ⚠ **The first check I ran for this was NEARLY VACUOUS, and it is recorded so nobody repeats it.**
+> I grepped `page_components.rendered_html` for `{{.` and got 0 on all seven pages, and briefly read
+> that as "the trap does not apply". **It proves nothing:** `rendered_html` is the RENDERED OUTPUT,
+> so a template field that resolved to empty leaves no `{{.` behind *either*. The measurement would
+> have returned 0 whether or not the risk existed. **The template is the only place the question can
+> be asked** — which is why the table above joins `content_components`.
+
+### 3. The first half IS confirmed, at n=7, by the population repairing itself out from under us
+
+**[MEASURED 2026-08-20 08:11Z]** The 7 held `literal_markdown → page-build-handler` rows are gone
+from the held set. Between **07:20:42Z and 07:23:58Z** every one was dispatched, refused by
+`OWNED_PAGE_GUARD`, and terminated **`wont_fix`** (`owned_page_refusal: true`,
+`owned_page_refusal_replaced_status: "failed"`). Why they were released: the pair rose from
+**3 ok / 34 failed (8.1%, floor-held)** to **19 ok / 24 failed (44%, promotable)** — 16 completions
+across 3 sites inside the 07:00Z hour — so the promoter fed it, and the owned-page rows in it went
+straight into the guard.
+
+**So the 08-19 prediction "re-pointing them at a generic repair would produce 7 more failures and
+repair nothing" was tested without anyone re-pointing anything, and it held at 7 of 7.** The one
+half that did *not* materialise is "drag a healthy pair toward its floor" — `301` makes that
+mechanically impossible, since `wont_fix` is excluded from both sides of the promoter rule.
+
+**And that exclusion is the thing to notice**: the full cycle — released → refused → `wont_fix` →
+re-filed by the detector (`idx_swi_dedup` excludes `wont_fix`) — **leaves no trace in the pair's
+record**, so a healthy-looking ratio on `literal_markdown → page-build-handler` is *not* evidence
+that owned pages are being repaired. Recorded as a CONTRIB in `bugs_open/333`, which owns that seam;
+both properties were already known there and in `bugs_closed/301`, so this is the measured instance,
+not a new claim.
+
+### 4. What clause 1 now needs — ONE question, not a design
+
+**The remaining unknown is whether a producer can file a `section_edit` item for a
+`literal_markdown`-shaped finding at all** — what `spec`/`field_updates` it would carry, and which
+`page_component_id` it targets (on these pages, the `ported-page` one). That is a code question in
+`section_editor_actions.go` and the producers, not a design question. Three landmines apply to
+whoever answers it and all three are already written down: the `field_updates` merge is **per-field
+and reverts intervening edits**; `apply_section_edit` writes `rendered_html` with **no content
+validation**; and `apply_section_edit` **cannot ADD** a component.
+
+**Do not read this as clause 1 being closed.** Nothing has been repaired yet, and `no_content_data`
+(27 of the 30 parked) is a different and larger hole — the generic-repair-refuses-owned-pages
+finding does not touch it. What has changed is that clause 1's blocker is no longer "no route
+exists".
+
+*Escalation-task config updated to match, so the next human to read it is not told the refuted
+version: migrations `497` (the owners map pointed at three dead destinations) and `498`
+(de-volatilising `497`'s own figures, which went stale in twelve hours).*
