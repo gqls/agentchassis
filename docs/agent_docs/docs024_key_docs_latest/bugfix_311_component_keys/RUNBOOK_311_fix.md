@@ -298,3 +298,23 @@ On loanzy that returns **four archived tool pages** — `tool-compare-loans`,
 > in `pages.sections`, and the 404 is the archival, not an absence of a plan. **A 404 plus zero
 > slots does not distinguish "never planned" from "planned and archived" — `pages.status` does, and
 > it is one column.** Unarchiving another lane's page is their call, not a repair to take here.
+
+## The `090` run on candidate 3's mechanism (2026-08-20 14:50Z)
+
+**`RUN_CORRELATION_ID=e9555fad-5b25-46bc-9908-f40db98e16a4`** — the loop's own correlation, which is
+the key the artifacts are written under (NOT the intake correlation the script prints first).
+Symptom as filed: whether anything consumes `build_status='needs_rebuild'`, and whether the stamp
+refusal has any effect on the artefact already published in the deploy bucket.
+
+```sql
+-- verdict
+SELECT created_at, kind, metadata->>'verdict', left(body, 400) FROM diagnosis_artifacts
+WHERE correlation_id='e9555fad-5b25-46bc-9908-f40db98e16a4' ORDER BY created_at;
+-- the run itself (a FAILED step surfaces as a COMPLETED wrapper — read __step_error, never status alone)
+SELECT current_step, status, left(collected_data->>'__step_error',200) FROM orchestration_states
+WHERE correlation_id='e9555fad-5b25-46bc-9908-f40db98e16a4';
+```
+Note for whoever reads it: **every `needs_diagnosis` intake in the queue on 2026-08-20 was `failed`**,
+the most recent on 08-19 — so if this one fails too, check whether it is the fleet API cap
+(`bugs_open/243`) rather than the symptom. Fleet LLM work itself was healthy that morning (six
+component generations completed on attempt 0).
