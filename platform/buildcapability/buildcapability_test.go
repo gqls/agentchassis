@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 )
@@ -205,3 +206,57 @@ func TestTouchRefreshesOnlyThisPod(t *testing.T) {
 type errBoom struct{}
 
 func (errBoom) Error() string { return "boom" }
+
+func TestRecordPrunesStaleRowsInTheSameTransaction(t *testing.T) {
+	// The prune is what stops this table being a leak: the chassis binary also
+	// runs as EPHEMERAL per-job pods, and measured over its first 3h40m live it
+	// wrote 75,827 rows across 191 pods (24 MB) of which 109 pods were already
+	// dead. Without this DELETE the table grows without bound.
+	//
+	// It needs its own assertion because Record deliberately IGNORES the prune's
+	// error (losing the write would be worse than an oversized table) — so a
+	// prune that silently stopped running would leave every other test green.
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM service_binary_capabilities WHERE service")).
+		WithArgs("agent-chassis", "pod-1").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO service_binary_capabilities")).
+		WithArgs("agent-chassis", "pod-1", sqlmock.AnyArg(), KindProvenance, NameProvenance).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	// the retention prune, keyed on last_seen_at and carrying the window
+	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM service_binary_capabilities WHERE last_seen_at")).
+		WithArgs(RetentionWindow).WillReturnResult(sqlmock.NewResult(0, 42))
+	mock.ExpectCommit()
+
+	if err := Record(context.Background(), db, "agent-chassis", "pod-1"); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the retention prune did not run: %v", err)
+	}
+}
+
+func TestRetentionWindowExceedsTouchInterval(t *testing.T) {
+	// The ordering is load-bearing: if a live pod's heartbeat were slower than
+	// the retention window, the prune would sweep the rows of a pod that is
+	// still serving — staleness in reverse, and just as misleading as the stale
+	// rows this window exists to remove.
+	d, err := time.ParseDuration("2h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if RetentionWindow != "2 hours" {
+		t.Fatalf("RetentionWindow changed to %q — re-check this invariant by hand", RetentionWindow)
+	}
+	if TouchInterval >= d {
+		t.Fatalf("TouchInterval (%s) must stay comfortably under RetentionWindow (%s), or live pods get pruned", TouchInterval, d)
+	}
+	if d/TouchInterval < 4 {
+		t.Errorf("only %d heartbeats fit in the retention window — too little slack for a missed beat", d/TouchInterval)
+	}
+}

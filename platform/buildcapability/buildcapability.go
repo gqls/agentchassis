@@ -51,6 +51,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/gqls/agentchassis/pkg/buildinfo"
 )
@@ -63,6 +64,19 @@ import (
 // service that registers no discovery checks is indistinguishable from a
 // service that never wrote at all — and those two must never look alike,
 // because the whole value of this table is that an absence means something.
+// RetentionWindow is how long a pod's rows survive without a Touch.
+//
+// It MUST be comfortably longer than any caller's Touch interval, or a live
+// long-lived pod would have its own rows pruned while it is still running — the
+// exact staleness-in-reverse this table exists to avoid. Two hours against the
+// 15-minute TouchInterval below leaves eight missed heartbeats of slack.
+const RetentionWindow = "2 hours"
+
+// TouchInterval is the cadence a long-lived caller should call Touch at.
+// Ephemeral per-job pods do NOT need it: they die well inside RetentionWindow
+// and are supposed to age out.
+const TouchInterval = 15 * time.Minute
+
 const KindProvenance = "build"
 
 // NameProvenance is the sentinel row's name. Together with KindProvenance it
@@ -141,6 +155,31 @@ func Record(ctx context.Context, db *sql.DB, service, podName string, sets ...Se
 			}
 		}
 	}
+
+	// PRUNE, in the same transaction. Added 2026-08-20 after the first live run
+	// exposed the defect this mechanism had in its own design.
+	//
+	// The chassis binary does NOT only run in long-lived Deployments. It also runs
+	// as EPHEMERAL PER-JOB pods (agent-page-rerender-*, agent-page-build-handler-*,
+	// agent-build-dispatch-loop-*, agent-site-publisher-* …), each of which starts,
+	// writes ~400 rows, and dies. Measured in the first 3h40m live: 75,827 rows
+	// across 191 distinct pods — 24 MB — while only 82 pods existed at that moment,
+	// i.e. 109 of the reporting pods were ALREADY DEAD with their rows frozen. That
+	// extrapolates to roughly half a million rows and ~160 MB per day, unbounded.
+	//
+	// So a retention window is not a nicety here, it is the difference between a
+	// registry and a leak. Rows are pruned on the SAME PATH that creates them, which
+	// is what makes it self-limiting without a scheduler: every pod start pays a
+	// tiny, bounded cost to clear what the dead ones left. The window must exceed
+	// the Touch interval of any long-lived caller (see Touch) or a live pod's rows
+	// would be pruned out from under it — that ordering is the load-bearing part.
+	//
+	// A failed prune is deliberately IGNORED rather than returned: the registry
+	// being slightly too large is strictly better than it being absent, and
+	// returning here would roll back the write we just made.
+	_, _ = tx.ExecContext(ctx,
+		`DELETE FROM service_binary_capabilities WHERE last_seen_at < now() - $1::interval`,
+		RetentionWindow)
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("buildcapability: commit: %w", err)

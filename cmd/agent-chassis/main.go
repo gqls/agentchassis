@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/agentbase"
@@ -318,4 +319,35 @@ func recordBuildCapabilities(ctx context.Context, cfg *config.ServiceConfig, app
 		zap.String("git_commit", buildinfo.GitCommit),
 		zap.Int("discovery_checks", len(checkNames)),
 		zap.Int("actions", len(actionNames)))
+
+	// Heartbeat. Rows are pruned after buildcapability.RetentionWindow, so a
+	// LONG-LIVED pod must keep saying it is alive or its own rows would be swept
+	// while it is still serving — staleness in reverse, and just as misleading.
+	//
+	// Ephemeral per-job pods (agent-page-rerender-*, agent-page-build-handler-*,
+	// …) run this same binary and will start this ticker too. That is harmless
+	// and correct: they die long inside the window and are SUPPOSED to age out.
+	//
+	// A fresh short-lived connection per beat, not a held one. Once every 15
+	// minutes per pod is nothing, and it keeps the property the startup write
+	// already has — this code never holds a connection open against the pooler.
+	go func() {
+		ticker := time.NewTicker(buildcapability.TouchInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				tdb, err := database.NewStdlibConnection(ctx, cfg.Infrastructure.ClientsDatabase, appLogger)
+				if err != nil {
+					continue // best-effort, as everything on this path is
+				}
+				if err := buildcapability.Touch(ctx, tdb, "agent-chassis", podName); err != nil {
+					appLogger.Warn("build capability heartbeat failed", zap.Error(err))
+				}
+				_ = tdb.Close()
+			}
+		}
+	}()
 }
