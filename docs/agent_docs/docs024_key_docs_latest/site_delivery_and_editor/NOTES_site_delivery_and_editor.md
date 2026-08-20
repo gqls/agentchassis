@@ -662,3 +662,67 @@ and the register entry says so in those words.
 redirecting; `/c/<token>` recording the confirmation), then the delivery email through
 `platform/mailer`, then the weekly chase, then the retraction job that gives
 `live_link_expires_at` teeth.
+
+### 2026-08-20, later — the council said REVISE, and the round was my fault twice over
+
+Verdict on `905d9078-86c2-47a7-af0a-781723a46c08`: **revise**, decided by a gating
+objection from `editquality`. **Five of ten seats raised the SAME point** — editquality
+(gating), `reuse_agent`, `guardian`, `constitution`, `prior_art_librarian` — while four
+approved on their own grounds (`bug_historian`, `render_guardian`, `debug_historian`,
+`mission`, `architecture`).
+
+The objection: *"the Schema already lists `sites.handed_over_at`,
+`live_link_expires_at` and `transfer_confirmed_at` as existing columns, so either the
+`ALTER TABLE` fails on apply, or they pre-existed and the premise is false."*
+
+**They were right about what they could see, and the cause is my sequencing.** I applied
+511 at **17:24:07Z** and submitted at **~17:30Z**. The council prompt's Schema section is
+generated from the **live** database, so the reviewers were shown my own six-minute-old
+change back as pre-existing state, with nothing to date it. From inside a seat those two
+readings are the only ones available and both are sound inferences. `reuse_agent` filed
+it as a STEP ZERO miss — *"no evidence the author ran `\d sites`"* — and on the evidence
+in front of it, that was the correct call.
+
+**Two real defects, both in the submission, neither in the migration:**
+
+1. **I ran the schema check and never showed it.** The information_schema query went in
+   early in the session and returned nothing; the migration's own opening guard raises
+   `511: already applied` on either the column or the table existing, and it **passed on
+   the real apply** — which is only possible if neither existed. That IS the check, and
+   it was compiled into the file. It was not in `grounded_in`, so it did not exist as far
+   as the council was concerned. **A check you ran but did not cite is a check you did
+   not run.**
+2. **My sketch elided the guard the reviewers then asked for.** editquality's suggested
+   fix was `IF NOT EXISTS` — protection the file already had in a stronger form. **DGH-011's
+   register entry records this exact class** ("a sketch-elision artefact, the file always
+   carried the column"), so this lane has now paid for it twice. Sketch the guards
+   verbatim and abbreviate the boring part instead.
+
+**What I did NOT do: take the suggested fix.** `IF NOT EXISTS` would satisfy the
+objection by making a double apply a silent no-op, which on a shared tree is worse than
+the loud refusal it would replace. Resubmitted with the guard in the sketch and an
+invitation to overrule me if the seats still want it having seen it.
+
+**The measurement that closes the 'dormant machinery' reading** — `guardian` and
+`prior_art_librarian` both asked whether something already writes these columns with
+other semantics, and that cannot be settled by argument:
+
+```
+44 sites | handed_over_at populated on 0 | live_link_expires_at on 0 | transfer_confirmed_at on 0
+customer_access_tokens: 0 rows
+```
+
+And the prior-art search the previous submission **asserted rather than ran** (upheld
+objection): `information_schema.tables` filtered on `%token%`/`%magic%`/`%access%`/
+`%customer%` returns exactly one row — this table. The estate's only other token table is
+`auth_tokens`, in the auth-service's own database, which `PLAN_2026-08-14` already rules
+out for customer space in as many words.
+
+Round 2 submitted on the same trail correlation, so the commit's existing
+`Council-Submitted:` trailer stays valid and `098` will credit it if this one approves.
+
+**Filed in `LANDMINES.md`, because the trap is general and it feeds the other one:**
+`--apply` takes every lane's pending file, so you apply yours by hand and `--record-only`
+it — which is precisely what puts you in "applied before submitted". The two traps hand
+you to each other. **A REVISE round is cheaper than the defect it finds, and this one
+found two — they were just both in the submission.**
