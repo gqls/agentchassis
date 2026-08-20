@@ -1974,9 +1974,24 @@ than after a human is invited to canary a route that has already been superseded
 > **THE TRANSFERABLE PROPERTY, and it is the sharper half:** re-routing a producer fixes only
 > **FUTURE** findings. Every open row filed under the old literal keeps the old `handler_agent` for
 > ever — the producer cannot re-file over it (dedup) and the promoter will not dispatch it (old pair
-> held). **"Re-route the producer" is half a migration; the other half is an explicit UPDATE of the
-> existing backlog, and nothing warns you it is missing** — the new pair drains beautifully while the
-> old rows sit still, which reads as success.
+> held). ~~**"Re-route the producer" is half a migration; the other half is an explicit UPDATE of the
+> existing backlog, and nothing warns you it is missing**~~ — the new pair drains beautifully while
+> the old rows sit still, which reads as success.
+>
+> > ⚠ **CORRECTED 2026-08-20 07:00Z — the struck-through sentence is the RETRACTED remedy, and until
+> > now it was the LAST WORD in this file.** The correction box immediately above it already says an
+> > `UPDATE` of the backlog would have produced 7 more failures and repaired nothing; this paragraph
+> > then prescribed exactly that `UPDATE` as "the other half", eleven lines later. Anyone reading
+> > NOTES from the bottom — which this lane's own handoff instructs — met the refuted version first
+> > and the retraction second. **A correction that does not also fix the summary line is half a
+> > correction**, and the summary is the half that travels.
+> >
+> > **The corrected general form** (it is the one already in the handoff §5 and in `LANDMINES.md`):
+> > re-routing a producer strands its existing backlog, and the backlog is **not automatically
+> > re-pointable**. Before proposing to move those rows, ask the question that was skipped here —
+> > **would the new route even ACCEPT them?** Split the new route's record by whatever its guard keys
+> > on (here `rebuild_policy`: 8 complete on `generic`, 1 failed on `owned`). If it would refuse
+> > them, the residual belongs to whoever owns the **blocker**, not to whoever owns the item type.
 
 ### 5. Council round 2 on `301` was mid-flight while I wrote this
 
@@ -2089,3 +2104,184 @@ entry's existing positive-control query.
 word.** (a) and (b) were refuted by one `grep` and one `ls`. That is the argument for reading
 advisories on an APPROVED verdict rather than filing them — two of these would otherwise have entered
 the record as unresolved doubts about a mechanism that is fine.
+
+---
+
+## 2026-08-20 ~08:05Z — the escalation task's `owners` map was pointing at three dead or wrong destinations, and it is a ONE-SHOT write. `497` applied before today's tick
+
+Session-start checklist (handoff §9) ran clean and produced one new finding, which became the
+session's work. Recording the checklist results first because two of them are the kind that go
+stale in hours.
+
+### 1. Checklist: the roll, the clocks, the owners
+
+- **`v1.0.1316` still live, and this is the cheap way to say so.** `distinct digests: 1`,
+  `sha256:2d0d3def…` — **the same digest §2 probed last night.** So last night's 5-needle binary
+  probe still describes the running bytes and did **not** need re-running: digest identity to an
+  already-probed digest transfers the probe. That is worth having as practice — the probe costs
+  ~420s per pod, the digest check costs one `kubectl get pods`.
+  ⚠ **Pod count moved again overnight: 94 now (`Job` 90, `ReplicaSet` 4).** Last night three
+  sessions read 22/57/85 within half an hour. **Do not quote a pod total**; quote
+  `distinct digests` and the `ReplicaSet` count, exactly as the handoff warns.
+- **`scripts/who-owns.py` by slug on `277`, `083`, `300`, `314`: no competing owner.** Every commit
+  against all four files is this lane's.
+- **§6's four clocks re-derived from the live `pre_query`: confirmed to the microsecond**, and
+  `placeholder_contact → page-build-handler` (3 rows) is now **overdue** — its clock expired
+  2026-08-19 19:17:45Z, so it escalates at today's tick. The task is `enabled`, `interval_seconds
+  86400`, `last_triggered_at 2026-08-19 12:58:16Z` — so **~12:58Z today**.
+
+### 2. Two things in last night's handoff that today's commits had already moved
+
+- **`301` is CLOSED** — the mid-move the handoff said to keep hands off completed. At HEAD (checked
+  with `git ls-tree`, never `ls`) it is `bugs_closed/301_…`.
+- **`bugs_open/333` was filed at 22:02Z**, after the handoff was written, and it takes the
+  **producer/routing half** of §5's finding. The division is now explicit and is written into
+  `bugs_open/277` as a CONTRIB: **333 = routing** (producers don't read `rebuild_policy`),
+  **277 = repair design** (what actually repairs an owned page). That CONTRIB also measured
+  something that belongs to us: **our own converter filed 28 `content_rewrite` items on owned
+  pages on 08-18 alone**, making it the newest large producer of the class.
+
+### 3. THE FINDING — all three entries in the `owners` map are dead or wrong, and the map is written ONCE
+
+`held-pair-canary-escalation` maps `item_type → owning lane` and stamps it into
+`result.held_pair_escalation.owner` **at escalation time, never revisiting it.** So a wrong entry is
+not "stale config" — it is a wrong instruction handed to a person, once, permanently, at the only
+moment they were ever going to read it. **[MEASURED 2026-08-20 06:49Z]**
+
+| entry | pointed at | actually |
+|---|---|---|
+| `placeholder_contact` | `bugs_open/201 lane …` | **`bugs_open/201` DOES NOT EXIST** — closed |
+| `literal_markdown` | `bugs_open/184 + bugs_open/201 lane …` | **NEITHER EXISTS** — both closed |
+| `page_component_status_drift` | `(UNASSIGNED - claim this) … no lane doc claims it` | **half true** — see below |
+
+Verified at HEAD, **not with `ls`**: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ |
+grep -E '/(184|201)_'` returns three paths, **all** under `bugs_closed/`. (184 is one of the
+documented ambiguous numbers — it names two unrelated cases, and both are closed.)
+
+**The third is the one with a PROVEN consumer, and it is why this was worth doing today rather than
+noting.** The only escalation this family has ever produced —
+`page_component_status_drift → component-template-fixer`, `result…'at' = 2026-08-17T12:57:43Z` —
+carries **exactly** the string `(UNASSIGNED - claim this) … no lane doc claims it`. **A human was
+already told "nobody owns this" about an item type that has an open, council-approved lane
+(`bugs_open/300`).** So the defect is not prospective; it has already fired once, at n=1 of 1.
+
+> ⚠ **And it is HALF true, so it is corrected rather than replaced.** `check_page_component_status_
+> drift.go` really is untouched since 2026-07-10 (`git log` on the file: one commit, `7813f3eb9`).
+> What changed is that the **ITEM TYPE** acquired an owner, which it did not have when `466` was
+> written. Replacing the whole string would have destroyed a true statement to fix a false one.
+
+### 4. The structural half — WHY it rotted, which is the transferable part
+
+The map hardcodes a **`bugs_open/` PREFIX**. That prefix is precisely the thing that **flips when
+the lane you are pointing at SUCCEEDS.** So the map was built to go stale at exactly the moment its
+pointer starts to matter — and it did, while findings were still queued against 184 and 201.
+
+Correcting three strings would have re-armed the same trap for the next close, so `497`'s
+replacement 4 writes the rule **into the map itself**: name a bug by **NUMBER and SLUG**, never by
+directory; a bare number is ambiguous; name the **lane directory**, which does not move.
+Now in `LANDMINES.md`.
+
+### 5. `497` — applied 2026-08-20 ~08:00Z, verified at the live column
+
+`docs/agent_docs/sql_for_agents/497_escalation_owners_map_points_at_three_dead_destinations.sql`
+(+ `_ROLLBACK.sql`), commit `a888224f0`. Same surgical-anchor pattern as `479`: four anchors each
+asserted to occur exactly once, guarded on the whole text's md5, transcribing nothing.
+
+**Behavioural surface NIL, and proven so rather than asserted.** Four string literals in a lookup
+CTE; no predicate, clock, threshold or row selection. `51547db8…` (10,566) → `406bd757…` (13,106).
+
+Three things about the controls, because two of them are the reusable lesson:
+
+- **The load-bearing control is the REVERSE REPLACEMENT.** Put the new strings back and assert the
+  md5 returns to the pre-image. It is the **only** check in the file that can catch collateral
+  damage to the 10 KB of `what_to_do` prose — every presence/absence check passes identically
+  whether that prose survived or was mangled. **MUTATION-PROVEN:** damaging one byte of unrelated
+  prose (`'Promote ONE row by hand'` → `'Promote TWO rows by hand'`) makes it fail with
+  `got 11eeb896… len 10567`; the clean file passes. So it is disconfirmable, not decorative.
+- **Forward and reverse are driven from the SAME eight variables, declared once.** The first draft
+  wrote the undo out by hand and it was **asymmetric** — `new4` was a prefix of the line it was
+  meant to remove, so the undo left ` That\n` behind. The control caught it **before the file was
+  ever run**. A control transcribed a second time tests the transcription, not the change.
+- ⚠ **MY OWN ASSERTION FIRED ON MY OWN REMEDY, and it was right to.** I asserted `bugs_open/`
+  occurs exactly twice after the fix. It found **three**: the rule comment I had just inserted says
+  *"NEVER write a `bugs_open/` … PREFIX"*, so **the remedy text contains the token the check was
+  counting.** Counting a token cannot distinguish a live pointer, a dead pointer, and a prohibition
+  against writing one. Replaced with the three specific claims — `bugs_open/201` = 0,
+  `bugs_open/184` = 0, and **`bugs_open/300` = 2 as a POSITIVE control** that the two genuinely-live
+  citations in `what_to_do` survived untouched. This is the memory-index family *"declaring a key
+  silences your own detector"* arriving from the other side: here the remedy **tripped** the
+  detector rather than silencing it, which is the lucky direction.
+
+**Verified independently at the live column, not from the migration's own NOTICE:** `md5 406bd757…
+len 13106`, `bugs_open/201` = 0, `bugs_open/184` = 0, `bugs_open/300` = **2** (both survive). The one
+remaining `(UNASSIGNED` is the `COALESCE(ow.owner, …)` **fallback** for item types absent from the
+map — correct, and it must stay.
+
+**And the bytes being right does not prove the SQL still runs.** The `pre_query` is text the
+scheduler executes, so a broken literal would fail every tick. So the corrected query was
+**EXECUTED**, rolled back, against live data — `CREATE TEMP TABLE … AS <pre_query>` inside the open
+transaction. It parses, runs, and previews today's tick exactly:
+**`escalated=3, reclaimed=0, watching=12`**, the 3 `placeholder_contact` rows each stamped with the
+corrected `083 …` string. Round trip also exercised: `51547db8 → 406bd757 → 51547db8`, and the
+reverted text re-applies cleanly.
+
+> **No council submission owed, and that is itself evidence for `314`.** A migration under
+> `docs/agent_docs/sql_for_agents/` is refused by the gate **client-side** — which is precisely
+> `bugs_open/314`'s complaint (*"the council gate refuses config changes because migrations live
+> under a docs path"*). Third lane to hit it.
+
+### 6. `reason` was LEFT ALONE — a decision, not an omission
+
+For the `literal_markdown` 7, `reason` will still say *"the pair succeeds below 25%, so the promoter
+has stopped feeding it"* — **true of the PAIR, and not why THOSE rows are stuck.** Making `reason`
+say so requires reading `rebuild_policy` **inside this task**: real new logic, on the very seam
+`bugs_open/333` was filed for hours earlier. So the correction rides in the `owner` prose (free) and
+the logic question goes to 333 (where the seam is). The new `literal_markdown` owner string says
+this explicitly, so the human who reads it is not misled by the `reason` beside it.
+
+### 7. §6's `watching_detail` defect reproduced INDEPENDENTLY, by accident
+
+The rolled-back preview printed:
+`placeholder_contact->page-build-handler (canary, day 2 of 3)` **and**
+`placeholder_contact->page-build-handler (canary, day 4 of 3)` — **the same pair, twice, at two
+day-counts**, five entries for four pairs. That is exactly §6(i): `DISTINCT` applied to a string
+containing the **per-row** `created_at` while the clock runs on `min(created_at)` per **pair**. And
+all 3 rows escalated stamped `days_waiting = 4`, confirming §6's other half — `overdue` joins
+**every** row of the pair, so a "day 2 of 3" row escalates in the same tick as a "day 4 of 3" one.
+**I did not set out to test this; the preview showed it.** Recording it because a defect confirmed
+by an unrelated run is stronger evidence than one confirmed by the query written to find it.
+
+### 8. A LEAD on `277`'s clause 1, sitting in this task's own prose — [UNVERIFIED by me]
+
+While reading the `pre_query` I found that `466`'s `what_to_do` **already names a candidate route
+for the owned-page hole**, and it is not one this lane's docs have picked up:
+
+> *"If protective refusals dominate, the handler is behaving CORRECTLY, the floor is mis-holding
+> this pair, and the handler does not need repairing — the PAGE needs a different ROUTE. See
+> `bugs_closed/295` … **Its fix candidate 3 is UNTOUCHED and is the live remedy: route content
+> findings on owned pages to `section_edit`, which demonstrably works on them (18 completes).**
+> ⚠ `apply_section_edit` is right for REWRITING an existing component and a DEAD END for ADDING a
+> section to an owned page."*
+
+**Why this matters to us:** last night's corrected finding was *"an owned page with a real,
+mechanically-repairable defect has **no route at all**"*. That may be **too strong** — there is a
+named candidate with a claimed 18 completes on owned pages. **And the caveat lines up with our
+population:** `literal_markdown` is asterisks reaching the page as literal text, i.e. **REWRITING
+existing content**, not adding a section — the side of the caveat that is supposed to work.
+
+**[UNVERIFIED — I have not checked the 18, not read `apply_section_edit`, and not confirmed it
+accepts a `literal_markdown` finding.]** Marked because this is exactly the shape that burned this
+lane last night: a plausible route inferred from a claim about a route, with the "would the
+destination accept the cargo?" question **unasked**. The three checks, in order, are: (1) does
+`apply_section_edit` accept `literal_markdown`; (2) re-measure the 18 completes on owned pages
+lifetime incl. archive; (3) `grep LANDMINES for apply_section_edit`, which `466` itself instructs.
+**Next session's first job**, and it is a better lead than anything in the handoff's §8.
+
+### 9. Fixed the retracted remedy that was still the LAST WORD of this file
+
+The 21:00Z correction box retracted the *"explicit `UPDATE` of the existing backlog"* remedy — and
+then, **eleven lines below it**, the "THE TRANSFERABLE PROPERTY" paragraph prescribed exactly that
+`UPDATE` as *"the other half"*, unmarked. Anyone reading this file **from the bottom**, which the
+lane's own handoff §0 instructs, met the refuted version first and the retraction second. Struck
+through and corrected in place. **A correction that does not also fix the summary line is half a
+correction, and the summary is the half that travels.**

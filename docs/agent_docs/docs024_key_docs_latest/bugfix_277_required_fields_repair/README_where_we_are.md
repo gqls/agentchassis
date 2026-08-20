@@ -978,3 +978,69 @@ it makes the one we already have harder to argue with.
 I have also corrected it in the shared warnings file, which is where it mattered most — that file
 gets read by people with no symptom and no context, who are in no position to check a bad
 instruction before following it. It stood there for about half an hour.
+
+---
+
+## 2026-08-20, morning — the system was about to hand somebody three wrong phone numbers, and we caught it with about five hours to spare
+
+Nothing was broken this morning. I ran the ordinary start-of-session checks — is the software
+still the version we think, has anybody else claimed the bugs we are working on, are the clocks
+where we left them — and all three came back clean. The finding came out of the checks themselves,
+which is worth saying, because it means it was not something that looked wrong.
+
+**Here is the thing we have built.** When a repair job has been stuck for three days with nobody
+able to do anything about it, the system gives up waiting and escalates it to a person. Alongside
+the job it writes a short note saying, in effect, *"this is stuck, here is why, and here is the
+team who should pick it up."* That note is the whole point of the escalation: it is the only
+moment anybody looks.
+
+**And the note was pointing at three teams that no longer exist where it said they were.** Two of
+the three pointed at bug files by their folder — "the open-bugs folder, number 201". But both of
+those bugs have since been **fixed and filed away**, so the folder it names is empty. The third
+said "nobody owns this one, somebody please claim it" — about a problem that has had an owner for
+three days, with a fix already live.
+
+**Why that is worse than ordinary out-of-date paperwork.** The note is stamped onto the job **once**,
+at the moment it escalates, and never looked at again. Correcting the map afterwards does not go
+back and fix jobs that have already gone out. So every wrong entry is a wrong instruction handed
+to one person, once, permanently, at the only moment they were going to read it. And it has
+already happened: the **only** escalation this mechanism has ever produced, back on the 17th,
+carries the "nobody owns this" wording — for the bug that does have an owner.
+
+**The reason it went wrong is the part worth remembering.** The map spelled out the folder name.
+But the folder name is *exactly the thing that changes when a team succeeds* — fixing a bug is
+what moves it from the open folder to the closed one. So the map was built in a way that
+guaranteed it would be wrong by the time anybody followed it, and wrong precisely because the
+people it pointed at had done their jobs. I have fixed the three entries, and I have also written
+the rule into the map itself, next to the entries, so the next person to add one does not rebuild
+the same trap: name the bug, not the folder it is currently sitting in.
+
+**Timing.** Three jobs escalate today at about ten to one, and seven more tomorrow at the same
+time. The fix went in a few minutes before eight, so it is in place for both. You approved
+applying it ahead of today's run rather than holding it for you to read, and that was the right
+call given the deadline — the change cannot move a job, cannot change which ones escalate or when;
+it only changes the sentence a person is handed.
+
+**How confident I am, and why.** More than usual, because I did not simply check that my change
+was there — I checked that **nothing else** had changed. The instruction I edited sits inside a
+much longer block of guidance, about ten thousand characters of it, and the only real risk with
+this kind of surgical edit is quietly damaging the rest. So the migration undoes its own change and
+insists the result matches the original exactly, character for character. Then I damaged one byte
+of the surrounding text on purpose to confirm that check actually fails when it should — a check
+that has never failed is not evidence of anything. And because the thing I edited is a piece of
+instruction the machine later *runs*, I also ran it, on live data, inside a transaction I threw
+away, which both proved it still works and showed me exactly what today's escalation will say.
+
+**One honest correction to something I told you last night.** I said an outside page with a real,
+mechanically-fixable blemish has **no repair route at all**. While reading through this task's own
+guidance I found that it already names a candidate — an existing mechanism that reportedly does
+work on outside pages, with a warning attached that it is right for *rewriting* existing content
+and useless for *adding* new content. Our seven stuck jobs are the rewriting kind. So "no route at
+all" may be too strong, and there may be an answer already sitting in the estate. **I have not
+verified it** and I am deliberately not claiming it, because inferring a working route from a
+claim about a route is the exact mistake I made yesterday. But it is the first thing to check
+next, and it is a better lead than anything on my own list.
+
+**What is still where it was.** Our main bug still needs one worked example actually repaired
+rather than merely sorted into the right bin. The other still needs its week of quiet running,
+around the 25th. Neither moved today, and neither needs building.
