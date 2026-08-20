@@ -2590,3 +2590,26 @@ Trigger schema pushed back twice before accepting — `operation` enum has no `c
   restore from BEFORE mutating.
 - Council submission: I combined three files into one edit entry (refused: ONE EDIT = ONE FILE) —
   the client-side validator caught both this and the enum; cost three cheap round-trips, no credits.
+
+### ~18:20Z — council round 1: REVISE (gating: editquality HIGH on edit 1), and the objection was RIGHT about the sketch
+
+The gating objection read my sketch's regex as unanchored — because I quoted it **using backticks
+as delimiters, which swallowed the pattern's own backtick anchors**. The code was never wrong; the
+sketch was genuinely misleading, and a reviewer implementing from it would have built the
+destructive version. The r2 sketch carries the verbatim source line with the anchors spelled out,
+plus the two tests that pin them. **Check for next time: never quote a regex whose own syntax
+includes your quoting character — spell the delimiter.**
+
+The round also earned four real improvements (commit `25d00cfe9`): the
+`ContentDataCanFillTemplate` ↔ `missingBareFields` cross-references (bug_historian was right that
+two uncoordinated detectors for the missingkey=zero family is how they diverge — the import-cycle
+constraint is now stated in both), the three-HTML-instruments record in the transform header
+(reuse_agent asked for the shared-utility search to be run, and running it produced a better
+header), the transform-registry accumulation rule at the switch + CQ-028 (architecture's point:
+one key, N transforms, invisible to WFA-013's counter), and the RUNBOOK's post-roll binary needle
+probe (debug_historian: the config DO/RAISE proves nothing about the binary).
+
+Two objections were answered by checks the reviewers had themselves already run: section-editor
+has exactly ONE active row (their query), and their 104-completes count corroborates the pair
+history. Round 2 resubmitted on the same corr (`submission_277_rendered_html_transform_r2.json`,
+8 edits, 14 grounded_in). Monitor armed for the report.
