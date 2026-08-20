@@ -17,6 +17,14 @@
 > see **§ THE FIX, APPLIED** at the foot of this file. NOTES `## 2026-08-18` has the
 > mechanism, why Pass C2 could not fire, and a correction withdrawing my
 > "0 recompose tells" reading.
+>
+> **UPDATE 2026-08-20 — the 14 duplicates are ARCHIVED (site back to 29 active pages);
+> only the FILE DELETION is outstanding, and it is one command:
+> `./docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/retract_blog_duplicates.sh`
+> (this session's permission classifier refused the dispatch — it publishes via a pod in
+> the `kafka` namespace). Pre-flight is done and clean; the script carries it in its
+> header. Chassis v1.0.1317 stamp `2d13d530d` verified live. The 08-18 identity flags
+> SURVIVED — re-check them after any adoption run. See NOTES `## 2026-08-20`.**
 
 ```
 site      loancalculator.co.uk   0162cde4-633e-45e9-8ca6-87a6b2fe1d26

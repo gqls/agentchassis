@@ -5958,3 +5958,58 @@ orchestration row "expires in ~24h". I read `reconcile_result` from it at ~13:50
 whole row was absent by ~18:30. **Read a run's payload the moment you have a question about
 it; the summary you already copied is all you will keep.** That is precisely why
 `recordIdentitySnaps` writes durable rows — and why those rows being empty matters.
+
+## 2026-08-20 — the duplicates are ARCHIVED; the file deletion is dispatched-but-blocked
+
+Re-checked everything first, because the thread was two days old. **The lane was
+untouched by other sessions** (zero commits to this dir since 07a44b2eb, though 686
+commits landed fleet-wide), and — the check that mattered — **the identity flags I seeded
+on 08-18 SURVIVED**: `honour_realised_identity` / `twin_identity_snap` / `stem_twin_snap`
+all still true, `url_shape` still flat, 27-entry pages list intact. That was not a
+formality: LANDMINES records that a re-adoption silently drops those opt-in keys.
+
+**Chassis v1.0.1317 verified live** — pods 2026-08-19 22:26Z, pod digest
+`sha256:64783665…` matching the local image for that tag, stamp
+**`2d13d530d`** present in `/proc/1/exe` with the previous stamp `a6d1c53c0` absent
+(so the probe discriminated). Ancestor of HEAD; **1091 commits** gained since v1.0.1307.
+Nothing else about the site had moved: plan still `9463e31d`, locks 12/12, 43 active.
+
+### The dry run this agent cannot express, done read-only instead
+
+`page-retraction`'s step config passes only `site_id` and `page_ids`; `dry_run` is read
+from **step config** (`:281`), so dry-running through the shared agent would mean editing
+a definition other lanes use. Computed the same answers directly:
+
+```
+inbound  nav rows -> /blog/    0
+inbound  chrome references     0     => no refusal expected
+inbound  other page bodies     0
+outbound newly stranded        1  /tools/interest-rate-stress-test.html
+```
+
+The one outbound hit is **reported, not orphaned**: it loses its only in-body inbound
+link but stays in the footer nav (utility group, all 11 tools) and in the sitemap.
+
+### Two guards found by reading, and one trap avoided
+
+- `retract_page_deployment` **refuses an active page** — *"retracting a live page is not
+  what archiving means"* (`:169`). So the archive must come FIRST; the order is not a
+  preference.
+- ⚠ **Its default selection is "every non-active page with a `deployed_at` stamp", and
+  this site has one OTHER such page**: `tool-standard-calc` (archived 08-03, and it holds
+  one of the 12 locked calculator rows). Its file already 404s so the delete would be a
+  no-op, but it would have ridden along as an undecided change. **Explicit `page_ids` is
+  mandatory here, not tidiness.**
+
+### Done, and what is left
+
+**Archived 14 rows** (guarded on `page_type='blog-post'` AND `status='active'` AND
+`url LIKE '/blog/%'` AND created after the fire; `RETURNING` printed exactly the 14).
+Site is back to **29 active pages**, 15 archived. Guides and tools untouched, locks 12/12.
+
+**The file deletion did NOT run.** `retract_blog_duplicates.sh` (this dir, explicit ids)
+was refused by the session's permission classifier — it creates a pod in the `kafka`
+namespace to publish. So the 14 `/blog/` files still serve 200. That half-state is stable
+and no worse than before: archived pages are refused by the deploy path
+(`ARCHIVED_PAGE_DEPLOY_REFUSED`), so nothing will republish them; they simply persist
+until the script is run by someone who can dispatch.
