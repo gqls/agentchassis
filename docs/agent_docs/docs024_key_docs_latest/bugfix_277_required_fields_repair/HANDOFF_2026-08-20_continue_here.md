@@ -1,9 +1,20 @@
-# HANDOFF — 2026-08-20, morning. `497`+`498` applied, `277`'s clause-1 blocker has CHANGED SHAPE, and the 7-row population this lane tracked for two days is gone
+# HANDOFF — 2026-08-20. `497`/`498`/`499` applied and `497` PROVEN at the artefact; `277`'s clause 1 is back where it was, for a better-understood reason; the day's real finding is that OWNERSHIP WAS THE WRONG DIAGNOSIS
 
-**Supersedes `HANDOFF_2026-08-19b_continue_here.md`.** Read this from disk, then `NOTES_required_fields_repair.md`
-**from the bottom** (two new entries today, `~08:05Z` and `~09:00Z`). 08-19b stays authoritative for
-`301`'s council trail and the `v1.0.1316` probe; **§1 below names what is dead in it**, and one of
-those is its recommended first action.
+**Supersedes `HANDOFF_2026-08-19b_continue_here.md`.** Read this from disk, then
+`NOTES_required_fields_repair.md` **from the bottom** (three new entries today, `~08:05Z`, `~09:00Z`
+and `~10:15Z`). 08-19b stays authoritative for `301`'s council trail; **§1 names what is dead in it**,
+including its recommended first action.
+
+> ### ⚠ READ THIS BEFORE ANY SECTION BELOW — the day corrected itself twice
+> Sections **2, 3 and 4 each carry a correction box**, and in every case the box is the current
+> state and the prose beneath it is what I believed earlier. **§4's headline conclusion is
+> RETRACTED.** If you read only one thing: *ownership was never why these pages could not be
+> repaired* — their content is not regenerable, and on this component those are the same 100 pages.
+> **Nothing in this lane is repaired yet.**
+>
+> **Written at 14:30Z:** chassis is **`v1.0.1319`** (`sha256:9be1aa50…`, rolled 10:18Z, digest
+> genuinely changed). Live escalation `pre_query` md5 is **`0d72b423…` len 13938** (post-`499`).
+> Both are deploy facts with a shelf life of hours — **re-read, do not quote.**
 
 ---
 
@@ -11,10 +22,10 @@ those is its recommended first action.
 
 | bug | state | what blocks the close |
 |---|---|---|
-| **`bugs_open/277`** | router live, approved | **clause 1 — one worked example REPAIRED. Blocker has CHANGED SHAPE (§4): it was "owned pages have no route at all", it is now "a route exists at 36/37, and one CODE question remains".** `no_content_data` (27 of 30 parked) untouched by any of this |
+| **`bugs_open/277`** | router live, approved | **clause 1 — one worked example REPAIRED, and it has NOT narrowed.** ~~"a route exists at 36/37, one CODE question remains"~~ **RETRACTED (§4 box, `277` §5)**: the findings are `source: rendered_html`, and no `content_data` route reaches them. Needs an **owner decision** (§7). `no_content_data` (27 of 30 parked) untouched by all of this |
 | **`bugs_open/083`** | fix live + artefact-proven | the door soak, **~2026-08-25**. ⚠ `479`'s reclaim arm **has still never fired** — the close must SAY that. **New knock-on in §5: the escalation clock is NOT a backstop for owned-page rows** |
 | `bugs_open/300` | fix live, council APPROVED | demand, not a defect. Leave it. **NB it is no longer the "unassigned" item type — `497` fixed that** |
-| `bugs_open/314` | filed, unfixed | owner's call. **Corroborated again today**: `497`/`498` are config migrations under a `docs/` path, so the gate refused them client-side. Third lane |
+| `bugs_open/314` | filed, unfixed | owner's call. **Corroborated again today**: `497`/`498`/`499` are config migrations under a `docs/` path, so the gate refused all three client-side. Three live-config changes, zero review available. Third lane to hit it |
 | `bugs_open/333` | filed 08-19 22:02 by the 301 lane | theirs. **CONTRIB filed today** (§5) — their loop ran end to end at n=7 |
 | `301` | **CLOSED** | done — the mid-move 08-19b warned about completed |
 
@@ -55,16 +66,55 @@ bytes being right does not prove the SQL still runs.
 the `owner` value is **stamped into the row ONCE**, at escalation time, and never revisited — so a
 later fix cannot repair rows already escalated — while the change itself cannot move a row.
 
-> ⚠ **Do NOT re-derive `497`'s guard md5 from these files if you are writing `499`.** The live text
-> is `ddd0c894…` (post-`498`). Read the column.
+> ⚠ **Do NOT re-derive a guard md5 from these files.** **`499` was applied later the same morning**
+> (§4's correction box) — the live text is **`0d72b423…` len 13938**. Read the column, always.
+
+### 2b. UPDATED 2026-08-20 ~14:30Z — a THIRD migration, and the chassis rolled again
+
+| mig | what | live md5 after |
+|---|---|---|
+| `499` | `498`'s candidate route is **inapplicable to this population** — replaces a TARGET with a TEST | **`0d72b423…` len 13938** ← **current** |
+
+Commit `3a41595c3`. Same controls, mutation-proven, round-tripped.
+**All three migrations are DB config with NO binary dependency** — none of them needed a roll, and
+none is affected by one.
+
+**⚠ The chassis rolled at 10:18Z: `v1.0.1319`, `distinct digests: 1`, `sha256:9be1aa50…`.**
+The digest **CHANGED** from `v1.0.1316`'s `sha256:2d0d3def…`, so this is genuinely new bytes and
+**not** the same-tag-cached-image trap. §2's 5-needle probe describes `2d0d3def…` and **no longer
+describes what is running** — do not quote it. ⚠ And do not quote a pod count: it read **8** at
+14:29Z against **94** at 08:00Z, because the `Job`-owned per-work-item pods spawn and age out
+continuously (4 `ReplicaSet` both times).
 
 ---
 
-## 3. TODAY'S TICK — what it will do, previewed rolled-back against live data
+## 3. TODAY'S TICK — **IT FIRED, AND `497` IS PROVEN IN PRODUCTION**
 
-**`escalated=4, reclaimed=0, watching=6`** at **~12:58Z** (task `enabled`, `interval_seconds 86400`,
-`last_triggered_at 2026-08-19 12:58:16Z`). All 4 are `placeholder_contact → page-build-handler`,
-each stamped `days_waiting=4` and the corrected owner string naming **`083` + this lane**.
+> ## ✅ VERIFIED 2026-08-20 14:29Z — this is §7 item 2, done
+>
+> **`last_triggered_at = 2026-08-20 12:58:33.590523+00`.** It escalated **exactly the 4 rows the
+> rolled-back preview predicted**, each stamped `days_waiting=4` and each carrying the **corrected**
+> owner string naming `083` + this lane — *not* the dead `bugs_open/201` pointer it would have
+> carried before `497`:
+>
+> | page | item_type | escalated_at |
+> |---|---|---|
+> | `tool-seo-injector` | `placeholder_contact` | `2026-08-20T12:58:33Z` |
+> | `guide-creating-ideas` | `placeholder_contact` | `2026-08-20T12:58:33Z` |
+> | `tool-insight-injector` | `placeholder_contact` | `2026-08-20T12:58:33Z` |
+> | `tool-privacy-redactor` | `placeholder_contact` | `2026-08-20T12:58:33Z` |
+>
+> **This is the artefact, not the status** — the test was never "the migration applied" (its own
+> NOTICE said that at 08:00Z) but "the mechanism wrote the right sentence into a real row". It did.
+> Re-check any future claim the same way: `result->'held_pair_escalation'->>'owner'`, not the md5.
+>
+> ⚠ **These 4 are now a live human-queue item and they are `083`'s canary decision, not this lane's
+> repair question.** Do not act on them without reading `bugs_open/083` — and note three of the four
+> are `tool-*` pages, so the owned-page question may apply to them too. **Unmeasured; do not assume
+> it does or does not.**
+
+*(Written before the tick, and it held:)* **`escalated=4, reclaimed=0, watching=6`**, previewed
+rolled-back against live data. All 4 `placeholder_contact → page-build-handler`.
 
 ⚠ **Four, not the three 08-19b predicted** — a 4th row joined the pair overnight. Re-derive at the
 tick; the held set is not stable between a query and a tick.
@@ -191,10 +241,20 @@ owned-page class.
    string on purpose, and it is aimed at a different property. The gate is
    *"can `content_data` reproduce `rendered_html` for the target component?"* — two lines of SQL,
    in the `LANDMINES.md` entry.
-2. **Watch today's 12:58Z tick land** and confirm the 4 rows carry the corrected owner
-   (`result->'held_pair_escalation'->>'owner'`). First real test of `497` in production.
+2. ~~**Watch today's 12:58Z tick land.**~~ **DONE — `497` is PROVEN in production**, see §3's box:
+   fired 12:58:33Z, 4 rows, each carrying the corrected pointer. Nothing further owed on `497`.
 3. **The `diagnosis_guardian` message** (§6) — cheap, and it degrades every future submission.
-4. **`083` on ~08-25.**
+   **This is the largest un-started item that a session can do alone.**
+4. **`083` on ~08-25**, and see §3's note: its canary decision now has **4 escalated rows** sitting
+   in the human queue as of today, three of them `tool-*`.
+
+### THE ONE THING WAITING ON THE OWNER
+
+**Do these 7 `code_span`-in-`rendered_html` findings get a repair route at all?** Building one means
+a transform that edits `rendered_html` directly — a shape this estate does not have. The cost is
+real; the defect is 7 instances of backticks around code tokens (`` `fetch()` ``) on developer-tool
+pages, which many readers would take as deliberate. **Neither answer is obviously right, which is
+why it is his and not a session's.** Everything needed to decide is in `bugs_open/277` §5.
 
 ---
 
