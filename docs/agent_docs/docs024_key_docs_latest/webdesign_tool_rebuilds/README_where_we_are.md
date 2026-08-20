@@ -175,3 +175,13 @@ the handoff: another session has just built a "replace the tool in place" capabi
 three manual database edits and the small race we have been running on every single rebuild. It needs
 the next chassis roll and one configuration line, and they have explicitly asked this lane to be the
 one to test it on our next re-fix. After that, each rebuild is one filing and nothing else.
+
+## 2026-08-20, evening — same session, short
+
+The reviewers sent yesterday's "replace a tool in place" change back with one good objection: nothing
+stopped a replacement that was an empty shell from overwriting a working tool. That guard is now
+built — a replacement must actually contain visible content, and can't shrink the tool's text past
+the same limit every other rewriter honours — and the change is back with the reviewers. Today's
+fresh fleet build carries yesterday's code switched off, so nothing is exposed while we wait. Also
+wrote a new milestone summary (SUMMARY_2026-08-20): five tools rebuilt has become 22 of 63, and the
+three platform walls are down or falling.
