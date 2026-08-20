@@ -331,3 +331,119 @@ framework again"* + fix the pages). On this evidence:
    the canonical tagline, 1,348 rendered prompts → 408 responses. **Not proven:** that the
    *instructional* uses transfer into output at all. That is the next measurement, and after
    §3's history it should be designed to be able to come out either way before it is run.
+
+---
+
+# THE FIX, 2026-08-20 — built by the `bugfix_305_negation_gate` lane, contributed back here
+
+**Who and where.** A session picking this up with the owner's instruction to fix it at the framework
+level. `scripts/who-owns.py 305` names `copy_quality_two_stage`; their
+`docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/HANDOFF_2026-08-19_continue_here.md`
+had no 305 fix in flight, so the writer-side half was open. Everything below is contributed INTO this
+file rather than forked into a second account. Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_305_negation_gate/` (PLAN, NOTES, RUNBOOK,
+README_where_we_are). Told, in writing, before any code: `copy_quality_two_stage`,
+`site_ai_agent_orchestration`, `portfolio_positioning` (CONTRIB files dated 2026-08-20 in each lane's
+own directory).
+
+## §8. The bug is still live — re-verified `[MEASURED 2026-08-19 ~21:30Z]`
+
+- the brief still supplies the tagline: `content_direction.formatted` on `ai-agent-orchestration.com`
+  (3,558 chars, row created 2026-07-24, never updated) contains `in days, not months`;
+- the three pages still serve the quoted copy (`page_components.content_data`, all nine components
+  unlocked, `updated_at` 2026-08-17 which is the RE-RENDER this file's §3 already warned about);
+- the writer has not stopped: same site, 2026-08-19 18:26–18:32Z — *"not a catalogue built to look
+  busy"*, *"not from provider marketing pages"*, *"not staging load"*.
+
+## §9. What was measured before designing anything
+
+`llm_call_log`, `agent_type='page-content-writer'`, `success`, 2026-08-13..19, **1,503 calls ≈ sections**:
+
+| shape | sections with ≥1 |
+|---|---|
+| `x_not_y` ("…possible, not what survives") | 631 (42%) — ≥2: 208 (14%) |
+| `rather_than` | 646 (43%) |
+| `not_x_but_y` — **the only shape the existing Go detector matches** | **23 (1.5%)** |
+| negative reveal ("…. It doesn't tell you…") | 168 (11%) |
+| a headline-class field carrying `x_not_y` | 209 (14%) |
+
+⚠ **Correction to my own first census:** it reported `not_x_but_y` and `rather_than` as **0**. I had
+pasted Go patterns into psql, and **Postgres has no `\b`** — there it is a backspace character and `\y`
+is the word boundary. Every figure above is post-correction. In `WRONG_CALLS.md`.
+
+## §10. What was built
+
+Three pieces. The first two are inert until the next chassis roll; the third is live.
+
+1. **The family as one shared scanner** (`platform/orchestration/datahelpers/negationtells.go`,
+   `negation_content.go`). Five shapes, plus a *displacement* set that can never trip and only rejects a
+   rewrite, plus the exemption rule, plus the acceptance rule. `voicetells.go`'s `strawman` arm now calls
+   it, so the post-deploy voice check and the meta-description gate inherit the shapes they were blind
+   to; `rather_than` enters that check as a **density** (>2/page), never per-hit.
+2. **Counting, default ON, at the seam every LLM section crosses** — wrappers on the `render_component`
+   and `compile_page_sections` registry entries add `copy_gate_findings` and `copy_gate_page_hits` and
+   change nothing else. Every writer, every site, wired or not.
+3. **Repair at the writer seam** — a new action `rewrite_negations`, inserted into
+   `page-content-writer`'s section loop by migration `509` (**held**: it rewires the step chain, so it
+   must not be applied before the image). One LLM call asking for **sentence replacements**, spliced in
+   Go, each one judged before it is accepted. Beyond a budget of **two per PAGE** (the house voice's own
+   standard, carried in `CollectedData`) or **any** hit in a headline-class field.
+4. **The brief side** — `cmd/brief-negation-check`, a daily CronJob (07:40 UTC), **LIVE since
+   2026-08-20** at `v1.0.1321`. Derives the writer-visible surface at runtime from the live prompt,
+   measures only that, and separates *supplied* (files a finding) from *instructional* (counted only)
+   from *regulatory* (left alone, by the gate's own rule). First fleet run: **10 of 25 sites**;
+   `ai-agent-orchestration.com` has exactly ONE and it is MANDATED onto four page types — this file's
+   own complaint, arriving from the source side.
+
+## §11. ⚠ THE FIX WILL NOT CHANGE THE THREE PAGES THIS BUG IS ABOUT, AND THAT IS DELIBERATE
+
+The gate **exempts anything the site's brief supplied**, because the house voice's own first line is
+*"A site's own voice specification outranks these rules"*: rewriting a brief's words would put the
+platform in the position of overruling a site owner. `in days, not months` is supplied by that site's
+`content_direction`. **The gate will count it and leave it.** Only editing the brief and re-rendering
+moves it, and that belongs to `site_ai_agent_orchestration`, who have been told and given the queries.
+
+So the honest statement of what was delivered against *"ensure that that sort of copy never leaves this
+framework again"* is: **the five named forms, beyond two per page and never in a headline field, do not
+leave `page-content-writer`; brief-supplied and regulatory negations are counted, not rewritten.** Not
+"the instinct never leaves" — `fleet_copy_quality`'s own ablation says that is unreachable by rule.
+
+## §12. CORRECTION TO §7 OF THIS FILE — its verification instruction is wrong for this fix
+
+§7 says to re-run the rate on `llm_call_log`. **Do not verify this fix that way.** The gate's own
+repair calls are logged in that table too, so the per-call rate can RISE while the artefact improves.
+Verify at three levels instead:
+
+1. **the artefact** — `page_components.content_data` for pages built after the roll (never
+   `updated_at`: a re-render bumps it without regenerating, which is §3's own finding);
+2. **the marker** — `orchestration_states.collected_data->'__copy_gate'`: `hits_after`, and the
+   `rejected` reasons, which are the displacement instrument;
+3. **the split** — first attempts vs `error_message LIKE 'RETRY (bugs_open/305%'`. ⚠ that marker is
+   present on **successful** repairs too, so filter failures on `success=false` (the `bugs_open/119`
+   precedent, which has already misled one census).
+
+## §13. Council: round 1 REVISE, and six objections changed the code
+
+Correlation `c48b7612-3ecc-4345-912e-5966c079cb91` (round 2 submitted on the same correlation). The
+gating objection was that a `sub_workflow`'s running half is often keyed `substeps`, not `steps` — the
+council's own read-only check answered it (`has_substeps=false`), and the migration now anchors on the
+container path so a `substeps` row is 0 rows and a loud RAISE. Five more were right and were fixed
+rather than argued with: **no banned-claims scan on the accepted replacement** (compliance, HIGH — "say
+what it IS" is exactly the pressure that invents a superlative, and nothing downstream inspects a
+spliced sentence); the repair prompt not forbidding new capability claims; **truncation** unhandled; tag
+**multiset** equality accepting inverted nesting; and the per-page budget's unproven cross-iteration
+state, now a named precondition in the held migration rather than a follow-up. And `497` was already
+taken, exactly as the seat suspected — it is `509`.
+
+## §14. What is still open
+
+- **The migration is HELD.** Two preconditions, both in its header: the image is live (ask the binary,
+  per service), and the per-page budget canary passes.
+- **The three pages** need a brief edit by their owning lane, then a re-render. ⚠ `bugs_open/327`: write
+  the WHOLE `content_direction` object, never a patch, and verify by label presence rather than a diff.
+- **Is `rather_than` too broad?** 43% of sections is either a real fleet-wide tic or a pattern that
+  should be narrowed. It is a density rather than a per-hit finding for that reason, and the rejection
+  log will settle it within a week of traffic. `copy_quality_two_stage` has been asked directly.
+- **Does *instructional* contrast transfer?** Still `[UNMEASURED]`, still open in two lanes, and nothing
+  in this fix depends on it — but the gate now produces the corpus that would answer it: every rewritten
+  sentence is a before/after pair with the brief text alongside.
