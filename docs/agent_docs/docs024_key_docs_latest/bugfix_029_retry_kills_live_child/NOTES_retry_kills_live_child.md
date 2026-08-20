@@ -2661,3 +2661,45 @@ there*. **Run the must-be-non-zero control in the same query as the claim, not a
 **Lane state:** the **burst is explained** (outage-driven entry condition, confirmed twice
 independently). The **wedge is not** — what the parent does with an abandoned await, and the 20-vs-11
 split, are exactly as open as before, and `PLAN_2026-08-19`'s candidates still speak only to that.
+
+### 26. 2026-08-20 — WITHDRAWN: my "the 08-15 case is a wedge with no outage" suggestion. It is n=0, not n=1, and the error was a MODE confusion
+
+**I raised this to the peer and, worse, to the owner as the most consequential fact in the file.** My
+words to the owner: *"the only occurrence with no 503 storm to explain it … if 343 ever needs a reason
+to be treated as a real defect rather than a stress artefact, that row is where it starts."*
+
+**It is wrong.** Verified from `EVIDENCE_2026-08-15_to_17_awaited_requests.tsv` — my own preserved
+file, which is the substrate I should have checked before saying it:
+
+```
+orchestration 51e9a384   abandoned at process_item_iter_0_call_handler   sent 2026-08-15 08:16:51
+  process_item_iter_0_spawn_handler   rv=0  processed  08:02:47
+  process_item_iter_0_call_handler    rv=3  error      08:16:51
+  iterations seen: [0]   max_iter = 0   next-iteration spawn_handler: NO
+```
+
+**Iteration 0 was the only iteration that orchestration ever had.** So it is a **STOPPED** case — the
+error fell on the loop's first and only item and no next iteration was ever owed. That is the most
+benign shape available, and it **strengthens** the benign reading of the 11 stopped cases. It is not a
+wedge and it is not evidence about the wedge.
+
+**The correct bound, stated the other way round:** all **20** wedge instances are inside the 08-17
+outage window. There is **NO observed wedge outside an outage** — **n = 0, not n = 1.** Every
+inference in `bugs_open/343` about the wedge comes from a single day on which an external dependency
+was failing at ~300× base rate. Whether the freeze can occur without a 503 storm is **UNOBSERVED**.
+The peer wrote this bound into 343 (`720e554c1`); the half of mine that survives is only that 08-15
+carried **zero** GitHub errors, with 08-17's 954 as the control proving the query sees what it should.
+
+> **⚠ Why this one is the worst of the sequence, and it is not the arithmetic.** Every earlier error of
+> mine was a number I had not fetched or a filter that hid the population. **This was a MODE
+> confusion**: I had the row, I had the file, I had the 20-vs-11 distinction written in my own notes —
+> and I read an *abandoned call* as a *wedge* because I was looking for an exception and this row was
+> in the right column. Had it stood, it would have licensed exactly one thing: treating the outage as
+> incidental and reopening the whole coordinator candidate set as the primary cause of 343. **The most
+> consequential claim available in the file, wrong on a category rather than a figure, and offered to
+> the owner as the place to start.**
+>
+> **The cheap check that would have caught it is the one I had already built:** the reconstruction
+> distinguishes wedged from stopped by whether the next-iteration `spawn_handler` exists. I wrote that
+> query, ran it four times, and quoted its output — and then classified a row by eye without running
+> it. **A classifier you built does not classify for you unless you call it.**
