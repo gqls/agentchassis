@@ -398,3 +398,36 @@ disfavoured on the minutes-scale gaps.
 **Unchanged:** 029 OPEN, nothing fired, `NEXT_090_single_variable.sh` unrun, rows-section withdrawn,
 wait-for-the-burst standing. **Also unchanged: none of this explains the first death** — it sharpens
 where to look, and no edit should be described as if it had.
+
+## 2026-08-20 15:50Z — the evidence is PRESERVED, and a measurement that may retire a standing claim
+
+**The 08-24 clock no longer binds.** `EVIDENCE_2026-08-15_to_17_awaited_requests.tsv` holds all
+**6,484** rows across 1,019 orchestrations, **round-trip proven** to rebuild 31 / 20 / 11 / **0** from
+the file alone. ⚠ It took three attempts: `kubectl exec … psql > file` **truncated silently twice**
+(4,243 rows, then 5,186, then 6,484 — same command, well-formed final line, no error in the file).
+Accepted only on an explicit row-count assertion. Now a `LANDMINES.md` entry; **assert the count
+against the DB on any export of this size.**
+
+**Child response times, measured from that file** `[MEASURED 2026-08-20]`, n=3,150 healthy
+`call_handler` rows: median **10.4s**, p90 121.4s, p95 226.1s, p99 **454.9s**, max **971.3s**.
+Over 300s: **91 (2.89%)**. Over 600s: 11. **Over 1200s: ZERO.**
+
+⚠ **The peer's 300s-exhaustion finding is confirmed** (all 31 errored `call_handler`s gave up at
+299.9996–300.4814s) **but the 300s figure is DEFINITIONAL** — pre-Part-A, every rv≥1 window was
+capped to 300s for a step declaring ≤30 min. Any rv3 row must read 300s. It is not evidence of cause.
+
+**Two readings, unresolved, and the second would retire a standing claim:**
+- **(a)** a retry re-dispatches to a fresh child; the old 300s cap abandoned the **2.89%** that need
+  longer; Part A's 1200s covers **100%** of observed responses with 229s of headroom.
+- **(b)** reaching rv3 means the request already blew a **1200s** rv0 window, and **no child exceeds
+  1200s** — so it was **hung, not slow**, and no window would have saved it. Part A would then be
+  **irrelevant to all 31**, and the bug file's *"plausibly makes the entry condition rarer `[INFERRED]`"*
+  should be **retired rather than sharpened**.
+
+**What decides it:** whether each retry re-produces the request to a new child or re-waits on the
+original (`handleRecoverableError` → `UpdateAwaitedRequestRetry`). **Held by the peer session** — it
+is their "what does a thrice-retried, abandoned await do to the loop" thread. Do not duplicate it.
+
+**If (b) holds**, the 08-17 burst is 30 children that never answered, which points away from the
+coordinator entirely and at **whatever was happening to the children that day — and the GitHub API
+incident overlapping 08-17 is still an unpulled thread.**
