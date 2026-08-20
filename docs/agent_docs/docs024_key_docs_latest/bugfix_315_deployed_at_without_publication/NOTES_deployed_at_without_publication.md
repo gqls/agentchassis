@@ -1369,3 +1369,65 @@ run*; that distinction is the whole of `bugs_open/336`.
 
 **Still not a pass until a fingerprint appears.** Armed and undamaged is not the artefact — which is
 this lane's own lesson, applied correctly this time rather than written down and ignored.
+
+## 2026-08-20 14:27:33Z — armed, undamaged, and **PROVEN AGAINST THE REAL LIVE PAYLOAD**
+
+### First, a measurement error of mine, because it nearly became a false bug report
+
+I spent several queries convinced the guard was broken: *"113 pages stamped since arming, 26
+orchestrations, still armed — yet no hash and no error row. That is none of my four predicted
+outcomes."*
+
+**The baseline was wrong.** I used **10:22Z** as the arming time — which is when I *checked the
+build*. The migration actually ran at **14:27:33Z** (`agent_definitions.updated_at`). So all 113 of
+those stamps happened BEFORE the guard existed, and of course they carry no hash.
+
+`[MEASURED, with the arming timestamp read from the row rather than from my memory of the session]`
+**0 pages stamped since arming; 0 of them lacking a hash.** Nothing anomalous, nothing to explain.
+
+**The check:** take the "when did this change take effect" timestamp **from the row you changed**,
+never from when you looked at something related. `SELECT updated_at FROM agent_definitions WHERE …`
+is the arming time; my build check is not. Logged to `WRONG_CALLS.md` — it is the
+measurement-discipline family again (*the question you ENCODED, not the one you asked*), and it would
+have produced a confident bug report against working code.
+
+### The strong result: the whole chain is proven on real data
+
+Rather than reason further, I took the **actual `deploy_result` from a live page-rerender**
+(webdesign.co.uk `brands/index.html`, orchestration 10:43:00Z) straight out of
+`orchestration_states` and ran my own resolver over it in a test built from the deployed commit:
+
+```
+resolved ok=true skipped=false
+  commit_sha = "17a5c90a67d66d4fda99ac2d013ae0a2593bf438"
+  files      = map[brands/index.html:65b60e47f386c46dfaab6ac6ebbf34be2f8e97639055ab8c30510e5b3be17dd5]
+hashForPageFile("/brands/index.html") = "65b60e47f386c46dfaab6ac6ebbf34be2f8e97639055ab8c30510e5b3be17dd5"
+```
+
+**This proves three things that no synthetic test could:**
+
+1. **Half 1 is LIVE and working.** The git-adapter's reply now carries `commit_sha`, `files_sha256`
+   and `branch` — `[MEASURED]` on a real orchestration. The keys that did not exist yesterday are
+   there, keyed by the caller's own unprefixed path exactly as designed.
+2. **Half 2 resolves that real shape**, including the leading-slash conversion
+   (`/brands/index.html` → `brands/index.html`) through `PageFilePathFromURL`.
+3. **The two halves agree on the key format** — the one thing that could have been designed
+   consistently and still mismatched in production.
+
+So the only unproven link left is the DB write itself, which needs a page stamped while armed.
+
+### State at close
+
+```
+armed                       3 agents (page-rerender, report-builder, section-editor)
+validation errors           0        <- the smoking gun last time
+DEPLOY_EVIDENCE_UNREADABLE  0
+new failed items (5 min)    0
+page_rerender failed        31       (was 38 pre-arming — DOWN)
+pages stamped since arming  0        <- so content_hash 0 is EXPECTED, not a symptom
+```
+
+**Not "done" — armed, undamaged, and proven up to the last link.** The honest remaining statement is
+that no page has been stamped since the guard went live, so the column has had no opportunity to be
+written. Whoever next sees a page rerender should check `count(pages.content_hash)`; the damage query
+must be read first and must stay at 0.
