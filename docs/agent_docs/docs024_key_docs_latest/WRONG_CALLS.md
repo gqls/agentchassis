@@ -39860,3 +39860,43 @@ same-file passenger landmine covers two sessions editing one file — but **noth
 sessions writing two files that each claim to be the single entry point.** A rename would have
 collided visibly; creating a sibling collided invisibly. **Superseding is a WRITE to the other
 file's meaning, so it deserves the same read-before-write discipline as a write to its bytes.**
+
+---
+
+## 2026-08-20 — I classified a row BY EYE using a classifier I had built, run four times, and quoted — and told the owner it was the most important fact in the file
+
+**The claim** (`bugs_open/029`/`343` lane, to a peer session and then to the owner): the 2026-08-15
+abandoned call is *"the only occurrence with no 503 storm to explain it … if 343 ever needs a reason to
+be treated as a real defect rather than a stress artefact, that row is where it starts."*
+
+**It is a STOPPED case, not a wedge.** `51e9a384` ran **one** iteration: `iter_0_spawn_handler`
+processed, `iter_0_call_handler` abandoned at rv3, `max_iter = 0`, **no next-iteration
+`spawn_handler`**. The error fell on the loop's first and only item, so no next iteration was ever
+owed — the most benign shape in the population. The correct bound is the opposite of what I said:
+**all 20 wedges are inside the 08-17 outage window; there is NO observed wedge outside one — n = 0,
+not n = 1.**
+
+**What it would have cost.** That sentence licenses precisely one inference: the outage is incidental,
+so reopen the whole coordinator candidate set as the primary cause. It was offered to the owner as the
+place to start, in a message whose other contents were correct.
+
+**What caught it.** The peer session checked it before writing it into the bug file.
+
+**The cheap check that would have — and this is the part worth the entry.** The wedged-vs-stopped
+distinction is decided by one condition: *does the next iteration's `spawn_handler` row exist?* **I
+wrote that query. I ran it four times. I quoted its output — 20 wedged, 11 stopped — in three separate
+documents.** Then I classified a row by eye, because I was hunting an exception and the row sat in the
+right column of a table I was reading. **A classifier you built does not classify for you unless you
+call it.**
+
+> **Distinct from every other entry I have in this file, and worse.** The others are numbers I did not
+> fetch, or filters that removed the population under test — failures of *measurement*. This is a
+> failure of *category*, with the measurement already in hand and already correct. Having the tool,
+> having used the tool, and having published the tool's output changed nothing, because the question I
+> asked at the end ("is there an exception?") was not the question the tool answers ("which mode is
+> this row?").
+
+**Tally note:** fifth catch in two days between two sessions, and the first in this direction — every
+earlier one delayed a finding; this one would have redirected the successor bug's primary hypothesis.
+All five were caught by the other session. In each case the author had the rule written nearby or the
+refuting value in their own output.
