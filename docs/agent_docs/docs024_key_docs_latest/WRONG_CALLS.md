@@ -38792,3 +38792,78 @@ and the defect being repaired is not in the fork at all.
 it could have come out otherwise"* firing **twice in two days**, and both times inside a check I ran
 *because* I was being careful. **Before recording a check as passed, say out loud what the failing
 result would have looked like.** If you cannot describe it, you have not run a check.
+
+---
+
+## 2026-08-20 — `bugs_open/315` lane: **I broke the fleet's page-publishing path for 33 minutes.** I declared a config key on the wrong action's spec, and every check I ran said it was fine.
+
+**The claim:** that I had declared `deploy_result_field` on `UpdatePageStatusInputSpec` — the spec of
+the action that reads it — and that arming migration 494 was therefore safe once a build carrying
+`f0dd97c71` had rolled.
+
+**What actually happened.** `v3_site_actions.go` registers TWO specs in one `init()`. I appended the
+key to **`RenderComponentInputSpec.ConfigKeys`**, forty lines from the one I meant. Because the
+reader's spec is `StrictConfig: true`, arming the key made it an **undeclared key on a strict spec**,
+which the validator turns into a hard failure for the entire workflow:
+
+```
+WORKFLOW_INVALID: step 'update_status' (action 'update_page_status') has unrecognised
+config keys [deploy_result_field] — this action declares its config contract as
+complete, so an unknown key is a definition error, not a no-op
+```
+
+**The damage, measured by the lane that found it:** every workflow containing an
+`update_page_status` step died at validation. 8 items carried it (4 `page_rerender`, 2
+`needs_content_page`, 1 `section_edit`; 6 left `failed`), with **123 `page_rerender` items queued
+fleet-wide and none draining**. Armed 06:49:49Z, first failure 07:01:50Z, service restored 07:22:40Z
+by the `webdesign_tool_rebuilds` lane running **my own rollback file** — they found it as a blocked
+served-page grade, diagnosed it to the line, filed `bugs_open/336`, and explicitly framed it as a
+report rather than a takeover.
+
+### Why every check I ran passed
+
+This is the part worth keeping. I was careful in all the ways that did not matter.
+
+- **The arming precondition was correct and was MET.** I had established that 494 must wait for
+  `f0dd97c71`, and it had rolled. But that condition was about the READER shipping. **The defect was
+  in the DECLARATION, which neither of my commits put on the right spec** — so a precondition I had
+  reasoned about carefully was simply about the wrong thing.
+- **The binary probe said PRESENT, and it was right and useless.** `deploy_result_field` is in the
+  chassis binary three times over — the reader, two `zap.String` calls, and the wrong spec.
+  **Presence of a literal is not membership of the right list.** I had used a present/absent control
+  pair on *function names* and been pleased with myself for it, an hour before this.
+- **I verified the config was armed and never verified that stamping still worked.** I ran
+  `SELECT … deploy_result_field` across the three agents, got the three field names back, and called
+  it verified. **That is a status check.** The artefact — does a page still get stamped? — I never
+  asked, and it was already broken when I wrote it down.
+
+**That last one is the whole of `bugs_open/315` committed by the person fixing `bugs_open/315`.** My
+own NOTES entry from ninety minutes earlier says *"Config being right is not the artefact — that is
+this bug's entire lesson, and it applies to the fix as much as to the defect."* I wrote that sentence
+and then did not do it.
+
+### The cheap check that would have caught it
+
+At the edit: `awk '/^var UpdatePageStatusInputSpec/,/^}/' v3_site_actions.go | grep deploy_result_field`
+— scope the grep to the block you think you edited. I anchored the insertion on the literal
+`"strip_literal_markdown"`, which belongs to the other spec, and never asked which block I had landed
+in. **Anchoring on a nearby literal is not the same as anchoring in the right scope**, and in a file
+with two sibling structs it is a coin flip.
+
+After the arming, one query would have shown it: `orchestration_states WHERE error ILIKE
+'%deploy_result_field%'`. I did not think to look for errors CAUSED BY my change — only for the
+benefit of it (`count(content_hash)`), which stayed at 0 and which I correctly refused to read as a
+pass while reading it as "no traffic" rather than "nothing can run".
+
+### The generalisable half
+
+**When you arm a switch, the first measurement must be "what did I break?", not "did it work?"** Those
+are different queries against different tables, and the second one returning zero looks identical
+either way. My zero was reported as "nothing has run"; it actually meant "nothing CAN run", and the
+distinguishing evidence — a validation error log — was one query away and never run because I was
+looking for success.
+
+`bugs_open/336` also proposes the durable guard, which is the right answer and is not mine to claim:
+a test that every key an action READS appears in ITS OWN spec, and that no spec declares a key its
+action never reads. **This defect is invisible to per-spec review because both halves are in the same
+file, forty lines apart, and each looks correct on its own.**
