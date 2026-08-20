@@ -53,7 +53,7 @@ Of the 47, **43 have zero components** — the floor — leaving **4** reachable
 > stringifies a jsonb column**, so `{{range}}` had nothing to iterate — fixed by shape,
 > one row per rule), `501` (≤20 words). Proven end to end on the refused site afterwards.
 >
-> **Two things left open, both written up in `320` §13:** the action applies the *whole*
+> **Two things left open, now FILED as bugs (2026-08-20) rather than left as notes — `bugs_open/338` and `bugs_open/339`:** the action applies the *whole*
 > voice gate to one sentence including density rules that are statistics over a corpus
 > (a Go fix, needs a roll; bites 2 of 27 sites — 7 of the 9 gated sites already disabled
 > those checks by hand). And a **separate finding flagged not fixed**: `bugs_closed/103`

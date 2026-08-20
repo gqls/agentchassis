@@ -375,7 +375,7 @@ writer avoided the banned phrase (*"what builds and breaks confidence"* rather t
 *"Read research-backed articles on AI adoption, governance, and risk across healthcare,
 finance, and hiring."* 106 chars, 16 words.
 
-### ⚠ OPEN — a Go fix this lane did NOT make
+### ⚠ OPEN — a Go fix this lane did NOT make → **now filed as `bugs_open/338`**
 
 `save_page_meta_description` applies the **whole** voice gate to a single sentence. The
 gate carries two kinds of rule: **content** (banned phrases — correct anywhere) and
@@ -394,7 +394,7 @@ content findings (`check == "banned_phrase"`) to a single-value field and skip t
 distribution ones. `501` mitigates it in the prompt meanwhile. **Do not fix it by raising
 a site's thresholds** — that relaxes the rule for the site's pages too, where it works.
 
-### ⚠ A SEPARATE FINDING, not this lane's to fix — `bugs_closed/103` is leaking
+### ⚠ A SEPARATE FINDING, not this lane's to fix — **now filed as `bugs_open/339`**
 
 `[MEASURED 2026-08-20]` **11 live pages carry a description of 200-320 characters, and
 9 of them are `tool` pages whose text is plainly a BUILD BRIEF**, e.g.
