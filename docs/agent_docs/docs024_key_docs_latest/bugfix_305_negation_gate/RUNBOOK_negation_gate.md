@@ -129,3 +129,44 @@ go test ./platform/orchestration/datahelpers/ -run 'Negation|Voice|Strawman' -v
 go test ./platform/orchestration/actions/ -run 'Negation|CopyGate|RewriteNegations' -v
 go build ./... && go vet ./platform/... ./cmd/...
 ```
+
+
+## 7. THE CANARY THAT MATTERS — run the shipped scanner over the owner's own three pages
+
+This is the demand control for the whole gate, and it needs no roll: it runs the real
+`datahelpers` functions over the real `page_components.content_data` with the real brief as the
+exemption corpus. **It found a defect the unit tests could not** (the two-sentence reveal was being
+attributed to the clean sentence before it), so run it again after any change to the shapes.
+
+⚠ Write it into a SCRATCH copy of the tree, never into the repo: any `.go` file under the module root
+joins the build, and a throwaway in `docs/` would break `go build ./...` for everyone.
+
+```bash
+SP=<your scratch dir>
+rm -rf $SP/verify && mkdir -p $SP/verify && git archive HEAD | tar -x -C $SP/verify
+mkdir -p $SP/verify/cmd/gatecanary && cat > $SP/verify/cmd/gatecanary/main.go <<'EOF'
+package main
+// pulls: the site's content_direction.formatted + identity.key_differentiators as the exemption
+// corpus, and every page_component of the three pages; then, per hit:
+//   datahelpers.WalkContentStrings -> ScanDefineByNegation -> NegationExempt(hit, brief)
+//   + IsHeadlineField(path)   (a headline hit is repaired regardless of budget)
+// prints shape | field | verdict | the sentence, and a TOTAL / exempt / repairable line.
+EOF
+cd $SP/verify && go run ./cmd/gatecanary
+```
+
+**Expected, and this is what "working" looks like** `[MEASURED 2026-08-20]`:
+
+```
+TOTAL 7 | exempt (brief-supplied or regulatory) 1 | repairable 6, of which headline-class 6
+```
+
+- both sentences the owner quoted are REPAIRABLE — *"The registry shows you what's possible, not what
+  survives production."* (`x_not_y`, headline) and *"It doesn't tell you how they hold up under real
+  Kafka throughput…"* (`negative_reveal`, subheadline);
+- the canonical tagline on `adoption-tracker`'s hero is **`exempt:brief_supplied_sentence`** — the
+  designed behaviour, and the reason this fix does not clean those pages.
+
+If the exempt count goes to 0, the brief changed (or the exemption broke) — check which before
+celebrating. If the reveal's sentence comes back as *"A model directory tells you which agents
+exist."*, the attribution regression is back.

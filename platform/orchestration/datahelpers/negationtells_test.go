@@ -13,7 +13,10 @@
 
 package datahelpers
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func shapesOf(hits []NegationHit) map[string]int {
 	m := map[string]int{}
@@ -187,10 +190,10 @@ func TestRewriteRejectsDisplacement(t *testing.T) {
 	protect := ScanDefineByNegation(from)[0].MatchInSent
 
 	bad := map[string]string{
-		"displaced_instead_of":    "The registry shows you what's possible instead of what survives production.",
+		"displaced_instead_of":     "The registry shows you what's possible instead of what survives production.",
 		"displaced_more_than_just": "The registry is more than just a list of what's possible.",
-		"displaced_em_dash":       "The registry shows what's possible — never what survives production.",
-		"still_x_not_y":           "It lists what is possible, not what is proven.",
+		"displaced_em_dash":        "The registry shows what's possible — never what survives production.",
+		"still_x_not_y":            "It lists what is possible, not what is proven.",
 	}
 	for want, to := range bad {
 		ok, why := AcceptNegationRewrite(from, to, protect)
@@ -266,5 +269,34 @@ func TestRewriteRejectsInvertedNesting(t *testing.T) {
 	}
 	if ok, why := AcceptNegationRewrite(from, "<b><i>It shows what runs in production today.</i></b>", 30); !ok {
 		t.Errorf("well-formed markup preserved must be accepted, got %q", why)
+	}
+}
+
+// The two-sentence reveal must be attributed to the sentence that CARRIES the
+// negation, not to the clean sentence before it whose full stop the pattern
+// happens to start at. Found by running the scanner over the owner's own live
+// page: the repair would have been handed "A model directory tells you which
+// agents exist." — a true, clean sentence — while the reveal stayed put.
+func TestNegativeRevealAttributesToTheSentenceThatMustChange(t *testing.T) {
+	text := "A model directory tells you which agents exist. It doesn't tell you how they hold up under real Kafka throughput."
+	var reveal *NegationHit
+	for _, h := range ScanDefineByNegation(text) {
+		if h.Shape == "negative_reveal" {
+			hh := h
+			reveal = &hh
+		}
+	}
+	if reveal == nil {
+		t.Fatal("expected a negative_reveal hit")
+	}
+	if !strings.HasPrefix(reveal.Sentence, "It doesn't tell you") {
+		t.Errorf("attributed to the wrong sentence: %q", reveal.Sentence)
+	}
+	// And the invariant the splice depends on must still hold.
+	if got := reveal.Sentence[reveal.MatchInSent : reveal.MatchInSent+len(reveal.Matched)]; got != reveal.Matched {
+		t.Errorf("MatchInSent no longer addresses Matched within Sentence: %q vs %q", got, reveal.Matched)
+	}
+	if text[reveal.SentenceStart:reveal.SentenceStart+len(reveal.Sentence)] != reveal.Sentence {
+		t.Error("SentenceStart no longer addresses the raw text")
 	}
 }

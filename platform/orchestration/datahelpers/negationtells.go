@@ -177,15 +177,33 @@ func ScanDefineByNegation(text string) []NegationHit {
 	var hits []NegationHit
 	for _, s := range negationShapes {
 		for _, loc := range s.re.FindAllStringIndex(text, -1) {
-			sentStart, sentEnd := containingSentence(spans, loc[0], len(text))
+			// ⚠ ANCHOR ON THE CONSTRUCTION, NOT ON THE MATCH START. The
+			// negative_reveal pattern deliberately begins with the PREVIOUS
+			// sentence's full stop, so a raw loc[0] attributes the hit to the
+			// sentence before the one that carries the fault — and the repair
+			// would then hand the model a clean, true sentence to rewrite while
+			// leaving the reveal untouched. Measured on the owner's own page:
+			// "A model directory tells you which agents exist. It doesn't tell
+			// you how they hold up…" was attributed to the first sentence.
+			// Skipping the leading terminator and quotes moves the anchor onto
+			// the subject, i.e. into the sentence that has to change.
+			anchor := loc[0]
+			for anchor < loc[1] && !isNegationAnchorRune(text[anchor]) {
+				anchor++
+			}
+			sentStart, sentEnd := containingSentence(spans, anchor, len(text))
 			sentence := text[sentStart:sentEnd]
-			mis := loc[0] - sentStart
+			mis := anchor - sentStart
 			if mis < 0 || mis > len(sentence) {
 				mis = 0
 			}
+			matched := text[anchor:loc[1]]
+			if mis+len(matched) > len(sentence) {
+				matched = sentence[mis:]
+			}
 			hits = append(hits, NegationHit{
 				Shape:         s.shape,
-				Matched:       text[loc[0]:loc[1]],
+				Matched:       matched,
 				Sentence:      sentence,
 				SentenceStart: sentStart,
 				MatchInSent:   mis,
@@ -212,6 +230,19 @@ func ScanContrastNeighbours(text string) []NegationHit {
 // Terminator = .!? run followed by whitespace, a tag, or end of text. A closing
 // tag or a <br> also ends a sentence, because a rich_text field is
 // "<p>One.</p><p>Two</p>" and its second paragraph may carry no full stop at all.
+// isNegationAnchorRune reports whether a byte can START the construction: a
+// letter, a digit, or the punctuation the x_not_y shape deliberately captures
+// before its comma. Terminators, quotes and whitespace cannot.
+func isNegationAnchorRune(b byte) bool {
+	switch {
+	case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+		return true
+	case b == ',' || b == ')' || b >= 0x80: // the captured pre-comma char, incl. multi-byte
+		return true
+	}
+	return false
+}
+
 func negationSentenceSpans(text string) [][2]int {
 	var spans [][2]int
 	start := 0
