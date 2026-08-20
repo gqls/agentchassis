@@ -697,3 +697,50 @@ drained by the next session, the manual path is
 — the peer lane's proven fix, which took them from 2/23 to 23/23 served pages.
 **Grade it on served bytes, not on `pages.rendered_footer`**, which they measured
 reading "absent" for a page that was in fact serving the change.
+
+### Footer propagation: mechanism PROVEN, 30 pages outstanding, and the reconcile tool cannot grade a REMOVAL
+
+State after the `nav_drift` completed (17:50Z), measured rather than assumed:
+
+| layer | state |
+|---|---|
+| `pages.in_footer` | **false** on both articles ✓ |
+| `site_components.footer` (stored chrome) | article link **absent**, hub link **present** ✓ |
+| served pages | **stale on ~30 of 31** ✗ |
+
+This is the peer lane's point 3 reproduced exactly: *"a nav change updates stored
+chrome everywhere and republishes almost nothing"*. Spot-checked `/`,
+`/matchmatrix.html`, `/selection-guide.html`, `/how-it-works.html`,
+`/news/index.html` — all five still serve the article link.
+
+**Mechanism proven on one page.** An assemble-only `page-rerender` (no
+`spec.reason`) on `about.html` took it from `article=1, hub=3` to
+**`article=0, hub=3`** — the stale link gone, the new nav intact, 81,702 bytes.
+So the fix path is right; it simply has to be applied per page.
+
+**A real limitation of `reconcile_footer_nav.sh`, worth recording for whoever
+extends it:** its marker is **presence-based** — it re-renders any page that does
+NOT contain the marker string, and loops until all pages serve it. That grades an
+*addition* perfectly and **cannot grade a REMOVAL at all.** My change adds nothing
+new (every page already carries `/insights/index.html` from the earlier rebuild);
+the only difference is the article link's absence. Passing any present string
+makes the script conclude every page is current and do nothing; passing an absent
+string makes it re-render everything every round without ever converging.
+
+**What it would need:** an inverted mode — `--absent <marker>`, converging when
+the string is gone. That is a small change to a proven script and would cover
+every de-listing, which is now a first-class operation in this lane's lifecycle
+policy (*"retirement is deliberate de-listing"*). **De-listing a retired feature
+will hit this exact wall**, so it is worth building before the first retirement,
+not after.
+
+**Not doing 30 hand-rolled dispatches.** The script's own header warns the
+`kubectl run -i --rm … kcat -P` stdin form (which every dispatch in this lane has
+used, one at a time) **loses ~4 of 5 messages at exit 0** in a loop, which is why
+it uses the container-COMMAND form with a `PUBLISH_OK` receipt. Reimplementing
+that badly is how a "reconciled" site quietly stays stale. Offered to the peer
+lane, which has run the tested loop to 23/23.
+
+**Honest severity: cosmetic.** The stale link points at a real, live, good page —
+nothing is broken, and the structural defect (footer clutter growing with every
+feature shipped) is fixed at source. This is residue, not a live fault.
