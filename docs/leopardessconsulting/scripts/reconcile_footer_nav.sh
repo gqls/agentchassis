@@ -31,13 +31,57 @@
 # and reconcile_headers.sh additionally sends both streams to /dev/null.
 #
 # Usage: ./reconcile_footer_nav.sh <site_id> <domain> <marker> [max_rounds]
+#                                  [--absent] [--dry-run]
 #   marker: a string that must appear in each served page once chrome is current,
 #           e.g. /tools/ai-vendor-trust-checklist.html
+#
+# --absent  INVERTS the test: a page is current when the marker is GONE.
+# --dry-run lists what it would fire and fires nothing.
+#
+# WHY --absent EXISTS (added 2026-08-20, from the news_editorial lane's finding).
+# The default test is presence-based, so it grades an ADDITION perfectly and
+# CANNOT grade a REMOVAL. On a de-listing — a link taken OUT of the footer —
+# every page already carries every string you might pass: give it a present
+# marker and it concludes all pages are current and does nothing; give it the
+# removed string and it re-renders everything every round and never converges.
+# Measured on robot-hands.com 2026-08-20: nav_drift complete, site_components
+# correct, ~30 of 31 served pages still carrying the removed link, and this
+# script unable to express the goal.
+#
+# De-listing is now a first-class operation ("pages stay up indefinitely and are
+# deliberately de-listed when we want to", owner, 2026-08-19), so removal-shaped
+# chrome changes are not an edge case.
+#
+# THE TRAP --absent BRINGS WITH IT, and why page_state() has three values rather
+# than two: in absent mode a FAILED FETCH looks exactly like success — no body,
+# no marker, "current". That is the false-PASS shape this estate keeps logging
+# (LANDMINES: an unapplied stylesheet cannot fail a contrast check). So a page is
+# graded `unfetchable` and reported separately, never counted as reconciled. It
+# also fixes a real misread in presence mode: a never-built page (build_status
+# 'planned', deployed_at NULL — two exist on dartsonline.com) used to appear as
+# STILL MISSING for ever, which reads as two pages left to fix.
 # ============================================================================
 set -uo pipefail
 
+MODE=present; DRYRUN=0; ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --absent)  MODE=absent ;;
+    --present) MODE=present ;;
+    --dry-run) DRYRUN=1 ;;
+    *)         ARGS+=("$a") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 S="${1:?site_id}"; DOMAIN="${2:?domain}"; MARKER="${3:?marker string}"
 MAX_ROUNDS="${4:-3}"
+if [ "$MODE" = absent ]; then
+  echo "mode: ABSENT — a page is current when it does NOT contain: $MARKER"
+else
+  echo "mode: present — a page is current when it contains: $MARKER"
+fi
+[ "$DRYRUN" = 1 ] && echo "DRY RUN — nothing will be published"
 BROKER="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 PSQL=(kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAc)
 
@@ -84,10 +128,24 @@ sys.stdout.write(base64.b64encode(json.dumps(msg,separators=(",",":")).encode())
   case "$OUT" in *PUBLISH_OK*) echo "OK";; *) echo "DROPPED";; esac
 }
 
-serves_marker() { # page_name -> 0 if the DEPLOYED page already carries the marker
-  local URL
+# page_state <page_name> -> echoes current | stale | unfetchable
+#
+# THREE values, not two, and the third is load-bearing in --absent mode: an empty
+# or non-200 response contains no marker, so a two-valued predicate would grade a
+# fetch failure as "reconciled". Requires an HTTP 200 AND a non-empty body before
+# it will judge either way.
+page_state() {
+  local URL BODY CODE TMP
   URL=$("${PSQL[@]}" "SELECT url FROM pages WHERE site_id='$S' AND name='$1'")
-  curl -s "https://${DOMAIN}${URL}?cb=$(date +%s%N)" | grep -qF "$MARKER"
+  [ -n "$URL" ] || { echo unfetchable; return; }
+  TMP=$(mktemp); CODE=$(curl -s -o "$TMP" -w '%{http_code}' --max-time 25 \
+        "https://${DOMAIN}${URL}?cb=$(date +%s%N)")
+  if [ "$CODE" != 200 ] || [ ! -s "$TMP" ]; then rm -f "$TMP"; echo unfetchable; return; fi
+  if grep -qF "$MARKER" "$TMP"; then
+    rm -f "$TMP"; [ "$MODE" = absent ] && echo stale || echo current
+  else
+    rm -f "$TMP"; [ "$MODE" = absent ] && echo current || echo stale
+  fi
 }
 
 REMAINING=("${PAGES[@]}")
@@ -95,11 +153,29 @@ for (( round=1; round<=MAX_ROUNDS; round++ )); do
   # Only fire pages that do NOT already serve the marker — this is what makes it
   # a reconcile rather than a blind broadcast, and it is why a dropped publish
   # self-heals on the next round.
-  TODO=(); for p in "${REMAINING[@]}"; do serves_marker "$p" || TODO+=("$p"); done
+  TODO=(); UNFETCHABLE=()
+  for p in "${REMAINING[@]}"; do
+    case "$(page_state "$p")" in
+      stale)       TODO+=("$p") ;;
+      unfetchable) UNFETCHABLE+=("$p") ;;
+    esac
+  done
+  if [ ${#UNFETCHABLE[@]} -gt 0 ]; then
+    echo "  unfetchable (not 200, or no url) — neither fired nor counted: ${UNFETCHABLE[*]}"
+  fi
   echo ""
-  echo "round $round: ${#TODO[@]} page(s) still missing the marker"
+  if [ "$MODE" = absent ]; then
+    echo "round $round: ${#TODO[@]} page(s) STILL CARRYING the marker"
+  else
+    echo "round $round: ${#TODO[@]} page(s) still missing the marker"
+  fi
   [ ${#TODO[@]} -eq 0 ] && { echo "ALL PAGES CURRENT"; break; }
 
+  if [ "$DRYRUN" = 1 ]; then
+    echo "  would fire: ${TODO[*]}"
+    echo "DRY RUN — stopping before publish."
+    exit 0
+  fi
   dropped=0
   for p in "${TODO[@]}"; do
     r=$(fire "$p")
@@ -115,11 +191,17 @@ done
 
 # Final census. Reports the COUNT measured, so "reconciled nothing" is
 # distinguishable from "everything was already current".
-still=0
-for p in "${REMAINING[@]}"; do serves_marker "$p" || { still=$((still+1)); echo "  STILL MISSING: $p"; }
+still=0; unfetch=0
+for p in "${REMAINING[@]}"; do
+  case "$(page_state "$p")" in
+    stale)       still=$((still+1));   echo "  STILL STALE: $p" ;;
+    unfetchable) unfetch=$((unfetch+1)); echo "  UNFETCHABLE (not 200 — cannot be graded): $p" ;;
+  esac
 done
 echo ""
-echo "FINAL: $(( ${#PAGES[@]} - still )) of ${#PAGES[@]} reconcilable pages serve the marker"
+echo "FINAL: $(( ${#PAGES[@]} - still - unfetch )) of $(( ${#PAGES[@]} - unfetch )) GRADEABLE pages are current"
+[ "$unfetch" -gt 0 ] && echo "       ($unfetch page(s) excluded as unfetchable — a never-built page cannot carry chrome)"
+echo "       mode=$MODE marker=$MARKER"
 if [ ${#OWNED[@]} -gt 0 ]; then
   echo ""
   echo "NOT ATTEMPTED — rebuild_policy='owned' (save_sections refuses these):"
