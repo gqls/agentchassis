@@ -2684,3 +2684,77 @@ returns an ambiguous nothing for both, and 207 domains are in that state.
 - **I wrote in the 08-20 handoff that council round 3 had been submitted. It had not** — two runs
   existed for the correlation. Caught by counting the runs, which is a one-line query. *A claimed
   submission is the cheapest false claim to make and the easiest to check.*
+
+---
+
+## 2026-08-20 (later) — the brief writer, built, run, and read
+
+### The run
+
+Migration `510` applied and DO/RAISE-verified. Fired at `indoorplanters.co.uk` (one of the 50,
+site row created **locked** so nothing could build even by accident), orchestration
+`1ea45228-2135-4754-b3d9-d3d792b87df0`. Result:
+
+- `mission_brief` spec written, **12,095 chars**, `source='brief-writer'`
+- `needs_brief_review` item at **`status='needs_human_review'`** — held, as designed
+- **nothing built** — no pages, no plan, no other work items
+
+### The hold was proven BEFORE it was built on
+
+`approval_mode` is the semantically right mechanism and the dispatcher honours it. Tested against
+the dispatcher's own predicate verbatim (`load_work_item_actions.go:709`) on two disposable rows
+inside a transaction that was rolled back:
+
+| row | approval_mode | status | dispatched? |
+|---|---|---|---|
+| A | auto | triaged | **yes** |
+| B | manual | triaged | **no** |
+| B (after) | manual | **approved** | **yes** |
+
+Both directions. ⚠ **This lever had never been used — all 10,311 rows were `auto`.** But
+`create_work_item` has **no `approval_mode` config key**, so an agent cannot set it without a Go
+change. `status` is supported, and `needs_human_review` is equally invisible to the dispatcher, so
+that is what shipped: zero code, and the estate's existing HITL idiom. `approval_mode` support in
+`create_work_item` is recorded as the better long-term shape (BLD-024 verify-later).
+
+### Is the brief any good? — the only question that mattered
+
+**A completed run is not a good brief**, and generic-with-the-nouns-swapped was the failure mode
+the prompt argues against. Read it. It is specific:
+
+- **Names real competitors from its own research** and classifies them: general houseplant sites
+  (Homestead and Chill, The Spruce) that treat pots as secondary; retailer blogs (Plantatorem,
+  Greenhouse Studio) that are "thinly disguised product catalogues"; academic sources (PMC,
+  ScienceDirect) inaccessible to a general reader — then states the gap between them.
+- **Takes a stance**: *"against the trend of treating pots as pure decor objects divorced from
+  plant health, and against vague care advice that gives no concrete guidance."*
+- **15 content items across 8 kinds**, honestly prioritised: 5 `core` (planter size, drainage,
+  material guide, plant-to-pot matching, a Planter Finder tool), 7 `valuable` (retailer directory,
+  comparison table, pot-size calculator, care guides for 30–50 plants), 3 `aspirational`.
+- **Three tools with real inputs and outputs**, not "a calculator" — e.g. Pot Size Calculator:
+  current pot diameter + root condition → recommended diameter range.
+- **It marks its own uncertainty**, unprompted and in the estate's own idiom:
+  `research_quality: "adequate — … no direct competitor analysis of UK-specific sites was
+  available, so the directory opportunity and UK market gap are INFERRED rather than confirmed"`,
+  confidence 0.78. That is the discipline this repo spends `WRONG_CALLS.md` teaching, arriving in
+  a generated artefact without being asked for.
+- `regulated_subject: false`, correctly.
+
+### Cost, and a measurement problem worth naming
+
+**One brief: 133,948 input tokens, 3,172 output, `claude-sonnet-4-6`, NOT truncated**
+(`output_tokens < max_tokens` checked — a completion at the cap is a CUT, not a finish).
+
+Against the estate's measured baseline for a whole site build ($3.81 for 663,759 in / 184,596
+out), a brief is ~16% of that token volume — so **an upper bound of roughly $0.60/brief, ~$900
+across 1,500**. It is an UPPER bound and the real figure is lower: output tokens cost several
+times input, and this run is unusually input-heavy (five scraped pages), so a proportional
+estimate over-states it. **[ESTIMATED, not measured]** — no cost column exists.
+
+The input is the cost driver, and it is `max_scrapes: 5`. Halving the scrapes roughly halves the
+brief.
+
+⚠ **The spend is not attributable.** The call logged under `agent_type='generic'`, not
+`brief-writer` — `created_by` bottoms out at that literal when an agent does not set
+`config["source"]` (LANDMINES). So brief-writer spend cannot be separated from anything else's
+until the step sets a source. Worth fixing before 1,500 runs make the question interesting.
