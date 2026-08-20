@@ -2609,3 +2609,78 @@ that did not, and it arrived because the claim was stated in a form someone else
 Also a correction to our own §12: the "four items" are **two pages observed twice** (a build item
 plus its re-render sibling), which reads as more occurrences than it is; their census counts
 distinct pages and that is the better number.
+
+---
+
+## 2026-08-20 — the guard went live, the estate got inventoried, and four of my own claims were wrong
+
+### 1. CGV-033 is LIVE, and how that was established
+
+Chassis `v1.0.1317`, build point **`2d13d530d`** (2026-08-19 22:21Z). Establishing it took two
+corrections of method:
+
+- The `build provenance` startup line had **scrolled past `--tail=200000`** on both pods, so the
+  documented log route was unavailable. Found the build point by probing candidate commits from
+  the build window against `/proc/1/exe`.
+- **I first probed for MY OWN commit's sha and got "absent" on all three candidates** — including
+  `d3590ca46`, which had been PRESENT the day before. That is the landmine my own handoff quotes:
+  the binary carries the ONE commit it was built from, so your commit is always absent and the
+  reading means nothing. The correct test is `git merge-base --is-ancestor <commit> <build point>`.
+
+By ancestry: the guard (`b8e2e9cbe`), its round-2 tests, `cmd/regcheck` and the attestation
+recorder are all **in**. The section-editor arm (`ae7a8d739`, committed today) is **not** —
+it needs the next roll.
+
+**Not proven at the artefact.** No refusal has been observed; both sites are locked so there has
+been no demand. A zero here is no-demand, not a working guard.
+
+### 2. The estate: 1,567 domains classified from the registry export
+
+| class | n |
+|---|---|
+| PARKED (marketplace/for-sale DNS) | 1,247 |
+| NO_DELEGATION (registered, NS never set) | 207 |
+| **CLOOK / real hosting** (`dns.uk-noc.com`) | **62** |
+| REGISTRAR_DEFAULT | 19 |
+| OTHER (unknown — 2 AWS, 1 Hetzner, 8 domainmanage) | 18 |
+| CLOUDFLARE (ours) | 14 |
+
+The 62 serve real content (`cartoon.co.uk` 133 kB, `businessinsurancequotation.co.uk` 78 kB).
+**People's-name domains: 5.** **50 test candidates picked.**
+
+**Using the export's own `dns0..dns9` beats a live lookup twice over:** it is the registrar's
+record, and it distinguishes "registered, never delegated" from "lookup failed" — a live query
+returns an ambiguous nothing for both, and 207 domains are in that state.
+
+### 3. Four of my claims, corrected — three by the owner, one by the council
+
+- **"The planner does not know what we can build." FALSE.** `build-site-planner` has a
+  `load_components` step querying the live library, and `plan_site`'s `input_fields` include
+  `available_components`. It is handed the catalogue every run. *Useful by-product:* tool-level
+  components are included only if the site already has `plan_includes_tools` AND the tool is
+  already on one of its own pages — so a greenfield build sees no library tool, which is
+  `bugs_open/311`'s upstream half.
+- **"Games have no mechanism." FALSE.** `tool-drop-rate-tuner` is 22,230 chars of live
+  interactive JS on `gamesdesign.co.uk`, with `tool-xp-curve-designer` and
+  `tool-gacha-pity-designer` alongside. A game is an interactive tool.
+- **"NXDOMAIN may mean the registration lapsed." Owner: "no nameserver usually means I never set
+  a nameserver."** My reading would have sent someone to re-buy domains he already owns.
+- **"ScanAllBannedClaimsWithSuppressed is the single function every enforcement surface calls."
+  FALSE, and the council caught it.** `section_editor_actions.go` has zero claims-guard
+  references and writes `page_components.rendered_html` directly. Fixed in code.
+
+### 4. Two tool defects the real data exposed, and one claim I made about my own work
+
+- **The name extractor was wrong in BOTH directions.** Forename-first: 35 NAME verdicts on the
+  real estate, **3 of them people** (`christmasbasket` → "chris"+"tmasbasket", `annualreports` →
+  "ann"+"ualreports"). Compound-first: `jamesbrown`, `davidsmith`, `peterhiggins` all became NO,
+  because those surnames ARE dictionary words. The order that satisfies both: **known
+  forename+surname beats compound; compound beats a speculative split.** 35 → 5, all correct.
+  *A precedence bug reads exactly like a data bug.*
+- **"The first N that pass" is not a sample.** The picker returned 50 domains beginning with a or
+  b, because the eligible list is sorted. Subject variety survived by luck. Replaced with a
+  deterministic stride. It had also picked `anne-marie.co.uk` — a person's domain — so it now
+  excludes NAME verdicts.
+- **I wrote in the 08-20 handoff that council round 3 had been submitted. It had not** — two runs
+  existed for the correlation. Caught by counting the runs, which is a one-line query. *A claimed
+  submission is the cheapest false claim to make and the easiest to check.*
