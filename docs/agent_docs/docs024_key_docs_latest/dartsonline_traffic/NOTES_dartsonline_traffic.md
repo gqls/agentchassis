@@ -968,3 +968,12 @@ and destroy the four guide figures this lane spent days recovering. After the re
 **1 in-body `<img>` on each of flight-shapes, tungsten-guide, steel-tip-vs-soft-tip and
 beginners** — all four intact. Any future chrome propagation on this site must use the same
 mode and must re-run this check, because the failure is silent and looks like success.
+
+**The script's own final line reads `23 of 25` and that is NOT a residual — do not chase it.**
+Its denominator is `pages WHERE status='active'`, which on this site includes two rows that
+have never been built: `brand-detail` and `product-detail` (`page_type='entity-page'`,
+`build_status='planned'`, `deployed_at` NULL). Both serve **404** `[MEASURED 2026-08-20]`, so
+they cannot carry a chrome marker and no number of rounds will make them. Every page that
+actually serves has it: **23 of 23**, which is also exactly the sitemap's length. Anyone
+re-running `reconcile_footer_nav.sh` here will meet the same two names in the STILL MISSING
+list; the check that settles it in one command is `deployed_at IS NULL`, not another round.
