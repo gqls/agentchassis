@@ -5501,3 +5501,78 @@ indistinguishable in that result. Caught by opening the migration before asserti
 → `WRONG_CALLS.md` (swept into the 277 lane's commit `7a235468f` as a same-file passenger
 ~20 minutes after I appended it — nothing lost, noted here because the entry's provenance is
 now invisible in `git log`).
+
+## 2026-08-20 (morning) — step 4 PROVEN on v1.0.1317; and step 5 now has a named, concrete cost
+
+**Step 4 is live and proven.** `v1.0.1317`, both pods up 2026-08-19 22:26Z, one shared digest
+(`sha256:64783665…` — so no partial roll). The `build provenance` line had **already scrolled at
+8 h**, exactly the case the 08-19 landmine describes, so I went to the capability probe:
+`current_page_name` PRESENT on both pods, `renderContextStepContractRenames` symbol present,
+present-control (`build_render_context`) ok, absent-control (`current_page_name_NOTREAL`) ok.
+
+**Done-condition met, with its detection power stated.** Window 22:26Z→06:50Z: pcw/`current_page`
+= **0 rows** against 3 live pcw runs. Pre-roll rate was **34 rows / 11 runs = 3.1 per run**, so
+~9 were expected — P(0) under the old behaviour is negligible. But 3 runs is a thin sample and I
+will not pretend otherwise: **it rules out the old ~every-run behaviour, and could not detect a
+residual firing on fewer than ~1 run in 3.** No new `*.current_page` candidate set appeared,
+which is the thing the RUNBOOK told us to watch for.
+
+**Correction to step 5's plan — the retention argument is unsound, though its conclusion holds.**
+The handoff said the read-side tolerance can be retired because the step-4 roll will have
+outlived `orchestration_states`' ~24 h retention. Two things are wrong with that:
+1. **Rows are not deleted at 24 h.** The table still holds rows from **2026-07-19** — 24
+   `CANCELLED` stragglers the cleanup does not touch. The ~24 h figure is about `COMPLETED` rows;
+   the 7-day figure in LANDMINES is about the `awaited_requests` COLUMN, not the row.
+2. **The tolerance is reached from somewhere with NO retention at all.** Its second call site is
+   `mergeIntoRenderContext` — the re-render restore — and stored component `content_data` never
+   expires. **20 live `page_components` rows across 12 sites carry `current_page` as a STRING**
+   today, 17 of them on `deployed` pages, each holding that page's own name.
+
+The conclusion survives, on two grounds that are actually about the right population, and these
+are what the step-5 commit should cite instead:
+- **Zero NON-TERMINAL pre-roll orchestrations** (all 2,476 are COMPLETED/CANCELLED/FAILED), so
+  none can be resumed into the build-side call site.
+- **`buildRerenderBaseData` always writes the NEW key fresh** from its `pageName` argument, and
+  the tolerance's first branch `continue`s whenever `current_page_name` is present — so those 20
+  stored rows never reach the second branch.
+I nearly filed the 20 rows as a blocker. Reading `buildRerenderBaseData`'s own comment (which
+says it writes under the step-boundary name deliberately) is what stopped that.
+
+**The `commit_sha` class is the sharpest thing in the way of step 5, and it is now characterised.**
+Last night it was 2 rows and I flagged it as new. Under 1317 it is **~80 rows across ~30 candidate
+sets**, first seen 08-19 20:40Z and absent from the four prior days of instrument history.
+
+- **It is TRAFFIC, not a regression.** The 283 bindings-repair batch (migrations 486/487, applied
+  20:36/20:37Z — three minutes before the first row) drove multi-iteration loops. The shape needs
+  several iterations in ONE orchestration to produce conflicting aliases; ordinary 1–2 item loops
+  never trip it. This is the landmine's own thesis demonstrated on a fresh case.
+- **The values genuinely differ**, checked at `collected_data` per the four-step method — each
+  iteration deploys and gets its own sha:
+  `handler_result`=5a1caa74, `handler_result_0`=73dd2505, `_1`=f5fba08f, `_2`=5a1caa74.
+- **The unsuffixed alias is the LATEST iteration** (`handler_result == handler_result_2` in the
+  3-iteration run, `== handler_result_1` in the 2-iteration run), and it sorts first, so it wins.
+- **The asker is `complete_work_item`**, whose `CompleteWorkItemInputSpec` declares `commit_sha`
+  Optional and writes it to `result.commit_sha` (`load_work_item_actions.go:937`). It is **not
+  wired in any live step config** — the two configs mentioning `commit_sha` are `code-indexer`
+  and `site-work-orchestrator`, neither of them this one.
+- **So today it is probably resolving CORRECTLY, by luck** `[INFERRED — the ordering is reasoned
+  from the alias values, not observed mid-run]`: at iteration k the unsuffixed alias holds
+  iteration k's own result, so the shallowest-first winner is the right sha at the moment
+  `complete_work_item` reads it.
+
+**Which makes it a concrete, costed regression that step 5 WOULD cause.** Flip conflicts to
+refusal and `commit_sha` resolves to **nothing**, so `result.commit_sha` silently stops being
+recorded on completed work items — a field 315's page-stamp work depends on (its own commit
+message: "3 of 19 git_commit steps feed a page stamp"). This is precisely the case the flip's
+stated precondition exists for: **bdl/`commit_sha` needs an explicit mapping BEFORE the flip**,
+wiring the current iteration's path into the loop's `complete_work_item` step config. That is one
+migration, and it is the first concrete item on step 5's list rather than a hypothetical.
+CONTRIB written to the 315 lane — it is theirs to judge, not mine to change.
+
+**Also closed off from last night:** the `bugs_open/330` diagnosis came back **CONFIRMED** on the
+first iteration, and it read the link I had inferred rather than opened — `strategy0Resolved` in
+`ExtractActionInputs` only withholds fields Strategy 0 *actually resolved* (present in
+`result.Values`, not merely `Defaulted`), so "declared but empty" and "never asked" are recorded
+identically one layer above the cascade. It explicitly declined the scope-widening half rather
+than guessing it; that audit is still owed and is what sizes fix candidate 2. The landmine
+appended last night verified **STILL_VALID**.
