@@ -135,12 +135,31 @@ the email is no longer blocked on it.
 > `./scripts/migration/run-migrations.sh` (takes >2 min; background it). Nothing in
 > the current pending list belongs to this lane.
 
-**Still owed from 2026-08-19's rulings — the ONLY one unactioned:**
-
-- **Lengthen the ZIP presign from 7 days to 30.** `expiry_minutes: 10080` → `43200`
-  in `zip_deliverable_action.go`. Owner ruled this on 2026-08-19 evening, choosing it
-  over changing the copy. **It is a Go change**, so it needs a commit, a build and a
-  roll, and it is the only thing on this lane that does.
+> ### ⚠ THE ZIP-LINK RULING CANNOT BE DELIVERED AS A NUMBER — 7 DAYS IS THE CEILING
+>
+> The owner ruled 30 days (2026-08-19) and then "the longest time we have, which I
+> think is 6 weeks" (2026-08-20). **Both are above the maximum, and `expiry_minutes:
+> 10080` is already that maximum.** A presigned URL is bounded by the SigV4 signing
+> protocol at 604,800 seconds, and **nothing in this stack enforces it** — the SDK
+> signs any duration and returns a well-formed URL, so a longer link mints cleanly,
+> the action reports success, and it fails only in the customer's browser, as
+> **`SignatureDoesNotMatch`** — which reads as broken credentials, not a long expiry.
+>
+> `[MEASURED 2026-08-20]` against the live bucket, key deliberately absent so the
+> status is the whole answer: **`604800` → HTTP 404 `NoSuchKey`** (the control:
+> signature accepted), `604801` → 403, `3628800` (6 weeks) → 403. Exact to the second.
+>
+> **The presign has NOT been changed and no substitute number has been slipped in.**
+> Every live caller already sits exactly on the ceiling (five sites), so nothing is
+> broken and nobody has hit this yet. Full entry in `LANDMINES.md`.
+>
+> **What delivers the intent — and it is Phase 4 work anyway:** stop shipping the
+> presigned URL to the customer. The delivery email carries a link of OURS with a
+> token; the click mints a fresh ≤7-day presign server-side and redirects. The window
+> then belongs to our token, so "lasts as long as we host it" becomes true by
+> construction rather than by a number, and the 6-week figure lives in ONE place
+> instead of two. **It is the same token mechanism the confirmed-transferred click
+> needs**, so build them together. This is now the recommended shape, not a workaround.
 
 **Blocked on the owner, and this gates first revenue:** Stripe keys; the Stripe webhook
 edge exception; second Nominet TAG (domain programme only).
@@ -163,7 +182,10 @@ edge exception; second Nominet TAG (domain programme only).
    collision in `no_presales_service`'s favour and supersedes the hand-holding half of
    2026-08-19's decision 6.** That fact is UNCHANGED and stays absolute; there is no
    carve-out for the £200. Do not reopen it.
-3. **Lengthen the ZIP download link to 30 days.** NOT YET DONE (§2).
+3. **The ZIP download link should last "the longest time we have"** — ruled 30 days
+   on 08-19, restated as 6 weeks on 08-20. **NOT DONE, and not doable as a number:**
+   7 days is a protocol ceiling and the code is already on it. See the boxed note in
+   §2 for the measurement and the design that does deliver it.
 4. **Phase 4 handover state next.**
 
 **Still in force from before:**
@@ -203,7 +225,8 @@ edge exception; second Nominet TAG (domain programme only).
 | Chat prompt-maker | **LIVE** 08-18 | `434d2b64b` at the running service; smoke-tested |
 | £1,200 swept from all 9 specs | **LIVE** 08-18 | seven phrases asserted nowhere |
 | Phase 3 ZIP deliverable | **LIVE** | register DGH-011, canary 8/8 byte-verified |
-| Chassis | **`v1.0.1317`** | pod image, 2026-08-20. Pods started 2026-08-19T22:26Z; the `build provenance` line has already scrolled out of `--tail=400`, which means **"not in range", not "unstamped"** |
+| Chassis | **`v1.0.1320`** | pod image, 2026-08-20T16:09Z (was 1317, was 1314). The `build provenance` line is out of range in `--tail=600`, which means **"not in range", not "unstamped"**. It rolls several times a day |
+| Presign ceiling is 7 days | **MEASURED** 08-20 | 604800 → 404 `NoSuchKey`; 604801 and 6 weeks → 403 `SignatureDoesNotMatch`. See §2 |
 
 ---
 
@@ -288,6 +311,7 @@ edge exception; second Nominet TAG (domain programme only).
 - `sites.handed_over_at` existing (someone started Phase 4).
 - The register's ban count (**34**) and fact count (**22**) — two lanes write this row.
 - Whether Stripe keys / the webhook exception / the second Nominet TAG have landed.
-- The chassis tag (**v1.0.1317**); it rolls often.
-- The landmine verifier's verdict on the `(?i)` entry:
+- The chassis tag (**v1.0.1320**); it rolls several times a day.
+- The landmine verifier's verdicts on the two entries filed by this lane — the `(?i)`
+  compile trap (`cf717466`) and the 7-day presign ceiling (`5c958a5f`):
   `SELECT subject_key, left(body,200), created_at FROM doc_notes WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;`
