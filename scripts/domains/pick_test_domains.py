@@ -65,6 +65,9 @@ def main():
     ap.add_argument("--classified")
     ap.add_argument("-n", type=int, default=50)
     ap.add_argument("--show-excluded", action="store_true")
+    ap.add_argument("--names-tsv", help="output of extract_person_name_domains.py; "
+                                        "NAME verdicts are excluded — a personal domain is a "
+                                        "poor test domain and may be someone's actual site")
     args = ap.parse_args()
 
     reg_text = open(args.register, encoding="utf-8").read().lower()
@@ -72,6 +75,15 @@ def main():
     reg_domains = set(re.findall(r"\b[a-z0-9][a-z0-9-]*\.(?:co\.uk|org\.uk|me\.uk|uk|com|net|org|io|ai)\b",
                                  reg_text))
     reg_norms = {norm(d) for d in reg_domains}
+
+    person_names = set()
+    if args.names_tsv:
+        with open(args.names_tsv, encoding="utf-8") as f:
+            next(f, None)
+            for ln in f:
+                p = ln.rstrip("\n").split("\t")
+                if len(p) >= 2 and p[1].strip() == "NAME":
+                    person_names.add(p[0].strip().lower())
 
     ns_class = {}
     if args.classified:
@@ -106,6 +118,9 @@ def main():
             clash = sorted(x for x in reg_domains if norm(x) == n)[:2]
             emit(d, "EXCLUDED", f"near-variant of registered {', '.join(clash)}")
             continue
+        if d in person_names:
+            emit(d, "EXCLUDED", "reads as a person's name — not a test domain")
+            continue
         cls = ns_class.get(d)
         if cls is None and args.classified:
             emit(d, "EXCLUDED", "not in the classification file")
@@ -119,22 +134,36 @@ def main():
         eligible.append(d)
         emit(d, "ELIGIBLE", f"unregistered, {cls or 'unclassified'}")
 
-    # Spread the pick across first letters so the reserved set is not 50 domains
-    # about one subject — a single-vertical test set only ever tests one shape.
+    # STRIDE, not "the first N that pass". The first attempt took the first 50
+    # eligible domains that satisfied a per-stem cap, and because the list is
+    # sorted that returned 50 domains beginning with a or b. Subject variety
+    # happened to survive, but only by luck, and the set looked wrong enough that
+    # nobody would trust it.
+    #
+    # Striding at len(eligible)/n samples the whole alphabet deterministically —
+    # no randomness, so the same inventory always yields the same set, which
+    # matters because this list gets written down and referred to later.
     eligible.sort()
-    picked, seen_initial = [], {}
-    for d in eligible:
-        k = norm(d)[:3]
-        if seen_initial.get(k, 0) < 2:
+    picked = []
+    if eligible:
+        stride = max(1, len(eligible) // args.n)
+        seen_stem = {}
+        for i in range(0, len(eligible), stride):
+            d = eligible[i]
+            k = norm(d)[:4]
+            if seen_stem.get(k, 0) >= 1:
+                continue  # never two near-identical labels in the test set
             picked.append(d)
-            seen_initial[k] = seen_initial.get(k, 0) + 1
-        if len(picked) >= args.n:
-            break
-    for d in eligible:
-        if len(picked) >= args.n:
-            break
-        if d not in picked:
-            picked.append(d)
+            seen_stem[k] = 1
+            if len(picked) >= args.n:
+                break
+        # Top up from anywhere if the stem rule thinned the stride too far.
+        for d in eligible:
+            if len(picked) >= args.n:
+                break
+            if d not in picked and seen_stem.get(norm(d)[:4], 0) == 0:
+                picked.append(d)
+                seen_stem[norm(d)[:4]] = 1
 
     print(f"\n# eligible: {len(eligible)}   picked: {len(picked)} of {args.n} asked for",
           file=sys.stderr)

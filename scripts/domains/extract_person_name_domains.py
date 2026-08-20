@@ -93,8 +93,14 @@ car cars auto motor travel holiday hotel food drink pet vet energy gas electric
 # to catch. Most common English surnames ARE dictionary words (Brown, Green, Baker,
 # Fields, Cook, Hill, Wood, Ward, Bell), so the dictionary test cannot be the last
 # word. Checked BEFORE the dictionary test for that reason.
+#
+# `appleby` is here for a specific, evidence-backed reason: it is the registrant
+# surname on all 1,567 domains in the 2026-07-30 registry export, so it is by far
+# the most likely surname to appear in a personal domain on THIS estate. When
+# running against a different estate, add that estate's registrant surnames the
+# same way — it costs one word and it is the single highest-yield addition.
 SURNAMES = set("""
-adams allen anderson armstrong atkinson bailey baker barnes bell bennett berry
+adams allen anderson appleby armstrong atkinson bailey baker barnes bell bennett berry
 birch bishop black booth bradley brooks brown bryant burton butler byrne campbell
 carter chapman clark clarke cole collins cook cooper cox craig crawford cunningham
 davies davis dawson dean dixon dobson donnelly douglas doyle duncan dunn edwards
@@ -159,6 +165,33 @@ def classify(domain, words):
         if len(c) >= 5 and c in clean:
             return d, "NO", f"commercial token '{c}'"
 
+    # ⚠ PRECEDENCE IS LOAD-BEARING, and both orderings were wrong before this.
+    #
+    # Attempt 1 — forename split first: every christmas* domain came back NAME as
+    # "chris + tmasbasket", annualreports as "ann + ualreports",
+    # leopardconsulting as "leo + pardconsulting". Short forenames (chris, ann,
+    # leo, rob, ken, jo, reg, bill, mark) prefix a great many ordinary words, so a
+    # forename-first split always finds one. 35 NAME verdicts on the real estate,
+    # 3 of them people.
+    #
+    # Attempt 2 — dictionary compound first: jamesbrown, sarahjones, davidsmith
+    # and peterhiggins all became NO, because brown/jones/smith/higgins ARE
+    # dictionary words. That is the same fact the SURNAMES list exists for.
+    #
+    # The order that satisfies both: a forename + a KNOWN SURNAME is a person even
+    # when both halves are dictionary words; anything else that splits into two
+    # dictionary words is a compound. Known-pair beats compound; compound beats a
+    # speculative split.
+    for head, tail in split_label(clean):
+        if head in FORENAMES and tail in SURNAMES:
+            return d, "NAME", f"forename '{head}' + surname '{tail}'"
+        if head in SURNAMES and tail in FORENAMES:
+            return d, "NAME", f"surname '{head}' + forename '{tail}'"
+
+    for head, tail in split_label(clean):
+        if head in words and tail in words and len(head) >= 4 and len(tail) >= 4:
+            return d, "NO", f"dictionary compound '{head}'+'{tail}'"
+
     if clean in FORENAMES:
         if tld in PERSONAL_TLDS:
             return d, "NAME", f"forename '{clean}' on personal TLD .{tld}"
@@ -173,8 +206,11 @@ def classify(domain, words):
                 return d, "NAME", f"forename '{head}' + surname '{tail}'"
             if tail in words and tail not in FORENAMES:
                 return d, "MAYBE", f"forename '{head}' + dictionary word '{tail}'"
+            # A tail that is not a known surname is only MAYBE. Before this,
+            # any non-dictionary tail of 3+ chars was promoted to NAME, which is
+            # the other half of the over-firing described above.
             if len(tail) >= 3:
-                return d, "NAME", f"forename '{head}' + surname '{tail}'"
+                return d, "MAYBE", f"forename '{head}' + unknown tail '{tail}'"
         if head in SURNAMES and tail in FORENAMES:
             return d, "NAME", f"surname '{head}' + forename '{tail}'"
 

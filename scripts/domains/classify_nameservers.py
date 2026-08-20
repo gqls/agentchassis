@@ -38,8 +38,13 @@ UA = "Mozilla/5.0 (compatible; portfolio-domain-audit/1.0)"
 # not the classic parking-ad services — so those are listed first and the rest are
 # kept as a wider net for domains outside the sample.
 PARKING = [
-    # marketplace / for-sale DNS (all four seen live on this estate)
-    "dan.com", "aftermarket.com", "namepros-dns", "domainlore",
+    # marketplace / for-sale DNS. The first group is MEASURED on this estate
+    # (2026-07-30 registry export, 1,567 domains): dan.com 998, domain.io 193,
+    # namepros 25, domainlore 7, flip.uk 5, catch.software 5, buydomainnames 2.
+    # domain.io was confirmed by probe (301 to a for-sale page, no body) and
+    # catch.software by its own title ("Hosted Chasing : Catch Domains").
+    "dan.com", "domain.io", "aftermarket.com", "namepros-dns", "domainlore",
+    "flip.uk", "catch.software", "hostedchasing", "buydomainnames", "buynames",
     "sedoparking", "sedo.com", "undeveloped.com", "afternic", "namedrive",
     "sav.com", "efty.com", "squadhelp", "brandbucket",
     # parking-ad networks
@@ -57,8 +62,34 @@ REGISTRAR_DEFAULT = [
     "domaincontrol.com", "registrar-servers.com", "dynadot.com",
     "porkbun.com", "spaceship", "namesilo", "hostinger",
 ]
-CLOOK = ["clook"]
+# uk-noc/us-noc is the estate's real-hosting nameserver pair (62 domains in the
+# 2026-07-30 registry export, carrying the premium generics: advertise.co.uk,
+# cartoon.co.uk, catalogues.co.uk, conferences.co.uk). Grouped with CLOOK as
+# "hosted somewhere real" rather than parked. If these turn out NOT to be Clook,
+# rename the class — the grouping is about what it means, not whose brand it is.
+CLOOK = ["clook", "uk-noc.com", "us-noc.com"]
 CLOUDFLARE = ["ns.cloudflare.com"]
+
+# Registry exports carry the delegation already, which beats a live lookup twice
+# over: it is the registrar's own record, and it still answers for a domain that
+# has never been delegated (a live query for those returns nothing, and "nothing"
+# is ambiguous between "no delegation" and "lookup failed").
+def load_ns_csv(path):
+    """Read a Nominet-style CSV export: a `domain` column plus dns0..dns9."""
+    import csv as _csv
+    out = {}
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        for row in _csv.DictReader(f):
+            dom = (row.get("domain") or "").strip().lower().rstrip(".")
+            if not dom:
+                continue
+            ns = sorted(
+                (row.get(f"dns{i}") or "").strip().rstrip(".").lower()
+                for i in range(10)
+                if (row.get(f"dns{i}") or "").strip()
+            )
+            out[dom] = ns
+    return out
 
 
 def doh(name, rtype):
@@ -70,7 +101,19 @@ def doh(name, rtype):
         return json.load(r)
 
 
+NS_FROM_CSV = {}
+
+
 def classify(domain):
+    if NS_FROM_CSV:
+        # Registry data: authoritative, and an empty list is a real answer
+        # ("registered, never delegated") rather than a failed lookup.
+        if domain not in NS_FROM_CSV:
+            return domain, "NOT_IN_EXPORT", ""
+        ns = NS_FROM_CSV[domain]
+        if not ns:
+            return domain, "NO_DELEGATION", ""
+        return domain, ns_class(",".join(ns)), ",".join(ns)
     try:
         d = doh(domain, "NS")
     except Exception as e:  # network/DoH failure is NOT "no nameservers"
@@ -89,18 +132,20 @@ def classify(domain):
         # than inventing "unparked".
         return domain, "NO_NS" if status == 0 else f"STATUS_{status}", ""
     joined = ",".join(ns)
+    return domain, ns_class(joined), joined
+
+
+def ns_class(joined):
     low = joined.lower()
     if any(p in low for p in CLOUDFLARE):
-        cls = "CLOUDFLARE"
-    elif any(p in low for p in CLOOK):
-        cls = "CLOOK"
-    elif any(p in low for p in REGISTRAR_DEFAULT):
-        cls = "REGISTRAR_DEFAULT"
-    elif any(p in low for p in PARKING):
-        cls = "PARKED"
-    else:
-        cls = "OTHER"
-    return domain, cls, joined
+        return "CLOUDFLARE"
+    if any(p in low for p in CLOOK):
+        return "CLOOK"
+    if any(p in low for p in REGISTRAR_DEFAULT):
+        return "REGISTRAR_DEFAULT"
+    if any(p in low for p in PARKING):
+        return "PARKED"
+    return "OTHER"
 
 
 def http_probe(domain):
@@ -123,13 +168,25 @@ def main():
     ap.add_argument("--check-http", action="store_true",
                     help="also fetch each domain and report status + body bytes")
     ap.add_argument("--workers", type=int, default=12)
+    ap.add_argument("--ns-csv", help="registry CSV export (domain + dns0..dns9); "
+                                     "use its delegation instead of live DNS lookups")
     args = ap.parse_args()
 
-    src = open(args.file) if args.file else sys.stdin
-    domains = [
-        ln.strip().lower() for ln in src
-        if ln.strip() and not ln.strip().startswith("#")
-    ]
+    if args.ns_csv:
+        global NS_FROM_CSV
+        NS_FROM_CSV = load_ns_csv(args.ns_csv)
+        if not args.file:
+            # The export IS the inventory; no separate domain list needed.
+            args.file = args.ns_csv
+
+    if args.ns_csv:
+        domains = sorted(NS_FROM_CSV)
+    else:
+        src = open(args.file) if args.file else sys.stdin
+        domains = [
+            ln.strip().lower() for ln in src
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
     seen, ordered = set(), []
     for d in domains:
         if d not in seen:

@@ -24,7 +24,89 @@ register.** That distinction is the whole point of the file and it is load-beari
 - Anything built on a reserved domain is a **test**. It carries no positioning promise, and it
   must not be linked to from a positioned site.
 
-## Status: NONE RESERVED YET — and here is exactly why
+## Status: 50 CANDIDATES PICKED 2026-08-20, awaiting the owner's yes
+
+The registry export (`domain-list-2026-07-30.csv`, 1,567 domains, all registered, none
+suspended) arrived and the picker ran against it: **1,120 eligible, 447 excluded, 50 picked.**
+
+They are **candidates, not reserved** until the owner confirms — reserving a domain is a
+decision about an asset, not a script's output.
+
+### The 50
+
+- `00.org.uk`
+- `aiq.uk`
+- `artworker.uk`
+- `backingtracks.uk`
+- `bodybeauty.uk`
+- `businessinsurancequotation.uk`
+- `carsafes.uk`
+- `chocolatedirect.co.uk`
+- `comedienne.uk`
+- `contentresearch.co.uk`
+- `cosmeticsdesigners.co.uk`
+- `datingevenings.co.uk`
+- `designmail.co.uk`
+- `dishcloths.co.uk`
+- `egret.co.uk`
+- `farmerinsurance.uk`
+- `flubbert.co.uk`
+- `gamerooms.co.uk`
+- `giftsxmas.co.uk`
+- `hcare.uk`
+- `healthscare.uk`
+- `homegarden.uk`
+- `indoorplanters.co.uk`
+- `interactivebrochure.uk`
+- `jewellerydisplays.co.uk`
+- `landingpagedesign.co.uk`
+- `linkchecking.co.uk`
+- `mailinglist.co.uk`
+- `medicalcare.uk`
+- `mobileux.uk`
+- `myhealthcareblog.uk`
+- `one-to-one.co.uk`
+- `packagingmachinery.uk`
+- `personalising.uk`
+- `playground-markings.co.uk`
+- `privatehealthcareproviders.co.uk`
+- `progressed.uk`
+- `quido.co.uk`
+- `removalscompanies.co.uk`
+- `rideons.uk`
+- `segmentation.uk`
+- `siterepair.uk`
+- `soundcameras.co.uk`
+- `structuralinsulatedpanels.co.uk`
+- `teamhelp.uk`
+- `topquality.uk`
+- `vanitybags.co.uk`
+- `vetsy.uk`
+- `webcook.co.uk`
+- `websitedesignaward.co.uk`
+
+### How they were chosen, and the two defects fixed on the way
+
+Rules enforced: not named in the register · not a near-variant of a registered domain
+(normalised label comparison, so `savings-rates` is caught as a variant of `savingsrates`) ·
+parked or registrar-default nameservers, never a serving site · not a person's name.
+
+**Defect 1 — alphabetical clustering.** The first run took the first 50 eligible domains
+passing a per-stem cap. Because the list is sorted, that returned 50 domains beginning with a
+or b. Subject variety survived by luck. Replaced with a deterministic STRIDE across the whole
+eligible list, so the same inventory always yields the same set — which matters because this
+list gets written down and referred to later.
+
+**Defect 2 — it picked a person's domain.** `anne-marie.co.uk` was in the first set. The picker
+now takes the name-extractor's output and excludes `NAME` verdicts: a personal domain is a poor
+test domain and may be someone's actual site.
+
+The resulting spread is genuinely varied — audio, beauty, insurance, chocolate, dating,
+farming, gaming, gardens, jewellery, mailing lists, medical, packaging, playgrounds, removals,
+vets, web design — which is what the set is for: exercising the brief-writer across different
+content shapes rather than fifty variations of one.
+
+## Superseded status note (kept so the correction is legible): NONE RESERVED YET
 
 **Measured 2026-08-19:** all **152** domains in `PORTFOLIO_domains.txt` are named in
 `REGISTER_positioning.md`, as a primary, a twin, or inside an entry's `domains:` list.
