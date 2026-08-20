@@ -366,6 +366,45 @@ re-rendering will move it. Cross-refs: `bugs_open/268` §11.1/§12, PBP-039
 (the carry can only restore what a row still holds — same asymmetry one layer
 down), `a-stale-page-holds-every-improvement-since-it-rendered` (MEMORY).
 
+> **⚠ STRENGTHENED 2026-08-20 (bugfix 238 lane) — THE SPLIT QUERY ITSELF HAS TWO
+> OPPOSITE FAILURE MODES, and the predicate this entry recommends is one of
+> them.** Above it says to split "by `page_id`+`slot_name` (NOT `component_id`)".
+> That is right about `component_id` and **not sufficient**, because
+> `page_component_history` has five writers and only the 357 trigger populates
+> `slot_name` — while `save_page_sections_overwrite`, the writer that archives
+> the row a regeneration is about to destroy, **writes `slot_name` NULL**. So:
+>
+> - **too strict** (`slot_name = X AND source = 'artefact_archive_trigger'`)
+>   discards the only rows that can answer the question. Measured on
+>   ai-agent-orchestration.com `/index`: **1,184 app-written rows with NULL slot,
+>   42 holding the value — against 211 trigger rows, 0 holding it.** The query
+>   returned "0 of 25 field slots ever held a value", i.e. **the entire
+>   population misclassified as never-held**, which is the comfortable answer
+>   because it makes the repair smaller;
+> - **too loose** (`page_id` alone) over-counts by slot, because several
+>   components on one page may declare the same field name — `cta_url` is
+>   declared by **5** deployed components on one page, so 103 values were
+>   credited to the wrong section and nearly written up as a new regression.
+>
+> **The discriminator that works is content identity:** `SELECT count(DISTINCT
+> pc.id) FROM page_components pc JOIN content_components cc ON cc.id =
+> pc.component_id WHERE pc.page_id = $1 AND pc.build_status='deployed' AND
+> cc.input_schema->'fields' ? '<field>'` — **1** means the field name attributes
+> the value, **>1** means no data-only recovery is possible and the row needs a
+> human. Run the probe at BOTH tightnesses and treat the gap between them as the
+> finding; a loose and a strict count disagreeing by orders of magnitude is a
+> question about what the join means, not a measurement.
+>
+> **Corollary for the other direction** (did a value get DESTROYED, rather than
+> never exist): only trigger rows can be paired into consecutive generations of
+> one slot, so such a study is bounded to **2026-08-09 onward** (when 357
+> landed) and the March-onward app rows cannot widen it. Run it with a demand
+> control — a quiet fleet and a working fix look identical. Worked case, same
+> lane: 66 non-llm losses, all `renderer`/`static`, all 2026-08-11 → 08-14
+> 18:36, none since, against **3,033** archived pairs — which is how the
+> `bugs_open/268` carry extension was finally proven in production.
+> Full account: `WRONG_CALLS.md` 2026-08-20, `bugs_open/238` §11.5/§11.7.
+
 ### A CI selector that diffs ONE COMMIT answers "what changed" wrong for every push that isn't one commit — and on a merge it is the PUSHER who silently loses
 
 **Symptom.** A push lands, the run is green, and the artefact never changes: `curl`
