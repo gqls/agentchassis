@@ -1987,3 +1987,75 @@ proceeding`. **A guard that would fire on every ordinary day is not a guard, it 
    the words "WCAG AA" next to 44.
 Also `parseInt(...) || 0`: a cleared field becomes a real zero and the tool emits a CSS fix for a
 button with no width.
+
+## 2026-08-20 07:15Z — #18 built, retired and graded — and TWO SESSIONS attended one build, harmlessly
+
+Build landed 07:07:32Z: component **`33498b63-e84c-47ba-8bcd-3011a7788c47`**
+(`tool-touch-target-webdesign-co-uk`, 13,393 chars), slot `394eeb1c-91f3-4615-91b3-74b07345e826`.
+Item `324bae81` complete 07:07:54Z.
+
+**The retire was done TWICE, 65 µs-to-seconds apart, and the guard made the collision a no-op.** The
+ported slot `9f58deb3` reads `removed` with `updated_at=07:08:10.445Z` — written by the PRIOR lane
+session's armed watcher. This (fresh) session's own guarded retire ran in the same second and printed
+**`UPDATE 0`** (the `build_status IN ('deployed','pending')` predicate found nothing to take), while its
+same-transaction asserts confirmed the end state independently: exactly one non-removed slot, that slot
+a `component_level='tool'` component with `function='tool-touch-target'`, and the ported bytes
+byte-identical (md5 `a543715ca4f675b35f3920531747a8f0`). Two lessons worth the ink: the status
+predicate on the retire UPDATE is what makes a two-attendee race harmless — never drop it; and a
+pre-assert that pins only md5+length does NOT notice the slot is already retired, so an `UPDATE 0`
+here means "already done", not "wrong page".
+
+**RUN grade (RUNBOOK query):** `current_step='complete'`, `page_adopted=true`, `already_exists` NULL,
+`__step_error` NULL, and the orchestration's `create_result.component_id` equals the component the page
+actually gained (`33498b63…`). Input spec function confirmed `tool-touch-target` (not merely "latest row").
+
+**COMPONENT grade, by mechanism — all brief requirements met:**
+- the ported overlay defect is structurally impossible: ONE `buildShape(cls,w,h,label)` path draws the
+  button AND all three reference squares, each with explicit `style.width`/`style.height` in the same
+  pixel scale — there is no dimensionless decoration to regress to;
+- three independent verdict lines: `THRESHOLDS` = 24 (2.5.8 Minimum, **AA**), 44 (2.5.5 Enhanced,
+  **AAA** + Apple HIG), 48 (Material); each `li` computes its own `w>=t && h>=t`. The words "WCAG AA"
+  never appear beside 44 (grep: the only "AA" at 44 is inside "AAA");
+- cleared/invalid field: `validateField` refuses `''`, non-integer regex, decimals, `<1` — per-field
+  `aria-live` message and `clearOutputs()` suppress drawing/verdict/snippet entirely. No
+  `parseInt(...) || 0` anywhere. **Rule 18 again satisfied semantically (regex gate BEFORE `Number()`),
+  the same shape that makes a static `isNaN` checker wrong** — third live example;
+- snippet only for FAILED thresholds (passed ones state no enlargement needed), shortfall split per
+  side (`(t-w)/2`), emitted via `textContent`; copy = clipboard promise `.then(ok,fail)` +
+  `execCommand` fallback with its boolean read;
+- `onclick=` 0 · `oninput=` 0 · `alert(` 0 · `{{\.` 0 · `addEventListener` 3 (+1 per copy button).
+  Visible-text check: 541 visible chars — not a shell. Bonus: its own inputs and copy buttons carry
+  `min-height: 44px`; the tool practises what it measures.
+
+**Rerender:** the queued row is the 07:00 sweep's (`67944381`, `created_at 06:58:25Z`, triaged,
+`…_assemble` key) — pre-dates the build by ~9 min, so the generator's own enqueue deduped into it.
+Nothing filed. Serve-grade waits on the ~121-item sweep drain (~0.7/min, `tool-*` sorts late).
+
+**Controls pinned NOW for the served grade** (from the retired bytes vs the new template):
+NEGATIVES (old-only, must be 0): `id="inpW"`, `id="inpH"`, `id="cssFix"`, `id="zone"`,
+`finger-overlay`, `Passes WCAG AA` — the last two are the defect itself.
+POSITIVES (must be ≥1): `id="btnWidth"`, `id="btnHeight"`, `2.5.8`, `Target Size (Enhanced)`.
+
+## 2026-08-20 07:14Z — #19 `tool-grid-generator` FILED
+
+Item **`4ad57d9f-8348-45db-b156-54ba0003ba98`** (07:14:06Z), page `c57aef25-e4dc-48a4-85ba-44f4da3a3ac1`,
+`/tools/grid-generator/index.html`. Revert handle: ported slot
+**`44428101-b6f1-447e-a783-256828d881db`, 6,828 chars, md5 `0a83f2c4c1fc38e34cc6dc733d1c7334`**.
+Gates: library-claim query **0 rows** (plain novel path, no fork identity to pin); local active fork
+probe **0 rows**; **RACE GUARD: 57 rerender items ahead** of this page's queued sweep row (~80 min at
+0.7/min — safe margin); open `add_tool` count was 0. No 303 sentence (third brief without it).
+
+**The ported defects ("CSS Grid Architect", read in full before the brief):**
+1. **The lying-copy class again — 7th sighting of "asserts something untrue about itself":**
+   `copyCSS()` runs `navigator.clipboard.writeText(...)` and then `alert("Copied!")` unconditionally —
+   the promise is never read. Worse, in a context where `navigator.clipboard` is undefined the function
+   THROWS before the alert, so the button is silently dead — both failure modes misreport.
+2. Inline `onclick="copyCSS()"` + a global function (rule-16 class) and `alert()` (rule-17 class) —
+   both now covered by the contract, so the brief does not mention them.
+3. **No value readouts on any of the three sliders** — the chosen gap in px is unknowable except by
+   eye, on a tool whose product is exact numbers. The brief requires a live numeric readout per control.
+4. Minor: literal markdown backticks served to visitors in the guide prose (`` (`33%`) ``); `<label>`s
+   not associated with their inputs.
+What the ported tool got RIGHT and the brief preserves as an invariant: preview and emitted CSS are
+styled from the same values, so they cannot disagree. Bounds kept as ported (cols/rows 1–6, gap 0–50)
+— widening to 12 columns would be a feature addition, and the recipe forbids adding features.
