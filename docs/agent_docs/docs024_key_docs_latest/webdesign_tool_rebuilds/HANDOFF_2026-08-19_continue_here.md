@@ -235,7 +235,9 @@ is refused for unbalanced tags, that inference is wrong and the sentence goes ba
    `tool-touch-target` (6,732), `tool-grid-generator` (6,828), `tool-text-extractor` (6,908),
    `tool-mesh-gradient` (7,052), `tool-oklch-picker` (7,186). Order the rest with the RUNBOOK's "Scope
    the batch correctly" query. Run the six steps of the recipe.
-   **Do not file a rebuild you cannot attend** — the retire race has been as short as 60 s.
+   **Do not file a rebuild you cannot attend** — measured margins between build completion and the
+   rerender being claimed are ~45 min, ~2 min, ~26 min, ~96 min, and it was **lost once at 96**; my own
+   two retires this round went in at 94 s and 62 s. There is no floor.
 2. **Track 2 is now a SMALL, decided piece of work — read the re-scoped section above before writing
    any Go.** Two sub-checks (rules 16 and 17 only) inside `check_tool_health.go`, routed through
    `remit.go`'s `PartitionByRemit` / `CapabilityGapItem`. Do NOT build a rule-18 checker: #14 is the
