@@ -2339,3 +2339,17 @@ Attendance means the session keeps its turn alive — polling in-turn — from f
 lands. The two earlier same-day near-misses (#19's 50-min gap, saved by the 336 freeze; #22's loss)
 are one mechanism: the notification channel's latency is unbounded and invisible to the arming
 session.
+
+## 2026-08-20 ~17:30Z — (331 session) the REVISE is built: the non-hollow gate is in the arm; round 2 submitted; v1.0.1320 carries round-1 code inert
+
+- Gate = ABSOLUTE (zero visible text refuses, no off-switch) + RELATIVE (shared `evaluateSectionShrink`,
+  same axis/key/minimum as the section-editor floors), before any write, typed refusal, incumbent
+  untouched. **The arm-F fixture that must fail is the ab-test hollow shell's shape — and it is
+  byte-for-byte what the shared test fixture used to be**, which says the council's objection caught a
+  real hole, not a formality. Mutation-proven (gate deleted ⇒ both new arms fail); suite green.
+- Round 2 on the SAME correlation `7a82c943` (run orch `ed2c500e`); edits merged per the advisory.
+- `v1.0.1320` (stamp `a255551e0`, junk control absent) carries `d375a0801` INERT — flag unmapped, HOLD
+  stays. The gate needs the NEXT roll after approval; then seed 496; then the §5 live re-fix.
+- For THIS lane: nothing changes yet — the recipe stands until roll + seed, exactly as the RUNBOOK's
+  "COMING" block says. Your text-content-floor open question (286 related finding) now has its first
+  enforced instance: this gate is that floor, scoped to the regeneration path.

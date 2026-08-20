@@ -40,9 +40,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// A fixture that passes both birth gates: the tool-doc header sentinels and
-// componentTemplateValid's balanced-tag / ends-cleanly predicate.
-const adoptTestToolHTML = `<div class="tool-container"><script>
+// A fixture that passes both birth gates (the tool-doc header sentinels and
+// componentTemplateValid's balanced-tag / ends-cleanly predicate) AND the
+// regenerate arm's non-hollow gate: it carries VISIBLE text outside the script,
+// because a real generated tool always does (inputs, labels, headings) and the
+// gate refuses a zero-visible-text template absolutely. The zero-visible shape
+// this fixture used to be lives on as hollowToolHTML in
+// create_tool_component_regenerate_test.go — the arm-F fixture that must FAIL.
+const adoptTestToolHTML = `<div class="tool-container"><h2>Aspect Ratio Calculator</h2>
+<label>Width</label><script>
 /* === tool-doc ===
 name: Aspect Ratio Calculator
 === /tool-doc === */

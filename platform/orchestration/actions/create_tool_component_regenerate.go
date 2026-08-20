@@ -33,6 +33,14 @@
 // suggester re-suggesting a tool the site has) from becoming a live
 // regeneration — LANDMINES "why not just fix the query" is right about that.
 //
+// What guards the overwrite (council round 1's gating objection, accepted):
+// a NON-HOLLOW gate before any write — the incoming template must carry
+// visible text (absolute), and must keep the estate's shrink floor against
+// the incumbent template (relative, via the shared evaluateSectionShrink on
+// the calibrated visibleTextLength axis). This is the declared SUBSTITUTE for
+// the section-editor floors, which do not fit a rebuild (classes are supposed
+// to change); the class floor is deliberately not applied.
+//
 // What is deliberately NOT done here: the creation-only tail (nav rebuild
 // request, tool-content item, cross-link items, companion guide upsert). Those
 // exist from the first build; a regeneration is a content change, which is
@@ -82,6 +90,69 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 			return nil, fmt.Errorf("replace_existing: incumbent tool component %s is no longer an active tool row — re-read before retrying", req.incumbentID)
 		}
 		return nil, fmt.Errorf("replace_existing: read incumbent %s: %w", req.incumbentID, err)
+	}
+
+	// --- Non-hollow gate (council 7a82c943 round 1, bug_historian's gating
+	// objection — accepted) ---
+	// This arm OVERWRITES a working tool in place, which is exactly the shape of
+	// bugs_closed/012 (the improver truncated and destroyed the component it was
+	// repairing) and bugs_closed/056 (a regeneration silently dropped content):
+	// an LLM write path replacing good content with hollow content, reported as
+	// success. The section-editor floors are declared NOT to apply to this
+	// writer (a rebuild is SUPPOSED to change classes — the component_swap
+	// judgement in single_slot_floors.go's scope table), so this gate is their
+	// SUBSTITUTE on the one axis a rebuild must still honour: visible text does
+	// not vanish. Same calibrated axis as the floors — visibleTextLength, with
+	// style/script/comment content excluded (bugs_closed/285 is why
+	// tag-stripping is the wrong axis; a stylesheet reads as prose there).
+	//
+	//  1. ABSOLUTE, unconditional: the incoming template must have visible text
+	//     at all. A tool with zero visible characters has no UI — the ab-test
+	//     hollow shell (13,284 chars of markup, ZERO visible text, served as a
+	//     blank page; bugs_closed/286 "related finding") is the motivating
+	//     artefact, and there is no legitimate zero-text regeneration, so no
+	//     config key disables this half.
+	//  2. RELATIVE: the estate's shrink floor, through the SHARED decision
+	//     (evaluateSectionShrink — shrink_axis_coverage_test holds every caller
+	//     to the visible-text axis), same config key (sectionShrinkFloorKey,
+	//     default 0.5; 0 disables — the deliberate escape hatch) and the same
+	//     minimum (minShrinkGuardVisibleChars) as both existing callers.
+	//     Measured incumbent TEMPLATE vs incoming template: one comparison,
+	//     before anything is written.
+	incomingVisible := visibleTextLength(req.htmlContent)
+	incumbentVisible := visibleTextLength(currentHTML)
+	textFloor, _ := pruneFloorFromConfig(params.StepConfig.Config, sectionShrinkFloorKey, defaultSectionShrinkFloor)
+	hollowReason := ""
+	if incomingVisible == 0 {
+		hollowReason = fmt.Sprintf("the generated template has ZERO visible text (%d bytes of markup; the incumbent has %d visible chars)",
+			len(req.htmlContent), incumbentVisible)
+	} else if v := evaluateSectionShrink(textFloor, minShrinkGuardVisibleChars,
+		map[string]int{req.function: incumbentVisible},
+		map[string]int{req.function: incomingVisible}); len(v) > 0 {
+		hollowReason = fmt.Sprintf("visible text would fall %d -> %d chars (%.0f%% kept, floor %.0f%%; style/script content excluded)",
+			v[0].Existing, v[0].Incoming, v[0].ratio()*100, textFloor*100)
+	}
+	if hollowReason != "" {
+		recordComponentWriteRejection(
+			ctx, logger, params,
+			actionProvenance{
+				AgentType: params.ExecutionContext.Sender.AgentType,
+				StepName:  params.ExecutionContext.StepName,
+				Action:    "create_tool_component",
+			},
+			fmt.Sprintf("tool regeneration refused for %s: %s — the incumbent stands untouched (bugs_open/331; the 012/056 hollow-overwrite class)",
+				req.function, hollowReason),
+			"tool_regeneration_hollow_blocked",
+			"error",
+			map[string]interface{}{
+				"component_id":      req.incumbentID,
+				"function":          req.function,
+				"incoming_visible":  incomingVisible,
+				"incumbent_visible": incumbentVisible,
+				"incoming_bytes":    len(req.htmlContent),
+			},
+		)
+		return nil, fmt.Errorf("replace_existing refused: %s — nothing written; the incumbent tool still serves (bugs_open/331)", hollowReason)
 	}
 
 	// --- Snapshot to component_versions (best-effort, same contract as the

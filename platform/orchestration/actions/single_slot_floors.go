@@ -52,13 +52,16 @@ import (
 //	           sites (measured 2026-08-13). Not a rewriter at all, so out of
 //	           scope by CONSTRUCTION, not by exemption — it never appears before
 //	           the coverage test.
-//	EXEMPT     create_tool_component — ⚠ CORRECTED 2026-08-19: it WAS create-only
+//	SUBSTITUTE create_tool_component — ⚠ CORRECTED 2026-08-19: it WAS create-only
 //	           and listed beside deploy_tool above; its replace_existing arm
 //	           (create_tool_component_regenerate.go, bugs_open/331) now UPDATEs
-//	           the incumbent slot's rendered_html in place. Exempt for the
-//	           component_swap reason — a per-item rebuild of the tool is SUPPOSED
-//	           to change the markup — declared in the coverage test with what
-//	           guards it instead (shared fence, birth gates, archive trigger).
+//	           the incumbent slot's rendered_html in place. The class floor is
+//	           not applied (a per-item rebuild is SUPPOSED to change classes —
+//	           this table's component_swap judgement) but the TEXT axis is:
+//	           the arm carries its own non-hollow gate (absolute visible-text
+//	           presence + the shared evaluateSectionShrink on the same axis,
+//	           key and minimum as this file) — added at the council's direction
+//	           (round 1 on 7a82c943; the 012/056 hollow-overwrite class).
 //	EXEMPT     adopt_verbatim — writes the ORIGINAL adopted document, i.e. it
 //	           creates the prior that everything else is measured against.
 //	EXEMPT     create_report_page — ⚠ CORRECTED: an earlier draft of this comment

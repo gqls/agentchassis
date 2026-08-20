@@ -67,9 +67,35 @@ Three consecutive days, three gates, each found by walking into it. That pattern
 
 **Objection (high, edit 2):** the arm writes `req.htmlContent` verbatim into `html_template` AND the slot's `rendered_html` and flips `deployed` with **no check that the incoming markup is non-hollow** before overwriting a WORKING tool — the exact shape of `bugs_closed/012` (improver truncates and destroys what it repaired) and `bugs_closed/056` (regeneration silently drops content), and 016b §9's "the guard's discriminator is EMPTY-vs-content". Deferring that to "286's related finding" fixes the duplicate-key symptom while leaving the silent-loss mechanism live on the one path that overwrites in place. **(medium, edit 4):** the floor exemption opts out entirely instead of narrowing — no substitute content check. Advisory (low): edits 4/5 were one hunk listed twice.
 
-**Accepted. The revise (NOT yet built — next session, resubmit on the SAME correlation with `RESUBMIT_CORR=7a82c943-a68a-4e12-bd4b-80db5b4cad72`):**
+**Accepted — and BUILT 2026-08-20 (next section). The plan as specified at the time:**
 1. In `regenerateToolComponentInPlace`, BEFORE the snapshot/tx: a **non-hollow gate** on the incoming template — visible text (tags stripped, `<script>`/`<style>` bodies removed, whitespace collapsed) must be ≥ a floor, and the incoming must not be SHORTER in visible text than a fraction of the incumbent's (the existing text-shrink floor's own discriminator, reused via `evaluateSectionShrink`/`countComponentClasses`-style helpers from `single_slot_floors.go` — do not write a third text counter). Refuse loudly (`replace_existing refused: hollow regeneration …`), record via `recordComponentWriteRejection` with a typed error_code, leave the incumbent untouched. The ab-test hollow shell (13,284 chars, ZERO visible text) is the fixture that must FAIL the gate; `adoptTestToolHTML` must pass it.
 2. Replace the floor EXEMPTION with this as the **substitute guard** (narrowed for the component_swap shape: classes may change, text may not vanish) — update `page_component_writer_coverage_test.go`'s entry and `single_slot_floors.go`'s scope row accordingly.
 3. Tests: arm F — hollow incoming ⇒ refused before any write (mutation: delete the gate ⇒ the walk reaches the snapshot); arm B unchanged.
 4. Submission: merge edits 4+5 into one; name the gate as the answer to 012/056.
 The code on HEAD (`d375a0801`) is inert until a roll and behind the HOLD seed, so nothing is exposed in production by this gap; the HOLD stays until round 2 is approved and built.
+
+## 10. Revise BUILT 2026-08-20; round 2 SUBMITTED on the same correlation; v1.0.1320 state
+
+- **The non-hollow gate is in the arm** (`create_tool_component_regenerate.go`, before any write):
+  ABSOLUTE — `visibleTextLength(incoming) == 0` refuses unconditionally (no config off-switch; a tool
+  with no visible text has no UI); RELATIVE — the shared `evaluateSectionShrink` on the same calibrated
+  axis, config key (`sectionShrinkFloorKey`, 0 disables) and minimum (`minShrinkGuardVisibleChars`) as
+  both existing callers, incumbent template vs incoming. Refusal is loud and typed
+  (`recordComponentWriteRejection`, error_code `tool_regeneration_hollow_blocked`), incumbent untouched.
+  `shrink_axis_coverage_test` holds the new caller to the axis mechanically.
+- **The fixture that must FAIL is the objection's own artefact:** `hollowToolHTML` (arm F) is
+  byte-for-byte what the shared test fixture USED to be — zero visible text — which is itself evidence
+  the objection was right; the shared fixture now carries visible text like a real tool. Arm G pins the
+  relative half (incumbent ≥200 visible chars, incoming <50% ⇒ refused).
+- **Mutation run 2026-08-20:** gate deleted ⇒ arms F and G fail on the walk reaching the placement
+  census unexpectedly ⇒ restored. Round 1's two mutations still hold. Full actions suite green on
+  archive-HEAD; exemption reworded as a NARROWING (class floor not applied — component_swap shape;
+  text axis enforced in the arm) in both the coverage test and `single_slot_floors.go`'s scope table
+  (now `SUBSTITUTE`, not `EXEMPT`).
+- **Round 2 submitted** on the SAME correlation (`RESUBMIT_CORR`), run orch `ed2c500e-a127-478c-903c-789e5d48145b`;
+  edits 4+5 merged per the advisory. Verdict pending at time of writing.
+- **Roll state:** `v1.0.1320` (pods 16:09Z 2026-08-20, stamp `a255551e0` probed with a junk control)
+  CARRIES round 1's code (`d375a0801` is an ancestor) — **inert**: the flag is unmapped (seed 496 still
+  `_HOLD`) and the default-OFF path is byte-identical, so the round-1 gap was never reachable in
+  production. **Order to close:** round 2 APPROVED → a roll whose stamp's ancestry includes the GATE
+  commit (not just `d375a0801`) → lift + apply seed 496 → the live re-fix in §5.

@@ -25,6 +25,15 @@
 //	   surface as "update component", not "refused").
 //	E. flag TRUE + incumbent placed on >1 site ⇒ the shared fence (285) refuses
 //	   BEFORE the transaction; no Begin, no UPDATE.
+//	F. flag TRUE + a HOLLOW incoming template (valid doc header, balanced tags,
+//	   ZERO visible text — the ab-test hollow-shell shape, and byte-for-byte
+//	   what adoptTestToolHTML used to be) ⇒ refused BEFORE the snapshot; the
+//	   only write is the agent_error_log rejection row. Mutation run
+//	   (2026-08-20): gate deleted ⇒ the walk reaches MAX(version_number)
+//	   unexpectedly ⇒ restored.
+//	G. flag TRUE + an incumbent with substantial visible text (>=200 chars) and
+//	   an incoming template keeping <50% of it ⇒ the RELATIVE half refuses the
+//	   same way (evaluateSectionShrink, shared axis, shared config key).
 //	D. flag TRUE + NO incumbent ⇒ exactly today's greenfield walk
 //	   (expectPreamble + the bare page INSERT); the flag does nothing when
 //	   there is nothing to replace.
@@ -223,6 +232,81 @@ func TestCreateToolComponent_ReplaceRefusesAnIncumbentServedByAnotherSite(t *tes
 	_, err = CreateToolComponentAction(context.Background(), p)
 	if err == nil || !strings.Contains(err.Error(), "across 2 sites") {
 		t.Fatalf("expected the fence refusal, got: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+}
+
+// hollowToolHTML passes both birth gates and has ZERO visible text — the
+// ab-test hollow-shell shape (bugs_closed/286 "related finding": 13,284 chars
+// of markup, zero visible chars, served blank). This is what adoptTestToolHTML
+// was before the non-hollow gate existed; it is preserved here as the fixture
+// that must FAIL arm F for as long as the gate lives.
+const hollowToolHTML = `<div class="tool-container"><script>
+/* === tool-doc ===
+name: Aspect Ratio Calculator
+=== /tool-doc === */
+function calc() { return 1; }
+</script></div>`
+
+func TestCreateToolComponent_ReplaceRefusesAHollowRegeneration(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT domain FROM sites").
+		WillReturnRows(sqlmock.NewRows([]string{"domain"}).AddRow("webdesign.co.uk"))
+	mock.ExpectQuery("FROM content_components cc").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(regenIncumbentID))
+	mock.ExpectQuery(`COALESCE\(html_template, ''\)`).
+		WillReturnRows(sqlmock.NewRows([]string{"html", "schema"}).AddRow("<div><p>A working tool with real visible words in it.</p></div>", "{}"))
+	// The ONLY write after the refusal decision: the rejection row. No
+	// MAX(version_number), no snapshot, no Begin — the walk ends here, which is
+	// what "refused BEFORE the snapshot" means in mock terms.
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := adoptTestParams(db, nil)
+	p.CollectedData["replace_existing"] = true
+	p.CollectedData["html_content"] = hollowToolHTML
+	_, err = CreateToolComponentAction(context.Background(), p)
+	if err == nil || !strings.Contains(err.Error(), "ZERO visible text") {
+		t.Fatalf("expected the hollow refusal, got: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+}
+
+func TestCreateToolComponent_ReplaceRefusesAShrinkPastTheFloor(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// An incumbent above minShrinkGuardVisibleChars (200) so the relative half
+	// is armed; the incoming fixture (adoptTestToolHTML) keeps ~30 visible
+	// chars, far under the default 50% floor.
+	incumbent := "<div><p>" + strings.Repeat("real prose ", 30) + "</p></div>" // ~330 visible chars
+
+	mock.ExpectQuery("SELECT domain FROM sites").
+		WillReturnRows(sqlmock.NewRows([]string{"domain"}).AddRow("webdesign.co.uk"))
+	mock.ExpectQuery("FROM content_components cc").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(regenIncumbentID))
+	mock.ExpectQuery(`COALESCE\(html_template, ''\)`).
+		WillReturnRows(sqlmock.NewRows([]string{"html", "schema"}).AddRow(incumbent, "{}"))
+	mock.ExpectExec("INSERT INTO agent_error_log").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	p := adoptTestParams(db, nil)
+	p.CollectedData["replace_existing"] = true
+	_, err = CreateToolComponentAction(context.Background(), p)
+	if err == nil || !strings.Contains(err.Error(), "visible text would fall") {
+		t.Fatalf("expected the shrink refusal, got: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("walk: %v", err)
