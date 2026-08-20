@@ -11,8 +11,30 @@
 -- authored "Get in touch" → /contact.html at a tool. Rename away the _HOLD
 -- suffix ONLY after BOTH ancestry checks pass against the LIVE stamp
 -- (per service, ask the binary, never git):
---   git merge-base --is-ancestor 53a8d3c1d <agent-chassis stamp>   # 248 keep (LNK-033) — TRUE on v1.0.1310
---   git merge-base --is-ancestor 757a0890a <agent-chassis stamp>   # 299 keep (LNK-034) — awaiting roll
+--   git merge-base --is-ancestor 53a8d3c1d <agent-chassis stamp>   # 248 keep (LNK-033)
+--   git merge-base --is-ancestor 757a0890a <agent-chassis stamp>   # 299 keep (LNK-034)
+--
+-- ✅ HOLD DISCHARGED 2026-08-20 — RELEASED on the OWNER'S EXPLICIT DECISION
+-- ("apply it with leopardessconsulting.co.uk watched"), which is the authority
+-- this file was actually waiting on. The technical precondition was satisfied
+-- first, and NOT by the two ancestry checks immediately above:
+--
+--   THOSE CHECKS WERE UNAVAILABLE. The provenance startup line scrolls (measured
+--   2026-08-19: gone from a FULL `kubectl logs` three hours after a roll) and the
+--   binary carries ONE stamp string rather than its ancestry — so probing it for
+--   either commit returns ABSENT on a binary that certainly contains it. Full
+--   trap in LANDMINES.md; generalised as RFC_040 (owner-ratified 2026-08-20).
+--
+--   SUBSTITUTED, and it is the stronger check: probe the CAPABILITY each keep
+--   half provides, on EVERY pod, with a control that must come out absent.
+--   Re-run against the CURRENT build after the 2026-08-19 22:26Z roll, because a
+--   roll invalidates any earlier verification — agent-chassis **v1.0.1317**,
+--   pods c7d6d875b-67cgh and c7d6d875b-x5tgn:
+--     storedCTADestinationIsAuthored     PRESENT (both)   <- 248 keep, LNK-033
+--     IsAuthoredNonPageCTADestination    PRESENT (both)   <- 299 keep, LNK-034
+--     NormalizeTelHref                   PRESENT (both)
+--     cta_nonpage_destination            PRESENT (both)
+--     cta_nonpage_destination_NOTREAL    absent           <- control
 -- and canary the FIRST post-apply build on a site with authored contact CTAs
 -- (leopardessconsulting.co.uk, the 248 lane's suggestion: /index and
 -- /how-it-works each carry two authored /contact.html CTAs) — diff the CTA
@@ -36,6 +58,10 @@
 -- not this migration.
 
 BEGIN;
+
+-- README rule: every migration touching agent_definitions opens with a snapshot.
+SELECT snapshot_agent('page-content-writer',
+  '477_select_sections_reads_the_lean_resolver_response: pre-update');
 
 CREATE TABLE IF NOT EXISTS _backup_477_select_sections AS
   SELECT id, type, default_config, now() AS backed_up_at
@@ -79,3 +105,23 @@ COMMIT;
 --   sections_for_render.sections_ready[*].resolved_data == resolved_links.response.sections_ready[*].resolved_data
 --   AND the canary site's authored /contact.html CTAs survived.
 -- Then bugs_open/312 (and with it 299's producer half) can move toward closed.
+
+-- ── CANARY BASELINE, captured 2026-08-20 BEFORE this file was applied ─────────
+-- leopardessconsulting.co.uk authored /contact.html CTAs that MUST survive the
+-- first post-apply build — survival is the control that the KEEPS, not luck,
+-- made this safe:
+--   index/hero                     cta_url           = /contact.html
+--   index/call-to-action           primary_cta_url   = /contact.html
+--   index/call-to-action           secondary_cta_url = /contact.html
+--   how-it-works/hero              cta_url           = /contact.html
+--   how-it-works/call-to-action    primary_cta_url   = /contact.html
+--   ai-agent-roi-estimator/tool-…  cta_url           = /contact.html
+--   tool-ai-vendor-trust-checklist/tool-… cta_url    = /contact.html
+-- Full baseline + the diff query: bugfix_299_cta_dials_phone/RUNBOOK, canary section.
+--
+-- ROLLBACK if any of those move: re-run the UPDATE with the array's first two
+-- entries swapped back (stale path first). Config is live immediately, so the
+-- revert bites on the next build; pages already rebuilt wrong need a rerender.
+-- Exposure is bounded and observable rather than fleet-wide-instant: measured
+-- 2026-08-19, the fleet runs 1-7 page-content-writer builds per hour across 5
+-- distinct sites.
