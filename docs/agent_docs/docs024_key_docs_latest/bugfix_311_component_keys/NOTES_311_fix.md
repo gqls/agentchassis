@@ -733,3 +733,66 @@ loanzy lane's decision, not this lane's repair. **Stopped at two attempts — no
 **Component leg: 5 of 5.** **Page leg: 3 of 5, both misses attributable to other mechanisms working
 correctly rather than to 311's fix.** Loanzy now serves four working tool calculators
 (these three plus car-finance from 08-19), against one before this lane started.
+
+## 2026-08-20 14:45Z — v1.0.1319, and CANDIDATE 3's mechanism finally pinned: the gate FIRES, and the page keeps serving the hole anyway
+
+### Roll check first (the lane's own discipline: re-probe, never carry forward)
+
+Fleet is on **v1.0.1319**, pods `agent-chassis-86b95b967b-*`, started **10:18Z** — so the afternoon
+of this session's own work already ran on it, not on v1.0.1317. Probed at the binary: both
+capability literals (`COMPONENT_COLLISION_DIVERTED`, `library tool claims this function`)
+**PRESENT**; invented literal `zzzz_no_such_literal_311_control` **ABSENT**; two candidate stamp
+shas from the build window (`759eea9d6`, `0cb95eb9d`) absent, i.e. the probe discriminates. Both
+halves live on the current image.
+
+### The stub hypothesis from §8 is NOT supported — measured, and it could have come out otherwise
+
+§8 proposed that an unresolved section's **stub** keeps `pageSectionShortfall`'s count whole and so
+hides a hole. Tested at the only place it could be true — rows with no component:
+**11 of 1,855 `page_components` rows have `component_id IS NULL`, across 8 pages** [MEASURED
+14:40Z]. They are not holes: two are tool pages on `lendzy.co.uk`
+(`tool-complaint-deadline-calculator`, `tool-price-cap-checker`) carrying 13,262 and 14,747 chars,
+and their served pages return **2 and 3 `<input>`** with working buttons. A componentless row is a
+section rendered without a library component, not a stub standing in for a missing one. **So the
+count is not being inflated, and the shortfall gate is not blind in the way I guessed.**
+
+### What IS happening — read on the originating case, which is live right now
+
+`remortgagecalculator.uk`, the site whose failure opened this bug ("left out the actual tools"):
+
+- `pages.sections` for `index` = `["hero","mortgages-repayment","brief-explanation",
+  "info-card-grid","mortgage-lender-directory","call-to-action"]` — **six** planned.
+- `page_components` holds **five**, and the missing one is **`mortgages-repayment`** — literally
+  the section named in this bug file's own step 1.
+- `build_status = 'needs_rebuild'`, `deployed_at` cleared. **So the gate FIRED and was RIGHT**:
+  5 < 6, refuse the stamp, flip to needs_rebuild.
+- And the page **still serves**: `https://remortgagecalculator.uk/index.html` → 200,
+  **40,726 bytes, 0 `<input>`** [MEASURED 14:42Z].
+
+**The mechanism, stated precisely, and it is not "there is no gate":**
+> **The refusal is a status write. It neither retracts the already-published artefact nor reaches a
+> worker.** The previous deploy's file keeps serving — missing its calculator — while the row says
+> `needs_rebuild`; and `needs_rebuild` has no consumer (established by this lane on 08-19: the
+> `page-rebuild` agent has no scheduled task and zero orchestrations in history). So a page refused
+> for a missing section serves the version without it **indefinitely**, and the DB looks correct
+> the whole time.
+
+That is a **convergence** defect, not a gate defect, and it is the surviving half of the owner's
+original symptom. Nothing else in `bugs_open/` carries it: `210` is the inverse case (a stamp
+wrongly APPLIED after a content failure); `208`, `219`, `220`, `226`, `333` are different triggers.
+
+### Repair of the originating page: BLOCKED, and the pre-flight is why I know
+
+The two-item recipe would fix that page — 311's fix means the store would now divert
+`mortgages-repayment` to a `-remortgagecalculator-uk` row. **Not filed:** the site is **LOCKED**,
+`locked_at 2026-08-18`, `locked_by = "portfolio_positioning: owner HALT 2026-08-18 pending
+classifier register-input (RFC) + builder-flow decision"`. An owner halt is not mine to step
+around. **Third time today the pre-flight earned its place** — and this time it cost nothing
+instead of a wasted build. Incumbent `b89f91e1` re-pinned anyway for whoever does it:
+html `a2c00f1c66ce6f4ef72b48083f1e3da6`, schema `8265ae5a931b735305b1fe007b148acb`, unchanged since
+08-15. The `needs_new_component:mortgages-repayment` key is held only by `cancelled`/`failed` rows,
+so a fresh item is insertable the moment the halt lifts.
+
+**Next: `090`, not a bug file.** The claim above is structural (a refusal path that converges
+nowhere) and CLAUDE.md's default applies — and this session has already been wrong twice today
+asserting things about this exact code path. Filing it after a verdict, not before.
