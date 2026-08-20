@@ -38950,3 +38950,34 @@ re-arm or a second incident, and my own narrative said "stopping the bleeding" a
 corrective command — or make the command conditional on the state it corrects. On a tree this many
 sessions share, the interval between check and act is where someone else acts; my own memory index
 already says every ownership check is LAGGING, and a state check is the same class.
+
+## 2026-08-20 — I established a NEGATIVE ("nothing gates the deploy") by grepping ONE symbol, and the refuting code was two functions from something I had already read
+
+**The claim, written into `bugs_open/311`, its lane NOTES and a commit message:** unresolved
+sections are stubbed and *"none of [the `needs_section_data` readers] gates a deploy — detection and
+repair exist; refusal does not"*. Census attached: 12 pages `deployed` while carrying an open
+`needs_section_data` item.
+
+**What is actually true:** `UpdatePageStatusAction` (`v3_site_actions.go:819-960`) refuses the
+`deployed` stamp twice — `pageHasComponents` false, and `pageSectionShortfall` reporting
+`rendered < planned`. That second one IS `bugs_open/040`'s partial-build rule, shipped weeks ago and
+widened by `210`, and its own comment states the rule I claimed did not exist.
+
+**What caught it:** sitting down to write the new bug file and reading the deploy path instead of
+citing my own summary from 40 minutes earlier. Nothing external caught it; it would have reached a
+filed bug number.
+
+**The cheap check I skipped:** I searched for readers of `needs_section_data` and inferred from
+their absence at the deploy step that no gate existed. **A gate does not have to mention the work
+item that records the symptom** — and this one does not mention it. For a claim of the form
+"nothing anywhere does X", grep for **X** (here: what writes `build_status='deployed'`, and what
+refuses to), never for the symptom's name.
+
+**Two second-order lessons:**
+- **The error made the estate look WORSE than it is**, and that direction is not the safe one — it
+  would have spent a bug number and a council round re-litigating a shipped guard.
+- **My census could not have come out otherwise, either.** "Open work item + deployed page" counts
+  STALE items as live holes: the cleanest of the 12 specimens
+  (`finetuning.uk`/`password-entropy`, planned 1 / rendered 1, gap = that very section) holds the
+  correct component at `build_status='pending'`. Two more are deployed with all slots removed
+  *after* the stamp. An open item is not a live defect — the artefact is.

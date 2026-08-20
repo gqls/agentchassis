@@ -76,13 +76,29 @@ section name that resolved to nothing and the build proceeds, behind a single
 `logger.Warn("loadSectionComponents: stubs for unresolved sections")`. Readers of the
 `needs_section_data` item DO exist (`reconcile_section_data_action.go` re-attempts,
 `revalidate_review_queue_action.go` revalidates, `loadOpenSectionDataRequests` reads it to avoid
-repeat LLM spend) — **none gates a deploy**, so the accurate claim is "detection and repair exist;
-refusal does not". Census [MEASURED 2026-08-20 08:24Z]: **47 open `needs_section_data` items
-fleet-wide and 12 pages `build_status='deployed'` while carrying one** (robot-hands.com 4,
-leopardessconsulting.co.uk 3, ai-agent-orchestration.com 2, finetuning.uk / gaswholesalers.com /
-loanandmortgagecalculator.co.uk 1 each). `discovery_checks/check_unresolved_sections.go` detects
-the recovered case and flips the page to `needs_rebuild` — a status with **no consumer**, which is
-why detection has never become repair.
+repeat LLM spend). ~~**none gates a deploy**, so the accurate claim is "detection and repair exist;
+refusal does not". Census: 12 pages `build_status='deployed'` while carrying one.~~
+> **CORRECTED 2026-08-20 09:15Z, same session, ~40 minutes later — that sentence is WRONG and the
+> refutation was two functions away from something I had already read.** `UpdatePageStatusAction`
+> (`v3_site_actions.go:819-960`) refuses the `deployed` stamp **twice**: when `pageHasComponents`
+> is false, and when `pageSectionShortfall` reports `rendered < planned` — which is
+> `bugs_open/040`'s partial-build rule ("a partial build must be treated exactly like a
+> 0-component one"), widened by `bugs_open/210` to any assembly skip with a bounded retry and an
+> `agent_error_log` refusal row. I had grepped readers of `needs_section_data` and concluded
+> nothing gated the deploy; a gate need not mention the work item, and this one does not.
+>
+> **What survives is narrower.** Both gates compare **counts** — `pageSectionShortfall`
+> (`v3_site_actions.go:1214-1233`) is `count(sections)-count(suppressed)` vs `count(*) FROM
+> page_components`, every row regardless of which component it points at or its `build_status`. So
+> the gate sees an EMPTY slot and cannot see a slot filled by the WRONG THING — and
+> `loadSectionComponents` produces exactly the second shape, since a stub keeps the count whole.
+> **That is a hypothesis for the owner's original symptom, not a finding**, and the 12-page census
+> does NOT support it: the cleanest specimen (`finetuning.uk`/`password-entropy`) actually holds
+> the right component at `build_status='pending'` — a STALE item, not a hole — and two others are
+> deployed with every slot removed *after* the stamp, which no stamp-time gate can catch.
+> **Candidate 3 therefore stays open as a residual with this corrected framing, unfiled**; what a
+> filer needs is (1) whether a stub becomes a `page_components` row on a real build, (2) an
+> artefact-level check per page instead of a work-item join, (3) then `090`.
 
 **Symptom the owner saw:** *"remortgagecalculator.uk left out the actual tools."*
 A site whose entire proposition is a calculator shipped with no calculator, and

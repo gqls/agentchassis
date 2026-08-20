@@ -575,3 +575,51 @@ ai-agent-orchestration.com 2, finetuning.uk / gaswholesalers.com / loanandmortga
 `discovery_checks/check_unresolved_sections.go` DOES detect the recovered case and flips the page
 to `needs_rebuild` — the status this lane already established has **no consumer**, which is why
 detection has never converted into a repair.
+
+### 8. ⚠ CORRECTION 09:15Z to §7 above, WRITTEN 40 MINUTES EARLIER IN THIS SAME SESSION — a deploy gate DOES exist, and I asserted a negative from a one-symbol grep
+
+> **CORRECTED 2026-08-20 09:15Z.** §7 says *"none of them gates a deploy … detection and repair
+> exist; refusal does not"*, and the bug file and its commit message carry the same sentence. **It
+> is wrong.** `UpdatePageStatusAction` (`v3_site_actions.go:819-960`) refuses the `deployed` stamp
+> **twice**: once when `pageHasComponents` is false (flip to `needs_rebuild`, clear
+> `built_from_plan_version`, from the gamesdesign 0-component case) and again when
+> `pageSectionShortfall` reports `rendered < planned` — `bugs_open/040`'s partial-build case,
+> whose own comment states the rule I claimed did not exist: *"A partial build must be treated
+> exactly like a 0-component one."* `bugs_open/210` widened it to any assembly skip, with a
+> bounded retry and an `agent_error_log` refusal row.
+>
+> **What caught it:** going to write the bug file, and reading the deploy path instead of citing my
+> own summary. **The cheap check I skipped:** I grepped for readers of `needs_section_data` and
+> concluded "nothing gates the deploy" — but a gate does not have to mention the work item, and
+> this one does not. The refuting code was two functions from something I had already read this
+> session (`loadSectionComponents`, §7). **A negative about "nothing anywhere does X" cannot be
+> established by grepping one symbol.** Also note which way it cut: it made the estate look
+> *worse* than it is, and a wrong claim in that direction is just as expensive — it would have
+> spent a bug number and a reviewer's round on a gate that shipped weeks ago.
+
+**What survives, and it is narrower and sharper than what I wrote.** Both gates compare **counts**:
+`pageSectionShortfall` (`v3_site_actions.go:1214-1233`) is `count(sections) - count(suppressed)`
+versus **`count(*) FROM page_components`** — every row, whatever component it points at, whatever
+its `build_status`. So the gate can see a slot that is EMPTY and cannot see a slot filled by the
+WRONG THING. And `loadSectionComponents` guarantees the second shape rather than the first: an
+unresolved section name is given a **stub** (`needs_llm:true`), which is what keeps the count whole.
+That is a plausible mechanism for the owner's original symptom — a page that ships without its
+calculator and is stamped `deployed` — **and it is a hypothesis, not a finding.**
+
+**My census cannot carry it, either** [checked 09:12Z]: of the 12 "deployed pages with an open
+`needs_section_data`", the cleanest specimen (`finetuning.uk` / `password-entropy`, planned 1,
+rendered 1, gap = that very section) turns out to have **the right component** —
+`tool-password-entropy-finetuning-uk`, a tool-level fork — sitting in the slot at
+`build_status='pending'`. The item is STALE, not a live hole. Two more
+(`leopardessconsulting.co.uk` case-study, planned 4 / rendered 0 excluding `removed`) are deployed
+with every slot removed AFTER the stamp, which no stamp-time gate can catch. **So "12 pages are
+serving a hole" is not established, and I am not filing it.** An open work item is not a live
+defect; the artefact is.
+
+**Therefore: no bug filed for candidate 3 today, deliberately.** What a filer needs next, in order:
+(1) whether a stub actually becomes a `page_components` row on a real build — read
+`save_page_sections`' writer, or watch one build; (2) a per-page artefact check (does the served
+page contain the planned section's markup) rather than a work-item join; (3) then `090`, because
+the claim is structural and CLAUDE.md's default applies. Candidate 3 stays a named residual on
+`311` with this framing, which is why 311 is NOT being moved to `bugs_closed/` today even though
+its titled defect is fixed, live and demand-proven on both halves.
