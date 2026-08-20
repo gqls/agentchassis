@@ -89,6 +89,43 @@
 -- and no `component_id` class may appear.
 --
 -- ROLLBACK: 512_tool_generator_declares_what_enqueue_rerender_reads_ROLLBACK.sql
+--
+-- ============================================================================
+-- COUNCIL: APPROVED round 1, corr 2bd7fb37-cac2-409a-8452-50a7ed933467
+-- (2026-08-20 17:33:23Z), 3 advisory objections, none high-severity. All three
+-- dispositioned here rather than in a doc nobody opens next to this file:
+--
+--  1. THE MULTI-ACTIVE-VERSION LANDMINE (editquality medium, debug_historian
+--     medium, guardian low): "UPDATE agent_definitions WHERE type=<x>" — four
+--     types carry TWO active rows and only the higher `version` loads, so the
+--     write can land on the stale one. MEASURED 2026-08-20 17:4xZ: tool-generator
+--     has exactly ONE live row (version 1, id 1bca62f6-…), so it is not one of
+--     the four. The guard above already asserts `count(*) = 1` and RAISEs
+--     otherwise — deliberately, rather than the `ORDER BY version DESC LIMIT 1`
+--     the seats suggested: on a migration, refusing and making a human look is
+--     the better failure than silently choosing a row. Nothing changed in
+--     response; the check the seats asked for is the one that was already here.
+--  2. TOP-LEVEL-ONLY NEGATIVE CONTROL (guardian low): UPHELD and FIXED — the
+--     in-transaction control is now RECURSIVE (see the VERIFY block). The claim
+--     it supports was already true (recursive count == top-level count == 3
+--     steps), but it was true unverifiably.
+--  3. UNVERIFIED PRECEDENT (prior_art_librarian medium): 483's existence and
+--     shape, and findFieldRecursive's precondition comment, were quoted from a
+--     first-hand read, not from another document —
+--     docs/agent_docs/sql_for_agents/483_html_developer_chunked_declares_current_page.sql
+--     is 3 jsonb_set calls adding input_fields to three generate_html steps with
+--     guard + DO/RAISE VERIFY + negative control, i.e. the shape claimed; and
+--     `input_fields` long predates this file (frameworkStepConfigKeys,
+--     action_inputs.go:212-230, commented "read by ExtractActionInputs for every
+--     action"). The seat's remit is absence-claims; this is neither an absence
+--     claim nor new machinery.
+--
+--  bug_historian's low objection — "this closes one of four live classes and
+--  leaves findFieldRecursive generic and armed" — is CORRECT and is the point:
+--  the disposition is per field/caller pair BY DESIGN (that is what the flip's
+--  precondition asks for), and the other three classes are named with owners in
+--  the lane NOTES. Nothing here should be read as evidence the resolver is safe.
+-- ============================================================================
 
 BEGIN;
 
@@ -190,12 +227,28 @@ BEGIN
     -- NEGATIVE CONTROL in the same transaction: the other two live
     -- create_rerender_items steps (nav-updater, rerender-pages) must be
     -- untouched. A wider WHERE would pass every assertion above identically.
-    SELECT string_agg(ad.type || '.' || s.key, ', ') INTO leaked
-      FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
-     WHERE ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL
-       AND s.value->>'action' = 'create_rerender_items'
-       AND s.value->'config' ? 'input_fields'
-       AND ad.type <> 'tool-generator';
+    --
+    -- RECURSIVE, and that is the council's objection made mechanical (guardian
+    -- seat, corr 2bd7fb37, round 1 — advisory, low): a control built on a bare
+    -- `jsonb_each(default_config->'workflow'->'steps')` is BLIND to a step nested
+    -- in a `config.sub_workflow.steps`, which is this estate's twice-bitten census
+    -- trap (lane RUNBOOK, "the jsonb_each(steps) census is TOP-LEVEL ONLY").
+    -- Measured 2026-08-20 17:4xZ: the recursive count equals the top-level count
+    -- (the same 3 steps), so the claim was TRUE — but it was true unverifiably,
+    -- and a file that reads as a template should not teach the blind form.
+    WITH RECURSIVE steps(type, path, step) AS (
+        SELECT ad.type, s.key, s.value
+          FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+         WHERE ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL
+        UNION ALL
+        SELECT p.type, p.path || '.' || s.key, s.value
+          FROM steps p, LATERAL jsonb_each(p.step->'config'->'sub_workflow'->'steps') s
+    )
+    SELECT string_agg(type || '.' || path, ', ') INTO leaked
+      FROM steps
+     WHERE step->>'action' = 'create_rerender_items'
+       AND step->'config' ? 'input_fields'
+       AND type <> 'tool-generator';
     IF leaked IS NOT NULL THEN
         RAISE EXCEPTION '512 VERIFY: the declaration leaked to steps it was not meant for: %', leaked;
     END IF;
