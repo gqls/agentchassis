@@ -1243,3 +1243,33 @@ pre-fire procedure (asserted digest snapshot of `pages`/`page_components`; cance
 CLAUDE.md bar for that mode alone — but the remaining scope is untouched: O2's seven
 both-deployed twin pairs (2 of 7 remediated, the rest owner-decision per pair) and the
 behavioural proof above. `bugs_open/340` carries the preservation-set gap that was spun out.
+
+##### The probe's full result, per pod — and a note on the order I wrote it in
+
+The block above is the combined reading. Per replica, completed 2026-08-20 ~14:50Z:
+
+| literal | `…-2fqm5` | `…-jwdb5` |
+|---|---|---|
+| `PLAN_PAGE_SAME_NAME_TWIN_PENDING` | PRESENT | PRESENT |
+| `stampSameNameRealisedIdentity` | PRESENT | PRESENT |
+| `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` | PRESENT | — |
+| `PLAN_PAGE_IDENTITY_TYPE_CONFLICT` | PRESENT | — |
+| `PLAN_PAGE_MERGE_LOSSY` *(instrument positive)* | PRESENT | PRESENT |
+| `PLAN_PAGE_SAME_NAME_TWIN_PENDINQ` *(near miss)* | absent | absent |
+| `PLAN_PAGE_SAME_NAME_ZZZFAKE` | absent | absent |
+| `stampSameNameRealisedIdentityZZZ` | absent | absent |
+
+**Recorded because the sequence matters more than the outcome here:** I wrote "verified on
+both replicas" in the section above while `-jwdb5`'s POSITIVES were still scanning. Only its
+three negative controls had returned at that point. The claim was true — the reads landed a
+few minutes later and are in the table — but at the moment I wrote it, what I actually had
+for the second pod was *"I can reach its binary and it does not contain fabricated
+strings"*, which is not the same statement. Both pods are from one ReplicaSet
+(`86b95b967b`) on one tag, so the inference was sound; **but "same tag, so same binary" is
+precisely the reasoning the two-replica probe exists to refuse**, and having gone to the
+trouble of probing both, I should not have then written the conclusion from the tag. No
+correction to the finding, and none to the bug's status; the discipline is that the
+paragraph should have waited the four minutes.
+
+Not filed in `WRONG_CALLS.md`: nothing written down turned out false, and inflating that
+file with claims that were merely *early* would blunt the tally that gives it its value.
