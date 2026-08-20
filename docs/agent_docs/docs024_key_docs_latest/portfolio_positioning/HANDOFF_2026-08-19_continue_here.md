@@ -1,5 +1,13 @@
 # HANDOFF — portfolio_positioning — 2026-08-19. **START HERE IN A FRESH SESSION.**
 
+> **⚠ SUPERSEDED 2026-08-20 by `HANDOFF_2026-08-20_continue_here.md` — start there.**
+> Since this file: the chassis rolled to v1.0.1317 and **CGV-033 went LIVE** — partially,
+> the section-editor arm and chrome are still uncovered; the owner supplied the registry
+> export so the estate is inventoried (1,567 domains) and 50 test candidates are picked;
+> the regulated ADMIT path is built; and flow A's design gained four owner rulings.
+> Also corrected there: the planner DOES receive the component catalogue, and games ARE
+> buildable as interactive tools — both were wrong in this file's lineage.
+
 Supersedes `HANDOFF_2026-08-18c_continue_here.md` (accurate on its own history; everything a
 fresh chat needs is carried forward here). Milestone read-out for the owner:
 `SUMMARY_2026-08-19_first_sites_live_and_the_wall_the_fleet_would_have_hit.md`.
