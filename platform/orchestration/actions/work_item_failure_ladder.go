@@ -177,6 +177,48 @@ var workItemDecisionStatuses = []string{
 	"cancelled",
 }
 
+// workItemCompletionGuardStatuses is the guard list for a COMPLETION write, and
+// it is deliberately NOT the list above. The two sit together so the difference
+// is visible rather than discovered — the same idiom work_items_common.go uses
+// for its four status vocabularies.
+//
+//	failure path (above):  needs_human_review wont_fix rejected verified blocked cancelled
+//	completion path (here): … PLUS failed and unresolved
+//
+// WHY THE EXTRA TWO, and it is the whole reason these cannot be one constant.
+// On the FAILURE path, overwriting `failed` IS the retry ladder (failed →
+// triaged) and overwriting `unresolved` is how a revalidator re-opens a
+// given-up item; guarding them there would break the ladder this file exists to
+// build. On the COMPLETION path the same two must be protected, because
+// stamping `complete` over a row that already failed or was given up is exactly
+// the silent-overwrite defect WII-003 closed on CompleteWorkItemAction — the
+// class this change is otherwise fixing.
+//
+// This was caught by the council's editquality seat (corr
+// 4cdec68b-fa17-436d-8e25-8c422ee6c8c5, round 1, gating): the first version
+// reused the failure list here and its rationale claimed it was "the same guard
+// its two siblings already have", which was false in exactly the two entries
+// that mattered. Recorded rather than quietly corrected, because a REVISE round
+// that finds a real defect is the cheapest place to be wrong.
+//
+// `cancelled` is present here and absent from the two inlined sibling copies
+// (load_work_item_actions.go, complete_work_item_verification.go). That is a
+// deliberate addition, not a transcription slip: [MEASURED 2026-08-19] 400 rows
+// in 14 days carry it, every one an owner disposition, and stamping `complete`
+// over one would undo a human's decision. The siblings are NOT edited here —
+// converging their inlined copies onto this constant changes THEIR behaviour and
+// belongs in its own change.
+var workItemCompletionGuardStatuses = []string{
+	"needs_human_review",
+	"failed",
+	"unresolved",
+	"rejected",
+	"wont_fix",
+	"verified",
+	"blocked",
+	"cancelled",
+}
+
 // jsonbIntFragment reads an integer out of jsonb without trusting its type. A
 // bare `(spec->>'k')::int` raises 22P02 on any non-numeric value ever written
 // there by anything, and this is the fleet's failure path — it must not be the

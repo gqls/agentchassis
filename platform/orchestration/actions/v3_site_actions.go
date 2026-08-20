@@ -6097,13 +6097,20 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 	// Build query. completed_at only set when transitioning to complete; for
 	// other statuses leave it alone and just update status.
 	//
-	// The `complete` arm carries the same terminal-decision guard as
-	// CompleteWorkItemAction's (WII-003, load_work_item_actions.go) — this
-	// action is a third writer of `complete` and had no guard at all, so a
-	// handler that deliberately flagged its item could be re-stamped complete
-	// from here. Same defect, same remedy, one writer over. `failed` and
-	// `unresolved` stay overwritable here for the same reason as in the ladder:
-	// re-deciding a failed row is legitimate, undoing a human's decision is not.
+	// The `complete` arm carries the terminal-decision guard CompleteWorkItemAction
+	// has (WII-003, load_work_item_actions.go) — this action is a third writer of
+	// `complete` and had no guard at all, so a handler that deliberately flagged
+	// its item could be re-stamped complete from here. Same defect, same remedy,
+	// one writer over.
+	//
+	// ⚠ IT USES workItemCompletionGuardStatuses, **NOT** the failure path's
+	// workItemDecisionStatuses, and the two are not interchangeable. The failure
+	// list deliberately omits `failed` and `unresolved` so the retry ladder can
+	// move a row through them; on THIS path both must be protected, or a
+	// `complete` write silently overwrites a row that already failed or was given
+	// up — which is the very defect class this change exists to close. The first
+	// version of this edit reused the wrong list; the council's editquality seat
+	// gated on it (corr 4cdec68b, round 1) and was right.
 	var query string
 	if newStatus == "complete" {
 		query = `UPDATE site_work_items
@@ -6114,7 +6121,7 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 		                result = COALESCE(result, '{}'::jsonb) || $3::jsonb,
 		                error = COALESCE(NULLIF($4, ''), error)
 		          WHERE id = $1
-		            AND status NOT IN (` + sqlInList(workItemDecisionStatuses) + `)`
+		            AND status NOT IN (` + sqlInList(workItemCompletionGuardStatuses) + `)`
 	} else {
 		query = `UPDATE site_work_items
 		            SET status = $2,

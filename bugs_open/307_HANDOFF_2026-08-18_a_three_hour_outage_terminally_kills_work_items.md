@@ -317,3 +317,38 @@ the population where an overwrite would now be visible.
 - `update_work_item_status`'s six `needs_human_review` and six `complete` steps still increment
   `attempt_count` on every write. Not a failure path, so out of scope here — but it means a
   parked item's attempt count is not a count of attempts.
+
+### §8b — corrections to §8 itself, from the council round (corr `4cdec68b`, verdict REVISE)
+
+Four seats found real things. Recorded here because §8 is already in the shared account.
+
+1. **A REAL CODE DEFECT, caught by `editquality` and gating the round.** §8's `complete`-arm guard
+   reused the FAILURE-path list, which deliberately omits `failed` and `unresolved` so the ladder
+   can move a row through them. On the COMPLETION path both must be protected — otherwise a
+   `complete` write silently overwrites a row that already failed or was given up, which is the
+   very defect class this change exists to close. My rationale had claimed it was *"the same guard
+   its two siblings already have"*, and that was **false in exactly the two entries that mattered**.
+   Fixed: a separate `workItemCompletionGuardStatuses` (the siblings' seven, plus `cancelled`),
+   with the two lists sitting adjacent so the difference is visible, and two tests pinning the
+   divergence — mutation-proved by reverting to the wrong list.
+2. **MY MEASUREMENT WAS UNDERSTATED, caught by `guardian`.** §8's "141 of 270 in 14 days" was read
+   from `site_work_items` alone, which the `work-item-archiver` drains after ~7 days — a 14-day
+   claim over a 7-day table. Re-run archive-inclusive [MEASURED 2026-08-20]:
+   **401 of 558 (72%)** died before exhausting their budget, **398 of them with `handled_by` NULL**
+   — against the 141 of 270 (52%) I reported. The correction makes the case **stronger**, which is
+   exactly why it still had to be made: an understated figure is as wrong as an overstated one, and
+   I would have kept quoting it.
+3. **"Reapable at 48 h" is imprecise, caught by `bug_historian` against WII-018.** Clearing
+   `claimed_at` makes a re-triaged row *eligible* for `stale-work-item-reaper`, but every write
+   bumps `updated_at` (trigger) and the reaper keys on it — so the clock **restarts on each
+   failure**. Correct statement: *48 h after the last write*.
+4. **The residual is now TRACKED, not prose** — `bugs_open/341`, filed at the insistence of three
+   seats. `claimed-item-timeout` runs a fifth copy of the ladder in SQL, with no cooldown, no
+   guard and no release, and it also leaves `handled_by` NULL (so §2.2's tell needs
+   `AND error NOT LIKE 'Claim timed out%'`).
+
+Not accepted, with reasons: `debug_historian` asked for a pre-state needle gate on 506's
+`jsonb_set` — right as discipline, and 506 was already applied, so I **verified no clobber
+occurred** (mine is the only write to that row: `updated_at` 14:14:08Z, no other lane's migration
+touched that agent in the window) and added the gate to the ROLLBACK sidecar instead.
+`architecture` asked for an `architecture_review` record and explicitly did not gate on it.

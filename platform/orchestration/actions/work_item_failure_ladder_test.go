@@ -747,3 +747,78 @@ func readSourceForLadderTest(t *testing.T, name string) string {
 	}
 	return string(src)
 }
+
+// TestGuardLists_TheFailureAndCompletionListsDifferByExactlyTwo pins the defect
+// the council's editquality seat caught in round 1 (corr 4cdec68b, gating): the
+// complete arm of update_work_item_status reused the FAILURE list, which omits
+// 'failed' and 'unresolved' so the retry ladder can move a row through them.
+// On the completion path that omission means a `complete` write silently
+// overwrites a row that already failed or was given up — the exact
+// silent-overwrite class this change exists to close.
+//
+// The two lists must therefore differ, and differ in a specific way. Asserting
+// "they are different" would pass on any divergence; asserting the exact delta
+// is what makes this a pin rather than a smoke test.
+func TestGuardLists_TheFailureAndCompletionListsDifferByExactlyTwo(t *testing.T) {
+	inFailure := map[string]bool{}
+	for _, s := range workItemDecisionStatuses {
+		inFailure[s] = true
+	}
+	inCompletion := map[string]bool{}
+	for _, s := range workItemCompletionGuardStatuses {
+		inCompletion[s] = true
+	}
+
+	// The retry ladder needs these overwritable on the failure path and
+	// protected on the completion path. This is the whole objection.
+	for _, s := range []string{"failed", "unresolved"} {
+		if inFailure[s] {
+			t.Errorf("%q is in the FAILURE guard list — the ladder could not move a row through it, "+
+				"and failed→triaged is what a retry IS", s)
+		}
+		if !inCompletion[s] {
+			t.Errorf("%q is missing from the COMPLETION guard list — a complete write would silently "+
+				"overwrite a row that already failed or was given up (the defect editquality gated on)", s)
+		}
+	}
+
+	// Everything else must be protected on BOTH paths: a deliberate decision is
+	// a deliberate decision whichever way the saga exits.
+	for _, s := range workItemDecisionStatuses {
+		if !inCompletion[s] {
+			t.Errorf("%q is guarded on the failure path but not on the completion path — "+
+				"a decision must not depend on which exit the saga takes", s)
+		}
+	}
+
+	// And they must not be the same constant, which is how they drifted in the
+	// first place.
+	if len(workItemCompletionGuardStatuses) != len(workItemDecisionStatuses)+2 {
+		t.Errorf("completion list has %d entries, failure list %d — expected exactly two more "+
+			"(failed, unresolved); if that changed, the divergence needs re-arguing, not re-sizing",
+			len(workItemCompletionGuardStatuses), len(workItemDecisionStatuses))
+	}
+}
+
+// TestUpdateWorkItemStatus_CompleteArmUsesTheCompletionGuard reads the statement
+// the action actually builds. The list constants above can be perfect while the
+// call site interpolates the wrong one — which is precisely what happened.
+func TestUpdateWorkItemStatus_CompleteArmUsesTheCompletionGuard(t *testing.T) {
+	src := readSourceForLadderTest(t, "v3_site_actions.go")
+	completeArm := src
+	if i := strings.Index(completeArm, `if newStatus == "complete" {`); i >= 0 {
+		completeArm = completeArm[i:]
+		if j := strings.Index(completeArm, "execDB("); j > 0 {
+			completeArm = completeArm[:j]
+		}
+	} else {
+		t.Fatal("could not locate the complete arm in UpdateWorkItemStatusAction")
+	}
+	if !strings.Contains(completeArm, "sqlInList(workItemCompletionGuardStatuses)") {
+		t.Error("the complete arm does not interpolate workItemCompletionGuardStatuses")
+	}
+	if strings.Contains(completeArm, "sqlInList(workItemDecisionStatuses)") {
+		t.Error("the complete arm interpolates the FAILURE guard list — 'failed' and 'unresolved' " +
+			"would be overwritable by a complete write (council corr 4cdec68b, editquality, gating)")
+	}
+}
