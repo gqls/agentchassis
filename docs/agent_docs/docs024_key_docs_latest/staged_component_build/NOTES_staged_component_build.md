@@ -5714,3 +5714,80 @@ input AGREE 19/19 on name and 19/19 on id (the 3 apparent id disagreements were 
    this measurement (the rescue always returns the run's own identity; 0 disagreements ever
    observed). tool-generator/`related_pages` remains candidate 2's one wrong-value case on the
    sampled slice.
+
+## 2026-08-20 (evening) — v1.0.1320 is a non-event here; step 5's list is TIERED; and I created a duplicate handoff
+
+**First, the roll: `v1.0.1320` (pods up 16:09Z) contains NOTHING of this lane.** Steps 1–4 all
+shipped in `v1.0.1317`; step 5 is unbuilt (`grep -c "conflicting = true"` → 1, no Phase-2 arm) and
+so is `bugs_open/334`'s candidate 1 (no live step config wires `commit_sha`). I checked rather than
+assuming, and I am recording the negative so the next session does not invent a verification task
+for it. Conflict rows since 16:09Z = **0 across all classes**, which carries **no information**:
+53 orchestrations total, bdl ran **twice**, tool-generator and page-build-handler **not at all**,
+and bdl/`commit_sha` needs a multi-iteration loop before it can conflict. My own landmine, applied
+to my own reading.
+
+**A parallel session of this lane worked it hard 08:13→10:17Z, and did the audit I had named as
+owed.** Credited in full in the handoff. What they found:
+- **`bugs_open/334` filed** for bdl/`commit_sha`, with the explicit `commit_sha?` mapping as
+  candidate 1. Its 090 came back **UNVERIFIABLE at the iteration cap** (= no information), so the
+  mechanism stands on two sessions' first-hand verification, not on a loop verdict.
+- They **corrected two of their own claims against my census** — onset is the 486/487 traffic
+  batch, not an adapter roll; and winner-correctness was measured by the four-step read rather than
+  inferred. They also killed a premise of mine I had not tested: `Deprecated: commit_sha_field` is a
+  **LIVE Strategy-3 bridge**, but it runs *after* the search and is gated on a missing value, so it
+  **cannot** stop the conflict.
+- **330 §9: candidate 2 SIZED** — 451 plain Strategy-0 wires / 309 pairs / 83 agents fleet-wide.
+  Their first probe said 10 rescue-prone wires; **they corrected it within the hour** because a
+  naive `LIKE` encoded "name anywhere in the RAW tree" and counted `agent_config`,
+  `__raw_message__` and `retry_payload` — keys the search *skips* via `isInfrastructureKey`.
+  Stripped probe: **4** rescue-prone wires, of which pbh `page_id`+`page_name` produce **AGREEING**
+  candidates (0 genuine disagreements / 40 runs) and are therefore **invisible to step 5's conflict
+  flip**. Wrong-value population on the sampled slice = **exactly 330's own wire**. 269 pairs / 75
+  agents unsampled. That puts a measured floor under §4's inferred silent population — the thing I
+  could only mark `[UNMEASURED]` last night.
+
+**My own misstep: I created a SECOND "continue here" handoff.** At 07:59 I wrote
+`HANDOFF_2026-08-20_continue_here.md` declaring it superseded the 08-18b file. The parallel session
+then kept updating **08-18b** until 10:17Z, unaware, so for ~9 hours the lane had two files both
+saying "fresh chat starts here" — and the one with the *newer* content was the one my file called
+obsolete. Nothing was lost (they preserved my corrections verbatim), but a fresh session reading
+mine would have missed the entire audit. **Consolidated: everything folded into the 08-20 file,
+08-18b bannered SUPERSEDED.** The cheap check I skipped: before writing a dated successor, `ls` the
+lane for other `*_continue_here.md` and `git log` them for edits newer than your last read. Added
+to the handoff's trap list.
+
+**The actual advance tonight — step 5's list is TIERED, not flat.** I checked every conflicting
+field against the `ActionInputSpec` that declares it. **All but two are `Optional`**, and that
+splits ~13 flat unknowns into three groups with completely different costs:
+- **Tier A, hard blockers (2):** the field is **`Required`**, so the flip converts today's guess
+  into a hard failure. `tool-generator`/`function` → `create_tool_component`
+  (`create_tool_component_action.go:44`; confirmed by elimination — it is the only one of that
+  agent's 10 step actions taking `function`), and `site-review-agent`/`audit_source` →
+  `write_audit_findings` (`:43`). Both need a deliberate decision, not a discovery.
+- **Tier B, silent-loss blocker (1):** bdl/`commit_sha` is `Optional` — **and that is exactly the
+  danger.** Optional means no error, so the field just stops being recorded in `result.commit_sha`,
+  which `bugs_open/315` depends on. The only pair that genuinely needs a config wire first.
+- **Tier C, record a decision (~10):** all `Optional`, and for the spec-array shape **absence IS
+  the correct answer** — the audit's own words for 330 are *"absence is the fix"*. So the
+  precondition's "give every pair an explicit mapping" is discharged here by a **recorded judgement
+  that nothing is the right value**, not by a migration. A paragraph per pair.
+
+That is why the remaining work is much smaller than "13 pairs" sounds, and it is the first time
+step 5 has had a shape rather than a count. The one Tier C item to actually look at rather than
+wave through is **page-rerender/`current_page`** (78 rows, **627 runs/24 h**, quiet): step 4
+deliberately left the stored template key alone, so that route survives by design.
+
+**And a correction to this lane's own instrument.** The demand-control join I added to the RUNBOOK
+yesterday (`orchestration_states.owner_agent_type`) answers **"is this agent running NOW?"** and
+nothing more. It cannot size a class historically, because the retentions differ wildly:
+`agent_error_log` holds rows back to **07-20**, `orchestration_states` keeps ~**24 h** of
+`COMPLETED` rows. `site-review-agent` has **58 conflict-era error rows** and **zero trace in
+`orchestration_states` by any column** — `owner_agent_type`, `workflow_plan`, `execution_metadata`
+all return 0 — because its runs aged out. So `runs_24h = 0` licenses *"cannot fire right now"* and
+**not** *"retired"* or *"never ran"*. My handoff table marked two rows "agent idle": the conclusion
+held, the stated reason was too strong. LANDMINES amended in place with the worked case.
+
+One tidy-up worth recording because it is the file's own trap firing on me: that amendment matched
+a **substring** of a longer line, so the tail ("group the population by candidate SET…") survived
+but ended up swallowed inside my blockquote. The pattern check flagged "1 line removed"; grepping
+for **both halves** rather than trusting the diff is what found it. Fixed in `146910c1e`.
