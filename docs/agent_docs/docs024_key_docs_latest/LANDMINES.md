@@ -13555,3 +13555,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-20, 283 lane — the judged canary's owned-page delivery (`section_edit_tplfix_8e62424d…`) was the victim; found by diffing the row against a sibling that dispatched fine and reading the claim query, after the queue-throughput check came back healthy.
 - **added:** 2026-08-20, 283 lane
 
+
+### A presigned URL longer than 7 days MINTS WITHOUT ERROR and then fails as `SignatureDoesNotMatch` — so the link looks like a credentials problem, not an expiry one
+
+- **footprint:** `platform/storage/s3.go` (`GetPresignedURL` :196, `GetPresignedPutURL` :213 — both pass `expiryMinutes` straight into `opts.Expires`) · `platform/orchestration/actions/zip_deliverable_action.go` (`expiry_minutes` default `10080`) · `storage_actions.go` (`60*24*7`) · `ingest_staged_asset_action.go` (`7*24*60`) · `internal/adapters/webscrape/adapter.go` (`10080`) · any `expiry_minutes` config literal on a `thunder_prepare_*_url` action
+- **fires when:** someone asks for a download link that lasts longer than a week — "make the ZIP link last as long as we host the site", "give them a month" — and you set `expiry_minutes` accordingly. **No symptom at mint time and none in any log:** `PresignGetObject` returns a well-formed URL, the action reports success, the row records `expiry_minutes: 60480`, and the failure only happens in the customer's browser.
+- **the trap:** the 7-day ceiling is the **SigV4 signing protocol's**, not a config choice, and **nothing in this stack enforces it client-side.** Checked 2026-08-20: `aws-sdk-go-v2 v1.25.1`'s `aws/signer/v4` has no cap and `service/s3 v1.51.0` has none either, so the SDK signs whatever you ask for. B2 then refuses it at request time — and refuses it as **`SignatureDoesNotMatch`**, which reads as wrong credentials or a clock problem, sending you to debug the entirely healthy thing.
+- **the check — `[MEASURED 2026-08-20]` against the live bucket, with a control, using a key that does not exist so the STATUS is the whole answer:**
+
+  | `X-Amz-Expires` | result |
+  |---|---|
+  | `604800` (7 days exactly) | **HTTP 404 `NoSuchKey`** — signature accepted |
+  | `604801` (7 days + **one second**) | HTTP 403 `SignatureDoesNotMatch` |
+  | `3628800` (6 weeks) | HTTP 403 `SignatureDoesNotMatch` |
+
+  The boundary is exact and it is to the second. **Run it this way round** — a probe against a real object cannot distinguish "expiry refused" from "object missing", and a 200 tells you nothing about the boundary. The 404 arm is the control: without it, three 403s look like broken credentials.
+- **so 7 days is not a cautious default, it is the CEILING.** Every live caller already sits exactly on it (`10080` / `7*24*60` / `60*24*7`), so nothing is broken today — and the next person who raises one will be the first, with no error to tell them.
+- **the fix when a longer window is genuinely required:** do not lengthen the presign. Hand out a link of your own carrying a token, mint a fresh ≤7-day presign on each click, and redirect. The window then belongs to your token's expiry, which you control, and the presign is never the customer-facing URL.
+- **relations:** `bugs_open/153`-era build-provenance lesson (ask the artefact, not the config) — same shape: the recorded `expiry_minutes` is a statement of intent, not evidence the link works. MEMORY [[writes-the-field-is-not-reads-the-field]] · [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-20, `webdesign_uk_build_service` lane, after the owner ruled the ZIP download link should last "the longest time we have, which I think is 6 weeks" · `docs024_key_docs_latest/webdesign_uk_build_service/NOTES_webdesign_uk_build_service.md`, 2026-08-20 entry
+- **added:** 2026-08-20, webdesign_uk_build_service lane
