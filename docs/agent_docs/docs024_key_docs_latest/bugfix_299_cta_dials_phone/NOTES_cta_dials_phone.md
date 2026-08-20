@@ -508,3 +508,43 @@ header says this in place so a post-apply zero is not misread as failure. **I di
 fleet:** releases are whole-fleet and the owner runs `make release` (a one-service apply at its
 own tag is the documented mistake). First evidence to collect after the next roll, with its
 control, is in 503's footer.
+
+### THE CANARY IS SATISFIED — an authored `/contact.html` survived a post-477 whole-page rebuild
+
+Not leopardess in the end, and not induced: `ai-agent-orchestration.com/index` (one of the six
+keep-carrying sites) went through a full `save_page_sections_overwrite` at **2026-08-20
+08:40:57Z**, an hour and a half after 477 applied. Before and after, at the live row:
+
+| slot | before (archived) | after (live, 08:40:57Z) |
+|---|---|---|
+| hero | `/tools/password-entropy.html` "Book a Technical Discovery Call" | `/tools/password-entropy.html` |
+| system-stats | `/contact.html` | **`/contact.html`** |
+
+**The authored contact destination survived a rebuild on the fixed path.** That is the control
+477's header asked for — survival is what shows the keeps, not luck, made this safe — and it is
+better evidence than the induced canary would have been, because it is ordinary traffic on a
+site nobody was watching for it.
+
+**Fleet-wide clobber sweep since 477, with its demand control:** a signature query (a CTA moving
+FROM `tel:`/`mailto:`/`/contact` TO anything else) finds **0** across **72** writes since
+477 — and finds **9** in the pre-477 history, which is what proves the query can fire at all. A
+zero from a detector that has never fired is not evidence; this one has.
+
+#### MISSTEP — my clobber detector's own partition key was wrong for this write path
+
+The same query first reported **2 opportunities, one of which looked like a clobber**
+(`/contact.html -> -`). It was an artefact. `page_component_history` carries the NEW rows of a
+whole-page overwrite with **`slot_name` NULL** (source `save_page_sections_overwrite`), while
+the archived previous state carries the real slot names (source `artefact_archive_trigger`,
+`op=delete`). My `lag() OVER (PARTITION BY page_id, slot_name)` therefore put the new rows in
+their own null-slot partition and compared them against each other — manufacturing a transition
+from a value to nothing that never happened.
+
+**What caught it:** reading the eight rows of that write instead of reporting the count. The
+surviving `/contact.html` was sitting there in plain sight in the new set.
+
+**The cheap check:** before trusting a lag/window comparison over `page_component_history`,
+`SELECT DISTINCT source, slot_name IS NULL FROM page_component_history` for your window — the
+two writers of that table disagree about whether `slot_name` is populated, so any partition key
+that includes it silently splits one page's history into two unrelated streams. Logged to
+`WRONG_CALLS.md`.

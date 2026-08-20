@@ -39018,3 +39018,105 @@ about the query first.
 names (`site_components.html` / `.component_type`; the real ones are `rendered_html` / `slot_name`).
 CLAUDE.md says `\d <table>` before writing SQL. A failed query is loud, so this cost only a round
 trip — but it is the identical shortcut, and the grep version of it is the one that fails quietly.
+
+---
+
+## 2026-08-20 — I claimed a finding was NEW without grepping for it, and the register had named it (bugs_open/260 renderer half)
+
+**The claim.** A handoff, a plan, a bug-file section (§13g) and a council submission all said
+`RenderTemplateWithMap` was **"a thirteenth render seam nobody had named"**, and that its failure
+mode was **"latent, one ordinary edit away"** from firing.
+
+**What is actually true, all of it findable by grep.** Three prior namings:
+`docs026_concept_register/register/page-build-pipeline.md` says *"`RenderTemplateWithMap` … is
+deliberately EXEMPT, **named rather than silently skipped**"*; `bugs_open/238`'s council round
+enumerated it as one of **eight** unguarded `RenderTemplate*` call sites and gave the reason for
+exempting it; and the `idea_uk_vm_site` lane's `bug_historian` seat **found it** as a sibling
+silent-drop path and routed it through the same detector. And it is not latent-but-armed: its
+call chain ends at `RerenderSitePagesAction`, which is in **no entry** of `GlobalActionRegistry`
+(320 handlers) — unreachable, which is why the idea_uk lane had already measured the symbol as
+absent from the binary.
+
+**What caught it.** The council gate's `prior_art_librarian` seat, whose entire remit is this
+class: *"an explicit novelty/absence-of-prior-discovery claim … needs a precedent check before
+being taken as true."* It did not know the answer — it flagged the SHAPE of the claim.
+
+**The cheap check, and it is one command:** `grep -rn "<the symbol>" docs/ bugs_open/ bugs_closed/`
+before writing "nobody has named", "no prior art", "first time" or "newly found". It cost me
+nothing to run afterwards and it returned the refutation in one screen.
+
+**Second-order, and the reason this is worth a row: the novelty claim was load-bearing.** It set
+the urgency ("one edit away"), it framed the fix as damage-prevention rather than
+trap-disarming, and it implicitly told the reader that the 238 lane's exemption decision did not
+exist — when in fact my real finding is precisely that **238's stated reason for the exemption
+was wrong** ("its blast radius is a contact line" understates that an error *deletes the block*).
+The correct version of the finding is *better* than the false one, because it names a decision to
+revise instead of a gap to fill. **A novelty claim is not decoration; it changes what the reader
+does next.**
+
+**And I compounded it with a measurement that answered the wrong question.** To check whether the
+path was live I ran a count of live agent definitions naming `rerender_pages` — answer 3 — and
+read that as "the action is dispatched". `rerender_pages` is not an action; it is a STEP NAME, and
+what those rows carry is `rerender_pages.pages`, `get_pages_for_rerender`'s output field. The
+registry is the only thing that answers "can this be dispatched", and it says no.
+
+### Same round, same session: two claims I repeated from CODE COMMENTS without checking the corpus
+
+1. **"Three seats independently demanded default-OFF for this shape."** Taken verbatim from
+   `dead_url_guard.go`'s header. The council corpus says **two** — `guardian` and `architecture`
+   objected to the unconditional record on council `98852baa`; `render_guardian`'s objection that
+   round was that the rerender path *records without refusing*, which is adjacent, not the same.
+   One query settled it: `SELECT body FROM diagnosis_artifacts WHERE correlation_id LIKE '98852baa%'
+   AND kind='council_report'` and read the seats' own words.
+2. **"Declaring the key in `ConfigKeys` was needed for the RFC_022 budget to see it."** False.
+   `cmd/config-key-audit/optionalbudget.go:14-21` counts `spec.Optional` **only** and skips
+   `ConfigKeys` on purpose ("settings rather than input references"). What the declaration buys is
+   the unknown-config-key report. I wrote the claim into a code comment, where the next reader
+   would have inherited it, and caught it only because I ran the audit script to check the budget
+   had not moved.
+
+**This is the SECOND day running that a code comment's account of a council round turned out to be
+looser than the round** (see the `findFieldRecursive` row of 2026-08-19). The pattern is specific
+enough to state as a rule: **a comment describing what a council decided is a claim about an
+artefact that is queryable in one line — so query it.** Comments age against a corpus that does
+not.
+
+### The one thing I got right by accident, recorded because the habit is what generalises
+
+Writing the arming migration's "known population" header — the section that says what the new gate
+would refuse **today** — is what found a false positive in my own checker: five `steps[].branches`
+holding the EMPTY STRING on a live, healthy, serving page, which my first version called a type
+violation. It is the only row of that shape on the estate. Nine hand-written unit tests missed it;
+the estate-wide census found it in one query. **"What would this refuse today" is not migration
+boilerplate — it is the only test that runs against the whole population.**
+
+## 2026-08-20 — a clobber detector that manufactured its own clobber, because two writers of one table disagree about a column (bugfix 299 lane)
+
+**The wrong call:** to check fleet-wide whether migration 477 had started destroying authored
+CTAs, I compared each `page_component_history` row against its predecessor with
+`lag(...) OVER (PARTITION BY page_id, slot_name ORDER BY created_at)`. It reported a transition
+`/contact.html -> -` on `ai-agent-orchestration.com/index` — the exact clobber signature, on a
+keep-carrying site, ninety minutes after the migration I had just applied fleet-wide.
+
+It never happened. **The two writers of that table disagree about `slot_name`:** a whole-page
+rebuild (`source='save_page_sections_overwrite'`) writes the new rows with `slot_name` **NULL**,
+while the archive trigger (`source='artefact_archive_trigger'`, `op='delete'`) writes the
+previous state **with** slot names. Partitioning on `slot_name` therefore split one page's
+history into two unrelated streams and compared the new null-slot rows against each other,
+inventing a move from a value to nothing. The authored `/contact.html` had in fact survived —
+it was in the new set, and in the live row, the whole time.
+
+**What caught it:** reading the eight rows of that single write instead of reporting the count.
+The surviving value was in plain sight.
+
+**The cheap check that would have:** before any `lag`/window comparison over
+`page_component_history`, ask whether the column you are partitioning on is written by every
+producer — `SELECT DISTINCT source, slot_name IS NULL FROM page_component_history` over your
+window answers it in one line. General form: **a partition key is a claim that the column means
+the same thing to every writer of the table**, and on a table with more than one writer that is
+a claim to check, not assume.
+
+**Cost:** none realised — caught before it was reported or acted on. Recorded because of which
+direction it failed in: it produced a **false alarm about my own just-applied fleet-wide
+migration**, and the tempting response to that is to revert something that was working. A
+detector that cries wolf about your own change is as dangerous as one that stays quiet.
