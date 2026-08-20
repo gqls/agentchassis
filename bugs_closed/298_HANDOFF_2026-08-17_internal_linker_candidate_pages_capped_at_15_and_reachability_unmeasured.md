@@ -1,6 +1,32 @@
 # 298 — `internal-linker` picks link targets from at most 15 candidates, alphabetically — and whether it has ever reached that step is UNMEASURED
 
-> ## ✅ FIXED 2026-08-19 — the cap is GONE, in the same migration that fixed 313
+> ## ✅ CLOSED 2026-08-19 — the cap is GONE, **and the disconfirming pair is measured**
+>
+> **Proven 2026-08-19 21:19Z** (canary correlation `50ea3037-4602-40f5-b7de-a0b3a537ce39`,
+> webdesign.co.uk — the worst site, 69 candidates; target page `about`). This file's §How to verify
+> asked for a page sorting past position 15 by name to appear in `plan_links`' rendered prompt after
+> the fix, when it could not before:
+>
+> - **`load_candidate_pages` returned 68 rows** (`collected_data->'candidate_pages'->>'count' = 68`).
+>   Under `ORDER BY p.name LIMIT 15` it returned 15, by construction.
+> - **`tool-white-balance` — alphabetical position 69 of 69 — is present in `prompt_rendered`.**
+>   That page was structurally unreachable under the old cap, so its presence is the disconfirming
+>   arm and cannot be faked. (Position 15, `tool-csp-builder`, is present too — the boundary page
+>   that WAS reachable before, so the check discriminates rather than merely observing.)
+> - The prompt shows page names and content under `## Candidate Pages`, not `rows`/`count`/`columns`
+>   — the both-halves trap 313 warned about did not fire.
+> - Payload cost, since the cap came off in favour of bounding the payload: **21,946 input tokens**
+>   for 68 candidates at `LEFT(…, 800)` — comfortably inside context, as §Fix candidate 2 predicted.
+>
+> **Census arm:** "0 sites over the cap, or no cap" — satisfied by construction (no cap).
+>
+> **The adjacent finding in this file ("15 of 38 completed items found NO target page") remains
+> unaddressed and unclaimed** — still a candidate for its own ticket, and now the only live thread
+> left in this file.
+>
+> ---
+>
+> ## ✅ FIXED 2026-08-19 — the cap is GONE, in the same migration that fixed 313 (pre-proof record)
 >
 > **Fixed by the `bugfix_313_internal_linker` lane**, in this file's own required order (313's
 > branch first — same transaction, so neither could land alone). Migration
@@ -15,9 +41,11 @@
 >   and deliberately not done.
 > - **Census check (this file's §How to verify):** "0 sites over the cap, or no cap" — satisfied
 >   by construction (no cap); re-measured 2026-08-19 pre-fix as 26 sites / 8 over / worst 69.
-> - **The disconfirming pair still needs one live run** (a page sorting past position 15 present in
->   `prompt_rendered`) — pending the first natural run post-490, same gate as 313's proof; queries
->   in `docs/agent_docs/docs024_key_docs_latest/bugfix_313_internal_linker/RUNBOOK_313_internal_linker.md`.
+> - ~~**The disconfirming pair still needs one live run**~~ — **SUPPLIED 2026-08-19 21:19Z; see the
+>   CLOSED banner at the top.** It did not arrive from natural traffic and would not have: the
+>   linker's 20 queued items are `status='unresolved'`, which is terminal and undispatchable
+>   (`work_items_common.go:40-46, :172-175`). It was hand-fired — recipe in
+>   `docs/agent_docs/docs024_key_docs_latest/bugfix_313_internal_linker/RUNBOOK_313_internal_linker.md`.
 > - **Adjacent finding in this file ("15 of 38 completed items found NO target page") remains
 >   unaddressed and unclaimed** — still a candidate for its own ticket.
 

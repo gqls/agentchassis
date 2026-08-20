@@ -54,3 +54,33 @@ What's left: the review verdict (the council round is running now), and the real
 the first actual link plan in the logs, which should arrive on its own within hours since the
 agent runs a couple of times a day and has twenty jobs queued. Once that lands, both bug files
 move to closed. The two code-level safety nets ride the next platform build.
+
+---
+
+## 2026-08-19, late — it works. The linker made its first links.
+
+The internal linker has now planned links on a real site, for the first time since it was built in
+April. It picked out two places on webdesign.co.uk where a page should point at another page, wrote
+the sentences to do it, and filed the work. Four months of runs that reported success and did
+nothing are over.
+
+Two things worth telling you, because both were mistakes on our side rather than the system's.
+
+**We said the proof would turn up on its own within a few hours. It never would have.** The reason
+sounded reassuring — twenty jobs were sitting in the queue waiting for this agent. It turns out all
+twenty are in a state the system treats as "we gave up on this one", and nothing ever picks those
+up again. And the reason they are in that state is *this bug*: every time the linker ran and
+silently did nothing, the platform recorded a success, and after two of those it stopped asking.
+The bug had quietly shut off its own supply of work. So we fired one run by hand instead, and wrote
+the command into the runbook so the next person does not have to work it out.
+
+**The test we wrote down for ourselves was one that could never pass.** Both bug write-ups said:
+look for the linker's first entry in the log of AI calls. That log labels each entry with which
+agent made the call — and it labelled this one "generic" rather than "internal-linker", because the
+label describes how the job was sent, not what ran. So the check we had all agreed on would have
+read "still broken" for ever, on a fix that plainly works. We found it because we looked at the
+actual output rather than trusting the check. Both files now say so plainly, the runbook has the
+query that does work, and the trap is written up where the next person will hit it.
+
+Nothing needs a decision from you. Both bugs are closed, and the queue heals itself in about a week
+without anyone touching it.

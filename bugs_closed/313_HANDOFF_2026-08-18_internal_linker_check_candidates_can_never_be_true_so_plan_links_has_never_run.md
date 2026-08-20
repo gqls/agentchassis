@@ -1,6 +1,60 @@
 # 313 — `internal-linker`'s `check_candidates` can never be true, so `plan_links` has never run: the agent has completed 57 link jobs and produced no link plan
 
-> ## ✅ FIXED 2026-08-19 — config LIVE on apply; artefact proof pending the first natural run
+> ## ✅ CLOSED 2026-08-19 — FIXED, LIVE **and PROVEN AT THE ARTEFACT**
+>
+> **The proof arrived 2026-08-19 21:19Z** (canary correlation `50ea3037-4602-40f5-b7de-a0b3a537ce39`,
+> webdesign.co.uk, target page `about`, chassis v1.0.1316). All three of this file's §How to verify
+> arms, each against its established "before" arm:
+>
+> 1. **`plan_links` RAN — the first time in the agent's history.** `llm_call_log` now holds exactly
+>    one row with `step_name='plan_links'` in all history: 21:18:53Z, `success=t`,
+>    `claude-haiku-4-5`, 21,946 input / 446 output tokens.
+> 2. **The prompt rendered PAGES, not map keys** — `## Candidate Pages (could link TO the target)`
+>    followed by `### domains (/domains/index.html)` with real titles and content. No
+>    `rows`/`count`/`columns`. Fix candidate 1's stated trap did not fire.
+> 3. **The run COMPLETED at `complete`, not `complete_no_candidates`**, with
+>    `collected_data->'candidate_pages'->>'count' = 68`. That pairing — non-empty candidates AND a
+>    terminal step that is not `complete_no_candidates` — **is** the bug, inverted.
+> 4. Downstream, unasked but recorded: the model planned **2 links** and **2 `content_rewrite`
+>    items** were filed (`created_by='internal-linker'`, keys `internal_link_webdesign.co.uk_index`
+>    and `…_domains`). See §Residual below — it did not bite.
+>
+> > **⚠ CORRECTION 2026-08-19 — THIS FILE'S NOMINATED CHECK IS A BROKEN INSTRUMENT, and it stays
+> > at zero even now the fix works.** §How to verify says "a `plan_links` row in `llm_call_log` for
+> > `agent_type='internal-linker'` — a table that has zero rows in all history today, so the
+> > 'before' arm is already established and cannot be faked". The row was written under
+> > **`agent_type='generic'`**, so that query still returns ZERO after a demonstrably successful
+> > run. `agent_type` on `llm_call_log` carries the DISPATCH context, not the workflow's agent —
+> > the same class as the `orchestration_states.owner_agent_type` landmine this lane already
+> > recorded. **The instrument that works is `step_name='plan_links'`**, which is unambiguous and
+> > was genuinely zero all-history. [MEASURED for a hand-fired inline-workflow dispatch;
+> > whether a loop-dispatched `spawn_agent` run labels it differently is UNMEASURED and does not
+> > affect this proof.]
+>
+> > **⚠ CORRECTION 2026-08-19 — "the proof should arrive within hours" was WRONG, and waiting would
+> > have failed silently.** This banner previously read *"Natural traffic is ~2 runs/day with 20
+> > open work items queued, so the proof should arrive within hours."* **Those 20 items are
+> > `status='unresolved'`, which is TERMINAL** (`work_items_common.go:40-46`) and invisible to the
+> > promoter (`detected` only), the selector and the atomic claim
+> > (`workItemDispatchableStatuses = {triaged, approved}`, `work_items_common.go:172-175`). They
+> > can never dispatch — and this very bug is what parked them, via the two-strike rule
+> > (`load_work_item_actions.go:1336+`) counting its own no-op "complete" runs as attempts. Fresh
+> > items arrive only on a `site-discovery-rotation-completeness` tick (hourly, ONE site, 7-day
+> > per-site stamp) that finds new orphans — days, not hours. **The proof had to be hand-fired**
+> > (script and envelope in the lane RUNBOOK). Recorded in `WRONG_CALLS.md`.
+> > *Self-healing note:* `unresolved` does not hold the `idx_swi_dedup` slot, so once those
+> > terminals age past 7 days the rotation re-raises the findings as `detected` and they dispatch
+> > against the fixed config. The 20 dead rows need no manual revival.
+>
+> **Residual (named in this file, now measured): it did not bite.** The 2-link plan produced **2**
+> distinct items, not one — `bugs_open/321`'s disjoint-key fix is CLOSED and live, and
+> `create_rewrite_item` suffixes by source page. Precisely: the key is
+> `internal_link_<domain>_<source_page>`, so two links from *the same* source page would still
+> collapse to one item. Not observed here, and not this bug's subject.
+>
+> ---
+>
+> ## ✅ FIXED 2026-08-19 — config LIVE on apply (the record as it stood before the proof)
 >
 > **Fixed by the `bugfix_313_internal_linker` lane** (session `bugs_open/313`; lane docs:
 > `docs/agent_docs/docs024_key_docs_latest/bugfix_313_internal_linker/`). Together with
@@ -32,11 +86,10 @@
 >   with no suffix field, so until the `bugs_open/321` lane's disjoint config fix applies, an
 >   N-link plan yields ONE `content_rewrite` item (up to ~2/3 of output dropped). Confirmed
 >   disjoint both sides; do not misread 1-item-per-plan as this fix failing.
-> - **Still OPEN pending this file's own §How to verify:** the first `plan_links` row in
->   `llm_call_log` (zero all-history is the established "before" arm), page names under
->   `## Candidate Pages` in `prompt_rendered`, and a completed run with non-empty candidates not
->   ending at `complete_no_candidates`. Natural traffic is ~2 runs/day with 20 open work items
->   queued, so the proof should arrive within hours; queries in the lane RUNBOOK.
+> - ~~**Still OPEN pending this file's own §How to verify**~~ — **SATISFIED 2026-08-19 21:19Z, see
+>   the CLOSED banner at the top of this file.** (The two claims struck through here — that the
+>   `agent_type='internal-linker'` query is the check, and that natural traffic would supply it
+>   within hours — are both corrected up there; neither held.)
 
 **Filed 2026-08-18** by the `bugfix_275_silent_row_caps` lane, while answering `bugs_open/298`'s
 reachability question. **Diagnosis loop: CONFIRMED, first iteration** (`RUN_CORRELATION_ID=

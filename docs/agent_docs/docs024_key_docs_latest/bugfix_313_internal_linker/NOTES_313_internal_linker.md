@@ -220,3 +220,68 @@ was a durable claim in a commit/bug file, a WRONG_CALLS.md row.
   producer is a Go action (e.g. `unswept_areas.count`, whose action sets count in code) are
   SKIPPED by design — statically unjudgeable, and the runtime tripwire is the layer that covers
   them if opted in.
+
+## 2026-08-19 (night) — PROVEN AT THE ARTEFACT. Both bugs closed. Two things this lane had wrong.
+
+Picked up by a later session (named `bugs_open/taken 313 and 298 and 314`) to supply the one
+remaining gate. It is supplied, and closing it exposed two errors in what this lane wrote.
+
+**The proof.** Canary correlation `50ea3037-4602-40f5-b7de-a0b3a537ce39`, 2026-08-19
+21:18:35→21:19:33Z, webdesign.co.uk (the worst site: 69 candidates), target page `about`,
+chassis v1.0.1316. All three arms, each against an established "before":
+
+| arm | before | after |
+|---|---|---|
+| `plan_links` ever ran | 0 rows all-history (`step_name='plan_links'`) | **1 row**, 21:18:53Z, success, haiku-4-5, 21,946 in / 446 out |
+| prompt rendered pages, not map keys | n/a (step unreachable) | `## Candidate Pages` → `### domains (/domains/index.html)`; no `rows`/`count`/`columns` |
+| terminal step with non-empty candidates | every run ended `complete_no_candidates` | **`complete`**, `candidate_pages.count = 68` |
+
+298's disconfirming arm specifically: **`tool-white-balance`, alphabetical position 69 of 69, is in
+the rendered prompt** — structurally impossible under `ORDER BY p.name LIMIT 15`. Position 15
+(`tool-csp-builder`) is present too, so the check discriminates rather than merely observing.
+Downstream: 2 links planned → **2** `content_rewrite` items, distinct keys,
+`created_by='internal-linker'`.
+
+### MISSTEP 1 — "the proof should arrive within hours". It never would have.
+
+This lane's SUMMARY and the 313 banner both said natural traffic (~2 runs/day, "20 open work items
+queued") would supply the proof within hours. **Those 20 items are `status='unresolved'`, which is
+TERMINAL** (`work_items_common.go:40-46`) — invisible to the promoter (reads `detected` only), to
+the selector and to the atomic claim (`workItemDispatchableStatuses = {triaged, approved}`,
+`work_items_common.go:172-175`). They can never dispatch. Worse, **this very bug parked them**: the
+dead branch produced no-op "complete" runs, and the two-strike rule
+(`load_work_item_actions.go:1336+`) counted its own successes as attempts and branded the third
+re-raise `unresolved`. Fresh items arrive only on a `site-discovery-rotation-completeness` tick
+(hourly, ONE site, 7-day per-site stamp) that finds new orphans.
+
+**The cheap check I skipped:** read `workItemDispatchableStatuses` before calling a queue "open
+work". A count of rows is not a count of *dispatchable* rows. Recorded in `WRONG_CALLS.md`.
+
+*(Not a hazard for the fix: `unresolved` does not hold the `idx_swi_dedup` slot, so once those
+terminals age past 7 days the rotation re-raises the findings and they dispatch against the fixed
+config. The 20 dead rows need no revival.)*
+
+### MISSTEP 2 — the verification query this lane wrote into BOTH bug files cannot come out true.
+
+Both files nominate "a `plan_links` row in `llm_call_log` for `agent_type='internal-linker'` — a
+table that has zero rows in all history today, so the 'before' arm is already established and
+**cannot be faked**". It cannot be faked, and it also cannot be SATISFIED: after a demonstrably
+successful run that query still returns **zero**, because the row was written under
+`agent_type='generic'`. That column carries the DISPATCH context, not the workflow's agent type —
+the exact sibling of the `orchestration_states.owner_agent_type` landmine this lane already knew
+about and cited. We swapped one mislabelled-provenance column for another.
+
+Had the proof been left to arrive on its own, the honest reading of this instrument would have been
+"still not proven" *for ever*, on a fix that works. **The instrument that works is
+`step_name='plan_links'`** — genuinely zero all-history, now 1. RUNBOOK corrected in place; the old
+recipe struck through rather than deleted. New LANDMINES entry filed for the column.
+
+[MEASURED for a hand-fired inline-workflow dispatch. Whether a loop-dispatched `spawn_agent` run
+labels `agent_type` differently is **UNMEASURED** — and does not affect the proof, because
+`step_name` settles it either way.]
+
+### Lane state
+
+Both bugs moved to `bugs_closed/`. `scripts/fire-internal-linker.sh` promoted out of a scratchpad
+into the repo, because the next person to verify this agent needs it and "wait for traffic" is not
+a recipe. The lane is CLOSED.
