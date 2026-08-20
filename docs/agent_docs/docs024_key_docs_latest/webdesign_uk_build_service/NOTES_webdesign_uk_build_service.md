@@ -4681,3 +4681,40 @@ false positive on sight. Requeued a fourth time with all three fixed at source.
   (`expiry_minutes: 10080` → `43200` in `zip_deliverable_action.go`). Go change, so it
   needs a build and a roll, and it is the only one of tonight's four rulings still
   outstanding.
+
+### 2026-08-20 (~06:5xZ) — the guide LANDED, and the next-day ban is ARMED
+
+**§1 of the 08-19 handoff is closed.** The fourth attempt at `79db855f` completed at
+16:21:39Z yesterday. Verified in both directions, at the served page and at the
+stored component, not at the item status:
+
+| check | result |
+|---|---|
+| served page, `next day` | **0** |
+| served page, `two or three days` | 1 |
+| stored `article-body`, `next day` | **false** |
+| stored `article-body`, `two or three days` | true |
+| component `updated_at` | 2026-08-19 16:21:39Z (so the components really were rewritten, not rerendered) |
+
+All five pages now carry the attested turnaround.
+
+**`SQL_2026-08-19e` applied.** Its census guard was the gate and it ran twice for
+real: it **refused** yesterday naming
+`tool-website-brief-starter-guide/article-body`, and passed this morning on a census
+of **0**. That is the `bugs_open/161` order — repair first, then arm — made
+mechanical instead of remembered, and it is the only version of that rule that
+survives a session which has not read the landmine.
+
+Verified after arming, at the live register:
+- 34 bans (was 33), **22 facts unchanged**;
+- the three offending shapes fire (`ready the next day`, `Next-day turnaround on
+  every build`, `ready by tomorrow`), the five must-pass sentences are clean;
+- **all 20 active-page components scan clean — 0 findings across the site.** The
+  archived `index-rejected-v1-20260806` is excluded, as the census predicate does.
+
+**Chassis rolled overnight: `v1.0.1317`** (was 1314), pods started 2026-08-19T22:26Z.
+The `build provenance` startup line has already scrolled out of `--tail=400`, which is
+the documented behaviour on this service and means "not in range", **not**
+"unstamped". It does not matter for any of yesterday's work: every change was register
+config, which is live immediately, and no Go was touched. It DOES matter for the one
+outstanding ruling — the ZIP presign — which is Go and will need its own build.
