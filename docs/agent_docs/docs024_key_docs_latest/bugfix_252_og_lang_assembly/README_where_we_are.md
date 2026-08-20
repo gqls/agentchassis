@@ -78,3 +78,64 @@ existing staleness machinery carries it across all 26 sites in waves on its own.
 I have also asked the diagnosis loop to check my reasoning independently while I write the code. I
 don't expect it to overturn anything — the mechanism is plain in the source — but the claim here is
 cross-cutting, which is exactly the case where our own rule says spend the run rather than assert.
+
+---
+
+## 2026-08-20, afternoon — the fix is written, and one check stopped me shipping a fresh mistake
+
+The code is done, tested and committed; it is with the review council now, and nothing is switched on
+yet. Three things you should know, one of which is a decision I need you to confirm.
+
+**The thing I most want to tell you: your instruction to show you the list of sites caught a real
+error before it shipped.** You said to opt all the UK sites into British English. My plan was to add
+the `.com` sites too, on the bug file's own argument that our `.com` sites are British. Before writing
+that list I checked each site rather than assuming — and **relojistas.com is a Spanish-language
+publication**. Its recorded location is España, its tagline and every heading on the live page are in
+Spanish. Declaring it British English would have been false metadata stated more confidently than the
+plain "English" it says today — which is precisely the fault this whole bug is about. It now gets
+Spanish (`es-ES`) and everything else gets British English. Twenty-four sites British, one Spanish,
+the internal placeholder sites left alone entirely.
+
+I'd like you to confirm that Spanish call, since it goes slightly beyond what you asked for — you said
+"UK sites", and this is me correcting a non-UK one while I'm in there. My reasoning is that leaving it
+saying "English" is a known-false value I'd be walking past. Easy to reverse either way.
+
+**Second: what the fix actually does.** When a page is assembled it now removes whatever the site's
+shared page-header claims about *that page's* identity and states the page's own — its title, its
+description, and its address. The address is worked out by the same piece of code that produces the
+"canonical" tag, so the two can't drift apart; before, they were two separate calculations kept in
+step by a comment. Pages with no description written yet simply get no description tag rather than an
+empty one, which is deliberate: staying silent is better than a page describing itself as nothing.
+That's a good half of pages today, and the other lane's description-writing work is what shrinks it.
+
+A nice side effect: this repairs the duplicated tags and the wrong addresses **at page-assembly time**,
+so it doesn't need every site's header rebuilt first. That mattered more than it sounds — a code
+change doesn't cause headers to rebuild, so a fix that depended on rebuilding them would have sat
+inert.
+
+**Third: I got something wrong in my own design and the test caught it.** I'd decided the new step
+must run *before* the existing description step, wrote the reason into the code as settled fact, and
+built a test to pin it. Then I deliberately swapped the order to check the test would fail — and it
+passed, which means it was pinning nothing. Investigating that showed the order does matter and I had
+it **backwards**: my order caused the page description to be written into the *image* tag, a tag this
+change isn't supposed to touch. Swapped, corrected the comment, and the test now genuinely fails if
+anyone swaps it back. It's written up in the wrong-calls log with the cheap check that would have
+found it sooner. Nothing shipped wrong — but I'd rather you know the fix had a real fault in it that
+was caught by testing the test, not by me being careful.
+
+**On the independent diagnosis run** I mentioned: it came back "not confirmed", and the reason is
+useful rather than worrying. It re-derived the mechanism from the source code exactly as I had, then
+couldn't find any actual page to check it against — because it looks for pages' headers in three
+database columns that have been empty for the entire fleet for months, and the one place the evidence
+does live gets cut off before the relevant part. In other words it can read code and configuration
+but it cannot see what a site actually serves. That's a genuine blind spot in one of our own tools, so
+I've written it down as a trap for the next person: a "not confirmed" from that tool about anything a
+visitor can see means "I couldn't look", not "you're probably wrong". The evidence for this bug never
+depended on it — I'd already fetched the live pages.
+
+**What's left**, in order: the council verdict (I'll act on it, including if it wants changes); then a
+fleet release before any of this does anything; then I prove the new code is genuinely running in the
+pods; then two canary pages checked by eye; then the two database changes; then it spreads across all
+26 sites through machinery we already have. The database changes are deliberately held back until the
+release has happened — if they land first, the system would rebuild everything with the *old* code,
+mark it all as done, and go quiet with every site still wrong.
