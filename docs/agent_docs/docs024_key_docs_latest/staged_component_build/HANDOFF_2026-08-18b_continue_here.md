@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-18b (updated 2026-08-19 ~20:40Z), fresh chat starts here: steps 1–3 LIVE+PROVEN (v1.0.1315); step 4 BUILT+APPROVED r2 (`1a82225ec`+`916c8b22b`+`c16836d86`, corr `f3716ebe`) — inert until the next roll. Next: after the roll, stamp + read the done-condition (checklist 4b); then step 5 (4c, which also retires the read tolerance).
+# HANDOFF — 2026-08-18b (updated 2026-08-20 ~07:00Z), fresh chat starts here: steps 1–4 ALL LIVE+PROVEN (step 4 verified on `v1.0.1317`, 2026-08-20). Next and ONLY remaining work: **step 5**, whose precondition is measured UNMET — read §5.4(c) before designing it.
 
 **Supersedes `HANDOFF_2026-08-18_continue_here.md`, whose §2 task is DONE and whose §10.10 spec
 was CORRECTED before building** — the mis-citation and its consequences are RFC_029 §10.11, the
@@ -65,7 +65,7 @@ lane's next builds and are independent of each other and of step 1's roll.
 | 1 | ~~Prune ships; window re-read~~ **DONE 2026-08-19**: live v1.0.1310, 16 h read = **0** `work_item_id` rows, `current_page` class intact as predicted | — | — |
 | 2 | ~~306 cands 1+2~~ **DONE 2026-08-19 ~16:00Z, 306 CLOSED → `bugs_closed/`** (by the 306 session): cands 1+2 (`846496906`, corr `96ac93e6`) AND cand 3 (the retry_payload skip — code rode `393f15bfd` as a same-file passenger, tests `02777cd5f`, corr `e4840008` APPROVED r1, 090 CONFIRMED) all LIVE in `v1.0.1315` (stamp `590ca3a20`, both controls). Window: pbh echo class 45→0 against 6 echo-shaped demand rows; rp in candidate_paths fleet-wide 0. Evidence: bug file §7 | — | — |
 | 3 | ~~Gate the page-ish trio~~ **config half APPLIED** (migration 483, 2026-08-19 — html-developer-chunked was DORMANT: 0 runs all-time, no input_fields; now declares a 5-entry list). **Go gate BUILT + SUBMITTED** (`f42e03720`, corr `07468ec0`): 3 `&& requested(…)` clauses; domain/objective/model untouched; 5 tests pin both halves, mutation-proved both ways | ⚠ **NO VERDICT — run ended `complete_invalid` at 10:24Z because the Anthropic ACCOUNT hit its usage limit** (fleet-wide, not ours; NOTES 10:30Z entry). **APPROVED round 2, 2026-08-19 ~11:2xZ** (REVISE round 1 was RIGHT — the census was top-level-only; redone recursively, conclusion held; skip now named on the log). Code fully reviewed: `f42e03720` + `393f15bfd`. **Waits only on the roll** | class-1 63% gone from the window after the roll |
-| 4 | ~~Fix surviving shape conflicts AT SOURCE … Fix = rename the tag~~ **BUILT + SUBMITTED 2026-08-19 late (commit `1a82225ec`, corr `f3716ebe-e420-4ae9-ba4a-9a649e3d7124`, `Council-Submitted:`):** the residual was ONE candidate set (23 rows/4 h post-roll, 100%): pcw `generate_content` wants the page RECORD under `current_page`; `build_render_context` filed the page NAME string under `render_context.current_page` / `build_render_context.current_page`. **Design NARROWED on measurement (NOTES "late afternoon"): the json tag and the TEMPLATE key are NOT renamed** (1/306 template reader, 0 prompts advertise it, and the rerender path hand-builds the same key for the restore contract). Built: `renderContextStepContractRenames = {current_page → current_page_name}` applied symmetrically at the STEP BOUNDARY (`renderCtxToMap` emits, `setRenderContextScalarsFromData` reads, with a read-side tolerance for pre-roll trees); `buildRerenderBaseData` + `renderEnvelopeIdentity` follow. 7 tests mutation-proved six ways + a resolver-seam test with a CONTROL. Inert until the next roll | ~~step 3's post-roll window read~~ met | window reads zero for pcw/`current_page` against live pcw demand (query: RUNBOOK "step 4's done-condition") |
+| 4 | ~~Fix surviving shape conflicts AT SOURCE … rename the tag~~ **DONE — LIVE + PROVEN 2026-08-20 on `v1.0.1317`** (pods up 2026-08-19 22:26Z, one shared digest `sha256:64783665…`). Capability-probed on BOTH pods, not inferred from the tag: `current_page_name` PRESENT, `renderContextStepContractRenames` symbol present, present-control (`build_render_context`) ok, absent-control (`current_page_name_NOTREAL`) ok. The `build provenance` line had already scrolled at 8 h — the documented fallback, and why the probe is the right instrument. **Done-condition MET**: pcw/`current_page` conflict rows post-roll = **0**, against a demand control of 3 pcw runs; pre-roll rate was 34 rows / 11 runs = **3.1 per run**, so ~9 were expected. ⚠ **Detection power, stated honestly: 3 runs rules out the old ~every-run behaviour decisively but could NOT detect a residual firing on fewer than ~1 run in 3.** If that matters, re-read with a longer window | met | ✔ met |
 | 5 | Flip conflicts → refusal at the marked flip sites (`unified_extractor_search_test.go` header). ⚠ **The population is NOT near-empty and the flip's own stated precondition is UNMET — 19 field/caller pairs logged, ~14 unaddressed by steps 1–4, measured 08-19 night. Read §5.4(c) before designing this.** | step 4's gate | §9's "never guess" is mechanical for every future pipeline — the reason the flip happens even on a near-empty population |
 
 Carried correction: my §10.12 claim that `page-build-handler` "reads" the resolved value is
@@ -123,16 +123,11 @@ against THIS, not against the 08-19 afternoon figure.
    Budget ~30 min from submission (~16:45Z); a missing row is latency, not a drop — find it by
    payload (`collected_data->'input_data'->>'fix_correlation_id'` on `orchestration_states`),
    never re-trigger.
-   (b) **After the next chassis roll — NOT v1.0.1316:** 1316 (= `07eeba4a1`, rolled ~17:13Z,
-   verified 3-leg by the parallel session ~20:30Z: steps 1–3 re-proven, bdl both fields 0
-   against 2-run demand, pcw 13 rows persisting as predicted) **PREDATES step 4's approval and
-   does NOT carry `1a82225ec`** — ancestry-checked, not assumed. Wait for a roll whose stamp
-   contains it, then: stamp the binary (`/proc/1/exe` grep for the stamp with a
-   known-ABSENT and a known-PRESENT control), confirm `1a82225ec` is an ancestor, then read the
-   done-condition (RUNBOOK "step 4's done-condition"): pcw/`current_page` conflict rows post-roll
-   must be **0 against live pcw demand** (pcw orchestrations in the window > 0). Any NEW candidate
-   set that appears is a new producer of a `current_page` string — trace it, do not widen the
-   rename.
+   (b) ~~After the next chassis roll~~ **DONE 2026-08-20 ~06:50Z on `v1.0.1317`.** Evidence in
+   the step-4 row. Both legs stand: the binary carries `current_page_name` on **both** pods with
+   a present- AND an absent-control, and the done-condition window (22:26Z→06:50Z) reads **zero**
+   pcw/`current_page` against 3 live pcw runs, where the pre-roll rate predicted ~9. Nothing owed.
+   **No new `*.current_page` candidate set appeared** — the thing the RUNBOOK told us to watch for.
    (c) **Step 5**: ⚠ **READ THIS FIRST — its stated precondition is NOT met (measured
    2026-08-19 night, NOTES "(night)").** `findFieldRecursive`'s own comment gates the flip on
    *"zero conflict WARNs observed over the window, OR every observed field/caller pair given an
@@ -154,7 +149,35 @@ against THIS, not against the 08-19 afternoon figure.
    retire the read-side tolerance** in `setRenderContextScalarsFromData` (the second `if`; plus the
    "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll`) — the comment
    above that function names this commit as its owner; by step 5's gate the step-4 roll has
-   outlived `orchestration_states`' ~24 h retention, so no pre-roll tree can exist. Also: flip at
+   outlived `orchestration_states`' ~24 h retention, so no pre-roll tree can exist.
+
+   ⚠ **THAT RETENTION ARGUMENT IS UNSOUND AS WRITTEN — the conclusion survives, on two better
+   grounds (measured 2026-08-20).** Do not repeat the retention reasoning; it bounds the wrong
+   population twice over:
+   - **Rows are not deleted at 24 h.** `orchestration_states` still holds rows from **2026-07-19**
+     (24 `CANCELLED` stragglers the cleanup does not touch). The ~24 h figure describes
+     `COMPLETED` rows only, and the 7-day figure in `LANDMINES` is about the `awaited_requests`
+     COLUMN, not the row.
+   - **The tolerance is not only reached from an orchestration tree.** Its second call site is
+     `mergeIntoRenderContext`, the RE-RENDER restore — and **stored component `content_data` has
+     no retention at all.** Right now **20 live `page_components` rows across 12 sites** carry
+     `current_page` as a STRING (query below); 17 are on `deployed` pages.
+   **Why the conclusion still holds, and this is what to write in the commit instead:**
+   1. **Zero non-terminal pre-roll orchestrations.** All 2,476 rows created before the 22:26Z
+      roll are `COMPLETED`/`CANCELLED`/`FAILED`, so none can be resumed into the build-side call
+      site. (Re-run at step-5 time — it only gets safer with age.)
+   2. **The rerender path always sets the NEW key fresh.** `buildRerenderBaseData` writes
+      `base[renderContextStepContractKey("current_page")]` from the `pageName` argument, not from
+      stored data — and the tolerance's first branch `continue`s whenever `current_page_name` is
+      present, so those 20 stored rows never reach the second branch.
+   **The check to run before the commit, and to cite in it:**
+   ```sql
+   SELECT count(*) FROM orchestration_states WHERE created_at < '<step-4 roll>'
+     AND status NOT IN ('COMPLETED','FAILED','CANCELLED');   -- must be 0
+   SELECT jsonb_typeof(content_data->'current_page'), count(*) FROM page_components
+    WHERE content_data ? 'current_page' GROUP BY 1;          -- string rows: know the number
+   ```
+ Also: flip at
    (`unified_extractor_search_test.go` header names them), council-gated. §9's "never guess"
    made mechanical. The flip happens even on an empty population — the reason the owner chose A
    over C.
