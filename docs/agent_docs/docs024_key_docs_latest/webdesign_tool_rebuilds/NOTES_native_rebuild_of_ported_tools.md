@@ -2278,3 +2278,19 @@ this session's margin-gate query read zero. The gate's answer was true when read
 minute; the retire beat the row's claim so nothing was harmed, but it is a reminder that the gate is
 a snapshot, and the SLOT-COUNT watcher plus immediate retire is the actual protection.
 Serve-grade pending on `b013cc13`; watcher armed.
+
+## 2026-08-20 09:32Z — #22 `tool-oklch-picker` FILED; a THIRD site-wide rerender sweep landed 09:16Z
+
+Item **`033fb624-1b16-4e5f-868b-4b5e7cac303b`** (09:30:05Z), page `466781d9-e8d3-4c8c-badc-2bd6d5889bde`.
+Revert handle: ported slot **`1a8f5283-6134-498b-9972-14bf5d5f8325`, 7,186 chars, md5
+`2e8f99b9f2c7379ea75eb637a42cd076`**. Gates: library 0, fork 0, add_tool 0; the page HAS a queued
+rerender (`5fd7710e`) but it sits in a fresh ~119-row site-wide sweep filed 09:16:25Z (the THIRD
+today: ~06:58, ~07:00 second wave, 09:16) with **72 items ahead ≈ 100 min headroom** — filed on
+margin, not absence. Mesh's serve-grade rides the same sweep (`b013cc13`); watcher armed on both.
+
+The ported defects (read in full 09:0xZ): the same unconditional-`alert("Copied!")` copy (4th
+identical function today); and the accessibility-shaped one — the swatch shows WCAG-furniture sample
+text ("Aa Large Text" / "Normal Text 16px") whose colour is picked by `l > 50` alone, plus a
+text-shadow to fake legibility, on a page whose guide box sells "accessible palettes". The brief
+requires computed contrast (via the browser-resolved RGB, not reimplemented colour maths), the ratio
+displayed against the 4.5/3 thresholds, and a labelled hex fallback line in the CSS output.
