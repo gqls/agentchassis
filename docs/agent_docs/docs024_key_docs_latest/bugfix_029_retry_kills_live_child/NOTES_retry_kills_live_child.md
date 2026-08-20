@@ -2149,3 +2149,68 @@ rows — 215 lines over 37 orchestrations, including Tier-1 citations of the 08-
 arrive **dynamically**; they never needed a static section. The residual defect is real but much
 narrower than a new section: an unfiltered dump meets `row_cap=200` and an alphabetical `ORDER BY`,
 which §14 already documents and which the harness already announces.
+
+### 18. 2026-08-20 — the scope guard reconciles for BOTH runs, which corrects my §14, my §15 and the peer session's §17
+
+A peer session (contribution, `5022305cf`, their §17) flagged that my §14 was wrong and that
+`5d1d8f1c` does **not** reconcile against the convergence guard. **The first half is right; the
+second is not, and getting the real numbers reverses my §15 remedy.**
+
+**Guard, all `[VERIFIED at source]` and all as the peer stated:** single exit
+`pkg/diagnose/loop.go:432`, `if next.size() > prevSize+2`; `size()` is `len(s.Symbols)` (:205);
+`namedScope` (:398) builds `Symbols` from `v.NextScope` **alone** — it copies Tables/RuntimeSite from
+prev but does **not** union prev's symbols; init `PrevScopeSize = seed.size()+1` (`advance.go:68`);
+and on a stop `advance.go` returns at :104-111 **before** :120 assigns
+`st.PrevScopeSize = d.NamedScopeSize`, so **the persisted `prev_scope_size` is the pre-guard number.**
+
+`[MEASURED 2026-08-20]` — `route.stopped_by` and `route.diagnose_state.prev_scope_size`, with
+per-iteration `NextScope` lengths from the evidence trail:
+
+| run | seed | init prev | iter 1 | iter 2 | iter 3 | persisted prev | stopped_by |
+|---|---|---|---|---|---|---|---|
+| `d02a6958` | 5 | 6 | named **8**: 8 > 8 **false, passes** → prev 8 | named **5**: 5 > 10 false → prev 5 | named **12**: 12 > 7 **TRIPS** | **5** ✓ | scope-not-narrowing |
+| `5d1d8f1c` | 6 | 7 | named **13**: 13 > 9 **TRIPS** | — | — | **7** ✓ | scope-not-narrowing |
+
+**Both reconcile exactly.** The peer read `d02a6958` as "prev 5, named 8, 8 > 7" — right conclusion,
+wrong operand: 8 is *iteration 1's* NextScope, and the trip was at iteration 3 with named **12**. For
+`5d1d8f1c` they used named 9; it is **13**, and 13 > 9 trips. So "5d1d8f1c does not reconcile" is
+withdrawn — nothing here is unexplained.
+
+#### What this reverses
+
+- **§14 is WRONG and withdrawn.** `d02a6958` did not "run out of iterations one query short": it
+  stopped at 3 of a permitted 5 on the **convergence guard**. The peer was right, and the field to
+  read is `route.stopped_by` — the `diagnosis.stopped_reason` I queried is a different, empty key.
+- **§15's remedy is WRONG IN DIRECTION, and the peer could not derive the opposite either.** The
+  threshold is `prevSize + 2`, and `prevSize` starts at `seed.size()+1` — so **a wider seed RAISES
+  the allowance and is protective.** Seed width cannot have caused `5d1d8f1c`'s trip; it had the
+  *wider* seed and a *higher* threshold. `NEXT_090_single_variable.sh` asserted the opposite as a hard
+  rule and has been corrected in place. **My §15 suspicion is not merely unestablished — the
+  arithmetic contradicts it.**
+- **What actually differed** is the model naming **13** symbols in iteration 1 where the baseline
+  named **8**. Attributable to the longer symptom or to variance; **`[UNVERIFIED]` either way**, and
+  one run per condition cannot separate them. Note how close the baseline was: `8 > 8` is false, so
+  `d02a6958` survived iteration 1 **by exactly one symbol**.
+
+> **The lesson is about the operand, not the guard.** Three of us — the peer, and me twice — reasoned
+> about this halt from a number we had not fetched. The guard was always deterministic and always
+> printed its inputs. `route.stopped_by` and `route.diagnose_state.prev_scope_size` were one query away.
+
+#### And my §16(c) endorsement is WITHDRAWN
+
+I endorsed building a `### awaited_requests` **rows** section. The peer showed it would render
+**empty**: every static row section is scoped to the diagnosis **target**
+(`diagnose_load_runtime_action.go:279-280, :314, :349-350`), and the target correlation has **0**
+`awaited_requests` rows against **1,469** in the 08-17 window. The natural experiment is already in
+the bundle — `orchestration_states` is scoped the same way, renders
+*"(no orchestration rows for this correlation/site)"*, and **that empty string is a verdict's own
+first citation** (I quoted it from `5d1d8f1c` without drawing the inference). For a historical
+incident described in prose, a new section renders `(no rows…)`.
+
+**So the schema half I shipped was the whole blocker, and the residual is much narrower than a new
+section:** unfiltered dump + `row_cap=200` + alphabetical `ORDER BY`. The peer measured the loop now
+writing its own query and `runDataRequests` returning 215 lines over 37 orchestrations.
+
+**One addition to my §15 blind-check warning, from the peer:** `orchestration_states` has a **column**
+named `awaited_requests jsonb`, rendered in every bundle ever — so a bare `LIKE '%awaited_requests%'`
+reads true for a *second* reason beyond my symptom text. Same remedy: match the renderer's `(`.
