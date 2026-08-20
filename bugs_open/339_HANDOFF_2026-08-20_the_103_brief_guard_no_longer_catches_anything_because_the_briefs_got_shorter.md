@@ -140,7 +140,7 @@ FROM pages WHERE status='active' AND COALESCE(meta_description,'')<>'';
    **ACCEPTED**. A guard tested only on its refusing side is indistinguishable from one
    that refuses everything.
 
-## 7. Why this is filed rather than fixed here
+## 7. Why this is filed rather than fixed here (and see 7b: rehomed)
 
 It is not this lane's defect. None of the 11 was written by the meta-description
 backfiller (`SEO-004`) — that action *reuses* `MetaDescriptionLooksInternal` and its
@@ -149,8 +149,46 @@ descriptions run 65-177 chars. This was found while measuring the column for
 tool-creation paths is a different blast radius from filling a blank column, and
 re-deriving both of its signals needs the tool-page population's owner.
 
-`scripts/who-owns.py 103` names the `gauntlet_dead_cta` lane, whose recent commits are
-unrelated (gripper/SMTP), so it may need rehoming rather than routing.
+## 7b. REHOMED 2026-08-20 → `webdesign_tool_rebuilds`
+
+`scripts/who-owns.py 103` named `gauntlet_dead_cta`, but that is an artefact of who *cited*
+103 a month ago: its recent commits are gripper/SMTP work and it has no claim on this seam.
+Rehomed on the following evidence rather than on the ownership script's first answer.
+
+**Why that lane:**
+
+1. **It owns the thing that writes the brief.** Migration `481` (2026-08-19) promoted six
+   recurring tool defects out of per-brief prose and into the **tool generator's own
+   quality contract** (rules 15-20). That commit belongs to this lane
+   (`webdesign_tool_rebuilds/HANDOFF_2026-08-19_continue_here.md`). 339's root is that a
+   generator brief becomes public copy, so the brief's contract is the seam.
+2. **It owns both call sites of the guard.** `create_tool_component_action.go` and
+   `deploy_tool_action.go` are the only two callers of `PublicMetaDescription`, and this
+   lane has been committing to them all week (`TL-043`, `TL-044`, `TL-047`, RFC_036 §9.3),
+   **93 commits in the last 7 days**. Nobody else is near them: the guard file itself has
+   been touched exactly **once ever**, by 103's original fix on 2026-07-27.
+3. **Its stated principle is 339's best fix candidate, already adopted.** That lane's own
+   summary of 2026-08-19 is titled *"the lane stopped fixing tools and started fixing the
+   thing that builds them"*, and the owner confirmed that direction. §5's candidate 3 —
+   stop handing a `component_level='tool'` brief in as a candidate at all — is a
+   framework-level fix of exactly that kind, not a per-tool repair.
+4. **9 of the 11 affected pages are `tool` pages.**
+
+**⚠ The honest caveat, so this does not read as a neater fit than it is.** That lane's
+*subject* is webdesign.co.uk's 63 imported tools, and only **1** of the 11 affected pages
+is on webdesign.co.uk — the affected population is mostly `gamesdesign.co.uk` (6), plus
+leopardessconsulting (2), oufe (1) and robot-hands (1). So this is **the lane that owns the
+SEAM, not the lane that owns the damage.** If it would rather hold the seam fix and let the
+row repair (§5 candidate 4) go elsewhere, that split is reasonable and this file should be
+updated to say so.
+
+**Also relevant and not yet done:** `register/tool-lifecycle.md` records **nothing** about
+the tool page's meta description — `grep -n "meta_description\|PublicMetaDescription" `
+returns no hits — so this seam is unregistered as well as unowned. Whoever fixes it owes a
+register entry, which is also how the next lane avoids rediscovering it.
+
+**Told, not merely measured** (owner ruling 2026-07-29 §3): the lane has been notified
+rather than left to find this in a bug index.
 
 ## 8. Provenance of this file
 
