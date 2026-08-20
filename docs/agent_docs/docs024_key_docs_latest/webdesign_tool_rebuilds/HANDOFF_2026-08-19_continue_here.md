@@ -1,8 +1,12 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-19 09:05Z. Supersedes `HANDOFF_2026-08-17_continue_here.md`.
 
-**UPDATED 2026-08-20 09:35Z. 20 of 63 replaced (19 CONFIRMED at the served bytes; #20
-`tool-text-extractor` retired and graded, its rerender queued), 43 ported slots remain deployed, and
-`#21 tool-mesh-gradient` is FILED (item `147db11c`) — check its state in NOTES before filing anything.**
+**UPDATED 2026-08-20 17:35Z. 23 of 63 replaced AND live-confirmed at the served bytes; 40 ported
+slots remain. Read NOTES 17:05Z first: the #22 retire race was LOST (a background watcher's delivery
+ran SIX HOURS late and the oklch page served BOTH tools all afternoon — repaired, and "attend" is now
+defined in the RUNBOOK as in-turn polling, never a watcher). Also: `bugs_open/339` was rehomed to
+this lane and its seam fix is COMMITTED (`e3dee9243`, TL-048, `Council-Submitted: 2ff9e215…`) —
+READ THAT VERDICT and act on a REVISE/REJECTED. Next tool: #24 `tool-social-card` (defect analysis
+in NOTES 17:35Z entry), then regex-tester, jwt-inspector, token-calculator, clip-path.**
 The owner has ruled: framework ownership of all 63 (see "THE PATH TO 63/63"), so there is no open
 decision — the work is repetitions of a routine recipe. Newest evidence and per-tool controls: NOTES,
 entries 2026-08-20 07:15Z onward. ⚠ Also read `bugs_open/336` (filed by this lane 07:25Z): migration
