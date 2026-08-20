@@ -142,3 +142,30 @@ round of reviewer credits. Logged as a wrong call with the check that prevents i
 
 The code change is committed but won't be in the running system until the next
 release; when it is, the runbook says how to prove it landed on every pod, not just two.
+
+## 2026-08-20 morning — the new build carries the follow-up; the last claims are now witnessed; and a detour through someone else's outage
+
+The fresh build (v1.0.1317) carries the review follow-up: I probed the running binary for
+the new off-switch with positive and negative controls, and the switch is present and
+armed (nothing has set the environment variable, so the cleaner runs — that's the
+intended default). I then proved the news-feed cleaner works on the live system the hard
+way: picked the site whose current news selection had the most markdown in it (12 of 20
+items), re-rendered its news page through the normal pipeline, and compared one raw feed
+row against the page's output — the source starts "# Google shakes up AI leadership" and
+the page shows the same sentence without the "#". That was the last unwitnessed piece.
+
+I also finished the closed bug's last loose end: the leftover duplicate queue rows. It
+turned out the "next discovery pass" they were waiting for never comes on its own — that
+scan has only ever run when someone starts it by hand — so I started it by hand for the
+three sites involved. Sixteen stale rows closed themselves correctly, and the rows that
+should stay open (the ported-tool pages) stayed open.
+
+The detour: while doing the re-render test I ran into a fleet problem another lane had
+just caused and a third lane was already fixing — a database change armed a feature the
+running code rejects, which stopped every page-publish for half an hour. My test messages
+were among the casualties, and I initially mis-called them "lost in transit" when they had
+actually been refused and recorded in the error table all along; I also re-ran the fix
+for the outage without noticing someone had already fixed it an hour earlier. Neither
+mistake cost anything, both are corrected in writing where I made them, and both lessons
+(check the error table before calling a message lost; re-check state right before you
+act on it) are in the wrong-calls log. This lane now owes nothing.
