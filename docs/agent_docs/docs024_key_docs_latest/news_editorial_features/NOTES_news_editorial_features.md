@@ -744,3 +744,68 @@ lane, which has run the tested loop to 23/23.
 **Honest severity: cosmetic.** The stale link points at a real, live, good page —
 nothing is broken, and the structural defect (footer clutter growing with every
 feature shipped) is fixed at source. This is residue, not a live fault.
+
+### ⚠ A consequence of `rebuild_policy='owned'` I did not note when I chose it
+
+Surfaced by the `dartsonline_traffic` lane after building `--absent` mode:
+**`reconcile_footer_nav.sh` cannot touch an owned page** — `save_sections` refuses
+them outright, so firing at one produces a FAILED orchestration. On robot-hands
+the script skipped **6 owned pages**, and 2 of the 6 are mine:
+
+```
+tool-grip-force-friction-calculator | tool          | owned
+tool-matchmatrix                    | tool          | owned
+tool-gripper-cycle-time-estimator   | tool          | owned
+tool-gripper-payload-calculator     | tool          | owned
+robot-demand-step-change            | blog-post     | owned   <- editorial feature
+insights-index                      | section-index | owned   <- the Insights hub
+```
+
+**The trade-off, stated properly this time.** I chose `owned` + locked components
+so no generic rebuild path could overwrite authored copy — and that is still
+right, it is what protects the editorial text and the hand-rendered charts. What I
+did not note is the other half: **an owned page is also excluded from chrome
+propagation.** It keeps its authored body *and* its chrome frozen at whatever was
+current when it was last assembled.
+
+**Measured now, and it is fine — by luck, not by mechanism** [MEASURED 2026-08-20]:
+
+| page | stale article link | current hub link |
+|---|---|---|
+| `/insights/robot-demand-step-change.html` | 0 | 3 |
+| `/insights/index.html` | 0 | 6 |
+| `dartsonline.com/insights/darts-calendar-density.html` | 0 | n/a |
+
+All three were built or re-assembled *after* the nav change, so they picked the
+current chrome up on the way past. The peer lane made the same observation about
+the dartsonline page and called it correctly: **that is luck about ordering, not a
+property to rely on.** The next chrome change that does not coincide with a
+deploy of these pages will leave them behind silently.
+
+**The remedy exists and is named for exactly this case** —
+`docs/leopardessconsulting/scripts/refresh_owned_page_chrome.sh` (verified present,
+5,031 bytes), cited in `LANDMINES.md:765` alongside `reconcile_footer_nav.sh` as
+the owned-page counterpart. Neither the peer lane nor this one has run it, so it
+is **unvouched** — do not describe it as proven.
+
+**Why this must be handled before the first de-listing, not after.** The ratified
+lifecycle makes retirement *"deliberate de-listing"*. A retired editorial feature
+is: owned (so the ordinary reconcile skips it), and the *subject* of the chrome
+change (its own link must disappear from every other page's nav). So the first
+retirement needs BOTH the peer's new `--absent` mode for the other 30 pages AND
+the owned-page path for the retired page itself. Neither half is exercised today.
+**Added to the lane's open list rather than left as a discovery for whoever
+retires the first feature.**
+
+### CORRECTION — my "~30 of 31" was a spot-check extrapolation; measured it is 19
+
+I wrote that ~30 of 31 pages carried the stale link, from **five** spot-checked
+URLs that all returned 1. The peer's dry run measured the real distribution: **26
+reconcilable, 6 owned skipped, 1 unfetchable, 19 actually carrying it.**
+
+Five for five is a perfectly good reason to believe "most", and no reason at all
+to write "~30 of 31" — that number came from `31 deployed pages` minus a guess,
+not from counting. The population had three classes I had not looked for (owned,
+unfetchable, already-current) and my sample could not have revealed any of them.
+**Say "5 of 5 sampled" or count the population; do not dress a sample as a
+census.**
