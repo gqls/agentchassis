@@ -1,5 +1,27 @@
 # 323 — `cta_improvement`: the handler says in its own payload that it cannot do this work, and 468 items completed anyway
 
+> ## CLOSED 2026-08-20 — ALL THREE LAYERS LIVE AND PROVEN ON `v1.0.1317`
+>
+> The Go half rolled overnight (both `agent-chassis` replicas, started 2026-08-19 22:26Z). Verified at
+> the ARTEFACT, not the tag — the `build provenance` line had scrolled, so the binary literal-pair probe
+> was used on BOTH replicas: added literals `"Fix type is refused by design (needs a different handler),
+> marking for review"` and `"no handler for audit category"` PRESENT; removed literal `"Fix type requires
+> LLM involvement, marking for review"` ABSENT; positive control (`"unresolved after %d attempts"`)
+> PRESENT, negative control ABSENT. Then BEHAVIOURALLY: a synthetic `cta` finding driven through the live
+> `write_audit_findings` (temporary probe agent, 302-lane pattern, corr `500d8d87`) filed exactly
+> `capability_gap` / `handler_missing` / `deferred` / empty handler / key
+> `capability_gap:no_handler_for_audit_category:cta`, with suggestion + acceptance_test preserved in spec;
+> probe row and probe agent deleted. Layer 1 (migration 495) was proven live 08-19 by a real fixer
+> dispatch. The defect — a refusal completing green — is no longer reproducible on any path: routed
+> findings become roadmap rows; anything reaching the fixer by a non-router path parks at
+> `needs_human_review`.
+>
+> **Residuals, named:** (1) no handler exists for the CTA/nav COPY class — that is now a visible
+> `capability_gap` per site per category, and the "one component, one defect → field_updates" editor is
+> the `copy_quality_two_stage` sibling question (three customer lanes: 277, 301/083, 323); (2) the
+> capability_gap row keeps the FIRST finding's detail per site per category (077's shape, deliberate);
+> (3) the ~993 historical rows stay `complete` — history, not repaired.
+>
 > ## STATUS 2026-08-19 evening — OWNED by `bugfix_323_cta_improvement_refusal`; half LIVE+PROVEN, half committed and inert until the next chassis roll
 >
 > Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_323_cta_improvement_refusal/` (PLAN, RUNBOOK,
@@ -28,8 +50,8 @@
 > `page_component_history`); LABEL/COPY defects have no handler at all — that handler ("one named
 > component, one named defect → `field_updates` for section-editor") is the same missing piece the `277`
 > and `301/083` lanes asked the `copy_quality_two_stage` lane for on 2026-08-19; this lane is its third
-> customer and does NOT build it. **Candidate 3 (gate 1b boolean) is not needed.** Stays OPEN until the
-> Go half is live (CLAUDE.md bar: fixed AND live).
+> customer and does NOT build it. **Candidate 3 (gate 1b boolean) is not needed.** ~~Stays OPEN until the
+> Go half is live (CLAUDE.md bar: fixed AND live).~~ **Live on v1.0.1317 — see the CLOSED block above.**
 
 **Filed 2026-08-19** by the `bugfix_302_design_repair_verification` lane (briefly numbered 318 for ~4 minutes until another session's 318 was found — renumbered rather than adding a seventh double-used number to the list CLAUDE.md already calls out), found while measuring
 `spacing_fix` for an owner decision. **OPEN, UNOWNED.** Same class as `bugs_closed/302` /
