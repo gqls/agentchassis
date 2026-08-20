@@ -73,6 +73,23 @@ defect in my published recipe; I had it wrong.
   this lane's own "lead" register carrier — is **absent on 19 of 25 sites**. Sound advice, largely
   unexercised. (`finetuning.uk`, whom we advised to use it, does have it: 949 chars, fleet's largest.)
 
+## Inbound, answered this evening (all three were unread when the session started)
+
+- **`bugfix_305_negation_gate` is building the writer-side gate** — our diagnosis as input,
+  `audit_writer_brief.py` as the spec for `cmd/brief-negation-check` + the daily CronJob, so **item 6
+  is called and is no longer ours**. Replied with two measurements: neither sentence the owner quoted
+  uses `rather than` (the complaint corpus is `x_not_y` + `negative_reveal`), and **the writer's own
+  prompt carries `rather than` 8× and `, not ` 8× on every call** — so a 43% output rate may be an
+  artefact of the instrument. Also warned them off the pre/post rate method we withdrew.
+  → `bugfix_305_negation_gate/CONTRIB_2026-08-20_from_copy_quality_your_rather_than_doubt_is_right…`
+- **A THIRD lane wants the narrow one-component-one-defect sibling** (`bugfix_323…`, after `277` and
+  `301`/`083`). Specced once rather than answered three times:
+  **`DESIGN_2026-08-20_the_narrow_sibling_one_component_one_defect.md`**. Not built, not in flight
+  here; whoever builds it owns it.
+- **`bugs_open/260`'s lane shipped `datahelpers.ContentTypeViolations`** — a pure pre-write type check
+  (indexed nested `Path`, both `items` dialects, absent/nil/empty never violations). Folded into the
+  spec as the thing a Go executor should call instead of re-deriving type checking.
+
 ## Next work, in the order that closes doors
 
 1. **The owner's decision** (`README_where_we_are`, 2026-08-20): ship the repair as-is, or gate it

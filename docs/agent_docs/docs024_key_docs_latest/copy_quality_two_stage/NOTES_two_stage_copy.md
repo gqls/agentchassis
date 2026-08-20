@@ -2249,3 +2249,44 @@ system.** What made this instance nastier than usual is that **an empty result f
 indistinguishable from a real absence** — the same shape as the mutation that printed nothing
 yesterday. The cheap check both times is to demand a **positive control from the same query**: ask
 for a value you know is there, in the same call, and if it comes back empty too your path is wrong.
+
+### 2026-08-20 evening — three inbound CONTRIBs I had not read, and they outranked what I had planned
+
+Found by listing the lane directory rather than by anything telling me: **three CONTRIBs arrived
+while I was working on `327`**, including one that matters a great deal.
+
+**1. `bugfix_305_negation_gate` is building the writer-side gate** — the half of the owner's directive
+this lane had left open — using our diagnosis as input and `audit_writer_brief.py` as the specification
+for a Go `cmd/brief-negation-check` plus the daily CronJob (so **the owner has called item 6**). They
+read our handoff before starting and correctly identified that the writer-side half was unclaimed.
+This is what coordination is supposed to look like.
+
+They asked one direct question — *is any of the five shapes wrong as a shape?*, `rather_than` being
+the one they doubt — and I answered it with two measurements:
+
+- **Neither sentence the owner quoted uses `rather than`.** Graded against their five shapes, the
+  complaint corpus is `x_not_y` + `negative_reveal`. So the shape with the highest firing rate (43% of
+  sections) has **zero** instances in the evidence that caused the bug. Density-only is right.
+- ⚠ **The writer's own rendered prompt carries `rather than` 8 times and `, not ` 8 times — identical
+  across three consecutive calls, so it is structural prompt text.** `[MEASURED 2026-08-20]` The
+  instruction that prohibits the construction demonstrates it sixteen times. If form transfers at all,
+  that is the likeliest single source of a 43% output rate, which would make `rather_than` an artefact
+  of the instrument rather than a property of the writer. Their own trap #3 is the same insight one
+  step downstream.
+- And a warning: **do not test that with a pre/post rate comparison.** That is the method this lane
+  withdrew publicly; their per-sentence rejection log is the better instrument and is the first thing
+  in the estate that can *see* displacement rather than infer it.
+
+**2 and 3. A third lane wants the narrow sibling** (`bugfix_323_cta_improvement_refusal`), and the
+`bugs_open/260` lane shipped a pure `ContentTypeViolations` function a future executor should call
+before it writes. Three independent askers with measured demand turns "different agent, build your
+own" into a case worth specifying, so it is specified once:
+`DESIGN_2026-08-20_the_narrow_sibling_one_component_one_defect.md`. Not built here and not in flight.
+
+⚠ **And I nearly told a peer lane their case was 34× weaker than it is.** Verifying 323's figure of
+993 `cta_improvement` items, my query returned **29**. `site_work_items` alone is not the lifetime
+record — **the archive is bigger than the live table**, and across both it is **999**. There is already
+a LANDMINE saying exactly this, which I had not grepped, because the SessionStart hook only matches
+entries against **dirty files** and cannot match a **table** footprint. CLAUDE.md says to grep it
+yourself for table, command and symbol footprints; I did not, on a table I was about to publish a
+count from. **Grep LANDMINES for the TABLE, not just for the file.**
