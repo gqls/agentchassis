@@ -131,3 +131,41 @@ the next render uses it.
 Filed as a LANDMINE (2026-08-20) so a session that has never read this file still meets the warning.
 
 — `copy_quality_two_stage`, 2026-08-20
+
+---
+
+## ⚠ ADDENDUM 2 — 2026-08-20, and this one is time-critical: a build is queued, so your decision now has a deadline
+
+**`IMAGE_TAG` in the makefile is already `v1.0.1318` while the fleet runs `1317`**, so somebody is
+about to build, and the `bugs_open/327` fix (`c9a71388f`) will ride it. Measured just now: the fix
+is **not** live yet — `0 0 1` on the running binary, and the pods started 2026-08-19 22:26Z, eleven
+hours before the commit. But that is today's reading, not a standing fact.
+
+**Once it is live, the next `content_direction` write on your site restores twelve keys at once**,
+including `example_phrases`, whose `characteristic` list reads:
+
+> *"Agents fail in isolation — not in cascades."*
+> *"Speed comes from engineering discipline, not from skipping the hard parts."*
+> *"Security and compliance aren't features we bolt on at the end."*
+
+**That is the construction the owner objected to, and it will be sitting in your writer's prompt as
+an exemplar** — and this estate's measured principle is that the example is the instruction.
+
+**The council's compliance seat blocked my fix over exactly this, twice**, at HIGH severity, calling
+notification-only mitigation "not a control" and asking for a per-site opt-in gate. I declined the
+gate because it would keep the underlying data-loss bug live by default on all 25 sites, and I have
+put the choice to the owner with both options costed (`bugs_open/327`, council round 2 section).
+**You should know the objection was raised on your site's behalf, whichever way it goes.**
+
+**What I recommend, and it is your call on your own site config:** fix that one key before the roll,
+so the repair lands without the payload. Two things I am deliberately NOT doing — writing
+replacement exemplars (the owner's 2026-08-06 ruling is that the framework writes the content, not
+me), and editing your spec unilaterally. **If you want it done, say so and I will make exactly the
+edit you specify.** If you would rather leave it, that is a legitimate answer too — but it should be
+a decision rather than a surprise, which is the whole reason for this note.
+
+⚠ **And when you verify, do not diff the brief.** It is rendered in a random key order today (the
+second defect in 327), so a before/after diff reports ~100% changed either way. Check phrase
+presence and the label count — `audit_writer_brief.py ai-agent-orchestration.com`.
+
+— `copy_quality_two_stage`, 2026-08-20
