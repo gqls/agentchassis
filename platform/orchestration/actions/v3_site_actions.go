@@ -553,6 +553,33 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 		"site_id_field",           // :584 — with page_name_field, the lookup route
 		"page_name_field",         // :585 — with site_id_field, the lookup route
 		"page_component_id_field", // :799 — mirrors the deploy mark onto one page_component
+		// bugs_open/315 / RFC_038: names the DEPLOY step's output field, so this
+		// action can read what the deploy actually did before claiming it
+		// happened. OPT-IN with the unsafe side as the default: absent means
+		// today's behaviour byte for byte. It cannot be a literal — the 19 live
+		// git_commit steps carry NINE distinct output_field names (deploy_result
+		// on only three; section-editor uses git_result), so a hard-coded name
+		// would be blind on 16 of 19 and would fail open on all of them in
+		// silence.
+		//
+		// DECLARED HERE AS OF bugs_open/336, AND THIS IS THE WHOLE OF THAT BUG.
+		// It was first declared on RenderComponentInputSpec — the other spec
+		// this file's init() registers, for an action that never reads the key —
+		// while THIS spec sets StrictConfig below. So the moment migration 494
+		// armed the key on live update_page_status steps (2026-08-20 06:49:49Z)
+		// the strict branch of validation/workflow.go:checkStepConfigKeys
+		// hard-failed every workflow that stamps a page: 8 items across 4 item
+		// types, 123 page_rerender queued fleet-wide and none draining, until
+		// the config was rolled back.
+		//
+		// Nothing caught it earlier because every instrument agreed: the literal
+		// is in the binary from the reader and its zap.String calls whichever
+		// spec lists it, so a /proc/1/exe grep says PRESENT; and
+		// `git log -S'"deploy_result_field",'` matches the zap call, so it names
+		// the commit that shipped the READER and reads like the declaration's.
+		// Only reading the LIST inside the named spec settles it — which is what
+		// update_page_status_config_contract_test.go now does on every run.
+		"deploy_result_field",
 	},
 
 	// DO NOT WRITE A CENSUS COUNT IN THIS COMMENT. An earlier version of this
@@ -564,7 +591,7 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 	//   scripts/audit-config-keys.sh   (or the removed-config-keys-check CronJob)
 	CheckConfig: true,
 
-	// Three RETIRED keys. This action reads exactly the five ConfigKeys above,
+	// Three RETIRED keys. This action reads exactly the ConfigKeys above,
 	// established by reading the handler end to end (it indexes
 	// params.StepConfig.Config directly — no ResolveConfigSetting/GetStringField
 	// indirection, and no ExtractActionInputs call, so there is no second access
@@ -628,7 +655,9 @@ var UpdatePageStatusInputSpec = datahelpers.ActionInputSpec{
 	// inventory required (that question was settled once, by RFC_021 itself).
 	// Census at adoption: 9 live steps carry this action (default_config only —
 	// task_workflow/orchestrator_workflow/orchestration_workflow carry none),
-	// and every key they set is one of the five ConfigKeys above. Zero
+	// and every key they set was one of the ConfigKeys as they then stood (the
+	// list has since gained deploy_result_field — bugs_open/336 — so do not read
+	// this sentence as a live count; run the audit). Zero
 	// unrecognised. From here an unrecognised key on this action is a
 	// definition error caught at validation, not a silent no-op found by
 	// archaeology months later — the exact shape that cost bugs_open/234 and
@@ -663,15 +692,6 @@ var RenderComponentInputSpec = datahelpers.ActionInputSpec{
 		// bugs_open/184: gates the literal-markdown strip on LLM content at
 		// birth. Default OFF; enabled per step by migration 474.
 		"strip_literal_markdown",
-		// bugs_open/315 / RFC_038: names the DEPLOY step's output field, so this
-		// action can read what the deploy actually did before claiming it
-		// happened. OPT-IN with the unsafe side as the default: absent means
-		// today's behaviour byte for byte, and zero live steps set it as this
-		// ships. It cannot be a literal — the 19 live git_commit steps carry
-		// NINE distinct output_field names (deploy_result on only three;
-		// section-editor uses git_result), so a hard-coded name would be blind
-		// on 16 of 19 and would fail open on all of them in silence.
-		"deploy_result_field",
 		// bugs_open/260: arms the PRE-render declared-type refusal
 		// (mistyped_llm_fields_gate.go). Opt-in, unsafe default OFF, zero live
 		// steps set it as this ships; the seam's hard error is unconditional
