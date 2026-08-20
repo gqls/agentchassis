@@ -2158,3 +2158,20 @@ matters to this lane is verified directly: key absent on all three, and the rere
 **Serve-grades pending for FOUR pages** (shadow-stacker, diff-checker, touch-target, grid-generator) —
 a monitor keyed on `status='complete'` rerender rows is armed; grade each at the served bytes with
 `?cb=`, `http=200` first, negatives + positives per page as pinned above and at 07:15Z.
+
+## 2026-08-20 09:00Z — #17, #18, #19 PASS at the served bytes. 18 of 63 replaced; shadow-stacker's serve-grade still queued
+
+Cache-busted (`?cb=`), `http=200` asserted first on all three; `last-modified` compared against each
+page's OWN rerender `completed_at` (the bugs_open/315 discipline — never trust the status):
+
+| | diff-checker | grid-generator | touch-target |
+|---|---|---|---|
+| bytes / last-modified vs rerender | 17,579 / 08:30:59 > 08:26:13 | 16,446 / 08:30:59 > 08:30:42 | 19,638 / 08:56:18 > 08:56:03 |
+| `ported-page` · `{{\.` · `onclick=` · `alert(` | 0 · 0 · 0 · 0 | 0 · 0 · 0 · 0 | 0 · 0 · 0 · 0 |
+| NEGATIVES (old-only, all 0) | `diff-num`, `diff-content`, `appendLine`, `id="original"`, `id="modified"`, `id="output"` | `id="gridPreview"`, `id="cols"`, `id="rows"`, `id="gap"`, `copyCSS`, `Visualizing the Grid` | `id="inpW"`, `id="inpH"`, `id="cssFix"`, `id="zone"`, `finger-overlay`, `Passes WCAG AA` |
+| POSITIVES (all present) | `diff-original` 1, `diff-modified` 1, `diff-tbody` 1, `diff-summary` 1 | `colsRange` 1, `gapValue` 1, `copyStatus` 1, fr-explainer 1 | `btnWidth` 1, `btnHeight` 1, `2.5.8` ×2, `Target Size (Enhanced)` ×2 |
+
+The tally: **18 replaced** (14 prior + diff-checker, touch-target, grid-generator at the served bytes;
+shadow-stacker built+retired 06:58Z, its replacement rerender still queued behind the sweep — the
+monitor is armed). **45 remain.** The touch-target and grid-generator pages now assert the AA/AAA
+distinction and per-control readouts on the live site respectively.
