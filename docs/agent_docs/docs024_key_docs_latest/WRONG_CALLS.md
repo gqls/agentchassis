@@ -38981,3 +38981,40 @@ refuses to), never for the symptom's name.
   (`finetuning.uk`/`password-entropy`, planned 1 / rendered 1, gap = that very section) holds the
   correct component at `build_status='pending'`. Two more are deployed with all slots removed
   *after* the stamp. An open item is not a live defect — the artefact is.
+
+## 2026-08-20 — I read a bug file's four cited line numbers as ALREADY FIXED, because my grep could not see HTML that Go builds as an escaped string literal
+
+**The claim, held for about two minutes and never written into a durable doc:** two of the four
+`<html lang="en">` sites cited by `bugs_open/252` (og/lang slug) — `rerender_single_page_action.go:670`
+and `rerender_pages_actions.go:527` — had been fixed since filing, because
+`grep -rn 'lang="en"' platform/ internal/ pkg/ --include=*.go` returned neither. I said so out loud
+before checking.
+
+**What is actually true:** both were present and unchanged. They emit the tag from Go, so the source
+reads `html.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n")` — **escaped quotes**, which a
+literal `lang="en"` pattern cannot match. The five real emitters only appeared when I searched
+`'lang=\\"\|lang="'`. My first grep found only the sites where the tag sits inside a raw string or a
+prompt template — i.e. it silently selected *against* the actual emitters, which are the only ones
+that matter.
+
+**What caught it:** re-running the grep with the escaped alternation before acting, because the
+bug file's line numbers were specific and a "silently already fixed" story needs a commit behind it
+and I could not find one. Cost: nothing durable. Had it survived, the fix would have shipped covering
+3 of 5 emitters while the two on the main assembly path kept emitting `en`.
+
+**The cheap check:** when grepping for markup that Go **emits** rather than markup in a template
+file, search a fragment that cannot contain a quote — `grep -rn '<html lang' --include=*.go` — or
+include the escaped form explicitly. The general shape: **a pattern containing a quote character
+cannot see a string literal that escapes it**, and the failure is silent and directional — it
+returns the decorative occurrences and hides the load-bearing ones.
+
+**Second-order, and the reason this is worth a row:** the error direction was "the estate is
+healthier than it is", off a *shorter-than-expected* result set. I had four cited line numbers in
+front of me and a grep returning two of them; the missing two should have read as "my pattern is
+wrong", not as "the code changed". A result set that disagrees with a specific citation is evidence
+about the query first.
+
+**Same session, same habit, caught the same way:** two DB queries written against guessed column
+names (`site_components.html` / `.component_type`; the real ones are `rendered_html` / `slot_name`).
+CLAUDE.md says `\d <table>` before writing SQL. A failed query is loud, so this cost only a round
+trip — but it is the identical shortcut, and the grep version of it is the one that fails quietly.

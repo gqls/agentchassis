@@ -923,3 +923,168 @@ that layer's eligibility, keeping it for the other two), or (2) have the write p
 page whose name matches a realised row as realised-derived regardless of marker. (2) is wider and
 would need its own population measurement. **The 090 on this (`33d4d7bc`) returned no verdict but
 named this scope; the walk above is the completion of its own evidence request.**
+
+---
+
+## 2026-08-19 (night) — THE SAME-NAME HOLE IS FIXED IN CODE: Pass B2 now stamps the realised identity. Inert until the chassis rolls, and one of the addendum's two candidate remedies is REFUTED by measurement
+
+Taken up as the addendum above asks ("the fix is on the shared reconciler seam, so it
+belongs to whoever owns 215"). Built, unit-proved, mutation-proved, register updated in
+the same commit. **This bug stays OPEN**: the code is inert until a chassis roll, no live
+re-plan has been through it, and the O2 remediation of the seven both-deployed pairs is
+untouched.
+
+### The mechanism, re-verified first-hand at HEAD before writing any code
+
+Confirmed by reading, not inferred: `reconcilePlanWithRealised` strips
+`identity_authority` from every LLM page, and re-stamps it in exactly two functions —
+`snapPlanPageOntoRealised` (Pass B url-exact + the three twin layers) and
+`normaliseRealisedToPlanPage` (Pass A's union). Pass B2, the exact-name match, mutates
+**only** `lm["sections"]`. `matchTwinIdentity` runs BEFORE B2 and its `eligible` closure
+refuses a same-name candidate; the `path_key` layer is skipped as well because
+validate-shaped plan entries carry no `url`. So `realisedIdentityOf` returns ok=false,
+neither honour branch (`write_site_plan_action.go`, `site_db_actions.go` — both
+canonicalise unconditionally and merely OVERRIDE when honouring) ever fires, and the
+`ON CONFLICT (site_id, name)` upsert misses and INSERTs. The addendum's reading was
+right in every particular.
+
+### CANDIDATE (1) IS REFUTED — and this is the part worth carrying, because it would have looked like it worked
+
+The addendum offers, unranked: *"(1) let the `canonical_name` layer consider a same-name
+realised row (drop `rname == lname` from that layer's eligibility, keeping it for the
+other two)"*. **That edit changes nothing at all.** `eligible` holds two clauses in
+series, and the second covers the first:
+
+```go
+if rname == "" || rname == lname { return rname, false }   // (a)
+if planNames[rname]              { return rname, false }   // (b)
+```
+
+A realised candidate whose name equals the plan entry's name is, by construction, a name
+the plan carries — so (b) is true wherever (a) is. **Mutation-proved three ways** rather
+than argued: removing (a) alone leaves every test green; removing (b) alone likewise;
+removing BOTH turns `TestReconcile_TwinLayersRefuseTheEntryItself` red. Anyone taking
+candidate (1) would have shipped a no-op, re-measured, found the counters still zero, and
+had no way to tell an inert edit from an absent population.
+
+**Candidate (2)** (*"have the write path treat a plan page whose name matches a realised
+row as realised-derived regardless of marker"*) is declined on architecture, not on
+measurement: it gives both write surfaces their own `pages` knowledge and a second seam
+at which identity is decided, against this lane's own established division — the
+reconciler decides, and the writers are told to stop overruling it. It would also let any
+LLM-proposed page named like a realised row seize that identity without the reconciler's
+preservation set, forgery strip or refusals.
+
+### What was built (candidate 3, at the seam that already owns minting)
+
+`stampSameNameRealisedIdentity`, called at the head of the Pass B2 block — so it covers
+all three section branches AND the fall-through, because who owns a page's NAME does not
+depend on whether its composition was restored, forced empty or left alone.
+
+**Why not simply route same-name pairs through the existing snap arm:** a snap replaces
+the whole entry from the realised row, and Pass B2's standing contract is that only
+`sections` is touched — *title/meta/nav stay the LLM's*, which is how a re-plan refreshes
+copy at all. Snapping would have thrown that away for every correctly-named page on the
+site, and (flag-off) filed a `PLAN_PAGE_IDENTITY_TWIN_OBSERVED` warning per page per
+re-plan — ~17 on LMC, ~31 on webdesign.co.uk — reporting the good case as damage.
+
+**Ungated, like Pass B's snap and Pass A's union**, because the safety story is that every
+stamped field is inert to a writer that is not honouring:
+
+| stamped | inert with the flag off because |
+|---|---|
+| `identity_authority` | no reader anywhere except `realisedIdentityOf`, whose only two call sites sit inside `if identityPolicy.HonourRealisedIdentity` |
+| `url` | both write surfaces derive and overwrite the URL themselves when not honouring; stamped only because `realisedIdentityOf` refuses an incomplete triple |
+| `page_type` | **NOT inert** — it feeds the writers' `Role`, hence `CanonicalisePage`. Hence the precondition: stamp only when the plan's own role already agrees, so the write-back is the value the writer would have derived anyway |
+
+`parent_section` and `slug` are deliberately **not** stamped: both feed the writers'
+canonicalisation directly, so writing them would change flag-OFF behaviour and this fix's
+whole inertness argument with it.
+
+Two guards, both mutation-proved: **type equality**, compared through
+`firstNonEmptyField(lm, "page_type", "type", "role")` — the writers' own derivation, not
+`page_type` alone, or an entry carrying its role under `role` would be called a conflict
+and left unprotected; and **the realised triple must be complete**, mirroring
+`realisedIdentityOf`'s own refusal so the counters can never claim a stamp the reader
+would reject. A role disagreement is REFUSED and recorded, never reconciled — honouring it
+would silently retype a live page.
+
+**No new config key.** This widens the population the existing `honour_realised_identity`
+opt-in already covers — its documented contract is "keep that page's STORED
+name/url/page_type", and a page the planner named verbatim is the paradigm case of it. The
+structure aspect stays at five opt-in keys.
+
+### Observability, and the zero that was read backwards
+
+The old verify-later on register entry PLAN-048 predicted the dark-launch counters would
+move off zero on the first re-plan. **They did not, and the reason is the finding:** a
+same-name page is refused by `eligible` *before* any layer records an observation, so the
+commonest shape of all was invisible to the very instrument built to measure it. A re-plan
+DID run the path on 08-17 and minted 19 phantoms while all three codes stayed at zero.
+Read as "no twins exist", that zero was exactly backwards. Marked FALSIFIED in the
+register with the reason.
+
+So the new signal is designed not to have that property: one summary row per run —
+`PLAN_PAGE_SAME_NAME_IDENTITY_HELD` (info, flag ON) or
+`PLAN_PAGE_SAME_NAME_TWIN_PENDING` (warning, flag OFF) — carrying every
+`(plan_name, stored_url, would_derive_name)` triple, plus
+`PLAN_PAGE_IDENTITY_TYPE_CONFLICT` per refused pair. Only the DIVERGING stamps are
+recorded (a fixed-point stamp prevented nothing and says nothing). ⚠ **A count of either
+code is meaningless unread**: join each `would_derive_name` against `pages` first — an
+existing row means the run re-detects a twin already there, an absent row means that run
+mints a fresh one. That is the same classification discipline the dark-launch counters
+already required, and it is now written where the codes are.
+
+### Evidence
+
+- **Unit**: 10 new tests in `v3_site_reconcile_identity_test.go`, all fixtures using the
+  real stored names from the 08-17 incident.
+  `TestReconcile_LMCCanaryShape_NoTwinIsMintable` reproduces that run's exact plan shape
+  (names verbatim, no `url`, `sections: []`, every layer off), drives it through the REAL
+  `extractPagesFromPlan` to the reader the write surfaces use, and asserts every
+  non-fixed-point page now honours its stored triple. It is red without the fix.
+- **Mutation** (a test that cannot fail proves nothing): stamp call removed → 8 tests red ·
+  stamp gated on a flag → 7 red · type-equality precondition dropped → red · complete-triple
+  guard dropped → red · `url` not stamped → 3 red incl. the step-boundary test · type read
+  from `page_type` alone → red · fixed-point stamps reported as diverging → 2 red · forged
+  `url` left in place → red · flag-off record downgraded to the flag-on code → red ·
+  **and the one that SURVIVED**, `rname == lname` removed alone, which is how the
+  candidate-(1) refutation above was found rather than assumed.
+- **Suites green on a `git archive HEAD` shadow tree** with only my files copied in, so
+  another lane's uncommitted work in the same package cannot flatter the result:
+  `platform/orchestration/actions` and `platform/orchestration/datahelpers` both ok.
+  Three failures in the dirty working tree
+  (`TestUpdatePageStatusDeclaresEveryConfigKeyItReads` and two siblings) belong to an
+  **untracked** file from another session's 315/RFC_038 work and fail at HEAD-plus-nothing
+  too; not mine, not committed.
+- `TestIdentityPolicyReachesBothCanonicalisationSurfaces` needed no re-anchoring — this
+  fix touches neither write surface. That was checked, not assumed.
+
+### The diagnosis loop was run, and returned no verdict
+
+Per the 2026-07-31 owner ruling I filed `090` before committing to the root cause:
+run correlation **`130f187c-7741-42ef-9f55-6a63cd7d1bba`** (intake
+`6880bb4d-c1fa-4213-bcab-145abd427681`), COMPLETED after 3 iterations with verdict
+**UNVERIFIABLE (stopped: scope-not-narrowing)**. **It is not a refutation.** Its own
+"still needed" note says why: the bundle surfaced `site_db_actions.go` and a stub of
+`site_identity_policy.go` but **never surfaced `v3_site_actions.go` at all**, so the
+entire mechanism under test was outside what the diagnoser could read. Its state-tier
+query for live diverged same-name pairs also returned 0 rows — expected, and worth
+recording so nobody reads it as counter-evidence: the 19 phantoms were **hand-deleted
+after measurement on 08-17**, so the live signature is gone. (The earlier `33d4d7bc` run
+on the same mechanism also returned no verdict.) **Declared substitute, per the ruling:**
+the first-hand code walk above plus the 08-17 live incident, both cited.
+
+### Still open after this
+
+1. **The prevention is inert** until a chassis roll, and unproven in the wild — no
+   re-plan has run through it. Do not read a zero in the new codes without the demand
+   control (has any site with pre-existing pages re-planned since the roll?).
+2. **The preservation-set hole**, stated rather than fixed: a realised row that is
+   neither `deployed` nor `needs_rebuild`, on a site that already has a current plan,
+   never enters `realisedByName` and so cannot be stamped. Its twin is still mintable.
+   Lower severity (the twin of a page that is itself unbuilt), recorded in PLAN-048.
+3. **Role-disagreeing same-name pairs** keep today's behaviour by design, and now say so
+   in a durable row.
+4. **O2: the seven both-deployed pairs** — untouched by this, 2 of 7 remediated, the rest
+   owner-decision per pair.

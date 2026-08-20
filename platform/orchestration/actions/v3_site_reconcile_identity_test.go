@@ -511,12 +511,24 @@ func TestReconcile_DeterministicLayersAreGatedAndCountWhenOff(t *testing.T) {
 // it from known fields. This test drives the real extractor over a
 // validate-shaped payload, so it fails if anyone makes that extraction
 // field-selective.
+// EXTENDED 2026-08-19 (bugs_open/215, the same-name hole): the second page here is
+// one the reconciler paired by exact NAME rather than by a snap. Before the B2
+// stamp existed it travelled this same boundary carrying no marker at all, so this
+// test passed while honour_realised_identity was unreachable for it — the test
+// proved transport, which was never the thing that was broken. Both routes are
+// now driven, so stamping a snap but not a same-name pairing (or vice versa) fails
+// here rather than in production.
 func TestReconcile_MarkerSurvivesTheStepBoundary(t *testing.T) {
 	llm := []interface{}{
 		twinLLMPage("tool-llm-cost-calculator", "/tools/llm-cost-calculator/index.html", "tool", "hero"),
+		// Named exactly as stored, and with no url — validate_plan's ordinary shape.
+		map[string]interface{}{
+			"name": "mortgages-stamp-duty", "page_type": "tool", "sections": []interface{}{},
+		},
 	}
 	existing := []interface{}{
 		twinRealisedPage("llm-cost-calculator", "/tools/llm-cost-calculator.html", "tool", "deployed", "hero-tool"),
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/mortgages-stamp-duty/index.html", "tool", "deployed", "hero"),
 	}
 	reconciled, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{TwinIdentitySnap: true}, zap.NewNop())
 
@@ -525,22 +537,436 @@ func TestReconcile_MarkerSurvivesTheStepBoundary(t *testing.T) {
 		"site_plan": map[string]interface{}{"pages": reconciled},
 	}
 	pages := extractPagesFromPlan(collected, zap.NewNop())
-	if len(pages) != 1 {
-		t.Fatalf("extractPagesFromPlan returned %d pages, want 1", len(pages))
+	if len(pages) != 2 {
+		t.Fatalf("extractPagesFromPlan returned %d pages, want 2", len(pages))
 	}
-	name, url, pageType, ok := realisedIdentityOf(pages[0])
+
+	want := map[string]string{
+		"llm-cost-calculator":  "/tools/llm-cost-calculator.html",
+		"mortgages-stamp-duty": "/mortgages/mortgages-stamp-duty/index.html",
+	}
+	seen := map[string]bool{}
+	for _, p := range pages {
+		name, url, pageType, ok := realisedIdentityOf(p)
+		if !ok {
+			pn, _ := p["name"].(string)
+			t.Fatalf("the realised-identity marker did not survive the step boundary for %q — the writer "+
+				"guard would never fire and the twin would be re-minted. page keys: %v", pn,
+				func() []string {
+					out := []string{}
+					for k := range p {
+						out = append(out, k)
+					}
+					return out
+				}())
+		}
+		wantURL, known := want[name]
+		if !known {
+			t.Fatalf("unexpected identity %q survived the boundary", name)
+		}
+		if url != wantURL || pageType != "tool" {
+			t.Errorf("identity %q survived but altered: %q %q", name, url, pageType)
+		}
+		seen[name] = true
+	}
+	if len(seen) != 2 {
+		t.Errorf("both the snapped and the same-name-paired identity must survive, saw %v", seen)
+	}
+}
+
+// ── The same-name identity stamp (bugs_open/215, the hole found 2026-08-19) ──
+//
+// PROVENANCE, and it is a live incident rather than a shape anyone imagined:
+// loanandmortgagecalculator.co.uk seeded honour_realised_identity='true' and fired
+// one canary re-plan on 2026-08-17 (corr 6fe6ee93-67b9-4831-bf17-2ca473e1d30c,
+// chassis v1.0.1305). 19 phantom page rows were INSERTed anyway, 17 of them the
+// predicted tool-<name> twins of pages the planner had named CORRECTLY — verbatim
+// as stored. The plan entries carried no url, no parent_section and sections: [],
+// which is the ordinary shape of validate_plan's output.
+//
+// The three twin layers could not help: their shared eligible closure refuses a
+// realised candidate whose name equals the plan name, and it is right to (such a
+// candidate is the page itself, not a twin). Pass B2 paired them and stamped
+// nothing. So realisedIdentityOf returned ok=false, the flag never fired, and
+// CanonicalisePage re-derived each page at its role's default hub.
+//
+// Every fixture below uses the real stored names from that site.
+
+// TestReconcile_SameNamePagePlannedVerbatimIsStampedWithStoredIdentity is the
+// defect in one page. All layers OFF, because the stamp must not need a gate —
+// the same reason Pass A's union does not have one.
+func TestReconcile_SameNamePagePlannedVerbatimIsStampedWithStoredIdentity(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{
+			"name": "mortgages-stamp-duty", "page_type": "tool",
+			"title": "Stamp Duty Calculator — refreshed copy",
+			// No url: the shape validate_plan actually emits.
+			"sections": []interface{}{},
+		},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/mortgages-stamp-duty/index.html",
+			"tool", "deployed", "hero", "calculator"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	page := twinFindPage(got, "mortgages-stamp-duty")
+	if page == nil {
+		t.Fatalf("the page vanished from the plan: %v", twinNamesOf(got))
+	}
+	name, url, pageType, ok := realisedIdentityOf(page)
 	if !ok {
-		t.Fatalf("the realised-identity marker did not survive the step boundary — the writer "+
-			"guard would never fire and the twin would be re-minted. page keys: %v",
-			func() []string {
-				out := []string{}
-				for k := range pages[0] {
-					out = append(out, k)
-				}
-				return out
-			}())
+		t.Fatalf("no realised identity stamped — honour_realised_identity cannot fire for this page, " +
+			"and the write path will mint tool-mortgages-stamp-duty as a second identity (the 08-17 incident)")
 	}
-	if name != "llm-cost-calculator" || url != "/tools/llm-cost-calculator.html" || pageType != "tool" {
-		t.Errorf("identity survived but altered: %q %q %q", name, url, pageType)
+	if name != "mortgages-stamp-duty" || url != "/mortgages/mortgages-stamp-duty/index.html" || pageType != "tool" {
+		t.Errorf("stamped identity is not the stored one: %q %q %q", name, url, pageType)
+	}
+	// Pass B2's own contract must survive the stamp: composition restored...
+	if secs, _ := page["sections"].([]interface{}); len(secs) != 2 {
+		t.Errorf("realised composition not restored, got %v", page["sections"])
+	}
+	// ...and the planner's copy still wins, which is why this is not a snap.
+	if title, _ := page["title"].(string); title != "Stamp Duty Calculator — refreshed copy" {
+		t.Errorf("the LLM's title was overwritten (%q) — a re-plan must still be able to refresh copy", title)
+	}
+	if len(counts.SameNameStamps) != 1 {
+		t.Fatalf("expected one same-name stamp recorded, got %+v", counts.SameNameStamps)
+	}
+	if counts.SameNameStamps[0].WouldDeriveName != "tool-mortgages-stamp-duty" {
+		t.Errorf("the prevented twin name is not recorded: %+v", counts.SameNameStamps[0])
+	}
+	if counts.SameNameStamps[0].StoredURL != "/mortgages/mortgages-stamp-duty/index.html" {
+		t.Errorf("stored URL not carried for post-expiry diagnosis: %+v", counts.SameNameStamps[0])
+	}
+}
+
+// TestReconcile_SameNameStamp_FixedPointIsStampedButNotDiverging: a page whose
+// stored name IS the canonicaliser's answer is stamped like any other (the stamp
+// is a no-op at the writers), but must NOT be reported as a prevented twin — the
+// durable record would otherwise claim damage it did not prevent.
+func TestReconcile_SameNameStamp_FixedPointIsStampedButNotDiverging(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "tool-repayment", "page_type": "tool", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		twinRealisedPage("tool-repayment", "/tools/repayment/index.html", "tool", "deployed", "hero"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if _, _, _, ok := realisedIdentityOf(twinFindPage(got, "tool-repayment")); !ok {
+		t.Fatalf("a fixed-point page should still be stamped (harmless, and one rule is better than two)")
+	}
+	if len(counts.SameNameStamps) != 1 || counts.SameNameStamps[0].WouldDeriveName != "" {
+		t.Errorf("a fixed-point stamp must not be recorded as diverging: %+v", counts.SameNameStamps)
+	}
+	if findings := buildSameNameIdentityFindings(counts, false); len(findings) != 0 {
+		t.Errorf("a run of fixed-point stamps must write no durable rows, got %d", len(findings))
+	}
+}
+
+// TestReconcile_SameNameStamp_RefusesTypeConflict: one name, two roles. Honouring
+// would silently retype a live page; re-deriving keeps today's behaviour. Refuse,
+// and leave a durable record — the type is the one stamped field that is NOT
+// inert when the flag is off, because it feeds the writers' Role.
+func TestReconcile_SameNameStamp_RefusesTypeConflict(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "mortgages-simple", "page_type": "content", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-simple", "/mortgages/mortgages-simple/index.html", "tool", "deployed", "hero"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	page := twinFindPage(got, "mortgages-simple")
+	if _, ok := page["identity_authority"]; ok {
+		t.Errorf("a type conflict must not be stamped — honouring it would retype a live page")
+	}
+	if pt, _ := page["page_type"].(string); pt != "content" {
+		t.Errorf("the plan's page_type was overwritten on a refusal: %q", pt)
+	}
+	if _, ok := page["url"]; ok {
+		t.Errorf("url stamped despite the refusal: %v", page["url"])
+	}
+	if len(counts.SameNameTypeConflicts) != 1 {
+		t.Fatalf("the refusal was silent — expected one durable conflict record, got %+v", counts.SameNameTypeConflicts)
+	}
+	c := counts.SameNameTypeConflicts[0]
+	if c.PlanType != "content" || c.RealisedType != "tool" {
+		t.Errorf("both types must be recorded to tell disobedience from a retype: %+v", c)
+	}
+	if len(counts.SameNameStamps) != 0 {
+		t.Errorf("a refused pair must not be counted as a stamp: %+v", counts.SameNameStamps)
+	}
+}
+
+// TestReconcile_SameNameStamp_TypeUnderTheRoleKeyIsNotAConflict: the writers
+// derive Role via firstNonEmptyField(page_type, type, role), so an entry carrying
+// its type under "role" agrees with the realised page and must be stamped. Testing
+// page_type alone would have called this a conflict and left the page unprotected.
+func TestReconcile_SameNameStamp_TypeUnderTheRoleKeyIsNotAConflict(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "mortgages-repayment", "role": "tool", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-repayment", "/mortgages/mortgages-repayment/index.html", "tool", "deployed", "hero"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if len(counts.SameNameTypeConflicts) != 0 {
+		t.Fatalf("a type supplied under \"role\" is the type the writers will use, not a conflict: %+v",
+			counts.SameNameTypeConflicts)
+	}
+	_, _, pageType, ok := realisedIdentityOf(twinFindPage(got, "mortgages-repayment"))
+	if !ok || pageType != "tool" {
+		t.Errorf("expected the stored identity stamped with page_type tool, got ok=%v type=%q", ok, pageType)
+	}
+}
+
+// TestReconcile_SameNameStamp_RefusesIncompleteStoredIdentity mirrors
+// realisedIdentityOf's own refusal. Claiming a stamp the reader rejects would put
+// a lie in the counters — a guard that never fires reads exactly like one that is
+// not there.
+func TestReconcile_SameNameStamp_RefusesIncompleteStoredIdentity(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "mortgages-stamp-duty", "page_type": "tool", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-stamp-duty", "", "tool", "deployed", "hero"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if _, ok := twinFindPage(got, "mortgages-stamp-duty")["identity_authority"]; ok {
+		t.Errorf("stamped an identity realisedIdentityOf would reject (empty url)")
+	}
+	if len(counts.SameNameStamps) != 0 {
+		t.Errorf("counted a stamp that did not happen: %+v", counts.SameNameStamps)
+	}
+}
+
+// TestReconcile_SameNameStamp_CoversTheB2FallThrough: identity and composition are
+// separate questions. A catalogued page that has never shipped keeps the planner's
+// proposed sections (bugs_open/050) — and must still be stamped, because who owns
+// its NAME does not depend on whether it has been built.
+func TestReconcile_SameNameStamp_CoversTheB2FallThrough(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{
+			"name": "mortgages-overpayment", "page_type": "tool",
+			"sections": []interface{}{"hero", "calculator"},
+		},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-overpayment", "/mortgages/mortgages-overpayment/index.html",
+			"tool", "needs_rebuild"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	page := twinFindPage(got, "mortgages-overpayment")
+	if secs, _ := page["sections"].([]interface{}); len(secs) != 2 {
+		t.Errorf("a never-composed page must keep the planner's proposal: %v", page["sections"])
+	}
+	if _, _, _, ok := realisedIdentityOf(page); !ok {
+		t.Fatalf("the fall-through branch was not stamped — the stamp must not live inside one branch")
+	}
+	if len(counts.SameNameStamps) != 1 {
+		t.Errorf("expected the stamp recorded, got %+v", counts.SameNameStamps)
+	}
+}
+
+// TestReconcile_TwinLayersRefuseTheEntryItself pins that no twin layer snaps a
+// page onto ITSELF — a behaviour nothing pinned before, and the one the 2026-08-19
+// investigation proposed relaxing.
+//
+// WHAT IT PINS, STATED EXACTLY, because I first wrote that it pinned the eligible
+// closure's rname == lname clause and the mutation run proved otherwise: this test
+// pins the REFUSAL, not either clause. Removing rname == lname alone leaves it
+// green (planNames[rname] refuses the same case, since a candidate equal to the
+// plan's own name is necessarily a name the plan carries); removing planNames
+// alone likewise; removing BOTH turns it red. The two clauses are redundant in
+// series — which is also why the 08-19 remedy "drop rname == lname from the
+// canonical layer" would have changed nothing at all.
+//
+// The refusal is correct: a realised candidate whose name equals the plan name is
+// the page itself, not a twin of it. Routing it through the layers would snap the
+// entry onto normaliseRealisedToPlanPage's whole-map replacement and throw away
+// the planner's refreshed copy for every correctly-named page on the site. The
+// same pairing is handled by Pass B2's stamp instead, which keeps the copy.
+func TestReconcile_TwinLayersRefuseTheEntryItself(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{
+			"name": "mortgages-stamp-duty", "page_type": "tool",
+			"title": "refreshed by this re-plan", "sections": []interface{}{},
+		},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/mortgages-stamp-duty/index.html",
+			"tool", "deployed", "hero"),
+	}
+
+	// Both deterministic layers ON: the canonical layer's key
+	// (tool-mortgages-stamp-duty) is claimed by this very row, so only the
+	// rname == lname clause stops it snapping.
+	got, counts := reconcilePlanWithRealised(llm, existing,
+		reconcileOptions{TwinIdentitySnap: true, StemTwinSnap: true}, zap.NewNop())
+
+	if counts.SnappedIdentityCanonName != 0 || counts.SnappedIdentityPathKey != 0 || counts.SnappedStemTwin != 0 {
+		t.Errorf("a twin layer snapped the page onto itself: canon=%d path=%d stem=%d",
+			counts.SnappedIdentityCanonName, counts.SnappedIdentityPathKey, counts.SnappedStemTwin)
+	}
+	if counts.TwinIdentityObserved != 0 {
+		t.Errorf("the entry itself was recorded as an observed twin (%d) — that would report the "+
+			"good case as damage on every re-plan", counts.TwinIdentityObserved)
+	}
+	page := twinFindPage(got, "mortgages-stamp-duty")
+	if title, _ := page["title"].(string); title != "refreshed by this re-plan" {
+		t.Errorf("the planner's copy was replaced by the realised row (%q) — this is what "+
+			"routing same-name pairs through a snap would cost", title)
+	}
+	if _, _, _, ok := realisedIdentityOf(page); !ok {
+		t.Errorf("the page still needs its identity — via the B2 stamp, not via a snap")
+	}
+}
+
+// TestReconcile_SameNameStamp_ForgedMarkerIsReplacedByStoredValues: the reconciler
+// is the only minter. A plan that arrives carrying its own marker and a chosen URL
+// must not be believed — strip first, then stamp from the DB row.
+func TestReconcile_SameNameStamp_ForgedMarkerIsReplacedByStoredValues(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{
+			"name": "mortgages-stamp-duty", "page_type": "tool",
+			"identity_authority": "realised",
+			"url":                "/somewhere-the-planner-chose.html",
+			"sections":           []interface{}{},
+		},
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/mortgages-stamp-duty/index.html",
+			"tool", "deployed", "hero"),
+	}
+
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	_, url, _, ok := realisedIdentityOf(twinFindPage(got, "mortgages-stamp-duty"))
+	if !ok {
+		t.Fatalf("expected the stored identity to be stamped after the forged one was stripped")
+	}
+	if url != "/mortgages/mortgages-stamp-duty/index.html" {
+		t.Errorf("the planner's chosen URL survived: %q", url)
+	}
+}
+
+// TestBuildSameNameIdentityFindings pins the durable record's shape — the only
+// thing a later reader will have, since a chassis pod retains under a second of
+// log. The two codes are the same observation on opposite sides of the flag.
+func TestBuildSameNameIdentityFindings(t *testing.T) {
+	counts := reconcileCounts{
+		SameNameStamps: []sameNameStamp{
+			{PlanName: "mortgages-stamp-duty", StoredURL: "/mortgages/mortgages-stamp-duty/index.html",
+				WouldDeriveName: "tool-mortgages-stamp-duty"},
+			{PlanName: "tool-repayment", StoredURL: "/tools/repayment/index.html"}, // fixed point
+		},
+	}
+
+	held := buildSameNameIdentityFindings(counts, true)
+	if len(held) != 1 || held[0].ErrorCode != "PLAN_PAGE_SAME_NAME_IDENTITY_HELD" || held[0].Severity != "info" {
+		t.Fatalf("flag ON should record one info-level HELD row, got %+v", held)
+	}
+	if n, _ := held[0].Context["diverging_pages"].(int); n != 1 {
+		t.Errorf("only the diverging stamp counts as prevented damage: %+v", held[0].Context)
+	}
+	pairs, _ := held[0].Context["pages"].([]map[string]interface{})
+	if len(pairs) != 1 || pairs[0]["would_derive_name"] != "tool-mortgages-stamp-duty" {
+		t.Errorf("the row must carry the pairs so the reader can join them against pages: %+v", held[0].Context)
+	}
+
+	pending := buildSameNameIdentityFindings(counts, false)
+	if len(pending) != 1 || pending[0].ErrorCode != "PLAN_PAGE_SAME_NAME_TWIN_PENDING" || pending[0].Severity != "warning" {
+		t.Fatalf("flag OFF is a warning about twins about to be written, got %+v", pending)
+	}
+
+	conflicts := buildSameNameIdentityFindings(reconcileCounts{
+		SameNameTypeConflicts: []sameNameTypeConflict{
+			{PlanName: "mortgages-simple", PlanType: "content", RealisedType: "tool"},
+		},
+	}, true)
+	if len(conflicts) != 1 || conflicts[0].ErrorCode != "PLAN_PAGE_IDENTITY_TYPE_CONFLICT" ||
+		conflicts[0].Severity != "warning" {
+		t.Fatalf("a refused pair needs its own durable row, got %+v", conflicts)
+	}
+
+	if got := buildSameNameIdentityFindings(reconcileCounts{}, true); len(got) != 0 {
+		t.Errorf("nothing observed must write nothing, got %+v", got)
+	}
+}
+
+// TestReconcile_LMCCanaryShape_NoTwinIsMintable reproduces the 2026-08-17 incident
+// at the unit level: the exact plan shape validate_plan emitted (names verbatim,
+// no url, no parent_section, sections: []), the exact realised rows, every layer
+// off — and drives it through the REAL extractor to the reader the write surfaces
+// use. Before the stamp this test fails on every non-fixed-point page; the 19
+// phantom rows are what that failure looked like in production.
+func TestReconcile_LMCCanaryShape_NoTwinIsMintable(t *testing.T) {
+	planned := []string{"mortgages-stamp-duty", "mortgages-simple", "mortgages-repayment", "tool-repayment"}
+	llm := make([]interface{}, 0, len(planned))
+	for _, n := range planned {
+		llm = append(llm, map[string]interface{}{
+			"name": n, "page_type": "tool", "sections": []interface{}{},
+		})
+	}
+	existing := []interface{}{
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/mortgages-stamp-duty/index.html", "tool", "deployed", "hero"),
+		twinRealisedPage("mortgages-simple", "/mortgages/mortgages-simple/index.html", "tool", "deployed", "hero"),
+		twinRealisedPage("mortgages-repayment", "/mortgages/mortgages-repayment/index.html", "tool", "deployed", "hero"),
+		twinRealisedPage("tool-repayment", "/tools/repayment/index.html", "tool", "deployed", "hero"),
+	}
+
+	reconciled, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	// Through the step boundary exactly as the workflow wires it.
+	pages := extractPagesFromPlan(map[string]interface{}{
+		"site_plan": map[string]interface{}{"pages": reconciled},
+	}, zap.NewNop())
+	if len(pages) != len(planned) {
+		t.Fatalf("extractPagesFromPlan returned %d pages, want %d", len(pages), len(planned))
+	}
+
+	wantURL := map[string]string{
+		"mortgages-stamp-duty": "/mortgages/mortgages-stamp-duty/index.html",
+		"mortgages-simple":     "/mortgages/mortgages-simple/index.html",
+		"mortgages-repayment":  "/mortgages/mortgages-repayment/index.html",
+		"tool-repayment":       "/tools/repayment/index.html",
+	}
+	for _, p := range pages {
+		n, _, _, ok := realisedIdentityOf(p)
+		if !ok {
+			pn, _ := p["name"].(string)
+			t.Fatalf("page %q reached the write surfaces with no realised identity: honour_realised_identity "+
+				"cannot fire and CanonicalisePage will mint its twin (the 08-17 shape, 19 rows)", pn)
+		}
+		_, url, _, _ := realisedIdentityOf(p)
+		if url != wantURL[n] {
+			t.Errorf("page %q honours %q, want the stored %q", n, url, wantURL[n])
+		}
+	}
+
+	// Three of the four are not fixed points; the fourth already is.
+	var diverging []string
+	for _, s := range counts.SameNameStamps {
+		if s.WouldDeriveName != "" {
+			diverging = append(diverging, s.WouldDeriveName)
+		}
+	}
+	if len(diverging) != 3 {
+		t.Errorf("expected 3 prevented twins (tool-<name> for the three bare pages), got %v", diverging)
+	}
+	findings := buildSameNameIdentityFindings(counts, true)
+	if len(findings) != 1 || findings[0].ErrorCode != "PLAN_PAGE_SAME_NAME_IDENTITY_HELD" {
+		t.Errorf("expected one durable HELD row for the run, got %+v", findings)
 	}
 }

@@ -43,6 +43,36 @@ type siteIdentityPolicy struct {
 	// and URL written for that page — from the canonicaliser's answer to the
 	// one the site is actually serving. That is the point, and it is also a
 	// visible change to live artefacts, so it is opted into per site.
+	//
+	// ⚠ THIS FLAG CANNOT ACT ALONE, AND THAT COST A REAL CANARY. It does nothing
+	// for a page the reconciler has not MARKED as realised-derived, and the
+	// marker is minted in exactly four places — all inside
+	// reconcilePlanWithRealised, which strips any marker the plan arrives with:
+	//
+	//   1. Pass B, exact URL match, different name (a rename)         — always
+	//   2. the three twin-identity layers                             — gated by
+	//      TwinIdentitySnap / StemTwinSnap below
+	//   3. Pass A's union, for a realised page the plan omits         — always
+	//   4. Pass B2's same-name stamp: the plan names the page exactly
+	//      as it is stored                                            — always,
+	//      subject to the plan's role agreeing with the stored page_type
+	//
+	// Route 4 did not exist until 2026-08-19, and its absence is why this comment
+	// carries a warning rather than a note. loanandmortgagecalculator.co.uk read
+	// this file closely, measured the population it asks for (38 of 45 pages not
+	// fixed points, 17 by name), seeded THIS flag alone, fired one re-plan on
+	// 2026-08-17 — and got 19 phantom page rows anyway (corr
+	// 6fe6ee93-67b9-4831-bf17-2ca473e1d30c). Every page it cared about had been
+	// named CORRECTLY by the planner, which at that time was the one shape no
+	// minting route covered. Nothing in this file said so.
+	//
+	// So: an opt-in whose effect depends on another step having acted is a
+	// PRECONDITION, not a peer, and the three switches here are not independent
+	// in the way their separate fields suggest. What still constrains route 4,
+	// stated so the next reader does not have to find it by canary: the page must
+	// be in the reconciler's preservation set (deployed or needs_rebuild, or the
+	// site's first plan), and a same-name pair whose roles disagree is REFUSED and
+	// recorded as PLAN_PAGE_IDENTITY_TYPE_CONFLICT rather than stamped.
 	HonourRealisedIdentity bool
 
 	// TwinIdentitySnap: enable the reconciler's two DETERMINISTIC twin-identity
@@ -127,6 +157,12 @@ func siteIdentityPolicyFor(ctx context.Context, db *sql.DB, siteID uuid.UUID, lo
 // reconcilePlanWithRealised (which strips any the LLM emitted, so a plan cannot
 // forge one), and a marked page missing any of the three identity fields falls
 // through to canonicalisation rather than writing a blank.
+//
+// ok=false is therefore two different answers wearing one face: "this page is
+// the planner's own proposal" and "this page IS a realised page, but no pass
+// paired it". The second was reachable by configuration until 2026-08-19 — see
+// the four minting routes listed on HonourRealisedIdentity above, and prefer
+// reading those to inferring reachability from this function.
 func realisedIdentityOf(page map[string]interface{}) (name, url, pageType string, ok bool) {
 	if authority, _ := page["identity_authority"].(string); authority != "realised" {
 		return "", "", "", false
