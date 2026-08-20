@@ -6,7 +6,27 @@
 > `scripts/who-owns.py 327` now prints the ambiguity warning. This case is
 > **`a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads`**. `git log` the FILE PATH.
 
-> ## ✅ FIXED IN CODE 2026-08-20 — `c9a71388f` — AND STILL OPEN, because it is inert until a chassis roll
+> ## ✅ FIX IS **LIVE** ON `v1.0.1319` (2026-08-20 ~14:38Z) — and this file stays OPEN, for a reason worth reading
+> **Binary-probed with full controls, not inferred from a tag.** The literal `merged_keys`, which
+> only this fix introduces, reads **1** on a `v1.0.1319` pod and read **0** on `v1.0.1317` eleven
+> hours earlier; the pre-existing literal `formatted_len` reads **1** on both (so the probe is not
+> simply always agreeing) and a deliberately impossible string reads **0** (so it can return zero).
+> Two distinct pods, one of them `agent-build-dispatch-loop-…`.
+>
+> **Why it is not CLOSED.** The bar is fixed AND live, and the *defect* is both — a partial write
+> can no longer shrink a brief. But **the damage is not repaired and this fix does not repair it**:
+> the three fragment briefs stay fragments until something writes those specs again.
+> `[MEASURED 2026-08-20 14:40Z]` **no `content_direction` write has occurred on any site since the
+> roll**, so nothing has been restored yet and nothing has been observed on a live write. Closing on
+> a binary probe alone would be trusting a status over an artefact, which is the one thing this
+> lane's own rules forbid.
+>
+> **What closes it:** one real `content_direction` write, then `audit_writer_brief.py <domain>`
+> showing zero non-empty dropped keys for that site. The three affected sites belong to other lanes,
+> so the write is theirs to make — see the restoration warning in `LANDMINES.md`, which is now
+> unconditional.
+
+> ## (superseded) FIXED IN CODE 2026-08-20 — `c9a71388f` — inert until a chassis roll
 > Both defects, one commit: `formatted` is now built from `merged` (`site_spec_actions.go`), and
 > `FormatContentDirection` sorts its keys at both levels so an identical spec renders identically.
 > **Council-Submitted: `db3c158b-4dab-4a1b-bb2b-875dbac98358`** (advisory; the verdict is still owed
