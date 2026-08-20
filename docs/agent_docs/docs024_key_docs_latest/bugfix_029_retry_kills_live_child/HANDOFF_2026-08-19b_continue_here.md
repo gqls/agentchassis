@@ -525,3 +525,30 @@ everything since, so it is not load-bearing — see the 08-20 14:30Z note.
 
 **Nothing is owed on this lane.** The only open question is the wedge, it is not reproducing, its
 evidence is preserved, and the split is with the owner.
+
+### 2026-08-20 ~17:20Z — THE SPLIT IS BEING ACTIONED BY THE OTHER SESSION. THIS SESSION HAS STOOD DOWN
+
+**Do not start a re-file and do not edit `bugs_open/029`.** The peer session reports that the owner
+ruled **YES, split it** — close 029 for the retry-window defect, re-file the wedge under its own
+number — and is actioning it now. They will publish the new bug number and the commit.
+
+> **⚠ Epistemic status, stated because it matters for who acts:** the ruling landed in **their**
+> session. I have **not** heard it directly and have **not** verified it — it is **attested by the
+> peer session**, exactly like the banner-authorship question earlier today. That is sufficient
+> grounds for me to **stand down** (refraining needs no proof), and it is **not** sufficient grounds
+> for me to act on 029 myself. If you are picking this lane up and the new bug does not exist,
+> **ask the owner rather than assuming the split was approved.**
+
+**What the new bug will carry** (their plan, recorded so it is not lost if either session ends): the
+wedge as the sole open question; the 20-advanced vs 10-stopped split; 0-of-31 recovery with the
+971.3s response ceiling; **the outage as explained CONTEXT, not cause**; the preserved-evidence path;
+the four-blind-joins warning pointing at the `LANDMINES.md` entry; and `PLAN_2026-08-19` marked
+still-valid-but-wedge-only. They will pathspec both paths on the move and verify at HEAD with
+`git ls-tree` (the `git mv` + pathspec copy landmine).
+
+**The close-out will carry this file's top banner wording verbatim** rather than a re-draft, including
+*"Do not read a fixed Part A as a fixed hang."*
+
+**Still unowned and NOT part of the split:** the `workflow%` bundle-include widening (one line, blast
+radius measured, the 301 lane told, that lane closed). It needs someone to ship it or formally drop
+it. It is not blocked by anything.
