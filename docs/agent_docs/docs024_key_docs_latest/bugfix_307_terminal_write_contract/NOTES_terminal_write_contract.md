@@ -152,3 +152,62 @@ UPDATE 1 / DO / … / ROLLBACK`. Each of 506's two UPDATEs matches exactly one r
 and both DO-blocks pass — including 506's assertion that the selector still
 carries every pre-existing dispatchability clause, so a hand-typed near-copy
 cannot silently drop the `depends_on` or claim guards.
+
+## 2026-08-20 (evening) — council round 1: REVISE, and it found a real defect in my code
+
+Verdict `revise`, decided by a gating objection from `editquality`. Two of the objections were
+real defects, both mine, and both are in `WRONG_CALLS.md` as separate entries.
+
+**The gating one, and it is the worse of the two.** I gave `update_work_item_status`'s **`complete`**
+arm the failure-path guard list. That list deliberately omits `failed` and `unresolved`, because
+moving a row through them is what a retry *is*. On the completion path that omission means a
+`complete` write can silently overwrite a row that already failed or was given up — **the exact
+defect class this change exists to close, reintroduced by the change, one arm over.** My rationale
+called it *"the same guard its two siblings already have"*; it was false in precisely the two
+entries that mattered. The seat compared my list against the sibling I had cited. I never did.
+
+Fixed with a separate `workItemCompletionGuardStatuses`, placed *adjacent* to the failure list so
+the difference is visible, plus two tests: the exact delta between the lists, and a source read of
+the call site (the constants can be right while the interpolation is wrong — which is what
+happened). Mutation-proved three ways.
+
+**The measurement one.** `guardian` noticed that my "141 of 270 failed rows in 14 days" came from
+`site_work_items` alone, which the archiver drains after ~7 days. Archive-inclusive: **401 of 558,
+72%.** I had understated my own case threefold — and this lane's own RUNBOOK, written the same
+session, says to `UNION ALL` the archive for exactly this. Writing a check down is not running it.
+
+**Three seats independently refused to accept "named as a residual" as remediation** for
+`claimed-item-timeout`'s fifth copy of the ladder. They were right that prose is not a ticket; it
+is now `bugs_open/341`. The line worth keeping is `bug_historian`'s: *"the platform's own history
+says the untreated sibling is where the next incident originates, not a footnote."*
+
+**`bug_historian` also caught a false claim I had made twice** — "reapable at 48h". Clearing
+`claimed_at` makes a row *eligible* for the stale reaper, but every write bumps `updated_at` and
+the reaper keys on that, so each failure restarts the clock. Correct: *48h after the last write*.
+Corrected in the register and the bug file.
+
+**`debug_historian` (high) on migration 506's blind `jsonb_set`.** Right as discipline, and it did
+not bite — verified mine was the only write to that row and no other lane's migration touched that
+agent in the window. But the objection is about the *next* run, not this one: a ROLLBACK is what
+somebody executes months later under pressure. The sidecar now gates on a pre-state md5 of both
+read sites and aborts naming expected/found. Mutation-tested by corrupting the expected md5.
+
+**`architecture` (medium, explicitly non-gating)** asked for a recorded entry — `RFC_043`. Its
+second sentence is the one I had got wrong: *"the 08-18 owner ruling authorises the BEHAVIOUR; it
+doesn't exempt the MECHANISM implementing it from architectural review — those are separate
+questions."* I had treated the ruling as settling both.
+
+**What the seats could not check, and what I did about it.** `reaper_policies`, `scheduled_tasks`
+and `schema_migrations` are outside the council's 11-table allowlist, so `prior_art_librarian` and
+`guardian` both correctly flagged the `reaper_policies` existence claim as unverifiable-from-here.
+Evidence went into a dated `doc_notes` row (the documented remedy) rather than widening the
+allowlist to win my own round.
+
+**Round 2 submitted** on the same trail correlation (`RESUBMIT_CORR=4cdec68b…`), sketches updated
+rather than only the rationale, and the full round-1 evidence carried forward — each round is
+judged standalone.
+
+**The pattern in both of my defects.** The gating one was in the *by-the-way* edit — the one-line
+guard I added while already in the file, which had no test among the fifteen. The measurement one
+was a check I had written down that morning and did not run. Neither was a gap in knowledge. Both
+were the parts I wasn't looking at because I was confident about the parts I was.
