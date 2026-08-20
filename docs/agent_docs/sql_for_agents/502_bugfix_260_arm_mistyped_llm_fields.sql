@@ -1,10 +1,26 @@
--- FILE: docs/agent_docs/sql_for_agents/502_bugfix_260_arm_mistyped_llm_fields_HOLD.sql
+-- FILE: docs/agent_docs/sql_for_agents/502_bugfix_260_arm_mistyped_llm_fields.sql
 --
 -- bugs_open/260 — arm the PRE-RENDER declared-type refusal on BOTH
 -- render_component steps of page-content-writer (the only live agent that has
 -- any: measured 2026-08-19, 2 steps — render_section and render_from_template).
 --
--- ⚠ _HOLD: ORDERING-CRITICAL, DO NOT LET THE RUNNER TAKE THIS.
+-- ✅ APPLIED BY HAND 2026-08-20 ~14:50Z, after the roll, and the `_HOLD` suffix
+-- was dropped in the same commit to say so. Verified independently of the file's
+-- own verify block, across the whole live roster rather than the one agent this
+-- file names: both `render_component` steps report armed=true and no other live
+-- agent has such a step. The re-measured population at apply time was unchanged
+-- from the header below — 0 top-level refusals, 5 nested hits ALL of which are
+-- the empty-string case the checker does not report.
+--
+-- The precondition was met and checked at the ARTEFACT, not at a tag: chassis
+-- v1.0.1319 on BOTH replicas carries the added literal "refusing to emit output
+-- that was not executed", and does NOT carry the deleted fallback's literal
+-- "Go template execution failed, using regex fallback" — a removed-string
+-- control, which is the strongest form available. Two further controls (a
+-- long-lived string that must be present, a nonsense string that must be absent)
+-- both behaved.
+--
+-- ⚠ WAS _HOLD: ORDERING-CRITICAL, THE RUNNER MUST NOT HAVE TAKEN THIS.
 -- The Go half (refuseMistypedLLMFields, mistyped_llm_fields_gate.go, and
 -- datahelpers.ContentTypeViolations) is committed in 80b9c6235 but INERT until a
 -- chassis image built from that commit has rolled. This file only sets a config
@@ -80,7 +96,7 @@
 --      AND jsonb_typeof(pc.content_data->f.field) NOT IN ('array','null')
 --      AND btrim(COALESCE(pc.content_data->>f.field,'')) <> '';
 --
--- Rollback: 502_bugfix_260_arm_mistyped_llm_fields_ROLLBACK.sql (sets both keys
+-- Rollback: 502_bugfix_260_arm_mistyped_llm_fields_ROLLBACK.sql (still a hand-run sidecar) (sets both keys
 -- back to false; the Go half then behaves exactly as it did before this file).
 
 \set ON_ERROR_STOP on

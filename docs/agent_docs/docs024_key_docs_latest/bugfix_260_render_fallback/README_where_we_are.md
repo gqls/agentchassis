@@ -148,3 +148,36 @@ one field**. The twenty-four pieces of work sitting in the review queue still ho
 wrong shape — making that content correct is the writer's job, not this change's. What this buys
 is that the failure is honest, immediate, names the field, and can no longer reach a published
 page through the two unguarded routes.
+
+---
+
+## 2026-08-20 afternoon — it is live, and it is switched on
+
+The release went out and the new code is running. I checked that at the artefact rather than
+trusting the version number: on **both** copies of the service, the new message the fix adds is
+present in the binary and **the old fallback's message is gone**. That second half is the one that
+actually proves it — plenty of ways exist to ship new code alongside old code, and a deleted line
+is the only thing that rules that out. Two further sanity checks (a long-standing message that had
+to be there, a nonsense one that had to be missing) both behaved, so the test itself was working.
+
+**In the four and a half hours since: no occurrences of the bug at all**, against twenty-six page
+sections written across nine pages and three site headers/footers stored. That pairing matters —
+"no failures" on a pipeline that did nothing would mean nothing. Real work went through the new
+code and came out fine.
+
+I have also switched on the optional early check, having first re-measured what it would refuse
+today: **nothing**. It is deliberately armed while there is nothing to catch, so that the next
+piece of wrong-shaped content is caught on the way in rather than after it has parked a job in the
+review queue. One honest caveat I have written into the file itself: from here on, a quiet result
+from that check is what we *expect*, so quietness is not proof it is working — the proof is the
+configuration read-back and the binary check, not the absence of complaints.
+
+**The bug is closed** and moved to the closed folder, with a note on it saying exactly what closed
+and what did not. What did not: the twenty-four jobs still sitting in the review queue hold content
+of the wrong shape and that is the writing lane's half; the dead links those failed builds left
+behind are a separate tracked issue; and the sibling problem — a field that is *missing* rather than
+wrong-shaped still renders as empty and silent — is untouched, unowned, and now needs someone's name
+on it.
+
+The remaining test is not ours: the loanzy lane runs a clean build from scratch and reports either
+way. They have been told it is live.

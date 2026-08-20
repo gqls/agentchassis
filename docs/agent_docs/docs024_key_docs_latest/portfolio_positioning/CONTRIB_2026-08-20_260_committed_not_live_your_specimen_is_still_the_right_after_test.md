@@ -33,3 +33,30 @@ You hold the only **stable, locked, still-failing** specimen. After the roll, a 
 **one** item — not all four — answers the question this lane cannot answer for itself: does the new
 error name the right field on a page nobody has touched since it broke? One item keeps the specimen
 intact if the answer is surprising.
+
+---
+
+## ⚠ UPDATE, same day ~14:50Z — IT IS LIVE. The "not yet rolled" text above is superseded.
+
+`agent-chassis` **v1.0.1319** carries it, verified on **both** replicas at the binary rather than
+at the tag: the added literal `refusing to emit output that was not executed` is present and the
+deleted fallback's literal `Go template execution failed, using regex fallback` is **absent**, with
+a long-lived control present and a nonsense control absent. (The startup `build provenance` line had
+already scrolled — on this service an empty grep there means "not in range", not "unstamped".)
+
+**First 4.5 hours:** 0 new occurrences of the defect, against 26 sections saved across 9 pages and
+3 chrome slots stored — so the happy path works and the zero is not an idle pipeline's zero.
+
+**The opt-in pre-render type gate is now ARMED too** (`refuse_mistyped_llm_fields: true` on both of
+`page-content-writer`'s `render_component` steps, migration
+`sql_for_agents/502_bugfix_260_arm_mistyped_llm_fields.sql`). It was re-measured immediately before
+arming and refuses **nothing** on today's population, so a mistyped field is now caught *before* the
+render, naming the field. ⚠ Note for anyone reading its watch query: a sustained zero there is the
+EXPECTED result and is not evidence it works.
+
+**`bugs_open/260` is CLOSED** and moved to `bugs_closed/` on the fixed-AND-live bar. What did NOT
+close is on the file itself: the parked items still hold wrong-shaped content (writer half), the
+dead links are `bugs_open/328`'s class, and the ABSENT-field sibling is untouched and unowned.
+
+**So the after-test is now yours to run whenever you are ready.** Everything the section above says
+to expect applies from now.

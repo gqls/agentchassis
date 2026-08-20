@@ -1,9 +1,47 @@
 # 260 — One mistyped LLM field silently degrades a WHOLE component render to a regex path that no template on the estate uses, leaking Go control syntax into the page
 
-**Filed 2026-08-12.** Status: **OPEN — the renderer-half fix is BUILT AND COMMITTED
-(`80b9c6235`, 2026-08-20) and is INERT until a chassis image built from that commit rolls.** Stays
-OPEN by the fixed-AND-live bar: the defect is reproducible on every live site until the roll. Root
-cause proven; ~~no live damage~~ ZERO CORRUPTION OF STORED CONTENT BUT REAL LIVE DAMAGE.
+**Filed 2026-08-12.** Status: **CLOSED 2026-08-20 — the renderer half is FIXED AND LIVE on
+`agent-chassis` v1.0.1319** (`80b9c6235`, council-approved on trail `a44d9eb8`). Moved to
+`bugs_closed/` on the fixed-AND-live bar. Root cause proven; ~~no live damage~~ ZERO CORRUPTION OF
+STORED CONTENT BUT REAL LIVE DAMAGE.
+
+> **⚠ WHAT "CLOSED" MEANS HERE, AND WHAT IT DOES NOT — read this before citing the closure.**
+>
+> **Closed:** the silent degradation. The regex fallback that rendered a failed template into
+> well-formed HTML with its `{{if}}`/`{{range}}` directives intact is DELETED. A component render
+> now either executed or errored, and each of the fifteen call sites makes an explicit failure
+> decision. **Proven at the artefact, both replicas, with a removed-string control:** the added
+> literal `refusing to emit output that was not executed` is PRESENT and the deleted fallback's
+> literal `Go template execution failed, using regex fallback` is **ABSENT** (plus a long-lived
+> literal that must be present and a nonsense one that must be absent — both behaved). The startup
+> provenance line had already scrolled on this busy service, which is why the check is a binary
+> probe rather than a log grep.
+>
+> **First 4.5 hours in production:** 0 new occurrences (the census's most recent is still
+> 2026-08-18 23:36Z) against 26 sections saved across 9 pages and 3 chrome slots stored — real
+> render traffic succeeded, so the zero is not an idle pipeline's zero.
+>
+> **NOT closed, and none of it belongs to this file:**
+> - **The 24 items parked at `needs_human_review` still hold content of the wrong shape.** This fix
+>   does not make them build; it makes them fail early naming one field instead of late with 20
+>   capped "blockers". Repairing the content is the **writer** half — `copy_quality_two_stage`, by
+>   the owner's 2026-08-12 split.
+> - **The dead links and 404s those failed builds left behind** (loanzy.uk `/your-rights.html`,
+>   remortgagecalculator.uk's two nav links) are `bugs_open/328`'s class and survive this fix,
+>   because truncation, a missing component and 307's terminal kills produce them too.
+> - **The ABSENT-field sibling is untouched and UNOWNED.** Go's `missingkey=zero` still renders a
+>   missing field as empty with no error, and the presence gate that catches it runs at **2 of the
+>   15** render call sites, only for fields marked both `source:"llm"` and `required`. This was the
+>   council's gating objection; it is registered in `STY-057`'s landmine list, in the checker's own
+>   header, and costed three ways in `RFC_041` §5. **It needs its own bug file and an owner.**
+>
+> **The mechanism is `STY-057`** (concept register, styling-render-pipeline.md) and the contract
+> change is **`RFC_041`**. The opt-in pre-render type gate was armed by hand at ~14:50Z
+> (`sql_for_agents/502_bugfix_260_arm_mistyped_llm_fields.sql`) after re-measuring that it would
+> refuse **nothing** on today's population; ⚠ a sustained zero in its watch query is therefore the
+> EXPECTED result and is not evidence it works — the roster read-back and the binary probe are.
+> Full record, including three defects the council found and one this lane's own census found in
+> its own checker: `docs/agent_docs/docs024_key_docs_latest/bugfix_260_render_fallback/`.
 
 > **THE FIX, in one paragraph, for whoever reads this next.** The silent regex fallback is
 > DELETED and `RenderTemplateReportingMissing`/`RenderTemplate` return an **error**, so a

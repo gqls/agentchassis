@@ -553,3 +553,78 @@ tip.** Re-verify after a push; do not "fix" a footprint the index cannot see yet
 annotation reached the rows the consumers actually query — `categories ? 'landmine'`, keyed by
 FOOTPRINT (four rows: the two Go files, the config key, the schema surface), not by the entry slug
 that the verification channel uses.
+
+---
+
+## 2026-08-20 ~14:50Z — LIVE on v1.0.1319, armed, and 260 moved to `bugs_closed/`
+
+### The deploy check, and why it is a binary probe rather than a log grep
+
+The fleet rolled to **v1.0.1319** at 10:18Z (not my 1318 — another session bumped again between my
+commit and the release, which is normal here and is why the tag is never the evidence).
+
+`kubectl logs -l app=agent-chassis --tail=400 | grep 'build provenance'` returned **nothing** —
+this service is busy enough that the startup line was already out of range four hours later,
+exactly as the CLAUDE.md note says. **An empty result there means "not in range", not "unstamped".**
+So: the binary probe, on **both** replicas, with four needles:
+
+| needle | want | got |
+|---|---|---|
+| `refusing to emit output that was not executed` (ADDED by this change) | present | **present** |
+| `Go template execution failed, using regex fallback` (DELETED by this change) | **absent** | **absent** |
+| `URL attribute rendered empty` (long-lived, untouched) | present | present |
+| `zzz_not_in_any_build_zzz` (nonsense) | absent | absent |
+
+plus `refuse_mistyped_llm_fields` and `chrome_render_failed` present. **The removed-string needle is
+the load-bearing one** — it is the only control that distinguishes "the new code is in" from "the
+new code is in AND the old code is out", and a change that deletes a literal is the one case where
+that control is available for free. Where a change removes nothing, the honest substitute is the
+previous image, not a synthetic string.
+
+`strings` was not used: it is absent from the debian-slim images, and behind the customary
+`2>/dev/null` its failure is indistinguishable from "not stamped".
+
+### Production evidence, with the control that makes the zero mean something
+
+- **0 new occurrences** since the roll. The census's most recent event is still
+  2026-08-18 23:36:51Z; before/since split at 10:18Z is **26 / 0**.
+- ⚠ **On its own that is the zero of an idle pipeline.** The control: **26 sections saved across 9
+  pages** (10:25Z → 14:42Z) and **3 chrome slots stored** in the same window. Real render traffic
+  went through the new seam and succeeded, so the happy path is not broken and the zero is a real
+  zero.
+- **0 errors of the new shape** either — and that query has its own control (it finds 527
+  render-ish error rows since 2026-08-01, so it is not blind).
+- **0 `chrome_render_failed` work items.**
+
+### Arming, and the honest reading of its watch query
+
+Applied `502_bugfix_260_arm_mistyped_llm_fields.sql` by hand at ~14:50Z; `_HOLD` dropped in the
+same commit, following the `446_asset_retraction_agent` precedent, with the apply recorded in the
+file's own header. Its guards did their job on the way through: duplicate-row check, the
+`create_missing` pre-flight, and a verify block that counts EVERY `render_component` step rather
+than reading back the path it just wrote.
+
+Verified **independently** of the migration afterwards, across the whole live roster rather than
+the one agent the file names: `page-content-writer`'s `render_section` and `render_from_template`
+both `armed=true`, and **no other live agent has a `render_component` step**.
+
+Re-measured the population immediately before applying — unchanged: **0 top-level refusals**, and
+the only 5 nested hits are the empty-string case the checker deliberately does not report. So
+arming refused nothing today and will fire on the next mistyped write. ⚠ **Which means a sustained
+zero in the watch query is the EXPECTED result and is not evidence the gate works.** What
+discriminates armed-and-quiet from not-armed is the roster read-back plus the binary probe — never
+the count. That sentence is in the migration header and in `STY-057` because it is the exact shape
+of a green-because-blind reading.
+
+### 260 → `bugs_closed/`
+
+Fixed AND live, so it moves. The close-out states what closed (the silent degradation) and what did
+not, in the file itself rather than in a handoff nobody will read: the 24 parked items still hold
+wrong-shaped content and are the **writer** half's; the dead links they left are `bugs_open/328`'s
+class; and **the absent-field sibling is untouched and UNOWNED** — `missingkey=zero` still renders a
+missing field as empty, covered at 2 of the 15 call sites, and it needs its own bug file.
+
+⚠ Moved with **both paths named on the commit** and verified at HEAD, not at the tree — `git mv`
+plus a pathspec commit otherwise ships a COPY, and `ls` cannot tell you, because the file is gone
+from disk either way:
+`git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 260` must return exactly one line.
