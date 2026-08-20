@@ -96,3 +96,37 @@ every number, link and name — and never checked whether it had introduced a *c
 Asking a machine to say what something *is*, rather than what it isn't, is exactly the pressure that
 produces "the definitive source" and "fully verified". Fixed: every rewrite now goes through the same
 banned-claims check the rest of the estate uses before it is allowed anywhere near a page.
+
+## 2026-08-20 late — the review said no, then yes, and the no was the useful half
+
+The internal review council looked at this four times today. It asked for changes twice, then
+**refused it outright**, then approved it. I want to record the refusal properly, because it was the
+most useful thing that happened to this work.
+
+Twice, reviewers said the same thing: the counting half of the check was switched on for the whole
+estate by default, on two pieces of machinery that nearly everything uses, and it had arrived inside a
+fix for one agent. Twice I answered by writing a document explaining why that was defensible — and
+shipped the code unchanged. The third time they stopped objecting and vetoed it, with a sentence I
+have written into our permanent notes: *"we wrote it down and routed it is not the same as it was
+contained."*
+
+They were right, and the mistake underneath was mine to make: I had taken a decision you made about
+one specific case months ago and read it as a general permission. It is not; it was your call about
+that case. So the counting is now switched on only where it is explicitly asked for — which today
+means the one writer this fix is about. It costs us something real, and I would rather say so than
+bury it: outside that writer, "the copy got better" and "nothing was checking" now look the same
+again. Whether it should be switched on everywhere is written up as a decision for you or the
+architecture track, and nothing is waiting on it.
+
+The approving round still found one thing worth having. My rule for accepting a rewritten sentence
+checked carefully that nothing had been **lost** — no dropped figures, no lost links, no mangled
+formatting. It never checked whether something had been **gained**. Asking a machine to say what
+something *is*, rather than what it isn't, is exactly the pressure that produces "the definitive
+source" and "fully verified", and the only thing standing in the way was a list of banned phrases that
+most of our sites have never filled in. That is closed now: a rewrite that reaches for a superlative
+the original did not use is refused.
+
+Where it stands tonight: the daily check on our site instructions is live and has found nine sites.
+The writing check goes live with the next platform build; the database change that switches it on is
+parked with two conditions written at the top of it. And the three pages you read still say what they
+said — for the reason I gave this morning, which has not changed.
