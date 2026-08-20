@@ -75,9 +75,19 @@ catch. **An open work item is not a live defect; the artefact is.**
   artefact nor reaches a worker, and `needs_rebuild` has no consumer, so the page serves the hole
   indefinitely while the DB reads correct.* A **convergence** defect, not an absent gate. Nothing
   else in `bugs_open/` carries it (`210` is the inverse: a stamp wrongly APPLIED).
-- **(3) `090` fired — `RUN_CORRELATION_ID=e9555fad-5b25-46bc-9908-f40db98e16a4`.** Verdict queries in
-  the RUNBOOK. **File the bug on the verdict, not before** — this lane was wrong twice in one day
-  asserting things about this same code path.
+- **(3) `090` verdict is IN: `UNVERIFIABLE` (stopped: scope-not-narrowing), corr
+  `e9555fad-5b25-46bc-9908-f40db98e16a4`** — and it killed two of the bullets above as they were
+  first written. **Read `NOTES_311_fix.md`'s 15:30Z entry before touching this.** In short:
+  "the gate fired and was right" was an **attribution with no evidence** (four writers leave an
+  identical `needs_rebuild` row and there is no attribution column; the loop found **zero**
+  `agent_error_log` rows for three shortfall pages), and "`needs_rebuild` has no consumer" is
+  **refuted** — `webdesign.co.uk`/`tool-ab-test-calculator` was rerendered, republished and serves
+  the new calculator while still flagged `needs_rebuild` with a `deployed_at` six days stale.
+  **The missing piece is ATTRIBUTION, not observation:** make the guards distinguishable in
+  `agent_error_log`, or catch one in the act. And the "does a refusal retract the published file"
+  half **cannot be answered from the Go code at all** — it needs `sites.deploy_config` /
+  `published_hash` / `published_at`. The status-column half was contributed to `bugs_open/315`
+  (same class, opposite direction) rather than filed as a new number.
 
 **Repairing the originating page is BLOCKED, not forgotten:** that site is locked,
 `locked_by = "portfolio_positioning: owner HALT 2026-08-18 pending classifier register-input (RFC) +

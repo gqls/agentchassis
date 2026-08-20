@@ -39732,3 +39732,33 @@ induce the empty-result case, which is the one nobody tries. (2) Capture `$?` in
 the very next line, before any other command — `local got=$?` — because `$(…)`, `[`, `echo` and
 `printf` all overwrite it. A test harness that cannot distinguish pass from fail will report a
 clean sweep, which is the most convincing wrong answer there is.
+
+## 2026-08-20 (second entry, same session) — I attributed a state row to ONE of its four possible writers, and declared a queue dead while a page it had "abandoned" was serving correctly
+
+Both claims went into `bugs_open/311` and a commit message; both were killed within the hour by a
+`090` run I fired precisely because I no longer trusted myself on that code path
+(`e9555fad-5b25-46bc-9908-f40db98e16a4`, verdict **UNVERIFIABLE**).
+
+**(1) "The deploy gate fired and was right."** `remortgagecalculator.uk`/`index` plans 6 sections,
+holds 5, and reads `build_status='needs_rebuild'` with a cleared plan stamp. I concluded the
+shortfall arm of `UpdatePageStatusAction` had refused the deploy. **But at least four writers leave
+that exact row** — `refuseDeployStampOnSkip`, the shortfall arm, `check_unresolved_sections`,
+`flagPagesForRebuild` — **and there is no attribution column.** The loop went looking for
+`agent_error_log` rows to discriminate three such pages and found **zero**. The check I skipped:
+before attributing a state to a mechanism, **enumerate everything that writes that state** and ask
+what row each one leaves. If they are indistinguishable, the state is evidence that *something*
+happened, never that *your* mechanism did.
+
+**(2) "`needs_rebuild` has no consumer."** Refuted by a case that was **in my own query output six
+hours earlier**: `webdesign.co.uk`/`tool-ab-test-calculator` sat at `needs_rebuild` while its
+`page_rerender` item read `complete` and the served page carried the newly built calculator — the
+page had been reprocessed and republished, and only the flag was stale. I had looked at that row at
+09:05Z while grading something else and read past the contradiction because I was checking a
+different column. **A status you are about to call "dead" should be checked against the artefact of
+a page carrying it, not against the absence of a scheduled task.**
+
+**The transferable pair:** a state row with N writers and no attribution column cannot confirm which
+one fired; and "nothing consumes X" is refuted by one counter-example, which is usually cheaper to
+look for than the proof. **Also worth recording as a positive:** the UNVERIFIABLE verdict was more
+useful than a CONFIRMED — it cost one dispatch and killed two claims, one already committed. A
+diagnosis run that stops and says "hand this to a human" is the run working.
