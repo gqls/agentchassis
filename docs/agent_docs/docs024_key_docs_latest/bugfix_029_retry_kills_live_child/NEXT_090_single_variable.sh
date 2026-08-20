@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
-# bugs_open/029 — the ONE-VARIABLE re-file. See HANDOFF_2026-08-19b, "the next re-file".
+# bugs_open/343 — the ONE-VARIABLE re-file. See HANDOFF_2026-08-19b, "the next re-file".
+#
+# RETARGETED 2026-08-20: this was written for bugs_open/029, which the owner split. 029 is CLOSED
+# (inverted retry window only); the freeze this script investigates is now bugs_open/343. The symptom
+# text and seed scope are unchanged and still correct — only the bug number moved.
+#
+# ⚠ STILL NOT THE RIGHT NEXT ACTION. The standing instruction is wait-for-the-burst: the 08-17 cohort
+# is explained as an external GitHub outage, the evidence is preserved so nothing expires, and the
+# capture cron (RSH-011) takes the next occurrence automatically. Fire this only if 343 recurs
+# OUTSIDE an outage window.
 #
 # Baseline is run d02a6958 (3 iterations, real Tier-1 citations, the lane's best result).
 #

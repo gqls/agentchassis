@@ -1,5 +1,26 @@
 # HANDOFF — 2026-08-19b — `bugs_open/029`, continue here
 
+> ## ➡️ REDIRECT, 2026-08-20 — `bugs_open/029` NO LONGER EXISTS. THE LIVE BUG IS **343**
+>
+> The owner ruled to split it, and the split is done and verified at HEAD (commit `75b77f751`):
+>
+> - **The live bug — the silent freeze — is `bugs_open/343_HANDOFF_2026-08-20_parent_freezes_silently_after_an_abandoned_await.md`.** Everything still open is there.
+> - **029 is CLOSED**, for the **inverted retry window only**, at
+>   `bugs_closed/029_HANDOFF_2026-07-19_hung_spawns_saturate_dispatch_group_and_halt_builds_fleetwide.md`.
+>   ⚠ Closing 029 does **NOT** assert the freeze was fixed. *Do not read a fixed Part A as a fixed hang.*
+> - ⚠ **`git ls-tree HEAD -- bugs_closed/ | grep 029` correctly returns TWO lines** — the unrelated
+>   `tool_suggester` case shares the number. `bugs_open` has no 029 at all. Resolve 029 by **slug**.
+>
+> **This file is kept as the lane's working record and is still the best account of HOW the findings
+> were reached** — the measurements, the controls, and the blind checks that nearly reversed three of
+> them. But for *what is open*, read 343. Every `bugs_open/029` reference below this banner is
+> **historical and correct as of its date**; none has been rewritten, deliberately.
+>
+> Only one thing survives outside the split and it is **not** in 343: the **`workflow%` bundle-include
+> widening** — one line, blast radius measured (cap 120, ~94 in use, adds 2), the 301 lane told and
+> that lane closed. It needs a ship-or-drop decision. Held by this session, surfaced to the owner.
+
+
 Supersedes `HANDOFF_2026-08-19_continue_here.md` (still accurate on Part A, RSH-011 and the
 baseline trap — read it for those). Then `NOTES_retry_kills_live_child.md` §9 and §10.
 `README_where_we_are.md` is the owner's plain-prose log — append, never rewrite.
