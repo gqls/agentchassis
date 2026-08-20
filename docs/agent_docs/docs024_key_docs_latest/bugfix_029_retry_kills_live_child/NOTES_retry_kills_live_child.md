@@ -2384,3 +2384,40 @@ in one goroutine.
 > **Method note, and it is the third time today.** I raised this, then wrote the query that could
 > kill it, and it did. The control is what makes it a refutation rather than an absence: 98 rows
 > resolving to 17 pods could have come out as 34, and did not.
+
+### 21. The within-day control, run: NOTHING in the retained columns separates the 20 from the 10 — plus one real fact about what "error" means here
+
+§19e proposed the 20-that-advanced vs the 10-that-did-not as a control needing no
+`orchestration_states`. Run `[MEASURED 2026-08-20]`. **Reporting it as the negative it is.**
+
+| candidate discriminator | WEDGED (20) | STOPPED (10) | verdict |
+|---|---|---|---|
+| iteration number N | avg 1.0, max 3 | avg 1.6, max 4 | overlapping, no separation |
+| `processing_pod` | 1 per orchestration | 1 per orchestration | architecture, not a signal (§20) |
+| error duration | 300 s | 300 s | identical |
+| timeout budget | 300 s | 300 s | identical |
+| rows per orchestration | avg 5.8 | avg 5.2 | overlapping |
+| `target_agent_type` | `page-rerender` ×20 | `page-rerender` ×9, `rerender-pages` ×1 | **one outlier, not a discriminator** |
+| `error_was_on_last_iter` | 0/20 | 10/10 | **⚠ CIRCULAR — see below** |
+
+**⚠ The one clean-looking split is an artefact of the grouping, and I nearly recorded it.**
+`error_was_on_last_iter` reads as a perfect 10/10 vs 0/20 separation. It is a **restatement of the
+definition**: "wedged" *means* an iteration-N+1 `spawn_handler` exists, which forces `max_iter > N`;
+"stopped" means none does, which forces `N = max_iter`. A grouping variable re-expressed cannot
+discriminate, and it will look like the strongest result in any table you put it in. Fourth
+self-caught blind check this session — the tell each time is that the number is *too* clean.
+
+**So: the two failure modes are indistinguishable in `awaited_requests`.** Whatever decides between
+"advance to the next spawn then freeze" and "never advance at all" is not recorded in the retained
+columns, and the table that would hold it (`orchestration_states`) is purged. **This closes §19e's
+proposal as a route** — do not spend another session on it expecting a different answer; the control
+was worth running and the answer is no.
+
+**One genuinely new fact fell out, and it sharpens the entry condition.** All 30 errored
+`call_handler`s ran **299.9996 s – 300.48 s** — every one at the 300-second budget, within half a
+second. **The entry condition is a TIMEOUT EXHAUSTION, not an application error.** The child never
+answered; the parent gave up. That is a different thing from "the step failed", and every candidate
+should be read against it: the question is what a *timed-out, thrice-retried, abandoned* await does
+to the loop, not what an error return does.
+
+**What remains, unchanged:** the burst (RSH-011 armed), and the 08-17 rows until ~08-24.
