@@ -320,3 +320,38 @@ the copy is written, where a repair is automatic and costs no human; the post-de
 higher bar, because every finding there costs a person. ⚠ This landed AFTER the round-3 submission, so
 round 3 is reviewing the pre-density version — if the same objection returns, the answer is "measured,
 fixed and committed at `7639dacf4`".
+
+### ⚠ MISSTEP 5 — I answered a scope objection with a document, twice, and the council vetoed it
+
+Round 3: **REJECTED**, guardian veto. The reasoning is the correction:
+
+> *"the code under review for edit 4 has not changed since round 2's HIGH objection — only the
+> paperwork around it has … Routing a scope objection to architecture review does not license
+> deploying the disputed change … 'we wrote it down and routed it' is not the same as 'it was
+> contained.'"*
+
+**What I got wrong, precisely.** I read the owner ruling of 2026-07-28 — *"the code stays and the
+precedent gets fixed … record it where the change lives, route the seam to architecture review"* — as
+a standing rule a session may invoke. It is not. It is an **owner's decision about one case**
+(`bugs_closed/124`), and reading a one-off ruling as a general licence is how a precedent becomes
+folklore. Two seats flagged the same thing at HIGH for two consecutive rounds and I answered with an
+RFC file both times.
+
+**The cheap check, and it is a question not a procedure: after an objection, has the CODE changed, or
+only the writing about it?** If a reviewer could re-read the diff and see nothing different, nothing
+has been answered — however good the note is. Logged in `WRONG_CALLS.md`.
+
+**What containment cost, so nobody has to rediscover it:** the counting is now opt-in per step,
+default OFF, on `page-content-writer` alone. Outside that agent *"the copy improved"* and *"the check
+was not wired here"* are the same number again. `RFC_044` carries the question of whether it should go
+back, and it is no longer urgent — which is the version of this argument a human should settle.
+
+### The reuse follow-up this lane owes (round 3, reuse_agent, medium)
+
+The truncation three-state (`known-at-ceiling / known-below / UNKNOWN`) is written inline in
+`rewrite_negations_action.go`. The seat is right that `output_tokens >= max_tokens` is a named
+fleet-wide trap and that this wants to be a shared helper — something like
+`aiservice.TruncationState(outTok, maxTok)`. **Deliberately not done in round 4**, because extracting
+it means touching other actions' truncation handling inside a round whose whole purpose was to CONTAIN
+scope. It is the next reuse step, and whoever takes it should audit the other call sites of that
+predicate at the same time rather than moving one.
