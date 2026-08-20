@@ -283,3 +283,31 @@ right shape, sound components are being waved through, and each genuine fix file
 that carries it to visitors. One first: a fix just went out to an owner-managed page through the
 new hand-off we built for exactly that case — the one link in the chain we had never seen run
 for real. If that page re-renders and deploys cleanly, the last unverified box gets ticked.
+
+**2026-08-20.** A very full day, and the pipeline earned its keep three times over. First, the
+repair batch from last night finished: of sixty-seven jobs, twenty-eight components were
+genuinely repaired, thirty-five were checked and waved through as already sound, and four were
+refused by the safety gate and parked for a person to look at — which is exactly the shape we
+designed for. Every repaired page we checked, we checked at the actual bytes being served, not
+at the job status; one live page was fetched from the internet and read by hand. The one loose
+end from that batch: three pages on the AI-consultancy sites still carry the broken
+savings-estimator, because its scripts pass names around in a way no machine rewrite could
+prove safe. Those three wait on your decision — roll the component back to its pre-conversion
+snapshot, or let a person fix its script. Nothing else is serving broken tools.
+
+Then the canary. The first loan calculator went through the full careful pipeline: the language
+model rewrote its script, the gate checked the rewrite eighteen ways, the section editor
+re-rendered and republished the owner-managed page, and the arithmetic referee — 170 checks,
+run before and after, with a deliberate-sabotage control both times — came back all green both
+sides. The calculator behaves identically to the penny; only its internal plumbing changed. On
+the strength of that, the remaining twenty-two calculators were queued through the same pipeline
+this evening and are converting as I write.
+
+Two things went wrong today, neither ours and both instructive. Another team armed a new
+feature this morning that accidentally broke every page-publishing job on the fleet for
+half an hour — they caught it, rolled it back, fixed it properly and re-armed it by mid
+afternoon; our canary's publish was collateral and simply retried. And when they revived the
+jobs their outage had killed, one of ours came back looking queued but was actually
+unrunnable for ever — a subtle bookkeeping trap (the retry counter was spent) that we
+diagnosed, fixed in one line, and wrote into the shared trap register so nobody hits it again.
+The queue picked our job up within a minute of the fix.
