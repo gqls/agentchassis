@@ -1,9 +1,20 @@
 # HANDOFF — `bugs_open/336` (config key on the wrong action spec) and the 494 re-arm. START HERE. Written 2026-08-20 14:40Z.
 
-**One-line state: the fix is committed, council-submitted, LIVE on `v1.0.1319`, and 494 is re-armed with
-zero validation failures. Exactly ONE thing is unfinished, and it is a waiting game, not work.**
+**One-line state: DONE and CLOSED. Fixed, council-submitted, live on `v1.0.1319`, 494 re-armed, and
+demand-proven — a real page was stamped through the armed path at 14:38:21Z. Nothing here needs picking
+up; what remains are two class-level improvements listed under "loose ends", neither of which is
+reproducible damage.**
 
-Full case file: `bugs_open/336_HANDOFF_2026-08-20_deploy_result_field_is_declared_on_the_wrong_actions_spec_so_arming_it_hard_fails_every_workflow_that_stamps_a_page.md`
+> **UPDATE 2026-08-20 14:40Z — the one open item CLOSED, 11 minutes after this file was written.**
+> `news-index` on dartsonline.com (organic traffic, nobody fired it) stamped
+> `pages.content_hash = 438c058a2582e382…` at length **64** at **14:38:21Z**, from a `deploy_result`
+> carrying `{"success": true, "metadata": {"files": ["news/index.html", …]}}`; **0** `agent_error_log`
+> rows of any code since the arming and **0** `unrecognised config keys`. The bug file has moved to
+> `bugs_closed/336_HANDOFF_2026-08-20_deploy_result_field_is_declared_on_the_wrong_actions_spec_so_arming_it_hard_fails_every_workflow_that_stamps_a_page.md`,
+> whose foot carries the full evidence. **The three-way branch below is retained on purpose** — it is the
+> right instrument if the seam ever needs re-checking, and the "hash appears" arm is the one that fired.
+
+Full case file: `bugs_closed/336_HANDOFF_2026-08-20_deploy_result_field_is_declared_on_the_wrong_actions_spec_so_arming_it_hard_fails_every_workflow_that_stamps_a_page.md`
 
 ## What happened, in four sentences
 
@@ -27,7 +38,7 @@ The fleet rolled at 10:18Z and someone re-armed 494 at 14:27:34Z.
 | 494 | re-armed 14:27:34Z (by another session; my run refused with `already applied`) |
 | post-arm | **0** items carrying `unrecognised config keys` since 07:22:40Z; **122** rerenders completed between the roll and the arming |
 
-## THE ONE OPEN ITEM — and why its zeros mean nothing yet
+## ~~THE ONE OPEN ITEM~~ — CLOSED 14:38Z (kept because the reasoning about zeros is the reusable part)
 
 `pages.content_hash` is non-null on **0** rows and `agent_error_log` has **0**
 `DEPLOY_EVIDENCE_UNREADABLE` rows since the arming. **Neither is evidence.** `page_rerender` queued
