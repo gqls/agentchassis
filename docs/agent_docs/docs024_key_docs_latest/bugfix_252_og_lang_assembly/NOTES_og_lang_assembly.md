@@ -231,3 +231,55 @@ already at HEAD by the time I named them on my own commit — swept in by anothe
 (`0c33ff690`) between my write and my commit. Nothing lost, forward-only holds, and it is the
 same-file passenger trap firing the way round that costs nothing. Worth noting only because the
 inverse — my commit taking THEIR half-finished edit — is the same mechanism.
+
+## 2026-08-20 (f) — council APPROVED round 1, and the deployed build does NOT carry the fix
+
+**Council corr `3b6712d4-4565-4bfe-87f6-c47ecefd6a93`: APPROVED, 5 advisory objections, none
+high-severity, round 1.** 12 seats reviewed, 6 abstained. Four seats asked for **checks rather than
+changes**; all were run.
+
+| seat | asked | answer |
+|---|---|---|
+| `guardian`, `prior_art_librarian` | "only one consumer of the stored head" is asserted, not checked — enumerate readers of `site_components.rendered_html` before deleting from it fleet-wide | **Claim HOLDS, now checked.** The one candidate a loose grep surfaced, `save_sections_component_floor.go:169`, reads **`page_components`**, not `site_components` — my grep matched on `slot_name`+`rendered_html`, which both tables have. Every other hit is `fix_component_template_action.go` (maintenance), a comment, or `page_components`. |
+| `guardian` | the archive-write side effect of changing those bytes | **Real, and benign.** `trg_site_component_archive` fires `AFTER UPDATE OF rendered_html … WHEN (new IS DISTINCT FROM old)` — verified in `pg_trigger`. One history row per site on the next chrome render (24), and it PRESERVES the pre-change head. That is bugs_open/226's archive doing its job. |
+| `guidelines` | does removing the two og template lines leave a dangling `required:true`? | **No — and the reason is a finding.** `head-seo-standard` declares **no `og_title`/`og_description`/`og_image`/`site_name` fields at all**. Live list: `accent_color, background_color, canonical_url, description, font_url, gtm_container_id, primary_color, secondary_color, structured_data, text_color, theme_css, title`. So `{{if .og_title}}…{{else}}{{.title}}{{end}}` has ALWAYS taken the else branch, and `{{.title}}` is empty at a site-level render — **that is the direct cause of the blank og:title on 4 sites**, and I had inferred it rather than proven it until now. `canonical_url` is declared but nothing sets it. Three dead branches; 507 removes the two that emit a blank. |
+| `debug_historian` | "the binary is proven running" is named as the HOLD release criterion but the mechanism is unspecified, and a tag or git state proves nothing | **Agreed and specified.** Pod-grep for `spliceOpenGraph` with both controls, on every replica. Written into 507's header. Result below. |
+
+Two objections I am **not** closing, both fair and both recorded rather than argued away:
+- `bug_historian`: the untouched wholesale idempotency guard means **any future per-page tag added to
+  `injectBrandHeadTags` reproduces bug 252's exact shape** — og:url was the symptom, that guard is the
+  mechanism. It is `bugs_open/322` item 4; the seat's framing is better than that file's and has been
+  carried into `FINDINGS_2026-08-20_errors_caught.md` §C2.
+- `architecture`: this is the **fourth** fix to land on one head producer only, and a fifth should not
+  be routine. A binding escalation threshold is now in SEO-005: **a fifth instance raises an RFC
+  rather than taking a fifth patch.**
+
+### The deploy check — and it says no
+
+A fresh chassis build was deployed today. **It does not carry this fix**, and the tag would have told
+me the opposite:
+
+```
+pods: agent-chassis-86b95b967b-{2fqm5,jwdb5}  image v1.0.1319  started 2026-08-20T10:18Z
+my Go commit 4abcd55a4: 2026-08-20T14:03:00Z    <- ~4 hours AFTER the build was cut
+```
+
+Timestamps are an argument, not evidence, so I probed the binary (2026-08-20 14:35Z), all three arms:
+
+| symbol | expected | result |
+|---|---|---|
+| `spliceOpenGraph` | present iff my fix shipped | **absent** |
+| `injectCanonicalLink` | must be PRESENT (positive control) | PRESENT |
+| `zzQuiteImpossibleSymbol42` | must be absent (negative control) | absent |
+
+The positive control is the load-bearing arm: it proves the probe can find a symbol in this binary, so
+"absent" means absent rather than "the probe is blind". **Both migrations therefore stay HELD, and no
+canary is possible yet** — applying them now is precisely the trap 507's header describes, and it
+would leave the fleet re-stamped and still wrong.
+
+⚠ **Also, the recommended provenance command fired the documented landmine on me.**
+`kubectl logs -l app=agent-chassis --tail=N | grep 'build provenance'` returned **2.4MB of another
+lane's landmine corpus** — the chassis logs whole council/diagnosis payloads, and those payloads quote
+the phrase. The symbol probe has no such failure mode. Recorded in
+`FINDINGS_2026-08-20_errors_caught.md` §B2 as a fix to the recipe in CLAUDE.md, not just a trap to
+know about.

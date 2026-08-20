@@ -68,6 +68,45 @@
 -- component a real <head> wrapper is a separate change on a hand-authored head
 -- and is not smuggled in here.
 --
+-- COUNCIL ROUND 1 (corr 3b6712d4, APPROVED with advisories) — the checks its seats
+-- asked for, RUN, with their answers:
+--   · `guidelines` asked whether removing the two og template lines leaves a DANGLING
+--     `required:true` on og_title/og_description. It does NOT — and the reason is worth
+--     knowing: **neither key is declared in input_schema at all.** The live field list is
+--     accent_color, background_color, canonical_url, description, font_url,
+--     gtm_container_id, primary_color, secondary_color, structured_data, text_color,
+--     theme_css, title. So `{{if .og_title}}…{{else}}{{.title}}{{end}}` has ALWAYS taken
+--     the else branch, and `{{.title}}` is empty at a site-level render — which is exactly
+--     why these two lines emit content="". Same for `{{if .og_image}}`: undeclared, so it
+--     has never rendered, and this component's og:image comes only from
+--     injectBrandHeadTags. `canonical_url` IS declared (`skip_field`) but nothing anywhere
+--     sets it, so that branch has never fired either. Three dead template branches; this
+--     file removes the two that were actively emitting a blank, and deliberately leaves
+--     the inert ones alone.
+--   · `debug_historian` objected that "the binary is proven running" was named as the HOLD
+--     release criterion without specifying the mechanism, and that an image tag or git state
+--     proves nothing. Correct, and the mechanism is a POD-GREP for a symbol this change adds,
+--     with BOTH controls, on EVERY replica:
+--       kubectl -n ai-persona-system exec <pod> -- grep -aq "spliceOpenGraph" /proc/1/exe
+--       # positive control (must be PRESENT): injectCanonicalLink
+--       # negative control (must be ABSENT):  a fabricated symbol
+--     Run 2026-08-20 14:35Z against v1.0.1319: spliceOpenGraph **absent**, positive control
+--     PRESENT, negative control absent. **So v1.0.1319 does NOT carry the fix and this file
+--     MUST NOT be applied against it.** That build was cut at 10:18Z, ~4h before the Go
+--     commit — a fresh roll is not evidence, which is the standing landmine.
+--   · `debug_historian` also asked for a pre-migration backup independent of the guards. The
+--     md5 guards abort on drift and the ROLLBACK restores byte-exactly, but take one anyway:
+--       \copy (SELECT id, name, md5(html_template), html_template, input_schema
+--              FROM content_components WHERE id IN
+--              ('116c5f91-bc0d-439d-9e13-a3ba2d145571','aec98dbe-76b7-4e13-9641-e5b6ba2502aa'))
+--         TO 'head_components_pre_507.tsv'
+--   · `guardian` flagged the archive side effect: `trg_site_component_archive` fires
+--     AFTER UPDATE OF rendered_html on site_components when the value actually changes
+--     (verified via pg_trigger). So the next chrome render per site writes one history row.
+--     That is the bugs_open/226 archive doing its job — 24 rows, and it PRESERVES the
+--     pre-change head rather than costing anything. Named here so it is not rediscovered
+--     as a surprise.
+--
 -- Apply: kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Then record: ./scripts/migration/run-migrations.sh --record-only <file> --note "..."
