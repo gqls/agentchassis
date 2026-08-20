@@ -63,6 +63,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/gqls/agentchassis/platform/storage"
 )
 
 // LiveLinkWindow is how long we keep serving a delivered site, and therefore how
@@ -71,13 +73,14 @@ import (
 // two systems agreeing on "six weeks" is two places to get it wrong.
 const LiveLinkWindow = 6 * 7 * 24 * time.Hour
 
-// MaxPresignWindow is the hard ceiling on a presigned object URL: the SigV4
-// signing protocol's 604,800 seconds. It is here as a named constant because the
-// SDK does not enforce it and the object store's refusal is indistinguishable
-// from a credentials fault — see the package comment for the measurement. Any
-// code minting a presign for a customer must clamp to this, and must NOT read
-// LiveLinkWindow for that purpose.
-const MaxPresignWindow = 7 * 24 * time.Hour
+// MaxPresignWindow is the SigV4 ceiling, expressed as a Duration for this
+// package's convenience. It is DERIVED from platform/storage's constant and is
+// deliberately not a second definition: a council round (DGH-014 round 2) caught
+// the first version of this file owning its own copy, which would have diverged
+// from the shared helper the day an object store raised its cap. The enforcement
+// lives in storage.GetPresignedURL, so every presign caller in the estate gets it
+// — not just this package.
+const MaxPresignWindow = time.Duration(storage.MaxPresignExpiryMinutes) * time.Minute
 
 // Token purposes. This is a CLOSED vocabulary, enforced by a CHECK constraint in
 // migration 511: adding one costs a migration, which is the point — a fourth
@@ -268,8 +271,6 @@ func ConfirmTransfer(ctx context.Context, db *sql.DB, plaintext string, now time
 // weeks) and get back something a presign can be minted with; the difference is
 // exactly why the customer holds our token instead of the presigned URL.
 func PresignWindowFor(requested time.Duration) time.Duration {
-	if requested <= 0 || requested > MaxPresignWindow {
-		return MaxPresignWindow
-	}
-	return requested
+	mins := int(requested / time.Minute)
+	return time.Duration(storage.ClampPresignExpiryMinutes(mins)) * time.Minute
 }

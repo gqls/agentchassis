@@ -54,7 +54,15 @@ func TestPresignWindowForClampsAtTheSigV4Ceiling(t *testing.T) {
 		{"six weeks clamps down", LiveLinkWindow, MaxPresignWindow},
 		{"the ceiling itself survives", MaxPresignWindow, MaxPresignWindow},
 		{"one second past the ceiling clamps", MaxPresignWindow + time.Second, MaxPresignWindow},
-		{"one second inside survives", MaxPresignWindow - time.Second, MaxPresignWindow - time.Second},
+		{"one minute inside survives", MaxPresignWindow - time.Minute, MaxPresignWindow - time.Minute},
+		// Sub-minute precision is NOT expressible: the storage API is
+		// GetPresignedURL(ctx, key, expiryMinutes int), so a duration is truncated
+		// to whole minutes. This case previously asserted that a second inside the
+		// ceiling survived to the second, which was asserting precision the system
+		// has never had — the test was wrong, not the clamp. Truncation is also the
+		// SAFE direction: it can only move a window further below the ceiling.
+		{"sub-minute precision truncates DOWN, never up", MaxPresignWindow - time.Second, MaxPresignWindow - time.Minute},
+		{"a few seconds truncates to zero and therefore clamps to the ceiling", 5 * time.Second, MaxPresignWindow},
 		{"an hour survives", time.Hour, time.Hour},
 		{"zero and negative fall back to the ceiling", 0, MaxPresignWindow},
 		{"negative", -time.Hour, MaxPresignWindow},

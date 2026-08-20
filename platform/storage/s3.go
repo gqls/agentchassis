@@ -201,7 +201,9 @@ func (c *S3Client) GetPresignedURL(ctx context.Context, key string, expiryMinute
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
 	}, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Duration(expiryMinutes) * time.Minute
+		// Clamped: over the SigV4 ceiling the SDK signs happily and the store
+		// refuses at click time as SignatureDoesNotMatch. See presign_expiry.go.
+		opts.Expires = time.Duration(ClampPresignExpiryMinutes(expiryMinutes)) * time.Minute
 	})
 
 	if err != nil {
@@ -222,7 +224,9 @@ func (c *S3Client) GetPresignedPutURL(ctx context.Context, key string, expiryMin
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
 	}, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Duration(expiryMinutes) * time.Minute
+		// Clamped: over the SigV4 ceiling the SDK signs happily and the store
+		// refuses at click time as SignatureDoesNotMatch. See presign_expiry.go.
+		opts.Expires = time.Duration(ClampPresignExpiryMinutes(expiryMinutes)) * time.Minute
 	})
 
 	if err != nil {
