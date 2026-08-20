@@ -171,3 +171,48 @@ now, so rather than fire a build into the middle of their work I have told them,
 folder, that the wall is down, what to assert, and the fingerprints to compare against. When
 their run passes, this bug is done. If you would rather not wait on them, say so and I will
 run it myself once their site goes quiet.
+
+## 2026-08-20, morning — the tool half's real run came back clean, and loanzy's five broken calculators are being repaired
+
+Two things closed overnight and this morning.
+
+First, the webdesign lane ran the test I handed them, and it passed. Their A/B-test calculator was
+rebuilt natively instead of dying on the wall this bug was about; the new component correctly
+records that it was forked from the shared library copy, and the library copy itself is
+byte-for-byte what it was before. This morning I finished the one piece they had left hanging —
+grading the actual live page. It serves five working inputs and no stray template code. I also
+checked *which* of the three components that page has carried is the one actually being served,
+because two of them look similar in the markup: only the new forked one contains the ids the live
+page has. So it is provably the new component, not the old one still hanging around.
+
+Second, both halves of the fix are still live on the newest build. The fleet rolled again at 22:26
+last night to v1.0.1317, which means every "it is live on v1.0.1316" statement in my notes was
+about an image that no longer exists. I re-proved it on the running binary rather than assuming it
+carried forward — and this time with a control that shows the check can actually come out
+negative, which the earlier ones did not.
+
+Then, on your instruction, I repaired loanzy's five broken calculator pages. All five went through
+cleanly on the first attempt, and all five did the thing the fix exists to do: instead of trying to
+overwrite the other site's calculator, each one created its own copy under its own name. The other
+site's eight calculators are untouched, byte for byte — including one of them that a completely
+different piece of the system had quietly rewritten at 7am this morning, which I only noticed
+because I re-took the fingerprints just before starting instead of trusting yesterday's. Page
+rebuilds for all five are queued now; they take about ten minutes each and run one at a time.
+
+Three things I found while measuring that change what is actually left on that site. The list I had
+been carrying said "six hollow pages", and it was wrong in three ways: one of the six only needs a
+page rebuild and no new component at all (so re-driving it would have been wasted money); a page I
+had not counted, the eligibility checker, is a second victim of a completely different problem; and
+two more pages have never planned a calculator section in the first place, so nothing in this fix
+will ever help them. The different problem is worth a line: two pages both want the same
+credit-health-check calculator, and the AI writing it produces about 48,000 characters when the
+step is only allowed 16,000, so it is cut off and the whole thing fails. That is a limit to be
+raised or a prompt to be shortened, not a bug in the store, and I have left both pages alone.
+
+The last piece of this bug that is genuinely unfinished is the one you originally saw: a page whose
+calculator never resolved still gets built and published, with a placeholder where the calculator
+should be. I read the code for that this morning rather than take the earlier note's word for it,
+and it is real — the builder inserts a stub and carries on, and the only trace is one warning line
+in a log. Twelve pages across six sites are live in that state today. Detection for it exists and
+even flags the page for rebuild; the flag just has nothing listening to it. That deserves its own
+bug file rather than living on inside this one, and that is what I am writing next.

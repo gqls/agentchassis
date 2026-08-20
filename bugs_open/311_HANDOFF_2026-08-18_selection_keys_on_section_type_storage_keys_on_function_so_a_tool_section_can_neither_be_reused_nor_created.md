@@ -18,17 +18,71 @@ corrected in the lane NOTES). The TOOL-level writer (`create_tool_component`, RF
 commit `e24bc9c0f`, council `ceae30f2` APPROVED) is therefore LIVE but has **ZERO real
 exercises**: its demand test is the `webdesign_tool_rebuilds` lane's Phase D
 (`tool-ab-test-calculator`, library row `8c9a6e06` md5s pinned in the 311 NOTES) — told
-them 2026-08-19 20:40Z. **Stays OPEN** until that tool-level exercise passes (the owner's
+them 2026-08-19 20:40Z. ~~**Stays OPEN** until that tool-level exercise passes (the owner's
 precondition pair is one logical change); plus: a parked page does NOT heal by itself
 (`needs_rebuild` has no consumer) — each needs a `needs_page` re-render filed; loanzy's other
-six tool pages are still hollow (RUNBOOK recipe).
+six tool pages are still hollow (RUNBOOK recipe).~~
+
+> ### ✅ 2026-08-20 — THE PRECONDITION PAIR IS DEMAND-PROVEN ON BOTH HALVES, AND THE SECTION HALF NOW HAS SIX CLEAN DIVERSIONS, NOT ONE
+>
+> **1. Live on the CURRENT image, re-verified rather than carried forward.** The fleet rolled
+> again overnight to **v1.0.1317** (pods `agent-chassis-c7d6d875b-*`, 2026-08-19 22:26Z), so every
+> version claim above is about a retired image. Probed at the binary 08:12Z: stamp
+> **`2d13d530d`** PRESENT while two other candidate shas from the same build window
+> (`5022305cf`, `d4950c53c`) are **ABSENT** — so the probe discriminates; `merge-base
+> --is-ancestor` TRUE for both `17d883333` and `e24bc9c0f`; capability literals
+> `COMPONENT_COLLISION_DIVERTED` and `library tool claims this function` present on **both**
+> replicas; an invented literal absent.
+>
+> **2. The tool half's last open assertion is answered — at the served page.** The
+> `webdesign_tool_rebuilds` lane's demand test (contrib below, 2026-08-19 21:05Z) proved
+> `forked_from` and an untouched library row; what was left was the page. It drained (`ad2a2dc4`
+> complete 21:36Z) and grades [MEASURED 08:15Z]: `webdesign.co.uk/tools/ab-test-calculator/` → 200,
+> 16,172 bytes, **5 `<input>`**, zero `{{`. **Discriminated:** the served ids (`a-visitors`,
+> `b-visitors`) appear in the forked row `8a315006`'s `rendered_html` and in **neither** removed
+> slot — `id="verdict"` alone would not have told them apart, since the ported original has it too.
+>
+> **3. The section half, five more real collisions, on the owner's instruction.** All five
+> remaining loanzy collision-class sections re-driven 08:18–08:30Z, **all five complete on attempt
+> 0, all five DIVERTED**: `loans-interest-rate-stress-test` → `…-loanzy-uk` (from `2cf33f06`) ·
+> `loans-compare-loans` (from `9cbfe279`) · `loans-standard-calc` (from `b420389f`) ·
+> `loans-overpayment-calculator` (from `b7a499f4`) · `loans-settlement-calculator` (from
+> `70b72b3e`). Each new row is base / active / `section_type` = the request vocabulary /
+> 12,129–17,149 chars / contains `</section>` (so `sectionTemplateValid` will not guard-drop it,
+> unlike every incumbent). Six `COMPONENT_COLLISION_DIVERTED` findings now exist, one per
+> diversion. **All five incumbents byte-identical** to md5s re-pinned minutes beforehand —
+> including `b420389f`, which a different mechanism (`change_source =
+> 'scope_component_instance_judged'`) had rewritten at **07:02:57Z the same morning**; the
+> diversion left even that row alone. Page re-renders filed 09:06Z (`page_rerender:*`, the second
+> leg — a parked page still does not heal itself).
+>
+> **What is left, and it is not this defect:** two loanzy pages
+> (`tool-credit-health-check`, `tool-eligibility-checker`) plan the same section and die UPSTREAM
+> in `generate_template` with `output_tokens=16000 reached the configured cap` (48,553 / 47,436
+> chars recovered) — a cap decision, filed separately; `tool-loan-vs-savings` needs only a
+> re-render (its component was a clean plain creation); `tool-compare-loans` and
+> `tool-is-a-loan-right-for-me` have zero `page_components` rows and never planned a section at all.
+> The lane's old "six hollow pages" line was three ways wrong — corrected in the RUNBOOK.
 Diagnosed
 2026-08-18, `090` verdict **CONFIRMED on the first iteration** (run correlation
 `8aa2e283-129f-41d1-93a0-6dcacbbabeae`, intake `5f0798b3-b16c-4c98-903f-c2ef42ec1b8d`);
 mechanism refined 2026-08-19 (see the fix-lane contribution below). Three sites are
 affected today and the fleet buildout multiplies it. Residuals staying open even after the
-roll: candidate 3 (deploy gate), the tool-level writer (RFC_036), and the three tool-shaped
-incumbent rows themselves.
+roll: candidate 3 (deploy gate), ~~the tool-level writer (RFC_036),~~ and the three tool-shaped
+incumbent rows themselves. **Candidate 3 verified first-hand 2026-08-20 and it is a defect in its
+own right, not a wish:** `loadSectionComponents`
+(`platform/orchestration/actions/v3_site_actions.go:4936-4954`) appends a **stub** for every
+section name that resolved to nothing and the build proceeds, behind a single
+`logger.Warn("loadSectionComponents: stubs for unresolved sections")`. Readers of the
+`needs_section_data` item DO exist (`reconcile_section_data_action.go` re-attempts,
+`revalidate_review_queue_action.go` revalidates, `loadOpenSectionDataRequests` reads it to avoid
+repeat LLM spend) — **none gates a deploy**, so the accurate claim is "detection and repair exist;
+refusal does not". Census [MEASURED 2026-08-20 08:24Z]: **47 open `needs_section_data` items
+fleet-wide and 12 pages `build_status='deployed'` while carrying one** (robot-hands.com 4,
+leopardessconsulting.co.uk 3, ai-agent-orchestration.com 2, finetuning.uk / gaswholesalers.com /
+loanandmortgagecalculator.co.uk 1 each). `discovery_checks/check_unresolved_sections.go` detects
+the recovered case and flips the page to `needs_rebuild` — a status with **no consumer**, which is
+why detection has never become repair.
 
 **Symptom the owner saw:** *"remortgagecalculator.uk left out the actual tools."*
 A site whose entire proposition is a calculator shipped with no calculator, and
