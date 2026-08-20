@@ -1,4 +1,4 @@
--- 502_head_components_carry_lang_HOLD.sql
+-- 507_head_components_carry_lang_HOLD.sql
 -- bugs_open/252 (og/lang slug) §B — the document language leaves Go.
 --
 -- OWNER DECISION 2026-08-11, option 3: `lang` lives in the head COMPONENT, not
@@ -30,7 +30,7 @@
 --     `lang` config renders BYTE-IDENTICALLY — the {{if}} produces nothing —
 --     and assemblePage then falls back to `en`, which is byte-identical to the
 --     line it replaced (pinned by TestHTMLDocumentOpenDefaultsToTodaysBytes).
---     So this file alone changes NOTHING on any site's output. 503 opts sites in.
+--     So this file alone changes NOTHING on any site's output. 508 opts sites in.
 --   · head-seo-standard ALSO loses its two blank-rendering og lines. At
 --     site-level render there is no page, so `{{.title}}`/`{{.description}}` are
 --     empty and it emits `<meta property="og:title" content="">` plus the same
@@ -71,7 +71,7 @@
 -- Apply: kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Then record: ./scripts/migration/run-migrations.sh --record-only <file> --note "..."
--- Rollback: 502_head_components_carry_lang_HOLD_ROLLBACK.sql
+-- Rollback: 507_head_components_carry_lang_HOLD_ROLLBACK.sql
 
 BEGIN;
 
@@ -174,5 +174,5 @@ COMMIT;
 --         webdesign.co.uk Document Head f/f (1) — the fragment, deliberately untouched.
 --
 -- No page or stored artefact changes until chrome re-renders (bugs_open/117:
--- chrome is a stored artefact). The stale_chrome pipe does that; 503 is what
+-- chrome is a stored artefact). The stale_chrome pipe does that; 508 is what
 -- actually gives a site a language to declare.

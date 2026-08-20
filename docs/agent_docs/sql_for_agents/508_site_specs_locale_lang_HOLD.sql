@@ -1,15 +1,15 @@
--- 503_site_specs_locale_lang_HOLD.sql
+-- 508_site_specs_locale_lang_HOLD.sql
 -- bugs_open/252 (og/lang slug) §B — give each site a language to declare.
 --
--- 502 gives the shared head templates a GATED lang attribute. This file sets the
+-- 507 gives the shared head templates a GATED lang attribute. This file sets the
 -- value the gate reads: site_specs aspect `site_config`, key `locale.lang`,
 -- resolved into the template by the existing schema-driven config path
 -- (`source: config.locale.lang` -> resolveConfigPath). Second consumer of the
 -- STY-050 mechanism; worked precedent migration 339.
 --
--- ⚠⚠ _HOLD — APPLY AFTER 502, AND ONLY ONCE THE BINARY CARRYING
+-- ⚠⚠ _HOLD — APPLY AFTER 507, AND ONLY ONCE THE BINARY CARRYING
 -- head_assembly.go IS PROVEN RUNNING. Full statement of the ordering trap is in
--- 502's header; it applies identically here, and this file is the one that
+-- 507's header; it applies identically here, and this file is the one that
 -- actually changes served bytes.
 --
 -- OWNER DECISION 2026-08-20: opt the estate in NOW rather than shipping the
@@ -44,7 +44,7 @@
 --     site_config row (analytics.gtm_container_id, chrome.footer_note,
 --     chrome.compliance_lines); none of those keys is touched.
 --   · 10 sites have no current site_config row and get an INSERT.
---   · Nothing is served differently until each site's chrome re-renders. 502's
+--   · Nothing is served differently until each site's chrome re-renders. 507's
 --     template edit and this file's spec edit BOTH move the render_inputs
 --     digest (it hashes template and specs by value), so StaleSiteComponentsCheck
 --     files a stale_chrome item per site and the existing detect->rebuild pipe
@@ -52,14 +52,14 @@
 --     sweep is built for this.
 --   · webdesign.co.uk will hold `en-GB` and keep serving `en`: its head component
 --     is a bare fragment with no <head> open tag to carry the attribute (see
---     502's "NOT COVERED"). The value is set anyway so that fixing that
+--     507's "NOT COVERED"). The value is set anyway so that fixing that
 --     component later needs no second migration. 117 pages, the most in the
 --     fleet — do not read its unchanged lang as this migration failing.
 --
 -- Apply: kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Then record: ./scripts/migration/run-migrations.sh --record-only <file> --note "..."
--- Rollback: 503_site_specs_locale_lang_HOLD_ROLLBACK.sql
+-- Rollback: 508_site_specs_locale_lang_HOLD_ROLLBACK.sql
 
 BEGIN;
 
@@ -138,7 +138,7 @@ WHERE ss.site_id = s.id
 INSERT INTO site_specs (site_id, aspect, data, source, source_agent, created_by, notes, is_current)
 SELECT s.id, 'site_config',
        jsonb_build_object('locale', jsonb_build_object('lang', t.lang)),
-       'operator', NULL, 'migration-503-locale-lang',
+       'operator', NULL, 'migration-508-locale-lang',
        'bugs_open/252 §B — declared document language; owner decision 2026-08-20',
        true
 FROM sites s JOIN _locale_targets t ON t.domain = s.domain

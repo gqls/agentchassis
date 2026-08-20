@@ -1,12 +1,12 @@
--- 503_site_specs_locale_lang_HOLD_ROLLBACK.sql
--- Reverses 503: removes `locale.lang` from every site_config row it set.
+-- 508_site_specs_locale_lang_HOLD_ROLLBACK.sql
+-- Reverses 508: removes `locale.lang` from every site_config row it set.
 --
--- ORDER: run this BEFORE 502's rollback. The reverse leaves the templates
+-- ORDER: run this BEFORE 507's rollback. The reverse leaves the templates
 -- carrying a gate with no value, which is inert but reads as unfinished.
 --
 -- Deliberately surgical. It removes the `lang` KEY, and removes the `locale`
 -- object only if that leaves it empty — so a sibling key added under locale
--- after this migration survives. It does not delete rows: the 10 rows 503
+-- after this migration survives. It does not delete rows: the 10 rows 508
 -- INSERTed are dropped only if `data` ends up an empty object, because a
 -- pipeline writer may legitimately have added keys to them since.
 --
@@ -15,7 +15,7 @@
 
 BEGIN;
 
--- A. Drop the lang key wherever 503 put it.
+-- A. Drop the lang key wherever 508 put it.
 UPDATE site_specs SET
   data = CASE
            WHEN ((data -> 'locale') - 'lang') = '{}'::jsonb
@@ -27,12 +27,12 @@ WHERE aspect = 'site_config'
   AND is_current
   AND data #> '{locale,lang}' IS NOT NULL;
 
--- B. Remove the rows 503 created that now hold nothing at all. Anything with
+-- B. Remove the rows 508 created that now hold nothing at all. Anything with
 --    surviving content is LEFT — deleting it would take another lane's key.
 DELETE FROM site_specs
 WHERE aspect = 'site_config'
   AND is_current
-  AND created_by = 'migration-503-locale-lang'
+  AND created_by = 'migration-508-locale-lang'
   AND data = '{}'::jsonb;
 
 -- C. Assert: no current site_config row declares a language, and the keys this

@@ -1,12 +1,12 @@
--- 502_head_components_carry_lang_HOLD_ROLLBACK.sql
--- Reverses 502: removes the lang gate from both shared head templates, drops the
+-- 507_head_components_carry_lang_HOLD_ROLLBACK.sql
+-- Reverses 507: removes the lang gate from both shared head templates, drops the
 -- `lang` input_schema entries, and RESTORES head-seo-standard's two og lines.
 --
--- Guards are md5s of the POST-502 state, so this refuses to run against a row
+-- Guards are md5s of the POST-507 state, so this refuses to run against a row
 -- another change has since touched. If it refuses, re-read the live row rather
 -- than loosening the guard — a head template serves up to 18 sites.
 --
--- ORDER, if rolling back both: run 503's rollback FIRST (remove the config), then
+-- ORDER, if rolling back both: run 508's rollback FIRST (remove the config), then
 -- this one (remove the carrier). The reverse leaves sites holding a
 -- config.locale.lang value nothing reads, which is inert but misleading.
 --
@@ -34,7 +34,7 @@ BEGIN
     AND md5(html_template) = '04d7d9cbcc8adb71d8579f07c45d3f7d'
     AND NOT (input_schema ? 'lang');
   IF n <> 1 THEN
-    RAISE EXCEPTION 'Document Head rollback did not restore the 2026-08-19 bytes — the row has been changed by something else since 502. Re-read it.';
+    RAISE EXCEPTION 'Document Head rollback did not restore the 2026-08-19 bytes — the row has been changed by something else since 507. Re-read it.';
   END IF;
 END $$;
 
