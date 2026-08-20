@@ -139,7 +139,12 @@ against THIS, not against the 08-19 afternoon figure.
    config self-reference) — the grouping and the per-agent demand table are in NOTES. Two of
    them are NOT reachable by step 4 by design: page-rerender's
    `sections_metadata[N].content_data.current_page` survives because step 4 deliberately left
-   the template key alone, and bdl/`commit_sha` is a new loop-echo class first seen 08-19 20:40.
+   the template key alone, and bdl/`commit_sha` is a new loop-echo class first seen 08-19 20:40
+   — **now FILED as `bugs_open/334`** (2026-08-20 morning, second session: ranked fix candidates,
+   with the explicit `commit_sha?` mapping in bdl's step config as candidate 1 and the spec's
+   `Deprecated: commit_sha_field` showing an explicit mapping is precedented; 090 dispatched,
+   intake `23296951`; the file's onset + winner-correctness claims are corrected against THIS
+   handoff's own census).
    **AND**: the instrument under-counts its own class `[INFERRED]` — a conflict row requires the
    candidates to DIFFER, so a tree with one (or several agreeing) candidates substitutes the
    wrong value silently. That weakens the "zero WARNs" branch of the precondition permanently,

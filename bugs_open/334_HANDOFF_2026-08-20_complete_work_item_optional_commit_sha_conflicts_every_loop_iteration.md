@@ -8,6 +8,16 @@ payload (`spec.dispatch_correlation_id`), not by that printed id. Cross-cutting 
 registered input spec, and RFC_029's resolver), so the root cause below is **[FILED, loop
 verdict pending]** — treat it as the filing session's first-hand read, not settled.
 
+> **CORRECTED 2026-08-20 ~08:3xZ, same day, by the filing session: a PARALLEL session had
+> already characterised this class** (staged_component_build NOTES, the "(night)" and first
+> "(morning)" entries of 08-19/08-20, committed minutes before this file) — read those first;
+> this file consolidates and is corrected against them below. Their measurements SUPERSEDE two
+> of this file's claims: the ONSET is traffic, not the adapter roll (§1), and the
+> winner-correctness is MEASURED, not inferred (§3). They also wrote a CONTRIB to the 315 lane
+> (the mechanism this field feeds) and place the fix as "the first concrete item on step 5's
+> list". This file's additions: the ranked fix candidates (§4), the 250/323 landing rate, the
+> `Deprecated: commit_sha_field` precedent, and the 090 run (the first on this class).
+
 **Severity:** Low today / structural blocker. No wrong value is known to be persisted — the
 winner appears to be the right one (see §3) — but the class writes a conflict row on **every**
 build-dispatch-loop completion, and RFC_029 §10.13 step 5 (conflicts → refusal) cannot ship
@@ -24,9 +34,13 @@ GROUP BY 1,2,3,4 ORDER BY 5 DESC;
 ```
 
 - `agent_type = build-dispatch-loop`, field `commit_sha`, ~179 rows total; the class **begins
-  2026-08-19 20:40:07Z** — before the 22:26Z v1.0.1317 fleet roll. `[UNVERIFIED]` the exact
-  git-adapter tag live at 20:40Z; the current adapter pods are from the 22:26Z roll. The start
-  coincides with git_commit replies first carrying `commit_sha` (DGH-013's adapter half).
+  2026-08-19 20:40:07Z** — before the 22:26Z v1.0.1317 fleet roll. ~~`[UNVERIFIED]` the exact
+  git-adapter tag live at 20:40Z … coincides with git_commit replies first carrying
+  `commit_sha`~~ **CORRECTED same day: the onset is TRAFFIC — migrations 486/487 (the 283
+  bindings-repair batch), applied 20:36/20:37Z, drove multi-iteration loops three minutes
+  before the first row** (parallel session's read, NOTES first "(morning)" entry). A 1-item
+  loop's aliases all AGREE (no row); the shape needs ≥2 iterations in one orchestration. The
+  DGH-013 reply key is the necessary precondition; the batch is what made it fire.
 - Candidate paths are the loop's accumulated copies — `handler_result.…`, `handler_result_N.…`,
   `process_item_iter_N_call_handler.…`, all ending `deploy_result(.response).data.commit_sha`,
   with the 7.7% deeper `…deploy_result.response.deploy_result.response…` variant present.
@@ -63,9 +77,10 @@ Equal depth, all sibling-recursion rank → the tie-break falls to the collector
 DFS, and `handler_result` sorts before `handler_result_0` and `process_item_iter_*`. The
 unsuffixed key is overwritten each iteration, so at the moment iteration N's
 `complete_work_item` runs it holds iteration N's own result — the correct sha for that item.
-`[INFERRED from the sort + bugs_closed/306's declared-rank mechanism; NOT yet proven against a
-specific item — the check is to join one item's `result->>'commit_sha'` to the git_commit
-result inside its own handler saga in `orchestration_states.collected_data`.]`
+~~[INFERRED from the sort; NOT yet proven]~~ **MEASURED same day by the parallel session at
+`collected_data` (four-step method): `handler_result` == the latest iteration's sha across real
+runs (`5a1caa74`/`73dd2505`/`f5fba08f`; `handler_result == handler_result_2` in a 3-iteration
+run, `== handler_result_1` in a 2-iteration run).**
 Even if right every time, "right by accident of sort order" is bugs_closed/306's exact shape,
 and the row-per-completion population blocks §10.13 step 5 for ever if left standing.
 

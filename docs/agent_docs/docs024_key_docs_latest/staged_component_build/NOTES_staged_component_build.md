@@ -5619,3 +5619,30 @@ the tool-generator tail is the next session's trace.
 **Filed:** `bugs_open/334` + 090 run (corr in the bug file) — cross-cutting by the 07-31 ruling
 (spans the git-adapter reply change, complete_work_item's registered spec, and RFC_029's
 resolver), so it goes through the loop before the root cause is asserted as settled.
+
+> **CORRECTED 2026-08-20 ~08:3xZ, same session as the entry above (the second "(morning)" one):
+> that entry was written WITHOUT re-reading this file's tail, and the two entries ABOVE it —
+> "(night)" and the first "(morning)" — already contain a deeper version of everything it
+> found.** What caught it: the handoff title after my commit. The concrete corrections:
+> - "TWO new surviving populations" undercounts — the night census is **19 field/caller pairs,
+>   ~14 unaddressed, in four shapes**; I read only the post-roll window.
+> - "tool-generator … not traced" is FALSE — it was traced to the spec-array shape and produced
+>   `bugs_open/330` (090 CONFIRMED first iteration).
+> - My `[UNVERIFIED]` onset guess ("the git-adapter roll ~20:40Z") is superseded: the onset is
+>   TRAFFIC — migrations 486/487 (the 283 bindings-repair batch) applied 20:36/20:37Z drove
+>   multi-iteration loops, 3 minutes before the first row. The reply key (DGH-013) is a
+>   precondition, not the trigger.
+> - My `[INFERRED]` winner-correctness is superseded by MEASUREMENT: the first morning entry
+>   checked real alias values at `collected_data` (`handler_result` == the latest iteration's
+>   sha: 5a1caa74/73dd2505/f5fba08f) — right by sort order, verified.
+> What my entry adds that stands: **`bugs_open/334` is now the durable filing for the loop-echo
+> class** (fix candidates ranked; 090 dispatched, intake `23296951` — the FIRST 090 on this
+> class, so not a duplicate run, and its verdict will be independent confirmation), the
+> 250/323 result.commit_sha landing rate, and the CompleteWorkItemInputSpec `Deprecated:
+> commit_sha_field` detail (an explicit mapping existed and was retired — restoring one is
+> precedented, not novel). 334 corrected in place to credit the prior characterisation.
+> Also from this correction: commit `ad9e93f4c` swept the STY-057 index row (another session's
+> uncommitted edit) as a passenger because my own edit script FAILED ITS ASSERT and the
+> compound command committed anyway — the exact recorded shape of `9b87b2c4c`. → WRONG_CALLS,
+> tally incremented; the register edits that silently didn't run are redone in the follow-up
+> commit.

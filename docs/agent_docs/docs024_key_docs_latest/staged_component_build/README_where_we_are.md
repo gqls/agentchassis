@@ -2156,3 +2156,14 @@ fixes; the cheapest is a one-line config change. The other is an older, slower d
 tool generator asking for very generic names like "reason" — untraced yet, next session's job.
 
 So: step four done and proven; step five waits on those two; nothing waits on you.
+
+**2026-08-20, correction to my entry above (same morning):** I wrote it without reading what the
+overnight session had already put in this file and the notes — that session verified the repair
+first, traced the tool-generator drip (it had already produced bug 330), counted the full
+remaining population (about nineteen name-clashes, fourteen with no plan, in four families), and
+measured the two things I had labelled as guesses: the dispatcher noise started because of a big
+repair batch three minutes earlier, not the git service's release, and the "picks the right one"
+claim was checked against real runs, not just reasoned. My additions that stand: the bookkeeping
+clash is now a proper bug file (334) with ranked fixes — the cheapest is a one-line config
+change — and the diagnosis loop is running on it. Lesson recorded in the wrong-calls file: read
+the bottom of the shared notes before acting on them, every time you wake, not just at the start.

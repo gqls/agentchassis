@@ -38509,3 +38509,42 @@ about something else.
 - **Prefer the documented path.** For "assemble ONE page now" this estate has a single-page rerender
   route (MEMORY `single-page-deploy-bypasses-stalled-queue`); reaching for a queue parameter instead
   was inventing a mechanism when a supported one existed.
+
+## 2026-08-20 — a compound `edit && commit` committed "handoff/register updated" after the edit had THROWN (second occurrence of the 9b87b2c4c shape); and the same commit took a passenger the failed edit made room for
+
+**The claim:** commit `ad9e93f4c`'s message says "handoff/NOTES/register/README updated". The
+python edit script had died on its FIRST assert (the handoff title had been changed by a
+parallel session), so the handoff and BOTH register edits never ran — and because the register
+index was named on the pathspec anyway, the commit swept another session's uncommitted STY-057
+index row as a same-file passenger under my message.
+
+**What caught it:** reading the commit's own diff (`git show ad9e93f4c -- <file>`) when the
+python traceback registered — AFTER the commit, because both ran in one compound command.
+
+**The cheap check (already written down once):** this is the SECOND tally mark on
+`9b87b2c4c`'s entry ("a compound command committed a claim its failed edit never made true",
+311 lane, 2026-08-19). Never chain an editor and a `git commit` in one command — run the edit,
+READ its exit/output, `git diff --numstat` each named path, then commit. A pathspec is not a
+guard when the file carries someone else's diff and yours failed to land. **Two occurrences in
+two days across two lanes: this is now a candidate for automation** (a PreToolUse check or a
+commit wrapper that refuses when a compound command's earlier stage exited non-zero).
+
+## 2026-08-20 — I filed a bug + 090 for a class the SAME LANE's NOTES had already characterised, 160 lines above where I appended
+
+**The claim:** my NOTES entry and `bugs_open/334` asserted "TWO new surviving populations,
+tool-generator untraced" and guessed the commit_sha onset was the git-adapter roll
+`[UNVERIFIED]`. The same file's "(night)" and first "(morning)" entries — written by a parallel
+session hours earlier, sitting directly above my append point — held a 19-pair census, the
+tool-generator trace (which had already produced `bugs_open/330`), the MEASURED onset (traffic:
+migrations 486/487, 3 minutes before the first row), and the MEASURED winner-correctness I had
+marked [INFERRED].
+
+**What caught it:** the handoff's title line, noticed only after my commit; then reading the
+NOTES tail I had appended below without reading.
+
+**The cheap check:** the session-start checklist and the lane memory both already say it —
+re-read the handoff AND the NOTES tail FROM DISK before acting, at every wake, not just at
+session start; `git log --oneline -- <lane dir>` first. An append-only file is safe to write
+without reading; it is never safe to REASON from without reading. The costs: one duplicate-ish
+090 run (first on the class, so the verdict still lands as independent confirmation — but the
+dispatch decision was made blind), and three dated corrections that would not have been owed.
