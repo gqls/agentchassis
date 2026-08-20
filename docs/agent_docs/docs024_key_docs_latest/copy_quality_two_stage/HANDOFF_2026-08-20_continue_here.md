@@ -19,6 +19,28 @@ took it, and it is live).
 
 ## What is live, and how that was established
 
+> ### ⚠ UPDATED 2026-08-20 ~17:00Z — a fresh build landed: **`v1.0.1320`**, and the fleet is **MIXED**
+> `7 pods on v1.0.1320, 1 on v1.0.1319` — the first time this lane has actually observed the mixed
+> state the corrected recipe below warns about, so **any single-pod answer right now is unreliable**
+> and the uniformity check is not a formality.
+> **1320 carries the fix**, probed with full controls on a `v1.0.1320` pod: `merged_keys` (new
+> literal) **1**, `formatted_len` (pre-existing) **1**, an impossible string **0**. One literal per
+> call — a compound `grep` over `/proc/1/exe` times out mid-answer and a partial result reads like a
+> whole one.
+> **1320 changes nothing else this lane depends on**: `git log` since my fix over
+> `site_spec_actions.go`, `format_content_direction.go`, `section_editor_actions.go`,
+> `ai_actions.go` and `voicestyle/` returns only my own commit.
+> **`copy-editor` is intact.** Its row was updated `16:08:07Z` — along with **198 other agents in the
+> same minute**, i.e. the release stamping, not a change to this agent. Migration 462's settings are
+> where they always were: ⚠ `max_tokens: 32000` is at
+> `config.ai_service.max_tokens`, **not** `config.max_tokens`, and the three-edit budget is **prose
+> inside the prompt**, not a `max_edits` key. Querying the paths that sound right returned two empty
+> strings and I briefly read that as "the budget is gone". **It was the query, not the system** — the
+> lane's most-repeated failure, again.
+> **`327` still cannot close:** `[MEASURED ~17:00Z]` **zero `content_direction` writes** since the fix
+> went live, so the three fragment briefs are untouched and the repair remains unobserved on a real
+> write.
+
 **`v1.0.1319` carries the fix.** Binary-probed, never inferred: `merged_keys` (a literal only the fix
 introduces) = **1**; `formatted_len` (pre-existing) = **1**; an impossible string = **0**. Compare
 `v1.0.1317` eleven hours earlier: `0 / 1` — same probe, different answer, so it discriminates.

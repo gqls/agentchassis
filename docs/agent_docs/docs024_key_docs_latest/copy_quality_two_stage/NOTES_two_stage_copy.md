@@ -2219,3 +2219,33 @@ different thing from wrong. Anyone quoting "the lead carrier" should say so.
 **And it clears a loop:** we told `finetuning_uk_service` to put their register in that field.
 Checked — **finetuning.uk has it, at 949 chars, the largest in the fleet.** The advice was right for
 their site. Worth confirming rather than assuming, since it would have been inert on 19 of 25.
+
+### 2026-08-20 ~17:00Z — fresh build `v1.0.1320`, a MIXED fleet, and I nearly reported a regression that was my own query
+
+**`v1.0.1320` landed** and carries the fix (`merged_keys` 1, `formatted_len` 1, impossible string 0,
+on a `v1.0.1320` pod). Nothing else this lane depends on moved: `git log` since `c9a71388f` over
+`site_spec_actions.go`, `format_content_direction.go`, `section_editor_actions.go`, `ai_actions.go`
+and `voicestyle/` returns only my own commit.
+
+**The fleet is MIXED — 7 on 1320, 1 on 1319.** First time this lane has observed it, and it is
+exactly what the council reviewer said would happen. The uniformity check earns its place: a
+single-pod probe during a mixed window answers a question about one pod, not about the fleet.
+
+⚠ **And I nearly filed a regression against my own agent.** `copy-editor`'s row was updated at
+`16:08:07Z`, so I checked migration 462's settings and my query returned **empty** for both
+`max_tokens` and `max_edits`. For a moment that read as "the edit budget is gone", which would mean
+stage 2 could truncate again. It was the query:
+
+- `max_tokens` lives at `config.ai_service.max_tokens`, **not** `config.max_tokens`;
+- there is **no `max_edits` key at all** — the three-edit budget is **prose inside the prompt**
+  ("At most THREE, and fewer is better"), which is how 462 shipped it.
+
+Both are intact. And the `16:08` update was the release stamp: **198 agents updated in that same
+minute.** A bulk-update signature settles "did someone change my agent?" faster than reading the
+config does.
+
+**The lesson is the lane's most-repeated one and it keeps arriving in new clothes: the query, not the
+system.** What made this instance nastier than usual is that **an empty result from a wrong path is
+indistinguishable from a real absence** — the same shape as the mutation that printed nothing
+yesterday. The cheap check both times is to demand a **positive control from the same query**: ask
+for a value you know is there, in the same call, and if it comes back empty too your path is wrong.
