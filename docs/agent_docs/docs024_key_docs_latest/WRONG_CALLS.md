@@ -38548,3 +38548,97 @@ session start; `git log --oneline -- <lane dir>` first. An append-only file is s
 without reading; it is never safe to REASON from without reading. The costs: one duplicate-ish
 090 run (first on the class, so the verdict still lands as independent confirmation — but the
 dispatch decision was made blind), and three dated corrections that would not have been owed.
+
+## 2026-08-19 — I called 20 rows an "open queue" and predicted a proof would arrive on its own; the rows were TERMINAL and could never dispatch
+
+**The claim** (`bugs_open/313`'s FIXED banner and the `bugfix_313_internal_linker` SUMMARY, both
+mine): *"Natural traffic is ~2 runs/day with 20 open work items queued, so the proof should arrive
+within hours."* On that basis the lane wrote its SUMMARY, declared the artefact proof the sole
+remaining gate, and stopped — leaving two fixed bugs OPEN awaiting a run that was never coming.
+
+**What was actually true:** the 20 `needs_internal_links` rows sit at `status='unresolved'`, which
+is in `workItemTerminalStatuses` (`platform/orchestration/actions/work_items_common.go:40-46`), not
+in `workItemDispatchableStatuses = {triaged, approved}` (`:172-175`). The promoter reads `detected`
+only. No selector, no claim, no reaper will ever touch them. And the cause is circular: this very
+bug produced no-op "complete" runs, which the two-strike rule
+(`load_work_item_actions.go:1336+`) counted as attempts, branding the third re-raise `unresolved`.
+**The bug had switched off its own supply of the traffic that would have proved it fixed.**
+
+**What caught it:** asking *how* the agent gets dispatched before waiting on it — reading the claim
+query and the status sets — rather than counting rows with `status NOT IN ('complete','cancelled')`
+and calling the remainder a queue.
+
+**The cheap check:** `SELECT status, count(*) … GROUP BY status` and then read
+`workItemDispatchableStatuses` — one grep — before describing any row set as "queued" or "waiting".
+A row that is not `triaged`/`approved` is not work waiting; it is work abandoned. Same family as
+the standing "a `complete` work item is not a repaired artefact" entry, one level up: *a pending
+work item is not pending work.*
+
+## 2026-08-19 — the verification query I wrote into two bug files as "cannot be faked" also could not be SATISFIED
+
+**The claim** (`bugs_open/313` and `/298`, §How to verify, mine): *"a run must produce a
+`plan_links` row in `llm_call_log` for `agent_type='internal-linker'` — a table that has zero rows
+in all history today, so the 'before' arm is already established and cannot be faked."*
+
+**What was actually true:** after a demonstrably successful run (correlation `50ea3037`, the model
+returned a 2-link plan and 2 work items were filed), that query still returns **ZERO**. The row was
+written under `agent_type='generic'`: the column carries the DISPATCH context, not the workflow's
+agent type. I had cited the `orchestration_states.owner_agent_type` landmine — "NOT which agent
+ran" — in the same lane, and then built my acceptance test on its sibling column.
+
+**Why it is the dangerous direction:** an unfalsifiable-looking zero reads as *"still not proven"*
+for ever, on a fix that works. It fails toward inaction, and it would have been quoted by the next
+reader as evidence the linker was still dead.
+
+**What caught it:** reading the artefact (the orchestration row and the rendered prompt) instead of
+the nominated status query, then hunting the LLM row by `step_name` and `correlation_id` when the
+count disagreed with what I had just watched happen.
+
+**The cheap check:** an acceptance test keyed on a *label* needs one confirming observation that
+the label is populated the way you think — `SELECT agent_type, count(*) … GROUP BY 1` would have
+shown `generic` carrying 48 rows in 3 days and no per-workflow labelling for handler agents. Prefer
+a column the mechanism itself must write (`step_name`, `correlation_id`) over one the dispatcher
+happens to stamp. **"Cannot be faked" is a claim about the before arm; it says nothing about
+whether the after arm is reachable — state both.**
+
+---
+
+## 2026-08-19 — `bugs_open/029` — I read a field with the right NAME and the wrong SCOPE, and published "does not reconcile" off it
+
+**The claim I wrote down** (NOTES §17b, committed `5022305cf`, and sent to the lane's owning session
+as a reason to hold a prepared 090): *"`5d1d8f1c`'s numbers do not satisfy the only predicate that
+can emit this stop reason, so why it halted at iteration 1 is not established"* — with a table
+showing `prev 7, named 9`, and `9 > 7+2` false.
+
+**What was actually true:** `named` was **13**, and it reconciles exactly. I read
+`collected_data->'verdict'->'result'->'next_scope'` — a real field, correctly named, holding a
+verdict. But the guard acts on the **per-iteration** `NextScope`, which lives in
+`route.diagnose_state.trail[i].Verdict.NextScope`. The two disagree, and not by a little: for the
+companion run `d02a6958` the stored `verdict` field held **iteration 1's** value (8) while the
+iteration that actually tripped was **iteration 3** at 12. The trail is the record of what the guard
+saw; the `verdict` collected_data key is not.
+
+**Why it is the dangerous direction:** it manufactured a *mystery*. An "unexplained" trip invites the
+next reader to distrust a guard that is in fact behaving exactly as written, and I used it to argue
+that a peer's remedy was unproven. Worse, my **conclusion was right anyway** (the run was
+guard-stopped at 3 of 5, not iteration-capped) — a correct conclusion resting on a wrong number is
+the shape that propagates, because nothing downstream looks wrong.
+
+**What caught it:** the owning session re-derived the per-iteration lengths from the trail within
+minutes (their NOTES §18) and returned the real operand. It was checkable all along and I did not
+check it — I verified the *predicate* at source in four places (`loop.go:432`, `:205`, `:398`,
+`advance.go:68`/`:104-111`) and then fed that carefully-verified formula a number I had not verified
+at all.
+
+**The cheap check:** when a guard fires per iteration, read the operand **per iteration** — one
+`jsonb_array_elements(… ->'trail') WITH ORDINALITY` would have printed `8 → 5 → 12` and `13`. And the
+general form, which is the transferable bit: **verifying a formula is not verifying its inputs.**
+Proving `next.size() > prevSize+2` is the predicate says nothing about whether the number you
+substituted for `next.size()` is the one the code substituted. If a stored field and a trail both
+claim to hold "the verdict", the one the guard reads is the one written *at the moment it ran*.
+
+**Second-order note worth keeping:** the reconciliation **reversed a remedy direction**. Because
+`prevSize` starts at `seed.size()+1`, a wider seed *raises* the allowance — so seed-widening is
+protective, and the peer's own §15 suspicion (that widening caused the regression) was wrong in
+direction too. Both of us were wrong about the same mechanism from opposite sides; only the operand
+settled it.

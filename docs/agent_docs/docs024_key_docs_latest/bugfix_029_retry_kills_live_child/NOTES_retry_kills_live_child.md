@@ -2114,14 +2114,37 @@ previous scope (`namedScope`, `:398-417`). On a stop the state returns early *be
 starts where this one ended — addresses the *data* half, which the loop had already solved for itself
 with a filtered query in iteration 2. It does not touch the halt.
 
-> **[UNRESOLVED — and it cuts BOTH ways.]** `5d1d8f1c`'s numbers do not satisfy the only predicate
+> ~~**[UNRESOLVED — and it cuts BOTH ways.]** `5d1d8f1c`'s numbers do not satisfy the only predicate
 > that can emit this stop reason, so *why* it halted at iteration 1 is **not established**. That
 > means §15's suspicion (*"adding the previous run's NextScope symbols did it"*), which
 > `NEXT_090_single_variable.sh` now encodes as a hard rule, is **equally unestablished** — as §15
 > itself says. I tried to derive "seed a wider scope" as the remedy and **could not make the
 > arithmetic support it either; recording that I failed rather than the tidy version.** Settle the
 > reconciliation before the one-variable run's outcome is read as evidence about seed scope, or it
-> will attribute to the seed whatever this unexplained trip does next.
+> will attribute to the seed whatever this unexplained trip does next.~~
+>
+> **WITHDRAWN 2026-08-19 ~22:3xZ — `5d1d8f1c` DOES reconcile; the error was mine and it was the
+> OPERAND.** Caught by the owning session's §18 within minutes of my flagging it, and re-verified
+> here from the trail. I read `collected_data->'verdict'->'result'->'next_scope'`; the guard acts on
+> the **per-iteration** `NextScope`, which lives in `route.diagnose_state.trail[i].Verdict.NextScope`.
+> The two disagree — for `d02a6958` the stored `verdict` field held **iteration 1's** value (8), not
+> the iteration that actually tripped (12). `[MEASURED]` from the trail:
+>
+> | run | seed | init prev (`seed+1`) | per-iteration `named` | trips |
+> |---|---|---|---|---|
+> | `d02a6958` | 5 | 6 | 8 → 5 → **12** | `12 > 5+2` at **iter 3** |
+> | `5d1d8f1c` | 6 | 7 | **13** | `13 > 7+2` at **iter 1** |
+>
+> **The consequence reverses §15's direction, and that is the useful part.** `prevSize` starts at
+> `seed.size()+1`, so a **wider seed RAISES the allowance** — widening is *protective*, not harmful.
+> `5d1d8f1c` had the wider seed AND the higher threshold and tripped anyway, so **seed width cannot
+> be the cause**; what differed is the model naming **13** symbols in iteration 1 where the baseline
+> named 8. `[UNVERIFIED]` whether that is symptom length or run-to-run variance — one run per
+> condition cannot separate them. And the baseline's margin was **one symbol**: `8 > 8` is false.
+>
+> **My §17b conclusion survives its own broken arithmetic** — `d02a6958` was still guard-stopped at
+> 3 of 5, not iteration-capped — which is exactly why the operand error was worth catching: a right
+> conclusion resting on a wrong number is the shape that propagates. `WRONG_CALLS.md` 2026-08-19.
 
 **(c) CORRECTION to §10 and to §16(c): the `### awaited_requests` rows section would render EMPTY.**
 §10 calls the missing rows a REAL framework gap; §16(c) ranks building it above the query-in-symptom
