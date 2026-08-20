@@ -505,3 +505,43 @@ for damage rather than for success.
 instructions in a state where they cannot be followed against the wrong build. I am sorry for the
 disruption; the honest summary is that I was careful about the wrong things and one of the checks I
 skipped was the one this entire piece of work exists to teach.
+
+## 2026-08-20, late afternoon — it works, and here is the proof in one line
+
+**The fingerprint is being recorded, and it matches what the website actually serves.**
+
+```
+robot-hands.com/product-detail.html
+what we recorded sending:  e9d7090facaaddd3733d11885982979b9710d855df97297c062099bb5b09940b
+what the site serves now:  e9d7090facaaddd3733d11885982979b9710d855df97297c062099bb5b09940b
+```
+
+Thirty-eight pages across four sites now carry one, where the number was zero for the entire history
+of the estate until this afternoon. Nothing has gone wrong: no validation errors, no unreadable
+deployments, and the switch survived the latest build.
+
+**What that line replaces.** Yesterday, answering "is this page serving what we sent?" for a *single*
+page meant pulling its content out of the database, cutting a distinctive fragment from it, fetching
+the live page, searching for the fragment, and then making a judgement call. That is why the original
+fault went unnoticed for six hours — nobody was going to do that routinely, and the cheap alternatives
+all lie. It is now a string comparison.
+
+It also settles three design choices that could each have been sensible and still wrong: that image
+files had to be fingerprinted after decoding rather than as sent; that the two halves had to agree on
+how a page's filename is written; and that nothing rewrites the bytes between us and the visitor. A
+mismatch in any of those would have shown up as a mismatch here, and it didn't.
+
+**Where that leaves the work.** The thing this bug asked for is delivered and live. The last piece —
+a scheduled check that compares the recorded fingerprint against the served page and raises a flag
+when they disagree — is designed and not built, and for the first time it is *buildable*, because the
+thing it needs to compare against finally exists.
+
+**I have written a handoff** so this can be picked up in a fresh conversation without re-reading
+everything:
+
+`docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/HANDOFF_2026-08-20_continue_here.md`
+
+It records what is done, the one substantive item left, and — the part I would most want a successor
+to read — the nine traps this lane walked into for real, including the one where I broke every page
+publish in the estate for thirty-three minutes by checking that the configuration was right and never
+asking whether a page could still be published.
