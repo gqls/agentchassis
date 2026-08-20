@@ -181,6 +181,43 @@ data must consume `planSection` rather than re-deriving its own merge.*
 contract, (e) decays into (a) — it is only a decision if it is written where the next writer's author
 will meet it.
 
+## 4.6 Evidence gathered AFTER filing, which strengthens (e) and weakens the case for urgency
+
+Added 2026-08-20, same day, from the `090` run this RFC's filing lane fired
+(`68b3f9b6-1674-41a0-bc9e-c251192daaa1`, verdict UNVERIFIABLE) and the query it asked for.
+
+**The one thing that IS measured about this seam's real-world behaviour, and it is good news.**
+Pairing consecutive archived generations of the same (page, slot) and counting fields that went
+non-empty → blank: **66 non-LLM losses, 11 sites, all `renderer`/`static`-sourced, all between
+2026-08-11 and 2026-08-14 18:36 UTC, and none since** — against a demand control of **3,033**
+archived generation-pairs in the six days after. `renderer`/`static` is precisely the class the
+`bugs_open/268` carry extension closed (`8f899cc8d`, 2026-08-14 09:13 BST). ⚠ The window bounds it:
+the trigger archive begins 2026-08-09, and the older `save_page_sections_overwrite` rows cannot
+widen it because they carry no `slot_name`.
+
+**What that means for the options.** The carried funnel is now *demonstrated* lossless on ordinary
+fleet traffic, not merely argued to be. That does not close the split — the other eight writers are
+still uncarried and unmeasured, which is exactly what option (c) exists to find out — but it does
+say the urgency is lower than the 268 incident implied, and that (b)'s nine-writer conversion would
+today be sized from inference rather than from a single observed loss outside the funnel.
+
+**And the two gaps option (e) would close are REAL IN THE CODE AND UNOBSERVED IN PRODUCTION.** Both
+were read directly in `planSection`: a blank resolved value beats a good stored one (the generic
+branch stores whenever `found && value != nil`, and `resolveSpecPath`/`resolveSpecAlias`/the
+`site_assets` lookup can each return a present-but-empty string), and a `query.*` resolver ERROR
+leaves the key absent from `resolvedData` entirely. Neither has a single observed instance: **0**
+loss events for `site_specs.*`/`site_assets.*`/`query.*` sources across the whole window, only
+**2** empty-string spec values behind declared sources fleet-wide, and the `090` independently
+observed that every record it could find says *"no previously-built row held a value, so there was
+nothing to carry"* — the opposite of the hypothesised scenario.
+
+They were therefore **recorded rather than shipped**, and that is the decision this section exists
+to expose to the owner: three lines of Go and a mutation-proved test would have been cheap, easy,
+and sized from a code reading rather than evidence. **What would justify shipping them:** one loss
+event with one of those source families in the pairing query, or a `STRUCTURAL_KEY_CARRY_MISS` row
+whose page and slot DID hold the value in the prior generation. The query is in the 238 lane's
+RUNBOOK.
+
 ## 5. Not part of this RFC, deliberately
 
 **Making `RenderTemplate` itself the reporting form** — the 8 unguarded call sites named in
