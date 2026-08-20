@@ -857,6 +857,14 @@ var scanTemplateFuncs = template.FuncMap{
 // set is reported whichever render path ran. If the template will not parse as a
 // Go template (executeGoTemplate would have used its regex fallback too), this
 // degrades to the flat regex scan in missingBareFieldsRegex.
+//
+// SIBLING, kept honest by cross-reference (council corr b72a4029 r1):
+// datahelpers.ContentDataCanFillTemplate asks the ROUTING form of this
+// question — "does content_data hold ANY of the template's content?" — with a
+// deliberately flat field scan, because this package imports its consumer and
+// cannot be imported back. If you change what counts as "a field this
+// template reads" here, check that helper's templateTopLevelFieldRe for the
+// same case, and vice versa — the two must not silently disagree.
 func missingBareFields(tpl string, data map[string]interface{}) (missing, inURLAttr []string) {
 	t, err := template.New("scan").Funcs(scanTemplateFuncs).Option("missingkey=zero").Parse(tpl)
 	if err != nil || t.Tree == nil || t.Tree.Root == nil {

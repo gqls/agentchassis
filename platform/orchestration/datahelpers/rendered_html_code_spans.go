@@ -38,6 +38,18 @@
 // character class excludes `<`, `>` and backtick, so the wrapped region cannot
 // contain a tag boundary and the inserted pair cannot misnest.
 //
+// WHY A THIRD HTML INSTRUMENT AND NOT A SHARED WALKER (council corr b72a4029
+// r1, reuse_agent). This package now reads/rewrites HTML three ways, each fit
+// to its job and none substitutable: link_repair.go rewrites ANCHOR ATTRIBUTES
+// with a regex over <a> tags (repairAnchorRe — no tree, no text nodes);
+// claims.go EXTRACTS TEXT with a full html.Parse tree walk (lossy by design —
+// entities decoded, whitespace collapsed, inline tags fused); this file EDITS
+// TEXT NODES byte-preservingly with the tokenizer, because the other two
+// instruments each destroy exactly what this one must preserve (the parse
+// walk cannot re-serialise without normalising; the attribute regex never
+// sees text). What they share — the skip SET — is already shared:
+// nonAssertionElements, one map, this package.
+//
 // CONVERSION ⊆ DETECTION, deliberately. codeSpanConvertRe is MDCodeSpanRe with
 // `<` and `>` also excluded from the interior. Detection additionally sees
 // entity-decoded, whitespace-collapsed, inline-fused text (ExtractAssertionText),

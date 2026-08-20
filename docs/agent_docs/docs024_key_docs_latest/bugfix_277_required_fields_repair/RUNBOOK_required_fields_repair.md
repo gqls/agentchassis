@@ -291,3 +291,17 @@ curl -s "https://webdesign.co.uk/<page_url>?cb=$(date +%s)" | grep -c '`'       
   CLOSED — the whole-page verifier is what closes the item, and it re-scans both surfaces.
 - GOTCHA: the pair stays held until THIS canary's `complete` lands; do not promote a second row to
   "help" — one completion is the door, more is just risk.
+
+### Post-roll liveness probe (run BEFORE the canary — the config DO/RAISE proves nothing about the binary)
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -ac "rendered_html_transform" /proc/1/exe        # expect >=1
+kubectl -n ai-persona-system exec "$POD" -- grep -ac "code_span_to_code_tag" /proc/1/exe          # expect >=1
+kubectl -n ai-persona-system exec "$POD" -- grep -ac "OWNED_PAGE_GUARD" /proc/1/exe               # positive control, expect >=1
+kubectl -n ai-persona-system exec "$POD" -- grep -ac "ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST" /proc/1/exe # negative control, expect 0
+```
+- GOTCHA (standing): never `strings` (absent from the images), always run BOTH controls in the same
+  breath, and remember a binary hit count is not a call-site count (Go dedupes string constants).
+- And `git merge-base --is-ancestor af0f00bb5 <the pod's build-provenance stamp>` answers "did my
+  commit ship" as a query, per BLD-019.

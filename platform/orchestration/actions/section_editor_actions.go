@@ -858,6 +858,14 @@ func applyRenderedHTMLTransform(
 			"rendered_html_transform %q: component has no rendered_html — this edit type edits finished HTML only", transformName)
 	}
 
+	// THIS SWITCH IS THE TRANSFORM REGISTRY, and it accumulates INVISIBLY to
+	// the RFC_022 optional-key counter (council corr b72a4029 r1, architecture
+	// seat): transform_name is one key however many transforms hide behind it.
+	// So the rule is stated here, where the case would be added: EACH NEW
+	// NAMED TRANSFORM IS ITS OWN COUNCIL ROUND with its own safety argument —
+	// this one's lives in rendered_html_code_spans.go's header — and gets its
+	// own line in register CQ-028. A transform is deterministic, never
+	// LLM-fed, or it does not belong in this edit type at all.
 	switch transformName {
 	case "code_span_to_code_tag":
 		out, converted, err := datahelpers.ConvertLiteralCodeSpansInHTML(existingHTML)

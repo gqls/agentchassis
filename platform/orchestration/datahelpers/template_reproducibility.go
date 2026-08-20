@@ -15,6 +15,25 @@
 // whose transform then converts what the detector flagged; still correct
 // output, but content_data would keep its defect and the next regeneration
 // would reprint it. Coarse in the safe direction, stated.
+//
+// THIS IS A ROUTING TEST, NOT A RENDER-COMPLETENESS TEST — the council's
+// bug_historian seat objected (corr b72a4029 r1) that ANY-field-present is too
+// weak for "will this render complete", and it is: a template with {{.A}} and
+// {{.B}} where only A is populated still blanks B under missingkey=zero (the
+// 004/007 blanking family). That question already has a per-field, scope-aware
+// instrument: actions.missingBareFields (component_library.go), which walks
+// the parsed template tree. It is NOT reused here because `actions` imports
+// this package's consumer (`discovery_checks`) — four live imports, so the
+// reverse import is a cycle — and moving that live guard here is its own
+// refactor. The judgements also genuinely differ: partially-fillable
+// components MUST keep the regenerate route (their content_data is real and
+// an HTML-surface edit cannot fix its defects), so for ROUTING, any-field-
+// present is the correct bar, not a weak one. A page classified "can fill"
+// gets an item byte-identical to what this detector minted before this
+// helper existed — the partial-blanking exposure there is pre-existing and
+// unchanged. If you change the field-extraction rules here, check
+// missingBareFields' walk for the same case, and vice versa — the two must
+// not silently disagree about what a template reads.
 
 package datahelpers
 
