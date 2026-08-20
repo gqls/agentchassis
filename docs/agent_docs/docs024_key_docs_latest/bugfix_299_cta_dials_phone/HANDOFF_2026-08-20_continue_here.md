@@ -1,3 +1,10 @@
+> # ⚠ SUPERSEDED 2026-08-20 (later the same day) — most of this is DONE.
+> **`bugs_open/299` is CLOSED** (moved to `bugs_closed/`, fixed AND live at the served page:
+> `href="/faq.html"` with copy naming the FAQ). 477 APPLIED; the canary SATISFIED;
+> RFC_040 stages 1-2 BUILT, council-APPROVED (`06ce6aab`), LIVE on v1.0.1319, and a leak
+> in it found and fixed. **What actually remains is §5 at the bottom of this file — read
+> that, not the middle.** The rest is kept as the record of how it went.
+
 # HANDOFF 2026-08-20 — continue here (bugs_open/299 slug `home_page_cta_names_the_brief_starter_tool_and_dials_the_phone_instead` + `bugs_open/312` + RFC_040)
 
 > **Refer to 299 BY SLUG.** `bugs_closed/299` is the unrelated skipped-render-audit case.
@@ -189,3 +196,44 @@ and **does not** cover this.
   status lines corrected 2026-08-19 from "awaiting roll" to LIVE)
 - Migrations: `docs/agent_docs/sql_for_agents/475_…`, `476_…`, `477_…` (all released, applied,
   ledger-recorded; each carries its own discharge record and rollback recipe)
+
+---
+
+# 5. WHAT ACTUALLY REMAINS (written 2026-08-20, after everything above was done)
+
+1. **`service_binary_capabilities` regrows until the next fleet roll.** The retention prune is
+   committed but is Go, so it is inert until a chassis image carries it (current live:
+   **v1.0.1319**, which has the writer but NOT the prune). Growth ~20k rows/hour. Interim, one
+   line, in the lane RUNBOOK:
+   `DELETE FROM service_binary_capabilities WHERE last_seen_at < now() - interval '2 hours';`
+   After the next roll, confirm it self-limits: `count(DISTINCT pod_name)` should track live
+   pods rather than climbing for ever.
+2. **`bugs_open/312` stays OPEN on its own merits.** Its candidate 1 (the config repoint) is
+   done and proven — that is what closed 299. Candidates **2 (a loud fallback)** and **3 (a
+   lockstep test binding the writer's configured path to the resolver's actual response shape)**
+   are unbuilt. That seam has now failed silently in BOTH directions twice (LNK-013/LNK-014,
+   then this), so the tripwire is earned, not speculative.
+3. **Two more instances of 299's class on webdesign.uk**, both filed by the new detector and
+   sitting in `needs_human_review`: `faq/hero` ("See what you get for it" → a phone) and
+   `how-it-works/call-to-action` ("Still deciding? The FAQ page covers the full terms…" → a
+   phone). Those tel: hrefs are believed **genuine**, so the fix is the COPY, not the href —
+   which is exactly what migration 476's destination stamp now feeds the writer. **They are the
+   first real test of the stamp**; check `llm_call_log.prompt_rendered` for a value-shaped
+   `Destination (fixed):` on their next rebuild (baseline before 476: 0 of 182 prompts).
+4. **`how-it-works/call-to-action`** still carries the unnormalised `tel:+44 (0) 7934 524 911`.
+   No action — it self-heals through the keep on its next rerender. Watch it as free evidence.
+5. **The council's remaining advisories on `06ce6aab`** (APPROVED, 3 advisories, none high) —
+   the two `editquality` ones about the sketch not showing the migration header and the Touch
+   doc comment are **already false of the shipped files** (both carry them; the sketch was an
+   excerpt). The `reuse_agent` note asking why `agent_definitions.capabilities` is the wrong
+   home is worth one line in BLD-023 if anyone touches it: that column is per-agent-TYPE
+   DECLARED config; this table is per-POD OBSERVED runtime state. Not yet written down.
+
+## Traps this lane paid for — the full set
+See §3 above, plus the two learned after it was written:
+- **A page-rerender needs BOTH `spec.reason` and `spec.page_name`**, and all three failure modes
+  report success while publishing the old page (`LANDMINES.md`, and the working envelope is in
+  the RUNBOOK).
+- **A pod COUNT is not a pod START RATE.** The chassis binary runs as ephemeral per-job pods
+  (~52 starts/hour); `kubectl get pods` showed 5 and I nearly retired a correct council
+  objection with it (`WRONG_CALLS.md`, 2026-08-20).
