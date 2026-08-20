@@ -121,8 +121,7 @@ mechanical widening rather than a behaviour change.
   schema-less components uncovered exactly as they are now; (c) doing nothing has a known cost —
   it is the mechanism behind `bugs_closed/004/005`' fleet-wide blanking, and this change's own
   measurement says **75 of 253 active components declare no schema at all**, so for those neither
-  gate can ever fire. **A reader who takes this on should file it as its own bug and claim it**;
-  it is deliberately not folded into 260, whose renderer half is now closed;
+  gate can ever fire. **FILED 2026-08-20 as `bugs_open/342`, with these three candidates costed in it — still UNOWNED, so what it needs now is a name, not a scoping pass**; it is deliberately not folded into 260, whose renderer half is closed and live;
 - **75 of 253 active components declare no schema at all**, so the type gate is silent for them
   by construction — the seam's error, not the gate, is the complete detector;
 - `carried_render_failed` and `chrome_render_failed` are surfaced in an action result and a work
