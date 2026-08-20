@@ -245,3 +245,73 @@ Two consequences, and the second is the one worth carrying:
 
 `/insights/index.html` on robot-hands scored **0 failures**, and dartsonline has
 no hub page yet, so nothing here reflects on the hub pattern.
+
+## 2026-08-20 — ⚠ CORRECTION: the "palette-fragile, not component-broken" refinement was a BLIND PASS
+
+**Retracted.** The entry above concluded, from a clean-ish audit of dartsonline's
+editorial page, that `evidence-chart`'s eyebrow is *"not wrong in itself"* and
+merely fragile on robot-hands' palette. That conclusion was drawn from a
+measurement that **could not have come out any other way**, and the peer
+`dartsonline_traffic` lane is the reason I know: at the time I measured,
+**dartsonline was serving a near-empty stylesheet** — its `css_themes` row held
+164 bytes (`bugs_open/198`, the `css-patch-agent` clobber class). They restored it.
+
+Re-measured after the restore, same URL, same page, no content change:
+
+| | first pass (stylesheet broken) | after restore |
+|---|---|---|
+| total failures | **2** | **8** |
+| `.evidence-chart__eyebrow` | *absent* | **1.11:1** rgb(26,31,46) on rgb(17,21,32) |
+| series citation links | *absent* | **3.71:1** ×5 |
+| `.ev-ts__eyebrow` | *absent* | **4.24:1** |
+
+**Unapplied CSS cannot fail a contrast check.** A near-empty stylesheet makes a
+render audit report *fewer* failures, not more — so a broken site looks
+*healthier* than a working one, and the failure mode is a false PASS. That is the
+worst direction for this error to point.
+
+### Two things this overturns
+
+1. **Finding 2 stands as originally written.** `evidence-chart`'s eyebrow is a
+   **component-level** defect, not a robot-hands palette quirk: it fails on both
+   sites that carry it (1.14:1 and 1.11:1). The "palette-fragile" narrowing is
+   withdrawn.
+2. **My proposed remedy was insufficient, and the "proven target value" was not
+   proven.** I argued the fix was to make `evidence-chart`'s eyebrow use
+   `--color-accent` like its sibling `evidence-timeseries`, "which does not
+   appear in the failure list at all". On the restored dartsonline page
+   `.ev-ts__eyebrow` **fails at 4.24:1**. So the accent is marginal on that
+   palette too, and copying the sibling would have shipped a fix that fails its
+   own acceptance test on the second site I applied it to. **A target value
+   validated on one palette is not a target value.**
+
+### The check that would have caught it, and it is one line
+
+Before trusting any render-audit result — especially a clean or improved one —
+**verify the page is being measured against its real stylesheet**:
+
+```bash
+curl -sL https://<domain>/assets/css/styles.css | wc -c   # healthy here: 25-27 KB
+```
+
+A few hundred bytes means the audit is measuring an unstyled page and every
+"pass" is meaningless. Cheaper still, the DB side: compare `css_themes` row length
+against the served file — `bugs_open/198` is exactly the divergence where the row
+is empty and the file is fine, and the `css-patch-agent` deploy path resolves that
+in the wrong direction.
+
+**This is the `a-pass-from-a-blind-check-outlives-the-blindness` shape**, and it
+outlived the blindness by about an hour and one committed conclusion. Corrected
+here, in `WRONG_CALLS.md`, and in the `bugs_open/296` contribution, because a
+reader of any one of the three would otherwise inherit the withdrawn version.
+
+### What Phase B's first item actually is now
+
+Not "point the eyebrow at the accent". It is: **choose an ink for editorial
+furniture that clears 4.5:1 against every palette that carries these components,
+and prove it on all of them before shipping** — currently robot-hands, dartsonline,
+oufe, fundamentallyai, leopardessconsulting. The peer lane's diagnosis of the
+underlying cause is the useful frame: `--color-primary` (#1A1F2E) sits in the same
+tonal band as `--color-background` and `--color-surface` on these dark themes, so
+**any token used as both a fill and an ink collapses into its own background**.
+That is a token-role problem, not a shade-tuning problem.

@@ -40261,3 +40261,61 @@ and eleven seats approved it.
 
 **Related:** the 2026-08-20 entry above (a submission read as a review); the runbook's stale-sketch
 trap; and the general family of *a claim about behaviour is not the behaviour*.
+
+---
+
+## 2026-08-20 (editorial_design_uplift lane) — I cleared a component of a defect using a measurement taken against a near-empty stylesheet, and the false result was a PASS
+
+**The claim.** Having measured a 1.14:1 contrast failure on `evidence-chart`'s
+eyebrow on robot-hands.com, I audited the same component on a second site
+(dartsonline.com) as a control, got 2 failures instead of 10 with the eyebrow
+absent from the list, and wrote up a narrowing: the component is *"not wrong in
+itself"*, merely **palette-fragile**. I committed that, and carried it into a
+contribution on `bugs_open/296` as a general caution ("a parked finding against a
+shared component may be a palette defect").
+
+**What was actually true.** At the moment I measured, dartsonline was **serving a
+near-empty stylesheet** — `css_themes` held 164 bytes against a healthy deployed
+file, the `bugs_open/198` clobber class. Most of the CSS I believed I was testing
+was not applied. Re-measured after the peer lane restored it, same URL and same
+content: **8 failures, not 2**, with `.evidence-chart__eyebrow` at **1.11:1** —
+the same defect on both sites, exactly what I had just ruled out.
+
+**Why the marker discipline did not save me.** The figure was dated, measured,
+and reproducible. What it was not is **disconfirmable**: unapplied CSS cannot
+fail a contrast check, so a broken stylesheet can only ever *reduce* the failure
+count. My control could not have come out any other way, which is the test this
+repo already writes down and I did not apply — "a `[MEASURED]` figure is only
+evidence if the measurement could have come out otherwise". I had even used a
+control correctly an hour earlier (auditing untouched pages to separate
+pre-existing failures from mine) and did not notice that this second control had
+no such property.
+
+**The compounding error, which is the more useful half.** On the strength of that
+false pass I named a remedy *and its target value*: make the failing eyebrow use
+`--color-accent` "like its sibling `evidence-timeseries`, which does not appear in
+the failure list at all". On the restored page `.ev-ts__eyebrow` **fails at
+4.24:1**. So the fix I proposed would have shipped and failed its own acceptance
+test on the second site it touched. **A target value validated on one palette is
+not a target value** — and "this sibling passes" is the same blind measurement
+wearing a different hat.
+
+**What caught it:** the `dartsonline_traffic` lane, unprompted, telling me it had
+restored that site's stylesheet after finding four sites clobbered. Nothing in my
+own process would have. I had already committed the conclusion.
+
+**The cheap check I did not run, and it is one line:**
+```bash
+curl -sL https://<domain>/assets/css/styles.css | wc -c   # healthy: 25-27 KB here
+```
+A few hundred bytes means every "pass" in that audit is meaningless. **Before
+believing a render audit — most of all a clean or improved one — confirm the page
+was measured against its real stylesheet.** The DB-side form is comparing
+`css_themes` row length against the served file, which is `198`'s exact
+divergence.
+
+**The tally this belongs to:** it is the
+`a-pass-from-a-blind-check-outlives-the-blindness` shape, already in MEMORY, and
+it outlived the blindness by about an hour and one committed conclusion. Corrected
+in three places (the lane NOTES, this file, and the `296` contribution) because a
+reader of any one alone would inherit the withdrawn version.
