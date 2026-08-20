@@ -1,5 +1,43 @@
 # 327 — a PARTIAL write to `content_direction` silently shrinks the brief the writer reads, and the document keeps growing so nothing looks wrong
 
+> ## ⚠ THE NUMBER 327 IS AMBIGUOUS — refer to this case BY SLUG
+> Another lane filed `bugs_open/327_HANDOFF_2026-08-19_the_build_trigger_can_publish_nothing_and_exit_zero.md`
+> the same day. Both are real, neither is renumberable (numbering is never reassigned), and
+> `scripts/who-owns.py 327` now prints the ambiguity warning. This case is
+> **`a_partial_spec_write_silently_shrinks_the_brief_the_writer_reads`**. `git log` the FILE PATH.
+
+> ## ✅ FIXED IN CODE 2026-08-20 — `c9a71388f` — AND STILL OPEN, because it is inert until a chassis roll
+> Both defects, one commit: `formatted` is now built from `merged` (`site_spec_actions.go`), and
+> `FormatContentDirection` sorts its keys at both levels so an identical spec renders identically.
+> **Council-Submitted: `db3c158b-4dab-4a1b-bb2b-875dbac98358`** (advisory; the verdict is still owed
+> a read, and a REVISE must be acted on — the code is already on the shared branch).
+>
+> **The test that was missing now exists** — `platform/orchestration/actions/site_spec_formatted_from_merged_test.go`.
+> It drives the real `WriteSiteSpecAction` through `sqlmock` and asserts on the `data` JSONB actually
+> inserted, because a formatter-only test passes in the broken world too: the formatter was never
+> wrong, the action was handing it the wrong map. **Mutation-proven against genuine `HEAD`** (both
+> files restored from git, not hand-mutated): the label test names the six keys that really vanish —
+> `heading_style, terminology, example_phrases, persuasion_approach, things_to_avoid, writing_rules` —
+> and the determinism test fails at iteration 0. ⚠ My first hand-mutation changed only the call's
+> ARGUMENT and not the block's POSITION, and failed for a different reason (one missing key); that is
+> why the faithful comparison was run, and it is the general lesson — **a mutation that fails can
+> still be failing for the wrong reason.**
+>
+> **What remains before this closes:**
+> 1. **A roll.** Verify at the artefact, per service, not at git.
+> 2. **The three fragment briefs stay fragments until each is written again** — the fix stops the next
+>    write destroying more; it restores nothing by itself. §5.2's warning stands: a backfill is a
+>    content change, and on `ai-agent-orchestration.com` part of what returns teaches the very
+>    construction the owner objected to.
+> 3. `audit_writer_brief.py --fleet` expecting zero non-empty dropped keys — **after** those sites
+>    are written again, not after the roll. A green run before then would be measuring nothing.
+>
+> ⚠ **The actions package is RED on HEAD for unrelated reasons** — three failures belonging to
+> another lane's `bugs_open/336` (a live WORKFLOW_INVALID incident) plus one order-dependent identity
+> test. Verified identical with and without this change, so the honest claim is "my tests pass and I
+> add no new failures", not "the suite is green".
+
+
 **Filed 2026-08-19** by `copy_quality_two_stage`.
 **Diagnosis loop:** `090` filed the same session, `RUN_CORRELATION_ID=8be5f6e9-d0b3-43f7-9ee4-dee2432dd8b1`
 (per the owner ruling of 2026-07-31 — verdict appended below when it lands).
