@@ -966,6 +966,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Compile all sections of a page into final HTML (+ copy_gate_page_hits: the PAGE-level define-by-negation count)",
 		IsLocal:     true,
 	},
+	"rewrite_negations": {
+		Handler:     RewriteNegationsAction,
+		Category:    "site",
+		Description: "Rewrite define-by-negation sentences in generated section copy, beyond a per-PAGE budget or in any headline field (bugs_open/305). One LLM call, sentence replacements only, spliced in place; brief-supplied and regulatory negations are exempt; never fails the step",
+		IsLocal:     true,
+	},
 	"db_sync": {
 		Handler:     DBSyncAction,
 		Category:    "site",
