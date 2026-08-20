@@ -98,9 +98,22 @@ Gotchas learned the hard way:
   never reached (deactivate it first — see "Before REFILING a tool that already has a native
   component"). Remaining blocked on webdesign.co.uk: **1**, `tool-meme-generator`, and only because it
   is a Phase B rich app that goes last by the owner's instruction — not because the platform refuses it.
-- **Check for an OPEN `page_rerender` on the target page BEFORE you file, not only after
-  (added 2026-08-19).** The reason is not the one further down this file ("don't file a second
-  rerender"): an assemble that is ALREADY QUEUED can be claimed inside the 60-to-100 seconds between
+- **Measure the MARGIN on the target page's queued `page_rerender` before you file (added 2026-08-19,
+  CORRECTED 2026-08-20 — the first version of this bullet said "refuse if one is open", which would
+  have blocked every filing for three hours the very next morning when a 121-item site sweep queued one
+  rerender per page. A guard that fires on an ordinary day is an outage, not a guard).** What matters is
+  whether that assemble can fire inside the build-plus-retire window, so count what is ahead of it and
+  refuse only on a thin margin:
+  ```sql
+  SELECT count(*) FROM site_work_items
+  WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND item_type='page_rerender'
+    AND status IN ('triaged','approved','pending')
+    AND created_at < (SELECT min(swi.created_at) FROM site_work_items swi JOIN pages p ON p.id=swi.page_id
+                       WHERE p.name='<page_name>' AND p.site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+                         AND swi.item_type='page_rerender' AND swi.status IN ('triaged','approved','claimed','pending'));
+  ```
+  At the measured drain rate of ~0.7/min, 20 items ahead is ~25 minutes of headroom; under that, wait.
+  The reason to look at all is not the one further down this file ("don't file a second rerender"): an assemble that is ALREADY QUEUED can be claimed inside the 60-to-100 seconds between
   the build completing and your retire, and then the page publishes BOTH tools. Measured that day: the
   ab-test page's rerender had been filed by the `rerender-pages` sweep **21 minutes before** the build,
   and one of the 117 rerenders that sweep queued for this site was sitting on the very page being
