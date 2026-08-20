@@ -145,6 +145,13 @@ against THIS, not against the 08-19 afternoon figure.
    `Deprecated: commit_sha_field` showing an explicit mapping is precedented; 090 dispatched,
    intake `23296951`; the file's onset + winner-correctness claims are corrected against THIS
    handoff's own census).
+   **THE OWED SIZING AUDIT IS DONE (2026-08-20 morning, 330 §9 + its two dated corrections;
+   method in the RUNBOOK):** 451 plain Strategy-0 wires fleet-wide / 309 pairs / 83 agents;
+   stripped-probe runtime sample of the 8 high-demand agents → **4 genuinely rescue-prone
+   wires**, of which pbh page_id+page_name produce AGREEING candidates (0 disagreements/40
+   runs) and so DO NOT block step 5's conflict flip — they matter only for 330 candidate 2.
+   The wrong-value population on the sampled slice is exactly 330's own wire. Unsampled
+   remainder: 269 pairs / 75 agents (the corrected probe is reusable).
    **AND**: the instrument under-counts its own class `[INFERRED]` — a conflict row requires the
    candidates to DIFFER, so a tree with one (or several agreeing) candidates substitutes the
    wrong value silently. That weakens the "zero WARNs" branch of the precondition permanently,

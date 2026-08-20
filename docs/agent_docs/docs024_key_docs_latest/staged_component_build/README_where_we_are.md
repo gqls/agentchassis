@@ -2167,3 +2167,25 @@ claim was checked against real runs, not just reasoned. My additions that stand:
 clash is now a proper bug file (334) with ranked fixes — the cheapest is a one-line config
 change — and the diagnosis loop is running on it. Lesson recorded in the wrong-calls file: read
 the bottom of the shared notes before acting on them, every time you wake, not just at the start.
+
+**2026-08-20, late morning — the "how big is the guessing problem really" question now has a
+measured answer, and it is smaller and better-shaped than feared.**
+
+The night notes said about fourteen name-clashes stood between us and the final "refuse to
+guess" switch, and that nobody knew how many quiet cases sat underneath them. I measured it.
+Across the whole fleet there are 451 places where a step names an exact path for one of its
+inputs; on the busiest handlers I then checked, run by run, how often that path comes up empty
+and the system's guesswork quietly fills the gap. First pass said ten places; an hour later I
+had to correct my own number to FOUR — my probe had been counting text in areas the search
+deliberately ignores, the same "your measurement answers what you encoded" trap in our own
+lessons file, caught by looking at one real run instead of trusting the count.
+
+Of the four: two are the page builder reading a page's identity from a record that half the
+time was never loaded — and there the guesswork always lands on the right answer (I checked
+forty runs; the loaded record and the request agree every single time either exists). Because
+the copies agree, the final switch never even sees them — they don't block anything, they just
+need a written "safe, and here's why" note, which the measurement now provides. One is a single
+odd run on the re-render path, to be looked at once. And exactly ONE is the wrong-value case —
+the cross-links bug from last night, where the fix IS "answer nothing". So the road to the
+switch is: the named clashes (each now filed or grouped), one note, and one trace — not
+fourteen unknowns.
