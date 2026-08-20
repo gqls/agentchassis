@@ -5829,3 +5829,119 @@ rolls** — a pre-roll `?` key LOSES its Strategy-0 wire (CTS-060's `!` landmine
 **Two client-side 097 schema refusals** before the publish (edits[].operation `create`→`add`;
 `risks` must be a STRING not an array) — no rounds spent; the traps-list already covers the
 plan-is-an-object one, these are two more spellings of it.
+
+## 2026-08-20 (~17:4xZ) — step 5's census dispositioned by WIRING, not by quietness: 4 live classes, not 13; and `tool-generator`/`reason` is closed (512, APPROVED+APPLIED)
+
+Picked up from a cold start pointed at `HANDOFF_2026-08-18b_continue_here.md` (superseded; read
+the 08-20 file instead, and by the time I acted the parallel session had consolidated it again).
+Re-ran §3's census as instructed. **Added one column the table did not have — is the field
+explicitly WIRED in the agent's live step config? — and it splits the list far better than
+`last_seen` does.**
+
+**Census + roll attribution, read `2026-08-20 17:20:54Z`** (`after_prune` = prune roll 08-18
+18:00Z; `after_step4` = 08-19 22:26Z):
+
+| class | rows_all | after_prune | after_step4 | rows_24h | wired? |
+|---|---|---|---|---|---|
+| bdl / `commit_sha` | 449 | 449 | **348** | 449 | no |
+| tg / `reason` | 30 | 22 | **9** | 16 | no → **NOW DECLARED, 512** |
+| tg / `related_pages` | 28 | 17 | **9** | 12 | yes, and it MISSES (= 330) |
+| **pbh / `page_type`** | 40 | **3** | **3** | 3 | no |
+| all fifteen others | — | 0–640 | **0** | 0 | — |
+
+**Reading, and the disposition framework it implies.** The flip's precondition offers one
+disposition ("an explicit mapping"). The census needs **three**:
+
+1. **MAPPED — the search is never reached.** Six pairs are wired AND resolving:
+   tg/`description`+`function`, cc/`description`+`site_type`, pbh/`sections`,
+   rerender-pages/`reason`, site-review/`audit_source`. This is MECHANICAL, not hopeful: post-prune
+   a Strategy-0-resolved field is dropped from what Strategy 1/2 request
+   (`action_inputs.go:767-781`), so no search runs and no row CAN be written. Pre-prune the search
+   ran and **the merge discarded its answer for exactly those keys** — so those rows were always
+   noise and the winner never won. Falsifiable, and it did not falsify: every one has
+   `after_prune = 0` while its agent kept running (tg 16 runs/24h, pbh 78, cc 5).
+2. **REFUSAL IS CORRECT — measured.** tg/`related_pages` (330: absence is the handled state) and,
+   before 512, tg/`reason`.
+3. **UNEXPLAINED.** pr/`current_page` (632 runs/24h, silent since 08-18 13:07 — and note the right
+   demand control is not "page-rerender ran" but "ran on a page whose stored `content_data` carries
+   `current_page` as a STRING", which is 20 rows across 12 sites, so a rare condition, not an armed
+   one), generic/`summary`+`page_id` (211 runs/24h).
+
+**MY OWN CENSUS WENT STALE INSIDE THREE HOURS, and this is the entry's most useful line.**
+At 14:30Z I read pbh/`page_type` as quiet-since-08-18 12:07 and wrote it into a plan as
+"unexplained, unwired". Re-running at 17:20Z before writing anything down: **3 new rows, 15:03 /
+15:07 / 15:11Z.** It is LIVE. The handoff's own "classes move within hours" is not a
+throat-clearing — it is the finding. Anything derived from a census is only as fresh as the
+re-run immediately before the write.
+
+**pbh/`page_type` — the remedy, named and deliberately NOT built** (scope was one migration this
+session, and it is spent on `reason`). Candidates are `load_page_record.page_type`,
+`page_record.page_type` and 28 × `{ensure_site_record,site_record}.content_data.pages[N].page_type`;
+the winner is `load_page_record.page_type`, which is the page's OWN record and **almost certainly
+the right value**. So this is NOT a refusal-is-correct case — under the flip it would resolve to
+NOTHING and lose a good value. The asker is `plan_sections` (`plan_sections_action.go:54` declares
+`page_type` Optional; pbh's `plan_sections` step wires nothing), and the explicit mapping is
+`"page_type": "load_page_record.page_type"` on that step. One key, one migration.
+
+**512 — `tool-generator`/`reason`, closed.** `create_rerender_items` declares `reason` Optional and
+`enqueue_rerender` wires nothing, so the search collects **42** `reason` keys out of the spec tree
+and hands over the shallowest:
+`load_brand_context.specs.classification.content_features.news_feed.reason`. **Damage today is nil
+and the reason matters more than the fact**: `reason` only acts when it equals
+`section_data_resolved` / `image_landed` / `cta_links_stale` (`create_rerender_items_action.go:216-231`);
+otherwise `stampReason` is false and `keyReason` empty — byte-identical to reason-less, which is what
+a newborn tool page wants. Live value read at `collected_data` on the four most recent runs: prose
+("Phase 2 news section. Retuned 2026-07-27 …"), `jsonb_typeof` = string, `input_data.spec ? 'reason'`
+= false on all four. **So it is inert BY LUCK OF ITS VALUE, not by design** — which is the argument
+for declaring it rather than tolerating it. Fix is `input_fields: ["site_id","domain"]` (483's shape);
+`?` was unavailable pre-roll and is the wrong tool anyway — there is no path we want, we want absence.
+Council **APPROVED round 1**, corr `2bd7fb37-cac2-409a-8452-50a7ed933467`, 17:33:23Z, 3 advisory
+objections. Applied 17:38Z, `UPDATE 1`, VERIFY notice fired, live row read back with all six
+pre-existing keys intact and both sibling `create_rerender_items` steps still bare.
+
+**The three objections, dispositioned (full text in the file header):** the multi-active-version
+landmine → tool-generator has exactly ONE live row (v1, `1bca62f6…`), and the `count(*)=1` guard was
+already there and REFUSES rather than picking, which is the better failure for a migration;
+top-level-only negative control → **UPHELD and fixed**, it is recursive now (the claim was already
+true — recursive count == top-level == 3 — but true unverifiably, and this file reads as a template);
+unverified precedent → both quotes were first-hand reads. **And the one thing no seat caught:** the
+runner's own header requires `snapshot_agent()` on any `agent_definitions` migration (484/485/486/502/504
+do it, 483 does not, I had not). Added before applying — it is the only recovery path when the
+ROLLBACK's exact-list guard refuses because someone else has since edited the step.
+
+**Verification owed, with its floor stated up front.** Baseline banked at the apply boundary
+`17:38:34Z`: reason 16 rows/24h (last 17:08:01Z), related_pages 12 (last 17:07:43Z), tg 16 runs/24h
+(last run 17:06:09Z). The test is reason → **0** while `related_pages` KEEPS firing — if both go
+quiet the instrument died and the zero means nothing — and no `component_id` class appears. At
+~16 runs/24h, *n* post-apply runs cannot detect a residual rarer than ~1 in *n*; quote *n*, never
+"fixed".
+
+### The `?` marker: I found the gap, read it as a typo, and a parallel session had already built it
+
+Independently and within the same hour, both halves of this lane hit the same thing. I found that
+`?` is honoured on `input_mapping` (`input_contracts/input_mapping.go:110-139`) but NOT by
+`ExtractActionInputs`, which strips only `!` — so `"commit_sha?": "<path>"`, the top-ranked fix
+candidate in `bugs_open/334` **and** the suggestion in `330` §9, was a dead key: applies, reports
+success, changes nothing, and `UnknownConfigKeys` reports it. I corrected both bug files to the
+unmarked spelling and wrote a LANDMINE. **The parallel session had committed `ecc419bd1` — BUILDING
+the marker — six minutes before my landmine landed.**
+
+Three things worth keeping:
+
+1. **An estate census separates a typo from a convention, but NOT a typo from a GAP.** My evidence
+   was "21 live `?` keys, every one an `input_mapping`, zero in a step config", which I read as
+   *nobody writes it, so it is a mistake*. The identical measurement is what let them ship it as
+   RFC_022-exempt (opt-in, unsafe default OFF, **zero consumers to enumerate**). Same number,
+   opposite conclusion; only the reading CODE tells you which, and it said "unimplemented".
+2. **Post-roll, `?` is BETTER than the unmarked key I recommended.** Unmarked resolves the path and
+   then, on a miss, **falls back to the whole-tree search** — which for 334 is exactly the 7.7%
+   deeper shape whose conflict row would return, and for 330 is the defect itself. Both corrections
+   are re-corrected in place.
+3. **The trap survives with a SHELF LIFE, so the landmine stays.** Both chassis pods started
+   16:09Z on `v1.0.1320`; `ecc419bd1` is 17:20Z, so no live binary parses `?` — a `?` key applied
+   today is still dead, and worse, *replacing* an unmarked wire with one LOSES the Strategy-0 wire.
+   Adopter migrations are `_HOLD` until a stamped chassis is an ancestor-descendant of that commit.
+
+Lane state after this session: step 5's live blockers are **bdl/`commit_sha`** (315 lane owns the
+path), **tg/`related_pages`** (= 330, refusal is the fix) and **pbh/`page_type`** (needs the
+`plan_sections` wire above — new, and the newest of the four). `tg/reason` is done.
