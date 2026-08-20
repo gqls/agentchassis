@@ -1,14 +1,17 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-19 09:05Z. Supersedes `HANDOFF_2026-08-17_continue_here.md`.
 
-**The lane is at a decision point: 8 of 63 tools replaced, 55 remain. It is NOT blocked — the recipe
-is routine — but finishing is 55 more repetitions.** See "Where this stands" below; the owner has been
-asked whether to continue, stop, or scope it down.
+**UPDATED 2026-08-19 21:30Z. 14 of 63 replaced, 49 remain, and PHASE D IS NO LONGER BLOCKED — the
+platform fix it needed landed today and this lane demand-proved it.** The owner has ruled: framework
+ownership of all 63 (see "THE PATH TO 63/63"), so there is no open decision — the work is 49 more
+repetitions of a routine recipe. All 14 are graded at the served bytes
+(the last two, `tool-ab-test-calculator` and `tool-blob-maker`, at 2026-08-20 06:50Z). **#16
+`tool-shadow-stacker` is BUILDING — see "IN FLIGHT" and pick it up first.**
 
 Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two corrections) →
 `RUNBOOK_…` (every command) → `NOTES_…` (evidence, newest at bottom) →
 `SUMMARY_2026-08-19_the_framework_owns_the_fix.md` (the read-aloud account) → `architecture_review/RFC_036` + `bugs_open/303` + `bugs_open/315`.
 
-## The recipe — PROVEN, 8 tools, and now routine
+## The recipe — PROVEN, 14 tools, and now routine
 
 1. **Read the LIVE tool's `<script>`** (fetch with `?cb=<epoch>` so you do not warm the edge with the
    page you are about to replace) and write the spec from its behaviour. Describe *intent* where the
@@ -18,7 +21,11 @@ Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two co
    - `content_components_name_key` — **`UNIQUE(name)`, NO predicate**; the generator derives
      `name = '<function>-<domain-slug>'`, so a REBUILD needs the old row **renamed** (never deleted)
    - the generator's `already_exists` probe — per-site, joins `page_components`, no `build_status` filter
-   - always include the `bugs_open/303` build-constraint sentence in the description
+   - **also assert there is no OPEN `page_rerender` on the target page** (added 2026-08-19): an
+     already-queued assemble can fire inside the 60–100 s between build and retire, and it dedupes the
+     generator's own rerender away
+   - ~~always include the `bugs_open/303` build-constraint sentence~~ **DROP IT — 303 is fixed and live
+     (see below). It now costs something and buys nothing.**
 3. **Grade the RUN** — `current_step='complete'`, `page_adopted='true'`, no `already_exists`, no
    `__step_error`. A failed build reports the ITEM as `complete` with `error` NULL.
 4. **Grade the COMPONENT by locating the MECHANISM, not by grepping wording you imagined.** Enumerate
@@ -29,40 +36,63 @@ Read: this file → `PLAN_2026-08-15_…` (design + three owner rulings + two co
    and include a NEGATIVE that only the old version could satisfy (an old element id) — that is what
    rules out a stale render.
 
-## Where this stands `[MEASURED 2026-08-19 11:45Z]`
+## Where this stands `[MEASURED 2026-08-19 21:30Z]`
 
 | | |
 |---|---|
-| chassis | `v1.0.1316`, digest `2d0d3def…`, pods 17:13Z — real roll (verify by DIGEST, not a binary probe) |
-| **replaced, live, graded at the served bytes** | **11** — aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator, smooth-shadow, json-cleaner, seo-injector, noise-generator, rls-architect, css-variables |
+| chassis | `v1.0.1316`, digest `2d0d3def…`, pods 17:13Z, stamp **`07eeba4a1`** — probed on BOTH replicas 20:52Z with a positive and a negative literal. It carries RFC_036 §9.3 (`e24bc9c0f`) and the `bugs_open/303` fix (`6d962bcf8`); check either with `git merge-base --is-ancestor <commit> 07eeba4a1` |
+| **replaced, live, graded at the served bytes** | **14** — aspect-ratio, markdown-tables, html-minifier, svg-optimizer, sri-generator, smooth-shadow, json-cleaner, seo-injector, noise-generator, rls-architect, css-variables, prompt-permutator, **ab-test-calculator**, **blob-maker** |
 | owner-approved on sight | aspect-ratio, markdown-tables, html-minifier, svg-optimizer |
-| **remaining** | **52** — 2 blocked (RFC_036), 13 external-script, and the rest split simple / larger |
-| **Track 1 (generator contract)** | **DONE** — migration 481 applied, proven twice |
-| **Tracks 2 + 3 (checker, handler)** | **NOT BUILT** — the highest-value work left |
+| **remaining** | **49** — **1** parked (`tool-meme-generator`, only because it is a Phase B rich app), 13 external-script, the rest split simple / larger |
+| **Track 1 (generator contract)** | **DONE** — migration 481 applied, now proven FIVE times (every build since has produced contract-rule elements no brief mentioned) |
+| **Tracks 2 + 3 (checker, handler)** | **RE-SCOPED 2026-08-19 — much smaller than this file used to say. Read the Track 2 section before writing any Go: two of the six classes are already detected by `tool-auditor`, one of them MUST NOT be checked statically, and the queue defect that made it look futile turned out to be a fixed keying bug.** |
 
 **DB check for the tally, so it is never guessed:**
 `SELECT pc.build_status, count(*) FROM pages p JOIN page_components pc ON pc.page_id=p.id
  WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND pc.slot_name='ported-page'
    AND p.name LIKE 'tool-%' GROUP BY 1;` → `removed` = replaced, `deployed` = remaining.
 
-**Five of the nine ported tools examined were measurably broken in production** — two with a checkbox
-whose implementation sat inside its own comment, one corrupting `pre`/`script` content, one silently
-disabling truncation on a bad input, one destroying the user's output on a parse error. **None was
-visible from the page.** Reading the live script before writing each brief is what found all of them,
-and it costs ~2 minutes per tool. That has become the lane's main product.
+**Five of the first nine ported tools examined were measurably broken in production** — two with a
+checkbox whose implementation sat inside its own comment, one corrupting `pre`/`script` content, one
+silently disabling truncation on a bad input, one destroying the user's output on a parse error.
+**Every one of the five examined since has been broken too** (#11 rls-architect emitted a dropdown
+label where it promised SQL; #12 css-variables shipped `/* Auto-generated grey */` on a hardcoded hex;
+#13 prompt-permutator would expand ten groups of five into ~9.8 M strings and freeze the tab; #14
+ab-test-calculator printed a significance verdict from `NaN`; #15 blob-maker bound no listener to any
+of its three controls). On this file's own earlier figure plus those five, the rate is **10 of 14**.
+**None was visible from the page.** Reading the live script before writing each brief is what found all
+of them, and it costs ~2 minutes per tool. That has become the lane's main product.
+
+**A named subclass, now 4 of the 14: the tool asserts something untrue ABOUT ITSELF** — prose where SQL
+was promised, a comment claiming a colour was generated, a control wired to nothing, and a verdict
+computed from a value that is not a number. These defeat casual checking because the output has the
+shape of a working tool's output. 481's rules cannot reach it (they govern behaviour, not whether the
+tool's account of itself is true), so it is a standing step when writing a brief: **read what the tool
+SAYS about itself and check the code does it.**
 
 ## Three platform defects this lane filed (all still OPEN, none this lane's to fix)
 
-- **`architecture_review/RFC_036`** — three uniqueness gates on one INSERT. One (`UNIQUE(name)`) means
-  a native tool **can never be rebuilt** without renaming the old row. Owner direction recorded: keep
-  the library-and-fork model ⇒ a rebuild should record `forked_from`. **Nobody has built it**, which is
-  why 2 tools are parked. **Do NOT unblock by deactivating their library templates** — both have live
-  forks on other sites.
-- **`bugs_open/303`** — the tool-birth guard counts tag SUBSTRINGS, so any tool that mentions a
-  structural tag is unbornable, refused with a truncation message its own `ends_cleanly:true`
-  disproves. Worse second class: a tool whose OUTPUT is a script tag cannot be reworded out of it, and
-  the workaround forces the generator to hide its own tag behind string concatenation — which makes a
-  real truncation harder to detect.
+- ~~**`architecture_review/RFC_036`** — nobody has built it, which is why 2 tools are parked.~~
+  **BUILT, COUNCIL-APPROVED AND LIVE, 2026-08-19 — and this lane demand-proved it the same evening.**
+  The `bugfix_311` lane shipped §9.3 (`create_tool_component_action.go:249-285`, commit `e24bc9c0f`,
+  council `ceae30f2` APPROVED round 1): when a library entry claims the function, the generator sets
+  `forked_from` on the new row, so `idx_cc_tool_function_unique` no longer fires. Their notice is
+  `webdesign_tool_rebuilds/CONTRIB_2026-08-19_from_311_lane_RFC_036_s9_3_is_BUILT_and_LIVE_phase_D_is_unblocked.md`.
+  **First real exercise: `tool-ab-test-calculator`, 20:57Z — PASS.** New row
+  `8a315006-2170-4ba7-b517-4abaf9619e45` carries `forked_from='8c9a6e06…'`, `save_tool` completed with
+  no 23505, and the library row's html/schema md5s and `updated_at` are unchanged. Outcome reported
+  into `docs/agent_docs/docs024_key_docs_latest/bugfix_311_component_keys/NOTES_311_fix.md`.
+  Known follow-up they flagged and it did NOT bite: `deploy_tool_to_site`'s fork lookup (RFC_036 §11)
+  is not on this route.
+- ~~**`bugs_open/303`** — the tool-birth guard counts tag SUBSTRINGS…~~ **FIXED AND IN THE RUNNING
+  BINARY (verified 2026-08-19 21:20Z).** Commit `6d962bcf8` (08-18 19:50Z) replaced raw
+  `strings.Count` tag counting with one markup-context scanner (`platform/content/markup_balance.go`)
+  at five surfaces including `toolTemplateValid`, the tool-birth guard. It is an ancestor of the live
+  stamp `07eeba4a1`, and its own calibration recorded 264 `component_versions` rows, 26 flagged by both
+  old and new, **0 flips**. **CONSEQUENCE FOR EVERY FUTURE BRIEF: drop the BUILD CONSTRAINT sentence.**
+  It is not merely redundant now — it tells the generator to hide tag names behind string
+  concatenation, which is exactly what makes a real truncation harder to detect. The bug FILE is still
+  in `bugs_open/`; moving it belongs to the lane that fixed it, not to this one.
 - **`bugs_open/315`** — `pages.deployed_at` is stamped whether or not bytes are written (measured stale
   on three pages, including two that were serving correctly). One page was skipped by four completed
   rerenders and published itself ~6 h later.
@@ -88,13 +118,47 @@ the contract and the brief is the drift surface — the day they disagree nobody
 authoritative. **A brief should say only what is true of THIS tool.** The first brief written this way
 is `tool-noise-generator` (item `49536dc1`), which is also the live test of 481.
 
-**Still owed (Tracks 2 and 3), and they need code, not config:**
-- **Track 2, a checker.** Rules bind only what is generated NEXT; they cannot see the 55 already
-  deployed. A discovery check in `platform/orchestration/actions/discovery_checks/` — same shape as
-  `orphan_element_refs` (TL-032) — is what makes the classes self-detecting. Council gate + roll.
-- **Track 3, a handler.** A check that files an item nobody handles is a queue, not a fix
-  (`bugs_open/161`'s dead `needs_rebuild` is the cautionary case). Confirm the raised item type has a
-  live handler BEFORE shipping the check.
+**Still owed (Tracks 2 and 3) — RE-SCOPED 2026-08-19 after reading the package and measuring the
+queue. Read this before writing Go; the four findings each remove work.**
+
+1. **Detection of these classes already exists and is not static — it is `tool-auditor`.** On this site
+   it had already filed, on 2026-08-15: *"Division by zero is certain when visitors is 0. The z-score
+   formula uses `p * (1 - p) / n` under a square root…"* — the exact defect this lane found by hand in
+   `tool-ab-test-calculator` four days later. Also a missing copy button, an unguarded negative input,
+   `input` and `change` both bound, hardcoded hex. A new detector for the behavioural classes is a
+   SECOND opinion, not a first.
+2. **`check_tool_health.go` is already driven and already covers both populations** (real forks AND the
+   63 ported instances, widened 2026-08-15 under `bugs_open/281`): `design-discovery-agent`'s `checks`
+   array holds `tool_health`, `tool_acceptance`, `tool_acceptance_due` `[MEASURED at the live row]`.
+   Its 10 sub-checks are structural (script/style present, `@media`, bare hex, `fetch`/external `src`,
+   tool-doc header) and cover **none** of rules 15-20. **Extending it needs no config change**, which
+   is also how a new check avoids being born undriven.
+3. **Rule 18 must NOT be checked statically, and #14 is the measured counterexample.** The obvious test
+   — calls `parseInt`/`parseFloat` and contains no `isNaN`/`Number.isFinite` — **fails the
+   best-validated tool on the site**: the ab-test rebuild scores `isNaN` = 0 because its guard is
+   `/^\d+$/.test(raw)` BEFORE the parse, which is strictly stronger. Rules 15, 19 and 20 are semantic
+   in the same way. **Only 16 (inline `on*=` attribute) and 17 (`alert(`/`confirm(`/`prompt(`) are
+   literal and decidable** — they cannot be satisfied by a better implementation.
+   ⚠ And do not quietly overturn `check_dead_controls.go`'s stated boundary: *"`<button>` with no
+   handler is NOT judged statically (JS binds at runtime); the post-hydration equivalent lives in the
+   Tier-4 browser tier."* That is the blob-maker defect exactly, and its owner declined it on purpose.
+4. **Track 3 is already answered by the package, and the queue is NOT dead — I nearly recorded that it
+   was.** `remit.go` exists for precisely this question (`bugs_open/077`): `PartitionByRemit` splits the
+   population by whether the HANDLER's literal transform would change it, and `CapabilityGapItem` files
+   ONE undispatchable `capability_gap` (status `deferred`, empty `handler_agent`, priority 200) for the
+   residue instead of items nobody can clear. First measurement said `improve_tool` = **205
+   `unresolved`** against 35 complete, which reads as a graveyard. **Row-level look: 20 of them share
+   ONE `item_key` (`audit_fix_webdesign.co.uk`, no per-tool discriminator), all born
+   "[unresolved after 2 attempts]" although no row with that key ever reached a terminal status — and
+   from 17:24 that day the keys change shape to `audit_fix_<domain>_<page_id>` and DO dispatch (3
+   complete, 1 failed). `425_tool_auditor_ported_instances.sql` was applied at 17:17:19Z.** The 205 are
+   a pre-425 keying scar, not today's behaviour.
+
+   **So the shape to build, if it is built: ONE sub-check pair inside `check_tool_health.go` for rules
+   16 and 17 only; per-INSTANCE `item_key`s; forks → `improve_tool` (in-remit, tool-improver rewrites
+   `html_template`); ported instances → residue → ONE `capability_gap` per site, never 42
+   `ported_tool_fix` rows. State in the header what it does NOT cover, or its silence on rules
+   15/18/19/20 will read as a clean bill.**
 - ⚠ **Do NOT put the `bugs_open/303` workaround into the contract.** It would bake tag-obfuscation
   into every generated tool. Keep it per-brief, only for tools that emit or manipulate markup, until
   303 is fixed.
@@ -148,41 +212,46 @@ to work. Phase D runs whenever RFC_036 lands — it is not a sequencing dependen
 **63/63 replaced, each graded at the served bytes with a cache-buster and a negative control.** If
 RFC_036 is never built, the honest terminal claim is **"61 of 63, 2 blocked on RFC_036"** — not "done".
 
-## IN FLIGHT RIGHT NOW (2026-08-19 20:35Z) — pick this up first
+## IN FLIGHT RIGHT NOW (2026-08-20 06:55Z) — pick this up first
 
-**#13 `tool-prompt-permutator` is BUILDING.** Item `c860210f-6264-4b22-b87c-29fcfc7f3f78`,
-page `fdaf3c75-b848-4f23-ab90-d75896d90f66`, `/tools/prompt-permutator/index.html`.
-**Revert handle already recorded:** ported slot `b5db3257-8711-41df-95cc-673d91aae25c`,
-6,411 chars, md5 `48f609219a2e4da8230bb9835ae12100`.
+**#16 `tool-shadow-stacker` is BUILDING.** Item `2121ba49-8b61-402e-95fc-d5ad54062e2a`,
+page `9d3333c8-2122-414d-bc98-cb8c73ebfade`, `/tools/shadow-stacker/index.html`.
+**Revert handle already recorded:** ported slot `9b3ec013-1d29-4918-90d0-791b62aafae7`,
+6,710 chars, md5 `d970feca108b6e2a84e91d23150471ff`.
 When it completes: grade the RUN, grade the COMPONENT, then **retire that slot immediately** and watch
-the rerender. Its load-bearing requirement is a **cap of 5,000 variants computed BEFORE generating**,
-plus a group-count limit and the "1 variant" singular.
+the rerender. Its load-bearing requirement is an invariant on the OUTPUT, not on the inputs: **the code
+block must only ever contain valid CSS and the preview must never disagree with it** — the ported
+version writes `NaNpx` from an empty field, which voids the whole declaration so the preview loses
+EVERY layer while the code box still offers the text as CSS. Negative blur and zero layers
+(`box-shadow: ;`) are the same class.
+**It is also the test of retiring the `bugs_open/303` sentence** (first brief without it). If the build
+is refused for unbalanced tags, that inference is wrong and the sentence goes back into the recipe.
 ⚠ **A watcher was armed but a fresh session will not inherit it** — re-check the item directly:
-`SELECT status, now()-created_at AS age, now()-claimed_at AS claimed_for FROM site_work_items WHERE id='c860210f-6264-4b22-b87c-29fcfc7f3f78';`
+`SELECT status, now()-created_at AS age, now()-claimed_at AS claimed_for FROM site_work_items WHERE id='2121ba49-8b61-402e-95fc-d5ad54062e2a';`
 
 ## Next actions — start here in a fresh session
 
-1. **Finish #13 (above), then Phase A continues with `tool-blob-maker` (6,550 B).**
-   Order the rest with the RUNBOOK's "Scope the batch correctly" query. Run the six steps above.
-   **Do not file a rebuild you cannot attend** — the retire race has been as short as 2 minutes and was
-   lost once at 96.
-2. **Build Track 2, the checker** — the highest-leverage work left, and the half of the owner's
-   directive still owed. Migration 481 stops the NEXT tool being born broken; nothing finds the faults
-   in the 52 already deployed. Shape it on `orphan_element_refs` (TL-032) in
-   `platform/orchestration/actions/discovery_checks/`. Go + council gate + roll.
-   **Track 3 goes with it**: confirm the item type it raises has a LIVE handler before shipping —
-   a check that files items nobody handles is a queue, not a fix (`bugs_open/161`'s dead
-   `needs_rebuild` is the cautionary case).
-3. **Decide how to catch the "tool lies about itself" class.** Three of twelve tools assert in their
-   own output that they did something they did not (SQL that was prose; "Auto-generated grey" on a
-   fixed hex; a colour picker wired to nothing). **481's rules cannot reach it** — they govern
-   behaviour, not whether the tool's prose about itself is true — and a static check would struggle,
-   because verifying a claim against code is closer to the Tier-2 acceptance evaluator's job than to a
-   grep. Decide whether it is a checker at all or a line in the tool-acceptance criteria. Until then it
-   is a standing step when writing a brief: **read what the tool SAYS about itself and check the code
-   does it.**
-4. **RFC_036 §9** is written and needs no more investigation — a ~10-line change setting `forked_from`,
-   then council + roll. It unblocks the last 2 tools. **There is no config-only interim; §9.1 proves it.**
+1. **Finish #16 (above), then Phase A continues with `tool-diff-checker` (6,731 B)** — then
+   `tool-touch-target` (6,732), `tool-grid-generator` (6,828), `tool-text-extractor` (6,908),
+   `tool-mesh-gradient` (7,052), `tool-oklch-picker` (7,186). Order the rest with the RUNBOOK's "Scope
+   the batch correctly" query. Run the six steps of the recipe.
+   **Do not file a rebuild you cannot attend** — the retire race has been as short as 60 s.
+2. **Track 2 is now a SMALL, decided piece of work — read the re-scoped section above before writing
+   any Go.** Two sub-checks (rules 16 and 17 only) inside `check_tool_health.go`, routed through
+   `remit.go`'s `PartitionByRemit` / `CapabilityGapItem`. Do NOT build a rule-18 checker: #14 is the
+   measured counterexample. Council gate + roll as usual.
+3. **The "tool lies about itself" class is now 4 of 14 and still has no mechanism.** 481's rules cannot
+   reach it and a static check would struggle, because verifying a claim against code is closer to the
+   Tier-2 acceptance evaluator's job than to a grep. Decide whether it is a checker at all or a line in
+   the tool-acceptance criteria. Until then it is a standing step when writing a brief: **read what the
+   tool SAYS about itself and check the code does it.**
+4. **`tool-meme-generator` is the only tool the platform no longer blocks but this lane has not
+   scheduled** — it is a Phase B rich app, so it goes last, one at a time, seen at the served page, by
+   the owner's standing instruction. Its library claim is `6ae53f32-be86-4c29-bc52-983c35d23b18`; the
+   §9.3 fork path will handle it exactly as it handled the ab-test calculator.
+5. **`bugs_open/315` is still open and still the one that can make a grade lie** — `pages.deployed_at`
+   is stamped whether or not bytes are written, so compare `last-modified` against the rerender's
+   `completed_at` rather than trusting a status.
 
 ## Traps that each cost a real cycle (full detail in NOTES / WRONG_CALLS / LANDMINES)
 
@@ -196,3 +265,20 @@ plus a group-count limit and the "1 variant" singular.
   `last-modified` vs your rerender's `completed_at` tells you which. A PASS can be faked by neither.
 - `handler_agent` is NOT NULL on `site_work_items`; for rerenders it is `page-rerender`.
 - This lane's own rebuilds are its main queue competitor — each tool spawns a guide page and rerenders.
+- **There is no lever to make ONE page assemble sooner, and `priority` is not it.** Measured 2026-08-19:
+  a `rerender-pages` sweep filed 117 `page_rerender` items for this site at one timestamp, all priority
+  80, draining in alphabetical page order at ~0.7/min — and `tool-*` sorts after every `learn-*` page.
+  Lowering two items' `priority` to 5 and 6 changed **nothing**: priority-80 items kept being claimed
+  after the write. `load_work_item_actions.go:737`'s `ORDER BY wi.priority ASC` belongs to a loader that
+  does not dispatch this item type, and the real selector is still unlocated. Both rows were restored.
+  **Verify any dispatch change at the DISPATCHER (what got claimed next), never at the row** — the row
+  said `priority=5` and `UPDATE 1`, which is exactly what success looks like. (`WRONG_CALLS.md`, 08-19.)
+  In practice the queue drains: all 117 were done within ~70 minutes.
+- **The chassis retains ~2 MINUTES of logs.** `logs --since=6h` returns lines starting two minutes ago
+  and reads as if the service was quiet before that, so grepping for a line your code emits is only
+  valid within about a minute of the event and fails SILENTLY. Before believing an absence, put a line
+  you know always fires into the same grep. Better: if the branch WRITES something (a column, a row),
+  assert that instead — it has no shelf life. (`LANDMINES.md`, entry refined 08-19.)
+- **`id="verdict"`-style ids that exist in BOTH versions are not negative controls.** Enumerate the
+  retired slot's own ids before the rebuild and pick ones that appear nowhere else; a guessed
+  "old-looking" id can test nothing while looking like a control.

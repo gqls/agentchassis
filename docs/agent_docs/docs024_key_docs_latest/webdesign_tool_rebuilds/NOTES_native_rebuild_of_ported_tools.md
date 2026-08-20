@@ -1826,3 +1826,56 @@ The bug file is still in `bugs_open/` — that is another lane's to move, not th
   finding. Accepted; the revise (a visible-text gate reusing the floor helpers, as the SUBSTITUTE for the
   floor exemption) is specified in `bugs_open/331` §9 and not yet built. Code is inert + HOLD, so nothing
   live is exposed. Your 286 "related finding" (text-content floor) gets its first home here.
+
+## 2026-08-20 06:50Z — #14 and #15 PASS at the served bytes. 14 replaced, 49 remain. Queue fully drained overnight.
+
+Both re-renders completed last night (`ad2a2dc4` 21:36:17Z, `318c3d47` 21:41:43Z) and the whole 117-item
+sweep has drained — **0 `page_rerender` items queued on this site now**, so the "no lever to jump the
+queue" problem cost nothing in the end except the wait.
+
+Cache-busted grade, one `?cb=` per page, `http=200` asserted first:
+
+| | `/tools/ab-test-calculator/index.html` | `/tools/blob-maker/index.html` |
+|---|---|---|
+| bytes | 16,172 | 19,169 |
+| `class="ported-page"` · `{{\.` · `onclick=` · `alert(` | 0 · 0 · 0 · 0 | 0 · 0 · 0 · 0 |
+| NEGATIVE controls (old-only, must be 0) | `id="visA"` 0, `id="convA"` 0, `id="rateA"` 0, `Significant!` 0 | `id="blobContainer"` 0, `id="svgCode"` 0, `id="complexity"` 0, `id="blobColor"` 0 |
+| POSITIVE controls | `id="a-visitors"` 1, `id="a-visitors-error"` 1, `Conversions cannot exceed visitors` 1, `significant winner` 1 | `id="blob-path"` 1, `id="colour-picker"` 1, `handleColourChange` 2, `currentOffsets` 4 |
+
+**Note on `id="verdict"`: it is NOT a usable negative control here** — the ported version and the
+rebuild both use it, so a 0 would have meant the page was broken and a 1 proves nothing. The negatives
+above are ids that exist in the retired bytes and in no other version. Enumerating the OLD slot's ids
+before the rebuild is what makes that distinction available; guessing at a "surely old-looking" id
+would have produced a control that silently tests nothing.
+
+**`last-modified` on both is 22:38:28/29Z on 08-19** — an hour AFTER their own rerenders completed, and
+identical to the second across two different pages, so a later site-wide publish overwrote them both.
+That is fine and the check still holds: the requirement is that the served bytes are newer than the
+rerender AND carry the new tool, and they do. (The reverse ordering would have been the finding.)
+
+## 2026-08-20 06:51Z — #16 `tool-shadow-stacker` FILED — the first brief with NO 303 sentence
+
+Item **`2121ba49-8b61-402e-95fc-d5ad54062e2a`**, page `9d3333c8-2122-414d-bc98-cb8c73ebfade`,
+`/tools/shadow-stacker/index.html`. Revert handle: ported slot
+**`9b3ec013-1d29-4918-90d0-791b62aafae7`, 6,710 chars, md5 `d970feca108b6e2a84e91d23150471ff`**.
+Five pre-asserts this time — the four standing gates plus the new one: **no open `page_rerender` on
+this page** (it was 0, and the sweep draining overnight is why).
+
+**This build is also the test of retiring the 303 workaround.** The summary says so explicitly, so that
+if the build is refused for unbalanced tags the inference is falsified in the record rather than
+quietly re-patched: *"if this build is refused for unbalanced tags, that inference is wrong and the
+sentence goes back."* The tool emits `box-shadow: …` text and no markup, so it is a mild test; a tool
+whose OUTPUT is markup would be the strong one.
+
+**The ported defect: one empty field silently voids every layer, and the code box still calls it CSS.**
+```js
+function update(idx, key, val) { layers[idx][key] = (key === 'color') ? val : parseFloat(val); updateCSS(); }
+// clear the Y field  ->  parseFloat('') === NaN  ->  "0px NaNpx 2px 0px rgba(0,0,0,0.05)"
+```
+An invalid `box-shadow` value makes the browser drop the WHOLE declaration, so the preview loses all
+layers at once — not the one being edited. The visitor sees the shadow vanish with six fields on screen
+and no indication which did it, and the code block presents the broken string as CSS to paste. The same
+class fires on a negative blur (invalid CSS, valid number) and on removing every layer, which emits
+`box-shadow: ;`. So the brief's requirement is stated as an invariant on the OUTPUT rather than as
+validation of the input: **the code block must only ever contain valid CSS, and the preview must never
+disagree with it.**
