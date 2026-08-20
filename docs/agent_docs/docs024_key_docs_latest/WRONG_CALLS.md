@@ -38717,3 +38717,78 @@ wrong frame. The real question was *"which half of this can survive being strand
 asked it, because I had already decided the set was indivisible. **When you catch yourself defending
 a hold, price the half-done state of each ordering rather than the tidiness of the whole.** A
 temporary duplicate is a code smell someone tuts at; a temporary undefined symbol stops the estate.
+
+---
+
+## 2026-08-20 — I fixed a self-staling POINTER and, in the same migration, wrote self-staling FIGURES into the same live config. Three of them were false within twelve hours (277 lane)
+
+**Migration `497`** corrected an escalation task's owner map, whose entries had rotted for a precise
+structural reason: they hardcoded a **`bugs_open/` prefix**, and that prefix is *exactly what flips
+when the lane you are pointing at succeeds*. I wrote that diagnosis out at length, wrote the rule
+into the map so it could not recur — and in the same `UPDATE` wrote this into the same live config:
+
+> *"[MEASURED 2026-08-19] **all 7 rows held** on page-build-handler sit on rebuild_policy=owned pages
+> … re-pointing these 7 would produce 7 more failures, **drag a healthy pair toward its floor**, and
+> repair nothing."*
+
+**By 08:11Z the next morning all three load-bearing clauses were false.** The 7 rows were not held —
+they had been dispatched, refused and terminated `wont_fix` between 07:20:42Z and 07:23:58Z. The pair
+was not floor-held: it had gone 8.1% → 44% overnight. And it **cannot** be dragged toward its floor
+at all, because `bugs_closed/301` — shipped **two days before I wrote the prediction** — makes a
+refusal terminate `wont_fix`, which is excluded from both sides of the promoter's rule.
+
+**What caught it:** going back to check whether a *different* claim (a route candidate) was safe, and
+re-deriving the population as a side effect. Nothing was watching the config string. Had I not looked
+for an unrelated reason, it would have sat there until a human read it at an escalation.
+
+**Why the marker discipline did not help, and this is the point.** Every clause was **measured, dated
+and marked** exactly as the rules require. This is not measured-vs-unmeasured. It is **TENSE**:
+
+- a **dated observation** stays true for ever — *"on 08-20 07:20Z, 7 rows were refused"*;
+- a **description of current state** is false the moment the state moves — *"all 7 rows are held"*;
+- **and both wear the same `[MEASURED <date>]` badge, so a reader cannot tell them apart.**
+
+**The cheap check, and it is grammatical, not empirical:** before writing a measured claim into
+anything durable — config, a prompt, a seed, a bug file's conclusion — **read it back and ask whether
+it is a sentence about an EVENT or a sentence about a STATE.** If it is about a state, either convert
+it to a dated event or delete it and state the mechanism instead. And note the aggravating factor:
+this was a **one-shot annotation**, stamped into a row at escalation time and never revisited, so
+"I'll correct it later" was never available. `498` replaced it.
+
+**The second-order lesson, which is why this is here and not only in the lane notes:** the failure
+mode I had *just finished diagnosing in someone else's work* was "a value that goes stale exactly
+when it starts to matter." I then committed the same class of error, in the same file, in the same
+hour. **Diagnosing a pattern does not inoculate you against it** — if anything it made me faster and
+more confident. The check has to be mechanical, because the insight demonstrably is not.
+
+**And a third clause worth separating out:** *"drag a healthy pair toward its floor"* was not stale,
+it was **never true** — a fix shipped two days earlier had already made it impossible. I predicted a
+mechanism's behaviour from my own notes about that mechanism rather than from the closed bug that had
+changed it. **When you predict what a mechanism will do, the last thing to touch it is the authority,
+not your last reading of it.**
+
+## 2026-08-20 — a "clean" check for a template-blanking bug that could not have come out dirty (277 lane)
+
+Same session. A recorded landmine says a `section_edit` on a per-site **tool fork** whose template
+carries `{{.field}}` copy and whose `content_data` is `{}` **re-renders every text node to EMPTY**
+while every quality floor passes. Six of the seven pages I was about to recommend that route for are
+exactly that kind of page, so this was the check that mattered.
+
+**I grepped `page_components.rendered_html` for `{{.`, got 0 on all seven, and read it as "the trap
+does not apply."** It is worthless. `rendered_html` is the **rendered output** — and the entire
+failure being described is that the placeholder is replaced by **nothing**. A page destroyed by this
+bug contains no `{{.` either. **The measurement returns 0 whether or not the risk exists.**
+
+**What caught it:** writing the sentence "so the trap does not apply" and not being able to say what
+a *positive* result would have looked like.
+
+**The check that works:** ask the question of the **template** (`content_components.html_template`),
+not the artefact — `regexp_matches(html_template, '\{\{\s*\.[A-Za-z_]', 'g')` — and pair it with the
+`content_data` emptiness, because **the trap needs both halves**. Done properly the answer was clear
+and the opposite of alarming: the tool forks have empty `content_data` and **zero** template fields,
+and the defect being repaired is not in the fork at all.
+
+**The tally is the point.** This is the memory-index rule *"a `[MEASURED]` figure is only evidence if
+it could have come out otherwise"* firing **twice in two days**, and both times inside a check I ran
+*because* I was being careful. **Before recording a check as passed, say out loud what the failing
+result would have looked like.** If you cannot describe it, you have not run a check.

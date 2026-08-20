@@ -2285,3 +2285,127 @@ then, **eleven lines below it**, the "THE TRANSFERABLE PROPERTY" paragraph presc
 lane's own handoff §0 instructs, met the refuted version first and the retraction second. Struck
 through and corrected in place. **A correction that does not also fix the summary line is half a
 correction, and the summary is the half that travels.**
+
+---
+
+## 2026-08-20 ~09:00Z — the population repaired itself out from under me while I was writing about it, `497`'s own figures went stale in twelve hours (`498`), and "no route at all" is REFUTED
+
+Three things happened in the four hours after the entry above, and they are connected: **the thing
+I had just finished measuring stopped existing.**
+
+### 1. THE 7 ROWS ARE GONE — terminal, not escalated, and the 08-21 clock is VOID
+
+**[MEASURED 2026-08-20 08:11Z]** The 7 held `literal_markdown → page-build-handler` rows are no
+longer `detected`. Between **07:20:42Z and 07:23:58Z** — one every ~30 seconds, so a serial
+dispatch loop — every one was dispatched, refused, and terminated **`wont_fix`**:
+
+```
+completed_by_step: mark_item_failed · owned_page_refusal: true
+owned_page_refusal_marker: OWNED_PAGE_GUARD · owned_page_refusal_replaced_status: "failed"
+```
+
+**Why they were released:** the pair rose from **3 ok / 34 failed (8.1%, FLOOR-HELD)** at 21:14Z last
+night to **19 ok / 24 failed (44%, PROMOTABLE)** — **16 completions across 3 sites inside the 07:00Z
+hour alone.** Promotable pair → promoter feeds it → the owned-page rows in it go straight into the
+guard.
+
+**So `literal_markdown` has dropped out of the held set entirely and the escalation this lane had
+docketed for 2026-08-21 12:57Z will NOT fire.** Today's tick (~12:58Z) is `escalated=4,
+reclaimed=0, watching=6` — **4** `placeholder_contact` rows, not the 3 the handoff and my own
+earlier preview said, because a 4th joined the pair overnight.
+
+> ⚠ **This is §6's "the population drains; re-derive at the tick" landing on me, and note WHICH
+> claim it broke.** Not a figure — a *docket*. I had a dated clock, correctly derived twice from the
+> live `pre_query`, and the rows left by a door I had not modelled. **A clock is only a prediction
+> if nothing else can reach the rows first**, and `wont_fix` reached them in 3 minutes 16 seconds.
+
+### 2. `497` WROTE SELF-STALING FIGURES INTO THE SAME CONFIG WHOSE SELF-STALING POINTER IT FIXED
+
+This is the day's real lesson and it is uncomfortable. `497` (08:00Z) corrected a map that had rotted
+because it hardcoded a `bugs_open/` prefix — *a value guaranteed to go stale the moment the lane it
+named succeeded.* In the same migration I wrote into the same live config:
+
+> *"[MEASURED 2026-08-19] **all 7 rows held** on page-build-handler sit on rebuild_policy=owned
+> pages … re-pointing these 7 would produce 7 more failures, **drag a healthy pair toward its
+> floor**, and repair nothing."*
+
+**Three clauses, all true when measured, all false within twelve hours:** the 7 are not held; the
+pair is not floor-held (44%, promotable); and it cannot be dragged toward its floor at all, because
+**`301` makes that mechanically impossible** — a refusal terminates `wont_fix`, which is excluded
+from *both* sides of the promoter rule. **The prediction's mechanism had already been prevented by a
+fix that shipped two days earlier, and I did not check.**
+
+> **THE DISTINCTION, and it is NOT measured-vs-unmeasured** — every word of it was measured, dated
+> and marked, exactly as this lane's rules require:
+> - a **DATED OBSERVATION** stays true for ever: *"on 08-20 07:20Z, 7 rows were refused"*;
+> - a **DESCRIPTION OF CURRENT STATE** is false the moment the state moves: *"all 7 rows are held"*;
+> - **and a reader cannot tell which kind they are looking at.** The `[MEASURED <date>]` marker
+>   is worn by both.
+>
+> A **one-shot annotation** — read by a human at escalation time, possibly months later — must carry
+> the first kind plus the durable **mechanism**, never the second. The marker discipline does not
+> reach this; only the tense does.
+
+**`498` applied ~08:40Z** and de-volatilises that string: durable mechanism, one dated worked
+instance, and the candidate route. It asserts each of the three stale claims is **individually
+gone** (named, so it cannot pass by accident), keeps `497`'s other two corrections as **positive
+controls**, and its reverse-replacement control is mutation-proven the same way. Verified at the live
+column: `ddd0c894… len 13746`, and the corrected query **executed** rolled back.
+
+### 3. "AN OWNED PAGE HAS NO ROUTE AT ALL" IS REFUTED — and the route was in this task's own prose
+
+Following up §8 of the previous entry (the `[UNVERIFIED]` lead) instead of leaving it for next time.
+
+**[MEASURED 2026-08-20, live + archive] `section_edit → section-editor`, split by `rebuild_policy`:**
+
+| policy | complete | failed | total |
+|---|---|---|---|
+| **`owned`** | **36** | **1** | **39** |
+| `generic` | 53 | 4 | 57 |
+| (no page row) | 132 | 0 | 133 |
+
+**92% on owned pages** — against `466`'s own conservative "18 completes". Compare the generic repair
+on the same axis: `literal_markdown → page-rerender` is 8 complete on `generic`, **1 failed on the
+single `owned` page it tried.** The two routes are not both blocked on owned pages: **one is refused
+by design and the other is how this estate already edits them.**
+
+**The severe landmine was CHECKED, and its precondition is absent.** `LANDMINES.md` warns that a
+`section_edit` on a per-site **TOOL FORK** whose template carries `{{.field}}` copy and whose
+`content_data` is `{}` re-renders every text node to **EMPTY** while every floor passes. Six of our
+seven pages are `tool-*` — a direct hit on shape, and the thing that would have made "use
+`section_edit`" another confidently-actionable wrong answer.
+
+| page / slot | `component_level` | `content_data` empty | `{{.field}}` hits in TEMPLATE |
+|---|---|---|---|
+| all 7, `ported-page` | **section** | no | 1 |
+| grid-generator, json-cleaner, noise-generator — `tool-*` slot | **tool** | **yes** | **0** |
+
+**The trap needs BOTH halves.** The tool forks do have `content_data='{}'` — and **zero** template
+fields, so there is nothing for an empty `content_data` to fail to fill. **And the literal markdown
+is not in the tool fork at all:** it is in `ported-page`, a section-level component whose
+`content_data` **is** populated — the ordinary 36/1 target. `466`'s caveat (`section_edit` REWRITES,
+cannot ADD) fits too: literal asterisks in existing prose are a rewrite.
+
+> ⚠ **MY FIRST CHECK FOR THAT WAS NEARLY VACUOUS AND I BRIEFLY BELIEVED IT.** I grepped
+> `page_components.rendered_html` for `{{.` — 0 on all seven pages — and read it as "the trap does
+> not apply." **It proves nothing:** `rendered_html` is the **RENDERED OUTPUT**, so a template field
+> that resolved to empty leaves no `{{.` behind *either*. **The measurement returns 0 whether or not
+> the risk exists** — the memory-index rule *"a `[MEASURED]` figure is only evidence if it could
+> have come out otherwise"*, hit twice in two days. The template is the only place the question can
+> be asked, which is why the table above joins `content_components`.
+
+### 4. What I did NOT claim, deliberately
+
+- **Clause 1 is not closed.** Nothing has been repaired. `no_content_data` (27 of the 30 parked) is
+  untouched by any of this — the generic-repair-refuses-owned-pages finding does not reach it.
+- **The remaining unknown is one code question**, not a design: can a producer file a `section_edit`
+  item for a `literal_markdown`-shaped finding at all — what `spec`/`field_updates`, targeting which
+  `page_component_id` (here, `ported-page`). Three further landmines already written down apply to
+  whoever answers: the `field_updates` merge is **per-field and reverts intervening edits**;
+  `apply_section_edit` writes `rendered_html` with **no content validation**; it **cannot ADD**.
+- **The `wont_fix` blind spot is NOT my finding.** `bugs_closed/301` §(~285) and `bugs_open/333`
+  §§96–109 already record both halves — exclusion from the floor, and dedup re-filing. **Prior art
+  checked before writing, and it changed what I wrote:** what is new is the joined-up cycle measured
+  once, and the consequence for a reader — *a healthy ratio on a MIXED-POLICY pair is not evidence
+  its owned-page rows are being repaired, it is evidence their failures stopped counting.* Filed as
+  a CONTRIB into 333, not as a bug.

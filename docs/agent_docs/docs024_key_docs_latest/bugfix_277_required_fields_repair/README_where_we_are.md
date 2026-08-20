@@ -1044,3 +1044,64 @@ next, and it is a better lead than anything on my own list.
 **What is still where it was.** Our main bug still needs one worked example actually repaired
 rather than merely sorted into the right bin. The other still needs its week of quiet running,
 around the 25th. Neither moved today, and neither needs building.
+
+---
+
+## 2026-08-20, mid-morning — the good news is real, and I have to take back one more thing I wrote four hours ago
+
+Two hours after I wrote the entry above, the thing I had been measuring for two days **stopped
+existing**, and the day turned out much better than that sounds.
+
+**First, the good news, and it is the biggest movement this lane has had.** I said last night that
+an outside page with a real, mechanically-fixable blemish has **no repair route at all**. **That is
+wrong, and there is a route.** It has been sitting in the system's own instructions the whole time —
+the guidance our escalation mechanism hands a human already names it, pointing at a closed bug's
+unused suggestion. I measured it: the mechanism it names has repaired **36 of 37** attempts on
+outside pages. The generic repair we have been fighting with, on the same measurement, has succeeded
+**8 times on our own pages and failed the one time it touched an outside one**. So these are not two
+blocked routes. One is refused by design, and the other is how this estate has been quietly editing
+outside pages all along.
+
+**And I nearly got this wrong in the same way as yesterday.** There is a severe recorded warning
+that this very mechanism, used on a certain kind of page, silently blanks all the text while every
+quality check still passes — and **six of our seven pages are that kind of page.** That would have
+made "use this route" another confident, actionable, wrong answer. So I checked instead of assuming,
+and the warning does not apply: it needs two conditions together and only one is present. Better
+still, the blemish is not in the risky part of those pages at all — it is in the ordinary part, which
+is exactly what the 36-out-of-37 record is made of.
+
+**The embarrassing bit is how I first checked it.** My first test came back clean and I believed it
+for a minute or two. It was worthless — I was looking for leftover placeholders in the *finished*
+version of the page, but the whole failure being warned about is that placeholders get replaced with
+*nothing*. A page damaged that way looks identical to a healthy one by that test. It could not have
+told me anything. That is the second time in two days I have run a check that was incapable of
+returning bad news, and both times it felt like diligence.
+
+**Second, the thing that stopped existing.** The seven stuck jobs I have written about for two days
+were released this morning at twenty past seven, tried, refused, and closed as "will not fix" —
+all seven within about three minutes. They were released because their group's success rate jumped
+overnight from 8% to 44%, which crossed the threshold that had been holding them back. So the
+escalation I said would happen tomorrow **will not happen.** They did not reach a person; they
+reached a dead end faster. That is worth knowing about the design: **a job that can only be refused
+reaches its dead end quicker than it reaches a human, and the quick path is the silent one.**
+
+**Third, and this is mine to own.** The fix I applied at eight o'clock this morning corrected a map
+that had gone stale because it named something that was bound to change. **In the same fix, I wrote
+three figures that were themselves bound to change — and all three were wrong within twelve hours.**
+One of them was a prediction whose mechanism had already been made impossible by somebody else's
+work two days earlier, which I would have found by reading their bug rather than my own notes.
+
+I have replaced it. The lesson is sharper than "check your figures", because every figure I wrote
+**was** checked, dated and labelled exactly as our rules require. The problem was the **tense**. "On
+Wednesday morning, seven jobs were refused" stays true for ever. "There are seven jobs waiting" is
+false the moment one moves — and a reader cannot tell those two apart, because both carry the same
+"measured" label. For a note that a person reads once, months later, only the first kind is safe.
+
+**Where that leaves us.** Our main bug's blocker has changed shape, which is progress: it was "there
+is no route for these pages", and it is now "there is a route, and one question remains about whether
+our detector can hand work to it". That is a question about code, not a design problem, and it is the
+next thing to do. The bigger hole — the 27 jobs whose pages have no content at all — is untouched by
+any of this, and I am not claiming otherwise. Nothing has actually been repaired yet.
+
+Today's escalation runs at about ten to one and will hand four jobs to a person, each now carrying a
+correct pointer to us. That part is working.
