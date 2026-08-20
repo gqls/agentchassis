@@ -548,3 +548,47 @@ surviving `/contact.html` was sitting there in plain sight in the new set.
 two writers of that table disagree about whether `slot_name` is populated, so any partition key
 that includes it silently splits one page's history into two unrelated streams. Logged to
 `WRONG_CALLS.md`.
+
+## 2026-08-20 (close-out) — 299 CLOSED at the served page; RFC_040 live and self-corrected
+
+**The bug is closed.** `curl` on the served page returns
+`<a href="/faq.html" class="cta-btn cta-btn-secondary">Read the full terms in our FAQ before you pay.</a>`
+— copy and destination agree. Moved to `bugs_closed/`, rename verified at HEAD (one line, no
+stray copy). The closing block in the bug file carries the full chain.
+
+**Three rerenders, all reporting success, before one worked.** Recorded as a LANDMINE and in the
+RUNBOOK; it is the sharpest instance of "trust the artefact, not the status" this lane produced:
+`COMPLETED` + `deploy_result.success: true` + a real commit sha + a real `files_count`, three
+times, with the page unchanged twice. The tells were `sections_saved: 0` with
+`reason: "no page name"`, and a component `updated_at` still equal to the timestamp of my own
+SQL fix.
+
+**The canary was satisfied by ordinary traffic, not by an induced run** —
+`ai-agent-orchestration.com/index` rebuilt at 08:40:57Z and kept its authored `/contact.html`.
+Better evidence than a canary I drove, because nobody was steering it. Fleet sweep since 477:
+**0 clobbers in 72 writes**, with a demand control (9 in the pre-477 history) proving the query
+can fire.
+
+**RFC_040 went live and immediately found a defect in its own design.** v1.0.1319 carries the
+writer; the acceptance evidence came back clean on item 1 (every pod on one commit, 82 checks /
+314 actions, control absent) and then showed **191 distinct pods where only 82 existed** —
+75,827 rows, 24 MB, in 3h40m. The chassis binary runs as ephemeral per-job pods at ~52 starts an
+hour, which the RFC's §2.1 did not contemplate. Fixed with a retention prune on the write path
+plus a heartbeat, the ordering between the two constants pinned by a mutation-proven test; 73,445
+dead rows removed by hand; **regrows until the next roll carries the prune** (one-line interim in
+the RUNBOOK).
+
+**The most useful thing that happened all session, and it is a correction to me.** The council's
+`guardian` seat objected on connection-budget grounds citing "a ~41-replica fleet". I measured 5
+live pods and was one step from recording the objection as inapplicable. The seat was right; my
+number was the wrong *shape* of number — a snapshot where the load question needed a rate. What
+caught it was the registry I had just built, answering a question I had not asked. Logged to
+`WRONG_CALLS.md`. **A reviewer's instinct beat my measurement, and only a new instrument settled
+it.**
+
+### Lane state
+
+299 CLOSED · 312 OPEN (candidates 2 and 3 unbuilt — earned, since that seam has failed silently
+in both directions twice) · RFC_040 IMPLEMENTED for stages 1-2, assertion half deliberately
+unbuilt by owner ruling · council `06ce6aab` APPROVED, 3 advisories, none high · everything
+committed. Remaining work is §5 of `HANDOFF_2026-08-20_continue_here.md`.
