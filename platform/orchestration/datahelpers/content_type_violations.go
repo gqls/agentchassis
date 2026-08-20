@@ -29,8 +29,15 @@
 //     mistyped field that the template never references renders perfectly well
 //     today; refusing it unconditionally would be NEW AUTHORITY OVER CONTENT
 //     THAT CURRENTLY RENDERS. Owner ruling 2026-08-02 §2, with the dead-URL
-//     guard (dead_url_guard.go:104) as the local precedent — three council
-//     seats independently demanded default-OFF for exactly this shape.
+//     guard (dead_url_guard.go:104) as the local precedent — TWO council seats
+//     (guardian, architecture) independently demanded default-OFF for this
+//     shape on council 98852baa. ⚠ Corrected 2026-08-20: I wrote "three" here,
+//     inheriting it from dead_url_guard.go's own header; the corpus says two,
+//     and render_guardian's objection that round was a different one (that the
+//     rerender path records without refusing). Checkable in one query —
+//     SELECT body FROM diagnosis_artifacts WHERE correlation_id LIKE
+//     '98852baa%' AND kind='council_report' — which is the point: a comment's
+//     account of a council round is a claim about an artefact, so query it.
 //
 // The hard error at the seam remains the COMPLETE detector. This gate is the
 // early, named one, and it is silent for the 75-of-253 active components that
@@ -51,7 +58,10 @@
 // fields the schema marks BOTH source:"llm" AND required. Everywhere else, and
 // for every optional field, an absent value still renders empty and silently.
 // Stated as a known-open gap rather than implied safe: the seam change makes
-// the MISTYPED shape loud; it leaves the ABSENT shape exactly as it was. An undeclared or unrecognised type is skipped, never guessed. Only
+// the MISTYPED shape loud; it leaves the ABSENT shape exactly as it was. Filed
+// 2026-08-20 as bugs_open/342, UNOWNED, with three fix candidates costed.
+//
+// An undeclared or unrecognised type is skipped, never guessed. Only
 // source:"llm" fields are examined: a resolver fill already passes through
 // resolvedValueSatisfiesDeclaredType (render_site_components_action.go), the
 // live precedent on this estate for refusing a declared-type violation rather
