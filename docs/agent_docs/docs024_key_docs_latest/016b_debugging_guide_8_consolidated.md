@@ -5519,6 +5519,22 @@ symbol IS an assertion that it participates.
 authored it badly — it is proof you do not yet have an answer. Read it as "no
 information", never as "confirmed hard", and go and measure something yourself.
 
+**Second worked case, 2026-08-20 (`bugs_open/334`, run `35a81214`) — a NEW way to burn the
+budget: hypothesis text that asserts BUNDLE CONTENTS.** The symptom carried one false
+background assertion ("the deprecated `commit_sha_field` mapping is retired" — it is a live
+Strategy-3 bridge), which cost iterations 1–2 exactly as this entry predicts — and those two
+iterations were still USEFUL (each claim they made checked true at the file afterwards). The
+budget then went to something new: from iteration 3 on, each revised hypothesis asserted what
+the PREVIOUS iteration's bundle did or did not contain ("collectFieldCandidates is present in
+full", "ExtractActionInputs's body is absent here"). **Each iteration receives a DIFFERENT
+bundle, so a claim about a bundle is unfalsifiable by construction** — the next iteration
+"refutes" it against its own bundle, the one after refutes that, and the loop meta-spirals to
+the cap while the system-level question sits untouched. *The check, on top of the one above:*
+when reading an UNVERIFIABLE trail, split the iterations into system-claims (salvage these —
+they may be verified at the file, as here) and bundle-claims (discard these — they are the
+spiral, not evidence). And if you ever author hypothesis text for the loop directly: claim
+things about the SYSTEM, never about what is "shown" or "in scope".
+
 **Related:** the render-audit lesson in the same lane — a tool that reports a *computed*
 result cannot tell you which *declaration* produced it, and inferring the mechanism from
 the output is the same class of error one layer down (`WRONG_CALLS.md`, 2026-08-06).

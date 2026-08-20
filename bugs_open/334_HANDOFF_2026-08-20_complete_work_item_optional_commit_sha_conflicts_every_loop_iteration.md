@@ -5,8 +5,10 @@ done-condition read (the candidate-set query it exists to run). **090 diagnosis 
 the same morning — intake correlation `23296951-c032-4842-9e90-aae9b2430870`; find the run by
 payload (`spec.dispatch_correlation_id`), not by that printed id. Cross-cutting per the
 2026-07-31 owner ruling (it spans the git-adapter reply change, `complete_work_item`'s
-registered input spec, and RFC_029's resolver), so the root cause below is **[FILED, loop
-verdict pending]** — treat it as the filing session's first-hand read, not settled.
+registered input spec, and RFC_029's resolver), so the root cause below is ~~[FILED, loop
+verdict pending]~~ **[090 RETURNED `UNVERIFIABLE` (iteration-cap) 07:15Z — NO INFORMATION
+either way (016b §9's standing reading); the mechanism stands on the two sessions'
+first-hand verification, §8]**.
 
 > **CORRECTED 2026-08-20 ~08:3xZ, same day, by the filing session: a PARALLEL session had
 > already characterised this class** (staged_component_build NOTES, the "(night)" and first
@@ -157,3 +159,34 @@ Three consequences for §4:
    `{workflow,steps,mark_complete,…}` top-level would silently create a dead step. And the 315
    lane holds a CONTRIB on this (staged_component_build NOTES, first 08-20 morning entry) —
    their judgment on whether `result.commit_sha` is wanted comes first.
+
+## 8. 090 VERDICT 2026-08-20 07:15Z — `UNVERIFIABLE` (iteration-cap, run corr `35a81214`), and what its first two iterations DID establish
+
+Per 016b §9 ("A `090` symptom that names the WRONG mechanism returns UNVERIFIABLE… read it as
+'no information'"), this is **not** confirmation and **not** refutation. But the trail's first
+two iterations were substantive and both survive checking at the file:
+
+1. **Iteration 1 caught a false background assertion in my symptom** — "the deprecated
+   `commit_sha_field` mapping is retired". WRONG: `Deprecated` is a **live Strategy-3 alias
+   bridge** (an old config key resolved as a dot-path when set), not a tombstone. §2.1's
+   phrasing "once existed and was retired" is corrected to: the SPELLING is deprecated; the
+   bridge is live.
+2. **Iteration 2 defeated that as a counter-hypothesis, and I have re-verified its quotes at
+   the file** (`action_inputs.go:878–…`): Strategy 3 runs AFTER the whole-tree search
+   (Strategies 1/2) and is gated `if _, hasValue := result.Values[newField]; hasValue &&
+   !result.Defaulted[newField] { continue }` — a field with conflicting candidates already HAS
+   the winner's value, so **setting `commit_sha_field` in config cannot stop the search or the
+   conflict row**. This ANSWERS §4.1's open question ("whether the deprecated commit_sha_field
+   still parses"): it parses, and it is useless for this purpose. Candidate 1 must be the
+   Strategy-0 form (`"commit_sha?": "<path>"`), which runs FIRST and whose resolved fields the
+   LIVE step-1 prune withholds from the search (`action_inputs.go:698–755`). Strict fields
+   additionally skip the bridge entirely.
+3. **Iterations 3–5 were spent on bundle meta-claims** — each revised hypothesis asserted what
+   the PREVIOUS bundle contained, which the next iteration's DIFFERENT bundle can neither
+   confirm nor refute, so the loop argued with itself to the cap. Recorded as a second worked
+   case on 016b §9's UNVERIFIABLE entry: hypothesis text must claim things about the SYSTEM,
+   never about a bundle.
+
+So the evidential basis for this file is unchanged: the mechanism is verified first-hand at
+code and data by two sessions (§1–§3, §7); the 090 adds one premise correction and one
+candidate-1 sharpening, and otherwise nothing.

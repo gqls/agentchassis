@@ -5646,3 +5646,18 @@ resolver), so it goes through the loop before the root cause is asserted as sett
 > compound command committed anyway — the exact recorded shape of `9b87b2c4c`. → WRONG_CALLS,
 > tally incremented; the register edits that silently didn't run are redone in the follow-up
 > commit.
+
+## 2026-08-20 (~09:3xZ) — 334's 090 verdict: UNVERIFIABLE at iteration-cap; its first two iterations still paid for themselves
+
+Run `35a81214`, complete 07:15Z. Per 016b §9's standing reading: NO INFORMATION either way —
+334's mechanism continues to rest on the two sessions' first-hand verification. What the trail
+contributed, each point re-verified at the file before recording (334 §8): (1) my symptom's
+"commit_sha_field is retired" was FALSE — `Deprecated` is a live Strategy-3 bridge; (2) the
+bridge runs AFTER the whole-tree search and is gated on missing-value (`action_inputs.go:878ff`),
+so it CANNOT stop the conflict — candidate 1 must be the Strategy-0 `commit_sha?` form, whose
+prune (LIVE, v1.0.1310) withholds the field from the search; §4.1's open question answered.
+(3) Iterations 3–5 meta-spiralled on claims about each other's BUNDLES — unfalsifiable by
+construction since every iteration gets a different bundle; appended as a second worked case to
+016b §9's UNVERIFIABLE entry (system-claims are salvageable, bundle-claims are the spiral).
+Lane state unchanged: step 5 still gated on ~14 unmapped pairs; 334 is build-ready for whoever
+takes it after the 315 lane's judgment on the CONTRIB.
