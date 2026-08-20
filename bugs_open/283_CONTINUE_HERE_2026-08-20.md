@@ -1,4 +1,4 @@
-# 283 — CONTINUE HERE (2026-08-20 evening). 486+487 APPLIED, repair batch DRAINED+VERIFIED, canary PROVEN (oracle PASS 170 both sides), 22-calculator judged batch IN FLIGHT.
+# 283 — CONTINUE HERE (2026-08-20 night). THE PLANNED CONVERSION PROGRAMME IS COMPLETE: 24 judged conversions live (canary + 20 LMC + 3 generic), oracle PASS 170 at baseline, click-throughs pass. 6 rows parked for humans; ONE OWNER DECISION outstanding.
 
 **Supersedes `283_CONTINUE_HERE_2026-08-19.md`.** Round 9 APPROVED (correlation `07635a2f…`,
 verdict read 2026-08-19 15:53 — `Council-Reviewed: 07635a2f` is legitimate on this lane's
@@ -21,7 +21,7 @@ commits). Full session record:
 - **22-calculator judged batch seeded** (`created_by='283-judged-batch'`, item_key
   `instance-scope:<8hex>`) ~17:05Z, draining under monitor.
 
-## Do next, in order
+## Do next, in order — **steps 1–4 DONE 2026-08-20 night (see NOTES session-7 entries; batch: 20 of 22 + 2 legitimate refusals; generics: 3 of 3 + click-through proven)**. What remains is step 5's LMC recapture (theirs), the owner decision below, and the follow-ons in NOTES (18 new unconverted arrivals need a birth-gate-or-sweep decision).
 
 1. **Wait for the batch drain** (conversions + their section_edit deliveries; progress:
    `SELECT status,count(*) FROM site_work_items WHERE created_by='283-judged-batch' GROUP BY 1;`
