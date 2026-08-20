@@ -39807,3 +39807,27 @@ symbol before asserting the absence, which is the standing rule ("grep LANDMINES
 the SYMBOL you are about to trust") not followed, twice, independently. The tally
 point: this row is now evidence that the symbol-grep rule needs to reach subagent
 briefs too, not just the driving session.
+
+## 2026-08-20 — "the watcher is armed, so the build is attended" (webdesign-tool-rebuilds)
+
+**The claim:** filing a tool rebuild with a background watcher polling the page's slot count counts
+as attending the build — the wake will arrive in time to retire the old slot before any queued
+rerender assembles the page with both tools live.
+
+**What was true:** the watcher FIRED on time (~09:37Z, seconds after the slot appeared). Its
+notification was DELIVERED to the session at ~16:52Z — six hours later, when the user next
+interacted. Inside that window a site-sweep rerender assembled the page with both slots live, and
+**the public page served two stacked tools for six hours** (webdesign.co.uk/tools/oklch-picker,
+10:49:20Z→16:57:53Z, 27,915 B). Two earlier same-day near-misses were the same mechanism at smaller
+lag (50 min, saved only by an unrelated queue freeze; ~2 min, worked).
+
+**What caught it:** re-reading the item's real timestamps after the wake — the INSERT's own
+`created_at` said 16:55, not the ~10:50 the session believed it was.
+
+**The cheap check:** before trusting any wake-up, compare `now()` against the event's row timestamps
+— and structurally: a notification channel with unbounded, invisible latency cannot be the guard for
+a race measured in minutes. Attendance = the session keeps making tool calls (polling in-turn) from
+filing until the retire lands. If the turn must end, do not file.
+
+**Cost:** a visibly broken double-tool page on the flagship demo site for six hours, one corrective
+rerender, and the grading time to untangle a Kafka-retry run pair from the race damage.
