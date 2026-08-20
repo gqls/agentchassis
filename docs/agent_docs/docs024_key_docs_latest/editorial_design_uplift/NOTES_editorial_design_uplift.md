@@ -315,3 +315,83 @@ underlying cause is the useful frame: `--color-primary` (#1A1F2E) sits in the sa
 tonal band as `--color-background` and `--color-surface` on these dark themes, so
 **any token used as both a fill and an ink collapses into its own background**.
 That is a token-role problem, not a shade-tuning problem.
+
+## 2026-08-20 — Phase B's job was already built, and the register had it under a heading I skimmed
+
+The `dartsonline_traffic` lane pointed at `--color-primary-ink`. Verified every
+claim first-hand before adopting it, because a peer's report is another doc:
+
+```
+robot-hands.com:  --color-primary-ink: #94a0c2   --color-accent-ink: #f77f47
+dartsonline.com:  --color-primary-ink: #94a0c2   --color-accent-ink: #f18072
+```
+Both present in the served CSS; the accent companion differs per site, which is
+the tell that it is genuinely derived rather than a shared literal.
+`legibleInkFor` / `buildLegibleInkDefaults` exist at
+`platform/orchestration/actions/palette_specialised_slots.go`, and that file's own
+header names the fleet-wide "white card carrying text coloured for a near-black
+page" family — the class our eyebrow belongs to.
+
+### My planned approach was impossible, and their table is the proof
+
+Phase B was going to be: *"choose an editorial-furniture ink clearing 4.5:1 on
+every palette carrying these components, proven on all five before shipping."*
+That cannot work. The five sites are not all dark: `leopardessconsulting` and
+`noted` are **light-background** sites needing a near-black ink (#0D0D0D-ish),
+while dartsonline and robot-hands are dark and need a light one. **No single
+literal clears AA on both**, so the plan would have converged on a value failing
+two sites — and the "proof on all five" would have been performed honestly and
+still produced the wrong answer. A per-palette computed token is the only thing
+shaped like the problem, and it already ships.
+
+### ⚠ The miss: this is `VIZ-014`, and I read its heading in this very session
+
+Searching the concept register at the start of this workstream, I listed the
+`visualisation-and-charts` headings and read VIZ-001/002/003/006/007/009/011.
+**VIZ-014 is titled "legible-ink companions: the renderer names BOTH directions
+of 'is this colour readable'"** — I saw that line and did not open the entry.
+
+It contains, in order: the mechanism; a **2026-08-13 correction** that
+`-ink` was in practice just `--color-text` and *"stripping a brand colour scores a
+CLEAN PASS"* under `render_audit.py`; and a **2026-08-14 supersession** fixing
+exactly that — `colour.LegibleVariant` now gets first refusal, moving the source
+in **HSL lightness only**, hue and saturation preserved, so the token finally
+means what it claims. Live from `v1.0.1298`.
+
+**So the register did not merely mention the answer — it had already made, caught
+and fixed the subtler mistake I would have made next** (repointing to a token that
+silently de-brands, and being told it passed). The lesson is not "read the
+register", which I did. It is that **a heading is not an entry**, and the entry
+most worth opening is the one whose title sounds like a restatement of your own
+problem.
+
+### Two things the peer's summary did not carry, both from VIZ-014
+
+1. **The target is 5.0, not 4.5.** `inkMinContrast = 5.0`;
+   `inkFloorContrast = 4.5` is a *separate* constant for `-text` slots (labels ON
+   a filled control), and a test fails if they are merged. So the ink tokens are
+   already aiming above AA.
+2. **Their oufe caveat dissolves in the intended consumer idiom.** They warned a
+   component switched to the token would emit an invalid `var()` on oufe, whose
+   stylesheet is clobbered and therefore lacks the companion. But
+   `buildLegibleInkDefaults`'s own comment states the opt-in form is
+   `var(--color-primary-ink, var(--color-primary))` — *"an absent companion falls
+   through to the raw palette colour — the exact pre-2026-08-06 behaviour"*. It is
+   also how the kill-switch works. **Written with the two-level fallback, the
+   change is a no-op on oufe rather than a breakage** — so the restore is not a
+   dependency of this fix, which was their reason for raising it.
+
+### Phase B, as it actually is now
+
+Three repoints, both components, all in the two-level form:
+
+| component | selector | from | to |
+|---|---|---|---|
+| `evidence-chart` | `.evidence-chart__eyebrow` | `var(--color-primary, #1e40af)` | `var(--color-primary-ink, var(--color-primary, #1e40af))` |
+| `evidence-timeseries` | `.ev-ts__eyebrow` | `var(--color-accent, #c49a3c)` | `var(--color-accent-ink, var(--color-accent, #c49a3c))` |
+| `evidence-timeseries` | `.ev-ts__sources a` | `var(--color-accent, #c49a3c)` | `var(--color-accent-ink, var(--color-accent, #c49a3c))` |
+
+No value to defend at the council gate — a token swap onto a mechanism the estate
+already ships, with a fallback chain that makes it inert wherever the companion is
+absent. Locked pages keep their stored HTML until deliberately re-rendered, so the
+live blast radius is only what this lane re-renders.
