@@ -14,8 +14,9 @@ its gotcha attached), `NOTES_regeneration_key_loss.md` (the full log incl. both 
 ## 1. State in one paragraph
 
 The **mechanism** is fixed and live and now *proven* on fleet traffic. The **detection** half was
-armed nowhere for nine days (a stale register line is why); its record-only half is now **armed and
-council-APPROVED**, but has **never fired**, because nothing has re-rendered since. The
+armed nowhere for nine days (a stale register line is why); its record-only half is now **armed,
+council-APPROVED, and PROVEN AT THE ARTEFACT** — the first `dead_url_control` item in the
+platform's history was filed 2026-08-20 17:21 by an owner-authorised demand control. The
 **remediation** everyone plans for this bug has **zero population** — measured — because the class
 is "the declared source never existed on this site", not "a value was lost". The bug stays **OPEN**,
 and the remaining work is a decision and some content, not code.
@@ -48,25 +49,18 @@ and the remaining work is a decision and some content, not code.
 
 ## 4. Next actions, in order
 
-### 4.1 Check whether the emit has fired yet (30 seconds, do this first)
-```sql
-SELECT count(*), max(created_at) FROM site_work_items WHERE item_type='dead_url_control';
--- and the control that says whether it COULD have:
-SELECT count(*) FROM page_component_history WHERE created_at > timestamptz '2026-08-20 14:00+00';
-```
-As at 2026-08-20 both are **0**. If the second is non-zero and the first is still 0, that is a real
-finding — the emit is armed and blind — and it should be diagnosed, not assumed.
+### 4.1 ✅ DONE — the emit is proven at the artefact
+Owner-authorised demand control ran 2026-08-20 17:21. Hand-patch check clean first (all 8 sections
+machine-made). **First `dead_url_control` item in platform history:**
+`dead_url_control:index:case-studies-grid:card1..5_image_url`, `needs_human_review`, no handler,
+`refused=false`. Page unharmed: empty `src` 5→5, anchors 0→0 as predicted; the only delta was
+another lane's SEO-005 Open Graph improvement arriving for free. Full account: bug file §11.10.
 
-### 4.2 ⏸ OWNER DECISION — the demand control (blocked on a human, deliberately)
-The only experiment that proves the emit at the artefact: one 379-shape `page_rerender` at
-**ai-agent-orchestration.com `/index.html`** (`spec.reason='section_data_resolved'`, no LLM). Its
-five bare `card*_image_url` fields inside `src=` force `missingBareFields` non-empty, so the emit
-must fire.
-**Not run by this session, and the reason is not caution for its own sake:** it re-renders and
-redeploys a live customer page, and `bugs_open/229` says a rebuild silently discards hand-patched
-`rendered_html` with no divergence warning. The merge cannot lose a *key* (structural); that is
-**not** the same claim as "cannot overwrite hand-edited markup". Check that page for hand patches
-first, or accept the risk explicitly.
+⚠ **The item names only the five UNGATED fields.** That is a live confirmation of the blind spot —
+and it refuted a claim the council round rested on. `href=""` is already covered by
+`empty_internal_href`; the gated/vanished class is covered by **nothing**, including this. So the
+detector picture is now **three producers on the ungated symptom, none on the gated one**. A fourth
+producer here should consolidate, not add (`WRONG_CALLS` 2026-08-20; `RFC_030`'s instinct).
 
 ### 4.3 The real next build: make the 10 damaged (page, slot) pairs visible
 They exist only as `agent_error_log` findings today. Two halves that **must land together**:
