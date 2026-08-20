@@ -89,6 +89,15 @@ python3 $LANE/oracle.py --mutate expectation   # expect CONTROL OK (0 pass / 161
 2. **Bug 252 og: half** — AFTER verifying the 251 canonical fix is live (fix commit
    `61abbdbd0`, `Council-Submitted: 33fb41cb`; read the verdict before writing any
    `Council-Reviewed:` trailer).
+   > **PICKED UP ELSEWHERE 2026-08-20 — do not start this.** A platform lane has taken it:
+   > `docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/`. The 251
+   > precondition you set is **discharged** (corr `33fb41cb` = APPROVED r1, verified at the
+   > artefact). Two things that lane found which change this item for you: (a) the defect
+   > MUTATED after filing — assembled subpages now carry the HOMEPAGE's `og:url` rather than
+   > no `og:url`, so it is false metadata, not an absent nicety; (b) consequently
+   > `verify_site.py`'s `OG_PER_PAGE` accepted-loss exemption (`:71`) becomes wrong once the
+   > fix lands — this lane owns that file, so expect to remove the exemption and let the
+   > check assert per-page `og:url` properly. That lane will flag you when it is live.
 3. **Complaint-deadline oracle** (loancash) — FOS six-month + limitation rules, verified
    at source, never from the page. FCA caps checked 08-12, CURRENT then.
 4. **Track C** (loancash decomposition) — the mixed-card five + the old-shape two have

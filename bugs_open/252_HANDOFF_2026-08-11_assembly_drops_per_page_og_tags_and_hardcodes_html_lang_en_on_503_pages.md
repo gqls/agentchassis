@@ -117,6 +117,54 @@ these code paths** — the standing landmine recorded in
 to A that lands on `assemblePage` alone will leave the rebuild path emitting no
 `og:` at all, which is the same divergence a third time.
 
+## STATUS 2026-08-20 — TAKEN, and the defect has MUTATED since filing
+
+**Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/`
+(PLAN / RUNBOOK / NOTES / README_where_we_are). `090` diagnosis run corr
+`af31ec22-5662-4798-91b9-b12132ebca70`. Both owner decisions below are executed by that lane.
+
+> **CORRECTION to §A of this file, measured 2026-08-19/20.** §A says an assembled page carries
+> "the 2 generic tags the shared head holds (`og:type`, `og:site_name`)" — i.e. the per-page values
+> are ABSENT. **That is no longer the defect.** Commit `d3f73a724` (imagery I1, AFTER this file was
+> filed) added `injectBrandHeadTags` (`render_site_components_action.go`), which bakes site-level
+> `og:title`/`og:description`/`og:image`/**`og:url`** into the stored per-site head — and builds
+> `og:url` from the site origin.
+>
+> So the live defect is **worse in kind**: not a silence but a false statement. Every assembled
+> subpage declares the HOMEPAGE's og:url, beside a canonical that (since `bugs_open/251` shipped)
+> correctly names the page. Verified at the artefact, `https://ai-agent-orchestration.com/about.html`:
+> `og:url` = `https://ai-agent-orchestration.com/`, canonical = `…/about.html`, and **two `og:title`
+> tags** — one `content=""` from the `head-seo-standard` template, one filled with the site name by
+> the injector, whose idempotency guard (`rel="icon"` OR `og:image`) cannot see the blank.
+>
+> **Consequence for this file's fix candidate:** "add blank `og:` placeholders and fill them at
+> assembly" would now fix almost nothing. Placeholders exist on 4 of 24 heads, and on those 4 they
+> are already SHADOWED by the injector's filled duplicates. The design is therefore
+> **remove-then-inject** at assembly (strip `og:title`/`og:description`/`og:url` from the stored
+> head, inject one per-page set) — which self-heals all 22 wrong-og:url heads AND the 4 duplicated
+> ones with no chrome rebuild, and is idempotent by construction.
+
+**Blast radius re-measured** (the table above is 08-11 and stale): assembled pages **700** (was 503),
+sites **26** (was 23), head rows 24 of which **22 carry og:url**, 4 carry a blank+filled duplicate
+pair. `sites` lang/locale columns: still **0**.
+
+**§B is unblocked and unchanged in substance:** all five real `<html lang="en">` emitters were
+re-confirmed present (this file's cited lines are stale but the code is not fixed — a literal
+`lang="en"` grep cannot see `lang=\"en\"`, logged in `WRONG_CALLS.md`). Only `assemblePage` is being
+made lang-aware; the other four are left hardcoded, each for a reason recorded in the lane PLAN (D6).
+
+**`bugs_open/251`, named below as A's blocker, is DISCHARGED** — `61abbdbd0` (`preferredPageURL`),
+council corr `33fb41cb` APPROVED r1, verified live. `og:url` calls it, so og:url == canonical ==
+JSON-LD `@id` by construction.
+
+**Division of work with `bugs_open/322`** (filed 08-19, the emitter-side twin): this lane takes 322's
+item 1 *at the assembly end* (per-page og identity) plus the one-line removal of the injector's
+`og:url` emission. **322 keeps** item 2 (og:title/description fallback quality), item 3 (og:image
+emitted whether or not the file exists — landmine: do NOT gate on an assets row), item 4 (the
+wholesale idempotency skip that opts webdesign.co.uk out entirely), item 5 (favicon source). Producer
+convergence stays the register's open architecture question (SEO-003); this lane adds
+`head_assembly.go` as the named seam for it without deciding it.
+
 ## See also
 
 - `bugs_open/251` — the canonical names `/index.html`; **A depends on it**, since
