@@ -255,3 +255,31 @@ Read, not assumed: `page-build-handler`'s `mark_item_failed` step is
 `idx_swi_dedup`, so the same `page_rerender:<page>` key is available immediately. Whether a retry
 is worth it depends on why it failed: a floor refusal is content-writer variance and may well pass
 on a second run, while a deterministic refusal will not.
+
+## ⚠ PRE-FLIGHT CHECK THE RECIPE ABOVE WAS MISSING: `pages.status`, not just `build_status` (2026-08-20, cost one generation + one page build)
+
+`tool-loan-repayment-calculator` was re-driven and rebuilt end to end — the component diverted, the
+page build reported **complete on attempt 0**, four slots rendered including the new calculator at
+14,991 chars — and the page still **404s**, because it is **`pages.status='archived'`**. The
+archived-page guard did exactly its job and refused the deploy stamp at the very last step
+(`agent_error_log`: two `ARCHIVED_PAGE_DEPLOY_REFUSED` rows, 09:21:00–09:21:01Z), so `build_status`
+stayed `planned` and `deployed_at` stayed NULL. **The guard is not the problem; my pre-flight was.**
+It also demonstrates `bugs_open/266` live: every producer up to the final stamp happily did full
+work on an archived page.
+
+**So the pre-flight is:**
+```sql
+SELECT name, status, build_status, jsonb_array_length(coalesce(sections,'[]'::jsonb)) AS planned,
+       (SELECT count(*) FROM page_components pc WHERE pc.page_id=p.id) AS slots
+FROM pages p JOIN sites s ON s.id=p.site_id WHERE s.domain='<domain>' AND p.name LIKE 'tool-%'
+ORDER BY status, name;   -- status='archived' ⇒ do NOT spend a re-drive on it
+```
+On loanzy that returns **four archived tool pages** — `tool-compare-loans`,
+`tool-eligibility-checker`, `tool-is-a-loan-right-for-me`, `tool-loan-repayment-calculator`.
+
+> **This also corrects the corrected list above.** The 08:16Z entry said `tool-compare-loans` and
+> `tool-is-a-loan-right-for-me` "never planned a section at all", inferred from their having **zero
+> `page_components` rows** and 404ing. Wrong on both counts: they have **5 and 4 planned sections**
+> in `pages.sections`, and the 404 is the archival, not an absence of a plan. **A 404 plus zero
+> slots does not distinguish "never planned" from "planned and archived" — `pages.status` does, and
+> it is one column.** Unarchiving another lane's page is their call, not a repair to take here.

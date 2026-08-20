@@ -33,7 +33,15 @@ respected — and it is simply **below what this task needs**. Different fix, di
 
 All three requested **`section_type = 'loans-credit-health-check'`**. All three reached
 `attempt_count = 3`. Two different sites, three different page contexts, three consecutive
-generations each — **nine cap-hits, zero successes, one section type.** So this is not "sometimes
+generations each — **nine cap-hits, zero successes, one section type.**
+
+> **NARROWED the same day, 09:35Z, before anyone acts on it:** of the three pages, **two are the
+> live loss** — `loancalculator.co.uk`/`tool-credit-roadmap` and `loanzy.uk`/`tool-credit-health-check`,
+> both `status='active'`, both `build_status='needs_rebuild'`. The third,
+> `loanzy.uk`/`tool-eligibility-checker`, is **`status='archived'`**, so its cap failure cost nine
+> generations and no live page. Checked because a sibling repair in the same session spent a full
+> build on a different archived page before the archived-page guard refused the stamp at the end.
+> **The spend figure is unaffected; the "page ships hollow" claim applies to two pages, not three.** So this is not "sometimes
 the LLM is verbose"; the ceiling is roughly a third of what this brief actually produces, every
 time.
 

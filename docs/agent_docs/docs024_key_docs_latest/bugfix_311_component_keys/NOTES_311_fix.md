@@ -623,3 +623,74 @@ page contain the planned section's markup) rather than a work-item join; (3) the
 the claim is structural and CLAUDE.md's default applies. Candidate 3 stays a named residual on
 `311` with this framing, which is why 311 is NOT being moved to `bugs_closed/` today even though
 its titled defect is fixed, live and demand-proven on both halves.
+
+## 2026-08-20 09:35Z — RESULT of the five-page repair: 5 of 5 diverted, 3 of 5 pages now serve real calculators, and the two misses are both OTHER mechanisms working correctly
+
+### Component leg — 5 of 5, clean
+
+All five complete on **attempt 0**, all five diverted, one per incumbent, and **all five incumbents
+byte-identical** to md5s re-pinned at 08:12Z:
+
+| section | new row | diverted from | new template |
+|---|---|---|---|
+| `loans-interest-rate-stress-test` | `950ac9db` | `2cf33f06` | 14,546 chars |
+| `loans-compare-loans` | `3b08b9e9` | `9cbfe279` | 16,759 chars |
+| `loans-standard-calc` | `2b2c79a8` | `b420389f` | 15,050 chars |
+| `loans-overpayment-calculator` | `dc808c49` | `b7a499f4` | 17,149 chars |
+| `loans-settlement-calculator` | `95788047` | `70b72b3e` | 12,129 chars |
+
+Every new row: base (`forked_from` NULL), active, `section_type` = the request vocabulary,
+`created_from='generated'`, and contains `</section>` so `sectionTemplateValid` will not guard-drop
+it — unlike all five incumbents. `COMPONENT_COLLISION_DIVERTED` findings now total **6**.
+
+### Page leg — 3 landed, graded at the served artefact against the 08:17Z pins
+
+| page | before | after |
+|---|---|---|
+| `tool-loan-comparison-calculator` | 200, 22,600 B, **0** `<input>` | 200, **42,791 B, 6** `<input>` |
+| `tool-overpayment-calculator` | 200, 23,705 B, **0** | 200, **42,089 B, 5** |
+| `tool-settlement-calculator` | 200, 18,205 B, **0** | 200, **32,151 B, 5** |
+
+Zero `{{` on all three. `page_components` for loan-comparison: position 2 = `3b08b9e9`
+(`loans-compare-loans-loanzy-uk`), `build_status=deployed`, 17,497 chars rendered.
+
+### Miss 1 — `tool-interest-rate-stress-test`: the `253` floor guard, on an unrelated slot
+
+`save_sections` refused: `hero-tool 12→5 class attributes (42% kept, floor 50%)`. **Nothing was
+written**, so the page is untouched (re-fetched: byte-identical to its 18,312 B / 0-input baseline).
+The refusal is about `hero-tool`, not the calculator — a `page_rerender` regenerates every section,
+so any slot the content writer flattens takes the whole save down. Retry filed 09:35Z (`84e586b9`),
+because a fresh item is the only route: **the failed one is terminally parked at attempt 1 of 3.**
+Read, then corroborated: `page-build-handler`'s `mark_item_failed` is
+`update_work_item_status {"status":"failed"}`, and `ClaimWorkItemAction` takes only
+`triaged`/`approved` — and the row's `handled_by` is **empty**, which is the discriminating tell,
+since `FailWorkItemAction` (the arm that WOULD have returned it to `triaged`) writes `handled_by`.
+
+### Miss 2 — `tool-loan-repayment-calculator`: I spent a full build on an ARCHIVED page
+
+Component diverted, page build **complete on attempt 0**, four slots rendered including the new
+calculator at 14,991 chars — and the page still 404s, because `pages.status='archived'`. The
+archived-page guard refused the deploy stamp at the last step (two `ARCHIVED_PAGE_DEPLOY_REFUSED`
+rows, 09:21:00–09:21:01Z), leaving `build_status='planned'` and `deployed_at` NULL. **The guard did
+its job; my pre-flight did not** — I checked `build_status` and never `status`. Cost: one generation
+plus one page build. It is also `bugs_open/266` demonstrated live: every producer up to the final
+stamp did full work on an archived page. Pre-flight query added to the RUNBOOK. Unarchiving is the
+loanzy lane's call, not a repair to take from here.
+
+> **CORRECTION to §3's matrix in this same file, caught by the above.** §3 said
+> `tool-compare-loans` and `tool-is-a-loan-right-for-me` "never planned a section at all", inferred
+> from zero `page_components` rows plus a 404. **Both are wrong:** they carry **5 and 4 planned
+> sections** in `pages.sections`, and the 404 is because they are **archived**. Loanzy has **four**
+> archived tool pages (`tool-compare-loans`, `tool-eligibility-checker`,
+> `tool-is-a-loan-right-for-me`, `tool-loan-repayment-calculator`). A 404 plus zero slots cannot
+> distinguish "never planned" from "planned then archived"; `pages.status` can, and it is one
+> column I did not read. **This also narrows `bugs_open/337`** (filed this session): of its three
+> cap-failed pages, `tool-eligibility-checker` is archived, so the live loss is **two** pages on two
+> sites, not three — corrected in that file before anyone acts on it.
+
+### What this leaves on loanzy
+
+3 tool pages now serve real calculators (plus car-finance from 08-19 = **4**). One retry in flight.
+One blocked by archival (owner/lane call). `tool-credit-health-check` blocked by `337`.
+`tool-loan-vs-savings` still needs only a re-render — not filed here, it is outside the owner's
+chosen five and costs nothing whenever that lane wants it.
