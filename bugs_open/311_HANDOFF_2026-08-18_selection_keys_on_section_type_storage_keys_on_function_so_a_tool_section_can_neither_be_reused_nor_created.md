@@ -109,6 +109,24 @@ refusal does not". Census: 12 pages `build_status='deployed'` while carrying one
 > **Candidate 3 therefore stays open as a residual with this corrected framing, unfiled**; what a
 > filer needs is (1) whether a stub becomes a `page_components` row on a real build, (2) an
 > artefact-level check per page instead of a work-item join, (3) then `090`.
+>
+> **ALL THREE DONE 2026-08-20, and the result narrows it again — read
+> `bugfix_311_component_keys/NOTES_311_fix.md` (14:45Z and 15:30Z) before working on this.**
+> (1) The stub hypothesis is **refuted by measurement**: 11 of 1,855 `page_components` rows are
+> componentless and they are not holes (two are `lendzy.co.uk` tool pages serving 2 and 3
+> `<input>`). (2) On the **originating** case — `remortgagecalculator.uk`/`index`, planned 6, held
+> 5, missing exactly **`mortgages-repayment`**, this file's own step 1 — the page serves 200 /
+> 40,726 B / **0 `<input>`** today. (3) `090` run `e9555fad-5b25-46bc-9908-f40db98e16a4` returned
+> **UNVERIFIABLE (scope-not-narrowing)** and killed two claims this lane had already written down:
+> attributing that page's `needs_rebuild` to the shortfall guard is **unevidenced** (four writers
+> leave an identical row, no attribution column, zero `agent_error_log` rows found for three
+> shortfall pages), and "`needs_rebuild` has no consumer" is **false** (`webdesign.co.uk`/
+> `tool-ab-test-calculator` was rerendered, republished and serves its new calculator while still
+> flagged, with `deployed_at` six days stale — contributed to `bugs_open/315`, whose §2 is the same
+> defect in the opposite direction). **The open question is ATTRIBUTION, not observation**, and the
+> "does a refusal retract the published file" half is not answerable from Go at all — it needs
+> `sites.deploy_config` / `published_hash` / `published_at`. Repairing the originating page is
+> blocked by an owner HALT on that site (`portfolio_positioning`, 2026-08-18).
 
 **Symptom the owner saw:** *"remortgagecalculator.uk left out the actual tools."*
 A site whose entire proposition is a calculator shipped with no calculator, and
