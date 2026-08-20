@@ -130,13 +130,13 @@ def build_tools():
         n = y * MONTHS
         m = O.monthly_payment(p, apr, n)
         return case(label,
-                    {"#amount": p, "#interest": apr, "#years": y},
-                    [chk("#monthly-display", m, "monthly payment"),
-                     chk("#total-interest", O.total_interest(p, apr, n),
+                    {"#c-loans-standard-calc-amount": p, "#c-loans-standard-calc-interest": apr, "#c-loans-standard-calc-years": y},
+                    [chk("#c-loans-standard-calc-monthly-display", m, "monthly payment"),
+                     chk("#c-loans-standard-calc-total-interest", O.total_interest(p, apr, n),
                          "total interest",
                          alt={"billed (payment rounded to the penny first)":
                               O.total_interest(p, apr, n, round_payment=True)}),
-                     chk("#total-cost", p + O.total_interest(p, apr, n),
+                     chk("#c-loans-standard-calc-total-cost", p + O.total_interest(p, apr, n),
                          "total repayable",
                          alt={"billed (payment rounded to the penny first)":
                               p + O.total_interest(p, apr, n, round_payment=True)})],
@@ -147,16 +147,16 @@ def build_tools():
         "cases": [
             std(10000, 7.9, 5, "site defaults"),
             std(10000, 0, 5, "BOUNDARY 0% APR (r→0 limit: M = P/n)",
-                prime={"#amount": 20000, "#interest": 12.0, "#years": 10}),
+                prime={"#c-loans-standard-calc-amount": 20000, "#c-loans-standard-calc-interest": 12.0, "#c-loans-standard-calc-years": 10}),
             std(1000, 12.0, 1, "BOUNDARY 1-year term"),
             std(250000, 4.5, 25, "a mortgage-sized principal"),
         ],
         "determinism": [
             {"name": "0% APR reached from two different prior rates",
-             "prime_a": {"#amount": 20000, "#interest": 12.0, "#years": 10},
-             "prime_b": {"#amount": 3000, "#interest": 3.0, "#years": 2},
-             "vector": {"#amount": 10000, "#interest": 0, "#years": 5},
-             "sels": ["#monthly-display", "#total-interest", "#total-cost"]},
+             "prime_a": {"#c-loans-standard-calc-amount": 20000, "#c-loans-standard-calc-interest": 12.0, "#c-loans-standard-calc-years": 10},
+             "prime_b": {"#c-loans-standard-calc-amount": 3000, "#c-loans-standard-calc-interest": 3.0, "#c-loans-standard-calc-years": 2},
+             "vector": {"#c-loans-standard-calc-amount": 10000, "#c-loans-standard-calc-interest": 0, "#c-loans-standard-calc-years": 5},
+             "sels": ["#c-loans-standard-calc-monthly-display", "#c-loans-standard-calc-total-interest", "#c-loans-standard-calc-total-cost"]},
         ]}
 
     # -- mortgages/simple ---------------------------------------------------

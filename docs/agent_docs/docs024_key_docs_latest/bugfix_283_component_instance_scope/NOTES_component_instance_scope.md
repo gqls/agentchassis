@@ -710,3 +710,32 @@ including our canary's section_edit (triaged 07:27:36). LANDMINE appended by the
 present, git log -S names the reader — while the strict spec refuses it at runtime. Our own
 07:13 binary probe hit exactly that: 3 hits / 0 control, and it was evidence of nothing.
 Delivery re-monitored; oracle lockstep still owed after it lands.
+
+## 2026-08-20 (session 7, evening) — CANARY COMPLETE AND PROVEN: loans-standard-calc converted, delivered, served, oracle PASS 170 restored
+
+**→ LMC lane: the canary has LANDED and is VERIFIED — your phase 4 hold can lift** (per your
+CONTRIB §3; this is the NOTES line you asked for).
+
+The delivery stall was a THIRD cross-lane trap, now a LANDMINE ("Requeuing a failed
+site_work_items row…"): the 336 requeue reset status but not attempt_count; the claim query
+(claim_work_item_action.go:103) requires attempt_count < max_attempts, so the row sat triaged
+and unclaimable for 9.5 h while 116 rerenders flowed past it. Reset both fields → claimed
+within ONE MINUTE, complete moments later (the reset is the demand-proof of the mechanism).
+Fleet zombie census after repair: 0.
+
+**The full §5.2 chain, each link verified:**
+- judged write: fixed:true, 2,475→2,858 B; `instanceaudit --bindings` on the written row exit 0.
+- delivery: section_edit (empty field_updates) → re-render → deploy; pages.deployed_at
+  16:56:45; item complete. (Delivery ran on v1.0.1320 with 494 RE-ARMED post-spec-fix — the
+  stamping step traversed cleanly, incidentally re-proving 336's fix under demand.)
+- served page (live fetch): all 6 ids prefixed `c-loans-standard-calc-*`, 0 unrendered tokens,
+  9/9 getElementById lookups resolve, 0 bare.
+- oracle: baseline PASS 170 / FAIL 0 / CONV 6 / N/A 0 (pre-conversion, this morning) →
+  selectors moved (21 occurrences, block-scoped — other tools reuse names like
+  #total-interest, so a file-wide replace would corrupt their blocks) →
+  **PASS 170 / FAIL 0 / CONV 6 / N/A 0 restored** → `--mutate expectation` control:
+  12 FAIL / 0 PASS, CONTROL OK (run both before AND after the move).
+
+Remaining §5 sequence: b2_verify rebaseline (owed), then the 22-calculator batch (oracle per
+wave, mortgages-repayment's 2 pages get a deliberate look), then the generic pool
+(bayesian-ranking + archetype-clash ×2), and the 4 parked judged refusals stay an owner call.
