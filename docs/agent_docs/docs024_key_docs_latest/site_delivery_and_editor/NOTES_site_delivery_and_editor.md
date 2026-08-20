@@ -564,3 +564,101 @@ promotion-driven onboarding BURSTS (many domains/day), which makes the request-p
 wait UX and a priority lane for paying builds first-class inputs to Phase 4+ — see the
 research doc's burst section and decisions D0b/D2/D15. Nothing in this lane's Phase 4 plan
 is changed by that work; this is a pointer, not a handoff.
+
+### 2026-08-20 — Phase 4 STATE is built: the stamps, and ONE token shape for every customer link
+
+Register entry **DGH-014**. Migration **511** applied and recorded; `platform/delivery`
+in the build. Council submitted, `Council-Submitted: 905d9078-86c2-47a7-af0a-781723a46c08`.
+
+**What made this a token table rather than a config change.** The owner ruled the ZIP
+download link should last "the longest time we have, which I think is 6 weeks". It
+cannot: a presigned URL is capped by the SigV4 protocol at 604,800 s, **the cap is
+enforced by the object store and NOT by the SDK** (`aws-sdk-go-v2 v1.25.1`'s
+`aws/signer/v4` and `service/s3 v1.51.0` both sign any duration and hand back a
+well-formed URL), so a six-week link mints cleanly, the action reports success, and it
+fails only in the customer's browser — as `SignatureDoesNotMatch`, which reads as
+broken credentials. `[MEASURED 2026-08-20]`, key deliberately absent so the status is
+the whole answer: **`604800` → HTTP 404 `NoSuchKey`** (the control — signature
+accepted), `604801` → 403, `3628800` → 403. Exact to the second.
+
+So the customer holds **our** token for six weeks and each click mints a fresh short
+presign server-side. The six weeks lives in ONE constant (`LiveLinkWindow`) instead of
+being a number two systems have to agree on, and `MaxPresignWindow` + `PresignWindowFor`
+make the ceiling impossible to overrun by accident.
+
+**Schema:** `sites.handed_over_at`, `sites.live_link_expires_at`,
+`sites.transfer_confirmed_at`, plus `customer_access_tokens` (hashed, expiring,
+optionally single-use, `ON DELETE CASCADE`). **One table, not one per link** — the
+producer set is named (`zip_download`, `confirm_transfer`, and Phase 5's
+`editor_session`) and `purpose` is a CLOSED `CHECK`, so a fourth customer link costs a
+migration and stays visible in the ledger. That is the 2026-08-02 §1 condition met
+explicitly rather than assumed.
+
+**The plaintext is never stored** — sha256 hex only — so a leaked database yields no
+working links, and there is no resend-the-same-link path: re-issuing mints a new token,
+which is the right behaviour anyway.
+
+#### How it was verified, and the one thing the unit tests cannot do
+
+**sqlmock asserts the SQL this package SENDS; it cannot tell you what Postgres DOES
+with it.** Every property that actually protects a customer here is SQL-level. So the
+Go tests cover Go-level behaviour only — and say so at the top of the file — and the
+semantics were run against the real database inside a rolled-back transaction:
+**10 checks, all passed** (idempotent stamping; the closed purpose vocabulary; purpose
+isolation — a download token must not redeem as a confirmation; single-use spending
+once and missing on the second click; a download token NOT being single-use; expiry
+evaluated at redemption time; revocation; the confirmation date not moving on a second
+click; hash uniqueness estate-wide; cascade delete leaving no orphaned links).
+
+**Then the harness was mutation-proved twice, and one mutation taught me something:**
+
+| mutation | what caught it |
+|---|---|
+| drop the `used_at IS NULL` predicate from the confirm redemption | **the CHECK constraint fired BEFORE my own assertion did** |
+| turn the idempotent `COALESCE` stamp into a plain assignment | `FAIL 1c: a second stamp MOVED the handover date` |
+
+The first is the interesting one. The `single_use → use_count <= 1` CHECK was written as
+a backstop "in case some future writer forgets the predicate", which is the kind of
+claim that normally sits in a comment unexercised for ever. Removing the predicate
+proved it: the backstop is **measured**, not asserted. It is also why the predicate and
+not the CHECK is the primary control — the CHECK alone would turn an ordinary second
+click into a constraint error instead of a clean miss a handler can report.
+
+The migration's own guard **induces** both CHECK constraints rather than asserting they
+exist, and that was mutation-proved too: a `purpose` CHECK that exists, is correctly
+NAMED, and permits anything is caught (`511: the purpose CHECK did not refuse an
+unknown purpose`). A constraint that has never refused anything is untested.
+
+#### Applied by hand, deliberately, and recorded
+
+`--apply` takes **every** pending file, and the pending list is other lanes' work
+(several probes come back "inconclusive — the live config has drifted"). So 511 went in
+by hand and was then registered with `--record-only` plus a note saying why. Do the same
+for the next one.
+
+#### Answering the commit-msg architecture signal
+
+It fired: *"migration + platform code in one commit — needs a staged rollout order."*
+The three RFC_022 conditions hold — opt-in, the **safe** side is the default (an
+unstamped site is one the editor gate refuses, so a missed stamp closes a door rather
+than opening one), and **zero live consumers, enumerated across the whole repo rather
+than asserted**: every hit for all four new names is inside this change.
+
+And the ordering worry has nothing to bite on **yet**: the schema is purely additive so
+an old binary ignores it, and the new code has no caller so a new binary would never
+execute a statement naming these columns. **That changes the moment the HTTP surface
+lands** — at which point 511 must already be applied, and it is.
+
+#### What is NOT built, stated in three places so it cannot be inferred away
+
+Nothing enforces `live_link_expires_at` (nothing takes delivered sites down today);
+nothing mints or redeems these tokens in production; there is no HTTP surface and no
+delivery email; no chase email. **The helper has no live caller.** Its only dependency
+is the database and the tests exercise that, which is why landing it uncalled is
+defensible — but the deployment contract is unverified until something real calls it,
+and the register entry says so in those words.
+
+**Next, in order:** the HTTP surface (`/d/<token>` minting a clamped presign and
+redirecting; `/c/<token>` recording the confirmation), then the delivery email through
+`platform/mailer`, then the weekly chase, then the retraction job that gives
+`live_link_expires_at` teeth.
