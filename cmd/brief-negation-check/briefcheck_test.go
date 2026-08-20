@@ -216,3 +216,28 @@ func TestRegulatorySuppliedIsCountedNotFiled(t *testing.T) {
 		t.Errorf("only the house tagline should be filed, got %+v", a.Supplied)
 	}
 }
+
+// A key coarser than its finding drops every finding after the first: the second,
+// DIFFERENT finding hits ON CONFLICT DO NOTHING and is gone while the open row
+// goes on describing the first thing it saw. A brief is edited by config at any
+// time, so this item's CONTENT changes under a stable site id — the key has to
+// carry the phrase set. (Council round 2, guidelines seat.)
+func TestItemKeyIsAsGranularAsTheFinding(t *testing.T) {
+	site := "00000000-0000-0000-0000-000000000009"
+	a := []suppliedPhrase{{Phrase: "in days, not months"}}
+	b := []suppliedPhrase{{Phrase: "in days, not months"}, {Phrase: "verified, not hallucinated"}}
+
+	if itemKey(site, a) == itemKey(site, b) {
+		t.Error("two different phrase sets must not share an item_key — the second finding would be dropped")
+	}
+	// Order must not matter: the same set found in a different walk order is the
+	// same finding, and a key that churned on order would file a new item daily.
+	rev := []suppliedPhrase{{Phrase: "verified, not hallucinated"}, {Phrase: "in days, not months"}}
+	if itemKey(site, b) != itemKey(site, rev) {
+		t.Error("the same phrase set in a different order must produce the same key")
+	}
+	// And it is still per-site.
+	if itemKey(site, a) == itemKey("00000000-0000-0000-0000-00000000000a", a) {
+		t.Error("two sites with the same phrase must not share a key")
+	}
+}

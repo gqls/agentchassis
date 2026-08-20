@@ -481,13 +481,28 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			zap.Error(callErr))
 		return rewritten, rejected, callErr.Error()
 	}
-	if sent, ok := options["max_tokens"].(int); ok && sent > 0 && outTok >= sent {
+	// ⚠ THE SECOND ARM CANNOT BE TRUSTED TO FIRE, and saying so is the point
+	// (council round 2, llm_reliability, HIGH). A provider that returns a cut
+	// answer as a 200 may report NO usage at all, and `outTok >= sent` with
+	// outTok defaulting to 0 is then FALSE — the arm silently never runs, which
+	// is indistinguishable from "the answer was complete". So the three states
+	// are kept distinct: known-and-at-the-ceiling (truncated), known-and-below
+	// (fine), and UNKNOWN, which is recorded on the marker rather than assumed
+	// safe. The load-bearing protection is not this arm anyway: it is the typed
+	// truncation error above, plus the fact that a cut JSON object does not
+	// parse and an unparseable answer splices nothing.
+	usageKnown := outTok > 0
+	if sent, ok := options["max_tokens"].(int); ok && sent > 0 && usageKnown && outTok >= sent {
 		truncated = true
 	}
 	if truncated {
 		params.Logger.Warn("rewrite_negations: the repair answer hit the output ceiling — splicing nothing",
 			zap.Int("output_tokens", outTok), zap.Any("max_tokens", options["max_tokens"]))
 		return rewritten, rejected, "repair answer truncated at the output ceiling"
+	}
+	if !usageKnown {
+		params.Logger.Info("rewrite_negations: the provider reported no output-token usage, so the ceiling check could not run — relying on the parse",
+			zap.String("step_name", stepName))
 	}
 
 	parsed, _, perr := ParseLLMJSONWithProvenance(stripMarkdownFromResponse(raw))

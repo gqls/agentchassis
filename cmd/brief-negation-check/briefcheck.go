@@ -43,6 +43,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"flag"
@@ -428,7 +429,31 @@ func flatten(v interface{}) string {
 // Writing.
 // ---------------------------------------------------------------------------
 
-func itemKey(siteID string) string { return "brief-negation:" + siteID }
+// itemKey is keyed on the site AND on the phrase set, not on the site alone.
+//
+// A key coarser than its finding drops every finding after the first: the second,
+// DIFFERENT finding hits ON CONFLICT DO NOTHING and is gone, while the open row
+// goes on describing the first thing it ever saw — measured elsewhere in this
+// estate at four of five open items naming the wrong facts, with nothing ever
+// erroring. A brief is edited by config at any time, so "this site supplies
+// phrases" is exactly the kind of finding whose CONTENT changes under a stable
+// site id.
+//
+// So the key carries a short digest of the sorted phrase set. Correcting one
+// phrase and leaving another files a NEW item describing what is actually there,
+// and the old one is closed by closeAnswered because its phrase set no longer
+// describes the brief. That keeps BOTH landmines satisfied: the finding is never
+// silently dropped, and no row is rewritten daily (a periodic write to an open
+// work item bumps updated_at and makes it unreapable for ever).
+func itemKey(siteID string, phrases []suppliedPhrase) string {
+	texts := make([]string, 0, len(phrases))
+	for _, p := range phrases {
+		texts = append(texts, strings.TrimSpace(p.Phrase))
+	}
+	sort.Strings(texts)
+	sum := sha256.Sum256([]byte(strings.Join(texts, "\x00")))
+	return fmt.Sprintf("brief-negation:%s:%x", siteID, sum[:6])
+}
 
 // fileFinding writes one row per site.
 //
@@ -468,7 +493,7 @@ func fileFinding(db *sql.DB, a siteAssessment) (bool, error) {
 		a.SiteID, gapItemType,
 		fmt.Sprintf("%s's brief hands the writer %d phrase(s) built on define-by-negation (%d mandated onto pages)",
 			a.Domain, len(a.Supplied), a.Mandated()),
-		string(spec), createdBy, itemKey(a.SiteID))
+		string(spec), createdBy, itemKey(a.SiteID, a.Supplied))
 	if err != nil {
 		return false, err
 	}
@@ -481,37 +506,54 @@ func fileFinding(db *sql.DB, a siteAssessment) (bool, error) {
 // site missing from the census, a spec that failed to parse — never closes
 // anything.
 func closeAnswered(db *sql.DB, assessments []siteAssessment) ([]string, error) {
-	rows, err := db.Query(`SELECT item_key FROM site_work_items
+	rows, err := db.Query(`SELECT item_key, site_id::text FROM site_work_items
 	                        WHERE item_type = $1 AND created_by = $2
 	                          AND status NOT IN ('complete','cancelled','rejected')`,
 		gapItemType, createdBy)
 	if err != nil {
 		return nil, err
 	}
-	open := map[string]bool{}
+	type openItem struct{ key, site string }
+	var open []openItem
 	for rows.Next() {
-		var k string
-		if err := rows.Scan(&k); err == nil {
-			open[k] = true
+		var k, sid string
+		if err := rows.Scan(&k, &sid); err == nil {
+			open = append(open, openItem{k, sid})
 		}
 	}
 	rows.Close()
 
-	var closed []string
+	// The current key for each site this run EXAMINED. A site the run did not
+	// examine is absent from this map and is never closed: an absence of evidence
+	// closes nothing.
+	current := map[string]string{}
 	for _, a := range assessments {
-		if a.Finding() || !open[itemKey(a.SiteID)] {
-			continue
+		if a.Finding() {
+			current[a.SiteID] = itemKey(a.SiteID, a.Supplied)
+		} else {
+			current[a.SiteID] = "" // examined, and clean
+		}
+	}
+
+	var closed []string
+	for _, o := range open {
+		cur, examined := current[o.site]
+		if !examined || cur == o.key {
+			continue // not examined this run, or still exactly what it says
+		}
+		reason := `{"closed_by":"brief-negation-check","reason":"re-examined: the writer-visible brief supplies no define-by-negation phrase"}`
+		if cur != "" {
+			reason = `{"closed_by":"brief-negation-check","reason":"re-examined: the brief's supplied phrases have CHANGED, so this item no longer describes it — a fresh item carries the current set"}`
 		}
 		if _, err := db.Exec(`UPDATE site_work_items
 		                         SET status = 'complete', updated_at = now(),
 		                             result = COALESCE(result,'{}'::jsonb) || $2::jsonb
 		                       WHERE item_key = $1 AND item_type = $3 AND created_by = $4
 		                         AND status NOT IN ('complete','cancelled','rejected')`,
-			itemKey(a.SiteID), `{"closed_by":"brief-negation-check","reason":"re-examined: the writer-visible brief supplies no define-by-negation phrase"}`,
-			gapItemType, createdBy); err != nil {
+			o.key, reason, gapItemType, createdBy); err != nil {
 			return closed, err
 		}
-		closed = append(closed, a.Domain)
+		closed = append(closed, o.key)
 	}
 	return closed, nil
 }
