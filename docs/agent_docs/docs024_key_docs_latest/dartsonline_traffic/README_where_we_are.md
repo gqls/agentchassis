@@ -510,3 +510,54 @@ open. And Cloudflare is currently blocking every AI crawler from the site, inclu
 ClaudeBot and GPTBot. Nobody in this lane chose that; it is a Cloudflare default. For a
 site whose whole product is buying advice, being quotable by AI assistants is a real
 source of readers now, so it is worth a deliberate yes or no rather than a default.
+
+## 2026-08-20 — your privacy page is live, the shipping page is gone, and Google now has a map of the site
+
+You made four decisions this morning and all four are done, apart from the one that needs
+your login. Plain version:
+
+**The privacy page is live.** Your wording went up exactly as approved, minus the sentence
+you asked me to drop. I checked it word for word against your draft rather than trusting the
+"deployed" flag: sixteen blocks out of sixteen match, the business identity reads as you gave
+it, and the ICO line is there. Your reason for cutting that sentence and the machine's reason
+for refusing it turned out to be the same sentence from opposite directions, which is a
+pleasing coincidence and is recorded in the draft file next to the copy.
+
+**The shipping and returns page is retired.** The page is archived, the file is deleted from
+the deploy repository, and the URL now returns "not found" as intended. Before doing it I
+checked what still linked to it — nothing did, on any page, in the footer, or in the
+navigation — so nothing broke. That also closes the odd footer link that was still pointing
+at itself since the 16th.
+
+**The site now has a sitemap, which it never had.** Twenty-three pages, every one of them
+checked to be genuinely reachable before it went in — a sitemap listing dead pages is worse
+than none. It is live, and I re-checked all twenty-three afterwards: all fine. The robots
+file now points at it too. One caveat worth knowing: Cloudflare puts its own robots file in
+front of ours, so ours does not *unblock* anything by itself — but the sitemap line is read
+regardless, which is the part that matters today.
+
+**One thing I did NOT do on your behalf.** The tool that builds these files also writes a
+line declaring that AI companies may train on the site's content. You made that decision for
+the watches site back in July, and only for that one. I have left it out here rather than
+answer it for you. Related: Cloudflare is currently blocking ClaudeBot, GPTBot and six other
+AI crawlers from this site by default. If you want darts guides to be quotable by AI
+assistants — which is a real source of readers now — that is two settings in your Cloudflare
+dashboard, and I would then ship the remaining file. Your call, not urgent.
+
+**One loose end I am watching.** The privacy page is live but nothing links to it yet. That
+matters more than it sounds: an affiliate reviewer looks for the footer link, and a page
+nothing links to is a page search engines have little reason to keep. I have asked the system
+to rebuild the navigation, which is in the queue. When it runs I will check the footer on
+every page rather than the homepage, because the same job on the 16th updated every page in
+the database and only republished six of them — and the six were the ones anybody would
+spot-check.
+
+**On Adtraction being down for you:** from here the main site and the Darts Corner programme
+page both load fine, and the sign-in page is at adtraction.com/login. Worth another try. That
+is not proof it works for you, just that the site itself is up.
+
+**Still the biggest gap: nobody can tell you how much traffic the site gets.** That is the
+one thing on this list that only you can unlock, and everything we do next is measured
+against it. Your Cloudflare dashboard gives a number in about a minute. Search Console takes
+a few minutes more and is the one that actually pays: it tells us what people searched for
+when they saw us, and that decides what we write next.

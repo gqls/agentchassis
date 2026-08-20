@@ -874,3 +874,61 @@ Two different causes print the same `000`.
 Not filed as a landmine: the failure is ordinary curl semantics rather than a trap in this
 estate's own tooling, and the hypothesis it produced ("the sandbox blocks HTTP") was
 refuted by the control.
+
+## 2026-08-20 — owner's four decisions executed: privacy live, shipping-returns retracted, sitemap shipped
+
+### What shipped, and how each was graded at the artefact (not at a status)
+
+| thing | evidence |
+|---|---|
+| privacy copy corrected | draft edited (sentence removed + dated CORRECTED block above the copy, outside the extractor's range); `update_privacy_evidence_base.py` post-conditions `rows=1 body_len=2267 body_in_writer_block=t managed_flag_absent=t banned_absent=t superseded=1` |
+| privacy page LIVE | `/privacy.html` 200; served text 2,667 chars; **16/16 approved blocks verbatim**, whole 2,224-char copy contiguous; `Fine Tuning`/`Fleetside`/`West Molesey`/`ico.org.uk`/`darts@contactforsales.com` all present; banned phrase absent |
+| shipping-returns RETIRED | inbound census clean (below) → `pages.status='archived'` → `page-retraction` agent, corr `ca43d3af`, COMPLETED, `retracted:1`, git delete `sites@2af7c17dd`; live **404** |
+| sitemap + robots LIVE | pushed `sites@bba1de33a`; `/sitemap.xml` 200 with 23 `<loc>`; **all 23 URLs re-probed 200**; served robots.txt carries our block at line 62+ with `Sitemap:` at line 82, after Cloudflare's prepended block |
+| privacy link | **not done** — nav_drift `0e157a6c` filed `triaged`, still queued at time of writing |
+
+### The read-only inbound census, and its positive control
+
+Before archiving anything, the three retraction inbound queries were lifted verbatim from
+`retract_page_graph.go` and run read-only against the still-ACTIVE page — the LANDMINES
+amendment of 2026-08-14 says they never read the target's status, only the referrer's, so
+archiving first to ask the question is an unnecessary production mutation. Result for
+`/shipping-returns.html`: **body 0, chrome 0, nav 0**.
+
+**A zero is exactly what this estate's landmine file says not to trust, so it got a control.**
+The same queries for `/guides/index.html` returned chrome `footer` + `header` and **11**
+referring pages; and a loosened bare-substring scan for `shipping-returns` across
+`page_components` and `site_components` also returned 0/0. So the instrument can answer, and
+the answer was a true negative. The retraction then reported `editorial_inbound: null`,
+`nav_retired: 0` — agreeing row for row with the census, which is the check landing twice.
+
+### Missteps
+
+1. **I read a 404 on `/privacy.html` at 10:26 as a failed deploy** and started reaching for
+   Cloudflare cache as the explanation (`cache-control: max-age=3600` on this zone made that
+   a comfortable story). It was neither: the DB stamp lands before the B2 sync completes. At
+   10:27 the same URL was 200, `last-modified 10:26:51`. **Check the deploy repo before
+   theorising about the edge** — `git ls-tree origin/master dartsonline.com/` showed
+   `privacy.html` present and `shipping-returns.html` gone, which dated the whole chain in one
+   command. A plausible cause for a NULL is when to doubt the instrument, not the system.
+2. **I told the owner Adtraction's login was down after probing a hostname I invented.**
+   `login.adtraction.com` has **no DNS record**; the real login is `adtraction.com/login` and
+   it returns 200. Same shape as the `.co.uk` misstep logged on 08-18 — a `000` from a guessed
+   host reads exactly like an outage. `getent hosts` first, every time.
+3. **My own explanatory note nearly re-blocked the page.** The first run of
+   `update_privacy_evidence_base.py` aborted on its own `banned_absent` guard because the
+   `revision_note` I had just written quoted the removed sentence verbatim — the aspect is
+   scanned as a whole, so an explanation of a banned phrase IS the banned phrase. The guard
+   was written minutes earlier for a different reason and caught this instead. Describe a
+   banned phrase; never quote it inside the artefact that is scanned for it.
+
+### Two facts worth carrying
+
+- **`retry_after` does not exist in the live `site_work_items`**, though HEAD's
+  `claim_work_item_action.go` references it (bugs_open/307, migration 503). So the running
+  chassis predates that clause. An `UPDATE … SET retry_after=NULL` fails outright — harmless
+  here, but it dates the deployed image relative to the tree.
+- **`sites` is a high-churn repo**: the first push was rejected as non-fast-forward within a
+  minute. Do it from a **detached worktree at `origin/master`** (never the shared checkout,
+  which was 6,424 behind and 1 ahead of a commit nobody here wrote), in a fetch→reset→re-copy
+  →commit→push retry loop. Landed on attempt 1 of the loop.
