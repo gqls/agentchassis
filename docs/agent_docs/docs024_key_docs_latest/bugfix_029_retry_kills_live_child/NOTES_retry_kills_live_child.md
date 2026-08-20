@@ -2603,3 +2603,61 @@ correlations also run near 100%, this would prove nothing. At 21% it separates h
 > same join over rows that MUST match.** Third time it returned 30/31 with child logs.
 > This is the fourth blind check of this shape in two days, and the first where the wrong answer would
 > have *closed* a live lead rather than merely delayed one.
+
+### 25. §24's outage finding INDEPENDENTLY CONFIRMED — and the fourth blind join of the family, which I walked into on the way
+
+**Both halves of §24 reproduce, from a different substrate and a different join key.**
+
+**The outage census — exact.** `agent_error_log`, `error_message ILIKE '%github%'`, whole retained
+window: **954 on 2026-08-17**, against **1 / 3 / 3 / 2 / 1** on 07-24, 07-27, 08-05, 08-09, 08-10.
+Confined to the burst day, no ramp before or after.
+
+**The controlled join — same rates, different unit.** §24 keyed on correlation and counted
+orchestrations; I keyed on the **page identity** carried in `request_payload` →
+`message.body.input_data.spec.page_name`, which is the field the child's own error rows key on
+(`context->>'page_name'`), and counted distinct pages:
+
+| | unit | with a GitHub error that day | control: any error row |
+|---|---|---|---|
+| **abandoned** | 17 pages | **17 / 17 = 100%** | 17 / 17 |
+| healthy | 413 pages | **86 / 413 = 20.8%** | 116 / 413 |
+
+§24 got **100%** vs **21.1%**; this gets **100%** vs **20.8%**. Different key, different denominator,
+same separation. **The association is real and it is not a join artefact.** §24's limits stand
+unchanged: 1-in-5 healthy pages saw a 503 and answered anyway, so a 503 is **not sufficient** — this
+is association, not mechanism.
+
+**⚠ THE FOURTH BLIND JOIN, and I ran it first.** Before finding the page key I joined on the
+**parent's `orchestration_id`**, which is a real, populated, non-null column on every one of the 954
+rows — the most obviously correct key in the schema. It returns:
+
+```
+ABANDONED  30 parents,   8 with a GitHub error   (27%)
+HEALTHY   337 parents,  66 with a GitHub error   (20%)
+```
+
+**27% vs 20% — no separation, and it reads as a clean refutation of §24.** I was one step from
+reporting "could not reproduce". It is blind for a structural reason worth stating once:
+
+> **The parent and the child are logged under DIFFERENT `orchestration_id`s, and `agent_error_log`
+> holds no key that spans them** — no `correlation_id` column (`\d agent_error_log`), and
+> `[MEASURED]` **0 of 367** correlation ids appear as any `orchestration_id`; neither 8-hex prefix in
+> the child topic matches a `page-rerender` error row either (the second prefix is the PARENT's id,
+> **367/367**). So *every* parent-keyed join sees only what the PARENT logged — and for an abandoned
+> await the parent logs `"Request <id> timed out after 3 retries"` and **never the child's cause**.
+> `[MEASURED]` 22 of the 30 abandoned parents have that message and no GitHub text at all.
+> **The only sound parent↔child linkage available is the payload's `page_name`.**
+
+That is the same family as §21's definitional 300 s and §24's own two: **a join on a key that cannot
+match returns a confident, well-formed zero — or worse, a plausible non-zero that argues the opposite
+of the truth.** The 27%-vs-20% version is the nastiest yet, because it does not look empty; it looks
+like evidence.
+
+**What caught it here** was the control column, run in the same breath: `ctl_any_error` showed
+**30/30** abandoned parents *do* have error rows, so the join demonstrably worked while the GitHub
+count stayed low — which is the signature of *looking in the wrong place*, not of *nothing being
+there*. **Run the must-be-non-zero control in the same query as the claim, not afterwards.**
+
+**Lane state:** the **burst is explained** (outage-driven entry condition, confirmed twice
+independently). The **wedge is not** — what the parent does with an abandoned await, and the 20-vs-11
+split, are exactly as open as before, and `PLAN_2026-08-19`'s candidates still speak only to that.
