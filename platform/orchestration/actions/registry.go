@@ -948,16 +948,22 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Build the template rendering context for a page",
 		IsLocal:     true,
 	},
+	// The two handlers below are WRAPPED (bugs_open/305). The wrapper counts
+	// define-by-negation in the content a section was rendered from, and on the
+	// compiled page; it adds result keys (copy_gate_findings,
+	// copy_gate_page_hits) and changes nothing else. Read
+	// copy_gate_annotation.go — including why it is a wrapper rather than an
+	// edit inside the action.
 	"render_component": {
-		Handler:     RenderComponentAction,
+		Handler:     annotateSectionNegation(RenderComponentAction),
 		Category:    "site",
-		Description: "Render a single component with its template and data",
+		Description: "Render a single component with its template and data (+ copy_gate_findings: define-by-negation counted, never gated)",
 		IsLocal:     true,
 	},
 	"compile_page_sections": {
-		Handler:     CompilePageSectionsAction,
+		Handler:     annotatePageNegation(CompilePageSectionsAction),
 		Category:    "site",
-		Description: "Compile all sections of a page into final HTML",
+		Description: "Compile all sections of a page into final HTML (+ copy_gate_page_hits: the PAGE-level define-by-negation count)",
 		IsLocal:     true,
 	},
 	"db_sync": {

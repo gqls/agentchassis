@@ -124,3 +124,39 @@ Two other gaps the tests found, both real:
 | drop `x_not_y` from `negationShapes` | `TestOwnersOwnSentencesTrip`, `TestShapeVocabularyIsStable` |
 | drop the neighbour comparison in `AcceptNegationRewrite` | `TestRewriteRejectsDisplacement` — accepts *"instead of"*, *"more than just"* and an em dash |
 | exempt on the matched fragment alone (i.e. prompt-wide) | `TestExemptionIsSentenceScoped` — the house-voice prose exempts a `rather_than` hit, which is the 43% hole |
+
+### ⚠ The shared file was poisoned, and it changed the design (2026-08-20)
+
+I wrote the annotation as two hunks inside `RenderComponentAction` and
+`CompilePageSectionsAction`. It built and the local tests passed. Then the HEAD-overlay check
+(`go build` over `git archive HEAD` + only my files) failed:
+
+```
+platform/orchestration/actions/v3_site_actions.go:6128: undefined: applyWorkItemFailureLadder
+platform/orchestration/actions/v3_site_actions.go:6180: undefined: workItemDecisionStatuses
+```
+
+`git diff` on that file showed **four** hunks: two mine (2562, 2773) and two another session's
+(6041, 6052), and the symbols theirs calls live in `work_item_failure_ladder.go`, which is
+**untracked**. So a pathspec commit of `v3_site_actions.go` would have taken their half-finished
+change as a same-file passenger and **broken the compile at HEAD** — and `make build-*` builds from
+HEAD, so every session's next build breaks. My local build was green precisely *because* their
+untracked file was in my tree.
+
+**What I did instead of committing it:** reverted **only my two hunks** (`git diff` → keep my hunk
+headers → `git apply -R`), leaving their work in the tree untouched, and moved my edit to a file
+nobody else is in — `copy_gate_annotation.go`, wrapping the two handlers at their `registry.go`
+entries. Verified by grep that nothing else in the repo calls either action directly, so registry
+registration is complete coverage rather than a partial hook. It is also the better structure, so it
+stays after the reason expires.
+
+**Cheap check, and it is now this lane's rule before every commit of platform code:**
+
+```bash
+rm -rf $SP/head && git archive HEAD | tar -x -C $SP/head   # clean HEAD
+# copy ONLY your own files over it, then:
+cd $SP/head && go build ./... && go test ./<your packages>/
+```
+
+A green build in the working tree says nothing about HEAD on a tree this many sessions share.
+Logged in `WRONG_CALLS.md`.
