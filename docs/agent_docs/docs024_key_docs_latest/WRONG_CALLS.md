@@ -39245,3 +39245,99 @@ PASSES may have hit a guard in series"*. This adds the two adjacent shapes: **a 
 may be failing for the wrong reason**, and **a mutation that prints NOTHING may never have been
 applied**. All three have the same root: the mutation is itself an untested change, and I kept
 granting it the trust I was busy withholding from the code.
+
+## 2026-08-20 — a `page_component_history` probe has TWO opposite failure modes and I hit both inside ten minutes, in both directions (bugfix 238 lane)
+
+**The question.** For each field the `STRUCTURAL_KEY_CARRY_MISS` findings name, did that row EVER
+hold a value? It is the probe `bugs_open/268`'s lane made mandatory ("before attributing a symptom
+census to a mechanism, run the one EXISTS probe per row"), because "label without URL" is reachable
+by two causes with opposite remedies — a regression to restore, or a value that never existed.
+
+**Failure 1 — TOO LOOSE, and it manufactured a finding I nearly wrote up.** I joined history on
+`page_id` alone and counted rows whose `content_data` held the field. `gamesdesign.co.uk /index`
+came back with **103 rows holding `cta_url`** against a `system-stats` finding, and I began writing
+it up as *a new, live, unrecorded regression the bug file does not know about.* It is not. Reading
+the actual rows instead of the count showed their `slot_name`s: `tool-list`, `game-list`, `hero` —
+**five deployed components on that page declare `cta_url`**, so the field name does not attribute a
+value to a slot there at all. What caught it: printing `slot_name` and the value next to the count,
+because "103" for one section of one page was implausibly large.
+
+**Failure 2 — TOO STRICT, and it produced a false NEGATIVE that contradicted the bug file.** So I
+tightened it the obvious way: same slot, and `source='artefact_archive_trigger'` (the LANDMINES
+entry says app-written rows carry no `slot_name`, so only trigger rows are attributable). That
+returned **0 for all 25 field slots** — including `ai-agent-orchestration.com /index`, which
+`bugs_open/238` §7 states *is* a genuine regression whose history had the keys. The bug file was
+right and my query was wrong: that page has **1,184 `save_page_sections_overwrite` rows with
+`slot_name` NULL, 42 of which hold `card1_image_url`**, and **211 trigger rows, none of which do**.
+Restricting to the attributable source discarded every row that actually held the value.
+
+**What caught it:** the disagreement with a written claim I had already read. Had the bug file not
+asserted the opposite, "0 of 25, nothing is recoverable" would have gone into a plan as a measured
+finding — and it is the comfortable answer, because it makes the remediation smaller.
+
+**The resolution, and why it is not a third predicate.** Attribution needs a discriminator that is
+neither `slot_name` (NULL on the rows that matter) nor the bare field name (ambiguous where several
+components on a page declare it). What works is **content identity**: count, per page, how many
+deployed components' `input_schema` declares that field — 1 means the field name IS the
+discriminator, >1 means no data-only recovery is possible. That turns one number into the honest
+three-way split: **11 field slots recoverable and unambiguous (aao, 1 component declares each), 1
+ambiguous (gamesdesign `cta_url`, 5 declare it), 13 never held a value at all.**
+
+**The cheap check that would have caught both:** run the probe at BOTH tightnesses and treat the
+gap between them as the finding. A loose count and a strict count that disagree by two orders of
+magnitude are not a measurement, they are a question about what the join means — and on this table
+the loose one over-counts by slot and the strict one under-counts by writer.
+
+**Generalises to:** any table where two writers populate the same column with different completeness.
+`page_component_history` has five writers; only one populates `slot_name`. So **a predicate that
+selects on provenance is also selecting on schema completeness**, silently. State which writer you
+are excluding and what it costs you, every time — the landmine tells you app rows lack `slot_name`,
+and I read it as "prefer trigger rows" when it also means "trigger rows are not where your history
+is".
+
+---
+
+## 2026-08-20 — I read the right landmine, ran its check correctly, and checked it against the WRONG COMPONENT — then shipped the conclusion to a bug file and to live config (277 lane)
+
+The strongest wrong call of the three I logged today, because **every individual step was done
+properly.** I proposed `section_edit` as the repair route for 7 `literal_markdown` findings on owned
+pages. `LANDMINES.md` carries a severe entry: a `section_edit` on a per-site **tool fork** whose
+template carries `{{.field}}` copy and whose `content_data` is `{}` **re-renders every text node to
+EMPTY** while every floor passes. Six of my seven pages are `tool-*`. So I looked it up, ran the
+check, and cleared it: the tool forks have `content_data='{}'` but **zero** `{{.field}}` hits, and
+the trap needs both halves. **That was correct.** I wrote it up, committed it to `bugs_open/277`,
+and put the recommendation into live config in migration `498`.
+
+**The blanking risk was in the OTHER component on the same page** — the `ported-page` slot, the one
+I had just named as the target. Its `content_data` is 215 bytes of provenance metadata, its
+template's only field is `{{.body}}`, and `body` is not a key. Rendering it produces **zero visible
+characters**. I checked the trap against the component the landmine's *title* described, not against
+the component **my own recommendation pointed at**.
+
+**What caught it:** answering a different question. §4 of what I had just committed said the
+remaining unknown was *"can a producer file a `section_edit` item for this finding shape?"* Chasing
+that led me to read the items' `findings` array for the first time — `source: rendered_html` on all
+7 — and the route collapsed. **The check that would have caught it directly is one line:** *before
+recommending a route that regenerates content, confirm the target component's `content_data` can
+reproduce its own `rendered_html`.* I never asked it of the component I was recommending.
+
+**The generalisable half, and it is not "read more carefully".** A landmine is indexed by its
+**symptom shape** (tool fork, `{{.field}}` copy, empty `content_data`). I matched my population
+against that shape, got a clean answer, and stopped — because the shape matched *something* on the
+page, my check felt complete. **A landmine cleared against one subject says nothing about a second
+subject in the same blast radius.** The discipline is to enumerate what your change actually
+touches, then clear each one, rather than clearing the thing the entry made salient. The landmine
+even names the general property; only its *title* is specific, and the title is what I searched on.
+
+**And the third-order point, which is the one worth keeping.** This is the same error as the other
+two logged today and as the 08-19 evening retraction: **I proposed a destination without asking
+whether it could serve the cargo.** Four times in two days, each time with a different-looking
+check in front of it — a demand control, an `[INFERRED]` marker, a landmine lookup, a 36-of-37
+success rate. **The checks were real and none of them was the question.** The question is always
+the same one and it is embarrassingly simple: *can the thing I am pointing at actually do the thing
+I need?* It is now the first line of the `bugs_open/277` route section, and a `LANDMINES.md` entry
+in its own right.
+
+**Cost:** one wrong section committed to a bug file (`cf6d48861`) and one wrong instruction live in
+a one-shot annotation for about ninety minutes (`498` 08:40Z → `499` 10:10Z). Corrected in place in
+both, visibly, with the retraction above the claim rather than below it.
