@@ -15,7 +15,13 @@
 > 3. **The run COMPLETED at `complete`, not `complete_no_candidates`**, with
 >    `collected_data->'candidate_pages'->>'count' = 68`. That pairing — non-empty candidates AND a
 >    terminal step that is not `complete_no_candidates` — **is** the bug, inverted.
-> 4. Downstream, unasked but recorded: the model planned **2 links** and **2 `content_rewrite`
+> 4. **Re-verified on the NEXT build, because a dated "live on v1.0.NNNN" claim expires.**
+>    Chassis rolled to **v1.0.1319** on 2026-08-20; the Go halves are still aboard —
+>    `5315c8a19` is an ancestor of HEAD, and a binary probe of pod
+>    `agent-chassis-86b95b967b-2fqm5` found `fail_on_non_numeric` **PRESENT**, with both
+>    controls behaving (`else_step` PRESENT, a fabricated literal absent). The config half is
+>    DB-side and unaffected by rolls.
+> 5. Downstream, unasked but recorded: the model planned **2 links** and **2 `content_rewrite`
 >    items** were filed (`created_by='internal-linker'`, keys `internal_link_webdesign.co.uk_index`
 >    and `…_domains`). See §Residual below — it did not bite.
 >
