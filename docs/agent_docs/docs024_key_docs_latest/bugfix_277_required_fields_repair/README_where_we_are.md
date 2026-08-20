@@ -1155,3 +1155,30 @@ situation. So instead of writing a better answer, I have written the **question*
 is told to check whether the repair can reach their particular page, rather than being handed my
 conclusion about mine. An answer is only ever right for the case its author was looking at. A
 question travels.
+
+---
+
+2026-08-20, later — you answered the open question ("do the seven backtick findings get a repair
+route?") with yes, so today I built it. The shape is what the handoff described: a small mechanical
+edit that works on the finished page HTML itself, turning `x` (backticks showing to visitors as
+literal characters) into proper code formatting. It never touches the stored content — for these
+seven pages there is no stored content to fix, which was the whole finding — and it rides the same
+editing machinery the estate already trusts for owned pages: the section editor, with all its
+existing safety rails (the size floors, the lock checks, the reassemble-and-redeploy steps).
+
+Three things worth saying out loud. First, it is deliberately narrow: backtick code spans only,
+and only on components that genuinely cannot be regenerated — anything else keeps today's routing,
+so the worst a wrong decision can do is what already happens (a human gets asked). Second, the
+switch that allows it is off by default everywhere and turned on for exactly one agent, per your
+standing rule about new authority on shared machinery. Third, nothing repairs itself yet: the code
+waits for the next fleet release, and after that the first repair must be a deliberate one-off
+(the "canary") because the dispatcher rightly refuses to trust a brand-new route until it has one
+success on record. That canary run is also the proof you asked this lane to always get — the fix
+verified on the served page, not on a status.
+
+The change went to the review council this afternoon (submitted before committing, as usual) and
+was written up in the concept register so the next thread knows the mechanism exists. One small
+find along the way that will save someone a bad afternoon: the HTML library we use quietly
+rewrites tag names to lowercase while you read them, so a "copy the page byte-for-byte" tool built
+on it can corrupt pages that use capital letters in tags — it's now recorded in the landmine notes
+inside the register entry, with a test that fails if anyone reintroduces it.

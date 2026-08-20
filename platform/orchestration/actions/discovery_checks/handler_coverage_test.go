@@ -84,6 +84,7 @@ var handlerAgentIdentRe = regexp.MustCompile(`HandlerAgent:\s*([A-Za-z_]\w*)\s*,
 var computedHandlerAgentSites = map[string]string{
 	"check_phantom_internal_links.go":   "routeBySurface() — per-surface routing table (page-build-handler / rerender-pages / …)",
 	"check_unfulfilled_image_prompt.go": "classifyPromptKey() — per-prompt-purpose routing table (image-build-handler / asset-deployer)",
+	"check_literal_markdown.go":         "transformRouteSlot() — regenerability routing (page-rerender / section-editor), bugs_open/277 §5",
 }
 
 // knownHandlerAgents is every agent type a check may route at. Snapshot of live
@@ -110,6 +111,7 @@ var knownHandlerAgents = map[string]bool{
 	"page-rerender":                   true,
 	"required-fields-missing-handler": true, // seeded 2026-08-15 by 410_required_fields_missing_router.sql (bugs_open/277); verified live BEFORE this line
 	"rerender-pages":                  true,
+	"section-editor":                  true, // routed 2026-08-20 by check_literal_markdown's transform route (bugs_open/277 §5); live long before — 83 lifetime completes on the section_edit pair, verified in site_work_items BEFORE this line
 	"site-component-linker":           true,
 	"site-design-planner":             true,
 	"tool-acceptance-agent":           true,

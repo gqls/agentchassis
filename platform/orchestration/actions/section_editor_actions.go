@@ -10,10 +10,29 @@
 // Edit types supported:
 //   - content_edit:    Update content_data fields, re-render from template + DB context
 //   - component_swap:  Change component template, re-render with existing content_data
+//   - rendered_html_transform: Apply a NAMED deterministic transform to the
+//     existing rendered_html, content_data untouched. OPT-IN (config key
+//     allow_rendered_html_transform, default OFF — enabled per step by
+//     migration 513, per the 2026-08-02 §2 ruling on new authority on shared
+//     seams). Added 2026-08-20 for bugs_open/277 §5: a component whose
+//     content_data cannot reproduce its own rendered_html (the worked case:
+//     Ported Page, 100 of 115 instances hold NONE of their template's fields)
+//     is unreachable by both edit types above BY CONSTRUCTION, so its
+//     rendered_html-surface findings can only be repaired by editing the
+//     finished HTML. One transform exists: code_span_to_code_tag
+//     (datahelpers.ConvertLiteralCodeSpansInHTML — byte-splicing, skip-set
+//     shared with the detector; its safety argument lives in that file's
+//     header). The transform never renders and never touches content_data;
+//     its persist is the HTML-only branch of updatePageComponentAfterEdit.
 //
 // Design principle: content_data is the source of truth. Every edit updates
 // content_data first, then re-renders from template. This means edits survive
 // future re-renders (nav updates, theme changes, etc.).
+// EXCEPTION, stated rather than implied: rendered_html_transform edits the
+// render OUTPUT of components whose content_data cannot reproduce it — there
+// is no source of truth to edit, and nothing regenerates these components
+// (that same property is why their pages are refused by every rerender
+// route), so the edit is as durable as the component itself.
 
 package actions
 
@@ -53,13 +72,19 @@ var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 		"page_component_id",        // target (can also come from edit_context)
 		"acknowledges_decision",    // RFC_015 citation gate: decision key(s) this edit knowingly works within
 		"supersedes_decision",      // RFC_015 citation gate: decision key(s) this edit knowingly replaces
+		"transform_name",           // rendered_html_transform: which named transform to apply (code_span_to_code_tag)
 	},
 	// strip_literal_markdown is a SETTING, not a data reference (bugs_open/184):
 	// when true, the merged content map is passed through
 	// datahelpers.StripLiteralMarkdownFromContentData before each branch's
 	// render. Default OFF; enabled on section-editor's apply_edit step by
 	// migration 474.
-	ConfigKeys: []string{"strip_literal_markdown"},
+	// allow_rendered_html_transform gates the rendered_html_transform edit
+	// type (bugs_open/277 §5): default OFF, enabled on section-editor's
+	// apply_edit step by migration 513. Kept a config key rather than an
+	// input so a caller cannot grant itself the authority the 2026-08-02 §2
+	// ruling says must sit where a reviewer of the STEP can see it.
+	ConfigKeys: []string{"strip_literal_markdown", "allow_rendered_html_transform"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{
 		"edit_type_field": "edit_type",
@@ -380,8 +405,10 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		outcome, err = applyContentEdit(ctx, params.DB, siteID, pcData, editCtx, inputs, stripMarkdown, logger)
 	case "component_swap":
 		outcome, err = applyComponentSwap(ctx, params.DB, siteID, pcData, editCtx, inputs, stripMarkdown, logger)
+	case "rendered_html_transform":
+		outcome, err = applyRenderedHTMLTransform(pcData, inputs, params.StepConfig.Config, logger)
 	default:
-		return nil, fmt.Errorf("unknown edit_type: %s (expected: content_edit, component_swap)", editType)
+		return nil, fmt.Errorf("unknown edit_type: %s (expected: content_edit, component_swap, rendered_html_transform)", editType)
 	}
 
 	if err != nil {
@@ -462,6 +489,27 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 			return nil, regErr
 		}
 		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, outcome.ContentData)
+	case "rendered_html_transform":
+		// Same guard posture as content_edit — the floors and the regulated
+		// check judge the OUTGOING html, and this branch writes that column
+		// like any other. (A code-span conversion shrinks visible text by two
+		// backticks per span, so the floors pass trivially on a correct
+		// transform and refuse a wrong one — which is the point of wiring
+		// them rather than reasoning they cannot fire.)
+		existingHTML, _ := pcData["rendered_html"].(string)
+		if floorErr := enforceSingleSlotFloors(ctx, params, siteID, pageID,
+			pageName, slotName, existingHTML, outcome.HTML); floorErr != nil {
+			return nil, floorErr
+		}
+		if regErr := refuseRegulatedIdentityEdit(ctx, params, siteID,
+			pageName, slotName, outcome.HTML, logger); regErr != nil {
+			return nil, regErr
+		}
+		// HTML-only persist: content_data is deliberately NOT written — on
+		// this population it is provenance metadata, not source, and the
+		// transform must not be able to touch it (nil takes
+		// updatePageComponentAfterEdit's html-only UPDATE branch).
+		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, outcome.HTML, nil)
 	case "component_swap":
 		err = updatePageComponentSwap(ctx, params.DB, pcID,
 			outcome.ComponentID, outcome.SlotName, outcome.HTML, outcome.ContentData)
@@ -557,6 +605,10 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		// rotate in minutes; collected_data survives (council 060bcc0a r2).
 		"stripped_markdown_fields": outcome.StrippedMarkdownFields,
 		"total_field_count":        outcome.TotalFieldCount,
+		// bugs_open/277 §5: durable record of a rendered_html transform —
+		// same reasoning. Empty/zero for the other two edit types.
+		"transform_name":      outcome.TransformName,
+		"transform_converted": outcome.TransformConverted,
 	}, nil
 }
 
@@ -768,6 +820,76 @@ type sectionEditOutcome struct {
 	// the action result — pod logs rotate in minutes; collected_data is the
 	// durable record of a content-mutating transform (council 060bcc0a r2).
 	StrippedMarkdownFields []string
+	// rendered_html_transform provenance (bugs_open/277 §5): which named
+	// transform ran and how many sites it converted. Same durability
+	// reasoning as StrippedMarkdownFields — both surfaced on the result.
+	TransformName      string
+	TransformConverted int
+}
+
+// applyRenderedHTMLTransform is the rendered_html_transform branch: apply one
+// NAMED deterministic transform to the component's EXISTING rendered_html.
+// It never renders a template and never touches content_data (ContentData is
+// left nil so the caller's persist takes the html-only branch). Gated by the
+// allow_rendered_html_transform config key — see the input spec comment.
+//
+// Every refusal is an ERROR, not a skip: a config-off, unknown-transform or
+// matched-nothing outcome routes the item into the attempt machinery and then
+// to a human, which is the correct destination for a repair that could not be
+// performed — a skip would read as success to the check_edit_skipped branch.
+func applyRenderedHTMLTransform(
+	pcData map[string]interface{},
+	inputs *datahelpers.ActionInputs,
+	stepConfig map[string]interface{},
+	logger *zap.Logger,
+) (sectionEditOutcome, error) {
+
+	if allowed, _ := stepConfig["allow_rendered_html_transform"].(bool); !allowed {
+		return sectionEditOutcome{}, fmt.Errorf(
+			"edit_type rendered_html_transform is not enabled on this step " +
+				"(config key allow_rendered_html_transform, default OFF — migration 513 enables it " +
+				"on section-editor's apply_edit only); live section left unchanged")
+	}
+
+	transformName := inputs.Get("transform_name")
+	existingHTML, _ := pcData["rendered_html"].(string)
+	if strings.TrimSpace(existingHTML) == "" {
+		return sectionEditOutcome{}, fmt.Errorf(
+			"rendered_html_transform %q: component has no rendered_html — this edit type edits finished HTML only", transformName)
+	}
+
+	switch transformName {
+	case "code_span_to_code_tag":
+		out, converted, err := datahelpers.ConvertLiteralCodeSpansInHTML(existingHTML)
+		if err != nil {
+			return sectionEditOutcome{}, fmt.Errorf("rendered_html_transform code_span_to_code_tag refused: %w", err)
+		}
+		if converted == 0 {
+			// The finding exists (something routed this item here) but the
+			// conversion pattern cannot reach it — a span crossing inline
+			// elements, an entity-encoded backtick, or a finding already
+			// repaired. Deploying identical bytes and reporting an edit would
+			// be the exact "complete is not proof" shape; refuse instead.
+			return sectionEditOutcome{}, fmt.Errorf(
+				"rendered_html_transform code_span_to_code_tag matched nothing in %d bytes — "+
+					"the finding is not reachable by this transform (conversion is narrower than detection, by design); "+
+					"live section left unchanged", len(existingHTML))
+		}
+		logger.Info("applyRenderedHTMLTransform: converted code spans",
+			zap.Int("converted", converted),
+			zap.Int("html_bytes_in", len(existingHTML)),
+			zap.Int("html_bytes_out", len(out)))
+		return sectionEditOutcome{
+			HTML:               out,
+			ContentData:        nil, // deliberate: html-only persist
+			ContentEditMode:    "rendered_html_transform",
+			TransformName:      transformName,
+			TransformConverted: converted,
+		}, nil
+	default:
+		return sectionEditOutcome{}, fmt.Errorf(
+			"unknown transform_name %q (known: code_span_to_code_tag); live section left unchanged", transformName)
+	}
 }
 
 func applyContentEdit(

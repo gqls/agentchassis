@@ -542,3 +542,32 @@ yes: these are backticks in developer-tool prose, not broken pages.
 *Live config corrected again so no human is handed the wrong target at an escalation: migration
 `499` replaces `498`'s named target with the TEST — read the finding's `source`, then ask whether
 `content_data` can reproduce `rendered_html`.*
+
+---
+
+## 6. 2026-08-20 (later) — OWNER RULED YES on §5.6, and the route is BUILT
+
+**Owner, in chat, same day:** *"Do those seven findings get a repair route? Building one means a
+transform that edits finished HTML directly - I think yes."*
+
+Built and committed the same session (register **CQ-028**, council corr `b72a4029`, migration `513`
+applied + round-tripped): `apply_section_edit` gained an opt-in `rendered_html_transform` edit type
+carrying `datahelpers.ConvertLiteralCodeSpansInHTML` (`` `x` `` → `<code>x</code>`, byte-splice,
+detector's skip set, conversion strictly ⊆ detection), and `check_literal_markdown` now routes a
+page to `section-editor` when — and only when — every finding is `source=rendered_html` ∧
+`pattern=code_span` ∧ one once-occurring slot ∧ `ContentDataCanFillTemplate` is false (migration
+499's test, automated). Everything else keeps today's route. Design and evidence:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_277_required_fields_repair/PLAN_2026-08-15_required_fields_router.md`
+(2026-08-20 addendum).
+
+### What clause 1 now waits on, in order
+1. **The chassis roll** carrying the code (detector routing + action branch are one image).
+2. **The detector's next sweep** over webdesign.co.uk files fresh `literal_markdown` items at the
+   new shape (all 7 old rows are terminal, dedup free — checked).
+3. **ONE CANARY, deliberately dispatched.** The new pair `literal_markdown → section-editor` has
+   zero lifetime completes, so the 444 promoter's ≥1-complete door HOLDS it. Promote one row by
+   hand (the 083 precedent, commit `8d77196ad`), watch it end to end, and **verify at the served
+   bytes**: `curl` the page — `<code>` present, backticks gone, the tool's own `<script>` template
+   literals untouched. That single completion opens the door for the remaining six.
+4. Then clause 1's worked example exists and this file can weigh closing against the
+   `no_content_data` half (§0), which none of this touches.

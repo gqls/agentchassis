@@ -2534,3 +2534,59 @@ the pointer sent readers to the wrong function.
 **And the process point, since this lane keeps asking whether these mechanisms pay:** a
 NEEDS_HUMAN_REVIEW verdict that names exactly which two claims it could not check is worth more than
 a green one. It cost one `sed` to act on and it found a real defect.
+
+---
+
+## 2026-08-20 ~17:30Z — the owner ruled YES on the 7, and the route is BUILT (code committed-pending, config LIVE, canary owed)
+
+**Owner (chat, this session):** *"Do those seven findings get a repair route? Building one means a
+transform that edits finished HTML directly - I think yes."* Everything below implements that.
+
+**What was built** (design + reasons in `PLAN_2026-08-15_...md`'s 2026-08-20 addendum; register `CQ-028`):
+- `datahelpers.ConvertLiteralCodeSpansInHTML` — `` `x` `` → `<code>x</code>`, tokenizer byte-splice,
+  detector's own skip set (same package, same `nonAssertionElements` map). Conversion pattern is
+  MDCodeSpanRe with `<`/`>` also excluded: **conversion ⊆ detection**, property-tested.
+- `apply_section_edit` edit_type `rendered_html_transform` — opt-in (`allow_rendered_html_transform`,
+  default OFF), floors + regulated guard wired, HTML-only persist (nil content_data → the
+  pre-existing html-only UPDATE branch). Every refusal is an ERROR into the attempt ladder,
+  including `converted==0` (no no-op deploys reported as edits).
+- `datahelpers.ContentDataCanFillTemplate` — migration 499's test as code, coarse TOWARD "can fill".
+- `check_literal_markdown.transformRouteSlot` — routes a page to section-editor IFF all findings are
+  rendered_html-source code_span on ONE once-occurring slot that cannot regenerate. 11 refusal
+  directions unit-tested, each landing on today's route.
+- Migration `513` (+ROLLBACK): flag + `input_fields += transform_name` on section-editor's apply_edit.
+  **`input_fields` is ExtractActionInputs' Strategy-1 WHITELIST (`action_inputs.go:831`) — checked
+  before writing the migration; without that entry the input is silently never extracted.**
+
+**Measured/proven this session:**
+- Round-trip: 513 apply → rollback → `md5(default_config)` = `fdb8cb4d…` **identical to pre-image**;
+  then applied for real → `b6076c7d…`, flag `true` + `transform_name` whitelisted, read at the column.
+- Mutation runs on the transform: (1) reorder `Raw()`-write after `TagName()` → the MIXED-CASE skip
+  test fails — **real landmine found building this: `Tokenizer.TagName()` lower-cases the tag bytes
+  IN PLACE in the buffer `Raw()` aliases** (x/net/html `escape.go lower`), so an all-lowercase test
+  suite would never see it; (2) skip disabled → 3 tests fail incl. the REAL fixture's
+  `` `left 1s ${css}` `` JS template literal (testdata = tool-cubic-bezier's actual 8,743 bytes,
+  which carry both the live finding and that adversarial literal — a composed fixture would not).
+- RFC_022 parity test fired on the 7th optional key exactly as designed; `check.py` literal bumped;
+  **overlay re-apply still owed** (cluster keeps the old literal until `apply -k` on
+  optional-key-budget-check).
+- Promoter interaction measured, not assumed: 444's doors are `EXISTS(≥1 complete per pair)` AND
+  `(sample<5 OR ≥25%)`. New pair `literal_markdown → section-editor` = 0 completes → **HELD until one
+  canary completes.** All 7 current rows are terminal (wont_fix wave), so the detector's next sweep
+  files fresh items at the new shape (dedup index excludes all their statuses — checked).
+
+**Council:** submitted, corr `b72a4029-f925-48bc-81d6-1552b7d25099` (`submission_277_rendered_html_transform.json`).
+Trigger schema pushed back twice before accepting — `operation` enum has no `create` (a new file is
+`add`), and a sketch whose every line starts `#` is refused as comment-only. Committed with
+`Council-Submitted:`, verdict to be read later (~30 min budget).
+
+**Missteps this session, with their checks:**
+- The first cut of the transform called `TagName()` before writing `Raw()` — caught by READING the
+  tokenizer's source before trusting the API (the check: when two accessors share a buffer, grep the
+  package source for in-place mutation before assuming Raw is raw).
+- My scratchpad backup path for the mutation runs didn't exist (`cp A B 2>/dev/null || cp A C` — the
+  first cp succeeded so C was never made, then a later restore read C). Harmless here because the
+  /tmp copy existed; the check: after any `||`-fallback copy, `test -f` the path you intend to
+  restore from BEFORE mutating.
+- Council submission: I combined three files into one edit entry (refused: ONE EDIT = ONE FILE) —
+  the client-side validator caught both this and the enum; cost three cheap round-trips, no credits.

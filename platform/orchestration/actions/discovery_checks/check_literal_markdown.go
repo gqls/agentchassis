@@ -1,6 +1,29 @@
 // FILE: platform/orchestration/actions/discovery_checks/check_literal_markdown.go
 //
 // CHANGES:
+//   - Per-page ROUTING between two handlers (was: every item to page-rerender),
+//     2026-08-20, bugs_open/277 §5 (owner ruling, same day). page-rerender's
+//     repair regenerates rendered_html from content_data — which is INAPPLICABLE
+//     BY CONSTRUCTION to a component whose content_data cannot reproduce its own
+//     rendered_html (the worked case: Ported Page, 100 of 115 instances hold
+//     NONE of their template's fields; all 100 sit on owned pages, so the
+//     owned-page guard took the blame for three wrongly-costed routes — see the
+//     LANDMINES entry). Migration 499 made "read the finding's source, then ask
+//     whether content_data can reproduce rendered_html" the HUMAN routing test;
+//     transformRouteSlot below is that test automated at filing time. A page
+//     routes to section-editor (edit_type rendered_html_transform, transform
+//     code_span_to_code_tag — datahelpers.ConvertLiteralCodeSpansInHTML, opt-in
+//     via migration 513) IFF every finding is source=rendered_html AND
+//     pattern=code_span AND all sit on ONE slot occurring ONCE on the page AND
+//     that slot's component cannot regenerate
+//     (datahelpers.ContentDataCanFillTemplate). Everything else keeps the
+//     page-rerender route unchanged. item_type, item_key and the whole-page
+//     verifier are untouched — the verifier is keyed on item_type and its remit
+//     (zero findings on either surface, whole page) is exactly what the
+//     transform must achieve for the item to complete. NB the new pair
+//     (literal_markdown → section-editor) starts with zero lifetime completes,
+//     so the 444 promoter holds it until one canary run completes — that canary
+//     is deliberate, not a bug (bugs_open/277 records the bootstrap).
 //   - HandlerAgent: "page-rerender" (was "page-build-handler"), 2026-08-18,
 //     bugs_open/184 fix-2. The page-build-handler pair was 1 complete / 28 failed
 //     lifetime — the worst in the fleet, held by the migration-444 promoter floor —
@@ -189,6 +212,53 @@ type pageMarkdownFindings struct {
 	Findings                  []literalMarkdownFinding
 }
 
+// slotRepro is what the transform route needs to know about one slot of one
+// page: how many component rows share the slot name (the section-editor
+// resolves its target by page_name + slot_name, so a duplicated slot is an
+// ambiguous target and refuses the route), and whether the component could
+// regenerate its rendered_html from content_data (if it can, the
+// regenerate-from-source route stays correct and this route must not fire).
+type slotRepro struct {
+	occurrences   int
+	canRegenerate bool
+}
+
+// transformRouteSlot is migration 499's routing test, automated: it returns
+// the single slot on which a page's findings are repairable by
+// section-editor's code_span_to_code_tag rendered_html transform, or ok=false
+// to keep the default page-rerender route. ALL conditions must hold — each
+// refusal direction lands on today's behaviour, so a wrong "false" costs an
+// escalation to a human (the status quo) while a wrong "true" would aim an
+// HTML-surface edit at a component whose content_data still carries the
+// defect, to be reprinted by its next regeneration. Conservative by
+// construction:
+//   - every finding source=rendered_html (a content_data finding NEEDS the
+//     regenerate route);
+//   - every finding pattern=code_span (the only transform that exists —
+//     bold/heading/md_link on this surface still go to a human);
+//   - every finding on ONE named slot, occurring exactly once on the page;
+//   - that slot's component CANNOT regenerate (ContentDataCanFillTemplate
+//     false — template names fields, content_data holds none of them).
+func transformRouteSlot(findings []literalMarkdownFinding, slots map[string]*slotRepro) (string, bool) {
+	if len(findings) == 0 {
+		return "", false
+	}
+	slot := findings[0].SlotName
+	if slot == "" {
+		return "", false
+	}
+	for _, f := range findings {
+		if f.Source != "rendered_html" || f.Pattern != "code_span" || f.SlotName != slot {
+			return "", false
+		}
+	}
+	sr := slots[slot]
+	if sr == nil || sr.occurrences != 1 || sr.canRegenerate {
+		return "", false
+	}
+	return slot, true
+}
+
 // scanComponentRowForMarkdown applies this check's predicate to ONE
 // page_components row, across both surfaces.
 //
@@ -316,9 +386,11 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT pc.page_id::text, p.name, COALESCE(p.url, ''),
 		       COALESCE(pc.slot_name, ''),
-		       COALESCE(pc.rendered_html, ''), COALESCE(pc.content_data::text, '')
+		       COALESCE(pc.rendered_html, ''), COALESCE(pc.content_data::text, ''),
+		       COALESCE(cc.html_template, '')
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
+		LEFT JOIN content_components cc ON cc.id = pc.component_id
 		WHERE p.site_id = $1
 		  AND pc.locked_at IS NULL
 		  AND ( (pc.rendered_html IS NOT NULL AND pc.rendered_html <> '')
@@ -333,14 +405,30 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 	byPage := map[string]*pageMarkdownFindings{}
 	var pageOrder []string
 	scannedPages := map[string]bool{} // pages POSITIVELY re-scanned this run — the retraction gate
+	// Slot metadata for the transform route (2026-08-20): tracked for EVERY
+	// scanned row, not only finding-bearing ones, because occurrence counting
+	// must see a slot's duplicates wherever they sit in the page.
+	slotsByPage := map[string]map[string]*slotRepro{}
 
 	for rows.Next() {
-		var pageID, pageName, pageURL, slot, html, contentJSON string
-		if err := rows.Scan(&pageID, &pageName, &pageURL, &slot, &html, &contentJSON); err != nil {
+		var pageID, pageName, pageURL, slot, html, contentJSON, htmlTemplate string
+		if err := rows.Scan(&pageID, &pageName, &pageURL, &slot, &html, &contentJSON, &htmlTemplate); err != nil {
 			dctx.Logger.Warn("literal_markdown: scan error", zap.Error(err))
 			continue
 		}
 		scannedPages[pageID] = true
+
+		if slotsByPage[pageID] == nil {
+			slotsByPage[pageID] = map[string]*slotRepro{}
+		}
+		if sr, ok := slotsByPage[pageID][slot]; ok {
+			sr.occurrences++
+		} else {
+			slotsByPage[pageID][slot] = &slotRepro{
+				occurrences:   1,
+				canRegenerate: datahelpers.ContentDataCanFillTemplate(htmlTemplate, decodeContentData(contentJSON, dctx.Logger)),
+			}
+		}
 
 		fs := scanComponentRowForMarkdown(slot, html, contentJSON, dctx.Logger)
 		if len(fs) == 0 {
@@ -371,7 +459,7 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 
 	for _, id := range pageOrder {
 		pf := byPage[id]
-		specJSON, _ := json.Marshal(map[string]interface{}{
+		spec := map[string]interface{}{
 			"check":     "literal_markdown",
 			"reason":    "literal_markdown", // page-rerender gates its sections branch on this (migration 473)
 			"page_id":   pf.PageID,
@@ -384,7 +472,24 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 				"and re-renders the page from the cleaned values — no LLM in the loop. " +
 				"Both surfaces heal in one pass: content_data is stripped before it feeds " +
 				"the render, and rendered_html is regenerated from it.",
-		})
+		}
+		// Route per page — see the header CHANGES entry (2026-08-20) and
+		// transformRouteSlot's own comment for the conditions.
+		handlerAgent := "page-rerender" // mechanical strip-on-rerender — see header CHANGES, 2026-08-18
+		if slot, ok := transformRouteSlot(pf.Findings, slotsByPage[pf.PageID]); ok {
+			handlerAgent = "section-editor"
+			spec["edit_type"] = "rendered_html_transform"
+			spec["transform_name"] = "code_span_to_code_tag"
+			spec["slot_name"] = slot
+			spec["fix"] = "This component's content_data cannot reproduce its rendered_html " +
+				"(template fields absent from content_data — migration 499's test), so every " +
+				"regenerate-from-source route is inapplicable BY CONSTRUCTION. The repair is " +
+				"section-editor's rendered_html_transform: code_span_to_code_tag converts " +
+				"`x` to <code>x</code> in assertion text only, byte-spliced " +
+				"(datahelpers.ConvertLiteralCodeSpansInHTML), content_data untouched, floors " +
+				"enforced, page reassembled and redeployed — no LLM in the loop."
+		}
+		specJSON, _ := json.Marshal(spec)
 		var pageIDPtr *uuid.UUID
 		if parsed, perr := uuid.Parse(pf.PageID); perr == nil {
 			pageIDPtr = &parsed
@@ -399,7 +504,7 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			Summary:      fmt.Sprintf("Literal markdown syntax on page %s (%d finding(s))", pf.PageName, len(pf.Findings)),
 			SpecJSON:     string(specJSON),
 			Priority:     40,
-			HandlerAgent: "page-rerender", // mechanical strip-on-rerender — see header CHANGES, 2026-08-18
+			HandlerAgent: handlerAgent,
 			Status:       "detected",
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      fmt.Sprintf("literal_markdown:%s", pf.PageID),

@@ -1,0 +1,215 @@
+<section class="ported-page" data-component="ported-page">
+<style>
+.tool-layout { display: grid; gap: var(--space-lg); }
+        @media (min-width: 900px) { .tool-layout { grid-template-columns: 400px 1fr; } }
+
+        .graph-container {
+            width: 300px; height: 300px; background: var(--bg-panel);
+            border: 1px solid var(--color-border); position: relative;
+            margin: 0 auto;
+        }
+
+        canvas { display: block; cursor: pointer; }
+
+        .preview-track {
+            background: var(--surface); height: 20px; border-radius: 10px;
+            margin-top: 2rem; position: relative;
+        }
+        .preview-ball {
+            width: 40px; height: 40px; background: var(--color-accent);
+            border-radius: 50%; position: absolute; top: -10px; left: 0;
+            /* Animation logic injected by JS */
+        }
+
+        .code-output {
+            background: var(--code-bg); color: var(--code-accent); padding: 1rem;
+            border-radius: 8px; font-family: var(--font-mono); font-size: 1.2rem;
+            text-align: center; margin-top: 1.5rem;
+        }
+
+        .guide-box { background: var(--bg-panel); border: 1px solid var(--color-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-card); }
+</style>
+<h1 style="font-size: var(--text-h2);">Cubic Bezier Architect</h1>
+
+    <div class="guide-box">
+        <h3 style="font-size: 1rem; color: var(--color-accent); margin-bottom: 0.5rem;">Physics for the Web</h3>
+        <p style="font-size: 0.9rem; color: var(--text-dim);">
+            Default CSS easing (`ease-in-out`) is boring. To make UI feel &#34;alive&#34; or &#34;snappy,&#34; you need custom velocity curves.
+            <br/>Drag the pink handles to shape the acceleration. Steep lines = fast movement. Flat lines = slow movement.
+        </p>
+    </div>
+
+    <div class="tool-layout">
+        <aside>
+            <div style="background: var(--bg-panel); border: 1px solid var(--color-border); padding: 2rem; border-radius: 8px; text-align: center;">
+                <div class="graph-container">
+                    <canvas id="curveCanvas" width="300" height="300"></canvas>
+                </div>
+
+                <div class="code-output" id="outputCode">cubic-bezier(0.25, 0.1, 0.25, 1)</div>
+                <button class="btn" onclick="copy()" style="width: 100%; margin-top: 1rem; background: var(--color-accent);">Copy CSS</button>
+
+                <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn-outline" onclick="setPreset(0.25, 0.1, 0.25, 1)">Default</button>
+                    <button class="btn-outline" onclick="setPreset(0.68, -0.55, 0.27, 1.55)">Back/Spring</button>
+                    <button class="btn-outline" onclick="setPreset(1, 0, 0, 1)">Expo</button>
+                </div>
+            </div>
+        </aside>
+
+        <section>
+            <h3 style="font-size: 1rem; margin-bottom: 1rem;">Live Preview</h3>
+            <div class="preview-track">
+                <div class="preview-ball" id="ball"></div>
+            </div>
+            <p style="text-align: center; color: var(--text-dim); font-size: 0.85rem; margin-top: 1rem;">
+                Animation loops every 2 seconds.
+            </p>
+        </section>
+    </div>
+<script>
+    const canvas = document.getElementById('curveCanvas');
+    const ctx = canvas.getContext('2d');
+    const ball = document.getElementById('ball');
+    const output = document.getElementById('outputCode');
+
+    // State: Control points (0-1 range)
+    // Start is always (0,1) in canvas coords (bottom-left)
+    // End is always (1,0) in canvas coords (top-right)
+    let p1 = { x: 0.25, y: 0.1 };
+    let p2 = { x: 0.25, y: 1.0 };
+
+    const padding = 0;
+    const size = 300;
+
+    let dragging = null;
+
+    function draw() {
+        ctx.clearRect(0, 0, size, size);
+
+        // Grid
+        ctx.strokeStyle = "#eee";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, size); ctx.lineTo(size, 0); // Linear ref
+        ctx.stroke();
+
+        // Convert Logic Coords (0-1) to Canvas Coords (px)
+        // Logic: x=0 is left, y=0 is BOTTOM
+        // Canvas: x=0 is left, y=0 is TOP
+        const c1x = p1.x * size;
+        const c1y = size - (p1.y * size);
+        const c2x = p2.x * size;
+        const c2y = size - (p2.y * size);
+
+        // Draw Curve
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, size);
+        ctx.bezierCurveTo(c1x, c1y, c2x, c2y, size, 0);
+        ctx.stroke();
+
+        // Draw Handles
+        ctx.strokeStyle = "#ec4899"; // Accent color
+        ctx.lineWidth = 2;
+
+        // Handle 1 line
+        ctx.beginPath(); ctx.moveTo(0, size); ctx.lineTo(c1x, c1y); ctx.stroke();
+        // Handle 2 line
+        ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(c2x, c2y); ctx.stroke();
+
+        // Handle Dots
+        drawDot(c1x, c1y);
+        drawDot(c2x, c2y);
+
+        updateCSS();
+    }
+
+    function drawDot(x, y) {
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#ec4899";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    function updateCSS() {
+        // y values need to be precise, x values clamped 0-1
+        const css = `cubic-bezier(${p1.x.toFixed(2)}, ${p1.y.toFixed(2)}, ${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`;
+        output.innerText = css;
+
+        // Update Animation
+        ball.style.transition = `left 1s ${css}`;
+        // Reset animation loop
+        runAnim();
+    }
+
+    function runAnim() {
+        ball.style.left = "0%";
+        setTimeout(() => {
+            ball.style.left = "calc(100% - 40px)";
+        }, 100);
+    }
+    setInterval(runAnim, 2000);
+
+    // Interaction
+    canvas.addEventListener('mousedown', (e) => {
+        const pos = getPos(e);
+        // Check distance to p1
+        const d1 = Math.hypot((p1.x*size) - pos.x, (size-(p1.y*size)) - pos.y);
+        const d2 = Math.hypot((p2.x*size) - pos.x, (size-(p2.y*size)) - pos.y);
+
+        if(d1 < 20) dragging = 'p1';
+        else if(d2 < 20) dragging = 'p2';
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if(!dragging) return;
+        const pos = getPos(e);
+
+        // Map back to 0-1
+        let nx = pos.x / size;
+        let ny = (size - pos.y) / size;
+
+        // Clamp X (time cannot go backwards)
+        if(nx < 0) nx = 0; if(nx > 1) nx = 1;
+
+        if(dragging === 'p1') { p1.x = nx; p1.y = ny; }
+        else { p2.x = nx; p2.y = ny; }
+
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => dragging = null);
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    window.setPreset = (x1, y1, x2, y2) => {
+        p1 = {x:x1, y:y1}; p2 = {x:x2, y:y2};
+        draw();
+    };
+
+    function copy() { navigator.clipboard.writeText(output.innerText); alert("Copied!"); }
+
+    draw();
+</script>
+
+<div class="wd-related" style="margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--border);">
+  <h3 style="font-size:1rem; margin:0 0 0.75rem;">The thinking behind this tool</h3>
+  <div class="grid-cards">
+    <a href="/learn/design/physics-of-ui.html" class="card" style="text-decoration:none; color:inherit; display:block;"><h4 style="margin:0; font-size:1.05rem;">The Physics of UI</h4><p style="margin:0.4rem 0 0; color:var(--text-dim);">Why default CSS easing feels &#34;cheap&#34; and how to use Cubic Bezier curves to mimic real-world inertia.</p></a>
+  </div>
+  <h3 style="font-size:1rem; margin:1.5rem 0 0.75rem;">Related tools</h3>
+  <div class="grid-cards">
+    <a href="/tools/parallax-generator/index.html" class="card" style="text-decoration:none; color:inherit; display:block;"><h4 style="margin:0; font-size:1.05rem;">Parallax Generator</h4><p style="margin:0.4rem 0 0; color:var(--text-dim);">Pure CSS 3D scrolling effects.</p></a>
+    <a href="/tools/clip-path/index.html" class="card" style="text-decoration:none; color:inherit; display:block;"><h4 style="margin:0; font-size:1.05rem;">Clip-Path Builder</h4><p style="margin:0.4rem 0 0; color:var(--text-dim);">Crop elements into triangles, hexagons or abstract shards by dragging the points.</p></a>
+    <a href="/tools/smooth-shadow/index.html" class="card" style="text-decoration:none; color:inherit; display:block;"><h4 style="margin:0; font-size:1.05rem;">Smooth Shadows</h4><p style="margin:0.4rem 0 0; color:var(--text-dim);">Generate layered ambient occlusion shadows.</p></a>
+  </div>
+</div>
+</section>

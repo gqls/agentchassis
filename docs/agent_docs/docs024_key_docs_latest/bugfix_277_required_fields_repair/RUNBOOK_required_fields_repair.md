@@ -251,3 +251,43 @@ WHERE handler_agent = 'page-build-handler'
 Expected: refusals `wont_fix` with `stamped = t`; the control non-zero, `failed`, `stamped = f`.
 **A zero control means no genuine failures happened in the window, not that the split works** — widen
 the window rather than reading it as a pass.
+
+## The rendered_html_transform canary (post-roll, CQ-028 — run ONCE, it opens the promoter door)
+
+```sql
+-- 0. Preconditions: chassis stamp is a descendant of the build commit (ask the POD, not git),
+--    and the config half reads at the column:
+SELECT default_config #>> '{workflow,steps,apply_edit,config,allow_rendered_html_transform}' AS flag,
+       default_config #> '{workflow,steps,apply_edit,config,input_fields}' @> '["transform_name"]'::jsonb AS whitelisted
+FROM agent_definitions WHERE type='section-editor' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- expect true | t
+
+-- 1. Wait for the detector's sweep to file a NEW-SHAPE item (spec carries edit_type):
+SELECT id, status, spec->>'page_name' AS page, spec->>'edit_type' AS edit_type
+FROM site_work_items
+WHERE item_type='literal_markdown' AND handler_agent='section-editor'
+ORDER BY created_at DESC;
+-- GOTCHA: until the roll, the sweep keeps filing OLD-shape items (handler page-rerender).
+-- An old-shape open row HOLDS the dedup slot; it must reach a terminal status (the wont_fix
+-- loop does this on its own) before a new-shape row can exist for that page.
+
+-- 2. Promote exactly ONE (the promoter would refuse: 0 lifetime completes on the pair):
+UPDATE site_work_items SET status='triaged', triaged_at=now(),
+       spec=jsonb_set(COALESCE(spec,'{}'::jsonb),'{original_pipeline}',to_jsonb(pipeline)),
+       pipeline='build', updated_at=now()
+WHERE id='<the one row>' AND status='detected';
+-- (that is the promoter's own UPDATE, copied from 444's pre_query — keep it in lockstep)
+
+-- 3. Watch: item → complete, and the verifier note in result->'_verification'.
+```
+
+```bash
+# 4. THE PROOF IS THE SERVED BYTES, never the status (cache-busted):
+curl -s "https://webdesign.co.uk/<page_url>?cb=$(date +%s)" | grep -o '<code>[^<]*</code>'   # expect the token
+curl -s "https://webdesign.co.uk/<page_url>?cb=$(date +%s)" | grep -c '`'                    # script literals MAY remain — compare against the pre-repair count MINUS 2 per converted span, not against zero
+```
+
+- GOTCHA: `transform_converted` in the item's step result is the count of spans EDITED, not findings
+  CLOSED — the whole-page verifier is what closes the item, and it re-scans both surfaces.
+- GOTCHA: the pair stays held until THIS canary's `complete` lands; do not promote a second row to
+  "help" — one completion is the door, more is just risk.
