@@ -166,12 +166,16 @@ nothing): `scripts/domains/classify_nameservers.py --ns-csv <export>` ·
 still un-run and would refresh this export; the CSV route needs no credentials and gives a
 checkable total. Recipe + traps: `RUNBOOK_domain_inventory_and_classification.md`.
 
-## 4b. ✅ 23 HOSTED SITES CLEARED FOR REMAKE (owner 2026-08-20)
+## 4b. ✅ 22 HOSTED SITES CLEARED FOR REMAKE (owner 2026-08-20)
 
 Full decision: `DECISION_2026-08-20_remake_the_hosted_sites.md`.
 
-- **PROTECTED: `leopardess.co.uk` and `leopardess.uk`** — owner ruling, and an active lane here.
-- **23 free to overwrite.** All small: biggest 22 pages, median 4, **nine single-pagers**. Page
+- **PROTECTED (3): `leopardess.co.uk`, `leopardess.uk`, `cartoon.co.uk`.** The leopardess pair is
+  an owner ruling and an active lane here; `cartoon.co.uk` was added the same day — *"off limits
+  for now I have ideas for that one."* **Do not pre-empt that.** It is also the biggest single page
+  in the batch (133 kB homepage on 4 sitemap pages), so what is there is substantial and
+  concentrated on the front page.
+- **22 free to overwrite.** All small: biggest 22 pages, median 4, **nine single-pagers**. Page
   counts came from following each WordPress sitemap INDEX down to the real URL lists — reading the
   index itself as a page count was my first and wrong answer (it lists 4 sub-sitemaps).
 - **`vinrose.uk` images SALVAGED** to `portfolio_positioning/salvage/vinrose.uk/` before anything

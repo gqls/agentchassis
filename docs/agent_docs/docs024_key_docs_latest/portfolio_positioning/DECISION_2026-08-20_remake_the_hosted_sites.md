@@ -1,11 +1,12 @@
-# DECISION — remake the hosted sites: 23 free, 2 protected
+# DECISION — remake the hosted sites: 22 free, 3 protected
 
 **Owner ruling, 2026-08-20:** *"we can completely start again and overwrite all of them except for
 leopardess.co.uk and leopardess.uk."*
+**Amended the same day:** *"cartoon.co.uk is also off limits for now I have ideas for that one."*
 
 So of the 25 domains found serving real content on the estate's own hosting
-(`HOSTED_domains_for_owner_decision.md` group A), **23 are free to rebuild from scratch** and
-**2 are protected.**
+(`HOSTED_domains_for_owner_decision.md` group A), **22 are free to rebuild from scratch** and
+**3 are protected.**
 
 ---
 
@@ -15,18 +16,20 @@ So of the 25 domains found serving real content on the estate's own hosting
 |---|---|
 | `leopardess.co.uk` | owner ruling; also an active lane in this repo (`fleet_copy_quality`, `leopardessconsulting`) |
 | `leopardess.uk` | same site, same ruling |
+| `cartoon.co.uk` | owner ruling 2026-08-20: *"off limits for now I have ideas for that one."* **The owner has a plan; do not pre-empt it.** Worth noting it is also the largest single page in the batch — a 133 kB homepage on only 4 sitemap pages — so whatever is there is substantial and concentrated on the front page. |
 
-## 2. FREE TO OVERWRITE — 23
+## 2. FREE TO OVERWRITE — 22
 
 Page counts from each site's own sitemap where it has one, otherwise no sitemap and no internal
 links from the homepage, i.e. a single-pager.
 
 **Above ten pages (2):** `businessinsurancequotation.co.uk` (22) · `aiartgallery.uk` (12)
 
-**Four to ten pages (12):** `minisitemaker.co.uk` (10) · `websitepromotion.co.uk` (6) ·
-`seduce.co.uk` (5) · `seotools.co.uk` (5) · `cartoon.co.uk` (4) · `personalgift.co.uk` (4) ·
+**Four to ten pages (11):** `minisitemaker.co.uk` (10) · `websitepromotion.co.uk` (6) ·
+`seduce.co.uk` (5) · `seotools.co.uk` (5) · `personalgift.co.uk` (4) ·
 `designblog.co.uk` (4) · `uniquedirectory.co.uk` (4) · `writesy.uk` (4) ·
 `fatherchristmas.uk` (4) · `santaclaus.uk` (4) · `pelletburners.co.uk` (4)
+*(`cartoon.co.uk` was here until the owner protected it — see §1.)*
 
 **Single-pagers (9):** `businesschristmasgifts.co.uk` · `businesschristmasgifts.uk` ·
 `fridge-magnets.co.uk` · `advertise.co.uk` · `conferences.co.uk` · `copyonline.co.uk` ·
