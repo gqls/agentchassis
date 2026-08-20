@@ -1,7 +1,116 @@
 # 314 — the council gate cannot review a config-only change, because its scope check is a PATH regex and this estate's config ships as SQL files under `docs/`
 
-**Filed:** 2026-08-18 · **Branch:** `087_towards_multiple_domains` · **Status:** OPEN, diagnosed
-with evidence, not fixed
+> ## ✅ CLOSED 2026-08-20 — FIXED, LIVE, and the fix's own defect found by the gate it widens
+>
+> **Fixed by the `bugfix_314_council_scope` lane** (session `bugs_open/taken 313 and 298 and 314`,
+> owner-directed). Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_314_council_scope/`.
+> **Owner chose fix candidate 1, implemented robustly.** Commits `49ad608a2` (the fix) and
+> `738fcbb96` (the correction below). **Council `85fac99c-c947-46e8-afcc-c2b03568cc24`: APPROVED,
+> round 1, 12 reviewers, none high-severity.**
+>
+> **Live on commit** — these are shell scripts read from the tree at invocation, so there is no
+> image, tag or roll between the commit and the behaviour. (`debug_historian` made exactly this
+> point in the round: the "verify against the running pod" discipline does not transfer here, and
+> the control matrix is the correct analogue.)
+>
+> ### What shipped — and it is not the one-line widening §5 sketched
+>
+> §5 candidate 1 named one file. There were **three** hand-maintained copies of the scope:
+> `097:87` (admission), `scripts/council-coverage-nudge.sh:58` (the commit-msg nudge), `098:76`
+> (this report's own pathspec). Widening one would have left the gate admitting migrations while
+> the nudge stayed silent on them and the report mis-bucketed them. So: **one definition,
+> `scripts/council-scope.sh`, three callers** — with deliberately OPPOSITE failure semantics at
+> each call site, because a missing definition means something different to each: **097 fails
+> LOUD** (exit 1, *not* the refusal's exit 2 — "I cannot tell" must not be reported as a scope
+> decision), **the nudge fails SILENT** (exit 0, zero bytes — it runs from `commit-msg` on every
+> commit in every session, so a bug there could block the fleet committing), **098 fails LOUD**.
+> All three branches were *induced* in a scratch repo, not reasoned about.
+>
+> The runner keeps its own vocabulary on purpose: sourcing the fragment FROM
+> `run-migrations.sh` would couple the review gate to the APPLY path, so a syntax error in the
+> gate would stop migrations being applied — a bigger blast radius than this bug.
+>
+> **`DRY_RUN=1` added to 097**, after all validation and the scope decision but before any
+> correlation is minted. §6's required POSITIVE control was previously unobtainable without
+> spending a real round, so this filter could only ever be half-tested. It is free now, in both
+> directions, permanently. Registered as **FIX-061**.
+>
+> ### §6's controls, all satisfied — plus the arm §6 did not ask for
+>
+> | control | result |
+> |---|---|
+> | POSITIVE: config-only submission ACCEPTED without `FORCE=1` | ✅ exit 0 |
+> | POSITIVE: `_HOLD.sql` submission accepted (see correction) | ✅ exit 0 |
+> | POSITIVE: `platform/*.go` still accepted (regression) | ✅ exit 0 |
+> | NEGATIVE 1: `.md` under `docs024_key_docs_latest/` still REFUSED | ✅ exit 2 |
+> | NEGATIVE 2: `_ROLLBACK` / `_VERIFY` / `_SUPERSEDED` sidecars refused | ✅ exit 2 |
+> | NEGATIVE: `README.md` inside the migrations dir refused | ✅ exit 2 |
+> | **DISCONFIRMING** (not in §6): the same migration against the PRE-FIX script | ✅ exit 2 |
+>
+> That last row is the one that matters and §6 did not ask for it: the negatives prove the check
+> was not deleted, but **only the pre-fix run proves the change did anything.**
+>
+> **One stated deviation from §6:** it asks that negatives refuse "with the unchanged message".
+> The message *is* changed, deliberately — one that still said "docs and site content" after the
+> widening would mislead the next author. The controls assert refusal + exit 2 + the new message.
+>
+> ### The gate found a real defect in the change that widens the gate
+>
+> `editquality`, medium severity: **excluding `_HOLD.sql` was wrong.** A `_HOLD` is a migration
+> held back from the runner **for ordering** and applied **by hand** — live config reaching
+> production, merely not ledger-recorded. I had excluded it by reusing the runner's `SIDECAR_RE`,
+> which answers *"will `--apply` run this?"*, as a proxy for *"is this the change?"* — **which is
+> this bug's own defect, committed inside its own fix.** Verified first-hand before acting
+> (157 `_ROLLBACK` / 12 `_HOLD` / 7 `_VERIFY` / 2 `_SUPERSEDED`; the `_HOLD` files carry real
+> `UPDATE`/`jsonb_set` writes), corrected in `738fcbb96`, and recorded in `WRONG_CALLS.md`.
+> **This is the strongest available argument for the change itself** — and it is §9's finding
+> reproduced live: the config-shaped round is where this council earns its keep.
+>
+> A second defect surfaced while fixing the first: the new suffix census ended in a `grep -v`
+> that exits 1 when the census is CLEAN, which under the callers' `set -euo pipefail` killed the
+> admission gate outright, silently, **only in the healthy case**. Caught by tracing an
+> unexplained `exit 1` — not by the control matrix, whose harness was simultaneously destroying
+> `$?` with a `$(basename …)` in the same `printf`. Both in `WRONG_CALLS.md` with the mechanical
+> checks.
+>
+> ### Answers to the open questions this file left
+>
+> - **§5's costing caveat, priced:** council runs **11–43/day** (median ~24–33, 9 days, measured
+>   from `llm_call_log`). Realistic increase **+4–6/day (+15–25%)**, not the +11 worst case, since
+>   one round covers a task spanning several commits. Prompt caching is live at a measured **74%**
+>   saving, and relevance gating limits seats per round. **Tripwire:** if sustained volume exceeds
+>   **150% of the 9-day median for a fortnight**, raise §5 candidate 2 (a cheaper config-specific
+>   roster) — do **not** revert admission.
+> - **Candidate 2 is not built**, on §9's own evidence: `FORCE=1` did not degrade the review, so
+>   what needed changing was admission, not the roster. Kept as the costed fallback above.
+> - **§4's "098 inherits the blind spot":** fixed. The pathspec now covers the migrations
+>   directory, with the exact predicate applied as a per-commit post-filter (a git pathspec cannot
+>   express the sidecar exclusion). Population over 14 days: **411 → 583**, UNREVIEWED 69 → 149.
+>   Verified both ways: three `494_*_HOLD.sql`-only commits excluded before the correction,
+>   migration commit `5315c8a19` included.
+> - **No RFC** (owner ruling 2026-07-29 §1): admission policy changed; the gate's *guarantees* —
+>   round semantics, verdict artefacts, the trailer/098 join keys — did not. The `architecture`
+>   seat independently reached the same conclusion (`ARCHITECTURE_SIGNAL: point_fix`). §3's
+>   "consumers must be told" is discharged by the CLAUDE.md, RUNBOOK and LANDMINES edits.
+> - **§7's process note stands:** no `090` run, deliberately, for the same reasons this file gives.
+>
+> ### Residual, deliberately left — and the LANDMINES entry stays live for it
+>
+> **Tooling is still out of scope.** `scripts/`, and the 097/098 scripts themselves, are not
+> admitted — the widening covers appliable migrations only. So a change to the gate still needs
+> `FORCE=1`, **with the force explained in the first paragraph of the rationale**. This fix's own
+> submission was in exactly that position, which is why the LANDMINES entry was *amended* rather
+> than retired. Whether tooling should be admitted is a separate question nobody has asked yet.
+>
+> **A FOURTH copy of the migration vocabulary exists and is already drifted:**
+> `scripts/pattern-check.py:384-385` (`MIGRATION_NAME = ^\d{3}_[a-z0-9_]+\.sql$`, lowercase-only).
+> It is an idempotency lint, not a scope consumer, so it is out of this fix's remit — but the
+> drift is now concrete rather than suspected: it cannot see
+> `482_ROLLBACK_claim_timeout_exclusion.sql`, a live runner-appliable migration, nor any `_HOLD`
+> file. **A candidate for its own small ticket.**
+
+**Filed:** 2026-08-18 · **Branch:** `087_towards_multiple_domains` · ~~**Status:** OPEN, diagnosed
+with evidence, not fixed~~ → **CLOSED 2026-08-20, see banner above**
 **Severity:** medium — it does not break anything running; it means two thirds of the estate's
 behaviour changes reach production with the review gate declining to look at them.
 **Class:** instrument gap / mis-targeted filter.
