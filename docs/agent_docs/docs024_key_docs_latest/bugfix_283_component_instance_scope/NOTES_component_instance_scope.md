@@ -778,3 +778,23 @@ Remaining: the generic pool (bayesian-ranking, archetype-clash ×2), b2_verify r
 on its 7 seeded pages until the LMC lane recaptures, the 6 parked rows (owner call on the 3
 live-broken automation-savings placements), and the 08-15-vintage estate drift (18 new
 class-A tools) as follow-on.
+
+## 2026-08-20 (session 7, close) — GENERIC POOL DONE: the planned conversion programme is COMPLETE
+
+All 3 generic rows (bayesian-ranking, archetype-clash ×2) converted via the judged pipeline
+(fixed:true), written templates audit clean (exit 0), all 3 page_rerenders complete, live
+pages verify (prefixed ids, 0 tokens, 0 bare lookups on gamesdesign.co.uk ×2 + vonc.com).
+**Functional click-through PASSED on all 3** (chromium via the LMC lane's Driver — reused, not
+forked): archetype-clash's button updates its results panel, bayesian-ranking's live inputs
+recompute 8 outputs — the converted scripts BIND and EXECUTE on the prefixed ids, the exact
+aliveness 324's dead tools lacked. Script: scratchpad clickthrough.py (session-local; the
+pattern — snapshot prefixed non-input elements, drive inputs+buttons, assert text changed —
+is worth lifting into a tool if a third session needs it).
+
+**Programme state: 24 judged conversions (canary + 20 LMC + 3 generic) delivered and live;
+repair batch done; oracle PASS 170 = baseline; 6 rows parked for humans (4 repair-refusals
+incl. the 3 live-broken automation-savings placements = OWNER CALL, + 2 batch refusals).**
+Follow-ons (not this lane's session): LMC b2_verify recapture on its 7 seeded pages; the
+18 new unconverted class-A arrivals (birth-gate or standing sweep — needs a decision);
+monitor's own clock bug noted (a window set in the future reads as 'none' — compare the
+filter to now() before believing an empty).
