@@ -317,3 +317,96 @@ It reported `COMPLETED` with no error and wrote **nothing**.
 4. **`bugs_open/313`'s wider sweep is untouched**: ≥8 other live conditions use `X.count`
    and whether each is broken depends on its own step's `output_format`. Noted there, not
    silently widened from here.
+
+
+---
+
+## 13. SCHEDULED 2026-08-20, and what the first scheduled run taught
+
+**Owner instruction 2026-08-20: "we can put the backfiller on a separate schedule."** Done
+as migration `498` — hourly, its **own** concurrency group at `max_concurrent=1`.
+
+It is safe to leave enabled for ever: a `pre_query` returning no rows is a clean no-op
+that stamps the timestamps (`cmd/scheduler/main.go:205-220`), so when every fillable page
+has a description the task costs one cheap SELECT an hour, and it wakes by itself when
+new pages appear. **It does not need switching off when the backlog drains.**
+
+### The first scheduled run proved the owner's condition is not decorative
+
+Fired 06:52:34Z, targeted `leopardessconsulting.co.uk`. The writer produced:
+
+> "Read evidence-based articles on AI adoption, **trust gaps**, and governance across
+> healthcare, finance, hiring and more."
+
+and `save_page_meta_description` **refused it**, quoting the site's own rule:
+
+```
+reason: voice_tell
+detail: banned_phrase: owner 2026-07-18: overused;
+        say what is checked/verified instead ("trust")
+```
+
+`updated: false`, with a named reason. **The gates the owner made a condition of waiving
+the review pass are real, and they caught a violation of one of his own rulings.**
+
+⚠ **And I only know that because I checked the artefact.** `last_triggered_at` was set,
+the orchestration read `COMPLETED`, the scheduled task looked healthy — and the page was
+still blank. A fired schedule is not a completed job.
+
+### Three fixes came out of it
+
+- **`499`** — a repeatedly-refused page on an hourly schedule is a permanent hourly LLM
+  bill that never fills, and nothing about it looks like a failure. So the writer is now
+  told the site's banned phrases **before** it writes. **9 sites** carry an enabled gate
+  (14 phrases on leopardess, 10 on oufe, 1 each on seven more); on the other ~18 it is a
+  no-op.
+- **`500`** — ⚠ **`499` shipped a defect and broke the live agent.** `write_descriptions`
+  went `FAILED`, because **`query_database` stringifies a jsonb column**: `jsonb_agg(...)
+  AS rules` reached the template as a JSON *string*, and `{{range}}` over a string is not
+  iteration. Diagnosed at the run's own `collected_data` (`rules_type: string`), not
+  guessed. Fixed by changing the SHAPE — one row per rule, iterating
+  `output_format: "object"`'s own `rows`. Landmine written.
+- **`501`** — asks for ≤20 words. Better copy on its own merits, **and** a workaround for
+  a defect stated plainly rather than dressed up (below).
+
+**Proven end to end afterwards on the site that had been refused:** 14 rules loaded, the
+writer avoided the banned phrase (*"what builds and breaks confidence"* rather than
+*"trust gaps"*), and the page was written —
+*"Read research-backed articles on AI adoption, governance, and risk across healthcare,
+finance, and hiring."* 106 chars, 16 words.
+
+### ⚠ OPEN — a Go fix this lane did NOT make
+
+`save_page_meta_description` applies the **whole** voice gate to a single sentence. The
+gate carries two kinds of rule: **content** (banned phrases — correct anywhere) and
+**density/distribution** (mean sentence length, long-sentence share, em-dash per 1000
+words, contraction expectation — **statistics over a corpus**). Over one sentence the
+second kind degenerates, and it refused a perfectly good 24-word description against a
+default trip of 22.
+
+`[MEASURED 2026-08-20]` it bites on only **2 of 27** sites — because **7 of the 9** gated
+sites already set `mean_sentence_words: 100000` by hand to switch the length checks off
+while keeping the phrase list. *The estate has already voted on this with its config,
+one site at a time, without anyone writing it down.*
+
+**The fix is in Go and needs a roll:** in `metaDescriptionFailsCopyGates`, apply the
+content findings (`check == "banned_phrase"`) to a single-value field and skip the
+distribution ones. `501` mitigates it in the prompt meanwhile. **Do not fix it by raising
+a site's thresholds** — that relaxes the rule for the site's pages too, where it works.
+
+### ⚠ A SEPARATE FINDING, not this lane's to fix — `bugs_closed/103` is leaking
+
+`[MEASURED 2026-08-20]` **11 live pages carry a description of 200-320 characters, and
+9 of them are `tool` pages whose text is plainly a BUILD BRIEF**, e.g.
+*"Lets designers define a total stat budget for a character or item tier, then…"*,
+*"Companion to the Spawn Rate Balancer. Designers input player power growth per wave…"*,
+*"Converts between px, rem, em, vw, and vh units given a base font size…"*.
+
+That is `bugs_closed/103`'s exact failure — tool pages publishing their build brief as the
+public meta description. **Zero live descriptions exceed 320 characters**, so `103`'s
+length guard catches nothing today: the population moved *under* it. Its own
+`briefMarkers` regex was meant to be the second signal for exactly this
+("length alone would miss a SHORT brief") and does not match these.
+
+Not written by this lane's backfiller — every one of these predates it or comes from the
+tool-deploy path. **Flagged, measured, and left for whoever owns `103`.**
