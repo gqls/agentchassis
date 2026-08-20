@@ -1273,3 +1273,99 @@ paragraph should have waited the four minutes.
 
 Not filed in `WRONG_CALLS.md`: nothing written down turned out false, and inflating that
 file with claims that were merely *early* would blunt the tally that gives it its value.
+
+---
+
+## 2026-08-20 (evening) — BEHAVIOURALLY PROVEN IN PRODUCTION: a real replan of the site that minted 19 phantoms on 08-17 minted ZERO, and the durable record names all 17 pages it saved
+
+The canary was fired (owner instruction, 2026-08-20). **Corr
+`313368d2-b9ac-47d4-9465-da087eaf94f7`**, orch `950b9264`, chassis **`v1.0.1320`**
+(re-probed on both replicas before firing: `stampSameNameRealisedIdentity` and
+`PLAN_PAGE_SAME_NAME_TWIN_PENDING` PRESENT, `PLAN_PAGE_MERGE_LOSSY` as instrument
+positive), site `loanandmortgagecalculator.co.uk`, COMPLETED 17:15:46Z.
+
+**This is the run the fix was built for, and it is the same site, same config, same
+planner as the 08-17 run that minted 19 phantom pages.**
+
+| check | 2026-08-17 (pre-fix) | 2026-08-20 (post-fix) |
+|---|---|---|
+| new `pages` rows after the plan write | **19** (17 the predicted `tool-<name>` twins) | **0** |
+| identity digest `name\|url\|page_type\|status` | moved | **`86f42aa5d5c122da938c970a01dc6ff4` — UNCHANGED** |
+| active / archived | 45 → 64 | **45 / 1, unchanged** |
+| `PLAN_PAGE_SAME_NAME_IDENTITY_HELD` | (code did not exist) | **1 row, naming 17 pages** |
+| plan actually written (run-level demand control) | yes | **yes — `f6852688`, 45 planned pages, `is_current`** |
+
+That last row matters: a plan with 45 pages was written, so the pipeline genuinely ran
+the path. The zero above is "nothing was minted", not "nothing happened".
+
+**The durable record does exactly what it was designed to do.** One row, info severity,
+carrying every pair — e.g.
+
+```
+plan_name: mortgages-stamp-duty   stored_url: /mortgages/stamp-duty.html
+                                  would_derive_name: tool-mortgages-stamp-duty
+plan_name: mortgages-affordability … would_derive_name: tool-mortgages-affordability
+```
+
+17 pairs, matching the 17 predicted from the pre-fire census exactly. **And the stamp is
+visible in the run's own intermediate output** — `collected_data->'validate_plan'->'pages'`
+for `mortgages-stamp-duty` now reads `"identity_authority": "realised"` with
+`"url": "/mortgages/stamp-duty.html"`, where the 08-17 run had no marker and the
+default-hub URL. That is the mechanism, observed rather than argued.
+
+**Artefact check, with controls:** `/mortgages/stamp-duty.html` 200/11,569b,
+`/mortgages/repayment.html` 200/11,182b, `/index.html` 200/13,377b,
+`/guides/index.html` 200/11,141b — and the phantom path
+`/tools/mortgages-stamp-duty/index.html` **404 at 4,281b, byte-identical to a fabricated-URL
+control**. So no twin exists and none is served. (My first artefact check used a URL I had
+guessed rather than read from `pages.url`, got three 404s, and briefly looked like a dead
+site — read the stored URL, never construct it.)
+
+### The same run did real damage by a DIFFERENT mechanism, and I should not have fired it here
+
+**41 of 45 pages had `pages.sections` emptied.** Not this bug: it is a **third, previously
+undocumented call site of `bugs_open/204`** — validate's `validate_components` resolver
+drops positional slot names (`prose-0`, `tool-1`) as unresolvable, before the object-form
+normalisation, so the planner's correct composition AND its RFC_016 fact assignments were
+deleted; `write_site_plan` then wrote 10 `site_plan_sections` for 45 pages and the sync
+upsert's unconditional `sections = EXCLUDED.sections` overwrote the real slot names. Full
+chain, read from the run's own stored output, contributed to **`bugs_open/204`**.
+
+**And this file's own register entry told me not to fire here.** PLAN-048's landmine says
+*"do not opt the decomposed sites in until 204 is fixed"*, and the six-domain list naming
+`loanandmortgagecalculator.co.uk` is in that entry because I added it that morning. Logged
+in `WRONG_CALLS.md`. Note for anyone reading that landmine: its stated reason
+(`normaliseRealisedToPlanPage` carrying positional names verbatim) is **adjacent to, not
+the actual route** — the damage arrives through validate's resolver, which makes the
+exclusion broader than its rationale and applicable to any replan of a decomposed site
+whatever the identity flags say.
+
+**Contained and reversed inside the hour, DB-only throughout:**
+1. Pre-fire snapshot `pages_bak_20260820_preplan_lmc` (46) /
+   `page_components_bak_20260820_preplan_lmc` (82).
+2. All **32** claimable items the run filed — 20 `needs_page`, 1 `needs_rerender`,
+   1 `needs_design`, 5 `needs_imagery`, 7 `owned_page_review` (parked, correctly, by
+   `rebuild_policy='owned'`) — cancelled with a reason on each row, with a `DO`/`RAISE`
+   assertion inside the transaction that none survived. **This was the urgent step:** any
+   `needs_page` would have built an empty page over a live one.
+3. `sections` restored on all 41 from the snapshot, with **both** digests asserted back to
+   their pre-fire values inside the repair transaction (`ON_ERROR_STOP` cannot stop a
+   `COMMIT` on a non-empty `SELECT` — it has to be `RAISE`).
+4. Post-repair: sections digest `cb893998444ff82906df38946997bad2` ✓, identity digest
+   `86f42aa5d5c122da938c970a01dc6ff4` ✓, `page_components` 82 = 82, live URLs still 200.
+
+**What made the difference was the `sections` digest**, which I added to the lane's own
+canary script specifically because this fix does not cover sections. Without it the
+emptying would have been invisible until the next rebuild.
+
+### Status of THIS bug after the canary
+
+**The same-name mode is FIXED, LIVE and now BEHAVIOURALLY PROVEN** — no longer "proven by
+unit tests and a pod-grep". What remains is not this mechanism:
+
+1. **O2: the seven both-deployed twin pairs**, 2 of 7 remediated, the rest an owner
+   decision per pair (which name survives, what redirects — and `LANDMINES.md` records
+   that no redirect mechanism exists, so every retirement is a 404).
+2. `bugs_open/340` — the preservation-set gap, filed, unowned, exploitable population
+   currently zero.
+3. Nothing else. The crash mode, the quiet mode and the same-name hole are all closed.
