@@ -13,11 +13,15 @@ import (
 
 	"github.com/gqls/agentchassis/pkg/buildinfo"
 	"github.com/gqls/agentchassis/platform/agentbase"
+	"github.com/gqls/agentchassis/platform/buildcapability"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/database"
 	"github.com/gqls/agentchassis/platform/health"
 	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/logger"
 	"github.com/gqls/agentchassis/platform/observability"
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -211,6 +215,22 @@ func main() {
 		appLogger.Fatal("Failed to initialize agent", zap.Error(err))
 	}
 
+	// RFC_040 stage 2 — publish what THIS binary can do, so "is the new code
+	// live yet?" stops being a question only `kubectl exec` can answer.
+	//
+	// This is the one place in the tree that can see both registries and has
+	// config in hand. agentbase was the obvious alternative and is the wrong
+	// one: it imports neither registry, so the lists would have to be plumbed
+	// through it anyway.
+	//
+	// DELIBERATELY BEST-EFFORT AND NEVER FATAL. A capability registry that can
+	// stop the chassis starting is a worse bargain than the problem it solves,
+	// so every failure below is logged and stepped over — including the
+	// connection itself. It is a short-lived connection of its own rather than
+	// the agent's, because the agent's handle is private to it and widening
+	// that for a write nothing depends on would be the larger change.
+	recordBuildCapabilities(ctx, cfg, appLogger)
+
 	// Handle shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -253,4 +273,49 @@ func main() {
 	}
 
 	appLogger.Info("Agent stopped")
+}
+
+// recordBuildCapabilities publishes this binary's enumerable registries to
+// service_binary_capabilities (migration 503, RFC_040 stage 2).
+//
+// Every arm returns quietly on failure: a chassis that cannot record its
+// capabilities must still serve. The log lines are Warn rather than Error
+// because an absent row is a *diagnostic* gap, not a service fault — but they
+// name the cause, because a silently missing row is exactly the ambiguity this
+// mechanism exists to remove.
+func recordBuildCapabilities(ctx context.Context, cfg *config.ServiceConfig, appLogger *zap.Logger) {
+	podName := os.Getenv("HOSTNAME")
+	if podName == "" {
+		appLogger.Warn("build capabilities not recorded: HOSTNAME is empty, so the row could not be attributed to a pod")
+		return
+	}
+	if cfg.Infrastructure.ClientsDatabase.Host == "" {
+		appLogger.Warn("build capabilities not recorded: no clients database configured")
+		return
+	}
+
+	db, err := database.NewStdlibConnection(ctx, cfg.Infrastructure.ClientsDatabase, appLogger)
+	if err != nil {
+		appLogger.Warn("build capabilities not recorded: could not open a clients-db connection", zap.Error(err))
+		return
+	}
+	defer db.Close()
+
+	checkNames := checks.Names()
+	actionNames := actions.ListActions()
+
+	if err := buildcapability.Record(ctx, db, "agent-chassis", podName,
+		buildcapability.Set{Kind: "discovery_check", Names: checkNames},
+		buildcapability.Set{Kind: "action", Names: actionNames},
+	); err != nil {
+		appLogger.Warn("build capabilities not recorded", zap.Error(err))
+		return
+	}
+
+	appLogger.Info("build capabilities recorded",
+		zap.String("service", "agent-chassis"),
+		zap.String("pod", podName),
+		zap.String("git_commit", buildinfo.GitCommit),
+		zap.Int("discovery_checks", len(checkNames)),
+		zap.Int("actions", len(actionNames)))
 }
