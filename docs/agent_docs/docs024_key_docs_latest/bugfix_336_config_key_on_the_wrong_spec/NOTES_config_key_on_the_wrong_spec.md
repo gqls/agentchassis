@@ -184,3 +184,25 @@ lines so a key merely discussed in prose is not read as an access (this file doc
 at length), it skips framework-injected keys via the exported `datahelpers.IsFrameworkStepConfigKey`,
 and it carries two `t.Fatal` guards whose only job is to stop a broken scan passing silently. Those
 are the three things a fleet-wide version will need at 173× the scale, and they are already written.
+
+---
+
+## CORRECTED 2026-08-20 17:46Z — "eight pages" was my `LIMIT`, not a count
+
+The first entry above says *"Not one page but eight, across several sites"*. **Eight is how many rows
+I asked for.** The query carried `ORDER BY deployed_at DESC LIMIT 8`, so it could not have returned
+any other number, and I read the sample size back as the population. The actual figure at 17:46Z:
+
+```sql
+SELECT count(*) FROM pages WHERE length(content_hash)=64;   -- 110
+```
+
+**110 pages**, not 8. Nothing downstream is wrong — the round-2 submission understated the evidence
+rather than overstating it, and the conclusion (the armed path works under real demand) is unaffected
+and now stronger. But the sentence claimed a census and reported a `LIMIT`, which is the
+`[MEASURED]`-marker failure the standing docs warn about: **a figure that could not have come out
+otherwise is not evidence.** With `LIMIT 8` on a healthy pipeline, "8" was guaranteed before I ran it.
+
+**The cheap check:** when a figure is going to be quoted as a population, the query that produces it
+must be a `count(*)`, not a `LIMIT`-ed listing. A listing shows you *what* is there; only a count says
+*how much*. If both are wanted, run both — it is one extra line.
