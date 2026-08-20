@@ -39798,3 +39798,12 @@ council.
 seats had told me was wrong. Fixed by containment in round 4: the annotation is now opt-in per step,
 default OFF, enabled on one agent by the held migration, and `RFC_044`'s question flipped from "may
 this stay?" to "should this become?" — which is the version a human can answer without time pressure.
+
+**Addendum 2026-08-20 to the entry above:** the cheap check was even cheaper than
+"read the function body" — **the trap was ALREADY IN LANDMINES** ("`snapshot_agent`
+has TWO overloads writing to TWO different tables", line ~298), with the correct
+verification query written out. Neither I nor the subagent grepped LANDMINES for the
+symbol before asserting the absence, which is the standing rule ("grep LANDMINES for
+the SYMBOL you are about to trust") not followed, twice, independently. The tally
+point: this row is now evidence that the symbol-grep rule needs to reach subagent
+briefs too, not just the driving session.
