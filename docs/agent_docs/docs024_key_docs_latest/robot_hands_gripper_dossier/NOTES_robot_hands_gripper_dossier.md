@@ -2099,3 +2099,19 @@ would get a 403 from CORS. Expected per the runbook, recorded so it is not diagn
 terminal wrap and break — step 2's original one-liner failed silently that way (the file was
 never created; caught by checking for it rather than assuming). Everything since is a short
 command calling a script. Prefer that shape for steps 3–7.
+
+**Same-file passenger in `a829bb53e`, flagged for whoever owns it.** My pathspec commit of
+`LANDMINES.md` also carried **2 lines that were not mine**: an uncommitted correction to the
+council-scope entry, narrowing the refused-sidecar list and adding *"⚠ `_HOLD.sql` IS in
+scope"* (the first cut reused the runner's `SIDECAR_RE`, which answers "will `--apply` run
+this?" rather than "is this the change?"). That is the council-scope / migration-scope lane's
+work, dated 2026-08-20, and it was sitting dirty in the tree when I committed. **Nothing is
+lost — it is committed and intact**, just under a gripper commit message, so `git log` on
+`LANDMINES.md` will not attribute it to them. Forward-only forbids an amend; this note is the
+record. This is the exact case CLAUDE.md names as unpreventable ("it cannot see a *same-file*
+passenger — if two sessions edit one file, whoever commits takes both edits"), and the
+`shared-ledger-not-appended` pattern check is what surfaced it: it fired on "2 lines removed
+from an append-only ledger", I had only appended, so the deletion could only be someone else's
+edit. **Worth generalising: on a fleet-wide append-only file, `git diff --numstat` showing any
+DELETED lines when you only appended is a passenger, every time — check before committing, not
+after.**
