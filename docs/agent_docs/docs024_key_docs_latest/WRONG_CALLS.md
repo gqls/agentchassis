@@ -40167,3 +40167,55 @@ SOURCE rather than to data, plus a sharper one: when your evidence is an **absen
 readings before you pick — "nobody does this because it is wrong" and "nobody does this because it
 does not exist yet" — and go and look at what would distinguish them. I named neither, so I never
 noticed I had chosen.
+
+---
+
+## 2026-08-20 — I asserted a prior-art search I had not run, and cited a check I HAD run nowhere. Five council seats spent a round on it.
+
+**The claim.** DGH-014's council submission declared `customer_access_tokens` as "ONE token
+table" on new ground, and framed migration 511 as introducing handover state that did not
+exist. Both statements are true. Neither carried the evidence that makes them checkable.
+
+**What caught it.** The council gate, verdict **REVISE**, `905d9078`. **Five of ten seats**
+raised one objection: the prompt's Schema section already showed the three `sites` columns
+the migration proposed to add. `prior_art_librarian` also filed the narrower one —
+*"no check for whether a `customer_access_tokens`-shaped table already exists … the plan
+should have looked rather than asserted."* That one is straightforwardly upheld: I had not
+looked. `reuse_agent` filed a STEP ZERO miss — *"no evidence the author ran `\d sites`"* —
+and I **had** run it, before writing the ALTER TABLE, and had put it in no artefact the
+reviewers could see.
+
+**The two cheap checks that would have.** One query each.
+
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema='public'
+ AND (table_name ILIKE '%token%' OR table_name ILIKE '%access%' OR table_name ILIKE '%customer%');
+SELECT filename, applied_at FROM schema_migrations WHERE filename LIKE '511%';
+```
+
+The first returns one row — this table — and would have converted an assertion into a
+finding. The second dates the apply at 17:24:07Z against a 17:30Z submission, which is the
+whole explanation of what the seats were seeing.
+
+**The transferable half, and it is not "cite your work" in general.** Two distinct failures
+wearing one face:
+
+1. **A check you ran but did not cite is a check you did not run** — to every reader, and a
+   reviewer is a reader. The estate's marker rule (`[MEASURED]`, `[ASSUMED]`) makes a checked
+   claim *look* checked; it does nothing to carry the check into a different artefact. When
+   the claim moves — into a submission, a handoff, a commit message — **the evidence has to
+   move with it or it is gone**.
+2. **An assertion and a measurement read identically in a submission.** "No such table
+   exists" and "I searched and found none" are the same sentence with different warrant, and
+   the seat whose job is prior art will find the difference every time.
+
+**And the repeat offence.** editquality's suggested fix was an `IF NOT EXISTS` guard the file
+already carried in a stronger form — my *sketch* had summarised it away. **DGH-011's register
+entry records this identical class from a previous round of this same lane** ("a sketch-elision
+artefact, the file always carried the column"). Second time paid for. That is the tally
+signal this file exists to produce, so: **sketch the guards verbatim and abbreviate the
+boring part instead** — and the ordering trap that put me here is now in `LANDMINES.md`.
+
+**Cost:** one council round, ~12 minutes of fleet time, five seats' attention, and zero
+defects found in the code under review. **Worth it** — the submission was genuinely weaker
+than the change, and I would not have known.
