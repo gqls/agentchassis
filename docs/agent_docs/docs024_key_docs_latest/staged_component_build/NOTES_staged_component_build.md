@@ -5698,3 +5698,19 @@ near a straight flip. Remainder: 269 pairs / 75 agents unsampled; the corrected 
 RUNBOOK. 330 §9 carries the dated correction. The catch, again: the measurement answered the
 question the LIKE encoded — enumerate real paths on ONE missing run before trusting any
 name-presence probe.
+
+**Addendum (~10:5xZ), and it re-scopes both fixes.** Completed the pbh measurement: wider
+sample 40 runs, `page_record.id` missing 21/40; where both sources exist the record and the
+input AGREE 19/19 on name and 19/19 on id (the 3 apparent id disagreements were absent inputs —
+0 genuine). Two consequences, written before anyone designs from the headline:
+1. **pbh's rescued wires do NOT block step 5 at all.** The search's candidates for them AGREE
+   (one page, several paths), agreeing candidates resolve without a conflict row, and the flip
+   only refuses CONFLICTS. That is why pbh/page_id has never appeared in the instrument. The
+   ~14 pairs blocking step 5 are the CONFLICTING ones only.
+2. **They matter only for 330's candidate 2** (wired-but-missing → absent), which would break
+   the benign rescue: neither single path covers both populations (record missing 21/40; input
+   id absent ~3/19 of record-present runs), so candidate 2 still needs a two-element declared
+   chain OR a safe-by-inspection note for this pair — and the note is now fully writable from
+   this measurement (the rescue always returns the run's own identity; 0 disagreements ever
+   observed). tool-generator/`related_pages` remains candidate 2's one wrong-value case on the
+   sampled slice.

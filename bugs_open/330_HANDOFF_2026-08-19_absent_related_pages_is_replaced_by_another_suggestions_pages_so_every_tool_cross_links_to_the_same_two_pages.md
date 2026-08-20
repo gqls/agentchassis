@@ -263,3 +263,11 @@ work item, not tool-generator: it is 8 of the 10 wires and 56 runs/24 h of deman
 > fleet-wide flip; the RUNBOOK method now includes the strip.
 > What caught it: enumerating real paths on one missing run instead of trusting the LIKE —
 > "your measurement answers the question you ENCODED, not the one you asked."
+
+> **Sharpening, same session (~10:5xZ):** the pbh pair's rescue candidates AGREE (one page,
+> several paths — 19/19 name, 19/19 id where both exist, 0 genuine disagreements over 40 runs;
+> the record misses 21/40 and the input then carries the identity 6/6). Agreeing candidates are
+> never refused by RFC_029's step-5 flip, so **the pbh wires do not block step 5** — they are in
+> scope ONLY for THIS bug's candidate 2, where the options are a two-element declared chain or
+> a safe-by-inspection note (now fully writable from the measurement above). Candidate 2's
+> wrong-value population on the sampled high-demand slice is exactly one wire: this bug's.
