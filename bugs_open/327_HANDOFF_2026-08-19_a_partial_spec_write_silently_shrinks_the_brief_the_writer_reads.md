@@ -461,3 +461,106 @@ that the fix converts a latent exposure into an active one.
    the unsafe default OFF** (the 2026-08-02 ruling's shape), not a hardcoded key list. I do not
    think one instance of unmeasured-transfer exemplars justifies a new opt-in on this seam, and
    putting that judgement to the round is the point of submitting.
+
+---
+
+# COUNCIL ROUND 2: **REVISE** again — gated by `compliance`, on the same HIGH. Two objections acted on, one escalated to the owner.
+
+Round 2 (orch `8f5b5dfe-0459-47a8-98ef-2112374504fe`, 12 reviewers, 5 abstained) accepted the two
+round-1 fixes: nobody re-raised the nesting hazard or the depth question. Three things came back.
+
+### 1. `bug_historian`, MEDIUM — "the audit closes today's three branches; the SHAPE stays reachable" · **BUILT**
+
+Their sharpest line, and it is right: *"a bug-file note IS exactly that unread verdict"* — they cite
+closed cases 086, 093 and 042 as "the underlying rule stayed generic and got hit again on the
+untouched branch". So the note became a test: **`TestNoAspectBranchDerivesBeforeTheMerge`**
+enumerates the aspect branches (`identity`, `content_direction`) and asserts **every derivation sits
+after the merge**, by source position. A fourth branch fails it and has to be accounted for
+deliberately.
+
+⚠ It scans source, so it is built against the known trap that *a source-scanning test makes your
+comments load-bearing*: comment lines are **stripped before anything is counted**, and a decoy
+comment (`// if aspect == "strategy" { derive from specMap }`) leaves it passing. Three mutations:
+genuinely pre-fix source **fails** on the ordering arm, a fourth branch **fails** on the enumeration
+arm, the decoy is correctly ignored.
+
+### 2. `bug_historian`, LOW — "open `bugs_closed/025` before merging" · **READ, and it corroborates**
+
+025 is `pages.content_direction` — the **per-page column**, a different thing that shares the name,
+filed 2026-07-19 and closed 2026-07-21 by wiring it up. Its own evidence says *"the writer prompt
+only ever dereferences `.site_specs.specs.content_direction.formatted`"*, which is this round's
+premise arriving from a different direction. **No contradiction, and no re-derivation** — but the
+name collision it warns about is real and worth carrying: `pages.content_direction` and the
+`site_specs` aspect are unrelated.
+
+### 3. `debug_historian`, LOW — "your verification recipe samples the wrong pods" · **CORRECT, and my recipe was wrong. Replaced.**
+
+They said `-l app=agent-chassis` returns 2 pods while ~41 run the binary. `[MEASURED 2026-08-20]`
+**it is worse: 75 pods run the `agent-chassis` image and the selector matches 2** — 70 are labelled
+`dynamic-agent`, plus one `vet-intel` and one `business-intel`. A spec write almost certainly
+executes on a `dynamic-agent` pod, so **the recipe I published would have proved nothing about the
+code path that matters.** Superseding it:
+
+```bash
+# 1. Is the fleet uniform? Filter on the IMAGE, never on a label.
+kubectl -n ai-persona-system get pods \
+  -o jsonpath='{range .items[*]}{.spec.containers[0].image}{"\n"}{end}' \
+  | grep 'agent-chassis:' | sort | uniq -c        # more than one line == MIXED, stop here
+# 2026-08-20: `75 docker.io/aqls/agent-chassis:v1.0.1317` — uniform, and pre-fix.
+# 2. Probe a pod that actually runs the path (a dynamic-agent one), WITH a control:
+kubectl -n ai-persona-system exec <a dynamic-agent pod> -- sh -c \
+  'grep -ac merged_keys /proc/1/exe; grep -ac incoming_keys /proc/1/exe; grep -ac formatted_len /proc/1/exe'
+# want 1,1,1. The third is the PRE-EXISTING literal: if it is 0 the probe itself is broken.
+```
+
+**Current state, measured this way: `0 0 1` on the running binary — the fix is NOT live**, and the
+pods started `2026-08-19T22:26:25Z`, eleven hours before the commit, so two independent routes agree.
+⚠ **`IMAGE_TAG` in the makefile is already `v1.0.1318` while the fleet runs `1317`**, so a build is
+imminent and this fix will ride it.
+
+### 4. `compliance`, HIGH — held for a second round. **NOT resubmitting a third time; this is an OWNER DECISION.**
+
+Their round-2 wording is stronger than round 1 and quotes my own concession back at me:
+
+> *"The chosen mitigation is notification-only (CONTRIBs + a fleet landmine + a listing command) —
+> none of it stops the automatic write or requires review before the restored content reaches a
+> writer prompt. A per-site opt-in default-OFF gate (which the author concedes as the containable
+> alternative) is the correct shape here; relying on other lanes reading a CONTRIB before their next
+> scheduled write is not a control."*
+
+**They are quoting the owner's own 2026-08-02 ruling** — *"a comment is not a control on a tree this
+many sessions share"* — and by that ruling they have the better of the argument on form.
+
+**Why I am not simply complying, and why this goes to the owner rather than to a third round.**
+CLAUDE.md's rule for exactly this situation: a judgement about *consequence* rather than measurement
+is not answered by resubmitting with better numbers — *"record it where the change lives … and let a
+human break it — especially when seats disagree with each other"*, which they do (`architecture`
+approved this as a `point_fix`; `compliance` calls it HIGH).
+
+**The decision, with both options costed.**
+
+- **(A) Ship as committed.** The 8 lossy sites' briefs repair themselves at their next spec write.
+  Cost: on `ai-agent-orchestration.com` the restored `example_phrases` include define-by-negation
+  exemplars, reaching a writer prompt with no human in the loop.
+- **(B) Add a per-site opt-in, default OFF.** Cost: **the bug stays live by default on all 25
+  sites** until someone opts each one in — a data-loss defect preserved as a safety feature, and
+  this estate has been bitten by mechanisms rotting unexercised behind a default-OFF switch. The
+  unsafe side here is genuinely ambiguous, which is what makes it an owner call rather than a
+  mechanical application of the 08-02 ruling: that ruling assumes the new authority is the risk,
+  and here the new authority is *the repair*.
+
+**What I did to narrow the gap instead** — because "unmeasured" was the load-bearing word in my own
+answer and I owed the round better than an absence of evidence. `[MEASURED 2026-08-20]` 60 distinct
+`example_phrases` strings from the 21 sites whose exemplars DO reach the writer, checked verbatim
+against every successful `page-content-writer` call: **52 reached a prompt, 3 appeared in output, 18
+total appearances — and none of the three carries the construction** (they are hooky openers). For
+contrast, the single **mandated** tagline produced **409**. So exemplar transfer is real but two
+orders of magnitude below a supplied-and-mandated phrase.
+⚠ **The 60 were the alphabetically first of 194, not a random sample**, so 3-of-52 is indicative and
+not a rate to quote; and a low *literal* rate says nothing about whether FORM transfers, which is
+still open in `bugs_open/305`. **This narrows the risk; it does not retire it.**
+
+**Recommendation to the owner: (A), plus fixing that one spec key before the roll** — which is
+`ai-agent-orchestration.com`'s lane's call on their own site config, and I have offered to make the
+edit. That keeps the repair and removes the payload, rather than preserving a defect to contain its
+side effect.
