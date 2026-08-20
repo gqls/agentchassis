@@ -144,12 +144,81 @@ Gotchas: the trigger dispatches ONE unlocked site per 60s tick, oldest item firs
 item is skipped until it clears. Assert at the artefact: `page_components` row for the new id
 with build_status deployed, AND `curl` the tool URL and count `<input` (tags span lines — use
 `grep -c '<input'`, not a one-line regex). Pin the served page's md5 and byte count BEFORE.
-Loanzy's six remaining: settlement / overpayment / standard-calc / compare-loans /
+~~Loanzy's six remaining: settlement / overpayment / standard-calc / compare-loans /
 interest-rate-stress-test (collision class) and credit-health-check (fails UPSTREAM on
-max_tokens 16000 — a different defect; do not spend attempts on it until that is raised).
+max_tokens 16000 — a different defect; do not spend attempts on it until that is raised).~~
+
+> **CORRECTED 2026-08-20 08:16Z — the list was three ways wrong, and each error changes what a
+> page needs.** Measured by fetching every loanzy tool page and cross-reading the eight `failed`
+> items: **FIVE** are collision class (settlement · overpayment · standard-calc → page
+> `tool-loan-repayment-calculator` · compare-loans → page `tool-loan-comparison-calculator` ·
+> interest-rate-stress-test) — car-finance was already repaired. **TWO** pages die on the
+> `max_tokens` cap, not one: `tool-credit-health-check` **and `tool-eligibility-checker`**, which
+> planned the same `loans-credit-health-check` section. **ONE** needs only the render leg —
+> `tool-loan-vs-savings` has a good component (a plain creation, no collision) and serves 0
+> `<input>` purely because `needs_rebuild` has no consumer; a re-drive on it would be wasted
+> spend. And `tool-compare-loans` / `tool-is-a-loan-right-for-me` have **zero `page_components`
+> rows** — they never planned a section, so no re-drive can help them.
 
 ## 2026-08-19 20:35Z — the roll that carried the TOOL half: v1.0.1316, stamp `07eeba4a1eecbe809f518b5d0b7f9fc5f75e71ed`
 Both replicas (`agent-chassis-5ddd9744-*`, started 17:13Z). Re-run of the recipe above: stamp
 PRESENT, fake sha ABSENT, `e24bc9c0f` and `17d883333` both ancestors, both literals present.
 Gotcha that bit this lane: **re-run `kubectl get pods` before repeating a version** — a pod list
 is a snapshot; I carried "v1.0.1315" four hours past the roll.
+
+## Filing the re-drive as a BATCH (2026-08-20) — one statement, and the two pre-checks that make it safe
+
+The single-item recipe above scales badly by hand (five near-identical INSERTs is five chances to
+mistype a spec). Drive it from a `VALUES` list and let `format()` build the description, so the
+shape cannot drift between rows:
+
+```sql
+WITH targets(section, page) AS (VALUES
+  ('loans-interest-rate-stress-test','tool-interest-rate-stress-test'),
+  ('loans-compare-loans','tool-loan-comparison-calculator')      -- section name ≠ page name
+)
+INSERT INTO site_work_items
+  (site_id, source, pipeline, item_type, severity, summary, spec, priority, handler_agent, status, created_by, item_key)
+SELECT '<site_id>', 'component_selector', 'build', 'needs_new_component', 'medium',
+       'Need component template for section type: ' || section,
+       jsonb_build_object('site_type','', 'description',
+         format('Component for section type "%s" on page "%s" ( site)', section, page),
+         'page_context', page, 'section_type', section, 'design_direction', 'modern-light'),
+       50, 'component-creator', 'triaged', 'bugfix_311_redrive', 'needs_new_component:' || section
+FROM targets RETURNING id, spec->>'section_type', spec->>'page_context';
+```
+Note the description's literal `" ( site)"` — the empty `site_type` leaves that gap in the
+production writer's own output. Mirror it; do not tidy it.
+
+**Pre-check 1 — READ the dedup index, do not recall it.** Fresh inserts are only safe because
+`idx_swi_dedup` is partial:
+```sql
+SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';
+-- excluded: complete, verified, rejected, wont_fix, failed, unresolved, cancelled
+```
+So a `failed` `needs_new_component:<section>` and a `complete` `page_rerender:<page>` both permit a
+new row. If a key is held by anything else (`needs_human_review`, `triaged`, `claimed`) the insert
+raises 23505 — check first:
+```sql
+SELECT item_key, item_type, status FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+WHERE s.domain='<domain>' AND (swi.item_type='needs_new_component' OR swi.item_key LIKE 'page_rerender:%');
+```
+
+**Pre-check 2 — re-pin the incumbent md5s IMMEDIATELY before the run, and attribute any drift.**
+A day-old pin is not a baseline on a shared row. On 2026-08-20 the `loans-standard-calc` incumbent
+`b420389f` had moved overnight (html `85d67379…` → `a9dea7cd…`, 2,469 → 2,852 chars, `updated_at`
+07:02:57Z) — **nothing to do with this lane**:
+```sql
+SELECT version_number, change_source, created_at, md5(html_template)
+FROM component_versions WHERE component_id='<id>' ORDER BY version_number DESC;
+-- one row: change_source='scope_component_instance_judged', and its bytes ARE the old md5
+```
+`component_versions` archives the PREVIOUS bytes, so it both dates the write and names the writer.
+**Read it before concluding your own run damaged an incumbent** — the "all incumbents byte-identical"
+assertion is otherwise a coin flip against every other mechanism that touches shared components.
+
+**Pre-check 3 — a served-page baseline needs TWO reads.** On 2026-08-20 the first fetch of
+`/tools/loan-comparison-calculator/index.html` returned **404**; two further reads (same URL from
+`pages.url`, nothing deployed in between) returned **200 / 22,600 bytes / 0 `<input>`**. Had the
+404 been kept as the "before", the re-render would have been credited with publishing a page it
+never touched. Read the before twice; record the reproducible one.

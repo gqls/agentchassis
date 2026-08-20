@@ -539,3 +539,39 @@ only by `failed` rows and all five `page_rerender:<page>` keys held only by `com
 cannot 23505. Items, all `triaged`/`component-creator`/priority 50/`created_by=bugfix_311_redrive`:
 `8ce63159` stress-test · `dcaead88` compare-loans · `a1daabc8` standard-calc ·
 `9a249bfa` overpayment · `d1add6d3` settlement.
+
+### 6. Interim result [08:26Z] — 2 of 5 diverted cleanly, 0 incumbents moved
+
+| section | status | stored as | diverted from |
+|---|---|---|---|
+| `loans-interest-rate-stress-test` | complete, attempt 0 | `…-loanzy-uk` | `2cf33f06` |
+| `loans-compare-loans` | complete, attempt 0 | `…-loanzy-uk` | `9cbfe279` |
+| `loans-standard-calc` | claimed | — | — |
+| `loans-overpayment-calculator` | triaged | — | — |
+| `loans-settlement-calculator` | triaged | — | — |
+
+The dispatcher takes one item per ~60s tick per site, so they serialise; ~1–2 min each.
+**All five incumbents re-read after the two completions: md5s equal the 08:12Z pins**, including
+`loans-standard-calc`'s post-07:02Z value `a9dea7cd…` — i.e. the diversion left even the row that
+another mechanism had just rewritten alone.
+
+### 7. `311` candidate 3 (the deploy gate) VERIFIED FIRST-HAND, and it is filable on its own
+
+Read rather than inherited from the bug file. `loadSectionComponents`
+(`platform/orchestration/actions/v3_site_actions.go:4936-4954`): every section name that resolves
+to nothing gets a **stub** appended (`needs_llm:true`, empty description) behind a single
+`logger.Warn("loadSectionComponents: stubs for unresolved sections")`, and the build proceeds.
+`plan_sections` records the gap as `needs_section_data` (`plan_sections_action.go:2746`).
+Readers of that item exist — `reconcile_section_data_action.go` re-attempts it,
+`revalidate_review_queue_action.go` revalidates parked ones, `loadOpenSectionDataRequests`
+(`plan_sections_action.go:2561`) reads it to avoid repeat LLM spend — **but none of them gates a
+deploy**, so the accurate statement is "detection and repair exist; refusal does not", which is
+sharper than 311's original "nothing reads it".
+
+Census [MEASURED 08:24Z]: **47 open `needs_section_data` items fleet-wide; 12 pages are
+`build_status='deployed'` while carrying one** — robot-hands.com 4, leopardessconsulting.co.uk 3,
+ai-agent-orchestration.com 2, finetuning.uk / gaswholesalers.com / loanandmortgagecalculator.co.uk
+1 each. (All 47 carry `spec->>'page_name'`, checked, so the join is sound.)
+`discovery_checks/check_unresolved_sections.go` DOES detect the recovered case and flips the page
+to `needs_rebuild` — the status this lane already established has **no consumer**, which is why
+detection has never converted into a repair.
