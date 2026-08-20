@@ -81,3 +81,46 @@ sections/day; the patch shape ≈ $0.0135.
   live. Full reasoning in `PLAN_2026-08-20_negation_gate.md`.
 - Three lanes told before any code: `copy_quality_two_stage`, `site_ai_agent_orchestration`,
   `portfolio_positioning` (CONTRIB files dated 2026-08-20 in each lane's own directory).
+
+### Council round 1 submitted — `SUBMISSION_CORR=c48b7612-3ecc-4345-912e-5966c079cb91`
+
+8 edits (the schema cap), submission JSON kept in this directory. `DRY_RUN=1` first: admission passed
+client-side before any credits were spent. Budget ~30 minutes, not ~2 — the dispatch queues behind the
+fleet, and a missing orchestration row is latency, not a dropped dispatch:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = 'c48b7612-3ecc-4345-912e-5966c079cb91';
+```
+
+### ⚠ MISSTEP 2 (mine, caught by a test that asserted what a regex MATCHED)
+
+`capTokenRe` was `\b\pLu[\pL'’-]*\b`, intended as "a capitalised token". In Go's regexp the one-letter
+form `\pL` takes **exactly one letter of class name**, so `\pLu` parses as *"any letter, then a literal
+`u`"* — it matched `running` and `our`, and the invented-name check therefore rejected **every**
+proposed rewrite. It reads correctly at a glance and it compiles.
+
+Caught because a debug test printed `capTokenRe.FindAllString(to)` instead of asserting a verdict:
+`caps: ["running" "our"]`. The two-letter class needs braces: `\p{Lu}`.
+
+**Cheap check: for any `\p…` class, assert what it MATCHES on a two-arm fixture, never that a function
+using it returns the answer you expected.** A wrong class makes the *whole check* fail closed, which
+looks like a strict guard rather than a broken regex. Logged in `WRONG_CALLS.md`.
+
+Two other gaps the tests found, both real:
+- `x_not_y` required a **letter** after "not", so `"1,600 a day, not 12 a week"` — a number on the Y
+  side — did not trip. Now `[\pL\pN]`.
+- the exemption core was a single fixed character window, and the writer **extends** a supplied
+  phrase: the brief supplies *"deployed to production in days, not months"*, the writer emitted
+  *"…in days, not months on Kubernetes."*, and the wide window carried `on Kubernetes`, which the
+  brief never said — so the tagline read as NOT supplied. Now word windows at k=4,3,2 with an
+  18-character floor on the normalised form (the floor is what stops it narrowing to `s, not m` and
+  exempting everything).
+
+### Mutation probes run by hand (all three fail a NAMED test; package green when restored)
+
+| probe | test that fails |
+|---|---|
+| drop `x_not_y` from `negationShapes` | `TestOwnersOwnSentencesTrip`, `TestShapeVocabularyIsStable` |
+| drop the neighbour comparison in `AcceptNegationRewrite` | `TestRewriteRejectsDisplacement` — accepts *"instead of"*, *"more than just"* and an em dash |
+| exempt on the matched fragment alone (i.e. prompt-wide) | `TestExemptionIsSentenceScoped` — the house-voice prose exempts a `rather_than` hit, which is the 43% hole |

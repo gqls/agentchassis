@@ -1,0 +1,234 @@
+// FILE: platform/orchestration/datahelpers/negationtells_test.go
+//
+// Corpus rule: every TRIP case is copy that actually shipped (the owner's own
+// quoted sentences, and live page_components content from
+// ai-agent-orchestration.com), and every PASS case is prose from the same pages
+// that a reader would not object to. A scanner tested only on invented examples
+// is tested against its own author's idea of the fault.
+//
+// Mutation checks (run by hand, recorded in the lane's NOTES):
+//   - delete negXNotYRe from negationShapes      -> TestOwnersOwnSentencesTrip fails
+//   - delete the neighbour comparison in AcceptNegationRewrite -> TestRewriteRejectsDisplacement fails
+//   - make NegationExempt take the whole prompt   -> TestExemptionIsSentenceScoped fails
+
+package datahelpers
+
+import "testing"
+
+func shapesOf(hits []NegationHit) map[string]int {
+	m := map[string]int{}
+	for _, h := range hits {
+		m[h.Shape]++
+	}
+	return m
+}
+
+// The two sentences the owner quoted. If either stops tripping, this bug is
+// reopened by definition.
+func TestOwnersOwnSentencesTrip(t *testing.T) {
+	cases := []struct {
+		name, text, want string
+	}{
+		{"headline", "170+ agents defined, 174 agent types. The registry shows you what's possible, not what survives production.", "x_not_y"},
+		{"two_sentence_reveal", "A model directory tells you which agents exist. It doesn't tell you how they hold up under real Kafka throughput.", "negative_reveal"},
+		{"hero_tagline", "Multi-agent systems deployed to production in days, not months on Kubernetes, Kafka, and Postgres", "x_not_y"},
+		{"staccato", "Not a demo environment. Not a proof of concept. If the work fits, we can show you a running example.", "staccato"},
+		{"comma_but", "This is not just a framework, but a system that ships.", "not_x_but_y"},
+		{"rather_than", "The reader is persuaded rather than sold to.", "rather_than"},
+	}
+	for _, c := range cases {
+		got := shapesOf(ScanDefineByNegation(c.text))
+		if got[c.want] == 0 {
+			t.Errorf("%s: expected shape %q to trip, got %v", c.name, c.want, got)
+		}
+	}
+}
+
+// The negative arm. Real sentences from the same three pages, none of which
+// defines by negation. A scanner that fires here is unusable at 215 sections a
+// day, whatever it catches.
+func TestCleanProsePasses(t *testing.T) {
+	clean := []string{
+		"This directory catalogues every agent definition running in our production fleet, organised across our 8 internal departments.",
+		"We run over 1,600 orchestrations a day across 13 live production systems on Kubernetes, Kafka, and Postgres.",
+		"Agent counts move as agents are added or retired, so what you see here is a snapshot.",
+		"Rolling several debts into one loan usually brings the monthly payment down, and that is normally why people do it.",
+		"Paying extra off a loan saves you interest, because interest is charged on what you still owe.",
+		"We support version 1.0 and e.g. the older protocol revisions too.",
+		"Book a call to walk through your pipeline with the people who run it.",
+	}
+	for _, s := range clean {
+		if hits := ScanDefineByNegation(s); len(hits) > 0 {
+			t.Errorf("clean prose tripped %v: %q", shapesOf(hits), s)
+		}
+	}
+}
+
+// A factual comparison must not read as the construction — this is the arm that
+// keeps the neighbour set from firing on ordinary numbers.
+func TestNeighbourSetIgnoresFactualComparison(t *testing.T) {
+	if hits := ScanContrastNeighbours("We run more than 30 agents in production."); len(hits) > 0 {
+		t.Errorf("factual 'more than 30' counted as a neighbour: %v", shapesOf(hits))
+	}
+	if hits := ScanContrastNeighbours("This is more than just a catalogue."); shapesOf(hits)["more_than_just"] != 1 {
+		t.Errorf("'more than just' should be a neighbour, got %v", shapesOf(hits))
+	}
+	// The neighbour set must NEVER be a trip.
+	if hits := ScanDefineByNegation("We ship it instead of talking about it."); len(hits) > 0 {
+		t.Errorf("a neighbour shape must not trip the gate: %v", shapesOf(hits))
+	}
+}
+
+// A hit has to be able to name its own sentence, or the repair cannot splice.
+func TestSentenceAttributionAndSplice(t *testing.T) {
+	text := "<p>Our agents run in production. The registry shows you what's possible, not what survives production.</p>"
+	hits := ScanDefineByNegation(text)
+	if len(hits) == 0 {
+		t.Fatal("expected a hit")
+	}
+	h := hits[0]
+	want := "The registry shows you what's possible, not what survives production."
+	if h.Sentence != want {
+		t.Errorf("sentence attribution: got %q want %q", h.Sentence, want)
+	}
+	// The offsets must address the RAW text, so an exact-substring splice works.
+	if text[h.SentenceStart:h.SentenceStart+len(h.Sentence)] != h.Sentence {
+		t.Errorf("SentenceStart does not address the raw text")
+	}
+	if got := h.Sentence[h.MatchInSent : h.MatchInSent+len(h.Matched)]; got != h.Matched {
+		t.Errorf("MatchInSent wrong: %q", got)
+	}
+}
+
+// A rich_text field is paragraphs; the second may carry no full stop at all.
+func TestHTMLParagraphsSplitAndTagsTrimmed(t *testing.T) {
+	text := "<p>We deploy on Kubernetes</p><p>The registry shows what's possible, not what survives</p>"
+	hits := ScanDefineByNegation(text)
+	if len(hits) != 1 {
+		t.Fatalf("expected exactly one hit, got %d (%v)", len(hits), shapesOf(hits))
+	}
+	if hits[0].Sentence != "The registry shows what's possible, not what survives" {
+		t.Errorf("tag edges not trimmed: %q", hits[0].Sentence)
+	}
+}
+
+func TestExemptionIsSentenceScoped(t *testing.T) {
+	brief := []string{
+		"Emphasis: the canonical tagline 'Multi-agent systems deployed to production in days, not months' must appear in the homepage hero.",
+	}
+	// The whole rendered prompt contains "rather than" six times over; a
+	// prompt-wide exemption would exempt this, which is the bug this test pins.
+	housePrompt := []string{
+		"HOUSE VOICE. The reader is persuaded rather than sold to. Say what a thing IS rather than what it is not.",
+	}
+
+	supplied := ScanDefineByNegation("Multi-agent systems deployed to production in days, not months on Kubernetes.")
+	if len(supplied) == 0 {
+		t.Fatal("expected the tagline to trip")
+	}
+	if ok, why := NegationExempt(supplied[0], brief); !ok {
+		t.Errorf("a brief-supplied tagline must be exempt, got %v/%q", ok, why)
+	}
+
+	own := ScanDefineByNegation("The registry shows you what's possible, not what survives production.")
+	if ok, _ := NegationExempt(own[0], brief); ok {
+		t.Errorf("the writer's own construction must NOT be exempt")
+	}
+
+	rt := ScanDefineByNegation("We build the pipeline rather than describing it.")
+	if ok, why := NegationExempt(rt[0], housePrompt); ok {
+		t.Errorf("house-voice prose must not exempt a 'rather than' hit (%q) — that is the 43%% hole", why)
+	}
+}
+
+func TestRegulatoryNegationsExempt(t *testing.T) {
+	for _, s := range []string{
+		"These figures are an estimate, not financial advice.",
+		"We are a comparison service, not a lender.",
+		"The tool can be wrong, so check the figure with your provider.",
+		"This does not constitute a recommendation.",
+	} {
+		hits := ScanDefineByNegation(s)
+		if len(hits) == 0 {
+			continue // nothing to exempt
+		}
+		if ok, why := NegationExempt(hits[0], nil); !ok {
+			t.Errorf("regulatory sentence not exempt (%q): %q", why, s)
+		}
+	}
+}
+
+func TestRewriteRejectsDisplacement(t *testing.T) {
+	from := "The registry shows you what's possible, not what survives production."
+	protect := ScanDefineByNegation(from)[0].MatchInSent
+
+	bad := map[string]string{
+		"displaced_instead_of":    "The registry shows you what's possible instead of what survives production.",
+		"displaced_more_than_just": "The registry is more than just a list of what's possible.",
+		"displaced_em_dash":       "The registry shows what's possible — never what survives production.",
+		"still_x_not_y":           "It lists what is possible, not what is proven.",
+	}
+	for want, to := range bad {
+		ok, why := AcceptNegationRewrite(from, to, protect)
+		if ok {
+			t.Errorf("%s: accepted a displaced rewrite: %q", want, to)
+		} else if why != want {
+			t.Logf("%s: rejected as %q (acceptable if still a rejection)", want, why)
+		}
+	}
+
+	good := "The registry lists the agent definitions running in our production fleet today."
+	if ok, why := AcceptNegationRewrite(from, good, protect); !ok {
+		t.Errorf("a direct rewrite was rejected as %q: %q", why, good)
+	}
+}
+
+func TestRewriteFactRules(t *testing.T) {
+	from := "We run 1,600 orchestrations a day, not 12 demos a week."
+	protect := ScanDefineByNegation(from)[0].MatchInSent
+
+	// The figure BEFORE the construction is the claim: losing it is a content loss.
+	if ok, why := AcceptNegationRewrite(from, "We run orchestrations across live production systems every day.", protect); ok {
+		t.Errorf("dropping the protected figure was accepted (%q)", why)
+	}
+	// The figure AFTER it is the contrasted alternative: dropping it is the point.
+	if ok, why := AcceptNegationRewrite(from, "We run 1,600 orchestrations a day across live production systems.", protect); !ok {
+		t.Errorf("dropping the contrasted figure should be allowed, got %q", why)
+	}
+	// No invention, in either direction.
+	if ok, _ := AcceptNegationRewrite(from, "We run 1,600 orchestrations a day for 42 clients.", protect); ok {
+		t.Error("an invented figure was accepted")
+	}
+	if ok, _ := AcceptNegationRewrite("Read the guide at /guides/agents.html, not the marketing page.",
+		"Read the guide for the full picture.", 40); ok {
+		t.Error("a dropped link was accepted")
+	}
+	if ok, _ := AcceptNegationRewrite("We deploy on Kubernetes, not on bare metal.",
+		"We deploy on Kubernetes and Heroku.", 24); ok {
+		t.Error("an invented proper noun was accepted")
+	}
+	if ok, _ := AcceptNegationRewrite("<p>It shows what is possible, not what survives.</p>",
+		"It shows what runs in production today.", 30); ok {
+		t.Error("a rewrite that dropped the markup was accepted")
+	}
+	if ok, why := AcceptNegationRewrite("It shows what is possible, not what survives.",
+		"It shows what is possible, not what survives.", 26); ok || why != "unchanged" {
+		t.Errorf("an unchanged rewrite must be rejected, got %v/%q", ok, why)
+	}
+	if ok, why := AcceptNegationRewrite("It shows what is possible, not what survives production today.", "It shows.", 26); ok || why != "gutted" {
+		t.Errorf("a gutted rewrite must be rejected, got %v/%q", ok, why)
+	}
+}
+
+func TestShapeVocabularyIsStable(t *testing.T) {
+	want := []string{"x_not_y", "not_x_but_y", "staccato", "rather_than", "negative_reveal"}
+	got := NegationShapeNames()
+	if len(got) != len(want) {
+		t.Fatalf("shape vocabulary changed: %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("shape %d: got %q want %q — the migration, the register entry and the LANDMINES text all name these", i, got[i], want[i])
+		}
+	}
+}

@@ -43,9 +43,14 @@ type VoiceGateConfig struct {
 	// Densities and distribution trips. Zero → default.
 	EmDashPer1000Words float64 `json:"em_dash_per_1000_words"` // default 3
 	TriadsPerPage      int     `json:"triads_per_page"`        // default 4
-	LongSentenceShare  float64 `json:"long_sentence_share"`    // default 0.30
-	LongSentenceWords  int     `json:"long_sentence_words"`    // default 25
-	MeanSentenceWords  float64 `json:"mean_sentence_words"`    // default 22
+	// ContrastsPerPage trips the "rather than" arm of the define-by-negation
+	// family (bugs_open/305). It is a density rather than a per-hit finding
+	// because the phrase is present in 43% of writer sections and the house
+	// voice permits one or two per page; the third is the tell.
+	ContrastsPerPage  int     `json:"contrasts_per_page"`  // default 2
+	LongSentenceShare float64 `json:"long_sentence_share"` // default 0.30
+	LongSentenceWords int     `json:"long_sentence_words"` // default 25
+	MeanSentenceWords float64 `json:"mean_sentence_words"` // default 22
 
 	// ExpectContractions: on a plain-register site, a page with zero
 	// contractions across many sentences reads stiff (the v1-leopardess tell).
@@ -58,6 +63,7 @@ type VoiceGateConfig struct {
 		EmDashPer1000Words float64 `json:"em_dash_per_1000_words"` // default 5
 		TriadsPerPage      int     `json:"triads_per_page"`        // default 8
 		LongSentenceShare  float64 `json:"long_sentence_share"`    // default 0.40
+		ContrastsPerPage   int     `json:"contrasts_per_page"`     // default 4
 	} `json:"long_form"`
 }
 
@@ -83,7 +89,7 @@ type compiledPhrase struct {
 
 // VoiceFinding is one tell located in scanned copy.
 type VoiceFinding struct {
-	Check       string  `json:"check"` // banned_phrase | em_dash_density | triad_density | long_sentences | no_contractions | flourish_ending | strawman
+	Check       string  `json:"check"` // banned_phrase | em_dash_density | triad_density | contrast_density | long_sentences | no_contractions | flourish_ending | strawman
 	Matched     string  `json:"matched"`
 	Reason      string  `json:"reason"`
 	Snippet     string  `json:"snippet"`
@@ -147,9 +153,12 @@ var contractionRe = regexp.MustCompile(`(?i)\b\w+'(s|t|re|ve|ll|d|m)\b`)
 // thresholds absorb the difference.
 var triadRe = regexp.MustCompile(`\b[\w-]+(?:\s+[\w-]+){0,3},\s+[\w-]+(?:\s+[\w-]+){0,3},?\s+and\s+[\w-]+`)
 
-// Strawman shapes: "not X, but Y" and the staccato "Not a X. Not a Y."
-var strawmanCommaRe = regexp.MustCompile(`(?i)\bnot (?:just |merely |simply |about )?[^.;:]{2,50},\s*but\b`)
-var strawmanStaccatoRe = regexp.MustCompile(`(?i)\bnot an? [^.]{2,40}\.\s+not an? `)
+// Strawman shapes MOVED to negationtells.go (bugs_open/305), where the whole
+// family lives and is shared with the writer-seam gate. The two patterns that
+// stood here — "not X, but Y" and the staccato "Not a X. Not a Y." — are
+// negNotXButYRe and negStaccatoRe there, unchanged. They are not duplicated
+// here: two copies of a definition of the same fault is how the emit side and
+// the revalidator end up disagreeing (the trap CQ-020 was written to avoid).
 
 // Flourish endings: block-final sentences that open with a summarising move.
 var flourishRe = regexp.MustCompile(`(?i)^(that('| i)s (why|how|the point)|and that('| i)s\b|ultimately\b|in (short|summary|essence)\b|at its core\b|simply put\b)`)
@@ -179,15 +188,18 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 	longWords := defaultI(g.cfg.LongSentenceWords, 25)
 	meanTrip := defaultF(g.cfg.MeanSentenceWords, 22)
 	minSentences := defaultI(g.cfg.MinSentencesForContractionCheck, 15)
+	contrastTrip := defaultI(g.cfg.ContrastsPerPage, 2)
 	if longForm {
 		emDashTrip = defaultF(g.cfg.LongForm.EmDashPer1000Words, 5)
 		triadTrip = defaultI(g.cfg.LongForm.TriadsPerPage, 8)
 		longShareTrip = defaultF(g.cfg.LongForm.LongSentenceShare, 0.40)
+		contrastTrip = defaultI(g.cfg.LongForm.ContrastsPerPage, 4)
 	}
 
 	var findings []VoiceFinding
 	var totalWords, totalSentences, longSentences, emDashes, triads, contractions int
 	var sumSentenceWords int
+	var ratherThanHits int
 
 	for _, block := range blocks {
 		// Banned phrases — every hit is a finding with its snippet.
@@ -204,15 +216,45 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 			})
 		}
 
-		// Strawman shapes.
-		for _, re := range []*regexp.Regexp{strawmanCommaRe, strawmanStaccatoRe} {
-			if loc := re.FindStringIndex(block); loc != nil {
-				findings = append(findings, VoiceFinding{
-					Check: "strawman", Matched: block[loc[0]:loc[1]],
-					Reason:  "defines by negation ('not X, but Y') — state what the thing is",
-					Snippet: voiceSnippet(block, loc[0], loc[1]), Occurrences: 1,
-				})
+		// Strawman shapes — the FAMILY, not just the ", but" form.
+		//
+		// This used to be two regexes local to this file, and between them they
+		// matched "not X, but Y" and the staccato form only. That is 1.5% of
+		// writer sections, and it missed both sentences the owner quoted in
+		// bugs_open/305 ("…what's possible, not what survives production").
+		// ScanDefineByNegation carries the whole family and is shared with the
+		// writer-seam gate, so the two ends cannot disagree about what the
+		// construction IS — the same reason ScanVoiceTells is shared between the
+		// emit side and the revalidator.
+		//
+		// ONE finding per shape per block, carrying that shape's count. Per-HIT
+		// findings would drown this check: the broadest arm is present in 43% of
+		// sections, and a post-deploy audit that flags almost every page tells a
+		// human nothing. `rather_than` is excluded here entirely and handled as a
+		// page-level density below, for the same reason.
+		shapeFirst := map[string]NegationHit{}
+		shapeCount := map[string]int{}
+		for _, h := range ScanDefineByNegation(block) {
+			if h.Shape == "rather_than" {
+				ratherThanHits++
+				continue
 			}
+			if _, seen := shapeFirst[h.Shape]; !seen {
+				shapeFirst[h.Shape] = h
+			}
+			shapeCount[h.Shape]++
+		}
+		for _, shape := range NegationShapeNames() {
+			h, ok := shapeFirst[shape]
+			if !ok {
+				continue
+			}
+			at := h.SentenceStart + h.MatchInSent
+			findings = append(findings, VoiceFinding{
+				Check: "strawman", Matched: h.Matched,
+				Reason:  "defines by negation (" + shape + ") — say what the thing IS",
+				Snippet: voiceSnippet(block, at, at+len(h.Matched)), Occurrences: shapeCount[shape],
+			})
 		}
 
 		// Density inputs.
@@ -258,6 +300,17 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 				Value:  density, Threshold: emDashTrip, Occurrences: emDashes,
 			})
 		}
+	}
+	// "rather than" as a DENSITY, mirroring triads: the house voice's own standard
+	// is that a matched contrasting pair is "earned once or twice per page at
+	// most", so the third one on a page is the signal — not the first, which is
+	// usually the clearest way to say a true thing.
+	if ratherThanHits > contrastTrip {
+		findings = append(findings, VoiceFinding{
+			Check: "contrast_density", Matched: "rather than",
+			Reason: "contrast by reflex — a matched contrasting pair is earned once or twice per page",
+			Value:  float64(ratherThanHits), Threshold: float64(contrastTrip), Occurrences: ratherThanHits,
+		})
 	}
 	if triads > triadTrip {
 		findings = append(findings, VoiceFinding{
