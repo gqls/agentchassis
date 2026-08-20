@@ -139,3 +139,65 @@ pods; then two canary pages checked by eye; then the two database changes; then 
 26 sites through machinery we already have. The database changes are deliberately held back until the
 release has happened — if they land first, the system would rebuild everything with the *old* code,
 mark it all as done, and go quiet with every site still wrong.
+
+---
+
+## 2026-08-20, late afternoon — approved by the council, and the new build does not contain it
+
+**The review council approved it, first time round**, with five advisory comments and no serious
+objections. Twelve reviewers looked at it; six had nothing to say. That's a good result, but the more
+useful part is that four of them asked me to *check* something rather than change anything, and all
+four checks were worth running:
+
+- One asked me to prove, rather than assert, that only one thing reads the shared page-header before I
+  delete a line from it across the whole fleet. It holds — but I had been asserting it, and that was a
+  fair hit.
+- One asked what happens to the history table when those bytes change. There's a trigger that archives
+  the previous version; it fires once per site and *keeps* the old copy, so it's the safety net doing
+  its job rather than a cost.
+- One asked whether removing two lines from a template would leave a setting pointing at nothing. It
+  doesn't — **and the reason turned out to explain the original bug.** Those two lines referred to
+  settings that were never actually defined for that template, so they could only ever produce an
+  empty value. That's precisely why four sites were serving a blank tag. I'd worked out that cause by
+  reading the code; now it's proven.
+- One pointed out I'd said "we'll check the new code is really running" without saying *how*, and that
+  a version number proves nothing. Quite right, and it mattered immediately — see below.
+
+**Now the important bit: the chassis build deployed today does not contain this fix.** It was built at
+11:18 this morning; the code was committed at 15:03. So it was cut about four hours before the fix
+existed.
+
+I didn't want to conclude that from timestamps alone, so I asked the running program directly whether
+it contains the new function — along with two controls: something that must be there, and something
+that can't be. The control that must be there was found, the impossible one wasn't, and **the new
+function is absent.** The check is trustworthy and the answer is no.
+
+**Practically, that means nothing is switched on and nothing should be.** The two database changes stay
+held back, and there's no point canarying a page yet — it would just re-render with the old code and
+look like the fix doesn't work. **What I need is a chassis build cut from the current code.** I haven't
+done that myself: builds and releases are whole-fleet and yours to run.
+
+Once that's done the rest is quick — prove the new code is running the same way I just did, check two
+pages by eye, apply the two database changes, and let the existing machinery spread it across the
+sites in waves.
+
+**One aside worth your time:** the command our own documentation recommends for checking what a
+service is running gave me 2.4 megabytes of a different piece of work's notes. The service logs whole
+review payloads, and those payloads happen to quote the very phrase the command searches for. It's a
+known trap, but it fired on the exact recommended command, so I've written it down as something to fix
+in the instructions rather than just a thing to know.
+
+**And, as you asked, I've written up everything I caught along the way** that isn't this bug — six
+things, in `docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/FINDINGS_2026-08-20_errors_caught.md`.
+The two I'd act on first:
+
+1. **webdesign.co.uk — our largest site at 117 pages — serves no page-header element at all.** Its
+   header component is a fragment with the opening and closing tags missing. Browsers cope, so it
+   looks fine, but every tool we have that adds something to a page header looks for that closing tag
+   — and they don't all behave the same way when it's absent. One of them silently does nothing, which
+   is why that site quietly gets no share-preview tags whatsoever. It will keep excluding itself from
+   every future improvement, invisibly.
+2. **Migration numbering has no allocator and collisions are now routine.** Two numbers were already
+   used twice before I started; while I was writing my two files, five consecutive numbers were taken
+   by three other sessions, including both of mine. I renumbered. Today it's confusion; the day two
+   files with the same number touch the same data it's a real conflict.
