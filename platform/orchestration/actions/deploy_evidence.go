@@ -49,6 +49,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -254,4 +255,42 @@ func merge(cur interface{}, curFound, curConflict bool, next interface{}, nextFo
 		return cur, true, true
 	}
 	return cur, true, false
+}
+
+// buildPageDeployStampQuery builds the `deployed` stamp statement and the args
+// that go with it.
+//
+// EXTRACTED so a test can call the REAL construction. It was inline, and the
+// test written for it mirrored the code instead of exercising it — a mirror
+// passes happily while production is broken, which is the failure it was
+// supposed to prevent. (Council round 3, editquality advisory.)
+//
+// THE INVARIANT: the highest `$N` the statement names must equal len(args).
+// The content_hash clause is conditional AND its arg is conditionally appended;
+// those are two facts that must agree and nothing forces them to, so the
+// placeholder index is DERIVED from the slice rather than written as a literal.
+// A literal `$3` beside a conditional append is a runtime error waiting on
+// whichever branch the tests miss — invisible to the compiler.
+//
+// guardRan=false omits the clause entirely rather than passing NULL: an unarmed
+// path must leave a hash some other path wrote completely alone. guardRan=true
+// ASSIGNS, NULL included, because a stamp means new bytes went out and any
+// prior fingerprint is stale by definition.
+func buildPageDeployStampQuery(args []interface{}, guardRan bool, contentHash string) (string, []interface{}) {
+	hashClause := ""
+	if guardRan {
+		args = append(args, sql.NullString{String: contentHash, Valid: contentHash != ""})
+		hashClause = fmt.Sprintf("content_hash = $%d,", len(args))
+	}
+	return fmt.Sprintf(`UPDATE pages
+	         SET build_status = $2,
+	             deployed_at = NOW(),
+	             %s
+	             built_from_plan_version = COALESCE(
+	                 (SELECT sp.id FROM site_plans sp
+	                   WHERE sp.site_id = pages.site_id AND sp.is_current = true),
+	                 built_from_plan_version
+	             ),
+	             updated_at = NOW()
+	         WHERE id = $1`, hashClause), args
 }
