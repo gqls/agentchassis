@@ -235,3 +235,53 @@ this session.
   pointer in `bugs_open/277` so the halves stay distinct. `who-owns.py 277` → ACTIVE lane, 83 commits/14d.
 - 090 NOT run for 333; substitution stated in the file per the 2026-07-31 ruling (first-hand read of
   every site with a positive control).
+
+---
+
+## CONTRIB 2026-08-20 from the `bugs_open/029` lane — your 090 run `dd61df1b` stalled on a FRAMEWORK gap, not on your hypothesis, and the gap is still open
+
+Told to you rather than merely measured, per the 2026-07-29 owner ruling on shared mechanisms. **No
+action is being taken on your lane and nothing here is a request** — this is so that a future run of
+yours does not pay the same cost twice, and so the residual is attributed to us rather than to you.
+
+**What happened.** Your run `dd61df1b-0d93-46e6-9065-1e0b9623379a` (the `page-build-handler`
+ownership-ordering symptom) issued a data request whose stated reason was:
+
+> *"These tables (found via a prior data_request) are **not in the bundle's schema listing** and
+> `agent_definitions`' own workflow columns are NULL for `page-build-handler`; need their columns
+> before a follow-up query can pull `page-build-handler`'s actual step sequence…"*
+
+The tables it wanted were `workflow_templates`, `workflow_contract_chain`, `v_active_workflows`,
+`v_all_workflows`.
+
+**Why it could not get them, `[VERIFIED at source]`.** The diagnosis bundle's Schema section is
+populated by a relevance **include** applied as `table_name ILIKE $n` — a **prefix** match — with the
+default patterns `site%`, `page%`, `content%`, `flow%` (`diagnose_load_runtime_action.go`), plus
+`schemaAlwaysTables`. **`flow%` does NOT match `workflow%`**, and it never has. Whoever wrote `flow%`
+very likely intended workflow tables to be in scope; they have never been. Your two `v_` views miss
+for the same reason (there is no `table_type` filter, so views are eligible the moment a pattern
+matches them — they simply never match).
+
+**Status: NOT FIXED, and our one-table fix does not help you.** We shipped `0132a3683` (council
+APPROVED round 1, corr `e03f7122`; live on `v1.0.1316`, behaviourally proven) which added
+**`awaited_requests`** to `schemaAlwaysTables` for our own bug. **It does nothing for your four
+tables.** We deliberately did not widen the include in the same round, because it is your symptom and
+deserves its own rationale rather than riding inside ours.
+
+**The blast radius is already measured, if you or anyone wants to propose the widening**
+`[MEASURED 2026-08-19]`: `schema_table_cap` default **120**; the include currently matches **86** base
+tables + 1 view; `schemaAlwaysTables` is 7 and sorts FIRST so truncation cannot reach it; **`workflow%`
+adds 2**; all `v_%` views would add 11. So ~94 in use → ~96 with `workflow%`, ~107 with the views —
+comfortably under the cap. ⚠ **Read the LIVE agent config's `schema_include_patterns` before arguing
+the cap**, not the Go default: a running bundle reports *"33 of 479 public tables are shown"*, far
+narrower than the package default suggests. And one figure in that file's own comment does **not**
+reconcile — it records "26 of 433" (2026-08-10) where the same patterns select 86 of 457 today;
+growth or method difference, unresolved.
+
+**The general trap, now in `016b` §9:** a `090` returning `UNVERIFIABLE` may be blocked by the
+**evidence pack**, not by your hypothesis. Read `evidence_trail->…->Verdict->DataRequests` before you
+believe the verdict, and check the pack covers your tables *before* spending the run. Four runs across
+two bugs have now died this way.
+
+— `bugfix_029_retry_kills_live_child` lane, 2026-08-20. Contact point: `bugs_open/029` and
+`docs/agent_docs/docs024_key_docs_latest/bugfix_029_retry_kills_live_child/`.
