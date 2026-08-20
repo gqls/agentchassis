@@ -508,3 +508,36 @@ HEAD separately per service. It now probes the **capability** in the running pod
 tooling_provenance, adoption_guardian, compliance, render_guardian, constitution, mission,
 prior_art_librarian. The two round-1 objections that had most force — no claim scan on rewrites, and
 the truncation arm — are approved as fixed.
+
+## §17. Council: APPROVED at round 4 — `Council-Reviewed: c48b7612-3ecc-4345-912e-5966c079cb91`
+
+Four rounds on one correlation: REVISE → REVISE → **REJECTED** (guardian veto) → **APPROVED**, with
+4 advisory objections at medium and none high. Eleven of the fourteen seats approved outright,
+including `guardian` itself once the change was contained.
+
+**What the four rounds actually bought, listed because "the council approved it" is not the useful
+part:** a banned-claims scan on every rewrite (there was none); a truncation guard that could fire
+(mine could not); an `item_key` as granular as its finding (mine dropped every finding after the
+first); a capability probe instead of a build stamp for un-holding the migration; a measured decision
+about another lane's queue (14 flagged pages vs 139); and the containment of a shared seam I had been
+shipping default-ON while arguing about it in a document.
+
+**Two advisories from the approving round were real and are closed rather than banked:**
+
+- `compliance`: the anti-fabrication guard leaned entirely on `checkBannedClaims`, which only catches
+  patterns a site has **armed** — and the register is sparse. *"Say what it IS"* is the pressure that
+  fills the slot the removed contrast leaves with an absolute. `AcceptNegationRewrite` now rejects a
+  replacement that INTRODUCES a superlative the original did not carry (`invented_superlative`), with
+  the author's own words explicitly allowed through.
+- `bug_historian`: *"never returns an error for a style outcome"* read as swallowing infrastructure
+  failures too. It still never fails the step — right for a style gate — but an infra failure is now
+  stamped `repair_unavailable` and logged at Error, so a census can find the runs where the gate was
+  **present and blind** rather than present and satisfied.
+
+**Two are recorded and not acted on, deliberately:** `architecture` notes that RFC_022's exception is
+still not claimable even with the default OFF, because its third condition ("zero live consumers name
+it") is not literally met — migration `509` names it. **Contained is not exempt**, and `RFC_044` is
+where that gets settled. And `reuse_agent` is right that the truncation three-state wants to be a
+shared `aiservice` helper; extracting it means touching other actions' truncation handling, which is
+not something to do inside a round whose purpose was to contain scope. It is named in the lane NOTES
+as the next reuse step, with the instruction to audit the other call sites rather than move one.
