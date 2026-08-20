@@ -104,3 +104,20 @@
   credits the commit automatically on approval); the Warn goes live on the next
   chassis roll; hard-error tripwire query worth a week of glances; downstream
   build volume of the canary batch to report to the owner.
+
+## 2026-08-20 morning — every residual resolved; lane COMPLETE
+
+- Council `43a7a60a`: **APPROVED** 20:49Z (first round, ~35 min). No amend needed —
+  `Council-Submitted:` on `b1c844abb` auto-credits at 098 report time.
+- Warn live on **v1.0.1320 as at 2026-08-20**: `grep -ac "deduped away inside a loop
+  iteration" /proc/1/exe` → 1 on BOTH replicas; positive control (item_key_suffix_field)
+  → 2; negative control → 0/exit 1.
+- Canary batch: all 5 items `complete` by 21:36Z (first attempt each); all 5 exist as
+  active `content_components` (artefact-verified — a complete item is not a repaired
+  artefact, so this was checked, not assumed). Volume: 5 builds / ~50 min / 0 failures.
+- Tripwire: 0 `item_key_suffix_field` FAILED orchestrations since apply.
+- Cron: 2026-08-20 07:55:09 clean row, 193 agents.
+- Scope-widening check: CLAUDE.md now brings migrations into council scope (bugs_open/314,
+  landed 2026-08-20 10:09) — 493's commit is 17h older and was compliant when made;
+  noted so no 098 reader mistakes it for a skipped review.
+- Nothing remains on this lane.

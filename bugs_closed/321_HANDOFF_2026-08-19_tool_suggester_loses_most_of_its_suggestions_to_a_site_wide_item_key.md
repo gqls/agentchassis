@@ -170,3 +170,17 @@ RUNBOOK — incl. the joint check with the 313 lane — NOTES, README). One
 WRONG_CALLS entry from this lane (the false "snapshot_agent writes no rows"
 absence — wrong table). LANDMINES "key coarser than its finding" entry extended
 with the mechanised loop-nested shape.
+
+**Residuals all resolved 2026-08-20** (each named in the close-out above, none carried):
+council **APPROVED** on `43a7a60a` at 20:49Z 2026-08-19, first round — `098`
+auto-credits `b1c844abb` via its `Council-Submitted:` trailer; the runtime Warn is
+**live on v1.0.1320 as at 2026-08-20**, binary-probed on BOTH replicas with positive
+and negative controls; the canary's 5 items all reached `complete` by 21:36Z on their
+FIRST attempt and all 5 are real, active `content_components` rows (verified at the
+artefact, not the status) — the build-volume data point: one 5-suggestion run costs
+5 tool builds, ~50 minutes wall-clock through the normal queue, zero failures; the
+suffix hard-error tripwire reads 0 since apply; and the daily check ran on schedule
+this morning (07:55:09Z) writing its clean row over 193 agents. One scope note for
+`098` readers: migration 493's commit (2026-08-19 17:06 BST) predates the 2026-08-20
+10:09 widening that brought migrations into council scope — it was outside scope
+when committed, per the then-standing 484 precedent, not a skipped review.
