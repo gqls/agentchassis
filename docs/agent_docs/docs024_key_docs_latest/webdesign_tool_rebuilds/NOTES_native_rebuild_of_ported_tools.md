@@ -1879,3 +1879,44 @@ class fires on a negative blur (invalid CSS, valid number) and on removing every
 `box-shadow: ;`. So the brief's requirement is stated as an invariant on the OUTPUT rather than as
 validation of the input: **the code block must only ever contain valid CSS, and the preview must never
 disagree with it.**
+
+## 2026-08-20 06:58Z — #16 built and retired in ~60 s. The 303 workaround is retired with evidence, not with an argument.
+
+Component **`e2549a04-bfa2-4495-bdf1-169b94ef89ea`**, 15,136 chars; item complete 06:55:10Z; ported slot
+`9b3ec013…` retired with md5 `d970feca108b6e2a84e91d23150471ff` byte-identical, one non-removed slot
+asserted to be a `component_level='tool'` component whose `function` is `tool-shadow-stacker`.
+**The build was NOT refused, and the brief carried no BUILD CONSTRAINT sentence** — so the inference
+that 303's fix makes the workaround unnecessary now has one live confirmation. It is a mild test (this
+tool's output is a CSS declaration, not markup); the strong test is a tool whose OUTPUT is a tag, and
+that is worth noting on the day one comes up.
+
+**The load-bearing requirement, by mechanism, and it is implemented in the strongest available form:**
+```js
+if (!allValid) { return; }                       // <-- BEFORE anything is written to the output or preview
+```
+`recompute()` parses all six fields of every card first, writes each field's own message via
+`setFieldError`, and then returns early if ANY field is unusable — so the previous valid declaration
+stays on screen and the preview cannot drift from it. Nothing can write a partial value, because the
+write is downstream of the return. `parseField` refuses blank, refuses `!Number.isFinite`, and takes
+`min`/`max` with per-field wording: blur carries `{min: 0, minMsg: 'Blur must be zero or more.'}` and
+opacity `{min: 0, max: 1}`, while offsets and spread are deliberately unbounded. It uses `Number()`
+rather than `parseFloat`, which is stricter (`parseFloat('12abc')` is 12; `Number('12abc')` is NaN).
+Zero layers: `cssOutput.textContent = 'box-shadow: none;'`, `previewBox.style.boxShadow = 'none'`, plus a
+visible note — never the ported version's `box-shadow: ;`. `renumber()` rewrites each card's legend and
+is called on add, on remove and at init, so the "Layer 3" that was second is renumbered.
+Copy: clipboard promise with `.then`/`.catch` and an `execCommand` fallback whose boolean is read.
+`onclick=` **0**, `oninput=` **0**, `alert(` **0**, `{{\.` **0**, four `addEventListener`.
+
+**Grading the RUN needs care at this point in the flow:** at 06:58 the orchestration read
+`current_step='write_plan'`, `status='EXECUTING_STEP'` — which is NOT a failure and NOT completion. The
+generator carries on after `save_tool` (plan, guide page, cross-links, its own rerender request), so a
+run graded the moment the component appears will always look mid-flight. What matters at that instant
+is `create_result`: `page_adopted=true`, `already_exists` NULL, `__step_error` NULL, and
+`component_id` equal to the component the page actually gained. Re-read `current_step` later for
+completion.
+
+**A rerender was queued at 06:55:07 with `created_by='rerender-pages'`, three seconds BEFORE the item
+completed** — so `created_by` does NOT distinguish the generator's own enqueue from the nightly sweep's
+rows; both are written under that name. The way to tell them apart is `created_at` against the build,
+not the writer. (Yesterday's ab-test row was 21 minutes older than its build, which is what made it a
+sweep row and a race.)
