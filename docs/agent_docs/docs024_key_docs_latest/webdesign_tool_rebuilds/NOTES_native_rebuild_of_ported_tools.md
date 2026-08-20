@@ -2059,3 +2059,48 @@ probe **0 rows**; **RACE GUARD: 57 rerender items ahead** of this page's queued 
 What the ported tool got RIGHT and the brief preserves as an invariant: preview and emitted CSS are
 styled from the same values, so they cannot disagree. Bounds kept as ported (cols/rows 1–6, gap 0–50)
 — widening to 12 columns would be a feature addition, and the recipe forbids adding features.
+
+## 2026-08-20 07:30Z — the served-page grades were blocked by a FLEET OUTAGE, not by queue depth. `bugs_open/336`.
+
+Written by the session that filed #16-#18. **A parallel session is working this lane at the same time**
+(their commit `90a2accc3` at 07:14Z graded and retired #18 — finding `UPDATE 0` because this session's
+retire had already won — and filed #19 `tool-grid-generator`). So: I have stopped filing tools, and
+this entry is about the thing that was actually stopping both of us.
+
+**What I chased.** #16's rerender sat `triaged` for ten minutes with a queue of 121 behind it, which
+looked exactly like yesterday's alphabetical starvation. It was not. The row's `error` column said:
+```
+WORKFLOW_INVALID: … step 'update_status' (action 'update_page_status') has unrecognised
+config keys [deploy_result_field] — this action declares its config contract as complete
+```
+`[MEASURED 07:20Z]` 8 items carried it (4 `page_rerender`, 2 `needs_content_page`, 1 `section_edit`),
+**123 rerenders were queued fleet-wide and none were draining**, and the three definitions on the
+publish path — `page-rerender`, `report-builder`, `section-editor` — had all been updated at
+**06:49:49Z**, twelve minutes before the first failure.
+
+**Cause, in one line:** `deploy_result_field` is declared in `RenderComponentInputSpec.ConfigKeys`
+(`v3_site_actions.go:674`) — the spec for `render_component`, which never reads it — while the reader
+is `UpdatePageStatusAction` (:982) and `UpdatePageStatusInputSpec` (:550-556) declares five keys and
+sets `StrictConfig: true`. Migration 494 armed the key on `update_page_status` steps, and strict
+validation correctly refused the whole workflow. Full evidence, the one-line fix, and why the owning
+lane's arming precondition did not protect against it: `bugs_open/336`. Reported into
+`docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/NOTES_deployed_at_without_publication.md`.
+
+**Service restored 07:22:40Z** by running the 315 lane's own snapshot-backed rollback verbatim, and
+**proved with demand** — `tools-index` claimed 07:25:35 and complete 07:25:59, `learn-index` 07:26:24.
+Four orphaned items requeued (three of them this lane's guide-page writes); the two `page_rerender`
+rows already had live replacements, which `idx_swi_dedup` told me by refusing the flip.
+
+**Three lessons for this lane specifically:**
+1. **A rerender sitting in `triaged` is not necessarily queue depth — READ ITS `error` COLUMN.** It
+   can already hold a terminal diagnosis while the status still looks pending, because a failed claim
+   writes the error and bounces the row back. Yesterday I explained a 38-minute wait with an
+   alphabetical drain order and never looked at `error`; that reading was right yesterday and would
+   have been wrong today.
+2. **My own two grading claims from yesterday were nearly reproduced against the wrong binary.** The
+   fleet rolled overnight to `v1.0.1317` (pods 22:26Z, stamp `2d13d530d`), so the `07eeba4a1` I probed
+   at 20:52Z was stale within four hours. Every ancestry claim has to name the stamp it was tested
+   against and the time it was read.
+3. **`grep -aq "<key>" /proc/1/exe` cannot answer "is this key DECLARED?"** — the literal is in the
+   binary from the reader and two `zap.String` calls regardless of which spec lists it. It returned
+   PRESENT here while the running binary was rejecting the key. The list has to be read at the commit.

@@ -90,10 +90,26 @@ all three definitions and removes the key. Verified: all three read
 `default_config::text LIKE '%deploy_result_field%'` = false at 07:22:40Z. Re-arming is one command
 (`494_…_HOLD.sql`) once the declaration moves and a build carrying it has rolled.
 
-**Six items are still `failed` and are dead to the dispatcher** — they failed on the platform defect,
-not on their own work, so they need flipping back to `triaged` (or re-filing) once a rerender is seen
-completing: `9cb5d4e5`, `e291e4ea`, `5887736c`, `126c586a`, `a0015980`, `35972e9b`. Note `a0015980` is
-webdesign.co.uk's `index` page and `5887736c` is the `tool-shadow-stacker` page.
+**Service proven restored with DEMAND, not with an absence** (07:25:35Z claim → **07:25:59Z complete**
+on `tools-index`, then `learn-index` at 07:26:24Z — the first completions since the arming). This
+matters because "no failures" would have been worthless evidence: the hour before the incident also
+shows zero rerender completions, simply because nothing was queued.
+
+**The six items that failed on the defect are handled.** Two were already re-filed by the platform
+itself — a `failed` row releases the `idx_swi_dedup` slot, so `page_rerender_tool-shadow-stacker_…`
+and the `index` rerender each had a live replacement, and attempting to flip them back gave
+`duplicate key value violates unique constraint "idx_swi_dedup"`. **That refusal is the signal the
+work is already queued**, not an obstacle. The other four had no replacement and were flipped
+`failed → triaged` with `claimed_at` cleared and the reason written into `error` (07:29Z): the three
+`needs_content_page` guide-page writes for this lane's tools (`9cb5d4e5`, `e291e4ea`, `35972e9b`) and
+the `section_edit` template-fix delivery `126c586a`, which belongs to the `bugs_open/283` lane and is
+a pure re-render from the fixed template by their own description. A status flip creates no new row,
+so no two-strike attempt accrues.
+
+⚠ **One instrument to distrust while cleaning this up: `WHERE error LIKE '%deploy_result_field%'` is
+NOT a failure census.** The `error` column keeps its text after a row later succeeds, so that filter
+reported "2 new failures since the disarm" when both rows were `complete` — they were the two items
+that had bounced to `triaged` and then ran fine. Filter on `status`, and use `error` only to attribute.
 
 ## How to verify a fix
 
