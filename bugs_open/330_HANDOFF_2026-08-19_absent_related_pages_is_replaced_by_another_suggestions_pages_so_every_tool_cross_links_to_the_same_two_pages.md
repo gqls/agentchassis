@@ -14,6 +14,26 @@ SELECT created_at, kind, metadata->>'decision' FROM diagnosis_artifacts
 WHERE correlation_id='fad0675b-007e-4343-8887-5e6aede6e415' ORDER BY created_at;
 ```
 A missing row is latency, not a drop — do not re-trigger.
+**VERDICT: CONFIRMED** (2026-08-19 21:13Z, first iteration, `stopped_by: confirmed`). It read the
+one link §2.3 had *inferred* rather than opened, and the citation is worth keeping verbatim
+because it names the exact predicate:
+
+> Only fields Strategy 0 actually resolved (present in `result.Values` and **not merely
+> `Defaulted`**) are excluded from what `ExtractFields`' whole-tree search is asked for; **a field
+> whose declared dot-path yields nothing is never marked resolved**, so it is handed to
+> `ExtractFields`/`extractSingleField` under its bare name exactly as an undeclared field would be.
+
+So the defect is in `ExtractActionInputs`' `strategy0Resolved` bookkeeping, one layer above the
+cascade — "I tried and found nothing" and "I was never asked" are recorded identically. The loop
+explicitly **declined** to answer the scope-widening half (which other live steps declare a path
+now supplied by the search) — it is marked `[context]`, "a scope-widening audit request … not an
+observed instance", pursued via a data_request rather than asserted. **That audit is still owed
+and is the sizing question for fix candidate 2.**
+
+Bonus confirmation from the loop's own evidence bundle: at 20:56:43Z the *real*
+`tool-ab-test-calculator` was built and cross-linked to those same two pages — and for THAT tool
+they are **correct**, because it IS `suggestions[0]`. One tool's right answer is being handed to
+nine others.
 
 ## 1. Symptom
 
