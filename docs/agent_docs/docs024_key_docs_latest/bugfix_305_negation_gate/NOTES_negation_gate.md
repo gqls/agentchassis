@@ -287,3 +287,36 @@ now attributes to the sentence that actually carries it, which the regulatory ru
 exempts. A better answer, not a dropped one.
 
 Round 3 dispatched on the same correlation.
+
+### The measurement that changed the design last, and it came from an objection I nearly skipped
+
+Round 2's `guardian` had a second objection I did not action in round 3 because it read like a request
+for an estimate: *"the plan doesn't estimate the delta in findings volume this produces against the
+existing `voice_tells` review queue"*. It is not an estimate request. It is a load-bearing number, and
+it lands on **another lane's** queue.
+
+`[MEASURED 2026-08-20]` over the 189 live, unlocked pages of the 9 sites with a voice gate:
+
+| | pages flagged |
+|---|---|
+| today (the two original shapes) | **14** |
+| `x_not_y` as a per-hit finding | **139** |
+| + the two-sentence reveal | +46 |
+| + `rather than` at >2 | +39 |
+
+A **tenfold flood** into a queue that holds 45 parked `voice_tells` items and has had exactly **one**
+closed by a human, ever. A check that flags three quarters of the estate's pages tells nobody anything,
+and the cost would have landed on whoever drains that queue rather than on me.
+
+**So the shape changed:** the two original shapes stay per-hit (volume unchanged); the three broad ones
+feed a page-level `negation_density`. Its default is **>12**, set from the curve rather than from taste
+— it flags 14 of 189, which is exactly today's volume. The full curve is in the code comment
+(8 → 43 pages, 5 → 61, 3 → 87, 1 → 150) so a site can lower it deliberately once `bugs_open/033` gives
+that queue a working surface.
+
+**The division of labour this produces is the honest one, and it is better than what I had:** the
+writer-seam gate enforces the real standard (the house voice's once or twice per page) at the moment
+the copy is written, where a repair is automatic and costs no human; the post-deploy check keeps a
+higher bar, because every finding there costs a person. ⚠ This landed AFTER the round-3 submission, so
+round 3 is reviewing the pre-density version — if the same objection returns, the answer is "measured,
+fixed and committed at `7639dacf4`".
