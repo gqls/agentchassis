@@ -1765,3 +1765,49 @@ The reason this is not extra work: the handover machinery already needs a clicka
 link with a token in it, for the customer to confirm they have moved their files. It is
 the same mechanism. So both get built together, and the download link stops being a
 number we have to remember.
+
+---
+
+## 20 August, later — the handover machinery has its foundations
+
+I have built the part of the handover the rest of it hangs off. The database now
+records three things it never could: when a site was handed to a customer, when the
+address we host it at should stop serving, and when the customer told us they had moved
+their files. And there is one small, shared way of making the clickable links we send
+people.
+
+That last bit is the answer to the download-link problem from earlier today. Rather
+than emailing a Backblaze address that can only live seven days, we email a link of
+ours. When it is clicked, we make a fresh short-lived Backblaze address behind the
+scenes and send the customer straight to their file. So the six weeks you asked for is
+real, it lives in exactly one place in the code, and the seven-day limit is something
+the customer never sees.
+
+The same mechanism does the confirm-you-have-moved-your-files click, and it will do the
+customer login when we get to the editor. One thing, three uses — and adding a fourth
+deliberately requires a small database change, so nobody can quietly invent a new kind
+of link without it showing up in the record.
+
+**What I was careful about, because it is the part that could bite a customer.** The
+tests most people would write here would prove nothing: they check that our code sends
+the right instruction to the database, not that the database does the right thing with
+it. So I ran the real thing against the real database — inside a transaction I threw
+away afterwards, so nothing was left behind — and checked ten things that actually
+matter. Chiefly: a confirm link works once and never again; a download link keeps
+working; a download link cannot be used to confirm something; an expired or cancelled
+link does nothing; and clicking handover twice does not quietly give the customer
+another six weeks.
+
+Then I deliberately broke each of those protections to make sure the checks would
+notice. They did. One of them was a pleasant surprise: I had added a belt-and-braces
+safeguard in the database "in case someone later forgets the main one", which is the
+sort of thing that sits there for years untested. When I removed the main one, the
+safeguard caught it first. So it works, and I know it works.
+
+**What is not done yet**, and I have written this in three places so nobody later
+mistakes the foundations for the finished thing: nothing actually takes a site down when
+its six weeks are up, nothing sends the email yet, and no customer can click anything
+yet because the web addresses that would receive those clicks do not exist. Those are
+the next pieces, in that order.
+
+It has gone to the reviewer council, which usually comes back within the half hour.
