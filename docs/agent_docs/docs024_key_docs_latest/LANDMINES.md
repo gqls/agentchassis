@@ -13545,3 +13545,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/029` NOTES §24 (correlation route) and §25 (page_name route, and the parent-keyed refutation-shaped join) · the `WRONG_CALLS.md` blind-check family, of which this is the fourth shape in two days · MEMORY [[measurement-discipline-index]], [[client-identity-belongs-to-the-proxy-chain]]
 - **source:** 2026-08-20, `bugfix_029_retry_kills_live_child` and the peer `029` session — one session hit shapes 1 and 2, the other hit shape 3, and each was caught by the other
 - **added:** 2026-08-20, 029 lane
+
+## Requeuing a failed `site_work_items` row by setting `status='triaged'` leaves it PERMANENTLY UNCLAIMABLE if its attempts are spent — and the row looks exactly like a queued one
+
+- **footprint:** `site_work_items` requeues (any `UPDATE site_work_items SET status='triaged'` on a failed row) · `attempt_count` / `max_attempts` columns · `platform/orchestration/actions/claim_work_item_action.go`
+- **fires when:** you requeue a failed item — typically after fixing the outage that failed it — by resetting `status` alone. The claim query (`claim_work_item_action.go:103`) requires `attempt_count < max_attempts`, so a row whose attempts were burned (default 3) is silently skipped by every dispatch cycle for ever. No error, no log line, no state change: the row reads `triaged`, which is exactly what a healthy queued row reads.
+- **why the wrong result looks right:** the queue around it MOVES. On 2026-08-20 the 336 rollback requeued four orphans at 07:27; 116 `page_rerender` items completed over the next two hours while the one requeued row with `attempt_count=3` sat `triaged` untouched for 9.5 h. A reader checking "is the queue alive?" gets YES and stops looking. The three burned attempts were all collateral of the outage being fixed — none was a real execution — so the row deserved a retry and structurally could not get one.
+- **the check:** requeue = reset BOTH in one statement — `UPDATE site_work_items SET status='triaged', attempt_count=0, claimed_by=NULL WHERE id=… AND status='failed';` — and afterwards census the zombies you may already have: `SELECT count(*) FROM site_work_items WHERE status IN ('triaged','detected','approved') AND attempt_count >= max_attempts;` (fleet-wide answer 2026-08-20 16:56 after repairing the one victim: 0).
+- **source:** 2026-08-20, 283 lane — the judged canary's owned-page delivery (`section_edit_tplfix_8e62424d…`) was the victim; found by diffing the row against a sibling that dispatched fine and reading the claim query, after the queue-throughput check came back healthy.
+- **added:** 2026-08-20, 283 lane
+
