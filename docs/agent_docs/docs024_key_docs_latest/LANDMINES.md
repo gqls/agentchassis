@@ -13331,3 +13331,56 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/327`'s council round 1 (the editquality depth objection and the shape census that answered it), 2026-08-20
 - **relations:** the three sibling entries above (partial-write collapse, random-order rendering, and the post-fix restoration) · register CQ-025
 - **added:** 2026-08-20, copy_quality_two_stage lane
+
+### A `page-rerender` dispatched without `spec.page_name` throws away everything it re-rendered, reports `success: true`, and then DEPLOYS the stale HTML — the orchestration reads COMPLETED throughout
+
+- **footprint:** `page-rerender` agent (`agent_definitions`, steps `check_rerender_mode` / `rerender_sections` / `save_sections` / `render_page` / `deploy_page`) · `platform/orchestration/actions/save_page_sections_action.go:132-140` · any hand-built kcat envelope carrying `input_data.spec` · `scripts/initial_messages/001_assemble_all_pages_rerender/*`
+- **fires when:** you fix a CTA/href/copy value in `page_components.content_data` and dispatch a rerender by hand to push it to the page — the normal way to close a bug whose defect lives in stored data.
+- **the trap, in two independent layers, and BOTH report success:**
+  1. **No `spec.reason` ⇒ the sections are never re-rendered at all.** `check_rerender_mode` is a `conditional` whose own description says it plainly: *"Re-render sections only for re-render reasons; else assemble stored HTML"*. The reason must be one of `image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`, `literal_markdown`. Anything else (including nothing) routes to `render_page`, which **assembles the components' STORED `rendered_html`** — so a `content_data` fix cannot reach the page, and the deploy ships the old bytes.
+  2. **No `spec.page_name` ⇒ the sections ARE re-rendered and then discarded.** The step reads `page_name_field: input_data.spec.page_name`; with it missing, `SavePageSectionsAction` returns `{"success": true, "sections_saved": 0, "skipped": true, "reason": "no page name"}` — **success true** — and the workflow proceeds to `render_page`/`deploy_page`, deploying the stale assembly. Observed 2026-08-20: `rerendered: 4, sections_saved: 0`, deploy `success`, orchestration `COMPLETED`, page unchanged.
+- **why the wrong answer looks right:** every surface a session normally checks says it worked. The orchestration is `COMPLETED`; `deploy_result.success` is `true`; a real git commit exists with a real sha and a real `files_count`. The only thing that disagrees is the artefact. `sections_metadata` even lists four component ids **that exist nowhere** — they are minted for the render and never persisted, so joining them to `page_components` returns zero rows and tells you nothing unless you thought to look.
+- **the check — assert on the SAVE and on the ARTEFACT, never on the status:**
+  ```sql
+  SELECT collected_data->'sections_saved'->>'sections_saved' AS saved,
+         collected_data->'sections_saved'->>'reason'         AS skip_reason,
+         collected_data->'rerender_sections'->>'rerendered'  AS rerendered
+    FROM orchestration_states WHERE orchestration_id = '<yours>';
+  -- saved must be NON-ZERO and equal rerendered; a `reason` of "no page name" means
+  -- your envelope was wrong, not that the page was already correct.
+  ```
+  Then read the component row itself — `updated_at` must have MOVED, and `rendered_html` must contain the new value:
+  ```sql
+  SELECT pc.updated_at, (pc.rendered_html LIKE '%<new value>%') AS html_has_it
+    FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE …;
+  ```
+  A row whose `updated_at` still equals the timestamp of *your own SQL fix* is the tell that the rerender never touched it.
+- **the working envelope** (both keys present):
+  `{"action":"orchestrate","config":{"agent_type":"page-rerender"},"input_data":{"site_id":"…","domain":"…","page_id":"…","spec":{"reason":"cta_links_stale","page_name":"index"}}}`
+  ⚠ `cta_links_stale` is only safe on a binary carrying bug 299's KEEP #3 (chassis ≥ v1.0.1317) — on an older one that reason IS the clobber trigger (register LNK-034).
+- **why production does not hit it:** real work items carry `spec.page_name`, so this is a hand-dispatch hazard. But the SHAPE is the estate's most-repeated failure: a skip that returns `success: true` is indistinguishable from work done, and here it is followed by a deploy that makes the staleness look freshly published.
+- **relations:** this file's *"The save seam's identity paths resolve to NOTHING inside the page writer's own run"* (adjacent but different — that one is about an UNATTRIBUTABLE record; this one is about DISCARDED work shipped under a success status) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] · [[repro-regenerated-from-source-is-destroyed-by-the-render]] (the sibling direction: a rerender regenerates from `content_data`, so it cannot reproduce a defect living in `rendered_html` — and, as here, will not fix one either unless it actually saves) · `bugs_open/299`
+- **source:** 2026-08-20, `bugfix_299_cta_dials_phone` lane · orchestrations `2ea0cbe4` (no reason → assembled stale), `0ed191f2` (reason, no page_name → `sections_saved: 0`), `aab8de08` (both → `sections_saved: 4`, artefact correct)
+- **added:** 2026-08-20, bugfix_299_cta_dials_phone lane
+
+## A component whose `content_data` CANNOT REPRODUCE its own `rendered_html` — the page looks perfect, and every repair route that regenerates from `content_data` is inapplicable to it BY CONSTRUCTION
+
+- **footprint:** `page_components.content_data` vs `content_components.html_template` · the `Ported Page (webdesign.co.uk)` component (115 instances) and any `schema: *-page.v1` / ported / adopted-verbatim component · `datahelpers.StripLiteralMarkdownFromContentData` · `rerender_page_sections` / `rerender_single_page` · `apply_section_edit` (`content_edit`) · `RenderTemplate` / `component_library.go:861` (`Option("missingkey=zero")`) · `literalMarkdownFinding.Source` · migrations `473` / `474`
+- **fires when:** you pick a repair route for a finding on a page, and reason about it the way everyone does — *is this route allowed here (ownership, guards, policy), and does it have a good record?* Both questions can answer YES while the route is **incapable** of touching the defect, because the content it would rewrite is not in `content_data` at all. The page renders fine, so nothing looks wrong; the component's stored `rendered_html` is complete and correct, and `content_data` is a stub.
+- **[MEASURED 2026-08-20]** `Ported Page (webdesign.co.uk)`: **115 instances, 100 of which hold NONE of their template's fields.** `content_data` is `{schema, sha256, source, qa_tier, generator}` — 215 bytes of provenance metadata — while the template's only field is `{{.body}}` and `rendered_html` is 2.7–23.9 KB of ported prose. **The split is total and is the tell: all 100 missing-`body` instances are `rebuild_policy='owned'`; all 15 that carry `body` are `generic`.**
+- **⚠ THIS IS WHY "OWNED PAGES CANNOT BE REPAIRED" IS THE WRONG DIAGNOSIS.** Ownership and un-regenerability *coincide* on this component, so the ownership guard gets the blame and every proposed fix is about routing around it. Route around it successfully and you still repair nothing — there is no source to regenerate from. **Ownership is the correlate; the operative property is whether the content is reachable from `content_data`.** Three separate routes were proposed and measured against the wrong property in two days (`bugs_open/277` §5).
+- **the check, and it is two lines of SQL — do it BEFORE costing a route:**
+  ```sql
+  -- do the template's fields actually exist as content_data keys?
+  WITH t AS (SELECT id, ARRAY(SELECT DISTINCT (regexp_matches(html_template,'\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)','g'))[1]) f
+             FROM content_components WHERE id = '<component_id>')
+  SELECT pc.id, COALESCE(pc.content_data,'{}'::jsonb) ?| t.f AS can_regenerate
+  FROM t JOIN page_components pc ON pc.component_id = t.id;
+  ```
+  And read the finding's own `source` first: `spec.findings[].source` is `content_data | rendered_html`, with `field` **empty for rendered_html**. **A `rendered_html`-source finding on a component that cannot regenerate is unreachable by every content_data route there is.**
+- **prove it rather than infer it, in about five minutes:** render the real template against the real `content_data` with production's own engine and option — `text/template`, `Option("missingkey=zero")` — in a throwaway program. Measured here: **4,665 bytes out, 188 in the body region, ZERO non-whitespace visible characters, `err=<nil>`.** ⚠ **Use a payload that CAN fill the template as the control** (a generic instance rendered 11,035 bytes with 6,568 of prose) — same component, same template, opposite results, which is what makes it a measurement rather than a demonstration.
+- **`missingkey=zero` is why there is no error to catch this.** A missing key renders as the zero value, so the blanking render **succeeds**: no error, no exception, nothing in the status. The only signal is the byte count, and on this component a 4.4 KB `<style>` block dominates it — total bytes fall only ~12% while the prose falls 100%.
+- **what STOPS it, so you do not over-alarm:** on the `apply_section_edit` path, `enforceSingleSlotFloors` (`section_editor_actions.go:451` → `single_slot_floors.go:161`) measures **VISIBLE** text with style/script content excluded, engaging above 200 existing chars — thousands existing against zero incoming is refused, *"nothing was written and the existing component still stands."* So the realistic outcome is a **refusal**, not destruction. Say so: the alarming version of this entry would be wrong.
+- **relations:** `bugs_open/277` §5 (the worked case and the render measurement) · `bugs_open/333` · `bugs_closed/301` / `295` (the ownership refusal that gets the blame) · this file's *"A `section_edit` on a per-site TOOL FORK whose template carries `{{.field}}` copy…"* — the SAME failure on a different component class, and I checked that entry against the tool forks while the risk was in the section component I was actually pointing at · `bugs_open/178` / `253` (the floors that hold) · MEMORY [[repro-regenerated-from-source-is-destroyed-by-the-render]] (the same property, met as a reproduction problem) · MEMORY [[a-client-side-absence-is-not-an-absence]]
+- **source:** 2026-08-20, `bugfix_277_required_fields_repair` lane — found while answering "can a producer file a `section_edit` for this?", not while investigating a symptom
+- **added:** 2026-08-20, `bugfix_277_required_fields_repair` lane
