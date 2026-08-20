@@ -166,6 +166,50 @@ nothing): `scripts/domains/classify_nameservers.py --ns-csv <export>` ·
 still un-run and would refresh this export; the CSV route needs no credentials and gives a
 checkable total. Recipe + traps: `RUNBOOK_domain_inventory_and_classification.md`.
 
+## 4b. ✅ 23 HOSTED SITES CLEARED FOR REMAKE (owner 2026-08-20)
+
+Full decision: `DECISION_2026-08-20_remake_the_hosted_sites.md`.
+
+- **PROTECTED: `leopardess.co.uk` and `leopardess.uk`** — owner ruling, and an active lane here.
+- **23 free to overwrite.** All small: biggest 22 pages, median 4, **nine single-pagers**. Page
+  counts came from following each WordPress sitemap INDEX down to the real URL lists — reading the
+  index itself as a page count was my first and wrong answer (it lists 4 sub-sitemaps).
+- **`vinrose.uk` images SALVAGED** to `portfolio_positioning/salvage/vinrose.uk/` before anything
+  overwrites them — a 1920×1080 hero + a background, both verified as real JPEG data rather than
+  200-with-an-error-page. ⚠ Reuse is conditional on the domain still going to wine, which is
+  undecided; it has no register entry.
+- ⚠ **Three twin pairs need a per-pair decision before either half is rebuilt** —
+  `businesschristmasgifts` .co.uk/.uk and `fatherchristmas.uk`/`santaclaus.uk`. Two rebuilt sites
+  on one proposition compete with each other, which is what the register exists to prevent.
+  `fatherchristmas`/`santaclaus` may deserve two propositions rather than a redirect: unlike a
+  spelling variant they are two genuinely different search phrases.
+- **`businessinsurancequotation.co.uk` — the owner's own technique is recorded and is worth more
+  than the site:** build content from REAL PAST CLAIMS with interesting stories. A past claim is a
+  narrative fact, not a financial promotion — it advises nobody and promotes nothing, so it earns
+  interest in a regulated vertical without regulatory exposure. It maps cleanly onto the existing
+  claims layer (each story an `evidence_base` fact with a citation) and would suit
+  `interestrates.co.uk`, the mortgage family and the health cluster equally. Owner is neutral on
+  using it here.
+- **Sequencing: do NOT start with the biggest.** `businessinsurancequotation.co.uk` is insurance,
+  so it inherits the whole compliance layer including a regulated-identity guard that **has not
+  yet refused anything in production**. Start with the single-pagers that have strong generic
+  names and no regulated angle (`advertise.co.uk`, `conferences.co.uk`, `catalogues.co.uk`,
+  `copyonline.co.uk`, `fridge-magnets.co.uk`).
+
+## 4c. ⚠ ALL FUTURE SITES MUST HAVE SITEMAPS (owner 2026-08-20) — and 15 of 25 do not
+
+Recorded against register **SEO-002**, whose own `verify-later` asked precisely this and is now
+answered. The generator exists and is registered (`scripts/site-discovery-files.py`); **nothing
+runs it.** Measured 2026-08-20 by fetching every live site: **15 of 25 serve no `/sitemap.xml`** —
+including `remortgagecalculator.uk`, built four days ago with every current guard applied, which
+is the clearest available statement that a manual step is not a mechanism.
+
+**The work:** make it a standing mechanism, shape already proposed in SEO-002 — a Go action beside
+`render_rss_feed` (read DB rows, emit a file artefact, gate on `deploy_config`). Two rules to carry
+over rather than rediscover: **probe before listing** (a sitemap advertising a 404 is worse than
+none) and **read every column that decides whether a page should be found** — `noindex` arrived
+after the script and silently contradicted it for weeks.
+
 ## 5. 🧱 STILL THE WALL — `bugs_open/311` + `RFC_036`
 
 Unchanged and **still not fixed**. Owner ruling: **one submission covering both writers, and it
