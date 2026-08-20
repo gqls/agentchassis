@@ -1,4 +1,4 @@
--- 507_head_components_carry_lang_HOLD.sql
+-- 507_head_components_carry_lang.sql
 -- bugs_open/252 (og/lang slug) §B — the document language leaves Go.
 --
 -- OWNER DECISION 2026-08-11, option 3: `lang` lives in the head COMPONENT, not
@@ -7,6 +7,11 @@
 -- platform/orchestration/actions/head_assembly.go, called from assemblePage) is
 -- registered as SEO-005.
 --
+-- ⚠⚠ HOLD RELEASED AND APPLIED 2026-08-20 17:2xZ. The paragraph below is kept as the
+-- RECORD of why it was held, not as a live instruction — it was applied only after
+-- spliceOpenGraph was probed PRESENT on both v1.0.1320 replicas with a positive and a
+-- negative control. Anyone REPLAYING this file against a fresh environment must re-satisfy
+-- that precondition first. Original banner:
 -- ⚠⚠ _HOLD, AND THE ORDER IS THE WHOLE POINT. DO NOT APPLY BEFORE THE BINARY
 -- CARRYING head_assembly.go IS PROVEN RUNNING ON EVERY CHASSIS REPLICA.
 -- DB config is live the moment it applies; Go is inert until the roll. The
@@ -110,7 +115,7 @@
 -- Apply: kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Then record: ./scripts/migration/run-migrations.sh --record-only <file> --note "..."
--- Rollback: 507_head_components_carry_lang_HOLD_ROLLBACK.sql
+-- Rollback: 507_head_components_carry_lang_ROLLBACK.sql
 
 BEGIN;
 

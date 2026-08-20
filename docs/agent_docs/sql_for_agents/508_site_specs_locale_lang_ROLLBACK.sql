@@ -1,4 +1,4 @@
--- 508_site_specs_locale_lang_HOLD_ROLLBACK.sql
+-- 508_site_specs_locale_lang_ROLLBACK.sql
 -- Reverses 508: removes `locale.lang` from every site_config row it set.
 --
 -- ORDER: run this BEFORE 507's rollback. The reverse leaves the templates

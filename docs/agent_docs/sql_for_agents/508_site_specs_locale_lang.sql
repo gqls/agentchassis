@@ -1,4 +1,4 @@
--- 508_site_specs_locale_lang_HOLD.sql
+-- 508_site_specs_locale_lang.sql
 -- bugs_open/252 (og/lang slug) §B — give each site a language to declare.
 --
 -- 507 gives the shared head templates a GATED lang attribute. This file sets the
@@ -7,6 +7,12 @@
 -- (`source: config.locale.lang` -> resolveConfigPath). Second consumer of the
 -- STY-050 mechanism; worked precedent migration 339.
 --
+-- ⚠⚠ HOLD RELEASED AND APPLIED 2026-08-20 17:2xZ, after 507 and after the binary probe.
+-- ⚠ FIRST APPLY ATTEMPT ABORTED, correctly: the 'a real site this file does not name'
+-- guard caught indoorplanters.co.uk, created the same day this file was authored. It was
+-- added explicitly (evidence-thin, marked as such) and the file re-applied. That abort is
+-- the guard earning its place — the alternative was a new site silently keeping `en`.
+-- Original banner:
 -- ⚠⚠ _HOLD — APPLY AFTER 507, AND ONLY ONCE THE BINARY CARRYING
 -- head_assembly.go IS PROVEN RUNNING. Full statement of the ordering trap is in
 -- 507's header; it applies identically here, and this file is the one that
@@ -30,9 +36,9 @@
 -- recorded and English copy (fundamentallyai.com, gaswholesalers.com,
 -- robot-hands.com, vonc.com — all four checked individually, all English).
 --
--- POPULATION: the 25 real sites. All `*.internal` pool domains and
+-- POPULATION: the 26 real sites. All `*.internal` pool domains and
 -- `system.internal` are EXCLUDED — they serve no visitor, so a language on them
--- is noise. 24 get `en-GB`; relojistas.com gets `es-ES`.
+-- is noise. 25 get `en-GB`; relojistas.com gets `es-ES`.
 --
 -- SAFETY:
 --   · `site_config` is operator-owned, and update_site_spec_from_item merges
@@ -59,13 +65,13 @@
 -- Apply: kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --          psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Then record: ./scripts/migration/run-migrations.sh --record-only <file> --note "..."
--- Rollback: 508_site_specs_locale_lang_HOLD_ROLLBACK.sql
+-- Rollback: 508_site_specs_locale_lang_ROLLBACK.sql
 
 BEGIN;
 
 CREATE TEMP TABLE _locale_targets(domain text PRIMARY KEY, lang text NOT NULL) ON COMMIT DROP;
 INSERT INTO _locale_targets(domain, lang) VALUES
-  -- .uk / .co.uk — 17
+  -- .uk / .co.uk — 18
   ('adversecreditmortgage.co.uk',      'en-GB'),
   ('cookly.uk',                        'en-GB'),
   ('finetuning.uk',                    'en-GB'),
@@ -83,6 +89,14 @@ INSERT INTO _locale_targets(domain, lang) VALUES
   ('vetcomparison.uk',                 'en-GB'),
   ('webdesign.co.uk',                  'en-GB'),
   ('webdesign.uk',                     'en-GB'),
+  -- Added 2026-08-20 on the FIRST apply attempt, which ABORTED on this domain:
+  -- it was created that same day, after this file was authored. It has no
+  -- identity spec and no content yet, so unlike every other row here its
+  -- evidence is the .co.uk registration plus estate context, NOT its own copy.
+  -- [EVIDENCE-THIN, deliberately recorded as such.] Re-check when it has a
+  -- mission or a page; the guard below is what forced the decision instead of
+  -- letting it default to `en` in silence.
+  ('indoorplanters.co.uk',             'en-GB'),
   -- .com, British — 7 (identity location "United Kingdom", or English copy
   -- confirmed by eye where no location is recorded)
   ('ai-agent-orchestration.com',       'en-GB'),

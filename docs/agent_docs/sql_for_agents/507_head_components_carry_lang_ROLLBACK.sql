@@ -1,4 +1,4 @@
--- 507_head_components_carry_lang_HOLD_ROLLBACK.sql
+-- 507_head_components_carry_lang_ROLLBACK.sql
 -- Reverses 507: removes the lang gate from both shared head templates, drops the
 -- `lang` input_schema entries, and RESTORES head-seo-standard's two og lines.
 --

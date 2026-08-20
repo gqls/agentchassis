@@ -283,3 +283,86 @@ lane's landmine corpus** — the chassis logs whole council/diagnosis payloads, 
 the phrase. The symbol probe has no such failure mode. Recorded in
 `FINDINGS_2026-08-20_errors_caught.md` §B2 as a fix to the recipe in CLAUDE.md, not just a trap to
 know about.
+
+## 2026-08-20 (g) — LIVE on v1.0.1320, og half PROVEN at the artefact, migrations applied
+
+**Binary probed on BOTH replicas of v1.0.1320 (started 16:09Z, my Go commit 14:03Z):**
+`spliceOpenGraph` PRESENT, `headLangAttr` PRESENT, `htmlDocumentOpen` PRESENT, positive control
+`injectCanonicalLink` PRESENT, fabricated negative control absent. Five arms, both pods.
+
+### The og half is proven, in both directions
+
+Assemble-only rerenders (`049b_deploy_single_page.sh`, direct route — the `spawn_agent`→`call_agent`
+wrapper is the one that hangs), verified by the orchestration row rather than `kcat`'s exit code, then
+read at the served bytes.
+
+`/about.html` — corr `a4913050`:
+
+| | before | after |
+|---|---|---|
+| `og:title` | **two** — `""` and `"AI Agent Orchestration"` | **one** — `"About \| AI Agent Orchestration"` |
+| `og:description` | **two** — `""` and the site tagline | **one** — the page's own |
+| `og:url` | `https://ai-agent-orchestration.com/` (**the homepage**) | `…/about.html` |
+| `canonical` | `…/about.html` | `…/about.html` — **now agrees** |
+| blank `content=""` og tags | 2 | **0** |
+| `og:type`/`og:site_name`/`og:image` | present | **byte-preserved** |
+
+`/index.html` — corr `1e35e7e4`, and this is the **discriminating control**: `og:url` came out as the
+bare `https://ai-agent-orchestration.com/`, **not** `/index.html`, matching its canonical. So
+`preferredPageURL`'s root normalisation carried into og:url, and the pair proves the value is no longer
+constant-per-site *and* that the root case does not regress. `og:title` also came out
+HTML-escaped (`Kafka &amp; Postgres`), so `htmlEscapeAttr` is doing its job on real copy.
+
+### Migrations applied — and 508's guard earned its place immediately
+
+Backups taken first (council advisory). **507: `UPDATE 1`, `UPDATE 1`, three DO guards passed.**
+
+**508 ABORTED on its first attempt, correctly:**
+```
+ERROR: real sites exist that this migration does not name: indoorplanters.co.uk
+```
+That site was created **the same day I authored the file**. The guard I added because a blanket rule
+would have been wrong is what stopped a brand-new site silently keeping `en`. It has no identity spec
+and no content yet, so unlike every other row its evidence is the `.co.uk` registration plus estate
+context — added as `en-GB` and **marked `[EVIDENCE-THIN]` in the file**, with a note to re-check when
+it has copy. Re-applied: **15 merged, 11 inserted, all three assertions passed** (25 en-GB, 1 es-ES,
+`analytics.gtm_container_id` still on 14 rows).
+
+**Owner ruling recorded (2026-08-20): non-English sites must NOT be en-GB, and this generalises to
+future language sites** — the explicit-domain list, not TLD derivation, is the mechanism that
+implements it.
+
+Both files renamed to drop `_HOLD` (the runner refuses to record an uppercase-suffixed sidecar —
+`446_asset_retraction_agent` is the precedent) and recorded `--record-only`. Their original banners
+are kept as the RECORD of why they were held, annotated with what released the hold.
+
+### Propagation is armed, and its blast radius is measured rather than assumed
+
+Recomputed the chrome fingerprint's `template` digest against every stored `render_inputs`:
+
+| slot | drifted | total |
+|---|---|---|
+| **head** | **22** | 24 |
+| footer | 0 | 24 |
+| header | 0 | 24 |
+
+Exactly the two shared head templates, nothing else. So `StaleSiteComponentsCheck` will file
+`stale_chrome` per site on its next discovery run → `rerender-pages` with
+`refresh_site_components:true` → chrome re-render plus per-page fan-out. That is the owner-approved
+wave rollout, and it is now demonstrably armed rather than hoped for.
+
+### A side-quest defect found and NOT chased: `rerender-chrome` skips its own start step
+
+Dispatched it (corr `83d980c2`) to force one site's chrome ahead of the schedule. It returned
+`complete | COMPLETED` in seconds, the stored head was untouched (`updated_at` still 2026-08-18), and
+`collected_data` holds **no `site_components_result` and no `render_site_components` key** — only
+`complete`, whose result is a verbatim echo of the request. No `__step_error`, no `error`.
+
+The live definition is correct on inspection: `start_step: render_site_components`, `force_rerender:
+true`, `next_step: complete`, `output_field: site_components_result`. So the agent ran
+`complete_workflow` as its first and only step and reported success. **A COMPLETED orchestration that
+did nothing** — the platform's own "trust the artefact, not the status" rule, met in the wild.
+
+Not chased: it belongs to the 226/351 lane and my propagation path does not need it. Filed in
+`FINDINGS_2026-08-20_errors_caught.md` §B4 so it is not lost. ⚠ Anyone reaching for `rerender-chrome`
+as a lever should verify it wrote something before believing it.

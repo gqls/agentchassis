@@ -94,6 +94,40 @@ an anchor (e.g. match the startup line's own prefix).
 
 **Recommend:** tighten the recipe in CLAUDE.md to an anchored match.
 
+### B4. `rerender-chrome` reports COMPLETED having skipped its own start step
+**Certainty: MEASURED on corr `83d980c2` (2026-08-20).** Dispatched with the envelope its own seed
+header documents. Returned `complete | COMPLETED` in seconds. The stored head was **untouched**
+(`updated_at` still 2026-08-18), and `collected_data` contains **no `site_components_result` and no
+`render_site_components` key** — only `complete`, whose `result` is a verbatim echo of the request.
+No `__step_error`, no `error`.
+
+The live definition inspects as correct: `start_step: render_site_components`, config
+`{"slots":["header","footer","head"],"force_rerender":true}`, `next_step: complete`, `output_field:
+site_components_result`. And `force_rerender` does propagate correctly in the Go
+(`render_site_components_action.go:78` → `:311` → the `if !force` exit), so the flag is not the
+problem — **the step never ran at all.** No locks on the slots either.
+
+**Why it matters:** this agent exists to be the cheap lever — re-render chrome without the per-page
+fan-out — and it is the thing a session reaches for when the scheduled pipe is too slow. It currently
+**succeeds without doing anything**, which is the platform's own "a `complete` status is not a
+repaired artefact" failure in its purest form.
+
+**Not chased by this lane** — it belongs to the 226/351 lane and my propagation path (the
+`stale_chrome` fingerprint) does not need it.
+**Recommend:** a bug file against seed `351`. Until then, anyone using it must diff
+`site_components.updated_at` before and after rather than trusting the COMPLETED.
+
+### B5. New sites default to `en` and nothing will ever notice
+**Certainty: INFERRED from mechanism, but the mechanism is now measured.** Migration 508 sets
+`locale.lang` per site as a one-shot. `indoorplanters.co.uk` was created the day I authored it and was
+caught only because I had written a fail-closed guard. **The next site created gets no `locale.lang`
+at all**, falls to the Go default `en`, and there is no check anywhere that would report it.
+
+**Recommend:** either give the site-creation path a `locale.lang` default, or add a small daily check
+("real sites with no `site_config.locale.lang`"). The second is cheaper and also catches sites created
+by paths nobody remembers. Flagged rather than built because "what language is this site?" is a
+product decision and a silent default is exactly what bug 252 was about.
+
 ### B3. Migration numbers have no allocator, and collisions are now routine
 **Certainty: MEASURED.** `497` and `498` were each already doubled by two lanes before I started. I
 read the directory, saw max `501`, wrote two files as `502`/`503` — and by the time I committed,
