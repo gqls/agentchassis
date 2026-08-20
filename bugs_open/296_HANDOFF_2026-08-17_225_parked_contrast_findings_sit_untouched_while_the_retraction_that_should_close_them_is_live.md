@@ -416,3 +416,83 @@ The 7-day re-audit window was the confirmation bottleneck (a repair waits up to 
 graded). Cut to **3 days** by migration `469` on the owner's instruction. Three not two: the
 selector competes with build work and was measured turned away on **9 of 14** samples during
 a burst, so a 2-day window would sit at real throughput and start slipping turns silently.
+
+---
+
+## 10. CONTRIB from the `news_editorial_features` / `editorial_design_uplift` lane, 2026-08-20
+
+Not competing for this bug — the brochure lane owns it and this file is where the
+findings belong. Two things the park does not currently distinguish, plus one
+count it understates.
+
+### 10.1 At least one parked class is 1.00:1 — the text is INVISIBLE, not low-contrast
+
+Measured by hand with `scripts/render_audit.py` on 2026-08-20:
+
+```
+1.00:1 need 4.5  rgb(255, 255, 255) on rgb(255,255,255)  .cta-btn cta-btn-primary
+       'Run MatchMatrix'
+```
+
+White on white. The label is not hard to read, it is **not visible at all** —
+and it is the PRIMARY call to action. Reproduced on three separate robot-hands
+pages, two of which this lane has never touched
+(`/pneumatic-vs-electric-grippers.html`, `/matchmatrix.html`, plus the new
+`/insights/robot-demand-step-change.html`), so it is the shared `call-to-action`
+component, not page content.
+
+**Why this matters to §9's "185 are durable":** a 4.38:1 near-miss and a 1.00:1
+invisible primary button are both `deferred` with the same severity, and the park
+is triaged as one population. **A ratio floor would split it**: anything under
+~1.5:1 is not a contrast defect at all, it is a *missing element* — a button
+nobody can see. That subset is small, mechanically identifiable
+(`item_key` + the stored ratio), and is worth its own pass ahead of the rest.
+Suggested, not assumed: this lane has not queried the parked rows' stored ratios
+to size the subset, and that query is the cheap next check.
+
+Prior-art check done before writing this: `contrast_failure` rows already exist
+for `#A.cta-btn` on robot-hands, ai-agent-orchestration, finetuning.uk and
+leopardessconsulting — so the *defect* is filed, and this contribution is about
+its **severity classification**, not its existence. No new bug filed.
+
+### 10.2 The park UNDERSTATES the fleet count, because a timed-out audit files nothing
+
+`render-audit-agent` dispatched at robot-hands on 2026-08-20 (correlation
+`505b4fa4-3c3f-4255-8136-0cc585fa2441`) returned:
+
+```
+status = COMPLETED   current_step = complete_error
+__step_error = {"message":"Request timed out (code: TIMEOUT)","failed_step":"audit"}
+```
+
+It never reached `write_render_audit_findings`, so **the six real failures on the
+two editorial pages are not in the queue at all** — I found them by running the
+Python predecessor by hand. So "225 parked" / "185 durable" is a count of what
+the *successful* audits filed, and a site whose audit times out contributes zero
+findings while looking indistinguishable from a clean one.
+
+That is the same shape as this bug's own thesis one layer up: `deferred` is
+invisible to fleet-health readings, and **a timed-out audit is invisible to the
+park**. If the rotation's audits time out on the larger sites, the park is
+systematically biased toward small sites. Cheap check, not run here: compare
+`pages_audited`/`pages_total` (stamped since `502b6c194`) against page count per
+site, and look for sites with no findings AND no successful audit.
+
+### 10.3 A single-site audit cannot tell a component defect from a palette defect
+
+Also measured 2026-08-20, and offered because it bears on how the park should be
+read. Two editorial pages, **identical components and content shapes**, different
+sites:
+
+| | robot-hands.com | dartsonline.com |
+|---|---|---|
+| `evidence-chart` eyebrow | **1.14:1 FAIL** | passes |
+| series citation links | **4.38:1 FAIL** ×5 | passes |
+
+Cause: robot-hands' `--color-primary` (#1A1F2E) sits within a shade of its
+`--color-background` (#0F1218); dartsonline's palette does not. So a parked
+finding against a *shared* component may be a **palette** defect on that one
+site, and repairing the component would be the wrong fix — or, worse, would be
+graded as ineffective because the component was never the problem.
+**Before repairing a shared component named in a parked finding, re-measure it on
+a second site carrying the same component.** Cheap, and it changes the remedy.
