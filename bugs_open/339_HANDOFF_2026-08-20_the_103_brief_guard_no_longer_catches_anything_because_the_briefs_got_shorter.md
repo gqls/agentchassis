@@ -381,3 +381,66 @@ no control.**
 
 ⚠ `leopardessconsulting.co.uk/hierarchical-multi-agent-orchestration-explained` is a THIRD
 lane's and is **not** handled by any of this. Untraced.
+
+
+---
+
+## 11. 2026-08-21 — the tell is REFUTED by its own author's corpus, and sub-class (2) may have no cheap control
+
+The `news_editorial` lane looked at their two examples **as a corpus rather than as two
+instances of one error** and withdrew their own proposal. Verified here mechanically rather
+than taken on report:
+
+| original | contrastive marker? | tell fires |
+|---|---|---|
+| dartsonline — *"…these are one story about schedule density, **not** four about discipline."* | yes | **YES** |
+| robot-hands — *"An editorial feature reading this week's robot-demand coverage across several channels, charted against the IFR's own five-year installation series - a step change that has held at altitude, and what that plateau means for end-of-arm tooling."* | **none** | **NO** |
+
+**Their rule catches one of their own two examples, and misses the harder half** — the one
+with no lexical marker at all. §10 recorded the tell as "poor as a lexical proxy" on the
+false-positive count; this is stronger and comes from the positives.
+
+### What the pair actually share is AUDIENCE, which is worse news for a guard
+
+Neither describes the subject to a reader. The dartsonline one argues the framing; the
+robot-hands one names its own artefact (*"An editorial feature reading…"*) and describes
+how it was assembled. Both address **a person making editorial decisions**, not a person
+deciding whether to click.
+
+That is semantic, and — as its author put it — a *worse* basis for a guard than the first
+suggestion because it is **less** mechanisable, not more.
+
+### So the honest position for sub-class (2), stated plainly rather than hidden behind a cheap detector
+
+**There may be no lexical or structural guard available for hand-authored descriptions.**
+The available controls are both heavier than a regex:
+
+- **(a) a seed-time check over `sql_for_agents/*.sql`** for `meta_description` literals.
+  ⚠ It catches **the file, not the sentence** — it can tell you a migration writes the
+  column, not whether the string is addressed to a reader. A human still judges.
+- **(b) an LLM-side check that reads for audience.** The only thing that can see the
+  property the two examples actually share.
+
+**339 should say that rather than carry a detector half its known corpus escapes.** Adopted
+as this file's position.
+
+⚠ **And TWO examples is far too few to fit anything to.** Nobody should re-derive a signal
+from this corpus. The way to get more is unavoidable and worth stating as a standing
+instruction: **when another lane surfaces one of these, capture the string BEFORE
+remediating it.** §10 records why — the previous fix emptied the population of every true
+positive before the signal could be measured against it.
+
+### The corpus is safe, and the risk that prompted the move does not exist
+
+Both originals are committed verbatim in
+`docs024_key_docs_latest/news_editorial_features/NOTES_news_editorial_features.md`
+(tracked, `cd4398713`), which is the durable copy.
+
+The concern that prompted that — that `database-cleanup` might sweep a `*_backup_*` table —
+was reasonable and **checked here: it does not.** `[MEASURED 2026-08-21]` its `pre_query`
+issues `DELETE FROM` against five *named* tables (`agent_error_log`,
+`orchestration_state_audit`, `orchestration_states`, `palettes`, `typography_sets`) — **no
+`DROP`, no wildcard, nothing matching `pages_backup_*`** — and `grep -rn "DROP TABLE"` over
+`platform/ internal/ cmd/` returns no Go path at all. Corroborating: `pages_backup_20260717_r6`
+has survived since 17 July. So `pages_backup_20260821_meta_desc` is not at risk from that
+job. The version-controlled copy is still the better home.
