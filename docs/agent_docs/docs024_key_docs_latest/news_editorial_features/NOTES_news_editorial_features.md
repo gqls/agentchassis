@@ -939,3 +939,62 @@ a person deciding whether to click. That is semantic, a regex cannot see it, and
 one of my two examples would have escaped my own suggested rule.
 
 Recorded as a correction to my own tell rather than a defence of it.
+
+## 2026-08-21 — third feature LIVE, and the first one built after the fixes
+
+`robot-hands.com/insights/electric-vs-pneumatic-economics.html` — 86,602 bytes,
+hero image present, 10 chart rows, 6 ink-token references, claimscan 0/5.
+The Insights hub now lists **both** robot-hands features and is itself clean
+(0 contrast failures).
+
+**This is the first feature built after 496 and after the meta-description guard,
+so it is the test of whether those fixes hold for new work rather than just
+repairing old.** They do:
+
+| | robot-hands feature 1 (before fixes) | feature 3 (built after) |
+|---|---|---|
+| contrast failures | 10 | **4** |
+| of which OURS | 6 | **0** |
+
+All four remaining are the pre-existing shared-component family — the 1.00:1
+white-on-white `.cta-btn cta-btn-primary` and three over-an-image approximations —
+byte-identical to what the untouched control pages carry. **A page built today
+inherits the repointed components and introduces no contrast defect of its own.**
+Stylesheet control run first, 25,559 B.
+
+### The guard I wrote yesterday caught me today
+
+`498`'s verify block refused the first apply: *meta_description is 162 chars, over
+the 160 limit*, and rolled the whole transaction back. That guard exists because
+of misstep 6 — a hand-typed commissioning note serving as a public description —
+and it fired on the very next feature I wrote.
+
+**What that does and does not prove.** It caught the **length** half, which is
+what a machine can check. The **tone** half — the actual defect in misstep 6 — is
+still caught only by a human reading the sentence as a stranger. So the guard is
+worth having and is not the control; I re-read both new descriptions as a reader
+before applying, and that step is still the one doing the real work.
+
+### Sourcing was a step better this time, deliberately
+
+Every figure is a **verbatim quote from the primary** — the ENERGY STAR / US DOE
+sheet — extracted with `pdftotext` in-session. The search results were dominated
+by compressor-vendor pages restating the same numbers, and the dartsonline feature
+had already had to disclose weaker (Wikipedia) sourcing on the page. Where a range
+was given (7–8 hp), the registered fact takes the **low end**, because the
+conservative end favours the side the piece argues against.
+
+### A fourth feature NOT built, and why
+
+The cobot cluster (six items: "Collaborative Robot Usage Shifts to Factory
+Strategy", Techman dual-arm, Movotrak seventh axis, Hirebotics explosion-proof,
+portable-cobot market forecast) was the next strongest and **I stopped**. IFR's own
+release yields exactly one verifiable figure — *"Cobots reached a market share of
+10.5% of industrial robots installed worldwide in 2023"* — and the 2024 numbers
+(11.9%, 64,542 units) exist only in a search summary and on a page returning 403.
+
+One cited figure is not a background section, and padding it with second-hand
+restatements is the exact failure this lane exists to prevent. **Recorded as a
+ready candidate rather than a gap:** the cluster is real, the premise is good (the
+coverage reads as a takeover; ~1 in 10 installations says otherwise), and it needs
+one thing — a primary source for the 2024 share.
