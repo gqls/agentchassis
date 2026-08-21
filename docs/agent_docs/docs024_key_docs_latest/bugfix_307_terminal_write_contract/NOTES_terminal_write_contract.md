@@ -418,3 +418,29 @@ was still unguarded. Applied and recorded after the roll; the sweep now stamps `
 was wrong for the reason §2b already gave: all three arms select `status='claimed'`, which a
 re-triaged row is not. Measured 0/0. **I wrote the correction and then failed to apply it to the
 next claim I accepted**, which is the more transferable half of that mistake.
+
+### 524's live status, stated precisely — and the misattribution I nearly published
+
+First read after applying `524`: *"rows stamped by the sweep so far: 1"*. **Wrong, and wrong in the
+flattering direction.** My query was `retry_after IS NOT NULL AND error LIKE 'Claim timed out%'` —
+which asks "does this row have a stamp AND has the sweep ever touched it", not "did the sweep write
+this stamp". The row it found carries `retry_after 13:51:37`, **five hours before `524` was
+applied**: the stamp came from the **Go ladder** earlier in that item's life, and the sweep's later
+terminal write simply left it alone, because pre-`524` the sweep did not touch the column at all.
+(It is also terminal at 3/3, where `524` writes NULL — a second tell I had in front of me.)
+
+**Correct attribution needs the write TIME, not the column's presence:** `error LIKE 'Claim timed
+out%' AND updated_at > <when 524 applied>` → **0**. With the demand control beside it: **0 claimed
+rows exist at all**, let alone any older than the sweep's 40-minute threshold, and the task last
+fired at 18:46Z with nothing to do.
+
+So: **`524` is applied and structurally verified** (the `pre_query` carries the stamp, reads
+`reaper_policies`, both auto-complete arms intact, and the `EXPLAIN` gate parsed it) **but NOT yet
+proven on live traffic** — because it has had no work, not because it failed. That zero is
+"untested", and the demand control is what licenses saying so rather than guessing.
+
+**Third attribution error of the same family in three days** (after the `agent_error_log` filter
+that could not match its own target, and the mutations that never applied): each time I asked a
+question whose answer I could not distinguish from the one I wanted. The habit that keeps catching
+them is the same one — *before believing a count, name the row it would have to be about, and check
+that row is the row you mean.*
