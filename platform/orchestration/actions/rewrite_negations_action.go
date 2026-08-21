@@ -408,6 +408,9 @@ Sentences:
 func runNegationRepair(ctx context.Context, params ActionParams, config map[string]interface{}, plan negationPlan) ([]map[string]interface{}, []map[string]interface{}, string) {
 	rewritten := []map[string]interface{}{}
 	rejected := []map[string]interface{}{}
+	// field path -> that field's text as it stands after the replacements
+	// accepted so far. See the splice below for why this is not optional.
+	spliced := map[string]string{}
 
 	agentConfig, _ := params.CollectedData["agent_config"].(map[string]interface{})
 	if agentConfig == nil && params.AgentType != "" && params.DB != nil {
@@ -553,16 +556,34 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 				"to":   datahelpers.TruncateString(r.To, 160)})
 			continue
 		}
-		// Splice: replace the sentence, once, inside the field's own value. The
-		// map this writes to is the one the renderer reads, so nothing has to be
-		// copied back.
-		updated := strings.Replace(t.text, t.Sentence, strings.TrimSpace(r.To), 1)
-		if updated == t.text {
+		// Splice: replace the sentence, once, inside the field's CURRENT value.
+		//
+		// ⚠ CURRENT, not `t.text`. Every target of one field shares the same
+		// captured original, so splicing each against `t.text` and writing the
+		// whole field back makes each accepted rewrite OVERWRITE the previous
+		// one — last writer wins, and the marker still reports them all as
+		// rewritten. Measured in production 2026-08-21 (orch ce002822,
+		// webdesign.co.uk/tool-social-card-guide): SIX accepted replacements,
+		// all into one `content` field, and `hits_before 8 -> hits_after 7` —
+		// one net repair out of six, with the marker claiming six. A lost repair
+		// AND a false report, which is the worse half.
+		//
+		// `spliced` carries each field's text as it stands after earlier
+		// replacements, so N targets in one field compose instead of racing.
+		// The map this writes to is the one the renderer reads, so nothing has
+		// to be copied back.
+		base, seen := spliced[t.Field]
+		if !seen {
+			base = t.text
+		}
+		updated := strings.Replace(base, t.Sentence, strings.TrimSpace(r.To), 1)
+		if updated == base {
 			rejected = append(rejected, map[string]interface{}{
 				"field": t.Field, "reason": "splice_missed",
 				"from": datahelpers.TruncateString(t.Sentence, 160)})
 			continue
 		}
+		spliced[t.Field] = updated
 		t.set(updated)
 		rewritten = append(rewritten, map[string]interface{}{
 			"field": t.Field, "shape": t.Shape, "headline": t.Headline,

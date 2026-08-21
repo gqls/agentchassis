@@ -208,3 +208,64 @@ func TestActionIsInertWithoutContent(t *testing.T) {
 		t.Errorf("expected no_content, got %v", out)
 	}
 }
+
+// TWO constructions in ONE field must both survive. Every target of a field
+// shares the same captured original, so splicing each against that original and
+// writing the whole field back makes the accepted rewrites overwrite each other
+// — and the marker still reports them all as rewritten.
+//
+// MEASURED IN PRODUCTION 2026-08-21 (orch ce002822,
+// webdesign.co.uk/tool-social-card-guide): six accepted replacements, all into
+// one `content` field, hits_before 8 -> hits_after 7. One net repair out of six,
+// reported as six. This test is that page, reduced.
+func TestTwoTargetsInOneFieldBothSurvive(t *testing.T) {
+	content := map[string]interface{}{
+		"content": "<p>The two systems overlap rather than compete.</p>" +
+			"<p>Everything past that is refinement rather than requirement.</p>",
+	}
+	plan := planNegationRepairs(content, nil, 0, 0)
+	if len(plan.targets) != 2 {
+		t.Fatalf("expected two targets in one field, got %d", len(plan.targets))
+	}
+	if plan.targets[0].Field != plan.targets[1].Field {
+		t.Fatalf("this test is only meaningful when both targets share a field: %q vs %q",
+			plan.targets[0].Field, plan.targets[1].Field)
+	}
+
+	// Mimic the accept-and-splice loop, which is what the action does once a
+	// replacement has passed every check.
+	spliced := map[string]string{}
+	replacements := map[string]string{
+		"The two systems overlap rather than compete.":            "The two systems overlap.",
+		"Everything past that is refinement rather than requirement.": "Everything past that is refinement.",
+	}
+	for _, tg := range plan.targets {
+		to, ok := replacements[tg.Sentence]
+		if !ok {
+			t.Fatalf("no replacement fixture for %q", tg.Sentence)
+		}
+		base, seen := spliced[tg.Field]
+		if !seen {
+			base = tg.text
+		}
+		updated := strings.Replace(base, tg.Sentence, to, 1)
+		if updated == base {
+			t.Fatalf("splice missed for %q", tg.Sentence)
+		}
+		spliced[tg.Field] = updated
+		tg.set(updated)
+	}
+
+	got := content["content"].(string)
+	if strings.Contains(got, "rather than") {
+		t.Errorf("a construction survived — the splices raced: %q", got)
+	}
+	for _, want := range []string{"The two systems overlap.", "Everything past that is refinement."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rewrite lost: %q missing from %q", want, got)
+		}
+	}
+	if n := len(datahelpers.ScanDefineByNegation(got)); n != 0 {
+		t.Errorf("expected 0 constructions after both repairs, got %d", n)
+	}
+}
