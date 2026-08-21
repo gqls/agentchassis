@@ -7186,3 +7186,49 @@ in `page-build-handler`/`page_type`, `component-creator`, `generic`, `site-revie
 
 Full current status + what's left, written up as a proper handoff:
 `HANDOFF_2026-08-21_continue_here.md` (new file, this entry's companion).
+
+## 2026-08-21 (~18:2xZ) — `v1.0.1322` checked, 537 VERIFIED by two sessions, and the lane has destroyed its own control
+
+**The roll:** `v1.0.1322`, both pods, one digest `sha256:68075cf5…`, up 16:54:34Z, build revision
+`bac189921` — **which is HEAD**, so every commit of this lane is aboard, including `383d1afbc` (the
+shared-parser extraction that edits `input_mapping.go`, the surface with **77 live `?` keys** across
+three dispatchers).
+> ⚠ **My negative control for that ancestry test was INVALID and I should say why.** I picked a
+> "later" commit to prove the test can return false — but the build commit IS HEAD, so no later
+> commit exists and the control failed *by construction*, not because the test was broken. A valid
+> negative control needs a commit genuinely outside this history (`git rev-list --all --not HEAD`).
+> The same test was proven discriminating against `v1.0.1321` earlier today, which is the only
+> reason I trust today's positive answer.
+
+**The refactor's live check is thin, and I am recording it as thin rather than as a pass:** 1 bdl run
+since the roll (still `EXECUTING_STEP`), 0 `RESOLVER_MAPPING_BYPASSED` rows. bdl normally runs
+11–32/hour, so this is a quiet window, not evidence. **Still owed** by the next session.
+
+**537 is VERIFIED — by two sessions independently, which is the standard this lane should hold to.**
+Mine: ~2¼ h, conflict rows **0** against a ~20/h pre-rate (~45 expected), **22 items still recording**
+a sha. Theirs (`bugs_open/306`, stronger): **263 rows in the 9 h before, 0 since, against 19 real bdl
+runs**, plus a per-handler spot-check. **Both of us separately explained the two alarming figures at
+the artefact rather than assuming:** `tool-generator` 0/4 is the *predicted* disappearance (it never
+produced a sha of its own), and `page-build-handler` 0/4 is explained AT THE REPLY — they traced all
+four to the no-sections path, I found `handler_result.response ? 'commit_sha'` false on those runs.
+Neither is the wire dropping anything.
+
+**330 remains demand-starved:** zero tool-generator runs since 516 applied at 16:55Z (their last is
+**16:40:11Z**, before the apply). Nothing readable yet; the baseline stands.
+
+> ## ⚠ THE STRUCTURAL FINDING OF THE DAY: **as this lane succeeds, it destroys its own
+> instrument-alive control.** There are now **ZERO `RESOLVER_*` rows of any class fleet-wide** —
+> steps 1–4 plus 512/516/537 silenced every one that was firing. `agent_error_log` itself is alive
+> (UNKNOWN / TIMEOUT / PROCESSING_FAILED rows are landing), but **"some other conflict class is still
+> writing rows" is gone as proof the resolver sink lives, and it is not coming back.**
+> Every future verification in this lane therefore needs one of:
+> 1. **a deliberate positive control** — provoke one known conflict and confirm the row appears; or
+> 2. **mechanism-level evidence** — the standard step 4 used, showing the colliding key is no longer
+>    in the tree at all, so the conflict is **unrepresentable** rather than merely unobserved.
+> **Do not accept a bare zero again.** This is the endgame form of "a post-fix zero needs a demand
+> control": the demand control survives, but the *instrument* control does not.
+
+**Lane coordination:** the 306 session is handing off and intended to write
+`HANDOFF_2026-08-21_continue_here.md` — **the path I had already created**. Flagged before either of
+us lost work; suggested `…-08-21b_…` for theirs, the SUMMARY series' convention. Two files both
+saying "fresh chat starts here" is the exact confusion this lane bannered its way out of on 08-20.
