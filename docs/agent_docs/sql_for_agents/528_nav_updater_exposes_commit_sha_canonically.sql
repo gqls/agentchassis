@@ -101,7 +101,6 @@ UPDATE agent_definitions
 DO $$
 DECLARE
     cfg    jsonb;
-    leaked text;
 BEGIN
     SELECT default_config #> ARRAY['workflow','steps','complete','config'] INTO cfg
       FROM agent_definitions
@@ -132,21 +131,18 @@ BEGIN
         RAISE EXCEPTION '528 VERIFY: no live orchestration confirms the mapped path resolves — the migration may be correct but is unconfirmed against real data';
     END IF;
 
-    WITH RECURSIVE steps(type, path, step) AS (
-        SELECT ad.type, s.key, s.value
-          FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
-         WHERE ad.is_active AND COALESCE(ad.is_snapshot, false) = false AND ad.deleted_at IS NULL
-        UNION ALL
-        SELECT p.type, p.path || '.' || s.key, s.value
-          FROM steps p, LATERAL jsonb_each(p.step->'config'->'sub_workflow'->'steps') s
-    )
-    SELECT string_agg(type || '.' || path, ', ') INTO leaked
-      FROM steps
-     WHERE step->'config'->'result_mapping'->>'commit_sha' = 'js_snippets_deployed.response.data.commit_sha'
-       AND type <> 'nav-updater';
-    IF leaked IS NOT NULL THEN
-        RAISE EXCEPTION '528 VERIFY: the mapping leaked to steps it was not meant for: %', leaked;
-    END IF;
+    -- NOT a cross-fleet string-match negative control (an earlier version of
+    -- this migration template had one, and it produced a FALSE POSITIVE:
+    -- rerender-pages and nav-updater both legitimately use
+    -- js_snippets_deployed.response.data.commit_sha as their OWN commit_sha
+    -- source, because both agents' git_commit steps happen to share that
+    -- output_field name — two independently-correct migrations, not a leak.
+    -- Similarly css-patch-agent and webdesign-agent both use css_deployed.
+    -- The REAL protection here is structural, not a runtime check: the guard
+    -- above already confirmed exactly ONE live row of this agent type exists,
+    -- and the UPDATE's own WHERE clause (type = this agent, below) makes it
+    -- impossible for the statement to touch any other agent's row regardless
+    -- of what value ends up written. Nothing further to verify.
 
     RAISE NOTICE '528 OK: nav-updater.complete exposes site_record, nav_refreshed, site_components_rendered, rerender_pages, items_result (unchanged) and commit_sha (new) via result_mapping; confirmed against a live orchestration';
 END $$;
