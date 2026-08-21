@@ -6534,3 +6534,44 @@ buildable since 519 shipped) and `css-patch-agent`'s round-2 verdict. After thos
 side of bugs_open/334 is COMPLETE, and the bdl-side wire is `staged-component-build`'s to build,
 per the agreed ordering (config first, wire after — wiring first would silently drop the sha for
 every unconverted handler).
+
+## 2026-08-21 (~15:0xZ) — the commit_sha wire is NOT buildable yet: a structural census and a demand census disagree in both directions
+
+The 306 session standardised the handler side of `bugs_open/334` (migrations 519/521/523/527/528
+applied; 534 and 522 in review), scoping it from **agents with a `git_commit` step that appear as a
+live `handler_agent`** — six. Before building my half (the one `"commit_sha?"` wire on bdl's
+`mark_complete`), I checked the population the wire would actually affect, and the two censuses do
+not agree:
+
+**Demand census — who RECORDS a sha today** (`site_work_items.result ? 'commit_sha'`, since
+2026-08-19 20:40): **nine** handlers. Seven are covered. **Three are not:** `asset-deployer` (2/2),
+`image-build-handler` (2/2), `tool-generator` (1/19). Confirmed at the definitions rather than
+inferred — all three still carry `complete.config.output_fields` with no `result_mapping` and no
+`commit_sha` key, while page-rerender/rerender-pages show `result_mapping` + exposes_sha=true (so the
+query discriminates). asset-deployer's tree genuinely carries one
+(`jsonb_path_query_first(collected_data,'$.**.commit_sha')` → `5f8b27bc…`) nested under
+`deploy_result`, so its top-level copy is the WHOLE-TREE SEARCH doing the work today.
+
+**And the other direction:** `rerender-pages`, structurally in scope and duly converted, has recorded
+**zero** shas in that window. Structural scope and live population are simply different sets.
+
+**Consequence for the wire, and it is the whole reason to check first:** land
+`"commit_sha?": "handler_result.response.commit_sha"` while those three are unconverted and their
+`result.commit_sha` **silently stops being written** — no error, just an absent field. That is
+precisely the regression the CONTRIB to the 315 lane exists to prevent, and asset-deployer is the
+handler whose deploys that lane's page-stamping cares about.
+
+**So the wire waits, and when it comes it will carry a MECHANICAL apply-guard** driven off the demand
+census above rather than a hand-typed list — the migration must refuse to apply while any
+sha-recording handler is unconverted, the same discipline 516 now uses for its carriers. Relayed to
+the 306 session with the query and the evidence; extending their batch is their call.
+
+**The method, worth keeping:** *a structural census answers "who COULD do X", a demand census answers
+"who DOES". For a change that removes a fallback, only the second one bounds the damage* — the
+handlers at risk are exactly those relying on the fallback now, and they are invisible to a scan for
+the step that would have made the fallback unnecessary.
+
+Also flagged by the 306 session and **unowned by anyone**: `webdesign-agent` /
+`component-template-fixer` / `color-variable-fixer` sometimes complete via a bogus shortcut with no
+real page write (`site_work_items` id `7df0cc7a`, `needs_diagnosis`, failed on claim-timeout, never
+ran). Recorded here so it is not lost; this lane is not taking it.
