@@ -141,3 +141,38 @@ writing any of this. It ran out of iterations before reaching a formal verdict, 
 it independently confirmed the core of the problem and found its own examples on
 five pages I had not looked at. Its one unanswered question — whether a fourth piece
 of code had the same blindness — I checked myself: it does not.
+
+## 2026-08-21 (end of session) — the review came back approved, and it still caught something
+
+The review council approved the change. It also raised four points, two of them
+substantive, and one of those was right about something I had already looked at and
+got wrong. That is worth telling you plainly, because it is the second time today
+that a check I thought I had done turned out to be half-done.
+
+Here it is. If the database read fails while the checker is deciding whether to keep
+a section name, my code keeps the name rather than deleting it — deliberately, on the
+grounds that a momentary database hiccup should never be able to empty a page. Fine.
+But I had only made that visible in the *logs*, which on these services scroll away
+within seconds. In the permanent record, a run that kept everything because the
+database was unreachable filed **nothing at all**, and so looked exactly like a run
+where everything was fine. That is the same disease this whole fix is for — something
+going quietly wrong and leaving no trace — reproduced inside the cure. It now writes
+its own permanent record, saying how many names it kept without being able to check
+them.
+
+The second point asked whether the *other* places in the codebase that look up a
+page's stored sections already have the same class of flaw. I checked rather than
+assuming. One of them turned out not to do that kind of lookup at all, so the concern
+did not apply. One of them genuinely has no rule for what to do when a page has two
+sections with the same name — it would silently pick whichever the database happened
+to return last. I measured it: **no page on the estate is currently in that state**,
+though eighteen pages do have repeated section names, so it is reachable rather than
+impossible. I have written it down and deliberately not fixed it, because it is a
+different question in someone else's area and folding it in here is exactly the kind
+of scope creep the reviewers also (fairly) flagged.
+
+**Where that leaves things.** The read-side fix and the write-side protection are both
+committed. Neither does anything until the next release. The second review round is
+still running. After the release, someone needs to run the canary — and, importantly,
+prove the detector still fires before trusting the count going to zero, because a zero
+from a blind detector looks exactly like success.
