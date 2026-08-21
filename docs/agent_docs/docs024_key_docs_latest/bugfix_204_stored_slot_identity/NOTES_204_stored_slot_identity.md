@@ -211,3 +211,88 @@ A clean `git archive HEAD` tree (not the shared working tree, which carries at l
 eight other sessions' dirty files today) builds `./platform/...` and passes
 `go test ./platform/orchestration/actions/` — `ok … 2.519s`. Any failure I introduce
 from here is mine.
+
+---
+
+## 2026-08-21 (c) — what shipped, the 090's actual verdict, and the 33 seconds HEAD did not compile
+
+### Shipped
+
+`d376ca9b8` (A: the shared reader, a pure move) → `7baaf513b` (a hotfix, below) →
+`c6446f5da` (B: the rescue, its tests, PLAN-051 + the PLAN-027 amendment). Council
+correlation `f73f4eeb-5d79-482c-bc9b-b33f0ab64f76`, `Council-Submitted:` — **verdict
+not yet read.** Inert until the next chassis roll.
+
+17 tests, **7 mutations run and 7 killed**: conflict rule deleted; `SlotNameSet` made
+to inherit it; pod-greppable warning string altered; rescue keep removed; rescue
+scoped to site rather than page; `slotUnknown` made to drop; kept name rewritten to
+its component function.
+
+### The 090 came back UNVERIFIABLE, and that is not the same as "no result"
+
+Run correlation `1588b0da-5657-451a-8dc5-a5f63324712f`, terminated **UNVERIFIABLE at
+the iteration cap** — not REFUTED, not CONFIRMED. Reading its trail rather than its
+label is the whole value:
+
+- **It confirmed the two halves that matter, independently and with its own
+  citations**: that `loadComponentNameResolver`'s key space is exactly
+  `content_components.function/name/display_name`, and that `resolve()`'s miss removes
+  the entry from `pm["sections"]`.
+- **And it found its own live evidence** — `PLAN_SECTION_NAME_DROPPED` rows naming
+  `prose-0`/`tool-1` for five pages (`guide-when-repayments-are-a-struggle`, `legal`,
+  `loans-application-tracker`, `loans-credit-health-check`, `loans-damage-checker`)
+  where `page_components.slot_name` records **those same names for those same pages**.
+  Different pages from the ones I had looked at. Its phrasing: *"a name with real
+  stored slot identity was dropped by a resolver that never queries page_components."*
+- **Why it stopped:** `site_db_actions.go` was omitted from its bundle for size, so it
+  could not close the persistence half; and the code index it reads is stale (mirrors
+  a commit two days old), so it correctly refused to call
+  `component_selector.go:SelectComponentByType` absent rather than unread.
+
+**I answered its open question rather than leaving it**: the selector never touches
+`page_components` (zero grep hits), and its only caller is `plan_sections`'
+`resolveSectionComponent`, whose own doc comment says it handles "a section name that
+didn't match any function directly" — reached only after Path 0 has already tried
+stored identity at `:1177`. So it is catalogue-only **by position in the chain**, and
+correctly so. Not a fifth call site.
+
+⚠ Carry its caveat forward: **the code index is stale, so an absence in it is
+`unknown`, not `confirmed absent`.** I did not re-derive my own call-site enumeration
+from the index — it came from grepping the resolver's symbols directly — but anyone
+extending this work should not treat "the index found nothing" as an answer.
+
+### The misstep: I put a call to an undefined symbol into HEAD
+
+Sequence: wrote `stored_slot_rescue.go` (definition, **untracked**), added the
+four-line caller hunk to `v3_site_actions.go`, moved on to the next file intending to
+commit both within the minute. Commit `af4743464` — an unrelated `342` change by
+another session — took `v3_site_actions.go` from the shared tree **with my caller in
+it** and left my untracked definition behind. HEAD then held a call to
+`storedSlotRescueFor` with no such symbol in the repo.
+
+- **Window: 33 seconds** (15:03:27 → 15:04:00, restored by `7baaf513b`). No build
+  started inside it. That is luck, not a control — and it is the second consecutive
+  occurrence of this trap that closed on luck.
+- **Nothing automatic caught it.** `go build` in my tree was green throughout (it
+  reads the tree, not HEAD) and every test passed. I found it only because
+  `git diff --stat` on a file I was about to commit came back **empty** when I
+  expected a diff, so I went looking.
+- **I had the rule in my PLAN and it did not save me.** LANDMINES said *"commit the
+  definition FIRST, ALONE"*; my plan quoted it. The rule is under-specified: it only
+  protects you once both halves exist, and **the exposure opens the moment you type
+  the CALLER**, not when you choose a pathspec. Sharpened in `LANDMINES.md` and logged
+  in `WRONG_CALLS.md`: **write the definition, COMMIT IT, then type the first line
+  that calls it.**
+- Separately, my PLAN-051 **index row** was swept into `d79e4243c` (a `bugs_open/335`
+  commit) before I could commit it. Nothing lost; forward-only holds. Worth recording
+  as a plain instance of the thing CLAUDE.md warns about rather than as a complaint.
+
+### Two figures from the drafted plan that did not survive grounding
+
+- *"the 141 non-decomposed sites"* — invented. `sites` holds **45 rows** (23 deployed,
+  17 pool, 2 active, 2 test, 1 system); **27** have any active page; 7 carry
+  unresolvable names, so the population is about **20**. Logged in `WRONG_CALLS.md`
+  under *adjacent accuracy is not evidence* — the figures either side of it
+  re-measured exactly, which is what made it credible.
+- *"72 of 748 active pages at `sections=[]`, 60 of them tools"* — **re-measured and
+  correct**, recorded here so the next reader knows which of the two was checked.

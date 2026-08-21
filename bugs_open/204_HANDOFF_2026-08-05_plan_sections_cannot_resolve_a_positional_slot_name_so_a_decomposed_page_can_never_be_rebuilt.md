@@ -540,3 +540,142 @@ the actual route**. The damage arrives through validate's resolver, which makes 
 exclusion broader than its stated rationale: it applies to any replan of a decomposed
 site, whatever the identity flags say. I did not read that landmine before firing —
 recorded in `WRONG_CALLS.md`.
+
+---
+
+## §THE THIRD CALL SITE IS FIXED — committed 2026-08-21, INERT until the next chassis roll
+
+**Do not read this as closed.** The Go is committed and the test suite is green; it
+is inert until an image is built and rolled. The 08-06 half of this file (the BUILD
+path) remains live and proven — this section is only about the `validate_plan` call
+site the 08-20 contribution found, plus two of `apply_gap_plan`'s three.
+
+Commits, in order: **`d376ca9b8`** (A, the shared reader) → **`7baaf513b`** (a hotfix,
+see below) → **`c6446f5da`** (B, the rescue and the register). Council correlation
+**`f73f4eeb-5d79-482c-bc9b-b33f0ab64f76`** (`Council-Submitted:` — the verdict was
+not read before committing, and must be read before anyone calls this done). Lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_204_stored_slot_identity/`.
+
+### What the evidence turned out to be, and it is sharper than this file had it
+
+`bugs_open/282`'s lane shipped a durable record of every dropped section name on the
+08-16 roll. Since then [MEASURED 2026-08-21]:
+
+```sql
+SELECT action, count(*) AS drops,
+       count(*) FILTER (WHERE context->>'section' ~ '-[0-9]+$') AS positional_shaped,
+       count(DISTINCT context->>'page') AS pages, min(occurred_at)::date, max(occurred_at)::date
+FROM agent_error_log WHERE error_code='PLAN_SECTION_NAME_DROPPED' GROUP BY action;
+--  validate_plan | 140 | 140 | 41 | 2026-08-17 | 2026-08-20
+```
+
+`prose-0` 70, `tool-1` 34, `prose-2` 18, `tool-0` 12, `prose-1` 6. **140 of 140.**
+The class `validate_components` exists to catch — display names, typos, stale
+functions — has produced **zero** records; the class it cannot see has produced every
+one. ⚠ It is a **lower bound**, not a total: the record only exists from 08-16, so do
+not quote `min(occurred_at)` as the date the drops began. ⚠ The column is
+`occurred_at`, not `created_at`.
+
+Census re-measured the same day: **107 unresolvable names across 7 sites** (86/5 at
+filing, 87/6 on 08-06). loancalculator.co.uk is now **0** — that is the 08-06 fix's
+own footprint in the census, not a shrinking problem.
+
+### It was four call sites, not the one this file named
+
+| call site | file:line | shipped |
+|---|---|---|
+| `ValidateSitePlanAction` `validate_components` | `v3_site_actions.go:3838` | **fixed** — the only site with measured damage |
+| `applyAddToPage` | `apply_gap_plan_action.go:244` | **fixed** — latent exposure |
+| `applyRetypeExisting` | `apply_gap_plan_action.go:905` | **fixed** — writes `sections` straight onto a LIVE page |
+| `applyNewPage` | `apply_gap_plan_action.go:374` | **deliberately LEFT**, pinned by a test — a new page has no stored rows, so a positional name there points at nothing and dropping it is right |
+
+⚠ **The two gap-plan arms are LATENT, not measured.** `content-gap-planner` is live
+(46 `gap_plan_*` items, most recent 08-20) but has recorded **zero** drops since
+08-16. The evidence there is the code path, not a row. Say "latent", not "damaged".
+
+### The fix, and the constraint it had to survive
+
+`LANDMINES.md` forbids the obvious version: *"do NOT fix the inconsistency by
+widening `loadComponentNameResolver` itself"* — three of its four call sites belong
+to a path whose menu PLAN-049 records as deliberately un-widened. So the resolver is
+**untouched**. Instead each drop branch asks, **per page**, whether that page already
+carries a slot under the proposed name (`stored_slot_rescue.go`; the shared reader is
+`datahelpers/page_slot_identities.go`, register **PLAN-051**).
+
+A menu widening enlarges what may be newly PLACED anywhere; this grants no placement
+at all, only *"keep what this page already has"*. That difference is a property of
+the map key, not a claim in a comment —
+`TestStoredSlotRescue_IsScopedToTheProposedPage` fails if a slot stored on **another
+page of the same site** rescues this one.
+
+Decisions a later reader will want the reasons for:
+- **Kept VERBATIM.** Rewriting a positional name to its component's function would
+  collapse `prose-0`/`prose-1` onto one name — this file's own candidate-3 rejection —
+  and break the page's next id-first resolution.
+- **A read failure KEEPS, loudly.** The costs are asymmetric: a junk name surviving is
+  deferred one step later by `plan_sections`; an emptied decomposed page is
+  recoverable only from a snapshot somebody thought to take.
+- **Lazy.** The rows are read at most once, only on the first miss, so a site whose
+  names are honest functions issues no extra query — inert on the undecomposed estate
+  by construction, asserted through sqlmock's `ExpectationsWereMet`.
+- **One durable summary row per run** (`PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT`), not
+  one per keep. Without any record, *"the fix works"* and *"the planner proposed only
+  catalogue names this time"* produce identical evidence.
+
+⚠ **Corrects the 08-20 contribution's proposed shape.** It suggested trusting the
+page's realised `pages.sections`. That names the wrong store twice: it is the column
+this bug destroys, and it reaches validate through the `existing_pages` field —
+which **`site-planner` does not have** (its live step list is `complete,
+load_available_components, load_style_collections, plan_site, validate_plan`; no
+`load_existing_pages`), so a fix keyed on it would be inert on one of the two live
+consumers. `page_components` is ground truth and is what `plan_sections` already chose.
+
+### The independent read
+
+`090` run correlation **`1588b0da-5657-451a-8dc5-a5f63324712f`** returned
+**UNVERIFIABLE at the iteration cap** — not REFUTED, and not a confirmation either.
+It independently confirmed the two halves that matter, with its own citations and
+its own live evidence: `PLAN_SECTION_NAME_DROPPED` rows naming `prose-0`/`tool-1` for
+five pages where `page_components.slot_name` records those same names for those same
+pages. It stopped short on the persistence half (`site_db_actions.go` was omitted
+from its bundle for size) and on a full call-site enumeration, flagging
+`component_selector.go:SelectComponentByType` as unread. **That open question
+resolves NO:** the selector never touches `page_components`, and its only caller is
+`plan_sections`' `resolveSectionComponent`, reached only after Path 0 has already
+tried stored identity. Its other caveat is worth carrying — the code index it read
+is stale (mirrors a commit 2 days old), so an absence there is *unknown*, not
+*confirmed absent*.
+
+### Still to do — the write-side guard, which is NOT in these commits
+
+`upsertPage` (`site_db_actions.go:1201`) still carries `sections = EXCLUDED.sections`
+**unguarded**, while its `nav_label` and `meta_description` siblings **in the same
+statement** were given destructive-write guards on 08-19. One Go caller
+(`SyncPagesToDBAction`), reached by **three** live agents (`build-site-planner`,
+`pageflow-builder`, `site-work-orchestrator`). Deliberately a separate commit and a
+separate council round: different mechanism, different blast radius, and a class
+defence rather than this bug's fix. Design is in the lane's PLAN §5 — including that
+zero sections must stay representable (**72 of 748 active pages live there
+legitimately, 60 of them tools** [MEASURED 2026-08-21]) via the existing
+`recompose_pages` release rather than a new config key.
+
+### How to verify after the roll
+
+1. **Provenance per SERVICE, never `strings`:** the pod's own `build provenance`
+   line → `git merge-base --is-ancestor c6446f5da <stamp>`; the line scrolls, so fall
+   back to `grep -aq "<sha>" /proc/1/exe` **with a control in the same breath** (one
+   sha that must be present, one that must be absent). One pod per *deployment*
+   running the chassis image.
+2. **Behavioural canary:** the 08-20 replan shape on loanandmortgagecalculator.co.uk,
+   with that incident's own containment runbook — **pre-fire snapshot first, and
+   cancel the emitted queue before any repair.** Assert `validate_plan`'s pages carry
+   the positional names, that a `PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT` row exists
+   for the run, and that the post-`sync_pages` `pages.sections` digest equals its
+   pre-fire value.
+3. **Demand control on the zero.** Positional-shaped `PLAN_SECTION_NAME_DROPPED` rows
+   going to zero is the success metric — but induce one drop with an invented name
+   and confirm its row appears. **A zero without that control is a blind pass.**
+4. **Negative control:** the same shape on an honest-function site → zero keeps. If
+   the arm fires there, the scoping property failed; stop and re-diagnose.
+5. ⚠ **The 107-names/7-sites census is NOT the fix's metric.** It measures
+   decomposition, not damage, and should be unchanged by this fix.

@@ -76,3 +76,68 @@ than the one site — because when I went looking, the same blind lookup turned 
 be used in **four** places, not one, and two of them write straight to live pages.
 
 Next: the plan, then the review council, then the code.
+
+## 2026-08-21 (later the same day) — the fix is written and committed
+
+The change is in. It is not yet doing anything: Go only takes effect when a new
+image is built and rolled out, so this sits dormant until the next release.
+
+**What it does, in one sentence.** When the planner's checker meets a section name
+it does not recognise, it now asks the page itself — *do you already have a section
+called this?* — and if the answer is yes, it keeps it instead of deleting it.
+
+That is the whole idea, and the reason it took care rather than five minutes is
+that the obvious version of it was explicitly forbidden. There is a written warning
+in our own notes, added last week, saying *do not fix this by widening the checker's
+list of known components*, because three of the four places that use that list
+belong to a path where someone deliberately decided **not** to widen it. So the
+checker's list is untouched. Instead the question is asked per page, about that
+page's own stored sections. The difference matters: widening the list would let the
+planner place new things anywhere; asking the page only ever lets it keep what is
+already there. There is a test that fails if that ever stops being true — if a
+section stored on a *different* page of the same site were enough to rescue this
+one, the test goes red.
+
+**A number worth repeating.** Since the record of deleted sections started on the
+17th, it has logged 140 deletions across 41 pages, and **all 140 are the kind this
+fix is about**. Not one was the typo the checker exists to catch. I have kept the
+checker's real job intact — a name that is neither a component nor a stored section
+is still deleted, and there is a test for that too.
+
+**One thing I got wrong, and it is worth telling you because it is a shared-machine
+problem rather than a coding one.** Several sessions edit this repository at the
+same time. I wrote a new file, then wrote the line that calls it, and before I could
+commit the new file, another session's unrelated commit picked up my calling line —
+leaving a call to something that did not exist yet. For **33 seconds** the shared
+codebase would not have compiled. Nobody built anything in that window, so no harm
+was done, but that is luck rather than care, and it is the second time in two days
+this exact trap has closed on luck. I have fixed the written warning about it: the
+old advice said "commit the definition first", which sounds right and is useless,
+because by the time you are committing, the calling line has already been sitting in
+the shared tree for however long the rest of the work took. The rule I have written
+instead is: **write the new thing, commit it, and only then write the line that uses
+it.**
+
+**What is still outstanding.**
+
+1. The review council has the change (it takes about half an hour, and I committed
+   before the verdict, which is the normal practice here — the commit gets credited
+   automatically if approved). **Somebody must read that verdict.** If it comes back
+   asking for revisions, the code is already on the shared branch, so it needs acting
+   on rather than filing.
+2. There is a second, separate protection I have deliberately *not* included: the
+   step that saves a plan to the database will still happily write an empty section
+   list over a real one. Its two neighbouring columns in the very same database
+   statement were given exactly that protection on the 19th, and this one was left
+   out. I have designed it and written it up, but it belongs in its own commit and
+   its own review round — it protects against *any* future cause, not just this bug,
+   and that deserves separate scrutiny.
+3. After the next release, someone needs to run the canary and — importantly —
+   **prove the detector still works** before trusting the count going to zero. A zero
+   from a blind detector looks exactly like a fix.
+
+I also asked for an independent second opinion through our diagnosis loop before
+writing any of this. It ran out of iterations before reaching a formal verdict, but
+it independently confirmed the core of the problem and found its own examples on
+five pages I had not looked at. Its one unanswered question — whether a fourth piece
+of code had the same blindness — I checked myself: it does not.
