@@ -33,6 +33,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -156,6 +157,7 @@ func findOptionalExplicitWires(agents []liveAgent, acked map[string]bool) []opti
 // must never be reported as a pass.
 func emitOptionalExplicitWires(args []string) {
 	acksPath := "docs/agent_docs/docs024_key_docs_latest/architecture_review/optional_explicit_wire_acks.json"
+	report := false
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--acks" {
 			if i+1 >= len(args) {
@@ -165,7 +167,16 @@ func emitOptionalExplicitWires(args []string) {
 			}
 			acksPath = args[i+1]
 			i++
+			continue
 		}
+		if args[i] == "--report" {
+			report = true
+			continue
+		}
+		fmt.Fprintf(os.Stderr,
+			"config-key-audit --optional-explicit-wires: unrecognised argument %q "+
+				"(want: [--acks <file>] [--report])\n", args[i])
+		os.Exit(2)
 	}
 
 	acked, err := loadOptionalExplicitAcks(acksPath)
@@ -177,12 +188,44 @@ func emitOptionalExplicitWires(args []string) {
 		os.Exit(2)
 	}
 
-	raw, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "config-key-audit --optional-explicit-wires: reading stdin: %v\n", err)
-		os.Exit(2)
+	var (
+		agents []liveAgent
+		failed int
+	)
+	if report {
+		// Straight from Postgres: this image contains no kubectl and the service
+		// account has no pods/exec RBAC (see fleetdb.go).
+		var db *sql.DB
+		db, err = dbConn()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config-key-audit --optional-explicit-wires: %v\n", err)
+			os.Exit(2)
+		}
+		// dbConn returns (nil, nil) when PG_CLIENTS_HOST is unset — "no DB
+		// configured" is deliberately not an error there. Every caller must
+		// therefore check for nil, and the sibling --report modes currently do
+		// not: they go straight to `defer db.Close()` and panic. A panic still
+		// exits non-zero so it cannot read as a pass, which is why this is a
+		// papercut rather than a defect — but it only ever fires for a person
+		// running the check by hand, i.e. exactly when a legible message is worth
+		// most. Not fixing the siblings from here: that is three other modes'
+		// behaviour and belongs in its own change.
+		if db == nil {
+			fmt.Fprintln(os.Stderr,
+				"config-key-audit --optional-explicit-wires --report: PG_CLIENTS_HOST is not set, "+
+					"so there is no fleet to read. In the CronJob this comes from the pod env; by "+
+					"hand, either export it or drop --report and pipe the fleet export on stdin.")
+			os.Exit(2)
+		}
+		defer db.Close()
+		agents, failed, err = loadLiveAgentsFromDB(db, "--optional-explicit-wires")
+	} else {
+		var raw []byte
+		raw, err = io.ReadAll(os.Stdin)
+		if err == nil {
+			agents, failed, err = decodeLiveAgents(raw, "--optional-explicit-wires")
+		}
 	}
-	agents, failed, err := decodeLiveAgents(raw, "--optional-explicit-wires")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config-key-audit --optional-explicit-wires: %v\n", err)
 		os.Exit(2)
@@ -196,6 +239,21 @@ func emitOptionalExplicitWires(args []string) {
 
 	findings := findOptionalExplicitWires(agents, acked)
 
+	if report {
+		summary := optionalExplicitRunSummary(len(agents), failed, acksPath, findings)
+		fmt.Print(summary)
+		// ONE row per run, clean or not — the convention every scheduled check
+		// here follows, and the reason is that a check which only speaks when it
+		// fails is indistinguishable from one that has stopped running. A MISSING
+		// row must mean "the job did not run", never "nothing is wrong".
+		writeDocNote("optional-explicit-wires", summary,
+			"optional-explicit-wires", "optional-explicit-wires-check")
+		if unacknowledgedCount(findings) > 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(findings); err != nil {
@@ -203,12 +261,7 @@ func emitOptionalExplicitWires(args []string) {
 		os.Exit(1)
 	}
 
-	var unacked int
-	for _, f := range findings {
-		if !f.Acknowledged {
-			unacked++
-		}
-	}
+	unacked := unacknowledgedCount(findings)
 	fmt.Fprintf(os.Stderr,
 		"config-key-audit --optional-explicit-wires: %d agents decoded (%d undecodable), "+
 			"%d live `?` wire(s) on the ExtractActionInputs surface, %d unacknowledged\n",
@@ -220,4 +273,48 @@ func emitOptionalExplicitWires(args []string) {
 				"string or zero it will render or persist.\n", acksPath)
 		os.Exit(1)
 	}
+}
+
+// unacknowledgedCount is the exit-code decision in one place: the report half
+// and the stdin half must agree on what counts as a finding, or a green cron
+// and a red hand-run would disagree about the same fleet.
+func unacknowledgedCount(findings []optionalExplicitWire) int {
+	n := 0
+	for _, f := range findings {
+		if !f.Acknowledged {
+			n++
+		}
+	}
+	return n
+}
+
+// optionalExplicitRunSummary is the doc_notes body. It states the ACKNOWLEDGED
+// count as well as the unacknowledged one, because "0 wires" and "3 wires, all
+// acknowledged" are both clean and a reader needs to tell them apart — the
+// first can also mean the marker is unused, and reading that as "the gate is
+// working" is the failure this whole check exists to prevent.
+func optionalExplicitRunSummary(agents, failed int, acksPath string, findings []optionalExplicitWire) string {
+	unacked := unacknowledgedCount(findings)
+	var b strings.Builder
+	fmt.Fprintf(&b, "optional-explicit-wires: %d live `?` wire(s) on the ExtractActionInputs surface, "+
+		"%d acknowledged, %d UNACKNOWLEDGED (%d agents, %d undecodable; acks=%s)\n",
+		len(findings), len(findings)-unacked, unacked, agents, failed, acksPath)
+	if len(findings) == 0 {
+		b.WriteString("  No adopters. The marker is opt-in, so this is the expected state until a " +
+			"migration wires one; it is NOT evidence that anything was checked and passed.\n")
+	}
+	for _, f := range findings {
+		state := "ack"
+		if !f.Acknowledged {
+			state = "UNACKNOWLEDGED"
+		}
+		fmt.Fprintf(&b, "  [%s] %s %s -> %s.%s = %s\n",
+			state, f.Agent, f.Path, f.Action, f.Field, f.Reference)
+	}
+	if unacked > 0 {
+		fmt.Fprintf(&b, "  Each unacknowledged wire needs an entry in %s stating what was checked "+
+			"DOWNSTREAM: that the consuming code treats an absent field as a safe no-op, not as an "+
+			"empty string or zero it will render or persist.\n", acksPath)
+	}
+	return b.String()
 }

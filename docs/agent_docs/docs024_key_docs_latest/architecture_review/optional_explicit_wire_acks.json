@@ -8,6 +8,12 @@
     "review": "docs/agent_docs/sql_for_agents/515_page_build_handler_plan_sections_declares_page_type.sql"
   },
 
+  "create_tool_component.replace_existing": {
+    "downstream": "PROVISIONAL — written 2026-08-21 by the marker session from migration 532's own header, NOT by the wire's author; 532's author should confirm or correct it. Absence is not merely safe here, it is the ONLY correct behaviour and it is pinned: TL-047 records 'absent ⇒ byte-identical (pinned)' at the action layer, and CreateToolComponentInputSpec's own comment states 'absent ⇒ today's path' (the already_exists short-circuit). This wire exists BECAUSE absence broke: migration 496 wired it strictly (`replace_existing!`) at 12:12Z, which fails extraction outright when the field is missing, so every plain add_tool with no replace_existing in its spec died at save_tool while its work item read `complete`. 532 converted it to `?` at 13:50Z precisely to keep the search exclusion while allowing absence. So the downstream question this ack exists to ask was answered in production, in the hard direction, on the same day.",
+    "date": "2026-08-21",
+    "review": "docs/agent_docs/sql_for_agents/532_tool_generator_replace_existing_optional_marker.sql"
+  },
+
   "create_tool_component.related_pages": {
     "downstream": "Read first-hand 2026-08-21. Both tool build actions reach one helper, relatedPagesFromInputs (create_tool_cross_link_items.go:443, called from create_tool_component_action.go:527 and deploy_tool_action.go:271,548): with the field absent, GetRaw returns nil and it re-reads the SAME declared path directly, which is also nil, so absence propagates and nothing reaches for a search. Absence is then INSTRUMENTED rather than merely tolerated (create_tool_cross_link_items.go:142-151): `if len(req.relatedPages) == 0` logs at info and records a counted skip with reason `no_related_pages` and the comment 'Not a defect: a suggestion may legitimately name no related pages', then returns 0 — emitting no cross-link items. Emitting none is the CORRECT behaviour for a spec that names no related pages, and is the whole point of bugs_open/330: the value being substituted today is another tool's.",
     "date": "2026-08-21",
