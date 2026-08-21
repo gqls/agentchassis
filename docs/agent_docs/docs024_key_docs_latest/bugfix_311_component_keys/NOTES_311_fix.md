@@ -893,3 +893,48 @@ plain oldest-first I described in the RUNBOOK; worth correcting there once I hav
 > exercise**, and the thing to read is `diverted_from_component_id` in the item's result, never the
 > status. The incumbent here carries `section_type = ''` (empty, not NULL), so the selector cannot
 > match it and `needs_new_component` is the correct route regardless.
+
+## 2026-08-21 12:05Z — RESULT on the originating page: **311's diversion FIRED, and a THIRD mechanism blocks the page.** Filed as `bugs_open/345`
+
+**The good half, and it is the one this lane cares about.** The rejection message names
+`function="mortgages-repayment-remortgagecalculator-uk"` — **the site-scoped name**. So on the very
+page whose failure opened this bug, the store resolved the collision, chose to divert, and derived
+the correct identity. **311's fix is exercised on its own originating case.** The refusal came from
+*downstream* of it, which also pins the ordering: identity resolution precedes pre-store validation.
+
+**The blocking half.** Item `95fe67da` failed at `store_component` twice — 10:24:55Z and 11:42:34Z —
+**identically**:
+
+> field `"currency_symbol"` declares source `"site_specs.locale.currency_symbol"` but no site carries
+> a `site_specs` aspect named `"locale"` … (`bugs_open/309`)
+
+The writer invented the source: `grep -rn "locale"` / `currency_symbol` over `platform/`,
+`internal/` and `sql_for_agents/` returns **nothing**. So the guard is right, and **seeding a
+`locale` aspect to make one hallucinated field resolve would be fixing the checker to agree with
+the broken output** — the antipattern this estate has a landmine for. Not done.
+
+**Why it will not fix itself, measured rather than guessed** [12:05Z]: `generate_template`'s live
+step config is `input_fields: ["input_data","site_record","site_specs","existing_component"]` —
+**no field for the previous failure.** The retry gets identical inputs, so it gives an identical
+answer. Fleet-wide: **99 `component_validation_rejected` rows, 3 sites, and every item with repeats
+has exactly ONE distinct reason** — and item `8c8f5de5` (loanzy) produced **52 rejections in 3h34m
+while `attempt_count` capped at 3**, so ~17 generations burn inside a single attempt. Applied my own
+`016b` §9 diagnostic this time *before* predicting a retry would help, which is the one thing I got
+wrong on Wednesday.
+
+**Filed `bugs_open/345`** with candidates ranked (feed the rejection back · classify a validation
+rejection non-retryable · bound the inner loop · and the weakest, re-enumerate valid sources — weak
+because `site_specs` is **already** an input, so the writer could see the real aspect list and
+invented one anyway).
+
+### Standing state of the originating page
+
+`remortgagecalculator.uk/index.html` still serves 200 / **40,726 bytes / 0 `<input>`** — unchanged
+from the baseline, because a refused store writes nothing. The site is now **unlocked**, the two
+dedup keys are free, the incumbent is pinned same-day, and `311`'s half of the work is proven —
+so the moment `345` is fixed this page is a one-command repair. **Three mechanisms have now each
+independently blocked a 311 repair** and none of them is 311: `pages.status='archived'` (loanzy
+loan-repayment), the `253` component floor on an unrelated slot (loanzy stress-test), and now a
+deterministic invented-source rejection (remortgage index). That pattern is itself worth stating
+plainly to the owner: **the collision fix works; what remains between a diverted component and a
+serving page is a queue of unrelated guards.**
