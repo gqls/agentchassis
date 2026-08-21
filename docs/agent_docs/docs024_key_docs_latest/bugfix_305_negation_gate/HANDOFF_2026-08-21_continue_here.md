@@ -20,7 +20,8 @@ lane built the platform half and contributed it back into that file, §8–§17)
 |---|---|---|
 | the scanner + repair (`rewrite_negations`) | **LIVE** | `grep -ac 'rewrite_negations' /proc/1/exe` = 7 on BOTH replicas, control `rewrite_negationz` = 0 |
 | the counting annotation | **LIVE, opt-in, on this agent only** | `copy_gate_annotate` = 1 in the binary; `true` at both step paths in `agent_definitions` |
-| migration `509` | **APPLIED 2026-08-21** | chain reads `generate_content → rewrite_negations → render_section`, `page_budget` 2 |
+| migration `509` | **APPLIED 2026-08-21 10:28Z** | chain reads `generate_content → rewrite_negations → render_section`, `page_budget` 2 |
+| migration `517` | **APPLIED 2026-08-21 10:40Z** — the repair had NO `ai_service` and was live-but-blind on the first page | `copy_gate` marker went from `repair_unavailable` to needing its next run to confirm; both 509 and 517 recorded in the runner's ledger with `--record-only` |
 | `brief-negation-check` | **LIVE daily 07:40 UTC**, `v1.0.1320` (rebuilt from HEAD), `imagePullPolicy: Always` | behavioural probe: reports "9 of 25" + a `regulatory (left alone)` column, which only the current code produces |
 | council | **APPROVED**, `Council-Reviewed: c48b7612-3ecc-4345-912e-5966c079cb91` | 4 advisories at medium, none high; 11 of 14 seats approved outright |
 | the three complained-of pages | **STILL SERVING IT** — 4 of 6 hero/CTA components | `page_components.content_data ~* '\w,\s+(not|never)\s+\w'` |
@@ -28,7 +29,19 @@ lane built the platform half and contributed it back into that file, §8–§17)
 
 ## What is left
 
-**1. The per-page budget canary — the only open technical question.** ⚠ It cannot precede the apply
+**0. CONFIRM THE REPAIR NOW WORKS — one query, and it is the first thing to do.** `517` fixed a
+live-but-blind gate; nothing has exercised it since (no writer orchestration after 10:40Z at the time
+of writing). The repair is proven the moment either of these is non-empty:
+```sql
+SELECT created_at, success, output_tokens, left(error_message,50) FROM llm_call_log
+ WHERE error_message LIKE 'RETRY (bugs_open/305%' ORDER BY created_at DESC LIMIT 5;
+SELECT collected_data->'copy_gate'->>'status', count(*) FROM orchestration_states
+ WHERE collected_data ? 'copy_gate' GROUP BY 1;   -- 'repaired' is the goal; 'repair_unavailable' means still blind
+```
+⚠ If it still says `repair_unavailable` with a DIFFERENT error, read that error — it is a second cause,
+not the same one.
+
+**1. The per-page budget canary — still open, and the first run could not decide it.** ⚠ It cannot precede the apply
 (the marker only exists once the step runs; my own precondition said otherwise and is corrected in
 `509`'s header). Run it on the first page built after 2026-08-21:
 
@@ -36,13 +49,20 @@ lane built the platform half and contributed it back into that file, §8–§17)
 SELECT jsonb_pretty(collected_data->'__copy_gate') FROM orchestration_states
  WHERE collected_data ? '__copy_gate' ORDER BY updated_at DESC LIMIT 5;
 ```
-`page_hits` must **accumulate** across a page's sections. What is already measured: non-output keys
-written straight into `CollectedData` DO reach the durable row (all 13 recent writer orchestrations
-carry `agent_config` and `__my_requests_topic__`, neither a step output). What is NOT established is
-survival across the **await inside the loop** (`call_researcher`), because
-`saveStepResultWithRetry` (`coordinator.go:1076`) loads a fresh state and copies only that step's own
-`stepName`/`output_field`. **If it resets, the gate still repairs every headline hit and budgets per
-section — weaker than intended, not wrong.** Rollback sidecar exists if the answer is unacceptable.
+**MEASURED 2026-08-21 and it is worse than hoped, but the answer is still not decided.** `copy_gate`,
+`copy_gate_0` and `copy_gate_1` all reach the durable row (the step's **output_field**, which
+`saveStepResultWithRetry` copies); **`__copy_gate` does NOT** — that function
+(`coordinator.go:1076`) loads a fresh state and copies only the step's own keys. The earlier
+`agent_config` evidence was misleading: that key survives because it is written before an AWAIT, where
+the full state is persisted.
+
+⚠ **And the one available run could not discriminate:** iteration 0 had **0** hits, iteration 1 had 3,
+so `page_hits: 3` is equally consistent with accumulating and with resetting. **It needs a page where
+two sections both carry hits.** Until then: per-page budget UNPROVEN, live behaviour is the safe
+fallback (per-section budget, every headline hit repaired regardless), page total counted at
+`compile_page_sections` either way. **If you want it properly per-page, the mechanism is to carry the
+count in the step's OUTPUT (which persists) and read the previous iteration's suffixed key
+(`copy_gate_<N-1>`) — do not put it back in a bare `CollectedData` key.**
 
 **2. `invented_superlative` is NOT in the running binary** (probed: 0). `v1.0.1321` predates commit
 `1ac9b8890`. The **accuracy-claim family is covered** anyway — the fleet-wide banned-claim set already
