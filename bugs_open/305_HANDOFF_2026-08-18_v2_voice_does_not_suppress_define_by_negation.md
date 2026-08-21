@@ -541,3 +541,49 @@ where that gets settled. And `reuse_agent` is right that the truncation three-st
 shared `aiservice` helper; extracting it means touching other actions' truncation handling, which is
 not something to do inside a round whose purpose was to contain scope. It is named in the lane NOTES
 as the next reuse step, with the instruction to audit the other call sites rather than move one.
+
+## §18. LIVE 2026-08-21 — and the first live page showed the gate was BLIND
+
+**Both halves are now live.** Chassis `v1.0.1321` (probed on both replicas: `rewrite_negations` 7,
+`copy_gate_annotate` 1, control 0); migration `509` applied 10:28Z; `brief-negation-check` running
+daily since 08-20.
+
+**The first page built after `509` reported this** (orch `8ce1ebc0`, iteration 1, 10:31Z):
+
+```json
+{"status":"repair_unavailable","error":"no ai_service configuration resolvable",
+ "hits_before":3,"targets":1,"within_budget":2,"rewritten":[],"hits_after":3}
+```
+
+Detecting correctly, **repairing nothing**. `resolveAIServiceConfig` reads the agent's ROOT
+`ai_service` block and `workflow.steps.<currentStep>.config.ai_service`. `page-content-writer` has no
+root block — its model sits on `generate_content` — and `currentStep` for a loop substep is
+`process_sections_loop_iter_N_rewrite_negations`, which is not a top-level step. Neither lookup could
+resolve anything. **Fixed by migration `517`** (applied 10:40Z), which declares the block on the step
+itself rather than reaching across to the sibling's config.
+
+**Why this is the most useful thing that has happened to this fix:** it was visible in ONE query, and
+only because the council's round-4 advisory made me distinguish an infrastructure failure from a style
+outcome. Without `status: repair_unavailable` and its Error log, the gate would have been live, silent,
+and returning a clean-looking status while repairing nothing — the armed-but-inert shape. **An
+advisory I could have banked paid for itself within a day.**
+
+### ⚠ The per-page budget is UNPROVEN, and the one run available could not decide it
+
+`copy_gate`, `copy_gate_0` and `copy_gate_1` all reach the durable row (the step's **output_field**,
+which `saveStepResultWithRetry` copies); **`__copy_gate` does not** — that function loads a fresh state
+and copies only the step's own keys. So the counter does not persist through the durable row.
+
+And the run **could not discriminate**: iteration 0 had **0** hits and iteration 1 had 3, so
+`page_hits: 3` is equally consistent with accumulating and with resetting. It needs a page where two
+sections both carry hits. **Until then: the per-page budget is unproven, the live behaviour is the safe
+fallback (per-section budget, every headline hit repaired regardless), and the page-level total is
+counted at `compile_page_sections` either way.**
+
+### What is live is slightly weaker than HEAD, deliberately stated
+
+`v1.0.1321` predates commit `1ac9b8890`, so `invented_superlative` is **not** in the running binary
+(probed: 0). The accuracy-claim family — the dangerous one — is covered regardless, because the
+fleet-wide banned-claim set already catches *always accurate*, *definitive*, *guaranteed accurate*,
+*every claim is verified* and *never wrong*. Uncovered until the next roll: *industry-leading*,
+*best-in-class*, *100%*, *flawless*. No action needed; do not re-add it.
