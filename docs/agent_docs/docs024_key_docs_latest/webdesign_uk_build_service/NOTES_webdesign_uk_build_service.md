@@ -5126,3 +5126,68 @@ form". Owner's call.
 `confirm_transfer` token in production, and the nginx block is written but NOT deployed
 (applying it is `nginx -t && systemctl reload nginx` on the box). Today `/c/` is reachable
 only from inside the cluster and would answer "that link is no longer active".
+
+### 2026-08-21, evening — the content policy, and a same-day repeat of the morning's own landmine
+
+**Owner ruling:** *"in our terms and conditions I'd like to add that we don't want to do
+porn, violence, politics or otherwise distateful sites and if we get those briefs rather
+than refunds, we reserve the right to change the brief and deliver a site that is within
+the bounds of respectability within their genre of request."*
+
+Applied as `SQL_2026-08-21c` (+ `21d`, the correction below). **facts 23 → 24, bans
+unchanged.**
+
+**Why the register and not a terms page: there IS no terms page.** The site has 8 pages
+and none of them is one, even though `writer_block` already tells the writer to point at
+"the full terms". Building it is a framework job. Meanwhile the register is the wire, and
+the chat bot is the only intake this business has until Stripe lands, so attesting the
+policy makes it answerable *today*.
+
+**The remedy is stated, not the refund.** "rather than refunds" is the owner ruling one
+out, not mentioning one. `no_refund` is attested already and the refund ban is armed and
+broad, so the fact says what happens INSTEAD and never names refunds. The verify block
+refuses the fact if `claim` or `writer_line` contains "refund" at all.
+
+**MISSTEP — and it is the morning's own landmine, walked into from the other side.** 21c
+narrowed `any_site_type`'s **writer_line** and left its **claim**. Those have different
+readers: `writer_line` steers the page writer via `writer_block`; **`claim` is what the
+chat bot reads out verbatim** (`renderSystemPrompt` writes `"- " + f.Claim` and never sees
+`writer_line`). So minutes after the policy went live:
+
+> *"I want a site for my adult entertainment business, quite explicit. Can you do that?"*
+> → **"Yes, we can build a site for that. The system builds any sort of site."**
+
+Two contradictory claims in one prompt is not a coin toss: the permissive one answered the
+question asked and the restrictive one read as being about something else. Fixed by `21d`,
+whose guard now asserts **both** fields together. Logged in `WRONG_CALLS.md`. **The morning's
+landmine entry was about `writer_block` being left behind while facts moved; this is the
+same seam in the opposite direction, eight hours later, by the person who filed it.**
+
+**Verified at the artefact after 21d** (polled until the 5-minute facts cache turned over,
+rather than assuming):
+
+> *"We can build a site for adult entertainment, yes. The one thing to know upfront is that
+> we don't build pornographic content... A site for escort services, lingerie, sexual
+> wellness products, BDSM instruction, erotic writing, that sort of thing, we can work
+> with. We'd build something that's explicit enough to be clear what you do, but not
+> pornographic."*
+
+That is the owner's ruling working as written: not a refusal, an amended brief within the
+customer's own genre.
+
+**Two findings from the same claimscan run, neither fixed.**
+
+1. **Nothing enforces the no-approval-stage rule.** *"You will be able to approve the site
+   once you have seen it"* scans **CLEAN**. `one_shot_no_approval` is attested and
+   `writer_block` forbids approval copy, but there is no ban. **This matters more from
+   today**, because the owner has just asked for an internal approval step before the
+   delivery email, and internal steps leak into customer copy. The fix is a ban, but it
+   must be an **offer-shape** ban or it blocks the denial too (the 2026-08-19 `round of
+   changes` narrowing is the worked precedent, and the attestation test in the handoff §3.1
+   is the rule).
+2. **The bot broke its own conduct rule** in the verified answer above: it used an em dash.
+   `promptConduct` says "no em dashes" and `facts_test.go` tests the conduct string for
+   exactly that, on the grounds that prompt text is read as an example. The rule is in the
+   prompt and the model ignored it, which is a different failure from the register's (where
+   the ban is enforced at the gate). Worth a look before the bot writes anything a customer
+   keeps.

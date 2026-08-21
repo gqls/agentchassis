@@ -42199,3 +42199,61 @@ So mark them when you hand them over: *"(1) is measured, here is the query; (2) 
 code, please verify."* Their own entry records the mirror lesson from their side — that a ground
 relayed by the owning session is still a claim. Both halves are needed, and mine is the one that
 caused it.
+
+---
+
+## 2026-08-21 — I narrowed a fact and the chat bot went on saying the un-narrowed thing. The register looked right and the only live customer surface was wrong.
+
+**The claim.** `SQL_2026-08-21c` applied the owner's content policy (no pornographic, violent
+or political sites; a distasteful brief is amended rather than cancelled). It also narrowed
+`any_site_type`, which had said *"builds any sort of site"* and was now false as an
+absolute. I wrote a verify block asserting exactly that narrowing, mutation-tested it five
+ways, watched all five fire, applied it, and confirmed at the register: **24 facts, the
+collision handled.**
+
+**What caught it.** Asking the bot, which I did only because it is this lane's habit:
+
+> **Q:** *"I want a site for my adult entertainment business, quite explicit. Can you do that?"*
+> **A:** *"Yes, we can build a site for that. **The system builds any sort of site.**"*
+
+Minutes after the policy went live, the only customer-facing surface this business has said
+yes to the exact brief the policy exists to refuse.
+
+**Why.** A fact has two consumer-facing fields and they have **different readers**:
+
+| field | who reads it |
+|---|---|
+| `writer_line` | the page writer, via `writer_block` |
+| `claim` | **the chat bot, verbatim** — `renderSystemPrompt` (box/chat-service/facts.go) writes `"- " + f.Claim` for every fact and never sees `writer_line` at all |
+
+**I narrowed `writer_line` and left `claim` alone.** So I fixed the half that steers pages
+nobody has rebuilt, and left the half that is read aloud to customers today. My verify block
+asserted the narrowing I had made, not the narrowing the ruling required — a guard can only
+be as wide as the author's model of the seam, and mutation-testing it five ways made a
+wrong model *feel* rigorous.
+
+**And two contradictory claims in one prompt is not a coin toss.** The permissive one
+answered the customer's question directly and the restrictive one read as being about
+something else, so the model took the one that fitted the sentence in front of it. The
+collision did not produce hedging; it produced a clean, confident yes.
+
+**The cheap check that would have.** The one I eventually ran: ask the bot. Thirty seconds,
+and it is the artefact. **Also: grep the diff for the sibling field.** Any edit touching
+`writer_line` should ask what `claim` says, and vice versa — they are one statement stored
+twice, for two audiences.
+
+**What makes this sharp rather than embarrassing.** It is the EXACT seam this lane filed a
+landmine about eight hours earlier, from the other side: that morning the trap was
+`writer_block` left behind while the facts moved. I wrote that entry, filed it, had it
+verified — and then walked into the same seam from the opposite direction the same day.
+**Knowing a seam exists is not the same as checking it in the direction you are travelling.**
+
+**Fix.** `SQL_2026-08-21d`, twenty minutes later: `any_site_type`'s claim narrowed to match,
+with a pointer to `content_we_will_not_build` so a reader of one cannot miss the other. Its
+verify block now asserts BOTH fields together and refuses if either still carries the
+unbounded phrasing. Re-verified at the bot: it now separates adult-adjacent business from
+pornographic content and offers to build within the customer's own line of work.
+
+**Tally line.** "Narrowed one of a fact's two consumer fields" — 1 (this). Family: the
+`writer_block`-vs-`facts` drift landmine of the same morning. Both are the same underlying
+error — *one statement, several stores, one reader each* — and the tally is now 2 in a day.
