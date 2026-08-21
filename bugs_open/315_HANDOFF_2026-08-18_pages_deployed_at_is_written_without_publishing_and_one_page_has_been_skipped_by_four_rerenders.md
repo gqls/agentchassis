@@ -1,6 +1,37 @@
 # 315 — `pages.deployed_at` is stamped whether or not the object is written, and one page has now been skipped by FOUR completed rerenders
 
-**Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane. **Status: OPEN, UNOWNED.**
+**Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane. **Status: OPEN, OWNED** by
+`docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/` — **three of the
+four fix candidates are DELIVERED; two migrations are written and proven but NOT YET APPLIED.**
+
+> **STATE AS OF 2026-08-21 EVENING — read the lane's handoff before acting on anything below:**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/HANDOFF_2026-08-21_continue_here.md`
+>
+> - **Candidates 1 + 2 — DELIVERED AND LIVE.** Migration 491 removed the two pre-deploy stamps; the
+>   git-adapter now reports `commit_sha` + `files_sha256` (RFC_038, register `DGH-013`); and
+>   `update_page_status` refuses the stamp on a reported skip and writes `pages.content_hash`
+>   (migration 494, applied 2026-08-20). `[MEASURED 2026-08-21]` **232 pages carry a fingerprint**,
+>   where all estate history had 0.
+> - **Candidate 4 — BUILT, LIVE IN THE BINARY, NOT YET SWITCHED ON.** The divergence sweep is
+>   `page_content_divergence` (register `DGH-015`), shipped in chassis `v1.0.1322`. Two migrations
+>   remain to be applied, **in this order**: `547` (arm three unarmed deployed-stampers) then `526`
+>   (enable the check). `526` REFUSES if `547` has not run.
+> - **⚠ §5 CANDIDATE 4'S OWN METHOD DOES NOT WORK, and this file still describes it below.** Comparing
+>   `deployed_at` against origin `last-modified` — including the §2 table above — returned **40 of 40
+>   "stale" on healthy pages, persisting 85 minutes**, when run across the fleet on 2026-08-19. A
+>   byte-identical rerender legitimately rewrites nothing, so the origin's mtime cannot answer this.
+>   **Only a content hash separates "never needed republishing" from "failed to republish"**, which is
+>   this bug's deep finding and why the delivered fix records a fingerprint instead. §2's conclusion
+>   ("the column tracks a rerender ran, not bytes were written") is **correct**; its method is not
+>   reusable.
+> - **Candidate 3 — NOT ANSWERABLE FROM HERE, by design.** "Why did one page fall out of the batch"
+>   lives in the private `gqls/sites` runner repo. Candidate 4 detects that failure from this side
+>   instead of explaining it from theirs.
+> - **TO CLOSE THIS BUG:** apply `547`, then `526`, then confirm one real run of the check (damage
+>   query FIRST — see the migration headers). The lane's own proof is re-runnable:
+>   `[MEASURED 2026-08-21]` 228 of 228 active hashed pages served bytes hashing exactly to their
+>   stored fingerprint, across 12 domains.
+
 Two findings: a **measurement defect** that makes the failure invisible (§2), and a **live instance**
 of the failure it hides (§3). The measurement defect is the more important of the two.
 
