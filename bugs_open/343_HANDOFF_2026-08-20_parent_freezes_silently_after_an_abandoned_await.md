@@ -179,6 +179,13 @@ designed, not this bug.
 > and `orchestration_states.error` turn out to be **completely disjoint** for Kafka errors
 > (**125** / **1** / **0** in both — not a retention artefact, identical over the common window). I
 > had checked `orchestration_states.error` for both and **inferred silence from a single surface.**
+>
+> **The general form is stronger and is what to remember** (measured by the peer session, verified
+> here): the sinks are **not** disjoint in general — **23,230** orchestrations have `agent_error_log`
+> rows, **22** have `orchestration_states.error` set, **9** of those 22 in both. The Kafka zero is a
+> property of that class. **What generalises is the denominator: `orchestration_states.error` is
+> populated for ~0.1% of what the other sink covers, so it is not a rate instrument for anything.**
+> Contributed to `bugs_open/040`, whose own "How to verify" points readers at that near-empty column.
 > A per-instance "this one was silent" claim is unsafe unless both surfaces are read.
 
 **One retention correction that CONFIRMS this file rather than undermining it.** `min(created_at)` on

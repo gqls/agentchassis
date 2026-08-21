@@ -938,6 +938,23 @@ retention lasts" names the surface that holds 1 of 126.** Any rate or blast-radi
 bug should come from `agent_error_log`; a census on `orchestration_states.error` sees **under 1%** of
 instances and will read as "rare and improving" regardless of what is happening.
 
+**SHARPENED 2026-08-21 (029/343 lane, second session) — and the sharper form is the one to act on.**
+The disjointness above is **specific to this error class**; the two sinks are *not* disjoint in
+general. Whole retained window, `[MEASURED]`: **23,230** distinct orchestrations have
+`agent_error_log` rows, **22** have `orchestration_states.error` set, and **9 of those 22 are in
+both**. So they do overlap — and the real point is the denominator, not the overlap:
+
+> **`orchestration_states.error` is populated for ~0.1% of what `agent_error_log` covers (22 vs
+> 23,230). It is not a lossy mirror of the other sink; it is barely populated at all, and it is not a
+> rate-measurement instrument for ANY class.**
+
+That makes the 1-of-126 above a **worked consequence rather than a special case**, and it is the
+sentence to put in front of anyone re-measuring this bug — because **this file's own
+"How to verify" hands them the near-empty sink**, where a zero ends the investigation. Related
+blindness in the same table, worth reading together: `agent_error_log` has **no column joining a
+parent orchestration to its child** (see `bugs_open/343`), so "what actually failed here" is hard from
+either direction.
+
 **The worked pair, which is how it was found and why it is easy to get backwards.** The two
 orchestrations recorded the *same* failure in *different* tables, and neither appears in both:
 
