@@ -197,3 +197,18 @@ late. Both were caught and repaired within minutes of being seen, and we have re
 with a method that cannot be late. What is left: four small tools, then thirteen whose logic lives
 in separate files, then the big ones you asked to review personally, one at a time. Four decisions
 are yours and none is urgent; they are listed at the top of the new handoff file.
+
+## 2026-08-21, afternoon — bug 331 is closed; re-fixing a tool is now one filing
+
+The "generator can never fix a tool it built" problem is done, end to end, and proven the hard way.
+The new build went live last night; the switch went on this morning; and the first real use caught
+three things in one afternoon. First, the safety gate we were made to add refused my own first
+attempt — rightly, because my instructions forgot to say "keep the explanatory text", and the rebuild
+would have dropped it. Second, the switch itself had a wiring fault that quietly broke every ordinary
+tool request across the fleet for an hour and a half — another session spotted it within the hour and
+I corrected it on the spot (one request affected, already redone; both fixes went back through the
+reviewers and passed). Third, with the wiring corrected and the instructions written properly, the
+oklch colour picker was rebuilt in place — same identity, old version kept automatically for undo,
+the CSS ordering defect fixed — and the live page now serves the corrected tool. The runbook's
+three-step manual workaround and its race are retired: fixing a built tool is now a single request
+with one extra line in it.
