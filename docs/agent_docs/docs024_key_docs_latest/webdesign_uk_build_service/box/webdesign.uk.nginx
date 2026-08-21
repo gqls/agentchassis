@@ -31,6 +31,7 @@
 # app code) — key on $http_cf_connecting_ip instead.
 
 limit_req_zone $http_cf_connecting_ip zone=chat_rl:10m rate=10r/m;
+limit_req_zone $http_cf_connecting_ip zone=confirm_rl:10m rate=20r/m;
 
 server {
     listen 127.0.0.1:8080;
@@ -80,6 +81,43 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout      30s;
         proxy_send_timeout      30s;
+    }
+
+    # Customer handover confirmation (Phase 4). NOT YET DEPLOYED TO THE BOX —
+    # this block is written here first so it ships with the change that needs
+    # it; applying it is `nginx -t && systemctl reload nginx` on the box.
+    #
+    # Same shape as /stripe/webhook above: upstream is a cluster service over
+    # wg0 by cluster-DNS name, resolved at CONFIG LOAD, so a Service recreate
+    # needs a reload. Upstream is core-manager (8088) because the token table
+    # and the sites table are its database, and the handler is pure SQL.
+    #
+    # ⚠ THE PREFIX IS THE EXPOSURE. core-manager is otherwise unreachable from
+    # outside the cluster and its site-facts relay reasons explicitly about
+    # that ("ClusterIP only, no ingress"). `location /c/` proxies EXACTLY the
+    # confirm-transfer path and nothing else; do NOT widen it to `/` or add a
+    # second location that forwards a longer prefix of core-manager's routes,
+    # or that reasoning silently stops being true for every site's data.
+    #
+    # A rate limit IS wanted here, unlike the Stripe path: this endpoint is a
+    # token guess away from nothing, but guessing is exactly what a bot would
+    # do, and no legitimate customer clicks a confirmation link ten times a
+    # minute. Keyed on CF-Connecting-IP per the tunnel warning above; keying on
+    # $binary_remote_addr would be one global bucket for every visitor.
+    #
+    # There is deliberately NO /d/ block. The download link needs a presign,
+    # which needs object-store credentials that no standing service holds by
+    # owner directive (bugs_open/245). See
+    # DECISION_2026-08-21b_zip_download_link_needs_a_credential_home.md.
+    location /c/ {
+        limit_req zone=confirm_rl burst=3 nodelay;
+        proxy_pass              http://core-manager.ai-persona-system.svc.cluster.local:8088;
+        proxy_http_version      1.1;
+        proxy_set_header Host   $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout      15s;
+        proxy_send_timeout      15s;
     }
 
     # check_backend_unreachable's contract: this must exercise nginx AND the

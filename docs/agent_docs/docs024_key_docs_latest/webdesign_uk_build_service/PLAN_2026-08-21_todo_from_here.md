@@ -17,13 +17,14 @@ Each of these blocks the next. Nothing else on this page matters until they are 
 
 | # | What | Who | Blocked on |
 |---|---|---|---|
-| 1 | **Stripe keys** into terraform; the webhook edge exception; the webhook hostname | **OWNER** | nothing — this is the top of the tree |
-| 2 | **Phase 4 HTTP surface** — `/d/<token>` mints a clamped presign and redirects; `/c/<token>` records the transfer confirmation | build | nothing; schema is live (migration 511, DGH-014) |
-| 3 | **The delivery email** through `platform/mailer` — ZIP link, live-site link, Netlify invite, both domain links, Stripe portal | build | 2 |
+| 1 | **Stripe keys** into terraform; the webhook edge exception; the webhook hostname | **OWNER — "I will do Stripe later" (2026-08-21)** | nothing. Deferred by the owner, so it no longer gates 2–5; it gates only the moment money can actually be taken |
+| 2a | ~~`/c/<token>` records the transfer confirmation~~ **BUILT 2026-08-21** — handler, deps seam, route outside AuthMiddleware, 6 tests each mutation-proved, nginx block written. Council `99b5af22-7150-4e91-a5e3-809fd06504c0`. **Inert until something mints a token AND the box nginx is reloaded** | done | — |
+| 2b | **`/d/<token>` — BLOCKED, not built** | **OWNER** | needs a credential home: no standing service may hold object-store keys (`bugs_open/245`). Five options costed in `DECISION_2026-08-21b_zip_download_link_needs_a_credential_home.md`; recommendation is a narrow read-only `delivery-edge` |
+| 3 | **The delivery email** through `platform/mailer` — live-site link, confirm-transfer link, Netlify invite, both domain links, Stripe portal | build | **2a only.** It can ship WITHOUT the ZIP link and gain it later, so 2b does not block it. ⚠ Mint the confirm token **NOT single-use** (decision 21b §4: a mail scanner's prefetch would otherwise spend it and lock the customer out) |
 | 4 | **The weekly chase email** — two subjects: site off our hosting, bought domain off our registrar account | build | 3 |
 | 5 | **The retraction job** — gives `live_link_expires_at` teeth; today nothing expires and serving is unbounded | build | 2 |
 
-**Note on 2:** this is also what delivers the owner's "longest link we have" ruling. It
+**Note on 2b:** this is also what delivers the owner's "longest link we have" ruling. It
 cannot be delivered as a number — a presigned URL is capped at 7 days by the signing
 protocol and the code already sits exactly on that ceiling. A token of ours, redeemed for
 a fresh short presign, makes the window ours. Same mechanism as `/c/`, so build them
@@ -33,7 +34,7 @@ together.
 
 | | Decision | Why it matters | Recommendation |
 |---|---|---|---|
-| D1 | **Whose name is on a domain during the rental** | Changes every sale: ours = renting is safe but a sale is two Nominet operations; theirs = a sale is nearly free but a renter can leave with the domain unpaid | **Ours.** Decision doc §4 |
+| ~~D1~~ | ~~Whose name is on a domain during the rental~~ | **RULED 2026-08-21: the owner's name, until a sale is agreed.** Every £200 sale therefore includes a Registrant Transfer performed by us, with a Nominet fee. Decision doc §4 | **settled** |
 | D2 | **Second Nominet TAG** (domain programme only) | Separate programme, not this lane's critical path | — |
 | D3 | **Contact email** `webdesign@contactforsales.com` — domain mismatch (item `a8d6f440`) | Small, visible on every page | pick an address on a domain we own |
 

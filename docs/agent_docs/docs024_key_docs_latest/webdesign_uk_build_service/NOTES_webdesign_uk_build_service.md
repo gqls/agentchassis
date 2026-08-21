@@ -5056,3 +5056,73 @@ single date, the checkpoints (first sale / 2026-12-01 / 2027-02-09) are written 
 decision doc, the RUNBOOK and the handoff's open list, i.e. into the cold-start read
 order. **Recorded as a known weakness:** a date with no owner is not a plan, and every
 session between now and February will correctly conclude this is not their problem.
+
+### 2026-08-21, later — Phase 4's HTTP surface: half built, half BLOCKED by a directive I found rather than a gap
+
+Owner: *"my name until we agree a sale. Please carry on. I will do Stripe later."* D1 ruled
+(the domain sits in the owner's name for the whole rental); Stripe deferred, so it no
+longer gates 2–5 on the plan. Carried on with the Phase 4 HTTP surface.
+
+**`/c/<token>` — BUILT.** `internal/core-manager/handlers/delivery.go` + a one-method deps
+seam + one route + 6 tests. Council submitted, `99b5af22-7150-4e91-a5e3-809fd06504c0`.
+
+**`/d/<token>` — NOT BUILT, and the reason is a standing owner directive.** Full write-up:
+`DECISION_2026-08-21b_zip_download_link_needs_a_credential_home.md`.
+
+To mint a presign a process needs object-store credentials. `[MEASURED 2026-08-21]`
+`B2_APPLICATION_KEY_ID` is unset in the running pods of `agent-chassis`, `auth-service`,
+`core-manager` and `admin-dashboard`; the only manifests carrying B2 keys are adapters,
+the `database-backup` CronJob, and spawned-pod templates. **And the mechanism, which is
+the part that decides it:** they were removed from the standing chassis on 2026-08-11
+under `bugs_open/245`, whose first line quotes the owner — *"the agent chassis shouldn't
+carry b2 credentials"*. Giving `core-manager` a B2 key would hand a standing service
+exactly what another standing service had taken away ten days earlier. Five options
+costed, none applied, recommendation is a narrow read-only `delivery-edge`.
+
+**MISSTEP, and the control caught it.** My first survey probed one variable
+(`B2_APPLICATION_KEY_ID`) across five pods and I wrote down "no long-running service holds
+B2 credentials". Then the manifest grep showed `agent-chassis`'s production overlay
+*referencing* `B2_APPLICATION_KEY` — apparently contradicting me. Reading it resolved the
+contradiction in my favour but for a reason I had not known: the reference is a COMMENT
+recording the removal. **The claim was right and my evidence for it was not** — a
+one-variable pod probe cannot distinguish "never had it" from "had it and lost it", and it
+is the second that makes this a directive rather than an accident. `[MEASURED]` is not the
+same as `[EXPLAINED]`, and only the explanation was decision-grade.
+
+**Design notes worth keeping.**
+
+- **There is NO Ingress in this cluster at all** (`kubectl get ingress -A` → "No resources
+  found"). Every customer-facing path arrives at the webdesign.uk box, whose nginx listens
+  on loopback behind a cloudflared tunnel and proxies NAMED paths to cluster services over
+  WireGuard. `/stripe/webhook` → auth-service is the proven instance; `/c/` → core-manager
+  is the second. **The exposure is exactly the prefix nginx names**, which is why the
+  location is bounded and the comment forbids widening it: `sitefacts.go` in the same
+  service reasons explicitly about core-manager not being publicly fronted, and this must
+  not quietly make that false.
+- **Route at the ROOT, not `/api/v1`**: it goes in an email, gets read aloud and retyped.
+- **200 on failure, not 404**: a 404 from a link we sent reads as "we have lost your
+  site". But every failure reason renders ONE message, carrying `ErrTokenNotFound`'s
+  own "do not be an oracle" rule up to the layer a stranger can observe. A DB fault
+  renders a different page, because telling a customer their link is invalid when it is
+  not sends them to an inbox we do not staff.
+
+**Tests: 6, each proved to fail.** The fake confirms ANY token, which is what makes the
+length-guard case a real assertion — delete the guard and the request reaches the fake,
+succeeds, and renders success. Asserting "the dependency was not called" would have proven
+nothing (LANDMINES: assert the EFFECT, never the absence of a call). Mutations run and all
+caught: length guard removed · failure page names the reason · `Referrer-Policy` removed ·
+DB error rendered as a bad link · an em dash in the copy. Boundary tested both ways, so an
+off-by-one on `maxTokenLen` fails too.
+
+**HAZARD raised, not fixed.** `/c/` is a GET that mutates state, which the no-form ruling
+requires. Mail scanners prefetch links in email: such a fetch stamps a transfer confirmed
+with no customer involved, and if the token were single-use it would also spend it so the
+real click fails. **The lockout half is a one-argument fix at the unbuilt minting site —
+mint confirm tokens NOT single-use, the stamp is already `COALESCE`d — and the plan now
+says so.** The false-confirm half needs a second click, which may or may not count as "a
+form". Owner's call.
+
+**Inert, and stated so nobody reads the commit as a live feature:** nothing mints a
+`confirm_transfer` token in production, and the nginx block is written but NOT deployed
+(applying it is `nginx -t && systemctl reload nginx` on the box). Today `/c/` is reachable
+only from inside the cluster and would answer "that link is no longer active".

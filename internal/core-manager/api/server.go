@@ -113,6 +113,27 @@ func (s *Server) setupRoutes(authConfig *middleware.AuthMiddlewareConfig) {
 	siteFactsHandler := handlers.NewSiteFactsHandler(personaRepoImpl.ClientsDB(), s.logger)
 	s.router.GET("/api/v1/site-facts/:domain", siteFactsHandler.HandleGetSiteFacts)
 
+	// Customer handover links (NO authentication, bypasses AuthMiddleware —
+	// the token in the path IS the credential, hashed at rest, expiring, and
+	// scoped to one site and one purpose; see platform/delivery).
+	//
+	// PUBLICLY REACHABLE, unlike everything else in this service. Customer
+	// traffic arrives at the webdesign.uk box, whose nginx proxies these NAMED
+	// PATHS to this service over WireGuard (the /stripe/webhook -> auth-service
+	// shape). The exposure is exactly the paths nginx names: keep the nginx
+	// locations exact or tightly prefixed, never a catch-all, or the site-facts
+	// relay's "ClusterIP only, no ingress" reasoning three lines up silently
+	// stops being true.
+	//
+	// Mounted at the ROOT, not under /api/v1, on purpose: these go in an email
+	// to a customer and get read aloud and retyped, so the path is two
+	// characters. There is no /d/<token> yet — presigning needs object-store
+	// credentials that no standing service holds by owner directive
+	// (bugs_open/245); see handlers/delivery.go.
+	deliveryHandler := handlers.NewDeliveryHandler(
+		handlers.NewDBDeliveryDeps(personaRepoImpl.ClientsDB(), s.logger))
+	s.router.GET("/c/:token", deliveryHandler.HandleConfirmTransfer)
+
 	// API v1 group with authentication
 	apiV1 := s.router.Group("/api/v1")
 	apiV1.Use(middleware.AuthMiddleware(authConfig))
