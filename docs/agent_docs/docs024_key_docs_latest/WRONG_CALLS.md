@@ -40620,3 +40620,12 @@ be true at the moment I arm the watch?* If yes it is not a terminal signal, it i
 Related in kind, opposite in direction: [a `||true` watcher reads as target silence] — that one
 stays quiet when it should speak; this one speaks before anything happened. Both come from testing
 the watcher against the world it will run in, which neither did.
+
+**Addendum 2026-08-21 to the watcher-is-not-attendance entry:** the corrected rule ("if the turn must
+end, do not file") failed the very next day, because a session cannot know its turn is about to end —
+the user's nudge cadence decides that, invisibly. Second double-tool page served (social-card,
+11:57→12:11Z, repaired the same way). **The mechanism that actually closes it: a FOREGROUND poll loop
+(`for i in …; do <check>; sleep 10; done`, timeout ≤600s) holds the turn alive across the whole
+build+retire window — only a bare foreground `sleep` is blocked, a compound loop is not.** Proven
+same day. The rule is now "file, then hold the turn with the loop until the retire lands", which is
+checkable at filing time rather than a prophecy about turn boundaries.
