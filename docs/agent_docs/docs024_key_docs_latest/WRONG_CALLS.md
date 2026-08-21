@@ -40738,3 +40738,43 @@ detector for that sub-class now survives in one lane's backup table and in two q
 strings in `bugs_open/339`. **Fixing the instances destroyed the evidence needed to build
 the class control** — which is not an argument against fixing them, but is an argument for
 preserving the strings first. `339` now says so.
+
+## 2026-08-21 — I nearly confirmed my own fix with a check that could not fail, for the third time in one lane (bugs_open/305)
+
+**The wrong call, caught before it was written down anywhere durable.** My copy gate reported six
+rewrites on a live page. To verify at the artefact I asked, for each rewrite, whether its replacement
+text appeared in the stored `content_data`:
+
+```sql
+SELECT (SELECT body FROM art) LIKE '%' || left(e->>'to', 48) || '%' FROM rewritten e;
+```
+
+Five of six came back **true**, and for about a minute I had "the repairs landed". **The query could
+not have come out otherwise.** These rewrites remove a trailing clause — *"…the two systems overlap
+rather than compete."* → *"…the two systems overlap."* — so `from` and `to` share their entire opening,
+and a prefix match tests the part that never changes. (The marker truncates `from`/`to` at 160
+characters, which is exactly what made the prefix the convenient thing to test.)
+
+**What the honest check said.** Ask whether the thing that was supposed to be REMOVED is gone:
+
+```sql
+SELECT substring(e->>'from' from 'rather than [^.<]{0,40}') AS removed,
+       body LIKE '%' || substring(e->>'from' from 'rather than [^.<]{0,40}') || '%' AS STILL_THERE
+```
+
+Three of the six were still there, and the field still carried six `rather than` in total — **six
+accepted rewrites, one net repair.** That exposed a real defect in my own code (several hits in one
+field each spliced against that field's captured original, so last writer won) which the passing
+version of the check would have hidden.
+
+**The cheap check, and it is the one this lane keeps writing down: before running a verification, say
+what the FAILING result would look like.** If you cannot describe it, the query is testing the part
+that does not change. Here the failing result was obvious once asked for — "the removed phrase is still
+present" — and it took one substring to get.
+
+**Why this one is worth a fourth entry rather than a cross-reference:** the lane already carries three
+versions of this lesson (a detector run against a tree carrying its own fix; a census filtered on the
+column it exists to test; a `[MEASURED]` rate that reversed under control). I have written all three
+down, and I still did it — **under the pull of a result I wanted, on my own code, at the end of a long
+piece of work.** The tally is the point: this is not a knowledge problem, it is a discipline that has
+to be applied when the answer would be welcome.
