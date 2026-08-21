@@ -228,6 +228,7 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 			// them to the build pipeline, so "faq-section"/"FAQ Section"
 			// don't orphan downstream.
 			resolver := loadComponentNameResolver(ctx, db, logger)
+			rescue := newStoredSlotRescue(db, siteID, logger)
 			if len(resolver.validFunctions) > 0 {
 				resolved := make([]interface{}, 0, len(addSections))
 				// A dropped name is recorded durably, not just logged
@@ -243,6 +244,16 @@ func applyAddToPage(ctx context.Context, db *sql.DB, plan map[string]interface{}
 					}
 					if fn, ok := resolver.resolve(name); ok {
 						resolved = append(resolved, fn)
+					} else if v := rescue.verdict(ctx, pageName, name); v == slotStored || v == slotUnknown {
+						// bugs_open/204: the page already carries a slot under this
+						// name (or the stored rows could not be read, in which case
+						// keeping is the safe direction). Keep it verbatim — its
+						// identity lives on page_components.component_id, which is
+						// exactly what plan_sections resolves downstream.
+						resolved = append(resolved, name)
+						logger.Info("applyAddToPage: kept section name by stored slot identity",
+							zap.String("page", pageName), zap.String("section", name),
+							zap.Bool("read_failed", v == slotUnknown))
 					} else {
 						dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 						logger.Warn("applyAddToPage: dropped unresolvable section name",
@@ -898,12 +909,21 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 			}
 		}
 		resolver := loadComponentNameResolver(ctx, db, logger)
+		rescue := newStoredSlotRescue(db, siteID, logger)
 		if len(resolver.validFunctions) > 0 {
 			resolved := make([]string, 0, len(raw))
 			var dropped []droppedSectionName // durable record, bugs_open/282 round 2
 			for _, name := range raw {
 				if fn, ok := resolver.resolve(name); ok {
 					resolved = append(resolved, fn)
+				} else if v := rescue.verdict(ctx, pageName, name); v == slotStored || v == slotUnknown {
+					// bugs_open/204: this arm writes sections straight onto a LIVE
+					// page, so a dropped positional slot name is not a lost plan
+					// entry — it is a destroyed record of what the page is made of.
+					resolved = append(resolved, name)
+					logger.Info("applyRetypeExisting: kept section name by stored slot identity",
+						zap.String("page", pageName), zap.String("section", name),
+						zap.Bool("read_failed", v == slotUnknown))
 				} else {
 					dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 					logger.Warn("applyRetypeExisting: dropped unresolvable section name",
