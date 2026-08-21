@@ -782,6 +782,14 @@ func dashIfEmpty(s string) string {
 // needed. (Note "_" is a single-character wildcard in LIKE, so "v_%" would be broader still
 // than it looks — another reason to avoid it.)
 //
+// A SINGLE "%workflow%" would also cover all four — measured 2026-08-21, it matches exactly
+// those four and nothing else — and the approving council round said so as a low-severity
+// advisory. Two patterns are kept because they say WHY each is needed and keep the list
+// prefix-shaped, which is what makes the trap above legible; a lone contains-pattern works
+// and teaches nothing. **That is a preference, not a constraint** — the test asserts
+// COVERAGE of the four tables, not these literals, so collapsing to "%workflow%" passes and
+// is a legitimate simplification for whoever wants it.
+//
 // Sizing, measured `[MEASURED 2026-08-21]`: 33 before this change, 35 with "workflow%",
 // **37** with the views, against a schema_table_cap of **120**. Nothing is displaced.
 var defaultSchemaExclude = []string{"%backup%", "%bak%", "%archive%", "%supersede%"}

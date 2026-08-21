@@ -348,17 +348,20 @@ func TestStripGoComments(t *testing.T) {
 // the matching to a contains-match, this test tells them "flow%" would then be sufficient
 // and "workflow%" redundant — rather than leaving both in place for reasons nobody recalls.
 func TestSchemaIncludeCoversWorkflowTables(t *testing.T) {
-	has := func(p string) bool {
-		for _, e := range defaultSchemaInclude {
-			if e == p {
-				return true
-			}
+	// Assert COVERAGE, not the literal patterns. Round 2's council round objected (low,
+	// advisory) that two patterns were added where "%workflow%" alone covers all four —
+	// measured 2026-08-21, it matches exactly those four and nothing else. That objection is
+	// right that the two-pattern choice was never shown to be minimal, and a test that pins
+	// the literals would BLOCK the simplification it invites. So this asserts what actually
+	// matters: every table run dd61df1b needed is reachable by SOME include pattern.
+	for _, tbl := range []string{
+		"workflow_templates", "workflow_contract_chain", // prefix-reachable
+		"v_active_workflows", "v_all_workflows", // NOT prefix-reachable — the round-1 miss
+	} {
+		if !coveredByAnyInclude(tbl) {
+			t.Errorf("%s is not reachable by any defaultSchemaInclude pattern — run dd61df1b "+
+				"needed it and the bundle could not describe it", tbl)
 		}
-		return false
-	}
-	if !has("workflow%") {
-		t.Error(`"workflow%" missing from defaultSchemaInclude — "flow%" does NOT cover ` +
-			`workflow_* under a prefix match; run dd61df1b stalled on exactly that`)
 	}
 
 	// Prefix semantics, asserted rather than assumed: this is what ILIKE 'flow%' does.
@@ -373,16 +376,47 @@ func TestSchemaIncludeCoversWorkflowTables(t *testing.T) {
 		t.Error("workflow% does not match workflow_templates — the guard above is not testing what it claims")
 	}
 
-	// The council's gating objection (corr b353d731): run dd61df1b named FOUR tables and the
-	// first version of this fix covered two. The views are prefixed "v_", so no workflow%
-	// pattern reaches them. Guarded by name because the omission was argued for once already.
-	if !has("v%workflow%") {
-		t.Error(`"v%workflow%" missing from defaultSchemaInclude — run dd61df1b also needed ` +
-			`v_active_workflows and v_all_workflows, which "workflow%" does NOT reach`)
-	}
+	// The round-1 miss, kept as its own assertion because it was argued for once already:
+	// the two views are prefixed "v_", so NO workflow-prefixed pattern reaches them. If this
+	// ever starts passing, prefix matching has changed and the comment at the declaration is
+	// stale.
 	for _, v := range []string{"v_active_workflows", "v_all_workflows"} {
 		if matchesPrefix("workflow%", v) {
-			t.Errorf("workflow%% unexpectedly reaches %s — re-check whether v%%workflow%% is still needed", v)
+			t.Errorf("workflow%% unexpectedly reaches %s — prefix semantics have changed; "+
+				"re-read the declaration comment before trusting it", v)
 		}
+	}
+}
+
+// coveredByAnyInclude reports whether a table name is reachable by any defaultSchemaInclude
+// entry, applying SQL LIKE semantics: "%" matches any run, "_" matches exactly one character.
+// The production filter binds these patterns to ILIKE, so anything asserted here must match
+// what Postgres would do, not what a prefix check would do.
+func coveredByAnyInclude(table string) bool {
+	for _, pattern := range defaultSchemaInclude {
+		if likeMatch(strings.ToLower(pattern), strings.ToLower(table)) {
+			return true
+		}
+	}
+	return false
+}
+
+// likeMatch is SQL LIKE, recursively: % consumes any run, _ consumes exactly one character.
+func likeMatch(pattern, s string) bool {
+	if pattern == "" {
+		return s == ""
+	}
+	switch pattern[0] {
+	case '%':
+		for i := 0; i <= len(s); i++ {
+			if likeMatch(pattern[1:], s[i:]) {
+				return true
+			}
+		}
+		return false
+	case '_':
+		return len(s) > 0 && likeMatch(pattern[1:], s[1:])
+	default:
+		return len(s) > 0 && s[0] == pattern[0] && likeMatch(pattern[1:], s[1:])
 	}
 }
