@@ -269,6 +269,46 @@ def load_component(component_id):
     return row
 
 
+def resolve_component(component_id, slot_name, item_id):
+    """Resolve a proposal's component, falling back to (page, slot) when the id is dead.
+
+    ⚠ WHY THIS FALLBACK EXISTS, AND WHY IT IS LOUD RATHER THAN SILENT. A rerender REPLACES
+    the page_components row rather than updating it, so a parked proposal's stored
+    page_component_id dangles — measured twice now: the 08-17 proof case's id died within a
+    day, and run 4's three ids died four hours after they were minted, when the whole page
+    was re-rendered at 2026-08-21 14:43. The old behaviour was `sys.exit("no page_component
+    <id>")`, which reads like a typo rather than a rerender and strands a perfectly good
+    proposal.
+
+    The address is a HINT; (page_name, slot_name) is the identity. But re-pointing an edit
+    at a different row is exactly the kind of silent helpfulness that gets copy reverted, so
+    this prints what it did and the grading then runs against the NEW row — which is the
+    whole point: if the rerender also changed the content, the volume/facts/links checks see
+    the new content and fail on it. The fallback recovers the address; it never assumes the
+    content is still what the proposal expected.
+    """
+    row = psql(f"""
+        SELECT json_build_object('id', pc.id::text)
+          FROM page_components pc WHERE pc.id = '{component_id}';""", want_json=True)
+    if row:
+        return component_id, None
+    if not slot_name:
+        sys.exit(f"no page_component {component_id} and the proposal names no slot to "
+                 f"re-resolve by — a rerender probably replaced the row")
+    found = psql(f"""
+        SELECT json_build_object('id', pc.id::text, 'updated_at', pc.updated_at)
+          FROM page_components pc
+          JOIN site_work_items swi ON swi.page_id = pc.page_id
+         WHERE swi.id = '{item_id}' AND pc.slot_name = '{slot_name}';""", want_json=True)
+    if not found:
+        sys.exit(f"no page_component {component_id}, and no component in slot "
+                 f"'{slot_name}' on this proposal's page either — the slot is gone, not "
+                 f"merely re-rendered")
+    return found["id"], (f"⚠ stored id {component_id[:8]}… is DEAD (a rerender replaced the "
+                         f"row); re-resolved by slot '{slot_name}' to {found['id'][:8]}…, "
+                         f"updated {found['updated_at']}. Grading runs against the NEW row.")
+
+
 def report(ok, label, detail=""):
     print(f"{'ok  ' if ok else 'FAIL'} {label}{(': ' + detail) if detail else ''}")
     return 0 if ok else 1
@@ -460,6 +500,9 @@ def main():
                 continue
             if i:
                 print()
+            cid, note = resolve_component(cid, edit.get("slot_name"), a.item)
+            if note:
+                print(note)
             rc |= grade(cid, fu)
         return rc
     else:
