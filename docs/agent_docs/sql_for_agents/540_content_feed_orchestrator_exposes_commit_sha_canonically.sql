@@ -24,7 +24,14 @@
 -- The wire's own apply-guard (migration 537, `staged-component-build`) asks a
 -- third, better question — "does this handler's OWN `orchestration_states`
 -- tree ever carry a `commit_sha`" — and that is what caught it: [MEASURED]
--- 3 of 3 orchestrations in the last 30 days carry one.
+-- 17 of 17 orchestrations in the last 30 days carry one.
+--
+-- ⚠ CORRECTED 2026-08-21, same day, by the staged-component-build lane: this
+-- file's first draft said "3 of 3" here and "3/1" below, from a query that
+-- carried `LIMIT 3` and was misreported as the whole population — it was the
+-- 3 most recent rows, not a count. The real population is 17 (all inside the
+-- 30-day window; not a boundary artefact). Every figure below is the corrected
+-- full-population read. Logged in WRONG_CALLS.
 --
 -- ============================================================================
 -- WHY THIS ONE IS A DIFFERENT SHAPE OF JUDGEMENT CALL FROM 523/527
@@ -38,23 +45,21 @@
 -- (`check_has_news`/`check_has_rss` gate on `*_render_result.item_count`, and
 -- either can be skipped independently).
 --
--- [MEASURED 2026-08-21, all 3 orchestrations in the 30-day window]:
+-- [MEASURED 2026-08-21, all 17 orchestrations in the 30-day window, corrected
+-- read — see the correction above]: **news present 17/17; rss present 2/17**,
+-- and the two RSS runs each carry a DIFFERENT real sha from their news commit
+-- in the same orchestration (`2026-08-21 14:43:21Z`: news `08b96f49…` / rss
+-- `b5c1059a…`; `2026-08-21 02:38:57Z`: news `8b4ed8ab…` / rss `43d938fe…`).
 --
--- | run | news_commit_result | rss_commit_result |
--- |---|---|---|
--- | 1 | sha `277f6965…` | absent (0 rss items) |
--- | 2 | sha `08b96f49…` | sha `b5c1059a…` — TWO DIFFERENT REAL COMMITS |
--- | 3 | sha `1870d438…` | absent (0 rss items) |
---
--- **`news_commit_result` is present in 3/3; `rss_commit_result` in 1/3.** News
--- is the primary, near-always-present deliverable; RSS is a secondary one that
--- is frequently skipped. This migration maps `commit_sha` to
+-- **`news_commit_result` is present in 17/17; `rss_commit_result` in 2/17
+-- (~12%).** News is the primary, always-present deliverable; RSS is a
+-- secondary one that is usually skipped. This migration maps `commit_sha` to
 -- `news_commit_result.response.data.commit_sha` on that basis.
 --
 -- ============================================================================
 -- THE DISCLOSED LOSS — stated plainly, not hidden
 -- ============================================================================
--- **On a run where BOTH feeds commit (row 2 above), `commit_sha` will report
+-- **On a run where BOTH feeds commit (~12% of runs, measured above), `commit_sha` will report
 -- only the NEWS sha; the RSS sha is real, live, and NOT represented in this
 -- field.** No canonical single-field choice avoids this — the item genuinely
 -- has two deliverables and `commit_sha` is a single value. This is a real,
