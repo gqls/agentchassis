@@ -1,3 +1,19 @@
+# HANDOFF — `bugs_open/315` (2026-08-20 ~17:00Z) — ⚠ SUPERSEDED
+
+> **⚠ SUPERSEDED 2026-08-21 — DO NOT START FROM THIS FILE.**
+> Continue here instead:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/HANDOFF_2026-08-21_continue_here.md`
+>
+> **§3a — "the divergence sweep, the only substantive item" — IS DONE.** Built, tested, committed
+> (`f715b8c1d`), registered as `DGH-015`, council round `be85a6d3-f2c0-4f7a-b791-e95087141fc8`, and
+> its enabling migration written and proven but deliberately held at
+> `sql_for_agents/526_enable_page_content_divergence_HOLD.sql` until a chassis image carrying the
+> check has rolled. **A session picking this file up would rebuild something that already exists.**
+>
+> Everything else below is still accurate and still worth reading — especially §5's traps and §7.
+> This banner exists because a handoff outlives the work it asks for, and the stranger it is written
+> for is exactly the person who cannot tell that the ask has already shipped.
+
 # HANDOFF — `bugs_open/315`, continue here (2026-08-20 ~17:00Z)
 
 **Read this first, then `NOTES_deployed_at_without_publication.md` from the bottom up.**

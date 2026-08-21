@@ -40919,3 +40919,48 @@ default.
 nothing about the figure — they were produced by different acts, one of which was a measurement and
 one of which was not, and the prose gives you no way to tell which. Mark or re-derive every
 population count you did not run yourself.
+
+---
+
+### 2026-08-21 — `bugfix_315` lane: "exactly three, all armed" — a one-level census of `agent_definitions`, published four times before a council seat refuted it from its SHAPE alone
+
+**The claim.** The divergence check (DGH-015) is sound only if every live step stamping a page
+`deployed` also records what it sent; an unarmed one leaves a stale fingerprint and the check then
+convicts a healthy page for ever. I enumerated the stampers and wrote, in the check's header, its
+register entry, its council submission, three commit messages and the PLAN: *"[MEASURED] exactly
+THREE live steps set `status='deployed'` and ALL THREE declare `deploy_result_field`. Zero unarmed
+stampers."* I even flagged it correctly as a dependency on live config rather than an invariant, and
+deferred the structural fix on the strength of it being inert.
+
+**What was wrong.** There are **six**, and **three are UNARMED**. My census walked
+`jsonb_each(default_config)` → `? 'steps'` — **one level**. The three it missed live at
+`workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`: `page-rebuild`,
+`pageflow-builder`, `site-work-orchestrator` — the page-BUILDING paths, which are precisely the ones
+that emit new bytes. So the hazard I had reasoned my way into deferring was **live on the main road**.
+
+**What caught it.** The council gate's **`guardian` seat**, round 1: *"almost certainly measured with
+a top-level `workflow.steps` census — which is documented elsewhere on this platform as blind to
+actions nested inside `sub_workflow`/substeps ... needs re-verification against a query that walks
+`sub_workflow` too before it's trusted as an invariant."* **It never saw my query.** It inferred the
+blindness from the SHAPE of the claim — a confident small integer about "every step that does X".
+The verdict was **APPROVED with advisory objections**: had I read the decision and skipped the
+objections, this ships.
+
+**The cheap check.** On this estate, **a one-level walk of `agent_definitions` is wrong for ANY
+"which agents do X?" question**, because loops carry their real work in `config.sub_workflow.steps` —
+so the steps that DO the thing are systematically the ones you miss, and what comes back is
+plausible, specific and too small. Use `jsonb_path_query(cfg, '$.**{0 to 25} ? (@.action == "...")')`.
+And **assert a total you can independently check** (here: six) alongside the filtered count — I
+verified "3 of 3 armed" and never asked "3 out of how many?", which is the same
+agreement-vs-coverage error this lane logged on 2026-08-20, committed again eight days later by the
+same hands in a different disguise.
+
+**The second lesson, which is about verdicts rather than queries.** An APPROVED verdict with medium
+objections is not a pass — three of the twelve seats objected, and two of the three objections
+(`guardian` on the census, `reuse_agent` on an unexamined sibling mechanism, `debug_historian` on a
+hand-rolled liveness predicate) named real gaps. **Read the objections, not the decision.**
+
+**And the remedy is a gate, not a resolution to be careful.** Migration 526 now REFUSES to enable
+the check while the recursive unarmed count is non-zero — and also refuses if the walk returns zero
+TOTAL, since a jsonpath matching nothing looks exactly like a fleet with no stampers. Proven to bite
+against live data before being committed.

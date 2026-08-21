@@ -1652,3 +1652,52 @@ Needle-gates matched, `UPDATE 1`, both verify blocks passed, live row untouched.
 exercises the real jsonb paths against real data, and it would have caught a `jsonb_set` that
 replaced the array instead of appending — which the verify block also asserts by LENGTH, not just by
 containment, because containment alone passes with `site_unreachable` silently gone.
+
+---
+
+## 2026-08-21 later — the council refuted my central safety claim, and it was right
+
+`be85a6d3` came back **APPROVED — 3 advisory objections, none high-severity**. The decision is not
+the interesting part.
+
+**`guardian` (medium) refuted "zero unarmed stampers" without seeing my query.** It said the claim
+was "almost certainly measured with a top-level `workflow.steps` census", which is "documented
+elsewhere on this platform as blind to actions nested inside `sub_workflow`/substeps". It was exactly
+right. Recursive walk: **6 stampers, 3 UNARMED** — `page-rebuild`, `pageflow-builder`,
+`site-work-orchestrator`, all at `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`,
+which are the page-BUILDING paths. The hazard I had deferred on the grounds that it was inert is live
+on the busiest route in the estate.
+
+I had even written, correctly, that this was "live config, not an invariant the code holds" — and
+then measured the config wrongly. Being right about the CATEGORY of a claim is no protection against
+being wrong about its VALUE.
+
+**What I did about it, in order:**
+1. Corrected the claim everywhere it had been published — the check header, `DGH-015` and the index
+   row, PLAN D6, RUNBOOK Part 3, `LANDMINES` (my own entry from this morning was teaching the error),
+   and the handoff. Struck through rather than deleted.
+2. **Put a gate in `526`**: it now refuses to enable the check while the recursive unarmed count is
+   non-zero, AND refuses if the walk returns zero total stampers, because a jsonpath that matches
+   nothing is indistinguishable from a fleet with none — the same false-zero shape that caused this.
+   **Proven to bite against live data**: "3 of 6 live steps ... do NOT declare deploy_result_field".
+3. Re-scoped D6 and added **D7** (arm the three — all carry `deploy_page` with
+   `output_field: page_deployed`, so it is one migration in 494's shape). Arming beats D6's NULLing
+   for these three because it RAISES coverage rather than lowering it; D6 stays as the backstop for
+   the next unarmed stamper. **Not taken here** — it changes behaviour on the main build path, and
+   the last time this lane armed stampers it took page-publishing down for 33 minutes.
+
+**The other two objections, and what I owe them.**
+- **`reuse_agent` (medium):** `sites.published_hash` and `422_site_publish_reconciler_HOLD.sql` are a
+  HELD site-level publish-reconciliation mechanism in the same conceptual space, and my submission
+  never mentions them. **Not yet checked** — recorded as an open item in the handoff rather than
+  hand-waved.
+- **`debug_historian` (medium):** the candidate predicate hand-rolls `status='active'` instead of
+  reusing the shared shipped/eligibility predicate, which landmines warn is wrong for AUDITS.
+  **Not yet checked.**
+- **`tooling_provenance` (medium):** no concept-register edit in the submission. Answerable — the
+  register entry exists (`DGH-015`, `e05c38cdb`); it landed one commit after the submission was
+  filed, so the seat was right about the submission and wrong about the change-set.
+
+**The transferable lesson is about verdicts, not about jsonb.** An APPROVED verdict with medium
+objections is not a pass. Three of twelve seats objected and two of those named real defects. Reading
+the decision line and stopping would have shipped a check whose central safety property was false.

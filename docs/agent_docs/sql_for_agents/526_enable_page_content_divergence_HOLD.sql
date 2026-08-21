@@ -133,6 +133,58 @@ BEGIN
     END IF;
 END $$;
 
+-- ⚠⚠ THE UNARMED-STAMPER GATE. THIS IS THE ONE THAT MATTERS, AND IT EXISTS
+-- BECAUSE THE CLAIM IT REPLACES WAS FALSE.
+--
+-- The divergence check is sound ONLY IF every live step that stamps a page
+-- `deployed` also records what it sent. An UNARMED stamper leaves the previous
+-- deploy's fingerprint in place while new bytes go out, and the check then
+-- convicts a healthy page — permanently, because nothing re-writes that row.
+--
+-- The first version of this migration shipped with a comment asserting "exactly
+-- three live steps stamp deployed and all three are armed". That was measured
+-- with a census walking `default_config.<workflow>.steps.*` — ONE LEVEL — and it
+-- was WRONG: there are SIX, and THREE are unarmed, nested at
+-- `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`
+-- (page-rebuild, pageflow-builder, site-work-orchestrator — the page-BUILDING
+-- paths, i.e. the ones that actually emit new bytes). The council gate's
+-- guardian seat predicted the blindness from the shape of the claim alone.
+--
+-- So the precondition is ENFORCED here rather than trusted to whoever applies
+-- this file. The walk is RECURSIVE (`$.**`) precisely because the one-level
+-- version is what got it wrong.
+DO $$
+DECLARE unarmed int; total int;
+BEGIN
+    SELECT count(*) INTO total
+      FROM agent_definitions ad
+      CROSS JOIN LATERAL jsonb_path_query(ad.default_config,
+            '$.**{0 to 25} ? (@.action == "update_page_status" && @.config.status == "deployed")') AS step
+     WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL;
+
+    SELECT count(*) INTO unarmed
+      FROM agent_definitions ad
+      CROSS JOIN LATERAL jsonb_path_query(ad.default_config,
+            '$.**{0 to 25} ? (@.action == "update_page_status" && @.config.status == "deployed")') AS step
+     WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL
+       AND (step->'config'->>'deploy_result_field') IS NULL;
+
+    -- A zero TOTAL means the walk itself broke (a jsonpath that matches nothing
+    -- looks identical to a fleet with no stampers). Refuse on that too, rather
+    -- than reading it as "all clear" — that is the same shape of false zero
+    -- that produced the wrong claim in the first place.
+    IF total = 0 THEN
+        RAISE EXCEPTION
+          '526 unarmed-stamper gate: the recursive walk found ZERO deployed-stampers, which cannot be true — the query is broken, not the fleet. Refusing.';
+    END IF;
+
+    IF unarmed > 0 THEN
+        RAISE EXCEPTION
+          '526 unarmed-stamper gate: % of % live steps that stamp deployed do NOT declare deploy_result_field, so they leave a STALE content_hash and this check would convict healthy pages. Arm them first (all three carry a git_commit step deploy_page with output_field page_deployed — one migration in 494''s shape), or ship PLAN D6. Enumerate them with the recursive query in RUNBOOK Part 3.',
+          unarmed, total;
+    END IF;
+END $$;
+
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
          '{workflow,steps,run_checks,config,checks}',

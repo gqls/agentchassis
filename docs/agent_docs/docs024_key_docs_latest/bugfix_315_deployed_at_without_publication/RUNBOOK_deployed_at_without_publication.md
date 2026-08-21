@@ -267,9 +267,37 @@ SELECT agent, step_key, COALESCE(deploy_field,'*** UNARMED ***') AS deploy_resul
  ORDER BY (deploy_field IS NULL) DESC, agent;
 ```
 
-Expected 2026-08-21: **three rows, all armed** (`page-rerender/update_status`,
-`report-builder/update_status`, `section-editor/update_page_status`). **Any row reading UNARMED
-invalidates the check's premise** until it is armed or D6 ships.
+> **⚠ THE QUERY ABOVE IS BLIND AND MUST NOT BE USED — CORRECTED 2026-08-21, same day.** It walks
+> `default_config.<workflow>.steps.*`, ONE LEVEL, and reports **3 stampers, all armed**. That is an
+> UNDERCOUNT: three more live at `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`
+> and **all three are UNARMED**. Caught by the council gate's `guardian` seat. Use this instead:
+
+```sql
+SELECT ad.type AS agent,
+       step->'config'->>'status' AS status_cfg,
+       COALESCE(step->'config'->>'deploy_result_field','*** UNARMED ***') AS armed
+  FROM agent_definitions ad
+  CROSS JOIN LATERAL jsonb_path_query(ad.default_config,
+        '$.**{0 to 25} ? (@.action == "update_page_status" && @.config.status == "deployed")') AS step
+ WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL
+ ORDER BY (step->'config'->>'deploy_result_field' IS NULL) DESC, agent;
+```
+
+`[MEASURED 2026-08-21, recursive]` **6 rows — 3 armed, 3 UNARMED:**
+
+| agent | where | armed |
+|---|---|---|
+| page-rerender | `workflow.steps.update_status` | `deploy_result` |
+| report-builder | `workflow.steps.update_status` | `deploy_result` |
+| section-editor | `workflow.steps.update_page_status` | `git_result` |
+| **page-rebuild** | `workflow.steps.build_pages_loop.config.sub_workflow.steps.…` | **UNARMED** |
+| **pageflow-builder** | `workflow.steps.build_pages_loop.config.sub_workflow.steps.…` | **UNARMED** |
+| **site-work-orchestrator** | `workflow.steps.build_items_loop.config.sub_workflow.steps.…` | **UNARMED** |
+
+**Any row reading UNARMED invalidates the check's premise** — it leaves a stale fingerprint and the
+check convicts a healthy page. Migration **526 refuses to apply** while that count is non-zero, so
+this is enforced, not remembered. All three unarmed steps carry a `git_commit` step `deploy_page`
+with `output_field: "page_deployed"`, so arming them is one migration in 494's shape (PLAN **D7**).
 
 > ⚠ **THE CONFIG KEY IS `status`, NOT `build_status`.** Writing `build_status` in the predicate
 > above returns **zero rows** — cleanly, with no error, looking exactly like "no agent stamps

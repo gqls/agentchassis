@@ -13949,7 +13949,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
     FROM scheduled_tasks WHERE name LIKE 'site-discovery-rotation-%';
   ```
 
-### Enumerating the steps that stamp a page `deployed` on the wrong key returns a clean, confident ZERO
+### Censusing the steps that stamp a page `deployed`: the wrong KEY returns a confident ZERO, and a one-level WALK returns a confident UNDERCOUNT (half the stampers live in a sub_workflow)
 
 - **footprint:** `agent_definitions`, `update_page_status`, `deploy_result_field`, `pages.deployed_at`, `pages.content_hash`, `default_config->'workflow'->'steps'`, any "which agents stamp X?" census over agent config
 - **fires when:** you enumerate the live steps that set a page to `deployed` — to check they are all armed with `deploy_result_field`, to size a blast radius, or to prove a collision is impossible. **No symptom.** The query succeeds, returns `(0 rows)`, and 0 rows is a perfectly ordinary answer to that question. The wrong result is indistinguishable from the right one.
@@ -13970,8 +13970,20 @@ code change owed at the next roll, tracked in RFC_015 §5.
   SELECT agent, step_key, COALESCE(deploy_field,'*** UNARMED ***')
     FROM steps WHERE action='update_page_status' AND status_cfg='deployed';
   ```
-  `[MEASURED 2026-08-21]` **exactly three rows**, all armed: `page-rerender/update_status`, `report-builder/update_status`, `section-editor/update_page_status`. **Fewer than three means your query is wrong, not that the fleet stopped stamping** — treat any zero here as a bug in the predicate until proven otherwise, and check a key that must be present (`action='update_page_status'` alone returns rows) before believing a filtered zero.
-- **why it matters beyond the typo:** `bugs_open/315`'s divergence check (DGH-015) is SOUND ONLY IF every `deployed` stamper is armed — an unarmed one leaves a stale fingerprint and the check then convicts a healthy page, permanently. So this census is the check's live precondition, and a false zero on it reads as "nothing stamps, nothing to worry about" when the true answer is the opposite shape entirely.
+  > **⚠ THE QUERY ABOVE IS THE ONE THAT GOT ME, AND IT IS STILL ONLY HALF RIGHT — CORRECTED 2026-08-21, hours after this entry was written.** It fixes the key (`status`, not `build_status`) and is STILL BLIND, because `jsonb_each(default_config)` → `? 'steps'` walks **one level**. It reported **3 stampers, all armed**. A RECURSIVE walk reports **6, of which 3 are UNARMED** — they live at `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status` (`page-rebuild`, `pageflow-builder`, `site-work-orchestrator`: the page-BUILDING paths, i.e. the ones that actually emit new bytes). **Caught by the council gate's `guardian` seat**, which predicted the blindness from the shape of the claim without seeing the query.
+
+  **Use the recursive walk. `$.**` descends arbitrarily:**
+  ```sql
+  SELECT ad.type AS agent,
+         step->'config'->>'status' AS status_cfg,
+         COALESCE(step->'config'->>'deploy_result_field','*** UNARMED ***') AS armed
+    FROM agent_definitions ad
+    CROSS JOIN LATERAL jsonb_path_query(ad.default_config,
+          '$.**{0 to 25} ? (@.action == "update_page_status" && @.config.status == "deployed")') AS step
+   WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL;
+  ```
+  `[MEASURED 2026-08-21, recursive]` **6 rows: 3 armed, 3 UNARMED.** **A one-level census of `agent_definitions` is wrong for ANY "which agents do X?" question on this estate**, not just this one — loops carry their real work in `config.sub_workflow.steps`, so the steps that DO the thing are systematically the ones you miss, and the answer you get back is plausible, specific and too small. Assert a total you can check (here: 6) as well as the filtered count; and treat a filtered ZERO as a broken predicate until proven otherwise.
+- **why it matters beyond the typo:** `bugs_open/315`'s divergence check (DGH-015) is SOUND ONLY IF every `deployed` stamper is armed — an unarmed one leaves a stale fingerprint and the check then convicts a healthy page, permanently. So this census IS that check's precondition, and the undercount did not merely mis-state a number: it turned a LIVE hazard (3 unarmed stampers on the main build path) into a documented "cannot happen today", in the check's header, its register entry, its council submission and three commit messages. The precondition is now enforced in migration `526`, which REFUSES to enable the check while the recursive count is non-zero — the query is in the migration, so the gate cannot drift from the claim.
 - **relations:** LANDMINES "a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise" family · `bugs_open/336` (the same lane's zero that meant "nothing CAN run", read as "nothing has run yet", 33 minutes of fleet downtime) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · register DGH-013 / DGH-015
 - **source:** 2026-08-21, `bugfix_315_deployed_at_without_publication` lane — hit while establishing D6's premise; caught only because three stampers were already known from migration 494, so zero was obviously wrong
 - **added:** 2026-08-21, 315 lane

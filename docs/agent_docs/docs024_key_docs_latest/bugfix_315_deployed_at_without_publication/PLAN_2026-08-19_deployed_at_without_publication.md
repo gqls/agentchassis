@@ -262,34 +262,78 @@ because a plan that only ever gets ticked off is not a record of anything.
    independent pages, so no encoding, transform or path-keying error sits anywhere between the stamp
    and the wire.
 
-### D6 — an UNARMED `deployed` stamper would silently poison this check. NOT taken here, deliberately.
+### D6 / D7 — an UNARMED `deployed` stamper poisons this check, and THREE OF THEM ARE LIVE
+
+> **⚠ THIS SECTION WAS REWRITTEN 2026-08-21, HOURS AFTER IT WAS FIRST WRITTEN AND BEFORE THE CHECK
+> WAS EVER ENABLED. The version it replaces was built on a FALSE measurement**, and the wrong version
+> is kept here in outline because how it was wrong is the useful part. It said: *"It cannot arise
+> today, and that is a query rather than an argument: exactly three live steps set `status='deployed'`
+> ... and all three declare `deploy_result_field`. Zero unarmed stampers."* It then reasoned, at
+> length and quite correctly given that premise, that the structural fix was inert and could safely
+> wait.
+>
+> **The premise was wrong. There are SIX stampers and THREE are unarmed.** The census walked
+> `default_config.<workflow>.steps.*` — one level. The three it missed sit at
+> `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`.
+>
+> **What caught it: the council gate's `guardian` seat**, round 1 of `be85a6d3`, which said the claim
+> "was almost certainly measured with a top-level `workflow.steps` census — documented elsewhere on
+> this platform as blind to actions nested inside `sub_workflow`/substeps", and asked for
+> re-verification "against a query that walks `sub_workflow` too before it's trusted as an
+> invariant". It never saw the query. It inferred the blindness from the SHAPE of the claim — a
+> confident small integer about "every step that does X" — and it was right. The verdict was
+> APPROVED; had I read only the decision and not the objections, this would have shipped.
 
 **The mechanism.** The stamp assigns `pages.content_hash` only when the deploy-evidence guard RAN
-(`v3_site_actions.go`); an unarmed `update_page_status` step leaves the column alone. That is correct
-for an unarmed path that changes nothing, and WRONG for an unarmed path that deploys NEW BYTES: the
-fingerprint then describes an older deploy, and D5's check convicts a healthy page — permanently,
-because the row never self-corrects.
+(`v3_site_actions.go`); an unarmed `update_page_status` leaves the column alone. That is correct for
+an unarmed path that changes nothing, and WRONG for one that deploys NEW BYTES: the fingerprint then
+describes an older deploy, and D5's check convicts a healthy page — permanently, since nothing
+rewrites that row.
 
-**It cannot arise today, and that is a query rather than an argument.** [MEASURED 2026-08-21]
-exactly three live steps set `status='deployed'` via `update_page_status` —
-`page-rerender/update_status`, `report-builder/update_status`, `section-editor/update_page_status` —
-and all three declare `deploy_result_field` (migration 494). Zero unarmed stampers.
+**`[MEASURED 2026-08-21, RECURSIVE walk]` — six stampers, three unarmed:**
 
-**Why that is not good enough, and what the fix would be.** It is a dependency on LIVE CONFIG, not an
-invariant the code holds: a new agent with an unarmed stamper reintroduces it silently, and the
-failure is invisible until the divergence check starts filing against healthy pages. The structural
-close is one line at the stamp — an unarmed `deployed` stamp should NULL `content_hash` rather than
-leave a stale one, which is exactly the reasoning the ARMED branch already carries ("a stamp means
-NEW BYTES WENT OUT ... an honest unknown beats a confident stale value"). It is inert today, because
-there are no unarmed stampers for it to affect.
+| agent | path | armed with |
+|---|---|---|
+| page-rerender | `workflow.steps.update_status` | `deploy_result` |
+| report-builder | `workflow.steps.update_status` | `deploy_result` |
+| section-editor | `workflow.steps.update_page_status` | `git_result` |
+| **page-rebuild** | `workflow.steps.build_pages_loop.config.sub_workflow.steps.update_page_status` | **UNARMED** |
+| **pageflow-builder** | `workflow.steps.build_pages_loop.config.sub_workflow.steps.update_page_status` | **UNARMED** |
+| **site-work-orchestrator** | `workflow.steps.build_items_loop.config.sub_workflow.steps.update_page_status` | **UNARMED** |
 
-**Not taken in this round because it REVERSES a reviewed decision.** The guard-OFF branch's "an
-unarmed path cannot disturb a hash some other path wrote" is deliberate and was in front of the
-council on 2026-08-19. Flipping it inside a check's commit is precisely the shape the guardian seat
-vetoed in `bugs_closed/124` — a shared-seam change arriving inside someone else's patch. It belongs
-in its own round, with the enumeration above as its evidence and the "which is worse, a stale
-fingerprint or a lost one?" question stated openly, since NULLing also discards a good hash whenever
-an unarmed path merely re-stamps without deploying.
+The three unarmed ones are the page-BUILDING paths — the ones that actually emit new bytes. This is
+the main road, not a corner case.
 
-**Whoever takes it:** the enumerating query is in the RUNBOOK, and it must be re-run first — the
-whole point is that its answer can change without anyone touching this code.
+**Nothing is poisoned today, and that is luck, not safety.** A stale fingerprint presents as exactly
+the mismatch D5 looks for, and the 228-page sweep found 228 MATCH — so at 2026-08-21 10:35Z no page
+was in that state. That is an observation about one moment.
+
+#### What was done about it immediately (D6a) — the precondition is now ENFORCED
+
+`526_enable_page_content_divergence_HOLD.sql` carries an **unarmed-stamper gate**: it RAISEs and
+refuses to apply while the recursive count is non-zero, and *also* refuses if the walk returns zero
+TOTAL stampers, since a jsonpath that matches nothing is indistinguishable from a fleet with none —
+the same false-zero shape that produced the wrong claim. **Proven to bite against live data**: it
+currently refuses with "3 of 6 live steps ... do NOT declare deploy_result_field". So the check
+cannot be switched on into the hazard, and no one has to remember this.
+
+#### D7 — ARM THE THREE. The preferred fix, and NOT taken in this round.
+
+All three carry a `git_commit` step `deploy_page` with `output_field: "page_deployed"`, so arming
+them is one migration in **494's exact shape**, needle-gated the same way.
+
+**Why arming beats D6's stamp-side NULLing as the answer to *these three*:** arming RAISES fingerprint
+coverage (three more paths start recording what they sent, on the busiest routes in the estate),
+whereas NULLing LOWERS it (a page rebuilt by `page-rebuild` would lose its fingerprint until an armed
+path redeployed it). D6 remains worth doing as the **backstop for the NEXT unarmed stamper** — the
+one nobody notices being added — but it is not the fix for a stamper we can simply arm.
+
+**Why it is not in this round.** Arming changes behaviour on the main build path: an armed stamper
+REFUSES the `deployed` stamp when its commit reported a skip. That is the intended semantics and it
+is a real change to the busiest path in the estate, and the last time this lane armed stampers it
+took the fleet's page-publishing down for 33 minutes (`bugs_open/336`). It deserves its own council
+round and its own damage query, not a paragraph inside a detection change.
+
+**Whoever takes D7:** re-run the RECURSIVE enumeration first (RUNBOOK Part 3) — the count can change
+without anyone touching this code, which is the whole reason 526 gates on it rather than trusting a
+number written in a file.

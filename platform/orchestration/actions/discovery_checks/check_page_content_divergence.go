@@ -89,20 +89,51 @@
 //     column alone — so if an unarmed step ever deployed new bytes, the hash would
 //     describe an older deploy and this check would convict a healthy page.
 //
-//     [MEASURED 2026-08-21] That cannot happen today, and it is a query, not an
-//     argument: exactly THREE live steps set status='deployed' via
-//     update_page_status — page-rerender/update_status, report-builder/update_status
-//     and section-editor/update_page_status — and ALL THREE declare
-//     deploy_result_field (migration 494). Zero unarmed stampers.
+//     > **⚠ CORRECTED 2026-08-21, BEFORE THIS CHECK WAS EVER ENABLED — the
+//     > paragraph that stood here was FALSE, and the council gate's `guardian`
+//     > seat caught it (round 1, corr `be85a6d3`).** It said: *"That cannot
+//     > happen today, and it is a query, not an argument: exactly THREE live
+//     > steps set status='deployed' via update_page_status ... and ALL THREE
+//     > declare deploy_result_field. Zero unarmed stampers."*
+//     >
+//     > **There are SIX, and THREE of them are UNARMED.** The census behind the
+//     > old claim walked `default_config.<workflow>.steps.*` — one level — and
+//     > the three it missed live at
+//     > `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status`,
+//     > inside a loop's sub-workflow. The seat predicted exactly that
+//     > ("almost certainly measured with a top-level workflow.steps census —
+//     > documented elsewhere on this platform as blind to actions nested inside
+//     > sub_workflow/substeps") without seeing the query. It was right.
 //
-//     ⚠ THIS IS A DEPENDENCY ON LIVE CONFIG, NOT AN INVARIANT THE CODE HOLDS. A
-//     new agent added later with an unarmed `update_page_status` step would
-//     reintroduce it. The enumerating query is in
-//     RUNBOOK_deployed_at_without_publication.md so it is re-runnable, and
-//     PLAN decision D6 proposes closing it at the stamp (an unarmed deployed-stamp
-//     should NULL the hash rather than leave a stale one) — deliberately NOT done
-//     here, because it reverses a decision the council reviewed on 2026-08-19 and
-//     belongs in its own round rather than inside this check.
+//     [MEASURED 2026-08-21, with a RECURSIVE walk — `jsonb_path_query(...,
+//     '$.**{0 to 25} ? (@.action == "update_page_status")')`]:
+//
+//	armed    page-rerender/update_status            deploy_result
+//	armed    report-builder/update_status           deploy_result
+//	armed    section-editor/update_page_status      git_result
+//	UNARMED  page-rebuild            .steps.build_pages_loop.config.sub_workflow
+//	UNARMED  pageflow-builder        .steps.build_pages_loop.config.sub_workflow
+//	UNARMED  site-work-orchestrator  .steps.build_items_loop.config.sub_workflow
+//
+//     The three unarmed ones are the PAGE-BUILDING paths — precisely the paths
+//     that emit new bytes — so this is not a remote possibility, it is the main
+//     road. **Case 5 is LIVE.**
+//
+//     WHY NO PAGE IS ACTUALLY POISONED TODAY, and why that is luck rather than
+//     safety: a stale fingerprint shows up as exactly the mismatch this check
+//     looks for, and the 228-page sweep found 228 MATCH — so as of 2026-08-21
+//     10:35Z no page was in that state. That is an observation about one moment,
+//     not a property of the system.
+//
+//     ⚠⚠ THEREFORE THIS CHECK MUST NOT BE ENABLED WHILE ANY UNARMED
+//     `deployed` STAMPER EXISTS. That is not left to whoever applies the
+//     config: migration 526 REFUSES to apply while the recursive count above is
+//     non-zero, so the precondition is enforced rather than remembered. The
+//     preferred fix is to ARM the three (all three carry a `git_commit` step
+//     `deploy_page` with `output_field: "page_deployed"`, so it is one migration
+//     in 494's shape) — arming raises fingerprint coverage, whereas PLAN D6's
+//     stamp-side NULLing lowers it and is the backstop for the NEXT unarmed
+//     stamper rather than the answer to these three. See PLAN D6/D7.
 //
 // ── WHAT THIS CHECK DOES NOT OWN ───────────────────────────────────────────
 //
