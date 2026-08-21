@@ -2435,3 +2435,44 @@ element; 0·0·0·0 standard counts, 5 listeners.
 positives `name="twitter:card"` present, `id="og-image"` present.
 **24 of 63 live-confirmed. Phase A remainder: regex-tester, jwt-inspector, token-calculator,
 clip-path.**
+
+## 2026-08-21 14:15Z — #25 regex-tester built+retired+graded (25 of 63); seed 496's strict-marker defect found, reported, FIXED BY ITS OWNER within the hour; the oklch re-fix landed via replace_existing with the non-hollow gate's FIRST LIVE CATCH
+
+**The 496 incident (full trail, for the next reader):** seed 496 went live 12:12:12Z with
+`replace_existing!` (strict-required). First #25 filing `cd3812b5` (13:39Z, spec without the key —
+the shape every pre-496 producer emits) died at `save_tool`: "strict '!' fields did not resolve:
+[replace_existing]"; the ITEM read `complete` with `error` NULL (the standing trap). Diagnosis
+measured at the live row (config updated_at 12:12:12, mapping present; 2 of 3 runs since noon with
+the error), confirmed behaviourally both arms (refile `298fa5f8` WITH `"replace_existing": false`
+built clean → component `a46f9503`). Reported to the 286/331 lane with the workaround;
+**their hotfix migration 532 applied ~13:55Z** (`replace_existing?` optional-explicit, absence passes,
+explicit-only resolution kept). Casualty census: exactly ONE run fleet-wide (mine). **TL-047's own
+lesson, theirs to record and worth repeating here: "absent ⇒ byte-identical" was pinned at the ACTION
+layer, and the `!` marker refused at EXTRACTION — a layer no action-level test sees.**
+**Consequence for this lane's specs: from the NEXT filing, carry NO `replace_existing` key** — plain
+absence is the fix's second-producer proof, and its outcome gets recorded here.
+
+**#25 `tool-regex-tester`:** retire `UPDATE 1` (~90s after slot), md5 `c34377e9…` intact, one
+surviving slot by FUNCTION. RUN: complete, adopted, component `a46f9503` (11,667 chars).
+**COMPONENT PASS by mechanism — the richest ported defect set of the run is dead:**
+- pattern executes on the RAW text (`regex.exec(text)`), matches collected by index with a
+  zero-length-advance guard + iteration cap; output assembled by escaping non-match and match
+  segments SEPARATELY around `<mark>` — a highlight can never split an entity, and patterns with
+  `<`/`&` match what the visitor typed (the ported version ran the regex on ESCAPED text);
+- three states distinct in TEXT as well as colour: named match counts ("Pattern is valid: N matches
+  found", 0 and 1 worded), empty-pattern message, syntax-error message beside the field with results
+  cleared; no hardcoded hexes anywhere (the ported `#10b981`/`#ef4444` are gone);
+- 20,000-char cap with visible counter and truncation message; the lock-tab honesty note is on the
+  page verbatim-intent; the ported file's dead `run()` draft and runtime `outerHTML` self-rewrite
+  have no successor. 0·0·0·0 standard counts, 6 listeners.
+**Controls pinned:** NEGATIVES (0): `id="rawInput"`, `id="highlightOutput"`, `safeRun`, `#10b981`,
+`id="flagG"`. POSITIVES (≥1): `id="regex-pattern-input"`, `id="results-status"`,
+`id="pattern-error-message"`, `id="flag-g-checkbox"`. Serve-grade pending on rerender `310accdf`
+(13:45:30Z, queued behind a fresh sweep) — retire is done, so there is NO race exposure, only a wait.
+
+**The oklch re-fix (queued by this lane 2026-08-20, executed by the 286/331 lane via
+`replace_existing` today):** attempt 1 was REFUSED by their non-hollow gate (867→380 visible chars —
+their brief had dropped the teaching copy; **the gate's first live catch**, closing the "residual
+exposure" their TL-047 entry stated); attempt 2 regenerated IN PLACE — same component id, hex-first
+fallback order fixed, history intact. Serve-grade rides their rerender `1fe89947` (~44 items ahead);
+this lane takes it, control = the builder's line order in the served template.
