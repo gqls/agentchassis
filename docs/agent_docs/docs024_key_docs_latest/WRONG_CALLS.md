@@ -41176,3 +41176,43 @@ one step worse: there the baseline expired because *I* committed; here it expire
 else* did, which no discipline of mine controls. Related: [[a-shared-tree-commit-can-break-head]] —
 in the same session the working tree would not compile at all, another lane having `component_library.go`
 mid-edit with `RenderContext.SchemaMode` removed while a committed test still referenced it.
+
+## 2026-08-21 — I watched `-l app=agent-chassis` for an hour for a step that runs in its own ephemeral pod (staged_component_build lane)
+
+**The call.** Migration 515's runtime verification needed one log line: the `MASTER EXTRACTOR START`
+line for `page-build-handler`'s `plan_sections` step, to see whether `page_type` had been excluded
+from `requested_fields` (which is what proves the `?` marker parsed). I armed a watcher over
+`kubectl get pods -l app=agent-chassis`, foreground-tested that the filter matched a live
+`MASTER EXTRACTOR START` line, and let it run. Then re-armed a second, better-filtered one. **Both
+returned nothing across ~an hour, while six page-build-handler orchestrations ran and three of them
+reached `plan_sections`.**
+
+**The reason:** `page-build-handler` does not run in the chassis deployment at all. Each run gets
+its **own ephemeral pod** — `agent-page-build-handler-<hash>-<suffix>`, a different hash every time
+(`4688c968`, `557e5c1f`, `4d66c8ab`, `41a4e850` in four consecutive runs). I was reading two pods
+that never execute that step.
+
+**What caught it:** asking the database which pod had actually done the work, instead of assuming
+the label told me. `orchestration_states.processing_node` names it outright. One column.
+
+**Cost.** About an hour of wall-clock and two wasted watchers. Nothing was mis-stated publicly —
+the empty result was correctly reported as "no evidence", not as "the class is quiet" — but it
+would have been very easy to write the second thing, and a clean grep from the wrong pod reads
+exactly like a clean grep from the right one.
+
+**The cheap check that would have:** before arming any log watcher, **ask the DB which pod produces
+the line** — `SELECT processing_node FROM orchestration_states WHERE owner_agent_type='<x>' ORDER BY
+created_at DESC LIMIT 3` — and confirm that pod is in the set your selector returns. My
+foreground-test was real but tested the wrong proposition: it proved *the filter can match a line*,
+not *this pod emits the line I need*. **A watcher test must assert on the specific line you are
+waiting for, from the specific source that produces it.**
+
+**The generalisable half, and it is already half-written in MEMORY** (*"`logs deploy/X` reads one
+pod of N — and `-l app=<subsystem>` may be the WRONG SERVICE (one image, every label)"*). What this
+case adds is the **ephemeral per-run pod**: not merely the wrong pod, but a pod that **does not
+exist yet** when you arm the watcher and **is gone** before you read it. For those, retention is
+brutal — the surviving pod held **180 lines covering 3.4 minutes**, and `plan_sections` had already
+rotated out of it by the time I looked, five minutes after the run. So the instrument has to poll
+the pod LIST, not a fixed set, and fast. And prefer a durable source when one exists: I checked
+whether `section_plan` records the `page_type` it used (it does not), which is why the log is the
+only route here — but that check should come first, not after two failed watchers.
