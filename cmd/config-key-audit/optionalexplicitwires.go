@@ -146,6 +146,53 @@ func findOptionalExplicitWires(agents []liveAgent, acked map[string]bool) []opti
 	return findings
 }
 
+// walkedStepCount is the VACUITY GUARD's input: how many workflow steps the
+// walker actually visited across the whole fleet.
+//
+// WHY IT EXISTS (reported 2026-08-21 by the bugs_open/286 session while
+// confirming an ack, and it is a defect in this tool of exactly the class this
+// tool was built to prevent): the fleet export must carry each agent's workflow
+// at the TOP level as `workflow`. Feed it the shape one reaches for first —
+// `json_build_object('type', type, 'default_config', default_config)` — and
+// every agent decodes cleanly, `liveAgent.Workflow` is the zero value for all of
+// them, the walker visits NOTHING, and the report says "0 live `?` wires, 0
+// unacknowledged, exit 0". That is indistinguishable from a genuinely clean
+// fleet: same wire count, same exit code, same absence of any error. The only
+// tell was the number this guard now makes load-bearing.
+//
+// So: agents decoded but zero steps walked is "the check did not run", which
+// must NEVER be reported as a pass. Deliberately not phrased as "workflow is
+// empty for every agent" — this counts what the walker actually reached, so it
+// also catches a future export that carries `workflow` but loses `steps`, or a
+// walker change that stops descending.
+// vacuityRefusal returns the refusal message when this run cannot mean
+// anything, and "" when it can. Split out of the caller so the DECISION is
+// testable: os.Exit is not, and a guard whose only test asserts its INPUTS
+// (walkedStepCount) leaves the branch itself unpinned — which is what a
+// mutation proof caught here, on a comment claiming otherwise.
+func vacuityRefusal(agents []liveAgent) string {
+	if len(agents) == 0 || walkedStepCount(agents) > 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"config-key-audit --optional-explicit-wires: %d agents decoded but ZERO workflow steps "+
+			"walked — refusing to report. This is almost always the export SHAPE: each element "+
+			"must carry the workflow at the top level as `workflow`, i.e. "+
+			"jsonb_build_object('type', type, 'workflow', default_config->'workflow'). "+
+			"A `default_config`-shaped feed decodes cleanly and walks nothing, which would "+
+			"otherwise print as a clean fleet.\n", len(agents))
+}
+
+func walkedStepCount(agents []liveAgent) int {
+	n := 0
+	for _, agent := range agents {
+		validation.WalkSteps(agent.Workflow, func(path string, step models.Step, nested bool) {
+			n++
+		})
+	}
+	return n
+}
+
 // emitOptionalExplicitWires reads the same stdin shape as the other modes.
 //
 // EXIT CODES CARRY THE FINDING: 0 = every live `?` wire is acknowledged (zero
@@ -234,6 +281,14 @@ func emitOptionalExplicitWires(args []string) {
 		fmt.Fprintf(os.Stderr,
 			"config-key-audit --optional-explicit-wires: 0 agents decoded (%d undecodable) — "+
 				"refusing to print a clean report over an empty or broken export.\n", failed)
+		os.Exit(2)
+	}
+
+	// VACUITY GUARD — before any finding is reported, prove the walker saw
+	// something. A fleet of agents with no steps yields the same clean report as
+	// a fleet with no `?` wires.
+	if msg := vacuityRefusal(agents); msg != "" {
+		fmt.Fprint(os.Stderr, msg)
 		os.Exit(2)
 	}
 

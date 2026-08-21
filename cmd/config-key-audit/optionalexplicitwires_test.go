@@ -164,3 +164,68 @@ func TestMissingAcksFileIsAnError(t *testing.T) {
 			"a check that did not run")
 	}
 }
+
+// THE BLIND-GREEN SHAPE, reported 2026-08-21 by the bugs_open/286 session while
+// confirming an ack — a defect in this tool of the exact class it was built to
+// prevent. A `default_config`-shaped feed decodes cleanly, walks nothing, and
+// reports "0 wires, 0 unacknowledged, exit 0", which no reader can tell from a
+// genuinely clean fleet.
+//
+// MUTATION PROOF: make vacuityRefusal return "" unconditionally → this test
+// fails. (An earlier version of this test asserted only walkedStepCount and
+// findOptionalExplicitWires — the detector's INPUTS — and a mutation of the
+// branch itself passed it, while the comment claimed otherwise. The decision is
+// now its own function precisely so the branch can be pinned.)
+func TestWrongShapeFeedWalksNothingAndMustNotReadAsClean(t *testing.T) {
+	// The WRONG shape: workflow nested under default_config, as it sits in the
+	// table, rather than hoisted to the top level as the export requires.
+	var wrong liveAgent
+	if err := json.Unmarshal([]byte(`{"type":"fixture-agent","default_config":{"workflow":{"steps":
+	  {"save_tool":{"action":"create_tool_component",
+	   "config":{"related_pages?":"input_data.spec.related_pages"}}}}}}`), &wrong); err != nil {
+		t.Fatalf("fixture does not decode: %v", err)
+	}
+	wrongAgents := []liveAgent{wrong}
+
+	// It decodes — that is the whole trap. The agent is present and well-formed.
+	if len(wrongAgents) != 1 {
+		t.Fatal("fixture did not produce an agent")
+	}
+	if got := walkedStepCount(wrongAgents); got != 0 {
+		t.Fatalf("walkedStepCount = %d on a default_config-shaped feed, want 0 — if this shape "+
+			"now walks, the guard below is guarding a case that no longer exists", got)
+	}
+	if got := findOptionalExplicitWires(wrongAgents, map[string]bool{}); len(got) != 0 {
+		t.Fatalf("findings = %d on a feed that walks nothing, want 0 — the point is that a "+
+			"vacuous run and a clean run are indistinguishable by findings alone", len(got))
+	}
+
+	// THE CONTROL, and it is what makes the zero above mean "wrong shape" rather
+	// than "this fixture has no wires": the SAME wire in the CORRECT shape walks
+	// and is found.
+	right := oneAgent(t, `{"steps":{"save_tool":{"action":"create_tool_component",
+	  "config":{"related_pages?":"input_data.spec.related_pages"}}}}`)
+	if got := walkedStepCount(right); got == 0 {
+		t.Fatal("CONTROL FAILED: the correctly-shaped fixture also walks zero steps, so this " +
+			"test cannot distinguish a bad feed from a bad walker")
+	}
+	if got := findOptionalExplicitWires(right, map[string]bool{}); len(got) != 1 {
+		t.Fatalf("CONTROL FAILED: correctly-shaped feed produced %d findings, want 1", len(got))
+	}
+
+	// AND THE DECISION ITSELF, not just its inputs: the guard must REFUSE on the
+	// wrong shape and stay silent on the right one.
+	if msg := vacuityRefusal(wrongAgents); msg == "" {
+		t.Error("vacuityRefusal returned no refusal for a feed that walks zero steps — the run " +
+			"would report 0 wires and exit 0, which is the blind-green shape this guards")
+	}
+	if msg := vacuityRefusal(right); msg != "" {
+		t.Errorf("vacuityRefusal refused a correctly-shaped feed: %q — a guard that fires on "+
+			"healthy input is worse than none", msg)
+	}
+	if msg := vacuityRefusal(nil); msg != "" {
+		t.Errorf("vacuityRefusal fired on an EMPTY agent list: %q — that case is already refused "+
+			"upstream with a better message, and duplicating it here would mislabel it as a "+
+			"shape problem", msg)
+	}
+}
