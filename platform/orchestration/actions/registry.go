@@ -1558,6 +1558,15 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Render outbound RSS 2.0 feed.xml from content_feed_items (gated by deploy_config.rss_feed)",
 		IsLocal:     true,
 	},
+	// Registered in the SAME change that adds the action, because an unregistered
+	// action cannot be invoked at all and the omission is invisible until a
+	// workflow names it — the council has caught exactly that on this tree twice.
+	"render_sitemap": {
+		Handler:     RenderSitemapAction,
+		Category:    "feed",
+		Description: "Render sitemap.xml from active, indexable, deployed pages. ON by default; opt OUT with deploy_config.sitemap.enabled=false (inverted vs render_rss_feed, deliberately). Probes every URL and lists only 2xx; refuses to publish an empty sitemap",
+		IsLocal:     true,
+	},
 	"evaluate_news_feed": {
 		Handler:     EvaluateNewsFeedAction,
 		Category:    "feed",
