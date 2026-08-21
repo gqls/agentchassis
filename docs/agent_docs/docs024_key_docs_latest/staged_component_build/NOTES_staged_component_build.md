@@ -7001,3 +7001,75 @@ corr `f53841fc`.
 population was never a fixed set to enumerate once — it's dispatched dynamically, and the wire's own
 "can this handler's tree produce a commit" guard is a better standing check than either census this
 lane built, precisely because it doesn't need re-running by hand each time something changes.
+
+## 2026-08-21 (~15:2xZ) — 539 built for step 5's LAST blocker; round 1 REVISE found a real hole again
+
+**Built `539`** — `"commit_sha?": "handler_result.response.commit_sha"` on `build-dispatch-loop`'s
+**nested** `process_item → sub_workflow → mark_complete`. This is step 5's last live blocker
+(387 conflict rows in 24 h, the largest class on the estate).
+
+**The path was supplied, not guessed.** The 315 lane answered our CONTRIB with three options, chose
+(b) *make the path stable at the SOURCE*, and **built it**: nine handlers converted from
+`output_fields` to `result_mapping`, hoisting `commit_sha` to a canonical key (migs
+519/521/522/523/527/528/534/535/536). Their handoff: *"the wire is staged-component-build's
+remaining piece"*, and *"The migration is yours — I am not taking it."*
+
+**Two measurement traps caught before they reached the file:**
+1. **The boundary.** Measured over ALL trees, the canonical path looks like a minority — 31 of 175 —
+   purely because most trees predate their migrations. Restricted to trees created after the LAST of
+   them (536, 14:17:47Z): **25 runs, canonical 23, old-nested 20, canonical-only 3, NESTED-ONLY 0,
+   neither 2.** It strictly dominates. Same recency error as the tg/function case, opposite direction.
+2. **Three-valued logic.** My first `canonical_only`/`nested_only` columns were mutually
+   inconsistent with the totals (23 canonical, 20 nested, yet both "only" cells zero). A jsonb `?`
+   on a NULL intermediate yields **NULL**, and `x AND NOT y` then drops the row silently. Wrap every
+   such test in `COALESCE(…, false)`. **The tell was arithmetic that could not be true**, which is
+   the only reason I looked.
+
+**I departed from the 315 lane's own recommendation, deliberately.** Their §3 suggested `commit_sha!`
+(strict). Their §4 warns absence is correct for handlers that never commit. Measured independently:
+**1080 of 2195 completions in 3 days carry no sha — 49%.** `!` would hard-fail about half of all
+work-item completions. `?` is correct.
+
+**ROUND 1 = REVISE, gated by guardian, and the objection was right again.** It cited a LANDMINE keyed
+almost verbatim to this site: *a complete work item's `result` may be the SPAWN RECORD*, because
+`mark_complete` asks for `handler_result` un-suffixed, finds nothing, and the aggressive search
+returns the spawn record — **which is exactly the trust my file claimed to inherit.**
+
+The answer, and it makes the argument stronger rather than merely rescuing it:
+- The defect is `bugs_closed/287`, and **that landmine's own footer records its closure** (migs
+  448/452 + WFA-017, live and proven on `v1.0.1307`).
+- **Migration 452 IS the `result!` wire.** So the strict marker is not incidental — it is *the
+  mechanism that closed 287*, because `!` means explicit-or-FAIL and that is what stops the
+  fall-through.
+- **[MEASURED] the spawn-record shape is gone from this slot:** 0 of **185** across all retained bdl
+  trees, 0 of **35** post-536, with 35/35 carrying the `response` reply.
+So: the root is safe not because the step reads it, but because it reads it **STRICTLY**.
+**The landmine is NOT retired** — ~939 historical rows keep the spawn record for ever.
+
+**The other objections, all acted on:**
+- **guardian (low)** — the nine-handler coverage was a *historical sample*. It is now an
+  **apply-time GUARD**: the migration refuses if any of the nine has lost its
+  `result_mapping.commit_sha`. **Mutation-proved** by deleting asset-deployer's mapping inside a
+  rolled-back transaction → *"1 of the 9 canonical handlers have no result_mapping.commit_sha"*.
+  Live coverage right now is 9 of 9.
+- **guardian (medium)** — operation re-tagged **`config_change`**, not `add`. Worth recording that
+  `config_change` IS accepted by the validator; 515's earlier refusal was about the word `create`,
+  not about this. Same objection was raised on 515 and I only recorded it then — acting on it costs
+  one line.
+- **editquality (low ×2)** — the rollback sketch now carries its **full executable body** rather than
+  pseudo-code, and the independent live-shape confirmation is stated in the submission rather than
+  merely done. **This is the second round in a row where a seat objected to something absent from the
+  SKETCH but present in the FILE** — the council sees the sketch. Put the whole body in, always.
+
+Round 2 resubmitted on the same trail.
+
+**Also filed: `bugs_open/350`** — found while dispositioning the *smallest* class on the board (3
+rows). Its winner was `config.workflow.steps.probe_control.config.summary`: the resolver descends
+into the orchestration's **own workflow definition**. `isInfrastructureKey` skips `agent_config` and
+`retry_payload` but **not plain `config`**, and **1941 of 3107** orchestrations carry a `config` key —
+**208 of them the entire workflow**. Filed with what I do not have stated plainly: mechanism and
+exposure yes, demonstrated damage no.
+
+**And a numbering mistake:** I filed it as 344, which was already taken. I had taken the highest
+number (`tail -1` → 349) and assumed 344 was free — but `tail -1` says nothing about gaps below it.
+Renumbered to **350**, both paths named on the commit per the `git mv` landmine, verified at HEAD.
