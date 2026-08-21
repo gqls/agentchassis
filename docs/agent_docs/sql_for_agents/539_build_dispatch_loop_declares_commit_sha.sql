@@ -90,14 +90,43 @@
 -- the correct marker: resolve from the named path, otherwise absent, no error.
 --
 -- ============================================================================
--- WHY `handler_result` IS A SAFE ROOT — no new assumption is introduced
+-- WHY `handler_result` IS A SAFE ROOT — and the LANDMINE that says otherwise
+-- describes the PRE-FIX world (council round 1, guardian, HIGH / gating)
 -- ============================================================================
--- The step ALREADY reads `result!: handler_result`, i.e. it already trusts the
--- unsuffixed alias to be THIS iteration's result. This wire uses the same root
--- for the same reason, so it inherits an assumption the step has always made
--- rather than adding one. If that assumption is ever wrong, `result` is wrong
--- too and the bug is bigger than this key.
+-- The step ALREADY reads `result!: handler_result`, so this wire inherits an
+-- assumption the step has always made rather than adding one.
 --
+-- Round 1's gating objection cited a LANDMINE keyed almost verbatim to this site:
+-- "A `complete` work item's `result` may be the SPAWN RECORD, not the handler's
+-- reply … `mark_complete` asks for `handler_result` (un-suffixed), finds nothing,
+-- and the aggressive recursive search returns the spawn record." If that were
+-- still true, the trust this file inherits would be exactly the trust that entry
+-- says is misplaced. **The objection was right to raise it. The answer is that the
+-- entry describes the world BEFORE its own fix, and its own footer says so.**
+--
+--  1. The defect is `bugs_closed/287`, and that same landmine records its closure:
+--     "migs 448/452 + WFA-017, live and proven on v1.0.1307 — field=result
+--     resolver rows 0, 11/11 completions carrying the reply".
+--  2. **Migration 452 IS the `result!` wire** ("build_dispatch_loop_result_goes_
+--     strict"). So the strict marker here is not incidental — it is the mechanism
+--     that closed 287. `!` means explicit-path-or-FAIL, which is precisely what
+--     stops the fall-through to the aggressive search that the landmine describes.
+--  3. [MEASURED 2026-08-21 ~15:4xZ] the spawn-record shape is GONE from this slot.
+--     Shape test: a spawn record carries `role`/`topics`/`agent_id` and no `response`.
+--       all retained bdl trees carrying handler_result : 185 — spawn records **0**
+--       post-536 window (created after 14:17:47Z)      :  35 — spawn records **0**,
+--                                                          and 35 of 35 carry `response`
+--
+-- So the argument is STRONGER than round 1 stated it: the root is safe not merely
+-- because the step reads it, but because it reads it **STRICTLY** — and that is the
+-- fix. `handler_result` cannot silently become a spawn record again without
+-- `result!` failing loudly first.
+--
+-- ⚠ The landmine stays VALID and must NOT be retired on the strength of this file:
+-- ~939 historical rows hold the spawn record permanently (their parents were
+-- reaped), and any run created before its agent's migration still carries the old
+-- shape. What is established here is narrower — that THIS wire, on runs THIS
+-- migration can affect, does not inherit the defect.
 -- ============================================================================
 -- ORDERING — why this is NOT a _HOLD file
 -- ============================================================================
@@ -119,7 +148,8 @@ BEGIN;
 DO $$
 DECLARE
     cfg      jsonb;
-    n_active int;
+    n_active  int;
+    n_missing int;
 BEGIN
     SELECT count(*) INTO n_active FROM agent_definitions
      WHERE type = 'build-dispatch-loop' AND is_active
@@ -153,6 +183,24 @@ BEGIN
         RAISE EXCEPTION '539: result! is % , expected handler_result — this file argues the root is safe BECAUSE the step already reads it; if that changed, re-derive the path', COALESCE(cfg ->> 'result!', '<absent>');
     END IF;
 
+    -- The canonical path only EXISTS because nine handler agents were converted
+    -- to result_mapping (315 lane, migs 519/521/522/523/527/528/534/535/536).
+    -- Council round 1 (guardian, low) noted the plan cited a HISTORICAL sample
+    -- rather than live coverage. So assert it at APPLY TIME: if any handler has
+    -- lost its canonical mapping — rolled back, re-snapshotted, re-seeded — its
+    -- commit_sha would silently revert to absent under this wire, with no alarm.
+    SELECT count(*) INTO n_missing
+      FROM (VALUES ('page-rerender'),('rerender-pages'),('section-editor'),('nav-updater'),
+                   ('webdesign-agent'),('css-patch-agent'),('page-build-handler'),
+                   ('asset-deployer'),('image-build-handler')) AS h(t)
+     WHERE NOT EXISTS (
+        SELECT 1 FROM agent_definitions d
+         WHERE d.type = h.t AND d.is_active
+           AND COALESCE(d.is_snapshot, false) = false AND d.deleted_at IS NULL
+           AND jsonb_path_query_array(d.default_config, '$.**.result_mapping.commit_sha') <> '[]'::jsonb);
+    IF n_missing <> 0 THEN
+        RAISE EXCEPTION '539: % of the 9 canonical handlers have no result_mapping.commit_sha — the path this wire names would be absent for them. Restore their mapping (315 lane migs 519/521/522/523/527/528/534/535/536) before applying', n_missing;
+    END IF;
     IF cfg ? 'commit_sha?' THEN
         RAISE EXCEPTION '539: commit_sha? is already declared — already applied';
     END IF;
