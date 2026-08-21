@@ -176,3 +176,66 @@ committed. Neither does anything until the next release. The second review round
 still running. After the release, someone needs to run the canary — and, importantly,
 prove the detector still fires before trusting the count going to zero, because a zero
 from a blind detector looks exactly like success.
+
+## 2026-08-21 (after the new build went out) — it's live, it's proven, and I found my own bad number
+
+The new chassis build carries everything. I checked that properly rather than
+assuming: I asked the running program which version of the code it was built from, and
+then — because that answer could in principle be a coincidence — I also searched the
+running binary for a made-up version string that should *not* be there. It wasn't. So
+the check can tell the difference, which is the only reason the positive result means
+anything.
+
+**The protection is proven against the real database.** This is the bit I most wanted.
+Our unit tests can check that we send the database the right instruction, but they
+cannot check that the database *does* the right thing with it, because they don't run a
+real database. So I ran the real instruction against the live database inside a
+transaction and then undid it. All four cases behaved: an empty list did not overwrite a
+real one; a real list still overwrote a real one (so we haven't accidentally frozen
+anything); the deliberate "yes, empty this page" route still works; and emptying an
+already-empty page is quiet. Nothing was left behind.
+
+**Then I found a mistake of my own, and it's an interesting one.** I ran a query asking
+"of the section names that can't be resolved, how many does my fix actually reach?" —
+and on three sites the answer looked bad, as though my fix had a hole. So I listed the
+names to find the hole. They weren't the kind of name this bug is about at all: they
+were ordinary names written with underscores instead of hyphens, which the system
+already handles fine.
+
+The fix didn't have a hole. **My counting method did.** The query everyone has been
+using — including the one written into the original bug report back on the 5th of
+August, which I copied and re-published six times — compares names *exactly*, while the
+real code first tidies them up. So it has been over-counting from the start. The honest
+figure is 88 names across 6 sites, not 107 across 7. One site comes off the list
+entirely.
+
+None of the conclusions change, and I want to be clear about why, because it would be
+easy to over-correct. The number that mattered was never this one — it was the count of
+sections the system was *observed* deleting, 140 out of 140 of them the kind this bug is
+about. That's a record of what actually happened, not an estimate of what might. The
+census was only ever "how many pages are exposed", and the notes already said in several
+places that it isn't the measure of success.
+
+What I have now measured properly is coverage: **83 of the 88 are protected by the fix.
+The other 5 are names that refer to nothing at all** — no component anywhere matches
+them, and the pages don't have sections by those names either. Deleting those is the
+checker doing its actual job. So it protects everything that should be protected.
+
+**What I have not done, deliberately.** The fix has not yet run for real. No site
+planner has run anywhere since the incident on the 20th, so the current clean readings
+prove nothing — which is exactly the trap I warned about in the last note, met about my
+own work. To make it run I'd have to trigger a replan on one of the sites with these
+positional names, and all four of them are being actively worked today, one of them by a
+session that committed to it this afternoon. Triggering a replan there is precisely what
+caused the original incident. I wasn't prepared to repeat that in order to test my own
+fix. I've written down what I'd need — a quiet site, a snapshot first, and the job queue
+cancelled before any repair — and I've left a note for the team working the most
+affected site telling them what to check if they replan it anyway.
+
+**One more thing I found while looking for a safe way to test it.** There is a second,
+much older planner in the system that has the same setting switched on but is *not*
+covered by my fix, because its workflow never tells it which site it's working on. I
+left it alone and wrote down why: it has no way to save anything, so its mistakes go
+nowhere, and it has run twice in its entire life — both times on the 9th of August. I
+could have added a guess at where to find the site identity, but I'd have been shipping
+code I couldn't test, which is a habit that has bitten this system repeatedly.
