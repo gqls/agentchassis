@@ -158,3 +158,55 @@ func TestParkIgnoresMarkersOnOtherSteps(t *testing.T) {
 		t.Fatalf("expectations: %v", err)
 	}
 }
+
+// The case BETWEEN the two the council's editquality seat named in round 1
+// (correlation RESUBMIT_CORR=cc782778): a container IS present under the awaited
+// step name — the dispatching action's own carried-across result — but holds no
+// response marker at all. This is the ordinary shape of a first park on a step
+// that computed something before dispatching, and it must persist.
+//
+// It earns its own test because the two guards in front of the switch cover each
+// other IN SERIES: with `exists` removed, a nil map still yields hasResponse
+// false and continues; with `hasResponse` removed, a missing key still fails
+// `exists` and continues. Removing either alone therefore changes nothing
+// observable, which is exactly the "a mutation that passes may have hit a guard
+// in series" shape — so the only mutation that proves this branch is removing
+// BOTH, and this is the test that then fails.
+//
+// Mutation that must fail this: delete both the `if !exists` and the
+// `if _, hasResponse := ...` guards. The switch then reaches `default` with no
+// id, reads it as a legacy arrival, and skips a park that has never been
+// answered — a fresh await silently abandoned on its FIRST attempt, which is
+// worse than the bug this file exists to fix.
+func TestParkPersistsWhenTheStepHasDataButNoResponseMarker(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	updateArgs := make([]driver.Value, updateArgCount)
+	for i := range updateArgs {
+		updateArgs[i] = sqlmock.AnyArg()
+	}
+
+	// The action's own result is under the awaited step name; no reply has landed.
+	mock.ExpectQuery("FROM orchestration_states").
+		WithArgs("orch-1").
+		WillReturnRows(freshRow(`{"deploy_logo_image":{"image_url":"/assets/images/logo.png","asset_id":"a-1"}}`))
+	mock.ExpectExec("UPDATE orchestration_states").
+		WithArgs(updateArgs...).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	repo := NewStateRepository(db, zap.NewNop())
+	outcome, err := persistAwaitingStateWithRetry(context.Background(), parkingState(), repo, zap.NewNop())
+	if err != nil {
+		t.Fatalf("park failed: %v", err)
+	}
+	if outcome != parkPersisted {
+		t.Fatalf("outcome = %v, want parkPersisted: a step's own result is not an arrived reply", outcome)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("a first park was skipped because the step already held unrelated data: %v", err)
+	}
+}
