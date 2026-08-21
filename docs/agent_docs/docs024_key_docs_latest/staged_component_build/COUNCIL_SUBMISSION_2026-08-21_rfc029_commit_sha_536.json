@@ -1,0 +1,30 @@
+{
+  "rationale": "Dependent case for image-build-handler, same shape as migration 534 (page-build-handler) -> 519 (page-rerender): image-build-handler has no git-touching action of its own, reaching one by calling asset-deployer (migration 535, submitted alongside this one) via call_asset_deployer (call_agent, target_role: asset_deployer). Live config description: \"Call asset-deployer to download from S3, optimize by purpose, commit to git.\"\n\nFound by the same staged-component-build lane cross-check that found 535 (site_work_items.result ? 'commit_sha' grouped by handler_agent), and independently re-verified at the artefact before building, same discipline as 535.",
+  "submitter": "staged_component_build lane \u2014 RFC_029 \u00a710.13 step 5's real gate (bdl/commit_sha), handler standardisation, scope extension",
+  "plan": {
+    "summary": "Convert image-build-handler's complete step from output_fields to result_mapping, preserving all three existing fields and adding commit_sha sourced from deploy_result.response.commit_sha (post-535 shape). Dependent on migration 535 (asset-deployer), guarded in SQL.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/536_image_build_handler_exposes_commit_sha_canonically.sql",
+        "symbol": "agent_definitions.default_config {workflow,steps,complete,config} (image-build-handler)",
+        "operation": "modify",
+        "rationale": "Converts image-build-handler's complete step from output_fields=[\"image_result\",\"asset_stored\",\"deploy_result\"] to result_mapping with all three as identity maps plus commit_sha sourced from deploy_result.response.commit_sha \u2014 one level shallower than asset-deployer's own internal path, because deploy_result here is the call_agent envelope wrapping asset-deployer's own (535-standardised) response, and 535 puts commit_sha at that response's top level alongside deploy_result, not nested inside it. Guard explicitly refuses unless 535 is already live (checked in SQL, not just documented), and re-confirms call_asset_deployer still targets asset_deployer specifically.",
+        "sketch": "UPDATE agent_definitions SET default_config = jsonb_set(default_config #- '{workflow,steps,complete,config,output_fields}', '{workflow,steps,complete,config,result_mapping}', jsonb_build_object('image_result','image_result','asset_stored','asset_stored','deploy_result','deploy_result','commit_sha','deploy_result.response.commit_sha'), true), updated_at=NOW() WHERE type='image-build-handler' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL; -- full guard incl. the 535-dependency check, and VERIFY (RAISE WARNING not EXCEPTION if no post-535 sample yet exists, matching 534's own honest-uncertainty precedent) in the file"
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/536_image_build_handler_exposes_commit_sha_canonically_ROLLBACK.sql",
+        "symbol": "agent_definitions.default_config {workflow,steps,complete,config} (image-build-handler)",
+        "operation": "modify",
+        "rationale": "Restores output_fields, refusing unless result_mapping is exactly what this migration wrote.",
+        "sketch": "default_config #- result_mapping, jsonb_set output_fields back to the three-entry list; guard checks the exact prior mapping first."
+      }
+    ],
+    "grounded_in": [
+      "image-build-handler's live call_asset_deployer step, read 2026-08-21: call_agent, target_role asset_deployer, output_field deploy_result, next_step mark_work_item_complete.",
+      "PRE-535 live artefact (2026-08-21, a real completed image-build-handler orchestration): collected_data.deploy_result.response = {deploy_result: {...raw deploy_image_asset result...}, agent_type: 'asset-deployer', ...call_agent envelope...} \u2014 confirms the one-response-hop-then-nested-again shape this migration's path depends on, at the artefact, matching page-build-handler's own pre-519 sample exactly.",
+      "Migration 535 (asset-deployer), submitted alongside this one, same council round.",
+      "Same dependent-case precedent as migration 534 (page-build-handler on 519), including its choice to WARN rather than block on the absence of a post-dependency live sample at write time."
+    ],
+    "risks": "1. Same dependency risk as 534: no live post-535 sample of image-build-handler calling asset-deployer may exist at apply time (image-build-handler's demand is intermittent, 125/7d). The VERIFY block issues a WARNING not an EXCEPTION in that case, matching 534's precedent, rather than blocking a migration correct by construction.\n\n2. Same standing risks as the rest of the batch (no reader depends on output_fields' mode; this is one of 8 real handlers, not the flip).\n\n3. Depends on and is guarded against migration 535, submitted in the same round."
+  }
+}
