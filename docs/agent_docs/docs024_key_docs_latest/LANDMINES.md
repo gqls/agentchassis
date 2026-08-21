@@ -13745,3 +13745,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/198` (the clobber; §2026-08-20 carries the restore recipe and the verified-identical method) · `bugs_open/296` §10.4 (the withdrawal) · `WRONG_CALLS.md` 2026-08-20 · the `overImage` entry on the same footprint · `a PASS from a BLIND check outlives the blindness` · `a post-fix ZERO needs a DEMAND control`
 - **source:** 2026-08-20. Found by the `news_editorial` lane re-measuring after the `dartsonline_traffic` lane restored dartsonline's stylesheet — neither lane could have found it alone: one held the audit, the other the restore.
 - **added:** 2026-08-20, dartsonline_traffic lane, from the news_editorial lane's measurement.
+
+### A pure-logic change is UNPROBEABLE at the artefact — no string literal, no named function, nothing for `grep /proc/1/exe` to find — and the estate's whole deploy discipline assumes otherwise
+
+- **footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`ExtractActionInputs`, the `!`/`?` marker peel) · `pkg/buildinfo/buildinfo.go` (`GitCommit`) · any `_HOLD.sql` whose precondition is "the parsing binary has rolled" · the capability-probe recipe in this file's *"Probing the live binary for YOUR commit returns ABSENT…"* entry
+- **fires when:** you are discharging an ordering interlock for a change that added **behaviour but no vocabulary** — a new branch, an exclusion, a peel, a guard. The standing advice ("probe the CAPABILITY, not the commit") reads as universal and has **no target at all** for this class, and the failure is silent: you pick a phrase out of the diff, grep for it, get ABSENT, and conclude the change has not shipped.
+- **the trap, and it produced a confident wrong answer in one step.** `ecc419bd1` (the RFC_029 `?` OPTIONAL-EXPLICIT marker) is 113 lines of `action_inputs.go`. It adds:
+  - **no new string literal in CODE.** Its two quotable phrases — `"explicit resolution only"` and `"does this field decline every non-explicit arm?"` — are both inside **comments**, which the compiler discards. Grepping either returns ABSENT on a binary that certainly contains the feature. *(Measured 2026-08-21: both absent on both `v1.0.1321` pods, while the present-control `current_page_name` was found and the absent-control was not — so the probe was working perfectly and the answer was still wrong.)*
+  - **no new named function.** Everything it introduces is a local (`optionalExplicit`, `strictFields`) or a closure (`explicitOnly`). Locals and closure bodies do not give you a greppable `pclntab` symbol the way a package-level `func` does.
+  So **the capability probe cannot be constructed**, and its absence is indistinguishable from the feature's absence.
+- **the check — fall back to the STAMP, and grep one sha at a time.** `buildinfo.GitCommit` is a single string, so you cannot discover it (a 40-hex discovery grep matches Go's internal digit table — see the sibling entry). But you *can* TEST candidates, which is a different thing and is legitimate:
+  ```bash
+  POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1); POD=${POD#pod/}
+  for SHA in $(git log --format=%H --since='<build day> 15:00' --until='<build day> 21:30'); do
+    kubectl -n ai-persona-system exec $POD -- grep -aqF "$SHA" /proc/1/exe && echo "STAMP=$SHA"
+  done
+  kubectl -n ai-persona-system exec $POD -- grep -aqF deadbeefdeadbeefdeadbeefdeadbeefdeadbeef /proc/1/exe && echo "CONTROL FAILED"
+  ```
+  Then the real question is ancestry, not equality: `git merge-base --is-ancestor <your-commit> <STAMP>`.
+  ⚠ **Do NOT batch the candidates into one alternation.** `grep -aoE "sha1|sha2|…"` with 60 branches **times out past 2 minutes** against the binary; 60 separate fixed-string `grep -aqF` calls each return in about a second. Fixed-string is the whole difference — give `grep` `-F` and one pattern.
+  ⚠ And the usual first resort is gone by the time you need it: the `build provenance` log line is a STARTUP line and had scrolled **14 h** after the roll on a full `kubectl logs`.
+- **the second-order point, which is the reason this is an entry and not a note.** The estate now has two probe classes and only one is documented: a change that adds a *literal* is provable at the artefact for as long as the artefact runs, and a change that adds only *logic* is not provable at all. **If you are writing a change whose ordering will need discharging later — anything destined for a `_HOLD` — add one probeable marker on purpose** (a `logger.Debug` naming the feature, or make one helper package-level). Four characters of foresight replaces this entire procedure.
+- **relations:** this file's *"Probing the live binary for YOUR commit returns ABSENT…"* (the entry this one narrows — its advice is right and simply has no target here) · the `strings`/discovery-grep entries · `RFC_040` (persist what the binaries enumerate) · `docs024_key_docs_latest/sql_for_agents/515_…sql` header (the worked discharge) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[a-fresh-deploy-can-ship-no-new-code]] · [[a-doc-comment-is-not-an-enforcement-mechanism]] (same root: a comment is not in the artefact)
+- **source:** 2026-08-21, `staged_component_build` lane · discharging migration 515's ordering precondition against `ecc419bd1` · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md` (`## 2026-08-21`)
+- **added:** 2026-08-21, staged_component_build lane
