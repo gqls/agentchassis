@@ -839,3 +839,30 @@ Also survived: migration number race (519 taken between listing and writing — 
 520); two index.lock collisions (waited, never removed another session's lock; one commit
 landed despite 'unable to write new index' — verify with git log before retrying, the
 retry would have DOUBLE-COMMITTED).
+
+## 2026-08-21 (session 8, cont.) — round 1 REVISE (gating HIGH was RIGHT again), answered with code; round 2 submitted
+
+Round 1 on `6acf8e4e`: REVISE, gated by bug_historian. **The REVISE loop found real things a
+third time**: (1) the HIGH — what does a guard refusal during REGENERATION do to the stored
+rendered_html (the bugs_closed/056 blanking class)? Answer was "nothing, by ordering" — and
+ordering is a promise, so it is now STRUCTURAL: regen refuses empty bytes as its FIRST
+statement (test callable with zero ActionParams — the check precedes every use). (2) the
+occurrence-0 single-placement assumption had no runtime assertion — now asserted in the regen
+census (same-page duplicate refuses to a human). (3) both objecting seats named the
+deploy_tool fork door — MEASURED alive (13 births/30d, latest 08-19) and now guarded with the
+SAME helper; this also closes a real blindspot neither round named: an UNPLACED library
+source is invisible to the sweep (placed-only corpus), so the fork guard is the only
+preventive control at that door. Armed by migration 530.
+
+⚠ Migration number races fired TWICE in one session (519 taken between list and write;
+my 521 collided with an existing 521 I listed but didn't see — renumbered 530, which two
+OTHER lanes also share). The directory's working invariant is now FILENAME uniqueness, not
+number uniqueness; the superseded 521-named ledger row is annotated by 530's record note.
+⚠ The 260 lane's uncommitted RenderTemplate 4-value signature adapted my committed files in
+the working tree; my round-2 commit ships ONLY files proven green on HEAD+exactly-them
+(archive overlay), leaving their adaptation for their commit — a green working-tree build is
+not a green HEAD, in both directions.
+
+Round 2 submitted (RESUBMIT_CORR, same correlation; first attempt refused at the 8-edit cap —
+consolidated by folding, and the docs edit gave way to the deploy_tool edit per editquality's
+own note that bookkeeping needn't count). Commit `Council-Submitted: 6acf8e4e`.
