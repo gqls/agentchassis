@@ -41927,6 +41927,37 @@ I had already moved on to the next task when it printed.
 
 **Cost:** nothing permanent, one recovery, and a pattern-check advisory that did the job I should have. **It is the second time in two days that a hook caught something my own discipline did not** — the commit-msg trailer check being the first.
 
+> **CORRECTED 2026-08-21, and it moves blame OFF me — which is why it is worth writing.** The entry
+> above assigns the whole incident to my redirect. **The redirect explains the original clobber and
+> nothing else.** What followed was a *concurrent repair race*, and the peer session put the
+> hypothesis to me rather than accepting my account:
+>
+> | time | who | what |
+> |---|---|---|
+> | 19:57:57 | me | clobber commit — my text at the dated name |
+> | *between* | me | **in-tree**, unannounced: restored their text to the dated file, wrote mine to `b` |
+> | 19:58:45 | them | repair commit — `cp` of the dated file into `b`, which by then held **their** text, so both slots became theirs |
+> | 20:00:13 | me | restored my text to `b` |
+>
+> **Forty-eight seconds apart, and both repairs were sincere.** Their `cp` produced the wrong result
+> because it read *my un-committed intermediate state* — a tree edit is invisible to `git log`, so
+> their check ("did the dated file change?") could not have seen it. Verified from the commit
+> timeline and by `git show 5793c599f:` on both paths.
+>
+> **Two lessons, and the second is the general one:**
+> 1. **Claim a repair before running it, the way we claim fixes.** We both announce *builds* to each
+>    other and neither of us announced a *repair* — and a repair is more dangerous, because it runs
+>    fast, feels obviously correct, and operates on state someone else may be mid-way through.
+> 2. **On a shared tree, an uncommitted edit is state another session can read but no history can
+>    show.** "The tree was clean at your commit" was true of `git status` and false of what their
+>    `cp` actually copied.
+>
+> And the accuracy point: **over-assigning a fault to yourself is as inaccurate as under-assigning
+> it**, and it is the more tempting error after you have just made a real mistake. The original
+> clobber is entirely mine and stands as written. The mis-repair was a race that either of us could
+> have caused and neither could have seen — recording it as "my redirect did all of this" would have
+> buried the one lesson that generalises.
+
 ## 2026-08-21 — I proved every OBSERVED case was handled and presented it as having bounded the POPULATION (staged_component_build lane)
 
 **The call.** The final change of a month-long workstream: make the resolver refuse when it finds
@@ -41997,3 +42028,36 @@ other — "did my write land" cannot detect a series silently collapsing to one 
 After any repair that assigns content to filenames, read a line of each file; never assert
 content by position.* Same family as today's other entries: the measurement answered the
 question I encoded.
+
+## 2026-08-21 (later) — I read a SERVED-side absence as an ARTEFACT-side absence, one paragraph after warning about that exact trap
+
+**The claim.** In `bugs_open/198` I wrote that `webdesign.uk` was "cleared as NOT damage, so nobody
+re-investigates" — reasoning that it 302-redirects to webdesign.co.uk and therefore "has no
+stylesheet of its own".
+
+**What was true.** The redirect is real. But `vm-sites` HEAD carries
+`webdesign.uk/assets/css/styles.css` at **15,582 bytes with 4 `:root` blocks**, against a **0-byte**
+theme row — i.e. the site was one contrast finding away from losing a real 15.5KB stylesheet, and I
+had written the line that would send the next reader away from it.
+
+**The inference that failed.** "Nothing is SERVED at that hostname" and "no file EXISTS" are
+different claims. A redirect only supports the first. I had the served-side evidence and treated it
+as artefact-side evidence.
+
+**What makes it worth logging rather than just fixing.** One paragraph earlier in the same section I
+had warned about the sibling trap — that a bare `curl` without `-L` reads a 143-byte Cloudflare
+redirect page as a gutted stylesheet. I avoided that trap, correctly, and then made the very
+inference it was warning about, one step further along. **Knowing the shape of an error at the point
+where it bit you does not inoculate you against it at the next step.** The warning was about
+measurement; the error was about entailment.
+
+**It also silently invalidated a fleet claim.** My "there are now no empty linked theme rows in the
+fleet" depended on webdesign.uk being out of scope. It was not, so that count was wrong too — a
+cleared-as-not-damage note quietly changes a denominator.
+
+**The cheap check.** When a site is unreachable/redirecting, ask the REPO, not the wire:
+`git -C <deploy repo> cat-file -s <domain>/assets/css/styles.css`. Absence at the artefact is the
+only thing that licenses "no file exists".
+
+**What caught it.** Not me — the bugfix-198 lane, who checked the artefact side while I was still
+reasoning from the wire. Corrected in place in `bugs_open/198` with the reasoning, not just the fact.
