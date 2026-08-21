@@ -720,3 +720,49 @@ near-miss (`WRONG_CALLS.md`, 2026-08-21).
   regulatory, 2 within budget, 2 rewritten, 0 rejected, surgical diffs.
 - **Brief-side check:** live daily since 08-20, 9 findings open.
 - **What no code will fix:** the three pages, and the nine briefs. Both belong to the site lanes.
+
+## §22. ⚠ THE REPAIR WAS BEING MADE AND THROWN AWAY — found at the artefact, 2026-08-21 evening
+
+Two pages built after the roll, both COMPLETED, both reporting success:
+
+| page | marker |
+|---|---|
+| `remortgagecalculator.uk` / `mortgage-lenders` | two sections `status: repaired`, `hits_before 1 → hits_after 0` |
+| `ai-agent-orchestration.com` / `protocol-tracker` | `status: repaired`, `hits_before 1 → hits_after 0` |
+
+**And the stored content was unchanged.** `mortgage-lenders`' `call-to-action.content_data.subheadline`
+came back **byte-identical** to the pre-repair `generated_content.result.subheadline`, still carrying
+*"…using your own numbers rather than a lender's advertised rate."*
+
+### The cause, and the alternative I ruled out first
+
+The action mutated the writer's content map **in place**. That is correct in memory and does not
+survive the step boundary: `saveStepResultWithRetry` reloads a fresh state from the database and copies
+only the **current** step's own `stepName`/`output_field`, so an in-place edit to the **previous**
+step's output is dropped. The renderer then read the unpatched map.
+
+**Ruled out before fixing:** if `render_component`'s `merge_with` overlay had won the conflict, the
+stored value would be the *resolved* text. It is the LLM's own original — so the patch was **lost**,
+not overwritten.
+
+⚠ **I had the evidence for this two hours earlier and drew only half the conclusion from it.** The
+absence of `__copy_gate` from the durable row told me the page counter would not survive. The same
+mechanism drops an in-place content edit, and I did not follow it through.
+
+### The shape is the point
+
+Nothing errored. The orchestration **COMPLETED**. `hits_after: 0` was true of the map the action held
+and false of the page. **An honest marker over a page that never changed** — a silent no-op, which is
+precisely what this design was supposed to be immune to and what its `Set`-closure was chosen to avoid.
+It was only visible by reading the stored artefact.
+
+### The fix
+
+The action now **also returns the patched content as its own `result`** — the mechanism that
+demonstrably persists (`copy_gate_0`, `copy_gate_1` … all reach the durable row) — and migration **548**
+points `render_section.content_from` at `copy_gate.result` instead of `generated_content.result`.
+Migration **548 is HELD**: the live build does not carry the `result` key yet.
+
+**So, precisely, today's status:** the gate detects correctly, selects correctly, rewrites well, and
+**does not yet change pages**. The three things needed are one chassis roll, migration 548, and then one
+page that trips it — verified at `page_components.content_data`, on the part that DIFFERS.
