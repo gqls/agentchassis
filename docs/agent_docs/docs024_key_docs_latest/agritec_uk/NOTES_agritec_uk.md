@@ -186,3 +186,90 @@ neither layer sees the constants inside the six calculators. That is why the see
 carries an explicit paragraph distinguishing an input *default* (not an assertion) from a constant
 the tool applies on our authority (an assertion, which needs a registered fact **and** a mention
 in visible copy where `extractAssertions` can reach it).
+
+---
+
+## 2026-08-21 — seed APPLIED, and a measurement that changes Phase 4
+
+### Applied
+
+Seed applied to the live DB. Verified, not assumed:
+
+    domain      email                        status  network_id
+    agritec.uk  agritec@contactforsales.com  active  ...0002
+
+    aspect               is_current  pinned  source  created_by
+    evidence_base        t           t       manual  agritec-workstream-2026-08-21
+    imagery_style_guide  t           t       manual  agritec-workstream-2026-08-21
+
+    bans=19  facts=0  entities=28  writer_block_chars=2024  has_rule=t
+    work_items=0  pages=0
+
+**`work_items=0` and `pages=0` are the important two.** The seed is inert: it creates the site
+and its guard rails and dispatches nothing. Nothing is running.
+
+### Verified that the reader actually reads it
+
+`EvidenceBase`'s struct tags (`claims.go:259`) are `audit_doc`, `governing_rule`, `facts`,
+`banned_claims`, `allowed_entities`, and `BannedClaim{pattern, reason}` — exactly the keys seeded.
+A key mismatch here would have produced a present-but-toothless gate that verifies clean.
+
+`writer_block` is **not** on that struct. It reaches the writer through the agent's prompt, and
+`TestRegulatedOnlyBaseIsNotSafeToWriteBack` pins the loss deliberately: `writer_block`,
+`schema_notes`, `source.citation` and `fact.writer_line` are all destroyed by a parse+marshal
+round trip. **No `ParseEvidenceBase` caller may persist the struct** or this site's 2,024-character
+writer_block dies silently. The scheduled refresher is safe — it works on `map[string]interface{}`
+and honours `writer_block_managed`, which this seed deliberately leaves unset so the hand-written
+block is left alone.
+
+### MISSTEP 5 — I nearly recorded "tool-generator does not read the evidence register". False.
+
+The first measurement was a text search of `default_config`, which said `tool-generator` never
+mentions `evidence_base`. I was one keystroke from writing that down as "the tool path never sees
+the register".
+
+Then I read the deciding arm instead of the summary. `tool-generator`'s `load_brand_context` step
+is `read_site_spec` **with no `aspect` in its config**, and `site_spec_actions.go:480` treats an
+omitted aspect as *all aspects mode* — `SELECT aspect, data FROM site_specs WHERE site_id=$1 AND
+is_current=true`. So it loads `evidence_base` along with everything else, and `generate_tool_html`
+lists `site_specs` in its `input_fields`. **The register does reach the prompt.**
+
+The check that caught it: the config-text search answers "does the prompt NAME this?", which is
+not "does the agent RECEIVE this?". Two different questions, and the first one reads like the
+second.
+
+### What IS true, measured across the four writing agents
+
+| agent | receives site_specs | prompt names writer_block | names evidence/fact/invent |
+|---|---|---|---|
+| page-content-writer | yes | **yes** | yes |
+| tool-recreation-handler | yes | **yes** | yes |
+| tool-generator | yes (all aspects) | **no** | no (5,189-char template: no evidence, no fact, no source, no invent) |
+| tool-improver | yes (all aspects) | **no** | no |
+
+So on the tool paths the evidence base is **present in context and unaddressed by the
+instruction**. I have proven the prompt does not direct the model to it. I have *not* proven the
+model ignores it — that would need a run, and it is not a claim I am making.
+
+`[MEASURED 2026-08-21]` against the live `agent_definitions` rows, plus `site_spec_actions.go:436-484`
+for the aspect-selection arm.
+
+### Why this matters here more than on most sites, and what it changes
+
+Set this beside `bugs_open/288` (the register guards copy, not code — a constant inside a
+calculator's JavaScript is checked by nothing afterwards). The tool path therefore has **neither a
+clear instruction going in nor a check coming out**. Prose has both.
+
+This site is six calculators whose SFI rates, LED efficacies and carbon fractions are exactly such
+constants — and the owner's stated goal is that they be *evolved* through the framework, which is
+`tool-improver`, the agent with the thinnest coverage of the four.
+
+**Change to PLAN Phase 4:** the honesty constraint must be written into the tool brief we hand to
+`tool-generator`, in the brief's own words. It cannot be delegated to the evidence register,
+because the register arrives as an unaddressed blob. This is an addition to the existing control
+(register the constant AND assert it in visible copy), not a replacement — that one guards the
+check side, this one guards the instruction side.
+
+**Not filed as a platform bug.** It is a cross-cutting structural claim, and CLAUDE.md's bar for
+one of those is the 090 diagnosis loop or a stated substitute. Raised with the owner instead as a
+decision: it is his call whether this lane widens into filing it.

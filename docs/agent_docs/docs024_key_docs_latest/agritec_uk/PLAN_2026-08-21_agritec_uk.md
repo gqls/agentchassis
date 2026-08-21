@@ -162,6 +162,17 @@ several agritec calculators share conversions (PPFD↔DLI, EC↔ppm, mass balanc
 agrees across `pages.name`, `content_components.function` and the acceptance doc's `subject_key`
 (`bugs_open/311`).
 
+> **ADDED 2026-08-21, from measurement (NOTES, misstep 5).** Put the honesty constraint **in the
+> tool brief itself**, in the brief's own words. Do not delegate it to the evidence register.
+> Measured across the four writing agents: `page-content-writer` and `tool-recreation-handler`
+> both name `writer_block` in their prompts; **`tool-generator` and `tool-improver` name neither
+> it nor evidence, fact, source or invent** — `tool-generator`'s 5,189-character template mentions
+> none of them. They *receive* the register (their `load_brand_context` omits `aspect`, which is
+> all-aspects mode, and `site_specs` is in `input_fields`), but nothing in the instruction points
+> at it. Combined with `bugs_open/288`, the tool path has neither an instruction going in nor a
+> check coming out, while prose has both. `tool-improver` — the agent that would *evolve* these
+> calculators, which is the owner's actual goal — has the thinnest coverage of the four.
+
 **Phase 5 — explainers, indexes, and the linking guarantee.** This is where we fix what the old
 site got wrong, deliberately rather than by luck. Build the hubs with an explicit list-component
 section in the plan **from day one** — re-typing pages does not populate a hub; a `guide-list`

@@ -92,3 +92,58 @@ the bioconversion rates — before a single page asserts any of them. Some of th
 have no citable source at all, and where that happens the honest answer is that the number becomes
 something you type into the calculator yourself rather than something we assert. Saying "we
 haven't verified this" is always publishable. A plausible guess never is.
+
+---
+
+## 2026-08-21 — later the same day: the foundations are in, and one thing worth your attention
+
+The site record and its guard rails are now in the live system. Concretely that means agritec.uk
+exists as far as the framework is concerned, with a contact address, an evidence register (empty
+of facts, deliberately, because nothing is verified yet), and a house style for imagery.
+
+**Nothing is running.** I checked rather than assumed: zero queued jobs, zero pages. The seed
+creates the guard rails and starts nothing. That ordering is on purpose — if the evidence register
+isn't in place before the first page is written, the checks that stop invented numbers silently do
+nothing at all, and they don't complain while doing it.
+
+I also tested the cannabis ban rather than trusting that I'd written it correctly. It fires on a
+cannabis line and stays quiet on a leafy-greens line — worth doing, because a badly written rule
+can match everything and look like it's working.
+
+### The thing worth your attention
+
+While checking that the honesty rules actually reach the writers, I found something I think you
+should know about, because it bears directly on what you asked for.
+
+The framework has a set of instructions that tell a writer "you may not assert a number unless
+it's in the register". I checked which agents actually receive that instruction. The two that
+write **prose** do. The two that write **calculators** — the one that builds a new tool, and the
+one that later *improves* it — do not. The register is handed to them along with everything else,
+but nothing in their instructions points at it or tells them it's binding.
+
+That matters here more than on most sites, for two reasons. This site is mostly calculators, and
+their numbers — payment rates, lighting efficiencies, carbon fractions — live inside the
+calculator's code. And there's a known gap at the other end too: the checks that scan a published
+page read the visible words, not the code, so a figure baked into a calculator is checked by
+nothing afterwards either.
+
+Put together: for prose we have both an instruction going in and a check coming out. For
+calculators we currently have neither. And the agent with the thinnest coverage is the one that
+would *evolve* the tools over time, which is precisely the thing you asked for.
+
+I've handled it for this build — the honesty rules go into the tool brief itself, in its own
+words, rather than relying on the register being noticed. So agritec is covered.
+
+**What I haven't done is file it as a platform problem**, because that's a claim about the whole
+estate rather than about this site, and the house rule is that a claim like that goes through the
+diagnosis loop first rather than being asserted from one afternoon's reading. Say the word and
+I'll do that properly. It would affect every site with calculators, which is most of them.
+
+### What happens next
+
+The long part, and it's the part you chose: sourcing every number properly before any page
+asserts one. Six areas — SFI payment rates, energy prices and carbon intensity, LED efficiencies,
+crop light requirements, insect bioconversion rates, and seaweed carbon fractions. Some of those
+will have a clean official source. Some, I suspect, won't have anything citable, and where that
+happens the honest answer is that the number becomes something you type into the calculator rather
+than something we tell you.
