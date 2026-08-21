@@ -296,3 +296,73 @@ it** and left my untracked definition behind. HEAD then held a call to
   re-measured exactly, which is what made it credible.
 - *"72 of 748 active pages at `sections=[]`, 60 of them tools"* — **re-measured and
   correct**, recorded here so the next reader knows which of the two was checked.
+
+---
+
+## 2026-08-21 (d) — the council APPROVED it and still found a real defect
+
+Corr `f73f4eeb-5d79-482c-bc9b-b33f0ab64f76`: **approved with 4 advisory objections,
+none high-severity**, `gated_by_truncation: false`. Seats: `editquality` approve,
+`bug_historian` **object**, `reuse_agent` approve, `guidelines` approve, 4 abstained.
+
+**An APPROVED verdict is not a reason to skip reading it.** The `bug_historian`
+seat's two mediums were both worth work, and one of them was right about something I
+had checked and got wrong.
+
+### Objection 1 — the read-failure keep is indistinguishable from a real rescue
+
+> *"slotUnknown collapses 'DB read failed' into the same keep-path as 'legitimately
+> stored' … it silently absorbs an infrastructure fault into an apparently-clean
+> validation pass."*
+
+My first reaction was that this was half wrong, and it was: the seat read only the
+submission's sketch, and the code already logged the two differently (a Warn at the
+read, `read_failed` on the gap-plan per-entry Info, `stored_slot_read_failed` on
+validate's summary line).
+
+**But it was right where it counted, and I had not looked there.** The *durable*
+record did not distinguish them. `keptFinding()` returned nil when `kept == 0`, so a
+run that kept every name **because the database was unreachable** filed **no row at
+all** — and therefore read, in the only channel that survives log rotation, exactly
+like a clean pass. That is precisely the silent-absorb shape this whole lane exists
+to remove, reproduced one level up in my own fix.
+
+Fixed: `PLAN_SECTION_STORED_SLOT_READ_FAILED` is its own error code, filed
+unconditionally on failure, carrying `kept_without_checking`; `keptCount()` stays 0
+because nothing was *rescued*; validate logs the unchecked keep per entry at Warn.
+Two mutations pin it — reusing the rescue's error code, and filing nothing (the
+pre-objection behaviour). Both kill their test.
+
+### Objection 2 — the other private slot loaders may already apply the wrong rule
+
+> *"the two other cited prior fixes are NOT migrated … If SlotNameSet's
+> deliberately-different conflict rule is correct, the two untouched loaders should
+> be checked for whether they silently apply the WRONG rule already."*
+
+Checked rather than accepted or waved off:
+
+- The rerender path's `loadContentComponentsByID` **builds no slot map at all** — it
+  loads component schemas by id, so it has no conflict rule to get wrong. The
+  objection's premise does not hold for that one.
+- The loader that *does* key on `slot_name` with **no rule and no `ORDER BY`** is
+  `enrichSectionComponentsWithBriefs` (`v3_site_actions.go`). A page with a repeated
+  slot_name carrying **different** briefs gets a non-deterministic last-write-wins.
+- **[MEASURED 2026-08-21] 0 such pairs exist today** — and the measurement could have
+  come out otherwise, which is what makes it worth recording: the population is real
+  (1,619 rows carrying a brief across 553 pages) and the shape is reachable (18
+  repeated slot groups fleet-wide). It is latent, not firing.
+
+Recorded in PLAN-051 and left unfixed **here**: it is a different question (which
+*brief*, not which *component*) and belongs to whoever owns that path. Filing it into
+this lane's fix would be the scope creep the `editquality` seat was already gently
+flagging.
+
+### The two lows, recorded not actioned
+
+- *"Refactoring `plan_sections_action.go` is adjacent-not-causal"* — fair. Argued in
+  the PLAN (the drift class, and "unify later is how a seam becomes folklore"), and
+  the risk is bounded by its existing tests passing unmodified.
+- *"The submission's edit list does not enumerate the `000_concept_index.md` row"* —
+  also fair, and with an irony worth writing down: that row had **already been swept
+  into `d79e4243c`** by a concurrent session before I could commit it, so the plan's
+  own account of its commit contents was wrong in a second way the seat could not see.

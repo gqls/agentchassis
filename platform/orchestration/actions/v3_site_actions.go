@@ -3878,7 +3878,14 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 						case slotUnknown:
 							// Could not read the stored rows. Keep rather than drop:
 							// a transient failure must not be able to empty a
-							// decomposed page. Already warned once, at the read.
+							// decomposed page. Logged DISTINCTLY from a real rescue
+							// (council f73f4eeb, bug_historian, medium): "kept
+							// because recognised" and "kept because unreadable" must
+							// never look alike, at any altitude — the read failure
+							// also files its own durable row.
+							params.Logger.Warn("ValidateSitePlanAction: kept section name WITHOUT checking — stored slot read failed",
+								zap.Any("page", pm["name"]),
+								zap.String("section", name))
 							resolved = append(resolved, s)
 							continue
 						}

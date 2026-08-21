@@ -90,6 +90,13 @@ type storedSlotRescue struct {
 	// could not tell a reader WHICH pages were decomposed.
 	keptPages map[string][]string
 	kept      int
+	// unknown counts entries kept because the read FAILED, not because the page
+	// was recognised. Counted separately on the council's objection (corr
+	// f73f4eeb, bug_historian, medium): without it a run that kept everything
+	// because the database was unreachable files no durable row at all and reads
+	// exactly like a clean pass — which is the silent-absorb shape this whole
+	// lane exists to remove, reproduced one level up.
+	unknown int
 }
 
 // storedSlotRescueFor builds a rescue from the site id as it arrives in collected
@@ -131,6 +138,7 @@ func (r *storedSlotRescue) verdict(ctx context.Context, pageName, sectionName st
 		r.load(ctx)
 	}
 	if r.failed {
+		r.unknown++
 		return slotUnknown
 	}
 	if r.set[pageName][sectionName] {
@@ -189,10 +197,31 @@ func (r *storedSlotRescue) readFailed() bool {
 // on real data (a post-fix zero in the drop table is indistinguishable from a
 // blind detector without it), not because anything is wrong.
 func (r *storedSlotRescue) keptFinding() []agenterrors.Finding {
-	if r == nil || r.kept == 0 {
+	if r == nil {
 		return nil
 	}
-	return []agenterrors.Finding{{
+	var findings []agenterrors.Finding
+	// The read-failure row comes FIRST and is unconditional on the count: it is
+	// the one a reader most needs and the one that would otherwise be invisible.
+	// Its severity matches a drop, because the consequence is the same shape —
+	// this run's section list is not the judgement anyone intended.
+	if r.failed {
+		findings = append(findings, agenterrors.Finding{
+			ErrorCode: "PLAN_SECTION_STORED_SLOT_READ_FAILED",
+			Severity:  "warning",
+			Message: fmt.Sprintf("stored slot identities could not be read for this site; %d section name(s) that resolve to no active component were KEPT rather than dropped, because a transient read failure must not be able to empty a decomposed page (bugs_open/204)",
+				r.unknown),
+			Context: map[string]interface{}{
+				"kept_without_checking": r.unknown,
+				"explanation":           "these names were NOT verified against page_components — the read failed. They may be genuine positional slot names or they may be junk; this run cannot tell.",
+				"remedy":                "re-run once the database read succeeds. If the names were junk, the next clean run drops them and files PLAN_SECTION_NAME_DROPPED as usual; nothing is lost by keeping them for one run.",
+			},
+		})
+	}
+	if r.kept == 0 {
+		return findings
+	}
+	return append(findings, agenterrors.Finding{
 		ErrorCode: "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT",
 		Severity:  "warning",
 		Message: fmt.Sprintf("%d proposed section name(s) across %d page(s) resolved to no active component but ARE stored slot names on the page proposed for — kept instead of dropped (bugs_open/204)",
@@ -203,5 +232,5 @@ func (r *storedSlotRescue) keptFinding() []agenterrors.Finding {
 			"explanation": "these are positional slot names (prose-0, tool-1) on a decomposed page; the component each one is lives on page_components.component_id, not in the component catalogue. Dropping them destroys the only record of the page's composition.",
 			"remedy":      "none — this is the corrective arm working. If you are here because a plan carries a name you did not expect, check kept_pages: the name is one the page already serves.",
 		},
-	}}
+	})
 }

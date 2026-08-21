@@ -322,3 +322,73 @@ func TestStoredSlotRescue_ReadFailureIsLoudAndSaysWhatItDid(t *testing.T) {
 		t.Errorf("the warning does not say what the failure caused: %q", entries[0].Message)
 	}
 }
+
+// ── the council's medium objection, answered in code ────────────────────────
+//
+// Council corr f73f4eeb (APPROVED, bug_historian, medium): "slotUnknown collapses
+// 'DB read failed' into the same keep-path as 'legitimately stored' ... it silently
+// absorbs an infrastructure fault into an apparently-clean validation pass."
+//
+// The logs did already distinguish the two, but the objection landed where it
+// mattered most and I had missed it: the DURABLE record did not. A run that kept
+// every name because the database was unreachable filed NO row at all, and so read
+// exactly like a clean pass — the silent-absorb shape this lane exists to remove,
+// reproduced one level up. These pin the fix.
+
+func TestStoredSlotRescue_ReadFailureFilesItsOwnDurableRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery("FROM page_components pc").WillReturnError(errors.New("connection reset"))
+
+	r := newStoredSlotRescue(db, uuid.New(), zap.NewNop())
+	for _, name := range []string{"prose-0", "prose-1", "tool-1"} {
+		if v := r.verdict(context.Background(), "guide", name); v != slotUnknown {
+			t.Fatalf("verdict for %q = %v, want slotUnknown", name, v)
+		}
+	}
+
+	f := r.keptFinding()
+	if len(f) != 1 {
+		t.Fatalf("a failed read must file exactly one finding, got %d", len(f))
+	}
+	if f[0].ErrorCode != "PLAN_SECTION_STORED_SLOT_READ_FAILED" {
+		t.Errorf("error code = %q; it must NOT share PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT, "+
+			"or a query for 'the rescue worked' silently counts runs where it did not", f[0].ErrorCode)
+	}
+	if got := f[0].Context["kept_without_checking"]; got != 3 {
+		t.Errorf("kept_without_checking = %v, want 3 — the count is what says how much of this plan is unverified", got)
+	}
+	if r.keptCount() != 0 {
+		t.Errorf("keptCount = %d, want 0: nothing was RESCUED, it was kept unchecked", r.keptCount())
+	}
+}
+
+func TestStoredSlotRescue_CleanRunFilesOnlyTheRescueRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectQuery("FROM page_components pc").WillReturnRows(
+		slotIdentityRows().AddRow("guide", "prose-0", uuid.New().String()))
+
+	r := newStoredSlotRescue(db, uuid.New(), zap.NewNop())
+	if v := r.verdict(context.Background(), "guide", "prose-0"); v != slotStored {
+		t.Fatalf("verdict = %v, want slotStored", v)
+	}
+
+	f := r.keptFinding()
+	if len(f) != 1 || f[0].ErrorCode != "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT" {
+		t.Fatalf("a successful run must file exactly the rescue row, got %+v", f)
+	}
+	// The disconfirming direction: a read-failure row on a run where the read
+	// succeeded would make the failure signal useless by crying wolf.
+	for _, x := range f {
+		if x.ErrorCode == "PLAN_SECTION_STORED_SLOT_READ_FAILED" {
+			t.Error("a successful read must not file a read-failure row")
+		}
+	}
+}
