@@ -41098,3 +41098,38 @@ query.**
 **Tally line.** "Over-corrected a bad check into no check" — 1 (this). Pairs with the
 entry above; the family is *a single-configuration measurement generalised*, and it has
 now produced two opposite wrong answers in one session about one query.
+
+## 2026-08-21 — staged_component_build: my "who uses this today" census counted the very defect I was measuring the blast radius of
+
+**The claim.** Sizing which work-item handlers would lose `result.commit_sha` when an explicit wire
+replaces the resolver's whole-tree search, I censused **demand**: which handlers actually record a
+sha today (`site_work_items.result ? 'commit_sha'`). Nine did; seven were covered by the config work
+in flight; I reported the other three to the owning session as gaps that would silently break, and
+wrote up the method as *"for a change that removes a fallback, only a demand census bounds the
+damage."*
+
+**What was wrong.** One of the three — `tool-generator` — never produces a commit at all: **8
+orchestrations all-time, zero carrying `commit_sha` anywhere.** Its one "recorded" sha belongs to a
+**different work item in a different loop iteration**: a `section-editor` item ran as iteration 0 of
+the same parent, and the whole-tree search pulled the sha out of `handler_result_0` and attached it
+to the unrelated tool-generator item. The tell was in the shape and I never looked: the value sits at
+the **top level of the dispatch envelope**, beside `retry_payload` and `agent_type`, not inside the
+handler's own `response`.
+
+**What caught it.** The other session, verifying each of my three at the artefact instead of trusting
+my aggregate — and it was already filed as `bugs_open/334`, i.e. I had measured a known bug's output
+and read it as a requirement.
+
+**The cheap check that would have caught it.** For each handler the census names, ask whether the
+handler's OWN tree can produce the value: `SELECT count(*) FILTER (WHERE collected_data::text LIKE
+'%commit_sha%') FROM orchestration_states WHERE owner_agent_type='<handler>'`. Zero means the value
+was never its own. One query per candidate, and it is decisive.
+
+**Transferable, and it is the sharp edge of a rule I had just written down.** A demand census does
+bound the damage when the mechanism supplying the value is INDEPENDENT of the one being changed.
+**When the field's current source IS the mechanism you are replacing, "who has this value today" is
+not evidence of who NEEDS it — it may be a census of the defect.** The distinction to encode:
+*a property of the handler* (its own runs produce a commit) versus *a property of the resolver*
+(something put a commit on its item). I measured the second and called it the first. Related:
+[[a-post-fix-zero-needs-a-demand-control]] — the demand control is necessary and, on its own, not
+sufficient.

@@ -6644,3 +6644,35 @@ asset-deployer/image-build-handler pending). Once 535/536 land, the handler side
 is genuinely complete, and every real bdl handler that can produce a commit exposes it at a uniform
 path (`handler_result.response.commit_sha`, one level shallower for the two dependent cases whose
 own `deploy_result` is itself a call_agent envelope).
+
+> **CORRECTED 2026-08-21 ~15:4xZ by the 306 session, and the correction is sharper than my entry
+> was.** My demand census (§ "the commit_sha wire is NOT buildable yet") named THREE unconverted
+> handlers. **Two were real; `tool-generator` was a FALSE POSITIVE — and it was `bugs_open/334`
+> caught in the act.** Verified independently here before accepting it:
+> - `tool-generator` has **8 orchestrations all-time, ZERO carrying `commit_sha` anywhere** in
+>   `collected_data`. It cannot produce one.
+> - The one item that "recorded" a sha (`cc1db035`) carries it at the **TOP LEVEL of the bdl
+>   envelope** — a sibling of `response` / `retry_payload` / `agent_type` — not inside
+>   tool-generator's own `response.create_result`.
+> - The 306 session traced the parent (`62df9f7a`): a multi-iteration loop whose iteration 0 was
+>   `section-editor`, a real committing handler. The whole-tree search resolved
+>   `complete_work_item`'s `commit_sha` out of `handler_result_0` and **glued iteration 0's commit
+>   onto iteration 1's unrelated item.**
+>
+> **So my method was wrong in a way I stated confidently one hour earlier.** I wrote: *"for a change
+> that removes a fallback, only the demand census bounds the damage."* The missing half:
+> **when the field's CURRENT SOURCE IS the mechanism being replaced, presence today is not evidence
+> of correctness — it may be the defect.** A demand census over `result ? 'commit_sha'` cannot
+> distinguish "this handler's own commit arrived cleanly" from "the search borrowed a sibling
+> iteration's". Both look like a recorded sha.
+>
+> **The corrected rule, and it is what the wire's apply-guard must encode:** key the guard on
+> **"this handler's OWN tree can produce a commit"** (`orchestration_states` for that
+> `owner_agent_type` carries a `commit_sha`), never on "an item of this handler recorded one".
+> The first is a property of the handler; the second is a property of the resolver we are removing.
+>
+> Consequence, and it is a bonus rather than a cost: **tool-generator SHOULD show no `commit_sha`
+> once the flip lands** — the cross-iteration contamination class disappears as a by-product, and
+> `cc1db035` is the worked example for the wire's write-up. Handler side is **8** real handlers, not
+> 9 and not 6; `asset-deployer` (535) and `image-build-handler` (536, guarded to refuse unless 535 is
+> live) are built and submitted by the 306 session.
