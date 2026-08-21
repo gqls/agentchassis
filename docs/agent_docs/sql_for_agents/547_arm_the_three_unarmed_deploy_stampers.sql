@@ -118,6 +118,14 @@ SELECT snapshot_agent('pageflow-builder',       '547_arm_the_three_unarmed_deplo
 SELECT snapshot_agent('site-work-orchestrator', '547_arm_the_three_unarmed_deploy_stampers: pre-update');
 
 -- Already-applied gate (the runner reads a RAISE containing 'already').
+-- On `debug_historian`'s round-2 note that house style prefers a WHERE-gated,
+-- 0-row idempotent no-op over an abort: the RAISE is deliberate and matches
+-- migration 494, whose shape this mirrors. A re-run here aborts the WHOLE
+-- transaction rather than silently completing, which is the intended operator
+-- experience for a security-relevant arm: 'nothing happened because it was
+-- already done' and 'nothing happened because a gate rejected it' must not look
+-- identical at the psql prompt. The key existence test uses `?`/`IS NOT NULL`
+-- rather than a string comparison, for the NULL-semantics reason given below.
 DO $$
 DECLARE done int;
 BEGIN
@@ -158,24 +166,47 @@ BEGIN
     END IF;
 END $$;
 
--- ⚠⚠ GATE: EXACTLY ONE ACTIVE DEFINITION ROW PER TARGET TYPE.
--- Raised by `editquality` and `debug_historian` (both, independently). Four agent
--- types on this estate carry TWO active definition rows and only the higher
--- version loads, so an `UPDATE ... WHERE type = <x>` can land on a dormant row
--- while the live one stays unarmed — and this migration's own verify, which
--- counts armed steps, would PASS against the wrong row. `[MEASURED 2026-08-21]`
--- our three carry one row each, and 4 other types fleet-wide do not, so the trap
--- is real and simply does not bite here today. Asserted rather than assumed.
+-- ⚠⚠ GATE: EXACTLY ONE ACTIVE DEFINITION ROW **PER TARGET TYPE** (not a total).
+-- Raised by `editquality` and `debug_historian` in round 1; the first version of
+-- this gate was itself REVISED in round 2, and the correction matters.
+--
+-- Four agent types on this estate carry TWO active definition rows where only the
+-- higher version loads, so an `UPDATE ... WHERE type = <x>` can land on a dormant
+-- row while the live one stays unarmed — and this migration's verify, which
+-- COUNTS armed steps, would then PASS against the wrong row.
+--
+-- > **⚠ ROUND 2 GATING OBJECTION (`editquality`, HIGH), and it was right.** The
+-- > first version asserted an AGGREGATE — "exactly 3 active rows across the 3
+-- > target types". That does not guard the property it was written for: a
+-- > distribution of `page-rebuild=2, pageflow-builder=1, site-work-orchestrator=0`
+-- > also sums to 3, and the dormant-row hazard survives undetected.
+-- > **DEMONSTRATED, not conceded**: inducing exactly that distribution in a
+-- > rolled-back transaction, the aggregate gate PASSED and the per-type gate
+-- > below RAISED, naming both offending types. The needle-gate above does NOT
+-- > catch it either (it counts matching agents, and 2+1+0 matching rows also
+-- > totals 3) — so there was no guard in series and the hole was real.
+--
+-- `[MEASURED 2026-08-21]` all three carry exactly one active row today.
+-- Predicates use key-existence / `IS NOT NULL` on an extracted path rather than a
+-- string inequality, per `debug_historian`'s round-2 note: `->>` on an absent key
+-- yields NULL, and `NULL <> 'x'` is NULL rather than true, so an inequality test
+-- silently fails open. The LEFT JOIN is deliberate — it makes a type with ZERO
+-- active rows visible, which an inner join would silently drop.
 DO $$
-DECLARE rows_per_type int;
+DECLARE bad text;
 BEGIN
-    SELECT count(*) INTO rows_per_type FROM agent_definitions
-     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-       AND type IN ('page-rebuild','pageflow-builder','site-work-orchestrator');
-    IF rows_per_type <> 3 THEN
+    SELECT string_agg(t.type || '=' || t.n, ', ' ORDER BY t.type) INTO bad
+      FROM (SELECT x.type, count(ad.id) AS n
+              FROM (VALUES ('page-rebuild'),('pageflow-builder'),('site-work-orchestrator')) x(type)
+              LEFT JOIN agent_definitions ad
+                ON ad.type = x.type
+               AND ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL
+             GROUP BY x.type
+            HAVING count(ad.id) <> 1) t;
+    IF bad IS NOT NULL THEN
         RAISE EXCEPTION
-          '547 single-row gate: expected exactly 3 active definition rows across the 3 target types, found % — a type has gained a second active row and an UPDATE by type could arm the dormant one while the live one stays unarmed. Scope the UPDATE to the loaded (max-version) row first.',
-          rows_per_type;
+          '547 single-row gate (PER TYPE): expected exactly 1 active definition row for each target type, got % — an UPDATE by type could arm a dormant row while the live one stays unarmed, and this migration''s own verify would pass against the wrong row. Scope the UPDATE to the loaded (max-version) row first.',
+          bad;
     END IF;
 END $$;
 
