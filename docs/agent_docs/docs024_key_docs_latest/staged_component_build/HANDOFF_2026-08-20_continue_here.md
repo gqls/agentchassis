@@ -519,6 +519,15 @@ failure is **pre-existing at HEAD** and another lane's.
    in `bugs_closed/`, moved by `916c8b22b` — **which is this lane's own step-4 round-1 answer to the
    same seat on 08-19.** The seat is reading a pre-08-19 snapshot. **Pre-empt it with the
    `git ls-tree HEAD` proof in the rationale; asserting "it's closed" will not clear it.**
+   > **UPGRADED 2026-08-21 ~20:2xZ, n=2 — the pre-emption does NOT stop the seat firing, it
+   > downgrades the CONSEQUENCE.** The parallel session's tolerance-retirement round (`e05ea6f9`)
+   > carried the `ls-tree` proof and the seat objected **anyway, on exactly this shape** — but it
+   > came out a **non-gating MEDIUM advisory on an APPROVED round**, where mine (`26186633`,
+   > unpre-empted) was **HIGH-severity and gating and cost a full REVISE**. Same objection, same
+   > seat, same day, opposite cost. **Budget for the objection; pre-empt to control what it costs.**
+   > Same for `prior_art_librarian`: both queries verbatim in `grounded_in` did not prevent its
+   > "not independently checkable" flag, but its own note (*"if the SQL checks confirm, this
+   > should clear"*) kept it advisory. Now a fleet-wide entry in `LANDMINES.md`.
 
 1b. **A POST-ROLL MONITORING GATE IS NOW AN OBLIGATION OF THIS LANE, not a risk** (council round 2,
    guardian, accepted). Step 5 is not closed until it has run, and its terms are fixed in advance so
@@ -547,8 +556,11 @@ failure is **pre-existing at HEAD** and another lane's.
    review. Use §4's two reasons (zero non-terminal pre-roll orchestrations; `buildRerenderBaseData`
    writes the new key fresh so the tolerance's second branch is unreachable — ⚠ **THAT SECOND GROUND
    IS FALSE, see the correction in §4**; use ground 1 plus the measurement instead) — **NOT** the
-   retention argument the plan originally gave, which was also unsound. **This item is now OWNED BY
-   THE PARALLEL SESSION** — built and submitted as `e5c1b3c15`+`9970eb71c`, council `e05ea6f9`.
+   retention argument the plan originally gave, which was also unsound. **This item is now DONE, by the parallel session** — `e5c1b3c15`+`9970eb71c`, council `e05ea6f9`
+   **APPROVED round 1** (2 advisories, none high). Mutation-proved; `./platform/...` green from a
+   `git archive HEAD` copy. **Inert until the same roll as the flip, so the §2.10 1b gate covers
+   both.** ⚠ Its safety rests on their MEASUREMENT (`differ_from_page_name = 0`), **not** on my
+   ground (b), which was false — see §4.
 ## 2.9 `bdl`/`commit_sha` IS WIRED AND LIVE — via **537**, not 539. Verification is a NAMED PREDICTION, not yet met (2026-08-21 15:3xZ)
 
 **A parallel session built the identical wire as `537` and applied it at 15:33:39Z**, about an hour
