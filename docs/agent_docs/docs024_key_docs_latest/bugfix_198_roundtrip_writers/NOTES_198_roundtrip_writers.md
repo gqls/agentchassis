@@ -184,3 +184,71 @@ step I never considered). Different mechanisms, same failure mode — *an instru
 agrees with me by construction*. The transferable habit is the one the working-docs rules
 already state and I applied twice too late: **before recording a check as passed, name the
 result that would have failed it.**
+
+---
+
+## 2026-08-21 (evening) — the theme split, and the refusal WITNESSED
+
+### The owner ruled, so the shared row stopped being a question
+
+finetuning.uk and gaswholesalers.com shared one style_collection AND one seed theme row.
+Migration 547 gives each its own. Three details that would each have been a defect if skipped:
+
+- **Copy the composition FKs, don't regenerate them.** What renders `styles.css` is
+  `render_css_from_spec` reading palette/layout/typography rows — *not* `css_content`. Copying
+  them is what makes the next design run produce today's output. Getting this wrong would have
+  silently redesigned two live sites at their next render, with no signal until it happened.
+- **Copy the chrome pins.** `bugs_closed/170` in mirror image: that landmine warns about a fork
+  that COPIES a pin it shouldn't; this was a fork that would have FAILED to copy one it must,
+  dropping both sites' header and footer.
+- **Leave the seed alone.** `professional-dark` is a library asset. It is now linked by zero
+  sites and otherwise untouched.
+
+Proven by running the whole file with `COMMIT` → `ROLLBACK` first, then applying. Only
+`sites.style_collection_id` and a self-reference point at `style_collections` fleet-wide, so
+repointing two rows was the complete change — checked rather than assumed, and both sites
+re-verified serving identical bytes afterwards.
+
+### The witnessed refusal, and how the subject was chosen
+
+The bug file's closure bar was a live run. I had earlier written that I would not induce one
+because the only candidates were live sites — that reasoning was right when I wrote it and
+stopped being right once **webdesign.uk** turned out to be armed: 0-byte row, 15,582-byte
+repo stylesheet, and a domain that 302-redirects so **its stylesheet is served to nobody**. A
+gate failure there could not reach a visitor. That is what made the proof affordable, and it
+only became visible because I checked a peer lane's "cleared as NOT damage" claim against the
+repo instead of the URL.
+
+Two things I did before dispatching, both of which were the difference between a proof and a
+guess:
+
+1. **Captured the 15,582-byte blob** as a restore net, md5 recorded.
+2. **Ran the promoter's OWN selection query against my probe item** and confirmed all four
+   doors opened. Without that, a probe that was silently *held* would have looked exactly like
+   a probe that was refused by my gate — the same could-not-fail shape as this session's two
+   earlier missteps, and I nearly walked into it a third time by planning to just wait and see.
+
+Result, 19:09–19:11Z: promoted → claimed → run `76d9bc57` terminated at **`complete_refused`**,
+never reaching `plan_css_fix`. Item `needs_human_review`, `parked_by` marker present,
+`completed_at` NULL. **Row still 0 bytes at version 1 with `updated_at` still 2026-08-04; repo
+still 15,582 bytes at the identical md5 with zero commits on the path.** Both negatives are
+what make it evidence — had the gate mis-fired, both would have flipped.
+
+The probe was **synthetic and declared** (`source='probe-bugfix-198'`, never `render-audit`)
+and deleted afterwards. It must never appear in a findings census.
+
+### The PASS arm was deliberately not manufactured
+
+Driving the probe through a healthy base would have appended `SPAN.probe-198` — a rule
+matching nothing — to a real site's stylesheet, which is precisely the `H3.H3` / `p.P`
+pathology this bug already records on three sites. It needed no manufacturing: the
+`remortgagecalculator.uk` lane observed the healthy path in production the same day, when
+loanzy.uk's queued items appended to its restored base and deployed the whole file,
+v21/17,906 B → v34/21,330 B with `:root` intact throughout. **Their incident is my pass-arm
+evidence**, which is worth noting as a pattern: on a tree this busy, the arm you decline to
+induce may already have been witnessed by someone else.
+
+### Fleet state
+
+19 PASS / 3 REFUSE (542) → 21 / 1 (547) → **22 / 0** (548). Every linked theme row is a
+plausible, unshared stylesheet, and 543 maintains that at every render.
