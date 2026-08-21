@@ -614,3 +614,38 @@ having run 0.09s and 1.1s. Different shape from 343; may be separate, may be kno
 use, `workflow%` adds **2**. The 301 lane has been told and is closed; the peer session declined it.
 ⚠ Read the LIVE agent config's `schema_include_patterns` before arguing the cap — a running bundle
 reports *"33 of 479 tables shown"*, far narrower than the Go default. Council gate applies.
+
+### 2026-08-21 17:00Z — `v1.0.1322`: the include widening is ABOARD and BEHAVIOURALLY UNPROVEN. Stated as two separate facts on purpose
+
+**Shipped, proven at the artefact.** Build point **`bac1899216`** PRESENT on the replica; previous
+build point `07eeba4a1` **absent** and `deadbeef…` absent — controls both ways. All four commits are
+ancestors of it: `0132a3683` (awaited_requests), `bacd9e375` + `806de11bd` (the `workflow%` /
+`v%workflow%` widening) and `58415f46e` (the coverage-based test).
+
+**Council: APPROVED at round 2**, corr `b353d731-6164-4178-8c1f-c483965db790`, 1 advisory objection,
+none high — **verdict read**. Round 1 was REVISE on a HIGH objection that was right: the fix covered
+2 of the 4 tables the cited run needed, while the submission's own `grounded_in` quoted the run asking
+for all four. Both advisory points from round 2 were also acted on (`58415f46e`, made AFTER approval
+and therefore not itself reviewed — stated in that commit).
+
+⚠ **BEHAVIOURALLY UNPROVEN, and there is nothing to do about it but wait.** No diagnosis bundle has
+been produced by ANY lane since the roll (`diagnosis_artifacts`, `kind='bundle'`, since 16:54:34Z →
+**0 rows**). The fix is only observable when some lane next fires a `090`. **I did not fire one to
+test it** — that spends a run to check a filter list.
+
+**The check, for whoever sees the next bundle** (any lane's will do):
+
+```sql
+SELECT left(correlation_id,8), created_at::timestamp(0),
+       (body LIKE '%workflow_templates(%') AS renders_workflow_tmpl,
+       (body LIKE '%v_active_workflows(%') AS renders_v_view,
+       (body LIKE '%awaited_requests(%')   AS control   -- must be TRUE; proves the section renders
+  FROM diagnosis_artifacts WHERE kind='bundle' AND created_at > timestamp '2026-08-21 16:54:34'
+ ORDER BY created_at DESC LIMIT 3;
+```
+
+⚠ **Match the renderer's `(`, never a bare table name.** A bundle quotes the symptom text verbatim,
+and `orchestration_states` also has a **column** called `awaited_requests` — so a bare
+`LIKE '%workflow_templates%'` can read true for two reasons that have nothing to do with the fix.
+The `control` column is there because a section that failed to render at all would otherwise look
+identical to a fix that did not work.
