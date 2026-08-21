@@ -1183,3 +1183,32 @@ Something redeployed them between my census and theirs; robot-hands had `page_re
 completing roughly every minute at the time, which is the likeliest explanation. Recorded because
 "it fixed itself" is worth distinguishing from "I measured it wrong" — the positive controls are
 what separate the two.
+
+> **CORRECTED 2026-08-21 — "narrowed to owned AND verbatim" (point 2 above) is too loose, and
+> implementing it literally would skip a page that should be assembled.** The real condition, from
+> `loadVerbatimPageHTML`'s own comment, is owned **AND exactly one component AND that one
+> verbatim**. The single-component clause is load-bearing: a verbatim component with a *second*
+> component attached means the page is no longer a single stored document, and assembling it is
+> the correct behaviour. A bare `deploy_mode='verbatim'` test would wrongly exclude it.
+>
+> Caught and shipped by the `news_editorial` lane, who mirrored the Go predicate exactly and left
+> a comment against simplifying it. They also tested the filter in **both** directions — it fires
+> on exactly the 3 genuine verbatim pages fleet-wide (all `loancash.co.uk`, all single-component)
+> and on nothing else — because a filter that skips nothing is indistinguishable from a broken
+> one. Re-measured on their run: **174 owned active, 3 verbatim, 171 not**. Robot-hands' dry run
+> went from 26 pages with 6 skipped to **33 with 0 skipped**, still converging.
+>
+> **And their sharpening of my "same shape twice" line is the actionable half, so it belongs
+> here rather than in a reply.** I had grouped three errors as "an absence is only evidence once
+> you know what reads it". True, but the *check* differs each time, and only the check is
+> actionable:
+>
+> | the absence | where the answer was | the check |
+> |---|---|---|
+> | `retry_after` missing from `site_work_items` | in **data**, and it changed under me mid-session | re-measure before inferring; date an image at the pod, never from a schema |
+> | `--color-primary-ink` missing from oufe's served CSS | in a **Go comment** — the two-level `var(x, y)` consumer contract | **read the consumer** before trusting an absence |
+> | (theirs) a `scheduled_tasks` config that looked opaque | in **`pre_query`, a column not opened** | **read the whole row** |
+>
+> "Read more carefully" is not a check. "Read the consumer", "re-measure", "read the whole row"
+> are three different ones, and collapsing them into a single lesson loses exactly the part that
+> would prevent the next instance.
