@@ -1,0 +1,91 @@
+# deployments/kustomize/services/site-locale-unset-check/base/cronjob.yaml
+#
+# bugs_closed/252 (og/lang slug) gave the estate a document language, per site, set
+# EXPLICITLY by migration 508 — deliberately not derived from the TLD, because
+# relojistas.com is Spanish and a blanket en-GB would be false metadata stated more
+# confidently than the `en` it replaced (owner ruling 2026-08-20).
+#
+# 508 was a ONE-OFF. The next site created gets no locale, falls back to the Go
+# default `en`, and nothing would say so. This job is 508's own fail-closed guard —
+# which really did abort its first apply, on a site created that same day — made
+# recurring.
+#
+# It reports two shapes, and the second is the one worth having:
+#   A. UNSET       — a real site with no locale.lang. Visible to anyone who looks.
+#   B. UNREACHABLE — a site whose locale IS set and whose head component has no
+#                    {{if .lang}} gate to render it. Looks FINISHED; only the served
+#                    page disagrees. bugs_closed/347 is that shape, and it hid on our
+#                    largest site (117 pages) until 252 went looking.
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK: the failure is a site the discovery
+# rotation has not reached yet — a brand-new one. A check driven by that rotation
+# would learn about it last. This must be driven from outside.
+#
+# Modelled on site-discovery-staleness-check (same image, same secret, same
+# doc_notes convention — one row per run, clean or not, so a missing row means the
+# job did not run; same direct-Postgres constraint, no pods/exec RBAC here).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: site-locale-unset-check
+  labels:
+    app: site-locale-unset-check
+    component: pipeline-integrity
+spec:
+  # Daily. 07:15 UTC is a free slot: clear of single-owner-carriers (06:20),
+  # removed-config-keys (06:25), site-discovery-staleness (06:35),
+  # component-fallback (06:40), concept-register-drift and optional-key-budget
+  # (06:50), component-render (06:55), shared-output-fields (07:10),
+  # brief-negation and instance-scope (07:40), loop-sitewide-item-key (07:55).
+  schedule: "15 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query over ~26 sites. Five minutes is generous; a hanging job should
+      # not sit in the schedule blocking the next one.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: site-locale-unset-check
+            component: pipeline-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: site-locale-unset-check-script
+                defaultMode: 365
