@@ -42061,3 +42061,49 @@ only thing that licenses "no file exists".
 
 **What caught it.** Not me — the bugfix-198 lane, who checked the artefact side while I was still
 reasoning from the wire. Corrected in place in `bugs_open/198` with the reasoning, not just the fact.
+
+---
+
+### 2026-08-21 — `bugfix_315` lane: I walked into TWO landmines that were already written down, in the migration I wrote to fix a third
+
+**The claims.** Migration 547 (arm three unarmed deploy-stampers) shipped to the council with two
+load-bearing assertions: that the `jsonb_set` path
+`…config.sub_workflow.steps.update_page_status.config.deploy_result_field` targets the *executing*
+step, and that the change was "behaviourally inert" because those three agents had **"0 runs in ALL
+HISTORY"**.
+
+**Both were unsafe, and both had a LANDMINES entry waiting.**
+
+1. **`substeps` is the half that RUNS.** `LoopAction` reads `config["substeps"]` first and falls back
+   to `sub_workflow.steps` only when substeps is absent or empty (`loop_actions.go:91-104`). On a loop
+   carrying both, my `jsonb_set` would have **silently created a dead key** — `create_missing=true` —
+   while the real step stayed unarmed, and my own recursive verify would have found the armed dead
+   copy and **passed**. That is this bug's entire census-blindness reproduced one level deeper, inside
+   the migration written to close it. The entry: *"A hand-written walk into `sub_workflow` cannot see
+   `substeps` — and `substeps` is the half that RUNS, so on a step carrying both you audit the inert
+   copy."*
+2. **"0 runs in ALL HISTORY" was 0 SURVIVING ROWS.** I read it from `orchestration_states`, which
+   reaps terminal rows after ~24h. The entry does not merely warn about this — **it predicts my exact
+   misreading**: *"`min(created_at)` says 20 days, because the statuses it reaps are not the ones that
+   set the floor … it is the successful runs — the ones your census is about — that vanish."* My
+   `min(created_at)` duly read 33 days while only **24 of 3,154 rows** were older than 48h. The
+   durable source (`agent_run_stats`) says the three have run **7, 3 and 1** times, last activity
+   2026-08-09. Rare, not dead.
+
+**What caught it.** The council, on the resubmission — `editquality` gating on (1), `guardian` and
+`prior_art_librarian` independently on (2). Not one of the three needed to see my queries; each
+inferred the fault from the SHAPE of the claim. Three HIGH-severity objections, all correct.
+
+**The cheap check, and it is embarrassing because it is written on the tin.** The `SessionStart` hook
+surfaces landmines matching files already DIRTY in the tree — so it can never surface a **table,
+command or symbol** footprint. My own memory index says exactly that: *"Still grep it yourself for
+table, command and symbol footprints, which cannot match a path."* Two `grep -n` calls
+(`substeps`, `orchestration_states`) over `LANDMINES.md` would have caught both before the first
+submission. I ran neither, on the day I added an entry to that very file.
+
+**The pattern across today, which is the thing worth keeping.** Three separate errors, one shape:
+a **one-level walk** of `agent_definitions` (missed 3 of 6 stampers), a **substring search** of
+`default_config` (read reviewer prose as wiring), and a **retention-bounded table** read as lifetime.
+Each returned something plausible, specific and wrong; none announced its own limits; and in every
+case the disconfirming check was one query away. **A census is only as good as the thing it walks —
+name the walk, and name what it cannot reach, before quoting the number.**

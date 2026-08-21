@@ -1291,3 +1291,35 @@ sites is the complete change; both sites re-checked serving 200 with unchanged b
 **Fleet gate verdict, measured at each step:** 19 PASS / 3 REFUSE (542 applied) → **21 PASS /
 1 REFUSE** (547) → **22 PASS / 0 REFUSE** (548). Every linked theme row in the fleet is now a
 plausible, unshared stylesheet, and 543 keeps them that way at every render.
+
+> **CORRECTED 2026-08-21 (same lane, later) — my "webdesign.uk is cleared as NOT damage" was WRONG,
+> and it is the more dangerous kind of wrong because it was written to stop people looking.**
+> Caught by the bugfix-198 lane, who checked the artefact side instead of the served side.
+>
+> What I wrote above: *"webdesign.uk 302-redirects to webdesign.co.uk and has no stylesheet of its
+> own"*, filed under "cleared as NOT damage, so nobody re-investigates".
+>
+> **The redirect is real and the curl warning stands. The conclusion does not follow from it.**
+> `vm-sites` HEAD carries `webdesign.uk/assets/css/styles.css` at **15,582 bytes with 4 `:root`
+> blocks**, and its linked theme row is **0 bytes**. The site is `status='deployed'` with 8 pages,
+> 7 deployed, `github_repo='vm-sites'`. So the DB→file clobber is **fully live there** — it is one
+> contrast finding away from destroying a real 15.5KB stylesheet.
+>
+> **The error, named so it transfers:** I read a SERVED-side absence as an ARTEFACT-side absence.
+> "Nothing is served at that hostname" and "no file exists" are different claims, and the redirect
+> only supports the first. It is the same class as the trap I had just flagged one paragraph
+> earlier (a bare `curl` reading a 143-byte redirect page as a gutted file) — I avoided the trap and
+> then made the inference it was warning about, one step further on.
+>
+> **Consequence for the fleet count:** my "no empty linked theme rows remain" was therefore also
+> wrong — webdesign.uk was still 0 bytes. The 198 lane is mid-flight on it (a synthetic probe item
+> `c75f430e`, `source='probe-bugfix-198'`, exists to witness their new base-integrity gate refusing
+> a 0-byte row — **it is NOT a measured finding and must not be counted as one**), and they hold the
+> 15,582-byte blob as a safety net. **Stay off that site**; they take the fleet to 22/22 once the
+> refusal is witnessed.
+>
+> **Also superseded by an owner decision, so do not act on my note:** finetuning.uk and
+> gaswholesalers.com no longer share one theme row. The owner ruled they may have separate rows and
+> the 198 lane applied migration 547 — each now has its own collection + theme seeded from its own
+> served stylesheet with composition FKs and chrome pins copied. My "left alone deliberately, needs
+> a decision" is resolved; the decision was made.
