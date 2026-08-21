@@ -1,13 +1,29 @@
-# HANDOFF — `bugs_open/315`, continue here (2026-08-21 ~14:00Z)
+# HANDOFF — `bugs_open/315` → **CLOSED** (2026-08-21 ~19:45Z)
 
-**Supersedes `HANDOFF_2026-08-20_continue_here.md`.** That file is still accurate about everything
-it describes; it is out of date only in that its one substantive open item — the D5 divergence
-sweep — is now **BUILT**. Read this first, then that one for the background it does not repeat.
-
-**The lane's work is now COMPLETE except for switching one thing on, which cannot be done from
-here.** Nothing is broken, nothing is urgent, and the fleet is measurably healthy.
-
----
+> **⚠ THE BUG IS CLOSED AND THE LANE'S WORK IS DONE.** `bugs_closed/315_HANDOFF_2026-08-18_…md`.
+> Both migrations are APPLIED, the check is LIVE and PROVEN AT THE ARTEFACT, and nothing here is
+> waiting on anyone. This file is kept as the record of how it got there.
+>
+> **What is live:** chassis `v1.0.1322` carries `page_content_divergence` (register `DGH-015`);
+> migration `547` armed the last three unarmed deploy-stampers (**six of six armed, zero unarmed**);
+> migration `526` enabled the check at 19:23Z. Council `Council-Reviewed:
+> 9e8d73b8-f777-4404-a1c7-d8e06af897fb` (APPROVED round 3; rounds 1 and 2 each found a real defect,
+> one of them in a guard written to answer the previous round).
+>
+> **The proof** — the discovery run's own record on a site with 21 judgeable pages, which is what
+> distinguishes "ran and found nothing" from "never ran":
+> `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
+> `checks_unregistered: []`, `items_inserted: 0`.
+>
+> **TWO RESIDUALS, neither reopening the bug, both in `PLAN`:**
+> - **D6** — make an unarmed `deployed` stamper NULL the fingerprint rather than leave a stale one.
+>   The backstop for the *next* unarmed stamper; there are none today.
+> - **D8** — widen the settle window from 30 to 60 minutes at the next build. **The observed delivery
+>   tail is ~17 minutes, not the 14 seconds first measured** (see §3), so the current margin is ~1.8x.
+>   Left as-is deliberately: a premature finding is flag-only and retracts itself on the next pass.
+>
+> **If you are picking this up to do anything, do D8** — and re-run the 40-page artefact sample first,
+> because that is the measurement that found the error.
 
 ## 1. What changed today
 
@@ -93,10 +109,19 @@ every page-publish in the estate down for 33 minutes while confirming its config
   fleet, so re-run the comparison by hand before believing it (RUNBOOK Part 3).
 - **That sweep is also the end-to-end proof of the fingerprint itself** — 228 independent
   confirmations that nothing between the stamp and the wire alters the bytes.
-- **The 30-minute settle window is LOAD-BEARING, not precautionary.** `[MEASURED 10:38Z–13:20Z]`
-  1,099 re-probes, 85 pages, 95 deploy events: the only 3 DIVERGED readings were at ages **1s, 13s,
-  14s**, all converged by 140–156s; **0 of 995** readings at age ≥157s diverged. Those 3 are 3 work
-  items the check would have filed against healthy pages in under three hours without the window.
+- **The 30-minute settle window is LOAD-BEARING, and its margin was OVERSTATED.** `[MEASURED
+  10:38Z–13:20Z]` 1,099 re-probes, 85 pages, 95 deploy events: 3 DIVERGED at ages 1s/13s/14s, all
+  converged by 140–156s, 0 of 995 readings at age ≥157s diverged.
+  > **⚠ CORRECTED 19:36Z, by re-running the proof after go-live.** A random 40-page sample returned
+  > **2 DIVERGED, aged 15 and 21 minutes**. Tracked to convergence: `/model-fine-tuning.html` read
+  > MATCH @945s, **DIVERGED @1012s**, MATCH @1079s onward. **The largest observed divergence age is
+  > ~17 MINUTES, not 14 seconds** — so the window is ~**1.8x** the worst case, not 128x. The earlier
+  > watch sampled only fast deliveries; quoting its maximum as "the tail" was the error. Hence **D8**.
+  > **And the shape is not a simple lag:** that page went MATCH → DIVERGED → MATCH, 67s apart.
+  > Delivery lands **progressively across edge nodes**, which is why the confirmation fetch must AGREE
+  > with the first before anything is filed.
+  Still doubly demonstrated as load-bearing: 3 items prevented in the watch, 2 more in one 40-page
+  sample.
 - **Two intermittent 404s** in the same watch, both serving one shared edge error page, each
   surrounded by MATCH — 2 more false items, prevented by treating a non-200 as unjudgeable.
 - **It will be exercised fast** — once it is enabled at all (see §4).

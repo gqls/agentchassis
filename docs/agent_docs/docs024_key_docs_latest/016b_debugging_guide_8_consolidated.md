@@ -13308,3 +13308,44 @@ about the harness.
 **Relations:** §9 "a fix that changes WHICH status a write lands…" (`bugs_closed/307`) · `WRONG_CALLS`
 2026-08-20 (the by-the-way edit) and 2026-08-21 (all three disguises) · `bugs_open/344` §2 ·
 register **WII-024**.
+
+
+### A TIMESTAMP cannot answer "did this publish?" wherever a no-op republish is legitimate — only a CONTENT FINGERPRINT separates "never needed republishing" from "failed to republish" (2026-08-21, `bugs_closed/315`)
+
+**The shape.** A column is written when a publish is *attempted* and gets read estate-wide as proof it
+*happened*. The two diverge the moment delivery is asynchronous, and nothing downstream can tell.
+`pages.deployed_at` was stamped by five agents — two before the deploy was dispatched at all, three
+straight after a `git_commit` whose result they discarded — so a commit reporting
+`{"status":"skipped"}` was followed one step later by a fresh "deployed" stamp. One page served its
+old render for **six hours through four completed rerenders** with every signal green.
+
+**Why the obvious fix fails, and this is the transferable half.** The natural repair is to compare the
+stamp against the origin's `last-modified`. Measured across 40 live pages it returned **40 of 40
+"stale" — every one HEALTHY — persisting 85 minutes.** A byte-identical rerender legitimately rewrites
+nothing, so the origin's mtime stays old for ever and says nothing about currency. **A settle window
+does not rescue it**: the healthy pages fail the test indefinitely, not transiently. The two states
+"did not need publishing" and "failed to publish" are *identical in every signal the platform emits* —
+which is why nobody noticed for six hours, and why no amount of timestamp arithmetic can separate
+them.
+
+**What does work.** Record the sha256 of the bytes the deploy step actually committed, at the moment
+of the stamp, from the adapter's own reply (`pages.content_hash`, register `DGH-013`). Then the
+question is one string comparison against the served bytes (`DGH-015`). Three things make it honest:
+the value must be **ASSIGNED, not COALESCEd**, on every stamp (a preserved older fingerprint makes a
+healthy page look diverged); the column must be **NULL when unknown** rather than stale, so the
+consumer's `IS NOT NULL` predicate keeps it inert rather than wrong; and **every path that stamps must
+record**, or an unrecording path strands a fingerprint the consumer will convict.
+
+**Generalise it.** Whenever a check's population includes objects for which *doing nothing is the
+correct outcome*, a mtime/attempt/status signal cannot grade it — you need a value derived from the
+content itself. Ask: *"what does this signal look like for an object that legitimately needed no
+work?"* If the answer is "the same as failure", the signal cannot be the test.
+
+**Two live traps found building the detector, both worth stealing:**
+- **Delivery lands PROGRESSIVELY across edge nodes**, so a probe gets whichever version answers.
+  Observed non-monotonic: MATCH at 945s, DIVERGED at 1012s, MATCH at 1079s. **Confirm any mismatch
+  with a second fetch and require the two to AGREE** before filing — and never size a settle window
+  from one afternoon's sample (the first measurement said the tail was 14 seconds; it is ~17 minutes).
+- **A zero from a site with no candidates is not a pass.** The first live run of the detector examined
+  a site with 0 active pages and filed nothing. Read the run's own `checks_run` / `checks_failed` /
+  `checks_unregistered` record against a site with real demand, not the absence of findings.
