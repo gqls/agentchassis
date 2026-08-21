@@ -4,7 +4,27 @@
 newly-generated icon assets to dartsonline.com.
 **Severity:** High. Silent data corruption — `success:true`, no error anywhere, wrong
 image served with a green light.
-**Status:** OPEN, unowned.
+~~**Status:** OPEN, unowned.~~
+> **CORRECTED 2026-08-21 — this header contradicted its own foot for 15 days, and the
+> header is what a cold-start reads.** The fix is **shipped and LIVE since 2026-08-06**
+> on chassis `v1.0.1259`, pod-verified on both replicas with four controls including a
+> discriminating nonsense control — see *"LIVE 2026-08-06 … the buggy branch is GONE
+> from the binary"* below. `resolveStorageURIFromAsset` no longer reads
+> `sites.content_data->>'{purpose}_uri'`; the purpose-keyed branch was deleted
+> (`1d11827c1`, then `91dda3243` removed `findStorageURI` entirely). A grep for
+> `content_data->>$2` in `deploy_image_asset_action.go` now returns nothing.
+>
+> **It stays OPEN, and correctly so — but for a much narrower reason than the old
+> header implied:** what is owed is the *behavioural* proof named at the foot of this
+> file (one real deploy of 2+ same-purpose assets by `asset_id` alone, then `sha256sum`
+> the results). Everything to date is induction over the inputs, which the file says
+> plainly. So: **do not re-diagnose this and do not re-fix it** — the only open work is
+> that one dispatch. **Do not move it to `bugs_closed/` either**, until that proof exists.
+>
+> Caught by the `bugs_open/235` residual lane while surveying dormant bugs; of five
+> dormant files checked against live code, five had moved on without their headers
+> moving. `WRONG_CALLS.md` 2026-08-21 carries the rate and the lesson.
+
 **Diagnosis-loop verification (2026-07-31):** run via `090_TRIGGER_needs_diagnosis_v1.sh`
 (`RUN_CORRELATION_ID=0dd9aee4-2982-4b36-9857-0b037c40851e`, item_key
 `needs_diagnosis:deploy-image-asset-purpose-not-assetid`) — **CONFIRMED**, iteration 1.

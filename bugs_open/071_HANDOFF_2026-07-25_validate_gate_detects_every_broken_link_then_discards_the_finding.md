@@ -5,7 +5,39 @@ question "what can we run to find the multiple errors on this site… including
 many bad links".
 **Severity:** high. **21 of 22 internal links on a live site are broken**, and the
 platform detected every one of them at build time, by name, and deployed anyway.
-**Status:** OPEN — diagnosed with evidence, not fixed.
+~~**Status:** OPEN — diagnosed with evidence, not fixed.~~
+> **CORRECTED 2026-08-21 — still OPEN, but "not fixed" has been wrong for nearly a
+> month, and the headline figure no longer reproduces.** Be precise about which parts
+> moved, because two of the three gaps have not:
+>
+> - **Gap 2 IS fixed** (`2026-07-26`, one day after filing, this file's own candidate 5).
+>   The policy comment whose justification was false has been rewritten in place at
+>   `validate_page_content.go:915-935`, and it now says so explicitly: *"The previous
+>   justification — 'the improvement loop resolves it' — was FALSE for the whole time it
+>   was relied on."* Warning severity is now load-bearing for a different reason —
+>   `RepairPageLinks` removes the defect from `clean_html` **before** `save_sections`
+>   persists it, so what ships has no dead link in it. The comment also names its own
+>   expiry: if `repair_internal_links` is turned OFF, warning reverts to meaning what it
+>   used to.
+> - **Gap 1 is UNCHANGED.** `valid := blockerCount == 0 && errorCount == 0` is still
+>   literally at `validate_page_content.go:400` — warnings still cannot affect validity.
+> - **Gap 3 I did NOT verify** (whether findings are still persisted only on the failure
+>   path). Marked `[UNVERIFIED]` rather than assumed either way.
+>
+> **The symptom no longer reproduces on the page it was filed from.** Probed
+> 2026-08-21: **20 of 20** internal links on `fundamentallyai.com`'s index return 200,
+> against the filed "21 of 22 broken". ⚠ That is a *narrower* check than this file's
+> original census, which swept rendered `page_components` across all deployed pages —
+> I did not redo the site-wide census. And repaired damage is not a fixed mechanism:
+> the class this file describes can be live while this one site reads clean.
+>
+> ⚠ **Two false `000`s** appeared mid-probe from my own request rate, not from the site;
+> both returned 200 on a re-probe with a longer timeout. Do not read a `000` here as a
+> failure.
+>
+> Corrected by the `bugs_open/235` residual lane while surveying dormant bugs — see
+> `WRONG_CALLS.md` 2026-08-21 for the rate (5 of 5 dormant files had moved on without
+> their headers moving) and why a text census cannot detect this class.
 **Class:** fail-open whose written justification names a component that is not
 running (same family as `063`, and the dormant-machinery class generally).
 
