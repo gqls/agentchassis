@@ -482,13 +482,38 @@ as the flip site. The real blast radius was **four files, 13 tests** — `unifie
 `render_context_step_boundary_resolver_test.go`. Each now asserts **nil AND the reported
 `winner_path`**, so none passes vacuously — and each asserts `phase == "2-refuse"`, so a build that
 silently reverted to Phase 1 **fails** rather than warning quietly.
+> **CORRECTED 2026-08-21 ~19:3xZ (council round 2, editquality — I had the count wrong):** it is
+> **13 tests across FIVE files, not four.** The fifth is
+> `platform/orchestration/actions/render_context_step_boundary_resolver_test.go` — step 4's own
+> control, in a *different package*. The four in `datahelpers` are search, tiebreak,
+> resolver_findings and action_inputs_prune. The commit message and the first NOTES entry both say
+> "four"; forward-only, so they stand with this correction rather than being rewritten. The
+> under-count came from mentally filing the actions test as "step 4's, not the flip's" — it is both.
+
 **MUTATION-PROVED**: reverting only the `return` (file still compiles) fails all 13; restoring it
 returns both packages to green. `./platform/...` fully green — the `internal/adapters/thunder` build
 failure is **pre-existing at HEAD** and another lane's.
 
 ### What is still owed on step 5
 
-1. **Read the verdict** (`26186633`) and act on a REVISE.
+1. **Read the verdict** (`26186633`). **R1 REVISE, R2 REVISE, R3 submitted ~19:2xZ** — both gatings
+   from `bug_historian`. R2's was that *"this council's own case index lists 085 under OPEN"*.
+   **⚠ THE COUNCIL'S CASE INDEX IS STALE — expect this again on any recently-moved bug.** 085 is
+   closed: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 085_` returns one line,
+   in `bugs_closed/`, moved by `916c8b22b` — **which is this lane's own step-4 round-1 answer to the
+   same seat on 08-19.** The seat is reading a pre-08-19 snapshot. **Pre-empt it with the
+   `git ls-tree HEAD` proof in the rationale; asserting "it's closed" will not clear it.**
+
+1b. **A POST-ROLL MONITORING GATE IS NOW AN OBLIGATION OF THIS LANE, not a risk** (council round 2,
+   guardian, accepted). Step 5 is not closed until it has run, and its terms are fixed in advance so
+   it cannot be graded loosely: **(a)** demand control first — orchestrations created after the roll
+   must be > 0, per agent, before any zero is read; **(b)** attribute rows by joining
+   `orchestration_states.created_at` against the roll boundary, **never by wall clock** (a pre-change
+   run was still emitting old behaviour **8.5 minutes** after 537 went live); **(c)** the
+   discriminator is `context->>'phase' = '2-refuse'`; **(d)** any NEW `(agent,field)` pair appearing
+   with that phase — one not among the 19 — is a finding to **trace to its consumer** and give an
+   explicit mapping, never a reason to revert; **(e)** ≥48 h, and the result recorded here whether
+   clean or not.
 2. **After a roll that carries `5fe010ada`** — verify, and note the flip's evidence is *unit-level
    plus the three per-pair runtime proofs*; the flip itself has none yet by construction. Read the
    window with a **demand control**, and attribute rows to orchestrations by `created_at`, **never by
