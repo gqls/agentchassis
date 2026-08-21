@@ -2767,3 +2767,48 @@ Independent check at the artefact on all seven, cache-busted, **not** trusting t
 `tool-head-architect` is the strongest single result: **44** backticks live inside that page's own
 `<script>` and every one survived, while its prose reached zero. A transform that leaked into script
 context could not produce that row.
+
+### 8. ~14:00–14:45Z — the owed `diagnosis_guardian` message became two migrations, because the seat's own text is where the discipline lives
+
+The handoff had carried *"tell the `diagnosis_guardian` seat its `error_step` discipline is
+INVERTED"* since 08-19 as the largest un-started item a session could do alone. There is no inbox
+for a seat: its `prompt_template` **is** the discipline, so "telling it" is a config change.
+
+**Re-verified at source first** (`coordinator.go:3666-3679`, HEAD `91cd28919`) rather than trusting
+08-19b's account: `routeToErrorStepOrFail` checks `step.ErrorStep` **first** — comment *"Check
+step-level first (parallel to NextStep) — preferred location"* — then falls back to
+`step.Config["error_step"]` *"for backward compatibility"*. The seat asserted the exact reverse and
+judged on it (clause `(d)`).
+
+**The second defect was found by reading both rosters side by side, and it is not prose drift.**
+council-gate's copy read `## The author's stated rationale loop's load-bearing disciplines`.
+`099_SYNC_gate_roster.py:85` did an unanchored
+`p.replace("## The diagnosis", "## The author's stated rationale")` — meant for the diagnosis
+CONTEXT block, and it also hits any longer heading beginning with those words. So the head of the
+list of disciplines that seat defends had been nonsense for as long as the mirror has run.
+**Fixed in three places, deliberately:** the live gate text (531), the live fix-proposer text is
+unaffected (it was never mangled), and the script's substitution is now
+`re.sub(r"^## The diagnosis[ \t]*$", …, flags=re.M)` so it cannot recur.
+
+**What was exercised before applying — three ways, per the RUNBOOK, plus a round trip:**
+
+| | 530 (fix-proposer) | 531 (council-gate) |
+|---|---|---|
+| whole file, COMMIT→ROLLBACK | guards pass, 1 row, NOTICE | same |
+| anchor pre-broken | aborts *"does not occur exactly once"* | aborts on the heading anchor |
+| the negative control's own needle PLANTED elsewhere | aborts *"`silently inert` still appears"* | — |
+| 377 fragmentation induced (text prepended) | n/a | aborts *"377 shared prefix FRAGMENTED — 2 distinct prefixes across 17 marked seats"* |
+| round trip with `_ROLLBACK` | `cbfcc981… len=4248` restored exactly | `191a7bbc… len=4301` restored exactly |
+| live md5 after apply | `99bf2e45…` | `347a20cf…` |
+
+⚠ **One guard in 531 is structurally unfirable and the header says so.** The marker-offset check
+(`position(marker in v_new) <> v_mark_old`) cannot fail for this file's anchors — they are all
+downstream of the breakpoint, and an upstream anchor would trip the occurs-once check first. It is
+kept for the next author, but it is **not** a control that passed; the fragmentation check is the
+one that can fail, and it did when induced. Writing "both 377 guards passed" would have been the
+`[MEASURED]`-but-undisconfirmable shape this lane keeps catching in itself.
+
+Council: `Council-Submitted: c00fbfd8-c459-4e8a-ac04-0997aca98477` on commit `086f3af35`
+(3 edits, 6 `grounded_in`). ⚠ **The seat under repair is one of the seats that will review this**,
+which is fine — it reviews on the text it holds at run time, and that text is now correct.
+`DRY_RUN=1` refused the first draft: `plan.risks` must be a **string**, not an array.

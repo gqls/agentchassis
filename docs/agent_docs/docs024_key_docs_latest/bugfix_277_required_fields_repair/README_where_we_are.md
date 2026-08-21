@@ -1223,3 +1223,26 @@ forcing it — if it doesn't come back healthy on the 25th, that tells us someth
 I've passed the general finding to the lane that owns that rule, because the same thing will happen
 to anyone who reroutes a repair after proving the old route wrong: the more carefully you prove it,
 the more failures you bank against your own replacement.
+
+2026-08-21, later — I also cleared something this lane had been carrying as owed since the 19th.
+One of the reviewers on the council — the seat whose job is to protect the diagnosis machinery — had
+a standing instruction that was simply wrong. It told every author that error handling must be
+written in one particular place, and that the other place was read but ignored. The code does the
+opposite: it checks the "ignored" place first, and its own comment calls that the preferred one. So
+the seat was objecting to people who had done exactly the right thing, which is the fastest way to
+teach everyone to stop listening to a reviewer.
+
+There is no inbox for a reviewer — its instructions are its configuration — so telling it meant
+changing the config, on both of the two rosters that have to stay identical. While reading the two
+side by side I found a second, quieter fault: the script that copies one roster to the other does a
+blind find-and-replace, and it had turned a section heading into a sentence that doesn't parse
+("The author's stated rationale loop's load-bearing disciplines"). That has been sitting at the top
+of the list of principles the seat defends for as long as the copier has run. I fixed the live text
+and anchored the script's replacement so it can't happen again.
+
+Both changes were exercised before going live in the way this lane always does: run them with the
+save turned off, break the thing they're anchored to and check they refuse, plant the exact problem
+their safety check looks for and check it catches it, then apply and reverse them and confirm the
+text comes back byte-for-byte identical. One of the safety checks turned out to be one that could
+never fail given where the edits sit — I've said so in the file rather than counting it as a pass,
+because a check that cannot fail is not evidence. They've gone to the review council as usual.
