@@ -13894,3 +13894,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/040` (Kafka dial class; the 08-21 contribution) · `bugs_open/343` and its parent `bugs_closed/029` (the `complete`-step pair that surfaced this) · the sibling entry above on `agent_error_log` having **no column** joining a parent to its child — same table, a different blindness, and both bite the same question · MEMORY [[orchestration-error-column-is-empty]] (a FAILED step shows COMPLETED with `error` NULL — read `__step_error`), which is this same emptiness seen from the single-run end rather than the census end
 - **source:** 2026-08-21, `bugfix_029_retry_kills_live_child` and the peer `029` session — they found the Kafka split chasing a `complete`-step stall and scoped it correctly; I measured the general case, which is what turns "these two sinks disagree about Kafka" (a curiosity) into "this column measures nothing" (an instrument warning)
 - **added:** 2026-08-21, 029 lane
+
+### A STALE `.git/index.lock` blocks EVERY session at once, and the correct response (wait) is indistinguishable from the wrong one — on this tree "another git process is running" is the normal state, so everyone defers for ever
+
+- **footprint:** `.git/index.lock`, `git commit`, `git add`, any commit-retry loop, any session that has just been told *"Another git process seems to be running in this repository"*
+- **fires when:** a `git` process dies or is killed mid-commit and leaves its lock behind. Every subsequent session gets git's standard message, which on a many-session tree reads as **true and routine** — because it usually is. So the polite response is to wait, and the polite response is exactly wrong here: nothing will ever clear it.
+- **the observation that makes this worth an entry** `[MEASURED 2026-08-21 14:22Z]`: on hitting the lock I found **two other sessions already in their own wait-loops** on the same file — one polling `[ ! -f .git/index.lock ]` every 15s before committing a handoff, another every 10s — and **no `git` process existed anywhere on the machine**. Three sessions blocked, indefinitely, on a zero-byte file 229 seconds old. **Each was individually behaving correctly.**
+- **the check — three signals, all cheap, and you want all three before touching it:**
+  1. `ps -eo comm | grep -qx git` (and `pgrep -x git`) → **no git process at all**;
+  2. `stat -c%s .git/index.lock` → **0 bytes** (a live `git commit` writes a non-empty index);
+  3. `stat -c%Y` → **older than ~2 minutes**. A real commit holds the lock for milliseconds to low seconds.
+  With all three, it is stale and `rm -f .git/index.lock` is **git's own documented remedy** — its error message says so in terms. Re-check (1) immediately before removing, to keep the race window small.
+- **do NOT remove it on age alone.** A large `git add` on a big tree can legitimately hold a non-empty lock for a while. The load-bearing signal is **no owning process**, not elapsed time.
+- **and if you clear it, you have unblocked other people too** — their loops will fire within seconds and commit. That is the desired outcome, but it means your `git status` can change under you between clearing the lock and committing: **re-read it, and use an explicit pathspec**, which you should be doing anyway.
+- **relations:** CLAUDE.md "Git — commit per task" (pathspec commits; your session-start `git status` goes stale within minutes) · MEMORY [[committing-is-shipping-on-shared-head]] · the sibling hazard that another session may commit between your `add` and your `commit`
+- **source:** 2026-08-21, `bugfix_029_retry_kills_live_child` lane — found while blocked on it, alongside two other blocked sessions
+- **added:** 2026-08-21, 029 lane
