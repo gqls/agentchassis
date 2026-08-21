@@ -85,12 +85,41 @@ fi
 BROKER="personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 PSQL=(kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAc)
 
-# Owned pages are excluded: page-rerender's save_sections REFUSES a
-# rebuild_policy='owned' page ("a generic section save would clobber it"), so
-# firing at them only produces FAILED orchestrations. They are listed at the end
-# so the operator can handle them deliberately.
-mapfile -t PAGES < <("${PSQL[@]}" "SELECT name FROM pages WHERE site_id='$S' AND status='active' AND COALESCE(rebuild_policy,'generic') <> 'owned' ORDER BY nav_order, name")
-mapfile -t OWNED < <("${PSQL[@]}" "SELECT name||' ('||url||')' FROM pages WHERE site_id='$S' AND status='active' AND rebuild_policy='owned' ORDER BY name")
+# WHICH PAGES ARE SKIPPED, and why this is NARROWER than it used to be.
+#
+# ⚠ CORRECTED 2026-08-21. This block used to exclude EVERY rebuild_policy='owned'
+# page, on the stated grounds that "page-rerender's save_sections REFUSES a
+# rebuild_policy='owned' page, so firing at them only produces FAILED
+# orchestrations". That reasoning is about the SECTION path, and this script
+# never sends spec.reason — it runs in ASSEMBLE mode. Measured 2026-08-21:
+#   * rerender_single_page_action.go contains ZERO references to save_sections;
+#   * its ONLY owned-page branch is loadVerbatimPageHTML, whose conditions are
+#     deliberately narrow (its own comment): rebuild_policy='owned' AND the page
+#     has EXACTLY ONE component row AND that row's content_data.deploy_mode =
+#     'verbatim';
+#   * fleet-wide: 174 owned active pages, 3 verbatim, 171 NOT.
+# So the old filter skipped ~171 pages that assemble mode reconciles perfectly
+# well. Live proof: the news_editorial_features lane deployed its owned editorial
+# pages this way six times, successfully, while this script was declining to
+# touch them.
+#
+# A VERBATIM page genuinely cannot be reconciled here, and that is not a defect:
+# it ships stored bytes unassembled, so there is no assembly step in which fresh
+# chrome could be substituted. Those are still listed at the end for deliberate
+# handling.
+#
+# The predicate below mirrors loadVerbatimPageHTML EXACTLY, including the
+# exactly-one-component condition. Do not simplify it to a deploy_mode test: a
+# page with a verbatim component AND a second component is assembled by the
+# action (its comment says so), so it belongs in the reconcile set.
+VERBATIM_PRED="p.rebuild_policy = 'owned' AND (
+    SELECT COUNT(*) FROM page_components pc WHERE pc.page_id = p.id
+  ) = 1 AND EXISTS (
+    SELECT 1 FROM page_components pc WHERE pc.page_id = p.id
+      AND pc.content_data->>'deploy_mode' = 'verbatim'
+  )"
+mapfile -t PAGES < <("${PSQL[@]}" "SELECT p.name FROM pages p WHERE p.site_id='$S' AND p.status='active' AND NOT ($VERBATIM_PRED) ORDER BY p.nav_order, p.name")
+mapfile -t OWNED < <("${PSQL[@]}" "SELECT p.name||' ('||p.url||')' FROM pages p WHERE p.site_id='$S' AND p.status='active' AND ($VERBATIM_PRED) ORDER BY p.name")
 
 echo "pages to reconcile: ${#PAGES[@]}   (owned, skipped: ${#OWNED[@]})"
 
@@ -204,8 +233,8 @@ echo "FINAL: $(( ${#PAGES[@]} - still - unfetch )) of $(( ${#PAGES[@]} - unfetch
 echo "       mode=$MODE marker=$MARKER"
 if [ ${#OWNED[@]} -gt 0 ]; then
   echo ""
-  echo "NOT ATTEMPTED — rebuild_policy='owned' (save_sections refuses these):"
+  echo "NOT ATTEMPTED — owned AND verbatim (stored bytes ship unassembled, so there is no assembly step to substitute fresh chrome into):"
   for o in "${OWNED[@]}"; do echo "  $o"; done
-  echo "To refresh one deliberately: set rebuild_policy='generic', re-render, set it back"
-  echo "to 'owned', then confirm the ownership refusal fires again."
+  echo "A verbatim page's chrome lives in its stored document; refreshing it means"
+  echo "re-adopting or re-authoring that document, not re-assembling the page."
 fi
