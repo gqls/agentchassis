@@ -1013,3 +1013,60 @@ already reviews.
 
 **So the bug file no longer holds any work.** Everything it found is either fixed, queued under a
 key that survives this file being closed, or owned by another bug.
+
+---
+
+# ✅ CLOSED 2026-08-21 — fixed, live, PROVEN on fleet traffic, and the residual is queued elsewhere
+
+**Do not re-diagnose this. Do not start a competing fix.** If a regeneration drops a resolver-sourced
+key again, that is a NEW case — read §11.7's proof method first, then file it.
+
+## The bar, and how this case meets it
+
+The standing bar is **fixed AND live**. Measured on **v1.0.1322** (revision `bac189921`), all four
+commits ancestors with controls both ways:
+
+| half | state | the evidence, not the claim |
+|---|---|---|
+| **Prevention** — a regeneration can no longer drop a non-llm key | fixed, live, **proven** | 66 non-llm losses across archived generations, all `renderer`/`static`, all 2026-08-11 → 08-14 18:36, **none since**, against a **3,033-pair demand control**. The 268 carry extension landed 08-14 09:13. §11.7 |
+| **Detection (ungated)** — a section shipping an empty `src=`/`href=` files a record | armed, live, **fired** | first `dead_url_control` item in platform history, 2026-08-20 17:21, `…:index:case-studies-grid:card1..5_image_url`. §11.10 |
+| **Detection (gated)** | **still nothing, and it cannot be this mechanism** | `missingBareFields` walks root scope only. The honest residual, bounded in §11.6 and owned by RFC_042 |
+| **Live damage from this class** | **0 rows** | fleet census: `href="tel:"` 5→**0**, `href="mailto:"` 1→**0**. §11.14 |
+
+⚠ **Cite this as "live on v1.0.1322 as at 2026-08-21", never bare "live"** — the fleet rolls past a
+tag within hours and a close-out sentence outlives its truth. That is a standing landmine and this
+file's own §11.1 is the worked example of what it costs.
+
+## What was actually wrong, in one paragraph
+
+`save_page_sections` REPLACES a page's `content_data` while `rerender_page_sections` MERGES it, so a
+non-llm field whose declared source resolved nothing on that run was destroyed rather than left
+alone. The filed cause blamed the LLM; **the LLM never had those keys.** Fixed at plan time by
+PBP-039's carry, extended to `renderer`/`static` by `bugs_open/268`, and the asymmetry itself is now
+an owner decision in **RFC_042** rather than folklore.
+
+## What remains, and where it lives now — nothing is orphaned by this closure
+
+| residual | home |
+|---|---|
+| aao `/index` — 5 `src=""` needing imagery that does not exist | queued: `dead_url_control` + `required_fields_missing`, both `needs_human_review` |
+| leopardess `ai-readiness-quiz`, gamesdesign `system-stats` — CTAs whose source never existed | queued: `unresolved_cta:238-residual:…` (§11.15) |
+| fundamentallyai `platform-log-index` | **already fixed** by `bugs_open/309` (verified at the served page here) |
+| vonc.com ×3, webdesign.co.uk ported page | never this mechanism — see §11.13 |
+| the REPLACE-vs-MERGE split itself | **`RFC_042`**, awaiting an owner decision |
+| the refusal half (`380_..._HOLD`) | still held, deliberately; drain conditions in the `doc_notes` decision row |
+
+## The three things worth carrying out of this bug
+
+1. **A gated field fails MORE quietly than an ungated one** — the opposite of the intuition that
+   gating is safe. It also means the dead-URL detector is structurally blind to the gated class.
+2. **A `page_components` row is a claim about a page, not a measurement of one.** Every row-level
+   census in this file misled: the email was already served from a fossil while a dead `tel:` sat
+   unnoticed on 6 rows for days (§11.12).
+3. **"The value is unreachable" and "the template assumes a value" are two defects wearing one
+   symptom** — fixing the one you noticed leaves the other live on the sites you were not looking
+   at (§11.12).
+
+**Councils:** `bd38df2e` (PBP-039), `98852baa` (PBP-040), `8a2aab7c` (arming, approved r2),
+`972a82ad` (525, approved r2), `1c8aed61` (538, approved). **Diagnosis:** `68b3f9b6` (UNVERIFIABLE —
+and chasing what it asked for produced the proof in §11.7).
