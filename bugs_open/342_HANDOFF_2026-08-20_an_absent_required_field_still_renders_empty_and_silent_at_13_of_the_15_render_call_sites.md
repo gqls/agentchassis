@@ -12,10 +12,32 @@ is the report, not a refusal.**
 > **WHAT WAS DONE.** RFC_041 §5's candidate (a), the structural one: `RenderContext` now carries the
 > component's `InputSchema`, and the **seam** applies `missingRequiredLLMFields` — the same function
 > the two pre-render gates call, deliberately not a second implementation — logging absent required
-> fields at **Error** for every caller. Nine of the fifteen call sites now pass a schema (build,
-> chrome store, rerender, library assembly, the three chrome renderers); six pass nil, which means
-> UNKNOWN and reports nothing (fail-open, tested). The offline audit is deliberately not wired: it
-> probes with fields REMOVED on purpose, so the report would fire on every probe by design.
+> fields at **Error** for every caller, and **PUBLISHING them on the RenderContext** so a caller
+> with a database handle can escalate.
+>
+> **ESCALATION, not just a log** (council `bb7f5d0e` round 1 was gated on exactly this: *"a named
+> log is not escalation"*, `bugs_open/054`). The chrome path files a **`required_fields_missing`**
+> item — the type that already exists for this defect, with a router already seeded
+> (`bugs_open/277`) — opt-in, unsafe default OFF (`record_absent_required_fields`). ⚠ **It reaches
+> a population the existing producer structurally cannot:** `check_required_fields_missing` scans
+> `pc.build_status = 'deployed'`, i.e. rows that made it, while this defect's sections render
+> empty, get dropped by assembly, and never become one. Survivorship — the same shape as
+> `bugs_closed/260`'s "no live damage" headline, and the reason this queue has looked quiet.
+>
+> **COVERAGE: NINE of fifteen call sites pass a schema**, and the arithmetic closes because it was
+> wrong once and the council caught it. Wired: `v3_site_actions` (build), `render_site_components`
+> (chrome store), `rerender_page_sections`, `assemble_from_library`, `RenderHeader`,
+> `RenderFooter`, `RenderHead`, and **both section-editor routes** (`applyContentEdit`,
+> `applyComponentSwap`) — the two that write `rendered_html` straight to an already-live page, and
+> the two an earlier round had left out. **NOT wired (6):** `GateConvertedTemplate` and
+> `tool_birth_instance_scope` (raw candidate templates, no component), the legacy head render
+> (loads a template only), `RenderTemplateWithMap` (a different executor, not this seam), and the
+> offline audit's two calls (it probes with fields REMOVED on purpose, so a report there would
+> fire on every probe by design). **9 + 6 = 15.**
+>
+> ⚠ **The count read "nine" once before while the enumeration listed seven** — from a
+> `grep -c 'InputSchema = '` that also matched `ci.InputSchema`, a DIFFERENT struct with an
+> identically named field. Count with a grep that names the receiver.
 >
 > **The schema is not a new field.** It reuses the slot of the dead `SchemaSnapshot`, and
 > `SchemaMode` + `RenderOptions` were deleted with it — all three had zero readers since
