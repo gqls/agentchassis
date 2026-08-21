@@ -962,3 +962,38 @@ func TestFailureLadder_ZeroBackoffTriggersAllReachTheSameStatement(t *testing.T)
 		})
 	}
 }
+
+// TestFailureLadder_MissingColumnRecoveryNowFires — council df0748bf
+// (APPROVED r1), editquality advisory: pre-fix, noteMissingRetryAfterColumn's
+// recovery was unreachable BY CONSTRUCTION — the column-absent statement never
+// NAMED retry_after, so the undefined-column error it waits for could not
+// occur (the failure was the 42P18 instead). Post-fix the first statement
+// genuinely references the column, so a real 42703 latches the fallback, and
+// the retried statement binds exactly what it references: FOUR args, no
+// retry_after text. The WithArgs(4) expectation is the discriminator — the
+// pre-fix fallback bound five.
+func TestFailureLadder_MissingColumnRecoveryNowFires(t *testing.T) {
+	defer retryAfterColumnPresent.Store(true) // the latch is package-global state
+
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+	expectStateRead(mock, defaultLadderState())
+	expectBurstProbe(mock, 1, 1, 1)
+	expectPolicyLookup(mock, 30)
+	mock.ExpectQuery(regexp.QuoteMeta(`OR $4::int <= 0 THEN NULL`)).
+		WillReturnError(errors.New(`pq: column "retry_after" of relation "site_work_items" does not exist (SQLSTATE 42703)`))
+	mock.ExpectQuery(`UPDATE site_work_items`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
+
+	if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+		t.Fatalf("the 42703 recovery did not complete: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("recovery path wrong (statement shape or bind arity): %v", err)
+	}
+	if retryAfterColumnPresent.Load() {
+		t.Fatal("the latch did not flip on a genuine undefined-column error")
+	}
+}
