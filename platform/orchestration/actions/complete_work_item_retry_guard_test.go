@@ -97,6 +97,13 @@ func TestRetryPredicateIsRenderedOnceNotCopied(t *testing.T) {
 	// path was omitted from this list at first and a mutation re-inlining a copy
 	// there passed — the test was narrower than its own name. work_items_common.go
 	// is excluded on purpose: it is where the renderer and its doc comment live.
+	//
+	// THE CENSUS, settled and stated once (three seats objected to a submission
+	// that gave three different numbers — 3, 4 and 5 — for the same claim, and
+	// they were right that an unclosed census is where a missed duplicate hides):
+	// FOUR call sites across THREE consumer files, plus the definition. Two more
+	// copies of the same contract live in SQL (migration 506's two dispatch reads),
+	// which is what TestGoAndSQLAgreeOnTheCooldownBoundary exists for.
 	for _, f := range []string{
 		"load_work_item_actions.go",          // dispatch selection + the completion writer
 		"complete_work_item_verification.go", // the verification-failure writer
@@ -168,5 +175,135 @@ func TestTriagedIsNotAddedToTheCompletionGuardList(t *testing.T) {
 			t.Error("'triaged' is in the completion guard list — that is 344 candidate 3, which the bug file rejects: " +
 				"it protects a word rather than the decision, and refuses legitimate completions")
 		}
+	}
+}
+
+// TestClaimPredicateIsByteIdenticalToWhatItReplaced answers the council's GATING
+// objection (guardian, high, corr 2c21e214): ClaimWorkItemAction is the fleet's
+// central claim path — every dispatch loop claiming any item type — and the
+// submission asserted the rendered SQL was "byte-identical" to the hand-typed
+// clause it replaced WITHOUT proving it. A stray paren or space there is not a
+// contained regression, it is a fleet-wide claim outage.
+//
+// The assertion is cheap and it is the one that was missing.
+func TestClaimPredicateIsByteIdenticalToWhatItReplaced(t *testing.T) {
+	// The exact text that stood in claim_work_item_action.go and
+	// load_work_item_actions.go before the renderer existed, transcribed from
+	// the 307 commit rather than retyped from memory.
+	const wasBare = "(retry_after IS NULL OR retry_after <= NOW())"
+	const wasAliased = "(wi.retry_after IS NULL OR wi.retry_after <= NOW())"
+
+	if got := workItemRetryNotPendingSQL(""); got != wasBare {
+		t.Errorf("claim path predicate CHANGED: got %q, want %q — this is the fleet's claim gate", got, wasBare)
+	}
+	if got := workItemRetryNotPendingSQL("wi"); got != wasAliased {
+		t.Errorf("dispatch selection predicate CHANGED: got %q, want %q", got, wasAliased)
+	}
+
+	// And it must still be syntactically embeddable: balanced parens, no stray
+	// quotes, no trailing comma. A renderer is a string function; nothing else
+	// checks its output until Postgres does, at which point the claim is already
+	// failing in production.
+	for _, alias := range []string{"", "wi", "active"} {
+		p := workItemRetryNotPendingSQL(alias)
+		if strings.Count(p, "(") != strings.Count(p, ")") {
+			t.Errorf("alias %q: unbalanced parens in %q", alias, p)
+		}
+		if strings.Contains(p, "'") || strings.HasSuffix(p, ",") {
+			t.Errorf("alias %q: %q is not safely embeddable in a WHERE clause", alias, p)
+		}
+	}
+}
+
+// TestGoAndSQLAgreeOnTheCooldownBoundary answers guardian's low objection: the
+// same contract lives in Go AND in DB-resident SQL (migration 506's two dispatch
+// reads; 341's held 524 adds a third). The Go side is now one renderer, but that
+// closes only half the drift — if either side later moved to `<` while the other
+// kept `<=`, an item would be claimable a moment before or after it is
+// completable, and the disagreement would be invisible until a race surfaced it.
+//
+// This reads the migration as TEXT and requires the boundary to match.
+func TestGoAndSQLAgreeOnTheCooldownBoundary(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "docs", "agent_docs", "sql_for_agents",
+		"506_dispatch_reads_honour_retry_after.sql")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Skipf("migration 506 not readable (%v) — the Go side is still pinned by the tests above", err)
+	}
+	sql := string(b)
+
+	// The rendered Go predicate, aliased as the migration writes it.
+	want := workItemRetryNotPendingSQL("wi")
+	if !strings.Contains(sql, want) {
+		t.Errorf("migration 506 does not contain the Go renderer's exact predicate %q.\n"+
+			"One contract in two media has drifted — check the boundary (<= vs <) and the NULL arm.", want)
+	}
+	// Guard the specific drift that would be silent: a strict inequality.
+	if strings.Contains(sql, "retry_after < NOW()") {
+		t.Error("migration 506 uses a STRICT boundary while Go uses <= — an item would be claimable " +
+			"a moment before it is completable, and nothing else would report the disagreement")
+	}
+}
+
+// TestCompletionSkipIsRecordedDurablyOnTheRow answers the council's bug_historian
+// objection (corr 2c21e214, medium): a refusal recorded only in a pod log is the
+// shape of bugs_closed/034 — logs rotate in ~90s, and the operator who later asks
+// "why did this item never complete?" has nothing to read.
+//
+// The mutation that exposed the need for this test is worth recording: removing
+// the durable write entirely produced "[no tests to run]", i.e. the change I made
+// to answer the objection had no assertion behind it at all. That is the same
+// failure as the 42P18 defect one file over — a fix believed rather than pinned.
+func TestCompletionSkipIsRecordedDurablyOnTheRow(t *testing.T) {
+	src := read344Source(t, "load_work_item_actions.go")
+	i := strings.Index(src, "rows == 0")
+	if i < 0 {
+		if i = strings.Index(src, "if rows == 0 {"); i < 0 {
+			t.Fatal("could not locate CompleteWorkItemAction's skip branch")
+		}
+	}
+	branch := src[i:]
+	if j := strings.Index(branch, "logger.Info(\"CompleteWorkItemAction: Done\""); j > 0 {
+		branch = branch[:j]
+	}
+
+	if !strings.Contains(branch, "completion_skipped") {
+		t.Error("the skip branch writes no durable record to the row — only a log line, which rotates " +
+			"in ~90s (bugs_closed/034's shape, raised by the council's bug_historian seat)")
+	}
+	if !strings.Contains(branch, "UPDATE site_work_items") {
+		t.Error("the skip branch does not persist anything at all")
+	}
+	// The classification must happen INSIDE that write, not in a second read —
+	// editquality's objection: an unsynchronised follow-up SELECT can mislabel a
+	// refusal if the row moved in between.
+	if !strings.Contains(branch, "CASE WHEN retry_after") {
+		t.Error("the skip reason is not derived inside the recording UPDATE — a separate read " +
+			"re-opens the race the council flagged")
+	}
+	if strings.Contains(branch, "SELECT retry_after IS NOT NULL AND retry_after > NOW()") {
+		t.Error("the superseded second-read classification is still present")
+	}
+}
+
+func TestASuccessfulCompletionWIPESTheSkipMarker(t *testing.T) {
+	// guardian's stale-state objection: this fix deliberately increases the rate of
+	// refused completions, and a landmine on record says a completed row can keep
+	// error/result text from an EARLIER refused completion. It cannot here, and the
+	// reason is structural rather than careful: the success path REPLACES result
+	// (`result = $2::jsonb`) rather than merging it, so the marker cannot survive
+	// into the record of a genuine completion.
+	//
+	// Pinned because it is load-bearing for the objection's answer: if someone
+	// later "improves" that write into a merge, the marker starts leaking into
+	// successful records and the answer silently stops being true.
+	src := read344Source(t, "load_work_item_actions.go")
+	stmt := extractStatement(t, src, "SET status = 'complete',")
+	if !strings.Contains(stmt, "result = $2::jsonb") {
+		t.Error("the success path no longer REPLACES result — a completion_skipped marker from an " +
+			"earlier refusal could now survive into a successful record (guardian's stale-state objection)")
+	}
+	if strings.Contains(stmt, "COALESCE(result") && strings.Contains(stmt, "|| $2::jsonb") {
+		t.Error("the success path now MERGES result — see above; the skip marker would leak")
 	}
 }

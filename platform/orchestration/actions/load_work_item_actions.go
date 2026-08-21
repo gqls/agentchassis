@@ -1085,24 +1085,47 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
-		// Two reasons reach here now and a caller cannot tell them apart from the
-		// row alone, so the log line says which: a deliberate flag/terminal
-		// (the original guard), or a retry this contract scheduled seconds ago
-		// (bugs_open/344). Both are correct refusals; only the second is new.
-		var pendingRetry bool
-		if err := params.DB.QueryRowContext(ctx,
-			`SELECT retry_after IS NOT NULL AND retry_after > NOW() FROM site_work_items WHERE id = $1`,
-			itemID).Scan(&pendingRetry); err != nil {
-			logger.Debug("CompleteWorkItemAction: could not classify the skip", zap.Error(err))
-		}
+		// RECORD THE REFUSAL ON THE ROW, and classify it, in ONE statement.
+		//
+		// Two council objections converge here and one write answers both.
+		// `bug_historian` (corr 2c21e214): a refusal recorded only in a pod log
+		// is the shape of bugs_closed/034 — logs rotate in ~90s and the next
+		// operator asking "why did this item never complete" has nothing. So the
+		// reason is stamped durably on the row. `editquality`: classifying with a
+		// SECOND, unsynchronised read could mislabel a refusal if the row changed
+		// in between — so the CASE is evaluated inside the same UPDATE that
+		// records it, and there is no window.
+		//
+		// It merges into `result` rather than replacing, and it is ONE write per
+		// refusal event, never on a cadence — the WII-018 landmine is about
+		// periodic writes postponing the stale reaper, not about a single
+		// event-shaped one.
+		//
+		// SELF-CLEANING, which answers `guardian`'s stale-state objection: the
+		// success path above sets `result = $2::jsonb`, a REPLACE, so this marker
+		// cannot survive into the record of an eventual genuine completion.
 		reason := "already_flagged_or_terminal"
-		if pendingRetry {
-			reason = "retry_scheduled"
+		if err := params.DB.QueryRowContext(ctx, `
+			UPDATE site_work_items
+			SET result = COALESCE(result, '{}'::jsonb) || jsonb_build_object(
+			        'completion_skipped', jsonb_build_object(
+			            'at',     NOW(),
+			            'by',     $2::text,
+			            'reason', CASE WHEN retry_after IS NOT NULL AND retry_after > NOW()
+			                           THEN 'retry_scheduled'
+			                           ELSE 'already_flagged_or_terminal' END,
+			            'status_preserved', status))
+			WHERE id = $1
+			RETURNING result->'completion_skipped'->>'reason'
+		`, itemID, agentType).Scan(&reason); err != nil {
+			// Never fatal: the completion was correctly refused either way, and a
+			// bookkeeping failure must not turn a correct refusal into an error.
+			logger.Warn("CompleteWorkItemAction: could not record the skip on the row",
+				zap.String("item_id", itemIDStr), zap.Error(err))
 		}
 		logger.Info("CompleteWorkItemAction: skipped — not overwriting",
 			zap.String("item_id", itemIDStr),
-			zap.String("reason", reason),
-			zap.Bool("retry_pending", pendingRetry))
+			zap.String("reason", reason))
 		return map[string]interface{}{
 			"completed": false,
 			"item_id":   itemIDStr,
