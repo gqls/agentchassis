@@ -7136,3 +7136,53 @@ roughly the 594/24 h rate. If BOTH go to zero the wire is dropping the field rat
 it — that is the failure mode, and it is why the item count is the control rather than a second
 conflict class. Instrument-alive control must come from another agent's class, as ever.
 ⚠ **`tool-generator` should now record NO `commit_sha`. That is the fix, not a regression.**
+
+## 2026-08-21 (~18:1xZ) — fresh chassis build (v1.0.1322) checked; the WIRE verified end-to-end with a real demand control; 512 is now DEMONSTRATED, not just applied; 516's own hold condition is satisfied
+
+**Fresh build**: `v1.0.1322`, both pods up ~16:54Z (checked, not assumed). No Go change of this
+lane's own landed in it (this lane's whole `bugs_open/334` contribution was config/SQL); nothing to
+re-verify on that account. `findFieldRecursive` still carries only the Phase 1 WARN — **the actual
+RFC_029 §9 D2 flip (conflicts → refusal) has not been built by anyone yet.**
+
+**The wire (`staged-component-build`'s migration 537) is applied and verified end-to-end, with a
+clean demand control**: applied `2026-08-21 15:36:22Z`. Conflict rows for `bdl`/`commit_sha`:
+**263 in the 9h before, 0 since**, against **19 real bdl runs** in that same post-apply window (not
+zero-demand — a genuine pass). Spot-checked `site_work_items.result` for completions since the
+apply: `page-rerender` 28/31 with `commit_sha` (3 legitimate skips), `css-patch-agent` 2/2,
+`tool-generator` correctly 0/4, `page-build-handler` 0/4 — all four of those took the
+no-sections-to-write path (`has_sections_saved=f`, `has_deploy_result=f` on every one), so absence
+is correct, not a miss. **`bugs_open/334` is closed, handler side AND wire, both proven on live
+traffic — not just applied.**
+
+**Bonus, unplanned proof: 512 (`tg`/`reason`) is now DEMONSTRATED, not merely applied-and-assumed.**
+Tool-generator has run 16 times since 512's 17:38:34Z boundary (last `16:40:11Z` today); on those
+runs `reason` = **0** rows while `related_pages` kept firing (**8** rows, last `14:15:34Z`) — exactly
+512's own stated pass condition, finally met by real demand rather than argued from the mechanism.
+
+**Consequence: migration 516's (`tool-generator`/`related_pages?`, `bugs_open/330`'s fix) OWN stated
+hold condition is now satisfied — both legs, checked against its own file's queries:**
+```sql
+-- condition 1: tool-generator ran since 512's boundary — 16 runs, last 16:40:11Z ✓
+-- condition 2: reason=0 / related_pages still firing, same window — reason 0, related_pages 8 ✓
+```
+Not applying it myself — `516` is `staged-component-build`'s own migration and decision. Flagged to
+them.
+
+**Still LIVE (not closed): `tool-generator`/`related_pages`** — 36 rows all-time, **8 in the last
+24h**, last `14:15:34Z` today. This is `bugs_open/330` itself, unresolved until `516` applies.
+
+**Everything else in the census stays quiet, matching every prior disposition** — no new movement
+in `page-build-handler`/`page_type`, `component-creator`, `generic`, `site-review-agent`,
+`rerender-pages`/`reason`, `page-build-handler`/`sections`, `page-content-writer`/`current_page`,
+`build-dispatch-loop`/`current_page`+`work_item_id`+`result`.
+
+**So RFC_029 §10.13 step 5's precondition is NOT yet met, and the lane is NOT closeable:**
+1. `tool-generator`/`related_pages` is still live and unmapped — `516` (built, approved, held; both
+   hold conditions now satisfied) is the fix, and it is not this lane's migration to apply.
+2. **The Phase 2 flip itself — the actual step-5 deliverable — has not been started by anyone.**
+   `findFieldRecursive` needs a Go code change (conflicting candidates → nil instead of the stable
+   shallowest winner), tests, a council round, an image build, and a fleet roll. This is
+   substantial, un-started work, not a loose end.
+
+Full current status + what's left, written up as a proper handoff:
+`HANDOFF_2026-08-21_continue_here.md` (new file, this entry's companion).
