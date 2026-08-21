@@ -1,3 +1,21 @@
+# ✅ LANE CLOSED 2026-08-21 — `bugs_closed/238`. This handoff is HISTORY, not a to-do list.
+
+**Nothing here needs picking up.** The bug is closed (fixed, live on v1.0.1322 as at 2026-08-21,
+proven on fleet traffic); every residual is queued elsewhere under a key that survives the closure;
+and the one open question is an OWNER decision, not work: **`RFC_042`** (the REPLACE-vs-MERGE split,
+to be answered with `RFC_008`).
+
+**If you are here because a regeneration dropped a key again: that is a NEW case.** Read
+`bugs_closed/238` §11.7 first — it carries the generation-pairing query and its mandatory demand
+control, which is how this class is measured rather than argued about.
+
+**Still-open cross-references:** `RFC_042` (owner decision) · `380_..._HOLD.sql` (the refusal half,
+deliberately still held; drain conditions in the `doc_notes` decision row
+`bugs_open/238:dead_url_control_arming_sequence`) · `bugs_open/230` (no recurring discovery driver)
+· `bugs_open/312`/`477` (disjoint from everything here, but the carry currently masks it).
+
+---
+
 # HANDOFF 2026-08-20 — `bugs_open/238`, continue here
 
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_238_regeneration_key_loss/`
