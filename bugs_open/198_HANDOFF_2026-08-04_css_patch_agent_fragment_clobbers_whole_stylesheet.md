@@ -673,6 +673,72 @@ on cookly.uk was rendering in the body-text colour** and is now in the accent.
 
 ⚠ **And it is invisible to a contrast audit**, which is why it survived: a
 de-branded ink still passes contrast. `VIZ-014` states this
-("stripping a brand colour scores a CLEAN PASS"). Anyone restoring the remaining
-sites should diff the restored `-ink` tokens against that site's `--color-text`
-and treat equality as a stale derivation, not a coincidence.
+("stripping a brand colour scores a CLEAN PASS").
+
+> ### ⚠ CORRECTION 2026-08-21, same day — the check as first written here is WRONG and would condemn a correct token
+>
+> The paragraph above originally ended: *"diff the restored `-ink` tokens against
+> that site's `--color-text` and treat equality as a stale derivation, not a
+> coincidence."* **Equality with `--color-text` is not sufficient**, and cookly
+> itself is the counter-example. Applied to its OTHER ink token it produces a
+> false positive:
+>
+> ```
+> cookly.uk   --color-text:        #2C2C27
+>             --color-primary:     #2C2C27   <- the palette makes these EQUAL
+>             --color-primary-ink: #2C2C27   <- therefore CORRECT, not stale
+>             --color-accent:      #C8502A
+>             --color-accent-ink:  #a24122   <- genuinely repaired
+> ```
+>
+> Confirmed at the palette source (`css_themes.color_palette`): cookly's `primary`
+> and `text` are **both** `#2C2C27` by design, and `legibleInkFor` "returns
+> srcHex unchanged when srcHex already clears minRatio" (its own doc comment).
+> `#2C2C27` on `#FDFAF4` clears easily, so the derivation returned primary
+> untouched — which is exactly right.
+>
+> **The correct check needs BOTH clauses:**
+> ```
+> stale  ⇔  <x>-ink == --color-text  AND  <x>-ink != --color-<x>
+> ```
+> The second clause is what distinguishes *substituted* (the old walk replaced the
+> source with the text slot) from *returned unchanged* (the source already
+> cleared). Against `accent` it still fires — `#2C2C27` != `#C8502A` — which is
+> the true positive that started this. Against `primary` it correctly stays
+> silent.
+>
+> **Why this correction matters more than the original check:** acting on the
+> single-clause version would mean changing a token that is already correct, on a
+> site whose palette deliberately uses one ink for both roles — i.e. introducing
+> the defect while believing you were removing it. Caught by the
+> `dartsonline_traffic` lane applying my own check to the token I had not looked
+> at, which is the right way for it to fail.
+>
+> Footnote for cookly specifically: nothing on that site consumes
+> `--color-primary-ink` at all (it appears only in its own definition and the
+> renderer's comment), so even a genuine staleness there would have been inert.
+> `--color-accent-ink` was the live one, via `a { color: var(--color-accent-ink, …) }`.
+
+### Seeding the theme row is a REPAIR, not only prophylaxis — measured on two sites
+
+From the `dartsonline_traffic` lane, and it changes the procedure: **oufe.com and
+vonc.com restored themselves.** Not by a human session — the restoring commits are
+`css-patch-agent` runs (`0fec465dd` oufe, theme v15, 2026-08-21 12:47;
+`3e0601b3a` vonc, theme v24, 11:27). Once the `css_themes` row underneath was
+seeded with the true stylesheet, the next patch run appended to *the truth* and
+deployed the whole row — so the mechanism that causes the clobber also carries the
+cure, provided the row is right first.
+
+**So for a future clobber: seed the theme row and the file restore is optional** —
+the next patch run carries it, and that half needs no push permission at all.
+It is not a plan on its own, though: cookly had no pending patch run to ride, and
+waiting for one is not a schedule. Seed the row always; push the file when the
+site is visibly broken now.
+
+### And: `git pull` before assuming the repo copy is safe
+
+Recorded above from the cookly restore, repeated here because it belongs with the
+procedure: the remote had committed the clobbered file into the repository, and an
+automatic merge of damage against clean content resolved to **875 bytes of
+neither** — it does not fail, it produces a third thing that becomes the baseline
+every later render diffs against.
