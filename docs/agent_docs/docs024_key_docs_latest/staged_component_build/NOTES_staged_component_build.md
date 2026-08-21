@@ -6773,3 +6773,58 @@ verdict be recorded in the lane NOTES **before** applying, which is what this en
 the whole reason 516 was held). Any later verification of tool-generator classes must take its
 control from ANOTHER agent's live class — `bdl`/`commit_sha` is the obvious one, 294 rows fleet-wide
 in this window.
+
+## 2026-08-21 (~16:5xZ) — 516 APPLIED. `bugs_open/330`'s fix is LIVE, and its verification is banked but NOT yet run
+
+Applied by hand (a `_HOLD` sidecar is outside the runner's sweep, and the runner refuses
+`--record-only` on one, so this entry IS the record):
+
+```
+NOTICE:  516: converted 2 related_pages carrier(s)
+NOTICE:  516 OK: 2 marked related_pages? wire(s), 0 unmarked carriers left anywhere
+COMMIT
+```
+Read back at the live config: `tool-generator/save_tool` and `tool-deployer/deploy_tool` both carry
+`related_pages?` = `input_data.spec.related_pages`; no unmarked twin survives anywhere.
+
+**The gate now reads 4 wires, 0 unacknowledged, exit 0** — and the two new ones needed no chase,
+because their acks entries travelled in the SAME COMMIT as the migration. That is the rule I have
+been pressing on two other lanes today; this is it working.
+
+**⚠ 330 IS NOT CLOSED. Applied is not proven, which is this lane's own standing lesson.**
+Pre-apply baseline, banked now so the post-apply read has something to be measured against:
+
+| figure | value |
+|---|---|
+| tg/`related_pages` conflict rows since 512's boundary | **8**, last `2026-08-21 14:15:34Z` |
+| tool-generator runs in that window | **8** (≈ 1 conflict row per run) |
+| cross-link items on webdesign.co.uk | 32 rows, 9 tools, 2 pages, **0 complete** (330 §3) |
+
+**The verification, and the trap in it:** `related_pages` was tool-generator's own
+instrument-alive control, and 516 has just removed it. So a post-apply zero on this class can no
+longer be checked against a sibling class in the same agent — **the control must come from ANOTHER
+agent's live class** (`bdl`/`commit_sha`, 294 rows fleet-wide in the last window). Without that, a
+zero here is indistinguishable from a dead recorder, which is exactly the failure 512's test was
+designed to avoid and the reason 516 was held behind it.
+
+Run when tool-generator has ≥ ~5 more runs (it does ~8/24 h):
+```sql
+-- 1. DEMAND first: no runs, no evidence
+SELECT count(*) FROM orchestration_states
+ WHERE owner_agent_type='tool-generator' AND created_at > '2026-08-21 16:55Z';
+-- 2. the class must be silent
+SELECT context->>'field', count(*), max(occurred_at) FROM agent_error_log
+ WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES' AND agent_type='tool-generator'
+   AND occurred_at > '2026-08-21 16:55Z' GROUP BY 1;
+-- 3. INSTRUMENT-ALIVE CONTROL, from another agent (the local one is gone)
+SELECT count(*) FROM agent_error_log
+ WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES' AND occurred_at > '2026-08-21 16:55Z';
+-- 4. the ARTEFACT, which is what 330 is actually about (bug file §7)
+SELECT split_part(item_key,':',2) AS tool, count(DISTINCT split_part(item_key,':',3)) AS pages
+  FROM site_work_items WHERE item_key LIKE 'tool_crosslink:%'
+   AND site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND created_at > '2026-08-21 16:55Z'
+ GROUP BY 1;   -- a tool whose spec names no related_pages must emit NOTHING
+```
+State *n* runs observed and the floor it buys. Negative control from 330 §3: the four sites that
+cross-link coherently (`finetuning.uk`, `loancash.co.uk`, `loanandmortgagecalculator.co.uk`,
+`vonc.com`) must KEEP doing so — this fix must not turn a working per-tool cross-link into silence.
