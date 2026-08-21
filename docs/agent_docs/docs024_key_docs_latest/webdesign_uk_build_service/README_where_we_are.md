@@ -1898,3 +1898,69 @@ included in the price. I have not checked whether the customer can do the TAG ch
 themselves through Nominet directly, and I have not written anything into the site about
 it either way. It needs about ten minutes with Nominet's rules and then, probably, a
 decision from you.
+
+---
+
+## 2026-08-21, later — how we actually get a domain out to a customer, and what changes in February
+
+You asked me to agree a transfer-out process with Nominet, said the rules are changing to
+look like everyone else's, and said a manual step per domain is fine for now. I have
+checked all of it against Nominet's own registrar pages rather than working from what we
+assumed. Three things came out of it, and one of them needs a decision from you.
+
+**First: it is two jobs, not one, and we had only noticed the free one.** There is a
+difference between who *holds* a domain (the registrar, which is us) and who *owns* it
+(the registrant). Moving a domain to another company is one operation; changing whose
+name is on it is a different operation entirely. Selling a domain to a customer needs
+both. The ownership change can only be done at Nominet itself, not through our systems,
+and it costs £10 plus VAT in the normal case, £20 if the type of owner changes, £35 if
+they want extra checks. The move-it-to-another-company part is free, and once the
+customer's name is on it they can even do that bit themselves for about £10. So the sale
+is: change the name, then release it. In that order.
+
+For a £200 sale, a £10 fee and ten minutes is fine. But it is not zero, and we had been
+writing as though it were.
+
+**Second: you were right about the rules changing, and the date is 9 February 2027.**
+Nominet is scrapping the old .uk-only way of moving domains and switching to the same
+thing every other domain type uses: a transfer code. We generate a code, the customer
+gives it to their new provider, and it moves immediately. They sent formal notice of this
+in June.
+
+This is better for us than it sounds, and not just administratively. A code is something
+you can hand over *in advance*. From February we can generate it at the moment we hand
+the site over and put it straight in the delivery email, along with the ZIP. At that
+point "we don't include any of our time" stops being a carefully worded promise and
+becomes simply true, because there is nothing left for us to do. That is the same trick
+as the download-link work: instead of promising to do something later, hand over the
+thing that makes the promise unnecessary. Worth remembering when we write that email.
+
+The ownership change is not affected. That stays a separate job with a separate fee.
+
+**Third, and this one is yours to decide: whose name is on the domain while they are only
+renting it?** If it is ours, renting is safe, because if they stop paying we keep the
+domain. But every £200 sale then needs both jobs above. If it is the customer's from the
+start, a sale is almost free for us, but someone renting at £10 a month is already the
+legal owner and can simply take the domain elsewhere without ever paying the £200.
+
+I would put it in our name and accept the extra step on sale, which is the thing you have
+already said is fine. But I have not done anything either way, and nothing on the site
+says anything about it.
+
+**One small thing I have flagged and not touched.** The site currently says we give the
+customer what they need to move the domain. That becomes literally true in February when
+there is a code to hand them. Today there is nothing to hand over: we just do the move
+when asked. It is not misleading and it fixes itself, but it depends on your answer above
+so I have left it alone.
+
+**And an honest note about "keeping abreast".** There is no reminder system anywhere in
+this platform, and I have not built one for a single date. I have written the three
+checkpoints (before the first sale, a detail check by 1 December, and transition day
+itself) into the three documents a new session actually reads on the way in. That is the
+best available, and it is weaker than a reminder: every session between now and February
+will look at that date and correctly decide it is not their problem. If you want, the
+simplest real safeguard is a note in your own calendar for late November.
+
+I have also written up the step-by-step for doing a transfer, and marked it clearly as
+never having been run, because we have not sold a domain yet. The first person to do one
+should correct it from what actually happens.

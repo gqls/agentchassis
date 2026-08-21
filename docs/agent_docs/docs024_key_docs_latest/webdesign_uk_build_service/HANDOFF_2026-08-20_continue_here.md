@@ -8,7 +8,9 @@ its own register. Write findings into the lane where the work happened.
 **Read order, cold:** this file → this lane's NOTES tail (the 2026-08-19 and 08-20
 entries) → `../site_delivery_and_editor/PLAN_2026-08-17_delivery_architecture_decisions.md`
 (owner decisions + build order) → `PLAN_2026-08-14_site_delivery_and_editor.md` §Phase 4
-→ `README_where_we_are.md` (owner-facing) → register `DGH-011` for the ZIP mechanism.
+→ `README_where_we_are.md` (owner-facing) → register `DGH-011` for the ZIP mechanism
+→ `DECISION_2026-08-21_domain_transfer_out_from_nominet.md` before touching anything
+about domains, transfers or the £200.
 
 ---
 
@@ -292,16 +294,31 @@ transfer-out mechanism; if anything it makes that sharper. See §5 item 6.**
    register and rent .co.uk and .uk domains"* where before it improvised *"right now
    those are on .uk domains"* off no fact at all.
 
-   **What the answer SHARPENS, and this is the live residual — an owner question, not a
-   task.** Both endings we sell are Nominet endings, so the wrinkle 19g recorded
-   "rather than writing it into copy" now applies to **every** domain we sell: for a
-   `.uk` the transfer out is executed by the LOSING registrar changing the IPS TAG, so
-   the final action is ours however the terms are worded. That sits against
-   `domain_buy_once` (*"arranging the transfer … is theirs to do"*) and
-   `no_presales_service` (*"nobody's time is included"*, absolute). **`[UNVERIFIED]`:**
-   whether the registrant can change the TAG themselves via Nominet's own online
-   services, or only we can as losing registrar. Nobody has checked. Nothing encoded,
-   no copy changed. See NOTES 2026-08-21 and the note at the foot of the SQL file.
+   **The transfer-out half is now VERIFIED and RULED — see
+   `DECISION_2026-08-21_domain_transfer_out_from_nominet.md`**, which supersedes the
+   `[UNVERIFIED]` note this item used to carry. Owner, 2026-08-21: *"It is likely to be
+   a manual step for now for each domain and that is ok for now."* In short: selling a
+   domain is **two** Nominet operations, not one — a **Registrant Transfer** (owner
+   change, registry-only, £10–35+VAT) and then a **tag release** (free, and the customer
+   can self-serve it once they are the registrant). Procedure in the RUNBOOK, marked
+   UNTESTED because zero domains have been sold. **Do not automate it** (owner ruling);
+   the EPP client that would be reused is noted in §7 of the decision doc.
+
+   > **⚠ 9 FEBRUARY 2027 — Nominet retires the IPS TAG transfer process** and replaces it
+   > with a Transfer Authorisation Code, the mechanism every other TLD uses: we generate
+   > a code, the customer hands it to their new registrar, transfer completes
+   > immediately. Formal notice 4 June 2026. `[VERIFIED 2026-08-21 at
+   > registrars.nominet.uk]` **Check the detail by 2026-12-01.** This is a PRODUCT
+   > opportunity, not just an operational change: a code can be pre-issued at handover
+   > and put in the delivery email, which makes "nobody's time is included" true by
+   > construction — the same shape as Phase 4's ZIP token. It does NOT replace the
+   > Registrant Transfer.
+
+   **STILL OWED BY THE OWNER, and it changes what we do on every sale:** whose name the
+   domain is registered in *during the rental*. Ours protects the rental but makes a sale
+   two operations; the customer's makes a sale nearly free but lets a renter walk off
+   with the domain having never paid the £200. Recommendation and the full table:
+   decision doc §4. Nothing encoded either way.
 7. **`writer_block` breaks its own first rule — MEASURED 2026-08-21, deliberately NOT
    fixed.** Its opening line is *"Never use an em dash. Not anywhere, not once."* and
    the block contains **six**, in paragraphs 12, 14, 20 and 21. Counted before and after

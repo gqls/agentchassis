@@ -983,3 +983,84 @@ go run ./cmd/claimscan -evidence eb.json -components wb.tsv
 
 Expect legitimate hits: prohibitions quote their own banned tokens on purpose
 (*"never write 'no refund'"*). Read each one rather than counting them.
+
+## Transferring a sold domain out to the customer (2026-08-21) — UNTESTED, and say so
+
+**Owner ruling 2026-08-21: a manual step per domain is acceptable for now.** Do not
+automate this. Full mechanism, fees and the one open decision:
+`DECISION_2026-08-21_domain_transfer_out_from_nominet.md`.
+
+> **⚠ THIS PROCEDURE HAS NEVER BEEN RUN. Zero domains have been sold.** It is assembled
+> from Nominet's published process and from this estate's existing EPP access, not from a
+> completed transfer. **The first time it is used, correct it here** — and treat every
+> step below as a claim to verify rather than a command to trust. The `[VERIFIED]` marks
+> apply to the *published rules*, not to our having executed them.
+
+### Before the first sale ever happens, prove the access still works
+
+Do this once, well before a customer is waiting. All three can fail silently.
+
+```bash
+# 1. Credentials present? (existence only — never cat these)
+ls -l ~/.config/nominet/epp-password ~/.config/nominet/credentials
+
+# 2. The tag. `nominet-epp-ns-change.py`'s usage example says DESIGNCONSULT; the
+#    domains_cloudflare_rollout RUNBOOK recorded "TAG still needed" on 2026-08-04.
+#    RESOLVE IT FROM THE CREDENTIALS FILE, do not copy it from a doc example.
+grep -o '^TAG=.*' ~/.config/nominet/credentials
+
+# 3. A real login. See the gotcha below — a greeting proves nothing.
+python3 docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/box/nominet-epp-ns-change.py \
+  --tag <TAG> --domain <a domain we already hold> \
+  --password-file ~/.config/nominet/epp-password        # dry-run by default
+```
+
+**Gotcha, and it has already cost this estate time:** Nominet serves the EPP **greeting
+to any IP**, and login is refused unless your egress IP is allowlisted in Online Services
+(Settings → EPP → IP addresses) *regardless of whether the credentials are right*. So a
+successful TLS handshake and a 2,527-byte greeting are **not** a connectivity proof —
+only a completed login is. **Pin to IPv4**: IPv6 gets a 94-byte brush-off where IPv4 gets
+the full greeting, so an IPv6-first resolver makes a healthy path look broken.
+
+**Gotcha:** the EPP password is 16 bytes on this machine and comes from a file or
+`$NOMINET_EPP_PW`, **never argv** — argv is visible in `ps` to every process on the box.
+
+### The sale itself: TWO Nominet operations, in this order
+
+Changing the registrar and changing the owner are different things. Both are needed.
+Doing them in the wrong order strands the domain.
+
+1. **Registrant Transfer — change the recorded owner to the customer.**
+   Nominet Online Services → **Registrant Transfer**. This one **cannot** be done over
+   EPP or through our own systems; it is a registry operation. `[VERIFIED 2026-08-21 at
+   Nominet's published fee schedule, NOT by having done it]` **£10+VAT** for a
+   straightforward name change, **£20+VAT** change of type/company, **£35+VAT** where
+   extra verification is required. Budget the fee into the £200; it is not a surprise.
+2. **Release the tag to the customer's chosen registrar.**
+   Ask the customer for their new registrar's tag first — *they* choose the registrar,
+   which is the half the attested `domain_buy_once` fact says is theirs to do. Then
+   change the IPS TAG to it. Free for us.
+
+   **After step 1 the customer can do step 2 themselves** through their own Nominet
+   account for ~£10+VAT. Offer that as the alternative; do not insist on it, and do not
+   walk them through their registrar's side of it (`no_presales_service`).
+
+### ⚠ From 9 FEBRUARY 2027 step 2 CHANGES COMPLETELY — rewrite this section that week
+
+Nominet retires the IPS TAG transfer process and replaces it with a **Transfer
+Authorisation Code**: we generate one and give it to the registrant, they hand it to the
+gaining registrar, and the transfer completes immediately if the domain is unlocked.
+Step 1 is unaffected. Formal notice 4 June 2026; transition 9 February 2027; portfolios
+migrate to Dragon Domain Manager and Nominet moves to standard EPP at the same time.
+
+**Check the detail by 2026-12-01** — https://registrars.nominet.uk/registry/dot-uk/faq/ —
+because the useful consequence is a product change, not just a process one: a code can be
+**pre-issued at handover and put in the delivery email**, which is the same "hand over
+the thing rather than promise the action" shape as Phase 4's ZIP token.
+
+### What to record after the first real transfer
+
+The point of writing this before it is needed is that the first run corrects it. Record:
+which fee actually applied; whether Nominet's UI matched these step names; how long each
+step took; whether the customer self-served step 2 or we did it; and **anything that
+succeeded while doing nothing**, which is this estate's most expensive failure shape.

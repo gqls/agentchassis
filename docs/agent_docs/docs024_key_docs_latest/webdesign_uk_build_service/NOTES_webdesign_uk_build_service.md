@@ -4983,3 +4983,76 @@ the block with a two-header bullet list of writer_lines. Here that would discard
 hand-authored register, voice guide, negation-guard rules and gate-avoidance guidance,
 and `refresh_evidence_base` would do it silently. Unmanaged is deliberate for a
 hand-written block, not an omission waiting to be tidied. Filed in `LANDMINES.md`.
+
+### 2026-08-21, later still — the transfer-out mechanism, VERIFIED, and it is two operations rather than the one everybody assumed
+
+Owner, 2026-08-21: *"We need to agree a transfer out from nominet. Nominet's transfer
+rules are changing to be more like other tld registrars so we'll need to keep abreast of
+it. It is likely to be a manual step for now for each domain and that is ok for now."*
+
+Full write-up: `DECISION_2026-08-21_domain_transfer_out_from_nominet.md`. Procedure:
+RUNBOOK, marked UNTESTED. The short version and the corrections it forces:
+
+**CORRECTION to what this lane has said since 2026-08-19, in three places
+(`SQL_2026-08-19g`'s header, the 08-20 handoff item 6, and my own `SQL_2026-08-21`
+footer): "the transfer out is executed by the losing registrar changing the IPS TAG" is
+INCOMPLETE, not wrong.** It describes one of two operations and it is the *free* one.
+Selling a domain is:
+
+1. **Registrant Transfer** — changing the recorded legal owner. **Registry-only**: it
+   cannot be done over EPP or through our systems, only at Nominet Online Services.
+   `[VERIFIED 2026-08-21, Nominet's published fee schedule]` £10+VAT / £20+VAT (change of
+   type or company) / £35+VAT (extra verification). This is the step nobody in this lane
+   had noticed, and it is the one that costs money.
+2. **Tag release** — free, ours, and **the customer can do it themselves for ~£10+VAT
+   once step 1 has made them the registrant.**
+
+So the attested `domain_buy_once` half *"arranging the transfer with their new registrar
+is theirs to do"* is mechanically achievable — but only downstream of an operation that
+is unavoidably ours. **The registrar/registrant distinction is the whole trap here**, and
+this lane conflated them for two days.
+
+**And `[VERIFIED 2026-08-21 at registrars.nominet.uk]`, the owner's instinct was exactly
+right: 9 FEBRUARY 2027.** Nominet retires IPS TAG transfers for a **Transfer
+Authorisation Code** — *"Losing Registrar: Generates and provides the Transfer
+Authorisation Code to the registrant"* — with the transfer completing immediately if the
+domain is unlocked. Formal notice 4 June 2026. Portfolios migrate to Dragon Domain
+Manager; Nominet moves to standard EPP the same day.
+
+**Read that as a product change, not an operations one.** A code can be handed over in
+advance. From Feb 2027 the transfer-out step can be pre-issued at handover and dropped
+into the delivery email — the identical shape to Phase 4's ZIP token (stop promising a
+future action, hand over the thing that makes it unnecessary), and it is what would make
+*"nobody's time is included"* true by construction rather than by careful wording. It
+does NOT replace step 1.
+
+**One line of live copy is now slightly ahead of reality**, flagged and deliberately
+unchanged: `domain_buy_once`'s *"We give them what they need to move it"* is literally
+true from Feb 2027 and today describes nothing we hand over. Not damaging, depends on the
+open decision below, and self-corrects on transition day.
+
+**THE DECISION STILL OWED, and it is the owner's:** whose name the domain sits in during
+the *rental*. Ours protects the rental and makes each sale two operations; the customer's
+makes a sale nearly free and lets a renter leave with the domain having never paid £200.
+Recommendation is ours-during-rental. Nothing encoded either way — decision doc §4 has
+the table.
+
+**Not automated, deliberately.** The owner ruled manual-per-domain is fine, and at zero
+sales an automated release path is a mechanism rotting unexercised, which this platform
+has been bitten by before. What exists is recorded so nobody re-derives it: a Nominet
+member account with EPP access, credentials present on this machine
+(`~/.config/nominet/{epp-password,credentials}`, existence checked, contents not read),
+and a working stdlib EPP client at `idea_uk_vm_site/box/nominet-epp-ns-change.py`.
+
+**Traps carried over from `domains_cloudflare_rollout/RUNBOOK`, all three silent:**
+Nominet serves the EPP **greeting to any IP**, so a handshake proves nothing and **only a
+completed login tests the IP allowlist**; pin to **IPv4** (IPv6 gets a 94-byte brush-off
+where IPv4 gets the 2,527-byte greeting), so an IPv6-first resolver makes a healthy path
+look dead; and the password comes from a file, never argv.
+
+**"Keep abreast" has no mechanism in this estate to hang off** — no diary, no tickler, no
+review-due field anywhere in the concept register (checked). Rather than build one for a
+single date, the checkpoints (first sale / 2026-12-01 / 2027-02-09) are written into the
+decision doc, the RUNBOOK and the handoff's open list, i.e. into the cold-start read
+order. **Recorded as a known weakness:** a date with no owner is not a plan, and every
+session between now and February will correctly conclude this is not their problem.
