@@ -114,8 +114,9 @@ Use `lang`, or test an inner page.
 
 - **webdesign.uk vs webdesign.co.uk.** Only `webdesign.uk` (8 pages) is on this list.
   **`webdesign.co.uk` (117 pages) is a different case and will never gain `lang` from a rebuild** — its
-  head component is a bare fragment with no `<head>` open tag to carry the attribute. That is
-  `bugs_open/347`, being fixed separately.
+  head component was a bare fragment with no `<head>` open tag to carry the attribute. **FIXED and
+  CLOSED the same day — `bugs_closed/347`, migration 529** — so it now behaves like any other site and
+  its 117 pages are part of this file's ordinary residual, not a special case.
 - **Many pages will legitimately have no `og:description`.** Correct-or-absent by design; the column is
   empty on a large minority of pages (`bugs_open/320`, backfiller now scheduled). An absent tag there
   is the mechanism working.
@@ -127,5 +128,8 @@ Use `lang`, or test an inner page.
   README / FINDINGS / DECISIONS. `DECISIONS_2026-08-21_owner.md` is where this item was decided.
 - `docs026_concept_register/register/seo.md` **SEO-005** — the mechanism, and the standing threshold
   that a fifth one-producer head fix must raise an RFC on SEO-003 rather than take a fifth patch.
-- `bugs_open/322` item 4 — the guard that made 252 possible is still open; a future per-page tag added
-  to that block reproduces 252 exactly.
+- `bugs_open/322` **item 4 — FIXED, live and council-approved 2026-08-21** (`v1.0.1322`,
+  `Council-Reviewed: 54c660f8…`): the guard that made 252 possible is now per-tag, so a future
+  page-scoped tag added to that block can no longer reproduce 252. **Items 2, 3 and 5 of that file
+  remain open**, along with a residual it now owns — pages built through the OTHER head producer get
+  no brand tags at all and this fix cannot reach them (`[UNMEASURED beyond 24h]`).
