@@ -1096,3 +1096,10 @@ attempt whose rejection reason DIFFERS from the first, which has never yet been 
 is live (both halves) and waits for the next real rejection-then-retry anywhere in the fleet —
 the queryable signal is two `component_validation_rejected` rows on one item with different
 `md5(error_message)`.
+
+> **CORRECTED 2026-08-21 (cross-session, from the remortgagecalculator CSS lane):** the evening
+> entry attributed the index page's +410 B baseline movement to "the released contrast-fix items,
+> as predicted". Wrong attribution stated as a prediction — their lane's **index rerender at
+> ~17:2xZ** (part of the stylesheet restore after `198`'s third firing, 17,403 → 136 bytes
+> clobbered and repaired) is what moved the page. The re-pin discipline held either way, which is
+> why the grade was still sound.

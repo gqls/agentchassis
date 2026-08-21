@@ -1,7 +1,16 @@
 # 345 — a component rejected by pre-store validation is regenerated from **identical inputs**, so the writer never learns why it was rejected: every repeat produces the *same* rejection, and one item burned **52 generations** under a 3-attempt budget
 
 **Filed:** 2026-08-21 by the `bugfix_311_component_keys` lane, after it blocked the repair of
-`bugs_open/311`'s **originating page**. **Status: OPEN — FIX BUILT AND COMMITTED 2026-08-21, INERT until the next chassis roll.**
+`bugs_open/311`'s **originating page**. **Status: OPEN — FIX LIVE ON BOTH HALVES since 2026-08-21 ~17:05Z** (v1.0.1322 carries the Go
+half — provenance stamp `bac189921`, `0f80f5ea1` ancestor — and migration `533` is applied and
+ledger-recorded; the CSS lane's contrib below independently probed both replicas with a control and
+confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **DEMAND BAR OPEN: the
+path has never fired** — `collected_data->'input_data' ? 'last_error'` is 0 across all history
+(their query), and the first post-fix generation on the originating page succeeded on attempt 0, so
+no retry existed to feed. The signal that closes this: two `component_validation_rejected` rows on
+ONE item with **different** `md5(error_message)`. Note the ROUND-2 REVISION (gate = non-blank
+recorded failure, not `attempt_count>0`) is committed but rides the NEXT roll — the live binary
+still carries the attempt-gated form.
 `Council-Submitted: 67b07528-b40b-4eef-9abc-35ad70efae04`.
 
 > **⚠ WHERE THE CODE ACTUALLY IS, because `git log` will not tell you.** The **Go half is at HEAD
