@@ -452,6 +452,63 @@ envelope is doubly nested (`response.<field>.response.data.`) on `call_agent`-re
 their `result_mapping` work is meant to have flattened that. **Read a live post-535 bdl tree before
 writing the path**; do not take `handler_result.response.commit_sha` from this paragraph.
 
+## 2.9 `bdl`/`commit_sha` IS WIRED AND LIVE — via **537**, not 539. Verification is a NAMED PREDICTION, not yet met (2026-08-21 15:3xZ)
+
+**A parallel session built the identical wire as `537` and applied it at 15:33:39Z**, about an hour
+before my `539` returned APPROVED at council round 2. Neither of us saw the other's WIP — **the
+second identical-migration collision on this lane in two days** (514/515 was the first, and that
+author retired theirs in my favour; this one goes the other way).
+
+- **539 is RETIRED `_SUPERSEDED`, never applied** — proof: `agent_definitions_backup` holds **zero**
+  `539_%` snapshots, and 539 takes its snapshot immediately before the UPDATE.
+- **537 is better in one respect worth stealing:** it **discovers** the nested step path at run time
+  instead of hardcoding `workflow.steps.process_item.config.sub_workflow.steps.mark_complete`, so it
+  survives a restructured loop where 539 would refuse.
+- **Three analyses 537 lacked are contributed into its file** (`c1530eed0`): the `bugs_closed/287`
+  spawn-record argument for why `handler_result` is trustworthy at all; the 49% measurement that
+  will stop anyone later "tightening" `?` to `!`; and the premise-guard idea.
+- **537 was APPLIED but MISSING from `schema_migrations`.** That is a live hazard — the next
+  `--apply` sweep re-offers it and its own idempotence guard RAISEs, aborting a batch that may hold
+  other sessions' files. Recorded with `--record-only` and a note naming the applier.
+
+### ⚠ THE CLASS HAS NOT YET BEEN SHOWN TO STOP — and the first 4 rows are NOT evidence it failed
+
+Live config: `commit_sha?` = `handler_result.response.commit_sha`, `updated_at` **15:33:39Z**.
+In the **3 minutes** after that, **4 more conflict rows appeared** (15:34:19, 15:34:43, 15:35:06,
+15:35:36). **Do not read those as the wire failing.** Their candidate-path counts run
+**10 → 14 → 18 → 22**, growing by 4 — the signature of ONE loop accumulating iterations — and the
+only bdl orchestration that could have produced them was created at **15:33:22, seventeen seconds
+BEFORE the wire**. A run already in flight carries the config it started with.
+
+**THE PREDICTION, stated before the evidence so it can fail:**
+> An orchestration **created after 15:33:39Z** produces **ZERO** `commit_sha` conflict rows when it
+> reaches `mark_complete`.
+
+At the time of writing, orchestration `110e7e15-12c3-445c-bf02-297798dfdcc1` (created **15:34:48Z**,
+post-wire) was still `AWAITING_RESPONSES` at `process_item_iter_1_call_handler` — **it had not yet
+reached the step**. That is the run to read.
+
+```sql
+-- the demand control FIRST: post-wire runs that actually reached completion
+SELECT count(*) FROM orchestration_states
+ WHERE owner_agent_type='build-dispatch-loop' AND created_at > '2026-08-21 15:33:39Z'
+   AND status='COMPLETED';
+-- then: rows must be 0 once every PRE-wire run has finished
+SELECT count(*), max(occurred_at) FROM agent_error_log
+ WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES' AND agent_type='build-dispatch-loop'
+   AND context->>'field'='commit_sha' AND occurred_at > '<last pre-wire run completed_at>';
+```
+⚠ **The instrument records no `orchestration_id`** (the known bridge gap), so rows cannot be joined
+to runs — attribution is by TIME, which is why the pre-wire tail must be drained before a zero
+counts. **A zero read too early is the pre-wire tail, and a non-zero read too early is also the
+pre-wire tail.** Wait for the drain.
+
+**Positive test, if you want the stronger one** (same shape as 515's): on a post-wire
+`mark_complete` extraction, `commit_sha` must be **ABSENT** from `requested_fields` on the
+`=== MASTER EXTRACTOR START ===` line. ⚠ `build-dispatch-loop` runs in its **own ephemeral per-run
+pods** (`agent-build-dispatch-loop-<hash>`), NOT in `agent-chassis` — see §2.3's warning, which cost
+an hour on 515.
+
 ## 2.8 TIER C IS CLOSED OUT — every remaining pair now has a recorded decision (2026-08-21 ~15:3xZ)
 
 ⚠ **First, a CORRECTION to §2.4's own table.** It lists `bdl`/`result` as *"quiet, UNWIRED ⇒ not
