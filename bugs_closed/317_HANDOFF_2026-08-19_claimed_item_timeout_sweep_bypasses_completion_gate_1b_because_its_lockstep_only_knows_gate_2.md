@@ -97,3 +97,45 @@ nothing will ever be claimed, so "it did not fire" is not evidence in either dir
 (the lockstep pair) · `bugs_open/230` (the rotation work that would re-enable a carrier and make this
 reachable) · LANDMINES `Dedup index ↔ Go list lockstep` (the same "two hand-maintained copies of one
 vocabulary" class).
+
+---
+
+## ✅ CLOSED 2026-08-21 — re-verified at the live column and moved per the restored close bar
+
+Everything in the FIXED banner above stood on 2026-08-19; this section records the independent
+re-verification that preceded the move (a different session, two days later — other threads change
+the live row beneath us, so the close carries its own read, not the banner's).
+
+**Live column, re-read 2026-08-21 ~10:20Z** (reading the *column* does not advance the task's
+rotation — only *executing* the `pre_query` does, hence no `BEGIN/ROLLBACK` wrapper needed):
+
+```sql
+SELECT enabled, (regexp_match(pre_query, 'NOT IN \(([^)]*)\)'))[1]
+FROM scheduled_tasks WHERE name='claimed-item-timeout';
+```
+
+Result: `enabled=t`, exclusion list = **14 item types, `dark_section_audit` present** —
+`truncated_component, hardcoded_section_colors, empty_section, orphan_element_refs,
+content_duplication, page_canonical_collision, dead_fragment_link, literal_markdown,
+unbuilt_internal_link, revenue_shape_cta, missing_conversion_path, decision_regression,
+needs_brand_head_assets, dark_section_audit`. The union-of-both-gate-rosters contract holds at
+the live artefact.
+
+**Lockstep guard, run 2026-08-21 against committed HEAD** (`git archive HEAD` into a clean tree,
+not the shared dirty one): `go test ./platform/orchestration/actions/
+-run TestClaimTimeoutExclusionCoversBothCompletionGates -count=1` → **ok, exit 0**.
+
+**Close basis:** fixed 2026-08-19 (migration `482`, register **WII-021**), council **APPROVED
+round 3** (corr `ff58ee4a`, verdict read and recorded above), live-column re-verified today.
+Moved to `bugs_closed/` per the owner ruling of 2026-08-12 restoring the fixed-AND-live bar.
+
+**The latency caveat travels with the close:** still **0 completions ever** through this sweep for
+either gate-1b-only type, because both `dark_section_audit` carriers are `enabled=false` — nothing
+claims, nothing times out. That is not unproven-fix territory: for a *latent* bug the defect was
+the gap in the live predicate, and the gap is gone from the live artefact (re-read above), with
+the parity test holding the door shut. Re-enabling a carrier (`bugs_open/230`'s rotation work) now
+re-arms nothing.
+
+**Residual, tracked elsewhere:** the sweep itself still runs its own SQL copy of the retry ladder
+with no cooldown, no guard and no release — that is `bugs_open/341`, filed 2026-08-20 at the
+307 council's insistence, not this file's subject.
