@@ -493,19 +493,57 @@ func loadSiteDataFull(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 	return &s, err
 }
 
-// injectBrandHeadTags adds favicon + Open Graph / Twitter-card markup to a
-// rendered <head>, once (idempotent — skips if a favicon link already
-// exists). The favicon points at the derived favicon.png but falls back to
-// the site logo when present; og:image points at the derived og-card.png.
-// Absolute URLs are built from the site domain for the social tags (OG
-// requires absolute), relative for the favicon link.
-func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) string {
-	if strings.Contains(headHTML, "rel=\"icon\"") || strings.Contains(headHTML, "og:image") {
-		return headHTML // already has brand head tags
+// declaresHeadTag reports whether a rendered head already states a given
+// property/name, in either quote style and at any attribute order — the same
+// attribute-not-full-tag discipline injectCanonicalLink uses, because chrome
+// templates are hand-authored and their quoting varies.
+func declaresHeadTag(head, attr, value string) bool {
+	for _, q := range []string{`"`, `'`} {
+		if strings.Contains(head, attr+"="+q+value+q) {
+			return true
+		}
 	}
+	return false
+}
+
+// injectBrandHeadTags adds favicon + Open Graph / Twitter-card markup to a
+// rendered <head>. The favicon points at the derived favicon.png but falls back
+// to the site logo when present; og:image points at the derived og-card.png.
+// Absolute URLs are built from the site domain for the social tags (OG requires
+// absolute), relative for the favicon link.
+//
+// IDEMPOTENCE IS PER TAG, and that is the whole point of this shape
+// (bugs_open/322 item 4). It used to be wholesale: `if the head contains
+// rel="icon" OR og:image, return it untouched`. One foreign tag therefore
+// disabled the entire block, and the consequences were not theoretical —
+//
+//   - webdesign.co.uk carries a hand-authored `rel="icon"`, so it received NO
+//     og:image, no twitter card and no apple-touch-icon at all, on 117 pages,
+//     the most of any site in the fleet. Every caller reported success.
+//   - the guard could not see a BLANK tag, so on four sites the head-seo-standard
+//     template's empty `og:title`/`og:description` sat alongside a filled pair
+//     this function appended — the duplicate tags that made bugs_closed/252
+//     visible.
+//
+// So: a tag the head ALREADY declares is left exactly as authored — this must
+// never fight a hand-authored head — and only the missing ones are added. That
+// also makes re-running safe on this function's own output, which the wholesale
+// guard achieved by accident and only while og:image happened to be present.
+//
+// ⚠ NO og:url, and no other PAGE-scoped value, ever belongs here — see the
+// comment at the og:image line below.
+func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) string {
 	idx := strings.Index(headHTML, "</head>")
 	if idx == -1 {
-		return headHTML // not a well-formed head; leave untouched
+		// A head with no close tag: leave untouched. Unlike this function's
+		// siblings (injectCanonicalLink, injectPageJSONLD, spliceOpenGraph)
+		// which append, this one declines — a divergence recorded rather than
+		// quietly unified, because appending brand markup after the head
+		// boundary is not obviously right. The one fragment head in the fleet
+		// was wrapped by migration 529 (bugs_closed/347), so this branch is
+		// currently unexercised; site-locale-unset-check's finding B is what
+		// reports the next one.
+		return headHTML
 	}
 
 	origin := "https://" + ctx.Domain
@@ -515,19 +553,36 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 	var b strings.Builder
 	// Primary favicon = the derived square PNG; if the site has a logo we
 	// also list it as a secondary icon so a mark always resolves even before
-	// derive_brand_head_assets commits favicon.png.
-	b.WriteString("  <link rel=\"icon\" href=\"/assets/images/favicon.png\">\n")
-	if ctx.LogoURL != "" {
-		b.WriteString("  <link rel=\"icon\" href=\"" + ctx.LogoURL + "\">\n")
+	// derive_brand_head_assets commits favicon.png. A head that already
+	// declares ANY rel="icon" keeps its own — a hand-authored favicon is a
+	// deliberate choice and this function must not append a second one.
+	if !strings.Contains(headHTML, "rel=\"icon\"") && !strings.Contains(headHTML, "rel='icon'") {
+		b.WriteString("  <link rel=\"icon\" href=\"/assets/images/favicon.png\">\n")
+		if ctx.LogoURL != "" {
+			b.WriteString("  <link rel=\"icon\" href=\"" + ctx.LogoURL + "\">\n")
+		}
 	}
-	b.WriteString("  <link rel=\"apple-touch-icon\" href=\"/assets/images/favicon.png\">\n")
-	b.WriteString("  <meta property=\"og:type\" content=\"website\">\n")
-	b.WriteString("  <meta property=\"og:site_name\" content=\"" + title + "\">\n")
-	b.WriteString("  <meta property=\"og:title\" content=\"" + title + "\">\n")
-	if desc != "" {
+	if !declaresHeadTag(headHTML, "rel", "apple-touch-icon") {
+		b.WriteString("  <link rel=\"apple-touch-icon\" href=\"/assets/images/favicon.png\">\n")
+	}
+	if !declaresHeadTag(headHTML, "property", "og:type") {
+		b.WriteString("  <meta property=\"og:type\" content=\"website\">\n")
+	}
+	if !declaresHeadTag(headHTML, "property", "og:site_name") {
+		b.WriteString("  <meta property=\"og:site_name\" content=\"" + title + "\">\n")
+	}
+	// og:title and og:description are SITE-level fallbacks only. assemblePage's
+	// spliceOpenGraph strips and restates both per page (bugs_closed/252), so
+	// what this writes is what a consumer of the stored head alone would see.
+	if !declaresHeadTag(headHTML, "property", "og:title") {
+		b.WriteString("  <meta property=\"og:title\" content=\"" + title + "\">\n")
+	}
+	if desc != "" && !declaresHeadTag(headHTML, "property", "og:description") {
 		b.WriteString("  <meta property=\"og:description\" content=\"" + desc + "\">\n")
 	}
-	b.WriteString("  <meta property=\"og:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	if !declaresHeadTag(headHTML, "property", "og:image") {
+		b.WriteString("  <meta property=\"og:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	}
 	// NO og:url here, deliberately. This block is written into the PER-SITE
 	// stored head (site_components.rendered_html) and reused by every page
 	// assemblePage builds, so an origin-rooted og:url made every assembled
@@ -537,16 +592,30 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 	// carry a per-page value, and this function has no page to ask.
 	// Per-page Open Graph identity belongs to assembly: spliceOpenGraph in
 	// head_assembly.go, which strips this property and states the page's own.
-	b.WriteString("  <meta name=\"twitter:card\" content=\"summary_large_image\">\n")
-	b.WriteString("  <meta name=\"twitter:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	if !declaresHeadTag(headHTML, "name", "twitter:card") {
+		b.WriteString("  <meta name=\"twitter:card\" content=\"summary_large_image\">\n")
+	}
+	if !declaresHeadTag(headHTML, "name", "twitter:image") {
+		b.WriteString("  <meta name=\"twitter:image\" content=\"" + origin + "/assets/images/og-card.png\">\n")
+	}
 	// Phase I2: link the site's committed sprite stylesheet (styled bullets,
 	// nav accents) only when a sprite sheet exists.
-	if hasSpriteCSS {
+	if hasSpriteCSS && !strings.Contains(headHTML, "/assets/css/sprites.css") {
 		b.WriteString("  <link rel=\"stylesheet\" href=\"/assets/css/sprites.css\">\n")
 	}
 
-	logger.Info("injectBrandHeadTags: added favicon + OG tags",
-		zap.String("domain", ctx.Domain), zap.Bool("sprite_css", hasSpriteCSS))
+	// Nothing missing: return the head BYTE-IDENTICAL rather than splicing an
+	// empty string at the boundary. This is the ordinary steady state once a
+	// site's chrome has rendered once, so it must be free and must not churn
+	// site_components.rendered_html (the archive trigger fires on a real change).
+	if b.Len() == 0 {
+		return headHTML
+	}
+
+	logger.Info("injectBrandHeadTags: added missing brand head tags",
+		zap.String("domain", ctx.Domain),
+		zap.Bool("sprite_css", hasSpriteCSS),
+		zap.Int("bytes_added", b.Len()))
 	return headHTML[:idx] + b.String() + headHTML[idx:]
 }
 

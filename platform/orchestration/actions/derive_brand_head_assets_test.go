@@ -184,10 +184,55 @@ func TestInjectBrandHeadTags(t *testing.T) {
 		t.Errorf("tags must be injected BEFORE </head>; got tail: %q", out[len(out)-40:])
 	}
 
-	// Idempotent: a head that already has icon markup is left untouched.
+	// CONTRACT CHANGED 2026-08-21 (bugs_open/322 item 4, owner-directed).
+	// This used to assert a WHOLESALE no-op: a head containing rel="icon" OR
+	// og:image was returned untouched. That is the defect, not the contract —
+	// one foreign tag disabled the entire block, so webdesign.co.uk's
+	// hand-authored favicon cost it every og and twitter tag on 117 pages,
+	// and the guard could not see a BLANK og:title, which is how four sites
+	// ended up serving duplicates (bugs_closed/252).
+	//
+	// The idempotence that MATTERS is per tag, and it is asserted below: an
+	// authored tag is preserved byte-for-byte, and only the missing ones are
+	// added. Changing this assertion is a deliberate contract change with the
+	// reason on record — not a checker bent to agree with the code.
 	already := `<head><link rel="icon" href="/x.png"></head>`
-	if got := injectBrandHeadTags(already, ctx, false, log); got != already {
-		t.Errorf("expected no-op on head with existing favicon, got: %s", got)
+	got := injectBrandHeadTags(already, ctx, false, log)
+	if !strings.Contains(got, `rel="icon" href="/x.png"`) {
+		t.Errorf("the authored favicon must be preserved exactly, got: %s", got)
+	}
+	if strings.Contains(got, `href="/assets/images/favicon.png"`) &&
+		strings.Count(got, `rel="icon"`) != 1 {
+		t.Errorf("must not add a second rel=\"icon\" beside an authored one, got: %s", got)
+	}
+	for _, want := range []string{
+		`property="og:type"`, `property="og:site_name"`, `property="og:image"`,
+		`name="twitter:card"`, `rel="apple-touch-icon"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a partial head must still receive %q — the wholesale skip is the bug: %s", want, got)
+		}
+	}
+
+	// Per-tag idempotence, both quote styles: a head that already declares a
+	// tag keeps ITS version and gains no duplicate.
+	authored := `<head><meta property='og:image' content='/mine.png'><meta name="twitter:card" content="summary"><link rel="icon" href="/i.png"><link rel="apple-touch-icon" href="/a.png"></head>`
+	out3 := injectBrandHeadTags(authored, ctx, false, log)
+	for _, tag := range []string{"og:image", "twitter:card", "rel=\"icon\"", "apple-touch-icon"} {
+		if strings.Count(out3, tag) != 1 {
+			t.Errorf("tag %q duplicated or lost (count %d): %s", tag, strings.Count(out3, tag), out3)
+		}
+	}
+	if !strings.Contains(out3, `content='/mine.png'`) {
+		t.Errorf("single-quoted authored og:image must be preserved: %s", out3)
+	}
+
+	// A head that already declares EVERYTHING comes back byte-identical — the
+	// steady state after one render, and it must not churn the stored artefact
+	// (the site_components archive trigger fires on a real change).
+	full := injectBrandHeadTags("<head><title>x</title></head>", ctx, true, log)
+	if again := injectBrandHeadTags(full, ctx, true, log); again != full {
+		t.Errorf("second pass must be byte-identical:\n--- once ---\n%s\n--- twice ---\n%s", full, again)
 	}
 
 	// No </head> → returned unchanged (defensive).
