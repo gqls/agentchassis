@@ -2322,3 +2322,48 @@ isn't the same claim, and here the difference is the whole of the evidence.
 **Where that leaves the lane:** one external answer still outstanding, one fix in review, one
 verification blocked on there being no work to observe, and a set of written-decision items. Then
 the switch. **Nothing waits on you** unless you'd like me to commission that tool build.
+
+---
+
+**2026-08-21, afternoon.** The fix I described this morning is now **finished and proven working in
+the live system** — and proving it turned out to be the interesting part.
+
+The change itself went through review, came back needing revisions, and the reviewer was right in a
+way worth telling you. My evidence that the fix would work had two halves: I'd read the relevant
+code, and separately I'd proved the running system contained the update that added it. Those sound
+like one argument. They aren't — I read the code as it exists *today*, while the running system was
+built from an *earlier* point, so the part I read could have arrived after the system was built. It
+happened to be fine, but I'd claimed it verified on a check I hadn't actually done. I've written
+that up, because it's the sort of gap that reads as thorough right up until it isn't.
+
+The reviewer also found a third place with the same problem that I'd said had only two — it was
+hidden inside a nested structure that the obvious way of counting can't see. That one didn't change
+the fix, and for a good reason: the other two places don't have the piece of data this fix points
+at, so pointing them at it would have been inventing something. They're written down as separate
+jobs needing their own measurement.
+
+Then the fix was approved, applied, and I set about proving it actually does something. **Two
+reviewers had independently pointed out that everything so far was an argument from reading code,
+and nothing had ever actually run through the new path.** They were right, so I built a test that
+watches the system make the decision and reports which way it went.
+
+**It took three attempts, and the first two failed silently** — which is the dangerous kind. The
+watcher reported nothing for an hour while the work was happily running, because I was watching the
+wrong machines: this particular job doesn't run where I assumed, it gets a brand-new temporary
+machine for every single run. One database column would have told me that, and I hadn't looked.
+
+The third attempt caught it, and the result is clean:
+
+> the system asked for `section_facts`, `pipeline` and `site_type` — and **not** `page_type`
+
+which is exactly right. `page_type` is now taken from the page's own record instead of being
+guessed. And there's a control sitting in the same line: `site_type` is in the same category, also
+unconfigured, and is *still* being guessed — so the change did what it was aimed at and nothing
+else. That's the difference between "the warnings stopped" and "I watched it work".
+
+This is also the **first live use of the new mechanism** the other session built yesterday, so this
+one line is the proof that mechanism functions in production — which unblocks the other fixes
+queued behind it.
+
+**Still waiting on real work to appear:** the tool-related verification from yesterday, which needs
+someone to queue a tool build. Nothing waits on you unless you want that forced.
