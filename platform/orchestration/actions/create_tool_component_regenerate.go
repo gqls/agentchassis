@@ -81,6 +81,17 @@ type toolRegenerateRequest struct {
 // (the only write outside the transaction is the best-effort version snapshot,
 // which is additive history).
 func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, logger *zap.Logger, req toolRegenerateRequest) (map[string]interface{}, error) {
+	// Empty-bytes refusal, FIRST, before any read or lock (council 6acf8e4e
+	// round 1, bug_historian's gating HIGH: bugs_closed/056 is a regeneration
+	// blanking stored rendered_html when a blocker fired mid-path). The
+	// instance-scope guard already refuses BEFORE this function is reached, so
+	// today these cannot be empty — this makes the 056 shape UNREPRESENTABLE
+	// at the seam rather than dependent on every future caller keeping that
+	// ordering: no regeneration can write empty template or rendered bytes
+	// over a live placement, whatever upstream produced them.
+	if strings.TrimSpace(req.htmlContent) == "" || strings.TrimSpace(req.renderedHTML) == "" {
+		return nil, fmt.Errorf("replace_existing refused: empty template or rendered bytes for %s — a refused/failed upstream stage must fail the item, never blank a live placement (bugs_closed/056)", req.function)
+	}
 	db := params.DB
 	logger = logger.With(zap.String("arm", "replace_existing"), zap.String("incumbent_id", req.incumbentID))
 
@@ -234,6 +245,7 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 	}
 	var slotIDs []string
 	var pageID, pageName, pageURL string
+	seenPages := map[string]bool{}
 	for rows.Next() {
 		var sid, pid, pname, purl string
 		var hadHTML bool
@@ -241,6 +253,18 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 			rows.Close()
 			return nil, fmt.Errorf("replace_existing: scan placement: %w", err)
 		}
+		// Occurrence-0 precondition, ASSERTED not assumed (council 6acf8e4e
+		// round 1): req.renderedHTML is the occurrence-0 token binding, which
+		// is only correct while each page carries this tool ONCE. Two slots on
+		// one page would both receive occurrence 0 and collide — exactly the
+		// defect 283 exists to remove — so a multi-placement page refuses to a
+		// human rather than being silently mis-bound. No live tool page
+		// carries a duplicate today; this exists for the first one that does.
+		if seenPages[pid] {
+			rows.Close()
+			return nil, fmt.Errorf("replace_existing refused: page %s carries %s more than once — the occurrence-0 rendered binding would collide; this page needs the per-occurrence render path, not the verbatim placement write", pname, req.function)
+		}
+		seenPages[pid] = true
 		slotIDs = append(slotIDs, sid)
 		if pageID == "" {
 			pageID, pageName, pageURL = pid, pname, purl

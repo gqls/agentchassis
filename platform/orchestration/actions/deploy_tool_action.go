@@ -57,6 +57,12 @@ var DeployToolToSiteInputSpec = datahelpers.ActionInputSpec{
 	Optional:   []string{"page_name", "page_title", "related_pages"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
+	// enforce_instance_scope: arms the instance-scope guard on the FORK path
+	// (council 6acf8e4e round 1: two seats objected that the sibling door to
+	// create_tool_component stayed unguarded — measured live: 13 fork-births
+	// in 30 days). Declared on the spec that READS it, same commit as the
+	// reader (bugs_closed/336). Reporting-only ConfigKeys, like its sibling.
+	ConfigKeys: []string{"enforce_instance_scope"},
 }
 
 func init() {
@@ -189,6 +195,23 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			toolFunction, len(orphans), strings.Join(orphans, ", "))
 	}
 
+	// --- Instance-scope guard, fork-path door (bugs_open/283 flow half) ---
+	// The same convert-or-refuse the generated-birth path runs
+	// (tool_birth_instance_scope.go): a library source that is already
+	// converted is verified and bound; an unconverted-but-convertible one is
+	// converted so the FORK is born scoped even when its library source is not
+	// (an unplaced library row is invisible to the daily sweep — this door is
+	// the only control that sees it); an unprovable one is refused BEFORE any
+	// write, so the incumbent library row and every existing placement stay
+	// untouched. Refusal semantics match the sibling: fail loud, nothing
+	// persisted, the work item carries the reason.
+	scopedToolHTML, renderedToolHTML, scopeInfo, scopeRefuse := ScopeToolBirthTemplate(
+		toolHTMLTemplate.String, toolFunction, enforceInstanceScope(config), logger)
+	if scopeRefuse != nil {
+		return nil, fmt.Errorf("deploy_tool refused (instance scope) for %q: %w", toolFunction, scopeRefuse)
+	}
+	logger.Info("DeployToolToSiteAction: instance-scope fork guard", zap.Any("scope", scopeInfo))
+
 	// --- 1b. requires-backend gate, deploy-time half ---
 	// Migration 406 gates the suggestion; this gates the deploy itself, before
 	// anything is written, so an add_tool item from any source cannot ship a
@@ -318,7 +341,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 				true,
 				description,
 				semantic_tags,
-				html_template,
+				$6,
 				input_schema,
 				$3,
 				$4,
@@ -327,7 +350,8 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			WHERE id = $3
 		`, forkID, forkName, toolID,
 			nullIfEmpty(params.ExecutionContext.Sender.AgentType),
-			nullIfEmpty(params.ExecutionContext.OrchestrationID))
+			nullIfEmpty(params.ExecutionContext.OrchestrationID),
+			scopedToolHTML)
 		if err != nil {
 			return nil, fmt.Errorf("fork tool: %w", err)
 		}
@@ -484,7 +508,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		ON CONFLICT DO NOTHING
 		RETURNING id
 	`, pageID, forkID, toolFunction,
-		toolHTMLTemplate.String,
+		renderedToolHTML,
 	).Scan(&pcID)
 	if err != nil {
 		// May be a conflict — check if already exists
