@@ -87,3 +87,65 @@ register `PLAN-048` (the seam that refuses these pairs by design, and why);
 `bugs_open/204` (constrains finetuning.uk); `bugs_closed/266` (archive durability, the
 discharged blocker); `bugs_open/098` → `RFC_011` (retiring a live page has no mechanism —
 the reason a redirect does not exist).
+
+---
+
+## CORRECTION 2026-08-21, before anyone acted on this file — **NONE OF THE FOUR ARE DUPLICATES.** This file's own title is wrong, and "which name survives" is the wrong question
+
+Written the same day, after opening all eight pages instead of trusting the pairing. The
+table above is accurate about the *names*; it is wrong about what the pages **are**.
+
+| pair | what one side actually is | what the other actually is |
+|---|---|---|
+| fundamentallyai `model-approach-selector-guide` | `/blog/…` — *"How the Model Approach Selector weighs fine-tuning, RAG, and prompting"*: a guide **to the tool**, walking through what it asks and why | `/guides/tool-…` — *"Prompting, RAG, or fine-tuning: a decision guide that starts with your actual use case"*: a **standalone topic guide** that barely mentions the tool |
+| fundamentallyai `automation-savings-estimator-guide` | same shape: `/blog/…` explains the estimator | `/guides/tool-…` is the topic guide |
+| finetuning.uk `ai-readiness-quiz` | `/ai-readiness-quiz.html` — a **5-question** readiness assessment ("Answer five questions… 0 / 5") | `/tools/tool-…` — a **6-question** quiz ("Answer 6 quick questions… Question 1 of 6") — a *different instrument* |
+| robot-hands `matchmatrix` | `/matchmatrix.html` — the overview/pitch page for MatchMatrix | `/tools/matchmatrix/index.html` — the **working selection matrix** itself |
+
+**So retiring either side of any of these destroys live, distinct content.** The remediation
+this file was filed to schedule must not be run as written.
+
+### Why they were paired, and why that is not a bug in the pairing
+
+`PageItemStem` strips a leading `tool-`, so `matchmatrix` and `tool-matchmatrix` reduce to
+one stem and the census reports them as a pair. That census is a **name** census and it
+never claimed to be a content census — the estate's own documentation says the stem key
+"is the one layer that can pair two genuinely different pages", which is exactly why
+`stem_twin_snap` is separately gated and off by default. The pairing did its job; **the
+error was mine, in reading a name-shaped signal as a content-shaped conclusion** and
+writing a file that asked "which survives".
+
+**Two things this invalidates in the record above:** the component counts and byte sizes in
+the table are real but were offered as *survivor-selection evidence*, which they never
+were; and the framing "one page under two live names" is false for all four. What remains
+true: all eight URLs serve 200, and there is no redirect mechanism.
+
+### What the real question is, per pair
+
+Not "which name survives" but **"are these two pages the site should have, and are they in
+the right places?"** — which is an editorial question, not a remediation one. Concretely:
+
+- **fundamentallyai (both):** two legitimate guides each, split across `/blog/` and
+  `/guides/`. The owner's instruction of 2026-08-21 — *"those guides should be under the
+  guides directory"* — is about that split and is satisfiable **without retiring anything**:
+  move the `/blog/` guide under `/guides/`. Cost: the old `/blog/` URL 404s permanently
+  (no redirect mechanism). Residual oddity if only that is done: the two pages already at
+  `/guides/` carry a `tool-` prefix on a `blog-post`, which is a canonicalisation artefact
+  and reads badly in a URL — renaming them is a second, separate decision that costs two
+  further 404s, and it needs new slugs because their bare names would collide with the
+  pages being moved in.
+- **finetuning.uk:** two different quizzes (5 vs 6 questions). Somebody has to decide
+  whether the site wants both, and that is a product question. Also still constrained by
+  `bugs_open/204`.
+- **robot-hands:** a pitch page and the tool it pitches. Arguably correct as-is; the only
+  defect is that they share a stem and so keep appearing in twin censuses.
+
+### The transferable lesson, and it is not "check the content"
+
+The pairs census, the component counts, the byte sizes and the HTTP statuses were all
+**measured, dated, and true** — and together they still supported the wrong conclusion,
+because every one of them measured the *container* and none of them measured the *page*.
+The estate already has a landmine saying a `page_components` count is a container count and
+not a content measure; this is the same failure one level up, where **an entire evidence
+table can be container-shaped**. The check that broke it was the cheapest available and I
+did it last instead of first: open the page and read the first paragraph.
