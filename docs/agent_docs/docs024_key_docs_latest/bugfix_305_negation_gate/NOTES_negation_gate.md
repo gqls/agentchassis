@@ -465,3 +465,43 @@ gate never touched. Told the 260 lane with the census query.
 
 **Traffic is the constraint, not the code:** one writer run in the last hour. Three gate runs total —
 clean/COMPLETED, repaired/FAILED-at-260, repair_unavailable/FAILED-at-260.
+
+### 11:52Z — the first MULTI-HIT page found a defect in my own repair, and settled the budget question
+
+`webdesign.co.uk`/`tool-social-card-guide`, iteration 1: `hits_before 8 → hits_after 7`, **`rewritten:
+6`**, `rejected: 0`, **1 distinct field**.
+
+**Six accepted, one landed.** Every target of a field carries the same captured original, so each
+accepted replacement spliced against *that* and wrote the whole field back — last writer wins. Fixed at
+`0eea9e597` (carry each field's text forward), pinned by a test built from this page and a mutation
+probe that reproduces the race. Inert until the next roll.
+
+**⚠ MISSTEP 8, and it is the one I am least comfortable about: I nearly confirmed the repair from a
+check that could not fail.** My first artefact query asked whether each rewrite's `to` prefix appeared
+in the stored content. Five of six said yes — and it was worthless, because `from` and `to` share their
+opening, so the prefix matches either way. The honest check is the part that DIFFERS: is the removed
+construction still there? It is — *"rather than compete"*, *"rather than trust that…"*, *"rather than
+requirement"*, and six `rather than` in the field overall. **This lane has now written the "a
+measurement that could not come out otherwise" lesson three times and I still did it under the
+pull of a result I wanted.** The marker also truncates `from`/`to` at 160 chars, which is what made the
+prefix the convenient thing to test.
+
+### The per-page budget: ANSWERED, and the answer is NO
+
+The same run was the first that could discriminate (its iteration 0 had a hit):
+
+| iter | hits_before | page_hits | within_budget |
+|---|---|---|---|
+| 0 | 1 | **1** | 0 — the hit was headline-class, repaired regardless |
+| 1 | 8 | **8** (not 9) | **2** — a fresh budget |
+
+**Per SECTION.** As `__copy_gate`'s absence from the durable row predicted: `saveStepResultWithRetry`
+copies only the step's own keys. The safe fallback is what is live; headline hits are still always
+repaired; the page total is still counted at `compile_page_sections`. A true per-page budget needs the
+count carried in the step's OUTPUT (`copy_gate_<N-1>`), never a bare state key.
+
+### And the no-regression control, which only a clean page can give
+
+`webdesign.co.uk`/`tool-social-card-guide` iteration 2 and the earlier `tool-social-card-guide` run:
+`hits_before 0`, `status clean`, orchestration **COMPLETED**. The new step does not disturb a healthy
+build.

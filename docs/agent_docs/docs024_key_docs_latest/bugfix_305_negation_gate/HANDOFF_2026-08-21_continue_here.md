@@ -12,8 +12,10 @@ lane built the platform half and contributed it back into that file, §8–§17)
 > **One-line state:** both halves are LIVE and the repair is **PROVEN working on real copy**
 > (migrations `509` + `517` applied 2026-08-21; chassis `v1.0.1321`, capability-probed on both
 > replicas; `brief-negation-check` daily since 08-20). Council **APPROVED** (`c48b7612`, round 4 of 4).
-> Two things are still owed and both need only traffic: artefact-level proof (item 0b) and the per-page
-> budget canary (item 1).
+> **Two findings since**: the per-page budget question is ANSWERED (it is per SECTION — item 1), and the
+> first multi-hit page exposed a defect in the repair itself (same-field splices raced; fixed at
+> `0eea9e597`, **inert until the next roll**). Until that rolls, **read `hits_before`/`hits_after`, not
+> `len(rewritten)`**.
 
 ## State, with how it was verified
 
@@ -54,7 +56,19 @@ SELECT collected_data->'input_data'->'site_record'->>'domain' AS domain,
 Then read that page's `page_components.content_data` and confirm the rewritten sentence is what is
 stored — **never `updated_at`**, which a rerender bumps without regenerating.
 
-**1. The per-page budget canary — still open, and the first run could not decide it.** ⚠ It cannot precede the apply
+**1. ~~The per-page budget canary~~ — ANSWERED 2026-08-21: it is PER SECTION.** The first page whose
+first two sections both carried hits settled it — iteration 0 `page_hits 1`, iteration 1 `page_hits 8`
+(not 9) with a fresh budget of 2. `__copy_gate` does not survive `saveStepResultWithRetry`, which
+copies only the step's own keys. Live behaviour is the documented safe fallback: per-section budget,
+**every headline hit repaired regardless**, page total counted at `compile_page_sections`. To make it
+truly per-page, carry the count in the step's OUTPUT (`copy_gate_<N-1>`) — never a bare state key.
+
+**1b. THE REPAIR UNDER-APPLIES UNTIL `0eea9e597` ROLLS.** Several hits in ONE field raced: six accepted
+rewrites, one landed, confirmed at the artefact. Fixed and tested; needs the next chassis build. **The
+first thing to check after that roll:** a page with several hits in one field should show
+`hits_after ≈ hits_before − len(rewritten)`, and the removed constructions should be absent from
+`page_components.content_data`. ⚠ Verify on the part that DIFFERS (the removed construction), never on
+the rewrite's opening — `from` and `to` share it, and the marker truncates both at 160 chars. ⚠ It cannot precede the apply
 (the marker only exists once the step runs; my own precondition said otherwise and is corrected in
 `509`'s header). Run it on the first page built after 2026-08-21:
 
