@@ -244,3 +244,62 @@ with the old pods; log evidence for future events only.
 scaling on a non-transient failure, honest terminal at `max_attempts`, and the guard skip.
 Owner also ruled this morning: **close on fair-weather proof**, converting §5's outage arm to a
 dated standing watch with a reopen trigger (the `bugs_closed/006` shape).
+
+## 2026-08-21 — LIVE and proven; and I got the roll boundary wrong TWICE
+
+**The authoritative account of the roll and the first natural proof is `bugs_open/307` §9**,
+written by the session that picked the lane up post-approval. It is better evidence than what I
+assembled independently, in three specific ways, and I am recording the comparison rather than a
+second version of the same thing:
+
+- it found the roll at **v1.0.1320, 16:09Z on 08-20** (stamp `a255551e0`), superseded that evening
+  by v1.0.1321 (`0483e7f4e`) — so the contract has been live **continuously since 16:09Z**,
+  including the round-1 completion-guard fix, i.e. **no live window ever ran the wrong guard list**;
+- it verified by **binary probe on both replicas with a positive control**, where I used
+  `service_binary_capabilities` + `merge-base` (both valid; theirs has no shelf life either and
+  does not depend on the registry being written);
+- it checked the thing I did not: **the re-claim timestamps**, proving the claim path *honoured*
+  the stamp (18:34:25Z re-claim against an 18:34:00Z stamp) rather than merely that a stamp existed.
+  Mine proved the stamp was written; theirs proved it was obeyed.
+
+### My own misstep, twice over, on the same fact
+
+I took the roll boundary from `kubectl get pods … startTime` = **19:51Z**, measured against it, and
+got the self-contradicting result *"0 failures since roll"* alongside *"2 rows carry a retry_after
+stamp"*. Both cannot be true. I then corrected to **18:30Z** by reading the stamped rows' own
+timestamps — and that was **also wrong**, because those two rows are the earliest rows I happened to
+find, not the earliest moment the code was live. The answer was 16:09Z and it came from the
+artefact, not from arithmetic on symptoms.
+
+**A pod's `startTime` is not the roll time.** It is when *that pod* last started; this fleet's
+ephemeral per-job pods restart constantly, and a Deployment replica can restart hours after the
+image changed. **The roll time is a property of the IMAGE and its stamp, not of any pod's clock** —
+and my second guess repeated the first mistake's shape: I inferred a cause boundary from the
+earliest effect I had found.
+
+What saved it both times was a contradiction *inside my own output*. That is worth more than the
+correction: a query whose two halves disagree is a gift, and the instinct to reconcile rather than
+pick the convenient half is the whole of it.
+
+### What I did measure that stands, with its demand control
+
+The rate comparison, archive-inclusive and excluding `Claim timed out%` (the 341 writer's own path):
+**18.8 early deaths per 16 h pre-roll** (14-day average) against **0 observed** post-roll. §9's
+figure is the same finding at a different scale — ~29/day pre-fix against 0 terminal `failed`
+writes in 18 h, with **288** `agent_error_log` events on the demand side. Either way the zero is
+interpretable rather than merely quiet, which is the only reason to publish it.
+
+### The `handled_by` reading that will confuse the next person
+
+Both released rows show `handled_by = build-dispatch-loop`, and the release path sets it **NULL**.
+That is the *completion* writing it afterwards: release (NULL) → re-claim → `complete_work_item`
+(agentType). Not a contradiction, and not evidence the release did not happen — the evidence for
+that is `attempt_count = 0` with `spec.transient_releases = 1`.
+
+### What remains, and it is now specified rather than aspirational
+
+Three arms nothing natural has demanded: the attempt-consuming ladder's **scaling** (30m → 60m),
+the **honest terminal** `failed` at 3 of 3 (§5(c) live), and the **guard skip**. The owner has
+authorised a synthetic canary for exactly these; the choreography, its race condition and its
+teardown are in this lane's RUNBOOK ("The close canary"). Not yet run — verified 0 rows matching
+`canary_307%` at 10:3xZ.
