@@ -2547,3 +2547,13 @@ this lane's first-hand: the 12:12:12Z arming, cd3812b5's complete-with-NULL-erro
 behavioural arms, and one counting subtlety (2 error orchestration rows = attempts; 1 failed item
 fleet-wide — say "one item" and both censuses agree). Their two `?`-marker traps recorded in the
 handoff, credited.
+
+> **CORRECTED 2026-08-21 15:35Z** (caught by the staged-component-build lane going to the record
+> after this lane's own "don't ship either figure unverified" caution): **migration 532 applied at
+> `13:50:42Z`**, not the "~13:55Z" the 14:15Z entry above carries — the load-bearing source is the
+> snapshot row 532 wrote into `agent_definitions_backup` in its own transaction (its
+> `snapshot_reason` carries the migration text), NOT `agent_definitions.updated_at`, which is merely
+> the last write to the row. Also settled: 5 orchestration ATTEMPT rows / **1 distinct failed item
+> fleet-wide** — cite "one item"; and their write-up now separates mechanism ("kills every plain
+> add_tool") from measured damage (one item in 98 minutes, because demand was low) — the estate's
+> own "damage confirmed is not mechanism confirmed", applied by them to themselves.
