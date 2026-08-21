@@ -7292,3 +7292,61 @@ unsound.
 placeholder, intending to fill it in. The `commit-msg` hook refused — a trailer must carry a real
 correlation, and forward-only forbids fixing it by amend. Submit first (the trigger prints the id in
 seconds), then commit. Committing with no trailer at all is also fine; a *fake* one is not.
+
+## 2026-08-21 (~19:0xZ) — the flip's round 1 was REVISE, and it forced the measurement I should have made first
+
+**Gated by `bug_historian` (HIGH), with two mediums from it and two from `guardian`.** All four were
+fair. The useful one, stated plainly: **I proved the 19 OBSERVED pairs were dispositioned and never
+bounded the population they were drawn from.** "Every step whose input resolution falls through to
+the whole-tree search" was left as a phrase.
+
+**So I measured it.** Extract every `RegisterActionInputSpec` from Go (171 actions, 597 declared
+fields), join to every live step's config wiring (`jsonb_path_query` recursively, because the
+top-level census misses sub-workflow steps — sixth time):
+
+```
+1399  live agent/step pairs running an action
+1101  run an action with NO registered spec        -> never take the declared-field path
+ 298  run an action WITH a spec
+ 137  of those (46%) have >=1 DECLARED field not wired in config  -> reach the whole-tree search
+      = 71 agents, 377 (agent,field) pairs, 181 distinct field names
+      top: component_id 23, parent_item_id 20, spec_data 19, page_id 18, site_id 17
+```
+
+**And the behaviour-change surface is smaller than the fall-through population, which is the whole
+argument:** of those 377 pairs, the flip changes behaviour **only where the candidates CONFLICT**.
+Agreeing candidates still resolve; no candidates still returns nil. 19 conflicted in five days and
+all 19 are handled. **The residual is the unobserved conflicting subset of the other 358 — real, and
+I am not claiming it is empty.**
+
+**bug_historian's HIGH is about SILENCE downstream** — `missingkey=zero` blanks an empty field with
+no error, and `bugs_open/342` records that an absent required field renders empty and silent at
+**13 of 15** render call sites. Two things bound it, and the second is the one that matters:
+1. That silence is **pre-existing and symmetric**. Today's wrongly-guessed value also renders
+   silently — and renders something *wrong* rather than *absent*. The flip does not add a silent
+   failure mode; it chooses which of two silent outcomes the renderer gets, and the owner ruled on
+   2026-08-15 that absent beats wrong.
+2. **At the resolver the refusal is the LOUDEST event in the chain.** Every refusal emits the WARN
+   *and* writes a persisted `agent_error_log` row naming field, agent, every candidate path and the
+   would-be winner — **on the first occurrence**. So a pair from the unobserved 358 that conflicts
+   for the first time post-flip is **recorded the moment it happens**. That is exactly what the
+   `missingkey=zero` pattern lacks, and exactly why that pattern is hard to find.
+
+**bug_historian's bug-085 objection ruled itself out on checking, which is better than being
+distinguishable.** 085 was *"render_data advertises `current_page` and the build path always
+supplies it empty"* — CLOSED 08-19, both paths live since v1.0.1174. It cannot recur through this
+change because **no production `ActionInputSpec` declares `current_page` at all** (a fleet grep of
+Required/Optional finds one occurrence: a test fixture). It never takes the declared-field path, so
+it cannot fall through; it arrives via `ensureCoreFields`, which step 3 already gated. It appears in
+the tie-break tests only because it is bugs_closed/306's realistic measured shape.
+
+**The interim-window objection asked for a DESCRIPTION and got one from the code, not a bundle.**
+`setRenderContextScalarsFromData` does `data[key].(string)` and acts only when `ok && s != ""`. A
+missing key, a nil value or a non-string all give `ok=false`, so the struct field is left at its
+prior value — no panic, no empty write, no new blank. **The tolerance is inert with respect to the
+flip in both directions**, which is precisely why the two are separable. Keeping them apart stands;
+the objection was that I had asserted separability without describing the behaviour, and it was right.
+
+**The lesson: "I dispositioned every observed case" is not the same claim as "I bounded the
+population."** I had the first and presented it as though it were the second. The measurement that
+closes the gap took two queries and a regex over the Go source, and it should have been in round 1.
