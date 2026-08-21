@@ -18,7 +18,8 @@
 // css_themes.css_content, appends its patch to it server-side, and then deploys
 // THE WHOLE DB ROW over assets/css/styles.css. On a site composed by the normal
 // path that column is the empty string from birth — install_site_composition
-// writes '' deliberately, because the renderer reads composition via FKs — so
+// writes an empty string there deliberately, because the renderer reads its
+// composition via FKs and never consults that column — so
 // the append produces a file containing only the patches, and the deploy
 // replaces a 13–25KB stylesheet with a few hundred bytes.
 //
@@ -90,19 +91,19 @@
 // FALSE POSITIVE on a healthy site, which is what makes a new detector get
 // switched off. For a first-generation check those are not equivalent costs.
 //
-//	1. The served stylesheets themselves — every same-host <link rel=stylesheet>
-//	   the corpus references, fetched live. This is where :root and the
-//	   renderer's alias block live, and it is the surface that gets clobbered.
-//	   The DB row is deliberately NOT consulted: in 198 the row was clobbered
-//	   too, and after a repair the row can be healthy while the FILE is not.
-//	   The wire is what a browser gets.
-//	2. Inline definitions in the same corpus — a component that styles itself
-//	   (`.hero-section { --section-heading: … }`) defines what it then uses.
-//	3. css_snippets.css_content, ALL rows, unscoped. injectComponentCSS adds
-//	   these to the served head at ASSEMBLY time, so they are invisible in
-//	   rendered_html; a per-function scoping of this source would have to
-//	   re-implement collectComponentCSS's selection logic and would drift from
-//	   it. Unscoped is the safe direction (see above).
+//  1. The served stylesheets themselves — every same-host <link rel=stylesheet>
+//     the corpus references, fetched live. This is where :root and the
+//     renderer's alias block live, and it is the surface that gets clobbered.
+//     The DB row is deliberately NOT consulted: in 198 the row was clobbered
+//     too, and after a repair the row can be healthy while the FILE is not.
+//     The wire is what a browser gets.
+//  2. Inline definitions in the same corpus — a component that styles itself
+//     (`.hero-section { --section-heading: … }`) defines what it then uses.
+//  3. css_snippets.css_content, ALL rows, unscoped. injectComponentCSS adds
+//     these to the served head at ASSEMBLY time, so they are invisible in
+//     rendered_html; a per-function scoping of this source would have to
+//     re-implement collectComponentCSS's selection logic and would drift from
+//     it. Unscoped is the safe direction (see above).
 //
 // ── BLINDED IS NOT HEALTHY ─────────────────────────────────────────────────
 //
