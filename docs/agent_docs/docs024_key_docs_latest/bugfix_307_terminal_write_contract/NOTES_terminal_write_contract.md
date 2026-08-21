@@ -430,7 +430,22 @@ terminal write simply left it alone, because pre-`524` the sweep did not touch t
 (It is also terminal at 3/3, where `524` writes NULL — a second tell I had in front of me.)
 
 **Correct attribution needs the write TIME, not the column's presence:** `error LIKE 'Claim timed
-out%' AND updated_at > <when 524 applied>` → **0**. With the demand control beside it: **0 claimed
+out%' AND updated_at > <when 524 applied>` → **0**.
+
+> **CORRECTED minutes later — the boundary I used was in the FUTURE.** I wrote that query with a
+> hard-coded `'2026-08-21 19:00:00+00'`, estimating when I had applied `524`. The real
+> `schema_migrations.applied_at` is **18:44:22Z**, and the clock at the time of the query was
+> **18:50Z** — so I was counting writes after a moment that had not yet happened, and the 0 was
+> **guaranteed regardless of what the sweep had done.** Re-run against the real boundary: still
+> **0**, with **0** claimed rows older than the 40-minute threshold and 3 sweep ticks elapsed. The
+> conclusion is unchanged and the method was invalid, which are different things.
+>
+> This is the discipline rule's own case — *"a `[MEASURED]` figure is only evidence if the
+> measurement could have come out otherwise"* — and it is the **fourth** measurement error of one
+> family in this session: a filter that could not match its target, mutations that never applied,
+> an attribution by column-presence rather than write-time, and now a window that had not opened.
+> **Never hard-code a boundary you can read.** `applied_at` was one join away, and a boundary taken
+> from the system cannot be in the future by accident. With the demand control beside it: **0 claimed
 rows exist at all**, let alone any older than the sweep's 40-minute threshold, and the task last
 fired at 18:46Z with nothing to do.
 
