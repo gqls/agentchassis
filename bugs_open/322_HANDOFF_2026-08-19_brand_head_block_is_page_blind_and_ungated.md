@@ -46,6 +46,47 @@ read (`render_site_components_action.go`, `git log` head `229e14e74`).
    (eyeballed). The real fix is a **square favicon source** the deriver can be pointed at
    (a distinct asset_key with fallback to logo), which it cannot currently express.
 
+## ITEM 4 FIXED 2026-08-21 (owner-directed) — the wholesale guard is now PER TAG
+
+Done by the `bugfix_252_og_lang_assembly` lane on the owner's instruction, after the council's
+`bug_historian` seat objected on `bugs_closed/252`'s round that removing `og:url` fixed a **symptom**
+while this guard — the generic mechanism — stayed exploitable. That framing was better than this
+file's and it is why item 4 was promoted from tidy-up to the priority here.
+
+**What changed.** `injectBrandHeadTags` no longer returns the head untouched when it finds
+`rel="icon"` OR `og:image`. Each tag is now checked on its own: a tag the head **already declares is
+left exactly as authored** (both quote styles), only the missing ones are added, and a head that
+already declares everything comes back **byte-identical** rather than splicing an empty string — the
+steady state must be free and must not churn `site_components.rendered_html`, whose archive trigger
+fires on a real change.
+
+Commit `c2f050036`; council `Council-Submitted: 54c660f8-1e05-4b88-9910-0d1427b1d805`. Mutation-proven
+both ways: restoring the wholesale guard fails `TestInjectBrandHeadTags`, and dropping the per-tag
+`og:image` check fails it. The test's old assertion (`expected no-op on head with existing favicon`)
+**pinned the defect, not a contract** — replaced deliberately, with the reason written into the test.
+
+**What this unblocks, and it is the reason item 4 mattered:** webdesign.co.uk's hand-authored
+`rel="icon"` had been costing it **every** og and twitter tag — on **117 assembled pages, the most of
+any site in the fleet** — while every caller reported success. It now receives the block. **Checked
+before shipping rather than after:** unblocking it means it starts emitting `og:image`, so its assets
+were probed first — `/assets/images/og-card.png` and `/assets/images/favicon.png` both return **200**,
+so no broken tag is introduced on the motivating case.
+
+**Item 3 is deliberately UNTOUCHED and its landmine is intact.** Nothing in this change consults the
+`assets` table, and no tag is gated on an `og_card` row existing. Item 3 (og:image emitted whether or
+not the file exists — the five loan-family 404s) remains open and remains yours.
+
+**Item 2 shrinks but does not close.** `og:title`/`og:description` are still site-level fallbacks
+here; `bugs_closed/252`'s `spliceOpenGraph` strips and restates both per page at assembly, so what
+this function writes is now only what a consumer of the **stored head alone** would see. Their
+fallback quality is still item 2's question.
+
+**Item 5** (wide logos making illegible favicons) untouched.
+
+⚠ **Nothing served changes until each site's chrome re-renders, and then only as its pages
+re-assemble.** The owner ruled 2026-08-21 that page rebuilds are NOT to be forced; the residual is
+tracked in `bugs_open/346`.
+
 ## CONTRIBUTION 2026-08-20 — item 1's ASSEMBLY end is being fixed by the 252 lane; items 2-5 stay yours
 
 Contributed by the lane working `bugs_open/252` (og/lang slug),

@@ -500,3 +500,51 @@ and live" imply the fleet is clean.
 **Not a reason to reopen the forcing decision** — it is the owner's, it is recorded, and the cheap
 half (chrome, 22 renders, zero page churn) is already done. But it does mean a residual worth naming
 in the close-out rather than a rounding error.
+
+## 2026-08-21 (b) — the owner's four decisions, executed
+
+**1. 252 CLOSED + tracking item.** Moved to `bugs_closed/` (both paths named on the commit; verified
+at HEAD with `git ls-tree`, one line, no copy). `bugs_open/346` filed for the residual — 502 of 727
+pages, **12 real sites at zero**. It is a tick-list, not a defect: it heals free whenever a lane next
+touches one of those sites, and it carries the two dispatch traps that cost this lane time.
+
+⚠ **A metric trap worth carrying forward, recorded in 346.** Comparing a page's rebuild time against
+`site_components.updated_at` **re-classifies already-fixed pages every time chrome re-renders for any
+reason** — my reading went 252 fixed → 217 an hour later with no page having regressed. Pin the clock
+to when the first corrected chrome landed instead.
+
+**2. webdesign.co.uk FIXED LIVE** — `bugs_closed/347`, migration `529`. Its head component was a bare
+fragment with no `<head>` element; wrapped with the same gated-lang contract `507` gave the shared
+templates, md5-guarded, with an assertion pinning the hand-authored contents so a wrap cannot quietly
+replace the body. Proven at the artefact: an assembled guides page went from `<html lang="en">` with no
+head element to `<html lang="en-GB">` plus `<head lang="en-GB">`.
+
+Two verification traps, both of which nearly gave me a wrong read: my first check showed the OLD bytes
+because the run was still `AWAITING_RESPONSES` at `deploy_page` — indistinguishable from a failed fix;
+and `webdesign.co.uk/about.html` **already had** a `<head>` element because it is not an assembled
+page, so verifying there would have shown "already fine" and hidden the defect completely.
+
+**3. `site-locale-unset-check` LIVE** — registered **SEO-006**, daily 07:15 UTC, deployed and its
+first manual run CLEAN with a `doc_notes` row. It reports two shapes; **B is the one worth having**: a
+site whose locale IS set and whose head template has no `{{if .lang}}` gate to render it, which looks
+*finished* while only the served page disagrees — 347's exact shape.
+
+**It caught a real case before it was deployed.** I tested it by running its predicate against live
+data rather than trusting a clean unit run, and it surfaced `buytoletcalculator.uk`, created that same
+day, unset (migration `530`, marked `[EVIDENCE-THIN]` — no content yet to judge). That is the honest
+way to test a check: run it against production and see whether it finds something you did not already
+know.
+
+**4. 322 item 4 FIXED** — the guard, not the tag. My write-up of this decision was ambiguous ("I
+removed the offending tag; the guard is untouched") and the owner's reply could have meant either, so
+I asked rather than guessed — the two readings led to materially different work on a shared renderer.
+Per-tag idempotence now; commit `c2f050036`, `Council-Submitted: 54c660f8`.
+
+> **MISSTEP: I committed platform code BEFORE submitting it.** `c2f050036` therefore carries no
+> trailer, and forward-only forbids an amend — so the `098` coverage report **will list it as
+> un-reviewed for ever**, even though it was reviewed. The trailer is a join key written at commit
+> time; there is no way to attach one afterwards. *The check:* submit first — `097` prints
+> `SUBMISSION_CORR` in seconds — then commit with `Council-Submitted:`. I did exactly this correctly
+> for the 252 work earlier the same week and then didn't, because this fix felt like a small follow-on.
+> Cost is bookkeeping only, and it is recorded here and in the 322 file so the trail survives the
+> report's blind spot.
