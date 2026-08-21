@@ -7482,3 +7482,24 @@ The [324079] session owns the ≥48h post-roll gate (`phase='2-refuse'` discrimi
 by `created_at` against the roll boundary, recorded either way). Remaining open: handoff §1
 items 3 (330 candidate 2, the 269-pair remainder) and 4 (standing form of 537's guard — the
 306 lane's to accept or decline first), plus 330's with-pages negative-control leg.
+
+**RESUMPTION ORDER, agreed between the two sessions ~20:3xZ (recorded so a third session
+inherits the reasons, not just the list):**
+1. **330's with-pages negative-control leg FIRST** — it is the only thing between the 516 first
+   read and an honest close, and it needs nothing but traffic (a tool-generator run on a site
+   whose spec names related_pages; the four coherent sites in 330 §3 are the watch).
+2. **330 candidate 2 WAITS for the roll + the ≥48h gate**, deliberately — it is resolver-scope,
+   squarely inside the blast radius the flip changes, and its subject is the *silent* half the
+   flip does not touch. Designing its probe against OBSERVED post-flip behaviour beats designing
+   it against predicted behaviour; the gate's output is input to it.
+3. **537's standing guard stays the 306 lane's call** — ask before building.
+The ≥48h gate is ONE window covering BOTH approved changes (the flip session recorded this in
+their gate terms) — nobody should run two.
+
+**One exception filed beside a standing rule (the flip session's point, worth keeping):** "a
+REVISE round is cheaper than the defect it finds" has its first counter-example — the flip's R2
+REVISE came from a seat re-raising an objection that had been answered FOR that same seat two
+days earlier (the answer was the very commit that moved 085), and found nothing. The rule still
+holds as a default; the exception is now in the fleet LANDMINES entry with both correlations
+(`26186633` unpre-empted → gating REVISE; `e05ea6f9` pre-empted → non-gating advisory —
+**the ls-tree pre-emption buys the consequence, not the silence**).
