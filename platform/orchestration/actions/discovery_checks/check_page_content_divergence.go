@@ -300,33 +300,52 @@ const (
 	// header). It only keeps the check off pages whose batched delivery is still
 	// in flight.
 	//
-	// WHAT IT IS MEASURED AGAINST. [MEASURED 2026-08-21, 10:38Z–13:20Z] A watcher
-	// re-probed every page stamped in the previous 45 minutes, every 2 minutes:
-	// 1,099 readings over 85 pages and 95 distinct deploy events.
+	// WHAT IT IS MEASURED AGAINST. Two measurements, and the SECOND ONE CORRECTS
+	// THE FIRST BY TWO ORDERS OF MAGNITUDE. Both are kept, because the way the
+	// first one misled is the useful part.
 	//
-	//	DIVERGED readings                     3, at ages 1s, 13s and 14s
-	//	all three converged by                140s–156s, and stayed converged
-	//	divergence at any age above 14s       NONE
-	//	readings at age >= 157s               995, of which 0 diverged
+	// [MEASURED 2026-08-21, 10:38Z–13:20Z] A watcher re-probed every page stamped
+	// in the previous 45 minutes, every 2 minutes: 1,099 readings, 85 pages, 95
+	// deploy events. The only 3 DIVERGED readings were at ages 1s, 13s and 14s, all
+	// converged by 140–156s, and 0 of 995 readings at age >= 157s diverged. On that
+	// evidence this comment claimed 30 minutes was "roughly 128x the largest lag
+	// actually observed".
 	//
-	// So healthy batched delivery on this estate completed within ~15 seconds every
-	// time it was watched, and 30 minutes is roughly 128x the largest lag actually
-	// observed. Deliberately conservative: one afternoon on one estate is not a
-	// census, the sync is BATCHED, and a large batch is exactly the case a small
-	// sample under-represents.
+	// > **⚠ CORRECTED 2026-08-21 19:36Z — THAT MARGIN WAS WRONG, and it was found
+	// > by accident while re-running the proof after the check went live.** A random
+	// > 40-page sample returned 2 DIVERGED, both on fundamentallyai.com, aged 15 and
+	// > 21 MINUTES. Tracked to convergence:
+	// >
+	// >	/model-fine-tuning.html   MATCH @945s, DIVERGED @1012s, MATCH @1079s onward
+	// >	/tools/automation-savings-estimator/index.html   MATCH @1293s onward
+	// >
+	// > **The largest observed divergence age is therefore ~1012s (~17 minutes), not
+	// > 14 seconds.** So the window is about **1.8x** the worst observed case, not
+	// > 128x. The first measurement was not wrong about what it saw; it was a
+	// > 2h42m sample that happened to catch only fast deliveries, and quoting its
+	// > maximum as "the tail" was the error — the same shape as reading a
+	// > retention-bounded table as a lifetime.
 	//
-	// THE WINDOW IS LOAD-BEARING, and this is the disconfirming half — it could
-	// have come out otherwise and did not. Those same three readings are three work
-	// items this check WOULD have filed against perfectly healthy pages, in 2h42m,
-	// had it judged them at the moment they were stamped. The window is what makes
-	// it silent on all three.
+	// AND THE SHAPE IS NOT A SIMPLE LAG. `/model-fine-tuning.html` read MATCH, then
+	// DIVERGED 67s LATER, then MATCH again — non-monotonic. Delivery lands
+	// PROGRESSIVELY across edge nodes, so during the window a probe gets whichever
+	// version the node that answered happens to hold. That is why the confirmation
+	// fetch must AGREE with the first before anything is filed (guard 4 below):
+	// two probes seconds apart can legitimately hit different nodes.
 	//
-	// Its cost, stated plainly: a genuine divergence is invisible for its first 30
-	// minutes. bugs_open/315's own instance lasted about six hours, so that case is
-	// still caught with hours to spare — which is the comparison that matters, since
-	// catching it "six hours before anyone noticed" is the value this check was
-	// asked for. Shortening the window is now an evidence-backed option rather than
-	// a guess; anything above ~1 minute is clear of every lag measured.
+	// THE WINDOW IS STILL LOAD-BEARING, and now doubly so: those 2 pages are 2 work
+	// items this check would have filed against healthy pages in a single 40-page
+	// sample, and 5 more were prevented in the earlier watch. But the margin is
+	// THIN — 30 minutes against a 17-minute worst case.
+	//
+	// ⚠ RECOMMENDATION, NOT YET TAKEN (PLAN D8): widen this to 60 minutes at the
+	// next build. The cost is that a real divergence stays invisible for its first
+	// hour, which is still comfortable against the 6-hour case this check exists
+	// for; the benefit is margin against a delivery batch slower than any yet
+	// sampled. It is left at 30 for now because the failure mode is bounded and
+	// self-clearing — a premature finding is FLAG-ONLY and is RETRACTED on the next
+	// pass's positive re-observation — and because changing a const here costs a
+	// rebuild and a fleet roll.
 	divergenceSettleWindow = 30 * time.Minute
 
 	// divergenceMaxPagesPerPass bounds the outbound fetches one site can cause in

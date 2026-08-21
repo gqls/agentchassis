@@ -1790,3 +1790,45 @@ never be surfaced by it — which my own memory index says in terms. Two greps w
 on the day I added an entry to that same file. Logged in `WRONG_CALLS.md`.
 
 Round 2 resubmitted into the same trail (`RESUBMIT_CORR=9e8d73b8`). **547 remains NOT APPLIED.**
+
+---
+
+## 2026-08-21 ~19:40Z — applied, proven, and immediately corrected by the proof itself
+
+Round 3 of `9e8d73b8` came back **APPROVED** (1 advisory objection, medium, and both of its points were
+already satisfied by the SQL: the `is_active` filters sit in the LEFT JOIN's **ON** clause — which the
+induced-fault test had already demonstrated by making `site-work-orchestrator=0` visible — and GATE 4
+reads the same node the UPDATE targets).
+
+Round 2's gating objection was the sharpest of the three rounds and it was against **a guard I had
+written to answer round 1**: my single-row gate asserted an AGGREGATE count of 3 across the three
+types, which `page-rebuild=2, pageflow-builder=1, site-work-orchestrator=0` also satisfies. I did not
+concede it, I demonstrated it: inducing exactly that distribution, **the aggregate gate PASSED and the
+per-type gate RAISED**, naming both offenders — and the needle-gate does not catch it either, so there
+was no guard in series.
+
+**Applied 547 then 526, damage query first each time.** All six stampers armed; zero unarmed; no
+errors; `checks_run` contains `page_content_divergence` with `checks_failed: []` and
+`checks_unregistered: []` on a site with 21 judgeable pages, filing 0 items.
+
+**Then the proof corrected me.** Re-running the 40-page artefact sample returned **2 DIVERGED** — both
+15–21 minutes old, both inside the settle window, so the check correctly ignored them. Tracking them
+to convergence gave the real number: **largest observed divergence age ~1012s (~17 minutes)**, against
+the "14 seconds" my 2h42m watch had produced. So the window's margin is **1.8x, not 128x** — a claim I
+had put in the check header, the PLAN, the register, the handoff and a commit message.
+
+The 2h42m watch was not wrong about what it saw. It sampled 95 deploy events and caught only fast
+ones, and I quoted its maximum as "the tail". **That is the same error as reading a retention-bounded
+table as a lifetime — which I also did today, four hours earlier, and wrote a WRONG_CALLS entry about.**
+Twice in one session, in opposite directions: once treating a truncated window as complete history,
+once treating a small sample's maximum as a bound.
+
+**One genuinely new mechanism, worth keeping.** `/model-fine-tuning.html` read MATCH at 945s, DIVERGED
+at 1012s, then MATCH from 1079s — **non-monotonic**. Delivery lands progressively across edge nodes and
+a probe gets whichever version answers. The double-fetch agreement guard was designed for "origin
+mid-write"; it turns out to be load-bearing for edge propagation too, which is a better reason than the
+one it was written for.
+
+Recorded as **D8**: widen to 60 minutes at the next build. Not taken now — it costs a rebuild and a
+roll, and the failure mode is bounded: a premature finding is flag-only and retracts itself on the next
+pass's positive re-observation.

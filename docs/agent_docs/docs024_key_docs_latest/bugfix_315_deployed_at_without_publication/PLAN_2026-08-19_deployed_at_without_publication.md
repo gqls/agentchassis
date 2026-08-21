@@ -357,3 +357,70 @@ estate — the fear the first draft of this section was written under:
 
 The chassis image carrying the check is live (`v1.0.1322` / `bac18992`, verified at the artefact with
 controls), so the only thing between this lane and a working divergence sweep is applying 547 then 526.
+
+
+---
+
+## 2026-08-21 ~19:40Z — APPLIED AND PROVEN LIVE, plus a correction to D5's own margin
+
+**Both migrations are APPLIED.** `547` (arm the three) then `526` (enable the check), in that order,
+each followed by its damage query before its benefit query.
+
+- After `547`: **all six deployed-stampers armed, zero unarmed**; 0 `deploy_result_field` errors,
+  0 `DEPLOY_EVIDENCE_UNREADABLE`, 0 FAILED orchestrations, `page_rerender` claimed/failed unchanged.
+- After `526`: the availability agent ran at 19:24 (agritec.uk) and 19:30
+  (loanandmortgagecalculator.co.uk), both COMPLETED. The second is the one that counts, because the
+  first site has **0 active pages** and a zero from a site with no candidates is not evidence.
+
+**THE PROOF AT THE ARTEFACT** — the run's own record, which distinguishes "ran and found nothing"
+from "never ran":
+
+```
+checks_requested: [site_unreachable, page_content_divergence]
+checks_run:       [site_unreachable, page_content_divergence]
+checks_failed:    []        checks_unregistered: []
+items_inserted:   0         (site had 21 judgeable pages)
+```
+
+`checks_unregistered: []` is the field that would have shown the failure mode `526`'s hold existed to
+prevent. It is empty.
+
+### ⚠ D5 CORRECTION — the settle window's margin was overstated by two orders of magnitude
+
+D5's build record above says the window is "roughly 128x the largest lag observed". **That is wrong,
+and it was found by accident** while re-running the artefact proof after go-live.
+
+A random 40-page sample returned **2 DIVERGED**, both on fundamentallyai.com, aged **15 and 21
+minutes**. Tracked to convergence:
+
+| page | trace |
+|---|---|
+| `/model-fine-tuning.html` | MATCH @945s → **DIVERGED @1012s** → MATCH @1079s onward |
+| `/tools/automation-savings-estimator/index.html` | MATCH @1293s onward |
+
+**Largest observed divergence age is ~1012s (~17 minutes), not 14 seconds.** The window is therefore
+about **1.8x** the worst observed case, not 128x. The original 2h42m watch was not wrong about what it
+saw — it happened to catch only fast deliveries, and quoting its maximum as "the tail" was the error.
+Same shape as reading a retention-bounded table as a lifetime, which this lane also did today.
+
+**And the shape is not a simple lag.** `/model-fine-tuning.html` went MATCH → DIVERGED → MATCH,
+non-monotonic, 67 seconds apart. Delivery lands **progressively across edge nodes**, so a probe gets
+whichever version the answering node holds. That is precisely why the confirmation fetch must AGREE
+with the first before anything is filed — two probes seconds apart can legitimately hit different
+nodes. The guard was designed for "origin mid-write" and turns out to be load-bearing for edge
+propagation too.
+
+**The window is still load-bearing, and now doubly demonstrated:** those 2 pages are 2 work items the
+check would have filed against healthy pages in a single 40-page sample.
+
+### D8 — widen the settle window to 60 minutes at the next build. NOT TAKEN YET.
+
+30 minutes against a 17-minute worst case is a thin margin, and nothing sampled so far bounds a
+*slow* delivery batch. Widening costs a rebuild and a fleet roll, and the cost of the wider window is
+that a real divergence stays invisible for its first hour — still comfortable against the six-hour
+case this check exists for.
+
+It is left at 30 for now because **the failure mode is bounded and self-clearing**: a premature
+finding is FLAG-ONLY (no handler, nothing acts on it) and is RETRACTED on the next pass's positive
+re-observation. So the cost of being wrong is a work item that clears itself, not damage. Whoever
+takes D8 should re-run the 40-page sample first — it is the measurement that found this.
