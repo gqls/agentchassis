@@ -241,3 +241,70 @@ re-check.
 file stays open until the roll, per the CLAUDE.md bar — a fix committed but not
 shipped is still reproducible. Verify then with the artefact probe (a positive
 literal, a one-letter near miss, and an instrument positive) and the census above.
+
+## COUNCIL: APPROVED, corr `97542c8c-b628-4947-8d39-c9f7a40dcfb6` — and four objections answered with evidence rather than prose
+
+*"approved with 1 advisory objection(s) — none high-severity"*, 6 seats abstained.
+`bug_historian` objected on record without blocking; `editquality`, `guardian` and
+`debug_historian` approved with advisories. All four were checkable, and one of them
+improved the file.
+
+**1. `debug_historian` (medium) — "the population measurement scopes blast radius by
+`pages.status='active'` without first enumerating `GROUP BY status/build_status`;
+`status='active'` is a documented informational-column trap."** The right criticism, and
+the enumeration it asked for both **corrects and strengthens** the figure.
+[MEASURED 2026-08-21, every page on a site with a current plan]:
+
+| status | build_status | pages | of which a re-derivation would RENAME |
+|---|---|---|---|
+| active | deployed | 522 | **58** |
+| active | needs_rebuild | 36 | 0 |
+| **active** | **planned** | **41** | **0** |
+| archived | deployed | 28 | 1 |
+| archived | needs_rebuild | 14 | 0 |
+| archived | planned | 26 | 0 |
+
+Two things follow. The unpreserved-active population this fix newly protects is **41**, not
+the 40 I filed — a small correction, and the `would_be_renamed` figure of **0** is unchanged,
+so "live in mechanism, empty in fact" stands on a better measurement than it did. And the
+`active` scoping turns out to be right **for a reason I had not stated**: `load_existing_pages`
+itself ends `WHERE p.site_id = $1 AND p.status = 'active'`, so an archived row never reaches
+the reconciler at all. That is a code fact about the loader, not an assumption about what the
+column means — which is exactly the distinction the objection was pressing. The 58 in the
+first row are the population the *original* same-name stamp already protects.
+
+**2. `editquality` (low) — "if `realisedByName` is built with lower-cased keys and the new
+map is not normalised the same way, the wider arm silently never hits and the fix is a
+no-op."** The precise shape of a dead guard, and worth checking rather than waving off.
+Both maps are keyed on the raw stored `name` and the lookup uses the raw `lm["name"]` —
+no `ToLower` on either side, verified by reading all three sites. The seat also noted this
+"should self-surface via the pinned `ReachesAnUnpreservedRealisedRow`" test, and it would:
+that test asserts the stored triple is honoured, which is only reachable through the wider
+map.
+
+**3. `guardian` (low) — "the else-branch runs on every plan reconciliation for every site,
+not just the population the bug names."** True, and the bound is worth stating: the branch
+is one map lookup on a miss of another map, and it can only *do* anything where a plan
+entry's exact name matches a realised row the preservation rules excluded. Where it fires
+it writes the same three identity fields the stamp already wrote under corr `27cccfbd`, all
+of which are inert to a writer that is not honouring. So the new cost is a hash lookup per
+plan page, and the new *behaviour* is bounded by `honour_realised_identity`, which three
+sites carry.
+
+**4. `guardian` (low) — "does helper `twinRealisedPage` already exist?"** It does,
+`v3_site_reconcile_identity_test.go:22`, and the suites compile and pass; the new
+`unpreservedRealisedPage` wraps it.
+
+**5. `bug_historian` (low) — the closed precedents in this exact subsystem were not cited.**
+Correct, and they are the right neighbours. `bugs_closed/037` (needs_rebuild pages
+unprotected by the replan guard) and `bugs_closed/038` (replan rebuilds every deployed page
+and regenerates its content) are both **boundary defects of the same preservation set** this
+fix routes around for identity; `bugs_closed/050` (replan may compose pages another
+subsystem renders) is the reason Pass B2 has its three-way section branching at all, and so
+is the direct reason this fix stamps identity **without** touching composition. Cited here
+rather than only in the submission, because this file is what the next reader opens.
+
+**Its medium objection is not an objection to the change**, and is quoted in full because it
+states the mechanism better than the filing did: *"Stamping identity onto an unpreserved
+realised row, without reconciling composition, makes the (site_id,name) UPSERT correctly
+match the real existing page instead of minting a twin. That is the fix's whole point."*
