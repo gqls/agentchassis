@@ -64,3 +64,103 @@ and require that no deployed page links to it — asserted **at the served HTML*
 plan, the sections, or `page_components`. Positive control in the same run: a page that DID
 build must still be linked, or the fix has simply stopped emitting internal links (which
 `bugs_open/313` shows is a state this platform can reach and not notice).
+
+---
+
+## CONTRIB 2026-08-21 — from the `mortgagecalculator_couk_adoption` lane: the detector already exists, so candidate 3 is much cheaper than it looks (and candidate 4 already half-runs)
+
+**Second site, same shape, 25 days older.** `mortgagecalculator.co.uk` has carried this defect
+since adoption, so this is not a greenfield-build artefact — it is what the shape looks like once
+it has had a month to settle. Measured live 2026-08-21 ~10:20Z.
+
+### The instance
+
+One page cannot build (`scorecard-simulator`, refused by `bugs_closed/260`'s template leak).
+**Six deployed pages each serve exactly one anchor to it.** Full audit, not a sample: all 29
+`build_status='deployed'` pages fetched, every non-absolute `href` extracted, deduped to 33
+distinct targets, each resolved once cache-busted.
+
+| measure | value |
+|---|---|
+| deployed pages fetched | 29 |
+| raw internal hrefs | 1,030 |
+| distinct internal targets | 33 |
+| targets returning 200 | **32** |
+| targets returning 404 | **1** — `/scorecard-simulator.html`, 404 on 3 cache-busted repeats |
+| deployed pages serving an anchor to it | **6** — `/disclaimer.html`, `/guides/first-time-buyer/`, `/guides/how-banks-decide/`, `/guides/lender-restrictions/`, `/guides/mortgage-scorecard/`, `/tools/affordability/` |
+
+### The correction that matters: **the platform is NOT blind to this**
+
+§"The one-paragraph version" says *"Nothing tells the pages that link to it."* On this site that
+is **false in a way that changes the fix.** There are **seven `unbuilt_internal_link` work items**
+on the blocked page's `page_id`, one per linking component, each naming the linking page, the
+component function, and quoting the href verbatim:
+
+```
+unbuilt_internal_link in page_component (guide-mortgage-scorecard:generic-text-block):
+  href "/scorecard-simulator.html" points at a page that has never been deployed
+```
+
+`page_id` on the item is the **target** page; the linking page is named inside the summary text.
+
+**So detection exists, is per-linking-page, and is accurate.** What is missing is the route: all
+seven sit at `status='needs_human_review'` with no handler, which is `bugs_open/033`'s "no working
+surface" queue. The information is produced correctly and then parked unread.
+
+That reprices the candidate list in §"Fix candidates":
+
+- **Candidate 3 is not the weakest option on this evidence — it is the one that is already 80%
+  built.** It does not need a new detector; it needs the existing item type wired to a handler
+  that re-renders the referring page (or drops the anchor) once the target reaches `deployed`.
+- **Candidate 4 is also already half-running**, for the same reason — the finding exists, it just
+  never reaches anyone. "Convert nobody-noticed into the-build-reported-it" is a delivery problem
+  here, not a detection one.
+- Candidates 1 and 2 stand unchanged and remain the only ones that make the state
+  **unrepresentable**; this contrib is about cost, not about preferring repair to prevention.
+
+### A second finding: a parked item is not evidence its condition survives
+
+**Six of the seven items match the live site. The seventh is stale.** `8a230338` names
+`contact-index`, and the href is in neither the served page nor the stored content:
+
+| check | result |
+|---|---|
+| `curl /contact/index.html \| grep -c scorecard-simulator` | **0** |
+| `page_components.content_data LIKE '%scorecard-simulator.html%'`, this site | **6 pages — `contact-index` absent** |
+
+Something repaired that link and nothing closed the item. Whoever builds the handler needs this:
+**it must re-check the condition at handling time, not trust the summary**, or it will re-render a
+page to fix a link that is not there. [UNVERIFIED] whether this staleness is general — measured on
+this site only, n=1 of 7.
+
+⚠ **And the stored/served split bites here.** `contact-index` is `build_status='needs_rebuild'`
+with `deployed_at` NULL, yet serves a healthy 1,267-word page from its previous build. A `pages`
+row that does not say `deployed` is **not** evidence the URL is dead — relevant to candidate 1,
+which proposes gating anchors on `build_status`: on this site that predicate alone would have
+dropped every anchor pointing at a perfectly healthy served page. Candidate 1's own ⚠ about
+`bugs_open/315` is the same hazard from the other direction; the honest version of candidate 1
+consults the artefact, and `build_status` is at best a cheap pre-filter.
+
+### The self-fuelling property, which is what makes this worse than a static count
+
+Every page the framework writes here **adds another anchor to the page it cannot build**, because
+the site's `design_intent` names `Scorecard Simulator` as a delivered feature. Measured over this
+lane's own work: while three unrelated dead links were being fixed on 08-16 by building the pages
+they pointed at, live instances of *this* href went **4 → 6** — because the two pages the framework
+had just built each linked to it unprompted. The count is not stable; it grows with productivity.
+Three separate work items on this site (`2dca1a09`, `d5a9ae7d`, `0c65f9fa`) exist purely because
+different detectors each noticed the brief promises a page that is not there.
+
+**That is the argument for candidate 1 or 2 over 3 or 4**: repair-after-publication has to keep
+pace with a producer that never stops, and on this site the producer is the brief itself.
+
+### Cross-reference
+
+`bugs_closed/260` closed 2026-08-20 and its fix is proven aboard `agent-chassis` v1.0.1321
+(binary probe, four controls). **It does not close this instance** — 260's own closure note says
+so explicitly: the fix makes a mistyped field fail early and named, it does not make the parked
+content build. This lane re-fired the build on 08-21 to find out which. Whatever the outcome, the
+six anchors were served for 25 days regardless, which is this bug's point and not 260's.
+
+Lane record: `docs/agent_docs/docs024_key_docs_latest/mortgagecalculator_couk_adoption/NOTES_mortgagecalculator_couk.md`,
+`## 2026-08-21`.
