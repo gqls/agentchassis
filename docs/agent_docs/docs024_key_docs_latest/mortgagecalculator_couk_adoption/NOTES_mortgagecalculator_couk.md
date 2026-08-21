@@ -4002,3 +4002,65 @@ answer's consequence.** I carried the line forward from the README's 08-17 entry
 before the answer landed — in the very session where I re-measured everything else and warned that
 a carried-forward status is a claim about the past. The 08-18 handoff §0, which I read at the start
 of this session, states the owner's ruling plainly. **Three decisions are open, not four.**
+
+## 2026-08-21 (afternoon) — owner asked for the contact page to be REWORDED; state re-checked first, then driven through the framework
+
+### State check before acting (33 commits since my last, 7dd00dc4c..HEAD)
+
+| checked | finding |
+|---|---|
+| `contact-index` | still `build_status='needs_rebuild'`, `deployed_at` NULL, serving fine from its previous build |
+| my scorecard item `0c65f9fa` | untouched in substance — still parked by me, my `handled_by` intact; `updated_at` bumped 13:46 by a sweep (the known unreapable-item landmine) |
+| site lock | unlocked; nothing else armed |
+| **NEW item `ee6f837e`** (12:59) | `missing_conversion_path` — *"lead_generation site … has no working conversion path: page 'index' is nav-reachable but carries no form"*. **A second detector reaching the same fact from a different direction.** Not actioned: it asks for a FORM on the homepage, which is a revenue-model question, not a wording one |
+| **`238` lane shipped "every dead contact control on the fleet is gone"** (`cf24ea645`) | **Adjacent, NOT competing — checked before assuming.** Their fix removes empty `mailto:`/`tel:` *controls*; the fleet census went `href="tel:"` 5→0, `mailto:` 1→0. **This site was never in it.** Our page has zero such controls — it is their `gamesdesign` case ("renders nothing at all… which is the case that proves the gate"). Their layer is the markup; ours is the **prose**, which still invites contact. Different defect, same page |
+
+### Why the copy is the defect — measured, not inferred
+
+The page has exactly two components and **both invite contact**, four times between them:
+
+- `hero-contact.headline` — *"There's a place here for questions the tools and guides don't answer"*
+- `hero-contact.subheadline` — *"…tell us here."*
+- `generic-text-block.content` — *"if you write to us…"*, *"questions people send in"*, *"that's worth
+  telling us. Say what you entered and what you saw, and we'll take a look."*
+
+Against, measured on the served page: **0 mailto links, 0 `@` in the text, 0 `<form>`, 0 phone.**
+
+### Followed the framework rule rather than writing the words
+
+Owner ruling 2026-08-06 — *"we want it all to be done through the framework, so we don't want you
+writing things yourself"*. So this is a `content_rewrite` carrying a **brief**, not copy.
+
+**The check that memory says is the wasted-run trap — `llm_fields` FIRST — was run before filing:**
+
+| component | LLM-authored | NOT llm |
+|---|---|---|
+| `hero-contact` | `headline`, `subheadline` | — |
+| `generic-text-block` | `content`, `heading` | — |
+| `contact-info` | `intro_text`, `section_title` | **`address`, `email`, `hours`, `phone`** |
+
+All four fields I need are writer-owned, so the ask is well-formed. **And the last row independently
+confirms what I told the owner about item `07bc64cd`:** `email` is sourced from
+`site_specs.identity`, **not** from the LLM — so no prompt can invent one and that item genuinely
+requires a human. That was an inference this morning; it is a measurement now.
+
+**Spec keys verified against the readers, not guessed** (`bugs_open/271` is the bug for getting this
+wrong): `suggestion` is *"the key page-build-handler reads"* — the comment appears at four separate
+call sites — and `mode: "edit_live"` opts the item into `load_current_section_content`, which
+attaches each ready section's current `rendered_html` **so the writer EDITS instead of regenerating**
+(`bugs_open/178`'s protection). That is exactly a reword rather than a rebuild.
+
+**Before-state pinned per slot** (the canary the memory prescribes, after a prior run cost a page):
+
+| position | function | len | md5 |
+|---|---|---|---|
+| 1 | `hero-contact` | 286 | `71fe39a8c3456aa01faefa0c0c8a2cea` |
+| 2 | `generic-text-block` | 960 | `c5ed08d91f3e80769cbce9fa6f4f2fbe` |
+
+Item **`e31ba039`** filed and armed 15:5xZ, `priority 30`, `page_id` set on the row (the mode needs
+it). The brief states the measured evidence, changes the STANCE rather than the subject, keeps the
+honest "figures not advice" framing and the two working links, and forbids inventing any contact
+route — including a form, which is the one `ee6f837e` would have wanted.
+
+**Watching the component md5s, not the item status** — this morning proved an item can report
+`complete` having composed nothing, so the artefact is the signal.
