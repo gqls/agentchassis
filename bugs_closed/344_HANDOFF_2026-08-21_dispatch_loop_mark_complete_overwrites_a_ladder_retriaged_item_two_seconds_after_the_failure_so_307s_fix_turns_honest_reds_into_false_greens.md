@@ -1,7 +1,8 @@
 # 344 — the dispatch loop's `mark_complete` overwrites a ladder-re-triaged item to `complete` two seconds after its failure, so 307's fix turns the §2.2 daily bleed from honest reds into FALSE GREENS
 
-**Filed 2026-08-21** by the session verifying `bugs_open/307`'s live acceptance. **OPEN, unowned.
-LIVE and biting production** — one natural row within 18 hours of the 307 roll, demonstrated
+**Filed 2026-08-21** by the session verifying `bugs_open/307`'s live acceptance.
+**CLOSED 2026-08-21 — FIXED, LIVE ON v1.0.1322 AND CANARY-PROVEN** (see §4). Council `2c21e214`
+APPROVED at round 2. ~~OPEN, unowned. LIVE and biting production~~ — one natural row within 18 hours of the 307 roll, demonstrated
 twice more on a canary the same minute.
 
 ## Why this is filed on first-hand verification instead of a `090` run
@@ -250,3 +251,64 @@ Context for why 539 exists: it is RFC_029 step 5's last live blocker (`bdl`/`com
 conflict rows in 24 h), and the path was supplied by the `bugs_open/315` lane, who built the
 handler-side half across nine agents. Full reasoning:
 `docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md` §2.7.
+
+---
+
+## §4 — CLOSED 2026-08-21: fixed, live on v1.0.1322, canary-proven, council APPROVED r2
+
+**Go half `0f80f5ea1` + round-1 revisions `45ce175c8`.** Council corr
+`2c21e214-e459-420c-b451-3c66efa8bba9` — **REVISE at round 1, APPROVED at round 2** with two
+advisory objections, both dispositioned below.
+
+### Live proof, not inference
+
+- **Fleet on one stamp**: `bac189921`, 59 pods, `0f80f5ea1` an ancestor; the roll passed through a
+  MIXED state (12 new / 275 old) on the way, so any stamp query taken mid-roll answers with two rows.
+- **The canary**: attempts 1 and 2 re-triaged with their cooldown stamps and **SURVIVED the loop's
+  completion call** — `completed_at` NULL, where the previous binary stamped `complete` in 2 s.
+  The guard-skip arm was demanded live by flipping a claimed canary to `wont_fix` mid-run: the
+  failure write skipped, the row was untouched, and the skip line was captured verbatim from the
+  ephemeral per-job pod (`agent-page-build-handler-e3cd6375-vzcr4`) — **not** from a long-lived
+  chassis replica, where it never appears.
+- **Natural census**: **0** false-green rows (`retry_after > completed_at`) since the roll, against
+  28 claims / 26 completions — so the zero has a demand control behind it.
+- **Pre-fix damage list is EMPTY**: `0c65f9fa` was re-driven past the defect by its own lane and now
+  sits `needs_human_review`/2.
+
+### Round-2 advisories, dispositioned
+
+1. **`guidelines` (medium) — the durable skip write touches an OPEN row, and the stale reaper keys
+   on `updated_at`.** The seat was right to make me show this rather than assert it. Read live:
+   `WHERE status='triaged' AND pipeline='build' AND updated_at < NOW() - INTERVAL '48 hours' AND
+   claimed_at IS NULL`. So **any** write postpones a reap, not merely a periodic one — my round-2
+   phrasing ("the landmine is about periodic writes") was loose. **It is nonetheless bounded, and
+   here is the argument I owed:** the write fires *only* when a completion is refused, which fires
+   only when a failure wrote that row moments earlier — so it is a second `updated_at` bump inside
+   one event, against a **48-hour** threshold. On the `already_flagged_or_terminal` branch the row
+   is not `triaged` at all, so the reaper never watched it. There is no cadence, and an item whose
+   completions are being refused is by definition being worked, which is the opposite of what the
+   reaper exists to catch.
+2. **`editquality` (medium) — the sketch showed two incompatible refusal blocks.** True, **and it
+   was a defect in my SUBMISSION, not in the code**: resubmitting, I appended the round-2 block to
+   the sketch without removing the round-1 text, so the seats were handed a diff that contradicted
+   itself. Verified in the tree: `pendingRetry` appears **0** times, one `reason :=` initialiser,
+   one refusal path. *Reviewers judge the sketch* — a stale sketch is a real cost even when the
+   code is right, and this is the second time this lane has spent a seat's attention on a rationale
+   defect rather than a code one.
+3. `editquality` (low) — the sketch implied rather than showed both `LoadWorkItemsAction` call
+   sites. The census settles it: four call sites across three files, all rendering.
+4. `bug_historian` / `guardian` (missing) — the durable write's `RETURNING` cannot silently no-op:
+   the scan error is logged and never fatal, so a refusal is never turned into an error by
+   bookkeeping. And migration `524` is correctly **not** in this submission's edit set — it belongs
+   to `bugs_open/341` and shipped there.
+
+### What is NOT here, and where it went
+
+- **No SQL half was needed** — see `341` §5c. All three arms of `claimed-item-timeout` select
+  `status='claimed'`, which a ladder-re-triaged row is not. Measured: 0 claimed rows carry any
+  `retry_after`; 0 false-greens attributable to that sweep.
+- **Candidate 2** (a real saga verdict out of `completeWorkflow`) remains the root repair and remains
+  architecture-scope, unowned, on the seam `bugs_open/217` also sits on.
+- **The outage-scale watch lives in `bugs_closed/307` only**, with its reopen trigger. It is
+  deliberately not duplicated here: two records of one watch is the drift shape this estate keeps
+  filing bugs about. If it fires, it reopens `307`, and this mechanism is re-examined from there.
