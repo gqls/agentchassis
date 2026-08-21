@@ -41286,3 +41286,31 @@ the parent's. I never joined them.
 Related: [a CITATION is not a READ — quote the deciding ARM] — same failure, and I had read that
 entry. Also [census the WRITE HISTORY before designing a guard]: `retry_after` *is* the write
 history, and it was one column away all morning.
+
+## 2026-08-21 — I committed platform code BEFORE submitting it, so the coverage report will call it un-reviewed for ever — and I had got this right two days earlier
+
+**What happened.** `c2f050036` (the `bugs_open/322` item 4 guard fix — real platform code on a shared
+renderer) went in with no council trailer. I submitted it a few minutes later, correctly, and it is
+being reviewed under `54c660f8-1e05-4b88-9910-0d1427b1d805`. **But the trailer is a JOIN KEY written at
+commit time, and forward-only forbids an amend** — so the `098` coverage report has no way to connect
+that commit to its verdict, and will list it as un-reviewed permanently.
+
+**Why this is worth a row rather than a shrug.** The mechanism exists precisely for this case:
+`Council-Submitted:` asserts nothing, so it is never a false claim, and `098` resolves it at *report*
+time once the verdict lands. It is designed so you never have to choose between committing promptly
+and being credited. I used it correctly for the `bugs_closed/252` work two days earlier — four commits,
+all trailed — and then didn't, because this one felt like a **small follow-on to finished work** rather
+than a fresh submission. The size of the change is not the trigger; **touching `platform/` is.**
+
+**The cheap check I skipped:** run `097` FIRST. It prints `SUBMISSION_CORR` in seconds, well before the
+council finishes, so there is no waiting cost — the ordering is free and only the habit is hard. If a
+`platform/`, `internal/` or `pkg/` path is in your pathspec, the trailer belongs in that commit
+message.
+
+**Two second-order notes:**
+- **The error is invisible at commit time and permanent afterwards.** The pre-commit hook *did* warn
+  ("this commit will list as un-reviewed"), and I read it as a note about the future rather than as the
+  last moment I could act. A warning about an irreversible property is a stop, not a footnote.
+- **The damage is bookkeeping, not safety** — the change is genuinely reviewed and the trail is
+  recorded in the lane NOTES and in `bugs_open/322` itself. But the coverage report's whole value is
+  that it can be trusted without reading the prose, and I have put one hole in it.
