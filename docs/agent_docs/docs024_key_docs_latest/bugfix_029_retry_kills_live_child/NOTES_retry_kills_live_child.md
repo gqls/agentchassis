@@ -2741,3 +2741,64 @@ census agrees from the other side: **0 abandoned calls on 08-18, 08-19, 08-20, 0
 terminal step and then stops without finishing is not the 343 shape and may be a different defect
 entirely — or a known one. `[UNVERIFIED]`, not investigated, and **not** filed: whoever picks it up
 should grep `bugs_open/`/`bugs_closed/` for a `complete`-step stall before assuming it is new.
+
+---
+
+## §28 — 2026-08-21: the wedge mechanism is fixed at source and LIVE, and 343 still does not close
+
+Two commits, both live on `agent-chassis` v1.0.1322 (pods started 16:54Z), proven at the binary with
+controls including one that had to be ABSENT and was.
+
+**`ca5e41122` + `7f3875d3c` (RSH-012, WFA-021)** — the park's arrival check is keyed on request
+IDENTITY, its outcome is TYPED, and the advance decision cross-checks the table.
+**`bf1fbc5b7` (RSH-013)** — P2: the loop-skip advance retries optimistic-lock failures and marks the
+awaited row terminal only once the advance is durable. **Path repair, unverified as ever having fired.**
+
+Detail is in `bugs_open/343`'s 08-21 block; what belongs here is what the work taught.
+
+### The plan's `[UNVERIFIED]` question was answered, and the answer widened the defect
+
+`PLAN_2026-08-19` flagged that `applyResponseToState`'s `output_mapping` branch writes no arrival marker
+and asked whether any live await step uses `output_mapping`. **It does** —
+`sql_for_agents/107_image_build_handler.sql:589` (`call_variant_gen`) and `:1119`
+(`call_imagery_gen`), both `call_agent`. So the check was not merely *wrong* on loop steps; it was
+**blind** on a live path. Two of the four branches wrote no marker at all.
+
+### The plan said the race was "spawn-shaped". It is five-shaped.
+
+`preRegisterAwaitedRequest` has **five** callers, not one: `spawn_actions.go:115`,
+`dispatch_actions.go:229`, and the three `thunder_prepare_*_dispatch.go` actions. All insert the row
+**before** the send, so a fast ack can be claimed while the park is still persisting on any of them.
+
+### A helper whose NAME is the trap — now a LANDMINES entry
+
+The obvious one-line fix for P2 was "call `UpdateStateWithRetry`". It would have **silently reverted
+the fix**: that helper recovers from an optimistic-lock failure by reloading and doing
+`*state = *reloaded`, then re-issues the UPDATE with the reloaded, **unmutated** state. The caller's
+changes are discarded and a **no-op** is persisted, with no error. It is not a retrying version of
+"save my changes". Caught by reading it rather than by its name.
+
+### What the council caught, and the distinction that matters
+
+Round 1 was a REVISE on a gating objection that read the submission's **sketch** as dropping the
+`exists`/`hasResponse` guards in front of the new switch — which would make a *fresh* park skip, i.e.
+a first await silently abandoned, worse than the bug being fixed.
+
+**The guards are in the shipped code. The sketch omitted them.** The objection was therefore right
+about the submission and wrong about the code — and since the sketch is what reviewers judge, that is a
+real defect in the submission, not a misunderstanding to argue away.
+
+**What it genuinely found was a TEST GAP, and I would not have looked for it.** The two guards cover
+each other **in series**: with `exists` removed a nil map still yields `hasResponse` false; with
+`hasResponse` removed a missing key still fails `exists`. So removing either alone changes nothing
+observable — **both mutations survived the whole suite** — and nothing discriminated that branch.
+Closed by `TestParkPersistsWhenTheStepHasDataButNoResponseMarker`, which drives the case *between* the
+two the objection named. Round 2: **APPROVED**.
+
+### The standing caution, restated because the next reader will be tempted
+
+The entry condition has been ~0 since 08-18, and **six of the eight days around the 08-17 burst were
+also zero before anything changed**. A quiet fleet is not confirmation. The informative read is
+`error_code='await_divergence'` in `agent_error_log` **paired with a non-zero await volume** over the
+same window — and an RSH-011 capture showing *no* marker under the step name at re-park time would mean
+this mechanism is not the one that fired.

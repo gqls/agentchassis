@@ -308,3 +308,50 @@ let it run for a few days and see whether the count stays flat well past how lon
 it's ever gone quiet before with the bug present. I've written down exactly when to
 check again and what a real answer would look like, so nobody — including me —
 mistakes today's silence for confirmation.
+
+---
+
+**2026-08-21 (evening) — we can finally see the failures that were costing us finished work.**
+
+Background in one line: this bug has always been about the message bus occasionally refusing to talk,
+and for months the real problem was that we could not measure it.
+
+Today's finding is a new one and it is the important part. All our measuring looked at *connecting* to
+the message bus. Nothing had ever measured *sending a message* and failing. It turns out that was
+happening a lot: in the last month, **93 separate jobs** hit it. And the worst shape is genuinely
+painful — a job does all its work, saves everything, and then fails on the very last step, which is
+telling whoever asked that it finished. From the outside that job reads as failed. The work is all
+there. Nobody would know to look.
+
+Two reasons it was not fixing itself. The message library we use *looks* like it retries — it is
+configured for ten attempts — but for the single most common hiccup (the bus briefly electing a new
+leader for a queue, usually over in seconds) it quietly gives up after one attempt, because of a
+technicality in how that particular error is typed. And separately, our own "is this worth retrying?"
+list did not recognise either of the two error messages involved, so every one of those 93 jobs was
+filed as permanently broken.
+
+So: we now count send failures, we retry the ones worth retrying — carefully, only on the four places
+where a lost message costs finished work, off by default everywhere else — and we recognise those two
+errors as temporary. The counting half is live already and reported 99 successful sends in its first
+hour, which is how I know the meter is actually plugged in rather than reading zero because it is
+broken.
+
+There is also a second thing I put in that is really a trap-detector. We have thousands of instant
+connection refusals that come from the system trying to dial an address with no hostname in it — it
+ends up phoning itself. We fixed one source of that nine days ago and it *kept happening*, so there is
+another source, and it is inside the third-party library where we cannot fix it. What I have added
+refuses that dial at the one point everything passes through, and labels it distinctly, so the next
+time a burst happens the label will tell us straight away whether it is the library or something else.
+I have written down in advance what result would prove me wrong.
+
+**What I have not fixed.** The original slow-connection timeouts are still happening — 146 in the last
+week — and still undiagnosed. There is a network probe worth running that nobody has run yet. And
+thirteen of our services still report no metrics at all, so every number above covers the main engine
+and its temporary workers, not the whole fleet. I have said so in the bug file rather than letting the
+figures read as fleet-wide.
+
+**The review council caught two real mistakes in mine**, and one is worth admitting. I wrote a rule
+that said "never let a label be built from raw data" and then, one line later, wrote a case that did
+exactly that — and instead of fixing it I flagged it for the reviewer to check. They caught it. When I
+went and measured, it would have created 78 unnecessary series today and would grow every time we add
+an agent type. Fixed properly now: a fixed list, and anything unrecognised gets bucketed.

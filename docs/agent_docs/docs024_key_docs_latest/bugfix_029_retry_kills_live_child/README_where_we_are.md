@@ -530,3 +530,47 @@ on 24 August.
 
 **Still not closing it.** We have explained nothing about the freeze itself yet; we have narrowed
 where to look, which is not the same thing.
+
+---
+
+**2026-08-21 (evening) — the silent freeze has a fix, it is running, and I am still not calling the bug closed.**
+
+The short version: the thing that made a build quietly stop is fixed and live on the chassis that
+rolled at 16:54 this evening. I checked that by asking the running program what it contains rather than
+trusting the release, and I included a check that had to come back "no" — a piece of code I committed
+*after* the build was made. It came back "no". So the check can tell the difference, which is the only
+reason the "yes" answers mean anything.
+
+What was actually wrong is smaller than the bug's title suggests, and worth saying plainly. When the
+system sends a job to a helper, it writes down "I am waiting for an answer". Before doing that it asks
+"has the answer already arrived?" — a sensible question, because sometimes the helper is very fast. But
+it asked that question badly: it looked for *any* answer filed under the name of that step, not an
+answer to *this particular request*. On a job that loops — page 1, page 2, page 3 — every round after
+the first has an old answer sitting under that name. So the system kept concluding "the answer is
+already here" for a request it had never sent, then quietly stopped writing anything down. The job sat
+there, looking busy, until a four-hour cleanup noticed.
+
+It now records *which* request each answer belongs to, and compares that. An old answer under the same
+name is recognised as old, and the job parks properly. I also made it impossible for that piece of code
+to say "success" without actually having saved anything — the compiler now forces every caller to say
+which of the two happened. That class of silent lie is gone rather than patched.
+
+I found two extra things on the way that were not in the plan. One: two of the four places the system
+records an answer were not leaving any marker at all, and one of those is used by the live image-
+building work — so the check was blind there as well as wrong elsewhere. Two: the plan said this race
+could only happen in one place; it can happen in five.
+
+**Why it stays open.** All of that explains why a job *stayed* stuck. It does not explain why the
+helper stopped answering in the first place, or why the next round of the loop never got started. That
+first failure is still unexplained, and I would rather leave the bug open and honest than close it on
+the half I understand. There is a capture job armed that will preserve the evidence the next time it
+happens.
+
+**One more thing I want on the record, because it is the useful kind of embarrassing.** The review
+council rejected my first submission, saying I had removed two safety checks. I had not — they are in
+the code; I just left them out of the summary I sent for review. So the reviewer was right about what
+they were shown and wrong about what was running. But their objection uncovered something real that I
+would never have gone looking for: those two safety checks each quietly cover for the other, so I could
+delete either one and every test still passed. Nothing was actually testing that part. I have written a
+test that does. That is the second time this month the review has paid for itself by being wrong in a
+useful direction.

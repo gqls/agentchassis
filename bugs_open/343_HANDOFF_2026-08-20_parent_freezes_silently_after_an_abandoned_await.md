@@ -6,6 +6,66 @@ that is neither**, carried out under its own number so a fixed Part A can never 
 
 **Status: OPEN. Not reproducing. Rare, bursty, and fully characterised except for its mechanism.**
 
+> ## 2026-08-21 — THE WEDGE MECHANISM IS FIXED AT SOURCE AND LIVE. The bug stays OPEN, and the reason is precise.
+>
+> Two commits, both **live on `agent-chassis` v1.0.1322 since 16:54Z** and proven at the binary with
+> controls (own literals PRESENT; a pre-existing positive control PRESENT; a nonsense negative control
+> ABSENT; and a literal from a commit made *after* the build ABSENT — so the probe demonstrably
+> discriminates, rather than returning PRESENT for everything).
+>
+> **What was actually wrong, and it is smaller and sharper than this file's title suggests.**
+> `persistAwaitingStateWithRetry`'s arrival check asked *"is there a `response` key under this step
+> name?"* — a question that is **true of every iteration after the first** on a loop step. So each
+> re-registration of an already-answered step name read as "the reply beat the park", the park returned
+> a bare `nil` **without persisting**, and the caller read `nil` as success and went on to insert a
+> table row and arm a timeout for a request that exists in no map. Row in the table, nothing in the map,
+> nothing routine to notice. That is the **second wedge** — the one that keeps an iteration N+1
+> `spawn_handler` registered while its `call_handler` never is, which is 20 of the 31 measured cases.
+>
+> **Shipped (`ca5e41122`, `7f3875d3c` — register RSH-012, WFA-021):**
+> 1. `applyResponseToState` now records **which** request a reply answered, in **all four** branches.
+>    Two of them wrote no arrival marker at all, and one of those — `output_mapping` — is **live on real
+>    `call_agent` await paths** (`sql_for_agents/107_image_build_handler.sql:589`, `:1119`). So the check
+>    was blind on a live path as well as wrong on the others.
+> 2. The check is **keyed on that id**: same id → genuine arrival, skip; **different id → stale residue,
+>    park normally** (this single discrimination is the fix); no id → dated legacy branch for the
+>    mixed-fleet window, which has its own LANDMINES entry because it looks exactly like the logic the
+>    rest of the diff condemns.
+> 3. `parkOutcome` makes *"returned success without persisting"* **unrepresentable at the type level**;
+>    on a skip the caller now inserts **no** row and arms **no** timeout, killing the orphan-row producer.
+> 4. The advance decision now **cross-checks the table** it had never consulted
+>    (`reconcileAllDoneAgainstTable` → `OutstandingAwaitedRequests`). Detection is **unconditional**
+>    (`agent_error_log`, `error_code='await_divergence'`); enforcement is opt-in behind
+>    `WorkflowPlan.AwaitReconcileEnforce`, default false, **no live workflow sets it**.
+>
+> **Also shipped (`bf1fbc5b7` — RSH-013), and explicitly NOT claimed as the mechanism:** P2's
+> `skipToNextLoopIteration` wrote its advance with one **unretried** `UpdateState`; an optimistic-lock
+> failure lost the advance *and* the awaited-map delete while the row was already terminal, so the
+> redelivery was eaten by the `processed_at` duplicate guard. It now retries by reloading and
+> re-applying, and marks the row terminal only once the advance is durable. **Verified as a path,
+> UNVERIFIED as ever having fired.**
+>
+> **WHY THIS DOES NOT CLOSE 343.** The **first death** is untouched and unexplained: why a child stopped
+> answering, and why the parent never registered iteration N+1's `call_handler` at all. Nothing above
+> speaks to it. The bar is fixed AND live AND understood; this delivers the first two for the *second*
+> wedge only.
+>
+> **Do not read a quiet fleet as confirmation.** The entry condition has been ~0 since 08-18 and six of
+> the eight days around the 08-17 burst were also zero *before anything changed*. The informative
+> reads are: `SELECT count(*) FROM agent_error_log WHERE error_code='await_divergence' AND occurred_at
+> > '2026-08-21 16:54Z'` — **with** the demand control `SELECT count(*) FROM awaited_requests WHERE
+> sent_at > '<same>'` non-zero, because a zero on a quiet fleet is a dead path, not a fix. And an
+> RSH-011 capture showing **no marker** under the step name at re-park time would mean this mechanism
+> is not the one that fired.
+>
+> Council: round 1 REVISE — the `editquality` seat read the submission's sketch as dropping the
+> `exists`/`hasResponse` guards, which would make a *fresh* park skip. **The guards are in the shipped
+> code; the sketch omitted them, and the sketch is what reviewers judge.** It nonetheless exposed a real
+> TEST GAP — the two guards cover each other *in series*, so removing either alone was unobservable and
+> nothing discriminated the branch. Closed by
+> `TestParkPersistsWhenTheStepHasDataButNoResponseMarker`. Round 2 **APPROVED** (corr
+> `a9b9d4b8-c30f-432a-b35d-5e5864733fc5`).
+
 > **Read this first, because the number it replaces was misleading in both directions.** 029's title
 > said "fleet-wide outage class"; that framing belonged to 2026-07-19 and to its *consequence* half.
 > This bug is **not** a fleet-wide outage. It is a narrow, silent, recoverable-but-slow freeze that

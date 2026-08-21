@@ -973,3 +973,145 @@ per-instance judgement about whether a failure was silent is unsafe unless both 
 likewise. So the ~26 h figure this estate uses is right for the statuses that matter, and a naive
 `min()` will tell you otherwise. Verified in the direction that mattered: **0 of 21** of 343's
 08-17 wedged orchestrations survive there.
+
+---
+
+## 2026-08-21 — the WRITE side finally has an instrument, the empty-host dial is refused, and an opt-in retry stops a seconds-long blip terminating finished work
+
+Picked up as an unowned past-due bug (§11.8's own "re-read no earlier than 08-13" is nine days stale).
+**Nothing here closes §9.** Two of the four rounds below are instrumentation, one is behaviour, one is
+classification; the `timeout` residual and the `refused` mechanism both stay open, and §9's close
+condition is untouched.
+
+### 12.1 The premises, re-measured today — and the bug is HOTTER than §11 left it
+
+`[MEASURED 2026-08-21, live Prometheus, `max_over_time` not `increase()` per §10's trap]`
+
+| reading | §11 (08-12) | today | note |
+|---|---|---|---|
+| `timeout` 7d | 32 | **146** | prod-0 dominant (74), then bootstrap 53, prod-1 10, prod-2 9 |
+| `refused` 7d | 71,832 all-time | **94,419** | **it RECURRED after the §11.4 guard shipped** |
+| …of which EMPTY broker label | 71,826 | **85,887** | the `:9092` self-dial signature |
+| `ok` 7d | — | 965,438 | the denominator, so the rates above are ~0.015% and ~9.8% |
+
+The last burst ended **~24 h before this read** (1,028 in `[24h]`, 14,104 in `[48h]`, **nothing** in
+`[18h]`), carried by long-running spawned consumer pods — `agent-build-dispatch-loop`,
+`agent-landmine-verifier`, `agent-feed-ingester`, ~690 events each.
+
+**Why the recurrence matters more than the count.** §11.4's fix makes `getController` **structurally
+unable** to emit an empty-host address, and §11.6 proved it live on `v1.0.1291`. So the bursts since
+are **not** that producer. At least one more exists and it is **not in this repository**: kafka-go's
+consumer-group coordinator lookup builds `net.JoinHostPort(out.Coordinator.Host, …)` straight from a
+FindCoordinator response with **no validation** (`consumergroup.go`, verified in the module cache), and
+every `Reader` in the fleet dials through `InstrumentedDialer`. That is mechanism (b) from §11.4,
+now with a named line. `[INFERRED, not confirmed — the burst pods are GC'd, so §11.4's armed Warn-log
+discriminator cannot be read retrospectively. §12.3 is what will settle it.]`
+
+### 12.2 The finding §11 could not have made: the WRITE side was never instrumented, and writes are failing
+
+The dial counters see a **connection** fail. Nothing had ever seen a **write** fail.
+`[MEASURED 2026-08-21, `agent_error_log`, retained window 07-22..08-21]`
+
+| | count |
+|---|---|
+| rows matching `Kafka write error` | **63** |
+| rows matching `has no leader` | **40** |
+| **distinct orchestrations affected** | **93** |
+
+Recurring most days since 08-10 (08-11: 14, 08-14: 14, 08-15: 16, 08-18: 8, 08-20: 3). Steps hit:
+`complete`/`complete_workflow` **11**, `process_message` 10, `orchestrate` 9, and ~20 `call_agent`
+dispatch steps. **So this is not only the terminal step** — the 2026-08-15 section above saw one shape
+of a wider class.
+
+**And kafka-go will NOT retry it, which is the fact the whole round turns on.** Its writer loops to
+`MaxAttempts` (default 10) with backoff but **breaks after ONE attempt** on
+`!isTemporary(err) && !isTransientNetworkError(err)` (`writer.go`), and `protocol.ErrNoLeader` — the
+client-side `"topic partition has no leader"` — is a **bare string type whose only method is
+`Error() string`**. No `Temporary()`, so no retry. That is the `Kafka write errors (1/1)` fingerprint,
+and **the `(1/1)` is messages-failed / messages-sent, not attempts** — two different counters and one
+very plausible misreading. Full trap in `LANDMINES.md`.
+
+**Compounded downstream:** `platform/errors`' nine transient needles matched **neither** string, so all
+103 rows classified `error_unrecoverable` and terminated work permanently, on a condition usually over
+in seconds.
+
+### 12.3 What shipped, in four commits and three council rounds
+
+| # | commit | what | state |
+|---|---|---|---|
+| 1 | `e4ce7073b` | `ai_persona_kafka_produce_total{topic_class,outcome}` + the `empty_host` dial refusal + PodMonitor wired into kustomize | **LIVE v1.0.1322** |
+| 2 | `9b93af8a0` | round-2 fixes: closed `system.*` family set; `no_leader` split into `client_no_leader`/`broker_no_leader` | committed, rides the next roll |
+| 3 | `<this round>` | opt-in bounded produce retry + 4 adopters + 2 classifier needles (SYS-093) | committed, rides the next roll |
+
+**Proven live at the artefact, with controls that could have come out otherwise.** On the running
+`v1.0.1322` pod: `ai_persona_kafka_produce_total` PRESENT, `refusing dial to structurally invalid
+address` PRESENT, a pre-existing positive control PRESENT, a nonsense negative control ABSENT, **and a
+literal from a commit made *after* the build ABSENT** — that last one is what shows the probe
+discriminates rather than answering PRESENT to everything.
+
+**And collecting:** `sum by (outcome) (max_over_time(ai_persona_kafka_produce_total[1h]))` →
+**`ok = 99`** within the first hour. That is the **demand control**, not a nicety: a zero there would
+mean the instrument is broken, not the fleet clean.
+
+**The `empty_host` discriminator, and the disconfirming result named in advance.** On the next burst:
+`sum(max_over_time(ai_persona_kafka_dial_total{outcome="empty_host"}[48h])) > 0` confirms the remaining
+producer is library-internal. **`refused` carrying an EMPTY broker label must now be structurally
+zero — a non-zero DISCONFIRMS**, meaning a third `:9092` constructor exists outside the instrumented
+dial path, and that is where to look next. (Both read `0` in the 2 h after the roll, which is expected
+and proves nothing: no burst has occurred in that window.)
+
+### 12.4 The retry, and exactly what it does and does not promise
+
+Opt-in (`kafka.WithRetry` / `ProduceWithRetry`), **default OFF**, adopted at **four named sites**:
+`CompleteWorkflowAction`, `notifyParentOfFailure` (closing its asymmetry with `notifyParentOfSuccess`,
+which has been on the shared reply seam since `bugs_open/133` while this stayed a bare fire-once
+log-and-drop), `notifyParentOfSuccess`, and `processor.go`'s single response produce exit. The five
+other `DeliverReply` callers are byte-identical and a test pins that.
+
+- **Bounded and stated:** 4 attempts, jittered 500 ms→4 s, **~44 s worst case** before a reply is
+  finally reported undeliverable. Long, and the right trade against losing a completed workflow.
+- **Deterministic errors are never retried** — validation refusal (`bugs_open/274`), too-large (whose
+  remedy is to DEGRADE), context-cancelled.
+- **⚠ It CAN duplicate a reply** after a lost ack: kafka-go v0.4.47 has no idempotent producer. The
+  premise is that the parent's two-phase `ClaimAwaitedRequest` absorbs it — which is why the adopters
+  are restricted to sites whose consumer is a parent orchestration with that dedupe, and why the retry
+  is **not** inside `Produce`, where 39 call sites with unaudited consumers would inherit it.
+  **Named disconfirming signal: `DUPLICATE_SKIPPED` volume rising after the roll.**
+- **Two needles admitted, a third refused.** `"kafka write error"` and `"no leader"` (the short form —
+  `kafka.WriteErrors`' `Error()` embeds its members' texts, so the long form would miss the composite
+  that actually arrives). **DELIBERATELY REFUSED: `"write message to kafka"`** — our own wrapper on
+  *every* write failure including the deterministic ones, so admitting it would reclassify permanent
+  failures as retryable, which is exactly `bugs_open/274`. A control test asserts both stay TERMINAL.
+- **⚠ This changes what RE-RUNS**, and consumers are told rather than merely measured (owner ruling
+  2026-07-29 §3): a child hitting either string may now be **redispatched by its parent** (capped at
+  `retry_version >= 3`) instead of failing terminally. Head rows with no parent still terminate.
+
+### 12.5 What the council caught, because two of three rounds found real defects
+
+- **Round 1 (corr `a414d81b`) REVISE, and both code objections were RIGHT.** (HIGH) `topicClass`'s
+  `case strings.HasPrefix(topic, "system."): return topic` **returned its raw input** — precisely the
+  "substring of the input" case the plan's own cardinality rule forbids; I stated the rule and broke it
+  in the next arm, then flagged it in the *risks* for a reviewer to confirm rather than resolving it.
+  Measured afterwards: of **937** live `system.*` topics, 859 are caught by the `system.agent` arm and
+  **78 would have reached that arm as distinct labels**, with `system.errors.<agent-type>` (18) and
+  `system.responses.<agent-type>` (17) growing per agent type. Now a **closed** family set with an
+  `system.other` bucket. (MEDIUM) `no_leader` collapsed the client-side and broker-side errors, which
+  **behave oppositely** inside kafka-go — split, so a reader can tell *exhausted immediately* from
+  *retried and still failed*. (MEDIUM) the PodMonitor wiring is orthogonal scope: fair, and **not
+  reverted**, because it was an explicit owner decision and forward-only forbids an amend.
+- **Round 2** resubmitted on the same correlation (env-var form — passing `RESUBMIT_CORR` positionally
+  is what produced a malformed trail id earlier the same day; `WRONG_CALLS.md`).
+
+### 12.6 What is STILL OPEN, stated so nobody reads this section as a close
+
+1. **The `timeout` residual — 146 in 7 days, prod-0 dominant, undiagnosed.** §4.2's node-pinned `nc`
+   probes remain **unexercised** and are still the most promising untried lead, now with a named broker
+   to aim at. Remember §7's traps: normalise by pod uptime, brokers live in namespace `kafka`, and
+   busybox `date +%s%N` returns 0.
+2. **The `refused` mechanism is `[INFERRED]`, not confirmed.** `empty_host` on the next burst is the
+   cheap answer; a `090` run is only worth firing if a burst arrives *before* that label is live, and
+   then the Prometheus evidence must be handed to it inline (the loop cannot reach Prometheus — that is
+   what made §11.4's verdict UNVERIFIABLE).
+3. **The 13 adapter/service Deployments still serve no `/metrics`** (§8b). Every figure in §12 covers
+   the chassis and spawned agents only. Extending them is its own round and was deliberately not
+   bundled — bundling is what got round 1 vetoed back in July.

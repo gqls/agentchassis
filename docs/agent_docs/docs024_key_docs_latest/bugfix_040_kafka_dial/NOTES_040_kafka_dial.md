@@ -682,3 +682,77 @@ doesn't mistake today's quiet for confirmation.
 Noted but flagged as weak, per `two-clean-runs-cannot-establish-stability`
 (memory): the current 26.5h gap already exceeds the one inter-episode gap
 observed so far (~12h). Two episodes is not a rate. Not relying on it.
+
+---
+
+## 2026-08-21 — the write side, the empty-host guard, the opt-in retry, and three things I got wrong on the way
+
+**Session brief:** owner asked for `bugs_open/040` and `bugs_open/343` together — research, validate,
+plan with Fable, council, commit for the next build.
+
+### What was measured first, before any code
+
+Everything in §12 of the bug file. The two readings that changed the shape of the work:
+
+1. `refused` **recurred after §11.4's guard** — 94,419 over 7 days, 85,887 with an empty broker label,
+   last burst ~24 h before the read. Since `getController` structurally cannot emit that address any
+   more, the producer is somewhere else, and the only other dialer in the path is kafka-go's own.
+2. **Nothing had ever counted a produce failure.** 63 + 40 rows across **93 distinct orchestrations**
+   in the retained month, invisible to every metric we had.
+
+Command for (1), and the trap it walks around, is in the RUNBOOK: `max_over_time`, never `increase()`.
+
+### Three missteps, all logged in `WRONG_CALLS.md` and all the same shape
+
+The shape is: **a command that exits looking successful while the thing it was meant to do did not
+happen.** Two of the three were caught by a machine, one by a habit.
+
+1. **A log grep against pods that could not hold the line.** I grepped `-l app=agent-chassis` for the
+   `getController` guard's Warn and read the zero as "the guard is not firing". The `refused` counters
+   live on **spawned `app=dynamic-agent` Jobs**. The selector could not have returned that line
+   whatever those pods logged. Caught by reading the pod names in the Prometheus `topk`. **And the
+   control in the same command never printed** — the pipeline was backgrounded on timeout and the
+   second line was lost, so I had a zero with no control at all and read it anyway.
+2. **A council submission written to CLAUDE.md's *summary* of the schema** rather than the trigger's
+   own header. `plan` is an object (`{summary, edits[], grounded_in, risks}`), not an array, and
+   `symbol`/`summary`/`risks` are all omitted from the summary and all read by reviewers. `DRY_RUN=1`
+   refused it in one line, free.
+3. **The expensive one.** `097` prints `SAVE: SUBMISSION_CORR=<uuid>` **before** it publishes. My
+   publish failed — `AlreadyExists` on the epoch-second `kcat` pod name, another session having
+   submitted in the same second — so I held a correlation and the word SAVE for a dispatch that never
+   happened. CLAUDE.md's own next-step advice ("a missing orchestration row is almost always latency —
+   do not retry") is exactly wrong in that state. Then the retry passed `RESUBMIT_CORR=<uuid>`
+   **positionally**, so the literal string became the trail id, and the `commit-msg` **trailer gate
+   refused the commit** — correctly, because a non-UUID join key resolves to nothing in the 098 report.
+
+### What the council caught that I would not have
+
+**Round 1 on the instrumentation (corr `a414d81b`) was a REVISE and both code objections were right.**
+
+The HIGH one is worth writing down at length because of its shape: `topicClass`'s `system.*` arm
+returned its raw input — **the exact case the rule I had written one line above forbids** — and I had
+flagged it in the submission's *risks* asking a reviewer to confirm it, rather than closing it. A rule
+you state and then except yourself from is not a guard.
+
+I then measured it rather than just conceding: **937** live `system.*` topics, 859 caught by the
+earlier arm, **78 would have reached that one as distinct labels**, and the two biggest residue
+families grow per agent type. Now a closed compile-time set with a `system.other` bucket.
+
+The MEDIUM one was equally real: `no_leader` collapsed the client-side and broker-side errors, which
+**behave oppositely inside kafka-go** — one is never retried, the other always is. Collapsing them
+destroys exactly the distinction the whole diagnosis rests on.
+
+### A defect my own test caught in my own code
+
+The retry's jitter was `rand.Int63n(delay) + delay/2`, which spans `[delay/2, 1.5×delay)` and therefore
+**breaks `MaxDelay` by up to 50%**. `MaxDelay` is a bound or it is decoration. Fixed to jitter within
+`[delay/2, delay]`. The test that caught it asserts the cap across every attempt index, not just one.
+
+### An honest negative, recorded rather than glossed
+
+The default-OFF pin for `WithRetry` **does not discriminate the `cfg.retry` flag.** Removing that check
+alone *survives* — because the zero-value `RetryPolicy`'s `Attempts: 0` is clamped to 1 by `retrySend`.
+Two mechanisms in series. That is a genuine belt-and-braces property and it is why the default is hard
+to break by accident; it also means the test pins the **observable** promise ("no option, one attempt")
+and not the flag. The mutation that *does* fail it — defaulting `retry: true` **with** a non-zero
+policy — is named in the test **and was applied to confirm it**, rather than asserted.
