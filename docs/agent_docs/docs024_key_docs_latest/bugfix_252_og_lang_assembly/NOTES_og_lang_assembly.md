@@ -596,3 +596,63 @@ Also now measured rather than estimated:
 The evidence existed — some of it produced by me, in this same lane, two days earlier. Grounding a
 resubmission cost one query each. **A `grounded_in` entry is cheaper than a review round, and a review
 round is far cheaper than the defect it finds** — and this round did find two.
+
+## 2026-08-21 (d) — round 2 APPROVED, and its three advisories were all worth acting on
+
+**Verdict: APPROVED — 3 advisory objections, none high-severity, 5 of 13 seats abstained.** Trailer
+`Council-Reviewed: 54c660f8-1e05-4b88-9910-0d1427b1d805`. Round 1's two gating defects are fixed; the
+three that remained are advisory, and none of them was noise.
+
+### Acted on in code
+
+**`bug_historian`: "a log line is not a durable fail-loud signal here."** Quantified in their own
+words — *"chassis pod log retention is ~90 seconds and `orchestration_states.error` is a near-empty
+sink versus `agent_error_log`'s actual volume. A Warn nobody durably records ... is symptom-patched,
+not fail-loud — it satisfies the letter of round 1's objection without giving any downstream process a
+row to act on."*
+
+**They are right, and it is round 1's lesson one level deeper: I answered "your skip is silent" by
+adding a log, and stopped.** `injectBrandHeadTags` now returns `(head, declinedReason)` and the caller
+writes an `agent_error_log` row (`BRAND_HEAD_TAGS_DECLINED`) carrying domain, consequence and remedy.
+The reason is *returned* rather than recorded in place because the function has no DB handle and its
+one caller does — widening its dependencies to reach the error log would be the larger change.
+Mutation-proven both ways: an empty reason on decline FAILS (that is the silent skip returning), and a
+spurious reason on the healthy path FAILS (that would write a row on every render).
+
+### Answered by measurement rather than change
+
+**`bug_historian`: are the sibling injectors the same shape?** **No, and the distinction is worth
+keeping.** `injectCanonicalLink`, `injectPageJSONLD`, `injectRobotsNoindex` and `injectComponentCSS`
+are each **single-tag** emitters that check for *their own* tag before adding it — that is correct
+idempotence. The wholesale shape is only a defect when **one marker gates MANY tags**, and
+`injectBrandHeadTags` was the only multi-tag emitter in the family. So there is no unaudited sibling
+carrying this bug.
+
+**`guardian` (low): could `declaresHeadTag` false-negative and append duplicates fleet-wide?** Measured
+across all 24 stored heads: **23 use double-quoted `property=`/`name=`, and there are ZERO
+single-quoted, ZERO spaced-equals (`property = "…"`) and ZERO content-before-property forms.** The two
+quote styles cover 100% of real authored variety, so the fleet-wide duplicate-append risk does not
+exist today. (The 24th head is webdesign.co.uk, which carries no og tags at all.)
+
+### Carried forward, not closed — both are real
+
+**`guardian` (medium): how do the two short heads actually get re-rendered?** Correctly identified:
+`renderAndStoreSiteComponent`'s `!force` idempotence exit means **code alone regenerates nothing** —
+the same fact that shaped 252's whole design. The mechanism is a `rerender-chrome` dispatch per site
+**after the next roll**, exactly as used for the 22 heads earlier today. **Owed: webdesign.co.uk and
+loanandmortgagecalculator.co.uk once a build carrying `declaresHeadTag` is live and probed.** Noted in
+`bugs_open/346` as the tick-list's sibling.
+
+**`debug_historian` (medium): the "2 of 24 stored heads short" count is scoped to the
+`render_site_components`-driven population, not the fleet.** Also right, and I did present it as the
+whole gap. Pages built through `AssemblePageAction` → `RenderHead` → `RenderFallbackHead` get **no
+brand tags at all** and this fix cannot reach them. I could not bound that population honestly: the
+three agent types carrying `assemble_page` (`pageflow-builder`, `page-rebuild`,
+`site-work-orchestrator`) are all `is_active`, and `orchestration_states` shows **zero runs for any of
+them** — but that table retains ~24h, so **that is a weak negative, not proof the path is dead**
+`[UNMEASURED beyond 24h]`. It wants a ticket rather than a claim.
+
+**`prior_art_librarian` noted its approval rests on my greps rather than an independent check** — fair,
+and the two claims are cheaply re-verifiable: `RenderHead` at `component_library.go:2017`
+(`ResolveChromeComponent` → `RenderFallbackHead`, no `site_components` read), and
+`injectBrandHeadTags`' single caller at `render_site_components_action.go:1139`.
