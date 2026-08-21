@@ -677,3 +677,128 @@ converts an inference into a measurement.
 
 Citations in `STY-057` and `bugs_closed/260` now name **both** tags with times, and 260's close-out
 tells the next reader to re-probe if they are on a later tag.
+
+---
+
+## 2026-08-21 — the owner's two follow-ups, and the third thing the check found on its own
+
+Owner: *"please fix 342 if no one else is looking at it. 2. fix the hallucinated 'render this
+component' issue — make it just one spelling and create a check for that. do it while it's cheap.
+3. I will push the branches. 4. wait for the new deploy."* Both are built, council-approved
+(one-spelling `52076d3d` APPROVED 13:56Z) or submitted (`342` on `bb7f5d0e`), and inert until the
+next roll. I have NOT pushed.
+
+### Before either task: the queue had something about my own change
+
+`site_work_items` held a `needs_diagnosis` filed **today at 10:36Z by another session** —
+*"A component render refusal inside page-content-writer's process_sections_loop fails the child
+orchestration; the parent's spawn_content_writer step declares no error_step, so the saga reaches
+its success-labelled complete path and the dispatch loop stamps the work item complete even though
+no page_components row was written."* Its own diagnosis run had FAILED, so nobody was working it.
+
+**The armed gate had fired in production and worked exactly as designed** —
+`mortgagecalculator.co.uk`, `mechanism-flow`, 11:06:06Z:
+
+```
+component "mechanism-flow": content does not match the declared field type(s) —
+steps[1].branches: declared array (items: object), got string;
+steps[2].branches: declared array (items: object), got string; refusing to render (bugs_open/260)
+```
+
+That is the success criterion from the PLAN, met in production: *the build fails EARLY, naming
+`branches`*. ⚠ **And my first query said the gate had never fired** — I searched
+`error_message ILIKE '%do not match the declared field type%'` and the code says **"does not
+match"**. A one-word spelling difference in my own query returned a confident zero about my own
+code. The lesson is the standing one and I keep paying it: *the query answers what you encoded.*
+
+**Then the consequence.** The item that dispatched that build is `status=complete` with the refusal
+sitting in its own `error` column, and its page got no rows. So the diagnosis filer is right about
+the mechanism.
+
+**But the attribution is not what the filing implies, and one query settled it.** Splitting
+"items stamped complete while carrying a step failure in `error`" at my roll:
+
+| era | complete-with-error | via validate_content | via render_component |
+|---|---|---|---|
+| the six days BEFORE 2026-08-20 10:18Z | **192** | 22 | 0 |
+| since | 11 | 4 | **1** |
+
+**So the swallow is pre-existing and general — 192 instances in six days — and my change
+contributed one.** The filing frames it as specific to a render refusal ("there is no equivalent
+guard for a render refusal"), which suggests adding a third hand-written guard step; the
+measurement says per-cause guards are the wrong shape entirely. Reported to the owner, not taken
+on: it is work-item completion semantics, not the render seam.
+
+### Task 2 — one spelling, and the check that found a third executor
+
+`RenderTemplate` IS the reporting form now; the wrapper that discarded both reports is deleted; 16
+call sites in 11 files updated so every discard is written `_, _` **at the call site**, where a
+reviewer of the caller can see it. `dead_url_guard.go`'s own header had already said what the
+wrapper cost — *"the finding has been available, by name, on the failing path, for the whole life
+of the defect"* — and that header is now history rather than present tense.
+
+**The check is AST, not grep, and that is not fastidiousness:** this file's own prose names the
+deleted symbol, so a text rule would fail on itself. Three rules: the exported `RenderTemplate*`
+set; the caller set of `executeGoTemplate`; and an EXACT-match declared list of template
+executors, which fails on a stale entry as loudly as on a missing one. Mutation-proven both ways,
+with a control that fails if the traversal parses fewer than 100 functions.
+
+**On its first run it found seven undeclared executors, and one of them matters:**
+`renderBlogTemplate` (`rebuild_blog_listing_action.go`) executes a **component's html_template**
+with no FuncMap and no `missingkey=zero` — the §13g divergence again — and unlike §13g's dead
+chain, `rebuild_blog_listing` is a **registered** action. On a PARSE failure it logged at Warn and
+silently rendered `defaultBlogListingTemplate` instead: a site's own listing design replaced by a
+generic one, with nothing downstream able to tell. That is 260's defect in a second place, and it
+is fixed — both failure modes now return an error.
+
+`[MEASURED 2026-08-21]` before changing it: one live blog-listing component, using none of the
+missing FuncMap names. **Re-measured after the council asked for it: TWO components now, still zero
+that would fail to parse.** The population moved within hours, which is the argument for re-running
+a load-bearing measurement at merge time rather than citing the morning's.
+
+### Task 1 — 342, and the disagreement the tests forced out
+
+Candidate (a) from RFC_041 §5: the schema rides on the `RenderContext` and the **seam** applies the
+same `missingRequiredLLMFields` the two pre-render gates use, at Error, for every caller. Nine of
+fifteen sites now pass a schema; six pass nil (UNKNOWN, reports nothing, tested).
+
+**It reuses a dead slot rather than adding a field.** `SchemaSnapshot`, `SchemaMode` and
+`RenderOptions` had zero readers — their consumer died with the regex fallback in 260 — so three
+declarations describing a strict-mode validation this binary had stopped doing are gone, and one
+describing what it now does is in. The control-field test moved with it, from `schema_mode` to
+`InputSchema`, where the property matters more: content that could set `InputSchema` would hand the
+renderer its own contract and switch off its own check.
+
+**The finding:** the seam and the pre-render gate disagree, and both are right. The seam judges the
+merged map the template sees, where `contextToInterfaceMap` **defaults** `cta_text` to "Get
+Started"; the gate judges the writer's output. *Did the WRITER supply it* and *will it RENDER
+EMPTY* are different questions and 342 is the second. So the seam's report is a strict SUBSET.
+**I did not design that** — the first version of the test asserted the two lists were equal, failed,
+and named `cta_text`. Now pinned with the reason in the failure message.
+
+⚠ **And the honest limit, in the estate's own words: a named log is not escalation
+(`bugs_open/054`, owner 2026-07-22).** 342 is now AUDIBLE at fifteen sites. It is not ACTIONED
+anywhere. Refusal per path is the remaining work and is deliberately not scoped here, because
+refusing at the seam is new authority over content that renders today.
+
+### Council advisories worth carrying forward (one-spelling round, all low/medium, none high)
+
+- **`guardian`: `cmd/component-render-check` is a separately built and deployed service.** True and
+  worth remembering — its overlay pins its own tag, so the audit's half of this change ships when a
+  release builds THAT binary, not when the chassis rolls. Its CronJob and overlay both read
+  v1.0.1321 today, i.e. they are being bumped in step with the fleet, but the verification is at
+  the CronJob's image plus a probe of a job pod, not at the chassis.
+- **`bug_historian`: the eight `_, _` discards still discard.** Correct. Visible now, still
+  ignored — a to-do list the estate did not previously have, not a design.
+- **Three seats independently:** adding a step-failure path onto an estate that stamps failed items
+  complete is a real interaction. That is the 192-item finding above, and it is why "fails the
+  step" must not be read as "is visible" until that is fixed.
+- **`debug_historian` + `prior_art_librarian`: re-verify load-bearing measurements at merge time.**
+  Done for the blog-listing claim, and it had already moved.
+
+### One self-inflicted blemish, recorded because the check for it is in my own memory
+
+The one-spelling commit (`2817f666`) lost a clause from its message: I used `git commit -m` with a
+backticked `` `out, _, _, err :=` `` and **bash executed it** — the known trap, and I had used
+heredocs correctly for every other commit today. Forward-only, so the correction is in the next
+commit's message rather than an amend. **Always `-F`, never `-m`, for any message containing code.**

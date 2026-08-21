@@ -94,6 +94,15 @@ stopped today. Anyone reviving that action inherits both (a) and (b).
 
 ## 5. The open question this RFC exists to have decided
 
+> **✅ ANSWERED BY THE OWNER, 2026-08-21: "make it just one spelling and create a check for that. do
+> it while it's cheap." Done — `RenderTemplate` IS the reporting form, the wrapper is deleted, and
+> three AST tests hold it (`render_seam_one_spelling_test.go`), council-approved on trail
+> `52076d3d`. The check found a THIRD component-HTML executor on its first run —
+> `renderBlogTemplate`, no FuncMap, on a LIVE registered path, silently substituting a generic
+> default listing on a parse failure — which is `bugs_closed/260`'s defect in a second place and was
+> fixed the same day. The absent-field question below was answered too, as `bugs_open/342`'s fix
+> (candidate (a), the structural one), council trail `bb7f5d0e`.**
+
 **Should `RenderTemplate` — the one-line wrapper — exist at all?**
 
 It now returns `(string, error)` and is used by nine call sites that mostly want "render this,

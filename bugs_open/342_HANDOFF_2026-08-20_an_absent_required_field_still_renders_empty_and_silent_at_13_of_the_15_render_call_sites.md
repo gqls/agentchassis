@@ -5,7 +5,42 @@
 advisory in round 2 — *"worth a follow-up ticket with a target date rather than an open-ended
 note"*). **UNOWNED.**
 
-**Status: OPEN, mechanism verified first-hand, no owner.**
+**Status: OPEN — the SILENCE is fixed and committed (2026-08-21, owner-instructed), INERT until the
+next chassis roll. Stays open by the fixed-AND-live bar, and see the scope note below: what shipped
+is the report, not a refusal.**
+
+> **WHAT WAS DONE.** RFC_041 §5's candidate (a), the structural one: `RenderContext` now carries the
+> component's `InputSchema`, and the **seam** applies `missingRequiredLLMFields` — the same function
+> the two pre-render gates call, deliberately not a second implementation — logging absent required
+> fields at **Error** for every caller. Nine of the fifteen call sites now pass a schema (build,
+> chrome store, rerender, library assembly, the three chrome renderers); six pass nil, which means
+> UNKNOWN and reports nothing (fail-open, tested). The offline audit is deliberately not wired: it
+> probes with fields REMOVED on purpose, so the report would fire on every probe by design.
+>
+> **The schema is not a new field.** It reuses the slot of the dead `SchemaSnapshot`, and
+> `SchemaMode` + `RenderOptions` were deleted with it — all three had zero readers since
+> `bugs_closed/260` deleted `RenderTemplateWithValidation`. The control-field property that guarded
+> `schema_mode` moved to `InputSchema`, where it matters more: content that could set it would hand
+> the renderer its own contract and switch off its own check.
+>
+> ⚠ **REPORT ONLY — no refusal was added, and this estate's own ruling is that a named log is not
+> escalation** (`bugs_open/054`, owner 2026-07-22). This makes the defect AUDIBLE at fifteen sites;
+> it does not make it ACTIONED anywhere. Refusing at the seam would be new authority over content
+> that renders successfully today at thirteen sites that never asked for it (owner ruling
+> 2026-08-02 §2), and the two paths that want to refuse already do, before the render. **Refusal or
+> a work item per path is the remaining work and is not scoped here.**
+>
+> **A finding the tests forced out, worth knowing before you touch this:** the seam and the
+> pre-render gate give DIFFERENT answers on the same content, and both are right. The seam judges
+> the merged map the template actually sees, where `contextToInterfaceMap` supplies fleet defaults
+> (`cta_text` → "Get Started"), so a required field the writer never produced can still render
+> something. The gate judges the writer's output. "Did the WRITER supply it?" and "will it RENDER
+> EMPTY?" are different questions, and this bug is the second one — so the seam's report is a strict
+> SUBSET of the gate's. Pinned by `TestSeamReportsASubsetOfThePreRenderGateAndSaysWhy`; do not
+> "fix" one to match the other.
+>
+> Commit + council trail `bb7f5d0e-d125-42c9-a155-9bac866a5017`. Tests:
+> `render_seam_absent_required_test.go` — six, three of them controls, mutation-proven.
 
 > **WHY THIS IS FILED RATHER THAN FOLDED INTO 260.** `bugs_closed/260` fixed the *mistyped* shape:
 > a field of the wrong TYPE used to degrade a whole section silently, and now fails loudly. This is
