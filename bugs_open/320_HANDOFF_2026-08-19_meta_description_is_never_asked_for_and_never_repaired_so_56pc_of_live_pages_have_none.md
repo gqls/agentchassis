@@ -483,3 +483,81 @@ not to replace existing copy. So the options are the owner's:
 
 ⚠ Whichever is chosen, **re-run it over what the blind measure already cleared** rather
 than only forward — the same rule this lane applied to `339`'s guard.
+
+
+---
+
+## 15. 2026-08-21 — OWNER RULING: "redo the descriptions through the framework" — DONE
+
+**681 of 704 live descriptions regenerated.** The 23 holdouts are gate refusals, which is
+the gate working; they keep their previous copy, so nothing regressed.
+
+### How the authority was handled
+
+Regenerating means REPLACING published copy — `overwrite_existing: true`, the unsafe side
+of the opt-in field. It was granted for this act, **not for the standing mechanism**, so:
+
+- the flag was set **INLINE, on a one-off dispatch** (`scripts/regen-meta-descriptions.sh`);
+- **the seeded agent was never armed.** Verified after the run:
+  `default_config#>'{…save_description,config}' ? 'overwrite_existing'` → **false**. The
+  hourly scheduled task remains fill-blanks-only and cannot overwrite anything.
+
+**Fully reversible.** Every pre-regeneration description is in
+`meta_description_pre_regen_20260821` (704 rows, count-matched to live before starting):
+```sql
+UPDATE pages p SET meta_description = b.meta_description
+FROM meta_description_pre_regen_20260821 b WHERE b.page_id = p.id;
+```
+
+### ⚠ CORRECTION TO §14 — my evidence was weaker than I reported
+
+§14 said *"spot-checked three severe cases; two are wrong"*. **It is one of three.**
+
+`robot-hands.com/gripper-detail` I called wrong twice, on the grounds that its description
+said *"full specifications for this gripper"* while the page read *"Filter the catalog
+by payload, stroke, actuation type…"*. **I was judging the page from 170 characters of its
+middle.** Its actual `h1` is **"Gripper Specifications"**, and its headings run
+*"Specification data you can measure"*, *"Every Tool You Need to Specify the Right
+Gripper"*. The filtering line is one section inside a specifications page. **Both the old
+and the regenerated description are accurate, and my criticism was wrong.**
+
+`webdesign.co.uk/news` **is** genuinely wrong and is now fixed:
+- was: *"What is changing in web design — browsers, CSS, accessibility rules and AI tooling, with a UK slant."*
+- now: *"Stay updated on new tools, guides, and web standards as they're built and published."*
+- the page: `h1` *"News from webdesign.co.uk"*, then *"New tools and guides, added as they're built"* — a site changelog, not industry commentary.
+
+⚠ And I nearly got that one wrong too: my first check of it fetched `/news.html` and got a
+**404**, which I would have read as a finding. The real URL is `/news/index.html`. **Third
+time this lane has been caught by a guessed URL** — take the URL from `pages.url`.
+
+### The misstep that cost real LLM spend
+
+The first regeneration query was `… WHERE meta_description <> '' … ORDER BY p.name LIMIT 25`.
+Over a set that never shrinks, **every run re-picked the same first 25 pages alphabetically
+and rewrote them again.** Progress sat at 343 across four dispatch rounds while each run
+reported `selected: 25, written: 24`. The runs were working; the *selection* never advanced.
+
+Fixed by joining the backup and selecting only rows that still hold their pre-regeneration
+text — which makes the query self-limiting and the whole operation resumable. Proven rather
+than assumed: webdesign.co.uk went 105 → 80 still-to-do in one run, exactly 25.
+
+**The tell I should have read sooner:** a counter that does not move while every individual
+run reports success. I fired four more rounds before diagnosing.
+
+### The abandoned approach, and why
+
+The first plan targeted only descriptions written while the sample was degraded, using the
+OLD concatenate-then-strip measure to identify them. **That predicate is not stable** — it
+is the same order-sensitive expression `518` fixed, and it classified `gripper-detail` and
+`product-detail` in opposite directions depending on which query evaluated it. A target set
+that changes between evaluations is not a target set, so the scope became *every* live
+description, which is also the plain reading of the instruction.
+
+### Result
+
+| | |
+|---|---|
+| regenerated | **681** |
+| refused by the copy gates (`voice_tell`), previous copy retained | **23** |
+| mean length | 130 → **117** chars (the ≤20-word rule from `501`) |
+| seeded agent | **still fill-blanks-only** |
