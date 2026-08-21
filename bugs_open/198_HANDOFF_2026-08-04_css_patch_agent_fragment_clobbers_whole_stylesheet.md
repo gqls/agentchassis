@@ -1288,6 +1288,20 @@ sites is the complete change; both sites re-checked serving 200 with unchanged b
 **Migration 548** then seeds `webdesign.uk` from the `vm-sites` blob (see the correction in
 §5 above — it was never "cleared"), which was the last row on the refusing side.
 
+**The guard and the detector cover each other's blind spots, and that is only legible if
+someone says so** (raised by the `remortgagecalculator.uk` lane, recorded here at their
+suggestion). 542's floor is **size-based, not emptiness-based**, precisely because of the
+three 1,649-byte bare-`:root` rows that lane's fleet sweep turned up — a row holding a
+palette block and no layout rules deploys a page where every variable resolves and every
+layout rule is gone. That shape is in **IMP-055's own stated gaps as NOT caught**: the
+`stylesheet_gutted` check keys on definition coverage, so a file that still defines every
+custom property passes it. Conversely the check catches `bugs_open/211`'s shape — a ~26KB
+stylesheet whose alias `:root` block is absent — which no byte floor can see.
+
+So: **the guard refuses the write, the check observes the artefact, and neither subsumes the
+other.** A later reader tempted to retire one of them on the grounds that the other exists
+should read this paragraph first.
+
 **Fleet gate verdict, measured at each step:** 19 PASS / 3 REFUSE (542 applied) → **21 PASS /
 1 REFUSE** (547) → **22 PASS / 0 REFUSE** (548). Every linked theme row in the fleet is now a
 plausible, unshared stylesheet, and 543 keeps them that way at every render.
