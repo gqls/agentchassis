@@ -1,0 +1,66 @@
+{
+  "rationale": "ROUND 3. Round 2 = REVISE, gated by prior_art_librarian; one gating objection is a MISREAD I can settle with the cited file's own text, and the other two objections were right and are now built. (A) GATING, prior_art_librarian: 'the landmine list carries an entry keyed exactly platform/validation.WalkSteps with the same text as every other flagged hand-written walker'. Read the entry (LANDMINES, footprint `validation.WalkSteps`): it flags the HAND-WRITTEN descent and names WalkSteps as the REMEDY - 'validation.WalkSteps was extracted precisely to abolish this descent (bugs_open/144: two hand-written traversals blind in the same direction, agreeing with each other), and cmd/config-key-audit adopted it on 2026-07-29'. The entry's own prescription is 'From Go, call validation.WalkSteps and inherit the fix instead of re-deriving the bug' - which is exactly what the audit does. So the footprint matched but the polarity is inverted. I am not resubmitting on that alone: the SAME entry lands a real hit elsewhere ('if a migration must touch every carrier, drive it from the recursive walk rather than a hand-typed list'), which is a defect in my SIBLING submission (101ed0c6, migration 516) and is now fixed there. (B) editquality, medium - RIGHT, and now closed: nothing verified the shared parser agrees with the retired ExtractActionInputs algorithm on the 6 live `!` wires. marked_config_key_parity_test.go transcribes the retired algorithm and asserts agreement on ALL 56 marker spellings live in the fleet (recursive census, every depth, both loop containers), with vacuity controls (>=2 strict, >=10 optional exercised) and a mutation proof (single-trim the base -> parity fails). It also caught a wrong prediction of mine: I expected `field!?` to diverge and it does not, because TrimSuffix strips a SUFFIX so the retired form's first branch is a no-op on a key ending `?`; the only divergence is `field?!`, on an empty live population, now pinned with the agreeing case beside it so the divergence set is known COMPLETE. (C) guardian, medium (input_mapping is the shared allow-list gate for three dispatchers): the extraction moved THAT surface's algorithm into the shared parser rather than replacing it, so its behaviour is identical by construction - and (B)'s parity test is now the mechanical proof of that claim rather than my say-so. input_contracts' own suite passes. (D) architecture, medium (the audit has no scheduled runner): accepted and unchanged - it is stated as a residual in risks, its home is the daily CronJob pattern optional-key-budget-check uses, and wiring it needs an image before an overlay. No new edits since round 2 other than the parity test; the marker code itself is unchanged and has been LIVE on v1.0.1321 throughout. NOTE ON THE EDIT LIST: the acks-file row is omitted here because it belongs to the sibling submission (101ed0c6, migration 516) which carries its entries; this round's only new edit is the parity test.",
+  "plan": {
+    "summary": "Round 2: extract the marker grammar into one shared parser used by both surfaces, and add an offline fleet audit + acks file that blocks the first `?` adopter until its downstream absence-safety is stated. Census re-run two ways after the round-1 instrument was shown to miss `substeps`.",
+    "edits": [
+      {
+        "file": "platform/orchestration/datahelpers/action_inputs.go",
+        "operation": "modify",
+        "rationale": "Add `MarkedConfigKey(key) (base, strict, optional)` — the ONE parser for the suffix-marker grammar — and route ExtractActionInputs' marker detection, its config normalisation, and UnknownConfigKeys through it. Its doc comment records WHY it implements input_mapping's existing algorithm rather than mine: 77 live `?` keys there, 0 here. ALSO in this file: UnknownConfigKeys recognises the `?` spelling exactly when the base field is declared, reporting an unrecognised base in the spelling the author wrote — same rule as `!`, via the same shared parser.",
+        "sketch": "strict = HasSuffix(k,\"!\"); optional = !strict && HasSuffix(k,\"?\"); base = TrimSuffix(TrimSuffix(k,\"!\"),\"?\"). Callers skip base==\"\" (a bare marker names no field)."
+      },
+      {
+        "file": "platform/orchestration/input_contracts/input_mapping.go",
+        "operation": "modify",
+        "rationale": "Both parse sites (ResolveInputMapping and WithItem) call the shared parser instead of re-deriving HasSuffix/TrimSuffix inline. Behaviour byte-identical by construction — the shared parser is this file's algorithm, moved, not a new one. This is the reuse_agent seat's objection closed at the code level rather than at the semantics level.",
+        "sketch": "actualDestField, isStrict, isOptional := datahelpers.MarkedConfigKey(destField)"
+      },
+      {
+        "file": "cmd/config-key-audit/optionalexplicitwires.go",
+        "operation": "add",
+        "rationale": "The gating objection's mechanical answer: `--optional-explicit-wires` walks every live definition (validation.WalkSteps — top-level and nested, BOTH container spellings) and reports every `?` key sitting directly on a step config, excluding the input_mapping surface. Exit 0 = all acknowledged (zero wires is a legitimate pass), 1 = a live unacknowledged wire, 2 = the check could not run (unreadable export or acks file) — which must never read as a pass. A missing acks file is an error, not an empty ack set, because both silent readings are wrong.",
+        "sketch": "findOptionalExplicitWires(agents, acked) skips strict and bare markers; Acknowledged: acked[step.Action+\".\"+base]; loadOptionalExplicitAcks ignores `_`-prefixed doc keys and entries whose `downstream` is blank, warning on each."
+      },
+      {
+        "file": "cmd/config-key-audit/optionalexplicitwires_test.go",
+        "operation": "add",
+        "rationale": "Six tests, each with the control that makes its negative non-vacuous: unacknowledged-by-default (+ the acked case, so the two states are distinguishable); input_mapping surface ignored (+ CONTROL moving the same key onto step config, else a broken walker would pass); `!` ignored; nested wire found under BOTH sub_workflow and substeps (the census hole the guardian named); a hollow ack does not count (+ CONTROL that a real one does); a missing acks file errors. Header records three mutation proofs in no-op form.",
+        "sketch": "Fixtures decode from JSON through the real liveAgent decoder rather than hand-built structs, so they cannot agree with the walker by construction."
+      },
+      {
+        "file": "cmd/config-key-audit/main.go",
+        "operation": "modify",
+        "rationale": "Dispatch the new mode, following the existing one-if-per-mode shape.",
+        "sketch": "if os.Args[1] == \"--optional-explicit-wires\" { emitOptionalExplicitWires(os.Args[2:]); return }"
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
+        "operation": "modify",
+        "rationale": "§10.15 gains the round-1 verdict, the corrected census (with the `substeps` hole named as a wrong call, since it was one), and the adoption gate — replacing the sentence that told readers to count config keys with the tool that counts them.",
+        "sketch": "dated correction beneath the existing section, per the append-and-correct rule."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/contracts-and-standards.md",
+        "operation": "modify",
+        "rationale": "CTS-060 point (5) updated: the shared parser is now the single grammar for both surfaces, and adoption is gated by the audit + acks file rather than by convention.",
+        "sketch": "amend the existing (5) in place with the round-2 facts and the tool name."
+      },
+      {
+        "file": "platform/orchestration/datahelpers/marked_config_key_parity_test.go",
+        "operation": "add",
+        "rationale": "editquality's medium: pins 'the extraction changes no behaviour' against the live corpus instead of asserting it in a doc comment. Transcribes the retired ExtractActionInputs algorithm, asserts parity across all 56 live marker spellings, controls for vacuity on both marker kinds, and pins the one degenerate divergence (`field?!`) together with the agreeing case (`field!?`) so the divergence set is complete rather than merely non-empty.",
+        "sketch": "legacyActionInputsParse() transcribed in-test; liveMarkedKeys from a recursive census 2026-08-21; mutation: single-trim MarkedConfigKey's base -> TestMarkedConfigKeyMatchesTheRetiredAlgorithmOnEveryLiveKey fails."
+      }
+    ],
+    "grounded_in": [
+      "Round-1 council report (corr 5f82423b, decision revise, decided_by 'gating objection from bug_historian'): 'ships zero of them and audits none for whether their downstream code actually treats absent as the safe no-op vs an unguarded empty-string/zero-value that gets rendered or persisted'.",
+      "Round-1 reuse_agent: 'it is re-implementing marker-parsing logic ... as a second independent copy in action_inputs.go rather than extracting a shared helper used by both'.",
+      "Round-1 guardian: 'a live-config census on nested config strings is exactly the kind of query that silently misses populations (nested sub_workflow/substeps ...)' — CONFIRMED as a real hole in my round-1 census, not merely a possible one.",
+      "cmd/config-key-audit/sharedoutputs.go:45-48: 'a loop body as EITHER substeps or sub_workflow, and substeps WINS at execution ... The private descent read sub_workflow ONLY' — the documented precedent for why the round-1 census under-counted.",
+      "Live re-census 2026-08-21, path-assumption-free SQL walk over every key at every depth of all 194 live definitions: 0 `?` on the ExtractActionInputs surface, 77 on input_mapping, 6 `!` on ExtractActionInputs, 1 `!` on input_mapping — non-zero populations prove the instrument discriminates.",
+      "`go run ./cmd/config-key-audit --optional-explicit-wires` over the live fleet export: '194 agents decoded (0 undecodable), 0 live `?` wire(s) ..., 0 unacknowledged', exit 0; and with one `?` injected into the real export at tool-generator/save_tool: exactly 1 finding, unacknowledged, exit 1.",
+      "Roll verification 2026-08-21: both chassis pods on one digest sha256:3ed50651…, image label revision 0483e7f4e, `git merge-base --is-ancestor ecc419bd1 0483e7f4e` true with a later-commit control false — the round-1 code is live, so this round revises a live seam."
+    ],
+    "risks": "The round-1 code is ALREADY LIVE (v1.0.1321) — this round cannot be held back and does not pretend otherwise; what bounds it is that the marker has zero adopters, measured two independent ways. The audit is a NEW check with no schedule yet: nothing runs it, so today it protects only an author who runs it, and its natural home is the daily CronJob pattern the optional-key-budget check already uses (deliberately not wired here — the image must exist before the overlay, the trap removed-config-keys-check's cronjob.yaml records). Until then a first adopter could land unaudited, which is a smaller hole than round 1 had but is not zero, and is stated rather than papered over. The shared parser touches a surface with 77 live consumers: behaviour is byte-identical by construction (their algorithm moved, not replaced) and the input_contracts suite passes, but this is the change in this round with real live reach, not the marker. Neither the audit nor the marker closes 330's unmarked-field fall-through; that stays candidate 2, gated on the unsampled 269-pair remainder. ROUND 3 addition: the gating objection was a footprint match with inverted polarity (the landmine names validation.WalkSteps as the fix, not the trap) - if the council still reads it the other way, say so explicitly and I will treat the audit's traversal as unproven and pin it with a fixture carrying a nested carrier under both container spellings, which the test file already does (TestOptionalExplicitWireFoundInNestedSubsteps)."
+  }
+}
