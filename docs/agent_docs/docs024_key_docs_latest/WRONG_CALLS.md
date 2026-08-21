@@ -40629,3 +40629,74 @@ the user's nudge cadence decides that, invisibly. Second double-tool page served
 build+retire window — only a bare foreground `sleep` is blocked, a compound loop is not.** Proven
 same day. The rule is now "file, then hold the turn with the loop until the retire lands", which is
 checkable at filing time rather than a prophecy about turn boundaries.
+
+## 2026-08-21 — I shipped a ladder whose TERMINAL transition cannot execute, and fifteen sqlmock tests could not see it because a mock never types a placeholder (bugfix 307 lane)
+
+**What I did.** `writeCountingLadder` builds its UPDATE by string concatenation and then binds five
+parameters. When `backoffMins == 0` the `retry_after` fragment collapses to a literal
+(`retry_after = NULL,`) — which **removes `$4` from the statement text** — while the bind list still
+passes `backoffMins` as the fourth parameter. Postgres cannot type a parameter that appears nowhere:
+**SQLSTATE 42P18, `could not determine data type of parameter $4`**. The write errors.
+
+`backoffMins` is 0 on exactly the terminal attempt. So **`failed` at `max_attempts` was unreachable
+through the Go ladder** — the §5(c) honesty case, the disconfirming one I was proudest of having
+tested, could not run in production. Found by the peer session's close canary at attempt 3, and
+independently on a natural `fail_work_item` 100 seconds later.
+
+**And it is wider than the terminal case.** Enumerating every path that sets it to 0:
+1. the terminal attempt;
+2. **`DISABLE_WORK_ITEM_RETRY_BACKOFF` set** — so the kill switch I shipped as the safe way to
+   disarm a misbehaving backoff would have broken *every failure write on every attempt*. A disarm
+   that takes the whole failure path down is worse than the behaviour it disarms;
+3. a `reaper_policies` row with `backoff_minutes <= 0` — operator-editable, no build required.
+
+The recovery I wrote for "binary arrived before its migration" (`noteMissingRetryAfterColumn`) can
+never fire either: when the column is absent the fragment is `""`, so `$4` is unreferenced there
+too and the error is 42P18, not the 42703 it matches on.
+
+**Why my tests could not catch it.** Fifteen tests, five mutations, a source-scan for the guard
+clause — and every one of them ran against **sqlmock, which never types a placeholder**. It matches
+statements as regexes and arguments by count and value; the relationship between "how many `$n`
+appear in the text" and "how many args are bound" is exactly what it does not model. **Every
+assertion I wrote was about SQL as a STRING, and the defect was in SQL as a PROGRAM.** The mutation
+testing gave me real confidence and was real — about the wrong layer.
+
+**The cheap checks that would have caught it, in order of cost:**
+- `grep -o '\$[0-9]' <the built statement> | sort -u` against the length of the args slice, in a
+  table-driven test over every branch that varies the SQL. Pure string arithmetic, no database.
+- Or: construct the statement and args **as one unit** so they cannot disagree, which is what the
+  fix does — the class of defect stops being expressible rather than being tested for.
+- Or once, by hand: run the terminal case against a real Postgres. One row would have said it.
+
+**The transferable shape: a test suite can be rigorous about the wrong layer, and rigour is what
+disguises it.** I would have distrusted three thin tests. Fifteen with mutation proofs read as
+thorough, and their thoroughness is exactly why I never asked what they structurally could not see.
+Ask of any suite: *what class of defect can this harness not represent?* For sqlmock the answer is
+"anything the database's parser or planner would object to".
+
+**Cost:** the fix reached production and its most important arm — dying honestly at
+`max_attempts` — did not work. Contained only because the estate ran a canary that drove three real
+attempts instead of trusting the tests.
+
+## 2026-08-21 — I reported "no canary traces in the error log" from a filter that could not have matched them (bugfix 307 lane)
+
+Looking for whether a peer session had run the close canary, I searched:
+
+```sql
+WHERE occurred_at > NOW()-interval '2 hours'
+  AND (error_message ILIKE '%canary%' OR error_message ILIKE '%not found%')
+```
+
+Zero rows. I reported "no error traces — so the canary was not completed." The traces existed. The
+canary's failures were a `load_page_record` error and two **42P18** rows, and **neither contains the
+word "canary" nor "not found"** — the canary is identified by the *item*, not by the error text.
+My filter encoded a guess about how the evidence would be worded and then I read its silence as the
+system's.
+
+**The cheap check:** when hunting for traces of a known ROW, join on the row — `work_item_id`,
+`site_id`, the orchestration correlation — never on a guess about prose. And when a filtered query
+returns zero, re-run it with the filter removed before reporting the zero: if the unfiltered
+version is also empty the absence is real, and if it is not, the filter was the finding.
+
+This is the fourth entry in this file's family of *"my measurement answered the question I encoded,
+not the one I asked"* — and the second in two days where **the filter itself was the bug**.
