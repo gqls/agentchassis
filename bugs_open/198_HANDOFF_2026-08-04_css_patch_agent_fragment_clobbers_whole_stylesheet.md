@@ -594,3 +594,33 @@ reading it is not a bug in the fork but the fork doing its job for a producer th
    clobbered — the token is emitted into the file, so a clobbered file loses it. Any component
    switched to the token renders an invalid `var()` there until the file is restored. **That
    makes the three outstanding restores a dependency of the fleet fix, not housekeeping.**
+
+> **CORRECTED 2026-08-21 — point 4 above is WRONG. The three outstanding restores are NOT a
+> dependency of the ink fix.** I wrote that a component switched to `--color-primary-ink` would
+> render an invalid `var()` on oufe.com, whose clobbered file carries no such token, and
+> concluded that the restores block the fleet fix. The opt-in form is **two-level** —
+> `var(--color-primary-ink, var(--color-primary))` — so an absent companion falls through to the
+> raw palette colour, which is the pre-2026-08-06 behaviour and is also how the mechanism's
+> kill-switch works. On a site with no token the repoint is a **no-op**, not a breakage.
+>
+> Caught by the `news_editorial` lane, from `buildLegibleInkDefaults`'s own comment. My error was
+> reasoning from the token's absence in the served CSS without reading how consumers are told to
+> reference it — the same shape as the `retry_after` mistake I withdrew yesterday: **an absence
+> is only evidence once you know what reads it.**
+>
+> **The restores still matter and their justification is unchanged** — three live sites serving a
+> near-empty stylesheet, and any contrast census taken over them is a floor rather than a count.
+> They are simply not blocking anyone else's work, and no one should sequence behind them.
+>
+> Two refinements to the table in point 3, same source:
+> - The tokens target **`inkMinContrast = 5.0`**, not AA's 4.5. `inkFloorContrast` (4.5) is a
+>   separate constant for the `-text` slots, with a test that fails if the two are merged. So
+>   "all six clear AA" understated what the mechanism guarantees.
+> - **A repoint that silently strips the brand scores a CLEAN contrast pass**, so neither the
+>   render audit nor this file's evidence can see it. Between 2026-08-06 and 08-14 `-ink`
+>   resolved to `--color-text` in practice; the 08-14 `LegibleVariant` repair fixed that, and the
+>   check that demonstrates it is a hue comparison the audit cannot supply: robot-hands
+>   `#E8500A`/`#f77f47`, dartsonline `#E8311A`/`#f18072` — each ink a lighter member of its
+>   accent's own family, nothing like the text colour. **Anyone repointing a token here should
+>   run that check as well as the contrast one**, because contrast alone cannot distinguish a
+>   legible brand colour from a legible grey.
