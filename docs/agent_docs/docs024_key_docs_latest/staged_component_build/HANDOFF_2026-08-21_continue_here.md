@@ -102,7 +102,9 @@ standing lesson and it has bitten twice today.
 | tool-generator runs in that window | **8** (≈1 conflict row per run) |
 | cross-link items on webdesign.co.uk | 32 rows, 9 tools, 2 pages, **0 complete** |
 
-**As of 18:0xZ: ZERO tool-generator runs since the apply.** So there is nothing to read yet.
+**As of 18:2xZ: still ZERO tool-generator runs since the apply.** The 306 session independently puts
+its last run at **16:40:11Z — before the 16:55Z apply**. So there is nothing to read yet, and a
+"quiet class" reading here would be pure demand starvation. It runs ~8–16×/24 h, so allow hours.
 
 ⚠ **THE TRAP 516 CREATED FOR ITSELF:** `related_pages` **was** tool-generator's own instrument-alive
 control, and 516 removed it. A post-apply zero on this class can no longer be checked against a
@@ -129,6 +131,12 @@ the failure mode, and it is why the item count is the control rather than a seco
 | bdl/`commit_sha` conflict rows since apply | **0** | pre-rate ≈ 20/h over 43 h, so ~45 were expected |
 | items completing WITH a sha since apply | **22** (page-rerender 22 of 25) | the field is still being WRITTEN — not the double-zero failure |
 | `tool-generator` items with a sha | **0 of 2** | **the prediction holds** — it never produced one |
+
+**INDEPENDENTLY CONFIRMED ~18:2xZ by the `bugs_open/306` session, on a stronger sample than mine:**
+**263 conflict rows in the 9 h BEFORE the apply, 0 since, against 19 real bdl runs post-apply** —
+genuine demand, not a quiet window. Their per-handler spot-check: page-rerender 28/31 (3 legitimate
+skips), css-patch-agent 2/2, tool-generator correctly 0/4, page-build-handler 0/4 *with all four
+traced to the no-sections path*. **537 is VERIFIED**, by two sessions, two routes, neither assuming.
 
 **Two things that look alarming and are NOT, both checked rather than assumed:**
 - **`page-build-handler` recorded 0 of 4**, against a ~62% base rate (32/52 pre-fix). Checked at the
