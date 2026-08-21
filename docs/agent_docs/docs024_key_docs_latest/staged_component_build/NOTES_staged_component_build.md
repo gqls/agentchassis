@@ -6742,3 +6742,34 @@ the tool-generator case proved is a property of the resolver being replaced, not
 
 Pinged them; nothing further owed from this lane on commit_sha unless the wire's build turns up
 something that needs another handler-side fix.
+
+## 2026-08-21 (~16:3xZ) — 512 VERIFIED (at last), which is 516's apply condition
+
+The 306 session's migration 512 (tool-generator/`reason` → `input_fields`) has been applied but
+**unverifiable since 17:38Z yesterday for want of demand**. Demand arrived: **8 tool-generator runs
+since the 17:38:34Z boundary**, last 14:13:25Z today.
+
+**Their stated test, run verbatim — PASS:**
+
+| class | rows since boundary | reading |
+|---|---|---|
+| `reason` | **0** | the fix holds |
+| `related_pages` | **8**, last 14:15:34Z | **the instrument is ALIVE** — same agent, same code path |
+
+That second row is the whole point of their test design: *"pass = `reason` 0 **while `related_pages`
+keeps firing** — if both go quiet the instrument died and the zero means nothing."* Both conditions
+met, in the same agent, so the zero cannot be explained by a dead recorder. Fleet-wide control also
+alive (294 `RESOLVER_CONFLICTING_CANDIDATES` rows in the window).
+
+**Detection floor:** 8 runs against a pre-fix rate of ~16 rows / 16 runs per 24 h ≈ **1 row per run**,
+so ~8 rows were expected and 0 arrived. That is a strong pass, not a thin one — unlike the 4-run
+`page_type` read earlier today, which I flagged as inconclusive and still do.
+
+**Consequence: migration 516's apply condition is now MET.** Its header requires both (1) tool-generator
+has run since 512's boundary — 8 — and (2) 512 reads PASS — it does. The header also requires this
+verdict be recorded in the lane NOTES **before** applying, which is what this entry is.
+
+⚠ **After 516 applies, `related_pages` stops being available as the instrument-alive control** (that is
+the whole reason 516 was held). Any later verification of tool-generator classes must take its
+control from ANOTHER agent's live class — `bdl`/`commit_sha` is the obvious one, 294 rows fleet-wide
+in this window.
