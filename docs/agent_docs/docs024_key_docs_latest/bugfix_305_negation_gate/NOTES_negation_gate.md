@@ -505,3 +505,36 @@ count carried in the step's OUTPUT (`copy_gate_<N-1>`), never a bare state key.
 `webdesign.co.uk`/`tool-social-card-guide` iteration 2 and the earlier `tool-social-card-guide` run:
 `hits_before 0`, `status clean`, orchestration **COMPLETED**. The new step does not disturb a healthy
 build.
+
+### ⚠ MISSTEP 9 — the repair was being made and thrown away, and I had the evidence two hours earlier
+
+Two pages built after the roll, both COMPLETED, both reporting `status: repaired, hits_before 1 →
+hits_after 0`. The stored `content_data` was **byte-identical to the pre-repair value**.
+
+The in-place mutation of the writer's content map does not survive the step boundary:
+`saveStepResultWithRetry` reloads a fresh state and copies only the CURRENT step's own
+`stepName`/`output_field`, so an edit to the PREVIOUS step's output is dropped and the renderer reads
+the unpatched map.
+
+**I had already measured the mechanism.** When `__copy_gate` turned out to be absent from the durable
+row, I concluded "the page counter will not persist" and stopped. The same sentence explains why an
+in-place content edit does not persist either, and I did not follow it through — I had a working
+theory for the symptom in front of me and did not ask what else it predicted. **A mechanism you have
+just proved is a tool for the next question, not only an answer to this one.**
+
+Ruled out before fixing: `render_component`'s `merge_with` overlay wins conflicts, so it could have
+overwritten the patch. It did not — the stored text is the LLM's own original, not a resolved value.
+
+**Fixed:** the step now returns the patched content as its own `result`, and migration `548`
+(**HELD**) points `render_section.content_from` at it.
+
+**Precisely where this lane now stands: the gate detects correctly, selects correctly, rewrites well,
+and does not yet change pages.** One roll, then `548`, then one page to confirm at the artefact.
+
+### MISSTEP 10 — backticks in a commit message, which is in the fleet memory index
+
+`git commit -m "…returns the patched content as its own \`result\`…"` executed the backticked word;
+bash reported `result: command not found` and the message committed with the word missing (`dd9fc619`,
+corrected in `99ee9a5e2`). It is a documented trap and I read the line this session. Third documented
+trap in two days — **the signal is the rate, not the miss: known traps get hit when the content of a
+message feels more important than its mechanics.** Use `git commit -F -` with a quoted heredoc.
