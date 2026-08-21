@@ -42257,3 +42257,45 @@ pornographic content and offers to build within the customer's own line of work.
 **Tally line.** "Narrowed one of a fact's two consumer fields" — 1 (this). Family: the
 `writer_block`-vs-`facts` drift landmine of the same morning. Both are the same underlying
 error — *one statement, several stores, one reader each* — and the tally is now 2 in a day.
+
+---
+
+### 2026-08-21 — `bugfix_315` lane: I quoted a small sample's MAXIMUM as "the tail", and was wrong by two orders of magnitude — the mirror of my own retention error four hours earlier
+
+**The claim.** The divergence check's settle window is 30 minutes. To justify it I ran a 2h42m watcher
+— **1,099 re-probes, 85 pages, 95 deploy events** — and found the only 3 divergent readings at ages
+**1s, 13s and 14s**, with 0 of 995 readings at age ≥157s diverging. I wrote, in the check header, the
+PLAN, the concept register, the handoff and a commit message, that 30 minutes was **"roughly 128x the
+largest lag actually observed"**.
+
+**What was wrong.** Re-running the artefact proof after go-live, a random 40-page sample returned
+**2 DIVERGED** — aged **15 and 21 minutes**. Tracked to convergence, the largest divergence age is
+**~1012s, about 17 MINUTES**. So the real margin is **~1.8x**, not 128x. The window is still correct
+and still load-bearing (those 2 pages are 2 false items it prevented in a single sample), but the
+safety argument I published for it was off by two orders of magnitude.
+
+**The sample was not lying; my summary of it was.** 95 deploy events over one afternoon happened to be
+fast ones. Quoting a sample's maximum as though it bounded the population is the error — and it is
+**exactly the shape of the mistake I had made four hours earlier and written up on this page**: reading
+`orchestration_states` (which reaps after ~24h) as "all history". Twice in one session, in opposite
+directions — once treating a truncated window as complete history, once treating a small sample's
+maximum as a bound. **Both are "I know the shape of this distribution" claims made from data that
+could not show me its shape.**
+
+**What caught it.** Not a reviewer this time — **re-running the proof after the change was live**,
+on fresh data, against a random sample rather than the population I had already measured. The earlier
+sweep was 228 of 228 healthy; the new one caught two in-flight pages precisely because it ran at a
+different moment.
+
+**The cheap check.** When a measurement's job is to bound a tail, say what it CAN'T see: *"n events
+over T hours; the slowest was X; nothing here bounds a batch slower than the ones sampled."* Typing
+that sentence is the check, because it makes "128x" impossible to write. And when a figure is
+load-bearing enough to be quoted in five places, **re-measure it on fresh data before it goes into the
+fifth** — a second sample at a different moment is cheap and is the only thing that would have caught
+this.
+
+**A genuinely useful by-product.** The tracked page went MATCH → DIVERGED → MATCH, 67 seconds apart —
+**non-monotonic**. Delivery lands progressively across edge nodes, so a probe gets whichever version
+answers. The check's "confirmation fetch must agree with the first" guard was written for *origin
+mid-write*; it turns out to be load-bearing for **edge propagation**, which is a better justification
+than the one it shipped with.

@@ -1,39 +1,45 @@
 # 315 — `pages.deployed_at` is stamped whether or not the object is written, and one page has now been skipped by FOUR completed rerenders
 
-**Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane. **Status: OPEN, OWNED** by
-`docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/` — **three of the
-four fix candidates are DELIVERED; two migrations are written and proven but NOT YET APPLIED.**
+**Filed 2026-08-18** by the `webdesign_tool_rebuilds` lane.
+**Status: CLOSED 2026-08-21 — fixed AND live AND proven at the artefact.**
 
-> **STATE AS OF 2026-08-21 EVENING — read the lane's handoff before acting on anything below:**
-> `docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/HANDOFF_2026-08-21_continue_here.md`
+> **WHAT CLOSED IT.** All four fix candidates are resolved or deliberately re-scoped:
 >
-> - **Candidates 1 + 2 — DELIVERED AND LIVE.** Migration 491 removed the two pre-deploy stamps; the
->   git-adapter now reports `commit_sha` + `files_sha256` (RFC_038, register `DGH-013`); and
->   `update_page_status` refuses the stamp on a reported skip and writes `pages.content_hash`
->   (migration 494, applied 2026-08-20). `[MEASURED 2026-08-21]` **232 pages carry a fingerprint**,
->   where all estate history had 0.
-> - **Candidate 4 — BUILT, LIVE IN THE BINARY, NOT YET SWITCHED ON.** The divergence sweep is
->   `page_content_divergence` (register `DGH-015`), shipped in chassis `v1.0.1322`. Two migrations
->   remain to be applied, **in this order**: `547` (arm three unarmed deployed-stampers) then `526`
->   (enable the check). `526` REFUSES if `547` has not run.
-> - **⚠ §5 CANDIDATE 4'S OWN METHOD DOES NOT WORK, and this file still describes it below.** Comparing
->   `deployed_at` against origin `last-modified` — including the §2 table above — returned **40 of 40
->   "stale" on healthy pages, persisting 85 minutes**, when run across the fleet on 2026-08-19. A
->   byte-identical rerender legitimately rewrites nothing, so the origin's mtime cannot answer this.
->   **Only a content hash separates "never needed republishing" from "failed to republish"**, which is
->   this bug's deep finding and why the delivered fix records a fingerprint instead. §2's conclusion
->   ("the column tracks a rerender ran, not bytes were written") is **correct**; its method is not
->   reusable.
-> - **Candidate 3 — NOT ANSWERABLE FROM HERE, by design.** "Why did one page fall out of the batch"
->   lives in the private `gqls/sites` runner repo. Candidate 4 detects that failure from this side
->   instead of explaining it from theirs.
-> - **TO CLOSE THIS BUG:** apply `547`, then `526`, then confirm one real run of the check (damage
->   query FIRST — see the migration headers). The lane's own proof is re-runnable:
->   `[MEASURED 2026-08-21]` 228 of 228 active hashed pages served bytes hashing exactly to their
->   stored fingerprint, across 12 domains.
-
-Two findings: a **measurement defect** that makes the failure invisible (§2), and a **live instance**
-of the failure it hides (§3). The measurement defect is the more important of the two.
+> - **Candidate 1 (stamps before any deploy) — FIXED AND LIVE.** Migration `491` removed the two
+>   pre-deploy stampers. "Stamps before any deploy" went 2-of-5 → **0**.
+> - **Candidate 2 (the stamp ignores the deploy result) — FIXED AND LIVE.** The git-adapter now
+>   returns `commit_sha` + `files_sha256` (RFC_038, register `DGH-013`), and `update_page_status`
+>   refuses the stamp on a reported skip and records `pages.content_hash` — the sha256 of the bytes
+>   actually committed. Migrations `494` (2026-08-20) and `547` (2026-08-21) armed all **six** live
+>   deployed-stampers; **zero remain unarmed**.
+> - **Candidate 4 (detect divergence) — BUILT, LIVE AND PROVEN.** `page_content_divergence`
+>   (register `DGH-015`), shipped in chassis `v1.0.1322`, enabled by migration `526` at 19:23Z.
+>   Proven by the discovery run's own record on a site with 21 judgeable pages:
+>   `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
+>   `checks_unregistered: []`.
+> - **Candidate 3 (why one page fell out of the batch) — NOT ANSWERABLE FROM HERE, by design.** The
+>   runner workflow lives in the private `gqls/sites` repo. Candidate 4 exists to *detect* that
+>   failure from this side rather than explain it from theirs. **This is a scope decision, not an
+>   omission.**
+>
+> **THE STATE OF THE FLEET, re-runnable:** `[MEASURED 2026-08-21]` **253 pages carry a fingerprint**
+> where all estate history had 0, and a fleet-wide sweep found every active hashed page serving bytes
+> that hash exactly to its stored fingerprint. *"Is this page serving what we sent?"* is now one
+> string comparison; on 2026-08-18 it took four steps and a judgement call.
+>
+> **⚠ TWO THINGS IN THIS FILE ARE REFUTED AND KEPT ANYWAY** — §2's table and §5's candidate 4 both use
+> `deployed_at` vs origin `last-modified`. Run fleet-wide on 2026-08-19 that method returned **40 of 40
+> "stale" on healthy pages, persisting 85 minutes**: a byte-identical rerender legitimately rewrites
+> nothing, so the origin's mtime cannot answer this. §2's *conclusion* — that the column tracks "a
+> rerender ran", not "bytes were written" — is **correct and is the finding that mattered**. Its
+> *method* is not reusable. Only a content hash separates "never needed republishing" from "failed to
+> republish", which is this bug's deep finding.
+>
+> **Residual, tracked elsewhere, none of it reopening this bug:** `PLAN` **D6** (make an unarmed
+> stamper NULL the hash rather than leave a stale one — the backstop for a future unarmed stamper) and
+> **D8** (widen the settle window to 60 min; the observed delivery tail is ~17 minutes, not the 14
+> seconds first measured). Lane docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/`
 
 ## 1. The one-paragraph version
 
