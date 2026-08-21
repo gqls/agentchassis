@@ -1,6 +1,20 @@
 # 311 — a section can be neither REUSED nor CREATED: the selector keys on `section_type`, the writer keys on `function`, and a component with one but not the other is invisible to the first and immovable to the second
 
-**Status:** OPEN — **FIX COMMITTED 2026-08-19 (`17d883333`), council APPROVED round 1
+**Status: CLOSED 2026-08-21 — fixed AND live AND the ORIGINATING PAGE HEALED at the served artefact.**
+`remortgagecalculator.uk/index.html` [MEASURED 18:45Z]: 200, **69,421 bytes, 6 `<input>`**
+(`calc-loan-amount`, `calc-interest-rate`, `calc-term-years`/`-months`, repayment-type toggle) —
+from 41,136 B / 0 `<input>` pinned the same evening. All six planned slots deployed, position 2 =
+diverted base row **`5d3bc513`** (`mortgages-repayment-remortgagecalculator-uk`, 16,591 chars
+rendered), `pages.build_status='deployed'`, `deployed_at` 18:43:31Z — the section-shortfall gate
+passed 6-of-6 for the first time since 08-17. **Seven diversions total, every incumbent
+byte-identical to same-day pins, both halves re-verified at the binary through v1.0.1322.**
+Residuals live in their OWN files, not here: `bugs_open/345` (retry-blindness; fix live both
+halves, demand bar open — a second attempt whose reason DIFFERS), `bugs_open/337` (the 16k cap),
+`bugs_open/315` (status-column truth, contributed), the `283` lane (unscoped diverted rows +
+section birth gate — owner design question), and two loanzy pages that are owner/lane calls
+(archived; `253` floor). Full trail: `docs/agent_docs/docs024_key_docs_latest/bugfix_311_component_keys/`.
+
+**Original status line, kept for the trail:** OPEN — **FIX COMMITTED 2026-08-19 (`17d883333`), council APPROVED round 1
 (`fc3ac5f4`, 4 advisories none high), and LIVE on v1.0.1315** (proven at the binary
 ~16:00 UTC: both replicas stamp `590ca3a20`, ancestry TRUE, `COMPONENT_COLLISION_DIVERTED`
 literal present, fake-sha control clean). **REAL-WORLD TEST PASSED 2026-08-19 20:16 UTC, all
