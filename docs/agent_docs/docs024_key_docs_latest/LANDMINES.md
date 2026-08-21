@@ -13788,6 +13788,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
   kubectl -n ai-persona-system exec $POD -- grep -aqF deadbeefdeadbeefdeadbeefdeadbeefdeadbeef /proc/1/exe && echo "CONTROL FAILED"
   ```
   Then the real question is ancestry, not equality: `git merge-base --is-ancestor <your-commit> <STAMP>`.
+  > **⚠ CORRECTED 2026-08-21 ~12:0xZ by the session that wrote this entry, hours later, after the
+  > council caught it: ANCESTRY IS NOT ENOUGH ON ITS OWN, and this entry as first written implied it
+  > was.** `merge-base` establishes *"the commit is aboard"*. What an interlock actually needs is
+  > *"the behaviour is aboard"* — a different claim about a different object. They come apart
+  > whenever you read the code at **HEAD** (which is ahead of the build) and pair it with an ancestry
+  > proof about the **stamp**: the branch you read could have arrived in a LATER commit, so the
+  > binary carries your commit and not your behaviour. Worked case, and it drew a HIGH-severity
+  > gating objection on migration 515: I read the `?` config peel at HEAD, proved `ecc419bd1` was an
+  > ancestor of `0483e7f4e`, and wrote VERIFIED. The conclusion held — on a check I had not run.
+  > **So add the third line, which costs nothing:**
+  > ```bash
+  > git show <STAMP>:<path/to/file.go> | grep -n '<the exact branch you are relying on>'
+  > git log --oneline -L '/<anchor line>/,+2:<path/to/file.go>'   # which commit introduced it
+  > ```
+  > Read the code **at the stamp**, never at HEAD. This matters most for exactly the class this entry
+  > is about: a pure-logic change has no probeable symbol, so ancestry is the *only* fallback — which
+  > makes the fallback systematically weaker than the capability probe it replaces, and invisibly so.
   ⚠ **Do NOT batch the candidates into one alternation.** `grep -aoE "sha1|sha2|…"` with 60 branches **times out past 2 minutes** against the binary; 60 separate fixed-string `grep -aqF` calls each return in about a second. Fixed-string is the whole difference — give `grep` `-F` and one pattern.
   ⚠ And the usual first resort is gone by the time you need it: the `build provenance` log line is a STARTUP line and had scrolled **14 h** after the roll on a full `kubectl logs`.
 - **the second-order point, which is the reason this is an entry and not a note.** The estate now has two probe classes and only one is documented: a change that adds a *literal* is provable at the artefact for as long as the artefact runs, and a change that adds only *logic* is not provable at all. **If you are writing a change whose ordering will need discharging later — anything destined for a `_HOLD` — add one probeable marker on purpose** (a `logger.Debug` naming the feature, or make one helper package-level). Four characters of foresight replaces this entire procedure.
