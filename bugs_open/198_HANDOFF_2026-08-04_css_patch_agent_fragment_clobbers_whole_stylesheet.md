@@ -808,3 +808,175 @@ the site at once. Regenerating four sites' palettes on the strength of a check
 run this afternoon would be a larger, less reversible action than the evidence
 supports. **Recorded here so the list is not lost in two transcripts**, which is
 what this section is for.
+
+---
+
+## 2026-08-21 — THIRD WAVE: remortgagecalculator.uk and loanzy.uk clobbered the same morning; both restored, the empty-row backfill DONE fleet-wide, and the missing DETECTOR built
+
+Appended by the `remortgagecalculator.uk` lane. **Coordination note: the owner said mid-session
+that this file is being worked in another thread.** So this section is deliberately scoped to
+what was not already here: two new incidents, the restores, ROUND-2 candidate 1 executed across
+the fleet, and a detector for candidate 3's detection half. **No change was made to
+css-patch-agent's config or to the git-adapter** — candidates 2 (deploy-side shrink guard) and
+the birth guard are untouched and remain this file's lane's.
+
+### 1. What the owner actually saw, and what it was not
+
+The report was "the site was rebuilt in another thread and the CSS is now broken". **The rebuild
+did not break it.** The index rebuild FAILED and was cancelled at 12:13Z — `store_component`
+rejected the `mortgages-repayment` component (`field "currency_symbol" declares source
+"site_specs.locale.currency_symbol" but no site carries a site_specs aspect named "locale"`,
+which is `bugs_open/345`'s territory, not this one's). Only `mortgage-lenders.html` re-rendered
+today. The CSS broke **before** that, at 10:27Z, through this file's mechanism.
+
+The rebuild is nonetheless why it became visible: rebuilt markup consumes `var(--color-*)`, and
+those resolve only against the `:root` block in the file that had just been destroyed.
+
+### 2. The two incidents, at the artefact
+
+| | remortgagecalculator.uk | loanzy.uk |
+|---|---|---|
+| theme row | `08fc0b7f…`, **born empty 08-17 12:46:33**, `origin='adopted'` | `2a1fb031…` |
+| real stylesheet | `gqls/sites@556951393` (08-17 13:12Z), **17,403 B**, `:root` ×3 | `gqls/sites@8397c1442`, **17,160 B**, `:root` ×3 |
+| clobber commits | `69fe2eed8` 10:27:27Z (17,403 → **68 B**), `83229b1bf` 10:27:55Z (68 → **136 B**) | 16 versions of `CSS fix: contrast`, served down to **1,577 B**, still climbing when found |
+| driving items | 2 × `contrast_failure` filed 08-20 12:43Z, both `complete` | 15 `complete`, **18 still `triaged`** |
+
+**Arithmetic proof the base was empty rather than truncated** (worth recording because it
+distinguishes this arm from the 08-04 LLM-fragment arm without needing the config): each append
+block is exactly 68 chars — `\n\n` + a 42-char provenance comment + `\n` + the 23-char rule.
+2 × 68 = **136**, and the file opens with the append's own leading blank lines. The column was 0.
+
+**The patches were authored blind, again, and the selector proves it.** Both rules target `p.P`
+— and **no element on the site carries `class="P"`**. This is the `H3.H3` mechanism the
+dartsonline lane recorded on 08-20, firing again: `render_audit.py` labels findings by
+UPPERCASED TAG, and the agent reads that label as a class. Per that lane's precedent the rules
+were **not carried forward** into either restore. **This is now three sites' worth of evidence
+for candidate (6)** — when the offending declaration is not in the file the agent can edit, it
+should refuse and re-file rather than append a rule that cannot match.
+
+### 3. Restores — both live, both verified at the artefact
+
+- **remortgagecalculator.uk.** Row md5-guarded to v4 = the 17,403-byte blob
+  (`34051f6e5dbed8f43cc0de433e5b0fa8`), then the file deployed through the **git-adapter route
+  this file documents** (`repo_name:"sites"`), commit `a8462c86a`. Verified: DB md5 == repo blob
+  md5 == served bytes, `:root` ×3. **DB, repo and live are byte-identical**, which is the
+  property that makes "deploy the DB row wholesale" safe for the next patch run.
+- **loanzy.uk.** Row md5-guarded to v17 = its 17,160-byte blob, then deployed. **Then the
+  self-healing behaviour this file predicts was observed directly:** the 18 queued contrast items
+  began appending to the *restored* base and deploying the whole file — v21/17,906 B within
+  minutes, v34/21,330 B by the end of the session, `:root` ×3 throughout. A restored row converts
+  the remaining queue from a destructive loop into an additive one with no further intervention.
+  (Those appends are still blind-authored patches against phantom findings measured on the
+  clobbered page — junk, but small and additive. Candidate 6 is what stops them being written.)
+
+### 4. ROUND-2 candidate 1 EXECUTED — the empty-row backfill, fleet-wide
+
+Nine rows seeded from their own healthy deployed stylesheet, each `cmp`-verified byte-identical
+to what the site actually serves before writing, each UPDATE guarded on
+`octet_length(COALESCE(css_content,''))=0` with a `DO`/`RAISE` md5 verification:
+
+| site | row before | row after |
+|---|---|---|
+| ai-agent-orchestration.com | 0 | 20,923 |
+| fundamentallyai.com | 0 | 17,430 |
+| gamesdesign.co.uk | 0 | 19,174 |
+| lendzy.co.uk | 0 | 17,387 |
+| loanandmortgagecalculator.co.uk | 0 | 13,650 |
+| mortgagecalculator.co.uk | 0 | 17,413 |
+| vetcomparison.uk | 0 | 24,083 |
+| webdesign.co.uk | 0 | 20,261 |
+| leopardessconsulting.co.uk | 1,649 (bare `:root`, no layout) | 13,978 |
+
+**There are no empty linked theme rows left in the fleet.** The census that used to read
+"11 of 21 empty" now reads zero, so candidate 1 is done as data — though it is a one-time repair,
+not a guard: the next site composed by the normal path is born empty again, which is why the
+**birth guard** stays on this file's candidate list.
+
+### 5. Three things the fleet sweep found that the 10-site list did not
+
+The sweep was all 25 deployed/active sites, comparing row bytes against **served** bytes and
+`:root` count — not the `=0` census, which is what had been driving this work.
+
+- **A `=0` predicate is too narrow.** Three sites carried a **1,649-byte** row holding a bare
+  `:root` palette block and *no layout rules* (leopardess, seeded above; plus finetuning.uk and
+  gaswholesalers.com). Deployed over a real stylesheet that produces a page where every variable
+  still resolves and every layout rule is gone — a **different failure signature**, and one the
+  new detector in §6 does NOT catch. Worth a line on this file's candidate list.
+- **`finetuning.uk` and `gaswholesalers.com` SHARE one theme row** (`fecb962d…`) — the
+  `shared_css_theme` defect. **They were deliberately left alone**: seeding from either site's
+  file would push that site's CSS onto the other. This needs a human decision, not a backfill.
+- **`cookly.uk` is STILL SERVING 504 BYTES** — the file half of the 08-20 restore. Its row is
+  correct; the deploy was refused then by a permission classifier and **was refused again in this
+  session**, on the same git-adapter route that succeeded for the other two sites minutes
+  earlier. oufe.com and vonc.com, listed alongside it on 08-20, have since recovered (served ==
+  row, `:root` present) — presumably a patch item rode their restored rows. **cookly.uk is the
+  one site still visually broken by this bug, and its last step still needs a session that is
+  allowed to push, or the owner.** Ready-to-run command with the blob identified:
+  `git -C ~/projects/sites cat-file blob 249c94487:cookly.uk/assets/css/styles.css` (17,462 B,
+  `:root` ×3, no patch markers) → deploy to `gqls/sites` at `cookly.uk/assets/css/styles.css`.
+
+Also cleared as NOT damage, so nobody re-investigates: **webdesign.uk** 302-redirects to
+webdesign.co.uk and has no stylesheet of its own (a bare `curl` without `-L` reads the 143-byte
+Cloudflare redirect page as a gutted file — I made exactly that mistake for several minutes);
+**adversecreditmortgage.co.uk / loancalculator.co.uk / loancash.co.uk** have no
+`style_collection` at all, so css-patch-agent exits `complete_no_css` on them — unclobberable by
+this path, and equally unprotectable.
+
+### 6. The DETECTOR — and why every existing check was blind
+
+The owner also asked whether the improvement loop would have spotted this. **It would not, and
+two checks are wrong-way blind rather than merely silent.** Walked one by one before building
+anything:
+
+- **`asset_reference_404` is the only check that fetches `/assets/css/styles.css`, and it scores
+  HTTP STATUS ONLY.** A 136-byte 200 is a *positive observation* to it — so it does not stay
+  quiet, it **RETRACTS** any open item keyed to that URL.
+- **The render audit is blind in the direction that reads as health.** With `:root` gone,
+  `var()` declarations are invalid at computed-value time: text inherits to black, background
+  falls back to transparent/white, and the probe measures **~21:1 — a clean, high-contrast
+  audit**. This is why a clobbered site can sit for days without a signal. It also explains this
+  file's own self-amplification finding from the other end: when the audit *does* eventually
+  file (1.00:1 on a dark-fallback section) it routes the finding straight back to the agent that
+  caused the damage.
+- `missing_css` asks whether the row exists (it does — it is the row that did the damage);
+  `generic_theme` reads the head component (intact); `palette_contrast` reads `palettes.colours`
+  (untouched).
+
+**Built and committed this session (`e34b33a36`, gofmt/emission fix `093363070`):
+`stylesheet_gutted`**, a flag-only discovery check on `design-discovery-agent`, register
+**IMP-055**. Predicate is **definition coverage, not a byte floor** — because `bugs_open/211` is
+this defect at ~26KB (alias `:root` block absent, `--color-heading` defined zero times) and a
+floor cannot see it: it compares the custom properties DEFINED by the served same-host
+stylesheets against those REFERENCED without a fallback by deployed components and
+`css_snippets`. It declines to judge — filing **and** retracting nothing — whenever a stylesheet
+fails to fetch or returns non-2xx, so a blinded run can never be mistaken for a healthy one.
+Its item key is deliberately constant rather than URL-shaped, so `asset_reference_404`'s 2xx
+retraction can never close its findings. 18 tests, each guard proven by a named mutation, both
+real incident shapes as fixtures.
+
+**It is NOT yet enabled.** Migration `541_..._HOLD.sql` is held until a chassis image carrying
+the check has rolled and the capability is pod-probed with a negative control — an unregistered
+check name fails the *whole* discovery step and discards every earlier check's findings in that
+run (`discovery_checks.go:198-216`). Council round submitted: correlation
+`d3187418-3bb5-435d-b66b-92d8fc9d9d01`, verdict pending at time of writing; **whoever reads it
+owes acting on a REVISE, since the code is already on the shared branch.**
+
+**Calibration, so a first rotation is falsifiable:** measured across all 25 deployed/active
+sites on 2026-08-21, exactly **one** site would file today (cookly.uk). **A rotation that
+includes cookly.uk and reports zero is a bug in the check, not good news.**
+
+### 7. What this does and does not close
+
+- **Closed:** candidate 1 (empty-row backfill) as data, fleet-wide. The detection half of
+  candidate 3, for the "definitions are gone" shape.
+- **NOT closed, and untouched by this lane:** candidate 2 (**deploy-side shrink guard** — still
+  the single fix that would have stopped both of today's incidents at the last writer); the
+  **birth guard**; candidate 6 (**refuse to patch when the offending declaration is not in the
+  file the agent can edit** — now with a third site's evidence); the **"only `:root` survived"**
+  shape, which the new check does not detect; and **cookly.uk's file deploy**, which needs a
+  human.
+- **090 substitution, stated plainly (owner ruling 2026-07-31):** not filed through the
+  diagnosis loop. The mechanism was already in this file and every claim above is first-hand and
+  artefact-verified in one session — git blob sizes and commit shas from the deploy repo, the
+  theme rows before and after by md5, the driving work items, the live served bytes with
+  cache-busters, and the live agent config. A 090 run would re-read the same artefacts.
