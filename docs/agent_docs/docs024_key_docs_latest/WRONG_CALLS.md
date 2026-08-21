@@ -40700,3 +40700,41 @@ version is also empty the absence is real, and if it is not, the filter was the 
 
 This is the fourth entry in this file's family of *"my measurement answered the question I encoded,
 not the one I asked"* — and the second in two days where **the filter itself was the bug**.
+
+---
+
+## 2026-08-21 — I nearly reported "the detector doesn't work" from a population its own fix had emptied
+
+**The near-miss.** Another lane proposed a structural tell for spotting an internal brief
+published as a public meta description: *a description that argues with an alternative
+reading was written for someone deciding how to write the piece; a reader has no
+alternative reading to be corrected out of.* They asked — correctly — that it be measured
+against the live population before anyone believed it.
+
+I measured. Over 704 live descriptions the lexical proxy fired **34 times, ZERO of them in
+the 200-320 band where the briefs live.** Read plainly, that says: the tell finds no briefs
+and 34 false positives, so it is useless.
+
+**That reading would have been wrong, and the flaw is not in the arithmetic.** The same
+lane had *fixed both known briefs* an hour earlier. **The population no longer contained a
+single true positive.** "0 in the band" was not evidence the tell fails in the band; it was
+evidence there was nothing in the band left to fire on. I was fitting a detector against a
+corpus its own remediation had emptied.
+
+**What caught it:** asking what the disconfirming result would have looked like *before*
+writing the conclusion. If the tell worked perfectly, this population would still return 0
+— so the measurement could not come out any other way, and a number that cannot come out
+otherwise is not evidence (the `[MEASURED]`-marker rule's second half, and this is the
+third entry in this file to turn on it).
+
+**The cheap check that generalises:** before measuring a detector, ask **"does this
+population still contain the thing I am trying to detect?"** Remediation is the common way
+it stops containing it, and remediation is usually *recent*, *someone else's*, and
+*invisible in the query you are about to run*. Related and identical in shape: *a repro is
+destroyed by the render*, and *a post-fix ZERO needs a demand control*.
+
+**The residual, recorded because it is a real cost:** the only known corpus for fitting a
+detector for that sub-class now survives in one lane's backup table and in two quoted
+strings in `bugs_open/339`. **Fixing the instances destroyed the evidence needed to build
+the class control** — which is not an argument against fixing them, but is an argument for
+preserving the strings first. `339` now says so.
