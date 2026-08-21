@@ -23,12 +23,15 @@ is the report, not a refusal.**
 > `schema_mode` moved to `InputSchema`, where it matters more: content that could set it would hand
 > the renderer its own contract and switch off its own check.
 >
-> ⚠ **REPORT ONLY — no refusal was added, and this estate's own ruling is that a named log is not
-> escalation** (`bugs_open/054`, owner 2026-07-22). This makes the defect AUDIBLE at fifteen sites;
-> it does not make it ACTIONED anywhere. Refusing at the seam would be new authority over content
-> that renders successfully today at thirteen sites that never asked for it (owner ruling
-> 2026-08-02 §2), and the two paths that want to refuse already do, before the render. **Refusal or
-> a work item per path is the remaining work and is not scoped here.**
+> ⚠ **NO REFUSAL was added, deliberately.** Refusing at the seam would be new authority over
+> content that renders successfully today at sites that never asked for it (owner ruling
+> 2026-08-02 §2), and the two paths that want to refuse already do, before the render. What ships
+> is a report PLUS a queue entry. **Refusal per path is the remaining work and is not scoped
+> here** — this file stays OPEN for that and for the six unwired sites.
+>
+> ⚠ **Nothing is watching the log line.** Checked rather than assumed: no PrometheusRule exists in
+> the namespace and no kustomize manifest consumes log level, so the Error lines feed no alerting
+> surface. That is the honest limit, and it is why the work item matters more than the log.
 >
 > **A finding the tests forced out, worth knowing before you touch this:** the seam and the
 > pre-render gate give DIFFERENT answers on the same content, and both are right. The seam judges
