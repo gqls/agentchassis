@@ -427,6 +427,15 @@ func failUnverifiedCompletion(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		    updated_at = NOW()
 		WHERE id = $1
 		  AND status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')
+		  -- bugs_open/344, and note this arm refuses for the OPPOSITE reason to
+		  -- CompleteWorkItemAction's. There the refusal preserves a scheduled
+		  -- retry; here it prevents DOUBLE-CHARGING an attempt. This function
+		  -- runs when a completion fails verification, which on the 344 chain is
+		  -- reached AFTER the failure ladder has already counted the same
+		  -- failure and stamped a cooldown — so incrementing attempt_count again
+		  -- would spend two of three attempts on one fault. A future retry_after
+		  -- is the signal that the ladder has already ruled on this failure.
+		  AND `+workItemRetryNotPendingSQL("")+`
 		RETURNING status
 	`, itemID, errorMsg, resultJSON, agentType).Scan(&newStatus)
 	if err == sql.ErrNoRows {

@@ -108,7 +108,7 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		  -- NULL = claimable now (every pre-307 row), so this is inert until the
 		  -- ladder writes a stamp. Lockstep: LoadWorkItemsAction's selection and
 		  -- migration 503's three SQL read sites carry the same predicate.
-		  AND (retry_after IS NULL OR retry_after <= NOW())
+		  AND `+workItemRetryNotPendingSQL("")+`
 		RETURNING id::text
 	`, itemID, claimedBy).Scan(&claimedItemID)
 

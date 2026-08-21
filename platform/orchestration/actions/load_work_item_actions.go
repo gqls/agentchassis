@@ -701,7 +701,8 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			wi.priority, wi.handler_agent, wi.status, wi.item_key,
 			wi.batch_id, wi.attempt_count,
 			COALESCE(wi.approval_mode, 'auto') as approval_mode,
-			wi.component_id, wi.entity_id, wi.affected_url
+			wi.component_id, wi.entity_id, wi.affected_url,
+			wi.error
 		FROM site_work_items wi
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
@@ -710,9 +711,11 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		  -- stamp, so three attempts cannot all land inside one outage. NULL
 		  -- means "claimable now" and is what every pre-307 row holds, so this
 		  -- clause is a no-op until the ladder starts writing it. The same
-		  -- predicate is in claim_work_item_action.go and in three SQL read
-		  -- sites (migration 503); they are one contract and must not drift.
-		  AND (wi.retry_after IS NULL OR wi.retry_after <= NOW())
+		  -- predicate is rendered by workItemRetryNotPendingSQL and is also in
+		  -- claim_work_item_action.go, the two completion writers (bugs_open/344)
+		  -- and two DB-resident read sites (migration 506). One contract, and it
+		  -- must not drift — hence one renderer rather than five spellings.
+		  AND ` + workItemRetryNotPendingSQL("wi") + `
 		  AND (COALESCE(wi.approval_mode, 'auto') = 'auto' OR wi.status = 'approved')
 		  AND (
 		    wi.depends_on IS NULL 
@@ -770,6 +773,13 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			// First-class routing columns — all nullable, hence pointers.
 			componentID, entityID *uuid.UUID
 			affectedURL           sql.NullString
+			// bugs_open/345: the PREVIOUS attempt's failure text. A handler that
+			// regenerates an artefact was re-running from identical inputs, so
+			// every retry reproduced the same rejection — measured at 99
+			// rejections across 3 sites with one distinct reason per item, and
+			// one item burning 52 generations. NullString because the column was
+			// nullable before migration 217 and old rows still hold NULL.
+			lastError sql.NullString
 		)
 		// Nullable in the schema until migration 217 (bugs_closed/078) gave it
 		// NOT NULL DEFAULT ''. Scanned as NullString regardless: a plain string
@@ -785,6 +795,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			&priority, &handlerAgent, &status, &itemKey,
 			&batchID, &attemptCount, &approvalMode,
 			&componentID, &entityID, &affectedURL,
+			&lastError,
 		)
 		if err != nil {
 			// Error, not Warn: this branch drops a row that the site selector
@@ -831,6 +842,25 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			"status":        status,
 			"attempt_count": attemptCount,
 			"approval_mode": approvalMode,
+		}
+
+		// bugs_open/345: hand a RETRY the reason its predecessor was refused.
+		// Gated on attempt_count > 0 so a first attempt is byte-identical to
+		// pre-345 behaviour — the prompt block that reads it is `{{if}}`-guarded,
+		// so an absent key renders nothing and every first generation is
+		// unchanged. Capped because the text is partly quoted from the rejected
+		// artefact (the guard echoes the offending field and, for the source
+		// check, ~60 aspect names): it is untrusted-ish input heading back into a
+		// prompt, so bound its size rather than trusting the producer. NOT put in
+		// `spec` — the header note above is explicit that spec is never written to.
+		if attemptCount > 0 {
+			if prev := strings.TrimSpace(lastError.String); prev != "" {
+				const maxPreviousFailureChars = 2000
+				if len(prev) > maxPreviousFailureChars {
+					prev = prev[:maxPreviousFailureChars] + " …[truncated]"
+				}
+				item["last_error"] = prev
+			}
 		}
 
 		// First-class routing columns, column-first with a spec.<key> fallback,
@@ -1022,6 +1052,18 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 	// would be re-stamped 'complete' here, silently undoing the flag. Completing
 	// from an in-progress status (claimed/triaged/approved/detected/…) is
 	// unaffected; only deliberate flags/terminals are preserved.
+	//
+	// ⚠ AND SINCE bugs_open/344, a second clause: an item sitting out a retry
+	// cooldown is not completable either. That sentence above — "completing from
+	// an in-progress status is unaffected" — was true when it was written and
+	// became load-bearing in the wrong direction on 2026-08-20 16:09Z, because
+	// the failure ladder made `triaged` a POST-FAILURE state. This loop calls
+	// complete_work_item on every returned saga, and a handler that fails a step
+	// and then ends via a success-labelled complete_workflow returns as a success
+	// — so the ladder's fresh `triaged` was being overwritten to `complete` about
+	// two seconds later, cancelling the retry and recording a failed build as
+	// done. See workItemRetryNotPendingSQL for why the predicate is the retry
+	// stamp and not the status word.
 	res, err := params.DB.ExecContext(ctx, `
 		UPDATE site_work_items
 		SET status = 'complete',
@@ -1030,6 +1072,7 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 		    handled_by = $3
 		WHERE id = $1
 		  AND status NOT IN ('needs_human_review','failed','unresolved','rejected','wont_fix','verified','blocked')
+		  AND `+workItemRetryNotPendingSQL("")+`
 	`, itemID, string(resultJSON), agentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to complete work item: %w", err)
@@ -1037,12 +1080,28 @@ func CompleteWorkItemAction(ctx context.Context, params ActionParams) (interface
 
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
-		logger.Info("CompleteWorkItemAction: skipped — item already in a flagged/terminal status, not overwriting",
-			zap.String("item_id", itemIDStr))
+		// Two reasons reach here now and a caller cannot tell them apart from the
+		// row alone, so the log line says which: a deliberate flag/terminal
+		// (the original guard), or a retry this contract scheduled seconds ago
+		// (bugs_open/344). Both are correct refusals; only the second is new.
+		var pendingRetry bool
+		if err := params.DB.QueryRowContext(ctx,
+			`SELECT retry_after IS NOT NULL AND retry_after > NOW() FROM site_work_items WHERE id = $1`,
+			itemID).Scan(&pendingRetry); err != nil {
+			logger.Debug("CompleteWorkItemAction: could not classify the skip", zap.Error(err))
+		}
+		reason := "already_flagged_or_terminal"
+		if pendingRetry {
+			reason = "retry_scheduled"
+		}
+		logger.Info("CompleteWorkItemAction: skipped — not overwriting",
+			zap.String("item_id", itemIDStr),
+			zap.String("reason", reason),
+			zap.Bool("retry_pending", pendingRetry))
 		return map[string]interface{}{
 			"completed": false,
 			"item_id":   itemIDStr,
-			"reason":    "already_flagged_or_terminal",
+			"reason":    reason,
 		}, nil
 	}
 

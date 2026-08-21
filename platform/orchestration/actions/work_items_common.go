@@ -318,6 +318,46 @@ func workItemHandlerRegisteredSQL(handlerExpr string) string {
 //
 // Applying the test at PROMOTION makes that outcome unreachable from the promoter
 // rather than merely unlikely, and it costs nothing a caller must remember.
+// workItemRetryNotPendingSQL renders the predicate "this item is not sitting out
+// a retry cooldown", for an optional table alias ("" for an unaliased UPDATE).
+//
+// WHY A COMPLETION PATH CARES ABOUT A RETRY STAMP (bugs_open/344). The failure
+// ladder (WII-024) re-triages a failed item with `retry_after = now() + backoff`.
+// `triaged` is NOT in the completion guard list — deliberately and correctly for
+// the world that list was written in, where completing from an in-progress status
+// WAS the normal claim flow. The moment the ladder shipped, `triaged` also became
+// a POST-FAILURE state, and the dispatch loop's mark_complete — which runs on
+// every returned saga, including a handler that failed a step and then ended via
+// a success-labelled complete_workflow — began overwriting those rows to
+// `complete` about two seconds after the failure. Measured live 2026-08-21: a
+// mortgagecalculator.co.uk item stamped `retry_after` 11:02:50 and `completed_at`
+// 10:32:52. The retry is cancelled and a failed build is recorded as done.
+//
+// WHY THIS PREDICATE RATHER THAN ADDING `triaged` TO THE GUARD LIST. A future
+// `retry_after` at completion time is DISCRIMINATING, not a heuristic: an item
+// that failed, waited out its cooldown, was re-claimed and genuinely succeeded has
+// a retry_after in the PAST by then, because the claim path itself refuses to
+// re-claim before the stamp expires (proven on the two natural transient rows of
+// 2026-08-20 — stamps 18:34:00/18:54:33, re-claims 18:34:25/18:56:58, completions
+// after). So a future stamp can only mean THIS saga's own failure write scheduled
+// a retry seconds ago, and completing would contradict a decision the same
+// contract made. Guarding on the status word `triaged` instead would refuse every
+// legitimate completion of an item something re-triaged mid-run for unrelated
+// reasons, and would protect the word rather than the decision it happens to carry.
+//
+// ⚠ IT IS NOT ENOUGH ON ITS OWN. `claimed-item-timeout`'s pre_query auto-completes
+// items in raw SQL and never reaches this code, exactly as it bypasses both
+// completion gates (bugs_open/317's mechanism). The same predicate is applied to
+// that sweep's two auto-complete CTEs by its own migration; they are one contract
+// in two media and must not drift.
+func workItemRetryNotPendingSQL(alias string) string {
+	col := "retry_after"
+	if alias != "" {
+		col = alias + ".retry_after"
+	}
+	return "(" + col + " IS NULL OR " + col + " <= NOW())"
+}
+
 func workItemRoutableSQL(alias string) string {
 	col := alias + ".handler_agent"
 	return "(COALESCE(" + col + ", '') <> '' AND " + workItemHandlerRegisteredSQL(col) + ")"
