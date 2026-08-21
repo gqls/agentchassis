@@ -7,8 +7,12 @@
 -- cannot stop another lane's sweep and an ordering-critical file must not depend on
 -- someone reading the top of it.
 --
--- RELEASE CONDITION: `bugs_open/344` resolved — or its candidate 1 (completion
--- refuses while `retry_after` is in the future) live.
+-- RELEASE CONDITION (SHARPENED 2026-08-21): `bugs_open/344`'s candidate 1 must be
+-- **LIVE — rolled and verified at the artefact**, not merely committed. It was
+-- committed the same day (`0f80f5ea1`) and the owner deferred the roll; committed
+-- code guards nothing, and "the fix is in" is the reading that would release this a
+-- day early. Stamping `retry_after` from this sweep while `mark_complete` is still
+-- unguarded in production is exactly the widening this hold exists to prevent.
 --
 -- WHY, and it is an interaction rather than a fault in this file. 344: the dispatch
 -- loop's `mark_complete` overwrites a ladder-re-triaged item to `complete` ~2 s after

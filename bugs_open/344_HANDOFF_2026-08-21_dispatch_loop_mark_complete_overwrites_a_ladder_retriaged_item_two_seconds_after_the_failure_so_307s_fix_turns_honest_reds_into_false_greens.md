@@ -150,3 +150,66 @@ Canary `f4f15466` was driven through the remaining ladder arms after the discove
 2–3 — results recorded in 307 §9) and then DELETEd; verify with
 `SELECT count(*) FROM site_work_items WHERE item_key='canary_307_close_20260821'` → 0.
 Its `agent_error_log` rows remain (harmless, and they date the demonstration).
+
+---
+
+## §2 — 2026-08-21: candidate 1 BUILT (owner-directed), plus two findings about the census itself
+
+**Go half committed `0f80f5ea1`, council corr `2c21e214-e459-420c-b451-3c66efa8bba9`
+(`Council-Submitted:`, no verdict claimed). INERT until the next chassis roll** — the owner has
+deliberately deferred the roll, so this defect is still live in production meanwhile.
+
+Built as candidate 1: `AND (retry_after IS NULL OR retry_after <= NOW())` on **both**
+completion-shaped writers, refusing for opposite reasons — `CompleteWorkItemAction` to preserve the
+scheduled retry, `failUnverifiedCompletion` to avoid charging a second attempt for one fault (that
+path is reached *after* the ladder has already counted it). Rendered from one function,
+`workItemRetryNotPendingSQL` in `work_items_common.go`; writing the drift test found **two real
+inline copies** left over from `307` (the dispatch selection and the atomic claim), so all five Go
+sites now render from one place. Five mutations, each caught by a named test, including the
+disconfirming control — an item that failed, waited and genuinely succeeded must **still** complete,
+or this is a completion outage rather than a fix.
+
+### ⚠ Finding 1 — the damage census in "Damage to repair when fixed" is STRUCTURALLY BLIND to archived rows
+
+`site_work_items_archive` **has no `retry_after` column** (verified 2026-08-21: the two tables both
+have 38 columns and differ by exactly two — live has `retry_after`, archive has `domain`). The
+archiver copies by an explicit column list, so nothing is broken — but the fingerprint column is
+simply **not carried across**.
+
+Consequence for this file's census, `status='complete' AND retry_after > completed_at`: it can only
+ever see the **live ~7-day window**, and for anything already archived the evidence does not exist
+in any form — this is not "stale after 7 days", it is *absent by construction*. **So the damage must
+be swept BEFORE rows age out**, or the archive needs the column. As of 2026-08-21 11:5xZ the live
+census reads **0** — including `0c65f9fa`, the natural row this bug was filed on, which is no longer
+matchable. Do not read that 0 as "no damage"; read it as "the window has moved".
+
+*(Not fixed here: adding a column to the archive and backfilling it is a schema change for a
+different bug, and it cannot recover rows already archived.)*
+
+### ⚠ Finding 2 — `claimed-item-timeout` CANNOT produce this fingerprint, so no SQL half is needed
+
+`bugs_open/341` §5b — which I recorded from a peer contribution — says this sweep's two
+auto-COMPLETE arms stand in the same relationship to a mid-cooldown row as `mark_complete` does, and
+therefore need the same predicate. **That is wrong, and it is wrong for exactly the reason §2b of
+that file already gave about its RESET arm**: all three arms carry `WHERE wi.status = 'claimed'`.
+
+A ladder-re-triaged row is `triaged` with `claimed_by`/`claimed_at` **cleared by the ladder itself**,
+so no arm of this sweep can reach it. And a row cannot be claimed *and* mid-cooldown, because the
+claim path refuses to re-claim before the stamp expires. Measured: **0 rows** at `status='claimed'`
+carry any `retry_after` at all, and **0** fingerprint rows are attributable to the sweep
+(`error LIKE 'Auto-completed%'`).
+
+So the predicate would be dead SQL there. **This is the third time in two days that applying a
+checklist to "the sweep" as a unit produced the wrong answer** — the correct question each time was
+*which population does this arm select*, and for all three arms the answer is the same one that
+makes them safe.
+
+## §3 — what remains
+
+- **The roll.** Committed ≠ live; this is still biting until the chassis rolls.
+- **Candidate 2** (a real saga verdict out of `completeWorkflow`, so a child that traversed an error
+  step stops reaching its parent as bare `Status: "complete"`) remains the root repair and remains
+  architecture-scope — `bugs_open/217` sits on the same seam. Unowned.
+- **Post-roll verification**: the `307` lane's canary recipe reproduces this in ~90 s. After the
+  roll the canary's attempt-1 state must SURVIVE the loop's completion call, and the pod must log
+  `CompleteWorkItemAction: skipped` with `reason=retry_scheduled`.

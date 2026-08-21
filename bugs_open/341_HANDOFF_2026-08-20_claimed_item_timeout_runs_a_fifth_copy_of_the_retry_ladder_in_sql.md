@@ -204,3 +204,36 @@ COMPLETE arms need one. Same `pre_query`, opposite conclusions, and the reason i
 each arm selects — `status='claimed'` for the reset, evidence-of-completion for the others. **A
 checklist applied to "the sweep" as a unit gets both wrong**; that is the same error §2b was written
 to correct, met a second time in the same file.
+
+## §5c — CORRECTION 2026-08-21: §5b is WRONG, and it is the same error §2b exists to correct
+
+§5b says the sweep's two auto-COMPLETE arms need the retry-cooldown predicate because they stand in
+the same relationship to a mid-cooldown row that `mark_complete` does. **They do not.** All three
+arms — the reset and both auto-completes — carry `WHERE wi.status = 'claimed'`, and a
+ladder-re-triaged row is `triaged` with its claim columns **cleared by the ladder itself**. Nor can a
+row be claimed *and* mid-cooldown: the claim path refuses to re-claim before the stamp expires.
+
+[MEASURED 2026-08-21] **0** rows at `status='claimed'` carry any `retry_after`; **0** fingerprint rows
+(`retry_after > completed_at`) are attributable to this sweep (`error LIKE 'Auto-completed%'`).
+
+So **no SQL half is needed for `bugs_open/344`**, and adding the predicate here would be dead SQL —
+precisely what §2b concluded about the reset arm and refused to write.
+
+**This is the third time in two days that a checklist applied to "the sweep" as a unit gave the wrong
+answer** (§2b was the first, §5b the second, this is the correction). The question that works every
+time is *which population does this arm SELECT* — and for all three arms it is `status='claimed'`,
+which is why all three are safe. I recorded §5b from a peer contribution without applying my own §2b
+test to it, which is the more useful lesson: **a correction you wrote does not automatically apply
+itself to the next claim you accept.**
+
+## §6b — the HOLD's release condition, SHARPENED
+
+`524_..._HOLD.sql` was held for "`344` resolved, or its candidate 1 live". `344`'s Go fix is now
+**committed** (`0f80f5ea1`) — and that is **not sufficient**, because the owner has deliberately
+deferred the roll. Committed code guards nothing.
+
+**Release condition, corrected: `344`'s Go fix must be LIVE — i.e. rolled and verified at the
+artefact.** Until then, stamping `retry_after` from this sweep creates mid-cooldown rows while
+`mark_complete` is still unguarded in production, which is exactly the widening the hold exists to
+prevent. The distinction matters because "the fix is committed" is the reading that would have
+released it a day early.
