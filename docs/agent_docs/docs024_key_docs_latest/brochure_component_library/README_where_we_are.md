@@ -3384,3 +3384,55 @@ now nothing can actually trigger it.
 One thing to know before you decide those seven: **we have no redirect mechanism.** So
 retiring one name of a pair means that address returns "not found" from then on, for anyone
 who had it bookmarked or linked to it. That is worth knowing before choosing, not after.
+
+---
+
+**2026-08-21 — the duplicate-page bug is closed. Here is what is still on your desk**
+
+Closed on your instruction. All three ways this bug could bite are fixed, live, and — the
+part that matters — each one has now been watched working on real pages rather than only in
+tests. The clinching evidence was the run three days ago: the same site, the same settings
+and the same planner that produced 19 duplicate pages produced **none**, and left a record
+naming all 17 pages it protected.
+
+I re-checked the live system before writing that, because our servers had been rebuilt again
+overnight and a sentence saying "it's live on version X" stops being true the moment X is
+replaced. It is live on the current version, checked on both servers, with a deliberate
+wrong-spelling control to prove the check can actually come out negative.
+
+**I did not let the closed bug carry anything still open.** Two things moved to files of
+their own so nobody has to read a closed case to find live work:
+
+- **The four page pairs** where both versions of a page are genuinely live. Those are your
+  decisions and they are described below.
+- **One narrow gap** in the fix that nothing can currently trigger — 40 candidate pages
+  across 13 sites, none of which would actually be affected today. Written up, deliberately
+  not fixed, with the query to re-check.
+
+**What is on your desk, and it is one question repeated four times: which name should each
+page keep?**
+
+- finetuning.uk — the AI readiness quiz
+- fundamentallyai.com — the automation savings estimator guide
+- fundamentallyai.com — the model approach selector guide
+- robot-hands.com — matchmatrix
+
+Both versions of each are live and serve real content right now; I checked all eight
+addresses this morning. Three of the original seven are already resolved.
+
+**Two things to know before you choose, because they change the answer:**
+
+**We cannot redirect.** There is no redirect mechanism on the estate. So retiring one name
+means that web address returns "not found" from then on — for anyone who bookmarked it,
+linked to it, or finds it in a search result. That is permanent, and it is the single fact
+most likely to change which one you keep.
+
+**Do not judge by the numbers I could give you.** On the robot-hands pair, the version with
+*one* component serves *more* content than the version with four. A component count tells
+you how many boxes a page is built from, not how much is on it. If you want a view, tell me
+and I will open both pages and describe what is actually on each — that is a better half-hour
+than any table I could produce.
+
+The one thing genuinely blocking further planning work is a separate bug about how
+decomposed sites record their page sections. **That is being worked in another lane**, and
+it is not yours to chase.
