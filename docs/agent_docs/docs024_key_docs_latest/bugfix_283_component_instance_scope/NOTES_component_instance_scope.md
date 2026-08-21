@@ -885,3 +885,37 @@ carrying the 2026-08-21 commits activates BOTH guards (tool-generator birth via 
 tool-deployer fork via 530). Post-roll demand checks owed: one natural tool-generator birth
 (result carries instance_scope fields; the sweep's next-day count should stop growing) and
 one deploy_tool fork (fork row born with InstanceID). The daily sweep needs neither.
+
+## 2026-08-21 (session 8, evening) — OWNER RULED: rebuild-not-repair. 8 rebuilds seeded; sweep gains the escalation arc; LMC pair on a veto window
+
+Owner's three rulings: (1) automation-savings REBUILT from scratch through the full pipeline
+(not rolled back, not hand-fixed) — "deconstructed, fully editable, improvable"; (2) same for
+the gate-refused pool; (3) repairs authorized — folded into the same route (for chartTitle and
+the hex-id row the rebuild IS the repair). Plus: make the whole class self-healing via the loop.
+
+**Seeded 8 `add_tool` items** (`created_by='283-owner-rebuilds'`, replace_existing:true, spec
+derived from each incumbent's display_name + description + tool-doc header — the framework's
+words): automation-savings ×4 sites (3 broken-serving at prio 30, leopardess at 55),
+fuel-budget, loot-table, spawn-rate-balancer (chartTitle), process-automation-scorer (hex id —
+identified: leopardessconsulting). ⚠ 795c34e6 is SHARED by ai-agent-orchestration +
+fundamentallyai: the regen path REFUSES cross-site rows by design (create_tool_component_
+regenerate.go:216 names the per-site-fork route) — those two items are EXPECTED to refuse
+loudly; the fork-first choreography follows from the refusal text when it lands. CLC-020
+(site-aware regen divert) is LIVE in 1320 but lives on store_generated_component, not this
+path. **LMC pair (application-tracker, consolidation) NOT seeded yet** — CONTRIB with 24h veto
+window filed in their dir (their D6 phase 4 may be in flight; consolidation is oracle-covered
+so its block needs a lockstep REWRITE at delivery, bigger than a selector move: its driver
+clicks `addDebtRow` by inline onclick, which a rebuild removes).
+
+**Sweep escalation SHIPPED** (`a332c19a7`): ≥2 FAILED conversion items → ONE rebuild item,
+14-day rate limit, spec derived from the incumbent; needs_human_review rows deliberately
+NEVER auto-escalate (a rebuild discards working behaviour — human's call; the owner made it
+by hand for today's six). ⚠ Council gate REFUSED the submission on SCOPE — deployments/ is
+outside its footprint (owner ruling 2026-07-17) — not on merits; FORCE deliberately not spent.
+The commit-msg hook also correctly refused a 'Council-Submitted: pending' placeholder trailer:
+submit FIRST, then commit, or no trailer at all.
+
+**The loop, closed end-to-end once the rebuilds land**: born-bad or legacy-bad template →
+sweep detects → mechanical convert OR (failed ×2) rebuild → fresh generation under the live
+prompt rules → converted at birth post-roll (or by next sweep pre-roll) → rerender/deploy.
+Parked-for-human stays the one deliberate manual gate.
