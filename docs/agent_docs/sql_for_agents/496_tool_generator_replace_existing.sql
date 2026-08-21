@@ -1,6 +1,6 @@
--- 496_tool_generator_replace_existing_HOLD.sql
+-- 496_tool_generator_replace_existing.sql
 --
--- ⚠ HOLD until the chassis roll that carries create_tool_component's
+-- (HOLD LIFTED 2026-08-21 ~10:55Z: v1.0.1321 stamp 0483e7f4e carries the gate commit c0d60a97d — ancestry + pod probe with junk control, recorded in bugs_open/331.) Original header: HOLD until the chassis roll that carries create_tool_component's
 -- replace_existing arm (bugs_open/331, register TL-047) has ROLLED. The `_HOLD`
 -- suffix keeps the migration runner's --apply from taking it (SIDECAR_RE
 -- excludes it; MEMORY "migration-runner-practice"). Image before config.

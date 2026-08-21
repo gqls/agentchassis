@@ -180,3 +180,42 @@ the correlation is approved — no amend (forward-only). Advisories triaged:
    `page_component_history` row with the OLD bytes, one deployed slot, no new `content_components`
    row, and a served-page grade with an old element id as the negative control.
 4. Then this file → `bugs_closed/`, and the lane RUNBOOK's manual re-fix steps retire.
+
+## 15. LIVE PROOF 2026-08-21 — both arms exercised; one defect of my own found and hotfixed the same hour
+
+**Roll:** `v1.0.1321` (pods 19:51Z 08-20, stamp `0483e7f4e` probed with junk control) carries the
+FULL approved change — `c0d60a97d` (gate) AND `138c8efaa` (advisory wording) are ancestors (the
+wording in the live `component_versions` row below is the mechanical proof). Seed 496 applied
+2026-08-21 12:12Z.
+
+**Arm 1 — the REFUSAL path, first live firing, and it was RIGHT.** Re-fix attempt 1 (item `629d0061`,
+the oklch CSS-order defect): my brief named the fix but not the tool's ~870 visible chars of teaching
+copy; the generator wrote tighter copy; the gate refused — `visible text would fall 867 → 380 chars
+(44% kept, floor 50%)` — typed, loud (`agent_error_log` 12:17:29Z), incumbent untouched. Exactly the
+012/056 class the council's round-1 objection demanded a guard for, caught on its first live run —
+against its own author's brief. (The item read `complete` with `error` NULL — the known 099-class item
+trap, unchanged by this bug.)
+
+**Arm 2 — the HAPPY path.** Attempt 2 (item `cc1db035`, brief names the copy): run `e2a3306a`,
+`regenerated=true`, `component_id` = the incumbent `517002ab` (same id), `slots_updated=1`,
+`previous_version=2`. One-transaction atomicity visible in the artefacts: component, slot and the
+`page_component_history` row all stamped **13:27:47.172372** — the history row carries the pre-arm
+slot bytes (15,040, md5 `18f4e2e7…`), `component_versions` v2 carries the pre-arm template with the
+round-5 description ("Pre-regeneration snapshot…", `changed_by='tool-generator:replace_existing'`),
+the slot's `rendered_html` md5 EQUALS the new template md5 (verbatim write), exactly ONE live slot,
+exactly ONE `content_components` row for the function. **The fix is in the template** (line 393:
+hex first with the fallback comment, oklch second) and the teaching copy survived (~1,146 approx
+visible chars, both sections present). Serve-grade pending its rerender (`1fe89947`, queued).
+
+**The defect this exposed — MINE (WRONG_CALLS 2026-08-21):** seed 496's `!` marker fails extraction
+on ABSENCE, so from 12:12Z every plain add_tool (no `replace_existing` in spec — every pre-496
+producer) died at `save_tool` while its item read `complete`. Caught by the `webdesign_tool_rebuilds`
+lane at 13:43Z with a two-arm measurement; **hotfixed by migration 532 (~13:55Z): marker `!` → `?`**
+(optional-explicit — search exclusion kept, absence allowed; verified live, `!` gone). Casualties:
+ONE failed run fleet-wide (theirs, self-refiled). TL-047's "absent ⇒ byte-identical (pinned)" was
+true of the ACTION and false of the config grammar around it — the register entry now says so.
+Verify-later: the next organic (flag-absent) add_tool anywhere completes a build — the absence arm's
+standing proof under `?`.
+
+**Remaining to close:** the oklch serve-grade (rerender queued behind ~44 items), then →
+`bugs_closed/`.

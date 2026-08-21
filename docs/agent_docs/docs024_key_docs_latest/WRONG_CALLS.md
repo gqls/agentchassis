@@ -40964,3 +40964,37 @@ hand-rolled liveness predicate) named real gaps. **Read the objections, not the 
 the check while the recursive unarmed count is non-zero — and also refuses if the walk returns zero
 TOTAL, since a jsonpath matching nothing looks exactly like a fleet with no stampers. Proven to bite
 against live data before being committed.
+
+## 2026-08-21 — `bugs_open/331` session: I pinned "absent ⇒ byte-identical" at the ACTION layer and shipped a CONFIG-layer refusal on absence — every plain add_tool fleet-wide died at extraction for 103 minutes
+
+**The claim.** TL-047's register entry, the council submission (five rounds), and seed 496's header
+all said: flag absent ⇒ byte-identical old path, "pinned" by a test (arm A: flag absent + incumbent ⇒
+`already_exists`, zero writes — green). The pin was real and the claim was FALSE where it mattered:
+seed 496 mapped the flag as `replace_existing!`, and the `!` marker's semantics are not just "resolve
+only from this path" but "FAIL EXTRACTION when unresolved" (`action_inputs.go`, the strict-enforcement
+branch). From 12:12:12Z every add_tool whose spec lacked the key — the shape every pre-496 producer
+emits — died at `save_tool` with "strict '!' fields did not resolve", while the work item read
+`complete` with `error` NULL. An action-level test structurally cannot see this: the refusal happens
+BEFORE the action's absent-branch runs, in a layer the sqlmock walk never enters.
+
+**What caught it.** The `webdesign_tool_rebuilds` lane, 90 minutes later, with a measured two-arm
+proof (absence → failed; explicit `false` → built) and the right fix named. Not me: my own live proof
+ran the flag-PRESENT arm (TL-047's close-order step 3), which resolves the mapping and works —
+exactly the verification blindness their message called out.
+
+**The cheap checks that would have.** (1) Read the marker's failure branch before shipping it — the
+`RAISE`-equivalent is 15 lines above the error text I could have grepped. (2) Induce ONE run of the
+ABSENCE arm before declaring the default safe: the arm being pinned in Go says nothing about the
+config grammar wrapped around it. (3) The round-2 council risks even said "before the seed, nothing
+produces a stray `replace_existing` today" — a sentence about the search arm; nobody (five council
+rounds, 10+ seats, me) asked what `!` does on absence. A marker is CODE; its semantics are read, not
+assumed.
+
+**Fix.** Migration 532 (same day, ~13:55Z): marker `!` → `?` (optional-explicit — search exclusion
+kept, absence allowed; `MarkedConfigKey`, live in v1.0.1321). Casualties: exactly ONE failed run
+fleet-wide (the reporting lane's own, already refiled by them). Register TL-047 + `bugs_open/331`
+§15 updated.
+
+**Tally line.** "A layer-crossing default pinned only in the inner layer" — 1 (this). Related but
+distinct from the marker family's other entry (the `?`-inert-in-step-config gap, closed on 1321):
+that one was a marker doing NOTHING where expected; this one is a marker doing MORE than expected.
