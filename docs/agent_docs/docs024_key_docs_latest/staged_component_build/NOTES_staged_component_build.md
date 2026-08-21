@@ -6828,3 +6828,58 @@ SELECT split_part(item_key,':',2) AS tool, count(DISTINCT split_part(item_key,':
 State *n* runs observed and the floor it buys. Negative control from 330 §3: the four sites that
 cross-link coherently (`finetuning.uk`, `loancash.co.uk`, `loanandmortgagecalculator.co.uk`,
 `vonc.com`) must KEEP doing so — this fix must not turn a working per-tool cross-link into silence.
+
+## 2026-08-21 (~14:2xZ) — 515 is VERIFIED AT RUNTIME, and the verification took three attempts to instrument
+
+**THE EVIDENCE, captured live at 14:24:28.457Z on a real post-apply `plan_sections` extraction:**
+
+```
+PASS 515: page_type ABSENT -> marker PARSED
+  ts: 2026-08-21T14:24:28.457Z
+  requested_fields: ['section_facts', 'pipeline', 'site_type']
+```
+
+**`page_type` is gone from what `ExtractFields` is asked for — and `site_type` is still there.**
+That sibling is the control, and it is a good one: `site_type` sits in the **same** `Optional` list
+on the **same** action (`plan_sections_action.go:54`), is **also** unwired, and is **still being
+requested**. So the exclusion is specific to the field carrying the `?` marker, not a general
+disappearance, a truncated list, or a step that stopped extracting. This is precisely the runtime
+evidence guardian and prior_art_librarian asked for and that the approval was granted without.
+
+**The negative half, for completeness and with its weakness stated:** 0 conflict rows for
+pbh/`page_type` against **8** pbh runs since the apply. At the measured pre-apply rate of ~0.12
+rows/run that predicts about **one** row, so on its own this is unremarkable and proves little —
+**the positive test is what carries the verdict.** Do not cite the zero as though it were the
+evidence.
+
+**Getting the instrument right took three goes, and the first two failed SILENTLY.** Recorded in
+full in `WRONG_CALLS.md` and as a LANDMINE, because the failure mode is a clean empty result:
+1. **Watcher 1** filtered on `section_facts` appearing in the line — a proxy for the step rather
+   than the step itself.
+2. **Watcher 2** fixed that (filter on `step_name`), but both watched
+   **`-l app=agent-chassis`** — and `page-build-handler` **does not run there at all.**
+3. **The real producer:** every run gets its **own ephemeral pod**,
+   `agent-page-build-handler-<hash>-<suffix>`, a fresh hash each time (`41a4e850`, `4d66c8ab`,
+   `557e5c1f`, `4688c968`, `0b050d16`, `2ac6e72b`…). Two watchers returned nothing across ~an hour
+   while **six** orchestrations ran and **three** reached `plan_sections`.
+**`orchestration_states.processing_node` names the pod in one column.** That is the check, and it
+belongs before arming anything.
+
+Two further things worth carrying:
+- **Retention in those pods is brutal.** The one survivor held **180 lines covering 3.4 minutes**
+  and had already rotated past `plan_sections` when read ~5 minutes after the run. So the watcher
+  must poll the **pod list** every ~20 s — the pod it needs does not exist when you arm it and is
+  gone shortly after.
+- **I checked for a durable source and there isn't one:** `section_plan` records `ready_count`,
+  `ready_names`, `sections_ready`, `structural_keys_carried` and so on, but **not the `page_type` it
+  was handed**. So `collected_data` cannot answer this and the log genuinely was the only route —
+  but that is a two-minute check that should have come *before* two failed watchers, not after.
+- **The meta-lesson:** watcher 1 WAS foreground-tested and the test PASSED. It proved *the filter
+  can match a `MASTER EXTRACTOR START` line* — not *this pod emits the line for this step*. A
+  watcher test has to assert on the specific line, from the specific source.
+
+**515 is therefore DONE: approved (round 2, all reviewers), applied 13:19:19Z, read back
+independently, and now behaviourally proven at runtime with an internal control.** It is also the
+**first production use of the `?` OPTIONAL-EXPLICIT marker on the step-config surface**, so this
+line is the evidence that the marker works in the fleet — which unblocks every other `?` adopter,
+including the held `516` for `tg/related_pages`.
