@@ -802,3 +802,64 @@ The one-spelling commit (`2817f666`) lost a clause from its message: I used `git
 backticked `` `out, _, _, err :=` `` and **bash executed it** — the known trap, and I had used
 heredocs correctly for every other commit today. Forward-only, so the correction is in the next
 commit's message rather than an amend. **Always `-F`, never `-m`, for any message containing code.**
+
+### 342 round 1: REVISE, and the gating objection was one I had already written down myself
+
+`bug_historian`, HIGH: *"The fix for a documented silent content loss defect is itself REPORT ONLY
+— a zap.Error log line, no work item, no retraction, no refusal. This platform has an owner ruling
+on file, cited by the plan's own risk #1, that 'a named log is not escalation' (bugs_open/054)."*
+
+I had anticipated that objection and written it into the submission's risks, the bug file and the
+code comment. **The seat's point is that stating a limit is not discharging it** — and the
+precedent is exact: `bugs_open/018` shipped the observability half for dead controls, thirty
+shipped anyway, and the owner ruled *"make it MEAN something"*. Writing that half again with a
+footnote is the same mistake, annotated. **Naming your own gap does not close it, and a reviewer
+is entitled to read the naming as an argument for closing it rather than as permission not to.**
+
+**Round 2**: the seam PUBLISHES its finding (`ctx.AbsentRequiredFields`) — it cannot escalate
+itself, having no DB handle and no site identity — and the chrome path files a work item.
+**Reusing `required_fields_missing`**, the type that already exists for this defect with a router
+already seeded (`bugs_open/277`), not a fourth chrome type the router would be blind to; item_key
+matched to the check's so the two producers co-dedup.
+
+**And the reuse turned up the sharper argument for the whole change.**
+`check_required_fields_missing` scans `pc.build_status = 'deployed'` — rows that made it. 342's
+damage is a section that renders empty and is DROPPED, so it never becomes a deployed row.
+**The existing producer is structurally blind to exactly the population 342 is about** — the same
+survivorship shape as 260's "no live damage" headline, and the reason this queue has looked quiet.
+
+### Two checkable objections, checked rather than argued
+
+- **`guardian`: is `RenderContext` ever marshalled?** (A json tag implies a wire format, and a raw
+  schema map could leak a component contract into a payload.) **It is not** — and the struct
+  already said so in the file. Belt and braces anyway: both new fields are now `json:"-"`, which
+  is not a workaround but the convention's own way of saying "not part of the contract" —
+  `renderContextScalarFields` explicitly skips `key == "-"`.
+- **`guardian` cited a landmine whose footprint named `RenderTemplateReportingMissing`** — the
+  symbol the one-spelling change deleted the day before. **THREE entries had stale footprints and
+  one described the deleted regex fallback in the PRESENT TENSE.** All corrected; the
+  comment-in-a-template entry now carries a dated banner saying the trap STANDS and its
+  consequence has INVERTED (it fails the step now instead of shipping mangled markup), with the
+  old text kept because a pre-roll artefact still needs it to be interpreted.
+  **A rename is not done when the code compiles: a footprint naming a symbol that no longer exists
+  is a landmine that cannot be found by the grep it exists to answer.**
+
+### Two missteps of my own this round, both cheap and both worth the row
+
+1. **I resubmitted the STALE submission file.** After building the escalation I re-ran `097` with
+   the same path without updating its contents, so the council was handed the round-1 design and
+   returned a second REVISE for the objection I had just fixed. One wasted round. **A submission
+   file is not a pointer to your work; it is a snapshot, and re-firing it re-asserts the snapshot.**
+2. **`git commit -m` with backticks in the message** (`2817f666`): bash executed the code span and
+   the sentence shipped with a hole in it. The check is in my own memory index; I used heredocs
+   correctly all day until that one. **Always `-F`, never `-m`, for a message containing code.**
+
+### And one detector kept sharp rather than blunted
+
+`pattern-check` flagged `handrolled-shipped-predicate` on my new work item's `fix` PROSE, which
+quoted `build_status='deployed'` while explaining what the post-deploy check cannot see. The two
+exits are not equivalent: adding the file to `SHIPPED_PREDICATE_ALLOWED` would silence the check
+for the whole file including a genuine predicate someone adds later — *declaring a key to silence
+your own detector*. Rewording cost one sentence and made it better (it now says WHY the
+render-time producer sees what the post-deploy one cannot). **When a checker false-positives on
+your prose, change the prose.**
