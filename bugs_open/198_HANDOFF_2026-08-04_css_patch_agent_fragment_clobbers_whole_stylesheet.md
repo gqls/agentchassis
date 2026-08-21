@@ -1021,3 +1021,147 @@ includes cookly.uk and reports zero is a bug in the check, not good news.**
 > **The four undefined component tokens are left as a finding for whoever wants them:** they
 > are referenced by live components on ~17 sites and defined nowhere, so those declarations
 > are dead on every one. Not this lane's to fix, and deliberately NOT filed by the new check.
+
+---
+
+## 2026-08-21 (evening) — THE PREVENTION HALF: candidate 2 built, the born-empty cause fixed at its producer, and the completions stop lying
+
+Appended by the **bugfix-198 lane**, dispatched at this file by the owner. **Scope taken
+straight from the THIRD WAVE section's §7**, which named what was left after that lane's
+data-and-detection work: *"candidate 2 (deploy-side shrink guard — still the single fix that
+would have stopped both of today's incidents at the last writer); the birth guard; candidate
+6."* This section is candidates 2 and the birth-guard slot. **No restores were done and none
+were needed** — as of 18:00Z no site in the fleet serves a clobbered stylesheet (cookly.uk
+recovered to 18,047 B by the `news_editorial_features` lane earlier today).
+
+**090 substitution, stated plainly (owner ruling 2026-07-31):** not filed through the
+diagnosis loop. The mechanism was already established in this file across five lanes, and
+every claim below is first-hand and artefact-verified in one session — the live workflow
+configs read from `agent_definitions`, a fleet census by the exact `load_current_css` JOIN,
+in-transaction proofs against live rows, served bytes with status codes, and two Go mutations
+run against the real source. A 090 would re-read the same artefacts.
+
+### 1. The root cause, no longer `[INFERRED]`
+
+ROUND 2 left one link unverified: *"[INFERRED at the one unwitnessed link: that
+`fork_theme_from_site` inserted `renderedCSS=''` in that run]"*. **It is not
+`fork_theme_from_site`**, which refuses an empty render (`if renderedCSS == "" { ... return
+forkSkipped(...) }`) and so cannot produce a born-empty row.
+
+**The born-empty row comes from `install_site_composition_action.go:342-370`, and it is
+DELIBERATE.** Its own comment: `// css_content is empty — the renderer reads composition via
+FKs.` Those are the only two `INSERT INTO css_themes` in the Go tree. So the empty row is the
+install contract for one producer, and lethal to the other — which is why the 2026-08-20
+"ONE artefact, TWO writers" reading is the correct level to fix at, and why a *birth guard*
+would have been the wrong shape: it would refuse the composition itself, which is working as
+designed.
+
+### 2. What shipped (commits `511afc791` config, `4ee9bfff6` Go)
+
+| # | change | where | live? |
+|---|---|---|---|
+| A | **Base-integrity refusal** — `check_base_integrity`: `css_len >= 4096 AND site_count <= 1`, `fail_on_non_numeric: true` | migration **542**, css-patch-agent | **LIVE on apply** |
+| B | **Refusals and failures stop minting `complete`** — three `update_work_item_status` steps stamping before their terminal | migration **542** | **LIVE on apply** |
+| C | **Persist-at-render** — `persist_css_to_theme` between `generate_css` and `deploy_css` | migration **543**, webdesign-agent | **LIVE on apply** |
+| D | **`file_shrink_floor`** — opt-in shrink guard enforced in the git-adapter (DGH-016) | Go, both `internal/adapters/git` and the chassis | **committed, INERT until BOTH images roll** |
+
+**(A) closes the arm all three waves went through.** `check_has_css` tests
+`current_css.css_content != null`, and an **empty string is not null**, so it passed. The new
+gate is numeric. The floor is census-derived, not chosen: measured today across all 22 linked
+rows, healthy rows are **13,650–26,917 bytes** and every clobbered or stub row ever recorded
+in this file is **≤ 2,381**. Fleet split at 4096 is **19 PASS / 3 REFUSE with nothing in
+between** — the query is in the lane RUNBOOK §3, and if a future census shows anything in
+that gap the floor needs re-deriving rather than overriding. `octet_length`, not `length`
+(this file already records the chars-vs-bytes trap on dartsonline).
+
+`site_count <= 1` closes a door **this file named but nobody could shut**: the THIRD WAVE
+section's *"`finetuning.uk` and `gaswholesalers.com` SHARE one theme row — this needs a human
+decision, not a backfill"*. It is now refused automatically instead of waiting on that
+decision, and the decision is flagged rather than forced.
+
+`fail_on_non_numeric: true` matters more than it looks: without it, a missing `css_len` — the
+query edit not having landed — routes **every** run to the refusal arm and reads exactly like
+a working guard.
+
+**(B) is the fix for this file's own "completions lie twice" finding.** Every terminal here is
+a success-labelled `complete_workflow`, so the parent dispatch loop stamps `complete`
+whatever happened — which is why loancash's 11 `complete_no_css` runs all read `complete`. A
+guard whose refusal reads as a repair is worse than no guard, because it also suppresses the
+evidence (296 §10.4). Refusals now stamp `needs_human_review` with a
+`result_fields.parked_by` marker; real errors stamp `failed` through the shared retry ladder.
+**⚠ A parked item HOLDS its dedup key** (`idx_swi_dedup` does not exclude
+`needs_human_review`), so the finding cannot re-file while parked — the unpark sweep keyed on
+`parked_by` is RUNBOOK §4 and is the only route back.
+
+**(C) is the durable half, and it is what makes every restore in this file stop expiring.**
+The 2026-08-20 section already said it: *"Every site-level CSS repair has an expiry, mine
+included ... the next `webdesign-agent` run on dartsonline regenerates from the spec and
+drops it"*, roughly weekly per site. `persist_css_to_theme` writes the rendered stylesheet
+into the site's theme row byte-for-byte at every design run, so the row tracks the file.
+Guarded four ways: `octet_length($2) >= 4096` (never persist a fragment — the same number the
+consumer refuses at, so the halves cannot disagree about what a stylesheet is), `origin <>
+'seed'` (never overwrite a library theme), exactly one linking site (never push one site's
+CSS onto another), `IS DISTINCT FROM` (no churn). Fails **open** to `deploy_css` deliberately:
+the realistic error is an unresolvable site id on a non-site run, and (A) is the backstop, so
+an unpersisted row causes a REFUSAL later, never a clobber.
+
+> **It also makes the concept register true.** `DES-005` has claimed since creation that a
+> theme row is born empty and *"webdesign-agent fills it at render"*. **That fill did not
+> exist in any code path.** A register status is a claim, and this one was load-bearing,
+> false, and precisely the sentence that would reassure a reader their restore is maintained.
+
+**(D) is candidate 2, at the only place it can exist.** The chassis cannot compare against
+the incumbent file — `GitCommitAction` assembles a payload and produces it to Kafka, and no
+adapter verb exposes file contents. The git-adapter can, and the read primitive was already
+there being thrown away: `pathExists` GETs `/contents` and `io.Discard`s a body carrying
+`size`. One opt-in key, absent/0 = OFF = today's behaviour, and an unconfigured caller makes
+**no extra API call** (test, not claim — that is what bounds the blast radius across the 17
+carrier agents). Exactly one step opts in, at 0.5.
+
+### 3. Evidence, and what could have come out otherwise
+
+- **543's UPDATE, in a rolled-back transaction on live rows.** A real 25,202-byte value onto
+  dartsonline's row: `UPDATE 1`, v5→v6, `md5(css_content) == md5(value)` exactly. Then
+  `UPDATE 0` four times — shared row, 100-byte fragment, unchanged content, seed row. Four
+  negatives and one positive from one statement.
+- **Two Go mutations RUN, not asserted.** Deleting the enforcement call failed three tests.
+  Measuring the **unprefixed** path failed its dedicated test **and let the clobber commit
+  through** — every lookup 404s, every 404 reads as "new file", and the guard still logs that
+  it ran. Source restored byte-for-byte after each.
+- **Built from a clean `git archive HEAD` tree plus only these files.** The working tree
+  fails an unrelated test from another session's in-flight work; on HEAD plus mine, green.
+- Post-apply config probes green on both agents, and `position('patched_css' in config) = 0`
+  still — 318 survives 542 untouched.
+
+### 4. What this closes, and what it does NOT
+
+- **Closes:** candidate 2 (the deploy-side shrink guard, pending the roll); the birth-guard
+  slot, by fixing the producer instead — a born-empty row is filled at the site's first
+  render and (A) covers the window before that; the `complete_no_css` arm minting `complete`;
+  and the shared-theme hazard, which is now refused rather than merely known.
+- **Does NOT close, and is not claimed:**
+  - **The witnessed live refusal.** Proven in-transaction and by config probe; NOT observed
+    on a real dispatch. Deliberately not induced — the only sites that would exercise the
+    refusal arm are finetuning.uk and gaswholesalers.com, both live, and a faulty gate would
+    clobber them. This remains this file's closure bar.
+  - **The post-roll proof of (D)** — pod-grep `file_shrink_floor` on the chassis AND the
+    git-adapter, each with a negative control, then the adapter's `Info` line
+    (`"file_shrink_floor: commit passed the shrink floor"`) on a real deploy. Lane RUNBOOK §7.
+  - **Candidate 6** — refuse and re-file when the offending declaration is not in the file
+    the agent can edit (`H3.H3`, `p.P` ×2 — three sites' evidence in this file now).
+    Untouched, and the next coherent task here.
+  - **The round-trip-writer inventory**, owed since council round `5249320e` (2026-08-05).
+    Still owed; explicitly not absorbed by this work.
+  - **Owner decision:** per-site theme split for finetuning.uk + gaswholesalers.com.
+
+### 5. Where the working record lives
+
+`docs/agent_docs/docs024_key_docs_latest/bugfix_198_roundtrip_writers/` — PLAN
+(`PLAN_2026-08-21_two_writer_reconciliation.md`, the four decisions and why each is where it
+is), RUNBOOK (the one-query tell, the gate probes, the unpark sweep, the migration-apply trap,
+the post-roll capability probes, and the restore recipe collected from three lanes), NOTES
+(missteps included), README_where_we_are (owner prose), and the council submission JSON.
+Council round `5f756c51-cdc6-4a48-b5f9-59e472243601`, submitted before the commits; both
+commits carry `Council-Submitted:` and the verdict is owed a read — **whoever reads it owes
+acting on a REVISE, since the code is already on the shared branch.** Two LANDMINES added
+(the repair-expiry class; the `error_step`-mints-`complete` class) and one WRONG_CALLS entry.
