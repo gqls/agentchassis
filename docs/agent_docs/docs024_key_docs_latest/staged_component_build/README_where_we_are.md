@@ -2275,3 +2275,50 @@ guess this whole piece of work exists to stop, so it stays theirs to call.
 
 **Nothing waits on you either.** What's left: one more of the "paperwork" cases needing a decision,
 about seven more that look straightforward, the one external answer, and then the switch.
+
+---
+
+**2026-08-21, midday.** Good progress, and one thing is genuinely stuck for a reason worth knowing.
+
+Another session worked this lane last evening and built the key enabler: a way for a step to say
+"take this value from exactly here, or accept that it's missing — but never go hunting". That is the
+tool the whole remaining job needs, and **I confirmed this morning that it is live in the running
+system.** Confirming it was harder than it should have been, and the story is worth two sentences
+because it changed a rule. Our normal way to prove a change is running is to ask the program
+whether it contains a distinctive phrase from that change. This change has no such phrase — the
+only quotable lines in it are comments, which are thrown away when the program is built. So the
+check came back "not present" on a system that definitely had it, with all the safety checks
+behaving perfectly. I only caught it because I checked whether the phrase I was searching for was
+real code before believing the answer. I've written the lesson down along with a method that does
+work, and a note to future authors: if your change will ever need proving, put one provable marker
+in it deliberately.
+
+They also solved a puzzle I'd left open. I'd flagged one case where the evidence contradicted
+itself and said it needed investigating. The answer turned out to be a date: every one of those
+records predates a fix we shipped days ago, and before that fix the system recorded a complaint
+even when it wasn't acting on it. So those records were never a problem — and the measurement I'd
+taken the day before had already predicted that, if I'd joined the two facts up. Two of the three
+remaining hard cases evaporated on that finding.
+
+**I've built the next fix and it is with the reviewers now.** It concerns a step that plans which
+components go on a page and needs to know what kind of page it is. Nobody ever told it where to
+look, so it searches — and among the things it finds are the page-types of *every other page on the
+site*. Measuring it properly turned up something worse than the records showed: on **eighteen of
+thirty-one** runs the page's own details aren't in scope at all, so the only candidates are other
+pages — and when those other pages happen to agree with each other, the substitution leaves no
+trace at all. So this was never just tidying for the final switch; it's a live wrong-answer path,
+on most runs, and the fix improves things today.
+
+**The stuck thing.** Yesterday's fix to a related case was applied but deliberately left unverified,
+on the reasonable expectation that a few hours of normal traffic would prove it. I checked
+seventeen hours later: the component in question has not run once. Not because it's broken —
+because there is no work left for it. All forty-four queued tool jobs are finished. So that
+verification has no natural path to completion, and waiting cannot fix it. I could force it by
+commissioning a real tool build on a real site, but that's a decision with real output and not one
+I'll make unasked. I've written it up as "applied and explained, but not demonstrated", and flagged
+that nobody should let "applied, and nothing has gone wrong since" quietly become "verified" — it
+isn't the same claim, and here the difference is the whole of the evidence.
+
+**Where that leaves the lane:** one external answer still outstanding, one fix in review, one
+verification blocked on there being no work to observe, and a set of written-decision items. Then
+the switch. **Nothing waits on you** unless you'd like me to commission that tool build.
