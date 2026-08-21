@@ -624,3 +624,55 @@ reading it is not a bug in the fork but the fork doing its job for a producer th
 >   accent's own family, nothing like the text colour. **Anyone repointing a token here should
 >   run that check as well as the contrast one**, because contrast alone cannot distinguish a
 >   legible brand colour from a legible grey.
+
+---
+
+## CONTRIB — cookly.uk restored 2026-08-21, and the clobber had reached the REPO
+
+From the `news_editorial_features` lane, on the owner's explicit instruction to
+fix the three outstanding sites. **Only cookly.uk was still broken** — oufe.com
+(21,312 B served) and vonc.com (25,052 B) were already healthy when checked.
+
+### The clobber was no longer confined to the bucket
+
+This is the part worth adding to the bug. `cookly.uk/assets/css/styles.css` was
+serving **504 bytes containing only css-patch-agent's five contrast rules**. The
+local repo copy was still the good 17,462-byte stylesheet — so the initial reading
+was "bucket damaged, repo clean, re-sync fixes it".
+
+**That was wrong.** On `git pull`, the remote had **committed the 504-byte file
+into the repository**, and git's automatic merge resolved to **875 bytes**.
+Committing that merge would have propagated the clobber into the one place it had
+not reached. So the damage does not stop at the served object: it reaches the
+repo, and from there it becomes the baseline every future render diffs against.
+
+**For anyone restoring the remaining sites: `git pull` before assuming the repo
+copy is safe.** A clean local file is not evidence; the remote may already carry
+the damage.
+
+### How it was resolved
+
+Full generated stylesheet from `css_themes.theme-cookly-uk` (121 rules, all five
+core palette tokens, zero patch markers) **plus the five css-patch-agent contrast
+rules appended** under a comment saying why. Those five were the entire content of
+the clobbered file — they are genuine repairs, so they were preserved rather than
+discarded with the damage. Result 18,047 B, verified at the served artefact:
+126 rules, 5/5 core tokens, patches intact.
+
+### A second defect the restore exposed — the de-branded ink
+
+The repo copy (11 August) carried `--color-accent-ink: #2C2C27`, which is
+**byte-identical to this site's `--color-text`**. That is the pre-2026-08-14
+legible-ink derivation, before `colour.LegibleVariant` got first refusal
+(register `VIZ-014`). The current generated value is `#a24122`, a member of
+`--color-accent`'s (`#C8502A`) own hue family.
+
+It is not cosmetic: line 91 is
+`a { color: var(--color-accent-ink, var(--color-accent)); ... }`, so **every link
+on cookly.uk was rendering in the body-text colour** and is now in the accent.
+
+⚠ **And it is invisible to a contrast audit**, which is why it survived: a
+de-branded ink still passes contrast. `VIZ-014` states this
+("stripping a brand colour scores a CLEAN PASS"). Anyone restoring the remaining
+sites should diff the restored `-ink` tokens against that site's `--color-text`
+and treat equality as a stale derivation, not a coincidence.
