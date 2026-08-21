@@ -147,13 +147,22 @@ done
 > indistinguishable from "not stamped"). A control that comes out PRESENT means the probe
 > matches everything and proves nothing.
 
-Then the end-to-end signal, which is the honest one because it proves three things at once
-(the field arrived, the guard measured, a healthy commit passes):
+**The pod-grep above is the check that settles it.** There is also an end-to-end log line,
+but treat it as an opportunistic bonus, never as the verification:
 
 ```bash
 kubectl -n ai-persona-system logs -l app=git-adapter --tail=500 \
   | grep 'file_shrink_floor: commit passed the shrink floor'
 ```
+
+> ⚠ **CORRECTED 2026-08-21 by the council's `debug_historian` seat** — this section originally
+> called the log line "the honest one". It is not, and the reasoning was backwards. Pod log
+> history here is short (~90 seconds is the recorded figure), `kubectl logs -l app=<x>` can
+> return zero lines for a live pod, and **this guard only emits on a css-patch dispatch**, so
+> an absent line means "not in range", never "not shipped". What the line does prove, IF you
+> happen to catch one, is three things at once — the field arrived, the guard measured, and a
+> healthy commit passed — which is why it is worth grepping after a real deploy. It just
+> cannot answer "did it ship?", and only the binary probe can.
 
 ## 8. Restoring a clobbered site (the recipe, from three lanes' experience)
 
