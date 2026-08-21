@@ -13257,3 +13257,54 @@ residual, one from the errors and one from reading the handler's own step config
   chrome, a rendered nav, a config blob stamped per tenant, a header injected into every response. The
   question is not "is this value right?" but **"is this value the same for every consumer of this
   row?"** — and if it is not, no amount of correctness at write time can save it.
+
+### Code written to answer a REVIEWER has no reproduction pushing back on it — delete it and re-run before you believe it (2026-08-21, `bugs_open/344`, council corr `2c21e214`)
+
+**The sibling of "a fix that changes WHICH status a write lands…" (§9, above), met from the review
+side rather than the deploy side.** That entry is about what a change re-arms; this one is about
+what a change is *believed on*.
+
+**The shape.** A council seat objects. You write code to answer it, describe the answer in the
+resubmission, and move on. The code is correct — and nothing anywhere asserts it. Months later a
+refactor removes it and no test goes red, because none ever existed. The objection was answered in
+prose and left unguarded in the tree.
+
+**The tell, and it is one command.** After writing code to answer an objection, **delete that code
+and run the tests.** Measured on this round:
+
+```
+=== M8: skip stops recording durably ===
+ok   github.com/gqls/agentchassis/platform/orchestration/actions  [no tests to run]
+```
+
+`[no tests to run]` is the tell. Nothing went red because nothing was watching. **The objection is
+answered by the thing that fails when the diff is undone — never by the diff.**
+
+**Why review-driven code is more exposed than bug-fix code.** A bug fix has the bug's own
+reproduction pushing back on it: you watched it fail, you watched it pass. Code written to satisfy
+a reviewer has only the reviewer's sentence, and the reviewer is not present when someone later
+edits it. It also arrives *late* in a round, feels like tidying, and therefore gets the least
+scrutiny in the very round that demanded it — the same family as **"the by-the-way edit is the one
+with no test"** (`WRONG_CALLS`, 2026-08-20), one rung up.
+
+**This is the third disguise of one error in three days on a single lane**, which is why it is worth
+a §9 row rather than only a `WRONG_CALLS` entry:
+
+| # | disguise | what could not see it |
+|---|---|---|
+| 1 | `SQLSTATE 42P18` — a bound parameter dropped from the statement text, so the terminal write could never execute | fifteen sqlmock tests: **a mock never PREPAREs, so it never types a placeholder** |
+| 2 | three mutations "survived" | they had **never applied** — `gofmt` reformatted the text the patch matched on |
+| 3 | a fix answering a reviewer | **no test existed at all**; the mutation had nothing to delete |
+
+Each is the same question left unasked: *what would NOTICE if this stopped working?* None was found
+by thinking harder; all three were found by a mechanical habit — mutate, and require the mutation to
+have applied.
+
+**The companion check, from the same round:** a mutation that PASSES is only evidence if it
+*changed the file*. Assert the md5 before believing the result, or a no-op patch and a passing test
+are indistinguishable — which is how disguise 2 nearly became a finding about the tests instead of
+about the harness.
+
+**Relations:** §9 "a fix that changes WHICH status a write lands…" (`bugs_closed/307`) · `WRONG_CALLS`
+2026-08-20 (the by-the-way edit) and 2026-08-21 (all three disguises) · `bugs_open/344` §2 ·
+register **WII-024**.
