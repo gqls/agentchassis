@@ -13849,3 +13849,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/320` migrations `493` (shipped it), `517` (one definition), `518` (fixed the order) · MEMORY [[a-stale-page-holds-every-improvement-since-it-rendered]] · the sibling landmine on `query_database` stringifying jsonb (same family: a value that reads correctly and is not)
 - **source:** 2026-08-21, `bugs_open/320` — found by investigating why one homepage reported 197 characters instead of accepting it
 - **added:** 2026-08-21, `meta_description_never_backfilled` lane
+
+### The Anthropic 400 "you will regain access on <DATE>" names a date that is NOT when access returns — it came back in ~7 minutes, and the message reads like an 11-day estate-wide outage
+
+- **footprint:** `agent_error_log.error_message LIKE '%usage limit%'` · `orchestration_states.collected_data->>'__step_error'` on any `execute_llm_prompt` step · `current_step='complete_invalid'` · `platform/aiservice/` (the `AI endpoint unavailable: provider=anthropic` wrapper) · any council-gate or diagnosis run that ends without a verdict
+- **fires when:** a council round, diagnosis loop or writer step dies and you read its `__step_error` to find out why. There is no symptom beforehand and the message is unusually specific, which is exactly what makes it convincing.
+- **the trap.** The provider returns HTTP 400 with:
+  > `{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on 2026-09-01 at 00:00 UTC."}`
+  Read literally on 2026-08-21 that is **an eleven-day, account-wide LLM blackout** — every council seat, every diagnosis loop, every LLM writer in the estate. It is worth stopping the lane and telling the owner. **It is also wrong.** [MEASURED 2026-08-21] the burst ran **10:34→10:41:29Z** and then stopped dead: **zero** further hits, and in the 87 minutes after it the estate completed **200+** orchestrations including LLM-backed ones (`css-patch-agent`, `page-build-handler`, `render-audit-agent`). The quoted date is the **billing-period reset**, not the moment access resumes; the actual block is a short spend/rate window.
+- **it is a recurring burst, not a one-off, so expect it again.** 122 hits since **2026-07-28** across **15** agent types, in clusters: 78 on 08-14, 11 on 08-19, 6 on 08-21. Between clusters everything runs normally. A run that lands inside a cluster dies; the next one minutes later succeeds.
+- **the check — never read the date, read the clock:**
+  ```sql
+  -- is the block STILL ON? (not: what does the message claim)
+  SELECT count(*) AS hits_last_15min, max(occurred_at) FROM agent_error_log
+   WHERE (error_message LIKE '%usage limit%' OR error_message LIKE '%regain access%')
+     AND occurred_at > now() - interval '15 minutes';
+  -- and the demand control, because zero hits with zero traffic proves nothing
+  SELECT count(*) FROM orchestration_states
+   WHERE updated_at > now() - interval '15 minutes' AND status='COMPLETED';
+  ```
+  Zero hits **with** live completions ⇒ the window has passed, **retry now**. Do not wait for the quoted date and do not report an outage on the strength of the string.
+- **what to do with the dead run.** A run that ended `complete_invalid` **produced no verdict**, so it is NOT the "never re-trigger a published run" case — resubmitting is correct and precedented (RFC_029 step 3's gate hit this on 2026-08-19 and was APPROVED on the resubmission). Reuse the same trail: `RESUBMIT_CORR=<the submission corr>`. **Check `current_step` before concluding anything from a missing verdict** — `complete_invalid` is a death, not latency, and the standing "a missing row is latency, not a drop" advice does NOT apply once the row says `complete_invalid`.
+- **and it will masquerade as something else.** On the day this was written the same limit plausibly explains a *different* observation in the same lane — `tool-generator` not running for 17 h, which had been attributed solely to a drained work queue. Both can be true; do not let one explanation retire the other without a check.
+- **relations:** `docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-18b_continue_here.md` §3 step 3 (the 2026-08-19 instance, and the successful resubmission) · this file's entries on demand controls · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] — the same shape inverted: here the believable external cause is real but its stated DURATION is not · [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-21, `staged_component_build` lane · migration 515's council round 2 died this way at 10:40:27Z and succeeded on resubmission · `NOTES_staged_component_build.md` (`## 2026-08-21`)
+- **added:** 2026-08-21, staged_component_build lane
