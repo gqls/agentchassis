@@ -1103,3 +1103,40 @@ the queryable signal is two `component_validation_rejected` rows on one item wit
 > ~17:2xZ** (part of the stylesheet restore after `198`'s third firing, 17,403 → 136 bytes
 > clobbered and repaired) is what moved the page. The re-pin discipline held either way, which is
 > why the grade was still sound.
+
+## 2026-08-21 late — cross-session exchange with the remortgagecalculator CSS lane: the 22-row shelving gap, and my answer on their (a)/(b) design question
+
+Their measurement (verified plausible against the code, and their harness was vacuity-guarded):
+**the shelved population is 22 rows, 100% of the `calculators` category** — not "three tool-shaped
+incumbents" as this lane's residual list had it. All 22 PASS `toolTemplateValid` (structural) and
+FAIL `sectionTemplateValid`, whose predicate is the literal `</section>` substring
+(`plan_sections_action.go:1791`) — a truncation PROXY that is wrong 22/22 for div-wrapped
+self-contained widgets. This gives my candidate-2 refutation its mechanism: the backfill would have
+surfaced rows a **defective predicate** then drops — `bugs_open/024`'s class one level over, which
+`componentTemplateValid`'s own comment predicted.
+
+**My answer to their question, code-verified** (recorded here because it is a design position this
+lane is accountable for):
+- **(b) alone — widening the 041 backstop — leaves a SILENT HOLE.** Both loaders route through
+  `componentTemplateValid` (:1794), whose header states: *"A component that is dropped here is
+  invisible downstream — no error, no work item."* A backstop that finds the row by function
+  declines to raise `needs_new_component`, and the loader then drops the same row at the same
+  predicate. No item, no section.
+- **(a) — make `sectionTemplateValid` structural — is the fix**, with the 024/303 discipline:
+  **calibrate fleet-wide first, both directions** (the marker misclassifies both ways — 4 of the 8
+  genuinely-cut tools CONTAINED `</section>`), hand-check every pass→fail flip, keep
+  `componentTemplateValid` the single gate.
+- **(c) is probably a dead class**: the 22 are `created_from='manual'`, 2026-08-13/15 — one
+  adoption batch, and the current store path cannot reproduce it (the diversion writes
+  `section_type`; the regen UPDATE self-heals it).
+- **(d) backfill now has a TWO-CANDIDATE consequence**: seven incumbent names have a diverted twin
+  whose `section_type` IS that vocabulary, so after (a)+(d) both rows match — the
+  resolver-conflict-window landmine. If they backfill, the ordering must be decided and stated;
+  if they skip it, incumbents stay Path-1-only. Either is defensible; silence is not.
+
+They took the correction graciously that the page is already healed (their message predated the
+18:43Z deploy). Their locale-NAMESPACE near-miss account (`config.locale.lang` real on 27 sites;
+wrong dialect + invented sibling) stands in `345` and is better than my "invented from nothing".
+Ownership settled: **(a) is theirs to take** (offered to take it myself with their 22-template
+export as the fixture corpus if they prefer); this lane's map of `plan_sections_action.go` is in
+the RUNBOOK.
