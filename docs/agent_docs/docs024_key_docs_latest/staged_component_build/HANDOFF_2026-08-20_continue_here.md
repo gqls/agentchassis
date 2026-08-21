@@ -419,6 +419,39 @@ on this migration.
 
 </details>
 
+## 2.7 bdl/`commit_sha` — UNBLOCKED, and use `?` NOT `!` (2026-08-21 ~15:0xZ)
+
+**The 315 lane answered our CONTRIB in full and the gate is open.** They laid out three routes,
+chose **(b) — make the path stable at the SOURCE** — and then *built* it: migrations 519/521/522/523/
+527/528/534/535/536 convert each handler's `complete` step from `output_fields` list mode to
+`result_mapping`, hoisting `commit_sha` to a canonical top-level key. Their handoff:
+*"handler side COMPLETE — all 9 real handlers standardised, applied, verified live. The wire is
+staged-component-build's remaining piece."* **The migration is explicitly ours; they said they are
+not taking it.** Their full answer is at the bottom of
+`docs/agent_docs/docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/CONTRIB_2026-08-20_from_staged_component_build_commit_sha_resolves_by_guess.md`.
+
+⚠ **BUT: their §3 suggests `commit_sha!` (strict) and their own §4 refutes it. Use `?`.**
+`!` means *explicit path or FAIL* (`action_inputs.go:750` — "strict enforcement at the bottom fails
+`!` fields"). Their §4 warns that **absence is CORRECT** for items whose handler contains no
+`git_commit` at all. I measured it independently and it is bigger than their figure:
+
+```sql
+SELECT count(*) AS completed,
+       count(*) FILTER (WHERE result ? 'commit_sha')       AS has,
+       count(*) FILTER (WHERE NOT (result ? 'commit_sha')) AS lacks
+FROM site_work_items WHERE status='complete' AND jsonb_typeof(result)='object'
+  AND completed_at >= now() - interval '3 days';
+```
+→ **2195 completed, 1115 with, 1080 WITHOUT — 49%.** So `commit_sha!` would **hard-fail about half
+of all work-item completions.** `?` gives exactly what is wanted: resolve from the canonical path,
+otherwise absent, no error. Same shape as 515, and the marker is now proven in production by 515.
+
+**The wire to build:** `"commit_sha?": "handler_result.response.commit_sha"` on `build-dispatch-loop`'s
+`complete_work_item` step. **Verify the path at runtime first** — the 315 lane's §4 also warns the
+envelope is doubly nested (`response.<field>.response.data.`) on `call_agent`-reached handlers, and
+their `result_mapping` work is meant to have flattened that. **Read a live post-535 bdl tree before
+writing the path**; do not take `handler_result.response.commit_sha` from this paragraph.
+
 ## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
 
 §2.0's two axes (WIRED? × WHICH SIDE OF THE PRUNE?) generalise to the whole census, and applied
@@ -454,7 +487,7 @@ no migration and no paragraph.** Together with the four already killed by steps 
 
 | pair | rows post-prune | wired? | state |
 |---|---|---|---|
-| **bdl / `commit_sha`** | **640, last 2026-08-21 10:28** | no | 🔴 **THE GATE. Firing right now.** Blocked on the 315 lane's answer for the correct path — `bugs_open/334` |
+| **bdl / `commit_sha`** | **640+, still firing (387 in 24 h to 15:01Z)** | no | 🟡 **NO LONGER BLOCKED — see §2.7. The 315 lane answered, chose option (b), applied it across 9 handlers and handed the wire back. Ours to build.** |
 | **tg / `related_pages`** | 17, last 08-20 17:07 | **yes, and it MISSES** | 🟠 `bugs_open/330`. Refusal is the DESIRED outcome ⇒ **recorded decision**, not a wire |
 | **pbh / `page_type`** | 3, last 08-20 15:11 | no | 🟡 **515 in review** (`a452fc2a`) — apply, then verify with a demand control |
 | **tg / `reason`** | 22, last 08-20 17:08 | no → wired by 512 | 🟢 512 applied; **verification unrunnable, queue drained (§2.3)** |
