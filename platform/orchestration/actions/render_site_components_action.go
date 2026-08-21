@@ -535,14 +535,25 @@ func declaresHeadTag(head, attr, value string) bool {
 func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) string {
 	idx := strings.Index(headHTML, "</head>")
 	if idx == -1 {
-		// A head with no close tag: leave untouched. Unlike this function's
+		// A head with no close tag: decline, but LOUDLY. Unlike this function's
 		// siblings (injectCanonicalLink, injectPageJSONLD, spliceOpenGraph)
-		// which append, this one declines — a divergence recorded rather than
-		// quietly unified, because appending brand markup after the head
-		// boundary is not obviously right. The one fragment head in the fleet
-		// was wrapped by migration 529 (bugs_closed/347), so this branch is
-		// currently unexercised; site-locale-unset-check's finding B is what
-		// reports the next one.
+		// which append, this one declines, because appending brand markup after
+		// the head boundary is not obviously right on a hand-authored head.
+		//
+		// The Warn is the point (council round 1, bug_historian: "'documented'
+		// in a comment is not a fail-loud guard"). A silent skip here is how
+		// webdesign.co.uk lost every brand tag on 117 pages while every caller
+		// reported success — the exact shape this function has just been fixed
+		// to stop. So the decline names the site and says what it cost.
+		//
+		// Currently unexercised: the one fragment head in the fleet was wrapped
+		// by migration 529 (bugs_closed/347). If this fires, a new hand-authored
+		// head component has arrived without a <head> element, and
+		// site-locale-unset-check's finding B will be reporting it too.
+		logger.Warn("injectBrandHeadTags: DECLINED — head has no </head> close tag, so no brand tags were added",
+			zap.String("domain", ctx.Domain),
+			zap.Int("head_bytes", len(headHTML)),
+			zap.String("consequence", "this site serves no og:image, twitter card or apple-touch-icon until its head component gains a <head> element (see bugs_closed/347, migration 529)"))
 		return headHTML
 	}
 
@@ -551,11 +562,19 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 	desc := htmlEscapeAttr(ctx.Tagline)
 
 	var b strings.Builder
-	// Primary favicon = the derived square PNG; if the site has a logo we
-	// also list it as a secondary icon so a mark always resolves even before
-	// derive_brand_head_assets commits favicon.png. A head that already
-	// declares ANY rel="icon" keeps its own — a hand-authored favicon is a
-	// deliberate choice and this function must not append a second one.
+	// Favicons, and the asymmetry here is deliberate — read it before "tidying".
+	//
+	// When the head declares NO icon we write TWO: the derived square PNG, and
+	// the site logo as a SECONDARY icon when there is one. That is unchanged
+	// pre-existing behaviour and it is correct — multiple <link rel="icon"> is
+	// valid, browsers pick, and the logo guarantees a mark resolves even before
+	// derive_brand_head_assets has committed favicon.png.
+	//
+	// When the head ALREADY declares any rel="icon" we write NONE. A
+	// hand-authored favicon is a deliberate choice, and the rule this enforces
+	// is "never append one beside an AUTHORED icon" — not "never emit two".
+	// (Council round 1, editquality, read the earlier wording as contradicting
+	// itself; it was the comment that was wrong, not the code.)
 	if !strings.Contains(headHTML, "rel=\"icon\"") && !strings.Contains(headHTML, "rel='icon'") {
 		b.WriteString("  <link rel=\"icon\" href=\"/assets/images/favicon.png\">\n")
 		if ctx.LogoURL != "" {
