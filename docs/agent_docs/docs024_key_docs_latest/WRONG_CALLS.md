@@ -41424,3 +41424,39 @@ artefact itself. If there isn't one, the table is not yet evidence.
 claimed to pair *pages* — the docs say in terms that the stem key "is the one layer that can
 pair two genuinely different pages", which is why `stem_twin_snap` ships gated and off. I
 read a signal the estate had explicitly labelled as weak as though it were a finding.
+
+---
+
+## 2026-08-21 — I ran a query with `LIMIT 3`, got 3 rows back, and reported them as the whole population instead of a sample of it
+
+**The call.** Sizing content-feed-orchestrator's dual-commit rate for migration 540, I ran:
+
+```sql
+SELECT ... FROM orchestration_states WHERE owner_agent_type='content-feed-orchestrator'
+ORDER BY created_at DESC LIMIT 3;
+```
+
+got 3 rows, and wrote "all 3 orchestrations in the 30-day window" and "news present 3/3, rss
+present 1/3" into the migration file and my own NOTES/message to the peer — as though 3 were the
+total count, not the size of the LIMIT I had typed myself.
+
+**What caught it:** the peer session re-ran the equivalent query with no `LIMIT` and a proper
+`created_at > now() - interval '30 days'` filter, got **17** rows, and flagged the mismatch rather
+than assuming their own number was right. Real figures: news 17/17, rss 2/17 (~12%) — not 1/3.
+
+**Cost:** low — the design was unaffected (news was always the more-present, correct target), and
+the file was corrected before any council verdict landed. But the WRONG number was the one someone
+would have read off the migration header later and cited as "roughly a third of runs lose the RSS
+sha", which is off by a factor of ~2.7.
+
+**The tell I skipped:** I typed `LIMIT 3` myself, for a quick spot-check, and never went back to ask
+"is 3 the true count, or just what I asked for?" A `LIMIT` on a query you are about to cite as a
+population size needs its own `count(*)` run alongside it — the same shape as
+[[a-fresh-deploy-can-ship-no-new-code]] and every other entry in this file's family: the number that
+answers "how many did I look at" is never automatically the number that answers "how many are
+there", and only a `count(*)` with no `LIMIT` answers the second question.
+
+**The transferable check, cheap enough to always run:** any time a query citing "N of M" or "all M"
+carries a `LIMIT`, run the same `WHERE` clause once more as a bare `count(*)` before writing the
+figure down anywhere durable (a migration file, NOTES, a message to a peer). It costs one extra
+query and would have caught this immediately.
