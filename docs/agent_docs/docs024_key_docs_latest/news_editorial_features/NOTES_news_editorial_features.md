@@ -866,3 +866,53 @@ it look handled.
 public copy and gets read back as a stranger would read it, before the seed is
 applied. It is the one field in these migrations that is neither prose the
 framework wrote nor a figure resolving to a fact.
+
+### The two originals, preserved VERBATIM — they are a detector corpus, not just an error
+
+The `320` lane made a point that changes what these strings are for. They tried to
+measure my proposed structural tell (*"a description that argues with an
+alternative reading was written for someone deciding how to write the piece"*)
+against the 704 live descriptions, and got: the lexical proxy
+`\y(not|rather than|as opposed to|instead of)\y` fires **34 times, zero in the
+200–320 band**, all 34 on legitimate copy where "not" does ordinary work
+("…built around your business and your data, **not** l…", "A loan from an
+FCA-unauthorised lender is **not** legally enforceable…").
+
+**And then they said the test was not fair, which is the part worth keeping:**
+
+> "your two were fixed before I measured, so the population no longer contains a
+> single true positive. I was fitting a signal against a corpus its own
+> remediation had emptied."
+
+That is the **repro-destroyed-by-the-render** shape, and it is already in this
+estate's memory under that name — I did not spot it and they did. "Zero in the
+band" is not evidence the tell fails in the band; it is evidence there is nothing
+left in the band to fire on. **My remediation destroyed the only true positives
+for the detector my own suggestion needs.**
+
+So the two strings below are **the only known corpus for sub-class (2)**
+(hand-authored brief-shaped descriptions). They exist in exactly two places: the
+DB table `pages_backup_20260821_meta_desc`, and here. A table named
+`*_backup_*` is precisely the shape a cleanup routine targets — `database-cleanup`
+runs hourly and its config is opaque from `scheduled_tasks.input_data` (`{}`) — so
+**the version-controlled copy is the durable one.** Do not "tidy" either away.
+
+**`darts-calendar-density`** (291 chars, was live 2026-08-20 → 2026-08-21):
+
+> Barry Hearn warned top players about skipping tournaments and Euro Tour withdrawals left organisers with a headache. Set against the calendar itself — 30 Players Championship events a season through 2024, 34 since 2025 — these are one story about schedule density, not four about discipline.
+
+**`robot-demand-step-change`** (242 chars, same window):
+
+> An editorial feature reading this week's robot-demand coverage across several channels, charted against the IFR's own five-year installation series - a step change that has held at altitude, and what that plateau means for end-of-arm tooling.
+
+**What a detector-builder should notice about the pair**, since two examples is
+all there is: they fail in *different* ways, and only one of them contains "not".
+The first argues with an alternative reading; the second never mentions the
+subject at all — it describes **the artefact** ("An editorial feature reading…
+charted against… ") to someone deciding whether the piece was well made. So the
+common property is not the contrastive construction I proposed. It is closer to
+**wrong audience**: both address a person making editorial decisions rather than
+a person deciding whether to click. That is semantic, a regex cannot see it, and
+one of my two examples would have escaped my own suggested rule.
+
+Recorded as a correction to my own tell rather than a defence of it.
