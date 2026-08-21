@@ -809,3 +809,60 @@ not from counting. The population had three classes I had not looked for (owned,
 unfetchable, already-current) and my sample could not have revealed any of them.
 **Say "5 of 5 sampled" or count the population; do not dress a sample as a
 census.**
+
+### MISSTEP 6 — my own premise test leaked into a public meta description, and I wrote it by hand
+
+Found by the `meta_description_never_backfilled` lane (`bugs_open/320`, `339`).
+The live `pages.meta_description` on `darts-calendar-density`, 291 characters:
+
+> "…Set against the calendar itself — 30 Players Championship events a season
+> through 2024, 34 since 2025 — **these are one story about schedule density, not
+> four about discipline**."
+
+That closing clause is **design D's premise test**, straight out of this lane's own
+design doc — an instruction about how to frame the piece — printed as the sentence
+a search engine shows under the title. `robot-demand-step-change` was milder but
+the same shape: 242 chars opening "An editorial feature reading this week's…",
+which describes the artefact to a colleague rather than the subject to a reader.
+
+**Both were hand-authored by me, in migrations 492 and 495.** Not a pipeline
+defect.
+
+**The part worth keeping, and it is about their investigation rather than my
+error.** That lane eliminated the site planner (absent from `site_plan_pages` in
+every plan), the tool path, `apply_gap_plan_action` (none of its five
+`ON CONFLICT` clauses writes the column) and the rerender (the page already held
+the text before the earliest orchestration carrying it). **That chain was
+exhaustive over code paths, and the answer was not on one** — a session typed the
+string into a seed.
+
+**So the finding for `339` is a category, not a producer:** a seed migration
+writing `pages.meta_description` directly **bypasses every producer-side
+control**. Their proposed remedy for the tool half — *"don't pass the brief as a
+candidate at all, compose the public sentence separately"* — is right there and
+**cannot apply here, because there is no composer in the path to fix.** For a
+hand-authored row the guard is the only control, and `PublicMetaDescription` is
+measured not to fire in the 200–320 band (0 of 693 live descriptions exceed 320;
+the marker regex matches none of the 11–12 in that band). Fixing this class needs
+either a guard that catches it or a check at seed time.
+
+**Why I made it.** I composed the description in the same sitting as the premise,
+from the same sentence, and never re-read it as a reader. The tell was available
+and I did not look for it: **a description that argues with an alternative reading
+is written for someone deciding how to write the piece.** A reader has no
+alternative reading to be corrected out of.
+
+**Fixed** (`sql_for_agents/497`, with a backup table and a verify block that
+refuses a description over 160 chars or carrying a brief-shaped construction).
+Both rewritten reader-facing and under 160 — 153 and 157, against 291 and 242,
+since search snippets truncate around there anyway. Both redeployed.
+
+**A third page in the same shape is NOT mine** —
+`leopardessconsulting.co.uk/hierarchical-multi-agent-orchestration-explained`
+belongs to another lane; I have not touched it and have said so rather than let
+it look handled.
+
+**The standing check for this lane:** every seeded page's `meta_description` is
+public copy and gets read back as a stranger would read it, before the seed is
+applied. It is the one field in these migrations that is neither prose the
+framework wrote nor a figure resolving to a fact.
