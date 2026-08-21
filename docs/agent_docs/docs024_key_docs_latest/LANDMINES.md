@@ -13637,6 +13637,31 @@ code change owed at the next roll, tracked in RFC_015 §5.
 > stamped chassis has it, `?` is the BETTER spelling for the 334/330 cases than the unmarked key
 > this entry originally recommended — the unmarked key falls back to the search on a miss, which is
 > exactly when the conflict row returns.
+>
+> **⚠ CORRECTED AGAIN 2026-08-21 ~11:0xZ — THE GAP IS CLOSED. THE TITLE OF THIS ENTRY IS NOW FALSE,
+> and it drew a HIGH-SEVERITY council objection against a correct migration before anyone noticed.**
+> The fleet rolled to **`v1.0.1321`** (both pods, up 2026-08-20T19:51Z), built from **`0483e7f4e`**,
+> and `ecc419bd1` **is an ancestor**. So `?` on a step's action `config` **parses in the running
+> fleet**, and a `?` adopter migration **no longer needs `_HOLD`**. Verified two ways, because the
+> ancestry check alone is NOT sufficient and that is the whole lesson here:
+> 1. **The commit shipped:** stamp `0483e7f4e` found in `/proc/1/exe` (targeted `grep -aqF`, one sha
+>    at a time, `deadbeef…` control absent), then `git merge-base --is-ancestor ecc419bd1 0483e7f4e`.
+> 2. **The commit contains the CONFIG branch specifically** — ancestry proves a commit is present,
+>    not which parsing path it touched, which is exactly what the guardian seat objected on:
+>    ```bash
+>    git show 0483e7f4e:platform/orchestration/datahelpers/action_inputs.go | grep -n 'TrimSuffix(k, "?")'
+>    # -> 694 and 708: the peel is in the CONFIG loop at the built commit, not just at HEAD
+>    git log --oneline -L '/optionalExplicit :=/,+2:platform/orchestration/datahelpers/action_inputs.go'
+>    # -> ecc419bd1 introduced it
+>    ```
+> **The transferable lesson is about this file, not about `?`.** An entry whose title encodes a
+> point-in-time state (`NOT YET`) keeps asserting that state after two corrections have been added
+> below it, because **a reader — human or council seat — matches on the heading and the footprint,
+> not on the third paragraph.** A council seat cited this heading as evidence against a migration
+> whose own submission had already proved the opposite. If a landmine's truth has a shelf life,
+> **put the expiry in the TITLE or retire the entry**; do not let a stack of corrections accumulate
+> under a heading that still reads as the finding. First live adopter: migration `515`.
+
 
 - **footprint:** `platform/orchestration/datahelpers/action_inputs.go` (`strictFields` / `optionalExplicit` :669+, `UnknownConfigKeys` :279-298) · `platform/orchestration/input_contracts/input_mapping.go` (`ResolveInputMapping` :110-139) · `docs/agent_docs/sql_for_agents/` — any migration writing a marker-suffixed key into `{workflow,steps,<step>,config}` · `agent_definitions.default_config` · `RESOLVER_CONFLICTING_CANDIDATES` remediation of any shape "give the field an explicit mapping"
 - **fires when:** you fix a resolver guess — a whole-tree search substituting a foreign value — by wiring the field explicitly, and you copy the marker spelling from a working example. The estate has **two** config surfaces that look identical inside a migration, and they do not share the vocabulary:
