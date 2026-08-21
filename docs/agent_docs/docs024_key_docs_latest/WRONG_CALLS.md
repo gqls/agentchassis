@@ -42154,3 +42154,48 @@ three lines of caller code, and the second line disproved it. **A ground receive
 that owns the work is still a claim — the relay adds confidence and subtracts nothing from the need
 to read the code.** Corrected visibly in the handoff §5 bullet; the council submission shipped with
 the corrected mechanism and the measurement as the ground.
+
+## 2026-08-21 — I handed another session a FALSE mechanism as a settled ground, and it went to the council too (staged_component_build lane)
+
+**The call.** A parallel session on my own lane offered to take the read-side tolerance retirement.
+I handed it over with two ready-made safety grounds, framed as settled: (1) zero non-terminal
+pre-roll orchestrations, so nothing can be resumed into the build-side call site; and (2)
+*"`buildRerenderBaseData` writes the NEW key fresh, and the tolerance's first branch `continue`s
+whenever `current_page_name` is present, so those stored rows never reach the second branch."*
+
+**Ground (2) is false.** The `continue` is **per-MAP**, and the rerender path makes **three separate
+`mergeIntoRenderContext` calls** — base ⊕ stored `content_data` ⊕ resolved_data
+(`rerender_page_sections_action.go:628-631`). In the stored-`content_data` call the map is
+`s.contentData`, which carries no `current_page_name` at all. So the second branch **was** reached
+and **did** adopt the stored string, on every one of those rows. **I read a function that handles one
+map and reasoned about a path that calls it three times with three different maps.**
+
+**What caught it:** the session I gave it to **measured the ground instead of citing it**. They found
+`also_have_new_key = 0` across every live row — which is only interesting if you are checking whether
+the first branch can fire, i.e. only if you did not take my word for it.
+
+**Cost.** None realised, and the retirement is still right — but for a different reason than I gave:
+their measurement showed every stored string agrees with its own page's name
+(`differ_from_page_name = 0`), so adopting it was value-neutral. Better still, the retirement closes a
+door I had claimed was already shut: a future *stale* stored string would have clobbered the fresh
+base identity between merges, which is `bugs_closed/085`'s exact shape.
+
+**It also reached the council.** The flip's submission carried ground (2) in its "NOT INCLUDED"
+paragraph describing the deferred work, through all three rounds of an approved review. It did not
+affect that approval — the flip's own tolerance claim rests on `ok=false` leaving the field at its
+prior value, which is true regardless — but **a false statement stood in an approved submission**,
+and the correction belongs on the record next to it.
+
+**The cheap check that would have:** when a mechanism argument turns on "this branch is unreachable",
+**find the CALL SITES before believing it** — `grep -n '<function>(' ` and count them. One call site
+makes the argument about the function; several make it about each caller separately. Here there were
+three, in one block, four lines apart.
+
+**The generalisable half, and it is about handing work over.** Everything I passed on was in my own
+head as "already established", and I relayed it in that register — as grounds to *use*, not claims to
+*check*. **A ground is not more true for having been carried across a session boundary; it is less
+visible.** The receiving session cannot see which of your claims you measured and which you reasoned.
+So mark them when you hand them over: *"(1) is measured, here is the query; (2) is my reading of the
+code, please verify."* Their own entry records the mirror lesson from their side — that a ground
+relayed by the owning session is still a claim. Both halves are needed, and mine is the one that
+caused it.
