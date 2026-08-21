@@ -150,3 +150,70 @@ SELECT domain, status FROM sites WHERE status='pool' ORDER BY domain;
 They are invisible to the fleet sweeps because those only walk deployed sites,
 and to the news machinery because that only fires on classified sites with live
 pages. Pools have neither. Verify rather than assume before arming one.
+
+---
+
+## 10. Retiring a feature (de-listing) — prepared 2026-08-21, NOT yet exercised
+
+The ratified lifecycle says retirement is **deliberate de-listing, never
+deletion**: the page keeps serving at its URL, and stops being pointed at. That
+makes a retirement a **removal-shaped chrome change**, which needs two mechanisms
+that have never run together. Both are prepared below; neither has retired a real
+feature yet, so treat the first run as an experiment and record what happens.
+
+### 10.1 What makes this awkward, in one paragraph
+
+The page being retired is **owned** (so the ordinary reconcile refuses it) *and*
+it is the **subject** of the change (its own link must disappear from everywhere
+else). So you need the owned-page path for the page itself and the removal-aware
+reconcile for every other page — and a marker census will lie to you about both,
+because the string legitimately appears on the hub (as a listing entry) and on the
+retired page itself (as its own canonical, `og:url` and schema `@id`).
+
+### 10.2 The order
+
+1. **Decide it is retired.** The operational test from the design doc: the
+   story's cluster has stopped accruing articles in the feed. Not a clock.
+2. **Remove it from the hub listing** — edit the `info-card-grid` `content_data`
+   on `insights-index`, re-render locally, `UPDATE` the locked row, assemble-only
+   rerender. (Worked example: the two-card update of 2026-08-21.)
+3. **Set `noindex` if the page is judged stale enough to harm**, leaving
+   `status='active'` so the URL keeps serving. Do **not** set
+   `status='archived'` unless you intend it to stop serving — check what that
+   does on this platform before assuming.
+4. **Propagate to every other page** with the peer lane's removal-aware mode:
+   ```bash
+   docs/leopardessconsulting/scripts/reconcile_footer_nav.sh \
+     <site_id> <domain> --absent '<marker>' [rounds]
+   ```
+   ⚠ **Anchor the marker on the footer-specific form**, e.g.
+   `<li><a href="/insights/<slug>.html"`, not the bare slug — otherwise it
+   over-reports on the hub and on the retired page itself. Grade on served bytes.
+5. **The retired page itself, and any other owned page**, with:
+   ```bash
+   docs/leopardessconsulting/scripts/refresh_owned_page_chrome.sh \
+     <site_id> <domain> '<marker-that-must-APPEAR>' <page_name> [...]
+   ```
+6. **Verify at the served artefact**, never at a status: the slug gone from other
+   pages' footers, the page itself still 200, the hub no longer listing it.
+
+### 10.3 What is vouched and what is not — tested 2026-08-21
+
+`refresh_owned_page_chrome.sh` **safety property: VOUCHED.** Run against
+`electric-vs-pneumatic-economics` (owned, 5 permanently-locked components). It
+flips the page to `generic`, re-renders in assemble mode, and restores `owned`
+from an EXIT trap *before* verifying — "protection first, cosmetics second" in its
+own output. After the run: `rebuild_policy='owned'`, all **5 locked rows intact**,
+served page **byte-identical at 86,602** with hero and all 10 chart rows.
+
+**Fix property: NOT vouched.** The test page's chrome was already current, so the
+run was a no-op by construction — it proves the script does no harm, not that it
+propagates a stale footer. **No stale owned page existed to test on.** The first
+real retirement is therefore still the first genuine exercise of that half; say so
+rather than reporting it as proven.
+
+**The window to know about:** the script sets `rebuild_policy='generic'` for the
+duration. On this shared tree another session's wide rebuild could land in that
+window. Two things bound it: the EXIT trap restores ownership even on failure or
+interrupt, and **permanently-locked `page_components` are preserved rather than
+regenerated**, so authored copy has a second layer. Both held in the test.

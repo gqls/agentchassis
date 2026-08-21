@@ -998,3 +998,51 @@ restatements is the exact failure this lane exists to prevent. **Recorded as a
 ready candidate rather than a gap:** the cluster is real, the premise is good (the
 coverage reads as a takeover; ~1 in 10 installations says otherwise), and it needs
 one thing — a primary source for the 2024 share.
+
+## 2026-08-21 — cobot feature PARKED with its unblocker named, and the de-listing path prepared
+
+### The fourth feature is parked, not abandoned
+
+Went back for the 2024 cobot figures rather than leaving the candidate vague.
+**They are not verifiable from a primary.** IFR's own cobot page
+(`how-robots-work-alongside-humans`, position paper updated 2024-12-04) contains
+exactly two usable numbers, both 2023:
+
+> "cobots reached a market share of 10.5% of industrial robots installed
+> worldwide in 2023" · "Cobots accounted for 10.5% of the total 541,302
+> industrial robots installed in 2023"
+
+The 11.9% / 64,542 figures for 2024 appear only in an unattributed search summary;
+a targeted search for them returned *"the specific percentages and unit numbers
+you mentioned don't appear in these search results"*, and the one page carrying
+them 403s. **Two figures from one year is not a background section.**
+
+**Parked with its unblocker stated:** the cluster is real (six items) and the
+premise is good — the coverage reads as a takeover, ~1 in 10 installations says
+otherwise. It needs **one** thing: a primary source for the 2024 share. The IFR
+World Robotics report itself is the obvious candidate and is paid; the annual
+cobot press release is the free one and has not yet been published for 2025 data.
+**Recording the negative result so nobody re-walks the search.**
+
+### `refresh_owned_page_chrome.sh` — safety property now VOUCHED, fix property not
+
+Ran it deliberately on a page where the expected outcome was *no change*, which is
+what makes it a safe first exercise: `electric-vs-pneumatic-economics`, owned,
+5 permanently-locked components, chrome already current.
+
+Result: flipped to `generic`, published, render COMPLETED, and — in its own
+words — *"restoring ownership before verifying (protection first, cosmetics
+second)"*. Afterwards: `rebuild_policy='owned'`, **5 locked rows intact**, served
+page **byte-identical at 86,602** with hero and 10 chart rows.
+
+**Be precise about which half that vouches for.** It proves the script *does no
+harm* and restores protection. It does **not** prove it propagates stale chrome,
+because the test page had none — the run was a no-op by construction, and a no-op
+cannot demonstrate a fix. That is the same shape as the blind-stylesheet pass:
+a measurement that could not have come out otherwise. Stated here so the next
+session does not read "tested" as "proven".
+
+Full procedure written up as `RUNBOOK` §10, including the marker trap (a census
+over-reports on the hub and on the retired page itself, which are the two pages
+every de-listing touches by definition) and the `rebuild_policy='generic'` window
+with the two things that bound it.
