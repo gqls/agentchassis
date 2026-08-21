@@ -256,3 +256,53 @@ reason I believed it is worth knowing: the platform accepted the malformed instr
 and marked it *completed* having run nothing at all. So the evidence looked exactly like a broken
 agent. I've withdrawn the claim, and what's left is a smaller real problem — an instruction that
 matches no workflow should be rejected, not completed successfully.
+
+---
+
+## 2026-08-21 — all four done. 252 is closed; three follow-ons shipped
+
+**1. Bug 252 is closed**, moved to `bugs_closed/`, and `bugs_open/346` now carries the residual — 502
+of 727 pages, twelve real sites at zero. It's a tick-list, not a defect: it heals for free whenever
+anyone next rebuilds one of those sites, and it tells them how.
+
+While sizing it I nearly quoted you a number that was drifting. My first measure compared each page's
+rebuild time against its site's page-header timestamp — but that timestamp moves every time the header
+re-renders for any reason, so already-fixed pages kept being re-counted as stale. The figure went
+*backwards* an hour later with no page having changed. Pinned it to the moment the fix landed instead,
+and checked the result against three real pages before using it.
+
+**2. webdesign.co.uk is fixed and live.** Its page-header component now has a real `<head>` element and
+declares British English — proven on a real page, which went from no head element and `lang="en"` to
+both. Two things nearly gave me a false reading and are written down: my first check showed the *old*
+page because the rebuild was still deploying, which looks exactly like a fix that didn't work; and the
+site's `/about.html` **already had** a head element, because it isn't one of the assembled pages — so
+checking there would have said "already fine" and hidden the whole thing.
+
+**3. New sites can no longer default to English quietly.** There's a daily check now, and it earned its
+place before it was even switched on: I tested it by running its query against the live database rather
+than trusting a clean test, and it immediately found `buytoletcalculator.uk`, created that same day with
+no language set. Now fixed. The check reports two things, and the second is the valuable one — a site
+whose language *is* set but whose page-header can't render it. That looks finished; only the live page
+disagrees. It's exactly what happened to webdesign.co.uk for weeks.
+
+It deliberately does **not** judge whether a site's declared language matches its content. That's your
+call, per your ruling, and a check that guessed would re-create the problem we just removed.
+
+**4. The share-preview guard is fixed** — the mechanism, not another symptom. One hand-authored tag no
+longer switches off the whole block. That had been costing webdesign.co.uk *every* share and social tag
+on all 117 pages while every part of the system reported success. Before shipping it I checked that
+unblocking the site wouldn't introduce a broken image link — both files it will now point at return
+200. It's with the review council.
+
+**One process slip, mine, and it's permanent.** I committed that last change *before* submitting it for
+review, so although it is genuinely being reviewed, our coverage report will list it as un-reviewed for
+ever — the link between commit and verdict has to be written into the commit itself, and we don't amend
+history here. Cost is bookkeeping only, and the trail is recorded in two places so it isn't lost. What
+annoys me is that the tooling warned me at the time and I read the warning as a note about the future
+rather than as my last chance to act on it.
+
+**Where that leaves things.** 252 closed. 347 (webdesign.co.uk) closed. 322 item 4 done and under
+review; items 2, 3 and 5 still open in that file and still theirs. 346 tracking the pages that heal on
+their own. The remaining items from my findings list — the diagnosis tool's blind spot, migration
+numbering, and a description helper that can still write into the wrong tag — are written up and
+unclaimed.
