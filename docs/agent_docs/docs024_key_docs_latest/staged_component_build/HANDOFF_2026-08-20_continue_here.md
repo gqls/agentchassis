@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~19:2xZ): **STEP 5 IS BUILT AND COUNCIL-APPROVED** (`5fe010ada`, corr `26186633`, APPROVED round 3). Steps 1–4 live+proven, census fully dispositioned, the resolver REFUSES a conflict. **Inert until a chassis roll carries it.** Remaining: the post-roll monitoring gate (§2.10 1b — an OBLIGATION), then the read-side tolerance retirement (handed to the parallel session).
+# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~19:3xZ): **THE LANE IS AT REST, WAITING ON ONE ROLL.** All five steps built; steps 1–4 live+proven; the census fully dispositioned; **the flip (`5fe010ada`, corr `26186633`) and the read-tolerance retirement (`e5c1b3c15`+`9970eb71c`, corr `e05ea6f9`) are BOTH council-APPROVED and BOTH inert until a chassis roll carries them.** Next action is not a build: it is the **post-roll monitoring gate (§2.10 1b — an OBLIGATION, terms fixed in advance), and ONE window covers both changes.**
 
 > **⚠ THIS FILE NOW CONSOLIDATES TWO.** `HANDOFF_2026-08-18b_continue_here.md` was still being
 > updated by a parallel session of this lane until ~10:17Z today (its audit results are folded in
