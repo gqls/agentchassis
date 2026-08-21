@@ -243,3 +243,70 @@ rather than merely to run.
 
 > ⚠ `EXECUTE p((SELECT …))` fails — "cannot use subquery in EXECUTE parameter". Resolve the
 > value into a shell variable first.
+
+## 11. Witnessing a live refusal safely — the recipe, and the check that makes it a proof
+
+Used 2026-08-21 to witness 542's gate refusing on webdesign.uk. Reusable for any guard whose
+only test subjects are live sites.
+
+**Choosing a subject.** You need a site that is genuinely in the failing state AND where a
+guard failure cannot reach a visitor. The winning combination here was **a real fault plus a
+domain nobody is served from** — webdesign.uk had a 0-byte theme row against a 15,582-byte
+repo stylesheet, and 302-redirects elsewhere. Do not settle for "probably fine": establish the
+blast radius first, in the artefact.
+
+```bash
+# 1. capture the artefact you are risking, BEFORE anything runs
+git -C ~/projects/vm-sites fetch origin --quiet
+BR=$(git -C ~/projects/vm-sites symbolic-ref --short refs/remotes/origin/HEAD)
+git -C ~/projects/vm-sites show "$BR:<domain>/assets/css/styles.css" > /tmp/safety-net.css
+md5sum /tmp/safety-net.css   # record it; this is your before-value AND your restore source
+```
+
+**The probe must be declared.** `source='probe-<lane>'` — **never** `render-audit` — summary
+prefixed `PROBE`, spec carrying `"probe": true` and a description saying it is not a measured
+finding. Delete it afterwards. A synthetic row left in `needs_human_review` pollutes a queue
+that has no working surface, and a synthetic row left anywhere pollutes a census.
+
+> ⚠ **THE CHECK THAT TURNS THIS FROM A GUESS INTO A PROOF.** Before dispatching, run the
+> promoter's OWN `pre_query` doors against your item. If it is silently HELD — wrong pipeline,
+> handler not live, pair never completed, below the success floor — **nothing happens, and
+> "nothing happened" looks exactly like "my guard refused it".** Same could-not-fail shape as
+> a `LIKE` pattern that can never match.
+>
+> ```bash
+> SP=/tmp; kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user \
+>   -d clients_db -At -c "SELECT pre_query FROM scheduled_tasks WHERE name='detected-item-promoter';" > $SP/promoter.sql
+> # keep the `scored` CTE only: find the line that closes it (`    ),`) and drop the comma
+> head -43 $SP/promoter.sql | sed '$ s/),[[:space:]]*$/)/' > $SP/scored_only.sql
+> cat >> $SP/scored_only.sql <<'EOF'
+> SELECT pipe_ok, handler_ok, known_good, floor_ok,
+>        (pipe_ok AND handler_ok AND known_good AND floor_ok) AS would_promote
+> FROM scored WHERE id='<your item id>';
+> EOF
+> kubectl exec -i -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -x < $SP/scored_only.sql
+> ```
+> All four must be `t`. (Re-derive the `head -N` boundary rather than trusting 43 — the query
+> changes.)
+
+**Timings, so you do not conclude "nothing happened" too early:** `detected-item-promoter`
+runs every **900s** (it only moves `detected` → `triaged`), then `build-pipeline-trigger`
+every **60s** does the actual dispatch. Budget ~16 minutes from insert to run. Also check the
+chassis pods are older than ~300s — a dispatch within ~300s of a (re)start is silently dropped.
+
+**What to assert afterwards — the negatives are the evidence:**
+
+| assert | why |
+|---|---|
+| orchestration `current_step` = your refusal terminal | it took the branch, rather than erroring somewhere unrelated |
+| work item status = the stamped one, `completed_at` **NULL** | proves the pre-stamp beat the success-labelled terminal |
+| `result->>'parked_by'` = your marker | makes the later unpark sweep exact |
+| **the DB row is byte-for-byte unchanged** | no append happened |
+| **the repo blob md5 is unchanged and there are no new commits on the path** | no deploy happened |
+
+The last two are the only ones that actually matter. A guard that refuses in the ledger and
+deploys anyway is the failure this whole bug is about.
+
+**Do not manufacture the opposite arm just for symmetry.** Driving a synthetic probe through
+the PASSING path writes the probe's junk rule into a real artefact. Look for the healthy arm
+in production instead — on a tree this busy another lane has usually just witnessed it.
