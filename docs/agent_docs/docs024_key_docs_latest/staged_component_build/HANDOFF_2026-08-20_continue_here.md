@@ -149,10 +149,28 @@ into "verified".**
 
 | class | state |
 |---|---|
-| `bdl` / `commit_sha` | 🔴 **the real gate.** Unwired; blocked on the 315 lane's answer for the correct path. Do not pick one from the shape |
-| `tg` / `related_pages` | 🟠 = `bugs_open/330`. Refusal is the DESIRED outcome, so it needs a recorded decision, not a wire |
-| `pbh` / `page_type` | 🟡 **515 in review** — apply + verify |
-| `tg` / `reason` | 🟢 512 applied; **verification unrunnable, see above** |
+| `bdl` / `commit_sha` | 🔴 **the real gate.** ~~blocked on the 315 lane's answer~~ **ANSWERED** (2026-08-21, `34cff7080`): no single path works — 19 live `git_commit` steps use 9 distinct `output_field` names. Split agreed between the two sessions: the **306 session** converts each handler's `complete` step to `result_mapping` so `commit_sha` surfaces at a uniform `handler_result.response.commit_sha` (bigger than "16 configs": list-mode `output_fields` cannot rename a nested path to a top-level key at all, and report-builder alone has three completion paths); **then** one `"commit_sha?"` wire from the marker session. ⚠ **ordering is the OPPOSITE of 516's** — the wire must land AFTER the standardisation, or it resolves for the conforming handlers and silently drops the sha for the rest |
+| `tg` / `related_pages` | 🟢 **516 BUILT + HELD** (`4c2169831`, Council-Submitted `101ed0c6`) — `related_pages?` on BOTH tool build steps. ~~needs a recorded decision, not a wire~~ **superseded: the wire IS the recorded decision.** Unlike `reason` there IS a path we want whenever the spec carries it, so `input_fields` would lose the legitimate case and a plain wire is what is deployed and broken; `?` is both halves. ⚠ **held on 512, not on a roll** — see the correction below |
+| `pbh` / `page_type` | 🟡 **515 in review** — apply + verify. (Author is a THIRD session, not either correspondent above; `cc798cb34`.) Its `?` adopter entry is already written in `optional_explicit_wire_acks.json` so it does not trip the new gate — its author should check it says what they would have said |
+| `tg` / `reason` | 🟢 512 applied; **verification STILL unrunnable** — re-measured 2026-08-21 ~11:4xZ: tool-generator runs since the 17:38:34Z boundary = **0**, eighteen hours. Option (a) is still the plan |
+
+> **CORRECTED 2026-08-21 ~12:0xZ by the `?`-marker session**, at the 306 session's invitation
+> ("I'll leave that correction to whoever next touches the ledger"). Two things had gone stale and
+> one was actively misleading:
+> - **`related_pages` needed a wire after all**, and the reason the old line was wrong is worth
+>   keeping: it generalised from `reason`, where `input_fields` was right *because there is no path
+>   we want*. `related_pages` has one whenever the spec carries it (1 of 5 recent runs did), so
+>   "record a decision and leave it unwired" would have left the search armed for the present case
+>   and lost the value for it. The `?` marker did not exist when the line was written.
+> - **516 is HELD, and the condition is NOT a roll** — the parser is live on `v1.0.1321`. It is held
+>   because applying it CONSUMES this table's own bottom row: 512's test is *"reason 0 **while
+>   related_pages keeps firing**"*, so silencing `related_pages` first would make 512 permanently
+>   unverifiable rather than merely unverified. Apply conditions are in the migration header; after
+>   516 lands, the instrument-alive control must come from another agent's class (`bdl`/`commit_sha`).
+> - **Adopters of `?` now pass a gate**: `config-key-audit --optional-explicit-wires` exits 1 on any
+>   live `?` wire not acknowledged in `architecture_review/optional_explicit_wire_acks.json` with a
+>   statement of what was checked DOWNSTREAM. It came out of the council's gating objection to the
+>   marker (round 1 REVISE, `5f82423b`).
 
 **Remaining after those: the Tier C decisions** (§2's list minus what §2.0 dissolved) — paragraphs,
 not migrations. Then the flip, using §4's reasons for the tolerance retirement, not the retention one.
