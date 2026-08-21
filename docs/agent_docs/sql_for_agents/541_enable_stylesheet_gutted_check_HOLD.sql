@@ -87,6 +87,31 @@
 -- re-point the test fixtures at a real gutted stylesheet, or wait for the next
 -- incident and confirm it files.
 --
+-- COUNCIL ROUND d3187418 — APPROVED r1, and the two checkable objections were
+-- CHECKED rather than accepted (2026-08-21):
+--
+--   edit-quality [medium]: "four agent types carry TWO active rows and only the
+--   higher version loads; this UPDATE has no version filter." MEASURED — all
+--   four discovery agents carry exactly ONE active non-snapshot row today
+--   (design/completeness/quality/availability, count=1 each). The hazard is real
+--   in general and does not apply here; the DO/RAISE expecting n=1 is what turns
+--   a future second row into a loud abort rather than a silent half-write, which
+--   is the protection the objection asks for.
+--
+--   prior-art [medium]: "the whole HOLD rests on an asserted file:line claim."
+--   VERIFIED in the source: discovery_checks.go has `defer tx.Rollback()` at
+--   :141, the unregistered-name `return nil, fmt.Errorf(...)` at ~:208, and
+--   `tx.Commit()` at :286 — so the return does precede the commit inside the
+--   deferred rollback, and earlier checks' findings in that run ARE discarded.
+--   The hold is justified on read code, not on memory.
+--
+--   Also found while checking: there IS an escape hatch —
+--   `allow_unregistered_checks` (config bool, default false, discovery_checks.go
+--   :198). Setting it true tolerates an unrolled name with a Warn instead of
+--   failing the step. That is a legitimate alternative to holding this file, but
+--   it weakens the guard for EVERY check on that agent, so the hold stays the
+--   default and this is recorded as an option, not a recommendation.
+--
 -- Register entry: IMP-055 (register/improvement-loop.md).
 
 BEGIN;

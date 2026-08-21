@@ -97,13 +97,27 @@
 //     The DB row is deliberately NOT consulted: in 198 the row was clobbered
 //     too, and after a repair the row can be healthy while the FILE is not.
 //     The wire is what a browser gets.
+//
 //  2. Inline definitions in the same corpus — a component that styles itself
 //     (`.hero-section { --section-heading: … }`) defines what it then uses.
+//
 //  3. css_snippets.css_content, ALL rows, unscoped. injectComponentCSS adds
 //     these to the served head at ASSEMBLY time, so they are invisible in
 //     rendered_html; a per-function scoping of this source would have to
 //     re-implement collectComponentCSS's selection logic and would drift from
 //     it. Unscoped is the safe direction (see above).
+//
+//     ⚠ BE PRECISE ABOUT WHICH WAY THIS ERRS — the council's edit-quality seat
+//     was right to press on it. `css_snippets` has no site_id (schema: id, name,
+//     description, css_content, semantic_tags, applies_to, created_at), so this
+//     source is GLOBAL by construction, not by choice. A property defined by a
+//     snippet that never reaches site B can therefore mask a genuine gap on site
+//     B — a cross-site FALSE NEGATIVE. That is the same direction as every other
+//     widening here, and it is the direction chosen deliberately; but it is a
+//     concrete masking mechanism rather than a theoretical one, so do not read
+//     "over-approximated" as "harmless". Narrowing it means scoping snippets to
+//     the site's own composition, which needs collectComponentCSS's selection
+//     logic to be shared rather than duplicated.
 //
 // ── BLINDED IS NOT HEALTHY ─────────────────────────────────────────────────
 //
