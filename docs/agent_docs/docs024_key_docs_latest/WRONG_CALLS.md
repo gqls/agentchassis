@@ -41314,3 +41314,70 @@ message.
 - **The damage is bookkeeping, not safety** — the change is genuinely reviewed and the trail is
   recorded in the lane NOTES and in `bugs_open/322` itself. But the coverage report's whole value is
   that it can be trusted without reading the prose, and I have put one hole in it.
+
+## 2026-08-21 — I nearly reported another lane's verified fix as REGRESSED, because I built the URL from the page's NAME (bugfix 238 lane)
+
+**Asserted (for about ninety seconds):** that `bugs_open/309`'s fix had regressed. Its lane recorded
+*"FIXED and verified at the served page: 8 cards, 16 anchors, every target 200"*; I fetched the page
+and got **1 anchor, 0 cards, 0 `bl-card` blocks**, and the deployed row still had no `post1_url`.
+Three independent-looking signals agreeing, about to be written up as a contribution telling another
+lane their closed fix was undone.
+
+**Actually:** I fetched `https://fundamentallyai.com/platform-log-index.html`, which **404s**. The
+page's `name` is `platform-log-index`; its `url` is **`/platform-log/index.html`**. I had built the
+URL as `name + ".html"` without looking at `pages.url`. At the real address: **200, 41 `bl-card`
+blocks, 47 anchors, 11 `bl-read-link`, 0 empty `href`.** The fix is live and working exactly as its
+lane recorded.
+
+**What caught it:** the shape of the result, not a check I ran. "1 anchor on a whole page" is not
+what a broken listing looks like — it is what a 404 page looks like. I asked for the HTTP status
+only because the number was too small to be a defect.
+
+**The cheap check that would have caught it, and it is two characters:** `curl -o /dev/null -w
+'%{http_code}'` on every artefact fetch, or read `pages.url` instead of composing it. This estate's
+own rule is *verify at the served artefact* — but **an artefact you cannot address is not evidence
+of anything**, and a 404 body answers every grep with a confident zero.
+
+**Why this one was dangerous rather than merely wrong.** Every other measurement mistake I made this
+week cost me a wrong number in my own file. This one was aimed at **another lane's closed work** —
+the contribution would have told them to reopen a bug they had correctly fixed, with three
+plausible-looking greps behind it. The `who-owns` rule exists to stop me competing with a lane; it
+does not stop me *slandering* one, and nothing but the artefact check does.
+
+**Generalises to:** `page.name` is an identifier, not a path. Any URL you assemble from a record is
+a hypothesis about routing, and on this estate pages live at `/a/b/index.html` as readily as
+`/a-b.html`. **Read the `url` column.** And treat any grep count of 0 or 1 on a page you expected to
+be busy as a question about whether you fetched the page at all.
+
+---
+
+## 2026-08-21 — I chained `go build && go test` and then ran `git commit` as a SEPARATE statement, so a red test could not stop the commit
+
+**What happened.** Finishing the `workflow%` include fix, I ran one Bash call shaped
+`gofmt … && go build … && go test … ; git commit …`. The test output printed **`FAIL … [build
+failed]`** and the commit went through in the same breath. On a tree where `make build-*` builds from
+**committed HEAD**, that is a red artifact published to every other session.
+
+**The saving grace is luck, not method.** The failure was **not mine**: another session's uncommitted
+edit to `render_site_components_action.go` had desynchronised `injectBrandHeadTags`'s signature from a
+test it committed yesterday, so the *package* would not compile in the working tree. Verified properly
+afterwards with `git archive HEAD` into a clean directory — at **committed HEAD** the production build
+is OK and my three tests pass. **But I did not know that when I committed. I committed into a red
+console and found out afterwards.**
+
+**What caught it.** Reading my own tool output — the `FAIL` was two lines above the commit hash.
+
+**The cheap checks that would have.**
+- **Chain the commit to the verification**: `go build ./... && go test ./pkg/... && git commit …`.
+  A `;` between them is a decision to commit regardless, and that is never what is meant.
+- **When a test fails on a shared tree, establish WHOSE it is before reacting** — `git archive HEAD`
+  into a temp dir and build there. It separates "I broke it", "someone broke HEAD", and "someone's
+  dirty file breaks only the working tree", which need three different responses. Here it was the
+  third, and neither of the other two would have been fixed by anything I did.
+
+> **A red test you did not cause is still a red test you must not commit through**, because at the
+> moment of committing you cannot yet know which of the three it is. The ordering is the control: verify,
+> *then* commit, in one chain — not verify, read, decide, commit.
+
+**Tally note:** this is the same family as the `&&`-vs-`;` and silent-truncation entries — a shell
+construct that reports success while the thing it was guarding failed. Third in this file.
