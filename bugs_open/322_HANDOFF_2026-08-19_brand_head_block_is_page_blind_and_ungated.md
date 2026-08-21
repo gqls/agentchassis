@@ -46,6 +46,53 @@ read (`render_site_components_action.go`, `git log` head `229e14e74`).
    (eyeballed). The real fix is a **square favicon source** the deriver can be pointed at
    (a distinct asset_key with fallback to logo), which it cannot currently express.
 
+## ITEM 4 — LIVE AND PROVEN 2026-08-21, plus one residual this file now owns
+
+**Live on chassis `v1.0.1322`** — `declaresHeadTag` probed PRESENT on both replicas, positive control
+`injectCanonicalLink` present, fabricated control absent. Council **APPROVED round 2**
+(`Council-Reviewed: 54c660f8-1e05-4b88-9910-0d1427b1d805`, 3 advisories, none high).
+
+**Proven at the artefact on the motivating site.** `webdesign.co.uk/guides/tool-aria-builder-guide.html`
+now serves its **own** hand-authored `<link rel="icon" href="/favicon.ico">` — preserved exactly, and
+still only ONE — **plus** the `apple-touch-icon`, `og:type`, `og:site_name`, `og:image` and
+`twitter:card` the wholesale guard had denied it on 117 pages. That is per-tag idempotence doing
+exactly what it says: authored tags untouched, missing ones added.
+
+**Round 2's durability objection is also fixed.** A decline (head with no `</head>`) now returns a
+reason and the caller writes an `agent_error_log` row (`BRAND_HEAD_TAGS_DECLINED`) with domain,
+consequence and remedy — because chassis pod logs retain on the order of minutes, so a `zap.Warn`
+alone is write-only. Mutation-proven in both directions.
+
+### ⚠ CORRECTION to the repair count, found while doing the repair
+
+I reported "**two** stored heads short of brand tags". **It was one.** The second,
+`loanandmortgagecalculator.co.uk`, has `lock_type='permanent'`
+(`locked_by='loanandmortgage_authored_chrome_20260805'`, `component_id IS NULL`) — deliberately
+hand-authored chrome the platform must not touch. Its missing `og:image` is **a decision, not a
+defect**, and the lock guard correctly refused the re-render I dispatched at it. **Do not "fix" that
+site.** The count I gave the council was right in arithmetic and wrong in meaning.
+
+### RESIDUAL this file now owns — the other producer's pages get NO brand tags at all
+
+Raised by the council's `debug_historian` seat and correct: my "N stored heads short" count is scoped
+to the **`render_site_components`-driven** population. Pages built through `AssemblePageAction` →
+`InjectHead` → `RenderHead` never read `site_components.rendered_html` at all — `RenderHead`
+(`component_library.go:2017`) resolves via `ResolveChromeComponent` and falls back to
+`RenderFallbackHead`, which emits **no brand tags whatsoever**. So those pages get no `og:image`, no
+twitter card and no favicon links, and **nothing in item 4's fix can reach them**.
+
+**I could not size that population honestly.** All three agent types carrying `assemble_page`
+(`pageflow-builder`, `page-rebuild`, `site-work-orchestrator`) are `is_active`, and
+`orchestration_states` shows **zero runs for any of them** — but that table retains ~24 hours, so that
+is a **weak negative, not proof the path is dead** `[UNMEASURED beyond 24h]`. Sizing it needs either a
+longer-lived signal or a per-page producer attribution neither of which exists today.
+
+Recorded here rather than spent on a new bug number, because it is the same seam as this file's other
+items and because `docs026_concept_register/register/seo.md` **SEO-003** already holds the
+two-head-producer convergence open as an architecture-scope question — with a threshold set by the
+council's architecture seat: **a fifth one-producer head fix raises an RFC rather than taking a fifth
+patch.** This is the fourth.
+
 ## ITEM 4 FIXED 2026-08-21 (owner-directed) — the wholesale guard is now PER TAG
 
 Done by the `bugfix_252_og_lang_assembly` lane on the owner's instruction, after the council's
