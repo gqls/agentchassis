@@ -305,3 +305,79 @@ site name `dartsonline-traffic-workstream` → `content-gap-planner` → `page-b
 so the editorial/traffic pipeline for that site is where to look next. **That is another
 lane's pipeline and there is an active `news editorial` session; this pointer goes to
 them rather than being guessed at here.**
+
+
+---
+
+## 10. 2026-08-21 — the producer is a PERSON, so 339 is two sub-classes with different remedies
+
+The `news editorial` lane owned it: **the strings were hand-typed into seed migrations**
+(`sql_for_agents/495` for dartsonline, `492` for robot-hands), which set
+`pages.meta_description` directly in their `INSERT INTO pages`.
+
+**My elimination chain in §9 was exhaustive over CODE PATHS, and the answer was not on
+one.** That is worth stating rather than quietly correcting, because the obvious inference
+from an exhaustive-but-empty chain — *"the editorial path must bind the brief into the
+column"* — would have sent someone hunting a bug in code that does not have one.
+
+### The finding this changes: a seed migration bypasses every producer-side control
+
+`PublicMetaDescription` guards the two tool-creation call sites. A migration writing the
+column directly passes **none** of them. So 339 is not one class:
+
+| | **(1) generated** | **(2) hand-authored** |
+|---|---|---|
+| how the text arrives | a brief passed as a *candidate* to `PublicMetaDescription` | typed into an `INSERT INTO pages` in `sql_for_agents/*.sql` |
+| example | the 9 tool pages | dartsonline `495`, robot-hands `492` |
+| **remedy** | fix at the PRODUCER — §5 candidate 3, don't pass the brief as a candidate (taken by `webdesign_tool_rebuilds`, live in `v1.0.1321`) | **candidate 3 CANNOT APPLY — there is no composer in the path to fix.** The guard is the only control, and by §2's measurement it does not fire in the 200-320 band. The alternative is a check at seed time over `sql_for_agents/*.sql` for `meta_description` literals |
+
+**§5's ranking was written for (1) and does not carry to (2).** That is the substantive
+correction to this file.
+
+### ⚠ THE MEASUREMENT THEY ASKED FOR CANNOT NOW BE MADE — the fix destroyed the corpus
+
+They proposed a structural tell — *"a description that argues with an alternative reading
+was written for someone deciding how to write the piece; a reader has no alternative
+reading to be corrected out of"* — and asked, rightly, that it be measured against the 693
+before anyone believed it.
+
+`[MEASURED 2026-08-21]` over 704 live descriptions, using
+`\y(not|rather than|as opposed to|instead of)\y` as the lexical proxy:
+
+| | |
+|---|---|
+| tell fires | **34** |
+| of those, in the 200-320 brief band | **0** |
+| of those, short (<200) and legitimate | **34** |
+
+**As a lexical signal it is poor.** It fires on ordinary copy where "not" does ordinary
+work — *"AI systems built around your business and your data, not l…"*, *"A loan from an
+FCA-unauthorised lender is not legally enforceable…"*. Those are good descriptions and a
+guard built on this would refuse them.
+
+**But the test is also not a fair one, and that is the more useful finding.** The two known
+positives were FIXED before the measurement, so the population no longer contains a single
+true positive. **A signal cannot be fitted against a corpus its own remediation has
+emptied.** Same shape as *a repro is destroyed by the render*: the instances were the
+evidence.
+
+Their *structural* claim may still be right — "not four about discipline" argues with an
+alternative reading, "not legally enforceable" does not — but that difference is **semantic,
+not lexical**, and the regex proxy cannot see it. Anyone re-attempting this needs the
+ORIGINAL strings, which now survive only in that lane's backup table and in the quotes in
+§3 and §9 of this file.
+
+### Their two instances: FIXED, and staying listed on purpose
+
+Both are remediated and verified at the served `<head>` (`sql_for_agents/497`, with a
+verify block refusing >160 chars or a brief-shaped construction):
+- dartsonline, 153 chars: *"Top players are skipping tournaments and the PDC has noticed. But the calendar grew: 30 Players Championship events a season through 2024, 34 since 2025."*
+- robot-hands, 157 chars: *"Record robot installations, rising orders, one headline calling US demand weak. Five years of IFR figures show a step up in 2021, then a plateau at altitude."*
+
+**They stay listed here as remediated instances rather than being struck out**, for a
+reason better than bookkeeping: they are the only known corpus for fitting a detector for
+sub-class (2), and the section above is why that matters. **The CLASS remains open — it has
+no control.**
+
+⚠ `leopardessconsulting.co.uk/hierarchical-multi-agent-orchestration-explained` is a THIRD
+lane's and is **not** handled by any of this. Untraced.
