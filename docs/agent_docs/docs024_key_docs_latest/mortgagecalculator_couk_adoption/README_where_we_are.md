@@ -1324,3 +1324,68 @@ our handoff, about adding one line of configuration to our stamp-duty checker so
 the tax thresholds it relies on change. They deliberately did not do it themselves because it
 would add items to our queue. It has been waiting since Saturday and it needs a yes, a no, or a
 "do the harmless trial version".
+
+## 2026-08-21 (Friday morning) — the thing we were blocked on got fixed by someone else, and the site is now down to one broken link
+
+**First, a correction to the entry above.** The last thing I wrote to you said the trailing-slash
+fix was "explained rather than made" and that it stayed your call. That was true when it was
+written, on the Monday morning. You approved it later and **it shipped on the Tuesday**, which
+means the paragraph above is now wrong and has been for three days. It is live on every site we
+host in that way, not just this one, and it was checked properly before and after. I am leaving
+the old paragraph where it is rather than tidying it away, because the record of what we believed
+when is worth more than a clean page.
+
+**Now today.** I picked this site up cold after a three-day gap. In that time roughly fourteen
+hundred changes landed on the shared codebase from other people working on other things, so before
+touching anything I went back and re-measured every number the handover note carried. Four of the
+figures had moved. One of the four is the thing we had been stuck behind since the start of the
+month.
+
+**The blocker is gone, and we did not fix it.** There is one page on this site — the Scorecard
+Simulator — that the system has been unable to build since we adopted the site. The reason was a
+fault deep in the page-building machinery: when the writing stage got one field slightly wrong, the
+renderer quietly fell back to a cruder method that left raw programming instructions sitting in the
+page, and the safety check then correctly refused to publish it. That fault was filed as a bug back
+on the 12th, another team took it on, and **they closed it yesterday**. So the thing that was
+standing in our way has been removed by somebody else while we were away from this site.
+
+I did not take that on trust. Before acting on it I checked that the fix is genuinely running on
+the machines serving this site — not merely committed, which is a different thing — by asking the
+running program directly whether it contains the new code and no longer contains the old. It does,
+and I ran two deliberate control checks alongside it so I could be sure the test itself was capable
+of coming out wrong. It was.
+
+**So I have restarted that page's build.** It is running as I write. There are two possible
+outcomes and both are useful. Either the page builds, in which case six broken links on the site
+die at once. Or it fails again — but the whole point of the other team's fix is that a failure now
+names the single field that is wrong instead of burying it in twenty vague complaints, so even a
+failure hands us something we can actually repair.
+
+**The rest of the site is in better shape than I expected.** I fetched all twenty-nine published
+pages and checked every internal link on them — a thousand and thirty links, going to thirty-three
+distinct places. **Thirty-two of the thirty-three work.** The only one that does not is the
+Scorecard Simulator page above, and I checked it three times to be sure it was not a caching
+fluke. The site has also quietly grown from twenty-seven pages to thirty-two.
+
+**One thing I want to flag, because it is a small design failure rather than a bug.** The system
+*did* notice all six of those broken links. It filed a separate note for each one, naming the exact
+page and the exact block of text containing the link. Then it put all six in a queue that nothing
+reads and nobody looks at. So the information was produced correctly and then parked. I have
+written that up for the team who filed the related bug, because it changes what the fix should be:
+they had assumed the system was blind to this, and it is not blind, it is just unwired. Fixing an
+unwired thing is much cheaper than building a new one.
+
+While checking, I also found that one of those six notes is **stale** — it describes a broken link
+on the contact page that no longer exists, in either the published page or our stored copy of it.
+Something repaired that link and nothing went back to close the note. Worth knowing, because it
+means a note sitting in that queue is not proof the problem is still there.
+
+**Two things still waiting on you, unchanged from before.** The thirteen stamp-duty items I
+deliberately left open, which need a yes or no on whether closing them is wanted. And the question
+another team left at the top of our handover about one line of configuration on our stamp-duty
+checker — that has now been waiting since the 16th.
+
+**Two small ones I would add to that list.** The contact page cannot finish rebuilding because it
+is asking for a real business email address to display, and nobody has given it one. And a tool
+page called "simple" is missing its headline. Both are things only you can answer; neither is
+urgent, and neither is breaking anything visible today.

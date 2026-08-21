@@ -3681,3 +3681,134 @@ council gate — it refuses paths outside `platform/`/`internal/`/`pkg/` client-
 Both LANDMINES entries describing the old behaviour were **corrected in place, not deleted** — the
 local-server lesson and the still-404ing slashless form outlive the fix. The `pattern-check` hook
 then caught that DGH-012 had no row in `000_concept_index.md`; added in a follow-up commit.
+
+---
+
+## 2026-08-21 — state check against the 08-18 handoff: the blocker CLEARED itself, and the site is down to ONE dead target
+
+Picked this lane up cold. Three days had passed and **1,391 commits** had landed on the tree, none
+of them this lane's. So before doing anything I re-measured every figure the 08-18 handoff carried.
+Four of them had moved, and one of the four is the thing the whole lane was waiting on.
+
+### What moved — measured 2026-08-21 ~10:20–10:30Z
+
+| the handoff said | today | how measured |
+|---|---|---|
+| `bugs_open/260` blocks the third page, **actively owned elsewhere** | **`bugs_closed/260` — CLOSED 08-20, fixed AND live** | `ls bugs_closed/260*`; `git log` on the file path |
+| 27 pages | **32 pages** (29 deployed, 1 `needs_rebuild`, 2 `planned`) | `pages` count by `build_status` |
+| dead internal links: **one** (`/scorecard-simulator.html`) | **still exactly one**, and now the ONLY non-200 target of 33 | full live audit, below |
+| the 4→6 self-fuelling link count | **6, unchanged** — no new page has been built since 08-16 | live grep across all 29 deployed pages |
+| 13 `fact_drift_review` items open | **13, untouched since 08-17 18:28Z** — still the owner's call | status count |
+
+### The live link audit — 29 pages fetched, 33 distinct internal targets, ONE dead
+
+Scripted (`scratchpad/linkaudit.sh`): fetch every `build_status='deployed'` page, extract every
+non-absolute `href`, dedupe to distinct targets, resolve each **once** cache-busted.
+
+- 1,030 raw internal hrefs → **33 distinct targets**
+- **32 return 200. One returns 404: `/scorecard-simulator.html`** — probed three times,
+  cache-busted each time, 404 every time (the handoff's own trap: a single 404 in a fast scan is
+  not evidence).
+- Six live pages each carry exactly one anchor to it: `/disclaimer.html`,
+  `/guides/first-time-buyer/`, `/guides/how-banks-decide/`, `/guides/lender-restrictions/`,
+  `/guides/mortgage-scorecard/`, `/tools/affordability/`.
+
+So the site's entire remaining product defect is **one page that cannot build, advertised from six
+pages that can.**
+
+### The platform DID detect all six — and that is a correction to how `bugs_open/328` frames it
+
+328 (filed 08-19 by the `loanzy_uk_example_site` lane, **OPEN and UNOWNED**) says: *"Nothing tells
+the pages that link to it."* On this site that is **not quite right, and the difference matters for
+the fix.** There are **seven `unbuilt_internal_link` items** on the blocked page, each naming the
+linking component by page and each quoting the same href:
+
+```
+unbuilt_internal_link in page_component (<page>:<component>):
+  href "/scorecard-simulator.html" points at a page that has never been deployed
+```
+
+Detection exists, it is per-linking-page, and it is accurate. **What is missing is a route:** all
+seven sit at `needs_human_review` with no handler, so the information is produced and then parked.
+That is a different fix from "build the information" — and it is cheaper.
+
+**Six of the seven match the live site exactly. The seventh is stale.** `8a230338` names
+`contact-index`, and the link is in neither the served page nor the stored content:
+
+| check | result |
+|---|---|
+| served `/contact/index.html` grep `scorecard-simulator` | **0** |
+| `page_components.content_data LIKE '%scorecard-simulator.html%'` fleet-query on this site | **6 pages — `contact-index` NOT among them** |
+
+So the condition was repaired (contact-index's stored copy lost the link, and the page has sat at
+`needs_rebuild` since) and **the item outlived it**. Nothing re-checks these, so a parked
+`unbuilt_internal_link` is not evidence the link is still there — [UNVERIFIED] whether that is
+general or particular to this row; I only measured this site.
+
+⚠ **Watch the stored-vs-served split here.** `contact-index` is `build_status='needs_rebuild'`
+with `deployed_at` NULL, and it still serves a healthy 1,267-word page from its previous build.
+"Not deployed" in the `pages` row does not mean "not serving".
+
+### 260's fix is aboard the running chassis — proven at the binary, four controls
+
+The handoff's standing instruction was *do not re-fire item `0c65f9fa`, it is 260's live test
+case*. That reservation expired when 260 closed. Before acting on it I checked the fix is actually
+running, using 260's own literals (the startup provenance line was unreadable — it is buried
+inside a single 1.8 MB JSON log line on this service):
+
+```
+PRESENT  (want PRESENT) refusing to emit output that was not executed     <- added by the fix
+ABSENT   (want ABSENT ) Go template execution failed, using regex fallback <- deleted by the fix
+PRESENT  (want PRESENT) orchestration                                     <- must-be-present control
+ABSENT   (want ABSENT ) zzz-not-a-real-literal-qqq                        <- must-be-absent control
+```
+
+`agent-chassis` **v1.0.1321**, both replicas on that tag, pods 14 h old. All four behaved, so the
+grep discriminates and the reading is real rather than a probe that matches everything.
+
+### Re-fired the blocked build at 10:28:49Z
+
+Pre-state pinned first (`scratchpad/prestate_0c65f9fa.txt`): item `needs_human_review`,
+`attempt_count 0`, error `step validate_content failed: … 20 blockers, 0 errors`, page
+`build_status='planned'`, **0 `page_components`** — that last one is 260's signature, nothing
+broken ever reached stored content.
+
+Dispatch conditions checked rather than assumed:
+
+- site **unlocked**, `locked_by` NULL;
+- **nothing else armed on this site** (0 rows at `triaged`/`approved`), so arming one item drags
+  nothing in and no backstop is needed;
+- fleet queue nearly empty — 2 armed items fleet-wide, oldest 08-21 00:22Z, so this item (created
+  08-16) is the globally oldest and dispatches on the next 120 s tick;
+- chassis pods 14 h old, so well clear of the ~300 s post-restart silent-drop window;
+- `/scorecard-simulator.html` is file-form and currently 404, so a build **cannot overwrite live
+  content** (§10d's check).
+
+Armed `0c65f9fa` alone — the exact item that failed under 260 — because re-running the recorded
+failure on the fixed binary is the most informative single reading available: either the page
+builds and six dead links die at once, or it fails **naming one field**, which is the behaviour
+change 260 claims and is actionable content repair either way.
+
+### Other things that had happened on this site, and what they turned out to be
+
+- **Two `instance_scope_conversion` items completed 08-19 21:15** (RFC_034's lane), summarised
+  `tool-bridging-compound`/`tool-rate-scenarios` **[SERVING BROKEN on 1 page(s)]** — and the
+  fix result is `{"fixed": false, "unprefixed_before": 0, "reason": "no unprefixed bindings found
+  and nothing changed — already sound"}`. Both pages serve 200 with **zero** `{{` template leaks
+  and 1,633 / 1,795 words. So "SERVING BROKEN" in the summary and "already sound" in the result
+  disagree, and the artefact agrees with the result. Not this lane's to chase — noted for RFC_034.
+- **Nine pages had `updated_at` bumped to 08-19 20:42:1x** by that same sweep, without content
+  changing.
+- **A completed item's `result` holds a plan for a page that does not exist.** `28c506f1`
+  (`item_key gap_plan_new_disclaimer_…`, `completed_at` **2026-08-11** 18:18Z) has
+  `updated_at` **08-19 11:54Z** and a `result` of `{"approach":"new_page","new_page":{"name":
+  "guide-mortgage-affordability", …}}` — a full gap plan for a *different* page. There is no
+  `guide-mortgage-affordability` page row and no follow-on work item naming it, so **that plan
+  went nowhere.** `apply_gap_plan_action.go` is documented as *"new_page: creates page record +
+  needs_content_page work item"*, so the shape suggests a planner wrote back to a stale
+  `work_item_id` and the apply half never ran. **[UNVERIFIED as a mechanism]** — I could not find
+  the run: `orchestration_states` has no row referencing the item id (that table prunes). Recorded
+  here as an observation, not filed as a bug, because I cannot yet name the writer.
+- Two long-parked items were re-touched 08-20 16:01Z without changing status (`07bc64cd`
+  needs_section_data — contact-info wants a real business email; `e781118c` required_fields_missing
+  — `tool-simple` hero has no `headline`). Both are owner-input items.
