@@ -1,16 +1,19 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-21 ~10:45Z. Supersedes `HANDOFF_2026-08-19_continue_here.md`.
 
-**UPDATED 2026-08-21 15:05Z — PHASE A COMPLETE: 28 of 63 replaced (24 serve-confirmed; #25–#28
-retired and graded, their serve-grades ride the queue — NO race exposure anywhere, retires all done).
-FIRST TASK for a fresh session: batch serve-grades for regex-tester (`310accdf`), jwt-inspector
-(`7c9deeee`), token-calculator, clip-path, and the oklch re-fix (`1fe89947`, control set agreed with
-the 286/331 lane in NOTES 2026-08-21 14:15Z). Controls per tool pinned in NOTES. Then Phase C
-(13 external-`<script src>` tools — read the superseded 08-19 handoff's Phase C section; brief from
-BROWSER behaviour, retire the S3 asset with the slot). ⚠ ATTENDANCE RULE (rewritten twice, final
-form): file, then HOLD THE TURN with a foreground poll loop (`for … do <check>; sleep 10; done`,
-timeout ≤600s per call, chain calls) until the retire lands — background watchers deliver LATE
-(measured 6h), and turn-end is not knowable in advance. The seed-496 incident (fixed by owner-lane
-hotfix 532 within the hour) and TL-047's absence-arm proof are in NOTES 2026-08-21 14:15/14:30Z.**
+**UPDATED 2026-08-21 17:10Z — PHASE A COMPLETE AND FULLY CONFIRMED: 28 of 63 rebuilt, ALL 28
+serve-graded PASS at the served bytes (batch table in NOTES 17:05Z). `bugs_closed/331` closed by its
+owner — the `replace_existing` re-fix path is live and proven end to end, so RE-FIXES no longer need
+the manual retire recipe: one filing with `"replace_existing": true`. Fleet is on v1.0.1322 (16:54Z;
+nothing this lane ships waits on it). NOTHING IS IN FLIGHT — no open add_tool, no pending retires,
+no race exposure. NEXT: Phase C, 13 external-`<script src>` tools — the brief must come from the
+tool's behaviour in a BROWSER (the page is not self-describing; logic lives in S3 assets, TL-032),
+and the external asset must be RETIRED WITH THE SLOT or the page keeps fetching a file nothing
+serves. Then Phase B (≥8 KB, ~22), five rich apps LAST, one at a time, owner-reviewed.
+⚠ ATTENDANCE RULE (final form): file, then HOLD THE TURN with a foreground poll loop
+(`for … do <check>; sleep 10; done`, timeout ≤600s per call, chain calls) until the retire lands —
+background watchers deliver LATE (measured 6h), and turn-end is not knowable in advance.
+⚠ Bug files MOVE when fixed-and-live: resolve `bugs_open/` vs `bugs_closed/` BEFORE appending — a
+`cat >>` to the stale path silently creates a stray (caught here only by the pathspec commit).**
 
 Read: this file → `PLAN_2026-08-15_…` (design + owner rulings) → `RUNBOOK_…` (every command — note
 the REWRITTEN "retire race" section) → `NOTES_…` (evidence, newest at bottom; the 2026-08-20
