@@ -7258,7 +7258,12 @@ why it is declared rather than accidental.
 lane, months of context ago — named `unified_extractor_search_test.go` as *the* flip site, with
 three tests to change. The real answer was **13 tests across 4 files**: those three, plus 306's six
 tie-break tests, three recorder tests, step 1's prune overreach guard, and step 4's own pre-rename
-control in another package. **A file that names its own flip sites is a claim like any other**, and
+control in another package.
+> **CORRECTED 2026-08-21 ~19:3xZ (relayed from the flip session; caught by the editquality seat):
+> FIVE files, not four** — the fifth is
+> `platform/orchestration/actions/render_context_step_boundary_resolver_test.go`. The commit
+> message of `5fe010ada` also says "four"; forward-only means it stays wrong there, so this entry
+> is the record. **A file that names its own flip sites is a claim like any other**, and
 this one was wrong by a factor of four. `go test ./platform/...` is what found it, not the comment.
 
 The conversion pattern was the same every time and is worth reusing: **each test asserted the
@@ -7404,3 +7409,42 @@ wire half: a later window with more no-pages runs staying silent AND at least on
 emitting — the leg nothing has exercised yet. Candidate 2 (§9's 269-pair remainder) is untouched
 by any of this and stays open regardless. Recorded in `bugs_open/330` §10; handoff §3/§4.1
 headings corrected state-in-front (the §6 lesson 1 way, not appended at the tail).
+
+## 2026-08-21 (~19:5xZ) — the read-side tolerance is RETIRED (handed to me by the flip session), and one of the two relayed grounds was FALSE as stated — the measurement is what held
+
+**Shipped:** `e5c1b3c15` (+ `9970eb71c` gofmt/citation follow-up), council corr **`e05ea6f9`**
+(`Council-Submitted:` trailer, verdict pending at write time). The second `if` in
+`setRenderContextScalarsFromData` is gone; a renamed key is read ONLY under its step-boundary
+name. `TestRestoreAcceptsBothSpellingsAcrossTheRoll` → `TestRestoreReadsOnlyTheStepBoundaryName`,
+same five map shapes, "old key alone" now pins the retirement OUT (want `""`), non-vacuous
+because case 1 resolves from the same shape. **Mutation-proved in a git-archive-HEAD copy:**
+tolerance restored → exactly that case fails; removed → `./platform/...` fully green. Go change,
+inert until a roll; rides whatever carries the flip.
+
+**The grounds, all measured fresh (~19:3x–19:4xZ), NOT the comment's retention argument (which
+the new comment explicitly disavows, with why it was wrong twice over):**
+1. **Zero non-terminal pre-roll orchestrations** — boundary v1.0.1317 (22:26Z 08-19), checked
+   against the enumerated 7-status vocabulary, not an assumed terminal list. 0 rows.
+2. **18 live stored old-key strings across 11 sites, and ALL 18 agree exactly with their page's
+   own name** (`differ_from_page = 0` against `regexp_replace(pages.name,'\.html$','')`). So the
+   fallback's entire live input population supplied a value the base merge already set —
+   retirement changes the resolved value on zero live rows.
+3. Nil behaviour carried per the flip round's ask: `data[key].(string)`, acts only on
+   `ok && s != ""`; missing/nil/non-string leave the field at its prior value.
+
+**⚠ THE CORRECTION (also in WRONG_CALLS and handoff §5): ground (b) as relayed — "stored rows
+never reach the second branch" — is FALSE.** The short-circuit is per-MAP and the rerender path
+merges base / stored contentData / resolved_data as THREE calls
+(`rerender_page_sections_action.go:628-631`); all 18 rows lack `current_page_name`
+(jsonb_typeof NULL), so their own merge call reached the second branch and adopted. Value-neutral
+today only because 18/18 agree — and the same read showed what the tolerance actually held open:
+a future stale stored string would CLOBBER the fresh base identity in the struct field (085's
+shape — and 085 is in **bugs_closed/** at HEAD, mind the stale case-index trap from the flip's
+R2). Template output on those rows is unchanged in both directions for an independent reason:
+the ContentData catch-all + `contextToInterfaceMap`'s ContentData-over-scalars merge supplies
+`{{.current_page}}` there regardless of the struct field. The delta is the step output
+(`renderCtxToMap`) and Go readers of `ctx.CurrentPage` only.
+
+**Still owed on this thread:** read the `e05ea6f9` verdict and act on it (REVISE/REJECTED —
+the code is already on the shared branch); the RUNBOOK's dead-run check applies if no verdict
+appears (check the orchestration's status, not just the artifact).

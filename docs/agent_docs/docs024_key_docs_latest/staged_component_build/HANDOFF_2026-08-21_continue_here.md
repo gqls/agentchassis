@@ -25,7 +25,7 @@ Everything shipped today was its *precondition*, not the thing itself.
 
 | # | what | state |
 |---|---|---|
-| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **CORRECTED ~19:1xZ: BUILT + COMMITTED `5fe010ada` (Go — inert until a roll), council round 1 REVISE answered, round 2 in flight — owned by the active [324079] session; see NOTES ~17:1x/~19:0x. Do NOT start it again.** ~~❌ NOT BUILT~~ |
+| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **CORRECTED ~19:1xZ (updated ~19:3xZ): BUILT + COMMITTED `5fe010ada` (Go — inert until a roll), council corr `26186633` at ROUND 3 (R1 + R2 both REVISE, bug_historian gating; commit unchanged throughout, only the rationale grew) — owned by the active [324079] session; see NOTES ~17:1x/~19:0x. Do NOT start it again.** ~~❌ NOT BUILT~~ |
 | **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | ❌ NOT DONE — the comment above that function names step 5's commit as its owner. **Use the two sound grounds in §5, NOT the retention argument** |
 | **3** | `bugs_open/330` candidate 2 — an unmarked wired-but-empty field still falls through to the search | ❌ OPEN, gated on the **269-pair / 75-agent unsampled remainder** (330 §9) |
 | **4** | A **standing** form of 537's guard | ❌ NOT BUILT — named residual, see §4 |
@@ -179,6 +179,18 @@ does not revert it.
   2. **`buildRerenderBaseData` writes the NEW key fresh** from its `pageName` argument, and the
      tolerance's first branch `continue`s whenever `current_page_name` is present, so stored
      `page_components` rows never reach the second branch.
+     > **CORRECTED 2026-08-21 ~19:5xZ (by the retiring session, from the code + a measurement):
+     > the "never reach the second branch" half is FALSE as stated.** The short-circuit is
+     > per-MAP, and the rerender path merges base / stored contentData / resolved_data as THREE
+     > separate calls (`rerender_page_sections_action.go:628-631`) — all 18 live stored rows
+     > carry the old key WITHOUT `current_page_name`, so in their own merge call the second
+     > branch WAS reached and DID adopt. What saves the retirement is the measurement, not the
+     > stated mechanism: **all 18 stored values agree exactly with their page's own name**
+     > (0 differ), so the adoption was value-neutral — and the same fact exposes what the
+     > tolerance really held open: a FUTURE stale stored string would have CLOBBERED the fresh
+     > base identity (085's shape). Retired on the measured grounds in
+     > `COUNCIL_SUBMISSION_2026-08-21_retire_read_side_tolerance.json` (corr `e05ea6f9`,
+     > commits `e5c1b3c15` + `9970eb71c`).
 - **The precondition is "zero conflict WARNs OR every observed field/caller pair explicitly
   mapped."** Re-run the census before trusting any of it (RUNBOOK, "the demand-control join").
 - ⚠ **"Zero conflict WARNs" can NEVER establish that the search is safe.** A conflict row requires

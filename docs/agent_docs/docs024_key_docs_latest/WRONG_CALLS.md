@@ -42125,3 +42125,32 @@ name the walk, and name what it cannot reach, before quoting the number.**
 > running it, the way fixes are claimed — a repair is the more dangerous of the two, because
 > it runs fast, feels obviously correct, and operates on state someone else may be mid-way
 > through. My entry's own lesson stands unchanged: content is never proven by position.
+
+## 2026-08-21 — a handoff's mechanism claim survived one relay and nearly reached a council rationale: "never reaches the second branch" was false; the MEASUREMENT was what held (staged_component_build lane)
+
+**The claim.** Handoff §5, ground (b) for retiring the read-side tolerance: *"`buildRerenderBaseData`
+writes the NEW key fresh … the tolerance's first branch `continue`s whenever `current_page_name` is
+present, so stored `page_components` rows never reach the second branch."* Relayed to me directly by
+the authoring session as one of "the two sound grounds", explicitly contrasted with a third argument
+already identified as unsound. I nearly wrote it into the council submission as received.
+
+**What was false.** The short-circuit is per-MAP: the rerender path merges base, stored contentData
+and resolved_data as THREE separate `mergeIntoRenderContext` calls, and the first branch reads the
+map of THAT call. All 18 live stored rows carry the old key WITHOUT `current_page_name`, so in their
+own merge call the second branch was reached and DID adopt — the opposite of the claim. The
+retirement stood anyway, on a measurement the claim had made look unnecessary: all 18 stored values
+agree exactly with their page's own name (0 differ), so the adoption was value-neutral today — and
+the same read showed the tolerance was actively holding a door open (a future stale stored string
+would CLOBBER the fresh base identity, 085's shape), which the claim's "never reached" framing had
+made invisible.
+
+**What caught it.** Reading the call sites before repeating the mechanism: the three-call merge at
+`rerender_page_sections_action.go:628-631`, then one `jsonb_typeof` query for the new key on the 18
+rows (all NULL). Two minutes, one query.
+
+**The cheap check.** A mechanism claim about a guard "never being reached" names its OWN
+verification: enumerate the paths to the guard and show each one blocked. Here the enumeration was
+three lines of caller code, and the second line disproved it. **A ground received from the session
+that owns the work is still a claim — the relay adds confidence and subtracts nothing from the need
+to read the code.** Corrected visibly in the handoff §5 bullet; the council submission shipped with
+the corrected mechanism and the measurement as the ground.
