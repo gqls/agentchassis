@@ -635,3 +635,53 @@ resetting in both. It needs a page whose first two sections both carry hits. `__
 absent from the durable row (`saveStepResultWithRetry` copies only the step's own keys), so if a proper
 per-page budget is wanted the mechanism is to carry the count in the step's **output** and read
 `copy_gate_<N-1>` — not a bare `CollectedData` key.
+
+## §20. ⚠ THE FIRST MULTI-HIT PAGE FOUND A DEFECT IN MY OWN REPAIR — and the marker over-reports until it rolls
+
+`webdesign.co.uk` / `tool-social-card-guide`, 2026-08-21 11:52Z, iteration 1 — the first page where one
+field carried several constructions:
+
+```
+hits_before 8 → hits_after 7      rewritten: 6      rejected: 0      distinct fields: 1
+```
+
+**Six accepted rewrites and ONE net repair.** Every target of a field carries the same captured
+original text, so each accepted replacement spliced against that original and wrote the whole field
+back: last writer wins.
+
+**Confirmed at the artefact rather than inferred.** `article-body`'s stored `content_data` still
+contains *"rather than compete"*, *"rather than trust that they're correct…"* and *"rather than
+requirement"* — three of the constructions the marker says were removed — and still carries **six**
+`rather than` in total.
+
+**Fixed** (`0eea9e597`): each field's text is carried forward as it stands after earlier replacements,
+so N targets in one field compose instead of racing. Pinned by a test built from this exact page, with
+a mutation probe that reproduces the race. **Inert until the next chassis roll.**
+
+> ### ⚠ UNTIL IT ROLLS: READ `hits_before`/`hits_after`, NOT `len(rewritten)`
+> The counts are computed from the real content after splicing and are honest. The `rewritten` array
+> lists what was *accepted*, which is currently more than what *landed*. Anyone auditing this gate
+> today from the marker alone will over-credit it.
+>
+> ### ⚠ And the marker TRUNCATES `from`/`to` at 160 characters
+> They cannot be used for exact verification against an artefact. I nearly recorded a wrong conclusion
+> from a `LIKE` against a truncated prefix — which matched only each sentence's *unchanged opening* and
+> therefore could not have come out otherwise. Verify on the part that differs: the removed
+> construction.
+
+### The per-page budget question is now ANSWERED, and the answer is no
+
+Same run, and it is the discriminating case this needed — a page whose first section also had a hit:
+
+| iteration | hits_before | page_hits | within_budget |
+|---|---|---|---|
+| 0 | 1 | **1** | 0 (the hit was headline-class, so repaired regardless) |
+| 1 | 8 | **8** | 2 (a FRESH budget) |
+| 2 | 0 | 0 | 0 |
+
+If the counter accumulated, iteration 1 would read `page_hits 9` and `within_budget 1`. It reads 8 and
+2. **The budget is per SECTION**, as `__copy_gate`'s absence from the durable row predicted. That is the
+documented safe fallback — every headline hit is still repaired regardless of budget — and the
+page-level total is still counted at `compile_page_sections`. **If a true per-page budget is wanted,
+the mechanism is to carry the count in the step's OUTPUT (`copy_gate_<N-1>`), never a bare
+`CollectedData` key.**
