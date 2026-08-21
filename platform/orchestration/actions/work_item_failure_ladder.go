@@ -434,14 +434,58 @@ func applyWorkItemFailureLadder(
 func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 	errorMsg, agentType string, backoffMins int, resultMerge []byte, guard string) (string, int, int64, error) {
 
-	retryAfter := ""
-	if retryAfterColumnPresent.Load() {
-		retryAfter = `retry_after = CASE WHEN attempt_count + 1 >= max_attempts THEN NULL
-			                 ELSE NOW() + make_interval(mins => $4) END,`
-		if backoffMins == 0 {
-			retryAfter = "retry_after = NULL,"
-		}
+	q, args := countingLadderStatement(itemID, errorMsg, agentType, backoffMins, resultMerge,
+		guard, retryAfterColumnPresent.Load())
+
+	var newStatus string
+	var attemptsLeft int
+	err := db.QueryRowContext(ctx, q, args...).
+		Scan(&newStatus, &attemptsLeft)
+	if err == sql.ErrNoRows {
+		return "", 0, 0, nil // the guard refused
 	}
+	if err != nil {
+		if noteMissingRetryAfterColumn(err) {
+			return writeCountingLadder(ctx, db, itemID, errorMsg, agentType, backoffMins, resultMerge, guard)
+		}
+		return "", 0, 0, fmt.Errorf("failed to apply work item failure ladder: %w", err)
+	}
+	return newStatus, attemptsLeft, 1, nil
+}
+
+// countingLadderStatement assembles the ladder UPDATE and its bind list
+// TOGETHER, so no variant can reference a parameter the other side does not
+// supply — or bind one the text never references.
+//
+// Why this is a hard rule and not tidiness: the first cut built the
+// retry_after fragment by Go-side branch and bound five parameters
+// unconditionally. On the TERMINAL attempt computeLadder passes backoff 0, the
+// fragment collapsed to `retry_after = NULL,` and $4 vanished from the text
+// while staying in the bind list — SQLSTATE 42P18 ("could not determine data
+// type of parameter $4") at PREPARE time, so the terminal write NEVER ran:
+// max_attempts was unreachable through this ladder in production
+// (bugs_open/307 §9, live 2026-08-21, one canary + one natural fail_work_item
+// hit). Fifteen sqlmock tests passed throughout — a mock matches text and
+// never types a placeholder — which is why
+// TestLadderStatementPlaceholdersMatchBindList audits the assembled variants
+// instead of mocking them. The handled_by COALESCE comment below records the
+// same discipline applied to $3; $4 was the one parameter that missed it.
+//
+// The zero-backoff special case lives IN the CASE ($4::int <= 0 → NULL) so the
+// statement text is identical whichever value is bound.
+func countingLadderStatement(itemID uuid.UUID, errorMsg, agentType string, backoffMins int,
+	resultMerge []byte, guard string, withRetryAfter bool) (string, []interface{}) {
+
+	args := []interface{}{itemID, errorMsg, agentType}
+
+	retryAfter := ""
+	if withRetryAfter {
+		retryAfter = `retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::int <= 0 THEN NULL
+			                 ELSE NOW() + make_interval(mins => $4::int) END,`
+		args = append(args, backoffMins)
+	}
+	args = append(args, jsonbTextOrNil(resultMerge))
+	resultParam := fmt.Sprintf("$%d", len(args))
 
 	q := `
 		UPDATE site_work_items
@@ -468,25 +512,11 @@ func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		    ` + retryAfter + `
 		    claimed_by = NULL,
 		    claimed_at = NULL,
-		    result = COALESCE(result, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+		    result = COALESCE(result, '{}'::jsonb) || COALESCE(` + resultParam + `::jsonb, '{}'::jsonb),
 		    updated_at = NOW()
 		WHERE id = $1` + guard + `
 		RETURNING status, max_attempts - attempt_count`
-
-	var newStatus string
-	var attemptsLeft int
-	err := db.QueryRowContext(ctx, q, itemID, errorMsg, agentType, backoffMins, jsonbTextOrNil(resultMerge)).
-		Scan(&newStatus, &attemptsLeft)
-	if err == sql.ErrNoRows {
-		return "", 0, 0, nil // the guard refused
-	}
-	if err != nil {
-		if noteMissingRetryAfterColumn(err) {
-			return writeCountingLadder(ctx, db, itemID, errorMsg, agentType, backoffMins, resultMerge, guard)
-		}
-		return "", 0, 0, fmt.Errorf("failed to apply work item failure ladder: %w", err)
-	}
-	return newStatus, attemptsLeft, 1, nil
+	return q, args
 }
 
 // writeTransientRelease returns the item to the queue WITHOUT consuming an
@@ -497,10 +527,43 @@ func writeCountingLadder(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 func writeTransientRelease(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 	errorMsg, reason string, cooldownMins int, resultMerge []byte, guard string) (string, int, int64, error) {
 
-	retryAfter := ""
-	if retryAfterColumnPresent.Load() {
-		retryAfter = `retry_after = NOW() + make_interval(mins => $4),`
+	q, args := transientReleaseStatement(itemID, errorMsg, reason, cooldownMins, resultMerge,
+		guard, retryAfterColumnPresent.Load())
+
+	var newStatus string
+	var attemptsLeft int
+	err := db.QueryRowContext(ctx, q, args...).
+		Scan(&newStatus, &attemptsLeft)
+	if err == sql.ErrNoRows {
+		return "", 0, 0, nil
 	}
+	if err != nil {
+		if noteMissingRetryAfterColumn(err) {
+			return writeTransientRelease(ctx, db, itemID, errorMsg, reason, cooldownMins, resultMerge, guard)
+		}
+		return "", 0, 0, fmt.Errorf("failed to release work item after transient failure: %w", err)
+	}
+	return newStatus, attemptsLeft, 1, nil
+}
+
+// transientReleaseStatement — statement and bind list assembled together, for
+// the reason countingLadderStatement documents. The column-absent variant of
+// the first cut had the same latent 42P18 (cooldownMins bound as an
+// unreferenced $4), which also made noteMissingRetryAfterColumn's recovery
+// unreachable: the error it waits for (undefined column) can never be produced
+// by a statement that no longer names the column.
+func transientReleaseStatement(itemID uuid.UUID, errorMsg, reason string, cooldownMins int,
+	resultMerge []byte, guard string, withRetryAfter bool) (string, []interface{}) {
+
+	args := []interface{}{itemID, "transient (" + reason + "): " + errorMsg, reason}
+
+	retryAfter := ""
+	if withRetryAfter {
+		retryAfter = `retry_after = NOW() + make_interval(mins => $4::int),`
+		args = append(args, cooldownMins)
+	}
+	args = append(args, jsonbTextOrNil(resultMerge))
+	resultParam := fmt.Sprintf("$%d", len(args))
 
 	q := `
 		UPDATE site_work_items
@@ -513,25 +576,11 @@ func writeTransientRelease(ctx context.Context, db *sql.DB, itemID uuid.UUID,
 		    spec = COALESCE(spec, '{}'::jsonb) || jsonb_build_object(
 		             'transient_releases', ` + fmt.Sprintf(jsonbIntFragment, "spec->'transient_releases'", "spec->>'transient_releases'") + ` + 1,
 		             'last_transient_release', jsonb_build_object('reason', $3::text, 'at', NOW()::text)),
-		    result = COALESCE(result, '{}'::jsonb) || COALESCE($5::jsonb, '{}'::jsonb),
+		    result = COALESCE(result, '{}'::jsonb) || COALESCE(` + resultParam + `::jsonb, '{}'::jsonb),
 		    updated_at = NOW()
 		WHERE id = $1` + guard + `
 		RETURNING status, max_attempts - attempt_count`
-
-	var newStatus string
-	var attemptsLeft int
-	err := db.QueryRowContext(ctx, q, itemID, "transient ("+reason+"): "+errorMsg, reason, cooldownMins, jsonbTextOrNil(resultMerge)).
-		Scan(&newStatus, &attemptsLeft)
-	if err == sql.ErrNoRows {
-		return "", 0, 0, nil
-	}
-	if err != nil {
-		if noteMissingRetryAfterColumn(err) {
-			return writeTransientRelease(ctx, db, itemID, errorMsg, reason, cooldownMins, resultMerge, guard)
-		}
-		return "", 0, 0, fmt.Errorf("failed to release work item after transient failure: %w", err)
-	}
-	return newStatus, attemptsLeft, 1, nil
+	return q, args
 }
 
 // detectFailureBurst answers "is the fleet failing this way right now?".

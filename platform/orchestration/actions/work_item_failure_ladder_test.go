@@ -344,7 +344,7 @@ func TestFailureLadder_RetryAfterIsActuallyStamped(t *testing.T) {
 	expectStateRead(mock, st)
 	expectBurstProbe(mock, 1, 1, 1)
 	expectPolicyLookup(mock, 30)
-	mock.ExpectQuery(regexp.QuoteMeta(`retry_after = CASE WHEN attempt_count + 1 >= max_attempts THEN NULL`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`retry_after = CASE WHEN attempt_count + 1 >= max_attempts OR $4::int <= 0 THEN NULL`)).
 		WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow("triaged", 2))
 	if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
 		uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
@@ -828,5 +828,68 @@ func TestUpdateWorkItemStatus_CompleteArmUsesTheCompletionGuard(t *testing.T) {
 	if strings.Contains(completeArm, "sqlInList(workItemDecisionStatuses)") {
 		t.Error("the complete arm interpolates the FAILURE guard list — 'failed' and 'unresolved' " +
 			"would be overwritable by a complete write (council corr 4cdec68b, editquality, gating)")
+	}
+}
+
+// ── Statement/bind-list integrity: the 42P18 class ──────────────────────────
+
+// TestLadderStatementPlaceholdersMatchBindList audits every assembled variant
+// of both ladder statements: the set of $N placeholders in the text must be
+// exactly $1..$len(args), contiguous. This is the check sqlmock structurally
+// cannot perform — a mock matches text and never TYPES a placeholder — and its
+// absence is how the terminal transition shipped broken: computeLadder passes
+// backoff 0 exactly on the terminal attempt, the first cut's retry_after
+// fragment collapsed to `retry_after = NULL,`, $4 left the text but not the
+// bind list, and every terminal write died with SQLSTATE 42P18 ("could not
+// determine data type of parameter $4") in production while all fifteen tests
+// here passed (bugs_open/307 §9, 2026-08-21: one canary + one natural
+// fail_work_item hit inside two minutes).
+func TestLadderStatementPlaceholdersMatchBindList(t *testing.T) {
+	type variant struct {
+		name string
+		q    string
+		args []interface{}
+	}
+	id := uuid.New()
+	var variants []variant
+	for _, withCol := range []bool{true, false} {
+		for _, backoff := range []int{0, 30} {
+			q, args := countingLadderStatement(id, "boom", "loop", backoff, nil, "", withCol)
+			variants = append(variants, variant{fmt.Sprintf("counting/col=%v/backoff=%d", withCol, backoff), q, args})
+		}
+		q, args := transientReleaseStatement(id, "boom", "ai_unavailable", 15, nil, "", withCol)
+		variants = append(variants, variant{fmt.Sprintf("transient/col=%v", withCol), q, args})
+	}
+
+	ph := regexp.MustCompile(`\$([0-9]+)`)
+	for _, v := range variants {
+		seen := map[string]bool{}
+		for _, m := range ph.FindAllStringSubmatch(v.q, -1) {
+			seen[m[1]] = true
+		}
+		for n := 1; n <= len(v.args); n++ {
+			key := fmt.Sprintf("%d", n)
+			if !seen[key] {
+				t.Errorf("%s: $%d is bound but never referenced — SQLSTATE 42P18 at PREPARE time", v.name, n)
+			}
+			delete(seen, key)
+		}
+		for n := range seen {
+			t.Errorf("%s: $%s is referenced but never bound", v.name, n)
+		}
+	}
+}
+
+// TestLadderStatementTextIsValueInvariant pins the repair's shape itself: the
+// zero-backoff case lives IN the SQL (`$4::int <= 0` → NULL), never in a
+// Go-side text branch — a statement whose TEXT depends on a bound VALUE is the
+// exact construction that produced the 42P18, because only one of its shapes
+// ever meets the test suite.
+func TestLadderStatementTextIsValueInvariant(t *testing.T) {
+	id := uuid.New()
+	q0, _ := countingLadderStatement(id, "boom", "loop", 0, nil, "", true)
+	q30, _ := countingLadderStatement(id, "boom", "loop", 30, nil, "", true)
+	if q0 != q30 {
+		t.Fatal("counting-ladder SQL text varies with the backoff VALUE — the 42P18 construction is back")
 	}
 }
