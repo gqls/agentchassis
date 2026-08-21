@@ -6035,3 +6035,93 @@ reading any post-apply zero as a pass.
 scoped out deliberately (risk #5 of the submission), not assumed safe by omission. Worth a follow-up
 measurement, not a fix, since it produces zero conflict rows either because nothing asks or because
 it resolves uniquely and silently (the instrument's known blind spot, §5 of the handoff).
+
+## 2026-08-21 — the `?` parser is LIVE (and proving it needed a new method); 512 is unverifiable for want of demand; 515 built for pbh/page_type
+
+**What changed beneath us.** 112 commits since my last. A parallel session of this lane worked
+18:20→18:45Z on 08-20 and did three things that move step 5 materially, all folded into the
+consolidated handoff and credited there:
+- **Built the step-5 ENABLER** (`ecc419bd1`): the `?` OPTIONAL-EXPLICIT marker on
+  `ExtractActionInputs` — explicit path or **absence**, never the whole-tree search. This is
+  330 candidate 2's mechanism, as an opt-in with the unsafe default OFF.
+- **Migration 512 applied** — tool-generator's `enqueue_rerender` declares its read list, closing
+  `tg/reason`.
+- **Solved the `tg/function` mystery I flagged as "unidentified trigger"** — and the answer was a
+  DATE, not config drift. All 11 rows precede **18:02:24Z on 08-18**, the last row of the very
+  class step 1 was built to kill: **pre-prune, a WIRED field's search still ran and its answer was
+  discarded at the merge**, so the row was written for a value that never won. My own 46/46 durable
+  baseline predicted exactly that; the two facts were already in the file and only needed joining.
+  Tier A is therefore empty, and the bridge-attribution work is **not** what Tier A was waiting on.
+  They also respected this lane's WRONG_CALLS entry and edited the consolidated handoff rather than
+  starting a sibling — the coordination rule held on its first test.
+
+**512's verification cannot be run, and the reason has changed.** They banked the baseline at the
+17:38:34Z apply boundary and left the test explicitly UNRUN, expecting "hours, not minutes". I ran
+it 17 hours later:
+
+```
+tool-generator runs since 2026-08-20 17:38:34Z  ->  0
+conflict rows since that boundary               ->  0 (all fields)
+```
+
+**The demand control is ZERO, so the zero rows are worth nothing** — and this is not "quiet
+traffic" any more, it is a drained queue: all 44 `add_tool` items are `complete`, the only
+survivors are 2 `deferred` from 08-05, and tool-generator's last run was **17:00Z on 08-20**. So
+512 has **no natural path to verification**: waiting cannot work. The options are (a) another lane
+queues a tool build and we read it then, (b) deliberately dispatch one — which builds a real
+component on a real site and is not ours to fire unasked, or (c) record 512 as *applied and
+explained, not demonstrated*. Recommend (a) with (c) written down meanwhile. **Do not let
+"applied 17:38Z, no rows since" harden into "verified".**
+
+**The `?` parser is LIVE on `v1.0.1321` — and establishing that took a method this estate did not
+have.** This mattered because adopter migrations were `_HOLD` pending exactly this.
+- The capability probe **failed and lied**. I grepped `"explicit resolution only"` on both pods:
+  ABSENT, with the present-control (`current_page_name`) found and the absent-control not found —
+  i.e. a perfectly working probe returning a wrong answer. **Both of `ecc419bd1`'s quotable phrases
+  are inside COMMENTS**, which Go strips, and it adds **no named function** (only locals and
+  closures). I caught it by checking whether the literal was code before trusting the result.
+- The `build provenance` line had **scrolled at 14 h**.
+- What worked: **test candidate build stamps one FIXED STRING at a time.**
+  `grep -aqF "<sha>" /proc/1/exe` → stamp = **`0483e7f4e`**, deadbeef control absent. Then
+  `git merge-base --is-ancestor ecc419bd1 0483e7f4e` → **true**. Also sanity-checked step 4
+  (`1a82225ec`) → true.
+  ⚠ A **60-way alternation** (`grep -aoE "a|b|c…"`) **times out past 2 minutes**; 60 separate
+  fixed-string calls take about a second each. `-F` and one pattern is the whole difference.
+- Written up as a LANDMINE with the forward fix: **a change destined for a `_HOLD` should add one
+  probeable marker on purpose.** Four characters replaces this whole procedure.
+
+**Built: migration 515 for `pbh`/`page_type`** — the item the parallel session named "one key, one
+migration, **not built**". It is not only step-5 hygiene; it closes a live wrong-value path:
+- `plan_sections` declares `page_type` Optional; pbh's step wires nothing; the search's candidates
+  are the page's own record **plus 28 × `{ensure_site_record,site_record}.content_data.pages[N].page_type`**
+  — every OTHER page's type.
+- **[MEASURED] 31 live pbh orchestrations: own record PRESENT 13, ABSENT 18.** On the 18 the only
+  candidates are siblings, and if the siblings agree **no conflict row is written and the
+  substitution is SILENT.** So the 40 logged rows understate this pair.
+- Under step 5's flip the 13 good runs would instead **lose** a correct value (there the candidates
+  genuinely conflict). The pair needs a declared mapping in both directions.
+- **`?` not a plain wire, and the 18 misses are the reason**: a plain wire resolves via Strategy 0
+  where the path exists and **falls through to the search where it does not** — exactly the case
+  most needing to stop.
+- **Absence read at the consumer, not assumed**: `plan_sections_action.go:972-975` falls back to
+  `pageName`, and its own comment says the selector still works, just without the relevance bonus.
+  So the miss path becomes a locally-correct NAME instead of a foreign TYPE — better than today.
+- Names `page_record` (the declared `output_field`) not the `load_page_record` step-name alias,
+  which is only today's winner because `l` sorts before `p`. The two agree 8/8, co-present 13/13.
+- **Dry-run proven against the live DB** inside a transaction ending in `ROLLBACK` (snapshot taken,
+  update applied, verify OK, nothing persisted — confirmed afterwards: 0 snapshot rows, key absent),
+  and the **idempotence guard PROVED to fire** by applying twice in one transaction.
+  Council submitted, `SUBMISSION_CORR=a452fc2a-160f-485c-949c-367c34c65df2`. **Not yet applied** —
+  following 512's precedent of applying after approval; there is no urgency (class last fired 20 h ago).
+
+**Three of my own missteps today, all cheap because they were caught before they were asserted:**
+1. **I skipped `\d agent_definitions`** and hand-rolled a snapshot INSERT naming `snapshot_reason`,
+   which does not exist on that table. The dry run caught it. The estate already has
+   `snapshot_agent(type, reason)` — reuse over invention, and schema first.
+2. Then my verify looked for the snapshot in `agent_definitions` — snapshots land in
+   **`agent_definitions_backup`**, which is where `snapshot_reason` lives. So the column was real
+   and the TABLE was wrong. (`agent_definitions.is_snapshot` is a separate, older convention with 2 rows.)
+3. Two client-side council refusals, both free (no round spent): `operation` must be
+   `modify|add|remove|config_change` — a new file is **`add`**, not `create`; and **`plan.risks` is
+   a STRING, not an array.** `DRY_RUN=1` on the 097 trigger tests all of this for nothing — use it
+   every time.
