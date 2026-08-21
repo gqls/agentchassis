@@ -7374,6 +7374,31 @@ mid-write can leave the tree uncompilable for seconds, and the honest test is
 - **the tell:** COMPLETED with `pending.items` populated but NO `claim_result`/`handler_spawned`/`item_completed` keys in `collected_data`. Compare a trigger-driven run (spawn_agent + call_agent with `action: process`): it carries `claim_result` and its item reaches `complete`. Measured 2026-08-08: direct orch `4e26e881…` no-opped on webdesign.uk's item; trigger-driven `67fe4fae…` processed leopardess's item the same evening.
 - **the check:** after ANY dispatch-loop invocation, read the ITEM rows, not the orchestration status — `SELECT status, attempt_count FROM site_work_items WHERE id='<item>';` still-`triaged` after a COMPLETED loop run means the run was a no-op. To hand-drive a starved queue, skip the loop entirely: claim the item yourself, orchestrate its `handler_agent` directly with the loop's `input_mapping` shape (worked recipe: webdesign_uk_build_service/HANDOFF_2026-08-08 §1), and mark it complete on verified output.
 - **source:** 2026-08-08, webdesign_uk_build_service lane; NOTES 08-08 §3–4. Mechanism NOT yet diagnosed (090 candidate) — this entry records the behaviour, not the cause.
+- **⚠ CORRECTED 2026-08-21 — THIS NO LONGER REPRODUCES. Do not avoid the technique on this entry's
+  account; DO keep its check.** The `mortgagecalculator_couk_adoption` lane ran the exact shape this
+  entry warns about — bare `action=orchestrate`, `config.agent_type=build-dispatch-loop`,
+  `input_data` = `{site_id, domain}`, one-line JSON through `kcat -P` — and it **claimed and drove
+  the item to completion**. Correlation `31b99896-a96e-4308-8c33-1965dab33da8`, site
+  `mortgagecalculator.co.uk`, item `e31ba039` (a `content_rewrite`).
+  **Every discriminator this entry names came out the other way:** the item went `triaged` →
+  **`claimed`** (not untouched), and `collected_data` carried **`claim_result: true` and
+  `handler_spawned: true`** at `process_item_iter_0_call_handler` — the two keys the tell says are
+  ABSENT in a no-op. The handler then ran the full chain (`call_content_writer` →
+  `process_sections_loop` → `compile_page` → `deploy_page`) and the page's stored copy changed
+  (both component `md5`s moved).
+  **This is the THIRD data point and the second success**, so the entry has been out of date for
+  ten days: `RUNBOOK_mortgagecalculator_couk.md` §15 already recorded a working hand-dispatch on
+  **2026-08-11** (item `97f4d0ab`, correlation `5125e6b6…`, *"claimed within a minute of the
+  publish, after 80+ minutes starved"*) — 3 days after this entry was written and never folded
+  back into it. Sequence: **08-08 no-op · 08-11 works · 08-21 works.**
+  **The CAUSE is still not diagnosed and I am not claiming one** — `bugs_closed/239`
+  (`orchestrate_dispatch` falling back to a generic no-op) is the obvious suspect and its trigger
+  was `source`+`spec` co-occurring in `input_data`, which neither payload had. **[UNVERIFIED.]**
+  **What to keep from this entry regardless:** its check is still exactly right, and it is what
+  proved the correction — **after ANY dispatch-loop invocation read the ITEM rows, never the
+  orchestration status.** A COMPLETED run with the item still `triaged` is still a no-op, whatever
+  changed. The §1 direct-handler fallback remains the right move if that is what you see.
+  — 2026-08-21, `mortgagecalculator_couk_adoption` lane
 
 ---
 
