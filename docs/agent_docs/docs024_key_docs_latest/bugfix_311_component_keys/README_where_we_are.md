@@ -290,3 +290,32 @@ separate thing standing between a working fix and a working page — the other t
 somebody had archived, and a guard protecting an unrelated banner. The collision fix itself is
 sound and proven seven times over. What is left is a queue of unrelated gates, each reasonable on
 its own, none of them this bug.
+
+## 2026-08-21, evening — the page that started all this has its calculator, and the bug is closed
+
+The home page of remortgagecalculator.uk — the page whose missing calculator was your original
+complaint five days ago — now serves a real mortgage repayment calculator: loan amount, interest
+rate, term in years and months, and a repayment-versus-interest-only toggle. Six input controls
+where there were none, the page half again as large, and no stray template code. All six planned
+sections are in place, and the page's own record finally says "deployed" with a fresh timestamp —
+the guard that had been refusing it since the 17th passed for the first time, because for the
+first time there was nothing missing.
+
+The component was created the same way as the previous six: the system saw the name belonged to
+another site's calculator, made its own copy under its own name, and left the original untouched
+to the byte. That is seven for seven now, on three different sites, and the bug file has moved to
+the closed pile with the evidence written in.
+
+One honest caveat on today's other fix, the one that tells a retry why its last attempt failed:
+this run never needed it. The generator got the template right first time, so the feedback path
+never fired. That fix is live and waiting, but it has not yet been seen working, and I have said
+so in its file rather than let today's success borrow its credit. The reviewers also caught a real
+error in my diagnosis of it — I had said the waste was a loop inside each attempt, and their own
+check showed it was fifty-two separate dispatches that were never being counted — so the fix was
+revised to cover what actually happens, and is back with them for a second look.
+
+What remains, none of it this bug: the retry-feedback fix waiting for its first real exercise; the
+too-small output limit that still blocks one calculator type; the design question with the
+component-scoping team about newly created components being born unscoped, which needs your call;
+and two loanzy pages that are deliberate choices rather than defects. Each lives in its own file
+with its own evidence.
