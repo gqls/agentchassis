@@ -6469,3 +6469,68 @@ next round objected that the snapshot "still shows the generic text, not the ver
 heading claimed", because **a truncating reader sees only the opening clause.** Same failure, moved.
 The state now LEADS the heading. Verified where it matters: all four `doc_notes` rows for that entry
 carry the new body — seats read `doc_notes`, not the file.
+
+## 2026-08-21 (~13:5xZ) — commit_sha handler-side standardisation: 5 of 6 real handlers APPLIED, 1 (css-patch-agent) resubmitted after REVISE
+
+Built and shipped the handler half of bugs_open/334's fix (the 315 lane's answer, agreed split:
+handler configs mine, bdl's one-line wire theirs, after). Real scope was **6 direct handlers +
+page-build-handler (dependent)**, not "~16 agents with a git_commit step" — re-derived
+independently from `site_work_items.handler_agent` (a top-level column, not `spec`), since the
+static step-level census conflates "has a git_commit step" with "is actually dispatched by bdl".
+Eleven agents with a real `git_commit` step have **zero** occurrences as a live `handler_agent`
+value and are irrelevant to this specific conflict class.
+
+**Applied and verified, all five, at the live config and against real completed orchestrations:**
+
+| migration | agent | source path | shape |
+|---|---|---|---|
+| 519 | page-rerender (4,810/7d, dominant) | `deploy_result.response.data.commit_sha` | mechanical, single path |
+| 521 | rerender-pages (89/7d) | `js_snippets_deployed.response.data.commit_sha` | mechanical, single path |
+| 523 | section-editor (63/7d) | `git_result.response.data.commit_sha` | **judgement call** — its OWN edit commit, not the later Cloudflare-trigger call |
+| 527 | webdesign-agent (45/7d) | `css_deployed.response.data.commit_sha` | **judgement call** — its OWN CSS commit, not the later site-asset-renderer call |
+| 528 | nav-updater (42/7d) | `js_snippets_deployed.response.data.commit_sha` | mechanical, single path |
+
+**519 verified end-to-end on live traffic, not just at the config**: a real page-rerender
+orchestration completed 19 seconds after the apply boundary with `rendered_page`/`deploy_result`
+intact (no regression) and `deploy_result.response.data.commit_sha` populated with a genuine sha —
+proof the mechanism works on production traffic, not just in the migration's own VERIFY block.
+
+**A real bug in my own migration template, caught by applying for real, not by review:** the
+negative control checked whether any OTHER agent's `commit_sha` mapping equalled the identical
+literal source-path STRING. `rerender-pages` and `nav-updater` legitimately share
+`js_snippets_deployed` (their `git_commit` steps happen to use the same `output_field` name by
+coincidence), and `css-patch-agent`/`webdesign-agent` both use `css_deployed` — two independently
+correct migrations, not a leak. 528's apply hit this for real after 521 had already gone live
+(rolled back cleanly, zero damage — the whole point of a probed, transactional migration). Fixed
+by removing the check: the actual protection was always structural (the guard's own
+`count(*)=1` plus the UPDATE's `WHERE type=<agent>` make cross-agent contamination impossible
+regardless of what value ends up written), so a fleet-wide string-uniqueness check was testing a
+property that was never true and never needed to be.
+
+**522 (css-patch-agent) went to REVISE, round 1** — gating on guardian's multi-active-version
+concern. Resubmitted (RESUBMIT_CORR) having actually MEASURED the row count (1,
+`661a27b9-9b09-4a9d-a737-34871dee3bd8`) rather than only trusting the guard, read
+`ApplyResultSpec`'s `ResultModeMapping` branch to confirm a missing source is dropped+WARNed (not
+silently emptied — no new failure mode vs today's `output_fields`), read
+`workflow_validator/main.go` to confirm `OptionalCfg` is documentation-only and never enforced (so
+the conversion silently loses ONE validator's `output_fields`↔produced-fields cross-check for this
+step — disclosed honestly, does not error or misclassify), and replaced the sketch with the real
+guard shape rather than the abbreviated one-liner (see the WRONG_CALLS entry: I'd cited that exact
+lesson in the very same submission and abbreviated anyway, five times over — a lesson written down
+once does not survive being reused as a template unless the template itself is checked).
+
+**A coexisting, unrelated real finding, disclosed not chased:** an unclaimed `needs_diagnosis` item
+(0ed66d57, page-rerender's `deployed_at` stamped without commit evidence) is already covered by the
+315 lane's own shipped `content_hash` fix. A second one (7df0cc7a, webdesign-agent/
+component-template-fixer/color-variable-fixer sometimes completing via a bogus shortcut with no
+real page write) is genuinely new and unclaimed — confirmed it cannot affect this migration's
+correctness (`result_mapping` already drops an absent target, so a bogus-shortcut run correctly
+shows no `commit_sha` either), but it is a real defect nobody has picked up. Worth a proper `090`
+run by whoever owns webdesign-agent/design-repair work; not this lane's to fix.
+
+**Remaining for this lane's own scope:** `page-build-handler` (662/7d, second-largest, no
+`git_commit` of its own — reaches one only by calling `page-rerender`, so its own fix is now
+buildable since 519 shipped) and `css-patch-agent`'s round-2 verdict. After those two: the handler
+side of bugs_open/334 is COMPLETE, and the bdl-side wire is `staged-component-build`'s to build,
+per the agreed ordering (config first, wire after — wiring first would silently drop the sha for
+every unconverted handler).
