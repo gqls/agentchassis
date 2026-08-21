@@ -323,3 +323,21 @@ six components the gate refused now wait on people — three of those are the br
 estimator that needs your rollback-or-hand-fix call — and the estate keeps minting new tools
 faster than anyone converts them, which needs a decision about whether the front door enforces
 the rule at birth or a sweeper converts arrivals on a schedule.
+
+**2026-08-21.** You asked the right question — why do unconverted tools keep appearing — and
+the answer was embarrassing enough to write into the permanent mistakes log: we fixed every
+tool that existed and never once asked what keeps making new ones. The tool-writing agent had
+simply never been told the naming rule; it was writing tools the way every web tutorial does.
+Twenty-three arrived in three days, seven on the day we finished the backlog.
+
+All three of your rulings are done. The generator's instructions now teach the two habits that
+matter (keep the script self-contained, name elements plainly). The stronger half is in the
+code, per your preference: the save-path now runs the same proven machine that converted the
+estate over every newborn tool — a well-shaped tool is silently converted before it is saved,
+and one the machine can't prove safe is rejected so the generator simply tries again; nothing
+half-done can be born. And a small daily sweeper now walks the whole library each morning and
+files conversion work for anything that slipped in by any other door; its very first run found
+twenty-eight, filed twenty-six, and the pipeline converted twenty-five of them within the
+hour. The twenty-sixth is an old friend: a game tool that has always carried the same label
+twice inside itself, which the safety gate rightly refuses to paper over — it joins the short
+repair list a person needs to look at. The whole package is with the review council now.
