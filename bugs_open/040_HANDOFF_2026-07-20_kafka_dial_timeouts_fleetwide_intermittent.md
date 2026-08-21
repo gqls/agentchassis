@@ -913,3 +913,46 @@ Two different topics — one dynamic per-job, one long-lived — within eight mi
 anything in the sweep's own config (the same chain end-to-end had run clean at 15:05–15:12).
 Evidence lives in `orchestration_states` error columns while retention lasts; quoted verbatim
 in `vigilant_designer_offer_analysis/NOTES` 2026-08-15.
+
+## CONTRIBUTION 2026-08-21 (bugs_open/343 lane, not this bug's owner) — the two error surfaces are DISJOINT, and this file names the one that sees <1%
+
+Arrived here from `bugs_open/343`: two `availability-discovery-agent` orchestrations, 27 minutes
+apart on 2026-08-20, both dying at the terminal step on a Kafka write —
+`step complete failed: failed to execute action complete_workflow: failed to send response: failed
+to write message to kafka: Kafka write errors (1/1)`. That is the same `complete_workflow` class this
+file's 2026-08-15 section already describes, so **this is not a new mechanism** — it is a measurement
+correction, and it bears on that section's closing line.
+
+**The finding.** `[MEASURED 2026-08-21]` For Kafka errors, `agent_error_log` and
+`orchestration_states.error` are **completely disjoint**:
+
+| surface | orchestrations |
+|---|---|
+| `agent_error_log` only | **125** |
+| `orchestration_states.error` only | **1** |
+| **both** | **0** |
+
+**Not a retention artefact** — re-run restricted to the window both tables cover gives the identical
+125 / 1 / 0. So **this file's line "evidence lives in `orchestration_states` error columns while
+retention lasts" names the surface that holds 1 of 126.** Any rate or blast-radius figure for this
+bug should come from `agent_error_log`; a census on `orchestration_states.error` sees **under 1%** of
+instances and will read as "rare and improving" regardless of what is happening.
+
+**The worked pair, which is how it was found and why it is easy to get backwards.** The two
+orchestrations recorded the *same* failure in *different* tables, and neither appears in both:
+
+| orchestration | `orchestration_states.error` | `agent_error_log` |
+|---|---|---|
+| `efa24e6e` (15:41Z) | **names Kafka** | **0 rows** |
+| `00525861` (16:08Z) | reaper only — `stale EXECUTING_STEP for >4h; step=complete` | **1 row, names Kafka** |
+
+I first read this as "one failed loudly, one failed silently", because I checked
+`orchestration_states.error` for both and inferred absence from the second. **Both logged it.** A
+per-instance judgement about whether a failure was silent is unsafe unless both surfaces are checked.
+
+⚠ **Retention trap met on the way, worth having here too.** `min(created_at)` on
+`orchestration_states` reads **2026-07-19**, which suggests month-long retention. It is not:
+**CANCELLED** rows (24) appear never to be pruned, while `COMPLETED` starts ~26 h back and `FAILED`
+likewise. So the ~26 h figure this estate uses is right for the statuses that matter, and a naive
+`min()` will tell you otherwise. Verified in the direction that mattered: **0 of 21** of 343's
+08-17 wedged orchestrations survive there.

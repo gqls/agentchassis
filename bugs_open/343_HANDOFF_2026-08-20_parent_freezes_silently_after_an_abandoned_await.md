@@ -154,12 +154,29 @@ label — a number that no longer exists and whose freeze now lives here. Four r
    fixes for free — this section. Narrowness costs the one capture that mattered, and that is
    **unrecoverable**. Prefer the recoverable failure.
 
-**Noticed, NOT filed, and not investigated** (flagged so it is not lost): two of the four were parked
-at `current_step = 'complete'` having run **0.09 s** and **1.1 s**. An orchestration that reaches its
-terminal step and then stops is not this bug's shape and may be a separate defect or a known one.
-`[UNVERIFIED]` — I grepped `bugs_open/` and `bugs_closed/` for a terminal-step stall and found **no
-prior art**, but that was one grep on one phrasing and is not a prior-art clearance. Do not file it
-on the strength of this paragraph.
+**The two `complete`-step captures: CHASED AND CLOSED, 2026-08-21 — they belong to `bugs_open/040`.**
+Two of the four were parked at `current_step = 'complete'` after **0.09 s** and **1.1 s**. Resolved:
+both are Kafka write failures at the terminal step
+(`complete_workflow: failed to send response: ... Kafka write errors (1/1)`), which is a class
+`bugs_open/040` (kafka dial timeouts, OPEN) **already documents** — its 2026-08-15 section describes
+the same `complete_workflow` failure. **Not a new bug, not filed as one; contributed into 040
+instead.** One of the pair sat 4 h before the reaper failed it, and that is the reaper working as
+designed, not this bug.
+
+> **What I got wrong on the way, because it is the same trap this file warns about twice.** I read
+> the pair as "one failed loudly, one failed **silently**" — the second being 343-shaped. It is not:
+> `[MEASURED]` the two recorded the **same** failure in **different tables**, and `agent_error_log`
+> and `orchestration_states.error` turn out to be **completely disjoint** for Kafka errors
+> (**125** / **1** / **0** in both — not a retention artefact, identical over the common window). I
+> had checked `orchestration_states.error` for both and **inferred silence from a single surface.**
+> A per-instance "this one was silent" claim is unsafe unless both surfaces are read.
+
+**One retention correction that CONFIRMS this file rather than undermining it.** `min(created_at)` on
+`orchestration_states` reads **2026-07-19**, which looks like month-long retention and would reopen
+every `[UNVERIFIED]` here that rests on "the rows are purged". It does not: **CANCELLED** rows (24)
+appear never to be pruned, while `COMPLETED` and `FAILED` start ~26 h back. Checked in the direction
+that mattered — **0 of 21** of the 08-17 wedged orchestrations survive there. **So the purge claim
+holds, and the closed route above stays closed.**
 
 **Do not treat quiet as evidence of a fix.** Six of the eight days around the 08-17 burst were also
 zero, *before* anything was changed.
