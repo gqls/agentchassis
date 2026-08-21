@@ -122,6 +122,15 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (Co
 		branch = repo.DefaultBranch
 	}
 
+	// 2b. The shrink floor, when the caller opted in (bugs_open/198). Before any
+	// blob is created, so a refusal costs nothing and leaves nothing behind, and
+	// on the PREFIXED paths, which are the ones that exist in the tree.
+	if data.FileShrinkFloor > 0 && len(data.Files) > 0 {
+		if err := c.enforceFileShrinkFloor(ctx, repo.Owner.Login, repo.Name, branch, data.Files, data.FileShrinkFloor); err != nil {
+			return CommitOutcome{}, err
+		}
+	}
+
 	// 3. Create a "Blob" for each file — ONCE, before the retry loop below.
 	// Blobs are content-addressed: their SHAs stay valid whatever the branch
 	// head moves to, so only the tree/commit/ref steps need re-basing when a

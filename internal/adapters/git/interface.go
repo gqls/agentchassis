@@ -195,6 +195,15 @@ type GitCommitData struct {
 	Deletions     []string               `json:"deletions,omitempty"`
 	CommitMessage string                 `json:"commit_message"`
 	Branch        string                 `json:"branch,omitempty"`
+
+	// FileShrinkFloor opts this commit into the shrink guard (bugs_open/198):
+	// refuse the commit if any file already ≥ minShrinkGuardFileBytes would be
+	// replaced by less than this fraction of its current bytes. Zero — the value
+	// an older caller that never sets it decodes to, and the value this field
+	// takes when an older adapter drops it as unknown JSON — means OFF, which is
+	// the behaviour every caller had before it existed. Both deploy orders are
+	// therefore safe, and neither half alone changes anything.
+	FileShrinkFloor float64 `json:"file_shrink_floor,omitempty"`
 }
 
 // GitDeleteFileData is the 'data' field for a 'delete_file' action — the

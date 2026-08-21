@@ -215,6 +215,14 @@ func GitCommitAction(ctx context.Context, params ActionParams) (interface{}, err
 		"commit_message": commitMessage,
 	}
 
+	// Opt-in shrink floor (bugs_open/198). The key is only ever added when a step
+	// asked for it, so a caller that does not name it sends exactly the payload it
+	// sent before this existed — and an adapter that predates the field drops it
+	// as unknown JSON, so neither deploy order changes behaviour on its own.
+	if floor, on := shrinkFloorForGitData(config); on {
+		gitData["file_shrink_floor"] = floor
+	}
+
 	// Generate request ID
 	newRequestID := uuid.New().String()
 
@@ -601,6 +609,29 @@ func resolveCommitMessage(config map[string]interface{}, data map[string]interfa
 			zap.String("commit_message_field", mf))
 	}
 	return buildCommitMessage(config, domain, fileCount, filename)
+}
+
+// gitFileShrinkFloorKey opts a git_commit step into the adapter-side shrink
+// guard (bugs_open/198). It is a numeric LITERAL, not a data-path reference, so
+// it deliberately does not belong in coordinator.go's dataRefKeys — nothing here
+// needs loop-iteration suffixing. (A future `file_shrink_floor_field` would.)
+const gitFileShrinkFloorKey = "file_shrink_floor"
+
+// shrinkFloorForGitData returns the floor to put on the adapter payload, and
+// whether to put it there at all.
+//
+// Absent, zero, or unreadable means OFF, which is what every one of the 17
+// carrier agents does today and must keep doing: the guard is new authority on a
+// shared seam, so it ships opt-in with the unsafe side as the default (owner
+// ruling 2026-08-02 §2), and a step that does not name the key produces a
+// byte-identical payload. Clamping lives adapter-side, next to the comparison it
+// protects, so a floor arriving from any other caller is clamped too.
+func shrinkFloorForGitData(config map[string]interface{}) (float64, bool) {
+	floor, present := pruneFloorFromConfig(config, gitFileShrinkFloorKey, 0)
+	if !present || floor <= 0 {
+		return 0, false
+	}
+	return floor, true
 }
 
 // buildCommitMessage creates commit message with template support
