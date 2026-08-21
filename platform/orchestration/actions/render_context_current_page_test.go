@@ -398,22 +398,27 @@ func TestStepOutputNeverCarriesCurrentPage(t *testing.T) {
 	})
 }
 
-// TestRestoreAcceptsBothSpellingsAcrossTheRoll: orchestrations in flight when
-// the renamed binary rolls hold a render_context written under the OLD key, and
-// the rerender path's hand-built base map used the old key until this change.
-// Restore reads the step name first and tolerates the template name when it is
-// a string — read side only; the emit side is pinned by the test above. The
-// page RECORD under the old key (an object, not a string) is never adopted.
-func TestRestoreAcceptsBothSpellingsAcrossTheRoll(t *testing.T) {
+// TestRestoreReadsOnlyTheStepBoundaryName: the read-side tolerance that also
+// accepted the TEMPLATE name as a string fallback (orchestrations in flight
+// across the step-4 roll) was RETIRED on 2026-08-21 — zero non-terminal
+// pre-roll orchestrations remained, and every live stored row carrying the old
+// key as a string agreed with the fresh base value (18/18; grounds in the
+// setRenderContextScalarsFromData comment). The old spelling is not part of
+// the read contract: a string under it is IGNORED, not adopted. The "old key
+// alone" case below is the pin that fails if the tolerance quietly returns —
+// asserting want="" there is only meaningful because the same map with the
+// step name present resolves (case 1), so an empty result cannot be the loop
+// skipping the field altogether.
+func TestRestoreReadsOnlyTheStepBoundaryName(t *testing.T) {
 	cases := []struct {
 		name string
 		data map[string]interface{}
 		want string
 	}{
-		{"new tree: current_page_name", map[string]interface{}{"current_page_name": "about"}, "about"},
-		{"old tree: current_page as a string", map[string]interface{}{"current_page": "about"}, "about"},
-		{"both present: the step name wins", map[string]interface{}{"current_page_name": "new", "current_page": "old"}, "new"},
-		{"the page RECORD under the old key is not a name", map[string]interface{}{"current_page": map[string]interface{}{"name": "about"}}, ""},
+		{"step name: current_page_name", map[string]interface{}{"current_page_name": "about"}, "about"},
+		{"old key alone is NOT adopted (tolerance retired)", map[string]interface{}{"current_page": "about"}, ""},
+		{"both present: only the step name is read", map[string]interface{}{"current_page_name": "new", "current_page": "old"}, "new"},
+		{"the page RECORD under the old key stays unread too", map[string]interface{}{"current_page": map[string]interface{}{"name": "about"}}, ""},
 		{"neither: stays empty", map[string]interface{}{"domain": "example.com"}, ""},
 	}
 	for _, tc := range cases {

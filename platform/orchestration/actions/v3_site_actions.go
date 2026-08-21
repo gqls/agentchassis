@@ -1854,27 +1854,28 @@ func renderContextStepContractKey(templateKey string) string {
 // on some envelopes) fails the type assertion and is left to the caller's
 // structured handling.
 //
-// A renamed key (renderContextStepContractRenames) is read under its
-// step-boundary name first. Its TEMPLATE name is still accepted as a fallback
-// when it holds a string: restore runs against trees written before the rename
-// (orchestrations in flight across the roll, and any caller that hand-builds a
-// context map under the old name). That tolerance is on the READ side only —
-// renderCtxToMap never emits the old name, which is what ends the collision.
-//
-// The fallback is DELIBERATELY string-only and DELIBERATELY temporary (council
-// round 1, corr f3716ebe, editquality + bug_historian):
-//   - a non-string under the old name (the page RECORD, which is what
-//     input_data.current_page holds on every envelope) is never adopted — the
-//     type guard is the whole point; there is no "name" to take from it here.
-//   - its justification expires with the pre-roll trees. orchestration_states
-//     retention is ~24 h (49 page-content-writer rows spanned 2026-08-18 20:46Z
-//     → 2026-08-19 20:06Z), so once the roll carrying the rename is a day old
-//     no tree it serves can exist. RETIRE IT IN THE RFC_029 §10.13 STEP-5
-//     COMMIT (the flip to refusal, which by its gate lands after that roll):
-//     delete the second `if` below and the "old tree" / "both present" cases
-//     in TestRestoreAcceptsBothSpellingsAcrossTheRoll. Named in the lane's
-//     handoff so it cannot outlive its reason quietly (the 051/052 precedent
-//     the historian cited is exactly a renamed-key tolerance nobody removed).
+// A renamed key (renderContextStepContractRenames) is read ONLY under its
+// step-boundary name. The read-side tolerance that also accepted the TEMPLATE
+// name as a string fallback (for trees written before the rename rolled) was
+// retired on 2026-08-21, on grounds measured that day — NOT the retention
+// argument the original comment here carried, which was unsound on both
+// counts (orchestration_states holds rows back to 2026-07-19, and stored
+// page_components content_data never expires at all):
+//   - zero non-terminal orchestrations created before the rename roll
+//     (v1.0.1317, pods up 2026-08-19 22:26Z) remained, checked against the
+//     full status vocabulary — so no restorable tree written by the old
+//     binary exists;
+//   - the rerender base map writes the step name fresh from its pageName
+//     argument (buildRerenderBaseData), and every live page_components row
+//     whose stored content_data still carries the old key as a string agreed
+//     exactly with its page's own name (18 of 18 across 11 sites, measured
+//     at retirement) — the fallback's only remaining input supplied a value
+//     the base already had.
+// Retiring it also closes the door it held open: a stale stored string can no
+// longer clobber the fresh page identity in the struct field between the base
+// merge and the resolved-data merge (bugs_open/085's shape). The old spelling
+// is simply not part of the read contract — a string under it is ignored the
+// same way the page RECORD always was.
 func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interface{}) {
 	v := reflect.ValueOf(ctx).Elem()
 	t := v.Type()
@@ -1889,12 +1890,6 @@ func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interfa
 		}
 		if s, ok := data[renderContextStepContractKey(key)].(string); ok && s != "" {
 			v.Field(i).SetString(s)
-			continue
-		}
-		if stepKey := renderContextStepContractKey(key); stepKey != key {
-			if s, ok := data[key].(string); ok && s != "" {
-				v.Field(i).SetString(s)
-			}
 		}
 	}
 }
