@@ -1460,6 +1460,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic gate binding report prose to the scoring fact_block: numbers, SKU-shaped names, the mandatory no-match sentence, no empty sections",
 		IsLocal:     true,
 	},
+	"verify_cited_cardinals": {
+		Handler:     VerifyCitedCardinalsAction,
+		Category:    "validation",
+		Description: "Deterministic attribution gate: every cardinal (digits OR words) in a self-attributing item's prose must appear in the source field that item cites (bugs_open/335)",
+		IsLocal:     true,
+	},
 	"create_report_page": {
 		Handler:     CreateReportPageAction,
 		Category:    "site",
