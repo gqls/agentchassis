@@ -123,6 +123,33 @@ A4 Write the **design brief** for the family from A1–A3 + §1's constraints.
 *Falsifier: if A1–A3 surface nothing an ordinary reader would notice, the uplift
 is a taste project and should be scoped down and said so.*
 
+> **STATUS UPDATE 2026-08-21 — Phase A is DONE and Phase B's first item SHIPPED,
+> ahead of the order below and by a route this plan did not contain.**
+> A1 (design audit) and A3 (render audit, hand-run after the dispatched one timed
+> out) are complete. The contrast defects they found are **fixed and measured**:
+> migration `496`, robot-hands **10 → 4** findings, dartsonline **8 → 1**, brand
+> preserved (the disconfirming test `VIZ-014` demands was run and passed).
+> A2 (`compute_component_quality`) is still not run.
+>
+> **A correction this plan must carry, because the version below would send the
+> next session down a road that cannot work.** An earlier revision of Phase B
+> said: *choose an editorial-furniture ink clearing 4.5:1 on every palette
+> carrying these components, and prove it on all five before shipping.* **That is
+> impossible.** Those palettes include LIGHT-background sites (leopardessconsulting,
+> noted.co.uk) needing a near-black ink and dark ones (robot-hands, dartsonline)
+> needing a light one — **no single literal clears AA on both**, so the method
+> would have converged on a value failing two sites with the proof performed
+> honestly. The answer was a per-palette token the renderer already computes
+> (`--color-primary-ink` / `--color-accent-ink`, `VIZ-014`, live since
+> `v1.0.1298`), consumed as `var(--x-ink, var(--x, #literal))`. Found by the
+> `dartsonline_traffic` lane; the register entry had it under a heading this lane
+> read and did not open. Full account in `NOTES`.
+>
+> **What that changes about the rest of Phase B:** before inventing any colour for
+> the furniture below, check whether a computed token already covers it. The
+> estate's habit is to derive per-palette values rather than pick literals, and
+> this lane has now been wrong about that once.
+
 **Phase B — typography and graphic treatment (cheapest, no new mechanism).**
 Editorial furniture the family lacks: standfirst, drop cap, pull-quote, section
 rules, figure captions as a designed object, and a big-number moment (the
