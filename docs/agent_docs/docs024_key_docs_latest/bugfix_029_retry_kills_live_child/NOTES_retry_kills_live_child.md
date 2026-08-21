@@ -2703,3 +2703,41 @@ carried **zero** GitHub errors, with 08-17's 954 as the control proving the quer
 > distinguishes wedged from stopped by whether the next-iteration `spawn_handler` exists. I wrote that
 > query, ran it four times, and quoted its output — and then classified a row by eye without running
 > it. **A classifier you built does not classify for you unless you call it.**
+
+### 27. 2026-08-21 — RSH-011 has banked FOUR captures and NONE is a 343 wedge. The capture works; its PRECISION does not, and 343's waiting strategy depends on knowing that
+
+`bugs_open/343`'s plan — and this lane's for two days — is "wait for the burst; RSH-011 captures it
+automatically". `[MEASURED 2026-08-21]` it has captured four orchestrations, all **after** the 08-17
+burst, all labelled `WEDGE EVIDENCE CAPTURE (live)`:
+
+| captured | owner_agent_type | current_step | ran_for | status now |
+|---|---|---|---|---|
+| 08-19 10:17 | `page-content-writer` | `process_sections_loop_iter_0_generate_content` | 1m36s | row deleted |
+| 08-19 23:17 | `endpoint-health-checker` | **`complete`** | **0.09s** | row deleted |
+| 08-20 11:17 | `generic` | `spawn_verifier` | **0.039s** | FAILED |
+| 08-20 17:17 | `availability-discovery-agent` | **`complete`** | **1.1s** | FAILED |
+
+**None of them is the 343 signature**, on every axis: wrong `owner_agent_type` (343 is
+`build-dispatch-loop`), wrong step (343 is `process_item_iter_N_spawn_handler`), no abandoned rv3
+await as the entry condition (the `generic` one shows `rv=0 … status=expired` on a **2-minute**
+window), and freeze times of **milliseconds to seconds** rather than after a 300s exhaustion. The
+census agrees from the other side: **0 abandoned calls on 08-18, 08-19, 08-20, 08-21.**
+
+**What this does and does not mean:**
+
+- ✅ **The capture mechanism WORKS.** Two of the four rows have since been **deleted** by the cleanup —
+  exactly the loss RSH-011 exists to pre-empt, and it pre-empted it.
+- ⚠ **Its PRECISION is low.** The trigger is "an `EXECUTING_STEP` row older than the threshold",
+  which is far broader than the wedge. **So "the capture has banked N rows" is NOT evidence the wedge
+  recurred**, and anyone waiting on it must filter by the 343 signature before concluding anything.
+  **I nearly made exactly that misreading on first sight of the four rows** — one day after making a
+  mode confusion on the 08-15 case, which is the same error with the same cause: reading a row as the
+  thing I was hunting because it sat in the right table.
+- **The n=0 bound is UNAFFECTED.** These are not wedges, so there is still **no observed wedge outside
+  an outage window.**
+
+**Separately, and flagged rather than claimed:** two of the four were parked at
+**`current_step = 'complete'`** having run for **0.09s and 1.1s**. An orchestration that reaches its
+terminal step and then stops without finishing is not the 343 shape and may be a different defect
+entirely — or a known one. `[UNVERIFIED]`, not investigated, and **not** filed: whoever picks it up
+should grep `bugs_open/`/`bugs_closed/` for a `complete`-step stall before assuming it is new.
