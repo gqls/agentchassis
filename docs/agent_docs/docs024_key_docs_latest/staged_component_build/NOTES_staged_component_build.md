@@ -6598,3 +6598,49 @@ to read a REVISE as friction:
 wire (515, another session's). **516 is APPROVED but still HELD** — approval is not its apply
 condition; migration 512's demand control is, and tool-generator has still not run since 512's
 boundary. Do not read "approved" as "apply it".
+
+## 2026-08-21 (~14:1xZ) — 534 applied (last of the original 6); peer's empirical cross-check finds 2 real gaps + 1 that is bugs_open/334 itself, caught in the act
+
+534 (page-build-handler, the one dependent case) came back APPROVED and applied cleanly — VERIFY
+correctly issued a WARNING not a false pass, since no page-build-handler run had yet called
+page-rerender since 519 shipped; the mapping stands on 519's independent verification plus a
+traced pre-519 sample, not yet its own live confirmation. That closes the originally-scoped 6.
+
+**`staged-component-build` ran an empirical cross-check before wiring** — `SELECT handler_agent,
+count(*) FILTER (WHERE result ? 'commit_sha') ... FROM site_work_items ... GROUP BY 1` — and found
+**nine** handlers with a real `commit_sha` in their result, not six. Three were new: **asset-deployer**
+(2/2), **image-build-handler** (2/2), **tool-generator** (1/19). This is exactly the failure mode
+this lane's own structural census (search for a step whose `action = 'git_commit'`) cannot catch:
+an action that commits to git as part of doing something else, under a different name.
+
+**Verified all three independently rather than accepting the aggregate count — and it split 2/1.**
+
+- **asset-deployer**: real. `deploy_asset`'s action is `deploy_image_asset`, whose own live
+  description says "Download from S3, optimize by purpose, commit to git" — confirmed at
+  asset-deployer's OWN `collected_data` (not borrowed from a caller):
+  `deploy_result.response.data.commit_sha` populated with a genuine sha, same shape as every other
+  migration in this batch. **Migration 535, submitted.**
+- **image-build-handler**: real, and dependent (no git-touching action of its own — calls
+  asset-deployer via `call_asset_deployer`). Same shape as 534→519. **Migration 536, submitted,
+  guarded in SQL to refuse if 535 isn't live.**
+- **tool-generator: NOT a real gap.** Traced the one hit (`site_work_items` id `cc1db035`):
+  `result.commit_sha` sits at the TOP level of the **bdl envelope** — a sibling of `response`,
+  `retry_payload`, `agent_type` — not inside tool-generator's own `response.create_result` at all.
+  tool-generator's OWN `orchestration_states` (fleet-wide) shows **zero** instances of `commit_sha`
+  anywhere in its tree, ever. The parent orchestration (`62df9f7a`) is a **multi-iteration bdl loop**:
+  iteration 0 was `section-editor` (a real git-committing handler, `handler_result_0` does carry a
+  commit somewhere in its tree); iteration 1 was this tool-generator item. **The whole-tree search,
+  resolving `complete_work_item`'s OWN `commit_sha` field, reached into `handler_result_0` and glued
+  iteration 0's commit onto iteration 1's unrelated item.** This is `bugs_open/334` itself, caught
+  live on a real work item — not evidence tool-generator needs standardising. Reported back; not
+  built. **The transferable lesson for the empirical method**: it cannot distinguish "this handler's
+  own commit reached the result cleanly" from "the search borrowed a sibling iteration's commit",
+  because the field's CURRENT source, for any unstandardised handler, IS the very mechanism being
+  replaced — presence proves nothing about correctness until you trace the value's origin.
+
+**State after this: 8 real handlers** (page-rerender, rerender-pages, css-patch-agent,
+section-editor, webdesign-agent, nav-updater, page-build-handler — all 7 applied — plus
+asset-deployer/image-build-handler pending). Once 535/536 land, the handler side of `bugs_open/334`
+is genuinely complete, and every real bdl handler that can produce a commit exposes it at a uniform
+path (`handler_result.response.commit_sha`, one level shallower for the two dependent cases whose
+own `deploy_result` is itself a call_agent envelope).
