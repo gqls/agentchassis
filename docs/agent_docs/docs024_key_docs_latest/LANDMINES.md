@@ -13874,3 +13874,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-18b_continue_here.md` §3 step 3 (the 2026-08-19 instance, and the successful resubmission) · this file's entries on demand controls · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] — the same shape inverted: here the believable external cause is real but its stated DURATION is not · [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-21, `staged_component_build` lane · migration 515's council round 2 died this way at 10:40:27Z and succeeded on resubmission · `NOTES_staged_component_build.md` (`## 2026-08-21`)
 - **added:** 2026-08-21, staged_component_build lane
+
+### `orchestration_states.error` is a NEAR-EMPTY sink — 22 orchestrations against `agent_error_log`'s 23,230. Any error rate measured from it is off by three orders of magnitude, and reads as "rare"
+
+- **footprint:** `orchestration_states.error`, `agent_error_log`, any error-rate or failure-frequency census, `bugs_open/040` (its stated evidence location), any bug file whose "How to verify" names one error sink, `collected_data->'__step_error'`
+- **fires when:** you size how often something fails, or check whether a failure class is still occurring, by reading **one** error sink. No symptom — the query returns rows, just far too few, and "few rows" is exactly the answer that ends an investigation.
+- **the measurement** `[MEASURED 2026-08-21]`, whole retained window:
+
+  | | distinct orchestrations |
+  |---|---|
+  | with `agent_error_log` rows | **23,230** |
+  | with `orchestration_states.error` set | **22** |
+  | in **both** | 9 |
+
+  So `orchestration_states.error` carries **~0.1%** of what the other sink does. It is not a lossy version of `agent_error_log`; it is barely populated at all.
+- **the worked case, and why it matters beyond arithmetic:** for the Kafka class (`%kafka%` / `%dial tcp%` / `%broker%`) the split is **127 in `agent_error_log`, 1 in `orchestration_states.error`, and ZERO overlap**. `bugs_open/040`'s own stated evidence location therefore sees **1 of 128** — so a session re-measuring that bug's rate from the file's own instructions concludes it has essentially stopped. It has not.
+- **⚠ the tempting over-generalisation, which is WRONG:** "the two error sinks are disjoint". They are **not** in general — 9 of the 22 appear in both. The zero overlap is a property of the **Kafka class specifically**, not of the schema. Stating it as universal disjointness would predict 0 of 22, and the check that distinguishes them takes one query. *(Recorded because two sessions reached the disjointness reading from the Kafka sample alone; the sample is real and the generalisation is not.)*
+- **the check:** measure error frequency from **`agent_error_log`**, and treat `orchestration_states.error` as a *supplementary* field that is usually NULL even on a failed run. Before quoting any rate, print both denominators side by side in one query so the asymmetry is visible in the result rather than assumed. If a bug file's "How to verify" names only `orchestration_states.error`, that instruction is defective — fix the file, don't trust the zero.
+- **relations:** `bugs_open/040` (Kafka dial class; the 08-21 contribution) · `bugs_open/343` and its parent `bugs_closed/029` (the `complete`-step pair that surfaced this) · the sibling entry above on `agent_error_log` having **no column** joining a parent to its child — same table, a different blindness, and both bite the same question · MEMORY [[orchestration-error-column-is-empty]] (a FAILED step shows COMPLETED with `error` NULL — read `__step_error`), which is this same emptiness seen from the single-run end rather than the census end
+- **source:** 2026-08-21, `bugfix_029_retry_kills_live_child` and the peer `029` session — they found the Kafka split chasing a `complete`-step stall, I measured the general case and narrowed the claim
+- **added:** 2026-08-21, 029 lane
