@@ -1745,3 +1745,48 @@ with its own rollback body; and the composition **with a control** — 547-then-
 and both verifies, while **526 alone still refuses**. Each ended in ROLLBACK with the live rows
 untouched. The composition control is the one that matters: it shows the sequence works BECAUSE of
 547, not regardless of it.
+
+---
+
+## 2026-08-21 late — D7 came back REVISE, and all three HIGH objections were right
+
+Round 1 of `9e8d73b8` (migration 547, arm the three unarmed stampers): **REVISE, gating objection
+from `editquality`**. Waiting for that verdict instead of applying was the whole value of the round.
+
+**1. `substeps`, and this is the one that stings.** `LoopAction` reads `config["substeps"]` FIRST and
+falls back to `sub_workflow.steps` only when substeps is absent or empty (`loop_actions.go:91-104`).
+On a loop carrying both, my `jsonb_set` would have created a **dead key** while the executing step
+stayed unarmed — and my own recursive verify would have found the armed dead copy and PASSED. This
+bug's census-blindness, reproduced one level deeper, inside the migration written to close it.
+`[MEASURED]` none of the three carries substeps (9/10/8 steps under `sub_workflow`), so the path was
+right — but it was right by luck, and it is now gated.
+
+**2. Duplicate active definition rows.** Four types on this estate carry two active rows where only
+the higher version loads; an `UPDATE ... WHERE type = x` could arm the dormant one and my verify would
+pass against it. `[MEASURED]` our three carry one row each. Gated.
+
+**3. "0 runs in ALL HISTORY" was FALSE.** Read from `orchestration_states`, which reaps terminal rows
+after ~24h — `[MEASURED]` only **24 of 3,154** rows older than 48h. The durable source
+`agent_run_stats` says **page-rebuild 7, pageflow-builder 3, site-work-orchestrator 1**, last activity
+2026-08-09, with `maintenance-triage` 4 matching page-rebuild's last run to the minute. **Rare, not
+dead.** The "behaviourally inert" argument is withdrawn.
+
+**What replaces it is better, not smaller:** the three last ran **2026-08-09 13:50** and the first
+`content_hash` was written **2026-08-20 17:36**, eleven days later — so they *cannot* have stranded a
+stale fingerprint, because the column had no values when they last ran. That is why the sweep found
+228 of 228 matching: structural, not lucky.
+
+**Both new gates are PROVEN TO BITE** by induced fault in rolled-back transactions. Note the second
+proof failed first: my duplicate-row INSERT hit a NOT NULL constraint (`display_name`) and aborted
+*before* the gate ran — a test that proves nothing while looking like it passed. The induced fault now
+asserts itself with a `RAISE NOTICE` before the gate is reached.
+
+**And the part I should have caught myself: both traps were ALREADY IN `LANDMINES.md`.** The
+`substeps` entry says "substeps is the half that RUNS, so on a step carrying both you audit the inert
+copy". The retention entry predicts my exact misreading — "`min(created_at)` says 20 days … it is the
+successful runs, the ones your census is about, that vanish"; mine duly read 33 days. The
+`SessionStart` hook only matches landmines against DIRTY FILES, so a **table or symbol** footprint can
+never be surfaced by it — which my own memory index says in terms. Two greps would have caught both,
+on the day I added an entry to that same file. Logged in `WRONG_CALLS.md`.
+
+Round 2 resubmitted into the same trail (`RESUBMIT_CORR=9e8d73b8`). **547 remains NOT APPLIED.**

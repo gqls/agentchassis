@@ -51,9 +51,35 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
   -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/526_enable_page_content_divergence_HOLD.sql
 ```
 
-**Both are WRITTEN, COMMITTED and PROVEN against live data but NOT APPLIED.** `547` is at the council
-(`Council-Submitted: 9e8d73b8-f777-4404-a1c7-d8e06af897fb`) — **read that verdict before applying**,
-because the previous round's objections were where the real defects were found.
+**Both are WRITTEN, COMMITTED and PROVEN against live data but NOT APPLIED.**
+
+⚠ **`547` came back REVISE on round 1 and has been revised and resubmitted** (same trail,
+`Council-Submitted: 9e8d73b8-f777-4404-a1c7-d8e06af897fb`). **Read the round-2 verdict before
+applying.** All three HIGH objections in round 1 were correct, and one of them found this bug's own
+defect reproduced inside the migration written to fix it:
+
+- **`substeps` is the half that RUNS.** `LoopAction` reads `config["substeps"]` first and falls back
+  to `sub_workflow.steps` only when substeps is absent/empty (`loop_actions.go:91-104`). Arming the
+  fallback on a loop carrying both would have created a DEAD key while the executing step stayed
+  unarmed — and the migration's own recursive verify would have found the armed dead copy and passed.
+  `[MEASURED]` none of the three carries substeps, so the path is right; it is now **gated**, and the
+  gate is proven to bite.
+- **Duplicate active definition rows.** Four types fleet-wide carry two active rows where only the
+  higher version loads. `[MEASURED]` our three carry one each; now **gated**, proven to bite.
+- **"0 runs in ALL HISTORY" was FALSE** — read from `orchestration_states`, which reaps terminal rows
+  after ~24h (`[MEASURED]` 24 of 3,154 rows older than 48h). Durable source `agent_run_stats`:
+  page-rebuild **7**, pageflow-builder **3**, site-work-orchestrator **1**, last activity 2026-08-09.
+  **Rare, not dead** — the "behaviourally inert" argument is withdrawn.
+
+**What makes it safe anyway, and this is the better evidence:** the three last ran **2026-08-09 13:50**
+and the first `content_hash` was written **2026-08-20 17:36**, eleven days later. They *cannot* have
+stranded a stale fingerprint — the column had no values when they last ran. That is why the sweep
+found 228 of 228 matching: structural, not lucky. Arming is protective for their NEXT run.
+
+⚠ **One thing no resubmission can discharge:** `guardian` noted that this lane caused a 33-minute
+full-estate outage on 2026-08-20 doing exactly this class of change, and that the recurrence warrants
+**a second pair of eyes beyond the council**. That is a judgement for the owner, and it is why 547 sits
+written-and-proven rather than applied.
 
 ⚠ **After EITHER apply, the first query is "what did I break?", not "did it work?"** Both files carry
 their damage query in the header. This is `bugs_open/336`'s lesson, and this lane learned it by taking
