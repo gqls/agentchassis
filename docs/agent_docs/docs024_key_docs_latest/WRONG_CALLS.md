@@ -41849,3 +41849,34 @@ like tidying, and gets the least scrutiny in the very round that demanded it —
 **Cost:** none this time — caught before the resubmission, and two tests now pin it. The tally is
 what matters: **three in three days for "I did not ask what would notice", and each was found by a
 mechanical habit rather than by thinking harder.**
+
+---
+
+## 2026-08-21 — 307-verification session: I extended a proven mechanism to a writer by ANALOGY, with the disproving predicate already in my own transcript
+
+**The call:** warning the 344 lane (in a peer message, then in three durable docs — 016b §10,
+307 §9c, the lane SUMMARY) that the `claimed-item-timeout` sweep's auto-COMPLETE arms "walk
+around the Go predicate exactly as they walk around both completion gates — 317's mechanism
+one status over", i.e. that 344's fix needed a matching SQL half.
+
+**Why it was wrong:** every arm of that sweep carries `WHERE wi.status = 'claimed'`. A
+ladder-re-triaged row is `triaged` with its claim columns cleared, and the claim path refuses
+to re-claim before `retry_after` expires — so no reachable row is ever both claimed and
+mid-cooldown, and the sweep cannot complete one. Measured by the owning lane: 0 such rows, 0
+sweep-attributable false greens. The sweep half was dead SQL, not work.
+
+**What caught it:** the 344 lane applying its own earlier correction discipline (their 341
+§2b) to my contributed claim — hours after I had written it into three documents.
+
+**The cheap check that would have caught it:** re-reading ONE WHERE clause. I had the sweep's
+full `pre_query` in this very session's transcript (read that morning to close 317, with
+`WHERE wi.status = 'claimed'` on the second line). 317's mechanism transferred because I
+carried the CONCLUSION ("direct SQL bypasses Go guards") without the PREDICATE that scopes it
+("…for the rows that SQL selects").
+
+**The transferable shape:** *a bypass mechanism proven on one writer transfers to another only
+if the second writer can SELECT the rows in question. Before warning that "X also bypasses the
+fix", read X's WHERE clause against the state the fix produces — the analogy names the door;
+only the predicate says whether the row is behind it.* Same family as
+[[client-identity-belongs-to-the-proxy-chain]] ("a spoof proven on service A does not transfer
+to B by code similarity") — this is the guard-side twin.

@@ -72,3 +72,13 @@ The lesson worth carrying beyond this lane is written into the debugging guide: 
 changes what a failure writes must audit every *other* writer of the same record, and no test
 stand-in replaces one deliberately doomed item run through the real machinery — ninety
 seconds of drill found what fifteen tests missed.
+
+> **CORRECTED 2026-08-21, later the same evening:** "Where we're going" says the sister
+> session is finishing "the database-side half of the completion fix". Their measurement,
+> hours after this was written, showed that half is **unnecessary by construction** — the
+> cleanup job only ever touches items in the "claimed" state, and an item put back in the
+> queue by the new machinery is never in that state, so the narrow case this summary
+> described cannot occur (zero instances measured). What bug 344 still awaits is its review
+> verdict, nothing more. The cooldown work (bug 341) is meanwhile applied and live, not
+> pending. The error was this summary's author's, made by analogy and corrected by the
+> sister session's check.

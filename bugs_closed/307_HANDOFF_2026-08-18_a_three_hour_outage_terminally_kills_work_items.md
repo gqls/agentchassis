@@ -559,10 +559,19 @@ confirmed outage during which no burst-release fires. Check:
 `SELECT count(*) FROM site_work_items WHERE status='failed' AND error LIKE '%<outage signature>%';`
 
 **Residuals, each with an owner, none re-opening this file's defects:**
-- `bugs_open/344` stays OPEN for its **sweep SQL half** (the claim-timeout auto-COMPLETE CTEs
-  can still complete a mid-cooldown row — the Go predicate does not cover a direct SQL UPDATE)
-  and its own verification — owned by the `bugfix_307_terminal_write_contract` lane.
-- `bugs_open/341` + migration `524_HOLD` (the sweep's fifth ladder copy / cooldown honour) — same lane.
+- `bugs_open/344` stays OPEN for ~~its **sweep SQL half**~~ **its council round only** —
+  CORRECTED same evening by the owning lane: the sweep half is DEAD SQL (all three
+  `claimed-item-timeout` arms carry `WHERE wi.status='claimed'`; a re-triaged row is `triaged`
+  with claims cleared and cannot be re-claimed mid-cooldown — 0 such rows measured, 0
+  sweep-attributable false greens, `341` §5c). This bullet's author transferred 317's
+  mechanism by analogy without re-reading a predicate already in this session's transcript —
+  WRONG_CALLS row filed. What 344 actually still owes: the lane's council round `2c21e214`
+  (r1 REVISE — a "byte-identical" claim on the claim gate, since measured and test-pinned;
+  r2 dispatched) and its close.
+- `bugs_open/341` + migration `524` — ~~`_HOLD`~~ **RELEASED and APPLIED** the same evening
+  (its condition was candidate-1-LIVE, deliberately not candidate-1-committed: the owner's
+  deferred roll would otherwise have stamped cooldowns all day against an unguarded
+  `mark_complete`). The sweep now stamps `retry_after` from `reaper_policies`.
 - `033` D2 (`fail_work_item`'s `status_override` branch) — its own owner ruling.
 - `update_work_item_status`'s parked/complete writes still increment `attempt_count` (§8) — a
   parked item's count is not a count of attempts.
