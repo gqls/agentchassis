@@ -77,6 +77,25 @@ Its candidates 1 and 2 are delivered; 4 is designed-and-buildable; **3 is undiag
 (the runner workflow lives in the private `gqls/sites` repo, so "why did one page fall out of the
 batch" cannot be answered — the sweep is designed to *detect* it from this side instead).
 
+**e. ANSWERED 2026-08-21 — a CONTRIB from the `staged_component_build` lane about `commit_sha`.**
+`CONTRIB_2026-08-20_from_staged_component_build_commit_sha_resolves_by_guess.md` (in this directory)
+asked which path is correct for `commit_sha` in `build-dispatch-loop`'s `complete_work_item`, because
+RFC_029 Phase 2 will stop the whole-tree search resolving it. **Answered in full at the bottom of that
+file**; the substance, because it is a fact about MY field that nobody else could have:
+
+> **There is no single correct path.** `commit_sha` lands inside whatever the handler's `git_commit`
+> step named its `output_field`, and the 19 live steps use **nine distinct names**. Sampling 8 real
+> completed items already shows **two** paths (`response.deploy_result.…` ×5,
+> `response.css_deployed.…` ×3). A single explicit mapping works for one handler family and silently
+> resolves nothing for eight others.
+
+Recommended fix (theirs to make): surface `commit_sha` in each deploying handler's
+`complete_workflow.output_fields` so it lands at a stable `handler_result.response.commit_sha`.
+**⚠ And: absence is CORRECT for 86 of 397 completions** — those handlers never deploy anything, so a
+post-flip check treating a missing `commit_sha` as a regression convicts ~22% of healthy items.
+**If they choose the resolver route instead, this lane owes them `collectUniqueValue` extracted into a
+shared helper** — that is the one piece of follow-on work this lane has explicitly accepted.
+
 ## 4. Commands you will need
 
 Full set in `RUNBOOK_deployed_at_without_publication.md` (two parts). The ones that matter most:
