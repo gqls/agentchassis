@@ -247,6 +247,62 @@ var cssVarHardRefRe = regexp.MustCompile(`var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])`)
 // `--shadow-md:` can never be read as defining `--shadow`.
 var cssVarDefRe = regexp.MustCompile(`(--[A-Za-z0-9_-]+)\s*:`)
 
+// rendererGuaranteedTokens is the vocabulary the RENDERER promises every
+// stylesheet will define — the theme's own palette/typography/structure slots
+// plus the compatibility aliases buildTokenAliases appends. Only a gap in THIS
+// set is a finding.
+//
+// ── WHY THE GATE EXISTS, and it is a correction to this check's first cut ───
+//
+// The first version fired on any referenced-but-undefined property. Calibrated
+// across all 25 deployed/active sites on 2026-08-21 before enabling, that would
+// have filed on NINETEEN of them — and seventeen were the SAME four
+// component-invented names (--color-hero-title, --color-hero-subtitle,
+// --color-secondary-text, --color-secondary-hover) which NO site's stylesheet
+// has ever defined, including in the pre-clobber originals. That is a real
+// defect, but it is a different one: a component vocabulary the renderer does
+// not emit. Shipping it here would have buried the one signal this check exists
+// for under seventeen copies of another, which is precisely bugs_open/083's
+// "a detector whose output nobody drains is actively misleading".
+//
+// The honest question this check asks is therefore narrower and better posed:
+// *has the stylesheet stopped honouring its own contract?* — not *is every
+// token anyone ever wrote defined?*
+//
+// It still catches both incident shapes, which is the test of the narrowing:
+// a clobbered stylesheet (bugs_open/198) defines NOTHING, so every one of these
+// is missing; and bugs_open/211's missing alias block takes --color-heading and
+// --hero-ink, both of which are in this set.
+//
+// KEPT IN SYNC BY A TEST, not by discipline: canonicalCSSTokens in
+// platform/orchestration/actions/component_validation.go is the same
+// vocabulary, declared for the same reason on the authoring side. This package
+// cannot import it — actions imports discovery_checks, so the dependency would
+// be a cycle — so the parity test parses that file's source and fails if the
+// two drift. Do not edit this list without running it.
+var rendererGuaranteedTokens = map[string]bool{
+	// palette / theme-defined
+	"--color-primary": true, "--color-primary-hover": true, "--color-primary-text": true,
+	"--color-secondary": true, "--color-accent": true, "--color-background": true,
+	"--color-surface": true, "--color-card-bg": true, "--color-text": true,
+	"--color-text-muted": true, "--color-border": true, "--color-cta-bg": true,
+	"--color-cta-text": true, "--color-header-bg": true, "--color-header-text": true,
+	"--color-footer-bg": true, "--color-footer-text": true,
+	"--section-text": true, "--section-text-muted": true, "--section-surface": true,
+	"--section-border": true, "--section-heading": true, "--section-pad-y": true,
+	"--section-pad-y-sm": true,
+	"--radius":           true, "--radius-sm": true, "--radius-lg": true,
+	"--shadow-sm": true, "--shadow-md": true, "--shadow-lg": true,
+	"--container-max": true, "--container-pad-x": true,
+	"--font-body": true, "--font-heading": true, "--font-size-base": true,
+	"--line-height-base": true, "--grid-gap": true, "--card-pad": true, "--transition": true,
+	// compatibility aliases guaranteed by buildTokenAliases (render_css_from_spec)
+	"--border-radius": true, "--shadow": true, "--spacing-section": true,
+	"--container-max-width": true, "--primary-color": true, "--secondary-color": true,
+	"--accent-color": true, "--color-heading": true, "--color-white": true,
+	"--color-error": true, "--hero-ink": true,
+}
+
 func stripCSSComments(css string) string {
 	return cssCommentRe.ReplaceAllString(css, " ")
 }
@@ -374,14 +430,30 @@ func (c *StylesheetGuttedCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		return nil, err
 	}
 
+	// Only a gap in the RENDERER'S GUARANTEED vocabulary is a finding — see
+	// rendererGuaranteedTokens for the calibration that forced this gate, and
+	// for why an "any undefined property" predicate filed on 19 of 25 sites.
+	// Non-canonical gaps are counted and logged so the other defect stays
+	// visible, but they are not this check's to file.
 	missing := make([]string, 0)
+	nonCanonicalGaps := 0
 	for name := range refs {
 		if wireDefs[name] || inPageDefs[name] || snippetDefs[name] {
+			continue
+		}
+		if !rendererGuaranteedTokens[name] {
+			nonCanonicalGaps++
 			continue
 		}
 		missing = append(missing, name)
 	}
 	sort.Strings(missing)
+	if nonCanonicalGaps > 0 {
+		dctx.Logger.Info("stylesheet_gutted: undefined NON-canonical properties seen and deliberately not filed",
+			zap.String("site_id", dctx.SiteID.String()),
+			zap.Int("count", nonCanonicalGaps),
+			zap.String("why", "component-invented vocabulary the renderer never emits — a different defect; see rendererGuaranteedTokens"))
+	}
 
 	logStylesheetSkips(dctx, skips, len(refs), len(wireDefs))
 
@@ -390,7 +462,7 @@ func (c *StylesheetGuttedCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		result.Resolved = append(result.Resolved, ResolvedFinding{
 			ItemType: "stylesheet_gutted",
 			ItemKey:  stylesheetGuttedItemKey(),
-			Reason: fmt.Sprintf("all %d custom properties referenced without a fallback are defined (%d served stylesheet(s), %d definitions)",
+			Reason: fmt.Sprintf("every renderer-guaranteed custom property referenced without a fallback is defined (%d referenced, %d served stylesheet(s), %d definitions)",
 				len(refs), len(sheetURLs), len(wireDefs)),
 		})
 		return result, nil
@@ -425,7 +497,7 @@ func (c *StylesheetGuttedCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, e
 		Pipeline: dctx.Pipeline,
 		ItemType: "stylesheet_gutted",
 		Severity: "high",
-		Summary: fmt.Sprintf("Served stylesheet defines none of %d custom propert%s the pages use (e.g. %s) — deployed pages will render unstyled or with invisible text",
+		Summary: fmt.Sprintf("Served stylesheet no longer defines %d renderer-guaranteed custom propert%s the pages use (e.g. %s) — deployed pages will render unstyled or with invisible text",
 			len(missing), pluralY(len(missing)), strings.Join(firstN(samples, 3), ", ")),
 		SpecJSON:  string(specJSON),
 		Priority:  70,

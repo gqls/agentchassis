@@ -35,7 +35,9 @@ package discovery_checks
 import (
 	"context"
 	"errors"
+	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -329,14 +331,17 @@ func TestStylesheetGutted_InPageDefinedPropertyIsNotAGap(t *testing.T) {
 	sf.body["https://example.uk/assets/css/styles.css"] = `:root { --color-text: #000; }`
 	sf.install(t)
 
+	// --section-heading is CANONICAL, so the renderer-guaranteed gate cannot pass
+	// this test for us: if the in-page definition source were dropped, this fires.
 	html := `<html><head><link rel="stylesheet" href="/assets/css/styles.css"></head><body>
-<style>.card { --card-ink: #333; color: var(--card-ink); }
+<style>.hero { --section-heading: #333; }
+.hero h1 { color: var(--section-heading); }
 body { color: var(--color-text); }</style></body></html>`
 
 	res := runStylesheetGutted(t, "example.uk", []sheetPage{{url: "/index.html", html: html}}, "", nil)
 
 	if len(res.WorkItems) != 0 {
-		t.Fatalf("--card-ink is defined in the same <style> block; want no finding, got %d: %s",
+		t.Fatalf("--section-heading is defined in the same <style> block; want no finding, got %d: %s",
 			len(res.WorkItems), res.WorkItems[0].SpecJSON)
 	}
 }
@@ -349,15 +354,17 @@ func TestStylesheetGutted_SnippetDefinedPropertyIsNotAGap(t *testing.T) {
 	sf.body["https://example.uk/assets/css/styles.css"] = `:root { --color-text: #000; }`
 	sf.install(t)
 
+	// --card-pad is CANONICAL, so this cannot pass merely because the gate
+	// ignores it: drop the css_snippets source and this test fires.
 	html := `<html><head><link rel="stylesheet" href="/assets/css/styles.css"></head><body>
-<style>.promo { background: var(--promo-bg); color: var(--color-text); }</style></body></html>`
+<style>.promo { padding: var(--card-pad); color: var(--color-text); }</style></body></html>`
 
 	res := runStylesheetGutted(t, "example.uk",
 		[]sheetPage{{url: "/index.html", html: html}}, "",
-		[]string{`.promo-wrap { --promo-bg: #f0f0f0; }`})
+		[]string{`.promo-wrap { --card-pad: 1.5rem; }`})
 
 	if len(res.WorkItems) != 0 {
-		t.Fatalf("--promo-bg is defined by a css_snippet; want no finding, got %d: %s",
+		t.Fatalf("--card-pad is defined by a css_snippet; want no finding, got %d: %s",
 			len(res.WorkItems), res.WorkItems[0].SpecJSON)
 	}
 }
@@ -610,5 +617,118 @@ func TestStylesheetGutted_IsRegisteredUnderItsConfigName(t *testing.T) {
 	}
 	if c.Name() != "stylesheet_gutted" {
 		t.Fatalf("registered under %q", c.Name())
+	}
+}
+
+// ── the renderer-guaranteed gate, and the calibration that forced it ────────
+
+// THE FALSE-POSITIVE CLASS THIS CHECK WOULD OTHERWISE HAVE SHIPPED WITH.
+// Calibrated across all 25 deployed/active sites on 2026-08-21, an "any
+// undefined property" predicate filed on NINETEEN — seventeen of them for the
+// same four component-invented names that no stylesheet has ever defined,
+// including in the pre-clobber originals. Those are a real defect, but a
+// different one, and burying this check's signal under them is exactly
+// bugs_open/083's "a detector whose output nobody drains is actively
+// misleading".
+func TestStylesheetGutted_NonCanonicalUndefinedPropertyIsNotOurFinding(t *testing.T) {
+	sf := newStubSheetFetch()
+	sf.body["https://example.uk/assets/css/styles.css"] = healthyStylesheet
+	sf.install(t)
+
+	// The exact four measured on 17 of 25 live sites.
+	html := `<html><head><link rel="stylesheet" href="/assets/css/styles.css"></head><body>
+<style>.hero h1 { color: var(--color-hero-title); }
+.hero p { color: var(--color-hero-subtitle); }
+.btn { background: var(--color-secondary-hover); color: var(--color-secondary-text); }
+body { color: var(--color-text); }</style></body></html>`
+
+	res := runStylesheetGutted(t, "example.uk", []sheetPage{{url: "/index.html", html: html}}, "", nil)
+
+	if len(res.WorkItems) != 0 {
+		t.Fatalf("component-invented tokens are a different defect and must not file here, got %d: %s",
+			len(res.WorkItems), res.WorkItems[0].SpecJSON)
+	}
+	// It is still healthy on the contract this check polices, so it must retract.
+	if len(res.Resolved) != 1 {
+		t.Fatalf("the renderer's own vocabulary is intact, so this should retract; got %d", len(res.Resolved))
+	}
+}
+
+// The gate must not swallow the incident it exists for: --color-heading is
+// canonical, so bugs_open/211's shape still fires (proven in the 211 test
+// above), and a clobber takes the whole palette (the 198 test).
+func TestStylesheetGutted_GateStillCatchesBothIncidentShapes(t *testing.T) {
+	for _, tc := range []struct{ name, sheet string }{
+		{"198_clobber", guttedStylesheet},
+		{"211_alias_block_missing", stylesheetMissingAliasBlock},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sf := newStubSheetFetch()
+			sf.body["https://example.uk/assets/css/styles.css"] = tc.sheet
+			sf.install(t)
+			res := runStylesheetGutted(t, "example.uk",
+				[]sheetPage{{url: "/index.html", html: pageUsingTokens}}, "", nil)
+			if len(res.WorkItems) != 1 {
+				t.Fatalf("%s must still fire through the canonical gate, got %d items", tc.name, len(res.WorkItems))
+			}
+		})
+	}
+}
+
+// PARITY WITH THE SOURCE OF TRUTH. canonicalCSSTokens in
+// platform/orchestration/actions/component_validation.go declares the same
+// vocabulary for the authoring side. This package cannot import it — actions
+// imports discovery_checks, so it would be a cycle — so the two are kept in
+// step by reading that file's source. Without this, the authoring list gains a
+// token, this one does not, and the check silently stops policing it.
+func TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens(t *testing.T) {
+	const src = "../component_validation.go"
+	b, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("cannot read %s — if it moved, this parity guard must be re-pointed, not deleted: %v", src, err)
+	}
+	text := string(b)
+
+	start := strings.Index(text, "var canonicalCSSTokens")
+	if start < 0 {
+		t.Fatalf("canonicalCSSTokens not found in %s — re-point this guard rather than removing it", src)
+	}
+	end := strings.Index(text[start:], "\n}")
+	if end < 0 {
+		t.Fatalf("could not find the end of the canonicalCSSTokens literal in %s", src)
+	}
+	block := text[start : start+end]
+
+	canonical := map[string]bool{}
+	for _, m := range regexp.MustCompile(`"(--[a-z0-9-]+)"`).FindAllStringSubmatch(block, -1) {
+		canonical[m[1]] = true
+	}
+	if len(canonical) < 20 {
+		t.Fatalf("parsed only %d tokens from canonicalCSSTokens — the literal's shape changed and this guard is no longer reading it", len(canonical))
+	}
+
+	var missingHere, extraHere []string
+	for tok := range canonical {
+		if !rendererGuaranteedTokens[tok] {
+			missingHere = append(missingHere, tok)
+		}
+	}
+	for tok := range rendererGuaranteedTokens {
+		if !canonical[tok] {
+			extraHere = append(extraHere, tok)
+		}
+	}
+	sort.Strings(missingHere)
+	sort.Strings(extraHere)
+
+	if len(missingHere) > 0 {
+		t.Errorf("canonicalCSSTokens declares %d token(s) this check does not police: %v\n"+
+			"Add them to rendererGuaranteedTokens — a token the renderer guarantees but this check ignores is a gap it will never report.",
+			len(missingHere), missingHere)
+	}
+	if len(extraHere) > 0 {
+		t.Errorf("this check polices %d token(s) canonicalCSSTokens does not declare: %v\n"+
+			"Either the authoring list is missing them or this one over-reaches; over-reaching is the false-positive class the gate exists to prevent.",
+			len(extraHere), extraHere)
 	}
 }

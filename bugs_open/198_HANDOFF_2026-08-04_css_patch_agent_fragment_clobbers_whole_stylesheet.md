@@ -980,3 +980,44 @@ includes cookly.uk and reports zero is a bug in the check, not good news.**
   artefact-verified in one session — git blob sizes and commit shas from the deploy repo, the
   theme rows before and after by md5, the driving work items, the live served bytes with
   cache-busters, and the live agent config. A 090 run would re-read the same artefacts.
+
+> **CORRECTED 2026-08-21, same lane, ~2 hours after the section above — two claims in it
+> were already stale or wrong when measured properly.**
+>
+> **(a) "cookly.uk is the one site still visually broken" is NO LONGER TRUE.** It now serves
+> **18,047 bytes** with its `:root` intact. It was restored between my measurement and my
+> re-check — by the other thread working this file, or by a patch item riding its corrected
+> row (its theme row was already right, which is exactly the half-state §4 of the 08-20
+> section predicted would self-heal). **Nothing is outstanding on cookly.** The
+> classifier-refusal note stands as a record of what I could not do, not as a live task.
+>
+> **(b) MY CALIBRATION FIGURE FOR THE NEW CHECK WAS WRONG, and the way it was wrong is the
+> more useful half.** §6 said "exactly one site would file today (cookly.uk); a rotation
+> covering it that reports zero is a bug in the check". That was measured with a
+> **`:root`-presence proxy** — not with the check's own predicate. Running the REAL
+> predicate across all 25 deployed/active sites, the check **as first written would have
+> filed on NINETEEN**, and seventeen of those were the SAME four names —
+> `--color-hero-title`, `--color-hero-subtitle`, `--color-secondary-text`,
+> `--color-secondary-hover` — which **no site's stylesheet has ever defined, including in
+> the pre-clobber originals I restored from**. That is a real defect (a component vocabulary
+> the renderer never emits) but it is a DIFFERENT one, and seventeen copies of it would have
+> buried the signal this check exists for on its first day — `bugs_open/083`'s failure mode,
+> shipped by the very lane quoting 083 as a risk.
+>
+> **Fixed before enabling:** the predicate now gates on the renderer's GUARANTEED vocabulary
+> (`rendererGuaranteedTokens`, kept in step with `canonicalCSSTokens` by a parity test that
+> reads `component_validation.go`'s source — proven non-vacuous by deleting `--hero-ink` and
+> watching it fail by name). Both incident shapes still fire: a clobber loses the whole
+> palette, and `bugs_open/211`'s missing alias block takes `--color-heading` and `--hero-ink`,
+> all canonical. **Re-measured with the gate: 0 of 25 sites.** So the check ships as a
+> REGRESSION GUARD with no live positive, and **a clean first rotation is now the EXPECTED
+> result rather than a bug** — the opposite of what §6 told the next reader.
+>
+> **What caught it:** running the predicate against the page I had just restored, instead of
+> trusting the proxy I had calibrated with. The restored site came out FIRING on four tokens,
+> which was the tell — a site I had just verified byte-identical to its own healthy original
+> should not have been a finding. Logged in `WRONG_CALLS.md`.
+>
+> **The four undefined component tokens are left as a finding for whoever wants them:** they
+> are referenced by live components on ~17 sites and defined nowhere, so those declarations
+> are dead on every one. Not this lane's to fix, and deliberately NOT filed by the new check.

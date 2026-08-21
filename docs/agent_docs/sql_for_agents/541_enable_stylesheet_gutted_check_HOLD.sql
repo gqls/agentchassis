@@ -59,15 +59,33 @@
 -- them putting a light background on a dark site). It self-clears via
 -- CheckResult.Resolved once the served stylesheet defines everything again.
 --
--- EXPECTED VOLUME ON FIRST ROTATION. Calibrated by hand across the fleet
--- 2026-08-21, before this file was written: 25 deployed/active sites, of which
--- exactly one still serves a gutted stylesheet (cookly.uk, 504 bytes, 0 :root —
--- its theme row was restored 2026-08-20 but the file deploy was refused by a
--- permission classifier and is still outstanding). remortgagecalculator.uk and
--- loanzy.uk were in that state the same morning and were restored in the same
--- session. So expect ~1 finding on the first full rotation, not a wave — and if
--- it reports ZERO on a rotation that included cookly.uk, that is a bug in the
--- check, not good news.
+-- EXPECTED VOLUME ON FIRST ROTATION: **ZERO**, and that is a corrected figure.
+--
+-- > CORRECTED 2026-08-21, same session, before this file was ever applied. The
+-- > first version of this comment said "expect ~1 finding (cookly.uk)". That was
+-- > measured with a `:root`-presence PROXY, not with the check's own predicate,
+-- > and it was wrong in both directions.
+-- >
+-- > Running the REAL predicate across all 25 deployed/active sites showed the
+-- > check as first written would have filed on **NINETEEN** — seventeen of them
+-- > for the same four component-invented names (--color-hero-title,
+-- > --color-hero-subtitle, --color-secondary-text, --color-secondary-hover)
+-- > that NO site's stylesheet has ever defined, including in the pre-clobber
+-- > originals. That is a real defect and a DIFFERENT one; filing it here would
+-- > have buried this check's signal under seventeen copies of another.
+-- > The check now gates on the renderer's GUARANTEED vocabulary
+-- > (rendererGuaranteedTokens, kept in step with canonicalCSSTokens by a parity
+-- > test). Re-measured with that gate: **0 of 25 sites** would file.
+-- > cookly.uk, the one genuine positive when this work started, was restored
+-- > mid-session and now serves 18,047 bytes.
+--
+-- So this ships as a REGRESSION GUARD with no live positive — the same posture
+-- as asset_reference_404 (IMP-051), and the same caveat: a guard with no live
+-- positive can rot unexercised, so every branch is proven by an induced fault in
+-- the test file rather than by hope. A clean first rotation is therefore the
+-- EXPECTED result and is not evidence the check works. What would be evidence:
+-- re-point the test fixtures at a real gutted stylesheet, or wait for the next
+-- incident and confirm it files.
 --
 -- Register entry: IMP-055 (register/improvement-loop.md).
 

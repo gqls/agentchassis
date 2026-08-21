@@ -41603,3 +41603,46 @@ was printed first. Related: MEMORY [[a-post-fix-zero-needs-a-demand-control]],
 [[foreground-test-a-watcher-before-arming-it]] (a `||true` watcher reads as target silence),
 [[kcat-publish-silently-drops]] — which is this same trigger's sibling failure, in the opposite
 direction (kcat exiting 0 having sent nothing).
+
+## 2026-08-21 — I calibrated a new detector with a PROXY for its own predicate, and the figure was wrong in both directions
+
+**The claim.** Building `stylesheet_gutted` (bugs_open/198's missing detector), I wrote into the
+register entry, the enable migration AND the bug file: *"calibrated across all 25 deployed/active
+sites: exactly one would file today (cookly.uk); a rotation covering it that reports ZERO is a bug
+in the check, not good news."*
+
+**What was actually measured.** Not the check's predicate. I had swept the fleet comparing
+`css_themes` row bytes against served bytes and counting `:root` occurrences — a **proxy** for
+"is this stylesheet gutted". The check's real predicate is definition COVERAGE: every
+`var(--x)` referenced without a fallback by deployed components, minus everything defined by the
+served stylesheets, in-page CSS and `css_snippets`.
+
+**What the real predicate said.** Nineteen of 25 sites would have filed. Seventeen for the same
+four names — `--color-hero-title`, `--color-hero-subtitle`, `--color-secondary-text`,
+`--color-secondary-hover` — referenced by live components and **defined by no stylesheet in the
+fleet, including the pre-clobber originals I had just restored from**. So the figure was wrong in
+BOTH directions at once: far too low (1 vs 19), and it named the wrong site (cookly.uk had been
+restored by another thread between my two measurements, so the one case I did cite was stale too).
+
+**The cheap check that would have caught it.** Run the predicate you are about to ship against
+ONE site and read the output — I had the code and the fleet data in hand. Instead I calibrated
+with the sweep I happened to have already run for a different purpose.
+
+**What actually caught it.** Verifying the site I had just restored. remortgagecalculator.uk came
+out FIRING on four tokens minutes after I had proven its stylesheet byte-identical to its own
+healthy original. A site I had just verified healthy should not have been a finding, and that
+contradiction was the tell.
+
+**Why it mattered more than a wrong number.** The claim was load-bearing in the worst way: it told
+the next reader that a CLEAN first rotation meant the check was BROKEN. Enabled as written, the
+check would have filed 19 findings on day one, 17 of them for a different defect — precisely
+`bugs_open/083`'s "a detector whose output nobody drains is actively misleading", shipped by the
+lane that had quoted 083 as a named risk in its own council submission.
+
+**The lesson, sharper than "measure properly".** A proxy metric and the real predicate can agree
+on the CASE you are looking at (both said cookly.uk was broken) and disagree wildly on the
+POPULATION. Calibrating a detector means running the detector, not something that correlates with
+it — and a calibration that cannot come out surprising has not been run.
+
+**Fixed:** predicate gated on the renderer's guaranteed vocabulary, parity-tested against
+`canonicalCSSTokens`; corrected visibly in all three places the wrong figure had been written.
