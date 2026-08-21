@@ -6575,3 +6575,26 @@ Also flagged by the 306 session and **unowned by anyone**: `webdesign-agent` /
 `component-template-fixer` / `color-variable-fixer` sometimes complete via a bogus shortcut with no
 real page write (`site_work_items` id `7df0cc7a`, `needs_diagnosis`, failed on claim-timeout, never
 ran). Recorded here so it is not lost; this lane is not taking it.
+
+## 2026-08-21 (~15:1xZ) — BOTH APPROVED, and the revise rounds are what earned it
+
+`5f82423b` (the `?` OPTIONAL-EXPLICIT marker) **APPROVED** 13:47:53Z, round 3, **no surviving
+high/medium objections**. `101ed0c6` (migration 516) **APPROVED** 13:50:52Z, round 3.
+
+**Three rounds each, and every round found something real** — worth recording against the temptation
+to read a REVISE as friction:
+- r1 marker: no adoption-time guard on a new silent-absence mechanism (bug_historian, GATING) → the
+  `--optional-explicit-wires` audit + acks file exist because of that objection.
+- r2 marker: nothing pinned the shared parser against the 6 live `!` wires (editquality) → the parity
+  test, which then caught a wrong prediction of my own.
+- r1/r2 516: hand-typed carriers (editquality + the WalkSteps landmine) → the recursive walk; and an
+  idempotent re-run indistinguishable from a broken one (debug_historian) → the split guard.
+- Both gating objections came from `prior_art_librarian` matching a landmine footprint. One had
+  inverted polarity; the other was right, and its follow-up caught that my "fix" to a stale heading
+  had **relocated** the flaw rather than removed it. That one is the most valuable thing in the batch
+  and it is in `WRONG_CALLS.md`.
+
+**Status of the two artefacts:** the marker is LIVE (`v1.0.1321`, pod-grep confirmed) with one live
+wire (515, another session's). **516 is APPROVED but still HELD** — approval is not its apply
+condition; migration 512's demand control is, and tool-generator has still not run since 512's
+boundary. Do not read "approved" as "apply it".
