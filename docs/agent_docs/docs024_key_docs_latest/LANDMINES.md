@@ -14033,7 +14033,13 @@ code change owed at the next roll, tracked in RFC_015 §5.
   >
   > **⚠ AND DO NOT "FIX" AN UNMANAGED SITE BY SETTING THE FLAG.** `composeWriterBlock` REPLACES the block with a two-header bullet list of writer_lines. On webdesign.uk that would discard a 17KB hand-authored register, voice guide and set of gate-avoidance rules, and `refresh_evidence_base` would do it silently on its next run with `FactsChecked > 0`. Unmanaged is a deliberate state for a hand-written block, not an omission to tidy up.
 
-  **The generic check that DOES work on an unmanaged register, because you know what you just removed:**
+  **The generic check that DOES work on an unmanaged register, because you know what you just removed** (RESTORED 2026-08-21 — the second correction above dropped this snippet while leaving the sentence pointing at it, and `scripts/pattern-check.py`'s `shared-ledger-not-appended` rule is what caught the four missing lines):
+  ```sql
+  IF position('<the phrase this edit retires>' in d->>'writer_block') > 0
+    THEN RAISE EXCEPTION 'the retired wording survives in writer_block'; END IF;
+  ```
+  Cheap, exact, and it fires on the real failure: the OLD value still steering. `SQL_2026-08-21b`'s six outcome guards are all of this shape, and all six were proven to fire against the real pre-fix row before it was applied.
+
   Then scan `writer_block` itself through the gate's own engine, which nobody thinks to do because it is prompt text rather than page text — split it by paragraph so findings are locatable, and expect deliberate quote-inside-a-prohibition hits (`"never say 'no refund'"`) that are correct: `go run ./cmd/claimscan -evidence <eb.json> -components <paras.tsv>`.
 - **and when you WRITE the replacement instruction, do not put a live instance of the banned phrase in it.** Prompt text is read by the model as an example. A first draft of the fix here read *"Never promise it for the next day, for tomorrow, in one day or within 24 hours"* and claimscan BANNED it on **"in one day"**: the negation guard scans backwards only a short way, so `Never` reached the first item of the list and not the third. That would have replaced one page-stopping instruction with another. Name the shape in prose the gate has no opinion about (*"on the following day, by tomorrow, or inside twenty-four hours"*). The writer never needs the literal — when the gate refuses it prints the ban's own reason, which carries it.
 - **relations:** LANDMINES "Every pattern is compiled `(?i)`" and the negation-guard family · `bugs_open/161` (repair-then-arm ordering) · MEMORY [[writes-the-field-is-not-reads-the-field]], [[prompt-text-poisons-its-own-detector]], [[a-doc-comment-is-not-an-enforcement-mechanism]] · webdesign_uk_build_service NOTES 2026-08-10 (*"a fact not copied into writer_block does not exist for the writer"*) and 2026-08-21
