@@ -107,3 +107,54 @@ pauses during bursts; D16 retention for the two database tables growing toward t
 disk. Defaults exist for everything but amount to "stay as we are" — fine for details,
 risky for D0b/D4/D12 if a promotion is coming. Rough answers to D0a and D0b turn the rest
 into a costed, ordered build queue.
+
+## 2026-08-21 — your rulings are recorded, and four questions answered
+
+Your answers to the decision list are now written into the research document and notes
+(clients first; timeout moves with concurrency; Batch pricing yes; one AI provider for
+now; keep GitHub Actions and add runners; spot machines fine for now; maintenance pauses
+during bursts; start DNS plan B now; retention review owed; three portfolios — client-
+retained, own-high-attention, own-low-attention; and a human check on every site before
+it goes out, with the fixing mechanism designed in your other thread).
+
+One of your beliefs turned out to be happily wrong: Anthropic does have higher tiers.
+Start is capped at $500/month, Build at $1,000, Scale at $200,000, and Custom is
+uncapped — organisations move up automatically with usage history, and there is a
+"Request rate limit increase" button in the console that covers the monthly spend cap
+too. Better still: the error we hit on the 17th says "you have reached your SPECIFIED
+limits", which is the signature of the limit you set yourself on the Billing page — not
+Anthropic's cap. So at least one recent outage is fixable today by raising your own
+limit in the console, and a burst month at fifty sign-ups a day (~$30k) needs the Scale
+tier requested ahead of time.
+
+On removing the polling dispatcher (your D9 question): the short answer is that it's the
+right end-state and the problems are manageable — the dispatcher's hidden second job is
+pacing (it is the accidental spending brake, so the governor must land first); the
+one-at-a-time-per-site rule and the clients-first ordering move into the database claim
+query (which is actually where clients-first is easiest to express); the fleet-freezing
+"wedged loop" failure disappears and is replaced by lease-and-reclaim, which we already
+have machinery for; and the scheduler binary stays for all its other timers. It also
+fits the satellite future better, as long as each satellite's workers pull only from
+their own database. Do it the way the chassis worker pool was done: behind a switch,
+both paths alive during cutover.
+
+CI options (D10): the real gap is that our working branch is never pushed anywhere, so
+nothing can watch it. Cheapest path: push the branch on commit, let a self-hosted runner
+build and test every push (catching broken shared HEAD fast), and add a scheduled
+release train — one or two fixed times a day when a release is built from committed
+HEAD, provenance-verified, with you keeping a skip switch. Full continuous deployment
+stays gated on the delivery-semantics work, but build-and-test CI has no such gate.
+
+Worktrees (D11), plainly: today every session works in the same directory, so they see
+each other's half-finished edits, and two sessions editing the same file take each
+other's changes when either commits. A worktree gives each coding session its own
+directory and branch inside the same repository — same history, no shared files. It
+fixes the same-file collisions and the stash-class accidents; it does not fix cluster or
+database collisions, and it makes merging a real job. Recommendation: coding sessions
+get worktrees, documentation stays on the shared tree, exactly one branch deploys.
+
+Burst scaling (D15): yes, mostly with what we have. A "burst profile" is: pause
+maintenance (your ruling), temporarily raise the dispatch and worker concurrency
+(config), and let the governor put the whole budget behind client builds. The machines
+have roughly five-fold headroom before nodes matter; the true burst ceiling is the AI
+account, which is why the governor plus the tier request are the two burst enablers.
