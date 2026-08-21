@@ -8,7 +8,10 @@ confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **
 path has never fired** — `collected_data->'input_data' ? 'last_error'` is 0 across all history
 (their query), and the first post-fix generation on the originating page succeeded on attempt 0, so
 no retry existed to feed. The signal that closes this: two `component_validation_rejected` rows on
-ONE item with **different** `md5(error_message)`. Note the ROUND-2 REVISION (gate = non-blank
+ONE item with **different** `md5(error_message)`. **⚠ Do NOT read `bugs_closed/311`'s close as this
+bug's proof:** the originating page healed on an attempt-0 success — the feedback path never fired,
+because there was no retry to feed. "The page has its calculator" and "345 worked" are different
+claims, and only the first is established. Note the ROUND-2 REVISION (gate = non-blank
 recorded failure, not `attempt_count>0`) is committed but rides the NEXT roll — the live binary
 still carries the attempt-gated form.
 `Council-Submitted: 67b07528-b40b-4eef-9abc-35ad70efae04`.
