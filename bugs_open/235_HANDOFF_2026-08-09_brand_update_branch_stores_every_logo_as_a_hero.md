@@ -559,3 +559,62 @@ and not argued: no pre-image row was captured before the jsonb surgery, and 544'
    escalated: the class sweep found a population of one, which is not enough load for an
    RFC today. **If more aspects turn out to carry stale derived-asset URLs, that crosses
    into `needs_rfc`.**
+
+### PROVEN AT THE SERVED PAGE, 2026-08-21 18:39 — and the first attempt was a SILENT NO-OP that reported success
+
+`https://fundamentallyai.com/` — **0 × `logo.jpg`, 5 × `logo.png`**, against `2 / 3`
+before. The three portfolio entries are absolute and all serve as real PNGs:
+
+| URL | |
+|---|---|
+| `https://relojistas.com/assets/images/logo.png` | 200, 32,212 B, `image/png` |
+| `https://idea.uk/assets/images/logo.png` | 200, 146,681 B, `image/png` |
+| `https://leopardessconsulting.co.uk/assets/images/logo.png` | 200, 152,770 B, `image/png` |
+
+The other two of the five are fundamentallyai's **own** relative `/assets/images/logo.png`
+in its chrome — always correct, unchanged, and counted here only so the total reconciles.
+
+**`[MEASURED]` fleet-wide, after the fix: ZERO `page_components` rows reference `logo.jpg`
+in either `rendered_html` or `content_data`, on any site.** This portfolio held the last
+live references; the original file's "11 sites serve one" exposure is closed at the
+artefact.
+
+> ## ⚠ THE FIRST RERENDER COMPLETED, DEPLOYED, AND CHANGED NOTHING — read this before dispatching one
+>
+> `page_rerender` item **without `spec.reason`** → `complete` in 57s, `attempt_count 0`,
+> no error, `deploy_result.success: true`, a **real** commit (`62bd876fe`) with a real
+> `files_sha256`, and `pages.deployed_at` moved to 18:33:02. **And the bytes were
+> identical**, because `check_rerender_mode`'s `else_step` is `render_page` — *assemble
+> the stored HTML*. Its `then_step` (`rerender_sections`, which regenerates from
+> `content_data`) fires only for `spec.reason ∈ {image_landed, section_data_resolved,
+> cta_links_stale, template_changed, literal_markdown}`. **An absent `reason` is not an
+> error; it is a silent downgrade to "re-ship what you already had".**
+>
+> The tell was `page_components.rendered_html.updated_at` still frozen at its
+> pre-rerender value while the item read `complete` and `deployed_at` was minutes old.
+> Re-dispatched with `reason: 'section_data_resolved'` (the **merging** re-render —
+> stored `content_data` + fresh `resolved_data`, no LLM, so it cannot rewrite copy):
+> `rendered_html` went `2 jpg / 1 png` → `0 / 3` at 18:38:47, commit `6d5bf1f0a`,
+> deployed 18:39:04. Now in `LANDMINES.md`.
+>
+> ⚠ **Copying the `spec` shape from a recent successful `page_rerender` row does not
+> protect you** — most carry no `reason`, because most are genuinely assembly jobs.
+
+**Two council objections measured rather than argued** (round 2, `bug_historian`):
+`portfolio-showcase` exists on **exactly one page**, so 545's missing page filter had a
+population of one and no partial-propagation gap; and `content_hash` is **empty** on this
+component, so there was nothing stale to race and nothing gating a no-op on it.
+`editquality`'s "545 races the automatic resolve" is answered at the code — the rerender
+merges *fresh* `resolved_data` **last so it wins** (`rerender_page_sections_action.go:27`),
+and since 544 corrected the spec that fresh resolve reads while 545 corrected the stored
+copy, **both inputs say `.png` and the merge converges either way.** It is not a race.
+
+### Why this file STAYS OPEN
+
+Not because anything is unproven. The source defect is fixed (migration 360), the
+artefacts are corrected, and the fleet carries zero `logo.jpg` references. **It stays open
+because it holds an undecided OWNER question**, and closing it would bury that: the stale
+`logo.jpg` objects still sit in the site repos. They are now **unreferenced** — the
+08-11 addendum's blocking condition is cleared, so the gate is **open rather than
+satisfied**. Deleting them is the owner's call and nobody should take it by inference from
+"the bug looks fixed".
