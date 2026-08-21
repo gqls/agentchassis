@@ -471,7 +471,39 @@ author retired theirs in my favour; this one goes the other way).
   `--apply` sweep re-offers it and its own idempotence guard RAISEs, aborting a batch that may hold
   other sessions' files. Recorded with `--record-only` and a note naming the applier.
 
-### ⚠ THE CLASS HAS NOT YET BEEN SHOWN TO STOP — and the first 4 rows are NOT evidence it failed
+### ✅ PROVEN 2026-08-21 15:4xZ — PERFECT SEPARATION on the orchestration join, 4/4, no exceptions
+
+**The prediction was stated before the evidence and it held.** Every `mark_complete` extraction
+found in the live `agent-build-dispatch-loop-*` pods, joined to its own orchestration's `created_at`
+against the wire boundary (15:33:39Z):
+
+| orchestration | created | side | `commit_sha` in `requested_fields`? |
+|---|---|---|---|
+| `0dd63a2f` | 15:28:58 | PRE-wire | **FAIL** — still requested |
+| `2c3b482e` | 15:31:49 | PRE-wire | **FAIL** — still requested (iter_0 **and** iter_1) |
+| `110e7e15` | 15:34:48 | **POST-wire** | ✅ **PASS** — absent, `requested_fields: []` |
+| `f16cc519` | 15:42:11 | **POST-wire** | ✅ **PASS** — absent, `requested_fields: []` |
+
+**Every pre-wire run fails and every post-wire run passes.** The pre-wire rows are the built-in
+control: a test that passed everything would prove nothing, and these do not. And the negative half
+agrees — **0 conflict rows after the pre-wire tail drained at 15:42:25Z**, against a demand control
+of 1 completed post-wire multi-iteration run (the shape that must conflict).
+
+**Two things this run taught that are worth more than the result:**
+
+1. **The step is named `process_item_iter_N_mark_complete`, not `mark_complete`** — the loop prefixes
+   the iteration onto the nested step name. My first filter matched `step_name == "mark_complete"`
+   and found **nothing**, which looks exactly like "the line was not emitted". Match on
+   `.endswith("mark_complete")`. That is **the third filter this lane has armed that certified the
+   wrong proposition** (515: `section_facts` as a proxy; 515: the wrong pods; here: the exact name).
+2. **The LOG LINE carries `orchestration_id`, even though the `agent_error_log` bridge does not.**
+   §2.9 warned attribution had to be by TIME — that is true of the conflict rows and **false of the
+   positive test**, which can be joined exactly. That matters here: `2c3b482e` is a **pre-wire** run
+   that was still emitting FAILs at **15:42:14**, eight and a half minutes after the wire. Time-based
+   attribution would have called that a failure of the fix. **Prefer the positive test precisely
+   because it can be attributed.**
+
+### (historical) why the first 4 rows after the wire were NOT evidence it failed
 
 Live config: `commit_sha?` = `handler_result.response.commit_sha`, `updated_at` **15:33:39Z**.
 In the **3 minutes** after that, **4 more conflict rows appeared** (15:34:19, 15:34:43, 15:35:06,
@@ -480,7 +512,7 @@ In the **3 minutes** after that, **4 more conflict rows appeared** (15:34:19, 15
 only bdl orchestration that could have produced them was created at **15:33:22, seventeen seconds
 BEFORE the wire**. A run already in flight carries the config it started with.
 
-**THE PREDICTION, stated before the evidence so it can fail:**
+**THE PREDICTION, stated before the evidence so it could fail — and it held (see above):**
 > An orchestration **created after 15:33:39Z** produces **ZERO** `commit_sha` conflict rows when it
 > reaches `mark_complete`.
 
