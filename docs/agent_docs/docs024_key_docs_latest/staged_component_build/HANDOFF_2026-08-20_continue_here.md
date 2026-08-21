@@ -342,14 +342,27 @@ rarer than ~1 in 26.
 **Use the POSITIVE test instead — it is decisive in a single log line.** `withoutStrict`
 (`action_inputs.go:802-813`) removes `explicitOnly` fields from what is handed to `ExtractFields`,
 and `ExtractFields` logs `requested_fields` on its `=== MASTER EXTRACTOR START ===` line. So on any
-post-apply `plan_sections` extraction (identify the step by `section_facts` in the same line):
+post-apply `plan_sections` extraction, read that line. **Filter on `step_name`, not on `section_facts`** — that was
+my first draft and it selects the step by a field that happens to be unique to it rather than by the
+step itself. The line is JSON; its full key set is `action, agent_id, agent_type, available_keys,
+caller, level, msg, orchestration_id, pod_name, requested_fields, stateless, step_id, step_name, ts`.
 - **`page_type` ABSENT from `requested_fields` ⇒ the marker PARSED.** ✅
 - **`page_type` PRESENT ⇒ it did NOT parse**, and the config key is an inert literal. ❌
 ```bash
-for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis                -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
-  kubectl -n ai-persona-system logs "$POD" --since=90s     | grep -F 'MASTER EXTRACTOR START' | grep -F 'section_facts'
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis \
+               -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+  kubectl -n ai-persona-system logs "$POD" --since=60s \
+    | grep -F 'MASTER EXTRACTOR START' \
+    | python3 -c 'import json,sys
+for ln in sys.stdin:
+    try: d = json.loads(ln)
+    except Exception: continue
+    if d.get("step_name") != "plan_sections": continue
+    rf = d.get("requested_fields") or []
+    print("FAIL: marker did NOT parse" if "page_type" in rf else "PASS: marker PARSED", d.get("ts"), rf)'
 done
 ```
+Dedupe on `orchestration_id`+`step_id` if you poll with overlapping `--since` windows.
 ⚠ **Poll it; do not tail once.** These lines churn out of a chassis pod in minutes, and
 **page-build-handler is BURSTY** — 26 runs/24 h on average, but its last run was **11:57Z** and
 there were **zero in the first 6 minutes after the 13:19:19Z apply** (the window was only 6 minutes
