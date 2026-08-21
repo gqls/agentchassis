@@ -4064,3 +4064,67 @@ route — including a form, which is the one `ee6f837e` would have wanted.
 
 **Watching the component md5s, not the item status** — this morning proved an item can report
 `complete` having composed nothing, so the artefact is the signal.
+
+### 2026-08-21 (16:0xZ) — the reword is LIVE, and getting it dispatched corrected a LANDMINE
+
+**Outcome: both components reworded, deployed, and verified at the served URL.**
+
+| slot | before md5 | after md5 |
+|---|---|---|
+| `hero-contact` | `71fe39a8…` | **`7d08a7e8…`** |
+| `generic-text-block` | `c5ed08d9…` | **`5f12a3f8…`** |
+
+**Verified at the artefact, not the item status** (this morning's lesson): the served page carries
+the new copy, and a promise-phrase sweep on the served HTML returns **0 for all seven**:
+*"tell us here"*, *"write to us"*, *"send in"*, *"we'll take a look"*, *"get back to you"*,
+*"drop us a line"*, *"contact us today"*. `mailto` **0**, `<form>` **0**, and
+**zero email-shaped strings in the raw HTML** — nothing was invented.
+
+The writer also found a destination I had not thought to name: it points a reader whose figure
+looks wrong at `/disclaimer.html` (*"the assumptions behind our figures"*), which exists, is
+deployed and is exactly the right page. **That is the argument for briefing the framework rather
+than writing the words** — I would have shipped the two links I already knew about.
+
+⚠ **A false alarm of my own making, recorded because it nearly became a finding.** My served-page
+watcher reported `at_signs=3` where the old page had 0, which reads as "an email address was
+invented". It was not: the watcher stripped TAGS with `sed 's/<[^>]*>/ /g'`, which leaves the TEXT
+CONTENT of `<style>` blocks — the three `@` were `@media` rules. **Stripping tags is not stripping
+CSS.** The disconfirming check took one command: a regex for an email-shaped string over the raw
+HTML returned `[]`.
+
+### The dispatch: RUNBOOK §15 and a LANDMINE disagreed, and the landmine was the stale one
+
+The item would have starved — my site was **last of nine**, behind 62 dispatchable items on
+`webdesign.co.uk` (oldest 11:45Z) and 15 on `loanzy.uk`, because site selection is globally
+oldest-first and my item was minutes old. That is §15's scenario, and its three preconditions all
+held (item dispatchable; site unlocked with 0 claimed and exactly 1 armed — mine, so blast radius
+was one item; trigger alive, last fired 47 s earlier).
+
+**But `LANDMINES.md` said the §15 technique does not work** — that orchestrating
+`build-dispatch-loop` directly *"reports COMPLETED and processes NOTHING"*. Rather than pick a side
+I ran it and applied the landmine's own check, which is the right check. **It worked:** item
+`triaged → claimed`, `claim_result: true`, `handler_spawned: true`, full chain through
+`deploy_page`. **Sequence across the estate: 08-08 no-op · 08-11 works (§15's own record) · 08-21
+works.** The landmine was written 08-08 and the runbook's 08-11 success was never folded back into
+it, so a session reading LANDMINES alone would avoid a technique the runbook documents as working.
+**Corrected in place** (25 insertions, 0 deletions, single hunk, against a base re-verified unmoved
+immediately before the edit — the shared-ledger trap), verifier armed via
+`landmines-verify-dispatch.sh` (correlation `43275492…`). **Cause not claimed:** `bugs_closed/239`
+is the obvious suspect but its trigger was `source`+`spec` co-occurring and neither payload had
+that. **[UNVERIFIED.]**
+
+**And `edit_live` was verified to have engaged, not merely requested:** the plan carried
+`edit_live_meta {applied: true, matched: 2, fallback_matched: 0}`, so the writer received both
+sections' current content and edited rather than regenerated (`bugs_open/178`'s protection).
+
+### What is left on this page, and it is the owner's call, not a defect
+
+The `<title>` is still **"Contact us"** and the footer `nav_label` still **"Contact"**. Those are
+`pages` columns, not LLM content fields, so they were untouched by design — changing them is a
+page-record edit, and the nav label appears in every page's footer. A page titled "Contact us" that
+says there is no contact route is defensible (it is the page people look for, and it now answers
+honestly) but it is a judgement I have deliberately **not** made unasked. **Flagged, not changed.**
+
+Item `07bc64cd` (`needs_section_data`, wanting a business email) is **left open**: the owner asked
+for a reword rather than supplying an address, but has not said "never", and closing it would
+assert a decision they did not make.
