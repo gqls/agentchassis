@@ -1,4 +1,22 @@
 {
   "_doc": "RFC_029 §10.15 — the `?` OPTIONAL-EXPLICIT marker on ExtractActionInputs' step-config surface (council REVISE round 1, bug_historian's gating objection). A `?` wire resolves its declared path OR LEAVES THE FIELD ABSENT, deliberately with no error, no log and no row: absence is the contract. Nothing at runtime can tell an intended absence from a mistyped path, so the guard is offline and fleet-wide — `config-key-audit --optional-explicit-wires` lists every live `?` wire and exits 1 on any that is not acknowledged here. An entry records that a human READ THE DOWNSTREAM CODE of the consuming action and confirmed it treats an absent field as a safe no-op, rather than as an empty string or zero it will render or persist. `downstream` is not optional in spirit: an entry with an empty statement is ignored (and warned about), because an ack that says nothing about what was checked is precisely the hollow ack the objection named. Key shape is `<action>.<field>` — keyed on the ACTION, because coping-with-absence is a property of the code that consumes the field, not of which workflow wired it. Sibling file and precedent: optional_key_budget_acks.json (RFC_022).",
-  "_no_entries_yet": "The marker shipped with ZERO adopters (v1.0.1321, live 2026-08-20; census 2026-08-21: 0 `?` keys on this surface, 77 on the input_mapping surface which this audit deliberately does not report). The first adopter adds the first entry here in the same commit as its migration."
+  "_first_adopters": "The marker shipped with ZERO adopters (v1.0.1321, live 2026-08-20). The entries below are the first, added with their migrations: 515 (page-build-handler/plan_sections, by the parallel session of this lane) and 516 (the two tool build steps, bugs_open/330).",
+
+  "plan_sections.page_type": {
+    "downstream": "plan_sections_action.go:972-975 reads `pageType := inputs.Get(\"page_type\")` and, when it is empty, falls back to the page's own NAME (`pageType = pageName`) for the component-selector scoring bonus; the comment at :968-970 states the selector still works without it, just without site/page-type relevance bonuses. So absence degrades scoring on that one axis and cannot render or persist an empty value. It is also strictly better than today's alternative on the 18/31 runs where the page's own record is missing from the tree: without the marker the ONLY candidates are OTHER pages' page_type, so absence replaces a foreign value with a locally-correct one.",
+    "date": "2026-08-21",
+    "review": "docs/agent_docs/sql_for_agents/515_page_build_handler_plan_sections_declares_page_type.sql"
+  },
+
+  "create_tool_component.related_pages": {
+    "downstream": "Read first-hand 2026-08-21. Both tool build actions reach one helper, relatedPagesFromInputs (create_tool_cross_link_items.go:443, called from create_tool_component_action.go:527 and deploy_tool_action.go:271,548): with the field absent, GetRaw returns nil and it re-reads the SAME declared path directly, which is also nil, so absence propagates and nothing reaches for a search. Absence is then INSTRUMENTED rather than merely tolerated (create_tool_cross_link_items.go:142-151): `if len(req.relatedPages) == 0` logs at info and records a counted skip with reason `no_related_pages` and the comment 'Not a defect: a suggestion may legitimately name no related pages', then returns 0 — emitting no cross-link items. Emitting none is the CORRECT behaviour for a spec that names no related pages, and is the whole point of bugs_open/330: the value being substituted today is another tool's.",
+    "date": "2026-08-21",
+    "review": "bugs_open/330_HANDOFF_2026-08-19_absent_related_pages_is_replaced_by_another_suggestions_pages_so_every_tool_cross_links_to_the_same_two_pages.md"
+  },
+
+  "deploy_tool_to_site.related_pages": {
+    "downstream": "Same helper, same absence path, same instrumented skip as create_tool_component.related_pages above — deploy_tool_action.go:271 and :548 both call relatedPagesFromInputs. Recorded separately because the ack is keyed on the CONSUMING action and a future change to one action's absence handling must not be vouched for by the other's entry. Note this step has ZERO logged conflict rows: its inclusion in 516 is prophylactic (an identical unmarked wire to identical code), stated as such in the migration.",
+    "date": "2026-08-21",
+    "review": "docs/agent_docs/sql_for_agents/516_tool_related_pages_optional_explicit_HOLD.sql"
+  }
 }
