@@ -321,8 +321,43 @@ this on 08-19 and was approved on resubmission). Re-run in flight, `RUN_ORCH_ID=
 the seat that died last time. Full trap in `LANDMINES.md`, including that
 *"a missing row is latency"* stops applying once `current_step` reads `complete_invalid`.
 
-**Next: read the round-2 verdict, then APPLY, then verify — with a demand control (pbh
-orchestrations in the window > 0), never the conflict count alone.**
+**ROUND 2 = APPROVED** (2026-08-21 12:22:34Z, `decided_by: all reviewers approve`; 5 advisories, all
+LOW). **APPLIED 13:19:19Z** by hand with `psql` — deliberately NOT via `run-migrations.sh --apply`,
+which takes every pending file while other sessions have WIP there — then recorded with
+`--record-only`. Live row read back independently: `"page_type?": "page_record.page_type"`, snapshot
+present in `agent_definitions_backup`. Corroboration found afterwards: the step **already** wired
+`page_name: "page_record.name"`, so `page_record` was its own established prefix.
+
+### 🔴 515's VERIFICATION IS ARMED AND UNCONFIRMED — do not let "approved + applied" stand in for it
+
+**Two seats independently raised this and the approval did not close it** (guardian,
+prior_art_librarian): the `?`-parses-on-step-config claim rests on a **source grep at the built
+commit**, and *no orchestration has ever exercised that parse path*. Round 1 taught that ancestry ≠
+behaviour; this is the next rung — **source-at-the-stamp ≠ observed.**
+
+**The zero-test is weak here, so do not lean on it.** Baseline at the apply boundary: 3 rows against
+**26 pbh runs** in 24 h ⇒ **~0.12 rows/run** (step 4 was 3.1/run). 26 runs cannot detect a residual
+rarer than ~1 in 26.
+
+**Use the POSITIVE test instead — it is decisive in a single log line.** `withoutStrict`
+(`action_inputs.go:802-813`) removes `explicitOnly` fields from what is handed to `ExtractFields`,
+and `ExtractFields` logs `requested_fields` on its `=== MASTER EXTRACTOR START ===` line. So on any
+post-apply `plan_sections` extraction (identify the step by `section_facts` in the same line):
+- **`page_type` ABSENT from `requested_fields` ⇒ the marker PARSED.** ✅
+- **`page_type` PRESENT ⇒ it did NOT parse**, and the config key is an inert literal. ❌
+```bash
+for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis                -o jsonpath='{range .items[*]}{.metadata.name} {end}'); do
+  kubectl -n ai-persona-system logs "$POD" --since=90s     | grep -F 'MASTER EXTRACTOR START' | grep -F 'section_facts'
+done
+```
+⚠ **Poll it; do not tail once.** These lines churn out of a chassis pod in minutes, and
+**page-build-handler is BURSTY** — 26 runs/24 h on average but **zero in the 75 minutes after the
+apply**, and none since 11:57Z. A watcher was armed at 13:2xZ; if it expired without a hit, re-arm
+rather than concluding anything. **Zero pbh runs ⇒ the zero conflict rows carry no information**
+(demand control = 0 at the time of writing).
+
+**Whoever next sees a pbh run: record the result of that one line.** It is the last open evidence
+on this migration.
 
 ## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
 
