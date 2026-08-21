@@ -2635,3 +2635,65 @@ Prove a migration end-to-end without applying it — both directions, in one tra
 
 That exercised all three gates, both `UPDATE`s, the verify block **and** the rollback against the live
 schema, with nothing persisted.
+
+### Council round 1: REVISE — one real defect in my migration, and two objections that were answering my SKETCH
+
+`9a8f1283-574e-44d7-8e66-b84789ba0429`, gated by `editquality`. Round 2 resubmitted under the same
+correlation (so the `Council-Submitted:` trailers already on the commits stay valid and `098` credits
+them when it approves). **The REVISE was worth more than it cost, again.**
+
+**REAL DEFECT — guardian, high.** My needle-gate asserted the step shape, then the `UPDATE`s ran
+against a **broader** predicate (`type + is_active + not-snapshot + not-deleted`). Different sets.
+The seat named the duplicate-active-row landmine and **it is live**: `[MEASURED 2026-08-21]` four
+agent types carry two active definition rows — `content-creator`, `content-creator-contact`,
+`chief-strategist`, `site-component-architect` — and only the higher version is ever loaded. Had
+`offer-analyser` been one of them, the gate would have passed on the loaded row while the `UPDATE`
+rewrote **both**, corrupting the row nobody reads, where nothing would ever surface it.
+`offer-analyser` has exactly one, so my version would not have misfired — **that is luck, not a
+guard.** Fixed by resolving the target once into a temp table that gate, both `UPDATE`s and the
+verify block all use, so they cannot be different sets even after a later edit.
+
+**MY SKETCH WAS THE DEFECT — `editquality` and `debug_historian`, on the prompt `replace()`.** Both
+objected that there was no anchor gate before the replace and no verify that the prompt changed.
+**Both guards were in the file.** My round-1 sketch omitted them, and the sketch is the only view of
+the code a seat gets — the runbook says exactly this and I did it anyway. Same for "no separate
+rollback file" and "no pod-grep step": both exist, neither was in the sketch. **Their objection still
+carried a real tightening**, which I took: the anchor gate now counts **occurrences** and demands
+exactly one, rather than only asserting a matching row exists.
+
+Both new guards are **mutation-proven** against the live row in rolled-back transactions — drift the
+anchor → `537 prompt-anchor gate: ... occurs 0 time(s)`; move `set_audit_source.next_step` →
+`537 needle-gate: ... found 0`; unmutated → `537 OK`.
+
+**`reuse_agent` sent me somewhere I had not looked, and the search strengthened the case.** It named
+`datahelpers/claims.go`'s `numberSupported` / the `evidence_base` subsystem — "why a second numeral
+parser?" I read it. `numberSupported` is a method on `*EvidenceBase` matching a **`float64`** against
+a **curated fact register** (`eb.Facts`, with `ContextTerms`/`Tolerance`/series) — it does no text
+tokenising at all, and there is no analogue of *"the number must be in the field THIS ITEM CITES"*
+because it scans the whole register. And decisively: **its caller's tokeniser,
+`numberCandidateRe`, is ALSO digits-only** — extending that subsystem would have reproduced the bug.
+`[MEASURED]` no word-numeral vocabulary exists anywhere in the repo (grep for
+`"seventeen"|"eighteen"|"nineteen"|"seventy"|"eighty"|"ninety"` over all `.go` returns only the new
+file, which is also the working control). So the landmine is broader than I first wrote it: **the
+whole numeric-claims family shares the digits-only gap**, not just `verify_report_prose`.
+
+**`editquality`'s other high objection was answerable with evidence, not argument.** "Does the action
+read `object_field`/`source_field` via a registered `ActionInputSpec` field, which would resolve the
+dot-path against `collected_data` instead of using it as a literal?" No, on two independent grounds:
+the action **never calls `ExtractActionInputs`** (it reads `params.StepConfig.Config` directly, as
+`verify_report_prose` does), and `ExtractActionInputs` only iterates `Required ∪ Optional`
+(`action_inputs.go:79-80`) — `ConfigKeys` feeds unknown-key *reporting* only and is never resolved.
+
+**⚠ NEW LANDMINE, found answering the guardian's blast-radius objection: `LIKE '%lead_with%'` LIES.**
+Asked "what consumes `lead_with`?", the `LIKE` census returned **3** agents including `council-gate`
+and `fix-proposer` — which would have read as "the council seats consume the offer ordering", a
+believable and completely false finding. **The underscore is a `LIKE` wildcard**, so `lead_with` also
+matches *"lead with"*, which is ordinary English in a reviewer prompt. `strpos` returns **1**: only
+`offer-analyser` itself. I caught it only because the follow-up query to read the surrounding context
+returned nothing — `position(x in y) = 0` means NOT FOUND, and that zero was the tell. Filed in
+`LANDMINES.md`; **blast radius of drop-mode is zero today.**
+
+Also taken: a `doc_notes` decision record (`subject_type='action'`, `subject_key='verify_cited_cardinals'`)
+so the reasoning is not stranded in a HOLD migration (`tooling_provenance`); and the unverifiable
+owner-ruling citation dropped as load-bearing for the `on_violation` default, which stands on the
+deep-merge reasoning anyone can check in `site_spec_actions.go` (`prior_art_librarian`).

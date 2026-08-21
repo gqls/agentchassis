@@ -14098,3 +14098,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's log-retention entries · MEMORY [[logs-deploy-reads-one-pod-of-n]] (this is its sharper form: not merely one pod of N, but a pod that does not exist yet and will not exist later) · [[foreground-test-a-watcher-before-arming-it]] (which this case narrows — testing the filter is not testing the source) · [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-21, `staged_component_build` lane · migration 515's runtime verification · `WRONG_CALLS.md` (2026-08-21 entry) · `NOTES_staged_component_build.md`
 - **added:** 2026-08-21, staged_component_build lane
+
+---
+
+### Censusing agent config for a snake_case key with `LIKE '%foo_bar%'` OVER-MATCHES — the underscore is a LIKE WILDCARD, and the extra rows look exactly like real consumers
+
+- **footprint:** `agent_definitions`, `default_config::text LIKE`, `site_specs`, `doc_notes`, any "which agents/pipelines reference key X?" census, `strpos`, `position`
+- **fires when:** you answer "who consumes this key?" — before changing a shared key's shape, sizing a blast radius, or proving a change is contained. **No symptom.** The query succeeds and returns a plausible, *larger* set. Every extra row is a real agent with a real config, so nothing looks wrong; you simply conclude the key has more consumers than it does, and either abandon a safe change or go hunting through prompts for a reference that was never there.
+- **the mechanism:** in SQL `LIKE`, `_` matches **any single character**. Nearly every identifier on this estate is snake_case, so `LIKE '%lead_with%'` also matches `lead with`, `lead-with`, `leadswith`. Reviewer prompts, mission prose and descriptions are all inside `default_config::text`, and they are full of ordinary English that collides with our own key names. **Measured 2026-08-21:** `LIKE '%lead_with%'` over live `agent_definitions` returned **3** rows; `strpos` returned **1**. The two extra were `council-gate` and `fix-proposer`, whose prompts say *"lead with"* — and "the council seats read the offer ordering" is an entirely believable false conclusion.
+- **the check — use `strpos` (or `position`), and prove the difference rather than assuming it:**
+  ```sql
+  SELECT type,
+         strpos(default_config::text, 'lead_with') AS literal,   -- 0 = genuinely absent
+         (default_config::text LIKE '%lead_with%') AS like_says
+    FROM agent_definitions
+   WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+     AND (strpos(default_config::text,'lead_with') > 0 OR default_config::text LIKE '%lead_with%');
+  ```
+  Any row with `literal = 0` and `like_says = t` is a wildcard artefact. **`position(x in y) = 0` means NOT FOUND** — it is 1-indexed, so 0 is the absence sentinel and not an offset; reading it as "found at the start" inverts the answer.
+  `LIKE '%x\_y%' ESCAPE '\'` also works, but `strpos` cannot be got wrong by forgetting the escape.
+- **⚠ the same trap runs the other way on `~` and `grep`:** a bare `.` in a regex is the identical hazard, and `grep 'lead_with'` on the shell is safe only because grep treats `_` literally — so a habit formed at the shell transfers to SQL and is wrong there.
+- **relations:** MEMORY [[measurement-discipline-index]] (your measurement answers the question you ENCODED), CLM-023, `bugs_open/335`
+- **source:** 2026-08-21, `vigilant_designer_offer_analysis` lane — hit while answering a council guardian objection about which downstream consumers a shrinking array could break; the wildcard rows were caught only because a follow-up query to read the surrounding context returned nothing
+- **added:** 2026-08-21, vigilant_designer_offer_analysis lane
