@@ -232,3 +232,76 @@ symptom.
 
 Related: `bugs_closed/103` (the original), `bugs_open/320` §13 (where this was found),
 register **SEO-004**.
+
+
+---
+
+## 9. 2026-08-21 — the split with `webdesign_tool_rebuilds`, and the non-tool sub-class
+
+### The split, agreed both ways
+
+`webdesign_tool_rebuilds` accepted §7b's offer and took **§5 candidate 3 at both call
+sites**: for a `component_level='tool'` row, never pass the description as a candidate,
+always use `composedToolMetaDescription`. Council-approved (corr `2ff9e215`) and **live in
+`v1.0.1321`** by their ancestry check.
+
+They handed back, and this lane accepts: **the row repair (the 9 tool rows + 3 others)**
+and **the non-tool writer trace** below.
+
+⚠ **Their honesty note on the seam fix's proof, which changes the row repair's reasoning:**
+TL-048's demand proof is *inconclusive by route* — rebuilding an EXISTING page goes through
+the adopt path (`Refresh: []`), which never writes `meta_description` at all, so the new
+composed write only fires on a genuinely NEW tool page. **Consequence for the repair: the
+9 rows will not refill themselves from the brief, and equally will not be repaired by a
+rebuild. They need a direct write.**
+
+### ⚠ CORRECTION TO §4 — my LIKE join was the error, not evidence of a different source
+
+§4 said a `LIKE` join to `content_components.description` returned no match and called that
+*inconclusive*. It was **my bug**. I used `LIKE left(cc.description,60)||'%'`, and the
+descriptions contain characters that are significant to `LIKE` (`%`, `_`), so the pattern
+could not match literally.
+
+`webdesign_tool_rebuilds` used `left(cc.description,120) = left(p.meta_description,120)` —
+plain equality — and **established the writer**: 7 of the damaged strings prefix-match a
+live `content_components.description` on a `component_level='tool'` row with the same
+function, and 4 also prefix-match `add_tool` items' `spec->>'description'`. So the chain is
+
+`add_tool` spec description → `content_components.description` → `PublicMetaDescription`
+(both signals blind in 200-320) → `pages.meta_description`.
+
+**§4's "NOT established" is now established, and by someone else's query, because mine was
+wrong.** Use equality on a fixed prefix, not `LIKE`, when comparing two free-text columns.
+
+### The non-tool sub-class — a DIFFERENT writer, and I did not find it
+
+Three of the band are not tool pages and match neither `add_tool` specs nor tool
+components: `robot-hands.com/robot-demand-step-change`,
+`leopardessconsulting.co.uk/hierarchical-multi-agent-orchestration-explained`, and — new on
+2026-08-20 — `dartsonline.com/darts-calendar-density` (291 chars):
+
+> *"Barry Hearn warned top players about skipping tournaments and Euro Tour withdrawals
+> left organisers with a headache. Set against the calendar itself — 30 Players
+> Championship events a season through 2024, 34 since 2025 — these are one story about
+> schedule density, not four about discipline."*
+
+**That is a commissioning note to a writer, not a description for a reader** — *"these are
+one story about X, not four about Y"* is an editorial instruction. Same class as 103 (an
+internal brief reaching a public column), different producer.
+
+**What I eliminated** `[MEASURED 2026-08-21]`:
+- **not the site planner** — absent from `site_plan_pages` in **every** plan, current or not;
+- **not the tool path** — not a tool page, no `content_components` match;
+- **not `apply_gap_plan_action`** — none of its five `ON CONFLICT` clauses writes
+  `meta_description`;
+- **not the rerender** — the earliest orchestration carrying the text
+  (`f57a3fbd`, 17:03:53Z) is a `page-rerender` and the page already held the description by
+  then (created 16:59:30Z).
+
+**What I did NOT establish, and am handing on rather than guessing:** which producer writes
+it. The page is stamped `built_from_plan_version`, is typed `blog-post`, and the discovery
+check called it an *"Editorial feature page"* at 16:58:11Z. The live work items on that
+site name `dartsonline-traffic-workstream` → `content-gap-planner` → `page-build-handler`,
+so the editorial/traffic pipeline for that site is where to look next. **That is another
+lane's pipeline and there is an active `news editorial` session; this pointer goes to
+them rather than being guessed at here.**
