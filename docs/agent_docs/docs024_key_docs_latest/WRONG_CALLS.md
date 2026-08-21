@@ -41460,3 +41460,50 @@ there", and only a `count(*)` with no `LIMIT` answers the second question.
 carries a `LIMIT`, run the same `WHERE` clause once more as a bare `count(*)` before writing the
 figure down anywhere durable (a migration file, NOTES, a message to a peer). It costs one extra
 query and would have caught this immediately.
+
+## 2026-08-21 — I banked a submission's key measurement over ALL rows when the thing I was measuring had existed for two hours (staged_component_build lane)
+
+**The call.** Migration 539 needed one fact: that `handler_result.response.commit_sha` — the
+canonical path the 315 lane had just created — is the right thing to name. I measured it across
+every live `build-dispatch-loop` tree carrying `handler_result`:
+
+```
+175 trees | canonical present 31 | old-nested present 104 | nested-ONLY 77
+```
+
+Read plainly, that says the canonical path is a **minority** and the old nested path is the real
+one, and naming the canonical path would lose 77 runs. I very nearly wrote the migration around the
+old path on the strength of it.
+
+**It was an artefact of recency.** The nine migrations that create the canonical key were applied
+between **13:39Z and 14:17Z that same afternoon**. Almost every tree in the table predates them.
+Restricted to trees created after the LAST of the nine:
+
+```
+25 trees | canonical 23 | old-nested 20 | canonical-ONLY 3 | nested-ONLY 0 | neither 2
+```
+
+The canonical path **strictly dominates** — the opposite conclusion.
+
+**What caught it:** the eight most recent rows, which I had eyeballed first, disagreed with the
+aggregate. A sample and its own population pointing opposite ways is not noise; it is a boundary.
+
+**The cheap check that would have:** **when you measure a property that a migration created, the
+population starts at that migration, not at the top of the table.** `SELECT filename, applied_at
+FROM schema_migrations WHERE filename ~ '<the ones that matter>'` costs one query, and every figure
+after it should carry `AND created_at > '<the last applied_at>'`.
+
+**The generalisable half.** This lane has now been bitten by the same shape twice in three days, in
+**opposite directions**, which is what makes it worth an entry rather than a note:
+- `tg/function` — rows that looked ALIVE were all *pre*-fix; the class was already dead.
+- `commit_sha` — a path that looked ABSENT was merely *newer* than the population.
+**A dated cause and an undated population cannot be compared.** Before quoting any before/after
+figure, state which side of which boundary the rows are on — and if the answer is "both", the number
+means nothing yet.
+
+**Second, smaller lesson from the same query.** My first cut of the comparison produced arithmetic
+that could not be true: 23 canonical and 20 nested, yet *both* "only" cells zero. A jsonb `?` test
+against a NULL intermediate yields **NULL**, not false, so `x AND NOT y` silently drops those rows
+from both counts. **Wrap every jsonb key test in `COALESCE(…, false)`.** The tell was not
+suspicion — it was that the columns did not add up, which is the one kind of error a summary row
+cannot hide.
