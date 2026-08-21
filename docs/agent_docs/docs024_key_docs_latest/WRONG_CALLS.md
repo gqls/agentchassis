@@ -40512,3 +40512,85 @@ the conversion transform already lives in.
 exist) and the flow (whatever mints more). A census bounds the stock; only a producer census
 bounds the flow. If the fix's design doc has a corpus table but no producer table, the
 programme is scoped to lose.* Same failure as filtering a count without asking what refills it.
+
+---
+
+## 2026-08-21 — 307 lane: fifteen tests proved the ladder's own write and none asked what the NEXT writer does to it — the fix's benefit was cancelled two seconds after it fired, by a mechanism the same file already documented
+
+**The call:** WII-024's acceptance (15 sqlmock tests, 5 mutations, council-approved twice) proved
+`applyWorkItemFailureLadder`'s write in isolation: attempt counted, `triaged`, `retry_after`
+stamped, guard held. The stated live acceptance ("a `content_rewrite` save failure landing
+`triaged` + `retry_after`, not `failed`") was never run through the REAL dispatch cycle before
+the contract was declared sound — and in the real cycle the build-dispatch-loop's
+`mark_complete` runs on every returned saga and overwrote the re-triaged row to `complete` two
+seconds later (`triaged` is not in the completion guard; the child ends via a success-labelled
+`complete_workflow`, so gate 1 sees `response.status="complete"`). Pre-307 the same chain ended
+honest terminal `failed`, which the guard blocks — the hole was harmless until the ladder made
+`triaged` a post-failure state. Filed as `bugs_open/344`; one NATURAL false green
+(mortgagecalculator.co.uk, `0c65f9fa`) landed within 18 h of the roll, before the canary flew.
+
+**The cost:** the §2.2 daily-bleed population (~29/day pre-fix, the fix's own headline case)
+converts from honest reds to false greens until 344 is fixed. One real finding already reads
+`complete` with its page untouched.
+
+**The cheap check that would have caught it:** run ONE induced failure through the real
+dispatch loop before declaring a status-write contract live — the canary took 90 seconds and
+found it on its first cycle. Statically: when a fix changes WHICH STATUS a write lands, grep
+every OTHER writer's guard for the new status (`grep -n "NOT IN" *work_item*` — `triaged`
+appears in no guard list) — the 307 round did this for the statuses its own writes protect, and
+not for the status its own writes now PRODUCE.
+
+**The transferable shape:** *a write contract is not proven at the writer — it is proven at the
+last writer to touch the row. If your fix makes state S the new post-failure state, every
+existing writer whose guard was tuned to the OLD post-failure state is now unaudited. The
+by-the-way edit nobody reviews (this lane's own round-1 lesson) has a twin: the by-the-way
+STATE nobody re-audits.*
+
+## 2026-08-21 — I read the code at HEAD and the commit at the STAMP, and treated the two as one claim (staged_component_build lane)
+
+**The call.** Migration 515 needed one precondition: that the running chassis parses a `?`-suffixed
+key on a step's action `config`. I established it in two steps that each looked solid. (1) I opened
+`platform/orchestration/datahelpers/action_inputs.go` and read the `strings.TrimSuffix(k, "?")` peel
+inside the loop over the step config — real code, not a comment, which I had already learned to
+check. (2) I proved the binary carried the enabler commit: build stamp `0483e7f4e` found in
+`/proc/1/exe` with a control, then `git merge-base --is-ancestor ecc419bd1 0483e7f4e`. I wrote that
+into the migration header as VERIFIED and submitted it.
+
+**The hole, found by the council's guardian seat as a HIGH-severity gating objection:** step (1) read
+**HEAD**, step (2) proved a commit was in a **build**, and **nothing joined them.** HEAD is ahead of
+the build. The peel I read could have arrived in a commit *after* `0483e7f4e`, in which case the
+running binary carries `ecc419bd1` and *not* the config-parsing branch — and the migration would then
+write a literal `page_type?` key that nothing ever reads, silently, on every page-build-handler run.
+The seat's phrasing: *"that provenance check proves the ancestor commit is present, not that this
+specific code path … was the thing `ecc419bd1` added."*
+
+**It happened to be fine.** `git show 0483e7f4e:…/action_inputs.go | grep -n 'TrimSuffix(k, "?")'`
+returns lines 694 and 708, both in the config loop, and `git log -L` confirms `ecc419bd1` introduced
+it. So the conclusion held — **on a check I had not run.**
+
+**What caught it:** the council. Not my own review, and not the estate's discipline, which I had
+followed to the letter — the landmine I had just *written* about probing binaries says "probe the
+capability", and I had dutifully substituted commit ancestry when no probeable symbol existed.
+Substituting a proxy is allowed; **failing to notice that the proxy answers a different question is
+the error.**
+
+**The cheap check that would have:** when the evidence for a runtime claim is assembled from more
+than one source, **read the code at the STAMP, not at HEAD** — `git show <stamp>:<path>` costs
+nothing and closes the join. More generally: after writing "VERIFIED", state the claim as a single
+sentence and ask which source establishes *that sentence*. Mine decomposed into two sentences about
+two different objects the moment I tried it.
+
+**The generalisable half.** *"The commit is aboard"* and *"the behaviour is aboard"* are different
+claims, and `merge-base` only ever establishes the first. Every interlock discharged by ancestry
+alone inherits this gap — and ancestry is precisely what this estate falls back to when a change has
+no probeable symbol, which is the case for every pure-logic change. So the fallback route is
+systematically weaker than the route it replaces, and the weakness is invisible unless you name the
+object each check is about.
+
+**Second, separate lesson from the same round: a landmine's TITLE outlived two of its own
+corrections, and a council seat cited it against me.** The entry read *"A `?`-suffixed config key
+parses on `input_mapping` but NOT YET in a step's action `config`"* — with a correction beneath
+saying the gap had been built, and a second pinning the claim to `v1.0.1320`, after which the fleet
+rolled to a binary that parses it. The seat matched the heading. **A reader matches the heading and
+the footprint, not the third paragraph.** If a landmine's truth has a shelf life, put the expiry in
+the title or retire the entry. Corrected in `32ca8ebf0`.
