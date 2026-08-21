@@ -41381,3 +41381,46 @@ console and found out afterwards.**
 
 **Tally note:** this is the same family as the `&&`-vs-`;` and silent-truncation entries — a shell
 construct that reports success while the thing it was guarding failed. Third in this file.
+
+## 2026-08-21 — I built an evidence table where every figure was true and every figure measured the container, then asked the owner to decide from it (bugs_open/347, the "twin pairs")
+
+I handed the owner four page pairs and one question: *which name survives?* The table under
+it was careful — component counts, `rebuild_policy`, bytes served, all eight URLs
+HTTP-tested the same morning against a 404 control. I even led with the warning that a
+component count is a container count and not a content measure, because the robot-hands pair
+is a textbook instance of it.
+
+**Then I opened the pages, and not one of the four pairs was a pair.** fundamentallyai had a
+guide *to the tool* and a standalone *topic guide*. finetuning.uk had a **5**-question
+readiness assessment and a **6**-question quiz — different instruments. robot-hands had a
+pitch page and the working tool it pitches. **Every "remediation" I had scheduled would have
+deleted a live, distinct article.**
+
+**Nothing in my evidence was false.** The counts were right, the bytes were right, the
+statuses were right, the pairing was right *as a name census* — `PageItemStem` strips a
+leading `tool-`, which is what it is for. What was wrong was that **every column measured
+the container and none measured the page**, and I presented the set as though breadth made
+up for that. It does not: eight true container-shaped figures still cannot answer a
+content-shaped question, and stacking more of them only makes the table look more decisive.
+
+**What caught it:** the owner replying *"those guides should be under the guides
+directory"*. That sentence only makes sense if the pages are guides in their own right — so
+I went to read one, which I should have done before writing the file, let alone before
+asking for a decision.
+
+**The check that would have caught it, and its cost:** `curl` the page, strip the tags, read
+the first paragraph. Under a minute for all eight. **I ran it last.** I had reached for the
+database because that is where a census lives, and never noticed I had not looked at the
+thing itself.
+
+**The transferable rule, which is the sharper form of the landmine I quoted in my own
+table:** *a component count is a container count* is a special case. The general case is
+**an entire evidence table can be container-shaped** — and when it is, its internal
+consistency is not corroboration, because every column is drawing from the same blind
+source. Before asking anyone to decide from a table, name the one column that came from the
+artefact itself. If there isn't one, the table is not yet evidence.
+
+**And the specific one for this estate:** a name-stem census pairs *names*. It has never
+claimed to pair *pages* — the docs say in terms that the stem key "is the one layer that can
+pair two genuinely different pages", which is why `stem_twin_snap` ships gated and off. I
+read a signal the estate had explicitly labelled as weak as though it were a finding.
