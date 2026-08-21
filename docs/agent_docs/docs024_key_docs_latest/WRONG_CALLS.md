@@ -41880,3 +41880,24 @@ fix", read X's WHERE clause against the state the fix produces — the analogy n
 only the predicate says whether the row is behind it.* Same family as
 [[client-identity-belongs-to-the-proxy-chain]] ("a spoof proven on service A does not transfer
 to B by code similarity") — this is the guard-side twin.
+
+## 2026-08-21 — backticks in a commit message executed, and it is in my own memory index (bugs_open/305 lane)
+
+**The wrong call:** I wrote a commit message containing a backticked identifier inside a double-quoted
+`git commit -m "..."`. Bash executed it. The shell said `result: command not found`, the commit
+succeeded, and the message now reads *"returns the patched content as its own  - the mechanism…"* with
+the word silently removed. Commit `dd9fc619`.
+
+**Why it is worth logging rather than shrugging off:** this trap is in the fleet memory index, in a
+line I have read this session — *"backticks in `-m` execute"*. It is not a knowledge gap. It is the
+third documented trap I walked into in two days (Postgres `\b`; a verification that could not fail;
+this), and the useful signal is not any one of them but the rate: **on a long task, known traps get hit
+at the moments when the content of the message feels more important than its mechanics.**
+
+**The cheap check:** write commit bodies with a heredoc (`git commit -F -` fed from `<<'EOF'`), which
+does not interpolate — the same quoting discipline this repo already uses for every SQL and Python
+heredoc. If you must use `-m`, keep it to plain prose with no backticks, no `$`, no `!`.
+
+**Cost:** one missing word in one commit message, unfixable in place (forward-only forbids an amend),
+corrected in the following commit instead. Cheap this time; the same mistake in a `psql -c` or a
+`kubectl` argument is not.
