@@ -735,11 +735,31 @@ read-then-write window.
 - ⚠ **Known edge:** `recompose_pages` names realised page names while the sync loop
   reads the CANONICALISED name, so a page whose canonical name differs may not match
   the release. The failure direction is safe (refused and recorded) but it is real.
-- ⚠ **NOT guarded, deliberately** — `apply_gap_plan`'s retype `UPDATE` and its
-  `applyNewPage` conflict arm (incoming lists are non-empty by construction, so this
-  shape would be inert), and `adopt_verbatim` / `apply_adoption_plan` /
-  `create_blog_posts` / `UpsertPageForRole` (different authorities). **Do not read
-  this as fleet-wide cover for `sections` writes.**
+- ⚠ **NOT guarded — and this list was CORRECTED by the council, having been wrong.**
+  The submission called five other write paths safe "by construction"; the
+  `bug_historian` seat objected that this was **asserted, not measured**, citing
+  `bugs_closed/001 → 037 → 050` as a history of exactly this guard shipping for one
+  path and being found incomplete on a sibling within weeks. It was right, and **one
+  of the five was not safe**:
+
+  | path | now checked |
+  |---|---|
+  | `adopt_verbatim` | safe — always writes one element (`[]string{portedPageSlot}`) |
+  | `create_blog_posts` | safe — floors to `hero, article-body, call-to-action` when empty |
+  | `apply_gap_plan` retype / `applyNewPage` conflict arm | safe — `defaultSectionsForPage` never returns empty, and the resolved path is floored by `len(resolved) > 0` |
+  | **`apply_adoption_plan`** | **NOT safe — now guarded (`8922183a5`)** |
+  | `UpsertPageForRole` | different authority, out of scope, not re-examined |
+
+  `apply_adoption_plan_action.go` built `sections := []string{}`, filled it only when
+  the plan page carried the key, and wrote it through an **unguarded `EXCLUDED`** —
+  over LIVE pages, via `ON CONFLICT (site_id, name)`, on the live `site-adoption-agent`.
+  **And that statement already carried the `meta_description` guard, commented "Same
+  guard as upsertPage"** (`bugs_open/320`) — one half of this exact omission had been
+  fixed on this exact statement and the other left. The 001→037 shape, a second time,
+  on a second statement.
+
+  **Do not read even the corrected list as fleet-wide cover for `sections` writes** —
+  it is five paths checked on one day, and `UpsertPageForRole` was not among them.
 
 ⚠ **Two of five mutations SURVIVED the first pass**, and both gaps were invisible in
 a green suite. (1) Mutating the `RETURNING` expression changed nothing, because
