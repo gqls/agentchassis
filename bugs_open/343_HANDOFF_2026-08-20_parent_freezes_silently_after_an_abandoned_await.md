@@ -139,9 +139,19 @@ and `availability-discovery-agent` at `complete`, `generic` at `spawn_verifier` 
 of **0.039 s to 1m36s**, against this bug's shape of a freeze *after* a 300 s exhaustion.
 
 **Why it will mislead:** the capture's trigger is *"an `EXECUTING_STEP` row older than the
-threshold"*, which is far broader than this signature, and its notes carry the `bugs_open/029`
-label — a number that no longer exists and whose freeze now lives here. Four rows in a table named
-`wedge-evidence` reads as four wedges. It is not.
+threshold"*, which is far broader than this signature. Four rows in a table named `wedge-evidence`
+reads as four wedges. It is not.
+
+> **Label, fixed at source 2026-08-21 — so the four historical rows and any new one differ.** The
+> script said `bugs_open/029`, a number that no longer exists. It now says
+> `bugs_open/343 (was 029, split 2026-08-20)` in all three places
+> (`deployments/kustomize/services/wedge-evidence-capture/base/check.py` — docstring, per-capture
+> note title, run-summary title). **Verified at the artefact, not at the apply:** the CronJob mounts
+> `wedge-evidence-capture-script-6bd8f58h7g`, whose data carries the new string, while the previous
+> configmap still carries `bugs_open/029` — the control that shows the grep discriminates.
+> **The four existing rows keep the old label and were deliberately not rewritten**, so searching for
+> either string alone finds only part of the history. The script also now carries the
+> entry-condition test below, because whoever reads a capture is reading a note body, not this file.
 
 **RULING on the trigger, since it lives in this bug now: LEAVE IT BROAD.** Do not narrow it to the
 343 signature. Three reasons, and the third is the one that decides it:
