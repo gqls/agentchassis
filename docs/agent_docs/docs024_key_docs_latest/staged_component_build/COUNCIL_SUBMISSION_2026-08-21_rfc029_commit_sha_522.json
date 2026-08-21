@@ -1,0 +1,32 @@
+{
+  "rationale": "Second batch of handler-side commit_sha standardisation for bugs_open/334 (RFC_029 step 5's real gate), following migration 519 (page-rerender, submitted, awaiting verdict). Same mechanism, same council-approved shape: css-patch-agent is a real, live bdl handler (confirmed against site_work_items.handler_agent, the top-level dispatch column, not a static list) with its own direct git_commit step. Single direct git_commit step (deploy_css), whose next_step is complete DIRECTLY. complete_error (no css_deployed exposed \u2014 deploy never happened) and complete_no_css (reached before deploy_css runs) are untouched by this file; absence of commit_sha there is correct.\n\nSame conversion as 519 and the same reason it is required, not merely convenient: css-patch-agent's `complete` step currently uses `output_fields` (list mode), which uses each entry as both the extraction path and the response key \u2014 a dotted path added to the list would produce a response key that is that literal string, invisible to any dot-path reader. `result_mapping` is the only mode that builds an independently-named target<-source map, and it is mutually exclusive with `output_fields`. So this is a controlled conversion: every currently-exposed field re-declared as an identity mapping (byte-identical response for existing readers), plus one new `commit_sha` entry.",
+  "submitter": "staged_component_build lane \u2014 RFC_029 \u00a710.13 step 5's real gate (bdl/commit_sha), handler standardisation half",
+  "plan": {
+    "summary": "Convert css-patch-agent's complete step from output_fields to result_mapping, preserving every existing field byte-for-byte via identity maps and adding one new canonical commit_sha key sourced from css_deployed.response.data.commit_sha.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/522_css_patch_agent_exposes_commit_sha_canonically.sql",
+        "symbol": "agent_definitions.default_config {workflow,steps,complete,config} (css-patch-agent)",
+        "operation": "modify",
+        "rationale": "Converts css-patch-agent's complete step from output_fields=['css_fix', 'css_deployed'] to result_mapping with identity maps for all 2 existing fields plus commit_sha sourced from css_deployed.response.data.commit_sha. Guarded: exactly 1 live row; complete still runs complete_workflow; output_fields is EXACTLY the list this file was written against; the git_commit step is still git_commit with the expected output_field. VERIFY asserts the exact mapping, confirms it resolves against a REAL completed orchestration (not just that the config string is correct), and a recursive negative control that no other live step acquired this exact mapping. Same shape as migration 519 and its REVISE-round lesson: the sketch shown to reviewers matches the guarded reality, not an abbreviated one-liner.",
+        "sketch": "UPDATE agent_definitions SET default_config = jsonb_set(default_config #- '{workflow,steps,complete,config,output_fields}', '{workflow,steps,complete,config,result_mapping}', jsonb_build_object('css_fix','css_fix', 'css_deployed','css_deployed', 'commit_sha','css_deployed.response.data.commit_sha'), true) WHERE type='css-patch-agent' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL; -- full guard/VERIFY/negative-control/snapshot_agent() in the file"
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/522_css_patch_agent_exposes_commit_sha_canonically_ROLLBACK.sql",
+        "symbol": "agent_definitions.default_config {workflow,steps,complete,config} (css-patch-agent)",
+        "operation": "modify",
+        "rationale": "Restores output_fields and removes result_mapping, refusing unless result_mapping is EXACTLY what this migration wrote.",
+        "sketch": "default_config #- result_mapping, jsonb_set output_fields back; guard checks the exact prior mapping first."
+      }
+    ],
+    "grounded_in": [
+      "Same CONTRIB/reply exchange and ownership split as migration 519 (docs024_key_docs_latest/bugfix_315_deployed_at_without_publication/CONTRIB_2026-08-20..., reply committed 34cff7080): I take the handler configs, the bdl-side wire is the bugfix_315/staged-component-build lane's, after, in that order.",
+      "site_work_items.handler_agent census 2026-08-21 confirms css-patch-agent is a real live bdl handler.",
+      "css-patch-agent's live workflow graph, read from agent_definitions 2026-08-21, confirming the git_commit step and its output_field feeding complete's own contract.",
+      "Live artefact confirmation 2026-08-21: a real completed css-patch-agent orchestration's collected_data.css_deployed.response.data.commit_sha is present \u2014 the exact path this migration maps, read at the data.",
+      "result_contract.go ResolveResultSpec/ApplyResultSpec and the extract_fields rejection, as established in migration 519 (same file, not re-derived).",
+      "Migration 512's REVISE-round lesson (put the real guard in the sketch, not a synopsis) applied here directly."
+    ],
+    "risks": "1. Same standing risk as 519: I am asserting no existing reader depends on the output_fields shape specifically rather than just the keys/values it produces. result_mapping reproduces byte-identical output for every identity-mapped field.\n\n2. This is one of ~7 real handlers; the flip itself is not touched by this submission. bdl still resolves commit_sha via the search until every handler converts and the bugfix_315 lane adds its wire afterward.\n"
+  }
+}
