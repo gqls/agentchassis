@@ -618,3 +618,48 @@ because it holds an undecided OWNER question**, and closing it would bury that: 
 08-11 addendum's blocking condition is cleared, so the gate is **open rather than
 satisfied**. Deleting them is the owner's call and nobody should take it by inference from
 "the bug looks fixed".
+
+### Council trail closed at round 3 — 9 approve / 2 object, and what I did NOT build
+
+Corr `821cf578-9687-4925-961a-4c56f6f8a458`. Three rounds, **each of which found something
+real**, which is the argument for the gate rather than against it:
+
+| round | verdict | what it caught |
+|---|---|---|
+| 1 | REVISE (`prior_art_librarian`, HIGH) | my asserted absence — "no Go code reads this aspect" — and it named the generic aspect-keyed loader I had missed |
+| 2 | REVISE (`bug_historian`, HIGH) | that a `page_rerender` without `spec.reason` is assemble-only — **which had already silently happened to this very fix** |
+| 3 | REVISE (`editquality` + `bug_historian`, HIGH) | that `jsonb_set` is STRICT, so 545's subquery would NULL the whole column if the source row vanished — **and that its counting guard passes on absence** |
+
+Round 3: `debug_historian` and `prior_art_librarian`, both of whom objected earlier, now
+**approve**; so do `reuse_agent`, `guidelines`, `guardian`, `render_guardian`,
+`constitution`, `mission` and `architecture`.
+
+**Round 3's `jsonb_set` finding was confirmed empirically, not accepted on authority** —
+`jsonb_set('{"a":1,"projects":[1,2]}'::jsonb,'{projects}',NULL)` → `NULL`, and 545's guard
+evaluates `v_jpg = 0 → PASSES` against a non-existent aspect. 545 was **safe by its verify
+block and unsafe by its guard**. Now in `LANDMINES.md`; the migration is applied and
+correct, and this is recorded as a property of its *shape*, for whoever copies it.
+
+**The two objections I am NOT acting on in this round, and why — stated rather than
+quietly dropped:**
+
+1. **`editquality`: the rerender dispatch is prose, not a reviewable edit.** Fair. It was a
+   one-off `INSERT` into `site_work_items`, and its exact shape (`item_key`, `spec.reason`,
+   `page_id`, `page_name`, the terminal status, both commit shas and the served-page
+   readings) is recorded above and in the commit trail, so it is auditable even though it
+   is not a numbered file. Minting a migration to re-dispatch a rerender that has already
+   completed would be paperwork, not reproducibility.
+2. **`bug_historian`: nothing structurally prevents the allow-list downgrade recurring.**
+   Agreed, and that is precisely why it is **not** in this round. A guard that refuses or
+   flags a `page_rerender` filed without a recognised `reason` is a change to a **shared
+   seam** used by every producer of that item type — and most of them legitimately carry no
+   `reason`, because most are genuinely assembly jobs, so the naive version breaks the
+   fleet. CLAUDE.md's platform-seams ruling is explicit that a shared mechanism arriving
+   inside a bug patch draws a guardian veto **and deserves one**. The prospective control
+   that fits today is the LANDMINE entry, which is written. **If someone wants the
+   mechanical version, it is a detector over `site_work_items` — not a change to
+   `check_rerender_mode`'s `else_step`, which would be the wrong door.**
+
+The gate is advisory and the change is live and proven at the served page, so the trail
+closes here rather than iterating a fourth round on a fix whose correctness is no longer in
+question.
