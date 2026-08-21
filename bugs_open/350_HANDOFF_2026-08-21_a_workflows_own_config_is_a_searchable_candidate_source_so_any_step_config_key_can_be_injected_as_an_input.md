@@ -1,4 +1,4 @@
-# 344 — a workflow's OWN `config` is a searchable candidate source, so any step-config key can be injected as an input value
+# 350 — a workflow's OWN `config` is a searchable candidate source, so any step-config key can be injected as an input value
 
 **Filed** 2026-08-21 by the `staged_component_build` lane (RFC_029 step 5 census).
 **Found by** dispositioning the smallest conflict class on the board — 3 rows — and reading where
