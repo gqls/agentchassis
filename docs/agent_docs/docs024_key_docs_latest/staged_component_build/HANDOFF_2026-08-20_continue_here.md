@@ -452,6 +452,41 @@ envelope is doubly nested (`response.<field>.response.data.`) on `call_agent`-re
 their `result_mapping` work is meant to have flattened that. **Read a live post-535 bdl tree before
 writing the path**; do not take `handler_result.response.commit_sha` from this paragraph.
 
+## 2.8 TIER C IS CLOSED OUT — every remaining pair now has a recorded decision (2026-08-21 ~15:3xZ)
+
+⚠ **First, a CORRECTION to §2.4's own table.** It lists `bdl`/`result` as *"quiet, UNWIRED ⇒ not
+closed"*. **That is wrong — it IS wired**, `result!: handler_result`, strict. I missed it because I
+probed `config ? 'result'` at the TOP level and `mark_complete` is **nested** inside the
+`process_item` loop's `sub_workflow`. **That is the fifth time this lane has been bitten by the
+top-level census.** Use the recursive form and it is unambiguous:
+```sql
+SELECT jsonb_path_query_array(default_config, '$.**.config."result!"')::text
+  FROM agent_definitions WHERE type='build-dispatch-loop' AND is_active
+   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- ["handler_result"]
+```
+**`bdl`/`result` is CLOSED by its existing strict wire.** So the ⚪ list is two, not four.
+
+**The remaining decisions, each read AT THE CONSUMER rather than inferred from a row count:**
+
+| pair | rows | decision | why |
+|---|---|---|---|
+| `bdl` / `result` | 326, last 08-17 | ✅ **CLOSED — already wired** `result!: handler_result` | §2.4's entry was my error; see above |
+| `page-rerender` / `current_page` | 78, last 08-18 | ✅ **CLOSED ON MECHANISM** | §2.5 — no production spec declares `current_page`, so it only ever arrives via the call step 3 gated, and no page-rerender step requests it |
+| `generic` / `page_id` | 2, last 08-17 | 📝 **ABSENCE IS CORRECT — flip is the fix, no migration** | Winner was `call_completeness_discovery.response.discovery_result.findings[0].page_id` out of **86–90** candidates: an arbitrary finding's page. Every consumer declares `page_id` Optional (`create_work_item`, `load_current_section_content`, `load_page_record`). A random finding's page is strictly worse than nothing |
+| `generic` / `summary` | 3, last 08-17 | 📝 **ABSENCE IS CORRECT — flip is the fix, no migration.** ⚠ **AND IT EXPOSED A NEW BUG** | Winner was `config.workflow.steps.probe_control.config.summary` — the resolver descended into the orchestration's **own workflow definition**. `create_work_item` declares `summary` Optional, so absence is fine and the flip handles it. **But the surface is not: `isInfrastructureKey` skips `agent_config` and `retry_payload` and NOT plain `config`, and 1941 of 3107 orchestrations carry a `config` key — 208 of them the whole workflow. Filed as `bugs_open/350`.** The flip closes the conflicting half of that and **not** the silent half |
+| `tg` / `related_pages` | 17, last 08-20 | 📝 **ABSENCE IS CORRECT — flip is the fix** | = `bugs_open/330`; the audit's own words are *"absence is the fix"* |
+
+**So the step-5 census is fully closed:** 11 pairs closed by steps 1–4, 2 more closed here
+(`bdl`/`result`, `page-rerender`/`current_page`), 3 dispositioned as *absence is correct* (needing
+no migration, only this record), `pbh`/`page_type` fixed and proven by **515**, `tg`/`reason` fixed
+by **512** (verification blocked on demand), and `bdl`/`commit_sha` — the last live blocker — fixed
+by **539**, in council review now.
+
+**After 539 lands and is verified, the precondition is MET and the flip itself is the only work
+left.** Its design must still say out loud what §5 says: "zero conflict WARNs" was never sufficient,
+because the instrument cannot see agreeing candidates — and `bugs_open/350` is now a second worked
+example of that, on a different surface.
+
 ## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
 
 §2.0's two axes (WIRED? × WHICH SIDE OF THE PRUNE?) generalise to the whole census, and applied
