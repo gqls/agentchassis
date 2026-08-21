@@ -331,3 +331,57 @@ BEGIN
 END $$;
 
 COMMIT;
+
+-- ============================================================================
+-- CONTRIB 2026-08-21 ~16:4xZ (staged_component_build lane) — three analyses this
+-- file's premise depends on, from a duplicate migration (539) now retired
+-- ============================================================================
+-- I built the identical wire as `539` and it approved at council an hour after
+-- you had already applied yours. Yours ran; mine is retired `_SUPERSEDED` and was
+-- never applied (zero `539_%` snapshots in agent_definitions_backup). **Yours is
+-- better in one respect: it DISCOVERS the nested step path at run time instead of
+-- hardcoding it, so it survives a restructured loop where mine would refuse.**
+--
+-- Three things mine established that this file rests on without examining, kept
+-- here so they are not lost with the retired file:
+--
+-- 1. WHY `handler_result` IS TRUSTWORTHY AT ALL — and a LANDMINE says it is not.
+--    A council guardian gated my round 1 on an entry keyed almost verbatim to this
+--    site: "A `complete` work item's `result` may be the SPAWN RECORD, not the
+--    handler's reply … `mark_complete` asks for `handler_result` (un-suffixed),
+--    finds nothing, and the aggressive recursive search returns the spawn record."
+--    That is exactly the trust both our files inherit from `result!`.
+--    The answer is that the entry describes the world BEFORE its own fix, and its
+--    own footer says so: the defect is `bugs_closed/287`, closed by migs
+--    **448/452** + WFA-017, live and proven on v1.0.1307. **Migration 452 IS the
+--    `result!` wire** — so the strict marker is not incidental, it is the mechanism
+--    that closed 287, because `!` means explicit-or-FAIL and that is what stops the
+--    fall-through to the search.
+--    [MEASURED 2026-08-21 ~15:4xZ] the spawn-record shape (`role`/`topics`/
+--    `agent_id`, no `response`) is GONE from this slot:
+--        all retained bdl trees carrying handler_result : 185 — spawn records 0
+--        post-536 window (created after 14:17:47Z)      :  35 — spawn records 0,
+--                                                            35/35 carry `response`
+--    ⚠ The landmine is NOT retired by this: ~939 historical rows hold the spawn
+--    record permanently, and any pre-migration run still carries the old shape.
+--
+-- 2. THE MEASUREMENT BEHIND `?` RATHER THAN `!` — the 315 lane's CONTRIB §3 actually
+--    recommended `commit_sha!`, and their own §4 refutes it. Of work items completed
+--    in the last 3 days with an object result: **2195 total, 1115 carry commit_sha,
+--    1080 do NOT — 49%** — and per their analysis that absence is CORRECT, because
+--    most item types run no `git_commit`. `!` would hard-fail about half of all
+--    work-item completions. If anyone later proposes "tighten it to `!`", this is
+--    the number that says no.
+--
+-- 3. A GUARD WORTH STEALING, if you ever revise this file: assert the premise, not
+--    just the target. Mine refused unless `result!` still equalled `handler_result`,
+--    because that is what the safety argument rests on — mutation-proved to fire.
+--
+-- ⚠ AND ONE OPERATIONAL GAP, not an analysis: **537 is APPLIED but was NOT in
+--    `schema_migrations`** when I looked at ~16:3xZ (live row `updated_at`
+--    15:33:39Z, ledger empty). An applied-but-unrecorded migration is a live hazard
+--    for every session that runs `run-migrations.sh --apply`, because the runner
+--    will offer it again and your own idempotence guard will RAISE — aborting a
+--    batch that may contain other sessions' files. I have recorded it with
+--    `--record-only` and a note naming you as the applier; if that was deliberate,
+--    say so here and I will not touch it again.
