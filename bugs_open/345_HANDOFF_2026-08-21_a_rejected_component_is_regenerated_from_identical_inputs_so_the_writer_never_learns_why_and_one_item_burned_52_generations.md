@@ -141,3 +141,82 @@ a retry able to differ.
 - `bugs_open/309` — the guard's own citation, and the reason the refusal is correct.
 - `016b` §9, "N identical failures with IDENTICAL numbers is a deterministic refusal" — the
   diagnostic that turned this from "flaky generation" into a measurement.
+
+---
+
+## CONTRIB 2026-08-21 (evening, `remortgagecalculator.uk` CSS lane) — the fix is LIVE, it has NEVER FIRED, and the hallucination was a NEAR-MISS on a real namespace
+
+The owner asked me why remortgagecalculator.uk still has no calculator. I traced it here rather
+than filing anything: this file already owns the mechanism, `bugs_open/309` owns the guard that
+emits the message, and `311`'s diversion demonstrably worked upstream. **Nothing new was filed.**
+Three things below are state this file does not yet have.
+
+### 1. Both halves of candidate 1 are now LIVE — this file still says "INERT until the next chassis roll"
+
+| half | state | evidence |
+|---|---|---|
+| Go (`item["last_error"]`) | **LIVE** | chassis rolled to **v1.0.1322 at 16:54:34Z today**. Probed on BOTH replicas with a control in the same breath: the truncation literal present = 1 on each; invented control `zz_no_such_symbol_345` = 0 on each |
+| config (migration `533`) | **APPLIED** | the live `component-creator` row's prompt contains `{{if .input_data.last_error}}\nPREVIOUS ATTEMPT REJECTED — THIS IS A RETRY.` |
+
+Wiring reads consistent end to end (the loader's item map is what the handler receives as
+`input_data`, and the prompt reads `.input_data.last_error`), **but that is a code reading, not a
+demand proof** — see the next point.
+
+### 2. It has never fired, and the reason is by design — so do not read the quiet as success
+
+`SELECT count(*) FROM orchestration_states WHERE collected_data->'input_data' ? 'last_error'` →
+**0, all history.** Also 0 source-vocabulary rejections in the last 24h. That is expected and not
+reassuring: the fix is gated on `attempt_count > 0`, item `95fe67da` was **cancelled at attempt 2
+at 12:13Z — four hours BEFORE the roll**, and nothing has retried since.
+
+**The 311 lane has already re-driven it:** item **`e9e5a10b-928e-411a-8488-991dadec8afa`**, created
+**18:08:44Z**, `created_by='bugfix_311_redrive'`, `status=triaged`, `attempt_count=0`, same section
+`mortgages-repayment`. **That item is this fix's first real test.** Its attempt 0 is byte-identical
+to pre-345 behaviour by construction, so **attempt 0 failing identically proves nothing** — this
+file's own success signal (a second attempt whose reason DIFFERS) can only be read at attempt 1.
+
+### 3. The invented source was a NEAR-MISS on a real namespace, and the value it wanted exists NOWHERE
+
+This file says (§ around the grep) that `locale` returns nothing. **That is overstated, and the
+correction strengthens the diagnosis rather than weakening the guard.** Measured against the live DB:
+
+- **No `locale` ASPECT exists** — `SELECT count(*) FROM site_specs WHERE aspect='locale'` → **0**,
+  across 20+ real aspects (`classification` 1227, `identity` 253, `evidence_base` 253, … `site_config` 28).
+  So the guard is right and must still not be worked around.
+- **But a `locale` NAMESPACE does exist, on this very site.** `remortgagecalculator.uk` carries
+  `site_specs` aspect **`site_config`** = `{"locale": {"lang": "en-GB"}}` (27 sites carry a locale
+  under `site_config`; migration `508_site_specs_locale_lang.sql` put it there, addressed by the
+  `config.locale.*` dialect).
+- **And `currency_symbol` resolves nowhere at all.** No site carries one in structured form;
+  `currency` appears only inside prose-ish aspects (`strategy` 4, `vertical_landscape` 2,
+  `content_direction` 1, `identity` 1, `tools` 1) — never as a resolvable field.
+
+**So the model was not inventing arbitrarily.** It could see a real `locale` object with `lang` in
+it and reached for `locale.currency_symbol`, a plausible sibling — then addressed it through the
+`site_specs.<aspect>` dialect instead of `config.`. Two errors stacked: right namespace, wrong
+dialect; and a leaf that does not exist under any dialect.
+
+**What that does to the candidates:**
+- **Candidate 4 ("enumerate valid sources") would NOT have saved this one.** Listing the aspects
+  tells the model `locale` is not an aspect; it does not tell it where the currency symbol is,
+  because *there isn't one anywhere*. This file's argument against candidate 4 survives, but the
+  reason is stronger than "site_specs is already an input": the needed value is absent from the
+  data model, not merely mis-addressed.
+- **Candidate 1 is the right primary**, and the guard's own message already carries what a retry
+  needs (it lists the aspects that exist).
+- **A fifth thing this file does not list, and it is the real one for a UK mortgage calculator:**
+  a component that needs a currency symbol has **no legitimate resolvable source for it**. Whatever
+  the retry writes must either hardcode `£` or drop the field. If that is the intended answer it
+  should be stated somewhere the writer can read; if it is not, the data-model gap is the fix.
+  Recorded here rather than filed — it is one measurement, not a diagnosed defect, and it belongs
+  to whoever owns the field-source vocabulary (`bugs_open/309`'s territory).
+
+### 4. Symptom confirmed at the artefact, for the record
+
+`https://remortgagecalculator.uk/` today: 200 / **41,136 bytes** / **0 `<form>`, 0 `<input>`,
+0 `<select>`**; the only `<button>` is the mobile-menu toggle and the only `/tools/` asset is the
+lender-directory JS. Three prose sections (`brief-explanation`, `info-card-grid`, `cta`). The copy
+promises the tool it lacks — `<h1>See what your payment could be after your fix ends`,
+"Your number takes seconds to work out." Note the byte count has MOVED from this file's pinned
+`40,726 B / md5 89910f6e…` (an unrelated index rerender ran at 17:2xZ from the CSS lane), so
+**re-pin before grading the repair** rather than diffing against the old md5.
