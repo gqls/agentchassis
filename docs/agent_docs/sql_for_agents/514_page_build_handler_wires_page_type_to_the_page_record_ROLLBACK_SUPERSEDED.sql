@@ -1,3 +1,11 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ SUPERSEDED 2026-08-21 — the migration this rolls back was never applied
+-- (retired in favour of 515_page_build_handler_plan_sections_declares_page_type).
+-- See the SUPERSEDED banner on 514's main file for the full account. This
+-- sidecar is kept only so the pair stays together under one number; it has
+-- nothing to roll back and nothing should ever invoke it.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 -- ROLLBACK for 514 — remove the page_type wire from page-build-handler's
 -- plan_sections step, returning it to the whole-tree search.
 --

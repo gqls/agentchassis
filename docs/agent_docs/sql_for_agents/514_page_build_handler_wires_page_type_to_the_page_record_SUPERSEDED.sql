@@ -1,3 +1,62 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⛔ SUPERSEDED 2026-08-21 — DO NOT RUN. Migration 515
+--    (515_page_build_handler_plan_sections_declares_page_type.sql) is what
+--    actually ships for this pair.
+--
+-- Two sessions of the staged_component_build lane worked pbh/`page_type`'s
+-- disposition in parallel without seeing each other. Both aimed at the exact
+-- same jsonb path (`{workflow,steps,plan_sections,config}` on
+-- page-build-handler) and both were council-submitted before either applied —
+-- this file under `Council-Submitted: 81a4fe27-8cbf-458f-8a55-c55698fbd6e3`,
+-- 515 under `a452fc2a-160f-485c-949c-367c34c65df2`. Neither has applied to the
+-- live row as of this write (checked: `schema_migrations` has no row for
+-- either number, and the live `plan_sections.config` carries no `page_type`
+-- key of any spelling).
+--
+-- ⚠ AND THIS FILE'S FIX IS GENUINELY THE WEAKER OF THE TWO, not merely
+-- redundant — that is the reason to retire it rather than flip a coin. This
+-- file wires a PLAIN key (`"page_type": "page_record.page_type"`), which
+-- resolves via Strategy 0 only when `page_record.page_type` is present in the
+-- tree and falls through to the whole-tree search when it is not. **515's own
+-- measurement, which this file never ran, is that `page_record.page_type` is
+-- ABSENT on 18 of 31 recent orchestrations** — so a plain wire fixes the
+-- 13/31 minority and leaves the 18/31 majority exactly as exposed as they are
+-- today, guessing a SIBLING page's type from the site's page list whenever
+-- those siblings happen to agree (the instrument's own blind spot: agreeing
+-- candidates write no conflict row, so the substitution is silent on top of
+-- being wrong). 515 uses the `?` OPTIONAL-EXPLICIT marker instead — resolve
+-- from the named path or be ABSENT, never the search — which closes the gap
+-- in BOTH directions rather than one.
+--
+-- The tell, in hindsight: this file's own measurement asked "when both
+-- `load_page_record.page_type` and `page_record.page_type` are present, do
+-- they agree" (13/13, yes) and never asked "how often is the chosen path
+-- present at all" — agreement and coverage are different questions, and only
+-- the second one tells you what a plain wire actually protects. Logged in
+-- WRONG_CALLS.
+--
+-- Renamed with an uppercase suffix so the migration runner's SIDECAR_RE
+-- (`_[A-Z][A-Z0-9_]*\.sql$`, run-migrations.sh:65) excludes it from --apply
+-- while still listing it, and so `council-scope.sh`'s own `_SUPERSEDED`
+-- exclusion keeps it out of scope for any future review. It is NOT in
+-- `schema_migrations`. If it were ever run by hand, its own guard would
+-- refuse cleanly: it checks for an UNMARKED `page_type` key, which 515 never
+-- writes (515 writes `page_type?`), so the two files' guards do not even see
+-- each other — a real collision was possible had both applied, which is why
+-- this is retired now rather than left to be resolved by which one landed
+-- first.
+--
+-- ADDENDUM: the council round finished after retirement (2026-08-21 10:30:25Z,
+-- REVISE, editquality gating). Worth recording since it is a second, distinct
+-- lesson from this file's real, honest guard blocks below: **the objections
+-- attack the submission's `sketch` field, which carried only the bare
+-- `jsonb_set(...)` one-liner, not this file's actual guard/VERIFY blocks that
+-- already answer them** (restructure check, already-wired check, sibling-
+-- convention check, all present below). A reviewer sees the sketch, not the
+-- file — an abbreviated sketch reads as an unguarded migration even when the
+-- real one is not. Put the guard in the sketch next time, not a summary of it.
+-- ═══════════════════════════════════════════════════════════════════════════
+
 -- 514 — page-build-handler's `plan_sections` step WIRES `page_type` to the
 --       page's own record, so the whole-tree search stops guessing it.
 --       RFC_029 §10.13 step 5 precondition work. CONFIG ONLY — live on apply.
