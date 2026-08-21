@@ -966,3 +966,70 @@ with all eleven rows named and attributed, and one suggestion left explicitly as
 `DetectInstanceCollisions` already exists as RFC_034's acceptance gate for conversions, and running
 it at **store time** on `store_generated_component` / `create_tool_component` would make the backlog
 finite instead of self-replenishing.
+
+## 2026-08-21 afternoon — the owner's three tasks: one FIXED, one BLOCKED BY DESIGN (and it would have been a silent fleet-wide break), one PROPOSED
+
+### Task A — "fix the 311 unscoped bug": NOT BUILT, on purpose, and this is the important finding
+
+The obvious fix is to give `store_generated_component` the birth gate the `283` lane shipped for
+tools this morning (`create_tool_component_action.go:245`, `ScopeToolBirthTemplate`, opt-in via
+`enforce_instance_scope`). Their helper is generic — nothing in it is tool-specific. **It would
+have been a one-line change, and it would have broken every calculator this lane repairs.**
+
+**Why** [MEASURED at the artefact]: `store_generated_component_action.go:158` calls
+`separateInlineJS`, which lifts every inline `<script>` out of the template and replaces it with
+`src="/tools/assets/<function>.js"`. **`create_tool_component` does not** — that grep has exactly
+one production call site. So tools keep their JS inline (the conversion can rename an id *and* its
+lookup in one pass, and `GateConvertedTemplate` can prove nothing dangles) while **sections ship
+their JS as a static asset that cannot carry `{{.InstanceID}}`.** Live proof on a row this lane
+minted: `2e497429`'s template carries the `src=`, and the served asset is 200 / 3,516 B / **15
+`querySelector` calls** / 0 `getElementById` / 0 template tokens.
+
+Both orderings fail and **one fails silently**: converting before extraction writes Go template
+syntax into a served `.js`; converting after prefixes the template's ids while the asset's 15
+lookups keep the old names — and the gate, which sees only the template, would report **clean**.
+That is a silent break wearing the fix's clothes, which is the exact class their own
+`AlreadyConverted` arm exists to refuse.
+
+**Also found, and it is why our rows were invisible**: their new daily sweeper selects on
+`html_template ~ 'getElementById'`. Holding their population definition fixed and varying only that
+clause: it **sees 8 of 39 and misses 31** (24 section, 7 tool), and **27 of the 31 do carry a
+script** — 6 `querySelector`, 22 referencing a `.js` asset. Only 4 have no script at all.
+
+Written up for them with four costed options and a stated preference (stop extracting JS for
+components that need scope — it deletes a special case instead of adding one):
+`bugfix_283_component_instance_scope/CONTRIB_2026-08-21b_from_311_lane_your_sweeper_is_blind_to_31_of_39_and_the_section_writer_cannot_take_your_birth_gate.md`.
+**Their seam, their programme, and a design choice that costs page weight or caching — so it is
+theirs to make, and I would rather build what they choose than guess.**
+
+### Task B — `345`: FIXED, committed, council-submitted, inert until the roll
+
+`Council-Submitted: 67b07528-b40b-4eef-9abc-35ad70efae04`. Go half exposes
+`current_item.last_error` (attempt-gated, blank-dropped, 2,000-char cap); migration **`533`** makes
+the prompt read it, `{{if}}`-guarded so a first attempt is byte-identical. Four tests, each
+mutation-proven. Full account in `bugs_open/345`, **including where the code actually is**: the Go
+half rode into commit `0f80f5ea1` (message: `bugs_open/344`) as a same-file passenger, so
+`git log` on 345 will not find it — `git log -S 'item["last_error"]'` will. Verified nothing was
+lost by building `git archive HEAD` in a clean directory and running the tests there, which is the
+right check on this tree and not the same as a green local build.
+
+**`533` is committed but NOT applied.** The runner takes `--apply` / `--no-probe` /
+`--record-only <file>` / `--note` and **has no per-file or per-directory scope**, so applying mine
+would take every pending migration in the tree — including another session's `532`, which appeared
+while I was writing (I renumbered `532` → `533` mid-task because of it). It is inert until the Go
+half rolls, so there is nothing to gain from forcing it.
+
+### Task C — the `283` programme rewriting our baselines: proposed, not imposed
+
+Attribution was never the problem — `component_versions` holds the previous bytes and the
+`change_source`, so proving my run had not touched a moved incumbent took one query. The residual
+is only a **concurrent** write during someone else's repair. Proposed to them, cheapest first:
+(a) widen their converter's existing skip from "an open `instance-scope:` item" to **any**
+non-terminal work item naming that component — one clause, closes it entirely; (b) our same-day
+pin discipline, already a RUNBOOK pre-flight, which needs nothing from them.
+
+**I told them I do NOT think `RFC_034` needs overruling, and I am telling the owner the same.** Its
+in-place, through-the-framework shape is precisely what made the rewrite auditable; the collision is
+a coordination gap, not a design flaw, and (a) closes it for one clause. The owner's offer to
+overrule is better spent elsewhere — but if that lane would rather have a hard interlock, they have
+been invited to say so and I will put it up.
