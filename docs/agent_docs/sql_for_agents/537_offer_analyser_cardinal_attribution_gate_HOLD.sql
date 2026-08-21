@@ -47,6 +47,18 @@
 --      "some 40-hex string" (it matches Go's internal digit table and returns the
 --      same wrong answer on every service).
 --
+--      BETTER STILL, PROBE THE CAPABILITY RATHER THAN THE COMMIT. What actually
+--      matters is not "which sha built this" but "does this binary REGISTER the
+--      action" — and the registry map key is a string literal in the binary, so
+--      it can be asked directly. Run BOTH lines; the second is the control, and
+--      a probe without one cannot tell "absent" from "my grep is broken":
+--        kubectl -n ai-persona-system exec <pod> -- \
+--          grep -aq "verify_cited_cardinals" /proc/1/exe      && echo PRESENT-ok
+--        kubectl -n ai-persona-system exec <pod> -- \
+--          grep -aq "verify_cited_cardinals_NOPE" /proc/1/exe && echo CONTROL-FAILED
+--      Expect PRESENT-ok and NO second line. The control is a plausible name that
+--      must be ABSENT — never 40 zeros, which matches everything.
+--
 --   2. THE FIRST QUERY AFTER APPLYING IS "WHAT DID I BREAK?", NOT "DID IT WORK?".
 --      An unregistered action name fails the whole offer-analyser workflow, not
 --      just this step:
