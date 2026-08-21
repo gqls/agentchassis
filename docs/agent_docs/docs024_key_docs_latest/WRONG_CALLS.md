@@ -40853,3 +40853,32 @@ actually be checked.* When a lesson is going to be applied N times in one sessio
 template/generator, the check belongs IN the generator (e.g., assert the sketch string contains
 `RAISE EXCEPTION` or is longer than some threshold, not just a one-line UPDATE), not in the memory of
 having written the lesson down once earlier the same day.
+
+## 2026-08-21 — staged_component_build: I fixed a misleading heading by APPENDING the correction to it, which hides it from exactly the readers who were misled
+
+**The claim.** A landmine heading carried an expired finding ("`?` … NOT YET in a step's action
+`config`"). It had already caused one false council objection before mine, and its own closing
+paragraph prescribed the remedy: *"If a landmine's truth has a shelf life, put the expiry in the
+TITLE or retire the entry."* I applied that — by appending ". `?` … was INERT up to `v1.0.1320` and
+is LIVE from `v1.0.1321`" to the end of a heading that opened with the general statement of the trap.
+
+**What was wrong.** The next council round read the entry and objected that it "still shows the
+generic text … not the version-qualified heading claimed". It did. **Anything that truncates — a
+review snapshot, a listing, a search result, a `left(body, 90)` — shows the opening clause and stops.**
+The entry's whole finding was *readers match on the heading*; putting the correction at the end of
+the heading keeps it out of exactly the window those readers see. I had satisfied the letter of the
+prescription and reproduced the defect it was written about.
+
+**What caught it.** The council seat, on the round immediately after — and only because it quoted
+what it could actually see rather than what the file contains.
+
+**The cheap check that would have caught it.** Read your own heading truncated to ~80 characters and
+ask whether the corrected state survives. Better, check it at the surface the reader uses rather than
+in the file: `SELECT left(body, 90) FROM doc_notes WHERE …` shows precisely what a seat is handed.
+
+**Transferable.** A correction is only a correction where it is READ. This generalises past headings:
+the first line of a doc, the summary field of a record, the subject of a note, the first sentence of
+a commit message — all are read by something that stops early. **Put the state in front of the
+explanation, not after it.** Related: the existing lesson that an entry encoding a point-in-time
+state keeps asserting it after corrections accumulate below — this is its sharper form, because here
+the correction was IN the heading and still invisible.

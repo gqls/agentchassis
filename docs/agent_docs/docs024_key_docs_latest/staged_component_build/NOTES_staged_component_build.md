@@ -6423,3 +6423,49 @@ stand in for it.**
 no `git` process alive). That is the crashed-process case git's own error names, and it blocks
 every session on this tree, not just the one that meets it. Removed. Worth knowing that the first
 symptom is a commit failing with advice that reads like it is about YOUR command.
+
+## 2026-08-21 (~13:00–15:00Z) — the marker has a LIVE WIRE, and three council rounds found three real defects in my own work
+
+**515 IS APPLIED** (13:19:19Z, verified in `agent_definitions`: `plan_sections.config.page_type?` =
+`page_record.page_type`, unmarked key gone). That is the `?` marker's **first production wire**, and
+it is another session's. Result so far: pbh/`page_type` conflict rows since = **0 against 4 pbh
+runs**, last row 2026-08-20 15:11:38Z (before the wire). **Detection floor, stated so nobody
+over-reads it:** the class fired on roughly the 13/31 of runs where the page's own record is present
+to conflict with the sibling array, so P(0 over 4 runs) ≈ 10%. **Consistent with working; not proof.**
+
+**The gate earns its keep on day one.** `--optional-explicit-wires` over today's live fleet: **1 wire,
+0 unacknowledged, exit 0** — green only because I had written 515's acks entry from its own migration
+header. Without it the gate would be RED for the next person to run it, for a reason unrelated to them.
+
+**Binary liveness settled the way the council asked.** prior_art objected (correctly) that "the marker
+is live on v1.0.1321" is a deployed-binary fact that no DB or code-index tier can settle. Done at the
+artefact: `grep -aqF "0483e7f4e…" /proc/1/exe` → PRESENT, fake-sha control → exit 1. **Why the normal
+capability probe was unavailable:** `ecc419bd1` adds no new string literal (its quotable phrases are
+in COMMENTS, which Go strips) and no new exported symbol — all closures and locals. A pure-logic
+change has nothing to probe FOR except the build stamp itself.
+
+**Three defects the seats found in my work, all real:**
+1. **editquality:** nothing pinned "the shared parser changes no behaviour" against the 6 live `!`
+   wires. Now `marked_config_key_parity_test.go` — the retired algorithm transcribed, parity asserted
+   across all **56** live marker spellings, vacuity controls both kinds, mutation-proved. **It caught
+   me too:** I predicted `field!?` diverges; it does not (TrimSuffix strips a SUFFIX, so on a key
+   ending `?` the retired form's first branch is a no-op). The "must diverge" assertion is what
+   caught the wrong prediction — an expectation table without one records your guess as a finding.
+2. **editquality + the `validation.WalkSteps` landmine:** 516 hard-typed its two carriers from a
+   TOP-LEVEL census — the descent that cannot see a nested wire. Apply, VERIFY and ROLLBACK now run
+   off one recursive walk with **no path literals**; VERIFY asserts the GLOBAL postcondition (no
+   unmarked carrier anywhere) instead of re-checking the paths it just edited.
+3. **debug_historian:** after a successful apply the walk *necessarily* finds zero unmarked carriers,
+   so "refuse on zero" made an idempotent re-run indistinguishable from a broken walk. The zero now
+   branches on the MARKED population. **Proven by inducing the state** (pre-apply the rename in the
+   same transaction, then run the migration), not by reading the code.
+
+**And the one worth carrying beyond this lane — I fixed a heading and RELOCATED the flaw.** Round 1
+of 516 was gated by a seat citing a landmine whose heading still said "NOT YET", a finding that had
+expired days earlier; two corrections below it already said so, and its own closing paragraph
+predicted exactly this ("a reader matches on the heading and the footprint, not on the third
+paragraph"). I applied its prescription and put the version state in the title — **at the END**. The
+next round objected that the snapshot "still shows the generic text, not the version-qualified
+heading claimed", because **a truncating reader sees only the opening clause.** Same failure, moved.
+The state now LEADS the heading. Verified where it matters: all four `doc_notes` rows for that entry
+carry the new body — seats read `doc_notes`, not the file.
