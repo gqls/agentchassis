@@ -994,3 +994,16 @@ arm should file the content item itself when the template's field set changes.
 Remaining for the NEXT session: LMC pair after the veto window (~midday) with consolidation's
 oracle-block rewrite; finetuning tail verification; tomorrow's 07:40 sweep steady-state read
 (corpus should be ~0 now the shared pair is resolved); then CLOSE 324 and 283.
+
+> **CORRECTED 2026-08-21 21:0x — the finetuning claims-floor diagnosis above was WRONG.**
+> I wrote "the missingkey=zero exposure renders an unfilled content field as 0" [INFERRED, and
+> the inference was wrong]. The measured cause: the rebuilt template's own ZERO-STATE copy
+> literally contains `<span id="…-error-reduction-percent">0</span>% reduction` — the results
+> panel reads "a 0% reduction" before any input. Found by searching the template for
+> '% reduction' (my earlier '0% reduction' search missed it because the 0 lives inside a span).
+> The content-refresh item I seeded on the wrong theory completed as mark_no_ready_sections /
+> needs_human_review — harmless, cancel it when the real fix lands. The real fix: one final
+> regen of c243e0e0 with a claim-free zero-state requirement in the spec (seeded, watched).
+> Both fresh births are clean of the phrase (checked all 5 active rows: only c243e0e0 carries
+> it). Follow-on worth a prompt rule: zero-state result copy must not read as a claim —
+> today the claims floor catches it fail-loud at publish, which is correct but costs a regen.
