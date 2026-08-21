@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~11:3xZ), fresh chat starts here: **steps 1–4 LIVE + PROVEN. Tier A is EMPTY. The `?` enabler is LIVE on `v1.0.1321`. Two live classes left (`bdl/commit_sha`, `tg/related_pages`), one migration in review (515, `pbh/page_type`), and one applied-but-unverifiable (512).**
+# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~17:1xZ): **STEP 5 IS BUILT. THE FLIP IS COMMITTED** (`5fe010ada`, council `26186633`) — steps 1–4 live+proven, the census fully dispositioned, and the resolver now REFUSES a conflict. **Inert until a chassis roll carries it.** Remaining: read the verdict, verify post-roll, retire the read tolerance.
 
 > **⚠ THIS FILE NOW CONSOLIDATES TWO.** `HANDOFF_2026-08-18b_continue_here.md` was still being
 > updated by a parallel session of this lane until ~10:17Z today (its audit results are folded in
@@ -451,6 +451,61 @@ otherwise absent, no error. Same shape as 515, and the marker is now proven in p
 envelope is doubly nested (`response.<field>.response.data.`) on `call_agent`-reached handlers, and
 their `result_mapping` work is meant to have flattened that. **Read a live post-535 bdl tree before
 writing the path**; do not take `handler_result.response.commit_sha` from this paragraph.
+
+## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
+
+`findFieldRecursive` now returns **nil** on a conflict. Council submitted,
+`SUBMISSION_CORR=26186633-a9a2-4425-bbb4-a9e58c418c66`. **Go code ⇒ INERT until a chassis build
+carrying it rolls.** `v1.0.1322` (up 16:54Z) predates the commit.
+
+**The precondition was met on the SECOND branch, deliberately — say so, do not claim the zero.**
+The comment allowed "zero conflict WARNs **or** every observed field/caller pair given an explicit
+mapping first". The zero branch **can never be sufficient** (a row needs the candidates to DIFFER;
+a lone wrong candidate substitutes silently — `bugs_open/330` §4, `bugs_open/350`). All 19 pairs are
+dispositioned: §2.4–§2.9.
+
+**What changed, precisely:**
+- conflict ⇒ `return nil`. Unique-value resolution, the collector, the depth/rank sort, the
+  infrastructure-key skip list and the no-candidates path are **untouched**.
+- `phase` now reads **`2-refuse`** in both the WARN and the persisted finding. Message and all other
+  fields unchanged, so the window's existing queries keep working. **This is how a post-roll reader
+  tells which build produced a row** — necessary because a run in flight keeps the behaviour it
+  started with (measured at **8.5 minutes** during 537's verification).
+- `winner_path` is still reported. Nothing resolves from it; it names the candidate the ranking
+  **would** have picked, which is the first thing anyone tracing an absent field needs. **The
+  ranking is therefore not dead code** — `bugs_closed/306` is why it is declared.
+
+**The tests, and a warning for the next flip of this kind.** The test-file header named **one** file
+as the flip site. The real blast radius was **four files, 13 tests** — `unified_extractor_search_test.go`,
+`unified_extractor_tiebreak_test.go` (306's six), `resolver_findings_test.go` (three recorder tests),
+`action_inputs_prune_test.go` (step 1's overreach guard), plus step 4's own control in
+`render_context_step_boundary_resolver_test.go`. Each now asserts **nil AND the reported
+`winner_path`**, so none passes vacuously — and each asserts `phase == "2-refuse"`, so a build that
+silently reverted to Phase 1 **fails** rather than warning quietly.
+**MUTATION-PROVED**: reverting only the `return` (file still compiles) fails all 13; restoring it
+returns both packages to green. `./platform/...` fully green — the `internal/adapters/thunder` build
+failure is **pre-existing at HEAD** and another lane's.
+
+### What is still owed on step 5
+
+1. **Read the verdict** (`26186633`) and act on a REVISE.
+2. **After a roll that carries `5fe010ada`** — verify, and note the flip's evidence is *unit-level
+   plus the three per-pair runtime proofs*; the flip itself has none yet by construction. Read the
+   window with a **demand control**, and attribute rows to orchestrations by `created_at`, **never by
+   wall clock**. `phase='2-refuse'` is the discriminator:
+   ```sql
+   SELECT context->>'phase' AS phase, agent_type, context->>'field' AS field, count(*)
+     FROM agent_error_log WHERE error_code='RESOLVER_CONFLICTING_CANDIDATES'
+      AND occurred_at > '<roll>' GROUP BY 1,2,3 ORDER BY 4 DESC;
+   ```
+   A `2-refuse` row is **not a regression** — it is the instrument working. What matters is whether
+   any *consumer* broke, and the remedy for one that did is an explicit mapping
+   (`<field>?: <path>`), **never a return to picking**.
+3. **Retire the read-side tolerance** in `setRenderContextScalarsFromData` — **deliberately NOT in
+   the flip commit**, because it is a separable cleanup and bundling puts two changes under one
+   review. Use §4's two reasons (zero non-terminal pre-roll orchestrations; `buildRerenderBaseData`
+   writes the new key fresh so the tolerance's second branch is unreachable) — **NOT** the retention
+   argument the plan originally gave, which was unsound.
 
 ## 2.9 `bdl`/`commit_sha` IS WIRED AND LIVE — via **537**, not 539. Verification is a NAMED PREDICTION, not yet met (2026-08-21 15:3xZ)
 
