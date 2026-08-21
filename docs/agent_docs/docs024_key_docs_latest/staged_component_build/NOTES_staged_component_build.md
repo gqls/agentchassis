@@ -6985,12 +6985,15 @@ specifically off the tool-generator correction earlier today; it just earned its
 one commit that's the item's OWN deliverable and a separate, later call that's a downstream
 side-effect — mechanical once told apart. content-feed-orchestrator has **no side-effect call**:
 `commit_news` and `commit_rss` are two genuinely independent, co-equal deliverables of the SAME
-item, each separately gated on its own feed's item count. [MEASURED, all 3 orchestrations in the
-30-day window]: news commits 3/3, rss commits 1/3, and on the one run where BOTH fire they carry
-**two different real shas**. No single-field choice loses nothing.
+item, each separately gated on its own feed's item count. ~~[MEASURED, all 3 orchestrations in the
+30-day window]: news commits 3/3, rss commits 1/3~~ **CORRECTED same evening, by the peer session:
+that "3" came from a `LIMIT 3` spot-check reported as the whole population — the real count is 17,
+news 17/17, rss 2/17 (~12%, not ~33%). Logged in WRONG_CALLS.** and on the two runs where BOTH fire
+they carry **two different real shas**. No single-field choice loses nothing.
 
-**Migration 540**: maps `commit_sha` to `news_commit_result` (present far more often) and **states
-the loss explicitly, not hidden**: on the rarer dual-commit run, the RSS sha is real and live but not
+**Migration 540**: maps `commit_sha` to `news_commit_result` (present far more often, and more
+decisively so at the corrected rate) and **states the loss explicitly, not hidden**: on the rarer
+(~12%) dual-commit run, the RSS sha is real and live but not
 represented in this field (still reachable directly via `rss_commit_result`, unchanged). Submitted,
 corr `f53841fc`.
 
