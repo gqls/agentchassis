@@ -441,3 +441,66 @@ non-empty and make the emit fire or prove it does not. Two reasons this thread d
 at the artefact, with the one experiment that would close it named, costed and waiting on a
 decision.** Check for it having fired naturally first — the fleet will not stay quiet for long:
 `SELECT count(*), max(created_at) FROM site_work_items WHERE item_type='dead_url_control';`
+
+---
+
+## 2026-08-21 — the owner answered, and answering it turned up a live defect nobody had seen
+
+**Owner ruling 1:** *"yes, that email should appear on contact pages"* → migration **525**
+repoints `contact-block.contact_email` from the unreachable `site_specs.contact.email` to
+`site_specs.identity.email`. Applied, verified, council `972a82ad`.
+
+**Then I fetched the pages, and the row census had been wrong in BOTH directions.**
+
+1. **The email was already there.** Both contact pages serve the `mailto:` today while
+   `content_data` holds no `contact_email` key. `bugs_closed/140` recorded the identical shape on
+   idea.uk: the stored artefact carries a value the data has lost. So the page was a *fossil* —
+   correct on screen, unreproducible underneath, and the next regeneration would have deleted it.
+   525's real effect is to make it reproducible, not to make it appear.
+2. **The same component was serving `<a href="tel:"></a>`** — a dead telephone control — on
+   **6 rows across 3 sites**, right now. That is this bug's own class on a different attribute, and
+   **no row-level query I ran on 08-19, 08-20 or 08-21 could see it.** Only `curl` did.
+
+**Ruling 2:** *"please go ahead and do both"* → migration **538**: gate all three
+`cb-detail-item`s on their own fields AND repoint `contact_phone`/`contact_location` at the
+identity spelling. Applied, verified, council `1c8aed61`. Six re-renders queued
+(`reason=section_data_resolved`, all six pages checked `machine_made` first).
+
+### Why both halves, since each looked sufficient on its own
+
+Neither is. Measured: `sites.phone` is populated for **leopardess only**. So repointing alone fixes
+one site and leaves robot-hands and gamesdesign serving the dead control; gating alone fixes all
+three sites' dead control and leaves leopardess's real number unpublished. The general lesson is
+worth keeping: **"the value is unreachable" and "the template assumes a value" are two defects
+wearing one symptom**, and fixing the one you noticed first leaves the other live.
+
+### Three judgement calls, recorded because each could have gone wrong quietly
+
+- **The gate wraps the whole `cb-detail-item`, not the value.** Gating the value alone leaves the
+  icon and label over nothing — `bugs_closed/111` exactly. I only got this right because the
+  `on_missing` LANDMINE says to read what ENCLOSES the field first, and I read it before editing.
+- **All three items gated, including the email.** gamesdesign has no email either, so gating only
+  the phone would have shipped `<a href="mailto:"></a>` on its next rebuild. Fixing one attribute
+  while arming the one beside it would have been absurd, and it was not obvious until I listed the
+  per-site values.
+- **I did not repoint the phone on my own authority.** Publishing a number is not a config change,
+  and `bugs_closed/140` had already traced this one as the owner's own with *"whether six
+  businesses should share one number"* recorded as an owner question. Asked; authorised.
+
+### Answering the pre-commit architecture signal, rather than ignoring it
+
+The hook flagged *"migration + platform code in one commit — needs a staged rollout order"* on
+`ce3c28da1`. **It is a point fix and the staging concern does not apply**: the only `platform/`
+file is a **test**, which ships no behaviour and cannot be out of order with the migration. Had it
+been production Go the signal would have been right, and the migration would have needed holding
+until the roll — which is exactly the 494 shape from 08-19. Recorded so the next reader can see the
+signal was read rather than skipped.
+
+### The measurement discipline that paid, and the one that failed
+
+**Paid:** a Go test against the real renderer with a mutation — un-gate the phone item and it fails
+printing `<a href="tel:"></a>`, i.e. it reproduces the live defect verbatim before the fix ships.
+**Failed:** every row-level census I ran. `content_data ? 'contact_email'` said six rows were
+damaged; the pages said otherwise in one direction (email present) and worse in another (dead
+`tel:`). **A `page_components` row is a claim about a page, not a measurement of one** — the
+LANDMINE says so, and I still had to be shown twice in two days.
