@@ -248,3 +248,22 @@ serial docker builds, fleet mixed for hours after each roll).
 - Mixed council model roster (owner 08-10: caches are model-scoped; mixed is *more* expensive).
 - Coupled multi-cluster (shared Kafka/Postgres across clusters) as an isolation mechanism
   (concept register: "it's a coupling mechanism").
+
+---
+
+## 10. OWNER RULINGS 2026-08-21 (recorded from chat; discussion continuing — NOTES has the full text)
+
+D0b: max 50 signups/day (expect fraction); **human review gate before every release** with a
+CLI-assisted fix loop (designed in another thread — leave the seam). D0a: three portfolios —
+client-retained (high attention, client-funded), own high-attention, own low-attention; most
+third-party sites handed off. D2: **clients first**. D3: lockstep. D4: shed own-domain
+build work first as spend nears the cap, keep maintenance, protect client work (governor
+must act before the hard cap). D5: single provider for now. D6: **Batch API yes**. D7:
+corrected — Anthropic tiers exist (Start $500 → Build $1k → Scale $200k → Custom; console
+"Request rate limit increase" covers the spend cap; the 08-17 outage matched the SELF-SET
+limit signature, HTTP 400 "specified", fixable in Console). D8: **keep Actions for now**,
+scale runners, build interim batching. D9/D10/D11: discussed, see NOTES/README. D12:
+**start DNS plan B** (execution: domain programme lane). D13: first split = a **client
+satellite**; five seams near-term. D14: spot OK for now. D15: **maintenance pauses in
+bursts**; burst profile = pause + raise N/workers + governor shift. D16: retention
+proposal owed.

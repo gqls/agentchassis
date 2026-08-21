@@ -119,3 +119,56 @@ corrected visibly in §2.1, substituting first-hand verification per the 2026-07
 re-filing: a re-run would face the same cap, and the failure class is owned by
 bugs_open/183 (step token pressure) — observation contributed into that file. The claim's
 verification status is: strong first-hand, loop-unverified, stated as such wherever cited.
+
+## 2026-08-21 — OWNER RULINGS on the decision table (chat; discussion continuing)
+
+- **D0b**: 50 signups/day is a welcome MAXIMUM; expect a fraction. NEW REQUIREMENT: a
+  human review gate — owner checks each site before release; if not OK, a CLI-assisted
+  fix loop (framework+site) BEFORE the site goes out. **That mechanism is being designed
+  in ANOTHER THREAD** — do not build it here; the burst path must leave the seam
+  (build → owner review → fix loop → release). Adds some load (fix iterations).
+- **D0a**: THREE PORTFOLIOS decided in shape (numbers still owed): (1) client/third-party
+  retained sites — high attention, client pays so AI spend secondary; most third-party
+  sites will be HANDED OFF, only some retained; (2) own high-attention portfolio;
+  (3) own low-attention group. Own-domain maintenance spend to be kept LOW.
+- **D2 RULED: clients served first.** Owner also floats a fully separate cluster for
+  client domains as the clean separation (ties into D13).
+- **D3 RULED: lockstep** (timeout moves with concurrency).
+- **D4 direction** (reading to confirm): as spend approaches the cap, shed own-domain
+  build/improvement work FIRST, keep maintenance running, protect client work longest.
+  (Refinement noted: the governor must act BEFORE the hard cap, since at the cap the API
+  refuses everything indiscriminately.)
+- **D5 RULED: no second provider now** — maintenance too buggy to add model-choice
+  complexity; optimise later.
+- **D6 RULED: Batch API yes** (classes to be picked).
+- **D7 CORRECTED by the docs** (platform.claude.com/docs/en/api/rate-limits, fetched
+  2026-08-21): tiers DO exist — Start $500/mo cap, Build $1,000/mo, Scale $200,000/mo,
+  Custom uncapped; orgs move up automatically with usage history, and there is a
+  "Request rate limit increase" flow on Console → Settings → Rate limits for the monthly
+  spend cap too. ⚠ The 08-17 outage error text ("You have reached your SPECIFIED API
+  usage limits") is the documented signature of the owner's OWN self-set Billing-page
+  limit (HTTP 400), distinct from the tier cap (HTTP 429 `enforced_spend_limit_reached`)
+  — so at least one recent outage was self-inflicted config, fixable in Console today.
+  Cache reads do NOT count toward ITPM — caching raises effective throughput directly.
+- **D8 RULED: keep GitHub Actions for now**, scale runners; revisit later. (Interim
+  batching still worth building — it cuts runs ~5× regardless.)
+- **D9: discussion requested** — what breaks if the polling dispatcher is removed for
+  worker-pull; answered in chat + README (summary: governor first, policy moves into the
+  claim query, staged flag-gated cutover per the chassis worker-pool precedent; fits
+  satellites BETTER, provided each satellite pulls from its OWN DB).
+- **D10: options requested** — answered in chat + README (CI on push via self-hosted
+  runner pattern + scheduled release train; the real gap is that the working branch is
+  never pushed — origin is ~7.7k commits behind).
+- **D11: explanation requested** — answered in chat + README (adopt for platform-code
+  sessions, docs stay on shared tree, exactly one deployed branch).
+- **D12 RULED: start plan B** (own authoritative DNS + CF-for-SaaS). Execution belongs
+  to the domain programme lane — pointer to be left there.
+- **D13 direction**: first split = a CLIENT satellite (cluster + CF account) for clean
+  client/own separation; per-mega-client satellites an option, not default; owner wants
+  to MANAGE client domains sooner rather than later ⇒ five seams become near-term.
+- **D14 RULED: spot OK while mainly own domains** (revisit with the client satellite).
+- **D15 RULED: maintenance pauses during bursts.** Burst-scaling question answered in
+  chat (burst profile: pause maintenance + raise N/workers + governor budget shift;
+  node autoscale is the missing piece; LLM tier is the true burst ceiling).
+- **D16 RULED: review retention/archival** — "a small database is an easily managed
+  database"; proposal owed.

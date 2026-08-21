@@ -781,3 +781,14 @@ not a caller**, which is the real cost of an undercount: not the number, the bli
 `LANDMINES.md`. Verified before moving on — `git diff --numstat` says `2 1`, and the removed line
 is my own bullet from this morning, replaced by its struck-through corrected form. Not another
 session's entry.
+
+## 2026-08-21 — owner ruling relayed from the scale review: DNS plan B starts NOW
+
+In the dispatch_throughput scale-review discussion the owner ruled **"let's start on plan
+B"** (own authoritative DNS + Cloudflare-for-SaaS custom hostnames) — the trigger is no
+longer "near 500–1,000 domains": with promotion bursts of up to 50 domains/day expected,
+the ~1k zone cap is ~3 weeks of promotion away, so plan B readiness should PRECEDE the
+first big promotion. Execution belongs to this lane / the domain programme (own-DNS was
+already ruled GO on 08-17; the new part is CF-for-SaaS + the calendar urgency). Also
+relevant to Phase 4+: the owner wants a human review gate before each client site goes
+out (mechanism in another thread), and clients-first dispatch priority is now ruled.
