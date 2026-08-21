@@ -234,12 +234,16 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// instruction was followed: the handler is page-build-handler, whose build_pages_loop
 	// rewrites ALL of the page's spec sections, so whole-page scope IS its remit and the
 	// verifier is not stricter than the thing it judges.
-	"required_fields_missing":     {catMechanical, "carries page_id and component_id"},
-	"dead_control":                {catMechanical, "all 6 carry page_id"},
-	"unresolved_cta":              {catMechanical, "66 items, none completed yet"},
-	"image_source_unsatisfiable":  {catMechanical, "predicate is the imagery source check"},
-	"image_url_404":               {catMechanical, "deliberately NOT a verifier candidate: verification would add an outbound HTTP call to the completion path"},
-	"backend_entry_orphaned":      {catMechanical, "live-probe check (GET → 405); deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, same reason as image_url_404"},
+	"required_fields_missing":    {catMechanical, "carries page_id and component_id"},
+	"dead_control":               {catMechanical, "all 6 carry page_id"},
+	"unresolved_cta":             {catMechanical, "66 items, none completed yet"},
+	"image_source_unsatisfiable": {catMechanical, "predicate is the imagery source check"},
+	"image_url_404":              {catMechanical, "deliberately NOT a verifier candidate: verification would add an outbound HTTP call to the completion path"},
+	"backend_entry_orphaned":     {catMechanical, "live-probe check (GET → 405); deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, same reason as image_url_404"},
+	// page_content_divergence: bugs_open/315 candidate 4 / PLAN D5. Classified on
+	// the way IN rather than waiting for a ratchet refresh — the mistyped_deployed_page
+	// and dark_section_audit precedent.
+	"page_content_divergence":     {catMechanical, "bugs_open/315 / RFC_038; live-probe check (GET the page with a cache-buster, sha256 the body, compare against pages.content_hash) and carries page_id on every finding. Deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, the standing objection shared with asset_reference_404, image_url_404 and backend_entry_orphaned. It does not NEED one, and this is the posture contrast_failure moved to on 2026-08-12: the check retracts its own findings through CheckResult.Resolved on a positive re-observation (the served bytes now hash to the stored fingerprint), which is the SAME comparison a verifier would make, taken on the discovery path where the probe is already precedented. Note the item is flag-only by design (no handler agent, D5), so nothing on the completion path claims it done in the first place"},
 	"asset_reference_404":         {catMechanical, "bugs_open/084; live-probe check (GET a referenced <script src>/stylesheet, 404|410 only); carries page_id on the page surface, nil on chrome. Deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, same reason as image_url_404 and backend_entry_orphaned. It does not NEED one: the check retracts its own findings through CheckResult.Resolved on a positive 2xx/3xx re-observation, which is the same information a verifier would fetch, taken on the discovery path where the probe is already precedented"},
 	"contact_form_undeliverable":  {catMechanical, "needs_human_review queue — since cc2cff79b only the address-less branch files this type (resolvable sites route to page_rerender). Predicate re-runs on DEPLOYED html, which re-renders only after a fix lands, so a completion-time re-check would false-fail during the render lag; resolve delivery timing before writing one"},
 	"section_source_drift":        {catMechanical, "predicate is check_section_source_drift"},
