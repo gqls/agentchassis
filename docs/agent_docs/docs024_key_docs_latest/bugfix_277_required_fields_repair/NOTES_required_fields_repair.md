@@ -2812,3 +2812,23 @@ Council: `Council-Submitted: c00fbfd8-c459-4e8a-ac04-0997aca98477` on commit `08
 (3 edits, 6 `grounded_in`). ⚠ **The seat under repair is one of the seats that will review this**,
 which is fine — it reviews on the text it holds at run time, and that text is now correct.
 `DRY_RUN=1` refused the first draft: `plan.risks` must be a **string**, not an array.
+
+### 9. Sharpening §6's prediction — the strike clock and the rotation clock are THE SAME CLOCK, which says when the two-strike rule can and cannot bite
+
+Checked the arithmetic rather than leaving "it ages out" as a feeling. The two-strike window is
+`created_at > now() - interval '7 days'`; the rotation's eligibility is
+`last_selected_at < now() - interval '7 days'`. For a strike filed **by a rotation sweep**, the row's
+`created_at` is the stamp plus a second or two — so the strike expires about a second *before* the
+same site's next sweep can even be selected, and always before the filing itself. **A finding whose
+only failures came from rotation-filed rows can therefore never be born `unresolved`.**
+
+`learn-index` was born dead because its strikes did **not** both come from the rotation: `46f356cf`
+(08-14 16:03, page-build-handler) sits between rotation sweeps, and its key carries rows on 08-10,
+08-11 ×2 and 08-14 — a cadence no 7-day rotation produces. **So the rule bites exactly when a
+SECOND producer files the same `item_key` off-rotation**, which is `bugs_open/333`'s territory
+(producers routing the same finding by different paths), not a property of the re-route alone.
+
+Two consequences worth carrying: the 08-25 prediction in §6 is **stronger** than I first wrote (both
+strikes are out of window, one of them by construction, not by luck), and a fix for the rule that
+merely lengthened or shortened the window would miss the case — what distinguishes these rows is
+**who filed them**, which is the thing the count does not record.
