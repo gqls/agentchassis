@@ -1579,7 +1579,9 @@ func emitAbsentRequiredFieldsItem(ctx context.Context, db *sql.DB, siteID, compo
 			"error, so the slot ships blank rather than failing (bugs_open/342). Supply the " +
 			"values, or change the schema if they are not really required. NOTE this was " +
 			"detected AT RENDER, not by the post-deploy check, which only scans rows that " +
-			"reached build_status='deployed'.",
+			"have already reached a deployed build status — which is why this one is " +
+			"visible at all: a section that renders empty is dropped and never becomes " +
+			"such a row.",
 	}
 	specJSON, _ := json.Marshal(spec)
 
