@@ -648,6 +648,12 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// tokens after it move, and that re-render is not byte-identical.
 		BindInstanceToken(rc, instances.Next(comp.Function))
 
+		// bugs_open/342 — this path's pre-check already applies the same rule to
+		// STORED content; setting it here covers the merged stored ⊕ resolved
+		// data the template actually sees.
+		if comp.Raw != nil {
+			rc.InputSchema = datahelpers.ParseInputSchemaValue(comp.Raw["input_schema"])
+		}
 		rendered, _, deadURLFields, renderErr := RenderTemplate(htmlTemplate, rc, logger)
 
 		// bugs_open/260: the seam no longer substitutes a regex render for a

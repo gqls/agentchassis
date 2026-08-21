@@ -27,7 +27,7 @@ func fullyPopulatedRenderContext() *RenderContext {
 		SecondaryColor: "#2", AccentColor: "#3", TextColor: "#4",
 		BackgroundColor: "#5", ThemeCSS: "css", Title: "ti", Description: "de",
 		CTAText: "Go", CTAUrl: "/go.html", Year: "2026", Industry: "i",
-		Tone: "plain", TargetAudience: "a", SchemaMode: "flexible",
+		Tone: "plain", TargetAudience: "a",
 	}
 }
 
@@ -74,21 +74,44 @@ func TestContextToInterfaceMapDerivationIsBehaviourPreserving(t *testing.T) {
 // builder left. Its key set is still transcribed, by the sibling test above,
 // and that test is what a contract change now has to argue with.
 
-// TestSchemaModeNeverReachesTemplatesOrStruct: control fields are the one
-// class the derivation must NOT liberate. schema_mode steers validation; if
-// source data could set it, content could turn validation off.
-func TestSchemaModeNeverReachesTemplatesOrStruct(t *testing.T) {
-	if _, ok := contextToInterfaceMap(fullyPopulatedRenderContext())["schema_mode"]; ok {
-		t.Error("schema_mode is advertised to templates — control fields must stay out of the contract")
+// TestInputSchemaNeverReachesTemplatesOrStruct: control fields are the one class
+// the derivation must NOT liberate.
+//
+// ⚠ THE SUBJECT CHANGED, THE PROPERTY DID NOT (2026-08-21). This test guarded
+// `schema_mode`, which "steers validation; if source data could set it, content
+// could turn validation off". That field and its siblings (SchemaSnapshot,
+// RenderOptions) were DEAD — their only reader, RenderTemplateWithValidation,
+// went with the regex fallback in bugs_closed/260 — and are deleted. The
+// property moves to a field where it matters MORE: RenderContext.InputSchema
+// (bugs_open/342) is the contract the seam checks content against, so content
+// that could set it would be handing the renderer its own schema and switching
+// off its own absent-required-field check.
+//
+// It is a map, and the step contract is derived by reflection over STRING fields
+// only, so the exclusion is STRUCTURAL rather than a list entry — the stronger
+// form. This test is what tells you if that ever stops being true.
+func TestInputSchemaNeverReachesTemplatesOrStruct(t *testing.T) {
+	populated := fullyPopulatedRenderContext()
+	populated.InputSchema = map[string]interface{}{"fields": map[string]interface{}{
+		"headline": map[string]interface{}{"source": "llm", "required": true},
+	}}
+
+	if _, ok := contextToInterfaceMap(populated)["input_schema"]; ok {
+		t.Error("input_schema is advertised to templates — a control field must stay out of the contract")
 	}
+	if _, ok := renderCtxToMap(populated)["input_schema"]; ok {
+		t.Error("input_schema is in the step contract — a step boundary could then carry it from content")
+	}
+
 	ctx := &RenderContext{}
-	setRenderContextScalarsFromData(ctx, map[string]interface{}{"schema_mode": "strict"})
-	if ctx.SchemaMode != "" {
-		t.Error("schema_mode was set from data — arbitrary content could flip validation strictness")
+	hostile := map[string]interface{}{"input_schema": map[string]interface{}{"fields": map[string]interface{}{}}}
+	setRenderContextScalarsFromData(ctx, hostile)
+	if ctx.InputSchema != nil {
+		t.Error("input_schema was set from data — content could hand the renderer its own contract and switch off its own check")
 	}
-	mergeIntoRenderContext(ctx, map[string]interface{}{"schema_mode": "strict"})
-	if ctx.SchemaMode != "" {
-		t.Error("restore set schema_mode from data — control fields must not be data-settable")
+	mergeIntoRenderContext(ctx, hostile)
+	if ctx.InputSchema != nil {
+		t.Error("restore set input_schema from data — control fields must not be data-settable")
 	}
 }
 

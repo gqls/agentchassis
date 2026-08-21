@@ -100,14 +100,15 @@ func TestRenderCtxToMapDerivationIsBehaviourPreserving(t *testing.T) {
 		// The deliberately-unserialised ones, all populated: if any of them
 		// starts crossing the boundary, this test says so.
 		ThemeCSS: "css", Title: "ti", Description: "de", LogoURL: "/l.png",
-		SchemaMode: "flexible",
 	}
 
 	derived := renderContextScalarFields(ctx)
 	got := map[string]bool{}
 	for k := range derived {
 		// The same predicate renderCtxToMap itself uses: unserialised fields
-		// and control fields (schema_mode) both stay out of the step contract.
+		// and control fields both stay out of the step contract. (The control
+		// set is empty since 2026-08-21 — schema_mode was deleted as dead and
+		// its successor, InputSchema, is a map and so is excluded structurally.)
 		if renderContextStepContractExcluded(k) {
 			continue
 		}

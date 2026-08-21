@@ -857,6 +857,13 @@ func renderAndStoreSiteComponent(
 	// caller. `unresolved` is at function scope so the report below (outside the
 	// schema block) can read it.
 	var unresolved []string
+	// parsedInputSchema is at function scope for the same reason `unresolved`
+	// is: the render call below needs it (bugs_open/342). ⚠ Coverage note, so a
+	// silent result is not read as a clean one — missingRequiredLLMFields reads
+	// the v2 `fields` and legacy `properties` dialects, so the FLAT chrome shape
+	// (`{name:{...}}`, e.g. "Document Head") yields no field set and therefore no
+	// absent-required report. Fail-open, stated.
+	var parsedInputSchema map[string]interface{}
 	if len(inputSchemaRaw) > 0 {
 		var raw map[string]interface{}
 		if jErr := json.Unmarshal(inputSchemaRaw, &raw); jErr != nil {
@@ -866,6 +873,7 @@ func renderAndStoreSiteComponent(
 			// TWO live schema shapes: wrapped {"fields":{name:{...}}} (most
 			// components) and FLAT {name:{...}} (e.g. "Document Head", the head
 			// slot on most sites). Detect both; a shape that is neither is skipped.
+			parsedInputSchema = raw
 			fields := raw
 			if w, ok := raw["fields"].(map[string]interface{}); ok {
 				fields = w
@@ -936,6 +944,8 @@ func renderAndStoreSiteComponent(
 	// Render the template, reporting which placeholders rendered empty so a dead
 	// chrome control is named (Error, via the mechanism) and combined here with
 	// the site/slot/component only this caller knows.
+	// bugs_open/342 — the schema this function already parsed for the fill.
+	renderCtx.InputSchema = parsedInputSchema
 	renderedHTML, missing, deadURLFields, renderErr := RenderTemplate(htmlTemplate, renderCtx, logger)
 
 	// bugs_open/260: this path has NO gate downstream — whatever it stores is

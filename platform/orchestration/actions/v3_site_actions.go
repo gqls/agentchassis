@@ -1755,10 +1755,21 @@ var renderContextUnserialised = map[string]string{
 // derived map: never advertised to templates, never settable from source or
 // collected data — a control switch that arbitrary content could flip is a
 // different bug than a dropped field.
-var renderContextControlFields = map[string]string{
-	"schema_mode": "validation-strictness switch read by RenderComponent; " +
-		"neither template data nor part of the step contract.",
-}
+// ⚠ DELIBERATELY EMPTY since 2026-08-21, and that is a statement, not an
+// oversight. Its only entry was `schema_mode`, described here as a
+// "validation-strictness switch read by RenderComponent" — by then read by
+// NOTHING: its consumer, RenderTemplateWithValidation, went with the regex
+// fallback in bugs_closed/260, and the field itself is deleted.
+//
+// The control field that replaced it, RenderContext.InputSchema
+// (bugs_open/342), is NOT listed here and must not be: this map excludes
+// STRING-typed scalars from the step contract, and InputSchema is a map, so
+// reflection over string fields never sees it. It is excluded STRUCTURALLY,
+// which is stronger than an entry — and render_context_derivation_test.go's
+// TestInputSchemaNeverReachesTemplatesOrStruct is what fails if that changes.
+//
+// A future STRING-typed control field does belong here, with its reason.
+var renderContextControlFields = map[string]string{}
 
 // renderContextStepContractExcluded says whether a scalar key stays out of the
 // step-boundary contract — the set that renderCtxToMap emits and
@@ -2452,6 +2463,9 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// bugs_open/238 shipped five <img src=""> to a live homepage while this very
 	// call had the field names in hand. See dead_url_guard.go for why the guard
 	// refuses rather than dropping, and why it is opt-in with the unsafe default.
+	// bugs_open/342: hand the seam the contract so it can name an ABSENT
+	// required field for every caller, not just the two that pre-check.
+	renderCtx.InputSchema = comp.InputSchema
 	rendered, _, deadURLFields, renderErr := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 
 	// bugs_open/260: the seam no longer invents output it could not execute, so
@@ -3818,6 +3832,16 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		// and a silently lost section is the shape this lane exists to remove
 		// (bugs_open/282, council round 1). See recordDroppedSectionNames.
 		var dropped []droppedSectionName
+		// bugs_open/204: the resolver's key space is the component CATALOGUE, and
+		// a decomposed page's sections are POSITIONAL slot names (prose-0, tool-1)
+		// that are no component's name or function under any spelling. Consulted
+		// only after the resolver AND its menu union have both missed, this asks
+		// the page's own page_components rows whether it already carries a slot
+		// under that name — see stored_slot_rescue.go for why this is not the
+		// resolver widening LANDMINES forbids.
+		rescue := storedSlotRescueFor(params.DB,
+			datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id"),
+			params.Logger)
 		if len(resolver.validFunctions) > 0 { // only act if components actually loaded
 			for _, p := range pages {
 				pm, ok := p.(map[string]interface{})
@@ -3838,6 +3862,26 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 					fn, ok := resolver.resolve(name)
 					if !ok {
 						pageName, _ := pm["name"].(string)
+						switch rescue.verdict(ctx, pageName, name) {
+						case slotStored:
+							// The page already serves a slot under this name. It is
+							// the page's own record of its composition, not junk —
+							// keep the entry VERBATIM (object shape and its RFC_016
+							// facts intact; rewriting it to the component's function
+							// would collapse prose-0/prose-1 onto one name, which is
+							// exactly what the positional naming exists to prevent).
+							params.Logger.Info("ValidateSitePlanAction: kept section name by stored slot identity",
+								zap.Any("page", pm["name"]),
+								zap.String("section", name))
+							resolved = append(resolved, s)
+							continue
+						case slotUnknown:
+							// Could not read the stored rows. Keep rather than drop:
+							// a transient failure must not be able to empty a
+							// decomposed page. Already warned once, at the read.
+							resolved = append(resolved, s)
+							continue
+						}
 						dropped = append(dropped, droppedSectionName{Page: pageName, Name: name})
 						params.Logger.Warn("ValidateSitePlanAction: dropped unresolvable section name",
 							zap.Any("page", pm["name"]),
@@ -3870,6 +3914,19 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 				pm["sections"] = resolved
 			}
 			_ = recordDroppedSectionNames(ctx, params, dropped, menuFieldConfigured)
+			// The positive tell. Without a durable record of what the rescue KEPT,
+			// "the fix works" and "the planner happened to propose only catalogue
+			// names this run" produce identical evidence — the resolvedViaMenu
+			// lesson from bugs_open/282's council round.
+			if f := rescue.keptFinding(); len(f) > 0 {
+				siteID := datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.site_id")
+				attempted, recorded := LogActionFindings(ctx, params, siteID, "", "validate_plan", f, params.Logger)
+				warnUnrecordedDrops(attempted, recorded, params.Logger)
+			}
+			params.Logger.Info("ValidateSitePlanAction: section name resolution complete",
+				zap.Int("dropped", len(dropped)),
+				zap.Int("kept_by_stored_slot", rescue.keptCount()),
+				zap.Bool("stored_slot_read_failed", rescue.readFailed()))
 		} else {
 			params.Logger.Warn("ValidateSitePlanAction: validate_components set but no components loaded — skipping name resolution")
 		}

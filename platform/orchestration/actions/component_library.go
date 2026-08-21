@@ -121,20 +121,35 @@ type RenderContext struct {
 	// These flow through to template substitution
 	ContentData map[string]interface{} `json:"content_data"`
 
-	// SchemaMode controls validation strictness
-	// "flexible" (default): best-effort rendering, warn on missing fields
-	// "strict": fail if content doesn't match component's input_schema
-	SchemaMode string `json:"schema_mode"`
-
-	// SchemaSnapshot is the locked input_schema (only used in strict mode)
-	SchemaSnapshot map[string]interface{} `json:"schema_snapshot,omitempty"`
-}
-
-// RenderOptions controls rendering behavior
-type RenderOptions struct {
-	SchemaMode     string                 // "flexible" or "strict"
-	SchemaSnapshot map[string]interface{} // Locked schema (for strict mode)
-	Logger         *zap.Logger
+	// InputSchema is the component's declared field contract, set by any caller
+	// that has the component in hand. NIL MEANS UNKNOWN, NOT VALID: the seam
+	// then reports nothing and behaves exactly as before, which is fail-open and
+	// is stated rather than hidden — a caller that does not set it gets no
+	// absent-required-field report.
+	//
+	// It exists for bugs_open/342. Go's missingkey=zero renders a field the
+	// content never supplied as EMPTY WITH NO ERROR, page assembly then drops a
+	// visually-empty section, and the content vanishes — the mechanism behind
+	// the fleet-wide blanking of article bodies (bugs_closed/004/005). The gate
+	// that catches it, missingRequiredLLMFields, was called at 2 of the 15
+	// render call sites. Carrying the schema on the context is what lets the
+	// SEAM apply that same rule for every caller instead of each caller
+	// remembering to — the same "make the guarantee mechanical here, where they
+	// all arrive" move as the form_action seeding and the InstanceID report.
+	//
+	// It reuses the slot of the dead `SchemaSnapshot` field (with `SchemaMode`
+	// and `RenderOptions`, deleted 2026-08-21): their only reader was
+	// RenderTemplateWithValidation, which went with the regex fallback in
+	// bugs_closed/260, leaving three declarations that described a strict-mode
+	// validation this binary had stopped doing.
+	//
+	// ⚠ CONTROL FIELD — it must never be settable from content. A field the
+	// content can supply would let content hand the renderer its own contract
+	// and switch off its own check. It is a map, and the step contract is
+	// derived by reflection over STRING fields only (renderContextScalarFields),
+	// so it is excluded structurally rather than by an exclusion list — and
+	// render_context_derivation_test.go asserts exactly that.
+	InputSchema map[string]interface{} `json:"input_schema,omitempty"`
 }
 
 // NavItem represents a navigation link
@@ -1096,6 +1111,53 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	if strings.Contains(result, "<no value>") {
 		result = strings.ReplaceAll(result, "<no value>", "")
 	}
+
+	// ── bugs_open/342: an ABSENT REQUIRED field is not a Warn ─────────────
+	//
+	// missingkey=zero renders a field the content never supplied as empty, with
+	// no error, and page assembly drops a visually-empty section — so the
+	// content does not arrive broken, it does not arrive at all. That is the
+	// mechanism that blanked article bodies fleet-wide (bugs_closed/004/005).
+	//
+	// The rule is not new and is deliberately NOT re-derived here:
+	// missingRequiredLLMFields is the same function the two gated call sites
+	// call before rendering, so the seam and the pre-check cannot disagree about
+	// what "required" or "empty" means. What is new is WHERE it runs — at the
+	// seam, so all fifteen call sites get it, instead of at the two that
+	// remembered.
+	//
+	// REPORT ONLY, no refusal. Refusing here would be new authority over content
+	// that renders successfully today at thirteen sites that never asked for it
+	// (owner ruling 2026-08-02 §2), and the two paths that DO want to refuse
+	// already do, before the render, where refusing is cheaper. What this closes
+	// is the SILENCE — 342's actual complaint. Error, not Warn, because a
+	// required field is a stated contract and the section is about to disappear:
+	// the sibling report below is Warn for a merely-empty optional field and
+	// Error for a dead URL control, and this belongs with the latter.
+	//
+	// ⚠ IT JUDGES `data`, NOT ctx.ContentData, AND THE TWO GIVE DIFFERENT
+	// ANSWERS ON PURPOSE. contextToInterfaceMap supplies fleet defaults —
+	// cta_text falls back to "Get Started", colours to the house palette — so a
+	// required field the writer never produced can still be non-empty by the
+	// time the template sees it. The pre-render gate asks "did the WRITER
+	// supply it?" and refuses on that. This asks "will it RENDER EMPTY?",
+	// because the damage 342 describes is empty -> page assembly drops the
+	// section -> the content vanishes. A defaulted field renders something, so
+	// the section survives and there is nothing to report.
+	//
+	// The consequence, stated so nobody reads a silence as agreement: this
+	// report is a SUBSET of what the pre-render gate would name. Both are
+	// correct about their own question, and render_seam_absent_required_test.go
+	// pins the divergence with the reason so the next reader does not "fix" one
+	// to match the other.
+	if len(ctx.InputSchema) > 0 {
+		if absentRequired := missingRequiredLLMFields(ctx.InputSchema, data); len(absentRequired) > 0 {
+			logger.Error("RenderTemplate: REQUIRED content field(s) absent — the section rendered empty and page assembly will drop it (bugs_open/342)",
+				zap.Strings("absent_required_fields", absentRequired),
+				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+			)
+		}
+	}
 	if len(inURLAttr) > 0 {
 		logger.Error("RenderTemplate: URL attribute rendered empty — dead control",
 			zap.Strings("fields", inURLAttr),
@@ -1636,6 +1698,7 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 	// RenderFallbackHeader, so the page gets well-formed fallback chrome
 	// instead of a header with {{if}} directives left in it. Chrome needed
 	// error PLUMBING, not new mechanism — the ladder was already built.
+	renderCtx.InputSchema = comp.InputSchema // bugs_open/342
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("header component %q failed to render: %w", comp.Name, err)
@@ -1710,6 +1773,7 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 
 	// See RenderHeader: the error goes back to InjectFooter's existing fallback
 	// branch rather than being rendered around (bugs_open/260).
+	renderCtx.InputSchema = comp.InputSchema // bugs_open/342
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("footer component %q failed to render: %w", comp.Name, err)
@@ -1996,6 +2060,7 @@ func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx
 	// the header and footer, an execution failure returns to InjectHead's
 	// existing fallback branch (bugs_open/260) — a <head> carrying unexecuted
 	// directives is worse than the plain fallback head.
+	renderCtx.InputSchema = comp.InputSchema // bugs_open/342
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("head component %q failed to render: %w", comp.Name, err)
