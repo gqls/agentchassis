@@ -337,3 +337,23 @@ round and its own damage query, not a paragraph inside a detection change.
 **Whoever takes D7:** re-run the RECURSIVE enumeration first (RUNBOOK Part 3) — the count can change
 without anyone touching this code, which is the whole reason 526 gates on it rather than trusting a
 number written in a file.
+
+
+### D7 — STATUS 2026-08-21 evening: WRITTEN, COMMITTED, PROVEN, NOT APPLIED
+
+`sql_for_agents/547_arm_the_three_unarmed_deploy_stampers.sql` (+ `_ROLLBACK`), council round
+`Council-Submitted: 9e8d73b8-f777-4404-a1c7-d8e06af897fb`.
+
+Also settled today, and it is what makes 547 low-risk rather than a change to the busiest path in the
+estate — the fear the first draft of this section was written under:
+
+- `[MEASURED]` **0 runs in ALL HISTORY** for all three; 0 scheduled tasks; 0 work items routed at them.
+- `[MEASURED]` exactly **one** live dispatch reference fleet-wide: `maintenance-triage` →
+  `agent_type = page-rebuild`. The other three "references" a substring search reports are PROSE in
+  reviewer prompts. **Match values at dispatch keys, not substrings** — the same class of error as the
+  one-level census that produced the original false claim.
+- So the "it changes behaviour on the main build path" caution stands in principle and is **empty in
+  practice today**: the path is dormant. Arming it is protective for the moment it wakes.
+
+The chassis image carrying the check is live (`v1.0.1322` / `bac18992`, verified at the artefact with
+controls), so the only thing between this lane and a working divergence sweep is applying 547 then 526.

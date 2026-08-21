@@ -1701,3 +1701,47 @@ being wrong about its VALUE.
 **The transferable lesson is about verdicts, not about jsonb.** An APPROVED verdict with medium
 objections is not a pass. Three of twelve seats objected and two of those named real defects. Reading
 the decision line and stopping would have shipped a check whose central safety property was false.
+
+---
+
+## 2026-08-21 evening — the build landed, and D7 turned out to be far cheaper than I had feared
+
+**The image is live and the check is in it.** `v1.0.1322`, commit `bac18992` (17:02Z), contains all
+seven of this lane's commits. Verified at the artefact rather than inferred, with a control in each
+direction: `git merge-base --is-ancestor f715b8c1d bac18992` is YES and the REVERSE is NO (so the test
+discriminates), and the binary carries the literal `page_content_divergence` while a near-identical
+absent literal does not match (so the probe discriminates too).
+
+**A control I got wrong first, worth recording.** My initial negative control was "a commit made after
+the build must not be an ancestor" — and it FAILED, which momentarily looked like a broken test. It
+was not: the build (17:02Z) postdates every commit I made (14:25–14:52), so the commit I picked was
+legitimately IN it. The control was badly chosen, not broken. The reverse-direction test is the one
+that actually discriminates here, because no commit in the tree postdates the build.
+
+**Then D7's blast radius, which inverted my caution.** I had written that arming the three "changes
+behaviour on the main build path" and "deserves its own round with its own damage query" — true in
+principle. Measured:
+
+- `page-rebuild`, `pageflow-builder`, `site-work-orchestrator`: **0 runs in ALL HISTORY**, each. Zero
+  `scheduled_tasks` target them; zero `site_work_items` routed at them.
+- Reachability is the part a run-count cannot answer, and the obvious query is wrong: a substring
+  search over `default_config::text` reports FOUR agents naming them. Three of those are
+  `council-gate`, `fix-proposer` and `domain-research-classifier`, where the names appear as **PROSE
+  inside reviewer prompts**. Matching only VALUES at dispatch keys leaves exactly **one** real
+  reference fleet-wide: `maintenance-triage` → `agent_type = page-rebuild`.
+
+So the busiest-path fear is empty in practice today: the path is dormant, arming it is inert now and
+protective the moment it wakes. **Same error family as the census that started all this** — a
+text-shaped search answering a structural question, and returning something plausible.
+
+**A zero I checked before believing, for once.** The first blast-radius query returned 0 rows, and by
+this morning's own landmine a filtered zero is a broken predicate until proven otherwise. So I
+enumerated `run_agent_type` fleet-wide: 25 agent types with real run counts, and these three absent
+from all of them. The zero was real — but it took an enumeration that could have come out otherwise to
+establish that, rather than the absence itself.
+
+**547 written, proven three ways, committed, submitted, NOT applied.** Migration alone; round trip
+with its own rollback body; and the composition **with a control** — 547-then-526 passes every gate
+and both verifies, while **526 alone still refuses**. Each ended in ROLLBACK with the live rows
+untouched. The composition control is the one that matters: it shows the sequence works BECAUSE of
+547, not regardless of it.

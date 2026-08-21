@@ -605,3 +605,40 @@ deliberately held back, because switching it on before the code ships would brea
 already running. That ordering is the same trap that cost this lane thirty-three minutes of downtime
 last time, so it is spelled out in the file itself, along with the instruction to check what you have
 broken before checking whether it worked.
+
+---
+
+## 2026-08-21, evening — the new build carries the check, and the last obstacle got much smaller
+
+The release went out and I checked, rather than assumed, that it actually contains the new check: the
+running service reports which version of the code it was built from, that version includes everything
+this lane wrote today, and the check's name is present inside the running program. I also ran the
+checks backwards to make sure the test could have said "no" — twice today a test of mine would have
+said "yes" no matter what, so that is now a habit rather than a flourish.
+
+**The remaining obstacle turned out to be far smaller than I thought.** This morning I found three
+publishing routes that mark a page as published without recording what they sent — the flaw that would
+have made the new check accuse healthy pages. I described fixing them as risky, because they are part
+of the main page-building path and the last time we touched that path we caused half an hour of
+downtime.
+
+Then I measured it, and the caution was theoretical: **all three routes have never run. Not recently —
+never, in the entire recorded history.** Nothing schedules them and no work is routed to them. Exactly
+one other part of the system is even able to call one of them, and it never has.
+
+Finding that took one careful step worth mentioning, because the obvious check was wrong. Searching
+the system's configuration for these three names finds four places — but three of those are simply the
+names appearing in the *text of review prompts*, not actual wiring. Searching properly, for the names
+used as instructions rather than as words, leaves one. That is the same mistake in miniature that
+started today's whole correction: a text search answering a structural question and giving a plausible
+wrong answer.
+
+So the fix is now a small, reversible change to three dormant routes: harmless today, protective the
+moment any of them is used. It is written, it has been tested three separate ways against the live
+system without changing anything, and it is with the reviewers.
+
+**What is left is one action, in one order.** Apply the small fix, then apply the setting that switches
+the check on. If someone does them the wrong way round, the second one refuses — I built that refusal
+in this morning, and watched it refuse, precisely so that nobody has to remember the order.
+
+After that, this piece of work is finished, and the original bug can be closed.

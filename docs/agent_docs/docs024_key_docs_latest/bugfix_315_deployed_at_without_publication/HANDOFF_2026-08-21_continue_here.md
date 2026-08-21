@@ -25,22 +25,39 @@ noticing into a comparison a machine makes every few hours.
 | Council round | `SUBMISSION_CORR = be85a6d3-f2c0-4f7a-b791-e95087141fc8` — **read the verdict** |
 | Docs (the standing five) + `WRONG_CALLS` + `LANDMINES` | **COMMITTED** `ba4abbd5d`, `ae210bef4` |
 
-## 2. THE ONLY THING LEFT — and it is two steps, in this order
+## 2. THE ONLY THING LEFT — one step, and it is not this lane's to take
 
-**a. A chassis image carrying `f715b8c1d` must roll.** Not this lane's call: releases are
-whole-fleet and the owner runs `make release`. Confirm at the artefact, per service, never at git:
+**a. The chassis image — ✅ DONE 2026-08-21 ~17:00Z.** `v1.0.1322`, built from commit
+`bac1899216fc6406f46cfcf8710f6a74c24276e0`, **contains all seven of this lane's commits** and the
+running binary registers the check. Verified at the artefact, with controls both ways:
 
 ```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
-git merge-base --is-ancestor f715b8c1d <the stamped sha> && echo SAFE-TO-ENABLE
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=400 | grep -m1 'build provenance'
+#   -> git_commit bac1899216fc6406f46cfcf8710f6a74c24276e0
+git merge-base --is-ancestor f715b8c1d bac18992   # YES
+git merge-base --is-ancestor bac18992 f715b8c1d   # NO  <- reverse control: the test discriminates
+P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "page_content_divergence" /proc/1/exe          # present
+kubectl -n ai-persona-system exec ${P#pod/} -- grep -aq "page_content_divergence_NOT_A_REAL_SYMBOL" /proc/1/exe  # absent (negative control)
 ```
-An empty grep means "the startup line has scrolled", **not** "unstamped".
 
-**b. THEN apply `docs/agent_docs/sql_for_agents/526_enable_page_content_divergence_HOLD.sql` by
-hand — and expect it to REFUSE until §4 is dealt with.** The order is not a preference: `run_discovery_checks` resolves each name against the
-binary's own registry, and a name the binary does not register **fails the whole `run_checks` step**
-— taking `site_unreachable`, a live and useful check, down with it. The file carries the full apply
-procedure, the damage query to run FIRST, and its own rollback.
+**b. Apply `547`, then `526`. IN THAT ORDER — and `526` will refuse if you skip `547`.**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/547_arm_the_three_unarmed_deploy_stampers.sql
+# then, and only then:
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/526_enable_page_content_divergence_HOLD.sql
+```
+
+**Both are WRITTEN, COMMITTED and PROVEN against live data but NOT APPLIED.** `547` is at the council
+(`Council-Submitted: 9e8d73b8-f777-4404-a1c7-d8e06af897fb`) — **read that verdict before applying**,
+because the previous round's objections were where the real defects were found.
+
+⚠ **After EITHER apply, the first query is "what did I break?", not "did it work?"** Both files carry
+their damage query in the header. This is `bugs_open/336`'s lesson, and this lane learned it by taking
+every page-publish in the estate down for 33 minutes while confirming its config was right.
 
 ## 3. What the measurements say, so you do not have to re-derive them
 
@@ -60,40 +77,45 @@ procedure, the damage query to run FIRST, and its own rollback.
   `site-discovery-rotation-availability` fires every **300s** with a **4-hour** floor (NOT the quality
   rotation's 7 days), so the fleet is swept every ~4–5 hours.
 
-## 4. ⚠ THE ONE THING THAT BLOCKS ENABLING — and it is a LIVE hazard, not a theoretical one
+## 4. ⚠ WHY 547 EXISTS — a live hazard this lane documented as impossible
 
 **The check is sound only if every live step that stamps a page `deployed` also records what it
 sent.** An unarmed stamper leaves a fingerprint describing an OLDER deploy, and the check then
 convicts a healthy page — permanently, because nothing rewrites that row.
 
-`[MEASURED 2026-08-21, RECURSIVE walk]` **there are SIX such steps and THREE ARE UNARMED:**
-`page-rebuild`, `pageflow-builder` and `site-work-orchestrator`, all at
+`[MEASURED 2026-08-21, RECURSIVE walk]` **six such steps, THREE UNARMED:** `page-rebuild`,
+`pageflow-builder`, `site-work-orchestrator`, all at
 `workflow.steps.<loop>.config.sub_workflow.steps.update_page_status` — **the page-BUILDING paths**,
 i.e. the ones that actually emit new bytes.
 
 > **This corrects an earlier claim of mine that said the opposite** ("exactly three, all armed, zero
-> unarmed") and which reached the check's header, the register, three commit messages and the council
-> submission. My census walked one level. **The council gate's `guardian` seat caught it from the
-> SHAPE of the claim without seeing the query.** Full account in `WRONG_CALLS.md` and NOTES.
+> unarmed") which reached the check's header, the register, three commit messages and the council
+> submission. My census walked one level. **The `guardian` seat caught it from the SHAPE of the claim
+> without seeing the query.** Full account in `WRONG_CALLS.md` and NOTES.
 
-**You do not have to remember this.** Migration **526 refuses to apply** while the recursive unarmed
-count is non-zero — proven to bite against live data ("3 of 6 live steps … do NOT declare
-deploy_result_field"). So §2b will simply fail until this is dealt with, which is the intended
-behaviour, not a fault.
+**You do not have to remember this: 526 refuses to apply while any unarmed stamper exists** — proven
+to bite ("3 of 6 live steps … do NOT declare deploy_result_field").
 
-**Nothing is poisoned today** — the 228-page sweep would have shown it and found 228 MATCH — but that
-is an observation about one moment, not a property of the system.
+**`547` is the fix and it is WRITTEN, COMMITTED, PROVEN AND NOT APPLIED.** It arms all three by naming
+their sibling `git_commit` step's `output_field` (`page_deployed`), mirroring 494.
 
-**The fix is `PLAN` D7: arm the three.** All three carry a `git_commit` step `deploy_page` with
-`output_field: "page_deployed"`, so it is one migration in **494's exact shape**. Arming beats D6's
-stamp-side NULLing for these three because it RAISES fingerprint coverage where NULLing lowers it;
-**D6 stays as the backstop for the NEXT unarmed stamper**, the one nobody notices being added.
+- **Blast radius `[MEASURED]`: zero today.** Arming changes behaviour in exactly one case — the stamp
+  is refused when the deploy reported a skip — and all three have **0 runs in ALL HISTORY**, 0
+  scheduled tasks, 0 work items routed at them.
+- **Reachability, which a run-count cannot answer:** exactly ONE live dispatch reference fleet-wide —
+  `maintenance-triage` carrying `agent_type = page-rebuild`. (A substring search over `default_config`
+  also hits `council-gate`, `fix-proposer` and `domain-research-classifier` — but there the names are
+  **prose inside reviewer prompts**, not wiring. Match VALUES at dispatch keys, not substrings.)
+- **Proven three ways against live data, each ending in ROLLBACK with rows untouched:** the migration
+  alone; the round trip with its own rollback body; and **the composition with a control** — 547-then-526
+  passes every gate, while **526 alone still refuses**. The sequence works *because* of 547.
+- **Not a `_HOLD` file, deliberately:** `deploy_result_field` is already declared by the running binary
+  (494 armed three agents yesterday; 232 fingerprints written since), so no image-before-config
+  constraint applies.
 
-⚠ **D7 needs its own council round and its own damage query.** Arming changes behaviour on the main
-build path — an armed stamper REFUSES the stamp when its commit reported a skip — and the last time
-this lane armed stampers it took the fleet's page-publishing down for 33 minutes (`bugs_open/336`).
-**Re-run the recursive enumeration first** (RUNBOOK Part 3): the count can change without anyone
-touching this code.
+**Why arming rather than PLAN D6's stamp-side NULLing:** arming RAISES fingerprint coverage where
+NULLing lowers it. **D6 remains worth doing as the backstop for the NEXT unarmed stamper** — the one
+nobody notices being added — and is still unbuilt.
 
 ## 4b. The council's other two objections — DISCHARGED, and one of them changed the code
 
