@@ -19,9 +19,19 @@ lane built the platform half and contributed it back into that file, §8–§17)
 > ancestry test discriminates — my first attempt used a control that predates the build and therefore
 > could not fail.
 >
-> **So every known defect in this lane is now live-fixed.** The per-page budget question is ANSWERED
-> (per SECTION — item 1). What remains is ONE end-to-end confirmation, and it is blocked on traffic,
-> not on code: see item 1b.
+> ## ⚠ UPDATED AGAIN, 2026-08-21 EVENING — THE GATE DOES NOT YET CHANGE PAGES
+> The end-to-end confirmation happened and it FAILED. Two pages built after the roll reported
+> `status: repaired, hits_after: 0`, both COMPLETED — and the stored `content_data` was
+> **byte-identical to the pre-repair value**. The in-place mutation of the writer's content map does
+> not survive the step boundary (`saveStepResultWithRetry` copies only the CURRENT step's own keys), so
+> the renderer read the unpatched map. An honest marker over a page that never changed.
+>
+> **Fixed in code** (the action now returns the patched content as its own `result`) **and migration
+> `548` points `render_section.content_from` at it — HELD, because the live build predates the change.**
+> Full account: `bugs_open/305 §22`.
+>
+> **So today's state, precisely: the gate detects correctly, selects correctly, rewrites well, and does
+> not yet change pages.** It needs one roll, then `548`, then one page to confirm at the artefact.
 
 ## State, with how it was verified
 
@@ -37,6 +47,21 @@ lane built the platform half and contributed it back into that file, §8–§17)
 | the brief that supplies the tagline | **UNCHANGED** | `content_direction.formatted` still contains `in days, not months` |
 
 ## What is left
+
+**THE ORDER, and it is now three steps rather than one:**
+
+1. **A chassis roll** carrying the commit that adds the step's own `result` key (after `dd9fc619`).
+   Probe the capability on every replica with an absent control — do not read the tag.
+2. **Apply migration `548`** (drop its `_HOLD`): `render_section.content_from` → `copy_gate.result`.
+   ⚠ Applying it against an older binary means the renderer finds no content — loud, but a failure.
+3. **Then confirm at the artefact**, on the part that DIFFERS:
+   ```sql
+   SELECT pc.slot_name, pc.content_data->>'subheadline'
+     FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+    WHERE s.domain='<the site>' AND p.name='<the page>';
+   ```
+   The removed construction must be ABSENT and the rewrite PRESENT. Never test the rewrite's opening —
+   `from` and `to` share it, and the marker truncates both at 160 chars.
 
 **0. ~~CONFIRM THE REPAIR NOW WORKS~~ — ANSWERED 2026-08-21 11:06Z. IT DOES.** First real repair,
 `mortgagecalculator.co.uk`/`scorecard-simulator`: 5 hits found, **1 left alone as regulatory**, 2
@@ -69,7 +94,9 @@ copies only the step's own keys. Live behaviour is the documented safe fallback:
 **every headline hit repaired regardless**, page total counted at `compile_page_sections`. To make it
 truly per-page, carry the count in the step's OUTPUT (`copy_gate_<N-1>`) — never a bare state key.
 
-**1b. ~~THE REPAIR UNDER-APPLIES~~ — FIXED AND ROLLED (`0eea9e597`, live in `bac189921` since
+**1b. ~~THE REPAIR UNDER-APPLIES~~ ~~FIXED AND ROLLED~~ — SUPERSEDED BY §22: THE REPAIR DID NOT REACH
+THE PAGE AT ALL. See the banner above. What follows is the older, narrower item, kept because its
+verification recipe is still the right one once `548` is applied.** ~~FIXED AND ROLLED (`0eea9e597`, live in `bac189921` since
 2026-08-21 16:54Z). ONE END-TO-END CONFIRMATION IS STILL OWED, and it is traffic-bound.** Several hits
 in ONE field used to race: six accepted rewrites, one landed, confirmed at the artefact. The unit test
 composes two rewrites in one field and a mutation probe reproduces the race, so the fix is proven in
