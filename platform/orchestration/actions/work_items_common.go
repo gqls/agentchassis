@@ -27,7 +27,9 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"encoding/json"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
+	"strings"
 )
 
 // workItemTerminalStatuses is the canonical set of statuses that mark
@@ -468,4 +470,97 @@ func resolveWorkItems(
 			zap.Int64("items", n))
 	}
 	return int(n), nil
+}
+
+// emitRequiredFieldsMissing is the ONE render-time producer of
+// required_fields_missing items (bugs_open/342, council bb7f5d0e round 6,
+// reuse_agent seat).
+//
+// It exists because I wrote it twice. The chrome path and the two section-editor
+// routes each had a near-identical emitter — same item_type, same handler, same
+// key shape, differing only in the surface they name and whether they are armed
+// — and a second seat had just praised collapsing two copies of a declared-type
+// check into one primitive. Three copies of one write is how three subtly
+// different behaviours start: one gets a severity bump, one forgets the handler,
+// and the router quietly stops seeing a third of the population.
+//
+// THE KEY SHAPE IS SHARED WITH check_required_fields_missing DELIBERATELY
+// (required_fields_missing:<scope>:<slot-or-function>), so the post-deploy
+// producer and this render-time one co-dedup on one key instead of filing two
+// items for one defect. That check scans build_status='deployed' — rows that
+// made it — which is exactly why a render-time producer was needed: a section
+// that renders empty is dropped and never becomes such a row.
+//
+// Failures are logged, never returned: no render or edit may fail because a note
+// could not be written.
+func emitRequiredFieldsMissing(ctx context.Context, db *sql.DB, siteID uuid.UUID,
+	componentID *uuid.UUID, scopeKey, label, surface, source string,
+	absent []string, extraSpec map[string]interface{}, logger *zap.Logger) {
+
+	if len(absent) == 0 {
+		return
+	}
+	if db == nil || siteID == uuid.Nil {
+		logger.Warn("required_fields_missing: no site identity available, item not filed",
+			zap.String("surface", surface), zap.Strings("absent_required_fields", absent))
+		return
+	}
+
+	spec := map[string]interface{}{
+		"surface":        surface,
+		"missing_fields": absent,
+		"source":         source,
+		"detected_at":    "render",
+		"fix": "Schema-required source:llm field(s) rendered EMPTY. Go's missingkey=zero renders " +
+			"an absent field as empty with no error, so the section ships blank rather than " +
+			"failing, and page assembly drops a visually-empty section (bugs_open/342). Supply " +
+			"the values, or change the schema if they are not really required. NOTE this was " +
+			"detected AT RENDER: the post-deploy check cannot see it, because it reads rows that " +
+			"have already reached a deployed build status and a dropped section never becomes one.",
+	}
+	for k, v := range extraSpec {
+		spec[k] = v
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	summary := fmt.Sprintf("%s left %d schema-required field(s) empty: %s",
+		label, len(absent), strings.Join(absent, ", "))
+	if len(summary) > 250 {
+		summary = summary[:247] + "..."
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn("required_fields_missing: begin tx failed", zap.String("surface", surface), zap.Error(err))
+		return
+	}
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		componentID:  componentID,
+		source:       source,
+		pipeline:     "build",
+		itemType:     "required_fields_missing",
+		severity:     "medium",
+		summary:      summary,
+		spec:         string(specJSON),
+		priority:     50,
+		handlerAgent: "required-fields-missing-handler",
+		status:       "detected",
+		createdBy:    source,
+		itemKey:      fmt.Sprintf("required_fields_missing:%s:%s", siteID, scopeKey),
+	}, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Warn("required_fields_missing: insert failed", zap.String("surface", surface), zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("required_fields_missing: commit failed", zap.String("surface", surface), zap.Error(err))
+		return
+	}
+	if inserted {
+		logger.Info("required_fields_missing item filed at RENDER time (bugs_open/342)",
+			zap.String("surface", surface), zap.String("scope", scopeKey),
+			zap.Strings("absent_required_fields", absent))
+	}
 }

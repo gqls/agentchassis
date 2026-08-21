@@ -1039,8 +1039,10 @@ func applyContentEdit(
 	// If they are the riskiest, they are the ones that most need the queue
 	// entry; detection-only on the highest-exposure path is the "one call site
 	// gets the rigorous fix, the sibling stays heuristic" shape 016b §9 names.
-	emitAbsentRequiredFieldsForSection(ctx, db, siteID, renderCtx.AbsentRequiredFields,
-		getStringVal(componentData, "function"), "content_edit", logger)
+	emitRequiredFieldsMissing(ctx, db, siteID, nil, getStringVal(componentData, "function"),
+		fmt.Sprintf("Section edit on %s", getStringVal(componentData, "function")),
+		"page_component", "section_editor", renderCtx.AbsentRequiredFields,
+		map[string]interface{}{"route": "content_edit", "live_page": true}, logger)
 	if err != nil {
 		// bugs_open/260. THIS PATH HAS NO GATE DOWNSTREAM: the caller writes
 		// rendered_html straight to an already-live page, with no
@@ -1164,8 +1166,10 @@ func applyComponentSwap(
 	BindSingleSectionInstanceToken(renderCtx, comp.Function)
 	renderCtx.InputSchema = comp.InputSchema // bugs_open/342 — same live-page exposure as applyContentEdit
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
-	emitAbsentRequiredFieldsForSection(ctx, db, siteID, renderCtx.AbsentRequiredFields,
-		comp.Function, "component_swap", logger)
+	emitRequiredFieldsMissing(ctx, db, siteID, nil, comp.Function,
+		fmt.Sprintf("Section swap on %s", comp.Function),
+		"page_component", "section_editor", renderCtx.AbsentRequiredFields,
+		map[string]interface{}{"route": "component_swap", "live_page": true}, logger)
 	if err != nil {
 		// Same ungated live-page route as applyContentEdit above (bugs_open/260):
 		// refuse the swap rather than write a section that did not render.
@@ -1493,90 +1497,4 @@ func getStringVal(m map[string]interface{}, key string) string {
 		return v
 	}
 	return ""
-}
-
-// emitAbsentRequiredFieldsForSection files a required_fields_missing item for a
-// LIVE-PAGE section edit whose schema-required fields rendered empty
-// (bugs_open/342, council bb7f5d0e round 5).
-//
-// WHY HERE AND UNCONDITIONALLY, when the chrome sibling is opt-in. The chrome
-// emitter guards a shared BUILD path that runs for every site on every build, so
-// an unconditional write there is fleet-wide new authority (owner ruling
-// 2026-08-02 §2). These two routes are different in the way that matters: they
-// run only when a human or a repair handler is DELIBERATELY EDITING one section,
-// they already write rendered_html straight to a page that is currently serving,
-// and they have no validate_content between them and the reader. The write is
-// therefore per-edit rather than per-build, and its volume is bounded by how
-// often someone edits a section — 271 such items in four months, measured on the
-// 260 lane.
-//
-// It is still a no-op on the healthy path: absent is nil, and a nil list files
-// nothing. Failures are logged, never returned — the edit must not fail because
-// a note could not be written, which is the discipline every sibling emitter
-// follows.
-func emitAbsentRequiredFieldsForSection(ctx context.Context, db *sql.DB, siteID uuid.UUID,
-	absent []string, componentFunction, route string, logger *zap.Logger) {
-
-	if len(absent) == 0 {
-		return
-	}
-	if db == nil || siteID == uuid.Nil {
-		logger.Warn("section edit: no site identity available, required_fields_missing item not filed",
-			zap.Strings("absent_required_fields", absent), zap.String("route", route))
-		return
-	}
-
-	spec := map[string]interface{}{
-		"surface":        "page_component",
-		"component":      componentFunction,
-		"missing_fields": absent,
-		"source":         "section_editor",
-		"route":          route,
-		"detected_at":    "render",
-		"fix": "A section edit rendered with schema-required source:llm field(s) EMPTY. " +
-			"Go's missingkey=zero renders an absent field as empty with no error, and this " +
-			"route writes rendered_html straight to a page that is already serving, with no " +
-			"validate_content between it and the reader (bugs_open/342). Supply the values, " +
-			"or change the schema if they are not really required.",
-	}
-	specJSON, _ := json.Marshal(spec)
-
-	summary := fmt.Sprintf("Section edit on %s left %d schema-required field(s) empty: %s",
-		componentFunction, len(absent), strings.Join(absent, ", "))
-	if len(summary) > 250 {
-		summary = summary[:247] + "..."
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		logger.Warn("section edit: begin tx for required_fields_missing failed", zap.Error(err))
-		return
-	}
-	inserted, err := insertWorkItem(ctx, tx, workItem{
-		siteID:       siteID,
-		source:       "section-editor",
-		pipeline:     "build",
-		itemType:     "required_fields_missing",
-		severity:     "medium",
-		summary:      summary,
-		spec:         string(specJSON),
-		priority:     50,
-		handlerAgent: "required-fields-missing-handler",
-		status:       "detected",
-		createdBy:    "section_editor",
-		itemKey:      fmt.Sprintf("required_fields_missing:%s:%s", siteID, componentFunction),
-	}, logger)
-	if err != nil {
-		_ = tx.Rollback()
-		logger.Warn("section edit: insert required_fields_missing item failed", zap.Error(err))
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		logger.Warn("section edit: commit required_fields_missing item failed", zap.Error(err))
-		return
-	}
-	if inserted {
-		logger.Info("section edit: required_fields_missing item filed at RENDER time on a LIVE page (bugs_open/342)",
-			zap.Strings("absent_required_fields", absent), zap.String("route", route))
-	}
 }

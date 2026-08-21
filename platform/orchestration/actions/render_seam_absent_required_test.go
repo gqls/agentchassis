@@ -269,15 +269,18 @@ func TestAbsentRequiredRecordIsOptInAndFailsOpen(t *testing.T) {
 // the submission called these two "the two with the most exposure" and then
 // wired only a log line there).
 //
-// The emitter needs a database, so what is asserted here is the DECISION, which
-// is the part that was wrong: nothing to report must file nothing, and an
-// identity-less call must refuse rather than panic or write.
-func TestSectionEditEscalationDecidesCorrectlyWithoutADatabase(t *testing.T) {
+// ONE emitter serves all three render-time producers since round 6 (reuse_agent:
+// three near-identical writers of one item_type is how three subtly different
+// behaviours start). The emitter needs a database, so what is asserted here is
+// the DECISION, which is the part that was wrong: nothing to report must file
+// nothing, and an identity-less call must refuse rather than panic or write.
+func TestRequiredFieldsMissingEmitterDecidesCorrectlyWithoutADatabase(t *testing.T) {
 	// Nothing absent → no attempt at all. If this ever reaches the db==nil guard
 	// it would log a warning on every healthy edit, which is how a real signal
 	// gets filtered out.
 	core, logs := observer.New(zapcore.DebugLevel)
-	emitAbsentRequiredFieldsForSection(context.Background(), nil, uuid.New(), nil, "hero", "content_edit", zap.New(core))
+	emitRequiredFieldsMissing(context.Background(), nil, uuid.New(), nil, "hero", "Section edit on hero",
+		"page_component", "section_editor", nil, nil, zap.New(core))
 	if logs.Len() != 0 {
 		t.Errorf("a clean edit produced %d log line(s) — the empty case must return before every "+
 			"other consideration: %v", logs.Len(), logs.All()[0].Message)
@@ -285,7 +288,8 @@ func TestSectionEditEscalationDecidesCorrectlyWithoutADatabase(t *testing.T) {
 
 	// Something absent but no identity → refuse loudly, never silently.
 	core2, logs2 := observer.New(zapcore.DebugLevel)
-	emitAbsentRequiredFieldsForSection(context.Background(), nil, uuid.Nil, []string{"body"}, "hero", "content_edit", zap.New(core2))
+	emitRequiredFieldsMissing(context.Background(), nil, uuid.Nil, nil, "hero", "Section edit on hero",
+		"page_component", "section_editor", []string{"body"}, nil, zap.New(core2))
 	if logs2.Len() == 0 {
 		t.Error("an identity-less call with real findings said nothing — a record that cannot be " +
 			"written must still be visible, or the finding disappears twice over")
