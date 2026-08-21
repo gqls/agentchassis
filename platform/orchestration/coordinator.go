@@ -2028,7 +2028,8 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	// 3. Workflow incorrectly thinks all responses are in
 	ctx := context.Background()
 	repo := NewStateRepository(coordinator.db, logger)
-	if err := persistAwaitingStateWithRetry(ctx, state, repo, logger); err != nil {
+	outcome, err := persistAwaitingStateWithRetry(ctx, state, repo, logger)
+	if err != nil {
 		logger.Error("Failed to persist state before table insert",
 			zap.String("request_id", requestID),
 			zap.Error(err))
@@ -2043,8 +2044,27 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 		return false
 	}
 
+	if outcome == parkSkippedReplyArrived {
+		// The reply to THIS request beat the park, so the response consumer has
+		// already applied it and owns the continuation. Nothing was persisted, so
+		// there is nothing to insert and nothing to time out.
+		//
+		// bugs_open/343: this path used to fall through and insert a table row and
+		// arm a timeout for a request the state row knows nothing about — the
+		// orphan row that made the map and the table disagree with no reconciler
+		// anywhere. Drop the in-memory entry so this state cannot re-assert it.
+		//
+		// Still `true`: the executor must stop driving this step either way, and
+		// the consumer's already-advanced state is the authoritative one.
+		delete(state.AwaitedRequests, requestID)
+		logger.Info("Reply beat the park - consumer owns the continuation, no awaited row inserted",
+			zap.String("request_id", requestID),
+			zap.String("orchestration_id", state.OrchestrationID))
+		return true
+	}
+
 	// NOW insert into database table (JSONB is already persisted)
-	err := repo.InsertAwaitedRequest(ctx, awaitedReq)
+	err = repo.InsertAwaitedRequest(ctx, awaitedReq)
 	alreadyExisted := false
 	if err != nil {
 		// Check if this is an "already exists" error - this is actually OK
@@ -2098,9 +2118,30 @@ func processAwaitResponse(state *OrchestrationState, result map[string]interface
 	return true
 }
 
+// parkOutcome says what a park actually DID, so no caller can read "no error" as
+// "the awaited entry is persisted".
+//
+// bugs_open/343: persistAwaitingStateWithRetry's arrival check returned a bare nil
+// on a hit without persisting anything, and processAwaitResponse then inserted the
+// table row and armed a timeout for a request whose entry exists in no map. Making
+// the outcome part of the signature makes "returned success without persisting"
+// unrepresentable — the compiler forces every caller to say which case it is in.
+// It is only meaningful when the error is nil.
+type parkOutcome int
+
+const (
+	// parkPersisted: the awaited entry is durably in the state row. Insert the
+	// table row and arm the timeout.
+	parkPersisted parkOutcome = iota
+	// parkSkippedReplyArrived: a reply to THIS request landed while we were
+	// parking, so the response consumer already owns the continuation. Nothing was
+	// persisted and nothing should be: no table row, no timeout.
+	parkSkippedReplyArrived
+)
+
 // persistAwaitingStateWithRetry saves state with awaited request before table insert
 // This prevents the race condition where responses arrive before JSONB is persisted
-func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationState, repo *StateRepository, logger *zap.Logger) error {
+func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationState, repo *StateRepository, logger *zap.Logger) (parkOutcome, error) {
 	maxRetries := 10
 	baseDelay := 50 * time.Millisecond
 
@@ -2108,17 +2149,61 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 		// Load fresh state
 		freshState, err := repo.GetState(ctx, state.OrchestrationID)
 		if err != nil {
-			return fmt.Errorf("failed to load state: %w", err)
+			return parkPersisted, fmt.Errorf("failed to load state: %w", err)
 		}
 
-		// Check if response already arrived (in case of retry loops)
+		// Has a reply to one of the requests we are parking ALREADY arrived?
+		//
+		// The question is about IDENTITY, not presence. A marker under the step
+		// name says only "some reply was recorded here once"; on a loop step that
+		// is true of every iteration after the first. bugs_open/343: keying on the
+		// step name alone made every re-registration of an answered step name read
+		// as an arrival, so the park returned success without persisting and the
+		// orchestration froze holding no waiting awaited request.
+		//
+		// The race is real, but only where the row is pre-registered BEFORE the
+		// send, so the consumer can claim a fast ack while the park is still
+		// persisting. Five callers do that today via preRegisterAwaitedRequest:
+		// actions/spawn_actions.go:115, actions/dispatch_actions.go:229 and the
+		// three thunder_prepare_*_dispatch.go actions. Everywhere else a marker
+		// under an awaited step name is stale by construction.
 		for reqID := range state.AwaitedRequests {
-			if existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{}); exists {
-				if _, hasResponse := existingData["response"]; hasResponse {
-					logger.Info("Response already arrived during state persist - continuing",
-						zap.String("request_id", reqID))
-					return nil
-				}
+			existingData, exists := freshState.CollectedData[state.AwaitedRequests[reqID].StepName].(map[string]interface{})
+			if !exists {
+				continue
+			}
+			if _, hasResponse := existingData[awaitedResponseMarker]; !hasResponse {
+				continue
+			}
+
+			recordedID, hasID := existingData[awaitedResponseIDMarker].(string)
+			switch {
+			case hasID && recordedID == reqID:
+				// A reply to THIS request beat the park. The consumer has already
+				// applied it and owns the continuation.
+				logger.Info("Response already arrived during state persist - continuing",
+					zap.String("request_id", reqID))
+				return parkSkippedReplyArrived, nil
+			case hasID:
+				// Stale residue: an EARLIER request answered under this same step
+				// name. Park normally — this is the bugs_open/343 mechanism, and
+				// skipping here is what stranded the orchestration.
+				logger.Info("Stale response marker under this step name belongs to an earlier request - parking normally",
+					zap.String("request_id", reqID),
+					zap.String("recorded_request_id", recordedID),
+					zap.String("step_name", state.AwaitedRequests[reqID].StepName))
+			default:
+				// LEGACY (2026-08-21): a marker written by an image that predates
+				// awaitedResponseIDMarker carries no id, so identity is
+				// unrecoverable and today's behaviour — treat as arrived — is the
+				// safe reading during the mixed-fleet window after the roll.
+				//
+				// Do NOT "fix" this branch to park: an old pod's genuine arrival
+				// would then be double-driven. Delete the branch outright once no
+				// pre-roll pod and no pre-roll orchestration can still be live.
+				logger.Info("Response already arrived during state persist - continuing (legacy marker, no request id)",
+					zap.String("request_id", reqID))
+				return parkSkippedReplyArrived, nil
 			}
 		}
 
@@ -2153,16 +2238,16 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 			}
 			// Update in-memory version
 			state.Version = freshState.Version
-			return nil
+			return parkPersisted, nil
 		}
 
 		// Check if optimistic lock error
 		if !IsOptimisticLockError(err) {
-			return fmt.Errorf("failed to persist awaiting state: %w", err)
+			return parkPersisted, fmt.Errorf("failed to persist awaiting state: %w", err)
 		}
 
 		if attempt >= maxRetries {
-			return fmt.Errorf("failed to persist awaiting state after %d attempts: %w", attempt, err)
+			return parkPersisted, fmt.Errorf("failed to persist awaiting state after %d attempts: %w", attempt, err)
 		}
 
 		// Backoff
@@ -2173,13 +2258,46 @@ func persistAwaitingStateWithRetry(ctx context.Context, state *OrchestrationStat
 		time.Sleep(delay)
 	}
 
-	return nil
+	return parkPersisted, nil
 }
 
 // awaitedResponseMarker is the sub-key applyResponseToState writes when an
 // adapter reply lands, and the key persistAwaitingStateWithRetry's arrival check
 // reads to decide a reply beat the park. It is a protocol signal, never data.
 const awaitedResponseMarker = "response"
+
+// awaitedResponseIDMarker is the sibling key recording WHICH awaited request the
+// recorded reply answered. Written wherever applyResponseToState records a reply;
+// read only by persistAwaitingStateWithRetry's arrival check, which needs identity,
+// not mere presence.
+//
+// bugs_open/343: the arrival check used to key on step NAME alone, so a step name
+// that had already been answered once — every iteration N+1 re-registration of a
+// loop's call_handler — read as "the reply beat the park" for a request that had
+// never been sent. The park then returned success WITHOUT persisting, the caller
+// read nil as success, and the orchestration sat in EXECUTING_STEP holding no
+// waiting awaited request: a row in the table, nothing in the map, and nothing
+// routine to notice. Recording the id is what lets the check tell a genuine
+// beat-the-park arrival from stale residue under the same step name.
+//
+// It is a protocol signal, never data — like awaitedResponseMarker it is stripped
+// on the carry path (withoutResponseMarker) so an action's own result can never
+// forge it.
+const awaitedResponseIDMarker = "response_request_id"
+
+// setAwaitedResponseID records which awaited request a reply answered, on the
+// container applyResponseToState is about to store under the step name.
+//
+// Nil-guarded and no-ops on an empty id: awaitedReq is legitimately nil on the
+// dynamic-step path, and an absent id is exactly what the arrival check's legacy
+// branch is written to tolerate — never write an empty string, which would read as
+// a real id belonging to no request.
+func setAwaitedResponseID(container map[string]interface{}, awaitedReq *AwaitedRequest) {
+	if container == nil || awaitedReq == nil || awaitedReq.RequestID == "" {
+		return
+	}
+	container[awaitedResponseIDMarker] = awaitedReq.RequestID
+}
 
 // carryCollectedDataOntoFreshState copies the dispatching step's in-memory
 // CollectedData onto the freshly-loaded state, ADDITIVELY: a key already present
@@ -2209,9 +2327,12 @@ func carryCollectedDataOntoFreshState(freshState, state *OrchestrationState, log
 		freshState.CollectedData = make(map[string]interface{}, len(state.CollectedData))
 	}
 
-	// The steps we are about to park on. Carrying a key spelled "response" under
-	// one of these would forge the signal the arrival check reads, and a forged
-	// arrival is indistinguishable from a real one.
+	// The steps we are about to park on. Carrying a key spelled "response" — or,
+	// since bugs_open/343, its "response_request_id" sibling — under one of these
+	// would forge the signal the arrival check reads, and a forged arrival is
+	// indistinguishable from a real one. The id is the MORE dangerous of the two
+	// to carry: an id equal to the request being parked forges precisely the
+	// identity the check now keys on.
 	awaitedSteps := make(map[string]struct{}, len(state.AwaitedRequests))
 	for _, req := range state.AwaitedRequests {
 		if req != nil && req.StepName != "" {
@@ -2234,9 +2355,10 @@ func carryCollectedDataOntoFreshState(freshState, state *OrchestrationState, log
 	return carried
 }
 
-// withoutResponseMarker returns value with the response-protocol marker removed,
-// copying rather than mutating because the map handed in is still the live
-// in-memory one the caller goes on using.
+// withoutResponseMarker returns value with BOTH response-protocol markers removed
+// (awaitedResponseMarker and awaitedResponseIDMarker), copying rather than
+// mutating because the map handed in is still the live in-memory one the caller
+// goes on using.
 //
 // No action returns such a key today — measured 2026-08-15 across the 15 files
 // that return await_response: every "response" spelling in them is either a
@@ -2247,20 +2369,24 @@ func withoutResponseMarker(stepName string, value interface{}, logger *zap.Logge
 	if !ok {
 		return value
 	}
-	if _, present := asMap[awaitedResponseMarker]; !present {
+	_, hasMarker := asMap[awaitedResponseMarker]
+	_, hasIDMarker := asMap[awaitedResponseIDMarker]
+	if !hasMarker && !hasIDMarker {
 		return value
 	}
 
 	stripped := make(map[string]interface{}, len(asMap))
 	for k, v := range asMap {
-		if k == awaitedResponseMarker {
+		if k == awaitedResponseMarker || k == awaitedResponseIDMarker {
 			continue
 		}
 		stripped[k] = v
 	}
 	if logger != nil {
-		logger.Warn("Dropped a 'response' key from an awaited step's own result before parking - it would be indistinguishable from an arrived reply",
-			zap.String("step_name", stepName))
+		logger.Warn("Dropped a response-protocol marker from an awaited step's own result before parking - it would be indistinguishable from an arrived reply",
+			zap.String("step_name", stepName),
+			zap.Bool("had_response", hasMarker),
+			zap.Bool("had_response_request_id", hasIDMarker))
 	}
 	return stripped
 }
@@ -2630,6 +2756,105 @@ func (s *SagaCoordinator) handleProgressUpdate(ctx context.Context, state *Orche
 	return nil
 }
 
+// reconcileAllDoneAgainstTable cross-checks a map-derived "all responses are in"
+// against the awaited_requests table, and returns the allDone the caller should
+// act on.
+//
+// Detection is UNCONDITIONAL: a disagreement is logged loudly and recorded in
+// agent_error_log whatever the flag says, because the whole defect class
+// bugs_open/343 sits in is invisible today — the advance decision reads the JSONB
+// map alone and the table is never consulted, so a divergence becomes a wrong
+// decision with nothing written down anywhere.
+//
+// ENFORCEMENT — adopting the table's rows and re-parking — happens only under
+// WorkflowPlan.AwaitReconcileEnforce. With the flag off this function cannot
+// change the outcome: it returns allDone unchanged. See the field's comment for
+// the two hazards that keep the unsafe side off by default.
+//
+// Best-effort in the failure direction: a query error warns and lets the caller
+// proceed exactly as today. A cross-check must never become a new way to fail.
+func (s *SagaCoordinator) reconcileAllDoneAgainstTable(ctx context.Context, repo *StateRepository, freshState *OrchestrationState, requestID string, allDone bool) bool {
+	if !allDone || repo == nil || freshState == nil {
+		return allDone
+	}
+
+	outstanding, err := repo.OutstandingAwaitedRequests(ctx, freshState.OrchestrationID, requestID)
+	if err != nil {
+		s.logger.Warn("Await reconcile cross-check failed - proceeding on the in-memory map alone",
+			zap.String("orchestration_id", freshState.OrchestrationID),
+			zap.Error(err))
+		return allDone
+	}
+	if len(outstanding) == 0 {
+		return allDone
+	}
+
+	// The map says done; the table disagrees.
+	ids := make([]string, 0, len(outstanding))
+	statuses := make([]string, 0, len(outstanding))
+	for _, req := range outstanding {
+		if req == nil {
+			continue
+		}
+		ids = append(ids, req.RequestID)
+		statuses = append(statuses, req.Status)
+	}
+
+	enforce := freshState.WorkflowPlan.AwaitReconcileEnforce
+	s.logger.Error("AWAIT_DIVERGENCE_DETECTED: the awaited map says all responses are in, the table still shows outstanding rows",
+		zap.String("orchestration_id", freshState.OrchestrationID),
+		zap.String("current_step", freshState.CurrentStep),
+		zap.String("completing_request_id", requestID),
+		zap.Int("outstanding_count", len(outstanding)),
+		zap.Strings("outstanding_request_ids", ids),
+		zap.Strings("outstanding_statuses", statuses),
+		zap.Bool("enforced", enforce))
+
+	s.logAgentError(ctx, AgentErrorEntry{
+		OrchestrationID: freshState.OrchestrationID,
+		StepName:        freshState.CurrentStep,
+		Action:          "await_reconcile",
+		ErrorMessage: fmt.Sprintf("await divergence: map says all done, awaited_requests still shows %d outstanding (%v)",
+			len(outstanding), ids),
+		ErrorCode: "await_divergence",
+		Severity:  "error",
+		Context: map[string]interface{}{
+			"outstanding_request_ids": ids,
+			"outstanding_statuses":    statuses,
+			"completing_request_id":   requestID,
+			"enforced":                enforce,
+			"bug":                     "bugs_open/343",
+		},
+	})
+
+	if !enforce {
+		// Detection only. The decision stays byte-identical to today.
+		return allDone
+	}
+
+	// Adopt the table's view: re-park on the rows it still shows outstanding
+	// rather than advancing past work this orchestration still owes. No timeout
+	// goroutines are armed here — the retry driver already owns expired rows, so
+	// an adopted request that never answers ends at the retry ladder and then the
+	// fail path: recoverable-but-slow, never silent.
+	if freshState.AwaitedRequests == nil {
+		freshState.AwaitedRequests = make(map[string]*AwaitedRequest, len(outstanding))
+	}
+	for _, req := range outstanding {
+		if req == nil || req.RequestID == "" {
+			continue
+		}
+		freshState.AwaitedRequests[req.RequestID] = req
+	}
+	freshState.Status = StatusAwaitingResponses
+	freshState.LastActivity = time.Now()
+	s.logger.Warn("await_reconcile_enforce is on - adopted the table's outstanding requests instead of advancing",
+		zap.String("orchestration_id", freshState.OrchestrationID),
+		zap.Strings("adopted_request_ids", ids))
+
+	return false
+}
+
 // handleCompleteResponse processes a successful response
 func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage, awaitedReq *AwaitedRequest) error {
 	s.logger.Info("Processing complete response",
@@ -2673,6 +2898,13 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 
 		// Check if this was the last awaited response
 		allDone := len(freshState.AwaitedRequests) == 0
+		if allDone {
+			// The map says the orchestration owes nothing more. Ask the TABLE the
+			// same question before acting on it — this is the one moment the two
+			// representations' disagreement becomes a wrong decision, and until
+			// bugs_open/343 nothing ever compared them.
+			allDone = s.reconcileAllDoneAgainstTable(ctx, repo, freshState, requestID, allDone)
+		}
 		if allDone {
 			// Advance to next step
 			if currentStep, exists := freshState.WorkflowPlan.Steps[freshState.CurrentStep]; exists && currentStep.NextStep != "" {
@@ -2799,6 +3031,13 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 		// Add metadata
 		mappedResult["response_received_at"] = time.Now().Format(time.RFC3339)
 		mappedResult["response_status"] = "complete"
+		// Record WHICH request this answered. This branch wrote no arrival marker
+		// at all before bugs_open/343, so a reply that beat the park on an
+		// output_mapping step was invisible to the check — and output_mapping IS
+		// live on call_agent await paths (107_image_build_handler.sql:589
+		// call_variant_gen, :1119 call_imagery_gen). One write covers stepName and
+		// outputField below: they share this map reference.
+		setAwaitedResponseID(mappedResult, awaitedReq)
 
 		// Store mapped result DIRECTLY (no .response wrapper)
 		state.CollectedData[stepName] = mappedResult
@@ -2857,9 +3096,10 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 			existingData = make(map[string]interface{})
 		}
 
-		existingData["response"] = normalisedData
+		existingData[awaitedResponseMarker] = normalisedData
 		existingData["response_received_at"] = time.Now().Format(time.RFC3339)
 		existingData["response_status"] = "complete"
+		setAwaitedResponseID(existingData, awaitedReq)
 
 		if stepExists && step.Action == "spawn_agent" {
 			existingData["initialized"] = true
@@ -2873,9 +3113,10 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 			if !exists {
 				outputData = make(map[string]interface{})
 			}
-			outputData["response"] = normalisedData
+			outputData[awaitedResponseMarker] = normalisedData
 			outputData["response_received_at"] = time.Now().Format(time.RFC3339)
 			outputData["response_status"] = "complete"
+			setAwaitedResponseID(outputData, awaitedReq)
 			if stepExists && step.Action == "spawn_agent" {
 				outputData["initialized"] = true
 			}
@@ -2889,9 +3130,15 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 		return
 	}
 
-	// Handle spawn_agent without existing data
+	// Handle spawn_agent without existing data.
+	//
+	// Unreachable at HEAD: the isAgentResponse test above already claims every
+	// stepExists && spawn_agent case and returns. The id marker is written here
+	// anyway so the branch cannot come back to life marker-blind — the shape of
+	// hole bugs_open/343 found in the output_mapping branch.
 	if stepExists && step.Action == "spawn_agent" {
 		spawnData := s.extractSpawnData(normalisedData, step)
+		setAwaitedResponseID(spawnData, awaitedReq)
 		state.CollectedData[stepName] = spawnData
 		if step.OutputField != "" {
 			state.CollectedData[step.OutputField] = spawnData
@@ -2899,7 +3146,9 @@ func (s *SagaCoordinator) applyResponseToState(state *OrchestrationState, stepNa
 		return
 	}
 
-	// Default: store response directly (for non-agent actions)
+	// Default: store response directly (for non-agent actions). Adapter and HITL
+	// await paths land here and wrote no arrival marker before bugs_open/343.
+	setAwaitedResponseID(normalisedData, awaitedReq)
 	state.CollectedData[stepName] = normalisedData
 	if outputField != "" {
 		dataToStore := normalisedData

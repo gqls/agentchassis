@@ -14146,3 +14146,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[measurement-discipline-index]] (your measurement answers the question you ENCODED), CLM-023, `bugs_open/335`
 - **source:** 2026-08-21, `vigilant_designer_offer_analysis` lane — hit while answering a council guardian objection about which downstream consumers a shrinking array could break; the wildcard rows were caught only because a follow-up query to read the surrounding context returned nothing
 - **added:** 2026-08-21, vigilant_designer_offer_analysis lane
+
+---
+
+### The park's arrival check treats a `response` key with NO `response_request_id` sibling as ARRIVED — that branch is deliberate legacy compat, and "fixing" it to park double-drives an old pod's real reply
+
+- **footprint:** `platform/orchestration/coordinator.go`, `persistAwaitingStateWithRetry`, `awaitedResponseMarker`, `awaitedResponseIDMarker`, `parkOutcome`, `applyResponseToState`, `withoutResponseMarker`, `processAwaitResponse`
+- **fires when:** you read the arrival check and notice one branch skipping the park on nothing but a bare `response` key — exactly the presence-keyed logic the surrounding comments condemn as `bugs_open/343`'s wedge. **No symptom.** The branch looks like an oversight the fix forgot to convert, the "correction" is a two-line diff, it compiles, and `TestParkTreatsALegacyMarkerWithNoIDAsArrived` is the only thing standing between you and shipping it.
+- **the mechanism:** the id marker is written by `applyResponseToState`, which lives in the **chassis binary**. During the mixed-fleet window after a roll — and for any orchestration that parked before it — a reply recorded by an older pod carries `response` and no `response_request_id`. Identity is then genuinely unrecoverable, so the two readings are: *treat as arrived* (today's behaviour, and what the branch does) or *treat as stale and park*. **Parking is the unsafe one:** the reply really did arrive and really was applied by the consumer, so parking re-registers a request that is already answered and the step is driven twice. Treating it as arrived is at worst the pre-fix behaviour for one orchestration, which is the failure we already survive.
+- **the check — before touching that branch, ask whether a pre-roll writer can still be live:**
+  ```bash
+  # 1. Is any pod running an image built before the id marker shipped?
+  kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+  git merge-base --is-ancestor <the commit that added awaitedResponseIDMarker> <that stamp>   # per SERVICE, not per fleet
+  # 2. Can a pre-roll ORCHESTRATION still be parked? (retention is ~26h for the statuses that matter)
+  ```
+  ```sql
+  SELECT count(*) FROM orchestration_states
+   WHERE status = 'AWAITING_RESPONSES' AND created_at < '<roll time>';   -- must be 0 before deleting the branch
+  ```
+  Both must be clean. The branch is dated `2026-08-21` in the source and is **meant to be deleted** — but by that evidence, not on sight.
+- **⚠ the sibling trap in the same function:** a marker whose id names a **different** request must park (that IS the wedge fix). So the branch you may delete and the branch you must never delete look almost identical, and they are three lines apart. Read which case the `switch` arm is in before editing either.
+- **⚠ and the third one, on the carry path:** `withoutResponseMarker` must strip **both** keys. Stripping only `response` leaves an id that an action's own result can carry onto the parked state — forging precisely the identity the check keys on, for the very request being parked. `TestCarryStripsBothResponseMarkers` pins it, including the id-only case that a presence pre-check on the bare marker alone would wave through.
+- **relations:** register **RSH-012** (the mechanism), **WFA-021** (`await_reconcile_enforce`), **RSH-011** (`wedge-evidence-capture`, the live instrument — trigger deliberately BROAD, do not narrow it to this signature), `bugs_open/343`, MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]]
+- **source:** 2026-08-21, `bugs_open/343` lane — written in the same commit as the branch it guards, per the platform-seams ordering exemption's condition (2)
+- **added:** 2026-08-21, bugs_open/343 lane

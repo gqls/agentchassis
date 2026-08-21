@@ -46,6 +46,24 @@ type WorkflowPlan struct {
 	StartStep      string          `json:"start_step"`
 	Steps          map[string]Step `json:"steps"`
 	TimeoutSeconds int             `json:"timeout_seconds,omitempty"`
+
+	// AwaitReconcileEnforce makes the advance decision ADOPT the awaited_requests
+	// table's view when it disagrees with the in-memory AwaitedRequests map:
+	// instead of advancing on "the map is empty", the orchestration re-parks on the
+	// rows the table still shows outstanding.
+	//
+	// Default false = today's behaviour exactly. Detection of the divergence is
+	// UNCONDITIONAL and logs either way; only the decision is gated. bugs_open/343:
+	// two representations of "what is outstanding" with nothing reconciling them is
+	// the wedge's substrate, and enforcement is the half that changes what runs, so
+	// it ships opt-in with the unsafe side off (owner ruling 2026-08-02 §2).
+	//
+	// Two hazards to weigh before switching it on for a workflow: adopting a row
+	// means waiting out its timeout, and the retry driver then REPLAYS the request,
+	// re-running real side effects; and the table must stay a cross-check, never a
+	// naive replacement for the map's optimistic-lock CAS, which is what serialises
+	// two pods racing to advance.
+	AwaitReconcileEnforce bool `json:"await_reconcile_enforce,omitempty"`
 }
 
 // Step represents a single action or sub-workflow within a plan

@@ -109,8 +109,12 @@ func TestParkPersistsTheActionsOwnKeys(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	repo := NewStateRepository(db, zap.NewNop())
-	if err := persistAwaitingStateWithRetry(context.Background(), parkingState(), repo, zap.NewNop()); err != nil {
+	outcome, err := persistAwaitingStateWithRetry(context.Background(), parkingState(), repo, zap.NewNop())
+	if err != nil {
 		t.Fatalf("park failed: %v", err)
+	}
+	if outcome != parkPersisted {
+		t.Fatalf("outcome = %v, want parkPersisted", outcome)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("expectations: %v", err)
@@ -135,6 +139,12 @@ func TestParkPersistsTheActionsOwnKeys(t *testing.T) {
 
 // The reply-beats-park race: when the fresh row already shows an arrived
 // response, the park returns early and must not write at all.
+//
+// Since bugs_open/343 this fixture — a bare "response" with no
+// response_request_id sibling — is specifically the LEGACY marker case: written
+// by an image that predates the id marker, identity unrecoverable, so treat-as-
+// arrived remains the safe reading during the mixed-fleet window. The id-keyed
+// cases live in park_arrival_check_test.go.
 func TestParkDoesNotWriteWhenTheReplyAlreadyArrived(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -148,8 +158,12 @@ func TestParkDoesNotWriteWhenTheReplyAlreadyArrived(t *testing.T) {
 	// Deliberately no ExpectExec: any UPDATE here is the failure.
 
 	repo := NewStateRepository(db, zap.NewNop())
-	if err := persistAwaitingStateWithRetry(context.Background(), parkingState(), repo, zap.NewNop()); err != nil {
+	outcome, err := persistAwaitingStateWithRetry(context.Background(), parkingState(), repo, zap.NewNop())
+	if err != nil {
 		t.Fatalf("park failed: %v", err)
+	}
+	if outcome != parkSkippedReplyArrived {
+		t.Fatalf("outcome = %v, want parkSkippedReplyArrived", outcome)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("park issued an unexpected write after the reply had landed: %v", err)

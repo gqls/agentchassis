@@ -1730,6 +1730,56 @@ func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID strin
 
 // GetAwaitedRequestWithRetry tries multiple times to find an awaited request
 // Handles race condition where INSERT may not be visible yet
+// OutstandingAwaitedRequests returns the awaited_requests rows for an
+// orchestration that are still outstanding — everything the response consumer
+// could still legitimately be waiting on — excluding one request id.
+//
+// This is the TABLE's answer to "what is outstanding". The advance decision
+// (handleCompleteResponse) reads the AwaitedRequests JSONB map instead, and
+// nothing reconciles the two: bugs_open/343's wedge is exactly a state where the
+// map says "all done" while a row here says otherwise, and the orchestration
+// advances past work it still owes. Use this as a CROSS-CHECK, never as a naive
+// replacement — the map's optimistic-lock CAS is what serialises two pods racing
+// to advance, and a table-only decision reintroduces a mutual back-off where each
+// pod sees the other's row 'processing' and neither proceeds.
+//
+// excludeRequestID is the request being completed by the caller: it legitimately
+// sits in 'processing' under the consumer's own claim at that instant, because the
+// row is marked complete only after the state save succeeds.
+//
+// Rows, not a count: detection needs only len() > 0, but enforcement needs the
+// rows themselves to re-adopt, and one method means a count and a fetch can never
+// drift apart.
+func (r *StateRepository) OutstandingAwaitedRequests(ctx context.Context, orchestrationID, excludeRequestID string) ([]*AwaitedRequest, error) {
+	query := `
+		SELECT ` + awaitedRequestColumns + `
+		FROM awaited_requests
+		WHERE orchestration_id = $1
+		  AND request_id <> $2
+		  AND status IN ('waiting', 'processing', 'retrying')
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, orchestrationID, excludeRequestID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query outstanding awaited requests: %w", err)
+	}
+	defer rows.Close()
+
+	var outstanding []*AwaitedRequest
+	for rows.Next() {
+		record, scanErr := scanAwaitedRequestRow(rows.Scan)
+		if scanErr != nil {
+			return nil, fmt.Errorf("failed to scan outstanding awaited request: %w", scanErr)
+		}
+		outstanding = append(outstanding, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read outstanding awaited requests: %w", err)
+	}
+
+	return outstanding, nil
+}
+
 func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, requestID string, maxRetries int) (*AwaitedRequest, error) {
 	retryDelay := 50 * time.Millisecond
 
