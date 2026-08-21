@@ -44,6 +44,26 @@ So the active sites will drain in days and **these twelve realistically will not
 remortgagecalculator.uk was on this list yesterday and has since healed, which is the mechanism
 working, but it is a four-page site.
 
+## RE-MEASURED 2026-08-21 evening — it is already draining
+
+| | at filing (morning) | now |
+|---|---|---|
+| assembled pages | 727 | 727 |
+| carrying the fix | 225 | **240** |
+| still stale | 502 | **487** |
+| **real sites at zero** | 12 | **10** |
+
+**Two sites healed on their own within the day**, with nothing dispatched at them. That is the
+owner's "let rebuilds carry it" ruling working, and it is the reason this file is a tick-list rather
+than a work queue. It also sets the expectation honestly: the sites that heal are the ones being
+worked on, and the quiet ones will still be here in a month.
+
+**Also settled since filing:** every stored head is now repaired — 24 heads, 23 carrying a language
+(the 24th is `loanandmortgagecalculator.co.uk`, `permanent`-locked hand-authored chrome, correctly
+untouched), **zero** still baking a homepage `og:url`, **zero** blank duplicate `og:title`, and
+**zero** unlocked heads missing brand tags. So nothing upstream of the pages is outstanding: every
+page that re-assembles from here is correct.
+
 ## What a visitor actually sees on an unhealed page
 
 - Sharing any inner page shows the **homepage's** URL, not the page's — beside a `rel="canonical"`
