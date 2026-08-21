@@ -83,11 +83,26 @@ changes what we do on every single sale.
 | Our per-sale cost | A Nominet fee plus a manual step | Near zero |
 | Fits "nobody's time is included" | Requires one mechanical step of ours per sale | Yes, almost entirely |
 
-**Recommendation: (a), register in our name.** The rental exposure in (b) is a real
-commercial hole and the £200 is the whole point of the option; the cost of (a) is one
-manual step and £10–35+VAT against a £200 sale, which the owner has already said is
-acceptable. **Not applied — this is recorded as a recommendation, not a decision, and
-nothing is encoded at the register until the owner rules.**
+> ### ✅ RULED 2026-08-21 by the owner: **(a) — *"my name until we agree a sale."***
+>
+> The domain is registered to the owner and stays there for the whole rental. It moves
+> to the customer only when a sale is agreed, at which point the two operations in §2
+> both run. The rental exposure in (b) — a renter who is already the legal owner walking
+> off without ever paying the £200 — is closed by construction rather than by terms.
+>
+> **What this makes CERTAIN, where before it was conditional:** every £200 sale involves
+> a **Registrant Transfer performed by us**, with a Nominet fee. That is no longer one
+> branch of a decision tree; it is the process. Budget it into the £200 and write the
+> RUNBOOK against it.
+>
+> **What it does NOT license.** It does not make us the customer's ongoing registrar
+> after a sale (`domain_buy_once` still says we do not stay their registrar), and it
+> does not add support time to the price — performing the handover of a thing somebody
+> bought is delivery, not support. See §5.
+
+**Superseded recommendation, kept for the record:** (a), on the grounds that the rental
+exposure in (b) is a real commercial hole while the cost of (a) is one manual step and
+£10–35+VAT against a £200 sale. The owner ruled the same way.
 
 ## 5. What the copy says now, and the one line that is slightly ahead of reality
 

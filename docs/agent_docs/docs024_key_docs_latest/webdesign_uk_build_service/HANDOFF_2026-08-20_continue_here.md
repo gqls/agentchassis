@@ -314,11 +314,11 @@ transfer-out mechanism; if anything it makes that sharper. See §5 item 6.**
    > construction — the same shape as Phase 4's ZIP token. It does NOT replace the
    > Registrant Transfer.
 
-   **STILL OWED BY THE OWNER, and it changes what we do on every sale:** whose name the
-   domain is registered in *during the rental*. Ours protects the rental but makes a sale
-   two operations; the customer's makes a sale nearly free but lets a renter walk off
-   with the domain having never paid the £200. Recommendation and the full table:
-   decision doc §4. Nothing encoded either way.
+   **RULED 2026-08-21 — *"my name until we agree a sale."*** The domain is registered to
+   the owner for the whole rental and moves to the customer only when a sale is agreed.
+   So **every £200 sale includes a Registrant Transfer performed by us**, with a Nominet
+   fee: that is now the process, not one branch of it. It does not make us their ongoing
+   registrar and it does not add support time to the price. Decision doc §4.
 7. **`writer_block` breaks its own first rule — MEASURED 2026-08-21, deliberately NOT
    fixed.** Its opening line is *"Never use an em dash. Not anywhere, not once."* and
    the block contains **six**, in paragraphs 12, 14, 20 and 21. Counted before and after
