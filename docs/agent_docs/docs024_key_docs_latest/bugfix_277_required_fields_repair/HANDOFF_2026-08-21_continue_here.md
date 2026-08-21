@@ -4,10 +4,13 @@
 four steps ran today. Read this from disk; then `NOTES_required_fields_repair.md` **from the
 bottom** (two new entries today, §§1–7 the canary and §8 the seat fix).
 
-> **Written ~15:00Z. Deploy facts have a shelf life of hours — re-read, do not quote.**
-> Chassis was **`0483e7f4e`** (`sha256:3ed50651…`, pods up 2026-08-20 19:51Z) all day; `af0f00bb5`
-> and `6011f9657` are both aboard, proven by ancestry against the pod's own
-> `buildinfo.GitCommit`. **Nothing this session needs another roll.**
+> **Written ~15:00Z, UPDATED ~17:10Z after a fresh roll. Deploy facts have a shelf life of hours —
+> re-read, do not quote.**
+> Chassis is now **`bac189921`** (`sha256:68075cf5…`, pods up 2026-08-21 **16:54Z**), replacing
+> `0483e7f4e`/`sha256:3ed50651…`. Forward, no revert; `af0f00bb5` and `6011f9657` still aboard —
+> and **re-probed on the new binary rather than inferred** (`rendered_html_transform` 8,
+> `code_span_to_code_tag` 5, negative control 0), because a commit AFTER mine could delete the code
+> and still leave mine an ancestor. **Nothing in this lane needs another roll.**
 > Live md5s after today's config changes: `fix-proposer.review_diagnosis_guardian`
 > **`99bf2e45…`**, `council-gate.review_diagnosis_guardian` **`347a20cf…`**.
 
@@ -17,7 +20,7 @@ bottom** (two new entries today, §§1–7 the canary and §8 the seat fix).
 
 | bug | state | what blocks the close |
 |---|---|---|
-| **`bugs_open/277`** | **clause 1 MET** — 7 pages repaired, verified at the served bytes (§7 of the bug file) | the **`no_content_data` half**, untouched by all of this: 27 of 30 parked rows, a different agent, and `473`'s deterministic route does not cover it |
+| **`bugs_open/277`** | **clause 1 MET** — 7 pages repaired, verified at the served bytes (§7) | the **`no_content_data` half — now an OWNER DECISION, not a build task** (§8.4 of the bug file). ⚠ §8.2 CORRECTS this file's own "content-acquisition problem" framing: **15 of 27 are RECOVERY** — the value is already on the page, absent only from `content_data` |
 | **`bugs_open/083`** | fix live + artefact-proven; **door soak at day 4 of ~7** | ~**08-24/25**: `444`/`458` sat their week. Close then, with the two statements in §3 below |
 | `bugs_open/333` | theirs | **CONTRIB filed today** — the two-strike rule reaches their false *"tried twice"* down a second road, with no refusal loop involved |
 | `530`/`531` (council) | **APPLIED + APPROVED r1** (corr `c00fbfd8…`, 14:03:49Z, `point_fix`, no truncation) | **nothing** — verdict read, both medium advisories answered with the queries they asked for (NOTES §10), trailer written. Done |
@@ -89,13 +92,35 @@ The mechanism is proven twice over now (today's arc is a second independent inst
 
 - ~~Read the `c00fbfd8` verdict~~ **DONE — APPROVED round 1, advisories answered, NOTES §10. Nothing is owed on the council trail.**
 - **`083` close, ~08-24/25** (§3).
-- **`277`'s `no_content_data` half** — the only thing holding that file open. Different agent;
-  `473`'s deterministic route does not cover it.
+- **`277`'s `no_content_data` half — the only thing holding that file open, and it is now ONE OWNER
+  DECISION between three costed options** (bug file §8.4): (1) recover the field from the component's
+  own `rendered_html` — deterministic for 15 of 27, but it re-enables the regenerate routes on
+  exactly the components whose un-regenerability makes today's repair safe, so it owns re-checking
+  the seven; (2) accept "parked with the facts" as the terminal state, in which case **277 CLOSES**
+  and the residual becomes a data-model debt filed elsewhere; (3) build the finding-to-edit converter
+  this file originally proposed — right for genuine acquisition, overkill for the 15.
+  **A session must not pick between (1) and (2): option 2 changes what "fixed" means for this bug.**
 - **`copy_edit_proposed` exclusion in the promoter's `pre_query`** (owner decision D2, 2026-08-12).
   Still deliberately not done by a session: it changes which rows are dispatched.
 - **A disconfirmable prediction to check on ~08-25:** `learn-index`'s next filing should be born
   `detected`, not `unresolved`, because both of its strikes age out of the rolling 7-day window
   first. **Do not hand-flip the row** — the prediction is worth more than the one page.
+
+## 4b. CAN THE LANE CLOSE? — the state of every open thread, 2026-08-21 17:10Z
+
+**Not yet, and exactly two things stand between here and closing it.**
+
+| thread | closeable? | why / what it needs |
+|---|---|---|
+| `bugs_open/083` | **YES, on ~08-24/25** | The fix is complete, artefact-proven, and demonstrated end to end twice. What remains is the owner's own decision-5 soak week on `444`/`458`, at day 4 today. Close per §3 — both paths on the commit, verified at HEAD, and the two statements it must make. Closing early is the owner's call, not a session's |
+| `bugs_open/277` | **ONE OWNER DECISION AWAY** | Routing delivered and approved; clause 1 met and proven at the served bytes. The `no_content_data` residual is the only thing left, and §8.4 costs the three options. **If the owner takes option 2 ("parked with the facts" is the terminal state), 277 closes the same day** |
+| `bugs_open/333` | not ours | Theirs. CONTRIB filed 08-21; nothing owed |
+| `530`/`531` | **DONE** | Applied, APPROVED r1, advisories answered, trailer written |
+| the 08-25 prediction | watch only | `learn-index` should be born `detected`, not `unresolved`. Do not hand-flip it |
+
+So: after 083 closes and the owner answers §8.4, **this lane has no open work of its own** — what
+would remain is whatever the owner picks from those three options, which is new work, not this
+lane's backlog.
 
 ## 5. Session-start checklist
 `git log --oneline -10` · re-read this from disk · `scripts/who-owns.py` **by slug** for `277`,
