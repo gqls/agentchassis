@@ -41926,3 +41926,49 @@ I had already moved on to the next task when it printed.
 **The deeper habit this is a symptom of:** I reasoned about a shared tree from what *I* had done to it. Four sessions were working this lane today; "there is no summary yet" was a claim about my own history, not about the filesystem — the same shape as this file's other entries where an absence I inferred turned out to be an absence I had never checked.
 
 **Cost:** nothing permanent, one recovery, and a pattern-check advisory that did the job I should have. **It is the second time in two days that a hook caught something my own discipline did not** — the commit-msg trailer check being the first.
+
+## 2026-08-21 — I proved every OBSERVED case was handled and presented it as having bounded the POPULATION (staged_component_build lane)
+
+**The call.** The final change of a month-long workstream: make the resolver refuse when it finds
+conflicting candidates instead of picking one. Its stated precondition was "every observed
+field/caller pair given an explicit mapping first", and I had done exactly that — 19 pairs seen by
+the instrument over five days, every one killed, wired, or carrying a recorded decision, three of
+them proven at the artefact. I submitted it as ready.
+
+**What the council's guardian seat asked, and it took one sentence to expose the gap:** the blast
+radius is *"every step whose input resolution falls through to whole-tree search"*, and that is *"not
+enumerated or bounded here"*. I had written that phrase myself, in the rationale, without ever
+turning it into a number.
+
+**The measurement I should have made first.** Extract every `RegisterActionInputSpec` from the Go
+source, join it to every live step's config wiring:
+
+```
+1399 live agent/step pairs run an action
+1101 run an action with NO registered spec        -> cannot fall through at all
+ 298 run one WITH a spec
+ 137 of those (46%) have >=1 declared field unwired -> reach the whole-tree search
+     = 71 agents, 377 (agent,field) pairs, 181 field names
+```
+
+**377 pairs can fall through; 19 ever conflicted.** The argument survives — the flip only changes
+behaviour where candidates CONFLICT, so agreeing and empty pairs are untouched — but I could not
+have said that in round 1, because I did not know the denominator. **My evidence was about the
+numerator and I presented it as though it settled the ratio.**
+
+**What caught it:** the council. Not my own review, and not any of the estate's checklists, because
+this is not a missing check — it is a **missing question**. Every figure I had was measured, dated,
+disconfirmable and true.
+
+**The cheap check that would have:** when a precondition is phrased over "every observed X", **write
+down what X is drawn from before claiming the precondition is met.** One line: *how many could there
+be, and how do I know?* If the answer is a phrase rather than a number, the claim is about the
+sample, not the population. Here it cost two queries and a regex.
+
+**The generalisable half, and it is the sharper sibling of the marker rule.** This estate already
+insists a claim be marked `[MEASURED]` and be disconfirmable. Mine was both. **A measurement of the
+observed set can be flawless and still not support a statement about the whole set** — and the two
+read identically in prose, because "every pair the instrument saw is handled" and "every pair is
+handled" differ by three words. **Name the denominator, or say plainly that you are talking about
+the sample.** Related: the 2026-08-21 entry on measuring a property over all rows when the property
+was two hours old — same family, opposite error: there the population was wrong, here it was absent.
