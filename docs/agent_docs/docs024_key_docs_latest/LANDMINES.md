@@ -14078,3 +14078,23 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** CLM-023 (`verify_cited_cardinals`, the word-aware sibling), `bugs_open/335` (the defect that exposed it), CLM-020 `NegationGuard`, MEMORY [[declaring-a-key-silences-your-own-detector]], [[a-post-fix-zero-needs-a-demand-control]], [[mutate-the-code-to-prove-the-guard]]
 - **source:** 2026-08-21, `vigilant_designer_offer_analysis` lane — found while building the fix for `bugs_open/335`
 - **added:** 2026-08-21, vigilant_designer_offer_analysis lane
+
+### A per-run agent runs in its OWN EPHEMERAL POD, not in `agent-chassis` — so `-l app=agent-chassis` watches a pod that never executes the step, and the real pod is gone before you read it
+
+- **footprint:** any `kubectl -n ai-persona-system logs -l app=agent-chassis` used as evidence about a NAMED agent · `kubectl get pods -l app=<x>` as a watcher selector · `orchestration_states.processing_node` · `agent-page-build-handler-*`, `agent-build-dispatch-loop-*`, `agent-deployer-agent-*`, `agent-landmine-verifier-*` and every other `agent-<type>-<hash>` pod · any post-deploy verification whose evidence is a log line rather than a DB row
+- **fires when:** you need to observe a step's runtime behaviour — a resolver decision, a skip, an injected field — and reach for the chassis logs because that is where the standing recipes point. No symptom precedes it, and **the failure is a clean empty result**, which is indistinguishable from "the thing you were watching for did not happen".
+- **the trap, and it has two independent halves.**
+  1. **Wrong pod.** Named agents do NOT run in the `agent-chassis` deployment. Each run is dispatched into its **own pod**, `agent-<type>-<hash>-<suffix>`, with a **different hash every run** — measured 2026-08-21 across four consecutive `page-build-handler` runs: `41a4e850`, `4d66c8ab`, `557e5c1f`, `4688c968`. A watcher pinned to `-l app=agent-chassis` reads two pods that never execute the step and returns nothing, for ever. (Measured that day: **six** pbh orchestrations ran and **three** reached the target step while two separate watchers reported nothing.)
+  2. **The pod is gone, and its log is tiny.** These pods are short-lived and their retained log is brutally small — the one survivor held **180 lines covering 3.4 minutes**, and the step of interest had **already rotated out** when read ~5 minutes after the run. So even the right pod usually cannot answer after the fact.
+- **the check — ask the DB which pod did the work, before arming anything:**
+  ```sql
+  SELECT orchestration_id, processing_node, created_at
+    FROM orchestration_states
+   WHERE owner_agent_type = '<the agent>' ORDER BY created_at DESC LIMIT 3;
+  ```
+  `processing_node` names the pod outright. Confirm it is in the set your selector returns; if it is an `agent-<type>-<hash>` name, your watcher must poll the **pod LIST** (`get pods | grep '^agent-<type>-'`) every ~20 s, not a fixed `-l` selector, because the pod it needs **does not exist yet when you arm it**.
+- **and look for a DURABLE source FIRST.** A log line is the worst evidence here. Before building any watcher, check whether the step's own result in `orchestration_states.collected_data` records the value you want. (In the worked case it did not — `section_plan` carries counts and names but not the `page_type` it was handed — which is *why* the log was the only route. That is a two-minute check and it belongs before the watcher, not after two failed ones.)
+- **the meta-trap that let this run for an hour:** the watcher WAS foreground-tested, and the test passed. It proved *the filter can match a `MASTER EXTRACTOR START` line* — not *this pod emits the line for this step*. **A watcher test must assert on the specific line you are waiting for, from the specific source that produces it**; anything weaker certifies the wrong proposition and buys false confidence.
+- **relations:** this file's log-retention entries · MEMORY [[logs-deploy-reads-one-pod-of-n]] (this is its sharper form: not merely one pod of N, but a pod that does not exist yet and will not exist later) · [[foreground-test-a-watcher-before-arming-it]] (which this case narrows — testing the filter is not testing the source) · [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-21, `staged_component_build` lane · migration 515's runtime verification · `WRONG_CALLS.md` (2026-08-21 entry) · `NOTES_staged_component_build.md`
+- **added:** 2026-08-21, staged_component_build lane
