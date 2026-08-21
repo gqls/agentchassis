@@ -333,3 +333,28 @@ Full record in the bug file §9b; this is the working log of how it unfolded.
 **New close bar** (§9b): 42P18 fix live at the artefact on the next roll → 344 fixed or
 owner-dispositioned → the same canary recipe re-run clean, all three arms plus the guard flip →
 then close with §5's outage arm as the standing watch, per the owner's morning ruling.
+
+## 2026-08-21, evening — CLOSED: one canary, every arm, on v1.0.1322
+
+The 16:54Z roll carried BOTH repairs (my 42P18 fix and this lane's other session's 344
+candidate 1 — `0f80f5ea1`, committed inside the build window; my earlier "not yet committed"
+read was wrong, a head-truncated multi-path `git log` hid it and the canary's changed behaviour
+exposed it — the cheap check was `git log -1 -- <file>`, single path).
+
+Canary c192a2b2, full pass (bug file §9c has the table): attempt 1 `triaged`/1/+30m AND
+`completed_at` NULL (the 344 fix working — yesterday's binary stamped it complete in 2s);
+guard flip to `wont_fix` mid-claim → the failure write SKIPPED (row untouched, job pod logged
+the skip line verbatim); attempt 2 `triaged`/2/+60m, survived completion; attempt 3 terminal
+`failed` 3-of-3, `retry_after` NULL, completion refused. Torn down, 0 rows by key. Natural
+census: 0 false greens since the roll; the §9b damage row was re-driven past the defect by its
+own lane.
+
+Council df0748bf: APPROVED round 1, 2 advisories, both answered with a change or a measurement
+— the 42703-recovery test (`54032b2dd`) and the 13-steps/11-agents caller census (nested walk,
+recorded in §9c). Coverage: the two pre-verdict commits carried Council-Submitted and resolve
+automatically; the test commit carries Council-Reviewed on a read verdict.
+
+**307 moved to bugs_closed** per the fixed-AND-live bar + the owner's morning ruling (outage
+arm → standing watch with reopen trigger, written into the closed file). What this lane still
+owes lives in 344 (sweep SQL half + close) and 341/524_HOLD — the other session's, by the
+agreed division.

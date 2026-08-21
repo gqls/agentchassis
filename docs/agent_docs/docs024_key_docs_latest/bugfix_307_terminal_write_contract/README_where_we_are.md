@@ -265,3 +265,28 @@ wider, so it is filed under a name the tooling itself refuses to apply until som
 
 The honest position: the hard, novel half of this change works in production and is proven. The
 simple half — giving up correctly — is broken, understood, and being fixed today.
+
+## 2026-08-21, evening — the drill passed everything, and the ticket is closed
+
+This afternoon's deploy carried both repairs: my fix for the crash-on-last-life, and the other
+session's fix for the housekeeping that was stamping failed work "complete". So I ran the whole
+drill again, from scratch, on the live system.
+
+It passed every part. The doomed test item lost its first life and went back in the queue with
+its half-hour wait — and this time nothing stamped it "complete"; the record stayed honest. I
+then marked it "we are not doing this one" mid-run, on purpose, and watched the failure
+machinery decline to touch it — the deliberate decision stood, and the system's own log says
+so in as many words. Put back in the queue, its second failure doubled the wait to an hour, as
+designed. And on its third and final failure it was marked permanently failed, correctly and
+quietly — the write that used to crash. The test row was then deleted.
+
+The review council approved the crash fix first time, with two pieces of advice, both of which
+I acted on rather than filed: a test now proves the old-database fallback really works, and
+the full list of the eleven agents that use this machinery is written down rather than assumed.
+
+So bug 307 is closed and moved to the closed pile. The one test we cannot run on demand — a
+real infrastructure outage leaving nothing dead behind — is recorded as a standing watch with
+an explicit "reopen if" attached, exactly as you ruled this morning. What remains open is
+smaller and has a named owner: the other session is finishing the database-side half of the
+completion fix (bug 344) and its own cooldown work (bug 341), both of which this closure
+points at rather than absorbs.

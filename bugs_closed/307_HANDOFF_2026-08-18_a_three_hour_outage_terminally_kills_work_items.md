@@ -1,5 +1,15 @@
 # 307 — a transient infrastructure burst terminally kills work items, because all three attempts fit inside the outage and the transient classifier has never heard of the git adapter
 
+> ## ✅ CLOSED 2026-08-21 — FIXED, LIVE on v1.0.1322, and PROVEN END TO END by a full canary pass
+> The whole failure-write contract (WII-024) held on one live canary, all arms (§9c): re-triage
+> with a scaling cooldown (+30 m → +60 m) that **survives** the dispatch loop's completion
+> (`bugs_open/344`'s fix, live), a `wont_fix` decision preserved through a live failure write
+> (skip line captured from the job pod), honest terminal `failed` at 3 of 3 (the §9b 42P18 fix,
+> live, council APPROVED r1 `df0748bf`), and the transient release proven earlier on natural
+> traffic (§9). §5's outage-scale acceptance is converted to a **standing watch** with a reopen
+> trigger, per the owner ruling of 2026-08-21 — see the closing section. Residuals live in
+> `bugs_open/344` (sweep SQL half), `bugs_open/341`/migration `524_HOLD`, and `033` D2.
+
 **Filed 2026-08-18** by the `staged_component_build` lane, recording an **owner ruling of the
 same day: "A terminal blip should return the item to queued."**
 
@@ -501,3 +511,58 @@ negated by defect 1 (open, unowned). **307 stays OPEN.** Its close bar is now: t
 live at the artefact on the next roll, `344` fixed or explicitly dispositioned by the owner,
 then the SAME canary recipe re-run clean end-to-end (all three arms + the guard flip), with
 §5's outage acceptance converted to the standing watch as already ruled.
+
+## §9c — 2026-08-21 evening: §9b's bar is MET — one canary, every arm, on v1.0.1322. CLOSED.
+
+The 16:54Z roll (v1.0.1322, stamp `bac189921…`, both replicas, positive control) carries BOTH
+repairs: the §9b 42P18 fix (`bc80dde4a` + `d97557a04` + `54032b2dd`; council **APPROVED round 1**,
+corr `df0748bf`, 2 advisories — the guardian's caller enumeration answered with the nested-walk
+census below, editquality's untested-recovery advisory answered with a test that drives a genuine
+42703 through the latch) **and** `344`'s candidate 1 (`0f80f5ea1`, the `bugfix_307_terminal_write_contract`
+lane's build on the owner's ruling — committed inside the build window; a completion now refuses
+an item whose `retry_after` is in the future). Binary literal probe: the new CASE fragment and
+`countingLadderStatement` present, absent-needle control 0.
+
+**The canary pass** (`c192a2b2`, pool-web-tech.internal, same recipe as §9b, torn down after —
+0 rows by key, no immune-sweep pollution; every timestamp UTC 2026-08-21):
+
+| arm | observed | verdict |
+|---|---|---|
+| attempt 1 | 18:23:46 `triaged`/1/`retry_after`+30 m, claim cleared, error preserved — **`completed_at` NULL** | ladder ✓ **and 344's fix ✓** (yesterday's binary stamped it `complete` 2 s later) |
+| guard flip | flipped to `wont_fix` at 18:26:23 while claimed; handler failed at 18:26:33; row **untouched** (`wont_fix`/1, `updated_at` unmoved), job pod logged `work item failure ladder: skipped — a deliberate status is already recorded, not overwriting` | decision guard ✓, demanded live |
+| attempt 2 | 18:29:36 `triaged`/2/`retry_after`**+60 m**, `completed_at` NULL | scaling ✓, survives completion ✓ |
+| attempt 3 | 18:31:15 **`failed`, 3 of 3, `retry_after` NULL, `completed_at` NULL** | honest terminal ✓ (§9b's 42P18 dead), completion refused ✓ |
+| transient release | §9's two natural rows, 2026-08-20 | ✓ (unchanged) |
+
+Natural corroboration: **0 false-green rows** (`complete` with `retry_after > completed_at`)
+since the roll, and the §9b damage row `0c65f9fa` was re-driven past the defect by its own lane
+(now `needs_human_review` at attempt 2) — the pre-fix damage list is empty.
+
+**The guardian advisory's caller enumeration** [MEASURED, nested walk]: 13 live steps across 11
+agents route through the two ladder writers — `fail_work_item`: build/diagnose/report-dispatch-loops,
+site-work-orchestrator, component-template-fixer ×2, tool-improver, page-build-handler
+(`mark_needs_review`, the 033 D2 override branch); `update_work_item_status(failed)`: the five
+§2.2 agents. The column-absent liveness claim: `retry_after` exists (migration `505`, applied
+08-20) and the latch flips only on a genuine 42703 — none observed; the fallback guards the
+binary-before-migration window only, which has passed.
+
+**Close basis, in the owner's split style.** The bar is fixed-AND-live. The rule from the
+2026-08-21 morning ruling: close on fair-weather proof, with §5's outage-scale arm as a dated
+standing watch rather than a hold. This case: all three filed defects (no-delay ladder, ladder-less
+§2.2 writers, missing decision guard) plus the two defects the acceptance itself surfaced (344's
+overwrite, §9b's 42P18) are fixed, live on v1.0.1322, and proven above — so the bar is met.
+
+**STANDING WATCH (the §5 outage arm, not waived — converted):** on the next infrastructure
+outage, expect burst-release log lines and **zero** terminal `failed` rows attributable to it.
+**Reopen trigger:** any adapter outage leaving terminal `failed` rows attributable to it, or a
+confirmed outage during which no burst-release fires. Check:
+`SELECT count(*) FROM site_work_items WHERE status='failed' AND error LIKE '%<outage signature>%';`
+
+**Residuals, each with an owner, none re-opening this file's defects:**
+- `bugs_open/344` stays OPEN for its **sweep SQL half** (the claim-timeout auto-COMPLETE CTEs
+  can still complete a mid-cooldown row — the Go predicate does not cover a direct SQL UPDATE)
+  and its own verification — owned by the `bugfix_307_terminal_write_contract` lane.
+- `bugs_open/341` + migration `524_HOLD` (the sweep's fifth ladder copy / cooldown honour) — same lane.
+- `033` D2 (`fail_work_item`'s `status_override` branch) — its own owner ruling.
+- `update_work_item_status`'s parked/complete writes still increment `attempt_count` (§8) — a
+  parked item's count is not a count of attempts.
