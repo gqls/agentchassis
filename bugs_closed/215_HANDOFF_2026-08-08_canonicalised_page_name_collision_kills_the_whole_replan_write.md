@@ -1372,7 +1372,7 @@ unit tests and a pod-grep". What remains is not this mechanism:
 
 ---
 
-# CLOSED 2026-08-21 — all three modes fixed, live and behaviourally proven. The residual damage is spun out to `bugs_open/346`
+# CLOSED 2026-08-21 — all three modes fixed, live and behaviourally proven. The residual damage is spun out to `bugs_open/347`
 
 Owner decision, 2026-08-21. This bug is closed on the CLAUDE.md bar — **fixed AND
 live** — and, beyond that bar, all three of its modes have been observed working on
@@ -1411,7 +1411,7 @@ and the opposite outcome.
 
 ## What is NOT closed, and where it went
 
-- **`bugs_open/346`** — the four page pairs that already serve one page under two live
+- **`bugs_open/347`** — the four page pairs that already serve one page under two live
   names. Existing damage, not minting; each needs an owner decision on which name
   survives, under the standing constraint that **no redirect mechanism exists**, so every
   retirement is a permanent 404. Three of the original seven are resolved.

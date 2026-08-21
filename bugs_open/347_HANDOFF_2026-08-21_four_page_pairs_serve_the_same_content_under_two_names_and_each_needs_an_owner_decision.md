@@ -1,4 +1,4 @@
-# 346 — four page pairs serve one page under two live names; the minting is fixed, the existing duplicates are not, and each pair needs an owner decision rather than a fix
+# 347 — four page pairs serve one page under two live names; the minting is fixed, the existing duplicates are not, and each pair needs an owner decision rather than a fix
 
 **Filed 2026-08-21**, spun out of `bugs_closed/215` when that bug closed. 215's
 defect — the framework *minting* a second identity for one page — is fixed, live
