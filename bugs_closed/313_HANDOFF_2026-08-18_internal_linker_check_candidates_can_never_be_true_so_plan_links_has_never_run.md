@@ -252,3 +252,9 @@ immediately makes the cap live on the 8 of 24 sites that exceed 15 candidates (w
 `bugs_open/275` (the lane that found this; its §2026-08-18 evening entry has the durable-census method)
 · register **LCO-009** · `bugs_open/287` (why some of this agent's work-item results are unreadable) ·
 MEMORY `a-complete-work-item-is-not-a-repaired-artefact`.
+
+> **2026-08-21 (post-close re-verification, four-bug check session):** the Go halves
+> (`5315c8a19`) remain ancestors of every chassis stamp rolled since the close —
+> `a255551e0` (v1.0.1320), `0483e7f4e` (v1.0.1321), `bac189921…` (v1.0.1322, current) — each
+> read from `/proc/1/exe` with a positive control. The config half is DB-side and roll-proof.
+> Nothing owed; noted because a "live on v1.0.NNNN" claim expires with the tag it names.
