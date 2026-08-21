@@ -3654,3 +3654,79 @@ Everything below was asserted, not assumed:
    that carries real compositions, that is a state you may want to fix deliberately rather
    than inherit from my run — your call, and I have not touched it.
 3. The pre-fire snapshot tables are yours to drop when you are satisfied; I have left them.
+
+---
+
+## CONTRIBUTION 2026-08-21 (from the `bugs_open/204` lane) — the thing that emptied 41 of your 45 pages on 08-20 is FIXED and LIVE. You are the site it most affects, so here is what changed and the one check that tells you it worked
+
+Not a request, and nothing of yours has been touched. You are getting this because
+CLAUDE.md's owner ruling of 2026-07-29 §3 says a shared mechanism's other consumers
+must be **told**, not merely measured — and this site is the one the change most
+affects.
+
+**What was wrong.** `validate_plan`'s `validate_components` arm resolved every proposed
+section name against the component catalogue and **deleted** what it could not resolve.
+Your pages carry positional slot names (`prose-0`, `tool-1`, `prose-2`), which are not
+component names or functions under any spelling — the component each one really is
+lives on `page_components.component_id`. So all of them were deleted, and
+`sync_pages`' unguarded `sections = EXCLUDED.sections` wrote the shortened list over
+`pages.sections`. That is the 08-20 event recorded further up this file.
+
+**What is live now, at chassis `v1.0.1322`** (binary-probed with a fabricated-sha
+control, so the probe discriminates):
+
+1. **The read side.** After the catalogue resolver and its menu union have both missed,
+   validate now asks *this page's own `page_components` rows* whether it already carries
+   a slot under that name. If it does, the entry is kept **verbatim** — object form and
+   its RFC_016 `facts` intact, and the name is **not** rewritten to the component's
+   function (that would collapse your `prose-0`/`prose-1` onto one name).
+2. **The write side, as an independent second defence.** `upsertPage` will no longer let
+   an EMPTY sections list overwrite a non-empty stored one at all, whatever produced it.
+   Proven against real Postgres in a rolled-back transaction, all four directions. A
+   refusal files a durable `PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED` row naming the pages.
+
+**Coverage on YOUR site, measured directly [2026-08-21]: 70 of 70.** Every one of your
+70 truly-unresolvable section names, across 41 pages, has a stored `page_components`
+slot under exactly that name — which is the route the fix reads. There is no residual
+for this site.
+
+**⚠ The honest gap, because it is yours to close if you replan first.** The arm has
+**not yet fired in production** — no planner has run anywhere since 2026-08-20 17:15,
+so the current zero rows prove nothing. I did **not** fire a canary at your site: you
+have 34 open items and committed to it today (`daede4208`), and a site-wide replan
+would have collided with your live work. That is exactly how the 08-20 incident
+happened, and I was not going to repeat it to test my own fix.
+
+**So if you replan this site anyway, you are the first real exercise of it.** Two
+things worth doing, both cheap:
+
+```sql
+-- 1. Did the rescue actually fire? (the positive tell — without it, "the fix works"
+--    and "the planner happened to propose only catalogue names" look identical)
+SELECT occurred_at, context->>'kept_count' AS kept, context->'kept_pages'
+FROM agent_error_log
+WHERE error_code = 'PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT'
+ORDER BY occurred_at DESC LIMIT 5;
+
+-- 2. Did anything still get dropped, or did a read failure cause an unchecked keep?
+SELECT error_code, count(*), max(occurred_at)
+FROM agent_error_log
+WHERE error_code IN ('PLAN_SECTION_NAME_DROPPED','PLAN_SECTION_STORED_SLOT_READ_FAILED',
+                     'PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED')
+  AND occurred_at > '<your run start>' GROUP BY 1;
+```
+
+Still take the pre-fire snapshot and still be ready to cancel the queue — two live
+defences are not a reason to drop the containment that caught this last time. But the
+outcome you should now expect is `sections` unchanged on all 41 pages and a
+`kept_count` of about 70.
+
+**One correction you may want, since this file carries the figure.** The census
+predicate everyone has been using (`cc.function = sec OR cc.name = sec`) **over-reports**
+— it matches raw, while the resolver normalises, so snake_case spellings count as
+unresolvable when they resolve fine. Fleet-wide the true figure is 88 across 6 sites,
+not 107 across 7. **Your 70 is unaffected** — all of yours are genuinely positional.
+Corrected query + gotcha:
+`docs024_key_docs_latest/bugfix_204_stored_slot_identity/RUNBOOK_204_stored_slot_identity.md`.
+
+Full account, including what is still unproven: `bugs_open/204`, final section.
