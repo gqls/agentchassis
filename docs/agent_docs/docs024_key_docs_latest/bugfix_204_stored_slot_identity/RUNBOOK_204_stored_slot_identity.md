@@ -9,27 +9,54 @@ Change it HERE when it changes, not in scrollback.
 
 ### 1. The census — how many section names no component can resolve
 
+> ⚠ **THE OBVIOUS VERSION OF THIS QUERY OVER-REPORTS, and it is the one in
+> `bugs_open/204`'s own §Measured block.** A predicate of
+> `cc.function = sec OR cc.name = sec` is a RAW match; the resolver's SECOND arm
+> normalises (`NormalizeComponentFunction`: `call_to_action` → `call-to-action`), so
+> every snake_case spelling counts as unresolvable when the live code resolves it
+> fine. That is where the retired `86 → 87 → 107` series came from. **Model the
+> predicate on `componentNameResolver.resolve()`, which has FIVE arms** — exact
+> function, normalised, display name, component name, normalised display.
+
 ```sql
 WITH s AS (
-  SELECT si.domain, p.name AS page, jsonb_array_elements_text(p.sections) AS sec
+  SELECT si.domain, p.id AS page_id, p.name AS page, jsonb_array_elements_text(p.sections) AS sec
   FROM pages p JOIN sites si ON si.id = p.site_id
   WHERE p.status = 'active'
-    AND jsonb_array_length(COALESCE(p.sections, '[]'::jsonb)) > 0)
-SELECT domain, count(*) AS names,
+    AND jsonb_array_length(COALESCE(p.sections, '[]'::jsonb)) > 0),
+u AS (
+  SELECT * FROM s WHERE NOT EXISTS (
+    SELECT 1 FROM content_components cc
+    WHERE cc.function = s.sec
+       OR cc.name = s.sec
+       OR cc.function = replace(s.sec, '_', '-')
+       OR lower(cc.name) = lower(replace(s.sec, '_', '-'))
+       OR lower(cc.display_name) = lower(s.sec)))
+SELECT domain,
+       count(*) AS truly_unresolvable,
+       count(DISTINCT page) AS pages,
+       count(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM page_components pc WHERE pc.page_id = u.page_id AND pc.slot_name = u.sec)) AS rescued_by_stored_slot,
        count(*) FILTER (WHERE NOT EXISTS (
-         SELECT 1 FROM content_components cc WHERE cc.function = s.sec OR cc.name = s.sec)) AS unresolvable,
-       count(DISTINCT page) FILTER (WHERE NOT EXISTS (
-         SELECT 1 FROM content_components cc WHERE cc.function = s.sec OR cc.name = s.sec)) AS pages_affected
-FROM s GROUP BY domain ORDER BY 3 DESC;
+         SELECT 1 FROM page_components pc WHERE pc.page_id = u.page_id AND pc.slot_name = u.sec)) AS still_dropped
+FROM u GROUP BY domain ORDER BY 2 DESC;
 ```
 
-⚠ **Gotcha:** this measures the *population at risk*, not the damage. A site drops OFF
-this list when its sections are re-pointed to functions — which is what happened to
-loancalculator.co.uk (57 → 0) after the 08-06 fix. A shrinking number here is not
-evidence the defect is shrinking.
+Baseline [MEASURED 2026-08-21, chassis v1.0.1322]: **88 truly unresolvable across 6
+sites; 83 rescued, 5 still dropped.** The 5 are `article_grid` / `category_section`
+on pages carrying entirely different slots — they match no component under any
+spelling and are not slots on their page, so **dropping them is correct**.
 
-⚠ **`cc.name` is deliberately in the predicate.** Dropping it over-reports: the
-resolver's arm 4 (`nameToFunc`) really does resolve by component name.
+⚠ **Gotchas:**
+- This measures the *population at risk*, not the damage. A site drops OFF the list
+  when its sections are re-pointed to functions — which is what happened to
+  loancalculator.co.uk (57 → 0) after the 08-06 fix. A shrinking number here is not
+  evidence the defect is shrinking.
+- **`still_dropped > 0` is not automatically a bug.** List the names before
+  concluding: an orphan that names nothing SHOULD be dropped.
+- The `replace(sec,'_','-')` arm is an approximation of `NormalizeComponentFunction`,
+  which also handles camelCase. If a camelCase name ever appears in `pages.sections`
+  this query will still over-report by one.
 
 ### 2. The drop record — what the resolver actually threw away
 

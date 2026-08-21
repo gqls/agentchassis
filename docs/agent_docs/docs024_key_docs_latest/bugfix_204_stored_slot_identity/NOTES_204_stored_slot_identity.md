@@ -443,3 +443,85 @@ that is the register, where the next person to add a consumer will meet it.
 The only other hit is `cmd/webdesignport/import.go:134` — a **different function of the
 same name in a different package**, which is precisely the confusion LANDMINES' "THREE
 `pages` upsert helpers have OPPOSITE collision policies" entry exists to flag.
+
+---
+
+## 2026-08-21 (f) — LIVE at v1.0.1322, and the coverage query that found my own bad denominator
+
+### Live, proven at the artefact
+
+Stamp `bac189921`; all six lane commits are ancestors. `agent-chassis`' own
+`build provenance` line had already scrolled (the documented shelf-life), so I probed
+`/proc/1/exe` **with both controls in the same breath**: shipped sha PRESENT,
+fabricated `deadbeef…` ABSENT (so the grep discriminates), and both capability strings
+present — `kept section name by stored slot identity` and
+`PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED`.
+
+### The write guard, proven against real Postgres
+
+The unit tests say in their own comments that they cannot establish this: sqlmock never
+executes SQL. Ran the shipped `CASE` inside a transaction against the live database and
+rolled it back. All four directions correct — empty-over-real KEPT with
+`sections_kept=t`; real-over-real overwritten (so the guard does not freeze the column);
+empty-over-real WITH the release overwritten (the door); empty-over-empty quiet.
+`ROLLBACK`, nothing left behind. **This is the single most valuable check of the day**,
+because it is the one the test suite structurally could not make.
+
+### The misstep: my census predicate was wrong, and had been since 2026-08-05
+
+Full account in `WRONG_CALLS.md` 2026-08-21 (b). Short version: the census matched
+`cc.function`/`cc.name` **raw**, while `resolve()`'s second arm **normalises**, so every
+`call_to_action` counted as unresolvable when the live code resolves it. True figure
+**88 across 6 sites**, not 110 across 7.
+
+**What caught it is the part worth keeping.** Not a review, not the `[MEASURED]` marker.
+I ran a coverage query — *of the unresolvable names, how many does the fix reach?* —
+and three sites came back badly covered (4/11, 2/10, 2/6). That read as a hole in my own
+fix. I listed the names to find the hole and they were snake_case spellings. **The fix
+was fine; the denominator was wrong.** Suspect the denominator before the numerator.
+
+I had even written a gotcha into the RUNBOOK about `cc.name` being load-bearing in that
+predicate — so I had looked at the query closely enough to annotate it, and still did
+not compare it against the five arms of the function it models. The RUNBOOK now carries
+the corrected query and says why the obvious one is wrong.
+
+### Coverage, measured directly rather than inferred
+
+**83 of 88 rescued.** The 5 that are not — `article_grid`, `category_section` on
+finetuning.uk and gaswholesalers.com — match **no component under any spelling** and are
+**not slots on their page**; the pages carry entirely different slots. They refer to
+nothing, so dropping them is the checker doing its actual job. **83 of the 83 that
+should be kept.**
+
+### What I did NOT do, and why
+
+**No behavioural canary fired.** Zero rows of every relevant code since the roll — and
+that zero is worth nothing, because no planner has run since 2026-08-20 17:15. This is
+precisely the blind-zero trap the lane's own verification plan warns about, met in the
+wild about my own fix.
+
+To fire one I need a decomposed site. All four were busy on 2026-08-21 — open items
+LMC 34, oufe 46, dartsonline 52, robot-hands 283, every one with same-day activity, and
+the LMC lane committed to that site today (`daede4208`). A site-wide replan there
+collides with live work, which is exactly how the 08-20 incident happened. **Declined
+deliberately**, preconditions recorded in the bug file.
+
+I also considered firing `site-planner` instead, since it has no write path and would
+therefore be a zero-risk exerciser — and that investigation produced the residual
+below, which is worth more than the canary would have been.
+
+### Residual found while looking for a safe canary: `site-planner` is not covered
+
+Its live workflow is `complete, load_available_components, load_style_collections,
+plan_site, validate_plan` — **no site-record step**, so `site_record.site_id` is absent,
+`storedSlotRescueFor` gets an unparseable id, the rescue degrades to nil, and it drops
+exactly as before. That was the `[INFERRED]` item in the PLAN and it resolves to
+**not covered**.
+
+Left unfixed on purpose, with the reasoning stated so it is a decision and not an
+oversight: it has **no write path**, so its drops persist nothing; and it has made **2
+LLM calls in its whole history, both on 2026-08-09** (against build-site-planner's 74).
+I declined to add a speculative site-id fallback chain because I cannot exercise it
+against a real run, and shipping an unexercised path is a failure mode this estate has
+recorded repeatedly. If it is revived, the right fix is a site-record step in its
+workflow, not path-guessing in the action.
