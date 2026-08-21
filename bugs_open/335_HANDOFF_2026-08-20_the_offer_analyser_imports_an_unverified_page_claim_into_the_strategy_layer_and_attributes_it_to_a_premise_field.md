@@ -104,9 +104,50 @@ it has. So this file stays here, and the defect is still reproducible on leopard
   **`_HOLD` is load-bearing:** a step naming an unregistered action does not no-op, it fails the
   **whole** workflow (the validator concludes the action is remote and rejects it), which would take
   `write_offer_findings` down with it. Gate commit `d79e4243c`; the file carries the artefact probe.
-- **Council:** submitted `9a8f1283-574e-44d7-8e66-b84789ba0429` (`Council-Submitted:` on the
-  migration commit). **Verdict not yet read** — whoever picks this up owes that read, and owes
-  acting on a REVISE, because the code is already on the shared branch.
+- **Council: APPROVED at round 3** — `9a8f1283-574e-44d7-8e66-b84789ba0429`, 13 seats approve, 2
+  advisory objections, none high-severity. Rounds 1 and 2 were REVISE and **both found something a
+  green test suite did not**; both were acted on. The commits carry `Council-Submitted:`, so `098`
+  credits them automatically once the verdict resolves — **no amend, and do not add
+  `Council-Reviewed:` to those commits retrospectively.**
+
+### What the three council rounds found — the useful record
+
+- **R1, `guardian`, HIGH — real.** My needle-gate asserted the step shape, then the `UPDATE`s ran on
+  a *broader* predicate. Different sets, against a live landmine: `[MEASURED]` four agent types carry
+  two active definition rows and only the higher is ever loaded, so the gate could pass on the loaded
+  row while the write corrupted the other. `offer-analyser` has one — luck, not a guard. Fixed by
+  resolving the target once into a temp table both halves use (`ba656ef47`), mutation-proven.
+- **R2, `bug_historian`, sideways — real, and worse than the objection.** The seat objected that
+  nothing *reads* `dropped_unsourced`. Chasing where that record lands exposed that my **clean path
+  omitted the key entirely** — and `write_site_spec` deep-merges, so an omitted key keeps the
+  previous run's value. A dropped run followed by a clean run would have left a stale drop record
+  accusing a clean ordering for ever. `bugs_open/327`'s mechanism, and the offer-analyser's own
+  prompt states the rule I failed to apply to my own output. Fixed (`4ffd9c4ac`), two tests.
+- **Declined, with measurement, and the seats accepted it.** `bug_historian` (R2, high) wanted
+  `siteSpecDeepMerge`'s array-overwrite fixed rather than worked around. Array *replace* is the
+  correct semantics for a versioned spec write — merging two ordered rankings would produce one
+  neither run wrote — and `[MEASURED]` `write_site_spec` serves **17 aspects across ~16 live agents**
+  with arrays pervasive (`identity` 110 array keys / 25 sites), so changing it is a shared-seam
+  change for its own review. Recorded in CLM-023 rather than absorbed.
+- **⚠ My own repeated failure, worth not repeating: three objections across two rounds were
+  factually WRONG ABOUT THE FILE** — `snapshot_agent()`, the `BEGIN/COMMIT` wrapper, the
+  prompt-anchor gate and the rollback file all existed and were all missing from my **sketch**. The
+  runbook says reviewers judge the sketch; I did it three rounds running, and a fourth variant
+  survived into the approving round (a fix block appended after the closing brace, which reads as
+  unreachable Go). **Sketch the file's skeleton, and re-read it as a stranger compiling it.**
+
+### Advisory objections left standing at approval — read before the next change here
+
+- **`bug_historian` (medium, x2): the durable-record gap.** `drop` mode records the removal only as
+  an in-document marker with **zero automated consumers**, which is the shape of `bugs_open/034`
+  (`validation_errors_dropped_with_no_durable_record`) and `bugs_closed/056`. And **any future caller
+  that opts into `drop` inherits the same gap unless the durable record is built into the ACTION.**
+  CLM-023 carries the precondition for `offer_ordering`; the seat's wider point is that the condition
+  belongs in the action, not in one call site's register entry. **Take this before a second consumer
+  opts into `drop`.**
+- **`editquality` (medium, x2): sketch defects only** — the round-3 sketch showed the clean-path fix
+  appended after the function's closing brace, and the rationale named two new tests the test sketch
+  did not list. The code is correct (builds, 14 tests green); the submission was not.
 
 ### Two measurements that changed the design, and one CORRECTION to this file
 

@@ -24,7 +24,7 @@ Took `bugs_open/335` — this lane's own agent writing a false figure into rank 
 |---|---|---|
 | `verify_cited_cardinals` (new action) | commit `d79e4243c`, register **CLM-023** | built, 12 tests green, **INERT until the roll** |
 | `537_offer_analyser_cardinal_attribution_gate_HOLD.sql` | commit `6b1f4cb08` | **HELD** — do not apply before the roll |
-| council submission | `9a8f1283-574e-44d7-8e66-b84789ba0429` | **r1 REVISE, r2 REVISE, r3 in flight** — read below |
+| council submission | `9a8f1283-574e-44d7-8e66-b84789ba0429` | **APPROVED r3** (13 seats, 2 advisory, none high) |
 | docs + correction + landmine + wrong-call | commit `4d68303f8` | done |
 | r1 fix: bind UPDATEs to the resolved row | commit `ba656ef47` | done, mutation-proven |
 | r2 fix: clean path clears the drop record | commit `4ffd9c4ac` | done — a REAL defect |
@@ -32,33 +32,25 @@ Took `bugs_open/335` — this lane's own agent writing a false figure into rank 
 
 ## What the next session should do
 
-1. **READ THE ROUND-3 COUNCIL VERDICT.** Rounds 1 and 2 were both REVISE and **both were acted on
-   in full** (see the table above); round 3 was submitted at 14:44Z under the same correlation and
-   was still at `review_architecture` when this file was written. **If it approved, nothing is owed
-   — `098` credits the existing `Council-Submitted:` trailers automatically.** If it revised again,
-   the code is already on the shared branch, so act rather than file.
+1. **The council is DONE — nothing is owed there.** `9a8f1283-574e-44d7-8e66-b84789ba0429`
+   **APPROVED at round 3** (13 seats approve, 2 advisory, none high-severity). The commits carry
+   `Council-Submitted:`, so `098` credits them automatically — **no amend, and do not add
+   `Council-Reviewed:` to those commits retrospectively.**
 
-   **What the three rounds actually found, because this is the useful part:** each REVISE found
-   something a green test suite did not. R1 — guardian: my needle-gate and my `UPDATE`s were
-   different sets, against a live landmine (four agent types carry two active rows). R2 —
-   bug_historian, sideways: chasing "nothing reads `dropped_unsourced`" exposed that my CLEAN path
-   OMITTED the key, and `write_site_spec` deep-merges, so a stale drop record would have accused a
-   clean artefact for ever. **Both were real. Neither was caught by tests that passed.**
+   **⚠ ONE ADVISORY IS A CONDITION ON THE NEXT CHANGE, not a nicety.** `bug_historian` left standing
+   that `drop` mode records a removal only as an in-document marker with **zero automated
+   consumers** (`bugs_open/034`'s shape), and that **any future caller opting into `drop` inherits
+   the same gap unless the durable record is built into the ACTION itself.** CLM-023 carries the
+   precondition for `offer_ordering`; the seat's wider point is that a register entry is the wrong
+   home for it. **Do not add a second `drop` consumer before that is built.**
 
-   ⚠ **And a warning about my own conduct across all three rounds: TWO objections in R2 and one in
-   R1 were factually WRONG ABOUT THE FILE — they were answering my SKETCH.** The `snapshot_agent()`
-   call, the `BEGIN/COMMIT` wrapper, the prompt-anchor gate and the rollback file all existed and
-   were all missing from what I sent. The runbook says "reviewers judge the sketch; it is the only
-   view of your code they get" and I did it three rounds running. **Put the real file structure in
-   the sketch.** It cost two rounds.
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-    WHERE correlation_id='9a8f1283-574e-44d7-8e66-b84789ba0429' AND kind='council_report'
-    ORDER BY created_at;
-   SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-   ```
-   If it approved, the migration commit already carries `Council-Submitted:` and `098` credits it
-   automatically — **no amend, and do not write `Council-Reviewed:` retrospectively.**
+   **What the three rounds found is in `bugs_open/335`, and it is the useful part** — both REVISE
+   rounds found something a green test suite did not (R1: the needle-gate and the `UPDATE`s were
+   different sets; R2, sideways: my clean path omitted the drop key under a deep-merging writer, so
+   a stale record would have accused a clean artefact for ever). Also recorded there: three
+   objections across two rounds were factually wrong about the FILE because they described my
+   **sketch**, and a fourth variant survived into the approving round. **Sketch the skeleton.**
+
 2. **After the next chassis roll: apply `537`, then re-prove.** The file carries the full runbook.
    The order that matters: confirm the binary registers the action (ask the artefact, per SERVICE,
    with a control capable of being absent), apply, then ask **"what did I break?"** before "did it
