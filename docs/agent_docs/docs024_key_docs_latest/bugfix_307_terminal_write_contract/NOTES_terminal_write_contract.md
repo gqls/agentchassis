@@ -358,3 +358,63 @@ automatically; the test commit carries Council-Reviewed on a read verdict.
 arm → standing watch with reopen trigger, written into the closed file). What this lane still
 owes lives in 344 (sweep SQL half + close) and 341/524_HOLD — the other session's, by the
 agreed division.
+
+## 2026-08-21 (evening) — the roll landed, 307 closed, and my 344 round came back REVISE
+
+**Fleet: one stamp.** `bac189921`, 59 pods, `service_binary_capabilities` — and briefly a MIXED
+fleet (12 pods new / 275 old) while it rolled, which is worth remembering: a stamp query taken
+mid-roll answers "what is running" with two rows, and picking either one is wrong. Both of my
+fixes and the peer's 42P18 fix are ancestors of the current stamp; the negative control (later
+HEAD) is not.
+
+**307 is CLOSED** (`bugs_closed/`, by the peer session, on the owner's fair-weather ruling with
+§5's outage arm as a standing watch). Its §9c holds the evidence table — cite that rather than
+re-proving it.
+
+**344's Go half is live and canary-proven**: attempts 1 and 2 re-triaged with cooldown stamps and
+SURVIVED the loop's completion call (`completed_at` NULL where the previous binary stamped
+`complete` in two seconds), the guard-skip arm fired with my log line captured verbatim from an
+ephemeral per-job pod, and the natural false-green census reads **0** since the roll.
+
+### The council came back REVISE on 344, and the gating objection was about a LIVE path
+
+`guardian`, high: `ClaimWorkItemAction` is the fleet's central claim gate, and I had written that
+the rendered SQL was *"byte-identical"* to the hand-typed clause it replaced **without ever
+asserting it**. By the time the verdict arrived that code was already serving the whole fleet. It
+was fine — measured 28 claims / 26 completions / 0 false greens since the roll — but "it turned out
+fine" is not the same as "I checked", and the seat was objecting to the second thing.
+
+Three other seats were right too:
+- **The census I kept quoting had three different values.** My submission said "five Go sites", the
+  test comment said "three consumers", and the truth is **four call sites across three files**.
+  Two seats independently flagged the inconsistency, and both said the same thing: an unclosed
+  census is where a missed duplicate hides. **This was my third undercount of the same population
+  in two days.**
+- **The skip had no durable record** — a log line only, and pod logs rotate in ~90s
+  (`bugs_closed/034`'s shape). Now stamped on the row as `result.completion_skipped`.
+- **The classification was a second, unsynchronised read.** Now a `CASE` inside the same `UPDATE`
+  that records it, so the window is gone by construction rather than documented.
+
+### The finding that matters more than any of them
+
+Mutation-testing the durable-record fix returned **`[no tests to run]`**. The change I had just
+made to answer a review objection **had no assertion behind it at all**. That is the 42P18 failure
+from two days ago wearing different clothes: a fix believed because it was written, not because
+anything would notice if it stopped working.
+
+**The habit that falls out of it, and it is cheap: after writing code to answer a review, delete
+that code and run the tests.** If nothing goes red, you have not answered the objection — you have
+only described an answer. It has now caught two of my own changes in three days.
+
+### 341/524 released
+
+The HOLD's condition was "344 candidate 1 **LIVE**, not committed", and the distinction earned its
+keep exactly as written: the fix was committed in the morning, the owner deferred the roll to the
+evening, and releasing on the commit would have stamped cooldowns for a day while `mark_complete`
+was still unguarded. Applied and recorded after the roll; the sweep now stamps `retry_after` from
+`reaper_policies`.
+
+**And the sweep needed no completion predicate after all** — §5b (which I recorded from the peer)
+was wrong for the reason §2b already gave: all three arms select `status='claimed'`, which a
+re-triaged row is not. Measured 0/0. **I wrote the correction and then failed to apply it to the
+next claim I accepted**, which is the more transferable half of that mistake.
