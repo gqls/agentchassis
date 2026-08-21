@@ -128,6 +128,7 @@ func DeliverReply(
 	headers map[string]string,
 	key, value []byte,
 	degrade ReplyDegrader,
+	opts ...DeliverOption,
 ) (DeliveryOutcome, error) {
 	if producer == nil {
 		return FailedTransient, errors.New("reply delivery: nil producer")
@@ -136,7 +137,25 @@ func DeliverReply(
 		logger = zap.NewNop()
 	}
 
-	err := producer.ProduceWithValidation(ctx, topic, headers, key, value)
+	// Variadic so the five existing callers compile and behave UNCHANGED. With no
+	// options, send is one ProduceWithValidation call — byte for byte what this
+	// function did before (pinned by TestDeliverReplyDoesNotRetryByDefault).
+	cfg := deliverConfig{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+	send := func(payload []byte) error {
+		if !cfg.retry {
+			return producer.ProduceWithValidation(ctx, topic, headers, key, payload)
+		}
+		return retrySend(ctx, logger, cfg.policy, topicClass(topic), func() error {
+			return producer.ProduceWithValidation(ctx, topic, headers, key, payload)
+		})
+	}
+
+	err := send(value)
 	if err == nil {
 		return Delivered, nil
 	}
@@ -159,6 +178,13 @@ func DeliverReply(
 		// Transient: broker unreachable, context cancelled. Resending the same
 		// bytes may well work, so the caller's existing retry path stays in
 		// charge and we do not degrade a reply that was never too big.
+		//
+		// UNLESS the caller opted in via WithRetry, in which case the resending
+		// has already happened above and this is the outcome AFTER the policy was
+		// exhausted (bugs_open/040). The opt-in exists because on the
+		// complete_workflow path "the caller's existing retry path" is
+		// failWorkflow, which has none — the sentence above was true and the
+		// caller it trusted did not exist.
 		logger.Error("Failed to produce reply",
 			zap.Error(err),
 			zap.String("topic", topic),
@@ -190,7 +216,7 @@ func DeliverReply(
 		zap.Int("original_bytes", len(value)),
 		zap.Int("degraded_bytes", len(degradedValue)))
 
-	if perr := producer.ProduceWithValidation(ctx, topic, headers, key, degradedValue); perr != nil {
+	if perr := send(degradedValue); perr != nil {
 		logger.Error("Degraded reply also refused — caller must send an error response",
 			zap.Error(perr),
 			zap.String("topic", topic),

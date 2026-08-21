@@ -4187,8 +4187,13 @@ func (s *SagaCoordinator) notifyParentOfSuccess(ctx context.Context, state *Orch
 	// PARENT IT FAILED. A workflow whose result never reached its parent did not
 	// succeed from the parent's point of view, and notifyParentOfFailure routes
 	// into error_step / needs-review handling instead of leaving a silent gap.
+	// bugs_open/040: WithRetry opts this call — and only this call — into the
+	// bounded produce retry. DeliverReply deliberately does not retry transients
+	// by default ("the caller's existing retry path stays in charge"); on this
+	// path that caller is failWorkflow, which has none.
 	outcome, err := kafka.DeliverReply(ctx, s.producer, s.logger,
-		parentTopic, successResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes, nil)
+		parentTopic, successResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes, nil,
+		kafka.WithRetry(kafka.DefaultReplyRetryPolicy))
 	if outcome.Answered() {
 		s.logger.Info("Successfully notified parent of workflow completion",
 			zap.String("parent_topic", parentTopic),
@@ -4423,7 +4428,14 @@ func (s *SagaCoordinator) notifyParentOfFailure(ctx context.Context, state *Orch
 	}
 
 	responseBytes, _ := json.Marshal(failureResponse)
-	if err := s.producer.Produce(ctx, parentTopic, failureResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes); err != nil {
+	// bugs_open/040: opted into the bounded produce retry, closing the asymmetry
+	// with notifyParentOfSuccess — which has gone through the shared reply seam
+	// since bugs_open/133 while this one stayed a bare fire-once log-and-drop. If
+	// this send fails the parent learns nothing and waits out its own timeout, so
+	// it is exactly the case worth resending. The last-resort log stays: there is
+	// no one left to tell, but it now retried first.
+	if err := kafka.ProduceWithRetry(ctx, s.producer, s.logger, kafka.DefaultReplyRetryPolicy,
+		parentTopic, failureResponse.Headers.ToMap(), []byte(replyToRequestID), responseBytes); err != nil {
 		s.logger.Error("Failed to notify parent of failure", zap.Error(err))
 	}
 }

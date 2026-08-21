@@ -109,6 +109,30 @@ var TransientErrorNeedles = []string{
 	"rate limit",        // prefix of "rate limited" too
 	"service unavailable",
 	"bad gateway",
+
+	// bugs_open/040-kafka-dial, admitted 2026-08-21 on a census, not a hunch.
+	// [MEASURED] over agent_error_log's retained window (2026-07-22..08-21): 63
+	// rows matching "Kafka write error" and 40 matching "has no leader", across
+	// 93 DISTINCT ORCHESTRATIONS, recurring most days since 08-10 — the majority
+	// at a terminal or dispatch step whose substantive work had already
+	// committed. None of the needles above matches either string, so every one of
+	// those classified error_unrecoverable and terminated work permanently on a
+	// condition that is usually over in seconds (a partition leadership
+	// election).
+	//
+	// "no leader" rather than "topic partition has no leader": kafka.WriteErrors'
+	// Error() embeds its members' texts, so the composite that actually arrives
+	// is matched by the shorter form and the longer one would miss it. It is
+	// specific enough not to over-match — no other error prose on this estate
+	// contains it.
+	"kafka write error", // singular: matches "Kafka write errors (1/1)" as a prefix
+	"no leader",
+	// DELIBERATELY NOT ADMITTED: "write message to kafka". It is our own
+	// producer's wrapper on EVERY write failure, including the deterministic
+	// oversize refusal and the validation refusal (bugs_open/274) — admitting it
+	// would reclassify permanent failures as retryable, which is the exact defect
+	// 274 spent 12 days on. The two needles above cover all 103 measured rows
+	// without it.
 }
 
 // MatchedTransientFailure classifies err as a transient failure — one a

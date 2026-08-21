@@ -34,6 +34,50 @@ func TestMatchedTransientFailure(t *testing.T) {
 		}
 	})
 
+	t.Run("Kafka040_theTwoLiveStringsVerbatim", func(t *testing.T) {
+		// bugs_open/040. Both strings are quoted VERBATIM from agent_error_log
+		// rather than reconstructed, because the composite shape is the point:
+		// kafka.WriteErrors' Error() embeds its members' texts, which is why the
+		// admitted needle is "no leader" and not the full
+		// "topic partition has no leader" — the longer form is present in the
+		// member and the shorter one is what survives every wrapping.
+		for _, tc := range []struct{ msg, want string }{
+			{
+				"step complete failed: failed to execute action complete_workflow: " +
+					"failed to send response: failed to write message to kafka: " +
+					"Kafka write errors (1/1), errors: [topic partition has no leader]",
+				"kafka write error",
+			},
+			{
+				"kafka.(*Client).Produce: fetch request error: topic partition has no leader",
+				"no leader",
+			},
+		} {
+			if got := MatchedTransientFailure(fmt.Errorf("%s", tc.msg)); got != tc.want {
+				t.Errorf("MatchedTransientFailure(%q) = %q, want %q - this class terminated 93 orchestrations permanently on a condition usually over in seconds", tc.msg, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("Kafka040_theDeterministicRefusalsStayTERMINAL", func(t *testing.T) {
+		// THE CONTROL, and the reason "write message to kafka" was deliberately
+		// NOT admitted: it is our own producer's wrapper on EVERY write failure,
+		// including the two that no retry can ever cure. Admitting it would
+		// reclassify them as retryable, which is precisely the defect
+		// bugs_open/274 spent 12 days on.
+		//
+		// If either of these ever returns non-empty, a permanent failure is being
+		// reported as "try again" and the needle list has over-matched.
+		for _, msg := range []string{
+			"failed to send response: failed to write message to kafka: message validation failed",
+			"failed to write message to kafka: Message Size Too Large: the server has a configurable maximum message size",
+		} {
+			if got := MatchedTransientFailure(fmt.Errorf("%s", msg)); got != "" {
+				t.Errorf("MatchedTransientFailure(%q) = %q, want \"\" - a deterministic refusal was classified transient", msg, got)
+			}
+		}
+	})
+
 	t.Run("CensusCaseFold_capitalisedNeedlesNowMatch", func(t *testing.T) {
 		// The 882-row class: capitalised variants missed on case alone —
 		// bugs_closed/195's capital-letter defect, live on this sibling until
@@ -147,6 +191,12 @@ func TestTransientNeedlesAreTheJudgedList(t *testing.T) {
 		"rate limit",
 		"service unavailable",
 		"bad gateway",
+		// bugs_open/040, admitted 2026-08-21 on a census: 63 "Kafka write error"
+		// + 40 "has no leader" rows across 93 distinct orchestrations in the
+		// retained month, none matched by any needle above, all classified
+		// error_unrecoverable on a condition usually over in seconds.
+		"kafka write error",
+		"no leader",
 	}
 	if len(transientErrorNeedles) != len(want) {
 		t.Fatalf("transientErrorNeedles = %v, want %v", transientErrorNeedles, want)

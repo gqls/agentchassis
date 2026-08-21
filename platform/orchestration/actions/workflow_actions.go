@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
@@ -83,7 +84,19 @@ func CompleteWorkflowAction(ctx context.Context, params ActionParams) (interface
 	headers := responseMsg.Headers.ToMap()
 	key := []byte(params.ExecutionContext.CorrelationID)
 
-	err = params.Producer.Produce(ctx, replyTo.Topic, headers, key, responseBytes)
+	// bugs_open/040: opted into the bounded produce retry. This is the terminal
+	// step — every substantive result is already committed and this send is the
+	// only thing standing between a finished workflow and a head row that reads
+	// FAILED. [MEASURED 2026-08-21] 93 distinct orchestrations lost or
+	// misreported this way in the retained month, and kafka-go never retries the
+	// commonest cause (client-side "topic partition has no leader" is not
+	// Temporary, so its writer breaks after one attempt).
+	//
+	// Safe to retry: everything above this line is a pure read of CollectedData,
+	// and a duplicate reply from a lost ack is absorbed by the parent's two-phase
+	// ClaimAwaitedRequest. The error text is unchanged.
+	err = kafka.ProduceWithRetry(ctx, params.Producer, params.Logger, kafka.DefaultReplyRetryPolicy,
+		replyTo.Topic, headers, key, responseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send response: %w", err)
 	}

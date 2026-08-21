@@ -109,6 +109,16 @@ var (
 		Help: "Kafka produce attempts by normalised topic class and outcome (ok/no_leader/too_large/timeout/canceled/network/other)",
 	}, []string{"topic_class", "outcome"})
 
+	// The opt-in reply-lane retry's own instrumentation: how often a produce that
+	// would have been reported as a failure was in fact recovered by resending.
+	// This is the DIRECT positive evidence that the retry earns its place — a
+	// falling failure count alone cannot distinguish "the fix worked" from "the
+	// weather was quiet", and this counter can.
+	KafkaProduceRetryRecoveries = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_kafka_produce_retry_recoveries_total",
+		Help: "Kafka produces that failed at least once and then succeeded under the opt-in reply retry",
+	}, []string{"topic_class"})
+
 	// Database metrics
 	DatabaseQueries = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ai_persona_database_queries_total",

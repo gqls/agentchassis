@@ -857,7 +857,12 @@ func (p *MessageProcessor) sendWorkflowResponseWithStatus(ctx context.Context, m
 		zap.String("from_my_orch", responseHeaders.MyOrchestrationID),
 		zap.Any("the responses context in sendWorkflowResponse", responseCtx))
 
-	return p.producer.Produce(ctx,
+	// bugs_open/040: opted into the bounded produce retry. This is the single
+	// produce exit serving both the success path and the two processor failure
+	// senders, so a broker blip here loses a child's whole answer — success or
+	// failure — and the parent waits out its own timeout. Duplicates from a lost
+	// ack are absorbed by the parent's two-phase ClaimAwaitedRequest.
+	return kafka.ProduceWithRetry(ctx, p.producer, contextLogger, kafka.DefaultReplyRetryPolicy,
 		parentResponsesTopic,
 		headersMap,
 		key,
