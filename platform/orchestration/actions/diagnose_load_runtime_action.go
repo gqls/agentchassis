@@ -759,19 +759,33 @@ func dashIfEmpty(s string) string {
 // the selection is (NOT ILIKE every exclude) AND (ILIKE any include OR in
 // schemaAlwaysTables), and it currently resolves to **33 of 479 public tables** — which
 // matches what a live bundle reports verbatim ("33 of 479 public tables are shown"), so
-// this arithmetic is checkable against any stored bundle. "workflow%" adds **2**, taking
-// it to 35 against a schema_table_cap of **120**. Nothing is displaced.
+// this arithmetic is checkable against any stored bundle. "workflow%" adds **2** and
+// "v%workflow%" adds **2** more, taking it to 37 against a schema_table_cap of **120**.
 //
 // ⚠ Do NOT size this by counting ILIKE matches alone: that ignores the exclude patterns
 // and overstates badly (86 vs the true 33 — an error made on 2026-08-19 and corrected
 // here). Reproduce the whole predicate, then check it against a bundle's own header line.
 //
-// The v_* VIEWS (v_active_workflows, v_all_workflows) are still NOT covered — there is no
-// table_type filter, so a view is eligible the moment a pattern matches it, and none does.
-// Left out deliberately: no run has yet stalled on one, and "v_%" is a wide net for a
-// naming convention rather than a domain.
+// The two workflow VIEWS are covered too, by "v%workflow%". There is no table_type filter,
+// so a view is eligible the moment a pattern matches it.
+//
+// ⚠ THIS WAS THE COUNCIL'S GATING OBJECTION (corr b353d731, round 1, HIGH, editquality) and
+// it was RIGHT. The first version of this change shipped "workflow%" alone and justified
+// omitting the views with "no run has yet stalled on one" — while the submission's OWN
+// grounded_in quoted run dd61df1b asking for `v_active_workflows` and `v_all_workflows` by
+// name. The fix half-covered the failure it cited, and the contradiction was inside one
+// document. Kept here because the next person to narrow this will reach for the same
+// reasoning: **check the cited run's actual table list before scoping a fix to part of it.**
+//
+// "v%workflow%" and not "v_%": the latter is a net for a NAMING CONVENTION and pulls in 11
+// unrelated views; this is scoped to the domain and resolves to exactly the two the run
+// needed. (Note "_" is a single-character wildcard in LIKE, so "v_%" would be broader still
+// than it looks — another reason to avoid it.)
+//
+// Sizing, measured `[MEASURED 2026-08-21]`: 33 before this change, 35 with "workflow%",
+// **37** with the views, against a schema_table_cap of **120**. Nothing is displaced.
 var defaultSchemaExclude = []string{"%backup%", "%bak%", "%archive%", "%supersede%"}
-var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%", "workflow%"}
+var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%", "workflow%", "v%workflow%"}
 
 // schemaAlwaysTables are the tables THIS ACTION RENDERS ROWS FROM. Their columns
 // must be in the Schema section whatever the relevance include says, because the

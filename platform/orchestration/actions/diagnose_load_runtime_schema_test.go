@@ -372,4 +372,17 @@ func TestSchemaIncludeCoversWorkflowTables(t *testing.T) {
 	if !matchesPrefix("workflow%", "workflow_templates") {
 		t.Error("workflow% does not match workflow_templates — the guard above is not testing what it claims")
 	}
+
+	// The council's gating objection (corr b353d731): run dd61df1b named FOUR tables and the
+	// first version of this fix covered two. The views are prefixed "v_", so no workflow%
+	// pattern reaches them. Guarded by name because the omission was argued for once already.
+	if !has("v%workflow%") {
+		t.Error(`"v%workflow%" missing from defaultSchemaInclude — run dd61df1b also needed ` +
+			`v_active_workflows and v_all_workflows, which "workflow%" does NOT reach`)
+	}
+	for _, v := range []string{"v_active_workflows", "v_all_workflows"} {
+		if matchesPrefix("workflow%", v) {
+			t.Errorf("workflow%% unexpectedly reaches %s — re-check whether v%%workflow%% is still needed", v)
+		}
+	}
 }
