@@ -863,3 +863,64 @@ for the whole file including a genuine predicate someone adds later — *declari
 your own detector*. Rewording cost one sentence and made it better (it now says WHY the
 render-time producer sees what the post-deploy one cannot). **When a checker false-positives on
 your prose, change the prose.**
+
+---
+
+## 2026-08-21 evening — both changes LIVE on v1.0.1322, 342 APPROVED at round 6
+
+### The deploy check, with TWO removed-string controls this time
+
+The fleet rolled to **v1.0.1322** (16:54Z — the third tag in two days: 1319 → 1320 → 1322).
+Probed on both replicas, seven needles:
+
+| needle | want | got |
+|---|---|---|
+| `REQUIRED content field(s) absent` (342's report) | present | **present** |
+| `record_absent_required_fields` (342's opt-in key) | present | **present** |
+| `blog listing template failed to parse` (the third-executor fix) | present | **present** |
+| `Failed to parse template, using fallback` (the blog listing's DELETED silent substitution) | **absent** | **absent** |
+| `refusing to emit output that was not executed` (260's seam) | present | **present** |
+| `Go template execution failed, using regex fallback` (260's DELETED fallback) | **absent** | **absent** |
+| nonsense | absent | absent |
+
+**Two independent removed-string controls in one probe** is the strongest form this check takes:
+each one separates *"the new code is in"* from *"the new code is in AND that old path is gone"*, and
+they come free only because both changes deleted a literal. Production since: 30 sections saved,
+0 occurrences of the 260 defect (most recent still 2026-08-18), 0 absent-required reports yet.
+
+### 342: six council rounds, and what each was actually right about
+
+APPROVED at round 6 (18:55Z). The rounds are worth listing because only two were about the design:
+
+1. **REVISE — report-only is not a fix.** Real, and it was my own quoted ruling used against me.
+2. **REVISE — I resubmitted the STALE submission file.** Entirely mine; a wasted round.
+3. **REVISE — the arithmetic did not close** ("nine of fifteen" while the enumeration listed seven).
+   Real, and chasing it made me wire the two paths I had missed — **which turned out to be the two
+   that write to a live page**.
+4. **REVISE — edit 1's sketch never declared the field edit 2 read.** Mine: the plan said
+   "compute, log, discard" while the code published. The code was right; the plan contradicted it.
+5. **REVISE — I called the section-editor routes "the two with the most exposure" and gave them a
+   log line only.** Two seats, both HIGH, both quoting *me*. Fixed by escalating there too.
+6. **APPROVED**, with three advisories — one of which I acted on rather than banked (below).
+
+**The pattern in my own errors is not carelessness, it is drift between the artefact and the
+account.** Rounds 2, 4 and 5 were all the submission describing something the code no longer did,
+or the code doing something the submission claimed was elsewhere. The fix is mechanical: **re-read
+the submission against the diff before firing it**, every time, not just when it feels stale.
+
+### The advisory I acted on instead of banking
+
+`reuse_agent`: `emitAbsentRequiredFieldsItem` (chrome) and `emitAbsentRequiredFieldsForSection`
+(editor) were **near-identical writers of one item_type** — same handler, same key shape, differing
+only in surface and arming. I wrote it twice **in the same lane where another seat had just praised
+me for collapsing two copies of a declared-type check into one primitive.**
+
+Three copies of one write is how three subtly different behaviours start: one gets a severity bump,
+one forgets the handler, and the router quietly stops seeing a third of the population. There is
+now **one** render-time emitter (`emitRequiredFieldsMissing`) with the differences passed in.
+The post-deploy check keeps its own producer deliberately — different trigger, different
+population, and folding it in would be reaching into another lane's file for a symmetry that is
+not real.
+
+**An approval is not a reason to stop reading the objections.** The seats that approve still file
+advisories, and this one named a defect that was three days old and mine.
