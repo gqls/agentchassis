@@ -1337,3 +1337,61 @@ plausible, unshared stylesheet, and 543 keeps them that way at every render.
 > the 198 lane applied migration 547 — each now has its own collection + theme seeded from its own
 > served stylesheet with composition FKs and chrome pins copied. My "left alone deliberately, needs
 > a decision" is resolved; the decision was made.
+
+### 8. THE WITNESSED RUN — the refusal arm proven end-to-end in production, 2026-08-21 19:09–19:11Z
+
+**This file's own closure bar for the refusal arm is met.** Not in-transaction, not by config
+probe: a real dispatch, through the real promoter and the real dispatch loop, into the live
+css-patch-agent, on a site that was genuinely armed.
+
+**Subject: webdesign.uk** — theme row 0 bytes, deploy-repo stylesheet 15,582 bytes with 4
+`:root` blocks. Chosen because it was the last site on the refusing side AND because its
+stylesheet is served to nobody (the domain 302-redirects), so a gate failure could not have
+harmed a visitor. The 15,582-byte blob was captured first as a restore net.
+
+**Driver: a SYNTHETIC PROBE, declared as such** — item `c75f430e`,
+`source='probe-bugfix-198'` (never `render-audit`), summary prefixed `PROBE`, spec carrying
+`"probe": true` and a description saying it is not a measured finding. Before dispatching, the
+promoter's OWN selection query was run against it to confirm all four doors opened
+(`pipe_ok / handler_ok / known_good / floor_ok` all true) — so a null result would have meant
+"held", not "gate worked". **The item was deleted after the proof**; it must never appear in a
+findings census.
+
+**What happened, at each layer:**
+
+| layer | observation |
+|---|---|
+| promoter (19:09:03) | `detected` → `triaged`, via the real 900s scheduled task |
+| dispatch loop (19:09:52) | `triaged` → `claimed`; `build-dispatch-loop` spawned the handler |
+| css-patch-agent run (19:10:08) | orchestration `76d9bc57`, terminated at **`complete_refused`** — the terminal that exists only because of 542. It never reached `plan_css_fix`. |
+| work item | **`needs_human_review`**, `result->>'parked_by' = 'css_base_integrity_guard_198'`, `error` carrying the full refusal sentence, **`completed_at` NULL** |
+| **css_themes row** | **still 0 bytes, still version 1, `updated_at` still 2026-08-04** — no append occurred |
+| **deploy repo** | **still 15,582 bytes, md5 `a582e515df3a31eeff30359c073205a9` unchanged, zero commits** touching the path |
+
+**The three things this proves, which nothing short of a live run could:**
+
+1. **The gate discriminates on real data.** `css_len = 0` routed to `mark_base_unsafe`, not to
+   `plan_css_fix` — the arm that all three clobber waves walked through.
+2. **The completion no longer lies.** `complete_refused` IS a success-labelled
+   `complete_workflow`, and the saga returned success — yet the item reads
+   `needs_human_review` with `completed_at` NULL, because the status was stamped BEFORE the
+   terminal and `CompleteWorkItemAction`'s guard list then skipped it. This is the defect that
+   minted 11 false `complete`s for loancash, demonstrated closed.
+3. **The artefact is untouched, which is the only claim that matters.** Trust the artefact, not
+   the status: had the gate mis-fired, the row would have grown and a commit would exist. Both
+   negatives hold, and the repo md5 is byte-identical to the blob captured before the run.
+
+**The PASS arm was deliberately NOT manufactured.** Driving the probe through a healthy base
+would have appended a junk rule (`SPAN.probe-198`, matching nothing) to a real site's
+stylesheet — the exact `H3.H3` / `p.P` pathology this file already records three sites of. It
+does not need manufacturing: the `remortgagecalculator.uk` lane **observed it in production**
+the same day, when loanzy.uk's 18 queued items appended to its restored base and deployed the
+whole file, v21/17,906 B → v34/21,330 B with `:root` intact throughout.
+
+**Fleet state after migration 548** (webdesign.uk seeded from its own deploy-repo blob,
+md5-asserted): **22 of 22 linked theme rows PASS the gate, 13,650–26,917 bytes, none shared.**
+Zero armed sites remain.
+
+**What is still owed after this** — unchanged and not diminished by the above: the shrink
+floor's post-roll pod-grep on chassis AND git-adapter (RUNBOOK §7); candidate 6; and the
+round-trip-writer inventory owed since council round `5249320e`.
