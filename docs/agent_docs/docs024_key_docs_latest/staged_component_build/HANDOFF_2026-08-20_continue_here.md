@@ -258,6 +258,61 @@ than the flat count of 13 suggests.**
 runs/24 h** and quiet): step 4 deliberately did not rename the stored template key, so this route
 survives by design. Confirm absence is right there rather than assuming it.
 
+## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
+
+§2.0's two axes (WIRED? × WHICH SIDE OF THE PRUNE?) generalise to the whole census, and applied
+mechanically they close it out. Two queries did it.
+
+**Axis 1 — how many rows does each pair have AFTER the prune boundary** (`2026-08-18 18:02:24Z`, the
+last row of `bdl`/`work_item_id`, the class step 1 was built to kill)? **Only EIGHT of the 19 pairs
+have any at all.** The other **eleven are pre-prune only**, i.e. entirely inside the window where a
+resolved field's search still ran and its answer was then discarded at the merge.
+
+**Axis 2 — of those eleven, which are WIRED?** Seven are, and the wires are real dotted paths, not
+prose (checked the VALUES, because a config key called `description` could easily have been a
+step's own description — it is not):
+
+| pair | step | wired to |
+|---|---|---|
+| component-creator / `description` | `store_component` | `input_data.spec.description` |
+| component-creator / `site_type` | `store_component` | `input_data.spec.site_type` |
+| page-build-handler / `sections` | `plan_sections` | `spec_sections.sections` |
+| rerender-pages / `reason` | `create_rerender_items` | `input_data.spec.reason` |
+| site-review-agent / `audit_source` | `write_strategic_findings` | `audit_source_literal.audit_source` |
+| tool-generator / `description` | `save_tool` | `input_data.spec.description` |
+| tool-generator / `function` | `save_tool` | `input_data.spec.function` |
+
+**WIRED + zero post-prune rows ⇒ CLOSED BY STEP 1.** The prune removed Strategy-0-resolved fields
+from what Strategy 1/2 request, so these cannot write another row; and their historic rows never
+affected a value, because the merge discarded the search's answer. **Seven pairs need no decision,
+no migration and no paragraph.** Together with the four already killed by steps 1–4
+(`bdl`/`work_item_id`, `bdl`/`current_page`, `pcw`/`current_page`, `pbh`/`current_page`) that is
+**eleven of nineteen closed.**
+
+### The eight that remain, and each one's actual state
+
+| pair | rows post-prune | wired? | state |
+|---|---|---|---|
+| **bdl / `commit_sha`** | **640, last 2026-08-21 10:28** | no | 🔴 **THE GATE. Firing right now.** Blocked on the 315 lane's answer for the correct path — `bugs_open/334` |
+| **tg / `related_pages`** | 17, last 08-20 17:07 | **yes, and it MISSES** | 🟠 `bugs_open/330`. Refusal is the DESIRED outcome ⇒ **recorded decision**, not a wire |
+| **pbh / `page_type`** | 3, last 08-20 15:11 | no | 🟡 **515 in review** (`a452fc2a`) — apply, then verify with a demand control |
+| **tg / `reason`** | 22, last 08-20 17:08 | no → wired by 512 | 🟢 512 applied; **verification unrunnable, queue drained (§2.3)** |
+| bdl / `result` | 0 (last 08-17 16:29) | **no** | ⚪ quiet, UNWIRED ⇒ not closed. `452_..._goes_strict_HOLD.sql` is its intended `!` fix and is **NOT applied** (checked `result`/`result?`/`result!` — none present). Why the rows stopped is unattributed |
+| page-rerender / `current_page` | 0 (last 08-18 13:07) | **no** | ⚪ quiet, UNWIRED, and the agent runs **~600×/24 h** ⇒ condition-dependent, NOT fixed. Step 4's rename plausibly removed a candidate, but the rows stopped BEFORE step 4 rolled, so do not credit it |
+| generic / `page_id` | 0 (last 08-17 12:40) | **no** | ⚪ quiet, UNWIRED. 2 rows |
+| generic / `summary` | 0 (last 08-17 18:29) | **no** | ⚪ quiet, UNWIRED. 3 rows; resolves into the agent's OWN workflow config |
+
+**So the remaining work is exactly: one external answer (`commit_sha`), one migration to land (515),
+one decision to record (`related_pages`), one verification with no path (512), and FOUR
+quiet-unwired pairs needing a recorded decision each.** Not thirteen unknowns — eight named items,
+half of them already in motion.
+
+⚠ **The four ⚪ rows are the ones to be careful with.** Unwired means the prune does not protect
+them: the search still runs whenever the shape appears, so they are *armed*, not fixed — and
+page-rerender at 600 runs/day is the clearest case. Their disposition is a judgement (is absence
+correct for this consumer?) which must be read AT the consumer, as 515 did, not inferred from the
+row count.
+
 ## 3. Recommended order of work
 
 1. **Tier C first** — it is ~10 paragraphs of recorded judgement and it shrinks the list fastest.
