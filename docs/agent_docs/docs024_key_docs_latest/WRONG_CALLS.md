@@ -41217,3 +41217,34 @@ rotated out of it by the time I looked, five minutes after the run. So the instr
 the pod LIST, not a fixed set, and fast. And prefer a durable source when one exists: I checked
 whether `section_plan` records the `page_type` it used (it does not), which is why the log is the
 only route here — but that check should come first, not after two failed watchers.
+
+## 2026-08-21 — staged_component_build: my test pinned the guard's INPUTS and its comment claimed it pinned the guard
+
+**The claim.** Fixing a blind-green feed shape in the `?` adoption gate, I added a guard (agents
+decoded but zero workflow steps walked ⇒ refuse) and a test, whose header said: *"MUTATION PROOF:
+replace the `steps == 0` guard with `steps < 0` (a no-op that still compiles) → this test fails."*
+
+**What was wrong.** I ran that mutation and **the test passed.** It asserted `walkedStepCount(...) ==
+0` on the bad shape and `findOptionalExplicitWires(...)` returning nothing — the guard's *inputs* —
+while the guard itself lived in an `emit…` function behind `os.Exit`, which the test never called.
+Every assertion was true with the branch removed. The comment was a claim about behaviour that the
+code did not have, in a test written *specifically* to stop a silent pass.
+
+**What caught it.** Running the mutation I had written down rather than trusting that I had. It cost
+one command.
+
+**The cheap check that would have caught it.** Before writing "mutation proof" in a comment, ask
+which line the mutation edits and which assertion reads it. If the mutated line is inside a function
+the test never calls, there is no path between them. `os.Exit` is the usual reason: a decision that
+ends in `os.Exit` is untestable in place, so the decision has to be extracted before it can be
+pinned. Here that meant a two-line `vacuityRefusal(agents) string` returning the message or `""`,
+which the test can call directly — and the mutation then fails naming the defect.
+
+**Transferable.** *A test that pins a guard's inputs does not pin the guard.* It is the same shape as
+this file's recurring "the measurement answers the question you encoded" — the encoded question was
+"does the detector detect", the question I needed was "does the branch act". They differ exactly when
+the branch is the thing that recently changed, i.e. always, when you are fixing a bug. And the
+sharper half: **an unverified mutation-proof claim is worse than none**, because the next reader
+treats the branch as covered and deletes their own check. Related:
+[[mutate-the-code-to-prove-the-guard]] — this is its failure mode when the mutation is *described*
+rather than *run*.
