@@ -1,6 +1,22 @@
 #!/usr/bin/env python3
 """
-wedge-evidence-capture — preserves `bugs_open/029`'s evidence before retention eats it.
+wedge-evidence-capture — preserves `bugs_open/343`'s evidence before retention eats it.
+
+⚠ RENUMBERED 2026-08-21. This was built for `bugs_open/029`, which the owner SPLIT on 2026-08-20:
+029 is CLOSED (for the inverted retry window only) and the silent freeze this job captures is now
+`bugs_open/343`. Every note this job had already written says "bugs_open/029" — a path that no
+longer exists — so a reader following it during an incident lands nowhere. The strings below are
+the fix; the historical rows keep their old label and are not rewritten.
+
+⚠ THIS JOB IS DELIBERATELY BROAD AND ITS ROWS ARE NOT ALL 343 INSTANCES. The trigger is
+"an EXECUTING_STEP row older than the threshold", which is far wider than the 343 signature. As of
+2026-08-21 it had banked four captures, NONE of them 343 (wrong agent, wrong step, no abandoned
+rv3 await, freeze times of 0.039s-1m36s). Breadth is the intended trade: a misreading is fixed by
+this caveat for free, whereas a signature filter would skip the one capture that mattered — and
+two of those four rows were subsequently deleted by the cleanup, which is exactly the loss this
+job exists to pre-empt. TO DECIDE WHETHER 343 RECURRED, DO NOT COUNT THESE NOTES: count abandoned
+rv3 awaits (`awaited_requests`, step_name ~ process_item_iter_N_call_handler, retry_version>=3,
+status='error'). That was 30 in the 08-17 burst and 0 since 08-18.
 
 WHY THIS EXISTS. On 2026-08-17 an orchestration wedge fired 18 times in four hours:
 a `build-dispatch-loop` freezing in EXECUTING_STEP at a `process_item_iter_N_spawn_handler`
@@ -169,7 +185,7 @@ def write_note(subject_key, body, password, host):
 def render(row):
     awaited = row.get("awaited_requests") or []
     lines = [
-        "WEDGE EVIDENCE CAPTURE (%s) — bugs_open/029" % row["kind"],
+        "WEDGE EVIDENCE CAPTURE (%s) — bugs_open/343 (was 029, split 2026-08-20)" % row["kind"],
         "",
         "orchestration_id : %s" % row["orchestration_id"],
         "owner_agent_type : %s" % row["owner_agent_type"],
@@ -226,7 +242,7 @@ def main():
         print("CAPTURED: " + captured[-1])
 
     summary = [
-        "wedge-evidence-capture run summary — bugs_open/029",
+        "wedge-evidence-capture run summary — bugs_open/343 (was 029, split 2026-08-20)",
         "",
         "orchestration_states rows visible : %d" % totals["total"],
         "frozen-threshold (minutes)        : %d" % FROZEN_MINUTES,
