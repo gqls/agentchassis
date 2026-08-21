@@ -643,3 +643,73 @@ flip the row**; the prediction is disconfirmable and worth more than the one pag
 backticks at the served page and their `<script>` literals intact** — `tool-head-architect` kept
 **44** script backticks while reaching zero in prose, which a transform leaking into script context
 could not do. Per-page table: NOTES 2026-08-21 §7.
+
+---
+
+## 8. 2026-08-21 (later) — post-roll re-verification, and a CORRECTION to this file's own account of the remaining half
+
+### 8.1 The new chassis build does not disturb clause 1 — checked at the artefact, not inferred
+
+A fresh image rolled at **16:54Z** (`sha256:68075cf5…`, stamp `bac189921`). `af0f00bb5` and
+`6011f9657` are both ancestors of it and `0483e7f4e → bac189921` is forward with no revert — but
+ancestry cannot prove a later commit did not delete the code, so the capability was re-probed on the
+NEW binary: `rendered_html_transform` **8**, `code_span_to_code_tag` **5**, negative control **0**.
+The seven repaired rows are untouched (`complete`, last write 13:37:02Z) and nothing new has been
+filed for the type.
+
+### 8.2 ⚠ CORRECTION — "`no_content_data` … is a content-acquisition problem" is TOO STRONG for most of the population
+
+§"So: 277 stays OPEN" says the 27-row majority *"is a content-acquisition problem, not a routing
+one"*, and points at a finding-to-edit converter. **For most of these rows the content already
+exists — it is on the page, just not in `content_data`.** Worked case, read at the row rather than
+reasoned:
+
+- Item: *"Component 'hero' on page `tool-ttk-calculator` is missing 1 schema-required value field(s):
+  **headline**"*, route `no_content_data`, parked by `park_blob`.
+- `page_components.77eaa64e…`: `content_data` **NULL**, `rendered_html` **16,106 bytes**, and its
+  first element is `<h1>Time-To-Kill (TTK) Calculator</h1>` — i.e. the "missing" headline is being
+  served to visitors right now. The page itself returns 200, 31KB, with no placeholder or
+  unrendered-template marker anywhere.
+
+**So these are not 27 broken pages.** They are 27 components whose stored data cannot reproduce what
+they serve — the same property this lane measured for the Ported Page population, seen from the
+other side.
+
+### 8.3 How much of it is recoverable — MEASURED across all 27, 2026-08-21 ~17:05Z
+
+| missing field(s) | rows | `content_data` empty | `rendered_html` > 200B | component has a real `<h1>` |
+|---|---|---|---|---|
+| `headline` | 18 | 18 | 18 | **15** |
+| `headline, primary_cta` | 6 | 6 | 6 | 0 |
+| `features, headline` | 2 | 2 | 2 | 0 |
+| `content` | 1 | 1 | 1 | 0 |
+
+**15 of 27 (56%) are recoverable by the single most obvious rule** (the component's own `<h1>` is the
+headline). The other 12 are not — 3 `headline`-only rows carry no `<h1>` at all, and the 9 multi-field
+rows would need a rule per field (`primary_cta`, `features`, `content`), which is a different and
+much less deterministic job. **This is a COVERAGE figure, not an agreement figure**: it says how
+often the cheap rule *resolves*, which is the question a plain wire cannot answer (WRONG_CALLS,
+2026-08-20).
+
+### 8.4 The hazard that makes this an OWNER decision rather than an obvious yes
+
+A backfill would make these components **regenerable again** — which is the whole point, and also the
+risk. `HANDOFF_2026-08-20b` §3 already named it: *"If someone later BACKFILLS `content_data` on ported
+pages, the regenerate routes wake up and could reprint pre-transform content — whoever does that owns
+re-checking these 7."* Today's seven repairs live in `rendered_html` only, **by design**, precisely
+because nothing regenerates those components. A backfill removes that protection.
+
+So the three options, costed honestly:
+
+1. **Recovery/backfill** (extract the field from the component's own `rendered_html`). Cheapest, and
+   deterministic for the 15. Owns the re-check of today's seven, and needs a rule for the other 12 or
+   an explicit "these stay parked".
+2. **Leave them parked with the facts.** Defensible as a terminal state: no visitor sees a defect,
+   every row is labelled with why, and the route classification is correct. Then 277 closes on the
+   ground that routing is delivered and clause 1 is proven — and the residual becomes a data-model
+   debt filed elsewhere, not an open repair bug.
+3. **Build the finding-to-edit converter** this file originally proposed. Right for genuine
+   acquisition cases; **overkill for the 15**, and it is the expensive one.
+
+**No session should pick between 2 and 1 on its own** — option 2 changes what "fixed" means for this
+bug, and option 1 spends the protection today's repair relies on.

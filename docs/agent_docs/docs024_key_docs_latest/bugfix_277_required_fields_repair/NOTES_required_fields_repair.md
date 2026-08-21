@@ -2876,3 +2876,32 @@ reads the `sketch` field, not the file*, so an abbreviated sketch draws objectio
 just out of view. Cost here was two low-severity notes on an approved verdict — cheap, but it is the
 second time, and the fix is to paste the guard lines into the sketch even when they feel like
 boilerplate.
+
+### 11. ~17:00Z — a fresh chassis rolled; re-probed rather than assumed, and then re-grounded the half that holds 277 open
+
+**The roll.** New pods 16:54Z, digest `sha256:68075cf5…`, stamp **`bac189921`** (was `0483e7f4e`).
+Ancestry: `af0f00bb5` and `6011f9657` both aboard, and `0483e7f4e → bac189921` is forward.
+⚠ **Ancestry alone would not have been enough** — a commit AFTER mine could have deleted the code and
+still leave `af0f00bb5` an ancestor. Re-probed the new binary: `rendered_html_transform` 8,
+`code_span_to_code_tag` 5, negative control 0. Seven repairs untouched, nothing new filed.
+Also noted for anyone dispatching in the next few minutes: **no orchestration within ~300s of a
+chassis restart** — the spawn is silently dropped.
+
+**Then the useful part: the residual is CHEAPER than this lane has been saying.** `bugs_open/277`
+§"So: 277 stays OPEN" calls `no_content_data` *"a content-acquisition problem"*. Read one row at the
+component instead of at the summary: `tool-ttk-calculator`'s hero is *"missing 1 schema-required
+value field(s): headline"*, its `content_data` is **NULL**, its `rendered_html` is 16,106 bytes, and
+its first element is `<h1>Time-To-Kill (TTK) Calculator</h1>`. **The missing value is being served to
+visitors.** The page returns 200/31KB with no placeholder markers.
+
+Censused all 27 (table in `277` §8.3): **15 of 27 recoverable by the single obvious rule** (the
+component's own `<h1>`); 3 `headline`-only rows have no `<h1>`; the 9 multi-field rows
+(`primary_cta`, `features`, `content`) need a rule per field. **Deliberately a COVERAGE figure** —
+how often the cheap rule *resolves*, not how often it agrees where it happens to apply. It could have
+come out 27/27 or 0/27; it came out 15.
+
+**Why I did not then build it.** A backfill re-enables the regenerate routes on exactly the
+components whose un-regenerability is what makes today's `rendered_html`-only repair safe —
+`HANDOFF_2026-08-20b` §3 wrote that trap down before there was anything to protect, and there now is.
+Options and costs are in `277` §8.4; choosing between "backfill" and "parked is the terminal state"
+changes what *fixed* means for this bug, so it goes to the owner.
