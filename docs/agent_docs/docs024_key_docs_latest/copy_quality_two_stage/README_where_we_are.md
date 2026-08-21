@@ -600,3 +600,48 @@ word-for-word in published copy, eighteen times in total — while the one *mand
 four hundred and nine times. So examples do get copied, but nowhere near as much as an instruction
 that says "use this sentence". That narrows the risk. It does not remove it, and I should say plainly
 that my sample was the first sixty alphabetically rather than a proper random one.
+
+---
+
+**2026-08-21.** I ran the editorial pass a fourth time on the AI-orchestration homepage, to answer a
+question we had left open: when I capped it at three changes per run, was that cap stopping it from
+finding anything else, or just stopping it from biting off too much at once?
+
+**It was the second, and that is the good answer.** The fourth run picked **three completely
+different sections** from the third run — no overlap at all. So the cap bounds how much it does in one
+go, not how much it can see. Run it again and it works down the list.
+
+It also did something I want to point out, because it is the behaviour I was hoping for and could not
+guarantee. It said, in its own words, that the real problem on that page is bigger than three edits
+can fix: the "features" and "differentiators" sections are near-duplicates of each other with
+identical headings, and the same story about pilots stalling in production appears **four separate
+times**. Its conclusion was that this "should be revisited as a structural merge" — in other words, it
+declined to pretend three edits had fixed a structural problem. That is the difference between a tool
+that reports and a tool that just does something.
+
+**All three changes passed the mechanical checks.** Nothing invented, no numbers changed, no links
+dropped, no markup lost, the list field still a list with the same number of items. Two of the three
+make the copy noticeably shorter — 37% and 31% — and in both cases the checker confirmed every fact
+and link that disappeared is still present elsewhere on the page, so it is removing repetition rather
+than removing content. Both are flagged for a human to read the prose, which is right: a machine can
+prove nothing was lost, but not that what remains reads well.
+
+**This is waiting for you, and it is a different kind of approval from last time.** The first time you
+approved one of these it was six missing links being put back — a pure addition, nothing to lose. This
+one **deletes live copy**. The largest change cuts the homepage call-to-action from 126 words to 79:
+
+> *"We run over a thousand orchestrations a day across 14 live sites on Kubernetes, Kafka, and
+> Postgres, and the Enterprise AI Agent Adoption Tracker records the same story across financial
+> services, healthcare, and logistics: pilots clear the first hurdle easily, then stall once real
+> production message volume hits a pipeline with no blast-radius containment…"*
+
+Its reason: the original ran the same statistic past the reader twice.
+
+So the question for you is not "is this safe" — the checks answer that — but **"do you want the
+editor deleting live copy on your say-so, and is this the standard you want it held to?"** Nothing has
+been applied and nothing will be until you say so.
+
+One small thing worth knowing, because it nearly became a false alarm on my side: right after the run
+finished I checked the log of AI calls and found nothing there, which looks exactly like our
+instrumentation having broken. It hadn't — that log simply lands a few minutes late. I checked whether
+the log was receiving anything at all before concluding anything, and it was.

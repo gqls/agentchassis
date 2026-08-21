@@ -103,7 +103,21 @@ defect in my published recipe; I had it wrong.
 3. **`ai-agent-orchestration.com`'s `example_phrases`** — the payload the compliance seat objected
    to. Their call on their own site config; they have been told twice and offered the edit. **Do not
    write replacement copy** (owner ruling 2026-08-06: the framework writes the content).
-4. **A fourth run on `ai-agent-orchestration.com/index`** — **the dispatch recipe is now known; it was
+4. ~~**A fourth run on `ai-agent-orchestration.com/index`**~~ **DONE 2026-08-21 — the budget is
+   SELF-CORRECTING.** Corr `667f8493`, 180 s, 11,756/32,000 tokens, proposal `6d6d4975` parked at
+   `needs_human_review`. **Three entirely different components, zero overlap with run 3**, gate PASS
+   on all three, and it reported in `page_judgement` that the features/differentiators overlap is
+   *"larger than three edits can resolve"* rather than pretending otherwise. Register CQ-024's
+   verify-later is answered. **Fired with the new `scripts/fire-copy-editor.sh`** (guards: deployment
+   rollout, endpoint health, no non-terminal proposal already on the page — that last one was inert
+   until fixed to read the `page_id` COLUMN, since `spec->>'page_id'` is NULL on every real row).
+   **What is now open is the OWNER's:** this proposal DELETES live copy (126 → 79 words on the CTA),
+   which is a different review question from adding six links. Stated in `README_where_we_are`.
+   ⚠ **`llm_call_log` lags the orchestration by minutes** — an empty result straight after a run
+   reads exactly like an instrumentation outage. Ask whether the table is receiving anything at all
+   before concluding, and **filter by correlation, never by recency**: run 3's row read as run 4's.
+
+   ~~the dispatch recipe is now known; it was
    the blocker, and it is not written down anywhere else in this lane.** Runs 1–3 were hand-fired and
    **their orchestration rows are gone** (this lane already recorded that `orchestration_states` is
    not an archive), so the envelope is not recoverable from the DB. Build it from the working
