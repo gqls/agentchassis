@@ -41646,3 +41646,51 @@ it — and a calibration that cannot come out surprising has not been run.
 
 **Fixed:** predicate gated on the renderer's guaranteed vocabulary, parity-tested against
 `canonicalCSSTokens`; corrected visibly in all three places the wrong figure had been written.
+
+## 2026-08-21 (b) — bugs_open/204: I inherited a census predicate that over-reports, re-published its number six times, and only caught it when the fix's coverage looked wrong
+
+**The claim.** "107 unresolvable section names across 7 sites" — written into the lane's
+NOTES, PLAN, RUNBOOK, README, the `bugs_open/204` file, register entries PLAN-051 and
+PLAN-027, two council submissions and five commit messages, always marked
+`[MEASURED 2026-08-21]` with the query beside it.
+
+**What was wrong.** The predicate was `cc.function = sec OR cc.name = sec` — a RAW string
+match. The resolver it is supposed to model does **not** stop there: its second arm is
+`NormalizeComponentFunction`, which maps `call_to_action` → `call-to-action`. So every
+snake_case spelling counted as "unresolvable" when the live code resolves it fine. The
+true figure is **88 across 6 sites**, not 110 across 7 (110 being the raw-match count
+today; it was 107 when I first ran it). `leopardessconsulting.co.uk` leaves the list
+entirely — all six of its "unresolvable" names were spellings.
+
+**What caught it.** Not a review, and not the marker. I ran a coverage query — *of the
+unresolvable names, how many does the fix's route actually reach?* — and three sites came
+back badly covered (4/11, 2/10, 2/6). That looked like a hole in my own fix, so I listed
+the names. They were `call_to_action`, `article_grid`, `category_section` — snake_case, not
+positional slots. The fix was fine; the denominator was wrong.
+
+**The cheap check that would have caught it.** Model the predicate on the CODE it claims to
+describe. `componentNameResolver.resolve()` has five arms; my census implemented one and a
+half. Reading `resolve()` beside the query — thirty seconds — would have shown it.
+
+**Why the marker did not save me, which is the point.** The estate's rule is that a
+`[MEASURED]` figure needs a disconfirming result to be evidence. This one had one *in
+principle* — the count could have come out anything. What it did not have is **agreement
+with the mechanism it stood for**. A census is a MODEL of a code path, and a model can be
+precisely measured and still measure the wrong thing. Dated, marked, query-attached and
+reproducible are all necessary and none of them is sufficient.
+
+**Did it change any conclusion?** No, and that is worth stating so nobody over-corrects.
+The load-bearing measurement was always the drop RECORD — 140 of 140 observed drops being
+positional names — which is an observation of what the code actually did, not a model of
+it. The census was only ever "population at risk", and the lane docs already said in
+several places that it is NOT the fix's metric. The fix's real coverage is now measured
+directly: **83 of the 88 are rescued by the stored-slot route, and the other 5 are
+genuinely orphaned names that match no component under any spelling and are not slots on
+their page — so dropping them is correct.** 83 of 83 that should be kept.
+
+**Transferable.** *A census that models a code path must be derived from that path, not
+from a plausible sentence about it.* Two habits follow: when you copy a census query from
+an older doc, re-read the function it stands for before re-publishing its number (I
+inherited this one from the bug file's 2026-08-05 filing and never checked it); and when a
+coverage figure looks bad, suspect the denominator before the numerator — my first
+instinct was that the fix had a hole, and that instinct is what accidentally found this.

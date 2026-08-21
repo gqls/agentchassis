@@ -771,3 +771,101 @@ every test green, because they all stopped at `upsertPage`'s boundary — one
 legitimately-recomposed page would have licensed emptying every other page in the run.
 **Generalisable: a guard tested only at the helper's boundary is untested against the
 wiring that decides its input.**
+
+---
+
+## ✅ LIVE 2026-08-21 at chassis `v1.0.1322` — proven at the binary and against real Postgres. One behavioural step remains, and it is blocked on a quiet site, not on the code
+
+Stamp `bac189921`; all six commits of this lane are ancestors of it
+(`git merge-base --is-ancestor`). Probed the `agent-chassis` binary itself, because
+that deployment's `build provenance` line had already scrolled — **with both controls
+in the same breath**:
+
+| probe | result |
+|---|---|
+| shipped sha `bac1899216fc…` present in `/proc/1/exe` | ✓ PRESENT |
+| fabricated sha `deadbeef000…` | ✓ ABSENT — so the grep discriminates |
+| `kept section name by stored slot identity` (read side) | ✓ PRESENT |
+| `PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED` (write side) | ✓ PRESENT |
+
+### The write guard is proven against REAL Postgres, which the unit tests could not do
+
+The lane's own tests admit their limit: sqlmock never executes SQL, so they establish
+the statement *asks* the right question and not that Postgres *answers* it correctly.
+Closed by running the shipped `CASE` inside a transaction and rolling it back:
+
+| direction | result |
+|---|---|
+| empty over real, release OFF | **kept** `["prose-0","tool-1","prose-2"]`, `sections_kept=t` ✓ |
+| real over real | **overwritten** to `["hero","faq"]` ✓ — plan authority intact, the guard does not freeze the column |
+| empty over real, release ON | **overwritten** to `[]` ✓ — the door works |
+| empty over empty | `[]`, no noise ✓ |
+
+`ROLLBACK` — no row left behind. Script:
+`scratchpad/guard_live.sql` shape is reproduced in the lane RUNBOOK.
+
+### ⚠ CORRECTION — this file's own census over-reported, and so did mine
+
+**The `86 → 87 → 107` series in this file is an OVER-COUNT, and the predicate that
+produced it is in this file's §Measured block.** `cc.function = sec OR cc.name = sec`
+is a RAW match; the resolver's second arm normalises (`call_to_action` →
+`call-to-action`), so every snake_case spelling was counted as unresolvable when the
+live code resolves it fine.
+
+**Corrected [MEASURED 2026-08-21]: 88 truly unresolvable across 6 sites**, not 110
+across 7. `leopardessconsulting.co.uk` leaves the list entirely — all six of its were
+spellings. This does not change any conclusion: the load-bearing figure was always the
+drop RECORD (140 of 140 observed drops being positional), which observes what the code
+did rather than modelling it. Full account in `WRONG_CALLS.md` 2026-08-21 (b).
+
+### Coverage of the corrected population — measured directly, not inferred
+
+| domain | truly unresolvable | rescued by stored slot | still dropped |
+|---|---|---|---|
+| loanandmortgagecalculator.co.uk | 70 (41 pages) | **70** | 0 |
+| robot-hands.com | 7 | **7** | 0 |
+| dartsonline.com | 4 | **4** | 0 |
+| oufe.com | 2 | **2** | 0 |
+| finetuning.uk | 4 | 0 | 4 |
+| gaswholesalers.com | 1 | 0 | 1 |
+
+**83 of 88 rescued.** The 5 that are not are `article_grid` / `category_section` on
+pages carrying entirely different slots — they match **no component under any
+spelling** and are **not slots on their page**, so they refer to nothing and dropping
+them is the checker doing its actual job (pinned by
+`TestValidatePlan_UnstoredUnresolvableNameIsStillDropped`). So: **83 of the 83 names
+that should be kept are covered.**
+
+### What is NOT yet proven, stated plainly
+
+1. **The arm has not fired in production.** Zero rows of any of the new codes, and
+   zero new `PLAN_SECTION_NAME_DROPPED` since 2026-08-20 17:15 — because **no planner
+   has run since then**. ⚠ A zero here is not evidence of anything, which is exactly
+   the trap this lane's verification plan warns about.
+2. **The demand control is unrun.** Before anyone reads a future zero as success, one
+   drop must be induced with an invented name to prove the detector still fires.
+
+Both need a planner run. **All four decomposed sites are busy today** (open items:
+LMC 34, oufe 46, dartsonline 52, robot-hands 283; every one with activity 2026-08-21,
+and the LMC lane committed to that site today). A site-wide replan there would collide
+with another session's live work — which is how the 08-20 incident happened. **Not
+fired, deliberately.** Preconditions for whoever does: a quiet decomposed site, the
+pre-fire snapshot, and the queue cancelled before any repair.
+
+### ⚠ Stated residual — `site-planner` is NOT covered by this fix
+
+`site-planner` also has `validate_components: true`, but its live workflow is
+`complete, load_available_components, load_style_collections, plan_site,
+validate_plan` — **no site-record step**, so `site_record.site_id` is absent from its
+collected data, the rescue degrades to nil, and it drops exactly as before.
+
+Why that is recorded rather than fixed: it has **no write path** (no
+`write_site_plan`, no `sync_pages`), so its drops reach nothing that persists to
+`pages.sections`; and it is near-dormant — **2 LLM calls in its entire history, both
+on 2026-08-09, none since**, against `build-site-planner`'s 74. I declined to add a
+speculative site-id fallback chain because I could not exercise it against a real
+run, and an unexercised path is what this estate keeps getting bitten by. **If
+`site-planner` is ever revived, this is the line to read first**: give its workflow a
+site-record step, or teach `ValidateSitePlanAction` the estate's conventional
+`site_id_field` config key (noting that action still has no `RegisterActionInputSpec`,
+so any key added to it is invisible to the WFA-013 budget check).
