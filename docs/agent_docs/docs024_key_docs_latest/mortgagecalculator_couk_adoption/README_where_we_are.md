@@ -1389,3 +1389,53 @@ checker — that has now been waiting since the 16th.
 is asking for a real business email address to display, and nobody has given it one. And a tool
 page called "simple" is missing its headline. Both are things only you can answer; neither is
 urgent, and neither is breaking anything visible today.
+
+## 2026-08-21 (Friday, later) — the page still will not build, but we now know exactly why, and the reason is somebody else's to fix
+
+I said this morning there were two possible outcomes and both were useful. We got the second one.
+
+**The page failed to build, twice, and the failure now names the exact problem.** Where it used to
+say "twenty blockers" — which tells you nothing — it now says: on the component that draws the
+step-by-step flow diagram, a field called `branches` is supposed to be a structured list of
+outcomes, and the writing stage keeps putting a sentence of prose there instead.
+
+**I ran it twice deliberately, and that is the finding.** If it had failed once and worked the
+second time, this would be random bad luck and the answer would be "keep retrying". It failed both
+times, on the same field, in the same way — only the position within the page moved. So the writer
+gets this **reliably** wrong, and retrying is not a route to a working page. I stopped at two
+rather than spending more on attempts that have no reason to succeed.
+
+**It is not our component's fault.** I checked the specification the writer is working from before
+assuming anything, and it is clear and correct. If anything the problem is that the specification
+*describes* the field in a way that reads like an instruction to write a sentence — and the writer
+does what it is told rather than what the type says. That is a known argument another team has
+already made in the abstract; this is the first live case of it I can hand them.
+
+**So I have handed it over, with a case they can reproduce on demand.** The team that owns the
+writing half of this problem now has the exact error, the exact item to re-run, and — as it
+happens — the only live example of this failure anywhere on the estate at the moment.
+
+**I also found a second, separate fault while doing it, and filed it.** When the build failed, the
+system marked the job **complete**. Not failed, not "needs a human" — complete, with nothing built
+and the page still missing. That matters more than it sounds: a job that reports success is a job
+nobody goes back to. This exact shape was found and fixed last month for a different cause, and the
+fix was to add a guard for *that* cause specifically. Yesterday's fix from the other team created a
+*new* cause, and the guard does not cover it. I filed it as its own bug with the evidence.
+
+I tried to put that second fault through our automated diagnosis loop first, as our rules ask, but
+the loop broke twice on its own infrastructure — once on an AI service limit and once on a genuine
+bug in the code that is supposed to *record* failures. So I verified it myself instead and said so
+plainly at the top of the bug, rather than quietly skipping the step.
+
+**Where that leaves the site.** Thirty-two of the thirty-three internal links work. The one that
+does not is the Scorecard Simulator, linked from six pages, and it will stay broken until the
+writing team fixes the field. I have put our job back into the "needs a human" queue where it
+honestly belongs, instead of leaving it marked complete.
+
+**And one honest note about my own work today.** I set up an automatic watcher to tell me when the
+second build finished, and it told me the build had finished thirty seconds after starting — before
+it had even begun. I had deliberately kept the previous run's error message so I could compare the
+two, and my watcher was looking for the word "failed", which was sitting right there in the old
+message. It matched history rather than the event. No harm done, I caught it in the same breath,
+and I have written up the check that prevents it. I mention it because a watcher that lies
+confidently is exactly the sort of thing that quietly corrupts a day's conclusions.
