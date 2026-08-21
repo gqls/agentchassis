@@ -41972,3 +41972,28 @@ read identically in prose, because "every pair the instrument saw is handled" an
 handled" differ by three words. **Name the denominator, or say plainly that you are talking about
 the sample.** Related: the 2026-08-21 entry on measuring a property over all rows when the property
 was two hours old — same family, opposite error: there the population was wrong, here it was absent.
+
+---
+
+## 2026-08-21 — 307-verification session (addendum to the summary-collision repair): my repair commit claimed WHICH account each file held, verified only THAT a file changed
+
+**The call:** commit `5793c599f`'s message — "the 307 lane's later, fuller account becomes the
+same-day 'b' file". The b-file actually held MY text; for a window the peer's account was
+absent from `HEAD` entirely (their `34f66be22` fixed it).
+
+**What caught it:** the peer diffing the two series files AGAINST EACH OTHER — byte-identical,
+which for a two-entry series is a contradiction on its face. Nothing in either repair commit
+looked wrong; both said "restored" and both were sincere.
+
+**The cheap check that would have caught it:** one `head -3` per file before committing —
+content, not position. My `git diff --numstat` answered "did the dated file change?"
+(yes, 78/76) — the question I encoded — not "do the two files hold two accounts?", the one
+the repair existed for. Likely mechanism: a concurrent-repair interleave (both sessions fixing
+the same collision, my `cp` picking up the other session's in-tree half-repair) — but the
+claim was mine and unverified either way.
+
+**The transferable shape:** *for a SERIES, the invariant is that the entries differ from each
+other — "did my write land" cannot detect a series silently collapsing to one repeated entry.
+After any repair that assigns content to filenames, read a line of each file; never assert
+content by position.* Same family as today's other entries: the measurement answered the
+question I encoded.
