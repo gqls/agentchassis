@@ -307,7 +307,36 @@ one decision to record (`related_pages`), one verification with no path (512), a
 quiet-unwired pairs needing a recorded decision each.** Not thirteen unknowns — eight named items,
 half of them already in motion.
 
-⚠ **The four ⚪ rows are the ones to be careful with.** Unwired means the prune does not protect
+### 2.5 One of the four ⚪ pairs is now CLOSED ON MECHANISM: page-rerender / `current_page`
+
+The most worrying of the four (78 rows, and the agent runs **~600×/24 h**) is disposed, and not by
+its quietness. **No production `ActionInputSpec` declares `current_page` at all** — a fleet grep of
+`Required:`/`Optional:` lists finds exactly one hit and it is a *test fixture*
+(`action_inputs_optional_explicit_test.go:249`). So `current_page` never arrives as a requested
+action input; it arrives only through **`ensureCoreFields`**, which is precisely what step 3 gated
+(`unified_extractor.go:827`, `requested := func(name string) bool { return contains(fieldNames, name) }`).
+
+And no page-rerender step requests it. Only one of its ten steps declares `input_fields` at all:
+
+| step | action | input_fields |
+|---|---|---|
+| `render_page` | `rerender_single_page` | `["page_id","site_id","domain"]` |
+| `rerender_sections` | `rerender_page_sections` | none (spec Optional: `page_name`, `page_id`, `reason`) |
+| `save_sections` | `save_page_sections` | none |
+
+`current_page` appears in none of them ⇒ the gate skips the injection ⇒ the whole-tree search is
+never asked ⇒ **the class cannot fire.** That is a mechanism, so it holds regardless of traffic —
+which is what makes it a real disposition rather than the "quiet ≠ fixed" mistake this lane keeps
+warning about. It also explains the pre-step-4 silence honestly: **step 3's gate closed it, not step
+4's rename**, and the rows stopping on 08-18 (before either rolled) is a separate, still
+unattributed fact — do not claim step 3 as the *cause of the silence*, only as the *reason it cannot
+recur*.
+
+**Three ⚪ pairs remain**: `bdl`/`result`, `generic`/`page_id`, `generic`/`summary` — 5 rows between
+them, all pre-prune, all unwired. Worth doing the same read-at-the-consumer for each, but they are
+the smallest items on the board.
+
+⚠ **The remaining ⚪ rows are the ones to be careful with.** Unwired means the prune does not protect
 them: the search still runs whenever the shape appears, so they are *armed*, not fixed — and
 page-rerender at 600 runs/day is the clearest case. Their disposition is a judgement (is absence
 correct for this consumer?) which must be read AT the consumer, as 515 did, not inferred from the
