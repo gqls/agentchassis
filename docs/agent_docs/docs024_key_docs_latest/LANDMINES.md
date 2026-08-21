@@ -14199,3 +14199,80 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register **RSH-013** (the loop-skip repair that could not use it), **RSH-012**, `bugs_open/343`, MEMORY [[writes-the-field-is-not-reads-the-field]], [[a-helper-with-no-callers-is-not-a-refactor]]
 - **source:** 2026-08-21, `bugs_open/343` lane — found while planning P2, when the obvious one-line fix ("just call UpdateStateWithRetry") was read closely enough to notice the reload assignment. Written in the same commit as the code that declines to use it.
 - **added:** 2026-08-21, bugs_open/343 lane
+
+---
+
+### kafka-go's `MaxAttempts` does NOT retry a client-side "topic partition has no leader" — the fingerprint is `Kafka write errors (1/1)`, and it means one attempt, not one failure out of ten
+
+- **footprint:** `platform/kafka/producer.go`, `KafkaProducer.Produce`, `kafka.Writer`, `MaxAttempts`, `WriteMessages`, `protocol.ErrNoLeader`, `kafka.WriteErrors`, `LeaderNotAvailable`, `platform/errors/transient_failure.go`, `complete_workflow`
+- **fires when:** you are deciding whether a produce failure needs an application-level retry, or explaining why a send failed on a condition that "should have been retried". **No symptom beyond the error itself.** The writer is configured (or defaulted) to `MaxAttempts` 10, the docs say it retries with backoff, and the error text even reports a count — so the obvious reading of `Kafka write errors (1/1)` is *"it tried and the cluster was genuinely down"*, and the obvious conclusion is that adding a retry would be duplicating kafka-go's own machinery. Both are wrong.
+- **the mechanism:** the writer's retry loop is `for attempt := 0; attempt < maxAttempts; attempt++` — **but** it contains `if !isTemporary(err) && !isTransientNetworkError(err) { break }` (`writer.go`). `isTemporary` requires the error to implement `Temporary() bool`. The client-side no-leader error is `protocol.ErrNoLeader Error = "topic partition has no leader"`, and `protocol.Error`'s **only** method is `func (e Error) Error() string` — no `Temporary()`. So the loop breaks after attempt 1 on the single most common transient produce condition there is (a leadership election, usually over in seconds). The `(1/1)` in the text is `WriteErrors`' own formatting — `"Kafka write errors (%d/%d)"`, messages-failed over messages-sent — so it says *one message failed of one sent*, not *one attempt of ten*. Two different counters, one plausible misreading.
+- **⚠ the broker-side sibling behaves the OPPOSITE way**, which is what makes a single check insufficient: `kafka.LeaderNotAvailable` (error code 5) IS in kafka-go's temporary set and IS retried, and its text is *"Leader Not Available: …"* — it does not contain "has no leader". So a typed `errors.Is` catches one and a `"has no leader"` substring catches the other, and you need **both**.
+- **the check — classify against the LIVE shapes, not against the docs:**
+  ```go
+  // The composite is what actually arrives: WriteMessages wraps members in
+  // kafka.WriteErrors, whose Error() embeds the member texts but whose unwrap
+  // chain does not always reach them.
+  liveNoLeader := kafka.WriteErrors{protocol.ErrNoLeader}          // from agent_error_log, verbatim
+  errors.Is(liveNoLeader, protocol.ErrNoLeader)                    // may be FALSE
+  strings.Contains(liveNoLeader.Error(), "has no leader")          // TRUE
+  ```
+  Pin both shapes in a table test (`platform/kafka/produce_outcome_test.go` does), and read the outcome from `ai_persona_kafka_produce_total{outcome="no_leader"}` rather than inferring it.
+- **⚠ the consequence downstream, because it compounds:** `platform/errors/transient_failure.go`'s needle list contains no needle matching `"Kafka write errors"` or `"has no leader"`, so these classify **`error_unrecoverable`** at `notifyParentOfFailure` and at the processor senders. A seconds-long leadership election therefore terminates work permanently — `[MEASURED 2026-08-21]` 93 distinct orchestrations in the retained month, most of them at their own terminal `complete_workflow` step with every substantive result already committed.
+- **relations:** register **SYS-092**, `bugs_open/040`, MEMORY [[a-guarantee-conditional-on-a-classifier-inherits-its-gaps]]
+- **source:** 2026-08-21, `bugs_open/040` lane — verified in the module cache (`kafka-go@v0.4.47/writer.go`, `protocol/error.go`) rather than from the package docs, which describe the retry loop without its break condition
+- **added:** 2026-08-21, bugs_open/040 lane
+
+---
+
+### A per-job Kafka topic must NEVER be a raw metric label — `job.<uuid>…` topics are minted per run and this cluster has carried ~25,000 at once
+
+- **footprint:** `platform/observability/metrics.go`, `promauto.NewCounterVec`, `WithLabelValues`, `topicClass`, `platform/kafka/producer.go`, `KafkaMessagesProduced`, `KafkaMessagesConsumed`, any new Kafka or work-item metric
+- **fires when:** you add a metric on a Kafka path and reach for the obvious label. **No symptom in development and none in review** — `{topic}` is the natural dimension, it is what you want to slice by, the existing `ai_persona_kafka_messages_produced_total{topic}` already does it, and on a test cluster with a dozen topics it is completely fine. The damage appears only in production, as Prometheus memory growth, and by then the series exist.
+- **the mechanism:** reply topics on this estate are minted **one per job** — `job.<correlation>-<orchestration>-<step>.responses` — and the cluster has held **~25,000 topics** simultaneously (`bugs_open/240`'s metadata storm counted 24,131 before a cleanup took it to 354). A counter incremented on every produce in the fleet, labelled by raw topic, therefore mints an unbounded, ever-growing series set that is never reused after the job ends. That is a worse outage than any of the bugs these metrics exist to measure.
+- **the check — normalise to a FIXED string, and assert the bound rather than commenting it:**
+  ```go
+  func topicClass(topic string) string {          // every arm returns a literal
+      switch {
+      case strings.HasPrefix(topic, "job."):        return "job"
+      case strings.HasPrefix(topic, "system.agent."): return "system.agent"
+      case strings.HasPrefix(topic, "system."):     return topic   // small, fixed set
+      default:                                      return "other"
+      }
+  }
+  ```
+  ```go
+  // The bound as an assertion, not a comment:
+  seen := map[string]struct{}{}
+  for i := 0; i < 5000; i++ { seen[topicClass(fmt.Sprintf("job.corr-%d.responses", i))] = struct{}{} }
+  if len(seen) != 1 { t.Fatal("cardinality bomb") }
+  ```
+  **The rule that keeps it safe as arms are added: no arm may return a substring of its input.** A `case` that returns `topic` is only admissible where the matching set is small and fixed, and that must be argued at the site.
+- **⚠ the existing `{topic}` metrics are NOT a precedent to copy.** `KafkaMessagesProduced{topic}` is incremented at exactly two call sites in one content-creator path, not fleet-wide, so it has never been exposed to the per-job set. Check where a metric is INCREMENTED before treating its label choice as endorsement.
+- **relations:** register **SYS-092**, `bugs_open/240` (the ~25,000-topic metadata storm), `bugs_open/040`
+- **source:** 2026-08-21, `bugs_open/040` lane — caught while designing the produce counter, when the natural `{topic}` label was checked against the live topic count instead of assumed
+- **added:** 2026-08-21, bugs_open/040 lane
+
+### A loop's nested step is logged as `<loop>_iter_N_<step>`, never as `<step>` — so an exact-match filter on the step name finds NOTHING, which reads as "the line was never emitted"
+
+- **footprint:** `orchestration_states.collected_data` keys under a `loop` action's `sub_workflow` · any `kubectl logs … | grep 'MASTER EXTRACTOR START'` filtered by `step_name` · `agent-build-dispatch-loop-*` / any `agent-<type>-<hash>` pod · `datahelpers/unified_extractor.go:30` (the line carrying `step_name`, `action`, `orchestration_id`, `requested_fields`) · `deriveOutputFieldFromLoopStepName` in `coordinator.go`
+- **fires when:** you are verifying a change to a step that lives **inside a loop's `sub_workflow`** and go looking for its runtime evidence. The config calls the step `mark_complete`; the logs call it `process_item_iter_0_mark_complete`, `…_iter_1_…`, `…_iter_4_…`. **An exact-match filter returns zero lines, and zero lines is indistinguishable from "this pod does not emit that line" or "the step did not run".** No error, no symptom.
+- **the trap.** The iteration prefix is invisible from the agent definition — the config key really is `mark_complete`, nested at `workflow.steps.<loop>.config.sub_workflow.steps.mark_complete`. Only the runtime name carries `_iter_N_`. Worked case 2026-08-21: a filter on `step_name == "mark_complete"` found nothing across every live pod; `endswith("mark_complete")` immediately found five lines across four orchestrations, which then separated perfectly pre/post-change.
+- **the check:** match on the SUFFIX, and print the names you did find before concluding anything is missing —
+  ```bash
+  for POD in $(kubectl -n ai-persona-system get pods --no-headers -o custom-columns='N:.metadata.name' \
+                 | grep '^agent-<type>-'); do
+    kubectl -n ai-persona-system logs "$POD" | grep -F 'MASTER EXTRACTOR START'
+  done | python3 -c 'import json,sys,collections
+  c=collections.Counter()
+  for ln in sys.stdin:
+      try: d=json.loads(ln)
+      except Exception: continue
+      c[d.get("step_name")]+=1
+  print(dict(c))'
+  ```
+  **Enumerating the step names you DO have is the cheap disambiguator** between "wrong filter", "rotated out" and "never emitted" — three states that all present as an empty result.
+- **the bonus, and it is worth the entry on its own: this log line carries `orchestration_id`, while the `agent_error_log` resolver bridge does NOT.** So a runtime check built on the log can be **attributed exactly** — joined to `orchestration_states.created_at` and placed on either side of a config change — where the conflict rows can only be attributed by TIME. That distinction is load-bearing: on 2026-08-21 a **pre**-change orchestration was still emitting the old behaviour **8.5 minutes after** the change went live, because a run in flight keeps the config it started with. Time-based attribution would have scored that as the fix failing. **Join on `orchestration_id`; never infer a config change's effect from a wall-clock boundary alone.**
+- **relations:** this file's `A per-run agent runs in its OWN EPHEMERAL POD…` (same verification, the pod half) · the `jsonb_each(steps)` top-level-census entries (the same nesting blind spot, on the config side rather than the log side) · MEMORY [[foreground-test-a-watcher-before-arming-it]] — this is the third filter in one lane that certified the wrong proposition, so the rule is now: **assert on a line you have already seen, not on a name you believe** · [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-21, `staged_component_build` lane · verifying migration 537/539's `commit_sha?` wire on `build-dispatch-loop` · `NOTES_staged_component_build.md`, `HANDOFF_2026-08-20_continue_here.md` §2.9
+- **added:** 2026-08-21, staged_component_build lane
