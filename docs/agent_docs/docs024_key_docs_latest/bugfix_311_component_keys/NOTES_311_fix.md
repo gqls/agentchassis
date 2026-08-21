@@ -1079,3 +1079,20 @@ the text under either gate). Also corrected `bugs_open/345`'s "~17 per attempt" 
 It read "inert until a chassis image ships it / nothing has been diverted yet" — two days behind
 six diversions. Now LIVE + DEMAND-PROVEN with the evidence named, and its verify-later marked done
 except the credit-health-check specimen, which fails UPSTREAM (`337`) and cannot exercise the seam.
+
+## 2026-08-21 18:20Z — the ORIGINATING component EXISTS: seventh diversion, attempt 0 — with one attribution caveat stated before the page lands
+
+Item `e9e5a10b` **complete on attempt 0** at 18:19:33Z. New base row **`5d3bc513`**,
+`function='mortgages-repayment-remortgagecalculator-uk'`, `section_type='mortgages-repayment'`,
+active, 16,080 chars, carries `</section>` (so the loader guard will not drop it — unlike the
+incumbent it diverted from). Incumbent `b89f91e1` **byte-identical** to the same-day pins, both
+columns. Seventh `COMPONENT_COLLISION_DIVERTED` finding. Page re-render `5e42172b` filed 18:20:54Z.
+
+**⚠ Attribution, stated honestly: this run does NOT demand-prove `345`.** The item succeeded on its
+FIRST attempt — there was no retry, so the `last_error` path never fired (a fresh item has `error`
+NULL, by design). The model simply did not invent the bad source this time; two of the three prior
+runs did. Stochastic, not attributable to the fix. **`345`'s demand bar is unchanged**: a second
+attempt whose rejection reason DIFFERS from the first, which has never yet been observed. Its fix
+is live (both halves) and waits for the next real rejection-then-retry anywhere in the fleet —
+the queryable signal is two `component_validation_rejected` rows on one item with different
+`md5(error_message)`.
