@@ -363,6 +363,25 @@ for ln in sys.stdin:
 done
 ```
 Dedupe on `orchestration_id`+`step_id` if you poll with overlapping `--since` windows.
+⚠ **AND WATCH THE RIGHT PODS — this cost an hour on 2026-08-21.** `page-build-handler` does **NOT**
+run in the `agent-chassis` deployment. Every run gets its **own ephemeral pod**,
+`agent-page-build-handler-<hash>-<suffix>`, with a **fresh hash each time**. Two watchers pinned to
+`-l app=agent-chassis` returned nothing while **six** pbh orchestrations ran and **three** reached
+`plan_sections`. Confirm the producer from the DB before arming anything —
+`SELECT processing_node FROM orchestration_states WHERE owner_agent_type='page-build-handler'
+ORDER BY created_at DESC LIMIT 3` — and poll the **pod list**, not a fixed selector, because the pod
+does not exist when you arm the watcher:
+```bash
+kubectl -n ai-persona-system get pods --no-headers -o custom-columns='N:.metadata.name' \
+  | grep '^agent-page-build-handler-'
+```
+Retention in those pods is brutal: the one survivor held **180 lines / 3.4 minutes** and had already
+rotated past `plan_sections` when read 5 minutes after the run. **Poll every ~20 s.** Full trap in
+`LANDMINES.md`; my wrong call in `WRONG_CALLS.md`.
+⚠ **There is no durable fallback for this one** — checked: `section_plan` records counts and names
+but **not** the `page_type` it was handed, so `collected_data` cannot answer it. The log is the only
+route, which is exactly why the watcher has to be right.
+
 ⚠ **Poll it; do not tail once.** These lines churn out of a chassis pod in minutes, and
 **page-build-handler is BURSTY** — 26 runs/24 h on average, but its last run was **11:57Z** and
 there were **zero in the first 6 minutes after the 13:19:19Z apply** (the window was only 6 minutes
