@@ -1724,6 +1724,13 @@ func loadComponentSchemasByID(ctx context.Context, db *sql.DB, componentIDs []st
 // unique; plan_sections has no page_id in its inputs, but it has always had
 // these two.
 //
+// MOVED to datahelpers 2026-08-21 and this function is now a delegation, not a
+// second implementation. A third call site of the same judgement (validate_plan's
+// validate_components arm) was found deleting the very names this resolves, and
+// the estate had by then grown three private loaders for one question. The load,
+// the conflict rule and the log/error strings are unchanged — see
+// datahelpers/page_slot_identities.go for the rule and for the consumer list.
+//
 // A slot_name repeated across rows is NORMAL (generic-text-block used 2-3×
 // on one page — measured fleet-wide, 11 legitimate pages; see LANDMINES.md
 // "Deduplicating page_components…"). Repeats agreeing on component_id map
@@ -1737,46 +1744,11 @@ func loadComponentSchemasByID(ctx context.Context, db *sql.DB, componentIDs []st
 // needs_new_component items (two per section, measured on the 204 canary),
 // so a loud transient failure is the cheaper outcome.
 func loadPageSlotComponentIDs(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, logger *zap.Logger) (map[string]string, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT COALESCE(pc.slot_name, ''), COALESCE(pc.component_id::text, '')
-		FROM page_components pc
-		JOIN pages p ON p.id = pc.page_id
-		WHERE p.site_id = $1 AND p.name = $2
-		ORDER BY pc.position ASC
-	`, siteID, pageName)
+	rows, err := datahelpers.LoadPageSlotRows(ctx, db, siteID, pageName)
 	if err != nil {
-		return nil, fmt.Errorf("load page slot identities: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
-
-	slotIDs := make(map[string]string)
-	conflicted := make(map[string]bool)
-	for rows.Next() {
-		var slot, componentID string
-		if err := rows.Scan(&slot, &componentID); err != nil {
-			return nil, fmt.Errorf("scan page slot identity: %w", err)
-		}
-		if slot == "" || componentID == "" {
-			continue
-		}
-		if existing, ok := slotIDs[slot]; ok && existing != componentID {
-			if !conflicted[slot] {
-				conflicted[slot] = true
-				logger.Warn("plan_sections: slot_name repeats with different component_ids — leaving it to name/function resolution",
-					zap.String("page", pageName),
-					zap.String("slot", slot))
-			}
-			continue
-		}
-		slotIDs[slot] = componentID
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate page slot identities: %w", err)
-	}
-	for slot := range conflicted {
-		delete(slotIDs, slot)
-	}
-	return slotIDs, nil
+	return datahelpers.SlotIDMap(rows, "plan_sections", pageName, logger), nil
 }
 
 // aliasNormalisedSectionKeys adds, for each requested section name that is not
