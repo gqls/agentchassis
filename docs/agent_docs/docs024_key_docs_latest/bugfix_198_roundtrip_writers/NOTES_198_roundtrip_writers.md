@@ -118,3 +118,69 @@ and it stays owed rather than being quietly claimed.
 
 Likewise the shrink floor is **committed and inert** — it needs both a chassis and a
 git-adapter roll. Post-roll probes are in the RUNBOOK §7 with their negative controls.
+
+---
+
+## 2026-08-21 (later) — the arm I missed, and the council round
+
+### A graph query found a defect that reading my own edits could not
+
+After 542 applied I ran an edge-resolution query over the whole workflow — every
+`next_step`, `error_step`, `config.then_step`, `config.else_step`, each target resolved
+against the step map. **I wrote it to catch a DANGLING edge after the rewire.** Every edge
+resolved; the query "passed". Reading the 18-row table it printed is what showed:
+
+```
+check_saved | else | complete_error | ok
+```
+
+`check_saved` is not an `error_step` — it is a `conditional_branch`, and its refusal travels
+on `config.else_step`. My 542 rewired the three `error_step`s and never touched it. So the
+door 318 built on purpose — the guarded append matching zero rows when the model returns an
+empty or oversized `css_added`, i.e. **the founding 2026-08-04 failure mode** — still landed
+on `complete_error` and still minted `complete`.
+
+**Reading the steps you edited cannot find the step you did not edit.** My 542 verify block
+asserted every edge I had changed and was green; it had nothing to say about the one I had
+not thought about. Migration 546 fixes the arm AND promotes the edge-resolution query into
+the verify block as a post-condition, so a future migration that orphans a step fails at
+apply rather than at runtime.
+
+Worth noting what kind of check this is: it is a **structural** check over the artefact, not
+a check of my intent. That is why it could contradict me. A verify block written from the
+diff can only ever confirm the diff.
+
+### Council: APPROVED round 1, and one objection was right about my reasoning
+
+Six advisory objections, none high-severity. Four were checkable and I checked them rather
+than accepting them:
+
+- **the installed SQL string had never been executed.** `debug_historian` pointed at the
+  landmine: step SQL is DATA to a migration's verify and parses only when the step RUNS. My
+  542 proof was of the gate's *arithmetic*, via an equivalent hand-written SELECT — not of
+  the string that actually shipped. Extracted the verbatim live query and ran it:
+  dartsonline `26917 / 1`, finetuning.uk `1649 / 2`. `PREPARE` alone proves it parses; the
+  execution proves both gate inputs are real. **This was the single most valuable objection
+  of the round** and it cost one query to close.
+- three `DisallowUnknownFields` sites fleet-wide, **none on the git path** (guardian).
+- `bugs_closed/072` holds no prior persist-at-render or shrink-floor proposal (prior_art).
+- adapter HTTP client timeout is 20s; one GET per opted-in file per commit (guardian).
+
+**And the one that corrected me.** The `architecture` seat: I argued RFC_022's *shape*
+exception covered the new key. It does — and it is a different check from the *accumulation*
+gate, which the owner's ruling defines separately and which fires on the count alone
+(17 carriers, 10 → 11 keys). **I used one gate to answer the other.** The remedy is the
+estate's own: an ack in `optional_key_budget_acks.json` at 11 pointing at the review,
+`check.py` mirrored, parity test green, overlay re-applied and verified at the ConfigMap
+with a control. With the caveat that keeps it honest: `git_commit` is uncounted, so that ack
+has **no automatic enforcement behind it** — it is a recorded judgement, not a live baseline.
+
+### Second misstep of the session, same shape as the first
+
+Both of today's errors were **checks that could not fail**: the `LIKE '54[23]%'` ledger query
+(no character classes in `LIKE`, so it returns nothing whatever is true), and the 542 verify
+block (a literal-match assertion over a string I had just written, which cannot discover a
+step I never considered). Different mechanisms, same failure mode — *an instrument that
+agrees with me by construction*. The transferable habit is the one the working-docs rules
+already state and I applied twice too late: **before recording a check as passed, name the
+result that would have failed it.**

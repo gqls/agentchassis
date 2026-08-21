@@ -178,3 +178,59 @@ kubectl -n ai-persona-system logs -l app=git-adapter --tail=500 \
 6. `sites.github_repo` is empty for several domains — resolve the repo the git-adapter's way
    (config `repo_name` → `site_record.github_repo` → the `sites` row → default `"sites"`),
    never by assuming vm-sites.
+
+## 9. Validate the workflow GRAPH after any config edit — this found a real defect
+
+Run this after **any** migration that rewires an agent's steps. It resolves every edge
+(`next_step`, `error_step`, `config.then_step`, `config.else_step`) against the step map:
+
+```sql
+WITH s AS (SELECT default_config #> '{workflow,steps}' AS steps FROM agent_definitions
+           WHERE type='<agent>' AND is_active
+             AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL),
+edges AS (
+  SELECT k AS from_step, v->>'next_step' AS tgt, 'next' AS kind
+    FROM s, jsonb_each(s.steps) AS e(k,v) WHERE v ? 'next_step'
+  UNION ALL SELECT k, v->>'error_step', 'error'
+    FROM s, jsonb_each(s.steps) AS e(k,v) WHERE v ? 'error_step'
+  UNION ALL SELECT k, v->'config'->>'then_step', 'then'
+    FROM s, jsonb_each(s.steps) AS e(k,v) WHERE v->'config' ? 'then_step'
+  UNION ALL SELECT k, v->'config'->>'else_step', 'else'
+    FROM s, jsonb_each(s.steps) AS e(k,v) WHERE v->'config' ? 'else_step')
+SELECT from_step, kind, tgt,
+       CASE WHEN s.steps ? tgt THEN 'ok' ELSE '*** DANGLING ***' END AS resolves
+FROM edges, s WHERE tgt IS NOT NULL ORDER BY resolves DESC, from_step;
+```
+
+> ⚠ **READ THE ROWS, do not just check for DANGLING.** This query was written to catch an
+> orphaned step after migration 542. Every edge resolved — and the table it printed is what
+> revealed `check_saved | else | complete_error`, an arm 542 had never touched, still minting
+> `complete` for a refused append (fixed by 546). **Reading the steps you edited cannot find
+> the step you did not edit**, and a verify block written from your own diff can only ever
+> confirm your diff. The `count(*) FILTER (WHERE NOT (steps ? tgt))` form is the assertable
+> version and is now embedded in 546's verify block; the human-readable form above is the one
+> that finds what you were not looking for.
+
+## 10. Execute an installed step query VERBATIM before trusting it
+
+A migration's `DO/RAISE` verify can only assert that a step's SQL *string* matches what you
+wrote. **Step SQL is DATA to the migration — it parses only when the step RUNS**, so a
+syntax or semantic error ships silently and fails live. Extract and run it:
+
+```bash
+Q=$(kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c "
+SELECT default_config #>> '{workflow,steps,<step>,config,query}' FROM agent_definitions
+WHERE type='<agent>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;")
+
+SID=$(… the real parameter value …)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 -c "PREPARE p AS $Q; EXECUTE p('$SID'); DEALLOCATE p;"
+```
+
+`PREPARE` succeeding is itself the parse proof; the `EXECUTE` proves the columns come back.
+**Run it on a row from each arm** — for the 198 gate that is a healthy site (`26917 / 1`,
+pass) and a shared-theme site (`1649 / 2`, refuse), so the query is shown to discriminate
+rather than merely to run.
+
+> ⚠ `EXECUTE p((SELECT …))` fails — "cannot use subquery in EXECUTE parameter". Resolve the
+> value into a shell variable first.
