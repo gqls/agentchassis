@@ -366,3 +366,80 @@ flagging.
   also fair, and with an irony worth writing down: that row had **already been swept
   into `d79e4243c`** by a concurrent session before I could commit it, so the plan's
   own account of its commit contents was wrong in a second way the seat could not see.
+
+---
+
+## 2026-08-21 (e) — the second council round found a LIVE defect I had asserted away
+
+Corr `2466d82c-17f8-4ebc-948d-ff8dbab9cee4`: **approved, 5 advisory objections, none
+high-severity**. Two seats objected (`editquality`, `bug_historian`, `guardian`), and
+this round was more valuable than the first.
+
+### The one that mattered: my "safe by construction" list was not measured
+
+`bug_historian`, medium:
+
+> *"the plan explicitly enumerates five other write paths … as safe 'by construction'
+> or 'different authorities' — but that safety is ASSERTED, not measured with the same
+> rigor the plan applies elsewhere (e.g. the 72/748 zero-sections census) … this
+> council's history with exactly this class of incomplete guard [bugs_closed/001, 037,
+> 050]."*
+
+It named the precedent precisely, and it was right. Checking the five:
+
+| path | claim | actual |
+|---|---|---|
+| `adopt_verbatim` | safe | **true** — always writes `[]string{portedPageSlot}`, one element |
+| `create_blog_posts` | safe | **true** — has a floor: `if len(sections)==0 { hero, article-body, call-to-action }` |
+| `apply_gap_plan` retype / `applyNewPage` conflict arm | safe | **true** — `defaultSectionsForPage` never returns empty, and `if len(resolved) > 0` floors the resolved path |
+| `UpsertPageForRole` | different authority | not re-examined, out of scope |
+| **`apply_adoption_plan`** | safe | **FALSE** |
+
+`apply_adoption_plan_action.go` builds `sections := []string{}` and fills it only when
+the plan page carries the key, then wrote it through an **unguarded `EXCLUDED`**, over
+LIVE pages, via `ON CONFLICT (site_id, name)`, on the live `site-adoption-agent`
+(`apply_plan`).
+
+**And the damning part:** that statement *already carried* the `meta_description`
+guard, with the comment **"Same guard as upsertPage"** (`bugs_open/320`). A previous
+lane fixed one half of this exact omission on this exact statement and left the other
+— which is the 001→037 shape happening a second time, on a second statement, and
+exactly what the seat predicted from history rather than from reading my code.
+
+Fixed in the same round: same CASE, no release arm (adoption has no
+deliberate-emptying intent), SQL extracted to `applyAdoptionPlanPagesUpsertSQL` so a
+test can pin it, mutation-checked.
+
+### The one about my own test being fake
+
+`editquality`, medium ×2: no test asserted the durable finding is written.
+
+True — and worse than the seat could see. The test occupying that slot,
+`TestSectionsRefusalMessageNamesPagesAndCause`, **built the message string itself and
+then asserted the string it had just built.** It tested nothing. It would have passed
+with the production code deleted. That is a new entry in my own catalogue of ways to
+write a test that cannot fail, and it is a nastier one than usual because it *looks*
+like a content assertion.
+
+Replaced with one that drives `SyncPagesToDBAction`, forces a refusal, and asserts the
+`agent_error_log` write is attempted. Mutating the record away fails it.
+
+### The guardian's point I did NOT close
+
+> *"Reusing recompose_pages … changes its semantics from 'planner-side redesign signal
+> read by validate_plan' to also 'sync-time destructive-write authorization' — two
+> different consumers now key off one flag with different blast radii."*
+
+That is correct as stated, and I have recorded it in PLAN-052 rather than argued it
+away. I still think the reuse is right — a second flag would drift from the first, and
+"this page is released for redesign" and "this page may be emptied" are the same
+intent — but it IS a semantic expansion of a shared field, and the honest place for
+that is the register, where the next person to add a consumer will meet it.
+
+### Answered with a measurement
+
+`guardian` asked me to confirm exhaustive callers rather than say two were found:
+`upsertPage(` has exactly **one** caller of this function (`site_db_actions.go:380`).
+The only other hit is `cmd/webdesignport/import.go:134` — a **different function of the
+same name in a different package**, which is precisely the confusion LANDMINES' "THREE
+`pages` upsert helpers have OPPOSITE collision policies" entry exists to flag.

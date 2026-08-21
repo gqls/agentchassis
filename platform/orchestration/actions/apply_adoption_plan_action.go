@@ -45,6 +45,46 @@ type crawlPageContent struct {
 	RawHTML  string
 }
 
+// applyAdoptionPlanPagesUpsertSQL is the adoption path's page upsert. Named rather
+// than inline so a test can PIN its guards — the same reason LockedPageSlotsSQL and
+// PageSlotIdentitiesSQL are exported. Both guards on this statement exist because
+// an unguarded EXCLUDED wrote a blank over a real value: meta_description
+// (bugs_open/320) and sections (bugs_open/204 / PLAN-052, added 2026-08-21 after a
+// council seat pointed out that this path had been declared safe without being
+// checked). If you add a third column here, ask what it binds when the plan page
+// omits the key.
+const applyAdoptionPlanPagesUpsertSQL = `
+			INSERT INTO pages (
+				site_id, name, url, title, page_type, build_status,
+				sections, meta_description, nav_label, in_header, in_footer
+			) VALUES ($1, $2, $3, $4, $5, 'planned',
+			          $6::jsonb, $7, $8, $9, $10)
+			ON CONFLICT (site_id, name) DO UPDATE SET
+				title = EXCLUDED.title, url = EXCLUDED.url,
+				page_type = EXCLUDED.page_type,
+				-- bugs_open/204 / PLAN-052: the SAME omission this statement already
+				-- fixed for meta_description, one column over. sections is built as an
+				-- empty []string above and only filled if the plan page carries the key,
+				-- so an adoption plan that omits sections bound [] and an unguarded
+				-- EXCLUDED wrote it over a real composition. Worse than the blank
+				-- description it sits beside: pages.sections is the ONLY record of a
+				-- decomposed page composition, page_components keeps serving after it is
+				-- emptied, and the next rebuild then builds an empty page over a live one
+				-- (measured 2026-08-20 on the sibling path: 41 of 45 live pages).
+				-- Non-empty proposals still win, so adoption still recomposes. No release
+				-- arm here, unlike upsertPage: adoption has no deliberate-emptying intent.
+				sections = CASE
+					WHEN COALESCE(jsonb_array_length(EXCLUDED.sections), 0) > 0 THEN EXCLUDED.sections
+					WHEN COALESCE(jsonb_array_length(pages.sections), 0) = 0 THEN EXCLUDED.sections
+					ELSE pages.sections
+				END,
+				-- bugs_open/320 M2: an adoption plan that omits meta_description binds ""
+				-- (metaDesc is a bare type assertion above), and an unguarded EXCLUDED
+				-- would write that over a real description. Same guard as upsertPage.
+				meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description), updated_at = NOW()
+			RETURNING id
+		`
+
 func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "apply_adoption_plan"))
 
@@ -537,21 +577,7 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 		}
 
 		var pageID uuid.UUID
-		err := tx.QueryRowContext(ctx, `
-			INSERT INTO pages (
-				site_id, name, url, title, page_type, build_status,
-				sections, meta_description, nav_label, in_header, in_footer
-			) VALUES ($1, $2, $3, $4, $5, 'planned',
-			          $6::jsonb, $7, $8, $9, $10)
-			ON CONFLICT (site_id, name) DO UPDATE SET
-				title = EXCLUDED.title, url = EXCLUDED.url,
-				page_type = EXCLUDED.page_type, sections = EXCLUDED.sections,
-				-- bugs_open/320 M2: an adoption plan that omits meta_description binds ""
-				-- (metaDesc is a bare type assertion above), and an unguarded EXCLUDED
-				-- would write that over a real description. Same guard as upsertPage.
-				meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description), updated_at = NOW()
-			RETURNING id
-		`, siteID, pageName, pageURL, pageTitle, pageType,
+		err := tx.QueryRowContext(ctx, applyAdoptionPlanPagesUpsertSQL, siteID, pageName, pageURL, pageTitle, pageType,
 			string(sectionsJSON), metaDesc, navLabel, inHeader, inFooter,
 		).Scan(&pageID)
 

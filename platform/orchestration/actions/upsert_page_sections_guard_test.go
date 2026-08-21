@@ -187,17 +187,95 @@ func TestSyncPagesToDB_AbsentReleaseIsNoRelease(t *testing.T) {
 	}
 }
 
-// The refusal message must name the pages and point at the upstream cause. A
-// warning that says only "something was refused" costs the next reader the
-// investigation this whole lane just did.
-func TestSectionsRefusalMessageNamesPagesAndCause(t *testing.T) {
-	pages := []string{"guide-a", "guide-b"}
-	msg := "2 page(s) proposed an EMPTY sections list over a non-empty stored one; the stored list was kept: " +
-		strings.Join(pages, ", ")
-	for _, want := range []string{"guide-a", "guide-b", "EMPTY sections list", "stored list was kept"} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("the refusal message must contain %q", want)
+// ⚠ REPLACED after the council objected (corr 2466d82c, editquality, medium x2):
+// "None of the planned 7 tests assert that the durable finding is written when
+// sections_kept=true ... its implementation should be visible, not implied."
+//
+// It was right, and the test that used to sit here was worse than absent: it built
+// the message string ITSELF and then asserted the string it had just built. That is
+// a test of the test. It would have passed with the production code deleted.
+//
+// This one drives the action, forces a refusal, and asserts the durable write is
+// ATTEMPTED with the right error code — the thing the whole guard rests on, since a
+// refusal that leaves no record is a silent keep by another name.
+func TestSyncPagesToDB_RefusalWritesADurableRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	siteID := uuid.New()
+	mock.ExpectQuery("flat_urls|site_specs").WillReturnRows(sqlmock.NewRows([]string{"flat"}).AddRow(false))
+	mock.ExpectQuery("honour_realised_identity").WillReturnRows(
+		sqlmock.NewRows([]string{"honour", "twin", "stem"}).AddRow(false, false, false))
+	mock.ExpectQuery("FROM site_plans").WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(uuid.New()))
+
+	// The database reports it KEPT the stored list — i.e. a refusal happened.
+	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO pages")).
+		WillReturnRows(pageReturnRows(uuid.New(), siteID, true))
+
+	// THE ASSERTION: a durable row must be attempted. Not a log line — chassis logs
+	// rotate sub-second, and this bug went unnoticed for three days for exactly that
+	// reason.
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	params := ActionParams{
+		Context: context.Background(),
+		Logger:  zap.NewNop(),
+		DB:      db,
+		CollectedData: map[string]interface{}{
+			"site_record": map[string]interface{}{"site_id": siteID.String()},
+			"page_plan": map[string]interface{}{
+				"pages": []interface{}{
+					map[string]interface{}{"name": "guide-a", "page_type": "content", "sections": []interface{}{}},
+				},
+			},
+		},
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+		ExecutionContext: &orchtypes.ExecutionContext{OrchestrationID: uuid.New().String(), StepName: "sync_pages"},
+	}
+	_, _ = SyncPagesToDBAction(context.Background(), params)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("a refusal did not produce a durable record — a refusal nobody can query "+
+			"is a silent keep by another name, which is the defect this guard exists to remove: %v", err)
+	}
+}
+
+// ⚠ FOUND BY THE COUNCIL (corr 2466d82c, bug_historian, medium): the submission
+// listed five other write paths as safe "by construction" or "different
+// authorities", and that safety was ASSERTED rather than measured the way the rest
+// of the plan measured things. The seat cited bugs_closed/001 -> 037 -> 050, where a
+// guard against this exact shape shipped for one path and was found incomplete on a
+// sibling within weeks.
+//
+// It was right, and one of the five was NOT safe. apply_adoption_plan builds
+// `sections := []string{}` and only fills it when the plan page carries the key, then
+// wrote it with an unguarded EXCLUDED — over live pages, via ON CONFLICT (site_id,
+// name). The statement ALREADY carried the meta_description guard, commented "Same
+// guard as upsertPage" (bugs_open/320), so a previous lane had fixed one half of this
+// exact omission on this exact statement and left the other. That is the 001->037
+// shape happening a second time, on a second statement.
+func TestApplyAdoptionPlan_SectionsGuardIsInTheStatement(t *testing.T) {
+	// Pinned as text for the same reason and with the same admitted limit as the
+	// upsertPage guard above: sqlmock does not execute SQL, so this establishes the
+	// statement asks the right question, not that Postgres answers it correctly.
+	for _, frag := range []string{
+		"WHEN COALESCE(jsonb_array_length(EXCLUDED.sections), 0) > 0 THEN EXCLUDED.sections",
+		"WHEN COALESCE(jsonb_array_length(pages.sections), 0) = 0 THEN EXCLUDED.sections",
+		"ELSE pages.sections",
+	} {
+		if !strings.Contains(applyAdoptionPlanPagesUpsertSQL, frag) {
+			t.Errorf("the adoption path's sections write lost its guard fragment %q — "+
+				"it can then empty a live page's composition exactly as the sibling path did", frag)
 		}
+	}
+	// The direction that must NOT be protected: a real incoming list still wins, or
+	// adoption could never change a page's composition again.
+	if strings.Contains(applyAdoptionPlanPagesUpsertSQL, "sections = pages.sections,") {
+		t.Error("the guard freezes the column instead of refusing only the empty overwrite")
 	}
 }
 
