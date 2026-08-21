@@ -866,3 +866,22 @@ not a green HEAD, in both directions.
 Round 2 submitted (RESUBMIT_CORR, same correlation; first attempt refused at the 8-edit cap —
 consolidated by folding, and the docs edit gave way to the deploy_tool edit per editquality's
 own note that bookkeeping needn't count). Commit `Council-Submitted: 6acf8e4e`.
+
+## 2026-08-21 (session 8, close) — ROUND 2 APPROVED (verdict READ 14:03:59; 4 advisories, none high). The flow half is done pending the roll.
+
+Advisory triage (each checked before recording): *editquality "migration 530 has no distinct
+edit entry"* — an artefact of consolidating to the 8-edit cap (the trigger refuses 9+); the
+FILE is committed, applied and ledger-recorded, so nothing was dropped — the cap forces
+bundling and the reviewer is right that bundling obscures; noted for future rounds: prefer
+dropping a docs edit entirely over folding two migrations into one entry. *editquality wiring
+wording* — the description now matches the code (one guard invocation + a seam-local
+empty-bytes refusal in the regen). Remaining advisories in the report body; none change code.
+
+**Commits `e186a2bd3` + round-2 revision may now be credited `Council-Reviewed: 6acf8e4e`**
+(verdict read; 098 auto-credits the Council-Submitted trailers regardless).
+
+**Arming state on roll** (nothing more owed from this lane until then): the next chassis roll
+carrying the 2026-08-21 commits activates BOTH guards (tool-generator birth via 520,
+tool-deployer fork via 530). Post-roll demand checks owed: one natural tool-generator birth
+(result carries instance_scope fields; the sweep's next-day count should stop growing) and
+one deploy_tool fork (fork row born with InstanceID). The daily sweep needs neither.
