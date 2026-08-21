@@ -101,17 +101,36 @@ func TestLoadWorkItems_RetryCarriesThePreviousFailure(t *testing.T) {
 	}
 }
 
-// A FIRST attempt must be byte-identical to pre-345 behaviour. The prompt block
-// that reads this is `{{if}}`-guarded, so an absent key renders nothing — but
-// that only holds if the key really is absent rather than present-and-empty.
-func TestLoadWorkItems_FirstAttemptCarriesNothing(t *testing.T) {
-	// A stale error from an earlier lifecycle is deliberately included: the
-	// column is not cleared on requeue, so "there is text in the column" is NOT
-	// the same question as "this item has already been tried".
-	item := loadOneItem(t, 0, "a stale rejection from a previous life")
+// A genuinely FRESH item must be byte-identical to pre-345 behaviour. A fresh
+// item is one whose error column is NULL — no INSERT path writes it — and the
+// prompt block is `{{if}}`-guarded, so an absent key renders nothing.
+func TestLoadWorkItems_FreshItemCarriesNothing(t *testing.T) {
+	item := loadOneItem(t, 0, nil)
 
 	if v, present := item["last_error"]; present {
-		t.Errorf("last_error present on attempt 0 (%v) — a first generation must be unchanged", v)
+		t.Errorf("last_error present on a fresh item (%v) — a first generation must be unchanged", v)
+	}
+}
+
+// An item with a recorded failure carries it EVEN AT attempt_count == 0.
+// This was the opposite before council round 1 (corr 67b07528), whose own
+// verification query showed the 52-rejection item was 52 DISTINCT
+// orchestrations while attempt_count reached only 3: dispatches happen without
+// consuming an attempt (the ladder's transient release writes error and
+// deliberately does not count), so an attempt_count gate hides the failure
+// text from exactly the re-dispatches that need it. The error column is the
+// truthful signal that a previous run failed; attempt_count is not.
+func TestLoadWorkItems_UncountedRedispatchStillCarriesTheFailure(t *testing.T) {
+	const rejection = "component validation rejected: regeneration removes/renames 18 existing schema field(s)"
+
+	item := loadOneItem(t, 0, rejection)
+
+	got, ok := item["last_error"].(string)
+	if !ok {
+		t.Fatal("last_error absent on an uncounted re-dispatch — the 49-of-52 population regenerates blind again")
+	}
+	if got != rejection {
+		t.Errorf("last_error altered.\n got: %q\nwant: %q", got, rejection)
 	}
 }
 

@@ -845,22 +845,27 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		}
 
 		// bugs_open/345: hand a RETRY the reason its predecessor was refused.
-		// Gated on attempt_count > 0 so a first attempt is byte-identical to
-		// pre-345 behaviour — the prompt block that reads it is `{{if}}`-guarded,
-		// so an absent key renders nothing and every first generation is
-		// unchanged. Capped because the text is partly quoted from the rejected
-		// artefact (the guard echoes the offending field and, for the source
-		// check, ~60 aspect names): it is untrusted-ish input heading back into a
-		// prompt, so bound its size rather than trusting the producer. NOT put in
-		// `spec` — the header note above is explicit that spec is never written to.
-		if attemptCount > 0 {
-			if prev := strings.TrimSpace(lastError.String); prev != "" {
-				const maxPreviousFailureChars = 2000
-				if len(prev) > maxPreviousFailureChars {
-					prev = prev[:maxPreviousFailureChars] + " …[truncated]"
-				}
-				item["last_error"] = prev
+		// Gated on a NON-BLANK error, not on attempt_count — council round 1
+		// (corr 67b07528) measured why: the 52-rejection item was 52 DISTINCT
+		// orchestrations, one rejection each, while attempt_count reached only
+		// 3, and the ladder's transient release (work_item_failure_ladder.go:279)
+		// still returns an item to the queue with error WRITTEN and the attempt
+		// deliberately NOT consumed. An attempt_count gate therefore hides the
+		// failure text from exactly the re-dispatches that need it. A genuinely
+		// fresh item has error NULL (no INSERT path writes it), so every first
+		// generation is byte-identical — the prompt block that reads this is
+		// `{{if}}`-guarded and an absent key renders nothing. Capped because the
+		// text is partly quoted from the rejected artefact (the guard echoes the
+		// offending field and, for the source check, ~60 aspect names): it is
+		// untrusted-ish input heading back into a prompt, so bound its size
+		// rather than trusting the producer. NOT put in `spec` — the header note
+		// above is explicit that spec is never written to.
+		if prev := strings.TrimSpace(lastError.String); prev != "" {
+			const maxPreviousFailureChars = 2000
+			if len(prev) > maxPreviousFailureChars {
+				prev = prev[:maxPreviousFailureChars] + " …[truncated]"
 			}
+			item["last_error"] = prev
 		}
 
 		// First-class routing columns, column-first with a spec.<key> fallback,
