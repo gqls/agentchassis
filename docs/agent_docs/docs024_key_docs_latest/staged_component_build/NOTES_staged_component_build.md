@@ -6917,3 +6917,45 @@ covered and deletes their own check.
 statement replacing my transcription), and 516's two `related_pages`. The last two needed no chase
 because their acks travelled in the same commit as the migration; that rule has now paid for itself
 twice in one day.
+
+## 2026-08-21 (~17:5xZ) — the commit_sha wire is BUILT, and its guard refused on the first run, finding a TENTH handler
+
+Migration **537** (`Council-Submitted 2716123d`, committed, **NOT applied**): bdl's `mark_complete`
+declares `"commit_sha?": "handler_result.response.commit_sha"`.
+
+**Path verified on LIVE TRAFFIC before writing a line of it**, not taken from the standardisation
+lane's description: of 31 recent bdl runs carrying a `handler_result`, **29** hold the key (real shas,
+across page-rerender / css-patch-agent / image-build-handler / page-build-handler). The **2 that do
+not** are the interesting ones and they justify the marker choice: a `page-build-handler` early exit
+whose response holds only `site_record`, and a `page-rerender` whose `deploy_result` produced no
+commit. **Legitimate absences** — `!` would turn both into hard extraction failures (exactly what 496
+did to a different field this morning), and a PLAIN wire would fall back to the search on precisely
+those runs. Also **retires 536's caveat**: `image-build-handler`'s path is now confirmed on live
+traffic, not merely by construction.
+
+**THE GUARD REFUSED, and it was right.** It derives the ready-set at apply time — a handler must
+expose `commit_sha` if its OWN orchestrations can produce one AND it appears as a live
+`handler_agent` — rather than carrying a list (516's lesson). First dry run:
+
+> `537 REFUSED: these handlers can produce a commit and are live in dispatch, but do NOT expose
+> commit_sha at response.commit_sha: content-feed-orchestrator.`
+
+Measured: **17/17** of its own orchestrations carry a commit; its top-level keys include
+**`commit_news`** and **`commit_rss`**, its own `git_commit` steps; it is a live `handler_agent`
+(1 item, 08-18); its `complete` step is still `output_fields`.
+
+**Both prior censuses missed it and the guard did not** — that is the design decision from this
+morning's tool-generator correction paying off within hours. The structural census (git_commit steps
+∩ handler_agent) and my demand census (who records a sha) each have a blind spot; **"can this
+handler's own tree produce a commit"** has neither. Recorded plainly: my demand census missed it
+because it records **zero** shas today.
+
+**Honest read on urgency — LOW, and the file says so.** Its one dispatched item records no sha, so
+wiring today would take nothing from it. The guard refuses on *can commit*, not *is currently
+recording*, because the second is a property of the mechanism being removed. This is door-closing,
+not an incident. Reported to the standardisation lane; theirs to convert or to decline, and if they
+decline I narrow the guard **with their reasoning recorded in the migration** rather than quietly.
+
+⚠ **After 537 applies, expect `tool-generator` to show NO `commit_sha`.** It never had one of its own
+(8 orchestrations, 0 carrying); its one recorded sha was iteration 0's, glued on by the search. The
+drop is the fix. This is written into the migration header so a dashboard watcher does not revert it.
