@@ -11,6 +11,43 @@ its gotcha attached), `NOTES_regeneration_key_loss.md` (the full log incl. both 
 
 ---
 
+> **⚠ UPDATED 2026-08-21 — read §0 first; §4.3 below is SUPERSEDED (it was executed).**
+
+## 0. What changed on 2026-08-21 (the owner answered, twice)
+
+**Ruling 1: "yes, that email should appear on contact pages"** → migration **`525`** repoints
+`contact-block.contact_email` at `site_specs.identity.email`, the spelling the resolver can reach.
+Applied, verified, council `972a82ad`.
+
+**Then fetching the pages showed the row census had been wrong in BOTH directions** (bug file
+§11.12): the email was ALREADY served while `content_data` held no key — a *fossil*, correct on
+screen and one regeneration from deletion — and the same component was serving
+`<a href="tel:"></a>`, a dead control, on **6 rows across 3 sites** that no row-level query had
+shown in three days.
+
+**Ruling 2: "please go ahead and do both"** → migration **`538`**: gate all three
+`cb-detail-item`s on their own fields AND repoint `contact_phone`/`contact_location`. Applied,
+verified, council `1c8aed61`, mutation-proved in Go first (`contact_block_gate_test.go` — un-gate
+the phone and the test fails printing the live defect verbatim). Six re-renders queued.
+
+**PROVEN at the artefact** (robot-hands.com/contact.html): empty `tel:` 1→0, detail items 3→1, the
+phone row gone entirely rather than left dead, email still rendering and now backed by data.
+
+**Why BOTH halves:** `sites.phone` is populated for leopardess only. Repointing alone fixes one
+site; gating alone leaves a real number unpublished. General form worth keeping — *"the value is
+unreachable" and "the template assumes a value" are two defects wearing one symptom.*
+
+### The damage surface is now ENUMERABLE — this is the close-out list
+
+Every deployed row fleet-wide with an empty URL attribute (11 before the re-renders → **5** after):
+
+| where | shape | disposition |
+|---|---|---|
+| leopardess ×4, gamesdesign ×1 (`contact-block`) | `href="tel:"` | fixed by the queued re-renders |
+| aao `/index` `case-studies-grid` | `src=""` ×5 | **blocked on imagery that does not exist**; already queued as `dead_url_control` + `required_fields_missing` |
+| vonc.com ×3 | `href=""` | **not this lane** |
+| webdesign.co.uk `tool-favicon-maker` | `src=""` | **not this class** — a PORTED page stores crawled bytes verbatim, outside the plan→save funnel (RFC_042 census) |
+
 ## 1. State in one paragraph
 
 The **mechanism** is fixed and live and now *proven* on fleet traffic. The **detection** half was
@@ -66,7 +103,7 @@ producer here should consolidate, not add (`WRONG_CALLS` 2026-08-20; `RFC_030`'s
 
 ### 4.2 ⏸ OWNER DECISION — *(was the demand control; done, folded into 4.1)*
 
-### 4.3 ⏸ OWNER DECISION FIRST — six of the nine residual pairs are ONE question (added 2026-08-21)
+### 4.3 ✅ SUPERSEDED/DONE 2026-08-21 — the decision was taken and executed (see §0). Kept for the reasoning only.
 
 **Re-measured on v1.0.1321** (bug file §11.11): of the 10 damaged pairs, **1 is queued** (aao, by
 yesterday's `dead_url_control`) and **9 are invisible** — findings nothing reads. But they are not
@@ -124,6 +161,21 @@ guard's population is currently an inference. Flagged to be answered **jointly w
   council-ruled RFC-shaped; overlaps `RFC_041`'s error contract. Not a rider on a bug fix.
 - **Widening `check_required_fields_missing`** to `site_specs.*`/`pages.*` — census-gated, and the
   discovery rotations are paused on cost (`bugs_open/230`), so a widened check has no driver.
+
+## 5b. What is genuinely left (2026-08-21)
+
+1. **Confirm the 5 remaining re-renders landed** — `SELECT status, count(*) FROM site_work_items
+   WHERE created_by='bugfix-238-contact-block-2026-08-21' GROUP BY 1;` then verify at the SERVED
+   page (`grep -c 'href="tel:"'` → 0). ⚠ Grep the ELEMENT, not the class: `cb-detail-item` matches
+   the component's own CSS rule and over-counts by one.
+2. **Three residual pairs, none of them code**: leopardess `ai-readiness-quiz`
+   `result_cta_primary_url` (`contact.cta_url` — NOT in `siteRowIdentityColumns`, so no repoint
+   reaches it); gamesdesign `system-stats` `cta_url` (site has no `cta` aspect); fundamentallyai
+   `platform-log-index` post1–6 (fields its component no longer declares — **`bugs_open/309`'s
+   class, already owned there**).
+3. **Before closing, move 1–2 somewhere that owns them.** Closing while their only record is a
+   closed bug file is how work gets forgotten (`a-handoff-outlives-the-work-it-asked-for`).
+4. **`RFC_042`** — owner decision, unchanged.
 
 ## 6. Closing the bug
 
