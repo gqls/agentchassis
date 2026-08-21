@@ -1,7 +1,9 @@
 # HANDOFF — portfolio_positioning — 2026-08-20. **START HERE IN A FRESH SESSION.**
 
 Supersedes `HANDOFF_2026-08-19_continue_here.md`. Owner read-out:
-`SUMMARY_2026-08-19_first_sites_live_and_the_wall_the_fleet_would_have_hit.md`.
+**`SUMMARY_2026-08-21_the_machine_that_writes_the_brief.md`** (the 08-19 summary is still worth
+reading — two of its three "where we are now" statements have since been overtaken, and the
+series is the record of how the understanding moved).
 Design: `PLAN_2026-08-19_one_flow_three_brief_sources.md` (+ its 08-19b addendum).
 
 **Verified at the top of this file 2026-08-20 — re-check if hours have passed; this tree moves.**
