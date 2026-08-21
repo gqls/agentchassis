@@ -10,6 +10,9 @@ its new `unfetchable` audit state. **Status: OPEN, UNOWNED.**
 > `854f482f-b999-402e-bcd5-604c2ac23999`, run
 > `8c4f8a67-abfb-452a-8b21-0e7e59d2adc3`. **§4 deliberately contains no root
 > cause** — only the mechanism as read from source and the open questions.
+>
+> **VERDICT: CONFIRMED** (2026-08-21 15:11Z). It grounded the claim on three
+> things, one of which this file did not have — see §7.
 
 ## 1. The one-paragraph version
 
@@ -112,3 +115,33 @@ in architecture review, not in a patch.
 - `bugs_open/348` — a render refusal reports `complete`. That would leave
   `build_status='deployed'`, not `planned`.
 - `bugs_open/320`/`339` — same lane pairing found this; different column.
+
+
+## 7. The 090 verdict — CONFIRMED, and it names a call site this file did not have
+
+Run `8c4f8a67-abfb-452a-8b21-0e7e59d2adc3`, completed 2026-08-21 15:11Z,
+outcome **CONFIRMED**, symptom marked `explained`.
+
+Grounded on three citations:
+
+- `[static] datahelpers/links.go:PageWantedLivePredicateFor` — `return q + "status = 'active'"`
+- **`[static] actions/load_site_pages_action.go:LoadSitePagesAction`** —
+  ``WHERE site_id = $1 AND `+datahelpers.PageWantedLivePredicateFor("")+` ``
+- `[state] pages` — `b789e801-a78c-47be-98a3-1393adf75971 | practice | active | planned | NULL`
+
+**`LoadSitePagesAction` is the addition.** §3 argued from consumers I happened to
+know (`render_news_section_action`, `InboundLinkSurfaces`); the loop found the
+one whose *job* is to load the pages a site serves, and which splices this
+predicate verbatim. That is the strongest single consumer for the claim, and it
+raises the stakes on §4's warning: **narrowing the predicate would change what
+`LoadSitePagesAction` returns fleet-wide, in one edit.**
+
+The grounding row `practice` is `vetcomparison.uk/entities/practice.html`, one of
+the seven URLs sampled at 404 in §2 — so the static and runtime halves meet on a
+single row.
+
+**Still no root cause, and the verdict does not supply one.** It confirms the
+mechanism, not the origin: what should advance a `planned` row, why these did
+not, and whether the two populations in §2 share a cause remain open. A confirmed
+mechanism is not a diagnosis of how the rows got there, and this file should not
+be read as having one.
