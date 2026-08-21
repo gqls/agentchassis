@@ -2408,3 +2408,43 @@ check.
 
 **Where that leaves us: the final switch is the only work left.** Everything it was waiting on is
 now either fixed, proven, or written down as a deliberate decision.
+
+---
+
+**2026-08-21, evening. The final step is built and approved.** After a month, the change the whole
+workstream was for is written, tested, reviewed and committed: when the system searches for a piece
+of information and finds two different answers, it now says *nothing* instead of picking one.
+
+It took three rounds of review, and I want to record what those rounds were actually worth, because
+"approved on the third attempt" could read as three tries at persuasion. It wasn't.
+
+**Round one found a real hole in my reasoning.** I had proved that every case the instrument had
+ever *seen* was handled — nineteen of them, each fixed or given an explicit answer. A reviewer asked
+how many cases there *could* be. I had written the phrase "every step that falls through to this
+search" myself, in my own justification, and never turned it into a number. It's 137 steps across 71
+agents. The argument survived — the change only affects cases where the two answers actually
+disagree — but I couldn't have said that before, because I didn't know the denominator. **Proving
+every observed case is handled is not the same claim as bounding the population**, and the two read
+almost identically in prose.
+
+**Round two's blocking objection was wrong, and proving that was the useful part.** The reviewer said
+one of our old bug records was still open, which would have made this change repeat a documented
+failure. It isn't open — it was closed two days ago, *by this same workstream, answering the same
+reviewer*. Their index is reading an older snapshot. I proved it from the repository rather than
+asserting it, and I've written a note for whoever submits next: if you cite a recently-closed bug,
+bring the proof, because saying "it's closed" won't clear it.
+
+**Round three approved it, with three advisories I've recorded as owned rather than ticked off.** The
+sharpest is worth repeating to you plainly: this change swaps a *silently wrong* value for a
+*silently absent* one — and downstream, an absent value still renders as a blank with no error, at
+fourteen of fifteen places. **That is not fixed by this, and I have not claimed it is.** It's a
+separate filed bug. What this change does add is that every refusal is *recorded* the moment it
+happens, naming the field and the caller — which is precisely what the blanking problem lacks, and
+why it has been so hard to find.
+
+**It doesn't take effect until the next build rolls** — it's program code, not configuration. And I
+have committed this workstream to actually watching it afterwards rather than declaring victory: a
+48-hour check with the terms written down in advance, including the trap that a job already running
+keeps its old behaviour for several minutes, so the clock is the wrong way to judge it.
+
+A second session has joined this lane and is taking the small follow-on cleanup. Nothing waits on you.
