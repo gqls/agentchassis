@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1319
+IMAGE_TAG ?= v1.0.1321
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -337,6 +337,16 @@ build-loop-sitewide-item-key-check: ## Build loop-sitewide-item-key-check CronJo
 # Ships the SAME Go binary the offline audit uses, so the scheduled check walks
 # workflow steps with validation.WalkSteps rather than a re-implementation
 # (council round 2, corr 3eb0d1f1, reuse_agent gating objection).
+# Not a service — a CronJob image (RFC_029 §10.15, CTS-060(5)). Same
+# config-key-audit binary as its siblings, different CMD, PLUS the acks file it
+# gates on. Committed-HEAD build is load-bearing for the same reason as
+# shared-output-fields-check: the acks list is the check's own definition of
+# "already known", so a working-tree build could bake in an unreviewed
+# acknowledgement — a silenced finding with no diff to review.
+.PHONY: build-optional-explicit-wires-check
+build-optional-explicit-wires-check: ## Build optional-explicit-wires-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,optional-explicit-wires-check)
+
 .PHONY: build-removed-config-keys-check
 build-removed-config-keys-check: ## Build removed-config-keys-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,removed-config-keys-check)
@@ -2109,9 +2119,23 @@ component-render-check-now: ## Trigger an immediate component-render-check run
 push-shared-output-fields-check: ## Push the shared-output-fields-check CronJob image
 	docker push $(REGISTRY)/shared-output-fields-check:$(IMAGE_TAG)
 
+.PHONY: push-optional-explicit-wires-check
+push-optional-explicit-wires-check: ## Push the optional-explicit-wires-check CronJob image
+	docker push $(REGISTRY)/optional-explicit-wires-check:$(IMAGE_TAG)
+
 .PHONY: push-removed-config-keys-check
 push-removed-config-keys-check: ## Push the removed-config-keys-check CronJob image
 	docker push $(REGISTRY)/removed-config-keys-check:$(IMAGE_TAG)
+
+.PHONY: deploy-optional-explicit-wires-check
+deploy-optional-explicit-wires-check: ## Deploy the daily optional-explicit-wires-check CronJob (RFC_029 §10.15 adoption gate)
+	@echo "$(YELLOW)Deploying optional-explicit-wires-check CronJob...$(NC)"
+	@echo "$(YELLOW)  The image MUST already be pushed at this tag. An absent image gives$(NC)"
+	@echo "$(YELLOW)  ImagePullBackOff, which this fleet reports as a Job still RUNNING —$(NC)"
+	@echo "$(YELLOW)  never FAILED. Build and push before deploying, not after.$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/optional-explicit-wires-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob optional-explicit-wires-check
 
 .PHONY: deploy-shared-output-fields-check
 deploy-shared-output-fields-check: ## Deploy the daily shared-output-fields-check CronJob (RFC_012 (d) online half)

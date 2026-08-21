@@ -1,0 +1,97 @@
+# deployments/kustomize/services/optional-explicit-wires-check/base/cronjob.yaml
+#
+# RFC_029 §10.15 / CTS-060(5), and it exists because a council seat asked for it
+# by name. The `?` OPTIONAL-EXPLICIT marker makes a field resolve from its
+# declared path OR GO ABSENT — with no error, no log and no row, because absence
+# is the contract. The `bug_historian` seat's GATING objection to shipping that
+# marker was that a mechanism whose whole purpose is silent non-resolution needs
+# something forcing each adopter to confirm its downstream treats "absent" as a
+# safe no-op rather than an unguarded empty value it will render or persist.
+#
+# That guard is `config-key-audit --optional-explicit-wires`. Until this CronJob
+# exists it only fires when somebody remembers to run it — which the
+# `architecture` seat flagged, on the same round, as the remaining hole: "until
+# wired up, it only protects an author who remembers to invoke it by hand, so a
+# first `?` adopter could still land unaudited in the gap." That gap is not
+# hypothetical: on the audit's FIRST live run it found an unacknowledged wire
+# (`create_tool_component.replace_existing`) that had gone live four hours
+# earlier, as the hotfix to a production outage — exactly the case where nobody
+# stops to record what they checked.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK: the same two reasons as
+# removed-config-keys-check and single-owner-carriers-check, on which this is
+# modelled line for line — at commit time a migration is unapplied so live
+# definitions still look correct, and live config is routinely changed in the DB
+# with no commit at all. Every `?` wire so far arrived by migration, i.e. through
+# the second door.
+#
+# IT RUNS THE GO BINARY and walks with validation.WalkSteps, the same function
+# the runtime validator enforces with — no re-implementation (bugs_open/144: two
+# hand-written traversals go blind in the same direction and then agree). It also
+# ships the acks file INSIDE the image; see the dockerfile for why that has to be
+# a committed-HEAD build.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: optional-explicit-wires-check
+  labels:
+    app: optional-explicit-wires-check
+    component: config-integrity
+spec:
+  # Daily, in the config-integrity window. 06:30 UTC is free, verified against
+  # the live schedule 2026-08-21: single-owner-carriers 06:20 · removed-config-keys
+  # 06:25 · THIS · site-discovery-staleness 06:35 · component-fallback 06:40 ·
+  # optional-key-budget and concept-register-drift 06:50 · component-render 06:55.
+  #
+  # Daily is the right cadence rather than hourly: a `?` wire arrives by
+  # migration, and the window that matters is "before the next person trusts the
+  # gate", not minutes. It is deliberately NOT less frequent than daily — an
+  # unacknowledged wire means a field may be silently absent in production, and
+  # the whole point is to shorten how long that goes unnoticed.
+  schedule: "30 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query plus a walk over ~195 definitions; hanging past 5 minutes means
+      # something is wrong and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: optional-explicit-wires-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which
+          # this fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family). removed-config-keys-check hit exactly this
+          # on its first rollout, minutes after a council seat predicted it.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/optional-explicit-wires-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --optional-explicit-wires --report \
+              #       --acks /app/optional_explicit_wire_acks.json
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
