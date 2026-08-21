@@ -88,6 +88,80 @@ first-hand at the artefact today — the ordering row and its `from_field`, the 
 only the analyser's own output), and the true site count from `sites`. The motivating harm was
 independently caught and documented by a different lane before I looked.
 
+## FIX BUILT 2026-08-21 — candidate 1, both halves. STAYS OPEN until the chassis rolls.
+
+**Status: the code is committed and INERT.** The bar for `/bugs_closed/` is fixed AND live; the Go
+half does nothing until the next chassis roll, and the config half is deliberately held back until
+it has. So this file stays here, and the defect is still reproducible on leopardess today.
+
+- **Go:** `verify_cited_cardinals` (new action) — commit `d79e4243c`, registered **CLM-023**.
+  Generic gate for "ranked items each naming their own source field": every cardinal in an item's
+  prose must appear in the field that item cites. 12 tests, all fixtures verbatim from live
+  `site_specs`.
+- **Config:** `docs/agent_docs/sql_for_agents/537_offer_analyser_cardinal_attribution_gate_HOLD.sql`
+  — commit `6b1f4cb08`. Splices the gate between `set_audit_source` and `write_offer_ordering`,
+  repoints the write at the checked object, and appends the rule to the prompt as well.
+  **`_HOLD` is load-bearing:** a step naming an unregistered action does not no-op, it fails the
+  **whole** workflow (the validator concludes the action is remote and rejects it), which would take
+  `write_offer_findings` down with it. Gate commit `d79e4243c`; the file carries the artefact probe.
+- **Council:** submitted `9a8f1283-574e-44d7-8e66-b84789ba0429` (`Council-Submitted:` on the
+  migration commit). **Verdict not yet read** — whoever picks this up owes that read, and owes
+  acting on a REVISE, because the code is already on the shared branch.
+
+### Two measurements that changed the design, and one CORRECTION to this file
+
+> **⚠ CORRECTED 2026-08-21 — the negative control this file proposes CANNOT DISCRIMINATE.**
+> "How to verify a fix" (below) names **gaswholesalers.com**, "whose rank-1 point legitimately
+> carries premise-sourced specifics, must keep them". Measured over all six of its `lead_with`
+> points: **none contains a cardinal at all.** It therefore passes *any* rule, including one that
+> bans every numeral — the exact failure the control was written to prevent, and it would have read
+> as a clean pass. The controls that actually bite are **webdesign.co.uk** ("sixty-three tools",
+> present verbatim in the cited `value_proposition`), **robot-hands.com** ("six actuation types",
+> likewise), and **robot-hands.com rank 5** ("2–3 technical articles per month" against a premise
+> that writes "2-3" — an en-dash/hyphen mismatch a naive substring check fails). All three are now
+> verbatim fixtures in the test file. The specifics this file had in mind on gaswholesalers are real
+> but **non-numeric** ("rack pricing", "gasoline, diesel, and natural gas"), which a cardinal gate
+> never touches.
+
+1. **A digits-only gate cannot see this defect, and the nearest precedent is digits-only.**
+   `verify_report_prose` is the right precedent and its numeric idea is reused — but its token
+   regex is `\d[\d,]*\.?\d*` and the defect was the **word** "eight". Reusing it unmodified
+   yields a gate that passes its own motivating case while reading green. Its own doc comment
+   already names the hole from the other end. `TestDigitsOnlyScanWouldHaveMissedTheDefect` asserts
+   the defect point contains **no digits at all**, so deleting the word vocabulary fails the suite
+   rather than quietly widening the gate.
+2. **"one" and "zero" are not quantity claims.** `[MEASURED 2026-08-21, all 30 live `lead_with`
+   points]` including them in the challenged vocabulary flags **6, of which 5 are false** — "one
+   click away", "a restart from zero", "the one you arrived with", "one of those categories", "in
+   one workflow". Excluding them leaves **exactly 1**: this defect. They stay admitted on the
+   **source** side, so a premise legitimately saying "one" still licenses a point saying "1".
+
+### Why `drop` and not `fail`
+
+The action defaults to `on_violation: "fail"`; the offer-analyser is configured **`drop`**.
+`write_site_spec` deep-merges and an array takes the scalar-overwrite arm, so a **successful**
+re-run replaces `lead_with` wholesale — but a run that **fails** at the gate writes nothing and
+leaves the previous row `is_current`. On the one site that actually carries this defect, fail-mode
+would report a working gate while the false rank-1 stayed live, and would also lose the findings
+(written by the step after the ordering). Drop writes the survivors, removes the offender, and
+records the removal in the artefact under `dropped_unsourced`. It still refuses to write an **empty**
+`lead_with`.
+
+### What is still owed
+
+- **Read the council verdict** and act on it.
+- **After the roll:** apply `537`, then re-run against leopardess (positive) **and** webdesign +
+  robot-hands (the real negatives). ⚠ Applying `537` does **not** repair leopardess — only a
+  successful re-run rewrites the row, and the `improvement-sweep` has been disabled since 08-17,
+  so nothing will re-run it unprompted. **Coordinate with the leopardess lane first**: it is holding
+  this lane's findings pending an owner design report.
+- **Unmeasured, stated rather than absorbed:** a legitimate **year** in a point ("updated for 2026")
+  is a cardinal and premises rarely carry one, so it would be dropped — no live point contains a
+  year today. And the word vocabulary stops at ninety-nine, so "a hundred tools" is not challenged.
+- **`features_open/034` is not replaced by this.** 034 asks whether the premise itself is true;
+  this stops a page claim being imported into the premise layer and mis-attributed. 335 sharpens
+  034's case.
+
 ## Relates to
 
 `features_open/030` §10 v2(b)/(d) · `features_open/034` · `bugs_open/161` · `bugs_closed/262` ·

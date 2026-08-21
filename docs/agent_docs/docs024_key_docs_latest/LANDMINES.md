@@ -14045,3 +14045,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** LANDMINES "Every pattern is compiled `(?i)`" and the negation-guard family · `bugs_open/161` (repair-then-arm ordering) · MEMORY [[writes-the-field-is-not-reads-the-field]], [[prompt-text-poisons-its-own-detector]], [[a-doc-comment-is-not-an-enforcement-mechanism]] · webdesign_uk_build_service NOTES 2026-08-10 (*"a fact not copied into writer_block does not exist for the writer"*) and 2026-08-21
 - **source:** 2026-08-21, `webdesign_uk_build_service` lane — found while editing `writer_block` for an unrelated owner ruling, two days after the fact edits that left it behind. Fixed by `SQL_2026-08-21b`; both fact edits that caused it (`SQL_2026-08-19`, `SQL_2026-08-19g`) carry the correct-and-insufficient guard verbatim
 - **added:** 2026-08-21, webdesign_uk_build_service lane
+
+---
+
+### `verify_report_prose`'s numeric gate is DIGITS-ONLY, so a check built by reusing it lets every spelled-out numeral through — and reads green
+
+- **footprint:** `platform/orchestration/actions/verify_report_prose_action.go`, `proseNumRe`, `numericSet`, `normaliseNumericToken`, `verify_report_prose`, `verify_cited_cardinals`
+- **fires when:** you build any "the numbers in this prose must trace to a source" check and reuse the estate's existing model for it. **No symptom.** The check runs, finds no violating token, returns clean and logs a pass — while the artefact it just cleared carries the exact fabrication it was written to catch. Nothing errors, nothing warns, and a clean pass is the ordinary result.
+- **the mechanism:** `verify_report_prose` is genuinely the right precedent and is what you will find. Its token regex is `\d[\d,]*\.?\d*` — **digits only**. "eight live sites", "sixty-three tools", "two thousand users" are invisible to it. `bugs_open/335`'s defect was the word *"eight"*, at rank 1 on a live site; reusing `proseNumRe` unmodified would have shipped a gate that passes its own motivating case. **The file you are copying already records the hole** — `qualifierWords`' comment quotes the edit-quality seat naming it from the other end (*"spelled-out numerals ('2F-eighty-five') are lower-case English too"*) — but it sits inside a comment about a different list, and it is easy to read past.
+- **the check — assert your tokeniser can SEE your motivating case, as a test, not a comment:**
+  ```go
+  // fails loudly if the gate is blind to the very text it exists for
+  if got := yourNumRe.FindAllString(theMotivatingBadText, -1); len(got) == 0 {
+      t.Fatal("this tokeniser cannot see the defect it was built for")
+  }
+  ```
+  `verify_cited_cardinals_action_test.go:TestDigitsOnlyScanWouldHaveMissedTheDefect` is the worked form: it asserts the defect text contains **no digits at all**, so deleting the word vocabulary fails the suite instead of silently widening the gate.
+- **⚠ do NOT fix it by banning word numerals — that is the obvious remedy and it guts the artefact.** `[MEASURED 2026-08-21, all 30 live `offer_ordering.lead_with` points]` **two of the three legitimate premise-sourced specifics on this estate are spelled out**: webdesign.co.uk's "sixty-three tools" and robot-hands.com's "six actuation types", both verbatim in the field they cite. Normalise word numerals to the same value as digits so `63` and `sixty-three` compare equal. Ban a *fabrication*, never a *form*.
+- **⚠ and exclude "one" and "zero" from the CHALLENGED side, or precision is 17%.** Same measurement: with them in, **6 points flag and 5 are false** — "one click away", "a restart from zero", "the one you arrived with", "one of those categories", "in one workflow" — all article, pronoun or idiom. Without them, exactly the one real defect flags. Keep them admitted on the **source** side, so a premise saying "one" still licenses a point saying "1"; the asymmetry is the design.
+- **relations:** CLM-023 (`verify_cited_cardinals`, the word-aware sibling), `bugs_open/335` (the defect that exposed it), CLM-020 `NegationGuard`, MEMORY [[declaring-a-key-silences-your-own-detector]], [[a-post-fix-zero-needs-a-demand-control]], [[mutate-the-code-to-prove-the-guard]]
+- **source:** 2026-08-21, `vigilant_designer_offer_analysis` lane — found while building the fix for `bugs_open/335`
+- **added:** 2026-08-21, vigilant_designer_offer_analysis lane

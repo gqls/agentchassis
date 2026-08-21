@@ -2520,3 +2520,118 @@ zero permanently". It read 0 on 08-19 and **3** on 08-20. Suppression is **per s
 global — corrected in place with strike-through, and the corrected form is the worse one: a non-zero
 count now reads as proof the producer works while saying nothing about the repeat cases it was added
 to catch.
+
+---
+
+## 2026-08-21 — 335 FIXED (both halves, inert until the roll), and the negative control I wrote yesterday was undiscriminating
+
+Took `bugs_open/335`, our own defect. Candidate 1, both halves: a new Go action
+`verify_cited_cardinals` (commit `d79e4243c`, register **CLM-023**) and a held migration
+`537_offer_analyser_cardinal_attribution_gate_HOLD.sql` (commit `6b1f4cb08`) that splices it in and
+adds the rule to the prompt. Council submitted `9a8f1283-574e-44d7-8e66-b84789ba0429` — **verdict
+not read yet.** Bug stays OPEN: fixed is not live, and it is still reproducible on leopardess today.
+
+### The bug file said this was "checkable in `write_offer_ordering` without a new mechanism". It is not.
+
+`write_offer_ordering` is a `write_site_spec` step, and `write_site_spec` is a **shared, estate-wide**
+action with no validation facility. Putting a domain-specific cardinal check into it would be exactly
+the shared-seam change the guardian seat vetoes. So the fix is a new action, contained to one
+consumer — which is also why it does not trip the RFC_022 budget (that counter fires on **shared**
+actions, and it counts `Optional`, not `ConfigKeys`; mine are ConfigKeys, declared, and the action has
+one live carrier).
+
+### ⚠ CORRECTION to yesterday's entry (and to the bug file): the negative control cannot discriminate
+
+Yesterday I wrote, twice — in NOTES above and in `bugs_open/335` — that the fix needed "a **negative
+control** (gaswholesalers' legitimately premise-sourced specifics must survive) or 'no numbers
+anywhere' passes trivially". **That control cannot fail.** I dumped all 30 live `lead_with` points
+before designing the rule, and **none of gaswholesalers' six contains a cardinal at all.** It passes
+any rule, including one banning every numeral — which is the precise failure it was written to
+prevent. The specifics I had in mind there are real but **non-numeric** ("rack pricing", "gasoline,
+diesel, and natural gas"), and a cardinal gate never touches them.
+
+The controls that actually bite, all now verbatim test fixtures:
+
+| site | point | cited field | verdict |
+|---|---|---|---|
+| leopardess r1 | "eight live sites" | `trust_threshold` — **no numeral at all** | must FAIL |
+| webdesign r1 | "sixty-three tools" | `value_proposition` — "sixty-three single-purpose tools" | must PASS |
+| robot-hands r4 | "six actuation types" | `value_proposition` — "across six actuation types" | must PASS |
+| robot-hands r5 | "2–3 technical articles" | `recurring_value` — "2-3 new technical articles" | must PASS |
+
+This is the `[MEASURED]`-but-not-disconfirmable trap in `WRONG_CALLS.md`, and I walked into it while
+writing the sentence that named the danger.
+
+### Two measurements that changed the design
+
+**A digits-only gate cannot see this defect.** `verify_report_prose` is the right precedent and I
+reused its numeric idea, but `proseNumRe` is `\d[\d,]*\.?\d*` — **digits only** — and the defect was
+the word "eight". Had I reused it unmodified I would have shipped a gate that passes its own
+motivating case and reads green. Its own doc comment already names the hole ("spelled-out numerals …
+are lower-case English too"), which is worth reading before building any numeric-discipline check.
+`TestDigitsOnlyScanWouldHaveMissedTheDefect` asserts the defect point contains **no digits at all**,
+so removing the word vocabulary fails the suite instead of quietly widening the gate.
+
+**"one" and "zero" are not quantity claims.** First cut of the rule over all 30 live points: **6
+flags, 5 false** — "one click away", "a restart from zero", "the one you arrived with", "one of those
+categories", "in one workflow". All article, pronoun or idiom. Dropping them from the *challenged*
+vocabulary leaves **exactly 1 flag** — the real defect. They stay admitted on the **source** side, so
+a premise saying "one" still licenses a point saying "1". A gate at 17% precision is one an operator
+learns to wave through.
+
+### Why `drop`, not `fail`
+
+`write_site_spec` deep-merges, and an array is not a map on either side, so `lead_with` takes the
+scalar-overwrite arm — a **successful** re-run replaces it wholesale. But a run that **fails** at the
+gate writes nothing, and the previous row stays `is_current`. On leopardess, the one site carrying the
+defect, `fail` would have reported a working gate while the false rank-1 stayed live — and would have
+lost the findings, which are written by the step *after* the ordering. So the action defaults to
+`fail` (unsafe side off) and the offer-analyser is configured `drop`, recording what it removed under
+`dropped_unsourced`, and refusing to write an empty array.
+
+### Misstep: my "control" compared two different HEADs
+
+Mid-verification the full package failed three `LoadWorkItems` tests in my `git archive HEAD` tree. I
+built a control tree, ran it, saw it pass, and briefly concluded **my change had broken them**. It had
+not. Two errors in one: the control used a `-run` filter (this package's own
+`registry_parity_test.go` warns in its comment that filtered-vs-full is "the most misleading pair of
+results a test can produce"), and — the real one — **the two trees were archived from different
+HEADs minutes apart.** At ~570 commits/day another session had landed `0f80f5ea1` between them,
+fixing exactly that path. The cheap check I skipped: record `git rev-parse HEAD` when you archive,
+and compare baselines by sha, not by "I made it just now". Logged in `WRONG_CALLS.md`.
+
+Separately, the working tree would not compile at all for part of this session — another session had
+`component_library.go` mid-edit with `RenderContext.SchemaMode` removed while a committed test still
+referenced it. Not mine, not HEAD; a reason to verify against `git archive`, not the tree.
+
+### Commands worth keeping
+
+Dump the whole live corpus (ordering + premise, all sites) in one query — this is what made the
+design empirical rather than argued:
+
+```sql
+SELECT jsonb_agg(jsonb_build_object('domain', d.domain, 'lead_with', d.lead_with, 'strategy', d.strategy))
+FROM (SELECT s.domain,
+        (SELECT ss2.data->'lead_with' FROM site_specs ss2
+          WHERE ss2.site_id=s.id AND ss2.aspect='offer_ordering' AND ss2.is_current) AS lead_with,
+        (SELECT ss3.data FROM site_specs ss3
+          WHERE ss3.site_id=s.id AND ss3.aspect='strategy' AND ss3.is_current) AS strategy
+      FROM sites s
+     WHERE s.id IN (SELECT site_id FROM site_specs WHERE aspect='offer_ordering' AND is_current)) d;
+```
+
+⚠ The column is `site_specs.data`, **not** `spec_data` — `spec_data` is the *config key* on the
+`write_site_spec` step, and typing it into SQL gets you `column does not exist`, which at least fails
+loudly.
+
+Prove a migration end-to-end without applying it — both directions, in one transaction:
+
+```bash
+{ sed '/^COMMIT;$/d' 537_..._HOLD.sql
+  sed '/^BEGIN;$/d; /^COMMIT;$/d; /snapshot_agent/d' 537_..._HOLD_ROLLBACK.sql
+  echo "DO \$\$ BEGIN /* assert the original values are back */ END \$\$; ROLLBACK;"
+} | kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+```
+
+That exercised all three gates, both `UPDATE`s, the verify block **and** the rollback against the live
+schema, with nothing persisted.

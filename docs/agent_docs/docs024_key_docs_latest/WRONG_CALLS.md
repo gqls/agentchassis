@@ -41133,3 +41133,46 @@ not evidence of who NEEDS it — it may be a census of the defect.** The distinc
 (something put a commit on its item). I measured the second and called it the first. Related:
 [[a-post-fix-zero-needs-a-demand-control]] — the demand control is necessary and, on its own, not
 sufficient.
+
+---
+
+## 2026-08-21 — "my change broke three `LoadWorkItems` tests", from a control archived off a DIFFERENT HEAD (`vigilant_designer_offer_analysis`)
+
+**The claim.** Verifying the `bugs_open/335` fix, the full `platform/orchestration/actions` suite
+failed three `LoadWorkItems` tests in my `git archive HEAD` tree. I built a control tree, ran it,
+saw it pass, and concluded **my new action had broken them** — and went looking, at some length, for
+how adding a registry entry could make a work-item query return zero rows.
+
+**It was false.** My change was never implicated. Bisecting to an *empty* test file that still
+"broke" it was the tell that the variable was not my code.
+
+**Two errors, and the second is the transferable one.**
+
+1. The control was run with `-run TestLoadWorkItems_ExposesRoutingColumns` while the failure came
+   from a **full-package** run. This package's own `registry_parity_test.go` warns in a comment that
+   filtered-vs-full is *"the most misleading pair of results a test can produce"*, because the action
+   registry is process-global with no removal path. I read that comment during this very session.
+2. **The two trees were archived from different HEADs, minutes apart.** At ~570 commits/day on this
+   branch, another session landed `0f80f5ea1` — *"a completion can no longer overwrite an item
+   serving a retry cooldown"* — in the gap. My "before" and "after" were two different codebases,
+   and the difference I attributed to my change was someone else's fix arriving.
+
+**The cheap check that would have caught it.** **Record `git rev-parse HEAD` at the moment you
+archive, print it beside every result, and refuse to compare two runs whose shas differ.** One
+command, and it makes the invalid comparison impossible to state:
+
+```bash
+HEADSHA=$(git rev-parse HEAD); git archive "$HEADSHA" | tar -x -C "$TREE"   # pin the SHA, not "HEAD"
+```
+
+Passing the *resolved sha* to `git archive` rather than the moving name `HEAD` is the whole fix: both
+trees then come from one commit by construction, and a rebuild an hour later is still the same
+baseline.
+
+**Transferable.** A baseline is a claim about a *commit*, not about a *moment*. On a shared tree
+`HEAD` is not a constant — it is a query whose answer changes while you work, so "I built both just
+now" establishes nothing. This is the same family as [[a-baseline-that-reads-head-expires-when-you-commit]],
+one step worse: there the baseline expired because *I* committed; here it expired because *somebody
+else* did, which no discipline of mine controls. Related: [[a-shared-tree-commit-can-break-head]] —
+in the same session the working tree would not compile at all, another lane having `component_library.go`
+mid-edit with `RenderContext.SchemaMode` removed while a committed test still referenced it.

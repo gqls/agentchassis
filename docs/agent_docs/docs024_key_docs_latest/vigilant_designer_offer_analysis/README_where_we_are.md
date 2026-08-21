@@ -1202,3 +1202,52 @@ being imported. Both are needed. This one is the tap; that one is the mop.
 
 **Where we are otherwise:** five of twenty-three sites carry the ranked record, and the sweep stays
 shut until you open it — about four and a half hours of running to finish the estate.
+
+---
+
+**2026-08-21 — the false sentence can no longer be written, though it is not switched on yet**
+
+Yesterday's problem was that our own analyser put a number into the most important line on a site —
+"the same stack that runs eight live sites" — and labelled it as coming from the site's own strategy
+record. The number was wrong (it is twenty-three), and the strategy record it pointed at contains no
+number at all. The label is the part that stings: it is the very thing we built so a reader could
+check a claim, and it vouched for something the record never said.
+
+It is now fixed, in two pieces. The first is a check that runs automatically between the moment the
+model answers and the moment we save: if a sentence states a quantity, that quantity has to actually
+appear in the record the sentence says it came from, or the sentence does not get saved. The second
+is a line in the instructions telling the model the rule up front. We want both — the instruction
+makes it rarer, the check makes it impossible.
+
+**Neither is live yet, and that is deliberate.** The check is new program code, and program code on
+this platform only starts working after the next fleet release. The configuration change that
+switches it on is being deliberately held back until that happens, because switching it on early
+would not merely fail to work — it would break the whole analyser, including the parts that are fine
+today. The file that turns it on carries the instructions for doing that safely.
+
+**Two things I got wrong, both worth you knowing.**
+
+The first is mine from yesterday. I wrote that we should test the fix against gaswholesalers, to make
+sure a rule against invented numbers did not also strip out legitimate ones. When I actually looked at
+every sentence on every site, gaswholesalers turned out to contain **no numbers at all** — so it would
+have passed no matter how badly the rule was written. It was a test that could not fail, which is the
+same as no test. The sites that genuinely test it are webdesign ("sixty-three tools") and robot-hands
+("six actuation types", "2–3 articles a month"), where the numbers *are* in the record and must
+survive. Those are now built into the code's own tests.
+
+The second is subtler and nearly shipped a check that would have missed the very thing it was for. We
+already had something similar elsewhere on the platform, and I reused its approach — but that one only
+looks for numbers written as digits, and our bad sentence said "eight", in letters. It would have run,
+found nothing, and reported everything as fine. Two of the three legitimate cases are also written in
+letters, so the lazy alternative — banning spelled-out numbers outright — would have fixed the bug and
+ruined the artefact at the same time.
+
+**What is still owed.** The change went to the review council and I have not yet read the verdict. And
+when the release does happen, switching it on does **not** repair leopardess by itself: the wrong
+sentence is already saved, and only a fresh run replaces it. The automatic sweep has been off since the
+17th on your cost instruction, so nothing will re-run that site unprompted — and the leopardess lane is
+holding our findings there pending a design report for you, so we should talk to them before firing
+anything at that site.
+
+**Where we are otherwise:** unchanged — five of twenty-three sites carry the ranked record, and the
+sweep stays shut until you open it.
