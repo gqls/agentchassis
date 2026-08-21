@@ -181,6 +181,8 @@ func TestLoadWorkItems_ExposesRoutingColumns(t *testing.T) {
 		"priority", "handler_agent", "status", "item_key",
 		"batch_id", "attempt_count", "approval_mode",
 		"component_id", "entity_id", "affected_url",
+		// bugs_open/345 — the previous attempt's failure text.
+		"error",
 	}
 
 	rows := sqlmock.NewRows(cols).
@@ -189,19 +191,19 @@ func TestLoadWorkItems_ExposesRoutingColumns(t *testing.T) {
 			"medium", "audit fix", []byte(`{"reason":"audit"}`), nil,
 			60, "tool-improver", "triaged", "audit_fix_example.com",
 			nil, 0, "auto",
-			componentID, nil, nil).
+			componentID, nil, nil, nil).
 		// The majority shape: column NULL, spec carries it.
 		AddRow(uuid.New(), siteID, "acceptance", "build", "improve_tool",
 			"medium", "acceptance fail", []byte(`{"component_id":"`+specOnlyComponent.String()+`"}`), nil,
 			60, "tool-improver", "triaged", "acceptance_fail:x",
 			nil, 0, "auto",
-			nil, nil, nil).
+			nil, nil, nil, nil).
 		// Neither: the key must not appear at all.
 		AddRow(uuid.New(), siteID, "generic", "build", "needs_rerender",
 			"low", "rerender", []byte(`{}`), nil,
 			60, "rerender-pages", "triaged", "rerender:x",
 			nil, 0, "auto",
-			nil, nil, nil)
+			nil, nil, nil, nil)
 
 	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
