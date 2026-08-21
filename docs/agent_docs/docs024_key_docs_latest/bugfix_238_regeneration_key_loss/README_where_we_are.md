@@ -146,3 +146,41 @@ detector, because the check that would find it deliberately ignores this class a
 would run it are switched off to save money. And ten pages need a human decision about data that
 was never there. None of that is a code fix, which is why the bug cannot honestly be closed by
 writing code.
+
+## 2026-08-21 — closed, and the last day of it was the useful one
+
+The bug is closed. What made it closeable was not the code — that was done days ago — but finally
+being able to say, with evidence, that nothing is left in it that anyone still needs.
+
+**The thing that had been broken is provably not broken any more.** We could show it on real
+traffic rather than a test: across every page rebuild the system has recorded, values of this kind
+were lost 66 times, all of them between the 11th and 14th of August, and **not once since the fix
+landed on the 14th** — across more than three thousand rebuilds. That is the strongest evidence
+we have ever had for a fix on this platform, and it had been sitting in the data the whole time
+waiting for someone to ask.
+
+**Your two decisions yesterday closed out most of what was left.** Saying the contact email should
+appear let us point the contact block at the place the address actually lives — and looking at the
+pages afterwards showed two things the database view had hidden. The email was *already* on the
+pages, but only because it was baked into an old copy of the page: right on screen, and one rebuild
+away from vanishing. And the same block was serving a **dead telephone link** on six pages across
+three sites, which none of our database checks could see. Saying "do both" fixed that properly: a
+site with a number now shows it, and a site without one shows nothing at all instead of a broken
+link. Every dead contact link on the estate is gone.
+
+**Nothing has been swept under the carpet, which was the condition for closing.** Five things
+remained; I checked each rather than assuming. One turned out to be already fixed by another
+thread — and I nearly told them it had broken again, because I was looking at a page address I had
+guessed rather than looked up, and got a "page not found" that answered every question with a
+confident zero. Two are now sitting in your review queue as proper items, each explaining what is
+missing and the two ways to settle it. The remaining two were never this fault at all: three pages
+on one site with a different problem, and one page that was copied wholesale from another website
+and keeps whatever it originally had.
+
+**What is genuinely still open is one question for you**, and it is a design question rather than a
+bug: there are two ways this system rewrites a page, and they disagree about what to keep. We have
+patched the route that matters and proved the patch works, but eight other places write the same
+data and nobody has ever measured whether they lose anything. My recommendation is to measure
+before building anything — twice this week, measuring first stopped us building something that
+would have looked right and changed nothing. That is written up as RFC_042, alongside an older
+paper asking the same question about the neighbouring column; they should be answered together.
