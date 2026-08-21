@@ -13913,3 +13913,57 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** CLAUDE.md "Git — commit per task" (pathspec commits; your session-start `git status` goes stale within minutes) · MEMORY [[committing-is-shipping-on-shared-head]] · the sibling hazard that another session may commit between your `add` and your `commit`
 - **source:** 2026-08-21, `bugfix_029_retry_kills_live_child` lane — found while blocked on it, alongside two other blocked sessions
 - **added:** 2026-08-21, 029 lane
+
+### A discovery-check fix is unobservable until that SITE's 7-day rotation slot — and the rotation sits IDLE while its `last_triggered_at` keeps advancing every 3h
+
+- **footprint:** `site_discovery_rotation`, `scheduled_tasks` rows named `site-discovery-rotation-*`, `platform/orchestration/actions/discovery_checks/` (any `check_*.go`), `run_discovery_checks`, SCH-025, any verification plan whose next step is "the detector's next sweep"
+- **fires when:** you ship a change to a discovery check and wait to see it file at the new shape, or you plan a canary/verification "after the next sweep". No symptom — the task is enabled, its `last_triggered_at` advances on every interval, `agent_run_stats` shows runs, and **nothing at all is being examined**.
+- **the mechanism:** the rotation's `pre_query` is `... WHERE COALESCE(r.last_selected_at,'-infinity') < now() - interval '7 days' ORDER BY r.last_selected_at LIMIT 1`. When no site has aged past the floor it returns **zero rows**, so the tick fires and dispatches nothing — but `stampCompleted` still advances the task's own timestamps. **Idle and healthy look identical from `scheduled_tasks`.**
+- **the measurement that makes it concrete** `[MEASURED 2026-08-21 12:1xZ]`: `site-discovery-rotation-quality` had triggered at 10:33:30Z that morning, interval 3h, enabled. Every one of the **25** stamped sites was inside its 7 days — the oldest (robot-hands.com) at **5d 01h** — so the fleet's next quality examination of *any* site was **2026-08-23 10:16Z**, and the site under test (webdesign.co.uk, stamped 08-18 07:23Z) was **≈2026-08-25 07:33Z**. The lane's handoff said the next step was "the detector's next sweep"; it was **four days** away and nothing in the task's own state said so.
+- **the check — one query, and read the TOP row, not the task:**
+  ```sql
+  SELECT s.domain, r.last_selected_at,
+         r.last_selected_at + interval '7 days' AS eligible_at
+  FROM site_discovery_rotation r JOIN sites s ON s.id = r.site_id
+  WHERE r.agent_type = '<quality|design|completeness>-discovery-agent'
+  ORDER BY r.last_selected_at;         -- row 1 = when the rotation next does ANYTHING
+  ```
+  If `eligible_at` on row 1 is in the future, the rotation is idle until then, however busy the task looks. Your site's own row tells you when your change is next exercised.
+- **the way out, when waiting is not acceptable:** a one-shot `scheduled_tasks` row targeting the discovery agent with `input_data` = `{domain, site_id}` and **no `pre_query`** — which is also why it does **not** consume the site's rotation stamp, so the natural slot survives. Disable it the moment it fires. Recipe, with the courtesy gate and the run-verification: `docs024_key_docs_latest/bugfix_277_required_fields_repair/RUNBOOK_required_fields_repair.md`, "Force a discovery sweep for ONE site".
+- **⚠ and the stamp still does not prove a run** — `bugfix_230_discovery_driver`'s CONTRIB measured 5 of 12 stamps producing no orchestration at all. Confirm at `orchestration_states` for the agent type, not at the stamp and not at `last_triggered_at`.
+- **relations:** `docs026_concept_register` SCH-025 (the stamp records selection, not completion) · `bugs_open/230` (the driver itself) · `docs024_key_docs_latest/bugfix_230_discovery_driver/CONTRIB_2026-08-10_five_stamps_produced_no_run_and_the_watchdog_read_clean.md` · MEMORY [[detection-works-schedule-and-dispatch-do-not]] and [[thunder-reaper-fires-but-has-never-reaped.md]] — same family: an enabled task with a fresh tick is not evidence of work · WRONG_CALLS 2026-08-05 ("`run_count` tells you an agent CAN run, never that anything WILL run it")
+- **source:** 2026-08-21, `bugfix_277_required_fields_repair` lane — found while waiting on "the detector's next sweep" to canary CQ-028; the sweep was forced (owner-approved) and the canary then ran the same hour
+- **added:** 2026-08-21, 277 lane
+- **⚠ QUALIFIED 2026-08-21 by the `bugfix_315` lane — "7 days" is the QUALITY rotation's floor, not every discovery agent's, and reading it as universal will make you plan around a delay you do not have.** Each `site-discovery-rotation-*` task carries its OWN floor in its own `pre_query`. `[MEASURED 2026-08-21 13:33Z]` `site-discovery-rotation-availability` fires every **300s** with a floor of **`interval '4 hours'`**, one site per tick, and all **25** rotation rows were stamped within the preceding four hours — so a change to a check that agent runs is exercised fleet-wide in about 4–5 hours, not four days. The entry above is right about the MECHANISM (an idle rotation and a busy one are indistinguishable from `scheduled_tasks`) and right for `quality`; take the number from the task, never from this file:
+  ```sql
+  SELECT name, interval_seconds,
+         substring(pre_query from 'interval ''[^'']+''') AS floor
+    FROM scheduled_tasks WHERE name LIKE 'site-discovery-rotation-%';
+  ```
+
+### Enumerating the steps that stamp a page `deployed` on the wrong key returns a clean, confident ZERO
+
+- **footprint:** `agent_definitions`, `update_page_status`, `deploy_result_field`, `pages.deployed_at`, `pages.content_hash`, `default_config->'workflow'->'steps'`, any "which agents stamp X?" census over agent config
+- **fires when:** you enumerate the live steps that set a page to `deployed` — to check they are all armed with `deploy_result_field`, to size a blast radius, or to prove a collision is impossible. **No symptom.** The query succeeds, returns `(0 rows)`, and 0 rows is a perfectly ordinary answer to that question. The wrong result is indistinguishable from the right one.
+- **the mechanism:** the action is `update_page_status` and the status it writes lives at `config->>'status'`. The COLUMN it ultimately writes is `pages.build_status`, and the surrounding code, the register and this very file all talk about `build_status` — so `config->>'build_status'` is the natural thing to type. Nothing declares it; a `->>` on an absent key is SQL NULL, the predicate is simply false everywhere, and you get zero rows with no error. It reads as "no live agent stamps deployed", which is a startling finding you may well write down.
+- **the check — assert the count you already know, and use `status`:**
+  ```sql
+  WITH steps AS (
+    SELECT ad.type AS agent, st.key AS step_key,
+           st.value->>'action' AS action,
+           st.value->'config'->>'status' AS status_cfg,
+           st.value->'config'->>'deploy_result_field' AS deploy_field
+      FROM agent_definitions ad
+      CROSS JOIN LATERAL jsonb_each(ad.default_config) wf(key,value)
+      CROSS JOIN LATERAL jsonb_each(CASE WHEN jsonb_typeof(wf.value)='object' AND wf.value ? 'steps'
+                                         THEN wf.value->'steps' ELSE '{}'::jsonb END) st(key,value)
+     WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  )
+  SELECT agent, step_key, COALESCE(deploy_field,'*** UNARMED ***')
+    FROM steps WHERE action='update_page_status' AND status_cfg='deployed';
+  ```
+  `[MEASURED 2026-08-21]` **exactly three rows**, all armed: `page-rerender/update_status`, `report-builder/update_status`, `section-editor/update_page_status`. **Fewer than three means your query is wrong, not that the fleet stopped stamping** — treat any zero here as a bug in the predicate until proven otherwise, and check a key that must be present (`action='update_page_status'` alone returns rows) before believing a filtered zero.
+- **why it matters beyond the typo:** `bugs_open/315`'s divergence check (DGH-015) is SOUND ONLY IF every `deployed` stamper is armed — an unarmed one leaves a stale fingerprint and the check then convicts a healthy page, permanently. So this census is the check's live precondition, and a false zero on it reads as "nothing stamps, nothing to worry about" when the true answer is the opposite shape entirely.
+- **relations:** LANDMINES "a `[MEASURED]` figure is only evidence if the measurement could have come out otherwise" family · `bugs_open/336` (the same lane's zero that meant "nothing CAN run", read as "nothing has run yet", 33 minutes of fleet downtime) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · register DGH-013 / DGH-015
+- **source:** 2026-08-21, `bugfix_315_deployed_at_without_publication` lane — hit while establishing D6's premise; caught only because three stampers were already known from migration 494, so zero was obviously wrong
+- **added:** 2026-08-21, 315 lane

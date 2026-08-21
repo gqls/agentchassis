@@ -72,6 +72,23 @@
 --         ORDER BY created_at DESC LIMIT 10;
 --        curl -s "https://<domain><url>?cb=$RANDOM$RANDOM" | sha256sum
 --
+--   3b. WHEN WILL IT ACTUALLY RUN? Sooner than the discovery-rotation folklore
+--      suggests, and this is measured. availability-discovery-agent is driven by
+--      the scheduled task `site-discovery-rotation-availability`, which fires
+--      every 300s and picks ONE site whose last_selected_at is older than
+--      `interval '4 hours'` — NOT the 7 days the quality rotation uses.
+--      [MEASURED 2026-08-21 13:33Z] all 25 rotation rows were stamped within the
+--      preceding four hours, so the whole fleet is swept roughly every 4-5 hours
+--      and the first sites are examined within minutes of applying this.
+--      Confirm the cadence yourself rather than trusting this comment:
+--        SELECT name, interval_seconds,
+--               substring(pre_query from 'interval ''[^'']+''') AS floor,
+--               last_triggered_at
+--          FROM scheduled_tasks WHERE name = 'site-discovery-rotation-availability';
+--      And confirm a RUN at orchestration_states, never at last_triggered_at: a
+--      rotation whose floor excludes every site advances its own timestamps while
+--      dispatching nothing, and idle is indistinguishable from busy there.
+--
 --   4. The check is structurally inert on any page whose last deploy predates
 --      the fingerprint — 588 of 816 pages on 2026-08-21 — so a quiet first day
 --      is expected on that ground too, and the population grows as pages
