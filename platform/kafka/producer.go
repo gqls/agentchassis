@@ -14,6 +14,7 @@ import (
 
 	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/protocol"
 	"go.uber.org/zap"
 )
 
@@ -89,13 +90,24 @@ func (p *KafkaProducer) SetValidator(v MessageValidator) {
 // other side of the connection: the dial counters see a CONNECTION fail, these
 // see a WRITE fail, and until bugs_open/040's 2026-08-21 round nothing did.
 const (
-	produceOutcomeOK       = "ok"
-	produceOutcomeNoLeader = "no_leader"
-	produceOutcomeTooLarge = "too_large"
-	produceOutcomeTimeout  = "timeout"
-	produceOutcomeCanceled = "canceled"
-	produceOutcomeNetwork  = "network"
-	produceOutcomeOther    = "other"
+	produceOutcomeOK = "ok"
+	// The two no-leader errors are kept APART because they behave OPPOSITELY
+	// inside kafka-go, and that difference is the whole diagnostic value:
+	//   client_no_leader — protocol.ErrNoLeader, a bare string type with no
+	//     Temporary() method, so the writer's retry loop BREAKS AFTER ONE
+	//     ATTEMPT. This is the "Kafka write errors (1/1)" fingerprint.
+	//   broker_no_leader — kafka.LeaderNotAvailable (error code 5), which IS in
+	//     kafka-go's temporary set and IS retried internally.
+	// Collapsing them would leave a future reader unable to tell
+	// "exhausted immediately" from "retried and still failed" — the council's
+	// editquality seat raised exactly that (corr a414d81b, round 1).
+	produceOutcomeClientNoLeader = "client_no_leader"
+	produceOutcomeBrokerNoLeader = "broker_no_leader"
+	produceOutcomeTooLarge       = "too_large"
+	produceOutcomeTimeout        = "timeout"
+	produceOutcomeCanceled       = "canceled"
+	produceOutcomeNetwork        = "network"
+	produceOutcomeOther          = "other"
 )
 
 // classifyProduceErr maps a WriteMessages error onto a bounded metric label.
@@ -117,8 +129,17 @@ func classifyProduceErr(err error) string {
 		return produceOutcomeOK
 	}
 
-	if errors.Is(err, kafka.LeaderNotAvailable) || strings.Contains(err.Error(), "has no leader") {
-		return produceOutcomeNoLeader
+	// Broker-side first: it is the TYPED check, and its message text does not
+	// contain "has no leader", so the two arms cannot shadow each other.
+	if errors.Is(err, kafka.LeaderNotAvailable) {
+		return produceOutcomeBrokerNoLeader
+	}
+	if errors.Is(err, protocol.ErrNoLeader) || strings.Contains(err.Error(), "has no leader") {
+		// The substring arm is belt-and-braces beside the typed one: WriteMessages
+		// surfaces failures inside composite kafka.WriteErrors shapes whose
+		// Error() text embeds the member texts but whose unwrap chain does not
+		// always reach them.
+		return produceOutcomeClientNoLeader
 	}
 	if IsMessageTooLarge(err) {
 		return produceOutcomeTooLarge
@@ -159,13 +180,63 @@ func topicClass(topic string) string {
 	case strings.HasPrefix(topic, "system.agent."):
 		return "system.agent"
 	case strings.HasPrefix(topic, "system."):
-		// The system.* set that is not per-agent is small and fixed
-		// (system.generic.responses and siblings), so it is safe to keep verbatim
-		// and it is the half most worth seeing by name.
-		return topic
+		// Collapse to the FAMILY, and only to a family this list already knows.
+		//
+		// ⚠ CORRECTED after the council's editquality seat objected (HIGH, corr
+		// a414d81b): this arm used to `return topic`, which is precisely the
+		// "returns a substring of its input" case the rule above forbids — the
+		// author stated the rule and then broke it in the next arm. It is not
+		// hypothetical: [MEASURED 2026-08-21 against the live cluster] of 937
+		// `system.*` topics, 859 are caught by the system.agent arm above and
+		// **78 would have reached here as distinct label values** — and the two
+		// biggest residue families, `system.errors.<agent-type>` (18) and
+		// `system.responses.<agent-type>` (17), grow with every new agent type.
+		// Bounded in practice, unbounded in principle, which is not a guard.
+		if family, ok := systemTopicFamily(topic); ok {
+			return family
+		}
+		return "system.other"
 	default:
 		return "other"
 	}
+}
+
+// knownSystemTopicFamilies is the CLOSED set of `system.<family>` prefixes
+// topicClass may emit. Enumerated 2026-08-21 from the live cluster's 937
+// `system.*` topics, not invented — a family not on this list collapses to
+// "system.other" rather than minting a label.
+//
+// Adding a family here is the only way to grow this metric's cardinality, which
+// is the point: it is a compile-time decision a reviewer can see, not a runtime
+// consequence of somebody naming a topic.
+var knownSystemTopicFamilies = map[string]struct{}{
+	"errors":       {},
+	"responses":    {},
+	"adapter":      {},
+	"events":       {},
+	"orchestrator": {},
+	"metrics":      {},
+	"audit":        {},
+	"human":        {},
+	"dlq":          {},
+	"dispatch":     {},
+	"commands":     {},
+	"thunder":      {},
+	"compliance":   {},
+}
+
+// systemTopicFamily returns the fixed "system.<family>" label for a system topic,
+// and false when the family is not one this build knows about.
+func systemTopicFamily(topic string) (string, bool) {
+	rest := strings.TrimPrefix(topic, "system.")
+	family := rest
+	if i := strings.IndexByte(rest, '.'); i >= 0 {
+		family = rest[:i]
+	}
+	if _, known := knownSystemTopicFamilies[family]; !known {
+		return "", false
+	}
+	return "system." + family, true
 }
 
 // Produce sends a message to a specific topic with standard headers

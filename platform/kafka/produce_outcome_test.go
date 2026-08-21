@@ -42,13 +42,20 @@ func TestClassifyProduceErr(t *testing.T) {
 		// (writer.go: `if !isTemporary(err) && !isTransientNetworkError(err) {
 		// break }`). That is the "Kafka write errors (1/1)" fingerprint: one
 		// message, one attempt, one error, on a condition usually over in seconds.
-		{"live composite: WriteErrors{ErrNoLeader}", liveNoLeader, produceOutcomeNoLeader},
-		{"wrapped by our own producer", wrappedNoLeader, produceOutcomeNoLeader},
-		{"bare protocol.ErrNoLeader", protocol.ErrNoLeader, produceOutcomeNoLeader},
+		{"live composite: WriteErrors{ErrNoLeader}", liveNoLeader, produceOutcomeClientNoLeader},
+		{"wrapped by our own producer", wrappedNoLeader, produceOutcomeClientNoLeader},
+		{"bare protocol.ErrNoLeader", protocol.ErrNoLeader, produceOutcomeClientNoLeader},
 		// The broker-side code-5 error is a DIFFERENT type with a DIFFERENT text
 		// ("Leader Not Available: ..."), which is why the typed check and the
 		// substring check both earn their place rather than one being redundant.
-		{"broker-side LeaderNotAvailable (code 5)", kafkago.LeaderNotAvailable, produceOutcomeNoLeader},
+		//
+		// It gets its OWN label because the two behave OPPOSITELY inside kafka-go:
+		// this one IS temporary and IS retried internally, while the client-side
+		// one breaks the loop after a single attempt. Collapsing them would leave
+		// a reader of the metric unable to tell "exhausted immediately" from
+		// "retried and still failed" — the council's editquality seat objected on
+		// exactly that (corr a414d81b, round 1) and was right.
+		{"broker-side LeaderNotAvailable (code 5)", kafkago.LeaderNotAvailable, produceOutcomeBrokerNoLeader},
 
 		{"too large", kafkago.MessageSizeTooLarge, produceOutcomeTooLarge},
 		{"context cancelled", context.Canceled, produceOutcomeCanceled},
@@ -100,8 +107,15 @@ func TestTopicClassCollapsesPerJobTopics(t *testing.T) {
 		{"job.7abe1a57-e3db-4b71.requests", "job"},
 		{"system.agent.build-dispatch-loop.requests", "system.agent"},
 		{"system.agent.council-gate.requests", "system.agent"},
-		// The non-per-agent system set is small and fixed, so it stays legible.
-		{"system.generic.responses", "system.generic.responses"},
+		// system.* collapses to a KNOWN FAMILY, never to the raw topic.
+		{"system.generic.responses", "system.other"},
+		{"system.errors.copywriter", "system.errors"},
+		{"system.errors.html-developer", "system.errors"},
+		{"system.responses.content-creator", "system.responses"},
+		{"system.adapter.webscrape.requests", "system.adapter"},
+		{"system.dlq.unroutable", "system.dlq"},
+		// An unknown family must NOT mint a label.
+		{"system.somethingnobodyhasinventedyet.foo", "system.other"},
 		{"some-other-topic", "other"},
 		{"", "unknown"},
 	}
@@ -121,5 +135,44 @@ func TestTopicClassIsBoundedAcrossManyJobTopics(t *testing.T) {
 	}
 	if len(seen) != 1 {
 		t.Fatalf("5,000 distinct per-job topics produced %d label values, want 1 - this is a Prometheus cardinality bomb, not a metric", len(seen))
+	}
+}
+
+// THE SECOND CARDINALITY BOUND, added after the council's editquality seat
+// objected (HIGH, corr a414d81b) that the system.* arm returned its raw input —
+// the exact "substring of the input" case topicClass's own rule forbids.
+//
+// [MEASURED 2026-08-21 against the live cluster] of 937 system.* topics, 859 are
+// caught by the system.agent arm and 78 would have reached that arm as distinct
+// label values; the two biggest residue families, system.errors.<agent-type> (18)
+// and system.responses.<agent-type> (17), grow with every new agent type.
+//
+// Mutation that must fail this: return topic from the system.* arm.
+func TestSystemTopicsCollapseToAClosedFamilySet(t *testing.T) {
+	// Every shape in the live residue, plus families that do not exist.
+	inputs := []string{
+		"system.errors.copywriter", "system.errors.html-developer", "system.errors.generic",
+		"system.responses.content-creator", "system.responses.domain-analyst",
+		"system.adapter.git.requests", "system.adapter.thunder.requests",
+		"system.audit.access", "system.audit.actions", "system.audit.log",
+		"system.dlq.unroutable", "system.dlq.parsing-errors",
+		"system.commands.workflow.cancel", "system.commands.workflow.resume",
+		"system.dispatch.requests", "system.dispatch.responses",
+		"system.generic.responses", "system.unknown-family-1.x", "system.unknown-family-2.y",
+	}
+	seen := map[string]struct{}{}
+	for _, in := range inputs {
+		got := topicClass(in)
+		if got == in {
+			t.Errorf("topicClass(%q) returned its own input - this is the cardinality rule's forbidden case", in)
+		}
+		seen[got] = struct{}{}
+	}
+	// 6 known families in this sample + system.other for the three unknowns.
+	if len(seen) > 8 {
+		t.Errorf("%d distinct labels from %d topics: %v - the family set is not closed", len(seen), len(inputs), seen)
+	}
+	if _, present := seen["system.other"]; !present {
+		t.Error("an unknown family did not collapse to system.other - a new topic name can mint a label")
 	}
 }
