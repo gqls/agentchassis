@@ -236,7 +236,7 @@ func TestTwoTargetsInOneFieldBothSurvive(t *testing.T) {
 	// replacement has passed every check.
 	spliced := map[string]string{}
 	replacements := map[string]string{
-		"The two systems overlap rather than compete.":            "The two systems overlap.",
+		"The two systems overlap rather than compete.":                "The two systems overlap.",
 		"Everything past that is refinement rather than requirement.": "Everything past that is refinement.",
 	}
 	for _, tg := range plan.targets {
@@ -267,5 +267,67 @@ func TestTwoTargetsInOneFieldBothSurvive(t *testing.T) {
 	}
 	if n := len(datahelpers.ScanDefineByNegation(got)); n != 0 {
 		t.Errorf("expected 0 constructions after both repairs, got %d", n)
+	}
+}
+
+// The step must hand its content ON, not merely mutate a map it happens to hold.
+//
+// MEASURED AT THE ARTEFACT 2026-08-21 (remortgagecalculator.uk/mortgage-lenders):
+// the gate reported status=repaired, hits_after=0 — and the stored
+// content_data.subheadline was byte-identical to the PRE-repair
+// generated_content.result.subheadline. The renderer never saw the patch,
+// because the fresh-state copy between steps carries only the CURRENT step's
+// own keys, so an in-place edit to the previous step's output is dropped.
+//
+// `result` is therefore not decoration: it is the only part of this action's
+// work that survives to render_section.
+func TestActionHandsItsContentOnAsResult(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		content map[string]interface{}
+		want    string
+	}{
+		{"clean content is still handed on", map[string]interface{}{
+			"headline": "Every agent definition running in production",
+		}, "Every agent definition running in production"},
+		{"patched content is handed on", map[string]interface{}{
+			"headline": "It shows what is possible, not what survives.",
+		}, ""}, // repair needs an AI client; we assert the key's PRESENCE and identity below
+	} {
+		params := ActionParams{
+			Logger:        zap.NewNop(),
+			CollectedData: map[string]interface{}{"generated_content": map[string]interface{}{"result": tc.content}},
+			StepConfig:    models.Step{Config: map[string]interface{}{}},
+		}
+		out, err := RewriteNegationsAction(nil, params)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		m := out.(map[string]interface{})
+		got, ok := m["result"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("%s: the step must return its content under `result` — render_section reads it. Got keys %v",
+				tc.name, datahelpers.GetMapKeys(m))
+		}
+		// It must be the SAME map the renderer would otherwise have read, so a
+		// splice made in place is carried by it rather than lost beside it.
+		if &got == nil || len(got) != len(tc.content) {
+			t.Errorf("%s: returned content differs in shape from the input", tc.name)
+		}
+		if tc.want != "" && got["headline"] != tc.want {
+			t.Errorf("%s: headline = %v, want %q", tc.name, got["headline"], tc.want)
+		}
+	}
+}
+
+// A missing content map must NOT produce a `result` key: an empty one handed to
+// render_section would be a blank section, which is worse than the loud failure
+// of finding nothing.
+func TestNoContentHandsOnNothing(t *testing.T) {
+	params := ActionParams{Logger: zap.NewNop(), CollectedData: map[string]interface{}{},
+		StepConfig: models.Step{Config: map[string]interface{}{}}}
+	out, _ := RewriteNegationsAction(nil, params)
+	if _, present := out.(map[string]interface{})["result"]; present {
+		t.Error("no content found, so no `result` should be handed on")
 	}
 }

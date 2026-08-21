@@ -56,11 +56,33 @@
 // are left alone. A hit in a headline-class field is repaired regardless of
 // budget: it is the first thing a reader meets, and it is what the owner quoted.
 //
-// ⚠ The cross-iteration persistence of that counter is READ FROM the loop
-// design, not yet proven in production. If it does not hold, every section sees
-// a fresh budget and the gate degrades to "repair headlines, allow two per
-// section" — which is weaker than intended but not wrong. There is a canary in
-// the lane's RUNBOOK to settle it after the roll.
+// ⚠ MEASURED 2026-08-21: the counter does NOT persist across iterations, so the
+// budget IS per section — headline hits are still repaired regardless, which is
+// the part that matters. `saveStepResultWithRetry` (coordinator.go) reloads a
+// fresh state and copies only the current step's own stepName/output_field, so a
+// bare CollectedData key does not survive. To make the budget truly per-page,
+// carry the count in this step's OUTPUT and read `copy_gate_<N-1>`.
+//
+// ── AND THE SAME MECHANISM ATE THE REPAIR ITSELF, WHICH IS WHY `result` EXISTS ─
+//
+// This action used to rely SOLELY on mutating the writer's content map in place,
+// on the reasoning that the map in CollectedData is the one the renderer reads.
+// It is — in memory. It is not what survives to the next step: the same
+// fresh-state copy that drops `__copy_gate` also drops an in-place edit to the
+// PREVIOUS step's output, because only the CURRENT step's keys are copied
+// forward. Measured at the artefact on 2026-08-21
+// (remortgagecalculator.uk/mortgage-lenders): the gate reported
+// `status: repaired, hits_after: 0`, and the stored `content_data.subheadline`
+// was byte-identical to the pre-repair `generated_content.result.subheadline` —
+// the renderer never saw the patch. An honest marker over a page that never
+// changed: the silent no-op this design was supposed to be immune to.
+//
+// So the patched map is ALSO returned as this step's own `result`, which is the
+// mechanism that demonstrably persists (`copy_gate_0`, `copy_gate_1` … all reach
+// the durable row), and `render_section.content_from` points at `copy_gate.result`
+// instead of `generated_content.result`. The in-place mutation is kept as well:
+// it costs nothing and it keeps `hits_after` honest about the object this action
+// actually holds.
 
 package actions
 
@@ -138,6 +160,11 @@ func RewriteNegationsAction(ctx context.Context, params ActionParams) (interface
 	recordPageHits(params, plan.pageHits)
 
 	marker := map[string]interface{}{
+		// The content this step hands ON. ALWAYS set when a content map was
+		// found, patched or not, because render_section now reads it — a step
+		// that returned it only when it changed something would drop the section
+		// on every clean page.
+		"result":         content,
 		"hits_before":    plan.total,
 		"exempt":         plan.exemptCount,
 		"exempt_reasons": plan.exemptReasons,
