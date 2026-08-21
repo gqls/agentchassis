@@ -1871,9 +1871,10 @@ func renderContextStepContractKey(templateKey string) string {
 //     exactly with its page's own name (18 of 18 across 11 sites, measured
 //     at retirement) — the fallback's only remaining input supplied a value
 //     the base already had.
+//
 // Retiring it also closes the door it held open: a stale stored string can no
 // longer clobber the fresh page identity in the struct field between the base
-// merge and the resolved-data merge (bugs_open/085's shape). The old spelling
+// merge and the resolved-data merge (bugs_closed/085's shape). The old spelling
 // is simply not part of the read contract — a string under it is ignored the
 // same way the page RECORD always was.
 func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interface{}) {
