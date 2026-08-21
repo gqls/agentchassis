@@ -1,5 +1,46 @@
 # 252 — assembly drops per-page `og:*` and hardcodes `<html lang="en">` on 503 pages
 
+> ## ✅ CLOSED 2026-08-21 — FIXED, LIVE and PROVEN AT THE ARTEFACT
+>
+> **Live on chassis `v1.0.1320`, still present on `v1.0.1321`** — `spliceOpenGraph`, `headLangAttr`
+> and `htmlDocumentOpen` probed PRESENT in the running binary on **both replicas**, with a positive
+> control that fired and a fabricated negative control that did not. Council **APPROVED round 1**
+> (`3b6712d4-4565-4bfe-87f6-c47ecefd6a93`), all four seat-requested checks run and answered.
+>
+> **Proven on real pages, in both directions.** `ai-agent-orchestration.com/about.html` went from two
+> `og:title` tags (one blank, one the site name) and an `og:url` naming the **homepage**, to one
+> `og:title` carrying the page title and an `og:url` naming the page — **agreeing with its canonical**
+> — plus `<html lang="en-GB">`. The homepage is the discriminating control: its `og:url` came out as
+> the bare `/`, not `/index.html`, so `preferredPageURL`'s root normalisation carries through.
+>
+> **Fleet stored heads fully repaired** (24 rows): fingerprint drift 22 → **0**, heads carrying a
+> language 0 → **22**, heads baking a homepage `og:url` 22 → **0**, blank `og:title` duplicates
+> 4 → **0**. `relojistas.com` carries `<head lang="es-ES">` — the owner's ruling that non-English sites
+> must not be `en-GB` (and that this generalises to future language sites), working end to end.
+>
+> **Residual, tracked not ignored: `bugs_open/346`.** A repaired stored head is not a repaired PAGE —
+> a page picks it up when it next re-assembles. 502 of 727 pages had not, and **twelve real sites are
+> at zero**, with a natural rebuild rate of ~1 page/hour. **Owner ruling 2026-08-21: do not force those
+> rebuilds** (≈500 items into `bugs_open/083`'s queue is other lanes' exposure). The defect is dead —
+> it cannot recur, and any rebuild from now produces a correct page. The damage decays on its own.
+>
+> **Where everything lives:** lane
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/` (PLAN with decisions D1–D7,
+> RUNBOOK, NOTES with the full misstep log, README owner log, FINDINGS, DECISIONS) · register
+> **SEO-005** · pattern `016b` §9 · `LANDMINES.md` (the 090 loop cannot see served bytes) ·
+> `WRONG_CALLS.md` (three entries of mine) · migrations `507_head_components_carry_lang.sql` and
+> `508_site_specs_locale_lang.sql`, both applied and recorded.
+>
+> **Spun out, still open:** `bugs_open/346` (the residual above) · `bugs_open/347`
+> (webdesign.co.uk's head component has no `<head>` element — 117 pages, our largest site, and it will
+> never gain a language until that is fixed) · `bugs_open/322` item 4 — **the guard that made this bug
+> possible is untouched, so a future per-page tag added to that block reproduces 252 exactly.** That
+> is the mechanism; this bug was one symptom of it.
+>
+> ⚠ **SEO-005 carries a binding threshold set by the council's architecture seat:** this was the
+> FOURTH head fix to land on one of the two head producers. **A fifth raises an RFC on SEO-003 rather
+> than taking a fifth patch.**
+
 **Filed 2026-08-11** at the owner's direction, escalating what has until now been
 carried as a *stated, accepted loss* in one lane's PLAN. **Platform, fleet-wide.**
 Not a regression: this is how assembly has always behaved. What changed is the
