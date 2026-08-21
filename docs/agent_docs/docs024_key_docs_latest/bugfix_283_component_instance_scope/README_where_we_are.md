@@ -341,3 +341,20 @@ twenty-eight, filed twenty-six, and the pipeline converted twenty-five of them w
 hour. The twenty-sixth is an old friend: a game tool that has always carried the same label
 twice inside itself, which the safety gate rightly refuses to paper over — it joins the short
 repair list a person needs to look at. The whole package is with the review council now.
+
+**2026-08-21, night.** Your two decisions are done and the story has a good ending. The shared
+savings estimator was retired, and each of its two sites got a brand-new tool born through the
+full pipeline — and this was the first real test of the new birth guard, which passed both
+ways: one site's tool came out correctly named on the first try and the guard converted it as
+it was saved; the other site's first two attempts wrote their code in a style the machine
+can't prove safe, the guard refused them both — nothing broken was ever saved — and the third
+attempt, asked more firmly to name elements plainly, sailed through. Both pages are live and
+correct. **No page anywhere serves a broken tool any more.**
+
+One small tail: the finetuning page works but is still on its old naming, because its
+re-publish was stopped by the honesty checker — an empty content field would have rendered as
+"0% reduction", and the system refuses to publish a claim like that. That is two safety nets
+catching each other's cases, which is what they are for. A content refresh is queued; the
+page re-publishes itself after that. Tomorrow: the two loan-site calculators rebuild once
+their team's window closes, the morning sweep should report a clean estate, and then both bug
+files can finally close.
