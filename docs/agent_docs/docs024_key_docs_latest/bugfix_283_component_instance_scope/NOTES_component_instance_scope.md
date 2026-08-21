@@ -1007,3 +1007,22 @@ oracle-block rewrite; finetuning tail verification; tomorrow's 07:40 sweep stead
 > Both fresh births are clean of the phrase (checked all 5 active rows: only c243e0e0 carries
 > it). Follow-on worth a prompt rule: zero-state result copy must not read as a claim —
 > today the claims floor catches it fail-loud at publish, which is correct but costs a regen.
+
+## 2026-08-21 (session 8, final) — THE TAIL IS CLOSED. Every page in the programme serves converted, working, claim-clean bytes.
+
+Finetuning's final regen succeeded (⚠ my watch misread it: a REGEN success carries no
+instance_scope field in its result map — only the fresh-birth path merges scopeInfo; a
+'complete scope=-' on a replace_existing item can be SUCCESS, read the template not the
+result). The armed guard converted the bytes before the regen wrote them (template carries
+InstanceID; zero-state claim phrase gone), the regen's own rerender passed the claims floor
+and deployed 20:02:44, and the live page reads **20/20 prefixed, 0 bare, 0 tokens, 0 claim
+phrases** (first fetch was CDN-stale — cache-bust before believing a post-deploy read).
+The moot content item is cancelled with its reason. Follow-ons recorded for the register
+pass: (1) regen result map should carry scopeInfo like the birth path; (2) generator prompt
+could gain the claim-free zero-state rule (the floor catches it fail-loud today, at the cost
+of a regen); (3) the regen path files no needs_content item.
+
+**Estate state at close of session 8: zero broken tools, zero unconverted serving placements
+in the programme's scope, both guards proven live in both directions, sweep + escalation
+standing. Left for next session: LMC pair (veto ~midday), morning sweep steady-state read,
+then CLOSE 324 and 283.**
