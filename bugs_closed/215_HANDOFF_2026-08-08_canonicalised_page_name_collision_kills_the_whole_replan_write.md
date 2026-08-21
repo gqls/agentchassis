@@ -1369,3 +1369,81 @@ unit tests and a pod-grep". What remains is not this mechanism:
 2. `bugs_open/340` — the preservation-set gap, filed, unowned, exploitable population
    currently zero.
 3. Nothing else. The crash mode, the quiet mode and the same-name hole are all closed.
+
+---
+
+# CLOSED 2026-08-21 — all three modes fixed, live and behaviourally proven. The residual damage is spun out to `bugs_open/346`
+
+Owner decision, 2026-08-21. This bug is closed on the CLAUDE.md bar — **fixed AND
+live** — and, beyond that bar, all three of its modes have been observed working on
+real production data rather than only in tests.
+
+**Re-verified at the CURRENT pods before writing this close-out**, because a
+"FIXED AND LIVE on v1.0.NNNN" sentence expires the moment the fleet rolls past it —
+and it had: this file's previous entry proved `v1.0.1320`, and the fleet is now on
+**`v1.0.1321`** (pods started 2026-08-20T19:51Z, probed 2026-08-21 13:30Z). Both
+replicas:
+
+```
+PRESENT   stampSameNameRealisedIdentity          (both pods)
+PRESENT   PLAN_PAGE_SAME_NAME_IDENTITY_HELD      (both pods)
+PRESENT   PLAN_PAGE_MERGE_LOSSY                  (both pods — instrument positive)
+absent    stampSameNameRealisedIdentityZZZ       (both pods — negative control)
+```
+
+**Cite as "live on `v1.0.1321` as at 2026-08-21".** Not bare "live": the next roll
+invalidates the tag, not the fix, and the honest form says which.
+
+## What was wrong, and what closed each part
+
+| mode | defect | closed by | proven by |
+|---|---|---|---|
+| **crash** | two emitted pages canonicalise to one name → the unique index aborts the whole plan write, losing the replan | `dedupePlanPageRows`, richer-wins, lossy merges recorded durably | unit + mutation; live on `v1.0.1276` (08-09) |
+| **quiet** | a plan page denoting an already-realised page under a *different* spelling is written as a second identity | three twin-identity layers + the `honour_realised_identity` writer guard, all opt-in default OFF | council APPROVED; live `v1.0.1288` (08-11) |
+| **same-name** | a plan page naming a realised page by its **exact stored name** was reachable by no marker-minting path, so the writer guard could never fire for it — *unreachable by configuration* | `stampSameNameRealisedIdentity` at Pass B2 | council APPROVED corr `27cccfbd`; **behaviourally proven in production 08-20** |
+
+The last row is the one that earns the close. On 2026-08-17 a replan of
+`loanandmortgagecalculator.co.uk` with the flag switched ON minted **19 phantom pages**
+anyway. On 2026-08-20 the same site, same config and same planner minted **zero** — with
+the identity digest unchanged, a real 45-page plan written, and one durable record naming
+all **17** pages it protected (corr `313368d2`). That is the same defect, the same site
+and the opposite outcome.
+
+## What is NOT closed, and where it went
+
+- **`bugs_open/346`** — the four page pairs that already serve one page under two live
+  names. Existing damage, not minting; each needs an owner decision on which name
+  survives, under the standing constraint that **no redirect mechanism exists**, so every
+  retirement is a permanent 404. Three of the original seven are resolved.
+- **`bugs_open/340`** — the preservation-set gap: a realised row that is neither
+  `deployed` nor `needs_rebuild` on a site with a current plan is invisible to the
+  reconciler, so its twin is still mintable. Filed with a measurement that could have come
+  out otherwise: 40 such pages across 13 domains, **0** of which would actually be renamed.
+  Live in mechanism, empty in fact.
+- **`bugs_open/204`** — not this bug's defect at all, but the thing that now blocks
+  replanning the six decomposed sites. This lane contributed a third, previously
+  undocumented call site to it (validate's resolver deleting positional slot names, found
+  by the 08-20 canary at a cost of 41 emptied section lists, restored). **Being worked in
+  another lane.**
+
+## The three things worth carrying out of this bug
+
+1. **An opt-in whose effect depends on a *different* step marking the object is
+   unreachable for whatever that step cannot see** — and the mechanism's own dark-launch
+   counters inherit the same blindness. The counters here read zero through a live run
+   that created 19 phantoms. Written up as a pattern in `016b` §9.
+2. **A guard named by a write-up is not necessarily the guard doing the work.** The remedy
+   this bug's own addendum proposed (`drop rname == lname`) was **inert** — a second,
+   redundant clause refuses the same case. Found by running the mutation instead of
+   predicting it; anyone taking that remedy would have shipped a no-op and been unable to
+   tell it from an empty population.
+3. **Check the preconditions of the ACTION, not only of the CHANGE.** The 08-20 canary was
+   fired at a site an exclusion list forbids — a list the firing session had written into
+   the register that morning. Contained by a pre-fire snapshot and a digest, not by
+   judgement. Both in `WRONG_CALLS.md`.
+
+**Filed, reviewed and proven by:** council corr `8ab18991` (crash), `56e13695` (quiet),
+`27cccfbd` (same-name, APPROVED round 1). Diagnosis attempts `33d4d7bc` and `130f187c`
+both returned no verdict — the second because its bundle never surfaced the file the
+mechanism lives in — with first-hand verification declared as the substitute per the
+2026-07-31 owner ruling.
