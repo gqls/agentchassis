@@ -742,3 +742,69 @@ procedure: the remote had committed the clobbered file into the repository, and 
 automatic merge of damage against clean content resolved to **875 bytes of
 neither** — it does not fail, it produces a third thing that becomes the baseline
 every later render diffs against.
+
+### The corrected check's first fleet-wide run — 5 stale tokens on 4 sites, verified independently
+
+Run by the `dartsonline_traffic` lane over the deploy repo; **re-verified here at
+the SERVED artefact** rather than accepted on report, because a repo file and a
+served object are different things and this whole bug is about them diverging.
+All five confirmed live:
+
+| site | token | ink | `--color-text` | its own source |
+|---|---|---|---|---|
+| lendzy.co.uk | `accent-ink` | `#1A1A1A` | `#1A1A1A` | `accent #E8700A` |
+| loancash.co.uk | `accent-ink` | `#1a1a1a` | `#1a1a1a` | `accent #b7791f` |
+| loancash.co.uk | `primary-ink` | `#1a1a1a` | `#1a1a1a` | `primary #e8f5ee` |
+| vetcomparison.uk | `accent-ink` | `#0f172a` | `#0f172a` | `accent #10b981` |
+| vonc.com | `primary-ink` | `#f0eeff` | `#f0eeff` | `primary #7c3cff` |
+
+**The negative half works too, which is what makes the list trustworthy.** On
+every one of those sites the *other* ink token equals its own source and is
+correctly NOT flagged — `vonc accent-ink #fc5c7d == accent #fc5c7d`,
+`vetcomparison primary-ink #2563eb == primary`, `lendzy primary-ink #1B2A4A ==
+primary`. A check that flagged everything would be worthless here; this one
+separates the two cases on real data. The single-clause version would have
+returned cookly as a sixth and someone would have "corrected" a correct token.
+
+### ⚠ The addition to the restore procedure, and it is the important part
+
+**Seeding the theme row faithfully preserves whatever the blob encoded, including
+a pre-repair derivation.** `vonc.com` is on the list *because* it was restored:
+the blob used (`24e84d8fd`, dated **2026-08-09**) predates the 2026-08-14
+`LegibleVariant` repair, and the patch run that later rebuilt the file deployed
+that row faithfully. `oufe` and `dartsonline` are clean only because their blobs
+happened to be dated 08-15.
+
+So, added to the procedure:
+
+> **Check which side of 2026-08-14 the blob you restore from falls on, and run the
+> two-clause check on the result.** A restore is not a repair; it reinstates a
+> point in time, and that point may be before the derivation was fixed.
+
+That is "file date is not derivation date" applied to the restore itself — the
+lane that coined the line walked into it, which is the most useful way for it to
+be demonstrated.
+
+### What this check does and does not establish
+
+It finds **suspects, not confirmed defects**, and the distinction is real.
+`legibleInkFor` falls through to the palette walk when the source cannot be
+rescued by a lightness move at all (achromatic sources, or one no lightness
+clears). For such a source, an ink differing from its source is *correct* even
+post-repair. `loancash primary #e8f5ee` — a near-white mint used as an ink on a
+light page — is exactly that shape: near-black may well be where a *current*
+render lands too.
+
+**So the confirming test is a fresh render, not the token comparison.** Regenerate
+the palette and compare: if the value moves to something in the source's hue
+family, it was stale; if it stays, the walk was right both times.
+
+### NOT fixed here, deliberately
+
+All four sites are outside both contributing lanes, no consumer tracing has been
+done on any of the five (so no visible damage is claimed), and the remedy is a
+**palette regeneration**, not a token edit — which changes every derived value on
+the site at once. Regenerating four sites' palettes on the strength of a check
+run this afternoon would be a larger, less reversible action than the evidence
+supports. **Recorded here so the list is not lost in two transcripts**, which is
+what this section is for.
