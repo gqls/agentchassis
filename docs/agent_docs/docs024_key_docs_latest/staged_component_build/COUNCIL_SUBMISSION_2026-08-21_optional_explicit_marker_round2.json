@@ -1,0 +1,66 @@
+{
+  "rationale": "ROUND 2 of the `?` OPTIONAL-EXPLICIT marker (round 1 corr 5f82423b = REVISE, gated by bug_historian). Round 1 was RIGHT on every count I could act on, and two of its objections found real holes rather than restating my caveats. DISCLOSURE FIRST: the round-1 code is already LIVE — it rode v1.0.1321 (both chassis pods one digest sha256:3ed50651, build revision 0483e7f4e, ecc419bd1 an ancestor with a later-commit control confirming the ancestry test discriminates). On this shared tree a commit IS a deploy, so this round revises a live seam; its blast radius today is nonetheless measured zero, because the marker has zero adopters. WHAT CHANGED. (1) bug_historian, GATING — 'builds a NEW generic silent-absence mechanism with named future adopters but audits none for whether downstream treats absent as a safe no-op'. Answered mechanically, not in prose: a new offline fleet audit `config-key-audit --optional-explicit-wires` lists every live `?` wire on THIS surface (never the input_mapping surface) and exits 1 on any not acknowledged in optional_explicit_wire_acks.json, whose entries must state WHAT WAS CHECKED DOWNSTREAM — an entry with an empty `downstream` is ignored and warned about, because an ack satisfiable by typing the key is the hollow ack the seat named. Keyed on (action, field), because coping-with-absence is a property of the consuming code, not of which workflow wired it. Precedent copied deliberately: RFC_022's optional_key_budget_acks.json. This is the seat's requested 'adoption-time checklist' as an enforced gate rather than a convention. (2) bug_historian, medium — 'the design forecloses the observability that would let anyone notice a `?` field silently resolving to absence'. The same audit IS that tripwire, and it is the right instrument precisely because there is nothing to log: absence is the contract, so the signal lives in config, and the audit makes config countable and unacknowledged adoption loud. RFC_029 §10.15's 'count config keys, not log lines' now names a tool instead of asking for discipline. (3) reuse_agent, medium — 'a second independent copy of the marker grammar'. Extracted `datahelpers.MarkedConfigKey`, now the ONE parser: both ResolveInputMapping sites and both ExtractActionInputs sites call it. Direction matters and is stated in its doc comment — the shared parser implements input_mapping's EXISTING algorithm (HasSuffix checks, double TrimSuffix, strict-wins), because that surface has 77 live `?` keys and mine had zero, so the surface with consumers keeps byte-identical behaviour and the new one conforms. input_contracts already imports datahelpers one-way, so no cycle. (4) guardian, medium + prior_art_librarian, medium — 'the blast-radius census is a JSONB query the reviewer cannot re-verify, and this estate's landmines say such a census silently misses nested populations'. The objection was CORRECT and my round-1 census had exactly that hole: it walked `sub_workflow` only, and `substeps` is the spelling execution actually prefers (cmd/config-key-audit/sharedoutputs.go:45-48). Re-run two independent ways: (a) a SQL walk making NO path assumptions (every key at every depth, objects and arrays) — 0 `?` on the ExtractActionInputs surface, 77 on input_mapping, 6 `!` on mine, 1 `!` on input_mapping, so the instrument demonstrably returns non-zero and is not a vacuous zero; (b) the new Go audit over the same fleet export every other mode uses, via validation.WalkSteps which handles BOTH containers — 194 agents decoded, 0 undecodable, 0 wires. Plus a demand control on the REAL export: injecting one `?` into tool-generator/save_tool yields exactly one unacknowledged finding and exit 1. A test pins the nested case under both container spellings, so the hole cannot silently reopen. (5) editquality, two low — the four guard sites are now named in the plan below with what each stops, and the two mutation-proof test-name sets are enumerated. (6) guardian, high, not vetoing — 'four resolution arms changed together in the shared input path'. Stated plainly rather than argued away: they are four DOORWAYS to non-explicit resolution (Strategy 1/2 request list, the two merge guards, the nested-object fallback, the Strategy 3 bridge), now gated by ONE predicate reached through ONE parser, which is fewer independent decision points than round 1 had, not more. The composition risk the seat names is real and is why the marker ships with zero adopters and an audit that blocks the first one until a human has read its downstream. (7) bug_historian, medium and architecture's note — 330's unmarked-field fall-through stays open (candidate 2, gated on the 269-pair unsampled remainder) and this change adds no resolver arm, so the arm budget is untouched; both remain stated deferrals, not silent ones.",
+  "plan": {
+    "summary": "Round 2: extract the marker grammar into one shared parser used by both surfaces, and add an offline fleet audit + acks file that blocks the first `?` adopter until its downstream absence-safety is stated. Census re-run two ways after the round-1 instrument was shown to miss `substeps`.",
+    "edits": [
+      {
+        "file": "platform/orchestration/datahelpers/action_inputs.go",
+        "operation": "modify",
+        "rationale": "Add `MarkedConfigKey(key) (base, strict, optional)` — the ONE parser for the suffix-marker grammar — and route ExtractActionInputs' marker detection, its config normalisation, and UnknownConfigKeys through it. Its doc comment records WHY it implements input_mapping's existing algorithm rather than mine: 77 live `?` keys there, 0 here.",
+        "sketch": "strict = HasSuffix(k,\"!\"); optional = !strict && HasSuffix(k,\"?\"); base = TrimSuffix(TrimSuffix(k,\"!\"),\"?\"). Callers skip base==\"\" (a bare marker names no field)."
+      },
+      {
+        "file": "platform/orchestration/input_contracts/input_mapping.go",
+        "operation": "modify",
+        "rationale": "Both parse sites (ResolveInputMapping and WithItem) call the shared parser instead of re-deriving HasSuffix/TrimSuffix inline. Behaviour byte-identical by construction — the shared parser is this file's algorithm, moved, not a new one. This is the reuse_agent seat's objection closed at the code level rather than at the semantics level.",
+        "sketch": "actualDestField, isStrict, isOptional := datahelpers.MarkedConfigKey(destField)"
+      },
+      {
+        "file": "cmd/config-key-audit/optionalexplicitwires.go",
+        "operation": "add",
+        "rationale": "The gating objection's mechanical answer: `--optional-explicit-wires` walks every live definition (validation.WalkSteps — top-level and nested, BOTH container spellings) and reports every `?` key sitting directly on a step config, excluding the input_mapping surface. Exit 0 = all acknowledged (zero wires is a legitimate pass), 1 = a live unacknowledged wire, 2 = the check could not run (unreadable export or acks file) — which must never read as a pass. A missing acks file is an error, not an empty ack set, because both silent readings are wrong.",
+        "sketch": "findOptionalExplicitWires(agents, acked) skips strict and bare markers; Acknowledged: acked[step.Action+\".\"+base]; loadOptionalExplicitAcks ignores `_`-prefixed doc keys and entries whose `downstream` is blank, warning on each."
+      },
+      {
+        "file": "cmd/config-key-audit/optionalexplicitwires_test.go",
+        "operation": "add",
+        "rationale": "Six tests, each with the control that makes its negative non-vacuous: unacknowledged-by-default (+ the acked case, so the two states are distinguishable); input_mapping surface ignored (+ CONTROL moving the same key onto step config, else a broken walker would pass); `!` ignored; nested wire found under BOTH sub_workflow and substeps (the census hole the guardian named); a hollow ack does not count (+ CONTROL that a real one does); a missing acks file errors. Header records three mutation proofs in no-op form.",
+        "sketch": "Fixtures decode from JSON through the real liveAgent decoder rather than hand-built structs, so they cannot agree with the walker by construction."
+      },
+      {
+        "file": "cmd/config-key-audit/main.go",
+        "operation": "modify",
+        "rationale": "Dispatch the new mode, following the existing one-if-per-mode shape.",
+        "sketch": "if os.Args[1] == \"--optional-explicit-wires\" { emitOptionalExplicitWires(os.Args[2:]); return }"
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/architecture_review/optional_explicit_wire_acks.json",
+        "operation": "add",
+        "rationale": "The acks file, empty of entries because the marker has zero adopters. Its _doc states the rule (an entry records that a human read the DOWNSTREAM code and confirmed absence is a safe no-op) and that `downstream` is not optional in spirit.",
+        "sketch": "{\"_doc\": ..., \"_no_entries_yet\": \"marker shipped with zero adopters; the first adopter adds the first entry in the same commit as its migration\"}"
+      },
+      {
+        "file": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
+        "operation": "modify",
+        "rationale": "§10.15 gains the round-1 verdict, the corrected census (with the `substeps` hole named as a wrong call, since it was one), and the adoption gate — replacing the sentence that told readers to count config keys with the tool that counts them.",
+        "sketch": "dated correction beneath the existing section, per the append-and-correct rule."
+      },
+      {
+        "file": "docs/agent_docs/docs026_concept_register/register/contracts-and-standards.md",
+        "operation": "modify",
+        "rationale": "CTS-060 point (5) updated: the shared parser is now the single grammar for both surfaces, and adoption is gated by the audit + acks file rather than by convention.",
+        "sketch": "amend the existing (5) in place with the round-2 facts and the tool name."
+      }
+    ],
+    "grounded_in": [
+      "Round-1 council report (corr 5f82423b, decision revise, decided_by 'gating objection from bug_historian'): 'ships zero of them and audits none for whether their downstream code actually treats absent as the safe no-op vs an unguarded empty-string/zero-value that gets rendered or persisted'.",
+      "Round-1 reuse_agent: 'it is re-implementing marker-parsing logic ... as a second independent copy in action_inputs.go rather than extracting a shared helper used by both'.",
+      "Round-1 guardian: 'a live-config census on nested config strings is exactly the kind of query that silently misses populations (nested sub_workflow/substeps ...)' — CONFIRMED as a real hole in my round-1 census, not merely a possible one.",
+      "cmd/config-key-audit/sharedoutputs.go:45-48: 'a loop body as EITHER substeps or sub_workflow, and substeps WINS at execution ... The private descent read sub_workflow ONLY' — the documented precedent for why the round-1 census under-counted.",
+      "Live re-census 2026-08-21, path-assumption-free SQL walk over every key at every depth of all 194 live definitions: 0 `?` on the ExtractActionInputs surface, 77 on input_mapping, 6 `!` on ExtractActionInputs, 1 `!` on input_mapping — non-zero populations prove the instrument discriminates.",
+      "`go run ./cmd/config-key-audit --optional-explicit-wires` over the live fleet export: '194 agents decoded (0 undecodable), 0 live `?` wire(s) ..., 0 unacknowledged', exit 0; and with one `?` injected into the real export at tool-generator/save_tool: exactly 1 finding, unacknowledged, exit 1.",
+      "Roll verification 2026-08-21: both chassis pods on one digest sha256:3ed50651…, image label revision 0483e7f4e, `git merge-base --is-ancestor ecc419bd1 0483e7f4e` true with a later-commit control false — the round-1 code is live, so this round revises a live seam."
+    ],
+    "risks": "The round-1 code is ALREADY LIVE (v1.0.1321) — this round cannot be held back and does not pretend otherwise; what bounds it is that the marker has zero adopters, measured two independent ways. The audit is a NEW check with no schedule yet: nothing runs it, so today it protects only an author who runs it, and its natural home is the daily CronJob pattern the optional-key-budget check already uses (deliberately not wired here — the image must exist before the overlay, the trap removed-config-keys-check's cronjob.yaml records). Until then a first adopter could land unaudited, which is a smaller hole than round 1 had but is not zero, and is stated rather than papered over. The shared parser touches a surface with 77 live consumers: behaviour is byte-identical by construction (their algorithm moved, not replaced) and the input_contracts suite passes, but this is the change in this round with real live reach, not the marker. Neither the audit nor the marker closes 330's unmarked-field fall-through; that stays candidate 2, gated on the unsampled 269-pair remainder."
+  }
+}

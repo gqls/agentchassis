@@ -282,7 +282,7 @@ func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknow
 		// (§9 D2) — each recognised exactly when the base is. The original
 		// spelling is what gets reported if it is not, so the author sees the
 		// key they actually wrote.
-		base := strings.TrimSuffix(strings.TrimSuffix(k, "!"), "?")
+		base, _, _ := MarkedConfigKey(k)
 		if base == "" {
 			base = k
 		}
@@ -612,6 +612,29 @@ func IsDottedPathReference(s string) bool {
 	return strings.Contains(s, ".")
 }
 
+// MarkedConfigKey is THE ONE parser for the suffix-marker grammar, shared by
+// both mapping surfaces (council REVISE round 1, reuse_agent seat: two surfaces
+// parsing one grammar independently is how two parsers drift apart).
+//
+// It returns the base field name and which marker the key carried:
+//   - `"field!"` → strict: this reference or a loud failure;
+//   - `"field?"` → optional-explicit: this reference or absence;
+//   - `"field"`  → neither.
+//
+// STRICT WINS A DEGENERATE COMBO, and the trim order is deliberately the one
+// input_contracts/input_mapping.go has used since the markers existed — that
+// surface has 77 live `?` keys and 1 live `!` (census 2026-08-20), so the
+// grammar it already enforces is the grammar, and ExtractActionInputs (which
+// had zero `?` keys when it adopted this) conforms to it rather than the other
+// way round. A key that is nothing but a marker yields an empty base; every
+// caller must skip that rather than register a field named "".
+func MarkedConfigKey(key string) (base string, strict, optional bool) {
+	strict = strings.HasSuffix(key, "!")
+	optional = !strict && strings.HasSuffix(key, "?")
+	base = strings.TrimSuffix(strings.TrimSuffix(key, "!"), "?")
+	return base, strict, optional
+}
+
 // ExtractActionInputs extracts inputs according to spec
 // Priority order:
 //  1. input_fields from config (preferred pattern)
@@ -687,11 +710,13 @@ func ExtractActionInputs(
 	strictFields := map[string]bool{}
 	optionalExplicit := map[string]bool{}
 	for k := range config {
-		if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
-			strictFields[base] = true
-			continue
+		base, strict, optional := MarkedConfigKey(k)
+		if base == "" {
+			continue // a bare marker names no field
 		}
-		if base := strings.TrimSuffix(k, "?"); base != k && base != "" {
+		if strict {
+			strictFields[base] = true
+		} else if optional {
 			optionalExplicit[base] = true
 		}
 	}
@@ -701,20 +726,21 @@ func ExtractActionInputs(
 	if len(strictFields)+len(optionalExplicit) > 0 {
 		normalised := make(map[string]interface{}, len(config))
 		for k, v := range config {
-			if base := strings.TrimSuffix(k, "!"); base != k && base != "" {
+			base, strict, optional := MarkedConfigKey(k)
+			switch {
+			case base == "":
+				normalised[k] = v // a bare marker: leave it where it was
+			case strict:
 				normalised[base] = v
-				continue
-			}
-			if base := strings.TrimSuffix(k, "?"); base != k && base != "" {
+			case optional:
 				if !strictFields[base] { // a `!` twin already claimed the base
 					normalised[base] = v
 				}
-				continue
+			case strictFields[k] || optionalExplicit[k]:
+				// unmarked twin of a marked key: the marker wins
+			default:
+				normalised[k] = v
 			}
-			if strictFields[k] || optionalExplicit[k] {
-				continue // unmarked twin of a marked key: the marker wins
-			}
-			normalised[k] = v
 		}
 		config = normalised
 	}

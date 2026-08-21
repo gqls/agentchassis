@@ -108,10 +108,12 @@ func ResolveInputMapping(
 	result := make(map[string]interface{})
 
 	for destField, sourcePath := range mapping {
-		// Suffix markers: "?" optional, "!" strict (strict wins a degenerate combo)
-		isStrict := strings.HasSuffix(destField, "!")
-		isOptional := !isStrict && strings.HasSuffix(destField, "?")
-		actualDestField := strings.TrimSuffix(strings.TrimSuffix(destField, "!"), "?")
+		// Suffix markers: "?" optional, "!" strict (strict wins a degenerate
+		// combo). Parsed by the ONE shared parser both mapping surfaces use —
+		// this grammar is the original and datahelpers conforms to it, so the
+		// behaviour here is unchanged by the sharing (council REVISE round 1,
+		// reuse_agent seat).
+		actualDestField, isStrict, isOptional := datahelpers.MarkedConfigKey(destField)
 
 		// Handle special $item token (fan_out replaces this before calling)
 		if sourcePath == "$item" {
@@ -184,10 +186,8 @@ func ResolveInputMappingWithItem(
 
 	for destField, sourcePath := range mapping {
 		// Suffix markers: "?" optional, "!" strict — same contract as
-		// ResolveInputMapping above (RFC_029 §9 D3)
-		isStrict := strings.HasSuffix(destField, "!")
-		isOptional := !isStrict && strings.HasSuffix(destField, "?")
-		actualDestField := strings.TrimSuffix(strings.TrimSuffix(destField, "!"), "?")
+		// ResolveInputMapping above (RFC_029 §9 D3), same shared parser.
+		actualDestField, isStrict, isOptional := datahelpers.MarkedConfigKey(destField)
 
 		// Handle $item — pass through directly
 		if sourcePath == "$item" {

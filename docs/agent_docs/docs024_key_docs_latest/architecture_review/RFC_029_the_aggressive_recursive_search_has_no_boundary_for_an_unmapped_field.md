@@ -1228,3 +1228,41 @@ wired-but-empty field still falls through to the search (candidate 2's global fo
 gated on the 269-pair/75-agent unsampled remainder of the 08-20 audit, 330 §9). And a `?`
 field that misses is *silent by design* — absence is the contract, so nothing logs; anyone
 measuring adoption must count config keys, not log lines.
+
+> **§10.15 ROUND-1 VERDICT AND CORRECTIONS — 2026-08-21. REVISE (corr `5f82423b`), gated by
+> `bug_historian`; round 2 published on the same correlation. Two of the objections found real
+> holes, and one of them was in the measurement this section relied on.**
+>
+> **The code went LIVE before the verdict** — `ecc419bd1` rode `v1.0.1321` (both pods one digest
+> `sha256:3ed50651…`, image label revision `0483e7f4e`, ancestry true with a later-commit control
+> false). On this tree a commit is a deploy; the marker is live with zero adopters.
+>
+> **CORRECTION — my "zero live `?` keys" census was taken with an instrument that could not have
+> found one class.** It walked `sub_workflow` only, and **`substeps` is the spelling execution
+> prefers** (`cmd/config-key-audit/sharedoutputs.go:45-48` records a private descent going blind
+> exactly this way). The guardian and prior_art_librarian seats both objected that a nested-config
+> census is the kind that silently under-counts; they were right, and it is logged in
+> `WRONG_CALLS.md`. Re-measured two independent ways, both 2026-08-21: a SQL walk making **no path
+> assumptions** (every key, every depth, objects and arrays) → **0** `?` on this surface, **77** on
+> the `input_mapping` surface, **6** `!` on this one, **1** `!` on the other — the non-zero
+> populations are what prove the query discriminates; and the new Go audit over the standard fleet
+> export via `validation.WalkSteps` (both containers) → **194 agents decoded, 0 undecodable, 0
+> wires**, with a demand control injecting one `?` into the real export at `tool-generator/save_tool`
+> → exactly 1 finding, exit 1. The conclusion held; the first instrument could not have told me so.
+>
+> **The "count config keys, not log lines" sentence above now names a tool.** `config-key-audit
+> --optional-explicit-wires` lists every live `?` wire on this surface and **exits 1 on any not
+> acknowledged** in `architecture_review/optional_explicit_wire_acks.json`, whose entries must state
+> what was checked **downstream** — an entry with a blank `downstream` is ignored and warned about,
+> because an ack satisfiable by typing the key is no ack. Keyed on `<action>.<field>`: coping with
+> absence is a property of the consuming code, not of the workflow that wired it. This is
+> bug_historian's requested adoption-time checklist as a gate rather than a convention, and it is
+> also the observability the seat said the design foreclosed — there is nothing to log, because
+> absence IS the contract, so the signal has to live in config.
+> **Not yet scheduled**: nothing runs it on a timer, so today it protects an author who runs it. Its
+> home is the daily CronJob pattern `optional-key-budget-check` already uses (image before overlay).
+>
+> **One parser, not two** (reuse_agent): `datahelpers.MarkedConfigKey` is now the single grammar for
+> both surfaces. It implements **input_mapping's existing algorithm**, not this section's — that
+> surface has 77 live `?` keys and this one had zero, so the surface with consumers keeps
+> byte-identical behaviour and the newcomer conforms.

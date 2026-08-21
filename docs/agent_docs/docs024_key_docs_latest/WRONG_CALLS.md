@@ -40410,3 +40410,34 @@ all four. No decision was taken on it — the clamp was already going to the sha
 undercount changed the *justification*, not the change. **Nothing was broken in production:**
 thunder's defaults are 60 / 1440 / 360 minutes, all under the ceiling, so the exposure was
 reachable rather than live. That is luck, not design — the field is caller-supplied.
+
+## 2026-08-21 — staged_component_build: my "zero live consumers" census walked one of the two loop-container spellings, and it was the losing one
+
+**The claim.** The `?` marker's whole safety story was "opt-in, zero live consumers" — I put it in
+the council submission, the concept register and RFC_029 §10.15. My census was a recursive SQL walk
+that descended `config.sub_workflow.steps`.
+
+**What was wrong.** A loop body can be authored as `substeps` OR `sub_workflow`, and **`substeps`
+WINS at execution** — documented in this repo since `bugs_open/144`
+(`cmd/config-key-audit/sharedoutputs.go:45-48`, where a private descent read `sub_workflow` only
+and went blind the same way). So my zero was a zero over part of the corpus, stated as a zero over
+all of it.
+
+**What caught it.** The council's `guardian` seat, which objected that a nested-config census "is
+exactly the kind of query that silently misses populations (nested sub_workflow/substeps ...)" —
+naming the mechanism, not just doubting the number. `prior_art_librarian` independently flagged the
+same claim as unverifiable from the submission.
+
+**The cheap check that would have caught it.** Two, either would have done. (1) Make the query
+**path-assumption-free**: walk every key at every depth rather than the paths you expect — one
+`WITH RECURSIVE` over `jsonb_each`/`jsonb_array_elements` with no path literals in it at all.
+(2) **Reuse the estate's walker instead of hand-rolling a descent**: `validation.WalkSteps` handles
+both containers and exists precisely because two hand-written descents go blind in different
+directions and then agree. I hand-rolled a third.
+
+**Transferable, and it is not "be careful with SQL".** A census that names the paths it expects can
+only ever confirm the shape you already believe. **The disconfirming question is not "is my number
+right" but "what would this query be unable to see?"** — and for a nested-config census on this
+estate the answer has a documented name. Both re-runs (SQL with no path literals; the new Go audit
+via WalkSteps) returned the same 0, and only now is it evidence: the same instruments return 77, 6
+and 1 on the neighbouring populations, so they can come out otherwise.
