@@ -1,84 +1,92 @@
-# Summary — the work-item failure-write contract (bug 307), 2026-08-21
+# SUMMARY — 2026-08-21b — the work-item terminal-write contract (bugs_open/307 → closed)
 
-*(First summary for this lane, written at its completion. The series rule applies from here:
-any future summary is a NEW file, never an edit of this one.)*
+*Written to be read aloud. The **second** summary of 2026-08-21, from the lane that BUILT the
+contract; `SUMMARY_2026-08-21_…` is the first, from the session that VERIFIED and closed it. Same
+day from the two ends of the work — the series is the record, so read both.*
 
-## What we're trying to do
+> **Why this is a `b` file, twice over.** I wrote it with a shell redirect to a path I had never
+> read and destroyed the first summary; the pre-commit pattern check caught it, and it was restored
+> from git. The repair itself then mis-assigned — both filenames ended up holding the *other*
+> lane's text, so for a short while this account was absent from `HEAD` entirely. Recovered from
+> `83622e60b`. Recorded here rather than tidied away because the series exists precisely to show
+> how a day's understanding moved, and a file that quietly lost half of it would be the failure the
+> rule was written against. Incident: `WRONG_CALLS.md`, 2026-08-21.
 
-When a piece of queued work fails on this platform, the failure should be handled the same
-way every time: the attempt gets counted, the item goes back in the queue with a wait before
-the next try, a deliberate human decision on the item is never overwritten, and a passing
-infrastructure blip — the whole fleet failing the same way at once — sends the item back
-without spending one of its lives at all. That last part is your own ruling, given on 18
-August after a three-hour GitHub outage killed a hundred pieces of work outright: "a
-transient blip should return the item to queued."
+## What we were trying to do
 
-## Where we've come from
+A three-hour GitHub outage on 17 August killed a hundred pieces of queued work outright. The
+owner's ruling the next day was one sentence: **a transient blip should return the item to queued.**
+The job was to make that true — and to do it as one mechanism rather than three patches, because
+the bug's own diagnosis had already worked out that the three defects were one seam.
 
-Before this work there was no such contract. Two different pieces of code wrote "this item
-failed", and they disagreed: one counted attempts but retried instantly — three tries inside
-minutes, all into the same dead dependency — and the other counted nothing at all, so for
-five kinds of work one failure was permanent, on a normal day, with nothing wrong. Measured
-properly that quiet version was the bigger problem: nearly three-quarters of all failed items
-died before using their allowance. Neither writer respected a decision a human had recorded.
-The outage was the alarm; the daily bleed was the fire.
+## Where we came from
 
-## What we've done
+The retry machinery existed and ran. It failed for two unrelated reasons that happened to meet.
 
-One shared piece of code now handles every failure the same way, and it shipped through two
-review-council rounds — the first of which caught a real defect (a guard list reused where it
-must differ) before it ever ran.
+It retried **immediately** — three attempts inside a few minutes, all into the same dead
+dependency. Retrying with no wait is the same as not retrying, if the thing you depend on is down
+for two hours.
 
-Then the part that earned its keep: rather than trusting the tests, we fed the live system a
-single deliberately doomed test item and watched what actually happened. That drill found two
-real faults the fifteen tests could never see. First, two seconds after the new machinery
-correctly re-queued a failed item, an unrelated bit of housekeeping stamped it "complete" —
-recording failed work as done and cancelling the retry; a real page on the mortgage
-calculator site hit this within hours. Second, when an item genuinely ran out of lives, the
-write that should mark it permanently failed crashed on a one-character database technicality
-our test stand-in doesn't check — so nothing could ever run out of lives; doomed items just
-cycled for ever. Both were fixed the same day (the second by this session, approved by the
-council first time; the first by the sister session, on your ruling), and both fixes rode
-this afternoon's deploy.
+And a second piece of code wrote "this failed" **without counting the attempt at all**. Five live
+agents used it. For those, one failure was the end — on an ordinary day, with nothing wrong.
+Counted properly, that path was costing **401 of 558 failures in a fortnight, 72%**, and nobody had
+noticed because a dead item looks the same either way.
 
-The drill was then run again, end to end, and passed everything: the failed item waited half
-an hour, then an hour, between tries; nothing stamped it complete; a "we are not doing this
-one" decision made mid-run was left standing, with the system's own log saying so; and the
-third failure was marked permanently failed, correctly. The test row was deleted. Bug 307 is
-closed and moved to the closed pile, alongside the other three bugs this check-up covered
-(301 and 313 were already properly closed; 317 needed only its final move).
+There was a third thing, contributed by another lane: when a handler deliberately decides
+something — "a human needs to look at this" — the failure path could silently write over that
+decision.
+
+## What we did
+
+One shared piece of code that every failure path now goes through. It counts the attempt, waits
+before the next one (using timings from a policy table that already existed and had been waiting
+for a second user since it was built), refuses to overwrite a deliberate decision, and — when it
+can see the whole fleet failing the same way at once — puts the item back **without spending an
+attempt**.
+
+That last part is the only genuinely new machinery, and the design decision worth recording is what
+it does *not* do. A deleted repository and a GitHub outage produce identical error text. So we
+don't judge the message at all; we ask a different question — *is anything else failing this way
+right now?* An outage shows up across different customers and different kinds of agent within
+minutes. A deleted repo fails alone. Measured against a week of history: exactly three things
+trigger it, all three were real outages, and nothing that was one item's own fault ever did.
+
+It went through the review council twice, and the council **earned its place twice**.
 
 ## Where we are now
 
-The contract is live on the whole fleet and proven on both real traffic and the drill. Two
-genuine infrastructure blips on the evening of the 20th were handled exactly as you asked —
-requeued without losing a life, retried after the wait, finished successfully. Since the
-final deploy, not one item has been falsely completed. The one thing that cannot be proven on
-demand — a real outage leaving nothing dead behind — is written into the closed bug as a
-standing watch with an explicit "reopen if" condition, so it cannot quietly become folklore.
+**It works, it is live on the whole fleet, and it is proven on real traffic** — not in a test.
+Items have been returned to the queue without losing an attempt and have gone on to succeed; the
+daily bleed reads zero; and a synthetic canary drove every remaining arm end to end.
+
+**Three real defects were found after we thought it was done, and two of them were mine.**
+
+- The council's first round caught me **reintroducing the exact bug I was fixing**, one line from
+  where I fixed it — I reused a list of protected statuses on a neighbouring code path where it had
+  to differ, and told the reviewers it matched when it didn't.
+- The canary caught something worse: **the code that gives up honestly at three attempts crashed
+  every time**. A parameter was passed to the database that the statement no longer mentioned.
+  Fifteen tests and five deliberate sabotages missed it, because they all tested the SQL as *text*
+  against a fake database, and the fault was in the SQL as a *program*.
+- Fixing that exposed a fourth: once retries actually worked, the surrounding job started reporting
+  success two seconds later and **stamping the retried item "complete"**, wiping the retry. Live,
+  on a real customer page that never got its content while the record said it had.
+
+All four are fixed, live and verified. `307` and `344` are closed; the fifth writer's cooldown is
+applied and waiting for natural traffic to exercise it.
 
 ## Where we're going
 
-Three smaller pieces remain, each with a named owner, none blocking anything closed here. The
-sister session is finishing the database-side half of the completion fix (bug 344) — the
-hourly cleanup job can still, in one narrow case, do what the main path no longer can — and
-its own cooldown work for that same job (bug 341), which is deliberately held back until 344
-lands. A pre-existing question about how "park this for a human" failures count their
-attempts (bug 033) stays with its own earlier ruling. And the next real outage is the
-standing watch's moment: if it leaves anything dead, 307 reopens; if it leaves nothing, the
-ruling that started all this is fully honoured.
+Almost nothing, deliberately. One standing watch — the outage detector has still **never fired in
+production**, because there has not been an outage since it shipped, and no test can substitute for
+that. It lives in one file with a trigger that reopens the bug if it fires. Four design questions
+are with the owner; the mechanism runs correctly whichever way they go, but they decide what the
+next author copies.
 
-The lesson worth carrying beyond this lane is written into the debugging guide: a fix that
-changes what a failure writes must audit every *other* writer of the same record, and no test
-stand-in replaces one deliberately doomed item run through the real machinery — ninety
-seconds of drill found what fifteen tests missed.
-
-> **CORRECTED 2026-08-21, later the same evening:** "Where we're going" says the sister
-> session is finishing "the database-side half of the completion fix". Their measurement,
-> hours after this was written, showed that half is **unnecessary by construction** — the
-> cleanup job only ever touches items in the "claimed" state, and an item put back in the
-> queue by the new machinery is never in that state, so the narrow case this summary
-> described cannot occur (zero instances measured). What bug 344 still awaits is its review
-> verdict, nothing more. The cooldown work (bug 341) is meanwhile applied and live, not
-> pending. The error was this summary's author's, made by analogy and corrected by the
-> sister session's check.
+**The thing worth carrying out of this lane is not the mechanism.** It is that every defect above
+was found by something mechanical — a canary that drove the real path, a mutation that deleted the
+code and checked something went red — and none was found by reading harder or being more careful.
+Four separate times this lane produced a confident, wrong measurement: a filter that could not
+match what it searched for, sabotages that never applied, an attribution by the wrong column, and a
+time window that had not opened yet. Each was caught by the same habit: **before believing a
+number, ask what result would have proved you wrong — and check that result was reachable.**
