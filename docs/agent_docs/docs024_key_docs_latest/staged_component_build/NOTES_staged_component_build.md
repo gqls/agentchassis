@@ -6720,3 +6720,25 @@ line-for-line is `removed-config-keys-check`: `build/docker/backend/<name>.docke
 binary AND the acks file (same reasoning as `shared-output-fields-check` shipping its ack list — a
 working-tree build could bake in an unreviewed acknowledgement), a `build-`/`push-`/`deploy-` makefile
 trio, and `deployments/kustomize/services/<name>/{base,overlays/production/uk_001}`.
+
+## 2026-08-21 (~14:2xZ) — 535 + 536 APPROVED and APPLIED. Handler side of bugs_open/334 is COMPLETE — 9 real handlers, all standardised, all verified live
+
+Final sweep, `default_config #> '{workflow,steps,complete,config,result_mapping}' ? 'commit_sha'`,
+all 9: **page-rerender, rerender-pages, css-patch-agent, section-editor, webdesign-agent,
+nav-updater, page-build-handler, asset-deployer, image-build-handler — all `t`.** (Nine, not eight
+as an earlier entry this session miscounted — asset-deployer and image-build-handler are two
+separate agents, not one.)
+
+536's VERIFY correctly issued the same honest WARNING as 534 did: no image-build-handler
+orchestration has yet called asset-deployer since 535 applied, so the shape is correct by
+construction (535 independently verified) but not yet its own live confirmation. Left as owed,
+not claimed.
+
+**This closes this lane's own side of bugs_open/334.** What's left is entirely
+`staged-component-build`'s: the one-line `complete_work_item` wire, now redesigned (their own
+correction, prompted by the tool-generator trace) to key its apply-guard on which handlers'
+**own** trees can produce a commit — not on which work items have historically recorded one, which
+the tool-generator case proved is a property of the resolver being replaced, not of the handler.
+
+Pinged them; nothing further owed from this lane on commit_sha unless the wire's build turns up
+something that needs another handler-side fix.
