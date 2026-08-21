@@ -2499,3 +2499,18 @@ first plain-absence filing after hotfix 532): built clean, which is the second-p
 `_human_exp`, `id="errorMsg"`. POSITIVES: `id="jwt-input"`, `does not verify`,
 `jwt-status-expired` ×2. Serve-grade pending on `7c9deeee` (queued, ~97 were ahead at filing).
 **Phase A remainder: token-calculator, clip-path.**
+
+## 2026-08-21 14:45Z — #27 token-calculator built+retired+graded (27 of 63)
+
+Item `09d63a2f` (14:06:21Z, plain-absence spec — second clean build post-532). Retire `UPDATE 1`,
+slot `1ae8d65e` md5 `aef05d41…` intact. RUN: complete, adopted, component `e671431c` (11,394 chars).
+**COMPONENT PASS by mechanism:** the estimate is LABELLED an estimate with its heuristic named on the
+page; the rates table states "illustrative as of January 2025" AND every model row's price-per-million
+is an EDITABLE field that recomputes the row — the staleness its own date admits is thereby harmless,
+which was the brief's load-bearing design (a frozen "current rates" table was the ported defect;
+"GPT-3.5 Turbo" and the comment-buried disclaimer are gone); invalid price (NaN/negative/blank) shows
+a row message and blanks that row's cost; `updateStats()` RUNS AT LOAD (the ported tool never
+initialised); empty input yields zeros. 0·0·0·0 standard counts.
+**Controls:** NEGATIVES (0): `id="inputText"`, `id="tokenDisplay"`, `id="costGPT4o"`,
+`GPT-3.5 Turbo`, `~4 chars`. (⚠ `Claude 3.5 Sonnet` is in BOTH — excluded, shared-string trap again.)
+POSITIVES: `estimate-note`, `Rates shown are illustrative`. Serve-grade pending its rerender.
