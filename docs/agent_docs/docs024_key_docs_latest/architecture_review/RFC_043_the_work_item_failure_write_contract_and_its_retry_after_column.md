@@ -132,3 +132,83 @@ Register **WII-024** (the contract) · `bugs_open/307` §8/§8b · `bugs_open/34
 2026-08-11 (the opt-in exception this is disqualified from) · **WII-003** (the guard pattern) ·
 **WDS-018** / `bugs_closed/291` (the armed-with-kill-switch precedent) · **RSH-006/007** (the
 classifiers layered here) · council corr `4cdec68b-fa17-436d-8e25-8c422ee6c8c5`.
+
+---
+
+# OWNER RULINGS, 2026-08-21 — all four questions answered
+
+Given in response to §5, in the owner's own order.
+
+## 1. `reaper_policies`: adopt the numbers only — LEAVE the executor until a THIRD consumer appears
+
+> *"leave it until a 3rd consumer appears."*
+
+So `site_work_items` stays a numbers-only consumer and `RFC_018`'s "generalise when a second queue
+arrives" is **superseded on this point**: two consumers is not enough evidence to design a shared
+executor, and an abstraction fitted to two is usually fitted to neither. **RFC_018's stopping point
+should be read as "consider at two, decide at three".**
+
+What this obliges: nothing now, and one thing later — whoever brings the third consumer inherits
+the generalisation, and should find this ruling rather than re-deriving it. Noted in `SCH-024`.
+
+## 2. The three completion-guard lists SHOULD converge — as their own change, with their own review
+
+> *"yes they should become one with it's own change and review."*
+
+Confirms the instinct that kept them apart here. The two older lists are hand-typed literals inside
+`CompleteWorkItemAction` and `failUnverifiedCompletion`; the third is `workItemCompletionGuardStatuses`,
+which adds `cancelled` and `deferred`. **Converging them is a behaviour change to two working code
+paths dressed as tidying** — precisely the shape that goes wrong when it rides inside another bug's
+patch, and precisely why it gets its own round.
+
+Unowned and unscheduled. Whoever takes it: the blast radius is every caller of both functions, the
+delta is `cancelled` + `deferred`, and the disconfirming question is whether any live flow
+legitimately completes a `cancelled` row.
+
+## 3. Shared contracts live in GO; a SQL sweep that needs one gets MOVED, not mirrored
+
+> *"I agree to your rule that shared contracts live in Go."*
+
+**The general rule this estate has been paying for in instalments.** `341` and `344` were both
+instances within two days: each time the question was "duplicate the rule in SQL, or move the
+sweep", and each time duplication was the cheaper-looking answer. It is now ruled out.
+
+Note what the rule does NOT say: a `pre_query` may still hold logic that is *only* its own — the
+`claimed-item-timeout` exclusion list, its staleness thresholds. The rule bites when a rule is
+**shared** with Go, because that is when two spellings can disagree. And it has already saved work
+once: `341` §5c stopped a mirror being written into a sweep that turned out not to need it.
+
+## 4. Armed-by-default STANDS — with a condition, since the owner deferred this one to me
+
+> *"I defer to your best judgement on this."*
+
+**Ruling: keep armed-by-default, and require every kill switch to be EXERCISED BY A TEST before it
+counts as justification for shipping armed.**
+
+The reasoning, and it turns on evidence from this lane rather than preference. I shipped armed on
+the WDS-018 precedent — *"the owner has ruled against default-OFF switches that rot unexercised"* —
+and offered the env disarms as the safety that made it acceptable. Then the acceptance found that
+**`DISABLE_WORK_ITEM_RETRY_BACKOFF` was itself broken**: setting it would have dropped `$4` from
+every failure write (SQLSTATE 42P18) and taken down the whole failure path. **The safety valve I
+justified the posture with did not work, and nothing would have told an operator until they reached
+for it mid-incident.**
+
+That is not an argument against arming. It is the *same* argument the owner used against default-OFF
+switches, one level down: **an untested disarm rots exactly as an unexercised feature does**, and it
+rots in the worst possible place — the thing you reach for when something is already wrong. So the
+posture survives and acquires the obligation that makes it honest.
+
+Concretely, for anything shipping armed with a disarm:
+- each switch is driven by a test that asserts the disarmed behaviour, not merely that the flag is read;
+- the test asserts the *statement or effect*, not a mock's bookkeeping — this lane's 42P18 defect was
+  invisible to fifteen sqlmock tests because a mock never PREPAREs;
+- shipping armed is justified by the disarm's test, not by the disarm's existence.
+
+**Status here: satisfied.** All four switches are exercised (`TestFailureLadder_EachNewBehaviourDisarmsIndependently`,
+plus the three-trigger table test from the 42P18 repair). ⚠ Verified by CONSTANT name — a first
+check by literal string reported "1 of 4" because the tests reference `envDisable…` identifiers, not
+the `"DISABLE_…"` literals. A coverage claim about env switches is a claim about how the tests
+*reference* them.
+
+**Open, and deliberately not decided here:** whether this becomes a general estate rule or stays
+this lane's practice. It reads as general — but that is a ruling, and this RFC has had its four.
