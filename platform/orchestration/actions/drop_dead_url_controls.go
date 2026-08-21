@@ -40,7 +40,7 @@ var deadSrcAttrRe = regexp.MustCompile(`(?i)\ssrc\s*=\s*(?:""|'')`)
 // (idea.uk shipped 30 empty-href nav links), the whole anchor is dropped
 // (LNK-005: correct-or-absent), a dead <img> is dropped whole, and any other
 // empty src is blanked. Callers gate this on a non-empty deadURLFields set from
-// RenderTemplateReportingMissing, so a clean render is never scanned and
+// RenderTemplate, so a clean render is never scanned and
 // byte-identical output is preserved on the happy path.
 // The three replacements go through datahelpers.ReplaceAllInMarkup rather than
 // ReplaceAllString because these regexes have the blindness bugs_open/180 was

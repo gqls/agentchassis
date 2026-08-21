@@ -65,7 +65,7 @@ func TestScopeToolBirth_armedConvertsClassA(t *testing.T) {
 	for _, tok := range toks {
 		rc := &RenderContext{}
 		BindInstanceToken(rc, tok)
-		out, err := RenderTemplate(tpl, rc, zap.NewNop())
+		out, _, _, err := RenderTemplate(tpl, rc, zap.NewNop())
 		if err != nil {
 			t.Fatalf("render: %v", err)
 		}

@@ -64,7 +64,7 @@ func ScopeToolBirthTemplate(html, function string, armed bool, logger *zap.Logge
 		}
 		rc := &RenderContext{}
 		BindInstanceToken(rc, InstanceToken(function, 0))
-		bound, rerr := RenderTemplate(candidate, rc, logger)
+		bound, _, _, rerr := RenderTemplate(candidate, rc, logger)
 		if rerr != nil {
 			return "", fmt.Errorf("instance-scope occurrence-0 bind failed: %w", rerr)
 		}

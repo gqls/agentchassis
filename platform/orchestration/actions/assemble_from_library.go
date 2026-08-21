@@ -299,7 +299,7 @@ func assembleComponents(ctx context.Context, db interface{}, componentNames []st
 		// library supplies both template and data — so an execution failure
 		// here means a corrupt template, and a page assembled with the section
 		// silently missing is the bugs_open/018 class.
-		renderedHTML, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+		renderedHTML, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 		if err != nil {
 			return nil, fmt.Errorf("assemble_from_library: component %q failed to render: %w (bugs_open/260)", comp.Function, err)
 		}

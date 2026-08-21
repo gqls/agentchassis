@@ -1022,7 +1022,7 @@ func applyContentEdit(
 	// this the template's {{.InstanceID}} renders as "" under missingkey=zero and
 	// every instance on the page lands back on identical element ids.
 	BindSingleSectionInstanceToken(renderCtx, getStringVal(componentData, "function"))
-	rendered, err := RenderTemplate(htmlTemplate, renderCtx, logger)
+	rendered, _, _, err := RenderTemplate(htmlTemplate, renderCtx, logger)
 	if err != nil {
 		// bugs_open/260. THIS PATH HAS NO GATE DOWNSTREAM: the caller writes
 		// rendered_html straight to an already-live page, with no
@@ -1144,7 +1144,7 @@ func applyComponentSwap(
 
 	// Same single-section case as applyContentEdit above.
 	BindSingleSectionInstanceToken(renderCtx, comp.Function)
-	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		// Same ungated live-page route as applyContentEdit above (bugs_open/260):
 		// refuse the swap rather than write a section that did not render.

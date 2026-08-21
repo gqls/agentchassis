@@ -9,7 +9,7 @@
 // (`"on_missing": "skip_field"` for phone/hours/address). This test proves that
 // end to end, through the REAL render path — executeGoTemplate, the same
 // text/template configuration with `missingkey=zero` and the same funcMap that
-// RenderTemplateReportingMissing uses in production.
+// RenderTemplate uses in production.
 //
 // WHY IT READS THE MIGRATION RATHER THAN A COPY. The template lives in the
 // database, and the file that put it there is

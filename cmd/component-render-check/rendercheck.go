@@ -655,7 +655,7 @@ func main() {
 		// UNCOVERED component, not a clean one — the same bucket a parse
 		// failure goes to, which already refuses --write-baseline and counts
 		// the component's baseline keys as uncovered rather than fixed.
-		baseRender, baseErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
+		baseRender, _, _, baseErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: full}, logger)
 		if baseErr != nil {
 			unanalysed = append(unanalysed, fmt.Sprintf("%s (baseline render: %v)", c.Name, baseErr))
 			unanalysedNames[c.Name] = true
@@ -688,7 +688,7 @@ func main() {
 					probe[k] = v
 				}
 			}
-			out, probeErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: probe}, logger)
+			out, _, _, probeErr := actions.RenderTemplate(c.Template, &actions.RenderContext{ContentData: probe}, logger)
 			if probeErr != nil {
 				// ⚠ THE DETECTOR CAN BE BLINDED BY ITS OWN FIX. This probe
 				// deliberately REMOVES one field and re-renders; since

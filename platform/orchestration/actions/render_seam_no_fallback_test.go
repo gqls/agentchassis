@@ -54,7 +54,7 @@ func mechanismFlowCtx(branches interface{}) *RenderContext {
 // A — the negative case, and the exact live defect: a sentence where the schema
 // declares a list.
 func TestRenderFailsOnAMistypedNestedField(t *testing.T) {
-	out, err := RenderTemplate(mechanismFlowLikeTemplate,
+	out, _, _, err := RenderTemplate(mechanismFlowLikeTemplate,
 		mechanismFlowCtx("Either we file, or we appeal."), zap.NewNop())
 
 	if err == nil {
@@ -73,7 +73,7 @@ func TestRenderFailsOnAMistypedNestedField(t *testing.T) {
 // cleanly, with no directive left behind. A change that makes both A and B fail
 // is not a fix.
 func TestRenderSucceedsOnCorrectlyShapedContent(t *testing.T) {
-	out, err := RenderTemplate(mechanismFlowLikeTemplate,
+	out, _, _, err := RenderTemplate(mechanismFlowLikeTemplate,
 		mechanismFlowCtx([]interface{}{
 			map[string]interface{}{"label": "File", "body": "We file."},
 			map[string]interface{}{"label": "Appeal", "body": "We appeal."},
@@ -104,7 +104,7 @@ func TestBraceBearingCopyRendersAndKeepsItsBraces(t *testing.T) {
 		"snippet": "{{#each items}}<li>{{this}}</li>{{/each}}",
 	}}
 
-	out, err := RenderTemplate(`<h2>{{.heading}}</h2><p>{{.body}}</p><pre>{{.snippet}}</pre>`, ctx, zap.NewNop())
+	out, _, _, err := RenderTemplate(`<h2>{{.heading}}</h2><p>{{.body}}</p><pre>{{.snippet}}</pre>`, ctx, zap.NewNop())
 	if err != nil {
 		t.Fatalf("copy that merely contains braces must render: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestBraceBearingCopyRendersAndKeepsItsBraces(t *testing.T) {
 // believed comments were inert to the template engine.
 func TestParseErrorIsRefusedNotDegraded(t *testing.T) {
 	const broken = `<style>/* {{if $.dark}} */ .a{color:#000}</style><p>{{.body}}</p>`
-	out, err := RenderTemplate(broken, &RenderContext{
+	out, _, _, err := RenderTemplate(broken, &RenderContext{
 		ContentData: map[string]interface{}{"body": "hello"}}, zap.NewNop())
 	if err == nil {
 		t.Fatalf("an unterminated {{if}} must fail to parse, not degrade; got:\n%s", out)
@@ -140,7 +140,7 @@ func TestParseErrorIsRefusedNotDegraded(t *testing.T) {
 // parse now ("function not defined"), so it hard-fails. Pinned so nobody
 // re-authors one and wonders why it renders empty.
 func TestRetiredHandlebarsDialectHardFails(t *testing.T) {
-	out, err := RenderTemplate(`<nav>{{nav_items_html}}</nav>`, &RenderContext{
+	out, _, _, err := RenderTemplate(`<nav>{{nav_items_html}}</nav>`, &RenderContext{
 		NavItems: []NavItem{{Label: "Home", URL: "/index.html"}}}, zap.NewNop())
 	if err == nil {
 		t.Fatalf("the retired {{nav_items_html}} dialect must fail loudly, got:\n%s", out)
@@ -154,7 +154,7 @@ func TestRetiredHandlebarsDialectHardFails(t *testing.T) {
 // different fact from "could not execute", and rerender_page_sections carries a
 // section on the first while failing on the second.
 func TestEmptyTemplateIsNotAnError(t *testing.T) {
-	out, err := RenderTemplate("", &RenderContext{}, zap.NewNop())
+	out, _, _, err := RenderTemplate("", &RenderContext{}, zap.NewNop())
 	if err != nil || out != "" {
 		t.Fatalf("empty template: got (%q, %v), want (\"\", nil)", out, err)
 	}
@@ -199,7 +199,7 @@ func TestContactInfoSeamRejectsTheComponentLibraryFuncMap(t *testing.T) {
 
 	// The same template through the component seam must SUCCEED — that
 	// asymmetry is the finding.
-	if _, err := RenderTemplate(tmpl, &RenderContext{
+	if _, _, _, err := RenderTemplate(tmpl, &RenderContext{
 		ContentData: map[string]interface{}{"email": "hello@example.com"}}, zap.NewNop()); err != nil {
 		t.Fatalf("{{safe}} must work on the component seam: %v", err)
 	}

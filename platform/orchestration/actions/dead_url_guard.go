@@ -7,10 +7,15 @@
 // template, walks root-scope actions only, and returns the fields sitting inside
 // an href=/src= that rendered empty — and it computed exactly
 // [card1_image_url … card5_image_url] at the render that shipped bugs_open/238.
-// `RenderTemplateReportingMissing` logs it at Error. `RenderTemplate` throws it
-// away (`out, _, _ :=`), and RenderComponentAction calls RenderTemplate. The
-// finding has been available, by name, on the failing path, for the whole life
-// of the defect. The site-chrome renderer is the only consumer today
+// `RenderTemplate` logs it at Error and returns it. ⚠ HISTORICAL NOTE, kept
+// because it is the reason this guard exists: until 2026-08-21 there were TWO
+// spellings, and the short one — a one-line wrapper — threw the report away
+// (`out, _ :=`) while RenderComponentAction called precisely that one. The
+// finding was available, by name, on the failing path, for the whole life of the
+// defect, and a wrapper hid it. There is now ONE spelling and a test that fails
+// the build if a second appears (render_seam_one_spelling_test.go, owner ruling
+// 2026-08-21): a caller that discards the report must write `out, _, _, err :=`,
+// where a reviewer of the CALL SITE can see it. The site-chrome renderer is the only consumer today
 // (DropDeadURLControls + emitChromeDeadControlItem).
 //
 // WHY REFUSE HERE RATHER THAN DROP, as chrome does. Chrome drops a nav link or

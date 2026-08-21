@@ -219,7 +219,7 @@ func TestFooterComplianceWrongTypeIsRefusedAtTheSeamAndFallsBackWhole(t *testing
 	logger := zap.NewNop()
 	ctx := footerRenderCtx(map[string]interface{}{"compliance_lines": "not-an-array"})
 
-	out, err := RenderTemplate(footerThemeChromeNew, ctx, logger)
+	out, _, _, err := RenderTemplate(footerThemeChromeNew, ctx, logger)
 	if err == nil {
 		t.Fatalf("a {{range}} over a string must fail the render, not degrade it; got:\n%s", out)
 	}

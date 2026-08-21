@@ -2452,7 +2452,7 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// bugs_open/238 shipped five <img src=""> to a live homepage while this very
 	// call had the field names in hand. See dead_url_guard.go for why the guard
 	// refuses rather than dropping, and why it is opt-in with the unsafe default.
-	rendered, _, deadURLFields, renderErr := RenderTemplateReportingMissing(comp.HTMLTemplate, renderCtx, params.Logger)
+	rendered, _, deadURLFields, renderErr := RenderTemplate(comp.HTMLTemplate, renderCtx, params.Logger)
 
 	// bugs_open/260: the seam no longer invents output it could not execute, so
 	// a render error arrives here for the first time. Fail the step, in the same

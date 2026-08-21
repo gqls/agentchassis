@@ -936,7 +936,7 @@ func renderAndStoreSiteComponent(
 	// Render the template, reporting which placeholders rendered empty so a dead
 	// chrome control is named (Error, via the mechanism) and combined here with
 	// the site/slot/component only this caller knows.
-	renderedHTML, missing, deadURLFields, renderErr := RenderTemplateReportingMissing(htmlTemplate, renderCtx, logger)
+	renderedHTML, missing, deadURLFields, renderErr := RenderTemplate(htmlTemplate, renderCtx, logger)
 
 	// bugs_open/260: this path has NO gate downstream — whatever it stores is
 	// what the site serves — so a failed render must not be stored. Doing

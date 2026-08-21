@@ -952,33 +952,32 @@ func missingBareFieldsRegex(tpl string, data map[string]interface{}) (missing, i
 	return
 }
 
-// RenderTemplate renders a component template with the given context. It is a
-// thin wrapper over RenderTemplateReportingMissing, which also returns the set
-// of placeholders that rendered empty (consumed by the site-chrome renderer to
-// name dead controls — bugs_open/018).
+// RenderTemplate renders a component template. IT IS THE ONLY SPELLING — see
+// render_seam_one_spelling_test.go, which fails the build if a second one
+// appears (owner ruling 2026-08-21, RFC_041 §5).
 //
-// It RETURNS AN ERROR (bugs_open/260). The previous signature returned a bare
-// string, which is why the regex fallback below it could exist at all: there
-// was no channel through which "this template did not execute" could reach a
-// caller, so the seam invented output instead. Returning "" on error was
-// rejected as the replacement — that is a SECOND silent shape, and
-// assembleComponents would stitch a page with a section missing while
-// GateConvertedTemplate would gate an empty render. The compile break is the
-// feature: it puts every caller's failure decision in the diff.
-func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, error) {
-	out, _, _, err := RenderTemplateReportingMissing(templateStr, ctx, logger)
-	return out, err
-}
-
-// RenderTemplateReportingMissing renders a component template and additionally
-// reports which bare output placeholders rendered empty (`missing`) and which
+// WHY ONE. Until 2026-08-21 there were two: this function, and a one-line
+// `RenderTemplate` wrapper that discarded the two reports below and returned
+// just (string, error). Nine of the twelve call sites used the short one, which
+// is how bugs_open/238 shipped five <img src=""> to a live homepage while the
+// call had the field names in hand — the discard was INSIDE the wrapper, where
+// no reviewer of the call site could see it. Now a caller that does not want
+// the reports must write `out, _, _, err :=` and the discard is in the diff,
+// which is the whole difference between a convenience and a silent default.
+//
+// The 238 lane's council round named this move and declined to make it inside a
+// bug fix ("changes the primitive every render flows through — the RFC-shaped
+// move, not a rider"). It became cheap once bugs_open/260 gave every caller an
+// error to handle, which is why it is done now and not then.
+//
+// It reports which bare output placeholders rendered empty (`missing`) and which
 // of those sat inside an href=/src= attribute (`inURLAttr` — a dead control on
 // a live page). A blanked URL attribute logs at Error with its field names; any
 // other blanked field logs at Warn. This replaces the previous count-only
 // <no value> log, which named nothing and let 30 dead controls ship silently on
 // idea.uk (bugs_open/018). Uses Go's text/template for full support of {{if}},
 // {{range}}, {{with}}, etc.
-func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, []string, []string, error) {
+func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, []string, []string, error) {
 	if templateStr == "" {
 		// Not an error: an intentionally empty template stub is a real thing on
 		// this estate (rerender_page_sections carries such a section rather than
@@ -1005,7 +1004,7 @@ func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logg
 		}
 		if _, present := ctx.ContentData["form_action"]; !present {
 			ctx.ContentData["form_action"] = ""
-			logger.Debug("RenderTemplateReportingMissing: seeded empty form_action for sanitiser",
+			logger.Debug("RenderTemplate: seeded empty form_action for sanitiser",
 				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)))
 		}
 	}
@@ -1637,7 +1636,7 @@ func RenderHeader(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 	// RenderFallbackHeader, so the page gets well-formed fallback chrome
 	// instead of a header with {{if}} directives left in it. Chrome needed
 	// error PLUMBING, not new mechanism — the ladder was already built.
-	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("header component %q failed to render: %w", comp.Name, err)
 	}
@@ -1711,7 +1710,7 @@ func RenderFooter(ctx context.Context, db interface{}, siteID uuid.UUID, renderC
 
 	// See RenderHeader: the error goes back to InjectFooter's existing fallback
 	// branch rather than being rendered around (bugs_open/260).
-	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("footer component %q failed to render: %w", comp.Name, err)
 	}
@@ -1997,7 +1996,7 @@ func RenderHead(ctx context.Context, db interface{}, siteID uuid.UUID, renderCtx
 	// the header and footer, an execution failure returns to InjectHead's
 	// existing fallback branch (bugs_open/260) — a <head> carrying unexecuted
 	// directives is worse than the plain fallback head.
-	rendered, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
+	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		return "", fmt.Errorf("head component %q failed to render: %w", comp.Name, err)
 	}

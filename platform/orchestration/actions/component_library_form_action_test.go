@@ -204,7 +204,7 @@ func TestSecondRenderPathNoLongerExists(t *testing.T) {
 		},
 	}
 
-	out, err := RenderTemplate(
+	out, _, _, err := RenderTemplate(
 		`<form action="{{.form_action}}">{{range .steps}}<li>{{.}}</li>{{end}}</form>`,
 		ctx, zap.NewNop())
 
@@ -220,13 +220,13 @@ func TestSecondRenderPathNoLongerExists(t *testing.T) {
 	}
 }
 
-// TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt is
+// TestRenderTemplateSeedsFormActionWhenTemplateReferencesIt is
 // the regression guard for bugs_open/228: a component whose html_template
 // references {{.form_action}} but whose ContentData never authored the field
 // (contact-block's actual shape — the content-generation schema never asked
 // for one) must still get the sanitiser's protection, not a silently
 // empty/absent field.
-func TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt(t *testing.T) {
+func TestRenderTemplateSeedsFormActionWhenTemplateReferencesIt(t *testing.T) {
 	ctx := &RenderContext{
 		Domain: "example.com",
 		Email:  "hello@example.com",
@@ -251,11 +251,11 @@ func TestRenderTemplateReportingMissingSeedsFormActionWhenTemplateReferencesIt(t
 	}
 }
 
-// TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress mirrors
+// TestRenderTemplateLeavesFormActionHonestWhenNoAddress mirrors
 // the sanitiser's own refusal-to-fabricate rule through the seeding path: a
 // site with no resolvable email must not get a fabricated mailto just because
 // the seed made the field present.
-func TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress(t *testing.T) {
+func TestRenderTemplateLeavesFormActionHonestWhenNoAddress(t *testing.T) {
 	ctx := &RenderContext{
 		Domain:      "robot-hands.com",
 		ContentData: map[string]interface{}{},
@@ -275,13 +275,13 @@ func TestRenderTemplateReportingMissingLeavesFormActionHonestWhenNoAddress(t *te
 	}
 }
 
-// TestRenderTemplateReportingMissingDoesNotSeedFormActionForUnrelatedTemplate
+// TestRenderTemplateDoesNotSeedFormActionForUnrelatedTemplate
 // guards the OTHER direction: a template that never mentions form_action must
 // not have the key injected into its shared ContentData map — mirroring
 // TestSanitiseFormAction's "a component with no form does not acquire a
-// form_action" at the RenderTemplateReportingMissing entry point, since that
+// form_action" at the RenderTemplate entry point, since that
 // is where the seeding actually happens.
-func TestRenderTemplateReportingMissingDoesNotSeedFormActionForUnrelatedTemplate(t *testing.T) {
+func TestRenderTemplateDoesNotSeedFormActionForUnrelatedTemplate(t *testing.T) {
 	ctx := &RenderContext{
 		Domain:      "example.com",
 		Email:       "hello@example.com",

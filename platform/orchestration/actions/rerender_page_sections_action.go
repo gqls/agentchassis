@@ -648,7 +648,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		// tokens after it move, and that re-render is not byte-identical.
 		BindInstanceToken(rc, instances.Next(comp.Function))
 
-		rendered, _, deadURLFields, renderErr := RenderTemplateReportingMissing(htmlTemplate, rc, logger)
+		rendered, _, deadURLFields, renderErr := RenderTemplate(htmlTemplate, rc, logger)
 
 		// bugs_open/260: the seam no longer substitutes a regex render for a
 		// failed one, so an execution failure arrives here for the first time.

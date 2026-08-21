@@ -535,7 +535,7 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 	// makes the same point about this exact call site).
 	var renderedHead string
 	if headTemplate != "" {
-		out, headErr := RenderTemplate(headTemplate, renderCtx, logger)
+		out, _, _, headErr := RenderTemplate(headTemplate, renderCtx, logger)
 		if headErr != nil {
 			logger.Error("rerender: head template failed to execute — using the fallback head",
 				zap.String("page", page.Name), zap.Error(headErr))

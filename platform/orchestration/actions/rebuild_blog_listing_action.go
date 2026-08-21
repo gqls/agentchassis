@@ -287,7 +287,10 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		"load_more_text":   "Load More",
 	}
 
-	rendered := renderBlogTemplate(htmlTemplate, templateData, logger)
+	rendered, renderErr := renderBlogTemplate(htmlTemplate, templateData, logger)
+	if renderErr != nil {
+		return nil, fmt.Errorf("blog listing render failed, listing left unchanged: %w", renderErr)
+	}
 	if rendered == "" {
 		return nil, fmt.Errorf("template rendering produced empty output")
 	}
@@ -654,23 +657,47 @@ func estimateReadTime(contentLengthChars int) string {
 	return fmt.Sprintf("%d min read", minutes)
 }
 
-// renderBlogTemplate renders a Go template with blog data.
-func renderBlogTemplate(htmlTemplate string, data map[string]interface{}, logger *zap.Logger) string {
+// renderBlogTemplate renders a Go template with blog data. It is the THIRD
+// Go-template executor in this package and the second that renders a COMPONENT's
+// html_template — found 2026-08-21 by render_seam_one_spelling_test.go, which is
+// the whole reason that test exists.
+//
+// ⚠ ITS LANGUAGE IS NOT THE COMPONENT SEAM'S. No FuncMap and no
+// missingkey=zero, so {{safe}}, {{default}} and {{isset}} — ordinary in every
+// component template — are PARSE ERRORS here. Same divergence as
+// RenderTemplateWithMap (bugs_closed/260 §13g), except this path is LIVE:
+// `rebuild_blog_listing` is a registered action.
+//
+// THE SILENT SUBSTITUTION IS REMOVED (2026-08-21). A parse failure used to log
+// at Warn and quietly render `defaultBlogListingTemplate` instead — so a site
+// whose listing template the estate could not parse shipped a GENERIC listing,
+// with its own design silently replaced and nothing downstream able to tell.
+// That is bugs_closed/260's defect in a second place: output that is
+// well-formed, plausible, and not what the component said. It now returns an
+// error, and the caller already fails the step on empty output, so the two
+// failure modes finally agree.
+//
+// Measured before changing it (2026-08-21): ONE live blog-listing component,
+// 6,413 bytes, and it uses none of the missing FuncMap names — so no live
+// template can trip the parse error today, and this closes the door before
+// anyone edits one rather than after.
+func renderBlogTemplate(htmlTemplate string, data map[string]interface{}, logger *zap.Logger) (string, error) {
 	tmpl, err := template.New("blog_listing").Parse(htmlTemplate)
 	if err != nil {
-		logger.Warn("RebuildBlogListingAction: Failed to parse template, using fallback",
-			zap.Error(err))
-		tmpl, _ = template.New("blog_listing").Parse(defaultBlogListingTemplate)
+		logger.Error("RebuildBlogListingAction: blog listing template failed to PARSE — refusing to substitute the generic default listing",
+			zap.Error(err),
+			zap.String("hint", "this executor has no FuncMap: {{safe}}, {{default}} and {{isset}} parse fine in a section component and NOT here"))
+		return "", fmt.Errorf("blog listing template failed to parse: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		logger.Warn("RebuildBlogListingAction: Failed to execute template",
+		logger.Error("RebuildBlogListingAction: blog listing template failed to EXECUTE",
 			zap.Error(err))
-		return ""
+		return "", fmt.Errorf("blog listing template failed to execute: %w", err)
 	}
 
-	return buf.String()
+	return buf.String(), nil
 }
 
 var defaultBlogListingTemplate = `<section class="blog-listing" data-component="content-listing">

@@ -272,7 +272,7 @@ func GateConvertedTemplate(function, converted string, logger *zap.Logger) (need
 		// renderer cannot execute. Before the seam had an error channel this
 		// call returned regex-substituted output, so a converted template that
 		// fails to execute could pass every check below and ship.
-		rendered, err := RenderTemplate(converted, rc, logger)
+		rendered, _, _, err := RenderTemplate(converted, rc, logger)
 		if err != nil {
 			return false, fmt.Errorf("gate: converted template failed to execute in the real renderer: %w", err)
 		}
