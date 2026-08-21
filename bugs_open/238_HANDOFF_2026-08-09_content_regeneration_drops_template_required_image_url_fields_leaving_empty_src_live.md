@@ -889,3 +889,42 @@ artefact); 1 is gamesdesign's genuinely-absent email; 3 remain — leopardess's 
 gamesdesign's `cta.primary_url`, and fundamentallyai's six fields its component no longer declares
 (`bugs_open/309`'s class). Plus the phone/address decision above, which is new and was invisible to
 every row-level measurement in §11.4.
+
+### 11.13 — 2026-08-21: both halves PROVEN at the artefact, and the fleet-wide damage surface is now enumerable
+
+**Migrations `525` (email repoint) and `538` (gate all three detail items + repoint phone/location)
+applied and verified;** councils `972a82ad` and `1c8aed61`. Six `page_rerender` items queued
+(`reason=section_data_resolved`, all six pages checked `machine_made` first per `bugs_open/229`).
+
+**First one through, verified at the SERVED page — robot-hands.com/contact.html:**
+
+| | before | after |
+|---|---|---|
+| `href="tel:"` (the dead control) | 1 | **0** |
+| `<div class="cb-detail-item">` | 3 | **1** |
+| email row | present (fossil) | present, **and now backed by data** |
+
+The phone row is **gone entirely** rather than left as an empty link, and the label went with it —
+which is the whole point of gating the item rather than the value (`bugs_closed/111`).
+
+⚠ **I mis-read my own result first**, and it is the trap this file's family keeps setting: a grep
+for `cb-detail-item` returned **2**, which I nearly reported as two rendered items. One of them is
+the CSS rule in the component's own inline `<style>`. Counting the anchor
+(`<div class="cb-detail-item">`) returns **1**. *Grep the element, never the class* — the standing
+LANDMINE says exactly this and I still had to catch it.
+
+### The fleet-wide empty-attribute census — the honest "what is still broken"
+
+Every deployed row whose `rendered_html` carries an empty URL attribute, measured 2026-08-21
+(11 rows before the re-renders began):
+
+| where | shape | disposition |
+|---|---|---|
+| leopardess ×4 + gamesdesign ×1, `contact-block` | `href="tel:"` | **being fixed now** by the queued re-renders (robot-hands already done) |
+| ai-agent-orchestration.com `/index` `case-studies-grid` | `src=""` ×5 | the bug's original page. Needs **imagery that does not exist**; already queued as `dead_url_control` + `required_fields_missing` |
+| vonc.com ×3 (`lobby-grid`, `provocation-card`, `tool-archetype-taster-quiz`) | `href=""` | **not this lane** — different components, never diagnosed here |
+| webdesign.co.uk `tool-favicon-maker` (`ported-page`) | `src=""` | **not a defect of this class**: a PORTED page stores crawled bytes verbatim (`adopt_verbatim`), so it is outside the plan→save funnel entirely — see RFC_042's producer census |
+
+**So once the re-renders drain, the whole fleet carries 5 rows with an empty URL attribute: 1 is
+this bug's original page (blocked on imagery, queued), and 4 belong to other components on two
+other sites.** That is the first time this class has had an enumerable, bounded damage surface.
