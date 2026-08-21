@@ -24,13 +24,33 @@ Took `bugs_open/335` — this lane's own agent writing a false figure into rank 
 |---|---|---|
 | `verify_cited_cardinals` (new action) | commit `d79e4243c`, register **CLM-023** | built, 12 tests green, **INERT until the roll** |
 | `537_offer_analyser_cardinal_attribution_gate_HOLD.sql` | commit `6b1f4cb08` | **HELD** — do not apply before the roll |
-| council submission | `9a8f1283-574e-44d7-8e66-b84789ba0429` | **submitted, VERDICT NOT READ** |
+| council submission | `9a8f1283-574e-44d7-8e66-b84789ba0429` | **r1 REVISE, r2 REVISE, r3 in flight** — read below |
 | docs + correction + landmine + wrong-call | commit `4d68303f8` | done |
+| r1 fix: bind UPDATEs to the resolved row | commit `ba656ef47` | done, mutation-proven |
+| r2 fix: clean path clears the drop record | commit `4ffd9c4ac` | done — a REAL defect |
+| r2 fix: capability probe + CLM-023 conditions | commit `3b3941abb` | done |
 
 ## What the next session should do
 
-1. **READ THE COUNCIL VERDICT — this is the one outstanding obligation.** The code is already on the
-   shared branch, so a REVISE or REJECTED needs acting on, not filing.
+1. **READ THE ROUND-3 COUNCIL VERDICT.** Rounds 1 and 2 were both REVISE and **both were acted on
+   in full** (see the table above); round 3 was submitted at 14:44Z under the same correlation and
+   was still at `review_architecture` when this file was written. **If it approved, nothing is owed
+   — `098` credits the existing `Council-Submitted:` trailers automatically.** If it revised again,
+   the code is already on the shared branch, so act rather than file.
+
+   **What the three rounds actually found, because this is the useful part:** each REVISE found
+   something a green test suite did not. R1 — guardian: my needle-gate and my `UPDATE`s were
+   different sets, against a live landmine (four agent types carry two active rows). R2 —
+   bug_historian, sideways: chasing "nothing reads `dropped_unsourced`" exposed that my CLEAN path
+   OMITTED the key, and `write_site_spec` deep-merges, so a stale drop record would have accused a
+   clean artefact for ever. **Both were real. Neither was caught by tests that passed.**
+
+   ⚠ **And a warning about my own conduct across all three rounds: TWO objections in R2 and one in
+   R1 were factually WRONG ABOUT THE FILE — they were answering my SKETCH.** The `snapshot_agent()`
+   call, the `BEGIN/COMMIT` wrapper, the prompt-anchor gate and the rollback file all existed and
+   were all missing from what I sent. The runbook says "reviewers judge the sketch; it is the only
+   view of your code they get" and I did it three rounds running. **Put the real file structure in
+   the sketch.** It cost two rounds.
    ```sql
    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
     WHERE correlation_id='9a8f1283-574e-44d7-8e66-b84789ba0429' AND kind='council_report'
