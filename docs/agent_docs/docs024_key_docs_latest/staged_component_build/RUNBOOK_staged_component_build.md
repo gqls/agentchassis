@@ -873,3 +873,43 @@ Three stages; each had a trap that cost a run.
 
 Result 2026-08-20 in `bugs_open/330` §9. Scratch artifacts: `plain_wires.json`,
 `audit_manifest.json`, `rescue_prone.json` (session scratchpad — regenerate, don't hunt).
+
+## A council run that DIED looks exactly like one still queued — check the orchestration, not the artifact (2026-08-21)
+
+The standing advice is *"a missing `council_report` row is latency, not a drop — do not re-trigger."*
+That is right for a run that is **alive**, and it is silent about the case where the run is **dead**.
+Both present identically at the artifact: no report row.
+
+Measured 2026-08-21: the `?` marker's round 3 sat at `review_debug_historian` / `EXECUTING_STEP`
+when I checked, and I recorded "in flight, latency not drops". It had in fact failed at that step —
+
+```
+step review_debug_historian failed: failed to execute action execute_llm_prompt:
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 ...
+dial tcp: lookup api.anthropic.com on 10.21.0.10:53 ... connection refused
+```
+
+a **cluster DNS blip**, nothing to do with the submission, the account or its usage limits (the
+`complete_invalid` step name is shared with the usage-limit case, so the step name does NOT tell you
+which happened — read the error).
+
+**So the check is two queries, not one, and the second is the one that distinguishes them:**
+```sql
+-- 1. the verdict, if there is one
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+ WHERE kind='council_report' AND correlation_id='<SUBMISSION_CORR>' ORDER BY created_at;
+-- 2. IS THE RUN STILL ALIVE? a FAILED row here is why no verdict is coming
+SELECT current_step, status, left(collected_data->>'__step_error', 400)
+  FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+ ORDER BY created_at DESC LIMIT 3;
+```
+**`EXECUTING_STEP` is not proof of life** — it is the last step the run reached, and it stays that way
+after the step fails. Pair it with `status`.
+
+**When re-triggering IS correct:** the run is `FAILED` with a transient infrastructure error and no
+verdict was produced. That is not the case the "never re-trigger" rule guards — that rule is about a
+*published, running* round, where a duplicate costs a whole extra council round. A dead run costs
+nothing to replace, and leaving it is how a submission silently waits for ever. Re-fire with the same
+`RESUBMIT_CORR` so the trail stays on one correlation. **Note what it costs:** the re-run starts from
+seat one, so any seats that had already reviewed are paid for again.
