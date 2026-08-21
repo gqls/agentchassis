@@ -2404,3 +2404,34 @@ wants `name=`, preview/code disagree on empty fields) — file it ONLY with in-t
   (snapshot description wording), the update_component_html gate gap recorded as a follow-up for the
   tool-improver owner. Close order: a roll carrying `c0d60a97d` → seed 496 → the live re-fix. The lane's
   manual re-fix recipe retires at that point, not before.
+
+## 2026-08-21 12:15Z — #24 social-card DONE (24 of 63 live) — the race was lost a SECOND time and the durable attendance mechanism is now proven
+
+**The race:** filed 10:39:46Z inside a turn that ended ~10:45; the next session nudge arrived after
+11:57. In between, a sweep rerender (`87740fc0`, created 11:45, completed 11:57:13) assembled the
+page with BOTH slots live — the double page (28,709 B) served 11:57→12:11. Retire (UPDATE 1, md5
+`33f629a0…` intact) + ONE corrective assemble (`90aa696f`, complete 12:11:11) repaired it.
+**"Do not file if the turn must end" was insufficient because a session cannot KNOW its turn is about
+to end. The mechanism that works, now proven: a FOREGROUND poll loop (`for … do …; sleep 10; done`,
+timeout ≤600s) — only bare foreground `sleep` is blocked; a compound loop holds the turn alive for
+the whole build+retire window.** Used here for the corrective (complete in ~70s of polling); use it
+for the BUILD window of every future filing.
+
+**TL-048 demand proof — INCONCLUSIVE BY ROUTE, recorded rather than claimed:** the social-card
+page's `meta_description` is UNCHANGED (the good human-shaped 106-char line) because the ADOPT route
+(TL-044, `Refresh:[]`) attaches to an existing page as it stands and never writes the meta column.
+So a rebuild of an existing page cannot exercise TL-048's write path. The demand proof needs a
+genuinely NEW tool page (first tool on a site, or a new function) — noted in TL-048's verify-later.
+No evidence of regression; just no evidence at all from this route.
+
+**RUN:** complete, adopted, no short-circuit, component `ae236248` (14,664 chars).
+**COMPONENT PASS by mechanism:** `escapeAttr` at every attribute insertion (quotes/ampersands cannot
+break the emitted tags); **og:* uses `property=`, twitter:* uses `name=`** — the ported spec error
+fixed; empty fields OMITTED from the code block (`if (title) …push`), never `content=""`; bare
+domain gets `https://` prepended visibly (:384); image failure handled via an `onerror` tester
+element; 0·0·0·0 standard counts, 5 listeners.
+**SERVE-GRADE PASS:** 21,443 B (down from the 28,709 double), `last-modified 12:11:28` > corrective
+12:11:11; `ported-page` 0; negatives (`inpTitle`, `prevPlaceholder`, `Copied Meta Tags`) 0;
+positives `name="twitter:card"` present, `id="og-image"` present.
+**24 of 63 live-confirmed. Phase A remainder: regex-tester, jwt-inspector, token-calculator,
+clip-path.**
