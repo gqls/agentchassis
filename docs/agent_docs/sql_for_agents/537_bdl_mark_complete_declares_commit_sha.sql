@@ -105,6 +105,43 @@
 -- INCLUDED blocks the apply (loud, cheap); a handler wrongly excluded loses a
 -- field silently (quiet, expensive).
 --
+-- IT FIRED ON ITS FIRST RUN, naming `content-feed-orchestrator`. Correction to
+-- an earlier draft of this header, which said both prior censuses "missed" it:
+-- the standardisation lane had SEEN it in their first census and DEFERRED it
+-- (low volume that day, plus a shape they were not ready to decide). Only MY
+-- demand census missed it cold, because it records zero shas today. So the guard
+-- converted a deferred decision into a forced one — which is still the guard
+-- working, but it is not the same claim.
+--
+-- THAT HANDLER'S SHAPE, and why it is a judgement rather than a conversion:
+-- `commit_news` and `commit_rss` are two independently-conditional, CO-EQUAL
+-- deliverables of one item, each gated on its own feed's item count — not an
+-- own-commit-versus-downstream-trigger split. On a dual-commit run they are two
+-- DIFFERENT real shas, and no single field can represent both. Measured here
+-- over the 30-day window (17 orchestrations): news commits **17/17**, rss
+-- **2/17**. Their migration 540 maps `commit_sha` to the news commit and states
+-- the loss rather than hiding it — on the ~12% dual-commit runs the RSS sha is
+-- real but will not appear in `commit_sha`, and stays reachable at its own
+-- result path.
+--
+-- WHAT THAT MEANS FOR THIS WIRE, because it is a genuine limitation of the field
+-- rather than of the fix: `result.commit_sha` is single-valued and some items
+-- produce two commits. TODAY the whole-tree search picks one arbitrarily, by
+-- sort order, with nothing recorded about the choice. AFTER this wire the value
+-- is whichever the handler DECLARED, with the trade-off written down in its own
+-- migration. Deterministic and documented beats arbitrary and silent — but this
+-- wire does not make the field two-valued, and nobody should read it as having
+-- solved that.
+--
+-- ⚠ RESIDUAL — THE GUARD PROTECTS THE APPLY, NOT THE FUTURE. It runs once, here.
+-- The handler population is DYNAMIC (per-item `handler_agent`), so a NEW
+-- commit-producing handler that appears after this applies and does not expose
+-- `commit_sha` at the standard path will simply never record it — no error, no
+-- row, nothing to notice. The standardisation lane's own advice, and it is
+-- right: treat "ten handlers" as a snapshot, never a final count. The standing
+-- form of this check does not exist yet; the same query is in this file's guard
+-- and would want the daily-CronJob treatment the config-key-audit checks use.
+--
 -- ROLLBACK: 537_bdl_mark_complete_declares_commit_sha_ROLLBACK.sql
 -- ============================================================================
 
