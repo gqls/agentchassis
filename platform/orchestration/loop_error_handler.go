@@ -99,9 +99,43 @@ func shouldContinueLoopOnError(state *OrchestrationState, logger *zap.Logger) bo
 // overwritten when a second loop expands in the same orchestration),
 // we derive total_iterations and first_substep from the workflow plan.
 // The injected steps and the {loop}_complete step are always present.
+//
+// PERSISTENCE (bugs_open/343 P2, 2026-08-21). The mutations below are applied to
+// a FRESHLY LOADED state inside an optimistic-lock retry loop, not to the caller's
+// copy with a single unretried write. It used to be one bare repo.UpdateState: an
+// optimistic-lock failure there returned an error and LOST the advance — and on
+// the async path it lost the awaited-map delete with it, while the table row had
+// already been marked terminal, so the reply's redelivery was then eaten by the
+// processed_at duplicate guard (coordinator.go DUPLICATE_SKIPPED). A lost
+// continuation, on exactly the error path that carried all 31 of 343's observed
+// terminal outcomes.
+//
+// Every sibling advance on this coordinator already retries — the park 10
+// attempts, handleCompleteResponse 15, the progress loop 5. This one did not, and
+// that asymmetry is the whole of the defect.
+//
+// ⚠ Do NOT "simplify" this to repo.UpdateStateWithRetry. That helper retries by
+// reloading and doing *state = *reloaded, then re-issuing the UPDATE with the
+// reloaded, UNMUTATED state — so the caller's mutations are silently discarded and
+// a no-op is persisted. It is not a retrying version of "save my changes".
+//
+// terminalRequestID, when non-empty, is an awaited request whose row the caller
+// has already resolved; its map entry is re-deleted on every attempt so a reload
+// cannot resurrect it. Empty from the synchronous caller, which has no awaited
+// request in play.
 func (s *SagaCoordinator) skipToNextLoopIteration(
 	ctx context.Context,
 	state *OrchestrationState,
+	errorMsg string,
+	logger *zap.Logger,
+) error {
+	return s.skipToNextLoopIterationWithAwaited(ctx, state, "", errorMsg, logger)
+}
+
+func (s *SagaCoordinator) skipToNextLoopIterationWithAwaited(
+	ctx context.Context,
+	state *OrchestrationState,
+	terminalRequestID string,
 	errorMsg string,
 	logger *zap.Logger,
 ) error {
@@ -136,28 +170,8 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 		return fmt.Errorf("cannot determine first_substep for loop %s", parsed.LoopName)
 	}
 
-	// Record the error as this iteration's result
-	iterErrorKey := fmt.Sprintf("%s_iter_%d_error", parsed.LoopName, parsed.IterIdx)
-	state.CollectedData[iterErrorKey] = map[string]interface{}{
-		"status":    "error",
-		"error":     errorMsg,
-		"step":      state.CurrentStep,
-		"iteration": parsed.IterIdx,
-		"skipped":   true,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}
-
-	// Track error count per-loop (keyed by loop name, not shared)
-	errorCountKey := fmt.Sprintf("%s_error_count", parsed.LoopName)
-	errorCount := 0
-	if ec, ok := state.CollectedData[errorCountKey].(float64); ok {
-		errorCount = int(ec)
-	} else if ec, ok := state.CollectedData[errorCountKey].(int); ok {
-		errorCount = ec
-	}
-	state.CollectedData[errorCountKey] = errorCount + 1
-
 	// Determine next step
+	failedStep := state.CurrentStep
 	var nextStep string
 	if parsed.IterIdx < totalIterations-1 {
 		// Advance to next iteration's first substep
@@ -167,23 +181,117 @@ func (s *SagaCoordinator) skipToNextLoopIteration(
 		nextStep = completeStepName
 	}
 
+	iterErrorKey := fmt.Sprintf("%s_iter_%d_error", parsed.LoopName, parsed.IterIdx)
+	errorCountKey := fmt.Sprintf("%s_error_count", parsed.LoopName)
+
+	// applySkip writes this skip onto whichever copy of the state it is handed.
+	// Kept as one closure so the retry loop below and the caller's in-memory copy
+	// cannot drift: every attempt applies exactly the same mutations to a state
+	// freshly loaded from the database.
+	applySkip := func(target *OrchestrationState) int {
+		if target.CollectedData == nil {
+			target.CollectedData = make(map[string]interface{})
+		}
+
+		// Record the error as this iteration's result
+		target.CollectedData[iterErrorKey] = map[string]interface{}{
+			"status":    "error",
+			"error":     errorMsg,
+			"step":      failedStep,
+			"iteration": parsed.IterIdx,
+			"skipped":   true,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		}
+
+		// Track error count per-loop (keyed by loop name, not shared). Counted off
+		// the TARGET, so a reload picks up a sibling's increment rather than
+		// overwriting it with a number derived from a stale copy.
+		errorCount := 0
+		if ec, ok := target.CollectedData[errorCountKey].(float64); ok {
+			errorCount = int(ec)
+		} else if ec, ok := target.CollectedData[errorCountKey].(int); ok {
+			errorCount = ec
+		}
+		target.CollectedData[errorCountKey] = errorCount + 1
+
+		// The awaited request the caller has already resolved must not come back
+		// from the database copy.
+		if terminalRequestID != "" && target.AwaitedRequests != nil {
+			delete(target.AwaitedRequests, terminalRequestID)
+		}
+
+		target.CurrentStep = nextStep
+		target.Status = StatusExecutingStep
+		target.LastActivity = time.Now()
+
+		return errorCount + 1
+	}
+
+	totalErrors := applySkip(state)
+
 	logger.Warn("Skipping failed loop iteration, advancing to next",
-		zap.String("failed_step", state.CurrentStep),
+		zap.String("failed_step", failedStep),
 		zap.String("error", errorMsg),
 		zap.Int("failed_iteration", parsed.IterIdx),
 		zap.Int("total_iterations", totalIterations),
 		zap.String("next_step", nextStep),
-		zap.Int("total_errors", errorCount+1))
+		zap.Int("total_errors", totalErrors))
 
-	// Update state
-	state.CurrentStep = nextStep
-	state.Status = StatusExecutingStep
-	state.LastActivity = time.Now()
-
-	// Persist
+	// Persist, retrying optimistic-lock failures by reloading and RE-APPLYING.
+	// See the function comment: a single unretried write here loses the advance,
+	// and on the async path the awaited-map delete with it.
 	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.UpdateState(ctx, state); err != nil {
-		return fmt.Errorf("failed to persist state after loop skip: %w", err)
+	maxRetries := 10
+	baseDelay := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := repo.UpdateState(ctx, state)
+		if err == nil {
+			if attempt > 1 {
+				logger.Info("Loop skip persisted after retry",
+					zap.Int("attempts", attempt),
+					zap.String("orchestration_id", state.OrchestrationID),
+					zap.String("next_step", nextStep))
+			}
+			// The advance is durable: NOW retire the awaited row. Same ordering as
+			// handleCompleteResponse, and the reason it is inside the loop rather
+			// than after continueExecution — the row must be retired the moment the
+			// advance is safe, not once the whole next iteration has run.
+			if terminalRequestID != "" {
+				if markErr := repo.MarkAwaitedRequestComplete(ctx, terminalRequestID); markErr != nil {
+					logger.Warn("Failed to mark awaited request complete during loop skip",
+						zap.String("request_id", terminalRequestID),
+						zap.Error(markErr))
+					// Deliberately not fatal: the state is saved, which is the half
+					// that cannot be recovered from a redelivery.
+				}
+			}
+			break
+		}
+
+		if !IsOptimisticLockError(err) {
+			return fmt.Errorf("failed to persist state after loop skip: %w", err)
+		}
+		if attempt >= maxRetries {
+			return fmt.Errorf("failed to persist state after loop skip after %d attempts: %w", attempt, err)
+		}
+
+		delay := backoffWithJitter(baseDelay, attempt)
+		logger.Warn("Optimistic lock failure persisting loop skip, reloading and retrying",
+			zap.Int("attempt", attempt),
+			zap.Duration("backoff", delay),
+			zap.String("orchestration_id", state.OrchestrationID))
+		time.Sleep(delay)
+
+		freshState, loadErr := repo.GetState(ctx, state.OrchestrationID)
+		if loadErr != nil {
+			return fmt.Errorf("failed to reload state for loop skip retry: %w", loadErr)
+		}
+		applySkip(freshState)
+		// Adopt the reloaded copy wholesale: the caller goes on to build a
+		// continuation context from this pointer, and it must describe the row
+		// that was actually written.
+		*state = *freshState
 	}
 
 	// Continue execution from the next step
@@ -240,6 +348,18 @@ func findFirstSubstep(steps map[string]models.Step, loopName string) string {
 // skipToNextLoopIterationForAsync is the same as skipToNextLoopIteration but
 // also cleans up the awaited request that failed. Used by handleUnrecoverableError
 // and handleRequestTimeout.
+//
+// ORDERING (bugs_open/343 P2, 2026-08-21): the awaited row is marked terminal
+// only AFTER the advance is durably persisted — the same rule handleCompleteResponse
+// calls "the key fix". It used to be marked FIRST. When the persist then failed,
+// the advance and the map delete were both lost while the row was already
+// terminal, so the reply's redelivery was eaten by the processed_at duplicate
+// guard and the continuation was gone for good. Marking last means a persist
+// failure leaves the row claimable and the redelivery still able to drive it.
+//
+// On the timeout path (retryExpiredAwaitedRequest) the row is already 'error'
+// before this function is entered, so the ordering there is unchanged by
+// construction — this only moves the response path's mark.
 func (s *SagaCoordinator) skipToNextLoopIterationForAsync(
 	ctx context.Context,
 	state *OrchestrationState,
@@ -247,14 +367,14 @@ func (s *SagaCoordinator) skipToNextLoopIterationForAsync(
 	errorMsg string,
 	logger *zap.Logger,
 ) error {
-	// Clean up the failed awaited request
-	repo := NewStateRepository(s.db, s.logger)
-	if err := repo.MarkAwaitedRequestComplete(ctx, requestID); err != nil {
-		logger.Warn("Failed to mark awaited request complete during loop skip",
+	// The advance re-deletes the map entry on every persist attempt so a reload
+	// cannot resurrect the request we are resolving, and marks the row terminal
+	// the moment — and only if — that advance is durable.
+	if err := s.skipToNextLoopIterationWithAwaited(ctx, state, requestID, errorMsg, logger); err != nil {
+		logger.Warn("Loop skip did not persist - the awaited row is left claimable so the redelivery can still drive it",
 			zap.String("request_id", requestID),
 			zap.Error(err))
+		return err
 	}
-	delete(state.AwaitedRequests, requestID)
-
-	return s.skipToNextLoopIteration(ctx, state, errorMsg, logger)
+	return nil
 }

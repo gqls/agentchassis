@@ -14171,3 +14171,31 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register **RSH-012** (the mechanism), **WFA-021** (`await_reconcile_enforce`), **RSH-011** (`wedge-evidence-capture`, the live instrument — trigger deliberately BROAD, do not narrow it to this signature), `bugs_open/343`, MEMORY [[a-doc-comment-is-not-an-enforcement-mechanism]]
 - **source:** 2026-08-21, `bugs_open/343` lane — written in the same commit as the branch it guards, per the platform-seams ordering exemption's condition (2)
 - **added:** 2026-08-21, bugs_open/343 lane
+
+---
+
+### `UpdateStateWithRetry` retries by RELOADING and doing `*state = *reloaded` — the retried UPDATE persists the reloaded, UNMUTATED state, so your changes are silently discarded and a no-op is written
+
+- **footprint:** `platform/orchestration/state.go`, `UpdateStateWithRetry`, `UpdateState`, `IsOptimisticLockError`, `skipToNextLoopIteration`, `persistAwaitingStateWithRetry`, `handleCompleteResponse`, any "make this persist retry optimistic-lock failures" change
+- **fires when:** you find a bare `repo.UpdateState(ctx, state)` on a path that should retry — a rebuild, a status flip, an advance — and reach for the helper whose name says exactly that. **No symptom.** It compiles, the signature fits, the retry genuinely happens, the function returns `nil`, and the row's version advances. Under contention your mutation is simply not there afterwards, which reads as "the other writer won" rather than as a defect in your own call.
+- **the mechanism:** the helper's recovery step is `*state = *reloaded` (`state.go`, inside the `IsOptimisticLockError` arm). That overwrites the caller's struct — including every field the caller had just set — with the database's copy, and the **next** loop iteration re-issues `UpdateState` on that copy. So attempt 1 carries your changes and fails; attempts 2..N carry the DB's own values and succeed. The name promises "retry my save"; the behaviour is "retry a save of whatever is in the database".
+- **the check — write the mutation down and prove it survives, or use the other shape:**
+  ```go
+  // A retrying persist that keeps your changes must LOAD FRESH and RE-APPLY per attempt:
+  for attempt := 1; attempt <= maxRetries; attempt++ {
+      if err := repo.UpdateState(ctx, state); err == nil { break }
+      if !IsOptimisticLockError(err) { return err }
+      time.Sleep(backoffWithJitter(baseDelay, attempt))
+      fresh, err := repo.GetState(ctx, state.OrchestrationID)
+      if err != nil { return err }
+      applyMyMutations(fresh)   // <- the part UpdateStateWithRetry has no way to do
+      *state = *fresh
+  }
+  ```
+  That is the shape `persistAwaitingStateWithRetry` and `handleCompleteResponse` already use, and it is why they retry correctly while a helper call would not have.
+  **Prove it in a test rather than by reading:** drive the first `UpdateState` to an `optimistic lock failure` error through sqlmock, expect the reload, and assert on the collected_data ARGUMENT of the SECOND UPDATE. If your key is absent from that captured JSON, the retry persisted a no-op. A test that only asserts "no error returned" passes either way.
+- **⚠ the corollary that makes this expensive rather than merely wrong:** a lost mutation is invisible at the call site, so the damage is an ABSENCE — no error, no log line, no row saying it happened. On the loop-skip path (`bugs_open/343` P2) the absence was an advance that never persisted while the awaited row had already been marked terminal, which put the reply's redelivery behind the `processed_at` duplicate guard: the continuation was lost with nothing anywhere recording a failure.
+- **⚠ and do not read its callers as endorsement.** The helper is correct for a caller whose only intent is "make the row's version move" or whose mutation is re-derived from the reloaded state anyway. Check which kind YOUR caller is before copying one.
+- **relations:** register **RSH-013** (the loop-skip repair that could not use it), **RSH-012**, `bugs_open/343`, MEMORY [[writes-the-field-is-not-reads-the-field]], [[a-helper-with-no-callers-is-not-a-refactor]]
+- **source:** 2026-08-21, `bugs_open/343` lane — found while planning P2, when the obvious one-line fix ("just call UpdateStateWithRetry") was read closely enough to notice the reload assignment. Written in the same commit as the code that declines to use it.
+- **added:** 2026-08-21, bugs_open/343 lane
