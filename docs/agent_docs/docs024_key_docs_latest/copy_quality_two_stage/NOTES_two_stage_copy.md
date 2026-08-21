@@ -2290,3 +2290,63 @@ a LANDMINE saying exactly this, which I had not grepped, because the SessionStar
 entries against **dirty files** and cannot match a **table** footprint. CLAUDE.md says to grep it
 yourself for table, command and symbol footprints; I did not, on a table I was about to publish a
 count from. **Grep LANDMINES for the TABLE, not just for the file.**
+
+---
+
+## 2026-08-21 — RUN 4 on `ai-agent-orchestration.com/index`: the 3-edit budget is SELF-CORRECTING, not a ceiling
+
+**The registered verify-later is answered, and the answer is the good one.** Fired via the new
+`scripts/fire-copy-editor.sh` (corr `667f8493-498e-4bb7-8bc1-6df82d5fd23e`, orchestration COMPLETED in
+**180 s**, 11,756 of 32,000 output tokens — not truncated). Proposal `6d6d4975`, 3 edits, parked at
+`needs_human_review`.
+
+**Zero overlap with run 3. Three entirely different components** `[MEASURED 2026-08-21]`:
+
+| | slot · field |
+|---|---|
+| run 3 (08-18) | `features`·features · `departments-grid`·section_intro · `system-stats`·footnote_text |
+| run 4 (08-21) | `differentiators-section`·features · `call-to-action`·subheadline · `latest-news`·subheadline |
+
+So a second pass **does not re-propose what it already did** — it finds the next three by the same
+ranking. The budget bounds a run, not the agent's reach, and the 08-18 worry that it might be "a known
+UNDER-fix that just re-proposes" is refuted.
+
+**And it reports its own insufficiency, which is what the budget design asked for.** Its
+`page_judgement`: the same pilot-stall story appears *four* times, the features and differentiators
+sections are near-duplicates with identical titles — *"the deeper features/differentiators section
+overlap is larger than three edits can resolve and should be revisited as a structural merge."* That
+is the agent declining to pretend three edits fixed a structural problem, in the field the prompt
+reserves for exactly that.
+
+**Gate: PASS on all three, 0 checks failing.** Types held (`features` array 7 → 7 items; both
+`subheadline`s text), no href dropped, no class or structural element lost, figures unchanged (2, 5, 0
+— none invented). Two edits tripped the volume floor and **cleared its discriminator**: 37% and 31%
+shorter with every removed figure and link still present elsewhere on the page, so it reads as
+de-duplication rather than gutting — each carrying the `⚠ REVIEW THE PROSE` advisory, which is the
+honest posture for a mechanical check on a judgement call. No `⚠ strip` advisory, so nothing in the
+proposed values carries markdown the write-time strip would act on — worth noting because that page
+has 4 open `literal_markdown` findings.
+
+**Not applied.** D2 is proposal-only and human-approved; this is the owner's to read.
+
+### ⚠ `llm_call_log` LAGS the orchestration, and I nearly filed a fleet instrumentation bug
+
+Immediately after the run went `COMPLETED` I queried `llm_call_log` for its call and got **nothing** —
+the newest `copy-editor` row was still run 3's, from 08-18, at 8,181 tokens. A completed run with a
+filed proposal and no recorded LLM call reads exactly like an instrumentation outage, and **every
+measurement this lane and the `305` lane make comes out of that table**, so the stakes of being wrong
+were high.
+
+It was **write lag**. Minutes later the row was there. What stopped me filing:
+
+1. The proposal's own content was plainly LLM-authored and carried MY correlation, so the call had
+   certainly happened — the artefact contradicted the log.
+2. **Asking whether the instrument was working at all**, rather than whether my row was in it: 23
+   calls across 3 agent types in the same hour. A table receiving traffic is not a table that has
+   stopped.
+
+⚠ **And the near-miss inside the near-miss:** run 3's figure is **8,181 tokens** and I first read that
+row as run 4's, because I had sorted by `created_at DESC` and taken the top row without checking its
+date. Two runs of the same agent on the same page produce results that look interchangeable. **Filter
+by correlation, never by recency** — the same shape as reading a council verdict off the newest
+`doc_notes` row.
