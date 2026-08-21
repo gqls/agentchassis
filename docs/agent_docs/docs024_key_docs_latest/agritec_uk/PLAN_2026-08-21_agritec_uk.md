@@ -199,11 +199,34 @@ supplier/product directory is new-vertical work, not a switch.
 
 ## 5. Council review
 
-The seed SQL is an appliable DB migration and therefore **in scope** for the council gate
-(widened 2026-08-19, `bugs_open/314`). Submit via `097_TRIGGER_council_review_v1.sh` before or
-alongside the commit; use `Council-Submitted: <corr>` if the verdict has not landed, and never
-write `Council-Reviewed:` on a verdict not read. Site content, prose and the mission brief are
-out of scope and are refused client-side.
+> **CORRECTED 2026-08-21, same day, before acting on it.** This section originally read *"The
+> seed SQL is an appliable DB migration and therefore **in scope** for the council gate."*
+> **It is not, and a session following that line would have had its submission refused.**
+> Caught by reading `scripts/council-scope.sh` — the single source, which CLAUDE.md says not to
+> re-derive — and then testing the path mechanically against the same `jq` predicate `097` runs:
+>
+>     COUNCIL_SCOPE_CODE_RE      ^(platform|internal|pkg)/
+>     COUNCIL_SCOPE_MIGRATION_RE ^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$
+>     -> false for docs/agent_docs/docs024_key_docs_latest/agritec_uk/SEED_*.sql
+>
+> The error was reasoning from the *widening* (migrations are in scope now) to *this file*,
+> without checking that this file is a migration. It is not: it is per-site setup applied out of
+> band with `psql -f`, exactly as the oufe seed was, and it is out of scope by path **and** by
+> intent. What the widening covers is `sql_for_agents/NNN_name.sql` — the runner's own appliable
+> shape — plus `_HOLD.sql`.
+
+**So: nothing in this workstream is in council scope today.** The seed, the briefs, the ledger and
+the site content are all out, and would be refused client-side without spending credits.
+
+That changes when the lane touches platform code — and two of the ratchet line's re-check
+conditions would do exactly that: extracting the depth-floor measurement or the reachability
+crawl into a shared check, or adding an agricultural kind to the directory registry. At that
+point submit via `097_TRIGGER_council_review_v1.sh` before or alongside the commit, use
+`Council-Submitted: <corr>` if the verdict has not landed, and never write `Council-Reviewed:` on
+a verdict not read.
+
+**Test admission, don't infer it.** `DRY_RUN=1` on the trigger answers "would this be admitted?"
+for free, and sourcing `scripts/council-scope.sh` lets you test a path in one line.
 
 ## 6. Open questions
 
