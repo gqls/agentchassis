@@ -210,3 +210,55 @@ discriminating shape is Go CONTROL syntax with no executed output, not brace pre
 **And a measurement caveat that now applies to this lane's numbers too:** distinct-token sets
 inherit `validate_content`'s 10-per-detector cap, so any "N tokens" figure is a **ceiling**, not
 a count. Report it as such.
+
+---
+
+## READINESS CHECK 2026-08-21 — for the next clean-domain run (`garden-tools.uk`, owner's choice)
+
+**`bugs_open/260` is CLOSED** (2026-08-20): *"the renderer half is FIXED AND LIVE, verified"*, and
+its headline's ~~"no live damage"~~ was restated as "zero corruption of STORED content" as that
+lane said it would. The blocker that stopped the last run is gone.
+
+**Also closed since:** `286`, `317`, `331`, `323`. **`311`'s section-level half remains live** and
+is what our route uses.
+
+### Still open, and what each would do to this run
+
+| bug | risk to a clean-domain build |
+|---|---|
+| **`307`** | a transient infrastructure burst kills work items **terminally** — all three attempts fit inside the outage. Its own record: ~815 failed steps, 100 items reaching a terminal state. A build running through an outage loses pages permanently, with no retry left. |
+| **`326`** (this lane) | **if the build fails partway, it cannot be re-run.** Re-submitting reports COMPLETED and queues nothing. The recovery path is hand-renaming `item_key`s. |
+| **`327`** (this lane) | the trigger can publish nothing and exit 0 (1 of 3 last time). Mitigated by procedure — verify the `needs_domain_research` row, never the exit code — but unfixed. |
+| **`328`** (this lane) | any page that fails to build stays linked from the pages that did, turning one failure into a visibly broken site. |
+
+### The blocker that is NOT a bug: `garden-tools.uk` cannot serve anything yet
+
+`[MEASURED 2026-08-21]` The domain is **parked**: NS are `ns1/ns2.dan.com`, A records
+`13.248.169.48` / `76.223.54.146`, and it serves **HTTP 200** from a parking page. There is **no
+Cloudflare zone** (`GET /zones?name=garden-tools.uk` → `success: true`, empty result), therefore
+no worker route. A build would write pages to the bucket that **nothing serves**.
+
+Prerequisites, in order — the same path `loanzy.uk` took: confirm ownership (⚠ the `webzy.uk`
+precedent: a zone was created for a domain the owner did not own, and the GODADDY tag was the
+tell) → delegate to Cloudflare (Nominet EPP, DESIGNCONSULT tag) → create the zone → add the
+`garden-tools.uk/*` and `*.garden-tools.uk/*` worker routes to `portfolio-sites-router` → verify
+the apex returns the router's 9-byte 404 **before** dispatching.
+
+### Confirmed clean
+
+0 rows in `sites`, 0 work items, no register entry — and it is **deliberately** absent from the
+register: `portfolio_positioning/RESERVED_test_domains.md` names it as a reserved test domain,
+*"parked, not in the register, not among the 50 … a subject that naturally exercises guides, a
+supplier/brand directory, a calculator-shaped tool and editorial, with no regulated angle"*. So
+no register work is owed and no other lane's wave plan is disturbed.
+
+### Correction to a premise, measured rather than assumed
+
+**`lendzy.co.uk` DOES have tools, and they work.** Four tool pages serve 200 with real inputs
+(affordability-complaint-checker 41 inputs, price-cap-checker 3, true-cost-calculator 1,
+complaint-deadline-calculator 2), and three are linked from the home page body. What is missing is
+**navigation**: the nav reads *About · Check your loan · Your rights · Free help now* — no tools
+or calculators entry — so browsing the menu you would never find them. The estate-wide census
+also refutes "the framework does not build tools": webdesign.co.uk has 92 deployed tool pages,
+mortgagecalculator.co.uk 14, loancash.co.uk 8. **The defect is discoverability, not absence** —
+and it is worth its own bug if the owner wants tools in the nav by default.
