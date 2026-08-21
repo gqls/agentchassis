@@ -587,3 +587,51 @@ counted at `compile_page_sections` either way.**
 fleet-wide banned-claim set already catches *always accurate*, *definitive*, *guaranteed accurate*,
 *every claim is verified* and *never wrong*. Uncovered until the next roll: *industry-leading*,
 *best-in-class*, *100%*, *flawless*. No action needed; do not re-add it.
+
+## §19. THE GATE REPAIRS COPY IN PRODUCTION — proven at the marker, 2026-08-21 11:06Z
+
+First real repair after migration `517`. `mortgagecalculator.co.uk` / `scorecard-simulator`,
+`mechanism-flow` component:
+
+```json
+{"status":"repaired","hits_before":5,"hits_after":3,"exempt":1,"exempt_reasons":{"regulatory":1},
+ "within_budget":2,"targets":2,"rejected":[],"page_hits":4,
+ "rewritten":[
+   {"field":"steps[2].body","shape":"rather_than",
+    "from":"The result breaks down by area rather than giving you one verdict: your income and affordability…",
+    "to":  "The result breaks down by area: your income and affordability…"},
+   {"field":"steps[2].branches","shape":"rather_than",
+    "from":"…the simulator shows that kind of trade-off rather than a flat pass or fail.",
+    "to":  "…the simulator shows that kind of trade-off."}]}
+```
+
+**Every part of the design did what it was built to do, on its first real page:** five constructions
+found; one left alone as **regulatory**; two allowed by the per-section budget; two rewritten; none
+rejected; and both rewrites are the surgical shape the design intended — a contrast clause removed, the
+claim and every fact kept. `hits_before 5 → hits_after 3` is the two repairs landing. One LLM call, 447
+output tokens.
+
+### ⚠ NOT YET PROVEN AT THE ARTEFACT, and the distinction matters
+
+The marker is a **status**. This estate's rule is to trust the artefact, and I cannot yet: **that page
+did not render**, so no `content_data` was written. It failed at the next step on the pre-existing
+`bugs_open/260` type gate — `mechanism-flow`'s `steps[N].branches` arrives as prose where the schema
+declares an array of objects.
+
+**That failure is not mine, and here is the control rather than the assertion:** on the earlier
+10:30:57 run my repair spliced **nothing** (`repair_unavailable`, `rewritten: []`, no `ai_service` yet)
+and the **identical** failure occurred on the same component; and `steps[1].branches` fails too, which
+I never touched. Reported to the `260` lane
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_260_render_fallback/CONTRIB_2026-08-21_from_the_305_lane_…`).
+
+**So what remains for artefact-level proof is one page that both trips the gate and renders.** Until
+then the honest claim is: the repair runs, chooses correctly, and rewrites well — measured at the
+marker, on real copy, once.
+
+### The per-page budget is STILL undecided after two live runs
+
+Both runs had **zero** hits in iteration 0, so `page_hits` is consistent with accumulating and with
+resetting in both. It needs a page whose first two sections both carry hits. `__copy_gate` is confirmed
+absent from the durable row (`saveStepResultWithRetry` copies only the step's own keys), so if a proper
+per-page budget is wanted the mechanism is to carry the count in the step's **output** and read
+`copy_gate_<N-1>` — not a bare `CollectedData` key.
