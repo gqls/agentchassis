@@ -1033,3 +1033,49 @@ in-place, through-the-framework shape is precisely what made the rewrite auditab
 a coordination gap, not a design flaw, and (a) closes it for one clause. The owner's offer to
 overrule is better spent elsewhere — but if that lane would rather have a hard interlock, they have
 been invited to say so and I will put it up.
+
+## 2026-08-21 evening — v1.0.1322: 345's Go half rolled, 533 applied, the council REFUTED my inner-loop reading, and the close-out assessment
+
+### Roll check (new discipline point: the provenance line beats the probe when pods are young)
+
+Fleet on **v1.0.1322**, pods 16:54Z. The pods were 5 minutes old, so the startup `build provenance`
+line was still in log range — **read it instead of binary-probing**: stamp
+`bac1899216fc6406f46cfcf8710f6a74c24276e0`, same on both replicas (one from logs, one confirmed at
+`/proc/1/exe`). Ancestry: `0f80f5ea1` (345 Go half) IN, both 311 halves IN.
+
+### Migration 533 APPLIED + recorded
+
+Applied by hand (`psql -f`, its own DO/RAISE guards passing: `UPDATE 1`, verify NOTICE, prompt now
+17,330 chars) then `--record-only`'d with a dated note — the runner has no per-file scope and other
+sessions' migrations were pending, which is the same route the 283 lane used for 486/487. **Both
+halves of 345 are now LIVE.** Demand test filed: item `e9e5a10b`,
+`needs_new_component:mortgages-repayment` on the unlocked originating site, served-before re-pinned
+(200 / 41,136 B / 0 `<input>` — the page moved overnight, +410 B: the released contrast-fix items,
+as predicted in the unlock contrib).
+
+### ⚠ COUNCIL ROUND 1 = REVISE, and its verification query REFUTED my "~17 generations per attempt"
+
+The reviewers ran the query I should have: the 52 rejections on item `8c8f5de5` are **52 DISTINCT
+orchestration_ids, ONE rejection each**, ~4 minutes apart for 3.5 hours — not 3 attempts with an
+inner loop. So the burn was **dispatch-without-counting**: the old `isAIUnavailable` arm released
+to triaged forever without consuming an attempt (since replaced by 307/344's ladder, live in this
+build — but the ladder still has a **designed** transient release, `work_item_failure_ladder.go:279`
+"attempt NOT consumed", writing `error` at `:570`).
+
+**Consequence for my fix: the `attempt_count > 0` gate hid the failure text from exactly the
+uncounted re-dispatches that need it** — under the old code, 49 of those 52 runs would have
+regenerated blind again. Revised: the gate is now **a NON-BLANK recorded failure**. A genuinely
+fresh item has `error` NULL (no INSERT path writes the column), so first generations stay
+byte-identical; an uncounted re-dispatch now carries the text. New test pins it
+(`TestLoadWorkItems_UncountedRedispatchStillCarriesTheFailure`), mutation-proven the decisive way
+round — RESTORING the attempt gate fails that test and only that test. Round-1's HIGH (the
+guidance-alias file edited but not listed as a plan edit) answered by listing it. Resubmitted with
+`RESUBMIT_CORR=67b07528`. The revision is committed and **inert until the next roll**; today's
+demand test is unaffected (its first real failure IS counted by the live ladder, so attempt 1 sees
+the text under either gate). Also corrected `bugs_open/345`'s "~17 per attempt" line.
+
+### CLC-020 register status refreshed
+
+It read "inert until a chassis image ships it / nothing has been diverted yet" — two days behind
+six diversions. Now LIVE + DEMAND-PROVEN with the evidence named, and its verify-later marked done
+except the credit-health-check specimen, which fails UPSTREAM (`337`) and cannot exercise the seam.
