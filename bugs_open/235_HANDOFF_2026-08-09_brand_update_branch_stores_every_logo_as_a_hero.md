@@ -461,3 +461,101 @@ the brochure-lane rebuild.** Until both: delete nothing.
 > `/assets/images/logo.png` serves 200/157KB, so the blocked `image_url_404:logo.png`
 > item's "no active asset" premise looks stale as well — worth re-verifying before anyone
 > acts on it.
+
+---
+
+## 2026-08-21 — THE RESIDUAL IS FIXED AT ITS SOURCE. The 08-11 addendum's question is answered: the source is a `site_specs` row, and here is why no grep found it
+
+Picked up by a session surveying dormant bugs; this file was 10 days untouched and the
+addendum above named a remedy nobody had actioned. **Nothing in the original diagnosis is
+contradicted** — the source defect really was fixed by migration 360, and the artefacts
+really did survive it. What was missing was *where* the resolver reads from.
+
+### The source
+
+`site_specs`, `aspect='portfolio'`, `is_current`, fundamentallyai.com, **authored
+2026-07-22** — before migration 360 (08-09). Its `data->'projects'` held three entries
+with hard-coded `logo_url` strings, two ending `.jpg`. It is a **fossil of the fixed
+defect, not a second instance**: when it was written, those two sites genuinely served
+`logo.jpg`, because this bug's brand-update branch had stored their logos as heroes.
+
+### Why the 08-11 `content_data` patch died, stated precisely
+
+`sourceResolver.ensureSpecs` (`plan_sections_action.go:279-309`) runs
+`SELECT aspect, data FROM site_specs WHERE site_id = $1 AND is_current = true` and stores
+**every** row into `r.specs[aspect]`. Assembly and re-render never re-consult it;
+regeneration does. So a patch to the resolved copy holds for days and then reverts —
+attached to somebody else's rebuild, which is where the investigation goes looking.
+
+> ⚠ **The loader is keyed by the aspect COLUMN, never by an aspect literal, so
+> `grep -rn '"portfolio"' --include=*.go` returns nothing — for this aspect and for every
+> other.** "No reader found" is not evidence the spec is unread. Now in `LANDMINES.md`
+> (*"A `site_specs` aspect has NO typed Go reader…"*), independently re-verified by the
+> landmine-verifier: **STILL_VALID**, 2026-08-21 18:26.
+
+### The measurement that settles it without reading any code
+
+For all three projects, `(spec_element - 'logo_url') = (component_element - 'logo_url')`
+returns **`t, t, t`** — all seven other keys (`title`, `domain`, `live_url`, `logo_alt`,
+`build_time`, `built_with`, `description`) byte-identical between `site_specs` and
+`page_components`. A component that merely *resembled* the spec could not match
+byte-for-byte across a 250-character free-text description. The component is a verbatim
+copy of the spec.
+
+### What was applied
+
+| | what | state |
+|---|---|---|
+| **544** | corrects the two `logo_url` values in the current `portfolio` spec | applied + `--record-only` 2026-08-21, committed `da108d51d` |
+| **545** | re-resolves the served copy **from** that spec (a derivation, not a hand edit); refuses to run while the spec still holds `.jpg` | applied + `--record-only`, committed `e6c23c6bc` |
+
+`[MEASURED]` before → after: current specs carrying a `.jpg` logo, fleet-wide: **1 → 0**.
+Both `.png` targets probed **200** before writing (relojistas 32,212 B; idea.uk 146,681 B)
+— a spec pointing at a missing file serves a *broken* image, which is worse than a
+wrong-format one.
+
+⚠ **Both applied BY HAND and `--record-only`'d, deliberately.** ~140 files read as pending
+in `schema_migrations` (applied out-of-band, never recorded), so a global
+`run-migrations.sh --apply` would have re-run all of them before reaching these two.
+
+### The CLASS, swept fleet-wide rather than argued (answering a council objection)
+
+Exactly **three** current specs contain any `/assets/images/` URL. The complete list of
+those URLs: cookly.uk `briefing` (`hero.jpg`, `logo.png`), mortgagecalculator.co.uk
+`image_url_404_deploy_mismatch` (`hero.jpg`), fundamentallyai.com `portfolio`
+(`logo.png`). **Only one predated migration 360, and it is the one fixed.** No current
+spec on the fleet now carries a logo at hero encoding. **Class population: one.**
+
+### Council — round 1 REVISE, and it was right
+
+Corr `821cf578-9687-4925-961a-4c56f6f8a458`. Gated HIGH by `prior_art_librarian` on my
+own evidence: I had written *"no Go code reads `aspect=portfolio` — I grepped and found no
+reader"* and then, in the same sentence, inferred how it **is** read. The seat named the
+exact shape I had missed — *"a generic current-spec loader keyed by aspect rather than a
+literal 'portfolio' string"*. That is `ensureSpecs`. **The conclusion was right and the
+evidence could not have found its own counterexample**, which is the same error landing
+correctly by luck. Logged in `WRONG_CALLS.md` 2026-08-21. Conceded to `debug_historian`
+and not argued: no pre-image row was captured before the jsonb surgery, and 544's outer
+`WHERE` is not pre-state gated (545's is). Round 2 resubmitted on the same trail.
+
+### STILL OPEN — what remains
+
+1. **The served page.** A `page_rerender` is dispatched (item_key
+   `page_rerender:index:235residual:20260821`) to regenerate `rendered_html` from the
+   corrected `content_data`. **Until it lands the page still serves 2 `.jpg` / 3 `.png`.**
+   Both stores now agree, so this is *delayed, not at risk* — the site's next rebuild
+   produces `.png` regardless. **Verify at the served page, never at the item's status:**
+   `curl -s https://fundamentallyai.com/ | grep -oE "logo\.(jpg|png)" | sort | uniq -c`
+   — want **3 `logo.png`, 0 `logo.jpg`**. Use a generous `--max-time`: two false `000`s
+   appeared during this work from request rate, not from the sites.
+2. **Deletion of the stale `logo.jpg` objects is now the OWNER'S CALL, and the gate is
+   OPEN rather than satisfied.** The 08-11 addendum blocked deletion on fundamentallyai's
+   index no longer referencing them; item 1 clears exactly that condition. Re-check the
+   addendum's own list of referrers before removing anything — this lane did not delete,
+   and deliberately did not decide.
+3. `architecture` noted, without blocking, that the real structural observation is
+   `site_specs` aspects being read only as generic LLM context with **no typed reader**
+   owning a field like `portfolio.projects[].logo_url`. Recorded as a landmine rather than
+   escalated: the class sweep found a population of one, which is not enough load for an
+   RFC today. **If more aspects turn out to carry stale derived-asset URLs, that crosses
+   into `needs_rfc`.**
