@@ -952,3 +952,21 @@ LIVE-AND-ARMED from this roll. Every post-roll tool birth is converted-or-refuse
 (their broken templates no longer exist — rebuilt); automation-savings' 2 parked items STAY
 (rows still broken pending the untangle). Stale-conversion items for rebuilt rows are
 naturally superseded by wave-2 items (same item_key, prior ones terminal).
+
+## 2026-08-21 (session 8, late night) — OWNER RULED the untangle: shared row RETIRED, per-site fresh births seeded; decision 2 confirms the LMC rebuilds
+
+Decision 1 executed (SQL_2026-08-21_retire_shared_row_and_rebirth_per_site.sql, applied with
+verify DO): 795c34e6 deactivated (its own row + component_versions are the pre-images), both
+slots tombstoned `build_status='removed'` (the 286 route's "retire the ported slot" verb;
+archive trigger holds the served bytes), `adopt_existing_page=true` armed on save_tool
+(**TEMPORARY — un-arm after the two births land**:
+`UPDATE agent_definitions SET default_config = default_config #- '{workflow,steps,save_tool,config,adopt_existing_page}' WHERE type='tool-generator' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;`).
+Two `add_tool` items seeded (`283-owner-rebirths`, prio 30, NO replace_existing — no incumbent
+exists now): spec = retired row's description + tool-doc contract + an explicit visible-prose
+requirement (the shrink-floor lesson applied at the spec, not by lowering a guard). These run
+POST-roll ⇒ **they are the armed birth guard's live demand check** — expect
+`instance_scope: mechanically converted at birth` in the results and born-converted templates.
+
+Decision 2: the owner confirms rebuild-and-deconstruct for the remaining pool — the LMC pair
+proceeds after their veto window (~2026-08-22 midday; the window is THEIR coordination
+courtesy, not approval - consolidation's oracle-block REWRITE still owed in the same commit).
