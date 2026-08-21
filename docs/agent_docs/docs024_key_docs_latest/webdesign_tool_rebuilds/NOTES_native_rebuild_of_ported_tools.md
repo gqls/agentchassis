@@ -2533,3 +2533,17 @@ presets; honest copy. 0·0·0·0 standard counts, 13 listeners.
 (`7c9deeee`), #27 token (its generator rerender), #28 clip-path, plus the oklch re-fix
 (`1fe89947`, shared grading with the 286/331 lane).** All five retires are done — no race exposure
 anywhere, only waits.
+
+## 2026-08-21 15:20Z — a mis-routed ownership request, declined and redirected (the who-owns-is-lagging class, inbound)
+
+The `staged-component-build` lane asked THIS lane to confirm the
+`create_tool_component.replace_existing` entry in their new `?`-wire acknowledgement gate, believing
+we own 331/TL-047/496/532 — presumably because this lane's fingerprints (the incident report, the
+absence-arm proof, the oklch re-fix queue item) are all over the seam's recent history. **Declined:
+an ack there is the WIRE AUTHOR'S claim about their own downstream, and a finder confirming it would
+be the hollow-ack failure the gate exists to prevent.** Redirected to the owner (the
+`bugs_open/286` session, = the 286/331 lane), and separately confirmed the incident facts that ARE
+this lane's first-hand: the 12:12:12Z arming, cd3812b5's complete-with-NULL-error death, both
+behavioural arms, and one counting subtlety (2 error orchestration rows = attempts; 1 failed item
+fleet-wide — say "one item" and both censuses agree). Their two `?`-marker traps recorded in the
+handoff, credited.

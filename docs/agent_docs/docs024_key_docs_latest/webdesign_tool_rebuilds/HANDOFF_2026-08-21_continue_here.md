@@ -92,6 +92,15 @@ RUNBOOK "retire race" section). If your turn must end, do not file.
 
 ## Traps (additions since 2026-08-19; older ones in the superseded handoff still hold)
 
+- **If this lane ever adopts a `?` optional-explicit config wire** (credited to the
+  staged-component-build lane, 2026-08-21): (1) the wire and its entry in
+  `architecture_review/optional_explicit_wire_acks.json` must travel in the SAME commit, or the
+  `config-key-audit --optional-explicit-wires` gate goes red on someone else's clock; (2) the `?`
+  marker only parses on chassis ≥ v1.0.1321 — on an earlier binary the migration applies cleanly and
+  the field silently falls back to the whole-tree search (matters for ROLLBACKS too; LANDMINES has
+  both version numbers). Also: an acknowledgement in that file is the WIRE AUTHOR'S claim — never
+  confirm one for a wire you did not write (this lane declined exactly that request, 2026-08-21).
+
 - **A watcher's FIRING is not its DELIVERY** — see the rewritten recipe rule. Two same-day
   near-misses and one 6-hour public double-tool page are one mechanism.
 - **`already_exists=true` on the LATEST orchestration row does not mean nothing was built** —
