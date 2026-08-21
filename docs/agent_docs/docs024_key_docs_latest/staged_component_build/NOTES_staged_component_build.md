@@ -6125,3 +6125,50 @@ migration, **not built**". It is not only step-5 hygiene; it closes a live wrong
    `modify|add|remove|config_change` — a new file is **`add`**, not `create`; and **`plan.risks` is
    a STRING, not an array.** `DRY_RUN=1` on the 097 trigger tests all of this for nothing — use it
    every time.
+
+## 2026-08-21 (~11:0x–12:0xZ) — the marker is LIVE, round 1 came back REVISE and was right twice, and 330's fix is built but HELD behind 512's control
+
+**The `?` marker is LIVE on `v1.0.1321`** (both pods up 2026-08-20 19:51Z, one digest
+`sha256:3ed50651…`). **How, because the standard probe had no target:** my capability probe
+FAILED ITS OWN PRESENT-CONTROL (`strictFields` absent too) — those are Go LOCALS, which never
+reach the binary, and the change adds no new string literal either (its quotable phrases are in
+comments). So: image label `org.opencontainers.image.revision` = `0483e7f4e`, local tag's
+RepoDigest matched the deployed digest exactly (this is the step that makes the label evidence
+about the RUNNING image), then `git merge-base --is-ancestor ecc419bd1 0483e7f4e` → true, with a
+later commit as the control → false. A pure-logic change is unprobeable at the artefact; ancestry
+is the instrument. (Another session hit the same wall and logged it in LANDMINES.)
+
+**Round 1 = REVISE (`5f82423b`), gated by bug_historian. Two objections found REAL holes:**
+- **guardian + prior_art (census unverifiable):** my ship-time census walked `sub_workflow` only,
+  and **`substeps` is the spelling execution PREFERS** — documented since `bugs_open/144`
+  (`sharedoutputs.go:45-48`). It could not have found one whole class. Re-run two ways: SQL with
+  NO path literals (every key, every depth) → 0 on this surface, 77 on input_mapping, 6 `!` here,
+  1 there; and the new Go audit via `validation.WalkSteps` → 0 wires / 194 agents, with a demand
+  control (one `?` injected into the REAL export → exactly 1 finding, exit 1). Conclusion held;
+  the first instrument could not have said so. → `WRONG_CALLS.md`.
+- **bug_historian (GATING — a new generic silent-absence mechanism with no adoption-time guard):**
+  answered mechanically, not in prose — `config-key-audit --optional-explicit-wires` + an acks
+  file whose entries must state what was checked DOWNSTREAM (blank `downstream` ignored + warned).
+- **reuse_agent:** `datahelpers.MarkedConfigKey` is now the ONE parser; input_mapping's two sites
+  call it. It implements THAT surface's algorithm (77 live keys there, 0 here) so the surface with
+  consumers is byte-identical and the newcomer conforms.
+Round 2 published on the same corr; commit `098406078`.
+
+**516 built, submitted (`101ed0c6`), committed `4c2169831`, and HELD** — `related_pages?` on both
+tool build steps = `bugs_open/330`'s fix. **The hold is not a roll**: applying it would consume
+the demand control 512's verification needs ("reason 0 WHILE related_pages keeps firing"). Measured
+11:4xZ: **tool-generator runs since 512's boundary = 0 over 18 h** — both classes are quiet for
+want of demand, not because they are fixed. Dry-run against live data (COMMIT→ROLLBACK) printed
+`516 OK`. Gate dogfooded both ways: 0 wires today (exit 0), 2 wires all acknowledged on a
+post-516 fleet (exit 0).
+
+**Correction to my 17:5xZ entry yesterday:** I wrote that pbh/`page_type` wants a PLAIN wire, on
+the 306 session's first read. **Superseded by 515's own measurement** (a third session's file):
+`page_record.page_type` is absent on **18/31** runs, and on those the only candidates are OTHER
+pages' page_type — a plain wire fixes the 13 and leaves the majority guessing. It uses `?`.
+
+**Lane bookkeeping, and it cost a retired migration:** the 306 session retired their 514 as
+superseded by "my" 515 — **515 is not mine** (`cc798cb34`, a THIRD session). I made the mirror
+error an hour earlier, assuming 514/515 were both theirs. Three sessions in one lane today;
+`git log --format='%h %an %ci'` on the FILE is the only thing that settles authorship, and neither
+of us ran it before acting.
