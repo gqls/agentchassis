@@ -5,9 +5,17 @@
 advisory in round 2 — *"worth a follow-up ticket with a target date rather than an open-ended
 note"*). **UNOWNED.**
 
-**Status: OPEN — the SILENCE is fixed and committed (2026-08-21, owner-instructed), INERT until the
-next chassis roll. Stays open by the fixed-AND-live bar, and see the scope note below: what shipped
-is the report, not a refusal.**
+**Status: OPEN — the SILENCE is FIXED AND LIVE on `agent-chassis` v1.0.1322 as at 2026-08-21 17:00Z**
+(probed on both replicas: the report literal and the config key PRESENT, two independent
+removed-string controls ABSENT, nonsense control absent). **Stays OPEN deliberately** — see the
+residual below: nine of fifteen call sites report, six do not, and no refusal was added anywhere.
+
+> ⚠ **The live-page routes ESCALATE as well as detect (2026-08-21, council round 5).** Two seats
+> gated on the fact that this file called `applyContentEdit`/`applyComponentSwap` "the two with the
+> most exposure" and then gave them a log line only. Both now file a `required_fields_missing`
+> item, unconditionally — the write is per-EDIT, not per-build (271 such edits in four months), so
+> it is not the fleet-wide new authority that makes the chrome sibling opt-in. **That commit is
+> NOT in v1.0.1322** and is inert until the next roll.
 
 > **WHAT WAS DONE.** RFC_041 §5's candidate (a), the structural one: `RenderContext` now carries the
 > component's `InputSchema`, and the **seam** applies `missingRequiredLLMFields` — the same function
