@@ -928,3 +928,42 @@ Every deployed row whose `rendered_html` carries an empty URL attribute, measure
 **So once the re-renders drain, the whole fleet carries 5 rows with an empty URL attribute: 1 is
 this bug's original page (blocked on imagery, queued), and 4 belong to other components on two
 other sites.** That is the first time this class has had an enumerable, bounded damage surface.
+
+### 11.14 — 2026-08-21 CLOSE OF PLAY: all six re-renders landed, every dead contact control is gone, and the fleet surface is down to five rows
+
+**All 6 `page_rerender` items complete.** Verified at the SERVED pages, all three cause-classes
+behaving as designed:
+
+| site | `href="tel:"` | rendered detail items | outcome |
+|---|---|---|---|
+| leopardessconsulting.co.uk (×4 pages) | **0** | 2 | email **+ the phone now renders** (`tel:+44 (0) 7934 524 911`); no address row (no data) |
+| robot-hands.com `/contact` | **0** | 1 | email only — the dead control is **gone**, not blanked |
+| gamesdesign.co.uk `/contact-index` | **0** | **0** | the whole detail block renders nothing: no empty `mailto:`, no empty `tel:` |
+
+**gamesdesign is the case that proves the gate rather than the repoint** — it has none of the three
+values in any of the three stores, so before today it could only render dead controls. It now
+renders nothing, which is the correct behaviour and is exactly what `bugs_closed/111`'s footer gate
+does one component over.
+
+**Fleet-wide empty-attribute census, before → after:**
+
+| shape | before | after |
+|---|---|---|
+| `href="tel:"` | 5 rows / 2 sites | **0** |
+| `href="mailto:"` | 1 row / 1 site | **0** |
+| `src=""` | 2 rows / 2 sites | 2 (aao `/index`; webdesign.co.uk ported page) |
+| `href=""` | 3 rows / 1 site | 3 (vonc.com) |
+| **total** | **11 rows** | **5 rows** |
+
+**The remaining five are enumerated and none is this mechanism:** aao `/index` needs imagery that
+does not exist (queued as `dead_url_control` + `required_fields_missing`); vonc.com ×3 are
+components never diagnosed on this lane; webdesign.co.uk's is a **ported** page, which stores
+crawled bytes verbatim (`adopt_verbatim`) and sits outside the plan→save funnel entirely — see
+`RFC_042`'s producer census.
+
+**One cosmetic observation, not chased:** the rendered href is `tel:+44 (0) 7934 524 911` with
+spaces. It is clickable and valid enough in practice, and `bugs_open/299` is the lane that
+normalises this shape (`tel:+447934524911`). Left to them rather than duplicated here.
+
+**Council `972a82ad` (525) returned REVISE and was answered on the same correlation** — the
+substance is in §11.15 below, because one of the three objections is a lesson rather than a fix.
