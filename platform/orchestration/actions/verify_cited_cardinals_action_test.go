@@ -311,3 +311,48 @@ func quoteJSON(s string) string {
 	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`)
 	return `"` + r.Replace(s) + `"`
 }
+
+// A clean run must WRITE the drop record as an empty array, not omit it.
+//
+// This is the merge trap, and it is the defect the council's bug_historian seat
+// walked me into (corr 9a8f1283, round 2) while objecting that nothing reads
+// dropped_unsourced. write_site_spec deep-merges: an omitted key keeps the
+// PREVIOUS run's value. So dropped-run-then-clean-run would leave a stale
+// accusation attached to an artefact that no longer has anything removed, and
+// it would read as current for ever.
+func TestCleanRunClearsAPreviousRunsDropRecord(t *testing.T) {
+	p := cardinalParams(t,
+		ordering(point(1, "value_proposition", webdesignGoodPoint)),
+		map[string]interface{}{"value_proposition": webdesignValueProp}, nil)
+
+	out, err := VerifyCitedCardinalsAction(context.Background(), p)
+	if err != nil {
+		t.Fatalf("clean run rejected: %v", err)
+	}
+	obj := out.(map[string]interface{})["object"].(map[string]interface{})
+	rec, present := obj["dropped_unsourced"]
+	if !present {
+		t.Fatal("a clean run must still write dropped_unsourced — an omitted key keeps the previous run's value under a merging writer")
+	}
+	if n := len(rec.([]citedCardinalViolation)); n != 0 {
+		t.Errorf("clean run wrote %d drop records, want an empty array", n)
+	}
+}
+
+// The same guarantee under a custom dropped_key, so the clearing follows the
+// configured name rather than a hardcoded one.
+func TestCleanRunClearsACustomDropKey(t *testing.T) {
+	p := cardinalParams(t,
+		ordering(point(1, "value_proposition", webdesignGoodPoint)),
+		map[string]interface{}{"value_proposition": webdesignValueProp},
+		map[string]interface{}{"dropped_key": "removed_points"})
+
+	out, err := VerifyCitedCardinalsAction(context.Background(), p)
+	if err != nil {
+		t.Fatalf("clean run rejected: %v", err)
+	}
+	obj := out.(map[string]interface{})["object"].(map[string]interface{})
+	if _, present := obj["removed_points"]; !present {
+		t.Error("the configured dropped_key must be cleared on a clean run, not the default name")
+	}
+}

@@ -355,8 +355,31 @@ func VerifyCitedCardinalsAction(ctx context.Context, params ActionParams) (inter
 	if len(violations) == 0 {
 		logger.Info("verify_cited_cardinals: every cardinal traces to its cited field",
 			zap.Int("items_checked", len(items)))
+		// ⚠ THE CLEAN PATH MUST STILL WRITE dropped_key, AS AN EMPTY ARRAY.
+		//
+		// The obvious version returns `obj` untouched, and it is wrong wherever
+		// the consumer merges rather than replaces — which is where this action
+		// is first used. write_site_spec deep-merges the returned object over the
+		// stored one, and a key the incoming document OMITS keeps the previous
+		// run's value and reads as current (bugs_open/327 is that mechanism
+		// costing eighteen keys off a live brief). So a run that dropped a point,
+		// followed by a clean run, would leave the earlier run's dropped_unsourced
+		// standing next to an ordering that no longer has anything removed —
+		// an audit record accusing a clean artefact, for ever.
+		//
+		// Writing the empty array is what makes "nothing was dropped" a POSITIVE
+		// statement rather than an absence, so `len(dropped_unsourced) > 0` is a
+		// sound test for a reader who cannot know how many runs came before.
+		// The offer-analyser prompt already states this rule for its own keys:
+		// "a key you omit silently leaves the previous run's value standing and
+		// looking current".
+		cleaned := make(map[string]interface{}, len(obj)+1)
+		for k, v := range obj {
+			cleaned[k] = v
+		}
+		cleaned[droppedKey] = []citedCardinalViolation{}
 		return map[string]interface{}{
-			"verified": true, "checked": len(items), "dropped": 0, "object": obj,
+			"verified": true, "checked": len(items), "dropped": 0, "object": cleaned,
 		}, nil
 	}
 
