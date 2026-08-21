@@ -646,9 +646,38 @@ tried stored identity. Its other caveat is worth carrying — the code index it 
 is stale (mirrors a commit 2 days old), so an absence there is *unknown*, not
 *confirmed absent*.
 
+### Council: APPROVED, and it found a real defect anyway
+
+**Corr `f73f4eeb-5d79-482c-bc9b-b33f0ab64f76` — approved, 4 advisory objections,
+none high-severity** (`editquality` approve, `bug_historian` object, `reuse_agent`
+approve, `guidelines` approve). Both mediums were acted on in `e08450fd3` rather than
+filed, and one of them was right about something I had checked and got wrong:
+
+- **The read-failure keep filed NO durable row.** The logs distinguished "kept
+  because recognised" from "kept because unreadable"; the durable record did not, so
+  a run that kept every name because the database was unreachable read — in the only
+  channel that survives log rotation — exactly like a clean pass. That is this bug's
+  own silent-absorb shape, reproduced inside its fix. Now
+  `PLAN_SECTION_STORED_SLOT_READ_FAILED` is its own code, filed unconditionally on
+  failure with `kept_without_checking`; `keptCount()` stays 0 because nothing was
+  *rescued*; validate warns per entry. Two mutations pin it.
+- **"Check whether the untouched slot loaders already apply the wrong rule."** Done.
+  The rerender path's `loadContentComponentsByID` builds no slot map at all, so the
+  premise does not hold there. The one that does key on `slot_name` with **no rule
+  and no `ORDER BY`** is `enrichSectionComponentsWithBriefs` — a repeated slot with
+  differing briefs is a non-deterministic last-write-wins. **[MEASURED 2026-08-21] 0
+  such pairs today**, against 1,619 brief-carrying rows across 553 pages and 18
+  repeated slot groups fleet-wide: reachable, unoccupied. Latent, recorded in
+  PLAN-051, deliberately not fixed here — different question, different lane.
+
 ### Still to do — the write-side guard, which is NOT in these commits
 
-`upsertPage` (`site_db_actions.go:1201`) still carries `sections = EXCLUDED.sections`
+> **SUPERSEDED 2026-08-21, same day — this shipped as commit `af318f318`** (PLAN-052,
+> council corr `2466d82c-17f8-4ebc-948d-ff8dbab9cee4`). Kept below because the
+> reasoning for why it is SEPARATE is still the reasoning, and because the paragraph
+> names what is still NOT guarded. See §The write-side guard below.
+
+`upsertPage` (`site_db_actions.go:1201`) carried `sections = EXCLUDED.sections`
 **unguarded**, while its `nav_label` and `meta_description` siblings **in the same
 statement** were given destructive-write guards on 08-19. One Go caller
 (`SyncPagesToDBAction`), reached by **three** live agents (`build-site-planner`,
@@ -679,3 +708,46 @@ legitimately, 60 of them tools** [MEASURED 2026-08-21]) via the existing
    the arm fires there, the scoping property failed; stop and re-diagnose.
 5. ⚠ **The 107-names/7-sites census is NOT the fix's metric.** It measures
    decomposition, not damage, and should be unchanged by this fix.
+
+---
+
+## §The write-side guard — shipped 2026-08-21 as `af318f318` (PLAN-052), INERT until the roll
+
+The read-side fix stops `validate_plan` PRODUCING an empty list. This refuses the
+empty list **whatever produced it**, including causes nobody has found yet — which is
+why it is a separate commit and a separate council round (corr
+`2466d82c-17f8-4ebc-948d-ff8dbab9cee4`) rather than part of the fix above.
+
+`sections = EXCLUDED.sections` becomes a four-arm `CASE`: a caller-declared release
+wins, then a non-empty incoming list wins (**the plan stays authoritative — a
+recomposition still recomposes**), then an empty stored list is freely replaced, and
+only the **non-empty → empty** transition is refused. One statement, so no
+read-then-write window.
+
+- **Zero sections stays representable** — 72 of 748 active pages live there
+  legitimately, 60 of them tools [MEASURED 2026-08-21]. Deliberate emptying travels
+  through the **existing `recompose_pages` release**, so there is no new config key
+  and nothing for an operator to remember.
+- **A refusal is DURABLE** (`PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED`), naming the pages
+  and pointing at the upstream cause. A silent keep would mean the write reports
+  success while the plan and the database disagree about what a page is made of —
+  this bug in a new place.
+- ⚠ **Known edge:** `recompose_pages` names realised page names while the sync loop
+  reads the CANONICALISED name, so a page whose canonical name differs may not match
+  the release. The failure direction is safe (refused and recorded) but it is real.
+- ⚠ **NOT guarded, deliberately** — `apply_gap_plan`'s retype `UPDATE` and its
+  `applyNewPage` conflict arm (incoming lists are non-empty by construction, so this
+  shape would be inert), and `adopt_verbatim` / `apply_adoption_plan` /
+  `create_blog_posts` / `UpsertPageForRole` (different authorities). **Do not read
+  this as fleet-wide cover for `sections` writes.**
+
+⚠ **Two of five mutations SURVIVED the first pass**, and both gaps were invisible in
+a green suite. (1) Mutating the `RETURNING` expression changed nothing, because
+**sqlmock never executes SQL** — the test proved only that the Go *scans* the column.
+It now pins the expression as text and says plainly that it establishes the statement
+asks the right question and **not** that Postgres answers it correctly; that needs the
+live induction in the verification list. (2) Making the release **site-wide** left
+every test green, because they all stopped at `upsertPage`'s boundary — one
+legitimately-recomposed page would have licensed emptying every other page in the run.
+**Generalisable: a guard tested only at the helper's boundary is untested against the
+wiring that decides its input.**
