@@ -32,6 +32,18 @@ build/docker/backend/
 !build/docker/backend/github-actions-runner-entrypoint.sh
 frontends/
 docs/
+# EXCEPT the `?` adoption-gate acks list, which optional-explicit-wires-check
+# ships INSIDE its image (RFC_029 §10.15). It has to travel with the binary for
+# the reason shared-output-fields-check keeps its ack list in scripts/: the acks
+# are the check's own definition of "already known", so a ConfigMap or a
+# working-tree build could carry an unreviewed acknowledgement — a silenced
+# finding with no diff. It lives under docs/ rather than scripts/ because three
+# other lanes' migrations already cite that path and because its sibling ledger
+# (RFC_022's optional_key_budget_acks.json) lives there; un-ignoring one file is
+# cheaper than moving a path other sessions reference. The alternative — mirroring
+# it into a literal the job carries — is the exact drift trap CLAUDE.md records
+# against 099/check.py.
+!docs/agent_docs/docs024_key_docs_latest/architecture_review/optional_explicit_wire_acks.json
 scripts/migration/
 scripts/deployment/
 
