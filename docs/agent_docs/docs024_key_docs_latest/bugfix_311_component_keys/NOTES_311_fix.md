@@ -1140,3 +1140,32 @@ wrong dialect + invented sibling) stands in `345` and is better than my "invente
 Ownership settled: **(a) is theirs to take** (offered to take it myself with their 22-template
 export as the fixture corpus if they prefer); this lane's map of `plan_sections_action.go` is in
 the RUNBOOK.
+
+## 2026-08-21 latest — round 2 of the cross-session exchange: their calibration ran, `bugs_open/351` filed, and two findings back from this side
+
+Their calibration (148 section rows, read-asserted, both directions): **23 rescued, 1 regressed —
+and the regression is FALSE**: `6c41404d` legitimately ends `</section>{{end}}` (a
+conditional-wrapped section), and `endsCleanly` requires a `>` suffix. So the fix is two parts:
+the structural predicate plus tolerating a trailing template action. They measured part two's blast
+radius (1 section, 0 tools end on a template action) and filed the whole thing as
+`bugs_open/351_…completeness_guard_tests_for_a_wrapper_tag.md` with this lane's (b)-refusal,
+(c)-dead-class and (d)-two-candidate positions recorded verbatim.
+
+**Two findings returned, both code-verified here:**
+1. **`endsCleanly` has a FOURTH call site their census did not reach** —
+   `component_write_guard.go:260`, a WRITE-time regression check (`endsCleanly(current) &&
+   !endsCleanly(new)` → refuse). So the same false positive refuses a legitimate
+   conditional-wrapped REWRITE at birth today. Recommendation sent: fix `endsCleanly` itself so
+   load and write stay coherent — special-casing only the section predicate would mint a new drift
+   pair of exactly the kind `componentTemplateValid` exists to end. Stated cost: the write
+   regression check loosens for the tolerated shape.
+2. **Shape: strip trailing `{{end}}` repetitions then require `>` — never accept a bare `}}`
+   suffix.** A template cut immediately after any complete mid-template action ends `}}`; a
+   suffix rule passes that cut, strip-then-check does not. `{{end}}` is the only action that
+   legitimately ends a template.
+
+**Ownership settled: THEY take (a)+(part two)** — placement, not politeness (their harness, their
+148-corpus, their calibration is the review story); this lane is fallback only. Asks recorded: the
+calibration (both directions + the `:260` note) goes in their council submission, and 351 records
+the fourth call site. Their 345-conflation point is DONE in the file ("do not read 311's close as
+this bug's proof"). Their webdesign.uk disclosure touches none of this lane's recorded counts.
