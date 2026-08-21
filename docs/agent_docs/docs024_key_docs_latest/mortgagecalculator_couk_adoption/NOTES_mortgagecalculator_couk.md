@@ -3896,3 +3896,56 @@ timestamp compared against a pinned instant (`completed_at > <armed-at>`), an in
 or a hash of the field rather than a substring of it. The rewritten watcher keys on
 `completed_at > '2026-08-21 10:38:43'` and `attempts=2`. Deliberately preserving evidence and
 keying a detector on that same field are individually correct and jointly a false positive.
+
+### 2026-08-21 (11:10Z) — attempt 2's result decides the writer question, and the 090 never reached the question
+
+**Attempt 2 ran and was refused for the same reason at DIFFERENT step indices.** That difference is
+the whole finding:
+
+| | component | field | occurrences | indices |
+|---|---|---|---|---|
+| attempt 1 | `mechanism-flow` | `steps[].branches` | 2 | **2, 3** |
+| attempt 2 | `mechanism-flow` | `steps[].branches` | 2 | **1, 2** |
+
+Confirmed a genuinely fresh run rather than a retained error, by three independent markers:
+`attempt_count` 1 → **2**, `completed_at` **11:06:10Z** (after the 10:38:43Z arming), and
+`md5(error)` **`24859342` → `62b415f3`**. I checked those *because* my own watcher had just been
+fooled by retained text — the check that catches it is the check the earlier mistake taught.
+
+**So the writer mistypes this field RELIABLY, not stochastically.** Both runs, same component, same
+field, same count; only the positions move. **A third retry has no reason to succeed and I have not
+fired one.** This is `bugs_closed/260`'s **writer half**, which 260's closure assigns to
+`copy_quality_two_stage` by the owner's 2026-08-12 split — it is not this lane's to fix and not a
+schema defect (the schema is well-formed, checked above).
+
+**The page therefore stays 404 and the six dead links stay live.** That is the honest state: the
+blocker moved from "the renderer corrupts it silently" to "the writer produces the wrong shape,
+reliably, and we now know exactly which field" — real progress, and not a fix.
+
+### The 090 returned no verdict, for infrastructure reasons
+
+```
+verdict      FAILED  AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 … status 400
+mark_failed  FAILED  failed to apply work item failure ladder:
+                     ERROR: could not determine data type of parameter $4 (SQLSTATE 42P18)
+```
+
+Two separate failures, neither about the claim. The first is the documented fleet-wide Anthropic
+budget-window shape (RUNBOOK §, "it presents as a work item that completed"). **The second is a
+platform defect in its own right: when a run fails, the machinery that RECORDS the failure also
+fails** — an untyped `$4` in the failure ladder. Recorded in `bugs_open/348` §5; not chased.
+
+**I did not re-fire.** Memory carries a prior lane's finding that a second 090 firing on a failing
+loop buys nothing (*"it is the diagnosis LOOP, not this symptom; stopped at two firings"*), and the
+first-hand evidence here is now stronger than one loop run: two A/B runs, both live routing tables,
+and the guard code read at the deciding arm.
+
+### Filed `bugs_open/348`
+
+The routing gap is filed as its own bug — OPEN, UNOWNED — **with the 090 substitution stated in a
+banner at the top**, per the owner's 2026-07-31 ruling. Fleet census run rather than deferred:
+**exactly one occurrence fleet-wide, which is this item**, and the file says plainly that twenty
+hours of exposure cannot distinguish "rare" from "not yet fired", so the number must be re-run
+before anyone sizes it. The comparator that does carry volume (124 items parked visibly by the
+`validate_content` path since 08-01) is recorded with an explicit warning **not** to quote it as
+the blast radius — only the mistyped-field subset shifts, and that subset is [INFERRED].
