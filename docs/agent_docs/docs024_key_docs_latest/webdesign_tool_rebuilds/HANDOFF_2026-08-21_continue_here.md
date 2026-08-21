@@ -1,11 +1,16 @@
 # HANDOFF — webdesign tool rebuilds. START HERE. Written 2026-08-21 ~10:45Z. Supersedes `HANDOFF_2026-08-19_continue_here.md`.
 
-**23 of 63 replaced and live-confirmed at the served bytes; #24 `tool-social-card` FILED
-2026-08-21 10:39:46Z (item `60059001-0f6b-4891-8c1f-952cd8fa36b5`, page `010dc67b…`, revert handle:
-ported slot `0a508f54-9cd7-41f7-a29e-6b0b0994a501`, 7,265 chars, md5 `33f629a0c268fc0e0886db115f7906e6`)
-— if you are a fresh session, CHECK ITS STATE FIRST** (`SELECT status FROM site_work_items WHERE
-id='60059001-…'` + the page's slot count) **and finish its cycle before anything else: retire →
-grade → serve-grade. Its build is also TL-048's demand proof — see "The chassis roll" below.**
+**UPDATED 2026-08-21 15:05Z — PHASE A COMPLETE: 28 of 63 replaced (24 serve-confirmed; #25–#28
+retired and graded, their serve-grades ride the queue — NO race exposure anywhere, retires all done).
+FIRST TASK for a fresh session: batch serve-grades for regex-tester (`310accdf`), jwt-inspector
+(`7c9deeee`), token-calculator, clip-path, and the oklch re-fix (`1fe89947`, control set agreed with
+the 286/331 lane in NOTES 2026-08-21 14:15Z). Controls per tool pinned in NOTES. Then Phase C
+(13 external-`<script src>` tools — read the superseded 08-19 handoff's Phase C section; brief from
+BROWSER behaviour, retire the S3 asset with the slot). ⚠ ATTENDANCE RULE (rewritten twice, final
+form): file, then HOLD THE TURN with a foreground poll loop (`for … do <check>; sleep 10; done`,
+timeout ≤600s per call, chain calls) until the retire lands — background watchers deliver LATE
+(measured 6h), and turn-end is not knowable in advance. The seed-496 incident (fixed by owner-lane
+hotfix 532 within the hour) and TL-047's absence-arm proof are in NOTES 2026-08-21 14:15/14:30Z.**
 
 Read: this file → `PLAN_2026-08-15_…` (design + owner rulings) → `RUNBOOK_…` (every command — note
 the REWRITTEN "retire race" section) → `NOTES_…` (evidence, newest at bottom; the 2026-08-20
