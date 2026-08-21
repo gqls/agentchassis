@@ -573,3 +573,31 @@ still-valid-but-wedge-only. They will pathspec both paths on the move and verify
 **Still unowned and NOT part of the split:** the `workflow%` bundle-include widening (one line, blast
 radius measured, the 301 lane told, that lane closed). It needs someone to ship it or formally drop
 it. It is not blocked by anything.
+
+### 2026-08-21 10:40Z — `v1.0.1321`. LANE COMPLETE. One decision outstanding, and one trap for whoever waits on 343
+
+**029 is CLOSED and 343 is the live bug (someone else's lane).** Nothing on this lane is owed.
+
+**No recurrence.** Abandoned calls: **0/39 today, 0/712, 0/736**. GitHub-`503`s still **08-17 only**
+(954 vs 1–3 base) — the outage has not returned. Pods `v1.0.1321`, up 2026-08-20 19:51Z.
+
+⚠ **THE TRAP FOR ANYONE WAITING ON RSH-011 — read before checking it.** The capture has banked **four**
+orchestrations since the burst and **none is a 343 wedge**: `page-content-writer`,
+`endpoint-health-checker`, `generic`, `availability-discovery-agent` — wrong agents, wrong steps, no
+abandoned rv3 entry, freeze times of **0.039s–1m36s** rather than after a 300s exhaustion. Its trigger
+is "an `EXECUTING_STEP` row older than the threshold", far broader than the wedge. **So "the capture
+has rows" is NOT evidence the wedge recurred — filter by the 343 signature first.** The mechanism
+itself works: two of those four rows have since been deleted by the cleanup, which is exactly the loss
+it exists to pre-empt. NOTES §27.
+
+**Also noted, NOT filed, NOT chased:** two of the four were parked at `current_step = 'complete'`
+having run 0.09s and 1.1s. Different shape from 343; may be separate, may be known. Grep
+`bugs_open/`/`bugs_closed/` for a `complete`-step stall before assuming it is new.
+
+**THE ONE OUTSTANDING DECISION — `workflow%` bundle-include widening, ship or drop.** `flow%` is a
+**prefix** pattern and has never matched `workflow%`; that cost the 301 lane a diagnosis run
+(`dd61df1b`, needing `workflow_templates`, `workflow_contract_chain`, `v_active_workflows`,
+`v_all_workflows`). One line in `defaultSchemaInclude`. Blast radius measured: cap **120**, ~94 in
+use, `workflow%` adds **2**. The 301 lane has been told and is closed; the peer session declined it.
+⚠ Read the LIVE agent config's `schema_include_patterns` before arguing the cap — a running bundle
+reports *"33 of 479 tables shown"*, far narrower than the Go default. Council gate applies.
