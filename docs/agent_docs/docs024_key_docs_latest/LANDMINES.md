@@ -13620,7 +13620,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **added:** 2026-08-20, webdesign_uk_build_service lane
 
 
-### A `?`-suffixed config key parses on `input_mapping` but NOT YET in a step's action `config` — and the unparsed one applies cleanly, reports success and changes nothing
+### Two config surfaces, two marker vocabularies — and a marker the reading binary does not parse applies cleanly, reports success and changes nothing. `?` in a step's action `config` was INERT up to chassis `v1.0.1320` and is LIVE from `v1.0.1321` (2026-08-20); `input_mapping` has always parsed both
 
 > **CORRECTED WITHIN THE HOUR, 2026-08-20 ~17:4xZ, by the session that wrote it — and the
 > correction is a SHELF LIFE, not a retraction.** A parallel session of the same lane BUILT the
@@ -13654,6 +13654,18 @@ code change owed at the next roll, tracked in RFC_015 §5.
 >    git log --oneline -L '/optionalExplicit :=/,+2:platform/orchestration/datahelpers/action_inputs.go'
 >    # -> ecc419bd1 introduced it
 >    ```
+> **TITLE FIXED 2026-08-21 ~12:1xZ, by the marker session — and only after it happened a SECOND
+> time.** The heading above used to read *"...but NOT YET in a step's action `config`"*. Between
+> that wording and this line, the `prior_art_librarian` seat cited this entry's heading and
+> footprint as a GATING objection against migration `516` — the `related_pages?` adopter — whose
+> own submission had measured the opposite and whose parser had been live for a day. That is the
+> second false objection from the same stale heading, and the paragraph below had already
+> predicted it in as many words. So the prescription in that paragraph has now been APPLIED to the
+> entry itself: the state is in the TITLE, with both binary versions named, and the trap that
+> survives ("a marker the reading binary does not parse applies cleanly and changes nothing") is
+> stated in a form that has no shelf life — it is true on either side of any roll, in either
+> direction, which is what a rollback makes live again.
+>
 > **The transferable lesson is about this file, not about `?`.** An entry whose title encodes a
 > point-in-time state (`NOT YET`) keeps asserting that state after two corrections have been added
 > below it, because **a reader — human or council seat — matches on the heading and the footprint,
@@ -13811,3 +13823,29 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's *"Probing the live binary for YOUR commit returns ABSENT…"* (the entry this one narrows — its advice is right and simply has no target here) · the `strings`/discovery-grep entries · `RFC_040` (persist what the binaries enumerate) · `docs024_key_docs_latest/sql_for_agents/515_…sql` header (the worked discharge) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[a-fresh-deploy-can-ship-no-new-code]] · [[a-doc-comment-is-not-an-enforcement-mechanism]] (same root: a comment is not in the artefact)
 - **source:** 2026-08-21, `staged_component_build` lane · discharging migration 515's ordering precondition against `ecc419bd1` · `docs024_key_docs_latest/staged_component_build/NOTES_staged_component_build.md` (`## 2026-08-21`)
 - **added:** 2026-08-21, staged_component_build lane
+
+### Stripping `<style>`/`<script>` AFTER `string_agg` lets one component's style block eat the NEXT component's prose — a 3-component homepage measured as ONE character
+
+- **footprint:** any `regexp_replace(string_agg(pc.rendered_html, …), '<(style|script)[^>]*>.*?</\1>', …)` · `page_components.rendered_html` · `page_visible_text_len()` · content-length floors, "is this page thin?" tests, `content_sample` fed to an LLM, any visible-text census over a MULTI-COMPONENT page
+- **fires when:** you measure "how much text does this page actually have" by aggregating its components and then stripping markup. That is the obvious order — one regex pass instead of N — and it is the wrong one.
+- **the mechanism, measured 2026-08-21:** a page's components are separate rows. `string_agg` glues them into one string, and the `<style>…</style>` strip then runs **across the joins**, so a match that opens in component A can close in component C and consume everything between — including all of B's prose. It needs no broken markup: `noted.co.uk/index` has **3 components, 3 `<style>` opens, 3 `</style>` closes, perfectly balanced**, and still collapsed.
+  ```
+  per-component visible text, summed : 1205 chars
+  concatenate-then-strip             :    1 char
+  ```
+- **the scale, so nobody dismisses it as one odd page:** over **693** active pages — **349 lose more than HALF** their visible text this way; **24** are wrongly judged below a 200-char floor; on the day it was found, **1** of those was a blank page being silently declined as "too thin to describe".
+- **why it is a landmine and not just a bug:** the number it produces is **plausible**. It does not error, it does not return zero, it returns a small believable figure — so "197 chars, thin page" reads as a finding about the page rather than about the measurement. It also degrades an LLM input silently: a `content_sample` built this way is a *fragment*, and the model still writes fluent copy from it, so the output looks fine. **Nothing downstream can tell.**
+- **the check, before you trust any visible-text figure:** compute it BOTH ways and compare.
+  ```sql
+  SELECT sum(length(regexp_replace(regexp_replace(regexp_replace(pc.rendered_html,
+             '<(style|script)[^>]*>.*?</\1>',' ','gis'),'<[^>]+>',' ','g'),'\s+',' ','g'))) AS per_component,
+         length(regexp_replace(regexp_replace(regexp_replace(string_agg(pc.rendered_html,' '),
+             '<(style|script)[^>]*>.*?</\1>',' ','gis'),'<[^>]+>',' ','g'),'\s+',' ','g'))   AS concatenated
+  FROM page_components pc WHERE pc.page_id = '<uuid>'
+    AND COALESCE(pc.slot_name,'') NOT IN ('header','footer','head');
+  ```
+  A large gap means the aggregate is lying. **The fix is the ORDER: strip each component, THEN join** — a regex cannot span two components if it never sees two at once. Add `ORDER BY` to the `string_agg` while you are there, so the result is deterministic.
+- ⚠ **A related trap this cost me first:** comparing two formulations of this measure across the fleet in SEPARATE queries reported **1** disagreement, then **12** on a re-run, on data whose shape had not changed. ~40 sessions rerender pages continuously, so the two sides were reading different snapshots. **Compute both sides in ONE aggregate** or the comparison measures concurrency, not equivalence.
+- **relations:** `bugs_open/320` migrations `493` (shipped it), `517` (one definition), `518` (fixed the order) · MEMORY [[a-stale-page-holds-every-improvement-since-it-rendered]] · the sibling landmine on `query_database` stringifying jsonb (same family: a value that reads correctly and is not)
+- **source:** 2026-08-21, `bugs_open/320` — found by investigating why one homepage reported 197 characters instead of accepting it
+- **added:** 2026-08-21, `meta_description_never_backfilled` lane
