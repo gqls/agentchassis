@@ -45,29 +45,52 @@
 --           '$.**{0 to 25} ? (@.action == "update_page_status" && @.config.status == "deployed")') AS step
 --    WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL;
 --
--- ── BLAST RADIUS: MEASURED, AND IT IS ZERO TODAY ───────────────────────────
+-- ── BLAST RADIUS — CORRECTED 2026-08-21 AFTER A COUNCIL REVISE ────────────
 --
--- Arming changes behaviour in exactly one case — the stamp is REFUSED when the
--- deploy step reported a skip, instead of proceeding. So the exposure is "how
--- often do these three run at all":
+-- > **⚠ THE FIRST VERSION OF THIS SECTION WAS WRONG, and two seats caught it
+-- > (`guardian` and `prior_art_librarian`, round 1 of corr 9e8d73b8).** It said:
+-- > *"runs in ALL HISTORY: page-rebuild 0, pageflow-builder 0,
+-- > site-work-orchestrator 0"*, and argued from that the change was
+-- > behaviourally inert. The figure came from `orchestration_states`, which
+-- > RETAINS TERMINAL ROWS FOR ROUGHLY TWO DAYS — measured 2026-08-21, only 24 of
+-- > its 3,154 rows are older than 48h. So "0 runs in all history" was really
+-- > "0 SURVIVING rows", which is not the same claim at all. Exactly the class of
+-- > error the same author had just been corrected on in the previous round.
 --
---   `[MEASURED 2026-08-21]` runs in ALL HISTORY: page-rebuild 0,
---   pageflow-builder 0, site-work-orchestrator 0. Zero scheduled_tasks target
---   them; zero site_work_items are routed at them.
+-- The durable source is `agent_run_stats` (per-agent lifetime counters).
+-- `[MEASURED 2026-08-21]`, with the control first, because a silent table proves
+-- nothing: it tracks **134 agent types, 85,389 runs, since 2026-07-26**.
 --
---   REACHABILITY, which is the part a run-count cannot answer: exactly ONE live
---   dispatch reference exists fleet-wide — `maintenance-triage` carries
---   `agent_type = page-rebuild`. (A text search for the names also hits
---   `council-gate`, `fix-proposer` and `domain-research-classifier`, but those
---   are PROSE inside reviewer prompts, not wiring — checked by matching only
---   VALUES at dispatch keys rather than substrings anywhere in the config.)
---   `pageflow-builder` and `site-work-orchestrator` have no dispatch reference
---   at all.
+--	agent_type              run_count   first_ran_at   last_ran_at
+--	page-rebuild                    7   2026-07-26     2026-08-08
+--	pageflow-builder                3   2026-08-09     2026-08-09
+--	site-work-orchestrator          1   2026-08-09     2026-08-09
+--	maintenance-triage              4   2026-08-05     2026-08-08   (the dispatcher)
 --
--- So this is behaviourally inert today and protective the moment
--- `maintenance-triage` routes anything at `page-rebuild`. It is deliberately
--- ARM rather than DELETE: these are live definitions this lane does not own,
--- and arming is the reversible half of that choice.
+-- So they are **RARE, NOT DEAD**: 11 runs between them in ~26 days, last activity
+-- 12 days ago. (`agent_run_stats` itself only begins 2026-07-26, so this is
+-- "since 26 July", not "for ever" — stating that rather than repeating the same
+-- over-claim one table along.) `maintenance-triage`'s last run matches
+-- `page-rebuild`'s to the same minute (2026-08-08 15:21), which corroborates the
+-- single dispatch reference found below.
+--
+-- WHY THIS STILL DOES NOT MEAN A HAZARD IS ALREADY LOOSE, and this is the
+-- reassuring part, checkable in one query: the three last ran **2026-08-09
+-- 13:50**, and the first `content_hash` value was ever written **2026-08-20
+-- 17:36** — eleven days LATER. They therefore cannot have stranded a stale
+-- fingerprint, because the column had no values to strand when they last ran.
+-- That is why the fleet-wide sweep found 228 of 228 pages matching: structural,
+-- not lucky. Arming them is protective for their NEXT run.
+--
+-- REACHABILITY (a run-count cannot answer "could it fire tomorrow"): exactly ONE
+-- live dispatch reference exists fleet-wide — `maintenance-triage` carries
+-- `agent_type = page-rebuild`. A substring search for the names over
+-- `default_config::text` also hits `council-gate`, `fix-proposer` and
+-- `domain-research-classifier`, but there they are PROSE inside reviewer prompts,
+-- not wiring; matching only VALUES at dispatch keys removes them. `guardian` also
+-- objected that reachability was proven only for one of the three — true of the
+-- dispatch scan, and now moot: `agent_run_stats` shows all three have RUN, which
+-- is stronger evidence of reachability than any config scan.
 --
 -- ── WHY ARM RATHER THAN TAKE D6 (NULL the hash on an unarmed stamp) ────────
 --
@@ -135,10 +158,71 @@ BEGIN
     END IF;
 END $$;
 
+-- ⚠⚠ GATE: EXACTLY ONE ACTIVE DEFINITION ROW PER TARGET TYPE.
+-- Raised by `editquality` and `debug_historian` (both, independently). Four agent
+-- types on this estate carry TWO active definition rows and only the higher
+-- version loads, so an `UPDATE ... WHERE type = <x>` can land on a dormant row
+-- while the live one stays unarmed — and this migration's own verify, which
+-- counts armed steps, would PASS against the wrong row. `[MEASURED 2026-08-21]`
+-- our three carry one row each, and 4 other types fleet-wide do not, so the trap
+-- is real and simply does not bite here today. Asserted rather than assumed.
+DO $$
+DECLARE rows_per_type int;
+BEGIN
+    SELECT count(*) INTO rows_per_type FROM agent_definitions
+     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+       AND type IN ('page-rebuild','pageflow-builder','site-work-orchestrator');
+    IF rows_per_type <> 3 THEN
+        RAISE EXCEPTION
+          '547 single-row gate: expected exactly 3 active definition rows across the 3 target types, found % — a type has gained a second active row and an UPDATE by type could arm the dormant one while the live one stays unarmed. Scope the UPDATE to the loaded (max-version) row first.',
+          rows_per_type;
+    END IF;
+END $$;
+
+-- ⚠⚠ GATE: THE LOOP MUST NOT CARRY `substeps`, OR WE WOULD ARM A DEAD KEY.
+-- This is the gating objection (`editquality`, HIGH) and it is the sharpest one
+-- in the round. `LoopAction` reads `config["substeps"]` FIRST and falls back to
+-- `config["sub_workflow"]["steps"]` only when substeps is absent or empty
+-- (platform/orchestration/actions/loop_actions.go:91-104). So if a loop carried
+-- BOTH, the executing copy would be `substeps` — and `jsonb_set` into
+-- `sub_workflow.steps` would silently arm a DEAD key while the real step stayed
+-- unarmed, with the recursive verify below cheerfully finding the armed dead copy
+-- and passing. That is this bug's own census-blindness reproduced one level
+-- deeper, inside the migration written to fix it.
+--
+-- `[MEASURED 2026-08-21]` none of the three carries `substeps`; each uses
+-- `sub_workflow.steps` exclusively (9, 10 and 8 steps). The gate makes the
+-- migration fail loudly rather than depend on that silently.
+DO $$
+DECLARE with_substeps int;
+BEGIN
+    SELECT count(*) INTO with_substeps
+      FROM agent_definitions ad
+      CROSS JOIN LATERAL jsonb_path_query(ad.default_config,
+            '$.**{0 to 25} ? (exists(@.sub_workflow.steps.update_page_status))') AS loopcfg
+     WHERE ad.is_active AND NOT COALESCE(ad.is_snapshot,false) AND ad.deleted_at IS NULL
+       AND ad.type IN ('page-rebuild','pageflow-builder','site-work-orchestrator')
+       AND jsonb_typeof(loopcfg->'substeps') = 'object'
+       AND (SELECT count(*) FROM jsonb_object_keys(loopcfg->'substeps')) > 0;
+    IF with_substeps <> 0 THEN
+        RAISE EXCEPTION
+          '547 substeps gate: % target loop(s) carry a non-empty config.substeps, which TAKES PRECEDENCE over sub_workflow.steps at runtime (loop_actions.go:91). Arming sub_workflow.steps would create a dead key and leave the executing step unarmed. Re-target the migration at substeps.',
+          with_substeps;
+    END IF;
+END $$;
+
 -- The stamps live inside a loop step's sub_workflow, and the loop step is named
 -- differently on site-work-orchestrator, so each path is written explicitly
 -- rather than by a clever shared expression. Three plain statements are easier
 -- to review than one that is right for reasons a reader has to reconstruct.
+--
+-- On the concurrent-edit race `debug_historian` raised: each UPDATE takes a row
+-- lock and `jsonb_set` operates on the row's CURRENT value at UPDATE time, not on
+-- the value the gates above read — so a concurrent session's other keys survive,
+-- and only a concurrent write to THIS one key could be lost. The gates, the
+-- UPDATEs and the verify all run inside one transaction, so the window is the
+-- transaction, not the session. `snapshot_agent()` backs up but does not lock;
+-- that is stated rather than implied.
 UPDATE agent_definitions
    SET default_config = jsonb_set(default_config,
          '{workflow,steps,build_pages_loop,config,sub_workflow,steps,update_page_status,config,deploy_result_field}',
