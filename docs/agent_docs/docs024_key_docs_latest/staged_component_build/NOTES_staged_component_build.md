@@ -7073,3 +7073,24 @@ exposure yes, demonstrated damage no.
 **And a numbering mistake:** I filed it as 344, which was already taken. I had taken the highest
 number (`tail -1` → 349) and assumed 344 was free — but `tail -1` says nothing about gaps below it.
 Renumbered to **350**, both paths named on the commit per the `git mv` landmine, verified at HEAD.
+
+## 2026-08-21 (~15:3xZ) — 540 APPROVED and applied. Handler side of bugs_open/334 is COMPLETE: 10 real handlers, all standardised, all verified live
+
+Final sweep confirms all 10: page-rerender, rerender-pages, css-patch-agent, section-editor,
+webdesign-agent, nav-updater, page-build-handler, asset-deployer, image-build-handler,
+content-feed-orchestrator — every one's `complete` step exposes `commit_sha` via `result_mapping`.
+
+The population was found across three genuinely distinct discovery methods, each blind to what the
+other two caught: a structural census (action literally named `git_commit`) found 7; an empirical
+presence check (`site_work_items.result ? commit_sha`) found 2 more the structural census missed
+(non-`git_commit`-named actions that still touch git) but also flagged one false positive
+(`tool-generator`, cross-contamination from the very defect being fixed, not a real gap); and the
+wire's own apply-time guard (property-of-the-handler over a 30-day window) found the 10th
+(`content-feed-orchestrator`) that both earlier methods missed for two different reasons — one
+lane had seen and deferred it, the other's presence check couldn't see a handler that's correctly
+silent today. No single method would have found all 10; the intersection of methods is what closed
+it, and the wire's own standing guard is the right ongoing check going forward since the population
+is genuinely dynamic (`handler_agent` dispatched per-item), not a fixed set to enumerate once.
+
+Notified `staged-component-build` — their wire (537) should now pass its guard. Nothing further
+owed from this lane on `bugs_open/334` unless the wire's actual apply turns up something new.
