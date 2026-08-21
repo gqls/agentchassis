@@ -548,3 +548,51 @@ Per-tag idempotence now; commit `c2f050036`, `Council-Submitted: 54c660f8`.
 > for the 252 work earlier the same week and then didn't, because this fix felt like a small follow-on.
 > Cost is bookkeeping only, and it is recorded here and in the 322 file so the trail survives the
 > report's blind spot.
+
+## 2026-08-21 (c) — 322 item 4 drew a REVISE, and the round paid for itself twice
+
+Round 1 (corr `54c660f8`): **REVISE, gating objection from `editquality`**, plus objections from
+`bug_historian`, `prior_art_librarian`, `guardian` and `debug_historian`. Two were **real defects**;
+the rest were things I had asserted instead of shown. Revised and resubmitted on the same trail
+(`RESUBMIT_CORR`), which is the point of the mechanism — the trail accumulates.
+
+### The two real ones
+
+**1. `bug_historian`: "'documented' in a comment is not a fail-loud guard."** My no-`</head>` branch
+declined **silently**, with a comment explaining the divergence. That is *the exact shape this change
+exists to remove* — a silent skip is how webdesign.co.uk lost every brand tag on 117 pages while every
+caller reported success. I had written a careful comment about a silent failure in the middle of a fix
+for silent failures. It now logs a `Warn` naming the domain and the consequence.
+
+**2. `editquality`: the favicon comment contradicted the code.** The code writes **two** `rel="icon"`
+when the head declares none (derived PNG + the site logo as a secondary, so a mark resolves before
+`favicon.png` is committed) and **none** when one is authored. That asymmetry is deliberate and
+pre-existing. My comment said "a second one must never be appended" without "beside an **authored**
+one" — which reads as a rule the code breaks. **The comment was wrong, not the code**, and a reader
+who "fixed" the code to match it would have removed a real fallback.
+
+### The four I answered with checks I should have run before submitting
+
+All three **high**-severity objections reduced to one question — *does the OTHER head producer see this
+function's output?* — and the answer is **no**, provable in one read: `RenderHead`
+(`component_library.go:2017`) resolves via `ResolveChromeComponent` and falls back to
+`RenderFallbackHead`. **It never reads `site_components.rendered_html`.** So a page built through
+`AssemblePageAction` gets neither these tags nor a stranded site-level `og:title` — the population
+`prior_art_librarian` feared cannot exist. I had *asserted* this in the 252 round and never re-quoted
+the source here.
+
+Also now measured rather than estimated:
+- **`injectBrandHeadTags` has exactly ONE caller** (`renderAndStoreSiteComponent`, gated `slot=="head"`).
+- **The needle-gate count `debug_historian` asked for: exactly TWO stored heads are short of brand
+  tags** — webdesign.co.uk (the motivating case, 117 pages) and loanandmortgagecalculator.co.uk
+  (missing `og:image` only). A small, named repair population rather than an unbounded one.
+- `guardian`'s question — does `spliceOpenGraph` tolerate a non-empty pre-existing `og:title`? — was
+  **already tested**: it strips unconditionally, and `TestSpliceOpenGraphSelfHealsDuplicatedBrandTags`
+  runs it against a fixture carrying a FILLED site-level `og:title`.
+
+### The lesson, and it is not "the council was fussy"
+
+**Every one of the four answerable objections was a claim I could have cited and instead asserted.**
+The evidence existed — some of it produced by me, in this same lane, two days earlier. Grounding a
+resubmission cost one query each. **A `grounded_in` entry is cheaper than a review round, and a review
+round is far cheaper than the defect it finds** — and this round did find two.
