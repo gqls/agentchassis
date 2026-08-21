@@ -276,6 +276,54 @@ than the flat count of 13 suggests.**
 runs/24 h** and quiet): step 4 deliberately did not rename the stored template key, so this route
 survives by design. Confirm absence is right there rather than assuming it.
 
+## 2.6 515's council trail (live as of 2026-08-21 ~12:1xZ) — REVISE answered, round 2 in flight
+
+`SUBMISSION_CORR=a452fc2a-160f-485c-949c-367c34c65df2`. **Round 1 = REVISE**, `decided_by: gating
+objection from guardian`; 7 of 9 seats approved. Both objections were real; the file was revised
+rather than defended (`b9d62857e`).
+
+- **guardian (HIGH, gating) — right about the reasoning.** *"that provenance check proves the
+  ancestor commit is present, not that this specific code path … was the thing `ecc419bd1` added."*
+  My chain read the config peel **at HEAD** and proved ancestry **at the stamp**, and those do not
+  join — HEAD is ahead of the build, so the peel could have arrived later and the binary would carry
+  the commit without the behaviour. Closed at the built commit:
+  `git show 0483e7f4e:…/action_inputs.go | grep -n 'TrimSuffix(k, "?")'` → 694, 708, both in the
+  CONFIG loop; `git log -L` → `ecc419bd1` introduced it. **Carry this: "the commit is aboard" and
+  "the behaviour is aboard" are different claims, and `merge-base` only establishes the first.**
+  Logged in `WRONG_CALLS.md`; my own morning LANDMINE (which recommended the ancestry fallback) is
+  corrected to say so.
+- **The seat cited a LANDMINE against me, and it was STALE.** The entry titled *"…`?` … NOT YET in a
+  step's action `config`"* already carried two corrections beneath it, the second pinned to
+  `v1.0.1320`, and the fleet had since rolled to `v1.0.1321` which parses it. So a high-severity
+  objection landed against a correct migration on the strength of a heading its own body retracted.
+  Corrected (`32ca8ebf0`). **Generalisable: a reader matches the heading and footprint, not the
+  third paragraph — put a shelf life in the TITLE or retire the entry.**
+- **guardian (low) — found a third consumer I had missed.** THREE agent types carry an unwired
+  `plan_sections`/`page_type`: pbh, `page-content-writer`, **`page-rebuild`** — and page-rebuild's
+  step is NESTED, invisible to a top-level `jsonb_each` census (use
+  `jsonb_path_query_array(default_config,'$.**.steps.plan_sections.action')`). **Scope still stands,
+  for a better reason than isolation: only pbh has a `load_page_record` step**, so `page_record` is
+  absent from the other two trees entirely (pcw carries it on 0/15 runs). Wiring it there would name
+  a path that never exists. Recorded as named follow-ups; neither has produced a conflict row.
+- **editquality (medium)** — added a single-active-row assertion (pbh is not one of the four
+  duplicate-row types; measured 1 row, version 1, but the assertion is free).
+- **guidelines (nit)** — `snapshot_agent()` moved INSIDE the guard, **proved**: a double run now
+  emits ONE snapshot notice where it emitted two, guard still raising.
+- **debug_historian (gap)** — the file now says its evidence was a REHEARSAL and the real apply owes
+  its own logged verify plus a demand control.
+
+⚠ **Round 2's FIRST attempt died at `complete_invalid` (10:40:27Z) — the Anthropic account hit its
+API usage limit, not a fault in the submission.** The 400 says *"you will regain access on
+2026-09-01"*; **that is the billing reset, not when access returns** — the burst ran 10:34→10:41:29Z
+and the estate completed 200+ orchestrations in the next 87 minutes. A `complete_invalid` run
+produced **no verdict**, so resubmitting on the same trail is correct and precedented (step 3 hit
+this on 08-19 and was approved on resubmission). Re-run in flight, `RUN_ORCH_ID=cd19b246-…`, past
+the seat that died last time. Full trap in `LANDMINES.md`, including that
+*"a missing row is latency"* stops applying once `current_step` reads `complete_invalid`.
+
+**Next: read the round-2 verdict, then APPLY, then verify — with a demand control (pbh
+orchestrations in the window > 0), never the conflict count alone.**
+
 ## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
 
 §2.0's two axes (WIRED? × WHICH SIDE OF THE PRUNE?) generalise to the whole census, and applied
