@@ -7232,3 +7232,63 @@ Neither is the wire dropping anything.
 `HANDOFF_2026-08-21_continue_here.md` — **the path I had already created**. Flagged before either of
 us lost work; suggested `…-08-21b_…` for theirs, the SUMMARY series' convention. Two files both
 saying "fresh chat starts here" is the exact confusion this lane bannered its way out of on 08-20.
+
+## 2026-08-21 (~17:1xZ) — **STEP 5 IS BUILT. THE FLIP IS COMMITTED** (`5fe010ada`)
+
+`findFieldRecursive` returns **nil** on a conflict. That is the whole workstream, done.
+Council submitted `26186633-a9a2-4425-bbb4-a9e58c418c66`. Go code, so **inert until a roll**;
+`v1.0.1322` (up 16:54Z) predates it.
+
+**I did NOT claim the "zero WARNs" precondition, and that was deliberate.** The comment allowed
+either branch. The zero branch **can never be sufficient** — a row requires the candidates to
+DIFFER, so a lone wrong candidate substitutes silently. `bugs_open/330` §4 is one worked case and
+`bugs_open/350`, filed today, is a second on a different surface. The flip rests on the other
+branch: all 19 pairs dispositioned (§2.4–§2.9), with the three live ones fixed **and proven at the
+artefact**.
+
+**What changed and what did not.** Conflict ⇒ `return nil`; `phase` ⇒ `"2-refuse"` in both the WARN
+and the persisted finding. Message and every other field unchanged so the window's queries survive
+the flip. **Untouched:** unique-value resolution, the collector, the depth/rank sort, the
+infrastructure-key skip list, the no-candidates path. `winner_path` is still reported — nothing
+resolves from it, but it names what the ranking **would** have picked, which is the first thing
+anyone tracing an absent field wants. **So the ranking is not dead code**, and `bugs_closed/306` is
+why it is declared rather than accidental.
+
+**THE TEST BLAST RADIUS WAS 4× WHAT THE FILE ITSELF DECLARED.** The test header — written by this
+lane, months of context ago — named `unified_extractor_search_test.go` as *the* flip site, with
+three tests to change. The real answer was **13 tests across 4 files**: those three, plus 306's six
+tie-break tests, three recorder tests, step 1's prune overreach guard, and step 4's own pre-rename
+control in another package. **A file that names its own flip sites is a claim like any other**, and
+this one was wrong by a factor of four. `go test ./platform/...` is what found it, not the comment.
+
+The conversion pattern was the same every time and is worth reusing: **each test asserted the
+RESOLVED VALUE; each now asserts `nil` AND the reported `winner_path`.** That preserves what each
+was actually protecting (declared tie-break, depth-outranks-rank, rank-inherited-below-the-first-hop,
+determinism over 200 runs, recorder non-interference, the prune's overreach guard, the step-4
+control) at the point where it still lives. **A test asserting `nil` alone would pass vacuously** —
+the determinism test especially, since every run now returns nil. I read the expected paths **off
+the running code** with a throwaway test rather than deriving them from the fixture, and deleted it
+after.
+
+Every flipped test also asserts `phase == "2-refuse"`, so a build that silently reverted to Phase 1
+**fails** rather than warning quietly.
+
+**MUTATION-PROVED**, and the mutation was chosen to compile: reverting only the `return` (leaving
+`_ = winner`) fails **13 tests across both packages**; restoring it returns them to green.
+`./platform/...` fully green. The `internal/adapters/thunder` build failure is **pre-existing at
+HEAD** (its test file references `Instance.Identifier` 11 times against someone's uncommitted struct
+change) and is another lane's — checked rather than assumed, since my diff touches no `internal/`
+file of that package.
+
+**Deliberately NOT in this commit: retiring the read-side tolerance.** The plan called for it in the
+same commit. It is a separable cleanup *enabled by* the flip rather than part of it, and bundling
+would put two changes under one review — on a change whose whole point is a guarantee alteration
+that deserves undivided attention. It follows next, and it must use §4's two reasons (zero
+non-terminal pre-roll orchestrations; `buildRerenderBaseData` writes the new key fresh so the
+tolerance's second branch is unreachable) — **not** the retention argument the plan gave, which was
+unsound.
+
+**A hook caught a real mistake:** I first tried to commit with `Council-Submitted: pending` as a
+placeholder, intending to fill it in. The `commit-msg` hook refused — a trailer must carry a real
+correlation, and forward-only forbids fixing it by amend. Submit first (the trigger prints the id in
+seconds), then commit. Committing with no trailer at all is also fine; a *fake* one is not.
