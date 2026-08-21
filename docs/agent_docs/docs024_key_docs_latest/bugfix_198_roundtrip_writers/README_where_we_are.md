@@ -84,3 +84,62 @@ trap where the search pattern I wrote doesn't mean what it looks like it means. 
 reason. I caught it ten minutes later when the same query claimed my own just-completed work
 didn't exist either. Nothing came of it, but a check that can only ever say "no" is worse
 than no check, so it is written up where these get collected.
+
+---
+
+## 2026-08-21, later — the two shared sites are split, and the fix is proven working
+
+You said they could have separate theme rows, so that's done, and I then proved the fix on a
+live site rather than leaving it as a claim. Both are finished and verified.
+
+**The split.** finetuning.uk and gaswholesalers.com now have a stylesheet record each instead
+of sharing one. Three things I was careful about, because each would have broken something
+quietly:
+
+- Their **design is unchanged**. The thing that actually builds a site's stylesheet reads the
+  palette, layout and typography records — not the copy we were arguing about — so I carried
+  those across unchanged. If I'd let the system regenerate them, both sites would have quietly
+  redesigned themselves at their next rebuild, with nothing to warn anyone.
+- Their **headers and footers still work**. The shared record was also pinning those, and a
+  new record that didn't carry the pins would have dropped the header and footer off both
+  sites. There's a known trap in our notes about a copy that carries such a pin when it
+  shouldn't; this was the same trap facing the other way.
+- The **original shared record is untouched** and now used by nobody. It's a template other
+  sites might adopt later, so it wasn't mine to repurpose.
+
+I rehearsed the whole change against the live database with the save deliberately cancelled at
+the end, checked the result, and only then ran it for real. Both sites were serving normally
+afterwards, byte for byte the same as before.
+
+**The proof.** I wanted a real run rather than a rehearsal, but every candidate site was live
+and a faulty check could have broken one — which is why I'd earlier written this up as
+something I wasn't going to claim. That changed when webdesign.uk turned out to be the perfect
+subject: it had the exact fault (an empty record against a real 15KB stylesheet), *and* the
+domain redirects elsewhere, so its stylesheet isn't shown to anyone. A failure there couldn't
+reach a visitor. I saved a copy of the file first, just in case.
+
+I put a clearly-marked test job through the normal queue and watched it. The system picked it
+up, dispatched it, and the agent **refused** — it stopped before writing anything, exactly as
+intended. Three things came out of it that a rehearsal couldn't have shown:
+
+1. It refused for the right reason, on real data.
+2. **The job was recorded as "needs human review", not "completed"** — this is the part that
+   was silently wrong for months, where refusals and failures were being logged as successes.
+3. **Nothing was touched.** The record is still empty, the stylesheet in the repository is
+   still byte-for-byte identical, and no commit was made. That's the check that actually
+   matters — if the guard had failed, both of those would have changed.
+
+I deleted the test job afterwards; it wasn't a real problem and shouldn't be counted as one.
+
+I deliberately did **not** stage the opposite test (letting a fix through), because doing so
+would have added a meaningless rule to a real site's stylesheet — the same junk-rule problem
+this bug has already caused on three sites. It didn't need staging: another session watched
+that happen for real on a different site the same day, correctly.
+
+**Where the fleet stands: 22 sites out of 22 are now healthy** on this measure, up from 19 of
+22 this morning. There are no sites left in the state that caused this bug.
+
+**Still outstanding**, and I don't want it lost in the good news: the extra safety net at the
+final publishing step only switches on when the next software release goes out, so that half
+is written and tested but not yet running. And there's a separate known problem where the
+agent writes a fix aimed at something that doesn't exist on the page — that's a different job.
