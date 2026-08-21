@@ -111,43 +111,79 @@ BEGIN
     END IF;
 END $$;
 
--- NEEDLE-GATE. Every assumption this migration makes about the live workflow,
--- asserted before it writes. The path it splices into is
--- run_offer_analysis -> set_audit_source -> write_offer_ordering, and the write
--- reads offer_analysis.result.ordering; if any of that has moved, the splice
--- would silently produce a workflow that skips the gate or writes the unchecked
--- object. Abort instead.
+-- NEEDLE-GATE, AND THE ROW IT RESOLVES IS THE ROW THE UPDATES TOUCH.
+--
+-- ⚠ THE TEMP TABLE IS THE POINT, NOT TIDINESS. The first cut of this migration
+-- asserted the step shape in a DO block and then ran the UPDATEs against the
+-- BROADER predicate (type + is_active + not-snapshot + not-deleted). Those are
+-- DIFFERENT SETS, and this estate has the landmine that makes the difference
+-- bite: [MEASURED 2026-08-21] four agent types carry TWO active definition rows
+-- (content-creator, content-creator-contact, chief-strategist,
+-- site-component-architect), and only the higher version is ever loaded. Had
+-- offer-analyser been one of them the gate would have passed on the loaded row
+-- while the UPDATE silently rewrote BOTH — corrupting the row nobody reads,
+-- where nothing would ever surface it. offer-analyser has exactly one active row
+-- today, so the old form would not have misfired; that is luck, not a guard.
+-- Caught by the council gate's guardian seat (corr 9a8f1283, round 1).
+--
+-- Resolving the target ONCE into a temp table makes gate and write the same set
+-- by construction, so they cannot drift apart in a later edit either.
+CREATE TEMP TABLE _537_target ON COMMIT DROP AS
+SELECT id
+  FROM agent_definitions
+ WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+   AND type = 'offer-analyser'
+   AND default_config->'workflow'->'steps'->'set_audit_source'->>'next_step' = 'write_offer_ordering'
+   AND default_config->'workflow'->'steps'->'write_offer_ordering'->>'action' = 'write_site_spec'
+   AND default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'spec_data' = 'offer_analysis.result.ordering'
+   AND default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'aspect' = 'offer_ordering'
+   AND default_config->'workflow'->'steps'->'run_offer_analysis'->>'output_field' = 'offer_analysis';
+
 DO $$
-DECLARE n int;
+DECLARE n int; total_active int;
 BEGIN
-    SELECT count(*) INTO n FROM agent_definitions
-     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-       AND type = 'offer-analyser'
-       AND default_config->'workflow'->'steps'->'set_audit_source'->>'next_step' = 'write_offer_ordering'
-       AND default_config->'workflow'->'steps'->'write_offer_ordering'->>'action' = 'write_site_spec'
-       AND default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'spec_data' = 'offer_analysis.result.ordering'
-       AND default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'aspect' = 'offer_ordering'
-       AND default_config->'workflow'->'steps'->'run_offer_analysis'->>'output_field' = 'offer_analysis';
+    SELECT count(*) INTO n FROM _537_target;
     IF n <> 1 THEN
         RAISE EXCEPTION
-          '537 needle-gate: expected exactly 1 offer-analyser with set_audit_source->write_offer_ordering->write_site_spec(spec_data=offer_analysis.result.ordering), found % — re-derive against the live workflow', n;
+          '537 needle-gate: expected exactly 1 offer-analyser whose path is set_audit_source -> write_offer_ordering (write_site_spec, spec_data=offer_analysis.result.ordering), found % — re-derive against the live workflow', n;
+    END IF;
+
+    -- Stated separately so the failure names its own cause. A second active row
+    -- that does NOT match the shape above is not something to write through
+    -- blind: it is either a stale definition or a migration someone else is
+    -- part-way through.
+    SELECT count(*) INTO total_active FROM agent_definitions
+     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+       AND type = 'offer-analyser';
+    IF total_active <> 1 THEN
+        RAISE EXCEPTION
+          '537 needle-gate: offer-analyser has % active definition rows, expected 1 — only the highest version is ever loaded, so decide which row is real before writing', total_active;
     END IF;
 END $$;
 
--- PROMPT ANCHOR GATE. The prompt line is spliced onto a verbatim sentence. If
--- that sentence has moved or been reworded, a blind replace is a no-op that
--- looks like success — the step would ship with the gate but without the rule.
+-- PROMPT ANCHOR GATE. `replace()` on a missed anchor is a SILENT NO-OP that still
+-- reports UPDATE 1 — the migration would ship the gate with the rule never added
+-- to the prompt, and report success. So the anchor is asserted to occur EXACTLY
+-- ONCE before anything is written: zero means it has drifted (another session
+-- edited the prompt), and more than one means `replace()` would splice the rule
+-- in twice. Counted by length difference, which is exact and needs no regex.
 DO $$
-DECLARE n int;
+DECLARE prompt text; anchor text; occurrences int;
 BEGIN
-    SELECT count(*) INTO n FROM agent_definitions
-     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-       AND type = 'offer-analyser'
-       AND default_config->'workflow'->'steps'->'run_offer_analysis'->'config'->>'prompt'
-           LIKE '%naming which premise field it came from, so a later reader can check it.%';
-    IF n <> 1 THEN
+    anchor := 'naming which premise field it came from, so a later reader can check it.';
+
+    SELECT ad.default_config->'workflow'->'steps'->'run_offer_analysis'->'config'->>'prompt'
+      INTO prompt
+      FROM agent_definitions ad JOIN _537_target t ON t.id = ad.id;
+
+    IF prompt IS NULL THEN
+        RAISE EXCEPTION '537 prompt-anchor gate: run_offer_analysis carries no prompt';
+    END IF;
+
+    occurrences := (length(prompt) - length(replace(prompt, anchor, ''))) / length(anchor);
+    IF occurrences <> 1 THEN
         RAISE EXCEPTION
-          '537 prompt-anchor gate: the from_field sentence is not present exactly once (found %) — the prompt has moved, re-derive the anchor', n;
+          '537 prompt-anchor gate: the from_field sentence occurs % time(s), expected exactly 1 — re-derive the anchor before splicing', occurrences;
     END IF;
 END $$;
 
@@ -180,8 +216,7 @@ UPDATE agent_definitions
          '"ordering_checked.object"'::jsonb,
          false),
        updated_at = now()
- WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-   AND type = 'offer-analyser';
+ WHERE id IN (SELECT id FROM _537_target);
 
 -- 2. Tell the model the rule as well as enforcing it. Appended to the sentence
 --    that already introduces from_field, so the rule sits where the field is
@@ -196,8 +231,7 @@ UPDATE agent_definitions
            'naming which premise field it came from, so a later reader can check it. ANY SPECIFIC QUANTITY you state in a point — a number, in digits or in words — MUST appear in the premise field you name in from_field. If that field states no quantity, write the point without one. A number that happens to be true of the site but is absent from the premise is exactly the failure this rule exists to stop: it arrives looking sourced, because from_field vouches for it. Quantities are checked mechanically after you answer, and a point whose number is not in its cited field is removed.')),
          false),
        updated_at = now()
- WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-   AND type = 'offer-analyser';
+ WHERE id IN (SELECT id FROM _537_target);
 
 -- VERIFY. A DO/RAISE block, not a SELECT: ON_ERROR_STOP does not fire on a
 -- non-empty result set, so a verify block made of SELECTs cannot stop the COMMIT.
@@ -206,12 +240,10 @@ DECLARE
     step   jsonb;
     prompt text;
 BEGIN
-    SELECT default_config->'workflow'->'steps'->'verify_ordering_cardinals',
-           default_config->'workflow'->'steps'->'run_offer_analysis'->'config'->>'prompt'
+    SELECT ad.default_config->'workflow'->'steps'->'verify_ordering_cardinals',
+           ad.default_config->'workflow'->'steps'->'run_offer_analysis'->'config'->>'prompt'
       INTO step, prompt
-      FROM agent_definitions
-     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-       AND type = 'offer-analyser';
+      FROM agent_definitions ad JOIN _537_target t ON t.id = ad.id;
 
     IF step IS NULL OR step->>'action' <> 'verify_cited_cardinals' THEN
         RAISE EXCEPTION '537 verify: gate step missing or wrong action (%)', step->>'action';
@@ -226,16 +258,12 @@ BEGIN
     -- The two rewires are the ones that make the gate REACHABLE and BINDING.
     -- Without the first the step exists and never runs; without the second it
     -- runs and the write ignores it. Both have been shipped broken elsewhere.
-    IF (SELECT default_config->'workflow'->'steps'->'set_audit_source'->>'next_step'
-          FROM agent_definitions
-         WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-           AND type='offer-analyser') <> 'verify_ordering_cardinals' THEN
+    IF (SELECT ad.default_config->'workflow'->'steps'->'set_audit_source'->>'next_step'
+          FROM agent_definitions ad JOIN _537_target t ON t.id = ad.id) <> 'verify_ordering_cardinals' THEN
         RAISE EXCEPTION '537 verify: set_audit_source still bypasses the gate';
     END IF;
-    IF (SELECT default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'spec_data'
-          FROM agent_definitions
-         WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
-           AND type='offer-analyser') <> 'ordering_checked.object' THEN
+    IF (SELECT ad.default_config->'workflow'->'steps'->'write_offer_ordering'->'config'->>'spec_data'
+          FROM agent_definitions ad JOIN _537_target t ON t.id = ad.id) <> 'ordering_checked.object' THEN
         RAISE EXCEPTION '537 verify: the write still persists the UNCHECKED model output';
     END IF;
 

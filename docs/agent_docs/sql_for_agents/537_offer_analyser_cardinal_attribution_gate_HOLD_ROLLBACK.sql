@@ -8,6 +8,22 @@ BEGIN;
 
 SELECT snapshot_agent('offer-analyser', '537_ROLLBACK: pre-revert');
 
+-- Same duplicate-active-row guard as the forward migration: only the highest
+-- version is ever loaded, so a second active row means an UPDATE here would
+-- rewrite a row nobody is reading. [MEASURED 2026-08-21] four agent types on
+-- this estate carry two; offer-analyser carries one.
+DO $$
+DECLARE total_active int;
+BEGIN
+    SELECT count(*) INTO total_active FROM agent_definitions
+     WHERE is_active AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL
+       AND type = 'offer-analyser';
+    IF total_active <> 1 THEN
+        RAISE EXCEPTION
+          '537 ROLLBACK: offer-analyser has % active definition rows, expected 1 — decide which row is real before reverting', total_active;
+    END IF;
+END $$;
+
 UPDATE agent_definitions
    SET default_config = jsonb_set(
          jsonb_set(
