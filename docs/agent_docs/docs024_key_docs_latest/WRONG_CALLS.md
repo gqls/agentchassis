@@ -40441,3 +40441,44 @@ right" but "what would this query be unable to see?"** — and for a nested-conf
 estate the answer has a documented name. Both re-runs (SQL with no path literals; the new Go audit
 via WalkSteps) returned the same 0, and only now is it evidence: the same instruments return 77, 6
 and 1 on the neighbouring populations, so they can come out otherwise.
+
+---
+
+## 2026-08-21 — I built a config fix from an AGREEMENT measurement when the load-bearing question was COVERAGE, and a parallel session built the correct one before either of us saw the other's WIP (staged_component_build lane)
+
+**The call.** Disposing `page-build-handler`/`page_type`'s resolver conflict, I found that
+`load_page_record.page_type` and its alias `page_record.page_type` are two names for one written
+value, and confirmed it by sampling: of the runs where either was populated, they agreed **13/13**.
+On that evidence I wrote migration 514, a **plain** config wire —
+`"page_type": "page_record.page_type"` — reasoning that since the value is correct whenever
+present, wiring it explicitly stops the guess.
+
+**What I never asked:** how often is `page_record.page_type` present AT ALL. A parallel session of
+the same lane measured it — **13 of 31** recent orchestrations, i.e. **absent on the majority, 18
+of 31**. A plain wire only engages Strategy 0 when the path resolves; on a miss it **falls through
+to the whole-tree search**, which is the exact defect being fixed. So my migration would have
+closed the door for 13 runs and left it wide open for 18 — the majority case, unfixed, dressed as a
+fix. The parallel session's migration (515) used the estate's newly-live `?` OPTIONAL-EXPLICIT
+marker instead, which resolves the path or is **absent**, never the search, closing the gap in both
+directions.
+
+**What caught it:** not my own review — a parallel session built the correct fix independently and
+committed it before my council round even returned a verdict. Neither migration had applied to the
+live row, so no collision occurred; 514 is retired (`_SUPERSEDED`) in favour of 515, with the full
+account in 514's own retired header.
+
+**The transferable shape.** *Agreement and coverage are different questions, and only coverage
+tells you what a wire protects.* "When both candidates are present, do they agree" proves the VALUE
+is right; it says nothing about how often the value is even THERE. I had the agreement number and
+treated it as though it answered the coverage question, because both numbers came out of the same
+query pass and felt like one fact. Before choosing a plain wire over `?` (or any explicit-vs-search
+fallback design), measure the MISS rate of the path you are about to wire, not just its correctness
+when it hits.
+
+**A second, unrelated lesson from the same submission, worth keeping separate.** The council round
+on my (retired) migration returned **REVISE**, gating on the submission's `sketch` field — which
+carried only the bare `jsonb_set(...)` one-liner, not the file's actual guard blocks (restructure
+check, already-wired check, sibling-convention check — all present in the real SQL). The reviewers
+objected to protections that existed; they just could not see them, because the sketch summarised
+rather than reproduced the guard. **Put the real guard in the sketch, not a synopsis of it** — a
+reviewer judges what you show them, not what you wrote elsewhere in the same file.
