@@ -2514,3 +2514,22 @@ initialised); empty input yields zeros. 0·0·0·0 standard counts.
 **Controls:** NEGATIVES (0): `id="inputText"`, `id="tokenDisplay"`, `id="costGPT4o"`,
 `GPT-3.5 Turbo`, `~4 chars`. (⚠ `Claude 3.5 Sonnet` is in BOTH — excluded, shared-string trap again.)
 POSITIVES: `estimate-note`, `Rates shown are illustrative`. Serve-grade pending its rerender.
+
+## 2026-08-21 15:00Z — #28 clip-path built+retired+graded. PHASE A COMPLETE: 28 of 63
+
+Item `e947d58a` (14:11:05Z, plain absence). Retire `UPDATE 1`, slot `51b5a197` md5 `238021d9…`
+intact. RUN: complete, adopted, component `4b783f4f` (16,086 chars).
+**COMPONENT PASS by mechanism — the mouse-only class is dead:** POINTER events throughout
+(`pointerdown/move/up`, `setPointerCapture`, `touch-action:none`), 44px handles and controls, so the
+tool works on a phone for the first time; a new point is INSERTED into the nearest edge
+(`points.splice(bestIndex+1,0,newPoint)`) — the ported append-to-end self-intersection cannot occur;
+min-3 refusal is an inline message; coordinates clamped 0–100 and rounded in the emitted CSS; three
+presets; honest copy. 0·0·0·0 standard counts, 13 listeners.
+**Controls:** NEGATIVES (0): `id="target"`, `window.setShape`, `rabbitear`,
+`Minimum 3 points required`, `draggingIdx`. POSITIVES: `id="cpb-code"`, `id="cpb-copy-btn"`,
+`id="cpb-preset-hexagon"`, `id="cpb-point-count"`.
+
+**Serve-grades owed in one batch when the queue drains: #25 regex (`310accdf`), #26 jwt
+(`7c9deeee`), #27 token (its generator rerender), #28 clip-path, plus the oklch re-fix
+(`1fe89947`, shared grading with the 286/331 lane).** All five retires are done — no race exposure
+anywhere, only waits.
