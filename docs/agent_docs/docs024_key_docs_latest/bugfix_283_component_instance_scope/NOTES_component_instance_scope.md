@@ -970,3 +970,27 @@ POST-roll ⇒ **they are the armed birth guard's live demand check** — expect
 Decision 2: the owner confirms rebuild-and-deconstruct for the remaining pool — the LMC pair
 proceeds after their veto window (~2026-08-22 midday; the window is THEIR coordination
 courtesy, not approval - consolidation's oracle-block REWRITE still owed in the same commit).
+
+## 2026-08-21 (session 8, close) — THE LAST BROKEN PAGE IS FIXED. Both guard branches proven LIVE with demand. One benign tail (finetuning content refresh) queued.
+
+**The untangle landed end-to-end**: a-a-o rebirth SUCCEEDED first sample (`5e3a4ca5`,
+result carries `instance_scope: mechanically converted at birth` — **the armed birth guard's
+CONVERT branch, proven live**); fundamentallyai REFUSED twice (id-array iteration — the
+guard's REFUSE branch, proven live; ⚠ the generator workflow's error path COMPLETES the item,
+no auto-retry — reseed by hand, and consider rerouting save_tool's error_step to
+fail_work_item as a follow-on), succeeded on sample 3 after the id rule was made STRUCTURAL
+in the spec ("every getElementById takes a quoted literal at the call site; never iterate
+arrays of ids"). **Live: a-a-o 28/28 prefixed 0 bare; fundamentallyai 28/28 prefixed 0 bare.
+ZERO pages on the estate serve a broken tool.** adopt_existing_page UN-ARMED (verified ABSENT).
+
+**Benign tail**: finetuning serves its rebuilt tool WORKING but unconverted — its rerender is
+blocked by the CLAIMS FLOOR ("0% reduction"), which is two guards interlocking correctly:
+the missingkey=zero exposure renders an unfilled content field as 0, and the claims floor
+refuses to publish it. Root cause = the regen path files NO needs_content_page item (fresh
+births do). One seeded by hand (`needs_content_fe2cbe67…`); after the content writer fills
+the fields, the rerender delivers the converted tool. Follow-on worth registering: the regen
+arm should file the content item itself when the template's field set changes.
+
+Remaining for the NEXT session: LMC pair after the veto window (~midday) with consolidation's
+oracle-block rewrite; finetuning tail verification; tomorrow's 07:40 sweep steady-state read
+(corpus should be ~0 now the shared pair is resolved); then CLOSE 324 and 283.
