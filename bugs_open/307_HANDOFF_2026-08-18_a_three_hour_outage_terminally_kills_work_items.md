@@ -213,8 +213,9 @@ the two measured populations (88/100, 12/100 → five agents) as its regression 
 
 ## §8 — 2026-08-20: §7's converged contract is BUILT, submitted and half-live (`bugfix_307_terminal_write_contract` lane)
 
-**Status: Go half COMMITTED (`069015add`) and INERT until the next chassis roll; DB half
-APPLIED and deliberately inert until then.** Council corr `4cdec68b-fa17-436d-8e25-8c422ee6c8c5`
+**Status: ~~Go half COMMITTED (`069015add`) and INERT until the next chassis roll; DB half
+APPLIED and deliberately inert until then~~ — SUPERSEDED 2026-08-21, see §9: the roll happened
+2026-08-20 16:09Z (v1.0.1320) and the whole contract is LIVE, with first natural-traffic proof.** Council corr `4cdec68b-fa17-436d-8e25-8c422ee6c8c5`
 (`Council-Submitted:` trailer — **no verdict claimed**). Register entry **WII-024**, written in
 the same commit as the seam. Lane docs:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_307_terminal_write_contract/`.
@@ -379,6 +380,68 @@ high-severity**, verdict read. All three answered with a change or a measurement
 Coverage: all three 307 commits are credited REVIEWED against this correlation by `098`, no
 MISMATCH — the `Council-Submitted:` trailer resolved automatically on approval, as designed.
 
-**The bug still does not close.** Nothing has changed about that: the Go half is committed and
-inert until the next chassis roll, and §5's acceptance evidence is live — the next adapter outage
-leaving zero terminal `failed` rows attributable to it.
+**The bug still does not close.** ~~Nothing has changed about that: the Go half is committed and
+inert until the next chassis roll~~ *(superseded 2026-08-21 — the roll happened; see §9)*, and §5's
+acceptance evidence is live — the next adapter outage leaving zero terminal `failed` rows
+attributable to it.
+
+---
+
+## §9 — 2026-08-21: the roll HAPPENED, the contract is LIVE, and natural traffic has already exercised the transient arm
+
+*(Recorded by the session picking the lane up post-approval; every figure below measured this
+morning, not carried forward.)*
+
+### The roll, proven at the artefact
+
+- **v1.0.1320**, both `agent-chassis` replicas started **2026-08-20 16:09Z** — binary stamp
+  `buildinfo.GitCommit=a255551e0…`, read from `/proc/1/exe` on both pods with the positive
+  control (`gqls/agentchassis`, 9911 hits). Superseded the same evening by **v1.0.1321**
+  (pods `agent-chassis-68ff4d794c-*`, started **19:51Z**, stamp `0483e7f4e`, control 9926).
+- `git merge-base --is-ancestor` **true for all three 307 commits** (`069015add`, `5e1a0ac1e`
+  round-1 fix, `29b32d0d8` round-2 advisories incl. `deferred` in both guard lists) against
+  BOTH stamps — so the contract has been live continuously since 16:09Z on the 20th, including
+  the round-1 completion-guard fix (the running binary never carried the wrong list).
+- The DB half (migrations `505`/`506`) was applied on the 20th and became operative with this
+  roll — `retry_after` is no longer structurally NULL (see below).
+
+### First natural-traffic proof — the transient arm, end to end [MEASURED 2026-08-21 ~10:15Z]
+
+Demand side first (a post-fix zero needs a demand control): **288** `agent_error_log` events
+since 16:09Z — failures happened.
+
+**Two `page_rerender` items took the transient-release path exactly as designed**, on a real
+Kafka topic-creation blip (~18:34Z and ~18:54Z on the 20th):
+
+| observable | row 1 (`5f52413b`) | row 2 (`6de492b9`) |
+|---|---|---|
+| error | `transient (ai_unavailable): … failed to create requests topic …` | same shape, responses topic |
+| attempt consumed? | **no** — `attempt_count=0` | **no** — `attempt_count=0` |
+| cooldown stamped? | `retry_after` 18:34:00Z | `retry_after` 18:54:33Z |
+| stamp honoured? | re-claimed 18:34:25Z — **after** the stamp | re-claimed 18:56:58Z — **after** |
+| outcome | **`complete`** 18:34:51Z | **`complete`** 18:57:30Z |
+
+That is the owner's 2026-08-18 ruling — *"a transient blip should return the item to queued"* —
+observed working on live traffic, un-induced: blip → released without spending an attempt →
+cooldown → retry → success. Pre-fix, both rows would have burned attempts against a dead
+dependency or died terminally on the §2.2 path.
+
+**Zero terminal `failed` writes since the fix went live** — 18 hours against a pre-fix
+archive-inclusive baseline of 401/558 in 14d (~29/day, 72% dying at attempt 1). Both halves of
+the 341 carve-out read zero (`error NOT LIKE 'Claim timed out%'`: 0; the carve-out itself: 0).
+With 288 error events on the demand side, an 18-hour terminal-failure zero is signal, not quiet.
+
+**Guard, passive arm:** the `wont_fix` population is now 57 (301's early guard is filing);
+4 touched since 16:09Z are all **new refusals** (`OWNED_PAGE_GUARD` errors, decisions standing)
+— no decision-status row observed overwritten. One `needs_imagery` row completed at
+`attempt_count=1` with no `retry_after` — consistent with the known parked/complete-write
+increment residual (§8 residuals), **not over-read** as ladder evidence.
+
+### What this does and does not yet prove
+
+LIVE-PROVEN: transient classification · release-without-consuming · cooldown stamping · the
+claim path honouring `retry_after` · retried items completing. NOT yet live-proven: the
+attempt-consuming ladder's scaling (`triaged` + backoff×N on a non-transient failure), honest
+terminal `failed` at `max_attempts`, and the terminal-decision guard skip — those three are the
+subject of the owner-authorised canary (next section when run; choreography in the lane
+RUNBOOK). §5's outage-scale acceptance remains a live watch by its nature.

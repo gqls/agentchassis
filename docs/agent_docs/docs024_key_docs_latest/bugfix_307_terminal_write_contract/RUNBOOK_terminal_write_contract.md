@@ -104,3 +104,51 @@ SELECT current_step, status FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 ```
 Budget ~30 minutes: the council takes 2–5, the dispatch queues behind the fleet.
+
+## Post-roll acceptance poll (added 2026-08-21) — run BOTH halves together, or a zero lies
+
+```sql
+-- demand side: did any failure event occur since the fix went live?
+SELECT count(*) FROM agent_error_log WHERE occurred_at >= '2026-08-20 16:09Z';
+-- supply side: new-path evidence. ⚠ THE 341 CARVE-OUT IS LOAD-BEARING: the
+-- claimed-item-timeout task (bugs_open/341) is the one remaining divergent writer and its
+-- fair-weather terminal rows would otherwise read as a 307 regression.
+SELECT id, item_type, status, attempt_count, max_attempts, retry_after, handled_by, left(error,120)
+FROM site_work_items
+WHERE (retry_after IS NOT NULL OR (updated_at >= '2026-08-20 16:09Z' AND status='failed'))
+  AND (error IS NULL OR error NOT LIKE 'Claim timed out%');
+```
+Readings: zero+zero = quiet traffic, wait. Demand non-zero + supply zero terminal-failures =
+the bleed has stopped (GOOD — that is the 08-21 morning reading: 288 vs 0). Any post-roll
+`failed` at `attempt_count < max_attempts` outside the carve-out = **ladder bypass = FAIL,
+stop and investigate**. ⚠ `attempt_count > 0` alone is NOT ladder evidence — parked/complete
+`update_work_item_status` writes still increment it (§8 residual).
+
+## The close canary (owner-authorised 2026-08-21) — three arms nothing natural demands
+
+One synthetic row, real path end-to-end; precedents 299 (`pool-web-tech.internal`) and 302.
+Insert on a pool site: `item_type='content_rewrite'`, `status='triaged'`,
+`handler_agent='page-build-handler'`, `item_key='canary_307_close_20260820'`, `max_attempts=3`,
+spec naming a NONEXISTENT page (the "not found" text matches no transient needle in either
+classifier; one item cannot trip the burst conjunction — 1 domain, 1 agent type).
+
+1. Attempt 1 fails → assert `triaged` / `attempt_count=1` / `retry_after ≈ +30m`
+   (`reaper_policies` `__default__` backoff 30 — READ IT FIRST; a prediction that cannot miss
+   proves nothing) / claim columns cleared. **Record the stamped value BEFORE shortening it.**
+2. Shorten `retry_after` to `now()`; when the row is next claimed, immediately flip it to
+   `wont_fix`. When the failure write lands: assert SKIP — status still `wont_fix`,
+   `attempt_count` still 1, and the pod logs the line at `work_item_failure_ladder.go:412`
+   (`skipped — a deliberate status is already recorded`). Race lost = the write landed first as
+   attempt 2 with `retry_after ≈ +60m` — that is the scaling observation instead; retry the
+   flip next cycle.
+3. Flip back to `triaged`, shorten; attempt 2 → `2` / `≈ +60m`. Shorten; attempt 3 →
+   **terminal `failed` at 3 of 3** (the §5(c) honesty case, live).
+4. **Teardown:** DELETE the canary row and verify 0 (before the ~7-day archiver sees it, so the
+   promoter's `content_rewrite`/page-build-handler ratio is not polluted); check the immune
+   sweep filed nothing off the canary's failures (cancel + note if it did). `agent_error_log`
+   rows remain — harmless. No dispatch within ~300s of a chassis pod (re)start.
+
+Fallback if pool sites don't qualify for build dispatch (read the dispatcher predicate as
+COLUMN TEXT only — executing a `pre_query` advances its rotation): hand-fire the handler
+orchestration carrying `work_item_id` in `input_data` (the 313 lane's fire-script pattern);
+exit 0 proves nothing — verify in `orchestration_states` by correlation.

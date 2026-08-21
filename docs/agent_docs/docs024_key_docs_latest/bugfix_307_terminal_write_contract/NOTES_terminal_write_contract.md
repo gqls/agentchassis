@@ -211,3 +211,36 @@ judged standalone.
 guard I added while already in the file, which had no test among the fifteen. The measurement one
 was a check I had written down that morning and did not run. Neither was a gap in knowledge. Both
 were the parts I wasn't looking at because I was confident about the parts I was.
+
+## 2026-08-21 — the roll happened, and natural traffic beat the canary to the transient arm
+
+*(Fresh session continuing the lane post-approval. Everything below measured this morning.)*
+
+**The roll.** v1.0.1320, both replicas started 2026-08-20 16:09Z, stamp `a255551e0` read from
+`/proc/1/exe` on both pods with the positive control (9911 hits of `gqls/agentchassis`);
+superseded by v1.0.1321 at 19:51Z (stamp `0483e7f4e`, control 9926). `git merge-base
+--is-ancestor` true for all three commits (`069015add`, `5e1a0ac1e`, `29b32d0d8`) against BOTH
+stamps — the round-1 completion-guard fix was aboard from the first live minute; no window ran
+the wrong list.
+
+**First natural proof — the transient arm end to end.** Two `page_rerender` items
+(`5f52413b…`, `6de492b9…`) hit a real Kafka topic-creation failure ~18:34Z/~18:54Z on the 20th:
+error prefixed `transient (ai_unavailable)`, `attempt_count=0` (release did NOT consume),
+`retry_after` stamped (18:34:00Z / 18:54:33Z), re-claimed only AFTER the stamp
+(18:34:25Z / 18:56:58Z), both then **complete**. The owner's ruling, observed un-induced.
+
+**The demand-controlled zero.** 288 `agent_error_log` events since 16:09Z, and **zero** terminal
+`failed` work-item writes (both sides of the 341 carve-out zero) against the pre-fix
+archive-inclusive ~29/day with 72% at attempt 1. 18 hours of that is signal.
+
+**Read carefully, not over-read:** one `needs_imagery` row completed at `attempt_count=1`, no
+`retry_after` — that is the parked/complete-write increment residual (§8 of the bug file), not
+ladder evidence. The 4 `wont_fix` rows touched since the roll are all NEW OWNED_PAGE_GUARD
+refusals; no decision status observed overwritten. Current pods (19:51Z) log no
+`work item failure ladder` lines yet — the two releases predate the restart, their lines died
+with the old pods; log evidence for future events only.
+
+**Still owed live (the canary's three arms, owner-authorised this morning):** attempt-ladder
+scaling on a non-transient failure, honest terminal at `max_attempts`, and the guard skip.
+Owner also ruled this morning: **close on fair-weather proof**, converting §5's outage arm to a
+dated standing watch with a reopen trigger (the `bugs_closed/006` shape).

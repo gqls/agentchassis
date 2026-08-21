@@ -160,3 +160,30 @@ All of it is fixed and resubmitted. Nothing had reached production: the program 
 until the next deploy, which is exactly the window this review exists to use. A round that finds a
 real defect is cheaper than the defect, and this is the second time on this project that's proved
 true.
+
+## 2026-08-21, morning — it deployed, and the first real blip was handled the way you asked
+
+The review approved it at the second round yesterday afternoon, and the deploy that afternoon
+carried it — on someone else's build, which is how this shared tree works by design. It has been
+running since four o'clock yesterday.
+
+And it has already done its job once, without any of us arranging it. Just after six-thirty
+yesterday evening, two page-rebuild jobs hit a short messaging-system hiccup — the kind of
+passing infrastructure blip this whole piece of work was about. Under the old behaviour each
+would have spent one of its three lives on a problem that wasn't its fault, or died outright.
+Under the new behaviour: both were put back in the queue without losing a life, each with a
+short "don't retry before" time stamped on it; the system respected that time, picked them up
+again afterwards, and both finished successfully. That is exactly the sentence you gave us —
+"a transient blip should return the item to queued" — happening on its own, on real work.
+
+The other number worth saying out loud: in the eighteen hours since it went live, not a single
+work item has been marked permanently failed. Before this fix the estate averaged roughly
+thirty a day, most of them dying on their first attempt. Failures still happened overnight —
+nearly three hundred error events — they just stopped being fatal.
+
+What's left is one supervised drill this morning: I'll feed the system a single deliberately
+doomed item on a test site and watch it use its three lives properly, wait out its cooldowns,
+refuse to trample a human decision, and only then be declared failed for good. You approved
+that this morning, along with closing the bug once the drill passes — with the "next real
+outage leaves nothing dead behind" test kept as a standing watch rather than a reason to hold
+the file open for weeks. Then the ticket closes and the drill row gets deleted.
