@@ -685,3 +685,38 @@ documented safe fallback — every headline hit is still repaired regardless of 
 page-level total is still counted at `compile_page_sections`. **If a true per-page budget is wanted,
 the mechanism is to carry the count in the step's OUTPUT (`copy_gate_<N-1>`), never a bare
 `CollectedData` key.**
+
+## §21. 2026-08-21 evening — every known defect in this fix is now LIVE-FIXED
+
+Chassis `v1.0.1322`, build `bac189921`, both pods up 16:54Z.
+
+| fix | in the build? | how |
+|---|---|---|
+| `0eea9e597` — same-field splices compose instead of racing | **yes** | `git merge-base --is-ancestor 0eea9e597 bac189921` |
+| `1ac9b8890` — `invented_superlative` rejection | **yes** | ancestry, AND binary-probed on **both** replicas (`invented_superlative` = 1) |
+
+⚠ **My first ancestry control was invalid and I am recording it rather than quietly fixing it:** I
+picked a commit made "after the build" that in fact predated it, so it reported as an ancestor and the
+control "failed". The control was wrong, not the result. The valid control is HEAD (19:07 BST), which
+is NOT an ancestor of the build — with that, the test discriminates. **A control that cannot fail is
+not a control, whichever direction it points.**
+
+### What is still owed, and it is traffic, not code
+
+One end-to-end confirmation: a page with several constructions in ONE field, built after 16:54Z, should
+now show `hits_after ≈ hits_before − len(rewritten)` with the removed constructions absent from
+`page_components.content_data`. **No page has been built since the roll** — writer traffic ran 3–12
+calls/hour from 10:00 to 15:00, then stopped, and there are **zero** queued `page_rerender`/`page_build`
+items. Nothing is wrong; there is no work to observe. The query is in the lane handoff, item 1b.
+
+⚠ **Verify on the part that DIFFERS** — the removed construction — never on the rewrite's opening:
+`from` and `to` share it, and the marker truncates both at 160 characters. That check cost this lane a
+near-miss (`WRONG_CALLS.md`, 2026-08-21).
+
+### The state of the two halves, plainly
+
+- **Writer-seam gate:** live, council-approved, and every defect found by running it (no `ai_service`;
+  the splice race) is fixed and live. Proven at the marker on real copy: 5 hits → 1 exempt as
+  regulatory, 2 within budget, 2 rewritten, 0 rejected, surgical diffs.
+- **Brief-side check:** live daily since 08-20, 9 findings open.
+- **What no code will fix:** the three pages, and the nine briefs. Both belong to the site lanes.
