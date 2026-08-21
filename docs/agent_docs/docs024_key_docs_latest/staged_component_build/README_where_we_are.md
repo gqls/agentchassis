@@ -2367,3 +2367,44 @@ queued behind it.
 
 **Still waiting on real work to appear:** the tool-related verification from yesterday, which needs
 someone to queue a tool build. Nothing waits on you unless you want that forced.
+
+---
+
+**2026-08-21, late afternoon.** **The last blocker is fixed and proven, so the final step is now
+unblocked.** Two things worth telling you, one good and one awkward.
+
+The awkward one first: **another session built the exact same fix I did, and applied theirs about an
+hour before mine finished review.** That's the second time in two days two of us have independently
+built the same migration. Theirs ran, mine is retired. Theirs is genuinely better in one way — it
+finds the piece of configuration it needs to edit rather than assuming where it lives — so I've
+retired mine and moved the three pieces of analysis mine had that theirs didn't into their file,
+rather than leaving them to rot in a dead document. I also found their migration had been applied
+but never written into the ledger that stops it being run again, which would have jammed the next
+person's batch, so I recorded it and told them.
+
+The good one: **the fix is proven working, and the proof came out unusually clean.** I predicted, in
+writing and before looking, that any job started after the change would behave differently from any
+job started before it. Then I checked every relevant run and joined each one to its own start time:
+
+> two jobs started **before** the change — both still doing the old thing
+> two jobs started **after** it — both doing the new thing
+
+Four out of four, no exceptions. The failures are what make it convincing: a test where everything
+passes proves nothing, and these didn't.
+
+**And it nearly went wrong twice, in ways worth recording.** My first check looked for a step by its
+name and found nothing at all — which reads exactly like "this never happened". The step is named
+differently at runtime than in the configuration: the system adds the loop iteration to the front of
+it. That's the third time in two days one of my checks has been quietly asking the wrong question
+and returning a confident empty answer, so I've written the general rule down: **test your check
+against a line you have actually seen, not against a name you believe in.**
+
+The second near-miss: one of the jobs started *before* the change was still doing the old thing
+**eight and a half minutes after** it went live — because a job in flight keeps the settings it
+started with. If I'd judged by the clock rather than by which job was which, I'd have reported the
+fix as broken. It happened to be recoverable because the logs carry the job's identity; the other
+half of our instrumentation doesn't, which is now written down as a reason to prefer this kind of
+check.
+
+**Where that leaves us: the final switch is the only work left.** Everything it was waiting on is
+now either fixed, proven, or written down as a deliberate decision.
