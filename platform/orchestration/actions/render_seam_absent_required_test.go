@@ -13,8 +13,11 @@
 package actions
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -258,5 +261,33 @@ func TestAbsentRequiredRecordIsOptInAndFailsOpen(t *testing.T) {
 			t.Errorf("%s: recordAbsentRequiredFields = %v, want %v — a config value that is not a "+
 				"bool is a mistake, and a mistake must not switch on a fleet-wide DB write", name, got, c.want)
 		}
+	}
+}
+
+// The live-page routes ESCALATE, they do not merely detect (council bb7f5d0e
+// round 5 — editquality and bug_historian, both HIGH, both against my own words:
+// the submission called these two "the two with the most exposure" and then
+// wired only a log line there).
+//
+// The emitter needs a database, so what is asserted here is the DECISION, which
+// is the part that was wrong: nothing to report must file nothing, and an
+// identity-less call must refuse rather than panic or write.
+func TestSectionEditEscalationDecidesCorrectlyWithoutADatabase(t *testing.T) {
+	// Nothing absent → no attempt at all. If this ever reaches the db==nil guard
+	// it would log a warning on every healthy edit, which is how a real signal
+	// gets filtered out.
+	core, logs := observer.New(zapcore.DebugLevel)
+	emitAbsentRequiredFieldsForSection(context.Background(), nil, uuid.New(), nil, "hero", "content_edit", zap.New(core))
+	if logs.Len() != 0 {
+		t.Errorf("a clean edit produced %d log line(s) — the empty case must return before every "+
+			"other consideration: %v", logs.Len(), logs.All()[0].Message)
+	}
+
+	// Something absent but no identity → refuse loudly, never silently.
+	core2, logs2 := observer.New(zapcore.DebugLevel)
+	emitAbsentRequiredFieldsForSection(context.Background(), nil, uuid.Nil, []string{"body"}, "hero", "content_edit", zap.New(core2))
+	if logs2.Len() == 0 {
+		t.Error("an identity-less call with real findings said nothing — a record that cannot be " +
+			"written must still be visible, or the finding disappears twice over")
 	}
 }
