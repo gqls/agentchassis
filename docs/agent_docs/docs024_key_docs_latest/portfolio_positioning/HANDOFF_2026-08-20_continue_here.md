@@ -200,13 +200,58 @@ Full decision: `DECISION_2026-08-20_remake_the_hosted_sites.md`.
   names and no regulated angle (`advertise.co.uk`, `conferences.co.uk`, `catalogues.co.uk`,
   `copyonline.co.uk`, `fridge-magnets.co.uk`).
 
-## 4c. ⚠ ALL FUTURE SITES MUST HAVE SITEMAPS (owner 2026-08-20) — and 15 of 25 do not
+## 3c. ✅ BOTH BUILT 2026-08-21 — sitemap mechanism + the register-reading brief writer
+
+**(a) `render_sitemap` action** — register **SEO-002** (its own verify-later, now answered).
+Emits `sitemap.xml` from the pages table. **ON by default, opt OUT with
+`deploy_config.sitemap.enabled=false`** — inverted from `render_rss_feed` deliberately, because
+an opt-in sitemap would reproduce exactly the situation the ruling exists to end. Probes every
+URL and lists only 2xx; a drop is logged as "not fetchable now" and never fails the action;
+refuses to publish an EMPTY sitemap because that misinforms a crawler rather than merely being
+useless. Registered in the same change. **Council submitted: `8a004aab-be85-4d6d-bdb1-4fb114f1d64b`.**
+⚠ Go, so inert until a roll, **and wired into no workflow yet** — that is the next step.
+⚠ **My own test first failed to catch its own mutation**: the source-scan found
+`noindex IS NOT TRUE` in the file's HEADER COMMENT, so deleting it from the SQL still passed.
+Now extracts the query literal first, and all four visibility clauses are individually
+mutation-proved.
+
+**(b) The register is now a DATABASE table** — migrations `511`/`512`/`513`, register **BLD-025**,
+**189 rows loaded**, and `brief-writer` gained a `read_register` step. **PROVEN**: it returned
+M9's entry for `buytoletcalculator.uk` with `raw_md` and a siblings array carrying M1's
+proposition.
+
+⚠ **`raw_md` IS AUTHORITATIVE and the typed columns are only an index.** 49 entries use 18
+different field names; `owns:` is labelled in exactly one of them. **A lossy parse of a
+hand-written register would be a deletion, not a migration**, and "the DB is the source of truth"
+is only safe if nothing is lost getting there — the discipline `EvidenceBase` failed at.
+
+⚠ **`REGISTER_positioning.md`'s fate is UNDECIDED** — generated view, one-time input, or retired.
+**Until that is settled, do not edit both**: two hand-maintained copies of one roster is the
+`099_SYNC_gate_roster.py` drift class.
+
+**This changes RFC_037's answer.** The reader is in the BRIEF WRITER, not the classifier, because
+the owner reads every brief and can correct positioning that lands there — positioning fed to the
+classifier is invisible to him. RFC_037 stays open as the home for the **binding** collision
+check, which at 1,500 briefs is the only sampling rule that scales.
+
+**Attribution split** (512): `field` 60 · `prose` 78 · `exclusion-only` 51. The labelled fields
+alone left **82 of 152 portfolio domains with no row**; sweeping prose recovered them, and the
+column records the weaker confidence rather than hiding it. **21 still have no row** — all `.uk`
+siblings of registered `.co.uk` names the document itself never names: a register gap, not a
+parser gap.
+
+## 4c. ⚠ ALL FUTURE SITES MUST HAVE SITEMAPS (owner 2026-08-20) — 8 of 25 have one
 
 Recorded against register **SEO-002**, whose own `verify-later` asked precisely this and is now
-answered. The generator exists and is registered (`scripts/site-discovery-files.py`); **nothing
-runs it.** Measured 2026-08-20 by fetching every live site: **15 of 25 serve no `/sitemap.xml`** —
-including `remortgagecalculator.uk`, built four days ago with every current guard applied, which
-is the clearest available statement that a manual step is not a mechanism.
+answered — and **BUILT, see §3c(a).** Measured 2026-08-20/21 by fetching every live site: only
+**8 of 25 serve a sitemap of OURS** — including nothing on `remortgagecalculator.uk`, built four
+days ago with every current guard applied, which is the clearest available statement that a manual
+step is not a mechanism.
+
+⚠ **CORRECTION to my own earlier figure of "10 of 25".** A 200 on `/sitemap.xml` is not evidence
+the site has YOUR sitemap: `adversecreditmortgage.co.uk` returned 200 carrying a single `<loc>`
+for `/lander` — the **parking provider's** file, still served from the old infrastructure, with no
+matching `pages` row and `/lander` itself 307ing. Judge the body, not the status code.
 
 **The work:** make it a standing mechanism, shape already proposed in SEO-002 — a Go action beside
 `render_rss_feed` (read DB rows, emit a file artefact, gate on `deploy_config`). Two rules to carry
