@@ -260,3 +260,28 @@ Combined, over the corpus above: **23 rescued, 0 regressed, 1 verdict flip fleet
 - The calibration above (both directions, plus the `:260` note) is the council submission's review
   story and should land in it rather than be re-derived.
 - Re-run the calibration against the live corpus before shipping; assert the read counts.
+
+### ⚠ AMENDMENT to the verification step — assert the flip SET, not the flip COUNT
+
+From the `311 continued` lane's review of the census, and it closes a real hole in what I wrote
+above:
+
+**When the calibration is re-run against the live corpus before shipping, assert that the flip set
+is exactly `{6c41404d}` — not merely that the count is 1.** A *different* single row flipping
+between tonight's corpus and ship day would hide inside an unchanged count, and the run would read
+green while testing something else. The set assertion costs one line and is the only version that
+discriminates.
+
+This is the same failure mode as the vacuous `0/22` recorded further up, wearing different clothes:
+there, a count could not tell "nothing failed" from "nothing was read"; here, a count cannot tell
+"the intended rescue" from "an unrelated regression". **Both are cases where the number is stable
+and its meaning is not.** Assert the identity, not the cardinality.
+
+Same discipline applies to the rescued set: assert it still contains the 22 calculators by id,
+rather than `rescued >= 23`.
+
+One review note recorded for whoever writes the code: the strip regex
+`\s*\{\{-?\s*end\s*-?\}\}\s*$` is deliberately **case-sensitive**. `end` is a Go template keyword
+and has no case variants, so a case-insensitive match would only widen the tolerance for no gain.
+The `-?` handles trim markers (`{{- end -}}`), which is a shape worth keeping in the pattern even
+though no row in the current corpus uses it.
