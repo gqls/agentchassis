@@ -71,8 +71,21 @@ template exists, in full, at the moment of failure — and is discarded.
 **And the spend is far worse than the item's budget suggests.** Item
 `8c8f5de5-8078-440f-974d-70d0ba68346b` (`needs_new_component`, `loanzy.uk`) shows
 `attempt_count = 3 / max_attempts = 3` and produced **52 rejection rows in 3 h 34 min**
-(15:23:14 → 18:57:20 on 2026-08-18). So **something retries ~17× inside a single attempt**: the
-work-item budget bounds the dispatches, not the generations. Two other items burned 10 and 8.
+(15:23:14 → 18:57:20 on 2026-08-18). ~~So **something retries ~17× inside a single attempt**: the
+work-item budget bounds the dispatches, not the generations.~~
+> **CORRECTED 2026-08-21 (council round 1, corr `67b07528` — the reviewers' own verification query
+> refuted this).** The 52 rejections are **52 DISTINCT `orchestration_id`s, ONE rejection each**,
+> ~4 minutes apart — not an inner loop. The burn was **dispatch-without-counting**: the old
+> `isAIUnavailable` arm released the item to `triaged` forever without consuming an attempt. That
+> arm was replaced by `bugs_open/307`/`344`'s failure ladder (live since v1.0.1322), which counts
+> every real failure — but the ladder **still has a designed transient release**
+> (`work_item_failure_ladder.go:279`, "attempt NOT consumed", writing `error` at `:570`).
+> **Which is why the fix's gate changed in round 2:** `attempt_count > 0` would have hidden the
+> failure text from exactly the uncounted re-dispatches; the shipped gate is **a NON-BLANK recorded
+> failure** (a fresh item has `error` NULL, so first generations stay byte-identical). Candidate 3
+> below ("bound the inner loop") is therefore RETARGETED: the loop was the dispatcher's, and
+> 307/344 already bounded it.
+Two other items burned 10 and 8.
 
 ## The live instance that prompted this file
 
