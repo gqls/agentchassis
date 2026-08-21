@@ -7094,3 +7094,45 @@ is genuinely dynamic (`handler_agent` dispatched per-item), not a fixed set to e
 
 Notified `staged-component-build` — their wire (537) should now pass its guard. Nothing further
 owed from this lane on `bugs_open/334` unless the wire's actual apply turns up something new.
+
+## 2026-08-21 (~18:0xZ) — 537 APPLIED. `bugs_open/334`'s resolver half is LIVE, and the gate caught its own author
+
+Migration **540** (306 lane) converted `content-feed-orchestrator` — the tenth handler, sourced from
+`news_commit_result` per the corrected 17/17 vs 2/17 figures — so 537's guard passed and I applied it.
+
+**537's council verdict was REVISE, and I did not apply on the guard alone.** Four objections, all
+answered with a check rather than an argument; the fourth was RIGHT and the header is corrected:
+
+| objection | answer |
+|---|---|
+| an UPDATE keyed on `type` alone can patch the wrong of two active rows | build-dispatch-loop has exactly **ONE** row (version 1); predicate already excludes snapshots/deleted |
+| `?` is inert pre-`v1.0.1321` and rollouts are gradual | **both** chassis pods on `v1.0.1321`, ONE shared digest, started 19:51Z **~20 h before** — no mixed fleet |
+| a self-blocking migration is a loaded gun for the next `--apply` | deliberately NOT `_HOLD`: a sidecar is for a file waiting on a HUMAN decision, this waits on a MACHINE-CHECKABLE state its own guard tests — leaving it sweepable is what makes a later sweep safe |
+| **"all-time" counts are not sourceable from these tables** | **CORRECT.** `orchestration_states` retention is per-status; oldest row of any kind is 2026-07-19, and tool-generator's window starts **2026-08-20 17:06Z — about ONE DAY** |
+
+That last one is the useful correction. I wrote "tool-generator: 8 orchestrations all-time, ZERO
+carrying `commit_sha`" and the table cannot tell me that. Re-measured inside the real window: **13
+rows, 0 carrying** — the denominator moved from 8, which is exactly the point. **The mechanism
+argument is re-grounded on WHERE the value sat** (top level of the dispatch envelope, beside
+`retry_payload`), which is positional evidence independent of any count.
+
+**AND THEN THE GATE CAUGHT ME.** I applied 537 without writing its acks entry first, so
+`--optional-explicit-wires` went red on my own adopter within a minute: *5 live wires, 1
+unacknowledged*. That is precisely the "wire and ack in ONE commit" rule I had told the 286 and 306
+sessions to follow, broken by its author on the first migration he shipped after saying it. Written
+up rather than quietly fixed — a guard that only fires on other people is not evidence of anything.
+Now 5 wires, 0 unacknowledged, exit 0.
+
+**Verification baseline, banked BEFORE the wire took effect:**
+
+| figure | value |
+|---|---|
+| bdl/`commit_sha` conflict rows | **881**, 2026-08-19 20:40:07Z → **2026-08-21 15:32:44Z** (last, minutes pre-apply) |
+| items completed carrying a sha, last 24 h | **594** (the demand control) |
+
+**The verification, and what would falsify it:** after fresh multi-iteration loop demand, bdl/
+`commit_sha` conflict rows should read **0** while items keep recording `result.commit_sha` at
+roughly the 594/24 h rate. If BOTH go to zero the wire is dropping the field rather than declaring
+it — that is the failure mode, and it is why the item count is the control rather than a second
+conflict class. Instrument-alive control must come from another agent's class, as ever.
+⚠ **`tool-generator` should now record NO `commit_sha`. That is the fix, not a regression.**
