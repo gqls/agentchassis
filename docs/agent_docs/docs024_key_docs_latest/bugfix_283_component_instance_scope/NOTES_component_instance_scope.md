@@ -919,3 +919,36 @@ submit FIRST, then commit, or no trailer at all.
 sweep detects → mechanical convert OR (failed ×2) rebuild → fresh generation under the live
 prompt rules → converted at birth post-roll (or by next sweep pre-roll) → rerender/deploy.
 Parked-for-human stays the one deliberate manual gate.
+
+## 2026-08-21 (session 8, night) — v1.0.1322 ARMS BOTH GUARDS; rebuilds: 6 of 8 SUCCEEDED (chartTitle + hex-id defects GONE), 2 refused by the SHRINK FLOOR; sweep wave 2 converting
+
+**Roll verified**: v1.0.1322 digest-matched, revision `bac189921` carries `e186a2bd3` AND
+`df26249e0` — with migrations 520/530 already applied, the birth guard and fork guard are
+LIVE-AND-ARMED from this roll. Every post-roll tool birth is converted-or-refused at the seam.
+
+**Rebuild outcomes (all verified at the artefact, not the status):**
+- 6 succeeded: finetuning.uk automation-savings (its broken page's fix), leopardess
+  automation-savings + process-automation-scorer, gaswholesalers fuel-budget, gamesdesign
+  loot-table + spawn-rate-balancer. All audit CLASS A (prompt rules working — scripts born
+  IIFE-scoped), `chartTitle` dup count 0, hex id gone. Born pre-roll so unconverted; sweep
+  wave 2 (triggered manually, post-roll) filed 14 conversions — the 6 rebuilt + 8 new
+  arrivals — now draining. Sweep's filed-count fix confirmed live (14 = 14 keys).
+- **2 REFUSED, and the refusal reads as `complete`**: the shared-row pair
+  (ai-agent-orchestration + fundamentallyai, row 795c34e6). ⚠ the workflow's error path
+  (`complete_error`) completes the ITEM with an empty create_result — read the ORCHESTRATION
+  error, not the item status. The refusal was the **visible-text shrink floor** (bugs_open/331
+  protection): fresh generations kept 46%/48% of the incumbent's 1,114 visible chars, floor
+  50% — "nothing written; the incumbent tool still serves". The floor is right by its own
+  lights; behind it ALSO waits the cross-site regen refusal (line :216), so richer prose alone
+  does not clear the path. **The shared row needs untangling first** — the framework's own
+  prescriptions: retire/deactivate the shared row then per-site add_tool with
+  adopt_existing_page (the bugs_open/286 route; step-level key), OR per-site fork — but
+  deploy_tool's fork of THIS row is now (correctly) refused by the armed fork guard: the
+  template is composition-broken judged-class. **OWNER CALL, options costed in the CONTINUE.**
+  The floor override (`sectionShrinkFloorKey`, 0 disables) exists but is STEP-level — using it
+  would run every concurrent add_tool floor-less; deliberately not touched.
+
+**Housekeeping**: parked repair items for fuel-budget + loot-table CANCELLED with reason
+(their broken templates no longer exist — rebuilt); automation-savings' 2 parked items STAY
+(rows still broken pending the untangle). Stale-conversion items for rebuilt rows are
+naturally superseded by wave-2 items (same item_key, prior ones terminal).
