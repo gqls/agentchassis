@@ -545,9 +545,10 @@ failure is **pre-existing at HEAD** and another lane's.
 3. **Retire the read-side tolerance** in `setRenderContextScalarsFromData` — **deliberately NOT in
    the flip commit**, because it is a separable cleanup and bundling puts two changes under one
    review. Use §4's two reasons (zero non-terminal pre-roll orchestrations; `buildRerenderBaseData`
-   writes the new key fresh so the tolerance's second branch is unreachable) — **NOT** the retention
-   argument the plan originally gave, which was unsound.
-
+   writes the new key fresh so the tolerance's second branch is unreachable — ⚠ **THAT SECOND GROUND
+   IS FALSE, see the correction in §4**; use ground 1 plus the measurement instead) — **NOT** the
+   retention argument the plan originally gave, which was also unsound. **This item is now OWNED BY
+   THE PARALLEL SESSION** — built and submitted as `e5c1b3c15`+`9970eb71c`, council `e05ea6f9`.
 ## 2.9 `bdl`/`commit_sha` IS WIRED AND LIVE — via **537**, not 539. Verification is a NAMED PREDICTION, not yet met (2026-08-21 15:3xZ)
 
 **A parallel session built the identical wire as `537` and applied it at 15:33:39Z**, about an hour
@@ -779,14 +780,37 @@ expires** (20 live `page_components` rows across 12 sites hold `current_page` as
 `deployed` pages). Cite these instead, both one query:
 1. **Zero NON-TERMINAL pre-roll orchestrations** — all 2,476 pre-roll rows are
    COMPLETED/CANCELLED/FAILED, so none can be resumed into the build-side call site.
-2. **`buildRerenderBaseData` writes the NEW key fresh** from its `pageName` argument, and the
-   tolerance's first branch `continue`s whenever `current_page_name` is present — so those 20 stored
-   rows never reach the second branch.
+2. ~~**`buildRerenderBaseData` writes the NEW key fresh** from its `pageName` argument, and the
+   tolerance's first branch `continue`s whenever `current_page_name` is present — so those stored
+   rows never reach the second branch.~~
+   > **⚠ THIS GROUND IS FALSE. CORRECTED 2026-08-21 ~20:0xZ by the parallel session I had handed it
+   > to — they MEASURED it instead of taking it, which is the only reason it was caught.**
+   > The `continue` is **per-MAP**, and the rerender path makes **THREE separate
+   > `mergeIntoRenderContext` calls** — base ⊕ stored `content_data` ⊕ resolved_data
+   > (`rerender_page_sections_action.go:628-631`). In the stored-`content_data` call the map is
+   > `s.contentData`, which carries **no `current_page_name` at all** — verified independently here:
+   > across every live `page_components` row holding a string `current_page`,
+   > **`also_have_new_key = 0`**. So the second branch **was** reached and **did** adopt the stored
+   > string. I treated three merges of three different maps as one map.
+   > **What actually carried the retirement was their MEASUREMENT, not this mechanism:**
+   > `differ_from_page_name = 0` — every stored string agrees exactly with its own page's name, so
+   > adopting it was value-neutral. And the retirement is *better* than value-neutral: it closes a
+   > door that was being held open, because a future **stale** stored string would have **clobbered
+   > the fresh base identity** between the base and resolved-data merges — `bugs_closed/085`'s shape.
+   > ⚠ **Never quote a bare count for these rows.** It is live and it drifts: **20** (me, morning) →
+   > **18** (them, evening) → **19** (me, ~20:0xZ). The load-bearing cells are `also_have_new_key`
+   > and `differ_from_page_name`, not the total.
+   > **Ground 1 is unaffected and still stands.** My separate claim that the tolerance is inert *with
+   > respect to the FLIP* is also unaffected — that rests only on `ok=false` leaving the field at its
+   > prior value, which holds however many merge calls there are.
 ```sql
 SELECT count(*) FROM orchestration_states WHERE created_at < '2026-08-19 22:26:25Z'
   AND status NOT IN ('COMPLETED','FAILED','CANCELLED');            -- must be 0
-SELECT jsonb_typeof(content_data->'current_page'), count(*) FROM page_components
- WHERE content_data ? 'current_page' GROUP BY 1;                    -- know this number
+SELECT count(*) AS string_rows,
+       count(*) FILTER (WHERE pc.content_data ? 'current_page_name')                      AS also_have_new_key,
+       count(*) FILTER (WHERE (pc.content_data->>'current_page') IS DISTINCT FROM p.name) AS differ_from_page_name
+  FROM page_components pc JOIN pages p ON p.id = pc.page_id
+ WHERE pc.content_data ? 'current_page' AND jsonb_typeof(pc.content_data->'current_page')='string';
 ```
 
 ## 5. The instrument's permanent blind spot (unchanged, and it bounds what the flip can promise)
