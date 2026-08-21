@@ -6676,3 +6676,47 @@ own `deploy_result` is itself a call_agent envelope).
 > `cc1db035` is the worked example for the wire's write-up. Handler side is **8** real handlers, not
 > 9 and not 6; `asset-deployer` (535) and `image-build-handler` (536, guarded to refuse unless 535 is
 > live) are built and submitted by the 306 session.
+
+## 2026-08-21 (~16:0xZ) — the marker was a live outage's HOTFIX, and the gate found out before I did
+
+Gave `--optional-explicit-wires` its scheduled half (`--report`: fleet straight from Postgres, ONE
+`doc_notes` row per run clean or not, exit 1 on any unacknowledged wire) and ran it against the LIVE
+fleet through a port-forward as an end-to-end test rather than trusting the unit tests. **It came
+back red on a wire I did not know existed.**
+
+**`tool-generator/save_tool` → `create_tool_component.replace_existing?`, live 13:50:42Z today.**
+Traced at the migrations, not guessed:
+- **496** (12:12Z) wired `replace_existing!` — **STRICT**, which **fails extraction outright when the
+  field is absent**. Every plain `add_tool` (no `replace_existing` in its spec — the normal case)
+  therefore died at `save_tool` **while its work item read `complete`**.
+- **532** (13:50Z) is the HOTFIX: `!` → `?`, "keeps the search exclusion, allows absence".
+
+**So the `?` marker shipped yesterday was the fix for a production outage today**, and the gap it was
+argued into existence for — `!` hard-fails, unmarked falls through to the search, and neither can say
+*"this path or nothing"* — was hit in production, in the hard direction, within a day. That is a
+better argument for the design than anything in my own submission, and it arrived by accident.
+
+**Two things this validates that I could not have argued for:**
+1. **The gate is not theatre.** It caught a real unacknowledged adoption within hours of existing,
+   and the adopter was another session moving fast on an incident — exactly the case where nobody
+   stops to record what they checked downstream.
+2. **`--report` works end to end**: 194 agents, `doc_notes` row at 14:14:09Z, exit 1 before the ack
+   and exit 0 after. The row lands on a CLEAN run too, so a missing row means the job did not run.
+
+Ack written **PROVISIONALLY** from 532's own header (TL-047 "absent ⇒ byte-identical (pinned)" at the
+action layer; `CreateToolComponentInputSpec`'s "absent ⇒ today's path") and **marked as provisional in
+the entry** — 532's author confirms or corrects it. Same stopgap as 515's, same reason: the alternative
+is a gate that is red for the next person over someone else's omission. **The rule to hold: a `?` wire
+and its acks entry belong in ONE commit**, the way a `_HOLD` migration and its reason do.
+
+Residual noted, not fixed: every other `--report` mode panics instead of exiting cleanly when
+`PG_CLIENTS_HOST` is unset (`dbConn()` returns `(nil, nil)` by design; they go straight to
+`defer db.Close()`). Only bites a hand-run, and a panic still exits non-zero so it cannot read as a
+pass. Mine is guarded; theirs are three other modes' behaviour and belong in their own change.
+
+**Still NOT deployed as a CronJob** — that needs the image built and pushed BEFORE the overlay (this
+fleet reports `ImagePullBackOff` as a Job still RUNNING, never FAILED). The pattern to follow
+line-for-line is `removed-config-keys-check`: `build/docker/backend/<name>.dockerfile` shipping the
+binary AND the acks file (same reasoning as `shared-output-fields-check` shipping its ack list — a
+working-tree build could bake in an unreviewed acknowledgement), a `build-`/`push-`/`deploy-` makefile
+trio, and `deployments/kustomize/services/<name>/{base,overlays/production/uk_001}`.
