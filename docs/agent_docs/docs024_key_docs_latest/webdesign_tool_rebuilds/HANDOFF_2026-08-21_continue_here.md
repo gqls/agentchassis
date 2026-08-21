@@ -100,6 +100,11 @@ RUNBOOK "retire race" section). If your turn must end, do not file.
   the field silently falls back to the whole-tree search (matters for ROLLBACKS too; LANDMINES has
   both version numbers). Also: an acknowledgement in that file is the WIRE AUTHOR'S claim — never
   confirm one for a wire you did not write (this lane declined exactly that request, 2026-08-21).
+  ⚠ And the gate is NOT yet a CronJob (2026-08-21): `--optional-explicit-wires --report` runs by
+  HAND only, so a missing ack will not be caught for you. One more source-of-truth rule from the
+  same exchange: **a migration's own snapshot row (`agent_definitions_backup`, written in its
+  transaction) is the load-bearing timestamp — `agent_definitions.updated_at` is only the LAST
+  write and lies the moment anything else touches the row.**
 
 - **A watcher's FIRING is not its DELIVERY** — see the rewritten recipe rule. Two same-day
   near-misses and one 6-hour public double-tool page are one mechanism.
