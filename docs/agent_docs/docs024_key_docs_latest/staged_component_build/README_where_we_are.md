@@ -2234,3 +2234,44 @@ can't see on its own.
 
 **Nothing waits on you.** The next session has one external answer to chase and a list to work
 down.
+
+Picked this up cold this morning (2026-08-21), about seventeen hours after the entry above, on a
+tree where roughly 270 more commits from other work had landed overnight. Worth recording plainly
+what changed and what didn't.
+
+The two "genuinely hard" cases from yesterday turned out not to be hard at all — they were old.
+Every single row of both classes happened before the very first fix in this whole piece of work
+shipped, and that fix's own code comment explains why: back then, a value that was already correctly
+supplied still got run past the guessing machinery out of habit, the guess was logged, and then
+thrown away in favour of the correct value nobody ever saw the guess. Once I lined the timestamps up
+against the fix's rollout, both "hard" cases turned out to be noise from before the door was shut,
+not defects still open. So the list is smaller than yesterday's count said, not because anything got
+fixed today but because two entries on it were never really there.
+
+One of the "about ten paperwork" cases is now actually done. It was the news-section note being
+mistaken for a tool page's reason for rerendering — harmless today only by luck, because the only
+values that would have mattered happen not to be the ones on that page right now. I wrote down what
+the page actually needs to be told, and that went through review and applied cleanly. I haven't been
+able to prove it worked yet, for the most boring reason possible: the specific kind of work that
+would trip the old bug hasn't happened again since I made the change. That's not a failure, it's just
+waiting on the right kind of traffic to show up, and I've said so plainly rather than claiming a win
+I can't back up yet.
+
+A second case turned out NOT to be paperwork after all, and this is the one worth your attention.
+Checking each remaining case against what actually happens if the guess goes missing, I found one
+where the guessed value is currently right, and losing it would quietly make things worse rather
+than nothing at all — the code falls back to using the page's web address in a field that's supposed
+to hold the page's category, which would throw off how a page-building tool picks its components.
+So instead of writing "nothing is correct here," which is what I did for the first case, this one
+needed the opposite treatment: telling the system explicitly where the right value already lives, so
+it stops guessing and just uses it. That's written, matches how the neighbouring setting on the same
+page is already written, and is sitting in review now.
+
+The one external answer is still the one thing genuinely waiting on someone else, and it's grown
+since yesterday — the class is now roughly three times the size it was when I first flagged it, still
+apparently landing on the right value by luck rather than by design. I sent a plain status update to
+that lane today rather than pushing further; picking that value ourselves is exactly the kind of
+guess this whole piece of work exists to stop, so it stays theirs to call.
+
+**Nothing waits on you either.** What's left: one more of the "paperwork" cases needing a decision,
+about seven more that look straightforward, the one external answer, and then the switch.
