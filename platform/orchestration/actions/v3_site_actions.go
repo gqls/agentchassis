@@ -7181,9 +7181,42 @@ func reconcilePlanWithRealised(
 			preserved = append(preserved, rp)
 		}
 	}
+	// The IDENTITY index, built over EVERY realised row rather than the preserved
+	// subset (bugs_open/340). The preservation set answers "whose COMPOSITION must
+	// a re-plan not redesign?"; who owns a page's NAME is a different question and
+	// has no reason to inherit the narrower answer. A row that is neither deployed
+	// nor needs_rebuild, on a site that already has a current plan, is invisible to
+	// every map below — so before this index existed, the write path re-derived its
+	// name, missed on (site_id, name), and INSERTed the twin the same-name stamp
+	// exists to prevent.
+	//
+	// Used by the same-name stamp ONLY, and that restriction is the whole safety
+	// argument. The stamp writes identity fields and never touches sections, so
+	// widening what it can see cannot move a composition. The twin layers snap the
+	// WHOLE entry through snapPlanPageOntoRealised, which carries the realised
+	// composition with it — widening THEIR input would let a plan entry inherit the
+	// empty composition of a page nobody has built yet, which is a different change
+	// needing its own measurement. bugs_open/340 listed widening all four maps as
+	// its candidate 1; this is its candidate 2, chosen for exactly that coupling.
+	realisedByNameAll := make(map[string]map[string]interface{})
+	for _, rp := range existingPages {
+		if rm, ok := rp.(map[string]interface{}); ok {
+			if n, _ := rm["name"].(string); n != "" {
+				realisedByNameAll[n] = rm
+			}
+		}
+	}
+
 	if len(preserved) == 0 {
 		// Nothing realised worth converging on: a genuinely from-scratch build.
 		// Leave the LLM plan untouched.
+		//
+		// LIMITATION, stated rather than silently closed: the identity index above
+		// is abandoned here too, so a site on which NO page is deployed or
+		// needs_rebuild keeps the pre-340 behaviour. That is the narrow residue of
+		// bugs_open/340 — every page on such a site is unbuilt, so the twin is a
+		// twin of nothing anyone has served. Returning early is what makes a
+		// from-scratch build cheap, and changing it would alter every one of them.
 		return llmPages, counts
 	}
 	existingPages = preserved
@@ -7425,7 +7458,18 @@ func reconcilePlanWithRealised(
 		//     and must not receive an injected generic layout.
 		//   - realised EMPTY + not-deployed: keep the LLM's proposal (fall through);
 		//     a catalogued page is finally composed.
-		if rp, ok := realisedByName[lname]; ok {
+		if rp, ok := realisedByName[lname]; !ok {
+			// Not in the preservation set, but the site may still hold a row under
+			// this exact name — an unbuilt or failed one (bugs_open/340). Its
+			// IDENTITY is still authoritative: the (site_id, name) upsert will
+			// collide with it whatever its build_status says, so re-deriving the
+			// name here is what mints the twin. Stamp identity and nothing else —
+			// there is deliberately no composition reconciliation against a row
+			// the preservation rules excluded.
+			if wider, widerOK := realisedByNameAll[lname]; widerOK {
+				stampSameNameRealisedIdentity(lm, wider, &counts, logger)
+			}
+		} else {
 			// Identity first, and independently of composition: the planner naming
 			// a page exactly as it is stored is the case no twin layer can reach
 			// (their shared eligible closure refuses rname == lname, rightly — such

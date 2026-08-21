@@ -970,3 +970,114 @@ func TestReconcile_LMCCanaryShape_NoTwinIsMintable(t *testing.T) {
 		t.Errorf("expected one durable HELD row for the run, got %+v", findings)
 	}
 }
+
+// ── bugs_open/340: the preservation-set hole ────────────────────────────────
+//
+// A realised row that is neither `deployed` nor `needs_rebuild`, on a site that
+// already has a current plan, is excluded from the preservation set and so was
+// invisible to every index the reconciler builds. Its identity is authoritative
+// regardless: the pages upsert collides on (site_id, name) whatever build_status
+// says, so re-deriving the name is what mints the twin.
+//
+// These fixtures use a site WITH a current plan (site_has_no_current_plan absent
+// ⇒ false), which is the condition that makes the exclusion bite.
+
+// unpreservedRealisedPage builds a realised row the preservation rules exclude.
+func unpreservedRealisedPage(name, url, pageType, buildStatus string, sections ...interface{}) map[string]interface{} {
+	rm := twinRealisedPage(name, url, pageType, buildStatus, sections...)
+	rm["has_shipped"] = false
+	return rm
+}
+
+// TestReconcile_SameNameStamp_ReachesAnUnpreservedRealisedRow is bugs_open/340 in
+// one page. The site has a deployed page (so the preservation set is non-empty and
+// the reconciler does not take its from-scratch early return) plus an unbuilt row
+// the planner names verbatim.
+func TestReconcile_SameNameStamp_ReachesAnUnpreservedRealisedRow(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "mortgages-simple", "page_type": "tool", "sections": []interface{}{}},
+		map[string]interface{}{"name": "mortgages-stamp-duty", "page_type": "tool", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		// preserved, so the early return is not taken
+		twinRealisedPage("mortgages-stamp-duty", "/mortgages/stamp-duty.html", "tool", "deployed", "hero"),
+		// NOT preserved: planned, never shipped, on a site with a current plan
+		unpreservedRealisedPage("mortgages-simple", "/mortgages/simple.html", "tool", "planned"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	page := twinFindPage(got, "mortgages-simple")
+	if page == nil {
+		t.Fatalf("the unpreserved page vanished from the plan: %v", twinNamesOf(got))
+	}
+	name, url, pageType, ok := realisedIdentityOf(page)
+	if !ok {
+		t.Fatalf("no identity stamped for the unpreserved row — the write path will re-derive it to " +
+			"tool-mortgages-simple and INSERT the twin (bugs_open/340)")
+	}
+	if name != "mortgages-simple" || url != "/mortgages/simple.html" || pageType != "tool" {
+		t.Errorf("stamped identity is not the stored one: %q %q %q", name, url, pageType)
+	}
+	// Both pages stamped: one via the preserved index, one via the wider one.
+	if len(counts.SameNameStamps) != 2 {
+		t.Errorf("expected both same-name pairings recorded, got %+v", counts.SameNameStamps)
+	}
+}
+
+// TestReconcile_SameNameStamp_UnpreservedRowGetsIdentityButNOTComposition pins the
+// restriction the whole safety argument rests on. The preservation rules excluded
+// this row from composition decisions; widening the identity index must not smuggle
+// its composition back in.
+func TestReconcile_SameNameStamp_UnpreservedRowGetsIdentityButNOTComposition(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{
+			"name": "mortgages-simple", "page_type": "tool",
+			"sections": []interface{}{"hero", "calculator"},
+		},
+	}
+	existing := []interface{}{
+		twinRealisedPage("keeper", "/keeper.html", "content", "deployed", "hero"),
+		// unbuilt, and carrying a composition that must NOT be imposed on the plan
+		unpreservedRealisedPage("mortgages-simple", "/mortgages/simple.html", "tool", "planned",
+			"stale-a", "stale-b", "stale-c"),
+	}
+
+	got, _ := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	page := twinFindPage(got, "mortgages-simple")
+	if _, _, _, ok := realisedIdentityOf(page); !ok {
+		t.Fatalf("identity should be stamped for the unpreserved row")
+	}
+	secs, _ := page["sections"].([]interface{})
+	if len(secs) != 2 {
+		t.Fatalf("the planner's composition was replaced by an unpreserved row's: %v", page["sections"])
+	}
+	for _, s := range secs {
+		if name, _ := s.(string); name == "stale-a" {
+			t.Errorf("an unpreserved row's composition reached the plan — identity only, never sections")
+		}
+	}
+}
+
+// TestReconcile_SameNameStamp_FromScratchBuildIsStillUntouched pins the stated
+// residue of bugs_open/340: when NOTHING is preserved the function returns the LLM
+// plan unchanged, identity index and all. That early return is what keeps a
+// from-scratch build cheap, and every page on such a site is unbuilt anyway.
+func TestReconcile_SameNameStamp_FromScratchBuildIsStillUntouched(t *testing.T) {
+	llm := []interface{}{
+		map[string]interface{}{"name": "mortgages-simple", "page_type": "tool", "sections": []interface{}{}},
+	}
+	existing := []interface{}{
+		unpreservedRealisedPage("mortgages-simple", "/mortgages/simple.html", "tool", "planned"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if _, ok := twinFindPage(got, "mortgages-simple")["identity_authority"]; ok {
+		t.Errorf("the from-scratch early return should still hand back the plan untouched")
+	}
+	if len(counts.SameNameStamps) != 0 {
+		t.Errorf("nothing should be recorded on the from-scratch path: %+v", counts.SameNameStamps)
+	}
+}

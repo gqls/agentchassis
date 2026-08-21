@@ -151,3 +151,93 @@ implicitly). `bugs_open/266` (archived pages rebuilt by four producers — a
 neighbouring "the status predicate is not where you think" defect on the same
 table). `features_open/012` recompose (the same identity consequence by operator
 request, undocumented there).
+
+---
+
+# CLOSED IN CODE 2026-08-21 — fixed by candidate 2, NOT candidate 1, and the reason is a coupling this file only half-saw
+
+Owner instruction, 2026-08-21: close it properly rather than leave it against a
+population that is currently empty. Council submission
+**`97542c8c-b628-4947-8d39-c9f7a40dcfb6`**.
+
+## What was built
+
+One new name index, `realisedByNameAll`, built over **every** realised row before
+`existingPages = preserved` discards the rest — and consulted by the **same-name
+identity stamp alone**, on the arm where the preserved index misses. Pass B2's
+existing block becomes an if/else; the preserved arm is byte-unchanged, so every
+Pass B2 contract test still exercises the same path it always did.
+
+## Why NOT candidate 1, which this file called "the structural answer"
+
+Candidate 1 was to widen all four identity maps. Writing it exposed the reason not
+to, and this file's own text contains the clue without drawing the conclusion: it
+warns that *"`snapPlanPageOntoRealised` carries composition, so the split has to be
+real rather than nominal"* — and then recommends the option where the split is
+hardest to make real.
+
+**The twin layers snap the WHOLE entry.** A hit routes through
+`snapPlanPageOntoRealised` → `normaliseRealisedToPlanPage`, which carries the
+realised row's `sections`, title, nav and meta. Widen their input to unpreserved
+rows and a plan entry can inherit the **empty composition of a page nobody has
+built yet** — trading a phantom for a silently emptied page, which is exactly the
+damage the 08-20 canary caused by a different route and which this estate has now
+paid for twice.
+
+The same-name stamp has no such coupling: it writes identity fields and never
+touches `sections`. So widening only what **it** can see is safe in precisely the
+way widening the snap layers is not. That is candidate 2, and it closes the door
+this file is about. Candidate 1 remains available for the twin layers if anyone
+ever measures a population that needs it; it is a different change with a
+different argument, and it should not be smuggled in behind this one.
+
+## Inertness is unchanged, which is the claim to attack
+
+No field is written that the stamp did not already write under corr `27cccfbd`:
+`identity_authority` (no reader outside `realisedIdentityOf`, whose two call sites
+are both inside `if identityPolicy.HonourRealisedIdentity` — enumerated
+exhaustively in that round at the `editquality` seat's request), `url` (both write
+surfaces derive and overwrite it when not honouring), `page_type` (written back
+only where it already equals the writers' own `firstNonEmptyField` derivation,
+which the stamp's type-equality precondition guarantees). No new config key, no
+writer edit, no new DB read, no change to the twin layers, no change to any
+composition pass.
+
+## Mutation evidence — run, not predicted
+
+| mutation | test that went red |
+|---|---|
+| the wider index is never consulted (340 reverted) | `…_ReachesAnUnpreservedRealisedRow` |
+| the wider index is built over `preserved` instead of every row — **the subtle wrong fix** | `…_ReachesAnUnpreservedRealisedRow` |
+| the unpreserved arm also imposes composition | `…_UnpreservedRowGetsIdentityButNOTComposition` |
+| the from-scratch early return is removed | `…_FromScratchBuildIsStillUntouched` |
+
+Suites green on a `git archive HEAD` shadow tree with only the changed files copied
+in — necessary, not ceremonial: another session's in-progress edit to
+`render_site_components_action.go` (using `agenterrors` before adding its import)
+breaks the working tree's build and would otherwise have masked the result.
+
+## The residue, stated rather than silently closed
+
+When **nothing** is preserved the function still takes its from-scratch early
+return and hands the plan back untouched — so a site on which no page is
+`deployed` or `needs_rebuild` keeps the pre-340 behaviour. That is deliberate:
+every page on such a site is unbuilt, so the twin is a twin of nothing anyone has
+served, and the early return is what makes a from-scratch build cheap. **Pinned by
+`TestReconcile_SameNameStamp_FromScratchBuildIsStillUntouched`**, so it cannot be
+closed by accident or "fixed" without someone deciding to.
+
+## Population, re-measured on the day
+
+Unchanged from the filing: **40** unpreserved active pages across **13** domains on
+sites with a current plan, of which **0** would actually be renamed today — against
+64 across 9 domains for the whole active population, so the predicate discriminates
+and the figure could have come out otherwise. **The defect was live in mechanism and
+empty in fact, which is the argument for fixing it now rather than after the
+population became non-empty.** The census query in this file remains the way to
+re-check.
+
+**Status: fixed in code, council submitted, INERT UNTIL THE CHASSIS ROLLS.** This
+file stays open until the roll, per the CLAUDE.md bar — a fix committed but not
+shipped is still reproducible. Verify then with the artefact probe (a positive
+literal, a one-letter near miss, and an instrument positive) and the census above.
