@@ -14320,3 +14320,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **worked case, 2026-08-21, `bugs_open/235` residual:** fundamentallyai.com's portfolio served two client logos as hero-encoded JPEGs. A 2026-08-11 session patched `content_data`; the `brochure_component_library` lane recorded the same hour that the next `needs_page` regeneration put the `.jpg` references straight back, and named the remedy. It sat ten days. The source was a `portfolio` aspect authored 2026-07-22 — a fossil of a defect migration 360 had already fixed at source on 08-09. **The council caught this reasoning before I did:** submitting the fix with "no Go code reads `aspect=portfolio` — I grepped and found no reader" drew a HIGH gating objection from `prior_art_librarian`, which predicted the exact shape of what I had missed — *"even indirectly, e.g. a generic current-spec loader keyed by aspect rather than a literal 'portfolio' string"*. That is `ensureSpecs`, verbatim.
 - **relations:** this file's `save_page_sections` REPLACES / `rerender_page_sections` MERGES entry (the same source-versus-copy split, one level down, and the same "months of stable history then a sudden loss" signature) · the `site_specs.identity.<field>` resolver entry at `bugs_open/072` (the resolver's other blind spot — path shape rather than reader existence) · `WRONG_CALLS.md` 2026-08-21 (the absence claim itself, and the cheap check that would have caught it) · `bugs_open/235`, migrations 544 + 545
 - **added:** 2026-08-21, `bugs_open/235` residual lane
+
+### A `page_rerender` work item with no `spec.reason` ASSEMBLES STALE STORED HTML — it reports `complete`, commits a real file, and redeploys the page unchanged
+
+- **footprint:** `site_work_items` rows with `item_type='page_rerender'`, `spec.reason`; the `page-rerender` agent's `check_rerender_mode` conditional; `rerender_single_page` vs `rerender_page_sections`; `page_components.rendered_html`
+- **fires when:** you fix a page's `content_data` (a spec correction, a resolver fix, a data repair) and dispatch a `page_rerender` to push it live — i.e. the normal way to make a data fix visible.
+- **the tell: there is none, and every instrument says success.** The item goes `complete` with `attempt_count = 0` and no `error`. `result.response.deploy_result.success` is `true`. A **real** commit sha comes back, with a real `files_sha256` for `index.html`, a real `commit_message: "Rerender: index.html"`, and `pages.deployed_at` moves. The only thing that does not move is the bytes — because the page was faithfully re-assembled and re-deployed **from the stale `rendered_html` it already had**.
+- **the mechanism.** `check_rerender_mode` is a conditional whose `then_step` is `rerender_sections` (regenerate each section from stored `content_data` + fresh `resolved_data`) and whose **`else_step` is `render_page`** (assemble the stored HTML). Its condition is an explicit allow-list of five values:
+  ```
+  input_data.spec.reason == 'image_landed'   OR 'section_data_resolved'
+                         OR 'cta_links_stale' OR 'template_changed'
+                         OR 'literal_markdown'
+  ```
+  **Anything else — including an absent `reason` — falls to the else branch.** So the failure mode of forgetting one optional key is not an error; it is a silent downgrade from "regenerate" to "re-ship what you already had", followed by a green deploy.
+- **the check, and do it at the COMPONENT, not the page or the item:** `rendered_html` must have moved. Compare its `updated_at` against your `content_data` write —
+  ```sql
+  SELECT pc.slot_name, pc.updated_at,
+         (length(pc.rendered_html)-length(replace(pc.rendered_html,'<the string>','')))/length('<the string>') AS refs
+  FROM pages p JOIN page_components pc ON pc.page_id=p.id JOIN sites s ON p.site_id=s.id
+  WHERE s.domain='<domain>' AND pc.slot_name='<slot>';
+  ```
+  A `rendered_html.updated_at` that still predates your data fix, while the work item reads `complete` and `pages.deployed_at` is minutes old, **is this trap and nothing else**. Copying the `spec` shape from a recent successful `page_rerender` row does NOT protect you — most carry no `reason` either, because most are assembly jobs, for which the else branch is correct.
+- **which reason to use:** `section_data_resolved` for a `content_data`/resolver correction — it is the **merging** re-render (stored `content_data` overlaid with fresh `resolved_data`, resolved last so it wins), not a replacing regeneration, so it cannot rewrite LLM copy. Reserve a full `needs_page` for when you actually intend the content rewritten.
+- **worked case, 2026-08-21, `bugs_open/235` residual:** migration 545 corrected `content_data` to `0 jpg / 3 png`; a `page_rerender` seeded without `reason` completed in 57s, committed `62bd876fe`, moved `deployed_at` to 18:33:02 — and the component's `rendered_html` still read `2 jpg / 1 png` with `updated_at` frozen at 18:17:07, its pre-rerender value. The served page was byte-identical before and after a green deploy. Caught only because the served page was checked against the *expected* count rather than against "did the deploy succeed".
+- **relations:** this file's `save_page_sections` REPLACES / `rerender_page_sections` MERGES entry (the same two-paths-one-name split, from the write side) · `A site_specs aspect has NO typed Go reader…` (the same lane; that one explains why the *data* was stale, this one why fixing the data did not reach the page) · CLAUDE.md *"Trust the rendered artefact, not the status"* — this is that rule's sharpest instance, because here the status is not merely unreliable, it is **accurate about the wrong operation**
+- **added:** 2026-08-21, `bugs_open/235` residual lane
