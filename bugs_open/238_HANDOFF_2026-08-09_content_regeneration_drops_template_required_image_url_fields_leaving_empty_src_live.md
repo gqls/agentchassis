@@ -967,3 +967,49 @@ normalises this shape (`tel:+447934524911`). Left to them rather than duplicated
 
 **Council `972a82ad` (525) returned REVISE and was answered on the same correlation** — the
 substance is in §11.15 below, because one of the three objections is a lesson rather than a fix.
+
+### 11.15 — 2026-08-21: the last three residuals are MOVED OUT, and one of them was already fixed by its own lane
+
+Owner instruction: *"Please move the three elsewhere."* Done — but checking each first turned three
+into two, and nearly produced a bad contribution.
+
+**#3, fundamentallyai `platform-log-index` post1–6 — NO MOVE NEEDED, already fixed.**
+`bugs_open/309` owns this page and **has already diagnosed and repaired it** (commit
+`a30408969`, *"309 FIXED and verified at the served page"*). Its lane found the same signature this
+bug is named for — a clean partition of `_url` keys against a dead `site_specs.blog.postN_url`
+source — and fixed it by migration on 2026-08-18. **Verified independently here at the served page:
+HTTP 200, 41 `bl-card` blocks, 47 anchors, 11 `bl-read-link`, 0 empty `href`.** The
+`STRUCTURAL_KEY_CARRY_MISS` rows naming those fields are stale artefacts of a defect that no longer
+exists.
+
+> ⚠ **AND I NEARLY FILED THE OPPOSITE.** My first fetch returned 1 anchor and 0 cards, and I was
+> composing a contribution telling that lane their closed fix had regressed. I had built the URL as
+> `name + ".html"`; the page's `name` is `platform-log-index` but its **`url` is
+> `/platform-log/index.html`**, so I was grepping a **404 body**, which answers every question with
+> a confident zero. What caught it was the shape — 1 anchor is not what a broken listing looks like,
+> it is what a 404 looks like. `WRONG_CALLS` 2026-08-21: **read `pages.url`, never compose it**, and
+> put `-w '%{http_code}'` on every artefact fetch. The `who-owns` rule stops me competing with a
+> lane; nothing but the artefact check stops me maligning one.
+
+**#1 and #2 — MOVED to the work queue** as `unresolved_cta` at `needs_human_review`, no handler:
+
+| site | page / slot | field | declared source (never existed) |
+|---|---|---|---|
+| leopardessconsulting.co.uk | `ai-readiness-quiz` / `ai-readiness-quiz` | `result_cta_primary_url` | `site_specs.contact.cta_url` |
+| gamesdesign.co.uk | `index` / `system-stats` | `cta_url` | `site_specs.cta.primary_url` |
+
+**They are NOT the 238 mechanism and the items say so.** Nothing was destroyed; the declared source
+has never resolved on that site, and both fields are `{{if}}`-gated, so the pages render **no
+button** rather than a dead control — the degradation working as designed. What is missing is a
+DESTINATION, which only a human can supply. Each item carries the two ways to close it (seed the
+aspect, or retire the field from the schema), states that doing nothing is defensible, and records
+the one thing a reader would otherwise try: **repointing at `site_specs.identity.*` does NOT reach
+these** — `siteRowIdentityColumns` has no `cta_url`/`primary_url` entry, so unlike
+`contact_email`/`phone`/`location` (migrations 525/538) the sites-row alias cannot help.
+
+Type reused rather than minted: `unresolved_cta` already means *"no real destination for this CTA;
+the gated template renders no button; set it manually"* — same disposition, same queue the owner
+already reviews.
+
+**So the bug file no longer holds any work.** Everything it found is either fixed, queued under a
+key that survives this file being closed, or owned by another bug.
