@@ -7448,3 +7448,37 @@ the ContentData catch-all + `contextToInterfaceMap`'s ContentData-over-scalars m
 **Still owed on this thread:** read the `e05ea6f9` verdict and act on it (REVISE/REJECTED —
 the code is already on the shared branch); the RUNBOOK's dead-run check applies if no verdict
 appears (check the orchestration's status, not just the artifact).
+
+## 2026-08-21 (~20:1xZ) — `e05ea6f9` APPROVED round 1 (2 advisories, both already answered), and the stale case index fired on THIS submission too, exactly as predicted
+
+**Verdict: APPROVED, round 1, "2 advisory objection(s) — none high-severity", 6 abstained.** The
+commits (`e5c1b3c15`, `9970eb71c`) carry `Council-Submitted:`; 098 credits them automatically —
+no amend, none permitted. Both advisories were answered by checks run BEFORE submission, so
+nothing new is owed; recorded here so the answers sit beside the objections:
+
+1. **bug_historian (medium): "the Historian's own case index lists 085 under OPEN … a human
+   should run `git ls-tree` before merge."** The stale-index trap the flip session warned about
+   (its R2 hit the same seat on the same case) — **the pre-emption in the rationale kept it to a
+   non-gating advisory on an approved round rather than a REVISE, which is what it cost the flip.**
+   The check, run before submission AND re-run at the post-commit HEAD:
+   `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 085_` → exactly one line,
+   `bugs_closed/085_HANDOFF_2026-07-26_…` (count = 1). The seat's index predates 916c8b22b
+   (2026-08-19). Note the seat is RIGHT to distrust a submission's self-serving disavowal — the
+   procedural objection is sound even though the fact was correct.
+2. **prior_art_librarian (medium): the two load-bearing counts (18/18 agree; 0 pre-roll
+   non-terminal) "presented as already-measured fact but not independently verifiable from this
+   review."** Both queries and their results are in the submission's `grounded_in` verbatim and
+   in the ~19:5xZ entry above, with the full status vocabulary enumerated for the second. The
+   seat's own note: "If the SQL checks confirm 0 and 18/18, this should clear" — they did,
+   before it asked.
+
+**Carry forward (the flip session's point, confirmed by three same-day reads):** the stored-row
+TOTAL is live data (20 → 18 → 19 in one day); the load-bearing cells are `also_have_new_key = 0`
+and `differ_from_page_name = 0`. Quote the zeros, never the total.
+
+**Lane state after today:** flip APPROVED (`26186633`, r3) + tolerance retirement APPROVED
+(`e05ea6f9`, r1), both committed, both inert until a roll carries `5fe010ada`..`9970eb71c`.
+The [324079] session owns the ≥48h post-roll gate (`phase='2-refuse'` discriminator, attribution
+by `created_at` against the roll boundary, recorded either way). Remaining open: handoff §1
+items 3 (330 candidate 2, the 269-pair remainder) and 4 (standing form of 537's guard — the
+306 lane's to accept or decline first), plus 330's with-pages negative-control leg.

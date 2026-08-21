@@ -26,7 +26,7 @@ Everything shipped today was its *precondition*, not the thing itself.
 | # | what | state |
 |---|---|---|
 | **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **CORRECTED ~19:1xZ (updated ~19:3xZ): BUILT + COMMITTED `5fe010ada` (Go — inert until a roll), council corr `26186633` at ROUND 3 (R1 + R2 both REVISE, bug_historian gating; commit unchanged throughout, only the rationale grew) — owned by the active [324079] session; see NOTES ~17:1x/~19:0x. Do NOT start it again.** ~~❌ NOT BUILT~~ |
-| **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | ❌ NOT DONE — the comment above that function names step 5's commit as its owner. **Use the two sound grounds in §5, NOT the retention argument** |
+| **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | **✅ DONE ~20:1xZ — committed `e5c1b3c15`+`9970eb71c`, council APPROVED r1 (`e05ea6f9`), inert until a roll. Ground (b) needed correcting first — see §5's corrected bullet. Test renamed `TestRestoreReadsOnlyTheStepBoundaryName`.** ~~❌ NOT DONE~~ |
 | **3** | `bugs_open/330` candidate 2 — an unmarked wired-but-empty field still falls through to the search | ❌ OPEN, gated on the **269-pair / 75-agent unsampled remainder** (330 §9) |
 | **4** | A **standing** form of 537's guard | ❌ NOT BUILT — named residual, see §4 |
 | — | `?` OPTIONAL-EXPLICIT marker | ✅ LIVE `v1.0.1321`, council APPROVED r3 |
