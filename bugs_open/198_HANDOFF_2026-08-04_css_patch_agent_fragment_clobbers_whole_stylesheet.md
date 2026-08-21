@@ -922,6 +922,29 @@ Cloudflare redirect page as a gutted file — I made exactly that mistake for se
 `style_collection` at all, so css-patch-agent exits `complete_no_css` on them — unclobberable by
 this path, and equally unprotectable.
 
+> **⚠ CORRECTED 2026-08-21 (bugfix-198 lane) — webdesign.uk is NOT cleared. It has a
+> stylesheet and it is ARMED.** `vm-sites` HEAD carries
+> `webdesign.uk/assets/css/styles.css` at **15,582 bytes with 4 `:root` blocks**, and its
+> linked theme row is **0 bytes** — the loaded form of this bug's own trap. The site is
+> `status='deployed'`, 8 pages (7 deployed), `github_repo='vm-sites'`.
+>
+> The redirect observation is correct; the conclusion drawn from it is not. **A 302 means
+> nothing is SERVED at that hostname — not that no file exists.** This is the same
+> served-side/artefact-side confusion the `curl -L` warning above is about, one inference
+> further on: the warning stops you misreading a redirect page as a gutted file, and then
+> the absence of a *served* stylesheet was read as the absence of a *stylesheet*. Both
+> readings come from asking the same wrong layer.
+>
+> The check that separates them is one command against the deploy repo, not the URL:
+> `git -C ~/projects/vm-sites cat-file -s origin/master:webdesign.uk/assets/css/styles.css`.
+> **For any site behind a redirect, parking domain or CDN rule, the repo is the artefact and
+> the URL is not.**
+>
+> This mattered here: "cleared as NOT damage, so nobody re-investigates" is exactly the
+> sentence that would have kept the next reader away from it, and webdesign.uk was in fact
+> the last site in the fleet still on the wrong side of migration 542's gate. It is now the
+> site used to witness that gate refusing (§7 below), and its row is seeded afterwards.
+
 ### 6. The DETECTOR — and why every existing check was blind
 
 The owner also asked whether the improvement loop would have spotted this. **It would not, and
