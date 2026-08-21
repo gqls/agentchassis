@@ -458,3 +458,45 @@ forcing the pages means ~698 `page_rerender` items into a queue whose drain half
 which is other lanes' risk too — and seed `351`'s own header warns that route is "two orders of
 magnitude more churn than the goal". Letting natural rebuild traffic carry it is free and slow.
 Recorded for the owner rather than chosen unilaterally.
+
+## 2026-08-21 — OWNER RULING: do not force the pages. And the decay measured, which changes what "let rebuilds carry it" means
+
+**OWNER RULING 2026-08-21: do NOT force the ~698 page rerenders — let natural rebuilds carry it.**
+Recorded as the decision it is: the queue-saturation risk (`bugs_open/083`'s drain half, other lanes'
+exposure) is judged to outweigh the speed. No `page_rerender` wave will be dispatched by this lane.
+
+**v1.0.1321** (rolled 2026-08-20T19:51Z) re-probed on both replicas: `spliceOpenGraph`,
+`headLangAttr` and `injectCanonicalLink` all PRESENT, `zzImpossible99` absent. So the fix **survived a
+roll** — worth stating, because a later build cut from an earlier commit would have silently removed it.
+
+### The decay, measured — and the metric validated at the artefact before I quote it
+
+Signal: a page carries the fix iff `GREATEST(deployed_at, last_built_at) > its site's head
+updated_at`. **Validated 3 of 3 against served bytes, in BOTH directions** before use — two pages the
+DB called stale serve `lang="en"`, one it called fresh serves `lang="es-ES"`. Without that check the
+number was not usable: my own dispatch window (08-20 17:00–18:00, 212 pages) sits right where a
+bookkeeping-only `deployed_at` bump would have inflated it.
+
+| measure | value |
+|---|---|
+| assembled pages fleet-wide | **722** (was 700 on 08-19 — the estate grows) |
+| carrying the fix | **252 (34.9%)** |
+| still serving the old head | **470** |
+| **sites at 0% carried** | **13 of 26** |
+| natural rebuild rate, excluding my own dispatches | **~14 pages in 15h (~1/hour), bursty** |
+
+**The 13 zero-percent sites are the finding, not the 34.9%.** finetuning.uk (49 pages),
+loancalculator.co.uk (43), leopardessconsulting.co.uk (40), mortgagecalculator.co.uk (30), idea.uk
+(24), loancash.co.uk (22), lendzy.co.uk (20), loanzy.uk (14), noted.co.uk (12), oufe.com (11),
+webdesign.uk (8), cookly.uk (5), remortgagecalculator.uk (4). At ~1 page/hour fleet-wide and bursty,
+**"let rebuilds carry it" means weeks for active sites and effectively never for quiet ones** — which
+is precisely the caveat attached to this option when it was first offered, now with numbers on it.
+
+**So the honest framing for the close-out decision: the DEFECT is fixed (not reproducible — any
+rebuild produces a correct page, proven at three artefacts), and the DAMAGE is 470 pages with no
+scheduled end.** Those are different questions and the bug file should say so rather than let "fixed
+and live" imply the fleet is clean.
+
+**Not a reason to reopen the forcing decision** — it is the owner's, it is recorded, and the cheap
+half (chrome, 22 renders, zero page churn) is already done. But it does mean a residual worth naming
+in the close-out rather than a rounding error.

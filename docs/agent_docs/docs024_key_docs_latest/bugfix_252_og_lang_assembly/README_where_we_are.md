@@ -201,3 +201,58 @@ The two I'd act on first:
    used twice before I started; while I was writing my two files, five consecutive numbers were taken
    by three other sessions, including both of mine. I renumbered. Today it's confusion; the day two
    files with the same number touch the same data it's a real conflict.
+
+---
+
+## 2026-08-21 — it works, it is live, and the honest position is that the fix is done but the fleet is not
+
+**It's working.** The build that went out last night carries it, I checked the running program itself
+on both machines rather than trusting the version number, and real pages now do the right thing: a page
+says who *it* is when shared, that address agrees with the one we tell search engines, and the page
+declares British English — or Spanish, on relojistas.com, which is your ruling working end to end.
+
+**Every site's shared page-header is repaired.** Twenty-two of twenty-four now carry a language, none
+of them still bakes the homepage address into every page, and the duplicated tags on four sites are
+gone. That part cost twenty-two rebuilds and touched no pages, which is why I did it without asking.
+
+**Now the part I want to be straight about, because "fixed and live" would overstate it.** A repaired
+page-header isn't a repaired page — a page only picks it up when it next rebuilds. I measured it this
+morning, and validated the measurement against three real pages before quoting it: **252 of 722 pages
+carry the fix. 470 do not. Thirteen of our twenty-six sites are at zero.**
+
+You've ruled that we let rebuilds carry it, and I've followed that — no forced wave. But the natural
+rate is about **one page an hour across the whole fleet, in bursts**, so for the quiet sites that
+realistically means *never*: finetuning.uk's forty-nine pages, loancalculator's forty-three,
+leopardessconsulting's forty, mortgagecalculator's thirty, and nine more have had nothing rebuild since
+the fix landed. That was the stated trade-off of this option when I offered it; it now has numbers.
+
+So there are two different questions and I don't want to blur them: **the defect is dead** — it cannot
+recur, any rebuild produces a correct page — and **the damage is 470 pages with no scheduled end.**
+
+**I've written the decisions up properly** in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_252_og_lang_assembly/DECISIONS_2026-08-21_owner.md`.
+Ten of them, but only the first is needed to finish this lane and only three others really matter. In
+short:
+
+1. **Can 252 close?** I think yes — but I'd spend one bug number on a tracking item listing those
+   thirteen sites, so "still serving a wrong share URL" is visible and heals for free the next time
+   anyone rebuilds one of them. Closing without it is defensible; the list just disappears.
+2. **webdesign.co.uk has no page-header element at all** — the opening and closing tags are missing
+   from its component. It's our biggest site at 117 pages, and it's why that site alone gets no share
+   image and no favicon tags. Small fix, live site, your call.
+3. **New sites will keep defaulting to English with nothing to notice.** My change set every site by
+   name — which caught a real case, since the first attempt *refused to run* because a site created
+   that same day wasn't on my list. But that was a one-off. I'd add a small daily check rather than a
+   silent default.
+4. **The share-preview block still has the flaw that caused all of this.** I removed the one offending
+   tag; the guard that let it happen is untouched, so the next page-specific tag anyone adds there
+   recreates this bug exactly. The council's reviewer made this point better than I had: I fixed the
+   symptom, that guard is the mechanism. It's item 4 of another bug file and reads like a tidy-up. It
+   isn't.
+
+**One correction I owe you.** Yesterday I told you two of our own agents were broken — reporting
+success while doing nothing. **They were fine; my instruction to them was missing five fields.** The
+reason I believed it is worth knowing: the platform accepted the malformed instruction, recorded it,
+and marked it *completed* having run nothing at all. So the evidence looked exactly like a broken
+agent. I've withdrawn the claim, and what's left is a smaller real problem — an instruction that
+matches no workflow should be rejected, not completed successfully.
