@@ -130,61 +130,94 @@ SELECT snapshot_agent('tool-generator',
 SELECT snapshot_agent('tool-deployer',
                       '516_tool_related_pages_optional_explicit: pre-update');
 
+-- CARRIERS ARE DISCOVERED, NOT TYPED (council REVISE round 1, editquality +
+-- the `validation.WalkSteps` landmine: "if a migration must touch every carrier,
+-- drive it from the recursive walk rather than a hand-typed list — a list is a
+-- snapshot of whatever your census could see"). The first cut of this file
+-- hard-coded two (agent, step, action) tuples from a TOP-LEVEL `jsonb_each`
+-- census, which is precisely the descent that cannot see a wire nested in a
+-- `sub_workflow` or `substeps` body. This walk has no path literals in it: it
+-- descends every object and array to any depth and finds every step config
+-- carrying an unmarked `related_pages`, wherever it lives.
+--
+-- The expected-action guard survives the change: each discovered carrier must
+-- run one of the two actions whose absence-safety was read (both reach
+-- relatedPagesFromInputs). A carrier running anything else ABORTS the migration
+-- rather than being converted — discovery widens what we can SEE, it must not
+-- widen what we silently accept.
 DO $$
 DECLARE
     tgt record;
     cfg jsonb;
+    found int := 0;
 BEGIN
     FOR tgt IN
-        SELECT * FROM (VALUES
-            ('tool-generator', 'save_tool',   'create_tool_component'),
-            ('tool-deployer',  'deploy_tool', 'deploy_tool_to_site')
-        ) AS v(agent_type, step_name, expected_action)
+        WITH RECURSIVE walk AS (
+            SELECT d.type AS agent_type,
+                   ARRAY[]::text[] AS path,
+                   d.default_config AS node
+              FROM agent_definitions d
+             WHERE d.is_active AND COALESCE(d.is_snapshot, false) = false
+               AND d.deleted_at IS NULL
+            UNION ALL
+            SELECT w.agent_type,
+                   w.path || e.key,
+                   e.value
+              FROM walk w
+              CROSS JOIN LATERAL jsonb_each(w.node) e
+             WHERE jsonb_typeof(w.node) = 'object'
+        )
+        SELECT w.agent_type,
+               w.path AS config_path,          -- ends ...,'config'
+               w.path[array_length(w.path,1)-1] AS step_name,
+               (SELECT default_config #>> (w.path[1:array_length(w.path,1)-1] || ARRAY['action'])
+                  FROM agent_definitions d2
+                 WHERE d2.type = w.agent_type AND d2.is_active
+                   AND COALESCE(d2.is_snapshot,false) = false AND d2.deleted_at IS NULL) AS step_action
+          FROM walk w
+         WHERE jsonb_typeof(w.node) = 'object'
+           AND w.path[array_length(w.path,1)] = 'config'
+           AND w.node ? 'related_pages'
+         ORDER BY 1, 2
     LOOP
-        SELECT default_config #> ARRAY['workflow','steps',tgt.step_name,'config'] INTO cfg
+        found := found + 1;
+
+        IF tgt.step_action NOT IN ('create_tool_component', 'deploy_tool_to_site') THEN
+            RAISE EXCEPTION '516: % step % runs %, which is NOT one of the two actions whose '
+                'absence-handling was read (create_tool_component, deploy_tool_to_site). A new '
+                'related_pages carrier has appeared since this file was written — read ITS '
+                'downstream before converting it',
+                tgt.agent_type, tgt.step_name, COALESCE(tgt.step_action, '<none>');
+        END IF;
+        cfg := NULL;
+        SELECT default_config #> tgt.config_path INTO cfg
           FROM agent_definitions
          WHERE type = tgt.agent_type AND is_active
            AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
         IF cfg IS NULL THEN
-            RAISE EXCEPTION '516: no live % step config at %.% — refusing to guess',
-                tgt.agent_type, 'workflow.steps', tgt.step_name;
-        END IF;
-
-        -- The step must still run the action whose spec was read. If it has been
-        -- repointed, the absence-safety argument above is about other code.
-        IF (SELECT default_config #>> ARRAY['workflow','steps',tgt.step_name,'action']
-              FROM agent_definitions
-             WHERE type = tgt.agent_type AND is_active
-               AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL)
-           IS DISTINCT FROM tgt.expected_action THEN
-            RAISE EXCEPTION '516: %.% no longer runs % — re-measure before applying',
-                tgt.agent_type, tgt.step_name, tgt.expected_action;
+            RAISE EXCEPTION '516: no live config at %.% — refusing to guess',
+                tgt.agent_type, array_to_string(tgt.config_path, '.');
         END IF;
 
         IF cfg ? 'related_pages?' THEN
             RAISE EXCEPTION '516: %.% already declares related_pages? — already applied',
-                tgt.agent_type, tgt.step_name;
-        END IF;
-
-        -- The unmarked wire is what we are CONVERTING, so its absence means the
-        -- ground has moved (211 rolled back, or someone re-pointed the field).
-        IF NOT (cfg ? 'related_pages') THEN
-            RAISE EXCEPTION '516: %.% has no unmarked related_pages wire to convert — '
-                'migration 211''s wiring is not where this file expects it',
-                tgt.agent_type, tgt.step_name;
+                tgt.agent_type, array_to_string(tgt.config_path, '.');
         END IF;
         IF cfg ->> 'related_pages' IS DISTINCT FROM 'input_data.spec.related_pages' THEN
             RAISE EXCEPTION '516: %.% wires related_pages to % , not input_data.spec.related_pages '
-                '— read why before converting', tgt.agent_type, tgt.step_name, cfg ->> 'related_pages';
+                '— read why before converting',
+                tgt.agent_type, array_to_string(tgt.config_path, '.'), cfg ->> 'related_pages';
         END IF;
 
-        -- Rename the key in place: same path, marked. Set the marked key first,
-        -- then drop the unmarked one, so no intermediate state loses the wire.
+        -- Rename the key in place at the DISCOVERED path: set the marked key
+        -- first, then drop the unmarked one, so no intermediate state loses the
+        -- wire. Both writes use tgt.config_path, so a nested carrier is edited
+        -- where it actually lives rather than at a guessed top-level path.
         UPDATE agent_definitions
            SET default_config = jsonb_set(
                    default_config,
-                   ARRAY['workflow','steps',tgt.step_name,'config','related_pages?'],
+                   tgt.config_path || ARRAY['related_pages?'],
                    to_jsonb('input_data.spec.related_pages'::text),
                    true),
                updated_at = NOW()
@@ -192,12 +225,22 @@ BEGIN
            AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
         UPDATE agent_definitions
-           SET default_config = default_config
-                   #- ARRAY['workflow','steps',tgt.step_name,'config','related_pages'],
+           SET default_config = default_config #- (tgt.config_path || ARRAY['related_pages']),
                updated_at = NOW()
          WHERE type = tgt.agent_type AND is_active
            AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
     END LOOP;
+
+    -- A discovery-driven migration that finds NOTHING must shout, not succeed
+    -- quietly: zero carriers means the walk is wrong or 211's wiring is gone,
+    -- and either way "0 rows updated, COMMIT" is the shape that reads as a
+    -- clean apply. The census that motivated this file found exactly 2.
+    IF found = 0 THEN
+        RAISE EXCEPTION '516: the recursive walk found NO step config carrying an unmarked '
+            'related_pages wire. Expected 2 (tool-generator/save_tool, tool-deployer/deploy_tool). '
+            'Either the walk is broken or the wiring has moved — do not treat this as applied';
+    END IF;
+    RAISE NOTICE '516: converted % related_pages carrier(s)', found;
 END $$;
 
 -- ============================================================================
@@ -205,37 +248,46 @@ END $$;
 -- non-empty result set, so a verify made of SELECTs cannot stop a bad apply
 -- (LANDMINES / RFC_006).
 -- ============================================================================
+-- Same recursive walk, asserting the GLOBAL postcondition rather than checking
+-- the two paths we happen to have edited: no unmarked carrier may survive
+-- ANYWHERE, and the marked ones must all hold the intended path. A verify that
+-- re-checks a hand-typed list can only confirm the edits it already knows about.
 DO $$
 DECLARE
-    tgt record;
-    got text;
-    stale boolean;
+    leftover int;
+    marked   int;
+    bad      text;
 BEGIN
-    FOR tgt IN
-        SELECT * FROM (VALUES
-            ('tool-generator', 'save_tool'),
-            ('tool-deployer',  'deploy_tool')
-        ) AS v(agent_type, step_name)
-    LOOP
-        SELECT default_config #>> ARRAY['workflow','steps',tgt.step_name,'config','related_pages?'],
-               default_config #> ARRAY['workflow','steps',tgt.step_name,'config'] ? 'related_pages'
-          INTO got, stale
-          FROM agent_definitions
-         WHERE type = tgt.agent_type AND is_active
-           AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    WITH RECURSIVE walk AS (
+        SELECT d.type AS agent_type, ARRAY[]::text[] AS path, d.default_config AS node
+          FROM agent_definitions d
+         WHERE d.is_active AND COALESCE(d.is_snapshot,false) = false AND d.deleted_at IS NULL
+        UNION ALL
+        SELECT w.agent_type, w.path || e.key, e.value
+          FROM walk w CROSS JOIN LATERAL jsonb_each(w.node) e
+         WHERE jsonb_typeof(w.node) = 'object'
+    ), configs AS (
+        SELECT agent_type, path, node FROM walk
+         WHERE jsonb_typeof(node) = 'object'
+           AND path[array_length(path,1)] = 'config'
+    )
+    SELECT count(*) FILTER (WHERE node ? 'related_pages'),
+           count(*) FILTER (WHERE node ? 'related_pages?'),
+           min(agent_type || '.' || array_to_string(path,'.'))
+             FILTER (WHERE node ? 'related_pages?'
+                       AND node ->> 'related_pages?' IS DISTINCT FROM 'input_data.spec.related_pages')
+      INTO leftover, marked, bad
+      FROM configs;
 
-        IF got IS DISTINCT FROM 'input_data.spec.related_pages' THEN
-            RAISE EXCEPTION '516 VERIFY FAILED: %.% related_pages? reads % , expected input_data.spec.related_pages',
-                tgt.agent_type, tgt.step_name, COALESCE(got, '<null>');
-        END IF;
-        -- Both spellings present would leave the marker inert: ExtractActionInputs
-        -- drops the unmarked twin of a marked key, but a reader of the config
-        -- would see two wires and not know which governs.
-        IF stale THEN
-            RAISE EXCEPTION '516 VERIFY FAILED: %.% still carries the UNMARKED related_pages key',
-                tgt.agent_type, tgt.step_name;
-        END IF;
-    END LOOP;
+    IF leftover <> 0 THEN
+        RAISE EXCEPTION '516 VERIFY FAILED: % step config(s) still carry an UNMARKED related_pages wire', leftover;
+    END IF;
+    IF marked < 2 THEN
+        RAISE EXCEPTION '516 VERIFY FAILED: only % marked related_pages? wire(s) found, expected at least 2', marked;
+    END IF;
+    IF bad IS NOT NULL THEN
+        RAISE EXCEPTION '516 VERIFY FAILED: % holds a related_pages? wire pointing somewhere unexpected', bad;
+    END IF;
 
     IF (SELECT count(*) FROM agent_definitions_backup
          WHERE type IN ('tool-generator','tool-deployer')
@@ -243,7 +295,7 @@ BEGIN
         RAISE EXCEPTION '516 VERIFY FAILED: expected a snapshot row per agent in agent_definitions_backup';
     END IF;
 
-    RAISE NOTICE '516 OK: both tool build steps declare related_pages? = input_data.spec.related_pages';
+    RAISE NOTICE '516 OK: % marked related_pages? wire(s), 0 unmarked carriers left anywhere', marked;
 END $$;
 
 COMMIT;
