@@ -1190,3 +1190,10 @@ unchanged count.
 Ownership: they expect to take it and are correctly **not** treating this lane's "you take it" as
 their owner's answer to a question they put to their owner. If it routes here instead, the corpus
 and harness arrive with it. **Nothing further owed either direction — the exchange is closed.**
+
+**Postscript (their `b79238522`):** they generalised the set-assertion catch better than I had
+stated it — it is the vacuous-0/22 failure mode wearing different clothes: *a count cannot tell
+"the intended rescue" from "an unrelated regression", just as it could not tell "nothing failed"
+from "nothing was read". The number is stable and its meaning is not — assert the IDENTITY, not
+the cardinality.* Now in `351` as standing instruction (flip set exactly `{6c41404d}`; rescued set
+containing the 22 by id, not a `>=` threshold). Transferable to every census this lane runs.
