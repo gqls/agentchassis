@@ -437,3 +437,31 @@ with accumulating AND with resetting. **A measurement that cannot come out eithe
 measurement.** It needs a page where two sections both carry hits. Until then the honest statement is:
 the per-page budget is **unproven**, the fallback (per-section budget, headlines always repaired) is
 safe, and the page-level number is counted at `compile_page_sections` regardless.
+
+### 11:06Z — THE REPAIR WORKS ON REAL COPY, and the no-regression control passed too
+
+**The repair** (`mortgagecalculator.co.uk`/`scorecard-simulator`, `mechanism-flow`): 5 hits found, **1
+left alone as regulatory**, 2 allowed by the per-section budget, **2 rewritten, 0 rejected**,
+`hits_before 5 → hits_after 3`. One call, 447 output tokens. Both rewrites surgical:
+
+- *"The result breaks down by area **rather than giving you one verdict**: your income…"* → *"The result
+  breaks down by area: your income…"*
+- *"…the simulator shows that kind of trade-off **rather than a flat pass or fail**."* → *"…the
+  simulator shows that kind of trade-off."*
+
+Every element of the design fired correctly on its first real page: the exemption, the budget, the
+selection, the acceptance test, the splice.
+
+**The no-regression control** (`webdesign.co.uk`/`tool-social-card-guide`): gate ran, `hits_before 0`,
+`status clean`, orchestration **COMPLETED**. A page with nothing to fix passes through the new step
+untouched and the build finishes — which is the half of "it works" that only a clean page can show.
+
+**⚠ Still owed: artefact-level proof.** The marker is a status. The only page that has tripped the gate
+cannot render, for an unrelated reason (`bugs_open/260`'s type gate on `mechanism-flow` —
+`steps[N].branches` arrives as prose where the schema declares objects). **Not caused by the gate**, and
+the control is documented rather than asserted: on the 10:30 run the repair spliced nothing
+(`repair_unavailable`) and the identical failure occurred, and `steps[1].branches` fails too, which the
+gate never touched. Told the 260 lane with the census query.
+
+**Traffic is the constraint, not the code:** one writer run in the last hour. Three gate runs total —
+clean/COMPLETED, repaired/FAILED-at-260, repair_unavailable/FAILED-at-260.
