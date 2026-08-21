@@ -3812,3 +3812,87 @@ change 260 claims and is actionable content repair either way.
 - Two long-parked items were re-touched 08-20 16:01Z without changing status (`07bc64cd`
   needs_section_data — contact-info wants a real business email; `e781118c` required_fields_missing
   — `tool-simple` hero has no `headline`). Both are owner-input items.
+
+### 2026-08-21 (later) — the re-fire's result, and the second defect it exposed
+
+**Attempt 1 failed, and the failure is exactly the behaviour change `bugs_closed/260` claimed.**
+Where the pre-state error was `step validate_content failed: … 20 blockers, 0 errors`, the new one
+names the field:
+
+```
+step process_sections_loop_iter_1_render_section failed:
+  failed to execute action render_component: component "mechanism-flow":
+  content does not match the declared field type(s) —
+  steps[2].branches: declared array (items: object), got string;
+  steps[3].branches: declared array (items: object), got string;
+  refusing to render (bugs_open/260)
+```
+
+Same item, same route, pinned pre-state — so this is a clean A/B, not two observations.
+
+**The component schema is not at fault.** `content_components.input_schema` for `mechanism-flow`
+declares `steps[].branches` as `{type: array, items: {type: object, required: [body],
+properties: {body, label}}}`, with the description *"a decision point: two or more outcomes,
+rendered side by side"*. Well-formed and unambiguous. The writer produced **prose** for two of the
+steps' `branches`. So this is the **writer** half of 260 — which 260's own closure assigns to
+`copy_quality_two_stage` by the owner's 2026-08-12 split — and not a schema defect to fix here.
+
+Attempt 2 armed 10:38:43Z to test whether the mistyping is **reliable or stochastic** on this
+component. Two of roughly four steps carried it, so the writer gets the shape right some of the
+time; if attempt 2 mistypes the same two indices, that is a much stronger finding than one run.
+
+### The second defect: the failed build reported `complete`
+
+Attempt 1 ended `status='complete'`, `completed_at` stamped, **0 `page_components`**, page still
+`build_status='planned'`, URL still 404. The orchestration chain shows why: the render step's
+orchestration **FAILED**, its parent reached `complete_error`, and the outer sagas reported
+`complete`/COMPLETED.
+
+**This is a known SHAPE with a NEW cause, and that is the point.** `bugs_closed/028` closed
+"page-build no-op reports complete" on 2026-07-25 by adding a guard step; a sibling fix added a
+second. Both are in the live `page-build-handler` workflow today and **their own descriptions state
+the intent**:
+
+| guard step | its description |
+|---|---|
+| `mark_no_ready_sections` | *"park the work item visibly instead of letting the dispatch loop stamp it complete"* |
+| `mark_writer_skipped` | *"park the work item visibly instead of letting the dispatch loop stamp it complete"* |
+
+There is **no equivalent for a render refusal**, and the routing table shows no path for one —
+read from the live `agent_definitions`, both agents:
+
+- `page-content-writer`: `process_sections_loop -> (none)` (the loop that owns
+  `..._iter_N_render_section`)
+- `page-build-handler`: `spawn_content_writer -> (none)`; `validate_content -> mark_needs_review`
+
+So the **pre-260 path was routed and visible** (`validate_content` → `mark_needs_review` →
+`needs_human_review`, which is why the pre-state was parked in a queue) and the **post-260 path is
+unrouted** (render refusal → child FAILED → no `error_step` anywhere → success-labelled complete).
+`CompleteWorkItemAction`'s guard in `load_work_item_actions.go` only preserves a status a handler
+**deliberately set** — its `WHERE status NOT IN (…)` cannot help, because nothing flagged the item.
+
+**Net effect: 260's fix moved the failure earlier, from a routed step to an unrouted one, and the
+same defect that used to park visibly now terminates as `complete` at `attempt_count 1` of 3.**
+The excellent named diagnosis lands in a terminal item's `error` column where nothing looks. The
+per-cause guard pattern does not cover a new cause — which is `bugs_open/328`'s own argument
+(*"the route needs one rule, not one rule per cause"*) arriving on a different route.
+
+**Filed through the diagnosis loop rather than asserted**, because it is cross-cutting and the
+cause sits outside the symptom: intake correlation `47a4d1d5-5fa3-4940-8d95-f431d5896cb2`, **run
+correlation `0b498cf8-73ac-4d34-9a14-89a84f4e7b7a`** — use the run correlation for the artifacts.
+The diagnosis queue was empty beforehand (no duplicate) and `grep` of both bug dirs found the shape
+(028) but not this cause. **Verdict not read yet — do not repeat the mechanism above as settled
+until it is.** If CONFIRMED it belongs to the 260 lane and/or a new bug file, not here.
+
+### My own wrong call this session, recorded where it was made
+
+The attempt-2 watcher **reported a terminal state within 30 s of arming, and the build had not even
+been claimed.** I had deliberately kept attempt 1's error text in the column so attempt 2 could be
+compared against it — and that retained text contains the word *"failed"*, which was one of my
+watcher's terminal patterns. So the watcher matched **history, not the event**.
+
+The check: **a watcher must key on something that cannot hold a previous run's value** — a
+timestamp compared against a pinned instant (`completed_at > <armed-at>`), an incremented counter,
+or a hash of the field rather than a substring of it. The rewritten watcher keys on
+`completed_at > '2026-08-21 10:38:43'` and `attempts=2`. Deliberately preserving evidence and
+keying a detector on that same field are individually correct and jointly a false positive.

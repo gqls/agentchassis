@@ -40594,3 +40594,29 @@ saying the gap had been built, and a second pinning the claim to `v1.0.1320`, af
 rolled to a binary that parses it. The seat matched the heading. **A reader matches the heading and
 the footprint, not the third paragraph.** If a landmine's truth has a shelf life, put the expiry in
 the title or retire the entry. Corrected in `32ca8ebf0`.
+
+## 2026-08-21 — `mortgagecalculator_couk_adoption`: my watcher reported a terminal state 30 s after arming, and the run had not been claimed
+
+**The claim:** a background watcher on a re-armed build item emitted
+`ATTEMPT 2 TERMINAL` within 30 seconds. Taken at face value that reads as "the build ran and
+finished", which would have made the next reading — components still 0, page still `planned` — look
+like a second failure rather than an unstarted run.
+
+**What caught it:** the same line printed `status=triaged … components=0`, and `triaged` is not a
+terminal status. Reading the whole line rather than the verdict word was the catch.
+
+**Why it fired.** I had **deliberately kept the previous attempt's error text** in
+`site_work_items.error` so attempt 2 could be compared against it. That retained text begins
+`step … render_section failed:` — and `*failed*` was one of my watcher's terminal patterns. The
+watcher matched **history, not the event**. Both decisions were individually right; together they
+are a false positive.
+
+**The cheap check that would have caught it before arming:** key a watcher only on something that
+**cannot carry a previous run's value** — a timestamp compared against a pinned instant
+(`completed_at > '<armed-at>'`), an incremented counter (`attempt_count = N+1`), or a hash of the
+field instead of a substring match on it. Ask of every terminal pattern: *could this string already
+be true at the moment I arm the watch?* If yes it is not a terminal signal, it is a stale one.
+
+Related in kind, opposite in direction: [a `||true` watcher reads as target silence] — that one
+stays quiet when it should speak; this one speaks before anything happened. Both come from testing
+the watcher against the world it will run in, which neither did.
