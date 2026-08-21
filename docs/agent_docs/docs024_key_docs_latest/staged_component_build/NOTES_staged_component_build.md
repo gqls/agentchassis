@@ -5976,3 +5976,62 @@ would have been true, meaningless, and indistinguishable in six months from evid
 > they first read as proof of a typo — an absence census separates a typo from a convention
 > but not from a gap; their landmine now carries a shelf life (inert until the roll carrying
 > `ecc419bd1`).
+
+## 2026-08-21 (~10:2xZ) — third field/caller pair dispositioned: pbh/`page_type` gets a WIRE, not a declared absence (contrast 512)
+
+Picked up "please carry on" after the 2026-08-20 session. Re-read state cold: 17h had passed, ~270
+more commits landed on this tree overnight (unrelated lanes — 305/307/315/331 council rounds, a
+CronJob same-tag landmine, etc.), and **512's verification is still unrun** — zero tool-generator
+runs since the 17:38:34Z apply boundary, checked fresh at 10:12Z (17h later). Genuinely no demand,
+not a stuck instrument: `add_tool` work items last completed 17:03:57Z on 08-20 and none has been
+created since. Not something to force by dispatching synthetic work. Left as owed with its query.
+
+**Full fresh census** confirms the four-class picture holds: bdl/`commit_sha` now **629 rows / 317
+in 24h**, last row **10:10:59Z today** — live, growing, still blocked on the 315 lane (no reply to
+the 07:56Z CONTRIB found in their NOTES as of this read). tg/`reason` and tg/`related_pages` both
+sit at their pre-apply `last_seen` (17:08/17:07Z) — no post-apply row for either — but that is
+`no-demand`, not `no-defect`, until tool-generator runs again. pbh/`page_type` — this session's
+target.
+
+**pbh/`page_type` — the fix is a WIRE, and here is why it is the opposite shape from 512.**
+`plan_sections` declares `page_type` Optional; page-build-handler's `plan_sections` step wires
+nothing, so the search collects every `page_type` in the tree (the page's own record under two
+aliases, plus 28 sibling pages' types from the site list) and hands over the shallowest —
+`load_page_record.page_type`, **40/40 rows since 08-16**, most recent three 08-20 15:03/07/11Z after
+two quiet days (a fresh census this morning shows nothing newer — the class went quiet again,
+consistent with `page-build-handler` itself being quiet: 30 runs/24h but last run **18:59:59Z
+yesterday**, ~15h ago at read time).
+
+Unlike `reason`, **the guessed value here is RIGHT, not foreign.** `load_page_record` is the step
+that loads the page's OWN record; `page_record` is that same step's `output_field` alias
+(`agent_definitions` step table: `load_page_record → output_field page_record`). So
+`load_page_record.page_type` and `page_record.page_type` are two names for ONE write, not two
+independent sources that happen to agree — confirmed at `collected_data`: of 31 recent
+orchestrations, 18 have both NULL (outside the run's scope) and the remaining 13 agree **13/13**.
+
+**Why this is dangerous to leave unwired, not merely untidy** (the header of 514 makes this the
+lede, not a footnote): `plan_sections_action.go:972-973` — `if pageType == "" { pageType = pageName
+}`. An absent `page_type` does NOT no-op; it substitutes the PAGE'S NAME into a field the component
+selector scores as a TYPE. If step 5 ships before this pair is dispositioned, the flip would
+silently degrade that scoring for every page-build-handler run — a real regression, the opposite of
+`reason`'s "inert by luck of its value".
+
+**The fix:** `"page_type": "page_record.page_type"` on the `plan_sections` step — not
+`load_page_record.page_type`, which resolves identically but would be a second naming style on a
+step whose only other wire (`page_name`) already uses `page_record.*`. Migration 514, guard/VERIFY/
+recursive-negative-control shape identical to 512's. **Fleet-wide, `plan_sections` has exactly two
+live callers**: page-build-handler (this fix) and page-content-writer, which has **no**
+`load_page_record`/`page_record` step in its 14-step workflow at all — no `page_type` candidate
+exists there, so it is out of scope, and the recursive control proves the wire did not leak to it.
+
+Council **submitted**, corr `81a4fe27-8cbf-458f-8a55-c55698fbd6e3`; probe clean (`ran to its own
+COMMIT without error`); NOT yet applied — waiting on the verdict per the gate's own timing (budget
+~30 min, not ~2). Pre-apply baseline banked at **10:18:45Z**: pbh 30 runs/24h (last run 18:59:59Z
+yesterday — so demand is ALSO currently quiet for this agent), page_type 3 rows/24h (last
+15:11:38Z). Verification will need the same honesty 512's did: state the demand control before
+reading any post-apply zero as a pass.
+
+`site_type` is the same Optional-and-unwired shape on this exact step and is **not** touched here —
+scoped out deliberately (risk #5 of the submission), not assumed safe by omission. Worth a follow-up
+measurement, not a fix, since it produces zero conflict rows either because nothing asks or because
+it resolves uniquely and silently (the instrument's known blind spot, §5 of the handoff).
