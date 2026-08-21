@@ -20,7 +20,7 @@ bottom** (two new entries today, §§1–7 the canary and §8 the seat fix).
 | **`bugs_open/277`** | **clause 1 MET** — 7 pages repaired, verified at the served bytes (§7 of the bug file) | the **`no_content_data` half**, untouched by all of this: 27 of 30 parked rows, a different agent, and `473`'s deterministic route does not cover it |
 | **`bugs_open/083`** | fix live + artefact-proven; **door soak at day 4 of ~7** | ~**08-24/25**: `444`/`458` sat their week. Close then, with the two statements in §3 below |
 | `bugs_open/333` | theirs | **CONTRIB filed today** — the two-strike rule reaches their false *"tried twice"* down a second road, with no refusal loop involved |
-| `530`/`531` (council) | **APPLIED + submitted**, corr **`c00fbfd8-c459-4e8a-ac04-0997aca98477`** | READ the verdict; act on REVISE/REJECTED. Commit `086f3af35` carries `Council-Submitted:` so 098 credits it automatically |
+| `530`/`531` (council) | **APPLIED + APPROVED r1** (corr `c00fbfd8…`, 14:03:49Z, `point_fix`, no truncation) | **nothing** — verdict read, both medium advisories answered with the queries they asked for (NOTES §10), trailer written. Done |
 
 ---
 
@@ -87,7 +87,7 @@ The mechanism is proven twice over now (today's arc is a second independent inst
 
 ## 4. STILL OWED
 
-- **Read the `c00fbfd8` verdict** and act on it. Nothing else is owed on the council trail.
+- ~~Read the `c00fbfd8` verdict~~ **DONE — APPROVED round 1, advisories answered, NOTES §10. Nothing is owed on the council trail.**
 - **`083` close, ~08-24/25** (§3).
 - **`277`'s `no_content_data` half** — the only thing holding that file open. Different agent;
   `473`'s deterministic route does not cover it.
