@@ -1,5 +1,23 @@
 # HANDOFF — bug 252 (og/lang slug), 2026-08-20 · COLD-START, read this first
 
+> ## ✅ LANE COMPLETE — 2026-08-21. This handoff is HISTORY; nothing here needs picking up.
+>
+> Bug **252 is CLOSED**, and so is **347**. **322 item 4** is fixed, live on `v1.0.1322` and
+> council-approved. A **daily locale check** is live. Every stored page-header in the fleet is
+> repaired and every page that rebuilds from here is correct — proven in the running binary on both
+> replicas with controls, and then on four live pages.
+>
+> **Read `SUMMARY_2026-08-21_the_lane_is_done.md` instead of this file.** It is the current-state
+> read-out. This handoff is kept for its evidence trail and for the traps in §5 and §7, which are
+> still true.
+>
+> **What remains is time, not work:** 487 of 727 pages still serve the old header until they next
+> rebuild. The owner ruled we do not force that (2026-08-21); it is tracked in `bugs_open/346` and is
+> already draining on its own — ten sites at zero, down from twelve within the day, with nothing
+> dispatched. Unclaimed follow-ons: `bugs_open/322` items 2/3/5, the other head producer's unmeasured
+> population, and SEO-003's convergence question (this was the FOURTH one-producer fix; a fifth raises
+> an RFC).
+
 > **SUPERSEDED IN PART, 2026-08-20 evening — read this box first.** The build arrived
 > (**v1.0.1320**, probed PRESENT for all three new symbols on both replicas with controls), **both
 > migrations are APPLIED and recorded** (now `507_head_components_carry_lang.sql` /
