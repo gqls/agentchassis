@@ -6368,3 +6368,58 @@ when both candidates are present) and never **coverage** (present at all — 13/
 only protects the cases where the path resolves. On the 18 misses it falls straight back to the
 whole-tree search, which is the defect. Two sessions, one jsonb path, ~an hour apart: the
 `who-owns.py`-is-blind-to-uncommitted-work problem in its purest form.
+
+## 2026-08-21 (~13:2xZ) — 515 APPROVED round 2 and APPLIED; the runtime proof is armed, not claimed
+
+**Round 2: APPROVED, `decided_by: all reviewers approve`.** Five advisories, all LOW, none gating.
+
+- **editquality ×2** — both are about the **sketch**, not the file: *"the rationale claims a
+  single-active-row COUNT assertion was added but the sketch doesn't show it"* and the same for the
+  snapshot move. Both are genuinely in the file (`n_active <> 1` raises; `PERFORM snapshot_agent`
+  sits inside the guard, **proved** by a double run emitting ONE notice where it emitted two).
+  **This is the documented seat-visibility trap** — the council sees the `sketch` field, not the
+  file, so an elided sketch draws objections against guards that already exist just out of view.
+  Another session logged exactly this on their 514 round. **Next submission: put the guards in the
+  sketch verbatim, even at the cost of length.**
+- **guardian (labelling)** — the edit is tagged `operation: add` because it creates a new file, but
+  its body is a `config_change` to a live agent. The validator forces `add` for a new file, so the
+  vocabulary cannot express "new file that changes live config". Recorded; worth raising if it
+  recurs.
+- **guardian + prior_art_librarian, independently — THE ONE THAT MATTERS.** The `?`-parses-on-config
+  claim is argued *"from a source-level grep against the built commit rather than from any
+  runtime/DB evidence — no orchestration has actually exercised this parse path on this agent
+  type."* That is correct and I had not closed it. Source at the stamp is much stronger than
+  ancestry (round 1's lesson) but it is still not the same as **observing the parse**.
+
+**APPLIED 2026-08-21 13:19:19Z.** By hand with `psql`, deliberately **not** through
+`run-migrations.sh --apply`, which takes EVERY pending file and other sessions have WIP in that
+directory; recorded afterwards with `--record-only` plus a note saying so. Verified three ways,
+none of them the migration's own NOTICE:
+1. live row read back independently — `"page_type?": "page_record.page_type"` present;
+2. snapshot row exists in `agent_definitions_backup`;
+3. **the step already wired `page_name: "page_record.name"`** — so `page_record` was this step's own
+   established prefix and the path matches its convention rather than introducing one. That is a
+   nice piece of after-the-fact corroboration I did not have when choosing it.
+
+**Baseline banked at the apply boundary, and the honest arithmetic:** 40 rows all-time, last
+2026-08-20 15:11:38Z; **3 rows against 26 pbh runs** in the preceding 24 h ⇒ **~0.12 rows per run.**
+That is an order of magnitude weaker than step 4's 3.1/run. **A post-apply zero here proves much
+less**, and a 24 h window of ~26 runs cannot detect a residual rarer than ~1 in 26. Say the floor;
+do not say "fixed".
+
+**So the verification is a POSITIVE test, not a zero.** Answering the two seats directly:
+`withoutStrict` (`action_inputs.go:802-813`) removes `explicitOnly` fields from what is passed to
+`ExtractFields`, and `ExtractFields` logs `requested_fields` on its `=== MASTER EXTRACTOR START ===`
+line. Therefore on a post-apply `plan_sections` extraction:
+- **marker parsed ⇒ `page_type` is ABSENT from `requested_fields`**;
+- **marker not parsed ⇒ `page_type` is PRESENT** (it would be an unknown config key and the field
+  would still be searched for).
+The two outcomes are distinguishable in one log line, and `section_facts` in the same line
+identifies the step. Watcher armed over both chassis pods. **This is the runtime evidence the
+approval was granted without — record the result when it lands; do not let "applied + approved"
+stand in for it.**
+
+**Aside — a stale `.git/index.lock` blocked all committing for ~4 minutes** (zero bytes, 14:19:34,
+no `git` process alive). That is the crashed-process case git's own error names, and it blocks
+every session on this tree, not just the one that meets it. Removed. Worth knowing that the first
+symptom is a commit failing with advice that reads like it is about YOUR command.
