@@ -95,6 +95,34 @@ builder-flow decision"`. The incumbent (`b89f91e1`, html `a2c00f1c66ce6f4ef72b48
 re-pinned and the `needs_new_component:mortgages-repayment` key is held only by `cancelled`/`failed`
 rows, so the two-item recipe is insertable the moment the halt lifts.
 
+## CLOSE-OUT ASSESSMENT 2026-08-21 evening — what would close 311, and what genuinely remains
+
+**The titled defect is DONE by every bar this estate uses**: both halves fixed, council-approved,
+live on the current image (v1.0.1322, provenance-stamped `bac189921`, re-verified each roll), and
+demand-proven — six real diversions, every incumbent byte-identical, and the scoped name derived
+correctly on the originating case. CLC-020's register entry now says so.
+
+**The ONE thing between here and `bugs_closed/`:** the originating PAGE
+(`remortgagecalculator.uk/index`, 0 `<input>` since 08-17). Its repair was blocked by `345`; both
+halves of 345's fix went live today (v1.0.1322 + migration `533` applied and recorded); demand test
+`e9e5a10b` is in flight. **If it lands and the page serves a calculator, close 311** — move the
+file by `git mv` naming BOTH paths on the commit (the LANDMINES `git mv` + pathspec trap), and the
+residuals below stay open in THEIR files, not 311's:
+
+| residual | where it lives | why not 311's |
+|---|---|---|
+| retry-blindness | `bugs_open/345` (fix live, council round 2 pending — read the verdict, then close on a second-attempt-differs observation) | its own mechanism, its own file |
+| the 16k output cap | `bugs_open/337`, unowned | upstream of the store; cannot exercise 311's seam |
+| unscoped diverted rows + sweeper blind spot + section birth gate | the `283` lane (`CONTRIB_2026-08-21b…` in their dir; no reply yet as of 18:15Z) | their seam, their programme; owner has the design question |
+| needs_rebuild convergence / status-column truth | `bugs_open/315` (contributed) + the `090` UNVERIFIABLE trail | a fleet convergence question, not the component deadlock |
+| loanzy leftovers | archived page + `253` floor page = loanzy/owner calls; `tool-loan-vs-savings` = one free `needs_page` | documented in their lane's contrib |
+
+**If the demand test FAILS**, the failure is evidence about `345` (or a third gate), not about 311 —
+the diversion on that page is already proven. In that case the honest close is still available:
+close 311 on its titled defect and point the page's repair at 345's file. The owner asked; this is
+the recommendation either way, with the page's outcome deciding only which sentence goes in the
+close-out commit.
+
 ## ⚠ UPDATE 2026-08-21 — the originating site is UNBLOCKED, the diversion FIRED there, and a third gate now blocks it (`bugs_open/345`)
 
 - **`remortgagecalculator.uk` is UNLOCKED** (owner instruction, 2026-08-21). Only that row moved;
