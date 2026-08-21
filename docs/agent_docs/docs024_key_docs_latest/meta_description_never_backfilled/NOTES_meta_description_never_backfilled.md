@@ -569,3 +569,84 @@ marker says how it was obtained, not how far it generalises.
 That materially improves `309`'s arithmetic versus what I wrote this afternoon, but it does
 **not** settle it: the shrink guard's answer still has to come from dispatching the rerender
 and reading the served page.
+
+---
+
+## 2026-08-21 — the two tidy-ups, and a defect in my own floor that the second one exposed
+
+Chassis `v1.0.1320`, digest-matched, revision == my HEAD exactly.
+
+### 517 — the pre-query and the workflow asked different questions
+
+The scheduled task's `pre_query` asked *"does this page have any rendered component?"*; the
+workflow asked *"does it have >200 chars of visible text?"*. So the scheduler picked a
+site, dispatched, and the workflow concluded `complete_nothing_to_do` — **every hour, for
+ever.** Cheap (it stops before the LLM step) and exactly the shape this lane has now
+removed three times: a green record over work that never happens, with
+`last_triggered_at` and `last_completed_at` both advancing.
+
+Fixed as **one definition** — a `STABLE` SQL function both call — rather than pasting the
+regex into the pre-query, because two renderings of one predicate is the drift surface
+`bugs_closed/284` spent a whole lane removing.
+
+### Misstep 9 — my equivalence check disagreed with itself, twice
+
+Comparing the new function against the inline chain across the fleet reported **1**
+disagreement. Re-run: **12**. Same data shape.
+
+Neither was a formulation difference. Both computed the two sides at different points
+while ~40 concurrent sessions rerender pages, so they compared **different snapshots of
+`page_components`**. Evaluated in ONE aggregate: 693 pages, and the *floor classification*
+identical at **664/664** — which is the property the swap actually needs, and a stronger
+check than exact-length equality on a table other sessions are writing to.
+
+**Twice in two days now:** when two of my own measurements disagree, the first question is
+not "which is right" but "were they even looking at the same thing".
+
+### Misstep 10 — and this is the serious one: MY FLOOR WAS MEASURING THE WRONG THING
+
+Yesterday I reported `noted.co.uk/index` as *"197 visible characters, a homepage three
+characters under the floor"* and offered it as a judgement call about whether the floor
+was slightly wrong for homepages.
+
+**The page has 1,205 characters of real text.** Hero, an 8KB info-card grid, a call to
+action. My measurement was wrong, not the page.
+
+Migration `493` measured visible text as **concatenate, then strip**:
+
+```sql
+regexp_replace(string_agg(pc.rendered_html, ' '), '<(style|script)[^>]*>.*?</\1>', ' ', 'gis')
+```
+
+Components are separate rows, so that strip runs **across the joins**, and a `<style>`
+match opening in one component can close in another and consume everything between —
+including all the prose. It needs no broken markup: that page has **3 components, 3
+`<style>` opens, 3 `</style>` closes, perfectly balanced.**
+
+```
+per-component visible text, summed : 1205
+concatenate-then-strip (493)       :    1
+```
+
+`[MEASURED 2026-08-21]` across 693 active pages: **349 lose more than HALF** their visible
+text this way; **24** are wrongly judged below the 200 floor; **1** of those was blank and
+being silently declined as too thin.
+
+**Both readers were wrong, and the second one matters more than the floor:**
+1. the **floor** deciding whether a page is describable;
+2. **`content_sample`** — the 1,200 characters of page text handed to the writer. On a
+   multi-component page that was a **fragment**, and the model wrote fluent copy from it
+   anyway. **Nothing downstream could tell.** Every description written before `518` came
+   from a possibly-truncated view of its page. They read well; that is not the same as
+   being right.
+
+Fixed in `518`: strip each component, then join, with `ORDER BY` for determinism. A regex
+cannot span two components if it never sees two at once. Verified — that homepage now
+measures 1,205, **0** pages are wrongly below the floor, and it has been backfilled:
+*"Write notes, voice memos and photos that sync across all your devices."*
+
+**The lesson, and it is the same one as yesterday's `[MEASURED]` figure:** a number that is
+plausible is the hardest kind to doubt. "197 chars, thin page" is a perfectly reasonable
+reading — no error, not zero, just small. I was one accepted number away from filing a
+judgement call about a floor when the bug was in my own arithmetic. **What caught it was
+opening the page instead of trusting the figure I had produced about it.**
