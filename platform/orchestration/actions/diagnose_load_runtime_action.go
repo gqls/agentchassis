@@ -746,8 +746,32 @@ func dashIfEmpty(s string) string {
 // defaultSchema{Exclude,Include} back the schema_{exclude,include}_patterns config
 // keys. Denylist so tables added later appear automatically; the include keeps the
 // listing to the build/content domain unless schema_full is set.
+//
+// ⚠ THE INCLUDE PATTERNS ARE PREFIX MATCHES — they are applied as `table_name ILIKE $n`
+// with no leading wildcard. So "flow%" matches flow_* and does NOT match workflow_*.
+// That was almost certainly not intended, and it was not free: diagnosis run
+// dd61df1b (the bugs_closed/301 lane) stalled at UNVERIFIABLE because it needed
+// workflow_templates, workflow_contract_chain, v_active_workflows and v_all_workflows
+// and the bundle could describe none of them — the loop asked for their columns and
+// the run ended. "workflow%" added 2026-08-21 for exactly that.
+//
+// Sizing, so the next person to widen this knows what it costs `[MEASURED 2026-08-21]`:
+// the selection is (NOT ILIKE every exclude) AND (ILIKE any include OR in
+// schemaAlwaysTables), and it currently resolves to **33 of 479 public tables** — which
+// matches what a live bundle reports verbatim ("33 of 479 public tables are shown"), so
+// this arithmetic is checkable against any stored bundle. "workflow%" adds **2**, taking
+// it to 35 against a schema_table_cap of **120**. Nothing is displaced.
+//
+// ⚠ Do NOT size this by counting ILIKE matches alone: that ignores the exclude patterns
+// and overstates badly (86 vs the true 33 — an error made on 2026-08-19 and corrected
+// here). Reproduce the whole predicate, then check it against a bundle's own header line.
+//
+// The v_* VIEWS (v_active_workflows, v_all_workflows) are still NOT covered — there is no
+// table_type filter, so a view is eligible the moment a pattern matches it, and none does.
+// Left out deliberately: no run has yet stalled on one, and "v_%" is a wide net for a
+// naming convention rather than a domain.
 var defaultSchemaExclude = []string{"%backup%", "%bak%", "%archive%", "%supersede%"}
-var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%"}
+var defaultSchemaInclude = []string{"site%", "page%", "content%", "flow%", "workflow%"}
 
 // schemaAlwaysTables are the tables THIS ACTION RENDERS ROWS FROM. Their columns
 // must be in the Schema section whatever the relevance include says, because the

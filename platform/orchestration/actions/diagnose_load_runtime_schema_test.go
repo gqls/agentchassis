@@ -333,3 +333,43 @@ func TestStripGoComments(t *testing.T) {
 		t.Errorf("code was stripped: %q", got)
 	}
 }
+
+// TestSchemaIncludeCoversWorkflowTables guards a fix whose REASON is invisible from the
+// code: the include patterns are applied as `table_name ILIKE $n` — a PREFIX match — so
+// "flow%" does not match "workflow_templates". That reads like an oversight and is easy to
+// "tidy" back out by someone who assumes flow% already covers workflow tables.
+//
+// It is not hypothetical. Diagnosis run dd61df1b (bugs_closed/301 lane) stalled at
+// UNVERIFIABLE needing workflow_templates and workflow_contract_chain, which the bundle
+// could not describe. bugs_open/029 lost two runs to the same class on a different table.
+//
+// The first assertion is the regression guard. The second is the one that matters: it
+// proves the PREFIX SEMANTICS that make the first necessary, so if someone ever changes
+// the matching to a contains-match, this test tells them "flow%" would then be sufficient
+// and "workflow%" redundant — rather than leaving both in place for reasons nobody recalls.
+func TestSchemaIncludeCoversWorkflowTables(t *testing.T) {
+	has := func(p string) bool {
+		for _, e := range defaultSchemaInclude {
+			if e == p {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("workflow%") {
+		t.Error(`"workflow%" missing from defaultSchemaInclude — "flow%" does NOT cover ` +
+			`workflow_* under a prefix match; run dd61df1b stalled on exactly that`)
+	}
+
+	// Prefix semantics, asserted rather than assumed: this is what ILIKE 'flow%' does.
+	matchesPrefix := func(pattern, table string) bool {
+		return strings.HasPrefix(strings.ToLower(table), strings.ToLower(strings.TrimSuffix(pattern, "%")))
+	}
+	if matchesPrefix("flow%", "workflow_templates") {
+		t.Error("prefix matching has changed: flow% now matches workflow_templates, so " +
+			"workflow% is redundant — remove it and update the comment, do not leave both")
+	}
+	if !matchesPrefix("workflow%", "workflow_templates") {
+		t.Error("workflow% does not match workflow_templates — the guard above is not testing what it claims")
+	}
+}

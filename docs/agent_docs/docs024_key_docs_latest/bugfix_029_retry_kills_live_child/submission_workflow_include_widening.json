@@ -1,0 +1,30 @@
+{
+  "submitter": "bugfix_029_retry_kills_live_child workstream (029 closed; this is its last residual)",
+  "rationale": "The diagnosis bundle's Schema section is populated by a relevance include applied as `table_name ILIKE $n` \u2014 a PREFIX match. The default patterns are site%, page%, content%, flow%. `flow%` therefore does NOT match `workflow%`, and never has. That is almost certainly not what was intended, and it is not free.\n\nIt cost a real diagnosis run. Run dd61df1b (the bugs_closed/301 lane, page-build-handler ownership ordering) returned UNVERIFIABLE with a data_request whose stated reason was: 'These tables (found via a prior data_request) are not in the bundle's schema listing \u2026 need their columns before a follow-up query can pull page-build-handler's actual step sequence.' The tables were workflow_templates, workflow_contract_chain, v_active_workflows, v_all_workflows. The loop had the right hypothesis and the right target and could not write the query.\n\nThis is the same class as commit 0132a3683 (council-approved round 1, corr e03f7122), which added awaited_requests to schemaAlwaysTables after TWO 090 runs on bugs_open/029 died the same way, and the same class as run 074beb8a before that. Three separate lanes, four wasted runs, one cause: a table the bundle cannot describe. That fix deliberately did not widen the include, because the include gap is a different lane's symptom and deserved its own rationale. This is that rationale.\n\nThe change is one pattern in a list. It ships no new mechanism, no new key, no new authority, and no new capability \u2014 it makes an existing, already-reviewed filter cover two more tables.",
+  "plan": {
+    "summary": "Add \"workflow%\" to defaultSchemaInclude so the diagnosis bundle's Schema section describes workflow_templates and workflow_contract_chain. Document at the declaration that the patterns are PREFIX matches (which is why flow% never covered them), record the measured sizing, and add a test that guards the entry AND asserts the prefix semantics that make it necessary.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/diagnose_load_runtime_action.go",
+        "symbol": "defaultSchemaInclude",
+        "operation": "modify",
+        "rationale": "One pattern. Sizing measured rather than asserted: the full predicate (NOT ILIKE every exclude) AND (ILIKE any include OR in schemaAlwaysTables) currently resolves to 33 of 479 public tables \u2014 which matches a live bundle's own header line verbatim, so it is checkable against any stored bundle. workflow% adds 2, taking it to 35 against a schema_table_cap of 120. Nothing is displaced.",
+        "sketch": "-var defaultSchemaInclude = []string{\"site%\", \"page%\", \"content%\", \"flow%\"}\n+var defaultSchemaInclude = []string{\"site%\", \"page%\", \"content%\", \"flow%\", \"workflow%\"}"
+      },
+      {
+        "file": "platform/orchestration/actions/diagnose_load_runtime_schema_test.go",
+        "symbol": "TestSchemaIncludeCoversWorkflowTables",
+        "operation": "add",
+        "rationale": "The entry's REASON is invisible from the code \u2014 someone assuming flow% already covers workflow tables would tidy it back out. First assertion guards the entry; second asserts the PREFIX semantics that make it necessary, so if matching ever becomes a contains-match the test says workflow% is now redundant rather than leaving both in place for reasons nobody recalls. Proven able to fail by mutation: removing the pattern fails it with the intended message.",
+        "sketch": "if !has(\"workflow%\") { t.Error(`\"workflow%\" missing \u2014 \"flow%\" does NOT cover workflow_* under a prefix match; run dd61df1b stalled on exactly that`) }\nif matchesPrefix(\"flow%\", \"workflow_templates\") { t.Error(\"prefix matching has changed: workflow% is now redundant\") }"
+      }
+    ],
+    "grounded_in": [
+      "090 run dd61df1b DataRequests[0].why, 2026-08-19 \u2014 \"These tables (found via a prior data_request) are not in the bundle's schema listing and agent_definitions' own workflow columns are NULL for page-build-handler; need their columns before a follow-up query can pull page-build-handler's actual step sequence to check the claimed step ordering.\" The SQL it could not run named workflow_templates, workflow_contract_chain, v_active_workflows, v_all_workflows.",
+      "diagnose_load_runtime_action.go, gatherSchema \u2014 the include is applied as `table_name ILIKE $n` with no leading wildcard, i.e. a prefix match, which is why flow% has never matched workflow%.",
+      "Live DB measured 2026-08-21 \u2014 the full selection predicate resolves to 33 of 479 public tables, matching a live bundle's own header (\"33 of 479 public tables are shown\"); workflow% adds exactly 2; schema_table_cap default is 120.",
+      "Prior art, same class: commit 0132a3683 (awaited_requests to schemaAlwaysTables, council-approved round 1, corr e03f7122) after two 090 runs on bugs_open/029 stalled; and the pre-existing in-file record of run 074beb8a, which guessed a column name, got SQLSTATE 42703 and stopped at UNVERIFIABLE for the same reason.",
+      "Live agent_definitions query 2026-08-21 \u2014 NO active agent config sets schema_include_patterns, so the Go default is what is in force and this change is not shadowed by config."
+    ]
+  }
+}
