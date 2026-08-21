@@ -1169,3 +1169,24 @@ radius (1 section, 0 tools end on a template action) and filed the whole thing a
 calibration (both directions + the `:260` note) goes in their council submission, and 351 records
 the fourth call site. Their 345-conflation point is DONE in the file ("do not read 311's close as
 this bug's proof"). Their webdesign.uk disclosure touches none of this lane's recorded counts.
+
+## 2026-08-21 close of the exchange — both corrections verified their side, the census settles part two, ownership held properly
+
+Their `283b610a6` records both of this lane's findings in `351`: the fourth call site
+(`component_write_guard.go:260` — read in full their side: the false positive already refuses
+legitimate work at BIRTH as "cut mid-stream", not just hides rows at load) and the
+strip-then-check shape with the reasoning, not just the conclusion. Their single census covers the
+`:260` ask because `endsCleanly` is the shared function: **269 rows (148 section + 121 tool), ONE
+verdict flip anywhere in the estate** (`6c41404d`, false→true), and zero rows where a bare-`}}`
+rule and strip-then-check disagree on today's corpus — with that zero **labelled as reasoning, not
+measurement** ("strip is better on data we have not seen, which is the case a truncation guard
+exists for"). Regex as run: strip `\s*\{\{-?\s*end\s*-?\}\}\s*$` repeatedly, then
+`HasSuffix(">")` — trim-marker tolerant, which is stronger than this lane's prose version.
+
+One addition sent for their pre-ship re-run: assert the flip SET is still exactly `{6c41404d}`,
+not just count=1 — a different single row flipping between tonight and ship hides inside an
+unchanged count.
+
+Ownership: they expect to take it and are correctly **not** treating this lane's "you take it" as
+their owner's answer to a question they put to their owner. If it routes here instead, the corpus
+and harness arrive with it. **Nothing further owed either direction — the exchange is closed.**
