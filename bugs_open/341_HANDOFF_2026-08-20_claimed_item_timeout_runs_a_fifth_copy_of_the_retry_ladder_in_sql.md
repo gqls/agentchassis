@@ -175,3 +175,32 @@ Until `bugs_open/344`'s sibling defect is fixed — the Go ladder's terminal tra
 SQLSTATE **42P18**, so `failed` at `max_attempts` is unreachable through it — **this sweep's SQL
 ladder is the only writer in the estate that can actually reach terminal `failed`.** Which is an
 argument for touching it carefully, not quickly.
+
+## §5b — the sweep's auto-COMPLETE arm is 344's defect one status over, and a fix on the Go side alone will not reach it
+
+Contributed by the `307/317/313/301` session, 2026-08-21, and it sharpens §2b rather than softening it.
+
+§2b is right that this sweep cannot overwrite a **decision** status: `WHERE status='claimed'` excludes
+every parked row by construction. **But that argument covers the RESET arm only.** The sweep also has
+two auto-**COMPLETE** CTEs (`completed_by_orchestration`, `completed_by_evidence`), and those stand in
+exactly the same relationship to a mid-cooldown row as `mark_complete` does in `bugs_open/344`:
+they write `complete` over a row the ladder has deliberately put back in the queue.
+
+**Why this matters for how 344 is fixed, not just for this bug.** If 344's candidate 1 lands as a
+predicate on `CompleteWorkItemAction` — "refuse while `retry_after` is in the future" — then this
+sweep's **direct SQL UPDATE bypasses it entirely**, the same way it already bypasses both completion
+gates (`bugs_open/317`'s mechanism, one status over). A Go-side-only fix would close the door in the
+room and leave the window open, and the fingerprint (`retry_after > completed_at`) would keep
+appearing with no Go writer to blame — which is the kind of residue that gets diagnosed as a fresh
+bug six weeks later.
+
+**So the sweep needs the same predicate**, in SQL, whenever 344 is built. That is a second surgical
+edit to this same `pre_query`, and it should ship in the SAME file as this bug's cooldown stamp
+(`524_..._HOLD.sql`) rather than as a third visit — the release condition for that HOLD is already
+"344 resolved or its candidate 1 live", so the two land together by construction.
+
+⚠ **Note the asymmetry, because it is not obvious:** the RESET arm needs no guard (§2b) and the
+COMPLETE arms need one. Same `pre_query`, opposite conclusions, and the reason is which population
+each arm selects — `status='claimed'` for the reset, evidence-of-completion for the others. **A
+checklist applied to "the sweep" as a unit gets both wrong**; that is the same error §2b was written
+to correct, met a second time in the same file.
