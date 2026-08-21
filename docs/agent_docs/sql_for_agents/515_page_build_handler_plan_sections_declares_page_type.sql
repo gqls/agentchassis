@@ -98,6 +98,18 @@
 -- carrying ecc419bd1. Applying this against an older binary would leave a
 -- literal key `page_type?` that nothing reads — inert, but a silent no-op.
 --
+-- ⚠ COUNCIL ROUND 1 (corr a452fc2a) returned REVISE on exactly this paragraph, and the
+-- guardian's objection was RIGHT about the reasoning even though the conclusion holds:
+-- ancestry proves a COMMIT is present, NOT which parsing path it touched. There is also a
+-- LANDMINES entry titled "...NOT YET in a step's action `config`" which the seat cited. So the
+-- claim is now established at the BUILT COMMIT, on the CONFIG branch specifically:
+--     git show 0483e7f4e:platform/orchestration/datahelpers/action_inputs.go \
+--       | grep -n 'TrimSuffix(k, "?")'      -> lines 694 and 708 (the CONFIG loop)
+--     git log --oneline -L '/optionalExplicit :=/,+2:platform/.../action_inputs.go'
+--                                           -> ecc419bd1 introduced it
+-- i.e. the peel is in the config loop at the commit the running binary was built from, not
+-- merely at HEAD. The landmine has been corrected (its title was two corrections stale).
+--
 -- [VERIFIED 2026-08-21 ~10:2xZ] The parsing binary IS LIVE. `v1.0.1321` (both
 -- chassis pods, up 2026-08-20T19:51Z) was built from `0483e7f4e`, and
 -- `git merge-base --is-ancestor ecc419bd1 0483e7f4e` returns true.
@@ -115,22 +127,38 @@
 -- One sha per call. A 60-way alternation (`grep -aoE "a|b|c…"`) TIMES OUT at 2
 -- minutes against the binary — do not try to batch it.
 --
+-- ============================================================================
+-- BLAST RADIUS — why this is scoped to ONE agent type and that is not a precedent
+-- problem (council round 1, guardian, low severity)
+-- ============================================================================
+-- THREE live agent types carry a `plan_sections` step, all three with `page_type`
+-- unwired: page-build-handler, page-content-writer and page-rebuild. (A top-level
+-- jsonb_each census finds only the first two — page-rebuild's is NESTED, the
+-- documented sub-workflow trap. Use jsonb_path_query_array(default_config,
+-- '$.**.steps.plan_sections.action') to see all three.)
+--
+-- This file fixes only page-build-handler, and the reason is not preference:
+-- **only page-build-handler has a `load_page_record` step**, so `page_record` does
+-- not exist in the other two trees at all.
+--     jsonb_path_query_array(default_config,'$.**.steps.load_page_record.output_field')
+--       page-build-handler -> ["page_record"];  page-content-writer -> [];  page-rebuild -> []
+-- and at runtime page-content-writer carries page_record on 0 of 15 orchestrations.
+-- Wiring `page_record.page_type` for them would name a path that is never present —
+-- the guess this whole workstream exists to abolish.
+--
+-- So they are NAMED FOLLOW-UPS, not silent omissions: each needs its own measurement
+-- of where its page_type legitimately comes from. Neither has produced a single
+-- RESOLVER_CONFLICTING_CANDIDATES row, so neither is in step 5's way today.
+--
 -- ROLLBACK: 515_page_build_handler_plan_sections_declares_page_type_ROLLBACK.sql
 -- ============================================================================
 
 BEGIN;
 
--- Snapshot the row before touching it, so the rollback has a source of truth
--- that does not depend on this file being read correctly. Uses the estate's own
--- helper rather than a hand-rolled INSERT: there is NO `snapshot_reason` column
--- (checked \d agent_definitions — the reason goes in `description`), and
--- snapshot_agent() is what every other migration uses.
-SELECT snapshot_agent('page-build-handler',
-                      '515_page_build_handler_plan_sections_declares_page_type: pre-update');
-
 DO $$
 DECLARE
     cfg jsonb;
+    n_active int;
 BEGIN
     SELECT default_config #> ARRAY['workflow','steps','plan_sections','config'] INTO cfg
       FROM agent_definitions
@@ -150,6 +178,20 @@ BEGIN
         RAISE EXCEPTION '515: page-build-handler plan_sections step no longer runs the plan_sections action — re-measure before applying';
     END IF;
 
+    -- One active row, or stop. A LANDMINE records that four agent types carry TWO
+    -- active non-snapshot rows and only the HIGHER VERSION loads — in which case a
+    -- type-scoped UPDATE can touch both while the verify reads back whichever the
+    -- query happens to return, passing green over an untouched loaded config.
+    -- page-build-handler is NOT one of the four (measured: 1 active row, version 1),
+    -- but asserting it is free and it makes this file correct if that ever changes.
+    -- (council round 1, editquality, medium severity)
+    SELECT count(*) INTO n_active FROM agent_definitions
+     WHERE type = 'page-build-handler' AND is_active
+       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+    IF n_active <> 1 THEN
+        RAISE EXCEPTION '515: expected exactly 1 active page-build-handler row, found % — resolve the duplicate and pin the version before applying', n_active;
+    END IF;
+
     -- Idempotence, and refuse to fight a competing wire.
     IF cfg ? 'page_type?' THEN
         RAISE EXCEPTION '515: page_type? is already declared — already applied';
@@ -157,6 +199,15 @@ BEGIN
     IF cfg ? 'page_type' THEN
         RAISE EXCEPTION '515: an UNMARKED page_type wire already exists (%). Someone chose a plain wire deliberately; read their reason before converting it', cfg ->> 'page_type';
     END IF;
+
+    -- Snapshot INSIDE the guard, not before it: called unconditionally at the top
+    -- of the file, an accidental re-run writes a second 'pre-update' snapshot even
+    -- though the idempotence guard correctly blocks the UPDATE — a misleading audit
+    -- trail. (council round 1, guidelines, non-chartered observation.) There is no
+    -- `snapshot_reason` column on agent_definitions; snapshot_agent() writes to
+    -- agent_definitions_backup, which is where that column lives.
+    PERFORM snapshot_agent('page-build-handler',
+                           '515_page_build_handler_plan_sections_declares_page_type: pre-update');
 
     UPDATE agent_definitions
        SET default_config = jsonb_set(
@@ -199,6 +250,12 @@ BEGIN
     END IF;
 
     RAISE NOTICE '515 OK: plan_sections declares page_type? = page_record.page_type';
+    -- NOTE (council round 1, debug_historian): the pre-submission evidence was a
+    -- REHEARSAL — this same file run inside a transaction ending in ROLLBACK. The
+    -- REAL apply owes its own logged pass: keep this NOTICE, and afterwards read the
+    -- live row back independently and record the conflict-row count against a DEMAND
+    -- control (page-build-handler orchestrations in the window > 0), never the row
+    -- count alone.
 END $$;
 
 COMMIT;
