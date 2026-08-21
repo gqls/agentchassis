@@ -41507,3 +41507,99 @@ against a NULL intermediate yields **NULL**, not false, so `x AND NOT y` silentl
 from both counts. **Wrap every jsonb key test in `COALESCE(…, false)`.** The tell was not
 suspicion — it was that the columns did not add up, which is the one kind of error a summary row
 cannot hide.
+
+---
+
+## 2026-08-21 — bugs_open/343 lane — three in one session, and two of them made a FAILED action look like a successful one
+
+### 1. I read a Warn-log count of 0 from a population that could not have produced the line
+
+**The claim I was about to make.** `bugs_open/040`'s `getController` fix logs
+`controller metadata invalid, trying next broker` when its guard fires. I wanted to know whether the
+guard was firing on the recurring `refused` bursts, so I grepped
+`kubectl -n ai-persona-system logs -l app=agent-chassis --since=48h` for it. **Zero.** The reading I
+nearly wrote: *"the guard is not firing, so the refused dials are not coming through getController."*
+
+**Why that zero could never have come out otherwise.** The Prometheus counter names the pods that
+carry the `refused` dials, and they are **not chassis Deployment pods** — they are spawned
+`app=dynamic-agent` Jobs (`agent-build-dispatch-loop-*`, `agent-landmine-verifier-*`,
+`agent-feed-ingester-*`, ~690 events each). A `-l app=agent-chassis` selector cannot return a line
+those pods emitted, whatever they logged. The grep was well-formed, exited 0, and answered a
+question about the wrong fleet.
+
+**What caught it:** running `topk(8, sum by (pod) (...))` in the same session and reading the pod
+names. They were `agent-*`, not `agent-chassis-*`.
+
+**The cheap check that would have:** **before believing a log grep, ask which pod could have produced
+the line, and check that your selector matches it.** One command:
+`kubectl -n ai-persona-system get pods -l <your selector> --no-headers | head` — if the pods it lists
+are not the pods your metric names, the grep is blind by construction. This is
+MEMORY [[logs-deploy-reads-one-pod-of-n]] one level up: not "one pod of N" but *the wrong N*.
+
+**The half that generalises, because it bit twice.** My control in that same command
+(`grep -ci kafka`) **never printed** — the pipeline was backgrounded on timeout and the second line
+was lost. So I had a zero with no control at all and read it anyway. **A control that did not run is
+not a control**, and a truncated output is the easiest place in the world to lose one.
+
+### 2. I wrote a council submission against the schema in CLAUDE.md instead of the one in the script
+
+CLAUDE.md summarises a submission as *"a `plan` (≤8 edits, each with file/operation/rationale/
+sketch)"*. I wrote exactly that: `plan` as a flat array. The real schema, in the trigger's own header,
+is `plan` as an **object** — `{summary, edits[], grounded_in, risks}` — with `symbol` on each edit and
+`operation` from a fixed vocabulary (`modify|add|remove|config_change`). `DRY_RUN=1` refused it in
+one line: `.plan missing`.
+
+**What caught it:** `DRY_RUN=1`, which CLAUDE.md tells you to use and which costs nothing.
+**The cheap check that would have:** read the header of the script you are about to run.
+A summary of a schema is not the schema, and this one had drifted — the summary omits `summary`,
+`risks` and `symbol`, all three of which reviewers read.
+
+### 3. THE EXPENSIVE ONE — a trigger printed a correlation and a "SAVE:" line for a dispatch that never happened, and then I corrupted the retry
+
+**What happened, in order.** `097_TRIGGER_council_review_v1.sh` prints its summary block and
+`SAVE: SUBMISSION_CORR=<uuid>` **before** it publishes. The publish is a single
+`kubectl -n kafka run -i --rm "kcat-cgate-$(date +%s)"`. Mine failed:
+`Error from server (AlreadyExists): pods "kcat-cgate-1787325969" already exists` — another session
+submitted in the same second, and the epoch-second pod name collided. `kubectl run` does not retry,
+so **no pod, no publish, no submission** — while my terminal held a correlation id and the word SAVE.
+
+**Why this is worse than an ordinary failure.** CLAUDE.md's own guidance for the next step is
+*"a missing orchestration row is almost always latency, not a dropped dispatch — do not retry on that
+evidence"*. That advice is correct for a submission that WAS published, and it is exactly the wrong
+advice here: it would have had me waiting ~30 minutes for a run that could never start, then longer,
+then concluding the fleet was slow.
+
+**Then I made it worse.** Re-running, I passed the previous correlation as
+`./097_TRIGGER... <file> RESUBMIT_CORR=<uuid>` — positional, with the `RESUBMIT_CORR=` prefix baked
+in. The script accepts a bare correlation as arg 2, so it took the **literal string**
+`RESUBMIT_CORR=cc782778-…` as the trail id. That round dispatched and ran, so the review is real —
+but the id the artifacts are written under is not a UUID, and the `commit-msg` **TRAILER GATE
+refused the commit**, correctly: a non-UUID join key resolves to nothing in the 098 report and
+forward-only forbids fixing it with an amend.
+
+**What caught it:** for the failed publish, checking `kubectl -n kafka get pods` (the right
+namespace — my first check looked in `ai-persona-system` and found nothing, which proves nothing)
+together with an empty `orchestration_states` row. For the malformed id, the trailer gate, which is
+the only thing in the chain that could still catch it that late.
+
+**The cheap checks that would have:**
+- **A trigger's printed id is not evidence it dispatched.** The summary is printed before the
+  publish, so read the LAST line of the command, not the loudest one. If it names an error, you have
+  no submission however complete the block above it looks.
+- **`RESUBMIT_CORR` is an ENV VAR (`RESUBMIT_CORR=<uuid> ./097...`), or a BARE uuid as arg 2** —
+  never `NAME=value` positionally. A script that takes `$2` verbatim cannot tell your prefix from an
+  id.
+- **Before waiting on a dispatch, prove it was published**, e.g. confirm the run pod completed, not
+  merely that the trigger printed something.
+
+**The generalisable half, and it is the reason this is one entry and not three.** All three are the
+same shape: **a command that exits looking successful while the thing it was supposed to do did not
+happen** — a grep against pods that cannot hold the line, a validation against a schema that is not
+the real one, a trigger that prints SAVE before it sends. Two of the three were caught by a machine
+(`DRY_RUN`, the trailer gate) and one by a human habit (reading the pod names). **The lesson worth
+carrying is that the loud output is not the outcome:** in each case the decisive information was in
+the quiet part — the last line, the exit status, the pod list — and in each case the confident part
+was printed first. Related: MEMORY [[a-post-fix-zero-needs-a-demand-control]],
+[[foreground-test-a-watcher-before-arming-it]] (a `||true` watcher reads as target silence),
+[[kcat-publish-silently-drops]] — which is this same trigger's sibling failure, in the opposite
+direction (kcat exiting 0 having sent nothing).
