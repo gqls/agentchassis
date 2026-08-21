@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~17:1xZ): **STEP 5 IS BUILT. THE FLIP IS COMMITTED** (`5fe010ada`, council `26186633`) — steps 1–4 live+proven, the census fully dispositioned, and the resolver now REFUSES a conflict. **Inert until a chassis roll carries it.** Remaining: read the verdict, verify post-roll, retire the read tolerance.
+# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~19:2xZ): **STEP 5 IS BUILT AND COUNCIL-APPROVED** (`5fe010ada`, corr `26186633`, APPROVED round 3). Steps 1–4 live+proven, census fully dispositioned, the resolver REFUSES a conflict. **Inert until a chassis roll carries it.** Remaining: the post-roll monitoring gate (§2.10 1b — an OBLIGATION), then the read-side tolerance retirement (handed to the parallel session).
 
 > **⚠ THIS FILE NOW CONSOLIDATES TWO.** `HANDOFF_2026-08-18b_continue_here.md` was still being
 > updated by a parallel session of this lane until ~10:17Z today (its audit results are folded in
@@ -496,7 +496,23 @@ failure is **pre-existing at HEAD** and another lane's.
 
 ### What is still owed on step 5
 
-1. **Read the verdict** (`26186633`). **R1 REVISE, R2 REVISE, R3 submitted ~19:2xZ** — both gatings
+1. ~~Read the verdict~~ **DONE: APPROVED at ROUND 3, 2026-08-21 19:16:34Z** (`26186633`),
+   *"approved with 1 advisory objection(s) — none high-severity"*, 6 abstained. Nothing owed on
+   review. Add the `Council-Reviewed:` trailer on the next commit that touches this work — `5fe010ada`
+   already carries `Council-Submitted: 26186633`, which the 098 report resolves automatically now the
+   verdict is approved, so **no amend is needed and forward-only forbids one anyway.**
+   **The three advisories, all acted on or explicitly owned:**
+   - **bug_historian (medium) — the render-side mechanism is untouched.** Accepted, and NOT closed by
+     this change: `missingkey=zero` turns an empty field into blanked content, guarded at 1 of 15
+     call sites (`bugs_open/342`). The flip chooses which silent outcome reaches that renderer; it
+     does not fix the renderer. **That is 342's, and this lane should not pretend otherwise.**
+   - **bug_historian (low) — the deferred companion fix.** Cited this platform's own history: *"a
+     renderer fix is inert until something re-renders — and nothing schedules a re-render"*. The
+     tolerance retirement is now **owned by the parallel session of this lane** with its corrected
+     safety argument handed over; track it, do not let it become the estate's own documented pattern.
+   - **guardian (low) — the residual.** Contained blast radius accepted; the residual (conflicting
+     pairs among the unobserved 358) is exactly what §2.10 1b's gate exists to watch.
+   *(Historical: R1 REVISE, R2 REVISE — both gatings*
    from `bug_historian`. R2's was that *"this council's own case index lists 085 under OPEN"*.
    **⚠ THE COUNCIL'S CASE INDEX IS STALE — expect this again on any recently-moved bug.** 085 is
    closed: `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ | grep 085_` returns one line,
