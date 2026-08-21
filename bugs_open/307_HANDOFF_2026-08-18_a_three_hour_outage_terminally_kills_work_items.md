@@ -445,3 +445,59 @@ attempt-consuming ladder's scaling (`triaged` + backoff×N on a non-transient fa
 terminal `failed` at `max_attempts`, and the terminal-decision guard skip — those three are the
 subject of the owner-authorised canary (next section when run; choreography in the lane
 RUNBOOK). §5's outage-scale acceptance remains a live watch by its nature.
+
+## §9b — 2026-08-21, the canary's verdict: the ladder works, and TWO defects around it fail the acceptance. **CLOSE BLOCKED.**
+
+Canary `f4f15466` (pool-web-tech.internal, `content_rewrite`, spec deliberately carrying neither
+`page_name` nor `page_id` → deterministic hard error at `load_page_record_action.go:197`,
+non-transient text, one item so the burst conjunction cannot fire). Predictions P1/P2 recorded
+before the first cycle. Three cycles driven through the REAL dispatch loop; row DELETEd after,
+verified 0 (the one `needs_diagnosis` filed in the window targets the NATURAL render failure on
+`system.internal`, not the canary).
+
+**What the ladder itself did — correct on every cycle it could run:**
+
+| cycle | ladder write | fingerprint |
+|---|---|---|
+| attempt 1 | `triaged`, `attempt_count=1`, `retry_after` **+30 m** (10:33:32Z), claim cleared, error preserved | exactly WII-024's stated acceptance |
+| attempt 2 | `triaged`, `attempt_count=2`, `retry_after` **+60 m** (10:36:40Z) | backoff **scales** 30m×N |
+| attempt 3 (terminal) | **the write ERRORED — SQLSTATE 42P18** | see defect 2 |
+
+**Defect 1 — `bugs_open/344` (filed + committed `25bb9b91a`): the loop's `mark_complete`
+overwrote the re-triaged row to `complete` ~2 s after cycles 1 AND 2.** The child ends via a
+success-labelled `complete_workflow`, `notifyParentOfSuccess` hardcodes `Status: "complete"`,
+gate 1 (196's fix) reads exactly that, and `triaged` is in no completion guard — harmless
+pre-307, load-bearing the moment this fix made `triaged` the post-failure state. **A natural
+case preceded the canary by 42 s**: `0c65f9fa` (mortgagecalculator.co.uk, real render failure) —
+ladder stamp 10:32:50Z, `complete` 10:32:52Z. Fingerprint: `retry_after > completed_at` on a
+`complete` row. Net: the §2.2 daily-bleed population converts from honest reds to FALSE GREENS.
+344 carries the eight-arm chain, the fix candidates (1: completion refuses a future
+`retry_after` — discriminating and contained) and the damage census.
+
+**Defect 2 — the ladder's TERMINAL transition has never worked: SQLSTATE 42P18, both writers.**
+`computeLadder` passes backoff **0** exactly on the terminal attempt (`:397-403`);
+`writeCountingLadder`'s Go-side branch then collapsed the `retry_after` fragment, dropping `$4`
+from the statement text while the bind list kept five parameters — "could not determine data
+type of parameter $4" at PREPARE, so the terminal write never lands, the item stays `claimed`,
+a sweep later resets it, and it re-dispatches **for ever at attempt max−1** (natural victim
+`95fe67da`, `needs_new_component`, remortgagecalculator.uk, cycling now; natural
+`fail_work_item` hit 10:41:29Z). The 15 sqlmock tests passed throughout — a mock matches text
+and never TYPES a placeholder. **FIXED this session, `bc80dde4a`** (statement + bind list
+assembled together in both writers; zero-backoff folded into the SQL CASE; the dead
+column-absent fallback repaired as a side effect; placeholder-audit + text-invariance tests,
+both mutation-proven), `Council-Submitted: df0748bf-a22e-4e27-ba40-c70adaa11130` — **inert
+until the next chassis roll.** WRONG_CALLS row filed: fifteen tests proved the writer and none
+asked what the next writer does to the row, and none could 42P18.
+
+**Guard-skip arm: not demanded.** The mid-cycle `wont_fix` flip was overtaken by the two
+discoveries (cycles 1–2 completed before a flip window existed; cycle 3 errored). Passive
+evidence only (refusal rows' decisions standing, §9) plus the mutation-proven tests. Owed to
+whoever re-runs the canary post-roll.
+
+**Consequence for the close.** The owner's morning ruling — close on fair-weather proof — had
+as its premise that the proof would succeed. It did not: of the canary's three arms, scaling
+PASSED, honest-terminal FAILED (defect 2, fixed-not-live), and the re-triage's effect is
+negated by defect 1 (open, unowned). **307 stays OPEN.** Its close bar is now: the 42P18 fix
+live at the artefact on the next roll, `344` fixed or explicitly dispositioned by the owner,
+then the SAME canary recipe re-run clean end-to-end (all three arms + the guard flip), with
+§5's outage acceptance converted to the standing watch as already ruled.

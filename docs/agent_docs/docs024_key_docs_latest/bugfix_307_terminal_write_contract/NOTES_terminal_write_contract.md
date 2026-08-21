@@ -303,3 +303,33 @@ the **honest terminal** `failed` at 3 of 3 (§5(c) live), and the **guard skip**
 authorised a synthetic canary for exactly these; the choreography, its race condition and its
 teardown are in this lane's RUNBOOK ("The close canary"). Not yet run — verified 0 rows matching
 `canary_307%` at 10:3xZ.
+
+## 2026-08-21, midday — the canary's verdict: ladder right, and two defects around it. Close BLOCKED.
+
+Full record in the bug file §9b; this is the working log of how it unfolded.
+
+- Canary f4f15466 inserted 10:31:34Z (empty dispatchable queue → picked on the next 60s tick).
+  Attempt 1: ladder perfect (`triaged`/1/+30m, claim cleared, error preserved) — **then
+  `complete` two seconds later.** That is `bugs_open/344`: mark_complete runs on every
+  returned saga, the complete_error child reports plain "complete", and `triaged` is in no
+  completion guard. A NATURAL case (0c65f9fa, mortgagecalculator) did the same 42s earlier.
+- Attempt 2: scaling proven (+60m), false-greened again.
+- Attempt 3: **the terminal write itself errored — SQLSTATE 42P18.** backoff=0 on the terminal
+  attempt collapses the retry_after fragment, $4 leaves the text but not the bind list. Both
+  writers share it (a natural fail_work_item hit at 10:41:29Z). Terminal `failed` has been
+  UNREACHABLE through the Go ladder since the roll; items cycle at max−1 via the sweep
+  (95fe67da is doing it now). Fixed `bc80dde4a` (statements+args assembled together, class
+  pinned by a placeholder-audit test, mutation-proven), Council-Submitted `df0748bf`, inert
+  until the next roll. WRONG_CALLS row: none of the fifteen tests could 42P18, and none asked
+  what the NEXT writer does to the row.
+- Canary DELETEd, verified 0. The needs_diagnosis filed in the window is the natural render
+  failure's, not ours. Guard-skip arm not demanded (overtaken by events) — owed to the
+  post-roll re-run.
+- Peer coordination: the original 307 session made contact mid-canary; division agreed (they
+  take 341 candidate 2, we hold 307 + the 42P18 fix; 344 filed unowned). CONTRIB sent to the
+  mcalc lane, whose "nothing flagged the item" second-defect account is contradicted by their
+  own row's `attempt_count=1` + `retry_after` stamp — their 090 run 0b498cf8 will adjudicate.
+
+**New close bar** (§9b): 42P18 fix live at the artefact on the next roll → 344 fixed or
+owner-dispositioned → the same canary recipe re-run clean, all three arms plus the guard flip →
+then close with §5's outage arm as the standing watch, per the owner's morning ruling.

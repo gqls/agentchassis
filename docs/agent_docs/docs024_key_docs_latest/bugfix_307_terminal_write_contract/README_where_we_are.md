@@ -187,3 +187,32 @@ refuse to trample a human decision, and only then be declared failed for good. Y
 that this morning, along with closing the bug once the drill passes — with the "next real
 outage leaves nothing dead behind" test kept as a standing watch rather than a reason to hold
 the file open for weeks. Then the ticket closes and the drill row gets deleted.
+
+## 2026-08-21, midday — the drill found two real faults, so the ticket stays open
+
+The supervised drill ran this morning, and it earned its keep twice over.
+
+The good news first: the retry machinery itself does exactly what you asked. The doomed test
+item was put back in the queue with its first life spent and a half-hour cooldown; on its
+second failure the cooldown correctly doubled to an hour. And overnight, two real jobs that hit
+a passing infrastructure blip were requeued without losing a life and finished fine on retry.
+
+The two faults. First: two seconds after the retry machinery correctly requeues a failed item,
+a different piece of housekeeping — the one that marks finished work as done — comes along and
+stamps it "complete", because the failed build still ends with a polite "I finished" message.
+So a failed piece of work is recorded as done and its retry is cancelled. This started the
+moment our fix went live: before, the same situation ended in an honest "failed" which that
+housekeeping refuses to touch. A real page on the mortgage calculator site hit this
+overnight — its record says done, its page never got the content. Filed as bug 344 with the
+repair options costed.
+
+Second: when an item genuinely runs out of lives, the write that should mark it permanently
+failed turns out to crash on a one-character database technicality that our fifteen tests
+could never see (they use a stand-in database that doesn't check that particular rule). So
+nothing can currently run out of lives — a doomed item just cycles for ever, quietly burning a
+real build attempt each lap. That one I have fixed today, with a new kind of test that checks
+the rule the stand-in can't; the fix rides the next deploy and is with the review council now.
+
+So the ticket does not close today, and that's the system working as designed: the drill
+existed precisely to catch what the tests couldn't. The path to closing is now: next deploy
+carries the crash fix, a decision on bug 344, then the same drill re-run clean.
