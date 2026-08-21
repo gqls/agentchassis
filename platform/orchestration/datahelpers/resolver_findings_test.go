@@ -40,7 +40,9 @@ func captureResolverFindings(t *testing.T) *[]ResolverFinding {
 	return got
 }
 
-// The conflict fixture from TestWholeTreeSearchConflictWarnsAndResolvesStableWinnerPhase1.
+// The conflict fixture from TestWholeTreeSearchConflictWarnsAndRefusesPhase2.
+// Under Phase 2 (2026-08-21) it resolves to nil; the RECORDING is what these tests
+// are about, and it is unchanged by the flip.
 func conflictFixture() map[string]interface{} {
 	return map[string]interface{}{
 		"zebra": map[string]interface{}{"purpose": "shallow-z"},
@@ -53,8 +55,9 @@ func TestConflictingCandidatesAreRecordedOncePerOccurrence(t *testing.T) {
 	got := captureResolverFindings(t)
 
 	value, logs := observedSearch(t, conflictFixture(), "purpose")
-	if value != "shallow-a" {
-		t.Fatalf("purpose = %v, want \"shallow-a\": the recorder must not change the Phase 1 answer", value)
+	if value != nil {
+		t.Fatalf("purpose = %v, want nil: Phase 2 refuses a conflict, and registering a recorder "+
+			"must not change that answer either way", value)
 	}
 	if n := logs.FilterMessage(conflictWarnMsg).Len(); n != 1 {
 		t.Fatalf("conflict WARN fired %d times, want 1 — the log line stays alongside the row", n)
@@ -164,8 +167,9 @@ func TestNoRecorderIsLogOnlyAndUnchanged(t *testing.T) {
 	SetResolverFindingRecorder(nil)
 
 	value, logs := observedSearch(t, conflictFixture(), "purpose")
-	if value != "shallow-a" {
-		t.Fatalf("purpose = %v, want shallow-a with no recorder", value)
+	if value != nil {
+		t.Fatalf("purpose = %v, want nil with no recorder — the refusal is not conditional on "+
+			"a row being written", value)
 	}
 	if n := logs.FilterMessage(conflictWarnMsg).Len(); n != 1 {
 		t.Fatalf("conflict WARN fired %d times with no recorder, want 1 — the line is not conditional on the row", n)
@@ -174,14 +178,20 @@ func TestNoRecorderIsLogOnlyAndUnchanged(t *testing.T) {
 
 // A recorder must never take the resolver down with it: a panic inside it is
 // recovered, the answer stands, and the loss is logged.
+//
+// PHASE 2 NOTE: the "answer stands" half is now nil-vs-nil and so proves little on
+// its own — the load-bearing assertions here are that the test COMPLETES (the panic
+// did not escape) and that the loss is logged exactly once. Both are unaffected by
+// the flip. Do not delete this on the grounds that the value check looks vacuous.
 func TestPanickingRecorderCannotChangeTheResolversAnswer(t *testing.T) {
 	SetResolverFindingRecorder(func(ResolverFinding) { panic("sink exploded") })
 	t.Cleanup(func() { SetResolverFindingRecorder(nil) })
 
 	core, logs := observer.New(zapcore.WarnLevel)
 	value := findFieldRecursive(conflictFixture(), "purpose", 0, zap.New(core))
-	if value != "shallow-a" {
-		t.Fatalf("purpose = %v, want shallow-a: a recorder panic must be recovered", value)
+	if value != nil {
+		t.Fatalf("purpose = %v, want nil: a recorder panic must be recovered and must not "+
+			"resurrect the pre-Phase-2 pick", value)
 	}
 	if n := logs.FilterMessage("resolver finding recorder panicked — the resolver's answer stands, the row is lost").Len(); n != 1 {
 		t.Errorf("recorder panic logged %d times, want 1 — a swallowed loss reads as recorded", n)

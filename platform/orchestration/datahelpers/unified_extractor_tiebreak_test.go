@@ -11,6 +11,13 @@ package datahelpers
 // unwrap-hop candidate won every time, by append order alone. No test pinned
 // that, so a reordered collector would have flipped the winner silently.
 //
+// PHASE 2 (2026-08-21): the search now REFUSES a conflict, so every fixture here
+// returns nil — and every one of these fixtures IS a conflict, which is the point
+// of them. The ranking they pin is therefore asserted where it still lives: the
+// WARN's `winner_path`, which names the candidate the ranking WOULD have picked.
+// The guarantee is unchanged; only the observation point moved. A test asserting
+// nil alone would pass vacuously, which is why none of them do.
+//
 // Mutation proof (run before committing): invert the rank comparison in
 // findFieldRecursive's sort (`>` for `<`) → TestTieBreakUnwrapHopBeatsSibling
 // FAILS. Remove the sort.Strings in tryUnwrapMapPatterns →
@@ -41,13 +48,15 @@ func tieBreakFixture() map[string]interface{} {
 
 func TestTieBreakUnwrapHopBeatsSibling(t *testing.T) {
 	value, logs := observedSearch(t, tieBreakFixture(), "current_page")
-	page, _ := value.(map[string]interface{})
-	if page["name"] != "disclaimer" {
-		t.Fatalf("current_page = %v, want the ~unwrap (input_data) candidate \"disclaimer\" — "+
-			"the declared tie-break (direct ≺ unwrap ≺ sibling) must beat sorted-key order at equal depth", value)
+	if value != nil {
+		t.Fatalf("current_page = %v, want nil: Phase 2 refuses a conflict", value)
 	}
-	if n := logs.FilterMessage(conflictWarnMsg).Len(); n != 1 {
-		t.Fatalf("conflict WARN fired %d times, want 1 — the fixture IS a conflict; the tie-break resolves it, it does not hide it", n)
+	// The ~unwrap hop candidate (the dispatched page) must still RANK first over
+	// the sibling that sorts earlier — the declared tie-break beating sorted-key
+	// order at equal depth is the whole of bugs_open/306.
+	if wp := warnFields(t, logs)["winner_path"]; wp != "~unwrap.current_page" {
+		t.Fatalf("winner_path = %v, want \"~unwrap.current_page\" — the declared tie-break "+
+			"(direct ≺ unwrap ≺ sibling) must beat sorted-key order at equal depth", wp)
 	}
 }
 
@@ -61,10 +70,13 @@ func TestTieBreakDirectMatchBeatsUnwrapHop(t *testing.T) {
 			"current_page": map[string]interface{}{"name": "via-unwrap"},
 		},
 	}
-	value, _ := observedSearch(t, data, "current_page")
-	page, _ := value.(map[string]interface{})
-	if page["name"] != "root-direct" {
-		t.Fatalf("current_page = %v, want the root direct match (depth 0 beats depth 1 regardless of rank)", value)
+	value, logs := observedSearch(t, data, "current_page")
+	if value != nil {
+		t.Fatalf("current_page = %v, want nil: Phase 2 refuses a conflict", value)
+	}
+	if wp := warnFields(t, logs)["winner_path"]; wp != "current_page" {
+		t.Fatalf("winner_path = %v, want the root direct match \"current_page\" "+
+			"(depth 0 beats depth 1 regardless of rank)", wp)
 	}
 }
 
@@ -81,10 +93,13 @@ func TestTieBreakDepthStillOutranksRank(t *testing.T) {
 			"current_page": map[string]interface{}{"name": "shallow-sibling"},
 		},
 	}
-	value, _ := observedSearch(t, data, "current_page")
-	page, _ := value.(map[string]interface{})
-	if page["name"] != "shallow-sibling" {
-		t.Fatalf("current_page = %v, want the shallower sibling — depth is primary, rank is the tie-break only", value)
+	value, logs := observedSearch(t, data, "current_page")
+	if value != nil {
+		t.Fatalf("current_page = %v, want nil: Phase 2 refuses a conflict", value)
+	}
+	if wp := warnFields(t, logs)["winner_path"]; wp != "zz_sibling.current_page" {
+		t.Fatalf("winner_path = %v, want the shallower sibling \"zz_sibling.current_page\" — "+
+			"depth is primary, rank is the tie-break only", wp)
 	}
 }
 
@@ -104,10 +119,13 @@ func TestTieBreakRankIsInheritedBelowTheFirstHop(t *testing.T) {
 			},
 		},
 	}
-	value, _ := observedSearch(t, data, "current_page")
-	page, _ := value.(map[string]interface{})
-	if page["name"] != "under-hop" {
-		t.Fatalf("current_page = %v, want the unwrap-hop subtree's candidate at equal depth 2", value)
+	value, logs := observedSearch(t, data, "current_page")
+	if value != nil {
+		t.Fatalf("current_page = %v, want nil: Phase 2 refuses a conflict", value)
+	}
+	if wp := warnFields(t, logs)["winner_path"]; wp != "~unwrap.wrapper.current_page" {
+		t.Fatalf("winner_path = %v, want the unwrap-hop subtree's candidate at equal depth 2 — "+
+			"the rank is set by the FIRST hop and inherited, not re-derived per level", wp)
 	}
 }
 
@@ -144,27 +162,33 @@ func TestRankDeclarationChangesNoExistingWinner(t *testing.T) {
 		name  string
 		data  map[string]interface{}
 		field string
-		want  interface{}
+		want  interface{} // the REPORTED winner path, not the resolved value (Phase 2)
 	}{
 		{"conflict-shallow-a", map[string]interface{}{
 			"zebra": map[string]interface{}{"purpose": "shallow-z"},
 			"alpha": map[string]interface{}{"purpose": "shallow-a"},
 			"mid":   map[string]interface{}{"nested": map[string]interface{}{"purpose": "deep"}},
-		}, "purpose", "shallow-a"},
+		}, "purpose", "alpha.purpose"},
 		{"shallowest-beats-earlier-deep", map[string]interface{}{
 			"aaa": map[string]interface{}{"nested": map[string]interface{}{"purpose": "deep"}},
 			"zzz": map[string]interface{}{"purpose": "shallow"},
-		}, "purpose", "shallow"},
+		}, "purpose", "zzz.purpose"},
 		{"four-way-sorted", map[string]interface{}{
 			"a": map[string]interface{}{"asset_id": "one"},
 			"b": map[string]interface{}{"asset_id": "two"},
 			"c": map[string]interface{}{"asset_id": "three"},
 			"d": map[string]interface{}{"asset_id": "four"},
-		}, "asset_id", "one"},
+		}, "asset_id", "a.asset_id"},
 	}
 	for _, c := range cases {
-		if got := findFieldRecursive(c.data, c.field, 0, zap.NewNop()); got != c.want {
-			t.Errorf("%s: got %v, want %v — the rank declaration must not move any previously pinned winner", c.name, got, c.want)
+		value, logs := observedSearch(t, c.data, c.field)
+		if value != nil {
+			t.Errorf("%s: resolved %v, want nil — Phase 2 refuses a conflict", c.name, value)
+			continue
+		}
+		if got := warnFields(t, logs)["winner_path"]; got != c.want {
+			t.Errorf("%s: reported winner %v, want %v — the rank declaration must not move any "+
+				"previously pinned winner", c.name, got, c.want)
 		}
 	}
 }

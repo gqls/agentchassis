@@ -72,8 +72,15 @@ func TestUnresolvedFieldStillSearchesAndStillRecords(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExtractActionInputs: %v", err)
 	}
-	if v := inputs.Get("target"); v != "wrong-a" {
-		t.Fatalf("target = %q, want \"wrong-a\" (stable shallowest-first winner unchanged)", v)
+	// PHASE 2 (2026-08-21): the search now REFUSES a conflict, so the field arrives
+	// ABSENT rather than carrying "wrong-a". That is the point of the flip — the
+	// decoys were never the caller's data. What this test still pins is the PRUNE's
+	// overreach guard: an unresolved field must keep being SEARCHED and RECORDED,
+	// which the WARN and finding assertions below check. Before the flip this line
+	// read `!= "wrong-a"`.
+	if v := inputs.Get("target"); v != "" {
+		t.Fatalf("target = %q, want empty: Phase 2 refuses the conflict, so an unresolved "+
+			"field with only conflicting decoys arrives absent", v)
 	}
 	if n := logs.FilterMessage(conflictWarnMsg).Len(); n != 1 {
 		t.Fatalf("conflict WARN fired %d times, want 1 — an unresolved field must keep searching and recording", n)

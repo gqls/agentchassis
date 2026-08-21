@@ -106,8 +106,15 @@ func TestResolverControl_PreRenameShapeStillConflicts(t *testing.T) {
 
 	out := datahelpers.ExtractFields(tree, []string{"current_page"}, zap.NewNop())
 
-	if _, ok := out["current_page"].(map[string]interface{}); !ok {
-		t.Errorf("pre-rename shape: winner should still be the page record (306's tie-break), got %T", out["current_page"])
+	// PHASE 2 (2026-08-21): a conflict now resolves to NOTHING, so the pre-rename
+	// shape yields no value at all. Before the flip this asserted the page RECORD
+	// won on 306's tie-break. The control's load-bearing half is unchanged and is
+	// the assertion below — that the shape still records a CONFLICT. If that ever
+	// stops firing, the instrument has gone quiet and the test above is passing
+	// blind, which is the only thing this control exists to catch.
+	if out["current_page"] != nil {
+		t.Errorf("pre-rename shape: Phase 2 refuses a conflict, so nothing should resolve; got %T",
+			out["current_page"])
 	}
 	if n := conflictsFor(*findings, "current_page"); n == 0 {
 		t.Fatalf("control failed: the pre-rename shape recorded no conflict — the instrument is silent, " +

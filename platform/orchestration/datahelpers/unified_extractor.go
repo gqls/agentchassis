@@ -517,12 +517,18 @@ const (
 // any picking rule is a guess, and the owner's stated ranking forbids a guess:
 // no field at all is better than a wrong field.
 //
-// PHASE 1 (this build — instrument first, refuse second): conflicts still
-// resolve, to the STABLE shallowest-first winner, and emit the WARN below naming
-// the field, every candidate path, and the winner. PHASE 2 (a later build)
-// flips conflicts to refusal. Do not flip without reading RFC_029 §9 D2's
-// precondition: zero conflict WARNs observed over the window, or every observed
-// field/caller pair given an explicit mapping first.
+// PHASE 2 IS THIS BUILD (flipped 2026-08-21, RFC_029 §10.13 step 5): a conflict
+// resolves to NOTHING. The WARN below still fires and still names the field, every
+// candidate path and the candidate the ranking WOULD have picked — the instrument
+// is unchanged apart from `phase`, which now reads "2-refuse".
+//
+// PHASE 1 (builds before 2026-08-21) resolved conflicts to the stable
+// shallowest-first winner and warned. If you are reading a conflict row, check its
+// `phase` before assuming which behaviour produced it.
+//
+// The ranking below is therefore NOT dead code: it still decides what
+// `winner_path` reports, which is the first thing anyone tracing an absent field
+// wants to know. bugs_closed/306 is why it is declared rather than accidental.
 func findFieldRecursive(
 	data interface{},
 	fieldName string,
@@ -563,15 +569,18 @@ func findFieldRecursive(
 		for i, c := range candidates {
 			paths[i] = c.path
 		}
-		// THE PHASE 1 INSTRUMENT (RFC_029 §9 D2). The observation window reads
-		// this exact message; a pipeline that appears here depends on the old
-		// coin flip landing right and needs an explicit mapping BEFORE Phase 2
-		// flips conflicts to refusal.
+		// THE PHASE 2 INSTRUMENT (RFC_029 §9 D2). Same message, same fields, so
+		// the observation window's queries keep working across the flip — but
+		// `phase` now reads "2-refuse", which is how a reader tells WHICH BUILD
+		// produced a row without guessing from its timestamp. `winner_path` is
+		// still reported: nothing is resolved from it any more, but it names the
+		// candidate the old ranking WOULD have picked, which is the single most
+		// useful thing to know when tracing a field that has stopped arriving.
 		logger.Warn("aggressive search: conflicting candidates",
 			zap.String("field", fieldName),
 			zap.Strings("candidate_paths", paths),
 			zap.String("winner_path", winner.path),
-			zap.String("phase", "1-resolve-and-warn"),
+			zap.String("phase", "2-refuse"),
 		)
 		// ...and PERSISTED, every occurrence (resolver_findings.go): the log
 		// line above scrolls out of a chassis pod in ~90s, and the window is
@@ -584,9 +593,33 @@ func findFieldRecursive(
 				"field":           fieldName,
 				"candidate_paths": paths,
 				"winner_path":     winner.path,
-				"phase":           "1-resolve-and-warn",
+				"phase":           "2-refuse",
 			},
 		})
+
+		// PHASE 2, THE FLIP (RFC_029 §9 D2, owner-delegated ruling 2026-08-15;
+		// path ruled 2026-08-18, sequence A). Conflicting candidates resolve to
+		// NOTHING. Any picking rule here is a guess, and the owner's stated
+		// ranking forbids a guess: no field at all is better than a wrong field.
+		//
+		// The precondition was NOT the "zero WARNs" branch — that branch can
+		// never be sufficient, because a row requires the candidates to DIFFER
+		// and a lone wrong candidate substitutes silently (bugs_open/330 §4,
+		// bugs_open/350). It was the OTHER branch: every observed field/caller
+		// pair given an explicit mapping first. All 19 pairs the instrument saw
+		// between 2026-08-16 and 2026-08-21 are dispositioned — 11 closed by the
+		// prune/gate/rename, 2 by their own existing wires, 3 recorded as
+		// "absence is correct", and the three live ones fixed and PROVEN at the
+		// artefact: pbh/page_type (mig 515), tg/reason (mig 512), and
+		// bdl/commit_sha (mig 537). The record is
+		// docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md
+		// §2.4–§2.9.
+		//
+		// A caller that now gets nil where it used to get a value is a caller
+		// that was being handed a guess. If that breaks something, the fix is an
+		// explicit mapping at the step (`<field>?: <path>` — the OPTIONAL-EXPLICIT
+		// marker, first proven live by mig 515), never a return to picking.
+		return nil
 	}
 
 	logger.Debug("whole-tree-search resolved",
