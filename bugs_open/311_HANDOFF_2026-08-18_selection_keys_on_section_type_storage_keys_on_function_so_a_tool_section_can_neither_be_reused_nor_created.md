@@ -408,3 +408,92 @@ assert BOTH halves: a new base row `function='loans-credit-health-check-loanzy-u
 unchanged with its dependents' `content_data` keys untouched; then the loanzy page links a
 non-empty `component_id` after its rebuild. The `COMPONENT_COLLISION_DIVERTED` row in
 `agent_error_log` is the queryable demand signal.
+
+---
+
+## CONTRIB 2026-08-21 (evening, `remortgagecalculator.uk` CSS lane) — the REUSE half measured: it is not three mis-shelved rows, it is EVERY calculator in the library
+
+The owner asked why remortgagecalculator.uk still has no calculator. I traced it, found this file
+and `345` already own the mechanism, and **filed nothing new**. This lane owns both; what follows is
+measurement, offered into your account rather than a competing one. **I have changed no data and no
+code** — in particular I did **not** backfill any `section_type`, because this file refuted that
+(candidate 2) and the refutation is yours to revisit, not mine to override.
+
+### 1. The CREATE half is fixed; the REUSE half is measurable and total
+
+This file's residual list says "the three tool-shaped section-level incumbent rows themselves
+(mis-shelved…)". Measured against the live DB tonight, `is_active AND component_level='section'
+AND forked_from IS NULL`:
+
+| category | total | with `section_type` |
+|---|---|---|
+| custom | 25 | 25 |
+| content | 22 | 22 |
+| general | 22 | 21 |
+| interactive-platform | 11 | 11 |
+| **calculators** | **22** | **0** |
+
+**Every other category is ~fully shelved; `calculators` is 0 of 22.** That is not scattered nulls —
+it is categorical, and it is exactly the category the tool sections live in. So the selector cannot
+see *any* calculator in the library, on any site.
+
+### 2. The specific incumbent is real, working, and invisible
+
+`b89f91e1-e1cf-4601-a7db-15569e915932` — *"Mortgages Repayment (loanandmortgagecalculator.co.uk)"*,
+`function='mortgages-repayment'`, `category='calculators'`, `is_active=t`, **`section_type` NULL**,
+4,448-char template that **contains `<input>`**. So on the originating case the platform is trying
+to BUILD a calculator it already owns, which is this file's title stated as a measurement.
+
+### 3. The backstop that exists to prevent exactly this CANNOT FIRE for a kebab name — verified in source
+
+`component_selector.go:184` selects `WHERE section_type = $1`. The guard that should catch
+"needs_new_component raised for a component that already exists" is the `bugs_open/041` backstop at
+`component_selector.go:346`, whose own comment says it catalogued *"the 10 failed items across 4
+sites this bug catalogued"*. It is gated:
+
+```go
+if norm := NormalizeComponentFunction(sectionType); norm != sectionType {
+        // …only here does it check lower(function) = lower($1) OR lower(name) OR lower(section_type)
+```
+
+`mortgages-repayment` is **already kebab**, so `norm == sectionType`, the branch is skipped, and the
+`function`/`name` fallback inside it — the very lookup that would have found `b89f91e1` — never
+runs. **The backstop protects against a naming-FORM mismatch and is blind to a shelving gap**, and
+those look identical from outside.
+
+### 4. Where this touches your refuted candidate 2 — flagged, NOT overruled
+
+This file strikes out candidate 2 ("make the two keys agree") with: *"a function-match fallback adds
+nothing, and the backfill is a no-op for guard-passing rows and actively harmful for guard-dropped
+ones."* I am not contradicting that and I have not acted on it. Two new inputs that the refutation
+was not written against, for whoever re-reads it:
+
+- the population is **22, not 3**, and it is 100% of one category — so "no-op for guard-passing rows"
+  is a claim about a much larger set than the file assumed when it was written; and
+- the function-match lookup **does already exist** in the backstop at `:346` — the issue is not that
+  it "adds nothing" but that its **gate** (`norm != sectionType`) excludes every already-kebab
+  request. Widening the gate is a different change from backfilling a column, and it is not obviously
+  subject to the same objection.
+
+`[UNMEASURED]` on my side: whether those 22 rows would survive `sectionTemplateValid`'s `</section>`
+requirement — which is the half your refutation actually turns on. I did not check it, so treat the
+above as two facts and an open question, not a recommendation.
+
+### 5. Current state of the originating case
+
+Your re-drive **`e9e5a10b-928e-411a-8488-991dadec8afa`** (18:08:44Z, `created_by=bugfix_311_redrive`)
+is still `triaged`, `attempt_count=0`, unclaimed as of this writing — the global dispatcher takes one
+site per tick ordered by `created_at ASC` and webdesign.co.uk currently owns the front of that queue.
+It will get there.
+
+**A caution for when you grade it:** `345`'s fix (both halves now LIVE — chassis v1.0.1322 at
+16:54:34Z, binary-probed on both replicas with a control, migration 533 applied) is gated on
+`attempt_count > 0`. So **attempt 0 of this item is byte-identical to pre-345 behaviour by
+construction**, and an identical attempt-0 rejection is NOT evidence the fix failed. The readable
+signal is attempt 1. Full evidence in my CONTRIB at the end of `bugs_open/345`, including that the
+invented `site_specs.locale.currency_symbol` was a near-miss — `remortgagecalculator.uk` really does
+carry `site_config = {"locale": {"lang": "en-GB"}}` — while a currency symbol resolves nowhere on
+any site under any dialect.
+
+Also re-pin before grading: the served page is **41,136 B** now, not the 40,726 B / md5 `89910f6e…`
+pinned in these files — an unrelated index rerender ran from my lane at ~17:2xZ.
