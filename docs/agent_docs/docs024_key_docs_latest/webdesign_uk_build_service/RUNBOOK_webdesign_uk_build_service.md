@@ -895,3 +895,91 @@ DATA_DIR=/tmp/sitechat-proof BIND_ADDR=127.0.0.1:18082 timeout 6 /usr/local/bin/
 Success = `fetched N facts` + `live mode, site=<domain>` + a `/health` 200 on 18082
 within 3s. Used 2026-08-16 for relojistas.com (13 facts, came up), noted.co.uk (zero
 facts, refused), and the mismatch case (refused).
+
+## Editing `evidence_base` safely: the reconstruction guard, and proving it can fail (2026-08-21)
+
+Every register edit here supersedes a row. The guard that matters is not "did the new
+value land" (it always does) but "did ONLY the intended edits land". Assert it by
+**reconstruction** — apply the same `replace()` chain to the superseded text and demand
+equality:
+
+```sql
+expect := replace(replace(pwb, '<anchor 1 old>', '<anchor 1 new>'),
+                          '<anchor 2 old>', '<anchor 2 new>');
+IF expect IS DISTINCT FROM wb
+  THEN RAISE EXCEPTION 'writer_block is not the old text plus exactly the named edits'; END IF;
+```
+
+**Gotcha:** asserting *"the new substring is present"* cannot see an unintended THIRD
+edit riding along in the same transaction. Reconstruction can. Pair it with an
+exactly-once check on each anchor in the OLD text, because `replace()` is happy to fire
+twice and silently:
+
+```sql
+n := (length(pwb) - length(replace(pwb, '<anchor>', ''))) / length('<anchor>');
+IF n <> 1 THEN RAISE EXCEPTION 'anchor occurred % times, expected 1', n; END IF;
+```
+
+**Gotcha, and it is the one that bites:** a reconstruction guard proves no *unintended*
+edit. It cannot prove the intended ones mattered. Add OUTCOME guards next to it — the
+retired string is gone, the attested string is present — and see the mutation recipe
+below for why they are not redundant.
+
+### Proving the guard can fail, before you apply anything
+
+Rolled-back transactions against the real row. **A guard that has only seen the state it
+was written for proves nothing.**
+
+```bash
+SP=<scratch dir>; F=<your SQL file>
+# strip everything after COMMIT, append ROLLBACK, inject one mutation per variant
+python3 - "$F" "$SP" <<'PY'
+import sys; src=open(sys.argv[1]).read(); body=src.split("\nCOMMIT;")[0]
+open(sys.argv[2]+"/clean.sql","w").write(body+"\nROLLBACK;\n")
+# ... variants: an extra edit; the intended edit missing its anchor; a fact mutated
+PY
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < $SP/clean.sql
+```
+
+**Read the clean run's output, do not just check for absence of ERROR.** It must print
+`BEGIN` → `INSERT 0 1` → `DO` → `ROLLBACK`. A guard that passes because the INSERT
+matched nothing looks identical at the grep.
+
+**Isolating outcome guards.** Run them against the real PRE-fix row with the
+reconstruction guard removed and every other outcome guard deleted (not commented, and
+not neutered by rewriting the first line of a multi-line `IF` — a two-condition
+`IF a OR b` neutered to `IF false OR b` still fires, which makes every variant report the
+same earlier error and look like a working test). Delete the whole `IF … END IF;` block.
+
+### claimscan probe sets: BOTH halves, or the run is worthless
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c \
+  "SELECT ss.data::text FROM site_specs ss JOIN sites s ON s.id=ss.site_id
+    WHERE s.domain='webdesign.uk' AND ss.aspect='evidence_base' AND ss.is_current" > eb.json
+# TSV: name <TAB> slot <TAB> base64(html) <TAB> page_type   (the 4th column matters)
+go run ./cmd/claimscan -evidence eb.json -components probe.tsv
+```
+
+**Gotcha:** must-pass candidates alone cannot distinguish a clean scan from a dead one.
+Put must-BLOCK controls in the same run. On 2026-08-21 that is what proved the live
+`writer_block`'s own turnaround instruction was banned copy, and it is what caught a
+replacement instruction that was itself banned (*"in one day"* — the negation guard
+scans backwards only a short way, so a leading `Never` does not cover the third item of
+a list).
+
+**Scanning `writer_block` itself** is worth doing and nobody thinks to, because it is
+prompt text rather than page text. Split it by paragraph so findings are locatable:
+
+```bash
+psql … -At -c "SELECT data->>'writer_block' FROM site_specs WHERE …" > wb.txt
+python3 -c "
+import base64,sys
+for i,p in enumerate([x.strip() for x in open('wb.txt') if x.strip()]):
+    print('wb_%02d\tbody\t%s\tservice' % (i, base64.b64encode(p.encode()).decode()))" > wb.tsv
+go run ./cmd/claimscan -evidence eb.json -components wb.tsv
+```
+
+Expect legitimate hits: prohibitions quote their own banned tokens on purpose
+(*"never write 'no refund'"*). Read each one rather than counting them.

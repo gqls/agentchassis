@@ -22,8 +22,13 @@ site, no pre-sales service, delivery "two or three days". **Every page now carri
 attested turnaround and every active component scans clean against the live register
 (0 findings across 20).** The retired next-day figure is now BANNED, so the class
 cannot return. Phase 3 (the ZIP deliverable) is complete and live-proven.
-**Phase 4 — handover state + the delivery email — has NOT started and is the next
-build.** One owner ruling from 2026-08-19 evening is still unactioned: lengthen the
+**Phase 4 — handover state + the delivery email — the STATE half is built (see §2); the
+HTTP surface, the email, the chase and the retraction job are the next build.**
+
+> **UPDATED 2026-08-21:** the TLD scope is now owned and attested (`.co.uk` and `.uk`
+> only, §3 and §5 item 6), and `writer_block` has been brought back into line with the
+> 2026-08-19 rulings it had been left behind by — one of which was instructing copy the
+> deploy gate refuses. Nothing else in this file moved. One owner ruling from 2026-08-19 evening is still unactioned: lengthen the
 ZIP download link from 7 days to 30.
 
 ---
@@ -189,6 +194,15 @@ edge exception; second Nominet TAG (domain programme only).
 
 ## 3. Owner rulings in force (do not re-litigate)
 
+**2026-08-21 — TLD SCOPE: *"we only sell .co.uk and .uk tlds for now."*** Attested as
+fact `domain_tlds_offered` and live at the bot. Closes §5 item 6. The "for now" is
+recorded in the fact's `source.attested_by`, NOT in the claim: on a page it invites
+"so when will you do .com?", which nobody may answer because no pre-sales service is
+included. Do not restate the £10/£200 figures inside this fact — they are attested once
+each already. **This ruling answers a scope question and does NOT settle the .uk
+transfer-out mechanism; if anything it makes that sharper. See §5 item 6.**
+
+
 **2026-08-19 evening, four rulings, all put with their evidence and all answered:**
 
 1. **Narrow the `round of changes` ban to offer shapes.** APPLIED (`19f`). The test
@@ -247,6 +261,8 @@ edge exception; second Nominet TAG (domain programme only).
 | £1,200 swept from all 9 specs | **LIVE** 08-18 | seven phrases asserted nowhere |
 | Phase 3 ZIP deliverable | **LIVE** | register DGH-011, canary 8/8 byte-verified |
 | Chassis | **`v1.0.1320`** | pod image, 2026-08-20T16:09Z (was 1317, was 1314). The `build provenance` line is out of range in `--tail=600`, which means **"not in range", not "unstamped"**. It rolls several times a day |
+| TLD scope attested (`.co.uk`, `.uk` only) | **LIVE** 08-21 | facts 22 → 23; bot answers *"We only register and rent .co.uk and .uk domains"*, with a price/turnaround control in the same session proving the other facts intact |
+| `writer_block` caught up with the 08-19 rulings | **LIVE** 08-21 | 0 occurrences of "next day"/"free to transfer"/"transferred freely"/"never a range of days"; contains build_duration's own writer_line. 6 outcome guards each proven to fire against the real pre-fix row |
 | Presign ceiling is 7 days | **MEASURED** 08-20 | 604800 → 404 `NoSuchKey`; 604801 and 6 weeks → 403 `SignatureDoesNotMatch`. See §2 |
 | Phase 4 handover STATE | **schema LIVE** 08-20, helper UNCALLED | migration 511 recorded; 10 SQL semantics checks against real Postgres in a rolled-back transaction, harness mutation-proved twice; `go build`/`go test` green from a clean `git archive HEAD` |
 
@@ -269,18 +285,40 @@ edge exception; second Nominet TAG (domain programme only).
    copy decision rather than make one, and it is the same CTA as 299.
 5. **Contact email** `webdesign@contactforsales.com` (domain mismatch, item
    `a8d6f440`); Stripe webhook hostname; Stripe keys via terraform.
-6. **Which TLDs do we actually sell?** Still unowned, and still load-bearing: the
-   transfer-out mechanism differs by TLD. **For `.uk` the transfer is executed by the
-   LOSING registrar changing the IPS TAG — so the final action is ours however the
-   commercial terms are worded.** The new `domain_buy_once` wording is written to
-   survive that without promising anyone's time, but nothing establishes what else is
-   in scope.
-7. **HITL as a briefing step** — owner accepted the ordering: questions first (DONE),
+6. ~~**Which TLDs do we actually sell?**~~ **ANSWERED 2026-08-21 — owner ruling:
+   *"we only sell .co.uk and .uk tlds for now."*** Attested as fact
+   `domain_tlds_offered` (`SQL_2026-08-21_domain_tlds_are_couk_and_uk.sql`, applied;
+   facts 22 → 23, bans unchanged) and verified at the bot, which now answers *"We only
+   register and rent .co.uk and .uk domains"* where before it improvised *"right now
+   those are on .uk domains"* off no fact at all.
+
+   **What the answer SHARPENS, and this is the live residual — an owner question, not a
+   task.** Both endings we sell are Nominet endings, so the wrinkle 19g recorded
+   "rather than writing it into copy" now applies to **every** domain we sell: for a
+   `.uk` the transfer out is executed by the LOSING registrar changing the IPS TAG, so
+   the final action is ours however the terms are worded. That sits against
+   `domain_buy_once` (*"arranging the transfer … is theirs to do"*) and
+   `no_presales_service` (*"nobody's time is included"*, absolute). **`[UNVERIFIED]`:**
+   whether the registrant can change the TAG themselves via Nominet's own online
+   services, or only we can as losing registrar. Nobody has checked. Nothing encoded,
+   no copy changed. See NOTES 2026-08-21 and the note at the foot of the SQL file.
+7. **`writer_block` breaks its own first rule — MEASURED 2026-08-21, deliberately NOT
+   fixed.** Its opening line is *"Never use an em dash. Not anywhere, not once."* and
+   the block contains **six**, in paragraphs 12, 14, 20 and 21. Counted before and after
+   the 08-21 edits: 6 and 6, so none were introduced by them. Left alone because it was
+   a third step away from that session's ask and, unlike the next-day instruction, it
+   blocks nothing. It is not nothing either: prompt text is read by the model as an
+   example, and the lane already treats this class as test-worthy for the sibling prompt
+   (`box/chat-service/facts_test.go` tests the chat conduct for exactly this, on the
+   grounds that *"a half-followed rule is worse than no rule"*). Five-minute fix; the
+   replacements the rule itself prescribes are a full stop, a comma, a colon or brackets.
+
+8. **HITL as a briefing step** — owner accepted the ordering: questions first (DONE),
    then HITL, routed through the **work-item** queue, which has a working screen. The
    orchestration HITL path has never fired: `collect_via_hitl` 0, `brief_answers` 0,
    `hitl_mode` 0 across 369 briefing orchestrations, against `briefing_answers` = 3 as
    the control.
-8. **Reseller market supposition — PARKED by the owner, do not develop.** Discussion
+9. **Reseller market supposition — PARKED by the owner, do not develop.** Discussion
    only; written to NO fact, writer_block, mission or spec. Do not encode it, do not
    re-open it unasked. (Separately and NOT parked: *"our websites aren't necessarily
    for business owners"* is already encoded and verified — `any_site_type`.)
@@ -315,6 +353,23 @@ edge exception; second Nominet TAG (domain programme only).
 - **The damage from an over-broad ban is an ABSENCE.** A page blocked at save never
   becomes a stored component, so a corpus census returns the same findings before and
   after the fix. Only a self-authored probe set can see it.
+- **A fact edit that asserts `writer_block` UNCHANGED is CORRECT and is how the retired
+  value keeps steering the writer.** `facts[]` is what may be stated; `writer_block` is
+  the only text the page writer reads. `SQL_2026-08-19` and `SQL_2026-08-19g` both carry
+  that guard, and both left the wire two days stale — one of them instructing a sentence
+  the deploy gate now REFUSES (claimscan: `BANNED "ready the next day"` on the
+  writer_block's own instruction). Fixed by `SQL_2026-08-21b`. **Add the agreement check,
+  not just the unchanged check:** grep `writer_block` for the string your edit RETIRES.
+  Full entry in `LANDMINES.md`. ⚠ And do NOT use "is this `writer_line` inside
+  `writer_block`?" as a fleet drift sweep — measured, it convicts every healthy register
+  on the estate (19/21 here, 35/35 on oufe.com); `writer_block` is prose and does not
+  quote writer_lines. That mistake is logged in `WRONG_CALLS.md`.
+- **When you write a replacement INSTRUCTION, do not put a live instance of a banned
+  phrase in it.** Prompt text is read as an example. A first draft of the new turnaround
+  rule was itself BANNED on "in one day" — the negation guard scans backwards a short
+  way, so `Never` reached the first list item and not the third. Name the shape in prose
+  the gate has no opinion about; the writer never needs the literal, because a refusal
+  prints the ban's own reason.
 - **A rewrite brief is scoped to what it NAMES.** A page can be simultaneously repaired
   and still wrong, and the item reads `complete` either way.
 - **A `failed` work item is not work in flight**, but a `NOT EXISTS … status NOT IN
@@ -332,13 +387,13 @@ edge exception; second Nominet TAG (domain programme only).
 - A newer handoff in either lane dir.
 - §1's page checks, at the **served** pages, not the statuses.
 - `sites.handed_over_at` existing (someone started Phase 4).
-- The register's ban count (**34**) and fact count (**22**) — two lanes write this row.
+- The register's ban count (**34**) and fact count (**23** since 2026-08-21) — two lanes write this row, so compare against the row your transaction supersedes rather than trusting either number.
 - Whether Stripe keys / the webhook exception / the second Nominet TAG have landed.
 - The chassis tag (**v1.0.1320**); it rolls several times a day.
 - **The council verdict on `905d9078-86c2-47a7-af0a-781723a46c08`** (DGH-014). Budget ~30
   minutes and find it by payload, not by the printed id:
   `SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '905d9078-86c2-47a7-af0a-781723a46c08';`
   A missing row is latency, not a dropped dispatch — do not resubmit on that evidence.
-- The landmine verifier's verdicts on the two entries filed by this lane — the `(?i)`
+- The landmine verifier's verdict on the 2026-08-21 entry (`8a437a0c-41db-4b7b-ab14-1e96706482aa`), and on the two entries filed by this lane — the `(?i)`
   compile trap (`cf717466`) and the 7-day presign ceiling (`5c958a5f`):
   `SELECT subject_key, left(body,200), created_at FROM doc_notes WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 3;`

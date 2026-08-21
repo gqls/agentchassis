@@ -4770,3 +4770,167 @@ the 6-week figure lives in one place instead of two.
 `build provenance` startup line is out of range in `--tail=600` — "not in range", not
 "unstamped". Irrelevant to today's work: nothing Go was changed, and the register
 changes are live immediately.
+
+## 2026-08-21 — the TLD question is ANSWERED and attested; and the writer_block had been left behind by two rulings it was supposed to carry
+
+### Owner ruling: "we only sell .co.uk and .uk tlds for now"
+
+This closes **STILL OPEN item 6** of `HANDOFF_2026-08-20_continue_here.md`, open since
+2026-08-19 and flagged there as unowned AND load-bearing.
+
+Applied as `SQL_2026-08-21_domain_tlds_are_couk_and_uk.sql`: a new fact
+`domain_tlds_offered`, plus two anchored `writer_block` edits so the page writer may
+state it. **facts 22 → 23, bans 34 → 34 unchanged** (compared against the row the
+transaction superseded, never against an absolute count — two lanes write this row).
+
+**Why it needed a fact rather than nothing, and this is the disconfirming half.** The
+bot ASKS about the domain: its conduct says *"Ask what the site is for and what domain
+they would want it on"* (`box/chat-service/facts.go`, `promptConduct`). Asked the
+question BEFORE the change:
+
+> **Q:** *"Can I have a .com domain for my site, or do you only do .co.uk?"*
+> **A (baseline, 2026-08-21):** *"the sites are built on domains we provide, and right
+> now those are on .uk domains. If you need a .com instead, that's not something we can
+> set up for you here."*
+
+That is roughly right and **entirely ungrounded** — no fact attested it, so the model
+was improvising a commercial term, which is the one thing `governing_rule` exists to
+stop. **Improvising the right answer is not evidence it could not have improvised the
+wrong one**, and a baseline that happens to read well is the easiest kind of finding to
+dismiss. Recorded here precisely because it looked fine.
+
+**Verified at the artefact after the change** (the relay refreshes every 5 min; no
+build, no deploy, no page rebuild):
+
+> **A (after):** *"We only register and rent .co.uk and .uk domains. If you want a
+> .com, you can register that yourself with any registrar, and we'll give you the site
+> files in a ZIP. They work under any domain..."*
+
+**Control, in the same session,** so a damaged `facts` array could not read as success:
+*"How quickly will my site be ready, and what does it cost?"* → £149, no VAT, paid
+before the build, ZIP plus live link, *"usually it's ready in two or three days"*. The
+other 22 facts arrive intact.
+
+**Two things deliberately kept OUT of the fact.** It does not restate £10 or £200 (each
+attested once already; a second copy is a second thing to move, and this lane has been
+bitten by duplicated copies before — `submission` / `content_direction`). And "for now"
+lives in `source.attested_by`, not in the claim: on a page it invites *"when will you
+add .com?"*, which nobody may answer because no pre-sales service is included.
+
+### THEN, found while editing the same key: `writer_block` was two rulings behind
+
+Applied as `SQL_2026-08-21b_writer_block_catches_up_with_two_rulings.sql`. Facts and
+bans byte-identical; this is the steering text catching up.
+
+**The mechanism is worth more than the four fixes.** A fact edit here is written with a
+guard asserting `writer_block` UNCHANGED — `SQL_2026-08-19` (build_duration) and
+`SQL_2026-08-19g` (domain_buy_once) both carry it, and it is CORRECT: it is what makes a
+one-fact change reviewable. But `writer_block` is the wire, not bookkeeping — this file
+said so on 2026-08-10: *"a fact not copied into writer_block does not exist for the
+writer."* **So the same line that proves a fact edit was careful is the line that leaves
+the writer steered by the fact's retired value. The guard reads as rigour and its effect
+is drift.** Filed in `LANDMINES.md`.
+
+What was stale, all four `[MEASURED 2026-08-21]` at the live row:
+
+| # | live writer_block said | the register has said since |
+|---|---|---|
+| 1 | *"Say how long it takes: usually ready the next day"* | 2026-08-19: two or three days |
+| 1b | *"never a range of days"* — forbidding the attested phrasing outright | 2026-08-19 |
+| 2 | *The build duration is HEDGED ("usually ready the next day")* | 2026-08-19 |
+| 3 | *"they are free to transfer the domain to their own registrar or host"* | 2026-08-19g: an OBLIGATION, not an option |
+| 4 | *"and then transferred freely"* (may-state list) | 2026-08-19g |
+
+**This is not a tidy-up, and here is the measurement that settles it.** The next-day
+shape was ARMED as a ban on 2026-08-20 (`SQL_2026-08-19e`). Fed the live writer_block's
+own instruction sentence, `cmd/claimscan` — the same engine as the deploy gate —
+returns:
+
+```
+BANNED  "ready the next day"  …Say how long it takes: usually ready the next day
+                                from having what is needed.…
+```
+
+**The steering text instructed a sentence that stops the page it steers.** The pages are
+clean today only because they were rebuilt by hand on 2026-08-19; the next rebuild of
+any page stating the turnaround would have walked into it. That is the four-attempt
+guide rebuild waiting to happen again. Items 3 and 4 are worse in one way: 19g's own
+header records that the "free to" wording **had already generated banned copy** (the
+15:56Z blocker, the writer elaborating it into "whenever you like"). The fact was fixed
+that day. The instruction was not, and two days on it was still the instruction.
+
+### MISSTEP: my first replacement text was itself banned copy
+
+The first draft of the new turnaround rule read *"Never promise it for the next day, for
+tomorrow, in one day or within 24 hours"*. claimscan **BANNED it on "in one day"**: the
+negation guard scans backwards a short way, so "Never" reached the first item of the
+list and not the third. A writer echoing my instruction would have been refused — I
+would have replaced one page-stopping instruction with another. Prompt text is read as
+an example (`box/chat-service/facts_test.go` makes the identical point about the em dash
+rule). Rewritten to name the shape in prose the gate has no opinion about: *"delivery on
+the following day, by tomorrow, or inside twenty-four hours"* → 0 findings. **The writer
+never needed the literal: when the gate refuses, it prints the ban's own reason, which
+carries it.**
+
+### How the guards were proven, and the one form that would have caught the drift
+
+Both files verify by **reconstruction**: apply the same `replace()` chain to the
+superseded `writer_block` and assert equality with the new one. That is the only guard
+that can see an unintended *extra* edit; asserting "the new substrings are present"
+cannot. Mutation-proved in rolled-back transactions before applying:
+
+| mutation | result |
+|---|---|
+| clean run | `INSERT 0 1` → `DO` → ROLLBACK (so the pass is not a no-op) |
+| a third/fifth unintended edit rides along | caught |
+| the intended edit silently misses its anchor | caught |
+| an existing fact mutated in the same transaction | caught |
+
+Then each of file B's six **outcome** guards was isolated and run against the real
+pre-fix state — all six fired, including the last one, which is the point:
+
+```
+ERROR:  writer_block does not contain build_duration's own writer_line
+        (usually ready in two or three days)
+```
+
+**That check is now permanent in the file, and it is the shape that would have caught
+this on 2026-08-19**: not "did writer_block change" but "does writer_block agree with
+the fact it exists to carry".
+
+### FOUND, MEASURED, NOT FIXED — the writer_block breaks its own first rule
+
+Scanning all 28 live writer_block paragraphs through claimscan (a check nobody had run):
+14 findings. Most are the deliberate quote-inside-a-prohibition pattern and are fine.
+**Six are not: the block contains six em dashes**, in paragraphs 12, 14, 20 and 21,
+while its own opening rule reads *"Never use an em dash. Not anywhere, not once."*
+`[MEASURED]` before AND after my edits: **6 and 6 — I introduced none.**
+
+Left alone deliberately: it is a third step away from what was asked, and unlike the
+next-day instruction it does not block the TLD work. The lane has already decided this
+class matters for the sibling prompt (`facts_test.go` tests the chat conduct for exactly
+this, on the grounds that *"a half-followed rule is worse than no rule"*), so it belongs
+in the open list, not in a session's discretion. Added to the handoff.
+
+### Not submitted to the council, and that is the rule rather than a skip
+
+`scripts/council-scope.sh` admits `platform|internal|pkg` and appliable migrations at
+`docs/agent_docs/sql_for_agents/NNN_name.sql`. These two files are lane-directory site
+config, which is out of scope by design (prose and site content never spend credits), so
+`097` would refuse them client-side.
+
+### An owner question this ruling SHARPENS rather than settles
+
+`SQL_2026-08-19g` recorded a wrinkle "rather than writing it into copy": for a `.uk`
+domain the transfer out is executed by the **losing registrar** changing the IPS TAG, so
+the final action is ours however the terms are worded. That was recorded when the TLD
+scope was unknown and it might have applied to some sales. **Both endings we now sell are
+Nominet endings, so it applies to every domain we sell**, against two attested facts —
+`domain_buy_once` (*"arranging the transfer with their new registrar is theirs to do, and
+no support time is included"*) and `no_presales_service` (*"nobody's time is included"*,
+absolute, and the owner resolved 2026-08-19's collision in its favour rather than around
+it). **`[UNVERIFIED]` and nobody in this lane has checked:** whether the registrant can
+execute the TAG change themselves through Nominet's own online services, or whether only
+we can as the losing registrar. That is what decides whether "the transfer is theirs to
+do" is mechanically true or only commercially stated. Not encoded, no copy changed,
+escalated to the owner exactly as 19g escalated its predecessor.

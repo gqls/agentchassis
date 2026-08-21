@@ -40998,3 +40998,54 @@ fleet-wide (the reporting lane's own, already refiled by them). Register TL-047 
 **Tally line.** "A layer-crossing default pinned only in the inner layer" — 1 (this). Related but
 distinct from the marker family's other entry (the `?`-inert-in-step-config gap, closed on 1321):
 that one was a marker doing NOTHING where expected; this one is a marker doing MORE than expected.
+
+---
+
+## 2026-08-21 — I wrote a fleet-wide check into `LANDMINES.md` as "the check", without running it. It convicts every healthy register on the estate.
+
+**The claim.** Having fixed a real drift on `webdesign.uk` — `writer_block` still steering the
+writer with a turnaround figure retired two days earlier, and armed as a ban one day earlier — I
+filed the trap in `LANDMINES.md` and, per that file's own bar, gave it a check. Two of them: a
+per-migration guard (fine), and a **read-only sweep to run over any register**:
+
+```sql
+-- list every fact whose writer_line is absent from writer_block
+... AND position(f->>'writer_line' in ss.data->>'writer_block') = 0;
+```
+
+Written as *"run it BEFORE trusting any 'the register is correct' claim"*. It reads like a
+detector. It is not one.
+
+**What caught it: running it.** Not review, not a second opinion — I ran it across the estate as
+the last step, expecting to find other lanes' drift, and it returned **19 of 21 on webdesign.uk,
+the site I had just repaired**, and **35 of 35 on `oufe.com`**. Every register on the estate,
+convicted. `writer_block` is PROSE that summarises the facts; nothing quotes `writer_line`s
+verbatim and nothing should. The query answers *"is this writer_line quoted literally"*, which is
+almost always **no**.
+
+**Why it survived being written.** It passed on the one case I had in front of me — because my own
+fix had put `build_duration`'s `writer_line` into `writer_block` word for word. **A check validated
+only against the case you just built to satisfy it has not been tested; it has been fitted.** This
+is the `[MEASURED]`-figure rule one level up: I had asked whether the check PASSES on a good
+register, never whether it FAILS on one, and those are different questions. The disconfirming run
+was one query away and I nearly filed without it.
+
+**Why it would have been expensive.** `LANDMINES.md` is the system of record (owner ruling D10) and
+is synced into `doc_notes` for council seats and agents to read. A detector that convicts everything
+is worse than none: the first session to run it finds 35 hits on `oufe.com`, and either burns a day
+on phantom drift or — likelier, and worse — learns to disregard the entry, which is the one thing
+protecting the real trap sitting next to it.
+
+**The cheap check that would have.** Run the query against a register you have NOT touched, before
+writing it down. One command. **A check earns the word "check" by producing a different answer on a
+healthy input than on a sick one, and until you have run the healthy input you have only half of it.**
+
+**Fix.** Entry corrected in place the same minute, before anyone read it: the sweep is struck, the
+per-migration guard is kept but relabelled as *an assertion the author chooses* rather than a
+detector, and the generic form that does work is given instead — grep `writer_block` for the string
+this edit RETIRES, which is exact, cheap, and fires on the actual failure. All six guards of that
+shape in `SQL_2026-08-21b` were proven to fire against the real pre-fix row.
+
+**Tally line.** "A check tested only against the case built to satisfy it" — 1 (this). Same family
+as the `[MEASURED]`-must-be-disconfirmable rule in CLAUDE.md's working-docs section; distinct in
+that the artefact was not a figure but a QUERY offered to other sessions as an instrument.

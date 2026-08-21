@@ -1811,3 +1811,90 @@ yet because the web addresses that would receive those clicks do not exist. Thos
 the next pieces, in that order.
 
 It has gone to the reviewer council, which usually comes back within the half hour.
+
+---
+
+## 2026-08-21 — the domain endings question is answered, and I found a stale instruction while doing it
+
+**You told me: we only sell .co.uk and .uk for now.** That has been an open question
+since the 19th, and it was one of the ones I had flagged as mattering more than it
+looks. It is now written into the register, which is the list of things the site and
+the chat box are allowed to state as fact.
+
+**Why it needed writing down at all, when the chat box was already saying roughly the
+right thing.** Before I changed anything I asked it: *"Can I have a .com domain for my
+site, or do you only do .co.uk?"* It answered that we provide .uk domains and it could
+not set up a .com. That is very nearly right. But nothing anywhere told it that. It was
+guessing, and it happened to guess well. The whole point of the register is that
+commercial terms come from you and not from the software's imagination, so a good guess
+is not the same as a correct answer, and next week it might guess differently. After the
+change it says: *"We only register and rent .co.uk and .uk domains. If you want a .com,
+you can register that yourself with any registrar, and we'll give you the site files in
+a ZIP. They work under any domain."* Same shape of answer, but now it is yours rather
+than its own.
+
+I checked one other thing in the same breath, to be sure I had not broken anything while
+adding: I asked what it costs and how long it takes, and got £149, no VAT, paid up
+front, ZIP plus live link, two or three days. All correct.
+
+**I kept two things out of it on purpose.** It does not repeat the £10 and the £200 —
+those are each written down once already, and a second copy is just a second thing to
+remember to change when a price moves. And the words "for now" are recorded against your
+ruling rather than printed on the site: on a page, "for now" invites the question "so
+when will you do .com?", and nobody is allowed to answer that, because there is no
+pre-sales service.
+
+**Then the part I was not looking for.** The register has two halves: the facts, and a
+long block of writing instructions that tells the software how the site should sound and
+what it may say. While I was editing the instructions to mention the domain endings, I
+read the rest of them properly, and found they were two of your decisions behind.
+
+They still told the writer to say the site is **ready the next day**. You changed that
+to two or three days on the 19th, and that change was made properly to the facts. It was
+never made to the instructions. So the facts said one thing and the instruction sheet
+said the opposite, and the instruction sheet is the half the writing software actually
+reads. Worse: the next-day promise was *banned* on the 20th, precisely so it could not
+come back. I ran the instruction sentence through the same checker the site uses to
+refuse bad pages, and it was refused. **The instructions were telling the writer to write
+a sentence that the system would then reject.** The pages are fine today only because
+they were rewritten by hand on the 19th. The next page that needed rebuilding would have
+walked straight into it, and I would have been debugging the rebuild rather than the
+instruction.
+
+The same thing had happened to the domain decision. On the 19th you ruled that the £200
+buys the domain and the customer has to move it to their own registrar, because we are
+not staying their registrar. The fact was updated. The instructions still said they were
+"free to transfer it", which is the older, optional-sounding wording — and that exact
+wording had already caused a page to be refused once, on the 19th, when the writer
+elaborated it into "whenever you like". Two days later it was still the instruction.
+
+I have fixed all four. Facts and bans untouched; only the instruction sheet moved.
+
+**Why this happened, because it will happen again otherwise.** When we change one fact,
+we write a safety check that says "and nothing else changed, including the instruction
+sheet". That check is right, and it is what makes a small change safe to review. But it
+is also exactly what leaves the instruction sheet holding the old figure. The check that
+proves you were careful is the check that lets the drift through. I have added a
+different one to the file: it now requires the instruction sheet to actually contain the
+sentence the fact says, so the two cannot silently disagree again. I have also written
+the trap up in the shared warnings file the other threads read.
+
+**One thing I found, measured, and deliberately did not fix.** The instruction sheet's
+own first rule is "never use an em dash". The instruction sheet uses six of them. I
+checked before and after my edits: six both times, so none of them are mine. I left them
+alone because it is a third step away from what you actually asked me to do, and unlike
+the next-day problem it does not break anything I was doing. It is a five-minute job
+and it is written into the open list for whoever picks this up next.
+
+**One question your ruling makes sharper rather than settling**, and it is worth a
+minute of your time. Both endings we now sell are Nominet endings, which means every
+domain we ever sell moves out the same way. When we recorded that on the 19th we noted,
+without acting on it, that for a .uk domain the *losing* registrar performs the transfer
+by changing something called the IPS TAG — which would make the final step ours, not the
+customer's, no matter how the terms are worded. At the time that might have applied to
+some sales. Now it applies to all of them, and it sits against two things you have
+attested: that arranging the transfer is theirs to do, and that nobody's time is
+included in the price. I have not checked whether the customer can do the TAG change
+themselves through Nominet directly, and I have not written anything into the site about
+it either way. It needs about ten minutes with Nominet's rules and then, probably, a
+decision from you.
