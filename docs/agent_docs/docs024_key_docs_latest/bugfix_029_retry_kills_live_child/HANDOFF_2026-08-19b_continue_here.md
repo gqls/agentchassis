@@ -590,6 +590,19 @@ has rows" is NOT evidence the wedge recurred — filter by the 343 signature fir
 itself works: two of those four rows have since been deleted by the cleanup, which is exactly the loss
 it exists to pre-empt. NOTES §27.
 
+**FIXED 2026-08-21 (`2314fe229`) — the dead label.** Every note this job wrote said
+`bugs_open/029`, an address that no longer exists, which a reader follows during an incident and
+lands nowhere. `check.py`'s three labels now read `bugs_open/343 (was 029, split 2026-08-20)`, and
+the script itself now carries the breadth caveat and **the right test**: to decide whether 343
+recurred, count **abandoned rv3 awaits** (`awaited_requests`, `process_item_iter_N_call_handler`,
+`retry_version>=3`, `status='error'`) — **30 in the burst window, 0 since 08-18** — and never these
+notes. That count cannot be argued with; a per-row comparison invites "is this one close enough".
+**Applied and verified at the artefact:** the CronJob mounts configmap
+`wedge-evidence-capture-script-6bd8f58h7g`, which carries the new literal. Historical rows keep
+their old label, deliberately. **Ruling (peer, and I agree): leave the trigger BROAD** — a
+misreading costs a caveat, narrowness costs the one capture that matters, and filtering on the
+signature would bind the instrument to the only sample we have (one outage day, n=0 outside it).
+
 **Also noted, NOT filed, NOT chased:** two of the four were parked at `current_step = 'complete'`
 having run 0.09s and 1.1s. Different shape from 343; may be separate, may be known. Grep
 `bugs_open/`/`bugs_closed/` for a `complete`-step stall before assuming it is new.
