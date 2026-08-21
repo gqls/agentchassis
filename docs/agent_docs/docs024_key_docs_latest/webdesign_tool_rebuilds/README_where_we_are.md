@@ -185,3 +185,15 @@ the same limit every other rewriter honours — and the change is back with the 
 fresh fleet build carries yesterday's code switched off, so nothing is exposed while we wait. Also
 wrote a new milestone summary (SUMMARY_2026-08-20): five tools rebuilt has become 22 of 63, and the
 three platform walls are down or falling.
+
+2026-08-21 — Where we are, in plain terms. Twenty-four of the sixty-three tools are now rebuilt,
+live, and checked on the real website. Yesterday's fresh platform build carries both of the fixes
+this lane cared about: our own fix that stops a tool's internal build instructions ever being
+published as the page's search-engine description (approved by the review council on the first
+round), and another lane's mechanism that will soon let us re-fix a tool in place without the
+delicate manual swap we do today. Two embarrassments to own: twice this week a page briefly showed
+BOTH the old and the new tool at once, because the automatic wake-up we relied on can arrive hours
+late. Both were caught and repaired within minutes of being seen, and we have replaced the wake-up
+with a method that cannot be late. What is left: four small tools, then thirteen whose logic lives
+in separate files, then the big ones you asked to review personally, one at a time. Four decisions
+are yours and none is urgent; they are listed at the top of the new handoff file.
