@@ -6172,3 +6172,121 @@ superseded by "my" 515 — **515 is not mine** (`cc798cb34`, a THIRD session). I
 error an hour earlier, assuming 514/515 were both theirs. Three sessions in one lane today;
 `git log --format='%h %an %ci'` on the FILE is the only thing that settles authorship, and neither
 of us ran it before acting.
+
+## 2026-08-21 (~11:5xZ) — commit_sha: the 315 lane's answer, verified, and the mechanism it actually requires (checkpoint mid-design)
+
+The 315 lane replied in full (commit `34cff7080`, appended to the CONTRIB file). Confirmed my §2 read
+and STRENGTHENED it: `complete_work_item` sits inside `process_item`'s sequential per-item
+`sub_workflow`, which already carries `"result!": "handler_result"` — so the unsuffixed alias is
+iteration *k*'s **by contract**, not luck. But my proposed single explicit path is refuted:
+`commit_sha` lands wherever the handler's OWN `git_commit` step named its `output_field`, and that
+varies — **19 live `git_commit` steps, 9 distinct names** (their count). Their recommendation:
+standardise at the SOURCE — every handler's `complete` step should expose `commit_sha` at a
+consistent `handler_result.response.commit_sha` — with a scoped Go resolver as the fallback if the
+config sprawl is worse. **They hand me the ~16 handler configs; they take the one-line
+`complete_work_item` wire AFTER, in that order** (wiring first would silently drop the sha for every
+non-conforming handler).
+
+**Independently re-censused, correcting their count slightly and finding the real mechanism.**
+Recursive walk (their top-level scan would miss `sub_workflow` nesting — this lane's own repeated
+trap):
+
+```
+21 live git_commit steps (not 19) across 16 agent types:
+  page_deployed ×3 (pageflow-builder, page-rebuild, site-work-orchestrator's build_pages_loop.deploy_page)
+  js_snippets_deployed ×5 (nav-link-fixer, nav-updater, pageflow-builder's own deploy_js_snippets,
+                           rerender-pages, rerender-site, site-work-orchestrator's deploy_js_snippets — 6 actually)
+  deploy_result ×3 (page-rerender, report-builder/deploy_page, site-asset-renderer)
+  css_deployed ×2 (css-patch-agent, webdesign-agent)
+  news_commit_result, rss_commit_result, directory_commit_result, git_result,
+  failed_sidecar_deployed, sidecar_deployed — one each
+  (none) ×2 (deployer-agent/commit_to_git, site-deployer/deploy_to_git)
+```
+
+**The `(none)` cases are NOT a special problem.** `coordinator.go:1904-1906` stores every step's
+result under its OWN STEP NAME unconditionally, and ADDITIONALLY under `output_field` if set. So
+`deployer-agent`'s result is at `collected_data["commit_to_git"]` regardless of the missing
+output_field — the step name IS the effective key.
+
+**Why this cannot be fixed by adding an entry to a handler's existing config, and requires a mode
+change.** Every handler bar two already declares its `complete` step's result via **`output_fields`**
+(list mode, `result_contract.go` `ResultModeFields`) — `deployer-agent` and `site-deployer` use no
+contract at all (`fallback_dump`, which exposes every non-`__`-prefixed top-level key, INCLUDING the
+raw git_commit result under its step name — so `commit_sha` is *reachable* there today, just not at
+a canonical name). List mode's own code, read at the file:
+
+```go
+for _, fn := range spec.Fields {
+    if v := ExtractNestedField(collectedData, fn); v != nil { result[fn] = v }
+}
+```
+
+**`fn` is used as BOTH the extraction path and the response key.** So adding
+`"deploy_result.response.data.commit_sha"` as a new list entry does not produce a clean `commit_sha`
+key — it produces a response key that is the LITERAL STRING with dots in it, which is invisible to
+any dot-path reader (including the resolver's own tree walk, which compares keys by exact string).
+**Tried and rejected**, before writing this down: routing through `extract_fields` first (which DOES
+support `{source, target}` renaming) does not help either — it always returns its result wrapped in a
+map (`result[target] = value`), so whatever `output_field` you give that extraction step, the produced
+key holds a ONE-KEY MAP, not the bare scalar; exposing that via a plain `output_fields` entry gives
+`commit_sha: {"commit_sha": "<sha>"}` — one nesting level too many.
+
+**The only clean mechanism is `result_mapping`** (`ResultModeMapping`, `"target": "source.path"` pairs,
+build the whole result map explicitly) — this is genuinely what the 315 lane's plan (b) requires, not
+an added convenience: for every handler using list mode, the fix is **converting** that `complete`
+step from `output_fields` to `result_mapping`, re-declaring every currently-exposed field as an
+identity map (`"deploy_result": "deploy_result"`, ...) **plus** one new entry
+`"commit_sha": "<its own git_commit output_field>.response.data.commit_sha"`. Since `result_mapping`
+and `output_fields` are mutually exclusive (`ResolveResultSpec`'s precedence list picks exactly one),
+there is no way to add commit_sha alongside an untouched `output_fields` list.
+
+**This is bigger than "16 config edits", and the scope is real, not padding**: at least one agent
+(`report-builder`) has THREE separate `complete_workflow`-shaped steps (`complete`, `publish_failed`,
+`publish_ready`), each reached after a DIFFERENT `git_commit` step (`deploy_page`→`deploy_result`,
+`publish_failed`→`failed_sidecar_deployed`, `publish_ready`→`sidecar_deployed`) — **all three
+currently declare the SAME `output_fields` list**, which only works because `ExtractNestedField`
+silently drops an absent field; converting to `result_mapping` means each of the three needs its OWN
+`commit_sha` source, not one answer for the whole agent. Every completion-shaped step must be traced
+to the git_commit step that actually precedes it on ITS OWN path, not assumed from "this agent has a
+git_commit step somewhere". Doing that trace next, per agent, before writing any migration.
+
+**Not yet built. Not yet re-verified against a fresh live census** (this analysis is from the
+`agent_definitions` read at ~11:4xZ; re-read before writing SQL, per the lane's own "classes move
+within hours" lesson). Recorded now because it is expensive to re-derive and the session could be
+interrupted mid-design.
+
+## 2026-08-21 (~12:0xZ) — attribution correction, and two things from the peer lane
+
+**Correction, mine:** I told `staged-component-build [038fab]` "we both built the identical pbh/
+page_type fix" and credited them with 515. **Wrong** — they built neither 514 nor 515; a THIRD
+session of this lane built 515 (`cc798cb34`, 11:23:56Z). My retirement of 514 in favour of 515 is
+still correct on the merits (the `?` form genuinely closes both directions, independent of who wrote
+it), but the attribution in my message to them was wrong, and I found out only because they checked
+and told me — the same shape of error as my earlier `?`-marker mistake, opposite direction (there I
+under-credited a real fix as a typo; here I credited the wrong author). At least three sessions are
+concurrently active in this one lane today.
+
+**516 exists — HELD, and the hold is load-bearing for 512's own verification.** Converts
+`tool-generator/save_tool` + `tool-deployer/deploy_tool` to `related_pages?` (bugs_open/330's fix).
+Deliberately NOT applied yet: applying it would remove tool-generator's OTHER live conflict class
+(`related_pages`) at the same moment `reason` (512) is trying to prove itself quiet, and my own
+stated pass condition was "reason 0 **while related_pages keeps firing** — if both go quiet the
+instrument died". Measured (peer, ~11:4xZ): tool-generator runs since 512's boundary = 0, eighteen
+hours. Both classes are quiet for want of demand, not proof. Peer's disagreement, noted for the
+record: they read `tg/related_pages`'s disposition as "the wire IS the recorded decision" now that
+`?` exists (absence when the spec has nothing; the real value when it does — 1 of 5 recent runs
+carried it), rather than my earlier framing ("needs a recorded decision, not a wire"). I think this
+is right and supersedes my framing; the ledger should say so next edit.
+
+**Split agreed for commit_sha, matching what I was already converging on independently:** I take the
+handler-side standardisation (the large, judgement-heavy half); once it lands, `staged-component-build`
+adds one line — `"commit_sha?": "handler_result.response.commit_sha"` on `mark_complete` — same day.
+Ordering is load-bearing the OPPOSITE way from 516: the wire must come AFTER the config half, or it
+silently drops the sha for every handler not yet converted.
+
+**New gate, noted for later:** `config-key-audit --optional-explicit-wires` lists every live `?` wire
+on this surface and exits 1 on any not acknowledged in
+`architecture_review/optional_explicit_wire_acks.json` (a blank `downstream` field is warned and
+ignored) — came out of the council's gating objection to the `?` marker itself. Not touched by this
+session's work yet (the commit_sha config half doesn't use `?`; the eventual bdl wire will, and that
+is the peer's file to write, including its ack entry).
