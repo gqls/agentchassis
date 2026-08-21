@@ -5,6 +5,12 @@ and, transitively, `HANDOFF_2026-08-18b_continue_here.md`. Both stay readable fo
 evidence trail. **Do not take the older step-5 plans at face value** — the population they describe
 has changed under them twice today.
 
+**Companion file:** `HANDOFF_2026-08-21b_continue_here.md` is the `bugs_open/306` session's SHORT
+SUPPLEMENT, not a competing "start here" — it corroborates 537's verification from their own
+measurements and carries the handler-standardisation trail (migrations 519–540). **This file is the
+primary.** We nearly wrote two documents to this same path within ten minutes of each other; if you
+are about to add a third, check what exists first.
+
 **Read in this order:** this file → NOTES `## 2026-08-21` entries (there are eight; they are the
 day's record) → `WRONG_CALLS.md` 2026-08-21 entries (three, all mine) → `bugs_open/330` and
 `bugs_open/334`.
