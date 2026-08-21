@@ -798,3 +798,44 @@ Follow-ons (not this lane's session): LMC b2_verify recapture on its 7 seeded pa
 18 new unconverted class-A arrivals (birth-gate or standing sweep — needs a decision);
 monitor's own clock bug noted (a window set in the future reads as 'none' — compare the
 filter to now() before believing an empty).
+
+## 2026-08-21 (session 8) — THE FLOW HALF: mistake logged, generator taught, birth guard built+armed-on-roll, sweep LIVE (owner ruling: log/teach/guard/sweep, Go auto-convert preferred)
+
+Owner asked why unconverted tools keep arriving; the answer became WRONG_CALLS 2026-08-21
+(committed 62936db59): the programme converted the STOCK and never censused the FLOW —
+tool-generator (verified: prompt knew neither InstanceID nor getElementById) minted 23
+old-style tools 08-18→08-20. The owner ruled: log it, teach the tool, turn the guard on,
+prefer the Go code auto-converting the LLM's ids, sweep as part of the improvement loop.
+
+**Built (all committed e186a2bd3, Council-Submitted 6acf8e4e — READ THE VERDICT):**
+- `ScopeToolBirthTemplate` (CLC-023): create_tool_component runs the PROVEN CLC-017
+  converter+gate at birth. Armed: convert (occurrence-0-bound rendered bytes — placements
+  carry the template VERBATIM) or refuse-to-regenerate (no live behaviour at birth ⇒ refusal
+  beats judging). Unarmed: record-only. Self-converted output VERIFIED never trusted. Tests
+  green on archive overlay, both-direction controls. ⚠ live wiring unproven until the first
+  post-roll generation — stated in the register, not grep-asserted.
+- Migration 520 APPLIED: prompt rules 21 (single IIFE) + 22 (id discipline; the platform
+  namespaces ids at save) — NOT the placeholder (it would render inside prompt_template: the
+  escaping trap; and one implementation of the rename, in Go). enforce_instance_scope=true on
+  save_tool: inert pre-roll BY MEASUREMENT of the validator semantics (old spec declares no
+  contract ⇒ tolerated; the new ConfigKeys declaration ships WITH the reader — 336 applied).
+- `instance-scope-sweep` (CLC-024) LIVE, replacing the retired CLC-016 tripwire (repo dir
+  removed; register corrected VISIBLY since another session had kept it as a worked example).
+  First run: corpus 28 → filed 26 (2 parked refusals dedup-skipped, reconciles exactly);
+  25 drained complete within the hour. Demand control = adopter count (90+), REFUSES on zero.
+  ⚠ its filed-count originally counted psql's INSERT tally line (27 vs 26) — fixed+redeployed
+  same hour; the first doc_notes row carries the off-by-one.
+
+**The 26th item is a KNOWN owed repair surfacing correctly**: tool-spawn-rate-balancer's
+template internally declares `chartTitle` TWICE, so the doubled-instance gate fails the
+transform loudly (2 attempts burned; the 3rd will fail → status failed). ⚠ GRIND NOTE: failed
+is terminal to the sweep's dedup, so it REFILES daily (3 failing runs/day) — and the `ec2`
+hex-id row no-ops daily the same way. Cheap, visible, and correct pressure, but the FIX is
+the two small template repairs owed since 08-18 (chartTitle internal dup; ec2 hex-ambiguous
+id) — whoever picks those up kills the grind at the source. Do NOT widen the sweep's
+exclusion to failed rows: a transient failure would then permanently exempt a row.
+
+Also survived: migration number race (519 taken between listing and writing — renumbered
+520); two index.lock collisions (waited, never removed another session's lock; one commit
+landed despite 'unable to write new index' — verify with git log before retrying, the
+retry would have DOUBLE-COMMITTED).
