@@ -60,6 +60,33 @@ Of the 47, **43 have zero components** — the floor — leaving **4** reachable
 > is leaking — 11 live pages carry 200-320 char descriptions, 9 of them tool pages
 > publishing plain build briefs, all *under* 103's 320-char guard.
 
+> ## UPDATE 2026-08-21 — two tidy-ups done, and one of them found a defect in my own floor
+>
+> `517` made the scheduled task's pre-query and the workflow ask the SAME question, via one
+> shared SQL function rather than a second copy of the regex. That ends the hourly
+> dispatch-that-always-concluded-nothing-to-do.
+>
+> **`518` is a defect in migration `493`, i.e. mine.** It measured visible text as
+> *concatenate, then strip*, so a `<style>` match ran across component boundaries and ate
+> the next component's prose. I had reported `noted.co.uk/index` as "197 chars, a thin
+> homepage"; **it has 1,205 characters of real text.** Across 693 pages, **349 lose more
+> than half** their visible text to that formulation and **24** were wrongly below the
+> floor. Fixed (strip per component, then join, with `ORDER BY`); that homepage is
+> backfilled.
+>
+> **⚠ THE OPEN QUESTION, AND IT IS THE OWNER'S — see `320` §14.** `content_sample`, the
+> 1,200 chars handed to the writer, had the same flaw. So descriptions written before `518`
+> came from a possibly-truncated view of their page. Roughly **270-350** of ~692 had a
+> degraded sample, **~20-44 severely** (the figure moves between runs because pages
+> rerender continuously — it is an order of magnitude, not a count). Spot-checked three
+> severe cases: **two are wrong about what the page does**. Regenerating needs
+> `overwrite_existing: true`, which is the unsafe authority that defaults OFF and which the
+> owner's fill-blanks authorisation does not cover. Three costed options are in `320` §14.
+>
+> `339` is split with `webdesign_tool_rebuilds` (their seam fix is live in `v1.0.1321`);
+> the row repair and the non-tool writer trace came back to this lane, and the non-tool
+> pointer has gone to the `news editorial` session.
+
 ## 3. What is actually left
 
 1. **4 reachable pages** may need one more pass: `./scripts/backfill-meta-descriptions.sh <domain>`.
