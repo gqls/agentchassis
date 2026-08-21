@@ -231,3 +231,8 @@ proven live post-532 by a second producer's plain-absence build (`4531f29c`, too
 13:58:49Z — TL-047's verify-later, DISCHARGED). Caution inherited for any future `?` wire: the ack
 entry travels in the SAME commit as the wire, and `?` parses only on `v1.0.1321`+ (on an older binary
 the key is unknown and the field falls back to the whole-tree search — bites on rollback too).
+
+**532's after-the-fact council round: APPROVED round 1** (`c0b81902-f88f-4119-bb4d-4b66bdbdcb52`,
+2026-08-21 ~17:2xZ; submission commit `90f993678` carries the `Council-Submitted` trailer, credited
+automatically). The hotfix, the incident census and the marker semantics are now independently
+reviewed as well as measured.
