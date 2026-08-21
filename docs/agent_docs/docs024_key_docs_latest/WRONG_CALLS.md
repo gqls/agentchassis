@@ -41901,3 +41901,28 @@ heredoc. If you must use `-m`, keep it to plain prose with no backticks, no `$`,
 **Cost:** one missing word in one commit message, unfixable in place (forward-only forbids an amend),
 corrected in the following commit instead. Cheap this time; the same mistake in a `psql -c` or a
 `kubectl` argument is not.
+
+## 2026-08-21 — I destroyed another session's SUMMARY with a shell redirect to a path I had never read (bugfix 307 lane)
+
+**What I did.** Wrote the lane's milestone summary with `cat > .../SUMMARY_2026-08-21_terminal_write_contract.md <<'EOF'`. A summary already existed at that exact path — 84 lines, written hours earlier by the session that verified and closed the bug. My redirect replaced it silently. I called my own file *"the lane's first summary"* in its opening line while overwriting the actual first summary.
+
+**What caught it.** Not me — **the pre-commit pattern check**, in the advisory block I nearly skimmed past:
+
+```
+summary-overwritten   78 lines removed from an existing SUMMARY snapshot
+```
+
+I had already moved on to the next task when it printed.
+
+**Three rules broke at once, and each would have stopped it alone:**
+1. *"Every summary is a NEW FILE — never an edit of the last one"* (owner directive, 2026-07-19). A second on the same day takes a `b` suffix. I knew this rule; I had even read the sibling files while writing.
+2. *"Prefer the Write tool, which refuses an unread file, over a shell redirect, which does not"* (CLAUDE.md). A redirect has no opinion about what it is destroying. **The tool that would have refused was one keystroke away.**
+3. *"Read before write on any file you did not create."* I never looked at the path I was writing to. I had assumed the lane had no summary because *I* had not written one — reasoning from my own memory about a shared tree that four sessions were working.
+
+**Recovered in full**: git had it (`git show <commit>^:<path>`), restored byte-identical, and my own summary now sits at the `b` suffix where it always belonged. **CLAUDE.md's memory-directory rule exists because this same mistake was once unrecoverable** — a session lost another's memory file to a `cat >`, and the versioned memory dir was the answer. Here the repo's own history was the answer. Neither is a reason to keep making it.
+
+**The cheap check, and it is embarrassingly small:** `ls` the directory before writing a file whose name you are choosing. One command. For anything append-only or series-shaped — summaries, NOTES, WRONG_CALLS, LANDMINES — use `>>` or the Write tool, never `>`.
+
+**The deeper habit this is a symptom of:** I reasoned about a shared tree from what *I* had done to it. Four sessions were working this lane today; "there is no summary yet" was a claim about my own history, not about the filesystem — the same shape as this file's other entries where an absence I inferred turned out to be an absence I had never checked.
+
+**Cost:** nothing permanent, one recovery, and a pattern-check advisory that did the job I should have. **It is the second time in two days that a hook caught something my own discipline did not** — the commit-msg trailer check being the first.
