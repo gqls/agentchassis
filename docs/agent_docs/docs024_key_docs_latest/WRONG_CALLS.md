@@ -40965,7 +40965,7 @@ the check while the recursive unarmed count is non-zero — and also refuses if 
 TOTAL, since a jsonpath matching nothing looks exactly like a fleet with no stampers. Proven to bite
 against live data before being committed.
 
-## 2026-08-21 — `bugs_open/331` session: I pinned "absent ⇒ byte-identical" at the ACTION layer and shipped a CONFIG-layer refusal on absence — every plain add_tool fleet-wide died at extraction for 103 minutes
+## 2026-08-21 — `bugs_open/331` session: I pinned "absent ⇒ byte-identical" at the ACTION layer and shipped a CONFIG-layer refusal on absence — every plain add_tool fleet-wide died at extraction for 98 minutes (12:12:12→13:50:42Z — window corrected 2026-08-21 to migration 532's own snapshot-row timestamp; my first figure used an estimate)
 
 **The claim.** TL-047's register entry, the council submission (five rounds), and seed 496's header
 all said: flag absent ⇒ byte-identical old path, "pinned" by a test (arm A: flag absent + incumbent ⇒
@@ -40991,8 +40991,9 @@ rounds, 10+ seats, me) asked what `!` does on absence. A marker is CODE; its sem
 assumed.
 
 **Fix.** Migration 532 (same day, ~13:55Z): marker `!` → `?` (optional-explicit — search exclusion
-kept, absence allowed; `MarkedConfigKey`, live in v1.0.1321). Casualties: exactly ONE failed run
-fleet-wide (the reporting lane's own, already refiled by them). Register TL-047 + `bugs_open/331`
+kept, absence allowed; `MarkedConfigKey`, live in v1.0.1321). Casualties: 5 attempt rows across exactly ONE
+work item fleet-wide (the reporting lane's own, already refiled by them) — attempt-level and
+item-level counts differ and the item count is the damage figure. Register TL-047 + `bugs_open/331`
 §15 updated.
 
 **Tally line.** "A layer-crossing default pinned only in the inner layer" — 1 (this). Related but

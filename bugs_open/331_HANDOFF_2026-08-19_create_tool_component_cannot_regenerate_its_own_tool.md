@@ -210,12 +210,24 @@ visible chars, both sections present). Serve-grade pending its rerender (`1fe899
 **The defect this exposed — MINE (WRONG_CALLS 2026-08-21):** seed 496's `!` marker fails extraction
 on ABSENCE, so from 12:12Z every plain add_tool (no `replace_existing` in spec — every pre-496
 producer) died at `save_tool` while its item read `complete`. Caught by the `webdesign_tool_rebuilds`
-lane at 13:43Z with a two-arm measurement; **hotfixed by migration 532 (~13:55Z): marker `!` → `?`**
-(optional-explicit — search exclusion kept, absence allowed; verified live, `!` gone). Casualties:
-ONE failed run fleet-wide (theirs, self-refiled). TL-047's "absent ⇒ byte-identical (pinned)" was
+lane at 13:43Z with a two-arm measurement; **hotfixed by migration 532 (applied 13:50:42.682761Z — the snapshot row 532 itself wrote, corrected 2026-08-21 from my "~13:55Z" estimate by the staged_component_build lane's record-level check): marker `!` → `?`**
+(optional-explicit — search exclusion kept, absence allowed; verified live, `!` gone). Casualties (figures
+corrected 2026-08-21 to the record-level counts): **5 orchestration ATTEMPT rows across exactly ONE
+work item fleet-wide** in the 98-minute window (12:12:12→13:50:42Z) — mechanism-vs-damage kept apart:
+the mechanism kills every plain add_tool; low demand meant one item, self-refiled by its owner. TL-047's "absent ⇒ byte-identical (pinned)" was
 true of the ACTION and false of the config grammar around it — the register entry now says so.
 Verify-later: the next organic (flag-absent) add_tool anywhere completes a build — the absence arm's
 standing proof under `?`.
 
 **Remaining to close:** the oklch serve-grade (rerender queued behind ~44 items), then →
 `bugs_closed/`.
+
+**Ack-gate note (staged_component_build lane's adoption gate for `?` wires):** my wire's entry in
+`architecture_review/optional_explicit_wire_acks.json` was written PROVISIONALLY by the marker's
+author (correctly refusing to let the gate vouch on a non-owner's word) and is now **CONFIRMED by
+this session as owner** with the downstream check stated: the sole reader is `replaceExistingRequested`
+(GetBool default-false + quoted-"true"), absent ⇒ the arm is never entered; pinned by test arm A;
+proven live post-532 by a second producer's plain-absence build (`4531f29c`, tool-jwt-inspector,
+13:58:49Z — TL-047's verify-later, DISCHARGED). Caution inherited for any future `?` wire: the ack
+entry travels in the SAME commit as the wire, and `?` parses only on `v1.0.1321`+ (on an older binary
+the key is unknown and the field falls back to the whole-tree search — bites on rollback too).
