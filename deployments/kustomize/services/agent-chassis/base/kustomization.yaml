@@ -2,3 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - deployment.yaml
+  # bugs_open/040-kafka-dial, wired in 2026-08-21 on the owner's decision.
+  # It was hand-applied on 2026-07-26 and lived here UNREFERENCED for 26 days:
+  # live, committed, and reconciled by nothing — so `apply -k` would not have
+  # recreated it if it were ever deleted, and file-vs-live drift was silent in
+  # both directions. Verified identical to the live object before wiring
+  # (selector, podMetricsEndpoints, namespaceSelector and the
+  # release: kube-prometheus-stack label all match), so this is a no-op
+  # reconcile, not a change to what the fleet runs.
+  - podmonitor.yaml

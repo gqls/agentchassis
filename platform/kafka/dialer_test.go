@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/gqls/agentchassis/platform/observability"
 	"github.com/prometheus/client_golang/prometheus"
+	"strings"
 )
 
 // dialCount reads ai_persona_kafka_dial_total{broker,outcome} back out of
@@ -227,5 +228,98 @@ func TestInstrumentedDialerPreservesCallerTimeout(t *testing.T) {
 	}
 	if defaultDialerTimeout != 10*time.Second {
 		t.Errorf("defaultDialerTimeout = %v, want kafka-go DefaultDialer's 10s", defaultDialerTimeout)
+	}
+}
+
+// bugs_open/040-kafka-dial: an address with no host is refused before it is
+// dialled, and counted under its own label.
+//
+// The mechanism this makes visible: net.SplitHostPort(":9092") SUCCEEDS with
+// host="" — it is a valid address naming the local machine — so such a dial goes
+// to the pod's own loopback and returns ECONNREFUSED instantly, hundreds per pod
+// per burst. [MEASURED 2026-08-21] 94,419 `refused` in 7 days, 85,887 of them
+// carrying an EMPTY broker label, which is brokerLabel's output for host="".
+//
+// The assertion is on the ERROR TEXT deliberately, not merely on "an error came
+// back": on a machine where something happens to listen on localhost:9092 the
+// dial would SUCCEED without the guard, and only the guard produces this string.
+// That makes the test discriminate rather than pass by accident.
+func TestInstrumentedDialRefusesAnEmptyHostBeforeDialling(t *testing.T) {
+	const addr = ":9092"
+
+	before := dialCount(t, "", dialOutcomeEmptyHost)
+	refusedBefore := dialCount(t, "", dialOutcomeRefused)
+
+	dial := instrumentedDialFunc(&net.Dialer{Timeout: 2 * time.Second, DualStack: true})
+	conn, err := dial(context.Background(), "tcp", addr)
+	if conn != nil {
+		conn.Close()
+		t.Fatal("a dial to an empty host returned a connection - the guard did not fire")
+	}
+	if err == nil {
+		t.Fatal("a dial to an empty host returned no error")
+	}
+	if !strings.Contains(err.Error(), "empty host") {
+		t.Fatalf("error %q does not name the guard; something else refused this dial and the test proves nothing", err)
+	}
+
+	if after := dialCount(t, "", dialOutcomeEmptyHost); after != before+1 {
+		t.Errorf("empty_host count = %v, want %v", after, before+1)
+	}
+	// The label must be its OWN, not folded into refused: separating them is the
+	// entire diagnostic value here (see the comment in instrumentedDialFunc).
+	if after := dialCount(t, "", dialOutcomeRefused); after != refusedBefore {
+		t.Errorf("refused count moved from %v to %v - an empty-host dial must not be counted as a refusal", refusedBefore, after)
+	}
+}
+
+// CONTROL 1: an address SplitHostPort cannot parse must take the ordinary dial
+// path, not the guard. Without this, a guard written as "anything SplitHostPort
+// dislikes" would pass the test above and silently swallow real addresses.
+func TestInstrumentedDialGuardIgnoresUnparseableAddresses(t *testing.T) {
+	before := dialCount(t, "", dialOutcomeEmptyHost)
+
+	dial := instrumentedDialFunc(&net.Dialer{Timeout: 50 * time.Millisecond, DualStack: true})
+	conn, err := dial(context.Background(), "tcp", "9092") // no colon: SplitHostPort errors
+	if conn != nil {
+		conn.Close()
+	}
+	if err != nil && strings.Contains(err.Error(), "empty host") {
+		t.Fatal("the guard fired on an address with no host:port separator - it must key on an EMPTY host, not on a parse failure")
+	}
+	if after := dialCount(t, "", dialOutcomeEmptyHost); after != before {
+		t.Errorf("empty_host count moved from %v to %v on an unparseable address", before, after)
+	}
+}
+
+// CONTROL 2: a populated host is untouched. Reuses the local listener pattern of
+// TestInstrumentedDialRecordsSuccess so a real connection is made.
+func TestInstrumentedDialGuardIgnoresAPopulatedHost(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("cannot listen locally: %v", err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+
+	before := dialCount(t, "", dialOutcomeEmptyHost)
+
+	dial := instrumentedDialFunc(&net.Dialer{Timeout: 2 * time.Second, DualStack: true})
+	conn, err := dial(context.Background(), "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("a populated host was refused: %v", err)
+	}
+	conn.Close()
+
+	if after := dialCount(t, "", dialOutcomeEmptyHost); after != before {
+		t.Errorf("empty_host count moved from %v to %v on a populated host", before, after)
 	}
 }

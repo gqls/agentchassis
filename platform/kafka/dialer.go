@@ -4,6 +4,7 @@ package kafka
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"syscall"
 	"time"
@@ -47,6 +48,11 @@ const (
 	dialOutcomeDNS        = "dns"
 	dialOutcomeDNSTimeout = "dns_timeout"
 	dialOutcomeError      = "error"
+
+	// empty_host is not a failure MODE, it is a failure SHAPE: the address had no
+	// host at all, so no dial was ever worth attempting. It is kept out of
+	// "refused" deliberately — see instrumentedDialFunc.
+	dialOutcomeEmptyHost = "empty_host"
 )
 
 // classifyDialErr maps a dial error onto a bounded metric label.
@@ -100,6 +106,44 @@ func brokerLabel(address string) string {
 // was the two combined, and splitting them is what the outcome label is for.
 func instrumentedDialFunc(base *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		// Refuse an address with no host before dialling it, and count it under
+		// its own label.
+		//
+		// WHY THIS IS HERE AND NOT AT A CALL SITE. `net.SplitHostPort(":9092")`
+		// SUCCEEDS with host="" — it is not a malformed address, it is a valid one
+		// naming the local machine. So a dial to ":9092" goes to the pod's own
+		// loopback, where nothing listens, and comes back ECONNREFUSED instantly.
+		// A single pod can rack up hundreds in a burst, which is exactly the shape
+		// bugs_open/040 measured: [MEASURED 2026-08-21] 94,419 `refused` over 7
+		// days, of which 85,887 carry an EMPTY broker label — that label is
+		// brokerLabel's output for host="", so it is not a missing label, it is a
+		// dial to ":9092".
+		//
+		// topic_manager.go's getController was one producer of that address and is
+		// fixed (controllerAddress rejects an empty Host, v1.0.1291). The bursts
+		// RECURRED after that fix, so at least one more producer exists and it is
+		// not in this repository: kafka-go's own consumer-group coordinator lookup
+		// builds `net.JoinHostPort(out.Coordinator.Host, ...)` straight from a
+		// FindCoordinator response with no validation (consumergroup.go), and every
+		// Reader in the fleet dials through this dialer. Vendored code cannot be
+		// guarded upstream, and this function is the one choke point BELOW all of
+		// it.
+		//
+		// This changes no outcome — a dial to ":9092" fails either way. What it
+		// buys is the discriminator: post-roll, a non-zero empty_host says the
+		// remaining producer is library-internal, and `refused` with an empty
+		// broker label must be STRUCTURALLY ZERO. If it is not, a third producer
+		// exists outside the instrumented dial path, and that is the disconfirming
+		// result to look for.
+		if host, _, splitErr := net.SplitHostPort(address); splitErr == nil && host == "" {
+			// broker label stays "" so the series is continuous with the 85,887
+			// events already recorded under it.
+			observability.KafkaDialTotal.WithLabelValues(brokerLabel(address), dialOutcomeEmptyHost).Inc()
+			// No duration observation: nothing was dialled, and a ~0s sample would
+			// drag the latency distribution this bug is read from.
+			return nil, fmt.Errorf("kafka: refusing dial to structurally invalid address %q: empty host (bugs_open/040)", address)
+		}
+
 		start := time.Now()
 		conn, err := base.DialContext(ctx, network, address)
 		outcome := classifyDialErr(err)

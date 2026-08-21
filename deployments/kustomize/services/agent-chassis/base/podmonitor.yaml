@@ -1,4 +1,12 @@
-# bugs_open/040-kafka-dial — THE OTHER HALF OF THE METRICS FIX. NOT YET APPLIED.
+# bugs_open/040-kafka-dial — THE OTHER HALF OF THE METRICS FIX.
+#
+# STATUS, corrected 2026-08-21: APPLIED (hand-applied 2026-07-26) and, from this
+# commit, IN THE KUSTOMIZE BUILD. The "NOT YET APPLIED" banner that stood here
+# for 26 days was true when written and false for most of its life — during which
+# this object was live, committed, and reconciled by nothing, so an `apply -k`
+# would not have recreated it after a deletion and drift was silent in both
+# directions. Wired into base/kustomization.yaml on the owner's decision, after
+# verifying the file matches the live object field for field.
 #
 # Opening a /metrics port is necessary but NOT sufficient in this cluster, and
 # the difference is easy to miss.

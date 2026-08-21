@@ -93,6 +93,22 @@ var (
 		Buckets: prometheus.ExponentialBuckets(0.005, 2, 12), // 5ms -> ~20s
 	}, []string{"outcome"})
 
+	// bugs_open/040-kafka-dial, the produce side. The dial counters above see a
+	// CONNECTION fail; nothing has ever seen a WRITE fail. Measured 2026-08-21
+	// over the retained agent_error_log window: 63 "Kafka write errors" plus 40
+	// "topic partition has no leader" rows across 93 distinct orchestrations,
+	// recurring most days since 08-10 — every one of them work that had already
+	// been done, lost or misreported at the moment of reporting it. Application
+	// logs were the only witness, and they are pod-lifetime.
+	//
+	// ⚠ topic_class, NOT topic. Per-job reply topics are named job.<uuid>-<step>
+	// and there are ~25,000 topics in this cluster; a raw topic label would be an
+	// unbounded cardinality bomb. topicClass collapses them — see producer.go.
+	KafkaProduceTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_kafka_produce_total",
+		Help: "Kafka produce attempts by normalised topic class and outcome (ok/no_leader/too_large/timeout/canceled/network/other)",
+	}, []string{"topic_class", "outcome"})
+
 	// Database metrics
 	DatabaseQueries = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ai_persona_database_queries_total",
