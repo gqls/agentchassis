@@ -31,16 +31,38 @@
 --       Run BOTH. A probe with no absent-control cannot tell "present" from "this
 --       grep matches anything". Check every replica, not one.
 --
---   (2) THE PER-PAGE BUDGET CANARY HAS PASSED. The budget assumes CollectedData
---       persists across process_sections_loop iterations; that is read from the
---       loop design, not observed. Build ONE page of 3+ sections and read the
---       marker: page_hits must ACCUMULATE across sections rather than resetting.
+--   (2) ⚠ CORRECTED 2026-08-21 — THIS PRECONDITION CANNOT PRECEDE THE APPLY, AND
+--       SAYING IT COULD WAS AN ORDERING MISTAKE IN MY OWN FILE. The per-page
+--       budget canary reads a marker that only exists once this step RUNS, so it
+--       is a POST-APPLY check, not a gate on applying. The honest sequence is:
+--       apply, canary the first page immediately, and roll back with the sidecar
+--       if the answer is unacceptable.
+--
+--       What was measurable BEFORE the apply, and was measured (2026-08-21):
+--       non-output keys written straight into CollectedData DO reach the durable
+--       row — all 13 page-content-writer orchestrations of the last three days
+--       carry `agent_config` and `__my_requests_topic__`, neither of which is a
+--       step output. So the mechanism exists. What is NOT established is that it
+--       survives an AWAIT inside the loop (`call_researcher`), because
+--       `saveStepResultWithRetry` (coordinator.go:1076) loads a FRESH state and
+--       copies only that step's own stepName/output_field.
+--
+--       THE CANARY, to run on the first page built after this applies:
 --         SELECT collected_data->'__copy_gate'
 --           FROM orchestration_states
 --          WHERE collected_data ? '__copy_gate' ORDER BY updated_at DESC LIMIT 5;
---       If it resets, the gate still repairs every headline hit and simply
---       budgets per section — weaker than intended, not wrong. Apply anyway if
---       you accept that, but KNOW which one you shipped.
+--       `page_hits` must ACCUMULATE across a page's sections. If it resets, the
+--       gate still repairs every headline hit and budgets per section — weaker
+--       than intended, not wrong.
+--
+--   ⚠ AND ONE THING THE APPLY MAKES TRUE IMMEDIATELY, recorded here because it
+--     will mislead an auditor: the repair splices in place into the map the
+--     renderer reads, and that reaches `render_section` in the same in-memory
+--     pass — but the DURABLE `collected_data.generated_content` is written by the
+--     PREVIOUS step's save and is NOT rewritten afterwards. So the stored
+--     `generated_content` shows the copy BEFORE repair while the page shows the
+--     copy after. `page_components.content_data` is the truth; collected_data is
+--     the writer's first draft.
 --
 -- WHAT THE STEP DOES (full reasoning: platform/orchestration/actions/rewrite_negations_action.go):
 -- scans the generated section for define-by-negation, leaves alone anything the
