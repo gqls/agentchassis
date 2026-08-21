@@ -364,7 +364,7 @@ func TestInjectBrandHeadTagsEmitsNoOgURL(t *testing.T) {
 		CompanyName: "Lendzy",
 		Tagline:     "Know the rules before you borrow",
 	}
-	out := injectBrandHeadTags("<head><title>t</title></head>", ctx, false, zap.NewNop())
+	out, _ := injectBrandHeadTags("<head><title>t</title></head>", ctx, false, zap.NewNop())
 
 	if strings.Contains(out, "og:url") {
 		t.Fatalf("the per-site brand block still asserts a page URL:\n%s", out)

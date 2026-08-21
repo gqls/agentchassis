@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/agenterrors"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/storage"
 	"go.uber.org/zap"
@@ -532,7 +533,15 @@ func declaresHeadTag(head, attr, value string) bool {
 //
 // ⚠ NO og:url, and no other PAGE-scoped value, ever belongs here — see the
 // comment at the og:image line below.
-func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) string {
+// RETURNS (head, declinedReason). declinedReason is "" on the normal path; when
+// non-empty the caller MUST record it durably. That is deliberate plumbing, not
+// ceremony: council round 2 (bug_historian, corr 54c660f8) observed that a
+// zap.Warn is not a fail-loud signal on this platform — chassis pod logs retain
+// on the order of a couple of MINUTES, so a warning nobody writes down is
+// write-only. The reason is returned rather than recorded here because this
+// function has no DB handle and its one caller does; widening its dependencies
+// to reach the error log would be the larger change.
+func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool, logger *zap.Logger) (string, string) {
 	idx := strings.Index(headHTML, "</head>")
 	if idx == -1 {
 		// A head with no close tag: decline, but LOUDLY. Unlike this function's
@@ -554,7 +563,7 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 			zap.String("domain", ctx.Domain),
 			zap.Int("head_bytes", len(headHTML)),
 			zap.String("consequence", "this site serves no og:image, twitter card or apple-touch-icon until its head component gains a <head> element (see bugs_closed/347, migration 529)"))
-		return headHTML
+		return headHTML, "head has no </head> close tag, so no brand tags were added"
 	}
 
 	origin := "https://" + ctx.Domain
@@ -628,14 +637,14 @@ func injectBrandHeadTags(headHTML string, ctx *RenderContext, hasSpriteCSS bool,
 	// site's chrome has rendered once, so it must be free and must not churn
 	// site_components.rendered_html (the archive trigger fires on a real change).
 	if b.Len() == 0 {
-		return headHTML
+		return headHTML, ""
 	}
 
 	logger.Info("injectBrandHeadTags: added missing brand head tags",
 		zap.String("domain", ctx.Domain),
 		zap.Bool("sprite_css", hasSpriteCSS),
 		zap.Int("bytes_added", b.Len()))
-	return headHTML[:idx] + b.String() + headHTML[idx:]
+	return headHTML[:idx] + b.String() + headHTML[idx:], ""
 }
 
 // htmlEscapeAttr minimally escapes a string for use inside a double-quoted
@@ -1155,7 +1164,31 @@ func renderAndStoreSiteComponent(
 			SELECT count(*) FROM assets
 			 WHERE site_id = $1 AND purpose = 'sprite_sheet' AND status = 'active'
 		`, siteID).Scan(&spriteCount)
-		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
+		var brandDeclined string
+		renderedHTML, brandDeclined = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
+		if brandDeclined != "" {
+			// Durable, because a log line here is not (council round 2,
+			// bug_historian): chassis log retention is ~minutes, so the row is
+			// the only thing a later triage can find. Best-effort by design —
+			// agenterrors.Write never changes the disposition already decided,
+			// and this slot still stores its rendered HTML either way.
+			agenterrors.Write(ctx, db, logger, agenterrors.Entry{
+				SiteID:       siteID.String(),
+				Domain:       renderCtx.Domain,
+				AgentType:    "render_site_components",
+				StepName:     "inject_brand_head_tags",
+				Action:       "render_site_components",
+				ErrorCode:    "BRAND_HEAD_TAGS_DECLINED",
+				Severity:     "warning",
+				ErrorMessage: "brand head tags not injected: " + brandDeclined,
+				Context: map[string]interface{}{
+					"slot":        slot,
+					"head_bytes":  len(renderedHTML),
+					"consequence": "site serves no og:image, twitter card or apple-touch-icon until its head component gains a <head> element",
+					"remedy":      "wrap the head component's template in <head>…</head> — bugs_closed/347, migration 529 is the worked example",
+				},
+			})
+		}
 	}
 
 	// Divergence gate, read half (bugs_open/226). The artefact about to be

@@ -166,7 +166,7 @@ func TestInjectBrandHeadTags(t *testing.T) {
 	ctx := &RenderContext{Domain: "robot-hands.com", CompanyName: "Robot-Hands", Tagline: "Grip intelligence", LogoURL: "/assets/images/logo.jpg"}
 
 	head := "<head>\n  <title>x</title>\n</head>"
-	out := injectBrandHeadTags(head, ctx, true, log)
+	out, _ := injectBrandHeadTags(head, ctx, true, log)
 
 	for _, want := range []string{
 		`rel="icon" href="/assets/images/favicon.png"`,
@@ -197,7 +197,7 @@ func TestInjectBrandHeadTags(t *testing.T) {
 	// added. Changing this assertion is a deliberate contract change with the
 	// reason on record — not a checker bent to agree with the code.
 	already := `<head><link rel="icon" href="/x.png"></head>`
-	got := injectBrandHeadTags(already, ctx, false, log)
+	got, _ := injectBrandHeadTags(already, ctx, false, log)
 	if !strings.Contains(got, `rel="icon" href="/x.png"`) {
 		t.Errorf("the authored favicon must be preserved exactly, got: %s", got)
 	}
@@ -217,7 +217,7 @@ func TestInjectBrandHeadTags(t *testing.T) {
 	// Per-tag idempotence, both quote styles: a head that already declares a
 	// tag keeps ITS version and gains no duplicate.
 	authored := `<head><meta property='og:image' content='/mine.png'><meta name="twitter:card" content="summary"><link rel="icon" href="/i.png"><link rel="apple-touch-icon" href="/a.png"></head>`
-	out3 := injectBrandHeadTags(authored, ctx, false, log)
+	out3, _ := injectBrandHeadTags(authored, ctx, false, log)
 	for _, tag := range []string{"og:image", "twitter:card", "rel=\"icon\"", "apple-touch-icon"} {
 		if strings.Count(out3, tag) != 1 {
 			t.Errorf("tag %q duplicated or lost (count %d): %s", tag, strings.Count(out3, tag), out3)
@@ -230,19 +230,36 @@ func TestInjectBrandHeadTags(t *testing.T) {
 	// A head that already declares EVERYTHING comes back byte-identical — the
 	// steady state after one render, and it must not churn the stored artefact
 	// (the site_components archive trigger fires on a real change).
-	full := injectBrandHeadTags("<head><title>x</title></head>", ctx, true, log)
-	if again := injectBrandHeadTags(full, ctx, true, log); again != full {
+	full, _ := injectBrandHeadTags("<head><title>x</title></head>", ctx, true, log)
+	if again, _ := injectBrandHeadTags(full, ctx, true, log); again != full {
 		t.Errorf("second pass must be byte-identical:\n--- once ---\n%s\n--- twice ---\n%s", full, again)
 	}
 
-	// No </head> → returned unchanged (defensive).
-	if got := injectBrandHeadTags("no head here", ctx, false, log); got != "no head here" {
-		t.Errorf("expected unchanged on malformed head, got: %s", got)
+	// No </head> → returned unchanged, AND a non-empty decline reason so the
+	// caller can record it durably. The reason is the point: council round 2
+	// (bug_historian) established that a zap.Warn is not a fail-loud signal
+	// here, because chassis log retention is measured in minutes. A silent
+	// return is how webdesign.co.uk lost every brand tag on 117 pages.
+	got2, declined := injectBrandHeadTags("no head here", ctx, false, log)
+	if got2 != "no head here" {
+		t.Errorf("expected unchanged on malformed head, got: %s", got2)
+	}
+	if declined == "" {
+		t.Error("a decline must return a NON-EMPTY reason — the caller writes it to agent_error_log, and an empty string makes the skip silent again")
+	}
+
+	// The normal paths must NOT report a decline, or the caller writes a row
+	// on every healthy render.
+	if _, d := injectBrandHeadTags("<head><title>x</title></head>", ctx, true, log); d != "" {
+		t.Errorf("healthy injection reported a decline: %q", d)
+	}
+	if _, d := injectBrandHeadTags(full, ctx, true, log); d != "" {
+		t.Errorf("byte-identical no-op reported a decline: %q", d)
 	}
 
 	// Escaping: a company name with quotes/ampersand must not break the attr.
 	ctx2 := &RenderContext{Domain: "x.com", CompanyName: `A&B "Co"`, Tagline: ""}
-	out2 := injectBrandHeadTags("<head></head>", ctx2, false, log)
+	out2, _ := injectBrandHeadTags("<head></head>", ctx2, false, log)
 	if !strings.Contains(out2, `content="A&amp;B &quot;Co&quot;"`) {
 		t.Errorf("attr not escaped: %s", out2)
 	}
