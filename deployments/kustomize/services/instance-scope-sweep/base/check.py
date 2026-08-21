@@ -35,6 +35,19 @@ It writes ONE doc_notes row per run — when it files work AND when the estate i
 clean — so a MISSING row means THE JOB DID NOT RUN, which must never look like
 "nothing needed converting".
 
+ESCALATION (owner ruling 2026-08-21, second half: "ensure all these errors are detectable
+and fixable through the improvement loop"). A row whose conversion has FAILED on two or more
+sweep-filed items carries evidence its template is defective (the chartTitle-duplicate class:
+the converter errors, loudly, every time) - grinding it daily fixes nothing. Such rows are
+ESCALATED: the sweep files ONE add_tool item with replace_existing=true (the owner-ruled
+rebuild route: full pipeline, fresh generation, incumbent snapshotted), spec derived from the
+incumbent's own description and tool-doc header, rate-limited to one escalation per row per
+14 days so a rebuild that does not cure the defect loops slowly and visibly instead of
+thrashing. needs_human_review rows are DELIBERATELY NOT escalated: the judged gate parked
+them precisely because no machine could prove a rewrite of a WORKING live tool safe, and a
+from-scratch rebuild discards the incumbent's behaviour - that stays a human's call
+(the owner made exactly that call for the 2026-08-21 six by hand).
+
 THE DEMAND CONTROL. This check's healthy long-run answer is "0 to file", and a
 broken query also returns 0. So every run counts converted templates
 ({{.InstanceID}} adopters — 90+ live since 2026-08-20) through the same matching in
@@ -103,6 +116,60 @@ WHERE c.is_active
     WHERE w.item_key = 'instance-scope:' || left(c.id::text, 8)
       AND w.status NOT IN ('complete','verified','rejected','wont_fix',
                            'failed','unresolved','cancelled'))
+RETURNING item_key;
+"""
+
+
+# Escalate rows with >=2 FAILED conversion items and no add_tool rebuild filed in 14 days.
+# Spec derived from the incumbent (its display_name, description, tool-doc header) - the
+# framework's own words, never composed here.
+ESCALATE_SQL = """
+WITH failed_rows AS (
+  SELECT c.id, c.function, c.display_name, c.description, c.html_template,
+         s.domain, s.id AS site_id,
+         count(w.id) AS failed_n
+  FROM content_components c
+  JOIN page_components pc ON pc.component_id = c.id
+  JOIN pages p ON p.id = pc.page_id
+  JOIN sites s ON s.id = p.site_id
+  JOIN site_work_items w ON w.item_key = 'instance-scope:' || left(c.id::text, 8)
+                        AND w.status = 'failed'
+  WHERE c.is_active
+    AND c.html_template ~ 'getElementById'
+    AND c.html_template NOT LIKE '%{{.InstanceID}}%'
+  GROUP BY c.id, c.function, c.display_name, c.description, c.html_template, s.domain, s.id
+  HAVING count(w.id) >= 2
+)
+INSERT INTO site_work_items (
+  site_id, source, pipeline, item_type, severity, summary,
+  priority, handler_agent, status, created_by, spec, item_key
+)
+SELECT DISTINCT ON (f.site_id, f.function)
+  f.site_id, 'automated_check', 'build', 'add_tool', 'medium',
+  'instance-scope-sweep ESCALATION: conversion of ' || f.function || ' has FAILED ' || f.failed_n
+    || ' times (defective template - the converter errors on it); rebuilding through the full pipeline per the 2026-08-21 owner ruling',
+  40, 'tool-generator', 'triaged', 'instance-scope-sweep',
+  jsonb_build_object(
+    'name', f.display_name,
+    'function', f.function,
+    'complexity', 'moderate',
+    'replace_existing', true,
+    'description',
+      COALESCE(NULLIF(f.description,''), f.display_name)
+      || CASE WHEN position('=== tool-doc ===' in f.html_template) > 0
+               AND position('=== /tool-doc ===' in f.html_template) > position('=== tool-doc ===' in f.html_template)
+         THEN E'\n\nBehaviour contract of the incumbent (from its own tool-doc header; preserve these invariants):\n'
+              || substr(f.html_template,
+                        position('=== tool-doc ===' in f.html_template) + 16,
+                        position('=== /tool-doc ===' in f.html_template) - position('=== tool-doc ===' in f.html_template) - 16)
+         ELSE '' END),
+  'add_tool_rebuild_' || f.function || '_' || f.domain
+FROM failed_rows f
+WHERE NOT EXISTS (
+  SELECT 1 FROM site_work_items w2
+  WHERE w2.item_key = 'add_tool_rebuild_' || f.function || '_' || f.domain
+    AND (w2.status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled')
+         OR w2.created_at > now() - interval '14 days'))
 RETURNING item_key;
 """
 
@@ -208,7 +275,14 @@ def main():
         out = psql(FILE_ITEMS_SQL, password, host)
         filed = [ln for ln in out.splitlines() if ln.strip() and not ln.startswith("INSERT")]
 
+    out = psql(ESCALATE_SQL, password, host)
+    escalated = [ln for ln in out.splitlines() if ln.strip() and not ln.startswith("INSERT")]
+
     report = render_report(c, filed)
+    if escalated:
+        report += ("\n\nESCALATED to full-pipeline rebuild (>=2 failed conversions, "
+                   "14-day rate limit; owner ruling 2026-08-21):\n"
+                   + "\n".join("    " + k for k in escalated))
     print(report)
     write_doc_note(report, password, host)
     sys.exit(0)
