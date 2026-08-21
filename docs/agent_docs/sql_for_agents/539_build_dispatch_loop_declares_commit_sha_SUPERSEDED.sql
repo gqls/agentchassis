@@ -1,3 +1,29 @@
+-- ============================================================================
+-- ⚠ SUPERSEDED 2026-08-21 — NEVER APPLIED. Use `537_bdl_mark_complete_declares_commit_sha.sql`.
+--
+-- A parallel session built the IDENTICAL wire as 537 and applied it at 15:33:39Z,
+-- about an hour before this file's council round 2 returned APPROVED. Neither of
+-- us saw the other's WIP. Their file is the one that ran; this one is retained
+-- ONLY for the three analyses it carries that 537 does not (see below), and those
+-- have been contributed into their lane rather than left here.
+--
+-- Same wire, same path: commit_sha? = handler_result.response.commit_sha.
+-- 537 is BETTER in one respect worth naming: it DISCOVERS the nested step path at
+-- run time instead of hardcoding `workflow.steps.process_item.config.sub_workflow.
+-- steps.mark_complete`, so it survives a restructured loop where this file would
+-- refuse.
+--
+-- What this file has that 537 does not, all contributed to their lane:
+--   1. The bugs_closed/287 spawn-record analysis — WHY handler_result is
+--      trustworthy at all. 537 rests on the same premise without examining it.
+--   2. The measurement behind `?` rather than `!`: 1080 of 2195 completions in 3
+--      days carry no sha (49%), so `!` would hard-fail about half of them.
+--   3. A guard asserting the `result!` premise this wire's safety depends on.
+--
+-- Nothing here was applied: agent_definitions_backup holds ZERO snapshots with
+-- reason '539_%', and this file takes its snapshot immediately before the UPDATE.
+-- ============================================================================
+
 -- 539 — build-dispatch-loop's `mark_complete` step NAMES where `commit_sha` comes
 --       from, with the `?` OPTIONAL-EXPLICIT marker: that path or ABSENCE, never
 --       the whole-tree search. RFC_029 §10.13 step 5's LAST live blocker.
