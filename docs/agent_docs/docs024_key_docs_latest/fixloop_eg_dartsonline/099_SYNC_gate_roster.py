@@ -14,7 +14,9 @@ WHAT IT MIRRORS: every `review_*` and `gate_*` step, plus select_panel's
 `footprints` map, plus council_decide.review_fields and run_checks.check_fields.
 
 THE FOUR TRANSFORMS (a submission is not a diagnosis):
-  1. prompt context: '## The diagnosis' + '{{.diagnosis_row.conclusion}}'
+  1. prompt context: the heading LINE '## The diagnosis' (anchored ^...$, so a
+     longer heading that merely starts the same way is left alone — see the
+     comment at the substitution) + '{{.diagnosis_row.conclusion}}'
      becomes '## The author's stated rationale' + '{{.input_data.rationale}}'.
   2. input_fields: 'diagnosis_row' becomes 'input_data'.
   3. error_step: 'complete_refused' becomes 'complete_invalid' (the gate's
@@ -38,6 +40,7 @@ is restorable from agent_definitions_backup, and the UPDATE is parameterised.
 """
 import copy
 import json
+import re
 import subprocess
 import sys
 
@@ -82,7 +85,16 @@ def transform_step(name, step):
 
     p = cfg.get("prompt_template")
     if isinstance(p, str):
-        p = p.replace("## The diagnosis", "## The author's stated rationale")
+        # ANCHORED to the whole heading LINE, not the prefix (fixed 2026-08-21).
+        # The old form was p.replace("## The diagnosis", ...), which also hit
+        # every OTHER heading beginning with those words. It had already
+        # corrupted the live diagnosis_guardian seat, whose
+        # "## The diagnosis loop's load-bearing disciplines" became
+        # "## The author's stated rationale loop's load-bearing disciplines" —
+        # nonsense at the top of the list of disciplines that seat defends.
+        # Repaired live by migration 531; this stops the mirror re-making it.
+        p = re.sub(r"^## The diagnosis[ \t]*$",
+                   "## The author's stated rationale", p, flags=re.M)
         p = p.replace("{{.diagnosis_row.conclusion}}", "{{.input_data.rationale}}")
         cfg["prompt_template"] = p
 
