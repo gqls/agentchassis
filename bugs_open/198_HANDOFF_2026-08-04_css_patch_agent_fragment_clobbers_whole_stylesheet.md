@@ -1395,3 +1395,26 @@ Zero armed sites remain.
 **What is still owed after this** — unchanged and not diminished by the above: the shrink
 floor's post-roll pod-grep on chassis AND git-adapter (RUNBOOK §7); candidate 6; and the
 round-trip-writer inventory owed since council round `5249320e`.
+
+> **UPDATE 2026-08-21, ~19:15Z — the "stay off webdesign.uk" instruction above is DISCHARGED, and
+> my fleet count is now true rather than wrong.** The 198 lane witnessed the refusal on a real
+> dispatch (run `76d9bc57`, 19:09–19:11Z, terminated at `complete_refused`, never reaching
+> `plan_css_fix`; item parked `needs_human_review` by `css_base_integrity_guard_198`), with both
+> negative controls asserted — theme row still 0 bytes at v1 with `updated_at` still 2026-08-04, and
+> the repo blob still 15,582 B at md5 `a582e515…` with zero commits on the path, either of which
+> would have flipped had the gate mis-fired. Probe `c75f430e` deleted. They then seeded the row
+> (migration `548`, md5-asserted from the vm-sites blob) — proof first, seed second, deliberately,
+> because seeding first would have destroyed the only remaining subject.
+>
+> **So: the site is done, not reserved. And "no empty linked theme rows in the fleet" is now TRUE**,
+> where when I first wrote it it was true only if webdesign.uk was out of scope — which was the whole
+> error. Fleet stands at 22 PASS / 0 REFUSE.
+>
+> **One thing worth carrying out of this, because it is the reusable half:** they declined to
+> manufacture the guard's PASSING arm, on the grounds that driving a synthetic probe through a
+> healthy base would have written `SPAN.probe-198` — a rule matching nothing — into a real
+> stylesheet, i.e. exactly the `H3.H3` / `p.P` pathology this file already carries three sites of.
+> It needed no manufacturing: the passing arm had already been witnessed for real hours earlier, when
+> loanzy.uk's queued items appended to its restored base and shipped the whole file v21/17,906 →
+> v34/21,330 with `:root` intact. **On a tree this busy, the arm you decline to induce has often
+> already been witnessed by someone else** — look before you synthesise.

@@ -42059,6 +42059,14 @@ cleared-as-not-damage note quietly changes a denominator.
 `git -C <deploy repo> cat-file -s <domain>/assets/css/styles.css`. Absence at the artefact is the
 only thing that licenses "no file exists".
 
+**The class remedy, sharper than the instance fix** (the 198 lane's phrasing, and it generalises
+past this bug): **stop asking the URL what the ARTEFACT is.** The wire answers "what does a visitor
+get here", and that is a different question from "what does this system hold" — a redirect, a CDN
+rule, a 403 or a stale cache all change the first while the second is untouched. The check is cheap
+AND layer-correct: interrogate the store that owns the thing (`git cat-file -s`, the DB row), not the
+delivery path in front of it. Every member of this class I have hit reduces to reading a
+delivery-layer answer as a storage-layer fact.
+
 **What caught it.** Not me — the bugfix-198 lane, who checked the artefact side while I was still
 reasoning from the wire. Corrected in place in `bugs_open/198` with the reasoning, not just the fact.
 
