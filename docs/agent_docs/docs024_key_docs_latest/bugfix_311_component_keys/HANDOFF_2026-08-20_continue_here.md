@@ -95,6 +95,30 @@ builder-flow decision"`. The incumbent (`b89f91e1`, html `a2c00f1c66ce6f4ef72b48
 re-pinned and the `needs_new_component:mortgages-repayment` key is held only by `cancelled`/`failed`
 rows, so the two-item recipe is insertable the moment the halt lifts.
 
+## ⚠ UPDATE 2026-08-21 — the originating site is UNBLOCKED, the diversion FIRED there, and a third gate now blocks it (`bugs_open/345`)
+
+- **`remortgagecalculator.uk` is UNLOCKED** (owner instruction, 2026-08-21). Only that row moved;
+  `adversecreditmortgage.co.uk` is still held with its 41 items. Old lock values and the reasoning
+  are in `portfolio_positioning/CONTRIB_2026-08-21_from_311_lane_your_halt_is_LIFTED_on_remortgagecalculator_only.md`.
+- **311's fix is PROVEN on its own originating case.** The store's refusal names
+  `function="mortgages-repayment-remortgagecalculator-uk"` — the site-scoped name — so identity
+  resolution diverted correctly. **Identity resolution precedes pre-store validation.**
+- **Blocked downstream by `bugs_open/345`** (filed from here): the generated template declares
+  `site_specs.locale.currency_symbol`, an aspect that exists nowhere (grep-proven), and
+  `generate_template`'s inputs carry **no previous-failure field**, so every retry reproduces the
+  identical rejection. 99 such rejections fleet-wide, every repeat item with exactly one distinct
+  reason, one item burning **52 generations** under a 3-attempt budget. Item `95fe67da` **cancelled
+  at attempt 2** rather than pay for a third. **Do not seed a `locale` aspect to get past it** —
+  that is fixing the checker to agree with broken output.
+- **Three unrelated gates have now each blocked a 311 repair, and none is 311:** `pages.status='archived'`
+  (loanzy loan-repayment), the `253` component floor on an unrelated slot (loanzy stress-test), and
+  `345` (remortgage index). The collision fix is sound; what is left between a diverted component
+  and a serving page is a queue of other people's guards.
+- **The originating page is a one-command repair the moment `345` is fixed:** site unlocked, both
+  dedup keys free, incumbent pinned same-day (`b89f91e1`, html `a453a6565489c348ad6a9156a8af812f`
+  — it moved AGAIN on 08-20 via `scope_component_instance_judged`, so re-pin same-day), served
+  before = 200 / 40,726 B / 0 `<input>` / md5 `89910f6e7875f1d310d962f83e443989`.
+
 ## What to do next (ranked)
 
 1. **Nothing is required for the fix itself.** Both halves are done. If you are here to close 311,
