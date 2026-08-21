@@ -892,10 +892,33 @@ for the detector my own suggestion needs.**
 
 So the two strings below are **the only known corpus for sub-class (2)**
 (hand-authored brief-shaped descriptions). They exist in exactly two places: the
-DB table `pages_backup_20260821_meta_desc`, and here. A table named
-`*_backup_*` is precisely the shape a cleanup routine targets — `database-cleanup`
-runs hourly and its config is opaque from `scheduled_tasks.input_data` (`{}`) — so
-**the version-controlled copy is the durable one.** Do not "tidy" either away.
+DB table `pages_backup_20260821_meta_desc`, and here. **The
+version-controlled copy is the durable one.** Do not "tidy" either away.
+
+> **CORRECTED 2026-08-21 — the specific risk I asserted here does not exist, and
+> I had not measured it.** The paragraph above originally read *"a table named
+> `*_backup_*` is precisely the shape a cleanup routine targets —
+> `database-cleanup` runs hourly and its config is opaque"*. The `320` lane
+> checked, and I then verified independently: `database-cleanup`'s **`pre_query`**
+> issues `DELETE FROM` against five **named** tables (`agent_error_log`,
+> `orchestration_state_audit`, `orchestration_states`, `palettes`,
+> `typography_sets`) — no `DROP`, no wildcard, nothing matching `pages_backup_*`.
+> No production Go path drops a table at all: the sole `DROP TABLE` in
+> `platform/`, `internal/`, `cmd/` is a **test fixture**
+> (`refresh_evidence_base_test.go:22`, the string
+> `"SELECT count(*) FROM sites; DROP TABLE sites"`) asserting that
+> multi-statement SQL is *refused*, which cuts the other way. And
+> `pages_backup_20260717_r6` has sat there untouched since 17 July.
+>
+> **How I got it wrong:** I read `scheduled_tasks.input_data`, found `{}`, and
+> called the config opaque. The work is in `pre_query`, a column I did not open —
+> so "opaque" described my query, not the task, and I built a risk claim on top of
+> it. Reading one column of a row is not reading the row.
+>
+> **The reasoning for the committed copy still stands, and is the better one
+> anyway:** a table's safety is a fact about *today's* cleanup config, and the
+> file's safety is a fact about git. Keep both; just don't cite a threat that
+> isn't there.
 
 **`darts-calendar-density`** (291 chars, was live 2026-08-20 → 2026-08-21):
 
