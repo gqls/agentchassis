@@ -6959,3 +6959,42 @@ decline I narrow the guard **with their reasoning recorded in the migration** ra
 ⚠ **After 537 applies, expect `tool-generator` to show NO `commit_sha`.** It never had one of its own
 (8 orchestrations, 0 carrying); its one recorded sha was iteration 0's, glued on by the search. The
 drop is the fix. This is written into the migration header so a dashboard watcher does not revert it.
+
+## 2026-08-21 (~14:3xZ) — a TENTH handler: the wire's own guard found what both censuses missed, and this one is a genuinely different judgement call
+
+`staged-component-build` built the wire (migration 537) and ran it dry — its apply-guard refused,
+naming **`content-feed-orchestrator`**. Worth recording exactly why two different discovery methods
+both missed it, since it's a third distinct failure mode on top of the two already logged this
+session (structural-census blind to non-`git_commit`-named actions; empirical-presence blind to
+cross-contamination):
+
+**I had actually SEEN this one.** It was in my very first structural census (`git_commit` ∩ live
+`handler_agent`) and I set it aside deliberately — negligible volume that day, and a two-commit
+shape (`commit_news` + `commit_rss`, see below) that made it a genuine judgement call rather than a
+mechanical one. Deferred, not decided — and it sat deferred until the wire's own guard forced the
+question. **The empirical cross-check (`535`/`536`'s method) also missed it**, for the opposite
+reason: it has never RECORDED a `commit_sha` (zero occurrences), because nothing reads its commit
+yet — "who records one today" cannot see a handler that is correctly silent today but CAN commit.
+
+**The wire's guard asks a third, better question and it's the right one**: does this handler's OWN
+`orchestration_states` tree, over a 30-day window, ever carry a `commit_sha` at all — a property of
+the HANDLER, not of what's currently wired to read it. `staged-component-build` built this
+specifically off the tool-generator correction earlier today; it just earned its keep for real.
+
+**Why this one needed real judgement, and it's a different shape from 523/527.** Those two each have
+one commit that's the item's OWN deliverable and a separate, later call that's a downstream
+side-effect — mechanical once told apart. content-feed-orchestrator has **no side-effect call**:
+`commit_news` and `commit_rss` are two genuinely independent, co-equal deliverables of the SAME
+item, each separately gated on its own feed's item count. [MEASURED, all 3 orchestrations in the
+30-day window]: news commits 3/3, rss commits 1/3, and on the one run where BOTH fire they carry
+**two different real shas**. No single-field choice loses nothing.
+
+**Migration 540**: maps `commit_sha` to `news_commit_result` (present far more often) and **states
+the loss explicitly, not hidden**: on the rarer dual-commit run, the RSS sha is real and live but not
+represented in this field (still reachable directly via `rss_commit_result`, unchanged). Submitted,
+corr `f53841fc`.
+
+**Running total: 10 real handlers**, not 9. Worth stating plainly for whoever reads this next: this
+population was never a fixed set to enumerate once — it's dispatched dynamically, and the wire's own
+"can this handler's tree produce a commit" guard is a better standing check than either census this
+lane built, precisely because it doesn't need re-running by hand each time something changes.
