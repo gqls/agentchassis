@@ -197,3 +197,66 @@ func TestSeamReportsASubsetOfThePreRenderGateAndSaysWhy(t *testing.T) {
 		}
 	}
 }
+
+// ── The escalation half (council bb7f5d0e round 1, bug_historian, GATING) ──
+//
+// The first version of this fix reported at Error and stopped. This estate has an
+// owner ruling that a named log is NOT escalation (bugs_open/054, 2026-07-22),
+// earned on exactly this shape: bugs_open/018 shipped the observability half for
+// dead controls, thirty of them shipped anyway, and the ruling was "make it MEAN
+// something". So the seam PUBLISHES its finding for a caller that can act.
+
+// The seam must publish, not merely log — a caller cannot escalate what it cannot
+// read, and parsing your own log lines is not a channel.
+func TestSeamPublishesAbsentRequiredForCallersToAct(t *testing.T) {
+	ctx := &RenderContext{
+		InputSchema: schemaRequiring("headline", "body"),
+		ContentData: map[string]interface{}{"headline": "Present"},
+	}
+	if _, _, _, err := RenderTemplate(`<h1>{{.headline}}</h1><div>{{.body}}</div>`, ctx, zap.NewNop()); err != nil {
+		t.Fatalf("fixture must render: %v", err)
+	}
+	if strings.Join(ctx.AbsentRequiredFields, ",") != "body" {
+		t.Fatalf("ctx.AbsentRequiredFields = %v, want [body] — without this a caller with a database "+
+			"handle has nothing to file, and the fix is a log line again", ctx.AbsentRequiredFields)
+	}
+}
+
+// CONTROL: a clean render must publish NOTHING, or every caller that reads the
+// field files an item on every healthy page.
+func TestCleanRenderPublishesNoAbsentRequired(t *testing.T) {
+	ctx := &RenderContext{
+		InputSchema: schemaRequiring("headline"),
+		ContentData: map[string]interface{}{"headline": "Present"},
+	}
+	if _, _, _, err := RenderTemplate(`<h1>{{.headline}}</h1>`, ctx, zap.NewNop()); err != nil {
+		t.Fatalf("fixture must render: %v", err)
+	}
+	if len(ctx.AbsentRequiredFields) != 0 {
+		t.Errorf("CONTROL FAILED: a clean render published %v", ctx.AbsentRequiredFields)
+	}
+}
+
+// The record is OPT-IN with the unsafe default OFF, because it is a new DB write
+// on a shared render path — the shape three seats made the dead-URL record arm
+// justify on council 98852baa. Unset must mean today's behaviour, byte for byte.
+func TestAbsentRequiredRecordIsOptInAndFailsOpen(t *testing.T) {
+	cases := map[string]struct {
+		config map[string]interface{}
+		want   bool
+	}{
+		"unset":              {map[string]interface{}{}, false},
+		"nil config":         {nil, false},
+		"explicitly false":   {map[string]interface{}{"record_absent_required_fields": false}, false},
+		"armed":              {map[string]interface{}{"record_absent_required_fields": true}, true},
+		"mistyped string":    {map[string]interface{}{"record_absent_required_fields": "true"}, false},
+		"mistyped number":    {map[string]interface{}{"record_absent_required_fields": 1}, false},
+		"someone else's key": {map[string]interface{}{"refuse_mistyped_llm_fields": true}, false},
+	}
+	for name, c := range cases {
+		if got := recordAbsentRequiredFields(c.config); got != c.want {
+			t.Errorf("%s: recordAbsentRequiredFields = %v, want %v — a config value that is not a "+
+				"bool is a mistake, and a mistake must not switch on a fleet-wide DB write", name, got, c.want)
+		}
+	}
+}

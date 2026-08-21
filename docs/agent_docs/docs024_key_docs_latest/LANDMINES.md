@@ -1740,9 +1740,21 @@ source document and the entry points at it.
 - **source:** 2026-07-31, bugfix lane, `bugs_open/161` step 2
 - **added:** 2026-07-31, bugfix lane
 
-### Template syntax written inside a COMMENT in `html_template` fails the parse, and the renderer silently falls back to a regex engine
+### Template syntax written inside a COMMENT in `html_template` fails the parse — ~~and the renderer silently falls back to a regex engine~~ IT NOW FAILS THE STEP
 
-- **footprint:** `content_components.html_template`, `platform/orchestration/actions/component_library.go` (`RenderTemplateReportingMissing`, `executeGoTemplate`), any `<style>` or `<!-- -->` comment in a component template
+> **⚠ CORRECTED 2026-08-21. THE TRAP STANDS; ITS CONSEQUENCE INVERTED.** Writing `{{if}}` inside an
+> HTML or CSS comment still fails `template.Parse` — `text/template` does not know what a comment
+> is, and that half of this entry is as true as the day it was written. What is no longer true is
+> everything after "silently": the regex fallback is **DELETED** (`bugs_closed/260`, live on
+> v1.0.1319+), and `RenderTemplate` — renamed from `RenderTemplateReportingMissing` the same week
+> when the two spellings were collapsed into one — now returns an **error**. So the symptom to
+> expect is a **failed step naming the parse error**, not a page of mangled markup, and the
+> sentence below about "still renders, still reports success, ships mangled markup" describes
+> artefacts rendered BEFORE that roll. Read it as the history you need to interpret an old page,
+> not as what happens now.
+
+
+- **footprint:** `content_components.html_template`, `platform/orchestration/actions/component_library.go` (`RenderTemplate` — renamed from `RenderTemplateReportingMissing` 2026-08-21, `executeGoTemplate`), any `<style>` or `<!-- -->` comment in a component template
 - **fires when:** you document a template's own logic in a comment beside it — the natural, conscientious thing to do when you add a conditional branch to a shared component. Write `{{if $.carousel}}` inside a CSS comment to explain the guard and Go's parser reads it as a real action. Comments are a lexer concern for CSS and HTML; `text/template` has no notion of either and scans the whole string
 - **the tell:** **none on the page, and the error you get locally is not the error production gets.** `template.Parse` returns `unexpected EOF` (the unmatched `{{if}}` never closes), but `RenderTemplateReportingMissing` does **not** propagate that: it logs at Warn and drops to `renderEachBlocks`/`renderIfBlocks`/`renderGoStyleSubstitutions`, a regex fallback that handles a different, smaller dialect. So the component still renders, still reports success, and ships **mangled** markup — unrendered `{{range}}` bodies, missing sections — rather than failing. A `deployed` build_status and a non-empty `rendered_html` are both consistent with this
 - **the check:** parse the template before you install it, and assert on the parse rather than on the page. `template.New("c").Parse(string(tpl))` in a throwaway Go program is enough, and it takes seconds. Do it against **every** live instance's real `content_data`, because a parse error surfaces on execute for some inputs and on parse for others. Cheap grep as a first pass: `grep -n '{{' template.html | grep -E '/\*|\*/|<!--'`
@@ -2225,7 +2237,7 @@ before a customer-facing domain is the one printing it.
   Worked example: `docs024_key_docs_latest/loancalculator_couk/acceptance/criteria/INSTALL_GATE.sh`.
 
 ### A schema value containing a QUOTE, rendered into a `<script>`, kills the whole tool — and it still passes every structural check
-- **footprint:** `content_components.html_template`, `input_schema`, `RenderTemplateReportingMissing`
+- **footprint:** `content_components.html_template`, `input_schema`, `RenderTemplate` (⚠ was `RenderTemplateReportingMissing` — RENAMED 2026-08-21 when the two spellings were collapsed into one; the footprint is updated so a `grep LANDMINES` for the symbol you are about to touch still finds this entry, which is the only thing that makes a footprint useful)
 - **the check:** `text/template` escapes NOTHING, by design. A fallback like
   `in "58-day" interest charges.` interpolated into `var S = "{{.field}}";` renders as
   `var S = " in "58-day" interest charges.";` — a syntax error that kills every
@@ -9739,7 +9751,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 
 ### A component template that fails to execute is rendered ANYWAY by a weaker regex path — so a template error looks like a content problem, and a MISSING field is safe while a mistyped one is fatal
 
-- **footprint:** `platform/orchestration/actions/component_library.go` (`RenderTemplate`, `RenderTemplateReportingMissing`, `renderEachBlocks`, `renderIfBlocks`, `renderGoStyleSubstitutions`, `renderHandlebarsSubstitutions`, `contextToMap`), `platform/orchestration/actions/call_agent.go` (`executeGoTemplate`), `content_components.html_template` / `input_schema`, `bugs_open/260`, `bugs_open/203`, `bugs_open/085`
+- **footprint:** `platform/orchestration/actions/component_library.go` (`RenderTemplate` — the ONE spelling since 2026-08-21, when `RenderTemplateReportingMissing` was folded into it; `renderEachBlocks`, `renderIfBlocks`, `renderGoStyleSubstitutions`, `renderHandlebarsSubstitutions`, `contextToMap` are all DELETED), `platform/orchestration/actions/call_agent.go` (`executeGoTemplate`), `content_components.html_template` / `input_schema`, `bugs_open/260`, `bugs_open/203`, `bugs_open/085`
 - **fires when:** you author or edit a component template, add a field to an `input_schema`, debug why a section rendered oddly, or reason about what happens when content is incomplete. No symptom needed — the fallback never logs at Error and the page it produces is well-formed HTML.
 - **the tell:** control structures present in the output **with their field values already substituted** — `{{if .eyebrow}}<span …>The build flow</span>{{end}}`. That combination is diagnostic: values resolved means generation worked, directives surviving means a template engine did not do the rendering. `RenderTemplateReportingMissing` runs Go `text/template` and on ANY error falls back to a regex renderer written for **handlebars** (`{{#each}}`, `{{#if}}`) which cannot see `{{if .x}}`, `{{range}}` or `{{end}}` but still substitutes `{{.field}}`. The fallback logs at **Warn** ("Go template execution failed, using regex fallback") and those lines rotate out fast — measured 2026-08-12, **zero** `RenderTemplate` lines of any kind in a 4,661-line 24h window on `agent-chassis`, so a grep for it is a blind zero.
 - **the check — and it inverts the obvious intuition:** with `missingkey=zero` as the code configures it, an **absent** field, a **nil** and an **empty array `[]`** all render fine; the failures are **type** violations — a string, or an array of strings, where the template ranges over array-of-objects (`range can't iterate over …`). So do not reason about "what if the writer leaves this empty"; reason about "what if the writer fills it with prose". Verify offline against the real row rather than guessing: pull `html_template` from `content_components`, feed it the real `content_data`, `Parse` + `Execute` with `Option("missingkey=zero")`, and **keep a control that coerces the field to its declared shape** — if both fail you have changed the wrong thing (worked harness: `bugs_open/260` §2).

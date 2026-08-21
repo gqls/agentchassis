@@ -308,7 +308,8 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	chromeRenderFailed := map[string]string{} // slot -> render error (bugs_open/260)
 	chromeUnserved := []string{}              // of those, the slots with nothing stored to serve
 	for _, slot := range slots {
-		success, locked, degraded, renderErr := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, chromeLinks, params.Logger)
+		success, locked, degraded, renderErr := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx,
+			forceRerender, chromeLinks, recordAbsentRequiredFields(params.StepConfig.Config), params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
@@ -681,6 +682,11 @@ func renderAndStoreSiteComponent(
 	renderCtx *RenderContext,
 	force bool,
 	chromeLinks ChromeLinkPolicy,
+	// recordAbsentRequired arms the bugs_open/342 render-time record. Passed in
+	// rather than read here because this function has no step config, and read
+	// from config at the ONE caller so the arming decision stays visible next to
+	// the other step settings rather than buried at the write.
+	recordAbsentRequired bool,
 	logger *zap.Logger,
 ) (ok bool, locked bool, degraded string, fatal error) {
 	// degraded names the component this slot fell back to when the library held
@@ -1000,6 +1006,32 @@ func renderAndStoreSiteComponent(
 	// own hrefs client-side, so an empty URL attribute there is intentional, not a
 	// dead control — exempt them exactly as check_dead_controls does
 	// (render_guardian council note, 2026-07-22).
+	// bugs_open/342 — ESCALATE, don't just log (council bb7f5d0e round 1,
+	// bug_historian, GATING: "a named log is not escalation", owner ruling on
+	// bugs_open/054). The seam has published which schema-required fields
+	// rendered EMPTY; this function has the database handle and the site
+	// identity it lacks, so this is where the report becomes a queue entry.
+	//
+	// REUSES required_fields_missing — the item type that already exists for
+	// this exact defect, with a router seeded by bugs_open/277 — rather than a
+	// fourth chrome-specific type. ⚠ AND IT REACHES A POPULATION THE EXISTING
+	// PRODUCER CANNOT: check_required_fields_missing scans
+	// `pc.build_status = 'deployed'`, i.e. rows that made it. 342's damage is
+	// the section that renders empty and is DROPPED, so it never becomes a
+	// deployed row to be scanned — survivorship, the same shape as bugs_closed/
+	// 260's "no live damage" headline. The item_key matches the check's
+	// (required_fields_missing:<page>:<slot>) so the two producers co-dedup
+	// instead of racing (owner ruling 2026-08-02 §1: name the producer set and
+	// the key shape where the type is registered).
+	//
+	// OPT-IN, unsafe default OFF: this is a new DB write on a shared render
+	// path, which is exactly what three seats made the dead-URL RECORD arm
+	// justify (council 98852baa). Unset means today's behaviour, byte for byte.
+	if recordAbsentRequired && len(renderCtx.AbsentRequiredFields) > 0 {
+		emitAbsentRequiredFieldsItem(ctx, db, siteID, componentID, slot,
+			renderCtx.AbsentRequiredFields, logger)
+	}
+
 	if len(deadURLFields) > 0 && !strings.Contains(renderedHTML, "data-runtime-fill") {
 		beforeLen := len(renderedHTML)
 		renderedHTML = DropDeadURLControls(renderedHTML)
@@ -1503,4 +1535,94 @@ func chromeSlotHasStoredHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 		return false
 	}
 	return exists
+}
+
+// emitAbsentRequiredFieldsItem files ONE required_fields_missing item for a
+// chrome slot whose schema-required fields rendered empty (bugs_open/342).
+//
+// Sibling of emitChromeDeadControlItem and emitChromeRenderFailedItem, and
+// deliberately NOT a fourth item type: required_fields_missing already exists
+// for this defect and already has a handler routed to it (bugs_open/277's
+// required-fields-missing-handler), so a new type here would be a second name
+// for one problem and would leave the router blind to it.
+//
+// The item_key deliberately matches check_required_fields_missing's shape,
+// `required_fields_missing:<page>:<slot>`, so the render-time producer and the
+// post-deploy producer co-dedup on one key rather than filing two items for one
+// slot. Chrome has no page, so the slot name stands in for both halves — stated
+// rather than silently reused, because a key that collides across pages would
+// hold one slot's item open for the whole site.
+//
+// Status `detected` and the same handler as the check: this is the same finding
+// arriving earlier, so it should route the same way. Failures are logged, never
+// returned — the render must not depend on the record being written, which is
+// the discipline every sibling emitter in this file follows.
+func emitAbsentRequiredFieldsItem(ctx context.Context, db *sql.DB, siteID, componentID uuid.UUID,
+	slot string, absent []string, logger *zap.Logger) {
+
+	if db == nil || siteID == uuid.Nil {
+		logger.Warn("site chrome: no site identity available, required_fields_missing item not filed",
+			zap.String("slot", slot), zap.Strings("absent_required_fields", absent))
+		return
+	}
+
+	fieldList := strings.Join(absent, ", ")
+	spec := map[string]interface{}{
+		"surface":        "site_component",
+		"slot_name":      slot,
+		"component_id":   componentID.String(),
+		"missing_fields": absent,
+		"source":         "render_site_components",
+		"detected_at":    "render",
+		"fix": "The component's schema marks these fields required and source:llm, and they " +
+			"rendered EMPTY — Go's missingkey=zero renders an absent field as empty with no " +
+			"error, so the slot ships blank rather than failing (bugs_open/342). Supply the " +
+			"values, or change the schema if they are not really required. NOTE this was " +
+			"detected AT RENDER, not by the post-deploy check, which only scans rows that " +
+			"reached build_status='deployed'.",
+	}
+	specJSON, _ := json.Marshal(spec)
+
+	summary := fmt.Sprintf("Chrome %s is missing %d schema-required value field(s): %s", slot, len(absent), fieldList)
+	if len(summary) > 250 {
+		summary = summary[:247] + "..."
+	}
+
+	compID := componentID
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		logger.Warn("site chrome: begin tx for required_fields_missing failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:       siteID,
+		componentID:  &compID,
+		source:       "render-site-components",
+		pipeline:     "build",
+		itemType:     "required_fields_missing",
+		severity:     "medium",
+		summary:      summary,
+		spec:         string(specJSON),
+		priority:     50,
+		handlerAgent: "required-fields-missing-handler",
+		status:       "detected",
+		createdBy:    "render_site_components",
+		itemKey:      fmt.Sprintf("required_fields_missing:%s:%s", siteID, slot),
+	}, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Warn("site chrome: insert required_fields_missing item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("site chrome: commit required_fields_missing item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if inserted {
+		logger.Info("site chrome: required_fields_missing item filed at RENDER time (bugs_open/342)",
+			zap.String("slot", slot), zap.Strings("absent_required_fields", absent))
+	}
 }

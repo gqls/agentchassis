@@ -149,7 +149,19 @@ type RenderContext struct {
 	// derived by reflection over STRING fields only (renderContextScalarFields),
 	// so it is excluded structurally rather than by an exclusion list — and
 	// render_context_derivation_test.go asserts exactly that.
-	InputSchema map[string]interface{} `json:"input_schema,omitempty"`
+	InputSchema map[string]interface{} `json:"-"`
+
+	// AbsentRequiredFields is an OUTPUT: RenderTemplate writes it, callers read
+	// it. It names the schema-required source:"llm" fields that rendered EMPTY,
+	// so a caller with a database handle and a site identity can escalate —
+	// which the seam cannot, having neither.
+	//
+	// It is an out-field rather than a fifth return value because the seam's
+	// signature was just unified to ONE spelling across sixteen call sites
+	// (2026-08-21) and churning it again the same day would undo that; this
+	// function already mutates ctx for the form_action seeding, so the shape has
+	// precedent here. `json:"-"` for the same reason as InputSchema above.
+	AbsentRequiredFields []string `json:"-"`
 }
 
 // NavItem represents a navigation link
@@ -1152,6 +1164,23 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	// to match the other.
 	if len(ctx.InputSchema) > 0 {
 		if absentRequired := missingRequiredLLMFields(ctx.InputSchema, data); len(absentRequired) > 0 {
+			// PUBLISHED, not just logged (council bb7f5d0e round 1,
+			// bug_historian, GATING). The first version of this reported at
+			// Error and stopped there — and this estate has an owner ruling that
+			// a named log is NOT escalation (bugs_open/054, 2026-07-22), earned
+			// on precisely this shape: bugs_open/018 shipped the observability
+			// half for dead controls, 30 of them shipped anyway, and the owner
+			// ruled "make it MEAN something". Writing the same half again and
+			// noting the limit in a comment would have been the same mistake
+			// with a footnote.
+			//
+			// The seam still cannot escalate — it has no database handle and no
+			// site identity — so it publishes here and a caller that has both
+			// acts. See render_site_components_action.go, which files a
+			// required_fields_missing item: the item type that ALREADY EXISTS
+			// for this defect, with a router seeded (bugs_open/277), rather than
+			// a fourth type of my own.
+			ctx.AbsentRequiredFields = absentRequired
 			logger.Error("RenderTemplate: REQUIRED content field(s) absent — the section rendered empty and page assembly will drop it (bugs_open/342)",
 				zap.Strings("absent_required_fields", absentRequired),
 				zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),

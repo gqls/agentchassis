@@ -35,3 +35,23 @@ func refuseMistypedLLMFields(config map[string]interface{}) bool {
 	armed, _ := config[mistypedLLMFieldsConfigKey].(bool)
 	return armed
 }
+
+// absentRequiredRecordConfigKey arms the RENDER-TIME record of schema-required
+// fields that rendered empty (bugs_open/342). A separate key from the refusals
+// above because it is a different authority: this one declines to ship nothing
+// and only files a note, where those decline to render.
+//
+// Default OFF for the reason three seats gave the dead-URL record arm on council
+// 98852baa: an unconditional new DB write on a shared render path is new
+// authority whatever its size. Unset means today's behaviour, byte for byte.
+const absentRequiredRecordConfigKey = "record_absent_required_fields"
+
+// recordAbsentRequiredFields reports whether this step should file a
+// required_fields_missing item for fields the seam found absent at render time.
+// Same fail-OPEN-on-a-mistyped-value semantics as its siblings: a config value
+// that is not a bool is a mistake, and a mistake must not switch on a fleet-wide
+// DB write by accident.
+func recordAbsentRequiredFields(config map[string]interface{}) bool {
+	armed, _ := config[absentRequiredRecordConfigKey].(bool)
+	return armed
+}
