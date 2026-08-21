@@ -6883,3 +6883,37 @@ independently, and now behaviourally proven at runtime with an internal control.
 **first production use of the `?` OPTIONAL-EXPLICIT marker on the step-config surface**, so this
 line is the evidence that the marker works in the fleet — which unblocks every other `?` adopter,
 including the held `516` for `tg/related_pages`.
+
+## 2026-08-21 (~17:1xZ) — the gate had a BLIND-GREEN feed shape, and fixing it exposed a second defect in my own test
+
+Reported by the `bugs_open/286` session while confirming their ack — **a defect in the gate, of
+exactly the class the gate exists to prevent.**
+
+**The shape:** feed `jsonb_build_object('type', type, 'default_config', default_config)` — the shape
+you reach for first, because that is how the column sits in the table — and all 194 agents decode
+cleanly, `liveAgent.Workflow` is the zero value for every one, the walker visits **nothing**, and the
+report reads *"0 live `?` wires, 0 unacknowledged, exit 0"*. Indistinguishable from a genuinely clean
+fleet: same wire count, same exit code, no error. Reproduced against the live fleet before fixing.
+The correct feed hoists it: `jsonb_build_object('type', type, 'workflow', default_config->'workflow')`.
+
+**Fixed (`3ce5d5448`):** agents decoded but **ZERO steps walked** ⇒ exit 2, "the check did not run",
+with the correct shape in the message. Guards on **what the walker REACHED**, not on whether
+`workflow` is empty — so it also catches an export that keeps `workflow` but loses `steps`, or a
+walker that stops descending. The scheduled path cannot hit this (`--report` builds the export itself
+from `fleetExportQuery`), so this is a hand-run guard.
+
+**AND THE SECOND DEFECT, which is the one worth carrying.** My first test for the guard asserted
+`walkedStepCount(...) == 0` and `findOptionalExplicitWires(...)` empty — the guard's **INPUTS** —
+while the guard itself lived behind `os.Exit` in the emit path, which the test never calls. Its
+header claimed a mutation proof. **I ran the mutation and it PASSED**: every assertion held with the
+branch deleted. A test written specifically to stop a silent pass would itself have silently passed.
+`vacuityRefusal(agents) string` now carries the decision so it can be pinned, and the mutation fails
+naming the defect. → `WRONG_CALLS.md`: *a test that pins a guard's inputs does not pin the guard*,
+and *an unverified mutation-proof claim is worse than none* — the next reader treats the branch as
+covered and deletes their own check.
+
+**Lane state:** the gate now reads **4 live wires, 0 unacknowledged** — 515's `page_type`, 286's
+`replace_existing` (ack CONFIRMED by its owner, commit `24ba20ed9`, with a first-hand downstream
+statement replacing my transcription), and 516's two `related_pages`. The last two needed no chase
+because their acks travelled in the same commit as the migration; that rule has now paid for itself
+twice in one day.
