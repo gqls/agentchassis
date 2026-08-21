@@ -13623,7 +13623,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **added:** 2026-08-20, webdesign_uk_build_service lane
 
 
-### Two config surfaces, two marker vocabularies — and a marker the reading binary does not parse applies cleanly, reports success and changes nothing. `?` in a step's action `config` was INERT up to chassis `v1.0.1320` and is LIVE from `v1.0.1321` (2026-08-20); `input_mapping` has always parsed both
+### `?` in a step's action `config`: INERT up to chassis `v1.0.1320`, LIVE from `v1.0.1321` (2026-08-20) — two config surfaces carry two marker vocabularies, and a marker the reading binary does not parse applies cleanly, reports success and changes nothing (`input_mapping` has always parsed both)
 
 > **CORRECTED WITHIN THE HOUR, 2026-08-20 ~17:4xZ, by the session that wrote it — and the
 > correction is a SHELF LIFE, not a retraction.** A parallel session of the same lane BUILT the
@@ -13657,6 +13657,14 @@ code change owed at the next roll, tracked in RFC_015 §5.
 >    git log --oneline -L '/optionalExplicit :=/,+2:platform/orchestration/datahelpers/action_inputs.go'
 >    # -> ecc419bd1 introduced it
 >    ```
+> **TITLE FIXED TWICE, 2026-08-21 — and the second fix is the instructive one.** The first attempt
+> put the version state at the END of the heading, after the general statement of the trap. The very
+> next council round read the entry and objected that the snapshot "still shows the entry with the
+> generic text ... not the version-qualified heading claimed" — because **a reader that truncates
+> sees only the opening clause**, which is the same failure the original `NOT YET` had, relocated
+> rather than fixed. The state now LEADS: a reader who sees 80 characters sees both binary versions.
+> If you are tempted to append a qualifier to a heading here, put it in front instead.
+>
 > **TITLE FIXED 2026-08-21 ~12:1xZ, by the marker session — and only after it happened a SECOND
 > time.** The heading above used to read *"...but NOT YET in a step's action `config`"*. Between
 > that wording and this line, the `prior_art_librarian` seat cited this entry's heading and

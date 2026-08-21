@@ -150,6 +150,7 @@ DECLARE
     tgt record;
     cfg jsonb;
     found int := 0;
+    already int := 0;
 BEGIN
     FOR tgt IN
         WITH RECURSIVE walk AS (
@@ -235,10 +236,40 @@ BEGIN
     -- quietly: zero carriers means the walk is wrong or 211's wiring is gone,
     -- and either way "0 rows updated, COMMIT" is the shape that reads as a
     -- clean apply. The census that motivated this file found exactly 2.
+    -- ZERO UNMARKED CARRIERS HAS TWO MEANINGS AND THEY MUST NOT COLLAPSE
+    -- (council REVISE round 2, debug_historian): after a SUCCESSFUL apply this
+    -- walk necessarily finds nothing, because the keys it looks for have been
+    -- renamed. A bare "refuse on zero" therefore makes a legitimate idempotent
+    -- re-run indistinguishable from a walk that is broken or a wiring that has
+    -- moved. Separate them by asking what the MARKED population looks like.
     IF found = 0 THEN
+        SELECT count(*) INTO already
+          FROM (
+            WITH RECURSIVE walk AS (
+                SELECT d.type AS agent_type, ARRAY[]::text[] AS path, d.default_config AS node
+                  FROM agent_definitions d
+                 WHERE d.is_active AND COALESCE(d.is_snapshot,false) = false AND d.deleted_at IS NULL
+                UNION ALL
+                SELECT w.agent_type, w.path || e.key, e.value
+                  FROM walk w CROSS JOIN LATERAL jsonb_each(w.node) e
+                 WHERE jsonb_typeof(w.node) = 'object'
+            )
+            SELECT 1 FROM walk
+             WHERE jsonb_typeof(node) = 'object'
+               AND path[array_length(path,1)] = 'config'
+               AND node ? 'related_pages?'
+          ) m;
+
+        IF already > 0 THEN
+            RAISE EXCEPTION '516: ALREADY APPLIED — 0 unmarked carriers and % marked one(s). '
+                'This is the idempotent re-run case, not a failure: nothing needed doing. '
+                '(The transaction still aborts so no second snapshot is written.)', already;
+        END IF;
+
         RAISE EXCEPTION '516: the recursive walk found NO step config carrying an unmarked '
-            'related_pages wire. Expected 2 (tool-generator/save_tool, tool-deployer/deploy_tool). '
-            'Either the walk is broken or the wiring has moved — do not treat this as applied';
+            'related_pages wire AND no marked one either. Expected 2 (tool-generator/save_tool, '
+            'tool-deployer/deploy_tool). Either the walk is broken or the wiring has moved — '
+            'do not treat this as applied';
     END IF;
     RAISE NOTICE '516: converted % related_pages carrier(s)', found;
 END $$;
