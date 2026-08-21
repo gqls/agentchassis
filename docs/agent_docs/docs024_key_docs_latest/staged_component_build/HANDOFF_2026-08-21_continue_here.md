@@ -25,7 +25,7 @@ Everything shipped today was its *precondition*, not the thing itself.
 
 | # | what | state |
 |---|---|---|
-| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | ❌ **NOT BUILT.** The lane's whole purpose |
+| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **CORRECTED ~19:1xZ: BUILT + COMMITTED `5fe010ada` (Go — inert until a roll), council round 1 REVISE answered, round 2 in flight — owned by the active [324079] session; see NOTES ~17:1x/~19:0x. Do NOT start it again.** ~~❌ NOT BUILT~~ |
 | **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | ❌ NOT DONE — the comment above that function names step 5's commit as its owner. **Use the two sound grounds in §5, NOT the retention argument** |
 | **3** | `bugs_open/330` candidate 2 — an unmarked wired-but-empty field still falls through to the search | ❌ OPEN, gated on the **269-pair / 75-agent unsampled remainder** (330 §9) |
 | **4** | A **standing** form of 537's guard | ❌ NOT BUILT — named residual, see §4 |
@@ -60,7 +60,7 @@ either fixed or wired, and the flip is the next build rather than a distant one.
 
 ---
 
-## 3. OWED NOW — the `v1.0.1322` roll carries a live-surface refactor and it has NOT been checked
+## 3. ✅ DONE 2026-08-21 ~19:1xZ (NOTES ~19:1x entry) — bdl 25 COMPLETED / 0 FAILED under real demand; the `RESOLVER_MAPPING_BYPASSED` zero discriminates NOTHING (class already 4 days silent). Was: OWED NOW — the `v1.0.1322` roll carries a live-surface refactor and it has NOT been checked
 
 **`v1.0.1322`, both pods, one digest `sha256:68075cf5…`, up 2026-08-21 16:54Z, build revision
 `bac189921` (which is HEAD).** It carries `383d1afbc` — the shared-parser extraction, which **edits
@@ -100,7 +100,7 @@ against `v1.0.1321` earlier the same day.
 Both fixes are applied and **neither is proven.** "Applied is not proven" is this lane's own
 standing lesson and it has bitten twice today.
 
-### 4.1 `bugs_open/330` — migration 516, applied 2026-08-21 ~16:55Z
+### 4.1 `bugs_open/330` — **FIRST READ ~19:1xZ: demand arrived (4 runs 18:47–18:55Z), RIGHT on 3 of 4 legs; the with-pages negative control is still demand-starved. n=4 < the ≥5 bar — not a close. Full read: 330 §10 + NOTES ~19:1x.** Migration 516, applied 2026-08-21 ~16:55Z
 
 | figure (pre-apply) | value |
 |---|---|

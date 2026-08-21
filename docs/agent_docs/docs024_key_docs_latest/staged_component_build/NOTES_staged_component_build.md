@@ -7350,3 +7350,57 @@ the objection was that I had asserted separability without describing the behavi
 **The lesson: "I dispositioned every observed case" is not the same claim as "I bounded the
 population."** I had the first and presented it as though it were the second. The measurement that
 closes the gap took two queries and a regex over the Go source, and it should have been in round 1.
+
+## 2026-08-21 (~19:1xZ) — handoff §3's owed check is DONE (demand-backed this time), and 516 gets its FIRST READ: right on three legs, demand-starved on the fourth
+
+New session, picked up from `HANDOFF_2026-08-21_continue_here.md`. Both owed items run against
+live at 18:5x–19:1xZ. The flip work (`5fe010ada`, council round 2) is the [324079] session's and
+is untouched here.
+
+**1. The `v1.0.1322` refactor check (handoff §3) — PASS, with the evidential weight stated
+honestly rather than as three green ticks:**
+- `build-dispatch-loop` since the 16:54:34Z roll: **25 COMPLETED, 1 EXECUTING_STEP,
+  1 AWAITING_RESPONSES, 0 FAILED** — real demand on the surface carrying the 77 live `?` keys,
+  no new failure class. This is the strong half of the check.
+- `diagnose-dispatch-loop` / `report-dispatch-loop`: **zero rows since the roll = NO DEMAND, not
+  a pass — and unremarkable**: diagnose ran 3× in all of today, report **0× in the last 7 days**.
+  Their read arrives whenever their demand does; do not hold anything open for it.
+- `RESOLVER_MAPPING_BYPASSED` since the roll: **0 — and this zero DISCRIMINATES NOTHING.** The
+  class holds 485 rows all-time, **all confined to 08-16→08-17** (log retention reaches back to
+  07-22), i.e. it was already four days silent before the roll. The zero is consistent with a
+  sound refactor and equally with a dead recorder. The check's real weight is (a) the 25 clean
+  completions under demand, (b) `marked_config_key_parity_test.go` pinning all 56 live
+  spellings, (c) behaviour-identical-by-construction. Recorded so the next reader does not cite
+  the zero as evidence — it is the lane's own structural finding, already in force here.
+- `agent_error_log` is alive in the window: 12 distinct non-RESOLVER classes landing (UNKNOWN 9,
+  CONTENT_VALIDATION_* 6, TIMEOUT 2, …).
+
+**2. 516 / `bugs_open/330` — demand ARRIVED at 18:47Z; the first read is RIGHT on three of four
+legs.** Four tool-generator runs since the 16:55Z apply (18:47:43→18:55:09Z;
+ai-agent-orchestration.com ×1, fundamentallyai.com ×3). Pre-apply rate ≈1 conflict row per run,
+so ~4 rows were expected if nothing had changed:
+- **Class: 0** `RESOLVER_CONFLICTING_CANDIDATES` rows for tool-generator since the apply.
+- **Artefact: absence is HONOURED and honestly recorded.** Both runs that reached the crosslink
+  stage carried `related_pages: null` in spec and emitted **NOTHING**, each writing a
+  `tool_crosslink_not_emitted:no_related_pages` row (18:49:19Z, 18:56:08Z; `related_pages_n: 0`).
+  Pre-516 the search would have glued another suggestion's pages on. webdesign.co.uk's broken
+  32-row pile has not grown: 0 new crosslink items anywhere fleet-wide since the apply.
+- **Instrument control — the banked one (bdl/`commit_sha` still firing) is GONE, exactly as the
+  ~18:2x entry predicted. Substituted with mechanism-level evidence, re-read FRESH rather than
+  trusted from the apply notice:** a jsonpath sweep over all live `agent_definitions` finds
+  **1 marked `related_pages?` carrier each on tool-generator and tool-deployer, 0 unmarked
+  carriers anywhere** — the colliding key is unrepresentable at the fixed sites. And the two
+  skip rows above prove the tool-generator→`agent_error_log` path still records.
+- **Negative control: NO DEMAND YET.** None of the 4 runs had a spec naming related_pages (two
+  died upstream, two carried none), so "a spec WITH pages still emits per-tool crosslinks" is
+  unproven. The four coherent sites in 330 §3 remain the watch.
+- **The two `complete_error` runs are NOT 516's:** both failed
+  `tool_birth_instance_scope_refused` (script not mechanically provable — 5 dangling bindings
+  each), a content guard upstream of the crosslink stage, both on fundamentallyai.com's
+  automation-savings-estimator.
+
+**n=4 is below the banked ≥~5-run bar, so this is a FIRST READ, not a close.** What closes 330's
+wire half: a later window with more no-pages runs staying silent AND at least one with-pages run
+emitting — the leg nothing has exercised yet. Candidate 2 (§9's 269-pair remainder) is untouched
+by any of this and stays open regardless. Recorded in `bugs_open/330` §10; handoff §3/§4.1
+headings corrected state-in-front (the §6 lesson 1 way, not appended at the tail).

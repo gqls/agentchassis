@@ -913,3 +913,26 @@ verdict was produced. That is not the case the "never re-trigger" rule guards �
 nothing to replace, and leaving it is how a submission silently waits for ever. Re-fire with the same
 `RESUBMIT_CORR` so the trail stays on one correlation. **Note what it costs:** the re-run starts from
 seat one, so any seats that had already reviewed are paid for again.
+
+## Counting marked vs unmarked carriers of a config key across ALL live definitions (2026-08-21)
+
+The mechanism-level substitute for the destroyed instrument-alive control: prove the colliding key
+is **unrepresentable**, not merely unobserved. Two traps cost an attempt each: (1)
+`jsonb_array_elements(default_config->'workflow'->'steps')` fails with *"cannot extract elements
+from an object"* — `steps` is an OBJECT keyed by step name, not an array; (2) a bare `?` in SQL is
+fine, but inside a **jsonpath** string the key must be quoted member access — `@."related_pages?"`.
+The recursive `$.**` walk is what catches carriers in sub-workflow steps (the top-level census
+misses them — sixth time).
+
+```sql
+SELECT type,
+       (SELECT count(*) FROM jsonb_path_query(default_config,'strict $.** ? (exists(@."related_pages"))'))  AS unmarked_carriers,
+       (SELECT count(*) FROM jsonb_path_query(default_config,'strict $.** ? (exists(@."related_pages?"))')) AS marked_carriers
+  FROM agent_definitions
+ WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+   AND default_config::text LIKE '%related_pages%'
+ ORDER BY type;
+-- pass = every intended wire shows 1 marked, and unmarked_carriers = 0 on EVERY row.
+-- The LIKE prefilter also surfaces agents matching only in prose (prompts) — they read 0/0, which
+-- is itself the confirmation the key is not config on them.
+```

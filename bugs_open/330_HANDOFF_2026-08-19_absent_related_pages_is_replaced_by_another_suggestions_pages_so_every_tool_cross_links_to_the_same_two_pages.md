@@ -291,3 +291,32 @@ work item, not tool-generator: it is 8 of the 10 wires and 56 runs/24 h of deman
 > scope ONLY for THIS bug's candidate 2, where the options are a two-element declared chain or
 > a safe-by-inspection note (now fully writable from the measurement above). Candidate 2's
 > wrong-value population on the sampled high-demand slice is exactly one wire: this bug's.
+
+## 10. ADDENDUM 2026-08-21 ~19:1xZ — migration 516 applied 16:55Z; FIRST post-apply read is RIGHT on three of four legs (n=4 runs, below the ≥5 bar — not a close)
+
+By the staged_component_build lane. Demand arrived 18:47–18:55Z: **4 tool-generator runs**
+(ai-agent-orchestration.com ×1, fundamentallyai.com ×3) against a pre-apply rate of ≈1 conflict
+row per run, so ~4 rows were expected if the fix were inert:
+
+- **Class silent under demand:** 0 `RESOLVER_CONFLICTING_CANDIDATES` rows for tool-generator
+  since the apply.
+- **§7's artefact check:** the two runs that reached the crosslink stage both had
+  `related_pages: null` in spec and emitted **NOTHING** — each recorded honestly as a
+  `tool_crosslink_not_emitted:no_related_pages` row (`related_pages_n: 0`). Zero new
+  `tool_crosslink:%` items fleet-wide since the apply; webdesign.co.uk's 32-row pile unchanged.
+  (The other two runs failed `tool_birth_instance_scope_refused` — a script-provability guard
+  upstream of the crosslink stage, unrelated to this bug.)
+- **Instrument-alive control: the sibling-class control §7 assumed is DESTROYED** (537 silenced
+  bdl/`commit_sha`; there are now zero `RESOLVER_*` rows of any class fleet-wide). Substituted
+  with mechanism-level evidence, read fresh at 19:0xZ: live `agent_definitions` carry **1 marked
+  `related_pages?` carrier each on tool-generator and tool-deployer and 0 unmarked carriers
+  anywhere** (jsonpath sweep), so the whole-tree search is unreachable — the conflict is
+  unrepresentable at the fixed sites, not merely unobserved.
+- **§7's negative control is DEMAND-STARVED:** none of the 4 runs had a spec naming
+  related_pages, so "a spec WITH pages still emits its per-tool crosslinks" is unproven. The
+  four coherent sites in §3 (finetuning.uk, loancash.co.uk, loanandmortgagecalculator.co.uk,
+  vonc.com) remain the watch for that leg.
+
+**Still OPEN:** the with-pages emission leg above, and candidate 2's 269-pair/75-agent remainder
+(§9), which this apply does not touch. Query set + full read-out: lane NOTES `## 2026-08-21
+(~19:1xZ)`.
