@@ -62,6 +62,13 @@ type PageRecord struct {
 	InHeader        bool       `json:"in_header"`
 	InFooter        bool       `json:"in_footer"`
 	LastBuiltAt     *time.Time `json:"last_built_at,omitempty"`
+
+	// SectionsKept is true when the upsert REFUSED an empty incoming sections
+	// list over a non-empty stored one (bugs_open/204). Not persisted — it is
+	// this call's own answer, and it exists because a silent keep would be a new
+	// landmine: the write would report success and the plan would quietly not be
+	// what the database holds. The caller records it durably.
+	SectionsKept bool `json:"sections_kept,omitempty"`
 }
 
 // NavigationItem represents a single item in navigation
@@ -358,10 +365,19 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 		currentPlanID = uuid.NullUUID{}
 	}
 
+	// bugs_open/204: the ONE channel that may legitimately empty a live page's
+	// section list. recompose_pages already means "this page is released for
+	// redesign" — reusing it means no operator has to remember a new flag, and a
+	// reviewer of the CALLER can see the intent. A page not named here cannot be
+	// emptied by a sync, whatever the plan says.
+	recompose := recomposePagesFromSpec(params.CollectedData, params.Logger)
+
 	// Sync each page to database
 	syncedCount := 0
+	var sectionsRefused []string
 	for i, page := range pages {
-		pageRecord, err := upsertPage(ctx, params.DB, siteID, page, i, currentPlanID, params.Logger)
+		pageName, _ := page["name"].(string)
+		pageRecord, err := upsertPage(ctx, params.DB, siteID, page, i, currentPlanID, recompose[pageName], params.Logger)
 		if err != nil {
 			params.Logger.Error("Failed to upsert page",
 				zap.Any("page", page),
@@ -369,6 +385,15 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 			continue
 		}
 		syncedCount++
+		if pageRecord.SectionsKept {
+			// Loud AND durable. This is the guard doing its job, but it also means
+			// the plan and the database now disagree about this page, and whoever
+			// reads the plan afterwards needs to know which one they are looking at.
+			sectionsRefused = append(sectionsRefused, pageRecord.Name)
+			params.Logger.Warn("SyncPagesToDBAction: refused an empty sections list over a non-empty stored one",
+				zap.String("page", pageRecord.Name),
+				zap.String("site_id", siteIDStr))
+		}
 		params.Logger.Debug("Page synced",
 			zap.String("page_id", pageRecord.ID.String()),
 			zap.String("name", pageRecord.Name),
@@ -388,16 +413,36 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 		navigation = buildNavigationFromPages(pages)
 	}
 
+	// bugs_open/204: a refusal is durable, not just a log line. A log line on a
+	// service whose output rotates sub-second is not a record — and the whole
+	// reason this guard exists is that the destruction it prevents was invisible
+	// for three days. Best-effort by construction: a failed write must not change
+	// a sync that has already happened.
+	if len(sectionsRefused) > 0 {
+		LogActionError(ctx, params, siteIDStr, "", "sync_pages_to_db",
+			"PAGE_SECTIONS_EMPTY_OVERWRITE_REFUSED", "warning",
+			fmt.Sprintf("%d page(s) proposed an EMPTY sections list over a non-empty stored one; the stored list was kept: %s",
+				len(sectionsRefused), strings.Join(sectionsRefused, ", ")),
+			map[string]interface{}{
+				"pages":  sectionsRefused,
+				"why":    "pages.sections is the only record of a decomposed page's composition; page_components keeps serving after it is emptied, so the damage is invisible until the next rebuild builds an empty page over a live one (measured 2026-08-20: 41 of 45 live pages on one site).",
+				"remedy": "the plan and the database now disagree for these pages, and the DATABASE is what the site is built from. If the emptying was intended, name the page in the run's spec.recompose_pages release and re-run. If it was not, this is upstream: check whether validate_plan dropped section names for these pages (agent_error_log, error_code='PLAN_SECTION_NAME_DROPPED') — bugs_open/204.",
+			},
+			params.Logger)
+	}
+
 	params.Logger.Info("SyncPagesToDBAction: Complete",
 		zap.Int("pages_synced", syncedCount),
 		zap.Int("nav_items", len(navigation.Items)),
+		zap.Int("sections_overwrites_refused", len(sectionsRefused)),
 	)
 
 	return map[string]interface{}{
-		"pages_synced": syncedCount,
-		"navigation":   navigation,
-		"site_id":      siteIDStr,
-		"db_available": true,
+		"pages_synced":                syncedCount,
+		"navigation":                  navigation,
+		"site_id":                     siteIDStr,
+		"db_available":                true,
+		"sections_overwrites_refused": len(sectionsRefused),
 	}, nil
 }
 
@@ -1111,7 +1156,7 @@ func upsertSite(ctx context.Context, db interface{}, domain string, networkID uu
 	return &site, nil
 }
 
-func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[string]interface{}, index int, planID uuid.NullUUID, logger *zap.Logger) (*PageRecord, error) {
+func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[string]interface{}, index int, planID uuid.NullUUID, allowEmptySections bool, logger *zap.Logger) (*PageRecord, error) {
 	// Extract page fields with defaults
 	name := datahelpers.GetStringField(page, "name", fmt.Sprintf("page-%d", index))
 	title := datahelpers.GetStringField(page, "title", name)
@@ -1198,14 +1243,40 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 			in_header = EXCLUDED.in_header,
 			in_footer = EXCLUDED.in_footer,
 			meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description),
-			sections = EXCLUDED.sections,
+			-- bugs_open/204: an EMPTY incoming list may not overwrite a real one
+			-- unless the caller declares the emptying deliberate ($13).
+			--
+			-- This is the same asymmetry that licensed the nav_label and
+			-- meta_description guards two clauses up (added 2026-08-19 after blank
+			-- overwrites were measured on robot-hands.com), and sections is the
+			-- worse case of the three: pages.sections is the ONLY record of a
+			-- decomposed page's composition. page_components keeps serving after it
+			-- is emptied, so nothing looks wrong — and the next rebuild has nothing
+			-- to rebuild and builds an empty page over a live one. Measured
+			-- 2026-08-20: one replan emptied 41 of 45 live pages this way and queued
+			-- 20 needs_page items against them.
+			--
+			-- The plan stays authoritative for every NON-empty proposal, so a
+			-- recomposition still wins — exactly as meta_description's guard lets a
+			-- real value win and refuses only a blank. Only the non-empty -> empty
+			-- transition is intercepted. Deliberate emptying travels through the
+			-- recompose_pages release, the channel that already means "redesign this
+			-- page", so no operator has to remember a new flag.
+			sections = CASE
+				WHEN $13::bool THEN EXCLUDED.sections
+				WHEN COALESCE(jsonb_array_length(EXCLUDED.sections), 0) > 0 THEN EXCLUDED.sections
+				WHEN COALESCE(jsonb_array_length(pages.sections), 0) = 0 THEN EXCLUDED.sections
+				ELSE pages.sections
+			END,
 			built_from_plan_version = COALESCE(pages.built_from_plan_version, EXCLUDED.built_from_plan_version),
 			build_status = CASE
 				WHEN pages.build_status IS NULL THEN 'planned'
 				ELSE pages.build_status
 			END,
 			updated_at = NOW()
-		RETURNING id, site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, status
+		RETURNING id, site_id, name, url, title, page_type, nav_label, nav_order, in_header, in_footer, status,
+		          (COALESCE(jsonb_array_length(sections), 0) > 0
+		             AND COALESCE(jsonb_array_length($11::jsonb), 0) = 0) AS sections_kept
 	`
 
 	var pageRecord PageRecord
@@ -1213,22 +1284,22 @@ func upsertPage(ctx context.Context, db interface{}, siteID uuid.UUID, page map[
 	switch d := db.(type) {
 	case *sql.DB:
 		err := d.QueryRowContext(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID,
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID, allowEmptySections,
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
-			&pageRecord.InHeader, &pageRecord.InFooter, &pageRecord.Status,
+			&pageRecord.InHeader, &pageRecord.InFooter, &pageRecord.Status, &pageRecord.SectionsKept,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert page: %w", err)
 		}
 	case *pgxpool.Pool:
 		err := d.QueryRow(ctx, query,
-			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID,
+			siteID, name, url, title, pageType, navLabel, navOrder, inHeader, inFooter, metaDescription, sectionsJSON, planID, allowEmptySections,
 		).Scan(
 			&pageRecord.ID, &pageRecord.SiteID, &pageRecord.Name, &pageRecord.URL,
 			&pageRecord.Title, &pageRecord.PageType, &pageRecord.NavLabel, &pageRecord.NavOrder,
-			&pageRecord.InHeader, &pageRecord.InFooter, &pageRecord.Status,
+			&pageRecord.InHeader, &pageRecord.InFooter, &pageRecord.Status, &pageRecord.SectionsKept,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upsert page: %w", err)

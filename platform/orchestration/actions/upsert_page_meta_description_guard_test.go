@@ -5,7 +5,7 @@
 //	meta_description = EXCLUDED.meta_description
 //
 // three lines below a `nav_label` clause that WAS guarded
-// (`COALESCE(NULLIF(pages.nav_label,''), EXCLUDED.nav_label)`). Since
+// (`COALESCE(NULLIF(pages.nav_label,”), EXCLUDED.nav_label)`). Since
 // `metaDescription` defaults to "" whenever the incoming page map omits the key —
 // and `build-site-planner`'s page object never carried the key at all until
 // migration 485 — **every replan of an existing page wrote a blank over whatever
@@ -62,8 +62,10 @@ func TestUpsertPage_MetaDescriptionIsProtectedFromABlank(t *testing.T) {
 		sqlmock.NewRows([]string{
 			"id", "site_id", "name", "url", "title", "page_type",
 			"nav_label", "nav_order", "in_header", "in_footer", "status",
+			// widened by bugs_open/204's empty-sections guard
+			"sections_kept",
 		}).AddRow(pageID, siteID, "about", "/about.html", "About", "content",
-			"About", 10, true, true, "active"),
+			"About", 10, true, true, "active", false),
 	)
 
 	// The page map deliberately OMITS meta_description — this is the exact input
@@ -77,7 +79,7 @@ func TestUpsertPage_MetaDescriptionIsProtectedFromABlank(t *testing.T) {
 	}
 
 	if _, err := upsertPage(context.Background(), db, siteID, page, 0,
-		uuid.NullUUID{}, zap.NewNop()); err != nil {
+		uuid.NullUUID{}, false, zap.NewNop()); err != nil {
 		t.Fatalf("upsertPage: %v", err)
 	}
 
@@ -105,15 +107,16 @@ func TestUpsertPage_StillBindsAnEmptyStringForAMissingKey(t *testing.T) {
 
 	// $10 is meta_description in the INSERT's argument order (site_id, name, url,
 	// title, page_type, nav_label, nav_order, in_header, in_footer,
-	// meta_description, sections, built_from_plan_version).
+	// meta_description, sections, built_from_plan_version, allow_empty_sections).
 	mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO pages")).
 		WithArgs(siteID, "about", "/about.html", "About", "content",
-			"About", 10, true, true, "", sqlmock.AnyArg(), sqlmock.AnyArg()).
+			"About", 10, true, true, "", sqlmock.AnyArg(), sqlmock.AnyArg(), false).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "site_id", "name", "url", "title", "page_type",
 			"nav_label", "nav_order", "in_header", "in_footer", "status",
+			"sections_kept", // widened by bugs_open/204's empty-sections guard
 		}).AddRow(pageID, siteID, "about", "/about.html", "About", "content",
-			"About", 10, true, true, "active"))
+			"About", 10, true, true, "active", false))
 
 	page := map[string]interface{}{
 		"name":      "about",
@@ -125,7 +128,7 @@ func TestUpsertPage_StillBindsAnEmptyStringForAMissingKey(t *testing.T) {
 	}
 
 	if _, err := upsertPage(context.Background(), db, siteID, page, 0,
-		uuid.NullUUID{}, zap.NewNop()); err != nil {
+		uuid.NullUUID{}, false, zap.NewNop()); err != nil {
 		t.Fatalf("upsertPage: %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
