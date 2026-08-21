@@ -12,10 +12,16 @@ lane built the platform half and contributed it back into that file, §8–§17)
 > **One-line state:** both halves are LIVE and the repair is **PROVEN working on real copy**
 > (migrations `509` + `517` applied 2026-08-21; chassis `v1.0.1321`, capability-probed on both
 > replicas; `brief-negation-check` daily since 08-20). Council **APPROVED** (`c48b7612`, round 4 of 4).
-> **Two findings since**: the per-page budget question is ANSWERED (it is per SECTION — item 1), and the
-> first multi-hit page exposed a defect in the repair itself (same-field splices raced; fixed at
-> `0eea9e597`, **inert until the next roll**). Until that rolls, **read `hits_before`/`hits_after`, not
-> `len(rewritten)`**.
+> **UPDATED 2026-08-21 evening — the splice fix HAS ROLLED.** Chassis `v1.0.1322`, build
+> `bac189921`, pods up 16:54Z. `git merge-base --is-ancestor 0eea9e597 bac189921` → **yes**; the
+> superlative guard (`1ac9b8890`) is in too and was independently binary-probed on **both** replicas
+> (`invented_superlative` = 1). ⚠ Control: HEAD (19:07 BST) is NOT an ancestor of the build, so the
+> ancestry test discriminates — my first attempt used a control that predates the build and therefore
+> could not fail.
+>
+> **So every known defect in this lane is now live-fixed.** The per-page budget question is ANSWERED
+> (per SECTION — item 1). What remains is ONE end-to-end confirmation, and it is blocked on traffic,
+> not on code: see item 1b.
 
 ## State, with how it was verified
 
@@ -63,9 +69,14 @@ copies only the step's own keys. Live behaviour is the documented safe fallback:
 **every headline hit repaired regardless**, page total counted at `compile_page_sections`. To make it
 truly per-page, carry the count in the step's OUTPUT (`copy_gate_<N-1>`) — never a bare state key.
 
-**1b. THE REPAIR UNDER-APPLIES UNTIL `0eea9e597` ROLLS.** Several hits in ONE field raced: six accepted
-rewrites, one landed, confirmed at the artefact. Fixed and tested; needs the next chassis build. **The
-first thing to check after that roll:** a page with several hits in one field should show
+**1b. ~~THE REPAIR UNDER-APPLIES~~ — FIXED AND ROLLED (`0eea9e597`, live in `bac189921` since
+2026-08-21 16:54Z). ONE END-TO-END CONFIRMATION IS STILL OWED, and it is traffic-bound.** Several hits
+in ONE field used to race: six accepted rewrites, one landed, confirmed at the artefact. The unit test
+composes two rewrites in one field and a mutation probe reproduces the race, so the fix is proven in
+code; what is not yet proven is the same thing through the real renderer and save. **No page has been
+built since the roll** — writer traffic ran 3–12 calls/hour from 10:00 to 15:00 and then stopped, with
+zero queued `page_rerender`/`page_build` items. **Nothing is wrong; there is simply no work.** The
+check, on the first multi-hit page after 16:54Z: a page with several hits in one field should show
 `hits_after ≈ hits_before − len(rewritten)`, and the removed constructions should be absent from
 `page_components.content_data`. ⚠ Verify on the part that DIFFERS (the removed construction), never on
 the rewrite's opening — `from` and `to` share it, and the marker truncates both at 160 chars. ⚠ It cannot precede the apply
