@@ -938,3 +938,31 @@ loan-repayment), the `253` component floor on an unrelated slot (loanzy stress-t
 deterministic invented-source rejection (remortgage index). That pattern is itself worth stating
 plainly to the owner: **the collision fix works; what remains between a diverted component and a
 serving page is a queue of unrelated guards.**
+
+## 2026-08-21 12:30Z — the mechanism that keeps moving our baselines has a lane, and our fix feeds its backlog
+
+Chased the `scope_component_instance_judged` attribution to its source rather than leaving it as
+"some other mechanism": it is the **`bugfix_283_component_instance_scope`** lane executing
+**`RFC_034`** (owner-ruled 2026-08-17: convert components to per-instance scope, shape C, through
+the framework). So the two incumbent rewrites that moved under this lane mid-repair — `b420389f`
+08-20 07:02Z, `b89f91e1` 08-20 17:20Z — are a sanctioned programme, not a rogue writer. Good news
+for our pins: the mechanism is known, bounded and auditable via `component_versions`.
+
+**The consequence runs the other way too, and it is worth more than the attribution.** Every row
+`311`'s diversion creates is born **unscoped**: all six carry literal `id="…"` and none carries
+`{{.InstanceID}}` [MEASURED]. So each site repair mints exactly the kind of component that
+programme exists to convert. Measured on one instrument, consistently: **11 unscoped components
+created since the RFC_034 ruling (08-17)**, all `created_from='generated'` — six of them ours, the
+rest loanzy and webdesign tool builds. **Their population refills while they drain it.**
+
+⚠ **Deliberately NOT claimed: that "89 today" vs their "91" means two were converted.** Different
+instruments (my crude `id="[a-z]` regex vs their 1,345-id would-collide census) and a different
+`is_active` treatment — comparing the two totals would be the classic encoded-question error. Only
+the **arrival rate** is claimed, because that is measured one way over one window.
+
+Contributed to their lane
+(`bugfix_283_component_instance_scope/CONTRIB_2026-08-21_from_311_lane_your_population_is_being_REPLENISHED_while_you_drain_it.md`)
+with all eleven rows named and attributed, and one suggestion left explicitly as their call:
+`DetectInstanceCollisions` already exists as RFC_034's acceptance gate for conversions, and running
+it at **store time** on `store_generated_component` / `create_tool_component` would make the backlog
+finite instead of self-replenishing.
