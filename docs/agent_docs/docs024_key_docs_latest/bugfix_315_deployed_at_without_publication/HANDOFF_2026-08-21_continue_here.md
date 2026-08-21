@@ -95,24 +95,44 @@ this lane armed stampers it took the fleet's page-publishing down for 33 minutes
 **Re-run the recursive enumeration first** (RUNBOOK Part 3): the count can change without anyone
 touching this code.
 
-## 4b. Two council objections I have NOT discharged — do these before closing 315
+## 4b. The council's other two objections — DISCHARGED, and one of them changed the code
 
-Both are from the same APPROVED round (`be85a6d3`) and both are medium. Neither is hand-waved here
-because neither has been checked:
+Both from the same APPROVED round (`be85a6d3`), both medium, both checked rather than waved through.
 
-- **`reuse_agent`:** `sites.published_hash` and `docs/agent_docs/sql_for_agents/422_site_publish_reconciler_HOLD.sql`
-  are a HELD **site-level** publish-reconciliation mechanism — conceptually the same question this
-  check answers per PAGE. My submission never mentions either. **Someone must establish whether 422
-  supersedes, complements or duplicates DGH-015 before this becomes a second parallel mechanism
-  nobody unifies.**
-- **`debug_historian`:** the candidate predicate hand-rolls `p.status='active'` rather than reusing
-  the shared shipped/eligibility predicate (`PageHasShippedPredicateFor` / `FetchablePageEligibilitySQL`),
-  which several landmines warn is the wrong liveness gate for an AUDIT. A `GROUP BY status` /
-  `build_status` enumeration was never run to justify it. **Cheap to settle; not settled.**
+**`reuse_agent` — "is `sites.published_hash` / migration 422 the same mechanism?"** No: 422 drives
+`publish_site`, a DIRECT B2 upload from a spawned credentialed pod, while this check observes
+commit-is-deploy (git → Actions → B2 sync). `sites.published_hash` is site-level and is not page
+bytes — the one live value is `th1:05a06351`, a prefixed TREE digest, against a per-page sha256 here.
+And 422 fires only for sites with `publish_target` set: `[MEASURED]` **1 of 45**.
 
-A third (`tooling_provenance`: no concept-register edit in the submission) **is** discharged — the
-register entry exists as `DGH-015` in `e05c38cdb`; it landed one commit after the submission was
-filed, so the seat was right about the submission and wrong about the change-set.
+⚠ **But the seat's instinct found a real hazard and the predicate changed.** `publish_site_action.go`
+writes **neither** `content_hash` nor `deployed_at`. So a site with hashed pages that later opts into
+`publish_target` would keep fingerprints the new seam never updates — the stale-fingerprint hazard
+again, by a different door. The query now carries **`s.publish_target IS NULL`**. `[MEASURED]` the one
+opted-in site has 12 active pages and 0 hashed, so there was no exposure; the guard makes it
+structurally impossible rather than merely currently absent.
+
+**`debug_historian` — "you hand-rolled a liveness predicate instead of reusing the shared one."**
+Half right, and acted on: the "did this page ship" leg is now
+**`queryresolve.DeployedPageEligibilitySQL`**, concatenated rather than re-typed (a test pins the
+reuse itself, not just the resulting text, because re-typing it inline would stay green while forking
+the platform's definition). But `status='active'` is NOT a liveness filter and appears in no shared
+predicate — it excludes RETRACTED and ARCHIVED pages, which keep `deployed_at` by design and are
+deliberately unserved; judging them would report every retraction as a divergence. The enumeration
+that seat asked for, which was genuinely owed:
+
+| status | build_status | n | hashed |
+|---|---|---|---|
+| active | deployed | 651 | **232** |
+| active | needs_rebuild | 56 | 0 |
+| active | planned | 42 | 0 |
+| archived | (all three) | 69 | 0 |
+
+Every hashed page is `active`+`deployed`; no archived page carries a hash; `status='deployed'` never
+occurs at all.
+
+**`tooling_provenance` — "no concept-register edit in the submission."** Right about the submission,
+wrong about the change-set: `DGH-015` exists (`e05c38cdb`), filed one commit after the submission.
 
 ## 5. Still open from the previous handoff, unchanged
 

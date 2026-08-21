@@ -135,6 +135,62 @@
 //     stamp-side NULLing lowers it and is the backstop for the NEXT unarmed
 //     stamper rather than the answer to these three. See PLAN D6/D7.
 //
+// ── THE OTHER PUBLISH SEAM, AND WHY THIS CHECK STAYS OFF IT ────────────────
+//
+// Raised by the council gate's `reuse_agent` seat (corr be85a6d3): `sites.published_hash`
+// and migration 422's site-publish reconciler occupy the same conceptual space —
+// fingerprint-based publish verification — and the submission never mentioned
+// them. Checked afterwards, and they are a DIFFERENT mechanism on a DIFFERENT
+// seam rather than a duplicate of this one:
+//
+//   - 422 drives `publish_site`: a DIRECT B2 upload from a spawned site-publisher
+//     pod holding B2 credentials. This check observes commit-is-deploy (git →
+//     Actions → B2 sync). Different delivery path end to end.
+//   - `sites.published_hash` is SITE-level and is not a page's bytes — the one
+//     live value is `th1:05a06351`, a prefixed TREE digest. `pages.content_hash`
+//     is a per-page sha256 of the file. The two are not comparable quantities.
+//   - Populations barely touch: 422 fires only for sites with `publish_target`
+//     set — [MEASURED 2026-08-21] **1 of 45** (noted.co.uk) — while this check's
+//     population is 228 pages across 12 domains, none of them that site's.
+//
+// ⚠ BUT THE SEAT'S INSTINCT FOUND A REAL HAZARD, which is why the predicate now
+// carries `s.publish_target IS NULL`. `publish_site_action.go` writes NEITHER
+// `content_hash` NOR `deployed_at` (grep it). So a site that already had hashed
+// pages and then opted into `publish_target` would keep fingerprints that the new
+// seam never updates — a stale fingerprint reached by a different door, and this
+// check would convict healthy pages. [MEASURED 2026-08-21] the one opted-in site
+// has 12 active pages and 0 hashed, so there is no exposure today; the predicate
+// makes it structurally impossible rather than currently absent. On a seam we
+// cannot observe, silence is the correct output.
+//
+// ── WHY THE CANDIDATE PREDICATE LOOKS HAND-ROLLED AND IS NOT ───────────────
+//
+// Raised by the `debug_historian` seat in the same round: several landmines warn
+// that a hand-rolled liveness filter is wrong for an AUDIT, and that the shared
+// shipped-predicate should be reused. Half-right, and acted on:
+//
+//   - the "did this page ship" leg IS the shared one now —
+//     `queryresolve.DeployedPageEligibilitySQL`, concatenated rather than
+//     re-typed, honouring its `p`-for-pages alias contract;
+//   - `status = 'active'` is NOT a liveness filter and is not in any shared
+//     predicate: it excludes RETRACTED and ARCHIVED pages, which keep
+//     `deployed_at` by design (D5) and are deliberately no longer served. Judging
+//     them would report every retraction as a divergence.
+//
+// The enumeration that seat asked for, which was owed and had not been run
+// [MEASURED 2026-08-21]:
+//
+//	status   | build_status  |   n | hashed
+//	active   | deployed      | 651 |    232
+//	active   | needs_rebuild |  56 |      0
+//	active   | planned       |  42 |      0
+//	archived | (all three)   |  69 |      0
+//
+// Every hashed page is `active` + `deployed`; no archived page carries a hash;
+// and `status='deployed'` does not occur at all, which is its own landmine. So
+// `status='active'` is not merely defensible here, it is currently a no-op that
+// costs nothing and closes the retraction case the moment one appears.
+//
 // ── WHAT THIS CHECK DOES NOT OWN ───────────────────────────────────────────
 //
 // The landmine keyed to check_image_url_404.go warns that widening one asset/serving
@@ -228,6 +284,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -644,11 +701,12 @@ func buildDivergenceWorkItem(dctx DiscoveryCheckContext, pg divergencePage, prob
 // Each is a one-line deletion that leaves every behavioural test green — sqlmock
 // returns the rows a test hands it whatever the WHERE clause says — so the query
 // text is the only place they can be pinned.
-const divergenceCandidatesQuery = `
+var divergenceCandidatesQuery = `
 		SELECT p.id::text, p.name, p.url, p.content_hash,
 		       COALESCE(p.build_status, ''), p.deployed_at,
 		       round(extract(epoch FROM (now() - p.deployed_at)))::bigint
 		  FROM pages p
+		  JOIN sites s ON s.id = p.site_id
 		 WHERE p.site_id = $1
 		   -- retracted and archived pages keep deployed_at by design and are
 		   -- deliberately no longer served
@@ -656,7 +714,12 @@ const divergenceCandidatesQuery = `
 		   -- the page reported what it sent; without this there is nothing to
 		   -- compare the wire against and the check is structurally inert
 		   AND p.content_hash IS NOT NULL
-		   AND p.deployed_at IS NOT NULL
+		   -- a site publishing through the publish_site seam has no fingerprint
+		   -- authority here — see the header. Silent beats wrong.
+		   AND s.publish_target IS NULL` +
+	// "did this page ship" is the platform's line, not this check's to redraw.
+	// The shared constant's alias contract is `p` for pages, which this query honours.
+	queryresolve.DeployedPageEligibilitySQL + `
 		   -- batched delivery may still be in flight inside the settle window
 		   AND p.deployed_at < now() - make_interval(secs => $2)
 		 ORDER BY p.deployed_at DESC, p.url

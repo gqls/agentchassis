@@ -25,6 +25,8 @@
 //	raise the per-pass cap silently                     PerPassCapIsEnforced
 //	drop status='active' from the query                 QueryPinsItsFourGuards
 //	set Accept-Encoding by hand (hashing gzip bytes)    FetchServedPageHashesTheDecodedBody
+//	drop the publish_target guard                       QueryPinsItsSixGuards
+//	re-type the shared shipped predicate inline         DivergenceQueryUsesTheSharedShippedPredicate
 //
 // TWO GUARDS ARE DEFENCE-IN-DEPTH AND THIS FILE SAYS SO RATHER THAN PRETENDING
 // OTHERWISE. The non-200 branch and the oversize branch each have a SECOND guard
@@ -63,6 +65,7 @@ import (
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"go.uber.org/zap"
 )
 
@@ -574,20 +577,39 @@ func TestPageContentDivergence_PerPassCapIsEnforced(t *testing.T) {
 	}
 }
 
-// TestPageContentDivergence_QueryPinsItsFourGuards — each is a one-line deletion
+// TestPageContentDivergence_QueryPinsItsSixGuards — each is a one-line deletion
 // that leaves every behavioural test above green, because sqlmock returns the rows
 // a test hands it whatever the WHERE clause says. The query text is the only place
 // they can be pinned.
-func TestPageContentDivergence_QueryPinsItsFourGuards(t *testing.T) {
+//
+// Two of the six arrived from council objections (corr be85a6d3) rather than from
+// the original design, and both close a stale-fingerprint route: the publish_site
+// seam writes neither content_hash nor deployed_at, and the shared shipped
+// predicate is the platform's line rather than this check's to redraw.
+func TestPageContentDivergence_QueryPinsItsSixGuards(t *testing.T) {
 	for _, guard := range []struct{ needle, why string }{
 		{"p.status = 'active'", "retracted and archived pages keep deployed_at by design and are not served"},
 		{"p.content_hash IS NOT NULL", "without a fingerprint there is nothing to compare the wire against"},
-		{"p.deployed_at IS NOT NULL", "a page that never shipped cannot have diverged"},
+		{"p.deployed_at IS NOT NULL", "the shared shipped predicate (queryresolve.DeployedPageEligibilitySQL) must survive concatenation"},
 		{"make_interval(secs => $2)", "the settle window keeps the check off deliveries still in flight"},
+		{"s.publish_target IS NULL", "a site on the publish_site seam has no fingerprint authority here — publish_site writes neither content_hash nor deployed_at, so its pages carry stale ones"},
+		{"JOIN sites s", "the publish_target guard needs the sites row; losing the join silently drops that guard with it"},
 	} {
 		if !strings.Contains(divergenceCandidatesQuery, guard.needle) {
 			t.Errorf("divergenceCandidatesQuery lost %q — %s", guard.needle, guard.why)
 		}
+	}
+}
+
+// TestDivergenceQueryUsesTheSharedShippedPredicate pins the REUSE itself, not just
+// the resulting text. Re-typing `AND p.deployed_at IS NOT NULL` inline would keep
+// the test above green while silently forking the platform's shipped definition —
+// which is the drift the council seat objected to in the first place.
+func TestDivergenceQueryUsesTheSharedShippedPredicate(t *testing.T) {
+	if !strings.Contains(divergenceCandidatesQuery, queryresolve.DeployedPageEligibilitySQL) {
+		t.Errorf("the query no longer contains queryresolve.DeployedPageEligibilitySQL verbatim — "+
+			"it has been re-typed inline and will not follow the shared definition when it changes.\nquery:\n%s",
+			divergenceCandidatesQuery)
 	}
 }
 
