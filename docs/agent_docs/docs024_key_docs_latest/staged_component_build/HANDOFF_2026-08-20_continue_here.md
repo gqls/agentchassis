@@ -351,10 +351,14 @@ for POD in $(kubectl -n ai-persona-system get pods -l app=agent-chassis         
 done
 ```
 ⚠ **Poll it; do not tail once.** These lines churn out of a chassis pod in minutes, and
-**page-build-handler is BURSTY** — 26 runs/24 h on average but **zero in the 75 minutes after the
-apply**, and none since 11:57Z. A watcher was armed at 13:2xZ; if it expired without a hit, re-arm
-rather than concluding anything. **Zero pbh runs ⇒ the zero conflict rows carry no information**
-(demand control = 0 at the time of writing).
+**page-build-handler is BURSTY** — 26 runs/24 h on average, but its last run was **11:57Z** and
+there were **zero in the first 6 minutes after the 13:19:19Z apply** (the window was only 6 minutes
+long at the time of writing; an earlier draft of this line said "75 minutes", which was my
+arithmetic error — I had subtracted from the last RUN rather than from the APPLY. The honest
+statement is that the post-apply window was far too short to conclude anything, not that pbh had
+gone quiet for over an hour after it). A watcher was armed at 13:2xZ for ~30 minutes; if it expired
+without a hit, **re-arm rather than concluding anything**. **Zero pbh runs ⇒ the zero conflict rows
+carry no information** (demand control = 0 at the time of writing).
 
 **Whoever next sees a pbh run: record the result of that one line.** It is the last open evidence
 on this migration.
