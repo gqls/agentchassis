@@ -328,7 +328,29 @@ which takes every pending file while other sessions have WIP there — then reco
 present in `agent_definitions_backup`. Corroboration found afterwards: the step **already** wired
 `page_name: "page_record.name"`, so `page_record` was its own established prefix.
 
-### 🔴 515's VERIFICATION IS ARMED AND UNCONFIRMED — do not let "approved + applied" stand in for it
+### ✅ 515 IS DONE — approved, applied, and BEHAVIOURALLY PROVEN at runtime (2026-08-21 14:24Z)
+
+**The evidence, from a real post-apply `plan_sections` extraction:**
+```
+PASS 515 | 2026-08-21T14:24:28.457Z | requested_fields: ['section_facts', 'pipeline', 'site_type']
+```
+`page_type` is **absent** from what `ExtractFields` is asked for ⇒ **the `?` marker parsed.** The
+control is inside the same line: **`site_type` is still present** — same `Optional` list, same
+action, also unwired — so the exclusion is specific to the marked field, not a general
+disappearance or a truncated list. **This is the first production use of `?` on the step-config
+surface, so this line is also the fleet-level proof the marker works — it unblocks every other
+adopter, including the held `516` for `tg/related_pages`.**
+
+Negative half, with its weakness stated: 0 conflict rows against **8** pbh runs since the apply; at
+~0.12 rows/run that predicts about **one**, so the zero is unremarkable alone. **Cite the positive
+test, not the zero.**
+
+⚠ **The instrument took three attempts and the first two failed SILENTLY** — kept below because the
+next runtime check on this estate will face the same thing.
+
+<details><summary>(historical) how this was armed, and the two ways it failed</summary>
+
+
 
 **Two seats independently raised this and the approval did not close it** (guardian,
 prior_art_librarian): the `?`-parses-on-step-config claim rests on a **source grep at the built
@@ -394,6 +416,8 @@ carry no information** (demand control = 0 at the time of writing).
 
 **Whoever next sees a pbh run: record the result of that one line.** It is the last open evidence
 on this migration.
+
+</details>
 
 ## 2.4 THE CENSUS IS NOW FULLY DISPOSITIONED — 19 pairs → 4 live, 4 quiet-unwired, 11 closed (2026-08-21 ~11:4xZ)
 
