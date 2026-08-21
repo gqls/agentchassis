@@ -826,3 +826,66 @@ single decision would close is the churn the two-strike rule exists to punish, a
 standing warning about a queue that drains so nicely it looks like the whole thing worked. They are
 one decision away from being either fixed or correctly-parked; the queue is the right home for them
 *after* the answer, not before.
+
+### 11.12 — 2026-08-21: the email fix is APPLIED, and verifying it at the artefact found a live defect the row census could not see
+
+**Owner ruling 2026-08-21:** *"yes, that email should appear on contact pages"* — so migration
+**`525`** repoints `contact-block.contact_email` from the unreachable `site_specs.contact.email` to
+`site_specs.identity.email`. **Applied and verified**; council `972a82ad`. Per site, as predicted:
+leopardess resolves at the literal path (4 pairs), robot-hands via the sites-row alias (1 pair),
+gamesdesign resolves nothing because it has no email in either store (1 pair — an honest data gap,
+not a resolver bug).
+
+**⚠ THEN I LOOKED AT THE SERVED PAGES, AND THE ROW CENSUS HAD BEEN MISLEADING ME IN BOTH
+DIRECTIONS.**
+
+**The email was ALREADY on the pages.** `leopardessconsulting.co.uk/contact.html` and
+`robot-hands.com/contact.html` both serve
+`<a href="mailto:leopardess@contactforsales.com">…</a>` today, while `content_data` holds no
+`contact_email` key at all. That is `bugs_closed/140`'s observation about idea.uk repeating exactly:
+**the stored artefact carries a value the data has lost.** So the page is a fossil — correct on
+screen, unreproducible underneath. Nobody would have seen a problem, and the next regeneration
+would have deleted the email, which is precisely this bug's mechanism. **`525` converts the fossil
+into something reproducible**, and a re-render will now write the key back into `content_data`
+rather than dropping it.
+
+**And the same component is serving a genuinely broken control, right now, which no row query would
+have shown me.** The contact block renders three details; on the live page they are:
+
+```html
+<div class="cb-detail-value"><a href="mailto:leopardess@contactforsales.com">…</a></div>  <!-- fine (fossil) -->
+<div class="cb-detail-value"><a href="tel:"></a></div>                                    <!-- EMPTY tel: link -->
+<div class="cb-detail-value"></div>                                                       <!-- empty (address) -->
+```
+
+`<a href="tel:"></a>` is **238's own defect class** — an ungated field inside an attribute
+rendering empty — on a different attribute. Measured fleet-wide:
+**6 deployed rows across 3 sites currently serve an empty `tel:` link**, and they are the same six
+`contact-block` rows.
+
+**Cause: identical.** `contact_phone` declares `site_specs.contact.phone` and `contact_location`
+declares `site_specs.contact.address` — the same unreachable aspect. `siteRowIdentityColumns` maps
+`phone → phone` and `address → contact_address`, so the same one-line repoint would reach them.
+
+**NOT DONE, because it is a different decision and a repoint alone is the wrong shape:**
+
+- Publishing a phone number is not the same act as publishing a lead-capture email.
+  `bugs_closed/140` already traced this exact number — `+44 (0) 7934 524 911` — and concluded it is
+  **the owner's own, correctly propagated across his own portfolio sites**, with *"whether six
+  businesses should share one number"* recorded as an owner question. So the bar is low, but it is
+  his call and he has not made it.
+- **A repoint alone would fix only leopardess.** robot-hands and gamesdesign have no phone in either
+  store, so they would keep serving `<a href="tel:"></a>`. The empty control is the visible defect,
+  and it is present whether or not a number exists.
+
+**So the recommendation is BOTH halves, and the second is the one that generalises:** gate the
+template on the field (`{{if .contact_phone}}`) so a site with no number renders nothing instead of
+a dead control, AND repoint the source so a site with one renders it. Gating is precedented and
+owner-requested — migration `295` gated 68 ungated fields on 2026-08-03 for exactly this reason
+(`RFC_009`'s option C). Together they fix all three sites; either alone fixes one.
+
+**Where this leaves the nine.** 5 of 9 resolved by `525` (pending a re-render to reach the
+artefact); 1 is gamesdesign's genuinely-absent email; 3 remain — leopardess's `contact.cta_url`,
+gamesdesign's `cta.primary_url`, and fundamentallyai's six fields its component no longer declares
+(`bugs_open/309`'s class). Plus the phone/address decision above, which is new and was invisible to
+every row-level measurement in §11.4.
