@@ -1022,6 +1022,14 @@ func applyContentEdit(
 	// this the template's {{.InstanceID}} renders as "" under missingkey=zero and
 	// every instance on the page lands back on identical element ids.
 	BindSingleSectionInstanceToken(renderCtx, getStringVal(componentData, "function"))
+	// bugs_open/342 — loadComponentForEdit already selects input_schema, so this
+	// path has the contract in hand. It matters MORE here than anywhere: this
+	// route writes rendered_html straight to an already-live page with no
+	// validate_content between it and the reader, so a required field that
+	// renders empty ships blank to a page that is currently serving.
+	if schema, ok := componentData["input_schema"].(map[string]interface{}); ok {
+		renderCtx.InputSchema = schema
+	}
 	rendered, _, _, err := RenderTemplate(htmlTemplate, renderCtx, logger)
 	if err != nil {
 		// bugs_open/260. THIS PATH HAS NO GATE DOWNSTREAM: the caller writes
@@ -1144,6 +1152,7 @@ func applyComponentSwap(
 
 	// Same single-section case as applyContentEdit above.
 	BindSingleSectionInstanceToken(renderCtx, comp.Function)
+	renderCtx.InputSchema = comp.InputSchema // bugs_open/342 — same live-page exposure as applyContentEdit
 	rendered, _, _, err := RenderTemplate(comp.HTMLTemplate, renderCtx, logger)
 	if err != nil {
 		// Same ungated live-page route as applyContentEdit above (bugs_open/260):
