@@ -41694,3 +41694,114 @@ an older doc, re-read the function it stands for before re-publishing its number
 inherited this one from the bug file's 2026-08-05 filing and never checked it); and when a
 coverage figure looks bad, suspect the denominator before the numerator — my first
 instinct was that the fix had a hole, and that instinct is what accidentally found this.
+
+---
+
+## 2026-08-21 — I checked whether a migration number was free with a query that could never have found one (bugs_open/198 lane)
+
+**The claim.** Before writing migrations 542 and 543 I checked they were unclaimed in the
+ledger with:
+
+```sql
+SELECT filename FROM schema_migrations WHERE filename LIKE '54[23]%';
+```
+
+Zero rows. I read that as "542 and 543 are free" and wrote both files.
+
+**Why it was worthless.** SQL `LIKE` has no character classes. `[23]` is not "2 or 3", it
+is the literal four-character string `[23]`, so the pattern asks for a filename beginning
+`54[23]` — which nothing has ever been called. **The query returns zero rows whether or not
+the numbers are taken.** It could not have come out otherwise, which is the whole test from
+the working-docs rules: *a `[MEASURED]` figure is only evidence if the measurement could
+have come out differently.* I applied the marker's letter and skipped its point.
+
+**What caught it.** Not review — the same bug, ten minutes later, in the opposite
+direction. After applying both files I ran the same shape to confirm the ledger rows
+existed, got zero rows again, and the runner had just printed `recorded` for both. Two
+contradictory answers from one query is what made me read it. Re-run as
+`filename LIKE '542%' OR filename LIKE '543%'` it returns both rows.
+
+**Did it change any conclusion?** No, and I want to be exact about why, because "no harm"
+is doing no work here. The conclusion was right for an unrelated reason: I had *also* run
+`SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 5` and read 540, 544,
+545 with no 542/543 in the list, plus an `ls` of the directory. That listing is what
+actually carried the claim. **The vacuous query contributed nothing and I did not notice,
+because it agreed with the check that did.** A worthless check that concurs with a good one
+is invisible — which is exactly when it survives to be reused somewhere it is alone.
+
+**The cheap check that would have caught it.** Run the negative control in the same breath:
+a pattern that MUST match something. `LIKE '54[23]%'` against a ledger holding 545 rows
+returning zero should have been read as "the pattern is wrong", not "the numbers are free".
+One line: `SELECT count(*) FROM schema_migrations;` alongside it — 100+ rows against 0 for
+my pattern is the tell.
+
+**Transferable, and it is not really about `LIKE`.** *A filter you have never seen match
+anything is not evidence of absence — it is an untested instrument.* Regex habits leak into
+SQL (`[23]`, `\d`, `.*` all mean nothing to `LIKE`; `SIMILAR TO` and `~` are the operators
+that take them), so the failure is silent by construction: wrong pattern and true absence
+produce byte-identical output. Whenever a query's job is to find nothing, make it find
+something first.
+
+## 2026-08-21 — I put an ASSERTED ABSENCE at the load-bearing centre of a council submission, and the grep that produced it could not have found the reader that exists (bugs_open/235 residual)
+
+**The claim.** Fixing `bugs_open/235`'s residual meant establishing that a stale value in a
+`site_specs` row is what a page regeneration re-reads. I grepped for a reader and wrote this
+into the submission's `grounded_in`:
+
+> *"No Go code reads `aspect='portfolio'` — I grepped `platform/`, `internal/` and `pkg/`
+> and found no reader — so the spec reaches the content writer as LLM context via the
+> generic current-spec load."*
+
+Both halves are in one sentence: a search result, and an inference **that contradicts it**.
+If nothing reads the aspect, the spec reaching the writer "as LLM context" is a story, not a
+finding — and the whole remediation route rested on it.
+
+**What caught it.** The council, on the first round, gated by `prior_art_librarian` at HIGH.
+The objection did not merely say "unproven"; it named the shape of what I had missed:
+
+> *"If a reader DOES exist (even indirectly, **e.g. a generic current-spec loader keyed by
+> aspect rather than a literal 'portfolio' string**), the causal story could still be right
+> for the wrong reason, or wrong."*
+
+That is `sourceResolver.ensureSpecs` (`plan_sections_action.go:279-309`) exactly:
+`SELECT aspect, data FROM site_specs WHERE site_id = $1 AND is_current = true`, every row
+stored as `r.specs[aspect]`. Keyed by the aspect **column**. No grep for an aspect *name*
+could ever have found it — not for `portfolio`, not for any aspect.
+
+**Did it change the conclusion?** No — and that is the uncomfortable part, not the reassuring
+one. The fix was right. The spec *is* the source. I reached a correct conclusion through an
+argument whose central evidence was an untested instrument, and I would have shipped it with
+that reasoning intact if the gate had not been there. **A right answer reached by a bad
+check is not a near miss; it is the same error that lands wrong next time**, and next time
+there is no reason to expect a gate.
+
+**The cheap check that would have caught it.** Two, either alone sufficient, both about a
+minute:
+
+1. **Grep the table, not the value.** `grep -rn "FROM site_specs" --include=*.go` returns ten
+   call sites in one line of output. The generic loader is right there. Searching for the
+   *literal I cared about* instead of the *table I was reasoning about* is what made the
+   search unable to succeed.
+2. **Ask the data instead of the code.** `(spec_element - '<field>') = (component_element -
+   '<field>')` across the three portfolio rows returns `t, t, t` — seven other keys
+   byte-identical, including a 250-character free-text description. That settles "is the
+   component a copy of the spec" without reading a line of Go, and it is the evidence I
+   ended up leading with in round 2.
+
+**Transferable, and it is the same rule this file keeps re-learning from a new direction.**
+*An absence produced by a search is only evidence if the search could have found the thing.*
+The existing entries cover a `LIKE` pattern that could never match and a Warn-log count from
+a population that could not emit the line; this is the code-search face of it. The tell is
+structural and you can catch it without knowing anything about the domain: **I wrote "I found
+no reader" and "here is how it is read" in the same sentence.** A search result and an
+inference that contradicts it cannot both stand — when your own prose does that, the search
+is the half to distrust, because the inference is the half you already believe.
+
+**Second, smaller, same session and worth recording as a rate:** of five dormant
+`bugs_open/` files I checked against live code or artefacts (`155`, `235`, `071`, `233`,
+`247`), **all five had moved on without their headers moving** — `155` reads
+`**Status:** OPEN, unowned` directly above its own `## LIVE 2026-08-06 on chassis v1.0.1259`.
+A regex census over the *files* found only 4–5 such cases fleet-wide and that number is
+misleading: the staleness that matters is header-versus-live-code, which no text check can
+see. **Do not read a dormant bug file's status header as evidence of anything** — check the
+code path or the served artefact before spending a session on what it claims is open.
