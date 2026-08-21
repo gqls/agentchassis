@@ -4934,3 +4934,52 @@ execute the TAG change themselves through Nominet's own online services, or whet
 we can as the losing registrar. That is what decides whether "the transfer is theirs to
 do" is mechanically true or only commercially stated. Not encoded, no copy changed,
 escalated to the owner exactly as 19g escalated its predecessor.
+
+### 2026-08-21, later — the landmine verifier sent me back to the code, and the finding got sharper (plus a second misstep)
+
+Verdict on the entry filed above: **STILL_VALID**, all six footprint items resolved. But
+it named a function nobody in this lane had read: **`composeWriterBlock`**
+(`refresh_evidence_base_action.go:996`), which rebuilds `writer_block` *entirely* from
+the facts' `writer_line`s.
+
+**Read the function, not the summary.** Regeneration is gated on
+**`writer_block_managed` being explicitly `true`** — the verifier's summary omitted the
+gate, and the gate is the whole safety property. `[MEASURED 2026-08-21, fleet]` **4 of 13
+registers are managed** (leopardess, both mortgage calculators, fundamentallyai);
+`webdesign.uk` is **not**.
+
+**This explains the sweep I had just struck as worthless, and it un-strikes it.** The
+false positives have exactly two causes — an unmanaged block does not quote writer_lines
+at all, and on a managed one a `{value}` token is substituted before composition, so the
+raw text never matches literally. `[MEASURED]` those two explain **44 of 44** apparent
+misses on managed sites: **0 genuine**. Filtered for both, with a demand control:
+
+| site | managed facts | drifted | control (needle+`ZZ`, must equal facts) |
+|---|---|---|---|
+| leopardessconsulting.co.uk | 18 | **0** | 18 |
+| mortgagecalculator.co.uk | 10 | **0** | 10 |
+| loanandmortgagecalculator.co.uk | 10 | **0** | 10 |
+| fundamentallyai.com | 10 | **0** | 10 |
+
+**MISSTEP, the second of the day and the mirror of the first.** I struck the sweep saying
+it *"is not a drift detector"*. That over-corrected: it is one, filtered. I had measured
+it in the single configuration where it cannot work and generalised — the same error as
+writing it after measuring only the configuration where it cannot fail. **"It convicts
+everything" and "it convicts nothing" are one mistake with two signs.** Both logged in
+`WRONG_CALLS.md`; the entry in `LANDMINES.md` now carries both corrections and the
+working query.
+
+**And the version that survives is worth more than either.** A MANAGED register self-heals
+on the next `refresh_evidence_base` run with `FactsChecked > 0`. An UNMANAGED one never
+does: no composer, no sweep, no gate. **webdesign.uk is unmanaged, which is exactly why
+its `writer_block` sat two rulings and one armed ban behind for two days with every check
+green.** The drift is only possible where nothing will ever catch it. On this register the
+per-migration guard is the only protection that exists, which is the argument for putting
+the agreement check in every future fact edit rather than treating `SQL_2026-08-21b` as a
+one-off repair.
+
+**⚠ AND DO NOT SET `writer_block_managed` ON THIS SITE.** `composeWriterBlock` REPLACES
+the block with a two-header bullet list of writer_lines. Here that would discard 17KB of
+hand-authored register, voice guide, negation-guard rules and gate-avoidance guidance,
+and `refresh_evidence_base` would do it silently. Unmanaged is deliberate for a
+hand-written block, not an omission waiting to be tidied. Filed in `LANDMINES.md`.

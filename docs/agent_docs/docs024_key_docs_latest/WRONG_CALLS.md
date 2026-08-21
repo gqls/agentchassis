@@ -41049,3 +41049,52 @@ shape in `SQL_2026-08-21b` were proven to fire against the real pre-fix row.
 **Tally line.** "A check tested only against the case built to satisfy it" — 1 (this). Same family
 as the `[MEASURED]`-must-be-disconfirmable rule in CLAUDE.md's working-docs section; distinct in
 that the artefact was not a figure but a QUERY offered to other sessions as an instrument.
+
+## 2026-08-21 — bugs_open/204: I had the "definition first" rule in my plan, followed it, and still put an undefined symbol into HEAD
+
+**The claim.** My PLAN doc, written before any code, said: *"Definition and caller in ONE commit so they land together compiled. (The 'commit the definition first, ALONE' landmine governs splitting an extraction across commits; not splitting is strictly better — a caller with no definition takes the whole repo's build down.)"* I had read the landmine, understood it, and written a phasing that honoured it.
+
+**What was wrong.** The rule protects you only once both halves exist in your tree, and the exposure starts the moment you type the **caller** — not when you commit. I wrote `stored_slot_rescue.go` (the definition, untracked), then added a four-line hunk calling it to `v3_site_actions.go`, then moved on to the next file intending to commit both within the minute. Commit `af4743464` — an unrelated change by another session — took `v3_site_actions.go` from the shared working tree with my caller in it and left my untracked definition behind. **HEAD held a call to `storedSlotRescueFor` with no such symbol anywhere in the repo.**
+
+**What caught it.** Nothing automatic — and that is the part worth keeping. I found it only because `git diff --stat` on the file I was about to commit came back **empty**, which I had not expected, so I went looking. Had my next step been anything other than a diff, I would not have known. `go build` in my working tree was green throughout (it reads the tree, not HEAD), and every test passed.
+
+**The cheap check that would have caught it.** `git ls-files <file-defining-the-symbol>` before typing any caller — empty output means HEAD will not compile the moment your caller escapes. But the real fix is not a check, it is an ordering: **write the definition, COMMIT IT, and only then type the first line that calls it.** A definition with no caller compiles and is inert; the reverse takes the repo down.
+
+**Cost.** HEAD was un-buildable for **33 seconds** (15:03:27 → 15:04:00) and no build started inside the window. That is the second time this trap has closed on luck rather than on a control — the 2026-08-20 occurrence was 1.8 minutes, also unbuilt.
+
+**Transferable, and it is a correction to the existing landmine rather than a new lesson.** *"Commit the definition first" is not actionable at commit time.* By the time you are choosing a pathspec, the caller has already been sitting in a shared tree for however long the rest of the change took to write. The interval that matters is **typing the caller → committing the definition**, and only the definition's author controls when it opens. I have sharpened the LANDMINES entry to say so. Note also that all three recorded occurrences were found by the SWEPT session and never by the sweeper: a session running `git commit <path>` on a shared file cannot see whether the hunks it is taking reference symbols that exist in HEAD, so no defence sited at the sweeping commit can work.
+
+### Addendum, same day — and my CORRECTION was wrong too, in the other direction
+
+**The claim.** Having caught the over-broad sweep above, I struck it and wrote that it
+*"is not a drift detector"*, full stop.
+
+**What caught it.** The landmine verifier's verdict on my own entry named a function I
+had not read: `composeWriterBlock` (`refresh_evidence_base_action.go:996`), which
+rebuilds `writer_block` **entirely from the facts' `writer_line`s** — gated on
+`writer_block_managed`, a gate the verifier's own summary omitted and which is the whole
+safety property. So I did not take the summary as the mechanism either; I read the
+function.
+
+**What was actually true.** `[MEASURED]` 4 of 13 registers are managed. The sweep has two
+false-positive sources — an unmanaged block does not quote writer_lines at all, and on a
+managed one a `{value}` token is substituted before composition. Filtered for both, it IS
+a valid detector, and it reads **0 drifted / control = every fact** across all four
+managed sites. **My correction over-corrected: I threw away a working instrument because
+I had run it in the one configuration where it cannot work.**
+
+**And the version that survives is sharper than either.** A *managed* register self-heals
+on the next `refresh_evidence_base` run; an *unmanaged* one never does. webdesign.uk is
+unmanaged — which is precisely why its `writer_block` could sit two rulings and one armed
+ban behind for two days with every check green. **The drift is only possible where
+nothing will ever catch it**, and that is the actual content of the landmine.
+
+**The cheap check that would have.** Read the function before writing the second verdict,
+not just before writing the first. Both my error and my correction came from measuring
+one configuration and generalising: **"it convicts everything" and "it convicts nothing"
+are the same mistake with different signs, and a demand control distinguishes them in one
+query.**
+
+**Tally line.** "Over-corrected a bad check into no check" — 1 (this). Pairs with the
+entry above; the family is *a single-configuration measurement generalised*, and it has
+now produced two opposite wrong answers in one session about one query.
