@@ -9,10 +9,11 @@ lane built the platform half and contributed it back into that file, §8–§17)
 > 2. `SUMMARY_2026-08-20_the_rule_becomes_a_check.md` — five minutes, plain prose.
 > 3. This file's "What is left" and "Decisions that are not a session's to make".
 >
-> **One-line state:** both halves are LIVE (migration `509` applied 2026-08-21 on chassis `v1.0.1321`,
-> capability-probed on both replicas; `brief-negation-check` CronJob running daily since 08-20).
-> Council **APPROVED** (`c48b7612`, round 4 of 4). The one open technical question is the per-page
-> budget canary, which needs one page build to answer and cannot be answered before one.
+> **One-line state:** both halves are LIVE and the repair is **PROVEN working on real copy**
+> (migrations `509` + `517` applied 2026-08-21; chassis `v1.0.1321`, capability-probed on both
+> replicas; `brief-negation-check` daily since 08-20). Council **APPROVED** (`c48b7612`, round 4 of 4).
+> Two things are still owed and both need only traffic: artefact-level proof (item 0b) and the per-page
+> budget canary (item 1).
 
 ## State, with how it was verified
 
@@ -29,17 +30,29 @@ lane built the platform half and contributed it back into that file, §8–§17)
 
 ## What is left
 
-**0. CONFIRM THE REPAIR NOW WORKS — one query, and it is the first thing to do.** `517` fixed a
-live-but-blind gate; nothing has exercised it since (no writer orchestration after 10:40Z at the time
-of writing). The repair is proven the moment either of these is non-empty:
+**0. ~~CONFIRM THE REPAIR NOW WORKS~~ — ANSWERED 2026-08-21 11:06Z. IT DOES.** First real repair,
+`mortgagecalculator.co.uk`/`scorecard-simulator`: 5 hits found, **1 left alone as regulatory**, 2
+allowed by the budget, **2 rewritten, 0 rejected**, `hits_before 5 → hits_after 3`, one call at 447
+output tokens. Both rewrites surgical — a "rather than" clause removed, claim and facts intact. Full
+marker in `bugs_open/305 §19`.
+
+**0b. STILL OWED: ARTEFACT-LEVEL PROOF — one page that trips the gate AND renders.** The marker is a
+*status*; this estate trusts the artefact. That page did not render: it failed at the next step on the
+pre-existing `bugs_open/260` type gate (`mechanism-flow`'s `steps[N].branches` arrives as prose where
+the schema declares an array of objects). **NOT caused by the gate** — control: on the earlier 10:30
+run the repair spliced nothing (`repair_unavailable`, no `ai_service` yet) and the identical failure
+occurred, and `steps[1].branches` fails too, which the gate never touched. Reported to the 260 lane.
+The query that closes this item:
 ```sql
-SELECT created_at, success, output_tokens, left(error_message,50) FROM llm_call_log
- WHERE error_message LIKE 'RETRY (bugs_open/305%' ORDER BY created_at DESC LIMIT 5;
-SELECT collected_data->'copy_gate'->>'status', count(*) FROM orchestration_states
- WHERE collected_data ? 'copy_gate' GROUP BY 1;   -- 'repaired' is the goal; 'repair_unavailable' means still blind
+SELECT collected_data->'input_data'->'site_record'->>'domain' AS domain,
+       collected_data->'input_data'->'current_page'->>'name'  AS page, status,
+       collected_data->'copy_gate'->>'hits_before', collected_data->'copy_gate'->>'hits_after'
+  FROM orchestration_states
+ WHERE collected_data ? 'copy_gate' AND (collected_data->'copy_gate'->>'status')='repaired'
+   AND status <> 'FAILED' ORDER BY updated_at DESC;
 ```
-⚠ If it still says `repair_unavailable` with a DIFFERENT error, read that error — it is a second cause,
-not the same one.
+Then read that page's `page_components.content_data` and confirm the rewritten sentence is what is
+stored — **never `updated_at`**, which a rerender bumps without regenerating.
 
 **1. The per-page budget canary — still open, and the first run could not decide it.** ⚠ It cannot precede the apply
 (the marker only exists once the step runs; my own precondition said otherwise and is corrected in
