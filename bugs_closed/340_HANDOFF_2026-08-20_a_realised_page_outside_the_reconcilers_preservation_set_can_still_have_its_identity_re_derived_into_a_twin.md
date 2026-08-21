@@ -308,3 +308,68 @@ rather than only in the submission, because this file is what the next reader op
 states the mechanism better than the filing did: *"Stamping identity onto an unpreserved
 realised row, without reconciling composition, makes the (site_id,name) UPSERT correctly
 match the real existing page instead of minting a twin. That is the fix's whole point."*
+
+---
+
+# LIVE 2026-08-21 on chassis `v1.0.1322` — verified by ASKING THE BINARY, because this fix adds no string to grep for
+
+The fix rode the roll. **CLOSED.**
+
+## How it was verified, and why the usual probe was useless here
+
+Every previous close-out in this family greps `/proc/1/exe` for a literal the change
+introduced. **This change introduced none.** It adds a map (`realisedByNameAll`), a loop and
+an `else` arm — Go keeps function names for stack traces but not local variable names, so
+there is nothing in the binary to find. Grepping for `realisedByNameAll` would have returned
+absent on a pod that *does* carry the fix, which is the worst possible outcome: a false
+negative that looks like a rigorous check.
+
+So the route is the one this estate built for exactly this case — **the binary states the
+commit it was built from** (`bugs_open/153`, register **BLD-019**), and "did my fix ship?"
+becomes a query rather than an inference. Both pods, started 16:54Z, probed 16:59Z while the
+startup line was still in range:
+
+```
+{"msg":"build provenance","git_commit":"bac1899216fc6406f46cfcf8710f6a74c24276e0"}   (both pods, identical)
+
+git merge-base --is-ancestor a16bd9aea bac189921   -> YES   the 340 fix is in the running build
+git merge-base --is-ancestor 6ce422600 bac189921   -> NO    post-stamp commit, correctly not an ancestor
+```
+
+**Cite as "live on `v1.0.1322` as at 2026-08-21".**
+
+> **A misstep inside the verification itself, recorded because it is this lane's own
+> recurring shape.** My first negative control was a commit I *assumed* postdated the build
+> — it did not, so `--is-ancestor` returned true and I briefly read it as the control
+> failing. **A control that cannot come out the intended way is not a control**, and I had
+> picked one without checking which side of the stamp it fell on. The fix took one command:
+> `git rev-list $STAMP..HEAD` names commits that are genuinely after the build (59 of them,
+> this tree moving as it does), and any of those discriminates. Caught within the same
+> minute and nothing was published on it, so it is recorded here rather than in
+> `WRONG_CALLS.md` — but the check is worth stealing: **derive the negative control from the
+> stamp, never from your memory of the ordering.**
+
+## Status
+
+**Fixed, council APPROVED (`97542c8c`), live and verified.** The population it protects was
+**0** on the day it shipped and the point was always to close the door before it opened —
+the mechanism was live and the exploitable set empty, which is the cheapest moment to fix
+anything.
+
+**Not behaviourally proven, and deliberately not chased.** No replan has run through it, and
+proving it would mean firing one at a site holding an unpreserved page — which buys nothing
+here: the same-name stamp it extends *was* proven in production on 2026-08-20 (19 phantoms
+→ 0), and this change alters only which rows that proven stamp can see. The residue below
+is pinned by tests, not by a live run.
+
+## The stated residue, unchanged
+
+A site on which **nothing** is preserved still takes the from-scratch early return and keeps
+the pre-340 behaviour. Every page on such a site is unbuilt, so the twin is a twin of
+nothing anyone has served. Pinned by
+`TestReconcile_SameNameStamp_FromScratchBuildIsStillUntouched` so it cannot be closed by
+accident.
+
+**Re-check the population** with this file's census query before assuming it is still empty:
+[MEASURED 2026-08-21, corrected by the council round] **41** unpreserved active pages across
+13 domains on sites with a current plan, **0** of which a re-derivation would rename.
