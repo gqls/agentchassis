@@ -656,3 +656,52 @@ them** — but that table retains ~24h, so **that is a weak negative, not proof 
 and the two claims are cheaply re-verifiable: `RenderHead` at `component_library.go:2017`
 (`ResolveChromeComponent` → `RenderFallbackHead`, no `site_components` read), and
 `injectBrandHeadTags`' single caller at `render_site_components_action.go:1139`.
+
+## 2026-08-21 (e) — guard fix LIVE and proven; and I had told the council a number that was right and meant the wrong thing
+
+**Live on `v1.0.1322`** (16:54Z; last code commit 15:14Z). `declaresHeadTag` PRESENT on **both**
+replicas, positive control `injectCanonicalLink` present, fabricated control absent. ⚠ The five-symbol
+probe **timed out at 2 minutes across two pods** — split it per pod and keep it to three symbols.
+
+**Proven at the artefact on the motivating site.** `rerender-chrome` for webdesign.co.uk, then one page:
+
+```
+https://webdesign.co.uk/guides/tool-aria-builder-guide.html
+<html lang="en-GB">
+<link rel="icon" href="/favicon.ico">                    <- its OWN, preserved, still exactly ONE
+<link rel="apple-touch-icon" href="/assets/images/favicon.png">   <- new
+<meta property="og:type" …> <meta property="og:site_name" …>      <- new
+<meta property="og:image" …> <meta name="twitter:card" …>         <- new
+```
+
+Per-tag idempotence doing precisely what it claims, on the site that had been silently opted out of
+all of it across 117 pages.
+
+### ⚠ MISSTEP — my "two stored heads short" was arithmetically right and semantically wrong
+
+I gave the council a needle-gate count of **2** short heads. Dispatching the repair at the second one
+is what taught me it was **1**: `loanandmortgagecalculator.co.uk` has `lock_type='permanent'`
+(`locked_by='loanandmortgage_authored_chrome_20260805'`, `component_id IS NULL`). Its missing
+`og:image` is **deliberately hand-authored chrome** and the lock guard correctly refused me.
+
+**The check I skipped:** my census asked *"which heads lack these tags?"* and never asked *"which of
+those is the platform ALLOWED to touch?"* — `site_components` carries `locked_at` / `lock_type` /
+`locked_by` precisely to answer that, and I did not join on it. **A repair population is not "rows
+that differ from the target"; it is "rows that differ AND that you may write."** Marked do-not-fix in
+`bugs_open/322`.
+
+Two smaller ones in the same breath, both caught by re-reading my own output: I counted `rel="icon"`
+occurrences by dividing the length delta by **11** when the literal is **10** characters — which
+reported `0` icons on a head that has one, i.e. exactly the "your measurement answers the question you
+encoded" shape. And the earlier five-symbol probe timeout would have read as "the pod is
+unreachable" had I not re-run it.
+
+### The council's remaining objection, recorded rather than closed
+
+`debug_historian` was right that the count is scoped to the `render_site_components` population, and
+pages via the other producer get `RenderFallbackHead` — **no brand tags at all**, unreachable by this
+fix. I could not size it honestly: all three `assemble_page` agent types are `is_active` with **zero
+runs** in `orchestration_states`, but that table retains ~24h, so it is a weak negative
+`[UNMEASURED beyond 24h]`. Written into `bugs_open/322` as a residual that file owns, not a new bug
+number — same seam, and SEO-003 already holds the convergence question with a fifth-instance RFC
+threshold. This is the fourth.
