@@ -1,0 +1,84 @@
+# deployments/kustomize/services/instance-scope-sweep/base/cronjob.yaml
+#
+# The standing sweep behind bugs_open/283's flow half (owner ruling 2026-08-21:
+# "the sweep should exist as part of the improvement loop"). Files
+# instance_scope_conversion work items for active, placed components whose
+# html_template uses getElementById without {{.InstanceID}} — the
+# component-template-fixer (council-approved pipeline, correlation 07635a2f)
+# does the actual converting, judging, refusing and delivering.
+#
+# It SUPERSEDES instance-token-adoption-check, which was an expiry TRIPWIRE by
+# design and tripped as designed on 2026-08-18 ("retire it once it trips" is in
+# that job's own manifest). Same image, same secret, same one-doc_notes-row-per-
+# run convention (a missing row means the job did not run), same demand-control
+# discipline — with the control's polarity updated for a converted estate: the
+# known-non-zero count is now the ADOPTERS ({{.InstanceID}}), 90+ live.
+#
+# WHY A CRONJOB: templates arrive by agent action, hand-authored SQL, migrations
+# and the admin UI — routes no commit-time lint can see. The upstream controls
+# (generator prompt rules + create_tool_component's armed birth guard, migration
+# 520) bound the main producer; this clock catches every other door.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: instance-scope-sweep
+  labels:
+    app: instance-scope-sweep
+    component: config-integrity
+spec:
+  # Daily. Keeps the retiring tripwire's 07:40 UTC slot (clear of database-backup
+  # 02:00, weekly sweep 06:00, single-owner-carriers 06:20, removed-config-keys
+  # 06:25, site-discovery-staleness 06:35, component-fallback 06:40,
+  # optional-key-budget 06:50, concept-register-drift 06:50, component-render
+  # 06:55, shared-output-fields 07:10, verifier-remit 07:25).
+  schedule: "40 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # A census, at most ~40 guarded INSERTs, and one doc_notes write.
+      activeDeadlineSeconds: 180
+      template:
+        metadata:
+          labels:
+            app: instance-scope-sweep
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: sweep
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: sweep-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: sweep-script
+              configMap:
+                name: instance-scope-sweep-script
+                defaultMode: 365

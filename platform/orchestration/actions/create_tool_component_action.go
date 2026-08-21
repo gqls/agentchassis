@@ -54,6 +54,14 @@ var CreateToolComponentInputSpec = datahelpers.ActionInputSpec{
 	Optional:   []string{"description", "category", "related_pages", "replace_existing"},
 	Defaults:   map[string]interface{}{"category": "interactive"},
 	Deprecated: map[string]string{},
+	// enforce_instance_scope: arms the instance-scope birth guard
+	// (tool_birth_instance_scope.go). DECLARED HERE IN THE SAME COMMIT AS ITS
+	// READER — bugs_closed/336 is what happens otherwise: a key declared on the
+	// wrong action's spec passes every instrument (binary literal present,
+	// git log -S names the reader) while validation refuses it at dispatch.
+	// Setting: not an input field, so ConfigKeys per the RenderComponent
+	// precedent; it does not move the RFC_022 optional-key budget.
+	ConfigKeys: []string{"enforce_instance_scope"},
 }
 
 func init() {
@@ -228,6 +236,36 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		zap.String("component_name", componentName),
 	)
 
+	// --- Instance-scope birth guard (bugs_open/283 flow half) ---
+	// Placed AFTER sanitiseFunction (the token embeds the sanitised name) and
+	// BEFORE the already-exists branch, so the replace_existing regeneration
+	// receives scoped bytes too. renderedHTML is the occurrence-0 binding for
+	// the verbatim rendered_html writes below.
+	scopedHTML, renderedHTML, scopeInfo, scopeRefuse := ScopeToolBirthTemplate(
+		htmlContent, function, enforceInstanceScope(config), logger)
+	if scopeRefuse != nil {
+		recordComponentWriteRejection(
+			ctx, logger, params,
+			actionProvenance{
+				AgentType: params.ExecutionContext.Sender.AgentType,
+				StepName:  params.ExecutionContext.StepName,
+				Action:    "create_tool_component",
+			},
+			fmt.Sprintf("tool birth refused for site %s (%s): %v", siteIDStr, function, scopeRefuse),
+			"tool_birth_instance_scope_refused",
+			"error",
+			map[string]interface{}{
+				"site_id":  siteIDStr,
+				"function": function,
+				"detail":   fmt.Sprintf("%v", scopeInfo["instance_scope_defect"]),
+			},
+		)
+		return nil, scopeRefuse
+	}
+	htmlContent = scopedHTML
+	logger.Info("CreateToolComponentAction: instance-scope birth guard",
+		zap.Any("scope", scopeInfo))
+
 	// --- Check if already exists ---
 	var existingID string
 	err = params.DB.QueryRowContext(ctx, `
@@ -248,13 +286,14 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		// short-circuit below stands: it is the per-site throttle.
 		if replaceExistingRequested(inputs) {
 			return regenerateToolComponentInPlace(ctx, params, logger, toolRegenerateRequest{
-				siteID:      siteID,
-				incumbentID: existingID,
-				function:    function,
-				displayName: displayName,
-				description: description,
-				category:    category,
-				htmlContent: htmlContent,
+				siteID:       siteID,
+				incumbentID:  existingID,
+				function:     function,
+				displayName:  displayName,
+				description:  description,
+				category:     category,
+				htmlContent:  htmlContent,
+				renderedHTML: renderedHTML,
 			})
 		}
 		logger.Info("CreateToolComponentAction: Tool already exists for this site",
@@ -460,7 +499,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			page_id, component_id, position, slot_name,
 			rendered_html, content_data, build_status
 		) VALUES ($1, $2, 2, $3, $4, '{}'::jsonb, 'deployed')
-	`, pageID, componentID, function, htmlContent)
+	`, pageID, componentID, function, renderedHTML)
 	if err != nil {
 		// Clean up on failure. A page this call ADOPTED pre-existed the call
 		// and is live — deleting it here would destroy a served page to tidy
@@ -632,7 +671,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		zap.String("page_url", pageURL),
 		zap.String("function", function))
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"component_id":      componentID.String(),
 		"page_id":           pageID.String(),
 		"page_url":          pageURL,
@@ -644,7 +683,11 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		"page_adopted":      pageAdopted,
 		"cross_links_added": crossLinksAdded,
 		"content_item":      contentItem,
-	}, nil
+	}
+	for k, v := range scopeInfo {
+		result[k] = v
+	}
+	return result, nil
 }
 
 // addToolToNav was DELETED on 2026-07-31 (bugs_open/149 A6). It hand-wrote a

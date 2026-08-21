@@ -68,6 +68,11 @@ type toolRegenerateRequest struct {
 	description string
 	category    string
 	htmlContent string
+	// renderedHTML is the occurrence-0 token binding of htmlContent (see
+	// ScopeToolBirthTemplate). Placements carry the template verbatim, so THIS
+	// is what the rendered_html UPDATE writes; an unbound {{.InstanceID}} there
+	// would serve literal placeholder text on a live page.
+	renderedHTML string
 }
 
 // regenerateToolComponentInPlace is called by CreateToolComponentAction when
@@ -287,7 +292,7 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 		UPDATE page_components
 		SET rendered_html = $1, build_status = 'deployed', updated_at = NOW()
 		WHERE id::text = ANY($2::text[])
-	`, req.htmlContent, toPGTextArrayLiteral(slotIDs))
+	`, req.renderedHTML, toPGTextArrayLiteral(slotIDs))
 	if err != nil {
 		return nil, fmt.Errorf("replace_existing: update placements: %w", err)
 	}

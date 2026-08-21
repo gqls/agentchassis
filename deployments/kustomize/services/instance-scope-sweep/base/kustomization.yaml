@@ -3,6 +3,6 @@ kind: Kustomization
 resources:
   - cronjob.yaml
 configMapGenerator:
-  - name: instance-token-adoption-check-script
+  - name: instance-scope-sweep-script
     files:
       - check.py
