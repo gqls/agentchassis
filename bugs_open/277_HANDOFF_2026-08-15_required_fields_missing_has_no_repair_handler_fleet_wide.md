@@ -571,3 +571,75 @@ page to `section-editor` when — and only when — every finding is `source=ren
    literals untouched. That single completion opens the door for the remaining six.
 4. Then clause 1's worked example exists and this file can weigh closing against the
    `no_content_data` half (§0), which none of this touches.
+
+---
+
+## 7. 2026-08-21 — **CLAUSE 1 IS MET: the worked example is REPAIRED and proven at the served bytes**
+
+All four steps of §6 have now happened. Evidence, in the order the sequence required it:
+
+**1. The roll.** Chassis pods carry `buildinfo.GitCommit=0483e7f4e…` and
+`git merge-base --is-ancestor af0f00bb5 0483e7f4e` → YES. Binary probe with both controls:
+`rendered_html_transform` 8, `code_span_to_code_tag` 5, `OWNED_PAGE_GUARD` 3 (positive),
+`ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST` 0 (negative). Config half at the live column: flag `true`,
+`transform_name` whitelisted.
+
+**2. The sweep — and it had to be FORCED, which §6 did not anticipate.** `literal_markdown` is only
+ever run by `site-discovery-rotation-quality`, whose `pre_query` takes `LIMIT 1` site with
+`last_selected_at < now() - 7 days`. webdesign.co.uk was stamped 2026-08-18 07:23Z and **the whole
+rotation was idle** (oldest site in the fleet at 5d 01h), so its next natural sweep was
+**≈2026-08-25 07:33Z** [CALCULATED from measured stamps]. Owner approved forcing it; a one-shot
+task (no `pre_query`, so the rotation stamp was not consumed) fired at 13:19:01Z and the run is
+confirmed at `orchestration_states 4cfdca1f-…` COMPLETED 13:19:15Z — a stamp is not a run.
+
+**3. What the router filed: 8 rows, every one at the new shape** — `section-editor`,
+`edit_type=rendered_html_transform`, `transform_name=code_span_to_code_tag`. No check filed
+anything else. The 7 old `wont_fix` rows did not block re-filing (`idx_swi_dedup` excludes
+`wont_fix` and `unresolved` — read at the index definition).
+
+**4. The canary, then the door.** One row promoted by hand at 13:21:42Z (`ecd947c2…`,
+tool-cubic-bezier, the `` `ease-in-out` `` finding, 444's own promote UPDATE). Claimed 13:24:18 →
+**complete 13:25:03Z**, `result._verification` = *verified — no literal markdown on either surface
+across 1 component(s)*. **The promoter released the other six on its very next tick (13:27),
+unaided** — which is the claim §6 could only assert.
+
+### The proof is the served bytes, and the control is the half that carried the risk
+
+| check | before (13:22Z) | after (13:25Z) |
+|---|---|---|
+| backticks on the page | 6 | **4** (−2, exactly one span) |
+| `` `ease-in-out` `` | 1 | **0** |
+| `<code>ease-in-out</code>` | 0 | **1** |
+| **backticks inside `<script>`** — the tool's own template literals | 4 | **4, untouched** |
+| page bytes | 16683 | 16694 (**+11** = `<code></code>` 13 − 2 backticks) |
+
+`diff` of the two cache-busted fetches changes **one line pair and nothing else on the page**. The
+falling total alone would NOT have been a pass: a transform that ate the JS template literals shows
+the same downward move, which is why the script count is quoted beside it.
+
+### One row of the eight was born dead, and it is not this route's fault
+
+`learn-index` (`2c4033b0…`) was filed **`unresolved`** — terminal, never dispatchable — labelled
+*"[unresolved after 2 attempts]"*. Cause: `writeWorkItem`'s two-strike rule
+(`load_work_item_actions.go:1373-1408`) counts `complete`/`failed` rows for the same
+`(site_id, item_key)` over 7 days, and `item_key` is handler-agnostic **by design**. Its two strikes
+are `46f356cf` (failed, page-build-handler, 08-14) and `6865c4b9` (failed, page-rerender, 08-18) —
+**both routes this file has already shown to be inapplicable by construction.** So a re-route
+inherits the strikes of the route it replaced, and the label says "tried twice" about a repair tried
+zero times. CONTRIB filed into `bugs_open/333`, whose §2 reaches the same rule down a different road.
+It self-heals on the rolling window (both strikes age out before the 08-25 sweep) — **do not hand-
+flip the row**; the prediction is disconfirmable and worth more than the one page.
+
+### Where 277 stands after this
+
+- **Clause 1: MET.** A page in the `no_content_data` population has been repaired, mechanically, no
+  LLM, and verified at what the visitor is served.
+- **The `no_content_data` half is UNTOUCHED** and is what still holds this file open — 27 of 30
+  parked rows, a different agent, and `473`'s deterministic route does not cover it. Nothing in
+  today's work bears on it, and the good news must not be allowed to bleed across (§0's standing
+  warning).
+
+**Final tally 13:37Z: 7 of 7 dispatchable rows `complete`, all `verified`, all with zero prose
+backticks at the served page and their `<script>` literals intact** — `tool-head-architect` kept
+**44** script backticks while reaching zero in prose, which a transform leaking into script context
+could not do. Per-page table: NOTES 2026-08-21 §7.

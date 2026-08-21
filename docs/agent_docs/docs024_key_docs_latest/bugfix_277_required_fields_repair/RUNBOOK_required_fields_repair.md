@@ -254,6 +254,12 @@ the window rather than reading it as a pass.
 
 ## The rendered_html_transform canary (post-roll, CQ-028 — run ONCE, it opens the promoter door)
 
+> **✅ RUN 2026-08-21 13:21:42Z — DONE, do not run again.** Row `ecd947c2…` (tool-cubic-bezier)
+> completed 13:25:03Z, verifier `verified`, proven at the served bytes (§"Prove one page's repair"
+> below). The promoter released the other six on its very next tick (13:27), unaided. The pair
+> `literal_markdown → section-editor` is known-good from here on, so **step 2 is history** — a
+> future row of this pair is promoted automatically and needs no hand-promote.
+
 ```sql
 -- 0. Preconditions: chassis stamp is a descendant of the build commit (ask the POD, not git),
 --    and the config half reads at the column:
@@ -305,3 +311,72 @@ kubectl -n ai-persona-system exec "$POD" -- grep -ac "ZZQQ_NEEDLE_THAT_MUST_NOT_
   breath, and remember a binary hit count is not a call-site count (Go dedupes string constants).
 - And `git merge-base --is-ancestor af0f00bb5 <the pod's build-provenance stamp>` answers "did my
   commit ship" as a query, per BLD-019.
+
+## Force a discovery sweep for ONE site (when the 7-day rotation would not reach it)
+
+**Why you need this:** a discovery check (`literal_markdown`, `placeholder_contact`, …) is only ever
+run by its rotation task, and `site-discovery-rotation-quality`'s `pre_query` selects
+`LIMIT 1` site with `last_selected_at < now() - interval '7 days'`. When every site is inside its
+7 days the rotation is **IDLE, not slow** — and `last_triggered_at` keeps advancing every 3h the
+whole time, so the task reads healthy while examining nothing.
+
+```sql
+-- When would the rotation reach my site on its own? (the answer is often days)
+SELECT s.domain, r.last_selected_at,
+       r.last_selected_at + interval '7 days' AS eligible_at,
+       now() - r.last_selected_at AS age
+FROM site_discovery_rotation r JOIN sites s ON s.id = r.site_id
+WHERE r.agent_type = 'quality-discovery-agent'
+ORDER BY r.last_selected_at;   -- top row = the next site the rotation will take
+```
+
+```sql
+-- Fire one sweep now. Precedent shape: oneshot-quality-discovery-wdcouk-20260810.
+-- NO pre_query, so it does NOT consume the site's rotation stamp — the natural slot survives.
+INSERT INTO scheduled_tasks
+  (name, description, target_agent_type, target_topic, interval_seconds,
+   input_data, concurrency_group, max_concurrent, timeout_seconds, fire_message, enabled)
+VALUES
+  ('oneshot-quality-discovery-<slug>-<yyyymmdd>',
+   'ONE-SHOT (<why>): ... DISABLE IMMEDIATELY AFTER IT FIRES.',
+   'quality-discovery-agent', 'system.agent.scheduled.requests', 86400,
+   '{"domain": "<domain>", "site_id": "<uuid>"}'::jsonb,
+   NULL, 1, 600, true, true);
+
+-- it fires within seconds; then IMMEDIATELY:
+UPDATE scheduled_tasks SET enabled=false, updated_at=now() WHERE name='<the name>' AND enabled;
+```
+
+- **Check the rotation's own courtesy gate first** — it refuses a site with work in flight, so you
+  should too: `SELECT count(*) FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+  WHERE s.domain='<domain>' AND wi.status='claimed' AND wi.pipeline='build';` → expect 0.
+- **⚠ A TRIGGER STAMP IS NOT A RUN** (`bugfix_230_discovery_driver`'s five-stamps CONTRIB). Verify:
+  `SELECT orchestration_id, status, created_at, last_activity FROM orchestration_states
+   WHERE owner_agent_type='quality-discovery-agent' ORDER BY created_at DESC LIMIT 3;`
+- **A one-shot fires the agent's WHOLE check list**, not the one check you care about (quality =
+  9 checks as of 2026-08-21). Dedup usually holds the rest — on 2026-08-21 the sweep filed 8 rows
+  and every one was the check being tested — but say so before firing, do not assume it.
+- Leave the row `enabled=false` afterwards rather than deleting it; the disabled one-shots are the
+  estate's record of who forced what, and they are where you copy the shape from next time.
+
+## Prove one page's repair at the served bytes (before → after, with the control that matters)
+
+```bash
+D=/tmp/proof; mkdir -p $D
+U="https://<domain>/<page_url>"
+curl -s "$U?cb=$(date +%s)" -o $D/before.html        # BEFORE promoting the item
+# … run the repair …
+curl -s "$U?cb=$(date +%s)" -o $D/after.html
+for f in before after; do
+  echo "$f: backticks=$(grep -o '`' $D/$f.html | wc -l)" \
+       "code_tags=$(grep -o '<code>' $D/$f.html | wc -l)" \
+       "script_backticks=$(awk '/<script/,/<\/script>/' $D/$f.html | grep -o '`' | wc -l)"
+done
+diff <(fold -w120 $D/before.html) <(fold -w120 $D/after.html)   # expect ONLY the intended span
+```
+
+- The **script-backtick count is the control that carries the risk**: a tool page's own JS uses
+  template literals, and a transform that touched them would still show a falling total. Equal
+  before and after is the pass; a falling total alone is not.
+- Arithmetic worth checking because it is free: bytes should move by exactly
+  `+11` per converted span (`<code>` + `</code>` = 13, minus the two backticks removed).

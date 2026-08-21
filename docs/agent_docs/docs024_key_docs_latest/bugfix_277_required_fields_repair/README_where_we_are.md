@@ -1182,3 +1182,44 @@ find along the way that will save someone a bad afternoon: the HTML library we u
 rewrites tag names to lowercase while you read them, so a "copy the page byte-for-byte" tool built
 on it can corrupt pages that use capital letters in tags — it's now recorded in the landmine notes
 inside the register entry, with a test that fails if anyone reintroduces it.
+
+2026-08-21 — the repair happened, and you can see it on the page. The release went out last night
+carrying the code, so this morning was about proving it works on a real visitor-facing page rather
+than in a test.
+
+First, a delay nobody had spotted. The check that finds these backtick problems only ever runs when
+a site's turn comes round on a fair rotation — each site gets looked at once every seven days, one
+site at a time. webdesign.co.uk had been looked at on the 18th, so its next turn was the 25th. Worse,
+the rotation had gone completely quiet: no site in the whole estate was old enough to be due, yet the
+task that drives it kept ticking along every three hours looking perfectly healthy. So the handoff's
+next step — "wait for the detector's next sweep" — was four days away, and nothing about the system's
+own state said so. You said fire it manually, so I did: a one-off instruction to examine that one
+site, which deliberately does not use up its place in the queue, so the natural turn on the 25th is
+still there.
+
+The check ran, and the new routing did exactly what it was built to do: eight findings, every single
+one sent to the new repair route rather than the old broken ones. I then promoted one of them by hand
+— the bootstrap step, because the dispatcher won't trust a brand-new route until it has seen one
+success — and it completed in about three minutes.
+
+The proof is the page itself. Before: the cubic-bezier tool page showed `ease-in-out` wrapped in
+literal backticks. After: it shows properly formatted code, the backticks are gone, and — this is
+the part that carried the risk — the four backticks inside the page's own JavaScript, which are
+meant to be there, are untouched. The whole page differs by one line. The page grew by exactly
+eleven bytes, which is the arithmetic of the change and nothing else.
+
+Then the mechanism took over by itself, which is what we actually wanted to see: on its very next
+cycle, fifteen minutes later, the dispatcher released the other six and they began repairing
+without anyone touching them.
+
+One honest wrinkle. Of the eight findings, one was born dead — the learn-index page. There is a rule
+that says "if we've already failed to fix this twice in the last week, don't try again, flag it for
+a human". Sensible in itself, but it counts failures by *page*, not by *method* — so the two failed
+attempts by the old, provably-useless methods were charged against the brand-new one, and its first
+ever attempt was recorded as its third. The page is labelled "unresolved after 2 attempts" when the
+repair that works has been tried zero times. It fixes itself in a few days as those old failures age
+out of the week-long window, so I've left it alone and written down the prediction rather than
+forcing it — if it doesn't come back healthy on the 25th, that tells us something we'd want to know.
+I've passed the general finding to the lane that owns that rule, because the same thing will happen
+to anyone who reroutes a repair after proving the old route wrong: the more carefully you prove it,
+the more failures you bank against your own replacement.

@@ -1462,3 +1462,69 @@ this pair before `453`'s one-way door sends its rows into an 829-row human queue
 **but it is the `453`/083 author's call, not mine, and I have not touched any row.**
 The empty-error `unresolved` sextet is the part that would still worry me: six rows
 reached a terminal-ish state with nothing recorded about why.
+
+---
+
+# 2026-08-21 — DOOR SOAK CHECKPOINT (day 4 of ~7), and the escalation's own stated remedy ran end to end a SECOND time
+
+Not a close. `444`/`458` were applied 08-17/08-18, so the week the owner asked for lands ~08-24/25.
+This entry records what the doors did while soaking, so the close can cite measurements taken
+*during* the soak rather than one snapshot taken after it.
+
+## 1. The remedy the escalation prints was executed today, on a brand-new pair, and the second half is now measured twice
+
+`held_pair_escalation.what_to_do` tells a human: *"Promote ONE row of this pair by hand and watch it
+… If it completes, the pair becomes known-good and the promoter takes the rest automatically."*
+The `bugs_open/277` lane needed exactly that today for a route that shipped last night
+(`literal_markdown → section-editor`, 0 lifetime completes, correctly held by the known-good rule):
+
+| | |
+|---|---|
+| detector files 8 rows at the new shape | 13:19:02Z |
+| ONE row promoted by hand (444's own UPDATE) | 13:21:42Z |
+| that row `complete`, verifier `verified` | **13:25:03Z** |
+| **promoter's very next tick releases the other six, unaided** | **13:27:32Z** |
+| 6 of those 6 `complete`, all `verified` | by 13:35Z |
+
+So the door held a genuinely unproven pair, one hand-promote satisfied it, and the release took
+**15 minutes** with no further human action. That is the same arc as 08-17's
+`page_component_status_drift` canary — **a second independent instance, on a different item type,
+a different handler, and a route that did not exist 24 hours earlier.** Repairs verified at the
+served bytes, not at the status: `bugs_open/277` §7.
+
+## 2. The escalation door is still ONE-WAY in practice — re-measured, and the population GREW today
+
+[MEASURED 2026-08-21 13:3xZ, live + archive, all history]
+
+| marker | count |
+|---|---|
+| `result ? 'held_pair_escalation'` | **7** (live) / 0 (archive) |
+| `result ? 'held_pair_reclaimed'` | **0** (live) / **0** (archive) |
+
+`479`'s reclaim arm **has still never fired**, and the close must say so plainly. Today's 12:59:00Z
+tick escalated **two more** pairs — `dead_fragment_link → page-build-handler` and
+`missing_conversion_path → content-gap-planner` — so the human queue now holds **6** escalated rows
+(4 `placeholder_contact` from 08-20 plus today's 2); the seventh is 08-17's, resolved
+`manual:revalidated`. **The door opens, on schedule, correctly, and nothing has ever come back
+through it.** That is not evidence of a defect — no escalated pair has yet qualified, which is the
+only condition that would reclaim one — but it is the honest state of a mechanism this bug's fix
+depends on, and it is unchanged since 08-18.
+
+## 3. A THIRD stranding shape, found today, that this file's model does not yet name
+
+This file has carried two: stranding by **absence** (no handler owns the type — the original
+thesis) and stranding by **correct decline** (a live closer that rightly refuses — the 296 lane's
+`contrast_failure` CONTRIB). Today's is neither, and no promoter is involved:
+
+**`writeWorkItem`'s two-strike rule counts attempts per `(site_id, item_key)`, and `item_key` is
+handler-agnostic by design — so when a producer is RE-ROUTED, the new route inherits the old
+route's failures and its first-ever attempt is recorded as its third.** Measured instance today:
+1 of the 8 rows above (`learn-index`) was born `unresolved` — terminal, undispatchable — labelled
+*"[unresolved after 2 attempts]"*, on the strength of two `failed` rows from the two routes the 277
+lane had just finished proving inapplicable **by construction**.
+
+Why it belongs in this file even though the fix isn't here: a row born terminal is invisible to the
+promoter, to the escalation clock and to `458`'s held-pair report — **all three of this bug's own
+instruments**. It is the one stranding shape that the fix this file shipped cannot see, by
+construction. Mechanism and queries: `bugs_open/333` (CONTRIB 2026-08-21, their rule, their call)
+and `bugs_open/277` §7.

@@ -253,3 +253,56 @@ its precondition is absent on all 7 pages. Full evidence, including the near-vac
 nearly fooled us, is in `bugs_open/277` under *"an owned page has NO route at all is TOO STRONG"*.
 **If you build the door check, it can name that route rather than only demoting** — which is the
 option your own note asked the 277 lane to come back on.
+
+---
+
+## CONTRIB 2026-08-21 (`bugfix_277_required_fields_repair` lane) — the two-strike rule reaches your false "we tried twice" with NO refusal loop at all, because a RE-ROUTE inherits the old route's strikes
+
+**Your mechanism, your call** — evidence, not a filing and not a fix. Your §2 already names
+`writeWorkItem`'s two-strike rule (`load_work_item_actions.go:1373-1408`) as where a repeatedly
+refused finding gets parked as *"[unresolved after 2 attempts]"* when nothing was ever tried. This
+is a **second road to the same wrong label**, and it needs no `wont_fix` loop, no owned page and no
+refusal — just a route change, which is a thing this estate does deliberately and often.
+
+### The measured instance, today
+
+277's clause-1 route went live (CQ-028: `literal_markdown` findings whose component cannot
+regenerate now route to `section-editor`'s `rendered_html_transform` instead of a regenerate path).
+The first sweep after the roll filed 8 rows. Seven were born `detected` and the mechanism worked —
+one canary, then the promoter released the rest, and the repair is proven at the served bytes.
+
+**The eighth (`learn-index`, `2c4033b0-ed29-4cfc-9077-5b7943c35765`) was born `unresolved`** —
+terminal, never dispatchable. Evaluating the rule's own predicate against the live table:
+
+```sql
+SELECT count(*) AS terminal_count_7d
+FROM site_work_items
+WHERE site_id='6b49db8e-d447-4467-8277-4f3018af9897'
+  AND item_key='literal_markdown:8b9c3acd-7c92-483a-a579-a539ade234cf'
+  AND status IN ('complete','failed') AND created_at > now() - interval '7 days';
+-- 2  [MEASURED 2026-08-21 13:3xZ]
+```
+
+The two strikes are `46f356cf` (failed, **page-build-handler**, 08-14) and `6865c4b9` (failed,
+**page-rerender**, 08-18). Both are routes that `bugs_open/277` §5 established are inapplicable to
+this class **by construction** — the component's `content_data` cannot reproduce its `rendered_html`,
+so every regenerate-from-source repair is a guaranteed failure. The route that *can* fix it had its
+first-ever attempt counted as its third.
+
+### The general form, stated for your fix design
+
+`item_key` is **handler-agnostic by design** — that is exactly what makes `idx_swi_dedup` work — so
+the strike count is handler-agnostic too. Therefore **re-routing a producer silently transfers the
+old route's failures onto the new one**, and the more thoroughly a lane proves the old route wrong
+(each proof being a `failed` row), the more certain it is that the new route is born dead on the
+pages that mattered most. A door check at `writeWorkItem` that counts attempts without asking *whose*
+attempts they were will inherit this.
+
+Worth knowing but not urgent here: it self-heals on the rolling 7-day window (both strikes age out
+before this site's next natural sweep on ~08-25 07:33Z), so a re-route's damage is bounded to about
+a week of filings — which is precisely long enough to make a newly shipped route look broken during
+the days its author is watching it.
+
+Full working, every query re-runnable:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_277_required_fields_repair/NOTES_required_fields_repair.md`,
+entry 2026-08-21 §6.

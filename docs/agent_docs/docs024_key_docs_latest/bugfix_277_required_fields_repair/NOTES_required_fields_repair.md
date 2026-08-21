@@ -2638,3 +2638,132 @@ work rather than banking them:
 **The trail: REVISE (r1, sketch defect) → APPROVED (r2).** Both code commits already carry
 `Council-Submitted:` and are credited automatically by 098; this round's follow-up carries
 `Council-Reviewed:` — the verdict is read, so the strong trailer is now honest.
+
+---
+
+## 2026-08-21 (session "bugfix 083") — clause 1 REPAIRED at the served bytes, and the sweep it needed was FOUR DAYS AWAY, not "next"
+
+### 1. The roll HAD happened; proven per service, with both controls
+
+Chassis pods (`agent-chassis-68ff4d794c-{46xhw,xg5mb}`, one digest `sha256:3ed50651…`, started
+2026-08-20 19:51Z) stamp `buildinfo.GitCommit=0483e7f4e410168d30ed2d86dcbb820d8c28a383`.
+`git merge-base --is-ancestor af0f00bb5 0483e7f4e` → **YES** (and `6011f9657` too), so the whole
+CQ-028 change is aboard. Binary probe [MEASURED 2026-08-21 ~12:0xZ]: `rendered_html_transform` 8,
+`code_span_to_code_tag` 5, `OWNED_PAGE_GUARD` 3 (positive control), `ZZQQ_NEEDLE_THAT_MUST_NOT_EXIST`
+0 (negative control). Config half at the live column: `allow_rendered_html_transform=true`,
+`input_fields @> ["transform_name"]` → `t`.
+
+⚠ **The `build provenance` startup line was NOT readable** — a chassis pod's log history is ~90
+seconds under load, and `--tail=100000` returned 1.9MB of orchestration state without it. The three
+"matches" my grep did find were the *phrase* quoted inside a council submission's collected_data.
+The `buildinfo.GitCommit=` probe of `/proc/1/exe` is what actually answered it.
+
+### 2. THE REAL FINDING — §2 step 2 ("the detector's next sweep") was ~4 days out, and nothing said so
+
+`literal_markdown` is a **quality**-discovery check, and the only thing that drives it is
+`site-discovery-rotation-quality` (mig 346, SCH-025). Its `pre_query` gates on
+`COALESCE(r.last_selected_at,'-infinity') < now() - interval '7 days'`, `LIMIT 1`. [MEASURED
+2026-08-21 12:1xZ] webdesign.co.uk's stamp is **2026-08-18 07:23:15Z**, and *the whole rotation was
+idle*: the oldest stamp in the fleet (robot-hands.com) was at **5d 01h**, so no site was due at all
+until 2026-08-23 10:16Z. Walking the 3h tick order forward, webdesign.co.uk's next natural quality
+sweep was **≈2026-08-25 07:33Z** [CALCULATED from measured stamps] — the same day as `083`'s door
+soak, by coincidence, and four days after the handoff implied "next".
+
+**The general shape, and it is not specific to this check:** *a fix to a discovery check is not
+observable until that site's rotation slot comes round, and the rotation goes IDLE — not "slow" —
+whenever no site has aged past the floor.* `last_triggered_at` on the task keeps advancing every 3h
+throughout, so the task looks healthy while examining nothing. Filed as a LANDMINE.
+
+### 3. Forced the sweep (owner said fire it), and it did not consume the rotation stamp
+
+Seeded `oneshot-quality-discovery-wdcouk-20260821` on the precedent shape of
+`oneshot-quality-discovery-wdcouk-20260810` (same agent, same topic, `input_data` = domain +
+site_id, **no `pre_query`**, `interval_seconds` 86400), fired at **13:19:01Z**, disabled at
+13:19:5xZ. Because a one-shot carries no `pre_query`, it never touches `site_discovery_rotation` —
+so webdesign.co.uk's 08-25 slot is still there, unspent. Preconditions checked first, including the
+rotation's own courtesy gate (`0` claimed build items on the site).
+
+**A trigger stamp is not a run** (`bugfix_230_discovery_driver`'s five-stamps CONTRIB). Verified the
+run happened: `orchestration_states` `4cfdca1f-…`, quality-discovery-agent, webdesign.co.uk,
+COMPLETED, 13:19:01.24Z → 13:19:15Z.
+
+### 4. The router did exactly what it was built to do — 8 rows, ALL new-shape
+
+Everything the sweep filed, fleet-wide, was `literal_markdown → section-editor` with
+`edit_type=rendered_html_transform`, `transform_name=code_span_to_code_tag`: the 6 `tool-*` pages,
+`learn-design-physics-of-ui`, and `learn-index`. **No other check filed anything** (dedup held the
+rest). The 7 old `wont_fix` rows did not block re-filing — `idx_swi_dedup` excludes `wont_fix` AND
+`unresolved`, checked at the index definition, not assumed.
+
+### 5. The canary — one row, complete in 3m21s, and PROVEN at the served bytes
+
+Promoted **one** row by hand (`ecd947c2…`, tool-cubic-bezier, the `` `ease-in-out` `` finding) with
+444's own promote UPDATE at 13:21:42Z. claimed 13:24:18 → section-editor run `8ddb55b0…` →
+**complete 13:25:03Z**, `result._verification` = *"verified — no literal markdown on either surface
+across 1 component(s)"*.
+
+Served bytes, cache-busted, before → after [MEASURED 13:22Z / 13:25Z]:
+
+| check | before | after |
+|---|---|---|
+| backticks on the page | 6 | **4** (−2, exactly one span) |
+| `` `ease-in-out` `` | 1 | **0** |
+| `<code>` tags | 0 | **1** |
+| `<code>ease-in-out</code>` | 0 | **1** |
+| **backticks inside `<script>`** (adversarial control) | 4 | **4 — untouched** |
+| page bytes | 16683 | 16694 (**+11** = `<code></code>` 13 − 2 backticks) |
+
+`diff` of the two fetches: **one line pair changed, nothing else on the page.** The fixture's
+adversarial case — a tool page whose own JS uses template literals — held in production, which is
+the half that could not be proven from a test.
+
+### 6. A DEFECT FOUND BY DOING IT — the two-strike rule makes a NEW route inherit the OLD route's strikes
+
+1 of the 8 rows (`learn-index`, `2c4033b0…`) was **born `unresolved`** — terminal, never
+dispatchable — carrying the summary *"[unresolved after 2 attempts]"*. Cause is
+`writeWorkItem`'s two-strike rule (`load_work_item_actions.go:1373-1408`): it counts
+`status IN ('complete','failed')` rows for the same `(site_id, item_key)` in the last 7 days, and at
+≥2 births the new row `unresolved`.
+
+Evaluated the predicate exactly as the code does: **`terminal_count_7d = 2`** — `46f356cf` (failed,
+**page-build-handler**, 08-14) and `6865c4b9` (failed, **page-rerender**, 08-18). **Both are OLD
+routes**, and this lane has already established that both are inapplicable to this class by
+construction. So the first-ever attempt by the route that CAN repair it was counted as the third
+attempt of routes that never could, and the label says "we tried twice" about a repair that has
+been tried zero times.
+
+**The general form:** `item_key` is handler-agnostic **by design** (that is what makes dedup work),
+so the strike count is handler-agnostic too — **a re-route inherits the strikes of the route it
+replaced.** `bugs_open/333` §"the finding terminates wont_fix" already names the two-strike rule
+reaching a false "we tried twice", but by a different road (refusal loops on owned pages). This is
+the *route-change* road and it needs no refusal at all. CONTRIB filed into 333.
+
+**It self-heals here, and the arithmetic is worth stating rather than acting on:** the window is
+rolling 7 days, so `46f356cf` (08-14 16:03) ages out at 08-21 16:03 today and `6865c4b9` (08-18
+07:23) at 08-25 07:23 — just *before* the natural 08-25 07:33 sweep. So learn-index's next filing
+should be born `detected`. **Do not hand-flip the row to test that** — the prediction is
+disconfirmable at the next sweep and worth more than the one page.
+
+### 7. Final tally, 13:37Z — 7 of 7 dispatchable rows complete, all `verified`, all clean at the served bytes
+
+`tool-cubic-bezier` 13:25:04 (the canary) · `tool-grid-generator` 13:30:57 · `tool-head-architect`
+13:31:45 · `tool-json-cleaner` 13:32:28 · `tool-noise-generator` 13:33:09 ·
+`learn-design-physics-of-ui` 13:33:55 · `tool-text-extractor` 13:37:02. Eighth row = `learn-index`,
+born `unresolved` (§6).
+
+Independent check at the artefact on all seven, cache-busted, **not** trusting the verifier's status
+[MEASURED 13:34–13:38Z] — prose backticks (total minus those inside `<script>`) and `<code>` tags:
+
+| page | prose backticks | script backticks | `<code>` |
+|---|---|---|---|
+| tool-cubic-bezier | 0 | 4 | 1 |
+| tool-grid-generator | 0 | 8 | 3 |
+| tool-head-architect | 0 | **44** | 2 |
+| tool-json-cleaner | 0 | 2 | 2 |
+| tool-noise-generator | 0 | 6 | 2 |
+| tool-text-extractor | 0 | 2 | 2 |
+| learn-design-physics-of-ui | 0 | 0 | 1 |
+
+`tool-head-architect` is the strongest single result: **44** backticks live inside that page's own
+`<script>` and every one survived, while its prose reached zero. A transform that leaked into script
+context could not produce that row.
