@@ -410,3 +410,76 @@ length guard catches nothing today: the population moved *under* it. Its own
 
 Not written by this lane's backfiller — every one of these predates it or comes from the
 tool-deploy path. **Flagged, measured, and left for whoever owns `103`.**
+
+
+---
+
+## 14. 2026-08-21 — a defect in MY OWN floor, and the question it raises about descriptions already written
+
+Two tidy-ups were asked for and both are done (`517`, `518`). The second exposed something
+bigger than the tidy-up.
+
+### `517` — the pre-query and the workflow asked different questions
+
+The scheduled task asked *"has this page any rendered component?"*; the workflow asked
+*"has it >200 chars of visible text?"*. So the scheduler dispatched an orchestration every
+hour that always concluded `complete_nothing_to_do`. Cheap — it stops before the LLM step —
+and the third instance in this lane of **a green record over work that never happens**.
+
+Fixed as **one definition** (`page_visible_text_len()`, a `STABLE` SQL function both call)
+rather than a second copy of the regex, per `bugs_closed/284`'s rule about renderings of a
+shared predicate.
+
+### `518` — ⚠ MY MIGRATION `493` WAS MEASURING THE WRONG THING
+
+I reported `noted.co.uk/index` yesterday as *"197 visible characters, a homepage three
+characters under the floor"*, and offered it as a judgement call about the floor.
+
+**The page has 1,205 characters of real text.** `493` stripped `<style>`/`<script>` blocks
+**after** `string_agg`, so the match ran across component boundaries and consumed the next
+component's prose. Balanced tags — 3 opens, 3 closes — so nothing looked broken.
+
+`[MEASURED 2026-08-21]` across 693 active pages: **349 lose more than half** their visible
+text to that formulation, **24** are wrongly judged below the floor, **1** of those was
+blank and being declined as too thin. Fixed by stripping per component then joining, with
+`ORDER BY` for determinism. That homepage now measures 1,205 and has been backfilled.
+
+### ⚠ THE OPEN QUESTION THIS RAISES — needs an owner decision, not a session's
+
+`content_sample` — the 1,200 characters of page text handed to the **writer** — had the
+same flaw. So descriptions written before `518` came from a **possibly-truncated view of
+their page**, and the model produced fluent copy from the fragment. **Nothing downstream
+could tell**, which is why it went unnoticed.
+
+`[MEASURED 2026-08-21, and the figure MOVES between runs because pages are rerendering
+continuously — treat it as an order of magnitude]`: of ~692 pages with a description,
+**roughly 270-350 had a degraded sample** when it was written, and **~20-44 severely** (the
+old measure kept under 200 chars of a page with more than 200). Around 35 of those carry an
+em dash, which this lane's prompt bans, so they were written by another path — the rest are
+plausibly the backfiller's.
+
+**Spot-checked three severe cases against what the page actually says. Two are wrong:**
+
+| page | written description | what the page says |
+|---|---|---|
+| `robot-hands.com/gripper-detail` | *"Full specifications for this gripper, with gripping force, payload, stroke and IP rating…"* | *"Start With the Right Parameters. End With a Shorter Shortlist. Filter the catalog by payload, stroke, actuation type…"* — it is a filterable catalog, not a single-product spec sheet |
+| `webdesign.co.uk/news` | *"What is changing in web design — browsers, CSS, accessibility rules and AI tooling, with a UK slant."* | *"New tools and guides, added as they're built. This page lists what has changed across the site."* — a site changelog, not industry news |
+| `finetuning.uk/tool-ai-data-risk-checker-guide` | the `composedGuideMetaDescription` template — generic but not inaccurate | (not a backfiller product; em dash gives it away) |
+
+They are plausible *from the page title alone*, which is exactly what the writer had when
+the sample was empty.
+
+**Why this is an ASK and not an action.** Regenerating them requires
+`overwrite_existing: true` — the unsafe authority that defaults OFF by the owner ruling of
+2026-08-02 §2, and the owner's 2026-08-20 authorisation was to **fill blanks** fleet-wide,
+not to replace existing copy. So the options are the owner's:
+
+1. **Leave them.** They read well; some are inaccurate. Cheapest, and the inaccuracy is
+   invisible to anyone not comparing description to page.
+2. **Regenerate only the severe ones** (~20-44). Smallest change that removes the
+   demonstrated errors, needs a one-run `overwrite_existing: true` on a scoped set.
+3. **Regenerate all degraded** (~270-350). Most thorough, most LLM spend, and it replaces
+   copy that is mostly fine.
+
+⚠ Whichever is chosen, **re-run it over what the blind measure already cleared** rather
+than only forward — the same rule this lane applied to `339`'s guard.
