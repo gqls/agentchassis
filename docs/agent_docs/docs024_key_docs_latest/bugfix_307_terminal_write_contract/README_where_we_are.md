@@ -216,3 +216,52 @@ the rule the stand-in can't; the fix rides the next deploy and is with the revie
 So the ticket does not close today, and that's the system working as designed: the drill
 existed precisely to catch what the tests couldn't. The path to closing is now: next deploy
 carries the crash fix, a decision on bug 344, then the same drill re-run clean.
+
+## 2026-08-21, midday — I have to correct what I told you this morning
+
+This morning I said the fix was live and proven. **Half of that was right and I need to take the
+other half back.**
+
+What is genuinely working, on real traffic and unprompted: when a passing infrastructure fault hits
+a job, the item goes back in the queue **without spending one of its three tries**, waits, is picked
+up again, and finishes. Two real items did exactly that on Wednesday evening. That is your ruling —
+"a transient blip should return it to queued" — behaving as asked, and it is not a test.
+
+**What does not work is the opposite end, and it is my mistake.** When an item genuinely deserves to
+give up — three failures, nothing transient, time to stop — the code that writes "failed" **crashes
+instead**. A parameter is passed to the database that the statement no longer mentions, and the
+database refuses the whole write. So an item that should die honestly at the third attempt doesn't
+die at all. That is the single most important behaviour in the change after the retry itself, and
+it is the exact case I was most confident about, because I had written a specific test for it.
+
+**Why my tests missed it, which is the part worth your attention.** I wrote fifteen tests and
+deliberately broke my own code five different ways to prove they'd notice. They all passed, and
+they were all asking the wrong kind of question. They test the SQL as *text* — does the sentence
+contain the right words. The fault is in the SQL as a *program* — the sentence is well-worded and
+the database still rejects it. A fake database was standing in for a real one, and a fake database
+never objects to anything a real one would. Fifteen tests with proofs read as thorough; that
+thoroughness is precisely why I never asked what the whole approach structurally couldn't see.
+
+**How it was caught: by the canary you authorised.** Another session ran the synthetic item through
+three real attempts rather than trusting the tests, and attempt three produced the error. That is
+the entire argument for canaries in one sentence — and the reason I'd resist any future suggestion
+to skip one because "the tests are good".
+
+Two other things came out of the same run, neither mine to fix:
+
+- **A second, separate defect** (now `bugs_open/344`): when the retry machinery puts an item back in
+  the queue, the surrounding job reports overall success two seconds later and stamps the item
+  "complete" — wiping the retry. That was harmless before this change and became load-bearing
+  because of it. It has a contained fix proposed and is waiting on a decision.
+- **My own bug file for the leftover piece overstated its case.** I'd written that the old
+  database-side copy of this logic lacks a safety guard. It doesn't — its own filter is *stronger*
+  than the guard. I'd compared two pieces of code on a checklist instead of on what each can
+  actually reach. Corrected in place; the fix I built for it shrank accordingly.
+
+**So: 307 cannot close, and I was wrong to imply this morning that it was close to closing.** The
+other session is fixing the crash now. My leftover piece is built, checked, committed and
+**deliberately not switched on** — turning it on before `344` is decided would spread `344`'s damage
+wider, so it is filed under a name the tooling itself refuses to apply until someone releases it.
+
+The honest position: the hard, novel half of this change works in production and is proven. The
+simple half — giving up correctly — is broken, understood, and being fixed today.
