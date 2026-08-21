@@ -893,3 +893,72 @@ func TestLadderStatementTextIsValueInvariant(t *testing.T) {
 		t.Fatal("counting-ladder SQL text varies with the backoff VALUE — the 42P18 construction is back")
 	}
 }
+
+// TestFailureLadder_ZeroBackoffTriggersAllReachTheSameStatement drives the
+// THREE trigger paths that make backoffMins 0 (census from the lane that built
+// the ladder, 2026-08-21): the terminal attempt (computeLadder never assigns),
+// the DISABLE_WORK_ITEM_RETRY_BACKOFF disarm (the other leg of the same `if` —
+// pre-fix, the kill switch shipped as the SAFE way to quiet a misbehaving
+// backoff broke EVERY failure write instead), and a reaper_policies row of 0
+// (operator-set, live-editable, no build needed to trigger). Each case asserts
+// the UPDATE carries the value-invariant CASE text (`OR $4::int <= 0`): the
+// pre-fix code emitted `retry_after = NULL,` on all three, which is the
+// dropped-$4 statement that died with SQLSTATE 42P18 in production.
+func TestFailureLadder_ZeroBackoffTriggersAllReachTheSameStatement(t *testing.T) {
+	cases := []struct {
+		name  string
+		state ladderState
+		arm   func(t *testing.T, mock sqlmock.Sqlmock)
+		want  string // status the mock returns, matching the arm's real outcome
+	}{
+		{
+			name:  "terminal attempt (2 of 3): computeLadder skips the policy lookup",
+			state: ladderState{status: "claimed", attemptCount: 2, maxAttempts: 3, itemType: "content_rewrite"},
+			arm: func(t *testing.T, mock sqlmock.Sqlmock) {
+				expectBurstProbe(mock, 1, 1, 1)
+			},
+			want: "failed",
+		},
+		{
+			name:  "one-shot item (max_attempts=1): the burst probe is skipped too",
+			state: ladderState{status: "claimed", attemptCount: 0, maxAttempts: 1, itemType: "content_rewrite"},
+			arm:   func(t *testing.T, mock sqlmock.Sqlmock) {},
+			want:  "failed",
+		},
+		{
+			name:  "retry-backoff disarm set, NON-terminal attempt",
+			state: defaultLadderState(),
+			arm: func(t *testing.T, mock sqlmock.Sqlmock) {
+				t.Setenv(envDisableRetryBackoff, "1") // disarmed: backoff stays 0
+				expectBurstProbe(mock, 1, 1, 1)
+			},
+			want: "triaged",
+		},
+		{
+			name:  "reaper_policies row of 0 minutes",
+			state: defaultLadderState(),
+			arm: func(t *testing.T, mock sqlmock.Sqlmock) {
+				expectBurstProbe(mock, 1, 1, 1)
+				expectPolicyLookup(mock, 0)
+			},
+			want: "triaged",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, _ := sqlmock.New()
+			defer db.Close()
+			expectStateRead(mock, tc.state)
+			tc.arm(t, mock)
+			mock.ExpectQuery(regexp.QuoteMeta(`OR $4::int <= 0 THEN NULL`)).
+				WillReturnRows(sqlmock.NewRows([]string{"status", "attempts_left"}).AddRow(tc.want, 0))
+			if _, err := applyWorkItemFailureLadder(context.Background(), db, zap.NewNop(),
+				uuid.New(), "boom", "build-dispatch-loop", nil); err != nil {
+				t.Fatalf("ladder errored on a zero-backoff trigger: %v", err)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("the zero-backoff UPDATE does not carry the value-invariant CASE ($4 referenced): %v", err)
+			}
+		})
+	}
+}
