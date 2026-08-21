@@ -1,4 +1,4 @@
-# HANDOFF — 2026-08-20 (rev. ~17:15Z), fresh chat starts here: **steps 1–4 LIVE + PROVEN. Step 5 is the only work left, and it is now TIERED: 2 hard blockers, 1 silent-loss blocker, ~10 record-a-decision items.** The lane cannot close yet.
+# HANDOFF — 2026-08-20 (rev. 2026-08-21 ~11:3xZ), fresh chat starts here: **steps 1–4 LIVE + PROVEN. Tier A is EMPTY. The `?` enabler is LIVE on `v1.0.1321`. Two live classes left (`bdl/commit_sha`, `tg/related_pages`), one migration in review (515, `pbh/page_type`), and one applied-but-unverifiable (512).**
 
 > **⚠ THIS FILE NOW CONSOLIDATES TWO.** `HANDOFF_2026-08-18b_continue_here.md` was still being
 > updated by a parallel session of this lane until ~10:17Z today (its audit results are folded in
@@ -106,7 +106,58 @@ it is the design step 5 needed:
 > is `"page_type": "load_page_record.page_type"` on that step. One key, one migration, **not built**
 > (this session's one migration went to `reason`).
 >
-> ### 2.2 tg / `reason` — CLOSED
+> ### 2.3 STATE AS OF 2026-08-21 ~11:3xZ (third session) — what is live, what is in flight, what is stuck
+
+**The `?` OPTIONAL-EXPLICIT parser is LIVE.** `v1.0.1321` (both pods, up 2026-08-20T19:51Z) was
+built from **`0483e7f4e`**, and `git merge-base --is-ancestor ecc419bd1 0483e7f4e` is **true**.
+**So `?` adopter migrations no longer need `_HOLD`** — that precondition is discharged. (There were
+never any queued: the enabler shipped ahead of every adopter, so 515 below is its first production use.)
+
+⚠ **Proving that needed a method this estate did not have, and the standard one LIED.** The
+capability probe returned ABSENT with both controls behaving correctly, because **both of
+`ecc419bd1`'s quotable phrases are inside COMMENTS** (Go strips them) and it adds **no named
+function** — only locals and closures. The `build provenance` line had scrolled at 14 h. What works:
+**test candidate stamps one FIXED STRING at a time** (`grep -aqF "<sha>" /proc/1/exe`, with a
+`deadbeef…` control), then ask `merge-base` for **ancestry**, not equality. A 60-way alternation
+(`grep -aoE`) **times out past 2 minutes**. Full entry + the forward fix (add one probeable marker
+on purpose when a change is destined for a `_HOLD`) is in `LANDMINES.md`.
+
+**Migration 515 — `pbh`/`page_type` — BUILT, submitted, NOT YET APPLIED.**
+`Council-Submitted: a452fc2a-160f-485c-949c-367c34c65df2` (commit `cc798cb34`). Adds
+`"page_type?": "page_record.page_type"` to pbh's `plan_sections` step. §2.1 called this "one key,
+one migration, not built"; it is now built, and §2.1's framing understates it — **[MEASURED] on 31
+live pbh orchestrations the page's own record is PRESENT on only 13 and ABSENT on 18**, and on
+those 18 the only candidates are the 28 sibling-page entries, so where siblings agree **no conflict
+row is written and the substitution is SILENT**. The 40 logged rows understate the pair. Hence `?`
+rather than a plain wire (a plain wire falls through to the search precisely on the 18). Absence is
+safe, read at the consumer: `plan_sections_action.go:972-975` falls back to `pageName`. Dry-run
+proven against the live DB in a transaction ending in `ROLLBACK`, and the idempotence guard proved
+to fire by applying twice in one transaction. **Next step: read the verdict, then apply, then
+verify with a demand control.**
+
+🔴 **512 CANNOT BE VERIFIED BY WAITING — the queue is DRAINED, not quiet.** §2.2 left the test
+unrun expecting "hours, not minutes". Run 17 h later: **tool-generator runs since the 17:38:34Z
+boundary = 0**, conflict rows = 0. All **44** `add_tool` items are `complete`; the only survivors
+are 2 `deferred` from 08-05; last tool-generator run was **17:00Z on 08-20**. So the zero means
+nothing and no amount of patience changes that. Options: (a) wait for another lane to queue a tool
+build and read it then — recommended; (b) dispatch one deliberately, which builds a real component
+on a real site and is **not ours to fire unasked**; (c) record 512 as *applied and explained, not
+demonstrated*. Do (a) with (c) written down meanwhile. **Do not let "applied, no rows since" harden
+into "verified".**
+
+**So the live-class ledger now reads:**
+
+| class | state |
+|---|---|
+| `bdl` / `commit_sha` | 🔴 **the real gate.** Unwired; blocked on the 315 lane's answer for the correct path. Do not pick one from the shape |
+| `tg` / `related_pages` | 🟠 = `bugs_open/330`. Refusal is the DESIRED outcome, so it needs a recorded decision, not a wire |
+| `pbh` / `page_type` | 🟡 **515 in review** — apply + verify |
+| `tg` / `reason` | 🟢 512 applied; **verification unrunnable, see above** |
+
+**Remaining after those: the Tier C decisions** (§2's list minus what §2.0 dissolved) — paragraphs,
+not migrations. Then the flip, using §4's reasons for the tolerance retirement, not the retention one.
+
+### 2.2 tg / `reason` — CLOSED
 >
 > `create_rerender_items` declares `reason` Optional, `enqueue_rerender` wired nothing, and the
 > search handed it `load_brand_context.specs.classification.content_features.news_feed.reason` out of
