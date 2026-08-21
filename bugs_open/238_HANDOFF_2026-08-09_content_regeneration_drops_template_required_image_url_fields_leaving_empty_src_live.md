@@ -761,3 +761,68 @@ for both, field-named and synchronous) and still **none** for the gated/vanished
 honest residual and it is unchanged by today's work — with the added point, which the
 `reuse_agent` seat's instinct was right about even though my answer was wrong, that a fourth
 producer in this space would need consolidating rather than adding.
+
+### 11.11 — 2026-08-21: the residual is NOT nine content decisions. Six of nine are one aspect-spelling mismatch, and the value already exists
+
+Re-verified on **v1.0.1321** (revision `0483e7f4e`): all four fix commits ancestors with controls
+both ways; record arm still `true` on `page-rerender.rerender_sections`; refusal still armed
+**nowhere**; **1** `dead_url_control` item (yesterday's, unchanged); **28** carry-miss findings,
+newest still 08-17 — so nothing new has been damaged.
+
+Population re-measured, comparable with §11.4: **UNGATED (ships an empty attribute) 5 field slots,
+1 page, 1 site — unchanged.** Gated 477 → **506** across 156 pages, which is other lanes building
+new pages whose gated fields have no resolvable source, not new regression. ⚠ Treat the gated
+number as a container count, not damage: a gated field absent is a template degrading *as designed*.
+
+**Of the 10 damaged (page, slot) pairs, exactly 1 is visible as a work item** — aao `/index`
+`case-studies-grid`, by yesterday's `dead_url_control` plus a pre-existing
+`required_fields_missing`. **Nine exist only as `agent_error_log` findings that nothing reads.**
+
+**And the nine are not nine problems.** Grouped by what they actually need:
+
+| what they ask for | pairs | state of the fact |
+|---|---|---|
+| `site_specs.contact.email` | **6** (leopardess ×4, robot-hands, gamesdesign) | **the value EXISTS** — see below |
+| `site_specs.contact.cta_url` / `site_specs.cta.primary_url` | 2 | no `contact`/`cta` value; gamesdesign has no email at all |
+| 6 fields the component's schema no longer declares | 1 (fundamentallyai `platform-log-index`) | `bugs_open/309`'s class — a schema question, not a data one |
+
+**⚠ THE FINDING: the sites-row alias is hard-gated to ONE aspect, so the resolver refuses to read a
+value it is sitting on.** `resolveSpecAlias` step 2 (`plan_sections_action.go`):
+
+```go
+// 2. The canonical sites row.
+if aspect != "identity" { return nil, false }
+```
+
+So `site_specs.identity.email` resolves from the `sites.email` column, and
+`site_specs.contact.email` — **the same fact, different spelling** — returns not-found. Measured:
+exactly **one** active component declares `contact.email` (`contact-block`) and exactly **one**
+declares `identity.email`. The first resolves nowhere on any site; the second works. And
+`sites.email` is populated for leopardess, robot-hands and fundamentallyai.
+
+**So §11.4's conclusion needs narrowing, in my own words rather than someone else's later.** It said
+the class is *"the declared source has never existed on this site"*. True of the **declared path**;
+**false of the fact** for these six. The value is one column away and the resolver will not cross an
+aspect name to reach it. Blast radius of the mismatch is contained — `contact_email` on
+`contact-block`: **6 deployed rows, 3 sites, all 6 missing it** — which is exactly the six pairs.
+
+**⚠ BUT DO NOT JUST WIRE IT UP.** Every one of those addresses is
+`<site>@contactforsales.com`, and that pattern holds on **15 of 44 live sites** (26 empty, 3 other
+domains). That is systematic, which makes it look like a platform-assigned lead-capture or parking
+address rather than a client's inbox. Publishing it because it happens to be reachable is
+`bugs_open/140`'s exact defect — a contact-info component serving an address nobody chose to
+publish. **Whether that address should appear on a customer's page is an owner question, not an
+engineering one**, and it is the single decision that settles 6 of the 9.
+
+**Two candidate fixes, once that is answered, and the cheap one is also the better one:** point
+`contact-block`'s field at `site_specs.identity.email` — one component row, no Go, no roll,
+reversible, and it aligns with the sibling spelling that already works — rather than widening the
+alias, which is a shared-resolver seam change and would make every aspect able to read the sites
+row (bigger blast radius, council/RFC-shaped, and it would take the placeholder question fleet-wide
+in one step).
+
+**Nothing was minted into the review queue for these nine, deliberately.** Filing six items that a
+single decision would close is the churn the two-strike rule exists to punish, and the estate has a
+standing warning about a queue that drains so nicely it looks like the whole thing worked. They are
+one decision away from being either fixed or correctly-parked; the queue is the right home for them
+*after* the answer, not before.
