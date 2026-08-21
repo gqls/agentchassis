@@ -474,6 +474,79 @@ Full ruling and the other two answers (advisory, not binding; data in a DB):
   the site talks to the adviser conversation, not around it · **register:** discreet
 - **neighbours:** M11 (property only), B-family (retail savings — out of scope here)
 
+## Family: GIFTS / SEASONAL — NEW 2026-08-20, from the hosted-site remake
+
+The register's first non-finance family. It exists because the owner resolved two twin pairs into
+four distinct propositions rather than 301ing them — and a twin pair with a real axis between the
+halves stops being a twin, which is exactly the distinction this register is for.
+
+### G1 — corporate Christmas gifting, LARGE employer — REMAKE (currently a live single-pager)
+- **primary:** businesschristmasgifts.co.uk
+- **owner ruling 2026-08-20:** *".co.uk for larger companies for larger staff."*
+- **audience:** the person buying Christmas gifts for a large workforce — HR, facilities, office
+  management · **stage:** annual, budget-led, deadline-driven · **size:** the axis. Hundreds to
+  thousands of recipients, which changes everything: per-unit cost, logistics, delivery to multiple
+  sites or to homes, personalisation at volume, lead times that make November too late.
+- **mode:** guides + supplier directory + a budget/volume calculator · **stance:** practical,
+  procurement-minded, unsentimental
+- **neighbours:** G2 (`businesschristmasgifts.uk`) — separated by SCALE, and the separating rule is
+  that G1 never addresses a client-gifting audience and never assumes a small budget.
+
+### G2 — corporate Christmas gifting, SME — REMAKE (currently the same site as G1)
+- **primary:** businesschristmasgifts.uk
+- **owner ruling 2026-08-20:** *".uk can be for sme's and small companies giving to their staff and
+  clients."*
+- **audience:** an owner-manager or office manager at a small firm · **stage:** annual, often
+  late-decided · **size:** the axis. A handful to a few dozen recipients.
+- **the second axis, and it is not just scale:** **clients as well as staff.** An SME gives to
+  customers, which raises questions G1's audience never has — what is appropriate to send a client,
+  what reads as a bribe, what the tax position is. That is a genuinely different content set.
+- **mode:** guides + directory + ideas by budget · **stance:** warm, practical, small-budget-first
+- **neighbours:** G1 — separated by SCALE and by the staff-vs-clients axis.
+
+### G3 — Christmas, ENGLISH tradition — REMAKE (currently a live 4-page site)
+- **primary:** fatherchristmas.uk
+- **owner ruling 2026-08-20:** *"fatherchristmas for a more english take with english tradition."*
+- **audience:** UK families · **mode:** editorial + tradition/history content + **the card sender**
+  (see the shared mechanism below) · **stance:** English, traditional, a little wry
+- **neighbours:** G4 (`santaclaus.uk`) — **separated by CULTURAL REGISTER, not by subject.** The
+  rule: G3 uses English vocabulary and English tradition (Father Christmas, mince pies, the Radio
+  Times, a Victorian aesthetic) and never American framing.
+
+### G4 — Christmas, AMERICAN register — REMAKE (currently the same site as G3)
+- **primary:** santaclaus.uk
+- **owner ruling 2026-08-20:** *"santaclause can be towards american type graphics and language."*
+- **audience:** anyone searching the American name for the figure · **mode:** as G3 plus **the card
+  sender** · **stance:** bright, American vernacular, contemporary illustration
+- **neighbours:** G3 — same rule inverted. **This is the pair worth understanding**: unlike a
+  spelling variant, *Father Christmas* and *Santa Claus* are two genuinely different search phrases
+  for the same figure, with different audiences and different aesthetics attached. That is why the
+  owner split them rather than redirecting one at the other, and it is a better outcome than a 301.
+
+### ⚑ THE SHARED MECHANISM — send a Christmas card through the site (G3 + G4)
+**Owner, 2026-08-20:** *"The benefit of the santa/father christmas ones will be for people to send
+merry christmas cards to each other through the site."*
+
+This is the reason those two domains are worth rebuilding rather than retiring, and it is a
+**different kind of thing from anything in this register so far**: not content to be read, but a
+transaction between two visitors. Consequences that a brief for either site must face, recorded
+here because they are the same for both:
+
+- **it is a tool, and the tool framework can build it** — interactive components with real JS are
+  routine here (`tool-drop-rate-tuner` is 22 kB of live code). A card designer/sender is that shape.
+- **but it is the estate's first mechanism that takes a stranger's input and DELIVERS it to a third
+  party.** That is new. It implies: an email or share path out of the platform, somewhere to hold a
+  card between creation and viewing, and a recipient who never visited the site. None of those
+  exist today, and the delivery half is the part to design first because it is the part that can be
+  abused — an open "send a message to any address" form is a spam relay.
+- **shared build, two skins.** The mechanism should be ONE component used by both sites with
+  different artwork and copy, not two implementations. That is what `forked_from` is for — and see
+  `bugs_open/311`, because two sites wanting the same component by name is precisely the collision
+  that bug is about. **This is the first planned case of it, so it is a reason to fix 311 before
+  building these two, not after.**
+- **seasonality is real.** A card sender is used in December. Whatever is built should be checked in
+  November, not in August, and the register should not treat a quiet July as a dead site.
+
 ## Family: INSURANCE (72 domains → 13 propositions)
 
 ### I1 — private medical insurance, individual
