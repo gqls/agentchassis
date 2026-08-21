@@ -197,6 +197,20 @@ retired page itself (as its own canonical, `og:url` and schema `@id`).
 6. **Verify at the served artefact**, never at a status: the slug gone from other
    pages' footers, the page itself still 200, the hub no longer listing it.
 
+> **UPDATED 2026-08-21 (later) — step 5 is now usually UNNECESSARY, and a
+> retirement probably needs ONE mechanism, not two.**
+> `reconcile_footer_nav.sh` was excluding every `rebuild_policy='owned'` page on
+> the grounds that `save_sections` refuses them. That is the SECTION path, and the
+> script runs in ASSEMBLE mode. Verified: `rerender_single_page_action.go` has
+> **zero** `save_sections` references, and its only owned-page branch is
+> `loadVerbatimPageHTML` — **owned AND exactly one component AND that component
+> `deploy_mode='verbatim'`**. Fleet-wide: **174 owned active pages, 3 verbatim,
+> 171 not.** The filter is now narrowed to match, and the dry run on robot-hands
+> went from 26 pages (6 skipped) to **33 pages (0 skipped)**.
+> **So step 4 now covers owned editorial pages too, and step 5 is only for a
+> genuinely verbatim page** — of which this lane has none. Found and measured by
+> the `dartsonline_traffic` lane; verified here before the change.
+
 ### 10.3 What is vouched and what is not — tested 2026-08-21
 
 `refresh_owned_page_chrome.sh` **safety property: VOUCHED.** Run against
