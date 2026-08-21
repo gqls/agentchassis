@@ -161,3 +161,102 @@ migration or state that incumbents stay Path-1-only — silence is the only wron
 - `bugs_open/024` / `303` — the same `</section>` marker defect at `component_level='tool'`, and the
   precedent for the remedy and for calibrating it.
 - `bugs_open/309` — owns the field-source vocabulary guard that refused the generated template.
+
+---
+
+## REFINEMENT 2026-08-21 (later, from the `311 continued` lane) — the fix moves DOWN a level, and my proposed shape was wrong
+
+Two corrections to the fix as written above, both from that lane, both verified here before recording.
+
+### There is a FOURTH caller of `endsCleanly`, and it makes the special-case version harmful
+
+My blast-radius measurement covered `toolTemplateValid` and missed a live enforcement site. Every
+caller, enumerated (`grep -rn "endsCleanly(" platform/ internal/ pkg/ cmd/`, non-test):
+
+| site | use |
+|---|---|
+| `plan_sections_action.go:1651` | log field only |
+| `plan_sections_action.go:1853` | `toolTemplateValid` — the one I measured |
+| `create_tool_component_action.go:173` | log field only |
+| **`component_write_guard.go:260`** | **live WRITE-time regression check** |
+
+That fourth one is:
+
+```go
+if endsCleanly(currentHTML) && !endsCleanly(newHTML) {
+    issues = append(issues, "replacement ends mid-token (%q) where the current template ends on a
+    closed tag — the completion was cut mid-stream")
+}
+```
+
+**So the same false positive already refuses legitimate work at BIRTH:** a generator rewriting a
+section into a conditional wrapper produces `current` ending `>` and `new` ending `{{end}}`, and is
+refused as "cut mid-stream". `6c41404d` presumably predates this guard or arrived through the manual
+adoption route.
+
+**Consequence for the fix: repair `endsCleanly` ITSELF, not `sectionTemplateValid`'s use of it.**
+Special-casing only the section predicate would leave the write guard refusing exactly the shape the
+loader newly accepts — a drift pair between two guards making the same judgement, which is the
+class `componentTemplateValid` was created to end (its own header: two call sites making an
+identical judgement, and the first fix patched only one). Stated cost of the shared fix: it slightly
+loosens the write-time regression check for the tolerated shape. That is acceptable only because the
+tolerance is narrow — see next.
+
+### My proposed shape ("accept a trailing `}}`") was WRONG and would have passed real truncations
+
+The correct rule is **strip trailing `{{end}}` repetitions (whitespace-tolerant), THEN require `>`**.
+Never accept a bare `}}` suffix.
+
+The discriminating case: a template genuinely cut immediately after any complete mid-template action
+also ends `}}`. A bare-suffix rule passes that cut. Strip-then-check does not — after removing
+complete trailing `{{end}}` tokens, the remainder of a mid-cut ends on prose or an open tag, not
+`>`. And `{{end}}` is the ONLY action that legitimately terminates a template (a conditional or
+range wrapper, possibly nested — hence strip repeatedly); a tail of `{{if …}}`, `{{range …}}` or a
+bare placeholder is suspicious in every case.
+
+### Measured over BOTH populations, which also covers the `:260` direction
+
+Proposed rule implemented as `endsCleanlyV2` (regex-strip `\s*\{\{-?\s*end\s*-?\}\}\s*$` repeatedly,
+then `HasSuffix(">")`) and run against every active section- and tool-level template:
+
+```
+rows read: section=148  tool=121  total=269
+verdict flips (all directions):                                        1
+rows a BARE '}}' rule would wrongly admit that strip-then-check refuses: 0
+```
+
+The single flip is the intended rescue — `6c41404d`, `false → true`, tail
+`{{end}} {{end}} </div> </section>{{end}}`. Because `endsCleanly` is the shared function, this one
+census covers `component_write_guard.go:260` as well as `toolTemplateValid`: exactly one row's
+verdict changes anywhere, and at `:260` the effect is to stop one false "cut mid-stream" refusal
+while leaving every true refusal intact.
+
+**Two honesty notes on that table, because the numbers flatter the change:**
+
+- The `0` in the second row means today's corpus contains **no genuine mid-action truncation**, so
+  the bare-`}}` rule and the strip rule agree on everything we can currently see. Strip-then-check is
+  therefore **not proven better on today's data — it is better on data we have not seen**, which is
+  precisely the case a truncation guard exists for. Recorded as reasoning, not as a measurement.
+- The repeated-strip loop is **defensive, not demand-proven**: `6c41404d` needs one strip (its other
+  `{{end}}`s are mid-template). Nested trailing wrappers are plausible and cost nothing to handle,
+  but no row in the corpus exercises the loop.
+
+### Fix, restated
+
+1. `endsCleanly` (`component_write_guard.go:318`) — strip trailing `{{end}}` repetitions, then
+   require `>`. This is the whole change; all four call sites inherit it coherently.
+2. `sectionTemplateValid` (`plan_sections_action.go:1784`) — replace the `</section>` substring test
+   with the structural pair (`UnbalancedStructuralTags` + `endsCleanly`), i.e. `toolTemplateValid`'s
+   semantics. Leave both callers alone; `componentTemplateValid` stays the single gate.
+
+Combined, over the corpus above: **23 rescued, 0 regressed, 1 verdict flip fleet-wide.**
+
+### Implementation notes owed to whoever takes it
+
+- **Both files carry other sessions' uncommitted edits on some evenings.** Check the tree
+  immediately before committing, pathspec `plan_sections_action.go` AND
+  `component_write_guard.go` explicitly, and expect the same-file passenger — that lane's own 345 Go
+  half rode into an unrelated session's commit this very evening.
+- The calibration above (both directions, plus the `:260` note) is the council submission's review
+  story and should land in it rather than be re-derived.
+- Re-run the calibration against the live corpus before shipping; assert the read counts.
