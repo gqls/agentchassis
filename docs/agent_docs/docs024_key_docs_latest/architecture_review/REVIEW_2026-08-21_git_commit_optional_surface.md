@@ -92,6 +92,46 @@ That is a reason to be less alarmed, not a reason to skip the review. And it poi
 what a future tidy-up should actually do: the win is collapsing the nine-way input selector
 into one declared input shape, not shaving the three policies.
 
+## 3b. ⚠ CORRECTED 2026-08-21, hours after writing — I conflated two INDEPENDENT gates
+
+The council's `architecture` seat objected (round 1, corr `5f756c51`) and it is right. This
+document, and the submission it accompanied, argued that RFC_022's **shape exception** covers
+`file_shrink_floor` — opt-in, unsafe default OFF, consumers enumerated. That part stands.
+
+**But the shape exception and the ACCUMULATION gate are separate checks, and the owner's
+ruling says so explicitly.** The exception guards against flagging a compliant *single*
+field; it does not waive the count. In the seat's words: *"If the plan grows such an action's
+optional-key set past 10 … that ACCUMULATION is architecture-scope: signal `needs_rfc` with
+the count you actually observed."* `git_commit` has 17 live carriers — far past the
+2-carrier shared threshold — and this change takes it from 10 to 11. **Shape compliance does
+not waive the count gate. I used one to answer the other.**
+
+The verdict was APPROVED (the objection is advisory, medium), but the reasoning it corrects
+was load-bearing in my submission, so it is corrected here rather than left standing.
+
+**What the estate's own remedy is, and it is not an RFC.** CLAUDE.md's RFC_022 section is
+explicit that the mechanism is closed and live, and that *"an action past N owes ONE review
+of its accumulated surface, recorded in `architecture_review/optional_key_budget_acks.json`
+(the source of truth) with the review it points at"*. This document **is** that review; what
+was missing was the ack. Done 2026-08-21:
+
+- `optional_key_budget_acks.json` gains `git_commit` at `count: 11`, dated, pointing here.
+- `deployments/kustomize/services/optional-key-budget-check/base/check.py`'s `ACKED_LEVELS`
+  literal mirrors it (the parity test `cmd/config-key-audit/optional_budget_cron_parity_test.go`
+  fails the build on drift — run and green).
+- The kustomize overlay was **re-applied**, because the cluster otherwise keeps the old
+  literal. Verified at the artefact: the CronJob now mounts
+  `optional-key-budget-check-script-tfcc5249cc`, and that ConfigMap contains `"git_commit": 11`
+  (control: a deliberately absent key returns 0 in the same query).
+
+**One honest caveat about what that ack means here.** For the other three acked actions the
+baseline is mechanically enforced — the counter sees them, and growth past the baseline pages
+again. `git_commit` has no `ActionInputSpec`, so the counter **cannot see it at all** (§1),
+and this ack is therefore a *recorded human judgement with no automatic enforcement behind
+it*. It is worth having — it is the durable record that the surface was reviewed at 11, and
+the next author finds it — but nobody should read the ack's presence as "the check is
+watching this now". It is not. §1's follow-on is what would make it so.
+
 ## 4. What this review commits its author to
 
 1. `file_shrink_floor` ships opt-in, default OFF, one consumer, enumerated above.

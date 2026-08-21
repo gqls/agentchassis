@@ -209,6 +209,7 @@ ACKED_LEVELS = {
     "analyse_repo_local": 12,
     "append_doc_note": 11,
     "diagnose_prepare_fix_commit": 11,
+    "git_commit": 11,
 }
 
 

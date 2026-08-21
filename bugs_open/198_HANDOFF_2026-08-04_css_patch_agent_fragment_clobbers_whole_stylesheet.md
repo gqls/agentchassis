@@ -1165,3 +1165,68 @@ Council round `5f756c51-cdc6-4a48-b5f9-59e472243601`, submitted before the commi
 commits carry `Council-Submitted:` and the verdict is owed a read — **whoever reads it owes
 acting on a REVISE, since the code is already on the shared branch.** Two LANDMINES added
 (the repair-expiry class; the `error_step`-mints-`complete` class) and one WRONG_CALLS entry.
+
+### 6. Council round `5f756c51` — APPROVED at round 1, and the objection that corrected my reasoning
+
+**APPROVED, 6 advisory objections, none high-severity.** Approval is not "nothing to do" —
+four objections were checkable and were checked, one found a genuine error in my argument,
+and the rest are named follow-ons rather than silently dropped.
+
+**The one that was RIGHT about my reasoning — `architecture` seat, and it is the useful part
+of the round.** My submission argued RFC_022's shape exception covers `file_shrink_floor`
+(opt-in, unsafe default OFF, consumers enumerated). That part stands. **But the shape
+exception and the ACCUMULATION gate are independent checks**, and the owner's ruling says so:
+growing a shared action's optional-key set past N=10 is architecture-scope *regardless* of
+the field's own shape. `git_commit` has 17 carriers and this took it 10 → 11. **I used one
+gate to answer the other.**
+
+The estate's own remedy is not an RFC — CLAUDE.md's RFC_022 section says an action past N
+owes **one review of its accumulated surface, recorded in
+`architecture_review/optional_key_budget_acks.json` with the review it points at**. The
+review existed; the ack did not. Now done: ack at `count: 11`, `check.py`'s `ACKED_LEVELS`
+literal mirrored, parity test green, **and the kustomize overlay re-applied** — verified at
+the artefact (the CronJob mounts `…-tfcc5249cc`, which contains `"git_commit": 11`; control
+key returns 0). ⚠ **Honest caveat recorded in the review:** for the other three acked actions
+the baseline is mechanically enforced; `git_commit` has no `ActionInputSpec`, so the counter
+cannot see it and this ack is a recorded human judgement with **no automatic enforcement
+behind it**.
+
+**Objections checked rather than accepted:**
+
+| seat | objection | what the check found |
+|---|---|---|
+| `debug_historian` | 542 rewrites an embedded SQL string; a DO/RAISE literal-match verify **cannot** catch a broken query — it parses only when the step RUNS | **Closed properly.** Extracted the VERBATIM installed string and executed it: dartsonline → `css_len 26917, site_count 1` (pass arm), finetuning.uk → `1649, 2` (refuse arm). The `PREPARE` alone proves it parses; the execution proves the gate's two inputs are real |
+| `debug_historian` | post-roll verification leans on a log line; chassis log history is ~90s, so a rarely-firing guard is near-unobservable | **Right.** RUNBOOK §7 already led with the binary pod-grep; DGH-016's wording is corrected to demote the log line to opportunistic |
+| `guardian` | confirm no caller decodes `GitCommitData` strictly, or an unknown field chokes it | **Measured:** three `DisallowUnknownFields` call sites fleet-wide (provocation gate/generator, gripper prompt) — **none on the git path**. Additive field is safe |
+| `guardian` | rate-limit/timeout headroom for the added GET | One GET per opted-in file per commit; one step opts in; css-patch commits one file. Adapter client timeout is 20s (`github_client.go:38`) |
+| `prior_art_librarian` / `reuse_agent` | check `bugs_closed/072` for a previously proposed-and-rejected persist-at-render or shrink floor | **Grepped: nothing.** No prior art was proposed or rejected |
+
+**Objections accepted as follow-ons, named here so they are tracked rather than left in
+prose:**
+
+1. **`bug_historian`: 16 of 17 `git_commit` carriers remain unguarded.** The seat is right
+   that this is the platform's recurring "one call site guarded, mechanism still generically
+   exploitable" shape. Deliberate for now (a redesign may honestly shrink a file, so a
+   blanket floor would refuse legitimate work) — but it is a **tracked follow-on**, not an
+   implicit risk: each carrier needs its own answer to "can this one ship a fraction of what
+   it replaces?"
+2. **`reuse_agent`: this is the fourth ratio-and-clamp shrink floor** (`save_sections_shrink_guard.go`,
+   `save_sections_prune_floor.go`, `single_slot_floors.go`). The seat's point is sharper than
+   "different layers": nobody has considered factoring the *arithmetic* into a shared
+   primitive both layers could call. Recorded as owed, with the reason deferral was chosen —
+   unifying across a jsonb-content guard and a git-bytes guard on first contact would fix the
+   shape of one against the other's needs; the right moment is the fifth, or a deliberate
+   consolidation task.
+3. **`editquality`: a freshly-seeded, pre-first-render site parks spuriously.** Its row is
+   `''` by design until webdesign-agent's first render, so if css-patch ever dispatched first
+   the item parks `needs_human_review` with no automatic retry. Practically unlikely (a site
+   with no rendered pages produces no contrast findings) but **undisclosed in my risks, and
+   the seat was right to say so**. The unpark sweep covers it; a defer/retry path instead of
+   a human-facing park would be the better shape if it is ever observed.
+4. **`editquality`: confirm a 0-row `RETURNING` is not treated as an error** by
+   `query_database` for the persist step. The step fails **open** to `deploy_css` either way,
+   so the routing is safe in both readings — but the framing "0 rows is normal" is asserted
+   rather than confirmed, and that is fair.
+5. **`tooling_provenance`: no `doc_notes` entry for the next lane.** **Done** — `doc_notes`
+   `4550f2da`, subject `css-patch-agent`, recording what changed, the floor's derivation, the
+   census consequence, and every deferred candidate.
