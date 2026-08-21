@@ -6290,3 +6290,81 @@ on this surface and exits 1 on any not acknowledged in
 ignored) — came out of the council's gating objection to the `?` marker itself. Not touched by this
 session's work yet (the commit_sha config half doesn't use `?`; the eventual bdl wire will, and that
 is the peer's file to write, including its ack entry).
+
+## 2026-08-21 (~12:0xZ) — 515 round 1 was REVISE, the gating objection was RIGHT, and it exposed a stale landmine
+
+**Verdict: REVISE, `decided_by: gating objection from guardian`.** Seven of nine seats approved
+(reuse_agent, guidelines, debug_historian, constitution, mission, prior_art_librarian,
+architecture). Two objected. **Both objections were real and neither was answered by restating my
+case** — this is the second time on this lane that a REVISE round has been worth more than the
+approval would have been.
+
+**GUARDIAN (high, gating) — the objection was right about my REASONING, and the conclusion only
+survived because the check it demanded happened to pass.** Its words:
+
+> "that provenance check proves the ancestor commit is present, not that this specific code path
+> (config-key parsing, as opposed to input_mapping-key parsing) was the thing `ecc419bd1` added."
+
+That is exactly the gap. My chain was (a) read the config-key peel in `action_inputs.go` **at HEAD**,
+and (b) prove `ecc419bd1` is an ancestor of the live stamp. Those two do not join: HEAD is ahead of
+the build, so the peel I read could have arrived in a LATER commit, and the live binary would then
+carry `ecc419bd1` **without** config parsing. In that world the migration writes a literal
+`page_type?` key that nothing ever reads — the seat's phrase was "poisoning every pbh run with a
+literal instead of fixing anything". Closed properly, at the BUILT commit:
+```bash
+git show 0483e7f4e:platform/orchestration/datahelpers/action_inputs.go | grep -n 'TrimSuffix(k, "?")'
+#   -> 694, 708 — both inside the loop over the step's CONFIG map
+git log --oneline -L '/optionalExplicit :=/,+2:platform/orchestration/datahelpers/action_inputs.go'
+#   -> ecc419bd1 introduced it
+```
+**The lesson to carry: "the commit is aboard" and "the behaviour is aboard" are different claims,
+and `merge-base` only ever establishes the first.** Read the code at the STAMP, not at HEAD.
+
+**And the seat cited a LANDMINE against me — correctly, because the landmine was stale.** The entry
+titled *"A `?`-suffixed config key parses on `input_mapping` but NOT YET in a step's action
+`config`"* already carried a correction saying the gap had been built, and a second one pinning the
+claim to `v1.0.1320`. The fleet has since rolled to `v1.0.1321`, which carries the parser. So a
+**high-severity objection was raised against a correct migration on the strength of a heading that
+two corrections below it had already retracted.** Corrected in place (`32ca8ebf0`), and the
+generalisable half is about the file rather than about `?`: **a reader — human or council seat —
+matches on the heading and the footprint, not on the third paragraph.** If a landmine's truth has a
+shelf life, put the expiry in the TITLE or retire the entry; do not let corrections stack under a
+heading that still reads as the finding.
+
+**GUARDIAN (low, blast radius) — found a third consumer I had missed, via the trap this lane has
+now been bitten by four times.** I had said two agent types run `plan_sections`. There are **three**:
+`page-build-handler`, `page-content-writer`, **`page-rebuild`** — and page-rebuild's step is
+**NESTED**, so the top-level `jsonb_each(steps)` census cannot see it. `jsonb_path_query_array(
+default_config, '$.**.steps.plan_sections.action')` sees all three.
+The good news is that the scope stands, and for a stronger reason than isolation: **only
+page-build-handler has a `load_page_record` step**, so `page_record` does not exist in the other two
+trees at all (`$.**.steps.load_page_record.output_field` → `[]` for both; page-content-writer carries
+`page_record` on **0 of 15** live orchestrations). Wiring `page_record.page_type` for them would name
+a path that is never present — the guess this workstream exists to abolish. Recorded in the file as
+**named follow-ups** with their own measurement owed; neither has produced a single conflict row.
+
+**EDITQUALITY (medium)** — the `UPDATE` scoped on `type` alone, against a landmine noting four agent
+types carry TWO active rows where only the higher version loads. **page-build-handler is not one of
+them** (measured: 1 active row, version 1) — but I added the assertion anyway, because it is free and
+it makes the file correct if that changes.
+
+**GUIDELINES (nit, and worth doing)** — `snapshot_agent()` sat *before* the guarded block, so an
+accidental re-run wrote a second `pre-update` snapshot while the idempotence guard correctly blocked
+the UPDATE: a misleading audit trail. Moved inside the guard, and **proved** it by running the file
+twice in one transaction — **one** snapshot NOTICE where there had been two, guard still raising.
+
+**DEBUG_HISTORIAN (gap)** — rightly noted my evidence was a *rehearsal* (the file run inside a
+transaction ending in `ROLLBACK`), not a live apply. The file now says so, and says the real apply
+owes its own logged verify plus a demand control.
+
+**Round 2 resubmitted on the same trail** (`RESUBMIT_CORR=a452fc2a-160f-485c-949c-367c34c65df2`,
+commit `b9d62857e`). Revised file re-dry-run clean.
+
+**Also worth recording: another session built migration 514 for the IDENTICAL jsonb path** while I
+was building 515, and retired theirs in favour of mine (`6768fa55e`) — neither of us had seen the
+other's WIP, and neither had applied to the live row, so no collision occurred. Their own
+WRONG_CALLS entry (`a58c6c0e7`) names the distinction cleanly: they measured **agreement** (13/13
+when both candidates are present) and never **coverage** (present at all — 13/31), and a plain wire
+only protects the cases where the path resolves. On the 18 misses it falls straight back to the
+whole-tree search, which is the defect. Two sessions, one jsonb path, ~an hour apart: the
+`who-owns.py`-is-blind-to-uncommitted-work problem in its purest form.
