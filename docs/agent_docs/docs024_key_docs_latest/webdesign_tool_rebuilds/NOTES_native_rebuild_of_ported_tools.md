@@ -2568,3 +2568,25 @@ handoff, credited.
 - Full trail in `bugs_closed/331` §16 (roll, seeds 496+532, both council approvals, all four arms
   proven live, the ! marker incident + your catch, the ack-gate confirmation). RUNBOOK "COMING" →
   LIVE with the two live-learned rules (name the copy to keep; grade the RUN).
+
+## 2026-08-21 17:05Z — the five-page serve-grade batch: ALL PASS. Phase A is 28/28 CONFIRMED AT THE SERVED BYTES
+
+Fleet note first: pods rolled to **v1.0.1322** at 16:54Z (grades are reads, unaffected; nothing this
+lane ships waits on 1322 — its contents are other lanes').
+
+| page | bytes / last-modified > rerender | negatives (all 0) | positives (present) |
+|---|---|---|---|
+| regex-tester | 18,527 / 14:40:28 > 14:39:25 | rawInput, highlightOutput, safeRun, #10b981, flagG | regex-pattern-input, results-status, pattern-error-message, flag-g-checkbox |
+| jwt-inspector | 22,564 / 15:23:16 > 15:22:34 | jwtInput, outHeader, outPayload, _human_exp, errorMsg | jwt-input, "does not verify", jwt-status-expired ×2 |
+| token-calculator | 18,076 / 16:30:55 > 16:30:11 | inputText, tokenDisplay, costGPT4o, GPT-3.5 Turbo, ~4 chars | estimate-note ×2, "Rates shown are illustrative" |
+| clip-path | 23,023 / 15:11:28 > 15:09:37 | id="target", window.setShape, rabbitear, "Minimum 3 points required", draggingIdx | cpb-code, cpb-copy-btn, cpb-preset-hexagon, cpb-point-count |
+| oklch (re-fix) | 21,964 / 14:39:32 > 14:38:17 | cssCode, css-code, "oklchStr + ", contrast-info | cssOutputCode ×5, both teaching headings; ORDER quoted from line 499: hex + fallback comment FIRST, oklch second |
+
+Standard counts 0·0·0·0 with 5 `<script>` on all five. The oklch pass independently confirms the
+331 close (the owning lane had already closed it on their OWN 14:38Z curl and moved the file to
+`bugs_closed/` — ⚠ a `cat >>` to the old `bugs_open/` path created a STRAY there, caught by the
+pathspec commit refusing an untracked file, and deleted; grep-before-append applies to bug files'
+LOCATION too, the fixed-and-live bar moves them).
+
+**PHASE A: 28 of 63 rebuilt AND all 28 confirmed at the served bytes. 35 remain: 13 Phase C
+(external-script), 22 Phase B (≥8 KB, five rich apps last, owner-reviewed).**
