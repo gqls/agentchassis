@@ -40817,3 +40817,39 @@ truncated a 228-row capture to 21 (head exits, tee takes SIGPIPE, no error), and
 predicated on `config->>'build_status'` returned a clean, confident **0 rows** because the live key
 is `status`. Both produced plausible numbers with nothing to notice. This lane has now been bitten
 three times by a zero whose two causes have opposite meanings.
+
+---
+
+## 2026-08-21 — I wrote down "put the real guard in the sketch, not a synopsis" and then abbreviated the sketch five more times in the same session
+
+**The call.** Migration 514's REVISE round taught me, and I wrote into WRONG_CALLS, that a council
+submission's `sketch` field is what a reviewer actually sees — an abbreviated one-liner draws
+objections against guards that exist in the real file but are invisible in the sketch. I cited this
+exact lesson in 519's own submission's `grounded_in` list. **Then I wrote 519's own sketch as the
+same abbreviated one-liner** (`UPDATE agent_definitions SET ... WHERE ...; -- full guard/VERIFY/
+negative-control/snapshot_agent() in the file, not abbreviated here`), and did it again in all four
+of the same session's follow-on submissions (521, 522, 523, 527, 528 — five repeats of one lesson).
+
+**What caught it:** 519's own council round, debug_historian seat, medium severity — quoting my own
+`grounded_in` citation back at me: the lesson exists precisely because a sketch is judged as
+written, and I had just demonstrated the exact failure it describes while citing it as already
+learned.
+
+**Why it happened anyway, worth naming honestly:** writing five near-identical migrations back to
+back, I built a template (a Python generator) for the SQL files and reused the SAME sketch pattern
+across all five submissions without re-deriving it per file — the lesson had been filed as "done",
+so I copied the SHAPE of a correct submission (rationale, edits, grounded_in, risks) without
+re-checking that the sketch field specifically still honoured it. **A lesson recorded once does not
+survive being reused as a template** unless the template itself is checked against the lesson, not
+just the surrounding prose.
+
+**Cost:** low this time — the objection was advisory, page-rerender's own guards ARE real and did
+protect the apply, and the round still returned APPROVED. But four more submissions carry the same
+gap and are still pending verdicts; if any returns the same objection, it should read as "already
+known, not a surprise."
+
+**The transferable shape.** *Writing a lesson down is not the same as encoding it somewhere it will
+actually be checked.* When a lesson is going to be applied N times in one session via a
+template/generator, the check belongs IN the generator (e.g., assert the sketch string contains
+`RAISE EXCEPTION` or is longer than some threshold, not just a one-line UPDATE), not in the memory of
+having written the lesson down once earlier the same day.
