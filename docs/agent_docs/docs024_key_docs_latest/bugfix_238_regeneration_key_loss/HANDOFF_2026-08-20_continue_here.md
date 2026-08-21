@@ -66,7 +66,28 @@ producer here should consolidate, not add (`WRONG_CALLS` 2026-08-20; `RFC_030`'s
 
 ### 4.2 ⏸ OWNER DECISION — *(was the demand control; done, folded into 4.1)*
 
-### 4.3 The real next build: make the 10 damaged (page, slot) pairs visible
+### 4.3 ⏸ OWNER DECISION FIRST — six of the nine residual pairs are ONE question (added 2026-08-21)
+
+**Re-measured on v1.0.1321** (bug file §11.11): of the 10 damaged pairs, **1 is queued** (aao, by
+yesterday's `dead_url_control`) and **9 are invisible** — findings nothing reads. But they are not
+nine problems: **6 ask for `site_specs.contact.email`, and the value EXISTS** in the `sites.email`
+column. `resolveSpecAlias` step 2 is hard-gated — `if aspect != "identity" { return nil, false }` —
+so `identity.email` resolves and `contact.email`, the same fact, does not. Exactly one active
+component declares each spelling.
+
+⚠ **The blocker is not engineering.** Every one of those addresses is `<site>@contactforsales.com`,
+a pattern on **15 of 44 live sites** — systematic enough to look platform-assigned rather than a
+client's inbox, and publishing it because it is reachable is `bugs_open/140`'s defect exactly.
+**Ask the owner whether that address should appear on a customer page.** One answer settles 6 of 9.
+
+Then the fix is one component row: point `contact-block`'s field at `site_specs.identity.email`
+(aligned with the sibling spelling that already works; no Go, no roll, reversible) — **not** widening
+the alias, which is a shared-resolver seam change that takes the placeholder question fleet-wide.
+
+**Nothing was minted for the nine, deliberately** — six items that one decision would close is the
+churn the two-strike rule punishes. The queue is their home *after* the answer.
+
+### 4.3b Then: make whatever remains visible
 They exist only as `agent_error_log` findings today. Two halves that **must land together**:
 - a **backfill** minting `required_fields_missing` items (producer's key shape
   `required_fields_missing:<page_id>:<slot_name>`) for the pairs in §11.4 of the bug file;
