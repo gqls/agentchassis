@@ -40482,3 +40482,33 @@ check, already-wired check, sibling-convention check — all present in the real
 objected to protections that existed; they just could not see them, because the sketch summarised
 rather than reproduced the guard. **Put the real guard in the sketch, not a synopsis of it** — a
 reviewer judges what you show them, not what you wrote elsewhere in the same file.
+
+---
+
+## 2026-08-21 — 283 lane: converted the STOCK, never looked at the FLOW — the producer kept minting the defect all through the conversion programme
+
+**The call:** the 283 conversion programme (RFC_034, nine council rounds, repair batch, judged
+pipeline) treated the defect as a corpus to convert: 91 rows censused, classified, converted,
+verified. Nobody asked *what writes new rows into that corpus*. The producer — `tool-generator`,
+whose LLM step writes each new tool's markup+script — was never taught the InstanceID
+convention (verified 2026-08-21: its live prompt mentions neither the placeholder nor element
+lookups at all), and the birth path (`create_tool_component`) has gates for tool-doc headers
+and structural completeness but none for instance scope.
+
+**The cost:** 23 new old-style tools born 08-18→08-20 — seven of them on the SAME DAY the
+backlog conversion finished. The estate un-converts itself at ~5-7 rows/day; the finished
+programme was ~3 days from being 20% undone. Caught only because the owner asked why the
+unconverted list wasn't shrinking.
+
+**The cheap check that would have caught it at design time:** the memory-index line already
+says it — *census the WRITE HISTORY before designing a guard: it names the producer that
+actually FIRED* ([[census-the-write-history-not-the-bug-file]], written 08-18 from bug 281).
+One query — `SELECT created_from, source_agent_type, count(*) FROM content_components WHERE
+html_template ~ 'getElementById' GROUP BY 1,2` — run against the 283 corpus would have named
+`tool-generator` in week one, and the birth gate would have been an edit in the same Go file
+the conversion transform already lives in.
+
+**The transferable shape:** *a conversion programme has two halves — the stock (rows that
+exist) and the flow (whatever mints more). A census bounds the stock; only a producer census
+bounds the flow. If the fix's design doc has a corpus table but no producer table, the
+programme is scoped to lose.* Same failure as filtering a count without asking what refills it.
