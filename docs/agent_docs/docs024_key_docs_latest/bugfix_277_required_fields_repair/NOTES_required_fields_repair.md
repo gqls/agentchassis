@@ -2832,3 +2832,47 @@ Two consequences worth carrying: the 08-25 prediction in §6 is **stronger** tha
 strikes are out of window, one of them by construction, not by luck), and a fix for the rule that
 merely lengthened or shortened the window would miss the case — what distinguishes these rows is
 **who filed them**, which is the thing the count does not record.
+
+### 10. ~14:05Z — `c00fbfd8` **APPROVED at round 1**, and the two medium advisories answered with queries rather than banked
+
+Verdict READ in full (`diagnosis_artifacts` `kind=council_report`, 11KB): **approved**,
+`gated_by_truncation: false`, `ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0`, 9 seats abstained,
+one seat (`debug_historian`) objecting without gating. Both mediums named a CHECK, not a defect, and
+both were one query:
+
+**1. `debug_historian`: the duplicate-active-row landmine** — *"four agent types carry TWO active
+definition rows and only the higher version is ever loaded; a config change applied to the
+non-loaded row is silently inert. Nothing in the sketch establishes the verify reads the row the
+runtime actually loads."* Squarely on point for a `WHERE type = …` UPDATE. Measured:
+
+```
+     type     | active_nonsnapshot_rows | versions
+ council-gate |                       1 | 2
+ fix-proposer |                       1 | 1
+```
+
+**Exactly one active non-snapshot row per type, so the class does not apply here** — and it could not
+have bitten silently either way: both migrations `GET DIAGNOSTICS v_rows` and RAISE unless it is
+**exactly 1**, and the predicate carries no version filter, so two active rows would have updated
+two and aborted. The guard was already the right one; what the seat wanted was the number, and the
+number is above.
+
+**2. `guardian`: blast radius — does the stale bullet survive on any OTHER row?** Measured
+fleet-wide over the whole of `agent_definitions` for either distinctive phrase:
+
+```
+          type           | is_active | snap | deleted | count
+ council-gate-036scratch | f         | f    | f       |     1
+ council-gate-scratch    | f         | f    | t       |     1
+```
+
+**Two rows, both INACTIVE (one also deleted), so nothing loadable carries it.** The live population
+was exactly the two rows 530/531 fixed.
+
+**The two LOW objections were both against guards that exist and the sketch did not show** —
+`snapshot_agent()` is the first statement of each migration, and the 099 dry run was run in full
+(17 seats, routing OK, 44 steps). That is this lane's own recorded lesson repeating: *the council
+reads the `sketch` field, not the file*, so an abbreviated sketch draws objections against controls
+just out of view. Cost here was two low-severity notes on an approved verdict — cheap, but it is the
+second time, and the fix is to paste the guard lines into the sketch even when they feel like
+boilerplate.
