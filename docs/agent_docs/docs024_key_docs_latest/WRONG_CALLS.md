@@ -41805,3 +41805,47 @@ A regex census over the *files* found only 4–5 such cases fleet-wide and that 
 misleading: the staleness that matters is header-versus-live-code, which no text check can
 see. **Do not read a dormant bug file's status header as evidence of anything** — check the
 code path or the served artefact before spending a session on what it claims is open.
+
+## 2026-08-21 — I wrote code to answer a review objection and it had NO TEST; the mutation that proved it returned "[no tests to run]" (bugfix 307/344 lane)
+
+**What I did.** The council's `bug_historian` seat objected that my completion-refusal was recorded
+only in a pod log — `bugs_closed/034`'s shape, and pod logs rotate in ~90 s. Fair. I added a durable
+write stamping the reason onto the row, wrote it carefully, and moved on to the next objection.
+
+Then, out of habit, I ran the mutation: delete the durable write, see which test goes red.
+
+```
+=== M8: skip stops recording durably ===
+ok   github.com/gqls/agentchassis/platform/orchestration/actions  [no tests to run]
+```
+
+**Nothing went red because nothing was watching.** The code I had just written to answer a review
+objection had no assertion behind it at all. I had answered the objection in prose — in the commit
+message, in the resubmission rationale — and in the tree it was an unguarded line that any later
+edit would silently remove.
+
+**This is the third time in three days that the same shape has bitten this lane**, each time
+disguised differently:
+1. fifteen sqlmock tests could not see a dropped bind parameter, because a mock never types a
+   placeholder (42P18 — the terminal write could not execute at all);
+2. three mutations "survived" that were never applied, because `gofmt` had reformatted the text my
+   patch was matching on;
+3. this one — a fix with no test, discovered only because the mutation had nothing to delete.
+
+Every instance is the same error at a different level: **I was confident about the code and never
+asked what would notice if it stopped working.**
+
+**The check, and it costs one command:** *after writing code to answer a review objection, delete
+that code and run the tests.* If nothing fails, you have described an answer rather than made one.
+The objection is not answered by the diff; it is answered by the thing that will fail when the diff
+is undone.
+
+**Why review-driven code is especially exposed to this.** Code written to fix a bug has the bug's
+own reproduction pushing back on it. Code written to satisfy a reviewer has only the reviewer's
+sentence, and the reviewer is not there when someone later refactors it. It arrives late, feels
+like tidying, and gets the least scrutiny in the very round that demanded it — the same
+"by-the-way edit" family as this file's 2026-08-20 entry, one rung up.
+
+**Cost:** none this time — caught before the resubmission, and two tests now pin it. The tally is
+what matters: **three in three days for "I did not ask what would notice", and each was found by a
+mechanical habit rather than by thinking harder.**
