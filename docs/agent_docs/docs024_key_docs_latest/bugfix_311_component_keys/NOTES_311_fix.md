@@ -848,3 +848,48 @@ creatable. Everything about *why* the page is in that state is unestablished.
 3. **A `090` that comes back UNVERIFIABLE is not a wasted run.** It cost one dispatch and it killed
    two of my claims — one of which I had already committed to a bug file. That is the cheapest
    place for those to die.
+
+## 2026-08-21 10:22Z — the ORIGINATING site is unblocked (owner instruction) and the repair is in flight
+
+**Owner, today: *"please carry on with unblocking remortgagecalculator.uk."*** Done, narrowly:
+one row cleared (`UPDATE sites SET locked_at=NULL, locked_by=NULL WHERE domain=
+'remortgagecalculator.uk'`), previous values recorded verbatim in the contrib to the owning lane
+(`portfolio_positioning/CONTRIB_2026-08-21_from_311_lane_your_halt_is_LIFTED_on_remortgagecalculator_only.md`)
+so the halt can be restored exactly. **`adversecreditmortgage.co.uk` re-checked immediately after
+and is STILL LOCKED** with its 41 held items — the owner named one site, and only one row moved.
+
+The halt's own lift conditions read as satisfied in the owning lane's record: builder flow **RULED**
+(Flow A, owner 2026-08-19) and the classifier register-input **SUPERSEDED** (2026-08-20, the
+brief-writer reads the register instead). What that lane still lists as open — the brief-writer
+being unbuilt — is a build task, not one of the two decisions the halt was waiting on. Said so in
+the contrib, and invited them to put it back if they think it was load-bearing for more than that.
+
+**Itemised what the unlock releases, BEFORE clearing it** (a new site build is exactly what the
+halt existed to stop, so this mattered): five `triaged` items, all machine-filed maintenance —
+`needs_brand_head_assets` (a bugfix-131 session, 08-19), `undeployed_asset` + two
+`contrast_failure` (`render-audit-agent`, 08-20), `needs_page`/`mortgage-lenders`
+(`render_directory`, 08-21 00:22Z). No site build. **Two of them rewrite page content**, so any
+later comparison against pre-today figures on this site may be moving for their reasons, not mine.
+
+**Pre-flight, all three of yesterday's lessons applied:**
+- `pages.status` = **active** (not just `build_status`) — the check that cost a build yesterday.
+- **Incumbent re-pinned, and it had MOVED AGAIN**: `b89f91e1` html `a2c00f1c66ce6f4ef72b48083f1e3da6`
+  → **`a453a6565489c348ad6a9156a8af812f`**, 3,886 → 4,448 chars, `updated_at` **2026-08-20
+  17:20:20** — after yesterday's pin. Attributed, not suspected: `component_versions` v1 holds
+  `change_source='scope_component_instance_judged'` and its archived bytes ARE my old md5. **Same
+  mechanism, second site — that scoping run is walking the shared incumbents**, so on this tree a
+  same-day pin is the only safe one. Schema md5 unchanged (`8265ae5a…`). Still no `</section>`, so
+  the loader's guard will still drop it — consistent with the 311 refinement.
+- Served baseline **read twice** and reproducible: `index.html` 200 / **40,726 bytes / 0
+  `<input>`** / md5 `89910f6e7875f1d310d962f83e443989`.
+
+**Item `95fe67da`** (`needs_new_component` / `mortgages-repayment` / page `index`), claimed 10:24:31Z
+— and it **jumped ahead of the five older triaged items**, so the dispatcher's order is not the
+plain oldest-first I described in the RUNBOOK; worth correcting there once I have seen it twice.
+
+> **CAVEAT STATED BEFORE THE RESULT** (as on 08-19): the diversion only fires if the LLM picks the
+> incumbent's function name again — the collision is keyed on the name the model chooses (CLC-006).
+> If this run stores a freshly-named row instead, that is a **pass for the site and NOT a diversion
+> exercise**, and the thing to read is `diverted_from_component_id` in the item's result, never the
+> status. The incumbent here carries `section_type = ''` (empty, not NULL), so the selector cannot
+> match it and `needs_new_component` is the correct route regardless.
