@@ -150,3 +150,64 @@ surfaces"), so I filed a `090` run rather than assert it from my own greps:
 intake fired 2026-08-21, **RUN_CORRELATION_ID `1588b0da-5657-451a-8dc5-a5f63324712f`**
 (the dispatch loop's own correlation — the key the artifacts are written under, NOT the
 intake id the script prints first). Verdict to be recorded below when it lands.
+
+---
+
+## 2026-08-21 (b) — the live wiring, which constrains the fix more than the code does
+
+Read from `agent_definitions` (live rows: `is_active`, `NOT is_snapshot`,
+`deleted_at IS NULL`), not from the seeds.
+
+### The two agents that arm `validate_components` do NOT have the same workflow
+
+```
+build-site-planner: complete, emit_design, emit_imagery, ensure_site, load_components,
+                    load_existing_pages, load_styles, plan_site, populate_nav,
+                    reconcile_site_plan, read_specs, sync_pages, validate_plan, write_site_plan
+site-planner:       complete, load_available_components, load_style_collections,
+                    plan_site, validate_plan
+```
+
+Three consequences, and the first one nearly cost me a wrong design:
+
+1. **`site-planner` has no `load_existing_pages` step**, so its `validate_plan` runs with
+   an EMPTY `existingPages`. A fix keyed on the `existing_pages` collected-data field —
+   which is the shape the 08-20 contribution suggested ("trust stored state over the
+   component catalogue") — would be **inert on that agent by construction**. A fix that
+   queries the DB covers both. I had been leaning toward the collected-data route because
+   it needs no query; this measurement is what moved me off it. [MEASURED 2026-08-21]
+2. `site-planner` also has no `write_site_plan` and no `sync_pages`, so **build-site-planner
+   is the damaging one** — which matches the drop record, where all 140 rows carry
+   `agent_type='build-site-planner'` and none carry `site-planner`.
+3. `build-site-planner`'s `load_existing_pages` query DOES select `p.sections`, so for
+   that agent the realised list is in hand. It runs via `query_database`, which
+   stringifies jsonb — `realisedSectionsOf` already handles the string case.
+
+### The write surface is shared by three agents, not one
+
+`upsertPage` (`site_db_actions.go:1114`, holding the unguarded
+`sections = EXCLUDED.sections` at `:1201`) has exactly **one** Go caller,
+`SyncPagesToDBAction` — but that action is wired into **three** live agents:
+`build-site-planner` (as step `sync_pages`), `pageflow-builder` and
+`site-work-orchestrator` (both as `sync_pages_to_db`). So a guard there is one edit
+covering three agents.
+
+### `apply_gap_plan` is live, and its exposure is LATENT, not measured
+
+`apply_gap_plan` runs as `content-gap-planner`'s `apply_plan` step. It is active —
+46 `gap_plan_*` work items, most recent 2026-08-20. But **zero** of the 140
+`PLAN_SECTION_NAME_DROPPED` rows come from any `apply_gap_plan:*` action.
+
+⚠ **State that honestly.** It means the gap planner has not been pointed at a
+decomposed page's existing sections since the record shipped on 08-16. It does NOT
+mean those three call sites are safe — `applyRetypeExisting` writes
+`sections = $3::jsonb` straight onto a live page with no upsert guard in front of it.
+The right word is *latent*, and the evidence for the risk is the code path, not a row.
+[MEASURED: zero drops. INFERRED: that this is exposure rather than immunity.]
+
+### Baseline for attribution
+
+A clean `git archive HEAD` tree (not the shared working tree, which carries at least
+eight other sessions' dirty files today) builds `./platform/...` and passes
+`go test ./platform/orchestration/actions/` — `ok … 2.519s`. Any failure I introduce
+from here is mine.

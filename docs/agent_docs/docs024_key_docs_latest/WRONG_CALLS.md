@@ -40882,3 +40882,40 @@ a commit message — all are read by something that stops early. **Put the state
 explanation, not after it.** Related: the existing lesson that an entry encoding a point-in-time
 state keeps asserting it after corrections accumulate below — this is its sharper form, because here
 the correction was IN the heading and still invisible.
+
+## 2026-08-21 — bugs_open/204: I nearly published a subagent's invented site count, and the reason I did not is not a reason to relax
+
+**The claim.** I commissioned a fix plan from a `fable` subagent, gave it the measured evidence and
+the live wiring, and got back a plan whose risk section opened *"Risks — specifically for the 141
+non-decomposed sites"*. Everything around that sentence was right: the empty-sections figure
+(72 of 748 active pages, 60 of them tools) re-measured **exactly**, the `add_sections`-has-no-reader
+claim held, the code line numbers held, the landmine reading held.
+
+**What was wrong.** There are not 141 sites. `sites` holds **45 rows** — 23 deployed, 17 pool, 2
+active, 2 test, 1 system — and **27** have any active page. Seven of those carry unresolvable
+section names, so the non-decomposed population is about **20**. The number was not derived from
+anything; it appeared once, in a section header, in a plan that was otherwise well grounded.
+
+**What caught it.** Running the count myself before writing it into the PLAN doc, because the
+standing rule is that a subagent's report is *another document* and its figures are grounded before
+they are committed — not because anything in the plan looked wrong. **Nothing looked wrong.** The
+sentence sat between two figures I had already re-measured and confirmed, which is precisely what
+made it credible.
+
+**The cheap check that would have caught it.** `SELECT status, count(*) FROM sites GROUP BY 1;` —
+one query, three seconds. The general form: **when a delegated report gives you a population size,
+re-derive the denominator, even when the numerators around it have all checked out.** A report
+mixing measured and invented figures is more dangerous than one that is uniformly sloppy, because
+the measured ones vouch for the invented one.
+
+**Why it is logged even though it never reached a commit.** The tally is the point. This is the
+second-order version of the existing lesson *"a subagent's report is another doc — no seam shows
+where measuring stopped"*: here the seam was invisible **inside a single paragraph**, not between
+sections. If this recurs, the automatable check is to require any population figure in a delegated
+plan to arrive with the query that produced it, and to treat a bare integer as `[UNMEASURED]` by
+default.
+
+**Transferable.** *Adjacent accuracy is not evidence.* A figure's neighbours being correct says
+nothing about the figure — they were produced by different acts, one of which was a measurement and
+one of which was not, and the prose gives you no way to tell which. Mark or re-derive every
+population count you did not run yourself.
