@@ -236,3 +236,36 @@ the key is unknown and the field falls back to the whole-tree search — bites o
 2026-08-21 ~17:2xZ; submission commit `90f993678` carries the `Council-Submitted` trailer, credited
 automatically). The hotfix, the incident census and the marker semantics are now independently
 reviewed as well as measured.
+## 16. CLOSED 2026-08-21 ~14:45Z — FIXED AND LIVE, both arms proven in production, serve-graded at the artefact; moved to `bugs_closed/`
+
+**Every condition of §5/§14, met with evidence:**
+1. **Roll:** `v1.0.1321` (pods 19:51Z 08-20, stamp `0483e7f4e` probed with junk control) carries the
+   complete approved change (`c0d60a97d` gate + `138c8efaa` wording — ancestry checked; the live
+   `component_versions` description is the mechanical proof of the second).
+2. **Config:** seed 496 applied 12:12:12Z; its `!` marker defect hotfixed by 532 at 13:50:42.682761Z
+   (marker `?`, optional-explicit); both councils APPROVED (`7a82c943` r5; `c0b81902` r1 after the
+   fact). Ack gate: 4 live `?` wires, 0 unacknowledged, mine owner-confirmed.
+3. **Live proof, all four arms:** REFUSAL — the non-hollow gate's first live firing correctly blocked
+   its own author's under-specified brief (867→380 visible chars, item `629d0061`); HAPPY —
+   `tool-oklch-picker` regenerated IN PLACE (run `e2a3306a`: `regenerated=true`, same `component_id`
+   `517002ab`, one-tx atomicity stamped `13:27:47.172372` across component/slot/history, hex-first fix
+   at template line 393, teaching copy preserved, `component_versions` v2 + `page_component_history`
+   revert handles both present); ABSENCE — a second producer's plain-spec `add_tool` (`4531f29c`,
+   tool-jwt-inspector, 13:58:49Z, key verified absent) built cleanly under the `?` mapping; STRAY-KEY —
+   excluded by the marker's explicit-only semantics (code-read + the marker lane's own proofs).
+4. **Serve-grade PASS (this session's curl, division agreed with the lane):** 200, 21,964 B,
+   `last-modified 14:38:32` = the rerender `1fe89947`'s write (complete 14:38:45); old-only negatives
+   `cssCode`/`css-code`/`oklchStr + `/`contrast-info` all 0; positives `cssOutputCode`, both teaching
+   headings, and the EXACT fixed builder line (`; /* fallback for older browsers */\nbackground-color: `
+   — hex first, oklch second) all present; `ported-page` 0, `{{.` 0, 5 scripts.
+
+**What closes with it:** the lane RUNBOOK's manual re-fix recipe (deactivate → rename → retire race)
+is RETIRED for re-fixes — one filing with `"replace_existing": true` replaces it, and the revert
+handle is automatic (`page_component_history` + `component_versions`) instead of a hand-recorded md5.
+
+**Residuals, tracked elsewhere by design:** `update_component_html` (the other in-place writer) still
+has no non-hollow gate of its own — recorded for the tool-improver owner in §14; the tool-markup
+writers remain outside the dead-link repair seam (§8, bugs 136's known class); a wrong-but-textful
+regeneration passes any text floor — `tool_acceptance`'s job, stated since round 2. The `!`-marker
+lesson lives in WRONG_CALLS 2026-08-21 and TL-047's landmine line; the `?`-wire ack rule (same
+commit as the wire) is the staged_component_build lane's gate, confirmed working on this very case.

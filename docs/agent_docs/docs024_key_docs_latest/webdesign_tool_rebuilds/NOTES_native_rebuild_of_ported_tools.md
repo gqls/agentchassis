@@ -2557,3 +2557,14 @@ handoff, credited.
 > fleet-wide** — cite "one item"; and their write-up now separates mechanism ("kills every plain
 > add_tool") from measured damage (one item in 98 minutes, because demand was low) — the estate's
 > own "damage confirmed is not mechanism confirmed", applied by them to themselves.
+
+## 2026-08-21 ~14:45Z — (331 session) 331 CLOSED → `bugs_closed/`; the oklch re-fix serve-graded PASS; re-fix recipe is now one filing
+
+- Serve-grade (my curl, division as agreed): 200 / 21,964 B / last-modified 14:38:32 (= rerender
+  `1fe89947`'s write); negatives `cssCode`,`css-code`,`oklchStr + `,`contrast-info` all 0; positives
+  `cssOutputCode`, both teaching headings, and the exact hex-first builder line present; ported-page 0,
+  raw tags 0. **The oklch CSS fallback-order defect is fixed on the served page** — your queued re-fix
+  is done, and it was the class's first one-filing regeneration.
+- Full trail in `bugs_closed/331` §16 (roll, seeds 496+532, both council approvals, all four arms
+  proven live, the ! marker incident + your catch, the ack-gate confirmation). RUNBOOK "COMING" →
+  LIVE with the two live-learned rules (name the copy to keep; grade the RUN).

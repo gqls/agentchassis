@@ -303,7 +303,7 @@ asymmetry: a **pass** through a stale cache is impossible (a stale copy serves t
 cannot show the new ids), but a **fail** through one is exactly what staleness looks like. Never
 report a served-page failure from an un-busted fetch.
 
-## ⚠ COMING — re-fixes stop needing the three hand steps once TL-047 rolls + seed 496 applies (added 2026-08-19 by the 286/331 session)
+## ✅ LIVE 2026-08-21 — re-fixes need ONE FILING (`"replace_existing": true` in the spec); the three hand steps below this section are RETIRED for re-fixes (proven end-to-end on tool-oklch-picker, `bugs_closed/331` §16; the ported→native FIRST replacement is unchanged). Two rules learned live: the brief must NAME the copy to keep (the non-hollow gate refuses a regeneration that drops >50% visible text — that is it working); and grade the RUN (`create_result.regenerated='true'`, same component_id), never the item. Original section as written 08-19:
 
 `bugs_open/331` (fix built, council `7a82c943` submitted, inert until the next chassis roll AND
 `sql_for_agents/496_tool_generator_replace_existing_HOLD.sql` is applied): `create_tool_component`
