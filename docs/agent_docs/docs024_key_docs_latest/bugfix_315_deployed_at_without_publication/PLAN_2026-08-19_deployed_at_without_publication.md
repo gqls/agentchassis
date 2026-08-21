@@ -221,3 +221,75 @@ Read the verdict with:
 SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
 WHERE correlation_id='377167cd-6324-4bc7-a866-87ad8c435132' AND kind='council_report' ORDER BY created_at;
 ```
+
+---
+
+## D5 — BUILT 2026-08-21 (phase 4), and what the build changed about the design
+
+`check_page_content_divergence.go` + its test file, committed `f715b8c1d`; registered as **DGH-015**;
+enabling migration held at `sql_for_agents/526_enable_page_content_divergence_HOLD.sql`.
+Council round: `SUBMISSION_CORR = be85a6d3-f2c0-4f7a-b791-e95087141fc8`.
+
+**The design above survived contact, with three additions the build forced.** Recording them here
+because a plan that only ever gets ticked off is not a record of anything.
+
+1. **Two race guards D5 did not name.** The plan's false-positive list had four entries
+   (mid-delivery, CDN edge, retracted pages, no hash). Building it surfaced two more, both of which
+   file a work item against a perfectly healthy page:
+   - *the page is redeployed while we are probing it* — we read hash H1, a deploy writes H2 and new
+     bytes, we fetch the new bytes and convict H1. Closed by re-reading `content_hash` AND
+     `deployed_at` after a mismatch and discarding the candidate if either moved.
+   - *the origin is mid-write* — a sync in progress can answer with one body and then another.
+     Closed by confirming a mismatch with a second fetch and requiring the two served hashes to
+     AGREE. Two different bodies is a moving target, not a divergence.
+
+2. **The settle window is now MEASURED, and it turns out to be load-bearing rather than
+   precautionary.** [MEASURED 2026-08-21, 10:38Z–13:20Z] 1,099 re-probes over 85 pages and 95
+   deploy events: the only 3 DIVERGED readings were at ages **1s, 13s and 14s**, all converged by
+   140–156s, and **0 of 995** readings at age ≥157s diverged. Those three readings are three work
+   items this check would have filed against healthy pages in under three hours had it judged them
+   at the moment of stamping. Two intermittent 404s in the same watch (both serving one shared edge
+   error page, each surrounded by MATCH readings) are two more, had a non-200 been judged as content
+   rather than skipped. **The window stays at 30 minutes** — roughly 128x the largest lag observed —
+   deliberately conservative because one afternoon on one estate is not a census and the sync is
+   BATCHED, which is exactly the case a small sample under-represents.
+
+3. **The check has NO live positive, and that is now a measured fact rather than a hope.**
+   [MEASURED 2026-08-21] all **228 of 228** active pages then carrying a `content_hash` served bytes
+   hashing exactly to their stored fingerprint, across 12 domains. So it ships as a REGRESSION GUARD
+   (the `check_asset_reference_404` posture) with every branch proved by an induced fault. That same
+   sweep is also the end-to-end proof of D2/D3: stored fingerprint and served bytes agree on 228
+   independent pages, so no encoding, transform or path-keying error sits anywhere between the stamp
+   and the wire.
+
+### D6 — an UNARMED `deployed` stamper would silently poison this check. NOT taken here, deliberately.
+
+**The mechanism.** The stamp assigns `pages.content_hash` only when the deploy-evidence guard RAN
+(`v3_site_actions.go`); an unarmed `update_page_status` step leaves the column alone. That is correct
+for an unarmed path that changes nothing, and WRONG for an unarmed path that deploys NEW BYTES: the
+fingerprint then describes an older deploy, and D5's check convicts a healthy page — permanently,
+because the row never self-corrects.
+
+**It cannot arise today, and that is a query rather than an argument.** [MEASURED 2026-08-21]
+exactly three live steps set `status='deployed'` via `update_page_status` —
+`page-rerender/update_status`, `report-builder/update_status`, `section-editor/update_page_status` —
+and all three declare `deploy_result_field` (migration 494). Zero unarmed stampers.
+
+**Why that is not good enough, and what the fix would be.** It is a dependency on LIVE CONFIG, not an
+invariant the code holds: a new agent with an unarmed stamper reintroduces it silently, and the
+failure is invisible until the divergence check starts filing against healthy pages. The structural
+close is one line at the stamp — an unarmed `deployed` stamp should NULL `content_hash` rather than
+leave a stale one, which is exactly the reasoning the ARMED branch already carries ("a stamp means
+NEW BYTES WENT OUT ... an honest unknown beats a confident stale value"). It is inert today, because
+there are no unarmed stampers for it to affect.
+
+**Not taken in this round because it REVERSES a reviewed decision.** The guard-OFF branch's "an
+unarmed path cannot disturb a hash some other path wrote" is deliberate and was in front of the
+council on 2026-08-19. Flipping it inside a check's commit is precisely the shape the guardian seat
+vetoed in `bugs_closed/124` — a shared-seam change arriving inside someone else's patch. It belongs
+in its own round, with the enumeration above as its evidence and the "which is worse, a stale
+fingerprint or a lost one?" question stated openly, since NULLing also discards a good hash whenever
+an unarmed path merely re-stamps without deploying.
+
+**Whoever takes it:** the enumerating query is in the RUNBOOK, and it must be re-run first — the
+whole point is that its answer can change without anyone touching this code.

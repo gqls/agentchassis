@@ -40778,3 +40778,42 @@ column it exists to test; a `[MEASURED]` rate that reversed under control). I ha
 down, and I still did it — **under the pull of a result I wanted, on my own code, at the end of a long
 piece of work.** The tally is the point: this is not a knowledge problem, it is a discipline that has
 to be applied when the answer would be welcome.
+
+---
+
+### 2026-08-21 — `bugfix_315` lane: I wrote a mutation table before running it, and four rows were false
+
+**The claim.** A new discovery check (`page_content_divergence`, `bugs_open/315` D5) has no live
+positive — 228 of 228 pages healthy — so its test file carries the house-standard mutation table:
+"every guard below was proven load-bearing by breaking it and watching a NAMED test fail", nine rows.
+I wrote the table from the design, having written the tests and watched all 15 pass.
+
+**What was wrong.** I then ran the mutations for real. **Four of the nine rows were false.** Three
+tests passed against deliberately broken source because a LATER guard in series absorbed the fault
+(an unscripted `sqlmock` query erroring; the worker's confirmation gate, which only fires for a
+judgeable 200). One — the per-pass cap — passed because the test sized **both** its fixture and its
+assertion from the very const under test, so raising the cap raised the expectation with it: the
+check silently widened and the assertion could never fail.
+
+Worse than the four: two guards turned out **not to be load-bearing at all**. The non-200 branch and
+the oversize branch each have a second guard in series, so deleting either alone changes no observable
+outcome and NO test can be made to fail against it. The table would have asserted a proof that does
+not exist.
+
+**What caught it.** Running the mutations, one at a time, with the source restored byte-for-byte
+after each — about four minutes of work. Nothing else could have: fifteen green tests look identical
+whether the guards are load-bearing or decorative.
+
+**The cheap check.** *Write the mutation table from the RUN, never from the design.* And when a
+mutation passes, the useful question is not "is my test weak?" but **"which OTHER guard absorbed
+this?"** — because the answer is usually that the guard under test is defence-in-depth, which is a
+fact about the code worth writing down rather than a test to patch. Two ways a mutation passes
+deceptively: a guard in series, and a self-referential assertion (fixture and expectation both
+derived from the constant under test — pin a LITERAL so changing the constant requires editing the
+test).
+
+Same lane, same day, two more zeros that meant nothing: `psql … | tee f | head -20` silently
+truncated a 228-row capture to 21 (head exits, tee takes SIGPIPE, no error), and an enumeration
+predicated on `config->>'build_status'` returned a clean, confident **0 rows** because the live key
+is `status`. Both produced plausible numbers with nothing to notice. This lane has now been bitten
+three times by a zero whose two causes have opposite meanings.

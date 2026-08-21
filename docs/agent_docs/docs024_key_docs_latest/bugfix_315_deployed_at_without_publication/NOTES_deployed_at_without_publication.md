@@ -1578,3 +1578,77 @@ wrote nothing) is delivered and armed, and has had nothing to refuse yet. Candid
 sweep) is now **buildable for the first time**, because the thing it must compare against finally
 exists on 38 pages and counting. Candidate 3 (why one page fell out of the batch) remains
 undiagnosable from here — the runner workflow is in a private repo.
+
+---
+
+## 2026-08-21 — D5 built: the divergence sweep, and five things I got wrong doing it
+
+Session picked up from `HANDOFF_2026-08-20_continue_here.md`. Damage queries clean on arrival
+(0 `deploy_result_field` errors, 0 `DEPLOY_EVIDENCE_UNREADABLE`), and the benefit had grown on its
+own: `content_hash` **38 → 228 populated** overnight. Built phase 4 — `page_content_divergence`,
+committed `f715b8c1d`, registered DGH-015, enabling migration held at 526, council round
+`be85a6d3-f2c0-4f7a-b791-e95087141fc8`.
+
+### What was MEASURED, with the disconfirming half stated
+
+- **228 of 228** active hashed pages serve bytes hashing exactly to their stored fingerprint, across
+  12 domains. So the check has **no live positive** and ships as a regression guard. It also proves
+  D2/D3 end to end: nothing between the stamp and the wire alters the bytes.
+- **The settle window is load-bearing.** 1,099 re-probes over 2h42m, 85 pages, 95 deploy events:
+  3 DIVERGED readings at ages **1s, 13s, 14s**, all converged by 140–156s; **0 of 995** readings at
+  age ≥157s diverged. Those 3 are 3 false work items the check would have filed against healthy
+  pages without the window. *This is the measurement that could have come out otherwise and didn't:*
+  had every reading matched at every age, the window would have been decoration.
+- **Two intermittent 404s** in the same watch (webdesign.co.uk `/index.html` at age 782s and
+  `/tools/noise-generator/index.html` at age 850s), both serving the SAME body — one shared edge
+  error page — each surrounded by MATCH readings before and after. Two more false items had a
+  non-200 been judged as content.
+- **Every `deployed` stamper is armed**: exactly 3 live steps, 3 of 3 declaring `deploy_result_field`.
+  So the stale-fingerprint case cannot arise today. Recorded as D6 because it is live config, not an
+  invariant.
+
+### THE MISTAKES, which is the point of this file
+
+**1. I truncated my own evidence and the number looked fine.** `psql … | tee file | head -20`:
+`head` exits, `tee` takes SIGPIPE, the file is cut. 228 rows became **21**, with no error. I only
+caught it because 21 disagreed with a count I already had. A plausible number from a truncated
+capture is indistinguishable from a real one — there is nothing to notice. Redirect, then read.
+
+**2. I queried the wrong column and got a confident, clean ZERO.** Enumerating the `deployed`
+stampers I predicated on `config->>'build_status'`; the live key is `status`. Result: **0 rows**, no
+error, reading exactly like "nothing stamps deployed". I nearly wrote that down. A zero from the
+wrong column looks the same as a zero that means something — and this is the second time this lane
+has been bitten by a zero whose two causes have opposite meanings (`bugs_open/336`, where a zero
+meant "nothing CAN run" and I read it as "nothing has run yet").
+
+**3. Four of my mutation-table rows were FALSE when I wrote them.** The test file claimed nine
+guards were each proven by an induced fault. I then actually ran the mutations, and four still
+passed:
+- three because a LATER guard absorbed the fault — an unscripted `sqlmock` query erroring, and the
+  worker's confirmation gate. **A mutation that passes usually hit a guard in SERIES**, and the
+  sound test looked identical to the unsound one from the outside;
+- one — the per-pass cap — because the test sized **both** its fixture and its assertion from the
+  very const under test, so raising the cap raised the expectation with it and the check silently
+  widened while the test went on passing. A self-referential assertion cannot fail.
+Fixed at the tests, then re-ran: all now fail under mutation. **And two guards I could not make
+load-bearing at all** (the non-200 branch and the oversize branch): each has a second guard in
+series, so deleting either alone changes no outcome. The file says so instead of claiming a proof it
+does not have, and records that the DOUBLE mutation does fail both named tests.
+
+**4. `pkill -f lag_watcher.sh` killed its own shell.** The pattern matched the `bash -c` command line
+containing it. Output stopped mid-stream and the process looked like it had survived; I reported
+"STILL RUNNING" from a command that had in fact just shot itself. Verified properly afterwards with
+a broken-up literal.
+
+**5. I referenced a migration number before choosing it.** Wrote `495_..._HOLD.sql` into the register
+entry, then found 495 taken and the next free number was 526. Caught by writing the file, not by
+review — the register would have pointed at a migration that does not exist.
+
+### One thing that went right and is worth copying
+
+**Both migrations were proven against the live row without applying anything**: run end to end inside
+a transaction ending in `ROLLBACK`, then the round trip (apply + rollback bodies in one transaction).
+Needle-gates matched, `UPDATE 1`, both verify blocks passed, live row untouched. That is cheap, it
+exercises the real jsonb paths against real data, and it would have caught a `jsonb_set` that
+replaced the array instead of appending — which the verify block also asserts by LENGTH, not just by
+containment, because containment alone passes with `site_unreachable` silently gone.

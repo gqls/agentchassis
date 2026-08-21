@@ -239,3 +239,111 @@ ORDER BY created_at DESC;
 created_at DESC LIMIT 1`) — the table is fleet-shared and that returned **another lane's APPROVED
 verdict** while mine was `revise`. Read by correlation, always.
 ⚠ On a resubmission the correlation is reused, so filter by `created_at` to get the new round.
+
+---
+
+## Part 3 — the divergence sweep (D5 / DGH-015), added 2026-08-21
+
+### The one query D6 depends on: is every `deployed` stamper still ARMED?
+
+**Re-run this before trusting a `page_content_divergence` finding, and before taking D6.** The check
+assumes every path that stamps `deployed` also writes the fingerprint. An UNARMED stamper leaves a
+stale hash and the check convicts a healthy page — permanently.
+
+```sql
+WITH steps AS (
+  SELECT ad.type AS agent, st.key AS step_key,
+         st.value->>'action' AS action,
+         st.value->'config'->>'status' AS status_cfg,
+         st.value->'config'->>'deploy_result_field' AS deploy_field
+    FROM agent_definitions ad
+    CROSS JOIN LATERAL jsonb_each(ad.default_config) wf(key,value)
+    CROSS JOIN LATERAL jsonb_each(CASE WHEN jsonb_typeof(wf.value)='object' AND wf.value ? 'steps'
+                                       THEN wf.value->'steps' ELSE '{}'::jsonb END) st(key,value)
+   WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+)
+SELECT agent, step_key, COALESCE(deploy_field,'*** UNARMED ***') AS deploy_result_field
+  FROM steps WHERE action='update_page_status' AND status_cfg='deployed'
+ ORDER BY (deploy_field IS NULL) DESC, agent;
+```
+
+Expected 2026-08-21: **three rows, all armed** (`page-rerender/update_status`,
+`report-builder/update_status`, `section-editor/update_page_status`). **Any row reading UNARMED
+invalidates the check's premise** until it is armed or D6 ships.
+
+> ⚠ **THE CONFIG KEY IS `status`, NOT `build_status`.** Writing `build_status` in the predicate
+> above returns **zero rows** — cleanly, with no error, looking exactly like "no agent stamps
+> deployed". That happened while writing this, and a zero from the wrong column is indistinguishable
+> from a zero that means something. If this query returns 0 rows, suspect the query before you
+> conclude the fleet has no stampers.
+
+### Measure divergence by hand, fleet-wide
+
+The check's whole comparison, runnable from a terminal. This is what produced the 228-of-228 result.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -A -F'|' -t -c "
+SELECT s.domain, p.url, p.content_hash
+  FROM pages p JOIN sites s ON s.id = p.site_id
+ WHERE p.content_hash IS NOT NULL AND p.status='active' AND COALESCE(s.domain,'') <> ''
+ ORDER BY s.domain, p.url;" > /tmp/hashed_pages.txt
+
+while IFS='|' read -r domain url stored; do
+  served=$(curl -s --max-time 20 "https://${domain}${url}?cb=$RANDOM$RANDOM$$" | sha256sum | cut -d' ' -f1)
+  [ "$served" = "$stored" ] && echo "MATCH $domain$url" || echo "DIVERGED $domain$url $stored $served"
+done < /tmp/hashed_pages.txt
+```
+
+> ⚠ **DO NOT PIPE THE psql CAPTURE THROUGH `tee … | head`.** `head` exits after N lines, `tee` takes
+> SIGPIPE, and **the file it was writing is silently truncated**. That turned 228 rows into 21 here,
+> and 21 was a plausible-looking number — there was no error and nothing to notice. Redirect to the
+> file, then read the file.
+
+> ⚠ **Always cache-bust, and never `HEAD`.** The body is the question. A cache-bust query is safe
+> because `PageFilePathFromURL` refuses a stored url that already carries one, so it cannot collide
+> with a real parameter.
+
+### Measure the delivery lag (what the settle window is sized against)
+
+Re-probe every recently-stamped page every 2 minutes and record age-at-probe against verdict. This
+produced the 1,099-reading distribution: 3 DIVERGED at ages 1s/13s/14s, all converged by 140–156s,
+0 of 995 readings at age ≥157s diverged.
+
+```bash
+# one pass; wrap in a loop with `sleep 120` for a distribution
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -A -F'|' -t -c "
+SELECT s.domain, p.url, p.content_hash, round(extract(epoch from (now()-p.deployed_at)))
+  FROM pages p JOIN sites s ON s.id=p.site_id
+ WHERE p.content_hash IS NOT NULL AND p.status='active' AND COALESCE(s.domain,'')<>''
+   AND p.deployed_at > now() - interval '45 minutes'
+ ORDER BY p.deployed_at DESC LIMIT 40;"
+```
+
+> ⚠ **`pkill -f lag_watcher.sh` KILLS ITS OWN SHELL.** The pattern matches the command line of the
+> very `bash -c` running it, so the kill lands on the killer and the output stops mid-stream, looking
+> like the watcher survived. Break the literal (`pkill -f "lag_"'watcher'`) or match on the script's
+> unique User-Agent instead, and verify with a separate `pgrep`.
+
+### After applying 526 (enabling the check)
+
+**Read the DAMAGE query first — this is `bugs_open/336`'s lesson, which this lane learned by
+breaking every page-publish in the estate for 33 minutes while verifying that its config was right.**
+An unregistered check name fails the `run_checks` step for the WHOLE agent, taking `site_unreachable`
+down with it — and that damage does not appear anywhere in this check's own output.
+
+```sql
+-- 1. WHAT DID I BREAK?
+SELECT current_step, status, count(*) FROM orchestration_states
+ WHERE agent_type='availability-discovery-agent' AND created_at > now() - interval '30 minutes'
+ GROUP BY 1,2;
+-- 2. only then: did it find anything? Expect ZERO on day one.
+SELECT summary, spec->>'stored_hash', spec->>'served_hash'
+  FROM site_work_items WHERE item_type='page_content_divergence' ORDER BY created_at DESC LIMIT 10;
+```
+
+A finding on day one is likelier to be a defect in the check than a divergence in the fleet: re-run
+the `curl | sha256sum` comparison by hand before believing it. Rollback is
+`526_enable_page_content_divergence_HOLD_ROLLBACK.sql`, which removes the name and asserts
+`site_unreachable` survives.

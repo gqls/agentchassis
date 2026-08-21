@@ -545,3 +545,63 @@ It records what is done, the one substantive item left, and — the part I would
 to read — the nine traps this lane walked into for real, including the one where I broke every page
 publish in the estate for thirty-three minutes by checking that the configuration was right and never
 asking whether a page could still be published.
+
+---
+
+## 2026-08-21 — the last piece is built, and the fleet turns out to be healthy
+
+The check is written. It does the obvious thing: for every page we have a fingerprint for, fetch the
+live page, fingerprint what came back, and compare. If they disagree, raise a flag. That is the whole
+idea, and until two days ago it was impossible, because we had nothing to compare against.
+
+**First, the good news, and it is the main news.** Before writing a line of it I ran the comparison
+by hand across every page that has a fingerprint — 228 pages across 12 sites. **All 228 matched.**
+Every page we believe we published is, right now, serving exactly the bytes we sent. So the check
+ships as a smoke alarm rather than a repair: there is no fire today.
+
+That sweep quietly settled something else too. It is 228 independent confirmations that the
+fingerprint we record and the bytes a visitor receives are the same thing — no compression, no
+rewriting, no filename mismatch anywhere in between. One matching page could have been luck. Two
+hundred and twenty-eight is the mechanism working.
+
+**Then the part I want to flag, because it is the difference between a useful alarm and an annoying
+one.** The obvious way to build this is to check a page the moment we publish it. I measured what
+that would do: I watched every freshly-published page, every two minutes, for nearly three hours —
+1,099 measurements over 85 pages. Three times a page genuinely did not match. All three were
+seconds old, all three were completely healthy, and all three were serving correctly within about
+two minutes. Publishing is not instant; it goes out in batches.
+
+So an eager check would have raised **three false alarms in under three hours**, on the very sites we
+care most about. The check therefore ignores anything published in the last thirty minutes. That is
+not caution for its own sake — it is the difference between an alarm people trust and one they learn
+to ignore. And it costs us nothing that matters: the fault this whole bug is about lasted **six
+hours**, so we still catch that kind with hours to spare.
+
+Two more would-be false alarms turned up in the same window: twice, a healthy page briefly returned
+"not found" — the same error page both times, fine before and fine after. The check treats "the site
+didn't answer properly" as a separate question it does not judge, which is already another check's
+job. So those file nothing either.
+
+**What I am less comfortable about, stated plainly.** The check trusts that every route that marks a
+page as published also records its fingerprint. I checked: there are exactly three such routes today
+and all three do. But that is a fact about our current configuration, not something the code
+guarantees — if someone adds a fourth and forgets, this check would start accusing perfectly healthy
+pages, and it would look convincing. There is a one-line fix that closes it properly. I have **not**
+made it, because it reverses a decision that went through review two days ago, and slipping that into
+an unrelated change is exactly the habit that got a previous change vetoed. It is written up as the
+next decision for someone to take deliberately.
+
+**And a confession about my own work, since this lane keeps finding these.** The test file claims
+each safety guard is proven by deliberately breaking the code and watching a specific test fail. I
+wrote that claim from the design and then actually ran it — and four of the nine claims were false.
+Three tests were passing against broken code because a *different* safety net further down caught the
+fault; one could never have failed at all, because it measured the limit it was testing against
+itself. Fixed, re-run, and now true. Two other guards turned out not to be provable in isolation, so
+the file says that instead of claiming a proof it does not have.
+
+**Where this leaves us.** The check is committed and registered. It is not switched on: it needs the
+next routine release, and then a one-line configuration change I have written and tested but
+deliberately held back, because switching it on before the code ships would break the checks that are
+already running. That ordering is the same trap that cost this lane thirty-three minutes of downtime
+last time, so it is spelled out in the file itself, along with the instruction to check what you have
+broken before checking whether it worked.
