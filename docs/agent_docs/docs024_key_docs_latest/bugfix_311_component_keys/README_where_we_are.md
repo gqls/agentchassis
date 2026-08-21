@@ -247,3 +247,46 @@ loanzy is written, so it is their call and not a repair I should make from here.
 One thing I got wrong twice today and want on the record. I predicted that retry would work, and I
 had written the exact diagnostic that would have told me it would not — four hours earlier, in this
 same session, into the debugging guide. Writing a check down is not the same as using it.
+
+## 2026-08-21, midday — the pilot site is unblocked, and the calculator fix worked; something else is now in the way
+
+I have lifted the halt on remortgagecalculator.uk, and only that site. The other portfolio site,
+adversecreditmortgage.co.uk, is still held exactly as it was, with its forty-one queued items
+untouched — you named one site and one row moved. I wrote the old lock values down in the
+portfolio lane's own folder so they can put the halt back verbatim if they think I have read it
+wrongly. For what it is worth, both of the things the halt was waiting for look settled in their
+own notes: the builder flow was ruled on the 19th, and the classifier question was superseded on
+the 20th. What they still list as outstanding is a piece of software that has not been written
+yet, which is not the same as a decision.
+
+Before lifting it I listed what would be let loose, because a new site build is exactly what the
+halt existed to prevent. Five jobs, all filed by automated agents — two contrast fixes, a brand
+asset, an unpublished image, and a directory page re-render that arrived at twenty past midnight.
+No site build among them.
+
+**The good news, and it is the point of the whole exercise.** The calculator that has been missing
+from that home page since the 17th — the one you originally complained about — went through the
+fix correctly. The system recognised that the calculator template it wanted to write over belonged
+to a different site, and it created its own copy under its own name instead. That is precisely
+what this bug was about, and it now works on the very page that started it.
+
+**The bad news.** The new calculator was then refused at the last moment by a different check, and
+that check is right. The AI wrote the template asking for a "currency symbol" from a place in the
+site's settings that does not exist — anywhere, on any site. I checked the entire codebase; there
+is no such setting. So the guard that stopped it did its job. I could have made the error go away
+by inventing that setting, and I have deliberately not done that: it would be changing the test to
+agree with the wrong answer.
+
+What makes it worse is that it will not correct itself. It tried twice and made the **identical**
+mistake both times, and when I looked at why, the regeneration step is handed exactly the same
+information as the first attempt — it is never told what was wrong with the last one. Across the
+estate that has now happened ninety-nine times on three sites, and every single repeat produced
+the same complaint as its predecessor. One job on another site burned fifty-two attempts over
+three and a half hours that way. I have written it up as its own bug, and I cancelled our third
+attempt rather than pay for a result I already knew.
+
+So the page is still missing its calculator, and I want to be plain that this is now the third
+separate thing standing between a working fix and a working page — the other two being a page
+somebody had archived, and a guard protecting an unrelated banner. The collision fix itself is
+sound and proven seven times over. What is left is a queue of unrelated gates, each reasonable on
+its own, none of them this bug.
