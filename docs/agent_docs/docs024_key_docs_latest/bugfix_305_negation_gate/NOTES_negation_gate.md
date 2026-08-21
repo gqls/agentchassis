@@ -379,3 +379,61 @@ takes it should audit the other call sites of that predicate rather than move on
 **All 11 platform commits are credited to the approved correlation automatically** — the
 `Council-Submitted:` trailers resolved at report time, with no amend, exactly as that mechanism is
 designed. Verified in the `098` report.
+
+## 2026-08-21 — both halves LIVE, and the first live run found the gate was blind
+
+### The roll, probed rather than assumed
+
+Chassis `v1.0.1321`, both replicas: `rewrite_negations` **7**, `copy_gate_annotate` **1**, control
+`rewrite_negationz` **0**. ⚠ `invented_superlative` **0** — the build predates commit `1ac9b8890`, so
+the hype-superlative guard is not live yet. The **accuracy-claim family is covered anyway**: the
+fleet-wide banned-claim set already catches *always accurate*, *definitive*, *guaranteed accurate*,
+*every claim is verified*, *never wrong* (`claims_global.go:112-190`). What waits for the next roll is
+*industry-leading*, *best-in-class*, *100%*, *flawless*. Bounded, and stated rather than discovered.
+
+Migration `509` applied 10:28Z; `517` at 10:40Z. Both hand-applied and both now in the runner's ledger
+via `--record-only`.
+
+### ⚠ MISSTEP 6 — my own precondition was written in an impossible order
+
+`509`'s precondition (2) said the per-page budget canary must pass BEFORE applying. It cannot: the
+marker it reads only exists once the step runs. Corrected in the file. What WAS measurable beforehand
+and was measured: non-output `CollectedData` keys do reach the durable row (all 13 recent writer
+orchestrations carry `agent_config` and `__my_requests_topic__`). **That turned out to be the wrong
+inference** — see below.
+
+### ⚠ MISSTEP 7, and it is the one that mattered: THE GATE WENT LIVE BLIND
+
+First page built after `509` (orch `8ce1ebc0`, iter 1, 10:31Z):
+
+```json
+{"status":"repair_unavailable","error":"no ai_service configuration resolvable",
+ "hits_before":3,"targets":1,"within_budget":2,"rewritten":[],"hits_after":3,"page_hits":3}
+```
+
+Detecting correctly. **Repairing nothing.** `resolveAIServiceConfig` reads the agent's ROOT
+`ai_service` and `workflow.steps.<currentStep>.config.ai_service`; `page-content-writer` has no root
+block (its model sits on `generate_content`) and `currentStep` for a loop substep is
+`process_sections_loop_iter_N_rewrite_negations`, which is not a top-level step. Neither lookup could
+resolve. Fixed by `517` (declared on the step, not fetched from the sibling — a step whose model comes
+from another step's config is what nobody finds when the model changes).
+
+**The thing worth keeping: this was visible in ONE query, and only because the council made me
+distinguish an infra failure from a style outcome** (round 4, `bug_historian`, medium — an advisory I
+could have banked). Without `repair_unavailable` and its Error log, the gate would have been live,
+silent, and returning a clean-looking status while repairing nothing: the armed-but-inert shape this
+estate keeps recording. **The advisory earned its keep within a day of being closed.**
+
+### The `__copy_gate` key does NOT reach the durable row — and the budget question is STILL OPEN
+
+Same run: `copy_gate`, `copy_gate_0`, `copy_gate_1` all present (the step's **output_field**, which
+`saveStepResultWithRetry` copies) — and `__copy_gate` **absent**. So that function's fresh-state copy
+does drop my bare key, exactly as reading it suggested; the `agent_config` evidence was misleading,
+because that key survives by being written before an AWAIT, where the full state is persisted.
+
+⚠ **And this run could NOT answer the accumulation question**, which is the discipline this lane keeps
+having to re-learn: iteration 0 had **0** hits and iteration 1 had 3, so `page_hits: 3` is consistent
+with accumulating AND with resetting. **A measurement that cannot come out either way is not a
+measurement.** It needs a page where two sections both carry hits. Until then the honest statement is:
+the per-page budget is **unproven**, the fallback (per-section budget, headlines always repaired) is
+safe, and the page-level number is counted at `compile_page_sections` regardless.
