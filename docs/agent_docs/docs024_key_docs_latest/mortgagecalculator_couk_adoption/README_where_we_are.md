@@ -1439,3 +1439,44 @@ two, and my watcher was looking for the word "failed", which was sitting right t
 message. It matched history rather than the event. No harm done, I caught it in the same breath,
 and I have written up the check that prevents it. I mention it because a watcher that lies
 confidently is exactly the sort of thing that quietly corrupts a day's conclusions.
+
+## 2026-08-21 (Friday, late afternoon) — the contact page is reworded and live
+
+You asked me to reword it rather than supply an email address. It is done and serving.
+
+**What it said before.** The page invited people to get in touch four separate times — the heading
+promised "a place here" for questions the tools don't answer, then "tell us here", then a promise
+of a reply if you "write to us", then an invitation to report a wrong figure and say what you'd
+entered. There was no email address, no phone number and no form anywhere on it. Every one of
+those four invitations was a dead end.
+
+**What it says now.** It opens by saying most answers come from the guides and calculators rather
+than from writing in, and then says plainly that there is no form or email address on the page. It
+keeps the part that was always true and worth keeping — that this site works out figures rather
+than giving advice, and that a decision about your own borrowing needs a lender or a broker. Then
+it sends people where they can actually be helped: the common questions page and the guides.
+
+**One nice thing I didn't ask for.** I did not write this copy — I wrote the brief and the
+framework wrote the words, which is the rule. It found a destination I hadn't thought of: if a
+figure from a calculator looks wrong, it now points you at the page explaining the assumptions
+behind our figures, which sets out what each calculation is based on and where it can fall short.
+That is a better answer than the one I would have written, and it is the argument for briefing the
+system rather than typing the sentences myself.
+
+**I checked it properly rather than trusting the system's word.** I swept the live page for all
+seven of the old promise phrases — every one now returns nothing — and confirmed there is no email
+address, no form, and no email-shaped text anywhere in the page's code. Nothing was invented.
+
+**One judgement I've left to you rather than making it myself.** The page is still *titled*
+"Contact us", and the link to it in the footer still reads "Contact". A page called "Contact us"
+that tells you there's no way to contact us is arguably fine — it is the page people go looking
+for, and it now gives them an honest answer instead of a dead end. But it is a fair thing to
+disagree about, and changing it touches the footer of every page on the site, so I have not done it
+on my own initiative. Say the word either way.
+
+**And one small confession.** My automatic check briefly reported that an email address had
+appeared on the page, which would have meant the system invented one. It hadn't — my checker was
+counting "@" symbols and had picked up three of them inside the page's stylesheet, where they are
+part of the styling language and not text anyone sees. I caught it within a minute by searching
+the page properly. No harm done, but it is the second time today a checker of mine has told me
+something confident and wrong, so I have written both up.
