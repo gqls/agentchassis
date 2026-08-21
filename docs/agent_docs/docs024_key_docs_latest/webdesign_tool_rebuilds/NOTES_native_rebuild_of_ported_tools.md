@@ -2476,3 +2476,26 @@ their brief had dropped the teaching copy; **the gate's first live catch**, clos
 exposure" their TL-047 entry stated); attempt 2 regenerated IN PLACE — same component id, hex-first
 fallback order fixed, history intact. Serve-grade rides their rerender `1fe89947` (~44 items ahead);
 this lane takes it, control = the builder's line order in the served template.
+
+## 2026-08-21 14:30Z — #26 jwt-inspector built+retired+graded (26 of 63) — AND it is TL-047's absence-arm proof
+
+Item **`4531f29c-7630-4769-b05e-c0e7ff569d23`** (13:58:49Z, spec with NO `replace_existing` key — the
+first plain-absence filing after hotfix 532): built clean, which is the second-producer proof the
+286/331 lane needed; reported to them for their close block. Retire `UPDATE 1`, ported slot
+`1c6d0850` md5 `2a59a4ec…` intact, one surviving slot by FUNCTION. RUN: complete, adopted, component
+`713e3430` (16,223 chars).
+
+**COMPONENT PASS by mechanism:**
+- the fabricated-field class is dead: `payload[key]` appears only in READS for the interpretation
+  panel — nothing is written into the decoded object before display;
+- interpretation lives OUTSIDE the JSON: separate panel renders exp/iat/nbf as local dates, exp
+  additionally judged against now() — "(expired N ago)" / "(expires in N)" with humanised durations;
+- `clearAll()` on EVERY branch: input change, empty, wrong segment count, undecodable segment — a
+  stale decode cannot survive; the two failure modes carry distinct messages;
+- the honesty note is stronger than briefed: decode-not-verify, anyone-can-forge, no production
+  secrets/user tokens/signing keys, runs locally;
+- 0·0·0·0 standard counts, 5 listeners.
+**Controls pinned:** NEGATIVES (0): `id="jwtInput"`, `id="outHeader"`, `id="outPayload"`,
+`_human_exp`, `id="errorMsg"`. POSITIVES: `id="jwt-input"`, `does not verify`,
+`jwt-status-expired` ×2. Serve-grade pending on `7c9deeee` (queued, ~97 were ahead at filing).
+**Phase A remainder: token-calculator, clip-path.**
