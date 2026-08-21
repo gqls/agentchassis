@@ -30,8 +30,14 @@
 -- `bugs_open/306` session and re-verified here:
 --
 --   item `cc1db035` (tool-generator, an `add_tool`) carries `result.commit_sha`.
---   tool-generator CANNOT produce a commit: 8 orchestrations all-time, ZERO
---   carrying `commit_sha` anywhere in `collected_data`. The value sits at the
+--   tool-generator does not produce commits: ~~8 orchestrations all-time~~
+--   **CORRECTED after a council objection — "all-time" was not sourceable and I
+--   should not have written it.** `orchestration_states` retention is per-status,
+--   and the table's oldest row of ANY kind is 2026-07-19; for tool-generator
+--   specifically the retained window starts 2026-08-20 17:06Z. Re-measured inside
+--   the real window 2026-08-21: **13 rows retained, 0 carrying `commit_sha`**
+--   (it was 8/0 when first checked; the denominator moves, which is the point).
+--   THE MECHANISM ARGUMENT DOES NOT REST ON THE COUNT: the value sits at the
 --   TOP LEVEL of the dispatch envelope — a sibling of `response`, `retry_payload`,
 --   `agent_type` — not inside tool-generator's own `response.create_result`.
 --   Its parent (`62df9f7a`) is a multi-iteration loop whose iteration 0 was a
@@ -141,6 +147,43 @@
 -- right: treat "ten handlers" as a snapshot, never a final count. The standing
 -- form of this check does not exist yet; the same query is in this file's guard
 -- and would want the daily-CronJob treatment the config-key-audit checks use.
+--
+-- ============================================================================
+-- COUNCIL REVISE (corr 2716123d) — the four objections, each ANSWERED BY A CHECK
+-- rather than by argument. Re-run any of them before applying; they are cheap.
+-- ============================================================================
+-- 1. editquality: "an UPDATE keyed on `type` alone can silently patch the wrong
+--    row — four agent types carry TWO active definition rows." CHECKED, and this
+--    is not one of them: `SELECT id, version, is_active, is_snapshot, deleted_at
+--    FROM agent_definitions WHERE type='build-dispatch-loop'` returns exactly
+--    ONE row (version 1). The predicate here is already
+--    `is_active AND NOT is_snapshot AND deleted_at IS NULL`; the risk was real to
+--    raise and the answer is a query, not a promise.
+--
+-- 2. guardian: "`?` is INERT up to v1.0.1320 and LIVE from v1.0.1321, and fleet
+--    rollouts are gradual — 'the fleet is on vX' is false for hours after a
+--    release." CHECKED at the pods, not at the tag: BOTH agent-chassis pods run
+--    `v1.0.1321` on ONE shared digest `sha256:3ed50651…`, started 2026-08-20
+--    19:51Z — ~20 hours before this migration, so the rollout is long finished and
+--    there is no mixed fleet to straddle. The chassis is the only reader of this
+--    step config.
+--
+-- 3. prior_art_librarian: "'all-time' counts cannot be sourced from these tables."
+--    CORRECT, and the header above is fixed rather than defended. See the
+--    tool-generator paragraph: the retained window is stated, the figure is
+--    re-measured inside it, and the argument is re-grounded on WHERE the value
+--    sat rather than on how many rows lacked it.
+--
+-- 4. editquality: "a self-blocking migration left UNAPPLIED is a loaded gun for
+--    the next `--apply` run." Sharpest of the four, and the reason this file is
+--    NOT named `_HOLD`: a `_HOLD` sidecar is excluded from the runner, which is
+--    right for a file that must wait on a HUMAN decision, but this one waits on a
+--    MACHINE-CHECKABLE state that its own guard tests. So the correct handling is
+--    to leave it sweepable and let the guard decide: before the tenth handler was
+--    converted the guard REFUSED (loudly, naming it); afterwards it passes. The
+--    danger the landmine names — an unapplied ordering-critical file quietly
+--    riding a later sweep — is exactly what the guard makes safe, because the
+--    ordering constraint is enforced in the file rather than in someone's memory.
 --
 -- ROLLBACK: 537_bdl_mark_complete_declares_commit_sha_ROLLBACK.sql
 -- ============================================================================
