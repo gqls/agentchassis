@@ -41248,3 +41248,41 @@ sharper half: **an unverified mutation-proof claim is worse than none**, because
 treats the branch as covered and deletes their own check. Related:
 [[mutate-the-code-to-prove-the-guard]] — this is its failure mode when the mutation is *described*
 rather than *run*.
+
+## 2026-08-21 (second) — `mortgagecalculator_couk_adoption`: I filed a bug on "nothing routes this failure", and the refuting line was four rows above it in my own tool output
+
+**The claim:** `bugs_open/348`, filed today — a render refusal reaches a success-labelled
+`complete` because *"neither `process_sections_loop` nor `spawn_content_writer` declares an
+`error_step`"*, and `CompleteWorkItemAction`'s guard *"cannot help, because nothing flagged the
+item"*. Written up in NOTES, in the owner's log, in a cross-lane CONTRIB and in a fresh bug file.
+
+**What caught it:** the `bugfix_307_terminal_write_contract` lane read my row within the hour and
+pointed at `attempt_count` and `retry_after`. I re-measured and they are right.
+
+**What is actually true:** the failure ladder **did** write — `attempt_count` incremented and
+`retry_after` was stamped `+30m` on both attempts. The parent step that carries the child's failure
+is **`call_content_writer`**, whose `error_step` **is** `mark_item_failed`. The dispatch loop's
+`mark_complete` then overwrote the re-triaged row about two seconds later, because `triaged` is not
+in the completion guard's excluded list. The flag was **written and trampled**, not absent.
+Owned by `bugs_open/344`.
+
+**Why this one stings: the disconfirming evidence was in my own output.** I dumped the entire
+routing table for both agents and read it. `call_content_writer -> mark_item_failed` sat **four
+rows above** the `spawn_content_writer -> (none)` I quoted. I selected the row that fitted the
+theory and never asked which parent step actually fired — the orchestration told me the *child*
+step (`..._render_section`) and I treated that as the whole answer.
+
+**The cheap check that would have caught it, and it is not "read more carefully":**
+**two columns on the row itself.** `attempt_count > 0` or a non-NULL `retry_after` on an item you
+are about to describe as never-flagged is a *contradiction of the claim*, available in the same
+`SELECT` I was already running — I had queried `attempt_count` repeatedly and watched it go 0→1→2
+without noticing it refuted the sentence I was writing. **Before asserting "nothing wrote to X",
+query the columns a write would have touched.** An absence claim is a query, not a reading.
+
+Second, structural: **when a table has many rows and one supports you, name the row that FIRED,
+not the row that fits.** The orchestration's failing step is the child's; the routing question is
+the parent's. I never joined them.
+
+Related: [a CITATION is not a READ — quote the deciding ARM] — same failure, and I had read that
+entry. Also [census the WRITE HISTORY before designing a guard]: `retry_after` *is* the write
+history, and it was one column away all morning.

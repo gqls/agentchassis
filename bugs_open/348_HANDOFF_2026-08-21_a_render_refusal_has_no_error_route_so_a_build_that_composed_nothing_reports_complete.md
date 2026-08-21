@@ -15,7 +15,43 @@ Live on `mortgagecalculator.co.uk` today; **[UNMEASURED] fleet-wide** — see §
 > **guard code read at the deciding arm**. Every claim below is one of those three. Nothing here is
 > inferred from the loop.
 
-## 1. The one-paragraph version
+
+> # ⚠ CORRECTED 2026-08-21, SAME DAY — THE MECHANISM BELOW IS WRONG. **`bugs_open/344` OWNS THIS.**
+>
+> **What survives:** the OBSERVATION (a build that composed nothing reported `complete`, twice,
+> with 0 `page_components` — §2's table is accurate and re-measurable) and §4's argument that a
+> per-cause guard pattern does not survive a new cause.
+>
+> **What is REFUTED:** ~~"the path is unrouted, so nothing ever flagged the item"~~. A failure
+> write **did** reach the item. The `307`-verification lane read this row and showed it; I then
+> re-measured and they are right:
+>
+> | evidence | reading |
+> |---|---|
+> | `attempt_count` | **1 after attempt 1, 2 after attempt 2** — a ladder consumed an attempt |
+> | `retry_after` | **stamped `+30m` each time** (`2026-08-21 12:06:07` after attempt 2) |
+> | `page-build-handler` `call_content_writer` | **`error_step = mark_item_failed`** — routed |
+>
+> So the child's refusal IS unrouted inside `page-content-writer`, but the child FAILING makes the
+> parent's **`call_content_writer`** step error, and that step **is** routed to `mark_item_failed`,
+> which ran the failure ladder (WII-024). **The dispatch loop's `mark_complete` then overwrote the
+> freshly re-triaged row ~2 seconds later**, because `triaged` is not in the completion guard's
+> excluded list. **The flag was written and then trampled — not absent.**
+> The queryable fingerprint is **`retry_after > completed_at` on a `complete` row.**
+>
+> **How I got it wrong, because it is the useful part:** I dumped the whole routing table and
+> **the refuting line was in my own output** — `call_content_writer -> mark_item_failed` sat four
+> rows above the `spawn_content_writer -> (none)` I quoted. I cited the step that fitted the
+> theory instead of establishing which step actually fired. The orchestration named
+> `..._render_section` as the failing step, and I never asked which PARENT step carried that
+> failure upward. **Reading a table is not reading the deciding arm.**
+>
+> **Do not fix from this file.** `bugs_open/344` has all eight arms from code plus a deterministic
+> canary; this row is its named natural-damage case. §7's candidates here are superseded by 344's,
+> whose candidate 1 (completion refuses a future `retry_after`) is the contained one.
+> §5 below (the failure ladder's own `42P18`) is real and separate — it is `bugs_open/307` §9.
+
+## 1. The one-paragraph version ~~(mechanism)~~ — SUPERSEDED, read the banner
 
 `page-build-handler` has two hand-written guard steps whose own descriptions say they exist to
 *"park the work item visibly instead of letting the dispatch loop stamp it complete"*. They cover
@@ -61,7 +97,7 @@ be freshly produced rather than left over.
 the render orchestration **FAILED**, its parent reached `complete_error`, and the outer sagas
 reported `complete`/`COMPLETED`.
 
-## 3. Why — read from the live agent definitions, not inferred
+## 3. ~~Why~~ — **THE ROUTING TABLE BELOW IS REAL BUT INCOMPLETE**: it omits `call_content_writer -> mark_item_failed`, which is the step that actually fired. Kept unedited as the evidence of the wrong call; the correct mechanism is in `bugs_open/344`.
 
 ```sql
 SELECT k, v->>'error_step' FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s(k,v)
