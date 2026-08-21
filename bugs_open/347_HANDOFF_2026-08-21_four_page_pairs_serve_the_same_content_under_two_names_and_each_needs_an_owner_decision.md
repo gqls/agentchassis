@@ -1,3 +1,11 @@
+> **⚠ NUMBER COLLISION — there are two 347s, resolve by SLUG not by number.** This one is
+> the twin-pairs file (`…_four_page_pairs_serve_the_same_content_under_two_names…`). The
+> other is `bugs_closed/347_HANDOFF_2026-08-21_webdesign_couk_head_component_is_a_fragment_with_no_head_element.md`,
+> filed and closed by another lane the same day. This file was itself renumbered from 346
+> after a *different* session took that number two and a half minutes before me — three
+> sessions filed into the same two numbers within an hour, which is what this tree does.
+> `git log` the FILE PATH, never the number.
+
 # 347 — four page pairs serve one page under two live names; the minting is fixed, the existing duplicates are not, and each pair needs an owner decision rather than a fix
 
 **Filed 2026-08-21**, spun out of `bugs_closed/215` when that bug closed. 215's
