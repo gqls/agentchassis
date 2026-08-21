@@ -1253,3 +1253,41 @@ prose:**
 5. **`tooling_provenance`: no `doc_notes` entry for the next lane.** **Done** — `doc_notes`
    `4550f2da`, subject `css-patch-agent`, recording what changed, the floor's derivation, the
    census consequence, and every deferred candidate.
+
+### 7. 2026-08-21 (evening) — the shared-theme case RESOLVED by owner decision, and the fleet is now 22/22
+
+**OWNER RULING, asked and answered the same evening: finetuning.uk and gaswholesalers.com
+can have separate theme rows.** This file had carried the shared row as an open question
+since the THIRD WAVE section correctly declined to backfill it (*"seeding from either site's
+file would push that site's CSS onto the other ... needs a human decision, not a backfill"*).
+
+**Migration 547** (applied, recorded, verified) gives each site its own
+`collection-<domain>` + `theme-<domain>`, `origin='adopted'`, seeded from that site's OWN
+served stylesheet with the md5 asserted in the verify block. Three things it does
+deliberately, each of which would have been a defect if skipped:
+
+- **The three composition FKs are COPIED from the seed**, not regenerated. What renders
+  `assets/css/styles.css` is `render_css_from_spec` reading the palette / layout /
+  typography_set rows — *not* `css_content` — so copying them is what guarantees the next
+  design run on either site produces what it produces today. `forked_from_theme_id` records
+  the lineage.
+- **The chrome pins are copied too** (`header_component_id`, `footer_component_id`).
+  Omitting them silently drops both sites' header and footer — `bugs_closed/170`'s trap in
+  mirror image: not a fork that copies a pin it should not, but a fork that fails to copy
+  one it must. Asserted by id in the verify block.
+- **The seed `professional-dark` collection and theme are untouched** and now linked by zero
+  sites. They are library assets; a future site may still adopt them.
+
+Both files passed the two-clause stale-ink check before seeding, so neither carries a
+pre-2026-08-14 derivation. Proven by running the whole migration with `COMMIT` replaced by
+`ROLLBACK` first — both INSERT pairs, both UPDATEs, the full verify block — then applied for
+real with identical output. Only `sites.style_collection_id` and the self-referencing
+`forked_from_collection_id` reference `style_collections` fleet-wide, so repointing the two
+sites is the complete change; both sites re-checked serving 200 with unchanged bytes after.
+
+**Migration 548** then seeds `webdesign.uk` from the `vm-sites` blob (see the correction in
+§5 above — it was never "cleared"), which was the last row on the refusing side.
+
+**Fleet gate verdict, measured at each step:** 19 PASS / 3 REFUSE (542 applied) → **21 PASS /
+1 REFUSE** (547) → **22 PASS / 0 REFUSE** (548). Every linked theme row in the fleet is now a
+plausible, unshared stylesheet, and 543 keeps them that way at every render.
