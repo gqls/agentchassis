@@ -1,0 +1,152 @@
+# NOTES — 204, the stored-slot-identity blindness at its remaining call sites
+
+Append-only, newest at the bottom. Technical log: what was tried, what the system
+actually said, and every misstep.
+
+---
+
+## 2026-08-21 (a) — session start: what I found before touching anything
+
+Picked up `bugs_open/204` on the owner's instruction. First job was to establish
+what part of it is still open, because the file's own headline says
+**"✅ FIXED, LIVE AND BEHAVIOURALLY VERIFIED END TO END — 2026-08-06, v1.0.1259"**
+and is deliberately kept in `bugs_open/` (owner direction 2026-08-06, "leave the
+bugs that you've found in bugs_open not in the closed bug file" — so the file's
+presence there is NOT evidence the defect is live; read the foot of the file).
+
+**The originally-filed defect IS fixed.** `plan_sections` (the BUILD path) resolves
+`page_components.component_id` first via `loadPageSlotComponentIDs`
+(`platform/orchestration/actions/plan_sections_action.go:1739`), shipped as
+`13252f714`, council APPROVED `d3e232b8`, live v1.0.1257, canary proven at
+v1.0.1259. Nothing here disputes that.
+
+**What is still open is the two CONTRIBUTIONS appended later**, and the 2026-08-20
+one is the real remaining bug: the same blindness at a THIRD call site,
+`ValidateSitePlanAction`'s `validate_components` arm, which **drops** an
+unresolvable name where `plan_sections` merely **defers** it.
+
+### Ownership check (CLAUDE.md: check who owns it before routing work at a bug)
+
+`scripts/who-owns.py 204` — the two lanes that CITE it most (`brochure_component_library`,
+`loanandmortgagecalculator_couk`) are the lanes that FILED the two contributions, on
+2026-08-17 and 2026-08-20, from canaries fired for *other* fixes (215's identity work).
+Neither is fixing 204 itself; both explicitly say so ("Not a reopening", "filed for
+diagnosis rather than guessed"). `bug_backlog_clearing` owned the ORIGINAL fix and its
+last commit in-lane was 2026-08-14 on an unrelated bug (264). Last commit touching the
+204 file: `e102241cd`, 2026-08-20, the contribution itself. **No thread is fixing this.**
+
+Open work-item check: no `site_work_items` in a non-terminal state mention
+`plan_sections` / `validate_plan` / `validate_components` / positional slots. The three
+non-terminal hits on that query are `section_source_drift` items from 07-28/08-04/08-10,
+a different (and older) mechanism.
+
+⚠ Both checks are LAGGING — `who-owns.py` reads COMMITS, so a session mid-fix with a
+dirty tree is invisible. Re-run at each phase boundary.
+
+### Is the bug still valid? Read at HEAD, 2026-08-21
+
+Yes, and it is worse than when it was written. Three independent confirmations:
+
+1. **The code is unchanged.** `v3_site_actions.go:3838` still does
+   `fn, ok := resolver.resolve(name); if !ok { …; continue }` — `continue` being the
+   drop. `loadComponentNameResolver` (`:4330`) still selects only
+   `function, name, display_name FROM content_components WHERE component_level IN
+   ('section','element')`. `resolve()` (`:4369`) has five arms and none of them can
+   see a `page_components.slot_name`.
+2. **The config that arms it is live on two agents** [MEASURED 2026-08-21]:
+   ```sql
+   SELECT type, step.key, step.value->'config'->>'validate_components', step.value->'config'->>'menu_field'
+   FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS step
+   WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+     AND step.value->'config' ? 'validate_components';
+   ```
+   → `build-site-planner|validate_plan|true|available_components` and
+   `site-planner|validate_plan|true|(null)`.
+3. **The population grew.** Census of `pages.sections` names resolvable by neither
+   `content_components.name` nor `.function`:
+
+   | | 2026-08-05 (filing) | 2026-08-06 | **2026-08-21 (today)** |
+   |---|---|---|---|
+   | unresolvable names | 86 | 87 | **107** |
+   | sites | 5 | 6 | **7** |
+
+   Today: loanandmortgagecalculator.co.uk 70 (41 pages), gaswholesalers.com 11,
+   finetuning.uk 10, leopardessconsulting.co.uk 6, dartsonline.com 4,
+   robot-hands.com 4, oufe.com 2. loancalculator.co.uk — 57/57 at filing — is now
+   **0 unresolvable**, which is the 08-06 fix's own footprint showing up in the census
+   (its sections were re-pointed), not a shrinking problem.
+
+### The measurement that settles it, and it is not one I expected to get
+
+`bugs_open/282`'s lane shipped a DURABLE record of every dropped section name
+(`agent_error_log`, `error_code='PLAN_SECTION_NAME_DROPPED'`, from
+`recordDroppedSectionNames` / `droppedFindings` in `component_name_resolver_menu.go`).
+It went live on the 08-16 roll. Since then [MEASURED 2026-08-21]:
+
+```sql
+SELECT action, count(*) AS drops,
+       count(*) FILTER (WHERE context->>'section' ~ '-[0-9]+$') AS positional_shaped,
+       count(DISTINCT context->>'page') AS pages,
+       min(occurred_at)::date, max(occurred_at)::date
+FROM agent_error_log WHERE error_code='PLAN_SECTION_NAME_DROPPED' GROUP BY action;
+```
+```
+ validate_plan | 140 | 140 | 41 | 2026-08-17 | 2026-08-20
+```
+Breakdown: `prose-0` 70, `tool-1` 34, `prose-2` 18, `tool-0` 12, `prose-1` 6.
+
+**140 of 140 — every recorded section drop in the fleet is this bug.** Not one
+display-name variant, not one typo, not one stale function: the class of miss that
+`validate_components` exists to catch has produced ZERO records, and the class it was
+never designed to see has produced all of them.
+
+⚠ **Why this figure could have come out otherwise, which is what makes it evidence**
+(the estate's disconfirmability rule): the same query would have returned a mixture, or
+mostly display-name drops, if the resolver's other arms were doing the work the comment
+claims. It would have returned 0 if `validate_components` were off, or if the durable
+record were unwired. It returned neither.
+
+⚠ **What it does NOT say:** it covers 08-17 onward only, because that is when the record
+shipped — 140 is a lower bound on the damage, not a total, and the 08-17 and 08-20
+incidents are inside the window. Do not quote it as "the drops began on 08-17".
+
+### The blast radius is wider than the bug file says: FOUR call sites, not one
+
+The file names `validate_plan`. Grepping the resolver's own symbols
+(`loadComponentNameResolver(`, `resolver.resolve(`, `recordDroppedSectionNamesFor`)
+finds it consumed at **four** places, not one:
+
+| call site | file:line | what it does with the drop |
+|---|---|---|
+| `validate_plan` | `v3_site_actions.go:3838` | drops from the plan; **before** the object-form→string split, so RFC_016 plan-time `facts` die with the entry |
+| `applyAddToPage` | `apply_gap_plan_action.go:244` | drops from a `content_rewrite` item's `add_sections`. The file's own comment calls this **"the fleet's dominant placement path"** |
+| `applyNewPage` | `apply_gap_plan_action.go:374` | drops before INSERT. A new page has no stored slots, so this one is probably CORRECT |
+| `applyRetypeExisting` | `apply_gap_plan_action.go:905` | drops, then `UPDATE pages SET sections = $3::jsonb` **directly onto a live page** |
+
+So the persistence surfaces are two, not one: the `pages` upsert
+(`site_db_actions.go:1201`, `sections = EXCLUDED.sections`, unguarded) and the retype
+UPDATE.
+
+### The precedent that is sitting inside the very statement that does the damage
+
+`site_db_actions.go:1201`'s two immediate neighbours in the same `ON CONFLICT DO UPDATE`
+were given destructive-write guards on 2026-08-19 after blank overwrites were measured
+on robot-hands.com:
+
+```sql
+nav_label        = COALESCE(NULLIF(pages.nav_label, ''), EXCLUDED.nav_label),
+meta_description = COALESCE(NULLIF(EXCLUDED.meta_description, ''), pages.meta_description),
+sections         = EXCLUDED.sections,          -- <- no guard
+```
+
+Same statement, same class of harm (an empty incoming value overwriting a real stored
+one), fixed for the two text columns and not for the jsonb one.
+
+### Filed for an independent read
+
+Per CLAUDE.md's diagnosis-before-debugging default, the claim I am about to make is
+cross-cutting and structural ("one shared resolver, four call sites, two write
+surfaces"), so I filed a `090` run rather than assert it from my own greps:
+intake fired 2026-08-21, **RUN_CORRELATION_ID `1588b0da-5657-451a-8dc5-a5f63324712f`**
+(the dispatch loop's own correlation — the key the artifacts are written under, NOT the
+intake id the script prints first). Verdict to be recorded below when it lands.
