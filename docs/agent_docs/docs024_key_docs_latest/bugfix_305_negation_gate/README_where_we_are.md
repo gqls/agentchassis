@@ -130,3 +130,45 @@ Where it stands tonight: the daily check on our site instructions is live and ha
 The writing check goes live with the next platform build; the database change that switches it on is
 parked with two conditions written at the top of it. And the three pages you read still say what they
 said — for the reason I gave this morning, which has not changed.
+
+## 2026-08-21 evening — live, and the useful part was watching it fail
+
+Both halves are running now. The daily check on our site instructions has been going since the 20th;
+the writing check went live yesterday morning on the fresh build, and the newest build this evening
+carries the last two corrections.
+
+What I want to tell you about is not that it works, but the two ways it was wrong, because both were
+invisible to every test we had.
+
+**Three minutes after it went live it was doing nothing at all.** It found the mannerism correctly on
+the first page and then could not repair it, because it could not find a model to call — this writer
+keeps that setting on a different step from the one we added. Detecting perfectly, repairing nothing,
+and reporting a status that looked orderly. We caught it in one query only because a reviewer had
+insisted two days earlier that "the machine broke" and "nothing needed changing" must not look the
+same. I nearly waved that objection through as paperwork. It paid for itself within a day.
+
+**Then the first busy page found a real bug in my repair.** Where several of these phrases sit in one
+block of text, each rewrite was being applied to the original version of that block, so they wrote over
+one another — six rewrites accepted, one actually applied, and the report claimed six. That is fixed
+and live.
+
+**And I nearly certified it with a check that could not fail.** I asked whether each rewrite's text
+appeared in the stored page. Five of six said yes. It was meaningless: these edits trim the end of a
+sentence, so the beginning reads the same whether the edit landed or not. The real question — is the
+phrase we removed actually gone? — said three of the six were still sitting there. I have written that
+particular lesson down four times in this area now, and I still did it, on my own work, with an answer
+I wanted. It is logged as such.
+
+In between those, it did the job well: on a real page it found five instances, left a regulatory
+sentence alone, allowed two under the per-page allowance, and rewrote two — *"the result breaks down by
+area rather than giving you one verdict:"* became *"the result breaks down by area:"*, with nothing else
+on the page touched.
+
+One check is still outstanding and it is only waiting for ordinary traffic: a busy page built since
+this evening's release, so I can watch a repaired sentence arrive in the stored page rather than in a
+status. The fleet has been quiet since three o'clock.
+
+Nothing has changed about the three pages you read. That tagline is in that site's own instructions,
+which order it onto four page types, and the check deliberately leaves alone anything the instructions
+supplied. Nine of our twenty-five sites are in the same position, and that is a decision about
+positioning rather than a thing code can settle.
