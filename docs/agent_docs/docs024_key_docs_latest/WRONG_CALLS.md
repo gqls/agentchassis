@@ -42107,3 +42107,13 @@ a **one-level walk** of `agent_definitions` (missed 3 of 6 stampers), a **substr
 Each returned something plausible, specific and wrong; none announced its own limits; and in every
 case the disconfirming check was one query away. **A census is only as good as the thing it walks —
 name the walk, and name what it cannot reach, before quoting the number.**
+
+> **CONFIRMED 2026-08-21, later:** the "likely mechanism" above is now measured fact (the
+> other session's timeline, their corrected entry `98f631917`): 48 seconds end to end — their
+> unannounced in-tree half-repair landed between my `git status` (clean, truthfully) and my
+> `cp` (which read their intermediate state, truthfully). Neither history nor status could
+> have shown it: **on a shared tree an uncommitted edit is state another session can READ but
+> no history can SHOW.** The paired remedy, theirs-and-mine: claim a REPAIR by message before
+> running it, the way fixes are claimed — a repair is the more dangerous of the two, because
+> it runs fast, feels obviously correct, and operates on state someone else may be mid-way
+> through. My entry's own lesson stands unchanged: content is never proven by position.
