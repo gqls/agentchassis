@@ -121,7 +121,45 @@ The entry condition has been 0 for three days, so **you cannot wait for it**. Ei
   no waiting awaited request. Mutation-prove it: revert the fix and the test must fail.
 - **Or capture the next natural one.** RSH-011 `wedge-evidence-capture` is live and hourly, and its
   capture path is induction-proven; it records the full `awaited_requests` set for a freeze while it
-  is still happening.
+  is still happening. **But read the next section before you interpret anything it banks.**
+
+### ⚠ "The capture has banked N rows" is NOT evidence this bug recurred — and that is the FIRST check anyone will run
+
+`[MEASURED 2026-08-21]` The capture has banked **4** orchestrations, **all after the burst**, all
+titled `WEDGE EVIDENCE CAPTURE (live) — bugs_open/029`. **None of them is this bug**, and the check
+that settles it is one line rather than four inspections:
+
+> **This bug's entry condition is an abandoned rv3 await.** There have been **0** of those since
+> 2026-08-18 — positive control, which had to be non-zero and is: **30** in the 08-17 burst window.
+> **So nothing captured since 08-18 can be an instance of 343, whatever the note is titled.**
+
+Independently: **0 of the 4** are even on a `build-dispatch-loop`. What they are —
+`page-content-writer` at `process_sections_loop_iter_0_generate_content`, `endpoint-health-checker`
+and `availability-discovery-agent` at `complete`, `generic` at `spawn_verifier` — with freeze times
+of **0.039 s to 1m36s**, against this bug's shape of a freeze *after* a 300 s exhaustion.
+
+**Why it will mislead:** the capture's trigger is *"an `EXECUTING_STEP` row older than the
+threshold"*, which is far broader than this signature, and its notes carry the `bugs_open/029`
+label — a number that no longer exists and whose freeze now lives here. Four rows in a table named
+`wedge-evidence` reads as four wedges. It is not.
+
+**RULING on the trigger, since it lives in this bug now: LEAVE IT BROAD.** Do not narrow it to the
+343 signature. Three reasons, and the third is the one that decides it:
+1. A narrow filter **would have missed all four**, and **two of the four rows have since been deleted
+   by the cleanup** — i.e. the capture pre-empted exactly the loss it exists for, on rows a signature
+   filter would have skipped.
+2. The signature was derived from **one outage day** (`n=0` outside it, see above). Filtering on it
+   would bind the instrument to the only sample we have, and a variant would be invisible.
+3. **The two failure modes are not symmetric.** Breadth costs a misreading, which a written caveat
+   fixes for free — this section. Narrowness costs the one capture that mattered, and that is
+   **unrecoverable**. Prefer the recoverable failure.
+
+**Noticed, NOT filed, and not investigated** (flagged so it is not lost): two of the four were parked
+at `current_step = 'complete'` having run **0.09 s** and **1.1 s**. An orchestration that reaches its
+terminal step and then stops is not this bug's shape and may be a separate defect or a known one.
+`[UNVERIFIED]` — I grepped `bugs_open/` and `bugs_closed/` for a terminal-step stall and found **no
+prior art**, but that was one grep on one phrasing and is not a prior-art clearance. Do not file it
+on the strength of this paragraph.
 
 **Do not treat quiet as evidence of a fix.** Six of the eight days around the 08-17 burst were also
 zero, *before* anything was changed.
