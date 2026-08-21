@@ -1,7 +1,42 @@
 # 345 — a component rejected by pre-store validation is regenerated from **identical inputs**, so the writer never learns why it was rejected: every repeat produces the *same* rejection, and one item burned **52 generations** under a 3-attempt budget
 
 **Filed:** 2026-08-21 by the `bugfix_311_component_keys` lane, after it blocked the repair of
-`bugs_open/311`'s **originating page**. **Status: OPEN, unowned.**
+`bugs_open/311`'s **originating page**. **Status: OPEN — FIX BUILT AND COMMITTED 2026-08-21, INERT until the next chassis roll.**
+`Council-Submitted: 67b07528-b40b-4eef-9abc-35ad70efae04`.
+
+> **⚠ WHERE THE CODE ACTUALLY IS, because `git log` will not tell you.** The **Go half is at HEAD
+> inside commit `0f80f5ea1`, whose message is about `bugs_open/344`** — another session edited
+> `load_work_item_actions.go` for the failure-ladder work while my edit was in the shared working
+> tree, and a pathspec commit takes the file from the tree. The documented same-file passenger
+> trap, firing exactly as written. **Nothing is lost and forward-only holds**: verified by
+> exporting `git archive HEAD` to a clean directory, where the package builds and all four 345
+> tests pass. So `git log --oneline -S 'item["last_error"]'` finds it and `git log` on this bug's
+> number does not. My own commit (tests + migration `533`) therefore describes a Go change it does
+> not contain — stated here rather than left to mislead.
+>
+> **What shipped:**
+> - **Go** (`load_work_item_actions.go`): `wi.error` joins the loader's SELECT, scanned as
+>   `sql.NullString`, and surfaces as `current_item.last_error` **only when `attempt_count > 0`**
+>   and non-blank, **capped at 2,000 chars** with an explicit `…[truncated]` marker. A first
+>   attempt is byte-identical to before; NULL/empty/whitespace leave the key **absent** rather than
+>   present-and-empty.
+> - **Tests** (`load_work_items_last_error_test.go`): four properties, each **mutation-proven** —
+>   removing the attempt gate, the blank check, or the cap fails its own test and only that one,
+>   and the restored control is green. Two existing sqlmock tests were updated because a new SELECT
+>   column breaks a positionally-declared column list.
+> - **Config** (`docs/agent_docs/sql_for_agents/533_component_creator_prompt_reads_last_error.sql`
+>   + `_ROLLBACK`): the prompt renders **named** placeholders, so the new key is invisible until it
+>   is referenced. `{{if}}`-guarded, `DO`/`RAISE` guards on both sides (a verify block of `SELECT`s
+>   cannot stop a `COMMIT`), anchored on a verbatim line. **NOT YET APPLIED.**
+>
+> **No ordering constraint, and this file does not claim one:** with the Go half absent the block
+> renders nothing; with the config half absent the key is simply unread. Either may land first.
+> **Candidates 2–4 of the list below are NOT done** — the retry budget is still spent on a
+> deterministic refusal, the ~17-generations-per-attempt inner loop is untouched, and no source
+> enumeration was added.
+>
+> **How to tell whether it worked, once rolled:** a second attempt's rejection reason should
+> **differ** from the first. Under this bug it never has, in 99 rejections.
 **Severity: live, wasteful, and it makes a whole class of page unrepairable** — 99 rejections
 across 3 sites since 2026-08-15, and not one retry has ever produced a different outcome.
 
