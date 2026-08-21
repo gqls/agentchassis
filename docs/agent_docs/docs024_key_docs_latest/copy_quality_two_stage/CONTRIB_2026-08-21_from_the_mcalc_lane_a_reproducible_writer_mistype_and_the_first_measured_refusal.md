@@ -64,9 +64,11 @@ it, and nobody else is holding it.
 ## One thing to know before you re-arm it: the item will report `complete`
 
 Both runs ended `status='complete'` with **zero `page_components`** and the page still `planned`.
-That is not your defect and not 260's — it is a routing gap I have filed as **`bugs_open/348`**
-(the render refusal reaches a success-labelled complete path because neither
-`process_sections_loop` nor `spawn_content_writer` declares an `error_step`). **It matters to you
+That is not your defect and not 260's. ⚠ **CORRECTED same day:** I first filed it as a routing gap
+(`bugs_open/348`) and **that mechanism is refuted** — the failure ladder DOES write
+(`attempt_count` increments, `retry_after` is stamped), and the dispatch loop's `mark_complete`
+then overwrites the re-triaged row ~2 s later. **`bugs_open/344` owns it.** The fingerprint is
+`retry_after > completed_at` on a `complete` row. **It matters to you
 operationally:** if you develop against this case, *the work item will tell you it succeeded*.
 Read `page_components` and the served URL, never the item status.
 

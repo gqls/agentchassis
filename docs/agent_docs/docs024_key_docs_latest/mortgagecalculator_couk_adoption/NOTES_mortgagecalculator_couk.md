@@ -3949,3 +3949,56 @@ hours of exposure cannot distinguish "rare" from "not yet fired", so the number 
 before anyone sizes it. The comparator that does carry volume (124 items parked visibly by the
 `validate_content` path since 08-01) is recorded with an explicit warning **not** to quote it as
 the blast radius — only the mistyped-field subset shifts, and that subset is [INFERRED].
+
+### 2026-08-21 (12:00Z) — ⚠ CORRECTION: my "second defect" mechanism is REFUTED, and `bugs_open/344` owns it
+
+The `bugfix_307_terminal_write_contract` lane read my row within the hour
+(`CONTRIB_2026-08-21_from_the_307_lane_your_item_was_flagged_and_then_overwritten.md`) and I
+re-measured. **They are right.**
+
+> ~~"the post-260 path is unrouted (render refusal → child FAILED → no `error_step` anywhere →
+> success-labelled complete)"~~ and ~~"`CompleteWorkItemAction`'s guard cannot help, because
+> nothing flagged the item"~~ — **both false.**
+
+**A failure write DID reach the item.** Re-measured on my own row:
+
+| column | reading |
+|---|---|
+| `attempt_count` | 0 → **1** → **2** — a ladder consumed an attempt each run |
+| `retry_after` | stamped **+30 m** each run (`2026-08-21 12:06:07` after attempt 2) |
+| `page-build-handler.call_content_writer.error_step` | **`mark_item_failed`** — routed |
+
+The child's refusal is unrouted *inside* `page-content-writer`, but the child FAILING makes the
+parent's **`call_content_writer`** step error, and that step **is** routed to `mark_item_failed`,
+which ran the failure ladder (WII-024). **The dispatch loop's `mark_complete` then overwrote the
+re-triaged row ~2 s later**, because `triaged` is not in the completion guard's excluded list.
+**The flag was written and trampled, not absent.** Fingerprint: **`retry_after > completed_at` on
+a `complete` row.** Filed and owned as **`bugs_open/344`**; my row is its named natural-damage case.
+
+**What survives:** the observation (two builds composed nothing and reported `complete`, 0
+`page_components`), the A/B on the writer mistyping (untouched), and the argument that a per-cause
+guard pattern does not survive a new cause. `bugs_open/348` is corrected in place with a banner
+rather than rewritten, and its §3 routing table is left unedited as the evidence.
+
+**How I got it wrong — and it is worse than a missed check.** I dumped the whole routing table and
+**`call_content_writer -> mark_item_failed` was four rows above the `spawn_content_writer -> (none)`
+I quoted.** The refuting line was in my own output. I selected the row that fitted the theory and
+never asked *which parent step actually fired* — the orchestration named the CHILD step and I
+treated that as the whole answer. And `attempt_count` was in the `SELECT` I ran repeatedly, going
+0→1→2 in front of me, while I wrote the sentence it refutes. **An absence claim ("nothing wrote to
+X") is a query, not a reading.** `WRONG_CALLS.md` 2026-08-21 (second entry).
+
+**And the 090's failure was not neutral.** I substituted first-hand verification when the loop
+broke — permitted, and I declared it — but the loop is exactly what would have caught this, and I
+recorded my substitution as though the evidence were equivalent. It was not. A REFUTED verdict here
+would have cost one run.
+
+### Also corrected: the stamp-duty config question is NOT outstanding
+
+I told the owner twice today that *"the other lane's stamp-duty config question has been waiting
+since 08-16"*. **It was answered on 08-17** — the owner said *"seed it for real"*, option 1, all 13
+ids, `doc_plans` `400657e0…` installed 12:06:56Z. **The 13 `fact_drift_review` items ARE that
+answer's consequence.** I carried the line forward from the README's 08-17 entry, which was written
+before the answer landed — in the very session where I re-measured everything else and warned that
+a carried-forward status is a claim about the past. The 08-18 handoff §0, which I read at the start
+of this session, states the owner's ruling plainly. **Three decisions are open, not four.**
