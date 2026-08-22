@@ -95,6 +95,31 @@ builder-flow decision"`. The incumbent (`b89f91e1`, html `a2c00f1c66ce6f4ef72b48
 re-pinned and the `needs_new_component:mortgages-repayment` key is held only by `cancelled`/`failed`
 rows, so the two-item recipe is insertable the moment the halt lifts.
 
+## STATE AS OF 2026-08-22 18:00Z — **311 CLOSED · 345 APPROVED, LIVE AND FIRING · nothing owed by this lane**
+
+**Read this block first; everything below is history.**
+
+| thread | state |
+|---|---|
+| `bugs_closed/311` | **CLOSED.** Originating page serves its calculator; 7 diversions, every incumbent byte-identical |
+| `bugs_open/345` | **Fix complete in THREE parts, all live; council APPROVED r5 (`67b07528`, 4 advisories none high).** Go half (v1.0.1322+), migration `533` (prompt), migration `555` (dispatcher mapping — **without which the first two were inert**). Path **firing**: `input_data ? 'last_error'` = **6 as of 2026-08-22 18:00Z**, was 0 all-history. Target case `ceea0c07`: rejected → retry carried the reason → **complete at attempt 1**. **Causation n=1, NOT claimed.** Residual: the `completed_at` hardening's presence in v1.0.1326 is UNVERIFIED (candidate shas probed, stamp not found; provenance scrolled) — a hardening, nothing waits on it |
+| loanzy.uk | **8 of 11 tool pages serve calculators** (was 1 on 08-21). Two are `337`'s (other lane); one has no calculator section by design |
+| `RFC_034` | **Both owner questions CLOSED**: new components needing scope go inline; existing extracted-JS ones are left. Delivered to the 283 lane with the sweeper-widening interaction flagged |
+| `bugs_open/351` | `bugfix_198_roundtrip_writers` lane's. Both this lane's findings recorded there; backfill-ordering is an owner call **when that fix lands** |
+| `bugs_open/337` | another lane's (owner, 08-22) |
+
+**If you are picking this lane up: there is no queued work.** The only future event is 345's
+causation population growing past n=1 — check with:
+`SELECT count(*) FROM orchestration_states WHERE collected_data->'input_data' ? 'last_error';`
+and, for outcomes, whether post-fix items with a rejection then complete rather than repeating it.
+
+**Two process lessons this lane paid for, both now in `WRONG_CALLS.md`:** a fix can be deployed,
+correct, and *connected to nothing* — a zero with a comfortable explanation is the most dangerous
+measurement there is; and when the code moves, **re-derive the whole council submission from the
+code** rather than patching the edit you are thinking about (that defect cost rounds 2 and 4).
+
+---
+
 ## CLOSE-OUT ASSESSMENT 2026-08-21 evening — what would close 311, and what genuinely remains
 
 **The titled defect is DONE by every bar this estate uses**: both halves fixed, council-approved,
