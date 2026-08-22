@@ -383,16 +383,32 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 	if field == "" {
 		return // single-URL component — no field in this slot, nothing to resolve or report
 	}
+	// Carry the section's existing mint record forward before deciding anything
+	// (bugs_open/308 Phase A). Both persist paths merge SHALLOWLY and the record
+	// is a nested map, so a resolved_data stamping only THIS field would replace
+	// the stored record wholesale and drop the sibling slot's stamp — after which
+	// that slot reads as authored and freezes. Four of the six ctaFieldNames
+	// components have two slots, so it is the common case.
+	//
+	// Deliberately INSIDE this function rather than once per section in the
+	// caller's loop: a loop-level call can be deleted without any test noticing
+	// (proven by mutation — removing it left every test green), whereas here it
+	// is on the path of every unit test that exercises a keep. SeedCTAMinted only
+	// fills entries not already present, so calling it once per field is
+	// idempotent and order-independent.
+	datahelpers.SeedCTAMinted(resolved, stored)
 	if existingLabel != "" {
 		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) {
 			resolved[field] = match.URL
+			datahelpers.SetCTAMinted(resolved, field, match.URL)
 			if match.Title != "" {
 				resolved[ctaTargetTitleField(field)] = match.Title
 			}
 			return
 		}
 	}
-	if storedURL, _ := stored[field].(string); storedCTADestinationIsAuthored(storedURL, validPages) {
+	if storedCTADestinationIsAuthored(stored, field, validPages) {
+		storedURL, _ := stored[field].(string)
 		// bugs_open/248, BUILD-path half. This writer had no keep branch at all,
 		// so an authored /contact.html died on the next full regeneration even
 		// once the rerender path stopped clobbering it — the recompute and the
@@ -410,6 +426,13 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 		// verification bar #2): a fabricated contact url whose label names a
 		// real page is 203's defect and is still repaired. Inert for every
 		// non-utility stored value — those are re-derived exactly as before.
+		//
+		// NO MINT STAMP HERE, and its absence is load-bearing rather than an
+		// omission (bugs_open/308 Phase A): reaching this branch PROVES the
+		// stamp does not cover storedURL, because storedCTADestinationIsAuthored
+		// returns false as soon as it does. A conditional re-stamp would be dead
+		// code, and an unconditional one would assert that the resolver minted a
+		// value it is the entire point of this branch to say a person authored.
 		resolved[field] = storedURL
 		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
 			resolved[ctaTargetTitleField(field)] = title
@@ -448,11 +471,38 @@ func setCTAField(resolved, stored map[string]interface{}, field string, target c
 	}
 	if target.URL != "" && validPages.Contains(target.URL) {
 		resolved[field] = target.URL
+		datahelpers.SetCTAMinted(resolved, field, target.URL)
 		if title := targetTitle(target); title != "" {
 			resolved[ctaTargetTitleField(field)] = title
 		}
 		return
 	}
+	// UNRESOLVED FALLTHROUGH — the one branch that writes no url, and therefore
+	// the one place a mint stamp can be lost (bugs_open/308 Phase A).
+	//
+	// plan_sections' PBP-039 carry may already have left a previously-minted url
+	// in resolved[field]; this branch does not touch it, so that value is what
+	// gets persisted. The plan→save funnel REPLACES content_data (RFC_042 §2,
+	// DELETE+INSERT), so the previous generation's stamp does NOT survive the
+	// persist on its own — and an unstamped valid utility url reads as authored
+	// next cycle and is frozen for ever by the keep above. That is this bug's
+	// own failure mode reintroduced through its fix, so the stamp is re-asserted
+	// here.
+	//
+	// The fix belongs HERE and not in carryStored: setCTAField is handed `stored`
+	// as a fresh page_components read (loadExistingSectionContentData at the call
+	// site), not the carry's output, so the record is already in hand — and
+	// PBP-039's carry, whose register entry says in terms "do not remove it, do
+	// not reorder it", is left untouched.
+	//
+	// No re-stamp is needed HERE: the SeedCTAMinted at the top of this function
+	// has already carried the stored record forward, and a carried value equals
+	// the stored one by construction (plan_sections' carry reads the same row),
+	// so the seeded entry covers it. A second, value-guarded re-stamp at this
+	// branch was written first and then DELETED as redundant — mutation showed
+	// removing it changed no test, while no-opping the seed fails both this
+	// branch's test and the sibling-slot one. Two guards in series where one is
+	// load-bearing is how an unexercised branch ships.
 	*unresolved = append(*unresolved, map[string]interface{}{
 		"section":   sectionName,
 		"component": function,
@@ -666,8 +716,37 @@ func ctaExcludedDestination(url string) bool {
 // would then freeze the resolver's own output for ever. If you widen the
 // candidate set to utility pages deliberately (bugs_closed/023's authored-intent
 // forward direction), this predicate needs REAL recorded provenance first.
-func storedCTADestinationIsAuthored(url string, validPages datahelpers.PageURLSet) bool {
-	return url != "" && ctaExcludedDestination(url) && validPages.Contains(url)
+//
+// ── bugs_open/308, PHASE A (2026-08-22): the provenance is now RECORDED, and
+// the shape test is no longer the whole answer. ────────────────────────────
+//
+// The paragraph above describes the state this function was written in and is
+// kept because it is still exactly right about the POSITIONAL route and about
+// schema fallbacks. What has changed is that "the resolver cannot have written
+// this" is no longer inferred from the resolver's constraints — it is read from
+// a record the resolver writes (datahelpers.CTAMintedCovers / CTAMintedKey).
+//
+// Behaviour is UNCHANGED until the candidate set widens: with no stamps in the
+// database and candidatesFromHubs still filtering, the resolver never mints a
+// utility url, so the new conjunct never fires and this returns what it always
+// did. It is what makes the widening (Phase B) safe rather than a regression:
+// once a label CAN resolve to /contact.html, a stamped one is re-derivable and
+// an unstamped one is still the person's.
+//
+// THE SIGNATURE IS THE ENFORCEMENT. It takes the stored map and the field name
+// rather than a bare url so that no caller can reach the utility-area shape
+// test without also handing over the map the mint check reads. A call site
+// holding only a url string does not compile — which is the compile-time form
+// of the owner's 2026-08-02 ruling that a comment is not a control on a tree
+// this many sessions share.
+func storedCTADestinationIsAuthored(stored map[string]interface{}, field string, validPages datahelpers.PageURLSet) bool {
+	url, _ := stored[field].(string)
+	if url == "" || !ctaExcludedDestination(url) || !validPages.Contains(url) {
+		return false
+	}
+	// Recorded, not derived: a utility url this resolver minted is its own
+	// output and must stay re-derivable, or the keep freezes it for ever.
+	return !datahelpers.CTAMintedCovers(stored, field, url)
 }
 
 // sectionInputSchema extracts the component's input_schema from a

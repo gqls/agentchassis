@@ -991,12 +991,22 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 		return // single-URL component — no field in this slot
 	}
 
+	// Carry the section's existing mint record forward before deciding anything
+	// (bugs_open/308 Phase A) — the persist below merges SHALLOWLY and the record
+	// is a nested map, so stamping only this field would replace the stored
+	// record and drop the sibling slot's stamp, freezing it. Inside the function,
+	// not in the caller's loop: a loop-level call can be deleted with every test
+	// still green (proven by mutation). SeedCTAMinted fills only absent entries,
+	// so once per field is idempotent.
+	datahelpers.SeedCTAMinted(resolved, stored)
+
 	current, hasCurrent := stored[field].(string)
 
 	if existingLabel != "" {
 		if match, ok := datahelpers.BestLabelMatch(existingLabel, candidates); ok && validPages.Contains(match.URL) &&
 			(!hasCurrent || datahelpers.NormalizePagePath(match.URL) != datahelpers.NormalizePagePath(current)) {
 			resolved[field] = match.URL
+			datahelpers.SetCTAMinted(resolved, field, match.URL)
 			if match.Title != "" {
 				resolved[ctaTargetTitleField(field)] = match.Title
 			}
@@ -1019,7 +1029,13 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 	// could beat it, and a utility-area fallback is exactly the shape someone
 	// adds back by accident (site-header still carries one). Writing makes the
 	// keep independent of anything else that populated ResolvedData.
-	if hasCurrent && storedCTADestinationIsAuthored(current, validPages) &&
+	//
+	// bugs_open/308 Phase A: the predicate now reads a RECORD instead of
+	// inferring from the resolver's constraints. Unchanged in behaviour until
+	// the candidate set widens — and, as in setCTAField, this branch writes no
+	// mint stamp on purpose: reaching it proves the stamp does not cover
+	// `current`, which is exactly what "a person authored this" means here.
+	if hasCurrent && storedCTADestinationIsAuthored(stored, field, validPages) &&
 		datahelpers.NormalizePagePath(current) != datahelpers.NormalizePagePath(pageURL) {
 		resolved[field] = current
 		if title, _ := stored[ctaTargetTitleField(field)].(string); title != "" {
@@ -1076,9 +1092,15 @@ func applyCTARecompute(resolved, stored map[string]interface{}, field string, ta
 	}
 
 	if target.URL == "" || !validPages.Contains(target.URL) {
-		return // nothing valid to write — leave the field as stored
+		// Nothing valid to write — leave the field as stored. No stamp carry is
+		// needed on this path (unlike setCTAField's sibling fallthrough): the
+		// rerender MERGES resolved over the stored content_data rather than
+		// replacing it, so an untouched field keeps its stored value AND its
+		// stored stamp together.
+		return
 	}
 	resolved[field] = target.URL
+	datahelpers.SetCTAMinted(resolved, field, target.URL)
 	if title := targetTitle(target); title != "" {
 		resolved[ctaTargetTitleField(field)] = title
 	}

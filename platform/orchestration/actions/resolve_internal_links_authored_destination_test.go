@@ -49,9 +49,53 @@ func TestStoredCTADestinationIsAuthored(t *testing.T) {
 		{"/about.html", false, "utility area but NOT a real page — 203's phantom stays repairable"},
 	}
 	for _, c := range cases {
-		if got := storedCTADestinationIsAuthored(c.url, valid); got != c.want {
+		stored := map[string]interface{}{"cta_url": c.url}
+		if got := storedCTADestinationIsAuthored(stored, "cta_url", valid); got != c.want {
 			t.Errorf("storedCTADestinationIsAuthored(%q) = %v, want %v — %s", c.url, got, c.want, c.why)
 		}
+	}
+
+	// bugs_open/308 Phase A: the same shape test, now with the RECORD present.
+	// A utility url THIS RESOLVER MINTED is its own output, so it is not
+	// authored and must stay re-derivable — otherwise the keep freezes the
+	// resolver's own answer for ever, which is the LNK-033 landmine and the
+	// reason the widening could not ship before this stamp existed.
+	minted := map[string]interface{}{
+		"cta_url": "/contact.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url": "/contact.html",
+		},
+	}
+	if storedCTADestinationIsAuthored(minted, "cta_url", valid) {
+		t.Error("a stored utility url covered by the mint record is the RESOLVER's output, not authored — " +
+			"treating it as authored is exactly the freeze this record exists to prevent")
+	}
+
+	// Value-binding, stated as its own case because it is the property the
+	// whole design rests on: a stamp naming a DIFFERENT url does not cover the
+	// current value, so a human's edit under a stale stamp stays authored.
+	stale := map[string]interface{}{
+		"cta_url": "/contact.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url": "/tools/password-entropy.html",
+		},
+	}
+	if !storedCTADestinationIsAuthored(stale, "cta_url", valid) {
+		t.Error("a stamp naming a different url must not cover this value — a presence-bound stamp would " +
+			"licence the recompute to clobber a section-editor edit, which is bugs_open/248 again")
+	}
+
+	// The record is per-FIELD, not per-section: a stamp on the primary slot
+	// says nothing about the secondary. Pinned because both live on one nested
+	// map and a whole-map presence test would pass this by accident.
+	crossField := map[string]interface{}{
+		"secondary_cta_url": "/contact.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url": "/contact.html",
+		},
+	}
+	if !storedCTADestinationIsAuthored(crossField, "secondary_cta_url", valid) {
+		t.Error("a mint stamp on cta_url must not vouch for secondary_cta_url")
 	}
 }
 
@@ -236,5 +280,142 @@ func TestFreshPickRefusesUtilityWhileStoredUtilityIsKept(t *testing.T) {
 		"cta_url", servicesHub, valid, "/index.html", "Talk to us", nil)
 	if got["cta_url"] != "/contact/index.html" {
 		t.Errorf("stored utility destination not kept: %v", got)
+	}
+}
+
+// ── bugs_open/308 Phase A: the WIRING tests ────────────────────────────────
+//
+// These exist because the unit tests in datahelpers/cta_provenance_test.go
+// exercise the helpers directly, and mutation showed that is not enough: with
+// the seed and the carry called from the CALLER'S LOOP, deleting either call
+// site left every test in the tree green. That is the "a helper with no callers
+// looks like a finished refactor" shape. Both calls were moved INSIDE
+// setCTAField/applyCTARecompute so they sit on the path of these tests, and
+// these tests are what make removing them fail.
+
+// TestSetCTAFieldPreservesSiblingSlotStamp — the freeze this fix would otherwise
+// have introduced. Both persist paths merge SHALLOWLY and the mint record is a
+// nested map, so writing a record for the primary slot alone REPLACES the stored
+// record and drops the secondary's stamp. The secondary then reads as authored
+// on the next pass and is frozen at whatever it currently points to.
+//
+// MUTATION: delete the SeedCTAMinted call inside setCTAField. This fails.
+func TestSetCTAFieldPreservesSiblingSlotStamp(t *testing.T) {
+	valid := contactSitePages()
+	stored := map[string]interface{}{
+		"cta_url":           "/tools/password-entropy.html",
+		"secondary_cta_url": "/services.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url":           "/tools/password-entropy.html",
+			"secondary_cta_url": "/services.html",
+		},
+	}
+	resolved := map[string]interface{}{}
+	var unresolved []map[string]interface{}
+	target := contentHub{Name: "risk-checker", Title: "Risk Checker",
+		URL: "/tools/tool-ai-data-risk-checker.html"}
+
+	// Only the PRIMARY slot is processed this pass.
+	setCTAField(resolved, stored, "cta_url", target, valid,
+		"hero", "hero", "primary", &unresolved, "", nil)
+
+	if !datahelpers.CTAMintedCovers(resolved, "secondary_cta_url", "/services.html") {
+		t.Error("the untouched secondary slot lost its mint record — it will read as authored " +
+			"next pass and freeze, which is the bug this record exists to end")
+	}
+	if !datahelpers.CTAMintedCovers(resolved, "cta_url", "/tools/tool-ai-data-risk-checker.html") {
+		t.Error("the primary slot must carry a record for the value written THIS pass")
+	}
+}
+
+// TestSetCTAFieldCarriesMintAtUnresolvedFallthrough — setCTAField's last branch
+// writes no url at all, so a value left in resolved_data by plan_sections'
+// PBP-039 carry is what gets persisted; and the plan->save funnel REPLACES
+// content_data, so the previous generation's record does not survive on its own.
+// Without the carry the value arrives unstamped, reads as authored, and freezes.
+//
+// MUTATION: no-op the SeedCTAMinted call at the top of setCTAField. This fails.
+// (A second, value-guarded re-stamp AT this branch was written first and then
+// deleted: mutation showed removing it changed no test, because the seed had
+// already carried the record — two guards in series, one of them dead.)
+func TestSetCTAFieldCarriesMintAtUnresolvedFallthrough(t *testing.T) {
+	valid := contactSitePages()
+	stored := map[string]interface{}{
+		"cta_url": "/tools/password-entropy.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url": "/tools/password-entropy.html",
+		},
+	}
+	// The carry has already put the previously-minted url here; this pass has no
+	// valid positional target, so setCTAField writes nothing.
+	resolved := map[string]interface{}{"cta_url": "/tools/password-entropy.html"}
+	var unresolved []map[string]interface{}
+
+	setCTAField(resolved, stored, "cta_url", contentHub{}, valid,
+		"hero", "hero", "primary", &unresolved, "", nil)
+
+	if len(unresolved) != 1 {
+		t.Fatalf("expected the unresolved fallthrough to be the branch under test, got %d entries", len(unresolved))
+	}
+	if !datahelpers.CTAMintedCovers(resolved, "cta_url", "/tools/password-entropy.html") {
+		t.Error("a carried, previously-minted value lost its record at the unresolved fallthrough — " +
+			"it becomes indistinguishable from an authored link and freezes")
+	}
+}
+
+// TestSetCTAFieldInventsNoProvenanceForAnAuthoredValue is the control for the
+// test above, and it is the one that matters if the carry is ever loosened: an
+// AUTHORED value sitting in resolved_data at the fallthrough must NOT acquire a
+// record, or the resolver would license itself to recompute a person's link.
+//
+// It pins an ABSENCE — that no provenance is invented — so name the mutation
+// that actually kills it, because the obvious guess does not. Making
+// CTAMintedCovers presence-bound leaves this test GREEN (checked, not assumed:
+// with no record on the row at all, Covers returns false at its nil-map guard
+// long before the comparison). The mutation that DOES kill it is
+// SeedCTAMinted inventing a record from whatever `resolved` already holds when
+// the stored row has none — verified by running it. That is the realistic
+// mistake here: "the field has a value, so stamp it" is one plausible reading
+// of what seeding means, and it would quietly relabel every authored link as
+// the resolver's own and make it recomputable.
+func TestSetCTAFieldInventsNoProvenanceForAnAuthoredValue(t *testing.T) {
+	valid := contactSitePages()
+	stored := map[string]interface{}{"cta_url": "/contact.html"} // authored: no record
+	resolved := map[string]interface{}{"cta_url": "/contact.html"}
+	var unresolved []map[string]interface{}
+
+	setCTAField(resolved, stored, "cta_url", contentHub{}, valid,
+		"hero", "hero", "primary", &unresolved, "", nil)
+
+	if datahelpers.CTAMintedCovers(resolved, "cta_url", "/contact.html") {
+		t.Error("provenance was manufactured for an authored value — the resolver would then be " +
+			"free to recompute a link a person chose")
+	}
+}
+
+// TestApplyCTARecomputePreservesSiblingSlotStamp — the repair-path twin of the
+// first test. The two writers are two halves of one seam and bugs_open/248 was
+// caused by only one of them being fixed, so the sibling-stamp property is
+// pinned on both.
+//
+// MUTATION: delete the SeedCTAMinted call inside applyCTARecompute. This fails.
+func TestApplyCTARecomputePreservesSiblingSlotStamp(t *testing.T) {
+	valid := contactSitePages()
+	stored := map[string]interface{}{
+		"cta_url":           "/tools/password-entropy.html",
+		"secondary_cta_url": "/services.html",
+		datahelpers.CTAMintedKey: map[string]interface{}{
+			"cta_url":           "/tools/password-entropy.html",
+			"secondary_cta_url": "/services.html",
+		},
+	}
+	resolved := map[string]interface{}{}
+	target := contentHub{Name: "risk-checker", Title: "Risk Checker",
+		URL: "/tools/tool-ai-data-risk-checker.html"}
+
+	applyCTARecompute(resolved, stored, "cta_url", target, valid, "/index.html", "", nil)
+
+	if !datahelpers.CTAMintedCovers(resolved, "secondary_cta_url", "/services.html") {
+		t.Error("the untouched secondary slot lost its mint record on the repair path")
 	}
 }
