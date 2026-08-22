@@ -237,3 +237,52 @@ two iterations were substantive and both survive checking at the file:
 So the evidential basis for this file is unchanged: the mechanism is verified first-hand at
 code and data by two sessions (§1–§3, §7); the 090 adds one premise correction and one
 candidate-1 sharpening, and otherwise nothing.
+
+## 9. CLOSED 2026-08-22 ~09:3xZ — both halves FIXED AND LIVE, verified by two sessions on the day and re-verified on an 18-hour window at close
+
+**The fix that shipped is NOT §4's candidate 1 as drafted.** Between filing and fixing, the `?`
+OPTIONAL-EXPLICIT marker went live on the ExtractActionInputs step-config surface
+(`v1.0.1321`, council APPROVED r3) — so the wire could say what this class actually needed:
+*the handler's own reply, or nothing* — never the whole-tree search. §4's head-block correction
+("`?` is inert in a step config") was true when written and is superseded by that ship.
+
+**What closed it, in order:**
+- **Handler standardisation — ten handlers expose `commit_sha` canonically at
+  `response.commit_sha` via `result_mapping`** (migrations 519/521/522/523/527/528/534/535/536,
+  this session's lineage, + 540 for content-feed-orchestrator's dual-commit judgement call —
+  forced out of deferral by 537's guard, trade-off stated in 540 and in 537's header).
+- **The wire — migration 537** (`docs/agent_docs/sql_for_agents/537_bdl_mark_complete_declares_commit_sha.sql`):
+  `mark_complete` declares `"commit_sha?": "handler_result.response.commit_sha"`. Applied
+  2026-08-21 (live row `updated_at` 15:33:39Z; the verification boundary used below is
+  15:36:22Z). Guarded self-refusing apply — it fired once, correctly, naming
+  content-feed-orchestrator; 540 cleared it. Council REVISE (corr `2716123d`) answered by four
+  checks in the file's header, applied deliberately afterwards.
+- **Belt and braces, the flip itself:** since `v1.0.1323` (pods 08:37Z 2026-08-22) conflicting
+  candidates REFUSE (`phase='2-refuse'`) rather than resolve — the guessed-winner mechanism
+  this file describes is no longer representable, independent of the wire.
+
+**Verification — two sessions, two routes, on the day (2026-08-21):**
+- This lineage: **263 bdl/`commit_sha` conflict rows in the 9 h before the apply, 0 after,
+  against 19 real bdl runs post-apply** — genuine demand, and the recorder demonstrably alive
+  to the boundary (rows to 15:32:44Z).
+- The lane's other session, independently: 22 of 25 completing items still recording a sha
+  (page-rerender 22/25); per-handler spot-check page-rerender 28/31 (3 legitimate skips),
+  css-patch-agent 2/2, **tool-generator correctly 0** (it never produced a commit — its one
+  historical sha was another item's, glued on by the search; see 537's header ⚠), and
+  page-build-handler's 0/4 traced upstream: `handler_result.response ? 'commit_sha'` false —
+  the handler sent no sha, so absence is the contract working.
+
+**Re-verified at close (this session, 2026-08-22 09:2xZ, ~18 h window):** resolver instrument
+rows since the apply, ANY class, ANY phase: **0** · bdl runs since: **93** · completed items
+carrying `result.commit_sha`: **154 of 205** — the falsifier stated in the lane handoff (both
+zeros = the wire is DROPPING the field) is excluded; the field still lands at volume.
+*Epistemic note, per the lane's standing guard on zeros:* every conflict class fleet-wide is
+now silent, so this zero alone is not instrument-alive evidence — the close rests on the
+boundary discontinuity measured while the recorder was provably writing, plus the post-flip
+mechanism evidence, not on the bare zero.
+
+**Residual, tracked elsewhere by design:** 537's guard ran ONCE, at apply. The handler
+population is dynamic, so a NEW commit-producing handler that does not expose
+`response.commit_sha` would silently never record `result.commit_sha`. The standing (daily)
+form of that guard is the staged_component_build handoff's §1 item 4 and is being built by this
+session — it does not reopen this defect, whose mechanism is gone.
