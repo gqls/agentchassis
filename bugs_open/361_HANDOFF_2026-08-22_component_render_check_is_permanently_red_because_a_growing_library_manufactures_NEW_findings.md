@@ -153,9 +153,13 @@ banking them is what makes the job able to go green. That is a debt decision, no
 - **`000_concept_index.md:1193` is STALE.** The CGV-030 index row still reads
   *"built + calibrated, CronJob wiring owed"*, while the register entry it points at says
   **"DEPLOYED AND PROVEN IN THE CLUSTER, 2026-08-04"** and strikes the wiring out as DONE. The index
-  is what sessions grep before concluding something does not exist. (Corrected by this lane, in its OWN commit —
-  another session had that file dirty, and a pathspec commit takes a same-file passenger.
-  Noted here because the class recurs — `LANDMINES.md`, *"A concept-register STATUS
+  is what sessions grep before concluding something does not exist. **Corrected by this lane, and the
+  correction is LIVE at HEAD — but not in a commit of mine.** I held it back from `361`'s commit
+  precisely because another session had that file dirty and a pathspec commit takes a same-file
+  passenger; in the minutes that took, **they committed first and my line rode into `5fddba825`**
+  (a TL-049 status commit). So the trap is symmetric, and waiting does not avoid it — it only
+  decides which side of it you are on. Recorded here so that session can find the line they carried.
+  Noted at all because the class recurs — `LANDMINES.md`, *"A concept-register STATUS
   line is a snapshot that outlives its truth"*.)
 - **`CGV-030`'s `verify-later` asks "whether the first UNATTENDED 06:55 firing succeeds".** It did
   (2026-08-05), and then the job went red on 08-10 and stayed. Worth writing back into the entry, so
