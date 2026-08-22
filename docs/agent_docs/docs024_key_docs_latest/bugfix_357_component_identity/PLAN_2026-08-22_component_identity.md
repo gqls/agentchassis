@@ -178,3 +178,93 @@ deliberately not in this change."*
 - Whether `mortgagecalculator.co.uk`'s ten tool pages should be `owned` rather than `generic`.
 - Whether `vetcomparison.uk`'s homepage *should* serve an embedded tool in slot 1 — it does today,
   and the repair preserves that truthfully rather than deciding it.
+
+---
+
+# 10. OPTION 1 BUILD — owner ruled `RFC_046` on 2026-08-22, and the stamp already has a column
+
+> Owner: *"Option 1 please, we can change the existing pages once option 1 has been built."*
+
+## 10.1 The finding that shapes this: the machinery is already there and has never been wired
+
+| | measured 2026-08-22 |
+|---|---|
+| `page_components.component_version_id` populated | **0 of 1,930** |
+| Go code that WRITES it | **none** — the single non-test hit is a comment about a *different* table |
+| Go code that READS it | **none** |
+| `component_versions` rows | **369** across **203** components, 2026-04-20 → 2026-08-22 (live, growing) |
+| `component_versions.html_template` present | **369 of 369** — it stores the FULL template text, plus `input_schema` |
+| control (`rendered_html_digest`, a live column) | 1,623 of 1,930 populated, 65 code references |
+
+> ⚠ **Trap for anyone re-running this: `component_version_id` is a column on TWO tables.**
+> `site_plan_sections.component_version_id` is the live one and it accounts for nearly every grep
+> hit. A bare `grep -rn component_version_id` conflates them and makes the dormant column look busy.
+> Qualify by table.
+
+**So Option 1 does not need a new column, a new table, or a new concept.** It needs the existing
+purpose-built link to be written. That answers the `reuse_agent` seat before it asks, and it is why
+this round is reuse rather than addition.
+
+**It also serves `bugs_closed/277`'s residual.** 277 closed with 15 rows permanently unrepairable
+because *"`component_versions` holds zero rows for any of the nine components involved"* — the
+template that produced their bytes no longer exists. Had rows carried their version, that class
+would be recoverable. Wiring this does not fix those 15, but it stops the class accruing.
+
+## 10.2 Why `component_versions` alone is not already the answer
+
+It is written by **one** path — `fix_component_template_action.go:1127`, as a pre-repair snapshot.
+So a template edited by any other route is never versioned, which is precisely how 277's nine
+components ended up with zero versions. **A stamp pointing at a version table that does not capture
+every template change is a stamp that goes NULL exactly when it matters.** The build therefore has
+two halves, and the second is not optional:
+
+- **(a) stamp the link** — record which version produced these bytes;
+- **(b) guarantee the version exists at render time** — resolve the rendered template text to a
+  version row, creating one if that exact text is not already the component's newest.
+
+## 10.3 Where it goes: the seam reports, the writer persists
+
+`RenderTemplate` (`component_library.go:1007`) is the estate's ONE render spelling — **15** non-test
+call sites as of 2026-08-22 (owner ruling 2026-08-21; the count matches `bugs_open/342`'s). It has
+no DB handle and no site identity, which is exactly why `AbsentRequiredFields` is an **out-field**
+that callers read rather than something the seam acts on. Follow that division precisely:
+
+- `RenderContext` gains an input `ComponentID` (set by any caller that has the component in hand —
+  NIL MEANS UNKNOWN, never inferred) and an **output** `RenderedTemplateSHA`, which the seam sets to
+  the digest of the template text it actually executed. The seam reports a fact only it knows; it
+  performs no I/O.
+- `save_page_sections` — which already has the DB handle, and is the single INSERT every composition
+  path flows through — resolves `(ComponentID, RenderedTemplateSHA)` to a `component_versions` row,
+  creating one when that text is not the newest, and writes `component_version_id` in the **same
+  statement** as the bytes, on the `rendered_html_digest` / IMP-052 precedent.
+- **Carry paths carry the stamp**: `carryStoredSection` already forwards `rendered_html`,
+  `stored_slot_name`, `component_id` and `content_data` as one bundle (:1150–1169); the stamp joins
+  that bundle. A carried row keeps the version that produced its bytes, which is the whole point —
+  the bytes did not change, so neither does their provenance.
+
+## 10.4 Phasing, which is the direct answer to the council's two rejections
+
+| phase | what | why it is safe / effective |
+|---|---|---|
+| **1 (this round)** | write the stamp | **Provably inert.** Nothing reads `component_version_id` — 0 writers, 0 readers, measured. Writing a column nobody reads cannot change what any page serves, which is what round 1 failed on |
+| **2 (separate round)** | readers stop guessing: `enrichSectionsWithPlannedNames` may not name an unstamped section from `planned[Position-1]` | This is where behaviour changes and where the authority gate belongs. It is what round 2 was rejected for lacking, and it is only defensible once the stamp exists to read |
+| **3 (owner-authorised, after 2)** | repair the 22 | Ruled in principle 2026-08-22. Still blocked on the slot-name matching hazard (§7 / LANDMINES), which phase 2 must resolve — not this round |
+
+**Phase 1 does not fix `bugs_open/357`, and the submission must say so in those words.** It builds
+the thing the fix is made of. Claiming otherwise is precisely the "detected but never blocked"
+dishonesty the council caught in round 2.
+
+## 10.5 Verification — at the artefact, disconfirming result named
+
+- **After the roll:** rows created after the roll carry a non-NULL `component_version_id`, while
+  rows created before it stay NULL (**the control** — a migration or backfill would break it, and
+  none is proposed). *Disconfirming:* still 0 after the roll ⇒ the seam is not reporting or the
+  writer is not persisting; the count going up on OLD rows ⇒ something is backfilling, which this
+  design does not do.
+- **The stamp is true, not merely present:** for a stamped canary row, the `html_template` at the
+  stamped version must re-render to the stored bytes **byte-identically** — the same round-trip gate
+  `cmd/content-data-recover` (CQ-029) already uses. *Disconfirming:* a byte difference means the
+  stamp names a template that did not produce those bytes, which is worse than no stamp.
+- **Version churn is bounded:** `component_versions` should gain roughly one row per component whose
+  template text is not already its newest, then settle. *Disconfirming:* row count climbing on every
+  render ⇒ the resolve is comparing wrongly and minting a version per call.
