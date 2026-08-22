@@ -702,7 +702,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			wi.batch_id, wi.attempt_count,
 			COALESCE(wi.approval_mode, 'auto') as approval_mode,
 			wi.component_id, wi.entity_id, wi.affected_url,
-			wi.error
+			wi.error, wi.completed_at
 		FROM site_work_items wi
 		WHERE wi.site_id = $1
 		  AND wi.status IN ('triaged', 'approved')
@@ -773,6 +773,15 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			// First-class routing columns — all nullable, hence pointers.
 			componentID, entityID *uuid.UUID
 			affectedURL           sql.NullString
+			// bugs_open/345 round 3: a non-NULL completed_at marks a PRIOR
+			// COMPLETED LIFECYCLE. The landmine at LANDMINES.md:7104 (verified):
+			// the success UPDATE writes status/result/completed_at and never
+			// touches error, so a completed row KEEPS a refusal's text — and a
+			// hand-reset back to 'triaged' would then show a previous
+			// lifecycle's failure to a fresh generation. completed_at survives
+			// such resets, so it is the discriminator: last_error is only
+			// surfaced when the item has never completed.
+			completedAt sql.NullTime
 			// bugs_open/345: the PREVIOUS attempt's failure text. A handler that
 			// regenerates an artefact was re-running from identical inputs, so
 			// every retry reproduced the same rejection — measured at 99
@@ -795,7 +804,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			&priority, &handlerAgent, &status, &itemKey,
 			&batchID, &attemptCount, &approvalMode,
 			&componentID, &entityID, &affectedURL,
-			&lastError,
+			&lastError, &completedAt,
 		)
 		if err != nil {
 			// Error, not Warn: this branch drops a row that the site selector
@@ -860,7 +869,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		// untrusted-ish input heading back into a prompt, so bound its size
 		// rather than trusting the producer. NOT put in `spec` — the header note
 		// above is explicit that spec is never written to.
-		if prev := strings.TrimSpace(lastError.String); prev != "" {
+		if prev := strings.TrimSpace(lastError.String); prev != "" && !completedAt.Valid {
 			const maxPreviousFailureChars = 2000
 			if len(prev) > maxPreviousFailureChars {
 				prev = prev[:maxPreviousFailureChars] + " …[truncated]"

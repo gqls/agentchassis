@@ -21,6 +21,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
@@ -34,6 +35,13 @@ import (
 // re-implementing the row→map step: a test that MIRRORS the construction cannot
 // catch drift in it (WRONG_CALLS, 2026-08-19).
 func loadOneItem(t *testing.T, attemptCount int, errText interface{}) map[string]interface{} {
+	t.Helper()
+	return loadOneItemFull(t, attemptCount, errText, nil)
+}
+
+// loadOneItemFull additionally sets completed_at — the round-3 discriminator for
+// a prior completed lifecycle (LANDMINES.md:7104).
+func loadOneItemFull(t *testing.T, attemptCount int, errText, completedAt interface{}) map[string]interface{} {
 	t.Helper()
 
 	db, mock, err := sqlmock.New()
@@ -49,14 +57,14 @@ func loadOneItem(t *testing.T, attemptCount int, errText interface{}) map[string
 		"priority", "handler_agent", "status", "item_key",
 		"batch_id", "attempt_count", "approval_mode",
 		"component_id", "entity_id", "affected_url",
-		"error",
+		"error", "completed_at",
 	}
 	rows := sqlmock.NewRows(cols).
 		AddRow(uuid.New(), siteID, "component_selector", "build", "needs_new_component",
 			"medium", "Need component template", []byte(`{"section_type":"mortgages-repayment"}`), nil,
 			50, "component-creator", "triaged", "needs_new_component:mortgages-repayment",
 			nil, attemptCount, "auto",
-			nil, nil, nil, errText)
+			nil, nil, nil, errText, completedAt)
 
 	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
@@ -170,5 +178,22 @@ func TestLoadWorkItems_PreviousFailureIsCapped(t *testing.T) {
 	}
 	if !strings.HasPrefix(got, strings.Repeat("x", 2000)) {
 		t.Error("the cap must keep the START of the message — the guard names the offending field first")
+	}
+}
+
+// Round 3 (corr 67b07528, prior_art_librarian HIGH): wi.error can be STALE.
+// The success UPDATE writes status/result/completed_at and never touches error
+// (LANDMINES.md:7104, measured 2026-08-08: status='complete' with a refusal
+// still in error). A completed item hand-reset to 'triaged' would therefore
+// show a PREVIOUS LIFECYCLE's failure to a fresh generation. completed_at
+// survives such resets and no genuinely-failing item ever has one — so it is
+// the discriminator, and a prior-lifecycle item must carry NOTHING.
+func TestLoadWorkItems_PriorCompletedLifecycleCarriesNothing(t *testing.T) {
+	item := loadOneItemFull(t, 0,
+		"completion blocked: post-fix verification found the defect still present",
+		time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC))
+
+	if v, present := item["last_error"]; present {
+		t.Errorf("last_error present (%v) on an item with a prior completed lifecycle — feeding a fresh generation a dead lifecycle's refusal is the round-3 hazard", v)
 	}
 }

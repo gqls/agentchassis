@@ -191,7 +191,7 @@ func TestLoadWorkItems_AliasesGuidanceOnTheLoadPath(t *testing.T) {
 		"batch_id", "attempt_count", "approval_mode",
 		"component_id", "entity_id", "affected_url",
 		// bugs_open/345 — the previous attempt's failure text.
-		"error",
+		"error", "completed_at",
 	}
 
 	rows := sqlmock.NewRows(cols).
@@ -200,19 +200,19 @@ func TestLoadWorkItems_AliasesGuidanceOnTheLoadPath(t *testing.T) {
 			"medium", "add content", []byte(`{"page_name":"faq","content_guidance":"State the six service names."}`), nil,
 			35, "page-build-handler", "triaged", "gap_plan_add_faq",
 			nil, 0, "auto",
-			nil, nil, nil, nil).
+			nil, nil, nil, nil, nil).
 		// The majority shape: already on the live channel, must pass through.
 		AddRow(uuid.New(), siteID, "design-audit", "build", "content_rewrite",
 			"medium", "tone", []byte(`{"page_name":"index","suggestion":"Warm the opening paragraph."}`), nil,
 			35, "page-build-handler", "triaged", "audit_tone_index",
 			nil, 0, "auto",
-			nil, nil, nil, nil).
+			nil, nil, nil, nil, nil).
 		// Neither key: suggestion must stay ABSENT, not become "".
 		AddRow(uuid.New(), siteID, "generic", "build", "needs_rerender",
 			"low", "rerender", []byte(`{"page_name":"about"}`), nil,
 			60, "rerender-pages", "triaged", "rerender:about",
 			nil, 0, "auto",
-			nil, nil, nil, nil)
+			nil, nil, nil, nil, nil)
 
 	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
@@ -298,14 +298,14 @@ func TestLoadWorkItems_SpecPassesThroughExceptTheAlias(t *testing.T) {
 		"batch_id", "attempt_count", "approval_mode",
 		"component_id", "entity_id", "affected_url",
 		// bugs_open/345 — the previous attempt's failure text.
-		"error",
+		"error", "completed_at",
 	}
 	rows := sqlmock.NewRows(cols).
 		AddRow(uuid.New(), siteID, "content-gap-planner", "build", "content_rewrite",
 			"medium", "add content", []byte(storedSpec), pageID,
 			35, "page-build-handler", "triaged", "gap_plan_add_faq",
 			nil, 0, "auto",
-			nil, nil, nil, nil)
+			nil, nil, nil, nil, nil)
 
 	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
