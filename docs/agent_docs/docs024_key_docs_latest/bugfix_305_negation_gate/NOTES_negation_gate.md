@@ -655,3 +655,24 @@ passenger trap experienced from the LOSING side, and no pathspec discipline of m
 prevented it — the only lever is the gap between edit and commit, which for a shared append-only file
 should be seconds, not the length of a verify-dispatch run. **Commit the file edit FIRST, then run
 the dispatch.**
+
+### Blast-radius check on the migration I had just applied — and a third, independent proof the roll landed (2026-08-22 ~10:45Z)
+
+`548` makes `render_section` read `copy_gate.result` for **every site**, so I went looking for the way
+that could go wrong rather than assuming it could not. `render_component` resolves `content_from`
+through `extractContentWithFallbacks` (`v3_site_actions.go:2248`), and that helper's **second**
+candidate is the BARE step key. So a marker with no `result` — non-empty — resolves to the marker
+map, and the section renders from `status`/`content_from` keys: wrong, not empty, and nothing errors.
+
+**Measured before deciding anything: 0 of 131 markers all-history carry `no_content` or
+`initialized`** (the two `result`-less exits). So it is a coupling to preserve, not a live defect;
+recorded as the sixth face in `LANDMINES.md` with the explicit warning not to "fix" it by widening
+the fallback (that bare-key branch is what `bugs_open/199`'s envelope normaliser contains).
+
+The same census gave a **behavioural probe that needs no binary access**, and it is a cleaner
+instrument than the grep I used this morning: every marker written by the fixed binary carries
+`result`, and no earlier one does — **28 of 28 post-roll (18 `clean`, 10 `repaired`) against 0 of
+103 pre-roll.** A split with no overlap. It independently confirms the roll AND proves `result` is
+set on the CLEAN path, which is the property that stops `548` dropping untouched sections. Recorded
+in the landmine entry so the next person checking "is the `result` half live?" does not have to exec
+into a pod.
