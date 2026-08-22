@@ -1,0 +1,22 @@
+POSITIVE CONTROL — config-key-audit --capped-schedule-ordering against LIVE agent_definitions
+captured 2026-08-22 10:29:42Z — BEFORE the bugs_open/316 migration was applied
+binary built from working tree at ca5f76e63 + uncommitted detector
+----------------------------------------------------------------------------------------
+{
+  "agents_scanned": 194,
+  "agents_undecoded": 0,
+  "findings": [
+    {
+      "agent": "content-feed-trigger",
+      "path": "steps.find_news_sites",
+      "row_cap": 5,
+      "order_by": "s.domain",
+      "due_columns": "next_fetch_at",
+      "effective_cap": 5,
+      "effective_cap_set_by": "query LIMIT",
+      "consuming_loop": "steps.process_sites max_iterations=5"
+    }
+  ]
+}
+1 capped step(s) select clock-replenished work by a static sort: the same rows win every run and the tail starves (bugs_open/316).
+exit=1

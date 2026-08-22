@@ -107,3 +107,30 @@ func resultHitItsRowCap(query string, rowCount int) (limit int, hit bool) {
 	// cannot go quiet.
 	return n, rowCount >= n
 }
+
+// QueryRowCap is the exported form of queryRowCap, and it exists so that
+// "what counts as a capped query" has exactly ONE definition in this estate.
+//
+// The second caller is cmd/config-key-audit's --capped-schedule-ordering mode
+// (bugs_open/316), which asks a different question about the same property.
+// This detector asks whether a result reached its ceiling; that one asks whether
+// a capped query's ORDER BY makes the cap unfair — `content-feed-trigger`'s
+// find_news_sites ended `ORDER BY s.domain LIMIT 5`, so over five consecutive
+// cap-hitting runs the alphabetically-last eligible site was selected ZERO times
+// while continuously due, reaching 419% of its own configured cadence. The row
+// count is identical whether the ordering is fair or not, which is precisely why
+// the WARN above cannot see it and a separate check has to.
+//
+// EXPORTING RATHER THAN COPYING IS THE WHOLE POINT. A second hand-written
+// trailing-LIMIT regex in the audit binary is bugs_open/144's shape exactly —
+// two implementations that go blind in the same direction and then agree with
+// each other — and it would mean the two checks could disagree about which
+// steps are even capped. The exclusions documented above (LIMIT 1, LIMIT 0, a
+// parameterised limit, a non-trailing limit, tolerated trailing comments) are
+// contract, not incidental: both callers inherit them, and a change here changes
+// both deliberately.
+//
+// Behaviour is queryRowCap's, unchanged — this adds a name, not a rule.
+func QueryRowCap(query string) (int, bool) {
+	return queryRowCap(query)
+}

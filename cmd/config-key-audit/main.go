@@ -253,6 +253,10 @@ func main() {
 		emitLoopSitewideItemKeys()
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--capped-schedule-ordering" {
+		emitCappedScheduleOrdering(os.Args[2:])
+		return
+	}
 	declared := datahelpers.ListDeclaredConfigKeys()
 	conditional := datahelpers.ListConditionalConfigKeys()
 
