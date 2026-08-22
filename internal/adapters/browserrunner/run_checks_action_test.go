@@ -68,7 +68,7 @@ func (f *fakePage) Evaluate(script string) (interface{}, error) {
 	f.evalScripts = append(f.evalScripts, script)
 	return f.evalResult, f.evalErr
 }
-func (f *fakePage) Close()                               {}
+func (f *fakePage) Close() {}
 func (f *fakePage) Do(step criteriaStep) error {
 	f.steps = append(f.steps, step)
 	if f.stepErr != nil {
