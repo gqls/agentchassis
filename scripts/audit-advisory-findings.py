@@ -44,18 +44,27 @@ otherwise. See `a-post-fix-zero-needs-a-demand-control`.)
 
 The discriminator is empirical and needs no hand-classification of the checks:
 
-    Take the findings whose FILE IS UNCHANGED between the finding's commit and HEAD.
-    For those, the condition MUST still hold — nothing happened to the file. So:
-      * check fires on static replay  -> that check is STATE-EVALUABLE (it reads the
-        file's condition, not the diff). Its verdicts can be trusted.
-      * check stays silent            -> that check is DIFF-ONLY. It cannot answer
-        "still true?" for anything, and ALL its findings are reported UNDECIDABLE
-        rather than resolved.
+    Replay each check at ITS OWN FINDING'S COMMIT — content as of that commit, no diff.
+    The condition was TRUE there; that is why the check fired. So the answer is known:
+      * check fires  -> it reads STATE, so "does it still hold?" is a question it can
+        answer, and its verdicts can be trusted.
+      * check silent -> it reads the DIFF. It can never answer that question, and ALL
+        its findings are reported UNDECIDABLE — never `acted`.
 
-So each check earns the right to be believed, per run, from cases where the answer is
-known in advance. A check with no unchanged-file case is undecidable by default, never
+So each check earns the right to be believed, per run, from cases whose answer is known
+in advance. A check that never fires on static replay is undecidable by default, never
 resolved by default. The per-check evidence is printed, so a reader can see which checks
 carried the run.
+
+    ⚠ THIS REPLACED AN EARLIER CALIBRATION THAT WAS BIASED AGAINST FINDING ACTION, and
+    the bias inverted the headline, so it is recorded rather than quietly fixed. Version
+    one calibrated only on findings whose FILE WAS UNCHANGED since firing. But a check
+    whose findings were ALL ACTED ON has no unchanged file, by definition — so its
+    successes were filed as `undecidable` and it never reached the numerator. Measured
+    2026-08-22: `unrepaired-component-write` fired on three writers, all three were fixed
+    that day, and the run reported `acted: 0` while omitting the check from the control
+    table entirely. **A control that cannot observe the outcome it exists to detect is not
+    a control** — and it fails in the flattering direction, which is the dangerous one.
 
 USAGE
     scripts/audit-advisory-findings.py [-n 150] [--json] [--write-note]
@@ -264,15 +273,31 @@ def main():
         except (ValueError, TypeError):
             age = -1.0
         rows.append({"kind": kind, "path": path, "hits": len(shas), "first": first[:9],
+                     "first_full": first,
                      "age_days": round(age, 1),
                      "exists": exists, "unchanged": unchanged, "fires_at_head": bool(fires),
                      "check": check_name})
 
-    # 3. THE CONTROL: a check is state-evaluable only if it fires on an UNCHANGED file.
+    # 3. THE CONTROL — calibrate each check by replaying it at the finding's OWN commit.
+    #
+    # The condition was TRUE at that commit; that is why the check fired. So replaying the
+    # check statically against that commit's content, with no diff, has a known answer:
+    #   fires  -> the check reads STATE, so "does it still hold?" is a question it can answer
+    #   silent -> the check reads the DIFF, and can never answer it. Undecidable, never acted.
+    #
+    # ⚠ THIS REPLACED A CALIBRATION THAT WAS BIASED AGAINST FINDING ACTION, and the bias
+    # is worth stating because it inverted the headline. The first version calibrated only
+    # on findings whose FILE WAS UNCHANGED since firing. But a check whose findings were
+    # ALL ACTED ON has no unchanged file by definition — so its successes were recorded as
+    # `undecidable` and it never appeared in the numerator. Measured 2026-08-22:
+    # `unrepaired-component-write` fired on three writers, all three were fixed that day,
+    # and the run reported `acted: 0` while listing the check nowhere at all. A control
+    # that cannot observe the outcome it exists to detect is not a control.
     evaluable, control_evidence = set(), {}
     for r in rows:
-        if r["unchanged"]:
-            control_evidence.setdefault(r["check"], []).append(r["fires_at_head"])
+        own = still_true_at_head(pc, r["check"], r["path"], r["first_full"]) if r["check"] else None
+        r["fires_at_own_commit"] = bool(own)
+        control_evidence.setdefault(r["check"], []).append(bool(own))
     for check_name, results in control_evidence.items():
         if any(results):
             evaluable.add(check_name)
@@ -352,13 +377,14 @@ def render(commits, rows, tally, evaluable, control_evidence, decided, base):
                  "This is a BLIND result, not a clean one; do not read it as 'all well'.")
     b.append("")
     b.append("  the control — which checks earned the right to be believed this run")
-    b.append("  (a check is trusted only if it still fires on a file NOBODY CHANGED since;")
-    b.append("   silence there means the check reads the DIFF, so it can never say 'still true')")
+    b.append("  (each check is replayed at its OWN finding's commit, where the condition is KNOWN")
+    b.append("   to have held; silence there means the check reads the DIFF, not state, so it can")
+    b.append("   never answer 'still true?' and all its findings are undecidable, never acted)")
     if control_evidence:
         for check_name, results in sorted(control_evidence.items()):
             mark = "state-evaluable" if check_name in evaluable else "DIFF-ONLY -> undecidable"
             b.append(f"    {check_name:38s} {sum(1 for x in results if x)}/{len(results)} "
-                     f"unchanged-file cases fired  {mark}")
+                     f"own-commit replays fired  {mark}")
     else:
         b.append("    NONE — no finding had an unchanged file, so nothing could be calibrated.")
     b.append("")
