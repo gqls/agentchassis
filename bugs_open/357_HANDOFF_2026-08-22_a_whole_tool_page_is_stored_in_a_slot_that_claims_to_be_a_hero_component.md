@@ -270,3 +270,51 @@ lost it" are indistinguishable from current state. **Not claimed in either direc
 `RUN_CORRELATION_ID=e580b34a-d284-4f80-ac96-81af1c4adaba` (intake `f7aedef7`), asked the one thing
 row fingerprints cannot settle: which leg pairs a genuine hero `content_data` with the tool's bytes,
 given the `saveSectionsExtractFromHTML` fallback sets no `ContentData` at all.
+
+### 7. ⚠ CORRECTION to §3 above, same day, ~2h later — "already armed" is REFUTED, and what replaces it is worse
+
+**§3 claims the thirteen rows with a full hero `content_data` are one rebuild away from having their
+tool replaced by a title band. That is not true, and the check that refutes it is one I should have
+run before writing it.**
+
+`vetcomparison.uk` `index` — the newest row of the 22 — has **six completed
+`page_rerender_index_…` work items between 2026-08-19 and 2026-08-22**, and the tool still serves
+today (`class="tool-page"` present, http 200, 44,496 B). If a rerender rendered the hero template
+over it, that could not be so.
+
+**The timestamps say something stronger: the rerender WROTE these rows.**
+
+| | |
+|---|---|
+| rerender item | created `2026-08-22 08:44:51`, completed `08:50:19` |
+| all four `page_components` rows on the page | created `2026-08-22 08:50:12` |
+
+The rows were written **inside** that window, seven seconds before the item completed, and the hero
+row it wrote holds 11,326 bytes of tool HTML with the hero `content_data` beside it.
+
+**So `RerenderPageSectionsAction` does not destroy the tool — it RE-MINTS THE MISMATCH.** It carries
+the stored HTML forward, keeps the hero identity and the hero `content_data`, and writes a fresh
+row. `updated_at = created_at` across the population never meant "never touched since birth"; it
+means **every row is newly born, repeatedly**, because this path deletes and re-inserts rather than
+updating.
+
+**What this changes for anyone fixing it:**
+
+1. **The population is self-renewing.** Repairing the 22 rows without fixing the producing path is
+   wasted work — the next rerender of those pages reproduces the defect. Flow before stock.
+2. `bugs_open/277`'s "the parked state is the protection" argument is about a *backfill* arming
+   `ContentDataCanFillTemplate`. That function has exactly **one** non-test caller —
+   `discovery_checks/check_literal_markdown.go:429` — so it is a **detector's classifier, not a
+   gate on the rebuild path**. Do not carry it into this file as a safety mechanism; I did, and it
+   is the root of the wrong claim in §3.
+3. The rerender's own content pre-check (`rerender_page_sections_action.go` ~380–445) exempts
+   self-contained tools via `isSelfContainedSection` — keyed on `component_level=='tool'` AND an
+   empty `input_schema`. `hero` is `component_level='section'` **with** a schema [MEASURED], so the
+   exemption never fires for these rows. They are handled as ordinary sections throughout.
+4. **STILL OPEN, and not to be assumed either way:** whether a full page rebuild *through the
+   writer* (as opposed to a rerender) renders the hero template over the tool. Rerender demonstrably
+   does not. Nothing here establishes what the writer path does.
+
+Logged in `WRONG_CALLS.md`. The cheap check that would have caught it: **before claiming a stored
+row is one operation away from destruction, look for that operation having ALREADY RUN on it** —
+six times, in this case, with the outcome recorded in `site_work_items`.

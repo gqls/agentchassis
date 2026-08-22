@@ -66,6 +66,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **a duplication audit identifies SHAPE, never INTERCHANGEABILITY — before calling two things duplicates, open BOTH and query live USAGE. A header states intent, not adoption; three of one sweep's "clear duplicates" failed this check (8 "byte-identical" health servers were 8 distinct bodies; two "duplicate" exporters shared a purpose and 0 of 16 functions; the "generic" Firecrawl action had no callers at all while the "bespoke" one was live)** | **1** |
 | **ask when a column was ADDED before reading its presence/absence as a WRITER fingerprint — a split by column-existence is a split by DATE** | **1** |
 | **write a nullable comparison as `IS DISTINCT FROM`, and print the count of rows where the comparison actually RAN — `<>` against a NULL yields NULL and silently drops exactly the rows the query exists to find, returning a clean zero** | **1** |
+| **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -43483,3 +43484,126 @@ of a registration API silently undercounts by however many policy/option variant
 undercounts *quietly*, returning a smaller number rather than an error. Related in kind to
 `declaring-a-key-silences-your-own-detector`, but the inverse: there, my action hid a real finding;
 here, my method invented one.
+
+---
+
+## 2026-08-22 — I read a component's schema at the wrong nesting level and got a confident, wrong "declares neither" (bugs_open/114 lane)
+
+**The claim I made to myself.** Chasing why six mortgagecalculator tool pages resolved
+their hero to the site-wide fallback while two resolved correctly, I queried the hero
+component's schema:
+
+```sql
+SELECT cc.input_schema->'background_image'->>'source',
+       (cc.input_schema ? 'hero_url') AS declares_hero_url
+FROM content_components cc ...
+```
+
+Four rows came back with `source` NULL and `declares_hero_url = f`, identically. I read
+that as *"the component declares neither field, so both values come from the alias
+block"* and started reasoning about what could differ between the pages given that.
+
+**What is actually true.** The fields live under `input_schema.fields`, not at the top
+level. `background_image` IS declared — `type: image`, `source: site_assets.hero`,
+`fallback: /assets/images/hero.jpg`, `on_missing: use_fallback` — which is a materially
+different resolution path from the one I had just talked myself into, and it is the
+declared-field path that `carryStored` and `handleMissingField` act on.
+
+**Why the wrong answer looked like a right one.** `->` on a missing key returns NULL and
+`?` returns false; neither errors. Four rows agreeing perfectly *reinforced* the reading —
+the consistency was real, it just measured the absence of a key at a level where no
+component keeps its fields. **A JSON path probe cannot distinguish "not declared" from
+"not there".**
+
+**The check.** Print the object once (`SELECT jsonb_pretty(input_schema) … LIMIT 1`)
+before writing any predicate against its interior. One query, and it would have shown the
+`fields` wrapper immediately. The generalisable form: when a schema probe returns the same
+negative for every row, that uniformity is evidence about your PATH, not about the data —
+ask the row to describe itself before asking it a question.
+
+**Related in kind:** the measurement-discipline lesson that a measurement answers the
+question you encoded. This one is its schema-shaped instance, and the tell is
+suspiciously tidy agreement across rows.
+
+---
+
+## 2026-08-22 — two hypotheses of my own, both refuted within the hour, and the cheap discriminator I nearly skipped (bugs_open/114 lane)
+
+Recorded because the *rate* matters: I formed three explanations for the same evidence and
+two were wrong, in a session where nothing was blocking me from writing the first one into
+a bug file.
+
+**Hypothesis 1 — "which flow ran".** I believed the six failing pages took the LLM-free
+assemble path that does not re-resolve fields, and the two successes took `plan_sections`.
+**Refuted by the diagnosis loop** (090, run corr `ea7dfeef-c11d-40c4-b24f-b8f42413b1ae`,
+verdict UNVERIFIABLE but narrowing): both pages carried
+`handler_agent='page-build-handler'`, and the failing page's hero write falls inside that
+item's own run window, after the only later rerender had already completed. The wrong
+value was produced by that flow's own resolution. Cost: one run. Value: it killed the
+explanation I would otherwise have written down.
+
+**Hypothesis 2 — "a stored value is sticky".** `page_component_history` showed the failing
+page already carrying `/assets/images/hero.jpg` since 13:46 that day, and the two wired
+pages carrying no `hero_url` at all in any archived version. That is a clean-looking
+correlation across the cases in front of me, and `carryStored` exists precisely to carry a
+stored value forward, so there was even a named mechanism to hang it on.
+**Refuted by widening the population by one query:** ten pages fleet-wide carry
+`/assets/images/hero.jpg` in their history and are wired to a content-hero today —
+`idea.uk/tool-funding-fit` has **23** such versions. A stored fallback plainly does not
+prevent live resolution, exactly as `carryStored`'s own comment says ("live resolution
+always wins — this runs only after the literal path and every alias have missed").
+
+**The cheap check, and it is the same one both times.** *Look for the case that would
+refute it, outside the sample that suggested it.* Both hypotheses were built from the
+eight pages of one site on one day. The refuting evidence for the second was one
+`GROUP BY` over every wired page on the fleet, and it took under a minute. I had already
+written the stickiness reading into my working notes as the likely mechanism before
+running it.
+
+**What survived** is narrower and is stated as such: routes 1, 2 and 4 of `ensureAssets`
+are all gated on `pageName != ""`, route 3 needed a plan row that site does not have, and
+route 5 is ungated — so the observed outcome is exactly "every pageName-gated route
+skipped". That is **not** asserted as the cause; the 08-15 orchestration rows are purged
+and the runtime evidence the loop asked for cannot be recovered. The commit
+(`736108464`) fixes the thing that made it unknowable rather than guessing: the fallback
+branch now says whether the page-scoped routes were eligible at all.
+
+---
+
+## 2026-08-22 (third, and this one I PUBLISHED) — I called 13 live rows "already armed" for destruction without checking whether the destroying operation had already run. It had. Six times.
+
+**The claim, written into `bugs_open/357` §3 and said aloud to the owner.** Thirteen
+`page_components` rows name the shared `hero` component while storing a whole interactive tool.
+They also carry a complete hero `content_data`. I wrote: *"the regeneration this file warns a
+backfill would arm is armed now, with no backfill … Nothing has to be written for a rebuild to swap
+a working calculator for a title band."*
+
+**What the check says.** `vetcomparison.uk` `index` has **six completed `page_rerender_index_…`
+work items between 08-19 and 08-22**. The tool still serves. And the timestamps invert the story
+entirely: the page's four `page_components` rows were created at `08:50:12`, **inside** the rerender
+that ran `08:44:51 → 08:50:19`. The rerender did not destroy the tool — **the rerender WROTE the
+mismatched row**, carrying the stored HTML forward with the hero identity and hero `content_data`
+attached. The defect is re-minted on every pass.
+
+**Three separate failures, and the third is the instructive one.**
+
+1. **I imported a mechanism from an adjacent bug without checking it applied.** `bugs_closed/277`
+   established that writing `content_data` flips a component to regenerable via
+   `datahelpers.ContentDataCanFillTemplate`. True there. But that function has exactly **one**
+   non-test caller — `discovery_checks/check_literal_markdown.go:429` — so it is a **detector's
+   classifier, not a gate on any rebuild path**. I had even run the grep that shows this, read
+   "one caller", and carried on to the rebuild path anyway looking for confirmation.
+2. **I read a codepath and predicted its behaviour instead of looking for its output.** The
+   prediction was defensible from the source. It was also wrong, and the system had already run the
+   experiment six times and written down the answer.
+3. **`updated_at = created_at` on all 22 rows was in my own notes as evidence they were "born wrong
+   and never touched since".** It means the opposite: this writer DELETEs and re-INSERTs rather than
+   updating, so every row is newly born, repeatedly. **A column that equals its sibling is not
+   evidence of stillness — it is evidence about the WRITER's method**, and I read it as history.
+
+**The check.** Before asserting a stored artefact is one operation away from harm, query whether
+that operation has already run against it — `site_work_items` by `item_key` prefix, with
+`created_at`/`updated_at`. Then compare those timestamps to the artefact's own `created_at`, because
+if the artefact was written *inside* the operation's window, the operation is its **author**, not
+its threat. Both halves are one query. I wrote the claim into a bug file and told the owner before
+running either.
