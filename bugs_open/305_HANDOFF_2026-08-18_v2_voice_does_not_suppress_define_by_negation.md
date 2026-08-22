@@ -774,3 +774,28 @@ page that trips it — verified at `page_components.content_data`, on the part t
 > `loanzy.uk` repairs, the overnight `remortgagecalculator.uk` pair) still ran the old wiring — their
 > `repaired` markers describe the in-memory map, not the page. Remaining: the first post-09:20Z
 > repaired page, verified at the artefact. Lane log: `bugfix_305_negation_gate/NOTES` 2026-08-22.
+
+## §23. ✅ PROVEN AT THE ARTEFACT 2026-08-22 10:00Z — the repair reaches the page
+
+`loanzy.uk/tool-interest-rate-stress-test`, rebuilt 09:57:01Z (post-548), components saved 09:59:25Z.
+`copy_gate_2`: **`hits_before 8 → hits_after 2`, 6 rewritten, 0 rejected**; two other sections' hits
+were **exempt** (brief-supplied — the by-design behaviour of §11, visible in the same run).
+
+**Both polarities checked in `page_components.content_data`: 0 of 6 removed constructions present,
+6 of 6 replacements present** — the second count is the demand control, proving the test could have
+come out otherwise. All six were *rather than* clauses cut to their point: *"…happens rather than
+after."* → *"…happens."*, *"budget, rather than theirs,"* → *"budget"*, and four more.
+
+**The control that makes this decisive.** The same query (`RUNBOOK` §8, two-sided) was run 90 minutes
+earlier on `tool-loan-repayment-calculator`, built at 09:10Z — **before** 548 — and whose save was
+also accepted: `stored_matches_PRE=true, stored_matches_POST=false` (§22's defect). Post-548 the same
+query returns `PRE=false, POST=true`. Same site, same morning, same instrument, opposite answer.
+
+**This also closes §20's same-field splice race at the artefact:** all six rewrites were in ONE field,
+six were accepted and six landed, and `hits_after` equals `hits_before − len(rewritten)` exactly.
+Before `0eea9e597`, six accepted rewrites landed as one.
+
+**So the gate now detects, selects, rewrites, AND changes pages.** The bug does not close on this —
+the bar is the owner's damage instruction (§11, and "Can `bugs_open/305` close?" in the lane handoff),
+which needs `site_ai_agent_orchestration` to edit that site's brief and re-render. The *defect* half
+is complete and proven.

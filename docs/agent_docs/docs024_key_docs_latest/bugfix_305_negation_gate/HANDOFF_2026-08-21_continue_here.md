@@ -33,7 +33,16 @@ lane built the platform half and contributed it back into that file, §8–§17)
 > **So today's state, precisely: the gate detects correctly, selects correctly, rewrites well, and does
 > not yet change pages.** It needs one roll, then `548`, then one page to confirm at the artefact.
 >
-> ## ✅ UPDATED 2026-08-22 MORNING — STEPS 1 AND 2 ARE DONE; ONLY THE ARTEFACT PROOF REMAINS
+> ## ✅✅ 2026-08-22 10:00Z — ALL THREE STEPS ARE DONE. THE GATE CHANGES PAGES, PROVEN AT THE ARTEFACT.
+> `loanzy.uk/tool-interest-rate-stress-test`, rebuilt 09:57Z post-548, saved 09:59Z: `copy_gate_2`
+> **8 → 2 hits, 6 rewritten, 0 rejected**, and in `page_components.content_data` **0 of 6 removed
+> constructions are present and 6 of 6 replacements are** (the second is the demand control). The
+> pre-548 control on an accepted save inverts exactly (`RUNBOOK` §8). It also closes §20's same-field
+> splice race at the artefact — six rewrites in ONE field, six landed. **Nothing below is outstanding
+> for the defect half; what remains for the BUG is the damage half (the briefs and the three pages),
+> which is not this lane's.** Details: bug file §23, NOTES 2026-08-22.
+>
+> ## ✅ UPDATED 2026-08-22 MORNING — STEPS 1 AND 2 ARE DONE; ONLY THE ARTEFACT PROOF REMAINS (superseded by the block above)
 > The roll landed (`v1.0.1323`, stamp `70e7b4f9c`, pods up ~08:36Z; `dd9fc6197` is an ancestor,
 > binary-probed on BOTH replicas with a discriminating absent control). **Migration `548` applied
 > 2026-08-22 ~09:19Z** (UPDATE 1, verify block passed, recorded 09:20:25Z via `--record-only`;

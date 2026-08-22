@@ -204,3 +204,23 @@ So the honest position: the check now works end to end inside the build, and I s
 where the improved sentence lands in the stored site. I've left the exact test written down so it is
 a single query when the next suitable page comes through, and I've deliberately not forced one — that
 site is being rebuilt by another thread this morning and I'd be treading on their work.
+
+Ten o'clock, and the last piece landed. The same page came round again on a retry, and this time
+everything worked: the check found eight of these constructions, rewrote six of them, left two alone
+because that site's own instructions supplied them, and the page saved. I then went and read the
+stored page itself: none of the six phrases it removed are there, and all six of its replacements
+are. So the improved copy is now what the site actually holds — that is the thing I owed you, and it
+is done.
+
+The rewrites are the sort of thing you would do with a pencil. "…rather than paying down the loan
+itself" became "…", leaving "interest,". "…based on your budget, rather than theirs" became "based
+on your budget". Nothing else on the page moved.
+
+Two corrections to what I told you earlier today. The save that was refused an hour ago was not a
+sign that older pages are stuck — the very next attempt at the same page produced a good layout and
+saved normally, so that guard was doing its job on one bad roll of the dice and I over-read it. I've
+withdrawn the question I'd sent to the people who own that guard, and logged the mistake.
+
+Nothing has changed about the three pages you originally complained about. That still needs the
+wording in that site's own instructions to be changed, which is a decision for whoever owns that
+site, not something the check will ever do on its own.

@@ -693,3 +693,32 @@ correction is present at HEAD. So the whole edit rode in, not just its opening.
 ⚠ And an accidental control worth keeping: my sixth probe token, `EXPIRED`, returned 0→0 — because I
 had written the word in lower case. **A test whose tokens can come out zero is the only kind worth
 running**; had every token returned a hit I would have learned nothing about the check itself.
+
+## ✅ 2026-08-22 10:00Z — PROVEN AT THE ARTEFACT. The gate changes pages.
+
+`loanzy.uk/tool-interest-rate-stress-test`, rebuilt 09:57:01Z (post-548), COMPLETED, parent
+COMPLETED at `complete`, components saved 09:59:25Z.
+
+**Marker:** `copy_gate_2` — `hits_before 8 → hits_after 2`, **6 rewritten, 0 rejected**;
+`copy_gate_0`/`copy_gate_1` each 1 hit, both **exempt** (brief-supplied, left alone by design).
+
+**RUNBOOK §8 on it: `gate_changed=true, stored_PRE=false, stored_POST=true`** — the exact inversion
+of the pre-548 control measured 90 minutes earlier on `tool-loan-repayment-calculator`
+(`stored_PRE=true, stored_POST=false`). Same query, same site, same morning, opposite answer.
+
+**The six removals, and both polarities checked at `page_components.content_data`:**
+*"…happens rather than after." → "…happens."*; *"interest rather than paying down the loan itself,"*
+→ *"interest,"*; *"years rather than just to next month's bill."* → *"years."*;
+*"budget, rather than theirs,"* → *"budget"*; *"point rather than a fixed answer,"* → *"point,"*;
+*"service rather than waiting to see how things unfold,"* → *"service,"*.
+**0 of 6 removed clauses present in the stored artefact; 6 of 6 replacements present** (the second
+count is the demand control — it proves the LIKE could have matched).
+
+**This also closes handoff item 1b at the artefact — the same-field splice race.** All six rewrites
+were in ONE field. Before `0eea9e597`, six accepted rewrites landed as one (§20). Six accepted, six
+landed, and `hits_after` (2) equals `hits_before − len(rewritten)` (8 − 6) exactly.
+
+⚠ **My stale literals nearly misread this.** I first checked the stored component for the 09:23 run's
+sentence and got `false` everywhere — because a rebuild REGENERATES the copy, so the earlier run's
+phrasing does not exist in it. §8's query is right precisely because it compares against **this run's
+own** two durable fields; a literal from an earlier run is not a probe, it is a different page.
