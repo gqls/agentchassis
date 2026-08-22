@@ -318,3 +318,37 @@ updating.
 Logged in `WRONG_CALLS.md`. The cheap check that would have caught it: **before claiming a stored
 row is one operation away from destruction, look for that operation having ALREADY RUN on it** —
 six times, in this case, with the outcome recorded in `site_work_items`.
+
+### 8. CORRECTION to §4 — "zero false positives" was wrong: 3 of the 27 are LEGITIMATE, and the exemption that removes them is already documented in this file
+
+I called all 27 flagged rows pathological without opening five of them. Three are correct by design:
+
+| rows | what they are |
+|---|---|
+| `loancash.co.uk` `tool-price-cap-checker`, `tool-true-cost-calculator`, `tool-complaint-deadline-calculator` | **legitimate verbatim pages** — each is `rebuild_policy='owned'`, **exactly one** component row, and `content_data->>'deploy_mode' = 'verbatim'` [MEASURED]. They store a full `<!DOCTYPE html>` document *because that is what a verbatim page is.* |
+
+That is precisely the rule this file's own ADDENDUM records from the `loancalculator_couk/decompose`
+lane — *"a page ships VERBATIM when `rebuild_policy='owned'` ∧ exactly one component row ∧ that row
+carries `content_data.deploy_mode='verbatim'`"* — and I flagged them anyway.
+
+**So the guard must carry a verbatim exemption**, and with it the numbers are:
+
+| | rows |
+|---|---|
+| flagged by the raw predicate | 27 |
+| **legitimate verbatim, exempt** | **3** |
+| **genuine defects** | **24** |
+
+The other two of the five non-`hero` rows are real, and both are defects this bug would not otherwise
+have surfaced:
+
+- `leopardessconsulting.co.uk` `blog` — component **`blog-listing_pre_037`**, a superseded component
+  still bound to a live page.
+- `idea.uk` `index` — the `tool-list` row's `rendered_html` is **zero bytes** on a live homepage,
+  and the served page contains no `tool-list` at all [MEASURED: http 200, 51,689 B, 0 matches]. A
+  hollow slot shipping live. `bugs_open/039`'s `sectionIsUnresolvableStub` does not catch it because
+  that guard requires `component_id` to be NULL, and this row has one.
+
+**The transferable point for whoever arms this:** the exemption is not a tuning threshold, it is a
+statement about what the platform legitimately does. Any version of this guard that lacks it will
+refuse three correct pages on `loancash.co.uk` the first time they are rebuilt.
