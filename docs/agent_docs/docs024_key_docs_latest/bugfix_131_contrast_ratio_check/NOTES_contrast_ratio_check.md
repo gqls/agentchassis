@@ -347,3 +347,43 @@ magnitude — robot-hands 3 → 193, dartsonline 1 → 125). Do not quote 145 as
 **`https://pool-energy-utilities.internal` was excluded** (not publicly resolvable), and that
 exclusion is stated rather than silent — a dropped row in a scan table reads exactly like a clean
 one.
+
+## 2026-08-22 — council round 3 has NO VERDICT: a seat died on an Anthropic account quota
+
+Run `956e2326` ended `COMPLETED | complete_invalid` at 18:16Z. **`complete_invalid` is not a fourth
+verdict — it is the `error_step` every review seat routes to on failure** (landmine filed; the
+misleading part is that no `council_report` row is written, so the obvious "newest report" query
+silently returns ROUND 2's report and reads as fresh).
+
+The actual cause, from the one place it lives (`collected_data->'__step_error'`):
+
+```
+step review_architecture failed: … AI endpoint unavailable: provider=anthropic
+model=claude-sonnet-5 … 400 {"type":"invalid_request_error","message":"You have reached your
+specified API usage limits. You will regain access on 2026-09-01 at 00:00 UTC."}
+```
+
+**Harvested the seats that DID run rather than resubmitting blind** — 7 of 7 completed review seats
+returned `approve` with no objections, including `editquality`, `reuse_agent`, `constitution`, and
+`bug_historian` (the seat that gated round 1). Quotes worth keeping: *"tightly scoped to the causal
+mechanism the diagnosis names"*; *"a genuine root-cause fix … not a special-case bypass for the vonc
+page"*; *"a targeted refinement of an existing, already-approved probe-local mechanism"*.
+`review_architecture` never ran. **So: no verdict, and the round was on an approving trajectory when
+the account quota stopped it — those are two separate statements and only the first is a fact about
+the gate.** Do NOT write `Council-Reviewed:` for r3; the commits carry `Council-Submitted:` and 098
+will resolve it if a later round approves.
+
+### The quota is bigger than this lane — sized because it decides who can work
+
+`claude-sonnet-5` carries **81 step-configs across 18 active agent types (as of 2026-08-22)** — the
+most-used model in the estate (81 of 146 explicit step-level model settings). It includes **all 17
+`council-gate` seats and all 21 `fix-proposer` seats**, plus `feature-designer` (10),
+`experience-planner` (8), `experience-approval-council` (5) and the tool generate/improve/recreate
+chain. ⚠ Counting only ROOT `ai_service.model` shows **one** agent on sonnet-5 and badly understates
+it — the same root-vs-step census trap `bugfix_257` recorded (13 vs 68). Count the step overlays.
+
+**The fleet still looks healthy in aggregate** — 69 COMPLETED vs 6 FAILED in the hour it began, and
+only 3 runs have hit the limit so far (first 18:00:14Z) — because the cheap haiku-driven dispatch and
+checker lanes are unaffected. That aggregate is exactly what would mislead the next session:
+throughput is not evidence the council works. **Only the owner can clear this** (raise the cap, or
+repoint the model); the stated reset is 2026-09-01 00:00 UTC.
