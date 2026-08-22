@@ -444,3 +444,50 @@ that needs a real trigger run. The trigger is 6-hourly (08:38, 14:37, 20:37, 02:
 after `webdesign.co.uk` is served, whoever is then most overdue goes next. The claim to test is that
 lateness ROTATES, not that it disappears — it cannot disappear while demand exceeds supply, and saying it
 had would be claiming the capacity half was fixed too.
+
+## Council round 2 — the detector. APPROVED, and one objection was a real runtime risk
+
+Corr `703dbe2f-a078-4a40-825e-fb7773a1d95b`. **APPROVED**, *"approved with 1 advisory objection(s) —
+none high-severity"*, **11 reviewers**, `gated_by_truncation: false`.
+
+**The one that could have bitten — `editquality`, medium:** the `--report` path writes a `doc_notes`
+row, and *"`doc_notes.subject_type` is CHECK-constrained to eight values, and daily-check inserts
+routinely fail live despite passing locally"*. If that write failed, the CronJob would run, find
+nothing, and record nothing — and a missing row is defined in this estate to mean *the job did not run*.
+The failure would be invisible and would invert the signal.
+
+[MEASURED 2026-08-22] The constraint allows
+`tool, pipeline, experience, action, experience-pattern, landmine, component, decision`, and
+`writeDocNote` uses **`'pipeline'`** — 1,878 live rows already do. **Proved rather than inferred**: the
+exact insert was executed against live `clients_db` inside a transaction and then **rolled back**
+(`after rollback, rows=0`), so the write path is confirmed with no misleading row left behind. A real row
+written now would later read as "the cron ran on 08-22", and the row's entire meaning is that a run
+happened.
+
+**What actually made it safe is worth naming: I reused `writeDocNote` instead of writing my own insert.**
+The seat's concern was correct about the class; it missed because the shared helper already had the value
+right. That is the "reuse existing machinery" rule paying off in a place I had not thought about.
+
+**Other objections, all low, and what was done:**
+
+| seat | objection | response |
+|---|---|---|
+| `guardian` | confirm `QueryRowCap` does not collide with anything `cmd/config-key-audit` already imports from `actions` | **checked**: the binary uses exactly two symbols from that package, `GlobalActionRegistry` and `QueryRowCap`. No collision (and it compiles, which is the stronger proof) |
+| `debug_historian` | no deploy-verification step; a CronJob image is subject to the same-tag-rebuild trap like any other | **taken** — pod-binary recipe with a negative control added to the RUNBOOK above |
+| `prior_art_librarian` | the live-fleet figures are asserted; re-confirm `max_iterations=5` and the `ORDER BY` before merge, since `agent_definitions` can change under a session | **re-run**: `max_iterations=5 | query_limit=5`, unchanged |
+| `tooling_provenance` | no travelling `doc_plans`/`doc_notes` record read or left for the `config-key-audit` subject | noted, not done — worth a lane's attention if this tool family keeps growing |
+| `editquality` | a daily CronJob is disproportionate for a class with one live member | acknowledged in the submission and unchanged. It is the fair objection and it stays on the record; SCH-027's `verify-later` names the honest denominator so a later reader can judge it |
+
+**Submission hygiene, twice now.** Both rounds objected that files described in the rationale were absent
+from the `edits` array — the `_ROLLBACK` in round 1, and the test file, dockerfile, CronJob and makefile
+entries in round 2. All of them exist and are committed; several (`_ROLLBACK`, `cmd/`, `makefile`,
+`deployments/`) are **out of council scope** and could not have been edits. **The lesson is about
+wording:** say "committed alongside, out of scope, not reviewable here" rather than describing a file as
+if the reviewer can see it. Describing an invisible file as part of the safety net reads, correctly, as a
+gap.
+
+⚠ **Commit `d7be8db66` (the detector's Go) will list as UN-REVIEWED in the 098 report** despite this
+approval: it carries the in-scope `platform/` file but predates the submission and so has no trailer,
+and forward-only forbids an amend. The work *was* reviewed — corr `703dbe2f` — and this note is the
+resolution for anyone reading that list. The correct habit, which I used on the later commits and not on
+that one, is `Council-Submitted: <corr>` at commit time.

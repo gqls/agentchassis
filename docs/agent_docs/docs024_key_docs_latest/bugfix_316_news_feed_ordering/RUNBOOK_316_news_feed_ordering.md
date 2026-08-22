@@ -151,3 +151,48 @@ This row's `updated_at` moved at 08:36Z on the day of the fix for reasons nothin
 concurrent edit **aborts the migration** instead of being silently overwritten, and the abort message
 tells the next session to re-derive against the live value. That is a mechanical control where the
 "I looked and found no snapshot" check was only an inference.
+
+## Verifying the detector actually SHIPPED — at the running pod, never at git or the tag
+
+Raised by the council's `debug_historian` seat (corr `703dbe2f`, low): a CronJob image is subject to the
+same-tag-rebuild trap as any other. **A pod restart, a green build and a bumped tag all prove nothing.**
+
+```bash
+# 1. Did the CronJob run at all? (a MISSING doc_notes row means the job did not run —
+#    which is NOT the same as "nothing is wrong")
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT created_at, left(body,120) FROM doc_notes
+WHERE source='capped_schedule_ordering_check' ORDER BY created_at DESC LIMIT 3;"
+
+# 2. Is the running image the one carrying the mode? Ask the BINARY, with controls.
+POD=$(kubectl -n ai-persona-system get pods -l app=capped-schedule-ordering-check \
+        --sort-by=.metadata.creationTimestamp -o name | tail -1)
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "capped-schedule-ordering" /proc/1/exe && echo PRESENT
+kubectl -n ai-persona-system exec "$POD" -- grep -aq "capped-schedule-ordering-XXXX" /proc/1/exe && echo "CONTROL FAILED — matches anything"
+```
+
+⚠ **Run the negative control in the same breath.** A grep that matches everything and a grep against a
+missing binary are indistinguishable from success behind the customary `2>/dev/null`. And never use
+`strings` — it is absent from these images.
+
+⚠ **The job is short-lived**, so there may be no pod to exec into between runs. In that case the
+`doc_notes` row IS the evidence: it is written on clean runs too, precisely so its absence means
+something.
+
+## Proving the `doc_notes` write path without leaving a misleading row
+
+`doc_notes.subject_type` is CHECK-constrained to eight values, and the council flagged that daily-check
+inserts *"routinely fail live despite passing locally"*. `writeDocNote` uses `'pipeline'`, which is
+allowed (1,878 live rows use it) — but prove it rather than reading the constraint:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+INSERT INTO doc_notes (subject_type, subject_key, body, categories, source)
+VALUES ('pipeline','capped-schedule-ordering','probe', jsonb_build_array('config-integrity'::text),'capped_schedule_ordering_check');
+ROLLBACK;
+SQL
+```
+
+⚠ **Roll it back.** Writing a real row before the cron exists would later read as "the cron ran that
+day" — the row's whole meaning is that a run happened.
