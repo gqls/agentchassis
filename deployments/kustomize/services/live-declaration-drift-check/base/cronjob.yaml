@@ -1,0 +1,97 @@
+# deployments/kustomize/services/live-declaration-drift-check/base/cronjob.yaml
+#
+# PHASE 2 of bugs_open/363 — the half no Go test can hold.
+#
+# Phase 1 (2026-08-22, `873575ecf`) moved four guards off append-only migration
+# files and onto platform/livespec, so they compare GO against the DECLARATION.
+# That closed the half where a guard asserted something the checksum rule had
+# already made impossible ("migration 357 no longer contains X" cannot become
+# true). It deliberately left the other half open: nothing compared the
+# declaration to the LIVE DATABASE OBJECT, so a migration could move production
+# out from under livespec with no tell at all. This job is that comparison.
+#
+# WHY A CRONJOB AND NOT A TEST OR A HOOK — the two reasons are different, and both
+# are load-bearing:
+#   - `go test` runs inside a `git archive HEAD` build context with no cluster, so
+#     a unit test that needs Postgres would be skipped exactly where it matters.
+#   - A pre-commit hook cannot gate live config because AT COMMIT TIME THE
+#     MIGRATION IS UNAPPLIED. The owner ruled on precisely this (RFC_006,
+#     2026-08-02) and the remedy there was a marker in code plus a daily job
+#     against the real system.
+# So the check is after the fact, on a clock, by design. Its ~24h detection window
+# is stated in bugs_open/363 rather than hidden.
+#
+# ⚠ WHAT IT CANNOT SEE, recorded here because a reader will otherwise assume it
+# does: it compares live TEXT to declared fragments. The live claimed-item-timeout
+# pre_query carries a COMMENT stating a contract superseded on 2026-08-19 and
+# naming a deleted test — and this check PASSES it, because the clause matches and
+# it is the prose that lies. That sentence is the original cause of
+# bugs_closed/317. See the LANDMINES entry.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: live-declaration-drift-check
+  labels:
+    app: live-declaration-drift-check
+    component: config-integrity
+spec:
+  # 07:00 UTC — chosen against a LIVE `kubectl get cronjobs` census on 2026-08-22,
+  # not from a list in a handoff. That mattered: the plan had proposed 07:20, which
+  # is already component-source-vocabulary-check. The window either side is dense
+  # (06:55 component-render · 07:05 content-loss AND capped-schedule-ordering ·
+  # 07:10 shared-output-fields), and 07:00 was the free slot adjacent to the
+  # config-integrity cluster.
+  #
+  # Daily is the right cadence: a declaration parts from its object when someone
+  # ships a migration, and the window that matters is "before the next author
+  # trusts the declaration", not minutes. Not less than daily either — the drift
+  # is invisible by construction, so cadence is the only bound on how long it runs.
+  schedule: "0 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Five single-row SELECTs. Hanging past 5 minutes means something is wrong
+      # and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: live-declaration-drift-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which this
+          # fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family). A check that never runs reads as a check
+          # that found nothing.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/live-declaration-drift-check:latest
+              # Image CMD: ./config-key-audit --live-declaration-drift --report
+              #
+              # CONNECTS TO POSTGRES DIRECTLY — never kubectl. The ai-persona-app
+              # service account has no pods/exec RBAC in this namespace, and a
+              # kubectl-only tool fails there in a way that looks CLEAN.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi

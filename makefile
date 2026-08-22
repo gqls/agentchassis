@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1325
+IMAGE_TAG ?= v1.0.1326
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -97,7 +97,8 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	github-actions-runner \
 	optional-explicit-wires-check commit-sha-exposure-check \
-	capped-schedule-ordering-check component-source-vocabulary-check
+	capped-schedule-ordering-check component-source-vocabulary-check \
+	live-declaration-drift-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -126,6 +127,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
+	live-declaration-drift-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -468,6 +470,14 @@ build-optional-explicit-wires-check: ## Build optional-explicit-wires-check Cron
 .PHONY: build-commit-sha-exposure-check
 build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,commit-sha-exposure-check)
+
+# bugs_open/363 phase 2. The DECLARATIONS (platform/livespec) are compiled into
+# this binary, so a stale image is a stale SPEC and the check would keep reporting
+# clean against yesterday's declarations. Committed-HEAD build is what makes an
+# unreviewed declaration change unshippable rather than merely discouraged.
+.PHONY: build-live-declaration-drift-check
+build-live-declaration-drift-check: ## Build live-declaration-drift-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,live-declaration-drift-check)
 
 .PHONY: build-capped-schedule-ordering-check
 build-capped-schedule-ordering-check: ## Build capped-schedule-ordering-check CronJob image (committed HEAD; REF=<ref> to pin)
@@ -2260,6 +2270,10 @@ push-optional-explicit-wires-check: ## Push the optional-explicit-wires-check Cr
 .PHONY: push-commit-sha-exposure-check
 push-commit-sha-exposure-check: ## Push the commit-sha-exposure-check CronJob image
 	docker push $(REGISTRY)/commit-sha-exposure-check:$(IMAGE_TAG)
+
+.PHONY: push-live-declaration-drift-check
+push-live-declaration-drift-check: ## Push the live-declaration-drift-check CronJob image
+	docker push $(REGISTRY)/live-declaration-drift-check:$(IMAGE_TAG)
 
 .PHONY: push-capped-schedule-ordering-check
 push-capped-schedule-ordering-check: ## Push the capped-schedule-ordering-check CronJob image

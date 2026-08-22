@@ -23,6 +23,19 @@
 //	  {"<action>": {"required": [...], "optional": [...], "config_keys": [...],
 //	                "deprecated": [...], "opted_in": bool}, ...}
 //
+//	go run ./cmd/config-key-audit --live-declaration-drift [--report]
+//	  Does every LIVE database object still contain what platform/livespec
+//	  declares? Reads the objects directly (scheduled_tasks.pre_query,
+//	  pg_get_functiondef, pg_trigger counts) and compares them to the declaration
+//	  the Go guards assert against. Exit 1 on drift; exit 2 if it could not LOOK
+//	  (no DB, unreadable probe, NULL or missing row, empty registry) — never a
+//	  clean report. --report writes ONE doc_notes row per run INCLUDING clean
+//	  ones, carrying the scope, so a MISSING row means the job did not run.
+//	  (bugs_open/363 phase 2. Phase 1 tied the guards to the declaration; this
+//	  ties the declaration to production. It cannot be a unit test — go test has
+//	  no cluster — nor a pre-commit hook, because at commit time the migration is
+//	  unapplied, which is the RFC_006 ruling.)
+//
 //	go run ./cmd/config-key-audit --single-owner-actions   < live-workflows.json
 //	  [{"action": "...", "owners": ["<agent>", ...], "paths": [...]}, ...]
 //	  Which action declared SingleOwner is carried by more than one live agent?
@@ -229,6 +242,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--finding-codes" {
 		emitFindingCodes(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--live-declaration-drift" {
+		emitLiveDeclarationDrift(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--commit-sha-exposure" {
