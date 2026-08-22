@@ -44581,3 +44581,95 @@ file as an empty one, the failure was exit 2 with the filename in it. Had it def
 "no baseline = nothing grandfathered", the first run would have reported all 69 known
 findings as NEW — a flood on day one, indistinguishable from a real regression. **The
 refusal I wrote for a different reason is what made this diagnosable in one command.**
+
+## 2026-08-22 — bugfix_337 lane: I reverted a one-line mutation with `git checkout <file>` and destroyed ~75 lines of ANOTHER session's uncommitted work in the same file
+
+**The claim, and it was an action rather than a sentence.** Mid-way through mutation-proving
+a test, I applied a one-character-class mutation to
+`platform/orchestration/actions/store_generated_component_action.go`, ran the suite, and
+reverted with `git checkout <that file>` — the reflex for "undo my edit". It is not that.
+**`git checkout <path>` restores the whole file from the index, so it reverts EVERY
+uncommitted change in it, not the one you made.** The `bugs_open/345` session was editing the
+same file at the same time; its `recordRetryFeedback` writer, the sole-writer header comment
+for `site_work_items.retry_feedback`, its 20-write-sites census and its WII-018 stale-reaper
+note — roughly 75 lines — were gone in the same command, along with my own change.
+
+**What caught it:** nothing I did on purpose. The harness told me the file had changed on
+disk and printed its head; I noticed the header was the pre-edit one and grepped for both
+symbols. `grep -c` returned 0 for theirs and 0 for mine. Had the reminder not fired I would
+have carried on against a silently reverted file and only noticed when my own test failed —
+by which time I might have "fixed" it by re-adding my code and committing the file with their
+work still missing.
+
+**There was no recovery.** Their work was never staged, so git never held a copy: `git fsck`
+had nothing, there were no editor backups, and the stash list was other lanes' from previous
+months. **The only copy was in that session's own context**, which is why the only useful
+action was to tell them inside the same minute — which I did, naming exactly which symbols
+and which figures were lost so they could re-type them rather than rediscover them.
+
+**The shape, and why the existing rules did not cover it.** CLAUDE.md's git section is built
+around the danger of *sweeping other sessions' work INTO your commit* — the pathspec rule, the
+ban on `git add -A`, the commit-scope report. This is the mirror image: **destroying their
+work OUT of the tree**, and no hook watches for it. `git stash` is blocked by a `PreToolUse`
+hook precisely because it revert-sweeps every session's dirty files; `git checkout <path>` is
+the same revert-sweep narrowed to one file, and it is not blocked. On a single-session tree it
+is a safe undo. Here it is a destructive write to shared state.
+
+**The cheap check, and it costs nothing: never revert a shared file to undo your own edit.**
+Undo the edit itself — apply the inverse change, or snapshot the file to the scratchpad
+immediately before the mutation and `cp` it back. If you genuinely must reach for `checkout`,
+`git diff --numstat <file>` first: a line count larger than your own edit means somebody else
+is in there with you, and the reminder that the file "changed on disk since you last read it"
+is the same signal arriving for free. I had already been given that signal twice on this
+file, and had already written "another session may commit these files" into my own plan's
+risk list, and still ran the command.
+
+**The general lesson: a command that is a safe undo in one working tree is a destructive write
+in a shared one, and the two are spelled identically.** The blast radius of `checkout`,
+`stash`, `reset` and `clean` is the FILE (or the tree), never your edit — so on this tree the
+question is never "does this undo my change?" but "what else is in the thing I am about to
+overwrite?"
+
+## 2026-08-22 — `bugs_open/345` lane: I wrote "no ordering constraint and none is claimed" into a commit whose change has a STRICT one, and the failure mode is a fleet-wide outage
+
+**The claim.** My part-1 commit (`25df3a19c`) added `wi.retry_feedback` to
+`LoadWorkItemsAction`'s SELECT and shipped migration `561` to create the column. The commit
+message ends: *"No ordering constraint and none is claimed: column absent = reader reads
+nothing, Go half absent = column unwritten, prompt half absent = key unread."*
+
+**The first clause is false.** A column absent from a table does not make a reader "read
+nothing" — it makes Postgres raise **42703**, and `LoadWorkItemsAction` is the single loader
+every build dispatch runs. Had the chassis rolled with that binary before `561` was applied,
+**every work-item load fleet-wide would have failed**, which is the same shape as
+`bugs_closed/078`: the site selector still counts the site as dispatchable, so the loop
+completes having claimed nothing and the trigger re-picks the same site forever.
+
+**Where the reasoning failed, stated so it transfers.** I had correctly established
+independence for the three halves of the *original* 345 fix — Go loader, prompt, dispatcher
+mapping — where every half genuinely is inert without the others, because each one only
+*adds a key to a map*. I then carried that conclusion onto a change with a different shape
+without re-deriving it. **A new SELECTed column is not another optional key; it is a
+precondition.** The sentence was true of the thing I had been thinking about for two days and
+false of the thing I had just written.
+
+**What makes it embarrassing rather than merely wrong:** the same file already contains the
+answer. `noteMissingRetryAfterColumn` (`work_item_failure_ladder.go`) exists precisely because
+a previous column-before-binary ordering bit this estate, and it carries a recovery path for
+exactly this error. I read that function this session, in the course of this task, and still
+wrote the claim.
+
+**Caught by:** myself, minutes after committing, while deciding whether to apply `561` — i.e.
+by asking "what happens if this lands in the wrong order?", which is the question the sentence
+had already asserted an answer to. **Not caught by** the pre-commit hooks (they do not read
+prose), and it would not have been caught by the tests: sqlmock supplies whatever columns the
+test declares, so a missing production column is invisible to every test in the package.
+
+**Remedy applied:** `561` applied and ledger-recorded at 18:00:32Z, before any roll could carry
+the binary, closing the window entirely. DB config is live on apply and Go is inert until a
+roll, so applying first is always the safe order for this pair.
+
+**The cheap check, and it is one question: for every column, table or function your change
+READS, ask what the reader does when it is absent — and only then write down whether ordering
+matters.** "Additive" describes the migration, never the reader. If the honest answer is an
+error, say so in the commit message and apply the migration first; the estate's ordering
+exemption was retired for *seams*, not for preconditions.
