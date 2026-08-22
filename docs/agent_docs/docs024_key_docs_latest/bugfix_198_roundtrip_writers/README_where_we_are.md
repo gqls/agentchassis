@@ -143,3 +143,37 @@ that happen for real on a different site the same day, correctly.
 final publishing step only switches on when the next software release goes out, so that half
 is written and tested but not yet running. And there's a separate known problem where the
 agent writes a fix aimed at something that doesn't exist on the page — that's a different job.
+
+---
+
+## 2026-08-22 — the guard went live, and the bug is closed
+
+The new release carried the last piece. I checked it at the binaries themselves rather than
+trusting the version number, on both services, and the safety net at the publishing step is now
+switched on and working. That was the only thing still waiting.
+
+**So bug 198 is closed.** The cause is fixed where it starts, both writing paths are guarded, no
+site is left in the state that caused it (22 of 22 healthy), and we watched it refuse a real job
+without touching anything. The file moved to the closed folder with a summary at the top so
+anyone finding it later gets the outcome before the history.
+
+**One thing came out of the checking that is worth your attention.** The standard way we confirm
+"did this code actually ship" — searching inside the running program for a distinctive phrase —
+**gave the wrong answer**. It reported three phrases missing that were provably present. If I had
+trusted it, I would have told you the safety net hadn't shipped when it had. Two independent
+readings disagreeing is the only reason I caught it. That check is used across the estate for
+every service, so I've written up the reliable version (copy the program out and search it
+locally, or ask it what it was built from) and corrected the four places that carried the bad
+recipe.
+
+**I filed one new bug rather than leave it buried here.** When a contrast problem is found on an
+element with no styling name of its own, the system records the element's *type* in a field
+labelled "class". The repair agent then faithfully writes a fix aimed at something that doesn't
+exist — it publishes successfully, reports success, and changes nothing. Three sites' evidence.
+It's a different fault with a different cause, so it's now bug 352 rather than a loose end on a
+closed one.
+
+**Still genuinely outstanding, and honestly still outstanding:** a survey we were asked for on
+5 August — which other parts of the system send a whole document through an AI model and write
+the result back without checking it. The guard we built covers one place; the survey is about
+the whole class. I did not do it and did not pretend otherwise.

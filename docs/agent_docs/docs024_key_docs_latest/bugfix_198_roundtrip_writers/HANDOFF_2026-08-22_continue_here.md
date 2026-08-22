@@ -1,4 +1,9 @@
-# HANDOFF 2026-08-22 — bugs_open/198, continue here
+# HANDOFF 2026-08-22 — 198 is CLOSED; this is the residuals + cold-start
+
+> **STATUS 2026-08-22: `bugs_closed/198`.** Closed on the owner's instruction after the
+> v1.0.1323 roll made DGH-016 live. The close-out banner at the top of that file carries the
+> evidence table. Candidate (6) was spun out as **`bugs_open/352`**. What remains for this
+> lane is §4 item 3 — the round-trip-writer inventory — plus one opportunistic observation.
 
 Supersedes `HANDOFF_2026-08-10_continue_here.md` (whose stated closing condition — "the only
 thing keeping 198 open is the witnessed end-to-end run" — is now MET; see §2).
@@ -67,7 +72,7 @@ before concluding a probe was refused rather than held (§11).
    the architecture seat asked for. Method is in `HANDOFF_2026-08-10_continue_here.md` §"the
    6-step method"; its blind spots are named there.
 
-## 5. Can 198 be closed?
+## 5. Can 198 be closed? — ANSWERED: yes, and it is (2026-08-22)
 
 **Yes, in my judgement — and the residuals should not hold it open.** The estate's bar is FIXED
 AND LIVE: the defect is fixed at source (543), guarded at both writers (542, DGH-016), proven at
