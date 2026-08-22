@@ -611,3 +611,29 @@ schema are in scope), design A1 against what the code actually does — noting �
 utility statement and takes no parameters, so the real form is `SELECT set_config('application_name',
 $1, true)` or an interpolated literal from a compile-time constant. Council-submit A1 as its own
 coherent task, then A2+A3 as a second.
+
+## 2026-08-22 (later still) — two sessions, one ruling; division of labour agreed; 358 filed
+
+**Supersedes the "Next in this session" plan two entries up.** The owner gave the option-(c)
+directive to BOTH sessions working this territory today. The owning-lane session was already
+executing when this session's ruling record landed: mig `552` committed (`e7567d1fc`, closes the
+archive's content-data-only-UPDATE blind spot — a hole 355 §3 had not listed), with
+`cmd/content-loss-check` (A2+A3 one binary) in progress and A1 to follow. Coordinated by direct
+session message rather than by collision; the owning lane keeps the build.
+
+This session's contributions, all handed over by message:
+- The set_config correction (SET takes no bind parameters; `_, _ =` would have eaten the failure).
+- The three explorer censuses. The load-bearing one for A1: **only 2 of the 9 write sites run in a
+  transaction** (apply_adoption_plan, admin HandleUpdateComponent) — the other 7 are bare-pool
+  autocommit, where a transaction-scoped stamp is a silent no-op and a session-level SET is
+  forbidden under pgbouncer `pool_mode=transaction`. Options weighed in the message (multi-statement
+  simple-protocol implicit tx / short explicit tx / stamp-where-tx-exists), owning lane decides.
+- The non-llm-key definition warning: the 355 census's `source not like 'llm%'` counts
+  renderer/static as non-llm, and that is the class the 72-loss demand control lives in — a detector
+  that excludes renderer/static zeroes its own control and refuses for ever.
+- **`bugs_open/358` filed and committed (`a57b26696`)** — the unread-finding-codes CLASS file the
+  lane asked for: 16 finding-shaped codes with no automated reader, `resolved` never set on any of
+  45,426 rows ever, mig 466 retention deletes unresolved at 30d. The check's docs point at 358 as
+  class owner; 358 excludes the two codes content-loss-check consumes. Verified at CONSTANT level,
+  not just literal (the one real reader, `page_build_failure_guard.go:131`, binds a const — a
+  literal-grep verdicts it unread; trap recorded in 358 §3/§8). 016b §10 row added.
