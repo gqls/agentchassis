@@ -114,3 +114,40 @@ FROM (SELECT e.id, min(cs.fetch_interval) AS iv
 ```
 
 Supply is `runs_per_day x cap`. The trigger is 6-hourly, so 4 x 5 = 20.
+
+## The house shape for an agent-config migration (copied from `549`, which is the current best example)
+
+```
+SELECT snapshot_agent('<type>', 'migration NNN: pre-update (<why>)');   -- BEFORE the transaction
+BEGIN;
+DO $$ ... RAISE EXCEPTION 'MIGRATION NNN: ...' ... $$;   -- PRE-state guards
+UPDATE agent_definitions SET ... WHERE type='<type>' AND is_active
+   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+DO $$ ... RAISE EXCEPTION 'MIGRATION NNN: ...' ... $$;   -- POST-state verify
+COMMIT;
+```
+
+⚠ **A verify block of bare `SELECT`s cannot stop the `COMMIT`** — `ON_ERROR_STOP` ignores a non-empty
+result set. Use `DO` / `RAISE EXCEPTION`, and induce a failure once to prove the block actually aborts.
+(Standing landmine; `549` follows it.)
+
+⚠ **`snapshot_agent` has two overloads writing to two different tables.** The two-arg form used above
+writes to **`agent_definitions_backup`**; the one-arg form inserts an `is_snapshot=true` row into
+`agent_definitions`. Verify the snapshot by asking whether it holds the **pre-change** value, not whether
+a row exists:
+
+```sql
+SELECT snapshot_taken_at,
+       (default_config #>> '{workflow,steps,find_news_sites,config,query}') LIKE '%ORDER BY s.domain%' AS has_old
+FROM agent_definitions_backup WHERE type='content-feed-trigger'
+ORDER BY snapshot_taken_at DESC LIMIT 1;
+```
+
+### The pre-state guard is this migration's answer to the concurrent-edit problem
+
+This row's `updated_at` moved at 08:36Z on the day of the fix for reasons nothing accounts for, on a tree
+~30 sessions share. **Gate the `UPDATE` on the old query text being exactly what was measured** — e.g.
+`RAISE EXCEPTION` unless the live `find_news_sites` query still ends `ORDER BY s.domain LIMIT 5`. Then a
+concurrent edit **aborts the migration** instead of being silently overwritten, and the abort message
+tells the next session to re-derive against the live value. That is a mechanical control where the
+"I looked and found no snapshot" check was only an inference.
