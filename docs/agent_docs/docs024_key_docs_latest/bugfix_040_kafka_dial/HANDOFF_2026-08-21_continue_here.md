@@ -61,7 +61,16 @@ split) and the opt-in produce retry + classifier needles.
 | *(retry commit)* | 040: opt-in bounded produce retry, 4 adopters, 2 needles (SYS-093) |
 | `340f9e218`, `5192e1e23`, `7e269d4ab` | docs, landmine provenance, council trail |
 
-## 3. THE FIRST THING TO DO NEXT — verify the second roll
+## 3. ~~THE FIRST THING TO DO NEXT — verify the second roll~~ **DONE 2026-08-22 — and it passed**
+
+> **The second roll landed: `v1.0.1323`, both pods, 08:36:48Z / 08:37:14Z.** Binary-probed with a
+> discriminating control — `kafka produce succeeded after retry`, `client_no_leader`, `system.other`
+> and `ai_persona_kafka_produce_retry_recoveries_total` all PRESENT, nonsense control ABSENT. **Every
+> change from the 08-21 session is now live.** Live figures and the roll-spanning-window trap that
+> nearly had me file a regression are in `bugs_open/040` §12.7. Owner parks (040 residuals 1 and 3,
+> and the close of 343) are in §12.6 and in the 029 lane. The recipe below is kept for the NEXT roll.
+
+### The recipe, for next time
 
 The round-2 fixes and the retry are inert until the next build. When it lands:
 

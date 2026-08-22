@@ -1104,17 +1104,55 @@ other `DeliverReply` callers are byte-identical and a test pins that.
 
 ### 12.6 What is STILL OPEN, stated so nobody reads this section as a close
 
-1. **The `timeout` residual — 146 in 7 days, prod-0 dominant, undiagnosed.** §4.2's node-pinned `nc`
-   probes remain **unexercised** and are still the most promising untried lead, now with a named broker
-   to aim at. Remember §7's traps: normalise by pod uptime, brokers live in namespace `kafka`, and
-   busybox `date +%s%N` returns 0.
-2. **The `refused` mechanism is `[INFERRED]`, not confirmed.** `empty_host` on the next burst is the
-   cheap answer; a `090` run is only worth firing if a burst arrives *before* that label is live, and
-   then the Prometheus evidence must be handed to it inline (the loop cannot reach Prometheus — that is
-   what made §11.4's verdict UNVERIFIABLE).
-3. **The 13 adapter/service Deployments still serve no `/metrics`** (§8b). Every figure in §12 covers
-   the chassis and spawned agents only. Extending them is its own round and was deliberately not
-   bundled — bundling is what got round 1 vetoed back in July.
+> **OWNER RULING 2026-08-22 — items 1 and 3 are PARKED. 040 itself stays OPEN.** Relayed by the
+> bugfix-029 lane, which took the ruling first-hand ("B. park it. C. park it"). Recorded here by this
+> lane so the parks live in the same numbered list they qualify, rather than in a note somewhere else
+> that a reader of this list would never reach. **Parked is not fixed and not refuted** — the evidence
+> below stands unchanged and re-raising either needs new evidence, not a re-read of this section.
+
+1. ~~**The `timeout` residual — 146 in 7 days, prod-0 dominant, undiagnosed.**~~ **PARKED (owner,
+   2026-08-22), together with §4.2's node-pinned `nc` probes.** The measurement stands: 146 in 7 days
+   against 965,438 `ok` — a rate of ~0.015%, self-healing, and costing a 10 s budget each time. The
+   probes stay unexercised, and if anyone does pick this up later, §7's traps still apply (normalise by
+   pod uptime; brokers live in namespace `kafka`; busybox `date +%s%N` returns 0). **Do not re-raise
+   this as an open lead** — it was looked at, costed and deliberately set down.
+2. **The `refused` mechanism is `[INFERRED]`, not confirmed — NOT PARKED, and the cheap test is now
+   ARMED.** `empty_host` went live on `v1.0.1323` (2026-08-22 08:36Z, verified at the binary), so the
+   next burst answers this for free: a non-zero `empty_host` says the remaining producer is
+   library-internal (kafka-go's own coordinator lookup), and **`refused` carrying an EMPTY broker label
+   must now be structurally zero — a non-zero DISCONFIRMS and means a THIRD `:9092` producer exists
+   outside the instrumented dial path.** A `090` run is not worth firing while that label is live.
+3. ~~**The 13 adapter/service Deployments still serve no `/metrics`** (§8b).~~ **PARKED (owner,
+   2026-08-22).** The coverage limit is unchanged and still governs how every figure here must be
+   read: **§12's numbers cover the chassis and spawned agents only, never "the fleet"** — say it that
+   way when quoting them. Parking the extension does not license dropping the qualifier.
+4. **Also live and NOT parked: the duplicate-reply watch the retry accepts.** §12.4's opt-in retry can
+   duplicate a reply after a lost ack (kafka-go v0.4.47 has no idempotent producer) and *assumes* the
+   parent's two-phase `ClaimAwaitedRequest` absorbs it. **Named disconfirming signal: `DUPLICATE_SKIPPED`
+   volume rising now that `v1.0.1323` carries the retry.**
+
+### 12.7 Post-roll verification of the second build — and a trap that looks exactly like the defect it isn't
+
+`v1.0.1323`, both pods, **2026-08-22 08:36:48Z / 08:37:14Z**. Binary-probed with a discriminating
+control: `kafka produce succeeded after retry` PRESENT, `client_no_leader` PRESENT, `system.other`
+PRESENT, `ai_persona_kafka_produce_retry_recoveries_total` PRESENT, nonsense negative control ABSENT.
+**So every change from the 08-21 session is now live**, round-2 fixes and retry included.
+
+`[MEASURED 2026-08-22 ~09:37Z]` produce counter over 2 h: **`ok` = 2,052, `timeout` = 2.** The `ok` is
+the **demand control** — a zero there would mean the instrument is broken, not the fleet clean.
+`retry_recoveries_total` and `empty_host` both have **no series yet**, which is expected and means
+nothing in either direction: no produce failure has needed a retry and no burst has occurred since the
+roll.
+
+> **⚠ THE TRAP, and I nearly filed it as a regression.** Read over a window that SPANS the roll
+> (`[2h]`), `sum by (topic_class)` returns **raw topic names** — `system.generic.responses`,
+> `system.adapter.git.requests`, `system.adapter.thunder.requests`,
+> `system.adapter.render-audit.requests` — which is **precisely the cardinality defect round 2 fixed**,
+> and it is not a defect. It is pre-roll residue: the window contains both label vocabularies, and the
+> old one is indistinguishable from a regression. Narrowed to post-roll only (`[40m]`), the label set
+> is exactly the four collapsed values — `job`, `system.adapter`, `system.agent`, `system.other` — with
+> **zero** raw topics. **Any label-set claim about a metric whose vocabulary changed in a roll must be
+> read over a post-roll-only window.** Filed in `LANDMINES.md`.
 
 ## 12.7 OWNER RULING 2026-08-22 — items 1 and 3 above are PARKED. 040 itself stays OPEN
 

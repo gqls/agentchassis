@@ -14496,3 +14496,48 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/355` (the census this was found scoping) · `bugs_closed/238` · `architecture_review/RFC_042` §4.3 (which names "which writers actually lose keys in practice" as the detector's whole purpose — this entry is why that is unanswerable today) · this file's other `page_component_history` entries (the `ON DELETE SET NULL` FK, the archives-the-REPLACED-state entry, the migration-357 trigger entry) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-22, `bugfix_238_regeneration_key_loss` lane — found while scoping RFC_042's content-loss detector, when a clean per-writer census turned out to be impossible rather than merely fiddly
 - **added:** 2026-08-22, bugfix_238_regeneration_key_loss lane
+
+---
+
+### A "components with no `input_schema`" census over-counts the UNCOVERED class by ~20× — 95 of the 100 are TOOLS, which are schema-less BY DESIGN
+- **footprint:** `content_components.input_schema`, `content_components.component_level`, `isSelfContainedSection`, `missingRequiredLLMFields`, `check_required_fields_missing`, `datahelpers.SchemaContentFields`
+- **fires when:** you size how much of the estate a schema-keyed gate can see — coverage for a required-field check, a type gate, a content contract, a "which components can we validate?" audit. The natural query is `WHERE input_schema IS NULL OR input_schema::text IN ('null','{}')`, the number comes back large, and it reads as a large uncovered population.
+- **the trap.** Measured 2026-08-22: **100 of 283 active components carry no schema — and 95 of those are `component_level='tool'`.** A tool is complete self-contained HTML with no LLM-authored fields, so `input_schema = {}` is its CORRECT shape, not a gap; the rerender pre-check already codifies exactly this in `isSelfContainedSection` (explicit `component_level='tool'` marker **plus** empty schema, deliberately not a heuristic about field shape). The genuinely uncovered class is **5 non-tool components, one `page_components` usage each, 2 of them with `{{.field}}` placeholders at all**. The wrong number and the right number are produced by the same query differing only in a `component_level` predicate, and the wrong one looks like a serious finding.
+- **it has already misled two documents, which is why this is an entry and not a note.** `bugs_open/342` §5 tells a fixing lane to *"expect the 75-of-253 no-schema components to be the hard part, not the seam"*, and `RFC_041` §5 repeats it as an argument about what candidate (c) costs. Both were honest readings of an unqualified census; the class they describe is a twentieth of the size and needs content work on five rows, not a platform mechanism.
+- **the check — one extra column, and it is the whole difference:**
+  ```sql
+  SELECT COALESCE(component_level,'(null)') AS lvl,
+         CASE WHEN input_schema IS NULL OR input_schema::text IN ('null','{}')
+              THEN 'no_schema' ELSE 'has_schema' END AS schema_state,
+         count(*)
+    FROM content_components WHERE is_active GROUP BY 1,2 ORDER BY 1,2;
+  ```
+  Read the `tool` row separately, always. If you are reporting one number, report the NON-tool one and say so. ⚠ The figure also **moves**: it was 75-of-253 at 2026-08-20 and 100-of-283 two days later, so re-run it rather than quoting either.
+- **the generalisable half:** a census over "the column is empty" measures ABSENCE, and absence is only a defect where the column was owed. Before quoting the count, ask which rows are *required* to carry the thing — here the estate already had the answer written down in a live guard function, so the correcting predicate cost one `GROUP BY` and no thought.
+- **relations:** `bugs_open/342` (§5's claim, corrected 2026-08-22 in the file and in `STY-057`) · `architecture_review/RFC_041` §5 · concept register `STY-057` (its "COVERAGE IS NOT WHAT A GREEN GATE SUGGESTS" landmine carries the old figure) · `WRONG_CALLS.md` 2026-08-22 (the vacuous-join census, found in the same sizing pass) · MEMORY [[measurement-discipline-index]]
+- **source:** 2026-08-22, `bugfix_342_absent_required` lane — found re-measuring the bug file's own "hard part" before scoping work against it
+- **added:** 2026-08-22, bugfix_342_absent_required lane
+
+---
+
+### A metric window that SPANS A ROLL returns BOTH label vocabularies — and the pre-roll one is indistinguishable from the regression you just fixed
+
+- **footprint:** `max_over_time`, `sum by (`, `ai_persona_kafka_produce_total`, `ai_persona_kafka_dial_total`, `topic_class`, any Prometheus read taken after a deploy that changed a metric's LABEL VALUES, `promauto.NewCounterVec`, `WithLabelValues`
+- **fires when:** you roll a change to how a label is COMPUTED — a normaliser, a classifier, a bucket — and then read the metric back to prove it works. **No symptom, and worse than none: the reading actively looks like a live defect.** The query is right, the deploy is right, the code is right, and the answer contains exactly the values your change was supposed to eliminate.
+- **the mechanism:** Prometheus series are keyed by their label set, so old and new label values are **different series**. `max_over_time(m[2h])` over a window that contains the roll returns every series that reported in it — the pre-roll pods' vocabulary *and* the post-roll pods'. Nothing in the result says which binary emitted which. The old series do not "update" to the new spelling; they simply stop, and they stay in range until the window moves past them.
+- **the check — narrow the window to strictly post-roll, and prove the boundary rather than eyeballing it:**
+  ```bash
+  kubectl -n ai-persona-system get pods -l app=<svc> \
+    -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'
+  ```
+  ```promql
+  sum by (topic_class) (max_over_time(ai_persona_kafka_produce_total[40m]))   # window < age of the roll
+  ```
+  **Worked case, 2026-08-22:** roll at 08:36Z, read at 09:37Z. Over `[2h]` the label set was
+  `job, system.adapter, system.adapter.git.requests, system.adapter.render-audit.requests, system.adapter.thunder.requests, system.agent, system.generic.responses, system.other`
+  — four of those raw topics being the exact cardinality defect the council had objected to and round 2 had fixed. Over `[40m]`: `job, system.adapter, system.agent, system.other`, **zero raw topics**. Same fleet, same query, one hour apart, opposite conclusions.
+- **⚠ it bites in the reassuring direction too.** The mirror case is a label your change *adds*: it will be absent from any window that mostly predates the roll, and "the new outcome never fires" reads as a dead code path when it is only a young one. **Both directions are the same error — a window is not a population until you say when it starts.**
+- **⚠ and the tempting shortcut is wrong:** `increase()`/`rate()` do not rescue you here, and on this estate they are worse — the pods carrying these counters are ephemeral Jobs whose counters are frequently born at their final value, so a rate function longer than the target's life silently reads **zero** (`bugs_open/040` §10). Narrow the WINDOW; do not change the function.
+- **relations:** register **SYS-092**, `bugs_open/040` §10 (the `increase()`-on-ephemeral-pods trap this sits beside) and §12.7 (the worked case), MEMORY [[a-fresh-deploy-can-ship-no-new-code]], [[fixing-a-checker-to-agree-with-a-broken-site]] (a MIXED batch is the trap)
+- **source:** 2026-08-22, `bugs_open/040` lane — hit while verifying the second roll; the raw labels were one query away from being filed as a regression against a fix that was working correctly in production
+- **added:** 2026-08-22, bugs_open/040 lane
