@@ -56,7 +56,7 @@ are built as `blog-post` and target **~1,600 words**, not merely the floor. Buil
 | T3 | Stock-tank dilution to move a reservoir from current EC to target EC without precipitation | /tools/nutrient-dosing.html | 3 numeric + 1 select | 612 | | not-started |
 | T4 | Black soldier fly mass balance: wet waste to larvae, protein, frass, and rearing area | /tools/insect-waste-converter.html | 2 numeric + 1 select | 524 | | not-started |
 | T5 | Macroalgae carbon estimate separating cycling from sequestration, with credit valuation | /tools/seaweed-carbon-est.html | 2 numeric + 1 select | 499 | | not-started |
-| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | | **evidence: part — AND THIS IS A REDESIGN, NOT A REBUILD.** See below |
+| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | | **evidence: DONE** (72 attested SFI26 facts, 2026-08-22) · **spec written**: `TOOL_SPEC_sfi_stacker.md` · blocked only on the site existing (Phase 3) |
 
 #### T6 is a redesign, not a rebuild (found 2026-08-22, Phase 2 run 1)
 
