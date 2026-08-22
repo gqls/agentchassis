@@ -22,10 +22,10 @@ says it stays OPEN for.
   the write never happens — but the DRIVING item's terminal status may read `complete` until
   344 lands. Stated as an interaction, not fixed here; 344 owns it.
 - **Populations, re-measured** (the bug file's figures had moved):
-  - No-schema components: now **100 of 283** active — but **95 of the 100 are
+  - No-schema components: **100 of 283** active as of 2026-08-22 — but **95 of the 100 are
     `component_level='tool'`**, which are self-contained HTML with no LLM fields BY DESIGN
     (the rerender gate's `isSelfContainedSection` codifies exactly this). The genuinely
-    exposed class is **5 non-tool components, one page_components usage each, 2 with template
+    exposed class is **5 non-tool components as of 2026-08-22, one page_components usage each, 2 with template
     placeholders** (`report-request-form`, `audience-check-form`). "The hard part" from the
     bug file's §5 has largely dissolved; what remains is small data work, not chassis work.
   - Chrome store (`site_components`): rows reference only `site-header`/`site-footer`/`head`

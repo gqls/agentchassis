@@ -67,3 +67,46 @@ saying (we expect it to say "complete" wrongly until a separate known bug is fix
 better to see that written down than to be surprised by it).
 
 Resubmitted. The code is committed and will ride the next build.
+
+## 2026-08-22 evening — it works. A real edit was refused and the page was left alone.
+
+The new build went out, so we could finish the job. First we checked the running software
+actually contained the new code — not by trusting the version number, but by looking inside the
+running program on both servers for text that only exists in this change. It does. (One of our
+three checks turned out to be worthless: the phrase we looked for already existed elsewhere in
+the codebase, so it would have said "yes" no matter what shipped. We caught it, threw that check
+away, and wrote the mistake down. The other two were sound.)
+
+Then we switched the protection on, and tested it properly — the whole point being that a setting
+which is switched on but does not work looks exactly like one that does.
+
+We picked a page section that genuinely has this problem (three pieces of required text missing)
+and deliberately chose one that is not published, so that if the protection failed nothing live
+would be harmed. Then we tried to edit it. The result:
+
+- **The edit was refused**, with a message naming exactly which pieces of text were missing.
+- **The stored page section was untouched** — byte-for-byte identical, and its "last modified"
+  date still reads 17 July. Nothing was written at all.
+- **The problem was still recorded** on the work queue, naming the missing fields. This mattered
+  to us: refusing must never become the reason a fault goes unnoticed.
+
+And the control: we made a *clean* edit to a different section, one with all its required text
+present. That one went through and saved normally. This is the check people skip, and it is the
+one that distinguishes a working safeguard from a broken system that has simply stopped accepting
+edits.
+
+One nice surprise. We expected three missing fields to be named; only two were. The third gets
+filled in automatically from a site-wide default further down the process, so it never actually
+renders blank. We had predicted this behaviour when the code was written and captured it in a
+test, but this is the first time we have seen it happen for real — and it confirms the safeguard
+is correctly conservative: it only complains about text that would genuinely vanish from the page.
+
+One thing we did **not** manage to test, and are saying so rather than letting it look covered:
+when an edit is refused, the job record that drove it may wrongly report "completed" because of a
+separate known bug. Our test was run by hand rather than from the work queue, so there was no job
+record to inspect. That check is still outstanding and needs a queue-driven edit.
+
+Everything is committed. What is left on this bug is small and specific: five components that
+have no content contract at all (a content job, not a software one), the header-and-footer
+version of the protection which is built but deliberately switched off until something can
+actually trigger it, and that one outstanding check above.

@@ -13,7 +13,7 @@
   `70e7b4f9c` (found via another lane's commit `49d90b280`, then verified at the artefact:
   `grep -aq "70e7b4f9c" /proc/1/exe` present on BOTH replicas, nonsense control absent).
 - `record_absent_required_fields`: **0 agent_definitions rows name it.** Chrome escalation is
-  dormant. 7 live steps use `render_site_components` (nav-link-fixer, nav-updater,
+  dormant. **7** live steps as of 2026-08-22 use `render_site_components` (nav-link-fixer, nav-updater,
   pageflow-builder, rerender-chrome, rerender-pages, rerender-site, site-work-orchestrator).
 - `required_fields_missing` items: 45 complete / 30 needs_human_review, ALL from the
   post-deploy check (latest 08-18, all naming deployed `ported-page` rows). Zero render-time
@@ -44,8 +44,8 @@ plan uses.
 
 ### Populations re-measured (the bug file's figures had moved)
 
-- Active components: 283 (was 253 at filing). No-schema: 100 — **95 are tools** (schema-less
-  by design; `isSelfContainedSection` codifies it). Non-tool no-schema: **5**, one
+- Active components: **283 as of 2026-08-22** (was 253 at filing, 2026-08-20). No-schema: **100 as of 2026-08-22** — **95 are tools** (schema-less
+  by design; `isSelfContainedSection` codifies it). Non-tool no-schema: **5 as of 2026-08-22**, one
   page_components usage each; 2 with `{{.field}}` placeholders (`report-request-form`,
   `audience-check-form`). §5's "expect the 75-of-253 to be the hard part" has dissolved into
   small data work.
@@ -53,7 +53,7 @@ plan uses.
   header-with-categories 16, header-with-search 5, header-with-cart-or-nav 4,
   header-minimal-tool 2) but **no site_components row references any of them** — the store
   uses site-header/site-footer/head (0 required). Hence arming the record = 0 items today.
-- page_components writer-side census: 131 rows missing a required llm field top-level;
+- page_components writer-side census: **131 rows as of 2026-08-22** missing a required llm field top-level;
   breakdown: ported-page/body 77 deployed + 23 removed (the post-deploy check's existing,
   already-itemised population), hero/headline 14 deployed, scattered singles after that.
   NOTE this is the WRITER question (pre-gate); the seam's render-time answer is a strict
@@ -157,7 +157,7 @@ Its two low objections taken: both migrations relabelled `config_change`.
 
 Everything else was answered with a query and attached rather than re-asserted: one consumer of
 `apply_section_edit` (top-level 1, nested 0), both keys armed 0 **re-measured this round**,
-`render_site_components` 7 top-level / 0 nested, optional-key budget 7 of 10 (ConfigKeys are not
+`render_site_components` **7** top-level / **0** nested as of 2026-08-22, optional-key budget **7** of 10 as of 2026-08-22 (ConfigKeys are not
 counted).
 
 **What I got right and want to keep doing:** I re-read the submission against the actual diff
