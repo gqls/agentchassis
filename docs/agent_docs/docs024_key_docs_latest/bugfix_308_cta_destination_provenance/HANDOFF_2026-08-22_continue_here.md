@@ -58,7 +58,31 @@ Then the negative control: non-CTA components must stay stamp-free.
 anything works or not, so it is NOT a measure of this fix. Any verification must induce a
 discovery run and then read a **served page**.
 
-## 4. Council — round 4 in flight (rounds 1-3 all REVISE)
+## 4. ⚠ BLOCKED — the estate's LLM budget is exhausted until 2026-09-01 00:00 UTC
+
+**Round 4 was dispatched and NEVER REVIEWED.** It completed at terminal step `complete_invalid`
+with no `council_report` row, which reads exactly like "the gate rejected my submission". It is
+not. The real cause is in `__step_error`:
+
+> `execute_llm_prompt` … **HTTP 400** `invalid_request_error`:
+> *"You have reached your specified API usage limits. You will regain access on 2026-09-01 at
+> 00:00 UTC."*
+
+**Do NOT resubmit before that date** — a retry cannot succeed and each one re-runs the seats that
+did answer. `DRY_RUN=1` will keep passing, because it validates locally and never calls a model.
+
+**It is NOT confined to this lane** [MEASURED 18:15:39–18:26:25Z]: 7 failed steps across 5
+orchestrations, and the failing steps include **`call_content_writer`** — live site content
+generation. 95 orchestrations still reached COMPLETED in that hour so it is not a total outage,
+but zero have completed carrying `__usage_output_tokens` since the last failure. `[UNVERIFIED]`
+whether the block is model-specific (the error names `claude-sonnet-5`) or account-wide.
+
+**This does not hold Phase A.** The council is advisory and cannot block a commit; Phase A is
+committed, live, and carries `Council-Submitted:`, which asserts nothing and can never become a
+false claim. Rounds 1–3 were substantive (round 3 approved 10–3) and every objection is answered
+in the tree. What is missing is the final verdict, not the review.
+
+## 4b. Council history — rounds 1-3 all REVISE
 
 `SUBMISSION_CORR = e4336931-487b-4db3-b4dc-a4b128b3566c`
 
