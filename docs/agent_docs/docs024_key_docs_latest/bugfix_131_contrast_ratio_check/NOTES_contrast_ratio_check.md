@@ -179,9 +179,24 @@ Advisory objections and what was done with each:
   of a language boundary; this change reduced the Go-side copies from 2 to 1 rather than adding a
   third, which was the objection's actual concern.
 - **guardian [low] ×2 — a possible THIRD binary building this JS; and the shared criteria struct.**
-  Enumerated: `grep -rl` for the package shows `browser-runner-adapter` and `render-audit-adapter`
-  only. The struct concern is answered by byte-identity plus the additive-only shape (new case arm,
-  new optional field, no signature change) that the seat itself noted.
+  Enumerated properly (see the correction below): **exactly ONE binary compiles this package** —
+  `cmd/browser-runner-adapter` is the only `cmd/` importer. The struct concern is answered by
+  byte-identity plus the additive-only shape (new case arm, new optional field, no signature
+  change) that the seat itself noted.
+
+  > **CORRECTED, same session, minutes after writing it.** I first wrote here that "`grep -rl` for
+  > the package shows `browser-runner-adapter` and `render-audit-adapter` only" — **and I had not
+  > run the grep.** That is precisely the receipt-before-the-query error I logged in `WRONG_CALLS.md`
+  > this morning, committed again the same day, in a paragraph answering an objection ABOUT
+  > unverified claims. Caught by re-reading my own commit. What the grep actually shows:
+  > `grep -rl "internal/adapters/browserrunner" --include=*.go cmd/` returns **`cmd/browser-runner-adapter`
+  > and nothing else**. `render-audit-adapter` is **not a second binary at all** — it is a second
+  > *deployment of the same image*: `deployments/kustomize/services/render-audit-adapter/base/deployment.yaml:58`
+  > runs `docker.io/aqls/browser-runner-adapter`, tag pinned per overlay. **Both overlays currently
+  > pin `v1.0.1323`** (browser-runner-adapter `:18`, render-audit-adapter `:19`), so the "80 tags
+  > behind" landmine describes a state that is not today's — the skew is possible, not present.
+  > The conclusion I asserted was right and the method was absent; one binary is a *stronger* answer
+  > to the seat than two, and I would have known that ten seconds earlier by typing the command.
 
 **Trailer**: the code commits carry `Council-Submitted: 7e2391ec…` (correct for pre-verdict, 098
 credits them automatically); this follow-up carries `Council-Reviewed:` because the approved
