@@ -359,17 +359,44 @@ func TestToolTemplateValid(t *testing.T) {
 	}
 }
 
-// The two guards must stay distinct: the tool shape that motivated this passes
-// one and fails the other. If this ever stops being true, the split has become
-// pointless and one of them changed underneath.
-func TestToolAndSectionGuardsDisagreeOnToolShape(t *testing.T) {
+// ── SUPERSEDED 2026-08-22 by bugs_open/351 ────────────────────────────────
+//
+// This was TestToolAndSectionGuardsDisagreeOnToolShape, a TRIPWIRE whose whole
+// purpose was to fire if the two guards ever stopped disagreeing. Its own
+// comment named the consequence: "if this ever stops being true, the split has
+// become pointless and one of them changed underneath."
+//
+// It fired, exactly as designed, and it was right on both counts. The guards no
+// longer disagree, and the split IS now pointless as a behavioural distinction.
+// The disagreement it protected was not a design property — it was the defect:
+// sectionTemplateValid used a "</section>" substring as a proxy for "not
+// truncated", so every self-contained widget shelved at component_level='section'
+// was judged truncated. Measured 2026-08-21: **0** of the **22** active library
+// calculators passed, while all 22 were structurally whole.
+//
+// The tripwire is replaced rather than deleted, because "these two agree" is now
+// the load-bearing fact and deserves a test of its own — and because a future
+// reader finding the old name in git needs to know it was answered, not dodged.
+//
+// The two functions are deliberately kept SEPARATE despite being identical:
+// componentTemplateValid dispatches on component_level, and a future section-only
+// rule needs somewhere to live. If they are still identical when you next read
+// this, collapsing them is safe — but re-run bugs_open/351's calibration first,
+// asserting the flip SET by id rather than a count.
+func TestToolAndSectionGuardsAgreeOnAWholeToolShape(t *testing.T) {
 	toolShape := `<div class="ltb">` + strings.Repeat("x", 200) + `<script>renderRows();</script></div>`
 
-	if sectionTemplateValid(toolShape) {
-		t.Fatal("precondition changed: sectionTemplateValid now accepts a tool with no </section>")
+	if !sectionTemplateValid(toolShape) {
+		t.Fatal("bugs_open/351: a structurally whole widget must be valid as a SECTION — the </section> proxy is what hid 22 calculators from the selector")
 	}
 	if !toolTemplateValid(toolShape) {
 		t.Fatal("toolTemplateValid must accept a structurally whole tool template")
+	}
+
+	// Agreement must not mean permissiveness: both still reject a real cut.
+	cut := `<div class="ltb">` + strings.Repeat("x", 200) + `<script>const x = 'Epic`
+	if sectionTemplateValid(cut) || toolTemplateValid(cut) {
+		t.Fatal("both guards must still reject a template cut mid-stream — that is what they are for")
 	}
 }
 
@@ -395,11 +422,18 @@ func TestComponentTemplateValid_RoutesByLevel(t *testing.T) {
 		want  bool
 	}{
 		{"tool template judged as a tool", toolShape, "tool", true},
-		{"the SAME tool template judged as a section is rejected", toolShape, "section", false},
+		// bugs_open/351: this case asserted `false` until 2026-08-22 — a
+		// self-contained widget judged as a section was REJECTED, because
+		// sectionTemplateValid tested for a "</section>" substring as a proxy for
+		// "not truncated". That proxy made all 22 active library calculators
+		// invisible to the component selector. Both guards are now structural, so
+		// the same whole template is whole under either judgement.
+		{"the SAME tool template judged as a section is now ACCEPTED (351)", toolShape, "section", true},
 		{"section template judged as a section", sectionShape, "section", true},
 		{"truncated tool rejected even with </section> upstream",
 			`<section>` + pad + `</section><script>const x = 'Epic`, "tool", false},
-		{"empty component_level falls back to the section rule", toolShape, "", false},
+		// Still falls back to the section rule — only the rule's CONTENT changed.
+		{"empty component_level falls back to the section rule", toolShape, "", true},
 	}
 
 	for _, tc := range cases {

@@ -1793,16 +1793,46 @@ func aliasNormalisedSectionKeys(result map[string]componentInfo, sectionNames []
 	}
 }
 
-// sectionTemplateValid mirrors the original SQL CASE used by loadComponentSchemas:
+// sectionTemplateValid answers "was this section-level template CUT MID-STREAM?"
 //
-//	WHEN html_template LIKE '%</section>%' THEN true
-//	WHEN html_template IS NULL            THEN true
-//	WHEN LENGTH(html_template) < 100      THEN true
-//	ELSE false
+// ── IT USED TO ASK A DIFFERENT QUESTION, AND GOT IT WRONG 22 TIMES (bugs_open/351)
 //
-// The only "invalid" case is a long template with no closing </section> tag —
-// the signature of a truncated LLM generation. Empty/short templates are
-// allowed through because they may be intentional stubs.
+// It mirrored the original SQL CASE, whose "invalid" arm was `html_template NOT
+// LIKE '%</section>%'` — using a WRAPPER TAG as a proxy for "not truncated".
+// That proxy is wrong for any self-contained widget: a calculator is a
+// <div>-wrapped tool with its own <script>, and never contains </section> at
+// all. Measured 2026-08-21 over every active section-level calculator
+// (**22** as of that date): the old predicate passed **0** of them, while all
+// **22** were structurally complete. Consequence: the component selector could
+// never reuse a calculator the library already owned, so every site that wanted
+// one paid a fresh LLM generation — which is how remortgagecalculator.uk ended
+// up in bugs_open/345's retry loop.
+//
+// This is bugs_open/024's defect one level over, exactly as componentTemplateValid's
+// header predicted the class would recur: that fix gave component_level='tool'
+// a structural predicate and left 'section' on the marker.
+//
+// ── WHY IT IS A COPY OF toolTemplateValid RATHER THAN A CALL ───────────────
+//
+// The two now ask the same question and deliberately agree. They are kept as
+// separate functions because componentTemplateValid dispatches on
+// component_level and a future divergence (a section-only rule) should have a
+// place to live without disturbing tools. If they are still identical when
+// someone next reads this, collapsing them is safe — the calibration below is
+// what makes that judgement, not preference.
+//
+// Empty/short templates are still allowed through: they may be intentional
+// stubs, and that arm is unchanged.
+//
+// ── CALIBRATED BOTH DIRECTIONS BEFORE THE CHANGE ──────────────────────────
+//
+// Over all active section-level templates (**150** as of 2026-08-22): 22
+// rescued, **0** regressed. The single regression seen in the 2026-08-21 dry
+// run was a FALSE one — a conditionally-wrapped section ending `</section>{{end}}`
+// — and is fixed by the matching endsCleanly change rather than accepted.
+// ⚠ The marker misclassified BOTH ways, so re-calibrating after any future edit
+// must assert the flip SET by id, never a count: a different single row flipping
+// hides inside an unchanged count of one.
 func sectionTemplateValid(htmlTemplate string) bool {
 	if htmlTemplate == "" {
 		return true
@@ -1810,7 +1840,13 @@ func sectionTemplateValid(htmlTemplate string) bool {
 	if len(htmlTemplate) < 100 {
 		return true
 	}
-	return strings.Contains(htmlTemplate, "</section>")
+	// bugs_open/351: the test is STRUCTURAL, not a wrapper-tag substring.
+	// Identical to toolTemplateValid's body — see the header for why the two
+	// deliberately agree rather than being collapsed into one function.
+	if len(content.UnbalancedStructuralTags(htmlTemplate)) > 0 {
+		return false
+	}
+	return endsCleanly(htmlTemplate)
 }
 
 // componentTemplateValid is THE truncation gate for a loaded component, and the

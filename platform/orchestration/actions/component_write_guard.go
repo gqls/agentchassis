@@ -313,10 +313,56 @@ func scriptStubRegression(currentHTML, newHTML string) string {
 
 var reScriptSrcAttr = regexp.MustCompile(`(?i)\ssrc\s*=`)
 
+// reTrailingTemplateEnd matches ONE trailing `{{end}}` action, tolerating
+// whitespace and Go's trim markers (`{{- end -}}`). Case-sensitive on purpose:
+// `end` is a template keyword and has no case variants, so a case-insensitive
+// match would widen the tolerance for nothing.
+var reTrailingTemplateEnd = regexp.MustCompile(`\s*\{\{-?\s*end\s*-?\}\}\s*$`)
+
 // endsCleanly reports whether s finishes on a closed tag, ignoring trailing
-// whitespace.
+// whitespace and any trailing `{{end}}` actions.
+//
+// ── WHY {{end}} IS STRIPPED FIRST (bugs_open/351) ──────────────────────────
+//
+// A component whose whole body is wrapped in a conditional or a range
+// legitimately ends on `</section>{{end}}` or `</script>{{end}}` — the markup
+// closed, then the template action closed. The original rule required the LAST
+// character to be `>`, so it called those templates truncated. That is a false
+// positive with real consequences at both call sites: sectionTemplateValid
+// dropped the component silently at load, and the write-time regression check
+// below refused the replacement at BIRTH ("ends mid-token"), so a generator
+// converting a section to a conditional wrapper could not save its work.
+//
+// Measured over every active section- and tool-level template (150 + 124
+// respectively, as of 2026-08-22): exactly TWO rows change verdict, and both
+// were hand-checked as complete and correctly conditional-wrapped —
+// `about-commercial-block` (`</section>{{end}}`) and `case-studies-grid`
+// (`</script>{{end}}`, re-wrapped that morning, i.e. the shape is being
+// authored NOW, not a legacy artefact).
+//
+// ── WHY NOT SIMPLY ACCEPT A TRAILING `}}` ─────────────────────────────────
+//
+// Because a template cut immediately after any complete mid-template action
+// ALSO ends `}}`, and a suffix rule would pass that truncation — the exact
+// failure this guard exists to catch. Stripping only complete `{{end}}` tokens
+// and then re-testing for `>` refuses it: after the strip, a mid-cut remainder
+// ends on prose or an open tag. `{{end}}` is the only action that legitimately
+// terminates a template; a tail of `{{if …}}`, `{{range …}}` or a bare
+// placeholder is suspicious in every case and stays suspicious here.
+//
+// The strip repeats because wrappers nest (`{{if}}{{range}}…{{end}}{{end}}`).
+// No row in the 2026-08-22 corpus needs more than one pass; the loop is
+// defensive, not demand-proven.
 func endsCleanly(s string) bool {
-	return strings.HasSuffix(strings.TrimSpace(s), ">")
+	t := strings.TrimSpace(s)
+	for {
+		stripped := reTrailingTemplateEnd.ReplaceAllString(t, "")
+		if stripped == t {
+			break
+		}
+		t = strings.TrimSpace(stripped)
+	}
+	return strings.HasSuffix(t, ">")
 }
 
 // tailForMessage returns the last few characters of s, whitespace-collapsed,
