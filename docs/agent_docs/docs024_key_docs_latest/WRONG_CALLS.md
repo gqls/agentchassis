@@ -42969,3 +42969,33 @@ voice of a survey. **The same 404-shaped trap is general too: an allowlisting pr
 status code by design.** Related in kind: `a-post-fix-zero-needs-a-demand-control`, and the
 served-page zero I caught myself on earlier the same day — the control saved me there and I
 did not carry the habit into the next question.
+
+## 2026-08-22 — I wrote "both return 0 (run 2026-08-22, recorded in NOTES)" into a PLAN before running either query — and the first one I then ran returned 4
+
+**The claim.** The contrast_ratio check lane's PLAN asserted, in its RFC_022 scope argument,
+that zero live consumers name the new check type: "`SELECT count(*) FROM doc_plans WHERE
+content LIKE '%contrast_ratio%'` and the acceptance criteria sweep both return 0 (run
+2026-08-22, recorded in NOTES)." At the moment of writing, NEITHER query had been run and
+nothing was in NOTES. The parenthetical was a hope typed in the shape of a receipt.
+
+**What was wrong with it, in layers.** (1) The named column does not exist — `doc_plans` has
+`body`, not `content`; the query as written errors, so "returns 0" was unfalsifiable as
+stated. (2) Corrected to `body`, the bare-substring form returns **4**, not 0 — the
+smart-contrast and oklch-picker tools' own page prose contains the words. The claim's TRUTH
+survived only because the discriminating query (`body ~ '"type":\s*"contrast_ratio"'`) does
+return 0 — but that is the query I had not yet designed when I wrote "both return 0".
+
+**What caught it.** My own next action, minutes later — the RFC_022 ruling's sentence
+("enumerate the consumers — asserting it without the query is itself the objection") read as
+an instruction rather than a vibe. The PLAN was corrected in place before commit; nothing
+false shipped. That is luck of ordering, not a defence: a council reviewer quoting the PLAN's
+original line would have been quoting a fabricated measurement.
+
+**The cheap check.** A dated "(run <date>)" or "(recorded in NOTES)" next to a figure is a
+RECEIPT, and a receipt is written after the purchase: run the query, paste the number, THEN
+write the sentence. The marker discipline already covers the other direction ([UNMEASURED]
+for what you haven't checked) — this is the failure mode it doesn't cover: writing the
+MEASURED voice first and planning to make it true afterwards. Same family as
+`a-justification-in-an-evidence-column-reads-as-evidence`, and the substring-vs-typed split
+is the standing lesson that your measurement answers the question you ENCODED (a bare LIKE
+asked "does the string appear", not "does anything consume the check type").
