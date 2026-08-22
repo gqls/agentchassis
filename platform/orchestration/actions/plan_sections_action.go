@@ -556,6 +556,28 @@ func (r *sourceResolver) ensureAssets(ctx context.Context) {
 	if _, ok := r.assets["hero"]; !ok {
 		if heroURL, ok := contentData["hero_url"].(string); ok && heroURL != "" {
 			r.assets["hero"] = heroURL
+			// bugs_open/114. Reaching here means every page-scoped route missed and
+			// the page will show the site-wide default. That is legitimate for a
+			// legacy site with no plan imagery — and it is also what a page whose
+			// own generated hero exists looks like, which is the whole of 114's
+			// symptom. The two were indistinguishable after the fact: measured
+			// 2026-08-15 on mortgagecalculator, six tool pages took this branch
+			// while an active, key-matching content_hero_<page> asset sat
+			// unreferenced, and by the time anyone looked the orchestration rows
+			// were purged, leaving no way to tell which route had been tried.
+			//
+			// So say which routes were even ELIGIBLE. Three of the four
+			// page-scoped routes are gated on pageName, and an empty pageName
+			// disables them silently — newSourceResolver's own comment calls that
+			// degrading safely, which it is, but safely-and-silently is why this
+			// took a purged-history dead end to narrow. A caller that legitimately
+			// has no page (render_site_components passes "") is the expected case
+			// and says so in the same line.
+			r.logger.Info("plan_sections: hero resolved from the site-wide content_data fallback",
+				zap.String("page", r.pageName),
+				zap.Bool("page_scoped_routes_eligible", r.pageName != ""),
+				zap.String("hero_url", heroURL),
+				zap.String("bug", "bugs_open/114"))
 		}
 	}
 	if _, ok := r.assets["logo"]; !ok {
