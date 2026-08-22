@@ -44165,3 +44165,49 @@ under a second. More generally: **the moment you write "X is wrong because Y" in
 what else in the file Y is true of**, because you have just handed yourself the search term. Related:
 `a-mutation-that-passes-may-have-hit-a-guard-in-series`, and 016b §9's untouched-twin entry, whose
 blind spot for brand-new files is now documented above.
+
+### 4. (same session, later) A mutation proof SURVIVED and I nearly filed it as a pass — the test was restating the code, not pinning it
+
+Having written six mutation proofs and had all six kill their tests, I added a seventh
+guard (an `--emit-baseline` mode) with a round-trip test, mutated the emitter's date stamp,
+and the test **passed**. The mutation was real and the test was green, which by every rule
+in this file should have been the moment to stop and look.
+
+**The cause:** the test built its own baseline entries with the same field assignments the
+emitter uses, rather than calling the emitter. Mutating the emitter therefore changed code
+the test never executed. **A test that duplicates the logic it is meant to pin cannot fail
+for the right reason** — which is `LANDMINES`' *"a mock's own bookkeeping cannot assert a
+NEGATIVE"* almost verbatim, missed by a session that had cited that very landmine twice
+that afternoon.
+
+**And then the identical error one level down.** I split the decision out of the I/O, the
+date mutation died, and I tightened the test to check the route — by asserting the route
+**constant** was non-empty. Dropping the emitter's route stamp still survived, because the
+constant is not what the emitter writes. Only asserting on the **emitted entries** (route
+present, route resolves to a real file, date equals the closure date) killed both.
+
+**The generalisable shape, and it is the useful half: when a mutation SURVIVES, suspect
+the TEST before the code.** The instinct is to conclude the mutation was not meaningful —
+a guard in series, an unreachable branch. Twice in ten minutes it was neither: the test
+simply was not looking at the mutated code. **The cheap check: for each assertion, name
+the function whose output it reads. If that function is not the one you mutated, the test
+cannot see the mutation.**
+
+### 5. (same session) I read "my commits are absent from the coverage report" off an absence my own `head -20` created
+
+Checking whether the `Council-Submitted:` trailer joined correctly, I ran
+`098_REPORT_unreviewed_commits_v1.sh 1 | grep -iE "<my shas>|SUBMITTED|MISMATCH|…" | head -20`,
+found none of my shas in the output, and **said so in chat** before checking. The `head -20`
+had cut them.
+
+Re-run unfiltered: `747e717a1` is listed exactly as it should be —
+`[submitted: a092d7d8-…]`, `MISMATCH: 0`. The other two commits are correctly absent for a
+reason I had not checked either: `build/`, `deployments/`, `cmd/` and docs are **outside
+council scope**, which is `platform/`, `internal/`, `pkg/` and migrations. So the true
+answer was "one in scope, listed correctly, two correctly out of scope" — three facts, none
+of which my measurement could have produced.
+
+**Third instance of one class in a single session** (with the invented `147` and the
+inherited-census claim): **an absence is only evidence if you know what your filter could
+have shown.** The cheap check is one line and I skipped it all three times — *before
+reporting a zero, re-run without the filter, or state what the filter excludes.*
