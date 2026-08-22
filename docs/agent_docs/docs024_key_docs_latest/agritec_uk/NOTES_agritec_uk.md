@@ -356,3 +356,70 @@ non-empty result and a `SELECT` cannot stop a `COMMIT`.
 
 Facts still 10, writer_block still 2,024 chars, allowed_entities still 28. A lost `facts` array
 would have looked exactly like success on the bans count alone, which is why both were checked.
+
+---
+
+## 2026-08-22 — Phase 2 runs 2 to 5: what the register keeps, and what it cannot reach
+
+Six runs, **18 facts standing out of 27 registered**. Nine were removed on review. Every run
+reported `COMPLETED`. The run status carries no information about the value of the output, which
+is the single most important operational lesson of this phase and is now `RUNBOOK` §9.
+
+| run | question | registered | kept | why |
+|---|---|---|---|---|
+| 1 | SFI rates and management payment | 10 | 10 | 9 primary gov.uk/DEFRA; 1 third-party, correctly scoped |
+| 2 | "Ofgem average non-domestic" price + carbon intensity | 5 | 1 | 4 were DOMESTIC price-cap figures; wrong market entirely |
+| 3 | DESNZ QEP industrial price (retarget of run 2) | 6 | 5 | 5 ONS non-domestic, writer_line-scoped by quarter; 1 metadata |
+| 4 | grid carbon intensity | 4 | 0 | the figures exist only in .xlsx — unreachable, see below |
+| 5 | LED photon efficacy | 3 | 2 | 1 was nine years old and said "now" |
+
+### The three failure shapes, each caught by a different check
+
+**Wrong market (run 2).** Ofgem's price cap is a *domestic* consumer protection. Every reader of
+this site buys on non-domestic contracts. The facts were true, sourced, current and verbatim-
+verified — and wrong for every reader. **Nothing about a true, well-cited fact announces that it
+is about somebody else**, which is why this needs a deliberate check rather than a smell test.
+One of the four also asserted "26.11 pence per kWh" from a two-column table whose other column
+read 24.67; which column it was is unknowable from the register.
+
+**Unreachable format (run 4).** Asked for grid carbon intensity; got a publication date, two
+third-party methodology descriptions, and a GOV.UK correction notice about hybrid cars and hotel
+stays. Cause measured, not guessed: the DESNZ publication page contains **zero** kgCO2e/kWh
+figures — the factors ship only as three `.xlsx` files and a methodology PDF. `extract_claims`
+requires a verbatim quote from page text, so a number in a spreadsheet cell can never satisfy it
+while the landing page's prose easily can. **The property that makes the register trustworthy is
+the same one that guarantees this silent miss.** No re-phrasing reaches it. Now in `LANDMINES.md`
+with a free pre-check.
+
+**Undated and time-sensitive (run 5).** "Many new LED fixtures **now** exceed 2.0 µmol/J" — from a
+page dated 2017-07-03 in its own metadata, which the extractor recorded as `published: (none)`
+while guessing `staleness_days`. So the refresh machinery was primed to measure drift from a date
+it never captured. True when written; misleading now, after two DLC threshold rises. Dropped.
+The two facts kept from that source do not age — mature HPS efficacy, and a physics ceiling — and
+their 2017 date now sits in the `writer_line`, which is what the writer actually reads.
+
+### Two things that worked better than expected
+
+**`writer_line` is the real control, not `value`.** Several kept facts have a lossy `value` — 1.7
+is one of two figures in its claim, 5.1 is the top of a range, 25.97 is a quarter-specific
+figure ~20 months old. In each case the writer_line embeds `{value}` in a sentence that restores
+what `value` drops: *"was {value} pence per kWh in Q4 2024, sourced from DESNZ QEP table 3.4.1
+(as cited by ONS, May 2025)"*. A writer following that cannot state a stale quarterly figure as
+today's price. This is why I left the `value` fields alone rather than "fixing" them.
+
+**A valueless fact is not automatically junk.** Three facts carry no number and are the most
+important in the register — the SFI management-payment removals. The test is whether a fact
+carries an *assertion*, not whether it carries a digit. `value IS NULL` is a useful tell and a
+bad rule.
+
+### Decision recorded: LED efficacy is a user input, not a registered default
+
+No citable *current* figure exists in a form this pipeline can reach. That is decision D4 working
+exactly as written — the number is not published, it is asked for. It was already a user field on
+the retired tool (read off the operator's own fixture datasheet), so nothing is lost. The three
+LED facts serve the explainer instead, where a dated, attributed comparison of HPS against the
+theoretical ceiling is the right teaching material.
+
+Carbon intensity is **deferred, not failed**: no Phase 1 calculator consumes it. The energy tool
+returns money, not emissions, and carbon intensity appeared on the retired site only in the
+fabricated ticker and the dead data layer.
