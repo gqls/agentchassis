@@ -147,7 +147,14 @@ func TestPageWritersStampDigestInSameStatement(t *testing.T) {
 	}{
 		{
 			file:   "save_page_sections_action.go",
-			anchor: `(?s)INSERT INTO page_components \(page_id, position, rendered_html, rendered_html_digest,.*?'deployed'\)`,
+			// The tail is 'deployed' and NOT 'deployed'), deliberately. This pin's
+			// property is "the digest is stamped in the SAME statement as the bytes",
+			// which the `stamp` check below enforces over whatever this anchor spans.
+			// Pinning the closing paren additionally froze the statement's COLUMN
+			// LIST, so adding a column (component_version_id, RFC_046) failed this
+			// test without weakening anything it exists to protect — a pin that
+			// reddens on a safe change trains the next author to widen it carelessly.
+			anchor: `(?s)INSERT INTO page_components \(page_id, position, rendered_html, rendered_html_digest,.*?'deployed'`,
 			stamp:  "md5($3)",
 			reason: "the full-save INSERT is the page render path",
 		},

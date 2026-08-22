@@ -995,10 +995,26 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		// (bugs_open/229; the IMP-052 same-statement principle): the stamp
 		// means "reproducible from content_data", and only the render/save
 		// path may write it.
+		// Provenance stamp (RFC_046, ruled 2026-08-22): WHICH version of the
+		// component produced these bytes. nil = unknown, and unknown is written as
+		// NULL — resolveComponentVersionID refuses far more often than it answers,
+		// deliberately. Nothing reads this column yet (0 readers, measured
+		// 2026-08-22), so this cannot change what any page serves.
+		var componentVersionIDPtr interface{}
+		if componentIDPtr != nil {
+			if vid, ok := resolveComponentVersionID(ctx, params.DB, *componentIDPtr,
+				componentVersionSource{
+					carriedVersionID: section.ComponentVersionID,
+					renderedSHA:      section.RenderedTemplateSHA,
+				}, params.Logger); ok {
+				componentVersionIDPtr = vid
+			}
+		}
+
 		_, err := params.DB.ExecContext(ctx, `
-			INSERT INTO page_components (page_id, position, rendered_html, rendered_html_digest, slot_name, component_id, content_data, content_brief, build_status)
-			VALUES ($1, $2, $3, md5($3), $4, $5, $6::jsonb, $7::jsonb, 'deployed')
-		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON, contentBriefJSON)
+			INSERT INTO page_components (page_id, position, rendered_html, rendered_html_digest, slot_name, component_id, content_data, content_brief, build_status, component_version_id)
+			VALUES ($1, $2, $3, md5($3), $4, $5, $6::jsonb, $7::jsonb, 'deployed', $8)
+		`, pageID, i+1, section.HTML, section.ComponentName, componentIDPtr, contentDataJSON, contentBriefJSON, componentVersionIDPtr)
 
 		if err != nil {
 			params.Logger.Warn("SavePageSectionsAction: Failed to insert section",
@@ -1272,6 +1288,19 @@ type SectionData struct {
 	HTML          string
 	Position      int
 	ContentData   map[string]interface{} // structured content for re-rendering (source of truth)
+
+	// ── Provenance (RFC_046, ruled 2026-08-22) ──────────────────────────────
+	// RenderedTemplateSHA is set when these bytes came out of RenderTemplate:
+	// the digest of the template text that produced them. ComponentVersionID is
+	// set when the bytes were CARRIED from a stored row that already had a stamp —
+	// a carry does not change the bytes, so it must not change their provenance.
+	//
+	// BOTH EMPTY MEANS UNKNOWN, and unknown must be persisted as NULL. Nothing in
+	// this file may infer a version, for the same reason nothing should have been
+	// inferring a component: the row that claims to know something it guessed is
+	// the defect (bugs_open/357).
+	RenderedTemplateSHA string
+	ComponentVersionID  string
 }
 
 // extractSectionsFromMetadata builds SectionData from the structured array
@@ -1356,12 +1385,20 @@ func extractSectionsFromMetadata(metaData interface{}, logger *zap.Logger) []Sec
 			contentData = cd
 		}
 
+		// Provenance travels with the bytes (RFC_046). A fresh render reports the
+		// template digest; a carried section reports the version its stored row
+		// already carried. Absent from the map = unknown = persisted as NULL.
+		renderedTemplateSHA, _ := m["rendered_template_sha"].(string)
+		componentVersionID, _ := m["component_version_id"].(string)
+
 		sections = append(sections, SectionData{
-			ComponentName: componentName,
-			ComponentID:   componentID,
-			HTML:          strings.TrimSpace(html),
-			Position:      i + 1,
-			ContentData:   contentData,
+			ComponentName:       componentName,
+			ComponentID:         componentID,
+			HTML:                strings.TrimSpace(html),
+			Position:            i + 1,
+			ContentData:         contentData,
+			RenderedTemplateSHA: renderedTemplateSHA,
+			ComponentVersionID:  componentVersionID,
 		})
 	}
 

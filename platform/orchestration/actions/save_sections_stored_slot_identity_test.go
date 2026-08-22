@@ -217,8 +217,8 @@ func TestRerenderPageSections_SuccessEntryCarriesTheStoredSlotName(t *testing.T)
 	// The 189 shape: a positionally-named, locked slot whose component resolves
 	// only by id (bugs_closed/182's repair population).
 	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow(pinnedID, "tool-2", []byte(`{"headline":"Loan vs savings"}`), "<section>old</section>", 3))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(pinnedID, "tool-2", []byte(`{"headline":"Loan vs savings"}`), "<section>old</section>", 3, ""))
 
 	// Name and function passes both miss — "tool-2" is nobody's identity.
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
@@ -407,9 +407,13 @@ func lockedRowSet() *sqlmock.Rows {
 // expectSectionInsert asserts the slot_name the INSERT actually receives — the
 // 4th bind, the column this whole change is about.
 func expectSectionInsert(mock sqlmock.Sqlmock, pageID uuid.UUID, position int, slotName string) {
+	// The trailing AnyArg is component_version_id (RFC_046's provenance stamp).
+	// It is AnyArg rather than nil because this helper is used by cases that do
+	// and do not carry a stamp; the stamp's own behaviour is asserted in
+	// save_sections_component_version_test.go, not smuggled in here.
 	mock.ExpectExec("INSERT INTO page_components").
 		WithArgs(pageID, position, sqlmock.AnyArg(), slotName,
-			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 }
 

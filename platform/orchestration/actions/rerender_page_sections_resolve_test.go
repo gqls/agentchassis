@@ -66,7 +66,7 @@ func TestRerenderPageSections_ResolvesByPageIDWhenNameAbsent(t *testing.T) {
 	// Everything after resolution is out of scope here; an empty section set
 	// short-circuits the action without further queries we need to model.
 	mock.ExpectQuery("FROM page_components").
-		WillReturnRows(sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}))
+		WillReturnRows(sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}))
 
 	p := resolveParams(db, map[string]interface{}{
 		"input_data": map[string]interface{}{
@@ -210,8 +210,8 @@ func TestRerenderPageSections_FailsWhenComponentUnresolvedByNameOrID(t *testing.
 	pageID := uuid.New()
 
 	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow("", "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 2))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow("", "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 2, ""))
 
 	// loadComponentSchemas: name pass then function pass, both miss — "tool-2"
 	// is a positional slot name, not any component's identity.
@@ -256,8 +256,8 @@ func TestRerenderPageSections_ResolvesToolByComponentIDWithoutEscalating(t *test
 	componentID := uuid.New().String()
 
 	expectPageAndSections(mock, siteID, pageID, "tool-loan-vs-savings", "loancalculator.co.uk",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow(componentID, "tool-2", []byte(`{}`), "<section>old</section>", 2))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(componentID, "tool-2", []byte(`{}`), "<section>old</section>", 2, ""))
 
 	// name/function passes both miss.
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
@@ -310,8 +310,8 @@ func TestRerenderPageSections_ComponentIDWinsOverNameWhenBothResolve(t *testing.
 	pinnedID := uuid.New().String()
 
 	expectPageAndSections(mock, siteID, pageID, "index", "webdesign.co.uk",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow(pinnedID, "hero", []byte(`{"headline":"hi"}`), "<section>old</section>", 0))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(pinnedID, "hero", []byte(`{"headline":"hi"}`), "<section>old</section>", 0, ""))
 
 	// Pass 1 (name) resolves — to a different, generic component.
 	mock.ExpectQuery("FROM content_components").WillReturnRows(
@@ -369,8 +369,8 @@ func TestRerenderPageSections_InvalidTemplateByID_IsFatalAndNamed(t *testing.T) 
 	brokenTemplate := "<div>" + strings.Repeat("x", 120)
 
 	expectPageAndSections(mock, siteID, pageID, "tool-x", "example.com",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0, ""))
 
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
@@ -414,8 +414,8 @@ func TestRerenderPageSections_EmptyTemplateCarriesWithoutFailing(t *testing.T) {
 	componentID := uuid.New().String()
 
 	expectPageAndSections(mock, siteID, pageID, "tool-x", "example.com",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
-			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0))
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
+			AddRow(componentID, "tool-2", []byte(`{"foo":"bar"}`), "<section>old</section>", 0, ""))
 
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
 	mock.ExpectQuery("FROM content_components").WillReturnRows(emptyComponentRows())
@@ -531,10 +531,10 @@ func TestRerenderPageSections_StructuralCarryMakesANotReadySectionRerender(t *te
 	// The stored row still holds the URL its declared source can no longer
 	// resolve — the finetuning shape, one section wide.
 	expectPageAndSections(mock, siteID, pageID, "index", "example.com",
-		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position"}).
+		*sqlmock.NewRows([]string{"component_id", "slot_name", "content_data", "rendered_html", "position", "component_version_id"}).
 			AddRow(componentID, "case-studies-grid",
 				[]byte(`{"card1_image_url":"/assets/images/case-study-facilities.jpg"}`),
-				"<section>stale</section>", 0))
+				"<section>stale</section>", 0, ""))
 
 	mock.ExpectQuery("FROM content_components").WillReturnRows(
 		emptyComponentRows().AddRow(

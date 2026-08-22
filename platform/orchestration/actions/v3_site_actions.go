@@ -2547,6 +2547,19 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 		"component_function": comp.Function,
 	}
 
+	// Provenance: WHICH template text produced these bytes (RFC_046, ruled
+	// 2026-08-22). component_id above says which component was asked; this says
+	// which version of it actually ran, and the two stop agreeing the moment a
+	// template is edited. The save resolves it to a component_versions row.
+	//
+	// Emitted only when the seam set it — empty means unknown, and a caller
+	// downstream must write NULL rather than infer. That distinction is the whole
+	// point of the field: bugs_open/357 is what happens when "I do not know what
+	// produced this" is quietly upgraded into a confident answer.
+	if renderCtx.RenderedTemplateSHA != "" {
+		result["rendered_template_sha"] = renderCtx.RenderedTemplateSHA
+	}
+
 	// ── The section's OWN slot identity, when the caller knows it (bugs_open/189)
 	// Everything above names the COMPONENT. On a decomposed page the section's
 	// name is positional ("prose-0", "tool-2") and belongs to the page, not to

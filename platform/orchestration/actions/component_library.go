@@ -10,7 +10,9 @@ package actions
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -162,6 +164,36 @@ type RenderContext struct {
 	// function already mutates ctx for the form_action seeding, so the shape has
 	// precedent here. `json:"-"` for the same reason as InputSchema above.
 	AbsentRequiredFields []string `json:"-"`
+
+	// RenderedTemplateSHA is an OUTPUT: RenderTemplate writes it, callers read it.
+	// It is the SHA-256 of the template text this call actually executed, and it
+	// exists so that the bytes a render produces can be tied back to the exact
+	// template that produced them (RFC_046, ruled 2026-08-22).
+	//
+	// The estate infers a component row's identity five different ways — from an
+	// HTML attribute, from a sentinel meaning unknown, from POSITION in a plan,
+	// from fuzzy name matching, and from slot-name equality during a rebuild — and
+	// records it nowhere. bugs_open/357 is what that costs: a whole interactive
+	// tool stored in a row declaring itself the shared `hero`, because hero was
+	// first in the page's plan. A digest computed HERE is the one fact only the
+	// seam knows, and it is knowable at no cost: this function has the template
+	// text in hand and executes it.
+	//
+	// It is an out-field rather than a return value for exactly the reason
+	// AbsentRequiredFields above is: the seam's signature was unified to ONE
+	// spelling across sixteen call sites (owner ruling 2026-08-21) and churning it
+	// again would undo that. Like that field, the seam only REPORTS — resolving the
+	// digest to a component_versions row is the caller's job, because that needs a
+	// database handle the seam does not have and must not acquire.
+	//
+	// EMPTY MEANS UNKNOWN, never "no template": an empty template returns early
+	// above without setting it, and a caller that does not read it is unaffected.
+	// `json:"-"` for the same reason as the two fields above — it must never be
+	// settable from content, and the step contract is derived by reflection over
+	// STRING fields, so this one IS reachable by that derivation and is excluded
+	// by the tag deliberately. render_context_derivation_test.go is what tells you
+	// if that stops being true.
+	RenderedTemplateSHA string `json:"-"`
 }
 
 // NavItem represents a navigation link
@@ -1010,7 +1042,22 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 		// this estate (rerender_page_sections carries such a section rather than
 		// failing it). "Executed and produced nothing" is a different fact from
 		// "could not execute", and only the second one is the error channel's.
+		//
+		// RenderedTemplateSHA is deliberately NOT set here. Empty means unknown,
+		// and "there was no template" is a kind of unknown — stamping the digest of
+		// the empty string would give a caller a provenance token pointing at a
+		// template that renders nothing, which is worse than no token (RFC_046).
 		return "", nil, nil, nil
+	}
+
+	// The one fact only this seam knows: WHICH template text produced the bytes it
+	// is about to return (RFC_046, ruled 2026-08-22). Computed before execution so
+	// it describes the input, not anything the render may mutate, and reported
+	// rather than acted on — resolving it to a component_versions row needs a
+	// database handle this function does not have. See the field's doc comment.
+	if ctx != nil {
+		sum := sha256.Sum256([]byte(templateStr))
+		ctx.RenderedTemplateSHA = hex.EncodeToString(sum[:])
 	}
 
 	// sanitiseFormAction's presence gate ("Absent is only a defect if this

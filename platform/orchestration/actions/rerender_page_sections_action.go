@@ -150,6 +150,11 @@ type storedSection struct {
 	contentData  map[string]interface{}
 	renderedHTML string
 	position     int
+	// componentVersionID is the provenance stamp this row already carries
+	// (RFC_046). A carry does not change the bytes, so it must not change what
+	// produced them — without this the save re-inserts the row with no stamp and
+	// a fact the estate already owned is lost on every rerender.
+	componentVersionID string
 }
 
 func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -1139,7 +1144,8 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 		       COALESCE(slot_name, ''),
 		       content_data,
 		       COALESCE(rendered_html, ''),
-		       position
+		       position,
+		       COALESCE(component_version_id::text, '')
 		FROM page_components
 		WHERE page_id = $1
 		  AND build_status IS DISTINCT FROM 'removed'
@@ -1154,7 +1160,7 @@ func loadStoredSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logge
 	for rows.Next() {
 		var s storedSection
 		var cdJSON []byte
-		if err := rows.Scan(&s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position); err != nil {
+		if err := rows.Scan(&s.componentID, &s.slotName, &cdJSON, &s.renderedHTML, &s.position, &s.componentVersionID); err != nil {
 			logger.Warn("rerender_page_sections: row scan failed", zap.Error(err))
 			continue
 		}
@@ -1183,6 +1189,12 @@ func carryStoredSection(s storedSection) map[string]interface{} {
 	}
 	if s.componentID != "" {
 		m["component_id"] = s.componentID
+	}
+	// The stamp travels with the bytes it describes (RFC_046). Carrying the HTML
+	// while dropping its provenance would make every rerender quietly downgrade a
+	// known row to an unknown one.
+	if s.componentVersionID != "" {
+		m["component_version_id"] = s.componentVersionID
 	}
 	if len(s.contentData) > 0 {
 		m["content_data"] = s.contentData
