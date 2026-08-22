@@ -151,3 +151,82 @@ was added that a caller can switch off.
 gated on 248's two keep halves. 248's rerender half is proven live at `v1.0.1310`; its build
 half is pre-positioned. Provenance work should assume the build path WILL be live and design
 for both writers from the start, rather than treating the build path as dormant.
+
+---
+
+## CONTRIB 2026-08-22 — `bugfix_308_cta_destination_provenance` lane: re-verified, and two things this file does not say
+
+Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/`.
+Opened as its own lane rather than inside `cta_target_content_pass` because that lane's PLAN
+is a **content pass** (reword CTA labels so the existing resolver picks better) and carries
+this change only as an unstarted phase-1 open question; the owner's 2026-08-18 ruling here is
+platform Go. A CONTRIB goes into that lane's NOTES too — it is not competed with.
+
+### 1. Still valid, and larger [MEASURED 2026-08-22, live]
+
+This file's own query, re-run verbatim: **149 (2026-08-17) → 200**. Split by status, which is
+the churn as a number:
+
+| status | items | findings |
+|---|---|---|
+| `complete` | 71 | **112** |
+| `unresolved` | 53 | 86 |
+| `cancelled` | 2 | 2 |
+
+**112 findings sit on work items the platform marked `complete`** — repairs that ran, reported
+success, and left the button where it was.
+
+**⚠ DEMAND CONTROL, and it matters for anyone verifying a fix here.** The detector has been
+**silent since 2026-08-19** (3 items that day; 128 on 08-18, 208 on 08-17, 84 on 08-14). So
+200 is a **stock, not a flow**, and re-running the census after a fix will return ~200 whether
+the fix works or not. A discovery run must be induced first. [INFERRED, not verified] the
+cause is `bugs_open/230` (site discovery has no recurring driver).
+
+### 2. `suggested_target` has NO CONSUMER — the gap is one rung deeper than two universes
+
+```
+grep -rn "suggested_target" --include=*.go platform/ internal/ pkg/
+```
+→ three hits: `check_misdirected_cta.go:130`, `check_cta_nonpage.go:79-80`, and one test.
+**All writers.** Nothing reads it.
+
+The detector computes the right destination, writes it into the finding, and files a
+`page_rerender` carrying only `spec.reason="cta_links_stale"`. `rerender_page_sections_action.go:528`
+gates on that reason string and then **re-derives the destination independently**, from a
+narrower candidate set. So the two halves do not merely disagree by accident — the half that
+knows the answer is never asked. Sharing `ctaClassifyAnchor` (which this check's header says
+was done precisely to stop this churn) shared the *classifier* and left both the *candidate
+universe* and *the answer itself* unshared.
+
+This is `bugs_open/071`'s shape on another seam (a gate that detects every broken link then
+discards the finding), which is an argument for fixing the pattern, not just the pair.
+
+### 3. A THIRD consumer of the candidate loaders, which this file and LNK-033's landmine both miss
+
+`loadContentHubs` / `loadInteractivePages` have **three** non-test callers, not two:
+
+| caller | use |
+|---|---|
+| `resolve_internal_links_action.go` | build-path resolution (`setCTAField`) |
+| `rerender_page_sections_action.go` | repair-path recompute (`applyCTARecompute`) |
+| **`render_site_components_action.go:182-190`** | **the site HEADER CTA fallback** (`chooseCTATargets`) |
+
+`grep -c render_site_components` on this file and on `bugs_open/248` → **0** each. LNK-033's
+landmine names three breakers of the invariant — widen the loaders, drop `candidatesFromHubs`'
+filter, drop `rank()`'s test — as if they were interchangeable. **They are not.**
+
+> **Widening at the LOADERS also silently re-picks every site's header button**, because the
+> header derivation reads the same two functions and takes `ordered[0]` by nav_order. **So the
+> widening this bug needs must happen at `candidatesFromHubs`, never at the loaders.**
+
+And the obvious instrument is blind to it: [MEASURED] `site_components` carries **0 `cta_url`
+keys across all 24 header rows** — the header CTA is never persisted, only rendered. A
+`content_data` before/after diff (including the one the RFC_042/355 content-loss work is
+building) reads clean while all 24 headers move. Only a rendered-chrome diff would see it.
+
+**Not a falsification of LNK-033, and I checked:** the header legitimately takes `/contact.html`
+from the nav's own contact item (`render_site_components_action.go:162-164`), which looks like
+a resolver path that CAN mint a utility url — but chrome lives in `site_components`, not
+`page_components`, and `site-header` is not in `ctaFieldNames`, so the predicate is never
+consulted for it. The scope is exact; it is just only true because of a table boundary that is
+nowhere written down.

@@ -80,3 +80,72 @@ link then discards the finding), which is open on a different seam.
 
 That generalisation is this lane's argument for a framework-level fix rather than a CTA
 patch, and it is the thing to hold the design to.
+
+## 2026-08-22 (later) — a THIRD consumer of the candidate loaders, which no CTA doc names
+
+Enumerating the seam's consumers before designing (the 2026-07-29 owner ruling wants the
+other consumers NAMED, and enumerated by query rather than asserted):
+
+```bash
+for sym in candidatesFromHubs loadContentHubs loadInteractivePages storedCTADestinationIsAuthored \
+           ctaExcludedDestination areasExcludedFromCTA BestLabelMatch ctaFieldNames; do
+  grep -rn "\b$sym\b" --include=*.go platform/ internal/ pkg/ cmd/ | grep -v _test.go | sed 's/:.*//' | sort | uniq -c
+done
+```
+
+`loadContentHubs` and `loadInteractivePages` have **three** callers, not two:
+
+| caller | what it does with them |
+|---|---|
+| `resolve_internal_links_action.go` | build-path CTA resolution (`setCTAField`) |
+| `rerender_page_sections_action.go` | repair-path recompute (`applyCTARecompute`) |
+| **`render_site_components_action.go:182-190`** | **the site HEADER's CTA fallback** — `chooseCTATargets("", "", interactive, hubs)` |
+
+The third is the one that matters, and **`bugs_open/308`, `bugs_open/248` and LNK-033's
+landmine all name only the first two** ("this set is shared by BOTH writers"). Greps for
+`render_site_components` in both bug files return **0**. The register knows the header CTA
+exists (LNK-030 lists it as a `ChromeLinkPolicy` consumer) and LNK-033's landmine knows
+`site-header` carries a `/contact.html` schema fallback — but neither says the header shares
+the resolver's *candidate loaders*, which is the fact that widens the blast radius.
+
+**Why it changes the design, decisively.** LNK-033's landmine lists three ways to break the
+invariant: widen `loadContentHubs`/`loadInteractivePages`, drop `candidatesFromHubs`' filter,
+or drop `rank()`'s excluded-area test. Those are not equivalent. Widening at the **loaders**
+also silently re-picks **every site's header button**, because the header derivation reads the
+same two functions and takes `ordered[0]` by nav_order — a page newly admitted to the loader
+result can outrank today's pick without going anywhere near a utility area. So:
+
+> **The widening must happen at the candidate-assembly seam (`candidatesFromHubs`), never at
+> the loaders.** The loaders are shared with chrome; the assembly seam is not.
+
+**And the change would be invisible to the obvious instrument.** [MEASURED 2026-08-22]
+
+```sql
+SELECT slot_name, count(*) rows, count(*) FILTER (WHERE content_data ? 'cta_url') has_cta_url
+FROM site_components GROUP BY 1;
+--  footer 24 / 0 · header 24 / 0 · head 24 / 0
+```
+
+The header CTA is **not persisted anywhere** — `site_components.content_data` carries no
+`cta_url` on any of the 24 header rows. It is derived at chrome-render time and written
+straight into `rendered_html`. So a before/after diff of `content_data` (the natural check,
+and the one the 355/RFC_042 content-loss work is building) would read **clean** across all 24
+sites while every header button silently moved. The only instrument that could see it is a
+diff of rendered chrome HTML.
+
+[UNVERIFIED] I have not confirmed that a widened loader result would in fact outrank the
+current pick on any specific site — that is a claim about nav_order values I did not query.
+The design constraint does not depend on it (the point is that the instrument is blind, not
+that the change is certain), but if the plan ever proposes touching the loaders, that query
+is owed first.
+
+### Note on where LNK-033's scope is genuinely sound
+
+I went looking for a live falsification and did not find one, so recording the negative: the
+header CTA legitimately resolves to `/contact.html` from the nav's own contact item
+(`render_site_components_action.go:162-164`), which looks at first like a resolver path that
+CAN mint a utility url — falsifying LNK-033. It does not, because chrome lives in
+**`site_components`**, a different table from `page_components`, and `site-header` is not in
+`ctaFieldNames`, so `storedCTADestinationIsAuthored` is never consulted for it. The predicate's
+scope is exact. Recorded because the near-miss is the useful part: the invariant is stated in
+prose that sounds table-agnostic and is only true because of a scoping nobody wrote down.
