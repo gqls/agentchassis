@@ -1,0 +1,86 @@
+# deployments/kustomize/services/commit-sha-exposure-check/base/cronjob.yaml
+#
+# The STANDING form of migration 537's apply-time guard (bugs_closed/334;
+# staged_component_build handoff 2026-08-21 §1 item 4). 537 wired
+# build-dispatch-loop's `mark_complete` to `commit_sha?` — the handler's own
+# reply or ABSENCE, never the whole-tree search — and its guard proved, once,
+# that every handler which can produce a commit already exposes it at
+# `response.commit_sha` via its complete step's `result_mapping` (it fired
+# correctly on its first run, naming content-feed-orchestrator; migration 540
+# cleared it). The handler population is per-item and DYNAMIC: a new
+# commit-producing handler appearing after the apply that does not expose the
+# sha will simply never record `result.commit_sha` — no error, no log, no row,
+# because with `?` absence IS the contract. An apply-time guard cannot see it;
+# only a scheduled re-ask can. Same shape as optional-explicit-wires-check
+# (the `?` adoption gate) and optional-key-budget-check (RFC_022), on which
+# this is modelled line for line.
+#
+# WHY A CRONJOB AND NOT A GIT HOOK: the same two reasons as every check in this
+# family — at commit time a migration is unapplied so live definitions still
+# look correct, and both the handler population and the config are runtime
+# facts (site_work_items / orchestration_states / agent_definitions) that
+# change with no commit at all.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: commit-sha-exposure-check
+  labels:
+    app: commit-sha-exposure-check
+    component: config-integrity
+spec:
+  # Daily, in the config-integrity window. 06:45 UTC verified free against the
+  # live schedule 2026-08-22: single-owner-carriers 06:20 · removed-config-keys
+  # 06:25 · optional-explicit-wires 06:30 · site-discovery-staleness 06:35 ·
+  # component-fallback 06:40 · THIS · optional-key-budget and
+  # concept-register-drift 06:50 · component-render 06:55.
+  #
+  # Daily is right, not hourly: a new handler arrives by migration or seed, and
+  # the window that matters is "before weeks of its items silently lack a sha",
+  # not minutes. Not less than daily either — the failure this catches is
+  # invisible by construction, so cadence is the only bound on how long it runs.
+  schedule: "45 6 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Three queries plus a walk over ~195 definitions; hanging past 5 minutes
+      # means something is wrong and it should not block the schedule.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: commit-sha-exposure-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which
+          # this fleet reports as a Job still RUNNING, never FAILED (LANDMINES,
+          # ImagePullSecrets family).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/commit-sha-exposure-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --commit-sha-exposure --report \
+              #       --acks /app/commit_sha_exposure_acks.json
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi

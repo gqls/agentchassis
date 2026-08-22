@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1321
+IMAGE_TAG ?= v1.0.1324
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -346,6 +346,13 @@ build-loop-sitewide-item-key-check: ## Build loop-sitewide-item-key-check CronJo
 .PHONY: build-optional-explicit-wires-check
 build-optional-explicit-wires-check: ## Build optional-explicit-wires-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,optional-explicit-wires-check)
+
+# Same family, same argument: the STANDING form of migration 537's apply-time
+# guard (bugs_closed/334) ships its acks file with the binary, so the
+# committed-HEAD build is what keeps an unreviewed exception out of the image.
+.PHONY: build-commit-sha-exposure-check
+build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,commit-sha-exposure-check)
 
 .PHONY: build-removed-config-keys-check
 build-removed-config-keys-check: ## Build removed-config-keys-check CronJob image (committed HEAD; REF=<ref> to pin)
@@ -2123,6 +2130,10 @@ push-shared-output-fields-check: ## Push the shared-output-fields-check CronJob 
 push-optional-explicit-wires-check: ## Push the optional-explicit-wires-check CronJob image
 	docker push $(REGISTRY)/optional-explicit-wires-check:$(IMAGE_TAG)
 
+.PHONY: push-commit-sha-exposure-check
+push-commit-sha-exposure-check: ## Push the commit-sha-exposure-check CronJob image
+	docker push $(REGISTRY)/commit-sha-exposure-check:$(IMAGE_TAG)
+
 .PHONY: push-removed-config-keys-check
 push-removed-config-keys-check: ## Push the removed-config-keys-check CronJob image
 	docker push $(REGISTRY)/removed-config-keys-check:$(IMAGE_TAG)
@@ -2136,6 +2147,16 @@ deploy-optional-explicit-wires-check: ## Deploy the daily optional-explicit-wire
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/optional-explicit-wires-check/overlays/$(OVERLAY_PATH)
 	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob optional-explicit-wires-check
+
+.PHONY: deploy-commit-sha-exposure-check
+deploy-commit-sha-exposure-check: ## Deploy the daily commit-sha-exposure-check CronJob (standing form of 537's guard, bugs_closed/334)
+	@echo "$(YELLOW)Deploying commit-sha-exposure-check CronJob...$(NC)"
+	@echo "$(YELLOW)  The image MUST already be pushed at this tag. An absent image gives$(NC)"
+	@echo "$(YELLOW)  ImagePullBackOff, which this fleet reports as a Job still RUNNING —$(NC)"
+	@echo "$(YELLOW)  never FAILED. Build and push before deploying, not after.$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/commit-sha-exposure-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob commit-sha-exposure-check
 
 .PHONY: deploy-shared-output-fields-check
 deploy-shared-output-fields-check: ## Deploy the daily shared-output-fields-check CronJob (RFC_012 (d) online half)

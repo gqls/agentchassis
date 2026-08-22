@@ -221,6 +221,10 @@ func main() {
 		emitOptionalExplicitWires(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--commit-sha-exposure" {
+		emitCommitShaExposure(os.Args[2:])
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--removed-keys-in-use" {
 		emitRemovedKeyCarriers()
 		return
