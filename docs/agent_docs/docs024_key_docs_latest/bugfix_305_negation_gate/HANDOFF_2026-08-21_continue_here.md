@@ -1,4 +1,10 @@
-# HANDOFF 2026-08-21 — continue here (`bugfix_305_negation_gate`)
+# HANDOFF 2026-08-21 — SUPERSEDED (`bugfix_305_negation_gate`)
+
+> ## ⛔ DO NOT START HERE — read `HANDOFF_2026-08-22_continue_here.md` (same directory).
+> This file is kept as HISTORY and its banners below are not all true any more. In particular
+> **"THE GATE DOES NOT YET CHANGE PAGES" is FALSE as of 2026-08-22** — it does, proven at the
+> artefact. The value of this file is the sequence: the fix was wrong twice and then right, and
+> the wrong turns are written down where they happened.
 
 **Lane:** `bugfix_305_negation_gate`. **Bug:** `bugs_open/305` (owned by `copy_quality_two_stage`; this
 lane built the platform half and contributed it back into that file, §8–§17).
