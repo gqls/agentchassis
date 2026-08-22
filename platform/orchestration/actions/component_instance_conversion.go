@@ -49,6 +49,21 @@ const instancePrefix = "{{.InstanceID}}-"
 // component declaring such an id is refused outright.
 var reHexish = regexp.MustCompile(`^[0-9a-fA-F]{3,8}$`)
 
+// reComponentIDInIDAttr — an id= attribute whose whole value is the OLD
+// per-instance placeholder. Deliberately tolerant of Go template whitespace and
+// trim markers ({{- .ComponentID -}}), because the corpus is LLM-written and a
+// spelling this misses would be silently left behind rather than loudly
+// refused. Group 1 is the leading whitespace, group 2 the quote character, so
+// the rewrite preserves both.
+var reComponentIDInIDAttr = regexp.MustCompile(`(\s)id=(["'])\{\{-?\s*\.ComponentID\s*-?\}\}(["'])`)
+
+// reComponentIDAnywhere — the same placeholder in ANY position, for the
+// completeness refusal. A reference that is not an id attribute (a data-*
+// value, a #selector, a script literal) is not something pass 0 can safely
+// rewrite, and leaving it while converting the rest is the half-state this
+// file's failure direction forbids.
+var reComponentIDAnywhere = regexp.MustCompile(`\{\{-?\s*\.ComponentID\b`)
+
 // Attributes whose value is an id reference (or a space-separated list of id
 // references, per the ARIA spec for labelledby/describedby).
 var reIDRefAttr = regexp.MustCompile(
@@ -77,6 +92,12 @@ type InstanceConversionReport struct {
 	// and concatenation sites that carry an id to a lookup without containing
 	// the lookup — the class the original passes could not see.
 	Bindings BindingPassReport
+	// TemplatedIDSwaps counts id= attributes whose value was the OLD
+	// per-instance placeholder {{.ComponentID}} and is now {{.InstanceID}}
+	// (pass 0). Reported separately from IDAttrsRenamed because it is a
+	// different act: those are literal ids gaining a namespace, this is one
+	// convention being replaced by the one that works (RFC_032 §8).
+	TemplatedIDSwaps int
 	// UnprefixedBindings is the completeness detector's report over the
 	// OUTPUT. Non-empty does not refuse here — the gate turns it into a
 	// judged-pool route, and the caller carries it on the result.
@@ -96,19 +117,49 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 		return tpl, rep, false
 	}
 
+	// PASS 0 — an id already written as the OLD per-instance placeholder.
+	//
+	// {{.ComponentID}} is the estate's previous convention (RFC_032, RULED
+	// 2026-08-22: converge on {{.InstanceID}} and retire it). It resolves to
+	// the component ROW id on the two live render paths, so every instance of
+	// the component takes the SAME value — the collision this seam exists to
+	// remove, wearing a templated id's clothes.
+	//
+	// It runs before the declared-id harvest below, and it has to, because
+	// that harvest CANNOT SEE IT: `[^"{}]` excludes braces, so a template
+	// whose only id is `id="{{.ComponentID}}"` produced an empty `seen` and
+	// refused with "declares no literal element ids" — the exact opposite of
+	// the truth, on a template that plainly declares one. Five live templates
+	// were in that state as of 2026-08-22 and would have drained through the
+	// conversion queue as five polite no-ops (LANDMINES, "A converter that
+	// harvests ids with id="([^"{}]+)" cannot SEE a templated id").
+	//
+	// The wrapper takes the BARE token, not the {{.InstanceID}}- prefix: this
+	// id IS the instance's identity rather than an id scoped WITHIN it, and
+	// the prefix form would render `c-faq-` with nothing after the hyphen.
+	swapped := reComponentIDInIDAttr.ReplaceAllStringFunc(tpl, func(m string) string {
+		rep.TemplatedIDSwaps++
+		g := reComponentIDInIDAttr.FindStringSubmatch(m)
+		return g[1] + "id=" + g[2] + "{{.InstanceID}}" + g[2]
+	})
+
 	// The declared-id set: only ids carried by an id= attribute, the same
 	// predicate the detector uses. Both quote styles — JS that builds markup
 	// inside a single-quoted string writes id="x", but templates vary.
+	//
+	// Harvested from `swapped`, not `tpl`: pass 0's output carries
+	// {{.InstanceID}}, which this predicate also cannot see, so the swapped
+	// wrapper is neither double-prefixed here nor renamed by the passes below.
 	seen := map[string]bool{}
 	for _, re := range []*regexp.Regexp{
 		regexp.MustCompile(`\sid="([^"{}]+)"`),
 		regexp.MustCompile(`\sid='([^'{}]+)'`),
 	} {
-		for _, m := range re.FindAllStringSubmatch(tpl, -1) {
+		for _, m := range re.FindAllStringSubmatch(swapped, -1) {
 			seen[m[1]] = true
 		}
 	}
-	if len(seen) == 0 {
+	if len(seen) == 0 && rep.TemplatedIDSwaps == 0 {
 		rep.RefusedReason = "template declares no literal element ids — nothing to namespace"
 		return tpl, rep, false
 	}
@@ -122,7 +173,7 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 	}
 	sort.Strings(rep.IDsDeclared)
 
-	out := tpl
+	out := swapped
 
 	// Pass 1 — the declarations themselves, both quote styles. Plain-text
 	// anchored replacement, so ids inside JS strings that BUILD markup (e.g.
@@ -232,6 +283,28 @@ func ConvertTemplateToInstanceScope(tpl string) (string, InstanceConversionRepor
 			rep.RefusedReason = fmt.Sprintf("#%s reference survived every pass — unrecognised construction; convert through the judged pool", id)
 			return tpl, rep, false
 		}
+	}
+
+	// COMPLETENESS, the {{.ComponentID}} half. Pass 0 rewrites the placeholder
+	// only where it IS an id attribute's whole value. A reference anywhere
+	// else — a data-target, a #selector, a script literal, an id built by
+	// concatenation around it — survives, and it survives INVISIBLY: the gate
+	// renders with InstanceID bound and nothing else, so a leftover
+	// {{.ComponentID}} resolves through missingkey=zero to "" and is stripped,
+	// leaving id="" on every instance. DetectInstanceCollisions cannot report
+	// that, because reElementID requires at least one non-brace character. So
+	// two instances would read CLEAN at the gate while serving colliding empty
+	// ids — a half-conversion with the warning light removed, which is exactly
+	// what this file's stated failure direction exists to prevent.
+	//
+	// Measured 2026-08-22: 0 active templates mix a literal id with
+	// {{.ComponentID}} (control: 87 active templates carry a literal id at
+	// all), so this refuses nothing today. It is here for the arrival that
+	// half-learns the convention, not for the current corpus.
+	if loc := reComponentIDAnywhere.FindString(out); loc != "" {
+		rep.RefusedReason = fmt.Sprintf(
+			"%s reference survived pass 0 — it is not an id attribute's whole value, so it cannot be swapped mechanically and would render EMPTY on every instance; convert this component through the judged pool", loc)
+		return tpl, rep, false
 	}
 
 	rep.UnprefixedBindings = UnprefixedBindings(out)
