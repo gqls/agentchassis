@@ -1,104 +1,56 @@
-# HANDOFF — `bugs_open/315` → **CLOSED** (2026-08-21 ~19:45Z)
+# HANDOFF — `bugs_closed/315` — state at 2026-08-22 19:00Z
 
-> **⚠ THE BUG IS CLOSED AND THE LANE'S WORK IS DONE.** `bugs_closed/315_HANDOFF_2026-08-18_…md`.
-> Both migrations are APPLIED, the check is LIVE and PROVEN AT THE ARTEFACT, and nothing here is
-> waiting on anyone. This file is kept as the record of how it got there.
->
-> **What is live:** chassis `v1.0.1322` carries `page_content_divergence` (register `DGH-015`);
-> migration `547` armed the last three unarmed deploy-stampers (**six of six armed, zero unarmed**);
-> migration `526` enabled the check at 19:23Z. Council `Council-Reviewed:
-> 9e8d73b8-f777-4404-a1c7-d8e06af897fb` (APPROVED round 3; rounds 1 and 2 each found a real defect,
-> one of them in a guard written to answer the previous round).
->
-> **The proof** — the discovery run's own record on a site with 21 judgeable pages, which is what
-> distinguishes "ran and found nothing" from "never ran":
-> `checks_run: [site_unreachable, page_content_divergence]`, `checks_failed: []`,
-> `checks_unregistered: []`, `items_inserted: 0`.
->
-> **TWO RESIDUALS, neither reopening the bug, both in `PLAN`:**
-> - **D6** — make an unarmed `deployed` stamper NULL the fingerprint rather than leave a stale one.
->   The backstop for the *next* unarmed stamper; there are none today.
-> - **D8** — widen the settle window from 30 to 60 minutes at the next build. **The observed delivery
->   tail is ~17 minutes, not the 14 seconds first measured** (see §3), so the current margin is ~1.8x.
->   Left as-is deliberately: a premature finding is flag-only and retracts itself on the next pass.
->
-> **If you are picking this up to do anything, do D8** — and re-run the 40-page artefact sample first,
-> because that is the measurement that found the error.
+> **THE BUG IS CLOSED.** `bugs_closed/315_HANDOFF_2026-08-18_…md`. The check is live, and it has now
+> been graded against the whole fleet. This file is the record of how it got there plus what is open.
 
-## 0. STATE AS OF 2026-08-22 08:50Z — the check has CAUGHT A REAL ONE
+## 0. THE HEADLINE — the check works, and my hand-checks did not
 
-**Chassis rolled to `v1.0.1323` this morning** (observed mid-roll). The check is still registered —
-verified at the artefact with a negative control (`page_content_divergence` present in `/proc/1/exe`;
-a near-identical absent literal does not match). Config is DB-side and survived the roll.
+`[MEASURED 2026-08-22 ~18:50Z]` 311 judgeable pages swept, then every flagged page re-probed **5 times**:
 
-**FIRST LIVE CATCH — a true positive of exactly the class this lane exists for.** 86 availability runs
-overnight, **1 item filed**:
+**`page_content_divergence` scored 1 true positive, 0 false positives, 0 misses.**
 
-```
-vetcomparison.uk/index.html
-20:49:12Z  deploy committed, deployed_at stamped, content_hash = 2a4b4947...
-21:53:04Z  age  1h04  DIVERGED  served 2bacf7c9...  -> ITEM FILED
-01:54:34Z  age  5h05  DIVERGED  served 2bacf7c9...  -> dedup skip (already open)
-05:56:34Z  age  9h07  DIVERGED  served 2bacf7c9...  -> dedup skip
-08:40Z     age 11h51  MATCH     served 2a4b4947...  (5/5 cache-busted fetches)
+The one real case, `vetcomparison.uk/index.html`, has been serving visitors the **old page for ~21
+hours** — through a republish at 08:50Z — and the check flagged it on **six consecutive passes**,
+unprompted, starting 1h04 after the deploy.
+
+⚠ **That is a LIVE CUSTOMER-FACING FAULT and it is not this lane's to fix** — the delivery step lives
+in the private `gqls/sites` runner. What this lane can now do, which it could not before, is name it
+exactly: site, page, publish timestamp, and six independent observations.
+
+### ⚠ Reproducing a finding by hand — read this before disagreeing with the check
+
+I disagreed with it three times in one day and was wrong three times. Both rules are needed:
+
+1. **Send a browser `Accept`.** A Cloudflare Worker (`server-timing: cfWorker`) serves a *different
+   body per `Accept`*, from the same B2 object (identical `x-amz-version-id`). On the stale page,
+   **8 fetches per header**: browser `Accept` 8/8 OLD, `Accept: text/html,*/*` (what the check sends)
+   8/8 OLD, `Accept: */*` (curl's default) 8/8 CURRENT. **A plain curl says the page is fine.**
+2. **Fetch N times and state N.** A single fetch is noise-dominated here — live responses include
+   zero-length bodies (`e3b0c44298fc…`, the sha256 of the empty string) and Cloudflare error pages
+   (`e3ebaa16dd9d…`). One-fetch sweeps of mine produced "228 of 228 healthy" (under-read) and
+   "6 pages stale" (over-read). The truth on 5 fetches each: **one page**.
+
+```bash
+BROWSER='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+for i in 1 2 3 4 5; do curl -s -H "$BROWSER" "https://<domain><url>?cb=$RANDOM$RANDOM$$" | sha256sum; done | sort | uniq -c
 ```
 
-Served hash **identical across three observations spanning eight hours** — not mid-propagation.
-`deployed_at`/`updated_at` never moved, so **no redeploy: the same publish landed 9–12 hours late on
-its own.** Nothing else in the platform noticed: DB said deployed, commit succeeded, job completed.
+**The check already does both** — it sends an HTML `Accept` and fetches twice requiring agreement.
+That is why it was right. I built that guard and applied it to none of my own spot-checks.
 
-**It sharpens candidate 3 rather than reopening the bug.** §3's original instance looked like a page
-being *skipped*; this one was *delayed*. So the runner may not be losing work at all, and a fix aimed
-at "why was this page dropped" could be aimed at the wrong thing. Still not diagnosable from here
-(private `gqls/sites` repo) — but there is now a named case with timestamps to hand whoever has access.
+## 0b. What is OPEN
 
-### ⚠ THE ONE THING STILL UNPROVEN — the retraction half (as of 2026-08-22 10:25Z)
-
-**It has never fired, and it is NOT broken.** Its precondition is a pass that **OBSERVES A MATCH**.
-Every pass so far observed a mismatch, so `items_resolved: 0` is the correct output each time:
-
-| pass | ins | skip | res | findings | meaning |
-|---|---|---|---|---|---|
-| 21:53 | 1 | 0 | 0 | 1 | filed |
-| 01:54 | 0 | 1 | 0 | 1 | re-detected, dedup refused a duplicate |
-| 05:56 | 0 | 1 | 0 | 1 | re-detected |
-| 09:57 | 0 | 1 | 0 | 1 | re-detected (the regression — see below) |
-
-⚠ **`items_inserted: 0` DOES NOT MEAN "found nothing".** Read `items_skipped` **and** `findings`.
-Reading the inserted count alone reads as "the check went quiet" and will send you debugging a working
-mechanism — it nearly sent me.
-
-**To verify it, one query, after a pass on a page that now matches:**
-```sql
-SELECT status, result->>'resolved_by', result->>'reason'
-  FROM site_work_items WHERE item_type='page_content_divergence';
--- status='complete' with resolved_by/reason stamped = the retraction half is PROVEN
-```
-`vetcomparison.uk` is next eligible **13:57Z** (rotation floor 4h). The page matched 3/3 from inside
-the cluster and 10/10 from outside at 10:20Z, so that pass should close it. **Until observed, treat
-"the check self-clears" as designed-but-unproven.** If it does NOT close on a pass where the page
-matches, that IS a defect — start at `resolveWorkItems` in `work_items_common.go` and at the
-`case j.first.hash == pg.StoredHash:` branch.
-
-### What that page actually did, because it is two faults not one
-
-| window | observation |
+| item | state |
 |---|---|
-| 20:49 → ~08:40 | new bytes never arrived (**9+ hours**) — the 315 class, identical served hash across 3 passes |
-| ~08:40 | correct |
-| **08:50** | **redeployed** (byte-identical → same `content_hash`; the no-op republish case) |
-| 09:57 | **serving the OLD bytes again** — a regression, not a lag |
-| 10:20 | correct, 3/3 inside the cluster and 10/10 outside |
+| **D8 — window 30→60 min** | Committed (`971178638`), council **APPROVED** (`fe8bbefc`). ⚠ **Liveness UNPROVEN** on `v1.0.1326`: the provenance line has scrolled and the binary probe found **no positive control**, so an absent grep proves nothing. **Settle it from the next filed item's `spec->>'settle_window_seconds'` — 1800 = old, 3600 = D8 is live.** |
+| **D9 — escalate on PERSISTENCE across passes** | Unbuilt, and the day's evidence is the argument for it: convergence times (seconds → ~17 min → 1h20 → 21h) OVERLAP the failure, so no settle-window value separates them. The check already re-detects on every pass and the dedup index absorbs it. |
+| **D10 — an empty/error 200 is HASHED, not skipped** | Unbuilt. Both artefact bodies are STABLE hashes, so the double-fetch guard does **not** filter them: two consecutive empty 200s would agree and file against a healthy page. The one remaining way this check can manufacture a false positive. Cheap. |
+| **D6 — unarmed stamper should NULL the hash** | Unbuilt; no unarmed stampers exist today (6 of 6 armed). |
+| **Retraction half** | **Still never fired, and still correctly so** — its precondition is a pass that OBSERVES A MATCH, and the page genuinely still diverges. Not evidence of a defect. |
 
-⚠ **A `[MEASURED]` claim about STATE expires.** At 08:40 I recorded "`deployed_at` unmoved, so no
-redeploy" — true then, and false ten minutes later. The nine-hour finding stands for the window it
-describes; the boundary has to be said out loud or the next reader re-runs the query and thinks it was
-wrong.
-
-⚠ **A single probe samples whichever copy answered.** At 08:40 I got 10/10 correct while the 09:57 pass
-recorded the old bytes. When reproducing one of these findings by hand, **fetch several times and say
-how many** — which is why the check confirms a mismatch with a second fetch and requires the two to
-agree.
+⚠ **`items_inserted: 0` does NOT mean "found nothing"** — read `items_skipped` **and** `findings`. The
+stale page has been re-detected on every pass with `items_inserted: 0, items_skipped: 1, findings: 1`,
+because `idx_swi_dedup` correctly refuses a duplicate.
 
 ---
 
