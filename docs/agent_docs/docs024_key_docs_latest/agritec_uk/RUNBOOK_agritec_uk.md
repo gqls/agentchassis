@@ -212,6 +212,23 @@ Read every fact, every time, against these five:
    intensity, returned no carbon-intensity fact at all, and completed successfully. A silent half-
    answer is the easiest thing to miss, because the facts that did arrive look fine.
 
+6. **Dates — the extractor does not capture them, and guesses the staleness instead.** Measured
+   2026-08-22: a Greenhouse Product News page carries `datePublished":"2017-07-03"` in its own
+   metadata; all three facts extracted from it recorded `published: (none)` and a *guessed*
+   `staleness_days` of 400/800. So the register's refresh machinery was primed to measure drift
+   from a date it never had, on a source nine years old.
+
+   This is the failure mode that matters most for a figure whose value is *changing*: "many new
+   LED fixtures **now** exceed 2.0 µmol/J" was true when written and understates the 2026 market
+   badly. **Check the source's date yourself**, and put it in the `writer_line`, not just the
+   `published` field — the writer_line is what the writer actually reads:
+   ```bash
+   curl -sS -L "<url>" | grep -oiE 'datePublished"[^"]*"[^"]*' | head -1
+   ```
+   Then ask the question that decides it: **does this figure move?** A physics ceiling and mature
+   HPS efficacy do not, and can be cited from an old page without harm. A market figure, a price,
+   a payment rate or a "state of the art" claim does, and an undated one belongs nowhere.
+
 **When you remove a fact, ban the figure too** — fail-closed, on the oufe precedent. If it later
 turns out to be the right number for a stated purpose, the ban forces a conscious return to the
 migration with the market and date attached. See `SEED_2026-08-22b_quarantine_domestic_energy_facts.sql`.
