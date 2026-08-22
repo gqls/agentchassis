@@ -413,6 +413,59 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	// Call the AI service
 	result, err := aiClient.GenerateText(ctx, renderedPrompt, options)
+
+	// ── One escalated retry when the output cap cut the response (bugs_open/337) ──
+	// Decision table + contract in truncation_escalation.go. This runs BEFORE
+	// the error block below, so that block only ever sees the FINAL attempt's
+	// error: if the escalated call also fails — truncated at the ceiling, a
+	// 5xx, anything — everything downstream (tolerate_truncation and its
+	// bugs_open/076 guard, isAIUnavailable, the transient ladder, the
+	// catch-all) applies to it verbatim, with no second code path to drift.
+	if err != nil {
+		sentCap := 0
+		if mt, ok := options["__sent_max_tokens"].(int); ok {
+			sentCap = mt
+		}
+		if ceiling, escalate := truncationEscalationApplies(err, aiServiceConfig, sentCap); escalate {
+			// One call, one forensic row: the cut first call is recorded
+			// success=false, prefixed so a census can count escalations without
+			// joining anything. Logged before options is reused — LogLLMCall
+			// reads the map synchronously, so the second call's telemetry
+			// cannot race this row's.
+			LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+				AgentType:       params.AgentType,
+				AgentID:         params.Headers["agent_id"],
+				StepName:        params.ExecutionContext.StepName,
+				OrchestrationID: params.ExecutionContext.OrchestrationID,
+				CorrelationID:   params.ExecutionContext.CorrelationID,
+				Model:           modelAlias,
+				ModelResolved:   resolvedModel,
+				Provider:        provider,
+				PromptTemplate:  promptTemplate,
+				PromptRendered:  renderedPrompt,
+				LatencyMs:       int(time.Since(llmCallStart).Milliseconds()),
+				Success:         false,
+				ErrorMessage: fmt.Sprintf(
+					"ESCALATED (bugs_open/337: cap %d cut the response; retrying ONCE at max_tokens_ceiling=%d): %s",
+					sentCap, ceiling, err.Error()),
+				Temperature:    options["__sent_temperature"],
+				MaxTokens:      sentCap,
+				WorkItemID:     flywheelWorkItemID,
+				Vertical:       flywheelVertical,
+				RAGContextUsed: flywheelRAG,
+				Options:        options,
+			})
+			params.Logger.Warn("LLM response truncated at the configured cap — retrying ONCE at max_tokens_ceiling",
+				zap.String("step_name", params.ExecutionContext.StepName),
+				zap.String("agent_type", params.AgentType),
+				zap.Int("sent_max_tokens", sentCap),
+				zap.Int("max_tokens_ceiling", ceiling))
+			options["max_tokens"] = ceiling
+			llmCallStart = time.Now()
+			result, err = aiClient.GenerateText(ctx, renderedPrompt, options)
+		}
+	}
+
 	if err != nil {
 		llmLatencyMs := int(time.Since(llmCallStart).Milliseconds())
 		params.Logger.Info("AI call failed once",

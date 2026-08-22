@@ -102,3 +102,65 @@ candidate 3 in particular is architecture-scope and should not be taken as diagn
   `bugs_open/257` (the class: a configured budget that never arrives). Siblings, not duplicates.
 - `bugs_open/012` — the truncation-and-config family. The refusal here is 012's lesson working:
   a cut completion is not stored as if it were whole.
+
+---
+
+## 2026-08-22 — taken; still valid; fix built (escalation seam + resize), council pending
+
+Taken by a fresh session (lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_337_token_cap/` — PLAN, RUNBOOK, NOTES,
+README). `who-owns` pointed at the 311 lane, but their handoff lists this as "filed from
+this lane, unowned" and their live work is 311/345/351 — no competing fix in flight, and
+no open work item targets this bug.
+
+**Validity re-check [MEASURED 2026-08-22]:** cap still 16000 in the live row; the items
+still parked `failed`/`attempt_count=3`; and a FOURTH occurrence this file predates —
+loanzy.uk `needs_new_component:loans-credit-health-check_run1`, 08-18, same three-cut
+signature. `llm_call_log` holds 9 generate_template truncations 08-15→08-19, recovered
+46,441–48,817 chars each.
+
+**Three facts this file did not have:**
+
+1. **The cap was tight for the step's ORDINARY work, not just this section.**
+   Successful calls, 14-day window: p95 13,633 of 16,000 (85%), max 15,374 (96%).
+2. **The fleet headroom monitor flagged this step BEFORE and DURING this bug's life and
+   nothing consumed the flag.** LCO-007 (`fleet-step-token-pressure`) doc_notes rows
+   from 2026-08-18 onward: "T generate_template@16000 — n=229, p95 92.4%, peak 100.0%,
+   truncated 9". Detection works; flag→action dispatch does not — that gap is a named
+   residual here, not re-solved with a second monitor. (FIX-058's open question — does
+   the near-miss threshold scale with the cap? "revisit when a 16000 seat first
+   crosses" — has now had its trigger: this bug is that crossing.)
+3. **The sibling whole-component writers were levelled and this step was missed:**
+   `generate_tool_html`/`improve_tool` at 32000, `recreate_tool` at 64000
+   (bugs_closed/012's table, migration 168 lineage) — generate_template sat at 16000.
+   Per bugs_closed/067's sweep rule: generate_template is component-creator's only
+   `execute_llm_prompt` step, so the levelling below is the whole sweep for this agent.
+
+**Fix shipped (candidates 2+3 together, 3 in its narrow honest form):**
+
+- **Framework seam (candidate 3, scoped):** `max_tokens_ceiling` — an opt-in
+  `ai_service` key; on a typed `TruncatedError`, `execute_llm_prompt` retries ONCE at
+  the ceiling, logging the cut call `success=false` with an `ESCALATED
+  (bugs_open/337: …)` prefix; the escalated call's outcome flows through the existing
+  machinery (tolerate/076 guard, transient ladder) verbatim. NOT a continuation call
+  and NOT a fleet default — opt-in per owner ruling 2026-08-02 §2. Register
+  **MDL-042**; code `platform/orchestration/actions/truncation_escalation.go` (+test,
+  + wiring in `ai_actions.go`). Inert until the next chassis roll.
+- **Resize from measurement (candidate 2):** migration
+  `docs/agent_docs/sql_for_agents/549_generate_template_cap_resized_and_escalation_ceiling_armed.sql`
+  — 16000→24000 routine (clears p95 by ~75% and this section's extrapolated ~19–22k
+  need) + ceiling 32000 (clock-safe: step measures 92–127 tok/s, 600s non-streaming
+  timeout; 40k+ risks trading truncation for a silent clock death). 415-pattern
+  resolved-value asserts; 484-pattern gates; rollback sidecar. Live on apply.
+- **Candidate 1 (bound the brief)** stays the named follow-up — FIX-059/migration-484
+  precedent recorded in the lane PLAN; it changes what the step produces and needs a
+  measured real generation to design. **Candidate 4** stays with the RSH-007/WII
+  failure-ladder contract: a truncation AT the ceiling still burns the item's
+  remaining attempts.
+
+**Verification (per §How to verify, plus the RUNBOOK_311 corrections):** pre-flight
+`pages.status` — `tool-eligibility-checker` is ARCHIVED, spend nothing on it; targets
+are loanzy.uk `tool-credit-health-check` and loancalculator.co.uk `tool-credit-roadmap`.
+Record WHICH half won: completion with zero `ESCALATED%` llm_call_log rows proves the
+resize; with one, proves the escalation. Either passes; the attribution must be stated,
+not assumed.
