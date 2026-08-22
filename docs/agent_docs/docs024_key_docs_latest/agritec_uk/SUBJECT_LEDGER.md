@@ -176,6 +176,26 @@ Fetched and counted, not recalled:
 - **The data layer is dead.** `fetch(` count across all six agri calculators is **0**. The six
   `/data/*.json` files are read by nothing; every number is hardcoded per tool. The JSON files are
   still publicly served (`/data/crop-dli-table.json` returns 200).
+
+  > **CORRECTED 2026-08-22 — "dead" is right; "untrustworthy" was not, and the framing here
+  > implied it.** Sourcing the crop DLI figures found their actual origin. Virginia Cooperative
+  > Extension SPES-720, Table 3 publishes **Lettuce 12−17** and **Tomato 20−30** — exactly the
+  > retired site's `crop-dli-table.json` values — attributed there to Dou et al. (2018), Faust et
+  > al. (2005) and Pramuk. Read first-hand, HTTP 200.
+  >
+  > So that file is **UNCITED, not fabricated.** The distinction is load-bearing: an uncited figure
+  > needs a source attached, an invented one needs deleting, and treating the first as the second
+  > throws away work somebody did properly. All eleven ranges are now in the register by
+  > attestation (`SEED_2026-08-22f_dli_table_attested.sql`).
+  >
+  > It does **not** extend to the market ticker, which stays fabricated and is separately proven
+  > so — its feeder generates values with `rand()` and labels its own output "Simulated Exchange".
+  > Two files in the same directory, two opposite verdicts. Check each; generalise from neither.
+  >
+  > What caught it: the run REJECTED those claims as `citation_lost`, whose own advice reads
+  > "possible hallucination — discard". Following that advice would have produced both wrong
+  > conclusions. The figures are in a table, and the separator is U+2212 MINUS SIGN — neither can
+  > satisfy a verbatim-quote re-match. See `LANDMINES.md`.
 - **The sitemap is a THIRD inventory, and it agrees with neither of the other two.**
   Found by the framework itself: within about four hours of the seed landing, the
   `check_site_structural_validity` discovery check ran against the live site and filed seven
