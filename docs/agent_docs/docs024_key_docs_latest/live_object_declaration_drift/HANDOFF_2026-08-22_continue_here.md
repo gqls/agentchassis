@@ -22,19 +22,57 @@ their file was unreadable.
 
 ## 2. Status — READ THIS BEFORE ANYTHING ELSE
 
-**◑ PHASE 1 DONE. PHASE 2 NOT BUILT. `bugs_open/363` is OPEN and should stay open.**
+**◑ BOTH PHASES BUILT. PHASE 2 IS NOT DEPLOYED. `bugs_open/363` is OPEN and should stay open.**
 
 | | state |
 |---|---|
-| Phase 1 (Go side) | **BUILT, committed, council-APPROVED, mutation-proven** — `873575ecf` |
-| Phase 2 (live tie) | **NOT BUILT.** No code, no submission. This is the next job. |
-| Council | corr `b3676918-9eee-4b9f-85f3-749e16b3d033` — r1 REVISE, **r2 APPROVED** (13 reviews, 10 approve, 3 advisory, none high) |
-| Register | **SQLC-002** in `docs/agent_docs/docs026_concept_register/register/sql-change-management.md` + index row |
-| LANDMINES | entry appended (swept into `9880926ed`, intact); verifier armed, corr `71f6262c-0ea3-450c-940c-a1c9c2f0e1f5` |
+| Phase 1 (Go guards → declaration) | **BUILT, council-APPROVED, mutation-proven** — `873575ecf` |
+| Phase 2 (declaration → live object) | **BUILT and proven against the live DB — `18661b3c7` — but NOT DEPLOYED** |
+| Deploy | **image unbuilt/unpushed, CronJob unapplied. Nothing runs on a schedule.** |
+| Council | phase 1 corr `b3676918…` APPROVED r2. **Phase 2 REFUSED as out of scope** — not forced. |
+| Register | **SQLC-002** · LANDMINES entry live |
 
-**Phase 1 does NOT close the live-drift half**, and says so in the bug banner, the register entry and
-the landmine. Guards now compare **Go against `platform/livespec`**. Nothing compares livespec against
-the **live object**. Do not let a reader conclude otherwise.
+**THE NEXT ACTION IS NOT CODE — IT IS A DEPLOY, AND IT IS THE OWNER'S.** Releases here are
+whole-fleet (`make release`). `make build-live-declaration-drift-check` is wired and builds from
+committed HEAD. Saying this plainly because "INERT until the roll" is itself a documented trap: it
+makes the correct next action look premature. It is not premature; it is simply not a session's to
+take.
+
+**After the release, verify AT THE ARTEFACT — a green make target is not a deployed check:**
+
+```bash
+kubectl -n ai-persona-system get cronjob live-declaration-drift-check \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'
+kubectl -n ai-persona-system create job --from=cronjob/live-declaration-drift-check ldd-manual-1
+# then read the POD's exitCode — a Job is not a pod, and a log line is not an exit code
+kubectl -n ai-persona-system get pod -l job-name=ldd-manual-1 \
+  -o jsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'
+```
+Expect **0** and one `doc_notes` row with `categories ? 'live-declaration-drift'`. Exit **2** means
+it could not look (that is correct behaviour, not a pass). A **missing** row means the job did not
+run — never "nothing is wrong".
+
+### What phase 2 proved before it was committed (both outcomes, one session)
+
+| | induced | got |
+|---|---|---|
+| clean | nothing | `probed 5 live object(s) (2 scheduled_task, 1 trigger_bindings, 2 trigger_fn); 0 finding(s)` exit 0 |
+| D1 | drop a declared item type | exit 1, names object **and** fragment |
+| D2 | declare 2 trigger bindings vs a live 3 | exit 1 `live count is 3, declared 2` |
+| D3 | probe a nonexistent task | **exit 2, NOT clean** |
+| D4 | no database configured | **exit 2, NOT clean** |
+
+**D2 is the important one** — that declaration was INERT in phase 1 (the council's `bug_historian`
+objection) and is now demonstrably read.
+
+### ⚠ The council gate refuses this whole CLASS, and that is worth the owner's attention
+
+Phase 2 was REFUSED: *"no edit touches the review scope"*. Every file is `cmd/`, `build/`,
+`deployments/` or `makefile`. **Every check service in this family has that shape, so 17+ daily fleet
+checks as of 2026-08-22 are structurally unreviewable.** `FORCE=1` would buy a review the owner's
+scope ruling says should not be bought, so this lane did not. The lever is
+`scripts/council-scope.sh` (single-sourced), and it is the owner's call — see `bugs_open/363`
+§"the class of checks nobody reviews".
 
 ## 3. The single most important thing to know
 
@@ -80,7 +118,7 @@ and requires both a `sql_for_agents` literal and a read call. Allow-list = **5**
 `DeferredDeclarations` counts entries nothing can check yet (**1** today: the trigger **binding
 count**) so an inert declaration cannot read as guarded.
 
-## 5. Phase 2 — the next job, already designed
+## 5. Phase 2 — BUILT (this section is now the record of how, not a to-do)
 
 A read-only `--live-declaration-drift [--report]` mode on the **existing** `cmd/config-key-audit`
 binary, plus a daily Go check image on the **`shared-output-fields-check` pattern** (an image, NOT
