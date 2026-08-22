@@ -365,9 +365,12 @@ unowned rather than smuggled into this fix.**
   archived page **can still be serving 200 to the public**, which is 266's whole damage. The
   claim here is narrower — a check whose remedy makes a page *more reachable* must not fire on a
   page the platform has retired.
-- **There is no detector for "archived and still serving" anywhere in `discovery_checks/`**
-  `[MEASURED 2026-08-22 — searched the package for such a check; none exists]`. This bug's fix
-  does not create that gap and does not close it. Recorded so nobody reads §6-A as covering it.
+- ~~**There is no detector for "archived and still serving" anywhere in `discovery_checks/`**~~
+  — **FILED 2026-08-22 at the owner's direction as `bugs_open/359`**, with the absence re-scoped
+  repo-wide and cluster-wide, and the damage measured at the artefact: **3 archived pages serving
+  200 with same-domain 404 controls**, one of them (`robot-hands.com/gripper-catalog.html`)
+  byte-identical to what `bugs_open/266` recorded 8 days earlier and still unnoticed. This bug's
+  fix neither creates nor closes that gap; 359 owns it now.
 
 ## Related
 
