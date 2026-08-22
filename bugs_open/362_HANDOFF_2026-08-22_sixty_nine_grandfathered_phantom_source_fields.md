@@ -153,3 +153,49 @@ Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_309_unclickable_index_card
 gotchas). Related: `bugs_open/309` (the motivating case and the birth gate),
 `bugs_open/238` (the sibling key-loss mechanism), CLC-018 / CLC-025 in the concept
 register.
+
+---
+
+## CONTRIB 2026-08-22 (`bugfix_337_token_cap` lane) — a residual of the SAME rule, filed here rather than as a competing bug: the gate validates the ASPECT, never the rest of the path
+
+**Not taking this lane over.** `who-owns` names no current owner and this is your rule, so it
+is filed into your file as a named residual. Raised by the council's `bug_historian` seat on
+my `bugs_open/337` submission (corr `9efde776`), which asked for it to be *tracked, not left
+as prose in a rationale*. It is right.
+
+**The gap.** `component_source_guard.go:187` cuts the source at the first `.` and checks only
+the **aspect**: `aspect, _, _ := strings.Cut(path, ".")`. So `site_specs.cta.made_up_key`
+**passes the birth gate** — `cta` is a real aspect — and then resolves nowhere at plan time
+and is dropped under `on_missing: skip_field`. That is precisely `bugs_open/309`'s original
+damage (a complete-looking section with a silently absent value), reached through a source the
+gate approved.
+
+**Why I am raising it now rather than leaving it.** `bugs_open/337` ships a prompt block that
+enumerates the valid vocabulary to the component writer. The seat's point, which I had not
+made myself: **telling the writer the valid aspect names makes the leaf-key miss MORE
+reachable, not less** — a writer that previously invented `ctas` (loudly refused) may now
+confidently construct `cta.<plausible key>` (silently blank). I have mitigated it as far as a
+prompt can: the block emits real `aspect.key` **leaf paths** rather than bare aspect names, and
+says in terms that a listed aspect with an unlisted key renders blank and that the answer is
+`static`-with-a-fallback or `llm`. **That is guidance, not enforcement, and the gate still
+cannot refuse it.**
+
+**What I am NOT proposing, with the reasons, because it is your call and it is architecture-scope:**
+a full-path birth check would have to replicate `navigateMap` plus both alias chains
+(`plan_sections_action.go:767-815`, `resolveSpecAlias`, `identityContainerAspects`) or it will
+over-refuse paths that legitimately resolve via alias; its truth is **per-site** while a
+component is fleet-shared, so the only fleet-safe predicate is "resolves on NO site at ANY
+depth"; and it would add a fourth class to a vocabulary `config-key-audit
+--component-source-vocabulary` baselines by exact `(component_id, field, source, class)` tuple
+— a named consumer that would need telling. That is a change to what the shared mechanism
+GUARANTEES, so it is RFC track under the 2026-07-29 ruling, not a bug patch.
+
+**One measurement you may want, since I ran it answering a different objection** [MEASURED
+2026-08-22]: `create_tool_component_action.go` runs **neither** birth gate (0 occurrences of
+`SourceVocabularyIssues` or `schemaFieldSet`, against 5 in `store_generated_component_action.go`),
+so there is a second component-creation path with no birth gate at all. **It is not currently a
+hole in your rule**, and that is the useful half: of its **125** active `tool`-level components,
+**98 carry a NULL `input_schema`** — they declare no sources for anything to validate — and the
+remaining 27 do have a `fields` object, so your at-rest audit already covers them and reports
+zero offenders. Recorded so the next person does not re-ask; it would become a hole the moment
+that path starts emitting `source` declarations.
