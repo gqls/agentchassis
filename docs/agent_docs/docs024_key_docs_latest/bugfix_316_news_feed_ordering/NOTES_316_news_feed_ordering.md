@@ -385,3 +385,62 @@ The third is worth spelling out because the seat was right to doubt it: `check_h
 `complete_no_sources`. So seeding is the **first thing that happens to every selected site**, not a
 branch reached only by arm-A sites. Arm A really is the provisioning path, and the NULLS LAST reasoning
 stands on a verified premise rather than a plausible one.
+
+## Applied 2026-08-22 10:54Z, and verified
+
+**Applied by hand** (`psql -f`), **not** via `run-migrations.sh --apply` — that takes EVERY pending file,
+and two other sessions had `552`/`553` pending. Recorded afterwards through the supported out-of-band
+path: `run-migrations.sh --record-only 554_… --note "…"`, so the ledger is honest about how it was
+applied (`applied_by='record-only'`).
+
+Apply output: snapshot captured → `BEGIN` → `DO` (pre-guards) → `UPDATE 1` → `DO` (verify, including the
+`EXPLAIN`) → `COMMIT`. Exit 0.
+
+**The snapshot holds the PRE-change value**, which is the landmine's check rather than "does a snapshot
+exist": `agent_definitions_backup`, taken 10:54:08Z, `holds_the_OLD_query = t`.
+
+**The detector pair — this is the demand control, and it is why the zero means something:**
+
+| | agents scanned | undecoded | findings |
+|---|---|---|---|
+| **before** the migration | 194 | 0 | **1** — `content-feed-trigger.find_news_sites` |
+| **after** the migration | 194 | 0 | **0** |
+
+Same binary, same command, same scan size. Only the config changed between them. Both outputs committed
+(`CONTROL_prefix_…` / `CONTROL_postfix_…`).
+
+⚠ **The post-fix run FAILED on its first attempt, and failed in the right direction.** The `kubectl exec`
+export was truncated mid-stream (`unexpected EOF`), and the detector **refused** — exit 2,
+*"stdin is not a JSON array of agents … A truncated kubectl exec exits 0, so a short read arrives here
+looking like a small fleet."* Had it parsed leniently it would have printed a clean report over a partial
+fleet, which is exactly the blind-green this whole class of check exists to avoid. **The refusal path
+earned its place on its first real use**, unplanned. The retried export was 1,216,896 bytes against the
+pre-fix 1,216,689 — comparable, so the second read was whole.
+
+**The installed query, executed as the runtime will execute it** (read back out of the live row and
+`EXECUTE`d, rather than re-running my own copy of the SQL):
+
+```
+selected: webdesign.co.uk            <- was rank 5 of 5, and absent from 5 of 5 runs
+selected: ai-agent-orchestration.com
+selected: dartsonline.com
+selected: fundamentallyai.com
+selected: robot-hands.com
+```
+
+### ⚠ What is NOT yet verified, and cannot be until 14:37Z
+
+Everything above shows the **query** now orders correctly. None of it shows the **starvation relieved** —
+that needs a real trigger run. The trigger is 6-hourly (08:38, 14:37, 20:37, 02:38) and the next one is
+**14:37Z**. After it, run the lateness query in the RUNBOOK and check:
+
+1. `webdesign.co.uk` appears in the 14:37Z run's `news_sites` rows (it is currently rank 1, so it should);
+2. its `last_fetched_at` moves off 2026-08-21 02:45Z;
+3. **the overdue set no longer correlates with alphabetical rank** — that is the bug file's own
+   disconfirming test, and it is the one that matters. If the same names are still late, the fix did not
+   land.
+
+⚠ **Do not read a single good run as the fix working.** Nine sites, five slots, 2.10x oversubscribed:
+after `webdesign.co.uk` is served, whoever is then most overdue goes next. The claim to test is that
+lateness ROTATES, not that it disappears — it cannot disappear while demand exceeds supply, and saying it
+had would be claiming the capacity half was fixed too.

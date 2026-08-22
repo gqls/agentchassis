@@ -1,0 +1,10 @@
+POST-FIX RUN — config-key-audit --capped-schedule-ordering against LIVE agent_definitions
+captured 2026-08-22 10:55:04Z — AFTER migration 554 was applied and ledger-recorded
+SAME BINARY, SAME COMMAND as CONTROL_prefix_detector_run_2026-08-22.txt. Only the config changed.
+----------------------------------------------------------------------------------------
+{
+  "agents_scanned": 194,
+  "agents_undecoded": 0,
+  "findings": []
+}
+exit=0
