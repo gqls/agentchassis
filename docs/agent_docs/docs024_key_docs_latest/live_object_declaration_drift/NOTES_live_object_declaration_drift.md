@@ -341,3 +341,21 @@ In scope: `^(platform|internal|pkg)/` and `^docs/agent_docs/sql_for_agents/[0-9]
 `cmd/config-key-audit`, i.e. outside review. So the new logic should sit in `platform/` (reviewable,
 importable by both a test and a runtime auditor) with only a thin `main` in `cmd/` — that is a
 design consequence of the gate's scope, not a style preference.
+
+---
+
+## 2026-08-22 — number collision: I wrote the bug as 362 and another lane had already taken it
+
+Checked the highest bug number (`361`), wrote the file as `362`, and by the time I saved it
+`bugs_open/362_..._two_tool_writers_persist_rendered_html_without_link_repair...md` existed and was
+**committed and marked OWNED** by the `webdesign_tool_rebuilds` lane (`30c03b6f0`). Renumbered to
+**363** before committing; mine was still untracked so it cost a `mv` and one `sed`.
+
+**The check:** a bug number is not reserved by checking it — only by committing the file. On this
+tree the gap between "I picked a number" and "I saved the file" is long enough to lose the race, and
+CLAUDE.md already records that several numbers name two unrelated cases for exactly this reason.
+**Re-check the max immediately before `git add`, and commit the file early to claim it** — the
+evidence sections are worth committing before the fix candidates are written anyway.
+
+Not logged to WRONG_CALLS: nothing false was asserted and nothing was published wrong. It is a
+coordination hazard, which is this file's job, not that one's.
