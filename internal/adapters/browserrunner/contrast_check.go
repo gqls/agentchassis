@@ -60,6 +60,15 @@ const contrastMathsJS = `
     return {bg:base,overImage:anyImg};
   }`
 
+// contrastProbeMarker is the sentinel the probe stamps on its result. The
+// verdict REQUIRES it: a nil, empty or foreign Evaluate result must decode to
+// "the probe did not run" and fail closed, never to a clean zero-findings
+// pass — the render audit's own landmine is printing "0 contrast failure(s)"
+// for a page it never measured, and this check exists to replace that shape,
+// not to reproduce it one rung higher (council 7e2391ec round 1, the gating
+// objection).
+const contrastProbeMarker = "contrast_ratio/v1"
+
 // contrastProbe builds the in-page scan for one check run. The container
 // selector and threshold are embedded as literals because the browserPage
 // seam evaluates a bare expression (no argument channel). Element filters are
@@ -78,7 +87,7 @@ func contrastProbe(container string, minRatio float64) string {
     + (el.id ? '#' + el.id : '')
     + (el.className && typeof el.className === 'string' && el.className.trim()
        ? '.' + el.className.trim().split(/\s+/).join('.') : ''); };
-  var out = { located: !!tool, failures: [] }, seen = {};
+  var out = { probe: %s, located: !!tool, scanned: 0, failures: [] }, seen = {};
   var all = document.querySelectorAll('body *');
   for (var i = 0; i < all.length; i++) {
     var el = all[i], cs = getComputedStyle(el);
@@ -91,6 +100,7 @@ func contrastProbe(container string, minRatio float64) string {
     txt = txt.replace(/\s+/g, ' ').trim();
     if (txt.length < 2) continue;
     var fg = parseRGB(cs.color); if (!fg) continue;
+    out.scanned++;
     var eb = effBG(el), fgc = over(fg, eb.bg), rr = ratio(fgc, eb.bg);
     var size = parseFloat(cs.fontSize), weight = parseInt(cs.fontWeight, 10) || 400;
     var large = size >= 24 || (size >= 18.66 && weight >= 700);
@@ -104,7 +114,14 @@ func contrastProbe(container string, minRatio float64) string {
       px: Math.round(size), inTool: !!(tool && tool.contains(el)) });
   }
   return out;
-}`, minRatio, string(sel))
+}`, minRatio, string(sel), mustJSONString(contrastProbeMarker))
+}
+
+// mustJSONString renders a Go string as a JS string literal (JSON is a JS
+// subset for strings). Marshal of a string cannot fail.
+func mustJSONString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 // contrastHit is one element the probe found below its threshold.
@@ -121,7 +138,12 @@ type contrastHit struct {
 }
 
 type contrastScan struct {
+	// Probe must equal contrastProbeMarker or the verdict refuses to grade:
+	// nil, {} and any foreign payload all decode to Probe == "" and fail
+	// closed, so "the probe never ran" can never read as a clean pass.
+	Probe    string        `json:"probe"`
 	Located  bool          `json:"located"`
+	Scanned  float64       `json:"scanned"`
 	Failures []contrastHit `json:"failures"`
 }
 
@@ -156,6 +178,18 @@ func runContrastRatio(page browserPage, doc criteriaDoc, ch criteriaCheck, profi
 	if err != nil {
 		return false, "could not measure contrast: " + err.Error(), CheckResult{}
 	}
+	if scan.Probe != contrastProbeMarker {
+		// A nil result, an empty object, or someone else's payload. Grading it
+		// as zero findings would be the render audit's "0 contrast failure(s)
+		// for a page it never measured" landmine reborn one rung higher.
+		return false, "could not measure contrast: the probe did not run (Evaluate returned a result without the probe marker — never graded as a pass)", CheckResult{}
+	}
+	if scan.Scanned == 0 {
+		// Zero text-bearing elements measured. On a navigated, settled page
+		// that is itself a defect (or an interposed blank), and a pass here
+		// would be vacuous — the all-skipped-fence-passes shape.
+		return false, "could not assert contrast: 0 text-bearing elements measured on " + profile + " — fail-closed, a pass over nothing would be vacuous", CheckResult{}
+	}
 
 	var firm []contrastHit
 	approx := 0
@@ -168,7 +202,7 @@ func runContrastRatio(page browserPage, doc criteriaDoc, ch criteriaCheck, profi
 	}
 
 	if len(firm) == 0 {
-		detail := "all text meets its contrast threshold on " + profile
+		detail := fmt.Sprintf("all %d measured text element(s) meet their contrast threshold on %s", int(scan.Scanned), profile)
 		if approx > 0 {
 			detail += fmt.Sprintf(" (%d element(s) over an image or gradient backdrop not judged — the composited ground there is approximate and never fails this check)", approx)
 		}

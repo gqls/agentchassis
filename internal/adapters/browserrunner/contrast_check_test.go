@@ -6,6 +6,8 @@
 package browserrunner
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -25,7 +27,10 @@ func scanResult(located bool, hits ...map[string]interface{}) map[string]interfa
 	for i, h := range hits {
 		fs[i] = h
 	}
-	return map[string]interface{}{"located": located, "failures": fs}
+	return map[string]interface{}{
+		"probe": contrastProbeMarker, "located": located,
+		"scanned": 42.0, "failures": fs,
+	}
 }
 
 func runOn(t *testing.T, page *fakePage, minRatio float64) (bool, string, CheckResult) {
@@ -40,8 +45,8 @@ func TestContrastRatio_PassesWhenClean(t *testing.T) {
 	if !pass {
 		t.Fatalf("clean scan must pass, got fail: %s", detail)
 	}
-	if !strings.Contains(detail, "all text meets its contrast threshold") {
-		t.Errorf("pass detail should say what was asserted, got: %s", detail)
+	if !strings.Contains(detail, "meet their contrast threshold") || !strings.Contains(detail, "42 measured") {
+		t.Errorf("pass detail should say what was asserted and how much was measured, got: %s", detail)
 	}
 }
 
@@ -120,6 +125,35 @@ func TestContrastRatio_EvaluateErrorFails(t *testing.T) {
 	}
 }
 
+// The gating objection of council round 7e2391ec: an Evaluate that returns
+// NOTHING must never grade as a clean pass. nil is exactly what a page that
+// silently swallowed the probe hands back, and before the probe marker it
+// decoded to a zero-value scan and PASSED.
+func TestContrastRatio_NilResultFailsClosed(t *testing.T) {
+	page := &fakePage{evalResult: nil}
+	pass, detail, _ := runOn(t, page, 0)
+	if pass || !strings.Contains(detail, "probe did not run") {
+		t.Errorf("nil Evaluate result must fail closed, got pass=%v detail=%s", pass, detail)
+	}
+}
+
+func TestContrastRatio_ForeignPayloadFailsClosed(t *testing.T) {
+	page := &fakePage{evalResult: map[string]interface{}{"located": true, "failures": []interface{}{}}}
+	pass, detail, _ := runOn(t, page, 0)
+	if pass || !strings.Contains(detail, "probe did not run") {
+		t.Errorf("a payload without the probe marker must fail closed, got pass=%v detail=%s", pass, detail)
+	}
+}
+
+func TestContrastRatio_ZeroMeasuredFailsClosed(t *testing.T) {
+	page := &fakePage{evalResult: map[string]interface{}{
+		"probe": contrastProbeMarker, "located": true, "scanned": 0.0, "failures": []interface{}{}}}
+	pass, detail, _ := runOn(t, page, 0)
+	if pass || !strings.Contains(detail, "0 text-bearing elements") {
+		t.Errorf("a scan that measured nothing must not pass vacuously, got pass=%v detail=%s", pass, detail)
+	}
+}
+
 func TestContrastRatio_BadShapeFails(t *testing.T) {
 	page := &fakePage{evalResult: map[string]interface{}{"located": true,
 		"failures": []interface{}{map[string]interface{}{"ratio": "2.48"}}}}
@@ -163,18 +197,33 @@ func TestContrastRatio_WiredIntoTheLadder(t *testing.T) {
 }
 
 // TestAuditJSComposition guards the refactor that moved the WCAG maths into
-// contrastMathsJS: the render audit's composed probe must still carry every
-// helper and its own scan body. The audit is live fleet machinery — a lost
-// fragment here is a silent behaviour change on every weekly sweep.
+// contrastMathsJS: the composed auditJS must be BYTE-IDENTICAL to the literal
+// that was running in production before the split. Identity to the previously
+// executing string is a stronger guarantee than any substring or syntax check
+// — a join-point defect (lost semicolon, duplicate binding, scope collision)
+// cannot survive equality with a string that demonstrably executed (council
+// 7e2391ec round 1: string-contains proves inclusion, not behaviour). The
+// golden was extracted MECHANICALLY from git (b32aa9cd9~1), not transcribed.
+// A deliberate future change to the audit's JS updates the golden in the same
+// commit, which is exactly the review visibility the audit deserves — it is
+// live fleet machinery on two separately-deployed services (browser-runner-
+// adapter and render-audit-adapter).
 func TestAuditJSComposition(t *testing.T) {
-	for _, frag := range []string{
-		"function parseRGB", "function lum", "function ratio", "function over(",
-		"function effBG", "var out={contrast:[],images:[],overflow:null}",
-		"r:128,g:128,b:128", "size>=18.66&&weight>=700", "return out;",
-	} {
-		if !strings.Contains(auditJS, frag) {
-			t.Errorf("auditJS lost %q in the maths extraction", frag)
+	raw, err := os.ReadFile(filepath.Join("testdata", "audit_js_golden_2026-08-22.txt"))
+	if err != nil {
+		t.Fatalf("golden missing: %v", err)
+	}
+	golden := strings.TrimSuffix(string(raw), "\n")
+	if auditJS != golden {
+		i := 0
+		for i < len(auditJS) && i < len(golden) && auditJS[i] == golden[i] {
+			i++
 		}
+		lo := i - 40
+		if lo < 0 {
+			lo = 0
+		}
+		t.Fatalf("composed auditJS diverges from the pre-refactor literal at byte %d: %q", i, auditJS[lo:min(i+40, len(auditJS))])
 	}
 	if strings.Count(auditJS, "function effBG") != 1 {
 		t.Errorf("effBG must appear exactly once in the composed probe")
