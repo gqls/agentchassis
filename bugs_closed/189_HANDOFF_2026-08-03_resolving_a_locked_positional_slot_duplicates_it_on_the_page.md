@@ -1,4 +1,11 @@
-# 189 — resolving a previously-unresolvable LOCKED section duplicates it on the page
+# 189 — CLOSED 2026-08-21 (fixed and live since 2026-08-06) — resolving a previously-unresolvable LOCKED section duplicates it on the page
+
+> **STATUS: CLOSED 2026-08-21.** Both halves were fixed, live and BEHAVIOURALLY
+> verified at chassis `v1.0.1259` on 2026-08-06, with controls (re-render: 4 rows not
+> 5, locked `tool-2` keeping its row id and its 2026-08-02 `updated_at`; build half
+> proven by `bugs_closed/204`'s canary). It stayed in `bugs_open/` only because of an
+> owner instruction of 2026-08-06 that has now been retired — **not** because anything
+> was outstanding. Moved by the `204` lane on the owner's 2026-08-21 direction.
 
 **Filed 2026-08-03**, discovered while inducing the live verification for
 `bugs_closed/182` (component_id-first resolution) on loancalculator.co.uk's
@@ -366,9 +373,16 @@ path, and it is graded there.
 
 ## ✅ BOTH HALVES FIXED, LIVE AND BEHAVIOURALLY VERIFIED — 2026-08-06, v1.0.1259
 
-**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
+> **SUPERSEDED 2026-08-21 — the owner retired this instruction** (*"please ignore
+> that standing ruling, it is out of context. Please move closed bugs to
+> bugs_closed"*). Kept rather than deleted because it explains why a file reading
+> "BOTH HALVES FIXED, LIVE AND BEHAVIOURALLY VERIFIED" sat in `bugs_open/` for a
+> fortnight. CLAUDE.md's fixed-AND-live bar governs again, and this file met it on
+> 2026-08-06.
+
+~~**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
 the bugs that you've found in bugs_open not in the closed bug file."* That
-overrides CLAUDE.md's `/bugs_closed/` bar. Do not `git mv` this file.
+overrides CLAUDE.md's `/bugs_closed/` bar. Do not `git mv` this file.~~
 
 - **Re-render half** — proven above: 4 rows not 5, positional names intact,
   locked `tool-2` keeping its row id AND its 2026-08-02 `updated_at`,

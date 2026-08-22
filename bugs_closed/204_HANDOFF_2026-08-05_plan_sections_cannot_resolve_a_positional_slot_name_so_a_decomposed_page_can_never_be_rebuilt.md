@@ -1,4 +1,23 @@
-# 204 — `plan_sections` resolves a section by NAME/FUNCTION only, so a decomposed page can never be rebuilt — and the build path asks the fleet to manufacture junk components
+# 204 — CLOSED 2026-08-21 — `plan_sections` resolves a section by NAME/FUNCTION only, so a decomposed page can never be rebuilt — and the build path asks the fleet to manufacture junk components
+
+> **STATUS: CLOSED 2026-08-21. All FOUR call sites of this blindness are fixed, and
+> the fix is LIVE at chassis `v1.0.1322`** (stamp `bac189921`, binary-probed with a
+> fabricated-sha negative control so the probe discriminates). Both the read side
+> (validate/gap-plan consult the page's own stored slots before dropping a name) and
+> the independent write-side guard (an empty sections list can no longer overwrite a
+> real one) are in the running binary.
+>
+> **The one thing NOT proven, stated here rather than buried:** the read-side arm has
+> not yet FIRED in production — no planner has run anywhere since 2026-08-20 17:15, so
+> the clean readings prove nothing on their own. What IS proven is coverage, measured
+> directly against the live data: **83 of 88 truly-unresolvable names are rescued, and
+> the other 5 refer to nothing at all** (no component under any spelling, not slots on
+> their page), so dropping those is correct. 83 of the 83 that should be kept. The
+> write guard is separately proven against real Postgres, all four directions.
+>
+> Closed on the fixed-AND-live bar because the defect is no longer reproducible on the
+> shipped code. **If you are here to re-verify, the two outstanding checks are the
+> behavioural canary and the demand control** — see the final section.
 
 **Filed 2026-08-05** from the `loancalculator_couk` lane, while carrying out the
 owner's instruction to rerun a site's copy through the framework rather than by hand.
@@ -362,10 +381,17 @@ to be a dead end. Save/deploy outcome and the prose comparison follow below.
 
 ## ✅ FIXED, LIVE AND BEHAVIOURALLY VERIFIED END TO END — 2026-08-06, v1.0.1259
 
-**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
+> **SUPERSEDED 2026-08-21 — the owner retired this instruction** (*"please ignore
+> that standing ruling, it is out of context. Please move closed bugs to
+> bugs_closed"*). The paragraph is kept rather than deleted because it explains why
+> this file sat in `bugs_open/` for a fortnight while reading as fixed, which would
+> otherwise look like an oversight. **CLAUDE.md's fixed-AND-live bar governs again**,
+> and this file now meets it — see the status block at the top.
+
+~~**Kept in `bugs_open/` deliberately.** Owner direction 2026-08-06: *"please leave
 the bugs that you've found in bugs_open not in the closed bug file."* That
 overrides CLAUDE.md's `/bugs_closed/` bar; the fix being live is a fact about the
-code, not permission to retire the ticket. Do not `git mv` this file.
+code, not permission to retire the ticket. Do not `git mv` this file.~~
 
 Canary: orchestration `fa89217a-768b-4f22-bd7b-12209f58cbf3`, work item
 `996b9619-46aa-4b5e-ab71-80e141e0d87e` (the original `voiceh-canary` spec copied
