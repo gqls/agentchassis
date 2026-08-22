@@ -152,3 +152,58 @@ session spotted it, fixed it the careful way rather than the fast way, and messa
 about it. It also caught a claim of mine that had gone stale within hours of my writing
 it. Both got fixed properly and both are written down. I mention it because it is the
 system working as intended, not despite the collisions but through them.
+
+---
+
+## 2026-08-22 (evening) — it's running, and the way it nearly wasn't
+
+The nightly check is live. It ran in the cluster this evening, came back clean, and wrote
+its report. So the gap I flagged this afternoon is closed: bug 309's own work is complete,
+and what remains under it is the sixty-nine known problems, which now have their own file
+and their own progress bar.
+
+**But it very nearly went live doing nothing at all, and that is the part worth telling
+you about.**
+
+When the new build shipped, everything said the check was fine. The release had built it,
+the schedule was registered, and — the test I trust most — I looked inside the shipped
+program and confirmed the new code really was in there, using a deliberately wrong control
+alongside the right one so I'd know the test could fail. All of that was true.
+
+And every night it would have done nothing. The check reads a small data file listing the
+sixty-nine known problems, and the way these images are built packages up the program and
+nothing else. The file was simply not there. The build never noticed, because during the
+build the file *is* present — it only vanishes at the end, when the finished program is
+copied into a clean container by itself.
+
+What found it was running the thing the way the machine will run it, with nothing plugged
+in, and reading the very first complaint it made. It complained about the missing file
+rather than the missing database — which meant it had not even got as far as trying to
+work. Two seconds.
+
+**Two things I want to draw out of that.**
+
+The first is that checking your code shipped is not the same as checking your code can
+run, and only the first of those is habitual around here. Most changes are pure code, so
+the question never comes up — until something needs a *file* as well, and then nothing in
+the usual chain of reassurances mentions it.
+
+The second is where that two-second test came from. The review council had objected that I
+hadn't written down how to verify the thing after deployment. That reads like paperwork,
+and I nearly treated it as paperwork. I wrote the procedure to satisfy the objection, and
+the procedure caught a real fault the first time it was used. That is the second time today
+a review objection I was inclined to argue with turned out to be pointing at something
+real.
+
+**On the fix itself, one deliberate choice.** I could have bundled the file into the
+program's container. I didn't, because that file is *meant* to get smaller — every one of
+the sixty-nine problems that gets fixed deletes a line from it. Bundled in, it would go out
+of date the moment someone fixed something, and the check would start complaining about the
+fix. So it is now supplied to the check separately, which means a repair is a small edit
+and a redeploy of the settings, with no need to rebuild anything.
+
+**Where that leaves you.** Nothing is waiting on a decision. The check runs at 07:20 each
+morning and writes what it finds whether or not it finds anything, so silence from it will
+be meaningful rather than ambiguous. The sixty-nine are listed with the six live ones
+first. And the first time it goes red for something we didn't put there ourselves will be
+the first proof that the second door was worth building.
