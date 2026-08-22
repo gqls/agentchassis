@@ -42720,3 +42720,52 @@ allowed the good retry — i.e. the entry would have argued for weakening a cont
 **The transferable shape:** *n* agreeing samples plus one disagreeing sample is a distribution you
 have not looked at, not a rule with an exception. And a claim of the form "X **now** does Y" needs a
 before-and-after, not a handful of rows from one morning.
+
+---
+
+## 2026-08-22 — I ruled out "another session has changed this agent" from the wrong table, and a LANDMINE I had not yet grepped was the thing that caught me (`bugfix_316_news_feed_ordering` lane)
+
+**The claim.** Opening `bugs_open/316`, I found `agent_definitions.updated_at` for `content-feed-trigger`
+reading **08:36Z that same morning** — a fresh timestamp on the exact row I was about to change on a tree
+~30 sessions share. I checked for snapshots, got none, and wrote into NOTES that this was not another
+session's edit, citing *"there are **zero snapshot rows** for `content-feed-trigger`"* as one of the two
+supports.
+
+**What I actually queried.** `agent_definitions WHERE COALESCE(is_snapshot,false)=true`. That is one of
+**two** places a snapshot can live. The estate's `snapshot_agent()` has two overloads: the one-arg form
+writes an `is_snapshot=true` row into `agent_definitions`, and **the two-arg form writes to
+`agent_definitions_backup`** — a different table, which my query cannot see.
+
+**What caught it.** Not a symptom — nothing looked wrong. I grepped `LANDMINES.md` for my own footprints
+before touching anything, and the entry *"`snapshot_agent` has TWO overloads writing to TWO different
+tables"* names this exact inference, including the detail that its author *"found 0 `is_snapshot` rows
+fleet-wide for the agent and was one step from filing it"*. I then ran the second query:
+`agent_definitions_backup` is **also** empty for this agent, so the conclusion survives untouched.
+
+**Why it is still a wrong call.** The conclusion was right and the evidence for it was not. Between
+running the first query and running the second, I had written a sentence that reads as settled to every
+later reader, and its truth was luck: had another session snapshotted before editing — which is the
+*correct* practice here, so it is the likely case, not the exotic one — my query would have returned the
+same zero and I would have concluded the same thing, wrongly, before rewriting their step. **A check
+that returns the same answer whether or not the thing is true is not a check**, and this one was
+one-of-two by construction.
+
+**The cheap check that would have.** Ask the question the landmine's author reformulated it into: not
+*"does a snapshot exist?"* but *"what is the pre-change config, and does anything hold it?"* — which
+forces you to name every table that could, and which is also the question you actually need answered
+before you overwrite a live row.
+
+**Also still unexplained, and recorded as such rather than tidied away:** nothing I can find accounts for
+the 08:36Z bump. No migration in `schema_migrations` touched this agent (549 at 09:56Z is the day's
+latest and is unrelated), and both snapshot tables are empty. What I can state is narrower and is what
+the fix rests on: the step's query text is **byte-identical** to the one `bugs_open/316` quotes on 08-19,
+still ending `ORDER BY s.domain LIMIT 5`. So the bump is inert with respect to this defect — which is a
+different, smaller claim than "nobody touched it", and only the smaller one is evidenced.
+
+**Cost if uncaught:** on a shared tree, silently overwriting a concurrent session's config change to the
+same row — the same-file passenger problem, one layer down in the database, where there is no commit-scope
+report to print it and no git history to recover it from.
+
+**The transferable shape:** when a freshly-bumped `updated_at` is your reason to proceed, the burden is
+to explain the bump, not to fail to find a reason against it. "I looked and found nothing" is only
+evidence once you have enumerated where you looked and shown that list is complete.
