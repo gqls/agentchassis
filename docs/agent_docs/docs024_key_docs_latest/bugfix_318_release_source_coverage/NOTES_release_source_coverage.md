@@ -457,3 +457,66 @@ takes it: `spawn_actions.go`, `diagnose_build_gate_action.go`, `agent_image.go`,
 `internal/adapters/thunder/ssh/secrets.go`, `cmd/remote-job-spawner/main.go`,
 `cmd/releasecheck/cluster.go`, and note the in-cluster-only/kubeconfig split is the one
 real difference between them.
+
+---
+
+## 2026-08-22 — `v1.0.1326`: the close condition, measured
+
+Whole-fleet release, owner-run. **20 Deployments + 11 CronJobs on one tag.**
+
+**The gate ran.** `auth-service` and `core-manager` are on `v1.0.1326`, and both move only
+through `deploy-core` → `update-kustomization-images` → `check-release-coverage`, with a
+non-zero exit propagating through `pinned_sweep`'s `|| exit 1`. **Not overclaimed:** the
+tree was compliant, so it *could only have passed*. Exercised, not proven — the six
+mutation controls remain the discriminating evidence, which is where BLD-022's own entry
+had to be corrected to put it.
+
+**The census, before → after:**
+
+```
+before:  29 of 45 workloads, fleet v1.0.1323, 5 findings
+after:   31 of 47 workloads, fleet v1.0.1326, 1 finding
+```
+
+| finding | resolved how |
+|---|---|
+| BEHIND `optional-explicit-wires-check` v1.0.1321 | → v1.0.1326 |
+| AHEAD `commit-sha-exposure-check` v1.0.1324 | → v1.0.1326 |
+| AHEAD `content-loss-check` v1.0.1324 | → v1.0.1326 |
+| DECLARED NOT RUNNING `capped-schedule-ordering-check` | **created 15:09:35Z** |
+| DECLARED NOT RUNNING `component-source-vocabulary-check` | **created 15:09:37Z** |
+
+**The two creation timestamps are the strongest evidence this lane produced.** The
+prediction — *"the next release will CREATE that CronJob, because it is in
+`AGENT_DEPLOY_SERVICES` and `deploy-agents` applies overlays"* — was written into the bug
+file and into a contribution to the `316` lane **before** the release, and it **could have
+come out otherwise**: the release could have aborted at `push-backend` (which `95757b6c2`
+fixed) or the overlay could have failed to apply. Two seconds apart, in the apply loop.
+
+**The `v1.0.1324` contamination was avoided as recommended** — the fleet went to 1326, so
+the two hand-built images were never re-pushed over.
+
+**The surviving finding is the census working:** `live-declaration-drift-check`, filed by
+the `363` lane (`18661b3c7`) *after* the release, declared and not yet running. Caught the
+day it appeared.
+
+### Misstep, and it is a record-integrity one
+
+The bulk `sed` that repointed `bugs_open/318` → `bugs_closed/318` across 19 files **rewrote
+history along with the pointers** — dated `**source:**` lines, `**added:**` lines,
+`WRONG_CALLS` headers and one sentence in the owner's README that was true when written.
+Caught by the pre-commit pattern check flagging removed lines from an append-only ledger,
+whose own advice (*"if this IS a deliberate consolidation, say so in the commit message"*) I
+had not followed because I had not noticed. **The warning was in the output of my own commit
+and I read past it.** Corrected by appending dated notes rather than editing again; full
+entry in `WRONG_CALLS.md`. The transferable half: **before a bulk repoint, split the hits —
+`source:|added:|filed|lane|<a date>` is the leave-alone pile.**
+
+### A second, smaller near-miss
+
+Grepping for the `git mv` landmine I wrote the pattern with backticks — `` grep -n "`git
+mv`" `` — and the shell **executed `git mv`**. It failed harmlessly with no arguments and
+changed nothing. The estate's known form of this trap is backticks inside `git commit -m`;
+a **grep pattern** is a second surface for it, and `git mv` with plausible arguments would
+have moved a file on a tree ten sessions share. Single-quote any pattern containing
+backticks.
