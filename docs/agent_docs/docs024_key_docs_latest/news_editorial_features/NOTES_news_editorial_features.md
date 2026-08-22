@@ -1059,3 +1059,34 @@ one-llm-call interleaving; more control and consistency; control over versions
 and design variations of the same — and is quoted in 035 §1. The handoff §4 row
 is corrected in place. This lane owes nothing further on 035; its editorial
 pages are the design's P1 proving ground, which is a design-lane concern.
+
+## 2026-08-22 ~18:30Z — another session misfired the improvement loop at robot-hands, twice
+
+`agentchassis-51` disclosed immediately: `076_improvement_loop_trigger.sh` parses its
+arguments then unconditionally re-assigns SITE_ID/DOMAIN to robot-hands (their patch to fix
+it failed silently and their refusal-tests ran the unpatched script). They are filing the
+WRONG_CALLS entry and the landmine; cleanup was left to this lane.
+
+**Measured at 18:35–18:38Z, not taken from their message (which was already stale):** ~98
+items born on robot-hands after 18:25Z; the promoter had moved 93 to `triaged`; a
+`stale_chrome` needs_rerender COMPLETED and spawned a **34-page `_assemble` rerender wave**
+(bugfix 117's designed post-roll behaviour — the loop merely tripped it early); dispatch
+was live (8 unlocked component rows re-rendered on two pages by 18:38:45Z). **No locked row
+touched, no editorial content affected** — owned/permanent locks held as designed.
+
+**Decision (this lane's, as site owner):** keep the 4 imagery items (2 `needs_content_image`
++ 2 `needs_imagery` — they match the owner's hero-default ruling and design-lane Phase C)
+and keep the `_assemble` wave (content-safe, wanted, re-queues itself if cancelled); cancel
+everything else from the misfire — acceptance_run ×4, audit_tool ×5, improve_tool ×5,
+evaluate_tools, the 18 reason-carrying `misdirected_cta` page_rerenders (that path can
+escalate a page to the content writer), undeployed_asset ×18, link/sprite/orphan items, and
+the still-triaged `improvement_rerender` (second-wave risk). Bounded set: site
+`00ff3af5-…`, `created_at > 2026-08-22 18:25Z`, status detected/triaged, minus the two
+keep-groups.
+
+**Execution PENDING the owner:** my bounded bulk-cancel UPDATE was blocked by this
+session's permission gate; per the cross-session rules it must not be routed through the
+peer (told them to HOLD, msg 18:4xZ). The exact UPDATE is in the session transcript and in
+the owner report; until it runs, the cancel-set items may be claimed by the 60s dispatcher —
+worst realised so far is unrequested-but-gated tool audits and CTA rerenders, all on
+unlocked generic rows.
