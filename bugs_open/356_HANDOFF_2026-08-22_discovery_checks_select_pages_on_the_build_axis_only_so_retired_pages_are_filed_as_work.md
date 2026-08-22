@@ -171,6 +171,16 @@ lower priority: `check_decision_guards`, `check_forced_text_colors`, `check_imag
 `check_image_url_404`, `check_page_canonical_collision`, `check_section_source_drift`,
 `check_site_unreachable`, `check_truncated_component`.
 
+> **⚠ These eight split 6/2 in the posture registry, and the split is deliberate — do not read it
+> as a discrepancy.** Six are `PostureObserves`: they file at `handler_agent: ""` and seeing a
+> retired page is **correct** for them, so there is nothing to fix. Two are `PostureKnownGap`
+> despite also being flag-only today — `check_page_canonical_collision` (no status filter at all;
+> its safety comes from a Go-side `activeCount >= 2` gate, not from the query) and
+> `check_section_source_drift` (`COALESCE(status,'') <> 'deleted'`, the inert spelling). Those two
+> are **debt, not decisions**: nobody chose to see archived pages there, and each is one routing
+> change away from becoming a live instance of this bug. The registry records the difference
+> because "deliberately unfiltered" and "accidentally unfiltered" look identical in the SQL.
+
 **Two side-effect cases, no work item, worth their own look:**
 `check_unlinked_components.go:57` runs `UPDATE page_components … JOIN pages` with no lifecycle
 arm — it silently re-links components on archived pages. `check_undeployed_assets.go:296` lets
