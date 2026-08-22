@@ -865,6 +865,25 @@ needs_human_review (its domain — generating example ids — fights the rule; 6
 refused); `loans-application-tracker`'s rebuilt template awaits section content for its new
 schema (`needs_section_data_29e63065`; the page serves the old WORKING section; the rebuilt
 template carries NO id lookups, so it is outside this defect class); `RFC_032`
-(ComponentID unification) and generic-text-block's 13 colliding pages (blocks fleet-wide
-rerender-path arming; per-workflow arming remains the rule) are architecture-track;
+(ComponentID unification) and generic-text-block's ~~13~~ **18** colliding pages (blocks
+fleet-wide rerender-path arming; per-workflow arming remains the rule) are architecture-track;
 `store_generated_component`'s regen stub check is 324's named residual.
+
+> **CORRECTED 2026-08-22, hours after this close was written** (the `bugs_open/283` session
+> that continued after it). The residual line above said **13** colliding `generic-text-block`
+> pages. Re-censused against the live DB the same afternoon: **18 pages, 27 redundant
+> placements** — 13 pages carry it twice, three ×3, one ×4, one ×6. The "13" is exactly the
+> count of pages carrying it TWICE, so the figure was true of a narrower question and has also
+> grown by addition since. Live-verified at the artefact, cache-busted after this close landed:
+> `apis.uk/index.html` serves **six** `<section id="8d81e665-3ee0-443d-a873-690268c15fbb">`,
+> with single-instance pages read as controls showing 1 id and 0 duplicates.
+>
+> **This does not reopen the bug.** The closed defect class — literal ids on `getElementById`
+> components — is fixed and live, and the residual was already correctly routed to the
+> architecture track. What changed is only the size of that residual, and per the owner's
+> 2026-08-22 ruling it now carries the date it was counted.
+>
+> The residual has since been RULED: `architecture_review/RFC_032` §8 (owner, 2026-08-22) —
+> converge on `{{.InstanceID}}` and retire `{{.ComponentID}}`. That file also carries a dated
+> correction to its own §2 table: the `assemble_from_library` path it called reuse-safe has
+> never produced a per-instance id (0 of 270 live placements), so all three paths were unsafe.
