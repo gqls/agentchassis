@@ -372,3 +372,55 @@ them. Along the way we broke another team's build for three hours by removing a 
 wrongly thought was ours — owned, attributed, and written into the permanent mistakes log with
 the check that prevents it. The referee's expected score is now 166, the loan team has been
 told why, and the lane is done.
+
+**2026-08-22, late afternoon (a second session, running alongside the one that closed it).**
+You asked me to look at 283 fresh, check nobody else was on it, and check it was still real.
+Two of those answers turned out interesting, so here they are plainly.
+
+**Somebody else finished it while I was still reading.** I checked for other sessions working
+this bug and found none — no session was even *named* after it. That check was not good enough:
+another session closed the bug at ten past four, and I only found out because I re-read the
+project history before touching a file. The close is right and I have not argued with it. The
+thing it fixed — calculators whose element names are fixed text, so two on one page fight over
+them — really is fixed and really is live. The lesson worth keeping is that "no session is
+working on this" is not something you can establish by looking at session names.
+
+**The bug was still real, but not in the place it was filed.** The estate has *two* systems for
+naming an element uniquely, and 283 only ever fixed one of them. The older one is still running
+and it does not work: it hands every copy of a component the same name. Today, eighteen live
+pages serve duplicate names, one of them six times over, and eleven more serve a name that is
+literally empty. I fetched the pages and looked, rather than trusting the database — and I
+fetched two pages that *should* be clean as a check on my own method, because a test that
+cannot come out the other way is not a test.
+
+Nothing on those pages is broken for a visitor. They are all text sections, so nobody sees a
+wrong number. It is the same shape the original bug had when it was filed a week ago: a wall
+rather than a fire — it quietly stops us putting two of something on one page, and it will
+become a fire the first time someone tries.
+
+**You made a decision and I have written it down.** Rather than patching the old system, we are
+retiring it: the five templates that still use it move onto the new one that already works, and
+then the old one is deleted. One way of naming things, not two. That is now recorded in the
+architecture file where the question was raised.
+
+**Then the fix turned out to be impossible, which is the useful part of today.** The plan was
+to run those five templates through the same conversion machine that has already done a hundred
+and twenty-four. It would not have worked, and — this is the bit worth pausing on — it would
+not have *told us* it had not worked. The machine looks for element names written as plain
+text, and these five write theirs as a placeholder, so the machine sees no names at all and
+politely reports "nothing to do here". Five jobs would have completed, the queue would have gone
+green, and not one template would have changed. Nobody would have had a reason to look.
+
+So what I have actually built and committed today is the smallest thing: teaching that machine
+to see a placeholder. It also refuses, now, in a case it used to get half-right — where it would
+convert some names, silently skip the placeholder, and produce a page whose safety check passes
+while the page is still broken. That one cannot happen today; it is there for the next one.
+
+I proved the six new tests by breaking the code on purpose and watching every one of them fail,
+then putting it back. A test that has never failed is not evidence of anything.
+
+**Where that leaves us.** Nothing a visitor sees has changed yet, and I want to be exact about
+that: the eighteen pages still serve duplicate names this evening. What exists is the capability
+to fix them, sitting in the code waiting for the next release. The conversion itself, the
+deletion of the old system, and the re-render of those pages are the next steps and they are not
+done. The review council has the change and has not reported back yet.

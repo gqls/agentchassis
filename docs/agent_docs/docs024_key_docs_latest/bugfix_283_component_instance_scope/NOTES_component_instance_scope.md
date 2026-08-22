@@ -1129,3 +1129,102 @@ The parked pool is now EXACTLY the one genuine human case the closing section na
 aria-builder (instance-scope:b486bb24). Chassis at v1.0.1326; nothing of this lane's is
 pending any roll. Next scheduled sweep 07:40 UTC 2026-08-23 — its doc_notes row is the
 standing health read.
+
+## 2026-08-22 (session 10, late afternoon) — the bug CLOSED under me mid-plan; the residual it named turned out to be bigger than the close said, and the ruled remedy was not executable
+
+**Started as a fresh session on `bugs_open/283`.** Ownership check at ~15:00 said no live 283
+peer, lane files all committed, last lane commit `fa6ed1cac` 13:29 — read as a clean handoff.
+**It was not: another session closed the bug at 16:09** (`9223c421d`, `Council-Reviewed: 6acf8e4e`,
+co-authored Fable) while I was mid-plan. The close is sound and I did not contest it — the filed
+defect class (literal ids on `getElementById` components) is fixed and live. ⚠ **`ListAgents`
+showed no 283-named peer the entire time**, so a session-name check is not an ownership check;
+only `git log` caught it, and only because I re-read HEAD before editing.
+
+### What I measured before any of that (all 2026-08-22, all controlled)
+
+The tool half is done: 125 placed rows bind by id, **124 converted**, the 1 being aria-builder
+(parked, correctly). **0 pages carry 2+ `getElementById` components** — the original fire has
+still never happened, and that zero is controlled: the same query shape returns 18 for
+`{{.ComponentID}}` components and 29 for any repeated component, against 130 live placements.
+
+**But the same defect is live on the OTHER id mechanism**, the one 283 deliberately left alone.
+`{{.ComponentID}}` resolves to the component ROW id on both live render paths:
+
+| | |
+|---|---|
+| pages with a repeated `{{.ComponentID}}` component | **18** (13 ×2, three ×3, one ×4, one ×6 — all `generic-text-block`) |
+| redundant placements | **27** |
+| placements serving the row UUID | 249 |
+| placements serving `<section id="">` | **11** |
+| placements serving the assemble shape `component_<fn>_<n>` | **0** |
+
+Live at the artefact, cache-busted, re-confirmed after the close landed:
+`apis.uk/index.html` serves **six** `<section id="8d81e665-…">`; three more pages confirmed;
+two single-instance pages read as controls show 1 id, 0 duplicates.
+
+### Three findings that changed the design
+
+1. **The assemble path's substitution is DEAD CODE.** `RenderTemplate` runs first
+   (`assemble_from_library.go:303`); `missingkey=zero` resolves `{{.ComponentID}}` to
+   `<no value>` and `component_library.go:1170` strips it, so the `ReplaceAll` at `:309` never
+   matches. **0 of 270 live placements carry that shape** (regex proved against a synthetic
+   positive before the zero was believed). So RFC_032's own §2 table — which called that path
+   the reuse-SAFE one, and which framed the RFC's question — was **never true**. Corrected in
+   place, dated.
+2. **A fourth builder nobody listed**: the section editor (`section_editor_actions.go:1113`,
+   `:1249`) binds `ComponentID` at all, which is where the 11 empty ids come from. Both routes
+   write `rendered_html` straight to a live page with no downstream gate. The platform already
+   *detects* this — `RenderTemplate` logs `Warn "fields rendered empty" fields=[ComponentID]` —
+   and **both call sites discard the report** (`rendered, _, _, err :=`).
+3. **THE RULED REMEDY WAS NOT EXECUTABLE.** `ConvertTemplateToInstanceScope` harvests ids with
+   `\sid="([^"{}]+)"`; the class excludes braces, so `id="{{.ComponentID}}"` never enters
+   `seen` and the converter refuses with *"template declares no literal element ids"*. Filing
+   the five templates through the proven pipeline would have produced **five polite no-op
+   completions** — a queue that drains clean and a census that never moves.
+
+### Two of my own wrong calls (both in WRONG_CALLS 2026-08-22)
+
+- **A control that matched nothing.** My first "no duplicate ids" control was a page with
+  **zero** id-bearing sections, so its pass was guaranteed before the fetch. It reads exactly
+  like a passing control. Replaced with two single-instance pages, which can fail.
+- **I read a copied field as authored intent.** I called the nine content-supplied section ids
+  "human-authored anchors that must be preserved" and made protecting them a design
+  requirement. `content_data->>'ComponentID'` simply **equals `slot_name`** in 9 of 10 rows —
+  visible the moment I printed the neighbouring column. Then, having found slot name, I reached
+  for it as the FIX; measuring refuted that too (**20 pages repeat a slot name; 15 of the 18
+  colliding pages overlap, so it would fix 3 of 18**) — the same conclusion the council's
+  `reuse_agent` seat reached on 2026-08-16.
+
+### What shipped
+
+`67d34e6c1` — converter **pass 0**: an id attribute whose whole value is `{{.ComponentID}}`
+becomes `{{.InstanceID}}` (the **bare** token; the wrapper id IS the instance identity), run
+before the harvest, which now reads its output. Plus a refusal for the placeholder surviving
+*outside* an id attribute — the half-state where literals convert, the templated id is dropped,
+and **neither the gate nor `DetectInstanceCollisions` can see the resulting `id=""`** because
+`reElementID` requires a non-brace character. 0 live templates are in that state (control: 87
+carry a literal id), so it refuses nothing today.
+
+Six tests, **all six mutation-proven**: pass 0's regex made unmatchable → all six failed, the
+wrapper-only case with the exact pre-change refusal reason; source restored from a scratch
+backup and verified (0 occurrences of the mutant literal); suite re-run green including the
+pre-existing Instance/Scope/Conversion/Binding tests; and **built + tested from a clean
+`git archive HEAD` extract**, because the working tree carries another session's WIP (their
+`store_generated_component_action.go` was momentarily uncompilable mid-run — not mine, and it
+settled).
+
+⚠ **Both armed birth guards inherit pass 0**, since `ScopeToolBirthTemplate` calls the same
+function — a live behaviour change on `create_tool_component` and `deploy_tool_to_site`, named
+rather than buried.
+
+Council: `cd6a5ef6-d530-42c2-81fe-238552eb690d`, submitted before committing,
+`Council-Submitted:` trailer (no verdict read). **Verdict still owed a read.**
+
+### What is NOT done, stated so nothing reads as finished
+
+The five templates are **not converted**; `ComponentID`'s two bindings and the dead `ReplaceAll`
+are **not deleted**; nothing is re-rendered. **18 pages still serve duplicate section ids and 11
+still serve `id=""`.** Pass 0 is inert until the next chassis roll under a bumped tag. Also
+untouched: the section-writer birth gate (strand 2, unblocked by today's inline-JS ruling) and
+the sweeper's `querySelector` blind spot (strand 3 — **6** actionable rows, the other 25 being
+owner-ruled out).
