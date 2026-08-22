@@ -69,6 +69,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
 | **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
 | **`| head -N` on a table/file listing is an UNMARKED TRUNCATION — an absence claim built on one is fiction, and alphabetical `_backup_*` names are exactly what fills the visible lines** | **1** |
+| **when mutation-proving a SOURCE-SCANNING test, mutate inside the anchor's MATCHED SPAN — `replace(x, 1)` takes the file's first occurrence, which is usually not the one the pin reads** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -44285,3 +44286,34 @@ it — a no-op write on an already-true key feels exactly like an arm.* Config k
 agents have owners; the migration directory is their register. Symmetric discipline: any
 un-arm gets the same snapshot + ledger + provenance grep as an arm — and a TEMPORARY flag
 plan must verify the flag was absent BEFORE arming (mine printed UPDATE 1 either way).
+
+---
+
+## 2026-08-22 (seventh) — I mutation-proved a source-scanning guard by mutating the wrong occurrence, and briefly reported the guard as broken
+
+**The setup.** I widened the `bugs_open/229` digest pin (`TestPageWritersStampDigestInSameStatement`)
+because its regex ended at `'deployed')` and so froze the INSERT's column list; adding a column
+reddened it without weakening the property it protects. Widening a guard obliges you to prove it
+still bites, so I mutated `md5($3)` away and re-ran the check.
+
+**What I said.** *"The mutation **passed the guard** — that's a red flag."* Reported as a possible
+sign that my widening had made the anchor span too much.
+
+**What was actually true.** `save_page_sections_action.go` contains **two** `md5($3)`, at lines 994
+and 1016. My mutation was `src.replace("md5($3)", "$9", 1)` — **the first occurrence in the FILE**,
+which is not inside this pin's anchor at all. The guard correctly still saw the one at 1016. Mutating
+inside the matched span kills the test exactly as it should (anchor 247 → 242 chars, `contains
+md5($3)` → false), and the "statement moved" arm errors on locate. **The guard was never in doubt;
+my instrument was pointed at the wrong line.**
+
+**Why it is worth a row.** This is the "first occurrence wins" trap on source-scanning tests, which
+is in my own memory index under *a source-scan test makes your COMMENTS load-bearing*. I hit it
+**while proving a source-scanning test**, which is the one context where I was already thinking about
+that class. Knowing a trap by name is not the same as recognising its shape in an unfamiliar costume:
+there it is about comments shadowing code, here it is about a mutation landing outside the span.
+
+**The check.** Before mutating to prove a pin, `count` the token in the file. If it appears more than
+once, mutate **inside the span the pin actually matched** (`m = rx.search(src)`, then mutate
+`m.group(0)` and splice it back) — never a whole-file replace. And run both arms: the property gone
+(must FAIL) and the statement moved (must ERROR on locate), because they exercise different halves
+of the guard.

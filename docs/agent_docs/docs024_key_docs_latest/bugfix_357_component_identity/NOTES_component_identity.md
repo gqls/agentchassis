@@ -379,3 +379,70 @@ edited by us; our P1 (composition read-path in `assemble_from_library.go` +
 those files** — we will re-read the seams (incl. `RenderedTemplateSHA` on `RenderTemplate`) after
 your commit rather than build against a moving surface. Contact doc:
 `docs024_key_docs_latest/editorial_design_uplift/NOTES_editorial_design_uplift.md` (08-22 tail).
+
+---
+
+## 2026-08-22 — OWNER RULED `RFC_046` OPTION 1, and phase 1 is BUILT (commit `bbe178309`)
+
+> *"Option 1 please, we can change the existing pages once option 1 has been built."*
+
+Two separate things settled: the estate will **stamp** identity rather than infer it, and the 22 rows
+are authorised in principle **after** the stamp exists. Recorded in the RFC itself, including what
+the ruling does NOT decide (it is not an implementation approval, not a licence to repair now, and
+not a decision on the stamp's shape).
+
+### The finding that made phase 1 cheap
+
+`page_components.component_version_id` **already existed and had never been wired** — 0 of 1,930
+rows populated, no Go writer, no Go reader [MEASURED 2026-08-22], against a control
+(`rendered_html_digest`: 1,623 of 1,930, 65 code references) proving the same method sees a live
+column. `component_versions` is live and holds the **full template text** (369 of 369 rows). So
+option 1 is reuse, not addition: no new column, no new table, no new concept.
+
+> ⚠ `component_version_id` is a column on **two** tables. `site_plan_sections`'s is the live one and
+> accounts for nearly every grep hit. A bare `grep -rn component_version_id` makes the dormant one
+> look busy — qualify by table. This is why it stayed dormant in plain sight.
+
+### What shipped
+
+`RenderTemplate` (the ONE render spelling, 15 non-test call sites) sets
+`RenderContext.RenderedTemplateSHA` — an out-field on `AbsentRequiredFields`' precedent, no I/O.
+`RenderComponentAction` emits it; `extractSectionsFromMetadata` carries it; `resolveComponentVersionID`
+resolves it to a `component_versions` row at the single INSERT, in the same statement as the bytes;
+`carryStoredSection` forwards an existing stamp so a rerender cannot downgrade a known row to
+unknown. **Inert: 0 readers, so it cannot change what any page serves — and it does not fix 357.**
+
+Verified at committed HEAD, not the working tree: `git archive HEAD` extracted and built clean, and
+`go test ./platform/orchestration/actions/...` passes there (`dddd4b6c5`).
+
+### Two things the work itself taught
+
+**The obvious spelling of the drift test does not work, and it took writing it to see why.** Written
+as *"expect no `component_versions` query"* it passes against code that DOES infer: sqlmock refuses
+the unexpected call, the resolver sees a query error, and it returns no-stamp **for the wrong
+reason** — a guard in series standing in for the one under test. Rewritten with a **decoy** row made
+available and attractive, plus a paired control asserting the decoy is genuinely on offer, because
+"it didn't take the decoy" is meaningless if the decoy was never served.
+
+**11 pre-existing tests broke, and one of them was pinning the wrong thing.** The `bugs_open/229`
+digest guard's regex ended at `'deployed')`, which froze the INSERT's **column list** rather than the
+property it protects. Adding a column reddened it without weakening anything — and a pin that
+reddens on a safe change teaches the next author to widen it carelessly. Tail moved to `'deployed'`,
+and mutation-proven that it still bites (anchor 247→242 chars, `contains md5($3)` false).
+
+### ⚠ MISSTEP: my first mutation proof mutated the wrong occurrence
+
+I ran `src.replace("md5($3)", "$9", 1)` and the guard still passed — which I read aloud as *"the
+mutation passed the guard, that's a red flag"*. The guard was fine. **The file has two `md5($3)`,
+at lines 994 and 1016, and `replace(..., 1)` took the first — which is OUTSIDE this anchor.** The
+correct mutation is inside the matched span, and it kills the test. This is the "first occurrence
+wins" trap on source-scanning tests, which is in my own memory index, hit while proving a
+source-scanning test. Logged in `WRONG_CALLS.md`.
+
+### Council round 3 submitted (`364a9fd4` envelope, trail `62aac6c2`)
+
+Submitted as **step 1 of the owner-ruled two-step**, not as a substitute for fixing — and saying
+plainly that round 2's gating objection is still literally true of this code. What changed is the
+ruling and the named step 2, not the rhetoric. Also flags for the council that if they think a
+write-half should not be reviewed apart from its readers, the code is already on the shared branch,
+so that changes the review unit rather than what is on main.
