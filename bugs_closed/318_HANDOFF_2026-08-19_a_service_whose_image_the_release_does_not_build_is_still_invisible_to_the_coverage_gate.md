@@ -563,3 +563,84 @@ Deployments/CronJobs/DaemonSets anywhere else in the estate. Nothing to reuse.
   shared wrapper, and unwinding seven call sites later costs an RFC. Not extracted here
   (five unrelated call sites inside a bug-fix round is the scope shape the guardian seat
   vetoes) but now tracked in BLD-026 with all seven named.
+
+---
+
+# ✅ CLOSED 2026-08-22 — the close condition is met: a real release ran under the gate, and the census's predictions came true at the artefact
+
+`v1.0.1326`, whole-fleet, owner-run. **20 Deployments and 11 CronJobs all on one tag.**
+
+## The gate ran, and it did not break a real release
+
+`auth-service` and `core-manager` are on `v1.0.1326` `[MEASURED 2026-08-22]`. That is the
+evidence that matters: both move only through `deploy-core`, `deploy-core` requires
+`update-kustomization-images`, which requires `check-release-coverage`, and a non-zero exit
+propagates through `pinned_sweep`'s `|| exit 1`. **The gate ran and passed on a real
+whole-fleet release.**
+
+> **⚠ Read that precisely, because BLD-022's entry had to be corrected for exactly this
+> overclaim.** The tree was compliant, so the gate **could only have passed**. This
+> release proves the inverted predicate does not break a real release; it does **not**
+> prove the gate discriminates. Its discriminating power rests on the six mutation
+> controls (copied tree, never the live makefile), which is where it should rest.
+> *Exercised, not proven.*
+
+## The census: 5 findings → 1, and every prediction confirmed
+
+|  | before the release | after |
+|---|---|---|
+| workloads on our registry | 29 of 45 | **31 of 47** |
+| fleet tag | v1.0.1323 | **v1.0.1326** |
+| findings | **5** | **1** (and it is a NEW service, filed since) |
+
+Each of the five resolved exactly as the census said it would `[MEASURED 2026-08-22]`:
+
+| finding | before | after |
+|---|---|---|
+| BEHIND THE FLEET TAG `optional-explicit-wires-check` | v1.0.1321 | **v1.0.1326** |
+| AHEAD (hand-deployed) `commit-sha-exposure-check` | v1.0.1324 | **v1.0.1326** |
+| AHEAD (hand-deployed) `content-loss-check` | v1.0.1324 | **v1.0.1326** |
+| DECLARED BUT NOT RUNNING `capped-schedule-ordering-check` | no CronJob | **created 15:09:35Z**, v1.0.1326 |
+| DECLARED BUT NOT RUNNING `component-source-vocabulary-check` | no CronJob | **created 15:09:37Z**, v1.0.1326 |
+
+**The two creation timestamps are the strongest single piece of evidence here.** This lane
+predicted, in writing and in a contribution to the `316` lane, that *"the next release will
+CREATE that CronJob, because it is in `AGENT_DEPLOY_SERVICES` and `deploy-agents` applies
+overlays."* It did, two seconds apart, in the release's own apply loop. **That prediction
+could have come out otherwise** — the release could have aborted at push (which is what
+`95757b6c2` fixed), or the overlay could have failed to apply — and it did not.
+
+**The `v1.0.1324` contamination was also avoided as recommended:** the fleet went to
+`v1.0.1326`, so the two hand-built images at 1324 were never re-pushed over.
+
+**The one remaining finding is the census working as designed:**
+`live-declaration-drift-check`, created by the `363` lane (`18661b3c7`) since the release —
+declared and not yet running. It is the *next* one, caught the day it appeared rather than
+in three months.
+
+## What is closed, and by what
+
+| candidate | state |
+|---|---|
+| the main gap — our image, no release builds it | **CLOSED.** Admission test inverted (`f16daa34a`, `9b87dcfac`); council APPROVED `83442a5a`; live and exercised by `v1.0.1326` |
+| **2** — `build-backend` == `RELEASE_IMAGES` | **CLOSED by construction** (`95757b6c2`). Cannot drift; the second enumeration is gone |
+| **1** — the content-change / staleness trigger | **RULED OUT by the owner 2026-08-22.** Not deferred. Replaced by the exemption accumulation budget (`8fe69e6c6`) |
+| **3** — the cluster census | **BUILT, council APPROVED `b0883c17`** (REVISE→approved). Hand-run; scheduling is a separate decision |
+
+## What is deliberately still open, and belongs to nobody as a debt
+
+- **The census has no driver.** Hand-run only; no CronJob, no RBAC, no `doc_notes` row.
+  Stated at the makefile target, in `pkg/releaseset/census.go` and in BLD-026. *"Detection
+  works; SCHEDULE and DISPATCH do not"* — a detector and its driver were not claimed
+  together, and scheduling it is its own decision with its own round.
+- **A tag is not the code.** A clean census means *"every service is on the tag it should be
+  on"*, **not** *"every service is running the code it should be running"* — a same-tag
+  rebuild serves the node's cached image. Raised by the council's `debug_historian` seat;
+  stated rather than fixed, because the artefact-side answer is BLD-019/020/023's and two
+  answers to one question can disagree.
+- **Seven inline `kubernetes.NewForConfig` bootstraps, no shared wrapper.** Raised by the
+  `architecture` seat, tracked in BLD-026 with all seven named. Not extracted inside a
+  bug-fix round.
+
+**Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_318_release_source_coverage/`
+(standing five). **Register:** **BLD-026**, with BLD-022 corrected in two places.
