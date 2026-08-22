@@ -1,27 +1,33 @@
 # 363 — seven Go guards assert the TEXT of an append-only migration file, so they cannot fail in the direction they exist to detect
 
-> ## ◑ PHASE 1 FIXED, LIVE-IN-CODE and council-APPROVED 2026-08-22 — the guards no longer read history. PHASE 2 NOT BUILT, so this stays OPEN.
+> ## ◑ BOTH PHASES BUILT 2026-08-22. Phase 2 is NOT DEPLOYED, so this stays OPEN.
 >
-> **What shipped** (`873575ecf`, council `b3676918` APPROVED at round 2 — 13 reviews, 10 approve, 3
-> advisory, none high; registration `e03fbde6d` + LANDMINES): `platform/livespec` holds each guarded
-> live object's declaration in a file that is ALLOWED to change, and **4** guards now assert against
-> it instead of against a frozen migration. Both `t.Skipf` silent-greens are gone. Register **SQLC-002**.
+> **Phase 1** (`873575ecf`, council `b3676918` **APPROVED r2**): `platform/livespec` holds each guarded
+> live object's declaration in a file ALLOWED to change; **4** guards assert against it instead of a
+> frozen migration; both `t.Skipf` silent-greens gone. Register **SQLC-002**.
 >
-> **Proven, not asserted.** The tripwire was written BEFORE the conversions and fired on **exactly the
-> four files** they cover, then passed once they were converted — so it has been observed red and
-> green on the same day. Mutation battery **6 of 6** behaved, each run singly with a revert between.
+> **Phase 2** (`e0ff0a5b`-era commit, see `git log -- cmd/config-key-audit/livedeclarations.go`):
+> `--live-declaration-drift [--report]` on the existing `cmd/config-key-audit` binary + a check image +
+> a CronJob at **07:00 UTC**. **Proven end-to-end against the live database, both outcomes in one
+> session:** clean = *probed 5 live objects, 0 findings, exit 0*; D1 drop a declared type → **exit 1**
+> naming object and fragment; D2 declare 2 trigger bindings against a live 3 → **exit 1** *"live count
+> is 3, declared 2"*; D3 nonexistent probe → **exit 2, not clean**; D4 no database → **exit 2, not
+> clean**. D2 is the one that matters: that declaration was INERT in phase 1 and is now demonstrably read.
 >
-> **⚠ WHY THIS IS STILL OPEN.** Phase 1 closes the half where a guard asserted something that *could
-> not fail* (three asserted the text of a file the checksum rule forbids editing). It does **NOT**
-> close the live-drift half: nothing compares a declaration to the LIVE object. A migration editing a
-> guarded object now leaves livespec stale **with no tell at all** — the guards compare Go to livespec
-> and the migration changed a third thing neither reads. That is why the LANDMINES entry shipped with
-> phase 1 rather than with phase 2.
+> **⚠ WHY THIS IS STILL OPEN — the image is NOT built or pushed and the CronJob is NOT applied.**
+> Nothing runs on a schedule yet. Releases here are whole-fleet and the owner runs `make release`;
+> `make build-live-declaration-drift-check` is wired and builds from committed HEAD. **After the
+> release, verify at the artefact** (`kubectl get cronjob live-declaration-drift-check`, then read a
+> run's exit code and its `doc_notes` row) — a green make target is not a deployed check.
 >
-> **Phase 2** (a read-only `--live-declaration-drift` mode on `cmd/config-key-audit` + a daily check
-> image on the `shared-output-fields-check` pattern + `RELEASE_IMAGES`) is a separate council round and
-> is NOT built. The `trigger_bindings` declaration is inert until it lands, and is COUNTED
-> (`DeferredDeclarations`) so it cannot read as guarded.
+> **⚠ The council gate REFUSED phase 2 as OUT OF SCOPE** (every file is `cmd/`/`build/`/`deployments/`/
+> `makefile`; scope is `platform/`, `internal/`, `pkg/` + migrations). Not forced — the scope is an
+> owner ruling. See §"the class of checks nobody reviews" below.
+>
+> **⚠ Even fully deployed, this does NOT catch everything.** It compares live TEXT to declared
+> fragments, so it **passes** the live `claimed-item-timeout` `pre_query` whose own COMMENT states a
+> contract superseded on 2026-08-19 and names a deleted test — the sentence that caused
+> `bugs_closed/317`. The clause matches; the prose lies.
 >
 > **Unchanged and not oversold:** all **7** live objects measured 2026-08-22 AGREE. No drift exists.
 > Filed for the door, not the damage.
@@ -293,6 +299,29 @@ Read the **artefact**, and make the check disconfirmable:
 - If the fix ships a CronJob, remember the standing trap: **re-apply the kustomize overlay or the
   cluster keeps the old literal**, and one `doc_notes` row must be written **per run including clean
   ones**, so that a MISSING row reads as "the job did not run" rather than "nothing is wrong".
+
+
+## The class of checks nobody reviews (found 2026-08-22, recorded for the owner, not decided)
+
+Submitting phase 2 to the council gate returns:
+
+```
+REFUSED: no edit touches the review scope.
+  In scope: platform/, internal/, pkg/ ... plus migrations
+```
+
+Correct, per the scope ruling — and it generalises past this bug. **Every check service in this
+family is a `cmd/` binary plus a CronJob, so the entire class of daily fleet checks — 17+ services as
+of 2026-08-22 — is structurally unreviewable by the gate.** The 2026-08-19 widening admitted
+migrations on the argument that *"a migration IS the running system, live the moment it applies, with
+no image tag to roll back."* A check service is weaker on that test: it has a tag and can be rolled
+back. But it is still deployed code making daily assertions about production, and a check that is
+subtly wrong reports clean for ever.
+
+`FORCE=1` would buy a review the ruling says should not be bought, so this lane did not use it. If
+the owner wants this class covered, the lever is the scope definition in `scripts/council-scope.sh`
+(single-sourced — 097, the commit-msg nudge and the 098 report all read it), not a per-submission
+override.
 
 ## Relations
 
