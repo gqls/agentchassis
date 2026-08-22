@@ -149,3 +149,55 @@ CAN mint a utility url — falsifying LNK-033. It does not, because chrome lives
 `ctaFieldNames`, so `storedCTADestinationIsAuthored` is never consulted for it. The predicate's
 scope is exact. Recorded because the near-miss is the useful part: the invariant is stated in
 prose that sounds table-agnostic and is only true because of a scoping nobody wrote down.
+
+## 2026-08-22 (later still) — where a stamp WOULD be dropped, read rather than reasoned
+
+The design direction I want the plan to evaluate is to invert the burden: rather than
+recording "a human authored this", have the **resolver stamp what IT wrote**, so
+`authored == valid && not-stamped`. One producer cooperates; every other writer is correct by
+default (a REPLACE drops value and stamp together; a section-editor field update that writes a
+new url without a stamp is genuinely authored).
+
+The dangerous case is a writer that carries the **value** forward without the **stamp**. I
+went to check whether one exists rather than assuming, and it does — it is PBP-039's carry:
+
+`plan_sections_action.go:2110-2126`, `carryStored()`:
+
+```go
+carryStored := func() bool {
+    if source == "" || source == "llm" { return false }
+    value, ok := resolver.storedFieldValue(ctx, sectionName, fieldName)
+    if !ok { return false }
+    resolvedData[fieldName] = value
+    carriedFields = append(carriedFields, fieldName)
+    ...
+}
+```
+
+It is **per-field by construction**: it looks up `fieldName` in the stored row and writes that
+one key into `resolvedData`. A sibling provenance key (`cta_url__origin`, or an entry in a
+`__origin` map) is a *different* key, so it is not looked up and not carried.
+
+Two things follow, and both are load-bearing for the plan:
+
+1. **A naive sibling-key stamp fails in the worst direction.** A resolver-minted url that goes
+   through the carry arrives on the far side **unstamped**, is therefore read as authored, and
+   is frozen for ever by the very keep-branch this bug is trying to make honest. That is the
+   current bug's failure mode reintroduced through the fix.
+2. **CTA url fields do reach this code path.** `carryStored` declines only `source == ""` and
+   `source == "llm"`; CTA url fields are `source: "renderer"` (`ctaFieldNames`' own comment
+   requires it), which resolves to nothing at plan time and so falls to `handleMissingField()`
+   → `carryStored()`. `bugs_open/312` says the same thing from the other end: the values that
+   survived a fresh build were "the carry re-shipping the stored row".
+
+So the carry must carry the stamp **with** the value, and that is a specific, checkable,
+one-place code change rather than a property to be hoped for. It is also a mutation target:
+no-op the stamp-carry and the test that must fail is one asserting a carried resolver value is
+still recomputable — i.e. that it did NOT become authored.
+
+> **[UNVERIFIED] discharged, same session.** I had marked "whether `storedFieldValue` is the
+> only per-field read in that path" as owed. It is: `grep -rn storedFieldValue --include=*.go
+> platform/ | grep -v _test` returns **one definition (`:255`), one call site (`:2114`), and
+> two comment mentions** — no second reader. So the carry is a single point, and stamping it is
+> a one-place change. Recording the discharge rather than deleting the marker, because the
+> marker is the evidence that the check happened rather than being assumed.
