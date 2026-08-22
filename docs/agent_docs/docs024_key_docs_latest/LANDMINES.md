@@ -15058,3 +15058,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `features_open/020_FEATURE_apis_uk_traffic_probe.md` (the probe whose apex arm this explains) · `docs/agent_docs/docs024_key_docs_latest/apis_uk_bees_homepage/` (PLAN §1–2, RUNBOOK §1–2) · MEMORY [[a-client-side-absence-is-not-an-absence]], [[prove-a-deploy-at-the-artefact-index]]
 - **source:** 2026-08-22, `apis_uk_bees_homepage` lane — found by measuring the owner's "do not affect the DNS for the tools-api" constraint before designing anything, with no symptom and nothing broken. The DNS turned out to be the safe part; the route pattern is the live hazard, and nothing in the zone says so.
 - **added:** 2026-08-22, `apis_uk_bees_homepage` lane
+
+### COMPARING `v1.0.NNNN` IMAGE TAGS AS STRINGS INVERTS ACROSS `v1.0.999` → `v1.0.1000` — and this estate crossed that boundary long ago, so the wrong answer is confident, well-formed and permanent
+
+- **footprint:** `IMAGE_TAG`, `newTag`, `image_tag`, `pkg/releaseset` (`compareTags`), any code or query that asks *which of these two tags is newer*, any `sort` over image tags, `scripts/check-agent-image-drift.sh`, `deployments/kustomize/services/*/overlays/*/kustomization.yaml`
+- **fires when:** you write anything that ORDERS two image tags — a staleness check, a "is this behind the fleet?" report, a census, a `sort` to find the newest. Go's `<` on strings, SQL's `<`, `sort` without `-V`, Python's `<`, JS's `<`: all of them compare character by character, all of them are silently wrong here, and **all of them produce a confident direction rather than an error**.
+- **the arithmetic, and it is already behind us:** `"v1.0.999" > "v1.0.1000"` is TRUE as a string, because `'9' > '1'` at the fifth character. The estate is on `v1.0.13xx` **as of 2026-08-22**, so every comparison spanning that boundary — a service frozen at `v1.0.948` against a fleet on `v1.0.1126`, which is the REAL `github-actions-runner` freeze from `bugs_open/237` — reads backwards.
+- **why it is a landmine and not just a bug:** there is no symptom. The output is a complete, plausible sentence naming two real tags and a direction, and **a wrong direction is worse than a missing finding**: a session hunting a frozen service follows the line, finds a service that is if anything too NEW, shrugs, and concludes the instrument works. The false answer survives because it produced an investigation. It happened for real on 2026-08-22 — the `bugs_open/318` census's first live run reported two hand-deployed services *ahead* of the fleet as "RUNNING AN OLD FLEET TAG" (`WRONG_CALLS.md`, same day) — and the first repair for THAT reintroduced it one line later by comparing strings.
+- **the check, before you trust any tag ordering you have written:**
+  ```bash
+  # the one case that discriminates — a lexical comparator gets it backwards
+  #   want: v1.0.999 is OLDER than v1.0.1000
+  go test ./pkg/releaseset/ -run TestCompareTags -v     # the worked pair, pinned
+  ```
+  In shell, `sort -V` (version sort), never plain `sort`. In SQL, split and cast — a
+  `text` comparison on `image_tag` has the same defect. In Go, use
+  `releaseset.compareTags`'s shape: parse to ints, and **return "cannot order" rather than
+  a guess** for anything that is not `vN.N.N` (`latest`, a date tag, a digest, a different
+  arity). A fabricated ordering is how a report starts asserting what it does not know.
+- **⚠ the mirror trap, which is what let it ship:** a unit test written for ONE direction
+  cannot fail on the other, and it reads as thorough — it names its disconfirming result
+  and passes for the right reason. **When a finding has a direction, write the fixture for
+  BOTH before running it anywhere.**
+- **relations:** register **BLD-026** (`pkg/releaseset`, where the comparator lives and where its boundary is pinned), **BLD-019**/**BLD-020** (the honest answer when tags cannot be ordered: ask the artefact what commit it was built from — an ancestry question, not a string one), `bugs_open/318`, `bugs_open/237` (the `v1.0.948` vs `v1.0.1126` freeze that spans the boundary), `WRONG_CALLS.md` 2026-08-22
+- **source:** 2026-08-22, `bugs_open/318` lane — found by reading the first live run's output rather than its exit code, which was correct throughout
+- **added:** 2026-08-22, bugs_open/318 lane
