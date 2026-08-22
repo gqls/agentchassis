@@ -52,3 +52,69 @@ other agents opt out of the rule. I have handed both of those to the planning st
 constraints rather than preferences.
 
 Next: a plan, then the council, then code.
+
+## 2026-08-22, later — the fix is written, and the review sent it back once (which was worth it)
+
+**What the fix actually does, in one go.** Today the system works out whether it may rewrite a
+button's link by *reasoning*: "we could never have produced a link to the contact page, so if a
+link to the contact page is sitting there, a person must have put it there." That reasoning is
+sound right now and it is exactly what has to stop being true in order to fix this bug — because
+fixing it means letting the machinery point buttons at contact pages. So instead of reasoning, we
+now **write it down**: whenever the machinery sets a button's destination, it records, next to the
+link, which link it set. A link counts as a person's when it is real *and* that record does not
+name it.
+
+The detail that turned out to matter is that the record stores **which** link, not just "we set
+this one". Consider someone editing a button's destination by hand. The old record survives that
+edit. If it only said "we set this", the machinery would read it and feel entitled to overwrite the
+person's new choice — which is the previous bug in this family all over again. Because it names the
+old link, it simply no longer matches, and the person's edit is correctly left alone. That one
+choice is why almost every other part of the system needs no change at all.
+
+**The review sent it back, and it was right to.** I put the plan through the reviewer council.
+Fourteen reviewers; eight approved, four objected, and the verdict was "revise". Three of the
+objections found real problems:
+
+- One reviewer noticed my written description said the phone-number branch should get a record,
+  while my code did not give it one. **The description was wrong and the code was right** — a
+  `tel:` link is always a person's, and recording it as ours would let the machinery replace a
+  genuine "call us" button with a link to a tool page. Fixed the description.
+- Another spotted a guard in my plan that could never fire — dead code. Correct; removed.
+- A third said, bluntly, that I had listed "I haven't checked whether the save actually keeps this
+  record" in my own risks, and that *"'owed' is not a control on a mechanism whose whole purpose is
+  a record reaching the database"*. That was the fair hit of the round. I had measured the outcome
+  (sixteen rows in the live database already hold a similar undeclared value, so the save clearly
+  keeps them) but had not read the code that does the saving. I read it. It keeps everything.
+
+**Two mistakes of my own, both caught by deliberately breaking my own code.** The practice here is
+that you don't get to say a safety check works — you sabotage it and confirm the right test
+screams.
+
+1. My first version would have **caused the very freeze it exists to prevent**. Most of these
+   components have *two* buttons. The save merges records shallowly, so writing a record for the
+   first button silently threw away the second button's — after which the second button would look
+   like a person's work and be stuck for ever. Fixed.
+2. I had put the repair for that in the surrounding loop. When I sabotaged it — deleted the call
+   entirely — **every test in the repository still passed**. So I moved it inside the two functions
+   themselves, where the tests actually reach it, and confirmed that deleting it now fails. I also
+   found a second helper I'd written was doing nothing at all, and deleted it rather than ship a
+   piece of machinery nobody exercises.
+
+**And one thing I got wrong three times before checking once.** I asserted — in a code comment, in
+the submission to the council, and in a test — that the system treats `/contact.html` and
+`/contact/index.html` as the same page. It does not. The test caught it the first time I ran it.
+Then, while writing the correction, I described a sabotage-test as "(verified)" without having run
+it; it turned out not to work the way I said. Both are logged. The honest lesson is that being
+mid-correction felt like being careful and wasn't.
+
+**Where this leaves us.** The recording half is written, tested, committed, and will go out with the
+next build — it changes no behaviour on its own, which is deliberate: it is the thing that makes the
+*next* step safe. The next step (letting buttons point at contact and about pages, and making the
+detector and the repairer share one list of candidate pages) is a separate submission that should
+not start until this one is confirmed running on the live machines. Round two of the review is
+queued now.
+
+One caution I keep repeating because it will otherwise cause a false result: the check that finds
+these broken buttons **has not run since 19 August**. So the count will sit at 200 whether we have
+fixed anything or not. Proving this worked means deliberately making the check run, and then
+looking at a real page in a browser.
