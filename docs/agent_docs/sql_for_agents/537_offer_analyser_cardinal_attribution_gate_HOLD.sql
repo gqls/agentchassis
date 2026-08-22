@@ -63,9 +63,42 @@
 --      An unregistered action name fails the whole offer-analyser workflow, not
 --      just this step:
 --        SELECT current_step, status, count(*) FROM orchestration_states
---         WHERE agent_type='offer-analyser'
+--         WHERE owner_agent_type='offer-analyser'
 --           AND created_at > now() - interval '30 minutes'
 --         GROUP BY 1,2;
+--
+--      ⚠ THE COLUMN IS `owner_agent_type`. There is NO `agent_type` column on
+--      orchestration_states, and the wrong name does not return zero rows — it
+--      raises `ERROR: column "agent_type" does not exist`, so the damage check
+--      you run FIRST after applying is the one that does not run at all. Under
+--      any `2>/dev/null` or a glanced-at terminal that reads as "nothing to see".
+--      Corrected here 2026-08-22 after hitting it live; the same wrong spelling
+--      is in 526 and 547, which is where this file copied it from.
+--
+--      ⚠ AND RUN IT WITHIN A DAY, AND CORROBORATE IT — A ZERO HERE IS NOT
+--      EVIDENCE OF ANYTHING. Two independent reasons this query can read 0 while
+--      the agent is running and breaking:
+--        1. RETENTION. [MEASURED 2026-08-22] the oldest COMPLETED row is from
+--           2026-08-21 — about ONE DAY. Do NOT reassure yourself with
+--           `min(created_at)` over the whole table: it says 2026-07-19, because a
+--           couple of dozen CANCELLED rows survive while the COMPLETED history
+--           you want is ~24-48h. Group by STATUS before believing any age claim.
+--        2. OWNERSHIP. `owner_agent_type` is the ORCHESTRATION's owner, which for
+--           an agent dispatched inside a parent's loop is the PARENT, not the
+--           agent — it fails toward "dormant", which is the answer that makes a
+--           problem go away (LANDMINES, "owner_agent_type is NOT which agent
+--           ran"). That failure mode does NOT apply here — improvement-loop
+--           dispatches this one with `spawn_agent`, so offer-analyser owns its
+--           own orchestration — but that is a property of TODAY's dispatch, so
+--           re-check it rather than inherit this sentence.
+--      So corroborate with the instrument that outlives the reaper and is proven
+--      to carry this agent: [MEASURED 2026-08-22] llm_call_log holds 7 rows for
+--      agent_type='offer-analyser', newest 2026-08-19, when orchestration_states
+--      held none at all.
+--        SELECT agent_type, count(*), max(created_at) FROM llm_call_log
+--         WHERE agent_type='offer-analyser' GROUP BY 1;
+--      (site_work_items.handler_agent is the OTHER usual corroborator and is
+--      blind here: this agent is schedule-driven, 0 rows, never work-item-driven.)
 --
 --   3. ONLY THEN look for the benefit, and look for it AT THE ARTEFACT. The
 --      re-proof is a re-run against leopardessconsulting.co.uk, whose premise is

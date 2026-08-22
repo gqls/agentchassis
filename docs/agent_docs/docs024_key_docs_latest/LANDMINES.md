@@ -14748,3 +14748,22 @@ code change owed at the next roll, tracked in RFC_015 §5.
   indistinguishable from the right one because both are genuine verdicts.
 - **relations:** MEMORY [[a-submission-is-not-a-review]] · MEMORY [[always-give-the-path-for-any-doc-you-name]] (same family: an identifier that is ambiguous across concurrent lanes) · the council-gate RUNBOOK · 098 coverage report (MISMATCH bucket)
 - **added:** 2026-08-22, `bugs_open/316` lane
+
+---
+
+### Three migration runbooks tell you to run the post-apply damage check with a column that DOES NOT EXIST — so the first thing you do after applying is the one thing that does not run
+
+- **footprint:** `docs/agent_docs/sql_for_agents/`, `526_enable_page_content_divergence_HOLD.sql`, `547_arm_the_three_unarmed_deploy_stampers.sql`, `orchestration_states`, `owner_agent_type`, any migration runbook's post-apply damage check
+- **fires when:** you apply a migration and run its own "what did I break?" query — the check that exists precisely because an unregistered action name or a bad config key fails the WHOLE agent, not just the new step. **No symptom, and worse than none:** the query does not return zero rows, it raises `ERROR: column "agent_type" does not exist`. Behind a `2>/dev/null`, inside a multi-statement heredoc, or in a glanced-at terminal, an error and an empty result look identical — and empty is the reassuring answer you were hoping for.
+- **the mechanism:** the table spells it `owner_agent_type` (beside `owner_agent_id`, `owner_agent_role`, `subtree_agents`); `agent_type` is right almost everywhere else — `llm_call_log.agent_type`, and `agent_definitions.type` / `site_work_items.handler_agent` for the same idea — so the wrong name is the one you will type. **[MEASURED 2026-08-22]** across `sql_for_agents/`: **36 files use the correct column, 3 use the broken one.** `537` (corrected 2026-08-22) copied it from `526`, and `547` carries it too. **They are RUNBOOK COMMENTS, so nothing compiles, lints or tests them** — they fail only in the hand of whoever applies the migration, at the exact moment they are checking for damage. **If you own 526 or 547, this is yours to fix; the wrong spelling is still in both.**
+- **the check — prove the column, do not recall it:**
+  ```sql
+  SELECT string_agg(column_name, ', ') FROM information_schema.columns
+   WHERE table_name='orchestration_states' AND column_name LIKE '%agent%';
+  -- subtree_agents, owner_agent_id, owner_agent_type, owner_agent_role
+  ```
+  And never run a damage check with stderr suppressed; `psql -v ON_ERROR_STOP=1` turns a bad column into an exit code rather than a blank.
+- **⚠ AND FIXING THE SPELLING DOES NOT MAKE THE CHECK SOUND.** A zero from the corrected query is still not evidence, for two documented reasons this file already carries separately: retention (`COMPLETED` history is ~24-48h — see *"retention is PER STATUS"* and *"a status census is a ~24 h WINDOW"*), and ownership (`owner_agent_type` is the ORCHESTRATION's owner, so an agent dispatched inside a parent's loop reads zero while running — see *"`owner_agent_type` is NOT 'which agent ran'"*, which notes it fails toward "dormant"). Corroborate with `llm_call_log.agent_type`, which outlives the reaper: measured the same day, `offer-analyser` had **0** orchestration rows and **7** llm_call_log rows newest 2026-08-19.
+- **relations:** LANDMINES *"`orchestration_states` has NO `id` column"* (the same class, different column — `orchestration_id`), *"retention is PER STATUS"*, *"a status census is a ~24 h WINDOW"*, *"`owner_agent_type` is NOT 'which agent ran'"*; CLM-023; `bugs_open/335`
+- **source:** 2026-08-22, `vigilant_designer_offer_analysis` lane — hit while running `537`'s own post-apply check BEFORE applying it; the query errored instead of answering, and the wrong spelling turned out to be inherited from the file `537` was modelled on. Filed as its own entry rather than folded into the retention ones because the trigger is different: those fire when you INTERPRET a count, this one fires before you get a count at all
+- **added:** 2026-08-22, vigilant_designer_offer_analysis lane
