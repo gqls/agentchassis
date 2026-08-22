@@ -1,3 +1,18 @@
+> # ⚠ SUPERSEDED 2026-08-21 — read `HANDOFF_2026-08-21_continue_here.md` instead.
+>
+> That file is the cold start. This one is kept for its history and for the detail it
+> carries that the successor summarises: the presign-ceiling measurement (§2), the
+> 08-19/08-20 rule-defect fixes (§1), and the Phase 4 state-half build (§2).
+>
+> **Four things in here are now WRONG or overtaken**, and this banner exists so nobody
+> acts on them:
+> - the register counts (22 facts / 34 bans) — now **24 / 34**;
+> - "Which TLDs do we actually sell?" — **ANSWERED** (`.co.uk` and `.uk`);
+> - the `[UNVERIFIED]` note on who executes a `.uk` transfer — **VERIFIED**, and it is
+>   TWO Nominet operations, not one;
+> - "Phase 4 has NOT started" — the state half and `/c/<token>` are built, and `/c/` is
+>   live in the cluster.
+
 # HANDOFF 2026-08-20 — webdesign.uk build service + site delivery (Phase 4 is now genuinely next)
 
 **SUPERSEDES** `HANDOFF_2026-08-19_continue_here.md` (bannered). That file merged this
