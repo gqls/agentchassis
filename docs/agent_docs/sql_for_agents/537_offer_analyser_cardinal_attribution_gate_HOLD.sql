@@ -91,12 +91,19 @@
 --           dispatches this one with `spawn_agent`, so offer-analyser owns its
 --           own orchestration — but that is a property of TODAY's dispatch, so
 --           re-check it rather than inherit this sentence.
---      So corroborate with the instrument that outlives the reaper and is proven
---      to carry this agent: [MEASURED 2026-08-22] llm_call_log holds 7 rows for
---      agent_type='offer-analyser', newest 2026-08-19, when orchestration_states
---      held none at all.
---        SELECT agent_type, count(*), max(created_at) FROM llm_call_log
---         WHERE agent_type='offer-analyser' GROUP BY 1;
+--      So corroborate with llm_call_log, which outlives the reaper — but ⚠ KEY ON
+--      `step_name`, NOT ON `agent_type`. CORRECTED 2026-08-22 after this file's
+--      first live runs: `agent_type` carries the DISPATCH context, not the
+--      workflow that owns the step, so both hand-fired runs landed under
+--      `agent_type='generic'` and a query filtered on 'offer-analyser' read
+--      UNCHANGED (7, newest 2026-08-19) after two demonstrably successful runs.
+--      It fails toward "it did not run", on a run that did. The step name is
+--      written by the step itself and cannot be stamped by the dispatcher:
+--        SELECT created_at, agent_type, step_name, success, correlation_id
+--          FROM llm_call_log WHERE step_name='run_offer_analysis'
+--         ORDER BY created_at DESC LIMIT 5;
+--      Full trap: LANDMINES, "`llm_call_log.agent_type` is NOT 'which agent's
+--      workflow made this call'".
 --      (site_work_items.handler_agent is the OTHER usual corroborator and is
 --      blind here: this agent is schedule-driven, 0 rows, never work-item-driven.)
 --

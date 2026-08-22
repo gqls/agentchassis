@@ -356,3 +356,62 @@ func TestCleanRunClearsACustomDropKey(t *testing.T) {
 		t.Error("the configured dropped_key must be cleared on a clean run, not the default name")
 	}
 }
+
+// FOUND IN PRODUCTION, on the gate's first two live runs (2026-08-22).
+// cardinalDigitRe is not word-anchored, so it read a "quantity" out of the
+// middle of ordinary technology names. The consequence is the worst kind for
+// this gate: a FALSE POSITIVE that silently removes legitimate content.
+// leopardessconsulting.co.uk survived only by coincidence — its premise happens
+// to say "B2B" too, so "2" was in the allowed set.
+func TestDigitsWeldedIntoWordsAreNotQuantities(t *testing.T) {
+	for _, text := range []string{
+		"We serve UK B2B SaaS engineering teams.",
+		"Everything is stored in S3 with IPv6 support.",
+		"The platform is built on Web3 primitives.",
+	} {
+		if got := cardinalsIn(text, cardinalPointWordRe, cardinalUnits); len(got) != 0 {
+			t.Errorf("%q asserts no quantity, but the scan found %v", text, got)
+		}
+	}
+}
+
+// The narrowing must not cost a real quantity: these are the shapes the gate
+// exists to read, all delimited by space, punctuation or a currency symbol.
+func TestRealQuantitiesSurviveTheWordAnchoring(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want string
+	}{
+		{"You can run any of the 63 tools here.", "63"},
+		{"published 2-3 times per month", "2"},
+		{"a budget of £1,520 per site", "1520"},
+		{"scored 32.70 on the index", "32.7"},
+		{"(4 of them are free)", "4"},
+	} {
+		if got := cardinalsIn(tc.text, cardinalPointWordRe, cardinalUnits); !got[tc.want] {
+			t.Errorf("%q lost its quantity %s — got %v", tc.text, tc.want, got)
+		}
+	}
+}
+
+// The end-to-end shape of the production defect: a legitimate B2B point against a
+// premise carrying no digit at all must NOT be dropped.
+func TestLegitimateTechnologyNamePointIsNotDropped(t *testing.T) {
+	const premise = "Leopardess designs multi-agent systems for engineering teams."
+	p := cardinalParams(t,
+		ordering(point(1, "value_proposition", "We serve UK B2B SaaS engineering teams.")),
+		map[string]interface{}{"value_proposition": premise}, nil)
+	if _, err := VerifyCitedCardinalsAction(context.Background(), p); err != nil {
+		t.Errorf("a point asserting no quantity was rejected: %v", err)
+	}
+}
+
+// The STATED residual, pinned so it is a known limit rather than a surprise: a
+// hyphenated model name still yields its number, because the character before
+// the digit is "-" and not a letter. If this test ever starts failing, someone
+// has fixed it — update the doc comment on digitCardinalsIn.
+func TestHyphenatedModelNameStillYieldsItsNumber(t *testing.T) {
+	if got := cardinalsIn("built on GPT-4", cardinalPointWordRe, cardinalUnits); !got["4"] {
+		t.Error("residual changed: GPT-4 no longer yields 4 — update digitCardinalsIn's stated residual")
+	}
+}

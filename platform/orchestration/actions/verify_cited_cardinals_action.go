@@ -60,6 +60,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
@@ -97,7 +98,51 @@ func init() {
 // cardinalDigitRe matches digit-form quantities, including thousands separators
 // and decimals. Same shape as verify_report_prose's proseNumRe — deliberately,
 // so the two gates normalise "1,520" and "1520.0" identically.
+//
+// ⚠ IT MATCHES DIGITS INSIDE WORDS, which is why digitCardinalsIn exists and why
+// this regex must never be used directly on prose. See below.
 var cardinalDigitRe = regexp.MustCompile(`\d[\d,]*\.?\d*`)
+
+// digitCardinalsIn extracts digit-form cardinals from text, rejecting any match
+// that is welded to a LETTER on either side.
+//
+// FOUND IN PRODUCTION 2026-08-22, on the gate's first two live runs. The bare
+// regex is not word-anchored, so it reads a quantity out of the middle of an
+// ordinary technology name: "B2B" -> 2, "S3" -> 3, "IPv6" -> 6, "Web3" -> 3.
+// The consequence is a FALSE POSITIVE that silently removes legitimate content —
+// a lead_with point saying "UK B2B SaaS engineering teams" asserts no quantity at
+// all, but the gate would drop it unless the cited premise field happened to
+// contain a stray digit. On leopardessconsulting.co.uk it survived only by
+// coincidence: the premise says "B2B" too, so "2" was in the allowed set.
+//
+// The rule is deliberately narrow — adjacency to a LETTER, nothing cleverer.
+// A quantity in real prose is delimited by space, punctuation or a currency
+// symbol, so "63 tools", "2-3 articles" and "£1,520" are all unaffected; only
+// digits fused into a word are dropped. Go's regexp has no lookaround, hence the
+// index walk rather than a cleverer pattern.
+//
+// ⚠ STATED RESIDUAL, not fixed here: a hyphenated model name still yields its
+// number — "GPT-4" gives 4, because the character before the digit is "-", not a
+// letter. Handling that means classifying model-number shapes (the job
+// verify_report_prose gives modelNumberRe), which is a bigger change than this
+// defect warrants. A point naming "GPT-4" against a premise with no 4 will be
+// dropped. Fix it when a live case appears, not before.
+func digitCardinalsIn(text string) []string {
+	var out []string
+	runes := []rune(text)
+	for _, loc := range cardinalDigitRe.FindAllStringIndex(text, -1) {
+		before := []rune(text[:loc[0]])
+		if len(before) > 0 && unicode.IsLetter(before[len(before)-1]) {
+			continue
+		}
+		afterIdx := len([]rune(text[:loc[1]]))
+		if afterIdx < len(runes) && unicode.IsLetter(runes[afterIdx]) {
+			continue
+		}
+		out = append(out, normaliseCardinal(text[loc[0]:loc[1]]))
+	}
+	return out
+}
 
 // cardinalUnits and cardinalTens are the word-numeral vocabulary.
 //
@@ -198,8 +243,8 @@ func cardinalWordValue(match string, vocab map[string]int) string {
 // writer chose is style, not sourcing.
 func cardinalsIn(text string, wordRe *regexp.Regexp, vocab map[string]int) map[string]bool {
 	out := make(map[string]bool)
-	for _, tok := range cardinalDigitRe.FindAllString(text, -1) {
-		out[normaliseCardinal(tok)] = true
+	for _, v := range digitCardinalsIn(text) {
+		out[v] = true
 	}
 	for _, m := range wordRe.FindAllString(text, -1) {
 		out[cardinalWordValue(m, vocab)] = true
