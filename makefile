@@ -76,13 +76,26 @@ endif
 # Folding them in also closes check-release-coverage's blind spot by
 # construction: the gate only polices overlays pinning a RELEASE_IMAGES image,
 # so until now it could not see any of these six.
+#
+# ⚠ AND THE BLIND SPOT IS SELF-REPRODUCING — TWO MORE HAD ALREADY FALLEN INTO IT
+# (added 2026-08-22, under the same owner ruling, not as a new decision):
+# `optional-explicit-wires-check` (created 08-21) and `commit-sha-exposure-check`
+# (created 08-22) were both born OUTSIDE these lists, exactly as the original four
+# were. Nothing said so, and nothing could: the coverage gate only polices overlays
+# pinning an image that is ALREADY in RELEASE_IMAGES, so a check service omitted at
+# birth is invisible to the very mechanism that exists to catch the omission. Both
+# run the `config-key-audit` binary, which compiles the estate's action registry IN
+# — so for these two a frozen image is a frozen INVENTORY in the precise sense
+# measured on 2026-08-18, and their clean reports would slowly stop meaning what
+# they say. **A NEW CHECK SERVICE MUST BE ADDED HERE IN THE COMMIT THAT CREATES IT.**
 RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	web-search-adapter web-scrape-adapter git-adapter image-generator-adapter \
 	thunder-adapter analyser-adapter browser-runner-adapter \
 	content-creator-agent remote-job-spawner kafka-scheduler \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
-	loop-sitewide-item-key-check brief-negation-check github-actions-runner
+	loop-sitewide-item-key-check brief-negation-check github-actions-runner \
+	optional-explicit-wires-check commit-sha-exposure-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -109,6 +122,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
 	loop-sitewide-item-key-check brief-negation-check \
+	optional-explicit-wires-check commit-sha-exposure-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
