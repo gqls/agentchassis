@@ -1363,3 +1363,55 @@ assumed.
 `load_work_item_actions.go` as ONE edit covering the whole file — which is also the structural
 answer to the defect rounds 2 and 4 both caught: **when the code moves, re-derive the plan from the
 code; do not patch the edit you happen to be thinking about.**
+
+## 2026-08-22 18:00Z — **345 APPROVED (round 5) and the path is FIRING** — plus a self-caught empty-`$sha` near-miss and the new count-dating rule paid
+
+### Council: APPROVED, round 5
+
+`67b07528` — *"approved with 4 advisory objection(s) — none high-severity"*, verdict read in full.
+Five rounds; **three of them found real defects** (the refuted inner-loop diagnosis, the stale-column
+hazard, and the fix being wired to nothing) and two found genuine contradictions between my plan and
+my code. **One advisory is factually WRONG and is not being actioned:** it says migration `555` has
+no "exactly one active row" guard "unlike 533" — `555` line **49** raises
+`'555: expected exactly 1 live build-dispatch-loop row, found %'`. Recorded rather than silently
+"fixed", because acting on a false objection is how a correct guard gets rewritten.
+Two advisories worth carrying: the `?` optional-marker is only live from chassis **v1.0.1321**
+(we are on v1.0.1326, so fine — but it was INERT when the convention was first used), and `016b` §9
+warns that an optional `field?` feeding a **required** contract field is a latent per-caller
+fatality — `last_error` feeds no required field (component-creator's `input_contract` requires only
+`section_type`), so it does not apply here, checked rather than assumed.
+
+### The path FIRED — mechanism proven end to end, causation NOT
+
+`collected_data->'input_data' ? 'last_error'` = **6 as of 2026-08-22 18:00Z**, was 0 all-history
+before migration `555`. The key crosses the dispatcher boundary and reaches handlers.
+
+**The target case:** item `ceea0c07` (`loans-application-tracker`) was rejected at
+`store_component` 12:18:43Z; the retry at 12:51:43Z **carried that rejection in its `input_data`**;
+and the item is now **`complete` at attempt_count 1**.
+
+> **[ATTRIBUTION — n=1, and the causal claim is NOT made.]** Pre-fix baseline is strong (every item
+> with more than one rejection had exactly ONE distinct reason — **12 items as of 2026-08-21**, up
+> to 52 rejections, zero successes). Post-fix, the first fed-back retry succeeded. That is
+> suggestive and it is one sample; a retry succeeding is also what stochastic variance looks like
+> (`mortgages-repayment` succeeded on attempt 0 with no feedback at all). **What is established: the
+> mechanism works end to end.** What is not: that the feedback caused this success. The population
+> that would settle it is post-fix retry outcomes over time — **1 as of 2026-08-22**.
+
+### ⚠ Self-caught near-miss: I printed a conclusion from an EMPTY variable
+
+Checking whether the `completed_at` gate is in v1.0.1326, I read the provenance line into `$STAMP`
+— it came back **empty** (pods up 15:10Z, ~3 h, line scrolled) — and my `&&/||` one-liner printed
+**"completed_at gate: NOT in this build"** from `git merge-base --is-ancestor <sha> ""`. **That
+output was void**, and it is the exact memory-index landmine ("a control that matches everything
+hides it — and so does an EMPTY `$sha`"). Caught it before it reached a doc. Candidate-sha probing
+since: `347631a7e`, `7760963cf`, `758ee5ec2` all ABSENT — the stamp is elsewhere in the window and
+**the `completed_at` gate's presence in v1.0.1326 remains UNVERIFIED**, stated as unverified. It is
+a hardening, not a correctness requirement for the firing path, so nothing waits on it.
+
+### New CLAUDE.md rule (owner, 2026-08-22) paid on this lane's own files
+
+"A count of things must carry the date it was counted." Dated in place: `345`'s 14-key mapping,
+73-mapping census, 99 rejection rows; `337`'s 7-item fleet total and 4-page blast radius. The rule
+is well aimed at this lane — the 73-mapping census is precisely the kind of figure that would read
+as current for ever, and `bugs_open/362`'s eleventh writer is the same shape.

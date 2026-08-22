@@ -47,9 +47,9 @@ time.
 
 Adjacent cap failures on other agents, for scope only (do NOT fold them in — different steps,
 different ceilings): `oufe.com` `improve_tool` (2026-08-11), and three `needs_diagnosis` items
-(2026-08-14, 2026-08-19 ×2). Fleet total carrying a `stop_reason=max_tokens` error: **7 items.**
+(2026-08-14, 2026-08-19 ×2). Fleet total carrying a `stop_reason=max_tokens` error: **7 items as of 2026-08-20.**
 
-**Blast radius is small today and grows with the vertical:** 4 pages fleet-wide currently plan a
+**Blast radius is small today and grows with the vertical:** **4** pages fleet-wide **as of 2026-08-20** plan a
 `credit-health`-shaped section. Both affected sites are loan/credit sites, which is the vertical the
 portfolio buildout multiplies — so the next loans domain will plan it too and lose the same page.
 

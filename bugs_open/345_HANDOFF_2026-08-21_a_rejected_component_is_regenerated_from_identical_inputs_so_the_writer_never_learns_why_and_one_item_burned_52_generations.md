@@ -6,9 +6,9 @@ half — provenance stamp `bac189921`, `0f80f5ea1` ancestor — and migration `5
 ledger-recorded; the CSS lane's contrib below independently probed both replicas with a control and
 confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **⚠ CORRECTED 2026-08-22 (council round 4, guardian HIGH): THE FIX IS INERT — NOT MERELY
 UNEXERCISED.** `build-dispatch-loop`'s `call_handler` is a `call_agent` step with an explicit
-**`input_mapping` allow-list of 14 keys, and `last_error` is not one of them** — so the loader's new
+**`input_mapping` allow-list of **14 keys as of 2026-08-22**, and `last_error` is not one of them** — so the loader's new
 key never becomes part of the handler's `input_data` and `533`'s `{{if .input_data.last_error}}`
-cannot fire. Fleet census of all 73 live `call_agent` mappings: **zero pass it.** A THIRD half is
+cannot fire. Fleet census of all live `call_agent` mappings — **73 as of 2026-08-22** — **zero pass it.** A THIRD half is
 required: add `last_error?` to that mapping (and check `site-work-orchestrator`'s 8-key
 `sub:call_handler`) — a dispatcher migration on a shared seam, to be named as such.
 **I had measured the zero and explained it away as "no retry yet"** — the "a post-fix ZERO needs a
@@ -78,7 +78,7 @@ template exists, in full, at the moment of failure — and is discarded.
 
 `agent_error_log`, `error_code='component_validation_rejected'` [MEASURED 2026-08-21 12:05Z]:
 
-- **99 rejection rows**, 3 sites (`loanzy.uk` 78, `remortgagecalculator.uk` 11,
+- **99 rejection rows as of 2026-08-22**, 3 sites (`loanzy.uk` 78, `remortgagecalculator.uk` 11,
   `loancalculator.co.uk` 10), 2026-08-15 → 2026-08-21.
 - Grouped per work item, **every single item with more than one rejection has exactly ONE distinct
   rejection reason** (`count(DISTINCT md5(error_message)) = 1`) — twelve such items, from 2 repeats
