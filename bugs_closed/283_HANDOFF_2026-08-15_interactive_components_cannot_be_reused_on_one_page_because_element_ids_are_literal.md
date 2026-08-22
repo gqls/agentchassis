@@ -837,3 +837,34 @@ What is BUILT this session (one commit, council round 6 on the lane correlation)
 batch (27 fixed:true, each auto-filing its page-scoped rerenders; 5 to needs_human_review →
 judged canary joins them) → `--bindings` exits 0 → then the LMC judged sequence per the PLAN
 (owed steps, canary `loans-standard-calc`, 22, then the 2 generic tools + the 5 refusals).
+
+---
+
+## CLOSED 2026-08-22 — fixed AND live across the estate, the flow guarded, the loop self-healing
+
+Seven days, ~14 council rounds across two correlations (`07635a2f` r9 APPROVED, `6acf8e4e` r2
+APPROVED — both verdicts read), and the bar is met everywhere (full trail:
+`bugfix_283_component_instance_scope/NOTES` sessions 1–9):
+
+- **The defect cannot manifest**: every serving converted placement is bare-lookup-clean —
+  **111 placements, 0 dangling (as of 2026-08-22)**; **119+ components carry the per-instance
+  namespace (as of 2026-08-22)**, from 0 a week ago. The LMC estate is oracle-proven
+  behaviour-identical (**PASS 166 / FAIL 0 as of 2026-08-22**; the 170→166 delta is the
+  rebuilt consolidation tool's explained check retirement, with mutation controls both sides
+  of every change).
+- **The defect cannot re-enter**: birth guard (`create_tool_component`) and fork guard
+  (`deploy_tool_to_site`) armed and live since v1.0.1322, both branches demand-proven in
+  production (convert-at-birth ×4, refuse-and-regenerate ×6); generator prompt teaches the
+  rules (mig 520); the daily `instance-scope-sweep` detects arrivals by every other door and
+  ESCALATES unconvertible rows to full-pipeline rebuilds (both proven live 2026-08-22).
+- **The judged pipeline** (486) converted 21 calculators + repaired the 324 damage;
+  refusals park for humans by design.
+
+**Residuals, each deliberate and filed where it lives:** `tool-aria-builder` parked
+needs_human_review (its domain — generating example ids — fights the rule; 6 samples
+refused); `loans-application-tracker`'s rebuilt template awaits section content for its new
+schema (`needs_section_data_29e63065`; the page serves the old WORKING section; the rebuilt
+template carries NO id lookups, so it is outside this defect class); `RFC_032`
+(ComponentID unification) and generic-text-block's 13 colliding pages (blocks fleet-wide
+rerender-path arming; per-workflow arming remains the rule) are architecture-track;
+`store_generated_component`'s regen stub check is 324's named residual.
