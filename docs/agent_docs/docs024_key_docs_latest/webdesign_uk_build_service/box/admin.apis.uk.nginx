@@ -1,0 +1,84 @@
+# /etc/nginx/sites-available/admin.apis.uk — the admin console's tunnel origin.
+#
+# Owner ruling 2026-08-22: the admin console goes on a domain he logs into, at
+# admin.apis.uk, behind Cloudflare Access. This also settles the standing D-A
+# question ("may core-manager be reachable from the internet at all?") in the
+# affirmative but NARROWLY: core-manager is reachable only THROUGH
+# admin-dashboard's own gateway, only on this hostname, and only after Access
+# has authenticated the request at Cloudflare's edge.
+#
+# LISTENS ON LOOPBACK ONLY, exactly like webdesign.uk.nginx beside it. Ingress
+# is the cloudflared tunnel dialling out; ufw default-deny backs it up. Binding
+# 127.0.0.1 means even a firewall mistake exposes nothing.
+#
+# ⚠️ SAME TUNNEL CAVEAT AS webdesign.uk.nginx: do NOT set X-Real-IP from
+# $remote_addr — on this box that is cloudflared's own local connection, not the
+# visitor. The visitor's address arrives as CF-Connecting-IP, already set by
+# Cloudflare's edge, which overwrites anything a client tried to send. Leave it
+# alone and let proxy_pass forward it. The rate-limit zone is keyed on
+# $http_cf_connecting_ip for the same reason: keying on $binary_remote_addr
+# would be ONE GLOBAL BUCKET for every visitor (bugs_open/139's class).
+#
+# ⚠️ THE UPSTREAM IS REACHED OVER WIREGUARD, and it is on the egress allowlist.
+# deployments/kustomize/services/wireguard/base/networkpolicy-wireguard-egress.yaml
+# permits the wireguard pod -> app=admin-dashboard:8080. If that policy is ever
+# narrowed, this vhost fails with a timeout that reads exactly like the
+# dashboard being down. Check the policy before debugging the app.
+#
+# ⚠️ STATIC proxy_pass RESOLVES ONCE, AT NGINX STARTUP — same gotcha as the
+# /c/ and /stripe/webhook blocks next door. If admin-dashboard's ClusterIP
+# changes (service recreated), nginx keeps serving the dead address until it is
+# reloaded. Symptom: sudden total failure with no config change. Fix: reload.
+
+limit_req_zone $http_cf_connecting_ip zone=admin_rl:10m rate=120r/m;
+
+server {
+    listen 127.0.0.1:8083;
+    server_name admin.apis.uk;
+
+    # ── FAIL CLOSED IF CLOUDFLARE ACCESS IS NOT IN FRONT ──────────────────
+    # Access sets Cf-Access-Jwt-Assertion on every request it lets through.
+    # Its ABSENCE means the request did not pass Access — which should be
+    # impossible while the policy exists, so this catches the case that
+    # actually worries us: somebody deletes or misconfigures the Access
+    # application later and the console silently becomes an open admin API.
+    #
+    # BE PRECISE ABOUT WHAT THIS DOES AND DOES NOT PROVE. It proves the header
+    # is PRESENT. It does NOT cryptographically verify the JWT (that needs a
+    # JWKS check against Cloudflare's signing keys, which stock nginx cannot
+    # do). It is therefore a guard against MISCONFIGURATION, not against a
+    # forged header — and a forged header would have to arrive through the
+    # tunnel, which only Cloudflare can dial. Remove this block and you are
+    # relying on the Access policy existing, with nothing to notice if it stops.
+    if ($http_cf_access_jwt_assertion = "") {
+        return 403 "admin console requires Cloudflare Access\n";
+    }
+
+    # Spec editing posts whole JSON documents; the default 1m is too small.
+    client_max_body_size 10m;
+
+    location / {
+        limit_req zone=admin_rl burst=60 nodelay;
+
+        proxy_pass http://admin-dashboard.ai-persona-system.svc.cluster.local:8080;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # deliberately NO X-Real-IP — see the tunnel caveat above.
+
+        # The SPA does not use websockets today, but the API surface has a
+        # websocket endpoint and a future build-steps screen is a likely
+        # consumer. Costs nothing now; avoids a baffling failure later.
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # Regenerating a component or a page is a long LLM round trip. The
+        # default 60s read timeout would cut it and surface as a 504 that
+        # looks like a crash. 300s here; the app is the thing that should
+        # decide when to give up.
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;
+    }
+}

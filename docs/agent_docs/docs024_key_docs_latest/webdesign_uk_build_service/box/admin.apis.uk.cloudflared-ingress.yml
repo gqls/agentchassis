@@ -1,0 +1,21 @@
+# Fragment for the BOX's /etc/cloudflared/config.yml — add the admin hostname.
+#
+# ⚠️ ORDER MATTERS. cloudflared matches ingress rules top to bottom and takes
+# the FIRST match. Put this ABOVE any wildcard or catch-all, or the wildcard
+# swallows it and admin.apis.uk lands on whatever that rule serves.
+#
+# ⚠️ apis.uk ALREADY HAS A PROXIED "*.apis.uk" WILDCARD pointing at the ISLAND's
+# tunnel (features_open/020's traffic probe, live 2026-07-25). That is a DNS
+# record, not a cloudflared rule, and DNS takes the most specific match — so a
+# dedicated CNAME for admin.apis.uk pointing at THIS box's tunnel wins over the
+# wildcard and the probe is undisturbed. Do not delete the wildcard.
+
+ingress:
+  # ── admin console: add THIS, above the existing rules ──
+  - hostname: admin.apis.uk
+    service: http://127.0.0.1:8083
+
+  # ── existing rules below, unchanged ──
+  # - hostname: webdesign.uk
+  #   service: http://127.0.0.1:8080
+  # - service: http_status:404
