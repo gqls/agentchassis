@@ -51,12 +51,32 @@ are built as `blog-post` and target **~1,600 words**, not merely the floor. Buil
 
 | # | Subject | Live source | Inputs | Floor (words) | Dest | Status |
 |---|---|---|---|---|---|---|
-| T1 | Convert a crop's DLI target and photoperiod into required PPFD, fixture load and electrical running cost | /tools/vertical-energy-calc.html | 5 numeric | 439 | | not-started |
+| T1 | Convert a crop's DLI target and photoperiod into required PPFD, fixture load and electrical running cost | /tools/vertical-energy-calc.html | 5 numeric | 439 | | **evidence: part** — 5 ONS non-domestic electricity price facts registered 2026-08-22, all writer_line-scoped to their quarter. Still needs: LED efficacy by fixture class, grid carbon intensity, crop DLI ranges |
 | T2 | Vapour pressure deficit from air temperature, RH and leaf-temperature offset | /tools/vpd-calculator.html | 3 numeric | 517 | | not-started |
 | T3 | Stock-tank dilution to move a reservoir from current EC to target EC without precipitation | /tools/nutrient-dosing.html | 3 numeric + 1 select | 612 | | not-started |
 | T4 | Black soldier fly mass balance: wet waste to larvae, protein, frass, and rearing area | /tools/insect-waste-converter.html | 2 numeric + 1 select | 524 | | not-started |
 | T5 | Macroalgae carbon estimate separating cycling from sequestration, with credit valuation | /tools/seaweed-carbon-est.html | 2 numeric + 1 select | 499 | | not-started |
-| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | | not-started |
+| T6 | Model SFI revenue by stacking compatible actions across a farm's area and boundaries | /tools/elms-calculator.html | 9 numeric + 8 toggles | 801 | | **evidence: part — AND THIS IS A REDESIGN, NOT A REBUILD.** See below |
+
+#### T6 is a redesign, not a rebuild (found 2026-08-22, Phase 2 run 1)
+
+The scheme the existing calculator models has been replaced, and the change is not limited to the
+management payment:
+
+- **The management payment is gone.** *"the SFI management payment has been removed for SFI26
+  agreements"* — gov.uk SFI26 scheme rules. The live calculator pays it as a headline line item.
+- **The action list itself has changed.** SFI26 carries **71 actions, against 102 in SFI24**
+  (registered fact, gov.uk). The live calculator hard-codes eight action codes — SAM1, SAM2, SAM3,
+  IPM1, IPM4, NUM1, HRW1, HRW2 — with rates from the older offer. **Every one of those codes and
+  rates has to be re-sourced against SFI26; none may be carried across.**
+- **Three constraints exist that the calculator does not model at all:** a £100,000 annual
+  agreement value cap, a three-hectare minimum to be eligible to apply, and a limit of 25% of the
+  farm's agricultural area on any combination of limited-area actions. A stacking tool that
+  ignores all three can produce a total the scheme would never pay.
+
+So T6's real work is: re-source the SFI26 action set and rates, then design a tool that models the
+caps as well as the sums. **It needs its own evidence run for the action rates** — the run so far
+covered scheme structure, not the per-action figures.
 
 **Every tool additionally owes:** a Tier-4 headless-Chromium acceptance run, and — per
 `bugs_open/288` — every constant it encodes registered as an evidence fact *and* asserted in the
