@@ -125,6 +125,19 @@ go test ./platform/livespec/ ./platform/orchestration/actions/ -count=1
 `/dev/nvme0n1p2`, not tmpfs (`df` it before relying on either) — that is why the phase-1 runs in NOTES
 are sound. A council seat raised this; it was checked, not argued.
 
+⚠ **A RED `platform/orchestration/actions` SUITE IS PROBABLY NOT YOURS.** Checked 2026-08-22 at the
+end of this session: the shared working tree carried another lane's in-flight change and the package
+panicked with `Expected number of values to match number of columns: expected 5, actual 6` in
+`TestRerenderPageSections_StructuralCarryMakesANotReadySectionRerender` — a sqlmock column-count
+mismatch from the **357 lane** adding `page_components.component_version_id` (RFC_046). That lane also
+has an uncommitted anchor widening in `page_component_divergence_test.go`, a test this lane never
+touched.
+
+**Committed HEAD was GREEN**, verified in a clean `git archive HEAD` extract, and all five of this
+lane's tests passed in the dirty tree too. So before debugging a red suite: run **your** tests by
+name, then extract HEAD and run the failing test there. On this tree a red package is as likely to be
+someone else's half-finished commit as a real regression.
+
 ## 8. Open items, honestly listed
 
 1. **Phase 2** — designed, not built, needs its own council round. The main job.
