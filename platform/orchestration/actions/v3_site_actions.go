@@ -3179,6 +3179,10 @@ func InsertResearchResultAction(ctx context.Context, params ActionParams) (inter
 //   - data_field: path to asset data (URL, base64, or content)
 //   - name_field: path to asset name
 //   - metadata_field: optional path to additional metadata
+//   - update_site_brand_assets: optional bool, default true. When false, the
+//     site-wide sites.content_data.<purpose>_url is left untouched. Only ever
+//     consulted for an asset that IS the site-wide one for its purpose
+//     (asset_key == purpose); a page-scoped asset never writes it regardless.
 func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("StoreAssetAction: Starting",
 		zap.Any("collected_data_keys", datahelpers.GetMapKeys(params.CollectedData)),
@@ -3455,18 +3459,39 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	// copy was measured readerless across Go, live agent_definitions,
 	// workflow_templates and active component templates before removal.
 	if purpose != "" && siteID != nil {
-		// Generate paths using storage package helper (use correct extension for purpose)
-		_, _, _, purposeExt := storage.GetImageConfig(purpose)
-		paths := storage.BuildAssetPaths(purpose, purposeExt)
+		// bugs_open/114: sites.content_data.<purpose>_url is SITE-WIDE brand
+		// state, and a page-scoped asset is not a site-wide fact. Writing it on
+		// every store made each page-scoped generation overwrite the site default
+		// with a path derived from the purpose — measured 2026-08-22 as 18 sites
+		// carrying an identical hero_url, 6 carrying content_hero.jpg (404 on all
+		// six, and a filename the deployer cannot produce), and one site's
+		// hand-repair silently undone by the next generation.
+		//
+		// Two conditions, both required:
+		//   1. the asset IS the site-wide one for its purpose (asset_key == purpose);
+		//   2. the caller has not declared update_site_brand_assets: false.
+		// The second existed in workflow config from the start — image-build-handler's
+		// imagery store step has passed false since it was written — and no Go code
+		// read it, so the workflow's own instruction was silently discarded.
+		deployedURL, writeSiteWide := storeAssetContentDataUpdate(assetKey, purpose, config)
 
-		// Store relative URL for templates
-		updateContentDataField(ctx, params.DB, *siteID, purpose+"_url", paths.RelativeURL, params.Logger)
-		params.CollectedData[purpose+"_url"] = paths.RelativeURL
+		if writeSiteWide {
+			updateContentDataField(ctx, params.DB, *siteID, purpose+"_url", deployedURL, params.Logger)
+			params.Logger.Info("StoreAssetAction: Updated content_data for purpose",
+				zap.String("purpose", purpose),
+				zap.String("asset_key", assetKey),
+				zap.String("storage_uri", storageURI),
+				zap.String("relative_url", deployedURL))
+		} else {
+			params.Logger.Info("StoreAssetAction: Left site-wide content_data untouched",
+				zap.String("purpose", purpose),
+				zap.String("asset_key", assetKey),
+				zap.String("relative_url", deployedURL))
+		}
 
-		params.Logger.Info("StoreAssetAction: Updated content_data for purpose",
-			zap.String("purpose", purpose),
-			zap.String("storage_uri", storageURI),
-			zap.String("relative_url", paths.RelativeURL))
+		// The in-run copy is per-asset, not site-wide, so it is written either
+		// way — and it now names this asset's own deployed path.
+		params.CollectedData[purpose+"_url"] = deployedURL
 	}
 
 	params.Logger.Info("StoreAssetAction: Asset stored",
@@ -3484,12 +3509,12 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 		"asset_url":  assetURL,
 	}
 
-	// Add purpose-specific fields if set
+	// Add purpose-specific fields if set. Same derivation as the collected_data
+	// copy above: this asset's own deployed path, not the purpose's generic one.
 	if purpose != "" {
 		result["purpose"] = purpose
-		_, _, _, purposeExt := storage.GetImageConfig(purpose)
-		paths := storage.BuildAssetPaths(purpose, purposeExt)
-		result[purpose+"_url"] = paths.RelativeURL
+		resultURL, _ := storeAssetContentDataUpdate(assetKey, purpose, config)
+		result[purpose+"_url"] = resultURL
 	}
 
 	// Add storage URI to result for downstream deploy step
@@ -3499,6 +3524,58 @@ func StoreAssetAction(ctx context.Context, params ActionParams) (interface{}, er
 	}
 
 	return result, nil
+}
+
+// writesSiteBrandState reports whether a store_asset call may write the
+// site-wide sites.content_data.<purpose>_url.
+//
+// Two conditions, both required (bugs_open/114):
+//
+//  1. the asset IS the site-wide one for its purpose. asset_key defaults to
+//     purpose, so a canonical brand asset satisfies this without asking for it,
+//     while a page-scoped variant (hero_about, content_hero_tool_repayment)
+//     never can. Site-wide brand state is not a per-page fact, and writing it
+//     per page is last-write-wins across pages that have nothing to do with
+//     each other.
+//  2. the caller has not switched it off. update_site_brand_assets has been in
+//     workflow config since image-build-handler was written and no Go code read
+//     it, so a step that explicitly asked not to touch brand state touched it
+//     anyway. Absent means true, which is what every existing caller relies on.
+//
+// It returns the URL as well as the decision, and the two travel together on
+// purpose. The first cut of this fix returned only the boolean and left the
+// derivation inline at the call site; a mutation reverting that line to the old
+// purpose-derived BuildAssetPaths then PASSED the whole suite, because the
+// accompanying test exercised storage.DeployedWebPath directly and never the
+// action's use of it. A helper the action must call for both answers is what
+// makes the derivation mutation-provable — see TestStoreAssetContentDataUpdate.
+func storeAssetContentDataUpdate(assetKey, purpose string, config map[string]interface{}) (url string, writeSiteWide bool) {
+	// The deployer's own derivation (deploy_image_asset → storage.DeployedAssetPath),
+	// so the value recorded here and the file committed to the repo cannot disagree.
+	url = storage.DeployedWebPath(assetKey, purpose)
+
+	// An explicit declaration wins in both directions. The key was already on
+	// every live step when this fix was written — six say true, two say false —
+	// and the two saying false are exactly the page-scoped ones. Honouring it is
+	// most of the fix.
+	//
+	// It has to win in the TRUE direction too, and that is not a formality: the
+	// brand-update branch files items with purpose=hero and asset_key=hero_home
+	// (10 such items on the live fleet, measured 2026-08-22). Those are a
+	// deliberate "this asset is the site's hero", so they must still write — and
+	// now they write /assets/images/hero-home.jpg, the file that actually exists,
+	// instead of the hero.jpg that did not. That is the repair one site was given
+	// by hand on 2026-07-29 and then silently lost, expressed as a rule.
+	if declared, ok := config["update_site_brand_assets"].(bool); ok {
+		return url, declared
+	}
+
+	// Undeclared: write only for the site-wide asset of its purpose. asset_key
+	// defaults to purpose, so a canonical brand store satisfies this without
+	// asking, while a page-scoped variant (hero_about, content_hero_tool_repayment)
+	// never can. This is the arm that stops a future caller re-opening the hole
+	// by simply not mentioning the key.
+	return url, assetKey == purpose
 }
 
 // updateContentDataField updates a single field in sites.content_data
