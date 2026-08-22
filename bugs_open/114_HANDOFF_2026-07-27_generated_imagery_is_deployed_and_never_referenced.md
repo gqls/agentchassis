@@ -571,9 +571,15 @@ exactly this bug's symptom — the two were indistinguishable after the fact.
   nothing consumes the report. **That belongs to 230's lane**; recorded here because it is
   why a one-shot generation never converges, and it is the argument for making convergence
   event-driven rather than sweep-driven.
-- **`check_undeployed_assets.go:289-305`** matches `rendered_html` against the underscored
-  purpose (`content_hero.`/`content_hero-`) while deployed files carry the hyphenated key
-  (`content-hero-tool-x.jpg`). `[UNVERIFIED]` — one query owed before filing.
+- ~~**`check_undeployed_assets.go:289-305`** matches `rendered_html` against the underscored
+  purpose while deployed files carry the hyphenated key.~~ **REFUTED 2026-08-22, same day,
+  before it was acted on.** In SQL `LIKE`, `_` is a single-character wildcard, so
+  `content_hero-%` matches `content-hero-tool-x.jpg`. Both predicates return **31** over
+  deployed `page_components` — the check sees them. The function carries a comment saying
+  the pattern *"is deliberately left unescaped"* and to read the file header before
+  changing it; I quoted the query under that line without reading the header it points at.
+  Recorded rather than deleted because the `[UNVERIFIED]` marker is what made it get
+  checked instead of filed.
 - **Owner decisions, unasked as yet:** widening `check_content_image_missing`'s surface to
   `page_type='content'` (fleet-wide generation spend); and the disposition of the five
   parked rows whose pages resolve no sections.

@@ -192,3 +192,48 @@ occurrence is a grep, not a dead end.
 2. After the roll: pod-verify per service, then the held repair migration for the 18 sites.
 3. Part 2 — the entity link at generation + event-driven DERIVE filing.
 4. Part 3 — the flag-only detection check; queue hygiene for the 8 parked rows.
+
+---
+
+## 2026-08-22 (later still) — my "adjacent defect" in `check_undeployed_assets` is REFUTED, by the comment sitting on the function
+
+I recorded, marked `[UNVERIFIED]`, that `check_undeployed_assets.go:289-305` matches
+`rendered_html` against the **underscored purpose** (`content_hero.` / `content_hero-`)
+while deployed files carry the **hyphenated key** (`content-hero-tool-x.jpg`), and that
+the check therefore cannot see a content hero as deployed.
+
+**It is wrong. In SQL `LIKE`, `_` is a single-character wildcard.** So
+`'%/assets/images/content_hero-%'` matches `/assets/images/content-hero-tool-x.jpg` —
+the underscore matches the hyphen. Measured, both predicates over deployed
+`page_components`:
+
+```
+LIKE '%/assets/images/content-hero-%'                                        -> 31
+LIKE '%/assets/images/content_hero.%' OR LIKE '%…/content_hero-%'  (the check) -> 31
+```
+
+Identical. The check sees them.
+
+**And the code says so.** Immediately above the query:
+
+> *"The `LIKE … || purpose || …` pattern is deliberately left unescaped. Read the
+> LANDMINE section of the file header before changing it."*
+
+I read that line, quoted the query underneath it, and did not read the header it points
+at. The unescaped underscore is a deliberate design decision, not an oversight, and the
+comment exists precisely to stop somebody "fixing" it.
+
+**What saved this from becoming a filed bug** was the `[UNVERIFIED]` marker and the note
+that it "needs one query before filing". That is the marker rule doing exactly its job:
+the claim was written in a form that made it obvious it had not been checked, so checking
+it was the natural next step rather than an afterthought. Had I written it unmarked, in
+the same voice as the measured findings around it, it would have gone into the bug file
+as a finding and cost the next reader a wasted investigation.
+
+**The check:** when a comment on the code you are about to criticise tells you to read
+something first, read it — that comment is usually the previous person who thought what
+you are thinking. And for SQL specifically: `_` and `%` are wildcards in `LIKE`, so a
+pattern built by concatenating an identifier that contains `_` is not doing string
+equality on that identifier.
+
+Corrected in the bug file too. → `WRONG_CALLS.md`.

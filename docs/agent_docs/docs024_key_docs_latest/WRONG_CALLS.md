@@ -43718,3 +43718,54 @@ reference (`8664a7f96`), not to commit **their** three files. Committing their w
 mistake would have taken a whole feature under my message, and the dependency chain did not stop
 at three files. A comment left in place tells that session what happened and that their design is
 intact. **Repairing a shared-tree mistake must not enlarge its blast radius.**
+
+---
+
+## 2026-08-22 — I called a SQL `LIKE` pattern a bug because I forgot `_` is a wildcard, under a comment telling me not to (bugs_open/114 lane)
+
+**The claim.** Reading `check_undeployed_assets.go`, I noted that its "is this asset
+referenced by a deployed page?" test matches against the **underscored purpose** —
+
+```sql
+pc.rendered_html LIKE '%/assets/images/' || COALESCE(a.purpose,'') || '.%'
+OR pc.rendered_html LIKE '%/assets/images/' || COALESCE(a.purpose,'') || '-%'
+```
+
+— while the deployed filenames carry the **hyphenated asset key**
+(`content-hero-tool-repayment.jpg`, per `AssetKeyFilename`'s `_`→`-` rule). I wrote that
+the check therefore cannot see any content hero as deployed, i.e. 94 assets permanently
+mis-classified.
+
+**It is wrong, and the reason is elementary. In `LIKE`, `_` matches any single
+character.** `'%/assets/images/content_hero-%'` matches
+`/assets/images/content-hero-tool-repayment.jpg` because the `_` matches the `-`.
+Measured over deployed `page_components`: the hyphenated search returns **31**, the
+check's own predicate returns **31**. Identical.
+
+**The comment I read and did not follow.** Directly above the query:
+
+> *"The `LIKE … || purpose || …` pattern is deliberately left unescaped. Read the LANDMINE
+> section of the file header before changing it."*
+
+I quoted the query sitting underneath that sentence and never opened the header it points
+at. **A comment telling you to read something before changing the code is usually the last
+person who thought exactly what you are thinking.**
+
+**What stopped it becoming a filed bug: the `[UNVERIFIED]` marker.** I wrote it into my
+lane notes tagged `[UNVERIFIED] — needs one query before filing`, and into the bug file's
+"still open" list in the same hedged form. That is the whole value of the marker rule —
+not that it labels uncertainty for the reader, but that it leaves the claim in a shape
+where *checking it* is the obvious next move rather than an afterthought. Written unmarked,
+in the same voice as the measured findings surrounding it, it would have shipped as a
+finding and cost the next reader an investigation into a check that works fine.
+
+**The checks, both cheap.** (1) Before asserting a `LIKE` pattern is wrong, remember it is
+a pattern: `_` and `%` are wildcards, so concatenating an identifier containing `_` is not
+string equality. Run the two predicates side by side and compare counts — one query. (2)
+When the code you are about to criticise carries a "read X before changing this" comment,
+read X first.
+
+**Related in kind:** the schema-nesting entry above from the same session — both are
+"my probe measured something other than what I thought it measured", and both produced a
+confident negative rather than an error.
+
