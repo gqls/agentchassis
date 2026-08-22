@@ -224,3 +224,36 @@ withdrawn the question I'd sent to the people who own that guard, and logged the
 Nothing has changed about the three pages you originally complained about. That still needs the
 wording in that site's own instructions to be changed, which is a decision for whoever owns that
 site, not something the check will ever do on its own.
+
+Evening, after the new release went out. First thing I did was check the release had not undone us:
+a deploy writes to the same configuration table our fix lives in, and if it had been reset the check
+would have gone quietly back to being useless with nothing to show it. It had not — I read both
+settings back off the live system, and asked the running software itself, on both servers, whether it
+still contains the code. It does.
+
+Then I did the one job still on our list. When this change was reviewed, the panel left a note asking
+us to move a small piece of shared logic somewhere reusable, and to look at the other places doing the
+same thing rather than move just one. Doing the looking changed the answer. It turns out the platform
+already has a much better way of noticing a cut-off answer — the AI provider tells us directly — so
+rather than build a rival, I wrote the new helper as a clearly-labelled fallback for the two
+situations where that signal is not available, and said so in its documentation so nobody reaches for
+the worse one. The review panel approved it first time, all reviewers.
+
+One reviewer made a fair criticism: I had written that a problem I found in someone else's tool was
+"reported to them", and that is not a real thing — nothing tracked it, so it would have evaporated.
+I have filed it properly now.
+
+I also caught an error of my own about ten minutes after submitting the work, and I caught it by
+writing the documentation entry. Describing how my change related to a neighbouring one forced me to
+read the neighbour, and the neighbour showed I had been comparing against the wrong number — the
+limit we asked for rather than the limit actually applied. Harmless on the AI provider we use, but
+wrong, and now fixed. Worth saying because writing things up is usually treated as the chore after
+the work; this time it was the thing that found the bug.
+
+Your three pages are still as they were. But something changed today that matters for them: until
+this morning, rebuilding those pages would have looked like it worked and changed nothing. Now a
+rebuild would genuinely fix six of the seven bits of copy involved, including both sentences you
+quoted at me. The seventh is the tagline, which comes from that site's own written instructions and
+needs a decision from you rather than a fix from me. I have not rebuilt them yet, and deliberately:
+another thread is in the middle of repairing that site's factual claims today, and a rebuild fired
+now would most likely fail on that rather than on anything to do with copy.
