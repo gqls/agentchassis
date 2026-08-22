@@ -1,4 +1,8 @@
-# HANDOFF — 2026-08-22. `083` is CLOSED, the backfill is delivered as **3 of 27 with the other 24 refused on measured grounds**, and `bugs_open/357` is filed for the nine that must never be backfilled
+# HANDOFF — 2026-08-22. **THE LANE IS CLOSED.** `083` and `277` are both in `bugs_closed/`; the successor is `bugs_open/357`
+
+> **If you are picking this up cold: there is no work left in this lane.** Go to `bugs_open/357`
+> (nine tool pages mislabelled as `hero` components — cause UNVERIFIABLE, precedent to copy named)
+> or read `SUMMARY_2026-08-22_lane_closed.md` for the whole arc. Everything below is the closing state.
 
 **Supersedes `HANDOFF_2026-08-21_continue_here.md`** (which superseded 08-20b). Read this from disk,
 then `NOTES_required_fields_repair.md` from the bottom — the 2026-08-22 entry has the full working.
@@ -17,10 +21,10 @@ then `NOTES_required_fields_repair.md` from the bottom — the 2026-08-22 entry 
 | thread | state |
 |---|---|
 | **`bugs_open/083`** | **CLOSED 2026-08-22 → `bugs_closed/`** (owner instruction, day 5 of the 7-day soak). Verified at HEAD by slug. Carries three caveats: `479`'s reclaim arm has never fired (7/0, live+archive), 41 of 42 still-`detected` rows have **no handler at all** (that is `149`/`114`/`236`, not 083), and the two-strike re-route trap is invisible to 083's own instruments |
-| **`bugs_open/277`** | clause 1 MET and proven; **the backfill is done to the limit the data permits** (§1). 17 of 27 stay parked, 9 of them permanently unless `357` is fixed. What remains is a **decision about re-rendering**, not a data-recovery gap |
-| **`bugs_open/357`** | **FILED today** — a whole tool page stored in a slot claiming to be the shared `hero` component. 9 rows, 2 sites, one as recent as 08-08. Root cause deliberately NOT asserted; in the loop as `63d4d1a7-ffec-4570-866b-8a0a41e3c69d` |
+| **`bugs_open/277`** | **CLOSED 2026-08-22 → `bugs_closed/`** (owner ruling). Router live and classifying everything; both repair shapes proven at the served bytes; the `no_content_data` repair built, APPROVED (`cd8e555d` r1) and applied. **24 of 27 rows stay parked** — 15 blocked by vanished templates (a decision about re-rendering, ruled not-now), 9 in `357`. ⚠ the file's §9 says "17 of 27"; the arithmetic is 24, corrected visibly in the close |
+| **`bugs_open/357`** | **FILED today — THE SUCCESSOR.** A whole tool page stored in a slot claiming to be the shared `hero` component. 9 rows, 2 sites, one as recent as 08-08. Diagnosis `63d4d1a7` returned **UNVERIFIABLE** ("scope-not-narrowing") — neither confirmed nor refuted, recorded as such. Two of its three gaps are closed in the file; the third (which writer) is narrowed to six writers + one labelled lead. **A live proven precedent exists** (`loancalculator_couk/decompose`) — read it before writing anything |
 | `530`/`531` | done — APPROVED r1 (`c00fbfd8`), advisories answered |
-| `540` + CQ-029 | applied; council **`cd8e555d`** submitted, verdict pending at the time of writing |
+| `540` + CQ-029 | applied; council **`cd8e555d`** **APPROVED r1** — all six objections answered by checking, and the guardian's was RIGHT (540 was already claimed by another lane; cosmetic, the ledger keys on filename). See NOTES §5 and the RUNBOOK's new section on this lane's migrations being absent from `schema_migrations` |
 
 ---
 
@@ -56,19 +60,18 @@ about pages, not a data-recovery question** — see §3.
   hand-flip it**. (b) The daily `review-queue-revalidate-daily` pass should stop reporting *"carries
   no content_data"* for the three rows `540` wrote.
 
-## 3. THE ONE DECISION LEFT IN THIS LANE
+## 3. THE DECISION THAT CLOSED 277 — recorded, so it is not re-litigated
 
-**Do the 15 drift-blocked components get re-rendered?** Recovering their data is impossible (the
-templates that made their bytes are gone), so the only route to a rebuildable state is to let the
-CURRENT template render them — which changes what those pages serve. That is a deliberate content
-change on 4 sites and is the owner's call, not a session's. Everything needed to decide is in
-`bugs_open/277` §8–§9.
-
-If the answer is no, **277 can close**: routing delivered, clause 1 proven, the repairable subset
-repaired, and the residual split into a filed defect (`357`) and a stated, costed decision.
+**"Do the 15 drift-blocked components get re-rendered?"** — the owner's answer, by closing 277 on
+2026-08-22, is **not now**. Recovering their data is impossible (the templates that made their bytes
+are gone), so the only route to a rebuildable state is letting the CURRENT template render them, which
+changes what four sites serve. They serve correctly today and stay as they are. The costing is in
+`bugs_closed/277` §8.4/§8.5 if anyone reopens it.
 
 ## 4. Session-start checklist
 `git log --oneline -10` · re-read this from disk · `scripts/who-owns.py` by slug for `277`, `357` ·
 chassis stamp + `git merge-base --is-ancestor` for anything you think shipped ·
 `SELECT status, count(*) FROM site_work_items WHERE item_type='required_fields_missing' GROUP BY 1;`
-(30 parked at the time of writing; 3 of them should retract on the next revalidator pass) · then §2.
+(30 parked at close; 3 of them should retract on the next `review-queue-revalidate-daily` pass — a
+disconfirmable prediction, ~16:01Z daily) · then §2. **If §2 is empty, this lane is finished; go to
+`bugs_open/357`.**
