@@ -224,3 +224,65 @@ mislabelled at birth.
 page-composition path flows through"*, and already carrying a precedent guard
 (`sectionIsUnresolvableStub`, `bugs_open/039`) that refuses a bad row, raises a typed work item and
 continues. That is the seam, and the precedent is the shape.
+
+---
+
+## 2026-08-22 — COUNCIL ROUND 1: **REVISE**, and checking the gating objection found a defect in my plan worse than the objection
+
+Trail `62aac6c2-996f-4b5d-8f8f-72e3daf4c82e`. 13 reviewers, 4 abstained, gated by `bug_historian`.
+
+### The finding that resized the submission — mine, not theirs, but theirs is why I looked
+
+`bug_historian` (HIGH, edit 1) asked whether the honest-unknown degrade path had been tested against
+the Layer 2 carry-forward, reasoning that if carry-forward decides protection *by inspecting the
+component/template*, a re-typed row might stop qualifying.
+
+**Its stated mechanism is wrong**, and that is checkable in one read: Layer 2's PROTECTION keys
+purely on the bytes — `interactiveHTMLSQL(col)` is `ILIKE` over markers on `rendered_html` (:1698),
+`sectionHTMLIsInteractive(html)` is `strings.Contains` over the same markers (:1677). Neither reads
+`component_id`, `slot_name` or a template. Re-typing cannot remove Layer 2 protection.
+
+**But the question was the right one**, because Layer 2's **MATCHING** is:
+
+```go
+for i := range sections {
+    if sections[i].ComponentName == p.slot { matchedIdx = i; break }   // :517 — slot NAME, and nothing else
+}
+```
+
+Rename the stored slot to `adopted-fragment` while an incoming plan-driven section set still names
+`hero`, and the match fails. Control falls to `default:` — *"Slot dropped entirely — re-append the
+tool so it survives"* — which **appends** the tool as an extra section while the incoming hero title
+band is **also** saved. **The page gains a hero band and the tool moves position.**
+
+> **So my "byte-preserving re-type" would have changed what 22 live pages serve**, on four sites,
+> as a side effect of a change I described in the submission as preserving bytes exactly. It needs
+> `pages.sections` updated in the same transaction, or identity-agnostic matching — and either is
+> its own round with its own measurement.
+
+That is the second time today the estate's protective machinery has been the thing I mis-modelled
+(the first is the correction above). **The pattern to carry: a mechanism that preserves BYTES may
+still key its decisions on IDENTITY, and those are different questions.**
+
+### Round 2: withdrawn, kept, and answered
+
+**Withdrawn** — Layer A (fallback typing), the `adopted-fragment` seed, the positional-enrichment
+narrowing. All three change what is persisted, and all three are blocked on the slot-matching
+question above. This also answers `guardian`'s three objections (unconditional changes, three
+simultaneous change vectors on the busiest save path) without argument.
+
+**Kept** — the seam guard (record-only; refusal behind an opt-in seeded on nobody), the detector, the
+register entry, the tests. None changes any persisted output.
+
+**Objections answered by checking:**
+
+| seat | objection | what the check said |
+|---|---|---|
+| `prior_art` | is `adopted-fragment` dormant-machinery duplication? | **No.** `SELECT name FROM content_components WHERE regexp_replace(html_template,'\s','','g') ~ '^\{\{\.?[A-Za-z_]+\}\}$'` → **0 rows**. No byte-preserving passthrough exists |
+| `prior_art`, `reuse_agent` | is the claimed inline duplication real? | **Yes** — `dataComponentRe := regexp.MustCompile(...)` at **:1392 AND :1498**, byte-identical, used at :1427/:1463/:1509. Both deleted and repointed; `grep -c 'dataComponentRe :='` must read 0 after |
+| `editquality` | does `ON CONFLICT` protect idempotency? | **Yes** — `content_components_name_key` UNIQUE on `(name)` exists |
+| `architecture` | state the optional-key count before adding the Nth key | **It cannot be read, and that IS the finding.** The audit covers 123 actions against N=10 and lists **99 more as `uncounted`** — `save_page_sections` is one of them (no `RegisterActionInputSpec`), so a new key enters counted as ZERO. The `retract_asset_files`/`publish_site` trap exactly |
+| `tooling_provenance` | do not hand-edit the concept index count | **Correct.** Stored counts are RETIRED; the checker reads only the first 4,000 bytes and its own line says *"any that reappears is the finding"*. CLAUDE.md's "update the index count" is the anti-pattern here. Row added, headline untouched, two-way `comm` parity run instead |
+| `bug_historian` | Layer D is detection-only at five other writers | **Accepted as residual exposure, not closed.** Named in the submission |
+
+Round 2 dispatched on the same trail (`RESUBMIT_CORR`), run envelope `3ad2cff2`.
