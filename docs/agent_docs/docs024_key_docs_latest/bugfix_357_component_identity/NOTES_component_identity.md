@@ -131,3 +131,57 @@ while pointing at three files): intake `f7aedef7-0bee-4c68-8cde-c86ac552e3e2`,
 **`RUN_CORRELATION_ID=e580b34a-d284-4f80-ac96-81af1c4adaba`**. It is asked the one thing the row
 fingerprints cannot settle: which leg pairs a genuine hero `content_data` with the tool's bytes,
 since the `saveSectionsExtractFromHTML` fallback sets no `ContentData` at all.
+
+---
+
+## 2026-08-22 (later) — ⚠ CORRECTION: I published "already armed" and it is REFUTED. The rerender is the AUTHOR, not the threat.
+
+Recorded here in full because the correction is more useful than the finding it replaces.
+
+**What I wrote** (in `bugs_open/357` §3, and said to the owner): the 13 rows with a complete hero
+`content_data` are one rebuild away from having the tool replaced by a title band.
+
+**What refutes it.** `vetcomparison.uk` `index` has **six completed `page_rerender_index_…` items
+between 08-19 and 08-22** and the tool still serves. Then the timestamps:
+
+```
+rerender item   created 2026-08-22 08:44:51 → completed 08:50:19
+all 4 page_components rows on the page       created 08:50:12
+```
+
+The rows were written **inside** the rerender window. `RerenderPageSectionsAction` DELETEs and
+re-INSERTs; it carried the tool HTML forward and re-attached the hero identity and hero
+`content_data`. **The rerender re-mints the mismatch on every pass.**
+
+**Three failures, worth separating:**
+
+1. **Imported a mechanism from an adjacent bug without testing its reach.** `ContentDataCanFillTemplate`
+   is 277's arming mechanism. Its only non-test caller is
+   `discovery_checks/check_literal_markdown.go:429` — a **detector's classifier**, not a rebuild
+   gate. I ran that grep, saw "one caller", and went looking for the rebuild path anyway with the
+   conclusion already formed.
+2. **Predicted a codepath's behaviour instead of looking for its output.** The prediction was
+   defensible from source. The system had already run the experiment six times and written the
+   answer into `site_work_items`.
+3. **Read `updated_at = created_at` as history.** I had it in these NOTES as "born wrong, never
+   touched since". It means the opposite — this writer re-inserts rather than updates, so every row
+   is *newly* born, repeatedly. **A column equal to its sibling is evidence about the WRITER's
+   method, not about stillness.**
+
+**What survives unchanged:** the identity/bytes disagreement on 22 rows; `save_page_sections` as the
+writer; hero planned first on all 22; the positional enrichment in `enrichSectionsWithPlannedNames`;
+the `data-component` predicate and its 1,550/0/27 census.
+
+**What this changes about the fix:** the population is **self-renewing**, so stock repair without a
+flow fix is wasted — the next rerender reproduces it. Flow before stock, and any repair needs a
+re-check *after* a subsequent rerender, not just after the repair.
+
+**STILL OPEN, assumed in neither direction:** whether a full page rebuild *through the writer*
+(rather than a rerender) renders the hero template over the tool. Rerender demonstrably does not.
+
+**Also established while checking this** (`rerender_page_sections_action.go`): the content pre-check
+at ~380–445 exempts self-contained tools via `isSelfContainedSection` (~1270), keyed on
+`component_level=='tool'` **and** an empty `input_schema`. `hero` is `component_level='section'`
+**with** a schema [MEASURED], so the exemption never fires for these rows — they are processed as
+ordinary sections end to end. That is the seam where a tool-shaped payload could be recognised and
+is not.
