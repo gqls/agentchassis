@@ -1053,3 +1053,29 @@ unconverted page; a person redesigns the preview or hand-writes the template.
 
 Moot parked items for the retired/reborn automation-savings rows cancelled (2). Remaining
 open: LMC pair (window to ~midday), aria-builder (human), then 283 closes.
+
+## 2026-08-22 (session 9, midday) — LMC pair: a messy but contained hour. Consolidation REBUILT (new row, born converted); my un-arm broke another lane (owned, attributed); tracker rerouted through the section door.
+
+**Round-1 LMC failures, both mine:** consolidation's incumbent had an EMPTY display_name (the
+seed mapped spec.name from it → required-field failure); application-tracker is
+**SECTION-level** — the add_tool door was wrong (its page is live as page_type=content and the
+page-role guard rightly refused to re-type it). Rerouted: tracker → needs_new_component
+(component-creator regen, item `rebuild_section_loans-application-tracker`).
+
+**Consolidation round 2 SUCCEEDED but not as a regen**: `sanitiseFunction` prefixed the
+function to `tool-loans-consolidation`, the per-site probe missed the incumbent, the CREATE
+path ran and — `adopt_existing_page` standing — adopted the live owned page, leaving **TWO
+deployed tool slots** (the exact hazard the regen path exists to prevent; the placement
+INSERT's ON CONFLICT cannot see a DIFFERENT component's slot at the same position). CONTAINED
+same hour: old slot tombstoned, old row 3efd4989 deactivated; ONE slot serves (new row
+`aacde020`, function `tool-loans-consolidation`, CONVERTED AT BIRTH by the armed guard).
+section_edit delivery seeded. ⚠ the OLD function name dies with the old row — the oracle
+rewrite must target the NEW markup AND the sweep never sees the retired row.
+
+**The `adopt_existing_page` resurrection was NOT a mystery — it was my incident** (WRONG_CALLS
+2026-08-22 + CONTRIB into webdesign_tool_rebuilds): the flag was STANDING since THEIR
+migration 435 (2026-08-16); my 08-21 "arm" was a no-op on an already-true key, my bare-UPDATE
+"un-arm" removed THEIR production config (no snapshot, no ledger, no provenance grep), their
+Phase C build died on it at 11:28Z today, and their migration 558 restored it blind
+("nobody's"). Attribution + apology filed; 558 stands; the SQL_2026-08-21 file's un-arm
+instruction is hereby VOID — the flag is theirs.
