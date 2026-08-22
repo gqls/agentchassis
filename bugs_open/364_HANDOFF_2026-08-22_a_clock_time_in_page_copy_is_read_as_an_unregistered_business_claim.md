@@ -110,6 +110,18 @@ WHERE error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'
 ORDER BY occurred_at DESC LIMIT 1;
 ```
 
+## 6b. Council verdict — APPROVED (read 2026-08-22)
+
+`Council-Reviewed: 39d04868-6ce3-472f-a976-49cd387a7860` — *"COUNCIL GATE — APPROVED — all
+reviewers approve (round 1)"*.
+
+⚠ **Coverage gap, named rather than hidden.** The fix was committed BEFORE the submission was
+fired, so that commit carries neither `Council-Reviewed:` nor `Council-Submitted:` and will list as
+un-reviewed in the `098` report. Forward-only forbids an amend. The trailer is on the commit that
+adds this section instead, which records the verdict but does not retroactively credit the commit
+that holds the code. The lesson is the ordering, not the trailer: **submit before or alongside the
+commit**, which is exactly what CLAUDE.md's `Council-Submitted:` trailer exists for.
+
 ## 7. Relations
 
 - `bugs_closed/073` (same regex, previous unit), `bugs_closed/102` (page-type gate),
