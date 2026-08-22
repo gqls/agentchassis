@@ -195,3 +195,106 @@ dockerfile works. Both acks files the sibling images `COPY --from=builder` exist
 committed `HEAD` (`git cat-file -e HEAD:<path>`), which is the specific way these
 builds fail — `ref_build` archives `HEAD`, so a working-tree-only acks file would break
 the build for everyone else and not for the author.
+
+---
+
+## 2026-08-22 — the gate is built, and the council APPROVED it round 1
+
+Submitted `83442a5a-e66d-4772-8872-b445f521d47b` (`DRY_RUN=1` first, so admission cost
+nothing). Verdict **approved, 3 advisory objections, none high**, in about 25 minutes.
+
+**⚠ Read the verdict the safe way.** CLAUDE.md's recipe
+(`doc_notes … ORDER BY created_at DESC LIMIT 1`) returns whoever finished last, which
+with ~40 live sessions is routinely someone else's round — there is a LANDMINE about it
+from this morning. Key on the correlation instead:
+
+```sql
+SELECT metadata->>'decision', body FROM diagnosis_artifacts
+ WHERE correlation_id='83442a5a-…' AND kind='council_report';
+```
+
+### The two objections that were worth CODE, not a reply
+
+**`bug_historian` (medium) — and it was right.** `firstImage()` stopped at the FIRST
+element of an overlay's `images:` block, inheriting the shell gate's `awk … exit`. If an
+overlay pins two images and OURS is the second, the scan produced no `Pin` and the gate
+could never flag it. That is **this fix reproducing, in miniature, the exact shape it
+exists to close** — a check reporting clean about the thing it never looked at.
+
+Measured before acting `[MEASURED 2026-08-22]`: **no kustomization anywhere under
+`deployments/` has more than one element**, so the gap was LATENT rather than live. The
+cap is now **gone rather than warned about** — `blockImages()` returns every element with
+its own tag — because a cap that is safe only because of today's data is the wrong kind
+of safe, and a warning surface would have been the worse answer. T9 is the seat's own
+missing fixture.
+
+**`editquality` (medium).** It asked whether `RETAG_EXEMPT` is really declared today,
+since requiring it risks a self-inflicted "could not run" on day one. It is — the live
+gate parses and runs green, which is the proof — **but the objection was right about the
+RULE rather than the fact.** `RETAG_EXEMPT` is a CLEARING list exactly like
+`OWN_LINEAGE`, and this package's own argument for `OWN_LINEAGE` being optional applies
+word for word. Both clearing lists are now optional; only the two JUDGING lists are
+required. The new test pins the direction that makes it safe: dropping `RETAG_EXEMPT`
+**exposes** what it cleared rather than clearing anything.
+
+### The objections that were answered with a query rather than a change
+
+**`prior_art_librarian` (medium ×2) — "these precedents are asserted, not checked".**
+Fair: I had read all four, and the submission did not attach the check. `[MEASURED]`
+
+```
+cmd/regcheck/main.go                                    exists
+cmd/config-key-audit/cron_parity_test.go                exists
+cmd/config-key-audit/optional_budget_cron_parity_test.go exists
+scripts/council-scope.sh:57  COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/'
+```
+
+The scoping claim is verbatim. `grep -c "kustomiz\|overlays\|images:" cmd/regcheck/main.go`
+→ **0**, so it is a naming/shape precedent only, which is what was claimed.
+
+**`reuse_agent` (medium) — "does `95757b6c2`'s derivation already parse this list?"**
+No. The change is `build-backend: $(addprefix build-,$(RELEASE_IMAGES))` — **make
+expanding its own variable**, with no parsing of any kind. There is nothing to reuse.
+And `grep -rln kustomization --include=*.go .` returns **only** `pkg/releaseset`; the two
+Go files matching `images:` are a prose comment about reference images and a JavaScript
+object literal in an injected snippet. `pkg/releaseset/overlays.go` is the estate's only
+Go reader of a kustomize `images:` block.
+
+**`guardian` (medium ×2) — behaviour change on the single release choke point, and
+`OWN_LINEAGE` completeness "unknown until the gate was built".** The second has a direct
+answer the seat could not have had: the gate enumerates the **whole filesystem**, so its
+first green run over 31 our-registry overlays **is** the completeness check — any other
+out-of-band overlay would have been named in the same breath as `admin-dashboard`. The
+first is real and is the owner's to watch: the first release under this gate should be
+run with someone reading the output. Recorded, not argued away.
+
+### The six mutation controls, re-run after the refactor (copied tree, never the live file)
+
+| mutation | exit | finding |
+|---|---|---|
+| verbatim copy | 0 | — |
+| `agent-chassis` out of `AGENT_DEPLOY_SERVICES` | 1 | `NO RELEASE PATH: agent-chassis` (**reproduces the original 237 bug state**) |
+| `content-loss-check` out of `RELEASE_IMAGES` | 1 | `OUR IMAGE, NO RELEASE BUILDS IT` (**the shape the old gate passed**) |
+| `OWN_LINEAGE` emptied | 1 | names `admin-dashboard` |
+| `OWN_LINEAGE` entry with no target | 1 | `EXEMPTION NAMES NO RETAG TARGET` |
+| `RELEASE_IMAGES` renamed away | 1 | `THE CHECK COULD NOT RUN` — never a pass |
+| `RETAG_EXEMPT` renamed away | 1 | exposes `auth-service` + `core-manager`, does **not** refuse |
+
+### The advisory's precision, measured against real history
+
+Audited **every** commit since 2026-07-15 that added a production overlay — 21 of them.
+It fires on **7**, and all 7 are the documented incidents: `render-audit-adapter` (237's
+founding case), `github-actions-runner-vmsites`, `component-render-check`,
+`shared-output-fields-check`, `verifier-remit-check`, `optional-explicit-wires-check`,
+`commit-sha-exposure-check`. **Zero false positives** on the other 14 — including
+`effd08fff`, a check service another lane created **correctly, an hour earlier**, which
+is a negative control this lane did not construct.
+
+### An unplanned live test, from another lane, within the hour
+
+While this was being written the `309` lane shipped `component-source-vocabulary-check`
+— a brand-new CronJob image — and did it right: `RELEASE_IMAGES`, `AGENT_DEPLOY_SERVICES`,
+an overlay, **and** a `build-<image>` target, which the `95757b6c2` derivation now
+requires or `build-backend` fails with `No rule to make target`. The gate went from
+30-of-33 to **31-of-34 overlays judged, still green**, and the advisory stayed silent.
+A pass that could have failed.
