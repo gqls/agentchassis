@@ -495,7 +495,39 @@ are what carry the behaviour claim.
 even when thin): demand **10 orchestrations / 7 agents**; conflict rows **0**; phase-1 rows **0**;
 phase-2 rows **0**. Far too little demand to mean anything — banked, not interpreted.
 
-**The gate closes 2026-08-24 ~08:37Z.** Record the result here whether clean or not.
+### ⚠ BOUNDARY CORRECTED — mine was too loose. Use the parallel session's (2026-08-22 ~08:4xZ)
+
+I set the gate boundary at **08:37:14Z**, the last NEW pod's start. **That is wrong**: the old pods
+were still draining after it (they were killed ~08:38Z), so orchestrations created at 08:37–08:38
+could still land on a pre-flip pod — and the demand profile shows real traffic in exactly those
+minutes (2 at 08:37, **7 at 08:38**, 13 at 08:40). My boundary would have counted pre-flip rows as
+post-roll evidence.
+
+**The corrected attribution, from the session that caught it:**
+
+| window | treat as |
+|---|---|
+| `< 08:35:00Z` | OLD binary |
+| `08:35:00Z – 08:45:00Z` | **AMBIGUOUS — EXCLUDE.** Old pods drained here; dispatch-settle also depressed demand until ~08:42Z |
+| `>= 08:45:00Z` | NEW binary |
+
+**Gate window opens `2026-08-22 08:45:00Z`; earliest clean close-out `2026-08-24 ~08:45Z`.**
+
+*Why this was safe to adopt without re-deriving their pod-kill timestamps:* **it is strictly more
+conservative than mine.** If their times are wrong in the conservative direction the gate is merely
+stricter; it cannot become falsely clean. A looser boundary would have needed full verification
+before adoption — that asymmetry is the whole reason this was cheap to accept.
+
+### THE GATE IS OWNERSHIP-INDEPENDENT BY DESIGN — do not wait for a particular session
+
+A 48 h obligation **cannot** depend on one session surviving, and this one has already outlived a
+fleet restart. Everything needed to execute it is in this file: the boundary above, the baseline in
+§2.11, the terms in §2.10 1b, and the interpretation table in §2.11. **Whoever is alive at
+~08:45Z on 2026-08-24 runs it and records the result here** — clean or not. Operational ownership
+currently sits with the parallel session (they asked, and they hold the sharper boundary); the
+obligation sits with the lane.
+
+**The gate closes 2026-08-24 ~08:45Z.** Record the result here whether clean or not.
 
 ## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
 
