@@ -96,6 +96,19 @@ patches TWO read sites, not three, and the "false BUILD_DISPATCH_STALLED" risk
 the plan listed does not exist. Recorded in 506's own header too, where the next
 reader of that file will be standing. [MEASURED 2026-08-20]
 
+> **CROSS-LINK added 2026-08-22 — the same absent task, found independently from the other side.**
+> The `bugs_open/358` lane reached `214` from the finding-code registry rather than from the
+> dispatch reads, and their half is the more useful one: `BUILD_DISPATCH_STALLED` is registered
+> as a code **with a closed automated loop**, and the loop is real *in the file* but inert,
+> because both halves live inside the `pre_query` of a task that was never created. So the
+> code's **zero row count reads as "quiet" and actually means "absent"** — a registered
+> mechanism and a silent one are indistinguishable from that direction. Their entry:
+> `docs/agent_docs/docs026_concept_register/register/debugging.md:613`.
+> Re-verified here 2026-08-22: still untracked, **0** rows in `schema_migrations` for `214%`,
+> **0** `scheduled_tasks` rows named `build-dispatch-watchdog`.
+> Linked so the two findings stop being re-derived separately — I proved the task does not
+> exist, they proved something *depends on it existing*.
+
 **2. The live inventory of tasks that UPDATE `site_work_items.status` is five**,
 and it matches what the research said: `claimed-item-timeout` (120s, and it runs
 its OWN copy of the ladder), `detected-item-promoter` (900s), `feasibility-recheck`
