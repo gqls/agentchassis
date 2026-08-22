@@ -743,3 +743,38 @@ yesterday's seven at risk, and whoever does it does **not** inherit re-checking 
 backfill written as a general "fill any empty `content_data` fleet-wide" mechanism would eventually
 reach webdesign.co.uk's ported pages, which DO carry the repair — and that is the version that owns
 the re-check. Anyone building this should say which of the two they are building, in the commit.
+
+### 8.6 2026-08-22 — THIS FILE'S OWN WORKED-EXAMPLE CRITERION IS MET, and it was met without anything being repaired
+
+§"So: 277 stays OPEN" sets three things "done" would need. Item 2 is:
+
+> *"The worked example served: `tool-gas-unit-converter` carrying real content, checked at the served
+> page and not at the item's status."*
+
+**Measured 2026-08-22 09:3xZ at the served page.** `https://gaswholesalers.com/tools/tool-gas-unit-converter.html`
+→ **200, 23,774 bytes**, a **6-row** conversion table, and every one of the values the finding calls
+missing is rendered: `Dekatherm` ×1, `MMBtu` ×6, `therm` ×9, `MWh` ×2. The row itself says
+*"missing 9 schema-required value field(s): reference_table_heading, section_heading,
+section_subheading, table_note, table_row_dekatherm_desc, table_row_gj_desc, table_row_mmbtu_desc,
+table_row_mwh_desc, table_row_therm_desc"*.
+
+**Both statements are true at once, and that is the whole point:** the finding is correct about the
+DATA (those fields are genuinely absent from `content_data`) and the fear behind the criterion — that
+the page therefore does not serve content — is FALSE. The page has been serving its table since it
+deployed on 2026-08-15.
+
+**What this does to the file's logic.** Criterion 1 (*"something that acts on `no_content_data`"*)
+exists in order to produce criterion 2. Criterion 2 is already satisfied. So what is left is not "the
+page is broken and nothing can fix it" but **a data-model debt with no visitor-facing symptom**: 27
+components that serve correctly and cannot be rebuilt from their own stored data.
+
+That is a different — and smaller — thing than this file has been describing since 08-19, and it is
+the fact the close/no-close decision should actually turn on.
+
+> ⚠ **Misstep worth recording, because it nearly became a finding.** I first fetched
+> `/tools/gas-unit-converter/index.html`, built by analogy with webdesign.co.uk's URL shape, and got a
+> **404 "This page has gone missing"**. Had I written that down I would have reported the worked
+> example as a dead page and sent the next session chasing a deploy bug that does not exist. **A 404
+> on a URL you CONSTRUCTED is evidence about your guess, not about the site.** The real URL is in
+> `pages.url` (`/tools/tool-gas-unit-converter.html`) — one query, and it is the only acceptable
+> source for a page address on a fleet whose sites do not share a URL convention.
