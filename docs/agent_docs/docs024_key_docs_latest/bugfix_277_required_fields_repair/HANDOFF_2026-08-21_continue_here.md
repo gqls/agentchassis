@@ -120,7 +120,7 @@ The mechanism is proven twice over now (today's arc is a second independent inst
 | thread | closeable? | why / what it needs |
 |---|---|---|
 | `bugs_open/083` | **YES, on ~08-24/25** | The fix is complete, artefact-proven, and demonstrated end to end twice. What remains is the owner's own decision-5 soak week on `444`/`458`, at day 4 today. Close per §3 — both paths on the commit, verified at HEAD, and the two statements it must make. Closing early is the owner's call, not a session's |
-| `bugs_open/277` | **ONE OWNER DECISION AWAY** | Routing delivered and approved; clause 1 met and proven at the served bytes. The `no_content_data` residual is the only thing left, and §8.4 costs the three options. **If the owner takes option 2 ("parked with the facts" is the terminal state), 277 closes the same day** |
+| `bugs_open/277` | **ONE OWNER DECISION AWAY, and the decision got easier on 08-22** | Routing delivered and approved; clause 1 met and proven at the served bytes. §8.5 measured the backfill hazard I had asserted and it is **ZERO** for this population (no overlap with the repaired pages). §8.6 measured this file's OWN criterion 2 at the served page and it is **MET** — the worked example serves its full table and every "missing" value. So the residual is a **data-model debt with no visitor-facing symptom**, not a broken page. §8.4's three options stand, with option 1 now cheaper and option 2 now better evidenced |
 | `bugs_open/333` | not ours | Theirs. CONTRIB filed 08-21; nothing owed |
 | `530`/`531` | **DONE** | Applied, APPROVED r1, advisories answered, trailer written |
 | the 08-25 prediction | watch only | `learn-index` should be born `detected`, not `unresolved`. Do not hand-flip it |
