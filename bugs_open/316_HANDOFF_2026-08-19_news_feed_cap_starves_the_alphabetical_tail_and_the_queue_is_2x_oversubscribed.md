@@ -319,3 +319,40 @@ To close, after a run or two:
 
 ⚠ **"Everyone is on time" is still the wrong success criterion**, for a narrower reason than before: it
 is now achievable for seven sites and impossible for two.
+
+---
+
+## CONTRIBUTION 2026-08-22 from the `bugs_open/318` lane — `capped-schedule-ordering-check` exists everywhere except the cluster, and the next release will create it
+
+Not a request and not a criticism — a fact your lane will want before the next roll,
+found while auditing release coverage for `318`.
+
+**`capped-schedule-ordering-check` has an overlay pinned at `v1.0.1324`, a dockerfile,
+`build-`/`push-`/`deploy-` targets, and membership of both `RELEASE_IMAGES` and
+`AGENT_DEPLOY_SERVICES` (`d56fd6b11`) — and `kubectl -n ai-persona-system get cronjob`
+does not list it at all** `[MEASURED 2026-08-22]`. It was scaffolded and never applied,
+which is consistent with your commit message; recording it because two things about it
+have changed since.
+
+1. **It had never been built at any tag, and that broke the next release.** It was one of
+   three images declared in `RELEASE_IMAGES` and reached by no build target, so
+   `push-backend` — which loops that list with `docker push … || exit 1` — would have
+   aborted the release *after* building 22 images and *before* `deploy-core`, deploying
+   nothing at all. Fixed in `95757b6c2` by deriving `build-backend` from `RELEASE_IMAGES`,
+   so every release image is now built by construction. **Your image now builds**: proven
+   at a scratch tag (`make build-capped-schedule-ordering-check IMAGE_TAG=scratch-318-probe`
+   → image exported, then removed), which mattered because it had no prior evidence its
+   dockerfile worked.
+2. **So the next `make release` will CREATE the CronJob**, because it is in
+   `AGENT_DEPLOY_SERVICES` and `deploy-agents` applies the overlay. If that is what you
+   want, nothing to do — it will arrive built from committed `HEAD` at the release's
+   pinned commit, which is the good version of switching it on. **If it is NOT ready to
+   run daily yet, take it out of `AGENT_DEPLOY_SERVICES` now** (leaving it in
+   `RELEASE_IMAGES` is harmless — the image gets built and pushed and nothing applies it).
+
+Also worth knowing: **the next release must run at ≥ `v1.0.1325`.** `v1.0.1324` is
+contaminated — `commit-sha-exposure-check:v1.0.1324` was hand-built from an unpinned
+commit, and a same-tag re-push serves the node's stale cached image.
+
+Nothing here needs a reply. The release-coverage gate that found it is register
+**BLD-026**; its report names any service in this shape.
