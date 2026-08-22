@@ -546,3 +546,44 @@ correlation, which silently orphans any commit already carrying the old one in a
 `Council-Submitted:` trailer — the `098` report joins on that id and the old run has no verdict to
 resolve to, for ever. I did this on one of the two resubmissions and had to record the new
 correlation in a follow-up commit.
+
+---
+
+## ⚠ IT HAS HAPPENED AGAIN — THIRD OCCURRENCE, ONSET 2026-08-22 18:15:35Z
+
+Observed by the `bugfix_305_negation_gate` lane at 18:27Z, not by any alert — found while chasing why
+a page build failed.
+
+**The boundary, measured either side** `[MEASURED 2026-08-22 18:27Z]`:
+
+| window | successful LLM calls | usage-limit failures |
+|---|---|---|
+| 17:15:00 → 18:15:51 | **116** | 3 (the first arrive at 18:15:35, at the edge) |
+| after 18:15:51 | **1** | **8** (and 0 failures of any other kind) |
+
+**Last successful call of any kind: `18:15:51`.** Same 400 as before, verbatim: *"You have reached
+your specified API usage limits. You will regain access on 2026-09-01 at 00:00 UTC."* Agents hit so
+far: `council-gate`, `landmine-verifier`, `page-content-writer`.
+
+⚠ **HOW I NEARLY MISREAD IT, because the next person will hit the same trap.** My first look used a
+ONE-HOUR bucket and reported "84 successes alongside 7 failures — intermittent, not a wall". That
+window STRADDLED the cutover: every one of those successes predates 18:15:51. **An hourly bucket
+cannot see an outage that started inside it** — split at the last success and count both sides, which
+takes one query and gives an unambiguous answer. The same shape as this file's own §"how to tell it
+apart from queue latency".
+
+**This is the third exhaustion in 22 days** (07-31, 08-10, 08-22), which strengthens rather than
+changes this file's standing conclusion: adding credit is the right emergency action and a poor
+control, and `bugs_open/244` (council-gate = 87.8% of August spend, ~76% reduction costed) is still
+the cheaper prevention. Note `council-gate` is again among the first agents to hit it.
+
+**Consequence for this lane, recorded so it is not re-diagnosed as a gate fault:** no `copy_gate` run
+has occurred on chassis `v1.0.1326` (deployed 15:10Z) — page builds now fail at
+`generate_content`, upstream of the gate. `ai-agent-orchestration.com/adoption-tracker`, **one of the
+three pages `bugs_open/305` is about**, failed at 18:22:02 on exactly this
+(orchestration `4774680e-d16e-4559-9dca-54ecdfe56eeb`). The gate is binary-probed present on both
+replicas; it simply has not been reached.
+
+**Recovery check (from §6, unchanged):** `SELECT max(created_at) FROM llm_call_log WHERE success;`
+— it must move, and keep moving, before declaring it over. Last time the owner added credit and the
+fleet came back in ≈3h20m, 21 days before the stated calendar date.
