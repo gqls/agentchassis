@@ -552,3 +552,85 @@ prose instead of listing it as edits. The council could see the plan I *wrote*, 
 
 Round 2 resubmitted on the same trail (`RESUBMIT_CORR`), run correlation
 `98e657be-e266-44bb-a548-e6fcb968071d`.
+
+---
+
+## 2026-08-22 — council round 2: APPROVED. Phase 1 BUILT, mutation-proven, and shipped.
+
+Corr `b3676918-9eee-4b9f-85f3-749e16b3d033`, round 2: **approved with 3 advisory objections, none
+high** — 13 reviews, 10 approve, 4 abstained, not truncation-gated. Code in `873575ecf`,
+registration in `e03fbde6d`.
+
+### The r2 advisory that was RIGHT, and that I checked instead of assuming
+
+> **editquality [MEDIUM]:** *"the tripwire's allow-list plus the 4 now-converted files is asserted to
+> be the complete set … but no search verified that. If even one more reader exists, the tripwire
+> fails on introduction in this same commit — reproducing exactly the gating failure mode round 1
+> flagged, just with a different file."*
+
+I ran the check. **And my first attempt at it was itself wrong** — a line-oriented grep for a read
+call on the same line as `sql_for_agents`, which misses `filepath.Join(...)` on one line and
+`os.ReadFile(path)` on another. It returned 7 files; the true answer is 9.
+
+Done properly (AST literals + a read call, which is what the tripwire itself does): **9 readers as of
+2026-08-22 in `platform/**` — 4 converted, 5 allow-listed.** Four more files name the path only in
+comments or an unrelated fixture map (`await_response_id_marker_test.go`,
+`diagnose_code_lookup_answerability_test.go`, `check_tool_health_test.go`,
+`verifier_coverage_test.go`) and the tripwire correctly ignores them, because it reads AST string
+literals and comments are not AST nodes.
+
+**Then the tripwire itself confirmed it empirically:** written before the conversions, it fired on
+**exactly the four files I was about to convert and nothing else**, and went green once they were
+converted. That is the demand control — it is not a check that has only ever passed.
+
+### Other r2 advisories, dispositioned
+
+- **bug_historian [MEDIUM]** — the binding-count Declaration is inert in phase 1, and "a field
+  accepted but never read is indistinguishable from one that works". **Right.** Fixed structurally:
+  `DeferredDeclarations` counts inert entries and a test asserts the count, so adding one forces the
+  number up. Mutation-proven (M6).
+- **editquality [LOW]** — `count(*)::text` matched against an `int` field is type-inconsistent and
+  "could silently never match". **Right.** `CompareCount` parses with `strconv.Atoi` and treats an
+  unparseable/empty probe as a PROBLEM, never a pass. Tested.
+- **debug_historian [MEDIUM]** — do not verify via `git archive HEAD`, the scratchpad tmpfs is shared.
+  **Does not apply here, checked rather than argued:** `df` says my scratchpad is on
+  `/dev/nvme0n1p2` (118G free), not the 16G `/tmp` tmpfs. The scratch was moved to disk precisely to
+  fix that landmine (OPP-005). Also worth noting the entry's actual failure direction is *"makes
+  commands look failed when they succeeded"*, not "succeeds against the wrong tree".
+- **guardian [LOW]** — confirm nothing else imports the deleted glob/regex symbols. Grep: **zero**
+  non-test references. Safe.
+- **bug_historian [LOW]** — check the 5 allow-listed files are not the same class as the converted
+  ones (case 093's shape). **Zero** archive-verdict tokens (`unstamped|machine_made|hand_patched|
+  rendered_html_digest`) in all five. Genuinely a different class.
+
+### Mutation battery — 6 of 6 behaved, each run singly with a revert between
+
+| | mutation | required | got |
+|---|---|---|---|
+| M1 | drop `dark_section_audit` from the declaration | forward direction fails | ✅ |
+| M2 | add `zz_fake_type` | reverse direction fails | ✅ |
+| M3 | remove a verdict fragment from the 344 declaration | site vocabulary test fails | ✅ |
+| M4 | un-forbid the strict cooldown boundary | cooldown test fails | ✅ |
+| M5 | add a throwaway `sql_for_agents` reader to an actions test | tripwire fires **and names the file** | ✅ |
+| M6 | add an inert declaration without bumping the constant | inert counter fails | ✅ |
+
+Singly and reverted between, because a mutation that passes may have hit a guard in series.
+
+### ⚠ My LANDMINES entry was SWEPT INTO ANOTHER SESSION'S COMMIT
+
+I appended the landmine, ran `landmines-verify-dispatch.sh`, then committed by pathspec — and my
+commit took only 3 files. `LANDMINES.md` was already clean, because commit **`9880926ed`** (the 560
+lane, "bind the case-study cards to real images") had committed it in between, carrying my 9-line
+entry as a passenger.
+
+**Nothing is lost** — the entry is intact at HEAD, verified line-for-line, and the verifier was armed
+before the sweep (corr `71f6262c-0ea3-450c-940c-a1c9c2f0e1f5`). Forward-only holds. This is the
+same-file passenger case CLAUDE.md already documents, and it is unavoidable on a shared append-only
+file: no pathspec can prevent it.
+
+**One correction it forces, so the record is not overstated:** my commit `e03fbde6d` says
+"register(SQLC-002) + LANDMINE … in the commit that ships the seam". The landmine is *not* in that
+commit — it is in `9880926ed`. And strictly the seam itself shipped in `873575ecf`. So condition (2)
+of the ordering exemption was met **across three adjacent commits in one session**, not literally
+one. Both registrations exist and both name the code commit; I am recording the discrepancy rather
+than letting the commit message imply a tidier history than happened.
