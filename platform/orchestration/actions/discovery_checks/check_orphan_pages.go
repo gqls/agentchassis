@@ -194,6 +194,33 @@ type orphanPageFinding struct {
 // this check's safe direction; the retraction audit matches precisely because
 // its unsafe direction is the opposite. Same sources, different questions.
 //
+// BOTH AXES, and the lifecycle one is load-bearing (bugs_open/356). `pages`
+// carries two independent axes and the predicate family requires each consumer
+// to pair the arms its own question needs: PageHasShippedPredicateFor is BUILD
+// ("has this ever been served"), PageWantedLivePredicateFor is LIFECYCLE ("does
+// the platform still want it"). Until 2026-08-22 this query took the build arm
+// alone, so an ARCHIVED page that shipped before it was retired was enumerated
+// as an orphan and filed as work.
+//
+// The lifecycle arm belongs here specifically because of what this check's
+// REMEDIES do. All three branches below ask a handler to make the page MORE
+// REACHABLE, and all three handlers already refuse a retired page on their own
+// account — measured 2026-08-22:
+//
+//	needs_internal_links -> internal-linker  load_target_page: `p.status = 'active'`
+//	nav_drift            -> nav-updater      navPageScopeSQL: status IN (active,deployed,pending)
+//	orphan_blog_posts    -> rerender-pages   blogPostsQuery:  p.status IN (active,deployed)
+//
+// So the producer was the sole outlier, and the correct action on a retired page
+// that is still serving is RETRACTION (bugs_closed/098), never re-linking.
+//
+// ⚠ DO NOT generalise this into "audits should skip archived pages" — that is
+// the opposite error and bugs_open/266's 2026-08-14 note warns against it by
+// name. An archived page can still be serving 200 to the public, so a check that
+// only OBSERVES (check_unverified_claims) is right to look at it and has a
+// mutation test defending exactly that. The discriminator is whether the finding's
+// remedy mutates the page, not whether the page is archived.
+//
 // Exclusions:
 //   - index/home page (always reachable as /)
 //   - blog-index page (in nav, the listing is the entry point)
@@ -201,12 +228,14 @@ type orphanPageFinding struct {
 //     A tool page WITH in_header/in_footer set has declared it belongs in
 //     nav — its absence from site_nav_items is nav_drift like any other
 //     page's, so nav-flagged pages are always considered.
+//   - pages the platform has retired (see BOTH AXES above).
 var findOrphanPagesSQL = `
 		SELECT p.id::text, p.name, p.url, COALESCE(p.page_type, 'content'),
 		       COALESCE(p.in_header, false), COALESCE(p.in_footer, false)
 		FROM pages p
 		WHERE p.site_id = $1
 		  AND ` + datahelpers.PageHasShippedPredicateFor("p") + `
+		  AND ` + datahelpers.PageWantedLivePredicateFor("p") + `
 		  AND p.url IS NOT NULL
 		  AND p.url != ''
 		  AND p.name NOT IN ('index', 'home')
