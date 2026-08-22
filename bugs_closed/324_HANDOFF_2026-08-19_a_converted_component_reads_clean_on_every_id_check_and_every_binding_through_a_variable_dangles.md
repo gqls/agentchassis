@@ -104,3 +104,28 @@ has NO comparative stub check** — a regeneration that keeps script elements an
 bodies would pass if its schema fields survive. The check is pure and importable; wiring it
 into the regen compare is a separate, small round for whoever touches that file next. Until
 then: the writer-census test names every writer, so the gap is enumerable, not silent.
+
+---
+
+## CLOSED 2026-08-22 — fixed AND live at every layer, each proven with demand
+
+The bar is met in full (evidence trail: `bugfix_283_component_instance_scope/NOTES` sessions 7–8):
+
+- **Detector** (`UnprefixedBindings`) inside the acceptance gate since v1.0.1316; refused real
+  rewrites in production (fuel-budget round 1, the batch's two refusals, the fundamentallyai
+  rebirth samples 1–2) — the blindness this bug names cannot ship again through any gated write.
+- **Repair** (`repair_instance_scope_bindings`, migration 487): 28 rows repaired, 35 proven
+  sound, refusals parked — drained and verified 2026-08-20, `instanceaudit --bindings` clean.
+- **The serving damage is gone**: all 14-then-3 live-broken placements now serve converted,
+  working bytes (the last three via the 2026-08-21 owner-ruled rebuilds/rebirths,
+  live-verified 20:02–20:30 with binding checks and, for the games/AI tools, real-browser
+  click-throughs).
+- **The class cannot re-enter**: birth guard + fork guard armed and live (v1.0.1322+,
+  migrations 520/530; both branches demand-proven), generator prompt teaches the rules,
+  daily sweep + rebuild escalation stand behind every other door.
+
+**Named residual (stays residual, not a blocker):** `store_generated_component`'s REGEN path
+has birth gates but no comparative script-stub check (round-9 advisory, bug_historian); route
+the shared `scriptStubRegression` into its compare when that lane next opens the file.
+The ~939 historical work-item rows with spawn-record results (bugfix 287) remain wrong for
+ever — verify at the artefact, as always.
