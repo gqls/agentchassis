@@ -45013,3 +45013,40 @@ would have gone looking for a gate defect that does not exist.
 **The transferable shape:** *"the code is present, so the silence is benign"* is two measurements and
 one guess wearing their credibility. **An absence is not evidence until you have measured its
 producer.**
+
+---
+
+## 2026-08-22 — I read the trap, wrote the fix, then fired it at another lane's site because I never checked my own patch applied (`dartsonline_traffic`)
+
+**The claim, implicit in what I ran:** "the script is patched, so these two invocations will refuse."
+
+**What was true:** the patch had died on an `IndexError` and written nothing. I ran
+`python3 patch.py && bash -n script && echo SYNTAX OK`, then — on separate lines — two test
+invocations. The `&&` chain short-circuited, so **`SYNTAX OK` never printed and I did not notice
+its absence**; the newline-separated invocations ran regardless, against the unpatched script,
+which ignores its arguments and fires at `robot-hands.com`. Two improvement-loop runs on another
+lane's site, ~60 findings and 4 dispatchable items in their queue.
+
+**What caught it:** the tool output — a wall of live orchestration logs where I expected two
+refusal messages. Then `grep -c 'THREE TRAPS FIXED' <script>` → **0**, and `git status` clean.
+
+**The cheap checks I did not run, in order:**
+1. **Assert the edit exists before exercising it** — one `grep -c` for a string only the patched
+   version contains. I asserted the *script's* behaviour thoroughly and my *own change* not at all.
+2. **Read the exit code of the patcher.** `PATCH_EXIT=$?` on its own line, which is exactly what
+   found the `IndexError` a minute later.
+3. **Know what `&&` does and does not protect.** It guards the commands chained to it and nothing
+   about the next line. A test that must not run on failure has to be inside the chain, or gated
+   on an explicit check.
+
+**The part worth more than the mechanics:** I had just written the trap down — "it parses `$1`/`$2`
+then re-assigns to robot-hands two lines later" — and then triggered it. **Understanding a trap
+confers no protection from it**; only a check does, and the check has to be on the thing you
+changed rather than on the thing you were changing it for. This is the same family as
+`a-post-fix-ZERO-needs-a-demand-control`: I verified the subject and not the instrument.
+
+**Disclosed immediately to the affected lane** with the correlations, the item counts and an offer
+to cancel; cleanup left to them, since it is their site. The script is now fixed, both refusal
+paths exercised (exit 2, exit 3), and a bug in my own fix — a single-quoted payload that would
+have shipped literal `${SITE_ID}` — caught and proven fixed *before* it ran, which is the habit
+this entry is meant to install.
