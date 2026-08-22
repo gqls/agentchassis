@@ -44211,3 +44211,52 @@ of which my measurement could have produced.
 inherited-census claim): **an absence is only evidence if you know what your filter could
 have shown.** The cheap check is one line and I skipped it all three times — *before
 reporting a zero, re-run without the filter, or state what the filter excludes.*
+
+---
+
+## 2026-08-22 — my completeness check for a tripwire's allow-list was itself line-oriented, and undercounted 9 as 7 (`bugs_open/363`)
+
+**Caught before it landed**, by re-running the check a second way — and it was only re-run because a
+council seat asked for it. Logged because the failure is *the same defect the change was fixing*, one
+level up: a check whose green is uninformative.
+
+**The setting.** I was adding a tripwire test forbidding new Go guards from reading migration files,
+with an allow-list of the files that legitimately still do. `editquality` objected (round 2, medium)
+that the allow-list "is asserted to be the complete set … but no search verified that" — and that if
+even one more reader existed, the tripwire would go red the moment it landed.
+
+**What I ran first.**
+```bash
+grep -rn --include=*_test.go -E "(os\.ReadFile|filepath\.Glob|os\.ReadDir)" platform/ \
+  | grep -iE "sql_for_agents|migrationsDir|migPath"
+```
+**7 files.** It looks thorough — two filters, explicit call names — and it is wrong, because `grep`
+matches within a line and the construct spans lines:
+
+```go
+path := filepath.Join("..", "..", "..", "docs", "agent_docs", "sql_for_agents",   // ← line A
+    "506_dispatch_reads_honour_retry_after.sql")
+b, err := os.ReadFile(path)                                                        // ← line B
+```
+The path is on line A, the read is on line B, and no single line carries both. It silently dropped
+`complete_work_item_retry_guard_test.go` and `contact_info_no_fabrication_test.go` — **and the first
+of those is one of the two guards the bug file names as broken.** Had I trusted it, the tripwire
+would have shipped missing an allow-list entry for a file I had personally written about.
+
+**What is actually true.** Parse the AST, look for a string literal containing `sql_for_agents` AND a
+read call anywhere in the file: **9 readers as of 2026-08-22** — 4 converted, 5 allow-listed. Four
+further files name the path only in comments or an unrelated fixture map and are correctly excluded,
+which a `grep -l` for the bare string would have over-counted in the other direction.
+
+**The check.** When the thing you are counting is a multi-line code construct, **count it the way the
+consumer counts it.** Here the consumer was the tripwire itself, which walks the AST — so the honest
+completeness check was to write the tripwire first and read what it reported. That is what settled
+it: run before the conversions, it named **exactly** the four files I was about to convert and
+nothing else. A grep approximating a parser is a second implementation that can disagree with the
+first, which is the whole defect class of `bugs_open/363`.
+
+**And the corollary that made it evidence rather than assertion:** because the tripwire fired before
+the conversions and passed after, it has been observed in both states on the same day. A guard that
+has only ever been green cannot distinguish "nothing is wrong" from "I am not looking" — the same
+demand-control rule this file already carries for a post-fix zero, applied to a test instead of a
+metric.

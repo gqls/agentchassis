@@ -1,5 +1,31 @@
 # 363 — seven Go guards assert the TEXT of an append-only migration file, so they cannot fail in the direction they exist to detect
 
+> ## ◑ PHASE 1 FIXED, LIVE-IN-CODE and council-APPROVED 2026-08-22 — the guards no longer read history. PHASE 2 NOT BUILT, so this stays OPEN.
+>
+> **What shipped** (`873575ecf`, council `b3676918` APPROVED at round 2 — 13 reviews, 10 approve, 3
+> advisory, none high; registration `e03fbde6d` + LANDMINES): `platform/livespec` holds each guarded
+> live object's declaration in a file that is ALLOWED to change, and **4** guards now assert against
+> it instead of against a frozen migration. Both `t.Skipf` silent-greens are gone. Register **SQLC-002**.
+>
+> **Proven, not asserted.** The tripwire was written BEFORE the conversions and fired on **exactly the
+> four files** they cover, then passed once they were converted — so it has been observed red and
+> green on the same day. Mutation battery **6 of 6** behaved, each run singly with a revert between.
+>
+> **⚠ WHY THIS IS STILL OPEN.** Phase 1 closes the half where a guard asserted something that *could
+> not fail* (three asserted the text of a file the checksum rule forbids editing). It does **NOT**
+> close the live-drift half: nothing compares a declaration to the LIVE object. A migration editing a
+> guarded object now leaves livespec stale **with no tell at all** — the guards compare Go to livespec
+> and the migration changed a third thing neither reads. That is why the LANDMINES entry shipped with
+> phase 1 rather than with phase 2.
+>
+> **Phase 2** (a read-only `--live-declaration-drift` mode on `cmd/config-key-audit` + a daily check
+> image on the `shared-output-fields-check` pattern + `RELEASE_IMAGES`) is a separate council round and
+> is NOT built. The `trigger_bindings` declaration is inert until it lands, and is COUNTED
+> (`DeferredDeclarations`) so it cannot read as guarded.
+>
+> **Unchanged and not oversold:** all **7** live objects measured 2026-08-22 AGREE. No drift exists.
+> Filed for the door, not the damage.
+
 **Filed 2026-08-22** by the `live_object_declaration_drift` lane, found while re-verifying
 `bugs_closed/317`. **OPEN, UNOWNED. LATENT — 7 of 7 live objects measured and all seven agree;
 filed for the door, not the damage** (the same basis `317` itself was filed on).
