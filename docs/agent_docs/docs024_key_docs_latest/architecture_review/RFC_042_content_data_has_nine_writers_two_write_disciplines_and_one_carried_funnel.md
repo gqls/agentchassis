@@ -264,9 +264,17 @@ the guard's population is currently an inference and the detector is what would 
 > `application_name`) first, then **A2** (the per-key differ, extending
 > `writeContentDataRegressionLog`) with **A3** (its consumer) in the same commit; **A4** (refusal)
 > stays unbuilt until A2/A3 produce a population.
-> **Not ruled:** whether this is answered jointly with `RFC_008` — the owner named option (c) only,
-> so RFC_008 remains open and nothing here decides the `rendered_html` seam. Implementation record:
+> ~~**Not ruled:** whether this is answered jointly with `RFC_008` — the owner named option (c) only,
+> so RFC_008 remains open and nothing here decides the `rendered_html` seam.~~ Implementation record:
 > `bugs_open/355` (per its §8).
+>
+> **THE JOINT HALF WAS RULED LATER THE SAME DAY: yes, jointly — and `RFC_008` is ANSWERED with NO
+> MANDATORY SEAM.** Both columns of `page_components` therefore run one discipline, stated once:
+> **detect and attribute, do not refuse.** `RFC_008`'s decision record carries the reasoning and its
+> four reopen triggers. So the concern this file opened with — *"two RFCs proposing two seams over
+> two columns of one table is how a codebase acquires three disciplines instead of one"* — is
+> discharged: there is one posture over both, and the guard on either column is now conditional on a
+> detector producing a population, which on `content_data` is measured at zero.
 
 > **IMPLEMENTED 2026-08-22, same day (see `bugs_open/355` §10 for the full record).** One deviation
 > from the ruling's letter, recorded here because this block is what a future reader will quote:

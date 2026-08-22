@@ -3355,8 +3355,10 @@ template does not regenerate anything. Judge the template with a query against
 - **the tell — there is none, in three directions at once:** the output is still valid JavaScript so nothing throws; unlink keeps the anchor text so the prose still reads; and `success:true` is reported. A `data-runtime-fill` marker would exempt it, but the measured instance has no marker on the component OR anywhere on its page.
 - **and the template-literal form is WORSE, not better:** `href="${url}"` is a non-empty href, so it takes the `LinkScopePage` arm instead, fails the index lookup and is unlinked as a *phantom* — same destruction, different arm, and invisible to a grep written for the `' +` spelling.
 - **the check, before wiring the repair into any writer:** ask whether that writer's markup can contain a `<script>`, and if so run the real function over a real sample before shipping — three lines in a throwaway `_test.go` against `datahelpers`, which is decisive where reading the regex is not. For an AUDIT, remember the mirror-image version of the same error: a regex over `href="…"` counts href-shaped byte sequences, not links, so any such census is an **upper bound** (mine included one JS fragment in 35).
-- **source:** 2026-08-02, `bugs_open/180`, found by the `bugfix_136_sibling_link_repair` lane while re-running its own census after the v1.0.1229 roll. It reordered that lane's stated next step: wiring the seam into the tool-markup writers must wait for 180, or it will delete working buttons from tools
-- **added:** 2026-08-02, bugfix_136_sibling_link_repair lane
+- **source:** 2026-08-02, ~~`bugs_open/180`~~ **`bugs_closed/180`**, found by the `bugfix_136_sibling_link_repair` lane while re-running its own census after the v1.0.1229 roll. It reordered that lane's stated next step: ~~wiring the seam into the tool-markup writers must wait for 180, or it will delete working buttons from tools~~
+- **⚠ CORRECTED 2026-08-22 — THE "WAIT FOR 180" INSTRUCTION IS RETIRED, AND IT COST TWENTY DAYS.** `180` was fixed **the same day it was filed** (`07576d4e1`, 2026-08-02) by LNK-029's span-aware repair — `NonMarkupSpans` masks `script`/`style`/`textarea`/`title`/comments before matching, measured over all 509 assembled pages with **0 legitimate repairs lost** — so `RepairPageLinks` no longer destroys a JS-built anchor and **wiring the tool-markup writers is UNBLOCKED**. This line kept saying wait, so it read as current guidance to every session that grepped this footprint before touching those files, and the wiring sat undone until 2026-08-22. Now filed as **`bugs_open/362`** (owner: `webdesign_tool_rebuilds`), under the `RFC_008` ruling of 2026-08-22 (no mandatory seam — wire these two, that is all). **What still stands, unchanged:** the TRAP itself (a byte-level `href` regex cannot tell markup from a string containing markup) — so keep the entry, and keep its prescribed probe: **before wiring the repair into any writer, run the REAL function over real bytes containing `'<a href="' + x + '"' >` and assert the output**. LNK-029 is why you MAY wire, not a reason to skip the probe. **And the AUDIT half is untouched:** a census by `href="…"` regex counts href-shaped byte sequences, not links, and is an upper bound in either direction.
+- **the generalisable lesson, which is why this correction is verbose:** *a blocker's closure is not self-announcing.* The bug moved to `bugs_closed/` and every document that deferred work "until 180" went on saying wait, in a voice that sounds current. Third recorded instance of `a-stale-status-line-prevents-the-thing-it-describes` (PBP-040's detector, 9 days; RFC_022's "not built", 3 days). **When you close a bug, grep for the documents that told people to wait for it** — and note that `bugs_open/NNN` appearing anywhere while `NNN` sits in `bugs_closed/` is mechanically detectable corpus-wide (`bugs_open/362` §6).
+- **added:** 2026-08-02, bugfix_136_sibling_link_repair lane; corrected 2026-08-22 by the RFC_008 ruling session
 
 ---
 
@@ -14898,3 +14900,24 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register `DGH-015` (the check) and `DGH-013` (the fingerprint it consumes) · `bugs_closed/315` · `WRONG_CALLS.md` 2026-08-21 ("I quoted a small sample's MAXIMUM as the tail") · the sibling entry on `orchestration_states` retention — same family: a claim about a distribution's shape made from data that could not show its shape
 - **source:** 2026-08-21/22, `bugfix_315_deployed_at_without_publication` lane; the figure was corrected twice, the second time by the check's own first live catch
 - **added:** 2026-08-22, 315 lane
+
+### A DOUBLE QUOTE anywhere in a `090` symptom aborts the intake with a JSON type error naming a fragment of your own prose — it reads like malformed data, not like a quoting rule
+
+- **footprint:** `090_TRIGGER_needs_diagnosis_v1.sh`, `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/`, any trigger script that interpolates a shell argument into a `$json$`-quoted SQL literal
+- **fires when:** you file a diagnosis and, doing exactly what the symptom-authoring guidance asks — *"POINT at the tables/symbols where the evidence lives"* — you name a map key, a JSON field or a string literal in the natural way: `assets["hero"]`, `status="active"`. **No symptom beforehand.** The script accepts the argument, prints the whole intake block (symptom, item_key, anchor site, repo, correlation id), tells you to `SAVE: CORRELATION_ID=…`, and only *then* fails.
+- **the mechanism:** the symptom is interpolated **unescaped** into a `$json$…$json$` dollar-quoted literal. A `"` inside it closes a JSON string early, so Postgres refuses the row:
+
+  ```
+  ERROR:  invalid input syntax for type json
+  LINE 7:     $json${"symptom":"The Lane B content-hero resolver in pl...
+  DETAIL:  Token "hero" is invalid.
+  CONTEXT: JSON data, line 1: ...ryplan.ContentHeroKey(pageName) when assets["hero...
+  ```
+
+  `Token "hero" is invalid` names a word from **your prose**, so it reads as a data problem in the thing you were describing. The printed correlation id is minted before the insert and is worthless — nothing was written, and there is no work item to find.
+- **the check:** **write the symptom with no double quotes at all.** Name map keys and fields in prose (*"the hero key of the resolver assets map"*), and use backticks or single quotes if you must set something apart. Cheap confirmation before spending a run: `grep -c '"' <<< "$SYMPTOM"` must be `0`. If you have already been bitten, nothing needs cleaning up — the transaction did not commit, so simply re-run with the quotes removed and take the NEW run correlation.
+- **why it is not obvious from the failure:** the exit code is 3 and the message is a Postgres type error, so the natural reading is "the trigger is broken" or "the DB rejected something about my target", and the natural next move is to retry the same text or start reading the script. Both cost time; neither mentions quoting.
+- **relations:** `WRONG_CALLS.md` 2026-08-22 (the lane that hit it) · the shell-trap family in `MEMORY.md` (`shell-tool-traps-committing` — backticks in `-m` execute, psql eats a leading backslash): same class, a quoting rule enforced by a downstream parser that reports in its own vocabulary
+- **source:** 2026-08-22, `bugfix_114_imagery_wiring` lane — cost one intake attempt; the second, quote-free, went through unchanged in every other respect
+- **added:** 2026-08-22, 114 lane
+

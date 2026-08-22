@@ -8,9 +8,12 @@
 > `page_components.rendered_html`) should be tracked as a real ticket, not left implicit
 > in a lint rule's silence."*
 
-**Status:** open. Not urgent — measured traffic on the newly-guarded paths is zero — and
+**Status:** ~~open. Not urgent — measured traffic on the newly-guarded paths is zero — and
 deliberately NOT actioned by the filing lane, because taking it inside a bug patch is
-precisely what CLAUDE.md's platform-seam ruling forbids.
+precisely what CLAUDE.md's platform-seam ruling forbids.~~
+**ANSWERED 2026-08-22 — OWNER RULED: no mandatory seam. Closed as answered, jointly with
+`RFC_042`.** Decision record at the end of this file; the two-writer recommendation became
+`bugs_open/362`.
 
 ## What shipped, and what it did not close
 
@@ -81,8 +84,85 @@ empirical: **does the advisory check actually get read?**
 3. **Revisit this RFC if either trigger fires:** the advisory measurement shows findings
    going unread, or `page_type='report'` / section-editor traffic stops being zero.
 
+---
+
+## DECISION — 2026-08-22, OWNER RULED: no mandatory seam; answered jointly with RFC_042
+
+**The ruling.** Do not build `persistComponentHTML`. `rendered_html` takes the **same posture the
+owner ruled for its sibling column the same day** (`RFC_042` option (c)): *detect and attribute, do
+not refuse*. This RFC is **closed as answered** — not deferred, not parked pending measurement.
+
+**Why the answer is now available when it was not on 2026-08-02**, in the owner's terms: the thing
+the seam was for — knowing that every write to this table is accounted for — has largely been built
+by other means since this file was written, and built in the detect-not-refuse shape.
+
+1. **`bugs_closed/229` gave the column an archive** (migration `357`, live and proven 2026-08-19):
+   every overwrite and delete keeps a pre-image, four writers stamp `rendered_html_digest` in the
+   same statement, and hand-patched divergence raises work items automatically. A write that
+   destroys artefact-only content is now *visible after the fact*, which is what "mandatory" was
+   trying to buy in advance.
+2. **`bugs_open/355`'s A1 made writes self-attributing** (shipped 2026-08-22): every write site
+   stamps `application_name`, so the archive names the caller rather than a socket. The census the
+   seam would have made unnecessary is now simply *possible*.
+3. **The sibling column's detector found ZERO losses across the uncarried writers** against a
+   demand control that found 72 where losses were known — so the guard's population, on the one
+   column where it has been measured, is empty. Building the same guard on this column would be
+   sized from inference, which is the failure mode `WRONG_CALLS` 2026-07-25 names.
+
+**And the strongest argument in this file survives the ruling intact**, so it is restated rather
+than dropped: **two of the ten writers must NOT repair**, and *"an opt-out parameter is a lint
+allow-list wearing a type signature."* The estate now has that allow-list in
+`scripts/pattern-check.py`'s `COMPONENT_WRITE_ALLOWED` **with reasons rather than exemptions** —
+and, notably, with the two open cases deliberately left OUT of it so the check keeps firing on
+them. That is the seam's discipline without the seam's cost.
+
+### What this ruling does NOT license
+
+- **It is not a finding that advisory checks work.** §"What would settle it" asked for a
+  measurement — *do `pattern-check.py`'s findings actually get read?* — **and that measurement was
+  never taken.** The ruling was made without it, deliberately and with that stated. The informal
+  evidence available on the day points the *wrong* way and is recorded here rather than buried:
+  this RFC's own recommendation 2 sat undone for twenty days, and the blocker that justified the
+  delay (`bugs_open/180`) closed on the day it was filed while the landmine telling readers to wait
+  for it stayed unchanged. **The generalised form of that question now lives in `bugs_open/358`
+  candidate B2** (no new finding code ships without a reader; a lint tying new writers to the
+  seam). Whoever takes B2 answers this RFC's open question too — build it once, for both.
+- **It does not close the class.** A future writer of `rendered_html` inherits nothing but an
+  advisory check on files it happens to touch. That is a *stated* residual, not an oversight.
+
+### The reopen triggers — named, so this is a decision and not a shrug
+
+Reopen this RFC (or escalate straight to the seam) if **any** fires:
+
+1. **The archive shows an unrepaired or destructive write in production** — now answerable, because
+   A1 names the writer. A single confirmed instance outside the allow-listed set is enough.
+2. **`bugs_open/358` B2's measurement shows advisory findings going unread**, i.e. commits carrying
+   an `unrepaired-component-write` finding that are followed by neither a fix nor an allow-list
+   entry. That was this file's own decisive question.
+3. **A third writer arrives that must not repair** — two is a considered allow-list; three is a
+   vocabulary, and a vocabulary belongs in a type signature after all.
+4. `page_type='report'` or section-editor traffic stops being zero (the original §Recommendation 3
+   trigger, unchanged and still live).
+
+### Actions taken under this ruling
+
+- **Recommendation 2 executed as filed**: the two known-unguarded writers
+  (`create_tool_component_action.go`, `deploy_tool_action.go`) are now `bugs_open/362`, routed to
+  the `webdesign_tool_rebuilds` lane that owns both files. ⚠ **The wiring has been unblocked since
+  2026-08-02** — `bugs_open/180` (repair destroys JS-built anchors) was fixed the same day it was
+  filed by LNK-029's span-aware repair, and both the landmine and the register still said "wait for
+  180" twenty days later. Both corrected in the same commit as this decision.
+- **No council submission**: this file, `bugs_open/362`, the register and `LANDMINES.md` are prose,
+  which `scripts/council-scope.sh` refuses client-side. The ruling commissions no platform code. The
+  `362` fix itself is platform code and is council-gated when its lane takes it.
+
 ## Related
 
+- `bugs_open/362` — the two unrepaired tool writers, the executed half of this RFC
+- `RFC_042` — the sibling column, ruled the same day and in the same posture (its §6 carries the
+  joint answer)
+- `bugs_closed/180` / LNK-029 — the blocker that cleared, and the reason `362` is now actionable
+- `bugs_open/358` — where this RFC's unanswered measurement question went
 - `bugs_open/136` (section-editor slug) and `docs024_key_docs_latest/bugfix_136_sibling_link_repair/`
 - LNK-027 (the seam that shipped), LNK-024, LNK-023
 - `bugs_closed/021`, `bugs_open/093` — the same "one guarded call site" family, cited by
