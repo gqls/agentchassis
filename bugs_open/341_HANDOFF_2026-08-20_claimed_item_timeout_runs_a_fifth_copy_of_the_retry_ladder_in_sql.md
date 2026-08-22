@@ -252,7 +252,7 @@ Before reading that zero as anything, the disconfirming check, run today so nobo
 
 So the zero is a real absence of claim timeouts, not a broken sweep.
 
-### Why the absence is probably CAUSAL, not quiet
+### ~~Why the absence is probably CAUSAL, not quiet~~ — **REFUTED the same day; see §7b**
 
 [MEASURED 2026-08-22, boundary = v1.0.1322 rolled 2026-08-21 16:53Z]
 
@@ -289,3 +289,46 @@ fixing it removed part of this bug's own supply of proof events.
   whether this path is now rare enough that candidate 1 (moving the sweep into Go, where it would
   share the contract rather than mirror its numbers) is the cheaper way to retire the divergence
   than proving the mirror works.
+
+
+## §7b — CORRECTION 2026-08-22: §7's "probably causal" is NOT SUPPORTED, and the flaw was my model, not my query
+
+The `bugs_open/358` lane refuted one of their own headline claims today and sent me the
+transferable form: **a discriminator has to be run at a finer resolution than the effect it claims
+to discriminate.** Theirs was computed on daily buckets. So was mine. Applied to §7, it refutes it.
+
+§7 said 0 observed against ~2.6 expected was *"about a 7% outcome by timing alone, so suggestive"*.
+**That figure assumes claim timeouts arrive at an even rate. They do not — they are bursty.**
+[MEASURED 2026-08-22, the 7 days before the fix] 33 timeouts spread over 168 hours, but only **21
+hours contained any** (12.5%), with up to **8 in a single hour**.
+
+Once events cluster, the comparison is not a rate but the **gap distribution**
+[MEASURED, 14 days before the fix]:
+
+| | |
+|---|---|
+| median gap between timeouts | **0.8 h** |
+| **longest natural quiet gap** | **2 days 3 h 24 m (≈51 h)** |
+| natural gaps ≥ 25 h | **1** |
+| the current silence | **24.2 h** |
+
+**A 51-hour silence occurred naturally, before anything was fixed.** The current 24.2 h is shorter
+than that, and shorter than a gap that had already happened once in a fortnight. So the silence is
+**well within normal variation and is evidence of nothing** — neither of the fix removing supply,
+nor of breakage.
+
+**What survives from §7 unchanged:** the sweep-health check (enabled, firing on its 120 s interval,
+`pre_query` parses) — that was sound and it is what rules out the alarming reading. And the
+*mechanism* by which 42P18 could manufacture claim timeouts (an erroring terminal write fails the
+saga; the item stays `claimed`) remains plausible. **What does not survive is the claim that the
+data supports it.**
+
+**What WOULD be evidence**, so nobody re-derives this: a silence exceeding the **51 h** natural
+maximum, or a rate drop measured over a window containing several bursts — not a quiet day. That
+means the absence says nothing before **2026-08-23 ~20:00Z** at the earliest.
+
+**Recorded rather than edited away** because the error is instructive: I wrote *"suggestive rather
+than demonstrated"* and thought the hedge made the figure safe. It did not — **a cautious sentence
+around an unsound statistic is still an unsound claim**, and the hedge does double damage: it makes
+the number feel handled, and it reads as conservative rather than unfounded. `WRONG_CALLS.md`,
+2026-08-22.
