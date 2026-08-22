@@ -1591,3 +1591,41 @@ believing the tag, which is the only reason I know that. **This is the 1188/1189
 retag trap running in the opposite direction** — there, a newer tag held older code;
 here, an older tag holds newer code. Both are answered by the same rule and by no
 other: **grep the running pod.**
+
+## 2026-08-22 — RFC_008 ANSWERED (owner): no mandatory write seam; both columns take one posture
+
+Ruled in chat by the owner, in the session that had taken RFC_042 §6 earlier the same day, after
+being shown the two RFCs' joint question. **RFC_008 is closed as answered, not deferred.** Decision
+record lives at the end of RFC_008; RFC_042 §6's "joint half NOT ruled" note is superseded in place.
+
+**The ruling:** `page_components.rendered_html` gets the same discipline as `content_data` —
+**detect and attribute, do not refuse.** No `persistComponentHTML`. Rationale recorded in the file,
+in the owner's terms: `bugs_closed/229`'s archive + digests + divergence items already supply the
+after-the-fact visibility the seam wanted in advance; `bugs_open/355` A1 (shipped the same day) makes
+those writes name their caller; and the sibling column's detector measured ZERO losses against a
+72-loss demand control, so a guard here would be sized from inference.
+
+**Recorded honestly rather than glossed:** RFC_008 said the question would be settled by a
+MEASUREMENT — *do `pattern-check.py`'s advisory findings actually get read?* — and **that measurement
+was never taken.** The ruling was made without it, and the informal evidence points the wrong way
+(see below). The generalised question now lives in `bugs_open/358` B2; whoever builds that answers
+RFC_008's too. Four reopen triggers are named in the decision record so this is a decision and not a
+shrug.
+
+**Recommendation 2 executed: `bugs_open/362`**, routed to `webdesign_tool_rebuilds` (owns both
+files, commits to 08-21) — not fixed here, per the ownership rule. Live damage measured at
+effectively nil (597 tool components, 213 with `<script>`, 1 `href=""` and that one probably a
+legitimate runtime fill; the figure is an upper bound by construction). It is prophylactic wiring.
+
+⚠ **The finding that made this worth more than bookkeeping.** The wiring had been UNBLOCKED since
+2026-08-02: `bugs_open/180` (repair destroys JS-built anchors) was fixed the same day it was filed by
+LNK-029's span-aware repair. But `LANDMINES.md` still carried "wiring … must wait for 180", and
+LNK-029's register relation pointed at `bugs_open/136` — which is CLOSED. So the same work read as
+PREMATURE in one document and FINISHED in the other, for twenty days, and neither document was wrong
+when written. Both corrected in place (struck through, dated), landmine re-dispatched to the
+verifier, and the class written up as a new 016b §9 pattern with a mechanical detector: **a
+`bugs_open/NNN` reference anywhere in the corpus while `NNN` sits in `bugs_closed/` is a
+stale-status suspect** — no judgement needed, so it belongs in `pattern-check.py`.
+
+No council submission: everything here is prose, which `council-scope.sh` refuses client-side. The
+`362` fix is platform code and is council-gated when its lane takes it.

@@ -865,3 +865,22 @@ the same flaky reviewer that hung once before. I checked it properly rather than
 guessing — two later submissions finished while mine hadn't moved at all, and the
 reviewer cleared someone else's in under a minute — so it's genuinely stuck rather
 than slow, and I've resubmitted it.
+
+---
+
+**2026-08-22, later.** You ruled on the second of the two write-seam questions: no mandatory seam for
+the finished-HTML column either, so both halves of that table now follow one rule — watch and record
+who wrote what, rather than refusing writes. The reasoning is written down, including the part that
+doesn't flatter us: the RFC said the way to settle it was to measure whether anyone reads our
+advisory warnings, and we never did that measurement. It's now folded into the unread-findings bug
+instead, and I've written four specific things that would reopen the question rather than leaving it
+"we'll see".
+
+The genuinely useful discovery was an accident. The one piece of work that RFC did ask for — wiring
+two tool writers into the existing link repair — has been safe to do since the 2nd of August, when
+the thing blocking it was fixed on the same day it was found. Nobody did it, because two documents
+still said don't: one said "wait for that fix", the other pointed at a bug that had been closed. So
+the same job looked too early and already finished at the same time, for three weeks. Both are
+corrected, the job is filed as a bug for the team that owns those files, and I've written the general
+lesson into the debugging guide — when we close something, we should go and correct the notes that
+told people to wait for it. This is the third time it has cost us; nine days, then three, now twenty.
