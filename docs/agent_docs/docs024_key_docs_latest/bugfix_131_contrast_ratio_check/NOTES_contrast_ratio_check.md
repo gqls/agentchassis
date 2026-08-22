@@ -91,3 +91,46 @@ failure, `Scope` routes tool vs chrome); `over_image` can never fail; default AA
   (incl. 259's deferral-honesty list). The check is INERT until that roll — LANDMINES:512 is why no
   fence names it yet. The adapter is its OWN image (a chassis roll does nothing for it); single-
   service target precedent `35c8277a8`.
+
+## 2026-08-22 — council round 1: REVISE, and the gating objection found a REAL defect I had shipped
+
+Verdict `revise`, `decided_by: gating objection from bug_historian`, 4 abstained, 9 approve / 4 object.
+Report: `diagnosis_artifacts` where `correlation_id LIKE '7e2391ec%' AND kind='council_report'`
+(⚠ the table is `diagnosis_artifacts`, NOT `fix_artifacts` — I guessed the latter twice and got
+"relation does not exist"; the RUNBOOK query is corrected).
+
+**The gating objection was RIGHT, and the defect was already committed** (`b32aa9cd9`):
+`runContrastRatio` treated an Evaluate failure/nil/garbage result the same as "zero sub-threshold
+records found". A nil result decoded to a zero-value `contrastScan` and returned **pass**. That is
+`render_audit.py`'s own landmine — *"prints 0 contrast failure(s) and exits 0 for a page it never
+measured… as a gate it PASSES WHILE BLIND"* — reproduced one rung higher, inside the check written
+to replace that very failure mode. My own tests did not catch it because every fixture supplied a
+well-formed scan: **I tested the paths I built, not the path where the probe never runs.**
+
+Fix (`2611b0b16`): the probe stamps `probe: "contrast_ratio/v1"` and the verdict refuses to grade
+any payload lacking it; the probe counts what it measured and `scanned == 0` fails closed as
+vacuous; eval/decode errors stay explicit FAILs. Four tests pin exactly those paths.
+
+**Second real objection** (bug_historian + guardian, medium): my `TestAuditJSComposition` asserted
+substring presence, which proves inclusion and not behaviour — a lost semicolon or duplicate
+binding at the join would pass it. Replaced with **byte-identity** against a golden extracted
+mechanically from `git show b32aa9cd9~1` (never transcribed) into
+`internal/adapters/browserrunner/testdata/audit_js_golden_2026-08-22.txt`. Equality with a string
+that demonstrably executed in production is stronger than any syntax check, and it settles the
+guardian's two-consumer worry: `render-audit-adapter` runs this package ~80 tags behind
+`browser-runner-adapter`, and an inert recomposition needs no coordinated rollout.
+
+**Third** (debug_historian, medium): my witness plan never named WHICH pod. It must be
+`-l app=browser-runner-adapter` (the gating service) — proving it at `render-audit-adapter` proves
+nothing about Tier-4 acceptance. The RUNBOOK recipe already targeted the right pod; the plan did
+not say so, and the marker sentence it greps is now pinned by a unit test so a rewording cannot
+silently break the recipe.
+
+Lows answered in the resubmission rather than by code (each verified, not asserted): the lockstep
+harvest regex anchors `^\s*case` so a `//` line cannot match; `MinRatio` follows
+`MinWidth`/`ExpectValues`' own per-type convention with P7's type-fields table as the collision
+control; `toolContainer` at `run_checks_action.go:252` IS the shared helper (two call sites, :659
+overflow + contrast_check.go:173). ⚠ I first wrote `:238` and `:645` from memory of the pre-edit
+file — my own edits had shifted them. Grep before quoting a line number in a submission.
+
+Round 2 dispatched on the same trail (`RESUBMIT_CORR=7e2391ec…`), run orch `c047a44b`.

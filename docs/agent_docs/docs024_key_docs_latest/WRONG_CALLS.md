@@ -43138,3 +43138,44 @@ about a service that lane has no knowledge of.
 recording that a mock's own bookkeeping cannot assert a negative. But the mutation must live somewhere
 private. If the thing you are mutating is tracked and shared, copy it first; and if `git diff` on a file
 you just edited comes back empty, you have not imagined it — go and read `git log -S` for your own lines.
+
+## 2026-08-22 — I shipped a contrast GATE that passed any page it failed to measure, inside the check written to replace exactly that failure mode
+
+**The claim.** Commit `b32aa9cd9` added the `contrast_ratio` Tier-4 check, and I recorded it as
+built with "11 tests, both lockstep suites green". The rationale I submitted to the council quoted
+the render audit's own landmine as the reason the check was needed: *"`render_audit.py` prints
+'0 contrast failure(s)' and exits 0 for a page it never measured — as a gate it PASSES WHILE BLIND,
+which is worse than failing."*
+
+**What was actually in the code.** `runContrastRatio` decoded the probe's result and, if the decode
+produced no failure records, returned **pass**. A `nil` result — what an Evaluate that silently
+does nothing returns — decodes to a zero-value struct with zero records. So the new check passed a
+page it had never measured. **I reproduced the landmine I was citing as my justification, in the
+function whose purpose was to end it**, and shipped it.
+
+**Why my tests missed it.** Eleven tests, every one supplying a well-formed scan: clean page, firm
+failure, over-image, chrome attribution, worst-offender, eval ERROR, bad shape. I tested the paths
+I had built. The path where the probe **never runs at all** is not a path you build — it is the
+absence of one, and absence has no code to write a test beside. A fixture set derived from the
+happy structure cannot contain the case where the structure is missing.
+
+**What caught it.** The council's `bug_historian` seat, round 1, as the gating objection — it
+matched my own cited landmine against my own sketch and saw that the sketch had no distinguishable
+error state. Cost: one round, ~20 minutes. Had it shipped, the failure is invisible by construction
+— a green check on an unmeasured page looks exactly like a green check on a good page, and the
+7-day acceptance cooldown would then suppress re-checking.
+
+**The cheap check, and it generalises.** For any check, gate or detector, ask: **what does this
+return when the measurement did not happen?** If that answer is indistinguishable from "measured,
+found nothing", the instrument is a blind pass. The remedy is an affirmative token of measurement,
+not more assertions about the findings: the probe now stamps a sentinel the verdict requires, and
+counts what it measured so a zero-element scan fails as vacuous rather than passing over nothing.
+**Citing a landmine is not the same as being protected from it** — I quoted this one three times in
+one submission while the code beneath contained it. Related: `a-post-fix-zero-needs-a-demand-control`
+(a zero needs a control that could have produced non-zero), and 016b's rule that an all-skipped
+fence must be `inconclusive`, never a pass.
+
+**A smaller one from the same round.** I wrote `run_checks_action.go:238` and `:645` into the
+resubmission from memory of the file as it stood before my own edits had shifted it; the real lines
+are `:252` and `:659`. A line number in a submission is a citation — grep it at the moment you
+write it, because your own change is the most likely thing to have moved it.
