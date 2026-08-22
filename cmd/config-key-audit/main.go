@@ -133,11 +133,13 @@ import (
 	// "not local" for every action — which is why both refuse to print a
 	// clean-looking result over zero registrations.
 	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
-	// Still imported for the init() side effects described above; ALSO used
-	directly now by --component-source-vocabulary, which runs the birth
-	gate's own SourceVocabularyFindings rather than a second copy of it
-	(bugs_open/309, CLC-018).
-	"github.com/gqls/agentchassis/platform/orchestration/actions"
+	// Blank here because THIS file only needs the init() side effects; Go
+	// scopes imports per file, and componentsourcevocabulary.go imports the
+	// same package by name to call the birth gate's own
+	// SourceVocabularyFindings rather than a second copy of the rule
+	// (bugs_open/309, CLC-018). Do not "tidy" this into one named import —
+	// main.go would then fail to compile as imported-and-not-used.
+	_ "github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/validation"
 )
