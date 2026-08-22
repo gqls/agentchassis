@@ -14921,3 +14921,21 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** 2026-08-22, `bugfix_114_imagery_wiring` lane — cost one intake attempt; the second, quote-free, went through unchanged in every other respect
 - **added:** 2026-08-22, 114 lane
 
+
+---
+
+### evidence-researcher can only register a figure a source states in HTML PROSE — ask it for a number that lives in a spreadsheet and the run COMPLETES, registers facts, and none of them is the number
+
+- **footprint:** `agent_definitions` `type='evidence-researcher'` (steps `scrape_pages` / `extract_claims`) · `batch_webscrape` · `verify_and_register_citations` · any `evidence_base` `facts[]` sourcing task · GOV.UK statistical publications, DESNZ/DEFRA conversion factors, DLC/QPL product lists, journal PDFs
+- **fires when:** you fire a research question at a figure whose authoritative source publishes it as `.xlsx`, `.ods`, `.csv` or a PDF table. **There is no error and no empty result** — the run reaches `COMPLETED`, `facts[]` grows, and the register looks like it answered you. What it actually registered is prose *about* the file: publication dates, methodology notes, correction notices. Every one is verbatim-verified and true. None carries the figure.
+- **the mechanism:** the pipeline scrapes HTML and `extract_claims` is instructed that every claim needs "a VERBATIM quote copied EXACTLY from ONE source's text", which `verify_and_register` then re-fetches and re-matches. A number inside a spreadsheet cell is not in the page text, so it can never satisfy that rule — while the landing page's surrounding prose can, easily. The safety property that makes the register trustworthy (no quote, no fact) is the same property that guarantees this silent miss. Measured 2026-08-22 on the DESNZ GHG conversion factors: the publication page contains **zero** kgCO2e/kWh figures; the factors ship only as `ghg-conversion-factors-2025-{condensed-set,full-set,flat-format}.xlsx` plus a methodology PDF. The run returned four facts — a publication date, two third-party methodology descriptions, and a correction notice about well-to-tank emissions for hybrid cars and hotel stays.
+- **the check — before dispatching, ask whether the number is in the HTML at all:**
+  ```bash
+  curl -sS -L "<source page>" | sed -e 's/<script.*<\/script>//g' -e 's/<[^>]*>/ /g' \
+    | grep -oiE '[0-9]+\.[0-9]+ ?<your unit>' | head
+  curl -sS -L "<source page>" | grep -oE 'href="[^"]*\.(xlsx|ods|csv|pdf)"' | head
+  ```
+  No unit hits plus a list of spreadsheet links means **do not spend the run**. And after any run, apply the "did it answer the question?" test explicitly — `SELECT count(*) FROM … WHERE f->>'value' IS NULL` is the cheap tell, though note a valueless fact is not automatically junk (a removal or a rule can be a real claim with no number; the test is whether it carries an *assertion*, not whether it carries a digit).
+- **⚠ report it as a TOOLING gap, not a knowledge gap.** "We could not verify this" and "we could not verify this *with this tool*" are different statements, and only the first is an argument for leaving a figure off a page. The supported remedy is already in the schema: `source: attested_by` — a human opens the file, reads the cell, and registers the fact with the file URL and an attestation. Reaching for `attested_by` is the fix; concluding the figure is unsourceable is the error.
+- **relations:** MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] (a believable reason for an empty result is exactly when to check the instrument) · MEMORY [[zero-adoption-means-read-the-mechanism]] (same shape: the silence is the mechanism, not the subject) · `bugs_open/161` (the register ratifies what it holds — so what it *cannot* hold matters as much as what it can) · `docs024_key_docs_latest/agritec_uk/RUNBOOK_agritec_uk.md` §9 (the five-point read-the-run checklist this came out of)
+- **added:** 2026-08-22, `agritec_uk` lane
