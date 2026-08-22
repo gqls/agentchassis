@@ -2764,6 +2764,8 @@ matters if that domain was chosen to host wildcard subdomains later.
   ```
 
   `git ls-files` (whole index regardless of cwd) is safer than `git ls-tree -r HEAD` (subtree-scoped). **And print `pwd` in the same call as any absence check** — one extra word, and it makes the failure mode visible instead of invisible.
+- **SECOND FORM, added 2026-08-22 (`bugs_open/308` lane) — the same trap SKIPS A WRITE and reports success.** `cd <reldir> && cat > <file> <<'EOF' … EOF` after an earlier `cd` into that same directory: the relative `cd` fails, `&&` short-circuits, `cat` never runs, and **bash consumes and discards the entire heredoc**. Nothing is written and nothing complains — and the idiom people pair with it, a trailing unconditional `echo ok`/`echo written`, prints its success word regardless, three lines below the `cd` error you skimmed past. The first form above costs a false claim that a file is ABSENT; this one costs a false claim that a file is PRESENT, which is worse in a shared tree because the next session inherits a lane doc that was reported written and does not exist.
+  **the check:** `ls -la <abs path>` or `wc -c <abs path>` **in the same call as the write**, and delete the trailing `echo` — a success word you print yourself is evidence of nothing (`a-print-statement-is-not-a-config-row` in shell form). Absolute paths on every write make it unreachable.
 - **source:** 2026-08-01, provocation_pipeline lane. `provocation_pipeline/NOTES_provocation_pipeline.md`; `WRONG_CALLS.md`
 - **added:** 2026-08-01, provocation_pipeline lane
 
@@ -14767,3 +14769,20 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** LANDMINES *"`orchestration_states` has NO `id` column"* (the same class, different column — `orchestration_id`), *"retention is PER STATUS"*, *"a status census is a ~24 h WINDOW"*, *"`owner_agent_type` is NOT 'which agent ran'"*; CLM-023; `bugs_open/335`
 - **source:** 2026-08-22, `vigilant_designer_offer_analysis` lane — hit while running `537`'s own post-apply check BEFORE applying it; the query errored instead of answering, and the wrong spelling turned out to be inherited from the file `537` was modelled on. Filed as its own entry rather than folded into the retention ones because the trigger is different: those fire when you INTERPRET a count, this one fires before you get a count at all
 - **added:** 2026-08-22, vigilant_designer_offer_analysis lane
+
+---
+
+### The asset-retraction agent's "dry run by default" was a LIE for two days — an operator edit armed the LIVE config, and every banner still said audit-only
+
+- **footprint:** `agent_definitions` `type='asset-retraction'` · `retract_asset_files` · `docs/agent_docs/sql_for_agents/446_asset_retraction_agent.sql` · `docs/agent_docs/docs024_key_docs_latest/staged_component_build/scripts/RETRACT_gaswholesalers_logo_jpg.sh` · any step whose SAFETY lives in a config default an operator can edit
+- **fires when:** you dispatch asset-retraction (or any agent whose unsafe branch is gated on a step-config literal) trusting ANY written description of its default — the action header ("DRY RUN IS THE DEFAULT"), the seed's comments, the step's own `description` field, or a prepared script's banner ("Dry run (default). ARM=1 to delete."). **No symptom: the run COMPLETES, the banner said audit, and the file is gone.**
+- **the mechanism:** seed `446` ships the retract step with NO `dry_run` key (action default: dry-run TRUE, per the 2026-08-02 §2 unsafe-side-OFF ruling the action itself cites). The staged gaswholesalers script's documented fallback for unverified `step_overrides` propagation — "a one-off agent_definitions config UPDATE (snapshot first)" — was TAKEN (snapshot 2026-08-20 17:31) and **never reverted**: the live row carried `"dry_run": false` while its own step `description` still read "dry run unless the step config carries dry_run:false". Measured consequence 2026-08-22: **ten dispatches intended as dry runs each deleted their target file** (outcome happened to be the owner-authorised end state, protected by a pre-dispatch estate-wide reference audit and the action's five-guard chain — the guards DID run; the audit pass the operator believed they were getting did not exist).
+- **the check — read the LIVE step config, not any description of it (one query, before the first dispatch):**
+  ```sql
+  SELECT default_config #> '{workflow,steps,retract,config}' FROM agent_definitions
+  WHERE type='asset-retraction' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  -- a dry_run key HERE is the truth; its absence means the action's compiled default (TRUE) governs
+  ```
+  Disarmed 2026-08-22 by migration `554` (pre-state guarded; backup `bak_asset_retraction_20260822`). The general form: **a safety default enforced by config is only as true as the live row this minute** — the seed is history, the description is prose, and `updated_at` newer than the seed's apply date is the cheap tell that somebody edited it.
+- **relations:** MEMORY [[seed-sql-is-history-live-row-is-fact]] (this is that lesson with a DELETION on the wrong side) · MEMORY [[operator-actions-that-email-a-human]] (an approval covers the action as DESCRIBED, not its side effects) · retract_asset_files_action.go header guard 5 · `WRONG_CALLS.md` 2026-08-22 (the session that paid for it)
+- **added:** 2026-08-22, `bugfix_235_155_071_closeout` lane
