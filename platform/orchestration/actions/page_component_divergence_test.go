@@ -20,6 +20,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 )
 
 func TestClassifyPageComponentArtefactsReturnsMismatchedRows(t *testing.T) {
@@ -213,30 +214,39 @@ func TestAdoptVerbatimDoesNotStamp(t *testing.T) {
 	}
 }
 
-// The Go side's md5 comparison vocabulary must match migration 357's trigger
-// CASE — two halves of one judgement (the 016b both-halves landmine class).
-func TestDivergenceVocabularyMatchesMigration357(t *testing.T) {
-	src, err := os.ReadFile("../../../docs/agent_docs/sql_for_agents/357_page_component_artefact_archive.sql")
-	if err != nil {
-		t.Skipf("migration file not reachable from test dir: %v", err)
-	}
-	s := string(src)
+// The Go side's md5 comparison vocabulary must match the live trigger's CASE —
+// two halves of one judgement (the 016b both-halves landmine class).
+//
+// It asserts against platform/livespec, NOT migration 357 (bugs_open/363). Two
+// reasons, and both are structural. First, 357 is applied history: the checksum in
+// schema_migrations means it can never stop containing a string, so the old
+// t.Errorf("migration 357 no longer contains %q") described an impossible event.
+// Second, the old form called t.Skipf when the file was unreadable, so a RENAME was
+// a silent green. ⚠ Nothing here compares the declaration to the LIVE function, and
+// the live trigger SET has already outgrown 357 (three bindings, not two — 552 added
+// the third); that binding count is declared in livespec and is INERT until phase 2.
+func TestPageDivergenceVocabularyMatchesTheDeclaration(t *testing.T) {
+	d := livespec.MustGet("trigger_fn.page_component_artefact_archive")
 	for _, needle := range []string{
 		"WHEN OLD.rendered_html_digest IS NULL THEN 'unstamped'",
 		"WHEN OLD.rendered_html_digest = md5(OLD.rendered_html) THEN 'machine_made'",
 		"ELSE 'hand_patched'",
 		"'artefact_archive_trigger'",
 	} {
-		if !strings.Contains(s, needle) {
-			t.Errorf("migration 357 no longer contains %q — the DB-side verdict has drifted from the Go side's", needle)
+		if !d.HasFragment(needle) {
+			t.Errorf("the declaration for page_component_artefact_archive no longer requires %q — "+
+				"the DB-side verdict has drifted from the Go side's", needle)
 		}
 	}
+
+	// UNCHANGED and still a genuine assertion: this reads Go source, not a migration,
+	// so it says something that can actually become false.
 	goSrc, err := os.ReadFile("page_component_divergence.go")
 	if err != nil {
 		t.Fatalf("cannot read page_component_divergence.go: %v", err)
 	}
 	if !strings.Contains(string(goSrc), "rendered_html_digest <> md5(pc.rendered_html)") {
-		t.Error("classify no longer compares stamp to md5(rendered_html) — drifted from the trigger's judgement")
+		t.Error("classify no longer compares stamp to md5(pc.rendered_html) — drifted from the trigger's judgement")
 	}
 }
 

@@ -1,22 +1,37 @@
 // FILE: platform/orchestration/actions/claim_timeout_exclusion_lockstep_test.go
 //
-// The claimed-item-timeout lockstep guard, WIDENED to cover both completion gates
-// (bugs_open/317). It replaces TestRegisteredVerifiersMatchClaimTimeoutExclusion,
-// which lived in discovery_checks and could only ever see one of them.
+// The claimed-item-timeout lockstep guard, covering BOTH completion gates
+// (bugs_closed/317), now asserting against platform/livespec rather than against a
+// migration file (bugs_open/363, council b3676918 APPROVED round 2).
 //
-// WHY IT MOVED PACKAGE, which is the whole reason 317 existed. The sweep
+// WHY IT MOVED PACKAGE (bugs_closed/317, unchanged). The sweep
 // `claimed-item-timeout` auto-completes a claimed item past its timeout by writing
 // the row directly, so NEITHER completion gate runs. Its only protection is an
-// item_type exclusion list, and migration 220's own comment states the contract it
-// was written to: "the LOCKSTEP TWIN of the RegisterVerifier() calls". That was
-// complete when gate 2 was the only gate. Gate 1b (noChangeGates) arrived on
-// 2026-08-13 with its own opt-in roster, and a type on THAT roster with no
-// registered verifier fell outside the list — so for it the sweep was a completion
-// path no gate could see.
+// item_type exclusion list. Gate 1b (`noChangeGates`) lives in package `actions`,
+// and `actions` imports `discovery_checks`, so a test in `discovery_checks` could
+// never read both rosters. It reads both from here.
 //
-// The old guard could not be widened where it stood: noChangeGates lives in package
-// `actions`, and `actions` imports `discovery_checks`, so the test could not read
-// both rosters from there. It reads both from here.
+// WHY IT NO LONGER READS A MIGRATION (bugs_open/363, new). It used to glob
+// `*_claimed_item_timeout_generic_evidence.sql`, take the newest match and parse an
+// `item_type NOT IN (...)` clause out of it. Three things were wrong with that, and
+// the first two are structural:
+//
+//  1. A migration is APPEND-ONLY HISTORY. `schema_migrations` records a checksum of
+//     the file, so editing an applied migration makes that record a lie. The file is
+//     frozen; the live object is not. Asserting the file's text is an assertion that
+//     cannot fail in the direction that matters.
+//  2. The glob could not see the edits that actually happened. Migrations 322, 331
+//     and 374 each amended this live clause with `SET pre_query = replace(...)`, and
+//     none of their filenames match that pattern; 524 edited the same column again.
+//     Widening the glob is guessing at a naming convention.
+//  3. Because the migration applies a `replace()` of a tail fragment, the applied
+//     SQL never contains the whole clause — so migration 482 had to spell the list
+//     out in a PROSE COMMENT for this test to parse. The declaration was a comment.
+//
+// The declaration now lives in `platform/livespec`, in a file that is allowed to
+// change. ⚠ What that does NOT yet give us: nothing compares livespec to the LIVE
+// `scheduled_tasks.pre_query`. That is the phase-2 auditor, and until it ships this
+// guard proves Go and the declaration agree, not that either matches production.
 //
 // THE CONTRACT, both directions:
 //
@@ -29,88 +44,26 @@
 package actions
 
 import (
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/platform/livespec"
 	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 )
 
-// claimTimeoutMigrationGlob locates the migrations that own the sweep's predicate.
-//
-// It deliberately matches MORE THAN ONE file and takes the newest. 220 is applied
-// history and stays untouched — editing it would make its recorded checksum a lie —
-// so a later migration owns the live predicate, and the guard must read whichever
-// that is rather than the first one ever written.
-const claimTimeoutMigrationGlob = "../../../docs/agent_docs/sql_for_agents/*_claimed_item_timeout_generic_evidence.sql"
-
-var claimTimeoutExclusionRe = regexp.MustCompile(`item_type NOT IN \(([^)]*)\)`)
-
-// itemTypeShapeRe is what a real item_type looks like. Anything else in the parsed
-// list means the regex matched prose rather than the declaration.
-var itemTypeShapeRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-
 func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
-	matches, err := filepath.Glob(claimTimeoutMigrationGlob)
-	if err != nil {
-		t.Fatalf("glob %s: %v", claimTimeoutMigrationGlob, err)
-	}
-	if len(matches) == 0 {
-		t.Fatalf("no claim-timeout migration matches %s.\n"+
-			"If it was renamed, fix claimTimeoutMigrationGlob — this guard is inert until you do.",
-			claimTimeoutMigrationGlob)
-	}
-	// Lexicographic order is numeric order here: every file in sql_for_agents carries a
-	// zero-padded 3-digit prefix. If that ever stops being true this picks the wrong file,
-	// so the chosen name is reported on failure rather than left implicit.
-	sort.Strings(matches)
-	newest := matches[len(matches)-1]
-
-	src, err := os.ReadFile(newest)
-	if err != nil {
-		t.Fatalf("read %s: %v", newest, err)
-	}
-
-	found := claimTimeoutExclusionRe.FindSubmatch(src)
-	if found == nil {
-		t.Fatalf("no exclusion clause found in %s.\n"+
-			"Either the sweep no longer excludes gated item types — in which case it can now\n"+
-			"auto-complete an item a gate would have blocked — or the SQL was reshaped and this\n"+
-			"guard went vacuous. Both need a human.", newest)
-	}
-
 	excluded := map[string]bool{}
-	for _, raw := range strings.Split(string(found[1]), ",") {
-		if itemType := strings.Trim(strings.TrimSpace(raw), "'"); itemType != "" {
-			excluded[itemType] = true
-		}
+	for _, itemType := range livespec.ClaimedItemTimeoutExclusions {
+		excluded[itemType] = true
 	}
-
-	// WELL-FORMEDNESS, and it guards this guard against the trap that nearly bit the
-	// migration it reads (council editquality, gating objection, corr ff58ee4a).
-	//
-	// The regex takes the FIRST match in the file, so ANY prose above the real
-	// declaration that spells the exclusion clause out is parsed instead of it — and
-	// 482's own explanatory comment did exactly that while being written. The failure
-	// is not silent (every gated type then reports as "NOT excluded"), but it reports
-	// 14 confusing errors about the roster rather than the one true cause, which is
-	// that the parse is looking at prose. Assert the shape so the real cause is named.
-	for itemType := range excluded {
-		if !itemTypeShapeRe.MatchString(itemType) {
-			t.Fatalf("the exclusion clause in %s parsed to %q, which is not an item_type.\n"+
-				"The regex takes the FIRST `item_type NOT IN (...)` in the file, so a COMMENT above the real\n"+
-				"declaration that spells the clause out is read instead of it. Describe the clause in prose;\n"+
-				"never spell it. (This is how 482 was authored — the trap is real and this is its check.)",
-				filepath.Base(newest), itemType)
-		}
+	if len(excluded) != len(livespec.ClaimedItemTimeoutExclusions) {
+		t.Fatalf("the declared exclusion list contains a duplicate (%d entries, %d distinct)",
+			len(livespec.ClaimedItemTimeoutExclusions), len(excluded))
 	}
 
 	// gated = the union of the two rosters. Both are read live from the code that
-	// enforces them, never from a third copy here: a guard whose own copy can drift is
-	// not a guard.
+	// enforces them, never from a third copy here: a guard whose own copy can drift
+	// is not a guard.
 	gated := map[string]string{}
 	for _, itemType := range checks.RegisteredVerifierItemTypes() {
 		gated[itemType] = "a registered verifier (gate 2)"
@@ -131,26 +84,48 @@ func TestClaimTimeoutExclusionCoversBothCompletionGates(t *testing.T) {
 	}
 	if len(noChangeGates) == 0 {
 		t.Fatal("noChangeGates is empty — gate 1b is inert; this guard would silently narrow " +
-			"back to the gate-2-only contract that bugs_open/317 was filed about")
+			"back to the gate-2-only contract that bugs_closed/317 was filed about")
 	}
 
 	for itemType, why := range gated {
 		if !excluded[itemType] {
-			t.Errorf("item_type %q has %s but is NOT excluded in %s.\n"+
+			t.Errorf("item_type %q has %s but is NOT declared in livespec.ClaimedItemTimeoutExclusions.\n"+
 				"The claimed-item-timeout sweep writes the row directly, so it will auto-complete this\n"+
 				"item on handler-orchestration evidence alone, with that gate never running\n"+
-				"(bugs_open/317, /017, /021). Add %q to the exclusion clause in a NEW migration and apply it.",
-				itemType, why, filepath.Base(newest), itemType)
+				"(bugs_closed/317, bugs_open/017, /021). Add %q to the declaration AND ship a migration\n"+
+				"amending the live pre_query — the declaration alone changes nothing in production.",
+				itemType, why, itemType)
 		}
 	}
 
 	for itemType := range excluded {
 		if _, isGated := gated[itemType]; !isGated {
-			t.Errorf("item_type %q is excluded from the claim-timeout sweep in %s but NO gate can grade it.\n"+
+			t.Errorf("item_type %q is declared excluded from the claim-timeout sweep but NO gate can grade it.\n"+
 				"Nothing can ever prove its completion, so it falls through to the timeout reset forever —\n"+
-				"the churn bugs_open/006 §C was filed about. Remove it from the exclusion clause, or give it\n"+
-				"the verifier or noChangeGates entry its exclusion implies.",
-				itemType, filepath.Base(newest))
+				"the churn bugs_open/006 §C was filed about. Remove it from the declaration, or give it\n"+
+				"the verifier or noChangeGates entry its exclusion implies.", itemType)
 		}
+	}
+}
+
+// TestCooldownRendererMatchesTheDeclaration pins the Go renderer to the declared
+// predicate. It lives here because workItemRetryNotPendingSQL is an `actions`
+// symbol that livespec's own tests cannot reach.
+//
+// Fragment containment rather than exact equality (council: debug_historian): an
+// exact compare on rendered SQL turns a harmless whitespace change into a red test
+// that costs a reviewer an hour, while the drift that actually matters is the
+// BOUNDARY.
+func TestCooldownRendererMatchesTheDeclaration(t *testing.T) {
+	got := workItemRetryNotPendingSQL("wi")
+	if !strings.Contains(got, "retry_after <= NOW()") {
+		t.Errorf("renderer produced %q, which does not carry the non-strict boundary the declaration requires (%q).\n"+
+			"With a strict '<' an item is claimable a moment before it is completable, and the disagreement\n"+
+			"only ever surfaces as a race.", got, livespec.WorkItemRetryNotPendingAliased)
+	}
+	if got != livespec.WorkItemRetryNotPendingAliased {
+		t.Logf("note: renderer %q differs cosmetically from the declaration %q — not a failure, but if the\n"+
+			"difference is semantic the phase-2 auditor will report it against the live row.",
+			got, livespec.WorkItemRetryNotPendingAliased)
 	}
 }

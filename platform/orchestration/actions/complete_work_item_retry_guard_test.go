@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/gqls/agentchassis/platform/livespec"
 )
 
 // bugs_open/344 — a completion must not overwrite an item that is sitting out a
@@ -215,33 +217,33 @@ func TestClaimPredicateIsByteIdenticalToWhatItReplaced(t *testing.T) {
 	}
 }
 
-// TestGoAndSQLAgreeOnTheCooldownBoundary answers guardian's low objection: the
+// TestGoAndTheDeclarationAgreeOnTheCooldownBoundary answers guardian's low objection: the
 // same contract lives in Go AND in DB-resident SQL (migration 506's two dispatch
 // reads; 341's held 524 adds a third). The Go side is now one renderer, but that
 // closes only half the drift — if either side later moved to `<` while the other
 // kept `<=`, an item would be claimable a moment before or after it is
 // completable, and the disagreement would be invisible until a race surfaced it.
 //
-// This reads the migration as TEXT and requires the boundary to match.
-func TestGoAndSQLAgreeOnTheCooldownBoundary(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "docs", "agent_docs", "sql_for_agents",
-		"506_dispatch_reads_honour_retry_after.sql")
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Skipf("migration 506 not readable (%v) — the Go side is still pinned by the tests above", err)
-	}
-	sql := string(b)
+// It reads platform/livespec, NOT migration 506 (bugs_open/363). The old form had
+// two defects that made its green uninformative: it asserted the TEXT of an applied
+// migration, which the checksum rule in schema_migrations forbids anyone changing,
+// so it could not fail in the direction it existed to detect; and it called t.Skipf
+// when the file was unreadable, so a RENAME was a silent pass. ⚠ Nothing here
+// compares the declaration to the LIVE row — that is the phase-2 auditor.
+func TestGoAndTheDeclarationAgreeOnTheCooldownBoundary(t *testing.T) {
+	d := livespec.MustGet("scheduled_task.build-pipeline-trigger.retry_cooldown")
 
-	// The rendered Go predicate, aliased as the migration writes it.
+	// The rendered Go predicate must be what the declaration requires of the live row.
 	want := workItemRetryNotPendingSQL("wi")
-	if !strings.Contains(sql, want) {
-		t.Errorf("migration 506 does not contain the Go renderer's exact predicate %q.\n"+
+	if !d.HasFragment(want) {
+		t.Errorf("the declaration does not require the Go renderer's predicate %q.\n"+
 			"One contract in two media has drifted — check the boundary (<= vs <) and the NULL arm.", want)
 	}
-	// Guard the specific drift that would be silent: a strict inequality.
-	if strings.Contains(sql, "retry_after < NOW()") {
-		t.Error("migration 506 uses a STRICT boundary while Go uses <= — an item would be claimable " +
-			"a moment before it is completable, and nothing else would report the disagreement")
+	// The specific drift that would otherwise be silent: a strict inequality. The
+	// declaration must FORBID it outright, not merely omit it.
+	if !d.Forbids("retry_after < NOW()") {
+		t.Error("the declaration no longer forbids the STRICT boundary — with '<' an item would be " +
+			"claimable a moment before it is completable, and nothing else would report the disagreement")
 	}
 }
 

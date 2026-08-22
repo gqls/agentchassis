@@ -24,6 +24,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/livespec"
 )
 
 func classifyWithRows(t *testing.T, stamped interface{}, current string, byteCount int) *siteComponentArtefactVerdict {
@@ -183,23 +184,26 @@ func TestDivergenceItemGatedOnHandPatchedAfterStore(t *testing.T) {
 	}
 }
 
-// The Go vocabulary and the 344 trigger's CASE are two copies of one
-// judgement. This pin fails when either side renames a verdict or the trigger
-// stops judging by md5 — the drift would otherwise surface as work items that
-// disagree with the ledger they cite.
-func TestDivergenceVocabularyMatchesMigration344(t *testing.T) {
-	mig, err := os.ReadFile("../../../docs/agent_docs/sql_for_agents/344_site_component_history_divergence_guard.sql")
-	if err != nil {
-		t.Fatalf("cannot read migration 344 (moved?): %v", err)
-	}
-	s := string(mig)
+// The Go vocabulary and the live trigger's CASE are two copies of one judgement.
+// This pin fails when either side renames a verdict or stops judging by md5 — the
+// drift would otherwise surface as work items that disagree with the ledger they cite.
+//
+// It asserts against platform/livespec, NOT against migration 344 (bugs_open/363).
+// 344 is applied history: schema_migrations holds its checksum, so it can never stop
+// containing a string, and a test asserting that it does is an assertion that cannot
+// fail. ⚠ Nothing here compares the declaration to the LIVE function — that is the
+// phase-2 auditor.
+func TestSiteDivergenceVocabularyMatchesTheDeclaration(t *testing.T) {
+	d := livespec.MustGet("trigger_fn.site_component_history_archive")
 
 	for _, verdict := range []siteComponentArtefactState{artefactUnstamped, artefactMachineMade, artefactHandPatched} {
-		if !strings.Contains(s, "'"+string(verdict)+"'") {
-			t.Errorf("migration 344 does not carry verdict %q — Go and trigger vocabularies have drifted", verdict)
+		if !d.HasFragment("'" + string(verdict) + "'") {
+			t.Errorf("the declaration for site_component_history_archive does not require verdict %q — "+
+				"Go and the declared trigger vocabulary have drifted", verdict)
 		}
 	}
-	if !strings.Contains(s, "OLD.rendered_html_digest = md5(OLD.rendered_html)") {
-		t.Error("migration 344's trigger no longer judges by md5 of the OLD bytes — its verdicts and classifySiteComponentArtefact's are no longer the same judgement")
+	if !d.HasFragment("OLD.rendered_html_digest = md5(OLD.rendered_html)") {
+		t.Error("the declaration no longer requires the trigger to judge by md5 of the OLD bytes — its verdicts " +
+			"and classifySiteComponentArtefact's would no longer be the same judgement")
 	}
 }
