@@ -1,0 +1,116 @@
+# RUNBOOK — bugs_open/316
+
+Every query/command that was hard to get right, with its gotcha attached. Change it HERE.
+
+---
+
+## Read the live step config (the fact; the repo seed is history)
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -c "
+SELECT jsonb_pretty(default_config->'workflow'->'steps'->'find_news_sites')
+FROM agent_definitions
+WHERE type='content-feed-trigger' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
+```
+
+⚠ **All four predicates matter.** Dropping `COALESCE(is_snapshot,false)=false` returns snapshot rows
+that are not what the runtime reads; dropping `deleted_at IS NULL` returns tombstones.
+
+## Census which sites the trigger actually picked — from `collected_data`, NEVER from the logs
+
+The chassis log retains **15-90 seconds** (measured, `bugs_open/275` lane), so a pod sweep for a
+6-hourly event returns a clean zero whether the cap bites constantly or never.
+`QueryDatabaseAction` writes each result to the step's `output_field`, which survives rolls and reaches
+back ~2 days:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT created_at,
+       jsonb_array_length(COALESCE(collected_data->'news_sites'->'rows','[]'::jsonb)) AS n_rows,
+       (SELECT string_agg(r->>'domain', ', ' ORDER BY r->>'domain')
+          FROM jsonb_array_elements(COALESCE(collected_data->'news_sites'->'rows','[]'::jsonb)) r) AS domains
+FROM orchestration_states
+WHERE collected_data ? 'news_sites'
+ORDER BY created_at DESC LIMIT 12;"
+```
+
+⚠ **`->'rows'` is required** and is the step's `output_format: object` shape. For a step declaring
+`output_format: array` the payload is a bare array and `->'rows'` yields NULL — i.e. the same clean zero
+you were trying to avoid. Handle both, or check the step's declared format first.
+
+## The lateness table — the bug's disconfirming pair, in units of each site's OWN cadence
+
+This is the query that settles whether a fix landed. **Before the fix**, overdue-ness correlates with
+alphabetical rank. **After**, it must not.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+WITH elig AS (
+ SELECT DISTINCT s.id, s.domain FROM sites s
+ JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect='classification' AND ss.is_current=true
+   AND (ss.data->'content_features'->'news_feed'->>'recommended')::boolean=true
+ WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id=s.id AND p.build_status='deployed')
+)
+SELECT row_number() OVER (ORDER BY e.domain) AS alpha_rank, e.domain,
+   min(cs.fetch_interval) AS cadence,
+   min(cs.next_fetch_at)  AS min_next_fetch,
+   CASE WHEN min(cs.next_fetch_at) <= now()
+        THEN justify_interval(now()-min(cs.next_fetch_at)) END AS overdue_by,
+   round(100*EXTRACT(epoch FROM (now()-min(cs.next_fetch_at)))
+           /NULLIF(EXTRACT(epoch FROM min(cs.fetch_interval)),0)) AS pct_of_own_cycle,
+   max(cs.last_fetched_at) AS last_fetched
+FROM elig e JOIN content_sources cs ON cs.site_id=e.id AND cs.is_active=true
+GROUP BY e.domain ORDER BY e.domain;"
+```
+
+⚠ **A negative `pct_of_own_cycle` means not-yet-due, not early.** Read the `overdue_by` column, which is
+NULL in that case, rather than the signed percentage.
+
+⚠ **This query's `elig` CTE deliberately does NOT reproduce the trigger's own eligibility filter** — it
+lists every news-feed site with a deployed page, including ones the trigger would skip. That is on
+purpose: it is the denominator. Filtering it the way the trigger filters would be the "census filtered on
+the very column it exists to test" trap.
+
+## Fleet census of capped `query_database` steps (how big is the class?)
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At -F '|' -c "
+WITH steps AS (
+  SELECT a.type AS agent_type, s.key AS step_name,
+         regexp_replace(s.value->'config'->>'query', E'[\\\\s]+', ' ', 'g') AS q
+  FROM agent_definitions a,
+       LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+  WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+    AND s.value->>'action' = 'query_database'
+)
+SELECT agent_type, step_name,
+       COALESCE(substring(q from '(?i)ORDER BY (.*?) LIMIT'), '(none)') AS order_by,
+       substring(q from '(?i)LIMIT +([0-9]+)') AS lim
+FROM steps WHERE q ~* '\\mLIMIT\\M' ORDER BY 3, 1, 2;"
+```
+
+⚠ **The `regexp_replace` collapsing whitespace is load-bearing** — step queries are stored with embedded
+newlines, and `substring(… from 'ORDER BY (.*?) LIMIT')` will not match across them without it.
+
+⚠ **`substring` returns the FIRST match**, so a query with a subquery `LIMIT` reports that one. Classify
+by reading the full query, not by trusting this summary — two of the fleet's hits are subquery limits
+whose outer result is one row.
+
+## Capacity arithmetic (the owner-decision half — verify, do not change)
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+WITH elig AS (
+ SELECT DISTINCT s.id FROM sites s
+ JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect='classification' AND ss.is_current=true
+   AND (ss.data->'content_features'->'news_feed'->>'recommended')::boolean=true
+ WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id=s.id AND p.build_status='deployed'))
+SELECT count(*) AS eligible_sites,
+       round(sum(86400.0/EXTRACT(epoch FROM iv))) AS demanded_fetches_per_day
+FROM (SELECT e.id, min(cs.fetch_interval) AS iv
+      FROM elig e JOIN content_sources cs ON cs.site_id=e.id AND cs.is_active=true
+      GROUP BY e.id) t;"
+```
+
+Supply is `runs_per_day x cap`. The trigger is 6-hourly, so 4 x 5 = 20.
