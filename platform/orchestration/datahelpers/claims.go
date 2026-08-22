@@ -678,7 +678,13 @@ var writtenDateRe = regexp.MustCompile(`(?i)^\s*(st|nd|rd|th)?\s+(january|februa
 var monthBeforeRe = regexp.MustCompile(`(?i)(january|february|march|april|may|june|july|august|september|october|november|december)\s*$`)
 
 // Unit/measurement suffixes that mark a number as not-a-business-count.
-var unitSuffixRe = regexp.MustCompile(`(?i)^\s*(px|rem|em|vh|vw|ms|sec|seconds?|min(ute)?s?\s+read|kb|mb|gb|tb|fps|st\b|nd\b|rd\b|th\b|[-–]\s*(hour|day|week|month|year|minute|second|token|character|step|person|page)\b)`)
+// `am`/`pm` are here for the same reason as `min read`: a CLOCK TIME is not a
+// claim about the business, but it sits happily inside business prose and the
+// lexical gate cannot tell them apart. Measured on ai-agent-orchestration.com,
+// 2026-08-22: a generated pricing page was refused because "debug a failing
+// agent chain at 2am" put a `2` next to the word "agent". The `\b` matters —
+// without it "5 amazing" would be excluded too.
+var unitSuffixRe = regexp.MustCompile(`(?i)^\s*(px|rem|em|vh|vw|ms|sec|seconds?|min(ute)?s?\s+read|kb|mb|gb|tb|fps|am\b|pm\b|st\b|nd\b|rd\b|th\b|[-–]\s*(hour|day|week|month|year|minute|second|token|character|step|person|page)\b)`)
 
 // ============================================================================
 // Claim surface — the STRUCTURAL gate on the prose number scan (bugs_open/102)

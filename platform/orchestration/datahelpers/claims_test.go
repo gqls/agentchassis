@@ -343,3 +343,4 @@ func TestNegationGuardIsParameterisedByDomain(t *testing.T) {
 			"the algorithm is not domain-parametric if it can't")
 	}
 }
+

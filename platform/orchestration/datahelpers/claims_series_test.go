@@ -226,3 +226,49 @@ func TestUnsourcedObservationDoesNotRegisterItsValue(t *testing.T) {
 		}
 	}
 }
+
+// A CLOCK TIME is not a business figure. Same family as the written-out dates
+// above, and as bugs_closed/073's "Read time: 8–12 minutes": the number scan's
+// exclusions are an allow-list, so every unit it has never met costs one false
+// refusal on a real page.
+//
+// Measured on ai-agent-orchestration.com, 2026-08-22: a regenerated `pricing`
+// page was refused with `unregistered_number "2"` on the sentence "the
+// monitoring needed to debug a failing agent chain at 2am are part of what gets
+// deployed from day one". The `2` of "2am" had no suffix rule, and the window
+// around it contains "agent", which satisfies the lexical business gate. The
+// page asserted nothing about the business and was still blocked.
+//
+// An EMPTY evidence base is used deliberately: nothing is supported, so any
+// number that reaches the scan IS reported. That is what makes this test able
+// to fail — with a populated base a `gte` fact would support a value as small
+// as 2 and the test would pass whether or not the suffix rule exists.
+func TestClockTimesAreNotBusinessNumbers(t *testing.T) {
+	eb := &EvidenceBase{}
+	excluded := []string{
+		"the monitoring needed to debug a failing agent chain at 2am is deployed from day one",
+		"our agents page an engineer at 3 am when a chain stalls",
+		"the agent platform runs its reconciliation at 11pm before anything is deployed",
+		"the agent fleet is quietest at 4AM",
+	}
+	for _, block := range excluded {
+		if f := eb.ScanUnregisteredNumbers([]string{block}, ClaimSurface{}); len(f) != 0 {
+			t.Errorf("clock time in %q flagged as a business figure: %+v", block, f)
+		}
+	}
+}
+
+// The am/pm rule must not swallow a real figure that merely precedes a word
+// beginning with those letters — the `\b` in unitSuffixRe is what stops it, and
+// without this control the rule above could be written far too broadly.
+func TestFigureBeforeAnAmWordIsStillScanned(t *testing.T) {
+	eb := &EvidenceBase{}
+	for _, block := range []string{
+		"We serve 450 amazing clients across the platform.",
+		"We deployed 120 ambitious agents for the programme.",
+	} {
+		if f := eb.ScanUnregisteredNumbers([]string{block}, ClaimSurface{}); len(f) == 0 {
+			t.Errorf("a real business figure was suppressed by the am/pm rule: %q", block)
+		}
+	}
+}
