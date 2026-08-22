@@ -131,6 +131,33 @@ The second is the sharper one: **a `bugs_open/NNN` reference in any document, wh
 in `bugs_closed/`, is a stale-status suspect** — and it is mechanically detectable across the whole
 corpus, which makes it a candidate for `scripts/pattern-check.py` rather than a habit.
 
+### 6a. A SECOND staleness shape, from §10's third writer — a census goes stale by ADDITION
+
+Contributed by the `webdesign_tool_rebuilds` lane on taking §10, and it is a **different** failure
+from the one above, which this file originally conflated with it. §6's shape is a *pointer that
+expired* — the thing it names moved. This one is a *count that was right and stopped being right
+because the world grew*:
+
+> `RFC_008` censused **ten** writers of `rendered_html` on 2026-08-02 and named two as the open gap.
+> `create_tool_component_regenerate.go` was **born 2026-08-19** — seventeen days later. Nobody
+> miscounted. Every document that quoted "ten writers" was correct when written and wrong by
+> birthday, including this bug file, and including the landmine whose own text warns that *"the SET
+> of writers grows while you are not looking."*
+
+**The detector, and it needs no judgement either:** a writer-set census is stale the moment
+
+```bash
+git log --since=<census date> --diff-filter=A -- <dir>     # files ADDED since the census
+```
+
+is non-empty for the pattern the census counted. Pair it with a re-run of the census grep. **Any
+document stating "N writers/callers/sites of X" should carry the date it counted**, because without
+that date this check has no `--since` to anchor on — which makes "put the census date next to the
+census number" the cheapest half of the fix and worth doing everywhere immediately.
+
+Same status as §6: **PROPOSED, UNOWNED**, and the two belong in one `pattern-check.py` rule set
+rather than two walkers.
+
 > **Status of that check: PROPOSED, UNOWNED, deliberately not built by the filing session.**
 > Endorsed independently by the `webdesign_tool_rebuilds` lane (which took the Go half above) and by
 > the `bugs_open/358` lane.
