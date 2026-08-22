@@ -239,3 +239,30 @@ left it alone and wrote down why: it has no way to save anything, so its mistake
 nowhere, and it has run twice in its entire life — both times on the 9th of August. I
 could have added a guess at where to find the site identity, but I'd have been shipping
 code I couldn't test, which is a habit that has bitten this system repeatedly.
+
+## 2026-08-21 (close) — moved to bugs_closed, on your direction
+
+You've retired the standing instruction to leave fixed bugs in the open folder, so I've
+applied the normal rule: fixed **and** live means closed.
+
+Two files moved, not one. **204** is this lane's. **189** is a different bug from earlier
+in the month that was fully fixed, live and behaviourally verified on 6 August — it had
+been sitting in the open folder for a fortnight for no reason other than that
+instruction. Those two were the only files in the whole open folder held there by it; I
+checked rather than assumed, and both say so in their own text.
+
+I've put the closed status at the **top** of each file rather than 360 lines down, because
+anything that shortens a document — a listing, a search result — shows the opening and
+stops. And 204's status block says plainly what is *not* proven, so nobody reads "closed"
+as "fully exercised".
+
+One small thing worth telling you because it nearly caught me: my own duplicate-check said
+189 looked wrong, because two completely unrelated bugs share the number 189. Checking by
+name rather than number cleared it. That ambiguity is documented and I still walked into
+it — the estate's own advice is to resolve these by name, never by number.
+
+The old paths (`bugs_open/204`) now appear in about 170 places across other teams' notes.
+I've repointed the ones this lane owns and deliberately left the rest: they refer to *case*
+204, not to a file location, both folders are searched by convention, and rewriting 35
+files that other sessions are actively editing to change a directory name in prose is
+exactly the kind of broad edit that swept my own half-finished work this morning.
