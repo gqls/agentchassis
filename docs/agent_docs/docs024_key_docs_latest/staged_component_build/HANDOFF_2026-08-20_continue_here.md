@@ -572,14 +572,48 @@ read, not to infer. I recorded "no natural path to verification" for two days on
 `related_pages` present in the spec. It is the gate's first with-pages traffic through a marked wire
 on the new binary.
 
-⚠ **They have an ACCIDENTAL PAIRED CONTROL and should use it.** In the same minutes, on the same
-binary, two other tool-generator runs carry **no** `related_pages`
-(`15ca55cd` 08:58:29 and `a77cffe5` 08:57:40, both `spec_has_related_pages = f`) beside the positive
-one (`2bb319ab` 08:58:34, `= t`). So the discrimination is available without waiting: the
-with-pages run must emit **3** crosslink items and **no** `no_related_pages` skip row, while the two
-without-pages runs must emit **no** items and **one skip row each**. Both halves holding in one
-window rules out "the crosslink path is broken" as an alternative explanation for either result — a
-standalone with-pages observation cannot do that.
+⚠ ~~**They have an ACCIDENTAL PAIRED CONTROL and should use it.** … the two without-pages runs must
+emit no items and one skip row each~~ — **THAT CONTROL IS INVALID. I was wrong, corrected within the
+hour by the parallel session, and verified here before propagating.**
+
+The two runs I offered as the no-pages half (`15ca55cd`, `a77cffe5`) are **REBUILDS**:
+`spec.replace_existing = true`, work-item-driven from the tool-rebuilds lane. A replace run takes the
+regenerate-in-place arm at `create_tool_component_action.go:287` —
+`return regenerateToolComponentInPlace(...)` — an **early return 270 lines before the crosslink
+emitter at :559**. So it *structurally cannot* emit a skip row, and "no skip row" from those runs
+says **nothing** about the crosslink path.
+
+**Why this was worse than a control that fails: mine would have PASSED, for the wrong reason.** I
+would have read two absent skip rows as corroboration. It was caught only because they checked *why*
+the no-pages half came back empty instead of accepting the result they expected.
+
+**The error in one line: I picked the wrong discriminating variable.** I split on
+`spec_has_related_pages`. The variable that actually decides whether the crosslink path executes is
+**birth vs replace**. A control is only a control if it exercises the path under test — same lesson
+as yesterday's blind probes, one level up: there the *instrument* was broken, here the *choice of
+comparison* was.
+
+**There is currently NO valid no-pages new-tool control on the new binary.** The two skip-row-writing
+runs that would qualify were on `v1.0.1322`. Do not manufacture one — note the gap and wait for an
+organic birth run.
+```sql
+-- the split that matters, and the one I should have used
+SELECT left(orchestration_id::text,8) AS orch,
+       collected_data->'input_data'->'spec'->>'replace_existing' AS replace_existing,
+       collected_data->'input_data'->'spec' ? 'related_pages'    AS has_pages, current_step
+  FROM orchestration_states WHERE owner_agent_type='tool-generator'
+   AND created_at > '<boundary>' ORDER BY created_at;
+```
+⚠ **Also visible in that query and worth someone's attention: 6 of 9 tool-generator runs today ended
+`complete_error`** (`tool_birth_instance_scope_refused`), against 2 all of yesterday. The parallel
+session checked the obvious suspect and cleared it — the prover and both callers are byte-identical
+across `bac189921..70e7b4f9c`, so the guard did not harden with the roll; it is generation-side.
+**Not the flip, not 516.** If the rate holds it is a bug to file (possibly `126`'s
+unsatisfiable-fence shape) and it is nobody's tonight.
+
+**GATE READ (parallel session, real demand):** zero `RESOLVER_*` rows of **any** phase since the
+08:45Z boundary, against 8 tool-generator runs plus normal fleet traffic. **No `1-resolve-and-warn`
+⇒ no regression signal.** No `2-refuse`. Banked uninterpreted, per the §2.11 table.
 
 **THE GAP I ALMOST LEFT OPEN, now closed.** Every `?` marker proof this lane has produced tests the
 **ABSENCE** half — 515 showed `page_type` excluded from `requested_fields`; 537 showed the same for
