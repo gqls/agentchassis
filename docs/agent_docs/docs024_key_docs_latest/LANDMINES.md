@@ -14673,3 +14673,34 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why it is a landmine and not just a bug:** the two inert spellings were each written by someone intending a lifecycle filter, and both survived review because *reading the SQL is not sufficient* — you also have to know the column's vocabulary. Every consumer downstream then inherits a filter that is not there.
 - **relations:** `bugs_open/356` (the instance and the 18-check class) · `bugs_open/266` (the same axis confusion at deploy time, and the warning against blanket status filters) · `bugs_closed/185` (the BUILD axis got the single-helper treatment the lifecycle axis never did) · `bugs_open/349` (`PageWantedLivePredicateFor` is lifecycle-ONLY, so a never-built page passes it) · WII-025 · `LANDMINES` "a source-scanning test makes your COMMENTS load-bearing"
 - **added:** 2026-08-22, `bugs_open/356` lane
+
+---
+
+### CLAUDE.md tells you to "update the index count" when you register a concept — doing it trips the very check that guards the index, because stored counts were RETIRED
+
+- **footprint:** `docs/agent_docs/docs026_concept_register/register/000_concept_index.md`, `**N index table rows**`, `concept-register-drift-check`, `STORED_COUNT_HEAD_BYTES`, `HEADLINE_RE`, adding any entry to `docs026_concept_register/register/`
+- **fires when:** you add a concept-register entry and follow CLAUDE.md's instruction *"Update the index count and drop any matching line from `102_coverage_ratchet.txt`"*. No symptom; you are following a written rule, and the file appears to contain exactly the figure it names.
+- **the tell — and it is inverted, which is what makes it a landmine.** `000_concept_index.md` does contain `**1,795 index table rows** — re-measured 2026-08-08`, and that figure is **153 short** of the real count (1,948, [MEASURED 2026-08-22], counted with the checker's own `ROW_RE`). It reads as an obvious, helpful correction. It is not:
+  - that line lives at **byte 510,385** of a 551,902-byte file, inside the **FROZEN MEASUREMENT LOG** at the foot;
+  - `concept-register-drift-check` searches for a headline **only in the first 4,000 bytes** (`STORED_COUNT_HEAD_BYTES`), and its own comment says the bound is *"load-bearing rather than an optimisation"* — the log quotes retired headlines verbatim because *"the record of the retired practice is the evidence for retiring it"*, and a whole-file search would be *"a watcher crying wolf about its own archive"*;
+  - **stored counts have been RETIRED.** The check's line reads `# Stored counts have been retired: any that reappears is the finding.` So writing a fresh, accurate count into the head of the file is not compliance — **it is the finding**, and it would fire daily.
+- **the check, before you touch that number:**
+  ```bash
+  # Is this figure inside the checker's window, or is it frozen history?
+  python3 -c "
+  import io; t=io.open('docs/agent_docs/docs026_concept_register/register/000_concept_index.md',encoding='utf-8').read()
+  i=t.find('index table rows'); print('byte offset:', len(t[:i].encode('utf-8')), '/ head bound 4000')"
+  grep -n 'Stored counts have been retired' deployments/kustomize/services/concept-register-drift-check/base/check.py
+  ```
+  Offset well past 4,000 → **leave it alone**. What you DO owe is the pair the check actually enforces: an
+  `### <ID> — …` entry in a category file **and** a matching `| <ID> | … |` row in the index. Those are
+  `entry_without_row` / `row_without_entry`, and they are the real findings.
+- **why it is a landmine and not a doc bug:** the instruction in CLAUDE.md is not wrong so much as
+  *stale* — it predates the retirement — and CLAUDE.md is the one document every session is told to
+  follow exactly. A rule that was correct when written, guarding a mechanism that has since inverted, is
+  the hardest kind to disobey: doing the right thing requires noticing that a standing instruction no
+  longer applies. Two sessions' worth of entries have already been added without updating the figure,
+  which is why it is 153 out — the drift is evidence the practice really has lapsed, not evidence that
+  everyone forgot.
+- **relations:** `concept-register-drift-check` (the daily job) · MEMORY [[a-stale-status-line-prevents-the-thing-it-describes]] (a stale line making the correct action look wrong — this is the mirror: a stale line making the *incorrect* action look required) · SCH-027 (the entry whose registration surfaced it)
+- **added:** 2026-08-22, `bugs_open/316` lane
