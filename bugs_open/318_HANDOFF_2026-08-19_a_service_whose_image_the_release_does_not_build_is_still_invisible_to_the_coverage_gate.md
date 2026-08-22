@@ -226,6 +226,20 @@ quietly.**
   `site-locale-unset-check` run as CronJobs with **no `services/*` overlay on disk**.
   Both are `postgres:16-alpine`, so no freeze risk today — but it bounds what any
   filesystem-only gate may claim about coverage.
+  > **⚠ CORRECTED 2026-08-22, same day, by the planning agent's adversarial pass — the
+  > wording above would send a reader to a directory that exists.** Both services DO have
+  > `deployments/kustomize/services/<name>/base/`; what they lack is an `overlays/` tree
+  > (base-only, applied by hand). The substance survives — a gate globbing `overlays/…`
+  > cannot see them — but "no `services/*` overlay on disk" reads as "no directory", and
+  > anyone who greps will find one and log this as a wrong call.
+- **And one finding of mine was simply wrong, in a way that made the fix better.** I
+  recorded that `tools-api` has no production overlay. It has one — at
+  `deployments/kustomize/services/tools-api/overlays/production/kustomization.yaml`, with
+  **no region directory** — which the gate's fixed `$(OVERLAY_PATH)` glob
+  (`production/uk_001`) can never see. It pins a placeholder (`newName: IMAGE_TAG`,
+  `newTag: latest`) and has no workload, so it is harmless today. **The corrected lesson
+  is worth more than the correction: the enumeration must not bake in the region depth**,
+  and the replacement gate walks to any depth because of this.
 
 ### 5. What this contribution does NOT claim
 
@@ -236,3 +250,116 @@ shape is constrained by 318's own warning: a makefile-only change is refused by 
 council client-side, so the predicate is being written as a Go helper the makefile
 calls — which also makes it mutation-testable without editing a file forty sessions
 share.
+
+---
+
+## 2026-08-22 (later) — **THE MAIN GAP IS CLOSED.** Candidate 2 by construction, candidate 1 REPLACED and its remnant put to the owner
+
+**Council APPROVED, round 1** — `83442a5a-e66d-4772-8872-b445f521d47b`, 3 advisory
+objections, none high. Register **BLD-026**. Lane:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_318_release_source_coverage/`.
+
+### What shipped
+
+| candidate | state |
+|---|---|
+| **2** — `build-backend` builds exactly `RELEASE_IMAGES` | **DONE by construction** (`95757b6c2`). Not by adding three names: `build-backend: $(addprefix build-,$(RELEASE_IMAGES))` deletes the second enumeration entirely, so the two sides cannot drift. Set difference 25/25 **by identity**. |
+| **1** — the content-change trigger | **REPLACED, not built.** See below — as worded it is uncomputable here, and after the P1 fix its population is one service. The re-aim is the owner's call. |
+| **the main gap** — an image of ours the release does not build | **CLOSED** (`f16daa34a`, `9b87dcfac`). The gate's admission test is INVERTED. |
+| **3** — a daily cluster census | **not built**, deliberately: it is detection, it needs RBAC, and it earns its own commit and its own review. |
+
+**The fix in one line:** the predicate moved to `pkg/releaseset` behind a thin
+`cmd/releasecheck`, and *"is this overlay's image one the release builds?"* stopped being
+the **admission test** and became the **question**. An image of ours that no release
+builds is now a violation; the only exit is an explicit `OWN_LINEAGE := <svc>:<target>`
+entry — opt-in, unsafe side default OFF, and not architecture-scope under RFC_022's
+narrowing.
+
+**Why Go and not more shell, since this file raised the question:** `scripts/council-scope.sh:57`
+is `COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/'` — verified verbatim, not asserted.
+`cmd/` is outside it, so a helper written wholly in `cmd/` would have drawn **no review at
+all**. The layering is what made the round possible. It is also what let the mutation
+proofs be table rows: this morning a session mutated the shared makefile in place to prove
+the OLD gate discriminates and another session committed the file inside the window.
+
+### `OWN_LINEAGE` was going to ship empty and the first live run found an entry
+
+`admin-dashboard` pins one of our images that `build-backend` does not build — it is a
+frontend, built from the working tree with no `ref_build` and no provenance stamp
+(BLD-019/BLD-020 scope frontends out explicitly) — and yet it **is** released, as the last
+goal of `pinned_sweep` via `release-dashboard`. Genuinely own-lineage, genuinely covered,
+and **nothing on disk said so**. The old gate could not have said so: its image is not in
+`RELEASE_IMAGES`, and that was the admission test. The entry also records what it does not
+cover — `release-backend` omits `release-dashboard`.
+
+That also answers the `guardian` seat's question about the exemption list's completeness:
+the gate enumerates the **whole filesystem**, so its first green run over 31 our-registry
+overlays **is** the completeness check. Any other out-of-band overlay would have been
+named in the same breath.
+
+### Proof, and the instrument shown able to fail
+
+Six mutations on a **copied** tree (never the live makefile): verbatim copy → exit 0;
+`agent-chassis` out of the deploy list → `NO RELEASE PATH` (**this reproduces the original
+`237` bug state**); `content-loss-check` out of `RELEASE_IMAGES` → `OUR IMAGE, NO RELEASE
+BUILDS IT` (**the shape the old gate passed**); `OWN_LINEAGE` emptied → names
+`admin-dashboard`; a bare exemption → `EXEMPTION NAMES NO RETAG TARGET`; `RELEASE_IMAGES`
+renamed away → `THE CHECK COULD NOT RUN`, never a pass; `RETAG_EXEMPT` renamed away →
+**exposes** what it cleared rather than refusing. Nine table cases each name, in their
+comment, what a different result would mean.
+
+**A commit-time advisory rides alongside** (`scripts/pattern-check.py`,
+`check_unlisted_release_overlay`) because the hard gate does not fire until the next
+release, and the makefile's previous remedy — a comment in capitals — failed twice in two
+days with the owner ruling in front of both authors. Precision measured against real
+history: of **21** commits since 2026-07-15 that added a production overlay it fires on
+**7**, and all 7 are the documented incidents (`render-audit-adapter`,
+`github-actions-runner-vmsites`, `component-render-check`, `shared-output-fields-check`,
+`verifier-remit-check`, `optional-explicit-wires-check`, `commit-sha-exposure-check`).
+**Zero false positives** on the other 14.
+
+### The council found a real defect, in the fix, of the fix's own disease
+
+`bug_historian` (medium): the new scanner read only the **first** element of an overlay's
+`images:` block. An overlay pinning two images with ours second would produce no `Pin` and
+the gate could never flag it — *a check reporting clean about the thing it never looked
+at*, reproduced in miniature inside the change written to end it. Measured before acting:
+no kustomization anywhere under `deployments/` has more than one element, so it was
+**latent**, not live. The cap was **removed** rather than warned about.
+
+### ⚠ WHAT IS STILL OPEN — an owner decision, not work
+
+**Candidate 1 as worded on 2026-08-18 cannot be built**, and re-aiming an owner's stated
+intent is his call. Two facts force it:
+
+1. **The pin's history is fiction.** `deploy-agents` seds `newTag` in place and nobody
+   commits it — 26 production overlays dirty on 2026-08-22, `agent-chassis` committed at
+   `v1.0.1239` against `v1.0.1323` on disk **and in the cluster**. A staleness test dated
+   from that history grades the most-rolled service on the estate as the most frozen. Now
+   in `LANDMINES.md`.
+2. **After P1, the trigger's population is the exemption list, and it has one entry.**
+   Every other image of ours is now in the release, and BLD-020 makes a release one
+   commit — so *"stale iff its source moved"* can only ever bite an `OWN_LINEAGE` service.
+
+**The recommendation** is to implement it as the standing obligation attached to an
+exemption — an `OWN_LINEAGE` entry declares its source closure (the dockerfile's Go target
+via `go list -deps`, **plus** `go.mod`, `go.sum`, the dockerfile itself and everything it
+`COPY --from=builder`s), and the daily census grades that service's artefact-commit
+(BLD-019's OCI label / BLD-023's `git_commit`) against it — rather than as a release gate
+over an empty population. **Not built pending the ruling.**
+
+### Two adjacent things, filed not fixed
+
+- `capped-schedule-ordering-check` has an overlay, build/push/deploy targets and release
+  membership, and **no CronJob in the cluster**. The next release will create it. Belongs
+  to the `316` lane.
+- **The next release must run at ≥ `v1.0.1325`.** `v1.0.1324` is contaminated:
+  `commit-sha-exposure-check:v1.0.1324` was hand-built from an unpinned commit and three
+  overlays already pin 1324, so a same-tag re-push hits the node-cache landmine.
+
+### Close condition
+
+**Not** a green gate — that only says the gate agrees with today's tree. It closes when a
+real release has run under it (the `guardian` seat's objection is that this is the single
+choke point every deploy passes through, and it is right that the first run should be
+watched), and when the owner has ruled on candidate 1's re-aim.
