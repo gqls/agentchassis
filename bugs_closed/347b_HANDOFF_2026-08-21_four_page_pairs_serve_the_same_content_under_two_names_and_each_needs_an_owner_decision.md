@@ -157,3 +157,58 @@ The estate already has a landmine saying a `page_components` count is a containe
 not a content measure; this is the same failure one level up, where **an entire evidence
 table can be container-shaped**. The check that broke it was the cheapest available and I
 did it last instead of first: open the page and read the first paragraph.
+
+---
+
+# CLOSED 2026-08-22 — NO ACTION, by owner decision. This file's value is now the correction it carries, not the work it proposed
+
+Owner decision, 2026-08-22: **leave it.** Closed with nothing done to any of the eight
+pages, deliberately and on the record.
+
+**Why that is the right outcome rather than a deferral.** This file was opened to schedule
+remediation of "four page pairs serving one page under two live names". That premise is
+false — see the 2026-08-21 correction above. All eight pages are distinct, live and
+serving:
+
+- **fundamentallyai.com** ×2 — a guide *to the tool* at `/blog/…` and a standalone *topic
+  guide* at `/guides/tool-…`. Different articles.
+- **finetuning.uk** — a **5**-question readiness assessment and a **6**-question quiz.
+  Different instruments.
+- **robot-hands.com** — the MatchMatrix pitch page and the working selection matrix.
+
+**There is no defect here to fix.** What remained were editorial questions, and the owner
+has answered them: leave the pages alone. The one instruction that *did* land — *"those
+guides should be under the guides directory"* (2026-08-21) — was superseded by the same
+decision once it was clear that acting on it would cost two permanent 404s (no redirect
+mechanism exists) to move articles that are each legitimately where a reader can find them.
+
+## What a future reader must NOT do
+
+**Do not re-open this from a twin census.** These four will keep appearing in any
+stem-based pairing report for as long as they exist, because `PageItemStem` strips a
+leading `tool-` and `matchmatrix` / `tool-matchmatrix` reduce to one stem. **That is the
+census working correctly and it is not evidence of a duplicate.** The estate's own
+documentation says the stem key "is the one layer that can pair two genuinely different
+pages", which is exactly why `stem_twin_snap` ships gated and default-OFF.
+
+If a later census raises these again, the answer is in this file: **they were checked, page
+by page, on 2026-08-21, and they are not duplicates.** Re-checking costs one `curl` and a
+read of the first paragraph — do that before proposing anything, which is the step whose
+omission produced this file's original false premise.
+
+## What this leaves behind that is worth keeping
+
+1. **The minting defect is fixed** — `bugs_closed/215` (all three modes, live, behaviourally
+   proven: 19 phantoms → 0 on a real replan) and `bugs_closed/340` (the preservation-set
+   gap). Nothing in this file was ever blocking those.
+2. **Three of the original seven pairs WERE genuine** and were remediated in full by the
+   brochure lane in August (two on robot-hands with retraction verified at the artefact).
+   So the pairing signal is not worthless — it is simply a name signal, and it needs a
+   content check before it becomes a decision.
+3. **The lesson**, logged in `WRONG_CALLS.md` (2026-08-21): an entire evidence table can be
+   container-shaped. Component counts, policies, byte sizes and HTTP statuses were all true
+   and all measured the container; none measured the page, and their agreement with each
+   other read as corroboration when it was only common blindness.
+
+**Status: CLOSED, no action taken, no page altered.** The four pairs remain live and
+serving exactly as they were.
