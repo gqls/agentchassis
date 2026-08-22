@@ -227,3 +227,89 @@ v1.0.1314, so their hold's release precondition is still unmet.
   from it since the relay yet because it is mid-commit. I am NOT touching execution.
 - Nothing on THIS lane changes with the roll. Lane remains closed; its one live
   residual is still "first real component-creator generation = demand control".
+
+## 2026-08-22 — lane REOPENED for its one remaining half: nothing sweeps the components already in the database
+
+Picked up by a fresh session asked to fix `bugs_open/309` framework-first. First act was
+to establish what is actually still true, because the file's own §13 declares the case
+fixed and the lane's SUMMARY declares the class shipped — and both are older than the
+tree.
+
+### Both claimed halves re-verified, and both hold
+
+- **The case.** `[MEASURED 2026-08-22 ~11:59Z]` `https://fundamentallyai.com/platform-log/index.html`
+  HTTP 200, 64,775 bytes: **8 `bl-card` blocks, 2 anchors in every one (16 total)**, 18
+  anchors in `<main>`, `data-component="blog-listing"`. Card 4 is
+  `/guides/tool-ai-readiness-checker-guide.html` — the LIVE sibling, so §9's "fixed by
+  construction" is still holding three days on. The archived `/blog/ai-readiness-checker-guide`
+  appears nowhere on the page.
+  > ⚠ The first fetch returned **`000`** — the same curl transport failure §13 recorded,
+  > and it renders as "0 cards, 0 anchors" in every downstream count. Re-fetched with
+  > `--retry 3 --retry-all-errors`. **A zero measured through a failed transport is
+  > indistinguishable from the defect this bug is about**, which is precisely why §13's
+  > note earned its place. Size is the control: 64,775 bytes is a page that loaded.
+- **The birth gate.** `sourceVocabularyIssues` is live and its only caller is
+  `store_generated_component_action.go:430` (`grep -rn` over all `.go`: definition, that
+  one call, and the tests). `[MEASURED]` **zero** active components have been created OR
+  updated with an offending source since it went live on 2026-08-19 — so it is holding,
+  not merely deployed.
+
+### The residual, measured — and it is the framework half
+
+The gate stops NEW phantom sources. **Nothing has ever looked at the ones already there.**
+Census run today against `content_components WHERE is_active`, applying exactly the
+guard's own rule (prefix set, `queryresolve` registration, live `site_specs` aspect set):
+
+| issue | fields | components |
+|---|---|---|
+| `phantom_aspect` | 51 | 9 |
+| `unregistered_query` | 14 | 5 |
+| `prefix_outside_vocabulary` | 4 | 3 |
+| **total** | **69** | **17 distinct** |
+
+Phantom aspects: `nav` (16 fields), `pricing` (9), `categories` (7), `inventory` (7),
+`social` (4), `legal` (3), `product` (2), `social_proof` (2), `search` (1).
+Unregistered queries: `featured_post` (7), `category` (2), then `affiliate_products`,
+`comparison_results`, bare `pages`, `comparison_filter_types`, `category_posts` (1 each).
+Outside the vocabulary: bare `config` on `info-card-grid.carousel`, `nav.*` ×2 and
+`site.*` ×1 on the two webdesign.co.uk chrome components.
+
+**Six of the seventeen have live instances on active/deployed pages — 46 instances:**
+`info-card-grid` 32, `Latest News Feed` 6, `featured_article` 3, `category-listing` 2,
+`testimonials` 2, `social_proof` 1. The other eleven are dormant (zero instances).
+
+> **Reconciling with §8's "61", because the numbers look like drift and are not.**
+> §8 counted 58 phantom-aspect fields + 3 out-of-vocabulary = 61, and listed **7**
+> unregistered query *names*. I count 51 + 4 = 55 and **14** unregistered query
+> *fields* across those same **7 names**. The phantom drop of exactly 7 is migration
+> 478 retiring the seven `site_specs.blog.*` fields — the arithmetic closes. The
+> query figure never moved: **§8 counted names, I counted fields.** Two units, one
+> population. This is the "your measurement answers the question you ENCODED" trap
+> and it very nearly became a finding that the gate was leaking.
+
+### Why the census is calibrated to production and not to the guard's opinion of it
+
+The risk here is reporting fields as dead that actually resolve — `fixing a checker to
+agree with a broken site` in reverse. Checked at the resolver, not assumed:
+`plan_sections_action.go:623 resolve()` returns `(nil, false)` for a source with no dot
+(so bare `config` IS dropped, on all 32 `info-card-grid` instances), and `site_specs`
+falls through to `resolveSpecAlias`, whose step 1 needs `identityContainerAspects[aspect]`
+to be populated and whose step 2 is `if aspect != "identity" { return nil, false }`.
+**No phantom aspect can be rescued by the alias.** So every one of the 69 takes
+`on_missing` → `skip_field` → key omitted → `{{if}}` swallows the markup. Same mechanism,
+same silence, as the six orphaned articles.
+
+### Why the birth gate can never close this door
+
+A component is routinely inserted or altered by a hand-written migration or by hand SQL,
+which never passes through `store_generated_component_action` at all. That is already a
+recorded LANDMINE (85dbf889d). An at-rest sweep is the only shape that sees every write
+path, which makes it the *robust* half rather than merely the *remaining* half.
+
+### Ownership checked before starting
+
+`scripts/who-owns.py 309` names the `meta_description_never_backfilled` (320) and
+`bugfix_284_flag_only_items_promoted` lanes; both closed themselves on 2026-08-19. Live
+transcript sweep of all sessions active today: three cite 309 (the 238 lane, the 337
+lane, a remortgagecalculator CSS lane) and every hit is prior-art citation — none edits
+`component_source_guard.go` or anything in this lane. **No competing owner.**
