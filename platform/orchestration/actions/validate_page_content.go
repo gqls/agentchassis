@@ -623,6 +623,14 @@ func writeValidationFailureLog(
 		}
 	}
 
+	// Warnings ride the failure row too, under their OWN key — context.issues
+	// keeps its blocker/error-only shape for existing consumers, but a failed
+	// build's warnings must not evaporate with collected_data any more than a
+	// valid build's do (the 071 gap 3 residual, both paths). No repair pass has
+	// run on this path, so every warning is unrepaired by construction —
+	// survivingWarnings with no repairs is exactly that set.
+	warningIssues := survivingWarnings(issues, nil)
+
 	// The agent/step/action literals are this recorder's own provenance — the
 	// row must keep naming the validation seam, not whichever step is running.
 	if !LogActionEntry(ctx, params, agenterrors.Entry{
@@ -638,7 +646,9 @@ func writeValidationFailureLog(
 		Context: map[string]interface{}{
 			"blocker_count": blockerCount,
 			"error_count":   errorCount,
+			"warning_count": len(warningIssues),
 			"issues":        failureIssues,
+			"warnings":      warningIssues,
 			"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
 		},
 	}, logger) {

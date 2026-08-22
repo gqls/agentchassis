@@ -114,6 +114,75 @@ func (warningContextPayload) Match(v driver.Value) bool {
 	return true
 }
 
+// failureContextPayload pins the OTHER path (council round 1's missing item):
+// an INVALID build's failure row must now carry its warnings under a separate
+// key, while context.issues keeps its blocker/error-only shape for existing
+// consumers.
+type failureContextPayload struct{}
+
+func (failureContextPayload) Match(v driver.Value) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	var payload struct {
+		WarningCount int                 `json:"warning_count"`
+		Issues       []map[string]string `json:"issues"`
+		Warnings     []map[string]string `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(s), &payload); err != nil {
+		return false
+	}
+	// issues: blocker/error only — no warning may leak in.
+	for _, m := range payload.Issues {
+		if m["severity"] == "warning" {
+			return false
+		}
+	}
+	if len(payload.Issues) != 1 || payload.Issues[0]["value"] != "/other" {
+		return false
+	}
+	// warnings: both warning-severity fixtures (no repair pass has run on the
+	// failure path, so nothing is excluded).
+	if payload.WarningCount != 2 || len(payload.Warnings) != 2 {
+		return false
+	}
+	return true
+}
+
+func TestWriteValidationFailureLog_WarningsRideTheFailureRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO agent_error_log`)).
+		WithArgs(
+			sqlmock.AnyArg(),           // 1 site_id
+			"example.com",              // 2 domain
+			sqlmock.AnyArg(),           // 3 work_item_id
+			sqlmock.AnyArg(),           // 4 orchestration_id
+			"page-build-handler",       // 5 agent_type
+			sqlmock.AnyArg(),           // 6 agent_id
+			sqlmock.AnyArg(),           // 7 pod_name
+			"validate_content",         // 8 step_name
+			"validate_page_content",    // 9 action
+			sqlmock.AnyArg(),           // 10 error_message
+			validationDetailErrorCode,  // 11 error_code — the FAILURE row, not the warning row
+			"warning",                  // 12 severity (the chassis row is the canonical error)
+			failureContextPayload{},    // 13 context
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	writeValidationFailureLog(context.Background(), runningStepParams(db), "", "example.com",
+		warningLogFixtureIssues(), 0, 1, zap.NewNop())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("failure row does not carry the warnings as specified: %v", err)
+	}
+}
+
 func TestWriteValidationWarningLog_RowShape(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
