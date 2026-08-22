@@ -39,3 +39,41 @@ file: whether the phone column width (item D) goes to the queued design pass —
 actually decided, three documents disagree about it — and whether item H counts as done from the
 engineering side, since what remains there is the distribution experiment you said you'd run
 yourself.
+
+## Friday 22 August 2026, later — the check is built and the council approved it
+
+The new check is written, tested and committed, and the review council approved it on the second
+round. I want to be straight about the first round, because it caught something real.
+
+Round one came back "revise". The reviewer's objection was that my check would report a page as
+FINE if the measurement never actually ran — if the browser handed back nothing, my code read that
+as "nothing wrong found" and passed. That is exactly the failure this whole piece of work exists to
+end: we already have a contrast tool elsewhere that prints "0 problems" for pages it never looked
+at, and I had quoted that very fault three times in my own submission while the same fault sat in
+the code underneath. It is now fixed: the measurement stamps the page with a marker and counts what
+it looked at, and anything without that marker — or a scan that measured nothing at all — is
+reported as a failure to measure, never as a pass. I proved the new guards by deliberately breaking
+them one at a time and checking the tests caught each one.
+
+The second round passed with the same reviewer approving outright. One reviewer asked me to prove,
+rather than assert, that a JS refactor I did was harmless; I did that by comparing it byte-for-byte
+against the exact text that was already running in production, which is now locked by a fingerprint
+so nobody can quietly regenerate it.
+
+I also caught myself, twice in one day, writing "measured" or "enumerated" about checks I had not
+actually run. Both are written up in the shared mistakes log, the second one deliberately as its own
+entry, because a repeat within a single session says something the first one does not: the urge is
+strongest in the sentence that answers someone who doubts you. Nothing false shipped either time.
+
+**What happens next, and it needs someone else's build.** The check cannot do anything until the
+browser-runner service is rebuilt and rolled — that service has its own image, so a normal chassis
+release does not carry it. Everything is committed and ready for that build. Deliberately, no page
+or tool is set up to use the new check yet: a check the running service does not recognise is
+silently skipped, and a skipped check reads as a pass, so switching it on before the roll would be
+worse than useless. Once it rolls, the plan is to prove it on vonc's own Gauntlet page, which today
+has text at 1.66:1 that a person genuinely struggles to read, with a known-good page alongside as a
+control.
+
+One correction worth flagging: I had been repeating that the two deployments of this service run far
+apart in versions. They are both on the same version today (v1.0.1323). The gap is possible, not a
+current fact, and the handoff now says so.
