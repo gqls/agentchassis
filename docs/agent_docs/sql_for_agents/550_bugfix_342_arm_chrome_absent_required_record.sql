@@ -17,6 +17,22 @@
 --   rerender-pages.render_site_components,     rerender-site.render_site_components,
 --   site-work-orchestrator.render_site_components
 --
+-- RE-MEASURED AT APPROVAL, not quoted from the bug file (council 3626629a
+-- round 2, prior_art_librarian, medium: the zero is the load-bearing
+-- justification for shipping the chrome refusal capability UNARMED, so a stale
+-- figure would make that argument wrong). One statement, with its own vacuity
+-- guard, 2026-08-22:
+--   candidate_pairs 0 | rows_missing 0 | components_with_required_fields 813
+--   | chrome_rows_total 72
+-- Read it in that order: 813 component×field pairs in the library DO declare a
+-- required source:"llm" field, and 72 chrome rows exist — so neither side is
+-- empty. What is empty is the JOIN: no chrome row references any such
+-- component. That is why the arm fires on nothing today, and it is a fact
+-- about which components the chrome store USES, not about content being
+-- complete. (The first version of this census reported the zero without the
+-- candidate count and would have said the second thing — WRONG_CALLS.md,
+-- 2026-08-22.)
+--
 -- MEASURED BEFORE ARMING (bugs_open/342 §5's own instruction), 2026-08-22:
 -- the chrome store (site_components) references only site-header / site-footer
 -- / head class components, which declare ZERO required source:"llm" fields —

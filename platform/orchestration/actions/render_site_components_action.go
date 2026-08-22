@@ -1159,6 +1159,31 @@ func renderAndStoreSiteComponent(
 	// queue entry, exactly as the section-editor gate does — refusing must
 	// never be the reason a defect goes unrecorded.
 	//
+	// ⚠ NEITHER THIS NOR THE RECORD ABOVE IS REACHED ON THE `!force`
+	// IDEMPOTENT-SKIP PATH, and that asymmetry is worth stating rather than
+	// discovering (council 3626629a round 2, guardian, medium — the seat asked
+	// where this sits relative to that exit, and the honest answer is "after
+	// it, so it never runs when the exit fires"). For the REFUSAL that is
+	// correct and not a gap: the exit fires precisely when the slot already
+	// holds non-empty, non-pending HTML and nothing is about to be written, and
+	// a gate that exists to prevent a write has nothing to prevent. For
+	// DETECTION it is a real blind spot, and a pre-existing one: an already
+	// populated slot whose content_data is missing a required field is never
+	// inspected by a non-forced refresh, because no render happens to inspect.
+	// The fleet's chrome rerenders pass force=true, so the common path does
+	// reach here — but do not read this call site as "every chrome slot is
+	// checked continuously". What is checked is every slot this function is
+	// about to write.
+	//
+	// The fatal-vs-degraded split reuses chromeSlotHasStoredHTML, which the
+	// execution-failure branch ~90 lines above already uses for exactly this
+	// decision (and the caller uses at :333) — deliberately NOT a new
+	// discriminator (same council round, bug_historian, medium: this estate has
+	// twice had to re-harden a "does this hold real content?" judgement). Note
+	// it is not that class of judgement at all: it asks whether any non-empty
+	// rendered_html is STORED for the slot, never whether that HTML looks
+	// meaningful, so there is no sparse-but-real content for it to misread.
+	//
 	// It declines to STORE, which on this path means the previously stored
 	// bytes keep serving: the same disposition the execution-failure branch
 	// above already chose, for the same reason (whatever this function stores

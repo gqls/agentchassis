@@ -114,15 +114,30 @@ BEGIN
     END IF;
 END $$;
 
--- ── The write ───────────────────────────────────────────────────────────────
-UPDATE agent_definitions
-SET default_config = jsonb_set(default_config,
-        '{workflow,steps,apply_edit,config,refuse_absent_required_fields}',
-        'true'::jsonb),
-    version    = version + 1,
-    updated_at = now()
-WHERE type='section-editor' AND is_active
-  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- ── The write, with the row-count assertion BAKED IN ────────────────────────
+-- Council 3626629a round 2, debug_historian: needle-gate discipline wants the
+-- "exactly one live row" expectation asserted by the UPDATE itself, not only
+-- by a precondition that ran beforehand — between the two, another session can
+-- insert a second active row, and a WHERE-clause precondition cannot see that.
+-- GET DIAGNOSTICS makes the write its own witness.
+DO $$
+DECLARE
+    n_updated integer;
+BEGIN
+    UPDATE agent_definitions
+    SET default_config = jsonb_set(default_config,
+            '{workflow,steps,apply_edit,config,refuse_absent_required_fields}',
+            'true'::jsonb),
+        version    = version + 1,
+        updated_at = now()
+    WHERE type='section-editor' AND is_active
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+
+    GET DIAGNOSTICS n_updated = ROW_COUNT;
+    IF n_updated IS DISTINCT FROM 1 THEN
+        RAISE EXCEPTION 'MIGRATION 551: the UPDATE touched % rows, expected exactly 1 — a second active section-editor row appeared between the precondition and the write, and only the higher version loads. Aborting rather than arming a row nobody reads.', n_updated;
+    END IF;
+END $$;
 
 -- ── Post-conditions ─────────────────────────────────────────────────────────
 DO $$

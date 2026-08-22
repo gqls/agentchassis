@@ -163,3 +163,58 @@ counted).
 **What I got right and want to keep doing:** I re-read the submission against the actual diff
 before re-firing (`git diff` + a grep per claimed symbol), which is the 260 lane's own hard-won
 rule — three of their six rounds were the submission describing code that had moved.
+
+## 2026-08-22 afternoon — APPROVED at round 2, and the advisories acted on rather than banked
+
+Verdict: **approved with 3 advisory objections, none high** (trail `3626629a`, round 2). An
+approval is not a reason to stop reading the objections — one of them named a real property of
+my own change that I had not stated.
+
+**`guardian`, medium — where does the new gate sit relative to the `!force` idempotence exit?**
+The honest answer is *after it, so it never runs when the exit fires*, and I had not said so.
+Checked at the code (`:850`): the exit returns when the slot already holds non-empty,
+non-`pending` HTML. **For the REFUSAL that is correct and not a gap** — the exit fires precisely
+when nothing is about to be written, and a gate that prevents writes has nothing to prevent.
+**For DETECTION it is a real blind spot and a pre-existing one**: an already-populated slot whose
+`content_data` lacks a required field is never inspected by a non-forced refresh, because no
+render happens to inspect it. Now written into the code at the gate, so the next reader does not
+have to rediscover it: *what is checked is every slot this function is about to write*, not every
+chrome slot continuously.
+
+**`bug_historian`, medium — is `chromeSlotHasStoredHTML` a fresh ad-hoc "does this hold real
+content?" discriminator, the class this estate has had to re-harden twice (016b §9 items 3, 5)?**
+No, on both counts, and the objection was worth answering rather than waving off. It is
+**pre-existing** (`:1706`), and it is already the discriminator the execution-failure branch
+~90 lines above uses for exactly this fatal-vs-degraded split (and the caller at `:333`) — so
+this is reuse, not a second lineage. And it is not that class of judgement: it asks whether any
+non-empty `rendered_html` is STORED, never whether the HTML looks meaningful, so there is no
+sparse-but-real content for it to misread.
+
+**`prior_art_librarian`, medium — the chrome zero was quoted, not re-run, while being the
+load-bearing argument for shipping the refusal unarmed.** Fair. Re-run at approval, one statement
+with its own vacuity guard: `candidate_pairs 0 | rows_missing 0 |
+components_with_required_fields 813 | chrome_rows_total 72`. **Read in that order it says
+something the bare zero does not**: neither side is empty — 813 component×field pairs in the
+library do declare a required field, and 72 chrome rows exist — what is empty is the JOIN. The
+figure is now in 550's header in that form.
+
+**`editquality` + `guardian`, low — enumerate every caller of the signature you changed.** Done:
+one production caller (`:312`) and three test call sites (`site_component_lock_guard_test.go`
+:292/:327/:353, all updated). "It compiles" was already evidence, but the enumeration is the
+thing that could have come out otherwise.
+
+**`debug_historian`, low — bake the row-count assertion into 551's UPDATE.** Done, with
+`GET DIAGNOSTICS`. The point is sharper than it first reads: a precondition that ran *beforehand*
+cannot see a second active row inserted between it and the write, and on this tree that is not
+hypothetical.
+
+**`bug_historian`, low — this is still per-call-site patching of a generic root cause
+(`missingkey=zero`), and the historian's index says narrow per-site patches on this class have
+not historically been the fix that stuck.** True, and deliberately so: refusing at the SEAM is
+new authority over content that renders successfully today at sites that never asked (owner
+2026-08-02 §2). Recorded here as the standing argument rather than settled — if a future owner
+ruling licenses a seam-level default, this is the note that says why we did not take it.
+
+**Applied `550` after the verdict**: 7/7 steps armed, verified by reading the live rows rather
+than trusting the migration's own post-check, with a negative control (the REFUSE key must still
+be armed nowhere — it is). Ledgered via `--record-only`.
