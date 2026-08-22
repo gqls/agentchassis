@@ -5927,7 +5927,10 @@ the decision; a capability with no live caller is not a fallback (same lesson as
 a proxy artefact another subsystem may stop minting; if the proxy must stay, the narrowing
 commit owes a grep for `depends_on` consumers of the item type it is narrowing. And when a
 withheld/declined path is added, give it a durable, countable record — 353 was findable at all
-only because 029's council round had insisted every skip write a row.
+only because the phantom-tool-links 029's council round (`025f4f34e`; the crosslink case, NOT
+the hung-spawns case sharing that ambiguous number) had insisted every skip write a row.
+
+## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
 awaiting a fixing thread (it was `docs024_key_docs_latest/aaa_fails_to_mend/`

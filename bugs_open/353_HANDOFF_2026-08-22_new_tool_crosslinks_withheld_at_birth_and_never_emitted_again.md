@@ -24,7 +24,9 @@ error anywhere. The only trace is one `agent_error_log` row,
    fix **177** (`74655b709`, 2026-08-03 11:06Z) — **declines when the page declares no prose
    sections**, which a pure-tool page never does. Worked case's step output:
    `"content_item": "skipped_no_prose_sections"`.
-2. **The emitter's Guard 2** (`create_tool_cross_link_items.go`, built for `bugs_open/029`):
+2. **The emitter's Guard 2** (`create_tool_cross_link_items.go`, built for
+   `bugs_closed/029_HANDOFF_2026-07-19_tool_suggester_writes_phantom_tool_links.md` — **029 is a
+   documented AMBIGUOUS number shared with the unrelated hung-spawns case; resolve by slug**):
    page not live (`toolPageLive` = `deployed|needs_rebuild`; `planned` is neither) → look for an
    open `needs_content_page` item on the tool page to `depends_on` → **none exists (see 1)** →
    withhold ALL crosslinks, write one skip row, return 0. Its own message: "cross-links withheld
@@ -32,9 +34,13 @@ error anywhere. The only trace is one `agent_error_log` row,
 3. **Nothing re-emits.** `emitToolCrossLinkItems` has exactly two production callers: the birth
    path (once, above) and `deploy_tool_action.go` — and **`tool-deployer` has 0 orchestrations
    in all retained history** `[MEASURED 2026-08-22: SELECT count(*) FROM orchestration_states
-   WHERE owner_agent_type='tool-deployer' → 0]`. When the page later deploys via the ordinary
-   page-build path, no crosslink emission happens — emission is a birth-time one-shot that
-   already fired into the withhold.
+   WHERE owner_agent_type='tool-deployer' → 0]`. ⚠ **That is a RETENTION-BOUNDED statement, not
+   an all-time one** — `orchestration_states` retention is per-status (a council seat has
+   objected to "all-time" claims from this table before, correctly). It does not need to be
+   all-time: for the 32 withheld tools, what matters is that no deployer run followed any of
+   their births, and the skip census (08-03 → today) sits inside the same window as the zero.
+   When the page later deploys via the ordinary page-build path, no crosslink emission happens
+   — emission is a birth-time one-shot that already fired into the withhold.
 
 ## 3. Damage, measured (2026-08-22 ~09:2xZ)
 
@@ -103,9 +109,18 @@ gate on human review — do not read "3 created, 1 completed" as a partial failu
 
 ## 8. Ownership
 
-The mechanism is 029's emitter + 177's guard, both CLOSED bugs — this is a new defect in their
-composition, not a reopening of either. Adjacent-but-unaffected: the tool-rebuild lanes
-(`replace_existing`, 331/TL-047) whose arm exits before the emitter. The `bugs_open/029`
-hung-spawns session was notified 2026-08-22. Filing lane: staged-component-build (this find
-falls out of 330's verification and blocks nothing in it — 516's resolver half is proven both
-directions regardless; see 330 §10).
+The mechanism is the phantom-tool-links 029's emitter + 177's guard, both CLOSED bugs — this is
+a new defect in their composition, not a reopening of either. **029 is an ambiguous number**
+(two unrelated closed cases share it; `who-owns.py 029` warns): the emitter belongs to
+`bugs_closed/029_…_tool_suggester_writes_phantom_tool_links.md` (closed 07-26), and **the
+countable-skip rows that made this bug findable at all are THAT lane's council round's doing**
+(`025f4f34e`, "central insert, countable skips") — credit there, not to the hung-spawns lane.
+The OTHER 029 (`…_hung_spawns_saturate_dispatch_group…`) closed 2026-08-22 with its live half
+re-filed as `bugs_open/343`; that session was notified 2026-08-22 (misrouted by the bare
+number — it confirmed no conflict and supplied these corrections). Adjacent-but-unaffected:
+the tool-rebuild lanes (`replace_existing`, 331/TL-047) whose arm exits before the emitter.
+Filing lane: staged-component-build (this find falls out of 330's verification and blocks
+nothing in it — 516's resolver half is proven both directions regardless; see 330 §10).
+**The FIX is unowned as of filing** — it belongs to whoever claims this file (announce the
+claim here, and run `who-owns.py 353` first), not to whichever session reads it next, and not
+automatically to the filing lane.
