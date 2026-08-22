@@ -40,7 +40,9 @@ Three of its supporting claims do not, and each changes the design.
 > correction.** `platform/orchestration/agenterrors/agenterrors.go:3` declares itself *"The ONE
 > writer against agent_error_log"*, and RFC_012 (owner ruling 2026-08-06) really did retire
 > nineteen hand-copied INSERTs in `platform/orchestration/actions/` into it. But an exhaustive
-> grep across every language in the tree finds **five** insert paths, not one:
+> grep across every language in the tree finds **five as of 2026-08-22** insert paths, not one
+> (owner ruling 2026-08-22 — a count carries the date it was counted; re-census with the grep
+> below plus `git log --since=2026-08-22 --diff-filter=A`):
 >
 > | path | writes | goes through the seam? |
 > |---|---|---|

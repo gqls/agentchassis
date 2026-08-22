@@ -19,8 +19,10 @@
 // design, and it is a correction to 358's own fix candidate B2.
 // platform/orchestration/agenterrors/agenterrors.go:3 declares itself "The ONE
 // writer against agent_error_log", and RFC_012 (owner ruling 2026-08-06) really
-// did retire nineteen hand-copied INSERTs into it. It is no longer true. Five
-// paths insert rows:
+// did retire nineteen hand-copied INSERTs into it. It is no longer true. **FIVE**
+// paths insert rows, as of 2026-08-22 (re-census with
+// `grep -rn "INSERT INTO agent_error_log"` across every language; a bare count
+// goes stale by ADDITION and reads as current for ever — owner ruling 2026-08-22):
 //
 //	agenterrors.go:89                                  — the seam
 //	store_generated_component_action.go:1439           — own INSERT, kept DELIBERATELY
@@ -34,7 +36,7 @@
 //	cmd/content-loss-check/main.go:292                 — a standalone binary
 //
 // So a check placed at the seam — the obvious home — would be blind to four of
-// the five writers WHILE LOOKING COMPLETE, which is 358's own defect reproducing
+// those five writers WHILE LOOKING COMPLETE, which is 358's own defect reproducing
 // itself one level up. `SELECT DISTINCT error_code` is blind to none of them:
 // it sees every writer regardless of language, seam, or whether the code is a
 // literal, a constant, a positional argument or a value from config. It parses
