@@ -134,3 +134,18 @@ overflow + contrast_check.go:173). ⚠ I first wrote `:238` and `:645` from memo
 file — my own edits had shifted them. Grep before quoting a line number in a submission.
 
 Round 2 dispatched on the same trail (`RESUBMIT_CORR=7e2391ec…`), run orch `c047a44b`.
+
+### Mutation proofs of the round-2 guards (2026-08-22, run in a scratch copy — the real tree never mutated)
+
+A guard I have not seen fire is the thing this lane's own landmine is about, so each new guard was
+defeated in a throwaway copy of the tree and the intended test had to catch it:
+
+| mutation | killed by | evidence |
+|---|---|---|
+| drop the semicolon at the `auditJS` join point (the EXACT class guardian + bug_historian named) | `TestAuditJSComposition` | `composed auditJS diverges from the pre-refactor literal at byte 1274: "rast:[],images:[],overflow:null},seen={}\n  var all=…"` |
+| disable the probe-marker guard (`if false && scan.Probe != …`) | `TestContrastRatio_NilResultFailsClosed` **and** `_ForeignPayloadFailsClosed` (both, independently) | two FAILs, exactly the round-1 gating scenario |
+| disable the vacuity guard (`if false && scan.Scanned == 0`) | `TestContrastRatio_ZeroMeasuredFailsClosed` | one FAIL |
+
+Note the second mutation kills TWO tests, which is what a guard in series looks like from the other
+side — nil and foreign payload reach the same arm by different routes, and both are pinned.
+Scratch copy deleted after; `git status internal/` clean throughout.
