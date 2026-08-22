@@ -1120,3 +1120,12 @@ else moved. Mutate control on the rewritten block: 12 FAIL / 0 PASS, CONTROL OK.
 
 Remaining before 283 closes: tracker retry (static-prose regen queued) + its delivery, and
 the close-out sweep read.
+
+## 2026-08-22 (post-close hygiene, 18:00) — parked queue reconciled to the closing documents
+
+The two LMC batch-refusal conversion items (instance-scope:29e63065, :3efd4989) were still
+parked from 08-20; both rows were since rebuilt/retired, so they were cancelled with reasons.
+The parked pool is now EXACTLY the one genuine human case the closing section names:
+aria-builder (instance-scope:b486bb24). Chassis at v1.0.1326; nothing of this lane's is
+pending any roll. Next scheduled sweep 07:40 UTC 2026-08-23 — its doc_notes row is the
+standing health read.
