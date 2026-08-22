@@ -1331,3 +1331,35 @@ submission rather than slipped in.
 **Status of 345 corrected everywhere it appears: the fix is BUILT and LIVE and INERT** — the Go half
 and the prompt half are both deployed and correct, and connected to nothing. Not "waiting for
 demand"; **disconnected**.
+
+## 2026-08-22 ~10:40Z — 345's THIRD HALF built, applied and recorded; owner ruling on existing components delivered; round 5 submitted
+
+**Owner: "leave the existing components."** Delivered to the 283 lane
+(`CONTRIB_2026-08-22b_…`) with the interaction they must handle: **my own recommended sweeper
+widening is exactly what would drag the now-protected legacy set into their conversion queue**, so
+widen for VISIBILITY not auto-conversion, with `src="/tools/assets/….js"` as the one-clause
+discriminator. Stated the accepted cost (those components cannot carry two instances on one page; a
+page needing two gets a NEW inline component, never an in-place conversion) and suggested it be
+written into `RFC_034`. **Both of RFC_034's open owner questions are now closed.**
+
+**Migration `555` — 345's third half — applied and ledger-recorded.**
+`build-dispatch-loop.process_item.sub_workflow.call_handler.input_mapping` gains
+`"last_error?": "current_item.last_error"`, optional-marked. Guards on both sides
+(`DO`/`RAISE`), anchored on `work_item_id`, asserting the pre-existing keys survive; verify NOTICE
+reported **15 keys**. Scope is one dispatcher on purpose — `site-work-orchestrator`'s
+`fix_items_loop` uses a different loop variable (`current_fix_item`) and has no handler reading the
+key, so widening it would add a shared-seam field with no consumer; NAMED in the migration header
+rather than done silently.
+
+**Resolution is argued structurally, and labelled as such.** The optional marker means a
+mis-resolved path fails **silently**, so this matters: `component_id` is a plain item-map key
+mapped identically (`"component_id?": "current_item.component_id"`) and resolves in **74**
+orchestrations, most recently **today 08:52Z**; `page_name?` in 588. Same map, same mechanism,
+same shape. **Direct observation of `last_error` crossing has NOT happened** — that needs a real
+rejection-then-retry, and it is written into the submission's risks as unobserved rather than
+assumed.
+
+**Round 5 submitted** (same corr `67b07528`), restructured to the 8-edit ceiling by describing
+`load_work_item_actions.go` as ONE edit covering the whole file — which is also the structural
+answer to the defect rounds 2 and 4 both caught: **when the code moves, re-derive the plan from the
+code; do not patch the edit you happen to be thinking about.**
