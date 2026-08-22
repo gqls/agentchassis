@@ -15294,3 +15294,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **the general form:** **a disambiguation prompt that lists candidates has not disambiguated anything — it has handed you the choice and an uninformative field to make it with.** Wherever a system offers "which of these did you mean?", ask what the offered discriminator actually measures before letting it decide; here it measured turn recency and the question was authorship.
 - **relations:** MEMORY [[who-owns-is-blind-to-uncommitted-sessions]] (the same estate problem one layer down — *who owns this* is unanswerable from commits; this is *who is speaking* being unanswerable from a listing) · `bugs_open/354` (the exchange that produced this)
 - **added:** 2026-08-22, `bugs_open/260` lane
+
+### A council run killed by the account's API usage limit completes at `complete_invalid` and writes NO verdict row — so it reads as "MY SUBMISSION WAS REJECTED AS INVALID" when it means "the estate's LLM budget is exhausted"
+
+- **footprint:** `097_TRIGGER_council_review_v1.sh`, `diagnosis_artifacts` (`kind='council_report'`), `orchestration_states.current_step = 'complete_invalid'`, `collected_data->>'__step_error'`, any `review_*` seat step, `execute_llm_prompt`, `call_content_writer`
+- **fires when:** you submit to the council gate (or dispatch any LLM-driven agent) while the Anthropic account is over its usage limit. A `review_*` seat's `execute_llm_prompt` returns **HTTP 400** — *not* 429 — with `{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on <date>"}`. The workflow then lands on the terminal step **`complete_invalid`**.
+- **the tell, and it points at the wrong culprit:** the run **COMPLETES** (status `COMPLETED`, not `FAILED`), a `fix_plan` artifact IS written, and **no `council_report` row is ever created**. So the verdict query returns the PREVIOUS round's rows and the newest orchestration says `complete_invalid`. Every signal says *your submission was malformed and the gate refused it* — and if you have just changed how you build the submission, that is exactly what you will conclude. **Measured 2026-08-22: I had just replaced hand-written sketches with generated diff hunks and read `complete_invalid` as my own change breaking the payload.** The error type name (`invalid_request_error`) reinforces the wrong reading.
+- **why the client-side check does not save you:** `DRY_RUN=1` passed on that same file seconds earlier. It validates the payload and scope admission locally and never calls the model, so a green dry run followed by `complete_invalid` is precisely the signature of this trap rather than evidence against it.
+- **the check — read the STEP ERROR, never the terminal step name:**
+  ```sql
+  SELECT collected_data->>'__step_error'
+  FROM orchestration_states
+  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>'
+  ORDER BY created_at DESC LIMIT 1;
+  ```
+  and to see whether it is your lane or the estate:
+  ```sql
+  SELECT COALESCE(collected_data->'__step_error'->>'failed_step','?'), count(*)
+  FROM orchestration_states
+  WHERE collected_data->>'__step_error' ILIKE '%API usage limits%' GROUP BY 1 ORDER BY 2 DESC;
+  ```
+- **DO NOT RESUBMIT.** A retry cannot succeed before the stated reset date and each one re-runs the seats that *did* answer. The limit is account-wide, so it is not a property of your submission at all.
+- **it is not confined to the council.** Same census, 2026-08-22 18:15–18:26Z: **7** failed steps across **5** orchestrations, and the failing steps included **`call_content_writer`** — live site content generation — not only `review_*` seats. Treat a council `complete_invalid` as a possible estate-wide signal and go and look, rather than as a fact about your own lane.
+- **source:** 2026-08-22, `bugfix_308_cta_destination_provenance` lane, submission `e4336931` round 4. Reset date stated by the API: 2026-09-01 00:00 UTC
+- **added:** 2026-08-22, bugfix_308_cta_destination_provenance lane

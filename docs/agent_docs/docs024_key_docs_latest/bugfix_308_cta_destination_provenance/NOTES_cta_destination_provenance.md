@@ -323,3 +323,66 @@ comparison. I ran it, it passed, and I replaced the claim with the mutation that
 (`SeedCTAMinted` inventing a record from whatever `resolved` already holds — verified by running).
 **Writing "(verified)" is not a verification**, and it is worse than saying nothing, because it
 tells the next reader the check has been done.
+
+## 2026-08-22 (evening) — round 4 was never reviewed: the estate's LLM budget is exhausted until 2026-09-01
+
+Round 4 dispatched at 18:10:08Z and completed at 18:15:39Z on the terminal step
+**`complete_invalid`**, with **no `council_report` row written**. My first reading was that my own
+change had broken the payload — I had just replaced hand-written sketches with generated diff
+hunks, so "the gate refused my submission as invalid" was the obvious and entirely wrong
+conclusion. It is worth naming that I reached for it before checking, because it is the trap:
+
+```
+__step_error: step review_debug_historian failed: failed to execute action execute_llm_prompt:
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 ...
+API request failed with status 400: {"type":"error","error":{"type":"invalid_request_error",
+"message":"You have reached your specified API usage limits.
+You will regain access on 2026-09-01 at 00:00 UTC."}}
+```
+
+**HTTP 400 and `invalid_request_error`, not 429** — the error's own type name reads as "your
+request was malformed", which is what makes the wrong conclusion so easy. And `DRY_RUN=1` had
+passed on the same file seconds earlier, because it validates locally and never calls a model:
+**a green dry run followed by `complete_invalid` is the signature of this trap, not evidence
+against it.** Filed as a LANDMINE.
+
+**Not confined to this lane** [MEASURED 2026-08-22, 18:15:39Z–18:26:25Z]:
+
+```sql
+SELECT COALESCE(collected_data->'__step_error'->>'failed_step','?'), count(*)
+FROM orchestration_states
+WHERE collected_data->>'__step_error' ILIKE '%API usage limits%' GROUP BY 1 ORDER BY 2 DESC;
+```
+
+| failed_step | n |
+|---|---|
+| `call_content_writer` | 3 |
+| `review_architecture` | 2 |
+| `review_debug_historian` | 1 |
+| `review_editquality` | 1 |
+
+**7 failed steps across 5 orchestrations, and `call_content_writer` is live site content
+generation — not a council seat.** So this is an estate-wide condition, not a property of my
+submission.
+
+**Scope stated honestly, because I nearly overstated it.** 95 orchestrations reached `COMPLETED`
+in the 18:00Z hour, so it is *not* a total outage. But **zero** orchestrations have completed
+carrying `__usage_output_tokens` since the last failure at 18:26:25Z — i.e. no LLM-producing work
+has succeeded since. `[UNVERIFIED]` whether the block is model-specific (the error names
+`claude-sonnet-5`) or account-wide across models; the window since 18:26 is only minutes and thin
+on traffic, so that zero is consistent with a hard block but does not on its own prove one.
+
+### What I did NOT do, deliberately
+
+**I did not resubmit.** A retry cannot succeed before 2026-09-01 and each one re-runs the seats
+that did answer. The correct action is to stop and tell the owner.
+
+### Where that leaves Phase A
+
+Unchanged and unaffected. The council is **advisory and cannot block a commit** — Phase A is
+committed (`288ce3e7a`), live on both chassis replicas, and carries `Council-Submitted:` rather
+than `Council-Reviewed:`, which asserts nothing and can never become a false claim. `098` resolves
+the correlation at report time, so if a verdict ever lands approved the commits are credited with
+no amend. **Three rounds of substantive review did happen** (rounds 1–3, 10 approvals in round 3),
+and every objection they raised has been answered in the tree. What is missing is the final
+verdict, not the review.
