@@ -2923,3 +2923,85 @@ Everything else is unchanged and re-measured, not carried: 7 `complete` + 1 `unr
 2026-08-21 13:37:02Z), **zero** new `literal_markdown` rows since the canary — correct, the rotation
 does not reach webdesign.co.uk until ~08-25 — `held_pair_escalation` 7 / `held_pair_reclaimed` **0**,
 and 277's parked population still 27 `no_content_data` / 2 `asset_sourced` / 1 `no_plan_owned`.
+
+---
+
+## 2026-08-22 — the owner's two instructions: `083` CLOSED, and the backfill delivered as 3 of 27 with the other 24 refused for three distinct measured reasons
+
+### 1. `083` closed
+
+Moved to `bugs_closed/` with both paths on the pathspec, verified at HEAD by slug (`git ls-tree`,
+not `ls` — the `git mv` landmine). Closed on **day 5 of the owner's 7-day soak by owner instruction**,
+and the file says so, because the evidence covers five days of the doors holding rather than seven.
+The close carries three caveats rather than smoothing them: `479`'s reclaim arm has never fired
+(7 escalations / 0 reclaims, live + archive, all history, re-measured at close), 41 of the 42 rows
+still `detected` have **no handler at all** (a different shape, belonging to `149`/`114`/`236`), and
+the two-strike re-route trap is invisible to all three of 083's own instruments.
+
+### 2. The backfill — what I set out to do, and what the data would actually permit
+
+The instruction was "backfill the 27, scoped to these 27". Three things had to be established before
+writing anything, and each changed the shape of the job.
+
+**(a) A PARTIAL backfill is destructive, not merely incomplete.**
+`datahelpers.ContentDataCanFillTemplate` returns true when content_data holds **any one** of the
+template's top-level fields. So writing a single recovered field flips a component from "cannot
+regenerate" to "can regenerate", and the next regeneration renders the template with that one field
+and blanks the rest under `missingkey=zero`. The parked state was protecting these pages. **So the
+only safe output is a content_data that re-renders to the stored bytes exactly** — which is also
+precisely the property that makes regeneration safe afterwards.
+
+**(b) The flow, not just the stock** (WRONG_CALLS 2026-08-21, *"converted the stock and never
+censused the flow"*). First census said **71 components born with empty content_data in the week of
+08-17** — alarming, and wrong for this purpose: they are **tool** components, which legitimately
+carry no content_data. Restricted to the template-backed class the 27 belong to, the flow is **~1 a
+week and ZERO for the last two weeks**, stock 32. The discrimination between the two classes is the
+whole finding; the naive number would have said "do not bother, the tap is running".
+
+**(c) The archive does not hold the answer.** `page_component_history` archives `content_data`, but
+only 7 of the 27 pages have any history row and only 4 a non-empty one — the table started archiving
+after these were built.
+
+### 3. What was built — `cmd/content-data-recover`, and why it is an inverter and not a regex
+
+It matches a parsed component template against the HTML that component holds, binding each
+`{{.field}}` to the bytes standing where it stood, then **re-executes the template with the recovered
+data and refuses anything that is not byte-identical**. Backtracking over `text/template/parse`
+rather than a compiled regex for two concrete reasons: RE2 has no backreferences and returns only the
+**last** match of a repeated group, so `{{range}}` bodies cannot be recovered in one pass; and
+`{{if}}/{{else}}` needs *"take this branch, and if the REST of the template then fails, take the
+other"*. Two refusals live in the matcher because the gate structurally cannot catch them — an
+unattributable pipeline (`{{or .a .b}}` renders identically whichever field held the value) and a
+nested field.
+
+⚠ **My first mutation test of the round-trip gate PASSED, and that was the useful failure.**
+Disabling the gate left the suite green: every control I had written was caught earlier by the
+matcher — a guard in series, exactly the shape MEMORY warns about. The test that isolates the gate
+had to be constructed: the matcher binds `subheadline=""` and takes the `{{if}}`, but re-rendering
+with `""` makes the `{{if}}` false and the block vanishes. With the gate disabled that test, and only
+that test, fails.
+
+### 4. The result — 3 of 27, and the number IS the finding
+
+| outcome | rows |
+|---|---|
+| recovered, round-trip byte-identical → **applied (migration 540)** | **3** |
+| blocked: template drift confined to `<style>` | 7 |
+| blocked: template drift in **markup** | 8 |
+| refused: stored HTML is not that component's output at all | 9 |
+
+**Why 15 cannot be proven:** their HTML was rendered by template versions that no longer exist.
+`component_versions` holds 367 rows across 202 components and **zero** for any of the nine components
+involved, so the original template cannot be recovered and the proof cannot be met. Worked case: the
+`call-to-action` template now reads `var(--color-cta-bg, var(--color-primary))` where the stored HTML
+has `var(--color-primary, #1a1a2e)` — the component was edited after these pages were rendered.
+
+**The 9 are a different defect and are now `bugs_open/357`** — a whole interactive tool page
+(9.5–21.8KB) stored in a single slot whose `component_id` points at the shared `hero` component.
+Backfilling those would have let a regeneration swap a working tool for a 2KB title band. **A looser
+tool would have written them; only the byte-identical gate refused them.** Root cause deliberately
+not asserted — in the loop as `63d4d1a7-ffec-4570-866b-8a0a41e3c69d`.
+
+The three that were written cover every field their findings named (`headline`; `features,
+headline`). Their rows stay `needs_human_review` until the daily revalidator re-checks them — that is
+the mechanism's job, not mine to hand-close, and it is a disconfirmable prediction for ~16:01Z today.
