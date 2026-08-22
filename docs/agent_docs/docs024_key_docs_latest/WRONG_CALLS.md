@@ -44129,3 +44129,39 @@ end of the work rather than the start of it.
 of the form "so X has happened", `LIMIT`-select the rows and read them — and for a small set, read
 all of them. If the set is too large to read, stratify and say you stratified. **When the tally in
 this file shows one check three times in a day, the check needs a mechanism, not another entry.**
+
+---
+
+## 2026-08-22 (third entry) — I fixed a stdout-pollution bug and left its identical twin, in a tool built to measure whether such warnings get acted on
+
+**What happened.** `scripts/audit-advisory-findings.py` prints its report on stdout and has two
+diagnostic lines. I found the first — the self-test confirmation — corrupting `--json` for any caller
+that piped it, and fixed it by sending it to stderr, with a comment explaining exactly why stdout is
+wrong for a diagnostic. **Two hours later the identical defect in `write_note()` corrupted the same
+JSON** (`json.decoder.JSONDecodeError: Extra data`), because the "doc_notes row written" line sits on
+stdout too. I had fixed one arm of a two-arm defect and shipped the other.
+
+**Why it is worth an entry rather than a one-line fix.** This is 016b §9's **untouched twin** — the
+pattern whose origin story is a session writing the pattern down in the morning and committing it
+that afternoon. Three aggravations here:
+1. `scripts/pattern-check.py` has a check for exactly this shape (`check_untouched_twin`), and it did
+   not fire, because both arms were in a **new, untracked file** in the same commit — the twin check
+   compares a changed file against a sibling it can diff, and a file with no history has no twin to
+   find. **The mechanical guard is real and its blind spot is "everything you wrote today."**
+2. The tool in question exists to answer *"do these advisory warnings ever change behaviour?"* — so
+   the answer's instrument was itself a case of the answer's subject.
+3. My own fix comment on arm one said "this is diagnostic, and on stdout it corrupts --json for any
+   caller that pipes it" — a sentence that is **equally true of the other line, eighty lines below**,
+   and I did not go and look. Writing the general reason and then not applying it generally is the
+   whole failure in one motion.
+
+**What caught it.** Running `--json --write-note` together for the first time, to produce the durable
+record and the per-check breakdown in one pass. Neither flag alone shows it. Cost: one re-parse, no
+bad data — the `doc_notes` body was unaffected (it is built before either line prints).
+
+**The cheap check.** *When you fix an instance, grep for the SHAPE, not the line.* Here that is one
+command — `grep -n "print(f\"{DIM}" scripts/audit-advisory-findings.py` — and it returns both arms in
+under a second. More generally: **the moment you write "X is wrong because Y" in a fix comment, ask
+what else in the file Y is true of**, because you have just handed yourself the search term. Related:
+`a-mutation-that-passes-may-have-hit-a-guard-in-series`, and 016b §9's untouched-twin entry, whose
+blind spot for brand-new files is now documented above.

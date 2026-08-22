@@ -413,7 +413,15 @@ def write_note(body):
     if p.returncode != 0:
         print(f"{DIM}note NOT written: {p.stderr.strip()[:200]}{RESET}", file=sys.stderr)
         return 1
-    print(f"{DIM}doc_notes row written (subject_key='advisory-findings').{RESET}")
+    # stderr, for the same reason the self-test line goes to stderr: on stdout this
+    # trails the JSON document and makes `--json --write-note` unparseable ("Extra data").
+    # ⚠ I FIXED THE SELF-TEST LINE AND LEFT THIS ONE — the untouched-twin pattern
+    # (016b §9), committed by the author of a tool whose whole purpose is measuring
+    # whether such warnings get acted on, in a repo whose pre-commit check greps for
+    # exactly this shape. Both stdout writers are now diagnostics on stderr; stdout
+    # carries the report or the JSON, and nothing else.
+    print(f"{DIM}doc_notes row written (subject_key='advisory-findings').{RESET}",
+          file=sys.stderr)
     return 0
 
 
