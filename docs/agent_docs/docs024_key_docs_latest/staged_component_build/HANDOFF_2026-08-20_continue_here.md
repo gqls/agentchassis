@@ -667,6 +667,42 @@ present-value half cannot be observed. State that limit rather than assuming 537
 
 **The gate closes 2026-08-24 ~08:45Z.** Record the result here whether clean or not.
 
+### ✅ INTERIM READ 2026-08-22 ~18:0xZ (~9¼ h in) — **THE GATE FIRED. 2 × `2-refuse`, 0 × `1-resolve-and-warn`**
+
+Recorded here per the ownership-independent design. Full evidence: lane NOTES
+`## 2026-08-22 (~18:0xZ)`.
+
+| observation | count (as of 2026-08-22 18:0xZ) | reading per the table above |
+|---|---|---|
+| `phase='2-refuse'` | **2** (both `site-work-orchestrator`, 10:44:06Z) | ✅ flip live AND two real conflicts refused → **trace-and-map, do not revert** |
+| `phase='1-resolve-and-warn'` | **0** | ✅ **no regression signal** |
+| demand control | 1,792 orchestrations / 64 agent types | genuine window |
+| instrument alive | 175 rows / 20 classes | recorder writing |
+
+**The two pairs, both predicted by §2.10 rather than novel:** `result` (**11** candidate paths;
+ranking would have taken `content_writer_agent.result`) and `commit_sha` (**4** paths, all
+`*.response.data.commit_sha`) — **537's collision class on a different agent.** Both want an
+explicit `?` wire; **neither is addressable by 537's static step-config method**, because the
+consuming steps are dynamically generated (`fix_items_loop_iter_N_*`). That is a design task,
+not a copy.
+
+**⚠ A SECOND ROLL CROSSED THE WINDOW AND THE WINDOW DID NOT RESTART.** `v1.0.1326` (pods up
+15:10:31/15:10:58Z) — flip re-confirmed by capability probe **with both controls** (provenance
+had scrolled out of a 2,000-line tail); retirement re-confirmed by `git log -S` (no
+reintroduction) + 0 occurrences at HEAD. Both changes live on both binaries, so rows from
+either side of 15:10Z are attributable to post-flip code and the 08:45Z boundary still holds.
+**A future roll needs the same check before the window's rows are trusted.**
+
+**Coincident FAILED run traced and EXCLUDED:** an `install_site_composition` re-install
+idempotency guard from **2026-04-19**, untouched today, naming `allow_reinstall` — a field no
+refusal row mentions. Not the flip, by mechanism and by dates. ⚠ But its class shows **6
+occurrences, all today, all post-flip, against retention reaching 2026-07-19** — the benign
+workload explanation is `[INFERRED]`, unmeasured, and **the Sunday close-out should re-check
+it** rather than inherit this paragraph's conclusion.
+
+**Consequence control:** 312 of 371 completed items still record `result.commit_sha` since the
+boundary — no fleet-wide field loss.
+
 ## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
 
 `findFieldRecursive` now returns **nil** on a conflict. Council submitted,

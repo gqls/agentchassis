@@ -7622,6 +7622,75 @@ file); items route through 353; candidate 2 (269-pair remainder) still deliberat
 ordinary page-build path — the tool the owner asked for exists and will deploy; only its
 crosslinks wait on 353.
 
+## 2026-08-22 (~18:0xZ) — **THE GATE FIRED: two `2-refuse` rows, the flip working in production.** A second roll (`v1.0.1326`) crossed the window and was re-verified; the coincident FAILED run is NOT ours
+
+**A SECOND roll crossed the gate window and the gate survived it — checked, not assumed.**
+`v1.0.1326`, both pods, one replicaset (`6bb7b67bd4`), up **15:10:31/15:10:58Z**. The
+provenance line had already scrolled out of a 2,000-line tail (expected on this service), so
+the flip was confirmed by **capability probe with BOTH controls**: `2-refuse` PRESENT;
+present-control (`RESOLVER_CONFLICTING_CANDIDATES`) PRESENT, so the probe was reading, not
+blind; absent-control (a synthetic literal) correctly not found. The retirement is a pure
+deletion with no literal, so it was confirmed the other way: `git log -S 'stepKey != key'`
+since 08-21 returns **only my removing commit** (no reintroduction) and HEAD's file contains
+**0** occurrences. **Both changes remain live across two rolls — the window continues
+unbroken; it does NOT restart.**
+
+### THE FINDING — the gate's whole purpose, on its first day
+
+| observation | count (as of 2026-08-22 18:0xZ) | reading |
+|---|---|---|
+| `phase='2-refuse'` rows | **2** | ✅ **the flip is live AND refused two real conflicts** |
+| `phase='1-resolve-and-warn'` rows | **0** | ✅ **NO regression signal** — no pod on pre-flip code |
+| demand control | **1,792 orchestrations / 64 agent types** | a real window, not a quiet one |
+| instrument alive | **175 rows / 20 error classes** | the recorder is demonstrably writing |
+
+**Both refusals are `site-work-orchestrator`, 10:44:06Z — and both are the "next pair" this
+lane predicted rather than anything new:**
+- **`result` — ELEVEN candidate paths** (`content_writer_agent.result`,
+  `spawn_handler.result`, `image_generator_info.result`, `reviewer_agent.result`,
+  `webdesign_agent.result`, …). The ranking *would* have picked `content_writer_agent.result`.
+  Eleven agents filing their output under one bare key is exactly the shape step 5 exists to
+  refuse.
+- **`commit_sha` — FOUR candidate paths**, all `*.response.data.commit_sha` from deploy steps
+  (js_snippets / logo_image and their aliases). **This is migration 537's collision class on a
+  DIFFERENT AGENT** — 537 wired `commit_sha?` for `build-dispatch-loop`; `site-work-orchestrator`
+  has the same shape and no marker. Predicted verbatim by the handoff's "the NEXT producer pair
+  that files two types under one key will reproduce this exact shape".
+- Plus **1 `RESOLVER_MAPPING_BYPASSED`** (`site_plan`, same agent) — a class that had been
+  silent since 08-17.
+
+**Per the gate's own terms these are TRACE-AND-MAP items, never a reason to revert.** Both want
+an explicit `?` wire on `site-work-orchestrator`, the way 537 did for bdl. Not built tonight:
+the loop steps that consume them are **dynamically generated** (`fix_items_loop_iter_N_*`), so
+they are not addressable by the static step-config queries 537 used — that is the first real
+work for whoever takes it, and it is a design question, not a copy of 537.
+
+### ⚠ THE COINCIDENT FAILURE — traced, and it is NOT the flip
+
+One `site-work-orchestrator` run FAILED at 10:44:34Z, 28 seconds after the refusals. Read
+rather than assumed:
+- Its error is `install_site_composition ... site 11c884e5… already has style_collection_id…;
+  re-resolve not requested (set allow_reinstall=true)` (`CHILD_ORCHESTRATION_FAILED`) — a
+  **re-install idempotency guard, not a resolution failure**.
+- **The guard is from 2026-04-19** (`f2ccdbe58`), not new; `git log -S 'allow_reinstall'
+  --since=08-21` is **empty**, so nothing changed it today.
+- **The flip cannot be the cause by mechanism:** it alters resolution ONLY where candidates
+  conflict, and every conflict writes a row. **No row names `allow_reinstall` or any style
+  field** — the two rows name `result` and `commit_sha`.
+- ⚠ **What I could NOT establish, stated rather than glossed:** this failure class has **6
+  occurrences, all today, all post-flip** — and `orchestration_states` retains to 2026-07-19,
+  so that is NOT a retention artefact. 4 of the 6 are `site-design-planner`. The benign reading
+  (a workload re-running builds against sites that already have style collections — plausible
+  with several site lanes active today) is **[INFERRED, not measured]**. `site-work-orchestrator`
+  has exactly **one** run in the retained window, so there is no before/after rate to compare.
+  **Whoever next reads this gate should re-check that class** — if it keeps climbing it is
+  someone's bug, and it is not this lane's by any evidence available now.
+
+**Consequence check on the refusals — the fleet did NOT lose the field:** since the boundary,
+**312 of 371** completed work items still record `result.commit_sha` (as of 18:0xZ). The
+refusal was specific to one agent's tree shape, not a fleet-wide loss — which is the
+double-zero failure mode 537's verification was designed to catch, and it is absent.
+
 ## 2026-08-22 (~09:4xZ) — §1 item 4 is BUILT AND LIVE (WFA-022), `bugs_open/334` is CLOSED, and the gate's first interim read is clean against real demand
 
 **Three things landed, in this order.**
