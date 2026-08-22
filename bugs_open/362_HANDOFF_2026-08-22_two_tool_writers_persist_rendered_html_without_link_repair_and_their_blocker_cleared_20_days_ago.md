@@ -158,3 +158,40 @@ corpus, which makes it a candidate for `scripts/pattern-check.py` rather than a 
   false finding costs attention, a false repair costs content. That gap belongs to the detection
   lane (`bugs_open/097`, `bugs_open/116`).
 - **Repairing the one live instance** until someone has established it is not a runtime fill (§3).
+
+---
+
+## 8. §3's uncertain instance SETTLED 2026-08-22 (owning lane): it is REAL damage, not a runtime fill
+
+Read the component's full bytes (10,742 chars, `vonc.com/tools/archetype-taster-quiz/index.html`):
+the CTA `<a href="" class="result-cta-primary">Get Your Full Report</a>` appears once in markup and
+**no JavaScript anywhere in the component touches it** — no `.href` assignment, no selector on
+`result-cta-primary`, and `data-runtime-fill` count is 0. So it is not the legitimate fill case;
+it is a genuinely dead link, and worse than inert: an `href=""` navigates to the CURRENT page, so
+clicking "Get Your Full Report" **reloads the quiz and destroys the visitor's just-computed result**.
+§3's honest reading moves from "no confirmed live damage" to **"exactly one confirmed dead CTA,
+live on vonc.com"** — the upper bound was attained. (It is also another instance of the
+"tool asserts something untrue about itself" class the webdesign lane has been logging: a
+report-promising button that delivers a page reload.)
+
+Repairing that ROW is content work for vonc.com's owner, not part of this wiring (unlinking would
+stop the result-destruction but the page still promises a report it cannot give — that needs a real
+destination or the CTA's removal, a content decision). Filed here so the census's one match is never
+again read as probably-benign.
+
+## 9. FIXED (wiring) 2026-08-22 by `webdesign_tool_rebuilds` — commit carries the acceptance
+
+Both call sites wired in the three-sibling shape (`create_tool_component` before the
+page_components INSERT, after the pages row exists so the tool's own URL is in the index;
+`deploy_tool_to_site` before its INSERT). Acceptance, run before commit:
+- **JS-built-anchor probe (the landmine's own): PASS** — the REAL seam over `'<a href="' + q.link +
+  '">'` bytes returns the script span BYTE-IDENTICAL while a phantom markup anchor beside it IS
+  unlinked (text kept) and a valid one untouched (`tool_writer_link_repair_362_test.go`, two-armed
+  so a do-nothing seam cannot pass).
+- **Mutation-proven wiring test**: deleting the deploy_tool call in a scratch copy fails
+  `TestToolWritersCallTheRepairBeforeTheirPersist` naming the file.
+- **Allow-list untouched**; the pattern check's quiet is the honest kind (its historical positive
+  control: the 2026-08-20 commit `e3dee9243`'s pre-commit output, where it fired on exactly these
+  two files).
+- **§5's census re-run is OWED post-roll** (the wiring is Go, inert until the next chassis roll);
+  whoever rolls next re-runs §3's query and appends the number here.
