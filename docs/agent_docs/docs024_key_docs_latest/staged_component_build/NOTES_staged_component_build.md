@@ -7503,3 +7503,49 @@ days earlier (the answer was the very commit that moved 085), and found nothing.
 holds as a default; the exception is now in the fleet LANDMINES entry with both correlations
 (`26186633` unpre-empted → gating REVISE; `e05ea6f9` pre-empted → non-gating advisory —
 **the ls-tree pre-emption buys the consequence, not the silence**).
+
+## 2026-08-22 (~08:4xZ) — THE ROLL LANDED: flip + retirement are LIVE on `v1.0.1323`, verified at the binary with controls; the ≥48h gate window opens NOW; 330's with-pages leg is STILL demand-starved after 15.7h
+
+**The roll, verified at the artefact, not the tag:** final pods `agent-chassis-74ffb74b8d-4qlp7`
+/ `-qp8kk`, both `v1.0.1323`, started **08:36:48Z / 08:37:14Z**. (An interim replicaset
+`74c5f77bc8`, also 1323, lived ~90s and was replaced — two applies back-to-back; binary
+identical, irrelevant to attribution.) Build provenance `70e7b4f9c` — read from the interim
+pods' startup logs, then **probed at the final pods' `/proc/1/exe` with a negative control in
+the same breath**: expected sha PRESENT, absent-control sha (`036942784`, committed after the
+build commit) correctly NOT FOUND.
+
+**Aboard, by ancestry with a passing negative control** (`git rev-list --all --not HEAD` commit
+correctly rejected): `5fe010ada` (THE FLIP) ✓ · `e5c1b3c15` + `9970eb71c` (tolerance
+retirement) ✓. **Both approved changes are live in one roll, as planned.**
+
+**Attribution boundary for the gate (write this down once, use it everywhere):** old-binary
+(`v1.0.1322`) pods got their Kill at ~08:38:00Z / 08:38:37Z. With the 8.5-minute-drain lesson
+(a pre-change pod kept emitting old behaviour after 537 went live), the clean rule is:
+- rows `created_at < 2026-08-21 16:54Z` boundary irrelevant here; **rows < 08:35:00Z today = old binary**;
+- **rows ≥ 08:45:00Z today = new binary**;
+- **08:35–08:45Z = AMBIGUOUS — exclude from attribution entirely.**
+Dispatch-settle: no orchestration dispatch lands within ~300s of a chassis start, so demand
+before ~08:42Z is depressed — an early-window zero is doubly uninformative.
+
+**Gate window: opens 08:45:00Z 2026-08-22, ≥48h ⇒ earliest clean close-out ~08:45Z
+2026-08-24.** Terms fixed in handoff §2.10 1b (demand control first; `phase='2-refuse'`
+discriminator; every new (agent,field) pair traced to its consumer; recorded either way).
+**Ownership needs re-establishing:** the machine had a fleet cold-start this morning — every
+session restarted, the gate-owning `[324079]` ref is dead; a successor "staged component build"
+session is up. Messaged.
+
+**Day-one read at 08:42Z, recorded as PRE-EVIDENCE, not a pass:** 0 `phase='2-refuse'` rows;
+demand already flowing (10 orchestrations across 7 agent types in the first 5 min). A zero here
+means nothing yet — per this lane's own structural finding, a future zero needs the demand
+control AND (positive control | mechanism evidence).
+
+**330 second window (516 config, live since 16:55Z yesterday — unaffected by the roll):**
+5 tool-generator runs total (one new overnight run at 20:00:00Z; then quiet ~12.6h — overnight
+quiet, not read as anything), **0 conflict rows, 0 crosslink items created, skip rows unchanged
+at 2**. The decisive new fact: **ALL FIVE runs have `spec_has_key = false`** — no post-516 spec
+has carried `related_pages` at all, so the with-pages negative-control leg has had **zero
+demand in 15.7 hours**, not merely too little. If organic demand stays absent, the honest
+close needs a **deliberate positive control**: one framework-dispatched tool build whose spec
+names `related_pages` (a normal seeded spec — NOT a hand-built page), then confirm per-tool
+crosslink items appear. That is a dispatch decision for the lane owner / owning session, noted
+here rather than fired unilaterally.

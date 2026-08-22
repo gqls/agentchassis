@@ -25,8 +25,8 @@ Everything shipped today was its *precondition*, not the thing itself.
 
 | # | what | state |
 |---|---|---|
-| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **CORRECTED ~19:1xZ (updated ~19:3xZ): BUILT + COMMITTED `5fe010ada` (Go — inert until a roll), council corr `26186633` at ROUND 3 (R1 + R2 both REVISE, bug_historian gating; commit unchanged throughout, only the rationale grew) — owned by the active [324079] session; see NOTES ~17:1x/~19:0x. Do NOT start it again.** ~~❌ NOT BUILT~~ |
-| **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | **✅ DONE ~20:1xZ — committed `e5c1b3c15`+`9970eb71c`, council APPROVED r1 (`e05ea6f9`), inert until a roll. Ground (b) needed correcting first — see §5's corrected bullet. Test renamed `TestRestoreReadsOnlyTheStepBoundaryName`.** ~~❌ NOT DONE~~ |
+| **1** | **THE FLIP** — conflicts → refusal at the marked sites (`unified_extractor_search_test.go` header names them) | **🟢 LIVE `v1.0.1323` since 08-22 08:37Z, binary-verified with controls (NOTES 08-22 ~08:4x). APPROVED r3 (`26186633`). What remains is the ≥48h gate — window opens 08:45Z 08-22, terms §2.10 1b, attribution boundary in the NOTES entry.** (History: BUILT+COMMITTED `5fe010ada` 08-21, R1+R2 REVISE then approved r3.) ~~❌ NOT BUILT~~ |
+| **2** | Retire the read-side tolerance in `setRenderContextScalarsFromData` (2nd `if`) + the "old tree"/"both present" cases of `TestRestoreAcceptsBothSpellingsAcrossTheRoll` | **🟢 LIVE `v1.0.1323` since 08-22 08:37Z (same roll as the flip; same gate covers it). APPROVED r1 (`e05ea6f9`), commits `e5c1b3c15`+`9970eb71c`. Ground (b) needed correcting first — see §5's corrected bullet. Test renamed `TestRestoreReadsOnlyTheStepBoundaryName`.** ~~❌ NOT DONE~~ |
 | **3** | `bugs_open/330` candidate 2 — an unmarked wired-but-empty field still falls through to the search | ❌ OPEN, gated on the **269-pair / 75-agent unsampled remainder** (330 §9) |
 | **4** | A **standing** form of 537's guard | ❌ NOT BUILT — named residual, see §4 |
 | — | `?` OPTIONAL-EXPLICIT marker | ✅ LIVE `v1.0.1321`, council APPROVED r3 |
@@ -100,7 +100,7 @@ against `v1.0.1321` earlier the same day.
 Both fixes are applied and **neither is proven.** "Applied is not proven" is this lane's own
 standing lesson and it has bitten twice today.
 
-### 4.1 `bugs_open/330` — **FIRST READ ~19:1xZ: demand arrived (4 runs 18:47–18:55Z), RIGHT on 3 of 4 legs; the with-pages negative control is still demand-starved. n=4 < the ≥5 bar — not a close. Full read: 330 §10 + NOTES ~19:1x.** Migration 516, applied 2026-08-21 ~16:55Z
+### 4.1 `bugs_open/330` — **SECOND WINDOW 08-22 ~08:4xZ: 5 runs, still 0 conflict rows — but ALL FIVE specs lack `related_pages` entirely, so the with-pages leg has had ZERO demand in 15.7h. An honest close may need a deliberate positive control (one framework-seeded spec naming related_pages) — owner/lane decision, see NOTES 08-22. FIRST READ ~19:1xZ was RIGHT on 3 of 4 legs.** Migration 516, applied 2026-08-21 ~16:55Z
 
 | figure (pre-apply) | value |
 |---|---|
