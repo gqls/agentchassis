@@ -101,3 +101,39 @@ and expect the row to have left it. A `complete` work item proves nothing here �
 that does not repair its links…"* — the same two writers (`create_tool_component_action.go`,
 `deploy_tool_action.go`) are named there as a known un-allow-listed gap, which is where the diagnosis
 was pointed.
+
+---
+
+## ADDENDUM 2026-08-22, same day — there is a LIVE, PROVEN route for this shape already, found via a council objection
+
+The `reuse_agent` seat, reviewing this lane's recovery tool (council `cd8e555d`), objected that
+adjacent tooling existed and had not been evaluated. It was right, and what it pointed at matters
+more to **this** file than to the one under review.
+
+**`docs024_key_docs_latest/loancalculator_couk/decompose/`** (the `loancalculator_couk` lane) exists
+because that lane hit this exact shape — a page whose content is one stored blob — and solved it:
+
+- **`load_decomposition.py`** replaces a page's single verbatim row with properly decomposed component
+  rows, in one transaction per page, backing up **every** affected page's rows first (*"a restore path
+  that only covers the page you thought you were changing is not a restore path"*), and writing a
+  predicted assembly so the real output can be diffed against it afterwards.
+- It also documents the rule this file needs and did not know: **a page ships VERBATIM when
+  `rebuild_policy='owned'` ∧ it has EXACTLY ONE component row ∧ that row carries
+  `content_data.deploy_mode='verbatim'`.** The flip between verbatim and assembled **is the row count,
+  not a flag** — so *adding* a row beside a verbatim one silently switches the page to assembly with
+  the old full document still in the mix, producing a document nested inside a document.
+
+**Why this changes fix candidate 1.** These nine pages have exactly one row and **NULL**
+`content_data`, so they do **not** carry `deploy_mode='verbatim'` — they are assembled, and they work
+only because assembly emits the single row's stored HTML. Two consequences:
+
+1. **A one-row page is one edit away from either outcome**, and the safe target should be chosen
+   deliberately: either make it genuinely verbatim (`deploy_mode='verbatim'` in a recovered
+   `content_data`), or decompose it into real components as that lane did. Both are established; the
+   thing to avoid is the accidental middle where a second row appears.
+2. **Whoever fixes this should read that lane's scripts before writing new ones.** They already
+   carry the backup convention, the predicted-assembly diff, and the restore path — and a second
+   hand-rolled decomposer is how the estate ends up with two.
+
+Not adopted here, and deliberately: the producer is still undiagnosed (`63d4d1a7`), and decomposing
+nine pages before knowing what mints them would repair the stock while the flow ran.
