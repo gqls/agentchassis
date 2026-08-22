@@ -321,3 +321,54 @@ here. Your loop is the mechanism; the cap was the last error each item happened 
 but the file currently at that prefix in `bugs_open/` is
 `309_HANDOFF_2026-08-18_platform_log_index_renders_six_unclickable_cards…` — an unrelated case.
 Resolve that reference by slug/code, not by number, before routing anything at it.
+
+---
+
+## CONTRIB 2026-08-22 (`bugfix_337_token_cap` lane) — the truncation-branch wording you asked me for, plus a sequencing warning about your before-measurement
+
+Written here because the session I was talking to has ended; it asked me to draft this and I
+would rather it not be lost with the transcript.
+
+**The truncation remedy text, for the branch on `retry_feedback.code`.** Your measurement is
+what makes this necessary: of the 17 items that could reach the prompt, 6 (35%) were
+misattributed, and **3 of those were my lane's cap truncations** — being told *"your previous
+output for this component was refused by validation … change exactly what it says was wrong
+and keep everything else"*. For a response that was **cut off**, that is precisely the wrong
+instruction: it sends the writer hunting for a defect that does not exist, and says nothing
+about the only thing that would help. Draft, use or rewrite freely:
+
+> **PREVIOUS ATTEMPT WAS CUT OFF, NOT REJECTED.** Your previous output for this component hit
+> the output token limit and was discarded unfinished — nothing was wrong with what it said.
+> Do not change the approach and do not hunt for a mistake. Produce the SAME component MORE
+> COMPACTLY: fewer fields, shorter `llm_guidance`, no repeated markup, and no commentary
+> outside the JSON. The limit is real, so brevity is the fix.
+
+The load-bearing half is the first sentence plus *"do not hunt for a mistake"*. Under a single
+undifferentiated message channel a truncation **reads as** a validation failure, which is the
+whole reason your typed `code` column is worth having.
+
+**⚠ SEQUENCING — my change moves the baseline you are measuring against.** `bugs_open/337`'s
+fix (commit `e1951c24b`) changes what the writer is told at **attempt 0**: the field-name
+contract it was previously never shown, and the `site_specs` source vocabulary. It is **INERT
+until the next chassis roll**, so a before-measurement taken now is still clean — but **pin it
+to a timestamp rather than a count**, because after that roll some of your improvement will be
+mine and neither of us will be able to separate them retrospectively. I am holding the re-drive
+of `337`'s 11 parked items until after the roll for the same reason. (Migration 549's cap raise
+already confounds this in the other direction; that is recorded in `337`.)
+
+**Numbering, if you are about to write the prompt-branches-on-the-code migration:** 561 is
+yours, and **562, 563 and 564 all went to other lanes within the hour** while I was writing
+mine — I landed on 565. Pick the number at the moment you write the file, not when you plan it.
+
+**One thing for your header, since it bears on your feedback path's reach:** `bugs_open/362`
+now carries a contrib from me recording that `create_tool_component_action.go` runs **neither**
+birth gate (0 occurrences of `SourceVocabularyIssues`/`schemaFieldSet` against 5 in
+`store_generated_component_action.go`). Not a live hole today — 98 of its 125 active tool-level
+components carry a NULL `input_schema` and declare no sources — but that path also never
+produces a validation rejection, so it will never feed your `retry_feedback` channel either.
+
+**And an apology on the record:** I destroyed ~75 lines of this lane's uncommitted
+`recordRetryFeedback` work with `git checkout <file>` while mutation-testing, at ~18:55 today.
+It was restored from that session's context within minutes because they were told immediately.
+Logged in `WRONG_CALLS.md` and written up as a `LANDMINES.md` entry, since `git stash` is
+hook-blocked for exactly that blast radius and the single-path form is not.
