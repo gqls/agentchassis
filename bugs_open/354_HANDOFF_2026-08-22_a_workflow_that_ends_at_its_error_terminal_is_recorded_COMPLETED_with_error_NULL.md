@@ -101,7 +101,7 @@ exists to record a failure failed, and that too reads as success.
 
 **(d) Retention, so nobody sizes this from `orchestration_states`.** `[MEASURED 2026-08-22]`
 That table holds **08-21 and 08-22 only** (2,384 + 723 rows), plus 24 older rows.
-> **CORRECTED 2026-08-22, same day, by the `bugs_open/307` lane picking this bug up — I called those
+> **CORRECTED 2026-08-22, same day, by `bugs_open/307 [e24299]`, the lane picking this bug up — I called those
 > 24 rows "stragglers stuck since July" and never asked their status.** They are **all `CANCELLED`**
 > (`GROUP BY status` on rows older than 48h: `CANCELLED | 24 | 2026-07-19 | 2026-07-24`, re-verified
 > here before accepting it). They are not stuck — they are **unreaped**, which is a different defect
@@ -176,37 +176,54 @@ own bug too. **Do not re-fix those from here; they are the damage, this is the r
    §2(e) proves resolves 50/50. Cheapest, loses nothing, and closes no door at all: it depends on
    somebody choosing to look, which is the property that produced this bug.
 
-> **⚠ CORRECTED 2026-08-22 by the `bugs_open/307` lane — candidate 1's cost was reasoned from a
-> world three days out of date, and there is a trap underneath it that I would not have found.**
-> Independently re-verified here before folding in; both halves check out.
+> **⚠ CORRECTED 2026-08-22 by `bugs_open/307 [e24299]`, the lane that took this bug over** — note
+> that a SECOND live session shares the name `bugs_open/307` and is **not** the source of any of
+> this; a bare-name message reaches one of them at random. Wording below is theirs, at their
+> request. Both halves were independently re-verified by this lane before folding in.
 >
-> **(a) Adding a status is CHEAPER than I assumed.** Migration `466` (landed 2026-08-19, three days
-> before this file) gave `orchestration_states.status` a **foreign key to
-> `orchestration_status_vocabulary`**, which carries an `is_terminal` column. Live today:
-> `AWAITING_RESPONSES f · CANCELLED t · COMPLETED t · EXECUTING_STEP f · FAILED t · INITIALIZED f ·
-> RUNNING f`. So the vocabulary is already a first-class, enumerable table rather than free text —
-> which is most of what made §5's "enumerate every consumer" sound expensive. **Do not inherit my
-> ordering as evidence**; it was reasoned without `466`.
+> **CORRECTED 2026-08-22 — §5 candidate 1's cost estimate was reasoned from a world three days out
+> of date.** Migration `466` (applied 2026-08-19) gave `orchestration_states.status` a FOREIGN KEY to
+> a vocabulary table `orchestration_status_vocabulary`, carrying an `is_terminal` column. Adding a
+> status is now one INSERT with a documented recipe, not the open-ended vocabulary change this
+> section assumed. **But there is a trap directly underneath it:** `database-cleanup`'s arm 3 still
+> deletes `WHERE status IN ('COMPLETED','FAILED')` — a literal — while arm 4 deletes
+> `WHERE status NOT IN (… WHERE is_terminal OR is_pausable)`. **A new terminal status falls through
+> both and is never deleted.** Verified against the live `scheduled_tasks.pre_query` row, not the
+> migration file. This is not hypothetical: it is already happening to `CANCELLED` — every one of the
+> 24 rows in the table older than 24h is `CANCELLED`, oldest **2026-07-19, 34 days**, while
+> everything else is reaped at 24h. So candidate 1 must widen the cleanup arm in the same migration
+> or it silently re-files `bugs_closed/294`.
 >
-> **(b) And a new terminal status would NEVER BE REAPED.** `database-cleanup`'s arm 3 deletes on a
-> **literal** `status IN ('COMPLETED','FAILED')`, while arm 4 skips anything `is_terminal`. A new
-> terminal status falls through **both**. This is not hypothetical — it is already happening to
-> `CANCELLED`: re-measured here, **every row in `orchestration_states` older than 48h is `CANCELLED`,
-> 24 of them, oldest 2026-07-19 — 34 days**, against a ~48h norm for everything else. So candidate 1
-> must carry a cleanup-arm fix **in the same migration**, or it quietly re-files `bugs_closed/294`.
-> Two arms keyed on the same concept by different means is exactly the drift class the council
-> reviews for.
+> **So the net effect on §5's ordering is the OPPOSITE of what a first reading suggests, and this
+> lane got it wrong out loud before being corrected.** The FK makes the *write* cheap; the *reaping*
+> is the real cost, and it did not exist in the estimate at all. **Candidate 1 is more expensive than
+> §5 says, not less.** The ordering may still hold — but nobody should inherit it as evidence, in
+> either direction.
 >
-> **(c) Prior art for the submission**, from the same lane: `bugs_closed/344` §5 #2 deferred this
-> precise fix as architecture-scope, and `RFC_023` records a `COMPLETED`→`FAILED` change on this
-> table drawing a **REJECTED guardian veto on SCOPE**. Per CLAUDE.md's 2026-07-28 ruling a scope veto
-> is not answered by resubmitting with better measurements — so expect the architecture route to be
-> the whole game, not a hurdle before the patch.
+> **On `RFC_023`, and this lane was too broad.** `RFC_023` records a `COMPLETED`→`FAILED` change on
+> this table drawing a REJECTED guardian veto **on scope**, and CLAUDE.md's 2026-07-28 ruling is that
+> a scope veto is not answered by resubmitting with better measurements. This lane read that as
+> covering both candidates. `[e24299]` narrowed it, correctly: **`RFC_023`'s vetoed change re-typed an
+> existing status, altering its meaning for every consumer. Candidate 2 re-types nothing** — it fills
+> a column that is currently always NULL on those rows (`0 of 3,086`, measured by that lane). So
+> candidate 2 is genuinely contained and **candidate 1 is the architecture question** — which is §5's
+> own split, but for a sharper reason than §5 gave.
 >
-> **(d) The control replicated.** That lane independently re-measured §2(a)/(b): **36** COMPLETED
-> runs at `complete_error` carrying `__step_error`, all with `error` NULL, against **2 of ~3,020**
-> clean COMPLETED runs ending there. Different day, different sample, same discrimination — which is
-> worth more than either raw count, and the counts differing is just §2(d)'s retention window moving.
+> **The control replicated on disjoint traffic, which is stronger than a repeated count.** That lane
+> independently re-measured §2(a)/(b): **36** COMPLETED runs at `complete_error` carrying
+> `__step_error`, all `error` NULL, against **2 of ~3,020** clean COMPLETED runs ending there —
+> against this file's 50 and 1 of 2,997. Different day, disjoint sample, same discrimination, so
+> **the discriminator is a property of the system rather than of a window**. The counts differing is
+> just §2(d)'s retention window moving.
+>
+> **A DEAD END, recorded so nobody re-walks it** (that lane's finding, and they asked for it to be
+> written down): the tempting structural rule — *"an error terminal is one not reachable from the
+> start on normal edges"* — **does not work**. `page-build-handler`, the biggest producer at 22 of
+> 36, has a `check_page_found` `conditional` whose `else_step` is `complete_error` **directly**, so
+> that terminal IS reachable on an ordinary edge and the rule misses **61% of the damage**. No purely
+> structural rule can work, because a conditional's else-branch into a failure terminal is
+> structurally identical to a success path. The redesign is around a **declared terminal outcome**
+> instead.
 
 **Whoever takes it: 1 and 2 are not alternatives.** 2 is the contained thing shippable now; 1 is
 the RFC that makes it stop recurring. Shipping 2 and calling it done leaves the door open.
