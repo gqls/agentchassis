@@ -204,3 +204,13 @@ Advisory objections and what was done with each:
 **Trailer**: the code commits carry `Council-Submitted: 7e2391ec…` (correct for pre-verdict, 098
 credits them automatically); this follow-up carries `Council-Reviewed:` because the approved
 verdict has now been READ, not assumed.
+
+### Misstep: `landmines-sync.py --apply` run before `landmines-verify-dispatch.sh` (2026-08-22)
+
+CLAUDE.md documents this exact ordering trap and I hit it anyway when appending the re-measurement
+to the 80-tags entry: `--apply` consumes the "new entry" status, after which the verifier never
+checks the entry. Recovered with the documented per-entry remedy,
+`./scripts/trigger-landmine-verifier.sh '<slug>'` (corr `e567ad52`); the earlier blind-pass entry
+went through `landmines-verify-dispatch.sh` correctly (corr `b19e22da`). The rule in one line:
+**append → `landmines-verify-dispatch.sh` (never `--apply` first)**, and if you already applied,
+trigger per slug.
