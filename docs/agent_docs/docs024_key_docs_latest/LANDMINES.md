@@ -13361,6 +13361,15 @@ code change owed at the next roll, tracked in RFC_015 §5.
   ⚠ **Counting method, because two obvious ones are wrong — one by 3×, one silently.** (1) A first pass counted *files matching each closed number* and summed, giving **6,208** — inflated, because a file citing five closed bugs counts five times. Count OCCURRENCES, resolve each against **both** directories, and bucket the reused numbers separately instead of guessing. (2) Resolve against **HEAD**, not the working tree — see the correction above. The live count is a **positive control**: if it came back 0 the classifier would be broken, not the estate clean.
 
   ⚠ **AND THE SECOND-ORDER TRAP FIRES ON THIS ENTRY TOO, exactly as the bullet below predicts.** Any "no dead pointer remains" grep run over this file returns non-zero, because this entry *quotes* `bugs_open/083`, `bugs_open/314` and `bugs_open/NNN` as its subject matter — and one of those is a deliberately-preserved live instance. The `029` lane hit the identical thing verifying its own fix. **Assert the specific claims, never a token count:** live pointers = 0, **and** each surviving hit asserted to BE a quotation, as a positive control that you did not eat the prose you must not touch.
+
+  **The runnable form for THIS entry, with its expected answer, so the next person does not re-derive it.** Scope the block by the next `##`/`###` **heading** — *not* the next `---`, which appears inside its own tables and rules; a first attempt scoped that way silently swallowed six later entries and returned a `False` that was an artefact of the extraction, not a finding. Correctly scoped, the dead pointers inside this entry are exactly:
+
+  | pointer | why it is here and must NOT be "fixed" |
+  |---|---|
+  | `083`, `314` | the deliberately-preserved live instances of this entry's own subject (see above) |
+  | `184`, `201` | the 08-20 author's **quoted evidence** — the entry's own sentence says *"none of which exist"*. Repairing a pointer that a measurement cites AS dead destroys the measurement |
+
+  and the live ones are `040`, `300`, `333`. **If your run returns that set, the entry is intact; if it returns fewer, you have eaten someone's evidence.** ⚠ And when an assertion like this fails, check whether your EXPECTATION was wrong before concluding the file is — mine predicted `{083, 314}` and the two it missed were quoted evidence, which is the same class of thing it was written to protect.
 - **source:** 2026-08-20, found during the `bugfix_277` lane's session-start checklist — not from a symptom, and not from anything that looked wrong; **scale measured 2026-08-22 by the `040` lane**, prompted by the `029` lane finding it had written its *second* dead pointer in two days into `wedge-evidence-capture/base/check.py` and correctly reading that as the pointer SHAPE failing rather than two unlucky addresses
 - **added:** 2026-08-20, `bugfix_277_required_fields_repair` lane; scale + self-instance appended 2026-08-22, `bugs_open/040` lane
 
