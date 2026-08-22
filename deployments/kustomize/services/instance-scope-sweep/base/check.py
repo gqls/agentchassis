@@ -163,6 +163,7 @@ SELECT DISTINCT ON (f.site_id, f.function)
     'replace_existing', true,
     'description',
       COALESCE(NULLIF(f.description,''), f.display_name)
+      || E'\n\nSTRUCTURAL REQUIREMENT (the save gate enforces this and refuses the tool otherwise): every document.getElementById call must take a quoted string literal written directly at the call site. Never iterate over arrays of element-id strings, never pass an id through a variable or parameter, and never build an id by concatenation. If the tool builds repeated rows dynamically, give each row''s elements ids with a static hyphen-ended prefix (for example ''row-'' + n) and look them up the same composed way consistently - or better, keep references to created elements in variables instead of looking them up by id at all.'
       || CASE WHEN position('=== tool-doc ===' in f.html_template) > 0
                AND position('=== /tool-doc ===' in f.html_template) > position('=== tool-doc ===' in f.html_template)
          THEN E'\n\nBehaviour contract of the incumbent (from its own tool-doc header; preserve these invariants):\n'
