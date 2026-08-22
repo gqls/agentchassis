@@ -25,6 +25,50 @@
 > **If you are picking this up to do anything, do D8** — and re-run the 40-page artefact sample first,
 > because that is the measurement that found the error.
 
+## 0. STATE AS OF 2026-08-22 08:50Z — the check has CAUGHT A REAL ONE
+
+**Chassis rolled to `v1.0.1323` this morning** (observed mid-roll). The check is still registered —
+verified at the artefact with a negative control (`page_content_divergence` present in `/proc/1/exe`;
+a near-identical absent literal does not match). Config is DB-side and survived the roll.
+
+**FIRST LIVE CATCH — a true positive of exactly the class this lane exists for.** 86 availability runs
+overnight, **1 item filed**:
+
+```
+vetcomparison.uk/index.html
+20:49:12Z  deploy committed, deployed_at stamped, content_hash = 2a4b4947...
+21:53:04Z  age  1h04  DIVERGED  served 2bacf7c9...  -> ITEM FILED
+01:54:34Z  age  5h05  DIVERGED  served 2bacf7c9...  -> dedup skip (already open)
+05:56:34Z  age  9h07  DIVERGED  served 2bacf7c9...  -> dedup skip
+08:40Z     age 11h51  MATCH     served 2a4b4947...  (5/5 cache-busted fetches)
+```
+
+Served hash **identical across three observations spanning eight hours** — not mid-propagation.
+`deployed_at`/`updated_at` never moved, so **no redeploy: the same publish landed 9–12 hours late on
+its own.** Nothing else in the platform noticed: DB said deployed, commit succeeded, job completed.
+
+**It sharpens candidate 3 rather than reopening the bug.** §3's original instance looked like a page
+being *skipped*; this one was *delayed*. So the runner may not be losing work at all, and a fix aimed
+at "why was this page dropped" could be aimed at the wrong thing. Still not diagnosable from here
+(private `gqls/sites` repo) — but there is now a named case with timestamps to hand whoever has access.
+
+### ⚠ THE ONE THING STILL UNPROVEN — the retraction half
+
+The page now matches, so the next pass on that site should emit a `Resolved` and close the item.
+**That has never fired.** Until observed, "the check self-clears" is designed-but-unproven. Watch:
+
+```sql
+SELECT status, result->>'resolved_by', result->>'reason'
+  FROM site_work_items WHERE item_type='page_content_divergence';
+```
+
+⚠ **AND A TRAP THAT NEARLY HAD ME DEBUGGING A WORKING MECHANISM:** `items_inserted: 0` on the 5h05 and
+9h07 runs read as "retraction failed". It was not — `items_skipped: 1` with a non-empty `findings`
+array means the check re-detected and `idx_swi_dedup` correctly refused a second row. **Read
+`items_skipped` and `findings`, never `items_inserted` alone.**
+
+---
+
 ## 1. What changed today
 
 The divergence sweep (`PLAN` decision **D5**, `bugs_open/315` fix candidate 4) is written, tested,
