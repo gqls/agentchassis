@@ -743,3 +743,78 @@ artefact (recipe in the lane RUNBOOK). Until then the check has never executed, 
 in `RELEASE_IMAGES`, so a normal fleet release builds it.
 
 **309 therefore stays OPEN**, on that one step. Nothing about it is blocked or undecided.
+
+
+---
+
+## 15. LIVE AND PROVEN IN-CLUSTER — 2026-08-22, and it shipped once in a state where it could not run
+
+**The last step of §14 is done, and 309's class half is now closed at the artefact.**
+
+`[MEASURED 2026-08-22 17:55Z]` The fleet release built the image (`v1.0.1326`), the CronJob
+is applied, a manual Job was run, and:
+
+| check | result |
+|---|---|
+| CronJob's image, by jsonpath | `docker.io/aqls/component-source-vocabulary-check:v1.0.1326` |
+| binary probe, `--component-source-vocabulary` | **PRESENT**, with a must-be-absent control reporting absent |
+| **pod** `state.terminated.exitCode` | **0** |
+| `doc_notes` row written | **yes**, `source='component-source-vocabulary-check'`, 17:55:14Z |
+| the row's own figures | **69** fields, 51/14/4, across **17** components, **6** live on **46** instances |
+
+The `doc_notes` row is the positive control on the report path, not a formality: `writeDocNote`
+is best-effort by design, so a pod exiting 0 having written nothing would be a broken
+reporter reading exactly like a clean estate.
+
+### ⚠ It deployed clean and could not run, and every signal said otherwise
+
+**This is the part worth reading.** `v1.0.1326` built, pushed, deployed; the CronJob listed;
+the binary probe found the mode compiled in, with its negative control passing. All of that
+was true — and **every scheduled run would have exited 2**:
+
+```
+config-key-audit --component-source-vocabulary: baseline "docs/agent_docs/.../
+component_source_baseline.json": ... no such file or directory — refusing to run without it.
+```
+
+The image is `FROM alpine` plus `COPY --from=builder /app/config-key-audit /app/` — the
+binary and nothing else — while the mode loads its baseline from a **repo-relative path**.
+The builder stage `COPY . .`'d the repo, so the path existed at *build* time and nothing
+failed during the build.
+
+**A binary probe answers "did my CODE ship". It says nothing about "can my code RUN."** The
+moment a mode needs *data* — an acks file, a baseline, a roster — the deployment acquires a
+second dependency that no image tag, no provenance stamp and no `grep /proc/1/exe` will ever
+mention. What caught it was running the container with its real arguments and no environment
+and reading the **first** refusal: it named the baseline, not `PG_CLIENTS_HOST`, so it had not
+even reached the database check. Full trap in `LANDMINES.md`; the wrong call in `WRONG_CALLS.md`.
+
+**It failed loudly, and that was not luck.** The loader refuses to run without its baseline
+rather than treating an unreadable file as an empty one. Had it defaulted to "no baseline =
+nothing grandfathered", the first run would have reported all 69 known findings as **NEW** —
+a flood on day one, indistinguishable from a real regression.
+
+### The fix, and why it is a mount rather than a `COPY`
+
+**The baseline is designed to SHRINK** as `bugs_open/362`'s repairs land. Baked into the
+image it would go stale on the first repair, and the check would then report the repaired
+entry as STALE until someone rebuilt an image for a *data* change. So it is mounted from a
+`configMapGenerator`; a repair is now `apply -k` and the next run is correct. That forces the
+real file into the kustomize base with a symlink from the documented docs path, because
+kustomize resolves symlinks and refuses a generator source outside its root — the
+`component-fallback-check` arrangement, same constraint.
+
+**No rebuild was needed:** `--baseline` had been in the binary since the first commit, so this
+was manifest-only.
+
+### Status of 309 now
+
+| half | state |
+|---|---|
+| the case | **FIXED**, re-verified 2026-08-22 |
+| the class, BIRTH door | **LIVE and holding** — zero offenders since 2026-08-19 |
+| the class, AT-REST door | **LIVE and PROVEN in-cluster**, this section |
+
+**309's own remit is complete.** It stays OPEN only as the parent of `bugs_open/362`'s
+**69** grandfathered fields (**as of 2026-08-22**), whose burn-down is the baseline's shrink
+history. Whoever closes the last of those closes this.
