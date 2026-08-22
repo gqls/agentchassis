@@ -25,6 +25,24 @@
 // dispatch do not"* — so whatever drives this must be verified at the artefact,
 // not assumed from the fact that it was built.
 //
+// ⚠ IT MEASURES TAGS, AND A TAG IS NOT THE CODE. A service sitting on the fleet
+// tag reads as CURRENT here and can still be running a stale binary: a same-tag
+// rebuild serves the node's cached image, so `v1.0.1323` can mean two different
+// binaries on two different nodes. This census's own AHEAD OF THE FLEET remedy
+// says as much ("the next release MUST NOT reuse this tag") — the limit is that
+// it can only see the tag that caused the problem, never the problem.
+//
+// Raised by the council's `debug_historian` seat (low, corr b0883c17) against
+// the estate's standing rule: verify at the artefact, never at git or a tag.
+// Stated rather than fixed, deliberately. The artefact-side answer already
+// exists and belongs to other entries — BLD-019 stamps the commit into every
+// image and binary, BLD-020 makes one release one revision, BLD-023 lets a
+// running pod publish what it can do — and duplicating it here would give one
+// question two answers that can disagree. **So a clean census means "every
+// service is on the tag it should be on", NOT "every service is running the
+// code it should be running."** Those are different claims and only the first
+// is made.
+//
 // THE PREDICATES TAKE A []Workload, NOT A KUBERNETES CLIENT, on purpose. Every
 // judgement here is a pure function over data, so the whole census is table-
 // testable with no cluster, and `cmd/releasecheck` owns the one part that must
