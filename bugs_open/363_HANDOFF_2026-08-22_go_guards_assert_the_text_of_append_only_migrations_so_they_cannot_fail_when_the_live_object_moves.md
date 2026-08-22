@@ -121,22 +121,96 @@ glob-guessing and filename-pinning that instances 1–4, 6 and 7 all suffer from
 
 What even it lacks is the last step: **asking the live database what it actually contains.**
 
-## Fix candidates
+## The drift channel is PROVEN, not hypothesised
 
-*(Pending: the diagnosis loop's independent read — run correlation
-`c8ec6478-5a54-4a16-aaf1-1e3373684ba0` — and the design pass. To be filled in by this lane before
-council submission; do not treat this section's absence as "no candidates exist".)*
+[MEASURED 2026-08-22, from `git log --follow` and the migration texts]
 
-Two constraints any candidate must satisfy, both already established above:
-- it cannot require a database at `go test` time, and it cannot be a pre-commit hook;
-- it must key on the **live object**, with the migration as an attribute of it. Migration `506`
-  writes **two** live objects (a `scheduled_tasks` row and an `agent_definitions` row) and its guard
-  checks only the first — so a registry keyed on the file reproduces the defect inside the fix.
+`220_claimed_item_timeout_generic_evidence.sql` was **edited nine times after it first applied**
+(created `d61b3ace1`; then `ac9f75a0c`, `ec8ad7959`, `96dd3015c`, `af2667453`, `dc4f4e6b2`,
+`a60a13cbb`, `ad51ca863`, `d644723b8`, `c121d5a73`). For most of its life the file **was** the
+mutable declaration and was maintained as one — which is why a guard reading it made sense. The
+checksum-freeze convention later took that away, and **nothing replaced it.**
 
-Design consequence of `scripts/council-scope.sh:57-61`: scope is `^(platform|internal|pkg)/` plus
-appliable migrations; **`cmd/` and `scripts/` are out of review.** New logic belongs in `platform/`
-(reviewable, and importable by both a unit test and a runtime auditor) with only a thin `main` in
-`cmd/`.
+Since the freeze, the live exclusion clause has been edited by migrations the guard's glob
+(`*_claimed_item_timeout_generic_evidence.sql`) **cannot see** — each doing
+`SET pre_query = replace(...)` naming the previous clause verbatim:
+
+| migration | glob match? |
+|---|---|
+| `322_dead_fragment_link_claim_timeout_exclusion.sql` | **NO** |
+| `331_literal_markdown_claim_timeout_exclusion.sql` | **NO** |
+| `374_decision_regression_claim_timeout_exclusion.sql` | **NO** |
+| `524_claimed_item_timeout_honours_the_cooldown.sql` (same column) | **NO** |
+| `482_claimed_item_timeout_generic_evidence.sql` | yes — all the guard ever reads |
+
+**The guard is correct today only because `482`'s author hand-reconciled every earlier edit into a
+comment.** That is a hand-maintained copy of a live vocabulary, which is the class this estate keeps
+filing bugs about — and it is one careful author away from being wrong.
+
+## Fix candidates, ordered by what closes the door
+
+**1. RECOMMENDED — give the current declaration a home that is allowed to change, and tie both ends
+to it.** A leaf package `platform/livespec` holds each guarded live object's *current* declaration
+(value lists, literal fragments, a renderer for the exclusion clause) plus its identity and a probe
+SQL. Unit tests import it — compile-time constants, no DB, no file I/O, no glob — closing the
+Go↔declaration leg and letting the tests stop reading `sql_for_agents` for these objects entirely.
+A new read-only mode on the existing `cmd/config-key-audit` binary probes the live objects and
+compares them to livespec, closing the declaration↔live leg, and runs daily as a check image on the
+**`shared-output-fields-check` pattern** — a Go image, not RFC_006's Python mirror, because that
+service's own header records that an image "dissolves … both of RFC_006's named drift risks (a
+`DECLARED_*` literal kept in step by hand, and a parity test to notice when it is not)". *Makes
+unrepresentable:* a guard whose spec is a frozen file, and live drift that stays silent beyond ~24 h.
+*Costs:* one package, one mode, one check service, and a standing duty — a migration touching a
+guarded object updates livespec in the same commit. *Leaves open:* see the residual below.
+
+**2. Patch each guard** (widen globs, `Skipf`→`Fatalf`, "newest file" logic for 344/357). Cheap, and
+makes nothing unrepresentable: the file is still the spec, a `replace()` migration still carries no
+full declaration, live drift stays invisible, and the next guard author copies the pattern. **Rejected
+as primary — but the two `Skipf`→`Fatalf` one-liners are worth taking regardless.**
+
+**3. Live-object checksums recorded at apply time.** Rejected: `scheduled_tasks` and
+`agent_definitions` are *legitimately* edited straight in the database here, so a hash-vs-last-migration
+pages on every lawful edit; and a hash says "something changed", not "the fragment the guard depends
+on changed". Same cost as (1) without its precision.
+
+**4. Let the unit tests read the live DB.** Violates the constraint outright — `go test` runs inside
+a `git archive` context with no cluster. Listed so the council sees it was considered and why not.
+
+**5. Do nothing for the repo-only cases.** Correct, and adopted: `write_experience_pattern_test.go`
+(schema DDL, where the accumulated corpus genuinely is the canonical channel) and
+`contact_info_no_fabrication_test.go` (the migration is a render *fixture*, not a spec-of-live claim,
+and the file names its live watcher at lines 23-25) are **excluded**.
+
+### What the recommendation does NOT cover, stated plainly
+
+- **A ≤24 h detection window** between a drifting edit and the next run. Accepted: RFC_006's ruling
+  is that after-the-fact-on-a-clock is the only mechanism that can see database-side change at all.
+- **Objects nobody enrols.** Mitigated by a tripwire test scanning `platform/**/*_test.go` for new
+  `sql_for_agents` readers outside a **reasoned** allow-list — scanning call arguments, not comments
+  (the "source-scan test makes comments load-bearing" landmine), and every allow-list entry carrying
+  a written reason (an allow-list without one "converts a live debt into a false all-clear").
+- **The job not running.** One `doc_notes` row per run *including clean ones*, so a MISSING row reads
+  as "the job did not run", never as "nothing is wrong" — and the RUNBOOK carries the standing query,
+  because detection works while schedule and dispatch do not.
+- **A declaration wrong in the same way the live object is wrong.** Requires simultaneous wrong edits
+  to the Go roster, livespec and the live object — strictly smaller exposure than today's.
+
+**This closes drift DETECTION, not drift PREVENTION.** Nothing can prevent it: these objects are
+legitimately mutable in production by design. The tests stop lying immediately; the live tie becomes
+eventually-consistent with a stated, monitored bound.
+
+### Constraints any candidate must satisfy
+
+- It cannot require a database at `go test` time, and it cannot be a pre-commit hook — **at commit
+  time the migration is unapplied** (`RFC_006`, owner 2026-08-02).
+- It must key on the **live object**, with the migration as an attribute of it. `506` writes **two**
+  live objects (a `scheduled_tasks` row and an `agent_definitions` row) and its guard checks only the
+  first — so a registry keyed on the file reproduces the defect inside the fix.
+- New logic belongs in `platform/` (reviewable under `scripts/council-scope.sh:57-61`, and importable
+  by both a unit test and the auditor) with only a thin `main` in `cmd/`; `cmd/` and `scripts/` are
+  outside council scope.
+- **A new check service must join `RELEASE_IMAGES` in the commit that creates it** (`makefile:78-92`
+  — two services were already born outside it, and the coverage gate structurally cannot see that).
 
 ## How to verify a fix
 

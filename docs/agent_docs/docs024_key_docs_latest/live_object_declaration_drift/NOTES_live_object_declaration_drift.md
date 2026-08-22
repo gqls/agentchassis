@@ -359,3 +359,67 @@ evidence sections are worth committing before the fix candidates are written any
 
 Not logged to WRONG_CALLS: nothing false was asserted and nothing was published wrong. It is a
 coordination hazard, which is this file's job, not that one's.
+
+---
+
+## 2026-08-22 — the design pass came back; grounding it caught two false migration numbers
+
+The plan is good and I am taking its recommendation. But a subagent's report is another doc — no
+seam shows where its measuring stopped — so I re-ran its load-bearing new claims before letting any
+of them into `bugs_open/363`. Two of them were wrong.
+
+### ✅ CONFIRMED, and it upgrades the bug from "could drift" to "the channel is proven"
+
+**`220_claimed_item_timeout_generic_evidence.sql` was edited NINE times after it first applied.**
+`git log --follow` on the file: created by `d61b3ace1` ("generic completion evidence for the
+claim-timeout sweep"), then `ac9f75a0c`, `ec8ad7959`, `96dd3015c`, `af2667453`, `dc4f4e6b2`,
+`a60a13cbb`, `ad51ca863`, `d644723b8`, `c121d5a73`. So for most of its life this file **was** the
+mutable declaration and was maintained as one — which is exactly why the guard was written to read
+it, and exactly what the checksum-freeze convention later took away without anything replacing it.
+
+**Three migrations edited the live exclusion clause under filenames the guard's glob cannot see.**
+[MEASURED 2026-08-22] Each does a `SET pre_query = replace(...)` naming the previous clause verbatim:
+
+| migration | filename | matches glob `*_claimed_item_timeout_generic_evidence.sql`? |
+|---|---|---|
+| `322_dead_fragment_link_claim_timeout_exclusion.sql` | `…_claim_timeout_exclusion.sql` | **NO** |
+| `331_literal_markdown_claim_timeout_exclusion.sql` | `…_claim_timeout_exclusion.sql` | **NO** |
+| `374_decision_regression_claim_timeout_exclusion.sql` | `…_claim_timeout_exclusion.sql` | **NO** |
+| `524_claimed_item_timeout_honours_the_cooldown.sql` | (same column, cooldown stamp) | **NO** |
+| `482_claimed_item_timeout_generic_evidence.sql` | — | yes (this is all the guard ever reads) |
+
+The guard is right today only because `482`'s author hand-reconciled every earlier edit into a
+comment. **That is a hand-maintained copy of a live vocabulary — the exact class this estate keeps
+filing bugs about.**
+
+### ❌ TWO CLAIMS REFUTED — `269` and `341` do not touch this at all
+
+The report listed six "live edit vehicles": `269, 322, 331, 341, 374, 524`. Checked each:
+
+- `269` is `269_deduplicate_sections_handler.sql` — **no mention of `claimed-item-timeout`.**
+- `341` is `341_domain_strategist_refresh_safe_and_premise_fields.sql` — **no mention.** (The number
+  is also confusable with `bugs_open/341`, which *is* about this sweep. Plausibly that collision is
+  where it came from.)
+
+So the true count is **four**, not six. The argument is unharmed — three glob-invisible edits to the
+clause is already decisive — but the figure that goes in the bug file is four, and I have written
+four. **Had I pasted the report through, `bugs_open/363` would have carried two fabricated
+citations**, in a file whose entire purpose is to complain about unverified declarations.
+
+### ✅ CONFIRMED — every reuse target the plan leans on exists as described
+
+- `deployments/kustomize/services/shared-output-fields-check/base/cronjob.yaml` exists and its header
+  argues the Go-image-over-Python-mirror case verbatim, including that an image "dissolves … both of
+  RFC_006's named drift risks (a `DECLARED_*` literal kept in step by hand, and a parity test to
+  notice when it is not)" and that these checks **connect to Postgres directly, never `kubectl exec`**
+  (no pods/exec RBAC — a kubectl-only tool fails in a way that looks CLEAN).
+- `writeDocNote` exists at `cmd/config-key-audit/fleetdb.go:110`.
+- The makefile warning is real and emphatic (`makefile:78-92`): two check services were *already*
+  born outside `RELEASE_IMAGES`, the coverage gate structurally cannot see such an omission, and
+  **"A NEW CHECK SERVICE MUST BE ADDED HERE IN THE COMMIT THAT CREATES IT."**
+
+### The one design point I am keeping from my own census over the report's framing
+
+The report treats instance 5 as "(iii) judgement". I agree, but the reason matters for the edit
+list: `newestConstraintValues` is **the shape to generalise**, not merely a case to patch. Its
+corpus scan is what makes 322/331/374 visible where a glob is not.
