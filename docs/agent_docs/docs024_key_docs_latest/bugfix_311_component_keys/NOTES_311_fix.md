@@ -1213,3 +1213,36 @@ containing the 22 by id, not a `>=` threshold). Transferable to every census thi
   Edit 2 rewritten to match the live code verbatim; **round 3 resubmitted 08:37Z** — which was
   inside the ~300s post-restart no-dispatch window (owner flagged the roll was settling), so per
   the RUNBOOK the run is being found **by payload** on a slow watch, NOT re-fired.
+
+## 2026-08-22 ~09:05Z — FOUR OWNER ANSWERS, all acted on
+
+1. **RULED: "the components that need scoping can be inline"** — option (1) from the 283 contrib.
+   Delivered to their lane verbatim
+   (`bugfix_283_…/CONTRIB_2026-08-22_owner_ruling_inline_js_for_components_needing_scope.md`) with
+   the mechanical discriminator suggestion and the note that the seven existing diverted rows
+   become re-inlining conversion candidates. Their seam; offer to take the
+   `store_generated_component` edit recorded.
+2. **The "CSS lane" working 351 is `bugfix_198_roundtrip_writers`** (session name
+   `remortgagecalculator.uk`; no dir of that name exists — the 198 lane dir is where their
+   PLAN/NOTES/RUNBOOK live, updated through 08-21).
+3. **`337` is being handled in another lane** (owner statement) — this lane stops tracking it
+   beyond the pointer in `bugs_open/337`. Consequence here: `tool-eligibility-checker` and
+   `tool-credit-health-check` builds stay UNFILED from this lane; that lane's fix releases them.
+4. **Loanzy OPENED (owner: "whatever rebuilds or rewrites are required — it should have held
+   pages")**: all four archived tool pages unarchived (`tool-loan-repayment-calculator`,
+   `tool-compare-loans`, `tool-is-a-loan-right-for-me`, `tool-eligibility-checker`); build items
+   filed for the first three plus `tool-loan-vs-savings` (`5244b9e3`/`a2f2884f`/`19a6958d`/
+   `beee868d`) — eligibility-checker's build deliberately NOT filed (337-blocked, see 3).
+   **The 253-floor page got the guard's own remedy**: loanzy `content_direction` superseded (new
+   row, old kept, `created_by='bugfix_311_redrive'`, dated note) adding a **layout-preservation
+   rule** — regeneration keeps elements carrying layout classes; flattening is refused by the save
+   guard — and the stress-test render re-filed (`f0330a81`, third attempt, first under the rule).
+   Five builds watching in background.
+
+**Also this morning (round 3 = REVISE, prior_art_librarian, HIGH):** `wi.error` can be STALE — the
+landmine "A completed `site_work_items` row keeps the `error` text from an earlier REFUSED
+completion" (LANDMINES:7104, verified) means a hand-reset completed item would show a previous
+LIFECYCLE's failure to a fresh generation under the non-blank gate. Loadable-population measurement
+today: 0 of 2 carry any error — a snapshot, not proof. **Structural close ready: gate ALSO on
+`completed_at IS NULL`** (the success UPDATE writes `completed_at`; a genuinely failing item never
+has it) — build in progress when the owner's four answers arrived; resuming it next.
