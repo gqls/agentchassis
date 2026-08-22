@@ -70,3 +70,29 @@ Re-drive `loans-credit-health-check` on loanzy.uk, then assert: item completes w
 and contains `</section>`; and the served page gains real controls —
 `curl -s https://loanzy.uk/tools/credit-health-check/index.html | grep -c '<input'`
 above a pinned "before" of 0. Verify at the ARTEFACT, not the item status.
+
+## Verifying a repaired tool page — two traps that both bit this lane (2026-08-22)
+
+**1. Get the URL from the site, not from the page name — and always record the status.**
+URL shape is PER SITE: `loanzy.uk` serves `/tools/<name>/index.html`, `loancalculator.co.uk`
+serves `/tools/<name>.html`. A name-derived guess hit the latter's custom 404, which is 1,201
+bytes of real HTML with a stable md5 and zero `<input>` — so it passed both a two-reads
+stability check and a content check while being the wrong document.
+
+```bash
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' "$URL"   # refuse anything but 200
+```
+
+**2. Check what the tool IS before choosing the success predicate.** The bug file's recipe was
+`grep -c '<input'` above 0. The component that actually shipped is a button-driven quiz:
+
+```bash
+b=$(curl -s "$URL")
+printf %s "$b" | grep -c '<input'          # 0  — and the page is FINE
+printf %s "$b" | grep -c '<button'         # 13
+printf %s "$b" | grep -oE '<section[^>]*class="[^"]*"'      # the section is there
+printf %s "$b" | awk '/<script/,/<\/script>/' | wc -c       # 4593 bytes of real logic
+```
+Better general predicate: assert the SECTION is present (`tool-<type>-section`) and that its
+behaviour is present (inline script bytes, or handler names the component declares), rather
+than one tag type borrowed from a calculator-shaped tool.

@@ -43051,3 +43051,48 @@ however many sites it spans. And "N identical failures with identical numbers is
 deterministic refusal" (`016b` §9, added from this very bug) is TRUE of the nine cut calls and
 still did not license the leap to "so the cap is the cause" — the nine were real and
 deterministic *and* were 11% of the population.
+
+---
+
+## 2026-08-22 — bugfix_337 lane: I pinned a "before" baseline on a 404 page, and my own two-reads stability check certified it
+
+**The claim.** That `loancalculator.co.uk`'s `tool-credit-roadmap` served no interactive
+controls before the repair — pinned as `1,201 bytes / md5 8561e9f7… / grep -c '<input' = 0`,
+and pinned TWICE, minutes apart, both reads identical, exactly as the RUNBOOK demands ("a
+served-page baseline needs TWO reads").
+
+**What caught it.** After the repair the page was byte-identical to the pin. Fetching the body
+instead of counting it: `<title>Page Not Found | loancalculator.co.uk</title>` — 1,201 bytes of
+the site's own custom 404. The real page is `/tools/credit-roadmap.html` (200, 46,594 bytes); I
+had constructed `/tools/credit-roadmap/index.html` from the page's NAME, because that is the
+pattern `loanzy.uk` uses — and URL shape is per-site, not fleet-wide. Same fleet, same page
+type, two conventions.
+
+**Why the safeguard I did run could not help.** I checked stability (two reads, same md5) and
+content (`<input` count). **A 404 page is perfectly stable and contains zero `<input>`s** — it
+passes both. What I never recorded was the **HTTP status**: `curl -s` without `-w '%{http_code}'`
+prints an error page and exits 0, so every number I collected was real, reproducible, and about
+the wrong document. The RUNBOOK I was following even carries the warning ("a spurious 404 nearly
+became the 'before'") and I still did it, because I was guarding against *flakiness* — the thing
+two reads detect — rather than against *identity*, which they cannot.
+
+**The cheap check that would have.** Record the status alongside the bytes, and refuse any
+baseline that is not 200:
+```bash
+curl -s -o /dev/null -w '%{http_code} %{size_download}\n' "$URL"   # 404 1201  ← not a baseline
+```
+And derive the URL from a page that is KNOWN to serve on that site (the site's own nav, or a
+sibling tool), never from the page's database name.
+
+**Generalises.** A stability check answers "did this change while I looked?", never "is this the
+thing I meant?". Any baseline built only from size/hash/grep-count is identity-blind, and the
+failure is silent because an error page IS a document: it has bytes, a stable hash, and honest
+zero counts for whatever you grep. Pair every content pin with an identity assertion — status
+code, or a string only the real page can contain (here, the page's own `<h1>`).
+
+**Second, smaller miss in the same verification.** The bug file's success predicate was
+`grep -c '<input'` above 0. The component that shipped is a **button-driven quiz** (13
+`<button>`, 4,593 bytes of inline JS with `next()`/`showResult()`, zero `<input>`), so the
+repaired page scores 0 on the stated predicate while being fully working. An inherited predicate
+encodes the SHAPE of the tool someone expected; check what the artefact actually is before
+reading its score as a verdict.

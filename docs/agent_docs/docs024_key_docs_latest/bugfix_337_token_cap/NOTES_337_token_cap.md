@@ -240,3 +240,35 @@ regeneration loop, routed at the 309/345 territory.
 **Repair state:** loancalculator's component STORED (22,236 chars, closes properly); page
 re-render filed to attach it (page had 5 planned / 4 slots). loanzy: no component — blocked
 by 309. Both pages still serve 0 `<input`.
+
+## 2026-08-22 — repair outcome: ONE page genuinely fixed, one still blocked; and two verification missteps of my own
+
+**loancalculator.co.uk / tool-credit-roadmap — REPAIRED, verified at the artefact.**
+Component stored 10:02Z (22,236 chars, closes properly), page re-render `complete`,
+`page_components` 4 → **5 slots**, `build_status` deployed. Served page
+`https://loancalculator.co.uk/tools/credit-roadmap.html` (200, 46,594 B) now carries
+`<section class="tool-credit-health-check-section">` with a working quiz: 13 `<button>`,
+**4,593 bytes of inline script** (`next()`, `showResult()`, `copy()`, listeners, step/points/
+meter state).
+⚠ The before/after is **[INFERRED, not measured]** on the served page — see misstep 1. What IS
+measured: the component row did not exist before 10:02:18Z today and the page had 4 slots, so
+the section could not have been served. Sound, but not the same as a pinned before.
+
+**loanzy.uk / tool-credit-health-check — STILL BLOCKED.** No component: `store_component`
+refused the fresh 12,709-token generation on the unresolvable-source rule (`cta_primary_url`
+→ `site_specs.ctas.*`, an aspect that does not exist). Page unchanged: 24,323 B, 3 sections,
+0 inputs, 1 button. This is the re-scoped 337 (the validation-driven loop), not the cap.
+
+**Misstep 1 — I pinned a 404 as the "before" and my own stability check certified it.**
+`/tools/credit-roadmap/index.html` was a name-derived guess; that site serves
+`/tools/<name>.html`. The 404 is 1,201 B of real HTML with a stable md5 and zero `<input>`, so
+two identical reads and a content grep both passed on the wrong document. `curl -s` without
+`-w '%{http_code}'` exits 0 on a 404. **A stability check answers "did it change while I
+looked", never "is this the thing I meant".** RUNBOOK updated with the status-code form.
+Loanzy's pin was valid (200) — URL shape is per-site, which is exactly what made one right and
+one wrong.
+
+**Misstep 2 — the inherited success predicate was the wrong shape.** The bug file's bar was
+`grep -c '<input' > 0`. This component is a button-driven quiz and scores **0 inputs while
+working perfectly**. An inherited predicate encodes the tool someone EXPECTED. Both logged in
+WRONG_CALLS.
