@@ -43357,3 +43357,42 @@ command or a number: the command goes in the terminal **before** the sentence go
 and the output gets pasted next to it. If you are writing the claim first, you are writing fiction
 with a citation format. Caught here by re-reading my own commit, which is luck; the digest pin two
 paragraphs above it was caught by a reviewer, which is not a system I control.
+
+## 2026-08-22 (`bugs_open/318` lane) — I read an exit code off a pipeline while proving a gate discriminates, and printed the reassuring answer
+
+**The claim.** Mutation-testing the new `build-backend: $(addprefix build-,$(RELEASE_IMAGES))`
+derivation, I injected a bogus image name into a **copy** of the makefile (correctly — never the
+live shared file) and ran:
+
+```bash
+make -f $SC/mf-mutant -n build-backend 2>&1 | tail -3; echo "exit=$?"
+```
+
+It printed `make: *** No rule to make target 'build-nobody-built-this-check'` **and** `exit=0`.
+The `$?` belongs to `tail`, not to `make`. Had the mutation silently done nothing, that command
+would have printed the same `exit=0` — so as written it could not have come out otherwise, and it
+was the number I was about to record as the proof.
+
+**What it actually is.** Re-measured without a pipeline: mutant **exit 2**, live makefile under the
+identical command **exit 0**. The proof stands; my instrument did not.
+
+**Why this one is embarrassing rather than merely wrong.** This exact defect — *a pipeline's exit
+status is its last command's, so the failure branch can never fire* — is the objection the council's
+`editquality` seat raised against `bugs_open/153`'s own pod-provenance check, and it is written up
+in that bug file, which I had read **in this session, forty minutes earlier**, while deciding
+whether 153 was still open. The lesson was not merely available; it was in my context, attached to
+the neighbouring bug, in a paragraph I had quoted.
+
+**Cheapest check for the class:** when the exit code IS the measurement, never let it come out of a
+pipe. `cmd >/dev/null 2>&1; echo $?` — the thing under test must be the last command, or capture to
+a variable and test that. And the general form, which is the one worth carrying: **a control that
+returns the same value whether or not the mutation took effect is not a control.** Ask what the
+disconfirming run would have printed before you print the confirming one.
+
+**Second, smaller, same session:** extracting `RELEASE_IMAGES` with `tr ' ' '\n'` reported **nine**
+images as "declared but not built" against a true answer of three. The makefile's continuation lines
+are indented with **tabs**, so six entries carried a leading tab and `comm` scored every one of them
+as a difference. The tell was that the false six were all ordinary, long-standing services — a
+result too alarming to be true is worth one more look before it becomes a finding. `tr -s ' \t' '\n'`.
+Same family as the existing landmine that `tr '\n' ' ' | grep -c` cannot detect a partial loss:
+**whitespace normalisation is part of the measurement, not a tidying step before it.**
