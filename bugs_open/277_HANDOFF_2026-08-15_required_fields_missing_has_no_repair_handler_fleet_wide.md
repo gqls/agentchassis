@@ -713,3 +713,33 @@ So the three options, costed honestly:
 
 **No session should pick between 2 and 1 on its own** — option 2 changes what "fixed" means for this
 bug, and option 1 spends the protection today's repair relies on.
+
+### 8.5 ⚠ CORRECTION to §8.4, 2026-08-22 — the hazard I attached to option 1 does NOT arise for THIS population, and that makes option 1 cheaper than I costed it
+
+§8.4 says a backfill *"re-enables the regenerate routes on exactly the components whose
+un-regenerability makes today's repair safe"*, and therefore *"owns re-checking the seven"*.
+**I asserted the overlap instead of measuring it. Measured 2026-08-22 09:2xZ, it is ZERO.**
+
+Where the 27 parked `no_content_data` rows actually live:
+
+| site | parked rows |
+|---|---|
+| finetuning.uk | 10 |
+| gamesdesign.co.uk | 8 |
+| ai-agent-orchestration.com | 5 |
+| gaswholesalers.com | 3 |
+| mortgagecalculator.co.uk | 1 |
+
+**Not one is on webdesign.co.uk**, and a direct join of the parked rows' pages against the seven
+repaired pages returns **0**. The two populations do not touch.
+
+**What survives, and what does not.** The *general* trap stands exactly as written in
+`HANDOFF_2026-08-20b` §3 — backfilling `content_data` makes a component regenerable, and a component
+that also carries a `rendered_html`-only repair can then be regenerated back to its pre-repair
+content. What does **not** survive is my application of it here: repairing these 27 does not put
+yesterday's seven at risk, and whoever does it does **not** inherit re-checking them.
+
+**So the real control is SCOPE, not abstention.** A backfill written for *these 27 rows* is safe. A
+backfill written as a general "fill any empty `content_data` fleet-wide" mechanism would eventually
+reach webdesign.co.uk's ported pages, which DO carry the repair — and that is the version that owns
+the re-check. Anyone building this should say which of the two they are building, in the commit.
