@@ -5,6 +5,34 @@ target for `bugs_open/309`'s grandfather baseline. **Status: OPEN.** Nothing her
 new discovery — this is the population `309` measured, made visible and given an owner
 so that "grandfathered" means *routed*, not *excused*.
 
+> **On the owner ruling of 2026-07-31** (a `bugs_open/` file asserting a cross-cutting or
+> structural root cause is not filed until it has been through the `090` loop, or the
+> filing session states plainly why it substituted equivalent first-hand verification).
+> **Stated plainly: `090` was NOT run for this file, deliberately, and here is the
+> substitution.**
+>
+> This file asserts no new causal theory. Its mechanism is `bugs_open/309`'s, which the
+> loop already graded **CONFIRMED** on its first iteration set (run correlation
+> `6e578bf5-778a-4e72-aab2-0531e45c07d8`, 2026-08-18) — independently re-deriving the
+> chain and citing `plan_sections_action.go`'s `on_missing = "skip_field"` and the
+> `site_specs` aspect emptiness itself. What this file adds is a **census**, not a cause:
+> which rows carry that already-confirmed shape, and how much live page surface each sits
+> on.
+>
+> The first-hand verification substituted for a second run, every part of it re-runnable
+> from the query in the lane RUNBOOK: the population counted at the live DB; the claim
+> "resolves nowhere" checked at the **resolver** rather than inferred from the guard
+> (`plan_sections_action.go:623` returns `(nil,false)` for a dotless source;
+> `resolveSpecAlias` step 2 is `if aspect != "identity" { return nil, false }`, so no
+> phantom aspect can be rescued); and the census itself **executed as code** against the
+> real library by the audit binary, which reproduces exactly these 69 across these 17
+> components. A hand-counted census and a machine-counted one agreeing is a stronger check
+> than either alone, and it is the one thing a `090` run could not have supplied.
+>
+> **What that substitution does NOT cover, said rather than left implied:** it establishes
+> the population, not the repair. Each of the four repair shapes below is a judgement about
+> a specific component, and none of them has been graded by anything.
+
 **Every row of `component_source_baseline.json` names this file.** When one of these is
 repaired, the daily check goes RED with a stale-entry message naming the exact line to
 delete. That deletion is the burn-down: **the baseline's shrink history is this bug's
