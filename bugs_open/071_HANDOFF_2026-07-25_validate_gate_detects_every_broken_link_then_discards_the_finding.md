@@ -975,3 +975,27 @@ Asked directly, the owner chose NOT to take now:
 
 So this file remains open holding exactly those two residues — everything else it ever
 held is fixed and either proven live or awaiting only the next roll.
+
+### 2026-08-22 post-roll (v1.0.1326) — the persistence fix is DEPLOYED; live-row proof stays armed, stated precisely
+
+Chassis rolled ~16:30Z, build commit `27b932aca`; both commits (`0ce242d9c` + round 2
+`120427766`) are ancestors, and the binary carries the recorder (marker probes both
+replicas, nonsense control clean: `CONTENT_VALIDATION_WARNING_DETAIL` + `"Valid build
+carried"` PRESENT). Council **APPROVED round 2** (corr `f30a28e1`).
+
+**What is NOT yet proven, said plainly:** no live row exists. The post-roll regression
+build at cookly ran the legacy pageflow flow, which never reaches `validate_content`
+(zero `ValidatePageContentAction` log lines in retention for that window) — so the zero
+rows under the new code mean *not exercised*, not *ran clean*. The write path is
+unit-pinned (provenance positions 5/8/9/11/12, context matchers inside the arrays) and
+the filter mutation-proven; the first organic warning-carrying `validate_content` run
+writes row 1. The armed check, for whoever reads this next:
+```sql
+SELECT error_code, domain, occurred_at, jsonb_pretty(context) FROM agent_error_log
+WHERE error_code='CONTENT_VALIDATION_WARNING_DETAIL' ORDER BY occurred_at DESC LIMIT 3;
+```
+Expect one row per valid warning-carrying build (dedupe: a repaired href appears in the
+repair row only); and on failed builds, `context.warnings` on the existing
+`CONTENT_VALIDATION_BLOCKER_DETAIL` rows. A week of silence across real builds would be
+the disconfirming shape worth investigating (builds with `warnings>0` in pod logs but no
+row); silence alone is not.
