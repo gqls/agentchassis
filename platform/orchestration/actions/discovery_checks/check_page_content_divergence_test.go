@@ -27,6 +27,8 @@
 //	set Accept-Encoding by hand (hashing gzip bytes)    FetchServedPageHashesTheDecodedBody
 //	drop the publish_target guard                       QueryPinsItsSixGuards
 //	re-type the shared shipped predicate inline         DivergenceQueryUsesTheSharedShippedPredicate
+//	move the settle window off 60 min                   DivergenceSettleWindowIsPinnedAndReachesTheQuery
+//	stop binding the window to the query ($2)           DivergenceSettleWindowIsPinnedAndReachesTheQuery
 //
 // TWO GUARDS ARE DEFENCE-IN-DEPTH AND THIS FILE SAYS SO RATHER THAN PRETENDING
 // OTHERWISE. The non-200 branch and the oversize branch each have a SECOND guard
@@ -610,6 +612,44 @@ func TestDivergenceQueryUsesTheSharedShippedPredicate(t *testing.T) {
 		t.Errorf("the query no longer contains queryresolve.DeployedPageEligibilitySQL verbatim — "+
 			"it has been re-typed inline and will not follow the shared definition when it changes.\nquery:\n%s",
 			divergenceCandidatesQuery)
+	}
+}
+
+// TestDivergenceSettleWindowIsPinnedAndReachesTheQuery does two things a reader
+// might think are one.
+//
+// (1) It pins the LITERAL 60 minutes. The value is a safety constant traded off
+// against measured delivery behaviour (see the const's comment: a ~17-minute
+// propagation tail, a 1h07 case, and a 9-hour true positive), so moving it should
+// require editing this line and reading that evidence — not be a one-character
+// change nothing notices. Deliberately a literal and NOT `divergenceSettleWindow`:
+// sizing an assertion from the constant under test is self-referential and cannot
+// fail, which is exactly how the per-pass cap test passed against a mutated cap
+// until it was pinned to a literal.
+//
+// (2) It asserts the value actually REACHES the query as $2. A const nothing
+// passes is a documented intention, not a behaviour — and the finder is the only
+// place that binds it.
+func TestDivergenceSettleWindowIsPinnedAndReachesTheQuery(t *testing.T) {
+	const wantMinutes = 60
+	if divergenceSettleWindow != wantMinutes*time.Minute {
+		t.Errorf("divergenceSettleWindow = %v, want %dm — if this move is deliberate, read the "+
+			"measurements in the const's comment and change this literal with it",
+			divergenceSettleWindow, wantMinutes)
+	}
+
+	dctx, mock := newDivergenceCtx(t)
+	expectDomain(mock, dctx.SiteID)
+	// WithArgs pins the BOUND VALUE: site id, then the window in seconds.
+	mock.ExpectQuery(`FROM pages p`).
+		WithArgs(dctx.SiteID, float64(wantMinutes*60)).
+		WillReturnRows(divergenceRows())
+
+	if _, err := (&PageContentDivergenceCheck{}).Run(dctx); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the settle window did not reach the query as $2: %v", err)
 	}
 }
 

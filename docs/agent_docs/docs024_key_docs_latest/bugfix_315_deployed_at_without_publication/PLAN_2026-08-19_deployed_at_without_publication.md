@@ -424,3 +424,57 @@ It is left at 30 for now because **the failure mode is bounded and self-clearing
 finding is FLAG-ONLY (no handler, nothing acts on it) and is RETRACTED on the next pass's positive
 re-observation. So the cost of being wrong is a work item that clears itself, not damage. Whoever
 takes D8 should re-run the 40-page sample first — it is the measurement that found this.
+
+
+---
+
+## D8 — DONE 2026-08-22: settle window widened 30 → 60 minutes
+
+At the owner's instruction. `divergenceSettleWindow = 60 * time.Minute`, pinned by
+`TestDivergenceSettleWindowIsPinnedAndReachesTheQuery` — which asserts the LITERAL 60 (not the const,
+which would be self-referential and unfailable) **and** that the value reaches the query as `$2`,
+because a constant nothing binds is a documented intention rather than a behaviour. Both halves
+mutation-proved: reverting the const fails the test, and swapping the bound value for a fixed 1800
+fails it too.
+
+**What it buys, stated honestly:** it clears the ~17-minute propagation tail by ~3.5x instead of ~1.8x.
+**What it does not buy:** immunity from the 1h07 case observed on 2026-08-22, which would still be
+filed at 60 minutes. **What it costs:** close to nothing — a real divergence is invisible for its first
+hour, but detection latency is set by the **4-hour discovery rotation**, not by this constant.
+
+Inert until the next chassis build and roll.
+
+### ⚠ D9 — THE WINDOW IS THE WRONG INSTRUMENT, and the 2026-08-22 catch is why. NOT BUILT.
+
+Three measurements, each an order of magnitude apart, now bound the same phenomenon:
+
+| observation | age at which the page was still wrong |
+|---|---|
+| 2026-08-21 watch (95 deploy events) | 1s, 13s, 14s |
+| 2026-08-21 40-page sample | 15 min, 21 min (max observed 1012s) |
+| 2026-08-22 vetcomparison, deploy B | **1h07** |
+| 2026-08-22 vetcomparison, deploy A | **9+ hours** (the true positive) |
+
+**These OVERLAP the failure they are supposed to be distinguished from.** No value of
+`divergenceSettleWindow` separates "still arriving" from "never arriving", because on this estate a
+healthy delivery and a broken one look identical at every age up to hours. Widening trades
+false-positive margin for detection latency and never resolves the ambiguity; 60 minutes is a better
+blunt instrument than 30, not a fix.
+
+**What DOES separate them is PERSISTENCE ACROSS PASSES.** A page still diverged on a *later* pass —
+4 hours on, a different probe, a different moment — is not in flight. The check already has this
+information and discards it: the 2026-08-22 item was re-detected on three consecutive passes
+(`items_skipped: 1`, `findings: 1` each time) and the dedup index silently absorbed every repeat.
+
+**Shape of the fix (unbuilt):** file at `detected` on first observation as now, but only escalate —
+severity, or a handler, or simply a `strikes` count in the spec — once a *second* pass observes the
+same `stored_hash`/`served_hash` pair. That distinguishes "slow" from "stuck" using evidence the
+system already produces, and it would have marked the 9-hour case as stuck at 01:54 while leaving
+every sub-hour case as a single quiet flag. It also makes the settle window much less load-bearing,
+which is the point: **a threshold that has been wrong by two orders of magnitude twice should not be
+the thing the mechanism rests on.**
+
+⚠ Whoever builds it: `CheckResult.Resolved` retracts on a positive re-observation, so "strikes" must
+survive a retraction cycle or a flapping page will oscillate. And re-detection is NOT verification
+(RFC_017) — a second observation of the same defect is evidence of PERSISTENCE, not of correctness,
+and the entry must say which of the two it is claiming.

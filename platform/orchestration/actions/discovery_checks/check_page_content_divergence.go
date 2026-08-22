@@ -62,7 +62,7 @@
 // ── THE FIVE THINGS THAT COULD MAKE THIS CHECK LIE, AND WHAT STOPS EACH ────
 //
 //  1. DELIVERY STILL IN FLIGHT. A page stamped seconds ago has not reached the
-//     origin yet. → `divergenceSettleWindow`, and the finder will not look at a
+//     origin yet. → `divergenceSettleWindow` (60 min), and the finder will not look at a
 //     page younger than it. See that const for what the window is measured
 //     against and what is honestly unmeasured about it.
 //
@@ -300,53 +300,47 @@ const (
 	// header). It only keeps the check off pages whose batched delivery is still
 	// in flight.
 	//
-	// WHAT IT IS MEASURED AGAINST. Two measurements, and the SECOND ONE CORRECTS
-	// THE FIRST BY TWO ORDERS OF MAGNITUDE. Both are kept, because the way the
-	// first one misled is the useful part.
+	// WHAT IT IS MEASURED AGAINST. THREE measurements now, and each one moved the
+	// number by an order of magnitude. All three are kept, because the way the
+	// early ones misled is the useful part.
 	//
-	// [MEASURED 2026-08-21, 10:38Z–13:20Z] A watcher re-probed every page stamped
-	// in the previous 45 minutes, every 2 minutes: 1,099 readings, 85 pages, 95
-	// deploy events. The only 3 DIVERGED readings were at ages 1s, 13s and 14s, all
-	// converged by 140–156s, and 0 of 995 readings at age >= 157s diverged. On that
-	// evidence this comment claimed 30 minutes was "roughly 128x the largest lag
-	// actually observed".
+	//	[MEASURED 2026-08-21 10:38–13:20Z] 1,099 re-probes, 85 pages, 95 deploy
+	//	events. 3 DIVERGED readings, at ages 1s/13s/14s, all converged by 140–156s;
+	//	0 of 995 readings at age >= 157s diverged.  ⇒ read as "tail = 14s".
 	//
-	// > **⚠ CORRECTED 2026-08-21 19:36Z — THAT MARGIN WAS WRONG, and it was found
-	// > by accident while re-running the proof after the check went live.** A random
-	// > 40-page sample returned 2 DIVERGED, both on fundamentallyai.com, aged 15 and
-	// > 21 MINUTES. Tracked to convergence:
-	// >
-	// >	/model-fine-tuning.html   MATCH @945s, DIVERGED @1012s, MATCH @1079s onward
-	// >	/tools/automation-savings-estimator/index.html   MATCH @1293s onward
-	// >
-	// > **The largest observed divergence age is therefore ~1012s (~17 minutes), not
-	// > 14 seconds.** So the window is about **1.8x** the worst observed case, not
-	// > 128x. The first measurement was not wrong about what it saw; it was a
-	// > 2h42m sample that happened to catch only fast deliveries, and quoting its
-	// > maximum as "the tail" was the error — the same shape as reading a
-	// > retention-bounded table as a lifetime.
+	//	[MEASURED 2026-08-21 19:36Z] A random 40-page sample: 2 DIVERGED, aged 15
+	//	and 21 MINUTES. `/model-fine-tuning.html` read MATCH @945s, DIVERGED
+	//	@1012s, MATCH @1079s — NON-MONOTONIC.  ⇒ tail is ~17 MINUTES, not 14s.
 	//
-	// AND THE SHAPE IS NOT A SIMPLE LAG. `/model-fine-tuning.html` read MATCH, then
-	// DIVERGED 67s LATER, then MATCH again — non-monotonic. Delivery lands
-	// PROGRESSIVELY across edge nodes, so during the window a probe gets whichever
-	// version the node that answered happens to hold. That is why the confirmation
-	// fetch must AGREE with the first before anything is filed (guard 4 below):
-	// two probes seconds apart can legitimately hit different nodes.
+	//	[MEASURED 2026-08-22] The check's first live catch, and it is not a tail at
+	//	all: vetcomparison.uk/index.html served superseded bytes for **9+ HOURS**
+	//	(identical served hash across 3 passes, no redeploy). The same page, after a
+	//	byte-identical republish at 08:50Z, was serving the OLD bytes again at
+	//	09:57Z — **age 1h07** — and correct by 10:20Z.
 	//
-	// THE WINDOW IS STILL LOAD-BEARING, and now doubly so: those 2 pages are 2 work
-	// items this check would have filed against healthy pages in a single 40-page
-	// sample, and 5 more were prevented in the earlier watch. But the margin is
-	// THIN — 30 minutes against a 17-minute worst case.
+	// ⚠ SO A SETTLE WINDOW CANNOT SEPARATE "SLOW" FROM "FAILED" ON THIS ESTATE,
+	// AND NO VALUE OF THIS CONSTANT WILL. The observed convergence times —
+	// seconds, ~17 minutes, ~1h20, 9+ hours — OVERLAP the failure they are meant
+	// to be distinguished from. Every widening buys false-positive margin and
+	// pays for it in detection latency, and none of it is decisive. **The property
+	// that actually separates them is PERSISTENCE ACROSS PASSES** — a page still
+	// diverged 4 hours later, on a different pass, is not in flight. That is
+	// PLAN D9, and it is the real fix; this constant is a blunt instrument kept
+	// because it is cheap and it demonstrably prevents filings (5 in the watch,
+	// 2 more in one 40-page sample).
 	//
-	// ⚠ RECOMMENDATION, NOT YET TAKEN (PLAN D8): widen this to 60 minutes at the
-	// next build. The cost is that a real divergence stays invisible for its first
-	// hour, which is still comfortable against the 6-hour case this check exists
-	// for; the benefit is margin against a delivery batch slower than any yet
-	// sampled. It is left at 30 for now because the failure mode is bounded and
-	// self-clearing — a premature finding is FLAG-ONLY and is RETRACTED on the next
-	// pass's positive re-observation — and because changing a const here costs a
-	// rebuild and a fleet roll.
-	divergenceSettleWindow = 30 * time.Minute
+	// WIDENED 30 → 60 MINUTES 2026-08-22 (PLAN D8, at the owner's instruction).
+	// What that buys, honestly: it clears the ~17-minute propagation tail by ~3.5x
+	// instead of ~1.8x. What it does NOT buy: immunity from the 1h07 case above,
+	// which would still be filed at 60 minutes. What it costs: a real divergence
+	// is invisible for its first hour — still comfortable against the 6-hour case
+	// this check exists for, and in practice detection latency is set by the
+	// 4-HOUR discovery rotation, not by this value, so the cost is close to zero.
+	//
+	// The failure mode of being wrong here stays bounded in both directions: a
+	// premature finding is FLAG-ONLY (no handler acts on it) and is RETRACTED on
+	// the next pass's positive re-observation.
+	divergenceSettleWindow = 60 * time.Minute
 
 	// divergenceMaxPagesPerPass bounds the outbound fetches one site can cause in
 	// one pass. webdesign.co.uk carries 124 hashed pages today, so this DOES bite
