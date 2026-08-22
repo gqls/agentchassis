@@ -147,3 +147,56 @@ crop light requirements, insect bioconversion rates, and seaweed carbon fraction
 will have a clean official source. Some, I suspect, won't have anything citable, and where that
 happens the honest answer is that the number becomes something you type into the calculator rather
 than something we tell you.
+
+---
+
+## 2026-08-22 — the first evidence run found something you should probably act on today
+
+I started the sourcing work with the SFI payment rates, on the reasoning that they're the numbers
+on the site most likely to have a clean official source and the ones where being wrong costs a
+reader real money. That turned out to be the right place to start, for a reason I didn't expect.
+
+**The SFI management payment has been abolished, and the calculator on your live site still pays
+it.**
+
+The calculator leads with it. There's a green box at the top of the SFI Revenue Stacker saying you
+receive £20 per hectare for your first 50 hectares, and that this means "the first £1,000 of your
+SFI income is effectively guaranteed". It's a line item in the results panel. And it sits directly
+above a link to the official GOV.UK guidance, which makes the whole thing look checked.
+
+The government's own SFI26 scheme rules say, in as many words: *"the SFI management payment has
+been removed for SFI26 agreements"*, and *"You will not be paid: an SFI management payment for
+your SFI26 agreement"*. DEFRA's farming blog explained the reasoning back in February — it was
+always meant to be a temporary payment to help people move into the scheme, and dropping it frees
+money to fund more agreements.
+
+I didn't take the research agent's word for this. It's built to re-fetch each source page and
+throw the claim away unless the quoted sentence is still there word for word, which is good, but
+that only proves the words exist — not that they were read properly. So I opened the GOV.UK page
+myself and checked all of it in context. It's unambiguous.
+
+So a farmer using your calculator today is being told they'll receive up to £1,000 they will not
+receive, and being told it's guaranteed.
+
+Three other things came out of the same run that the current calculator doesn't know about either:
+there's now a £100,000 annual cap on an SFI26 agreement, a three-hectare minimum to be eligible at
+all, and a limit of 25% of your farm's area on certain action types.
+
+**A question for you, and it's the only urgent thing here.** The rebuild will take a while, and the
+old site is live and wrong in the meantime. Do you want to leave it as is until the new site
+replaces it, take that calculator down now, or put a correction notice on it? I haven't touched it
+either way — that's your call, not mine, and all three are defensible.
+
+For the rebuild itself it's already handled. I've added rules to the site's evidence register that
+make it impossible to state the management payment as something a reader will receive. I was
+careful about how: the new site absolutely must still be able to *explain* that the payment was
+removed, and what it used to be, because right now that's genuinely the most useful thing this
+site could tell an SFI reader. So the rules block "you will receive" and leave "was removed" and
+"was available under the 2023 offer" alone. I tested both halves of that rather than assuming —
+two of the five rules were wrong on the first attempt and let through a sentence they should have
+caught, or caught one they should have let through.
+
+This is the strongest argument yet for the thing you asked for. The framework has a machinery that
+re-checks sourced figures on a schedule and raises a flag when the underlying source moves. A
+hand-built calculator has nothing of the kind, which is why this sat there quietly getting more
+wrong.
