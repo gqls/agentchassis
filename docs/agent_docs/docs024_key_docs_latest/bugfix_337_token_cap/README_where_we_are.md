@@ -196,3 +196,15 @@ succeeds silently.
 part only takes effect at the next rebuild. You asked me to repair all eleven stopped jobs;
 I will, but they have to wait for that rebuild, because re-running them now would prove
 nothing. The review council has the change and I will act on whatever it says.
+
+### One thing you need to know that is bigger than this bug (2026-08-22, ~18:30)
+
+While resubmitting to the review council, the run died with this from Anthropic: **"You have
+reached your specified API usage limits. You will regain access on 2026-09-01."** That is an
+**account-level spending cap, not anything to do with my change**, and it is not confined to
+my work — ten calls failed that way in a single hour this evening, the first ones today.
+
+Until the cap is raised, **anything in the estate that calls the AI will fail**: the review
+council, the diagnosis loop, and every site build that writes content. Nothing is broken and
+nothing needs repairing; it will simply stop working until you lift the limit or 1 September
+arrives. I would rather flag it now than have you find it as a wave of failed builds.

@@ -412,3 +412,30 @@ loanzy serves `/tools/<name>/index.html` (loancalculator serves `/tools/<name>.h
 wrong guess returns a 1,201-byte custom 404 with a stable md5 that survives a two-reads
 check), and **`grep -c '<input'` is the wrong success predicate** — this component is a
 button-driven quiz that scores 0 while working perfectly.
+
+### ⚠ Council round 2 could not complete — FLEET-WIDE API LIMIT, not a verdict [2026-08-22 ~18:30Z]
+
+Round 1 was **REVISE**, gated by `prior_art_librarian`, and the gating objection was right:
+I described `KnownAspectsSorted` as *"the guard's own function"* in one edit while another
+edit **created** it by extraction. Checked against the commit's parent rather than argued —
+`resolveStorageIdentity`, `LoadKnownSpecAspects` and `KnownQueryBases` **did** pre-exist;
+`KnownAspectsSorted` did not. Honest claim: **three reused, one extracted to be shared.**
+Round 2 answers every seat with a reading rather than an argument (see
+`COUNCIL_RESUBMISSION_2026-08-22_r2.json`) — including the guardian's most valuable
+objection, that if Arm B's keys were a new `output_field` the migration's guard would never
+fire and the fix would look shipped while delivering nothing (verified: `output_field` **is**
+`existing_component`, which is already in `input_fields`, and the vocabulary is merged into
+that same map on all five return paths).
+
+**Round 2 then died at `review_editquality` with:**
+
+> `API request failed with status 400: "You have reached your specified API usage limits.
+> You will regain access on 2026-09-01 at 00:00 UTC."`
+
+**This is an account-level cap, not a defect in the submission, and it is not confined to this
+lane** — `llm_call_log` shows **10 usage-limit failures in the 18:00Z hour alone** across the
+fleet, the first ones today. Until the owner raises the cap, **every LLM step in the estate
+fails**, including the council gate, the diagnosis loop and every content build. The verdict
+on record for this correlation remains round 1's REVISE; `Council-Submitted:` is therefore the
+correct trailer on both commits and `098` will credit them automatically if a later round
+approves.
