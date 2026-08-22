@@ -296,3 +296,25 @@ Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_203_phantom_cta
   backstop, evidenced above as under-running, not this bug's fix.
 - `dartsonline_traffic/README_where_we_are.md` (2026-08-03 entry) — the "only future files get
   fixed" lesson this bug is a fresh instance of.
+
+---
+
+## CONTRIBUTION 2026-08-22 from the `bugfix_235_155_071_closeout` lane — one more member of your class, found and FIXED (committed, inert until the roll)
+
+`section_editor_actions.go:783-785` (`buildRenderContextFromDB`) still seeded
+`cta_text:"Get Started"` / `cta_url:"/contact.html"` **before** the stored content_data
+merge — your exact mechanism, on a path this file never names (grep `section_editor` here →
+no hits). The callers are `applyContentEdit` and `applyComponentSwap` under
+`apply_section_edit`, i.e. the routes that write `rendered_html` straight to live pages: a
+section edited while its content carries no CTA fields shipped the fabricated 404 anchor.
+
+Deleted per your class's ruled pattern (correct-or-absent; precedents `880a405a6`,
+`2817f6661`): commit `d59ba32b8`, **council APPROVED round 1** (corr
+`dc557fc8-d643-4d2e-8471-5a12271f94cd`). Verified before shipping: `contextToInterfaceMap`
+is already correct-or-absent (LNK-005), 29/30 active `cta_url` templates carry the
+`{{if}}` guard, the 30th (`loans-damage-checker-loanzy-uk`) supplies its own content_data;
+no test pinned the deleted lines. Inert until the next chassis roll; post-roll check — a
+section edit with absent CTA fields must render no `/contact.html` anchor.
+
+Not folded into your census or your closure conditions — your file owns the class; this is
+one member reported where the class lives.

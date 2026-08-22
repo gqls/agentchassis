@@ -277,3 +277,36 @@ writes `collected_data[{purpose}_uri]` at `v3_site_actions.go:2852` and, as of
 this roll, **nothing reads it**. Retiring the writers is cheaper now than when it
 was written up, and a writer with no reader is exactly what the next author will
 assume is load-bearing.
+
+---
+
+## CONTRIBUTION 2026-08-22 from the `bugfix_235_155_071_closeout` lane — Phase 3 largely DONE: the readerless writers are deleted (committed, inert until the roll)
+
+Taken with the owner's in-session decision while closing `bugs_open/155` (now
+`bugs_closed/155` — its behavioural sha256 proof ran and passed the same day). Commit
+`69cc0ea7a`, **council APPROVED round 1** (corr `c0e02ad3-d59e-4cc5-9602-00934e759efd`):
+
+- `generate_image_actions.go` — the `{purpose}_uri` **DB write** (`updateSiteContentField`,
+  the last surviving instance of the site-wide last-write-wins cache), its collected_data
+  copy, and its in-memory siteRecord copy: DELETED. Every `{purpose}_url` write kept.
+  Bonus census fact: `store_generated_image` appears in **zero** `agent_definitions` rows,
+  active or not — the action as a whole is a retirement candidate (not taken here).
+- `v3_site_actions.go` — StoreAssetAction's collected_data `{purpose}_uri` copy DELETED,
+  and the stale comment ("the legacy pageflow deploy step reads it within the same
+  workflow" — false since your own Phase 2, `91dda3243`) rewritten to name the deletion
+  and the censuses.
+- Readerless measured on four surfaces before deletion: Go (zero readers), live
+  `agent_definitions` jsonb (every `_uri` mention is a generator output / step-namespaced
+  s3_uri / 348-shape `{purpose}_stored.*`), `workflow_templates` (0), active
+  `content_components` (0).
+- Post-roll marker pair for whoever verifies: `"Failed to store URI"` ABSENT from
+  `/proc/1/exe`, `"Failed to store URL"` PRESENT (both replicas).
+
+**What remains for this file:** the 16 sites carrying stale `{purpose}_uri` keys in
+`sites.content_data` (readerless residue; optional cleanup migration — note it would
+sharpen 324's old-binary tripwire, whose last legitimate writer is now gone), and doc rot
+(`sql_for_agents/057:157` still describes the deleted `findStorageURI`). Also done under
+155's close-out, relevant to your trail: migration `324` is now committed + recorded
+(it was untracked and halting every `--apply` at its guard), and migration `553` relaxed
+asset-deployer's stale `input_contract` (`required:["domain"]`) so the asset_id-only
+dispatch your Phase 2 built for is admissible through the contract-validated path.

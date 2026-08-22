@@ -917,3 +917,61 @@ validator ready when it ships.
 Lane docs, incl. the roll-time procedure and five paid-for traps:
 `docs024_key_docs_latest/bugfix_071_fragment_blindspot/` (HANDOFF / PLAN / NOTES /
 RUNBOOK / README_where_we_are).
+
+---
+
+## 2026-08-22 — gap 3's RESIDUAL is fixed on BOTH paths (committed, inert until the roll); scope for the rest OWNER-RULED; one new sighting of the renderer-default class
+
+By the `bugfix_235_155_071_closeout` lane, with the owner's in-session scope decision.
+
+### What was fixed (commits `0ce242d9c` + `120427766`, council corr `f30a28e1` — round 1 REVISE, round 2 submitted with the round-1 missing item implemented)
+
+The 08-21 header correction left gap 3 `[UNVERIFIED]`; verified at HEAD it was REAL in a
+narrowed form: `writeValidationFailureLog` fires only on `!valid` and skips warnings;
+`writeLinkRepairLog` fires only when repairs > 0 — so a **valid build whose warnings
+produced no repair** (`short_content`, `stat_audit_unavailable`, any phantom when
+`pageIndexOK` is false or `repair_internal_links` off) wrote nothing durable, and the
+issue list died with collected_data at ~24h. Now:
+
+- **Success path**: new third recorder `writeValidationWarningLog` —
+  `CONTENT_VALIDATION_WARNING_DETAIL`, one `agent_error_log` row per valid build carrying
+  ≥1 *surviving* warning, deduped against the repair row via `repairsByHref` (extracted
+  from `annotateLinkRepairs`, so the two views cannot drift). The filter is pure and
+  mutation-proven.
+- **Failure path** (the council's round-1 catch, implemented rather than scoped out): an
+  invalid build's warnings now ride the failure row it already writes, under separate
+  `context.warnings` / `warning_count` keys — `context.issues` keeps its
+  blocker/error-only shape for existing consumers.
+
+Post-roll acceptance (whoever verifies): an induced `short_content` build at cookly.uk →
+exactly one `CONTENT_VALIDATION_WARNING_DETAIL` row and zero new rows under either
+sibling code; a repaired-link-only build → repair row only (dedupe proven live). Gap 1
+(`valid := blockerCount == 0 && errorCount == 0`, :400) is UNCHANGED and deliberately so —
+with repair-before-save live, warning-blind validity is now a policy with an honest
+comment, not a lie.
+
+### New sighting, recorded with its class
+
+`section_editor_actions.go:783-785` fabricated `cta_url:"/contact.html"` upstream of the
+template guard on the section-edit render path — this file's relojistas mechanism
+("the default manufactures the very condition the guard tests for"), surviving in a spot
+`bugs_open/203` never named. Fixed (deleted, correct-or-absent; commit `d59ba32b8`,
+council APPROVED) and reported into 203's file, which owns the class.
+
+### The two residues this file still holds, by OWNER DECISION 2026-08-22
+
+Asked directly, the owner chose NOT to take now:
+1. **The fragment capability half** (no section component emits a stable `id`; gate is
+   chrome-blind on fragments; nothing repairs a dead fragment) — stays here, wants the
+   architecture round this file already prescribed.
+2. **The `NormalizePagePath` dir/index.html false-match class** (S3-backed origins never
+   resolve directory indexes; the strip is also unanchored, `/myindex.html` → `/my`) —
+   stays here. A worked design exists in the closeout lane's plan (identity vs
+   servable-form split: keep `NormalizePagePath` for identity, add a `Servable()`
+   comparison on `PageURLIndex` whose values are already the stored `pages.url`, rewrite
+   in `RepairPageLinks` when identity matches but the literal form cannot serve; fix the
+   unanchored `TrimSuffix`) — for whoever takes it, with a 090 run before asserting the
+   cross-cutting claim in a new file.
+
+So this file remains open holding exactly those two residues — everything else it ever
+held is fixed and either proven live or awaiting only the next roll.
