@@ -818,3 +818,74 @@ the mechanism's job, not a session's to hand-close, and it is a disconfirmable p
   unless `357` is fixed.** The residual is no longer "nothing can repair this class" — something can,
   it is built, and it refuses exactly the rows it should. What is left is a **decision about the 15
   drifted rows**, which is a question about re-rendering pages, not about recovering data.
+
+---
+
+# CLOSED 2026-08-22 — owner ruling: the routing is delivered, the repairable subset is repaired, and the residual is a filed defect plus a stated decision
+
+**Owner instruction, 2026-08-22: "I think we can close 277."** The ruling that makes it closeable is
+the one this file could not make for itself — that **"parked with the facts" is an acceptable terminal
+state for the components whose original templates no longer exist.** Recorded as the owner's call, not
+a session's, because it changes what *fixed* means for this bug.
+
+> ⚠ **CORRECTION to §9, which I wrote two hours earlier:** it says *"17 of 27 remain parked"*. The
+> arithmetic is **24**: 27 parked, 3 recovered, and 7 + 8 + 9 = 24 not. 3 + 7 + 8 + 9 = 27. The 17 was
+> simply wrong and nothing downstream depended on it.
+
+## What this bug asked for, and what is true at close
+
+The owner's original ruling (2026-08-15) was *"we should create a repair handler fleet wide."* At
+close:
+
+| | state |
+|---|---|
+| **The router** | LIVE since 2026-08-15, council-approved (`7b0e2833` r5). Every finding of this type is classified and routed; **zero unrouted** |
+| **A repair for the regenerable class** | LIVE — the normal routes, proven repeatedly |
+| **A repair for the NON-regenerable class** (clause 1, §7) | **LIVE AND PROVEN AT THE SERVED BYTES**: `rendered_html_transform`/CQ-028, 7 pages repaired 2026-08-21, prose backticks to zero with every in-script literal intact, still holding across three chassis rolls |
+| **A repair for `no_content_data`** (§9) | **BUILT, APPROVED (`cd8e555d` r1) AND APPLIED** — CQ-029 / migration `540`. It repaired the 3 it could **prove**, and refused the rest for measured reasons |
+| **This file's own worked-example criterion** (§8.6) | **MET** — `tool-gas-unit-converter` serves 200/23,774 bytes, its 6-row table, and every value the finding calls missing |
+
+## What remains true, stated plainly so nobody reads this close as more than it is
+
+**24 of the 27 rows stay parked**, in two groups, and both are *correctly* parked:
+
+- **15 rows — template drift.** Their HTML was rendered by component templates that no longer exist:
+  `component_versions` holds 367 rows across 202 components and **zero** for any of the nine
+  components involved. Their data cannot be recovered and the only route to a rebuildable state is to
+  let the *current* template render them, **which changes what those pages serve** on four sites.
+  That is a decision about pages, not a data-recovery gap, and the owner has ruled it not-now.
+- **9 rows — `bugs_open/357`**, filed today. A whole interactive tool page stored in a slot claiming to
+  be the shared `hero` component. These must **never** be backfilled: it would arm a regeneration that
+  swaps a working 16–22KB tool for a 2KB title band. Root cause undiagnosed and in the loop
+  (`63d4d1a7`); a live proven remedy exists in the `loancalculator_couk/decompose` lane (357's
+  addendum).
+
+**And the near miss is the thing to carry forward.** A backfill written the obvious way — fill the
+fields the finding names — would have written all 24 of those rows. `ContentDataCanFillTemplate`
+returns true on **any one** field, so each write would have flipped a component to "regenerable" and
+the next regeneration would have blanked everything else under `missingkey=zero`. Nine working tools
+and fifteen live pages were saved by one gate: **refuse anything whose re-render is not byte-identical
+to what is being served.** If a future session revisits this class, that gate is the finding, not the
+tool.
+
+## Verify the close
+
+```sql
+-- the router still classifies everything (zero unrouted)
+SELECT COALESCE(result->>'route','(UNROUTED)') AS route, count(*)
+FROM site_work_items WHERE item_type='required_fields_missing' AND status='needs_human_review'
+GROUP BY 1 ORDER BY 2 DESC;         -- 27 no_content_data / 2 asset_sourced / 1 no_plan_owned at close
+-- the three recovered rows hold data covering the fields their findings named
+SELECT id, jsonb_object_keys(content_data) FROM page_components
+WHERE id IN ('e50a9dbc-569c-41c5-ac01-bc564dc9a53a','bd1f5219-c230-4143-93d7-7ece0f4d8e9f',
+             '2b9d24d7-9e04-401b-a0b5-0e16e7731895');
+```
+```bash
+# clause 1, at the served bytes — the only proof that counts
+curl -s "https://webdesign.co.uk/tools/cubic-bezier/index.html?cb=$(date +%s)" | grep -c '<code>ease-in-out</code>'   # 1
+curl -s "https://gaswholesalers.com/tools/tool-gas-unit-converter.html?cb=$(date +%s)" | grep -c '<tr'                # 6
+```
+
+**Council trail:** router `7b0e2833` (r5) · transform `b72a4029` (r2) · recovery `cd8e555d` (r1).
+**Register:** CQ-028 (the transform), CQ-029 (the recovery). **Successors:** `bugs_open/357`, and the
+drift decision recorded in §8.4/§8.5 for whoever picks it up.
