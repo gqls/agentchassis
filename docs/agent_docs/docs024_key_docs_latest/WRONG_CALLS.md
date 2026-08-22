@@ -43877,3 +43877,53 @@ things, and the gap is invisible in the numbers. Put a column in the output that
 the filter if it had not been applied — a date outside the window, a type outside the set — and look
 at it. Same family as the standing rule that a `[MEASURED]` figure is only evidence if the measurement
 could have come out otherwise; here the *shape* of the result, not its value, was the disconfirming arm.
+
+---
+
+## 2026-08-22 — I wrote up "a test that never touches the code under test passes every mutation of it", then made the identical mistake four hours later (bugs_open/114 lane)
+
+The entry is about the **repeat**, not the error. The error itself is ordinary; that
+recording it did not prevent it is the finding.
+
+**Instance 1, ~11:00.** Fixing `store_asset`'s URL derivation, I wrote a test called
+`TestStoredURLMatchesDeployedPath` asserting
+`storage.DeployedWebPath("hero_about","hero") == "/assets/images/hero-about.jpg"`.
+Mutation: revert the action's call site to the old purpose-derived
+`BuildAssetPaths`. **It passed.** The test exercised the storage package while claiming
+to cover `store_asset` — the action's own call site was pinned by nothing. Fixed by
+making the helper the action must call return the URL as well as the decision
+(`storeAssetContentDataUpdate`), then asserting on that. Written up the same hour in the
+lane NOTES and in the IMG-072 register entry, in those words.
+
+**Instance 2, ~15:00, same session.** Building the event-driven card emitter, I wrote a
+test asserting `discovery_checks.ContentImageItemKey(page) == "content_image:"+page`.
+Mutation: replace the emitter's call with a hand-spelled `"content-image:"+page` — a
+hyphen where the contract has an underscore, which is precisely the drift the shared
+exported helper exists to prevent, and which would stop `idx_swi_dedup` collapsing the
+sweep-filed and event-filed items so one page gets two `asset-deployer` runs.
+**It passed**, for the same reason, in a test whose own header comment said the helpers
+were exported "precisely so there is one spelling — this asserts the emitter actually
+uses it rather than reimplementing it." It did not.
+
+**What did not work: knowing.** Between the two I had written the lesson into two
+documents and a commit message. Four hours later I reproduced it in a test whose stated
+purpose was to prevent that exact drift.
+
+**What did work: changing the shape of the code.** Both fixes are the same move —
+extract what the code under test *must call* into a pure function that **returns the
+value**, and assert on the return. `storeAssetContentDataUpdate` returns
+`(url, writeSiteWide)`; `contentCardDeriveItem` returns the whole work item, so the key,
+the spec, the status and the routing are all assertable at once. After that,
+mutations fail: 3 of 3 and 5 of 5.
+
+**The check, and it is a habit not a rule.** After writing any test of a value a caller
+derives, ask: *if I inline a wrong derivation at the call site, does this test go red?*
+If the test names a package-level function and the code under test is somewhere else,
+the answer is no. **Run the mutation — do not reason about whether it would fail.** Both
+instances were caught by actually running it, and in both cases my expectation
+beforehand was that it would fail.
+
+**Why this belongs here rather than in LANDMINES:** it is not a trap in the estate, it
+is a failure mode in how I write tests, and the tally is the point — the second instance
+is evidence that the write-up is not the control. The control is the refactor.
+
