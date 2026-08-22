@@ -310,7 +310,10 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	chromeUnserved := []string{}              // of those, the slots with nothing stored to serve
 	for _, slot := range slots {
 		success, locked, degraded, renderErr := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx,
-			forceRerender, chromeLinks, recordAbsentRequiredFields(params.StepConfig.Config), params.Logger)
+			forceRerender, chromeLinks,
+			recordAbsentRequiredFields(params.StepConfig.Config),
+			refuseAbsentRequiredFields(params.StepConfig.Config),
+			params.Logger)
 		rendered[slot] = success
 		if locked {
 			lockedSlots = append(lockedSlots, slot)
@@ -784,6 +787,25 @@ func renderAndStoreSiteComponent(
 	// from config at the ONE caller so the arming decision stays visible next to
 	// the other step settings rather than buried at the write.
 	recordAbsentRequired bool,
+	// refuseAbsentRequired arms the REFUSAL: the slot is not stored and the
+	// previously stored bytes keep serving. Separate from recordAbsentRequired
+	// because filing a note and declining to write are different authorities —
+	// and it exists at ALL because the council's bug_historian seat was right
+	// (council 3626629a round 1, medium): arming DETECTION here while only the
+	// section editor got PROTECTION would reproduce bugs_open/342's own shape
+	// on the sibling call site, which is 016b §9's "one call site of a shared
+	// judgement gets the rigorous fix, the sibling stays heuristic".
+	//
+	// ⚠ NO MIGRATION ARMS THIS, deliberately, and that is not an oversight.
+	// The measured population is ZERO — every component the chrome store
+	// references declares no required source:"llm" field (2026-08-22) — so
+	// arming it today would arm an unexercisable refusal, while leaving the
+	// CAPABILITY absent would mean the first chrome component adopted with a
+	// required field needs a code change, a review and a roll before it can be
+	// protected. This way it needs a config flip. The trigger to flip it is
+	// the record half firing: the first required_fields_missing item with
+	// surface="site_component" is the day this becomes exercisable.
+	refuseAbsentRequired bool,
 	logger *zap.Logger,
 ) (ok bool, locked bool, degraded string, fatal error) {
 	// degraded names the component this slot fell back to when the library held
@@ -1130,6 +1152,40 @@ func renderAndStoreSiteComponent(
 			fmt.Sprintf("Chrome %s", slot), "site_component", "render_site_components",
 			renderCtx.AbsentRequiredFields,
 			map[string]interface{}{"slot_name": slot, "component_id": componentID.String()}, logger)
+	}
+
+	// The REFUSAL, when armed (see the parameter's own comment for why it
+	// exists unarmed). Placed AFTER the emit so a refused slot still leaves its
+	// queue entry, exactly as the section-editor gate does — refusing must
+	// never be the reason a defect goes unrecorded.
+	//
+	// It declines to STORE, which on this path means the previously stored
+	// bytes keep serving: the same disposition the execution-failure branch
+	// above already chose, for the same reason (whatever this function stores
+	// is what the site serves, and there is no gate downstream). The one case
+	// where not storing is worse than storing is a slot with nothing stored at
+	// all — a site must not go live with a missing header — so that case
+	// escalates to the caller as fatal, mirroring the branch above rather than
+	// inventing a second disposition for the same predicament.
+	if refusePersistForAbsentRequired(
+		map[string]interface{}{absentRequiredRefuseConfigKey: refuseAbsentRequired},
+		renderCtx.AbsentRequiredFields,
+	) {
+		serving := chromeSlotHasStoredHTML(ctx, db, siteID, slot)
+		logger.Error("site chrome: REQUIRED content field(s) absent — refusing to store (bugs_open/342)",
+			zap.String("slot", slot),
+			zap.String("component_id", componentID.String()),
+			zap.String("site_id", siteID.String()),
+			zap.Strings("absent_required_fields", renderCtx.AbsentRequiredFields),
+			zap.Bool("existing_row_keeps_serving", serving),
+		)
+		if !serving {
+			return false, false, degraded, fmt.Errorf(
+				"site chrome %q: refusing to store — %d schema-required field(s) rendered empty (%s), and this site has no stored %s to fall back on (bugs_open/342)",
+				slot, len(renderCtx.AbsentRequiredFields),
+				strings.Join(renderCtx.AbsentRequiredFields, ", "), slot)
+		}
+		return false, false, degraded, nil
 	}
 
 	if len(deadURLFields) > 0 && !strings.Contains(renderedHTML, "data-runtime-fill") {

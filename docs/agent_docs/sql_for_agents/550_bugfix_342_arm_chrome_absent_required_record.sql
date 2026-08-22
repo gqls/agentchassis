@@ -34,6 +34,29 @@
 -- whatever its size (three seats, council 98852baa; owner ruling 2026-08-02
 -- §2). This migration IS the visible, reviewable act of opting in.
 --
+-- BLAST RADIUS, ENUMERATED BY OWNING PIPELINE (council 3626629a round 1,
+-- guardian, medium: a workflow-JSON edit touching a shared step across
+-- multiple pipelines must NAME the pipelines, not say "chrome"). Measured
+-- 2026-08-22 — seven live steps, seven distinct agent types, one step each:
+--   nav-link-fixer.rerender_site_components   f5.. rerender-pages.render_site_components
+--   nav-updater.render_site_components        pageflow-builder.render_site_components
+--   rerender-chrome.render_site_components    rerender-site.render_site_components
+--   site-work-orchestrator.render_site_components
+-- Re-verified the same day: top-level 7, sub_workflow-nested 0, key armed
+-- anywhere 0. None of the seven is one of the four duplicate-active-row types
+-- (chief-strategist, content-creator, content-creator-contact,
+-- site-component-architect) — and the loop below writes BY ROW ID, so a
+-- duplicate would be armed consistently rather than half-armed anyway.
+--
+-- WHAT THIS MIGRATION DELIBERATELY DOES NOT ARM: the chrome REFUSAL
+-- (`refuse_absent_required_fields`), whose capability ships in the same
+-- commit at this action's store path. Zero rows can currently trigger it, so
+-- arming it now would arm an unexercisable refusal; leaving the capability
+-- OUT would instead mean the first chrome component adopted with a required
+-- field needs a code change, a review and a roll before it could be
+-- protected. The trigger to flip it is this record half firing: the first
+-- required_fields_missing item with surface='site_component'.
+--
 -- Snapshot per agent first; pre-conditions refuse a double-apply; post-verify
 -- is DO/RAISE (a bare SELECT cannot stop the COMMIT) and asserts the key at
 -- EVERY step carrying the action, so a step added between enumeration and
@@ -114,6 +137,7 @@ DO $$
 DECLARE
     n_unarmed integer;
     n_armed   integer;
+    n_nested  integer;
 BEGIN
     SELECT count(*) INTO n_unarmed
     FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s(k,v)
@@ -122,6 +146,26 @@ BEGIN
       AND COALESCE((s.v->'config'->>'record_absent_required_fields')::boolean, false) IS DISTINCT FROM true;
     IF n_unarmed > 0 THEN
         RAISE EXCEPTION 'MIGRATION 550: % render_site_components step(s) still unarmed after the write.', n_unarmed;
+    END IF;
+
+    -- ⚠ THE POST-VERIFY MUST WALK THE NESTED STRUCTURE TOO, or it certifies
+    -- exactly the coverage the write can reach and calls that "full" (council
+    -- 3626629a round 1, guidelines seat, medium — and the landmine it cites is
+    -- real: a census over workflow.steps.*.action is BLIND to
+    -- config.sub_workflow.stems, which once reported a live action as dormant).
+    -- The pre-condition already refuses on a nested occurrence; repeating the
+    -- walk HERE is what stops a nested step added between the pre-check and
+    -- the COMMIT from passing unnoticed, and it is the half that would
+    -- otherwise be a green light over a partial arm.
+    SELECT count(*) INTO n_nested
+    FROM agent_definitions a,
+         jsonb_each(a.default_config->'workflow'->'steps') s(k,v),
+         jsonb_each(COALESCE(s.v->'config'->'sub_workflow'->'steps','{}'::jsonb)) ss(k,v)
+    WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+      AND ss.v->>'action' = 'render_site_components'
+      AND COALESCE((ss.v->'config'->>'record_absent_required_fields')::boolean, false) IS DISTINCT FROM true;
+    IF n_nested > 0 THEN
+        RAISE EXCEPTION 'MIGRATION 550: % NESTED (sub_workflow) render_site_components step(s) are unarmed and this migration cannot reach them — do not read the top-level pass as full coverage. Extend the write to the nested path (the 502 shape) and re-apply.', n_nested;
     END IF;
 
     SELECT count(*) INTO n_armed

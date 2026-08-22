@@ -125,3 +125,41 @@ The six unwired, each read at its own call site rather than taken on trust:
 - `RenderTemplateWithMap` — a different executor (contact-info block), callers hold no schema.
 - the two `cmd/component-render-check` probes — they render with fields REMOVED on purpose, so
   a report there fires on every probe by design.
+
+## 2026-08-22 midday — council round 1: REVISE, and the objection that changed the design
+
+**Gating (`prior_art_librarian`, HIGH):** 551 UPDATEs by `type='section-editor'` while a landmine
+documents four agent types carrying TWO active rows, of which only the higher version loads — so
+an UPDATE-by-type can silently arm the row nobody reads. **The seat was right that I asserted it
+rather than checking it.** Checked: section-editor has exactly one live row (`2ed3b581`, v1); the
+four are `chief-strategist`, `content-creator`, `content-creator-contact`,
+`site-component-architect`. My precondition was already the correct guard — it now NAMES the four
+and says why aborting (not writing both) is the right response.
+
+**The one that changed the code (`bug_historian`, medium):** arming DETECTION on chrome while only
+the section editor got PROTECTION reproduces **this bug's own shape** on the sibling call site —
+016b §9's *"one call site of a shared judgement gets the rigorous fix, the sibling stays
+heuristic"* — and my "0 rows fire today" is a population snapshot, not a structural guarantee.
+Acted on rather than argued: the chrome store now has the SAME refusal, through the SAME decision
+function, **default OFF with no migration arming it**. That is the honest middle: arming today
+would arm an unexercisable refusal, while leaving the capability out would put a code change, a
+review and a roll between the first adopting site and its protection. The flip trigger is named —
+the first `required_fields_missing` item with `surface='site_component'`. A new test asserts the
+two paths agree on all four arming×finding combinations, so a forked chrome implementation fails.
+
+**`guidelines`, medium:** 550's post-verify walked only the top level — i.e. it certified exactly
+the coverage the write can reach and called it full. It now walks `config.sub_workflow.steps` too
+and RAISEs on any unarmed nested occurrence. **This is the sharpest kind of objection: the check
+that would have passed was the one I wrote to prove the write was complete.**
+
+**`guardian`, medium:** name the owning pipelines, don't say "chrome". Enumerated in the header.
+Its two low objections taken: both migrations relabelled `config_change`.
+
+Everything else was answered with a query and attached rather than re-asserted: one consumer of
+`apply_section_edit` (top-level 1, nested 0), both keys armed 0 **re-measured this round**,
+`render_site_components` 7 top-level / 0 nested, optional-key budget 7 of 10 (ConfigKeys are not
+counted).
+
+**What I got right and want to keep doing:** I re-read the submission against the actual diff
+before re-firing (`git diff` + a grep per claimed symbol), which is the 260 lane's own hard-won
+rule — three of their six rounds were the submission describing code that had moved.

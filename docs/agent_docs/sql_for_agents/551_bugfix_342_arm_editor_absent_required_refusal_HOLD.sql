@@ -42,10 +42,28 @@
 -- so the unsafe side is the default and THIS migration is the visible act of
 -- switching it on for the one live consumer.
 --
--- CANARY AFTER APPLY (the bug file's verification): one edit against a
--- component with a required source:"llm" field deliberately absent must
--- refuse — item filed, live section byte-identical; one clean edit must
--- persist (positive control — an arm that only stops edits is not a fix).
+-- CANARY AFTER APPLY (the bug file's verification, sharpened by council
+-- 3626629a round 1, bug_historian): one edit against a component with a
+-- required source:"llm" field deliberately absent must refuse — and check
+-- THREE things, not one:
+--   (a) the live section is byte-identical (md5 the rendered_html before and
+--       after; this is the protection itself);
+--   (b) a required_fields_missing item exists naming those fields (the record
+--       must survive the refusal — refusing must never be why a defect goes
+--       unrecorded);
+--   (c) the DRIVING work item's terminal status is READ, not assumed benign.
+--       Expect it to read `complete` until bugs_open/344 lands — the dispatch
+--       loop's mark_complete tramples a failure flag — and record what it
+--       actually said. The queryable fingerprint 344 gives for the trample is
+--       `retry_after > completed_at` on a `complete` row.
+-- Positive control in the same run: a clean edit must still persist. An arm
+-- that only stops edits is not a fix.
+--
+-- OPTIONAL-KEY BUDGET (RFC_022, N=10; architecture seat's advisory on the same
+-- round): apply_section_edit declares 7 OPTIONAL inputs and this key is a
+-- CONFIG key, which `cmd/config-key-audit --optional-key-budget` does not
+-- count — so the action stays at 7 of 10 and no accumulated-surface review is
+-- owed. Measured 2026-08-22.
 
 SELECT snapshot_agent('section-editor', 'migration 551: pre-update (bugs_open/342 editor refusal arm)');
 
@@ -58,12 +76,22 @@ DECLARE
     step_action text;
     existing  text;
 BEGIN
+    -- ⚠ THE DUPLICATE-ACTIVE-ROW LANDMINE, CHECKED RATHER THAN ASSERTED
+    -- (council 3626629a round 1, prior_art_librarian, GATING/high): four agent
+    -- types carry TWO active definition rows and only the higher version is
+    -- ever loaded, so an UPDATE-by-type can silently write the row nobody
+    -- reads. Measured 2026-08-22: the four are chief-strategist,
+    -- content-creator, content-creator-contact and site-component-architect —
+    -- section-editor is NOT among them and has exactly ONE live row. This
+    -- guard is what keeps that true at apply time rather than at review time.
+    -- Its correct response to a duplicate is to ABORT, not to write both:
+    -- which row the loader picks is a question this migration must not guess.
     SELECT count(*) INTO live_rows
     FROM agent_definitions
     WHERE type='section-editor' AND is_active
       AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
     IF live_rows IS DISTINCT FROM 1 THEN
-        RAISE EXCEPTION 'MIGRATION 551: expected exactly 1 live section-editor row, found % — resolve first.', live_rows;
+        RAISE EXCEPTION 'MIGRATION 551: expected exactly 1 live section-editor row, found % — section-editor has joined the duplicate-active-row set (chief-strategist, content-creator, content-creator-contact, site-component-architect as at 2026-08-22). Only the higher version loads, so writing both would arm a row nobody reads. Resolve the duplication first.', live_rows;
     END IF;
 
     -- The step must exist and carry the action this key gates; jsonb_set on a

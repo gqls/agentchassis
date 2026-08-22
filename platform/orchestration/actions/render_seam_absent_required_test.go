@@ -383,3 +383,54 @@ func TestSeamFindingSurvivesOntoTheEditOutcome(t *testing.T) {
 			"the seam→outcome→gate chain is broken somewhere the two half-tests cannot see")
 	}
 }
+
+// The chrome store path gets the SAME refusal capability as the section editor
+// (council 3626629a round 1, bug_historian, medium): arming DETECTION on chrome
+// while only the editor got PROTECTION would reproduce this very bug's shape on
+// the sibling call site — 016b §9's "one call site of a shared judgement gets
+// the rigorous fix, the sibling stays heuristic".
+//
+// What is asserted here is that the two paths share ONE decision function, so
+// they cannot drift: the chrome caller passes its own bool through the same
+// refusePersistForAbsentRequired the editor's persist switch calls. A second
+// implementation on the chrome side is exactly what this test exists to fail.
+func TestChromeAndEditorShareOneRefusalDecision(t *testing.T) {
+	finding := []string{"headline"}
+
+	// The chrome path's call shape: a plain bool lifted into the same key the
+	// editor reads from step config.
+	chrome := func(armed bool, absent []string) bool {
+		return refusePersistForAbsentRequired(
+			map[string]interface{}{absentRequiredRefuseConfigKey: armed}, absent)
+	}
+
+	if chrome(true, finding) != true {
+		t.Error("armed chrome slot with an absent required field did not refuse")
+	}
+	if chrome(true, nil) != false {
+		t.Error("armed chrome slot with a CLEAN render refused — a refusal that fires on clean " +
+			"renders has merely stopped storing chrome")
+	}
+	if chrome(false, finding) != false {
+		t.Error("UNARMED chrome slot refused — unset must mean today's behaviour byte for byte; " +
+			"no migration arms this key and the measured population is zero, so an unarmed " +
+			"refusal here would be a fleet-wide behaviour change nobody opted into")
+	}
+
+	// And the editor, through its own config map, must agree on every case —
+	// same function, so disagreement means someone forked the decision.
+	for _, c := range []struct {
+		armed  bool
+		absent []string
+	}{{true, finding}, {true, nil}, {false, finding}, {false, nil}} {
+		editorCfg := map[string]interface{}{}
+		if c.armed {
+			editorCfg[absentRequiredRefuseConfigKey] = true
+		}
+		if got, want := refusePersistForAbsentRequired(editorCfg, c.absent), chrome(c.armed, c.absent); got != want {
+			t.Errorf("editor and chrome disagree (armed=%v, absent=%v): editor=%v chrome=%v — "+
+				"the two persist paths must share one decision or they will drift apart",
+				c.armed, c.absent, got, want)
+		}
+	}
+}

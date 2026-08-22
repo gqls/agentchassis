@@ -289,7 +289,7 @@ func TestRenderLockedSlotIsNotRewritten(t *testing.T) {
 			AddRow(time.Now(), "069-verify", "permanent", nil, false, nil, uuid.New().String(), true))
 	expectChromeLockItem(mock)
 
-	ok, locked, degraded, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, true, ChromeLinkPolicy{unfiltered: true}, false, zap.NewNop())
+	ok, locked, degraded, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, true, ChromeLinkPolicy{unfiltered: true}, false, false, zap.NewNop())
 	if fatal != nil {
 		// bugs_open/260 added a fourth return that escalates ONE condition — a
 		// render failure with no stored chrome to keep serving. A lock refusal
@@ -324,7 +324,7 @@ func TestRenderLockedButEmptySlotReportsNotServing(t *testing.T) {
 			AddRow(time.Now(), "069-verify", "permanent", nil, false, nil, uuid.New().String(), false))
 	expectChromeLockItem(mock)
 
-	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "footer", nil, true, ChromeLinkPolicy{unfiltered: true}, false, zap.NewNop())
+	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "footer", nil, true, ChromeLinkPolicy{unfiltered: true}, false, false, zap.NewNop())
 	if fatal != nil {
 		// Locked-and-empty is a HUMAN decision the site must live with, not a
 		// render failure — it reports ok=false and stops there (bugs_open/260's
@@ -350,7 +350,7 @@ func TestRenderUnforcedExitsBeforeTheLockCheck(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
-	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, false, ChromeLinkPolicy{unfiltered: true}, false, zap.NewNop())
+	ok, locked, _, fatal := renderAndStoreSiteComponent(context.Background(), db, uuid.New(), "header", nil, false, ChromeLinkPolicy{unfiltered: true}, false, false, zap.NewNop())
 	if fatal != nil {
 		t.Errorf("the idempotence exit must not raise the render-failure error: %v", fatal)
 	}
