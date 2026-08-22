@@ -137,3 +137,47 @@ only because assembly emits the single row's stored HTML. Two consequences:
 
 Not adopted here, and deliberately: the producer is still undiagnosed (`63d4d1a7`), and decomposing
 nine pages before knowing what mints them would repair the stock while the flow ran.
+
+---
+
+## DIAGNOSIS RESULT 2026-08-22 — **UNVERIFIABLE**, not confirmed and not refuted. Read this before citing the loop.
+
+`63d4d1a7-ffec-4570-866b-8a0a41e3c69d` completed with
+`status: UNVERIFIABLE — "Diagnosis NOT confirmed (stopped: scope-not-narrowing). Best-effort trail
+attached for a human; no fix proposed."` It did locate the population (nine page ids), and it named
+precisely what it lacked. **So the header's "root cause undiagnosed" still stands — the loop did not
+change it, in either direction.**
+
+**Two of its three stated gaps are already closed by this file's own first-hand measurements**, and
+they are recorded here so the next session does not re-run them:
+
+1. *"whether the check has ever fired against THESE pages is unestablished"* — **it has. That is how
+   the nine were found.** Every one of them is a `required_fields_missing` row at
+   `needs_human_review` with `result->>'route' = 'no_content_data'`; the population query at the top
+   of this file selects them from exactly that set.
+2. *"content_data joined to input_schema … only rendered_html length was queried"* — **`content_data`
+   is NULL on all nine** (measured; it is why the router classified them `no_content_data` in the
+   first place), and the `hero` component declares `headline` required, which is what the finding
+   reports.
+
+**The third gap is the real question and remains open:** *which writer assigns the `component_id`.*
+The loop never fetched the files. Narrowed here, first-hand, without asserting a cause:
+
+- **Six writers insert `page_components` rows** (`grep -lE "INSERT INTO page_components"`,
+  non-test): `create_report_page_action.go`, `deploy_tool_action.go`, `save_page_sections_action.go`,
+  `create_tool_component_action.go`, `rebuild_blog_listing_action.go`, `adopt_verbatim.go`.
+- **A LEAD, explicitly not a conclusion:** both tool actions set the PAGE's section list to
+  `["hero", "article-body", "call-to-action"]` (`deploy_tool_action.go:614`,
+  `create_tool_component_action.go:606`), while `create_tool_component_action.go:496` says it sets the
+  component row's *"slot_name to the function (component naming contract)"* — i.e. **not** `hero`. So
+  the `hero` slot on these pages plausibly comes from the page's `sections` list being written as a
+  standard three-slot page, with a later writer filling that first slot with the tool. **That is a
+  hypothesis about two writers interacting, and it is exactly what the next run should test** — it is
+  not established, and nobody should repeat it as cause.
+
+**Why the loop stalled is worth knowing for the re-run:** the symptom I filed asked one question
+(*"which writer assigns the component_id"*) while pointing at three files and a join, and the loop
+spent its narrowing budget on the population instead. A sharper re-file would state the mechanism as
+the interaction — *"the page's `sections` list is written as a standard three-slot page while the
+tool's HTML is written into the first slot"* — and point at the two writers plus
+`save_page_sections_action.go`, which is the one that fills slots from a page's section list.
