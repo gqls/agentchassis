@@ -31,8 +31,9 @@ type fakePage struct {
 	failFirstShot  bool             // fail only the FIRST Screenshot call (landing capture), then succeed
 	shotTaken      bool             // recorded: Screenshot was called
 	shotStepsSeen  []int            // per Screenshot call: how many Do steps had run — 0 means the landing state
-	evalResult     interface{}      // canned Evaluate return (render_audit probe)
+	evalResult     interface{}      // canned Evaluate return (render_audit / contrast probes)
 	evalErr        error
+	evalScripts    []string // recorded: every script Evaluate was handed
 }
 
 func (f *fakePage) Status() int             { return f.status }
@@ -60,9 +61,13 @@ func (f *fakePage) VisibleArea(sel string) (float64, float64, bool, error) {
 }
 func (f *fakePage) Text(sel string) (string, error) { return f.texts[sel], nil }
 
-// Evaluate is the seam render_audit drives; run_checks never calls it, so the
-// canned value stays nil for every existing test.
-func (f *fakePage) Evaluate(string) (interface{}, error) { return f.evalResult, f.evalErr }
+// Evaluate is the seam render_audit and the contrast_ratio check drive; no
+// other check type calls it, so the canned value stays nil for every test
+// whose criteria omit contrast_ratio.
+func (f *fakePage) Evaluate(script string) (interface{}, error) {
+	f.evalScripts = append(f.evalScripts, script)
+	return f.evalResult, f.evalErr
+}
 func (f *fakePage) Close()                               {}
 func (f *fakePage) Do(step criteriaStep) error {
 	f.steps = append(f.steps, step)

@@ -177,30 +177,11 @@ type RenderAuditResult struct {
 // caller gets it via Evaluate — the Python had to inject into a local copy and
 // read a <pre> back, because headless Chrome's CLI has no evaluate-on-load hook.
 // Driving Chromium properly removes that whole workaround.
-const auditJS = `() => {
-  function parseRGB(s){var m=String(s).match(/rgba?\(([^)]+)\)/);if(!m)return null;
-    var p=m[1].split(',').map(function(x){return parseFloat(x.trim())});
-    return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
-  function lum(c){function f(v){v=v/255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)}
-    return 0.2126*f(c.r)+0.7152*f(c.g)+0.0722*f(c.b);}
-  function ratio(a,b){var l1=lum(a),l2=lum(b);
-    return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);}
-  function over(fg,bg){if(fg.a>=1)return fg;
-    return {r:fg.r*fg.a+bg.r*(1-fg.a),g:fg.g*fg.a+bg.g*(1-fg.a),b:fg.b*fg.a+bg.b*(1-fg.a),a:1};}
-  function effBG(el){
-    var stack=[],node=el,anyImg=false;
-    while(node&&node.nodeType===1){
-      var cs=getComputedStyle(node),c=parseRGB(cs.backgroundColor);
-      var hasImg=cs.backgroundImage&&cs.backgroundImage!=='none';
-      if(c&&c.a>0)stack.push({c:c,img:hasImg});
-      if(hasImg&&(!c||c.a<1))stack.push({c:{r:128,g:128,b:128,a:1},img:true});
-      if(c&&c.a>=1)break;
-      node=node.parentElement;
-    }
-    var base={r:255,g:255,b:255,a:1};
-    for(var i=stack.length-1;i>=0;i--){if(stack[i].img)anyImg=true;base=over(stack[i].c,base);}
-    return {bg:base,overImage:anyImg};
-  }
+//
+// The WCAG maths (parseRGB/lum/ratio/over/effBG) is contrastMathsJS in
+// contrast_check.go, shared verbatim with the contrast_ratio check so the two
+// cannot drift; TestAuditJSComposition pins the composed string's fragments.
+const auditJS = `() => {` + contrastMathsJS + `
   var out={contrast:[],images:[],overflow:null},seen={};
   var all=document.querySelectorAll('body *');
   for(var i=0;i<all.length;i++){

@@ -26,6 +26,16 @@
 //                            in the ladder that judges what a calculator
 //                            COMPUTES rather than what it contains (see
 //                            runComputedValues for why the others cannot)
+//   contrast_ratio         — every visible text element's computed colour
+//                            clears WCAG AA against its effective composited
+//                            background (4.5:1 body / 3.0:1 large; a fence's
+//                            min_ratio replaces both). Text over an image or
+//                            gradient backdrop is reported but can never fail
+//                            — the composite there is approximate, and a false
+//                            failure arms a fixer at a correct page. The only
+//                            check that can see COLOUR: four sites shipped
+//                            unreadable text that only a person caught
+//                            (bugs_open/131 item A, by slug)
 //
 // Profiles (P1): "desktop" 1366×900; "mobile" a 390×844 touch viewport. A check
 // with no `profiles` runs on every requested profile; a check pinned to
@@ -226,6 +236,10 @@ type criteriaCheck struct {
 	// per-element and order-free; the runner sorts the keys so a failure message
 	// naming three of forty mismatches names the same three every run.
 	ExpectValues map[string]string `json:"expect_values"`
+	// contrast_ratio only: when > 0 it replaces BOTH per-element WCAG AA
+	// thresholds (4.5 body / 3.0 large) — the fence-visible way to make a
+	// deliberate design exception, instead of a comment nobody enforces.
+	MinRatio float64 `json:"min_ratio"`
 }
 
 // defaultToolContainer matches the tool root under BOTH delivery conventions:
@@ -553,7 +567,7 @@ func splitByProfile(crit criteriaDoc, profile, url string) ([]criteriaCheck, []C
 		switch ch.Type {
 		case "page_status_ok", "selector_exists", "selector_count",
 			"no_console_errors", "no_horizontal_overflow", "interaction",
-			"has_visible_area", "computed_values":
+			"has_visible_area", "computed_values", "contrast_ratio":
 			applicable = append(applicable, ch)
 		default:
 			skip(ch.ID, ch.Type+" not implemented")
@@ -694,6 +708,9 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 		case "computed_values":
 			pass, detail := runComputedValues(page, ch)
 			add(ch.ID, pass, detail)
+		case "contrast_ratio":
+			pass, detail, r := runContrastRatio(page, doc, ch, profile)
+			addScoped(ch.ID, pass, detail, r)
 		}
 	}
 

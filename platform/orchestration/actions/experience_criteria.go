@@ -86,6 +86,14 @@ var experienceCheckTiers = map[string]int{
 	// So a template using it is counted executable at Tier 4 and is honestly
 	// reported as not-run when only Tier 2 has run.
 	"computed_values": 4,
+	// contrast_ratio is Tier 4 ONLY, and necessarily so: it judges the colour
+	// an element is PAINTED — computed style composited against the effective
+	// ancestor background — which does not exist in static HTML. Same class as
+	// has_visible_area: a Tier-2 form is not unbuilt, it is impossible. Added
+	// 2026-08-22 (bugs_open/131, vonc slug): four sites shipped unreadable
+	// text that only a person caught, and the one contrast fix verified at
+	// 3.31:1 had decayed to 2.48:1 under palette churn with nothing watching.
+	"contrast_ratio": 4,
 }
 
 // experienceCheckFields are the keys either checker reads off ANY check.
@@ -121,6 +129,9 @@ var experienceCheckTypeFields = map[string]map[string]bool{
 	// already read — the drift class this table exists to catch.
 	// `steps` needs no entry: it is in experienceCheckFields, read off any check.
 	"computed_values": {"expect_values": true},
+	// Optional: when > 0 it replaces BOTH per-element WCAG AA thresholds
+	// (4.5 body / 3.0 large) — the fence-visible form of a design exception.
+	"contrast_ratio": {"min_ratio": true},
 }
 
 // experienceStepActions are the interaction steps the browser runner performs.
