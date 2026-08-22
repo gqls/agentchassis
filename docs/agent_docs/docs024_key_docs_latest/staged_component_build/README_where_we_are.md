@@ -2448,3 +2448,39 @@ have committed this workstream to actually watching it afterwards rather than de
 keeps its old behaviour for several minutes, so the clock is the wrong way to judge it.
 
 A second session has joined this lane and is taking the small follow-on cleanup. Nothing waits on you.
+
+---
+
+**2026-08-22, morning. It's live.** The change this workstream existed for went out in this
+morning's build and is confirmed running: when the system searches for a value and finds two
+different answers, it now returns nothing instead of picking one. The companion cleanup shipped with
+it. **All five steps are built, shipped and verified.**
+
+Confirming it needed three different checks, because the two changes are different shapes. One adds
+a new marker to the program, so I could ask the running system whether it contains it — and did,
+with a control alongside so a broken check couldn't pass for a good answer. That mattered: two of
+the machines answered "not present" while the *control also failed*, which means the check itself
+wasn't working there, not that the code was missing. The other change only *deletes* code, so there
+is nothing to ask for; for that one I read the source at the exact commit the running build was made
+from, which showed the deleted branch genuinely gone.
+
+**A caution I want on the record, because it would be easy to claim more than we have.** I have set a
+48-hour watch running. **It cannot prove the change works, and I won't present it as though it can.**
+The reason is that we fixed all the live cases *before* switching the guessing off — so the warning
+we'd be watching for had already gone quiet yesterday, for a different reason. Silence over the next
+two days is what we'd see either way. What the watch is genuinely for is two things: catching a
+machine still running the old code, and catching a *new* case we've never seen before — and for that
+second one the system now records every refusal the moment it happens, naming what was asked for and
+who asked. That is the part that makes the residual risk observable rather than invisible.
+
+What actually carries the claim that the change works is the thirteen tests that fail if you undo
+the one line, plus the confirmation it's in the running program. The watch adds coverage, not proof.
+
+**Can we close this lane?** Nearly, and I'd rather be precise than tidy. Everything the workstream
+set out to do is done. Three things remain, and none of them is more of this work:
+
+- the 48-hour watch, which closes Sunday morning;
+- one small verification that has no path until someone queues a tool build;
+- and three follow-ons that belong to other lanes or to a later decision, all named and none started.
+
+Nothing waits on you.
