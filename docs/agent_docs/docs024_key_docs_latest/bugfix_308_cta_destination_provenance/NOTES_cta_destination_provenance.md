@@ -260,3 +260,66 @@ one question that decides it: *where does the consumer of this value get its inp
 `sed -n '207,212p'` at the call site answers it. General form: **a claim that data flows from A
 to B is not checkable at A — it is checkable at B's call site**, and I had already read that call
 site earlier in the session for a different purpose without connecting it.
+
+## 2026-08-22 — Phase A implemented; council round 1 REVISE; two defects of my own found on the way
+
+### Council round 1: REVISE, gated by `editquality`. It was worth the round.
+
+`SUBMISSION_CORR=e4336931-487b-4db3-b4dc-a4b128b3566c`. 14 seats reviewed, 6 abstained; 4 objected,
+8 approved. Verdict read **keyed on the correlation** against `diagnosis_artifacts`, not via the
+`doc_notes ORDER BY created_at DESC LIMIT 1` recipe in CLAUDE.md — with ~40 live sessions that
+returns whoever finished last (LANDMINES carries the trap; another lane hit it this same day).
+
+Objections and what each produced. **Every one answered by a change, not an argument.**
+
+| seat | objection | outcome |
+|---|---|---|
+| editquality | HIGH: the plan's prose lists the **non-page keep** among branches needing the stamp, but no diff covers it | **The prose was wrong, not the code.** The non-page keep must NOT stamp — `tel:`/`mailto:` are authored by construction and that branch's write is a URI *repair*; stamping would make a phone button recomputable (299's defect). Stated in code and prose |
+| editquality | MED: the authored-utility keep's `if CTAMintedCovers(...)` guard is dead code | **Correct.** Reaching that branch proves the record does not cover the value. Removed; the code now says why in place |
+| editquality | MED: no analogous fallthrough re-stamp in `applyCTARecompute` | **Answered by reading the persist**: the rerender MERGES (`mergedContent = stored ⊕ fresh`, `:725-733`), so an untouched field keeps value and record together. Only the build path's DELETE+INSERT loses them |
+| bug_historian | HIGH: *"'owed' is not a control on a mechanism whose whole purpose is a stamp reaching the DB"* — read the persist path before merge | **Right, and done.** `save_page_sections_action.go:968-1001` marshals the WHOLE map, no key filter; `extractSectionsFromMetadata:1354` takes `content_data` wholesale. The 16-row measurement now corroborates a code read instead of substituting for one |
+| guardian | MED: could an envelope guard's key allow-list refuse saves fleet-wide? | **Read it. No such allow-list.** `content_data_envelope_guard.go` keys on the envelope SIGNATURE (`type=="text"` AND a string `result`) — its own header says *"Key on the signature, never the arity"* |
+| reuse_agent | MED: was an existing metadata sidecar checked? | No generic per-field provenance helper exists (zero hits for `FieldProvenance`/`StampField`/`ValueProvenance`/…). But `__` is an **established convention**: 15 distinct `__` markers already live in `platform/orchestration`, and `isEnvelopeMarkerKey` already treats any `__` key as platform marker rather than content |
+| guidelines | MED: register entry required in the SAME commit | Done — LNK-035 added, **LNK-033 amended visibly** |
+| debug_historian | MED: name the pod-verify symbol + control | Specified: grep the binary for `__cta_minted` with a must-be-absent control, per service |
+
+One objection was **factually stale** and is recorded as such rather than silently accepted:
+`bugs_open/097` does not exist — 097 is in `bugs_closed/`. Both it and `bugs_closed/023` were read;
+neither shape reopens, because every stamping branch **and** the predicate itself require
+`validPages.Contains`, which an unbuilt page fails.
+
+### Two defects of my own, found by mutation rather than by reasoning
+
+**1. The shallow merge would have dropped a sibling slot's record — the freeze, reintroduced by the
+fix.** Both persist paths merge key-by-key and `__cta_minted` is a *nested map*, so a `resolved_data`
+holding a record for the primary slot REPLACES the stored record and drops the secondary's. Four of
+six `ctaFieldNames` components have two slots. `SeedCTAMinted` is the fix — and it lives **inside**
+both writers, not in the callers' loops, because I mutation-tested the loop-level version and
+**deleting the call left every test in the tree green**. That is the "a helper with no callers looks
+like a finished refactor" shape, caught only because I ran the mutation instead of reasoning it.
+
+**2. A second helper I wrote and then deleted.** `CarryCTAMinted` re-stamped at the unresolved
+fallthrough. Mutation showed removing it changed no test — the seed had already carried the record,
+so it was dead. Deleted rather than shipped: **two guards in series with one dead is how an
+unexercised branch ships**, and the estate's own lesson is that a passing mutation usually means a
+guard in series, not a guard that works.
+
+### A claim of mine the test caught
+
+I wrote — in code, in the submission, and in a test — that `NormalizePagePath` equates
+`/contact.html` with `/contact/index.html`. **It does not.** It trims a trailing `index.html` and
+trailing slashes, so `/contact/index.html` and `/contact/` both become `/contact`, while
+`/contact.html` stays `/contact.html`. Those are *different pages* here; only
+`ctaExcludedDestination` collapses them, and only to decide the AREA. The test now pins the
+boundary in both directions, and the code comment says which forms are equated. I had asserted the
+equivalence in three places before running it once.
+
+### And one "(verified)" that was not
+
+Correcting a mutation comment, I wrote that making `CTAMintedCovers` presence-bound would kill
+`TestSetCTAFieldInventsNoProvenanceForAnAuthoredValue`, and appended **"(verified)"**. It does not —
+with no record on the row at all, `Covers` returns false at its nil-map guard long before the
+comparison. I ran it, it passed, and I replaced the claim with the mutation that actually kills it
+(`SeedCTAMinted` inventing a record from whatever `resolved` already holds — verified by running).
+**Writing "(verified)" is not a verification**, and it is worse than saying nothing, because it
+tells the next reader the check has been done.

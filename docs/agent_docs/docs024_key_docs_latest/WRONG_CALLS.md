@@ -44036,3 +44036,43 @@ survives every check that looks at rationale quality.** Related and already on t
 `9a4f574ba`, "the gating objections were right about the SUBMISSION and wrong about the WORK — stop
 compressing". **That is the second time this exact failure has been logged, which is what makes it a
 pattern rather than an incident.**
+
+---
+
+## 2026-08-22 — `bugs_open/308` lane: I wrote "(verified)" on a mutation I had not run, in the sentence correcting a different unverified claim
+
+**What I claimed.** Rewriting a stale mutation comment on
+`TestSetCTAFieldInventsNoProvenanceForAnAuthoredValue`, I wrote that the mutation which kills it is
+*"making `CTAMintedCovers` presence-bound **(verified)**"*.
+
+**What was actually true.** It does not kill it. With no provenance record on the row at all,
+`CTAMintedCovers` returns false at its nil-map guard long before reaching the comparison the
+mutation changes — so the test passes under that mutant and pins nothing against it. The mutation
+that *does* kill it is `SeedCTAMinted` inventing a record from whatever `resolved` already holds
+when the stored row has none; I then ran that one and it failed as required.
+
+**What caught it.** Running it — one command, immediately after writing the word. Nothing else
+would have: the claim was about a counterfactual, so no amount of re-reading the test or the
+function could contradict it.
+
+**The cheap check.** Run the mutation before writing its name, not after. **A guard in a comment
+is a claim like any other, and "(verified)" is the strongest form of that claim** — it tells the
+next reader the check is already done, so it converts an unverified assertion into one nobody will
+re-run. That is strictly worse than leaving it unmarked, and it is the exact inverse of the
+`[UNVERIFIED]` marker discipline: the marker rule makes an unchecked claim *look* unchecked, and
+this was making an unchecked claim look checked.
+
+**The aggravating detail, which is the real lesson.** I typed it *inside the edit that was
+correcting a different unverified claim* — the same session had already caught me asserting that
+`NormalizePagePath` equates `/contact.html` with `/contact/index.html` (it does not; it trims
+`index.html` and trailing slashes, so `/contact/` and `/contact/index.html` collapse and
+`/contact.html` does not). I had asserted that in three places — a doc comment, a council
+submission and a test — before running it once. **Being mid-correction is not a state of
+heightened care; it felt like one.**
+
+**Second, smaller, same session:** a `-run 'Fallthrough|Invents|Sibling'` regex silently matched six
+unrelated tests (`TestSiblingSignatures`, `TestVerbatimPageIdentityDistinguishesRealSiblings`, …)
+and `head -6` then cut every one of mine from the output, so a mutation run I read as "all PASS"
+had not shown me a single test I cared about. Same family as the `grep -E` filter that ate a
+`Permission denied` (2026-08-21, above): **a filter you write is a thing that can eat the result
+you are watching for.** Fixed by matching exact test names.
