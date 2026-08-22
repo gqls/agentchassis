@@ -527,6 +527,44 @@ fleet restart. Everything needed to execute it is in this file: the boundary abo
 currently sits with the parallel session (they asked, and they hold the sharper boundary); the
 obligation sits with the lane.
 
+### ✅ 512 IS VERIFIED — and NO tool build was needed after all (2026-08-22 ~09:0xZ)
+
+The owner green-lit commissioning a tool build to unblock this. **I did not spend it: the demand had
+already arrived and I had been measuring the wrong thing.**
+
+**What was wrong with my earlier "no path to verification" reading.** I measured demand at the
+AGENT (`tool-generator` runs) and then, when I finally measured at the STEP, probed
+`collected_data ? 'rerender_items'` — **a guessed key**. The step's real `output_field` is
+**`rerender_enqueue`**. With the right key the picture inverts completely:
+
+| | |
+|---|---|
+| tool-generator runs since 512 applied (2026-08-20 17:38:34Z) | **29** |
+| of those, runs that REACHED `enqueue_rerender` | **17** (2 on the new binary) |
+| `tg`/`reason` conflict rows in that window | **0** |
+| `tg`/`reason` last row EVER | **2026-08-20 17:08:01** — 30 min *before* 512 was applied |
+
+**The instrument control the original test demanded is intact.** Its pass condition was *"reason 0
+**while `related_pages` keeps firing** (if both go quiet the instrument died and the zero means
+nothing)"* — and `related_pages` **did** fire in the same window, **8 rows, last 2026-08-21
+14:15:35**, before 516 closed it. So the instrument was demonstrably alive and capable of recording
+tool-generator conflicts while `reason` stayed silent. **The banked pass condition is satisfied
+exactly as written.**
+
+**Sizing, stated honestly.** The pre-512 rate was ~**1 reason-row per tool-generator run** (16 rows
+against 16 runs in the 24 h before). ⚠ **I cannot re-derive that today** — `orchestration_states`
+keeps ~24 h of COMPLETED rows, so the pre-512 runs have aged out and the same query now returns
+`tg_runs = 0` against 16 rows, which is a retention artefact and not a rate. The figure stands on
+the parallel session's **contemporaneous** measurement, recorded when the rows existed. At that
+rate, 17 post-512 runs predict ~17 rows; **0 observed.**
+
+**512 moves from "applied and explained, not demonstrated" to VERIFIED.**
+
+**The lesson, and it is the one that nearly cost a needless production build:** *"there is no demand"*
+was never true — there was no demand **at the level I was looking**, and then no demand **at the key
+I guessed**. Agent-level demand is not step-level demand, and a step's `output_field` is a fact to
+read, not to infer. I recorded "no natural path to verification" for two days on the strength of it.
+
 ### First gate traffic, and a gap I nearly left open (2026-08-22 ~09:0xZ)
 
 **The 330 positive control was FIRED** by the parallel session on their owner's explicit green light
