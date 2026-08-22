@@ -2660,3 +2660,24 @@ their serve proof checked markdown absence, not slot count; notified via CONTRIB
 **Until a fix ships: after EVERY retire, re-read the tombstone's build_status at the end of the
 attendance window, and treat any `literal_markdown`/`section_edit` item naming a retired page as a
 resurrection in progress** (added to the RUNBOOK).
+
+## 2026-08-22 ~13:30Z — bugs_open/362 taken and DONE (this session, [ac1f33]): both tool writers now repair links before persisting
+
+The 238 session routed 362 to the lane (RFC_008 ruled today: no mandatory seam; the two unguarded
+writers close on their own merits — ours by ownership). Sibling session [31e6fe] notified before
+taking; no objection window abused — the work is orthogonal to the rebuild grind. Commit
+**`3a3a612d5`**, `Council-Submitted: c6b9a382` (verdict read OWED; act on REVISE/REJECTED).
+- Both call sites wired in the three-sibling shape; create_tool_component's placement is after the
+  pages row exists (the tool's own URL is in the repair index).
+- **The landmine's probe, two-armed, PASS at the REAL seam:** `'<a href="' + q.link + '">'` script
+  bytes byte-identical WHILE a phantom markup anchor beside it was unlinked (text kept) — LNK-029's
+  span-awareness confirmed here, not assumed.
+- Scan test mutation-proven; allow-list untouched; the pattern check went quiet the HONEST way (its
+  positive control: it fired on these exact files in `e3dee9243`'s pre-commit output; silent now).
+- **362 §3's uncertain instance SETTLED: real damage** — vonc.com's quiz CTA `href=""` is touched by
+  no JS and destroys the visitor's result on click (362 §8; content decision routed to vonc's owner,
+  deliberately not repaired here). Another "tool asserts something untrue about itself", off-site.
+- OWED: post-roll census re-run (362 §9); the 362 council verdict read.
+- ⚠ COORDINATION HAZARD LEFT OPEN: some session holds a STAGED removal of the 283 lane's
+  instance-scope guard in create_tool_component_action.go — my commit warns them in its message; if
+  their snapshot commits as-is it reverts this wiring and the scan test catches it.
