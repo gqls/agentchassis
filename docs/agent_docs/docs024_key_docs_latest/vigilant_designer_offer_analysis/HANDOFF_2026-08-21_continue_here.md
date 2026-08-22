@@ -11,9 +11,23 @@
 
 ## The one-line state
 
-> **`bugs_open/335` is FIXED IN BOTH HALVES AND STILL OPEN, because fixed is not live.**
-> The Go action is committed and inert until the next chassis roll; the migration that switches it on
-> is deliberately held. The only thing owed before the roll is **reading the council verdict**.
+> **UPDATE 2026-08-22 11:03Z — THE GATE IS NOW LIVE, AND `bugs_open/335` IS STILL OPEN.**
+> Chassis rolled to `v1.0.1323`; migration `537` applied after a capability probe (with two controls)
+> confirmed the action is registered in the running binary. Council APPROVED at round 3.
+> **Live is not proven:** the gate has **never fired** — no offer-analyser run since 2026-08-19 — and
+> leopardess still carries the false claim, because only a successful *re-run* replaces `lead_with`
+> and the sweep is still disabled.
+> **The one thing owed is the behavioural re-proof, and it spends an LLM run against the owner's
+> standing cost control, so it is the owner's call rather than a session's.** If authorised:
+> POSITIVE control = leopardess (must lose *"eight live sites"*; ⚠ coordinate with the leopardess
+> lane first — it is holding our findings pending an owner design report). NEGATIVE controls =
+> webdesign.co.uk (*"sixty-three tools"*) and robot-hands.com (*"six actuation types"*, *"2–3
+> articles"*) must **KEEP** their specifics. ⚠ **NOT gaswholesalers** — it carries no cardinal at all
+> and cannot discriminate.
+>
+> ~~The Go action is committed and inert until the next chassis roll; the migration that switches it
+> on is deliberately held. The only thing owed before the roll is reading the council verdict.~~
+> *(Superseded 2026-08-22: the roll happened, the verdict was read and APPROVED, 537 is applied.)*
 
 ## What happened today
 
