@@ -211,11 +211,44 @@ build-all: build-backend build-frontends ## Build all images
 # where that matters most: deploy-agents now retags BOTH runner overlays to
 # $(IMAGE_TAG), so a release that retags without building would point them at an
 # image nobody pushed and both would ImagePullBackOff together. The build half
-# and the retag half must land in the same release, which is why build-checks
-# and build-github-runner are prerequisites here and not optional extras
+# and the retag half must land in the same release
 # (bugs_open/237 Decision B, owner ruling 2026-08-18).
+#
+# ⚠ IT IS DERIVED FROM `RELEASE_IMAGES`, NOT HAND-LISTED (changed 2026-08-22,
+# bugs_open/318). Until today this was a hand-written list of six group targets,
+# so "build-backend builds exactly RELEASE_IMAGES" was an invariant two separate
+# enumerations had to agree on with nothing keeping them in step — the same shape
+# as the four hand-maintained deploy lists `bugs_open/237` removed. BLD-022 §(iv)
+# recorded it as "verified by set equality 2026-08-18 [MEASURED] and policed by
+# NOTHING", and it was **false four days later**: `optional-explicit-wires-check`,
+# `commit-sha-exposure-check` and `capped-schedule-ordering-check` were all added
+# to `RELEASE_IMAGES` (and to `AGENT_DEPLOY_SERVICES`) and to none of the build
+# groups, by two different lanes on 2026-08-22. Measured the same day: 25
+# declared, 22 built, and locally `optional-explicit-wires-check` existed only at
+# `v1.0.1321` while `capped-schedule-ordering-check` had never been built at any
+# tag — so the next `make release` would have built 22 images and then died on the
+# first `docker push` of an image nobody built, BEFORE `deploy-core`, deploying
+# nothing at all. The `$(addprefix …)` makes that state unrepresentable rather
+# than merely detectable: there is now one list, and the build set IS it.
+#
+# THE NAMING CONTRACT this relies on: every entry in `RELEASE_IMAGES` has a
+# `build-<image>` target. That holds for all 25 today; `github-actions-runner`'s
+# real target is the older `build-github-runner`, so the alias below carries it.
+# A new image whose target does not follow the convention fails the release with
+# "No rule to make target" at the very first build — loudly, and before anything
+# is pushed or deployed.
+#
+# `build-agents` / `build-adapters` / `build-checks` survive as convenience
+# targets for a human building one group by hand. They are no longer
+# load-bearing, and adding a service to one of them does NOT put it in a release
+# — `RELEASE_IMAGES` does, and `check-release-coverage` polices the other side.
 .PHONY: build-backend
-build-backend: build-auth-service build-core-manager build-agents build-adapters build-checks build-github-runner ## Build all backend services
+build-backend: $(addprefix build-,$(RELEASE_IMAGES)) ## Build all backend services (== RELEASE_IMAGES, by construction)
+
+# Alias: the image is `github-actions-runner`, the target predates the naming
+# convention. Named here so the derivation above needs no special case.
+.PHONY: build-github-actions-runner
+build-github-actions-runner: build-github-runner ## Alias for build-github-runner (image name == target name)
 
 # build-checks — the four daily CronJob images. Folded into the release
 # 2026-08-18: each previously had a deploy target nobody ran, and because these
