@@ -26,7 +26,7 @@ but 357 cannot stop containing it. The test is green today and would stay green 
 trigger were redefined tomorrow. It is not a weak guard against live drift; it is a guard against a
 different event, wearing the error message of the first.
 
-## The census — 7 guards, 4 kinds of live object, all measured
+## The census — **7** guards as of 2026-08-22, 4 kinds of live object, all measured
 
 [MEASURED 2026-08-22, each against the live DB. Every one could have come out otherwise.]
 
@@ -83,8 +83,8 @@ application; it decays silently from then on, and nothing re-establishes it.
 
 ## Blast radius, as queries rather than arguments
 
-- `scheduled_tasks`: **97 rows, 47 enabled, 35 carry a `pre_query`, 24 enabled ones do.** Of the 35,
-  **8 enabled rows embed a literal quoted vocabulary** a Go list could drift from
+- `scheduled_tasks`, all **as of 2026-08-22**: **97 rows, 47 enabled, 35 carry a `pre_query`, 24 enabled ones do.** Of the 35,
+  **8** enabled rows as of 2026-08-22 embed a literal quoted vocabulary a Go list could drift from
   (`claimed-item-timeout`, `database-cleanup`, `detected-item-promoter`,
   `held-pair-canary-escalation`, three `site-discovery-rotation-*`, `site-render-audit-rotation`).
 - The 7 guards above are the ones that *try*. The 8-row figure is the population that *could* need
