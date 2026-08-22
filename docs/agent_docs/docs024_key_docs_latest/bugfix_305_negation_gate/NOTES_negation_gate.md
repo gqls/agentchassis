@@ -748,3 +748,69 @@ binary", is now **CLOSED**: it is in, on `v1.0.1326`.
 7 `clean`, and **`has_result` true on every one of the 12** — the post-548 contract holding across
 sites, not just on the page that proved it. No gate run has happened yet on `v1.0.1326` (none since
 14:07Z); a watch is armed for the first.
+
+## 2026-08-22 evening — the reuse follow-up shipped, APPROVED round 1, and one objection was right
+
+Handoff item (3), the reuse advisory from the approved round, is DONE:
+`aiservice.ClassifyTruncation` (register **MDL-043**), three tests each mutation-proven, adopted at
+one call site. Council `a696e2a3-311b-4490-b862-f5cdfc1bc169` — **APPROVED at round 1, all reviewers
+approve, 7 abstained**.
+
+**The audit changed the shape of the fix, which is the part worth keeping.** The advisory said
+"extract the three-state and audit the other call sites". The audit found the platform ALREADY
+detects truncation structurally (`aiservice.TruncatedError` / `IsTruncated`, from the provider's own
+stop signal — MDL-038), and `GenerateText` returns it, so **any caller doing `if err != nil` is
+already protected without arithmetic.** Shipping a numeric helper without saying that would have
+invited callers to reimplement a worse detector. So it ships documented as a BACKSTOP for the only
+two cases the structural signal cannot reach.
+
+**Demand evidence that the class is real, found while answering a guardian objection**
+`[MEASURED 2026-08-22]`: **3 of 70** `rewrite_negations` calls were cut at exactly
+`output_tokens = max_tokens = 2000` (08-21 14:19, 08-21 14:26, 08-22 12:25). All three were caught
+**structurally** and logged `success=false` — so the numeric arm has still never been the thing that
+saved us, exactly as the code comment claims. That is the design working, not a gap.
+
+### The objection that was right, and what it cost to answer
+
+`reuse_agent`, **medium**: *"'that finding is reported to them' is not a tracked artifact (no work
+item, no doc_note) — it can be lost with nothing here to show it was ever raised."* Correct, and it
+is the seat's own founding failure mode (two paths, nobody unifies them). Answered by filing
+**`bugs_open/366`** for `cmd/reasoningset`'s two sites, which state the decision the owning lane has
+to make rather than making it here.
+
+### The two low objections, answered with checks rather than agreement
+
+1. *"Confirm no downstream log parser does strict field-count matching"* on the new `usage_state` zap
+   field. **Checked:** nothing anywhere parses that line (grep across `.go`/`.py`/`.sh` returns only
+   the file itself), and the token-pressure monitors — `fleet-step-token-pressure`,
+   `council-seat-token-pressure`, the only two `scheduled_tasks` reading `llm_call_log` — read the
+   **table**, not zap logs.
+2. *"The behaviour-equivalence claim is asserted, not test-proven at the call site."* True, and
+   `editquality` independently verified the algebra including the failed-type-assertion case. ⚠ **And
+   then I changed the substitution AFTER submitting** (see below), so a reviewer re-reading it must
+   read the committed version, not the plan's sketch.
+
+### ⚠ A correction to my own change, found minutes after submitting it
+
+Writing the MDL-043 register entry sent me to MDL-042 (another lane, same area, shipped today), which
+distinguishes `options["max_tokens"]` from `options["__sent_max_tokens"]`, *"the wire number"*.
+Following it up: `ai_actions.go` feeds `llm_call_log.max_tokens` from `__sent_max_tokens`, and gemini
+deliberately writes the VISIBLE-text budget there so it stays commensurable with
+`__usage_output_tokens` across providers (`bugs_open/110`). **So the ceiling of record is the APPLIED
+one, and I was comparing against the REQUESTED one.** Equal on anthropic (our provider — verified:
+all 70 rows carry `max_tokens = 2000`), but a caller that lets the client choose its own cap sets no
+`max_tokens` at all, and the old read would have reported UNKNOWN over a ceiling the provider knew.
+Fixed, with a fallback because ollama records no sent value. The same edit killed an **unchecked type
+assertion** (`options["max_tokens"].(int)`) sitting inside an action, where a panic kills the step.
+
+**The transferable bit: writing the register entry is what found it.** The entry forced me to say how
+this relates to neighbouring mechanisms, and the neighbour contradicted me. Registering is not
+paperwork after the work — on this occasion it *was* the review.
+
+### Known limitation, recorded rather than fixed
+
+MDL-042's escalate-on-truncation retry is wired into `execute_llm_prompt`. This action calls
+`client.GenerateText` directly, so **it does not inherit escalation** — a cut repair is still one
+lost repair, not a retry at a higher ceiling. That is the correct outcome for a style repair (the
+copy stands as written and the marker says `repair_unavailable`), but it should be a decision, not a
+surprise: 3 of 70 calls hit the ceiling.
