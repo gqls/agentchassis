@@ -6,6 +6,11 @@ regression — see the correction in §A), two MEDIUM structural, the rest
 design/product · **Status:** OPEN — **A, B, C, E, F, G fixed & live; B's check-side
 WITNESSED 2026-07-29 (see the section at the end). D open (design decision); H
 decided by the owner 2026-07-29, build in progress by the gauntlet workstream.**
+> **RE-MEASURED 2026-08-22 (see the section at the foot): A has DECAYED to 2.48:1
+> under palette churn and D now measures 65.6% — worse than filed. H's engineering
+> completed 07-31; the residue is the owner's own distribution leg. The framework
+> half (the `contrast_ratio` check) is being built by
+> `docs024_key_docs_latest/bugfix_131_contrast_ratio_check/`.**
 
 ## Why this file matters more than its severity suggests
 
@@ -625,3 +630,51 @@ sentence on both sides of it.
 **Still open, and now reachable for the first time:** `bugs_open/154` — two of the
 four dispatched `improve_tool` items died at `tool-improver`'s first step. So
 010's convergence guard has still never been exercised.
+
+---
+
+## RE-MEASURED 2026-08-22 — two fixes have DECAYED, and the framework half is now being built
+
+Live measurement (playwright at 390×844, contrast composited per the render-audit method,
+worst hits screenshot-confirmed by eye; script + output in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_131_contrast_ratio_check/` — the lane this
+section opens):
+
+- **A has decayed below its bar.** `.gi-title-accent` is still `rgb(245,158,11)` — the fix's
+  token held — but the section background has churned from `#6d28d9` to `rgb(124,60,255)`
+  (`#7c3cff`, the very shade §A's correction names as the pre-07-28 palette). Measured
+  **2.48:1** against the 3.0 large-text bar the fix was chosen to pass at 3.31:1. The fix
+  pinned a PAIR; the ground moved again. `[INFERRED]` the mover was palette
+  regeneration/re-render churn, not a hand edit — not yet pinned to a row, and deliberately
+  not asserted as a root cause.
+- **D is now 65.6%** (`.gi-challenge-text` 256px of 390, revealed state) — worse than the 74%
+  filed AND the 83% the 07-28 fix measured. **D was also never actually decided**: this file's
+  header says "open (design decision)", `gauntlet_dead_cta/HANDOFF_2026-07-28_continue_here.md:66`
+  says "FIXED — now 83%", and §D above carries no update banner. No parking note or owner
+  ruling on D exists anywhere (grepped the owning lane 2026-08-22). **D should go to the queued
+  design pass** (`gauntlet_dead_cta/HANDOFF_2026-08-12_design_pass_START_HERE.md` — which does
+  not currently know D exists).
+- New firm failures live today, already owned elsewhere — recorded here for the join, not
+  refiled: gauntlet `div.gi-eyebrow` **1.66:1** and `div.gi-rules-label` **1.76:1**; homepage
+  `a.gauntlet-btn-primary` **1.76:1** (= `bugs_closed/122` Finding 3, "the Gauntlet
+  workstream's" surface) and `span.stats-eyebrow` **1.63:1** (= `bugs_open/212` §8's
+  component-painted-ground question, an owner decision).
+- **H status for whoever closes this file**: the owner ruled 2026-07-29 ("3 leading to 2");
+  engineering delivered in full by 07-31 (opinion ledger, share card, published round record).
+  The outstanding leg is the owner's own distribution experiment, which has no recorded
+  occurrence. Whether H closes on "engineering delivered" is the owner's call — nobody has
+  recorded who closes 131 at all.
+
+**The class lesson, and the action taken.** B/C/E/F/G — fixes that changed STRUCTURE — all
+held. A and D — fixes that tuned a CONTINUOUS value (a colour pair, a padding) — both decayed
+under later churn, silently, in under three weeks. That is this file's closing argument made
+flesh: point fixes to measurable qualities do not stay fixed on a platform that re-renders,
+and only a standing check catches the decay. **The `contrast_ratio` acceptance check this file
+and `experience_loop/HANDOFF_2026-07-28_appeal_dimension.md` both called for is now being
+built** — item-B's own path (a Tier-4 check in `run_checks_action.go`, council-gated, rolled,
+then witnessed on a known-bad page: this page, whose 1.66:1 eyebrow is the ready-made
+witness). Lane docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_131_contrast_ratio_check/`.
+
+*(090 not run for this section — first-hand live measurement with by-eye confirmation and an
+archived reproducible script substitutes, per the 2026-07-31 ruling's escape hatch; the one
+unverified claim above is marked `[INFERRED]` and asserted nowhere as cause.)*

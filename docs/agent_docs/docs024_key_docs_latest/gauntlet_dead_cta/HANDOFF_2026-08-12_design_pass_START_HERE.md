@@ -255,3 +255,23 @@ looking at.
 - **RFC_020 §5.2** (`namecheck`) is built, council-approved and **not live** — it ships
   from the island VM, and the guardian seat asked the owning lane to schedule that,
   not us.
+
+## 8. CONTRIBUTED 2026-08-22 (bugfix_131_contrast_ratio_check lane) — two 131 items the pass inherits
+
+Re-measured live 2026-08-22 (script + screenshots in
+`docs024_key_docs_latest/bugfix_131_contrast_ratio_check/`, method in its NOTES):
+
+- **`bugs_open/131` item D (by slug — the vonc gauntlet audit) belongs to this pass and was
+  never actually decided.** `.gi-challenge-text` measures **65.6%** of a 390px viewport today —
+  worse than the 74% the owner originally called "a narrow column down the middle", and well
+  off the 83% the 2026-07-28 fix measured. Three records contradict each other on D's status
+  (this lane's 07-28 handoff says FIXED; the bug header says open design decision; §D has no
+  banner). The bug file's 2026-08-22 section carries the details.
+- **131-A's contrast fix has decayed**: the amber `.gi-title-accent` now reads **2.48:1**
+  against a section background that has churned to `#7c3cff` (< the 3.0 large-text bar; it was
+  fixed at 3.31:1 against `#6d28d9`). Per §6 above, the fix belongs at the TOKEN level, not a
+  one-page touch-up — and note `gi-eyebrow` (1.66:1) / `gi-rules-label` (1.76:1) on the same
+  page, plus the homepage instances already owned by `bugs_closed/122` F3 and `bugs_open/212` §8.
+- A `contrast_ratio` Tier-4 acceptance check is being built by the contributing lane (131's
+  own framework residue); once live, this page's 1.66:1 eyebrow is its planned witness case —
+  a design pass that repairs these tokens should re-run the measurement, not assume.

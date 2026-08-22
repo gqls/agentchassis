@@ -1,0 +1,54 @@
+{
+  "rationale": "bugs_open/131 (vonc gauntlet audit, by slug) closed its July items but named a framework gap that is still open: no acceptance check can see colour contrast, so unreadable text ships and STAYS shipped. Re-measured 2026-08-22: 131-A's fix has decayed from its verified 3.31:1 to 2.48:1 because the section background token churned back to #7c3cff — a point fix to a colour PAIR, silently undone by palette churn, with nothing watching. Every owner-visible incident of this class (fundamentallyai 07-27, vonc 07-28, ai-agent-orchestration 08-06, idea.uk 08-19) was found by a person looking at the page. The render-audit sweep (VIZ-015) measures but cannot GATE — it files tickets into a parked queue (bugs_open/296) and its repair half caused the idea.uk clobber (bugs_closed/198). The Tier-4 acceptance ladder is the only machinery that can fail a page, and its eight check types cannot see colour (run_checks_action.go:554-557; LANDMINES:1523). This change adds the contrast_ratio check type proposed in experience_loop/HANDOFF_2026-07-28_appeal_dimension.md and never built, following the exact precedent of 131-B's no_horizontal_overflow clause (5042d5ecb: one commit, council-approved, rolled, witnessed). RFC_022 shape check: opt-in (runs only where a criteria fence names it), unsafe default OFF (absent = not run), zero live consumers measured 2026-08-22 (0 typed fences in doc_plans, 0 active agent_definitions, 0 seeds) — not architecture scope, normal gate. Rollout discipline: this commit deliberately advertises the type to NO planner prompt and authors NO fence — LANDMINES:512 (a check type the running binary does not know is skipped, and a skipped set can read as green); fences and seed updates come only after the browser-runner-adapter image rolls and the check is witnessed failing a known-bad page (vonc's own gi-eyebrow at 1.66:1, measured and screenshot-confirmed 2026-08-22).",
+  "submitter": "bugfix_131_contrast_ratio_check",
+  "plan": {
+    "summary": "Add a contrast_ratio Tier-4 check type to the browser-runner: one in-page probe (reusing the render-audit's WCAG maths, factored into a shared JS const so a third copy of the maths cannot drift) measures every visible text element's computed colour against its effective composited background; the check fails on any FIRM failure (per-element WCAG AA 4.5/3.0, or an explicit min_ratio override), attributes the worst offender in/out of the tool container exactly as no_horizontal_overflow does (Scope/Culprit/CulpritSelector so the judge routes a tool ticket or a chrome one), and never fails on over-image grounds where the composite is approximate (false-positive containment — a false acceptance failure becomes an improve_tool fixer aimed at a correct page, bugs_open/126). Vocabulary tables and lockstep tests move in the same commit; no Tier-2 arm (computed colour does not exist in static HTML — the has_visible_area precedent).",
+    "edits": [
+      {
+        "file": "internal/adapters/browserrunner/run_checks_action.go",
+        "symbol": "splitByProfile / evaluateOnPage / criteriaCheck",
+        "operation": "modify",
+        "rationale": "The applicability allowlist and the execution switch are the two enumerations that make a check type real; the struct field is required because an unknown JSON key is dropped in silence at unmarshal (LANDMINES:8645).",
+        "sketch": "case list at :554 gains \"contrast_ratio\"; evaluateOnPage gains `case \"contrast_ratio\": addScoped(runContrastRatio(page, doc, ch, profile))`; criteriaCheck gains `MinRatio float64 `json:\"min_ratio\"`` (contrast_ratio only: replaces the per-element 4.5/3.0 AA thresholds when > 0); header doc-block line lists the new type."
+      },
+      {
+        "file": "internal/adapters/browserrunner/contrast_check.go",
+        "symbol": "contrastMathsJS, contrastProbeJS, runContrastRatio",
+        "operation": "add",
+        "rationale": "New file keeps the check's measurement and judgement in one reviewable unit and keeps run_checks_action.go's diff minimal on a shared tree. Judgement lives in Go (unit-testable via the existing fakePage.Evaluate seam); the JS only measures.",
+        "sketch": "contrastMathsJS = the parseRGB/lum/ratio/over/effBG helpers lifted VERBATIM from auditJS. contrastProbeJS scans body * with the audit's exact visibility/text filters, computes per-element ratio and need (large = >=24px or >=18.66px bold -> 3.0 else 4.5; min_ratio overrides both when set), marks overImage and whether the element sits inside the resolved tool container (toolContainer(doc, ch), per-check selector override), returns the sub-threshold records. runContrastRatio evaluates it, decodes, drops overImage records from the verdict (reported as 'N unmeasured (over image/gradient backdrop)'), fails on any remaining record, picks the worst ratio as Culprit/CulpritSelector with fg/bg/ratio/need/px in the detail (detail sentence includes the long pod-greppable marker 'text is painted below its contrast threshold'), sets Scope tool/chrome from containment like HorizontalOverflow."
+      },
+      {
+        "file": "internal/adapters/browserrunner/render_audit_action.go",
+        "symbol": "auditJS",
+        "operation": "modify",
+        "rationale": "Single-source the WCAG maths: two JS copies already exist (auditJS and scripts/render_audit.py); the check must not add a third. The audit's behaviour must be byte-identical — the helpers move verbatim, only the const composition changes.",
+        "sketch": "const auditJS = `() => {` + contrastMathsJS + auditScanJS — the scan half unchanged; a test pins that the composed string still contains each helper and the scan fragments."
+      },
+      {
+        "file": "platform/orchestration/actions/experience_criteria.go",
+        "symbol": "experienceCheckTiers / experienceCheckTypeFields",
+        "operation": "modify",
+        "rationale": "The validator's capability tables are held in lockstep with the checker source by TestExperienceCheckCapabilities_LockstepWithCheckers (whole-file case-literal harvest) — the new case literal fails the build until these move with it.",
+        "sketch": "experienceCheckTiers[\"contrast_ratio\"] = 4 with a comment in the has_visible_area style (Tier 4 ONLY, necessarily: computed colour does not exist in static HTML); experienceCheckTypeFields[\"contrast_ratio\"] = {\"min_ratio\": true}."
+      },
+      {
+        "file": "internal/adapters/browserrunner/contrast_check_test.go",
+        "symbol": "TestContrastRatio*",
+        "operation": "add",
+        "rationale": "The judgement half must be proven against evalResults that could come out otherwise: pass on clean, fail-with-attribution on a firm in-tool failure, PASS when the only failures are over_image (the containment rule), chrome attribution, min_ratio embedded in the composed probe.",
+        "sketch": "fakePage.evalResult-driven table tests mirroring run_checks_action_test.go; one test asserts the composed auditJS retains its helper and scan fragments (the refactor guard); one asserts the probe string embeds a non-default min_ratio."
+      }
+    ],
+    "grounded_in": [
+      "LANDMINES.md:1523: 'the tool's acceptance criteria are selector_exists / no_console_errors / page_status_ok / no_horizontal_overflow / interactions. Not one of them can see contrast, and the component renders, boots and computes correctly.'",
+      "experience_loop/HANDOFF_2026-07-28_appeal_dimension.md:196: 'Start with contrast_ratio — one check, fully objective, no new seat' and :141: 'WCAG luminance of getComputedStyle colour vs the nearest non-transparent ancestor background. Threshold 4.5 body / 3.0 large.'",
+      "bugs_open/131: 'Two sites, two workstreams, one mechanism — a token used as foreground where the same or near-same token is the background — and BOTH were found by the owner looking at the page, not by any check.'",
+      "Measured 2026-08-22 (bugfix_131_contrast_ratio_check/NOTES): .gi-title-accent rgb(245,158,11) on rgb(124,60,255) = 2.48:1 — the 07-28 fix verified at 3.31:1 against #6d28d9; the ground churned and nothing noticed. .gi-eyebrow 1.66:1 firm, screenshot-confirmed.",
+      "Consumer enumeration 2026-08-22: doc_plans fences with \"type\": \"contrast_ratio\" = 0; active agent_definitions naming it = 0; sql_for_agents seeds naming it = 0.",
+      "LANDMINES.md:512: 'A criteria check type the running browser-runner binary does not know is SKIPPED, and an all-skipped fence PASSES' — why this commit ships no fence and no planner prompt change.",
+      "register tool-lifecycle TL-015 and 131-B's precedent commit 5042d5ecb: a computed check added to the browser-runner in one commit, council-approved, then witnessed on a live page."
+    ],
+    "risks": "1) A false acceptance failure arms improve_tool at a correct page (bugs_open/126) — contained by: over_image grounds can NEVER fail the check; thresholds are the published WCAG numbers, not invented ones; min_ratio relaxation is fence-visible; nothing consumes the type until the adapter has rolled AND the check has been witnessed failing vonc's real 1.66:1 eyebrow with a clean-page control. 2) The auditJS recomposition must be behaviour-identical — the helpers move verbatim and a test pins the fragments; reviewers should check the composed string, not trust the claim. 3) The lockstep test harvests EVERY lowercase case literal in run_checks_action.go, and a source-scan test makes comments load-bearing — the new arm adds exactly one case literal and no comment contains case-shaped strings. 4) The check reports chrome failures as pass:false with Scope=chrome (the overflow precedent): on pages whose site chrome genuinely fails AA this fails tool acceptance for a fault the tool did not cause — the judge already routes by Scope for overflow, and the alternative (exempting chrome) silently passes text a person cannot read. 5) Deliberately NOT in scope: seeds/planner prompts (Phase 2, after roll + witness), the render-audit lane's parked queue (bugs_open/296), Tier-2 (impossible statically), and any vonc page repaint (gauntlet lane's surface)."
+  }
+}
