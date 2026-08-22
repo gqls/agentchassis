@@ -43769,3 +43769,42 @@ read X first.
 "my probe measured something other than what I thought it measured", and both produced a
 confident negative rather than an error.
 
+
+---
+
+## 2026-08-22 (second entry) — I wrote a reopen trigger that could never fire, in the decision record that exists to prevent exactly that
+
+**The claim.** Closing `RFC_008` under the owner's ruling, I named four triggers that would reopen
+it. Trigger 2: *"`bugs_open/358` B2's measurement shows advisory findings going unread, i.e. commits
+carrying an `unrepaired-component-write` finding followed by neither a fix nor an allow-list entry.
+That was this file's own decisive question."* Committed (`d795e10f5`).
+
+**Why it was false.** `358` B2 was built hours later and answers a **different question**. B2 asks
+which `error_code` values in `agent_error_log` have a declared reader — answerable because codes are
+**rows**. `pattern-check.py`'s advisory findings are **not rows**: they print to a terminal at commit
+time and persist nowhere, so "was this finding read?" has nothing to query, and no amount of B2 work
+produces it. **The RFC would have waited for ever on a measurement nobody was building, while reading
+as though it had coverage.**
+
+**The mistake underneath.** I routed a dependency at another lane's *candidate*, described in prose,
+in a file I had not seen built — matching on the surface shape ("a check that measures whether
+findings get read") without asking what each check's subject actually *is*. The two subjects differ
+in the one property that decides feasibility: durability. **Two mechanisms described in the same
+words can have opposite instrumentability, and the sentence that names them cannot show it.**
+
+**What makes it worth an entry rather than a fix.** I authored a fresh instance of
+`a-closed-blocker-keeps-being-obeyed` — a deferral pointing at work that will not deliver it —
+**within a day of writing that very class up** as an 016b §9 pattern, from a case that had cost
+twenty days. Writing the pattern down did nothing to stop me producing another one, because I
+applied it retrospectively (auditing old documents) and never prospectively (auditing the pointer I
+was about to write).
+
+**What caught it.** The `358` lane, reading my commit and recognising that its own built check could
+not satisfy the trigger routed at it. Cost: nothing — it arrived before anyone waited on the RFC.
+
+**The cheap check, prospective this time.** *Before writing "X will be answered by Y", state what Y
+would query, and confirm that thing exists today.* If Y is another lane's unbuilt candidate, the
+trigger is **unarmed** and must say so — an unarmed trigger honestly labelled still works, because a
+reader can see the prerequisite; a trigger that looks armed and is not disables the whole list.
+Related: `a-closed-blocker-keeps-being-obeyed` (the retrospective half of the same class),
+`a-submission-is-not-a-review` (a named artefact is not the thing it names).
