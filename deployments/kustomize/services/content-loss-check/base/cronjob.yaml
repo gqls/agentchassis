@@ -1,0 +1,89 @@
+# deployments/kustomize/services/content-loss-check/base/cronjob.yaml
+#
+# content-loss-check — the unified content-loss detector AND its reader
+# (bugs_open/355; owner ruled RFC_042 §6 = option (c), 2026-08-22).
+#
+# WHAT IT ASKS, once a day: did any writer of page_components.content_data drop
+# a schema-declared non-llm key (present-and-non-blank -> absent-or-blank across
+# consecutive archived generations of one (page, slot))? And: is any deployed
+# row serving with a REQUIRED non-llm field absent/blank right now (the archive
+# never fires on INSERT, so born-incomplete damage is measured at state)? It
+# then RE-GRADES every unresolved finding of its family (CONTENT_KEY_LOSS,
+# STRUCTURAL_KEY_CARRY_MISS, CONTENT_DATA_REGRESSION) against current rows and
+# stamps healed ones resolved — the reader half, in the same binary, so it
+# cannot be shipped without it (two codes sat unread for weeks; bugs_open/358
+# holds the class).
+#
+# REFUSES RATHER THAN REPORTS CLEAN (exit 2) when its instrument fails: a Go
+# canary on the loss definition, and a demand control pinned to the KNOWN
+# pre-fix funnel losses (72 at pinning, window < 2026-08-15) — a zero there
+# means the instrument went blind, never that the fleet is clean.
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK: discovery checks run per site on
+# dispatch; this question is about the fleet's write corpus and has no site.
+# WHY GO: the loss definition and the heal verdicts are pure functions with
+# mutation-proven tests; a SQL-in-configmap job cannot carry those.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec (ai-persona-app has no
+# pods/exec RBAC here; the constraint every sibling check hit).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: content-loss-check
+  labels:
+    app: content-loss-check
+    component: content-integrity
+spec:
+  # Daily, 07:05 UTC — a free slot: the 06:00-06:55 cluster and 07:10/15/17/25/
+  # 40/55 are taken by the sibling checks (two pairs already collide at 06:50
+  # and 07:40; this deliberately joins neither), and database-backup runs 02:00.
+  schedule: "5 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1 retry: a transient DB blip is indistinguishable at a glance from a
+      # finding, and every write this makes is idempotent (the finding INSERT
+      # dedupes on (history_id, key); resolution UPDATEs are conditional on
+      # resolved=false; the heartbeat is append-only by design).
+      backoffLimit: 1
+      # The pairing query runs correlated subqueries over ~6k archive rows
+      # (~seconds measured by hand); 600s is a wide margin that still stops a
+      # hung job blocking tomorrow's.
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            app: content-loss-check
+            component: content-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED — private registry; without it the job sits in
+          # ImagePullBackOff, which reads as "Running" and never as a failure
+          # (the copy-paste trap every sibling documents).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/content-loss-check:latest
+              # No args: CMD is the bare binary and the WRITING path is the
+              # default (see the dockerfile). Exit 1 on findings so the Job
+              # shows failed — the family posture.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi

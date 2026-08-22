@@ -94,7 +94,8 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	content-creator-agent remote-job-spawner kafka-scheduler \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
-	loop-sitewide-item-key-check brief-negation-check github-actions-runner \
+	loop-sitewide-item-key-check brief-negation-check content-loss-check \
+	github-actions-runner \
 	optional-explicit-wires-check commit-sha-exposure-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
@@ -121,7 +122,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	business-intel:agent-chassis \
 	component-render-check shared-output-fields-check \
 	removed-config-keys-check verifier-remit-check \
-	loop-sitewide-item-key-check brief-negation-check \
+	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
@@ -219,7 +220,7 @@ build-backend: build-auth-service build-core-manager build-agents build-adapters
 # binaries compile the action registry IN, a frozen image silently under-reports
 # on the estate it audits (see RELEASE_IMAGES above for the measured figures).
 .PHONY: build-checks
-build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check build-loop-sitewide-item-key-check build-brief-negation-check ## Build all six daily check CronJob images
+build-checks: build-component-render-check build-shared-output-fields-check build-removed-config-keys-check build-verifier-remit-check build-loop-sitewide-item-key-check build-brief-negation-check build-content-loss-check ## Build all seven daily check CronJob images
 
 .PHONY: build-frontends
 build-frontends: build-admin-dashboard build-user-portal build-agent-playground ## Build all frontend applications
@@ -383,6 +384,10 @@ build-removed-config-keys-check: ## Build removed-config-keys-check CronJob imag
 .PHONY: build-verifier-remit-check
 build-verifier-remit-check: ## Build verifier-remit-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,verifier-remit-check)
+
+.PHONY: build-content-loss-check
+build-content-loss-check: ## Build content-loss-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,content-loss-check)
 
 .PHONY: build-brief-negation-check
 build-brief-negation-check: ## Build brief-negation-check CronJob image (committed HEAD; REF=<ref> to pin)
@@ -2212,6 +2217,23 @@ deploy-verifier-remit-check: ## Deploy the daily verifier-remit-check CronJob (W
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/verifier-remit-check/overlays/$(OVERLAY_PATH)
 	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob verifier-remit-check
+
+.PHONY: push-content-loss-check
+push-content-loss-check: ## Push the content-loss-check CronJob image
+	docker push $(REGISTRY)/content-loss-check:$(IMAGE_TAG)
+
+.PHONY: deploy-content-loss-check
+deploy-content-loss-check: ## Deploy the daily content-loss-check CronJob (bugs_open/355, RFC_042 option c)
+	@echo "$(YELLOW)Deploying content-loss-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/content-loss-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob content-loss-check
+
+.PHONY: content-loss-check-now
+content-loss-check-now: ## Trigger an immediate content-loss-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/content-loss-check \
+		content-loss-check-manual-$$$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: verifier-remit-check-now
 verifier-remit-check-now: ## Trigger an immediate verifier-remit-check run
