@@ -43096,3 +43096,45 @@ code, or a string only the real page can contain (here, the page's own `<h1>`).
 repaired page scores 0 on the stated predicate while being fully working. An inherited predicate
 encodes the SHAPE of the tool someone expected; check what the artefact actually is before
 reading its score as a verdict.
+
+---
+
+## 2026-08-22 — I proved a guard by mutating a SHARED TRACKED FILE in place, and another session committed my makefile 90 seconds later (`bugfix_316_news_feed_ordering` lane)
+
+**What I did, and it was the right instinct done the wrong way.** Adding a new check service, I wired it
+into the makefile's `RELEASE_IMAGES` and `AGENT_DEPLOY_SERVICES` and ran `make check-release-coverage`.
+It printed OK — but that gate has a *documented* blind spot (it only polices overlays pinning an image
+already in `RELEASE_IMAGES`, so a service omitted at birth is invisible to it), so a green from it is
+exactly the kind of pass that needs a demand control. I removed my service from `AGENT_DEPLOY_SERVICES`,
+re-ran, confirmed it failed with the right message, and restored. The guard is genuinely load-bearing.
+
+**The mistake is that I mutated the real `makefile`, on a tree ~30 sessions share, rather than a copy.**
+For the seconds between the two `cp` calls, the working tree held a makefile in which my service was in
+`RELEASE_IMAGES` but NOT in any release path — the precise state `check-release-coverage` exists to
+reject.
+
+**What caught it.** Not the mutation. Afterwards `git diff makefile` came back **empty**, which was
+nonsense — I had just edited it. Commit `d56fd6b11` (the `bugs_open/355` lane, subject *"content-loss-check-now
+had one `$$` too many"*) had swept all 22 of my makefile lines into its own two-line fix. My work was
+already at HEAD under someone else's message.
+
+**How close this was.** I checked, and HEAD carries the RESTORED version: the service is in both lists
+and the gate passes at HEAD. That is luck, not design. Had their `git add -A` landed inside my mutation
+window, HEAD would have carried a makefile that fails `check-release-coverage` — **for every other
+session on the tree**, over a service none of them had heard of, from a commit about something else
+entirely.
+
+**The cheap check that would have.** Mutate a COPY: `cp makefile $TMP/m && sed -i … $TMP/m && make -f
+$TMP/m check-release-coverage`. The guard is proven identically and the shared file is never in a broken
+state. **On a shared tree, "I'll put it back in a moment" is not a plan — it is a window.** The estate's
+own rule already says a long-lived dirty tree is shared mutable state; this is the same hazard measured
+in seconds rather than hours, and it is worse because a deliberate breakage looks intentional to whoever
+sweeps it up.
+
+**Cost if uncaught:** the fleet's release-coverage gate red at HEAD, blamed on the 355 lane's commit,
+about a service that lane has no knowledge of.
+
+**The transferable shape:** *mutating code to prove a guard* is the right discipline — this estate keeps
+recording that a mock's own bookkeeping cannot assert a negative. But the mutation must live somewhere
+private. If the thing you are mutating is tracked and shared, copy it first; and if `git diff` on a file
+you just edited comes back empty, you have not imagined it — go and read `git log -S` for your own lines.
