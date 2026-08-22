@@ -523,3 +523,58 @@ Of what remains:
 > docs are outside council scope — only `747e717a1` touches `platform/`). Third instance
 > today of the same class: **an absence is only evidence if you know what your filter could
 > have shown.**
+
+## 2026-08-22 (after the fleet build) — LIVE and PROVEN, and the defect the verification recipe caught
+
+### Proven in-cluster
+
+`[MEASURED 2026-08-22 17:55Z]` image `v1.0.1326`, CronJob applied (`configured`, not
+`unchanged`), manual Job run, **pod `state.terminated.exitCode` = 0**, `doc_notes` row
+written at 17:55:14Z carrying **69** fields / 51/14/4 / **17** components / **6** live on
+**46** instances. The row is the positive control on the report path: `writeDocNote` is
+best-effort, so a pod exiting 0 having written nothing reads exactly like a clean estate.
+
+### The check shipped in a state where it could not run
+
+Everything said it was fine — release built it, overlay applied, `get cronjob` listed it,
+and the **binary probe found the mode compiled in with its must-be-absent control
+passing**. Every scheduled run would nonetheless have exited 2, because the image is
+`FROM alpine` + `COPY` of the binary alone while the mode loads its baseline from a
+repo-relative path. The builder stage `COPY . .`'d the repo, so the path existed at build
+time and nothing failed during the build.
+
+> **A binary probe answers "did my CODE ship". It says nothing about "can my code RUN."**
+> The moment a mode needs *data*, the deployment has a second dependency that no image
+> tag, provenance stamp or `/proc/1/exe` grep will mention.
+
+**What caught it:** running the container with its real arguments and no environment and
+reading the **first** refusal — it named the baseline, not `PG_CLIENTS_HOST`, so it had
+not reached the DB check. Two seconds, and the only step in the chain that could have
+failed. That step exists because the council's `debug_historian` seat asked for a
+deploy-verification recipe; **the objection I nearly dismissed as procedure is the one
+that caught a live defect.**
+
+### Why the fix is a mount, not a `COPY`
+
+The baseline is **designed to shrink** as `bugs_open/362`'s repairs land. Baked in, it
+goes stale on the first repair and the check reports the repaired entry as STALE until
+someone rebuilds an image for a *data* change. Mounted from a `configMapGenerator`, a
+repair is `apply -k`. That forces the real file into the kustomize base with a symlink
+from the docs path (kustomize refuses a generator source outside its root) — the
+`component-fallback-check` arrangement, same constraint, and its kustomization.yaml says
+so for the same reason.
+
+**No rebuild was needed** — `--baseline` had been in the binary since `747e717a1`. Worth
+stating because the instinct on finding a broken image is to bump a tag, and a fleet tag
+is not this lane's to bump.
+
+### Two small things worth not re-deriving
+
+- **`kubectl kustomize` rewires the volume to the content-hashed ConfigMap name.** Checked
+  rather than assumed: a volume left pointing at the generator's *base* name mounts
+  nothing, and the pod would start clean and read an empty directory.
+- **There are TWO `bugs_open/362`s** — mine (`…sixty_nine_grandfathered_phantom_source_fields`)
+  and another lane's (`…two_tool_writers_persist_rendered_html_without_link_repair`). The
+  new CLAUDE.md ruling on dated counts cites "`bugs_open/362` §6a", which is **the other
+  one**. Exactly the ambiguity CLAUDE.md warns about; this lane's baseline routes by full
+  slug path, so nothing of ours is ambiguous. **Resolve 362 by slug, never by number.**
