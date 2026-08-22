@@ -487,3 +487,68 @@ drift auditor comparing live text to a declared clause would pass it, because th
 it is the prose that lies. Recorded as a constraint on the fix, not a reason to abandon it.
 
 Added to `bugs_open/363` as its own section.
+
+---
+
+## 2026-08-22 — council round 1: REVISE, gated by editquality, and the gating objection was RIGHT
+
+Corr `b3676918-9eee-4b9f-85f3-749e16b3d033`. **14 reviews, 3 abstained, not truncation-gated.**
+10 approve / 4 object. `decided_by: gating objection from editquality`.
+
+### The gating defect, which I had not seen and should have
+
+> **editquality [HIGH], edit 2:** *"The tripwire's allow-list … omits the two guards the diagnosis
+> names explicitly as broken — `complete_work_item_retry_guard_test.go:231` and
+> `page_component_divergence_test.go:221`. If those files still read `sql_for_agents` paths, the new
+> `TestNoNewMigrationFileReadersOutsideTheAllowList` fails on introduction; if it doesn't catch them,
+> it gives false confidence exactly where the diagnosis says confidence is unwarranted."*
+
+**Correct, and it is my own cited landmine turned back on me.** My round-1 plan put the tripwire in
+commit A and deferred converting the two silently-skipping guards to a commit B that existed only in
+prose. So at the moment the tripwire lands, those two files still read the corpus: the test either
+goes red on introduction, or I add them to the allow-list — allow-listing precisely the two guards
+the bug calls broken. My own plan quoted the rule against that ("an allow-list without reasons
+converts a live debt into a false all-clear") and then walked into it, because the A/B split hid the
+overlap.
+
+**The fix is structural, not cosmetic:** round 2 converts all four defective guards in the SAME plan
+as the tripwire, so every remaining allow-list entry is a guard that legitimately keeps a repo-side
+check. And phase 2 (the auditor, image, CronJob, makefile) is split into its own round — which also
+answers editquality's medium, that the deployment files were hidden inside a dockerfile comment so
+"the image builds but never deploys".
+
+### The other objection that found something real
+
+> **debug_historian [MEDIUM], edit 5:** the plan's own evidence found THREE triggers bound to
+> `page_component_artefact_archive` where 357 declares two — *"the sketch's Declaration … only checks
+> the function BODY text, not the trigger-binding count, so this specific drift-in-progress (which the
+> plan's own evidence surfaced) is not itself covered by the new mechanism."*
+
+**Right, and sharp.** I found that drift, put it in the bug as evidence, and then designed a fix that
+would not have detected it. livespec now carries a binding-COUNT declaration.
+
+### Objections answered by going and measuring, having skipped the search first time
+
+- **reuse_agent [MEDIUM ×2]:** no reuse search shown. Fair — I asserted reuse of the binary without
+  checking its comparison engine. Ran it: `grep 'scheduled_tasks' cmd/config-key-audit/*.go` → **ZERO
+  hits**; `UnknownConfigKeys`/`ListDeclaredConfigKeys`/`ListRemovedConfigKeys` are all in
+  `datahelpers/action_inputs.go:247/435/335` and do key-**set** membership over `agent_definitions`
+  step config, not text matching over live object definitions. Of **17** existing `*-check` services,
+  none probes a trigger, CHECK constraint or `pre_query`. Different comparison, no engine to extend.
+- **prior_art_librarian [MEDIUM]:** verify `dbConn`/`writeDocNote` exist rather than asserting.
+  They do — `cmd/config-key-audit/fleetdb.go:52` and `:110`.
+- **architecture [LOW]:** livespec has no growth boundary unlike RFC_022's budget. Added
+  `MaxDeclarations` with a test.
+- **debug_historian [LOW]:** exact-string equality on rendered SQL is a false-alarm generator.
+  Changed to fragment containment.
+- **guardian [LOW]:** confirm the deleted glob/regex has no other consumer — grep, not assumption.
+
+### The lesson worth keeping
+
+**A phased plan can create a defect that neither phase has.** Both of my commits were individually
+sound; the gap was the interval between them, and it existed only because I described phase B in
+prose instead of listing it as edits. The council could see the plan I *wrote*, not the plan I
+*meant* — which is the correct thing for it to review, and the reason the objection landed.
+
+Round 2 resubmitted on the same trail (`RESUBMIT_CORR`), run correlation
+`98e657be-e266-44bb-a548-e6fcb968071d`.
