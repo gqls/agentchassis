@@ -176,3 +176,38 @@ selected at either. The claim holds.
 two instants, which is what makes this a measurement rather than a formality: the query can come out
 "not eligible", and for one of the two sites it does. Had both columns read 5 I would have learned
 nothing — I would only have shown that my predicate matches everything.
+
+## ⚠ THERE ARE TWO CAPS, IN SERIES — and the bug file only knows about one
+
+`find_news_sites` caps at `LIMIT 5`. The step that consumes its output, `process_sites`, is a `loop`
+action over `news_sites.rows` and carries **`max_iterations: 5`**. [MEASURED 2026-08-22]
+
+```
+SELECT default_config->'workflow'->'steps'->'process_sites'->'config'->>'max_iterations' AS loop_cap,
+       substring(default_config->'workflow'->'steps'->'find_news_sites'->'config'->>'query'
+                 from 'LIMIT ([0-9]+)') AS query_cap
+FROM agent_definitions WHERE type='content-feed-trigger' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- loop_cap | query_cap
+--        5 | 5
+```
+
+**This does not change the ordering fix** — reordering 5 of 9 is unaffected by a second gate at 5.
+
+**It changes the capacity advice completely, and it is the trap in the bug file's fix candidate 2**
+(*"raise the cap to >= 10"*). Raising only the `LIMIT` produces **no change in throughput whatsoever**:
+the query would return 10 rows and the loop would silently process the first 5 and stop. Worse, it would
+look like a fix that had been applied — the cap-hit census (`jsonb_array_length` of the step's own
+output) would go from 5-of-5 to 10-of-10 and stop reporting a cap hit, while exactly as many sites got
+refreshed as before. **The instrument would report relief that did not happen.**
+
+So the owner-facing arithmetic needs restating: supply is `4 runs/day x min(query LIMIT, loop
+max_iterations)`, and **both literals must move together or neither moves**.
+
+This is the "guard in series" shape the estate's own memory warns about, found here by reading the
+consumer of the step rather than the step. Recorded as a **correction to `bugs_open/316`'s fix candidate
+2**, which names only the query cap.
+
+Each loop iteration spawns and calls a `content-feed-orchestrator` per site
+(`spawn_agent` -> `call_agent`, 600 s timeout), so the cap is a real spend gate, not a formality — which
+is exactly why the capacity half is the owner's decision and not ours.
