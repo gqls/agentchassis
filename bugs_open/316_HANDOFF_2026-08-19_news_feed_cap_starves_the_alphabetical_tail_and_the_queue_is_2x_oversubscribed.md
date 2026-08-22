@@ -263,3 +263,59 @@ test**: *the overdue set must no longer correlate with alphabetical rank.*
 - ⚠ **Do not read one good run as the fix working either.** Five slots, nine sites: after the most
   overdue site is served, the next-most-overdue goes next. It is the *pattern over several runs* that
   distinguishes a fair queue from a lucky one.
+
+---
+
+# CAPACITY HALF DONE TOO — 2026-08-22, migration `556`. **Both halves now fixed; file stays OPEN pending observation.**
+
+**OWNER DECISION 2026-08-22: "increase the capacity with both caps together."** Done —
+`docs/agent_docs/sql_for_agents/556_news_feed_capacity_both_caps_to_10.sql` (+`_ROLLBACK`), applied and
+ledger-recorded. Council **APPROVED unanimously** (corr `2cfe6fbd-c7da-4f63-ba22-9883305c38df`,
+*"all reviewers approve"*, 10 reviewers).
+
+Both literals moved in **one** migration with a verify block asserting both — the query `LIMIT 5 → 10`
+and `process_sites.max_iterations 5 → 10`. Fix candidate 2 in the original file said only the first.
+
+## ⚠ THIS FILE'S HEADLINE ARITHMETIC IS A POOL FIGURE, AND THE POOL FRAMING MISLEADS
+
+*"42 demanded vs 20 supplied, 2.10× · removing the cap entirely still leaves 36 vs 42, 1.17×"* is
+correct as arithmetic and wrong as a guide to what a cap can buy. **Per site, no cap can help at all
+beyond 4 fetches/day**, because the trigger fires 4×/day
+(`scheduled_tasks.content-feed-refresh`, `interval_seconds = 21600`). [MEASURED 2026-08-22]
+
+| | wants/day | ceiling at a 6-hourly trigger | after `556` |
+|---|---|---|---|
+| 7 sites (6 h cadence) | 4 | 4 | **fully satisfied** |
+| `dartsonline.com` (4 h) | 6 | 4 | capped **by frequency** |
+| `relojistas.com` (3 h) | 8 | 4 | capped **by frequency** |
+
+So `556` takes **seven of nine sites from "served roughly every other run" to "on their configured
+cadence"**, and the entire residual — 6 fetches/day — belongs to two sites whose cadences are shorter
+than the trigger interval. **That is a trigger-frequency or cadence decision and it remains open.** The
+1.17× figure above is really "two sites want more runs than exist", not "the cap is still slightly small".
+
+**Cost, measured:** 20 → 36 site-refreshes/day (+80%); `feed-triage` LLM spend ~78k → ~140k tokens/day.
+
+## ⚠ A THIRD CAP, on a different axis, one source from binding
+
+`DispatchFeedSourcesAction` reads `max_dispatches`, default **10**, bounding SOURCES **per site**;
+`dispatch_sources` sets only `site_id`, so the default applies. The busiest eligible site has **9 active
+sources**. It does not bind today and **one more source on that site makes it bite silently.** Different
+axis, not fixed here, recorded so nobody rediscovers it from a symptom.
+
+## Why this file is STILL OPEN
+
+**Nothing has been observed yet.** Both changes are verified at the config and at the query — the
+installed query now returns 5 rows against a cap of 10 (before `556`, every run returned exactly 5 of 5),
+and the class detector reports 0 findings over 194 live agents. But **no trigger run has happened since
+either migration.** Next run **14:37Z**.
+
+To close, after a run or two:
+1. `webdesign.co.uk` refreshed — its `last_fetched_at` moves off 2026-08-21 02:45Z;
+2. the overdue set no longer correlates with alphabetical rank (this file's own disconfirming test);
+3. the seven 6-hour-cadence sites sit at ≤ 100% of their own cycle;
+4. `relojistas.com` and `dartsonline.com` remain late — **expected, and NOT a failure of these fixes.**
+   If they are on time, suspect the measurement.
+
+⚠ **"Everyone is on time" is still the wrong success criterion**, for a narrower reason than before: it
+is now achievable for seven sites and impossible for two.
