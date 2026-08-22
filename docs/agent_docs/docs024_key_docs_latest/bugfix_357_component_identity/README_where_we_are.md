@@ -133,3 +133,50 @@ what exists so far is the diagnosis, the measurements, and the plan.
 
 Two things I got wrong today are written down in the shared mistakes log with the checks that would
 have caught them, and both corrections are recorded in the bug file itself rather than edited away.
+
+## 2026-08-22, end of session — the council stopped me twice, both times rightly, and there is a decision for you
+
+**Nothing has been changed.** No code, no database, no live site. What exists is a diagnosis, a set
+of measurements, two rejected plans and an architecture question.
+
+**The first plan was unsafe.** The review council pushed back and, while checking their objection, I
+found something worse than the thing they raised. The tidy-up I described to you as "changes nothing
+a visitor sees" would in fact have changed what four live sites serve. The reason is a detail nobody
+had written down: when the platform rebuilds a page it matches the new blocks against the stored
+ones **purely by name**. Rename a block to fix its label and the match silently fails — the platform
+concludes the block was dropped, re-adds the tool at the end, and keeps the newly generated banner
+too. The page ends up with both. So correcting the label is exactly the thing that would disturb the
+page.
+
+**The second plan was safe and useless, and they said so.** I cut it back to "watch and record,
+change nothing", and the council's answer was blunt: the corruption carries on, the 22 pages get a
+work item filed and nothing else, and this estate has a documented habit of detecting problems and
+never blocking them. That is a fair hit and I have accepted it rather than argued.
+
+**What they recommended instead is the useful thing.** One of the reviewers pointed out that the
+platform works out what a block *is* in **five different ways** — from a marker in the HTML, from a
+placeholder meaning "unknown", from its position in a plan, from fuzzy name-matching, and from
+name equality during rebuilds — and it never simply **records** it at the moment the block is made.
+Every bug this lane found is a symptom of that. Adding a sixth way of guessing is not the fix, and
+the fact that my safe plan and my effective plan could not be the same plan is the evidence.
+
+So I have written that up as an architecture question (RFC_046) rather than pushing a third version
+through. It asks for one of three answers: **record** identity properly at the point the block is
+made; **accept** that it is guessed but consolidate five guesses into one; or **knowingly leave it**,
+which is defensible so long as it is a decision and not something that happens by default.
+
+**One piece of good news, and it corrects something I told you earlier.** I said we could not know
+whether this had already destroyed a working tool. That was wrong — there *is* a proper history
+table, which I had missed because I truncated a listing and read the visible part as the whole. With
+it, the answer is a clean no: of the slots that once held something interactive, 182 still do; 17
+changed, and opening all 17 shows fifteen of them **grew** — ordinary rebuilds, not losses. None is
+one of our 22 pages. One unrelated page did shrink by more than half on 15 August and I have written
+it down as a lead for someone.
+
+**What I would like from you:** the RFC_046 decision. Until then the 22 pages stay exactly as they
+are — which is safe, they all serve their tools correctly today — and the label stays wrong.
+
+I got six things wrong today, all of them written down in the shared mistakes log with the checks
+that would have caught them. Three were the same mistake: describing a set of rows from its count
+without opening the rows. It appears in the tally three times in one day, and the log now says
+plainly that when that happens the check needs a mechanism rather than another entry.
