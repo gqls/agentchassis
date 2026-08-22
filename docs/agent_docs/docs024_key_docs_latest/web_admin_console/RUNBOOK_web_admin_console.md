@@ -305,7 +305,7 @@ rather than writing it system-wide through `resolvconf`, which is the desktop-on
 
 ---
 
-## Troubleshooting: tunnel comes up, but nothing works (2026-08-22, UNRESOLVED)
+## Troubleshooting: tunnel comes up, but nothing works (2026-08-22, NARROWED — the loss is upstream of the client)
 
 Symptom on the client: `wg-quick up` succeeds, routes are added, DNS is fine, but `wg show`
 lists the peer with **no `latest handshake` and no `transfer` line at all**, and anything
@@ -378,3 +378,67 @@ data, not wifi** (scan `~/webdesign-admin-vpn/phone-qr.png`).
 
 ⚠ The phone config still carries a `DNS =` line. That is safe on a phone — mobile WireGuard
 apps scope DNS to the tunnel instead of writing it system-wide through `resolvconf`.
+
+### UPDATE — the client is exonerated, with packet-level evidence
+
+`tcpdump` on the client, while the tunnel was up:
+
+```
+15:44:49.565364 wlp0s20f3 Out IP 192.168.0.45.57504 > 134.213.168.37.31820: UDP, length 148
+15:44:55.372408 wlp0s20f3 Out IP 192.168.0.45.57504 > 134.213.168.37.31820: UDP, length 148
+...
+```
+
+**Outbound only, five retries, nothing inbound.** 148 bytes is exactly a WireGuard handshake
+initiation, so the client is behaving correctly and the packets do leave the NIC.
+
+Simultaneously, on the server, `wg show wg0 dump` for that peer: `endpoint=(none)`,
+`last_handshake=0`, `rx=0` — while `peer_webdesignbox` handshook **11 seconds earlier** with
+6.5 MB received. Two peers, one instance, one port; one works continuously and the other has
+never delivered a byte.
+
+**And the client's network passes UDP on high ports perfectly.** Three STUN binding requests,
+each with a validated reply — `stun.l.google.com:19302` (112 ms), `stun1.l.google.com:19302`
+(127 ms), `stun.cloudflare.com:3478` (152 ms). So outbound UDP works, replies return, and NAT
+is not the problem. **This matters because it is the check that would have exonerated the
+network in the wrong direction too** — had the STUN probes failed, the answer would have been
+"the home network blocks UDP" and nothing further would have been needed.
+
+So the packets leave a working network, and never arrive. **The loss is in transit or at the
+node**, and it is not:
+
+- the client config (proven at the packet level),
+- the client's network (proven by STUN),
+- the keys (PSK digest identical in all three places),
+- the egress fence (`Egress`-only; and a dropped reply would still populate the endpoint),
+- node selection (`externalTrafficPolicy: Cluster`, and the pod is on the very node addressed),
+- anything in our terraform (no firewall or security-group resource mentions 31820 at all).
+
+### Next test: is the block node-specific?
+
+`~/webdesign-admin-vpn/try-nodes.sh` sweeps all five node IPs as the `Endpoint`, 20 s each, and
+**checks the SERVER's `wg show` dump rather than the client's** — because the client cannot
+distinguish "no reply yet" from "never arriving", and the server can.
+
+```bash
+sudo -E ~/webdesign-admin-vpn/try-nodes.sh
+```
+
+It prints the working endpoint if one lands, and says so plainly if none does. If none does,
+the next step is a capture inside the pod (`apk add tcpdump` — ephemeral, cleared on restart)
+to separate "arrives but is rejected" from "never arrives", which the `rx` counter alone cannot
+do: **`rx` counts only valid, authenticated packets**, so a malformed or mis-keyed arrival is
+indistinguishable from an absent one at that counter.
+
+### ⚠ The strategic point, before spending more on this
+
+We already run a **proven** internet-to-cluster path that does not use UDP or a NodePort at
+all: the island (`tools.apis.uk`), live since 2026-07-24 — Cloudflare tunnel, outbound-only, no
+inbound ports. And the webdesign.uk box **already holds a working tunnel into the cluster** and
+already proxies to `core-manager`.
+
+So there is a route to browser-based admin that needs no VPN on any device: put
+`admin-dashboard` behind the box's nginx with an access control in front. That is exactly
+options **B/C** in `PLAN_2026-08-22_web_admin_console.md` §1, and it is gated on owner decision
+**D-A**. Continuing to debug WireGuard is reasonable, but it is fixing the path we do *not*
+have working while a path we *do* have working sits unused.
