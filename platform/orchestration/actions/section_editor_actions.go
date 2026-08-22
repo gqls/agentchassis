@@ -780,9 +780,15 @@ func buildRenderContextFromDB(
 	renderCtx.ContentData["footer_nav_items"] = footerLinks
 	renderCtx.ContentData["quick_links"] = footerLinks
 
-	// CTA defaults
-	renderCtx.ContentData["cta_text"] = "Get Started"
-	renderCtx.ContentData["cta_url"] = "/contact.html"
+	// NO CTA defaults, deliberately (bugs_open/203's class, found here
+	// 2026-08-22). A cta_url seeded ahead of the merge below manufactures the
+	// very condition the templates' {{if ... cta_url}} guards test for, so a
+	// section whose content carries no CTA shipped a fabricated
+	// "Get Started" -> /contact.html anchor — a 404 on any site without that
+	// page, and unfixable downstream because no data-side cleanup can express
+	// "no button". Correct-or-absent is the ruled pattern: see
+	// component_library.go's contextToInterfaceMap (LNK-005), which sets
+	// cta_url from the context and invents nothing.
 
 	// Now merge the actual section content_data on top — these take priority
 	// over site-level defaults. This is where headline, features[],
