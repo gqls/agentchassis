@@ -213,6 +213,70 @@ func TestCensus_UncomparableTagIsNotGuessed(t *testing.T) {
 	}
 }
 
+// THE GATING DEFECT, pinned. modalTag broke ties with `tag > best` — a lexical
+// comparison, in the same file as the numeric comparator written to fix exactly
+// that, one screen below it. The council's editquality seat caught it (HIGH,
+// corr b0883c17).
+//
+// It matters more than the comparator itself: the fleet tag is the single value
+// every straggler and ahead-of-fleet finding is measured against, so getting the
+// TIE-BREAK wrong inverts the entire report rather than one line of it.
+//
+//	Picking v1.0.999 here would mean the whole census reads backwards on a fleet
+//	that happens to be evenly split across that boundary — and TestCompareTags
+//	would still be green, because it exercises the comparator and not this
+//	call site. A correct helper does not protect a call site that does not use it.
+func TestModalTag_TieBreaksNumericallyNotLexically(t *testing.T) {
+	tied := []Workload{
+		wl("a", "Deployment", registry+"/a", "v1.0.999"),
+		wl("b", "Deployment", registry+"/b", "v1.0.999"),
+		wl("c", "Deployment", registry+"/c", "v1.0.1000"),
+		wl("d", "Deployment", registry+"/d", "v1.0.1000"),
+	}
+	if got := modalTag(tied); got != "v1.0.1000" {
+		t.Fatalf("tie across the 999/1000 boundary picked %q — lexically higher, numerically OLDER; "+
+			"every finding measured against it would be inverted", got)
+	}
+
+	// And the whole census, end to end, on that fleet: the two on v1.0.999 must
+	// read as BEHIND, never the two on v1.0.1000.
+	decl := mustDecl(t, goodMakefile+"\nOWN_LINEAGE := a:x b:x c:x d:x\n")
+	res, err := Census(decl, tied, registry)
+	if err != nil {
+		t.Fatalf("Census: %v", err)
+	}
+	if res.FleetTag != "v1.0.1000" {
+		t.Fatalf("census fleet tag %q on a 999/1000 tie", res.FleetTag)
+	}
+	for _, f := range res.Findings {
+		if f.Kind == KindStraggler && (f.Service == "c" || f.Service == "d") {
+			t.Fatalf("a service on the NEWER side of the tie was reported as behind: %s", f)
+		}
+		if f.Kind == KindAheadOfFleet && (f.Service == "a" || f.Service == "b") {
+			t.Fatalf("a service on the OLDER side of the tie was reported as ahead: %s", f)
+		}
+	}
+
+	// A clear majority still wins outright — the tie-break must not become the rule.
+	majority := append(tied, wl("e", "Deployment", registry+"/e", "v1.0.999"))
+	if got := modalTag(majority); got != "v1.0.999" {
+		t.Fatalf("a 3-2 majority for v1.0.999 was overridden by the tie-break: %q", got)
+	}
+
+	// Unorderable tags tie deterministically rather than arbitrarily: same input,
+	// same answer, or the report stops being reproducible run to run.
+	odd := []Workload{
+		wl("a", "Deployment", registry+"/a", "latest"),
+		wl("b", "Deployment", registry+"/b", "2026-08-22"),
+	}
+	first := modalTag(odd)
+	for i := 0; i < 20; i++ {
+		if got := modalTag(odd); got != first {
+			t.Fatalf("unorderable tie is not deterministic: %q then %q", first, got)
+		}
+	}
+}
+
 // C2 — DECLARED BUT NOT RUNNING. The worked case is real:
 // `capped-schedule-ordering-check` had an overlay, a dockerfile, build/push/
 // deploy targets and both release lists, and no CronJob at all, on 2026-08-22.

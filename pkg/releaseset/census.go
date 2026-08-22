@@ -325,11 +325,31 @@ func runningNotDeclared(d Decl, ours []Workload, registry string) []Violation {
 	return out
 }
 
-// modalTag is the tag most of our workloads are on. Ties break toward the
-// LEXICALLY HIGHEST tag, which for `v1.0.NNNN` is the newest — so a fleet split
+// modalTag is the tag most of our workloads are on.
+//
+// TIES BREAK TOWARD THE NEWER TAG, which for `v1.0.NNNN` means a fleet split
 // evenly across a rollout measures staleness against the tag it is moving TO,
 // not the one it is leaving. Reporting the older half as stale during a rollout
 // is noise; reporting the un-rolled half is the finding.
+//
+// ⚠ "NEWER" IS `compareTags`, NOT `>`. This function compared tags with `tag >
+// best` in its first cut — a lexical comparison, in the same file as, and one
+// screen below, the numeric comparator written to fix exactly that. The
+// council's editquality seat caught it (HIGH, corr b0883c17) and it was the
+// gating objection: a tie between five workloads on `v1.0.999` and five on
+// `v1.0.1000` picks `v1.0.999` as the fleet tag — lexically higher, numerically
+// older — and that inverts EVERY straggler and ahead-of-fleet classification
+// downstream, because they are all measured against this one value.
+//
+// That is the same defect three times in one file: once in the shipped report
+// (WRONG_CALLS.md, the live run that called two hand-deploys "old"), once in the
+// first repair for it, and once here. **A helper that does the comparison
+// correctly does not protect the call sites that do not use it.**
+//
+// When two tied tags cannot be ordered at all (`latest` against a date, say),
+// the fall-back is lexical and DETERMINISTIC rather than arbitrary — a stable
+// choice keeps the report reproducible, and every workload whose tag differs
+// from it is then reported as KindTagUncomparable, which is the honest outcome.
 func modalTag(ours []Workload) string {
 	counts := map[string]int{}
 	for _, w := range ours {
@@ -339,8 +359,21 @@ func modalTag(ours []Workload) string {
 	}
 	best, bestN := "", 0
 	for tag, n := range counts {
-		if n > bestN || (n == bestN && tag > best) {
+		if n > bestN {
 			best, bestN = tag, n
+			continue
+		}
+		if n != bestN {
+			continue
+		}
+		if cmp, ok := compareTags(tag, best); ok {
+			if cmp > 0 {
+				best = tag
+			}
+			continue
+		}
+		if tag > best { // unorderable: stable, not arbitrary
+			best = tag
 		}
 	}
 	return best
