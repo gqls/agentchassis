@@ -1,0 +1,136 @@
+# deployments/kustomize/services/component-source-vocabulary-check/base/cronjob.yaml
+#
+# bugs_open/309 candidate 2 — the AT-REST half of the source-vocabulary rule.
+#
+# CLC-018 shipped the BIRTH gate: a generated component whose input_schema declares a
+# source the platform cannot resolve is refused at store_generated_component. It is
+# holding — MEASURED 2026-08-22, zero offending components created or updated since it
+# went live. This job asks the same question of the components ALREADY in the table,
+# where the answer is 69 fields across 17 active components, six of them live on 46
+# page instances.
+#
+# WHY THE BIRTH GATE CANNOT COVER THIS, which is the whole reason this exists. The gate
+# only fires on GENERATION. A component is routinely inserted or altered by a
+# hand-written migration or by hand SQL, which never passes through the Go action at all
+# — a standing LANDMINE entry, and precisely how the motivating component
+# blog-listing_pre_037 got there in the first place.
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK. Same evidence as component-fallback-check's
+# header, and it is evidence rather than preference: the obvious home is
+# discovery_checks/, and the carrier there is measurably broken — `quality-discovery-agent`
+# has raised ZERO items for its registered checks in all history (bugs_open/149 Group
+# B/C: six registered checks configured in no agent at all). Wiring a working check into
+# a broken carrier makes it inert by omission.
+#
+# WHY NOT A REPO-SIDE TEST, which would need no image at all: at commit time a migration
+# is unapplied, and `content_components` is routinely changed directly in the database
+# with no commit. The only place this question has a true answer is the live table, on a
+# clock. RFC_006's settled reasoning.
+#
+# WHY THE GO BINARY AND NOT A PYTHON MIRROR like the three older checks. The concept
+# register asked for it in as many words (CLC-018: "build it ON sourceVocabularyIssues,
+# not on a second predicate, or they drift"). A mirror can only DETECT drift; calling the
+# function makes drift unrepresentable. The owner's 2026-08-14 preference for Python
+# answered a different objection — compiling INSIDE the job — which a pre-built image
+# does not do.
+#
+# EXIT CODES: 0 = every live finding is grandfathered by the frozen baseline and
+# unchanged; 1 = a RED; 2 = the check could not run, which must never read as a pass.
+#
+# ⚠ A RED HERE IS NEVER A STANDING BACKLOG — it is always either a real new finding or a
+# one-line trim of the baseline file, and the doc_notes row names which. The four reds:
+#   1. a finding NOT in the baseline — a component born or altered by the migration /
+#      hand-SQL route the birth gate cannot watch, or a field that changed source;
+#   2. a component baselined while DORMANT that now has a live instance — grandfathering
+#      the eleven dormant ones was conditional on their staying dormant, because a new
+#      page acquiring a known silent field-drop is new damage;
+#   3. a STALE baseline entry, matching nothing live. This is the ratchet's pawl and the
+#      correct response is to DELETE the line: the file may only ever shrink, and that
+#      shrink history is the repair burn-down;
+#   4. the audit's own suite failing.
+# Read the doc_notes row before assuming the job itself is broken.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: component-source-vocabulary-check
+  labels:
+    app: component-source-vocabulary-check
+    component: component-integrity
+spec:
+  # Daily, in the config-integrity window. 07:20 UTC verified free against the
+  # SCHEDULES DECLARED IN THE REPO, not against `kubectl get cronjobs` — which is the
+  # wrong instrument and would have picked 07:05: capped-schedule-ordering-check is
+  # committed at "5 7 * * *" and NOT YET DEPLOYED, so the cluster shows that slot free
+  # while it is claimed (and already collides with content-loss-check).
+  # Taken: 06:20 single-owner-carriers · 06:25 removed-config-keys · 06:30
+  # optional-explicit-wires · 06:35 site-discovery-staleness · 06:40 component-fallback ·
+  # 06:45 commit-sha-exposure · 06:50 optional-key-budget AND concept-register-drift ·
+  # 06:55 component-render · 07:05 content-loss AND capped-schedule-ordering · 07:10
+  # shared-output-fields · 07:15 site-locale-unset · 07:25 verifier-remit · 07:40
+  # brief-negation AND instance-scope-sweep · 07:55 loop-sitewide-item-key.
+  #
+  # Not top-of-hour: hourly jobs fire there (wedge-evidence-capture at :17), and other
+  # lanes rebuild pages hourly, so a config check should not measure mid-rebuild state.
+  #
+  # Daily rather than hourly: the component library changes several times a day on this
+  # tree, but a phantom source does its damage on the next PAGE BUILD, not instantly, and
+  # the window that matters is "before the next author copies the pattern".
+  schedule: "20 7 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # Two queries plus a schema walk over ~184 active components carrying an
+      # input_schema.fields object (measured 2026-08-22). Hanging past 5 minutes means
+      # something is wrong, and a hanging job must not block tomorrow's run.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: component-source-vocabulary-check
+            component: component-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED for a private repo image. Without it the pull fails with
+          # "insufficient_scope" and the pod sits in ImagePullBackOff — which this fleet
+          # reports as a Job still RUNNING, never FAILED (LANDMINES, ImagePullSecrets
+          # family). removed-config-keys-check hit exactly this on its first rollout.
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              #
+              # ⚠ THIS IMAGE DOES NOT EXIST UNTIL THE FIRST RELEASE THAT BUILDS IT. Do
+              # NOT `deploy-` this CronJob before `build-` and `push-` have run at the
+              # pinned tag: the pod would sit in ImagePullBackOff, and by the landmine
+              # above that reads as a Job still RUNNING rather than a failure — i.e. a
+              # check that has never once executed would look healthy. The service is in
+              # RELEASE_IMAGES so a normal fleet release builds it.
+              image: docker.io/aqls/component-source-vocabulary-check:latest
+              # The image's CMD is already:
+              #   ./config-key-audit --component-source-vocabulary --report
+              #
+              # The baseline is read from the path baked into the binary
+              # (defaultComponentSourceBaselinePath), which resolves inside the image
+              # because the build COPYs the repo. If that ever stops being true the mode
+              # exits 2 rather than reporting a flood of 69 "new" findings — the refusal
+              # is deliberate and is tested.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi

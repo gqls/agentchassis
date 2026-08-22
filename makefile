@@ -97,7 +97,7 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	github-actions-runner \
 	optional-explicit-wires-check commit-sha-exposure-check \
-	capped-schedule-ordering-check
+	capped-schedule-ordering-check component-source-vocabulary-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -125,7 +125,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	removed-config-keys-check verifier-remit-check \
 	loop-sitewide-item-key-check brief-negation-check content-loss-check \
 	optional-explicit-wires-check commit-sha-exposure-check \
-	capped-schedule-ordering-check \
+	capped-schedule-ordering-check component-source-vocabulary-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -447,6 +447,10 @@ build-commit-sha-exposure-check: ## Build commit-sha-exposure-check CronJob imag
 .PHONY: build-capped-schedule-ordering-check
 build-capped-schedule-ordering-check: ## Build capped-schedule-ordering-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,capped-schedule-ordering-check)
+
+.PHONY: build-component-source-vocabulary-check
+build-component-source-vocabulary-check: ## Build component-source-vocabulary-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,component-source-vocabulary-check)
 
 .PHONY: build-removed-config-keys-check
 build-removed-config-keys-check: ## Build removed-config-keys-check CronJob image (committed HEAD; REF=<ref> to pin)
@@ -2236,6 +2240,10 @@ push-commit-sha-exposure-check: ## Push the commit-sha-exposure-check CronJob im
 push-capped-schedule-ordering-check: ## Push the capped-schedule-ordering-check CronJob image
 	docker push $(REGISTRY)/capped-schedule-ordering-check:$(IMAGE_TAG)
 
+.PHONY: push-component-source-vocabulary-check
+push-component-source-vocabulary-check: ## Push the component-source-vocabulary-check CronJob image
+	docker push $(REGISTRY)/component-source-vocabulary-check:$(IMAGE_TAG)
+
 .PHONY: push-removed-config-keys-check
 push-removed-config-keys-check: ## Push the removed-config-keys-check CronJob image
 	docker push $(REGISTRY)/removed-config-keys-check:$(IMAGE_TAG)
@@ -2259,6 +2267,16 @@ deploy-capped-schedule-ordering-check: ## Deploy the daily capped-schedule-order
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/capped-schedule-ordering-check/overlays/$(OVERLAY_PATH)
 	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob capped-schedule-ordering-check
+
+.PHONY: deploy-component-source-vocabulary-check
+deploy-component-source-vocabulary-check: ## Deploy the daily component-source-vocabulary-check CronJob (bugs_open/309: an ACTIVE component declaring a data source that resolves nowhere)
+	@echo "$(YELLOW)Deploying component-source-vocabulary-check CronJob...$(NC)"
+	@echo "$(YELLOW)  The image MUST already be pushed at this tag. An absent image gives$(NC)"
+	@echo "$(YELLOW)  ImagePullBackOff, which this fleet reports as a Job still RUNNING —$(NC)"
+	@echo "$(YELLOW)  never FAILED. Build and push before deploying, not after.$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/component-source-vocabulary-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob component-source-vocabulary-check
 
 .PHONY: deploy-commit-sha-exposure-check
 deploy-commit-sha-exposure-check: ## Deploy the daily commit-sha-exposure-check CronJob (standing form of 537's guard, bugs_closed/334)

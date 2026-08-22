@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+# Pinned, like every other check service here. `latest` in the base is the
+# placeholder the overlay replaces; a CronJob left on `latest` re-pulls whatever
+# was pushed last, which is how a scheduled check silently changes behaviour
+# between runs with no diff anybody reviewed.
+#
+# ⚠ v1.0.1324 is the makefile's IMAGE_TAG at the time this service was created,
+# and NO IMAGE EXISTS AT IT YET — this service has never been built. The first
+# fleet release that includes it (it is in RELEASE_IMAGES) builds and pushes the
+# image and bumps this pin. Until then, do not apply this overlay: an
+# ImagePullBackOff on this fleet reports as a Job still RUNNING, so a check that
+# has never executed would look healthy.
+images:
+  - name: docker.io/aqls/component-source-vocabulary-check
+    newTag: v1.0.1324
