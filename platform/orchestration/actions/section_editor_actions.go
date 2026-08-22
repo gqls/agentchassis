@@ -84,7 +84,14 @@ var ApplySectionEditInputSpec = datahelpers.ActionInputSpec{
 	// apply_edit step by migration 513. Kept a config key rather than an
 	// input so a caller cannot grant itself the authority the 2026-08-02 §2
 	// ruling says must sit where a reviewer of the STEP can see it.
-	ConfigKeys: []string{"strip_literal_markdown", "allow_rendered_html_transform"},
+	// refuse_absent_required_fields is the bugs_open/342 refusal half:
+	// default OFF, declines to persist an edit whose render left a
+	// schema-required source:"llm" field empty (the live section keeps what
+	// it had). A config key for the same reason as the two above — the
+	// authority must sit on the STEP, not be grantable by the caller. Armed
+	// by migration after the carrying binary rolls; see
+	// mistyped_llm_fields_gate.go for the policy history.
+	ConfigKeys: []string{"strip_literal_markdown", "allow_rendered_html_transform", "refuse_absent_required_fields"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{
 		"edit_type_field": "edit_type",
@@ -422,6 +429,28 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 			}, nil
 		}
 		return nil, fmt.Errorf("edit failed (%s): %w", editType, err)
+	}
+
+	// --- Refuse to persist a section whose required fields rendered empty ---
+	// (bugs_open/342, the refusal half.) The branches above have already
+	// published which schema-required source:"llm" fields the render left
+	// EMPTY, and already filed the required_fields_missing item — so a refusal
+	// here loses no record. What it prevents is the write: these are the two
+	// routes that put rendered_html straight onto an already-live page with no
+	// validate_content between, and until now they filed the note and shipped
+	// the blank anyway. ONE gate at the ONE persist switch, same placement
+	// rule as the link repair and the envelope refusal below, so a future edit
+	// branch inherits it.
+	//
+	// OPT-IN, default OFF (owner ruling 2026-08-02 §2): an edit like this
+	// SUCCEEDS today, so refusing is new authority and arrives as a step
+	// config field. Armed on section-editor's apply_edit by migration, only
+	// after a binary carrying this code has rolled.
+	if refusePersistForAbsentRequired(params.StepConfig.Config, outcome.AbsentRequiredFields) {
+		return nil, fmt.Errorf(
+			"apply_section_edit (%s) on %q: refusing to persist — %d schema-required field(s) rendered empty (%s); "+
+				"the live section is left unchanged and a required_fields_missing item has been filed (bugs_open/342)",
+			editType, slotName, len(outcome.AbsentRequiredFields), strings.Join(outcome.AbsentRequiredFields, ", "))
 	}
 
 	domain, _ := pageData["domain"].(string)
@@ -825,6 +854,15 @@ type sectionEditOutcome struct {
 	// reasoning as StrippedMarkdownFields — both surfaced on the result.
 	TransformName      string
 	TransformConverted int
+	// Schema-required source:"llm" fields the render left EMPTY, copied from
+	// RenderContext.AbsentRequiredFields by the branches that render
+	// (bugs_open/342). Carried on the outcome so the refusal decision can sit
+	// at the ONE persist switch in ApplySectionEditAction — the same reason
+	// the link repair and the envelope refusal live there and not in the
+	// branches: a future edit branch inherits the gate instead of
+	// re-remembering it. Empty on the rendered_html_transform branch, which
+	// re-renders nothing.
+	AbsentRequiredFields []string
 }
 
 // applyRenderedHTMLTransform is the rendered_html_transform branch: apply one
@@ -1071,6 +1109,7 @@ func applyContentEdit(
 		UpdatedFieldCount:      updatedFields,
 		TotalFieldCount:        len(existingContentData),
 		StrippedMarkdownFields: strippedMarkdownFields,
+		AbsentRequiredFields:   renderCtx.AbsentRequiredFields,
 	}, nil
 }
 
@@ -1196,6 +1235,7 @@ func applyComponentSwap(
 		ComponentID:            compID,
 		SlotName:               comp.Function,
 		StrippedMarkdownFields: strippedMarkdownFields,
+		AbsentRequiredFields:   renderCtx.AbsentRequiredFields,
 	}, nil
 }
 

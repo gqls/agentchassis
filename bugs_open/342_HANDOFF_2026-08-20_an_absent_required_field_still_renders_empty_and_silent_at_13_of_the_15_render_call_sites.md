@@ -3,19 +3,59 @@
 **Filed 2026-08-20** by the `bugs_open/260` renderer-half lane, at the council gate's request
 (trail `a44d9eb8`: the `bug_historian` seat's **gating** objection in round 1, and `architecture`'s
 advisory in round 2 — *"worth a follow-up ticket with a target date rather than an open-ended
-note"*). **UNOWNED.**
+note"*). ~~**UNOWNED.**~~ **OWNED since 2026-08-22 by `bugfix_342_absent_required`**
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_342_absent_required/`).
 
 **Status: OPEN — the SILENCE is FIXED AND LIVE on `agent-chassis` v1.0.1322 as at 2026-08-21 17:00Z**
 (probed on both replicas: the report literal and the config key PRESENT, two independent
 removed-string controls ABSENT, nonsense control absent). **Stays OPEN deliberately** — see the
-residual below: nine of fifteen call sites report, six do not, and no refusal was added anywhere.
+residual below: nine of fifteen call sites report, six do not, and ~~no refusal was added
+anywhere~~ **the refusal half is BUILT as of 2026-08-22** (banner below), pending its roll and
+arming.
 
 > ⚠ **The live-page routes ESCALATE as well as detect (2026-08-21, council round 5).** Two seats
 > gated on the fact that this file called `applyContentEdit`/`applyComponentSwap` "the two with the
 > most exposure" and then gave them a log line only. Both now file a `required_fields_missing`
 > item, unconditionally — the write is per-EDIT, not per-build (271 such edits in four months), so
-> it is not the fleet-wide new authority that makes the chrome sibling opt-in. **That commit is
-> NOT in v1.0.1322** and is inert until the next roll.
+> it is not the fleet-wide new authority that makes the chrome sibling opt-in. ~~**That commit is
+> NOT in v1.0.1322** and is inert until the next roll.~~
+> **CORRECTED 2026-08-22: the roll happened — the escalation is LIVE on v1.0.1323.** Evidence at
+> the artefact, not the tag: `cd90e8b27`/`65f1b0b95`/`af4743464` are all ancestors of the
+> v1.0.1323 build stamp `70e7b4f9c` (`git merge-base --is-ancestor`), and the stamp was probed in
+> the binary on BOTH replicas (`grep -aq` on `/proc/1/exe`, nonsense control absent).
+
+> **2026-08-22 — WHAT THE OWNING LANE DID (council submission alongside the commit).**
+> 1. **The REFUSAL half, at the section-editor persist switch.** The two editor routes filed the
+>    item and then persisted the blank anyway. Now `ApplySectionEditAction` refuses to persist
+>    when the seam published absent required fields — ONE gate at the ONE persist switch (the
+>    file's own idiom: link repair, envelope refusal), so a future edit branch inherits it. The
+>    item is filed BEFORE the refusal, so a refused edit still leaves its queue entry. **Opt-in,
+>    default OFF** (`refuse_absent_required_fields`, owner ruling 2026-08-02 §2 — such an edit
+>    SUCCEEDS today, so refusing is new authority; RFC_022's three conditions hold: opt-in ✓,
+>    unsafe default OFF ✓, zero live consumers name it ✓ by `agent_definitions` scan). Armed by
+>    migration `551_…_HOLD.sql` ONLY after a binary carrying the code rolls. ⚠ Interaction with
+>    `bugs_open/344` stated in both the code and the migration: `apply_edit` has no `error_step`,
+>    so the DRIVING item of a refused edit may read `complete` until 344 lands — the live page is
+>    protected either way, and the filed item survives.
+> 2. **The chrome record ARMED** (migration `550`, appliable on sight — the Go half is live).
+>    Measured first per §5: the chrome store (`site_components`) references only components with
+>    ZERO required llm fields, so the arm fires on 0 rows today — free now, and the door closes
+>    before a chrome component that declares required fields (five exist in the library) is ever
+>    adopted.
+> 3. **§5's "expect the 75-of-253 no-schema components to be the hard part" has DISSOLVED** —
+>    re-measured 2026-08-22: 100 of 283 active components have no schema, but **95 are
+>    `component_level='tool'`**, self-contained by design (`isSelfContainedSection` codifies it).
+>    The real class is **5 non-tool components, ONE page_components usage each**, 2 with template
+>    placeholders (`report-request-form`, `audience-check-form`). Small data work for a content
+>    lane, not chassis work; the seam covers each the moment a schema exists.
+> 4. Six unwired sites re-verified individually — each has a mechanism reason (raw candidate
+>    templates with no component row; a contact-info block whose callers hold no schema; a
+>    stitched TEMPLATE whose content arrives later; audit probes that remove fields by design).
+>    Still no change owed there.
+>
+> **Remaining to close this file:** apply 551 after the next roll + the live canary (one
+> refusing edit with the live section byte-identical, one clean edit persisting), and a decision
+> on the 5 no-schema components (or an explicit scope-out recorded here).
 
 > **WHAT WAS DONE.** RFC_041 §5's candidate (a), the structural one: `RenderContext` now carries the
 > component's `InputSchema`, and the **seam** applies `missingRequiredLLMFields` — the same function

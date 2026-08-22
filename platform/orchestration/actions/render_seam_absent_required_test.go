@@ -295,3 +295,91 @@ func TestRequiredFieldsMissingEmitterDecidesCorrectlyWithoutADatabase(t *testing
 			"written must still be visible, or the finding disappears twice over")
 	}
 }
+
+// ── bugs_open/342, the REFUSAL half (2026-08-22) ───────────────────────────
+//
+// The two section-editor routes write rendered_html straight onto an
+// already-live page. Until this change they filed the required_fields_missing
+// item and then persisted the blank section anyway. The refusal declines the
+// persist and leaves the live section untouched — opt-in, default OFF, per the
+// owner ruling of 2026-08-02 §2, because such an edit SUCCEEDS today.
+
+// Key semantics, mirroring both siblings exactly: unset is OFF, and a mistyped
+// value is a mistake that must not switch a refusal on by accident.
+func TestEditorAbsentRequiredRefusalIsOptInAndFailsOpen(t *testing.T) {
+	cases := map[string]struct {
+		config map[string]interface{}
+		want   bool
+	}{
+		"unset":            {map[string]interface{}{}, false},
+		"nil config":       {nil, false},
+		"explicitly false": {map[string]interface{}{"refuse_absent_required_fields": false}, false},
+		"armed":            {map[string]interface{}{"refuse_absent_required_fields": true}, true},
+		"mistyped string":  {map[string]interface{}{"refuse_absent_required_fields": "true"}, false},
+		"mistyped number":  {map[string]interface{}{"refuse_absent_required_fields": 1}, false},
+		// Cross-contamination: neither sibling key may arm this one.
+		"record key is not this key":  {map[string]interface{}{"record_absent_required_fields": true}, false},
+		"mistype key is not this key": {map[string]interface{}{"refuse_mistyped_llm_fields": true}, false},
+	}
+	for name, c := range cases {
+		if got := refuseAbsentRequiredFields(c.config); got != c.want {
+			t.Errorf("%s: refuseAbsentRequiredFields = %v, want %v — a config value that is not a "+
+				"bool is a mistake, and a mistake must not refuse a live-page edit by accident", name, got, c.want)
+		}
+	}
+}
+
+// The deciding arm as the action runs it: BOTH halves are required. Unarmed
+// must mean today's behaviour byte for byte even when the render left required
+// fields empty (that is what "opt-in" means), and an armed step with a clean
+// render must persist normally — a refusal that fires on clean renders has
+// merely stopped completing edits, which is the failure mode the positive
+// control in bugs_open/348 §8 exists to catch.
+func TestEditorRefusalNeedsBothArmingAndAFinding(t *testing.T) {
+	armed := map[string]interface{}{"refuse_absent_required_fields": true}
+	unarmed := map[string]interface{}{}
+	finding := []string{"headline"}
+
+	cases := map[string]struct {
+		config map[string]interface{}
+		absent []string
+		want   bool
+	}{
+		"armed + finding = refuse":            {armed, finding, true},
+		"armed + clean render = persist":      {armed, nil, false},
+		"armed + empty slice = persist":       {armed, []string{}, false},
+		"unarmed + finding = persist (today)": {unarmed, finding, false},
+		"unarmed + clean = persist":           {unarmed, nil, false},
+	}
+	for name, c := range cases {
+		if got := refusePersistForAbsentRequired(c.config, c.absent); got != c.want {
+			t.Errorf("%s: refusePersistForAbsentRequired = %v, want %v", name, got, c.want)
+		}
+	}
+}
+
+// Pins the seam→outcome→gate chain SHAPE: a real render's published finding,
+// carried on a sectionEditOutcome, must trip an armed gate. HONEST LIMIT: the
+// copy inside applyContentEdit/applyComponentSwap is performed here by the
+// test (those helpers need a database), so a branch that stops copying
+// RenderContext.AbsentRequiredFields onto the outcome is NOT caught by this —
+// that is what the post-roll live canary is for (PLAN, verification section).
+func TestSeamFindingSurvivesOntoTheEditOutcome(t *testing.T) {
+	ctx := &RenderContext{
+		ContentData: map[string]interface{}{},
+		InputSchema: schemaRequiring("body"),
+	}
+	core, _ := observer.New(zapcore.ErrorLevel)
+	if _, _, _, err := RenderTemplate(`<article>{{.body}}</article>`, ctx, zap.New(core)); err != nil {
+		t.Fatalf("fixture must render: %v", err)
+	}
+	if len(ctx.AbsentRequiredFields) == 0 {
+		t.Fatal("seam published nothing — the fixture no longer exercises the defect")
+	}
+	// The copy the branches perform, shape-for-shape.
+	outcome := sectionEditOutcome{AbsentRequiredFields: ctx.AbsentRequiredFields}
+	if !refusePersistForAbsentRequired(map[string]interface{}{"refuse_absent_required_fields": true}, outcome.AbsentRequiredFields) {
+		t.Error("an armed step did not refuse the outcome carrying the seam's own finding — " +
+			"the seam→outcome→gate chain is broken somewhere the two half-tests cannot see")
+	}
+}
