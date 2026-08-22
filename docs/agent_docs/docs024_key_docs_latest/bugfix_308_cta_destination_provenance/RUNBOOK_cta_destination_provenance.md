@@ -91,3 +91,28 @@ calls**. A second `cd <same relative path>` fails, the `&&` short-circuits, the 
 consumed and discarded, and a trailing `echo ok` still prints `ok`. **Use absolute paths for
 every write.** The tell is that `ok` appears alongside the `cd` error, which is easy to skim
 past.
+
+## 9. Council submission (Phase A)
+
+```bash
+DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/bugfix_308_cta_destination_provenance/COUNCIL_SUBMISSION_2026-08-22_308_phase_a_provenance.json
+```
+**Gotcha:** `operation` must be one of `modify|add|remove|config_change`. **`create` is rejected
+— a new file is `add`.** The dry run catches it for free; it cost two edits here.
+
+`SUBMISSION_CORR = e4336931-487b-4db3-b4dc-a4b128b3566c` (Phase A, submitted 2026-08-22).
+
+**Read the verdict keyed on the CORRELATION, never `ORDER BY created_at DESC LIMIT 1`** — with
+~40 sessions live, the newest `council-gate` note is whoever finished last, not your verdict
+(a lane read another lane's REVISE as its own on 2026-08-22; LANDMINES carries it):
+
+```sql
+SELECT created_at, metadata->>'decision'
+FROM diagnosis_artifacts
+WHERE correlation_id='e4336931-487b-4db3-b4dc-a4b128b3566c' AND kind='council_report'
+ORDER BY created_at;
+```
+
+Budget ~30 minutes, not ~2: the council itself takes 2-5 minutes but the dispatch queues behind
+the fleet. A missing row is latency, not a dropped dispatch — do not retry on that evidence.
