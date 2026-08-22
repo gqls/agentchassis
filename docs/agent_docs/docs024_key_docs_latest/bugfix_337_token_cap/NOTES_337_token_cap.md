@@ -163,3 +163,40 @@ the motivating anthropic case.
 written could see** — my table set `sent` as a plain int, so absence was unrepresentable
 in the fixture. The estate's line holds again: a REVISE round is cheaper than the defect
 it finds.
+
+## 2026-08-22 — council round 2 APPROVED; advisories answered; migration 549 APPLIED
+
+**APPROVED** (`decided_by`: "approved with 3 advisory objection(s) — none high-severity",
+4 abstained). 8 seats clean; 4 carried objections, all advisory, all answered:
+
+- **prior_art_librarian [low] — RIGHT, and it caught an unmeasured claim of mine.** The
+  "067-sweep: generate_template is component-creator's only `execute_llm_prompt` step"
+  line carried no `[MEASURED]` tag because I had asserted it from a step-NAME list, not
+  a query. Now queried and recorded in the migration header: six steps, exactly one LLM
+  action, none of the other five carries a cap. The query could have returned a second
+  LLM step and did not.
+- **reuse_agent [medium] — checked, declined, reason recorded IN THE CODE.** Unlike
+  `aiservice/max_tokens.go` (where the same objection was answered by an import cycle),
+  `package actions` can import `datahelpers` freely, so reuse genuinely was available.
+  Declined anyway: `GetIntField` handles float64+int only, while the SIBLING key in the
+  same config block (`max_tokens`) is read by `aiservice.configMaxTokens`, which also
+  takes int64/json.Number. Two coercion rules for two keys of one block is the
+  two-readers-of-one-concept drift class. ~10 lines to match the sibling. Noted that if
+  257 candidate 2 unifies them, this should follow rather than keep its copy.
+- **guardian [medium+low]** — blast radius on a 67-carrier shared action, and the
+  in-place `options` mutation. Both already answered by construction: opt-in (no key →
+  byte-identical path, pinned by test) and the provider clients read `options` per-call
+  inside `generate()`, with `LogLLMCall` reading the map synchronously before its
+  goroutine (`llm_call_logger.go:35-39`).
+- **bug_historian [medium]** — no remediation step for the two hollow pages. Correct:
+  the forward path and the repair are separate, and the repair is PLAN phases 5-7. Doing
+  it next; it is the close-out bar, not an optional extra.
+- **editquality [low]** — MDL-042 not among the plan's edits. It IS committed (register
+  entry + `000_concept_index.md` row, commits `9e89e8ca1`/`c7b2c708e`); the plan's 4-edit
+  cap meant docs were described in the rationale rather than listed. No action.
+
+**Migration 549 APPLIED 09:56:36Z**, scoped via `MIGRATIONS_DIR=<scratch dir holding only
+549>` — a bare `--apply` would have swept ~12 other threads' pending files. Snapshot
+taken (`23720180-…`), `UPDATE 1`, ledger recorded. Verified at the live row by the
+RESOLVED value, not the written key: **resolved_cap 24000, ceiling 32000, dead
+`config.max_tokens` key NULL, version 2.**

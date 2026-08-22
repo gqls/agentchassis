@@ -74,6 +74,30 @@ import (
 // (0, false) when the key is absent or unusable, so a caller can distinguish
 // "operator chose nothing" (escalation stays off) from "operator chose a
 // bound".
+//
+// WHY NOT `datahelpers.GetIntField` — checked, not assumed, after the council's
+// `reuse_agent` seat objected (MEDIUM, corr 3d531c9a) that this estate already
+// has numeric-config helpers and the submission never said whether they were
+// considered. Unlike aiservice/max_tokens.go — which faced the same objection
+// and was answered by an import CYCLE — `package actions` imports
+// `datahelpers` freely, so reuse genuinely IS available here and the honest
+// answer is a judgement, not an impossibility:
+//
+//   - `GetIntField(m, key, default) int` handles float64 and int only. For
+//     THIS key its (int, bool) loss costs nothing — a 0 ceiling and an absent
+//     ceiling both mean "escalation off" — so the pair is not the argument.
+//   - The argument is DRIFT WITHIN ONE CONFIG BLOCK. `max_tokens_ceiling` sits
+//     beside `max_tokens` and bounds it, and `max_tokens` is read by
+//     `aiservice.configMaxTokens`, which accepts int64 and json.Number too.
+//     Reading two keys of one block by two different coercion rules means a
+//     config that works for the budget silently fails for its ceiling —
+//     precisely the two-readers-of-one-concept class this estate keeps filing
+//     bugs about (bugs_open/257 §3, the dedup-index/Go-list lockstep).
+//     Matching the sibling's rule is worth ~10 lines.
+//
+// So this is deliberate duplication of a COERCION RULE, not of a mechanism.
+// If `configMaxTokens` is ever exported or the pair is unified (257 candidate
+// 2), this should follow it rather than keep its own copy.
 func truncationEscalationCeiling(aiServiceConfig map[string]interface{}) (int, bool) {
 	if aiServiceConfig == nil {
 		return 0, false

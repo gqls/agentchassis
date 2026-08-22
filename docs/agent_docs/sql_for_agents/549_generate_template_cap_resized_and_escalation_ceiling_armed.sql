@@ -53,8 +53,18 @@
 --
 -- 067-SWEEP NOTE (bugs_closed/067: a cap defect on one step means sweep every
 -- step of the agent): generate_template is component-creator's ONLY
--- execute_llm_prompt step (the other five are read/store/complete actions), so
--- this migration IS the whole sweep for this agent.
+-- execute_llm_prompt step, so this migration IS the whole sweep for this agent.
+-- [MEASURED 2026-08-22, after the council's prior_art_librarian seat objected
+-- that this claim carried no measurement tag — it was right, the claim had been
+-- asserted from a step-name list rather than queried]:
+--   SELECT s.key, s.value->>'action', s.value->'config'->'ai_service'->>'max_tokens'
+--   FROM agent_definitions a, LATERAL jsonb_each(a.default_config->'workflow'->'steps') s
+--   WHERE a.type='component-creator' AND a.is_active
+--     AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL;
+-- returns SIX steps: generate_template (execute_llm_prompt, cap 16000) plus
+-- complete/ensure_site_record/load_existing_component/read_site_spec/
+-- store_component — none of which is an LLM action and none of which carries a
+-- cap. The query could have returned a second LLM step and did not.
 --
 -- Scoped by type + live-row predicate, pre-state gated, DO/RAISE verify
 -- asserting the RESOLVED value (the 415 pattern — never assert the key you just
