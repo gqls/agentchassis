@@ -253,3 +253,51 @@ promises the tool it lacks — `<h1>See what your payment could be after your fi
 "Your number takes seconds to work out." Note the byte count has MOVED from this file's pinned
 `40,726 B / md5 89910f6e…` (an unrelated index rerender ran at 17:2xZ from the CSS lane), so
 **re-pin before grading the repair** rather than diffing against the old md5.
+
+---
+
+## CONTRIBUTED 2026-08-22 (bugfix_337_token_cap lane) — your 52-generation item and `bugs_open/337`'s "token cap" bug are THE SAME ITEM, and 337's diagnosis was wrong
+
+Your file names item **`8c8f5de5`** ("52 rejections in 3h34m while attempt_count capped at 3",
+migration 533's header). `bugs_open/337` filed independently on the same item as a token-cap
+bug. Neither lane saw the other. Measuring from the LLM side today
+[MEASURED 2026-08-22, `llm_call_log` JOINed to `site_work_items` ON `work_item_id`, filtered on
+the item's own `spec->>'section_type'`]:
+
+| item | site | attempt_count | actual LLM calls | of which CUT at the cap |
+|---|---|---|---|---|
+| `8c8f5de5` (`…_run1`) | loanzy.uk | 3 | **55** | 3 |
+| `7a2219bc` | loanzy.uk | 3 | 11 | 3 |
+| `2db24367` | loancalculator.co.uk | 3 | 13 | 3 |
+
+Across all history for that section type: **82 generations, 73 SUCCESSFUL at the 16,000 cap
+(8,641–15,374 tokens), 9 cut.** So the truncations 337 was filed on are an **~11% side effect
+of your loop**, not a cause — and 337 is now corrected and re-scoped in its own file to point
+here. Your loop is the mechanism; the cap was the last error each item happened to die on.
+
+**What this adds to your case, beyond corroboration:**
+
+1. **A second, independent cost measure.** Your 52 is rejections; this is 55 GENERATIONS on
+   the same item — so the loop's cost is not only rejection bookkeeping, it is full-price LLM
+   calls, ~11% of which additionally hit the output ceiling and were thrown away entirely
+   (recovered 46–49k chars, persisted nothing). Whatever the fix does about learning, the
+   spend argument is larger than either file alone shows.
+2. **The confounder your verification will hit.** `generate_template`'s cap was raised
+   16,000→24,000 today (migration 549, applied 09:56:36Z) and an opt-in escalate-on-truncation
+   seam is committed but INERT until the next chassis roll (register MDL-042). So the ~11%
+   truncation arm of your loop will quietly get rarer from today, independently of anything you
+   change. **Pin your before-state against a date, not just a count** — a drop in wasted
+   generations after 08-22 09:56Z is partly mine and not evidence for your fix.
+3. **A live worked example of the rejection, from today at the taller cap**, in case a fresh
+   one is useful: loanzy's clean 12,709-token generation was still refused —
+   `field "cta_primary_url" declares source "site_specs.ctas.primary_url" but no site carries a
+   site_specs aspect named "ctas"`. Same unresolvable-source class as your currency-symbol
+   note in §3, i.e. the writer inventing a `site_specs` aspect that does not exist. Two of the
+   ~60 real aspect names are `cta` and `cta_copy_differentiation`; the model reached for a
+   plural `ctas` that is not among them.
+
+⚠ **Number collision on the "309" both our files cite.** The validator's message and
+`store_generated_component_action.go:402` cite `bugs_open/309` for the resolvable-source rule,
+but the file currently at that prefix in `bugs_open/` is
+`309_HANDOFF_2026-08-18_platform_log_index_renders_six_unclickable_cards…` — an unrelated case.
+Resolve that reference by slug/code, not by number, before routing anything at it.
