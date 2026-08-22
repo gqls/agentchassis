@@ -285,3 +285,82 @@ One review note recorded for whoever writes the code: the strip regex
 and has no case variants, so a case-insensitive match would only widen the tolerance for no gain.
 The `-?` handles trim markers (`{{- end -}}`), which is a shape worth keeping in the pattern even
 though no row in the current corpus uses it.
+
+---
+
+## IMPLEMENTED 2026-08-22 — committed `97c337371`, council `7b662d65` (verdict pending)
+
+**Status: the PREDICATE half is FIXED and committed. INERT until the next chassis roll** (Go is
+inert until an image is built and rolled). The `section_type` half is deliberately NOT done — see
+"Still open" below.
+
+> **Counts in this file predate the owner's 2026-08-22 ruling that a count carries the date it was
+> taken.** Read every bare `N` above as **as of 2026-08-21**, and note the corpus MOVED overnight
+> (sections 148 → **150**, tools 121 → **124**, calculators shelved 0 → **1**, all as of
+> 2026-08-22). That drift is why the re-run below was mandatory rather than ceremonial.
+
+### What shipped
+
+1. **`endsCleanly`** (`component_write_guard.go`) — strips trailing `{{end}}` actions
+   (whitespace- and trim-marker-tolerant, case-sensitive, repeating for nested wrappers) **then**
+   requires `>`. Repaired at the shared function, not at the section predicate, because of the
+   fourth caller: `component_write_guard.go:260`'s write-time regression check. Fixing only the
+   predicate would leave the write guard refusing the shape the loader newly accepts.
+2. **`sectionTemplateValid`** (`plan_sections_action.go`) — the `</section>` substring test is
+   replaced by the structural pair (`UnbalancedStructuralTags` + `endsCleanly`). Stub arms
+   unchanged. The two predicates are left as separate functions with a header note stating that
+   collapsing is safe if they are still identical later, and that the calibration is the judgement.
+
+### Re-calibration against the LIVE corpus (2026-08-22), which the file required and which paid
+
+```
+read: section=150  tool=124        (both asserted; a zero would have failed the harness)
+sectionTemplateValid   rescued=22  regressed=0
+endsCleanly flips (section+tool) = 2   [3f946437, 6c41404d]
+```
+
+**The set assertion earned itself on its first use**, exactly as the amendment above predicted a
+count would not:
+
+- `29e63065` (Loans Application Tracker) **left** the rescued set — another lane regenerated it with
+  a real `</section>` at 14:14Z and shelved it, so there is nothing to rescue. A count would have
+  read 22 and hidden the substitution.
+- `3f946437` (`case-studies-grid`) **joined** the flip set — re-wrapped in a conditional at 11:51Z
+  that morning, tail `…})();</script>{{end}}`. Hand-checked: complete, same legitimate class as
+  `6c41404d`. **So the shape is being authored NOW**, which upgrades this from a legacy-data repair
+  to a live false-positive on new work.
+
+### Two existing tests pinned the OLD behaviour and failed — handled visibly
+
+`TestToolAndSectionGuardsDisagreeOnToolShape` was a **tripwire**, and its own comment named the
+outcome: *"if this ever stops being true, the split has become pointless and one of them changed
+underneath."* **It fired as designed and was right on both counts.** The disagreement it protected
+was the defect, not a design property. Replaced (not deleted — so the old name is answered rather
+than dodged) by `TestToolAndSectionGuardsAgreeOnAWholeToolShape`, which additionally asserts **both
+guards still reject a real cut**, so agreement does not quietly become permissiveness. Two
+`TestComponentTemplateValid_RoutesByLevel` cases flipped to `true` with the reason inline.
+
+### Verification
+
+- **Five mutations, each caught by a NAMED test**: restore the `</section>` test → 
+  `CalculatorWidgetIsValid`; drop the structural arm → `UnbalancedMarkupIsStillInvalid`; accept a
+  bare `}}` → `CutAfterAnActionIsStillInvalid`; strip once instead of looping →
+  `NestedTrailingEndsAreStripped`; case-insensitive `{{end}}` → `CaseVariantIsNotStripped`.
+- **Isolated from the shared tree**, which carried **18** other sessions' uncommitted `.go` files as
+  of 2026-08-22: HEAD exported with `git archive`, my four files copied in — whole `actions` package
+  green, `go build ./...` clean.
+  ⚠ In the working tree `TestUpdateWorkItemStatus_RecordsRoutedStepError` ALSO fails. It passes at
+  HEAD and comes from another lane's in-flight edit to `work_item_failure_ladder.go`. **It is not
+  this change's and must not be "fixed" by whoever picks this up.**
+
+### Still open
+
+- **The `section_type` half is untouched, deliberately.** After this change Path-1's function match
+  can surface the incumbents, so a backfill now raises the two-candidate ordering question against
+  their diverted twins (§"What this does NOT need"). Take that decision deliberately or decline it
+  explicitly — silence is the only wrong answer.
+- **Demand proof at the artefact.** Nothing is proven until the roll: the signal is a site planning
+  a calculator section that RESOLVES to a library incumbent with **no `needs_new_component` item
+  filed at all**. That, not a green test, is what closes this file.
+- **Council `7b662d65` verdict is unread.** Act on a REVISE — the code is already on the shared
+  branch.
