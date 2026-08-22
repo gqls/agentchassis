@@ -77,3 +77,51 @@ plan uses.
 - RFC_022 budget: `apply_section_edit` counts 7 optional keys; ConfigKeys are not counted by
   the audit; the new key changes nothing. `render_site_components` has NO registered input
   spec at all (pre-existing; not widened by this lane).
+
+## 2026-08-22 late morning — built, tested, submitted, committed
+
+- Refusal half implemented: key + deciding arm in `mistyped_llm_fields_gate.go`
+  (`refuse_absent_required_fields`, `refusePersistForAbsentRequired`), outcome field +
+  branch copies + ONE gate at the persist switch in `section_editor_actions.go`, ConfigKeys
+  declared. Tests: two table tests + a seam→outcome→gate chain test; **mutation-proven**
+  (inverting the deciding arm fails TestEditorRefusalNeedsBothArmingAndAFinding AND
+  TestSeamFindingSurvivesOntoTheEditOutcome; reverted, green). Honest limit written into the
+  chain test's comment: the in-branch copy needs a DB — the post-roll canary covers it.
+- Migrations: 550 (chrome record arm, appliable) + 551_HOLD (editor refusal arm, after the
+  roll), both with rollback sidecars, DO/RAISE verifies, double-apply refusals; 550 also
+  refuses if a render_site_components step has moved into a sub_workflow (the write only
+  reaches top level).
+- Council: corr `3626629a-f2bc-4089-9118-c1d6dd007807`, submitted 09:32Z, dispatched almost
+  immediately (no queue wait this time). Two client-side schema rejects first: `create` is
+  not a valid operation (use `add`), and `risks` must be a STRING not an array.
+- Committed `0ee442cfb` with `Council-Submitted:` trailer, 13 files, scope report all mine.
+  Clean `git archive HEAD` build verified after commit (platform/internal/cmd all compile).
+- **My WRONG_CALLS entry (vacuous census) was swept into the 337 lane's commit `9e23fb852`
+  as a same-file passenger** between my append and my commit — the exact CLAUDE.md case;
+  stated in my commit message, nothing lost.
+- MEMORY_workstreams: lane registered with the owed follow-ups (verdict read, 550 apply,
+  post-roll 551 + canary, the 5 no-schema components decision).
+- 550 deliberately NOT applied pre-verdict: migrations are council scope (314 — live the
+  moment they apply), and the arm fires on 0 rows, so waiting costs nothing.
+
+### The 9-of-15 arithmetic re-derived first-hand (not inherited from the bug file)
+
+`grep -rn "RenderTemplate(" --include=*.go platform/ internal/ cmd/ | grep -v _test | grep -v
+"func RenderTemplate"` → **14**, plus `RenderTemplateWithMap` = **15**. Schema-wiring sites,
+counted with a grep that NAMES THE RECEIVER (the bug file's own landmine: a bare
+`grep -c 'InputSchema = '` also matches `ci.InputSchema`, a different struct) → **9**:
+assemble_from_library:302, v3_site_actions:2464, section_editor:1069 + :1206,
+render_site_components:1051, component_library:1730/1805/2092, rerender_page_sections:655.
+**9 + 6 = 15 closes.**
+
+The six unwired, each read at its own call site rather than taken on trust:
+- `GateConvertedTemplate(function, converted string, …)` — signature takes a raw string; no
+  component row is in scope, so there is no schema to pass.
+- `ScopeToolBirthTemplate(html, function string, …)` — same shape, raw candidate template.
+- the legacy head render (`rerenderSinglePage` :538) — its loader
+  `rerenderLoadHeadTemplate` selects `defaults->>'head'` then `html_template` only, never
+  `input_schema`; and **`RerenderSitePagesAction` is in no `GlobalActionRegistry` entry**
+  (grep: 0 hits), matching RFC_041 §4 — a dead path, so wiring it would be inert anyway.
+- `RenderTemplateWithMap` — a different executor (contact-info block), callers hold no schema.
+- the two `cmd/component-render-check` probes — they render with fields REMOVED on purpose, so
+  a report there fires on every probe by design.
