@@ -278,3 +278,137 @@ refused by the validator). `tool-eligibility-checker` remains archived — spend
    this bug is about is a **button-driven quiz**: it scores **0 `<input>` while fully working**.
    Assert the section's presence plus its behaviour (inline script bytes / declared handler
    names), not one tag borrowed from a calculator-shaped tool.
+
+---
+
+## 2026-08-22 (evening) — RE-SCOPED A SECOND TIME, and this time the class was counted before it was named. Fix built, committed, prompt half applied. STILL OPEN.
+
+A fresh session took this after the re-scope above handed it on with *"start at the
+validator/loop, not the ceiling"*. That instruction was right. The **class it named was
+not**, and neither was my own first census — both are corrected here rather than quietly
+replaced.
+
+### Correction 1 — the re-scope above named the MINORITY class
+
+The section above re-scoped this to *"`bugs_open/309`'s unresolvable-source class"*.
+Counted at the call level rather than inferred [MEASURED 2026-08-22] — 101
+`component_validation_rejected` rows, 2026-08-15→08-22, 4 sites:
+
+| class | rows | what it is |
+|---|---|---|
+| **field contract** | **97** | "regeneration removes/renames N existing schema field(s)" |
+| source vocabulary | 3 | "no site carries a `site_specs` aspect named …" (309's class) |
+| other | 1 | |
+
+The named class was 3 of 101. **The same lesson as the correction above, one level down:
+the previous session stopped counting once it had a mechanism that fitted the case in
+front of it.** Its own §"Why the truncation looked like the cause" says to count a
+mechanism's occurrences before believing it is the mechanism — and the re-scope it
+introduced did not do that for its own replacement claim.
+
+### Correction 2 — my own census was wrong, and I stated it before I checked it
+
+I reported "52 deadlocked components". That number was keyed on **function names** rather
+than on **demand**, and a disconfirming check killed it: 21 of the 52 had regenerated
+successfully since 2026-08-01. Re-measured on what is actually requested: of **14** section
+types ever requested by a `needs_new_component` item, **0** are in the blind-and-stranding
+state today. The reason is that **`bugs_open/311`'s site-scoped diversion (first diverted
+row 2026-08-19 16:22:57Z) creates a `section_type`-carrying row as a side effect — and 97
+of the 98 field-contract rejections predate it.** Logged in `WRONG_CALLS.md`.
+
+### What the defect actually is
+
+**The birth gate enforces two contracts the writer is never shown, from sources the writer
+never sees**, so compliance is left to chance, the gate refuses, the item re-dispatches
+unchanged, and the page parks.
+
+- **Field names.** `load_existing_component_action.go` keys its advisory on `section_type`
+  and also filters `is_active` and `component_level='section'`; the gate resolves the row
+  it will overwrite by **function**, via `resolveStorageIdentity`, which deliberately has
+  **neither** filter (`component_storage_identity.go:157-165` — the `is_active` filter was
+  removed 2026-05-06 *because the paradigm regeneration target is a deactivated row*). A
+  miss leaves the whole preservation block dormant behind
+  `{{if .existing_component.field_names}}`, taking the function pin with it. Proven end to
+  end: orchestration `4f321f85` had `field_names = ''` and was refused at 12:18:43Z for
+  stranding 4 fields, then **succeeded at 12:53:07Z when the blind writer reproduced those
+  4 generic names by chance**. The 18-name sibling (`button_1…button_18`) never succeeded
+  in 70 attempts. So this is not "sometimes the LLM forgets" — **preservation is a
+  lottery whose odds fall as the field names get more numerous and less guessable.**
+- **Source vocabulary.** TIER D enumerates query names exactly (*"use these EXACTLY — do
+  not invent new ones"*). TIER C says only `source: "site_specs.{path}"` with three prose
+  examples and **no aspect list**, and the live `prompt_template` renders no part of
+  `site_specs` **anywhere** despite it sitting in `input_fields`. The live blocker is a
+  one-character invention: `site_specs.ctas.primary_url` / `.secondary_url` when the aspect
+  is **`cta`**, which carries **exactly** `primary_url` and `secondary_url`.
+
+### What shipped — commit `e1951c24b`, migration **565** APPLIED, `Council-Submitted: 9efde776-a210-42bc-aa99-899d0d301c67`
+
+Reuse, not addition: every contract is computed by **the gate's own functions**, so offer
+and enforcement cannot drift. This is a fourth application of a pattern this estate has
+already approved, shipped and induced — `016b` §9/092 (*"the writer's allow-list and the
+gate's accept-set cannot diverge"*).
+
+1. **Arm A** — the advisory falls back to the store's own `resolveStorageIdentity` on a
+   `section_type` miss, reporting only when `IsRegeneration`. **Not** a bare
+   `lookupBaseComponent`, which would *manufacture* refusals on the two diversion paths.
+2. **Arm B** — `known_aspects` (via the guard's `LoadKnownSpecAspects` and a newly extracted
+   `KnownAspectsSorted`, now the single rendering used by both the refusal message and the
+   advisory), `known_query_bases`, and `aspect_paths`: leaf `aspect.key` paths with **site
+   coverage**, because the gate validates only the first segment so bare aspect names would
+   trade a loud refusal for a silent blank. Migration 565 puts them in TIER C, dormancy-guarded.
+3. **Arm C** — `section_type` healed on the **rejection** path, `is_active`-gated. The
+   existing `COALESCE` runs only on a successful store, so the repair was locked behind the
+   success its own absence prevents. Gated because healing makes a component **selectable**
+   and migration 036 deactivates broken ones so pages stop choosing them.
+
+**Inert until the next chassis roll.** Migration 565 is live but dormant (it renders nothing
+until the Go half emits the key). No ordering constraint, and none is claimed.
+
+### What this does NOT fix — read before crediting it with anything
+
+- **Arm A repairs nothing today.** 0 of 14 requested section types are blind; 311's
+  diversion closed that by side effect. It ships as prevention plus the `is_active` hole
+  311 never touched.
+- **Arm B's class is rare.** 72 section components created since 2026-05-07 and **none**
+  carries a phantom aspect at rest; 3 rejections in 4 days. **What changed is the
+  consequence, not the rate** — the birth gate went live 2026-08-18 and the first
+  phantom-aspect rejection is 2026-08-21. Before the gate this output was *stored* and
+  rendered silently blank (309's damage); since the gate it *parks the page*. The gate
+  closed the silent door and opened a page-parking one.
+- **`bugs_open/345` landed mid-build and narrows Arm B's claim.** Migration 555 was applied
+  **2026-08-22 11:08:01Z** and `last_error` is demand-proven (5 orchestrations carry it, all
+  since 11:08Z, against 0 all-history; their item `ceea0c07` was refused at 12:18:43Z and
+  completed at attempt 1 at 12:53:07Z). The refusal message already lists every aspect
+  **name**, so that half is now reachable reactively, one wasted generation later. Arm B's
+  unique residual is the **leaf paths and coverage**, the **first** generation saved, and
+  **items that have already spent their attempts** — like the 11 parked ones.
+- **An avenue tested and closed, so nobody re-proposes it:** replacing the field-contract
+  proxy with dependents' real `content_data` keys (which the guard's own comment at
+  `:448-450` pre-authorises). **Refuted:** all 10 refused components have 1–2 live
+  `page_components` dependents, and `loans-credit-health-check`'s dependent stores 19 keys
+  of which **12 are `button_*`**. The rule was protecting real stored content.
+- **Deep-path source validation is deliberately out** — guarantee-altering on a shared
+  mechanism (RFC track), and the 309/362 lane's call. The prompt block instead tells the
+  writer that an unlisted key renders blank, and that the answer is `static`-with-a-fallback
+  or `llm` rather than an invented path — load-bearing, because the sibling
+  `remortgagecalculator` case wanted `currency_symbol`, which **no site carries in any
+  resolvable form**.
+
+### Still open, and what the next session owes
+
+**11 `needs_new_component` items are parked `failed` at attempt 3** across loanzy.uk (×8),
+remortgagecalculator.uk, loancalculator.co.uk and gaswholesalers.com. The owner has ruled
+**re-drive all 11** — but only **after the chassis roll**, because the Go half is inert
+until then and a re-drive now measures nothing. `loanzy.uk/tool-credit-health-check` is
+unchanged: **200, 24,323 B, 3 sections, md5 `bdc997300740`** [pinned 2026-08-22].
+
+⚠ **A stale line in this file, corrected:** §Evidence records
+`loanzy.uk`/`tool-eligibility-checker` as `status='archived'`. It reads **`active`/`planned`**
+as of 2026-08-22 09:15Z. Re-check `pages.status` per item at re-drive time rather than
+trusting either reading.
+
+⚠ **Two verification corrections from the section above still stand and are easy to lose:**
+loanzy serves `/tools/<name>/index.html` (loancalculator serves `/tools/<name>.html`, and a
+wrong guess returns a 1,201-byte custom 404 with a stable md5 that survives a two-reads
+check), and **`grep -c '<input'` is the wrong success predicate** — this component is a
+button-driven quiz that scores 0 while working perfectly.

@@ -127,3 +127,72 @@ doesn't repeat them:
 Neither changed a decision, because I caught both while verifying rather than after
 reporting. But they are the same species of mistake as the big one earlier today: a
 measurement that is accurate about the wrong thing.
+
+## 2026-08-22 (evening) — the bug was mis-named twice, and the real one is that we never tell the writer the rules
+
+Picking this up fresh, I found the note the last session left: "start at the validator, not
+the token limit." That was the right steer. But the thing it pointed at turned out to be the
+wrong culprit too, and so did my own first attempt — so this entry is mostly about how we
+kept naming the wrong thing, because that is the part worth remembering.
+
+**What is actually going on.** When the system writes a new section for a page, a safety
+check inspects the result before storing it and refuses anything that breaks one of two
+rules. The trouble is that **we never tell the writer what those rules are.** It is asked to
+produce something, judged against a standard it has not been shown, and refused. It then
+tries again with exactly the same information — so it fails again. Over eight days that
+happened 101 times across four sites, and eleven jobs are now sitting permanently stopped,
+each one a page missing its calculator.
+
+One of the two rules is worth spelling out, because the failure is almost comic. The writer
+has to say where each piece of text comes from — some are written by the AI, some are fixed
+labels, and some are pulled from the site's own stored details. For that last kind it has to
+name which store to read from. **It has never been shown the list of stores.** So it guessed
+"ctas". The real name is "cta" — one letter — and that store contains exactly the two things
+it was reaching for. The instructions do contain a list of valid names for a *different* kind
+of lookup, with the words "use these exactly, do not invent new ones", and that list has
+worked: nothing has invented one of those since it was added in May. The other list simply
+was never written down.
+
+**How we got the culprit wrong, twice.** The previous session blamed a specific kind of
+refusal. I counted them: that kind accounts for 3 of the 101. The other 97 are the other
+rule. Then I did the same thing myself — I told you 52 components were stuck, from a count
+built the wrong way round. When I ran the obvious check against my own number, 21 of those 52
+had worked perfectly well. The honest figure is that **none** of them is stuck today, because
+a fix from another bug fixed most of it as a side effect three days ago without anyone
+noticing. Both mistakes are written into our shared record of wrong calls. The pattern in all
+three is the same: we each stopped counting the moment we had an explanation that fitted.
+
+**What I have built.** The writer is now told both rules, and — this is the part that matters
+— it is told them by *the same code that enforces them*, not by a second copy that would
+drift apart over time. We have done this exact thing before, successfully, for a different
+writer that was never told which pages existed, so this is a proven approach rather than a
+new idea. I also fixed a small trap where a component could get into a state that made it
+invisible to the thing that repairs it, so it could never climb out.
+
+**What I have deliberately not claimed.** The problem I fixed is *rare* — this kind of
+refusal has happened three times in four days, and no bad component has actually been stored
+since May. What changed recently is not how often it happens but what it costs: a check we
+switched on four days ago turned a quiet, invisible failure into one that stops the page
+being built at all. That is a real improvement and this fixes its side effect. It is not a
+flood, and I would rather you heard that from me than found it in the numbers.
+
+Another team's change landed in the middle of my work and does part of the same job from the
+other end — after a refusal, it now tells the writer what went wrong so the next attempt can
+differ, and it has already turned one refusal into a success. That narrows what mine adds to:
+the detail their message does not carry, the first attempt saved rather than spent, and the
+eleven jobs that have already run out of attempts. I have said so in the review submission
+rather than letting it look bigger than it is.
+
+**A mistake I made that cost someone else time.** While testing, I used a command to undo a
+one-line change of my own. On a shared machine that command does not undo *your* change — it
+throws away everyone's unsaved work in that file. I destroyed about seventy-five lines
+another session had written and not yet saved, and there was no way to get it back from any
+backup. I told them within a minute, naming exactly what was lost so they could retype it
+from memory rather than work it out again, and they had it restored in a few minutes. I have
+written it up as a trap for everyone else, because the command looks completely harmless and
+succeeds silently.
+
+**Where this stands.** The code is committed and the wording change is live, but the code
+part only takes effect at the next rebuild. You asked me to repair all eleven stopped jobs;
+I will, but they have to wait for that rebuild, because re-running them now would prove
+nothing. The review council has the change and I will act on whatever it says.

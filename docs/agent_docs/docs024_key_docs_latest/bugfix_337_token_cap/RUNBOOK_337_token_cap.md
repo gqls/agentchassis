@@ -96,3 +96,83 @@ printf %s "$b" | awk '/<script/,/<\/script>/' | wc -c       # 4593 bytes of real
 Better general predicate: assert the SECTION is present (`tool-<type>-section`) and that its
 behaviour is present (inline script bytes, or handler names the component declares), rather
 than one tag type borrowed from a calculator-shaped tool.
+
+## Classify the rejections BEFORE naming the class (the query the re-scope needed)
+
+```sql
+SELECT CASE
+         WHEN error_message ILIKE '%no site carries a site_specs aspect named%' THEN 'phantom_aspect'
+         WHEN error_message ILIKE '%removes/renames%'                           THEN 'stranded_fields'
+         ELSE 'other' END AS class,
+       count(*) AS rows, count(DISTINCT work_item_id) AS items,
+       min(occurred_at)::date AS first, max(occurred_at)::date AS last
+FROM agent_error_log
+WHERE error_code = 'component_validation_rejected'
+GROUP BY 1 ORDER BY 2 DESC;
+```
+Gotcha: `agent_error_log`'s timestamp column is **`occurred_at`**, not `created_at`.
+This is the query whose absence let a 3-of-101 class be named as the cause.
+
+## Was the writer told anything? (the blind-advisory tell)
+
+```sql
+SELECT o.orchestration_id,
+       length(o.collected_data->'existing_component'->>'field_names') AS advised_chars,
+       left(regexp_replace(e.error_message, E'[\n\r]+', ' ', 'g'), 90) AS refusal
+FROM agent_error_log e
+JOIN orchestration_states o ON o.orchestration_id::text = e.orchestration_id
+WHERE e.error_code = 'component_validation_rejected'
+ORDER BY e.occurred_at DESC;
+```
+`advised_chars = 0` plus a stranding refusal is the signature. Gotcha: the join is on
+`work_item_id`/`orchestration_id`, and older orchestrations are pruned — a small result set
+means retention, not absence.
+
+## Census keyed on DEMAND, not on function names (the one that does not over-count)
+
+The wrong version joins `loader(section_type = <function name>)` and calls every miss a
+deadlock. It counted 52; 21 of them had regenerated fine. Key on what is actually asked for:
+
+```sql
+WITH demand AS (
+  SELECT DISTINCT spec->>'section_type' AS s FROM site_work_items
+  WHERE item_type = 'needs_new_component' AND spec->>'section_type' <> ''
+), loader AS (
+  SELECT DISTINCT ON (section_type) section_type AS s, function AS loader_fn
+  FROM content_components
+  WHERE forked_from IS NULL AND is_active AND component_level = 'section'
+    AND section_type IS NOT NULL AND section_type <> ''
+  ORDER BY section_type, usage_count DESC NULLS LAST, updated_at DESC
+) SELECT count(*) FILTER (WHERE l.s IS NULL) AS blind FROM demand d LEFT JOIN loader l ON l.s = d.s;
+```
+
+## Demand control for bugs_open/345's feedback path (do not infer it from the migration)
+
+```sql
+SELECT count(*) FILTER (WHERE collected_data->'input_data' ? 'last_error') AS carrying,
+       count(*) AS total
+FROM orchestration_states WHERE created_at > '2026-08-22 11:08:01+00';
+```
+Applied ≠ delivering. All-history control: the same predicate with no date filter returned
+**0** before migration 555 and **5** after, which is what makes it a measurement.
+
+## Mutation-testing on a SHARED tree — never `git checkout` to revert
+
+`git checkout <file>` / `git restore <file>` restores the **whole file from the index**, so it
+destroys every other session's uncommitted work in it. It cost this lane ~75 lines of another
+lane's work, unrecoverably (unstaged work was never in git). `git stash` is hook-blocked for
+this exact blast radius; the one-path form is not.
+
+```bash
+f=platform/orchestration/actions/<file>.go
+cp "$f" "$SCRATCH/snap"                 # snapshot THIS instant, not at session start
+perl -0pi -e 's/<the guard>//' "$f"     # apply the mutation
+go test ./platform/orchestration/actions/ -run '<the tests>' -count=1
+cp "$SCRATCH/snap" "$f"                 # restore from YOUR snapshot, never from git
+```
+
+## Pick the migration number when you WRITE the file, not when you plan it
+
+Planned 561 (taken), agreed 562 (taken), then 563 and 564 went while the file was being
+written. `ls docs/agent_docs/sql_for_agents/ | grep -E '^56' | grep -v ROLLBACK` immediately
+before `mv`-ing into place.

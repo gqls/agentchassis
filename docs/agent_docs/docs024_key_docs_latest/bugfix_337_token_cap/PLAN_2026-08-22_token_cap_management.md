@@ -133,3 +133,49 @@ memory as "detection works; schedule and dispatch do not"). So:
 - Bug file moved to `bugs_closed/` only then; residuals (flag→action dispatch,
   candidate 1 follow-up, candidate 4, `execute_llm_prompt`'s missing ActionInputSpec)
   stay named in the file.
+
+---
+
+## ⚠ CORRECTION 2026-08-22 (evening) — this plan's subject is superseded, and the correction is a DIFFERENT one from the cap correction
+
+This document plans the **cap** work (D1, D2 — `max_tokens_ceiling` and migration 549).
+That work shipped and stands on its own evidence. It is **not** what heals these pages,
+which the bug file already records.
+
+What this section adds is that **the re-scope which replaced it was also wrong about the
+class**, and so was my own first census. Both are counted, dated and corrected in
+`bugs_open/337` §"2026-08-22 (evening)" and in `NOTES_337_token_cap.md`. In one line each:
+
+- the re-scope blamed `bugs_open/309`'s unresolvable-source class; it is **3 of 101**
+  rejections, and the field-contract rule is **97**;
+- I then claimed "52 deadlocked components" from a census keyed on function names rather
+  than demand; re-keyed on demand it is **0 of 14** requested section types, because
+  `bugs_open/311`'s diversion closed that class as a side effect on 08-19.
+
+### D4 — the design decision this plan did not contain, recorded here because it is the load-bearing one
+
+**Ship the contract to the writer, computed by the gate's own code — never by a second
+query that happens to agree today.** Two fable design passes disagreed with my first draft
+on exactly one point and both were right: my fallback used a bare `lookupBaseComponent`,
+which would have **manufactured** refusals on the two diversion paths (a divert-to-create
+has no contract at all; a divert-to-existing-scoped-row's contract is the *scoped* row's
+schema). Using the store's own `resolveStorageIdentity` gets all four cases right by
+construction, and degrades to the bare lookup when the requester site is unknown — so it
+subsumes the simpler design rather than competing with it.
+
+**Rejected alternative, with the reason:** a pure-config `query_database` step would have
+needed zero Go (live precedent in `022_site_planner.sql`). It was refused because it would
+be a **second implementation of the gate's vocabulary in a different substrate** — the
+literal `bugs_open/282` anti-pattern this estate keeps filing bugs about — and because the
+query-name half cannot be config at all, `queryresolve`'s map being Go.
+
+### D5 — scope, as the owner ruled it
+
+Asked, because the answers changed what got built: **both arms plus close the divergence at
+source** (hence Arm C, the rejection-path `section_type` heal), **leaf `aspect.key` paths
+with site coverage** rather than bare aspect names, and **re-drive all 11 parked items**
+rather than only the verification page. The counter-argument I gave against the richest
+option and the owner overrode: the coverage-filtered list costs ~5 KB of prompt input on a
+fleet-wide step. It is worth recording that the owner's choice is also what makes Arm B
+survive `bugs_open/345` landing mid-build — the leaf paths are the half no refusal message
+carries.

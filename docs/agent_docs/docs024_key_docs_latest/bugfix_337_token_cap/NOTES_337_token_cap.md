@@ -272,3 +272,92 @@ one wrong.
 `grep -c '<input' > 0`. This component is a button-driven quiz and scores **0 inputs while
 working perfectly**. An inherited predicate encodes the tool someone EXPECTED. Both logged in
 WRONG_CALLS.
+
+---
+
+## 2026-08-22 (evening) — second session: the class census, two refutations of my own, and one destructive mistake
+
+**Where I started.** The re-scope handed this on with "start at the validator/loop, not the
+ceiling". Correct instruction; wrong class.
+
+**The census that should have been run before the re-scope was written** — at the call level,
+`agent_error_log`, `error_code='component_validation_rejected'`, all 101 rows, 08-15→08-22:
+**97 field-contract, 3 source-vocabulary, 1 other.** The re-scope named the 3.
+
+**MISSTEP 1 — I repeated the inherited class before counting it.** I opened by telling the
+user the loop was 309's unresolvable-source class, because the bug file said so. One
+`GROUP BY` refuted it. Same shape as the previous session's own logged error, one level down.
+
+**MISSTEP 2 — "52 deadlocked components", stated to the user before it was checked.** I
+built the census on `function` names, joined `loader(section_type=function)` and counted
+misses. The disconfirming test I then ran — do any of these have a successful regeneration
+since 08-01 — returned **21 of 52**, which killed it. Re-keyed on actual demand
+(`site_work_items.spec->>'section_type'` for `needs_new_component`): **14 types requested, 11
+with an advisory present, 3 blind-but-safe, 0 blind-and-stranding.** The cause is
+`bugs_open/311`'s diversion, live 08-19 16:22:57Z, creating a `section_type`-carrying row as
+a side effect. **97 of the 98 field-contract rejections predate it.** Both missteps logged in
+`WRONG_CALLS.md`.
+
+**What survived the refutations, and why it is still worth building.** The *structural*
+divergence is real and permanent: the advisory diverges from the gate on three predicates
+(`section_type` vs `function`, plus `is_active` and `component_level` filters the gate
+deliberately lacks — `component_storage_identity.go:157-165`). 311 closed the
+NULL-`section_type` arm by side effect and never touched the `is_active` arm. And the
+source-vocabulary arm is the **live** blocker.
+
+**The single most useful measurement of the session**, because it made the fix's value
+concrete rather than plausible: the failing component declared `site_specs.ctas.primary_url`
+and `.secondary_url`; the real aspect is `cta` and it carries **exactly** `primary_url` and
+`secondary_url`, on 4 of 26 sites. The writer's intent was right and only the NAME was
+invented — a one-character miss on a vocabulary it has never been shown, because the live
+`prompt_template` renders no part of `site_specs` at all.
+
+**The natural experiment for "does enumeration work?"** TIER D's query-name list entered the
+prompt **2026-05-07** (`25fe1d318`). All five components that ever invented a query name were
+created **≤2026-04-16**; none since. Not proof — but it is the closest thing available and it
+could have come out the other way.
+
+**The rate control I ran against my own case, and it moderated the claim.** 72 section
+components created since 2026-05-07 carry **zero** phantom aspects at rest. So the class is
+rare, and the honest argument is about **consequence**, not volume: the birth gate went live
+08-18, the first phantom-aspect rejection is 08-21, and before the gate the same output was
+stored and rendered silently blank. **The gate closed the silent door and opened a
+page-parking one.** I put that framing in the council submission rather than letting a
+reviewer find the rate themselves.
+
+**An avenue I tested and closed.** A fable pass proposed replacing the field-contract proxy
+with dependents' real `content_data` keys, on the theory that many refusals guarded nothing —
+the guard's own comment at `:448-450` pre-authorises it. Refuted in one query: all 10 refused
+components have 1–2 live dependents, and `loans-credit-health-check`'s dependent stores 19
+keys of which **12 are `button_*`**. Written into the bug file so it is not re-proposed.
+
+**MISSTEP 3, the expensive one — I ran `git checkout <file>` to undo a mutation and destroyed
+another session's uncommitted work.** Mid-way through mutation-proving the `is_active` gate I
+reverted with `git checkout platform/orchestration/actions/store_generated_component_action.go`.
+That restores the **whole file from the index**, so it reverted ~75 lines of the
+`bugs_open/345` lane's in-flight `recordRetryFeedback` along with my own change. No recovery
+existed — unstaged work was never in git; `git fsck`, editor backups and the stash list all
+had nothing. I told that session inside the minute, naming the exact symbols and figures lost
+so they could re-type rather than rediscover, and they had it back in minutes. **`git stash`
+is blocked by a hook for exactly this blast radius; the one-path form is not, and no hook can
+see it because it destroys work before any commit exists.** Landmine written, `WRONG_CALLS`
+row written. The replacement habit, which costs nothing: snapshot to scratch immediately
+before the mutation and `cp` back — restore from **my** snapshot, never from git.
+
+**A second, gentler passenger event in the same file, in the other direction.** While I was
+re-applying my change, that session committed — and their pathspec took my heal with it
+(`25df3a19c`). Nothing lost, forward-only holds, and they told me rather than leaving me to
+find it. They also caught a real error in my block that `gofmt` flagged: I had inserted my
+function **between `recordValidationRejection`'s doc comment and its function**, orphaning
+the comment. Moved the whole block above the section banner instead.
+
+**Mutation results, all run rather than asserted:** removing `AND is_active = true` fails both
+heal tests; removing the heal call fails both; re-inlining a separate sort in the guard
+message fails the one-vocabulary test. Migration 565's double-apply refusal was **induced**
+after applying, not asserted — re-running the file returns *"the source-vocabulary block is
+already present"*.
+
+**Migration numbering churn worth recording:** I planned 561, found the 345 lane had it,
+agreed 562 with them directly — and by the time the file was written 562, 563 and 564 had all
+been taken by other lanes. Landed on **565**. On a tree this busy, pick the number at the
+moment you write the file, not at the moment you plan it.
