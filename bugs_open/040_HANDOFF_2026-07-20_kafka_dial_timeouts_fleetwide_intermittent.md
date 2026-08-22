@@ -1115,3 +1115,33 @@ other `DeliverReply` callers are byte-identical and a test pins that.
 3. **The 13 adapter/service Deployments still serve no `/metrics`** (§8b). Every figure in §12 covers
    the chassis and spawned agents only. Extending them is its own round and was deliberately not
    bundled — bundling is what got round 1 vetoed back in July.
+
+## 12.7 OWNER RULING 2026-08-22 — items 1 and 3 above are PARKED. 040 itself stays OPEN
+
+Recorded by the `bugfix_029` lane, which put the three outstanding calls to the owner directly and
+heard the answers first-hand. **040 is not closed and nothing about it is withdrawn** — this parks
+two lines of *further work*, it does not retract a finding.
+
+| §12.6 item | ruling |
+|---|---|
+| 1 — the `timeout` residual (146/7d, prod-0 dominant) + §4.2's node-pinned `nc` probes | **PARKED** |
+| 2 — the `refused` mechanism is `[INFERRED]` | **NOT parked, and now free** (see below) |
+| 3 — the 13 Deployments with no `/metrics` | **PARKED** |
+
+**What "parked" means here, stated so the next session does not re-raise it as an oversight:** the
+work is understood, costed and deliberately not being done. Do **not** open a fresh round on either
+without going back to the owner. Do **not** read the park as a judgement that the finding was wrong —
+§12.6's numbers stand, and item 3's coverage limit still bounds every figure in §12.
+
+**Item 2 is unaffected and its cheap confirmation is now armed.** `agent-chassis` rolled to
+**v1.0.1323** at 2026-08-22 08:36Z, and `[VERIFIED at the binary 2026-08-22]` `9b93af8a0`'s round-2
+label work is aboard — probed `client_no_leader` PRESENT and `kafka produce succeeded after retry`
+PRESENT (the literal that was the *absent* control on v1.0.1322, so the probe is shown to
+discriminate), with `zzz_nonexistent_marker_qqq` absent as the negative control. So §12.6's condition
+*"a `090` is only worth firing if a burst arrives before that label is live"* has **expired** — the
+label is live, and the next burst answers it for free. **Named disconfirming result, unchanged:
+`refused` with an empty broker label must now be structurally zero; a non-zero means a THIRD producer
+exists outside the instrumented dial path.**
+
+**Also now due, and not parked:** the `DUPLICATE_SKIPPED` watch that the opt-in produce retry accepts
+as a risk. That retry is live as of this same roll, so the signal is live too.
