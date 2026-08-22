@@ -487,30 +487,46 @@ def build_tools():
         ]}
 
     # -- loans/consolidation -------------------------------------------------
-    # Rows are built by "+ Add Another Debt" and carry classes, not ids.
+    # REBUILT 2026-08-22 (283 lane, owner-ruled full-pipeline rebuild; the old
+    # dynamic-row tool retired). Four STATIC debt rows (debt-1..4, empty rows
+    # ignored), per-figure result ids, all controls prefixed by the instance
+    # token. ⚠ debt terms are now YEARS (the old tool took months); the new
+    # loan principal is USER-ENTERED, not derived — the cases enter the debt
+    # total to preserve the comparison semantics the site's copy describes.
+    # Calibrated live 2026-08-22: tool vs oracles.py agreed to the penny on the
+    # two-debt vector before this block was written (283 NOTES session 9).
+    CP = "#c-tool-loans-consolidation-"
+
     def consol(debts, new_rate, new_years, label):
+        # debts: (balance, apr, TERM IN YEARS)
         total_bal = sum(d[0] for d in debts)
-        old_int = sum(O.total_interest(d[0], d[1], d[2]) for d in debts)
+        old_int = sum(O.total_interest(d[0], d[1], d[2] * MONTHS) for d in debts)
         n = new_years * MONTHS
         new_m = O.monthly_payment(total_bal, new_rate, n)
         new_int = O.total_interest(total_bal, new_rate, n)
-        setup = [{"rows": len(debts), "debts": debts}]
-        return case(label, {"#new-rate": new_rate, "#new-term": new_years},
-                    [chk("#curr-total-bal", total_bal, "total debt to clear"),
-                     chk("#old-int", old_int, "remaining interest on the old debts",
-                         alt={"billed": sum(O.total_interest(d[0], d[1], d[2], True)
+        sets = {CP + "new-loan-amount": total_bal,
+                CP + "new-loan-rate": new_rate,
+                CP + "new-loan-term": new_years}
+        for i, (bal, apr, years) in enumerate(debts, start=1):
+            sets[CP + "debt-%d-balance" % i] = bal
+            sets[CP + "debt-%d-rate" % i] = apr
+            sets[CP + "debt-%d-term" % i] = years
+        return case(label, sets,
+                    [chk(CP + "result-existing-interest", old_int,
+                         "remaining interest on the old debts",
+                         alt={"billed": sum(O.total_interest(d[0], d[1], d[2] * MONTHS, True)
                                             for d in debts)}),
-                     chk("#new-monthly", new_m, "new monthly payment"),
-                     chk("#new-int", new_int, "new total interest",
+                     chk(CP + "result-new-monthly", new_m, "new monthly payment"),
+                     chk(CP + "result-new-interest", new_int, "new total interest",
                          alt={"billed": O.total_interest(total_bal, new_rate, n, True)})],
-                    setup=setup)
+                    press=CP + "calculate-button")
 
     T["loans/consolidation.html"] = {
         "cls": "A", "oracle": "per-debt annuity interest summed, vs one "
                               "consolidated annuity",
-        "cases": [consol([(5000, 21.9, 36)], 9.9, 5, "one debt"),
-                  consol([(5000, 21.9, 36), (3000, 29.9, 24)], 9.9, 5, "two debts"),
-                  consol([(2000, 0, 12)], 9.9, 5, "BOUNDARY 0% APR debt — "
+        "cases": [consol([(5000, 21.9, 3)], 9.9, 5, "one debt"),
+                  consol([(5000, 21.9, 3), (3000, 29.9, 2)], 9.9, 5, "two debts"),
+                  consol([(2000, 0, 1)], 9.9, 5, "BOUNDARY 0% APR debt — "
                          "old interest must be £0"),
                   # The 0%-APR DEBT case passes because a guard returning zero
                   # happens to be the right answer for "interest on a 0% debt".
@@ -519,7 +535,7 @@ def build_tools():
                   # balance/n, not zero and not blank. Checking only the case
                   # where a broken guard looks correct is how a defect survives
                   # a boundary suite.
-                  consol([(5000, 21.9, 36)], 0, 5, "BOUNDARY 0% APR on the NEW "
+                  consol([(5000, 21.9, 3)], 0, 5, "BOUNDARY 0% APR on the NEW "
                          "consolidation loan — payment must be balance/n")]}
 
     # -- mortgages/stamp-duty (class B — the answer is external and dated) ---
@@ -689,18 +705,11 @@ def run_determinism(d, url, spec, mutate=None):
 
 def apply_setup(d, setup):
     """Tool-specific state that must exist before the vector can be driven."""
+    # (2026-08-22: the consolidation dynamic-row arm was retired with the old
+    # tool — the rebuilt tool has four static rows and needs no setup. The hook
+    # stays for the next tool that genuinely needs pre-vector state.)
     for s in setup:
-        if "rows" in s:
-            # consolidation: press "+ Add Another Debt" until there are as many
-            # rows as the case needs, then fill by class (the row inputs carry
-            # no ids — `addDebtRow` builds them with .d-bal/.d-rate/.d-months).
-            for _ in range(s["rows"] - 1):
-                d.click("button[onclick='addDebtRow()']")
-            for i, (bal, apr, months) in enumerate(s["debts"], start=1):
-                base = "#debt-list .debt-row:nth-of-type(%d) " % i
-                d.set(base + ".d-bal", bal)
-                d.set(base + ".d-rate", apr)
-                d.set(base + ".d-months", months)
+        raise DriveError("setup requested but no setup arm exists for: %r" % (s,))
 
 
 def numeric(x):

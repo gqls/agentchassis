@@ -1101,3 +1101,22 @@ not stop a window.* call into a sibling script — it names CDN/fetch only; wort
 Round 3 seeded (same key): self-containment sharpened — inline annuity arithmetic required,
 no window.* calls, years semantics stated. Monitor also watches the engine literal in the
 template as the tell.
+
+## 2026-08-22 (session 9, late afternoon) — consolidation DONE end-to-end: round-3 self-contained tool live, penny-identical to the oracle; block rewritten; full suite green at its NEW total
+
+Round 3 delivered (section_edit → deployed; propagation verified live). Calibration drive
+BEFORE writing the block: tool vs oracles.py to the penny (existing interest £2,886.99, new
+interest £2,174.98, new monthly £169.58 — two-debt vector). Round 3's shape is better than
+the old tool for verification: FOUR STATIC debt rows (no dynamic ids at all), per-figure
+result ids. ⚠ semantics changed and the block encodes them honestly: debt terms in YEARS
+(was months), new-loan principal USER-ENTERED (was derived — cases enter the debt total).
+
+Oracle block REWRITTEN (block-scoped; the consolidation dynamic-row setup arm retired with a
+fail-loud stub — consol was its only user). Consolidation alone: 12/12 PASS incl. BOTH 0%
+boundaries. **Full suite: PASS 166 / FAIL 0 / CONVENTION 6 / N/A 0 (as of 2026-08-22)** —
+the total moved 170→166 because the old block carried 4 checks against a derived debt-total
+display the new tool replaces with an input field; 170−16(old block)+12(new)=166, nothing
+else moved. Mutate control on the rewritten block: 12 FAIL / 0 PASS, CONTROL OK.
+
+Remaining before 283 closes: tracker retry (static-prose regen queued) + its delivery, and
+the close-out sweep read.
