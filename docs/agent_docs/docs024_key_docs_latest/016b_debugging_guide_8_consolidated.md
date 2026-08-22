@@ -13300,6 +13300,18 @@ residual, one from the errors and one from reading the handler's own step config
   some inputs skip. The question to ask of any gated feature is not *"is it on?"* but
   *"what has to happen upstream for it to have anything to act on, and what does that step
   refuse?"*
+- **STRENGTHENED 2026-08-22 (`bugs_open/354`) — a control drawn from your own query shares your
+  own blindness, so it can confirm a blind zero.** A census of `content_data` key losses at the
+  eight uncarried writers returned **0**, and its obvious control — the same query restricted to
+  LLM-written fields instead of resolved ones — returned **0 as well**. Two zeros side by side read
+  as corroboration and were nothing of the kind: both arms shared the same joins, the same pairing
+  and the same schema resolution, so any defect in those made both arms zero simultaneously. What
+  actually settled it was running the identical query against a **different population where the
+  answer was already known to be non-zero** — the funnel writers, where a prior lane had measured
+  losses by another method entirely. It returned **72, in the expected class and the expected date
+  window**, which is what licensed reading the first zero as real. **The test for a demand control is
+  not "does it differ from the measurement" — it is "is it drawn from a population whose non-zero
+  answer is established independently of this query?"** A sibling arm of the same SELECT never is.
 
 ### A PER-SITE artefact reused by every page cannot carry a PER-PAGE value — bake one in and every page confidently asserts the same wrong identity, which is worse than the absence you set out to fix (2026-08-20, `bugs_open/252` og/lang slug)
 

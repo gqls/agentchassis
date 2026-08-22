@@ -504,3 +504,75 @@ printing `<a href="tel:"></a>`, i.e. it reproduces the live defect verbatim befo
 damaged; the pages said otherwise in one direction (email present) and worse in another (dead
 `tel:`). **A `page_components` row is a claim about a page, not a measurement of one** — the
 LANDMINE says so, and I still had to be shown twice in two days.
+
+---
+
+## 2026-08-22 — scoping RFC_042's detector, and the census that answered it before it was built
+
+The owner asked for a `bugs_open/` handoff scoping RFC_042 option (c), *"so we can measure it"*.
+Filed as **`bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`**.
+Number claimed at 354 (353 was the highest across both dirs at the time; the collision that cost
+migration 497 last week is the reason it was claimed before the file was written).
+
+**The scoping turned into a measurement, and the measurement came back empty.** The archive trigger
+on `page_components` has been recording pre-images with `slot_name` since 2026-08-09 — 6,210 rows —
+and its `op` column splits them cleanly: `delete` (5,830) is the funnel, because `save_page_sections`
+is DELETE+INSERT; `overwrite` (380) is every in-place writer, i.e. exactly the eight that PBP-039's
+carry does not protect. Re-render is not a third case: it emits sections that `save_page_sections`
+ingests and holds no `UPDATE page_components` of its own (its own comments at :30, :1091, :1149).
+
+Pairing consecutive generations and diffing schema-declared non-LLM keys over the `overwrite`
+population: **279 of 380 judgeable, 0 losses.**
+
+**MISSTEP, caught before it was written down anywhere.** The first control I reached for was the LLM
+arm of the same query — and it also returned 0. I nearly took two zeros as corroboration. They are
+one zero counted twice: both arms share the joins, the pairing and the schema resolution, so a
+defect in any of those silences both simultaneously. The control that actually discriminates had to
+come from a population whose non-zero answer was established independently: the `op='delete'` run,
+which returns **72 losses (static=24, renderer=48), dated 08-09/08-11/08-12 and none since** —
+matching what RFC_042 §4.6 had measured by an entirely different method. Only then was the zero
+readable. Generalised into 016b §9's existing demand-control entry as a strengthening: *a control
+drawn from your own query shares your own blindness.* Not a `WRONG_CALLS` row — nothing false was
+ever asserted — but it was one query away from being one.
+
+**Second misstep, same shape, caught by asking why the number was small.** The first join resolved
+the schema through `page_component_history.component_id`, and reported **92 of 380 judgeable**. That
+FK is `ON DELETE SET NULL`, so every archived row whose page_components row was later deleted by a
+regeneration has lost its pointer — **221 of 380, 58%**. A slot-keyed fallback recovers it to 279.
+A census keyed on the FK alone returns a clean, plausible, three-times-too-small denominator.
+
+**What keeps 354 open despite the zero** — four blind spots, each quantified in the file:
+1. 101 pairs unjudgeable by any route;
+2. **`application_name` cannot name the writer** — every app write carries the pgx connection default
+   `app - <ip>:<port>`, hand SQL carries `psql`. So even a positive result could not be attributed,
+   which is the exact question RFC_042 §4.3 says the detector exists to answer;
+3. `pch_op_check` permits only `overwrite`/`delete` — **the trigger never fires on INSERT**, so a row
+   born with incomplete content_data is invisible for ever (bound: 119 of 1,850 deployed rows carry
+   no content_data — 77 NULL, 42 `{}`);
+4. the window is 13 days; the older `save_page_sections_overwrite` archive reaches back to 2026-03-16
+   but carries no `slot_name`, so it can only be paired at page granularity — the granularity that
+   could not see 238.
+
+**Writer census re-verified at HEAD.** RFC_042's nine stands. Three files newly matched the census
+grep since it was written and all three are excluded on reading: `v3_site_actions.go` (writes
+`sites.content_data`, a different table, plus `build_status`), `store_generated_component_action.go`
+(`build_status` only, :1177), `create_tool_component_regenerate.go` (`rendered_html` only, :316).
+Two paths destroy content_data by deleting the row rather than writing it —
+`remove_duplicate_page_sections_action.go:297` and `internal/core-manager/admin/tool_admin_handlers.go:184`
+— deliberately out of scope, recorded so the next census does not "discover" them.
+
+**The finding-with-no-reader count is now two, not one.** `CONTENT_DATA_REGRESSION` 41 rows
+(2026-08-08 → 08-21, 0 resolved) and `STRUCTURAL_KEY_CARRY_MISS` 28 rows (08-11 → 08-17, 0 resolved);
+grep confirms neither code appears anywhere but its own write site and prose. So 354's candidate A3 —
+ship the consumer in the same commit as the detector — is written as non-negotiable rather than as
+advice. A third unread code would be the pattern, not an accident.
+
+**The cheapest thing in the file is not the detector.** Candidate A1: `SET LOCAL application_name =
+'action:<name>'` inside the existing transaction at each write site. No schema change, no config key,
+no migration; the trigger already captures the column. It closes blind spot 2 permanently and makes
+every future census attributable, including ones nobody has thought of. Worth shipping even if the
+owner takes RFC_042 option (a).
+
+Also this session: RFC_042 updated with an 08-22 header note and a re-read warning on its own
+recommendation; the census + its control written into this lane's RUNBOOK with the two ⚠ traps;
+016b §9's demand-control entry strengthened.

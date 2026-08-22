@@ -184,3 +184,56 @@ data and nobody has ever measured whether they lose anything. My recommendation 
 before building anything — twice this week, measuring first stopped us building something that
 would have looked right and changed nothing. That is written up as RFC_042, alongside an older
 paper asking the same question about the neighbouring column; they should be answered together.
+
+---
+
+**2026-08-22 — you asked me to scope the detector so we could measure it. Scoping it measured it.**
+
+The question behind RFC_042 is simple to say: nine different pieces of code write the field values a
+page section was built from, and only one of them is protected against quietly dropping a value that
+came from somewhere else in the system — a link, an image, a contact address. We fixed the protected
+one and proved it. Nobody had ever looked at the other eight.
+
+So I went to write the handoff for building a detector, and before writing "here is what it would
+cost" I wanted to know how big the problem was. It turns out the system already keeps a
+before-and-after copy of every change to that field, going back to the 9th of August. That is enough
+to answer the question for changes made in-place — which is what the other eight writers do.
+
+**The answer is zero.** Across 279 changes made by the unprotected writers, not one resolved value
+was lost.
+
+I want to be careful about that zero, because a zero is the easiest wrong answer to get. My first
+instinct was to check it by running the same query against the values written by the language model
+instead, and that came back zero too — which looks like confirmation and is actually the same zero
+twice, since both halves lean on the same joins. If the query were broken, both would be silent.
+The check that settles it is to run it somewhere we already know the answer is not zero: the
+protected writer's own history, where an earlier round of work had found losses by a completely
+different method. It came back with 72, in the right class, on the right three days in August, and
+none since the fix landed. So the query can see losses. There aren't any at the other eight.
+
+**Then why is anything still open?** Because the instrument has four holes, and I would rather write
+them down than pretend the zero is bigger than it is:
+
+- it can't tell us *which* writer made any given change — the column that looks like it names the
+  program is actually just the network connection, so even a positive result couldn't be routed to
+  anyone;
+- it never records a section being *created*, only changed or deleted, so a writer that makes a new
+  section with something missing is invisible to this method entirely;
+- for about a quarter of the changes it can no longer work out what the section was supposed to
+  contain;
+- and it only goes back thirteen days.
+
+**What I'd suggest, and it is not the detector.** The cheapest useful thing in the whole file is one
+line of code per writer: have each one say its own name when it writes, which the archive already has
+a place to record. No new machinery, no database change. It permanently fixes the first hole and it
+makes every future check of this kind possible — including ones we haven't thought of yet. It is
+worth doing even if you decide the rest isn't.
+
+One thing I've written into the file as a hard condition rather than a suggestion: if we do build the
+detector, **whatever reads its output ships in the same commit.** We now have two separate warning
+codes in the system, 41 records and 28, that nothing anywhere reads. A third would be a habit rather
+than an accident.
+
+The file is `bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`.
+It says plainly that it can be closed with **no code at all** if you'd rather take the zero and put
+the census on a monthly schedule — that is a legitimate answer, and it's cheaper than the rest.

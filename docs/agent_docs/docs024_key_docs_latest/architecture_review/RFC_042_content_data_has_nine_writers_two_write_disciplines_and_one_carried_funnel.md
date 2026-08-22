@@ -17,6 +17,16 @@ CTA anchors across 19 sites through a branch the carry did not cover.
 
 **Status:** DRAFT — no code proposed here. The decision asked of the owner is at §6.
 
+> **UPDATE 2026-08-22 — option (c) is now scoped and its population is measured:
+> [`bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`](../../../../bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md).**
+> The headline changes the decision at §6 and should be read before taking it: pairing every archived
+> in-place write (the 380 transitions belonging to the eight uncarried writers) and diffing
+> schema-declared non-LLM keys returns **ZERO losses** — against a demand control, the identical query
+> over the funnel population, which returns **72**. So the query can see losses and there are none
+> here. What keeps 354 open is not damage but four quantified blind spots in the instrument, the
+> sharpest being that **the archive cannot name the writer at all** (`application_name` is the pgx
+> connection default), which is precisely the question §4.3 says the detector exists to answer.
+
 **Answer this together with [`RFC_008`](RFC_008_a_mandatory_write_seam_for_page_components_rendered_html.md)**
 (*"a mandatory write seam for `page_components.rendered_html`"*, open since 2026-08-02). It is the
 same question about the sibling column of the same table, it has already collected four seats saying
@@ -238,7 +248,11 @@ Pick one, and say whether it is answered jointly with `RFC_008`:
 - **(e)** contract plus the `planSection` completion only.
 
 **This lane's recommendation: (e) now, (c) next, (b) only if (c)'s findings show non-funnel writers
-actually losing keys.** The reasoning is one sentence: **build the detector before the guard, because
+actually losing keys.** ⚠ **Re-read in light of `bugs_open/354` (2026-08-22):** (c)'s findings, as
+far as today's instrument can produce them, are **zero** — so the case for (b) is now weaker than
+when this was written, and the cheapest genuinely new thing in 354 is not the detector at all but
+its candidate **A1**, a one-line-per-writer stamp that makes the archive self-attributing. That is
+worth doing under option (a) as much as under (c). The reasoning is one sentence: **build the detector before the guard, because
 the guard's population is currently an inference and the detector is what would measure it** — and
 (e) is already in flight, so it costs this decision nothing to take.
 

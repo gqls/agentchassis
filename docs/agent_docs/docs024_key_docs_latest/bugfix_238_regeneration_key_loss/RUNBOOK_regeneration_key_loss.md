@@ -246,3 +246,78 @@ is the 2026-08-11 error in this bug's own slice B.
 ⚠ `page-rerender` keeps its steps at `{workflow,steps,<name>}`; `page-content-writer` nests them in
 `process_sections_loop.config.sub_workflow.steps`. A path copied from `380` finds nothing here and
 reads as "no such step".
+
+---
+
+## The content_data key-loss census, and the control without which it means nothing
+
+Added 2026-08-22 while scoping `bugs_open/354` (RFC_042 option (c)). This is the query that decides
+whether the eight uncarried writers lose resolved keys — and the reason it needs a second run.
+
+**How the population splits.** `page_component_history` rows written by the archive trigger carry
+`slot_name`, so consecutive generations of one (page, slot) can be paired. `op` is the discriminator:
+
+- `op='delete'` → **the funnel** (`save_page_sections` is DELETE+INSERT, so its old rows arrive as
+  deletes). The re-render path is *not* separate — it emits sections that `save_page_sections`
+  ingests, and holds no `UPDATE page_components` of its own.
+- `op='overwrite'` → **the eight uncarried writers** (every in-place `UPDATE … SET content_data`).
+
+⚠ `op` is a proxy for the writer, not the writer. A future non-funnel writer that deletes and
+re-inserts lands in the funnel bucket and would be mis-attributed.
+
+```sql
+-- Swap 'overwrite' for 'delete' to run the DEMAND CONTROL (see the warning below).
+WITH pre AS (
+  SELECT h.id, h.page_id, h.site_id, h.slot_name, h.component_id,
+         h.content_data AS before_data, h.created_at
+    FROM page_component_history h
+   WHERE h.source='artefact_archive_trigger' AND h.op='overwrite'
+), sch AS (
+  SELECT p.*,
+         COALESCE(
+           -- the FK route, which silently loses 58% of rows (ON DELETE SET NULL)
+           (SELECT cc.input_schema->'fields' FROM page_components pc
+              JOIN content_components cc ON cc.id = pc.component_id WHERE pc.id = p.component_id),
+           -- the slot fallback, which recovers 24% -> 73% coverage
+           (SELECT cc2.input_schema->'fields' FROM page_components pc2
+              JOIN content_components cc2 ON cc2.id = pc2.component_id
+             WHERE pc2.page_id = p.page_id AND pc2.slot_name IS NOT DISTINCT FROM p.slot_name
+             ORDER BY pc2.updated_at DESC LIMIT 1)) AS fields,
+         COALESCE(
+           (SELECT h2.content_data FROM page_component_history h2
+             WHERE h2.source='artefact_archive_trigger' AND h2.page_id=p.page_id
+               AND h2.slot_name IS NOT DISTINCT FROM p.slot_name AND h2.created_at > p.created_at
+             ORDER BY h2.created_at ASC LIMIT 1),
+           (SELECT pc3.content_data FROM page_components pc3
+             WHERE pc3.page_id=p.page_id AND pc3.slot_name IS NOT DISTINCT FROM p.slot_name
+             ORDER BY pc3.updated_at DESC LIMIT 1)) AS after_data
+    FROM pre p
+)
+SELECT s.created_at::date AS day,
+       split_part(COALESCE(s.fields->k->>'source',''),'.',1) AS src_root,
+       count(*) AS losses
+  FROM sch s, LATERAL jsonb_object_keys(s.fields) k
+ WHERE s.fields IS NOT NULL AND s.after_data IS NOT NULL
+   AND COALESCE(s.fields->k->>'source','') NOT LIKE 'llm%'   -- every field declares a source
+   AND s.before_data ? k AND btrim(COALESCE(s.before_data->>k,'')) <> ''
+   AND (NOT (s.after_data ? k) OR btrim(COALESCE(s.after_data->>k,'')) = '')
+ GROUP BY 1,2 ORDER BY 1,2;
+```
+
+⚠ **NEVER report this query's zero without the demand control, and the control must be the
+`op='delete'` run — not the LLM-field arm.** Measured 2026-08-22: the `overwrite` population
+returned **0 losses**, and the LLM-field arm of the *same* query returned **0** as well. Both share
+the joins, the pairing and the schema resolution, so both go quiet together; two zeros side by side
+look like corroboration and are not. The `op='delete'` run is the control that discriminates —
+it returns **72 losses, `static`=24 / `renderer`=48, dated 08-09 (4), 08-11 (63), 08-12 (5) and none
+since**, matching what RFC_042 §4.6 measured by a different method. That is what licenses reading the
+`overwrite` zero as real. (It also re-confirms 238's closure by an independent route: 5,532 judgeable
+funnel transitions since 08-12, zero losses.)
+
+⚠ **Coverage, so a zero is not over-read.** 380 overwrite pairs; 279 judgeable with the slot
+fallback, 92 with the FK route alone. The archive is additionally blind to any row being *born*:
+`pch_op_check` permits only `overwrite`/`delete`, so **the trigger never fires on INSERT**.
+
+⚠ **`page_component_history.application_name` cannot name the writer.** Every application-side write
+carries the pgx connection default (`app - 10.20.99.74:35564` and thousands of siblings); hand-run
+SQL carries `psql`. A pod IP is not a call site, and several writers share one binary.
