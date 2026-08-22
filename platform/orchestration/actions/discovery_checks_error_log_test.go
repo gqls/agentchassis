@@ -135,21 +135,20 @@ func TestDiscoveryCheckErrorLogColumnValues(t *testing.T) {
 // The error code must be distinct from every other code the estate writes.
 // A shared code makes "which path caught this" unanswerable — the drift
 // bugs_open/097 exists to keep answerable.
+//
+// The roster it checks against USED TO BE A HARD-CODED LIST HERE, of the nine
+// codes the estate wrote in early August. It had gone stale — it never gained
+// RESOLVER_CONFLICTING_CANDIDATES, PLAN_SECTION_NAME_DROPPED or
+// CONTENT_KEY_LOSS — so by 2026-08-22 this test was certifying distinctness
+// against a snapshot rather than against the estate. It now reads the one
+// registry (bugs_open/358), which is checked against the LIVE TABLE daily and
+// so cannot quietly stop describing what is actually written. The assertion and
+// its reason are unchanged; only the source of truth moved.
 func TestDiscoveryCheckErrorCodeIsDistinct(t *testing.T) {
 	if discoveryCheckErrorCode == claimsFloorErrorCode {
 		t.Error("discovery check code must not reuse the claims floor code")
 	}
-	for _, taken := range []string{
-		"CONTENT_LINK_REPAIR_DETAIL", "CONTENT_LINK_REPAIR_SKIPPED",
-		"CONTENT_DATA_LINK_AUDIT",
-		"CONTENT_CLAIMS_FLOOR_DETAIL", "CONTENT_VALIDATION_FAILED",
-		"CONTENT_VALIDATION_BLOCKER_DETAIL", "TRUNCATION_DEGRADED_REVIEW",
-		"VALIDATION_ERROR_DROPPED", "UNKNOWN",
-	} {
-		if discoveryCheckErrorCode == taken {
-			t.Errorf("discovery check code collides with live code %q", taken)
-		}
-	}
+	assertFindingCodeDistinct(t, discoveryCheckErrorCode)
 }
 
 // ---------------------------------------------------------------------------

@@ -225,6 +225,34 @@ the resolver sink (*"a second finding type or a second consumer gets a fresh arc
 and never a second parallel sink"*). This plan adds **no** sink and **no** finding type — it
 declares the ones that exist. Named here so the seat can see it was read.
 
+## 8a. What B2-as-built covers, and what it does NOT — for the RFC_008 lane
+
+**Added 2026-08-22 after `d795e10f5`, which routed an RFC_008 open question at "358 B2" while
+this was being built.** That commit reads B2 as covering two things:
+
+> *"The generalised form of that question now lives in `bugs_open/358` candidate B2 (no new
+> finding code ships without a reader; a lint tying new writers to the seam). Whoever takes B2
+> answers this RFC's open question too — build it once, for both."*
+>
+> Reopen trigger 2: *"`bugs_open/358` B2's measurement shows advisory findings going unread, i.e.
+> commits carrying an `unrepaired-component-write` finding that are followed by neither a fix nor
+> an allow-list entry."*
+
+**Only the first is built here, and the two are not the same channel.** Stating it plainly so the
+RFC_008 lane does not wait on a measurement that is not coming:
+
+| RFC_008 expects from B2 | delivered? |
+|---|---|
+| no new **`agent_error_log` finding code** ships undeclared | **YES** — this is exactly `--finding-codes` |
+| a **lint tying `rendered_html` writers to the repair seam** | **NO.** Different seam, different table, different mechanism. It is `page_components.rendered_html` and `RepairPageLinks`, not `agent_error_log` |
+| a measurement of whether **`scripts/pattern-check.py` advisory findings get read** — commits carrying an `unrepaired-component-write` finding followed by neither a fix nor an allow-list entry | **NO.** That channel is a pre-commit hook writing to a terminal, with no durable row anywhere. Nothing in this design observes it |
+
+The two questions share a *shape* — "a detector whose output nobody consumes" — which is why the
+routing was reasonable. They do not share a mechanism, and the second is strictly harder: this
+one had a table to query, and that one has no durable record at all, so measuring it means
+first giving it one. **`bugs_open/358` B2 is now DONE for the `agent_error_log` half only.**
+Recorded in the bug file too, so the next reader of either file sees the same boundary.
+
 ## 9. Explicitly not in scope
 
 - Building readers for the readerless codes (358 §5 — each needs domain judgement, and a blanket

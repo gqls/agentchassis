@@ -133,7 +133,11 @@ import (
 	// "not local" for every action — which is why both refuse to print a
 	// clean-looking result over zero registrations.
 	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
-	_ "github.com/gqls/agentchassis/platform/orchestration/actions"
+	// Still imported for the init() side effects described above; ALSO used
+	directly now by --component-source-vocabulary, which runs the birth
+	gate's own SourceVocabularyFindings rather than a second copy of it
+	(bugs_open/309, CLC-018).
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/validation"
 )
@@ -221,6 +225,10 @@ func main() {
 		emitOptionalExplicitWires(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--finding-codes" {
+		emitFindingCodes(os.Args[2:])
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "--commit-sha-exposure" {
 		emitCommitShaExposure(os.Args[2:])
 		return
@@ -251,6 +259,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--loop-sitewide-item-keys" {
 		emitLoopSitewideItemKeys()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--component-source-vocabulary" {
+		emitComponentSourceVocabulary(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--capped-schedule-ordering" {

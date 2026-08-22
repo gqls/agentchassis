@@ -28,3 +28,100 @@ and every misstep.
   9,617 (was 9,615) and still the loudest, oldest row still 2026-07-23 (retention live),
   `REVIEW_SUPERSEDED_BY_PASSING_SAVE` (25 rows, 07-23 only) days from deletion,
   `TRUNCATION_DEGRADED_REVIEW` dies ~08-25.
+
+## 2026-08-22 — the census method itself is unreliable, which IS the finding
+
+Trying to reproduce 358 §2.1's grep census produced junk on the first two attempts, and that is
+worth recording rather than tidying away, because it is the argument for a registry.
+
+- **`grep -ohE 'ErrorCode:\s*"..."'` plus a regex for `*Code = "..."` constants returned 47
+  strings including `A`, `CODE`, `FIRST`, `SECOND`, `SOME_CODE`, `X_AUDIT` — test fixtures — while
+  MISSING every one of `validationDetailErrorCode`, `linkRepairErrorCode`, `claimsFloorErrorCode`
+  and nine more.** The recovery was to stop pattern-matching and resolve each identifier by name.
+- **A fourth blindness, beyond the const one 358 §3.2 records:** several codes reach the table as
+  a **positional argument** to `LogActionError(ctx, params, siteID, domain, action, code, …)` —
+  `tool_birth_instance_scope_refused`, `RETRACTION_AUDIT`, `component_write_shared_blocked`,
+  `PLAN_PAGE_SAME_NAME_IDENTITY_HELD`. An `ErrorCode:` grep cannot see any of them.
+- **Conclusion that shaped the design:** if three careful attempts at the source census disagree,
+  the source is the wrong authority. `SELECT DISTINCT error_code` cannot be got wrong this way.
+
+## 2026-08-22 — CORRECTION 4 to the bug file: `BUILD_DISPATCH_STALLED`'s closed loop is not live
+
+358 §2.2 lists it as one of three codes with an automated reader, evidence for the
+"reader-with-writer from birth" law. Both halves are real IN THE FILE
+(`214_build_dispatch_watchdog.sql:104` reads, `:120` writes) and **neither is live**:
+
+```sql
+SELECT filename FROM schema_migrations WHERE filename LIKE '214%';   -- 0 rows
+SELECT name FROM scheduled_tasks WHERE name ILIKE '%watchdog%';       -- 0 rows
+```
+
+Migration 214 was never applied. Its zero row count reads as "quiet" and means "absent" — the
+two are indistinguishable from the table's side, which is exactly why the check reports the
+registered-minus-observed direction and never fails on it.
+
+## 2026-08-22 — the `090` came back UNVERIFIABLE, and its REASON is evidence for the design
+
+Run correlation `c965bfec-993a-4b2b-88ba-d44549c81df1`, filed on the five-writers claim.
+Verdict: **UNVERIFIABLE (stopped: scope-not-narrowing)**. **This is not a refutation and must not
+be reported as a confirmation either.** What it said it still needed:
+
+- the `pgxpool`-vs-`*sql.DB` question could not be settled — *"the symbol search for pgxpool
+  found 0 rows but the index holds no `type` kind declarations at all (kinds present: alias,
+  const, func, interface, method, struct, var), so that 0 is unrepresentable-not-absent"*;
+- `214_build_dispatch_watchdog.sql` was **absent from the bundle entirely** — *"SQL files are
+  outside the .go-only indexed corpus and cannot be code_request'd"*;
+- `cmd/content-loss-check/main.go` returned 0 rows, *"explicitly flagged as possible index
+  staleness on unpushed work, not proof the binary is absent"*.
+
+So the loop's static tier is `.go`-only, index-backed, and holds no `type` declarations — and the
+claim under test is precisely about writers spread across Go, SQL and `cmd/`, two of which it
+cannot see. **A claim can be outside what an instrument can grade without being outside what can
+be verified**: all five files were read first-hand and their type declarations quoted. Recorded
+here rather than in `WRONG_CALLS.md` because nothing was claimed wrongly — but the *shape* is
+worth knowing before filing a 090 about anything that is not Go.
+
+## 2026-08-22 — council round 1: REVISE, and the objection was right
+
+`be1fd678-0836-4f32-90a6-8927b2463fee`, gated by `editquality` at HIGH:
+
+> *"Both this edit and edit 5 call `findingCodeRegistryCodesExcept(t, ...)` but no edit in the
+> plan defines this helper… Without it these test files will not compile — the repointing this
+> edit exists to do is a no-op until the helper exists."*
+
+Correct, and it is the second time this lane has nearly shipped an edit whose stated effect
+depended on something not in the plan. Auditing the plan the same way found **a second omission
+of exactly the same kind**: `cmd/config-key-audit/main.go`'s mode dispatch, without which
+`--finding-codes` is unreachable — a mode that exists and cannot be called. Round 2 resubmitted
+on the same correlation with both, and with sketches taken from the working code rather than
+composed. Cost of the round: one resubmission. Cost of not having it: a commit whose two
+headline edits were inert.
+
+## 2026-08-22 — what is built, and the controls it passes
+
+`--finding-codes` (mode 16 of `cmd/config-key-audit`), registry of 53 entries, 19 tests.
+Against the live table: **43 normalised codes observed (44 raw — the two
+`tool_crosslink_not_emitted:*` variants collapse), 0 findings, 32 unruled, 10 registered but
+unobserved.** Controls, all run this session (RUNBOOK has the commands):
+
+| control | result |
+|---|---|
+| real live list | exit 0 |
+| + `TEST_UNREGISTERED_X` | exactly one `undeclared` finding, exit 1 |
+| remove it again | exit 0 — so the check can come out clean, i.e. it discriminates |
+| a raw `tool_crosslink_not_emitted:<new reason>` | exit 0, collapses to the family key |
+| `consumed` reader repointed at a real file that does not name its code | `reader-does-not-name-code`, exit 1 |
+| the true reader | exit 0 — so the rejection was about the reader, not about any change |
+| empty input | refuses: empty stdout, exit 2 from the compiled binary |
+
+⚠ **The registry mutation was done on a COPY** (`scratchpad/reg_wrong_reader.json` via
+`--registry`), never on the shipped file — `WRONG_CALLS.md` 2026-08-22 records a session mutating
+a shared file in place to prove a guard and another session committing it during the window.
+That is also why the roster test's predicate was split out pure: it can be mutation-proved
+against a fixture instead.
+
+⚠ **`go run` collapses the child's exit status** (LANDMINES): the empty-input control read as
+`exit=1` under `go run` and `exit=2` from the compiled binary. The signal to branch on is
+**empty stdout**, exactly as `audit-optional-key-budget.sh` records. First reading of that control
+was logged as a failure before the landmine was recalled — no claim was published, so it is here
+rather than in `WRONG_CALLS.md`.

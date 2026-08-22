@@ -570,6 +570,7 @@ an ID prefix, or a status word.
 | PLAN-037 | Multi-page site support (wrap_multipage, multipage-site-builder) | superseded | Early multi-page extension of the single-page pipeline; superseded by the plan/pages domain | site-plan-and-reconciler.md |
 | SYS-029 | Self-spawning flat dispatch-loop (pre-scheduler, superseded) | superseded | Early one-item-then-respawn design replaced by scheduler tick + in-workflow loop | system-architecture.md |
 | DBG-074 | kcat + db-inspector operational runbook | deployed | Early ops playbook for triggering/tracing workflows in the live cluster | debugging.md |
+| DBG-075 | Finding-code registry — every agent_error_log code declares a disposition | built (cron is phase 2) | Checked against the LIVE table, not source: agenterrors is NOT the one writer (4 of 5 bypass it) | debugging.md |
 | DIAG-040 | Base-runbook gated-items framing (documentation-style lineage note) | superseded | Early runbook style deferred the roadmap to a separate PLAN.md; superseded by inlined self-contained runbooks | diagnosis-loop.md |
 | ADO-029 | website-analyzer conditional scraping group | deployed | Early smart capture entry point routing scrape/extract/crawl | adoption-pipeline.md |
 | ONB-020 | Briefing agent (early industry-brief / clarifying-question stage, pre-questionnaire) | partial | Early two-era briefing agent generating brief JSON, later superseded | onboarding-config.md |

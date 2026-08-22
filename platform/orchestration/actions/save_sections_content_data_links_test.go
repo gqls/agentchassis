@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -146,20 +145,16 @@ func TestAuditIgnoresSectionsWithNoContentData(t *testing.T) {
 // LIKE: the estate has two such queries today (`tool_crosslink_not_emitted%`,
 // `component_validation_%`), so prefix-disjointness is a real property, not a
 // stylistic one. CONTENT_DATA_ vs CONTENT_LINK_ diverge at the ninth character.
+//
+// UPDATED 2026-08-22 (bugs_open/358). The `taken` list this test carried was a
+// hand-maintained copy of eight codes, and a sibling copy of nine lived in
+// discovery_checks_error_log_test.go. Both had gone stale, in the same
+// direction, within days — neither ever gained RESOLVER_CONFLICTING_CANDIDATES
+// or CONTENT_KEY_LOSS. Both now read the one registry, which is checked against
+// the LIVE TABLE daily. The prefix rule below is UNCHANGED and its measured
+// justification above still stands; what changes is that it now runs against
+// every registered code rather than against a snapshot, which is the thing a
+// list in a test file can never do.
 func TestContentDataLinkErrorCodeIsDistinct(t *testing.T) {
-	taken := []string{
-		"CONTENT_LINK_REPAIR_DETAIL", "CONTENT_LINK_REPAIR_SKIPPED",
-		"CONTENT_CLAIMS_FLOOR_DETAIL", "CONTENT_VALIDATION_FAILED",
-		"CONTENT_VALIDATION_BLOCKER_DETAIL", "TRUNCATION_DEGRADED_REVIEW",
-		"VALIDATION_ERROR_DROPPED", "UNKNOWN",
-	}
-	for _, other := range taken {
-		if contentDataLinkErrorCode == other {
-			t.Errorf("content_data audit code collides with live code %q", other)
-		}
-		if strings.HasPrefix(contentDataLinkErrorCode, other) || strings.HasPrefix(other, contentDataLinkErrorCode) {
-			t.Errorf("content_data audit code %q shares a prefix with live code %q — a LIKE query would catch both",
-				contentDataLinkErrorCode, other)
-		}
-	}
+	assertFindingCodeDistinct(t, contentDataLinkErrorCode)
 }

@@ -61,9 +61,37 @@ is `[MEASURED]` this session; every query and grep is restated inline.
 > value is a literal, and parses nothing. Also worth knowing before building a per-code consumer:
 > **there is no index on `error_code`** (`\d agent_error_log` — four indexes, none on it).
 >
+> **CORRECTION 4 — `BUILD_DISPATCH_STALLED`'s "closed loop" (§2.2) is not live.** Both halves are
+> real in the file (`214_build_dispatch_watchdog.sql:104` reads, `:120` writes) and **neither is
+> installed**: `SELECT filename FROM schema_migrations WHERE filename LIKE '214%'` → **0 rows**,
+> and no `scheduled_tasks` row named `build-dispatch-watchdog` exists. Migration 214 was never
+> applied. So §2.2's "three codes with automated readers" is really two-plus-`content-loss-check`.
+> More useful than the correction: **its zero row count reads as "quiet" and means "absent"**, and
+> from the table's side those are indistinguishable — which is why the fix reports codes that are
+> registered-but-unobserved instead of dropping them, and why that direction is report-only.
+>
 > Two figures re-measured, both still standing: 45,507 rows (was 45,426), oldest still
 > 2026-07-23, and retention confirmed live — `scheduled_tasks` row `database-cleanup`, enabled,
 > `interval_seconds` 3600, last triggered 2026-08-22 10:07 UTC.
+>
+> ### §4 B2 IS BUILT — for the `agent_error_log` half only
+>
+> `cmd/config-key-audit --finding-codes` (mode 16) + `finding_code_registry.json` +
+> `scripts/audit-finding-codes.sh`, register entry **DBG-075**. It checks the declaration against
+> `SELECT DISTINCT error_code` rather than against source, for Correction 3's reason. Against the
+> live table today: 43 normalised codes observed, **0 findings**, 32 `unruled` (the backlog — that
+> count is the progress metric for §4 B1), 10 registered-but-unobserved. Mutation-proved both
+> ways; the controls are in the lane's NOTES. Phase 2 (the daily CronJob) is **not** built.
+>
+> ⚠ **`d795e10f5` routed an RFC_008 open question at "358 B2" the same day, and it is NOT this
+> question.** That commit expects B2 to deliver (a) no undeclared finding code — **done**;
+> (b) *"a lint tying new writers to the seam"* for `page_components.rendered_html` — **not done,
+> different seam and different table**; and (c) reopen-trigger 2, *"commits carrying an
+> `unrepaired-component-write` finding followed by neither a fix nor an allow-list entry"* —
+> **not done**: that is `scripts/pattern-check.py`'s advisory channel, which writes to a terminal
+> and leaves no durable row, so measuring it means first giving it one. The two share the shape
+> "a detector nobody consumes" but not the mechanism. Said plainly here so the RFC_008 lane does
+> not wait on a measurement that is not coming.
 
 ## 1. The defect, in plain terms
 
