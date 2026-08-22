@@ -43179,3 +43179,43 @@ fence must be `inconclusive`, never a pass.
 resubmission from memory of the file as it stood before my own edits had shifted it; the real lines
 are `:252` and `:659`. A line number in a submission is a citation — grep it at the moment you
 write it, because your own change is the most likely thing to have moved it.
+
+---
+
+## 2026-08-22 — I verdicted a code UNREAD from its resolved-count, in the very file whose subject is telling read from unread
+
+**The claim.** In `bugs_open/358` (the unread-finding-codes class file) I wrote, in a *correction
+block* added an hour after filing: *"`CONTENT_DATA_REGRESSION` (41) remains at 0 resolved: it is
+page-level and all-or-nothing, so the per-key check cannot adjudicate it, and it stays in §2.1's
+population"* — §2.1 being the list of codes with no automated reader. Committed (`5b5cab4a5`).
+
+**It was false, and the code disproving it had shipped that morning.** `cmd/content-loss-check`
+reads `CONTENT_DATA_REGRESSION` explicitly: `main.go:327` selects unresolved rows of three codes
+including `codeRegress`, and `:423` is its own disposition arm — page gone → `page_gone`, page holds
+≥1 component with non-empty `content_data` → `healed`, else `open` with a stated reason. All 41 rows
+were graded `open` on the first run. **A standing open population, not an unread one.**
+
+**The inference that did it.** I reasoned: *the other two codes gained resolved rows, this one did
+not, therefore nothing reads it.* That is "0 resolved ⇒ 0 readers", and it is wrong in the one
+direction that matters — **a finding that is read and correctly left open is indistinguishable, in
+the rows, from a finding nobody reads.** I had spent the morning establishing that the honest test
+is a code read, ran that test properly across sixteen codes at constant level, and then abandoned it
+for a row-count the moment a number was to hand.
+
+**Second error inside the first.** My stated *reason* was also wrong: I said a per-key check "cannot
+adjudicate" a page-level finding. Granularity of the finding and granularity of the heal predicate
+are independent — the check adjudicates the page-level claim with a page-level query. The peer's
+phrasing is the one to keep: **readable ≠ per-key.**
+
+**What caught it.** The lane that wrote the check, reading my correction and naming the function and
+the constant. Cost: nothing, because it arrived before anyone acted on the file — but the file is
+the class's index, so an uncorrected row would have sent whoever takes B1 to build a reader for a
+code that has one.
+
+**The cheap check.** *Before calling anything unread, grep for the code — the CONSTANT as well as
+the literal — and read the arm.* This file's own §3.2 trap says exactly that, one section above
+where I broke it; §8 now carries the resolved-count corollary. And the general form, which is why
+this is here rather than only in the bug file: **when you have already built the right instrument
+for a question, a convenient number is not a licence to stop using it.** Related:
+`a-post-fix-zero-needs-a-demand-control` (a zero that could not have come out otherwise),
+`cite-the-arm-not-the-function` (quote the deciding branch, not the file).

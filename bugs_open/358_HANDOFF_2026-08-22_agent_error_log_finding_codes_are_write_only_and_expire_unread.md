@@ -116,8 +116,23 @@ rule being the general law, not a lane preference.
 
 > **Also corrected 2026-08-22:** `STRUCTURAL_KEY_CARRY_MISS` (28 rows, listed in §2.1's exclusions as
 > *owned, consumer in flight*) **now has that consumer** — 8 of its 28 rows carry `resolved = true`
-> from the same run. `CONTENT_DATA_REGRESSION` (41) remains at 0 resolved: it is page-level and
-> all-or-nothing, so the per-key check cannot adjudicate it, and it stays in §2.1's population.
+> from the same run.
+>
+> > **CORRECTED AGAIN, same day, and the error is instructive enough to keep rather than tidy.** This
+> > block first said: *"`CONTENT_DATA_REGRESSION` (41) remains at 0 resolved: it is page-level and
+> > all-or-nothing, so the per-key check cannot adjudicate it, and it stays in §2.1's population."*
+> > **Both halves were wrong.** The check reads it explicitly — `cmd/content-loss-check/main.go:327`
+> > selects unresolved rows of three codes including `codeRegress`, and `:423` is its own disposition
+> > arm (page gone → `page_gone`; page holds ≥1 component with non-empty `content_data` → `healed`;
+> > else `open` with a stated reason). All 41 graded `open` on the first run. And the reason given was
+> > wrong too: the granularity of a finding and the granularity of its heal predicate are independent
+> > — **readable ≠ per-key**; a page-level claim is adjudicated by a page-level query.
+> > **The inference that caused it — "0 resolved ⇒ 0 readers" — is the exact discrimination this file
+> > exists to make, and it fails in the one direction that matters: a finding that is read and
+> > correctly left OPEN is indistinguishable, in the rows, from a finding nobody reads.** Caught by
+> > the lane that wrote the check. Logged in `WRONG_CALLS.md` (2026-08-22).
+> > So `CONTENT_DATA_REGRESSION` **has a consumer** and leaves §2.1's population; what it has instead
+> > is a standing open population, which is §4's B-track lead below.
 
 ### 2.3 Scope boundary: what "unread" does NOT mean here
 
@@ -180,6 +195,34 @@ and constants in Go and fails on an unregistered one. New-code-without-reader th
 build instead of becoming row 17 of §2.1. **Not built here** — it is platform code, council-gated,
 and it should be sized by whoever takes B1 (the registry's initial content IS B1's output).
 
+### B1a — the first triage case is already staged: 41 rows where the WRITER over-reports
+
+**A worked lead for whoever takes B1, handed over by the `content-loss-check` lane rather than
+shipped by it.** `CONTENT_DATA_REGRESSION`'s 41 open findings are **one uniform class**
+`[MEASURED 2026-08-22, re-verified independently for this file]`: every row is a `tool-*` page,
+every one `metadata_field_origin=configured`, `incoming_sections=1`,
+`metadata_field=rerender_sections.sections_metadata`. They are almost certainly the
+`bugs_closed/194` shape where the caller legitimately has no sections metadata — in which case the
+finding should never have been filed, and the fix is a **declaration**
+(`expects_no_sections_metadata`, `save_sections_metadata_source.go:90`, whose `declared_absent`
+origin `shouldReportContentDataLoss` already exempts), not a reader. Precedent: migration `313`
+declared it for tool *recreation*; these 41 arrive by a path `313` did not cover.
+
+**This is the triage outcome B1 calls "demote", and it names a defect class B1's three options did
+not: the writer over-reporting.** Under-reading and over-reporting both end as rows nobody acts on,
+and they need opposite fixes — so B1's per-code ruling should ask *"is this finding true?"* before
+*"who reads it?"*.
+
+> ⚠ **The obvious completion is a trap, and it is a design decision, not a config one-liner.**
+> `rerender_sections` is a step of exactly **one** agent — `page-rerender` — which is the shared
+> re-render path **every ordinary page flows through** (`[MEASURED]`: 1 agent carries the step).
+> Declaring `expects_no_sections_metadata` *on the step* would therefore suppress the regression
+> record **fleet-wide**, silencing the genuine 194-class signal for content pages in order to quiet
+> tool pages. The discrimination must key on **the page's character, not the step** — either the
+> tool pipeline marks its own pages, or the finding writer consults the page before filing.
+> Until that is decided, the 41 correctly stay open: the pages genuinely hold no structured
+> `content_data`, and an open finding naming a known class beats a suppressed one.
+
 ### B3 — accept and document
 
 Cheapest: a comment at every §2.1 write site stating "no automated reader by design; human evidence
@@ -218,6 +261,11 @@ agent_error_log` call sites in `platform/orchestration/actions/`. Assert no coun
   any all-history claim needs a source that outlives the window (`page_component_history`, git, the
   writers' own tests).
 - **Grep the constant, not just the literal** (§3.2). The reader you miss is the one behind a const.
+- **A resolved-count is not a readership test.** Zero resolved rows means the grader found nothing to
+  heal, not that nothing grades them — a finding read and correctly left OPEN looks exactly like a
+  finding nobody reads. This file's own author broke this rule an hour after filing it, on
+  `CONTENT_DATA_REGRESSION`, having already run the correct test across sixteen codes (§2's second
+  correction; `WRONG_CALLS.md` 2026-08-22). The test is always: grep the code, read the arm.
 - **`resolved = true` is not an upgrade** — it halves the row's remaining life to 14 days. If B1
   builds a triage flow that marks rows resolved, it must extract what it needs first. **Live as of
   2026-08-22 10:40Z**: 48 rows now expire on the 14-day clock rather than the 30-day one. That is a
