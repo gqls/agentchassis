@@ -43219,3 +43219,111 @@ this is here rather than only in the bug file: **when you have already built the
 for a question, a convenient number is not a licence to stop using it.** Related:
 `a-post-fix-zero-needs-a-demand-control` (a zero that could not have come out otherwise),
 `cite-the-arm-not-the-function` (quote the deciding branch, not the file).
+
+---
+
+## 2026-08-22 — "these ten dispatches are DRY RUNS" — they were armed deletions, and everything I read agreed with me except the one thing that decides
+
+**The claim.** Told the owner the 235 stale-logo deletion would proceed "dry-run first, read the
+refusals, then armed". Fired ten "dry runs" through the asset-retraction agent on that basis: the
+action's header says DRY RUN IS THE DEFAULT, the seed ships no `dry_run` key, the prepared script's
+banner prints "Dry run (default). ARM=1 to delete.", and my own generalised script inherited that
+banner. Every one of the ten deleted its file on the first pass.
+
+**What was actually true.** The live `agent_definitions` row had been ARMED (`"dry_run": false`
+baked into the step config) since 2026-08-20 — the gaswholesalers lane's documented step_overrides
+fallback, never reverted — while the step's own description still claimed dry-run default. Four
+written sources agreed with my belief; all four describe the SEED or the ACTION, none the live row.
+
+**What caught it.** The first result readback: `"dry_run": false, "retracted": 1, commit_sha …` on
+what the banner had called an audit. Cost: nothing in damage — the owner had authorised exactly
+these deletions, the estate-wide reference audit had run first, and the action's five-guard chain
+ran on every dispatch (0 refusals, correctly) — but the audit pass I promised did not exist, and on
+a population the owner had NOT pre-authorised it would have been ten unrecoverable deletions
+announced as a rehearsal.
+
+**The cheap check.** One query BEFORE the first dispatch: read the live step config
+(`default_config #> '{workflow,steps,retract,config}'`), not any prose about it. The memory line
+`seed-sql-is-history-live-row-is-fact` already says this — I applied it to agent WORKFLOWS this same
+session (the `_uri` reader census read live rows, not seeds) and still trusted a seed + three
+banners for a DELETION default. General form: **the safer a described default sounds, the more it
+deserves the one-row read, because a wrong belief about a safety default only surfaces after the
+unsafe branch has run.** Remediated same hour: migration `554` disarms the live row;
+LANDMINES.md carries the prospective entry.
+
+**Second, smaller one, same session:** piped a batch of dispatch scripts through
+`grep -E "DOMAIN=|PUBLISH_OK|error"` and read empty output as "no output yet" — the scripts were
+failing with `Permission denied` (never `chmod +x`'d), which matches none of those patterns. A
+filter you write is a thing that can eat the failure you are watching for
+(`foreground-test-a-watcher-before-arming-it`, `grep-silent-on-non-utf8` family). Caught one
+command later by running a single script unfiltered.
+
+---
+
+## 2026-08-22 — `bugs_open/308` lane: I recorded a doc as written when the shell had discarded it, and the call printed `ok`
+
+**What I claimed.** That the lane's `RUNBOOK_cta_destination_provenance.md` had been written.
+The tool call ended with `ok` on stdout and I moved on to the next file.
+
+**What was actually true.** The call was
+`cd docs/.../bugfix_308_cta_destination_provenance && cat > RUNBOOK... <<'EOF' … EOF` followed by
+`echo ok`. An **earlier** call in the same session had already `cd`'d into that directory, and the
+Bash tool's working directory persists between calls — so the relative `cd` failed, `&&`
+short-circuited, `cat` never ran, bash consumed and discarded the whole heredoc, and the
+**unconditional trailing `echo ok` printed anyway**. Zero bytes written, one cheerful success line.
+
+**What caught it.** Listing the directory in the same call as the next write. The `cd` error was in
+the output all along, three lines above `ok`, and I had skimmed to the last line — which is the
+habit the trailing-`echo` idiom trains.
+
+**The cheap check.** `ls -la` (or `wc -c`) on the file **in the same call as the write**, and drop
+the reassuring trailing `echo`: a success word you print yourself is not evidence, it is a
+[[a-print-statement-is-not-a-config-row]] in shell form. Better still, absolute paths for every
+write, which is what the existing cwd landmine already says.
+
+**Why it is logged even though it cost two minutes.** The cwd-persistence landmine is already in
+`LANDMINES.md` and I had *read it in this session* (the SessionStart hook did not surface it —
+it matches on dirty files, and no dirty file carried that footprint). The recorded failure mode
+there is **a false ABSENCE claim** — `ls`/`find`/`git log` unanimously reporting a file missing.
+This is the same trap producing the opposite artefact: a **silently skipped WRITE reported as a
+success**. An entry that names one consequence does not inoculate against the other, so the
+landmine entry gains that second form rather than this being filed as a new trap.
+
+## 2026-08-22 — I verified BOTH ENDS of a pipe and inferred the middle, then explained the resulting zero away with a benign mechanism
+
+**The claim.** In `bugs_open/345` I reported that the new "hand a retry its predecessor's rejection"
+fix had never fired — `collected_data->'input_data' ? 'last_error'` = **0 across all history** — and
+wrote: *"That is expected and not reassuring: the fix is gated on `attempt_count > 0`, item
+`95fe67da` was cancelled at attempt 2 four hours BEFORE the roll, and nothing has retried since."*
+
+**What was true.** The zero was right and my reason for it was wrong. `last_error` cannot arrive at
+all: `build-dispatch-loop`'s `call_handler` maps a fixed **allow-list** into the handler's
+`input_data`, and the key is not on it. Confirmed independently — `last_error` appears **nowhere in
+that agent's entire config**, and a fleet census of all 73 live `call_agent` mappings passes it
+zero times. So even a retry carrying a non-blank error would have rendered nothing. Found by the
+owning lane's council round 4 (guardian, HIGH), not by me.
+
+**The reasoning error, which is the transferable part.** I verified the **writer** (the Go loader
+sets `current_item.last_error`, and I read the code) and I verified the **reader** (the live prompt
+carries `{{if .input_data.last_error}}`, and I probed the live config). I then inferred the
+connection between them. **Both ends of the pipe existed; the pipe did not.** This is one level
+subtler than "writing a field is not reading it" — the write happened, the read was wired, and a
+middle hop silently dropped the key on the floor.
+
+**Why the zero should have caught it and didn't.** A zero is not explained by naming *a* mechanism
+that would also produce a zero. "No retry existed" and "the key can never arrive" both predict 0,
+and I picked the benign one because I had just watched the retry get cancelled — availability, not
+evidence. The discriminating check costs nothing and is not a row count at all: **trace the value
+end to end**, loader → dispatcher mapping → handler input → prompt. One missing hop is the whole
+answer.
+
+**The aggravating detail.** I titled that section *"It has never fired, and the reason is by design —
+so do not read the quiet as success"* and then, in the next sentence, supplied precisely the
+reassurance it warns against. Naming a discipline in a heading is not applying it. The relevant
+lesson (`a post-fix ZERO needs a DEMAND control`) was already in my own memory index when I wrote
+the paragraph.
+
+**Cheapest check for the class:** for any config-driven pass-through — `input_mapping`,
+`input_fields`, `output_fields`, an allow-list of any kind — **enumerate it and look for your key by
+name**. A pass-through that enumerates is invisible from both ends; neither the producer nor the
+consumer mentions it.

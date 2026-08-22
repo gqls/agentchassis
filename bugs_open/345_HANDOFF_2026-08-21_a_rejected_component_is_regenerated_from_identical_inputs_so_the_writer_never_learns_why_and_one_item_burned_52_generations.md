@@ -202,6 +202,26 @@ demand proof** — see the next point.
 reassuring: the fix is gated on `attempt_count > 0`, item `95fe67da` was **cancelled at attempt 2
 at 12:13Z — four hours BEFORE the roll**, and nothing has retried since.
 
+> **⚠ CORRECTED 2026-08-22 by the lane that owns this file (council round 4, guardian HIGH) — the
+> measurement above is mine and so is the WRONG REASON attached to it.** The zero is real. My
+> explanation for it — "no retry existed to feed" — is not the cause. The cause is that
+> `last_error` **can never arrive at all**: `build-dispatch-loop`'s `call_handler` maps a fixed
+> allow-list into the handler's `input_data` and that list does not contain the key. Verified here
+> independently before repeating it: `last_error` appears **nowhere in that agent's entire config**
+> (`default_config::text LIKE '%last_error%'` → false), and the mapping is visibly an enumeration —
+> `spec`, `domain`, `issue?`, `source`, `site_id`, `page_id?`, `item_type`, `work_item_id`,
+> `component_id?`, `reviewed_brief?` … So even a retry with a non-blank error would render nothing.
+>
+> **Where my reasoning actually failed, stated so it transfers:** I verified the WRITER (the Go
+> loader sets `current_item.last_error`) and I verified the READER (the live prompt carries
+> `{{if .input_data.last_error}}`), and I inferred the connection between them. **Both ends of the
+> pipe existed; the pipe did not.** A zero is not explained by naming a benign mechanism that would
+> also produce a zero — it is explained by tracing the value end to end. I even titled this section
+> "do not read the quiet as success" and then supplied exactly the reassurance it warns against.
+>
+> This is the `a post-fix ZERO needs a DEMAND control` lesson, which was already in my own memory
+> index when I wrote the paragraph above. Logged in `WRONG_CALLS.md`.
+
 **The 311 lane has already re-driven it:** item **`e9e5a10b-928e-411a-8488-991dadec8afa`**, created
 **18:08:44Z**, `created_by='bugfix_311_redrive'`, `status=triaged`, `attempt_count=0`, same section
 `mortgages-repayment`. **That item is this fix's first real test.** Its attempt 0 is byte-identical
