@@ -1,6 +1,8 @@
 # RFC_032 — Three render context-builders disagree about what an "instance" is, and `ComponentID` means two things
 
-**Status:** OPEN, filed 2026-08-16. **Raised by the council gate twice**, on the same lane, in two
+**Status:** **RULED 2026-08-22 (owner) — converge on `{{.InstanceID}}`; see §8 for the ruling,
+the evidence pack §4 asked for, and a dated correction to §2's own table.** Filed 2026-08-16.
+**Raised by the council gate twice**, on the same lane, in two
 consecutive rounds — by the `architecture` seat in round 1 and by the `reuse_agent` seat in round 2
 (correlation `07635a2f-3605-4e67-9a6d-7636b07f16ca`).
 
@@ -31,7 +33,7 @@ which builder ran.
 
 | builder | `ComponentID` resolves to | is it per-instance? |
 |---|---|---|
-| `assemble_from_library.go` | `component_<function>_<idx>` — built from the loop index | **yes** |
+| `assemble_from_library.go` | `component_<function>_<idx>` — built from the loop index | ~~**yes**~~ **NO — see §8.2, corrected 2026-08-22: the substitution is unreachable and 0 of 270 live placements carry this shape** |
 | `rerender_page_sections_action.go` | `comp.ID` — the `content_components` row id | **no** — same for every instance |
 | `v3_site_actions.go` (`RenderComponentAction`) | `comp.ID` — the same row id | **no** |
 
@@ -133,3 +135,115 @@ question and it is what this RFC is actually for.
   per-instance id convention on ONE render path"
 - Owner ruling 2026-07-29 §1 (an addition to a shared vocabulary needs an RFC when it changes what
   the shared mechanism GUARANTEES); RFC_022's narrowing (the exception 283 was approved under)
+
+---
+
+## 8. RULED 2026-08-22 (owner) — CONVERGE ON `{{.InstanceID}}`; the evidence pack §4 asked for
+
+Raised again the same day `bugs_open/283` closed (`9223c421d`, 16:09), which lists this RFC as a
+deliberate residual. §4's three options were put to the owner with the measurements below.
+
+**The ruling: converge, do not re-point.** Leave `ComponentID`'s meaning alone; convert the five
+templates that reference it to the already-approved, already-live per-instance seam, through the
+framework's own conversion pipeline (RFC_034's route — work items writing `content_components`,
+never hand-applied template SQL); then retire the placeholder by deleting its writers. **One
+identity, not two.** Options "re-point `ComponentID`" and "leave the ambiguity documented" were
+declined.
+
+Why this is NOT architecture-scope under the 2026-07-29 §1 ruling, stated so a reviewer can
+check it rather than take it on trust: `{{.InstanceID}}`'s guarantee is unchanged and already
+council-approved (CLC-014); the conversion route is the one RFC_034 ruled on and under which 124
+rows have already converted, so the five are late arrivals to an existing programme, not a new
+guarantee. `ComponentID`'s guarantee is never altered while a consumer exists — its writers are
+deleted only *after* the consumer count is measured zero, which is guarantee-neutral by
+construction.
+
+### 8.1 §4 sub-question 1 — "what breaks?" — measured, with the absences named
+
+**Nothing in this estate names a section wrapper id by value.** All measured 2026-08-22:
+
+- **0** occurrences of `href="#{{.ComponentID}}"` anywhere; **0** `href="#"` fragments in the live
+  component library (its only fragment href is `/services.html#{{this.slug}}`, from a slug).
+- **0** UUID-shaped or `component_`-shaped `#id` selectors among the **206** distinct `#id`
+  selectors in repo-side acceptance criteria — sections are addressed by class plus
+  `data-component`, never by id.
+- The LMC arithmetic oracle's ~170 checks all address `#c-<function>-<inner-id>`, the
+  already-prefixed inner controls. It never names a wrapper.
+- No sitemap, feed, JSON-LD or `cmd/` tool carries a section id; no CSS rule keys on one (all five
+  templates style by class). No skip-link or table-of-contents generator exists.
+- Inbound external deep links are unobservable from here; the prior is very low, since the id is
+  an opaque internal UUID appearing in no anchor, sitemap or feed we publish.
+
+### 8.2 §2's TABLE IS WRONG, and this is the correction it owes
+
+> **CORRECTED 2026-08-22.** §2 lists `assemble_from_library.go` as resolving `ComponentID`
+> per-instance and therefore "reuse-safe". **It has never done so on the healthy path.**
+> `RenderTemplate` executes first (`assemble_from_library.go:303`); `missingkey=zero`
+> (`call_agent.go:1172`) resolves the placeholder to `<no value>`, which
+> `component_library.go:1170` strips to `""`. The post-render
+> `strings.ReplaceAll(renderedHTML, "{{.ComponentID}}", componentID)` at `:309` therefore never
+> matches anything, and `component_<fn>_<idx>` survives only as a `contentRequirements` map key
+> and a log field. **Measured: 0 of 270 live placements carry that shape** — the regex was proved
+> against a synthetic positive (1 match) before the 0 was believed, then widened
+> case-insensitively. So the "one of three paths is safe" framing that shaped this RFC's own
+> question was never true; all live paths were unsafe.
+
+### 8.3 A fourth and fifth producer §2 does not list
+
+- **The section editor binds nothing.** `applyContentEdit` (`section_editor_actions.go:1113`) and
+  `applyComponentSwap` (`:1249`) build context via `buildRenderContextFromDB`, which never writes
+  a `ComponentID` key — so the template renders `<section id="">`. **11 live placements** serve
+  that today, and both routes write `page_components.rendered_html` straight to an already-live
+  page with no downstream gate.
+- **`page_components.content_data`** carries a `ComponentID` key on **10** rows; in **9** of them
+  it simply equals `slot_name`. These are inert once no template reads the key.
+
+### 8.4 An attractive alternative, measured and REFUTED
+
+"Bind `ComponentID` from `slot_name`" looks free — slot name is per-placement, readable, stable,
+already in `pages.sections`. **It does not work.** `slot_name` is not unique within a page: 1,940
+page/slot pairs, 1,911 distinct, **20 pages repeat a slot name** (never NULL, never empty).
+Crossed against the duplicate-id pages, **15 of 18 overlap**, so slot-derived ids would fix **3 of
+18**. This independently vindicates the `reuse_agent` seat's 2026-08-16 rejection of
+`InstanceTokenFromSlot`.
+
+### 8.5 The live cost, and the residual this unblocks
+
+**18 pages carry a repeated `{{.ComponentID}}` component, 27 redundant placements (as of
+2026-08-22)** — 13 pages ×2, three ×3, one ×4, one ×6, all `generic-text-block`. Live-verified at
+the artefact: `apis.uk/index.html` (HTTP 200) serves **six** `<section
+id="8d81e665-3ee0-443d-a873-690268c15fbb">`, re-confirmed cache-busted after 283 closed.
+Single-instance pages were read as a control and show 1 id, 0 duplicates — the check discriminates.
+
+`component_instance_scope.go:~268` names, as the **first** of two reasons `enforce_instance_scope`
+ships default-OFF, exactly these pages: *"defaulting to refuse would fail their next re-render."*
+Converging removes that reason, so **arming the rerender path becomes a config migration rather
+than new code**. The second reason — the detector is a regex that errs toward reporting — still
+stands, so this removes one of two, not both.
+
+### 8.6 Feasibility finding the implementer must not skip
+
+The existing converter **cannot** convert these five. `ConvertTemplateToInstanceScope`
+(`component_instance_conversion.go:89`) harvests ids with `\sid="([^"{}]+)"` — the class excludes
+braces, so `id="{{.ComponentID}}"` never matches and it refuses with *"template declares no
+literal element ids"*. Filing the five as conversion items against today's binary would produce
+five polite no-op completions. What IS reusable unchanged is `GateConvertedTemplate`, which
+requires `{{.InstanceID}}` present and renders the **doubled** template through the real renderer.
+
+A latent half-state in the same regex, worth closing while there: a template mixing literal ids
+**and** `{{.ComponentID}}` would convert "successfully" with the templated id silently ignored —
+and the gate could not catch the residue, because `reElementID` (`component_instance_scope.go:215`)
+requires one or more non-brace characters and so cannot see duplicate `id=""`. **Measured
+2026-08-22: 0 active templates are in that mixed state** (control: 87 active templates carry a
+literal id at all), so it is latent rather than live — but it is the shape a future
+component-creator generation could produce.
+
+### 8.7 Provenance
+
+Not run through the `090` diagnosis loop; per CLAUDE.md's 2026-07-31 ruling, what was substituted:
+both code paths read end to end; the consequence measured at the artefact with controls that could
+have come out otherwise; the same functions read independently by a second reader, which reached
+the same conclusion and additionally found that `RenderTemplate` already logs
+`Warn "fields rendered empty" fields=[ComponentID]` (`component_library.go:1244`) while both
+section-editor call sites discard the report; and four affected pages plus two controls fetched
+live.
