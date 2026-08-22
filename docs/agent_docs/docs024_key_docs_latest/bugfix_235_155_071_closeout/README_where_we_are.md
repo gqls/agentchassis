@@ -61,3 +61,14 @@ the next release. The review council approved one immediately and asked one good
 about the other — "what about warnings on a build that FAILS?" — which we answered by
 covering that case too. The two bigger leftovers you chose to defer stay recorded in the
 bug file for a future session.
+
+## 2026-08-22 (evening) — the new build is out, and everything we shipped is verified on it
+
+The fresh release carries all four of our changes — checked at the running binary itself,
+not assumed from the release. The dartboard-site test was re-run on the new build and
+passed again: each image purpose deployed its own distinct file, through the newly-cleaned
+code. The one thing not yet seen in the wild is the new "keep the warnings" record for the
+build checker: it's in the binary and thoroughly tested, but no page build carrying
+warnings has happened since the release, so the first real one will write the first row.
+The exact query to see it, and what would count as something being wrong, are written in
+the bug file.

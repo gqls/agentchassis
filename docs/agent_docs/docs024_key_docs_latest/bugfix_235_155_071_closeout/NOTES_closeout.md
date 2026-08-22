@@ -128,3 +128,16 @@ Fresh chassis deployed (~16:30Z, pods `6bb7b67bd4-*`). Verified at the artefact,
   (first warning-carrying valid build writes row 1).
 - **Regression proof re-fired** (pageflow pair at cookly — exercises StoreAssetAction, the
   changed code, end-to-end): result recorded below when drained.
+
+## 2026-08-22 ~19:35Z — post-roll acceptance CLOSED OUT
+
+- **Regression proof PASS on v1.0.1326**: the pageflow pair at cookly ran a FULL build this
+  time (planner + content writer + reviewer, 8 orchestrations, all COMPLETED) and deployed
+  fresh distinct artefacts — hero `626aac20…` (174,898 B) vs logo `1df425e8…` (242,987 B),
+  new bytes vs this morning's, so StoreAssetAction ran end-to-end on the retired-writer
+  binary and each purpose deployed its own asset. Commit C behaviourally proven live.
+- **071 recorder: deployed, live row ARMED not proven** — the build's flow never reaches
+  `validate_content` (zero ValidatePageContentAction lines in retention), so the zero
+  recorder rows mean not-exercised. Armed check + disconfirming shape recorded in 071.
+- The two post-roll `apply_edit` FAILEDs re-confirmed NOT ours (required headline/trust_note
+  refusals + a slot-floor refusal; the deleted seeds only ever set cta_text/cta_url).
