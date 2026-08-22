@@ -44457,3 +44457,61 @@ instrument because the worse one was the one I had in my hand.** The lane's own 
 "did not need publishing" and "failed to publish" are indistinguishable in every signal the platform
 emits; the same is true of "my probe is wrong" and "the detector is wrong", and I picked the flattering
 one three times.
+
+## 2026-08-22 (`bugs_open/283` lane, continuing after the close) — my control matched NOTHING, and a control that matches nothing cannot fail
+
+**The claim.** I had just measured that 18 live pages serve duplicate `<section id="…">`
+values. To show the check discriminated rather than firing on everything, I fetched a page
+that should have had no duplicates and reported:
+
+> `--- CONTROL: a page that should have NO duplicate section ids ---`
+> `http=200 dup=0 sections=0`
+
+**Why it proved nothing, and why I nearly kept it.** `sections=0`. The control page carried
+**no `<section id=…>` elements at all**, so "0 duplicates" was arithmetically guaranteed
+before the page was fetched. It would have printed `dup=0` if my grep were broken, if the
+pipe were inverted, if the file were empty. It reads exactly like a passing control — same
+shape, same zero, same reassuring line — and I only caught it because the `sections=0` was
+printed next to it. Had I printed only the duplicate count, as the natural version of that
+command does, there would have been nothing on screen to catch.
+
+**The replacement, and the difference.** Two pages the database says carry the component
+**exactly once**: both returned `sections_with_id=1, duplicated_values=0`. That version can
+fail — if the grep were broken it would print 0 sections, and if the check over-reported it
+would print a duplicate on a page that has one instance.
+
+**Cheapest check for the class: a control must have something to be wrong ABOUT.** Before
+believing a control, read its denominator, not its verdict. `dup=0 sections=0` and
+`dup=0 sections=1` are the same headline and completely different evidence. This is the
+[MEASURED]-but-not-disconfirmable family the marker rule explicitly does not catch: the
+control was run, dated and reported, and could never have come out otherwise.
+
+## 2026-08-22 (`bugs_open/283` lane, same session) — I read a field as an author's intent, and nearly designed around preserving nine things that do not exist
+
+**The claim.** Nine live placements rendered a readable slug (`feature-analysis`,
+`mech-flow-thames`) as their section id, sourced from `page_components.content_data`. I wrote
+into the plan that these were **"a human-authored, readable anchor slug"** and that they were
+**"deliberate and must be preserved"** — and made "how do the nine survive?" a requirement the
+design had to answer.
+
+**What they actually are.** `content_data->>'ComponentID'` **equals `page_components.slot_name`**
+in 9 of the 10 rows carrying it. Not an author's anchor: the slot name, echoed. There was
+nothing to preserve, and a design built to protect them would have carried a constraint with
+no purpose — the most expensive kind, because it looks like care.
+
+**What caught it.** Printing the neighbouring column. I queried the slug alongside `slot_name`
+to see where the value came from, and the two columns were identical down the page. One extra
+column in a `SELECT` I was running anyway.
+
+**The second half, which is the more useful lesson.** Having found slot name in there, I then
+reached for it as the FIX — it is per-placement, readable, stable across re-renders, already
+tracked. Cheap and obvious. Then I measured it: `slot_name` is **not unique within a page**
+(1,940 pairs, 1,911 distinct, 20 pages repeating one), and on **15 of the 18** pages that
+actually collide the slot name collides too, so it would have fixed **3 of 18**. The council
+had rejected the same idea, for the same reason, three weeks earlier.
+
+**Cheapest check for the class: when a field's value looks meaningful, print the columns
+around it before you interpret it** — a value that equals its neighbour is being copied, not
+authored. And when an identifier looks like it could be an identity, **test its uniqueness at
+the scope you need it unique in** before designing on it. Both are one query. "Readable and
+stable" is not the same property as "unique", and only the second one was load-bearing.
