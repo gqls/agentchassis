@@ -42691,3 +42691,32 @@ figure is only evidence if the measurement could have come out otherwise.
 never discovered the passenger — so the 343 lane's author would have found their edit missing from
 their own commit, in a file where "nothing downstream can tell a deleted entry from one never
 written".
+
+---
+
+## 2026-08-22 — I called per-run variance a fleet-wide renderer change, with the disconfirming sample already in my own output (`bugfix_305_negation_gate` lane)
+
+**The claim.** Contributing to `bugs_open/253` after its component floor refused a save
+(`hero-tool` 12→5 class attributes), I wrote that "the `hero-tool` renderer now emits ~5 class
+attributes fleet-wide" and drew the consequence that **"a rebuild of any 08-18-vintage loanzy tool
+page cannot save"** until an owner declares the flattening intended. I routed that to another lane as
+a decision they owed.
+
+**What caught it.** The next rebuild of the same page, 33 minutes later: a **12-class** hero, floor
+passed, saved. Today's freshly-saved loanzy heroes are **15, 5, 5, 5, 12** — a distribution, not a
+change.
+
+**Why the check was already available and I did not run it.** I had queried five rows and *quoted the
+15 myself*, as a parenthetical ("one other: 15"), then generalised from the other three. **A sample
+that contradicts the generalisation does not become a footnote by being mentioned** — mentioning it
+is what made the claim feel measured. The cheap check was one `ORDER BY` over the column I had
+already selected: look at the DISTRIBUTION before saying "now emits", because "now" is a claim about
+a change over time and five same-day rows cannot support one.
+
+**Cost if uncaught:** another lane holds a queue item to make a policy decision that nothing requires,
+and the guard reads as an obstacle to routine rebuilds when it had just prevented a flattened save and
+allowed the good retry — i.e. the entry would have argued for weakening a control that was working.
+
+**The transferable shape:** *n* agreeing samples plus one disagreeing sample is a distribution you
+have not looked at, not a rule with an exception. And a claim of the form "X **now** does Y" needs a
+before-and-after, not a handful of rows from one morning.

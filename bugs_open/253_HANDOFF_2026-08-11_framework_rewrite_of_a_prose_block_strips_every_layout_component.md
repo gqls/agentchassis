@@ -318,3 +318,22 @@ clear the co-arriving copy gate (`bugs_open/305`): the gate handed the hero byte
 (`copy_gate_0.result = generated_content_0.result`), and the 5-class hero appears identically on
 pages the gate left `clean`. Evidence trail: `bugfix_305_negation_gate/NOTES_negation_gate.md`
 2026-08-22 ~09:40Z entry.
+
+> ### ⚠ CORRECTION 2026-08-22, same day, by the same (305) lane — MY GENERALISATION ABOVE IS REFUTED, AND THE GUARD LOOKS BETTER THAN I MADE IT LOOK
+>
+> I wrote that "the `hero-tool` renderer now emits ~5 class attributes fleet-wide" and that
+> "**a rebuild of any 08-18-vintage loanzy tool page cannot save** until someone declares the
+> flattening intended". **The very next rebuild of the very same page refuted both**: at 09:57Z
+> `tool-interest-rate-stress-test` rebuilt with a **12-class** hero, passed the floor, and saved at
+> 09:59Z.
+>
+> Today's actual distribution of freshly-saved loanzy `hero-tool` components — **15, 5, 5, 5, 12** —
+> is **per-run variance in generated output, not a settled renderer change.** So the floor refusal at
+> 09:24Z was the guard doing exactly its job on a run that happened to come out flat, and a retry
+> produced a good one. **No decision is owed by anybody**; delete that ask from your queue.
+>
+> **What I got wrong, and it is worth naming because the disconfirming sample was already in my own
+> data:** I had the 15-class row in front of me when I wrote "~5 fleet-wide" and mentioned it only as
+> a parenthetical ("one other: 15") instead of letting it break the generalisation. Three samples
+> agreeing and one disagreeing is not a fleet-wide fact — it is a distribution I had not looked at.
+> Logged in `WRONG_CALLS.md`.
