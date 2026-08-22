@@ -1528,3 +1528,82 @@ promoter, to the escalation clock and to `458`'s held-pair report — **all thre
 instruments**. It is the one stranding shape that the fix this file shipped cannot see, by
 construction. Mechanism and queries: `bugs_open/333` (CONTRIB 2026-08-21, their rule, their call)
 and `bugs_open/277` §7.
+
+---
+
+# CLOSED 2026-08-22 — fixed, live, and proven at the artefact twice. Read the three caveats before citing this as "solved".
+
+**Owner instruction, 2026-08-22:** close it. The soak was scheduled to run to ~08-24/25 (owner
+decision 5, the week for `444`/`458`); it is being closed on **day 5 of 7** by owner decision.
+Recorded because the difference matters to anyone auditing the evidence: what follows was measured
+over five days of the doors holding, not seven.
+
+## What was wrong, and what is true now
+
+Findings written as `status='detected'` had no consumer: the only promoter lived inside
+`improvement-sweep`, a scheduled task disabled since 2026-05-02. Detection worked; nothing downstream
+of it did.
+
+The promoter is now **its own scheduled task** (`detected-item-promoter`, seed 430, SCH-026, owner
+ruling 2026-08-15 candidate 2), with three doors added as the evidence came in: `444` (a
+known-good/floor rule so an unproven pair is held rather than fed), `454` (count `verified` as
+success), `458` (each tick reports what it held), `465` (read archived history, so "lifetime" is not
+silently "the last 7 days"), and `453`/`479` (hold too long → escalate to a human; and the reverse arm).
+
+**Proven end to end twice, on different types, different handlers, and with the artefact checked:**
+
+| | 2026-08-17 | 2026-08-21 |
+|---|---|---|
+| pair | `page_component_status_drift → component-template-fixer` | `literal_markdown → section-editor` (a route that had not existed 24h earlier) |
+| escalated to a human after 3 days? | yes, 12:57:43Z | n/a — canaried deliberately at birth |
+| one row promoted by hand | yes | 13:21:42Z |
+| completed | yes | 13:25:03Z, verifier `verified` |
+| **the rest released unaided** | yes | **13:27:32Z, the promoter's very next tick — 6 rows, all `complete` by 13:37Z** |
+| verified at the served page | yes (×4, ×3 with a negative control) | yes (7 of 7: prose backticks to zero, in-script literals intact, `tool-head-architect` 44 of 44) |
+
+The second run is the stronger evidence: the escalation's own printed remedy — *"promote ONE row of
+this pair by hand … if it completes, the promoter takes the rest automatically"* — was executed by a
+human and the second half happened by itself, in **15 minutes**, on a pair with no history at all.
+
+## THREE CAVEATS, and none of them is a reason to keep this open
+
+**1. `479`'s reclaim arm has NEVER FIRED.** Re-measured at close time [2026-08-22 09:31:55Z], live
+**and** archive, all history: `result ? 'held_pair_escalation'` = **7**, `result ?
+'held_pair_reclaimed'` = **0 / 0**. The door has opened seven times, on schedule, correctly — and
+nothing has ever come back through it. That is not a defect: a reclaim requires a pair that was
+escalated and has *since* qualified, and no pair has. **But it is untested code in production, and
+this close must not be read as evidence that it works.**
+
+**2. The `detected` pile is 42 and that is NOT the same claim as "the queue drains".** At close
+[2026-08-22 09:31Z]: `image_url_404` **40** (no `handler_agent` at all, oldest 2026-07-26),
+`page_content_divergence` **1** (likewise), `dark_section_audit` 1. **41 of 42 have no handler
+registered**, so the promoter has nowhere to send them — that is *stranding by absence of a HANDLER*,
+which this file's own model names as a distinct shape from the missing-PROMOTER defect it was filed
+for. It belongs with the checker-layer queue (`bugs_open/149`) and the imagery bugs (`114`, `236`),
+not here. Nobody should read this close as "nothing is stranded any more".
+
+**3. A THIRD stranding shape exists that all three of this bug's instruments are blind to.**
+`writeWorkItem`'s two-strike rule (`load_work_item_actions.go:1373-1408`) counts prior attempts per
+`(site_id, item_key)`, and `item_key` is handler-agnostic **by design** — so **re-routing a producer
+transfers the old route's failures onto the new one**, and a row can be born `unresolved`, terminal
+and undispatchable, before any promoter, escalation clock or held-pair report can see it. Measured
+instance 2026-08-21: `learn-index` born `[unresolved after 2 attempts]` on two failures by the two
+routes that had just been proven inapplicable *by construction*. Mechanism, coverage and the
+self-healing arithmetic: `bugs_open/333` (CONTRIB 2026-08-21) and `bugs_open/277` §7.
+
+## Verify it yourself
+
+```sql
+-- the promoter runs, on its own, every 15 minutes
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name='detected-item-promoter';
+-- the escalation door, and the arm that has never fired
+SELECT count(*) FILTER (WHERE result ? 'held_pair_escalation') AS escalated_ever,
+       count(*) FILTER (WHERE result ? 'held_pair_reclaimed')  AS reclaimed_ever
+FROM site_work_items;             -- 7 / 0 at close; repeat against site_work_items_archive
+-- what is still detected, and whether anything could actually take it
+SELECT item_type, COALESCE(NULLIF(handler_agent,''),'(NO HANDLER)'), count(*)
+FROM site_work_items WHERE status='detected' AND pipeline='build' GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+Council: APPROVED round 2 (`05a3d1c8`) for the promoter, round 1 (`8dc58e2a`) for the doors.
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_277_required_fields_repair/`.
