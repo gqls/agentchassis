@@ -1127,7 +1127,24 @@ func (h *PageAdminHandlers) HandleUpdateSiteComponent(c *gin.Context) {
 		strings.Join(setClauses, ", "), argIdx)
 	args = append(args, scID)
 
-	_, err = h.db.ExecContext(ctx, query, args...)
+	// bugs_open/355 A1, same as HandleUpdateComponent above: the 344 chrome
+	// archive captures application_name, and this write was the untouched
+	// twin (pattern check, 016b §9 #26). set_config(...,true) is
+	// transaction-scoped, so it needs the short tx — on the bare autocommit
+	// statement it is a no-op. Best-effort: a stamp failure falls back to the
+	// unstamped write; attribution must never break the write.
+	if tx, txErr := h.db.BeginTx(ctx, nil); txErr == nil {
+		if _, serr := tx.ExecContext(ctx, `SELECT set_config('application_name', 'admin-edit', true)`); serr != nil {
+			_ = tx.Rollback()
+			_, err = h.db.ExecContext(ctx, query, args...)
+		} else if _, err = tx.ExecContext(ctx, query, args...); err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	} else {
+		_, err = h.db.ExecContext(ctx, query, args...)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
