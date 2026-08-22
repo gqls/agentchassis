@@ -201,3 +201,62 @@ still recomputable — i.e. that it did NOT become authored.
 > two comment mentions** — no second reader. So the carry is a single point, and stamping it is
 > a one-place change. Recording the discharge rather than deleting the marker, because the
 > marker is the evidence that the check happened rather than being assumed.
+
+## 2026-08-22 — CORRECTION to my own entry above: right mechanism, WRONG REMEDY LOCATION
+
+> **CORRECTED 2026-08-22, same session, caught by the fable planning agent's disagreement and
+> then by reading the resolver's call site.** The entry above concluded: *"the carry must carry
+> the stamp with the value, and that is a specific, checkable, one-place code change"* — naming
+> `plan_sections_action.go`'s `carryStored` as the place to fix. **The mechanism I described is
+> right and the remedy is wrong**, and a reader acting on it would have edited a function that
+> cannot fix this.
+
+**What I missed: `setCTAField` does not read the carry's output for its decision — it reads the
+DB.** At the call site (`resolve_internal_links_action.go:207-212`):
+
+```go
+resolved := sectionResolvedData(section)          // <- what the carry populated
+existing := existingLabels[sectionName]           // <- a FRESH DB read
+setCTAField(resolved, existing, fields[0], ...)   // `stored` = existing, not resolved
+```
+
+`existingLabels` comes from `loadExistingSectionContentData`, a fresh `page_components` read. So
+the stamp — living in stored `content_data` — is in `setCTAField`'s hand **directly**, whatever
+the carry did or did not do. The predicate's input never travels through `plan_sections`.
+
+**Where the leak actually is, located exactly.** `setCTAField`'s final branch (the tail of the
+function, ~`:455-462`) writes **nothing** to `resolved[field]`:
+
+```go
+	*unresolved = append(*unresolved, map[string]interface{}{ ... })
+}
+```
+
+Every other branch assigns `resolved[field]`. So on the unresolved fallthrough — no valid
+positional target — whatever `plan_sections`' carry left in `resolved[field]` is what gets
+persisted, **and the save is a REPLACE** (RFC_042 §2: the plan→save funnel is DELETE+INSERT), so
+the previous cycle's stamp is not carried forward by the persist either. Next cycle reads an
+unstamped valid value → authored → frozen.
+
+**So the fix belongs in `setCTAField`, not in `carryStored`** — and it is cheaper there, because
+`stored` is already a parameter: at the unresolved path, if `CTAMintedCovers(stored, field,
+resolved[field])` then re-stamp the surviving value. One function, one branch, no change to
+`plan_sections` at all, and no risk to PBP-039's carry (a seam whose register entry says in
+terms: *do not remove it, do not reorder it*).
+
+**What I got right and am keeping:** the failure direction (value without stamp → false
+authored → freeze), that CTA url fields reach the carry (`source: "renderer"`, declined only for
+`""`/`"llm"`), and that `storedFieldValue` has exactly one call site.
+
+**What caught it.** The planning agent asserted the opposite ("the carry structurally cannot
+carry the stamp, and under value-binding it must not"). Its *reason* is also wrong — the whole
+stored map is in hand at `storedFieldValue:270` (`data[field]`), so a stamp copy is two lines and
+"structurally cannot" is false — but the disagreement was the prompt to go and read the call
+site, which is where both of us were wrong about something. **Neither account survived contact
+with the call site; the disagreement is what sent me to it.**
+
+**The cheap check I skipped.** I reasoned about `carryStored` in isolation and never asked the
+one question that decides it: *where does the consumer of this value get its input from?* One
+`sed -n '207,212p'` at the call site answers it. General form: **a claim that data flows from A
+to B is not checkable at A — it is checkable at B's call site**, and I had already read that call
+site earlier in the session for a different purpose without connecting it.

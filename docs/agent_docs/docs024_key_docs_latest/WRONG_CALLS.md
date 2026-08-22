@@ -43607,3 +43607,40 @@ that operation has already run against it — `site_work_items` by `item_key` pr
 if the artefact was written *inside* the operation's window, the operation is its **author**, not
 its threat. Both halves are one query. I wrote the claim into a bug file and told the owner before
 running either.
+
+---
+
+## 2026-08-22 — `bugs_open/308` lane: I named the wrong function as the fix site, having reasoned about a data flow at its SOURCE instead of its CONSUMER
+
+**What I claimed**, in this lane's NOTES and in commit `6330b71f8`'s message, having read the
+function and quoted it: that a CTA provenance stamp would be dropped by PBP-039's carry, and
+therefore *"the carry must carry the stamp with the value, and that is a specific, checkable,
+one-place code change"* — naming `plan_sections_action.go`'s `carryStored` as the place to edit.
+
+**What was actually true.** The mechanism was right (a value carried without its stamp reads as
+authored and freezes). The **remedy location was wrong.** `setCTAField` — the consumer that
+decides authored-vs-derived — does not read the carry's output for its decision at all: at
+`resolve_internal_links_action.go:207-212` it is handed `existing`, a **fresh `page_components`
+read** (`loadExistingSectionContentData`), while the carry's output is the *other* argument.
+So the stamp is in the consumer's hand directly and `plan_sections` is not on the path. The real
+leak is one branch of the consumer itself — `setCTAField`'s final fallthrough writes **nothing**
+to `resolved[field]`, so a carried value ships unstamped from there and the REPLACE-discipline
+save does not preserve the old stamp. Fix belongs in `setCTAField`, where `stored` is already a
+parameter; editing `carryStored` would have touched a seam whose register entry says *do not
+remove it, do not reorder it* and would not have closed the hole.
+
+**What caught it.** A planning agent asserted the opposite conclusion. Its stated reason was also
+wrong — it said the carry "structurally cannot" carry the stamp, when the whole stored map is in
+hand at `storedFieldValue:270` (`data[field]`) and a copy is two lines. **Neither account
+survived contact with the call site; the disagreement is only what sent me to read it.** Worth
+recording as the useful half: a subagent being wrong for the wrong reason still located the
+question, and I would not have re-read the call site without it — the standing lesson that a
+subagent's report is another doc cuts both ways.
+
+**The cheap check.** I reasoned about the producer in isolation and never asked *where does the
+consumer of this value get its input from?* — answerable with one `sed -n '207,212p'` at the call
+site, which I had already read earlier in the same session for a different purpose and did not
+connect. General form: **a claim that data flows from A to B is not checkable at A. It is
+checkable at B's call site** — read the consumer's arguments, not the producer's body. The
+adjacent trap is that quoting the producer's source verbatim (which I did) makes the claim *look*
+evidenced: the quote is real, it is just evidence about the wrong end of the pipe.
