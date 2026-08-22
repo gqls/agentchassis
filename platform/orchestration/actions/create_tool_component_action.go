@@ -287,6 +287,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		if replaceExistingRequested(inputs) {
 			return regenerateToolComponentInPlace(ctx, params, logger, toolRegenerateRequest{
 				siteID:       siteID,
+				domain:       siteDomain,
 				incumbentID:  existingID,
 				function:     function,
 				displayName:  displayName,

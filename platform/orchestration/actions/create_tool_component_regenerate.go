@@ -62,6 +62,7 @@ import (
 
 type toolRegenerateRequest struct {
 	siteID      uuid.UUID
+	domain      string // for the link-repair attribution record (bugs_open/362 third writer)
 	incumbentID string // content_components.id of the site's live tool component for this function
 	function    string
 	displayName string
@@ -289,6 +290,17 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 		return nil, fmt.Errorf("replace_existing refused: tool component %s (%s) has no live, agent-writable placement on site %s — the slot is removed (withdrawn) or human-locked; a withdrawn tool is re-filed WITHOUT replace_existing after deactivating the old row (LANDMINES: the already-exists probe), and a locked one is a human's to unlock",
 			req.incumbentID, req.function, req.siteID)
 	}
+
+	// bugs_open/362, THIRD writer — found by the advisory-findings audit AFTER
+	// the two the bug file named were wired: this arm rewrites an existing
+	// tool's rendered_html, where JS-built anchors are CERTAIN rather than
+	// likely, so the span-aware repair matters most here. Placed after the
+	// placements resolve (the page identity the durable record names) and
+	// before either UPDATE, so what is repaired is what is persisted; the
+	// seam's own index query reads pages, not the rows this tx has locked.
+	// The template (html_template) stays verbatim, mirroring both siblings.
+	req.renderedHTML = repairComponentHTMLBeforePersist(ctx, params, req.siteID,
+		req.domain, pageName, pageURL, "create_tool_component_regenerate", req.renderedHTML, logger)
 
 	res, err := tx.ExecContext(ctx, `
 		UPDATE content_components

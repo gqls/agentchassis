@@ -112,20 +112,28 @@ func TestToolWriterRepairIsFullyInertOnCleanToolBytes(t *testing.T) {
 	}
 }
 
-// TestToolWritersCallTheRepairBeforeTheirPersist scans both writer files and
-// requires the repair call to appear BEFORE the page_components INSERT.
-// Comment lines are skipped; finding either marker zero times is a loud
-// failure (a broken scan must not pass silently — the 336/339 test pattern).
+// TestToolWritersCallTheRepairBeforeTheirPersist scans all three writer files
+// and requires the repair call to appear BEFORE that file's page_components
+// write (INSERT for the two creators, UPDATE for the regenerate arm — the
+// third writer, found by the advisory-findings audit only AFTER the bug file's
+// two were wired; nothing had ever named it). Comment lines are skipped;
+// finding either marker zero times is a loud failure (a broken scan must not
+// pass silently — the 336/339 test pattern).
 func TestToolWritersCallTheRepairBeforeTheirPersist(t *testing.T) {
-	for _, file := range []string{
-		"create_tool_component_action.go",
-		"deploy_tool_action.go",
-	} {
-		src, err := os.ReadFile(file)
+	writers := []struct {
+		file          string
+		persistAnchor string
+	}{
+		{"create_tool_component_action.go", "INSERT INTO page_components"},
+		{"deploy_tool_action.go", "INSERT INTO page_components"},
+		{"create_tool_component_regenerate.go", "UPDATE page_components"},
+	}
+	for _, w := range writers {
+		src, err := os.ReadFile(w.file)
 		if err != nil {
-			t.Fatalf("cannot read %s: %v", file, err)
+			t.Fatalf("cannot read %s: %v", w.file, err)
 		}
-		repairLine, insertLine := -1, -1
+		repairLine, persistLine := -1, -1
 		for i, l := range strings.Split(string(src), "\n") {
 			trimmed := strings.TrimSpace(l)
 			if strings.HasPrefix(trimmed, "//") {
@@ -134,20 +142,20 @@ func TestToolWritersCallTheRepairBeforeTheirPersist(t *testing.T) {
 			if repairLine == -1 && strings.Contains(l, "repairComponentHTMLBeforePersist(") {
 				repairLine = i + 1
 			}
-			if insertLine == -1 && strings.Contains(l, "INSERT INTO page_components") {
-				insertLine = i + 1
+			if persistLine == -1 && strings.Contains(l, w.persistAnchor) {
+				persistLine = i + 1
 			}
 		}
 		if repairLine == -1 {
-			t.Errorf("%s: no call to repairComponentHTMLBeforePersist — the bugs_open/362 wiring is gone; this writer persists rendered_html unrepaired again", file)
+			t.Errorf("%s: no call to repairComponentHTMLBeforePersist — the bugs_open/362 wiring is gone; this writer persists rendered_html unrepaired again", w.file)
 			continue
 		}
-		if insertLine == -1 {
-			t.Errorf("%s: no page_components INSERT found — the scan is anchored on nothing and this test is asserting nothing", file)
+		if persistLine == -1 {
+			t.Errorf("%s: no %q found — the scan is anchored on nothing and this test is asserting nothing", w.file, w.persistAnchor)
 			continue
 		}
-		if repairLine > insertLine {
-			t.Errorf("%s: the repair call (line %d) comes AFTER the persist (line %d) — what is persisted is not what was repaired", file, repairLine, insertLine)
+		if repairLine > persistLine {
+			t.Errorf("%s: the repair call (line %d) comes AFTER the persist (line %d) — what is persisted is not what was repaired", w.file, repairLine, persistLine)
 		}
 	}
 }
