@@ -43808,3 +43808,32 @@ trigger is **unarmed** and must say so — an unarmed trigger honestly labelled 
 reader can see the prerequisite; a trigger that looks armed and is not disables the whole list.
 Related: `a-closed-blocker-keeps-being-obeyed` (the retrospective half of the same class),
 `a-submission-is-not-a-review` (a named artefact is not the thing it names).
+
+## 2026-08-22 — I hit the backticks-in-`-m` landmine that is already indexed in MEMORY
+
+**The claim I acted on:** nothing explicit — I wrote a commit message in a `git commit -m "..."`
+double-quoted string with markdown backticks around a word, the way I had been writing prose all
+session.
+
+**Actually:** bash ran the backticked words as commands. `983a19a71`'s message says
+`/bin/bash: consumed: command not found` twice at write time and the word `consumed` is simply
+**missing** from two sentences in the committed message — including the one defining the term the
+commit exists to define. Forward-only forbids an amend, so the record is permanently one word
+short in two places and needed a follow-up commit to restore.
+
+**What makes this worth a row rather than a shrug:** this landmine is **already in `MEMORY.md`**
+("backticks in `-m` execute"), it auto-loads every session, and I had read it. Knowing a trap and
+avoiding it are different skills, and the gap between them is what a tally measures. Earlier in
+this same session I *did* avoid it — every long message went through a `<<'EOF'` heredoc, whose
+single-quoted delimiter suppresses substitution. This one was shorter, so I reached for `-m "..."`
+without re-deciding.
+
+**The cheap check, and it costs nothing:** use `-m "$(cat <<'EOF' ... EOF)"` for **every** commit
+message containing prose, not just long ones. The quoted `'EOF'` is the load-bearing part. Length
+is not the risk factor — a single backticked identifier in a one-line message is enough, and a
+markdown habit makes backticked identifiers the default.
+
+**Tally note:** this is the second entry today whose lesson was already written down somewhere I
+had read (the other: a pathspec passenger, which MEMORY covers in two separate halves I had not
+joined up). Both are recall failures under momentum, not knowledge gaps — which argues the
+remedy is a mechanical default, never "remember harder".
