@@ -259,3 +259,38 @@ estate measured at 71.5% of directory-prefixed bug pointers already dead.
 ⚠ And it does **not** rescue the detector's justification: 242 has no ordering angle (no `ORDER BY`,
 `alphabet` or `starv` hit anywhere in the file). The ordering class stays at **one live member**. The
 count class LCO-009 already covers is larger, but that is a different check and it exists.
+
+## The fix, dry-run against live data before applying anything
+
+Both queries run read-only at the same instant, 2026-08-22 ~10:35Z.
+
+**OLD (`ORDER BY s.domain LIMIT 5`)** — `webdesign.co.uk` is **rank 5 of 5**, i.e. last, which is where
+it has been for four consecutive runs:
+
+```
+ai-agent-orchestration.com
+dartsonline.com
+fundamentallyai.com
+robot-hands.com
+webdesign.co.uk
+```
+
+**NEW (`ORDER BY due_at ASC NULLS LAST, domain ASC LIMIT 5`)** — `webdesign.co.uk` is **rank 1**:
+
+```
+webdesign.co.uk              <- the starved site, promoted from last to first
+ai-agent-orchestration.com
+dartsonline.com
+fundamentallyai.com
+robot-hands.com
+```
+
+**The two results contain the SAME FIVE SITES.** That is the check that matters and it is not a
+coincidence — the eligibility predicate is byte-for-byte unchanged, so membership is provably identical
+and only the order moves. If the new query had returned a different *set*, the rewrite would have
+changed what the trigger considers, which is not what this fix is for.
+
+⚠ **Right now exactly 5 sites are due, so nothing is being cut at this instant** and the ordering costs
+nobody anything. The ordering only decides an outcome when more than five are due — which is the
+condition that held at all five retained runs. So this dry-run demonstrates the *promotion*, not the
+relief; the relief is verified after the fact against the lateness query.
