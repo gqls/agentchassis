@@ -1064,3 +1064,88 @@ The point of writing this before it is needed is that the first run corrects it.
 which fee actually applied; whether Nominet's UI matched these step names; how long each
 step took; whether the customer self-served step 2 or we did it; and **anything that
 succeeded while doing nothing**, which is this estate's most expensive failure shape.
+
+---
+
+## The wireguard egress fence (applied 2026-08-22) — what it is and how to verify it
+
+The webdesign.uk box reaches the cluster as `peer_webdesignbox` on the **main** `wireguard`
+deployment. That instance masquerades, and `allow-same-namespace` unions away
+`database-access-policy`, so before this fence any peer could reach **every** service in
+`ai-persona-system` including `postgres-clients:5432` — proven, with a closed-port control.
+
+`deployments/kustomize/services/wireguard/base/networkpolicy-wireguard-egress.yaml` is a
+deny-by-default **egress** policy on the wireguard pod. Egress-on-the-pod is the only
+enforcement point that works: because of the masquerade, a policy keyed on a peer's
+`10.13.13.x` address can never match, and would fail closed while looking like it worked.
+
+**Allowlist, and it is evidence-based — every cluster upstream named anywhere in the box's
+own config, nothing guessed:**
+
+| destination | why | what breaks without it |
+|---|---|---|
+| kube-dns `:53` | both upstreams are proxied BY NAME | everything, presenting as "core-manager is down" |
+| `core-manager:8088` | box nginx `location /c/` **and** the chat bot's facts relay (`box/chat-service/facts.go`) | `/c/`, and **the bot refuses to START** (its own stated design) |
+| `auth-service:8081` | box nginx `/stripe/webhook` | **THE MONEY PATH** |
+| `admin-dashboard:8080` | the owner's `laptop`/`phone` peers | his admin access over the VPN |
+
+⚠ **Adding a peer that needs a new destination means adding it HERE.** Otherwise that peer
+gets a timeout that looks exactly like the destination service being down.
+
+### Verify the fence
+
+Run from the wireguard pod — that is where every peer's traffic emerges after the
+masquerade, so the pod's reach IS the peer's reach. **Both arms matter**: a bare `nc -z`
+that is missing or busybox-limited reads the same as a blocked port, so the closed-port
+control is what proves the instrument works.
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=wireguard -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec -i "$POD" -c wireguard -- sh -s <<'PROBE'
+probe(){ printf '  %-34s ' "$1"; if nc -z -w4 $2 $3 2>/dev/null; then echo "REACHABLE"; else echo "blocked/refused"; fi; }
+printf '  %-34s ' "resolve core-manager"; (nslookup core-manager.ai-persona-system.svc.cluster.local >/dev/null 2>&1 && echo OK) || echo FAIL
+probe "core-manager:8088   (MUST stay)"    10.21.127.41  8088
+probe "auth-service:8081   (MUST stay)"    10.21.217.63  8081
+probe "admin-dashboard:8080(MUST stay)"    10.21.171.225 8080
+probe "postgres:5432       (MUST be gone)" 10.21.233.177 5432
+probe "postgres:5433       (control)"      10.21.233.177 5433
+PROBE
+```
+
+Expected: DNS `OK`; the three `MUST stay` rows `REACHABLE`; **postgres:5432
+`blocked/refused`**; the control also `blocked/refused`. If the control ever reads
+`REACHABLE`, the probe is meaningless — stop and fix the probe, not the policy.
+
+⚠ The ClusterIPs above are **pinned literals**. Re-read them (`kubectl -n ai-persona-system
+get svc`) if a service is ever recreated, or you will be probing nothing and calling it a
+pass.
+
+### Then verify the live services that actually ride the tunnel
+
+A policy probe is not the product. These three go through the box and would each fail
+differently if the allowlist were wrong:
+
+```bash
+# the bot — proves the facts relay still works (it fetches core-manager over the tunnel)
+curl -sS -X POST https://preview.webdesign.uk/api/chat -H "Content-Type: application/json" \
+  -d '{"message":"How long will my site take?"}'
+# /c/ — still in-cluster only; ask core-manager directly, the box does not serve it on preview
+CM=$(kubectl -n ai-persona-system get pods -l app=core-manager -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$CM" -- sh -c 'wget -q -S -O /dev/null http://127.0.0.1:8088/c/x 2>&1 | head -1'   # expect 200
+# the site
+curl -sS -o /dev/null -w '%{http_code}\n' https://preview.webdesign.uk/    # expect 200
+```
+
+⚠ **`https://preview.webdesign.uk/c/x` returns 404 and that is CORRECT, not a regression.**
+The box's nginx `server_name` is `webdesign.uk www.webdesign.uk`, not `preview`, so `/c/` is
+not served on the preview host at all. Do not "fix" this by widening the server_name — that
+is exactly the public-exposure decision (D-A) that is still open.
+
+### To roll it back
+
+`kubectl -n ai-persona-system delete networkpolicy wireguard-egress-containment`. One
+command, no pod restart, peers keep their tunnels. **This is the fence's best property: it
+contains an internet-facing peer without re-keying anything, without touching the box, and
+without any downtime on the money path** — unlike the separate-instance design in
+`gauntlet_dead_cta/infra/wireguard_bastion.yaml`, which is still the better long-run shape
+but needs a box-side cutover.

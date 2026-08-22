@@ -1,0 +1,92 @@
+# Egress containment for the main `wireguard` pod — the fence for the
+# internet-facing webdesign.uk box, which is one of its peers.
+#
+# WHY THIS EXISTS. The wireguard pod MASQUERADES (`-A POSTROUTING -o eth+ -j
+# MASQUERADE`, verified in the running pod 2026-07-24 and again 2026-08-22), so
+# every peer's traffic reaches other pods carrying THIS pod's IP. Combined with
+# `allow-same-namespace` (podSelector {} <- podSelector {}, which unions away
+# `database-access-policy`'s allowlist on postgres-clients), any peer of this
+# instance can reach EVERY service in ai-persona-system, including
+# postgres-clients:5432. Proven 2026-08-22 from this pod, with a closed-port
+# control: `nc -z 10.21.233.177 5432` -> succeeded.
+#
+# That is correct for the owner's laptop and phone. It is NOT correct for
+# `peer_webdesignbox`, which is an internet-facing VM serving webdesign.uk.
+# `gauntlet_dead_cta/infra/README_bastion_exposure.md` says in bold "Never add
+# the bastion as a peer of the main `wireguard` deployment" — this policy is the
+# containment for the fact that it already is.
+#
+# WHY EGRESS-ON-THE-WG-POD AND NOT A PER-PEER RULE. Because of the masquerade, a
+# NetworkPolicy keyed on a peer's 10.13.13.x address can NEVER match — it would
+# fail closed and look like a working restriction while actually just breaking
+# that peer. The only enforcement point that sees the real traffic is egress
+# FROM this pod, applied at the node by Calico.
+#
+# ⚠ THIS IS A DENY-BY-DEFAULT LIST. Adding a peer that needs a new destination
+# means adding it HERE, or that peer fails with a timeout that looks like the
+# service being down. The allowlist below is EVIDENCE-BASED, not guessed — it is
+# every cluster upstream referenced anywhere in the box's own configuration:
+#   * core-manager:8088   — box nginx `location /c/` AND the chat bot's facts
+#                           relay (`/api/v1/site-facts/:domain`, box/chat-service/facts.go).
+#                           Breaking this stops the bot STARTING, by its own design.
+#   * auth-service:8081   — box nginx `/stripe/webhook`. THE MONEY PATH.
+#   * kube-dns:53         — the box's wg0 PostUp attaches 10.21.0.10 for
+#                           cluster.local, and both upstreams above are proxied BY NAME.
+#   * admin-dashboard:8080 — the owner's laptop/phone peers, so he can reach the
+#                           admin area over the VPN. Not needed by the box.
+# Everything else, notably postgres-clients:5432, is denied.
+#
+# Verified after apply from the wireguard pod itself, which is where every peer's
+# traffic emerges — see RUNBOOK "Verify the wireguard egress fence".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wireguard-egress-containment
+  namespace: ai-persona-system
+  labels:
+    app: wireguard
+spec:
+  podSelector:
+    matchLabels:
+      app: wireguard
+  policyTypes:
+    - Egress
+  egress:
+    # DNS. Must come first in intent if not in evaluation: without it every
+    # by-name proxy_pass on the box fails and the symptom is "core-manager is
+    # down", not "DNS is blocked".
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # The box's two real upstreams.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: core-manager
+      ports:
+        - protocol: TCP
+          port: 8088
+    - to:
+        - podSelector:
+            matchLabels:
+              app: auth-service
+      ports:
+        - protocol: TCP
+          port: 8081
+    # The owner's admin area, for the laptop/phone peers.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: admin-dashboard
+      ports:
+        - protocol: TCP
+          port: 8080
