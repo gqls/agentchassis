@@ -176,3 +176,54 @@ wrong the next person can see the reasoning and disagree with it rather than gue
 already in and are unaffected. The remaining item is unchanged too: the first real release
 under this gate should be run with someone watching the output, because it is the one
 point every deploy passes through and its logic has been inverted.
+
+---
+
+## 2026-08-22, evening — the cluster check is built, and it caught itself lying
+
+You said carry on, so I built the last piece I had on the list: a check that looks at what
+is actually **running** rather than what is written down.
+
+**Why that is a different question.** Everything up to now reads the files in the
+repository and asks "could a release reach this service?". That is the right question and
+it cannot answer a second one: whether the thing described in those files is actually
+there, and whether something is running that no file describes. Those are two different
+lists and neither one contains the other. We found one of each while measuring — a service
+fully described in every file and not running at all, and two jobs running in the cluster
+with nothing on disk describing them.
+
+**What it found on its first run, against the live system:** twenty-nine of forty-five
+things running carry one of our images, the fleet is on v1.0.1323, and there are five
+things worth knowing. Two services were hand-deployed one version *ahead* of everyone
+else. One is three versions *behind*. Two are fully declared and not running at all — one
+of them scaffolded by another team an hour earlier, deliberately, and their own note says
+so. Nothing false, nothing missing.
+
+**Then the interesting bit.** The first version of this check described the two
+hand-deployed services as *"running an old fleet tag"*. They were not old. They were
+newer. It had the direction backwards.
+
+That is worth more attention than a missing finding would have been. Someone hunting a
+frozen service would have followed that line, found a service that was if anything too
+new, shrugged, and concluded the tool works — so the wrong answer would have quietly
+survived. I have fixed it three ways: the finding now says which direction, and the two
+directions have opposite advice (a service left behind wants a release; a hand-deployed
+one wants its version number never reused, or the next release serves the hand-built image
+from the machine's cache). It also now compares version numbers as numbers rather than as
+text, because we passed v1.0.999 → v1.0.1000 long ago and as text "999" looks bigger. And
+where two versions genuinely cannot be ranked, it now says so rather than guessing.
+
+**Why I didn't catch it before running it:** I wrote the test for the case I had in mind —
+a service left behind — and never wrote its mirror. A test that only covers one direction
+cannot fail on the other. That is now written down as a rule rather than as an anecdote.
+
+**Two things it deliberately does not do**, so nobody thinks they are getting more than
+they are. It only runs when a person runs it — there is no scheduled job, no permissions
+set up for one, and no record written anywhere. Scheduling it is a separate decision, and
+I split them on purpose: this estate's own history is full of detectors that worked
+perfectly and were never actually driven by anything. And it reads only the first
+container of each service, so a sidecar would be missed; nothing here has one today.
+
+**Where that leaves things.** The one outstanding item is unchanged and is yours: a real
+release under the new gate, with someone reading the output. Everything else on this bug
+is built, reviewed and recorded.
