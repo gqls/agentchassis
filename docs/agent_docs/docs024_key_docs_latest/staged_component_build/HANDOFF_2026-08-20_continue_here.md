@@ -527,6 +527,42 @@ fleet restart. Everything needed to execute it is in this file: the boundary abo
 currently sits with the parallel session (they asked, and they hold the sharper boundary); the
 obligation sits with the lane.
 
+### First gate traffic, and a gap I nearly left open (2026-08-22 ~09:0xZ)
+
+**The 330 positive control was FIRED** by the parallel session on their owner's explicit green light
+(recorded in their NOTES; correlation `44c52f2a`): a tool-generator run on robot-hands.com with
+`related_pages` present in the spec. It is the gate's first with-pages traffic through a marked wire
+on the new binary.
+
+⚠ **They have an ACCIDENTAL PAIRED CONTROL and should use it.** In the same minutes, on the same
+binary, two other tool-generator runs carry **no** `related_pages`
+(`15ca55cd` 08:58:29 and `a77cffe5` 08:57:40, both `spec_has_related_pages = f`) beside the positive
+one (`2bb319ab` 08:58:34, `= t`). So the discrimination is available without waiting: the
+with-pages run must emit **3** crosslink items and **no** `no_related_pages` skip row, while the two
+without-pages runs must emit **no** items and **one skip row each**. Both halves holding in one
+window rules out "the crosslink path is broken" as an alternative explanation for either result — a
+standalone with-pages observation cannot do that.
+
+**THE GAP I ALMOST LEFT OPEN, now closed.** Every `?` marker proof this lane has produced tests the
+**ABSENCE** half — 515 showed `page_type` excluded from `requested_fields`; 537 showed the same for
+`commit_sha`; both are evidence the field *stops reaching the whole-tree search*. **None of them
+showed that a marked field still RESOLVES from its named path when the value IS present.** Had `?`
+silently broken Strategy-0 resolution, all three wires would be quietly delivering nothing — and
+every check we ran (exclusion from `requested_fields`, zero conflict rows) would still have passed.
+
+Checked, and it is fine: post-wire completions carrying `result.commit_sha` —
+**140 of 180** before the roll and **3 of 10** after it (small n post-roll, but non-zero).
+```sql
+SELECT count(*) FILTER (WHERE result ? 'commit_sha') AS with_sha, count(*) AS completed
+  FROM site_work_items WHERE status='complete' AND jsonb_typeof(result)='object'
+   AND completed_at > '<wire time>';
+```
+So **`?` demonstrably still resolves its named path in production**, and the marker mechanism is not
+a suspect if the robot-hands run comes back short — look at the crosslink emitter instead.
+⚠ **`page_type?` (515) remains unprovable on this axis**: nothing durable records the value
+`plan_sections` was handed (`section_plan` carries counts and names, not `page_type`), so its
+present-value half cannot be observed. State that limit rather than assuming 537 covers it.
+
 **The gate closes 2026-08-24 ~08:45Z.** Record the result here whether clean or not.
 
 ## 2.10 ✅ THE FLIP IS BUILT AND COMMITTED — `5fe010ada` (2026-08-21 ~17:1xZ)
