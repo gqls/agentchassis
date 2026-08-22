@@ -14876,3 +14876,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/318` (the negative result that found this: candidate 1 as worded cannot be built on this history), `bugs_open/237` / register **BLD-022** (the coverage gate that reads these same files), **BLD-019**/**BLD-020**/**BLD-023** (the instruments that do work), CLAUDE.md § "`git stash` is FORBIDDEN" (the 38-file, ~50–100-release revert sweep — same files, same blast radius), MEMORY [[live-and-committed-are-independent-facts]]
 - **source:** 2026-08-22, `bugs_open/318` lane — found while prototyping the content-change trigger the owner asked for on 2026-08-18; the design was abandoned on this evidence rather than shipped and discovered later
 - **added:** 2026-08-22, bugs_open/318 lane
+
+
+### A SETTLE WINDOW cannot separate "still arriving" from "never arriving" on this estate — the distributions OVERLAP, so widening it feels like a fix and buys nothing but latency
+
+- **footprint:** `divergenceSettleWindow`, `check_page_content_divergence.go`, `page_content_divergence`, `pages.content_hash`, `pages.deployed_at`, any detector that waits N minutes after a deploy/write before judging the result
+- **fires when:** you tune, or design, a "wait long enough for delivery to finish" threshold — and reason that if the observed tail is X, a window of 3–5×X makes false positives go away. **No symptom.** The number looks derived, the sample looks generous, and the resulting figure reads as authoritative in a comment, a register entry and a commit message.
+- **the mechanism:** on this estate a page's delivery time and its *failure* to deliver occupy the **same range**. `[MEASURED 2026-08-21/22]` on `page_content_divergence`:
+
+  | observation | age at which the page was STILL serving the old bytes |
+  |---|---|
+  | 1,099 re-probes, 85 pages, 95 deploy events | 1s, 13s, 14s |
+  | random 40-page sample, same estate, 6h later | 15 min, 21 min (max 1012s) |
+  | vetcomparison.uk, after a byte-identical republish | **1h07** |
+  | vetcomparison.uk, the true positive | **9+ hours** |
+
+  A healthy-but-slow delivery and a broken one are **indistinguishable at every age up to hours**, so no value of the constant is a separator. Widening trades false-positive margin for detection latency and never resolves the ambiguity.
+- **and the sampling trap that makes it worse:** the first watch (95 deploy events, 2h42m) caught only fast deliveries, and its maximum was quoted as "the tail" — producing a published claim of "~128x the largest lag observed" that was wrong by two orders of magnitude. **A sample's MAXIMUM is not a bound on the population.** The second measurement, taken six hours later against a random sample, moved the figure by 70×; the third, a day later, by another 30×.
+- **the check:** before quoting a window's margin, say what the measurement **cannot** see: *"n events over T hours; the slowest was X; nothing here bounds a batch slower than the ones sampled."* Typing that sentence is the check — it makes "128x" impossible to write. And **re-measure on fresh data at a different moment before the figure goes into a second document**, because a single sampling window is a single moment.
+- **what actually separates them:** **PERSISTENCE ACROSS PASSES.** A page still diverged 4 hours later, on a different probe, is not in flight. `page_content_divergence` already produces that evidence and discards it — the 2026-08-22 item was re-detected on three consecutive passes and `idx_swi_dedup` silently absorbed every repeat. Filed as PLAN **D9** in `bugfix_315_deployed_at_without_publication/`, unbuilt. ⚠ Whoever builds it: re-detection is **not** verification (RFC_017) — a second observation is evidence of PERSISTENCE, not of correctness — and "strikes" must survive a `CheckResult.Resolved` retraction cycle or a flapping page will oscillate.
+- **relations:** register `DGH-015` (the check) and `DGH-013` (the fingerprint it consumes) · `bugs_closed/315` · `WRONG_CALLS.md` 2026-08-21 ("I quoted a small sample's MAXIMUM as the tail") · the sibling entry on `orchestration_states` retention — same family: a claim about a distribution's shape made from data that could not show its shape
+- **source:** 2026-08-21/22, `bugfix_315_deployed_at_without_publication` lane; the figure was corrected twice, the second time by the check's own first live catch
+- **added:** 2026-08-22, 315 lane
