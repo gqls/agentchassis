@@ -117,3 +117,54 @@ capacity question is genuinely yours: the nine sites are asking for **42 refresh
 often, or raise *both* limits together), or to accept that the schedules we configured were more
 ambitious than we meant — one site is asking to be refreshed every three hours. I have not touched either
 number and I am not going to without you saying so.
+
+## 2026-08-22, capacity — done, and one number in the original report turned out to mislead
+
+You said to increase the capacity with both caps together, so that is what went in: both limits from five
+to ten, in a single change that refuses to apply unless both move. The council approved it unanimously.
+It is live.
+
+**But I want to correct something in the original report before you rely on it,** because it changes what
+you actually bought.
+
+That report framed the shortfall as "the sites want 42 refreshes a day and we supply 20". That is
+arithmetically right and it quietly implies the gap is about the limit — make the limit bigger, get
+closer to 42. It isn't, and no limit can close it. The job only *wakes up four times a day*. So no site
+can be refreshed more than four times a day no matter how high we set anything.
+
+Once you look at it per site rather than as a pool, it comes apart cleanly:
+
+- **Seven of the nine sites want refreshing every six hours — four times a day — and the job runs four
+  times a day.** They are now fully served. Before today they were getting roughly every other run.
+  These seven are the real win.
+- **Two sites asked for more than the job can ever give them.** One wants refreshing every four hours,
+  one every three. They will still be late, and that is not a failure of what we just did — it is a
+  different lever entirely.
+
+So the honest summary is: **the limit was the problem for seven sites and it is now fixed; the schedule is
+the problem for two sites and it is untouched.** If you want those two on their real cadences, the change
+is how often the job wakes, not how much it takes each time — but that multiplies the work for the seven
+sites that do not need it, so it is a worse deal than it sounds. I would leave it unless those two sites
+matter more than the others.
+
+**What it costs.** We go from about 20 site-refreshes a day to about 36 — an 80% increase. I measured the
+AI spend rather than guessing: the triage step used about 78,000 tokens a day and should land around
+140,000. That is a real increase on a small base.
+
+**Two things I want on the record.**
+
+I found a *third* limit while checking this, on a different axis — how many news sources get fetched for
+one site in a single pass. It is set to ten, and our busiest site has nine sources. It is not causing any
+problem, but it is one source away from quietly cutting things off, and nobody is watching it. Written
+down rather than fixed, since it is not currently doing harm.
+
+And I made a mistake worth mentioning because of how I caught it. My first attempt at measuring the AI
+cost returned a number nearly ten times too high. The tell was a date — the query claimed to cover the
+last seven days but the earliest result was from March. That is the sort of thing that is invisible unless
+you check that the answer fits the question you asked, and it is logged.
+
+**Still not observed.** Everything so far is verified in the configuration and by running the query by
+hand. The job itself has not run since either change — the next one is at 14:37. Until it has run a
+couple of times I am not calling this finished, and I have written down what to look for, including that
+those two frequency-limited sites *should* still be late. If everything looks perfect, the measurement is
+probably wrong.
