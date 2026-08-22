@@ -133,36 +133,76 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 # it. Entry form is <service>:<the make target that retags it>.
 RETAG_EXEMPT := auth-service:deploy-auth-service core-manager:deploy-core-manager
 
-# check-release-coverage (the door-closer for bugs_open/237's class): every
-# overlay on disk that pins a release-built image MUST be in one of the two
-# lists above, or the release refuses to run. This is what makes the next
-# image-sharing service impossible to ship silently un-rolled — the filesystem
-# is enumerated, so forgetting the list is caught at the very next release
-# instead of drifting for months.
+# OWN_LINEAGE — the ONLY way an overlay may pin one of OUR images and stay out
+# of the release. Entry form is <service>:<the make target that retags it>.
+#
+# ⚠ EMPTY, AND ITS EMPTINESS IS THE POINT (added 2026-08-22, bugs_open/318).
+# Until today, "the release does not build this image" was the coverage gate's
+# ADMISSION TEST — it skipped such an overlay entirely — so a service omitted at
+# birth was not uncovered, it was out of scope, and the gate printed "Release
+# coverage OK" about the exact omission it exists to catch. Eight services fell
+# into that hole, two of them AFTER the owner ruling meant to close it. The
+# predicate is now inverted: one of our images that no release builds is a
+# VIOLATION, and this list is the explicit, greppable, reviewable way out. It is
+# opt-in with the unsafe side default OFF (CLAUDE.md owner ruling 2026-08-02 §2),
+# and it must stay a LIST rather than becoming a rule — a predicate that guesses
+# which services are legitimately outside the release is one nobody can review.
+#
+# ⚠ IT WAS GOING TO SHIP EMPTY, AND THE GATE'S FIRST RUN FOUND AN ENTRY FOR IT.
+# `admin-dashboard` pins `$(REGISTRY)/admin-dashboard`, which `build-backend`
+# does not build — it is a frontend, built by `build-dashboard` from
+# `frontends/admin-dashboard/` in the WORKING TREE with no `ref_build`, no
+# `REF` and no provenance stamp (BLD-019/BLD-020 scope frontends out
+# explicitly). It is nonetheless released: `release-dashboard` is the last goal
+# of `pinned_sweep` in `release`. So it is genuinely own-lineage and genuinely
+# covered — but until now NOTHING ON DISK SAID SO, and the old gate could not
+# have said so, because its image is not in RELEASE_IMAGES and that was the
+# gate's admission test. This is the shape bugs_open/318 is about, found on the
+# new predicate's first live run rather than by anyone remembering.
+# ⚠ NOTE what the entry does NOT cover: `release-backend` (the no-dashboard
+# variant) omits `release-dashboard`, so a backend-only release leaves this
+# service on its old tag. That is intended, and it is why the target is named
+# here rather than the fact being left to folklore.
+OWN_LINEAGE := admin-dashboard:deploy-dashboard
+
+# check-release-coverage (the door-closer for bugs_open/237's class, widened by
+# bugs_open/318): every overlay on disk that pins one of OUR images must be in a
+# release path or explicitly exempt, or the release refuses to run.
+#
+# ⚠ THE PREDICATE MOVED TO GO (2026-08-22) AND THE SHELL COPY WAS DELETED, not
+# left beside it — two implementations of one gate is the drift class
+# 099_SYNC_gate_roster.py exists for. Two reasons it is Go:
+#   1. SCOPE. scripts/council-scope.sh scopes review to platform/, internal/,
+#      pkg/ and appliable migrations. A makefile-only gate cannot be reviewed at
+#      all (this one never was); the predicates now live in pkg/releaseset and
+#      are.
+#   2. PROOF. On 2026-08-22 a session mutated THIS FILE in place to show the old
+#      gate discriminates, and another session committed it inside the window
+#      (WRONG_CALLS.md, f016b07ec). The Go predicates are pure functions, so the
+#      mutation proofs are table rows over testdata and no shared file is
+#      touched to run them.
+# The Go version also fixes two blind spots this recipe had: it walks
+# overlays/production to ANY depth (tools-api's real overlay has no region
+# directory and this glob could never see it) and it reads `newName` in
+# preference to `name`, which is kustomize's own semantics.
 .PHONY: check-release-coverage
-check-release-coverage: ## Fail if an overlay pins a release-built image but is in no release path
-	@fail=0; \
-	for f in $(KUSTOMIZE_DIR)/services/*/overlays/$(OVERLAY_PATH)/kustomization.yaml; do \
-		[ -f "$$f" ] || continue; \
-		svc=$${f#$(KUSTOMIZE_DIR)/services/}; svc=$${svc%%/*}; \
-		img=$$(awk '/^images:/{i=1;next} i&&/name:/{print $$NF;exit}' "$$f"); \
-		[ -n "$$img" ] || continue; \
-		case " $(foreach i,$(RELEASE_IMAGES),$(REGISTRY)/$(i)) " in \
-			*" $$img "*) ;; \
-			*) continue;; \
-		esac; \
-		covered=0; \
-		for entry in $(AGENT_DEPLOY_SERVICES) $(RETAG_EXEMPT); do \
-			[ "$${entry%%:*}" = "$$svc" ] && covered=1; \
-		done; \
-		if [ "$$covered" -eq 0 ]; then \
-			fail=1; \
-			echo "$(RED)RELEASE COVERAGE: $$svc pins $$img (a release-built image) but is in NO release path — it would freeze at its current tag for ever (bugs_open/237).$(NC)"; \
-			echo "$(YELLOW)  fix: add '$$svc' (or '$$svc:<image>') to AGENT_DEPLOY_SERVICES, or exempt it as '$$svc:<its-deploy-target>' in RETAG_EXEMPT.$(NC)"; \
-		fi; \
-	done; \
-	[ "$$fail" -eq 0 ] || exit 1
-	@echo "$(GREEN)Release coverage OK: every overlay pinning a release-built image is in a release path.$(NC)"
+check-release-coverage: ## Fail if an overlay pins one of our images but is in no release path
+	@go run ./cmd/releasecheck --root . --registry $(REGISTRY)
+
+# print-* — echo-only, and they exist for pkg/releaseset/decl_parity_test.go:
+# the Go side reads these declarations with a literal extractor rather than a
+# make evaluator, and the parity test asks MAKE for the same lists so the two
+# readings cannot drift. Handy by hand too (LANDMINES already reaches for the
+# first of them).
+.PHONY: print-release-images print-agent-deploy-services print-retag-exempt print-own-lineage
+print-release-images: ## Print RELEASE_IMAGES (one line, space separated)
+	@echo '$(RELEASE_IMAGES)'
+print-agent-deploy-services: ## Print AGENT_DEPLOY_SERVICES
+	@echo '$(AGENT_DEPLOY_SERVICES)'
+print-retag-exempt: ## Print RETAG_EXEMPT
+	@echo '$(RETAG_EXEMPT)'
+print-own-lineage: ## Print OWN_LINEAGE (empty today, deliberately)
+	@echo '$(OWN_LINEAGE)'
 
 #################################
 # Help
