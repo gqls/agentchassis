@@ -4,6 +4,7 @@
 //   - the *zap.Logger parameter is dropped (unused by the original's logic);
 //   - the "<no value>" strip is applied here after execution, as the
 //     production render paths and the news lane's render.go harness do.
+//
 // DO NOT add functions to the funcmap in this file. The P0 claim is that
 // composition needs none.
 package main
