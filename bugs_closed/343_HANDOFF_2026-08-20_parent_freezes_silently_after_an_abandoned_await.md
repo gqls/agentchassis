@@ -1,10 +1,48 @@
 # 343 — a parent freezes silently after ABANDONING an await, instead of failing
 
+> # ⛔ CLOSED 2026-08-22 — BY OWNER RULING, AND **NOT** BECAUSE THE BUG WAS SOLVED
+>
+> **This is a deliberate override of the fixed-AND-live bar, not a case that met it.** The owner was
+> given the choice — hold the lane armed indefinitely, or close on the half that is fixed — and ruled
+> **close it**. Read the next two paragraphs before citing this file for anything.
+>
+> **WHAT IS FIXED AND LIVE: the second wedge only.** `persistAwaitingStateWithRetry`'s arrival check
+> is now keyed on request identity, `parkOutcome` makes "success without persisting" unrepresentable,
+> and the advance decision cross-checks the table. Shipped in `ca5e41122` / `7f3875d3c` / `bf1fbc5b7`,
+> live on `agent-chassis` **v1.0.1322** since 2026-08-21 16:54Z and proven at the binary with a
+> control that came back absent. That work is sound and is not in question.
+>
+> **WHAT IS STILL UNEXPLAINED: the first death.** Why a child stopped answering, and why the parent
+> never registered iteration N+1's `call_handler` **at all**, are exactly as unknown today as on
+> 2026-08-20. Nothing shipped speaks to them. **So if you arrive here with a silent parent freeze,
+> this file does not tell you it is fixed — it tells you a related mechanism was fixed and this one
+> was closed anyway.** Re-open under a new number rather than assuming regression.
+>
+> **Why the owner could reasonably close it.** The 08-17 burst's entry condition was an external
+> **GitHub 503 outage** (~300× base rate, that day only), not a coordinator phenomenon. The natural
+> trigger may not return for months, and the route that needed no burst — the 20-wedged vs
+> 10-stopped within-day control — was **run and came back negative** (`NOTES_retry_kills_live_child.md`
+> §21: nothing in the retained columns separates the two modes, and `orchestration_states` is purged).
+> So the lane had no live path left that did not begin with "wait for an unrelated outage".
+>
+> **`[MEASURED 2026-08-22]` at the close, with a demand control** — abandoned rv3 `call_handler`
+> awaits are **30 on 2026-08-17 and zero on every other day in the table**, against a live volume of
+> 592 `call_handler` awaits on 08-21 and 53 by mid-morning on 08-22. The zero is measured against
+> real traffic rather than read off a quiet fleet. ⚠ **It is still not evidence of a fix** — six of
+> the eight days around the burst were also zero *before anything changed*. It is why closing costs
+> little, not why closing is correct.
+>
+> **RSH-011 `wedge-evidence-capture` stays ARMED and its trigger stays BROAD.** Closing the file does
+> not retire the instrument: if the freeze recurs, the evidence that was missing in August gets
+> captured. Its labels have been retargeted at this closed path (see the dead-label note below) —
+> a pointer into `bugs_open/` would land nowhere, which is the exact defect fixed on 08-21.
+
 **Filed 2026-08-20.** Split out of `bugs_closed/029_HANDOFF_2026-07-19_hung_spawns_saturate_dispatch_group_and_halt_builds_fleetwide.md`
 (owner ruling, 2026-08-20) — that file's retry-window defect is fixed and live; **this is the half
 that is neither**, carried out under its own number so a fixed Part A can never read as a fixed hang.
 
-**Status: OPEN. Not reproducing. Rare, bursty, and fully characterised except for its mechanism.**
+**Status: ~~OPEN~~ CLOSED 2026-08-22 by owner ruling (see banner). Not reproducing. Rare, bursty, and
+fully characterised except for its mechanism — which remains unexplained at close.**
 
 > ## 2026-08-21 — THE WEDGE MECHANISM IS FIXED AT SOURCE AND LIVE. The bug stays OPEN, and the reason is precise.
 >
