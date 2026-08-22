@@ -35,7 +35,7 @@ func TestSourceGuardFlagsThePhantomBlogAspect(t *testing.T) {
 		"cta_url":   {"type": "url", "source": "site_specs.blog.archive_url", "required": false},
 		"post1_title": {"type": "text", "source": "llm", "required": true}
 	}}`
-	issues := sourceVocabularyIssues(schema, liveAspects())
+	issues := SourceVocabularyIssues(schema, liveAspects())
 	if len(issues) != 3 {
 		t.Fatalf("want 3 issues (the three phantom-aspect URLs), got %d: %v", len(issues), issues)
 	}
@@ -58,7 +58,7 @@ func TestSourceGuardPassesContentListing(t *testing.T) {
 		"load_more_text": {"type": "text", "source": "static", "fallback": "Load More", "required": false},
 		"show_load_more": {"type": "boolean", "source": "static", "fallback": false, "required": false}
 	}}`
-	if issues := sourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
+	if issues := SourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
 		t.Fatalf("content-listing schema must pass, got: %v", issues)
 	}
 }
@@ -71,7 +71,7 @@ func TestSourceGuardFlagsUnknownQueryNames(t *testing.T) {
 		"featured": {"type": "object", "source": "query.featured_post", "required": false},
 		"tools":    {"type": "array",  "source": "query.pages_where_type:tool", "required": false}
 	}}`
-	issues := sourceVocabularyIssues(schema, liveAspects())
+	issues := SourceVocabularyIssues(schema, liveAspects())
 	if len(issues) != 1 {
 		t.Fatalf("want exactly the unknown query flagged, got %d: %v", len(issues), issues)
 	}
@@ -87,7 +87,7 @@ func TestSourceGuardFlagsUnknownPrefixes(t *testing.T) {
 		"name":   {"type": "text",  "source": "site.title"},
 		"orphan": {"type": "text",  "source": "mystery"}
 	}}`
-	issues := sourceVocabularyIssues(schema, liveAspects())
+	issues := SourceVocabularyIssues(schema, liveAspects())
 	if len(issues) != 3 {
 		t.Fatalf("want 3 unknown-prefix issues, got %d: %v", len(issues), issues)
 	}
@@ -107,7 +107,7 @@ func TestSourceGuardToleratesBareAndPerSiteSources(t *testing.T) {
 		"g": {"type": "text", "source": "config.theme.accent"},
 		"h": {"type": "text", "source": "site_specs.identity.company_name"}
 	}}`
-	if issues := sourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
+	if issues := SourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
 		t.Fatalf("all sources are resolvable shapes, got: %v", issues)
 	}
 }
@@ -119,7 +119,7 @@ func TestSourceGuardSkipsAspectCheckWhenSetUnavailable(t *testing.T) {
 		"u": {"type": "url", "source": "site_specs.blog.post1_url", "required": true},
 		"q": {"type": "array", "source": "query.no_such_query"}
 	}}`
-	issues := sourceVocabularyIssues(schema, nil)
+	issues := SourceVocabularyIssues(schema, nil)
 	if len(issues) != 1 {
 		t.Fatalf("want only the unknown query (aspect check skipped on nil set), got %d: %v", len(issues), issues)
 	}
@@ -132,7 +132,7 @@ func TestSourceGuardIgnoresMalformedAndEmptySchemas(t *testing.T) {
 	// Malformed / empty schemas are Check 3 / Check 4's remit — the guard
 	// must contribute nothing there, not double-report.
 	for _, schema := range []string{``, `{}`, `{"fields":{}}`, `not json`, `{"properties":{"x":{}}}`} {
-		if issues := sourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
+		if issues := SourceVocabularyIssues(schema, liveAspects()); len(issues) != 0 {
 			t.Errorf("schema %q: want no issues, got %v", schema, issues)
 		}
 	}

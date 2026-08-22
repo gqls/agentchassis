@@ -410,7 +410,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 	// the same silent-loss shape this guard exists to close (council
 	// fdb032c6, bug_historian). component_source_guard.go carries the
 	// reasoning and the calibration.
-	knownSpecAspects, aspectsErr := loadKnownSpecAspects(ctx, params.DB)
+	knownSpecAspects, aspectsErr := LoadKnownSpecAspects(ctx, params.DB)
 	if aspectsErr != nil {
 		logger.Warn("store_generated_component: could not load site_specs aspect vocabulary — site_specs source validation skipped for this store",
 			zap.Error(aspectsErr))
@@ -427,7 +427,7 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 				},
 			}}, logger)
 	}
-	blockingIssues = append(blockingIssues, sourceVocabularyIssues(schemaJSONStr, knownSpecAspects)...)
+	blockingIssues = append(blockingIssues, SourceVocabularyIssues(schemaJSONStr, knownSpecAspects)...)
 
 	// Regeneration must not break the field-name contract that existing
 	// dependents' content_data is keyed on. content_data is written to

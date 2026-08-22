@@ -1,0 +1,695 @@
+{
+  "_doc": "bugs_open/309 candidate 2 — the FROZEN grandfather baseline for the at-rest source-vocabulary audit (config-key-audit --component-source-vocabulary, daily CronJob component-source-vocabulary-check). Every entry is one field, measured 2026-08-22, whose declared source resolves nowhere for ANY site: the birth gate (CLC-018) now refuses this shape at component birth, but these 69 predate it and each needs a per-component repair judgement — repairing ONE of them (migration 478) took an owner ruling and a shrink-guard incident. THIS FILE MAY ONLY EVER SHRINK. It is keyed on the exact (component_id, field, source, class) tuple, so an entry can only excuse the one finding it was written for — a changed source on the same field, or a new bad field on the same component, is a NEW finding and turns the job red. Every entry is dated 2026-08-22 and the loader REFUSES any other date: the baseline is closed, and a new finding is fixed or routed, never baselined. Grandfathering is also CONDITIONAL for the eleven dormant components (live_instances_at_baseline = 0): if one is deployed, the job goes red, because a new page acquiring a known silent field-drop is new damage. An entry matching nothing live is STALE and also turns the job red — that is the ratchet's pawl, and it is how repairs burn this file down. Being here downgrades the EXIT CODE and never the REPORT: the daily doc_notes row names the whole population every run. Repairs are owned by the route named on each entry.",
+  "entries": [
+    {
+      "class": "unregistered_query",
+      "field": "category_articles",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.category_posts",
+      "baselined": "2026-08-22",
+      "component": "category-listing",
+      "component_id": "e44d77f4-d680-4f84-91ed-db53781ab349",
+      "live_instances_at_baseline": 2
+    },
+    {
+      "class": "unregistered_query",
+      "field": "category_name",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.category",
+      "baselined": "2026-08-22",
+      "component": "category-listing",
+      "component_id": "e44d77f4-d680-4f84-91ed-db53781ab349",
+      "live_instances_at_baseline": 2
+    },
+    {
+      "class": "unregistered_query",
+      "field": "category_slug",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.category",
+      "baselined": "2026-08-22",
+      "component": "category-listing",
+      "component_id": "e44d77f4-d680-4f84-91ed-db53781ab349",
+      "live_instances_at_baseline": 2
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "link_four_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.link_four_url",
+      "baselined": "2026-08-22",
+      "component": "content-sidebar",
+      "component_id": "28c978e3-964d-4d22-b244-a55e13abc3ed",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "link_one_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.link_one_url",
+      "baselined": "2026-08-22",
+      "component": "content-sidebar",
+      "component_id": "28c978e3-964d-4d22-b244-a55e13abc3ed",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "link_three_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.link_three_url",
+      "baselined": "2026-08-22",
+      "component": "content-sidebar",
+      "component_id": "28c978e3-964d-4d22-b244-a55e13abc3ed",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "link_two_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.link_two_url",
+      "baselined": "2026-08-22",
+      "component": "content-sidebar",
+      "component_id": "28c978e3-964d-4d22-b244-a55e13abc3ed",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_author",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_category",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_date",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_excerpt",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_image",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_read_time",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "unregistered_query",
+      "field": "featured_title",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.featured_post",
+      "baselined": "2026-08-22",
+      "component": "featured_article",
+      "component_id": "b3e0c2c0-a9c4-4ccb-ac04-fe79b92909a3",
+      "live_instances_at_baseline": 3
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item1_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item1_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item2_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item2_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item3_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item3_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item4_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item4_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item5_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item5_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "item6_cta_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.item6_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "view_all_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.inventory.catalog_url",
+      "baselined": "2026-08-22",
+      "component": "featured-inventory",
+      "component_id": "52f617fc-61ab-4b97-9ed2-e290a87a9e69",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "unregistered_query",
+      "field": "filter_types",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.comparison_filter_types",
+      "baselined": "2026-08-22",
+      "component": "filtered-result-grid",
+      "component_id": "34d78629-60c1-4f65-98ca-f93d50b1c8dd",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "unregistered_query",
+      "field": "results",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.comparison_results",
+      "baselined": "2026-08-22",
+      "component": "filtered-result-grid",
+      "component_id": "34d78629-60c1-4f65-98ca-f93d50b1c8dd",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col1_link1_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col1_link1_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col1_link2_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col1_link2_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col1_link3_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col1_link3_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col1_link4_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col1_link4_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col2_link1_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col2_link1_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col2_link2_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col2_link2_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col2_link3_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col2_link3_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col2_link4_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col2_link4_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col3_link1_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col3_link1_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col3_link2_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col3_link2_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col3_link3_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col3_link3_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "col3_link4_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.nav.col3_link4_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cookie_policy_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.legal.cookie_policy_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "privacy_policy_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.legal.privacy_policy_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "social_link_1_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social.link_1_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "social_link_2_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social.link_2_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "social_link_3_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social.link_3_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "terms_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.legal.terms_url",
+      "baselined": "2026-08-22",
+      "component": "footer-with-disclaimer_pre_037",
+      "component_id": "ee418f0a-2df5-4ff9-9802-e7c61ea43686",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "github_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social.github_url",
+      "baselined": "2026-08-22",
+      "component": "header-docs",
+      "component_id": "e340c011-be60-4417-aadc-d7c57f8213cf",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_1_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_1_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_2_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_2_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_3_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_3_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_4_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_4_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_5_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_5_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_6_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_6_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "cat_7_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.categories.cat_7_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "search_action_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.search.action_url",
+      "baselined": "2026-08-22",
+      "component": "header-with-categories_pre_037",
+      "component_id": "2b43bd2d-b63c-499e-ae36-454d2f9bf08d",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "prefix_outside_vocabulary",
+      "field": "carousel",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "config",
+      "baselined": "2026-08-22",
+      "component": "info-card-grid",
+      "component_id": "fc56f085-8e9a-4f6b-8e8d-600f9a1381e2",
+      "live_instances_at_baseline": 32
+    },
+    {
+      "class": "unregistered_query",
+      "field": "insights_url",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.pages",
+      "baselined": "2026-08-22",
+      "component": "Latest News Feed",
+      "component_id": "77dafa26-b7ea-4014-8bbb-2cd722101787",
+      "live_instances_at_baseline": 6
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_1_features",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[0].features",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_1_name",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[0].name",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_1_price",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[0].price",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_2_features",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[1].features",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_2_name",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[1].name",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_2_price",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[1].price",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_3_features",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[2].features",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_3_name",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[2].name",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "tier_3_price",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.pricing.tiers[2].price",
+      "baselined": "2026-08-22",
+      "component": "Pricing Tiers",
+      "component_id": "6175e049-4a2a-4e91-9db2-acbe325a2bca",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "unregistered_query",
+      "field": "products",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "query.affiliate_products",
+      "baselined": "2026-08-22",
+      "component": "product-card-with-cta",
+      "component_id": "248d43b2-92c5-4fd4-8051-4db37f048b45",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "product_category",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.product.category",
+      "baselined": "2026-08-22",
+      "component": "product-details_pre_037",
+      "component_id": "ecfe2cfc-f097-48fe-8634-7cf59ebed9c9",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "product_sku",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.product.sku",
+      "baselined": "2026-08-22",
+      "component": "product-details_pre_037",
+      "component_id": "ecfe2cfc-f097-48fe-8634-7cf59ebed9c9",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "testimonials",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social_proof.testimonials",
+      "baselined": "2026-08-22",
+      "component": "social_proof",
+      "component_id": "9f625d4a-d7ea-40b9-8bb2-7e36b977b198",
+      "live_instances_at_baseline": 1
+    },
+    {
+      "class": "phantom_aspect",
+      "field": "testimonials",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site_specs.social_proof.testimonials",
+      "baselined": "2026-08-22",
+      "component": "testimonials",
+      "component_id": "994c2c5e-4966-4e46-8bff-7bb7c6b5803e",
+      "live_instances_at_baseline": 2
+    },
+    {
+      "class": "prefix_outside_vocabulary",
+      "field": "categories",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "nav",
+      "baselined": "2026-08-22",
+      "component": "webdesign.co.uk Site Footer",
+      "component_id": "043095a1-57de-47c7-8931-b0cb6d65191e",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "prefix_outside_vocabulary",
+      "field": "copyright",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "site",
+      "baselined": "2026-08-22",
+      "component": "webdesign.co.uk Site Footer",
+      "component_id": "043095a1-57de-47c7-8931-b0cb6d65191e",
+      "live_instances_at_baseline": 0
+    },
+    {
+      "class": "prefix_outside_vocabulary",
+      "field": "categories",
+      "route": "bugs_open/362_HANDOFF_2026-08-22_sixty_nine_grandfathered_phantom_source_fields.md",
+      "source": "nav",
+      "baselined": "2026-08-22",
+      "component": "webdesign.co.uk Site Header",
+      "component_id": "ad6033ae-5c3c-46af-8a1a-f11020b83594",
+      "live_instances_at_baseline": 0
+    }
+  ]
+}

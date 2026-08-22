@@ -78,14 +78,60 @@ var prefixedSourceKinds = map[string]bool{
 	"query":       true, // named queries; name checked against queryresolve
 }
 
-// sourceVocabularyIssues walks a component input_schema (house dialect,
-// {"fields": {...}}) and returns one issue string per field whose declared
-// source cannot resolve for ANY site. Pure: the caller supplies the live
-// site_specs aspect vocabulary. knownSpecAspects == nil means the aspect set
-// could not be loaded — the site_specs aspect check is then SKIPPED (fail
-// open: a transient read failure must not block all component generation),
-// while the prefix and query-name checks, which need no DB, still run.
-func sourceVocabularyIssues(inputSchemaJSON string, knownSpecAspects map[string]bool) []string {
+// The three ways a declared source can resolve nowhere. Exported because the
+// at-rest audit (config-key-audit --component-source-vocabulary) groups and
+// baselines findings BY CLASS, and a class string it computed for itself would
+// be the second predicate CLC-018 exists to avoid. One rule, one vocabulary.
+const (
+	SourceIssuePrefixOutsideVocabulary = "prefix_outside_vocabulary"
+	SourceIssueUnregisteredQuery       = "unregistered_query"
+	SourceIssuePhantomAspect           = "phantom_aspect"
+)
+
+// SourceIssue is one field whose declared source cannot resolve for ANY site.
+//
+// The birth gate needs only Message (it joins them into a refusal); the daily
+// at-rest audit needs Field/Source/Class as data, because it keys a frozen
+// baseline on the exact (component, field, source, class) tuple. Returning the
+// structure and formatting at the edge is what lets BOTH callers run the same
+// rule — parsing the class back out of the message would be a second
+// implementation wearing the first one's clothes.
+type SourceIssue struct {
+	Field   string `json:"field"`
+	Source  string `json:"source"`
+	Class   string `json:"class"`
+	Message string `json:"message"`
+}
+
+// SourceVocabularyIssues is the birth gate's view: one issue string per field
+// whose declared source cannot resolve for ANY site. A thin projection of
+// SourceVocabularyFindings, so the two can never disagree about what an issue
+// IS — only about how much of it the caller wants.
+func SourceVocabularyIssues(inputSchemaJSON string, knownSpecAspects map[string]bool) []string {
+	findings := SourceVocabularyFindings(inputSchemaJSON, knownSpecAspects)
+	if len(findings) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(findings))
+	for _, f := range findings {
+		out = append(out, f.Message)
+	}
+	return out
+}
+
+// SourceVocabularyFindings walks a component input_schema (house dialect,
+// {"fields": {...}}) and returns one finding per field whose declared source
+// cannot resolve for ANY site. Pure: the caller supplies the live site_specs
+// aspect vocabulary. knownSpecAspects == nil means the aspect set could not be
+// loaded — the site_specs aspect check is then SKIPPED (fail open: a transient
+// read failure must not block all component generation), while the prefix and
+// query-name checks, which need no DB, still run.
+//
+// ⚠ THE FAIL-OPEN IS THE BIRTH GATE'S POLICY, NOT THE RULE'S. The at-rest
+// audit passes a non-nil set or exits 2, because an audit has nothing to block
+// and a daily report that silently skipped a third of its rule is a blind pass.
+// Do not "make the callers consistent" — they are correctly different.
+func SourceVocabularyFindings(inputSchemaJSON string, knownSpecAspects map[string]bool) []SourceIssue {
 	var schema struct {
 		Fields map[string]json.RawMessage `json:"fields"`
 	}
@@ -102,7 +148,7 @@ func sourceVocabularyIssues(inputSchemaJSON string, knownSpecAspects map[string]
 	}
 	sort.Strings(names)
 
-	var issues []string
+	var issues []SourceIssue
 	for _, name := range names {
 		var def struct {
 			Source string `json:"source"`
@@ -117,18 +163,22 @@ func sourceVocabularyIssues(inputSchemaJSON string, knownSpecAspects map[string]
 
 		prefix, path, hasDot := strings.Cut(source, ".")
 		if !hasDot || !prefixedSourceKinds[prefix] {
-			issues = append(issues, fmt.Sprintf(
-				"field %q declares source %q, which is outside the resolver's vocabulary — it would resolve nowhere on every site and the field would be silently omitted (bugs_open/309); valid sources: llm, renderer, static, site_specs.*, site_assets.*, pages.*, config.*, query.*",
-				name, source))
+			issues = append(issues, SourceIssue{
+				Field: name, Source: source, Class: SourceIssuePrefixOutsideVocabulary,
+				Message: fmt.Sprintf(
+					"field %q declares source %q, which is outside the resolver's vocabulary — it would resolve nowhere on every site and the field would be silently omitted (bugs_open/309); valid sources: llm, renderer, static, site_specs.*, site_assets.*, pages.*, config.*, query.*",
+					name, source)})
 			continue
 		}
 
 		switch prefix {
 		case "query":
 			if !queryresolve.IsKnownQueryName(path) {
-				issues = append(issues, fmt.Sprintf(
-					"field %q declares source %q but no such query is registered — it would error at plan time and the field would be silently omitted (bugs_open/309); registered queries: %s",
-					name, source, strings.Join(queryresolve.KnownQueryBases(), ", ")))
+				issues = append(issues, SourceIssue{
+					Field: name, Source: source, Class: SourceIssueUnregisteredQuery,
+					Message: fmt.Sprintf(
+						"field %q declares source %q but no such query is registered — it would error at plan time and the field would be silently omitted (bugs_open/309); registered queries: %s",
+						name, source, strings.Join(queryresolve.KnownQueryBases(), ", "))})
 			}
 		case "site_specs":
 			if knownSpecAspects == nil {
@@ -141,25 +191,27 @@ func sourceVocabularyIssues(inputSchemaJSON string, knownSpecAspects map[string]
 					aspects = append(aspects, a)
 				}
 				sort.Strings(aspects)
-				issues = append(issues, fmt.Sprintf(
-					"field %q declares source %q but no site carries a site_specs aspect named %q — the value would resolve nowhere on every site and the field would be silently omitted (bugs_open/309); aspects that exist: %s; for listing data use a query.* source (e.g. query.blog_posts)",
-					name, source, aspect, strings.Join(aspects, ", ")))
+				issues = append(issues, SourceIssue{
+					Field: name, Source: source, Class: SourceIssuePhantomAspect,
+					Message: fmt.Sprintf(
+						"field %q declares source %q but no site carries a site_specs aspect named %q — the value would resolve nowhere on every site and the field would be silently omitted (bugs_open/309); aspects that exist: %s; for listing data use a query.* source (e.g. query.blog_posts)",
+						name, source, aspect, strings.Join(aspects, ", "))})
 			}
 		}
 	}
 	return issues
 }
 
-// loadKnownSpecAspects reads the live site_specs aspect vocabulary — every
+// LoadKnownSpecAspects reads the live site_specs aspect vocabulary — every
 // aspect ANY site has ever carried (superseded rows included, deliberately: an
 // aspect with only historical rows still names a store a writer produces, and
 // refusing it would flag components that worked). Callers treat an error as
-// "check unavailable" (pass nil to sourceVocabularyIssues), never as a
+// "check unavailable" (pass nil to SourceVocabularyIssues), never as a
 // rejection.
-func loadKnownSpecAspects(ctx context.Context, db *sql.DB) (map[string]bool, error) {
+func LoadKnownSpecAspects(ctx context.Context, db *sql.DB) (map[string]bool, error) {
 	rows, err := db.QueryContext(ctx, `SELECT DISTINCT aspect FROM site_specs`)
 	if err != nil {
-		return nil, fmt.Errorf("loadKnownSpecAspects: %w", err)
+		return nil, fmt.Errorf("LoadKnownSpecAspects: %w", err)
 	}
 	defer rows.Close()
 
@@ -167,12 +219,12 @@ func loadKnownSpecAspects(ctx context.Context, db *sql.DB) (map[string]bool, err
 	for rows.Next() {
 		var a string
 		if err := rows.Scan(&a); err != nil {
-			return nil, fmt.Errorf("loadKnownSpecAspects: %w", err)
+			return nil, fmt.Errorf("LoadKnownSpecAspects: %w", err)
 		}
 		aspects[a] = true
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("loadKnownSpecAspects: %w", err)
+		return nil, fmt.Errorf("LoadKnownSpecAspects: %w", err)
 	}
 	return aspects, nil
 }
