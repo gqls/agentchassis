@@ -491,3 +491,64 @@ approval: it carries the in-scope `platform/` file but predates the submission a
 and forward-only forbids an amend. The work *was* reviewed — corr `703dbe2f` — and this note is the
 resolution for anyone reading that list. The correct habit, which I used on the later commits and not on
 that one, is `Council-Submitted: <corr>` at commit time.
+
+## Capacity: OWNER DECISION 2026-08-22 — "increase the capacity with both caps together". Migration `556`, applied 11:2xZ
+
+Council **APPROVED unanimously** — corr `2cfe6fbd-c7da-4f63-ba22-9883305c38df`, *"all reviewers
+approve"*, 10 reviewers, one low objection.
+
+**Both literals 5 → 10 in ONE migration**, nested `jsonb_set` so they cannot diverge, with a verify block
+asserting both moved. That pairing is the whole point: raising the query `LIMIT` alone moves throughput
+by nothing while the cap-hit census flips from *"5 of 5, at the cap"* to *"10 of 10, under the cap"* and
+stops reporting — the instrument would show relief that never happened.
+
+**Why 10:** 9 eligible sites, so any cap ≥ 9 stops binding; 10 gives one slot of headroom and still binds
+at an eleventh site, which is wanted — that is when LCO-009's WARN should fire and ask again.
+
+### ⚠ The bug file's headline figure is a POOL, and the pool framing is misleading
+
+*"42 demanded vs 20 supplied, 2.10×"* implies a bigger cap could close the gap. **Per site it cannot.**
+The trigger fires every 6 h (`scheduled_tasks.content-feed-refresh`, `interval_seconds = 21600`), so no
+site can be served more than **4×/day at any cap**. [MEASURED 2026-08-22]
+
+| | wants/day | ceiling at a 6-hourly trigger | after `556` |
+|---|---|---|---|
+| 7 sites (6 h cadence) | 4 | 4 | **fully satisfied** |
+| `dartsonline.com` (4 h) | 6 | 4 | capped **by frequency** |
+| `relojistas.com` (3 h) | 8 | 4 | capped **by frequency** |
+
+So the residual shortfall is exactly **6 fetches/day**, it belongs entirely to those two sites, and it is
+a **trigger-frequency (or cadence) decision, not a cap decision**. Deliberately not taken.
+
+### Cost, measured
+
+Supply 4 × 5 = **20** → 4 × 9 = **36** site-refreshes/day (+80%). The LLM component is `feed-triage`:
+**114 calls / 7 days, avg 2,780 in / 1,992 out, 544k tokens** = ~78k tokens/day, scaling to ~140k
+(+~62k/day).
+
+> ⚠ **MISSTEP, caught by its own tell.** My first version of that query was
+> `WHERE created_at > now() - interval '7 days' AND agent_type ILIKE '%feed%' OR agent_type ILIKE '%triage%'`
+> — `OR` binds looser than `AND`, so it read `(recent AND feed) OR (triage, ALL TIME)` and returned
+> **911 calls** with `first_seen 2026-03-30`. **A March date inside a 7-day window is the tell**, and it
+> is the only reason I looked. Parenthesise every mixed `AND`/`OR`, and sanity-check that the returned
+> range fits the window you asked for.
+
+### Verified after apply
+
+- both caps read **10**, ordering from `554` **intact** (`ORDER BY due_at ASC NULLS LAST` still present);
+- the class detector re-run over the live fleet: **194 agents, 0 findings** — the cap change did not
+  reintroduce the ordering defect;
+- the installed query, executed as the runtime will, now returns **5 rows against a cap of 10**. Before
+  `556` every run returned exactly 5 of 5. **Returning fewer rows than the cap IS the observable that
+  the cap has stopped being the constraint** — the remaining 4 sites are simply not due yet.
+- guard proven to **abort**, not merely exist: applying the body twice in one transaction raises
+  *"not byte-identical to migration 554's installed query"* and leaves the live row at 5/5.
+
+### ⚠ A THIRD cap exists on a different axis, and it is one source from binding
+
+Raised by the council's `guardian` seat (low) and checked rather than deferred:
+`DispatchFeedSourcesAction` reads `max_dispatches` with a **default of 10** — how many SOURCES are
+dispatched **per site** — and `content-feed-orchestrator.dispatch_sources` sets only `site_id`, so the
+default applies. The busiest eligible site currently has **9 active sources**. 9 < 10, so it does not
+bind today, but **one more source on that site and it silently caps** on an axis nobody is watching.
+Not fixed here (different axis, no live effect); recorded so it is not rediscovered from a symptom.
