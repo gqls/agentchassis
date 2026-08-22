@@ -1197,3 +1197,19 @@ stated it — it is the vacuous-0/22 failure mode wearing different clothes: *a 
 from "nothing was read". The number is stable and its meaning is not — assert the IDENTITY, not
 the cardinality.* Now in `351` as standing instruction (flip set exactly `{6c41404d}`; rescued set
 containing the 22 by id, not a `>=` threshold). Transferable to every census this lane runs.
+
+## 2026-08-22 morning — v1.0.1323 carries the round-2 gate; council round 2 was REVISE on a submission defect of mine; round 3 resubmitted into the settle window (found by payload, not re-fired)
+
+- **v1.0.1323** (pods 08:35–08:36Z, mid-rollout when first read — two replicasets briefly live).
+  Provenance stamp `70e7b4f9c` read from the young pod's logs; `eb90062ac` (the non-blank-error
+  gate) **is an ancestor — the round-2 revision is LIVE**. `last_error` has still fired **0**
+  times all-history (the demand bar stays open; nothing has been rejected-then-retried since).
+- **Round 2 verdict (18:30Z yesterday): REVISE, and the objection was RIGHT about my submission,
+  not my code.** My resubmission script updated edit 2 only if its sketch contained
+  `attempt_count > 0` — but the sketch reads **`attemptCount > 0`** (Go camelCase), so the
+  condition never matched: the summary claimed the revised gate while edit 2 still showed the old
+  one. The reviewers caught a contradiction I created by matching on the wrong spelling of my own
+  variable. **The shipped code was right all along** (`eb90062ac`); only the plan artifact lied.
+  Edit 2 rewritten to match the live code verbatim; **round 3 resubmitted 08:37Z** — which was
+  inside the ~300s post-restart no-dispatch window (owner flagged the roll was settling), so per
+  the RUNBOOK the run is being found **by payload** on a slow watch, NOT re-fired.
