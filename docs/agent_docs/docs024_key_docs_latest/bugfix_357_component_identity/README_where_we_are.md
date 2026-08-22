@@ -75,3 +75,61 @@ Detailed plan being drafted now. I will come back to you before anything is appl
 on the question of what to do with the 22 existing pages — that is a decision about changing what
 live sites serve, which is yours and not mine, and 277 has just finished teaching everyone how
 expensive it is to get that decision wrong.
+
+## 2026-08-22, later — I had the danger backwards, and the truth is more interesting
+
+I told you earlier that thirteen of these pages were primed to be destroyed: that a routine rebuild
+would throw away the calculator and leave a title band. **That was wrong, and I want to correct it
+plainly rather than quietly.**
+
+What actually happens is the opposite, and it explains why this has been sitting there for months
+without anyone noticing. When the platform rebuilds one of these pages it *does* generate a banner
+for that slot — and then a safety net catches it. That net was built after an earlier accident where
+rebuilds silently blanked working content, and it does its job: it sees that what is stored in the
+slot is an interactive tool, sees that the freshly generated replacement is not, and puts the tool
+back.
+
+But it puts the tool back **under the banner's name**. So every rebuild faithfully preserves the
+calculator and faithfully preserves the lie about what it is. **The mechanism that protects these
+pages is the same mechanism that keeps them mislabelled.** I proved it on the vetcomparison
+homepage: six rebuilds in the last four days, the tool intact every time, and the current database
+rows were written *during* the most recent one.
+
+The practical consequence is about ordering. These pages regenerate themselves, so tidying up the
+existing 22 first would be wasted — the next rebuild would undo it. The producer has to be fixed
+first, then the existing pages, and then the safety catch can be switched on.
+
+## What the plan comes to
+
+Four pieces, and only the first three are things I'd like to build now.
+
+**Stop it happening.** When the platform meets a page it cannot identify, it should say so instead of
+guessing from the plan. Today the "I don't know" placeholder gets silently upgraded to "banner"
+because banner is first in the list. Instead the fragment gets its own honest type, with a template
+that simply re-emits whatever is stored — which has the nice property that these pages become
+genuinely rebuildable for the first time, rather than merely being protected from rebuilds.
+
+**Check it.** Every page save funnels through one database write. Components stamp their own name
+into their HTML, so at that one point we can compare what the row *claims* to be against what it
+*is*, and record the disagreement. I want it to **record only** at first and not block anything —
+there is a change from yesterday on the neighbouring code that made exactly this call, and it was
+right to. The ability to actually refuse ships switched off, with a switch that has to be turned on
+deliberately, one caller at a time.
+
+**Look everywhere else.** Six different pieces of code write these rows and I have only fixed the
+path used by one. A daily check covers the rest without touching them.
+
+**Then repair the 22 — and that one is your call, not mine.** It changes what four live sites serve.
+The repair itself is designed to change nothing a visitor sees: the same bytes, correctly labelled.
+But 277 spent a fortnight learning how expensive it is to be casual about this class of change, so I
+would rather show you the check-and-restore script and the before/after of one page than just run it.
+
+## Where it stands right now
+
+The plan has gone to the review council (reference 62aac6c2) and is being reviewed as I write. A
+separate diagnostic run is still queued behind the fleet on the one question I could not settle from
+the database alone. Nothing has been changed on any live site, and no code has been altered yet —
+what exists so far is the diagnosis, the measurements, and the plan.
+
+Two things I got wrong today are written down in the shared mistakes log with the checks that would
+have caught them, and both corrections are recorded in the bug file itself rather than edited away.
