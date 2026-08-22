@@ -52,7 +52,7 @@ exposed the page.
 ## 3. Why it matters more than one page
 
 The exclusion list is an **allow-list**, so every unit it has never met costs one false refusal.
-This is the third instance of the same shape:
+This is the **3rd** instance of the same shape as of 2026-08-22:
 
 - `bugs_closed/073` — `Read time: 8–12 minutes` read as a business figure; fixed by adding
   `min read` and the en-dash alternative to this same regex.

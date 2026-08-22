@@ -9,7 +9,7 @@
 -- experience register. The contracts DO exist and this implementation follows one
 -- of them — but approving and binding would not have put a carousel on the site.
 -- Measured 2026-08-22: the register is a SPECIFICATION AND VERIFICATION system,
--- not a generator. Only three Go files touch it —
+-- not a generator. Only three Go files touch it (**3** as of 2026-08-22) —
 -- `write_experience_pattern_action.go` (records a contract),
 -- `bind_site_experience_action.go` (records which page it applies to) and
 -- `verify_site_experience_action.go`, whose own header says it "run[s] a bound
@@ -21,7 +21,7 @@
 -- yet, deliberately." So the register could not have been the delivery mechanism.
 --
 -- WHICH CONTRACT THIS IMPLEMENTS. `arrow-and-swipe-card-carousel`
--- (`experience_patterns`, still `draft` — 11 entries, 0 approved, unchanged since
+-- (`experience_patterns`, still `draft` — **11** entries, **0** approved as of 2026-08-22, unchanged since
 -- 2026-08-18). Its clauses and how each is met:
 --
 --   · "swipe natively, works with NO JavaScript at all" — the track is CSS
@@ -54,8 +54,8 @@
 --
 -- OPT-IN, DEFAULT OFF — the owner's ruling of 2026-08-02 (RFC_010 §2): new
 -- authority on a SHARED seam ships as a field whose unsafe default is OFF, not as
--- a documented contract. `case-studies-grid` is placed on FOUR pages across THREE
--- sites (ai-agent-orchestration.com ×2, finetuning.uk, leopardessconsulting.co.uk).
+-- a documented contract. `case-studies-grid` is placed on **4** pages across **3**
+-- sites as of 2026-08-22 (ai-agent-orchestration.com ×2, finetuning.uk, leopardessconsulting.co.uk).
 -- Everything below is inside `{{if .carousel_enabled}}`, so the other two sites
 -- render byte-identically to today and cannot be changed by this file. This is a
 -- layout change, so "measure that nothing breaks" is not enough — the other lanes
