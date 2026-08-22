@@ -164,3 +164,93 @@ are loanzy.uk `tool-credit-health-check` and loancalculator.co.uk `tool-credit-r
 Record WHICH half won: completion with zero `ESCALATED%` llm_call_log rows proves the
 resize; with one, proves the escalation. Either passes; the attribution must be stated,
 not assumed.
+
+---
+
+## ⚠ CORRECTED 2026-08-22 — THIS FILE'S CENTRAL MECHANISM CLAIM IS FALSE. The cap is not the binding constraint, and the truncation is a ~11% SIDE EFFECT of a regeneration loop whose real driver is pre-store validation.
+
+Found while verifying the fix by demand. **The correction matters more than the fix**, so it
+goes above the fix record. Nothing below invalidates the *change* that shipped (see
+"disposition"), only the *diagnosis* this file asserted and that I repeated to a council.
+
+### What the file said, and what is actually true
+
+This file: *"nine cap-hits, zero successes, one section type"*, *"the ceiling is roughly a
+third of what this brief actually produces, every time"*, *"100% reproducible within it"*,
+and *"`needs_new_component` retries to `max_attempts=3`, each attempt paying a full
+16,000-token generation"*.
+
+**The exact census** — `llm_call_log` joined to `site_work_items` **on `work_item_id`**, and
+filtered on the item's own `spec->>'section_type'` (the join is the load-bearing part; see
+the misstep below) [MEASURED 2026-08-22]:
+
+| | calls | outcome |
+|---|---|---|
+| `loans-credit-health-check` generations, all history | **82** | **73 SUCCEEDED at cap 16000** (outputs 8,641–15,374), **9 CUT** |
+
+So the cap fits this brief **~89% of the time**, on the same two sites, in the same windows,
+interleaved with the cuts hour by hour. "Every time" is false; "zero successes" is false.
+
+**And the retry arithmetic was wrong in the opposite direction from the file's claim.** Per
+item, `attempt_count` vs actual generations:
+
+| site | item | attempt_count | LLM calls | of which CUT |
+|---|---|---|---|---|
+| loancalculator.co.uk | `needs_new_component:…` | 3 | **13** | 3 |
+| loanzy.uk | `…_run1` | 3 | **55** | 3 |
+| loanzy.uk | `needs_new_component:…` | 3 | **11** | 3 |
+
+Each item generated 11–55 times, not three. The waste is **far larger** than this file
+claimed — and it is not paid on truncations. It is an **in-workflow regeneration loop**, the
+same shape `bugs_open/345`/migration 533 measured ("one item (8c8f5de5) produced 52
+rejections in 3h34m while attempt_count capped at 3" — note 8c8f5de5 is the 55-call item
+above, i.e. the two lanes measured the SAME item from different ends and neither saw it).
+
+### What actually blocks these pages — proven today, at a taller cap
+
+The 2026-08-22 re-drive generated cleanly at 24,000 (14,244 / 12,709 / 14,816 tokens, zero
+truncations) and **loanzy STILL produced no component**, because `store_component` refused it:
+
+> `generated template … rejected by pre-store validation: field "cta_primary_url" declares
+> source "site_specs.ctas.primary_url" but no site carries a site_specs aspect named "ctas"
+> … (bugs_open/309)`
+
+That is the recurring blocker. The writer invents an unresolvable `site_specs` source in the
+component's `input_schema`, the pre-store validator correctly refuses it, the workflow
+regenerates, and round and round — occasionally drawing a long generation that hits the cap.
+
+### Why the truncation looked like the cause (the transferable trap)
+
+**A work item's `error` column holds the LAST failure, not the recurring one.** These items
+looped on validation rejections and happened to die on a truncation, so `error` said
+truncation — and the census that "confirmed" it (`WHERE error ILIKE '%reached the configured
+cap%'`) could only ever return items whose final error was a truncation. It selected on the
+symptom it was testing for. The 9-out-of-82 successes were invisible to it because
+`site_work_items` records one error per item, while `llm_call_log` records one row per call.
+
+**The lesson, generalised:** when an item's recorded error names a mechanism, count that
+mechanism's occurrences AT THE CALL LEVEL before believing it is the mechanism. A ratio
+(9 cut / 82 calls) answers "is this the binding constraint?"; a count of items (3 items, all
+with truncation errors) cannot, however many sites it spans.
+
+### Disposition of the change that shipped — re-scoped, not reverted
+
+Migration 549 (16000→24000 + `max_tokens_ceiling` 32000) and the `MDL-042` escalation seam
+stay, on evidence independent of this bug's false premise: the step's SUCCESSFUL calls run
+p95 13,633 / max 15,374 against the old 16,000 (85%/96%), `fleet-step-token-pressure` has
+flagged it since 08-18, and 9 genuine truncations across 82 calls is a real ~11% loss worth
+removing. **But they must NOT be credited with healing these pages, and this file must not be
+closed on them.** The three 08-22 generations all came in BELOW the old 16,000 cap, so they
+do not even demonstrate the raise was necessary for those runs.
+
+### What this bug now is
+
+**Re-scoped to: a `needs_new_component` regeneration loop driven by pre-store validation
+rejections (`bugs_open/309`'s unresolvable-source class), which burns 11–55 generations per
+item behind an `attempt_count` of 3 and parks the page.** The cap work is done and is a
+separate, smaller win. Whoever takes this next should start at the validator/loop, not the
+ceiling — and should talk to the `bugs_open/345` lane, which has measured the same items.
+
+**Still open, unchanged:** both pages remain without their component
+(loancalculator's stored today and is awaiting a page re-render to attach it; loanzy's was
+refused by the validator). `tool-eligibility-checker` remains archived — spend nothing on it.

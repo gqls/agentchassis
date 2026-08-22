@@ -13455,3 +13455,46 @@ work?"* If the answer is "the same as failure", the signal cannot be the test.
 - **A zero from a site with no candidates is not a pass.** The first live run of the detector examined
   a site with 0 active pages and filed nothing. Read the run's own `checks_run` / `checks_failed` /
   `checks_unregistered` record against a site with real demand, not the absence of findings.
+
+### A work item's `error` column is its LAST failure, not its characteristic one — so a census filtered on that column selects for the symptom it is testing (2026-08-22, `bugs_open/337`)
+
+**The tell.** Three `needs_new_component` items, two sites, all parked `failed`, every one
+with `error` naming the same mechanism (`output_tokens=16000 reached the configured cap`),
+with near-identical recovered lengths. That reads as strong corroboration — three
+independent confirmations of one cause — and it is actually **one fact reported three
+times**, because the column that carries it is last-write-wins.
+
+**What was underneath.** Those items had looped on a *different*, recurring failure (a
+pre-store validation refusal) and merely happened to die on a truncation. Counting at the
+CALL level rather than the item level: **82 generations of that section type, 73 SUCCESSFUL
+at the very cap said to be too small, 9 cut — an 11% side effect, not the binding
+constraint.** And `attempt_count` said 3 while the items had actually generated 11, 13 and
+55 times, because the loop was inside the workflow and never touched the attempt counter.
+
+**Why the original census could not have come out otherwise.** It was
+`site_work_items WHERE error ILIKE '%<mechanism>%'`. That filter can only return items whose
+FINAL error is the mechanism under test; the 73 counter-examples were structurally invisible
+to it, living in `llm_call_log` at one row per CALL rather than one row per ITEM. Two tables,
+two grains, and the coarser one had already discarded the history.
+
+**The check, before you believe an error column names a cause.** Count the mechanism where
+the attempts live, and express it as a RATIO:
+
+```sql
+SELECT l.success, count(*) FROM llm_call_log l
+JOIN site_work_items w ON w.id = l.work_item_id          -- exact: the item that made the call
+WHERE l.step_name='<step>' AND w.spec->>'<discriminator>'='<value>' GROUP BY 1;
+```
+
+A ratio answers "is this the binding constraint?". A count of affected items cannot, however
+many sites it spans — breadth across sites measures how widely the WORK is distributed, not
+how often the mechanism fires. Also compare `attempt_count` against
+`(SELECT count(*) FROM llm_call_log WHERE work_item_id = w.id)`: a large gap means an
+in-workflow retry loop, and the item's error is then a sample of one iteration out of dozens.
+
+**Relation to the entry above it** (`N identical failures with IDENTICAL numbers is a
+deterministic refusal`, added from the same bug two days earlier): both are true and the
+second does not license the first's conclusion. The nine cut calls WERE a deterministic
+refusal — retrying those unchanged could not have succeeded — and they were still 11% of the
+population. "This failure cannot be retried away" and "this failure is why the work item
+died" are different claims needing different evidence.

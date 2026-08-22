@@ -200,3 +200,43 @@ it finds.
 taken (`23720180-…`), `UPDATE 1`, ledger recorded. Verified at the live row by the
 RESOLVED value, not the written key: **resolved_cap 24000, ceiling 32000, dead
 `config.max_tokens` key NULL, version 2.**
+
+## 2026-08-22 — VERIFICATION BY DEMAND OVERTURNED THE BUG'S DIAGNOSIS (the session's main finding)
+
+Re-drive of both live pages, items filed 09:59Z, both `complete` at `attempt_count=0`.
+Three generations at cap 24000: **14,244 / 12,709 / 14,816 tokens, zero truncations.**
+
+**And all three are BELOW the old 16,000 cap** — which cannot happen if the brief
+"reliably exceeds" it. That forced the census I should have run at the start, joining
+`llm_call_log` to `site_work_items` ON `work_item_id` and filtering on the item's own
+`spec->>'section_type'`:
+
+- **82 generations of `loans-credit-health-check`, 73 SUCCESSFUL at cap 16000**
+  (8,641–15,374 tokens), **9 cut.** The cap fits ~89% of the time.
+- Per item, `attempt_count` 3 vs **13 / 55 / 11 actual LLM calls** — an in-workflow
+  regeneration loop that never touches the attempt counter. (The 55-call item is
+  `8c8f5de5`, which `bugs_open/345`/migration 533 measured from the other end as "52
+  rejections in 3h34m". Two lanes measured the same item and neither saw the other.)
+- The real blocker, proven the same hour AT A TALLER CAP: loanzy's fresh generation was
+  refused by `store_component` pre-store validation — `field "cta_primary_url" declares
+  source "site_specs.ctas.primary_url" but no site carries a site_specs aspect named
+  "ctas" … (bugs_open/309)`. No component stored, despite a clean 12.7k-token generation.
+
+**My misstep, logged in WRONG_CALLS:** I inherited "nine cap-hits, zero successes, 100%
+reproducible" from the bug file, repeated it in PLAN/NOTES, put it in a council
+submission's `grounded_in`, and was APPROVED on it. Thirteen seats could not catch it —
+every figure I gave them was true of the population I had selected. The bug file's census
+(`site_work_items WHERE error ILIKE '%reached the configured cap%'`) selects on a
+LAST-WRITE-WINS column, so it could only ever return items whose final error was the thing
+being tested, and the 73 successes were structurally invisible (different table, one row
+per CALL not per ITEM). Pattern written up in `016b` §9.
+
+**Disposition — re-scoped, NOT reverted.** 549 + MDL-042 stand on independent evidence
+(successful-call p95 13,633/16,000 = 85%, max 96%; LCO-007 flagging since 08-18; 9 real
+truncations in 82 calls is a genuine ~11% loss). They must NOT be credited with healing the
+pages, and 337 must not close on them. Bug re-scoped in its own file to the validation-driven
+regeneration loop, routed at the 309/345 territory.
+
+**Repair state:** loancalculator's component STORED (22,236 chars, closes properly); page
+re-render filed to attach it (page had 5 planned / 4 slots). loanzy: no component — blocked
+by 309. Both pages still serve 0 `<input`.

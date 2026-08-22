@@ -42999,3 +42999,55 @@ MEASURED voice first and planning to make it true afterwards. Same family as
 `a-justification-in-an-evidence-column-reads-as-evidence`, and the substring-vs-typed split
 is the standing lesson that your measurement answers the question you ENCODED (a bare LIKE
 asked "does the string appear", not "does anything consume the check type").
+
+---
+
+## 2026-08-22 — bugfix_337 lane: I carried an inherited "100% reproducible" figure all the way to a council APPROVAL without ever grounding it, and it was false by 73 counter-examples
+
+**The claim.** That `component-creator/generate_template`'s 16,000-token cap was "below what
+this task needs" for `loans-credit-health-check` — *"nine cap-hits, zero successes, one
+section type"*, *"the ceiling is roughly a third of what this brief actually produces, every
+time"*. Inherited verbatim from `bugs_open/337`, restated in my lane PLAN and NOTES, put in
+front of the council in a submission's `grounded_in`, and **APPROVED on it** (corr
+`3d531c9a`). Thirteen seats read it; none could have caught it, because every figure I gave
+them was true — of the population I had selected.
+
+**What caught it.** Verifying the fix by demand rather than by status. The re-drive succeeded
+— and the successful generations came in at **12,709 / 14,244 / 14,816 tokens, all BELOW the
+old 16,000 cap**, which cannot happen if the brief "reliably" exceeds it. That forced the
+exact census I should have run on day one: `llm_call_log` joined to `site_work_items` **on
+`work_item_id`**, filtered on the item's own `spec->>'section_type'` — **82 generations of
+that section type, 73 SUCCESSFUL at cap 16000 (8,641–15,374 tokens), 9 cut.** The cap fits
+~89% of the time. The real blocker, proven the same hour at a taller cap, is a pre-store
+validation refusal (`bugs_open/309`) driving an in-workflow regeneration loop: 11–55
+generations per item behind an `attempt_count` of 3.
+
+**The cheap check that would have.** One query, and it is the same shape as the estate's
+existing rule that a bug file's figures must be re-grounded before being repeated:
+
+```sql
+SELECT l.success, count(*) FROM llm_call_log l
+JOIN site_work_items w ON w.id = l.work_item_id      -- the JOIN is what makes it exact
+WHERE l.step_name='<step>' AND w.spec->>'section_type'='<type>' GROUP BY 1;
+```
+
+**Why the original census could not have come out otherwise — and this is the real lesson.**
+The bug file's evidence was `site_work_items WHERE error ILIKE '%reached the configured
+cap%'`. **A work item's `error` column holds the LAST failure, not the recurring one.** These
+items looped on validation rejections and happened to die on a truncation, so the filter
+selected exactly the items whose final error was the thing being tested for, and could not
+have surfaced a single one of the 73 successes — they live in a different table, one row per
+CALL rather than one per ITEM. It is the vacuous-census family again (cf. the 08-03 pair and
+the 342 lane's join tautology two entries up), with a new wrinkle worth naming: **the
+selecting column was a LAST-WRITE-WINS field, so the census measured which failure happened
+to be final, and reported it as which failure was characteristic.**
+
+**Generalises.** When an item's recorded `error` names a mechanism, that is a claim about the
+item's LAST moment, never about its history. Before treating it as the mechanism, count that
+mechanism at the CALL level and express it as a RATIO of attempts (9/82), not as a count of
+affected items (3 items, 2 sites — which sounds like corroboration and is actually the same
+one fact three times). A count of items cannot answer "is this the binding constraint?"
+however many sites it spans. And "N identical failures with identical numbers is a
+deterministic refusal" (`016b` §9, added from this very bug) is TRUE of the nine cut calls and
+still did not license the leap to "so the cap is the cause" — the nine were real and
+deterministic *and* were 11% of the population.
