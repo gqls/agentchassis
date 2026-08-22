@@ -14439,3 +14439,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's `⚠ a "FRESH BUILD" CAN SHIP NO NEW CODE` and the `never use strings(1)` entries (same family: the probe, not the deploy, is the unreliable part) · DGH-007 / DGH-016 post-roll checks, both of which named the in-pod form · `bugs_open/198` §9
 - **source:** 2026-08-22, bugfix-198 lane — verifying DGH-016 after the v1.0.1323 roll; the contradiction (functions present, their own constants absent) is what forced the pull, and a local build from the stamped commit is what proved which answer was wrong
 - **added:** 2026-08-22, bugfix-198 lane
+
+### `replace_existing` silently reroutes `create_tool_component` into a DIFFERENT function that returns before most of the action — so two tool runs that look comparable are not, and it has now hidden a control error AND a real bug
+
+- **footprint:** `platform/orchestration/actions/create_tool_component_action.go` (the `replaceExistingRequested(inputs)` branch at ~:287) · `create_tool_component_regenerate.go` (`regenerateToolComponentInPlace`) · `emitToolCrossLinkItems` at ~:559 · `site_work_items` rows of type `add_tool` carrying `spec.replace_existing` · any comparison of two `tool-generator` runs · `bugs_open/353`, `bugs_open/330`, `bugs_closed/029`
+- **fires when:** you compare tool-generator runs, build a control out of them, or make any claim about "what happens when a tool is created". No symptom: both kinds complete, both look like tool creation, and the difference is one boolean deep in the work item's spec.
+- **the trap.** `if replaceExistingRequested(inputs) { return regenerateToolComponentInPlace(...) }` is an **early return roughly 270 lines before** the cross-link emitter. A REPLACE run therefore never executes the emitter, never writes a `tool_crosslink_*` item, and never writes the `no_related_pages` skip row either. **Its silence on that path is structural, not evidence.** A BIRTH run takes the long arm and does all of it.
+- **it has now caused two distinct failures in one day, which is why it is an entry and not a note:**
+  1. **A CONTROL THAT COULD ONLY CONFIRM.** I offered two replace runs as the "no-pages" half of a paired control for the crosslink wire, predicting "no items, one skip row each". They emitted nothing — **exactly as predicted, for entirely the wrong reason.** Had the receiving session accepted the expected result instead of asking why it was empty, an invalid control would have corroborated a claim it could not test. (`WRONG_CALLS.md`, 2026-08-22.)
+  2. **IT MASKED A LIVE BUG FOR WEEKS.** `bugs_open/353` — new-page crosslinks withheld because a guard waits on an item nobody raises any more — was invisible because **repeat births pass the guard via already-live pages**, so only a genuinely new page shows the withholding. Censused at filing: **32 withholdings, 30 tools now deployed with zero cross-link items ever, ~24 domains.**
+- **the check — split on the arm BEFORE you compare anything:**
+  ```sql
+  SELECT left(orchestration_id::text,8) AS orch,
+         collected_data->'input_data'->'spec'->>'replace_existing' AS replace_existing,
+         collected_data->'input_data'->'spec' ? 'related_pages'    AS has_pages,
+         current_step
+    FROM orchestration_states WHERE owner_agent_type='tool-generator'
+     AND created_at > '<window>' ORDER BY created_at;
+  ```
+  If `replace_existing` differs across your two groups, **you do not have a control** — you have two unrelated observations. And **state the arm in any claim**: "tool creation emits cross-links" is true of births and false of replaces, and unqualified it will be read as both.
+- **the generalisable half:** a control must differ from the treatment in **exactly** the variable under test. Differing in two is not a weaker control, it is **not a control** — and the failure mode is a *pass*, which is why it survives review. Verifying that a control CAN fail is not the same as verifying it EXERCISES THE PATH; ask both.
+- **relations:** MEMORY [[a-post-fix-zero-needs-a-demand-control]] (the demand-control family; this is its confounder sibling) · `bugs_open/353` · `bugs_open/330` · `bugs_closed/029` (Guard 2) · this file's ephemeral-pod and loop-step-name entries (same shape: the thing you are measuring is not where you think it is) · `WRONG_CALLS.md` 2026-08-22
+- **source:** 2026-08-22, `staged_component_build` lane — found when a paired control I built for another session turned out to compare two replace runs against a birth run; the same variable was then identified as `bugs_open/353`'s masking mechanism
+- **added:** 2026-08-22, staged_component_build lane
