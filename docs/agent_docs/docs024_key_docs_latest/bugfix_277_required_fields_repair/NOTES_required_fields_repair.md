@@ -3005,3 +3005,57 @@ not asserted — in the loop as `63d4d1a7-ffec-4570-866b-8a0a41e3c69d`.
 The three that were written cover every field their findings named (`headline`; `features,
 headline`). Their rows stay `needs_human_review` until the daily revalidator re-checks them — that is
 the mechanism's job, not mine to hand-close, and it is a disconfirmable prediction for ~16:01Z today.
+
+### 5. ~10:10Z — `cd8e555d` **APPROVED round 1**, and one objection was RIGHT
+
+Verdict read in full (`gated_by_truncation: false`, 7 abstained, one seat objecting without gating).
+Six objections; all six answered by checking rather than arguing, and **the guardian's caught a real
+mistake of mine**.
+
+**`guardian` low — "confirm 540 is not already claimed". IT WAS.** Another session had applied
+`540_content_feed_orchestrator_exposes_commit_sha_canonically.sql` at 2026-08-21 15:30. My earlier
+check ran `ls | grep -E "^53[2-9]"`, saw 532–539, and I then picked 540 **without testing it** — the
+check I ran could not have told me. Cost is cosmetic (`schema_migrations` keys on **filename**, which
+is its primary key, so both coexist) but it is a genuine miss and the seat was right to ask.
+**The cheap check I should have run: `ls docs/agent_docs/sql_for_agents/ | grep "^540_"`, on the number
+I actually intended to use.**
+
+**And looking at the ledger to answer it surfaced something neither of us asked about:** my `540` is
+**not in `schema_migrations` at all**, because I applied it by piping the file to `psql` rather than
+through `run-migrations.sh`. Neither are `497`, `498`, `499`, `530` or `531` — the whole lane has
+worked this way. Consequence worth writing down: **`run-migrations.sh --apply` over this directory
+would treat them all as pending.** `540` re-runs harmlessly (its `content_data IS NULL` guards update
+0 rows and the verify checks final state), but **`530`/`531` would ABORT** — their anchor-count guards
+require the pre-change text to be present exactly once, and after application it is gone. Failing
+loudly is the right behaviour, but it would fail a runner batch, so it is now in the RUNBOOK.
+
+**`reuse_agent` medium ×2 — the prior-art objection was fair and the conclusion survives it.**
+1. *"the decompose tooling already reverse-engineers rendered HTML into page_components data"* —
+   I had not named it. Read: `loancalculator_couk/decompose/backfill_content_data.py` fills a
+   component's **new schema fields from the schema's own `fallback`**, never overwriting a present
+   key. That is a different input and a different guarantee: a fallback is not the page's content, and
+   writing fallbacks into these 27 produces exactly the "regenerates to something it does not serve"
+   outcome the round-trip gate exists to prevent. Adjacent, not duplicative — but I should have said
+   so in the submission instead of leaving the seat to find it.
+   ⚠ **What IS worth stealing from that lane is bigger than the objection:** `load_decomposition.py`
+   documents that a page ships **verbatim** when `rebuild_policy='owned'` ∧ exactly one component row
+   ∧ `content_data.deploy_mode='verbatim'`, and it decomposes a one-blob page into real components.
+   **That is a live, proven route for `bugs_open/357`'s shape**, and it is now recorded there.
+2. *"why not extend `component-template-fixer` instead of a standalone CLI"* — answered by that
+   action's own header: it touches `site_components.rendered_html`, `page_components` **METADATA**,
+   and `content_components.html_template`, and states *"page_components content changes go through
+   the section-editor workflow; this action only ever touches their metadata columns."* Extending it
+   to write `content_data` would break its documented boundary.
+
+**`editquality` low — "content_hash may now disagree with content_data".** Checked rather than
+reasoned: all three rows have `content_hash` **NULL** and `rendered_html_digest` **NULL**, before and
+after, and no Go reader references `page_components.content_hash`. There is no value to disagree.
+
+**`debug_historian` low — "add a pre-flight count so a drifted export aborts before writing".** Fair
+for readability; the risk it names was already nil because everything runs in one transaction and the
+verify RAISEs before COMMIT. Adopted for future migrations rather than amended into an applied one
+(forward-only).
+
+**`prior_art_librarian` low — "evidence the 27 with a query, not an assertion".** Re-measured at
+verdict time: `27` `no_content_data` of `30` parked. It is one line and it should have been in the
+submission.

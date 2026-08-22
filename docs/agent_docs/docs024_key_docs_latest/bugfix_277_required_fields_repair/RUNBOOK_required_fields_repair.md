@@ -380,3 +380,25 @@ diff <(fold -w120 $D/before.html) <(fold -w120 $D/after.html)   # expect ONLY th
   before and after is the pass; a falling total alone is not.
 - Arithmetic worth checking because it is free: bytes should move by exactly
   `+11` per converted span (`<code>` + `</code>` = 13, minus the two backticks removed).
+
+## ⚠ This lane's migrations are NOT in `schema_migrations`, and two of them ABORT on re-run
+
+[MEASURED 2026-08-22] `schema_migrations` (primary key: **filename**) contains none of this lane's
+migrations — `497`, `498`, `499`, `513_section_editor…`, `530`, `531`, `540` — because every one was
+applied by piping the file to `psql` rather than through `run-migrations.sh`. Only runner-applied
+files are recorded.
+
+**So `run-migrations.sh --apply` over `docs/agent_docs/sql_for_agents/` treats them all as pending.**
+
+| file | what a re-run does |
+|---|---|
+| `540_bugfix_277_recover_provable_content_data.sql` | **harmless** — its `content_data IS NULL` + `md5(rendered_html)` guards update 0 rows, and the verify checks FINAL state, so it passes |
+| `530`, `531` | **ABORT** — their anchor-count guards require the pre-change text to be present exactly once, and after application it is gone. Failing loudly is correct, but it fails the batch |
+
+Before running the runner over this directory, scope it or expect those two to stop it. Record a
+hand-applied migration deliberately if you want the runner to skip it:
+`INSERT INTO schema_migrations (filename, applied_by, notes) VALUES ('<file>', 'hand-applied', '<why>');`
+
+**Also: check the number you intend to use, not the range around it.**
+`ls docs/agent_docs/sql_for_agents/ | grep "^540_"` — `540` was already claimed by another lane when
+this lane took it (cosmetic, since the ledger keys on filename, but avoidable in one command).
