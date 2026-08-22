@@ -99,3 +99,14 @@ same-file passenger between my write and my commit — the documented behaviour,
 **Missteps this session (both in WRONG_CALLS):** (1) trusted four descriptions of a safety
 default over the one-row live read — the armed dry-run; (2) a grep filter
 (`DOMAIN=|PUBLISH_OK|error`) ate a `Permission denied`, reading as "no output yet".
+
+## 2026-08-22 ~11:10Z — council trail CLOSED: all four tasks APPROVED
+
+- 071 warning persistence `f30a28e1`: r1 REVISE → **r2 APPROVED** (the round-1 catch —
+  invalid-build warnings — was implemented, not argued; the HIGH objection dissolved on the
+  landmine's own FIXED status + the tests' pinned provenance positions).
+- 203 section_editor CTA `dc557fc8`: **APPROVED r1**.
+- 155/209 writer retirement `c0e02ad3`: **APPROVED r1**.
+- 554 asset-retraction disarm `bbf5e418`: **APPROVED r1**.
+All four commits carry `Council-Submitted:`; 098 credits them automatically now the
+verdicts are approved — no amends, per forward-only.
