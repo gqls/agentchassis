@@ -318,3 +318,46 @@ error/warning/info, plumbing as error/fatal/warning, three codes emit both.
 
 **Council:** `bae8d694-6095-4adb-b14d-346d31bfb73e`, submitted before applying. Admission
 dry-run passed first (free), which is worth doing every time.
+
+---
+
+## 2026-08-22 ~18:50 UTC — the council round did NOT run, and the reason is fleet-wide
+
+**`Council-Submitted: bae8d694-6095-4adb-b14d-346d31bfb73e` will never resolve to a verdict.**
+Recorded here so no later reader takes the trailer for a review that happened. The run reached
+`complete_invalid` / COMPLETED, which per the runbook means refused before any seat ran — *"absent
+note + empty execution_path means nothing was reviewed, not nothing was wrong."*
+
+The step error:
+
+> `step review_editquality failed: … AI endpoint unavailable: provider=anthropic
+> model=claude-sonnet-5 … status 400: "You have reached your specified API usage limits. You will
+> regain access on 2026-09-01 at 00:00 UTC."`
+
+**This is not this lane's problem and not the council's.** [MEASURED 2026-08-22 18:50 UTC]
+
+| fact | value |
+|---|---|
+| last SUCCESSFUL llm call, fleet-wide | **2026-08-22 18:15:51 UTC** |
+| successes since | **0** |
+| failures in the 20 min after | 22 |
+| agent types that have hit it | 15 — council-gate, diagnose-agent, page-content-writer, component-creator, webdesign-agent, site-review-agent, experience-planner, landmine-verifier, and 7 more |
+
+**Why this episode is not the usual rate-limit blip, and the check that separates them.** There
+have been five usage-limit episodes in the last fortnight (08-10: 7 refusals, 08-14: 28, 08-17: 4,
+08-19: 5, 08-21: 3). **On every one, successes CONTINUED after the first refusal** — the fleet kept
+working and the day ended normally. Today the first refusal is 18:15:36 and the last success is
+18:15:51, fifteen seconds later, and then nothing at all. That is the discriminator: a rolling rate
+limit interleaves, a spent cap stops dead. [INFERRED from that shape + the API's own message; the
+date 2026-09-01 is the provider's statement, not something I measured.]
+
+**Consequence for this lane, stated plainly:** migration 567 is **APPLIED AND LIVE, UNREVIEWED**.
+Not because the gate was skipped — it was submitted first, admission-checked, and dispatched — but
+because no seat could run. Its own evidence stands on its verify block (mutation-proven in both
+directions) and the end-to-end rolled-back control. **Re-submit after 2026-09-01** and read the
+verdict then; if it comes back REVISE, the code is already on the shared branch and live, which is
+exactly the situation the `Council-Submitted:` trailer exists to keep honest.
+
+**Consequence for everyone else:** no council gate, no 090 diagnosis loop, no content generation,
+no checker agents until the cap clears. Anything queued will fail at its first LLM step. This is an
+owner-level (billing/plan) matter — reported in chat 2026-08-22.

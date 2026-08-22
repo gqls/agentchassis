@@ -122,3 +122,44 @@ second.
 
 Next: the retention change, which is a single guarded database edit and goes to the reviewers
 because it is live the moment it applies; then the first batch of proposed rulings for you.
+
+---
+
+**2026-08-22, ~18:50 — the retention change is live, and then the whole estate stopped talking to
+the model.**
+
+Your second ruling is done. Deliberate findings now live a year; ordinary error plumbing still goes
+at thirty days; and marking something "resolved" no longer makes it die sooner. I tested it
+end-to-end by putting four fake rows into the table inside a transaction I threw away afterwards —
+one piece of plumbing and one finding, both thirty-one days old, plus a resolved finding twenty
+days old. The two that should have gone, went. The two that the old rule would have destroyed,
+survived. Then I rolled the whole thing back so nothing real was touched.
+
+I found one thing wrong with my own work on the way, and it is the kind worth telling you about.
+The migration carries a block of self-checks that are supposed to refuse if the change is wrong. I
+tested those checks by deliberately breaking the change — and they let it through. Twice over: they
+were comparing against their own private copy of the list rather than the list actually being
+installed, and the sample they tested against had no rows old enough to matter, so the answer was
+always the same regardless. I rewrote them to read the real thing, and now both kinds of breakage
+are caught. I have written that up, because "the check passed" meant nothing until I tried to make
+it fail.
+
+**Now the thing you actually need to know, and it is not about this piece of work.** At 18:15 UTC
+today, every part of the platform that talks to the AI model stopped being able to. The provider is
+returning "you have reached your specified API usage limits, you will regain access on 1 September
+at midnight UTC". Fifteen different parts of the system have hit it. The last call that worked was
+at 18:15:51; there have been none since and twenty-two failures in the twenty minutes after.
+
+This has happened five times in the last fortnight, and every previous time it cleared within the
+same day — the tell is that work carried on around it. This one is different: the successes stop
+dead fifteen seconds after the first refusal and do not resume. So I do not think this is the usual
+blip, though I am reading that off the shape of it and the provider's own message rather than
+anything I can verify from here.
+
+What it means practically: no reviews, no diagnosis runs, no content being written, none of the
+checking agents. Anything queued will fail at its first step. It is a billing or plan matter, so it
+is yours rather than something I can fix.
+
+It also means my change went live without its review. I submitted it before applying, it was
+accepted, and then no reviewer could run. I have recorded that plainly rather than letting the
+"submitted" note read as "approved", and it should be resubmitted once the cap clears.
