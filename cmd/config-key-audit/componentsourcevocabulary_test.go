@@ -299,6 +299,14 @@ func TestRepoBaselineMatchesItsRecordedCensus(t *testing.T) {
 			t.Errorf("entry %s.%s has no route — every grandfathered finding must name the "+
 				"file that owns its repair, or it is an excuse rather than a deferral",
 				e.Component, e.Field)
+			continue
+		}
+		// A route pointing at a file that does not exist is the same failure as
+		// no route at all, and it is the one that looks fine in review. Checked
+		// rather than trusted: the bug file can be renamed by any session.
+		if _, err := os.Stat(filepath.Join("../..", e.Route)); err != nil {
+			t.Errorf("entry %s.%s routes to %q, which does not exist — a dangling route "+
+				"turns a deferral into an excuse silently", e.Component, e.Field, e.Route)
 		}
 	}
 	for class := range classes {

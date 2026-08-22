@@ -30,12 +30,25 @@ Three facts make the at-rest sweep the load-bearing half rather than a tidy-up:
 2. **The one runtime detector of this silence is write-only and cannot see dormant
    components.** `STRUCTURAL_KEY_CARRY_MISS` records precisely this omission at render
    time — `[MEASURED 2026-08-22]` **28 rows all-history**, first 2026-08-11, **last
-   2026-08-17**, i.e. nothing for five days. It is one of the codes `bugs_open/358` (filed
-   today, owned by the `bugfix_358_unread_finding_codes` lane) measures as having no
-   automated consumer and a 30-day retention delete. Two limits, both structural: it fires
-   only when a page is BUILT, so the eleven dormant components are invisible to it for
-   ever; and its rows are read by nobody. **So the audit must not route its findings into
-   `agent_error_log`** — that is the channel 358 exists about.
+   2026-08-17**, i.e. nothing written for five days.
+
+   > **CORRECTED 2026-08-22 (later, same day).** This paragraph originally called it one
+   > of the codes `bugs_open/358` measures as having **no automated consumer**. That is
+   > **no longer true and was already false when written**: `cmd/content-loss-check`
+   > consumes it as of `cba51ad1d`, committed that morning by the `bugfix_238` lane, and
+   > `[MEASURED]` **8 of its 28 rows are now `resolved`**. Caught by the `358` lane and
+   > **re-verified here at the source and the table before accepting it** — a peer's
+   > report is another doc. The mistake was inheriting a census from another lane's file
+   > instead of running its query: `358` was filed the same day and its consumer half went
+   > stale within hours. Logged in `WRONG_CALLS.md`.
+
+   **The decision not to route findings into `agent_error_log` stands, on the limit the
+   correction does not touch:** that writer only fires when a page is **BUILT**, so it can
+   never see a component that is never built — the **eleven dormant components in this
+   audit's own baseline are permanently outside its reach**, however faithfully its rows
+   are now consumed. A disposition says who READS a code; it says nothing about whether
+   the WRITER can see the population it exists to catch. A scheduled check also needs a
+   carrier that speaks on a CLEAN run, which is what the `doc_notes` convention is for.
 3. **The register already instructs this shape.** CLC-018
    (`docs026_concept_register/register/component-lifecycle.md:252`): *"`sourceVocabularyIssues`
    (pure, reusable — a future daily audit of EXISTING config should call IT)"* and

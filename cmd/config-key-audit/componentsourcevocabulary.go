@@ -509,9 +509,22 @@ func emitComponentSourceVocabulary(args []string) {
 		// ONE row per run, clean or not — a check that only speaks when it fails
 		// is indistinguishable from one that has stopped running.
 		//
-		// Deliberately NOT agent_error_log: bugs_open/358 measures that channel
-		// as write-only with a 30-day retention delete, and STRUCTURAL_KEY_CARRY_MISS
-		// — the runtime detector of this very silence — is one of its unread codes.
+		// Deliberately NOT agent_error_log.
+		//
+		// > CORRECTED 2026-08-22, same day this was written: the original reason
+		// > given here — that STRUCTURAL_KEY_CARRY_MISS, the runtime detector of
+		// > this very silence, is one of bugs_open/358's UNREAD codes — is no
+		// > longer true. cmd/content-loss-check consumes it as of cba51ad1d that
+		// > morning, and 8 of its 28 rows are now `resolved`. Verified here, not
+		// > taken on report. The claim was inherited from 358's census and went
+		// > stale between that census and this commit.
+		//
+		// The decision stands on a reason the correction does not touch: that
+		// writer only fires when a page is BUILT, so it can never see a component
+		// that is never built — the eleven DORMANT components in this audit's own
+		// baseline are outside its reach permanently, however faithfully its rows
+		// are now consumed. A scheduled check's carrier has to be one that speaks
+		// on a clean run too, which is what the doc_notes convention is for.
 		writeDocNote("component-library", summary,
 			"component-integrity", "component-source-vocabulary-check")
 	} else {
