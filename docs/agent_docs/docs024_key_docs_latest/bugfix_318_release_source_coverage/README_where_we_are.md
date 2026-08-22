@@ -130,3 +130,49 @@ version number serves the old cached copy rather than the new one. Also: the nex
 will *create* a check service that has been sitting scaffolded but switched off
 (`capped-schedule-ordering-check`) — that is fine and intended, but it will appear in the
 cluster and I would rather you heard it from me than found it.
+
+---
+
+## 2026-08-22, later — you ruled, and here is what went in
+
+You said to skip the 18 August staleness build and add the small guard on the excused
+list. Both are done and recorded.
+
+**Skipping is written down as a decision, not as an absence.** That distinction matters
+more here than it sounds. If the file had simply gone quiet, the next person to read it
+would find "the thing you asked for was never built", assume it had been forgotten, and
+build it — which is a documented habit on this estate. So the bug file, both register
+entries and the plan all now say it was ruled out, and *why*: the rule as worded cannot be
+computed here, and after this week's fix it would have had exactly one service to look at.
+
+**What went in instead is two things, and the smaller one does most of the work.**
+
+The obvious half is a cap: the release now refuses if the excused list grows past three.
+I set three rather than something larger because being excused from the release is a rarer
+and more expensive thing than the other budget you set at ten — what it permits is a
+service quietly running months-old code. It is one line if you want it different.
+
+The half that actually earns its place is that **the gate now names the excused services
+every single time it passes**, not only when the cap trips:
+
+```
+Release coverage OK: 31 of 34 production overlays pin a docker.io/aqls/ image…
+  1 of those is EXCUSED from the release (OWN_LINEAGE, budget 3):
+      admin-dashboard  ->  deploy-dashboard
+```
+
+A limit that says nothing until it is crossed is a limit nobody is watching. This way the
+fourth exemption gets noticed as it arrives, by whoever is running the release, which is
+the point.
+
+**The honest weakness, said out loud.** The cap cannot fire today — there is one entry.
+We normally refuse to build guards with nothing to guard, and we refused one for that
+exact reason a fortnight ago. My argument for this being different is that it needs
+nobody to remember to call it: it runs on every release whether or not it fires, so it
+cannot quietly rot. That argument is written into the code next to the number, so if it is
+wrong the next person can see the reasoning and disagree with it rather than guess.
+
+**Nothing else changed.** The gate, the makefile fix and the commit-time warning were all
+already in and are unaffected. The remaining item is unchanged too: the first real release
+under this gate should be run with someone watching the output, because it is the one
+point every deploy passes through and its logic has been inverted.
