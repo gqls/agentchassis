@@ -14469,3 +14469,30 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[a-post-fix-zero-needs-a-demand-control]] (the demand-control family; this is its confounder sibling) · `bugs_open/353` · `bugs_open/330` · `bugs_closed/029` (Guard 2) · this file's ephemeral-pod and loop-step-name entries (same shape: the thing you are measuring is not where you think it is) · `WRONG_CALLS.md` 2026-08-22
 - **source:** 2026-08-22, `staged_component_build` lane — found when a paired control I built for another session turned out to compare two replace runs against a birth run; the same variable was then identified as `bugs_open/353`'s masking mechanism
 - **added:** 2026-08-22, staged_component_build lane
+
+---
+
+### `page_component_history.application_name` looks like it names the writer and is a SOCKET — the archive can pair before/after but can never say WHO
+- **footprint:** `page_component_history.application_name`, `page_component_history.op`, `pch_op_check`, `page_component_artefact_archive()`, `trg_page_component_artefact_archive_upd`, `trg_page_component_artefact_archive_del`, `page_components.content_data`
+- **fires when:** you attribute a `content_data` (or `rendered_html`) change to a piece of code — sizing which writer causes a class of damage, routing a repair to an owner, or building any per-writer census over this table. **Nine Go call sites write `page_components.content_data`**, so "which one did this?" is the natural next question and the table appears to answer it.
+- **the trap, in two halves.**
+  1. **`application_name` is the connection's, not the caller's.** Measured 2026-08-22: every application-side write carries the pgx default — `app - 10.20.99.74:35564` and ~3,000 distinct siblings, one per connection — and hand-run SQL carries `psql`. It is a **pod IP and ephemeral port**, and several of the nine writers live in the same binary on the same pod, so even resolving the IP to a service does not narrow it to a call site. A `GROUP BY application_name` therefore returns thousands of one-row groups that look like fine-grained attribution and are noise. ⚠ **It also silently blows up any aggregate that includes the column** — grouping on it turned a 6-row summary into 228 KB of output.
+  2. **`op` is a proxy for the writer, and only by accident.** `pch_op_check` permits `'overwrite'|'delete'` only, so `op='delete'` today means DELETE+INSERT (the `save_page_sections` funnel, which every build and re-render routes through — `rerender_page_sections` holds no `UPDATE page_components` of its own) and `op='overwrite'` means an in-place UPDATE (every other writer). That split is genuinely useful and it is **not a contract**: one future writer choosing DELETE+INSERT lands in the funnel bucket and is mis-attributed, and it would look exactly like the funnel misbehaving.
+- **the third trap, which is what makes a census silently incomplete: THE TRIGGER NEVER FIRES ON INSERT.** `pch_op_check`'s two values are the whole story — a row being *born* is not archived, ever. So no pairing method over this table can see a writer that creates a section with a value missing, however long you run it. That is not a small class: the tool writers deliberately write `'{}'`, and `adopt_verbatim`, `create_report_page_action` and the CLI importer all create rows. Bound measured 2026-08-22: **119 of 1,850 deployed `page_components` rows carry no `content_data` at all** (77 NULL, 42 `{}`).
+- **the check — before writing any attribution query over this table:**
+  ```sql
+  -- 1. Does application_name name anything? (expect: no)
+  SELECT CASE WHEN application_name LIKE 'app - %' THEN 'app - <conn>'
+              ELSE COALESCE(application_name,'(null)') END AS app_class,
+         count(*), count(DISTINCT application_name) AS distinct_values
+    FROM page_component_history WHERE created_at > now() - interval '7 days'
+   GROUP BY 1;
+  -- 2. What the op split can and cannot tell you
+  SELECT source, op, count(*), count(DISTINCT page_id)
+    FROM page_component_history GROUP BY 1,2;
+  ```
+  A `distinct_values` in the thousands against a handful of writers is the tell. If you need real attribution, it does not exist yet and no query will conjure it — see the fix below.
+- **the fix, and it is one line per writer:** `SET LOCAL application_name = 'action:<name>'` inside the transaction that already does the write. No schema change, no migration, no config key; the trigger already captures the column, it is just capturing a default nobody chose. Scoped as candidate **A1** in `bugs_open/355`. ⚠ **`SET LOCAL` outside a transaction is scoped to the statement**, so a write not wrapped in a `tx` stamps nothing while the code and its unit test both look right — verify at the artefact: `SELECT DISTINCT application_name FROM page_component_history WHERE created_at > now() - interval '1 day'` must show `action:*`.
+- **relations:** `bugs_open/355` (the census this was found scoping) · `bugs_closed/238` · `architecture_review/RFC_042` §4.3 (which names "which writers actually lose keys in practice" as the detector's whole purpose — this entry is why that is unanswerable today) · this file's other `page_component_history` entries (the `ON DELETE SET NULL` FK, the archives-the-REPLACED-state entry, the migration-357 trigger entry) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-22, `bugfix_238_regeneration_key_loss` lane — found while scoping RFC_042's content-loss detector, when a clean per-writer census turned out to be impossible rather than merely fiddly
+- **added:** 2026-08-22, bugfix_238_regeneration_key_loss lane
