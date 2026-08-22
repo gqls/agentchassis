@@ -692,3 +692,41 @@ could not have named one.
 right. That has not happened yet — the next scheduled pass for that site is late this morning, and I
 have not watched that half of the mechanism work. Until I have, treat "it will clean up after itself"
 as designed-but-unproven rather than a fact.
+
+---
+
+## 2026-08-22, afternoon — I was wrong this morning, and the checker was right all along
+
+I need to take back what I wrote earlier today.
+
+This morning I said vetcomparison.uk's home page had fixed itself, and that our new checker had then
+started reporting it wrongly. **Neither was true.** The page has been showing visitors the *old*
+version continuously since 20:49 last night — about eighteen hours — including right now, and
+including through a fresh publish at 08:50 this morning. The checker flagged it correctly on every
+single pass. I overruled it three times, in three documents.
+
+**What fooled me** is worth explaining, because it is the sort of thing that will fool the next person.
+When I checked the page by hand, I used the ordinary command-line tool we all use. When a real browser
+asks for a web page, it says what kinds of content it will accept — and these sites sit behind a
+Cloudflare program that hands back a *different version of the page* depending on that answer. The
+command-line tool doesn't say it by default. So it got the new version, while every real visitor got
+the old one. Same page, same moment, same underlying file — two different answers.
+
+Our checker happens to ask the way a browser asks. That is why it disagreed with me, and why it was
+right and I was not.
+
+**What this means in practice.** Three things, in order:
+
+1. **A live customer-facing page has been wrong for eighteen hours** and still is. It is not a
+   detection problem; it is a real publishing failure of exactly the kind this whole piece of work was
+   commissioned to find.
+2. **Our new checker is doing its job.** It found this unprompted, held its position while I argued
+   with it, and the argument was settled by evidence rather than by seniority.
+3. **The manual verification command in our runbook was wrong** — it would have told anyone who used
+   it that the page was fine. That is fixed, and I have written a warning where people will hit it.
+
+**The honest lesson.** I built an instrument to catch this exact fault, it caught it, and I spent six
+hours writing carefully-worded corrections explaining why the instrument must be mistaken — because
+the quick manual check was easier to run and agreed with what I expected. The corrections were all
+published before I bisected the problem and found the real cause. That is recorded in our
+wrong-calls log, which is the point of keeping one.

@@ -318,7 +318,8 @@ SELECT s.domain, p.url, p.content_hash
  ORDER BY s.domain, p.url;" > /tmp/hashed_pages.txt
 
 while IFS='|' read -r domain url stored; do
-  served=$(curl -s --max-time 20 "https://${domain}${url}?cb=$RANDOM$RANDOM$$" | sha256sum | cut -d' ' -f1)
+  served=$(curl -s --max-time 20 -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+             "https://${domain}${url}?cb=$RANDOM$RANDOM$$" | sha256sum | cut -d' ' -f1)   # BROWSER Accept — see the warning below
   [ "$served" = "$stored" ] && echo "MATCH $domain$url" || echo "DIVERGED $domain$url $stored $served"
 done < /tmp/hashed_pages.txt
 ```
@@ -331,6 +332,32 @@ done < /tmp/hashed_pages.txt
 > ⚠ **Always cache-bust, and never `HEAD`.** The body is the question. A cache-bust query is safe
 > because `PageFilePathFromURL` refuses a stored url that already carries one, so it cannot collide
 > with a real parameter.
+
+> ## ⚠⚠ SEND A BROWSER `Accept` HEADER, OR THIS COMMAND LIES TO YOU (added 2026-08-22)
+>
+> **The loop above as first written sent curl's default `Accept: */*`, and that UNDER-REPORTS
+> divergence.** A Cloudflare Worker fronts these sites (`server-timing: cfWorker`) and serves a
+> **different body depending on the `Accept` header** — from the *same* B2 object, with an identical
+> `x-amz-version-id`. Measured on `vetcomparison.uk/index.html` at the same moment:
+>
+> | request | body |
+> |---|---|
+> | `Accept: */*` (curl default), `Accept:` absent, any User-Agent | the CURRENT bytes |
+> | `Accept: text/html,*/*` (what the check sends) | the OLD bytes |
+> | `Accept: text/html,application/xhtml+xml,…` (**what a browser sends**) | the OLD bytes |
+>
+> **The variant a real visitor gets is the stale one.** So a plain `curl` says "fine" while every
+> browser on the internet is served last night's page. The User-Agent is NOT the discriminator —
+> `Accept` is; a browser-like UA with `Accept: */*` still gets the current bytes.
+>
+> **Use this, and say how many fetches you did:**
+> ```bash
+> BROWSER='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+> curl -s -H "$BROWSER" "https://${domain}${url}?cb=$RANDOM$RANDOM$$" | sha256sum
+> ```
+> **This is why the check disagreed with me for six hours and was right every time.** Re-running the
+> 30-page proof with a browser `Accept`: **29 MATCH, 1 DIVERGED**; the same 30 under `Accept: */*`:
+> **30 MATCH**. The `*/*` reading is the one that was wrong.
 
 ### Measure the delivery lag (what the settle window is sized against)
 

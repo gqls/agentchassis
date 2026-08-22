@@ -44419,3 +44419,41 @@ across it would have been silently inverted — the same defect I had just fixed
 reintroduced by the fix. It compares numerically now, refuses to order anything that is not
 `vN.N.N`, and the boundary is pinned by a test. **A comparison is not a check until you
 know which comparison it is doing.**
+
+---
+
+### 2026-08-22 — `bugfix_315` lane: I "corrected" my own detector three times in three documents. The detector was right every time; my probe was sending the wrong `Accept` header
+
+**The claims.** `page_content_divergence` reported `vetcomparison.uk/index.html` diverged on four
+consecutive passes (21:53, 01:54, 05:56, 09:57, then 14:05). I hand-probed it repeatedly with `curl`
+and got the CURRENT bytes — 5/5, then 10/10, then 8/8. On that basis I wrote, into NOTES, the owner's
+README and the handoff, that the page **"converged by 08:40"**, that it was later **"serving the OLD
+bytes again — a regression, not a lag"**, and that a probe "samples whichever copy answered".
+
+**All three were wrong, and they were wrong because of one header.** These sites are fronted by a
+Cloudflare Worker that returns a **different body per `Accept`**, from the same B2 object (identical
+`x-amz-version-id`). `curl`'s default is `Accept: */*`, which gets the current bytes. **A browser sends
+`Accept: text/html,…` and gets the OLD bytes** — as does the check. So:
+
+- the page never converged for any real visitor; it has been stale for ~18 hours, through a republish;
+- there was no "regression" — it was continuously stale, and my two *matching* readings were the anomaly;
+- the "different edge nodes" story I inferred was invented to explain an artefact of my own request.
+
+**What caught it.** Refusing to leave a reproducible disagreement alone. The check and my probe
+disagreed about the same URL at the same moment, which cannot both be true, so I bisected the request
+one property at a time: User-Agent (not it — a browser UA with `*/*` still gets current bytes),
+`--compressed` (not it), then `Accept` (**it**).
+
+**The cheap check, and it generalises past this estate.** *When you verify what a user is served, send
+what a user's client sends.* `curl` is not a browser: no `Accept`, no `Accept-Language`, no
+`Accept-Encoding` unless asked. And **run the disconfirming comparison on the same sample**: 30 random
+live pages gave **29 MATCH / 1 DIVERGED** under a browser `Accept` and **30 MATCH** under `*/*`. One of
+those two numbers is wrong, and it is knowable which in one command.
+
+**The part that should sting.** My detector disagreed with me four times and I wrote three corrections
+saying it was wrong — each carefully worded, each citing measurements, each published. **The
+instrument I had built to catch exactly this class was catching it, and I overrode it with a worse
+instrument because the worse one was the one I had in my hand.** The lane's own §9 pattern warns that
+"did not need publishing" and "failed to publish" are indistinguishable in every signal the platform
+emits; the same is true of "my probe is wrong" and "the detector is wrong", and I picked the flattering
+one three times.

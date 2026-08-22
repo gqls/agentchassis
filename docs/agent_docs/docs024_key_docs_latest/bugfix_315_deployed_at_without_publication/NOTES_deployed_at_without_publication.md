@@ -1919,3 +1919,48 @@ recorded the old bytes. Today both agree, so this is not a cluster-vs-outside eg
 measured sense; but the safe reading is that **a single probe is a sample of whichever origin/edge copy
 answered**, which is exactly why the check confirms a mismatch with a second fetch and requires the two
 to agree. When reproducing one of these findings by hand, fetch several times and say how many.
+
+---
+
+## 2026-08-22 ~14:30Z — ⚠ RETRACTING MY OWN CORRECTION: the detector was right, my probe was wrong
+
+**Everything I wrote this morning under "CORRECTION to my own entry above" is itself wrong.** The
+retraction watcher ran through the 13:57Z pass and the item was still `detected`; the 14:05 pass
+reported `findings: 1` again. That is four consecutive passes flagging a page my hand-probes kept
+saying was fine — a reproducible disagreement, which cannot be shrugged off.
+
+**Bisecting the request settled it in one pass.** These sites sit behind a Cloudflare Worker
+(`server-timing: cfWorker;dur=102`) that returns a **different body depending on `Accept`**, from the
+SAME B2 object — identical `x-amz-version-id` and `last-modified` on both responses:
+
+| request | body |
+|---|---|
+| `Accept: */*` (curl default), or absent, ANY User-Agent | the CURRENT bytes |
+| `Accept: text/html,*/*` (what `fetchServedPage` sends) | the OLD bytes |
+| `Accept: text/html,application/xhtml+xml,…` (**a browser**) | the OLD bytes |
+
+User-Agent is not the discriminator; `Accept` is.
+
+**So, correcting the record:**
+- ~~"converged by 08:40"~~ — **it never converged.** `[MEASURED 14:2xZ]` 6/6 fetches with a browser
+  `Accept` return the OLD bytes. The page has been stale to real visitors for **~18 hours**, through
+  the 08:50 republish.
+- ~~"serving the OLD bytes again — a regression"~~ — **there was no regression.** It was continuously
+  stale; my two MATCH readings were the artefact.
+- ~~"a single probe samples whichever copy answered"~~ — **that mechanism was invented to explain my
+  own bad request.** There is no evidence of per-node inconsistency here.
+- The 9-hour catch is **still a true positive, and it is now an 18-hour one, still live.**
+- The retraction not firing is **correct**: the page genuinely still diverges.
+
+**The 40-page and 228-page "proofs" used `Accept: */*` and therefore under-report.** Re-run on 30
+random live pages, both ways, same sample: **browser `Accept` → 29 MATCH / 1 DIVERGED; `*/*` → 30
+MATCH.** The substance survives (the fleet is broadly clean) but the method was wrong and the RUNBOOK
+command has been fixed, because as written it would have told the next person the same lie.
+
+**`fetchServedPage`'s `Accept: text/html,*/*` is correct — by luck.** It was chosen as "reasonable for
+an HTML fetch", not because anyone knew the Worker varied on it. It is now correct on purpose, and a
+LANDMINE says so for the next probe anyone writes on this estate.
+
+**The uncomfortable part, recorded because it is the transferable bit:** my detector contradicted me
+four times and I published three corrections saying it was wrong. I trusted the instrument in my hand
+over the instrument I had built to catch exactly this, because mine was easier to run.
