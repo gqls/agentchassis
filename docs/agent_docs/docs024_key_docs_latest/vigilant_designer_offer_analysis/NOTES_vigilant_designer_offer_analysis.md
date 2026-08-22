@@ -2697,3 +2697,51 @@ Also taken: a `doc_notes` decision record (`subject_type='action'`, `subject_key
 so the reasoning is not stranded in a HOLD migration (`tooling_provenance`); and the unverifiable
 owner-ruling citation dropped as load-bearing for the `on_violation` default, which stands on the
 deep-merge reasoning anyone can check in `site_spec_actions.go` (`prior_art_librarian`).
+
+### 2026-08-22 — 537 APPLIED, the gate is live, and it has never fired
+
+Chassis rolled to `v1.0.1323` (pods 08:36Z). Applied 537 at 11:03Z. **Gate live, behavioural proof
+still owed** — no offer-analyser run since 08-19, so nothing has exercised it.
+
+**The hold condition, proven at the artefact.** `grep -aq "verify_cited_cardinals" /proc/1/exe` on
+the running pod → PRESENT, with two controls: a plausible fake name ABSENT (the grep *can* fail) and
+`verify_report_prose` PRESENT (the probe works). ⚠ **The `build provenance` log line was useless
+here** — the chassis logs whole council/landmine payloads, so the grep matched another lane's data
+and returned 448KB of the landmines corpus. There is already a LANDMINES entry for that. The
+capability probe is the better instrument regardless: *does this binary register the action* is the
+question; *which sha built it* is a proxy for it.
+
+**Three things I got wrong or nearly wrong today, all caught before they became claims:**
+
+1. **My own runbook's post-apply damage check named a column that does not exist.** `SELECT ... FROM
+   orchestration_states WHERE agent_type='offer-analyser'` → `ERROR: column "agent_type" does not
+   exist`. It is `owner_agent_type`. So the check that runs FIRST after applying — the one that
+   exists because an unregistered action fails the *whole* agent — was the one thing that would not
+   run, and behind a `2>/dev/null` an error and an empty result look identical. `[MEASURED]` 36
+   files in `sql_for_agents/` use the right column, **3 use the wrong one**: mine, `526` (which I
+   copied it from) and `547`. Fixed mine; filed a LANDMINE naming the other two, since they are
+   other lanes' files.
+2. **I then asserted the wrong reason for a zero.** I wrote that offer-analyser's 0 orchestration
+   rows meant reaping. LANDMINES already carries why that is dangerous: `owner_agent_type` is the
+   ORCHESTRATION's owner, so an agent dispatched inside a parent's loop reads zero *while running*,
+   and it **fails toward "dormant"** — the answer that makes a problem go away. Checked properly:
+   `improvement-loop` dispatches this one with `spawn_agent`, so offer-analyser does own its own
+   orchestration and that mode does not apply — **but that is a property of today's dispatch**, and
+   the runbook now says so instead of asserting the conclusion. The corroborator that outlives the
+   reaper: `llm_call_log` held **7** rows for offer-analyser when `orchestration_states` held **0**.
+3. **I looked for the rollback snapshot in the wrong table and got 0.** `agent_definitions ...
+   is_snapshot=true` → 0 rows, which reads as *"no backup was taken"* — after the migration had
+   printed `NOTICE: Snapshot captured`. `snapshot_agent` has **two overloads writing to two
+   different tables**; the two-arg form migrations use writes to `agent_definitions_backup`, where
+   the row duly is (`has_gate=f`, old `spec_data` — a true pre-change copy). **This is already in
+   `LANDMINES.md` and I hit it anyway, because I did not grep the SYMBOL before trusting my query.**
+   The SessionStart hook only matches entries by *path*, so a symbol-footprinted entry is never
+   shown to you — that is precisely the case the "grep it yourself" instruction covers.
+
+**And one process correction: my first version of today's LANDMINE was a near-duplicate.** I wrote
+an entry covering the wrong column *plus* retention *plus* the ownership trap — and the corpus
+already had **three** entries covering the last two (`retention is PER STATUS`, `a status census is a
+~24 h WINDOW`, `owner_agent_type is NOT "which agent ran"`). Trimmed mine to the only thing none of
+them cover — the wrong SPELLING shipped in three runbook comments, which fails *before* you get a
+count at all — and cross-referenced the rest. Grepping first is cheap; I did it for the snapshot
+trap immediately after, and it correctly stopped me filing a second duplicate.

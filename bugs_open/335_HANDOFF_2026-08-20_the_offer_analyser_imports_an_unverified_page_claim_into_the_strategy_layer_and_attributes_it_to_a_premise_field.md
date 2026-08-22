@@ -188,6 +188,39 @@ would report a working gate while the false rank-1 stayed live, and would also l
 records the removal in the artefact under `dropped_unsourced`. It still refuses to write an **empty**
 `lead_with`.
 
+### 2026-08-22 — THE GATE IS LIVE. Migration 537 APPLIED. Still OPEN: the behavioural proof is not run.
+
+**Applied 2026-08-22 11:03 UTC**, after the chassis rolled to `v1.0.1323` (pods up 08:36Z).
+
+- **The hold condition was proven at the ARTEFACT, not at git.** Capability probe on the running
+  pod: `grep -aq "verify_cited_cardinals" /proc/1/exe` → PRESENT, with **two controls** — a
+  plausible fake action name (`..._NOPE`) ABSENT, proving the grep can fail, and a known action
+  (`verify_report_prose`) PRESENT, proving the probe works at all.
+  ⚠ **The `build provenance` log line was UNUSABLE here** — the chassis logs whole council/landmine
+  payloads, so `grep 'build provenance'` matched another lane's data (there is a LANDMINES entry for
+  exactly that). The capability probe is unaffected and is the better instrument anyway: it answers
+  *does this binary register the action*, which is the question, rather than *which sha built it*.
+- **Damage checks first, benefit second** (the runbook's own order): no failing runs, `improvement-loop`
+  untouched, and **every `next_step` in the workflow resolves** — `set_audit_source →
+  verify_ordering_cardinals → write_offer_ordering → write_offer_findings → complete`.
+- **Config verified live:** the gate step carries `on_violation: drop` / `dropped_key:
+  dropped_unsourced`, the write now reads `ordering_checked.object`, and the prompt rule is present
+  exactly once.
+- **Rollback net verified to EXIST, not assumed:** `agent_definitions_backup` holds a true
+  pre-change copy (`snapshot_reason` = `537_cardinal_attribution_gate: pre-update`, `has_gate = f`,
+  `spec_data` = the old `offer_analysis.result.ordering`).
+  ⚠ **Checking for it in `agent_definitions` returns 0 and reads as "no backup was taken"** —
+  `snapshot_agent` has two overloads writing to two different tables, and the two-arg form used by
+  migrations writes to the BACKUP table. Already in `LANDMINES.md`; I hit it because I did not grep
+  the symbol first.
+
+**Why this stays OPEN.** Being live is not being proven. Two things are still true:
+1. **The behavioural re-proof has not run** — no offer-analyser run has executed since the gate went
+   in (`llm_call_log` newest is still 2026-08-19), so the gate is live and **has never fired**.
+2. **leopardess still carries the false claim.** Applying 537 does not repair it; only a *successful
+   re-run* replaces `lead_with`, and the `improvement-sweep` is still **disabled** (owner cost
+   control, last fired 2026-08-17).
+
 ### What is still owed
 
 - **Read the council verdict** and act on it.
