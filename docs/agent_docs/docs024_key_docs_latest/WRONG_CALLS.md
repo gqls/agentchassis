@@ -44939,3 +44939,42 @@ the next time a domain is added, removed or renamed — and it will be wrong *qu
 unreachable page just drops out of the table. Related: `prior-art-search-goes-stale` (an absence is
 only true when you looked) and this file's own 2026-08-22 first row — a hand-authored input dressed
 as a measurement, twice in one day at opposite ends of the pipeline.
+
+---
+
+### 2026-08-22 — `bugfix_315` lane: three fleet sweeps, three wrong answers, one cause — and I had already built the guard that prevents it
+
+**The claims.** In one afternoon I published, in sequence: (1) "228 of 228 pages healthy" and "the page
+converged"; (2) "6 pages are stale to real visitors while a plain curl says 5 of them are fine"; and
+between them (3) a 311-page comparison of browser `Accept` vs `Accept: */*`.
+
+**All three were wrong, for one reason: a single fetch against this estate is noise-dominated.**
+
+- (1) **under-read** — it used curl's default `Accept: */*`, which a Cloudflare Worker serves from a
+  variant that updates on a different schedule than the one browsers get.
+- (3) **was void outright** — `$BROWSER` was set in the parent shell and **never exported**, so inside
+  `bash -c` it was empty and *both* columns silently used `Accept: */*`. The sweep compared a header
+  against itself and reported a clean-looking asymmetry.
+- (2) **over-read** — one fetch per page, so transients counted as staleness. Re-measured with **5
+  fetches each**, five of the six were 5/5 healthy. Two of the offending bodies name themselves:
+  `e3b0c44298fc` is the sha256 of the EMPTY STRING and `e3ebaa16dd9d` is a Cloudflare error page.
+
+**The real answer, on 5 fetches per page: exactly ONE page is persistently stale** — and it is the one
+the check had already filed, on six consecutive passes. **The check scored 1 true positive, 0 false
+positives, 0 misses across 311 judgeable pages. I scored 0 for 3.**
+
+**What caught (3)** was adding a control row that asserts the header is actually visible inside the
+worker shell. The first version had no such control and would have been published — the output looked
+entirely plausible, which is the whole problem with a measurement that answers a different question.
+
+**The cheap check, and the reason it stings.** `page_content_divergence` fetches **twice and requires
+the two to agree** before filing. That guard is why it was right while I was wrong three times. **I
+wrote that guard, argued for it in a council submission, mutation-proved it — and then did not apply
+the same discipline to a single one of my own hand-measurements.** The rule is not "be careful with
+curl"; it is: *the discipline you build into an instrument is the discipline you owe your own
+spot-checks.* Fetch N times, require agreement, and state N.
+
+**And a control for the variable, not just the value:** when a sweep parameterises on an env var
+consumed inside `xargs`/`bash -c`, assert the var is non-empty **inside the worker**, not in the shell
+that launched it. An unexported variable does not error — it silently becomes the default behaviour
+you were trying to compare against.

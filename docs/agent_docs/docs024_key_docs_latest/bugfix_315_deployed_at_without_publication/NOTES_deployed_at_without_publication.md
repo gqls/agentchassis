@@ -1964,3 +1964,56 @@ LANDMINE says so for the next probe anyone writes on this estate.
 **The uncomfortable part, recorded because it is the transferable bit:** my detector contradicted me
 four times and I published three corrections saying it was wrong. I trusted the instrument in my hand
 over the instrument I had built to catch exactly this, because mine was easier to run.
+
+---
+
+## 2026-08-22 ~18:50Z — the check scores 1 true positive, 0 false positives, 0 misses across 311 pages. My hand-sweeps scored worse, three times.
+
+**Fleet sweep, 311 judgeable pages, browser `Accept` vs `Accept: */*`.** Then the same six flagged
+pages re-measured with **5 fetches each** instead of 1. The re-measurement is the result:
+
+| page | 5 fetches, browser `Accept` |
+|---|---|
+| fundamentallyai.com/blog/self-correction-… | 5/5 MATCH |
+| fundamentallyai.com/guides/tool-model-approach-selector-guide | 5/5 MATCH |
+| fundamentallyai.com/index.html | 5/5 MATCH |
+| fundamentallyai.com/tools.html | 5/5 MATCH |
+| robot-hands.com/matchmatrix-methodology.html | 5/5 MATCH |
+| **vetcomparison.uk/index.html** | **4/5 OLD bytes + 1 error page, 0/5 matching** |
+
+**So exactly ONE page is persistently stale**, and it is the one the check filed — on six consecutive
+passes, unprompted, ~21 hours and counting. **1 true positive, 0 false positives, 0 misses.**
+
+**The other five were single-fetch transients**, and two of the bodies name themselves: `e3b0c44298fc`
+is the sha256 of an EMPTY STRING, and `e3ebaa16dd9d` is the Cloudflare error page seen on 08-21.
+
+### Three sweeps, three wrong answers, one cause
+
+1. `Accept: */*` (curl default) → "228 of 228 healthy" and "the page converged" — **under-read**, because
+   it samples a variant the Worker updates on a different schedule.
+2. Browser `Accept`, **one fetch per page** → "6 pages stale to visitors" — **over-read**, transients.
+3. The 311-page sweep before that → invalid outright: `$BROWSER` was set in the parent shell but
+   **never exported**, so inside `bash -c` it was empty and *both* columns were `Accept: */*`. Caught
+   only because I added a control row asserting the header was visible inside the worker shell — and
+   the first version of that sweep had no such control and would have been published.
+
+**One cause under all three: a single fetch against this estate is noise-dominated.** The check does
+not make this mistake — it fetches twice and requires the two to AGREE, which is precisely why it is
+right and I was not. I built that guard and then spent a day not applying it to my own measurements.
+
+### The Accept split, stated at the strength the evidence supports
+
+On the one persistently-stale page it is flatly reproducible, **8 fetches per header**: browser
+`Accept` 8/8 OLD, `Accept: text/html,*/*` 8/8 OLD, `Accept: */*` 8/8 CURRENT. Same B2 object
+(identical `x-amz-version-id`), `server-timing: cfWorker`. That is real and not subtle. **What cannot
+be established by single-fetch sweeps is how many pages it affects** — both prevalence figures I
+published were produced that way and both were wrong.
+
+### ⚠ D10 — an empty or error-page 200 is currently HASHED, not skipped. NOT BUILT.
+
+`fetchServedPage` hashes any 200 body. A zero-length 200 hashes to `e3b0c442…` and a Cloudflare error
+page to `e3ebaa16…`; both are stable values, so **two consecutive such responses would AGREE and the
+check would file a divergence for a page that is fine**. It has not happened (the one filed item is
+real, and its served hash is the genuine old content), but the guard is missing. Fix: treat a
+zero-length 200 as unjudgeable — same posture as the oversize-body skip — and consider refusing bodies
+that carry no `<html`. Cheap, and it removes the one way this check could manufacture a false positive.

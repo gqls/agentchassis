@@ -478,3 +478,18 @@ the thing the mechanism rests on.**
 survive a retraction cycle or a flapping page will oscillate. And re-detection is NOT verification
 (RFC_017) — a second observation of the same defect is evidence of PERSISTENCE, not of correctness,
 and the entry must say which of the two it is claiming.
+
+
+### D10 — an empty or error-page 200 is HASHED rather than skipped. NOT BUILT.
+
+`fetchServedPage` hashes whatever a 200 returns. `[MEASURED 2026-08-22]` live responses on this estate
+include zero-length bodies (`sha256 = e3b0c44298fc…`, the empty string) and Cloudflare error pages
+(`e3ebaa16dd9d…`). Both are STABLE hashes, so the double-fetch agreement guard does **not** filter
+them: two consecutive empty responses agree with each other and the check would file a divergence
+against a healthy page.
+
+Not yet observed in a filed item — the single item to date is a genuine stale-content case — but it is
+the one remaining way this check can manufacture a false positive, and it is cheap to close: treat a
+zero-length 200 as unjudgeable (the same posture as the oversize-body skip, which already refuses to
+hash what it cannot hash honestly), and consider refusing a body with no `<html`. Both belong in
+`fetchServedPage`, beside the oversize check, with the same "skip, do not guess" comment.
