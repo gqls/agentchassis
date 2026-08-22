@@ -322,7 +322,7 @@ is now achievable for seven sites and impossible for two.
 
 ---
 
-## CONTRIBUTION 2026-08-22 from the `bugs_open/318` lane — `capped-schedule-ordering-check` exists everywhere except the cluster, and the next release will create it
+## CONTRIBUTION 2026-08-22 from the `bugs_closed/318` lane — `capped-schedule-ordering-check` exists everywhere except the cluster, and the next release will create it
 
 Not a request and not a criticism — a fact your lane will want before the next roll,
 found while auditing release coverage for `318`.
@@ -356,3 +356,31 @@ commit, and a same-tag re-push serves the node's stale cached image.
 
 Nothing here needs a reply. The release-coverage gate that found it is register
 **BLD-026**; its report names any service in this shape.
+
+### FOLLOW-UP 2026-08-22 (same lane) — it happened: your CronJob exists now
+
+`v1.0.1326` created it. `[MEASURED 2026-08-22]`
+
+```
+capped-schedule-ordering-check   created 2026-08-22T15:09:35Z
+image  docker.io/aqls/capped-schedule-ordering-check:v1.0.1326
+lastScheduleTime  <none>   (created after its 06:xx UTC slot; first run is the next one)
+```
+
+So the prediction in the note above held exactly: it was in `AGENT_DEPLOY_SERVICES`,
+`deploy-agents` applied the overlay, and the service arrived with the release. Nothing was
+needed from you and nothing is now — this is a courtesy close of the loop, not a request.
+
+**Two things worth knowing since:**
+
+- **It runs on a release-built image from the release's own pinned commit**, not a hand
+  build. Before `95757b6c2` your image was one of three declared in `RELEASE_IMAGES` and
+  reached by no build target, which would have aborted the release at `push-backend`
+  *before* `deploy-core` — i.e. nothing would have deployed at all.
+- **`lastScheduleTime` is `<none>`, which is correct for a CronJob created after its slot,
+  and would be a defect on an old one.** The column does not distinguish them; check
+  `metadata.creationTimestamp` before reading `<none>` as a failure. If it is still
+  `<none>` after its next 06:xx UTC slot, that is worth looking at.
+
+The gate and the census that found this are register **BLD-026**; `bugs_closed/318` closed
+2026-08-22.

@@ -7,9 +7,19 @@
 > test (registry census **170/170**, empty diff) passed at the artefact.
 >
 > **If you are picking something up, it is one of these two — not this file:**
-> - **`bugs_open/318`** — a service whose image the release does not build is still
+> - ~~**`bugs_open/318`** — a service whose image the release does not build is still
 >   invisible to `check-release-coverage`. The owner's follow-on (the content-change
->   trigger) plus the unpoliced `build-backend == RELEASE_IMAGES` invariant.
+>   trigger) plus the unpoliced `build-backend == RELEASE_IMAGES` invariant.~~
+>   **→ CLOSED 2026-08-22, now `bugs_closed/318`. THIS ROUTING LINE IS SPENT — do not
+>   pick it up.** The gate's admission test was inverted (register **BLD-026**, council
+>   APPROVED); the `build-backend == RELEASE_IMAGES` invariant is closed *by construction*
+>   (`build-backend` is now derived from the list, so the two cannot drift — and it had
+>   already gone false, which would have aborted a release at `push-backend` before
+>   `deploy-core`); the content-change trigger was **RULED OUT by the owner**, not
+>   deferred, and replaced by an accumulation budget on the exemption list; and a real
+>   whole-fleet release (`v1.0.1326`) has now run under the new gate. Retracted here
+>   because a closed bug does not retract the deferrals pointing AT it, and this file is
+>   the one that routes people.
 > - **`bugs_open/153`**, contribution 2026-08-19 — the release set is now 19 images
 >   and the 5 this lane added carry no `buildinfo` stamp.
 >
