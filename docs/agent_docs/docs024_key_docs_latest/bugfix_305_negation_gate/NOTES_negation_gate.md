@@ -636,3 +636,22 @@ finished (4 `needs_page` complete, 1 triaged after the floor refusal); no writer
 since 09:23. Loanzy builds are another lane's live work (see `bugfix_311` notes, "loanzy opened: four
 pages unarchived, four builds filed"), so this lane should NOT fire its own rerender there and
 compete — the proof rides their next build, or any fleet page that trips the gate.
+
+### MISSTEP 11 — my LANDMINES correction was swept into another session's commit, from the other side of the known trap
+
+I edited the copy-gate landmine entry (its "until BOTH have shipped, verify at the artefact"
+conditional had expired now that `548` is live) and ran `landmines-verify-dispatch.sh` — 3 entries
+dispatched. My `git commit <path> -F -` then failed with *"no changes added to commit"*: between my
+Edit and my commit, another session committed `LANDMINES.md` for its own entry (`a93fc3ffd`, the
+RELEASE_IMAGES landmine) and **took my edit as a same-file passenger**.
+
+**Nothing is lost** — `git show HEAD:…LANDMINES.md` contains my correction, verified with an
+unwrapped grep (`tr '\n' ' '` first, because the file is hard-wrapped and a line-oriented `grep -F`
+reports false absences on a long phrase). Forward-only holds; there is no remainder to re-commit.
+Recorded because the trail is now wrong in a specific way: **the copy-gate landmine's 2026-08-22
+correction is authored by this lane but lives under a commit message about release-image coverage.**
+Anyone doing `git log` on that entry will not find this lane. This is the documented same-file
+passenger trap experienced from the LOSING side, and no pathspec discipline of mine could have
+prevented it — the only lever is the gap between edit and commit, which for a shared append-only file
+should be seconds, not the length of a verify-dispatch run. **Commit the file edit FIRST, then run
+the dispatch.**
