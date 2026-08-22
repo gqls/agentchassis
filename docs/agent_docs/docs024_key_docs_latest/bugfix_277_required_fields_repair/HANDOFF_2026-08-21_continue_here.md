@@ -4,13 +4,20 @@
 four steps ran today. Read this from disk; then `NOTES_required_fields_repair.md` **from the
 bottom** (two new entries today, §§1–7 the canary and §8 the seat fix).
 
-> **Written ~15:00Z, UPDATED ~17:10Z after a fresh roll. Deploy facts have a shelf life of hours —
-> re-read, do not quote.**
-> Chassis is now **`bac189921`** (`sha256:68075cf5…`, pods up 2026-08-21 **16:54Z**), replacing
-> `0483e7f4e`/`sha256:3ed50651…`. Forward, no revert; `af0f00bb5` and `6011f9657` still aboard —
-> and **re-probed on the new binary rather than inferred** (`rendered_html_transform` 8,
-> `code_span_to_code_tag` 5, negative control 0), because a commit AFTER mine could delete the code
-> and still leave mine an ancestor. **Nothing in this lane needs another roll.**
+> **Written 2026-08-21 ~15:00Z; re-verified after TWO further rolls, latest 2026-08-22 ~09:15Z.
+> Deploy facts have a shelf life of hours — re-read, do not quote.**
+> Chassis is now **`70e7b4f9c`** (`sha256:b83dc450…`, pods up 2026-08-22 **08:36Z**); it replaced
+> `bac189921`/`sha256:68075cf5…` (08-21 16:54Z), which replaced `0483e7f4e`/`sha256:3ed50651…`.
+> Each is forward with no revert, and `af0f00bb5` is an ancestor of all three — but **ancestry is not
+> the check**, because a commit AFTER mine could delete the code and still leave mine an ancestor.
+> Re-probed on the newest binary: `rendered_html_transform` **8**, `code_span_to_code_tag` **5**,
+> negative control **0** (grep exit 1). **Nothing in this lane needs another roll**, and three rolls
+> have now passed over it without disturbing it.
+>
+> **The seven repairs still hold at the served bytes** [MEASURED 2026-08-22 09:16Z]: prose backticks
+> **0** on cubic-bezier / head-architect / grid-generator, with **4 / 44 / 8** in-script backticks
+> intact. That is the durability question answered for two roll boundaries, not just for the hour the
+> repair ran.
 > Live md5s after today's config changes: `fix-proposer.review_diagnosis_guardian`
 > **`99bf2e45…`**, `council-gate.review_diagnosis_guardian` **`347a20cf…`**.
 

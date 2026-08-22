@@ -2905,3 +2905,21 @@ components whose un-regenerability is what makes today's `rendered_html`-only re
 `HANDOFF_2026-08-20b` §3 wrote that trap down before there was anything to protect, and there now is.
 Options and costs are in `277` §8.4; choosing between "backfill" and "parked is the terminal state"
 changes what *fixed* means for this bug, so it goes to the owner.
+
+### 12. 2026-08-22 ~09:15Z — two more rolls, nothing disturbed, and the repair's DURABILITY is now measured across roll boundaries
+
+Chassis `70e7b4f9c` (`sha256:b83dc450…`, pods 08:36Z today) replaced yesterday's `bac189921`, which
+replaced `0483e7f4e`. Forward each time, `af0f00bb5` an ancestor of all three — and re-probed anyway
+on the newest binary (`rendered_html_transform` 8, `code_span_to_code_tag` 5, control 0/exit 1),
+because ancestry cannot rule out a later commit deleting the code.
+
+**The part worth recording is the durability, which yesterday could not answer.** [MEASURED
+2026-08-22 09:16Z] the three sampled repaired pages still serve **0** prose backticks with their
+in-script literals intact (4 / 44 / 8). The repair lives in `rendered_html` only, so the honest worry
+was always "what overwrites it?" — two roll boundaries and ~20 hours later, nothing has. The
+mechanism the lane relied on (nothing regenerates these components) is behaving as described.
+
+Everything else is unchanged and re-measured, not carried: 7 `complete` + 1 `unresolved` (last write
+2026-08-21 13:37:02Z), **zero** new `literal_markdown` rows since the canary — correct, the rotation
+does not reach webdesign.co.uk until ~08-25 — `held_pair_escalation` 7 / `held_pair_reclaimed` **0**,
+and 277's parked population still 27 `no_content_data` / 2 `asset_sourced` / 1 `no_plan_owned`.
