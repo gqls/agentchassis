@@ -2681,3 +2681,15 @@ taking; no objection window abused — the work is orthogonal to the rebuild gri
 - ⚠ COORDINATION HAZARD LEFT OPEN: some session holds a STAGED removal of the 283 lane's
   instance-scope guard in create_tool_component_action.go — my commit warns them in its message; if
   their snapshot commits as-is it reverts this wiring and the scan test catches it.
+
+## 2026-08-22 ~14:15Z — 362's THIRD writer: TL-047's regenerate arm, wired same-day (commit `fe1dee52d`, Council-Submitted `b8bdd4b3`)
+
+The 238 session's new advisory-findings audit (replays pattern-check against HEAD) surfaced
+`create_tool_component_regenerate.go` firing `unrepaired-component-write` AFTER my first 362 commit
+silenced the two writers every census had named. **The arm was born 2026-08-19 — seventeen days
+after RFC_008's ten-writer census — so every document that counted writers was correct when written
+and wrong by birthday.** Wired in the same shape (repair after placements resolve, before the
+UPDATEs; `domain` added to the request; discriminator `create_tool_component_regenerate`); scan test
+now anchors all THREE writers per-file (UPDATE-anchored for this one), regenerate mutation proven.
+362 §10 has the full record. TWO council verdicts now owed a read: `c6b9a382` (writers 1+2) and
+`b8bdd4b3` (writer 3) — act on any REVISE/REJECTED; the code is on the shared branch.
