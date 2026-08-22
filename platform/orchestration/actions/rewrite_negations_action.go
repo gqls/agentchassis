@@ -531,8 +531,9 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	// safe. The load-bearing protection is not this arm anyway: it is the typed
 	// truncation error above, plus the fact that a cut JSON object does not
 	// parse and an unparseable answer splices nothing.
-	usageKnown := outTok > 0
-	if sent, ok := options["max_tokens"].(int); ok && sent > 0 && usageKnown && outTok >= sent {
+	sentMax, _ := options["max_tokens"].(int)
+	usage := aiservice.ClassifyTruncation(outTok, sentMax)
+	if usage.Truncated() {
 		truncated = true
 	}
 	if truncated {
@@ -540,9 +541,9 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 			zap.Int("output_tokens", outTok), zap.Any("max_tokens", options["max_tokens"]))
 		return rewritten, rejected, "repair answer truncated at the output ceiling"
 	}
-	if !usageKnown {
+	if usage == aiservice.TruncationUnknown {
 		params.Logger.Info("rewrite_negations: the provider reported no output-token usage, so the ceiling check could not run — relying on the parse",
-			zap.String("step_name", stepName))
+			zap.String("step_name", stepName), zap.String("usage_state", usage.String()))
 	}
 
 	parsed, _, perr := ParseLLMJSONWithProvenance(stripMarkdownFromResponse(raw))
