@@ -254,3 +254,27 @@ ceiling — and should talk to the `bugs_open/345` lane, which has measured the 
 **Still open, unchanged:** both pages remain without their component
 (loancalculator's stored today and is awaiting a page re-render to attach it; loanzy's was
 refused by the validator). `tool-eligibility-checker` remains archived — spend nothing on it.
+
+### Repair state after the 2026-08-22 re-drive, and a correction to this file's own verification recipe
+
+- **loancalculator.co.uk / `tool-credit-roadmap` — REPAIRED.** Component stored, page
+  re-rendered, `page_components` 4 → 5 slots, deployed. The served page
+  **`https://loancalculator.co.uk/tools/credit-roadmap.html`** (200, 46,594 B) carries
+  `<section class="tool-credit-health-check-section">` with a working quiz — 13 `<button>`
+  and 4,593 bytes of inline logic (`next()`, `showResult()`, listeners, step/points/meter).
+- **loanzy.uk / `tool-credit-health-check` — STILL BLOCKED**, by the re-scoped cause above:
+  the fresh 12,709-token generation was refused by `store_component`'s unresolvable-source
+  rule. Page unchanged (24,323 B, 3 sections, 0 inputs).
+
+⚠ **Two corrections to §How to verify a fix, both of which cost this lane a wrong reading:**
+
+1. **The URL in that section is right for loanzy and WRONG for loancalculator.** URL shape is
+   **per site**: loanzy serves `/tools/<name>/index.html`, loancalculator serves
+   `/tools/<name>.html`. The name-derived guess returns that site's custom 404 — **1,201 bytes
+   of real HTML with a stable md5 and zero `<input>`**, so it survives a two-reads stability
+   check and a content grep while being the wrong document. Pin with the status code
+   (`curl -s -o /dev/null -w '%{http_code} %{size_download}\n'`) and refuse anything but 200.
+2. **`grep -c '<input'` is the wrong success predicate for this section type.** The component
+   this bug is about is a **button-driven quiz**: it scores **0 `<input>` while fully working**.
+   Assert the section's presence plus its behaviour (inline script bytes / declared handler
+   names), not one tag borrowed from a calculator-shaped tool.
