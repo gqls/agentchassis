@@ -924,3 +924,98 @@ not real.
 
 **An approval is not a reason to stop reading the objections.** The seats that approve still file
 advisories, and this one named a defect that was three days old and mine.
+
+---
+
+## 2026-08-22 — the lane is closed; this session's work was two NEW bugs, a landmine pair, and three passengers
+
+The 260 work itself is done and stayed done. Re-verified on the fresh **`v1.0.1326`** build, both
+replicas, single-pass `grep -aoF` over `/proc/1/exe` (one pass, not seven — seven separate `exec`
+greps over a ~100MB binary time out the tool at 2 minutes; one `grep -aoF -e … -e …` with
+`sort | uniq -c` is ~40s and reads better):
+
+| needle | expected | replica 1 | replica 2 |
+|---|---|---|---|
+| `Go template execution failed, using regex fallback` | **absent** (removed by 260) | absent | absent |
+| `Failed to parse template, using fallback` | **absent** (removed by 260) | absent | absent |
+| `refusing to emit output that was not executed` | present | 1 | 1 |
+| `component template execution failed` | present | 1 | 1 |
+| `REQUIRED content field(s) absent` | present | 2 | 2 |
+| `record_absent_required_fields` | present | 1 | 1 |
+| `refuse_mistyped_llm_fields` | present | 1 | 1 |
+
+Both controls are real removals, not synthetic — they existed in the pre-260 binary, so they could
+have come out either way. **The `build provenance` line was NOT reachable** on either pod
+(`--tail=4000`, pods ~3h old on a busy service), which is the documented behaviour: it is a startup
+line and it scrolls. An empty result there means "not in range", not "unstamped".
+
+### What was actually asked, and what came out
+
+Two things, both from the owner: fix the failing CronJob if something is wrong with it, and file the
+swallowed-completion defect so somebody could own it.
+
+**1. `component-render-check` — nothing is broken.** → `bugs_open/361`. It runs, reports truthfully
+every day, and exits 1 because there are NEW findings, which is what it was built to do. Red for
+**twelve consecutive days** (last green 2026-08-09). The ratchet (`rendercheck.go:759`, `if !base[k]`)
+is a flat key-level set difference against a baseline cut **once**, 2026-08-04, never regenerated;
+the library has grown 174 → 283 active components since, and a component that did not exist then
+owns no baseline keys, so **every** finding it produces reads as NEW. Decisive measurement: of the
+**38** components carrying today's 227 NEW findings, **37 postdate the baseline**. The one exception
+(`blog-listing_pre_037`) had its template rewritten — `post1_title` gone, `{{range .articles}}` in —
+which is also why 31 of the 54 "fixed" keys are its. **Zero regressions, and all 227 still real debt.**
+The clone rule (`findingKey`, added 08-05 for exactly this shape) only catches byte-identical
+templates and reported 0 inherited today.
+
+**2. The swallowed completion** → `bugs_open/354`, **now OWNED by `bugs_open/307 [e24299]`**, who
+asked before starting rather than trusting `who-owns.py`. `completeWorkflow` (`coordinator.go:4456`)
+sets `StatusCompleted` unconditionally, never reads `__step_error`, never sets `state.Error`. Filed
+to 090 first per the 2026-07-31 ruling; **CONFIRMED at iteration 1**, independently, with its own
+citations and its own live row — and it named scope I had not (`routeToErrorStepOrFail`,
+`failWorkflow`, the sibling arms that DO fail the workflow).
+
+### The missteps, which are the point of this file
+
+**(a) I read 24 anomalous rows' AGE as their diagnosis.** Wrote *"plus 24 stragglers stuck since
+July"* — twice, in the bug file and a landmine. They are **all `CANCELLED`**, oldest 2026-07-19, and
+they are not stuck but **unreaped**: `database-cleanup`'s arm 3 deletes on a literal
+`IN ('COMPLETED','FAILED')` while arm 4 skips `is_terminal`, so a terminal status in neither falls
+through both. **The rows I waved away were evidence for the very bug I was writing.** Caught by
+`[e24299]` in passing, hours later. The check I skipped was `GROUP BY status` on a query I was
+already running. `WRONG_CALLS.md`, and the general form is *an anomalous row's age is not its
+diagnosis* — "old" is a property of every failure mode at once, and *straggler* is a word that
+asserts a cause while sounding like a description.
+
+**(b) The same error again, in the same file.** §2(b)'s control had one row I recorded as "exactly 1"
+and never examined. `[e24299]` asked: it is `check_page_found`'s `else_step` — a page genuinely not
+found, i.e. a **skip**, not a failure. So the discriminator's only apparent false positive is a case
+that should be excluded, and requiring `__step_error` excludes it for free (`bugs_closed/299`'s third
+state, turning up inside this bug's own control). **Twice in one document I treated a small residue
+as rounding error and both times it was load-bearing.**
+
+**(c) I got the cost of my own fix candidate backwards.** §5 said migration `466`'s status
+vocabulary makes candidate 1 *cheaper*. It makes the **write** cheap; the **reaping** is the real
+cost and was not in the estimate at all — so candidate 1 is **more** expensive. Corrected in the
+file, marked as mine.
+
+**(d) Three same-file passengers in one afternoon, in both directions.** My `000_concept_index.md`
+correction rode into another session's `5fddba825`; another session's landmine rode into my
+`8cc994b12` (numstat said 23, the commit said 41); a third rode into `b17f69eab` (45 → 63).
+**`git diff --numstat` before the commit is not a sufficient check** — the window between the check
+and the commit *is* the exposure. What caught all three was the insertion count and the scope block
+printed **after**. And holding an edit back does not avoid the trap, it only decides which side of it
+you are on.
+
+**(e) I replied to the wrong session.** Two live sessions were both named `bugs_open/307`.
+`SendMessage` refused the bare name and offered a tie-breaker — last-active time — and the natural
+inference is **backwards**: I picked the one active 3m ago, the sender was the one active 19m ago,
+because a lane mid-investigation runs long tool calls and looks stale. The remedy, verified rather
+than assumed: **the incoming message's `from` socket path works as `to`.** Both `LANDMINES.md`.
+
+### Two landmines added
+
+- *A CronJob's Job listing shows only the last N failures, so ANY outage reads as "about N days
+  old"* — `failedJobsHistoryLimit: 3` had collected nine of the twelve failures, their pods and their
+  events. `lastScheduleTime` was 132 minutes old throughout and is not a health signal. The honest
+  instrument is `lastSuccessfulTime`, or the check's `doc_notes` series where the **count** is the
+  tell: `backoffLimit: 1` ⇒ a failing run writes two rows, a passing run one.
+- *Two live sessions can share a lane name, and "active N ago" points at the wrong one.*

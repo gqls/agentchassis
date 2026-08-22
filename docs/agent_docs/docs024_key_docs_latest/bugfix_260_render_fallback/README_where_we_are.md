@@ -181,3 +181,62 @@ on it.
 
 The remaining test is not ours: the loanzy lane runs a clean build from scratch and reports either
 way. They have been told it is live.
+
+---
+
+## 2026-08-22 — the render work is finished; today was two new problems found and handed on
+
+Short version: the thing this lane existed to fix is done, still working, and I checked it again on
+today's fresh build. Everything below is new ground.
+
+**The failing daily check turned out not to be broken.** You asked me to see what was wrong with it.
+The honest answer is: nothing. It runs every morning, does its job correctly, writes up what it
+found, and then reports failure — because reporting failure is exactly what it is supposed to do
+when it sees something new.
+
+Here is the shape of it. The check looks at every component we have and asks a simple question: if
+this piece of content were missing, would the page render a visible hole — an empty heading, a
+broken image, a blank cell? It has a list of the holes it already knows about, and it only complains
+about ones that are **new**. That list was written once, on 4 August, and has never been rewritten.
+Since then we have built 109 more components. A component that did not exist when the list was
+written is not on the list, so everything about it counts as new.
+
+I checked whether any of it was a real regression — something that used to be fine and got worse.
+Of the 38 components it complained about today, **37 were built after the list was written**. The one
+exception was a component whose template someone deliberately rewrote. So nothing has got worse.
+What has happened is that we keep building, and the check keeps correctly noticing.
+
+**That said, the 227 things it found are real.** They are not false alarms. They are new components
+that can render a hole if content is missing — new debt arriving with new work, rather than old work
+decaying. The decision in front of you is whether to mark all 227 as "known" so the check can go
+green again. I have not done that, because it is a judgement about how much untidiness we are
+willing to bank, and that is yours rather than mine. I have written it up as `bugs_open/361` with
+the options costed.
+
+There is a design problem underneath it, which is the part I would want you to know. We add roughly
+six components a day, and about a third of them produce one of these findings. So even if we clear
+the list today, the check goes red again within a day or two. The job's own design notes predicted
+this exactly — they say a permanently red job is a job everyone learns to ignore, and that this was
+the mistake it was built to avoid. Twelve days red is that mistake arriving. The fix I would
+recommend is small: teach it that a brand-new component is *unbaselined* rather than *regressed*, so
+a red light goes back to meaning "something we had working has broken".
+
+**And a warning about how I nearly misread the whole thing.** When I first looked, the job list
+showed three successes a fortnight ago and three failures in the last two days. That reads
+unmistakably as "fine for weeks, broke on Thursday". It had actually been failing for twelve days
+straight — the system only keeps the last three failures and quietly deletes the rest, along with
+their logs. I have written that up as a trap for whoever looks next, because the wrong answer there
+looks exactly like the right one.
+
+**The second thing you asked for is filed, and someone else has already taken it.** This is the
+problem where a job that fails partway through still records itself as having completed
+successfully, with no error recorded anywhere that lasts. I filed it, put it through our diagnosis
+process first (which confirmed it independently), and another session picked it up within hours —
+they messaged to ask whether I was working on it before starting, which I was not. It is theirs now
+and in good hands; they have already found things I missed.
+
+**Where I was wrong today, since that is worth saying plainly.** Twice in the same document I saw a
+small oddity in my own numbers, decided it was rounding, and moved on. Both times it mattered — one
+of them was direct evidence for the very bug I was writing about. The other session caught both, in
+passing, while checking something else. I have recorded it in our wrong-calls log, because the
+lesson is general: a handful of odd rows is not noise until you have asked what they are.
