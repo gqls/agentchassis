@@ -44,3 +44,58 @@
 - Baseline 209 proof fired (pageflow): CORR `6fd5fc99-434f-4312-a37f-59fce57bb13c`,
   ORCH `e55996f0-e979-406e-bb5f-14372a06bb81`, PUBLISH_OK seen. Queue latency ~30 min is
   normal — find it by payload, not by printed id.
+
+## 2026-08-22 — the day's full trail (Phases 0-3 executed)
+
+**155 (now CLOSED → bugs_closed/):**
+- Baseline pageflow proof PASS: corr `6fd5fc99`, hero `de147987…`/logo `47322664…` distinct,
+  commits `2bc1888e4`/`f03151d06` at 10:20Z TODAY (verified at the repo, not the report).
+- swo arm of `fire_209_proof.sh` had NEVER run: its mapping read `input_data.reviewed_brief`,
+  never supplied → strict-mapping hard fail before SWO spawned. Fixed (load_site step mirroring
+  the pageflow arm), re-fired (corr `2586036c`): the deploy question is moot but the full build
+  failed at `install_site_composition` — "site already has style_collection_id" — a composition
+  re-install guard on the sacrificial site, NOT the deploy seam. Not chased; out of scope.
+- Migration 324: committed (`8403546ad`) + `--record-only`; no longer pending (runner unblocked).
+- Migration 553 (input_contract admits asset_id): written, pre-state guarded, applied (UPDATE 1,
+  verify DO passed), recorded, committed. Blast radius measured: ONE contract-validated live
+  step (image-build-handler call_asset_deployer), maps both keys.
+- asset_id-ONLY proof PASS: `icon_dartboard` corr `4150f72b` → `icon-dartboard.jpg`
+  sha `de14fb6c…` commit `1f32bbc40`; `icon_steel_tip` corr `72b3fb29` → `icon-steel-tip.jpg`
+  sha `47b0672e…` commit `1c9ad71d9`. Distinct; hashes re-derived from origin/master bytes;
+  dartboard opened visually vs origin_prompt: match. 155 moved to bugs_closed (`e626bda11`),
+  LANDMINES 155 entry closed out, verifier dispatched (STILL_VALID pending).
+
+**Platform commits (all inert until roll):** A `0ce242d9c` 071 warning persistence (+ r2 delta
+`120427766` — failure-path warnings, the council's round-1 catch); B `d59ba32b8` section_editor
+CTA deletion; C `69cc0ea7a` 155/209 writer retirement. Mutation proof: `ok && false` mutant
+failed 3 tests, restored green. `git archive HEAD` build + tests green.
+
+**Council:** 155 retirement corr `c0e02ad3` APPROVED r1 · 203 CTA corr `dc557fc8` APPROVED r1 ·
+071 persistence corr `f30a28e1` REVISE r1 (editquality HIGH: the LogActionEntry landmine — its
+own body says FIXED+LIVE v1.0.1268, and the test pins positions 5/8/9/11/12; LOW: sketch
+fidelity; MISSING: invalid-build warnings — IMPLEMENTED) → r2 resubmitted same corr · 554
+disarm corr `bbf5e418` submitted.
+
+**235 (now CLOSED → bugs_closed/):**
+- Pre-deletion audit: page_components 0 · site_specs 0 · content_components 0 ·
+  sites.content_data 1 = prose in leopardess's array-typed brief (serves 404; not renderable).
+- ⚠ **THE ARMED "DRY RUN" — the day's biggest finding.** Live asset-retraction row carried
+  `dry_run:false` (operator edit 08-20, never reverted; description still said dry-run
+  default). Ten intended dry runs each DELETED (0 refusals — guards ran; end state was the
+  owner-authorised one; pre-audit had run). Caught on first result readback. Disarmed by
+  migration 554 (applied+recorded+committed `ce3ca376d`); LANDMINE + WRONG_CALLS filed.
+  Cheap check that would have caught it BEFORE: read the LIVE step config (one query).
+- 13/13 sites retracted, 0 refusals: 10 sites-repo wire-verified (jpg 404 / png 200,
+  cache-busted); idea.uk + relojistas wire-verified after vm propagation (~4 min — the vm
+  deletion-propagation question ANSWERED); webdesign.uk repo-verified (commit `85ca602`,
+  jpg gone, png present; site 302s deliberately).
+- fundamentallyai `image_url_404:logo.png` + `:logo.jpg` cancelled with verification in
+  result.reason (premises measured stale); hero.jpg sibling deliberately untouched.
+- Register DGH-010 corrected (was "INERT until roll; zero callers" — stale on both counts).
+
+**Shared-tree note:** my WRONG_CALLS append rode ANOTHER session's commit (`62291fa66`) as a
+same-file passenger between my write and my commit — the documented behaviour, nothing lost.
+
+**Missteps this session (both in WRONG_CALLS):** (1) trusted four descriptions of a safety
+default over the one-row live read — the armed dry-run; (2) a grep filter
+(`DOMAIN=|PUBLISH_OK|error`) ate a `Permission denied`, reading as "no output yet".

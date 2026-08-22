@@ -34,3 +34,30 @@ you chose to leave for another day; they stay written down in the bug file.
 
 The first test dispatch is already running. The code changes will be committed today and will
 ride the next fleet release.
+
+## 2026-08-22 (later) — two of the three bugs are closed; one surprise on the way
+
+Bug 155 is closed. The end-to-end test its file demanded finally ran: we deployed two
+different dartboard-site icons by their ids alone, and each came out as its own distinct,
+correct image — the exact scenario that used to produce six identical wrong files. On the
+way we found and fixed two pieces of housekeeping: the database change that made this work
+was never put into git (it now is, and the migration tool no longer trips over it), and an
+outdated "contract" on the deployment agent was still refusing the very request shape the
+code supports (fixed with a small, guarded change).
+
+Bug 235 is closed. You decided the old wrongly-made logo files should be deleted, and all
+thirteen sites are now clean — checked one by one at the live sites: the old file is gone,
+the correct one still serves. One genuine surprise: the deletion tool's "rehearsal mode",
+which I told you would run first, turned out to have been switched off at the live
+configuration two days ago by an earlier operation that never switched it back — so the
+rehearsals were real deletions. No harm resulted (you had authorised exactly these
+deletions, nothing referenced the files, and the tool's safety checks all ran), but the
+gap between what the documentation promised and what the live system would do is exactly
+the kind of trap we log: it's now written up in the shared trap-list, and a small change
+has put the safety default back the way it was reviewed and approved.
+
+Bug 071: the two fixes you chose are written, tested and committed; they take effect on
+the next release. The review council approved one immediately and asked one good question
+about the other — "what about warnings on a build that FAILS?" — which we answered by
+covering that case too. The two bigger leftovers you chose to defer stay recorded in the
+bug file for a future session.
