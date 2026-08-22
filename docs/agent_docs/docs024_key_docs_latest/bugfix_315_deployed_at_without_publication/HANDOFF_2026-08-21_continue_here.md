@@ -52,20 +52,53 @@ being *skipped*; this one was *delayed*. So the runner may not be losing work at
 at "why was this page dropped" could be aimed at the wrong thing. Still not diagnosable from here
 (private `gqls/sites` repo) — but there is now a named case with timestamps to hand whoever has access.
 
-### ⚠ THE ONE THING STILL UNPROVEN — the retraction half
+### ⚠ THE ONE THING STILL UNPROVEN — the retraction half (as of 2026-08-22 10:25Z)
 
-The page now matches, so the next pass on that site should emit a `Resolved` and close the item.
-**That has never fired.** Until observed, "the check self-clears" is designed-but-unproven. Watch:
+**It has never fired, and it is NOT broken.** Its precondition is a pass that **OBSERVES A MATCH**.
+Every pass so far observed a mismatch, so `items_resolved: 0` is the correct output each time:
 
+| pass | ins | skip | res | findings | meaning |
+|---|---|---|---|---|---|
+| 21:53 | 1 | 0 | 0 | 1 | filed |
+| 01:54 | 0 | 1 | 0 | 1 | re-detected, dedup refused a duplicate |
+| 05:56 | 0 | 1 | 0 | 1 | re-detected |
+| 09:57 | 0 | 1 | 0 | 1 | re-detected (the regression — see below) |
+
+⚠ **`items_inserted: 0` DOES NOT MEAN "found nothing".** Read `items_skipped` **and** `findings`.
+Reading the inserted count alone reads as "the check went quiet" and will send you debugging a working
+mechanism — it nearly sent me.
+
+**To verify it, one query, after a pass on a page that now matches:**
 ```sql
 SELECT status, result->>'resolved_by', result->>'reason'
   FROM site_work_items WHERE item_type='page_content_divergence';
+-- status='complete' with resolved_by/reason stamped = the retraction half is PROVEN
 ```
+`vetcomparison.uk` is next eligible **13:57Z** (rotation floor 4h). The page matched 3/3 from inside
+the cluster and 10/10 from outside at 10:20Z, so that pass should close it. **Until observed, treat
+"the check self-clears" as designed-but-unproven.** If it does NOT close on a pass where the page
+matches, that IS a defect — start at `resolveWorkItems` in `work_items_common.go` and at the
+`case j.first.hash == pg.StoredHash:` branch.
 
-⚠ **AND A TRAP THAT NEARLY HAD ME DEBUGGING A WORKING MECHANISM:** `items_inserted: 0` on the 5h05 and
-9h07 runs read as "retraction failed". It was not — `items_skipped: 1` with a non-empty `findings`
-array means the check re-detected and `idx_swi_dedup` correctly refused a second row. **Read
-`items_skipped` and `findings`, never `items_inserted` alone.**
+### What that page actually did, because it is two faults not one
+
+| window | observation |
+|---|---|
+| 20:49 → ~08:40 | new bytes never arrived (**9+ hours**) — the 315 class, identical served hash across 3 passes |
+| ~08:40 | correct |
+| **08:50** | **redeployed** (byte-identical → same `content_hash`; the no-op republish case) |
+| 09:57 | **serving the OLD bytes again** — a regression, not a lag |
+| 10:20 | correct, 3/3 inside the cluster and 10/10 outside |
+
+⚠ **A `[MEASURED]` claim about STATE expires.** At 08:40 I recorded "`deployed_at` unmoved, so no
+redeploy" — true then, and false ten minutes later. The nine-hour finding stands for the window it
+describes; the boundary has to be said out loud or the next reader re-runs the query and thinks it was
+wrong.
+
+⚠ **A single probe samples whichever copy answered.** At 08:40 I got 10/10 correct while the 09:57 pass
+recorded the old bytes. When reproducing one of these findings by hand, **fetch several times and say
+how many** — which is why the check confirms a mismatch with a second fetch and requires the two to
+agree.
 
 ---
 
