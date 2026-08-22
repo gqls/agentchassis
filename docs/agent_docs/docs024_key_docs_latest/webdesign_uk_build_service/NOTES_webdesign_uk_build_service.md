@@ -5191,3 +5191,127 @@ customer's own genre.
    prompt and the model ignored it, which is a different failure from the register's (where
    the ban is enforced at the gate). Worth a look before the bot writes anything a customer
    keeps.
+
+---
+
+## 2026-08-22 — D-A prior art found LIVE (WireGuard), D-B answered by the owner, and the new figure is currently BANNED
+
+Owner asked this session to look at what we already have for core-manager exposure, a
+bastion host, tools-api and "a separate admin area for me to follow and contribute to the
+steps of each website build", and in the same message answered D-B: *"two or three should
+probably be 3 or 4 but usually sooner."*
+
+### 1. The D-B figure the owner just asked for is an ARMED BAN today
+
+`[MEASURED 2026-08-22, live `evidence_base` row for `webdesign.uk`]` the banned_claims list
+contains:
+
+```
+pattern: \bthree (or|to) four days\b|\b3[-–]4 days\b|\bthree[-–]to[-–]four\b
+reason:  RETIRED FIGURE (owner 2026-08-14): three-or-four-days belonged to the £1,200 offer.
+```
+
+So the phrase the owner has now re-attested is the exact phrase we armed a ban against on
+2026-08-14, when it belonged to the old £1,200 product. **The ban must be retired in the
+same transaction that re-attests the fact**, or every page and every bot answer carrying
+the new figure is refused by the claims gate — and the failure would look like the writer
+being broken rather than the register contradicting itself.
+
+Full surface of the D-B change, all measured today:
+
+| where | current state | note |
+|---|---|---|
+| fact `build_duration` | `claim` "usually ready in two or three days", `value` 3, `writer_line` "usually ready in two or three days", `context_terms` [turnaround, day, days, ready] | claim + writer_line + context_terms narrow together (§8 trap: the bot reads `claim` verbatim, the writer reads `writer_line`) |
+| `writer_block` | **2 occurrences** of "two or three days" | the §8 agreement check: grep writer_block for the string the edit RETIRES |
+| ban `three or four days` | **ACTIVE** | must be retired, else the new figure is blocked |
+| ban `(instant\|...\|same day)` | reason quotes "two or three days" | goes stale on this edit; this lane has corrected two stale ban reasons already |
+| served pages | index **6×**, faq **3×** "two or three days" | needs a re-render; 4 pages had to be rebuilt for the last figure change |
+
+⚠ **A methodology misstep of my own, caught by a control.** I first counted the served
+pages at `https://webdesign.uk/` and got **0 / 0**, and briefly read that as "the pages no
+longer carry the figure". The control (`149` must appear, and it appeared **0** times)
+exposed it: the apex returns **HTTP 302, 142 bytes** to `https://webdesign.co.uk/` under a
+deliberate Cloudflare page rule (`PAGERULES_backup_2026-08-08.json` holds it). I then
+briefly read the redirect as the shopfront being unreachable, which was also wrong: the
+lane serves at **`preview.webdesign.uk`** (`verify_served_site.sh:9`), and measured there
+the counts are 6 and 3, exactly as the 08-21 handoff recorded. **Two wrong readings in one
+check, and a blind zero would have passed straight into a handoff.** The demand control is
+what caught the first; reading the lane's own verify script is what caught the second.
+
+### 2. D-A: most of what the owner is asking for is ALREADY BUILT AND RUNNING
+
+`[MEASURED 2026-08-22, live cluster]`
+
+- **WireGuard is live in-cluster**: svc `wireguard`, NodePort **31820/UDP**,
+  `SERVERURL=134.213.168.37`, `ALLOWEDIPS=10.20.0.0/16,10.21.0.0/16`, `PEERDNS=10.21.0.10`.
+  This retires register `ADM-006`'s open question ("check whether WireGuard was ever
+  actually deployed or whether the system is still on Option C") — it was deployed.
+- **Three peers exist: `laptop`, `phone`, `webdesignbox`** (`/config/peer_*`, and the
+  `# peer_<name>` comments in `wg_confs/wg0.conf` give the authoritative name↔key mapping).
+- **`laptop` (10.13.13.2) and `phone` (10.13.13.3) have NO handshake** — generated, never
+  connected. So the owner has a route to the admin area that has never been switched on.
+- **The admin area itself answers 200**: `admin-dashboard` ClusterIP `10.21.171.225:8080`,
+  2 replicas, 158d old; `GET /` → `HTTP/1.1 200 OK`, `GET /health` →
+  `{"status":"healthy","service":"api-gateway"}`, probed from inside the cluster. Its nginx
+  serves the SPA and gateways `/api/v1/auth/` → auth-service and `/api/v1/` → core-manager
+  (`frontends/admin-dashboard/nginx.conf:51,64,77`). It is a complete self-contained admin
+  front door, and 10.21.0.0/16 is already routed to every peer.
+- **No Ingress objects exist anywhere in the cluster** (`kubectl get ingress -A` → "No
+  resources found"), so nothing is publicly reachable by that route today. `ingress-nginx`
+  is running (5 controller pods, NodePort 30080/30443) with zero Ingress objects — the
+  capability is there and unused.
+
+### 3. The bastion and tools-api designs are complete and were never applied
+
+`docs024_key_docs_latest/gauntlet_dead_cta/infra/` holds a finished, twice-corrected design:
+`README_bastion_exposure.md`, `Caddyfile`, `cloudflared_config.yml`, `wireguard_bastion.yaml`,
+`networkpolicy_tools_api.yaml`. **`tools-api` is deployed in NO namespace**
+(`kubectl get svc -A | grep tools` → nothing), so the whole path is unbuilt, exactly as the
+README's last line says.
+
+### 4. ⚠ THE HAZARD THAT DESIGN WAS WRITTEN TO PREVENT IS ALREADY LIVE
+
+`README_bastion_exposure.md` says, in bold: **"Never add the bastion as a peer of the main
+`wireguard` deployment."** Its reasoning, verified by that lane on 2026-07-24 and
+**re-verified by me today**:
+
+1. the main WireGuard pod **masquerades** — `iptables -t nat -S POSTROUTING` in the running
+   pod returns `-A POSTROUTING -o eth+ -j MASQUERADE`, so every peer's traffic reaches other
+   pods carrying the **WireGuard pod's** IP, not the peer's;
+2. `allow-same-namespace` is still present and is `podSelector: {}` ← `podSelector: {}`, so
+   every pod accepts ingress from every pod in the namespace, which **unions away**
+   `database-access-policy`'s app-label allowlist on `postgres-clients`.
+
+**And `peer_webdesignbox` is a peer of that main instance right now.** Its config is
+`AllowedIPs = 10.20.0.0/16,10.21.0.0/16` — the whole cluster network — and `wg show` gives
+it an **active handshake (1m 22s) from 176.126.243.62, 6.13 MiB received / 32.88 MiB sent**.
+
+**Proven, not inferred:** from the WireGuard pod itself — which is where every peer's
+traffic emerges after masquerade — `nc -z 10.21.233.177 5432` returns
+**"Connection to 10.21.233.177 5432 port [tcp/postgresql] succeeded!"**.
+
+`[PRECISE SCOPE OF THE CLAIM]` I proved (a) the box routes the cluster subnets over the
+tunnel, (b) the masquerade rule is live, (c) postgres accepts from the WG pod. I did **not**
+execute a connection from the box itself — I have no shell on it. The final hop is
+mechanism, not execution. It is a strong claim, not a demonstrated one, and it should be
+demonstrated from the box before anyone sizes the response.
+
+So the internet-facing box that serves webdesign.uk has a network path to the clients
+database. Nothing suggests it has been used — this is reach, not evidence of harm.
+
+### 5. The real gap for "follow and contribute to the steps of each website build"
+
+The admin API already exposes the build steps: `GET /admin/workflows`,
+`GET /admin/workflows/:correlation_id`, `POST /admin/workflows/:correlation_id/resume`
+(`internal/core-manager/api/server.go:183-185`), plus per-site specs (pin/propagate),
+pages/components (regenerate, restore-section, lock), assets, work items and pipelines.
+
+**But the SPA never calls them: `grep -c workflow frontends/admin-dashboard/src/App.tsx`
+→ 0.** So "follow the steps" is an API that exists with no screen, while "contribute"
+(edit a spec, regenerate a component, resolve a work item) already has one.
+
+Also found: **`workItemGroup.POST("/:item_id/approve", HandleApproveWorkItem)` EXISTS**,
+which contradicts register `ADM-004`'s status line ("live P2/P3 have no approve/reject
+endpoints ... anywhere"). That is the stale-register-status landmine class, and it matters
+here because `DECISION_21e`'s gate needs exactly an approve step and the register says it
+was retired.

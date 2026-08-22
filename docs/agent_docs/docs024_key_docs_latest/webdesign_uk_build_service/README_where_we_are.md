@@ -1964,3 +1964,70 @@ simplest real safeguard is a note in your own calendar for late November.
 I have also written up the step-by-step for doing a transfer, and marked it clearly as
 never having been run, because we have not sold a domain yet. The first person to do one
 should correct it from what actually happens.
+
+---
+
+## 2026-08-22 — you already own most of the admin area you just asked for
+
+You asked me to look at what we had for the core-manager question, the bastion host, the
+tools API, and a separate admin area where you can follow and contribute to each website
+build. The short version is that the admin area largely exists, it is running right now,
+and the reason you have never used it is that the door was built and never opened.
+
+**What is actually there.** There is a private network into the cluster, of the kind that
+lets your laptop behave as though it were inside it. It has been running for a month. When
+it was set up, three keys were made: one called "laptop", one called "phone", and one for
+the webdesign box. The box has been using its key constantly. **The laptop and phone keys
+have never once been used** — the server has no record of either ever connecting. So the
+private route to the admin area was built for you, and then nobody gave you the file.
+
+On the other side of that route sits the admin dashboard, which is also already running.
+I asked it for its health from inside the cluster and it answered. It serves the whole
+admin site and passes work through to the two services behind it. It has screens for the
+sites, for the work queue, for browsing every page and component, for editing the specs
+that steer a build, and for the media. So "contribute to the build" is mostly there: you
+can already change a spec, regenerate a component, or clear a work item.
+
+**What is genuinely missing is the "follow" half.** The system knows the steps of every
+build and will report them over its API, but nobody ever built the screen. I checked the
+dashboard's source for any mention of it: zero. So the steps exist as data with nowhere to
+look at them. That is the one real piece of building work in your question, and it is a
+screen, not new plumbing.
+
+**The bastion host.** We have a complete design for one, written in July for the tools
+side of the estate, including which UK provider to use and the exact commands. It was
+never built, and the tools API it was for is not running anywhere. So it is a finished
+plan on a shelf, not a thing we have.
+
+**Now the part you should know about, and I want to be careful not to overstate it.** That
+same July design contains a warning in bold: never connect an internet-facing box to the
+main private network, because of how that network is wired, anything connected to it can
+reach everything inside the cluster, including the database. **The webdesign box is
+connected to exactly that network, and has been.** I checked the wiring today and the
+warning still holds, and I confirmed that the database does accept connections from where
+that box's traffic arrives.
+
+What I have not done is prove it from the box itself, because I do not have a login on it.
+So: the road is open and the door is unlocked, and I have not walked through it. There is
+nothing to suggest anyone has. I would treat this as something to close in the next few
+days rather than tonight, and the fix is the design we already wrote — give the box its
+own small, fenced connection that can reach the one service it needs and nothing else.
+
+**On your "3 or 4 but usually sooner".** I can make that change, but there is one thing you
+need to know first, because it is the sort of thing that fails silently. On 14 August we
+deliberately banned the phrase "three or four days" from the site, because it belonged to
+the old £1,200 product and we did not want it creeping back. That ban is still armed. So
+if I simply change the promise, the system will start refusing our own new copy, and it
+will look like the writer is broken rather than like we contradicted ourselves. The change
+is easy, but it has to retire the old ban in the same breath, update the writer's
+instructions in two places, and re-render the pages, which say "two or three days" nine
+times between them. I have not made the change yet — tell me the exact words you want and
+I will do the whole set together.
+
+**One thing I got wrong today, for the record.** When I went to count how often the pages
+say "two or three days", I got zero, and for a moment I believed it. It was nonsense: the
+address I checked quietly bounces to the old webdesign.co.uk tools site, so I was counting
+words on the wrong page. I only caught it because I had also asked the page to show me the
+price, and it could not. The real shopfront lives at a preview address, and there the count
+is exactly what we thought. Worth saying because a zero that comes from looking in the
+wrong place looks identical to a zero that means we fixed something.
