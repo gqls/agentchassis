@@ -43837,3 +43837,43 @@ markdown habit makes backticked identifiers the default.
 had read (the other: a pathspec passenger, which MEMORY covers in two separate halves I had not
 joined up). Both are recall failures under momentum, not knowledge gaps — which argues the
 remedy is a mechanical default, never "remember harder".
+
+---
+
+## 2026-08-22 — I priced a change off a query whose `OR` escaped its `AND`, and the figure was 8× too high (`bugfix_316_news_feed_ordering` lane)
+
+**The claim.** Costing an owner-approved capacity increase, I measured the feed pipeline's LLM spend:
+
+```sql
+WHERE created_at > now() - interval '7 days'
+  AND agent_type ILIKE '%feed%' OR agent_type ILIKE '%triage%'
+```
+
+It returned **911 calls** for `feed-triage`. I was one step from writing that into the migration header
+as the base for an "+80% of 911 calls/week" cost estimate the owner would have used to judge the spend.
+
+**What it actually asked.** `OR` binds looser than `AND`, so Postgres read it as
+`(created_at > now() - 7d AND type ILIKE '%feed%') OR (type ILIKE '%triage%')` — every triage row **ever
+recorded**, unbounded by date. Parenthesised properly the answer is **114 calls**. I overstated by 8×.
+
+**What caught it.** The output's own `first_seen` column: **2026-03-30**, inside a window I had declared
+as seven days. Nothing else would have. The call count was plausible, the token averages were plausible,
+the agent name was right — the only inconsistent thing in the result was a date that could not be there.
+I had included `min(created_at)` out of habit, not suspicion.
+
+**The cheap check.** When a query declares a window, **make it return the range it actually covered and
+read it** — `min()`/`max()` of the filtered column, every time. And parenthesise every mixed `AND`/`OR`
+without thinking about precedence, because the version that reads correctly to a human is the version
+that compiles wrongly.
+
+**Cost if uncaught:** the owner sizes an ongoing spend decision against a number 8× too large. That cuts
+the wrong way from the usual failure — it would have made a cheap change look expensive, and the honest
+recommendation ("this is a small base, +62k tokens/day") would have read as "+500k/day". A figure that
+makes you *decline* something is as damaging as one that makes you approve it, and it is less likely to
+be challenged because nobody audits a decision not taken.
+
+**The transferable shape:** a filter you wrote and a filter the database applied are two different
+things, and the gap is invisible in the numbers. Put a column in the output that would **contradict**
+the filter if it had not been applied — a date outside the window, a type outside the set — and look
+at it. Same family as the standing rule that a `[MEASURED]` figure is only evidence if the measurement
+could have come out otherwise; here the *shape* of the result, not its value, was the disconfirming arm.
