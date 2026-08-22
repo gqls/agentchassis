@@ -192,8 +192,11 @@ def self_test(pc):
         return 2
     got = findings_for_commit(pc, SELF_TEST_COMMIT)
     if SELF_TEST_EXPECT in [(k, w.split(":")[0]) for (k, w) in got]:
+        # stderr, ALWAYS: this is diagnostic, and on stdout it corrupts --json for any
+        # caller that pipes it (caught by actually piping it into a JSON parser rather
+        # than by reading the code — the parse error was the only signal).
         print(f"{DIM}self-test PASS: replay of {SELF_TEST_COMMIT} yields "
-              f"{SELF_TEST_EXPECT[0]}{RESET}")
+              f"{SELF_TEST_EXPECT[0]}{RESET}", file=sys.stderr)
         return 0
     print(f"self-test FAIL: replay of {SELF_TEST_COMMIT} did NOT yield {SELF_TEST_EXPECT[0]} "
           f"(got {got!r}) — the sweep below cannot be trusted", file=sys.stderr)
