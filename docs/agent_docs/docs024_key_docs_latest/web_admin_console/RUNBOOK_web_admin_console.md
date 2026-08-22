@@ -208,3 +208,97 @@ that policy; otherwise it fails as a timeout that looks exactly like the service
 Full detail and the verification probe:
 `webdesign_uk_build_service/RUNBOOK_webdesign_uk_build_service.md`, "The wireguard egress
 fence".
+
+---
+
+## Rotating a peer's keys WITHOUT restarting the wireguard pod
+
+Done for `peer_laptop` on 2026-08-22, after its preshared key was pasted into a chat
+transcript. Recorded because the obvious method is the dangerous one.
+
+**Why not the obvious way.** The documented way to re-key a `linuxserver/wireguard` peer is to
+delete `/config/peer_<name>/` and restart the pod so the entrypoint regenerates it. **Do not do
+that here.** The same instance carries `peer_webdesignbox`, and that tunnel is the webdesign.uk
+box's only route to `core-manager` — which serves the chat bot's facts relay. The bot is built
+to **refuse to start** without it. A restart also drops every other peer and rebuilds
+`wg0.conf` from `PEERS`, which risks renumbering.
+
+**Scope the rotation first — do not assume peers share key material.** Each peer has its own
+preshared key, so a leak of one is not a leak of all:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=wireguard -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -c wireguard -- sh -c '
+for p in laptop phone webdesignbox; do
+  printf "%-14s psk-sha256=%s pub=%s\n" "$p" \
+    "$(sha256sum < /config/peer_$p/presharedkey-peer_$p | cut -c1-16)" \
+    "$(cat /config/peer_$p/publickey-peer_$p)"
+done'
+```
+
+`[MEASURED 2026-08-22]` all three digests differed, so only `laptop` needed rotating.
+
+**Take a baseline of `wg show` before you touch anything** — specifically the box peer's
+handshake age and transfer counters. They are how you prove afterwards that you disturbed
+nothing, and you cannot take that measurement retrospectively.
+
+**The rotation itself** (full script: this session's transcript; the shape is what matters):
+
+1. `cp -a` the peer dir and `wg_confs/wg0.conf` to timestamped backups under `/config/`.
+2. `wg genkey` / `wg pubkey` / `wg genpsk`; write `privatekey-`, `publickey-`,
+   `presharedkey-peer_<name>`.
+3. Rewrite `peer_<name>.conf`. **Omit `DNS =` and `ListenPort =`** — see the correction above;
+   the DNS line is what took the owner's desktop off the internet.
+4. `qrencode -o peer_<name>.png -t png < peer_<name>.conf`.
+5. Patch **only** the target stanza of the persisted `wg_confs/wg0.conf`, with `awk` keyed on
+   the `# peer_<name>` comment — not a global `sed`, which would rewrite every peer.
+6. Apply to the running interface, which touches that peer alone:
+   ```bash
+   wg set wg0 peer "$OLDPUB" remove
+   wg set wg0 peer "$NEWPUB" preshared-key /tmp/psk allowed-ips 10.13.13.2/32
+   ```
+   `wg set` takes the preshared key as a **file path**, never a literal.
+
+**Verify four things, and the last two are the ones people skip:**
+
+```bash
+# 1. old key gone, new key present at the right address
+kubectl -n ai-persona-system exec "$POD" -c wireguard -- wg show
+
+# 2. DURABILITY — keyfile, persisted wg0.conf and live interface must all agree,
+#    or the rotation is cosmetic and a pod restart silently reverts it
+kubectl -n ai-persona-system exec -i "$POD" -c wireguard -- sh -s <<'CHK'
+LIVE=$(wg show wg0 peers | tr '\n' ' ')
+for n in laptop phone webdesignbox; do
+  F=$(cat /config/peer_$n/publickey-peer_$n)
+  C=$(awk -v n="# peer_$n" '$0==n{f=1;next} /^\[Peer\]/{f=0} f&&/^PublicKey/{print $3;exit}' /config/wg_confs/wg0.conf)
+  [ "$F" = "$C" ] && S=AGREE || S=MISMATCH
+  case "$LIVE" in *"$F"*) L=on-interface;; *) L=NOT-LIVE;; esac
+  printf '  %-14s keyfile-vs-wg0.conf=%-9s interface=%s\n' "$n" "$S" "$L"
+done
+CHK
+
+# 3. the copy you hand over really carries the new key — DERIVE it, do not trust the file
+kubectl -n ai-persona-system exec -i "$POD" -c wireguard -- sh -c \
+  "awk -F'= ' '/^PrivateKey/{print \$2}' | wg pubkey" < ~/webdesign-admin-vpn/laptop.conf
+
+# 4. the BOX is undisturbed — end to end, not just on the interface
+curl -sS -X POST https://preview.webdesign.uk/api/chat -H "Content-Type: application/json" \
+  -d '{"message":"How long does a site take?"}'
+```
+
+Check 3 matters because every other check reads the *server's* view. It is the only one that
+proves the file in the owner's hands is the file that works.
+
+**Rollback:** the timestamped backups under `/config/.bak_peer_<name>_*` and
+`/config/.bak_wg0_*.conf`. Restore the files, then re-apply with the same `wg set` pair
+reversed. **The old key is dead the moment `wg set … remove` runs** — a client still holding it
+cannot handshake, which is the point.
+
+**Result 2026-08-22:** `laptop` moved from `1kw5qf…` to `NvmN0w92…`; `phone` and
+`webdesignbox` untouched; box peer still handshaking (55s) with unchanged counters; bot, site
+and `/c/` all verified answering afterwards.
+
+⚠ **`phone.conf` still carries a `DNS =` line** and has *not* been rotated (its preshared key
+never leaked). On a phone that line is safe — mobile WireGuard apps scope DNS to the tunnel
+rather than writing it system-wide through `resolvconf`, which is the desktop-only fault above.
