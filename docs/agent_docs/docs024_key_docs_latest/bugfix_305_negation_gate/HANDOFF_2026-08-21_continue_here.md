@@ -165,16 +165,23 @@ fallback (per-section budget, every headline hit repaired regardless), page tota
 count in the step's OUTPUT (which persists) and read the previous iteration's suffixed key
 (`copy_gate_<N-1>`) — do not put it back in a bare `CollectedData` key.**
 
-**2. `invented_superlative` is NOT in the running binary** (probed: 0). `v1.0.1321` predates commit
-`1ac9b8890`. The **accuracy-claim family is covered** anyway — the fleet-wide banned-claim set already
+**2. ~~`invented_superlative` is NOT in the running binary~~ — CLOSED 2026-08-22: it IS, on
+`v1.0.1326`** (probed 1 on both replicas, control `invented_superlativz` 0). The hype family is
+covered. Original note kept below for the reasoning.
+~~(probed: 0). `v1.0.1321` predates commit `1ac9b8890`.~~ The **accuracy-claim family is covered** anyway — the fleet-wide banned-claim set already
 catches *always accurate*, *definitive*, *guaranteed accurate*, *every claim is verified*, *never
 wrong*. What is uncovered until the next roll is **hype**: industry-leading, best-in-class, 100%,
 flawless. No action needed beyond the next roll; do not re-add it.
 
-**3. The reuse follow-up this lane owes** (`reuse_agent`, approved round, medium): the truncation
-three-state (`known-at-ceiling / known-below / UNKNOWN`) is inline in `rewrite_negations_action.go` and
-wants to be a shared `aiservice.TruncationState(outTok, maxTok)`. **Whoever takes it should audit the
-other call sites of `output_tokens >= max_tokens` at the same time rather than moving one.**
+**3. ~~The reuse follow-up this lane owes~~ — DONE 2026-08-22, council `a696e2a3` APPROVED round 1.**
+Shipped as `aiservice.ClassifyTruncation` (register **MDL-043**), three mutation-proven tests, adopted
+at one call site. ⚠ **The audit changed the shape:** the platform already detects truncation
+STRUCTURALLY (`IsTruncated`, MDL-038) and `GenerateText` returns it, so the numeric helper ships
+documented as a BACKSTOP for the two cases that signal cannot reach — do not let a future caller
+prefer it. The audit's third site (`cmd/reasoningset`, two places) is **`bugs_open/366`**, filed
+rather than patched because it changes which rows reach an eval corpus. Two corrections came out of
+it: pass `__sent_max_tokens` (the APPLIED ceiling), not `options["max_tokens"]`; and this action does
+NOT inherit MDL-042's escalate-on-truncation retry. Detail: NOTES 2026-08-22 evening.
 
 **4. The three pages, and the nine briefs — NOT this lane's, and not fixable by code.** See the
 decisions below.
