@@ -298,3 +298,37 @@ an overlay, **and** a `build-<image>` target, which the `95757b6c2` derivation n
 requires or `build-backend` fails with `No rule to make target`. The gate went from
 30-of-33 to **31-of-34 overlays judged, still green**, and the advisory stayed silent.
 A pass that could have failed.
+
+---
+
+## 2026-08-22 — owner ruling: skip the staleness build, guard the exemption list
+
+Put four options to the owner (skip; skip + guard the excused list; build the full
+artefact-anchored staleness check; do the cluster census instead) with the costs and the
+honest counter-argument for each. **Ruling: skip + guard.**
+
+Recorded in the bug file, both register entries and the PLAN, each time with the *reason*
+rather than just the verdict — a later reader who finds only "the content-change trigger
+was never built" will re-file it, and this estate has a landmine for exactly that shape.
+
+**The counter-argument I gave against my own recommendation, kept because it is real:**
+the budget cannot fire today (one entry). This estate refuses guards with no live subject
+— BLD-023 declined `assert_live_capability()` on exactly that ground, *"a fail-closed
+helper with exactly ONE caller is a mechanism nobody exercises."* The distinction I
+claimed, and it is the whole justification: **this one needs no caller.** It runs on every
+`deploy-core` whether or not it fires. If that distinction is wrong, the guard is the
+mistake, and it is written at the constant so the next reader can say so.
+
+**The design detail worth carrying to other budgets:** the threshold is the smaller half.
+`printExemptions` names the standing entries on every GREEN run, so the count is in front
+of a human continuously rather than at a trip point. A threshold silent until it trips is
+a threshold nobody is watching — this estate has measured that failure repeatedly
+(*"detection works; schedule and dispatch do not"*).
+
+**A misstep in the mutation proof, caught by reading the output rather than the exit
+code.** Testing "at the budget is silent" on a copied makefile by fabricating two extra
+exemptions gave **exit 1** — which looked like the budget firing one short. It was not:
+`b` and `c` name services with no overlay, so `KindExemptionWithoutOverlay` fired and the
+budget stayed quiet. The exit code alone would have had me lower N. **A composite gate's
+exit code cannot tell you WHICH guard spoke** — grep the finding kind, not the status.
+The clean at-budget case is the unit test, which builds real overlays.

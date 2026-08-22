@@ -280,3 +280,42 @@ an unpinned commit — and is why phase 1 says bump to ≥ v1.0.1325.
 
 Also accepted, as an addition rather than a correction: the source closure must include
 `go.mod`, `go.sum` and the dockerfile itself. Folded into §2.
+
+---
+
+## 8. ⚖️ OWNER RULING 2026-08-22 — §2's candidate-1 recommendation is SUPERSEDED
+
+> *"we can skip the 18 August staleness build."*
+
+**§2's closing recommendation** — that the content-change predicate be re-aimed at the
+artefact and implemented as the standing obligation attached to an `OWN_LINEAGE` entry —
+**is not to be built.** Neither is the 2026-08-18 wording. The paragraph stays above as
+the record of what was proposed and why; this section is what happened to it.
+
+**Read it as CLOSED, not parked.** The reasoning §2 gives is the reasoning that emptied
+it: uncomputable on this tree (the pin's history is fiction), and after P1 its population
+is the exemption list, **one entry as of 2026-08-22**.
+
+**What was taken instead, and it is not a consolation prize.** The risk that skipping
+actually carries is not staleness — it is that `OWN_LINEAGE` becomes the next hiding
+place, exactly as "not in `RELEASE_IMAGES`" was. So:
+
+- `ExemptionBudget = 3` in `pkg/releaseset/predicates.go` — the release fails past it,
+  naming every entry. Polices the **accumulation**, not the entry (the WFA-013 / RFC_022
+  shape), with N lower than 10 deliberately. **A judgement, one line, the owner's to set.**
+- **The gate names the standing exemptions on every GREEN run.** This is the load-bearing
+  half: a threshold silent until it trips is a threshold nobody watches.
+
+Committed `8fe69e6c6`, proven by `T10` plus a copied-tree run.
+
+**§6's "deliberately NOT built" list is amended in one place:** *"no git-history staleness
+detector"* becomes *"no staleness detector of any kind, git-history or artefact-anchored —
+owner ruling, not a lane judgement"*. The rest of §6 stands, including the cluster census,
+which this ruling does not touch and which remains a different question.
+
+**§5's verification table gains T10** (silent at the budget; one over reports and names
+the whole accumulated set; the remedy offers a *reviewed* raise, not a bare refusal). The
+disconfirming results: silence above the budget would mean the exemption list can grow
+without limit — rebuilding the hole this change closed, with better paperwork; a finding
+*at* the budget would mean the guard fires on a state the owner explicitly permitted,
+which is how a gate gets disabled.
