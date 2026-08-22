@@ -44317,3 +44317,64 @@ once, mutate **inside the span the pin actually matched** (`m = rx.search(src)`,
 `m.group(0)` and splice it back) — never a whole-file replace. And run both arms: the property gone
 (must FAIL) and the statement moved (must ERROR on locate), because they exercise different halves
 of the guard.
+
+---
+
+## 2026-08-22 — I shipped the owner a VPN config that took his desktop off the internet, and I had spotted the exact line and filed it as a preference
+
+**Lane:** `web_admin_console`, writing the walkthrough for reaching the admin dashboard over
+the WireGuard that already runs in the cluster.
+
+**What happened.** I extracted the cluster-generated peer config verbatim, wrote a runbook
+around it, and told the owner to import it. `wg-quick up` succeeded, the tunnel came up
+correctly — and name resolution died for the whole machine. He could ping `1.1.1.1` but not
+resolve `google.com`. He recovered by purging `wireguard` and `wireguard-tools`, deleting
+`/etc/wireguard`, and restarting NetworkManager.
+
+**The mechanism.** `wg-quick` calls `resolvconf -a wg0 -m 0 -x` **only if the config carries a
+`DNS =` line**. The `-x` makes the tunnel's nameserver exclusive for the entire system. On a
+desktop running systemd-resolved behind the `resolvconf` shim, that write can land nowhere,
+leaving no working resolver at all. The split-tunnel routes were narrow and correct throughout
+(`10.20.0.0/16`, `10.21.0.0/16`); his default route never moved. **Only DNS broke, which
+presents as "the VPN killed my internet".**
+
+**The part that makes this a wrong call and not just bad luck: I had already found the line.**
+My runbook's "Notes on the config" said, of `DNS = 10.21.0.10`, *"it also sends all your
+lookups through the cluster. If that is unwanted, delete the `DNS =` line and use the IP
+above."* I identified the exact mechanism, wrote it down, and then **filed it as a matter of
+taste at the bottom of the page** instead of as the default. The console is reached by IP; the
+DNS line bought nothing and risked everything. **A hazard I understood well enough to describe
+is not mitigated by describing it — the config I actually handed over still had the line in
+it.**
+
+**What caught it.** The owner, by being locked out. No check of mine would have: I had no way
+to run `wg-quick` on his desktop, and I did not think to ask what the failure would look like
+if the DNS write went wrong.
+
+**The cheap checks that would have.**
+
+- **Strip anything optional that can take down a machine you cannot reach.** The safe config is
+  the same file minus two lines. Cost: nothing. It should have been the only file I produced.
+- **Give a dead-man's switch for any first-time network change on someone else's machine:**
+  `sudo sh -c 'wg-quick up wg0; sleep 120; wg-quick down wg0'`. The worst case becomes a
+  two-minute outage that repairs itself. I gave a bare `wg-quick up` with no way back.
+- **Name the DNS canary in the test step.** "You should see a handshake" does not test the
+  thing that broke. `ping 1.1.1.1 && ping google.com` distinguishes a routing failure from a
+  resolver failure in one line, and the second half is the one that mattered.
+
+**A second, smaller misread in the same episode, worth recording because it wasted his time.**
+Every run printed `stat: cannot read table of mounted file systems`, a `line 47` arithmetic
+syntax error, and `Warning: '...' is world accessible`. He responded reasonably by
+`chmod 600`-ing the file — twice — and the warning persisted. All three messages are ONE
+cosmetic fault: wg-quick's permission check runs `stat -c '%#a'` twice inside `(( ))`, `stat`
+fails, both substitutions come back empty, and the warning is the fallback branch. **The tell
+was that `chmod` did not silence it** — a permissions warning immune to `chmod` is not reading
+permissions. `[INFERRED]` the cause is uutils coreutils (Ubuntu's Rust coreutils), evidenced by
+`cat: … Permission denied (os error 13)` — the `(os error 13)` suffix is Rust's format, not
+GNU's. **Generalises: when a warning survives the action that should fix it, stop treating it
+as a warning and go read the check.**
+
+**Generalises.** When writing instructions someone else will run as root on a machine you
+cannot see: ship the *minimum* config that achieves the goal, not the *generated* one; make
+every risky step self-reverting; and write the verification step against the failure mode you
+are actually worried about, not against the happy path.
