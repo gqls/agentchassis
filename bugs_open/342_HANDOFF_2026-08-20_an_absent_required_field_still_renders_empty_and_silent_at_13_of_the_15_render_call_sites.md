@@ -130,8 +130,18 @@ arming.
 >    THREE things: the live section byte-identical, the `required_fields_missing` item filed, and
 >    the DRIVING item's terminal status READ (expect `complete` until `bugs_open/344` lands; its
 >    fingerprint is `retry_after > completed_at` on a `complete` row);
-> 2. the 5 no-schema non-tool components — author minimal schemas, reclassify, or scope out here
->    explicitly;
+> 2. ~~the 5 no-schema non-tool components — author minimal schemas, reclassify, or scope out~~
+>    **CLOSED 2026-08-22: they owe NOTHING, verified per component.** Three (`lobby-grid`,
+>    `provocation-card`, `gauntlet-round-record`) contain **no `{{.field}}` placeholders at all**,
+>    so `missingkey=zero` cannot bite them. The other two (`report-request-form`,
+>    `audience-check-form`) reference four fields each — `heading, subtitle, button_text,
+>    footnote` — and **every one is author-gated** (`{{if .x}}{{.x}}{{else}}fallback{{end}}`),
+>    which is exactly the shape `missingBareFields` deliberately does not report. Both live
+>    instances supply NONE of the four and are still correct: confirmed at the artefact, neither
+>    rendered row holds an empty `<button>` or heading tag. **Do not author schemas here** — it
+>    would make nothing safer. ⚠ The general lesson: *"declares no contract"* and *"has no
+>    contract to declare"* are different, and a census of empty `input_schema` cannot tell them
+>    apart — this is the tool misreading one level down;
 > 3. the chrome refusal's arming, if and when its trigger fires. **Do not arm it on a schedule** —
 >    it is unexercisable until a chrome component declaring a required `source:"llm"` field is
 >    adopted, and the record half is what will say so.

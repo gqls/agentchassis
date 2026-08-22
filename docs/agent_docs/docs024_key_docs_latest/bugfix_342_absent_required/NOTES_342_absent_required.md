@@ -295,3 +295,38 @@ not another CLI run.
    alone writes two rows (child + parent), so it fired **BOTH ARMS TERMINAL** while the control
    was still running. A count aggregated over two populations can be satisfied by one; the fix is
    `count(DISTINCT correlation_id)` or asserting each separately.
+
+## 2026-08-22 evening — residual #2 CLOSED: the five no-schema components owe NOTHING
+
+The bug file's §5 told a fixing lane to *"expect the 75-of-253 no-schema components to be the
+hard part, not the seam"*. That claim has now shrunk three times, and the third time takes it
+to zero:
+
+1. **75 of 253 → 100 of 283** (as of 2026-08-22) — the figure simply moved.
+2. **100 → 5** — **95 are `component_level='tool'`**, schema-less BY DESIGN, which the rerender
+   gate's own `isSelfContainedSection` already codifies. (Now a LANDMINES entry; the verifier
+   returned STILL_VALID.)
+3. **5 → 0** — measured this evening, per component rather than in aggregate:
+
+| component | placeholders? | verdict |
+|---|---|---|
+| `lobby-grid` (vonc.com) | **none** | `missingkey=zero` cannot bite: no field to render empty |
+| `provocation-card` (vonc.com) | **none** | same |
+| `gauntlet-round-record` (vonc.com) | **none** | same |
+| `report-request-form` (idea.uk) | heading, subtitle, button_text, footnote | **all four author-gated** |
+| `audience-check-form` (idea.uk) | heading, subtitle, button_text, footnote | **all four author-gated** |
+
+The two templated ones looked like the worst case in the estate — both live instances supply
+**none** of the four fields, and one of them is a submit BUTTON's label. They are safe anyway,
+because every reference is wrapped `{{if .field}}{{.field}}{{else}}Run the free check{{end}}`.
+That is precisely the shape `missingBareFields` is scope-aware about — an author-gated field's
+empty case is deliberately handled, so reporting it would be the false-positive noise the
+council flagged. **Confirmed at the artefact, not just in the template**: neither rendered row
+contains an empty `<button>` or empty `<h1>/<h2>` tag.
+
+**So no schema is owed anywhere in this class, and "author minimal schemas" would have been
+work that made nothing safer.** The honest general lesson, which is why this is written up rather
+than just deleted from the list: **"declares no contract" and "has no contract to declare" are
+different things, and the query cannot tell them apart.** Three of these have no fields; two
+handle their own absence. An aggregate count of empty `input_schema` sees five problems where
+there are none — the same misreading as the tool case one level down.
