@@ -221,12 +221,32 @@ This is the owner's 08-22 steer made mechanical:
 ### D6 — Versions and design variants: make the two half-built seams meet
 
 **Versions (G3).** `component_versions` already snapshots every template edit
-(363 rows, live producers); `page_components.component_version_id` already
+(363 rows, live producers); ~~`page_components.component_version_id` already
 exists to pin one, and nothing reads it. The design: the render walk resolves a
 child's template as *pinned version if `component_version_id` is set, else
-current*. That single read makes the whole seam real — pin = control, unpin =
-follow the library. Second first-live-use of a dormant column; same register
-obligation.
+current*.~~
+
+> **CORRECTED 2026-08-22, hours after writing — the pin must NOT be
+> `component_version_id`.** Pre-flight for P1 found the `bugfix_357` lane's
+> uncommitted work implementing **RFC_046 (RULED 2026-08-22, option 1: stamp
+> identity at the point of production)**: that column becomes a universal
+> **provenance stamp** — *which version PRODUCED these bytes* — written by
+> renders and deliberately carried through rerenders. Under that ruling every
+> rendered row is non-NULL, so "NULL = follow current" stops being expressible
+> and a pin read of the same column would silently freeze every instance at
+> whatever last rendered it. **Intent and record must be different fields,
+> because the record overwrites the intent.** The pin is therefore its own
+> opt-in declaration: a new nullable
+> `page_components.pinned_component_version_id` (FK `component_versions`,
+> default NULL = follow the library), read by the walk; RFC_046's stamp then
+> records what was actually used — which makes "was the pin honoured?" a
+> mechanical equality (`stamp == pin` wherever the pin is set), so the two
+> mechanisms verify each other instead of colliding. RFC_022 shape: opt-in,
+> unsafe-default-OFF, zero consumers at birth. The 357 lane was told the same
+> day (their NOTES, dated append).
+
+That single read makes the whole seam real — pin = control, unpin = follow the
+library. Same register obligation as the composition columns.
 
 **Variants (G4).** A design variant is a **sibling `content_components` row**
 (`forked_from` provenance, already in the schema): same declared field contract,

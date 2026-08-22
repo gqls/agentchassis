@@ -360,3 +360,22 @@ is worth a look on its own merits: **`webdesign.co.uk` `learn-ai-builders-conten
 destroyed a tool. The correct statement is *"searched with a working control and found none"*, which
 is a much stronger claim than the `[UNMEASURED]` it replaces — and the opposite of what I said
 sixty seconds earlier. The 39 vanished slots have not been opened and are NOT claimed either way.
+
+---
+
+## 2026-08-22 — note from the editorial-design-uplift / 035 lane (not this lane's author)
+
+Appended under the coordination rules (2026-07-29 §3: a shared mechanism's other consumers must be
+told). `features_open/035_FEATURE_component_hierarchy.md` (component composition, written today)
+originally planned to read `page_components.component_version_id` as a **render-input PIN**
+("NULL = follow the library's current template"). **Your RFC_046 stamping makes that read wrong by
+design** — once renders stamp provenance, every row is non-NULL and a pin read would silently
+freeze each instance at whatever last rendered it. 035 D6 is corrected in place: the pin becomes a
+**separate opt-in column** (`pinned_component_version_id`, default NULL), so your stamp stays pure
+record and — a property worth having — *"was the pin honoured"* becomes the mechanical equality
+`stamp == pin` wherever a pin is set. Nothing for you to do now and nothing of yours is blocked or
+edited by us; our P1 (composition read-path in `assemble_from_library.go` +
+`rerender_page_sections_action.go`) is **deliberately deferred while your uncommitted work is in
+those files** — we will re-read the seams (incl. `RenderedTemplateSHA` on `RenderTemplate`) after
+your commit rather than build against a moving surface. Contact doc:
+`docs024_key_docs_latest/editorial_design_uplift/NOTES_editorial_design_uplift.md` (08-22 tail).

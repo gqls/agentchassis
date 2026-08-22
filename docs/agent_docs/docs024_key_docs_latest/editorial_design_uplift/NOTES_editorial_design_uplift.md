@@ -533,3 +533,40 @@ THE guard.
 paths' surrounding machinery (data resolution, persistence, locks) — it proves
 the walk's contract is satisfiable inside the existing executor semantics, which
 is all §5 asked of it. Next: P1 (the read path, live, one page, council-gated).
+
+## 2026-08-22 — P1 pre-flight found a live design collision; D6 corrected, P1 code DEFERRED
+
+Pre-flight for P1 (git status + landmine grep on the target files, per the
+same-file-passenger rule) found **both** integration files —
+`rerender_page_sections_action.go` and `component_library.go` — **dirty with
+another session's active, uncommitted work: the `bugfix_357` lane implementing
+RFC_046 (RULED 2026-08-22, option 1)**, which stamps identity at the point of
+production: `RenderTemplate` gains a `RenderedTemplateSHA` output, and
+`page_components.component_version_id` becomes a **provenance stamp** carried
+through rerenders.
+
+**The collision:** 035 D6 planned to read `component_version_id` as a PIN with
+NULL = follow-current. Under RFC_046 every rendered row is non-NULL, so that
+read would silently freeze every instance at whatever last rendered it — the
+worst kind of wrong, because it looks like working version control. **Corrected
+in 035 D6 in place (strike-through + date):** intent and record must be
+different fields — the pin becomes a new opt-in
+`pinned_component_version_id` (default NULL), and RFC_046's stamp makes "was
+the pin honoured" the mechanical equality `stamp == pin`. The two mechanisms
+now verify each other instead of colliding. The 357 lane was told by a dated
+append in their NOTES (nothing of theirs edited).
+
+**P1 code is deferred, deliberately, with the reason stated:** editing files
+that carry another session's WIP means whoever commits takes both edits (the
+same-file passenger has no defence), and the executor seam itself changed
+twice in two days (`2817f6661` made `RenderTemplate` the ONE blessed spelling
+with AST tests; their WIP extends its contract today). Building the walk
+against a moving seam it must call is how code rots before review. Resume P1
+when the 357 lane's work is committed: re-read `RenderTemplate`'s final
+contract and `carryStoredSection`, then hook the walk in. The walk itself is
+proven (P0) and waiting.
+
+Also noted for P1's design when it resumes: the walk goes through
+`RenderTemplate` (the reporting form), never a new executor path — the AST
+tests from `2817f6661` enforce exactly that, and they found a third rogue
+executor the day they landed.
