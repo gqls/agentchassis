@@ -42769,3 +42769,42 @@ report to print it and no git history to recover it from.
 **The transferable shape:** when a freshly-bumped `updated_at` is your reason to proceed, the burden is
 to explain the bump, not to fail to find a reason against it. "I looked and found nothing" is only
 evidence once you have enumerated where you looked and shown that list is complete.
+
+## 2026-08-22 — I shipped a fix that is CONNECTED TO NOTHING, measured the zero that proved it, and had a good enough story to stop looking
+
+**The claim:** `bugs_open/345`'s fix (hand a retry the reason its predecessor was refused) was "LIVE
+on both halves, demand bar open — the path has never fired". Go half deployed on v1.0.1322,
+migration `533` applied, both verified at the binary and in the live prompt.
+
+**What is actually true:** the two halves are correct and **joined to nothing**.
+`build-dispatch-loop`'s `call_handler` step is `action: call_agent` with an explicit
+**`input_mapping`** — an allow-list of 14 keys — and `last_error` is not one of them. The loader's
+new item-map key therefore never becomes part of the handler's `input_data`, so
+`{{if .input_data.last_error}}` cannot fire, ever. Census of all **73** live `call_agent` mappings
+fleet-wide: zero pass it.
+
+**What caught it:** the council's `guardian` seat, at round 4, asking whether an intermediate
+allow-list gate existed between the shared loader and the handler — and observing that the plan
+"never checks whether" one does. It didn't, and neither had I.
+
+**The cheap check I skipped, and why I skipped it:** I ran
+`SELECT count(*) FROM orchestration_states WHERE collected_data->'input_data' ? 'last_error'` →
+**0**, and wrote it down as "the demand bar is open; nothing has been rejected-then-retried since
+the roll". **That story was plausible, and it was load-bearing for not looking further.** The
+recorded lesson is already in the index — *a post-fix ZERO needs a DEMAND control* — and the
+control here was trivial: ask whether the key can arrive at all (read the mapping), rather than
+whether it has arrived. **A zero with a comfortable explanation is the most dangerous measurement
+there is**, because the explanation does the work of an investigation without any of the evidence.
+
+**Second-order, and the reason this took four rounds:** twice — rounds 2 and 4 — the council
+objected that my submitted plan contradicted itself, because when the code moved I patched the one
+edit I was thinking about instead of re-deriving the whole submission from the code. Round 2: the
+summary claimed the new gate while edit 3's sketch still showed the old one (my update script
+matched `attempt_count`, the sketch said `attemptCount`). Round 4: edits 1/2 and three sqlmock
+lists still showed only `wi.error` after I had added `completed_at`. **When the code changes,
+regenerate the plan from the code — never hand-patch the edit you have in mind.**
+
+**What the council is FOR, stated plainly:** three of its four rounds found real defects — a
+refuted diagnosis (the inner loop that was 52 uncounted dispatches), a stale-column hazard
+(`LANDMINES:7104`), and now a fix wired to nothing. None was caught by my tests, all of which pass,
+because every one of them tests a function that is never reached in production.
