@@ -15221,3 +15221,41 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** this file's *"a council verdict fetched by `ORDER BY created_at DESC LIMIT 1` can be ANOTHER SESSION'S"* (~L14757 — the same 40-plus-concurrent-sessions estate, the same class of wrong-owner data arriving correctly formatted) · `CLAUDE.md`'s multi-session coordination section
 - **source:** 2026-08-22, `bugfix_307_terminal_write_contract` lane — received a misdirected message, verified non-involvement, forwarded it to `[e24299]` and told the sender. No symptom existed; the sender's own stated assumption is what made it visible.
 - **added:** 2026-08-22, `bugfix_307_terminal_write_contract` lane
+
+### `git checkout <file>` to undo YOUR edit reverts EVERY session's uncommitted work in that file — it is `git stash`'s blast radius, narrowed to one path and not blocked
+
+- **footprint:** `git checkout -- <path>` / `git restore <path>` / `git checkout HEAD -- <path>` · any file two sessions may be in at once (`platform/orchestration/actions/*.go` above all) · mutation-testing a guard, backing out a spike, "let me just undo that one line"
+- **fires when:** you make a small local edit — most often a deliberate mutation to prove a test catches it — and reach for the reflex undo. On a single-session tree `git checkout <file>` *is* the undo. Here it is a destructive write to shared state: **it restores the whole file from the index, so it reverts every uncommitted change in it, not the one you made.**
+- **the tell, and it is easy to miss because it looks like success:** the command prints NOTHING and exits 0. Your test then passes again, which is exactly what you were expecting to see. The only signal is the harness line *"file changed on disk since you last read it"* — the same line you have been ignoring all session because other sessions genuinely are editing that file.
+- **why there is no recovery:** the other session's work was never staged, so **git never had a copy**. `git fsck` finds nothing, there is no editor backup, and the stash list is other lanes' from previous months. The only copy is in that session's own context, which is why the ONLY useful response is to tell them inside the minute — naming the exact symbols and figures lost, so they re-type rather than rediscover. `[MEASURED 2026-08-22]` this destroyed ~75 lines of the `bugs_open/345` lane's `recordRetryFeedback` writer — the sole-writer header, a 20-write-sites census, a worked item id and a WII-018 stale-reaper note. Told within a minute, restored from their context, net cost minutes.
+- **the check, and it costs nothing: never revert a shared file to undo your own edit — undo the EDIT.** Apply the inverse change, or snapshot to the scratchpad immediately before the mutation and `cp` it back:
+  ```bash
+  cp "$f" "$SCRATCH/snap"     # snapshot THIS instant, not at session start
+  perl -0pi -e '<mutation>' "$f"
+  go test ./... -run '<the guard>'
+  cp "$SCRATCH/snap" "$f"     # restore from YOUR snapshot, never from git
+  ```
+  If you truly must reach for `checkout`, run `git diff --numstat <file>` first: a line count larger than your own edit means somebody else is in there with you.
+- **why no hook catches it:** `git stash` is refused by `scripts/block-git-stash.py` precisely because it revert-sweeps every session's dirty files. `git checkout <path>` is the same revert-sweep narrowed to one file, and it is **not** blocked. The commit-scope report cannot help either — it reports what a commit CONTAINS, and this destroys work before any commit exists.
+- **the wider form, which is the part worth carrying:** CLAUDE.md's git rules are built around sweeping other sessions' work INTO your commit — the pathspec rule, the ban on `git add -A`. **This is the mirror image: sweeping their work OUT of the tree, and nothing watches for it.** On a shared tree the blast radius of `checkout`, `restore`, `reset` and `clean` is the FILE or the TREE, never your edit — so the question is never "does this undo my change?" but "what else is in the thing I am about to overwrite?"
+- **relations:** `CLAUDE.md` § "Git — commit per task" (the `git stash` ban and its hook; the same-file passenger note) · `WRONG_CALLS.md` 2026-08-22 (the incident) · this file's `SendMessage` bare-name entry (telling the right session fast is what limited the cost)
+- **added:** 2026-08-22, `bugfix_337_token_cap` lane, from its own mistake.
+
+### `load_existing_component`'s advisory going quiet does NOT mean the component has no field contract — the gate enforces one anyway, from a DIFFERENT row
+
+- **footprint:** `platform/orchestration/actions/load_existing_component_action.go` · `component_storage_identity.go` (`lookupBaseComponent`, `resolveStorageIdentity`) · `content_components.section_type` vs `.function` · the `{{if .existing_component.field_names}}` block in component-creator's `prompt_template` · any `needs_new_component` refused with "regeneration removes/renames N existing schema field(s)"
+- **fires when:** you debug a component that will not regenerate, and check whether the writer was told to preserve its field names. The prompt block is dormancy-guarded, so a blind advisory renders **nothing at all** — indistinguishable in the prompt, in the logs and in the orchestration from "this is a new component with no contract".
+- **the tell:** `collected_data->'existing_component'->>'field_names'` is the **empty string** on an orchestration that was then refused for stranding fields. An empty advisory plus a stranding refusal is the signature; either alone is unremarkable.
+  ```sql
+  SELECT o.orchestration_id,
+         length(o.collected_data->'existing_component'->>'field_names') AS advised,
+         left(e.error_message, 90)
+  FROM agent_error_log e JOIN orchestration_states o ON o.orchestration_id::text = e.orchestration_id
+  WHERE e.error_code = 'component_validation_rejected';
+  ```
+- **why:** the advisory and the gate resolve **different rows**. The advisory keys on `section_type` and filters `is_active AND component_level='section'`; the gate keys on `function` and deliberately has **neither** filter (`component_storage_identity.go:157-165` — the paradigm regeneration target is a *deactivated* row). So a row with a NULL `section_type`, or an inactive one, is invisible to the advisory while remaining the row the store will overwrite and enforce. The writer then preserves field names only **by chance**, and the chance falls as the field names get more numerous and less guessable: `[MEASURED 2026-08-22]` a 4-field component with generic names (`button_1`, `heading_1`) escaped on its second attempt; an 18-field sibling (`button_1…button_18`) failed **70 times without a single success**.
+- **the trap inside the trap:** `store_generated_component_action.go`'s `section_type = COALESCE(...)` self-heal runs only on a **successful** store, so the metadata gap that causes the blindness can only be repaired by the success the blindness prevents. Do not read "it has never regenerated" as evidence the component is broken — it may only be invisible.
+- **the check:** before concluding a component has no field contract, ask the GATE, not the advisory: `SELECT function, section_type, is_active, jsonb_object_keys(input_schema->'fields') FROM content_components WHERE function = '<kebab section_type>' AND forked_from IS NULL;`. If that returns fields and the advisory was empty, the writer was flying blind and the refusal is guaranteed, not stochastic.
+- **status:** the advisory now falls back to the gate's own `resolveStorageIdentity` and the heal also runs on rejection (`e1951c24b`, `bugs_open/337`) — **but that is Go, so it is inert until the chassis rolls.** Until then this fires exactly as described, and afterwards the tell above is still how you check.
+- **relations:** `bugs_open/337` · `bugs_open/311` (its site-scoped diversion closed most of this by side effect on 2026-08-19, which is why the class looks dead in recent data) · `bugs_open/282` (offer-vs-accept drift, the same shape) · `016b` §9/092 (the closed precedent: one predicate for the writer's allow-list and the gate's accept-set) · CLC-004 / CLC-006 / CLC-020
+- **added:** 2026-08-22, `bugfix_337_token_cap` lane.
