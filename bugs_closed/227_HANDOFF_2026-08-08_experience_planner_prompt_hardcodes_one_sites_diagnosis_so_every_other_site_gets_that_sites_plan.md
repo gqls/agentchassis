@@ -305,8 +305,13 @@ Candidate 1 is the real fix; 3 is independent and cheap.
   literal count is 3 and means nothing.
 
 - **BOTH ARMS ARE NOW OBSERVED. `bugs_open/227` is fixed, live and verified end to end**
-  (345 for defect 1, 363 for defect 2, 370 for the descriptions 363 left stale). It stays in
-  `bugs_open/` per the owner's 2026-08-06 direction.
+  (345 for defect 1, 363 for defect 2, 370 for the descriptions 363 left stale). ~~It stays in
+  `bugs_open/` per the owner's 2026-08-06 direction.~~
+
+  > **CORRECTED 2026-08-22:** the 2026-08-06 direction was superseded on 2026-08-12 —
+  > the owner restored the fixed-AND-live bar (*"if it is fixed and live it should be
+  > moved"*, applied to 239 the same day, `2aa3014a3`). Moved to `bugs_closed/` with
+  > fresh re-verification; see the CLOSED section at the end of this file.
 
 ## Filing basis
 
@@ -361,3 +366,57 @@ rows ever filed — 5 live (3 cancelled, 1 complete, 1 deferred) plus 3 archived
 single one carries an empty `handler_agent`**. So no row of this type has ever reached
 `experience-planner` through the dispatch loop. Whatever this lane concludes about the
 prompt, the routing half has never been exercised either.
+
+---
+
+## CLOSED 2026-08-22 — re-verified fixed AND live by an independent session; moved to `bugs_closed/`
+
+Under the owner's 2026-08-12 restoration of the fixed-AND-live bar (which supersedes the
+2026-08-06 keep-in-`bugs_open` direction this file previously cited). Every check below was
+run 2026-08-22 against the live database, not carried forward from this file.
+
+**Defect 1 (hardcoded site brief) — still fixed, still live.** The one active
+`experience-planner` row (`e0194bee-…`, the fleet-shared row):
+`default_config::text ~* 'provocation|gauntlet|arena|vonc|spark'` → **false** — the
+corrected case-insensitive census, across all five steps. Notably this holds **after** a
+fleet-wide sweep touched the row this morning (198 agent rows updated in the same second,
+2026-08-22 08:36Z; no `agent_snapshots` entry for this agent since 370's on 2026-08-10) —
+the fix survived a bulk config pass by another mechanism.
+
+**Defect 2 (rejected plan persisted as current) — still fixed, still live.** A scan of
+every step's `then_step`/`else_step`/`next_step` target fields (not `default_config::text`,
+per this file's own warning about migration 370's descriptions) finds exactly one route to
+`persist_plan`: `check_approved.then_step`. And `council_decide.config.max_rounds` reads
+**5** — the verification recipe's temporary cap was restored as its runbook required.
+
+**The data is clean.** `doc_plans` for `debt-difficulty-help`: 6 rows; both vonc-shaped
+plans (the two 2026-08-08 rows) are `is_current=false`; the plan of record is the clean
+10,117 b plan of 2026-08-10, `body ~* '…'` → false.
+
+**A second real post-fix exercise exists beyond this file's own verification:**
+`site-chat-intake` (2026-08-15), approved through the council, `is_current`, 11,229 b,
+clean of all five markers — the planner's second-ever non-vonc subject, planned correctly
+with no involvement from this bug's lane.
+
+**The 2026-08-17 contribution's dependency is dissolved.** The owner-raised
+fundamentallyai `needs_experience_plan` row (`458f53a1-…`) was closed **satisfied**
+2026-08-17 — its three asks were delivered by other lanes' site rebuilds between 08-12 and
+08-17, verified at the served pages (`result.closed_2026_08_17`); no planner run was
+needed, and nothing now queues behind this bug. The contribution's routing-half
+observation was resolved separately by `bugs_closed/284`: the promoter no longer promotes
+handlerless rows (guard `7027a2801`, live v1.0.1305) and migration 443's CHECK
+(`swi_no_handlerless_promotable`) closes the hand-insert path — a future
+`needs_experience_plan` producer names `handler_agent='experience-planner'` at filing
+time, which the live agent row is ready to receive.
+
+**No competing thread.** Zero open `site_work_items` touching experience planning; zero
+`experience-planner` runs in `orchestration_states` since 2026-08-10; the owning lane's
+latest handoff (2026-08-17b) carries no 227 residual; the 08:36Z row touch was the
+198-row fleet sweep, not targeted work.
+
+**Process notes.** No `090` diagnosis run was filed for this closure: it asserts no new
+root cause — every claim above is a direct first-hand query re-running this file's own
+documented checks, each with a live disconfirming direction (the census could have read
+true; the graph scan could have found a second `persist_plan` reference; the demoted rows
+could have been re-promoted). No council submission: the closure changes no platform code,
+config, or migration — prose is outside `scripts/council-scope.sh` by design.
