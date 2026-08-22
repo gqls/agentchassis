@@ -46,6 +46,20 @@ Totals: `SELECT count(*), count(*) FILTER (WHERE resolved), min(occurred_at) FRO
 → **45,426 / 0 / 2026-07-23** — the oldest row sits exactly on the 30-day retention boundary, which
 is the live confirmation that the cleanup runs.
 
+> **CORRECTED 2026-08-22 10:40Z, ~1 hour after filing — the "resolved has NEVER been used" claim
+> stopped being true while this file was being written, and it is worth reading as a dated event
+> rather than as an error.** `cmd/content-loss-check` (the `bugfix_238_regeneration_key_loss` lane's
+> `bugs_open/355` A2+A3, shipped the same day) ran and **stamped the first `resolved = true` rows in
+> the table's history**: re-verified independently for this correction —
+> `count(*) FILTER (WHERE resolved)` = **48**, first and last `resolved_at` 10:40:21–10:40:22Z, two
+> distinct `resolved_by` values (`content-loss-check:healed`, `content-loss-check:row_gone`).
+> So §2's figure is now the **before** half of the sentence, and it keeps its evidential force:
+> nothing had ever used the workflow in the 30 days the table retains, until a check shipped *with a
+> reader attached*. What this does NOT license is repeating "45,426 rows, 0 resolved" as current
+> state — cite it with its timestamp, as the state the estate ran in until 10:40Z on 2026-08-22.
+> The general lesson is the estate's own: a `[MEASURED]` claim about STATE expires; a dated EVENT
+> does not.
+
 Retention mechanism: migration `466_orchestration_status_vocabulary.sql:184-189` embeds a
 `pre_query` that `DELETE`s `resolved AND older than 14 days` OR `NOT resolved AND older than 30
 days`. **Note the inversion: marking a row resolved makes it die faster.**
@@ -91,10 +105,19 @@ Smaller same-shape codes, same verdict: `CONTENT_DATA_ENVELOPE` (7, `content_dat
 | `CONTENT_VALIDATION_BLOCKER_DETAIL` | 215 | `reconcile_superseded_reviews_action.go:228` reads the last 20 per page and merges blocker values into its supersede finding |
 | `DEPLOY_STAMP_REFUSED_ON_SKIP` | **0** | `page_build_failure_guard.go:131` counts its own rows for the 7-day strike ladder — writer and reader are one mechanism |
 | `BUILD_DISPATCH_STALLED` | **0** | the watchdog's own CTE (`214_build_dispatch_watchdog.sql:103-105`) reads it for self-dedup before raising again |
+| `CONTENT_KEY_LOSS` | 72 (40 resolved) | **added 2026-08-22** — `cmd/content-loss-check` writes it and re-reads its own findings each run, stamping `healed` / `row_gone`. Shipped reader-with-writer in one commit, per `bugs_open/355` A3 |
 
-All three were built as **read-back loops from birth** — the reader shipped with (or before) the
-writer. No code has ever acquired a reader after the fact. That is the strongest evidence in this
-file for 355 §A3's "same commit" rule being the general law, not a lane preference.
+All four were built as **read-back loops from birth** — the reader shipped with (or before) the
+writer. **No code has ever acquired a reader after the fact**, and the fourth is the first test of
+that claim run deliberately rather than observed retrospectively: 355 §A3 made "same commit"
+non-negotiable *because* of this file's census, and the resulting code is the only entry here whose
+loop closed on the day it was written. That is the strongest evidence available for the same-commit
+rule being the general law, not a lane preference.
+
+> **Also corrected 2026-08-22:** `STRUCTURAL_KEY_CARRY_MISS` (28 rows, listed in §2.1's exclusions as
+> *owned, consumer in flight*) **now has that consumer** — 8 of its 28 rows carry `resolved = true`
+> from the same run. `CONTENT_DATA_REGRESSION` (41) remains at 0 resolved: it is page-level and
+> all-or-nothing, so the per-key check cannot adjudicate it, and it stays in §2.1's population.
 
 ### 2.3 Scope boundary: what "unread" does NOT mean here
 
@@ -142,6 +165,14 @@ unheard alarm or its most expensive no-op, and nobody has ruled which.
 
 ### B2 — the ratchet: no NEW code ships unread (makes the bad state unrepresentable)
 
+> **Independent support, 2026-08-22:** the council's `architecture` seat, reviewing
+> `content-loss-check`, objected on the *writer* side of the same gap — *"the attribution contract is
+> enforced by convention only; no lint ties a NEW writer to the helper"* — and the lane's named
+> follow-up is a check in the `check_unrepaired_component_write` family (`bugs_open/355` §10). That
+> is this candidate approached from the opposite direction, and the pair is the complete shape:
+> **a reader attached at birth (A3's law) plus a lint tying new writers to the seam (B2).** Whoever
+> takes B2 should build it once for both, not twice.
+
 The acks-file + source-scan-test pattern already proven by `optional_key_budget_acks.json` +
 `optional_budget_cron_parity_test.go`: a registry mapping each `error_code` literal to its declared
 consumer (or `human-evidence-only` + reason), enforced by a test that greps `ErrorCode:` literals
@@ -188,7 +219,11 @@ agent_error_log` call sites in `platform/orchestration/actions/`. Assert no coun
   writers' own tests).
 - **Grep the constant, not just the literal** (§3.2). The reader you miss is the one behind a const.
 - **`resolved = true` is not an upgrade** — it halves the row's remaining life to 14 days. If B1
-  builds a triage flow that marks rows resolved, it must extract what it needs first.
+  builds a triage flow that marks rows resolved, it must extract what it needs first. **Live as of
+  2026-08-22 10:40Z**: 48 rows now expire on the 14-day clock rather than the 30-day one. That is a
+  deliberate, documented choice by `content-loss-check` (its durable records are the state census
+  and the per-run heartbeat, not the finding rows) — but any *future* consumer must make the same
+  choice knowingly, because the row it resolves is the row it shortens.
 - **`error_code` is free text.** Uppercase and lowercase families coexist, and one writer emits
   colon-suffixed variants (`tool_crosslink_not_emitted:tool_page_will_not_go_live`). Any registry
   or GROUP BY must decide normalisation explicitly or it will double-count a family as compliance.
