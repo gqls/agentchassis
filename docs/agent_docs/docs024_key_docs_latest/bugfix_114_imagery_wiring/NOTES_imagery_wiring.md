@@ -319,3 +319,50 @@ the word from a comment that earns its place.
 Two of three rounds found something worth changing. That matches the lane memory
 ("a REVISE round is cheaper than the defect it finds") and is the argument against
 treating the gate as a formality.
+
+---
+
+## 2026-08-22 — council APPROVED at round 3 (corr `3c0560f3-2873-439f-8311-61fde3903fc7`)
+
+Verdict read before this was written, per the rule about never claiming a review you have
+not read. **APPROVED, 2 advisory objections, neither high-severity, neither a code defect:**
+
+1. *"Edit 4 and edit 7 are both 'add' operations targeting the same new file
+   (`store_asset_site_brand_state_test.go`). If applied as literal sequential patches this
+   is a conflict — the second should be 'modify'."* **Correct, and mine.** The second edit
+   was the round-1 answer appended to an existing file, and I described it as an `add`.
+   A submission-shape error, not a code one; worth remembering because the plan schema is
+   read as a literal patch series.
+2. *"Concept-register entry and its index row are documentation, not code that fixes the
+   mechanism — fine as house convention but should not be counted toward 'the fix' when
+   judging minimality."* Fair. They are in the commit because the platform-seams ruling
+   requires the seam registered in the same commit that ships it, not because they fix
+   anything.
+
+The reviewer's own summary is worth keeping, because it states the fix better than my
+rationale did:
+
+> *"The round-2 reachability residual is honestly scoped (only one dynamic-key
+> true-declaring step, gated behind a per-item conditional) and left visible via a WARN
+> rather than silently over-restricted. `result[purpose+_url]` is updated in the same edit
+> as the persisted write, so the in-run consumer doesn't retain the old derivation."*
+
+**The round trail, and why the gate earned its cost here.** Round 1 REVISE — nothing in
+my submission proved `DeployedWebPath` and `DeployedAssetPath` agree; answered with a
+test. Round 2 REVISE — the per-step config gate cannot see a per-invocation `asset_key`;
+a real residual I had not spotted, now a WARN. Round 3 APPROVED. **Two of three rounds
+changed the work.** The commits carry `Council-Submitted:` and 098 credits them
+automatically now the correlation is approved — no amend, which forward-only forbids
+anyway.
+
+### What is owed next, in order
+
+1. **The roll.** Everything so far is Go and therefore inert. On the next chassis build:
+   per-service build provenance, then the demand controls — a page-scoped store that must
+   NOT move `content_data`, a canonical store that must.
+2. **The held repair migration** for the 18 poisoned sites, only after (1) is proven at
+   the artefact.
+3. **The mcalc fixture end to end** — 10 heroes, 0 cards, 0 links since 08-15. First
+   landing after the roll should file the derive, link the card, and put the content-hero
+   path on the served page.
+4. **Part 3** — the flag-only detection check, and hygiene for the 8 parked rows.
