@@ -347,3 +347,21 @@ tombstones and the sweep published four double-tool pages for ~19 h. Until 360's
   warning — check it BEFORE it completes.
 - Phase C addendum: the same applies to the external S3 asset's retirement — nothing edits those
   back today, but the slot half of a Phase C retire is exactly this trap.
+
+## Phase C — the external-asset half of a retire (added 2026-08-22, learned on #28 blueprint-compiler)
+
+The slot half is the normal recipe. The FILE half currently has NO mechanism (`bugs_open/365`):
+`retract_asset_files` refuses anything outside `/assets/` by design ("pages, feeds and chrome are
+page-retraction's or nobody's"); page-retraction owns pages; webdesignport is import-only. Per tool:
+
+1. The serve-grade MUST carry `src="<sidecar>"` as a negative (0 on the new page) — that is the
+   half that protects visitors.
+2. Dispatch the DRY-RUN retraction anyway and record the refusal — it is the evidence the file is
+   orphaned-but-present (recipe: staged_component_build/scripts/RETRACT_gaswholesalers_logo_jpg.sh
+   shape, `input_data.paths=["/tools/<slug>/script.js"]`; READ THE LIVE STEP CONFIG for dry_run
+   first, per the 08-22 LANDMINE). Find the run BY PAYLOAD (`collected_data->'input_data'->>'paths'
+   LIKE '%<slug>%'`) — the printed correlation is not how rows are found, and check your CLOCK
+   against the kcat pod-name epoch before calling a row "old".
+3. Append the orphan path to the list in NOTES; cleanup is ONE batch when 365's candidate ships.
+⚠ `/tools/assets/webdesign-couk-header.js` is shared by EVERY ported page — retired with the LAST
+one, never per-tool.
