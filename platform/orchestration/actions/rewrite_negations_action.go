@@ -498,6 +498,20 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	}
 	inTok, _ := options["__usage_input_tokens"].(int)
 	outTok, _ := options["__usage_output_tokens"].(int)
+	// ⚠ THE CEILING OF RECORD IS THE ONE THAT WAS APPLIED, NOT THE ONE WE ASKED
+	// FOR. The provider writes `__sent_max_tokens` back into this same options
+	// map during the call, and that is what the platform means by the ceiling:
+	// `ai_actions.go` feeds `llm_call_log.max_tokens` from it, and gemini
+	// deliberately reports the VISIBLE-text budget there so it stays
+	// commensurable with `__usage_output_tokens` across providers
+	// (bugs_open/110). Our own `max_tokens` is only the request: equal on
+	// anthropic, and ABSENT when a caller lets the client choose its own cap —
+	// where reading it would report UNKNOWN over a ceiling the provider knew.
+	// Ollama records no sent value, hence the fallback.
+	sentMax, _ := options["__sent_max_tokens"].(int)
+	if sentMax <= 0 {
+		sentMax, _ = options["max_tokens"].(int)
+	}
 	model, _ := aiServiceConfig["model"].(string)
 	provider, _ := aiServiceConfig["provider"].(string)
 	orchID, corrID, agentID := "", "", ""
@@ -514,7 +528,11 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 		PromptTemplate: "rewrite_negations", PromptRendered: prompt, ResponseText: raw,
 		InputTokens: inTok, OutputTokens: outTok, LatencyMs: latency,
 		Success: callErr == nil, ErrorMessage: logMsg,
-		MaxTokens: options["max_tokens"].(int), Options: options,
+		// Same column, same meaning as every other caller: the ceiling the
+		// provider APPLIED. Also no longer an unchecked type assertion — this
+		// runs inside an action, where a panic kills the step, and it was one
+		// edit to the options block above away from firing.
+		MaxTokens: sentMax, Options: options,
 	})
 	if callErr != nil {
 		params.Logger.Warn("rewrite_negations: the repair call failed — leaving the copy as written",
@@ -531,7 +549,6 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	// safe. The load-bearing protection is not this arm anyway: it is the typed
 	// truncation error above, plus the fact that a cut JSON object does not
 	// parse and an unparseable answer splices nothing.
-	sentMax, _ := options["max_tokens"].(int)
 	usage := aiservice.ClassifyTruncation(outTok, sentMax)
 	if usage.Truncated() {
 		truncated = true
