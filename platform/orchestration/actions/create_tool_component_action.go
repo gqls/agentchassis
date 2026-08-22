@@ -494,6 +494,18 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// Position 2 (same as deploy_tool_action): tool widget sits between intro and CTA
 	// Set rendered_html so the tool is visible immediately
 	// Set slot_name to the function (component naming contract)
+	//
+	// bugs_open/362: this writer was one of the two that persisted rendered_html
+	// with NO dead-link repair — deferred on 2026-08-02 because the repair then
+	// deleted JS-built anchors from tool scripts (bugs_open/180), unblocked the
+	// same day by LNK-029's span-aware repair, and unwired for twenty days
+	// because the documents that said "wait" outlived the wait. Placed after the
+	// pages row exists (this tool's own URL is in the index) and before the
+	// write, so what is repaired is what is persisted. Fail-open by the seam's
+	// own design; the JS-built-anchor probe lives in
+	// tool_writer_link_repair_362_test.go.
+	renderedHTML = repairComponentHTMLBeforePersist(ctx, params, siteID,
+		siteDomain, pageName, pageURL, "create_tool_component", renderedHTML, logger)
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO page_components (
 			page_id, component_id, position, slot_name,

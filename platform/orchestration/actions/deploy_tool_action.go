@@ -496,6 +496,15 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 
 	// --- 5. Create page_component linking fork to page ---
 	// Position 2: the tool widget sits between intro content and CTA
+	//
+	// bugs_open/362: the second of the two tool writers that persisted
+	// rendered_html unrepaired (mirror of create_tool_component — the two have
+	// shipped half a fix before, bugs_open/093/112, so they change together).
+	// Deferred 2026-08-02 for bugs_open/180, unblocked the same day by LNK-029's
+	// span-aware repair; the JS-built-anchor probe is in
+	// tool_writer_link_repair_362_test.go. Fail-open by the seam's design.
+	renderedToolHTML = repairComponentHTMLBeforePersist(ctx, params, siteID,
+		siteDomain, pageName, pageURL, "deploy_tool_to_site", renderedToolHTML, logger)
 	var pcID uuid.UUID
 	err = params.DB.QueryRowContext(ctx, `
 		INSERT INTO page_components (
