@@ -233,3 +233,29 @@ slots — 5 of 5 runs, no run under cap — and the run timestamps are 6-hourly 
 So supply is 4 x 5 = **20/day**, and the arithmetic in the bug file is confirmed rather than merely
 restated. Demand re-derived from live rows the same day is **42** against 9 eligible sites, so
 **2.10x** stands exactly.
+
+## Council admission: the migration carries the submission, and `cmd/` does not
+
+`scripts/council-scope.sh` (the single source, read 2026-08-22):
+
+- `COUNCIL_SCOPE_CODE_RE='^(platform|internal|pkg)/'`
+- `COUNCIL_SCOPE_MIGRATION_RE='^docs/agent_docs/sql_for_agents/[0-9]{3}_[A-Za-z0-9_]+\.sql$'`
+
+So `docs/agent_docs/sql_for_agents/552_*.sql` admits the submission. **`cmd/` matches neither**, which
+means a detector living in `cmd/config-key-audit/` would not, on its own, be admissible — it rides in on
+the migration.
+
+[OBSERVED, not filed] That generalises: **every check binary in this estate lives in `cmd/`**, so each
+one has only ever reached the council bundled with a `platform/` or migration change. Recorded as an
+observation about the gate's reach, not as a defect of this lane's — it is not mine to widen, and
+`DRY_RUN=1` on the 097 trigger tests admission for free before spending anything.
+
+Also noted while checking the class: register LCO-009 describes `bugs_open/242`
+(*"a capped render audit is indistinguishable from a complete one"*) as *"the same class in a different
+subsystem, **still open**"*. It is **closed** — `bugs_closed/242_…`, commit `03640f491`, *"fixed AND live
+since v1.0.1288"*. A dead pointer to fix while editing that entry, and an instance of the class the
+estate measured at 71.5% of directory-prefixed bug pointers already dead.
+
+⚠ And it does **not** rescue the detector's justification: 242 has no ordering angle (no `ORDER BY`,
+`alphabet` or `starv` hit anywhere in the file). The ordering class stays at **one live member**. The
+count class LCO-009 already covers is larger, but that is a different check and it exists.
