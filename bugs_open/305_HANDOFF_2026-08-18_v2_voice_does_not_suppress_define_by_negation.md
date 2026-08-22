@@ -766,3 +766,11 @@ Migration **548 is HELD**: the live build does not carry the `result` key yet.
 **So, precisely, today's status:** the gate detects correctly, selects correctly, rewrites well, and
 **does not yet change pages**. The three things needed are one chassis roll, migration 548, and then one
 page that trips it — verified at `page_components.content_data`, on the part that DIFFERS.
+
+> **UPDATE 2026-08-22 morning: two of the three are done.** The roll landed (`v1.0.1323`, stamp
+> `70e7b4f9c`; `dd9fc6197` is an ancestor, probed on both replicas with a discriminating control) and
+> migration `548` applied at ~09:19Z (UPDATE 1, verify passed, recorded; `_HOLD` dropped). The live
+> row reads `content_from = copy_gate.result`. ⚠ Runs COMPLETED before 09:20Z on 08-22 (two
+> `loanzy.uk` repairs, the overnight `remortgagecalculator.uk` pair) still ran the old wiring — their
+> `repaired` markers describe the in-memory map, not the page. Remaining: the first post-09:20Z
+> repaired page, verified at the artefact. Lane log: `bugfix_305_negation_gate/NOTES` 2026-08-22.

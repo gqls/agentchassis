@@ -172,3 +172,17 @@ Nothing has changed about the three pages you read. That tagline is in that site
 which order it onto four page types, and the check deliberately leaves alone anything the instructions
 supplied. Nine of our twenty-five sites are in the same position, and that is a decision about
 positioning rather than a thing code can settle.
+
+---
+
+2026-08-22, morning. The missing piece went in. Last night we found that the check was doing its
+rewriting and then losing the result on the way to the page — the sentence was fixed in memory and
+the page was built from the unfixed copy. The code change that makes the fixed copy travel with the
+page went out in this morning's release (I checked the running software itself on both servers, not
+just the release notes), and I then switched the page-builder to read from the fixed copy. Both
+halves are now live.
+
+What's left is the proof: one ordinary page that trips the check, built from now on, where the
+rewritten sentence is what the stored page actually says. The system is busy this morning, so that
+should happen on its own; I'll read the first one that qualifies. Until a page proves it, treat
+"the check now changes pages" as expected rather than established.

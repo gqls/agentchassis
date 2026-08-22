@@ -32,6 +32,17 @@ lane built the platform half and contributed it back into that file, §8–§17)
 >
 > **So today's state, precisely: the gate detects correctly, selects correctly, rewrites well, and does
 > not yet change pages.** It needs one roll, then `548`, then one page to confirm at the artefact.
+>
+> ## ✅ UPDATED 2026-08-22 MORNING — STEPS 1 AND 2 ARE DONE; ONLY THE ARTEFACT PROOF REMAINS
+> The roll landed (`v1.0.1323`, stamp `70e7b4f9c`, pods up ~08:36Z; `dd9fc6197` is an ancestor,
+> binary-probed on BOTH replicas with a discriminating absent control). **Migration `548` applied
+> 2026-08-22 ~09:19Z** (UPDATE 1, verify block passed, recorded 09:20:25Z via `--record-only`;
+> `_HOLD` dropped from both files) and the live row now reads `content_from = copy_gate.result`.
+> Every `RewriteNegationsAction` exit path that precedes `render_section` was re-checked to carry
+> `result` (clean pages included). ⚠ Markers COMPLETED before 09:20Z today (two loanzy.uk repairs,
+> the overnight remortgagecalculator pair) still ran on the old wiring — honest about the map, wrong
+> about the page. **What is left: the first post-09:20Z `repaired` page, verified at
+> `page_components.content_data` on the part that DIFFERS.** Details: NOTES session 2026-08-22.
 
 ## State, with how it was verified
 

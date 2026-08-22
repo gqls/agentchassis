@@ -538,3 +538,46 @@ bash reported `result: command not found` and the message committed with the wor
 corrected in `99ee9a5e2`). It is a documented trap and I read the line this session. Third documented
 trap in two days — **the signal is the rate, not the miss: known traps get hit when the content of a
 message feels more important than its mechanics.** Use `git commit -F -` with a quoted heredoc.
+
+## Session 2026-08-22 morning — the roll landed, 548 applied, the wiring is complete
+
+**Step 1 (the roll): DONE, verified with controls.** Both chassis replicas
+(`agent-chassis-74ffb74b8d-4qlp7` / `-qp8kk`, pods up ~08:36Z) carry build stamp
+`70e7b4f9cabb9676e34131c52d06966b5d62e97e` (`grep -ac` in `/proc/1/exe` = 3 on both; absent-control
+`f11851c2…` — committed 09:15Z, after the pods started — = 0 on both).
+`git merge-base --is-ancestor dd9fc6197 70e7b4f9c` → **yes**, and the control commit is NOT an
+ancestor, so the test discriminates. The migration header's own capability probe also run:
+`copy_gate` = 7, `copy_gatez` = 0, both replicas.
+
+**Step 2 (migration 548): APPLIED 2026-08-22 ~09:19Z, recorded 09:20:25Z.** Pre-apply anchor check
+read all three needle values on the live row (`content_from = generated_content.result`,
+`rewrite_negations` present, `render_section` action `render_component`). Renamed out of `_HOLD`
+(the deliberate act, both file and `_ROLLBACK`), hand-applied with `ON_ERROR_STOP`: `UPDATE 1`,
+verify `DO` block passed (`548 OK`), recorded via `--record-only`. Live row now reads
+`copy_gate.result` (re-read after apply, not inferred).
+
+**Wart, cosmetic:** 548's `snapshot_agent` reason string still says `518_…` — the pre-renumbering
+name. The snapshot itself is fine (`5946a27b-38ab-41e8-8b49-7bc1a4b626b8`); anyone reading the
+snapshot ledger for "why" should map `518_render_section…` → `548`. Not edited post-review; noted here
+instead. Also noted: the number 548 is SHARED with another session's unrelated
+`548_seed_webdesign_uk_theme_row_from_deploy_repo.sql` — the ledger keys on full filename, so no
+collision in the ledger, but a bare "548" is ambiguous in prose from now on.
+
+**Checked before trusting the new wiring: every exit path of `RewriteNegationsAction` that can precede
+`render_section` carries `result`.** The two returns without it are the `initialize` lifecycle call
+(not the section pass) and `no_content` — which only fires when `generated_content.result` was empty,
+a state the OLD wiring also could not render. The marker sets `result` unconditionally whenever a
+content map exists (the comment at `rewrite_negations_action.go:163` exists precisely so a clean page
+is not dropped).
+
+**Boundary accounting for anyone reading markers later:** runs COMPLETED before 09:20Z today —
+`loanzy.uk/tool-loan-repayment-calculator` 09:10Z (`repaired 6→5`), `loanzy.uk/tool-loan-vs-savings`
+09:14Z (`repaired 4→4`), and the overnight `remortgagecalculator.uk/mortgage-lenders` pair — still ran
+under `generated_content.result`, so their repairs were made and thrown away (§22 behaviour). Their
+markers are honest about the map, wrong about the page. The first run whose SPAWN postdates 09:20:25Z
+is the first that can prove anything.
+
+**What remains for this lane: one page, at the artefact.** A post-09:20Z page with `status: repaired`,
+then `page_components.content_data` must LACK the removed construction (verify on the part that
+DIFFERS, never the rewrite's opening; never `updated_at`). Traffic is live (a `page_rerender` was
+claimed at query time; 235 unresolved queued), so this should arrive without prompting.
