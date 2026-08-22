@@ -112,3 +112,35 @@ would have caught it is three lines of HTML and now lives in the lane.
 
 The fix is with the review council now. It needs one more build of that service before it takes
 effect — the version running today has the check but not the fix.
+
+## Friday 22 August, late — something you need to know that is bigger than this job
+
+While putting the contrast fix through the review council, the run died. Not because of the fix —
+seven of the reviewers had already approved it with no objections, including the one that had
+rejected my first attempt. It died because **the Anthropic account has hit a usage limit**: the API
+is answering "You have reached your specified API usage limits. You will regain access on
+2026-09-01 at 00:00 UTC."
+
+That matters well beyond me. The model in question, claude-sonnet-5, is what 81 of our workflow
+steps run on across 18 different agents — including every single seat of the review council and
+every seat of the automatic fix proposer, plus the feature designer, the experience planner and the
+tool-building chain. So the review-and-fix machinery is effectively stopped until that limit is
+lifted or those steps are pointed at a different model. Only you can do either.
+
+The confusing part, which I've written down so the next person doesn't lose an hour to it: the fleet
+looks perfectly healthy from a distance. In the hour this started, 69 jobs completed and 6 failed,
+because all the cheap routine work runs on a smaller model that is unaffected. It is only the
+expensive thinking that has stopped, and it stops quietly.
+
+Where that leaves the contrast work: the check itself is live and working on the current build. The
+improvement I made this evening is committed and tested but needs one more build of that service,
+and a council round it can't have until the limit clears. I've written a handoff so it can be picked
+up cleanly:
+
+**`docs/agent_docs/docs024_key_docs_latest/bugfix_131_contrast_ratio_check/HANDOFF_2026-08-22_continue_here.md`**
+
+One more number worth your attention, from a scan of all 24 live sites: there are **145 pieces of
+text failing the readability standard across our homepages alone** — and that is a floor, since I
+only looked at one page per site. Three of those are down to my new improvement; the rest were
+already failing. Before this check is ever switched on as a gate, someone has to decide what we do
+about that, because on today's numbers it would fail most of the estate.
