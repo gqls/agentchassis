@@ -884,3 +884,30 @@ the same job looked too early and already finished at the same time, for three w
 corrected, the job is filed as a bug for the team that owns those files, and I've written the general
 lesson into the debugging guide — when we close something, we should go and correct the notes that
 told people to wait for it. This is the third time it has cost us; nine days, then three, now twenty.
+
+---
+
+**2026-08-22, late afternoon.** You asked for the record that would tell us whether anyone reads our
+automatic warnings. It exists now, and it turned out we didn't need to build the thing I described to
+you — the warnings can be recreated from the history we already keep, so instead of starting a clock
+and waiting weeks, I could just read the last fortnight straight away. Nothing new runs when anyone
+commits, which matters because that is the one piece of machinery every session touches all day.
+
+**The answer is better than the question feared, and more interesting than a single number.** Across
+a fortnight, of the warnings the tool can judge, about a fifth were acted on. But almost all of the
+neglect is *one* rule — and without it, two thirds were acted on. The rule in question warns about
+recording an AI's reply word-for-word, which matters when the reply contains something a visitor
+typed. It is firing all over the part of the system that builds websites, where no visitor has typed
+anything. People ignoring a warning that doesn't apply to them are behaving correctly. That rule
+needs its aim narrowed, or a written decision to accept it — it is not evidence that we need heavier
+machinery. And the rule this whole question came from scored three out of three: it flagged three
+places, and all three were fixed today.
+
+**I got it wrong twice before I got it right, and both are worth you knowing.** The first version of
+the tool said nobody had acted on anything — a damning number, and false. It decided whether it could
+judge a rule by looking only at files nobody had touched, which quietly excluded every case where
+someone HAD acted, because acting means touching the file. It was blind to success by construction,
+and blind in the direction that would have flattered my own conclusion. The second was smaller: it
+compared against "the current code" while other sessions were committing underneath it, so the same
+question got different answers depending on when it was asked during the run. Both are fixed, and
+both are written down where the next person will meet them.

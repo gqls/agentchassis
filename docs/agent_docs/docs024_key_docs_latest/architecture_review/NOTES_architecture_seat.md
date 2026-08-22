@@ -1629,3 +1629,49 @@ stale-status suspect** — no judgement needed, so it belongs in `pattern-check.
 
 No council submission: everything here is prose, which `council-scope.sh` refuses client-side. The
 `362` fix is platform code and is council-gated when its lane takes it.
+
+## 2026-08-22 (later) — RFC_008's decisive question ANSWERED, and the answer is not the one it feared
+
+The owner commissioned the durable record for advisory findings. **It was not built as sketched, and
+the reason is the useful part: `pattern-check.py`'s findings are RECOMPUTABLE.** `--commit <sha>`
+already replays any past commit, so the record is reconstructed from git over all of history rather
+than accumulated forward from a write inside the fleet's pre-commit hook — a hook whose own header
+says a stray non-zero exit stops every session committing, and which would have reached the DB
+through `kubectl exec` on a 3-day token. Nothing runs at commit time. `scripts/audit-advisory-findings.py`,
+register **DBG-076**.
+
+**THE ANSWER `[MEASURED 2026-08-22]`, 5,000 commits / 14 days, baseline pinned: 8 of 37 decidable
+findings acted on (22%) — and the headline is the wrong statistic.** One rule, `logged-model-output`,
+supplies 25 of the 29 unacted. **Without it: 8 of 12 = 67%. It alone: 0 of 25.** So the channel is
+not ignored; it works for most rules and is ignored for one — and that one flags logging an LLM
+response verbatim, a privacy rule whose premise is visitor-written text in the prompt, firing across
+`platform/orchestration`, which serves no visitor prose. **A rule whose premise does not hold where
+it fires SHOULD be ignored.** That needs a scoping ruling, not a mandatory seam.
+
+**The rule RFC_008 was actually about scores 3 of 3** — `unrepaired-component-write` fired on three
+`rendered_html` writers and all three were fixed today (`bugs_open/362`), including one born
+2026-08-19 that the RFC's 2026-08-02 census could not have known about. **Trigger 2 does not fire;
+the no-seam ruling now stands on evidence rather than on the absence of it.**
+
+**Three defects in my own instrument, all caught by USING it, none by reading it** — recorded because
+the third nearly published a false headline:
+1. The self-test line printed to stdout and corrupted `--json` for any caller that piped it. Found by
+   piping it into a parser instead of eyeballing it.
+2. "Still true at HEAD" was judged against the literal `HEAD`, which **moves under a 15-minute sweep
+   on this tree** (~4,967 commits/14 days). A sibling session fixed a file mid-run, so one finding
+   was still-true at minute 2 and false at minute 14. Baseline is now a pinned sha, printed.
+3. ⚠ **The calibration was BIASED AGAINST FINDING ACTION and it inverted the headline.** V1 decided
+   whether a check could answer "still true?" by testing it on findings whose file was UNCHANGED —
+   but a check whose findings were all acted on has no unchanged file, by definition, so its
+   successes were filed `undecidable` and never reached the numerator. It reported **0/26 acted**
+   while `unrepaired-component-write`'s three fixes sat in the same tree. Recalibrating at each
+   finding's OWN commit (where the condition is known to have held) gives 8/37. **A control that
+   cannot observe the outcome it exists to detect is not a control** — and this one failed in the
+   flattering direction, which is the one that gets published.
+
+Also folded in from the `webdesign_tool_rebuilds` lane: a SECOND staleness shape distinct from the
+one I wrote up this morning. §6 is a pointer that expired; **§6a is a census that went stale by
+ADDITION** — RFC_008 counted ten writers on 08-02, the eleventh was born 08-19, and every document
+quoting "ten" was right when written and wrong by birthday. Detector: `git log --since=<census date>
+--diff-filter=A`. Its cheap half is a rule worth adopting now: **any "N writers of X" claim must
+carry the date it counted**, or there is no `--since` to anchor on.

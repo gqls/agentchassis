@@ -130,8 +130,12 @@ them. That is the seam's discipline without the seam's cost.
   **CORRECTED same day: B2 is built and does NOT answer this** — see the correction under reopen
   trigger 2. The two questions look identical and are not: B2's subject (`error_code` values) is
   *rows in a table*; this RFC's subject (advisory lint findings) is *terminal output that persists
-  nowhere*. **The measurement remains untaken and is nobody's work item today**, and its
-  prerequisite — a durable record for advisory findings — is named in that correction.
+  nowhere*. ~~**The measurement remains untaken and is nobody's work item today**, and its
+  prerequisite — a durable record for advisory findings — is named in that correction.~~
+  **TAKEN AND ANSWERED the same day** (`scripts/audit-advisory-findings.py`, DBG-076): the findings
+  are recomputable from git, so the durable record named as a prerequisite was never needed. Result
+  and its breakdown under trigger 2. **This section's claim — that the RFC was ruled without its
+  decisive measurement — was true for about six hours and is now historical.**
 - **It does not close the class.** A future writer of `rendered_html` inherits nothing but an
   advisory check on files it happens to touch. That is a *stated* residual, not an oversight.
 
@@ -153,12 +157,54 @@ Reopen this RFC (or escalate straight to the seam) if **any** fires:
    > commit time and leave no durable record anywhere, so "was this finding read?" has nothing to
    > query — and no amount of B2 will produce it. Reported by the 358 lane, verified here.
    >
-   > **So the trigger, restated honestly: it is NOT ARMED, and arming it has a prerequisite** — give
+   > ~~**So the trigger, restated honestly: it is NOT ARMED, and arming it has a prerequisite** — give
    > advisory findings a durable record (one row per finding at emit time, the shape every daily
    > check in this estate already uses), then measure fix-or-allow-list follow-through against it.
    > Until someone does that, **this RFC's own decisive question remains unanswerable**, and the
-   > ruling stands on triggers 1, 3 and 4, which are armed today. That is a smaller claim than the
-   > one this record originally made, and it is the true one.
+   > ruling stands on triggers 1, 3 and 4, which are armed today.~~
+   >
+   > ### ✅ ARMED AND MEASURED, 2026-08-22 — and the prerequisite turned out not to be needed
+   >
+   > **`scripts/audit-advisory-findings.py` (register DBG-076) answers it, and no durable row at
+   > emit time was required after all.** The findings are RECOMPUTABLE — `pattern-check.py --commit
+   > <sha>` already replays any past commit — so the record is reconstructed from git across the
+   > whole of history rather than accumulated forward from a write inside the fleet's commit hook.
+   > That reads history instead of waiting for it, and puts nothing in the hook.
+   >
+   > **THE ANSWER, `[MEASURED 2026-08-22]`, 5,000 commits (14 days), baseline pinned:**
+   >
+   > | | |
+   > |---|---|
+   > | findings replayed | 226 |
+   > | decidable (check reads state, file still exists) | 37 |
+   > | **acted on** (fixed or allow-listed) | **8** |
+   > | unacted (condition still true) | 29 |
+   >
+   > **8/37 = 22% overall — but that headline is the wrong statistic, and the breakdown is the
+   > finding.** ONE rule, `logged-model-output`, supplies **25 of the 29** unacted. Remove it and
+   > follow-through is **8 of 12 = 67%**. `logged-model-output` alone is **0 of 25**.
+   >
+   > **So the advisory channel is NOT ignored — it works for most rules and is ignored for one.**
+   > That single rule flags logging an LLM response verbatim, a *privacy* concern whose premise is
+   > that the prompt contains what a VISITOR wrote; it is firing across `platform/orchestration`,
+   > which builds sites and serves no visitor prose. A rule whose premise does not hold in the
+   > package it fires on **should** be ignored, so this is evidence about that rule's scoping, not
+   > about the estate's discipline. **It needs a ruling (narrow its gate, or accept and allow-list
+   > the package with a reason) — it is not evidence for mandatory seams.**
+   >
+   > **The rule THIS RFC is actually about scores 3 of 3.** `unrepaired-component-write` fired on
+   > three writers of `rendered_html` and all three were fixed on 2026-08-22 (`bugs_open/362`) —
+   > including one, `create_tool_component_regenerate.go`, that this RFC's own ten-writer census
+   > could not have known about because the file was **born 2026-08-19**, seventeen days later.
+   >
+   > **Verdict on this trigger: it does NOT fire.** The advisory channel changes behaviour on the
+   > rule this RFC cared about, at 100% over the measured window. The no-seam ruling stands, now on
+   > evidence rather than on the absence of it.
+   >
+   > ⚠ Two limits, stated because the number is quotable and will be quoted. (a) Only 8 of 21 checks
+   > are state-evaluable at all; the other 13 read the diff, so 98 findings are **undecidable** and
+   > this measures a slice, not the whole channel. (b) `acted` still under-counts: a finding that
+   > first fired before the window and was fixed inside it is never replayed.
    >
    > ⚠ Note what nearly happened: this file would have sat waiting for ever on a measurement nobody
    > was building, while reading as though it had coverage — the exact class `bugs_open/362` §2 was
