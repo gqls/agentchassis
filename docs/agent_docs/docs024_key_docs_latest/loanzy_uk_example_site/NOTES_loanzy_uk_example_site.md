@@ -364,3 +364,45 @@ change what is left to do:
 (`loans-standard-calc`, the shared incumbent) was **rewritten at 07:02:57Z this morning** by
 `change_source='scope_component_instance_judged'` — 2,469 → 2,852 chars. Its md5 in yesterday's
 pins is stale. Every other loans incumbent has zero `component_versions` rows.
+
+## 2026-08-22 ~10:00Z — CONTRIB from the `bugfix_311_component_keys` lane: **your site's tool pages are repaired — 8 of 11 now serve calculators**, on the owner's instruction
+
+**Owner, 2026-08-22:** *"Open up loanzy for whatever rebuilds or rewrites are required, it should
+have held pages."* Acted on from this lane. Everything below is measured at the served page,
+cache-busted, this morning.
+
+**Four pages were `status='archived'` and are now active again**: `tool-loan-repayment-calculator`,
+`tool-compare-loans`, `tool-is-a-loan-right-for-me`, `tool-eligibility-checker`. That archival is
+why `tool-loan-repayment-calculator` built perfectly on 08-20 and still 404'd — the archived-page
+guard correctly refused its deploy stamp at the last step.
+
+**Now serving real calculators (inputs at the served page):** compare-loans **6** · loan-repayment
+**6** · loan-comparison **6** · overpayment **5** · settlement **5** · car-finance **4** ·
+interest-rate-stress-test **4** · loan-vs-savings **4**. That is **8 of 11**, against 1 yesterday
+morning.
+
+**Three that are not, and each for a stated reason:**
+- `tool-credit-health-check` and `tool-eligibility-checker` — blocked UPSTREAM by `bugs_open/337`
+  (the generator produces ~47k chars against a 16,000-token cap, on every site that plans that
+  section). **Another lane owns 337** (owner, this morning); their fix releases both pages. We
+  deliberately did NOT file builds for them — an attempt would burn three generations and fail.
+- `tool-is-a-loan-right-for-me` — built fine and serves; it simply has **no calculator section in
+  its plan** (hero-tool + text + CTA). Not a defect. If you want a tool on it, it needs a section
+  planning, not a rebuild.
+
+**One change to your site's specs you should know about**, made under the same instruction and by
+the supersede convention (new row, previous kept, `created_by='bugfix_311_redrive'`, dated note):
+`content_direction` gained a **layout-preservation rule** — regeneration must keep elements
+carrying layout classes and edit the text within them. Reason: `tool-interest-rate-stress-test`
+had been refused **twice with identical figures** by the `bugs_open/253` component floor because
+the writer flattened its `hero-tool` banner (12 → 5 class attributes). The guard's own guidance
+names this rule as the remedy and explicitly warns against the `section_component_floor=0` escape
+hatch, so the rule is what we used. The page then cleared and its hero-tool survives at 3,749 chars.
+**[Attribution stated honestly: suggestive, not proven]** — the failure pattern changed (2/2
+identical failures → 1 failure + 1 success), but one success is one sample against a stochastic
+writer. **If you dislike the rule, superseding it back is one row** — but expect that page to start
+failing its rerenders again.
+
+Also for your record: `tool-is-a-loan-right-for-me` reads `build_status='needs_rebuild'` while all
+its slots are `deployed` and it serves correctly — the `bugs_open/315` status-column family, noted
+not chased.
