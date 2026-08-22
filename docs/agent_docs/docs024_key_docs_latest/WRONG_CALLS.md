@@ -67,6 +67,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **ask when a column was ADDED before reading its presence/absence as a WRITER fingerprint — a split by column-existence is a split by DATE** | **1** |
 | **write a nullable comparison as `IS DISTINCT FROM`, and print the count of rows where the comparison actually RAN — `<>` against a NULL yields NULL and silently drops exactly the rows the query exists to find, returning a clean zero** | **1** |
 | **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
+| **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -43644,3 +43645,36 @@ connect. General form: **a claim that data flows from A to B is not checkable at
 checkable at B's call site** — read the consumer's arguments, not the producer's body. The
 adjacent trap is that quoting the producer's source verbatim (which I did) makes the claim *look*
 evidenced: the quote is real, it is just evidence about the wrong end of the pipe.
+
+---
+
+## 2026-08-22 (fourth, same bug) — I reported "zero false positives, fleet-wide" for a predicate whose flagged rows I had not opened. Three of 27 were correct pages.
+
+**The claim.** Proposing a birth guard for `bugs_open/357`, I censused a predicate — does the
+component's own `data-component` self-declaration match the one in the HTML it supposedly produced —
+and reported to the owner and into the bug file: **"Zero false positives fleet-wide."** The
+arithmetic behind it was real (1,550 agree, 0 disagree, 27 flagged) and I checked the *shape* of
+the 22 rows I already knew about.
+
+**What opening the other five showed.** Three are `loancash.co.uk` pages that store a full
+`<!DOCTYPE html>` document in one component row **because that is what a verbatim page is**:
+`rebuild_policy='owned'`, exactly one row, `content_data->>'deploy_mode'='verbatim'`. The guard I was
+proposing would refuse three correct pages the first time they were rebuilt.
+
+**The aggravating detail.** The rule that exempts them — *"a page ships VERBATIM when
+`rebuild_policy='owned'` ∧ exactly one component row ∧ `content_data.deploy_mode='verbatim'`"* — is
+written down in **the same bug file I was appending to**, in an addendum I had read that morning and
+quoted in my own contribution. I had the exemption in hand and did not apply it, because I was
+counting rows rather than reading them.
+
+**Why "zero false positives" is a dangerous sentence specifically.** It is the sentence that ends
+review of a guard. Everything downstream — whether it refuses or only warns, whether it needs an
+exemption list, whether it can be armed at a write seam at all — turns on it, and it is the one
+claim a reviewer is least able to re-derive without re-running the census themselves.
+
+**The check.** Before describing a predicate's flag-set as pathological, `LIMIT`-select and **read**
+every row in it if it is small, or a stratified sample by component/site/date if it is not. A count
+cannot tell a false positive from a true one. And check the legitimate variants the system is
+*documented* to produce — for a write-seam guard the exemptions are the design, not an afterthought.
+The corrected figure is **24 defects and 3 legitimate**, and the guard now carries a verbatim
+exemption it would not have had.
