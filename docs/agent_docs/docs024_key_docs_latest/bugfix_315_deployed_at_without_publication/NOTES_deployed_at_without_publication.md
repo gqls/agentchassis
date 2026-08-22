@@ -1876,3 +1876,46 @@ that.**
 happened at age 1h04, so a 60-minute window would still have caught it on the same pass. The
 false-positive pressure (a ~17-minute delivery tail) and the true-positive latency are not in tension
 here, because detection granularity is set by the 4-hour rotation, not by the window.
+
+---
+
+## 2026-08-22 ~10:20Z — CORRECTION to my own entry above, and the retraction is still unexercised (not broken)
+
+**What I wrote at 08:40 needs a timestamp qualifier it did not have.** I said
+"`deployed_at`/`updated_at` are both still 20:49:12, so **there was no redeploy**". True when measured.
+**The page was independently redeployed at 08:50:18Z** — ten minutes after that observation — with
+`content_hash` unchanged (`2a4b4947…`), because the content is byte-identical, which is exactly the
+no-op-republish case this whole lane is about.
+
+So the original claim stands **for the window it describes** (20:49→08:40: one publish, no redeploy,
+old bytes served 9+ hours, converged on its own) and is misleading without the boundary, because
+anyone re-running the query today sees `08:50` and concludes I was wrong. **A `[MEASURED]` claim about
+STATE expires; this one expired in ten minutes.** Qualifier added rather than the claim withdrawn.
+
+**Then the origin REGRESSED, which is new information.** The 09:57:37 pass — 1h07 after the 08:50
+redeploy — recorded `served_hash: 2bacf7c9…`, i.e. **the OLD bytes again**, after the correct bytes had
+already been observed at 08:40. By 10:20 it is correct again, and consistently so: **3/3 fetches from
+inside the cluster and 10/10 from outside**, all `2a4b4947…`.
+
+That is a second, distinct failure shape on one page in one morning:
+
+| window | observation |
+|---|---|
+| 20:49 → ~08:40 | new bytes never arrived (9+ h) — the 315 class |
+| ~08:40 | correct |
+| 08:50 | redeployed (byte-identical, no-op republish) |
+| 09:57 | **serving the OLD bytes again** — a regression, not a lag |
+| 10:20 | correct, from both inside and outside the cluster |
+
+**THE RETRACTION PATH IS STILL UNEXERCISED — and it is NOT broken.** Its precondition is a pass that
+OBSERVES A MATCH. Every pass so far (05:56, 09:57) observed a mismatch, so `items_resolved: 0` is the
+correct output each time, and `items_skipped: 1` with `findings: 1` is the dedup index refusing a
+duplicate. The site is next eligible at **13:57Z**; if it matches then, the item should close with
+`resolved_by`/`reason` stamped. **Still designed-but-unproven.**
+
+**And one caveat worth carrying, because it nearly misled me twice today.** My probe and the check can
+disagree about the same page at the same moment — at 08:40 I got 10/10 correct while the 09:57 pass
+recorded the old bytes. Today both agree, so this is not a cluster-vs-outside egress difference in any
+measured sense; but the safe reading is that **a single probe is a sample of whichever origin/edge copy
+answered**, which is exactly why the check confirms a mismatch with a second fetch and requires the two
+to agree. When reproducing one of these findings by hand, fetch several times and say how many.

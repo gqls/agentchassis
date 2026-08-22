@@ -671,6 +671,17 @@ it. The same publish eventually arrived, many hours late. So the delivery step i
 outright, it is delivering some of them extraordinarily slowly, which is a different problem with
 different fixes.
 
+**One correction to what I wrote earlier this morning.** I said the page had not been republished —
+true when I looked, and it was republished ten minutes later, at 08:50, with identical content. The
+nine-hour finding stands for the period it describes; the note just needed the boundary saying out
+loud, because anyone checking now sees the later timestamp and would think I had it wrong.
+
+**And then it went wrong again.** An hour after that republish, the live page was showing the *old*
+version once more, before correcting itself by mid-morning. So this is not simply "delivery is slow" —
+on this one page, in one morning, we saw new content fail to arrive for nine hours, arrive, and then be
+replaced by the old content again for a while. Whatever is happening at the publishing step is less
+reliable than "sometimes slow" suggests.
+
 **What I have not done.** I have not chased *why* delivery took nine hours, because that happens
 inside the publishing runner, which lives in a repository we do not control and cannot read. That was
 already the known boundary. What has changed is that we can now hand whoever does have access an exact
