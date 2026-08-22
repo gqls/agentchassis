@@ -14715,3 +14715,36 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why it is a landmine and not a WRONG_CALLS row:** it fires on TOUCH — anyone adding an arm to that switch inherits the shape — and the wrong result looks exactly like the right one. The incident itself is in `WRONG_CALLS.md` (2026-08-22, "I shipped a contrast GATE that passed any page it failed to measure"), which is where the *how we were wrong* half belongs.
 - **relations:** LANDMINES "A criteria check type the running browser-runner binary does not know is SKIPPED, and an all-skipped fence PASSES" (the same PASS-while-blind shape one layer up, and 016b's remedy is the same: unknown or wholly-unmeasured must be `inconclusive`, never pass) · LANDMINES "`render_audit.py` prints '0 contrast failure(s)' and exits 0 for a page it never measured" (the ancestor — this defect was committed inside the check written to replace it, while citing it) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] · register TL-049 · council `7e2391ec` round 1, gating objection from `bug_historian`
 - **added:** 2026-08-22, `bugfix_131_contrast_ratio_check` lane
+
+---
+
+### CLAUDE.md's recipe for reading a council verdict — `doc_notes … ORDER BY created_at DESC LIMIT 1` — returns whoever finished LAST, and on this tree that is usually not you
+
+- **footprint:** `doc_notes`, `categories ? 'council-gate'`, `097_TRIGGER_council_review_v1.sh`, reading any council verdict, `diagnosis_artifacts.kind='council_report'`
+- **fires when:** your council run finishes and you go to read the verdict with the query CLAUDE.md gives: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;`
+- **the tell — and there isn't one, which is the whole problem.** What comes back **is** a real council verdict, correctly formatted, minutes old, with a plausible decision and substantive objections. Nothing marks it as someone else's. Hit directly 2026-08-22: a submission approved at 10:48Z read back as *"REVISE — gating objection from editquality"* about `validate_page_content`, `LogActionEntry` and a `writeLinkRepairLog` family — a lane this session had never touched. `ListAgents` showed **42 concurrent sessions**; several submit to this gate.
+- **⚠ the failure is silent AND it inverts.** You can read a REVISE that belongs to someone else and start "fixing" objections against your own approved plan, or read an APPROVED that belongs to someone else and write `Council-Reviewed:` on an unreviewed commit — which the 098 coverage report buckets as **MISMATCH**, its stated dishonesty surface.
+- **the check — key on YOUR correlation, never on recency:**
+  ```bash
+  # the decision:
+  psql -At -c "SELECT metadata->>'decision', metadata->>'decided_by'
+               FROM diagnosis_artifacts
+               WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report';"
+  # the full reviews, with each seat's objections:
+  psql -At -c "SELECT body FROM diagnosis_artifacts
+               WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report';"
+  ```
+  The 097 trigger prints `SUBMISSION_CORR` for exactly this reason — **save it**. The `doc_notes` row is
+  a human-readable convenience with no correlation column to filter on, so it can only ever be read by
+  recency; the artefact is the addressable copy.
+- **⚠ SECOND TRAP IN THE SAME OBJECT: `metadata->>'abstained'` is not "seats that did not review".** The
+  summary object on an approved run read `{"decision":"approved","abstained":8,"reviewers":9}` while the
+  **body carried nine substantive reviews with written notes**. Read as "8 of 9 abstained" that turns a
+  thorough approval into a rubber stamp, and this session nearly reported it to the owner that way.
+  Read the `reviews` array, not the counter above it.
+- **why it is a landmine and not a doc bug:** the recipe is in CLAUDE.md, which every session is told to
+  follow exactly, and it was correct when this gate had one submitter. It degrades purely with
+  concurrency, so it gets *less* reliable exactly as the estate gets busier — and the wrong answer is
+  indistinguishable from the right one because both are genuine verdicts.
+- **relations:** MEMORY [[a-submission-is-not-a-review]] · MEMORY [[always-give-the-path-for-any-doc-you-name]] (same family: an identifier that is ambiguous across concurrent lanes) · the council-gate RUNBOOK · 098 coverage report (MISMATCH bucket)
+- **added:** 2026-08-22, `bugs_open/316` lane
