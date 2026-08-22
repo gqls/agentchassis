@@ -68,6 +68,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **write a nullable comparison as `IS DISTINCT FROM`, and print the count of rows where the comparison actually RAN — `<>` against a NULL yields NULL and silently drops exactly the rows the query exists to find, returning a clean zero** | **1** |
 | **before claiming a row is one operation away from destruction, look for that operation having ALREADY RUN on it — the work-item history is one query and it refuted me six times over** | **1** |
 | **OPEN the rows a new predicate flags before calling the flag-set pathological — a false positive is indistinguishable from a true one in a COUNT, and the legitimate case is usually already documented in the file you are writing in** | **1** |
+| **`| head -N` on a table/file listing is an UNMARKED TRUNCATION — an absence claim built on one is fiction, and alphabetical `_backup_*` names are exactly what fills the visible lines** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -44076,3 +44077,55 @@ and `head -6` then cut every one of mine from the output, so a mutation run I re
 had not shown me a single test I cared about. Same family as the `grep -E` filter that ate a
 `Permission denied` (2026-08-21, above): **a filter you write is a thing that can eat the result
 you are watching for.** Fixed by matching exact test names.
+
+---
+
+## 2026-08-22 (fifth and sixth, same bug, same session) — I declared a history table nonexistent from a `head -30`, and then announced a conclusion from a count for the THIRD time in one day
+
+### 5. "There is no systematic `page_components` history" — published, and false
+
+**The claim**, written into `bugs_open/357` §5 and the lane NOTES to justify marking the
+already-destroyed-tools question `[UNMEASURED]`: *"There is no systematic `page_components` history
+to check (only ad-hoc `_backup_*` tables)."*
+
+**What exists.** `page_component_history` — **26,965 rows over 558 pages, 2026-03-16 → 2026-08-22**,
+carrying `rendered_html`, `slot_name`, `op`, `created_at`. It is `bugs_closed/229`'s page-side
+artefact archive, a thing this estate deliberately built for exactly this question.
+
+**How I missed it.** My listing was
+`SELECT table_name ... WHERE table_name ILIKE '%component%' ... ORDER BY 1;` piped through
+`head -30`. The result is alphabetical, and this database has **71** matching tables of which the
+first thirty are `_backup_*`, `_fleet_*`, `_vonc_*` and `page_components_bak_*`. `page_component_history`
+sits below the cut. **The truncation was mine, invisible in the output, and I read the visible
+thirty as the whole set.**
+
+**Found by the diagnosis loop**, which returned UNVERIFIABLE and was still worth its cost: it read
+the table I had declared absent and used it to weaken half my hypothesis.
+
+**The check.** An absence claim from a listing must state the listing's SIZE, and `head`/`LIMIT` must
+never be between the query and the conclusion. `SELECT count(*)` first, or `\dt *component*`, or sort
+so the interesting names cannot be the ones cut. This is the same defect as an author's own ellipsis
+in quoted evidence — already in this file's tally as *"verify an embedded/quoted artifact is COMPLETE
+before asserting it"* — arriving through a shell pipe instead of a code slice.
+
+### 6. Then, with the table in hand, I announced the conclusion from the counts — again
+
+The census returned **182 slots still interactive (control), 17 no longer interactive, 39 gone**.
+I wrote *"so the destruction HAS happened"* and said it aloud.
+
+**Then I opened the 17.** Fifteen are `ported-page` slots on `loancash.co.uk` guides whose byte
+count **GREW** (6,929 → 9,300 and so on) — an ordinary rebuild replacing ported HTML that happened
+to contain a `<script>`. One shrank modestly. One is a genuine 57% shrink worth its own look. **None
+is a page in the population under investigation.** The true finding is the opposite of the announced
+one: *searched with a working control, found no destroyed tools.*
+
+**This is the third occurrence today of one check** — entries 4, 6 and the "already armed" claim in
+entry 3 are all *"I described a set from its cardinality without opening its members"*. Entry 4 was
+logged two hours before this one, in this file, by me. **Knowing the rule did not stop me; the
+count arriving first is what does it**, because a count reads as a measurement and feels like the
+end of the work rather than the start of it.
+
+**The check, stated so it binds:** a count is a REASON TO LOOK, never a result. Before any sentence
+of the form "so X has happened", `LIMIT`-select the rows and read them — and for a small set, read
+all of them. If the set is too large to read, stratify and say you stratified. **When the tally in
+this file shows one check three times in a day, the check needs a mechanism, not another entry.**
