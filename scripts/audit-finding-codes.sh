@@ -67,6 +67,24 @@ if [[ -z "$CODES" ]]; then
     exit 2
 fi
 
+# RETENTION PARITY (migration 567). The registry says what a code IS; the live
+# `database-cleanup` sweep says how long it LIVES; the two must agree, or a
+# deliberate finding is being deleted at 30 days again — which is the whole
+# defect. Fetched here, the same way the codes are, because this wrapper has no
+# DB handle to give the binary: without it the parity half would run only in
+# --report mode, i.e. only in a CronJob that does not exist yet, and would be
+# one more mechanism that is built and never exercised.
+#
+# NOT guarded here, deliberately. An empty or unreadable fetch is passed
+# through and becomes a FINDING inside the checker (`retention_sweep_absent`),
+# because a skip and a clean result print the same thing from out here.
+SWEEP_FILE="$(mktemp)"
+trap 'rm -f "$SWEEP_FILE"' EXIT
+kubectl -n "$NAMESPACE" exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -At -c \
+    "SELECT pre_query FROM scheduled_tasks WHERE name = 'database-cleanup'" \
+    > "$SWEEP_FILE" 2>/dev/null || true
+
 printf '%s\n' "$CODES" \
   | (cd "$REPO_ROOT" && go run ./cmd/config-key-audit --finding-codes \
-        --registry "$REGISTRY" --root "$REPO_ROOT" "$@")
+        --registry "$REGISTRY" --root "$REPO_ROOT" --sweep-file "$SWEEP_FILE" "$@")

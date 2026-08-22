@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 // The sweep arm as migration 567 leaves it. Trimmed to the shape the parity
 // check reads — the DELETE, the list, and the RETURNING that bounds it.
@@ -119,5 +123,48 @@ func TestAgreeingRegistryIsSilent(t *testing.T) {
 	}
 	if got := auditRetentionParity(arm, reg); len(got) != 0 {
 		t.Errorf("an agreeing registry must be silent, got %+v", got)
+	}
+}
+
+// An empty or unreadable sweep fetch must be a FINDING, never a quiet skip.
+// The wrapper deliberately does not guard the fetch — it passes whatever it got
+// through to here — because out there a skip and a clean result print the same
+// thing. This is the assertion that makes that safe.
+func TestEmptyOrMissingSweepFileIsAFindingNotASkip(t *testing.T) {
+	reg := map[string]findingCodeEntry{"UNKNOWN": {Disposition: "operational"}}
+
+	empty := t.TempDir() + "/empty.sql"
+	if err := os.WriteFile(empty, []byte("   \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, path, wantKind string }{
+		{"empty fetch", empty, "retention_sweep_absent"},
+		{"missing file", t.TempDir() + "/nope.sql", "retention_sweep_unreadable"},
+	} {
+		got, state := parityFromSweepFile(tc.path, reg)
+		if len(got) != 1 || got[0].Kind != tc.wantKind {
+			t.Errorf("%s: want one %s finding, got %+v", tc.name, tc.wantKind, got)
+		}
+		if !strings.Contains(state, "NOT checked") {
+			t.Errorf("%s: state must say NOT checked, got %q", tc.name, state)
+		}
+	}
+}
+
+// And a sweep that IS readable reports parity rather than a refusal — otherwise
+// the test above would pass against a function that always refused.
+func TestReadableSweepFileIsActuallyChecked(t *testing.T) {
+	p := t.TempDir() + "/sweep.sql"
+	if err := os.WriteFile(p, []byte(testSweepArm), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, state := parityFromSweepFile(p, map[string]findingCodeEntry{
+		"UNKNOWN": {Disposition: "operational"},
+	})
+	if len(got) != 0 {
+		t.Errorf("an agreeing registry must be silent, got %+v", got)
+	}
+	if !strings.Contains(state, "checked against") || strings.Contains(state, "NOT checked") {
+		t.Errorf("state must report a real check, got %q", state)
 	}
 }

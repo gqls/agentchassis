@@ -405,6 +405,7 @@ func emitFindingCodes(args []string) {
 	registryPath := findingCodeRegistryPath
 	root := "."
 	report := false
+	sweepFile := ""
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--registry":
@@ -423,9 +424,22 @@ func emitFindingCodes(args []string) {
 			i++
 		case "--report":
 			report = true
+		case "--sweep-file":
+			// The hand-run wrapper has no DB handle of its own — it reads the
+			// table through kubectl and pipes. Without this flag the parity check
+			// would run ONLY in --report mode, i.e. only in the CronJob that does
+			// not exist yet, which is the "built but never exercised" shape this
+			// estate keeps paying for. The wrapper fetches database-cleanup's
+			// pre_query the same way it fetches the codes and passes it here.
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "config-key-audit --finding-codes: --sweep-file needs a file path")
+				os.Exit(2)
+			}
+			sweepFile = args[i+1]
+			i++
 		default:
 			fmt.Fprintf(os.Stderr, "config-key-audit --finding-codes: unrecognised argument %q "+
-				"(want: [--registry <file>] [--root <dir>] [--report])\n", args[i])
+				"(want: [--registry <file>] [--root <dir>] [--report] [--sweep-file <file>])\n", args[i])
 			os.Exit(2)
 		}
 	}
@@ -481,6 +495,9 @@ func emitFindingCodes(args []string) {
 					live = append(live, s)
 				}
 			}
+		}
+		if sweepFile != "" {
+			parityFindings, parityState = parityFromSweepFile(sweepFile, reg)
 		}
 	}
 	if err != nil {
@@ -665,4 +682,41 @@ func loadRetentionArmFromDB(db *sql.DB) (string, []findingCodeFinding) {
 		}}
 	}
 	return arm, nil
+}
+
+// parityFromSweepFile runs the retention parity check over a pre_query the
+// caller fetched itself. Same three refusals as the DB path, for the same
+// reason: an unreadable or empty sweep must be a FINDING, never a skip — a
+// skipped parity check and a clean one print the same thing, and this mode's
+// whole subject is checks that cannot fail.
+func parityFromSweepFile(path string, reg map[string]findingCodeEntry) ([]findingCodeFinding, string) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return []findingCodeFinding{{
+			Kind:   "retention_sweep_unreadable",
+			Code:   retentionSweepTask,
+			Detail: "--sweep-file " + path + ": " + err.Error() + " — parity was NOT checked.",
+		}}, "NOT checked — the sweep file could not be read (see findings)"
+	}
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return []findingCodeFinding{{
+			Kind: "retention_sweep_absent",
+			Code: retentionSweepTask,
+			Detail: "--sweep-file " + path + " is empty. The fetch of `" + retentionSweepTask +
+				"`'s pre_query returned nothing, which means the task is gone, renamed, or the " +
+				"query failed — not that retention agrees with the registry.",
+		}}, "NOT checked — the sweep file is empty (see findings)"
+	}
+	arm, ok := extractErrorLogArm(string(raw))
+	if !ok {
+		return []findingCodeFinding{{
+			Kind: "retention_sweep_no_error_log_arm",
+			Code: retentionSweepTask,
+			Detail: "--sweep-file " + path + " contains no `DELETE FROM agent_error_log … RETURNING` " +
+				"arm. A lost arm means nothing is ever deleted, which looks like health from here.",
+		}}, "NOT checked — no agent_error_log arm in the sweep (see findings)"
+	}
+	f := auditRetentionParity(arm, reg)
+	return f, fmt.Sprintf("checked against %s's agent_error_log arm (via --sweep-file) — %d disagreement(s)",
+		retentionSweepTask, len(f))
 }
