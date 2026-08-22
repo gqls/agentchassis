@@ -37,7 +37,7 @@ arming.
 >    `bugs_open/344` stated in both the code and the migration: `apply_edit` has no `error_step`,
 >    so the DRIVING item of a refused edit may read `complete` until 344 lands — the live page is
 >    protected either way, and the filed item survives.
-> 2. **The chrome record ARMED** (migration `550`, appliable on sight — the Go half is live).
+> 2. **The chrome record ARMED** (migration `550` — APPLIED 2026-08-22, 7/7 steps, independently verified).
 >    Measured first per §5: the chrome store (`site_components`) references only components with
 >    ZERO required llm fields, so the arm fires on 0 rows today — free now, and the door closes
 >    before a chrome component that declares required fields (five exist in the library) is ever
@@ -52,6 +52,20 @@ arming.
 >    templates with no component row; a contact-info block whose callers hold no schema; a
 >    stitched TEMPLATE whose content arrives later; audit probes that remove fields by design).
 >    Still no change owed there.
+>
+> **APPROVED 2026-08-22 (council `3626629a`, round 2, three advisories none high) — and `550` IS
+> APPLIED AND LIVE.** All seven `render_site_components` steps carry `record_absent_required_fields`,
+> verified by reading the live rows rather than the migration's own post-check, with a negative
+> control (the REFUSE key must still be armed nowhere — it is). ⚠ **Advisory worth inheriting
+> (`guardian`): neither the chrome record nor the chrome refusal runs on the `!force`
+> idempotent-skip path.** For the refusal that is correct — the exit fires precisely when nothing
+> is about to be written. For DETECTION it is a real, pre-existing blind spot: an
+> already-populated slot is never inspected by a non-forced refresh. **So do not read the armed
+> record as "every chrome slot is checked continuously"** — what is checked is every slot the
+> function is about to WRITE. ⚠ Also inherited (`bug_historian`, low, and it is right): this
+> remains per-call-site patching of a generic root cause (`missingkey=zero`), because refusing at
+> the SEAM is new authority over content that renders successfully today (owner 2026-08-02 §2).
+> That is the standing argument, not a settled one.
 >
 > **ROUND 2 (council `3626629a` REVISE → resubmitted): the chrome store gets the SAME refusal,
 > and it is deliberately UNARMED.** The `bug_historian` seat used this bug against the plan and
@@ -76,7 +90,7 @@ arming.
 > `render_site_components` 7 top-level / 0 nested.
 >
 > **Remaining to close this file:**
-> 1. apply `550` (appliable now) and, after the next roll, `551` + the canary — which checks
+> 1. ~~apply `550`~~ **DONE 2026-08-22, live and verified.** After the next roll: apply `551` + the canary — which checks
 >    THREE things: the live section byte-identical, the `required_fields_missing` item filed, and
 >    the DRIVING item's terminal status READ (expect `complete` until `bugs_open/344` lands; its
 >    fingerprint is `retry_after > completed_at` on a `complete` row);
