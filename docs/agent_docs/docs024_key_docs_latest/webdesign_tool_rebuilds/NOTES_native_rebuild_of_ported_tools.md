@@ -2590,3 +2590,73 @@ LOCATION too, the fixed-and-live bar moves them).
 
 **PHASE A: 28 of 63 rebuilt AND all 28 confirmed at the served bytes. 35 remain: 13 Phase C
 (external-script), 22 Phase B (≥8 KB, five rich apps last, owner-reviewed).**
+
+## 2026-08-22 11:06Z — FOUR RETIRED SLOTS WERE RESURRECTED by literal_markdown section-edits; four pages publicly served BOTH tools for ~19 hours; repaired and re-proven, class bug filed
+
+**The 17:05Z "PHASE A 28/28 CONFIRMED" table above was true when written and was invalidated ~90
+minutes EARLIER for four pages by a mechanism nobody was watching** — the passes themselves were
+graded on pages the sweep had not yet re-assembled; the dated-pass discipline held, the estate moved.
+
+**What happened (every step measured live, timestamps from the rows):**
+1. 2026-08-21 13:19:02Z — a quality-discovery sweep filed SEVEN `literal_markdown` items for this
+   site (created_by `generic`). This was the 277 lane's canary batch for their new
+   `rendered_html_transform` route (bugs_open/277 §5, migrations 499/513, their commit `91cd28919`
+   "canary run, 7/7 repaired and proven at the served bytes").
+2. Four of the seven targeted PORTED SLOTS THIS LANE HAD RETIRED (`build_status='removed'`):
+   grid-generator, json-cleaner, noise-generator, text-extractor. The check's row selection has
+   **no build_status filter** (`check_literal_markdown.go:391-398` — only `locked_at IS NULL`), so a
+   tombstone is on its audit surface. The other three (cubic-bezier, head-architect,
+   learn-design-physics-of-ui) edited legitimately-deployed slots — harmless, actually beneficial.
+3. The section-editor's `updatePageComponentAfterEdit` (`section_editor_actions.go` ~1436/1445)
+   writes `build_status='approved'` UNCONDITIONALLY — its only guard is the lock predicate
+   (`AgentWritableSQLFor`, chrome_render_inputs.go:91). So each edit RESURRECTED the tombstone.
+   Flips bracketed by the items' claim windows exactly: grid 13:30:49 (claim 13:30:17→13:30:56),
+   json 13:32:22 (13:31:45→13:32:27), noise 13:33:05 (13:32:29→13:33:09), text 13:36:55
+   (13:36:22→13:37:02). Byte evidence: grid md5 `0a83f2c4…`(6,828)→`e1abd0bb…`(6,839), json
+   `370aa856…`(5,296)→`5fadf7ca…`(5,307) — +11 chars each, one code-span→`<code>` conversion.
+4. The afternoon sweep rerenders then assembled the pages with BOTH slots live (completes: grid
+   15:19:12, json 15:22:07, noise 15:28:32, text-extractor 16:29:08; grid again ~18:14) and the
+   'approved' slots became 'deployed' — invisible to `check_page_component_status_drift` (known
+   status). **All four pages publicly served two stacked tools from ~15:19Z 08-21 to ~11:01Z
+   08-22** (confirmed at the served bytes cache-busted on both days: grid 24,545 B `ported-page`=1,
+   json 20,179 B, noise 23,514 B, text 24,500 B).
+
+**Repair (this session):** pre-state recorded (ids/lengths/md5s above); re-retire of all four in ONE
+guarded txn with DO/RAISE asserts (4 flipped, 0 ported deployed remain, 4 native deployed remain),
+committed 10:57:18Z and RE-READ post-commit (the aborted-txn trap). Four corrective assemble-only
+`page_rerender` items filed 10:5xZ (`f2391468`, `4e67ea98`, `0883673c`, `fa06e903`), attended with a
+foreground poll loop, all complete 10:59:29–11:01:53Z.
+**SERVE-GRADE PASS ×4** (cache-busted, http=200 first, last-modified > completed_at):
+grid 18,114 B LM 11:01:16 · json 15,280 B LM 11:01:16 · noise 17,798 B LM 11:02:03 · text 17,989 B
+LM 11:02:03; `ported-page` 0 and `{{.` 0 on all four; negatives all 0 (grid: gridPreview/cols/rows/
+gap/copyCSS/"Visualizing the Grid"; json: `id="jsonInput"`, `onclick=`; noise: `id="freq"`,
+`onclick=`, `alert(`; text: htmlInput/textOutput/preserveLines/copyText/"Strip the Code");
+positives present (grid: "Why fr units instead of percentages" 1, colsRange/gapValue/copyStatus;
+json: json-input/error-area/limit-message/process-btn; noise: colorPicker/errorMessage/previewDark;
+text: htx-input/htx-preserve/htx-copy-status).
+⚠ Control lesson: the 08-20 09:00Z table's "fr-explainer 1" was this file's own SHORTHAND for the
+pinned literal `Why fr units instead of percentages` — grepping the shorthand scores 0 on a correct
+page. Grade the PINNED LITERAL, not the label this file gave it.
+
+**Tally CORRECTION — the DB says 27 rebuilt, not 28.** The handoff's check query
+(`GROUP BY build_status` on ported slots) now reads `removed`=27, `deployed`=36; pages with a native
+tool slot = 27, and the 27 names match this file's entries with ONE number unaccounted (the running
+#N tally drifted by one somewhere before #24 — 14 named at the 08-19 tally + 8 (#16–#23) + 5
+(#24–#28) = 27 names for 28 numbers). Phase A IS still complete: every self-contained <8 KB tool is
+among the 27. **Remaining: 36 = 13 Phase C (external-script) + 23 Phase B (≥8 KB self-contained,
+five rich apps last).** The 08-21 handoff's "28 of 63 / 35 remain" carries the drift.
+
+**Class bug FILED: `bugs_open/360`** (a section edit resurrects a removed page_component). Fix
+candidates ordered by what closes the door: (1) section-editor update helpers + target resolution
+refuse `build_status='removed'` rows (makes resurrection unrepresentable for EVERY filer);
+(2) `check_literal_markdown` Run+verifier exclude removed slots (a tombstone is not on the page);
+(3) migration 486's `create_section_edit_delivery` INSERT gains the same predicate (its placement
+SELECT has no build_status filter either — the same hole one producer over, and it fires on EVERY
+owned placement of a fixed component at once). Cross-refs: `bugs_open/356` §6-B already names
+`check_literal_markdown.go:392` as one of 17 PAGE-axis routing gaps — 360 is the COMPONENT-axis
+sibling with a worse failure mode (356's handlers all refused retired pages; this handler obeyed
+and UN-RETIRED the component). The 277 lane's "7/7 repaired and proven" claim needs a correction —
+their serve proof checked markdown absence, not slot count; notified via CONTRIB into their lane dir.
+**Until a fix ships: after EVERY retire, re-read the tombstone's build_status at the end of the
+attendance window, and treat any `literal_markdown`/`section_edit` item naming a retired page as a
+resurrection in progress** (added to the RUNBOOK).

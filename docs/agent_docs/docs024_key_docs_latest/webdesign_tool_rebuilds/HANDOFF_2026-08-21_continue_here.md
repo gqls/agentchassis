@@ -15,6 +15,21 @@ background watchers deliver LATE (measured 6h), and turn-end is not knowable in 
 ⚠ Bug files MOVE when fixed-and-live: resolve `bugs_open/` vs `bugs_closed/` BEFORE appending — a
 `cat >>` to the stale path silently creates a stray (caught here only by the pathspec commit).**
 
+> **CORRECTED 2026-08-22 11:10Z — READ BEFORE ACTING ON THE PARAGRAPH ABOVE.** Three claims moved:
+> (1) **"ALL 28 serve-graded PASS" was invalidated for FOUR pages ~90 min before it was written**:
+> a `literal_markdown` section-edit canary (the 277 lane's route, migrations 499/513) edited four
+> RETIRED ported slots at 13:30–13:37Z on 08-21 and set them back to `approved` — the section-editor
+> writes `build_status='approved'` unconditionally and `check_literal_markdown` scans tombstones —
+> and the afternoon sweeps then published grid-generator, json-cleaner, noise-generator and
+> text-extractor with BOTH tools stacked, publicly, until 11:01Z on 08-22. **Repaired and
+> re-proven at the served bytes** (NOTES 2026-08-22 11:06Z); class bug `bugs_open/360`;
+> **interim rule: after every retire, re-read the tombstone's `build_status` at the end of the
+> attendance window** (RUNBOOK).
+> (2) **The tally is 27 of 63, not 28** — the DB check query is authoritative (`removed`=27 after
+> the repair; 27 pages carry a native slot; the running #N numbering drifted by one). Phase A is
+> still complete: every self-contained <8 KB tool is among the 27.
+> (3) **Remaining: 36 — 13 Phase C + 23 Phase B** (not 35 / ~22).
+
 Read: this file → `PLAN_2026-08-15_…` (design + owner rulings) → `RUNBOOK_…` (every command — note
 the REWRITTEN "retire race" section) → `NOTES_…` (evidence, newest at bottom; the 2026-08-20
 17:05Z entry is the day's hardest lesson) → `SUMMARY_2026-08-20_the_walls_came_down.md`.

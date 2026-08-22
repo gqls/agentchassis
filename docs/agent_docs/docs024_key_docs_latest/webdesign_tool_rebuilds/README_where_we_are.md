@@ -212,3 +212,22 @@ oklch colour picker was rebuilt in place — same identity, old version kept aut
 the CSS ordering defect fixed — and the live page now serves the corrected tool. The runbook's
 three-step manual workaround and its race are retired: fixing a built tool is now a single request
 with one extra line in it.
+
+## 2026-08-22 — four finished pages briefly went backwards, and it was not our doing
+
+Overnight discovery: four of the tools we had already rebuilt and proven (the grid generator, the
+JSON cleaner, the noise generator and the text extractor) were publicly showing BOTH the old and the
+new tool again — stacked on one page — for about nineteen hours. Nobody broke them on purpose. A
+housekeeping robot that fixes stray markdown punctuation went over the whole site yesterday
+lunchtime, found some in the OLD, retired copies of those four tools, "fixed" it there, and in doing
+so marked those retired copies as live again. The next routine re-publish then put them back on the
+pages. The housekeeping robot's own success check looked only at the punctuation, so it reported a
+perfect run.
+
+All four pages were repaired this morning and re-checked on the real website — each shows exactly
+one tool again. The deeper problem is filed as bug 360: the page editor should refuse to touch a
+retired section at all, and until that is fixed we re-check every retirement by hand at the end of
+each swap. One bookkeeping correction that surfaced while proving the damage: the true count is
+twenty-seven tools rebuilt, not twenty-eight — a counting slip in our own running tally, now
+corrected against the database. Thirty-six remain: thirteen whose logic lives in separate files,
+then the big ones.

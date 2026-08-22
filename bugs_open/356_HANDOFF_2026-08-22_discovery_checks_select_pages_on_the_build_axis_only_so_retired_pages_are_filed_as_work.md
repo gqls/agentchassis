@@ -383,3 +383,17 @@ the single-helper treatment the lifecycle axis never did) · `bugs_open/349` (th
 same family: `PageWantedLivePredicateFor` is lifecycle-only, so a never-built page passes it) ·
 `bugs_closed/287` (why 8 of the 34 results are unreadable) · `bugs_open/149` (the discovery
 checker-layer defect queue).
+
+## §6-B gap #5 escalation, 2026-08-22 (contrib from the webdesign_tool_rebuilds lane) — `check_literal_markdown` did not merely FILE work at retired state, it UN-RETIRED the state
+
+This file's thesis is "retired pages are filed as work for handlers that all correctly refuse
+them". Gap #5 (`check_literal_markdown.go:392`, the `none` row in the table) has now produced the
+counterexample on the COMPONENT axis: the check also scans `page_components.build_status='removed'`
+tombstones (only `locked_at` is filtered), its new section-editor `rendered_html_transform` route
+(bugs_open/277 §5, mig 499/513) dispatched four such findings on 2026-08-21 13:19Z, and the
+handler did NOT refuse — `updatePageComponentAfterEdit` writes `build_status='approved'`
+unconditionally, so four retired slots were resurrected and four public pages served two stacked
+tools for ~19 h. Full mechanism, measured trail and fix candidates: **`bugs_open/360`**. Filed
+there rather than here because the deciding writer is the section-editor's (component-axis), not
+the page-axis selection this file owns — but a fix to gap #5 should take the component-axis
+predicate in the same commit, and the posture registry entry with it.

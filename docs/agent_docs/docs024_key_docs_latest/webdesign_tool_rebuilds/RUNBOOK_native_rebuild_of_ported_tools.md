@@ -319,3 +319,31 @@ replacement (adopt route) is unchanged — the retire step still applies there.
 must include the TL-047 commit, and `SELECT default_config#>>'{workflow,steps,save_tool,config,replace_existing!}'
 FROM agent_definitions WHERE type='tool-generator' AND is_active AND NOT COALESCE(is_snapshot,false)` must
 return `input_data.spec.replace_existing`.
+
+## ⚠ A retire can be UNDONE by a section edit (added 2026-08-22 — four slots resurrected, `bugs_open/360`)
+
+The assemble race above is not the only way a retired slot returns. `check_literal_markdown` scans
+tombstones (no build_status filter) and its section-editor `rendered_html_transform` route writes
+`build_status='approved'` unconditionally — on 2026-08-21 it un-retired FOUR of this lane's
+tombstones and the sweep published four double-tool pages for ~19 h. Until 360's fix ships:
+
+- **At the END of every retire's attendance window, re-read the tombstone:**
+  ```sql
+  SELECT build_status, updated_at FROM page_components WHERE id='<retired row id>';
+  ```
+  Must still be `removed`; an `updated_at` newer than your retire is a resurrection in progress —
+  re-retire (same guarded UPDATE; the bytes may legitimately differ now, the markdown fix is
+  content repair) and confirm a rerender follows.
+- **Periodically (and before citing any old serve-grade): count at the page** — exactly one
+  non-`removed` slot per rebuilt page. Whole-batch check:
+  ```sql
+  SELECT p.name FROM pages p
+  JOIN page_components pp ON pp.page_id=p.id AND pp.slot_name='ported-page' AND pp.build_status<>'removed'
+  JOIN page_components nt ON nt.page_id=p.id AND nt.slot_name<>'ported-page'
+  WHERE p.site_id='6b49db8e-d447-4467-8277-4f3018af9897' AND p.name LIKE 'tool-%';
+  -- any row = a resurrected tombstone on a rebuilt page
+  ```
+- An open `literal_markdown` or `section_edit` item naming a rebuilt tool page is the early
+  warning — check it BEFORE it completes.
+- Phase C addendum: the same applies to the external S3 asset's retirement — nothing edits those
+  back today, but the slot half of a Phase C retire is exactly this trap.
