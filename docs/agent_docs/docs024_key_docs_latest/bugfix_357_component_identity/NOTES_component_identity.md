@@ -185,3 +185,42 @@ at ~380–445 exempts self-contained tools via `isSelfContainedSection` (~1270),
 **with** a schema [MEASURED], so the exemption never fires for these rows — they are processed as
 ordinary sections end to end. That is the seam where a tool-shaped payload could be recognised and
 is not.
+
+## 2026-08-22 (later still) — the persistence mechanism, and the general form of the defect
+
+`carryStoredSection` (`rerender_page_sections_action.go:1150-1169`) forwards the stored row as one
+bundle: `rendered_html`, `stored_slot_name`, `component_id` and `content_data`. On the receiving
+side `extractSectionsFromMetadata` prefers `stored_slot_name` over everything else when naming the
+section. **Identity, bytes and content are propagated together, verbatim, and nothing compares
+them.**
+
+That the vetcomparison row was CARRIED rather than rendered is not an assumption: the hero template
+opens `<section class="hero" data-component="hero"`, and the stored 11,326 bytes contain no
+`data-component` at all, so they cannot be that template's output. Only a carry branch emits stored
+HTML. **Which** carry branch (component unresolvable / section not ready / empty template) is not
+established — three reach `carryStoredSection` and the logs for that run have rotated.
+
+### The general form, which is the part worth fixing
+
+> A component row's **identity** (`component_id`, `slot_name`), its **bytes** (`rendered_html`) and
+> its **content** (`content_data`) are written, carried and re-written as an atomic bundle by every
+> path in the page-composition system — and **no seam anywhere asserts that the three agree**.
+
+Two independent consequences, and the second is why this is not a data-repair job:
+
+1. **A pairing that is wrong once is wrong for ever.** The carry preserves it faithfully.
+2. **It is refreshed on every pass**, so the population is self-renewing and cannot be repaired
+   ahead of the producer.
+
+Where identity is *invented* rather than carried, it is invented **positionally**
+(`enrichSectionsWithPlannedNames`: `planned[Position-1]`), from a plan, without looking at the
+bytes — which is how a tool comes to be called a hero in the first place. Origin and persistence are
+therefore two different code paths, and a fix that addresses only one leaves the class alive:
+fixing the origin leaves 22 rows re-minting for ever; fixing the carry leaves the next tool page
+mislabelled at birth.
+
+**The one place both converge** is `save_page_sections_action.go`'s single
+`INSERT INTO page_components` (~line 999) — documented in-code as *"the single INSERT every
+page-composition path flows through"*, and already carrying a precedent guard
+(`sectionIsUnresolvableStub`, `bugs_open/039`) that refuses a bad row, raises a typed work item and
+continues. That is the seam, and the precedent is the shape.
