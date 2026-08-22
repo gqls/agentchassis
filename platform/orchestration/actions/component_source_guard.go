@@ -186,11 +186,7 @@ func SourceVocabularyFindings(inputSchemaJSON string, knownSpecAspects map[strin
 			}
 			aspect, _, _ := strings.Cut(path, ".")
 			if !knownSpecAspects[aspect] {
-				aspects := make([]string, 0, len(knownSpecAspects))
-				for a := range knownSpecAspects {
-					aspects = append(aspects, a)
-				}
-				sort.Strings(aspects)
+				aspects := KnownAspectsSorted(knownSpecAspects)
 				issues = append(issues, SourceIssue{
 					Field: name, Source: source, Class: SourceIssuePhantomAspect,
 					Message: fmt.Sprintf(
@@ -200,6 +196,28 @@ func SourceVocabularyFindings(inputSchemaJSON string, knownSpecAspects map[strin
 		}
 	}
 	return issues
+}
+
+// KnownAspectsSorted renders an aspect set as the deterministic, sorted list
+// that gets shown to a human or a model.
+//
+// It exists because there are now TWO consumers of that rendering and they must
+// not drift: this file's phantom-aspect refusal message (which tells the author
+// of an already-generated component which aspects it could have used), and
+// load_existing_component's pre-generation advisory (which tells the WRITER the
+// same thing, before it guesses). A component writer that is shown one list and
+// judged against another is the defect bugs_open/337 is about, and two
+// hand-maintained renderings of one vocabulary is the drift class bugs_open/282
+// records. One function, both callers — so "the list the refusal prints" and
+// "the list the writer sees" are the same string by construction, not by
+// inspection.
+func KnownAspectsSorted(knownSpecAspects map[string]bool) []string {
+	aspects := make([]string, 0, len(knownSpecAspects))
+	for a := range knownSpecAspects {
+		aspects = append(aspects, a)
+	}
+	sort.Strings(aspects)
+	return aspects
 }
 
 // LoadKnownSpecAspects reads the live site_specs aspect vocabulary — every

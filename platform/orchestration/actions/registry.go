@@ -807,7 +807,7 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 	"load_existing_component": {
 		Handler:     LoadExistingComponentAction,
 		Category:    "site",
-		Description: "Load existing component field names for regeneration preservation",
+		Description: "Load the birth gate's contracts for the component writer: existing field names, the function pin, and the resolvable source vocabulary",
 		IsLocal:     true,
 	},
 	"write_audit_findings": {

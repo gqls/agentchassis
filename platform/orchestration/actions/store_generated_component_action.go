@@ -1331,36 +1331,6 @@ func createRerenderWorkItem(
 	return true
 }
 
-// ---------------------------------------------------------------------------
-// Validation rejection logging
-// ---------------------------------------------------------------------------
-
-// orphanSchemaFieldPattern extracts the field name from a Direction-2
-// sync issue like:  schema field "card_link_label" has no template variable
-var orphanSchemaFieldPattern = regexp.MustCompile(`^schema field "([^"]+)" has no template variable$`)
-
-// unknownTemplateVarPattern extracts the field name from a Direction-1
-// sync issue like:  template var {{.cta_link}} has no schema entry
-var unknownTemplateVarPattern = regexp.MustCompile(`^template var \{\{\.([^}]+)\}\} has no schema entry$`)
-
-// recordValidationRejection writes a structured row to agent_error_log
-// when pre-store validation rejects an LLM-generated component. This
-// gives us a queryable trail of which fields the LLM keeps getting
-// wrong, separable from the rest of the chassis log noise.
-//
-// Best-effort: failures inside this helper are logged at warn level but
-// do not affect the caller's return path. The action still returns the
-// same rejection error to its caller.
-//
-// Severity mapping:
-//   - "warning"  — Direction-2 bookkeeping mismatch (schema declares a
-//     field the template doesn't use, or vice versa). The
-//     LLM produced something structurally well-formed but
-//     failed list-reconciliation. Common, addressable.
-//   - "error"    — Structural failures (template not closed, missing
-//     data-component, "<no value>" artifacts, 0-placeholder
-//     substantive template). These indicate the LLM
-//     produced something broken at a deeper level.
 // healRejectedComponentSectionType fills a NULL section_type on the row a
 // REFUSED regeneration was targeting, so the component stops being invisible to
 // the two readers that key on that column.
@@ -1412,6 +1382,36 @@ func healRejectedComponentSectionType(
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Validation rejection logging
+// ---------------------------------------------------------------------------
+
+// orphanSchemaFieldPattern extracts the field name from a Direction-2
+// sync issue like:  schema field "card_link_label" has no template variable
+var orphanSchemaFieldPattern = regexp.MustCompile(`^schema field "([^"]+)" has no template variable$`)
+
+// unknownTemplateVarPattern extracts the field name from a Direction-1
+// sync issue like:  template var {{.cta_link}} has no schema entry
+var unknownTemplateVarPattern = regexp.MustCompile(`^template var \{\{\.([^}]+)\}\} has no schema entry$`)
+
+// recordValidationRejection writes a structured row to agent_error_log
+// when pre-store validation rejects an LLM-generated component. This
+// gives us a queryable trail of which fields the LLM keeps getting
+// wrong, separable from the rest of the chassis log noise.
+//
+// Best-effort: failures inside this helper are logged at warn level but
+// do not affect the caller's return path. The action still returns the
+// same rejection error to its caller.
+//
+// Severity mapping:
+//   - "warning"  — Direction-2 bookkeeping mismatch (schema declares a
+//     field the template doesn't use, or vice versa). The
+//     LLM produced something structurally well-formed but
+//     failed list-reconciliation. Common, addressable.
+//   - "error"    — Structural failures (template not closed, missing
+//     data-component, "<no value>" artifacts, 0-placeholder
+//     substantive template). These indicate the LLM
+//     produced something broken at a deeper level.
 func recordValidationRejection(
 	ctx context.Context,
 	db *sql.DB,
