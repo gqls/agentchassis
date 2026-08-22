@@ -358,3 +358,17 @@ catching each other's cases, which is what they are for. A content refresh is qu
 page re-publishes itself after that. Tomorrow: the two loan-site calculators rebuild once
 their team's window closes, the morning sweep should report a clean estate, and then both bug
 files can finally close.
+
+**2026-08-22, close of play.** Both bug files are closed. The week's arc, in one breath: we
+found that no calculator on the estate could ever appear twice on a page; we converted every
+existing one (proving the loan site identical to the penny with an independent referee); we
+found and repaired the damage our own converter had quietly caused; we taught the tool factory
+the rule, put a guard on both of its doors, and set a daily sweeper behind every other door —
+and today the machinery ran without us: the sweeper's own escalation rebuilt three stubborn
+tools, the guard refused the bad drafts and accepted the good ones, and the rebuilt debt
+consolidation calculator came out computing to the exact penny the referee expects. Two small
+things wait on people, both harmless meanwhile, both filed where the right person will find
+them. Along the way we broke another team's build for three hours by removing a setting we
+wrongly thought was ours — owned, attributed, and written into the permanent mistakes log with
+the check that prevents it. The referee's expected score is now 166, the loan team has been
+told why, and the lane is done.
