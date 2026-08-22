@@ -14977,3 +14977,27 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **⚠ and the sibling trap, which fires straight after this one:** having chosen a slot, do **not** `deploy-` before `build-` and `push-`. An absent image gives `ImagePullBackOff`, the Job shows as RUNNING, and a check that has never once executed looks healthy — so its silence reads as "nothing is wrong" for as long as nobody looks.
 - **relations:** LANDMINES *"`make deploy-component-render-check` ships NOTHING on its own"* (the overlay/tag half of the same deployment) · the ImagePullSecrets family (`removed-config-keys-check` hit the RUNNING-not-FAILED reading on its first rollout) · MEMORY [[prove-a-deploy-at-the-artefact-index]] · CLC-025 / `bugs_open/309` (the entry this came out of — 07:20 was chosen against the repo list, not the cluster's)
 - **added:** 2026-08-22, `bugfix_309_unclickable_index_cards` lane
+
+---
+
+### CORRECTING a `page_components.slot_name` makes the NEXT rebuild append the tool beside a freshly generated section — the carry-forward that protects the bytes matches on the slot NAME and nothing else
+
+- **footprint:** `platform/orchestration/actions/save_page_sections_action.go` (`SavePageSectionsAction` Layer 2 interactive carry-forward, :470–550, the match at :517; `sectionHTMLIsInteractive` :1677; `interactiveHTMLSQL` :1698) · `page_components.slot_name` · `pages.sections` · any re-typing, decomposition or identity repair of a component row · `bugs_open/357` · `bugs_open/283`
+- **fires when:** you fix a component row whose declared identity is wrong — the obvious repair for a mislabelled row, and one that looks byte-preserving because you do not touch `rendered_html` at all. Layer 2 exists to stop a rebuild blanking an interactive tool, and it works: it preloads every stored row whose HTML looks interactive and puts it back. But it decides **which incoming section to put it back into** with `sections[i].ComponentName == p.slot` — **exact slot-name string equality, no fallback to position, component_id or bytes**. Rename the stored slot and the match fails, control reaches the `default:` arm — *"Slot dropped entirely — re-append the tool so it survives"* — and the tool is **appended as an extra section** while the freshly generated section for the original slot is **also** saved. The page silently gains a section and the tool moves. Nothing errors; the tool is still served, so a "is the tool still there?" check PASSES; and the row count is the thing that changed, which is exactly the axis that flips a page between verbatim and assembled.
+- **the tell, and it is inverted:** the safer the change looks, the more this bites. `updated_at = created_at` across the affected rows reads as "born this way, never touched" and actually means this writer DELETEs and re-INSERTs, so every row is newly born, repeatedly — a rename therefore takes effect on the very next rebuild, not at some later migration.
+- **the check, before renaming any slot:**
+  ```bash
+  # 1. does anything still name the OLD slot? pages.sections is the plan the rebuild reads.
+  #    If it does, the rename desynchronises the plan from the row and arms the default: arm.
+  ```
+  ```sql
+  SELECT p.name, p.sections FROM pages p WHERE p.id = '<page>';   -- must be updated in the SAME transaction
+  ```
+  Then prove it at the artefact rather than at the item: record the page's **row count and per-row
+  `md5(rendered_html)` before**, let one rebuild run, and compare. **A count that went up by one is
+  the failure**, and it is invisible to any check that only asks whether the tool is still present.
+  Mutation-provable: rename a slot without touching `pages.sections`, rebuild, and the page gains a
+  section every time.
+- **relations:** `bugs_open/357` §10 (found while answering a council objection, not from a symptom) · `architecture_review/RFC_046` (the general form — identity is inferred five ways and stamped none, and this is inference #5) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]]
+- **source:** 2026-08-22, `bugfix_357_component_identity` lane — found by checking a council objection whose stated mechanism was wrong; the protection keys on the BYTES, but its matching keys on the NAME, and only the second one matters here
+- **added:** 2026-08-22, `bugfix_357_component_identity` lane
