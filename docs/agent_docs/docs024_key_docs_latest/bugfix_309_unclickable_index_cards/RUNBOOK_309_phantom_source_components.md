@@ -161,3 +161,71 @@ GROUP BY i.component, i.id ORDER BY live_instances DESC, bad_fields DESC;
   query *names*; this query returns 14 *fields* over those same 7 names. Both are right.
   Comparing one to the other reads as the gate leaking and is the single easiest way to
   manufacture a false finding here.
+
+## Deploying `component-source-vocabulary-check`, and PROVING it ran (council `a092d7d8`, debug_historian)
+
+**Order matters and getting it wrong is invisible.** The image must exist at the pinned
+tag BEFORE the overlay is applied: an `ImagePullBackOff` on this fleet reports as a Job
+still **RUNNING**, never FAILED, so a check that has never once executed looks healthy.
+
+```bash
+# 1. Image first. Builds from committed HEAD (git archive) - commit before building.
+make build-component-source-vocabulary-check
+make push-component-source-vocabulary-check
+# 2. Only then the manifest. Bump newTag in the overlay in the SAME commit as the build.
+make deploy-component-source-vocabulary-check
+```
+
+**Then prove it at the artefact, in this order. Do not stop at the make target — it
+reports success either way.**
+
+```bash
+# (a) Did the manifest actually take the tag you built? The jsonpath cannot be misread;
+#     `configured` vs `unchanged` in the apply output is the cheap signal, this is the sure one.
+kubectl -n ai-persona-system get cronjob component-source-vocabulary-check \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'; echo
+
+# (b) Does the BINARY carry the mode? Probe a KNOWN value with a control in the same
+#     breath - never `strings` (absent from these images), never a discovery grep.
+POD=$(kubectl -n ai-persona-system get pods -l app=component-source-vocabulary-check \
+        -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- \
+  grep -aq -- '--component-source-vocabulary' /proc/1/exe && echo "PRESENT (expected)"
+kubectl -n ai-persona-system exec "$POD" -- \
+  grep -aq -- '--no-such-mode-should-exist' /proc/1/exe && echo "CONTROL FAILED - grep matches anything"
+
+# (c) Trigger a run and read the POD's exit code. A Job is not a pod and a log line is
+#     not an exit code.
+kubectl -n ai-persona-system create job --from=cronjob/component-source-vocabulary-check csv-manual-1
+kubectl -n ai-persona-system get pods -l job-name=csv-manual-1 \
+  -o jsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'; echo
+# EXPECTED ON A HEALTHY ESTATE: 0. 1 = a red (read the doc_notes row, it says which of the
+# four). 2 = the check could not run, which must NEVER be read as a pass.
+
+# (d) The row it wrote. This is the positive control on the REPORT path - a pod that
+#     exits 0 having written nothing is a broken reporter, not a clean estate.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -q -c "
+SELECT created_at, left(body, 400) FROM doc_notes
+ WHERE source='component-source-vocabulary-check' ORDER BY created_at DESC LIMIT 1;"
+```
+
+⚠ **`writeDocNote` is BEST-EFFORT — a failed write only warns, and the exit code still
+carries the finding.** That is deliberate (a failure to RECORD must not become a failure
+to REPORT), but it means step (d) is not optional: without it, a silently refused insert
+looks exactly like a healthy quiet run. `doc_notes.subject_type` is CHECK-constrained to
+`{tool, pipeline, experience, action, experience-pattern, landmine, component, decision}`
+and `writeDocNote` sends `'pipeline'`, which is in the set (`[MEASURED 2026-08-22]` 1,895
+existing rows) — raised by the council's guardian seat and verified rather than assumed.
+
+**Running it by hand, with no cluster and no risk**, which is how every control in NOTES
+was produced:
+
+```bash
+go build -o /tmp/cka ./cmd/config-key-audit
+# state in, findings out; exit code is the verdict
+/tmp/cka --component-source-vocabulary \
+  --baseline docs/agent_docs/docs024_key_docs_latest/bugfix_309_unclickable_index_cards/component_source_baseline.json \
+  < payload.json
+```
+The payload is `{"aspects": [...], "components": [{"id","name","input_schema","live_instances"}]}`.
+Build one from the live DB with the `jsonb_build_object` query in the census section above.

@@ -313,3 +313,131 @@ path, which makes it the *robust* half rather than merely the *remaining* half.
 transcript sweep of all sessions active today: three cite 309 (the 238 lane, the 337
 lane, a remortgagecalculator CSS lane) and every hit is prior-art citation — none edits
 `component_source_guard.go` or anything in this lane. **No competing owner.**
+
+## 2026-08-22 (afternoon) — the at-rest audit BUILT, and everything that had to be proven rather than asserted
+
+### What shipped
+
+`config-key-audit --component-source-vocabulary` + daily CronJob at 07:20 UTC.
+`747e717a1` (mode, rule refactor, frozen baseline, tests), `effd08fff` (image, manifests,
+makefile), `62f187442` (`bugs_open/362` + a correction), register `CLC-025`.
+
+**The rule is CALLED, not mirrored.** `component_source_guard.go` now returns
+`[]SourceIssue{Field,Source,Class,Message}` from `SourceVocabularyFindings`, and
+`SourceVocabularyIssues` is a thin projection over it. The birth gate's pre-existing
+tests pass **untouched**, which is the evidence its behaviour is unchanged — not a
+claim about the refactor, an observation about the tests that were already there.
+
+### The controls, run against the REAL live library
+
+| control | expected | got |
+|---|---|---|
+| day-one green over live state | exit 0, 69 grandfathered | **exit 0**, 69 = 51/14/4, 17 components, 6 live, 46 instances |
+| the **real** pre-478 `blog-listing_pre_037` schema re-enters the library | RED | **exit 1**, phantom_aspect ×7 |
+| a SECOND bad field on already-baselined `info-card-grid` (32 live instances) | RED | **exit 1** |
+| a baselined field changes to a DIFFERENT dead source | RED twice (new + stale) | **exit 1**, both |
+| a baselined component is repaired/removed | RED (stale) | **exit 1** |
+| a DORMANT baselined component gains a live instance | RED | **exit 1** |
+| zero aspects (the FLOOD direction) | exit 2 | **exit 2** |
+| zero components (the SILENCE direction) | exit 2 | **exit 2** |
+
+> **The demand control is the real pre-478 schema, not a synthetic one** — pulled from
+> `content_components_bak_20260818_309_blog_listing`, the backup migration 478 took of
+> itself. A synthetic phantom schema would have proven the regex works; this proves the
+> check catches **the thing this bug is about**.
+
+> ⚠ **And the demand control alone does NOT prove the baseline key is narrow enough**,
+> which I nearly recorded as if it did. `blog-listing_pre_037` has no baseline entry at
+> all (478 repaired it), so a component-keyed baseline would have gone red too. The test
+> that actually discriminates is the **second bad field on `info-card-grid`** — a
+> component that IS baselined, on 32 live instances. Under the 4-tuple key it is red;
+> under a component-keyed one it is silently grandfathered. **The control that proves a
+> detector fires is not automatically the control that proves it fires for the right
+> reason.**
+
+### Six mutation proofs — every one KILLED its test
+
+Each applied to the working tree, test run, file restored byte-identical
+(`diff -q` confirmed). `make build-*` builds from `git archive HEAD`, so a working-tree
+mutation structurally cannot reach an image — which is what makes this safe on a shared
+tree.
+
+| mutation | test that must die | result |
+|---|---|---|
+| `baselineKey` returns `componentID` only | `TestBaselineKeyIsNarrow` | ✔ killed |
+| the closure-date refusal removed | `TestBaselineIsClosed` | ✔ killed |
+| `WokeUp` hard-coded false | `TestDormantWakingIsRed` | ✔ killed |
+| `staleBaselineEntries` returns nil | `TestRepairedEntryIsStale` | ✔ killed |
+| audit drops a class the birth gate reports | `TestAuditRunsTheBirthGatesOwnRule` | ✔ killed |
+| a baseline route points at a non-existent file | `TestRepoBaselineMatchesItsRecordedCensus` | ✔ killed |
+
+### The council round, and the part of it that was my fault
+
+**Round 1: REVISE**, gated by `editquality`. **The gating objection was right about the
+SUBMISSION and wrong about the WORK**, and the fault is mine, not the seat's: squeezing
+the edit list to the ≤8 cap left one entry named `base/cronjob.yaml` carrying makefile
+and docs content. Four objections across two seats then reported `base/kustomization.yaml`,
+the production overlay and the `RELEASE_IMAGES` entry as **MISSING** — all three shipped
+in the same commit. **A reviewer can only review what the submission says.** Logged in
+`WRONG_CALLS.md`, and it is the second time this exact failure is on that file.
+
+Objections that were owed real work, and got it:
+
+- **debug_historian — no deploy-verification step.** Owed, and now in the RUNBOOK: image
+  before manifest; the cronjob's image by jsonpath; a binary probe with a
+  **must-be-ABSENT control** alongside the must-be-present one; a manual Job read at the
+  **pod's** `terminated.exitCode`; then the `doc_notes` row as the positive control on
+  the report path — `writeDocNote` is best-effort, so a silently refused insert otherwise
+  looks exactly like a healthy quiet run.
+- **guardian — is `doc_notes.subject_type` CHECK-constrained?** It is:
+  `{tool, pipeline, experience, action, experience-pattern, landmine, component, decision}`.
+  `writeDocNote` sends `'pipeline'`, which is in the set (`[MEASURED]` 1,895 rows). Checked
+  rather than assumed, because the write is best-effort and a violation would be swallowed.
+- **guardian — enumerate the call sites rather than asserting the refactor is safe.**
+  Done: exactly **one** production caller, `store_generated_component_action.go:413` and
+  `:430`. The seat guessed `create_tool_component_action.go` might be another; it contains
+  **zero** references. Its instinct was right and its specimen was wrong, which is
+  precisely why "enumerate, don't assert" is the correct ask.
+- **reuse_agent — why not reuse `optional_key_budget_acks.json`'s mechanism?** Fair, and
+  answered on **lifecycle** rather than format: the existing ack files are
+  acknowledgement registers keyed by one subject with a scalar level, and they **grow** as
+  a human acknowledges each new subject. This is a frozen census, machine-generated, keyed
+  per finding, and it may only **shrink**. One abstraction would force one lifecycle on
+  both and make this file appendable — the single property it exists to deny.
+- **bug_historian — a detector whose only output is a `doc_notes` row is the
+  `bugs_open/083` shape.** The sharpest objection of the round. Answer: the row is the
+  DETAIL, the **failed Job is the alarm** — a red exits 1. And filing into work items
+  would BE the 083 shape, since detection→dispatch is the broken half.
+
+**Round 2 resubmitted** under the same trail correlation `a092d7d8` with an accurate edit
+list. `RESUBMIT_CORR` keeps the trail in one place.
+
+### Two missteps recorded at the point they were made
+
+- **"147 components"** went into the PLAN having never been measured — it is **285
+  active**. Caught re-reading my own prose for the one number with no query behind it.
+  Dangerous precisely because every other figure in that paragraph *was* measured: an
+  invented number inherits its neighbours' credibility, and no marker rule catches that.
+- **"`STRUCTURAL_KEY_CARRY_MISS` is one of 358's unread codes"** — false when written.
+  `cmd/content-loss-check` consumed it as of `cba51ad1d` *that morning*; 8 of its 28 rows
+  are now `resolved`. Caught by the 358 lane, **re-verified here at the source and the
+  table before accepting it**. The decision it justified (don't route findings into
+  `agent_error_log`) survives on a better reason the correction does not touch: that
+  writer only fires when a page is **BUILT**, so the eleven dormant components are outside
+  its reach permanently, however faithfully its rows are read.
+
+### One shared-tree incident, and what it teaches
+
+The `358` session committed `cmd/config-key-audit/main.go` by pathspec while my dispatch
+arm was in the working tree and its symbol was still untracked — so HEAD carried
+`undefined: emitComponentSourceVocabulary` and **would not build fleet-wide**. They
+removed the arm (`8664a7f96`) rather than committing my files under their message, which
+was the right call twice over. Restored here in the commit that supplies the symbol.
+
+**The durable lesson is the check, not the incident:** a green working-tree build says
+nothing about HEAD when an untracked file supplies a symbol. Every commit in this phase
+was verified by extracting `git archive HEAD` into a scratch tree and building **there**.
+That also caught a second instance of the same class one layer down — my
+`TestRepoBaselineMatchesItsRecordedCensus` reads the baseline JSON from a repo-relative
+path, so the JSON had to be in the same commit or HEAD's tests would fail while my tree
+stayed green.
