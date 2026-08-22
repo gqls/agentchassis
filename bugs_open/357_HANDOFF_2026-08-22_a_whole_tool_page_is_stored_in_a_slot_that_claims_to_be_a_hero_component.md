@@ -352,3 +352,52 @@ have surfaced:
 **The transferable point for whoever arms this:** the exemption is not a tuning threshold, it is a
 statement about what the platform legitimately does. Any version of this guard that lacks it will
 refuse three correct pages on `loancash.co.uk` the first time they are rebuilt.
+
+### 9. CORRECTION to §5, and the casualty question is now ANSWERED: no tool has been destroyed
+
+§5 said the question was unanswerable because *"there is no systematic `page_components` history
+(only ad-hoc `_backup_*` tables)"*. **That is false.** `page_component_history` exists — **26,965
+rows over 558 pages, 2026-03-16 → 2026-08-22**, with `rendered_html`, `slot_name`, `op` and
+`created_at`. It is `bugs_closed/229`'s page-side artefact archive. I missed it because my table
+listing was piped through `head -30` and this database has 71 matching tables whose alphabetical
+head is all `_backup_*` / `page_components_bak_*`. Logged in `WRONG_CALLS.md`; found by the
+diagnosis run, which read the table I had declared absent.
+
+**With it, the answer is NO**, and it is a searched-with-a-control no rather than an absence:
+
+| slots that were interactive in history | |
+|---|---|
+| still interactive today (**control**) | **182** |
+| no longer interactive | 17 |
+| slot gone entirely (not opened; not claimed either way) | 39 |
+
+Opening all 17: **fifteen GREW** (`loancash.co.uk` guide pages, `ported-page` slot, e.g. 6,929 →
+9,300 bytes) — an ordinary rebuild replacing ported HTML that happened to contain a `<script>`, not
+a loss. One shrank modestly (`fundamentallyai.com` `platform-log-index`, 14,256 → 11,470). One is a
+real 57% shrink worth its own investigation: **`webdesign.co.uk` `learn-ai-builders-content-first`,
+8,855 → 3,781, 2026-08-15** — recorded here as a lead for whoever wants it, NOT as a 357 casualty.
+**None of the 17 is a page in this file's population.**
+
+### 10. Council trail `62aac6c2` — TWO revise rounds, and the second one is why this needs an RFC
+
+- **Round 1 REVISE** (gated by `bug_historian`). Checking its objection found a worse defect in my
+  own plan: the Layer 2 carry-forward matches stored rows to incoming ones on **slot-name equality
+  and nothing else** (`save_page_sections_action.go:517`). So *correcting* a row's identity makes
+  the next plan-driven rebuild miss the match, take the `default:` re-append branch, and save the
+  incoming hero band **beside** the tool. **A byte-preserving re-type would change what four live
+  sites serve.** Fix candidate 1 in this file inherits that hazard and must not be attempted without
+  it.
+- **Round 2 REVISE** (gated by `editquality`, seconded by `bug_historian`): the resized,
+  record-only plan *"changes nothing but writes a log/work-item … the diagnosed corruption is not
+  stopped"*, and is the estate's own `079`/`083` "detected but never blocked" recurrence. Fair, and
+  accepted.
+
+**The `architecture` seat named the real answer and it is now `architecture_review/RFC_046`:**
+identity here is **inferred five different ways and stamped none** (attribute; the `"section"`
+sentinel; position; fuzzy name matching; slot-name equality), and a sixth inference is not the fix.
+Round 1 was unsafe, round 2 was ineffective, and that oscillation is the evidence that no
+inference-based fix is both.
+
+**So the state of this bug is: cause established and cited, population corrected to 22 and still
+minting, no casualties found, both proposed repairs blocked on a mechanism question that is now an
+open RFC.** Nothing has been changed in code or on any site.
