@@ -14625,3 +14625,25 @@ code change owed at the next roll, tracked in RFC_015 §5.
   ⚠ **`nc -z` alone is not evidence** — without the closed-port control, a `nc` that is missing, aliased or busybox-limited yields the same silence as a blocked port, and you will read "no reach" off a broken instrument.
 - **also worth knowing:** `wg show` gives you public keys, not names. The authoritative name↔key↔IP mapping is the `# peer_<name>` comments in `/config/wg_confs/wg0.conf`. Do **not** map peers by reading `/config/peer_<name>/peer_<name>.conf`'s `PublicKey` — that field is the **server's** key and is identical in all three files, so a session matching on it concludes every peer is the same peer.
 - **source:** 2026-08-22, `webdesign_uk_build_service` lane, while answering the owner's D-A question about whether core-manager may be publicly reachable. Found by reading the July `gauntlet_dead_cta` bastion design — which had documented the mechanism correctly a month earlier and been applied nowhere — and then checking whether the thing it forbade was already true. It was.
+
+---
+
+### After `tr '\n' ' '`, `grep -c` can only ever return 0 or 1 — so the estate's own unwrap recipe answers "did I lose any?" with "no" whether you lost one or fifty
+
+- **footprint:** `tr '\n' ' '`, `tr -s ' '`, `grep -c`, `MEMORY.md` / `MEMORY_*.md` (hard-wrapped), `LANDMINES.md`, `WRONG_CALLS.md`, any append-only ledger integrity check, any "prove the detail survives elsewhere" verification
+- **fires when:** you carry the estate's standard unwrap idiom into a question about **quantity** — "did my edit drop any occurrences?", "are all N entries still there?", "how many callers survived?". **No symptom, and it fails in the reassuring direction.** The command is the one the docs prescribe, it runs clean, it prints a number, and the number is the one you were hoping for.
+- **the mechanism:** `grep -c` counts **matching LINES, not matches**. `tr '\n' ' '` collapses the file to a single line. So the composed pipeline returns `1` if the pattern occurs anywhere and `0` if it does not — **a boolean wearing a count's clothing.** It cannot distinguish one occurrence from fifty, and therefore cannot detect a loss, which is usually the only thing you ran it to rule out.
+- **⚠ THE RECIPE IS NOT WRONG WHERE IT LIVES — the TRANSFER is, and that is what makes this portable.** `MEMORY.md`'s header prescribes `tr '\n' ' ' <f.md | tr -s ' ' | grep -c "…"` for *"prove the detail survives elsewhere"*, which is a **presence** question about hard-wrapped prose where a line-oriented `grep -F` reports **false absences**. For that question it is exactly right and the false-absence hazard it guards is real. It stops being an instrument the moment the question becomes "how many". **Do not go and edit `MEMORY.md`** — it is correctly scoped there, and it is shared, co-edited state.
+- **the check — use the counting form, and say which question you are asking:**
+  ```bash
+  # PRESENCE (what MEMORY.md prescribes; correct):
+  tr '\n' ' ' < f.md | tr -s ' ' | grep -c "the phrase"        # 0 or 1, and that is all it means
+  # COUNTING (what an integrity check needs):
+  tr '\n' ' ' < f.md | tr -s ' ' | grep -o "the phrase" | wc -l
+  ```
+  For an append-only ledger, count is still the weaker check: assert the **set difference** both ways — word-level diff empty in the removed direction, non-empty in the added direction **as the positive control** that your diff can see anything at all.
+- **⚠ why it is invited rather than merely possible:** `grep -c` **is** a counting instrument everywhere else on this estate, in dozens of entries above. It silently stops being one only after `tr '\n' ' '` — so the failure arrives by carrying a habit one step, not by writing something odd. That is the 029 lane's framing and it is the sharpest part of this entry.
+- **it is not prospective — it fired today.** `[2026-08-22]` A session closed an **append-only-integrity** flag on `LANDMINES.md` (the "did this commit delete another lane's entry?" check) with the boolean form. Its conclusion happened to be right and its evidence could not have shown otherwise. Two lanes then hit the same family within the hour from other directions: a "no dead pointer remains" grep that counted a *prohibition* and a *quotation* as live pointers, and an assertion whose EXPECTATION was wrong rather than its file.
+- **relations:** the `bugs_open/`-prefix entry above (second-order traps, and the set-difference recipe) · the `10000` substring entry (a different `grep -c` failure — over-match, not under-count) · MEMORY [[measurement-discipline-index]] (your measurement answers the question you ENCODED) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
+- **source:** 2026-08-22, named by the `bugfix_029` lane while closing out, written up by the `040` lane; both had independently misused a count-shaped check in the same session
+- **added:** 2026-08-22, `bugs_open/040` lane
