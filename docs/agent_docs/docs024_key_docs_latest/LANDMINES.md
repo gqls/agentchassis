@@ -14648,3 +14648,28 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the `bugs_open/`-prefix entry above (second-order traps, and the set-difference recipe) · the `10000` substring entry (a different `grep -c` failure — over-match, not under-count) · MEMORY [[measurement-discipline-index]] (your measurement answers the question you ENCODED) · MEMORY [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-08-22, named by the `bugfix_029` lane while closing out, written up by the `040` lane; both had independently misused a count-shaped check in the same session
 - **added:** 2026-08-22, `bugs_open/040` lane
+
+---
+
+### A `pages` query that filters on `status` may be filtering on NOTHING — two of the four spellings in live use exclude no row at all, and both read exactly like a lifecycle filter
+
+- **footprint:** `pages.status`, `COALESCE(p.status, '') <> 'deleted'`, `status IN ('active','deployed')`, `datahelpers.PageWantedLivePredicateFor`, `datahelpers.PageHasShippedPredicateFor`, `platform/orchestration/datahelpers/links.go`, `platform/orchestration/actions/discovery_checks/`, any new `FROM pages` / `JOIN pages` query
+- **fires when:** you read a query to decide whether it excludes retired pages, or you copy an existing check's page predicate into a new one. **No symptom, and the wrong reading is the reassuring one** — the SQL contains the word `status`, the predicate looks deliberate, and reviewers move on.
+- **the mechanism:** `pages.status` has exactly **two** live values — `active` and `archived` (759 / 65, [MEASURED 2026-08-22]). So:
+  - **`COALESCE(p.status, '') <> 'deleted'` excludes ZERO rows.** There is no `deleted` status and there never has been in this vocabulary. Live in `check_sectionless_pages.go` and `check_section_source_drift.go`; the first files `needs_content_page` at `page-build-handler` at **priority 90** with an archived page's id.
+  - **`p.status IN ('active','deployed')` works only by ACCIDENT.** `deployed` is a `build_status` value, not a `pages.status` one, so the second arm never matches and the predicate behaves as `= 'active'`. It is correct today and stops being correct the moment `deployed` is added to either vocabulary. Live in `check_content_image_missing.go` and `check_voice_tells.go`.
+- **⚠ AND THE STRING BEING PRESENT PROVES NOTHING ABOUT WHICH TABLE IT BINDS TO.** Nearly every check in that package also joins `site_nav_items sni ... AND sni.status = 'active'`. A `grep -c` for the lifecycle arm scores `check_orphan_pages.go` — **the file whose entire defect was having no lifecycle arm** — at **2**, both hits on the nav join. This has now produced a false-clean reading **three times**: a grep-count while filing the bug, and twice inside the guard written to prevent it (`WRONG_CALLS` 2026-08-22).
+- **the check — resolve the alias, then query the vocabulary, then prefer the helper:**
+  ```bash
+  # 1. Which table does the predicate bind to? Read the FROM/JOIN clause; grep cannot tell you.
+  # 2. Does the value it names exist at all?
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+    -c "SELECT status, count(*) FROM pages GROUP BY 1 ORDER BY 2 DESC"
+  # 3. Then write it as the helper, not by hand:
+  #    AND ` + datahelpers.PageWantedLivePredicateFor("p") + `
+  ```
+  In `discovery_checks/` the choice is now **declared and build-enforced** — `pageLifecyclePostures` in `page_lifecycle_posture_test.go` (register **WII-025**). A new pages-querying check fails the build until its author declares a posture, and an `Armed` declaration is re-checked against an alias-bound needle.
+- **⚠ THE OPPOSITE ERROR IS ALSO LIVE, so do not "fix" every check you find.** An archived page **can still be serving 200 to the public** (`bugs_open/266`), so a check that only OBSERVES — `check_unverified_claims`, which flags unsupported public claims — is **right** to look at archived pages and has a mutation test defending that. Its predicate is a third shape, `NOT (p.status = 'archived' AND <never deployed>)`. **The discriminator is what the finding's REMEDY does**: a remedy that mutates, re-renders or re-links the page needs the lifecycle arm; a remedy that only flags does not.
+- **why it is a landmine and not just a bug:** the two inert spellings were each written by someone intending a lifecycle filter, and both survived review because *reading the SQL is not sufficient* — you also have to know the column's vocabulary. Every consumer downstream then inherits a filter that is not there.
+- **relations:** `bugs_open/356` (the instance and the 18-check class) · `bugs_open/266` (the same axis confusion at deploy time, and the warning against blanket status filters) · `bugs_closed/185` (the BUILD axis got the single-helper treatment the lifecycle axis never did) · `bugs_open/349` (`PageWantedLivePredicateFor` is lifecycle-ONLY, so a never-built page passes it) · WII-025 · `LANDMINES` "a source-scanning test makes your COMMENTS load-bearing"
+- **added:** 2026-08-22, `bugs_open/356` lane

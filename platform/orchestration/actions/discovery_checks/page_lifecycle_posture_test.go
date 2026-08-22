@@ -176,6 +176,22 @@ type posture struct {
 // only the side that supports the thesis cannot detect a systematically
 // over-reporting audit. Every PostureArmed claim is additionally re-checked
 // mechanically by test 2 on every build.
+//
+// THE ARITHMETIC, stated because a reader must be able to see that no file was
+// silently dropped (council 4cf291a2, editquality, low). 71 non-test files in the
+// package; **51 of them query `pages` and are listed here; the other 20 do not
+// query it at all** and are therefore out of scope — they are not omitted, they
+// are not members. Nothing hand-maintains that split: the SENSOR recomputes it
+// from the directory on every run, so a file that STARTS querying pages joins the
+// population automatically and fails the build until it is classified.
+//
+//	20 Armed + 1 Nuanced + 7 Observes + 23 KnownGap = 51
+//
+// And the 23 gaps against bugs_open/356 §5's headline "18 checks can route an
+// archived page AT A HANDLER": **17 of the 23 route at a handler, 6 do not**
+// (they file at `handler_agent: ""`, or mutate/suppress without filing). The
+// eighteenth was check_orphan_pages.go itself, fixed in the same commit as this
+// file — so 17 remaining + 1 fixed = 18, and the two numbers agree.
 var pageLifecyclePostures = map[string]posture{
 	// ── Armed: the remedy touches the page, so a retired page must not qualify ──
 	"check_orphan_pages.go":             {Posture: PostureArmed, Alias: "p", Reason: "bugs_open/356's subject. All three remedies (internal-linker, nav-updater, rerender-pages) make the page more reachable, and all three already refuse retired pages; the producer was the sole outlier."},
@@ -353,7 +369,24 @@ func TestPageLifecyclePostureRegistryHasNoStaleEntries(t *testing.T) {
 // UNDER-stripping, "which could only ever cause a false PASS". It over-stripped
 // and caused a false FAIL — the stated limit was wrong about its own direction,
 // which is the more interesting half: a hand-reasoned bound on a hand-rolled
-// parser is worth about as much as the parser. go/scanner tokenises Go properly,
+// parser is worth about as much as the parser.
+//
+// ⚠ A SIBLING IMPLEMENTATION EXISTS AND IS DELIBERATELY NOT REUSED — it carries
+// the bug described above. `actions/diagnose_load_runtime_schema_test.go:252`
+// declares a function of the same name, byte-scanning for `//` and `/*`. Run
+// against `req.Header.Set("Accept", "*/*")` it returns everything up to the `*`
+// and DISCARDS THE REST OF THE FILE [MEASURED 2026-08-22, both inputs executed].
+// Reusing it — which would also mean hoisting a test helper into non-test code
+// across a package boundary — would have imported the exact defect this version
+// was written to fix. Not filed as a bug and not edited from here: it scans
+// exactly one file, `diagnose_load_runtime_action.go`, which contains no `*/*`
+// [MEASURED: 0 occurrences], so it is LATENT there, not blind today. Its owning
+// lane should know; the finding is recorded in bugs_open/356 rather than acted on
+// uninvited. Raised by the council's reuse_agent seat (corr 4cf291a2, low) asking
+// whether an existing helper had been searched for — it had not, and searching
+// found one worth NOT using.
+//
+// go/scanner tokenises Go properly,
 // so string literals, raw strings and comments are distinguished by the same code
 // the compiler uses, and there is no bound left to reason about.
 func stripGoComments(src string) string {

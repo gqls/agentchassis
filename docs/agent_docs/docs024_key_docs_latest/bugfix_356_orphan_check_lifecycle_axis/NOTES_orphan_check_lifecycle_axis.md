@@ -153,3 +153,102 @@ disease. Recorded in the bug file as a hard requirement on fix candidate B.
   route to `handler_agent = ""`, so they cannot dispatch — assumed harmless, **not measured**.
 - Whether `check_unlinked_components.go:57`'s `UPDATE` on archived pages' components has done
   observable damage. Noted in the bug file, not chased.
+
+---
+
+## 2026-08-22 (later) — building the fix, and getting the guard wrong twice
+
+The instance fix is two lines. The class guard took three attempts, and the two failures are
+the most useful thing in this file.
+
+### MISSTEP 4 — the guard was satisfied by its own comment
+
+`TestArmedChecksActuallyCarryALifecycleArm` scanned the whole file for
+`PageWantedLivePredicateFor`. I deleted the SQL arm from `check_orphan_pages.go` to prove the
+guard bites. **It passed.** The arm's own explanatory comment — which I had just written, two
+lines above the arm — names the helper in prose, so the string was still in the file while the
+predicate was gone.
+
+**What caught it:** running the mutation at all. The first draft of the docstring said
+"mutation-provable", which is a claim about a test I had not run. **The cheap check:** the word
+"provable" in a test comment is a to-do, not a property. This is `LANDMINES`' *"a
+source-scanning test makes your COMMENTS load-bearing"* firing inside a test written by someone
+who had read that landmine an hour earlier.
+
+### MISSTEP 5 — my hand-rolled comment stripper was wrong in the direction it said it could not be
+
+Fix for misstep 4: strip comments before matching. I wrote it by hand, scanning for `//` and
+`/* */`, and documented its limit as *"it does not know about `//` inside a string literal,
+which would make it UNDER-strip and could only ever cause a false PASS"*.
+
+Both halves of that sentence were wrong.
+
+- It **over**-stripped. `req.Header.Set("Accept", "*/*")` appears in two checks; the `/*` inside
+  that string literal read as a block-comment opener and discarded everything to end of file.
+  `check_asset_reference_404.go` and `check_page_content_divergence.go` failed while correctly
+  armed, their real arms 400 lines below the fake opener.
+- So the failure was a false **FAIL**, not a false PASS. **A hand-reasoned bound on a
+  hand-rolled parser is worth about as much as the parser.**
+
+Fix: `go/scanner`. The compiler's own lexer distinguishes string literals from comments, and
+there is no bound left to reason about. ⚠ It emits one token per line, so every needle must be
+a single Go token — pinned by a test case, because a two-token needle would silently never
+match.
+
+### MISSTEP 6 — the guard still asserted nothing, and this one is the same mistake as misstep 2
+
+With comments stripped, I re-ran the mutation. **It passed again.** The needle was an
+unqualified `status = 'active'`, and `check_orphan_pages.go` joins
+`site_nav_items sni ... AND sni.status = 'active'` twice. The guard was satisfied by a predicate
+on a different table.
+
+**This is misstep 2 verbatim, reproduced inside the guard written to prevent it.** I had
+recorded the grep-count trap in `WRONG_CALLS` that morning, quoted it in the council submission,
+and then encoded the identical blindness in Go.
+
+Fix: the registry now declares each file's **pages alias**, and the needle is bound to it
+(`\bp\.status\s*(=\s*'active'|…)`, plus the helper called with that alias). `[^.\w]` guards the
+unaliased form — RE2 has no lookbehind. This also let me **retract a false claim in my own
+header**: v2's header said the alias-blindness was inherent and "NOT A SUFFICIENT CONDITION". It
+was not inherent, it was an unqualified needle. That admission-as-discharge is exactly what
+`verifier_coverage_test.go`'s 2026-07-20 correction warns about, in this same package.
+
+### The mutation that finally counted
+
+Run with the decoys **deliberately left in place**, which is the part that matters — a
+clean-room mutation would have caught misstep 4 and passed misstep 6:
+
+```
+MUTATION A  delete the SQL arm (prose mention: 1, sni.status decoys: 2)
+            -> FAIL "carries no lifecycle arm bound to the pages alias \"p\""
+MUTATION B  break toolEligibilityWhere (the shared fragment 3 checks inherit)
+            -> FAIL "defines toolEligibilityWhere but it carries no lifecycle arm"
+RESTORED    full package suite ok
+```
+
+`TestSharedEligibilityFragmentCarriesTheArm` exists because of B: without it, deleting the arm
+from the shared fragment would leave all three inheriting checks still naming the identifier and
+still passing. A guard defeatable one level up is not a guard.
+
+### MISSTEP 7 — my cleanup trap wrote a stray .go file into the repo root
+
+`trap 'cp /tmp/backup.go check_orphan_pages.go' EXIT` with a RELATIVE path, in a command that
+later `cd`ed to the repo root. The trap fired in the new directory and created
+`agentchassis/check_orphan_pages.go`. **`go build ./...` caught it; the package-scoped tests I
+had been running all along would not have.** On a shared tree with sessions running `git add -A`
+that is someone else's broken build and someone else's accidental commit. Absolute paths in
+traps; `git status --porcelain` + `go build ./...` after any mutate-and-restore. In
+`WRONG_CALLS`.
+
+## Where the two async jobs stand
+
+- **090 diagnosis, attempt 1** (`7bac4520`): **FAILED**, not refuted —
+  `call_diagnoser` died on `kafka … topic partition has no leader`, the documented spawn→call
+  handshake race. The intake item is parked at `diagnosing`; deliberately NOT cancelled (memory:
+  never cancel the failing row pre-diagnosis).
+- **090 attempt 2** (`cd3ad443`): re-fired with `FORCE=1` — justified because attempt 1 left an
+  explicit FAILED row with an infrastructure error, which is evidence for a retry, unlike a
+  MISSING row which is only latency.
+- **Council** (`4cf291a2`): dispatched, `review_editquality` executing at last check. Committed
+  with `Council-Submitted:` rather than holding the code — on a shared HEAD, holding it back is
+  not available (owner ruling 2026-07-29 §2).
