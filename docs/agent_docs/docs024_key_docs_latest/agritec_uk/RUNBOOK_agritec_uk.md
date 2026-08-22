@@ -162,3 +162,77 @@ mission_brief, roadmap_brief.
 **Gotcha:** never `UPDATE` a spec row in place. Supersede (`is_current=false, superseded_at=now()`)
 then insert, in one transaction. The partial unique index enforces one current row per
 `(site_id, aspect)`.
+
+---
+
+## 9. Reading an evidence run — the review is MANDATORY, and here is what to look for
+
+`verify_and_register` re-fetches every source and rejects a claim whose quote is not still there
+verbatim. That is a strong check and it is easy to over-read. **It establishes provenance and
+nothing else.** It does not check that the fact is relevant to this site, that the quote was read
+correctly, or that the run answered the question you asked.
+
+Measured on this lane, 2026-08-22: two runs, both `COMPLETED`. The first returned 10 facts, 9 of
+them primary GOV.UK/DEFRA, all usable. The second returned 5 facts of which **4 were unusable and
+one was actively misleading** — and it reported success identically. So the run status tells you
+nothing about the value of the output.
+
+Read every fact, every time, against these five:
+
+1. **Audience / market.** Is this figure about the people who read this site? The failure that cost
+   this lane a whole run: Ofgem's price cap is a *domestic* consumer protection, and every reader
+   here buys on non-domestic contracts. The claim was true, sourced, current — and wrong for
+   every reader. **This is the one that will not look like an error**, because nothing about a
+   true, well-cited fact announces that it is about somebody else.
+2. **Table scrapes.** Read the stored `quote`, not just the claim. If it contains two figures, a
+   `|`, or a run of numbers with no sentence around them, the extractor read a table and picked
+   one cell. Example caught here: a claim of "26.11 pence per kWh" whose quote also contained
+   "24.67 pence per kWh". Which column it was is unknowable from the register.
+   ```sql
+   SELECT f->>'value', left(f->'source'->'citation'->>'quote',160)
+     FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+          LATERAL jsonb_array_elements(ss.data->'facts') f
+    WHERE s.domain='agritec.uk' AND ss.aspect='evidence_base' AND ss.is_current;
+   ```
+3. **Content-free facts.** A fact with no `value` that carries no assertion either — "the dataset
+   was last updated on 30 June 2026" — is a whitelist entry that licenses nothing and dilutes the
+   register. Remove it.
+4. **Source host.** Group by host; primary sources should dominate. One command:
+   ```sql
+   SELECT regexp_replace(f->'source'->'citation'->>'url','^https?://([^/]+).*$','\1') AS host,
+          count(*)
+     FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+          LATERAL jsonb_array_elements(ss.data->'facts') f
+    WHERE s.domain='agritec.uk' AND ss.aspect='evidence_base' AND ss.is_current
+    GROUP BY 1 ORDER BY 2 DESC;
+   ```
+   A third-party host is not automatically bad — but it must be scoped in the claim text itself
+   ("Under the SFI 2023 offer…"), because the claim text is what the writer reads.
+5. **Did it answer the question?** Both halves. The energy run was asked for prices *and* carbon
+   intensity, returned no carbon-intensity fact at all, and completed successfully. A silent half-
+   answer is the easiest thing to miss, because the facts that did arrive look fine.
+
+**When you remove a fact, ban the figure too** — fail-closed, on the oufe precedent. If it later
+turns out to be the right number for a stated purpose, the ban forces a conscious return to the
+migration with the market and date attached. See `SEED_2026-08-22b_quarantine_domestic_energy_facts.sql`.
+
+**Verify a quarantine by CONTENT, not by count.** "Facts went 15 to 11" is also what removing the
+wrong four looks like. Assert the survivors by id.
+
+## 10. Rewriting the evidence register safely
+
+Supersede-then-insert, **as sequential statements inside one transaction**. Never as a single
+statement with data-modifying CTEs: all CTEs share one snapshot, so the INSERT's uniqueness check
+cannot see the sibling UPDATE's supersede and you get
+
+    duplicate key value violates unique constraint "idx_site_specs_current"
+
+Guard with `DO`/`RAISE`, not a `SELECT` verify block — `ON_ERROR_STOP` ignores a non-empty result,
+so a `SELECT` cannot stop a `COMMIT`. Assert the *pre-state* you expect (row count and fact count);
+if another session has written to the register since you read it, the guard aborts instead of
+overwriting their work. Worked examples: `SEED_2026-08-22_sfi26_bans.sql`,
+`SEED_2026-08-22b_quarantine_domestic_energy_facts.sql`.
+
+**Do not run two evidence-researcher dispatches concurrently.** Each one supersedes and rewrites
+`evidence_base` wholesale; two in flight is a lost-update race, and the loser's facts vanish with
+no error anywhere. Fire them one at a time and read each before the next.
