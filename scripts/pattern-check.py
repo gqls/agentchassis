@@ -1835,6 +1835,128 @@ def check_silent_reply_drop(files, ref, findings):
                 break                           # one finding per file is enough to act on
 
 
+# ── an overlay born outside the release lists ───────────────────────────────
+# bugs_open/318. A new service arrives correct in every visible way — dockerfile,
+# kustomize overlay, build-/push-/deploy- targets, proven in-cluster — and absent
+# from RELEASE_IMAGES, so no release will ever move it again. EIGHT services have
+# now done this. Six were folded in by owner ruling on 2026-08-18; two MORE fell
+# in on 08-21 and 08-22, authored by sessions that had that ruling in front of
+# them, because the coverage gate's admission test was membership of the very
+# list they had missed.
+#
+# The hard gate (BLD-026, `make check-release-coverage` -> cmd/releasecheck) now
+# catches this, but only at the next `deploy-core`/`make release`. THIS is the
+# layer that catches it at the moment the omission is MADE, which is the whole
+# thesis of this script: knowing a pattern does not fire it; something at the
+# moment of the edit has to. The makefile's previous remedy was a comment in
+# capitals, and it demonstrably failed twice in two days.
+#
+# Precision: it fires only when a commit ADDS a production overlay pinning an
+# image under our registry. New production overlays are rare events (a handful a
+# month), and every one of them genuinely needs the answer.
+RELEASE_REGISTRY = "docker.io/aqls"
+OVERLAY_PATH_RE = re.compile(
+    r"^deployments/kustomize/services/(?P<svc>[^/]+)/overlays/production/.*kustomization\.yaml$")
+
+
+
+def _makefile_block(text, name):
+    """The values of a `NAME := a b \\` continuation block, as one string.
+    Mirrors pkg/releaseset.ParseMakefileDecls; kept to a few lines on purpose —
+    the authority is `make check-release-coverage`, and this is a nudge."""
+    out, current = [], False
+    for line in text.splitlines():
+        if not current:
+            m = re.match(r"^" + re.escape(name) + r"\s*[:?]?=(.*)$", line)
+            if not m:
+                continue
+            current, rest = True, m.group(1)
+        else:
+            rest = line
+        rest = rest.split("#", 1)[0].rstrip()
+        cont = rest.endswith("\\")
+        out.extend(rest.rstrip("\\").split())
+        if not cont:
+            break
+    return " ".join(out)
+
+
+def check_unlisted_release_overlay(files, ref, findings):
+    """bugs_open/318 — a new production overlay pinning one of OUR images must be
+    named in RELEASE_IMAGES in the same commit, or no release will ever move it."""
+    added = set()
+    out = (sh("git", "diff", "--name-only", "--diff-filter=A", ref[0], ref[1]) if ref
+           else sh("git", "diff", "--cached", "--name-only", "--diff-filter=A"))
+    for line in out.splitlines():
+        if OVERLAY_PATH_RE.match(line.strip()):
+            added.add(line.strip())
+    if not added:
+        return
+
+    # Read the makefile AS OF THIS COMMIT, not from the worktree: the question is
+    # whether the declaration lands WITH the overlay, and a worktree read would
+    # answer it "yes" for an edit the author has not staged.
+    mk = (sh("git", "show", f"{ref[1]}:makefile") if ref
+          else sh("git", "show", ":makefile") or file_content("makefile"))
+
+    for path in sorted(added):
+        m = OVERLAY_PATH_RE.match(path)
+        svc = m.group("svc")
+        body = file_content(path, ref)
+        img = ""
+        for raw in body.splitlines():
+            t = raw.strip()
+            if t.startswith("newName:") or t.startswith("- name:") or t.startswith("name:"):
+                v = t.split(":", 1)[1].strip().strip("'\"")
+                if v.startswith(RELEASE_REGISTRY + "/"):
+                    img = v[len(RELEASE_REGISTRY) + 1:]
+                    if t.startswith("newName:"):
+                        break
+        if not img:
+            continue                       # upstream image, or a placeholder
+        # Search the DECLARATIONS, not the whole makefile. Searching the file
+        # would be satisfied by `$(call ref_build,<img>)` inside the service's
+        # own build target — which every one of these commits added, and which
+        # is exactly the thing that is NOT enough. Both birth commits would have
+        # read as compliant.
+        listed = _makefile_block(mk, "RELEASE_IMAGES") + " " + _makefile_block(mk, "OWN_LINEAGE")
+        if img in listed.split() or any(e.split(":", 1)[0] == svc for e in listed.split()):
+            continue
+        findings.append((
+            "unlisted-release-overlay", path,
+            f"new overlay pins {BOLD}{RELEASE_REGISTRY}/{img}{RESET} and the makefile in this "
+            f"commit never names it",
+            "No release will build, push or retag it, so it freezes at whatever tag you push "
+            "by hand — silently, and the natural check ('is the pod healthy?') reads fine "
+            "because the pod is running perfectly, just old. Eight services have done this; "
+            f"two of them AFTER the owner ruling meant to close it. Add '{img}' to "
+            f"RELEASE_IMAGES and '{svc}' to AGENT_DEPLOY_SERVICES in THIS commit, or declare "
+            f"'{svc}:<its retag target>' in OWN_LINEAGE. The authority is "
+            "`make check-release-coverage` (bugs_open/318, register BLD-026); this warning is "
+            "only here because that one does not fire until the next release.",
+        ))
+
+
+
+# The check roster, at module level so it is SINGLE-SOURCED. `main()` runs it, and
+# `scripts/audit-advisory-findings.py` imports it to measure whether the findings
+# these produce are ever acted on (RFC_008's decisive question — this script's own
+# output is the thing being measured). Hoisted out of `main()` 2026-08-22; keeping a
+# second copy in the auditor is exactly the drift this estate keeps paying for.
+CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
+          check_unguarded_migration_insert, check_append_only_docs,
+          check_bug_file_duplicated,
+          check_truncation_without_reader, check_logged_model_output,
+          check_new_capability_surface, check_register_coverage,
+          check_register_entry_without_row,
+          check_runtime_fill_marker, check_unrepaired_component_write,
+          check_unscoped_component_render,
+          check_dynamic_item_type,
+          check_partial_page_upsert, check_silent_reply_drop,
+          check_handrolled_shipped_predicate, check_flexless_hamburger,
+          check_unlisted_release_overlay)
+
+
 def main():
     ref = None
     if "--commit" in sys.argv:                      # audit ONE commit in isolation
@@ -1847,17 +1969,7 @@ def main():
         return 0
 
     findings = []
-    for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
-                  check_unguarded_migration_insert, check_append_only_docs,
-                  check_bug_file_duplicated,
-                  check_truncation_without_reader, check_logged_model_output,
-                  check_new_capability_surface, check_register_coverage,
-                  check_register_entry_without_row,
-                  check_runtime_fill_marker, check_unrepaired_component_write,
-                  check_unscoped_component_render,
-                  check_dynamic_item_type,
-                  check_partial_page_upsert, check_silent_reply_drop,
-                  check_handrolled_shipped_predicate, check_flexless_hamburger):
+    for check in CHECKS:
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
