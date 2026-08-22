@@ -448,3 +448,79 @@ the reason — this is the single choke point every deploy passes through, its a
 logic has been inverted, and it can now fail a release it previously passed. A green run on
 today's compliant tree proves only that it *could* pass. When a release has run under it,
 `318` closes.
+
+---
+
+## 2026-08-22 — PHASE 2: the cluster census (candidate 3) is built, hand-run
+
+`make release-census` / `go run ./cmd/releasecheck --census`. Register **BLD-026**,
+`Council-Submitted: b0883c17-32a1-434d-b0ab-114df4cb04b1`.
+
+**This closes candidate 3 as a capability, not as a scheduled job** — see the two stated
+limits below before describing it as a detector.
+
+### Why it exists, in one sentence
+
+Everything else in this fix reads the **filesystem** and asks *can a release reach this
+service?*; the census reads the **cluster** and asks *does what is running match what is
+declared?* — because the filesystem and the cluster are two enumerations and **neither is
+a superset of the other**, which is exactly why the two shapes found while measuring were
+invisible to the gate in both directions.
+
+### The first live run `[MEASURED 2026-08-22]`
+
+```
+29 of 45 workloads run a docker.io/aqls/ image; the fleet is on v1.0.1323.  5 findings.
+```
+
+| kind | service | independently confirmed by |
+|---|---|---|
+| AHEAD OF THE FLEET (hand-deployed) | `commit-sha-exposure-check` v1.0.1324 | the `docker images` census earlier the same day |
+| AHEAD OF THE FLEET (hand-deployed) | `content-loss-check` v1.0.1324 | same |
+| BEHIND THE FLEET TAG | `optional-explicit-wires-check` v1.0.1321 | the overlay census earlier the same day |
+| DECLARED BUT NOT RUNNING | `capped-schedule-ordering-check` | found by hand; contributed to the `316` lane |
+| DECLARED BUT NOT RUNNING | `component-source-vocabulary-check` | the `309` lane's own commit: *"NOT yet built or deployed"* |
+
+**Zero false positives**, and no `RUNNING BUT NOT DECLARED` — every `aqls` workload in the
+cluster is accounted for by a declaration.
+
+### ⚠ The run found a defect in its OWN report, and that is the part worth reading
+
+The two v1.0.1324 findings first came out as **"RUNNING AN OLD FLEET TAG … while the fleet
+is on v1.0.1323"**. They are not old. They are **newer**, hand-deployed.
+
+**A report that states the opposite of the truth is worse than one that stays quiet** — a
+reader chasing a frozen service finds one that is, if anything, too new, and concludes the
+instrument works. Same family as the blind-pass landmine, one rung along: not a check that
+misses, but a check that asserts the inverse. Fixed three ways, each with a test:
+
+- the kind splits by **direction**, with **opposite remedies** — a straggler wants a
+  release; a hand-deploy wants the tag **never reused**, because a same-tag re-push serves
+  the node's cached image;
+- tags are ordered **numerically, not lexically**. Not theoretical: this estate is on
+  `v1.0.13xx`, so `v1.0.999 → v1.0.1000` is already behind us, and a string comparison
+  calls 999 the newer. Pinned by a test, along with the real `v1.0.948 → v1.0.1126` runner
+  freeze;
+- an **unorderable** tag (`latest`, a date, a different arity) gets its own kind rather
+  than a guessed direction.
+
+**What would have caught it earlier: nothing in the unit tests, because the fixtures
+covered the direction I had in mind and not its mirror.** Generalisable, and now in the
+lane NOTES: *when a finding has a direction, write the fixture for BOTH directions before
+running it anywhere* — a one-sided fixture cannot fail on the side it omits.
+
+### Two limits, stated so they are not read as oversights
+
+- **HAND-RUN ONLY.** No CronJob, no RBAC manifest, no `doc_notes` row. Nothing runs it
+  unless a person does, and it must **not** be described as a live detector. Scheduling is
+  a separate decision with its own round, and the split is deliberate: *"detection works;
+  SCHEDULE and DISPATCH do not"* is a measured finding on this estate, so a detector and
+  its driver are not claimed together.
+- **First container only.** `readWorkloads` reads `containers[0]`; a sidecar carrying one
+  of our images would be missed. None exists today. Named because it is the **same shape**
+  the council caught in round 1 (the `images:` block cap) — if a sidecar appears, look here.
+
+### What this does NOT change
+
+The close condition is unchanged and is still a single item: **a real release under the
+gate.** The census is a detector and cannot substitute for that.
