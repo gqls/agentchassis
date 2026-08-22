@@ -302,3 +302,79 @@ and `/c/` all verified answering afterwards.
 ⚠ **`phone.conf` still carries a `DNS =` line** and has *not* been rotated (its preshared key
 never leaked). On a phone that line is safe — mobile WireGuard apps scope DNS to the tunnel
 rather than writing it system-wide through `resolvconf`, which is the desktop-only fault above.
+
+---
+
+## Troubleshooting: tunnel comes up, but nothing works (2026-08-22, UNRESOLVED)
+
+Symptom on the client: `wg-quick up` succeeds, routes are added, DNS is fine, but `wg show`
+lists the peer with **no `latest handshake` and no `transfer` line at all**, and anything
+addressed into the cluster times out.
+
+**Read those two absent lines carefully — they are the whole diagnosis.** WireGuard learns a
+peer's address from its first *valid* packet. On the SERVER, the peer showed **no endpoint, no
+handshake, zero bytes received**, while the `webdesignbox` peer beside it kept handshaking
+normally throughout. So this is not a key problem, not a policy problem and not a routing
+problem: **nothing from the client is arriving at all.**
+
+### What was ruled out, and how
+
+| candidate | verdict | evidence |
+|---|---|---|
+| The `wireguard-egress-containment` fence | **NOT the cause** | `policyTypes: ["Egress"]` only — it cannot drop inbound handshakes. And if it dropped the *reply*, the server would still show an endpoint and non-zero rx for that peer. It shows neither |
+| Wrong / mismatched keys after the rotation | **NOT the cause** | The peer's public key is on the interface at `10.13.13.2/32`, and the preshared key digest is **identical** across all three copies: the keyfile, the live interface (`wg showconf`) and the client's own file |
+| Wrong server public key or endpoint in the client conf | **NOT the cause** | Client's `PublicKey` matches the server's; `Endpoint` interpolated correctly to `134.213.168.37:31820` |
+| `externalTrafficPolicy: Local` sending traffic to a node without the pod | **NOT the cause** | Policy is `Cluster`, **and** the pod is on `prod-instance-…1148`, which *is* `134.213.168.37` |
+| The node being unreachable from that network | **NOT the cause** | TCP to `134.213.168.37:30080` connects from the same laptop; a control port, `30099`, is properly refused |
+| UDP egress being blocked wholesale | **NOT the cause** | `dig @1.1.1.1` over UDP/53 works from the same machine |
+
+### ⚠ A probe that CANNOT answer this, so do not use it
+
+The obvious test — `nc -u` to the port and watch for an ICMP port-unreachable — **is useless
+here, and its own control proves it.** Probing `1.1.1.1:5399`, which is certainly closed,
+produced exactly the same silence as the open port. ICMP unreachables are not returning to this
+network at all, so "no ICMP back" carries no information: open, closed and filtered are
+indistinguishable. **A probe whose control returns the same answer as its subject has measured
+nothing.**
+
+### The measurement that WILL settle it — needs root on the client
+
+Watch whether the handshakes even leave the machine. Run the capture first, in its own
+terminal:
+
+```bash
+sudo tcpdump -ni any 'udp port 31820'
+```
+
+Then, in another terminal, bring the tunnel up with the dead-man's switch and force traffic:
+
+```bash
+sudo sh -c 'wg-quick up wg0; sleep 60; wg-quick down wg0'
+curl -m 10 -sS -o /dev/null -w '%{http_code}\n' http://10.21.171.225:8080/health
+```
+
+Read it as follows — the three outcomes are genuinely different faults:
+
+| tcpdump shows | meaning | next step |
+|---|---|---|
+| **nothing at all** | WireGuard is not even trying. Client-side config or routing | check `ip route get 10.21.171.225` returns `dev wg0` |
+| **outbound packets, no replies** | packets leave; the path or the far end drops them | try another network (below); then a different node IP |
+| **outbound and inbound** | the tunnel is working and the fault is above it | check the egress fence's allowlist for the destination |
+
+`PersistentKeepalive = 25` has been added to the client config, so the tunnel now sends every
+25s on its own — you no longer need to generate traffic to test it, and the server side becomes
+a live indicator. Watch it from the repo directory with
+`~/webdesign-admin-vpn/watch-server.sh`, which polls `wg show wg0 dump` for this peer.
+
+### The cheap discriminator before any of that: a different network
+
+The `phone` peer is configured, valid and untouched by the rotation. Connect it **over mobile
+data, not wifi** (scan `~/webdesign-admin-vpn/phone-qr.png`).
+
+- **Phone works, laptop does not** → the home network or its router is dropping UDP/31820. The
+  fix is a different transport, not a different config.
+- **Phone also fails** → the fault is at the node or in front of it, despite the box's tunnel
+  being healthy, and the next question is what is different about the box's path.
+
+⚠ The phone config still carries a `DNS =` line. That is safe on a phone — mobile WireGuard
+apps scope DNS to the tunnel instead of writing it system-wide through `resolvconf`.
