@@ -211,3 +211,25 @@ consumer of the step rather than the step. Recorded as a **correction to `bugs_o
 Each loop iteration spawns and calls a `content-feed-orchestrator` per site
 (`spawn_agent` -> `call_agent`, 600 s timeout), so the cap is a real spend gate, not a formality — which
 is exactly why the capacity half is the owner's decision and not ours.
+
+## Supply, counted rather than calculated — and the retention trap in doing so
+
+The bug file derives supply as `4 runs/day x cap 5 = 20`. Counted directly from what the trigger
+actually issued: [MEASURED 2026-08-22]
+
+```
+ day        | runs | site_slots_issued
+ 2026-08-22 |    2 |                10
+ 2026-08-21 |    3 |                15
+```
+
+⚠ **Do NOT read those daily totals as the throughput.** The `orchestration_states` window is ~2 days and
+both ends are truncated — 08-21 is missing its earlier runs and 08-22 is only part-way through the day.
+A reader taking "15 on 08-21" at face value would conclude the fleet supplies 15/day and that the
+oversubscription is worse than filed. It is not; the window is short, not the fleet slow.
+
+**What the count actually establishes, and it is the load-bearing part:** every run issued **exactly 5**
+slots — 5 of 5 runs, no run under cap — and the run timestamps are 6-hourly (08:37, 14:37, 20:37, 02:38).
+So supply is 4 x 5 = **20/day**, and the arithmetic in the bug file is confirmed rather than merely
+restated. Demand re-derived from live rows the same day is **42** against 9 eligible sites, so
+**2.10x** stands exactly.
