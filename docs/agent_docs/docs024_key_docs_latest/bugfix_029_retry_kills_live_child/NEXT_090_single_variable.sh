@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
-# bugs_open/343 — the ONE-VARIABLE re-file. See HANDOFF_2026-08-19b, "the next re-file".
+# Bug 343, slug parent_freezes_silently_after_an_abandoned_await — the ONE-VARIABLE re-file.
+# Lane: docs024_key_docs_latest/bugfix_029_retry_kills_live_child/ (see HANDOFF_2026-08-21).
 #
-# RETARGETED 2026-08-20: this was written for bugs_open/029, which the owner split. 029 is CLOSED
-# (inverted retry window only); the freeze this script investigates is now bugs_open/343. The symptom
-# text and seed scope are unchanged and still correct — only the bug number moved.
+# ⚠ NOTE THE POINTER SHAPE, AND DO NOT "HELPFULLY" RESTORE THE DIRECTORY PREFIX. This header named
+# `bugs_open/029` when written, was retargeted to `bugs_open/343` on 08-20, and would have needed a
+# THIRD edit on 08-22 when 343 closed. Three rewrites of one pointer in three days is the SHAPE
+# failing, not three unlucky addresses — so it now names NUMBER + SLUG + LANE DIR and no directory,
+# which is what LANDMINES.md's "A pointer that hardcodes `bugs_open/` rots at exactly the moment it
+# starts to matter" prescribes. Resolve a bug by slug across BOTH bugs_ dirs; a bare number is
+# ambiguous anyway (029 names two unrelated cases). Measured fleet-wide 2026-08-22 by the 040 lane:
+# ~71% of resolvable `bugs_open/NNN` pointers in this repo are ALREADY DEAD, so a pointer that does
+# not resolve is the base rate — not evidence the reference was wrong.
 #
-# ⚠ STILL NOT THE RIGHT NEXT ACTION. The standing instruction is wait-for-the-burst: the 08-17 cohort
-# is explained as an external GitHub outage, the evidence is preserved so nothing expires, and the
-# capture cron (RSH-011) takes the next occurrence automatically. Fire this only if 343 recurs
-# OUTSIDE an outage window.
+# ⚠ DO NOT FIRE THIS. Two independent reasons, and the second is new:
+#   1. The standing wait-for-the-burst instruction (unchanged): the 08-17 cohort is explained as an
+#      external GitHub outage, the evidence is preserved so nothing expires, and the capture cron
+#      (RSH-011) takes the next occurrence automatically.
+#   2. 343 WAS CLOSED 2026-08-22 by owner ruling — an explicit override of the fixed-AND-live bar,
+#      with the first death still unexplained. A 090 costs real credits and a diagnosis run against
+#      a closed bug is almost certainly not what anyone wants. If the freeze recurs OUTSIDE an
+#      outage window, the honest first move is to re-open under a NEW number and ask the owner,
+#      not to fire this script at a closed case.
+# The script is kept because the symptom text and seed scope are still correct and were expensive
+# to get right — it is a ready instrument, not a recommendation.
 #
 # Baseline is run d02a6958 (3 iterations, real Tier-1 citations, the lane's best result).
 #
