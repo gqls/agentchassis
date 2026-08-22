@@ -145,3 +145,68 @@ the intake one resolves nothing.
 mints no correlation and spends no credits. A server-side refusal instead costs a dispatch and
 ~30 minutes, and surfaces only as `current_step='complete_invalid'` with no verdict row, which
 reads exactly like "still queued".
+
+## Run the phase-2 auditor against the LIVE database from your machine
+
+The CronJob is the production path, but you can run the same binary locally — this
+is how phase 2 was proven, and how you re-prove it after changing a declaration.
+
+```bash
+PW=$(kubectl -n ai-persona-system get secret personae-platform-secrets \
+       -o jsonpath='{.data.CLIENTS_DB_PASSWORD}' | base64 -d)
+kubectl -n ai-persona-system port-forward svc/postgres-clients 15432:5432 >/dev/null 2>&1 &
+sleep 4
+go build -o /tmp/cka ./cmd/config-key-audit/
+PG_CLIENTS_HOST=127.0.0.1 PG_CLIENTS_PORT=15432 CLIENTS_DB_PASSWORD="$PW" \
+  /tmp/cka --live-declaration-drift ; echo "exit=$?"
+```
+
+⚠ **Omit `--report` when running by hand.** With it, the run writes a `doc_notes`
+row that looks exactly like the CronJob's, and the row is the fleet's evidence that
+the scheduled job ran. A hand-run row is a false positive for "the job is alive".
+
+⚠ **`PG_CLIENTS_PORT` matters** — `dbConn()` defaults to 5432, so a port-forward on
+any other port silently connects nowhere useful (or to something else).
+
+### THE DEMAND CONTROL — never trust a clean run on its own
+
+A clean run is the expected result whether the auditor works or not. Induce drift on
+the DECLARATION side (never on production), and require it to fire:
+
+```bash
+sed -i 's/^\t"dark_section_audit",$//' platform/livespec/livespec.go   # D1
+go build -o /tmp/cka ./cmd/config-key-audit/ && <run as above>          # expect exit 1
+git checkout platform/livespec/livespec.go
+```
+
+Proven 2026-08-22, all four, both outcomes of one instrument in one session:
+
+| | induced | required | got |
+|---|---|---|---|
+| D1 | drop a type from the declaration | exit 1 naming object + fragment | ✅ |
+| D2 | declare 2 trigger bindings against a live 3 | exit 1 `live count is 3, declared 2` | ✅ |
+| D3 | point a probe at a nonexistent task | **exit 2, NOT clean** | ✅ |
+| D4 | unset `PG_CLIENTS_HOST` | **exit 2, NOT clean** | ✅ |
+
+### Confirm the probes are readable as `clients_user` before adding a declaration
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -A -t \
+  -c "<your ProbeSQL>"
+```
+Measured 2026-08-22: `pre_query` 6923 chars, `pg_get_functiondef` 819 chars, the
+`pg_trigger` count 3 — all readable, no grants needed.
+
+## Verify at HEAD when the shared tree is broken
+
+The tree carries ~10 lanes' WIP and frequently will not compile — on 2026-08-22 it
+was `component_instance_conversion.go` (undefined symbols) from another lane, which
+broke `go build ./...` while **committed HEAD built clean**. To test YOUR change:
+
+```bash
+SC=<scratchpad>
+rm -rf "$SC/mine" && mkdir -p "$SC/mine" && git archive HEAD | tar -x -C "$SC/mine"
+cp <only your changed files> "$SC/mine/<same paths>"
+(cd "$SC/mine" && go build ./... && go test ./cmd/config-key-audit/ ./platform/livespec/ -count=1)
+```
+⚠ Check the scratchpad is on disk, not the shared 16G `/tmp` tmpfs: `df -h <path>`.

@@ -634,3 +634,73 @@ commit — it is in `9880926ed`. And strictly the seam itself shipped in `873575
 of the ordering exemption was met **across three adjacent commits in one session**, not literally
 one. Both registrations exist and both name the code commit; I am recording the discrepancy rather
 than letting the commit message imply a tidier history than happened.
+
+---
+
+## 2026-08-22 (later) — PHASE 2 BUILT and proven end-to-end against the live database
+
+Committed. `--live-declaration-drift [--report]` on the existing `cmd/config-key-audit`
+binary, a check image, and a CronJob at **07:00 UTC**.
+
+**Both outcomes of one instrument, same session** — which is the whole discipline, because a
+clean run is the expected result whether the auditor works or not:
+
+```
+clean : probed 5 live object(s) (2 scheduled_task, 1 trigger_bindings, 2 trigger_fn); 0 finding(s)   exit 0
+D1    : declaration missing dark_section_audit  -> exit 1, names the object AND the exact fragment
+D2    : declared 2 trigger bindings, live is 3  -> exit 1  "live count is 3, declared 2"
+D3    : probe a nonexistent scheduled task      -> exit 2  "probe returned NO ROWS", NOT clean
+D4    : PG_CLIENTS_HOST unset                   -> exit 2  "cannot report clean", NOT clean
+```
+
+**D2 is the one that matters.** That declaration (`trigger_bindings.page_component_artefact_archive`)
+was **inert** in phase 1 — declared but unreadable by anything, which is exactly what the council's
+`bug_historian` objected to: *"a field accepted but never read is indistinguishable from one that
+works."* It is now demonstrably read, and it is the only thing in the estate that can catch the live
+trigger set outgrowing its migration, as it already has (357 declares 2; `552` added a third).
+
+### Two risks discharged by measurement rather than argument
+
+- **Probe viability as `clients_user`** — I listed this as a risk and did not assume it. All three
+  probe shapes read cleanly: `pre_query` 6923 chars, `pg_get_functiondef` 819 chars, `pg_trigger`
+  count 3. No grants needed, so the exit-2 permissions path stays theoretical.
+- **The schedule** — the plan proposed 07:20. A live `kubectl get cronjobs` census says 07:20 is
+  **already `component-source-vocabulary-check`**. Took **07:00**, the free slot adjacent to the
+  config-integrity cluster. This is precisely why the plan said to pick from a census, not a handoff.
+
+### ⚠ THE COUNCIL GATE REFUSED PHASE 2 — as designed, and I did not force it
+
+```
+REFUSED: no edit touches the review scope.
+  In scope: platform/, internal/, pkg/ ... plus migrations
+```
+
+Every phase-2 file is `cmd/`, `build/`, `deployments/` or `makefile`. **Not one is in scope.**
+
+This is not a defect in my submission and not something I should route around: the scope is an owner
+ruling, and `FORCE=1` to buy a review the ruling says should not be bought is not a session's call.
+
+**But it is worth the owner seeing**, because it generalises: **every check service in this family is
+a `cmd/` binary plus a CronJob, so the entire class of daily fleet checks — 17+ services as of
+2026-08-22 — is structurally unreviewable by the gate.** The 2026-08-19 widening admitted migrations
+on the argument that *"a migration IS the running system, live the moment it applies, with no image
+tag to roll back."* A check service is weaker on that test (it has a tag and can be rolled back) but
+it is still deployed code making daily assertions about production that nobody reviews. Recorded, not
+decided.
+
+### ⚠ BUILT IS NOT DEPLOYED
+
+The image is **not built or pushed** and the CronJob is **not applied**. Nothing runs on a schedule
+yet. Releases here are whole-fleet and the owner runs `make release`, so this rides the next one —
+`make build-live-declaration-drift-check` is wired and builds from committed HEAD.
+
+Stating it this way deliberately: an "INERT until the roll" line is itself a documented trap, because
+it makes the correct next action look premature. **The correct next action is the owner's release**,
+and after it the check must be verified at the artefact (§ RUNBOOK), not assumed.
+
+### The shared tree was broken while I worked, and it was not mine
+
+`go build ./...` failed on `component_instance_conversion.go` (undefined `reComponentIDInIDAttr`,
+`TemplatedIDSwaps`) — another lane's uncommitted WIP, 8 modified files in `actions/`. **Committed HEAD
+built clean (exit 0)**, and I verified my change by extracting HEAD and overlaying only my files:
+`go build ./...` exit 0, all three packages green. Recipe now in the RUNBOOK.
