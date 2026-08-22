@@ -70,3 +70,55 @@ have caught it in seconds.
 had described two changes that depended on a piece I had not listed. That is exactly what the
 review is for, it cost one resubmission, and the second round found a second omission of the same
 kind. The revised version is with them now.
+
+---
+
+**2026-08-22, evening — the notes that were about to be deleted, and what they turned out to say.**
+
+You made four calls this afternoon. Save the expiring evidence and find out whether the problem
+it describes is fixed or whether the detector has gone deaf. Give deliberate findings a longer
+life than ordinary error plumbing, and stop marking something "resolved" making it die sooner.
+Let me propose what each of the thirty-two undecided notes is for, with the evidence attached, and
+you ratify in batches. And leave the backlog count visible rather than enforced until we have seen
+how hard a batch actually is.
+
+The first one is done, and it did not come out the way I expected.
+
+The forty-one notes are saved, in full, before Tuesday's deletion. They cover twenty-four review
+rounds and twelve reviewer seats, and the great majority came from the fix-loop's own council
+rather than the one that reviews platform changes.
+
+Then the interesting part. These notes are filed under a name that says a reviewer's answer was
+**cut off** — ran out of room mid-sentence. That is what the code believes about itself, and it is
+wrong for forty of the forty-one. I went and looked at what the reviewers actually said, which we
+keep word-for-word: in the whole retained history, only **five** reviewer answers have ever run out
+of room, four of them in mid-July before this detector even existed, and one on 2 August. Nearly
+twelve thousand answers end properly. So what the notes really record is "this reviewer's answer
+came back unreadable" — and the reason was never established. The name asserted a cause nobody
+measured.
+
+On the question you actually asked — fixed, or deaf? **Fixed.** The same piece of code that writes
+these notes also writes a short report on every single review round, and that report counts
+unreadable reviewers whether or not there are any. Those reports are still being written — two
+hundred and forty-eight of them last week — and the count of unreadable reviewers goes seventeen,
+twenty-four, then zero, zero, zero. That is the difference between a thing that is quiet and a
+thing that is broken: I can see the mechanism running and reporting nothing, rather than just
+seeing nothing. If it had gone deaf, those reports would still be finding unreadable reviewers
+while no notes were being written. They aren't.
+
+What appears to have fixed it is that the reviewers' room to answer was doubled over the same few
+weeks. The timing lines up closely and the reason is sensible — more room, complete answers,
+readable results — but I could not find the change that did it, so I have written that down as a
+strong hunch rather than a fact. There was also one reviewer seat on 2 August configured with
+almost no room at all, which guaranteed it would fail; that has since been corrected and is not a
+live problem.
+
+One thing I got wrong on the way and want on the record. My first attempt to measure "did the
+reviewers run out of room" compared two columns that are, it turns out, completely empty for these
+records. It returned a clean zero every week and looked like a result. It was a question that could
+not have produced any other answer. I only caught it because I checked whether the columns had any
+data in them before believing what they said — which is the check I should have run first, not
+second.
+
+Next: the retention change, which is a single guarded database edit and goes to the reviewers
+because it is live the moment it applies; then the first batch of proposed rulings for you.

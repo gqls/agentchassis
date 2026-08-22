@@ -159,3 +159,92 @@ council-gate-not-RFC call was right.
 that would not have compiled, and round 2's advisories caught a coupling I had created without
 naming. Both rounds found something real, which is now 4 of 6 for this lane's experience of the
 gate.
+
+---
+
+## 2026-08-22, later — Task A: the expiring code extracted, and the silence explained
+
+Owner ruled four things on the handoff's open questions (chat, 2026-08-22): extract the expiring
+evidence AND establish whether it is fixed or blind; retention gets a longer clock for deliberate
+findings and `resolved` stops shortening a row's life; dispositions for the 32 are PROPOSED by the
+session and ratified by him in batches; backlog enforcement stays visible-only pending batch 1.
+
+### A1 — extracted
+
+All 41 `TRUNCATION_DEGRADED_REVIEW` rows to
+`EVIDENCE_truncation_degraded_review_2026-08-22.json` (48,785 B, parses, `row_count` 41 and
+`len(rows)` 41 agree). **24 distinct rounds, 12 seats.** Distribution: edit-quality 20, prior-art
+5, guardian 3, architecture 3, then eight seats with 1–2. `agent_type` is **generic 37 /
+council-gate 4** — i.e. this is overwhelmingly the DIAGNOSIS council, not the gate.
+
+### A2 — fixed, not blind. And the code is misnamed for its own population
+
+The handoff framed this as "either truncation stopped or the detector went blind, and from this
+table they look identical". Both halves turned out to need correcting.
+
+**First: what the 41 rows actually record.** Branch counts: `unsalvageable_invalid_json` 27,
+`salvaged_from_invalid_json` 13, `producer_marker` **1**. So 40 of 41 come from the
+`json.Valid(rb) == false` arm at `diagnose_council_decide_action.go:341`, whose log line calls it
+"invalid JSON, likely truncated at max_tokens". **The token data refutes that for those 40:**
+
+| check | result |
+|---|---|
+| review calls whose `output_tokens = max_tokens`, all retained history | **5**, ever |
+| — of those, dated before this writer existed (2026-07-26) | 4 (all 2026-07-18) |
+| — the fifth | 2026-08-02, `review_adoption_guardian`, `max_tokens=120` |
+| reviewer replies ending in `}` | **11,514 of 11,519** |
+
+Only the `producer_marker` row is a confirmed truncation. The other 40 record *"this seat's output
+did not parse"*, cause unmeasured. The name asserts a mechanism the rows do not carry.
+
+**Second: the silence since 2026-08-02 is a FIX.** The control is the sibling channel written by
+the *same function*, before the damage record and on every round: `diagnosis_artifacts`
+`kind='council_report'`, whose metadata carries `unreadable` and `gated_by_truncation`
+unconditionally (`:468` — the unconditional emission is bugs_open/138's deliberate design, so its
+absence means "old row", not "measured clean").
+
+| week | council reports | carrying the key | unreadable seats |
+|---|---|---|---|
+| 2026-07-20 | 162 | 0 | **17** |
+| 2026-07-27 | 202 | 104 | **24** |
+| 2026-08-03 | 148 | 148 | **0** |
+| 2026-08-10 | 198 | 198 | **0** |
+| 2026-08-17 | 248 | 248 | **0** |
+
+That is a **demand control**: the recording path is proven executing 248 times in the last week
+and reporting clean, which a zero row count in `agent_error_log` could never establish on its own.
+Had it been blind, `unreadable` would be non-zero with no matching finding row.
+
+**[CORRELATED, NOT PROVEN CAUSAL] what changed:** reviewer ceilings moved 8000 → 16000 across the
+same weeks — 5 calls at 16k in wk 07-20, 447, 636, 1,369, **1,756** by wk 08-17 — while failed
+review calls fell 59/58 → 23/9/18. Plausible mechanism (more headroom ⇒ replies complete ⇒ JSON
+parses) and a tight temporal match, but I did not find the commit that raised them and am not
+claiming it.
+
+**Not a live bug:** `review_adoption_guardian` at `max_tokens=120` on 2026-08-02 guaranteed
+truncation (42-char reply). It runs at 8000 today with outputs ~300 tokens. One-off, corrected.
+
+### Missteps in this session's own measurement
+
+1. **A vacuous control, caught by looking at the denominator.** My first ceiling query compared
+   `total_output_tokens >= wire_max_output_tokens` and returned a clean 0 for every week. Both
+   columns are **100% NULL for review calls** (0 of 11,698 populated) — the comparison was against
+   NULL and could not have come out any other way. The populated pair is `output_tokens` vs
+   `max_tokens`. This is exactly the `WRONG_CALLS.md` shape: *a measurement that could not have
+   disconfirmed*. Caught only because I ran a `count(col)` over the columns before trusting them.
+2. **Reached for `severity` as the retention discriminator and had to abandon it.** Findings are
+   written as error/warning/info and plumbing as error/fatal/warning, with three codes emitting
+   mixed severities (`CONTENT_CLAIMS_FLOOR_DETAIL`, `CONTENT_DATA_ENVELOPE`,
+   `FIX_PLAN_VALIDATION_REFUSED`). Nothing in the row except the code itself separates a
+   deliberate finding from a timeout. Recorded because it is the obvious idea and the next person
+   will have it too.
+3. **`cd` persists between Bash calls in this harness.** A `cd` into the lane directory silently
+   made the next two repo-root commands fail with "No such file or directory". Use absolute paths
+   or re-`cd`.
+
+### Measured, for Task C
+
+**0 scheduled tasks select on `error_code` at all** (`SELECT name FROM scheduled_tasks WHERE
+pre_query LIKE '%error_code%'` → 0 rows, 2026-08-22). Every reader that exists is in-process,
+inside the binary that wrote the row. So "something automated will read this" is false by default
+when judging the 32, not a matter of opinion.
