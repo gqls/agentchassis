@@ -49,10 +49,19 @@ earlier run's sentence does not exist in the new one. §8 compares each run agai
 
 1. **NOTHING for the defect half.** Items 1–3 of the old handoff are closed (roll, `548`, artefact
    proof), as are its items (2) superlative-guard and (3) the reuse follow-up.
-   The only open thread is a **watch**: no gate run has happened yet on `v1.0.1326`
-   (338 orchestrations since 15:11Z, none of them writer section passes). The code is binary-probed
-   present, so this is traffic, not a fault. First run should carry `has_result=true` like the 12
-   runs across 6 domains measured on the previous build.
+   The only open thread is a **watch**: no gate run has happened yet on `v1.0.1326`. The code is
+   binary-probed present on both replicas, so it has not been REACHED rather than failed.
+   > ⚠ **CORRECTED 2026-08-22 18:27Z — I first wrote "this is traffic, not a fault". It is a fault,
+   > just not ours.** The Anthropic account hit its usage cap at **18:15:35Z** and the fleet stopped:
+   > 116 successful LLM calls in the hour to 18:15:51, then 1 success against 8 usage-limit failures.
+   > Page builds now fail at `generate_content`, upstream of the gate. **`bugs_open/243`
+   > (resolve by slug: 243-anthropic-cap) — third occurrence in 22 days; only the owner can clear it
+   > (credit), else the API states 2026-09-01.** `ai-agent-orchestration.com/adoption-tracker` — one
+   > of THIS BUG'S three pages — failed on it at 18:22:02.
+   > **So the first-gate-run-on-1326 check is blocked until the account is restored**, and its
+   > absence must NOT be read as a gate defect. Recovery: `SELECT max(created_at) FROM llm_call_log
+   > WHERE success;` must move and keep moving. First run should carry `has_result=true`, like the 12
+   > runs across 6 domains measured on the previous build.
 2. **The damage half — another lane's, and now SPLIT in two** (bug file §24):
    - the **6 repairable hits, including both sentences the owner quoted**, need only an ordinary
      rerender — no brief change. This is new: before today a rerender would have reported success and
