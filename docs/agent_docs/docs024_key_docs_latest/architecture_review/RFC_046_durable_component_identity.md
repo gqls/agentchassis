@@ -1,4 +1,4 @@
-# RFC_046 — a component row's identity is INFERRED five different ways and stamped none
+# RFC_046 — a component row's identity is INFERRED **five** different ways (as of 2026-08-22) and stamped none
 
 **Status:** OPEN — raised 2026-08-22 by the `bugfix_357_component_identity` lane, at the explicit
 recommendation of the council gate's `architecture` seat (trail `62aac6c2`, round 2).
@@ -20,7 +20,11 @@ A `page_components` row carries three things: an **identity** (`component_id`, `
 > **No seam anywhere asserts that the three agree, and no writer stamps which component actually
 > produced the bytes.** Identity is re-derived, by inference, at every hop.
 
-## 2. The five inferences, all live today
+## 2. The five inferences — **5** as of 2026-08-22, all live
+
+> **This is a census of call sites, so it goes stale by ADDITION** (owner ruling 2026-08-22). Re-run before
+> quoting the number: `git log --since=2026-08-22 --diff-filter=A -- platform/orchestration/actions/` — a
+> non-empty result means a new writer may have added a sixth, and the count must be re-derived, not repeated.
 
 | # | where | what it infers identity from |
 |---|---|---|
@@ -32,8 +36,7 @@ A `page_components` row carries three things: an **identity** (`component_id`, `
 
 Two of these are the whole of `bugs_open/357`: #2 produces "I don't know", #3 converts it into a
 confident wrong answer, #4 resolves that answer to a shared component's UUID, and the row is
-persisted claiming to be a `hero` while holding a whole interactive tool. 22 live rows, newest born
-2026-08-22 on a site homepage.
+persisted claiming to be a `hero` while holding a whole interactive tool. **22** live rows as of 2026-08-22, newest born that same day on a site homepage.
 
 **And #5 is why the obvious repair is not safe.** It matches stored rows to incoming ones on slot
 name and nothing else, so *correcting* a row's identity makes the next plan-driven rebuild miss the
@@ -44,11 +47,11 @@ the system having no way to say "this row is that component's output" other than
 ## 3. Why a sixth inference is the wrong move
 
 The `bugfix_357` lane proposed exactly that — comparing the component template's `data-component`
-against the stored HTML's. It is the best of the six (measured fleet-wide: 1,550 agree, 0
-disagree, 24 genuine defects, and it drops the ~131 template-drift false positives the naive
+against the stored HTML's. It is the best of the six (measured fleet-wide 2026-08-22: **1,550** agree, **0**
+disagree, **24** genuine defects, and it drops the ~131 template-drift false positives the naive
 prefix test produces). **It is still an inference**, and it inherits the class's defects:
 
-- **it is silent for 190 of 339 components**, which declare no attribute at all;
+- **it is silent for 190 of 339 components** (as of 2026-08-22), which declare no attribute at all;
 - it cannot vouch for the very component the repair would introduce (a `{{.body}}` passthrough
   declares no attribute), so the fix's own output is outside its reach;
 - and every inference added makes the next author's model of "how does this system know what a
@@ -76,8 +79,8 @@ Sketch, deliberately not a design:
 - inferences #1–#4 become a **birth-time** concern only, for input that arrives unstamped, and their
   output is recorded as inferred rather than as fact.
 
-**Existing machinery to reuse rather than reinvent:** `page_component_history` (26,965 rows,
-2026-03-16 →, already carries `slot_name`, `rendered_html_digest`, `op`, `application_name`);
+**Existing machinery to reuse rather than reinvent:** `page_component_history` (**26,965** rows as of 2026-08-22, from
+2026-03-16, already carries `slot_name`, `rendered_html_digest`, `op`, `application_name`);
 `rendered_html_digest` (the same-statement stamp from `bugs_open/229` / IMP-052, which already
 asserts "reproducible from content_data" and is written only by the render/save seam); and
 `CLC-014`'s per-instance component scoping (`{{.InstanceID}}`), which is the closest thing to an
@@ -105,7 +108,7 @@ what four live sites serve and is the owner's decision, separately, whichever op
 All measured 2026-08-22 against the live database and HEAD; queries and their traps are in
 `docs024_key_docs_latest/bugfix_357_component_identity/RUNBOOK_component_identity.md`.
 
-- The population: 22 rows, 4 sites, newest `2026-08-22 08:50:12` (`vetcomparison.uk` `index`, a
+- The population: **22** rows as of 2026-08-22, 4 sites, newest `2026-08-22 08:50:12` (`vetcomparison.uk` `index`, a
   homepage). `hero` is planned first on all 22.
 - The writer, settled by fingerprint: all 22 carry `position=1` and
   `content_brief.section_guidance='hero section'`; `save_page_sections_action.go` is the only
@@ -114,7 +117,7 @@ All measured 2026-08-22 against the live database and HEAD; queries and their tr
   the tool serving throughout, and its rows were re-created **inside** the 08-22 rerender window
   (`08:44:51` → `08:50:19`, rows at `08:50:12`).
 - No tool has been destroyed by this: searched `page_component_history` with a control — **182**
-  slots interactive-and-still-interactive, and of the 17 that changed, **15 GREW**. None is in the
+  slots interactive-and-still-interactive as of 2026-08-22, and of the 17 that changed, **15 GREW**. None is in the
   357 population.
 - Council trail `62aac6c2`: round 1 REVISE (gated by `bug_historian`), round 2 REVISE (gated by
   `editquality`, seconded by `bug_historian`), six seats approving cleanly in round 2.
