@@ -446,3 +446,58 @@ weaker than the rule asks. The most quotable ones now carry the date inline — 
 as of 2026-08-22`, `23 of 94 as of 2026-08-22`, and the `store_asset` caller census —
 each with the re-derivation pointer, so `--since` is mechanically available to whoever
 quotes them next.
+
+---
+
+## 2026-08-22 18:03Z — THE ACCEPTANCE TEST PASSED, and it nearly read as a failure
+
+Filed one `needs_content_image` item by hand, in the exact shape `emitContentCardDerive`
+produces (`triaged`, `asset-deployer`, item key `content_image:tool-repayment`, the shared
+spec), for the designated fixture page. This tests the CONSUMER half — the half that has
+never run — without generating an image or rewriting any page content.
+
+**Result, at the artefact and not the status:**
+
+```
+work item          -> complete, no error
+assets row         -> card_tool_repayment, active, entity_type='page',
+                      entity_id=1f59a7d6-…, origin lineage set
+the reader join    -> queryresolve.pageImageJoins resolves it for that page
+the file           -> 200
+```
+
+mortgagecalculator had **0** card assets and **0** entity links across its ten 08-15
+heroes. It has one of each now, and the listing-card reader can see it — which is the
+precise thing `bugs_open/114` says never happens.
+
+### ⚠ The near-miss worth carrying
+
+**My first probe of the card file returned 404.** I had already started asking whether
+`derive_card_asset` deploys at all, and was one step from filing "the emitter will produce
+linked cards whose files 404" as a finding. The re-probe ~4 minutes later returned **200**:
+the file landed between the two.
+
+That is the trap **this bug's own file already records** — 41 images reported broken, 35
+served 200 on an unhurried retry — and I walked toward it anyway. What stopped it was
+comparing against sibling rows on other sites first (2 of 3 served), which made "mine is
+uniquely broken" implausible and prompted the re-probe rather than the write-up.
+
+**The check: never conclude a deploy failed from ONE probe.** Re-probe on an unhurried
+retry, and where possible compare against a sibling of the same shape — if the siblings
+serve, the difference is probably time, not mechanism.
+
+**Applied consistently, it also found a real one:** `gamesdesign.co.uk`'s
+`card_tool_gacha_pity_designer` still 404s on re-probe, and its asset was created
+**2026-08-17** — five days is not a lag. A derived card whose file never deployed. Not
+114's class, not this lane's to fix, recorded in the handoff for whoever owns the derive
+path.
+
+### What this does and does not prove
+
+- **Proven:** the consumer path end to end — a `triaged` `needs_content_image` in the
+  emitter's exact shape is claimed, derives a card, writes the entity link, and serves.
+- **NOT proven:** that `flag_page_image_rebuild` actually emits one on a real landing. The
+  emitter is unit-tested with five mutation proofs and its consumer is now proven live, but
+  the two have not yet met in production. **First natural imagery landing is the thing to
+  watch** — grep the chassis logs for `emit_content_card_derive`, which logs every
+  disposition including each skip.
