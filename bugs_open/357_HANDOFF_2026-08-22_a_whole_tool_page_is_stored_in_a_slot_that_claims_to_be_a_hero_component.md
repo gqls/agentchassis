@@ -181,3 +181,92 @@ spent its narrowing budget on the population instead. A sharper re-file would st
 the interaction — *"the page's `sections` list is written as a standard three-slot page while the
 tool's HTML is written into the first slot"* — and point at the two writers plus
 `save_page_sections_action.go`, which is the one that fills slots from a page's section list.
+
+---
+
+## CONTRIB 2026-08-22 (from the `bugfix_357_component_identity` lane) — the population is **22**, the writer is **settled**, and 13 rows are **already armed**
+
+Taken up after `bugs_closed/277` closed and its lane's final handoff routed here
+(*"there is no work left in this lane; go to `bugs_open/357`"*). Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_357_component_identity/`.
+
+### 1. ⚠ This file's stated population (9) and this file's own query (22) disagree
+
+The "re-runnable" population query above, run unmodified today, returns **22 rows**. The nine in the
+table are the subset that also carried a parked `required_fields_missing` work item — every one of
+them a single-component page. The other thirteen are multi-component pages the same predicate
+matches. **Newest row: `vetcomparison.uk` `index`, created 2026-08-22** — a site homepage, born the
+same day this file was filed. Not "one recurrence a fortnight ago": a live producer.
+
+### 2. The third gap is CLOSED — `save_page_sections_action.go`, by fingerprint
+
+The file leaves *"which writer assigns the `component_id`"* open and `63d4d1a7` returned
+UNVERIFIABLE on it. The row answers it directly, because the writers leave different marks:
+`save_page_sections_action.go` is the **only** one that writes `content_brief` (as
+`"{slot} section"`) and the only one using `position = i+1`. **All 22 rows carry
+`content_brief.section_guidance = 'hero section'` and `position = 1`** [MEASURED 2026-08-22].
+
+The mechanism, all in committed code:
+
+1. `saveSectionsExtractFromHTML` — a tool/game page is `<div class="tool-page">…</div>` with no
+   `<section>`, so the regex matches nothing and the documented fallback stores the whole fragment
+   as ONE section named `"section"`, the sentinel for *identity unknown*.
+2. `enrichSectionsWithPlannedNames` — treats `"section"` as needing enrichment and assigns
+   **`planned[Position-1]`** from `pages.sections`.
+3. `enrichSectionsWithComponentIDs` — resolves that name to the shared component's UUID.
+
+**`hero` is planned first on all 22 pages.** The tool is called a hero because hero is first in the
+list. The lead in this file's diagnosis section — that the three-slot list written by the tool
+actions is implicated — is **correct in outline**; the assignment is positional, and the sentinel
+meaning "I do not know what this is" is converted into a confident wrong answer.
+
+### 3. ⚠ The "parked state is the protection" argument does NOT hold for 13 of the 22
+
+This file's nine all have `content_data` NULL, which is what makes the argument work for them.
+**Thirteen of the 22 carry a complete hero `content_data`** — `headline`, `subheadline`,
+`background_image`, `hero_url`, `cta_text`, `secondary_cta` — alongside 11–22KB of tool HTML.
+`ContentDataCanFillTemplate` is therefore **already true** on them: the regeneration this file warns
+a backfill would arm **is armed now, with no backfill**, and **16 of the 22 are
+`rebuild_policy='generic'`**. Nothing has to be written for a rebuild to swap a working calculator
+for a title band.
+
+`vetcomparison.uk/index.html` [MEASURED 2026-08-22, http 200, 44,496 B] serves `class="tool-page"`
+once and `data-component="hero"` **zero** times — the hero copy its writer produced is stored and
+never rendered.
+
+### 4. Fix candidate 2's blocker is measured, and the predicate it needs is a different one
+
+This file rightly says the guard "must be measured against the whole live table before arming"
+because the static-template-prefix test also fires on drifted templates. It does: **158 rows**
+fleet-wide. Test the component's **own self-declaration** instead — `data-component="…"`, which
+`saveSectionsExtractFromHTML` already trusts as the identity carrier in this same file:
+
+| | rows |
+|---|---|
+| template and stored HTML **agree** | **1,550** |
+| both declared and **disagree** | **0** |
+| template declares, stored HTML **silent** | **27** ← the pathological set |
+| static-prefix mismatches (the noisy test) | 158 |
+
+**Zero false positives fleet-wide**, the 1,550 agreements are the demand control, and the 27 are a
+strict subset of the 158 — the ~131 drift-only rows are not in it. The 27 are the 22 plus three
+`loancash.co.uk` Ported Page rows, one `leopardessconsulting.co.uk` `blog-listing_pre_037`, and one
+`idea.uk` `tool-list` row whose `rendered_html` is **zero bytes**.
+
+**Limit, stated:** silent for the 190 of 339 components declaring no `data-component`, and 97 of the
+100 `Ported Page` prefix-mismatches are not flagged. A refuse-on-certainty test for a write seam —
+not a census.
+
+### 5. [UNMEASURED] — whether this has already destroyed a tool
+
+A page born this way and then rebuilt would serve a title band and **leave the population query**,
+so the survivors cannot report the casualties. There is no systematic `page_components` history
+(only ad-hoc `_backup_*` tables). Candidates exist — `mortgagecalculator.co.uk` `game-fact-finder`,
+`page_type='game'`, 2 components, 4,363 B, no `<script>` — but "never had a tool" and "had one and
+lost it" are indistinguishable from current state. **Not claimed in either direction.**
+
+### 6. Re-filed diagnosis
+
+`RUN_CORRELATION_ID=e580b34a-d284-4f80-ac96-81af1c4adaba` (intake `f7aedef7`), asked the one thing
+row fingerprints cannot settle: which leg pairs a genuine hero `content_data` with the tool's bytes,
+given the `saveSectionsExtractFromHTML` fallback sets no `ContentData` at all.
