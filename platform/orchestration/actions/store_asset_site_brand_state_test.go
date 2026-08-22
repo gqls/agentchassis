@@ -182,3 +182,53 @@ func TestBuildAssetPathsDivergesFromDeployedPath(t *testing.T) {
 		}
 	}
 }
+
+// TestStoreAssetURLMatchesTheDeployersOwnDerivation answers the council's round-1
+// objection on submission 3c0560f3 mechanically rather than in prose. The
+// objection was fair and my submission had not closed it: the helper calls
+// storage.DeployedWebPath while the deployer calls storage.DeployedAssetPath,
+// and nothing I had written proved those two agree for variant/hyphenated keys.
+//
+// They agree by construction today - DeployedWebPath is DeployedAssetPath's
+// RelativeURL (url_helpers.go) and deploy_image_asset assigns processed.Paths =
+// DeployedAssetPath(assetKey, purpose), so the file lands at that same struct's
+// FilePath. This pins it: if anyone ever forks the two derivations, the store's
+// recorded pointer and the deployed file diverge again, which is the whole defect
+// bugs_open/114 part 1 exists to close. Asserting the relationship is what stops
+// the argument having to be made a second time.
+func TestStoreAssetURLMatchesTheDeployersOwnDerivation(t *testing.T) {
+	// The shapes that actually occur on the fleet, including both brand-head
+	// purposes (whose published paths are DECLARED, not derived - the case a
+	// filename-reconstructing implementation would get wrong) and the
+	// underscore-to-hyphen variant keys the objection specifically named.
+	for _, tc := range []struct{ assetKey, purpose string }{
+		{"hero", "hero"},
+		{"hero_home", "hero"},
+		{"hero_about", "hero"},
+		{"content_hero_tool_repayment", "content_hero"},
+		{"card_tool_repayment", "card"},
+		{"icon_cycle_time", "icon"},
+		{"logo", "logo"},
+		{"favicon", "favicon"},
+		{"og_card", "og_card"},
+		{"sprite_sheet", "sprite_sheet"},
+	} {
+		t.Run(tc.assetKey, func(t *testing.T) {
+			deployed := storage.DeployedAssetPath(tc.assetKey, tc.purpose)
+			stored, _ := storeAssetContentDataUpdate(tc.assetKey, tc.purpose, nil)
+
+			if stored != deployed.RelativeURL {
+				t.Fatalf("store_asset records %q but deploy_image_asset publishes %q "+
+					"(FilePath %q) for asset_key=%q purpose=%q - the recorded pointer and the "+
+					"committed file have diverged, which is bugs_open/114's mechanism",
+					stored, deployed.RelativeURL, deployed.FilePath, tc.assetKey, tc.purpose)
+			}
+			// The web path and the repo path must also be the same file, or
+			// "they agree" would be true of two consistent but unrelated answers.
+			if "/"+deployed.FilePath != deployed.RelativeURL {
+				t.Fatalf("DeployedAssetPath(%q, %q) is internally inconsistent: RelativeURL %q vs FilePath %q",
+					tc.assetKey, tc.purpose, deployed.RelativeURL, deployed.FilePath)
+			}
+		})
+	}
+}
