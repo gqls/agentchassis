@@ -8098,6 +8098,22 @@ SELECT type FROM agent_definitions
   > so the *next* service that shares another's image repeats this in full. Fix
   > candidate 1 in `bugs_open/237` (enumerate the filesystem, not a hand-list) is
   > what would retire the entry.
+  >
+  > **RE-MEASURED 2026-08-22 (`bugfix_131_contrast_ratio_check` lane) — the 80-tag gap has CLOSED,
+  > and this entry's headline number is now history, not state.** Both overlays pin the same tag:
+  > `deployments/kustomize/services/browser-runner-adapter/overlays/production/uk_001/kustomization.yaml:18`
+  > and `.../render-audit-adapter/overlays/production/uk_001/kustomization.yaml:19` both read
+  > **`newTag: v1.0.1323`**, so the 2026-08-10 correction's "the running pod is STILL on v1.0.1194"
+  > has been overtaken by a real release. Worth stating precisely, because the entry's title invites
+  > a wrong mental model: **there is only ONE binary.** `grep -rl "internal/adapters/browserrunner"
+  > --include=*.go cmd/` returns `cmd/browser-runner-adapter` and nothing else; `render-audit-adapter`
+  > is a second *deployment* of that same image (`base/deployment.yaml:58`), which is exactly why the
+  > skew was possible and also why a code change cannot diverge between them — only the TAG can.
+  > **The trap stands and the entry stays**: the two pins are still independently sed-ed, so they can
+  > drift again tomorrow, and the verification lesson is unchanged — read the tag of the pod you
+  > actually mean, per service, and never infer one adapter's version from the other's. What changes
+  > is that "80 tags" must not be quoted as a current fact (I carried it into a council submission
+  > that way before measuring; `WRONG_CALLS.md` 2026-08-22, second entry).
   > Also note the trap the fix itself exposed: `deploy-%`'s registry pre-flight asks
   > for `$(REGISTRY)/<service>:$(IMAGE_TAG)`, so for an image-sharing service it
   > refuses a VALID deploy because the image it names has never existed — that is

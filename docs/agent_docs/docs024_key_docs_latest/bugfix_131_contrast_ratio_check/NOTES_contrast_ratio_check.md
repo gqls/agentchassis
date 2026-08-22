@@ -117,8 +117,11 @@ binding at the join would pass it. Replaced with **byte-identity** against a gol
 mechanically from `git show b32aa9cd9~1` (never transcribed) into
 `internal/adapters/browserrunner/testdata/audit_js_golden_2026-08-22.txt`. Equality with a string
 that demonstrably executed in production is stronger than any syntax check, and it settles the
-guardian's two-consumer worry: `render-audit-adapter` runs this package ~80 tags behind
-`browser-runner-adapter`, and an inert recomposition needs no coordinated rollout.
+guardian's two-consumer worry: an inert recomposition needs no coordinated rollout whatever the
+two deployments' tags are. (⚠ **I wrote "`render-audit-adapter` runs this package ~80 tags behind"
+here and it is NOT today's state** — see the correction further down: ONE binary compiles the
+package and both overlays pin `v1.0.1323`. The argument does not depend on the skew; the claim was
+carried from a landmine without re-measuring it.)
 
 **Third** (debug_historian, medium): my witness plan never named WHICH pod. It must be
 `-l app=browser-runner-adapter` (the gating service) — proving it at `render-audit-adapter` proves
