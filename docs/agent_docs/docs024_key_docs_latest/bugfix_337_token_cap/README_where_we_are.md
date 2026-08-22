@@ -98,3 +98,32 @@ and pointed at the team already working on that loop; I have told them, includin
 warning them that today's limit change will make their "before and after" numbers look
 better for reasons that are mine, not theirs. One page's component did store today and
 is being attached now; the other is still blocked by the invented-data-reference problem.
+
+## 2026-08-22 (late) — one page is genuinely fixed and you can look at it; the other needs the other team's fix
+
+**Fixed and live: https://loancalculator.co.uk/tools/credit-roadmap.html** — it now carries a
+working "credit health check" quiz (click-through questions, a scoring meter, a restart
+button). That page had been missing its tool since mid-August.
+
+**Not fixed: loanzy.uk's credit-health-check page.** Its regeneration ran perfectly well
+today — no token problem at all — and was then refused at the last step because the writer
+referred to a piece of site data that doesn't exist. That is the real bug, it belongs to the
+team already working on that loop, and I have handed it to them with the evidence.
+
+Two things I got wrong while checking my own work, both now written down so the next person
+doesn't repeat them:
+
+- **I recorded a "before" measurement on the wrong web address.** Different sites in the
+  fleet use different URL styles, and the address I guessed returns that site's "page not
+  found" page. That page is real HTML, it's identical every time you fetch it, and it
+  contains none of the things I was counting — so my "check it twice to be sure" step
+  confirmed it happily. What I never checked was whether the server said 200 (found) or 404
+  (not found). Checking that it doesn't change is not the same as checking it's the right page.
+- **I was using the wrong test for success.** The bug file said to count text-entry boxes on
+  the page. This particular tool is a button-based quiz with no text boxes at all — so a
+  perfectly working page scores zero on the stated test. I'd inherited a test written for a
+  calculator-shaped tool.
+
+Neither changed a decision, because I caught both while verifying rather than after
+reporting. But they are the same species of mistake as the big one earlier today: a
+measurement that is accurate about the wrong thing.
