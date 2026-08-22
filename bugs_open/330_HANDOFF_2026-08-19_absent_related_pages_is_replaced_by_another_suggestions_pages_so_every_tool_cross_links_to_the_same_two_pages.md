@@ -320,3 +320,35 @@ row per run, so ~4 rows were expected if the fix were inert:
 **Still OPEN:** the with-pages emission leg above, and candidate 2's 269-pair/75-agent remainder
 (§9), which this apply does not touch. Query set + full read-out: lane NOTES `## 2026-08-21
 (~19:1xZ)`.
+
+## 11. ADDENDUM 2026-08-22 ~09:3xZ — the with-pages RESOLVER leg is PROVEN by an owner-approved positive control; the ITEM leg is blocked by a DIFFERENT, newly-filed bug (`353`)
+
+The owner green-lit one framework tool build on robot-hands.com with
+`spec.related_pages = [electric-vs-pneumatic-economics, robot-demand-step-change,
+pneumatic-vs-electric-grippers]` (3 valid active non-tool pages). Run corr `8ea2140b`,
+completed 09:06Z on `v1.0.1323` (attempts 1–2 were refused by the unrelated script-provability
+birth guard, as were 4 organic builds the same morning — generation-side, prover byte-identical
+across the roll).
+
+**516's wire is now proven in BOTH directions:**
+- **Absence honoured** (§10): specless runs deliver nothing and record why.
+- **Presence delivered:** the crosslink emitter's own record for this run carries
+  **`related_pages_n: 3`** — the marked `related_pages?` wire handed it exactly the three named
+  pages. Zero conflict rows, zero `RESOLVER_*` rows of any phase. The resolver half of this bug
+  is DONE.
+
+**No items were created — and that is NOT 516's failure.** The emitter withheld them at its
+"tool page will not go live" guard: the new page is `planned`, and the `needs_content_page`
+gate item that guard depends on is no longer raised for pure-tool pages (fix 177) — after which
+NOTHING ever re-emits (`tool-deployer`: 0 runs in retained history). That composition is a
+fleet-wide absence bug in its own right — **30 live tools across ~24 domains have zero
+crosslink items** — filed as
+`bugs_open/353_HANDOFF_2026-08-22_new_tool_crosslinks_withheld_at_birth_and_never_emitted_again.md`,
+with this run as its ready-made repro. **This bug's own §1 damage (webdesign's incoherent
+crosslinks) and §7's "items appear for named pages" check both now route through 353** — the
+wire supplies the right pages; the pipeline drops them one stage later.
+
+**When 353's fix creates the items, read them with the creation≠completion distinction:** two
+of the three targets here are `rebuild_policy='owned'` pages, so completions may legitimately
+sit in review — "3 created, 1 completed" is the owned-page control working, not a partial
+failure of either fix.

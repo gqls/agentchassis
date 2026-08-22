@@ -7584,3 +7584,40 @@ BLIND probes during the ~2min replicaset churn giving opposite answers 30s apart
 a code read AT THE STAMP `git show 70e7b4f9c:…` showing 4× `2-refuse` present and 0×
 `stepKey != key` remaining). Their partial-roll warning stands for the next roll: wait for one
 tag and one replicaset before probing, and never probe without a present-control.
+
+## 2026-08-22 (~09:3xZ) — the positive control PROVED 516's with-pages resolver leg on attempt 3, and the reason it created no items is a NEW fleet-wide bug: `bugs_open/353`
+
+**The control (owner-approved):** tool build on robot-hands.com,
+`tool-electric-vs-pneumatic-cost-comparator`, `related_pages` naming 3 valid pages. Attempts
+1–2 (corr `44c52f2a`, `a2788b34`) refused by `tool_birth_instance_scope_refused` — as were ALL
+FOUR organic non-rebuild builds this morning (6 of 9 births refused today vs 2 all yesterday;
+**prover byte-identical `bac189921..70e7b4f9c`, so NOT the roll** — generation-side, worth its
+own file if the rate holds). Attempt 3 (corr `8ea2140b`, slimmer input surface) **completed**
+09:06Z: component + page + companion guide all created.
+
+**RESULT — a clean split, found because the first read looked wrong and got asked WHY:**
+- **516 with-pages leg, resolver half: PROVEN.** The emitter's own skip row carries
+  **`related_pages_n: 3`** — the `?` wire delivered exactly the named pages. 0 conflict rows,
+  0 `RESOLVER_*` rows any phase (gate read stays clean, now with 9 tool-generator runs today).
+- **Item half: 0 items — NOT 516.** Skip reason `tool_page_will_not_go_live`: page `planned`;
+  Guard 2's `needs_content_page` gate item was never raised (`content_item:
+  skipped_no_prose_sections` — fix 177's guard, shipped 08-03); and NOTHING re-emits
+  (`tool-deployer`: **0 orchestrations in all retained history**). Two sound guards composing
+  into a permanent withhold.
+- **Damage censused before filing: 32 withholdings since 08-03 17:53 (6h47m after 177's
+  commit), 32 distinct tools, ~24 domains; 30 of 32 pages NOW deployed with zero crosslink
+  items ever.** Masked because repeat births of established tools pass Guard 2 via an
+  already-live page. **FILED as `bugs_open/353`** (090 substituted, stated in its §5: every
+  link is a system record, not an inference), §9 pattern added to 016b ("a guard that gates on
+  another subsystem's artefact inherits that subsystem's raising policy"), §10 row added.
+
+**Two of my own errors caught in the same pass, recorded so they stay caught:** my first
+skip-row query used `> 09:10Z` while the run executed 09:05–09:06 — the row was there and my
+window missed it (state the run's OWN timestamps before querying around it); and my "[INFERRED]
+first such run since 177" was WRONG — the all-time census (32 rows) refuted it in one query.
+
+**330 state after this:** wire half DONE both directions (resolver proven; §10+§11 in the bug
+file); items route through 353; candidate 2 (269-pair remainder) still deliberately post-gate.
+**The robot-hands tool page itself** (`planned`, `needs_rerender: true`) goes live via the
+ordinary page-build path — the tool the owner asked for exists and will deploy; only its
+crosslinks wait on 353.
