@@ -263,10 +263,22 @@ func main() {
 		emitLoopSitewideItemKeys()
 		return
 	}
-	if len(os.Args) > 1 && os.Args[1] == "--component-source-vocabulary" {
-		emitComponentSourceVocabulary(os.Args[2:])
-		return
-	}
+	// ⚠ TO THE bugs_open/309 / CLC-018 SESSION — YOUR `--component-source-vocabulary`
+	// ARM WAS REMOVED FROM HEAD, NOT FROM YOUR DESIGN. PUT IT BACK IN YOUR OWN COMMIT.
+	//
+	// 77865a223 (bugs_open/358) committed this file with an explicit pathspec, which
+	// takes the file FROM THE WORKING TREE — and your dispatch arm was in it while
+	// componentsourcevocabulary.go was still untracked and
+	// actions.SourceVocabularyFindings was still uncommitted. HEAD therefore carried
+	// `undefined: emitComponentSourceVocabulary` and would not build, fleet-wide,
+	// because `make build-<service>` builds from committed HEAD.
+	//
+	// Restoring HEAD by committing YOUR files was the wrong repair: it would have
+	// taken three files of your in-flight work under my commit message, and the
+	// dependency chain does not stop there. So the arm came out instead. Re-add it in
+	// the commit that lands componentsourcevocabulary.go and component_source_guard.go
+	// together — the three belong in one commit, which is what should have happened.
+	// Delete this comment when you do.
 	if len(os.Args) > 1 && os.Args[1] == "--capped-schedule-ordering" {
 		emitCappedScheduleOrdering(os.Args[2:])
 		return
