@@ -2762,3 +2762,20 @@ agent, live config verified dry-run-by-default post-554 BEFORE dispatch, per the
 orchestration row after 2 min — the known dispatch latency; find it BY PAYLOAD, do not retry.
 ⚠ the shared `/tools/assets/webdesign-couk-header.js` is referenced by every ported page — it is
 retired with the LAST ported page, never per-tool.
+
+## 2026-08-22 ~15:00Z — the staged-removal hazard CLOSED with evidence; lane handoff supersedure noted
+
+**Verified at HEAD, not accepted from report:** no commit has touched
+`create_tool_component_action.go` since `fe1dee52d`; `git show HEAD:` carries BOTH the 283 lane's
+instance-scope guard (3 markers) and the 362 wiring (1 marker); tree clean vs HEAD on the file. The
+anonymous staged removal was UNSTAGED, not landed. Hazard closed.
+**The sibling's linking theory, recorded for whoever the 558 doc_note flushes out:** one actor
+reworking the instance-scope seam likely `#-`'d the WRONG SIBLING KEY in tool-generator's save_tool
+config block — `adopt_existing_page` sits directly beside `enforce_instance_scope` (migration 520)
+— which would explain BOTH same-day anonymous changes (the un-snapshotted config write their
+migration 558 restored, and the staged Go-guard removal) with one hand.
+**Lane state:** Phase C #1 (blueprint-compiler) done end to end by the sibling, race won, serve
+PASS; the START HERE is now their `HANDOFF_2026-08-22_continue_here.md` — the 08-21 handoff stands
+superseded. `bugs_open/365`: `retract_asset_files` refuses `/tools/` paths BY DESIGN — do not
+re-diagnose during Phase C asset retirement. This session's open tail: verdicts `c6b9a382` and
+`b8bdd4b3`, 362 §9 census post-roll.
