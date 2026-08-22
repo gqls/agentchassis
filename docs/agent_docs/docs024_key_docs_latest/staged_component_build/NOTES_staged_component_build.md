@@ -7549,3 +7549,38 @@ close needs a **deliberate positive control**: one framework-dispatched tool bui
 names `related_pages` (a normal seeded spec — NOT a hand-built page), then confirm per-tool
 crosslink items appear. That is a dispatch decision for the lane owner / owning session, noted
 here rather than fired unilaterally.
+
+## 2026-08-22 (~08:5xZ) — GATE ACCEPTED (operational ownership here; obligation lane-owned by design), and what the gate must NOT be allowed to claim
+
+**Ownership settled with the successor lane session:** this session runs the gate; the
+obligation is **ownership-independent by design** — a 48h commitment cannot depend on one
+session surviving a fleet restart, so the canonical materials live in
+`docs/agent_docs/docs024_key_docs_latest/staged_component_build/HANDOFF_2026-08-20_continue_here.md`
+**§2.11** (baseline + interpretation table + the corrected boundary, credited) **and §2.10 1b**
+(terms). **Whoever is alive at ~08:45Z 2026-08-24 runs it and records the result THERE, clean
+or not.** Interim reads while any lane session is alive are cheap and catch a regression early;
+each gets recorded, none interpreted beyond the table.
+
+**The epistemic guard for the close-out (from §2.11, restated because the temptation will be
+strong at 48h):** the conflict table was ALREADY near-silent before the flip — 537 and 516
+killed both live classes hours before the roll (263 bdl rows last 15:35:37Z; 8 tg rows last
+14:15:35Z, against 2,983 orchestrations of demand). **A clean 48h is what we would see whether
+or not the flip works. Do NOT write "0 rows, therefore proven."** The behaviour claim is
+carried by the 13 tests (fail on one-line revert) + the capability probe at the binary. The
+gate exists for exactly two observations: any **`phase='1-resolve-and-warn'` row post-boundary
+= REGRESSION** (a pod on pre-flip code — probe the pods); any **`phase='2-refuse'` row = a real
+conflict** (trace the (agent,field) pair to its consumer and give it an explicit mapping —
+never revert the flip for it). Zero of both = ambiguous, the expected case.
+
+**Also settled:** the 330 positive control is a real-output dispatch and needs a HUMAN green
+light (either lane's owner) — a peer agreeing it is sound is not authorisation. Both sessions
+have flagged it to their owners; it fires only on that word. And if any close-out cites the
+flip: the `missingkey=zero` blanking is explicitly NOT fixed by it — that is `bugs_open/342`
+(14 of 15 render call sites unguarded); do not let the lane's close imply otherwise.
+
+**Corroboration worth keeping:** the successor session verified the roll THREE ways
+independently of my binary probe (capability probe with a present-control — which caught two
+BLIND probes during the ~2min replicaset churn giving opposite answers 30s apart; ancestry; and
+a code read AT THE STAMP `git show 70e7b4f9c:…` showing 4× `2-refuse` present and 0×
+`stepKey != key` remaining). Their partial-roll warning stands for the next roll: wait for one
+tag and one replicaset before probing, and never probe without a present-control.
