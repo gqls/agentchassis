@@ -97,3 +97,31 @@ lane that owns the in-body imagery plan.
 
 Nothing is built yet. The next concrete step is the local rendering proof, then
 the first council-gated code phase.
+
+---
+
+## 2026-08-22, later — the rendering proof ran, and the design held
+
+The composition plan's first test was deliberately cheap: prove, on this
+machine, with no writes to the live system, that the new "components inside
+components" rendering can work **without changing the template engine at all**
+— because if it needed engine changes, the design would be wrong and we would
+want to know before writing any real code. It passed. Eight checks, including
+the important negative ones: a page with no composition renders byte-for-byte
+as it does today (so nothing changes for any existing page); a broken
+arrangement — a loop, a missing required piece, too-deep nesting — refuses to
+render rather than quietly serving a page with pieces missing.
+
+We also checked that the checks themselves can fail, by deliberately breaking
+the new code two ways and watching exactly the right check catch each break.
+A test that cannot fail proves nothing, and this platform has been caught by
+that before.
+
+One real discovery came out: the danger with a loop in the arrangement is not
+that rendering spins for ever — it is that the looped pieces silently vanish
+from the page while everything else renders fine. So the rule is now "every
+piece must appear exactly once, or the whole render refuses", which catches
+loops and stranded pieces alike. That went back into the plan.
+
+Next is the first real code phase: the rendering walk in the live system,
+proven on one of our own locked editorial pages, through the council gate.

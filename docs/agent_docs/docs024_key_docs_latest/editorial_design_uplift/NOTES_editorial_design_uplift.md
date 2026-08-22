@@ -490,3 +490,46 @@ Measurements re-run rather than carried forward, all `[MEASURED 2026-08-22]`:
   hand-seeded `composite` row would be **silently reverted on its next
   regeneration** — hence 035 §9's first rule: no composite rows, no
   `parent_instance_id` values, before the P1 code ships.
+
+## 2026-08-22 — P0 RUN AND PASSED, same session; the falsifier did not fire
+
+The 035 P0 proof (local render walk, no cluster writes) is built and green:
+`editorial_design_uplift/harness/composewalk/` — its own `go.mod` so the
+platform build never sees it (the provocation lane's nested-module precedent),
+and in the LANE DIR, not a scratchpad, because the news lane's `render.go`
+harness living in a dead session's scratchpad is exactly how a proof gets lost.
+
+**What it proves.** Eight checks against a byte-faithful replica of
+`executeGoTemplate` (funcmap copied verbatim, two stated divergences: no zap
+logger, `<no value>` stripped post-execute) and the real `InstanceToken` rule:
+
+| # | check | side |
+|---|---|---|
+| 0 | flat page renders byte-identical to today's token-bind + concat loop | the §7 opt-out claim |
+| 1 | depth-1 compose: children into slots, declared order, standalone-equal | pass |
+| 2 | 3-level chain renders (grandchild present); 4-level refused | both sides of the cap |
+| 3 | mutual cycle AND self-cycle refuse via the completeness assertion | induced |
+| 4 | missing required slot refuses, naming the slot | induced |
+| 5 | optional absent slot = empty splice, no `<no value>`, isset guards hold | pass |
+| 6 | pre-order token sequence == `InstanceTokensForPage` of the flattened list, tokens present in deep markup | pass |
+| 7 | non-identifier child key refused (templates could not address it) | induced |
+
+**The checks discriminate — proven by mutating the WALK, not the guards**
+(the a-mutation-that-passes-may-have-hit-a-guard-in-series rule): post-order
+token binding → exactly check 6 failed; completeness assertion deleted →
+exactly check 3 failed ("mutual cycle should refuse … got err=nil"). Pristine
+tree: 8/8 PASS, exit 0.
+
+**One genuine design refinement, fed back into 035 D4.3:** with one parent
+pointer per row, a REACHABLE cycle cannot exist — every cycle is unreachable
+from the top-level rows, so a path-set guard alone would silently DROP the
+cycled rows and render the rest. The load-bearing guard is completeness
+("every row rendered exactly once, else fail naming the unrendered"), which
+also catches orphaned parent references for free. The path-set stays as
+belt-and-braces, but P1's review should judge the completeness assertion as
+THE guard.
+
+**What P0 does not prove, stated:** nothing about the two production render
+paths' surrounding machinery (data resolution, persistence, locks) — it proves
+the walk's contract is satisfiable inside the existing executor semantics, which
+is all §5 asked of it. Next: P1 (the read path, live, one page, council-gated).

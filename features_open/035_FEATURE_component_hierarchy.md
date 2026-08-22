@@ -164,6 +164,14 @@ fields, resolved by Go, holding each child's **already-rendered** HTML. The walk
 3. **Depth cap 3, cycle refusal** — the FK cannot forbid a cycle (a row can
    reference a sibling or itself); the walk detects and **fails the render**
    (bugs-260 idiom: fail rather than stitch), never truncates silently.
+   > **Refined by P0 (2026-08-22): the load-bearing cycle guard is a
+   > COMPLETENESS assertion, not a path-set.** With one parent pointer per row,
+   > a reachable cycle cannot exist (a top-level row has no parent), so every
+   > cycle manifests as rows the walk never reaches — and a walk guarded only
+   > by a path-set would DROP them silently, the exact omission this rule
+   > forbids. The walk must assert every row rendered exactly once and fail
+   > naming the unrendered rows. Proven by mutation: removing the assertion
+   > let a mutual cycle render "successfully" minus its rows.
 4. A `required` slot with no child, or a child whose render fails → parent
    render **fails**. An optional absent slot renders as empty string
    (`missingkey=zero` already gives this for free).
@@ -269,6 +277,16 @@ harness (`scratchpad/build/render.go`) with the D4 walk over fixture rows:
 depth-1 compose, depth cap, cycle refusal, required-slot failure, optional-slot
 absence, instance-counter threading. *Falsifier: any of those six behaviours
 needs executor or funcmap changes — if so, D4 is wrong, stop and redesign.*
+
+> **P0 DONE 2026-08-22, same session — the falsifier did not fire.** Harness at
+> `docs024_key_docs_latest/editorial_design_uplift/harness/composewalk/` (own
+> `go.mod`, outside the platform build; durable, not scratchpad). Eight checks
+> (the six above + flat-page byte-identity for the opt-out claim in §7, +
+> non-identifier child-key refusal), all PASS against a byte-faithful replica of
+> the executor with the funcmap untouched. The checks discriminate: two walk
+> mutations (post-order token binding; completeness assertion removed) each
+> failed exactly the check aimed at them (6 and 3). One design refinement fed
+> back into D4.3 above. Next: P1.
 
 **P1 — the read path, live, one page (council-gated).** Walk in both render
 paths + `deriveRenderMode` third value + `check_render_mode` routing arm +
