@@ -93,7 +93,7 @@ for sym in candidatesFromHubs loadContentHubs loadInteractivePages storedCTADest
 done
 ```
 
-`loadContentHubs` and `loadInteractivePages` have **three** callers, not two:
+`loadContentHubs` and `loadInteractivePages` have **three** callers **as of 2026-08-22**, not two:
 
 | caller | what it does with them |
 |---|---|
