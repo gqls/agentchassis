@@ -124,9 +124,14 @@ them. That is the seam's discipline without the seam's cost.
   evidence available on the day points the *wrong* way and is recorded here rather than buried:
   this RFC's own recommendation 2 sat undone for twenty days, and the blocker that justified the
   delay (`bugs_open/180`) closed on the day it was filed while the landmine telling readers to wait
-  for it stayed unchanged. **The generalised form of that question now lives in `bugs_open/358`
+  for it stayed unchanged. ~~**The generalised form of that question now lives in `bugs_open/358`
   candidate B2** (no new finding code ships without a reader; a lint tying new writers to the
-  seam). Whoever takes B2 answers this RFC's open question too — build it once, for both.
+  seam). Whoever takes B2 answers this RFC's open question too — build it once, for both.~~
+  **CORRECTED same day: B2 is built and does NOT answer this** — see the correction under reopen
+  trigger 2. The two questions look identical and are not: B2's subject (`error_code` values) is
+  *rows in a table*; this RFC's subject (advisory lint findings) is *terminal output that persists
+  nowhere*. **The measurement remains untaken and is nobody's work item today**, and its
+  prerequisite — a durable record for advisory findings — is named in that correction.
 - **It does not close the class.** A future writer of `rendered_html` inherits nothing but an
   advisory check on files it happens to touch. That is a *stated* residual, not an oversight.
 
@@ -136,9 +141,29 @@ Reopen this RFC (or escalate straight to the seam) if **any** fires:
 
 1. **The archive shows an unrepaired or destructive write in production** — now answerable, because
    A1 names the writer. A single confirmed instance outside the allow-listed set is enough.
-2. **`bugs_open/358` B2's measurement shows advisory findings going unread**, i.e. commits carrying
+2. ~~**`bugs_open/358` B2's measurement shows advisory findings going unread**, i.e. commits carrying
    an `unrepaired-component-write` finding that are followed by neither a fix nor an allow-list
-   entry. That was this file's own decisive question.
+   entry. That was this file's own decisive question.~~
+   > **⚠ CORRECTED 2026-08-22, hours after this record was written — THIS TRIGGER WAS UNARMABLE AS
+   > DRAFTED, and saying so is the point of a trigger list.** It routed at `bugs_open/358` B2, which
+   > has since been **built** (`cmd/config-key-audit --finding-codes`, register DBG-075) — and B2
+   > answers a *different* question. B2 is **DB-authoritative**: it asks which `error_code` values in
+   > `agent_error_log` have a declared reader, and it can do that because the codes are *rows*.
+   > **`pattern-check.py`'s advisory findings are not rows.** They are printed to a terminal at
+   > commit time and leave no durable record anywhere, so "was this finding read?" has nothing to
+   > query — and no amount of B2 will produce it. Reported by the 358 lane, verified here.
+   >
+   > **So the trigger, restated honestly: it is NOT ARMED, and arming it has a prerequisite** — give
+   > advisory findings a durable record (one row per finding at emit time, the shape every daily
+   > check in this estate already uses), then measure fix-or-allow-list follow-through against it.
+   > Until someone does that, **this RFC's own decisive question remains unanswerable**, and the
+   > ruling stands on triggers 1, 3 and 4, which are armed today. That is a smaller claim than the
+   > one this record originally made, and it is the true one.
+   >
+   > ⚠ Note what nearly happened: this file would have sat waiting for ever on a measurement nobody
+   > was building, while reading as though it had coverage — the exact class `bugs_open/362` §2 was
+   > filed about, authored by the same session inside a day. **A reopen trigger that names another
+   > lane's work is a dependency, and it needs the same "is it still true?" check as any other.**
 3. **A third writer arrives that must not repair** — two is a considered allow-list; three is a
    vocabulary, and a vocabulary belongs in a type signature after all.
 4. `page_type='report'` or section-editor traffic stops being zero (the original §Recommendation 3

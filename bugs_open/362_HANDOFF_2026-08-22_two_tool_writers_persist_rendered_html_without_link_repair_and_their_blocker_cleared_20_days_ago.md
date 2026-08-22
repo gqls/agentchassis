@@ -132,12 +132,22 @@ in `bugs_closed/`, is a stale-status suspect** — and it is mechanically detect
 corpus, which makes it a candidate for `scripts/pattern-check.py` rather than a habit.
 
 > **Status of that check: PROPOSED, UNOWNED, deliberately not built by the filing session.**
-> Endorsed independently by the `webdesign_tool_rebuilds` lane (which took the Go half above) and
-> flagged to the `bugs_open/358` lane, which is designing a related corpus-scanning check in **the
-> same file** (its B2: no new finding code ships without a reader). If B2 builds a general
-> "grep the corpus, compare against a live source of truth" shape, this belongs inside it as a second
-> rule rather than as a competing walker — 358's call, since they hold that design. Whoever builds it
-> owes a concept-register entry: it is a new reusable mechanism, not a bug fix.
+> Endorsed independently by the `webdesign_tool_rebuilds` lane (which took the Go half above) and by
+> the `bugs_open/358` lane.
+>
+> ⚠ **CORRECTED 2026-08-22, hours after filing — it does NOT fold into 358's B2, and the reason is
+> worth keeping.** This section first said that if 358's B2 built a general "grep the corpus,
+> compare against a live source of truth" helper, this should live inside it as a second rule.
+> **B2 is now built (`cmd/config-key-audit --finding-codes`, DBG-075) and is not that shape at all:**
+> it is **DB-authoritative** — `SELECT DISTINCT error_code` is its source of truth *precisely
+> because* scanning the Go source proved untrustworthy for the job (codes reach the table as
+> positional arguments as well as `ErrorCode:` fields, so a structural grep misses them; that lane's
+> first two source-based censuses returned test fixtures while missing twelve real constants).
+> **So there is no corpus-scanning helper for this to be a second rule inside.** It wants
+> `scripts/pattern-check.py` on its own terms, as originally described. Boundary agreed by both
+> sessions and recorded on both sides.
+>
+> Whoever builds it owes a concept-register entry: it is a new reusable mechanism, not a bug fix.
 
 ## 7. Not in scope
 
