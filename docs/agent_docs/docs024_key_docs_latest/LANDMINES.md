@@ -15083,3 +15083,49 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** register **BLD-026** (`pkg/releaseset`, where the comparator lives and where its boundary is pinned), **BLD-019**/**BLD-020** (the honest answer when tags cannot be ordered: ask the artefact what commit it was built from — an ancestry question, not a string one), `bugs_open/318`, `bugs_open/237` (the `v1.0.948` vs `v1.0.1126` freeze that spans the boundary), `WRONG_CALLS.md` 2026-08-22
 - **source:** 2026-08-22, `bugs_open/318` lane — found by reading the first live run's output rather than its exit code, which was correct throughout
 - **added:** 2026-08-22, bugs_open/318 lane
+
+---
+
+### A `097` council dispatch can exit 0 having published NOTHING — and the standing advice ("a missing orchestration row is latency, do not retry") is what keeps you waiting for a run that will never start
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh` · `091_TRIGGER_fix_proposer_v1.sh` (same envelope) · `kcat -P` · `orchestration_states` · `diagnosis_artifacts` (`kind='fix_plan'`) · `RESUBMIT_CORR` · CLAUDE.md's council-gate section
+- **fires when:** you submit to the council gate and then look for your run. `097` publishes through `kcat -P` inside a throwaway `kubectl run --rm` pod (:258–261), and **`kcat -P` returning 0 does not mean it sent anything** — the estate's older landmine on that primitive. The script prints `SAVE: SUBMISSION_CORR=…` and its "what to check next" block either way, so the dispatch looks identical whether it landed or vanished.
+- **why you then wait instead of acting:** CLAUDE.md tells you, correctly for the 090 path, that *"a missing orchestration row is almost always latency, not a dropped dispatch — do not retry on that evidence (it costs a duplicate round)"*, with a measured publish→run-start of 29 minutes. That advice is what makes this one expensive: the honest reading of an absent row is "wait", so a dropped council dispatch reads as a busy fleet for as long as your patience lasts. **MEASURED 2026-08-22: a round-3 submission at 12:39 had NO orchestration row and NO artifact at 14:09 — 90 minutes — while two other lanes' council runs dispatched and executed in the same window (12:31, 14:06).** Re-dispatched, it produced a row in **3 seconds**.
+- **the check — there is a positive receipt, and it is cheap.** A dispatch that lands writes a `fix_plan` artifact under the **SUBMISSION_CORR** within seconds of the publish, before any seat has reviewed anything. Measured on one trail, three landed dispatches: run row at `11:29:18` → artifact `11:29:21`; `11:46:41` → `11:46:43`; `14:12:03` → `14:12:23`. So:
+  ```sql
+  -- ~60-90s after 097 returns. This is a RECEIPT, not a verdict.
+  SELECT count(*), max(created_at) FROM diagnosis_artifacts
+  WHERE correlation_id = '<SUBMISSION_CORR>' AND kind = 'fix_plan';
+  ```
+  **Count unchanged ⇒ the publish dropped; re-run `097` with the same `RESUBMIT_CORR`. Count up by one ⇒ it landed; now the wait genuinely is latency and you must NOT retry.** That distinction is the whole value: it separates the two cases in ninety seconds instead of thirty minutes, and it is what makes "do not retry on an absent row" safe to follow rather than something to guess around.
+- **the tell that it is a drop and not a queue:** other lanes' `council-gate-orchestrate-*` rows created AFTER yours (`SELECT orchestration_name, created_at FROM orchestration_states WHERE orchestration_name LIKE 'council-gate%' ORDER BY created_at DESC`). A queue that is serving later arrivals is not a queue you are in.
+- **⚠ and check the receipt's TIMESTAMP against your own command, not against your memory of when you ran it.** Re-dispatching, I read a fresh artifact as *predating* my retry and briefly believed I had paid for a duplicate round; the artifact was three seconds after the publish and I had simply misremembered when my own command ran. `date -u` beside the query costs nothing and settles it.
+- **relations:** MEMORY [[kcat-publish-silently-drops]] · the ENOSPC entry above (same shape: verify the EFFECT before re-running anything non-idempotent) · `bugs_open/124` (why `097` deliberately publishes and does not also write a row — a second write is a second full run on a correlation that cannot be joined)
+- **source:** 2026-08-22, `bugfix_357_component_identity` lane — found by asking why round 3 had not started while the gate was demonstrably running other lanes' submissions
+- **added:** 2026-08-22, `bugfix_357_component_identity` lane
+
+
+### `curl` default `Accept: */*` is NOT what a browser sends — and on these sites a Cloudflare Worker serves DIFFERENT BYTES per `Accept`, so a plain curl reports a stale page as healthy
+
+- **footprint:** `curl`, any by-hand "is the live page current?" check, `page_content_divergence`, `pages.content_hash`, `check_asset_reference_404`, `check_site_unreachable`, `check_tool_acceptance`, `fetchServedPage`, `probeAssetURL`, any verification that fetches a served page
+- **fires when:** you verify a deploy, reproduce a divergence finding, or write a sweep, using `curl`/`wget` without an explicit `Accept`. **No symptom, and the failure is in the SAFE-LOOKING direction**: you get the CURRENT bytes and conclude the page is fine, while every real visitor is served an older copy.
+- **the mechanism `[MEASURED 2026-08-22]`:** these sites are fronted by a Cloudflare Worker (`server-timing: cfWorker;dur=102`). It returns a **different body depending on the request's `Accept` header**, from the *same* B2 object — identical `x-amz-version-id` and `last-modified` on both responses. On `vetcomparison.uk/index.html`, at one moment, **3 fetches each**:
+
+  | request | body |
+  |---|---|
+  | `Accept: */*` (curl's default), or no `Accept`, with ANY User-Agent | the CURRENT bytes |
+  | `Accept: text/html,*/*` | the OLD bytes |
+  | `Accept: text/html,application/xhtml+xml,…` (**a real browser**) | the OLD bytes |
+
+  **The User-Agent is NOT the discriminator** — a browser-like UA with `Accept: */*` still gets the current bytes, and `Go-http-client/2.0` with `Accept: */*` does too. Only `Accept` moves it.
+- **the check — send a browser `Accept`, and say how many fetches:**
+  ```bash
+  BROWSER='Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8'
+  curl -s -H "$BROWSER" "https://<domain><url>?cb=$RANDOM$RANDOM$$" | sha256sum
+  ```
+  **The disconfirming comparison, which is the part worth copying:** run the SAME sample both ways. 30 random live pages on 2026-08-22 — **browser `Accept`: 29 MATCH / 1 DIVERGED. `Accept: */*`: 30 MATCH.** The `*/*` reading is the one that was wrong, and it was wrong in the direction that closes an investigation.
+- **the cost of getting this wrong, measured:** it cost this lane six hours of believing its own detector was producing false positives. `vetcomparison.uk/index.html` was reported diverged by `page_content_divergence` on four consecutive passes; four separate hand-probes with plain `curl` said MATCH; I wrote a correction into three documents saying the page had converged and the detector had then "regressed". **The detector was right on every pass** and the page had been serving stale bytes to browsers continuously for ~18 hours, through a republish.
+- **why `page_content_divergence` gets this right:** it sends `Accept: text/html,*/*` (`fetchServedPage`), which lands on the same variant a browser gets. That was chosen as "reasonable for an HTML fetch" rather than for this reason — it is correct by luck, and it is now correct on purpose. **Any new probe on this estate must send a browser `Accept` or it is measuring a variant nobody is served.**
+- **relations:** register `DGH-015` · `bugs_closed/315` · the sibling entry "a settle window cannot separate still-arriving from never-arriving" — both are about a measurement that looks decisive and is answering a different question than the one asked · `WRONG_CALLS.md` 2026-08-22
+- **source:** 2026-08-22, `bugfix_315_deployed_at_without_publication` lane — found by isolating a reproducible disagreement between the check and a hand-probe, one header at a time
+- **added:** 2026-08-22, 315 lane
