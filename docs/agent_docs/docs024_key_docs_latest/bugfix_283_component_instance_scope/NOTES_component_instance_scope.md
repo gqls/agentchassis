@@ -1026,3 +1026,30 @@ of a regen); (3) the regen path files no needs_content item.
 in the programme's scope, both guards proven live in both directions, sweep + escalation
 standing. Left for next session: LMC pair (veto ~midday), morning sweep steady-state read,
 then CLOSE 324 and 283.**
+
+## 2026-08-22 (session 9, morning) — 324 CLOSED; sweep's first scheduled run + first LIVE escalations; escalation blind spot found and fixed; aria-builder parked deliberately
+
+**324 moved to bugs_closed** (`c427c3108`) — fixed AND live at every layer, each demand-proven.
+
+**Sweep ran unattended at 07:40** (corpus 5, converted 119 — from 91 four days ago). It exposed
+my escalation's blind spot: the dynamic-id class refuses as **complete no-ops**, not failures,
+so the failed-only predicate never fired — three rows ground 3 rounds each (aria-builder,
+economy-flow-modeller, shadow-stacker). Fixed (`74a73db31`): the predicate is now
+"still unconverted after ≥2 TERMINAL items" (status-agnostic — a fixed:true item converts the
+template in its own transaction, so an unconverted row's terminal items are all
+non-conversions), correction visible in the docstring. Triggered post-roll-settle (v1.0.1323,
+rev = this lane's own last NOTES commit): **the escalation arc fired live for the first time,
+filing 3 rebuilds.**
+
+**First escalated samples all refused by the armed guard** (unprefixed dynamic ids — the
+guard's refuse branch, 3 more live proofs) — the escalation-derived spec lacked the
+structural id rule that converged fundamentallyai; added permanently to ESCALATE_SQL
+(`83987c58d`) + hand-reseeded. **2 of 3 converged** (economy-flow-modeller, shadow-stacker —
+rows converted at birth, verified at the TEMPLATE not the item). **aria-builder refused a
+3rd sample even with a design instruction** (it renders its GENERATED example ids as live
+DOM — the tool's domain fights the rule): **parked deliberately** as needs_human_review with
+the evidence, which stops both the daily refile and the escalation. It serves a working
+unconverted page; a person redesigns the preview or hand-writes the template.
+
+Moot parked items for the retired/reborn automation-savings rows cancelled (2). Remaining
+open: LMC pair (window to ~midday), aria-builder (human), then 283 closes.
