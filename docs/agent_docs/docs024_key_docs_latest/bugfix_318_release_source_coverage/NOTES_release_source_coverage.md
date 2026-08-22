@@ -174,3 +174,24 @@ that entry does not exist**, so `git log`ging the landmine returns a commit abou
 CronJob Job listings. Attribution lives in the entry's own `**added:**` line, which is
 why that line is not decoration. Third instance in ~24 h of the trap already recorded at
 `LANDMINES.md:14307`.
+
+### The unblock was checked end-to-end, not just at the set difference
+
+A derivation that adds three images to `build-backend` moves the release's failure from
+`push-backend` to `build-backend` if any of those three cannot build from committed
+`HEAD`. So the three were actually built, at a scratch tag never pushed
+`[MEASURED 2026-08-22]`:
+
+```
+make build-capped-schedule-ordering-check IMAGE_TAG=scratch-318-probe   → image exported OK
+make build-optional-explicit-wires-check  IMAGE_TAG=scratch-318-probe   → image exported OK
+make build-commit-sha-exposure-check      IMAGE_TAG=scratch-318-probe   → image exported OK
+docker rmi …:scratch-318-probe ×3                                       → removed
+```
+
+`capped-schedule-ordering-check` is the one that mattered: it had **never been built at
+any tag**, so it was the only one of the three with no prior evidence that its
+dockerfile works. Both acks files the sibling images `COPY --from=builder` exist at
+committed `HEAD` (`git cat-file -e HEAD:<path>`), which is the specific way these
+builds fail — `ref_build` archives `HEAD`, so a working-tree-only acks file would break
+the build for everyone else and not for the author.
