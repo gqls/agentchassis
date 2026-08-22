@@ -248,3 +248,73 @@ truncation (42-char reply). It runs at 8000 today with outputs ~300 tokens. One-
 pre_query LIKE '%error_code%'` → 0 rows, 2026-08-22). Every reader that exists is in-process,
 inside the binary that wrote the row. So "something automated will read this" is false by default
 when judging the 32, not a matter of opinion.
+
+---
+
+## 2026-08-22, later still — Task B: the retention migration, and a verify block that passed a mutant
+
+### The collision I did not expect, and the design it forced
+
+`566_database_cleanup_reaps_every_terminal_status.sql` was already sitting **untracked** in
+`sql_for_agents/`, written by the `bugs_open/354` lane, editing **arm 3** of the very
+`pre_query` my change edits **arm 1** of. It pins the whole text by md5 before AND after. Two
+migrations pinning one 90-line row means whoever lands second is refused and has to re-derive.
+
+So 567 accepts **either** known text — `c26ccf49…` (pre-566) or `b4deb963…` (post-566) — and
+refuses anything else. That keeps the property 566's header rightly argues for (the input is
+known EXACTLY, so `replace()` is deterministic) while removing the ordering constraint. Its
+negative controls assert arm 3 survives **in whichever form it is in**. Different arm, different
+table, disjoint anchors.
+
+I also messaged the other lane — and **messaged the wrong session**. `ListAgents` showed
+`bugs_open/307` twice; a `SendMessage` to the bare name silently picks one, and it picked the
+lane that does not own 566. That session replied, corrected me, and established what I could not:
+**the 354 session has ENDED**, 566 is still unapplied (`schema_migrations` rows for `566%`: 0),
+and the live md5 is still the pre-566 form. Re-verified both here rather than taking it on trust.
+Address a duplicate-named session as `name [ref]`.
+
+### The misstep that matters: my verify block passed a mutation test
+
+I wrote the migration's verify block with what I thought was a behavioural control (3e): does any
+known FINDING code match the short-retention list? Then I mutated a copy to put
+`CONTENT_LINK_REPAIR_DETAIL` straight into the shipped list — the exact defect 3e exists to catch.
+
+**It passed.** Twice over:
+
+1. **3e compared against its own hard-coded `ARRAY[…]`**, not the list that actually goes into the
+   `pre_query`. Editing the shipped list changed nothing 3e looked at. *A check on a copy of the
+   thing is not a check on the thing.*
+2. **Its population could not answer anyway.** It filtered on `CONTENT_LINK_REPAIR_DETAIL`,
+   `TRUNCATION_DEGRADED_REVIEW` and `RETRACTION_AUDIT` — and NONE of them has a row older than 30
+   days (oldest 2026-07-27, 07-26 and 08-05). The `EXISTS` was false whatever the list said.
+
+Either fault alone makes it vacuous; I shipped both in one block. Rewritten to read `q` — the
+shipped text — in both directions, and both mutants are now caught:
+
+| mutant | before | after |
+|---|---|---|
+| a finding code added to the list | **PASSED** | `567: the short-retention list names CONTENT_LINK_REPAIR_DETAIL, which the registry classes as a FINDING` |
+| a plumbing code removed from the list | not tested | `567: the short-retention list is MISSING DISPATCH_UNRESOLVABLE` |
+
+**And my first attempt at the mutation test was itself vacuous** — the `sed` did not match, so I
+ran the unmodified file and read its PASS as a result. That is the third vacuous measurement in
+one session (after the NULL-column ceiling query). The fix is mechanical and I have adopted it:
+**gate the mutation on the substitution having happened** —
+`[ "$A" -eq $((B+1)) ] || { echo "MUTATION DID NOT TAKE — refusing"; exit 1; }` — before running
+anything. A mutation test that silently tests the original is worse than no mutation test,
+because it produces a PASS you then trust.
+
+### What is in 567, and the one design decision worth arguing with
+
+Default is **KEEP**: the list names what expires EARLY (30 days), everything else lives 365. A
+code that is new, misspelled or forgotten is RETAINED, so drift can only over-retain, never delete
+unread — the opposite failure direction from the rule it replaces. The two RFC_029 resolver codes
+stay at 30 days deliberately: they are 10,103 of 45,553 rows, a 365-day clock would cost ~585,000
+rows, and their design says frequency is the evidence, not history. That is **no change** for that
+lane, but it is a decision taken about their data and it is flagged in the submission's risks.
+
+`severity` was the obvious discriminator and was measured and rejected — findings are written as
+error/warning/info, plumbing as error/fatal/warning, three codes emit both.
+
+**Council:** `bae8d694-6095-4adb-b14d-346d31bfb73e`, submitted before applying. Admission
+dry-run passed first (free), which is worth doing every time.

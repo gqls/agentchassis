@@ -122,6 +122,13 @@ type findingCodeReport struct {
 	Unruled       []string             `json:"unruled"`
 	NotObserved   []string             `json:"registered_not_observed"`
 	ObservedCount int                  `json:"observed_codes"`
+
+	// RetentionParity says whether the registry was compared against the live
+	// sweep's short-retention list, and is emitted ALWAYS — "not checked" is a
+	// state a reader must be able to see. Without it a stdin run (no DB, so no
+	// parity) and a clean parity run produce the same empty findings list, and
+	// the reader cannot tell which they are holding.
+	RetentionParity string `json:"retention_parity"`
 }
 
 var validDispositions = map[string]bool{
@@ -374,6 +381,7 @@ func findingCodeRunSummary(rep findingCodeReport, registryPath string) string {
 		"%d finding(s), %d unruled, %d registered-but-unobserved\n",
 		rep.ObservedCount, len(rep.Findings), len(rep.Unruled), len(rep.NotObserved))
 	fmt.Fprintf(&b, "registry: %s (bugs_open/358)\n", registryPath)
+	fmt.Fprintf(&b, "retention parity: %s\n", rep.RetentionParity)
 	if len(rep.Findings) == 0 {
 		b.WriteString("\nEvery code firing today is declared. The unruled count below is the " +
 			"backlog, not a defect — it should go down.\n")
@@ -431,6 +439,9 @@ func emitFindingCodes(args []string) {
 	}
 
 	var live []string
+	var parityFindings []findingCodeFinding
+	parityState := "not checked — no database connection (stdin mode). Retention parity needs " +
+		"the live sweep; run with --report to check it."
 	if report {
 		// Straight from Postgres: this image contains no kubectl and the service
 		// account has no pods/exec RBAC (see fleetdb.go).
@@ -448,6 +459,19 @@ func emitFindingCodes(args []string) {
 		}
 		defer db.Close()
 		live, err = loadLiveCodesFromDB(db)
+
+		// Parity against the live retention sweep. Loaded here, while the
+		// connection is open; the findings are merged after the audit below.
+		arm, armFindings := loadRetentionArmFromDB(db)
+		switch {
+		case len(armFindings) > 0:
+			parityFindings = armFindings
+			parityState = "NOT checked — the sweep itself is missing or unreadable (see findings)"
+		default:
+			parityFindings = auditRetentionParity(arm, reg)
+			parityState = fmt.Sprintf("checked against %s's agent_error_log arm — %d disagreement(s)",
+				retentionSweepTask, len(parityFindings))
+		}
 	} else {
 		var raw []byte
 		raw, err = io.ReadAll(os.Stdin)
@@ -478,6 +502,8 @@ func emitFindingCodes(args []string) {
 	}
 
 	rep := auditFindingCodes(live, reg, repoSourceReader(root), time.Now())
+	rep.Findings = append(rep.Findings, parityFindings...)
+	rep.RetentionParity = parityState
 
 	if report {
 		summary := findingCodeRunSummary(rep, registryPath)
@@ -504,4 +530,139 @@ func emitFindingCodes(args []string) {
 	if len(rep.Findings) > 0 {
 		os.Exit(1)
 	}
+}
+
+// ─── RETENTION PARITY (bugs_open/358, owner ruling 2026-08-22) ───────────────
+//
+// Migration 567 gave deliberate findings a 365-day clock and left ordinary
+// failure plumbing at 30 days. It does that with a LIST of codes inside
+// `database-cleanup`'s pre_query — the short-retention list — because nothing
+// else in an agent_error_log row separates the two kinds. `severity` was the
+// obvious discriminator and was measured and rejected: findings are written as
+// error, warning AND info, plumbing as error, fatal AND warning, and three codes
+// emit mixed severities.
+//
+// A hand-written list in a live pre_query is exactly the drift shape this lane
+// retired twice over, so it does not get to sit unchecked. This is the parity
+// half: the registry says what each code IS, the sweep says how long it LIVES,
+// and the two must agree. Modelled on optional_budget_cron_parity_test.go, which
+// exists because two actions entered the registry counted as ZERO and were
+// invisible to their check for four days.
+//
+// THE ASYMMETRY IS DELIBERATE AND MATCHES THE MIGRATION'S OWN SAFETY PROPERTY.
+// 567's default is KEEP: a code absent from the list is retained for 365 days.
+// So the two directions carry different weight:
+//
+//   - `operational` MISSING from the list  -> finding. The table grows without
+//     anyone deciding it, silently, and nothing else would ever say so.
+//   - a FINDING code PRESENT in the list   -> finding, and the worse of the two:
+//     it means deliberate evidence is being deleted at 30 days again, which is
+//     the whole defect 358 exists about.
+//   - `instrumented` on either side        -> NOT asserted, reported. Whether a
+//     time-boxed measurement wants history or only frequency is a per-code
+//     judgement its `review_by` governs; RFC_029's two resolver codes want
+//     frequency and are deliberately short-retention. Asserting either way here
+//     would make this check the owner of a decision that is not its to make.
+const retentionSweepTask = "database-cleanup"
+
+const retentionSweepQuery = `SELECT pre_query FROM scheduled_tasks WHERE name = $1`
+
+// errorLogArmBounds delimits the ONE arm of the sweep that deletes from
+// agent_error_log. Scoping to it matters: a bare Contains over the whole
+// pre_query would also match a code name that some future arm mentions for an
+// unrelated reason, and would then report parity that is not there.
+func extractErrorLogArm(preQuery string) (string, bool) {
+	start := strings.Index(preQuery, "DELETE FROM agent_error_log")
+	if start < 0 {
+		return "", false
+	}
+	rest := preQuery[start:]
+	end := strings.Index(rest, "RETURNING")
+	if end < 0 {
+		return "", false
+	}
+	return rest[:end], true
+}
+
+// namedInShortRetention asks whether the arm names this code as a quoted SQL
+// literal. Exact by construction: measured 2026-08-22, none of the sixteen
+// short-retention names occurs anywhere else in the sweep.
+func namedInShortRetention(arm, code string) bool {
+	return strings.Contains(arm, "'"+code+"'")
+}
+
+func auditRetentionParity(arm string, reg map[string]findingCodeEntry) []findingCodeFinding {
+	var out []findingCodeFinding
+	codes := make([]string, 0, len(reg))
+	for c := range reg {
+		codes = append(codes, c)
+	}
+	sort.Strings(codes)
+
+	for _, code := range codes {
+		named := namedInShortRetention(arm, code)
+		switch reg[code].Disposition {
+		case "operational":
+			if !named {
+				out = append(out, findingCodeFinding{
+					Kind: "retention_parity_missing",
+					Code: code,
+					Detail: "declared `operational` but NOT named in database-cleanup's short-retention " +
+						"list, so it now lives 365 days instead of 30. Plumbing is the high-volume half " +
+						"of this table — add it to migration 567's list, or change its disposition.",
+				})
+			}
+		case "consumed", "human-evidence", "unruled":
+			if named {
+				out = append(out, findingCodeFinding{
+					Kind: "retention_parity_finding_expires_early",
+					Code: code,
+					Detail: "declared `" + reg[code].Disposition + "` — a deliberate finding — yet named in " +
+						"database-cleanup's short-retention list, so its rows are deleted at 30 days " +
+						"unread. That is bugs_open/358 itself. Remove it from the list, or rule it " +
+						"`operational` if that is what it really is.",
+				})
+			}
+		case "instrumented":
+			// deliberately unasserted — see the block comment above.
+		}
+	}
+	return out
+}
+
+// loadRetentionArmFromDB returns the agent_error_log arm of the live sweep.
+// A MISSING OR RENAMED TASK IS A FINDING, NOT A PASS: if this returned "" and
+// the caller skipped the parity check, a deleted database-cleanup row would read
+// as perfect agreement — the exact shape ("absence reads as health") that this
+// whole mode exists to refuse.
+func loadRetentionArmFromDB(db *sql.DB) (string, []findingCodeFinding) {
+	var pre sql.NullString
+	err := db.QueryRow(retentionSweepQuery, retentionSweepTask).Scan(&pre)
+	if err == sql.ErrNoRows {
+		return "", []findingCodeFinding{{
+			Kind: "retention_sweep_absent",
+			Code: retentionSweepTask,
+			Detail: "no scheduled_tasks row named `" + retentionSweepTask + "` — the sweep that " +
+				"enforces retention is GONE or renamed. Reported as a finding rather than skipped: " +
+				"a skipped parity check and a perfect one are the same clean report.",
+		}}
+	}
+	if err != nil {
+		return "", []findingCodeFinding{{
+			Kind:   "retention_sweep_unreadable",
+			Code:   retentionSweepTask,
+			Detail: "could not read its pre_query: " + err.Error() + " — parity was NOT checked.",
+		}}
+	}
+	arm, ok := extractErrorLogArm(pre.String)
+	if !ok {
+		return "", []findingCodeFinding{{
+			Kind: "retention_sweep_no_error_log_arm",
+			Code: retentionSweepTask,
+			Detail: "its pre_query no longer contains a `DELETE FROM agent_error_log … RETURNING` " +
+				"arm. Either retention moved somewhere this check cannot see, or the arm was lost — " +
+				"and a lost arm means NOTHING is ever deleted, which looks like health from here.",
+		}}
+	}
+	return arm, nil
 }
