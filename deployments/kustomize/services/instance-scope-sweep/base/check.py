@@ -36,9 +36,16 @@ clean — so a MISSING row means THE JOB DID NOT RUN, which must never look like
 "nothing needed converting".
 
 ESCALATION (owner ruling 2026-08-21, second half: "ensure all these errors are detectable
-and fixable through the improvement loop"). A row whose conversion has FAILED on two or more
-sweep-filed items carries evidence its template is defective (the chartTitle-duplicate class:
-the converter errors, loudly, every time) - grinding it daily fixes nothing. Such rows are
+and fixable through the improvement loop"). A row that is STILL UNCONVERTED after two or more
+terminal conversion items carries evidence the pipeline cannot convert it as it stands -
+whether the items FAILED loudly (the chartTitle class: the converter errors) or COMPLETED as
+polite no-op refusals (the dynamic-id class: "convert through the judged pool", which the
+mechanical arm refuses without routing anywhere). Grinding it daily fixes nothing.
+> CORRECTED 2026-08-22: the first cut matched status='failed' only and was BLIND to the
+> completed-no-op class - three rows ground for a day under it (aria-builder,
+> economy-flow-modeller, shadow-stacker, each 3 no-op completions). "Still unconverted after
+> N terminal items" is the status-agnostic evidence: a fixed:true item converts the template
+> in the same transaction, so an unconverted row's terminal items are all non-conversions. Such rows are
 ESCALATED: the sweep files ONE add_tool item with replace_existing=true (the owner-ruled
 rebuild route: full pipeline, fresh generation, incumbent snapshotted), spec derived from the
 incumbent's own description and tool-doc header, rate-limited to one escalation per row per
@@ -133,7 +140,7 @@ WITH failed_rows AS (
   JOIN pages p ON p.id = pc.page_id
   JOIN sites s ON s.id = p.site_id
   JOIN site_work_items w ON w.item_key = 'instance-scope:' || left(c.id::text, 8)
-                        AND w.status = 'failed'
+                        AND w.status IN ('failed', 'complete')
   WHERE c.is_active
     AND c.html_template ~ 'getElementById'
     AND c.html_template NOT LIKE '%{{.InstanceID}}%'
@@ -146,8 +153,8 @@ INSERT INTO site_work_items (
 )
 SELECT DISTINCT ON (f.site_id, f.function)
   f.site_id, 'automated_check', 'build', 'add_tool', 'medium',
-  'instance-scope-sweep ESCALATION: conversion of ' || f.function || ' has FAILED ' || f.failed_n
-    || ' times (defective template - the converter errors on it); rebuilding through the full pipeline per the 2026-08-21 owner ruling',
+  'instance-scope-sweep ESCALATION: ' || f.function || ' is still unconverted after ' || f.failed_n
+    || ' terminal conversion items (failed or refused-as-no-op); rebuilding through the full pipeline per the 2026-08-21 owner ruling',
   40, 'tool-generator', 'triaged', 'instance-scope-sweep',
   jsonb_build_object(
     'name', f.display_name,
