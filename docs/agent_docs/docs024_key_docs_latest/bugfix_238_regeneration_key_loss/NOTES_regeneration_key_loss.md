@@ -687,3 +687,15 @@ doc_notes. Exit 1 = correct steady state while parked damage stands.
   this lane has reached for a placeholder). The right order is submit-then-commit; 552/A1 commits
   predate the submission and will list as un-reviewed in 098 — accepted, the submission JSON
   commit carries the trailer.
+
+**2026-08-22 ~12:15Z — 552 APPROVED and APPLIED; A1 round 2 still in council.**
+Verdict `ebbea0c1`: all reviewers approve, 6 abstained, two LOW advisories — the truncated sketch
+(the probe IS transaction-wrapped, self-cleaning, ON_ERROR_STOP; answered by the file) and the
+absence-claim on "only admin can produce a content-only UPDATE" being a grep not attached evidence
+(noted; the new arm itself is what polices that absence from now on — a hidden content-only writer
+now ARCHIVES, which is the whole point). Applied by hand: pre-flight passed, trigger created,
+five-arm probe passed silently, COMMIT. Verified at pg_trigger with the control: all THREE archive
+triggers present and enabled (357's two undisturbed). The archive's content-only blind spot is
+CLOSED live. The peer session independently re-verified the first-run figures and corrected 358 on
+the CONTENT_DATA_REGRESSION consumer question (their commit `edeef157e`); the 41-tool-pages lead is
+358 §B1a with the shared-step suppression trap as its headline.
