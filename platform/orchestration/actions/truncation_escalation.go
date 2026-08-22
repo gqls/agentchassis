@@ -39,16 +39,16 @@
 // ai_service key.
 //
 // INTERPLAY, in the order the error path runs:
-//   1. Escalation fires FIRST, before tolerate_truncation: a complete answer
-//      at a taller cap beats keeping a fragment. The cut first call gets its
-//      own llm_call_log row (success=false, "ESCALATED (bugs_open/337: ...)"
-//      prefix) — one call, one forensic row, the rule every caller follows.
-//   2. If the escalated call ALSO truncates, the existing machinery sees the
-//      SECOND error verbatim: tolerate_truncation (with its bugs_open/076
-//      consumer guard) may salvage the taller partial, and the hard-fail
-//      message then honestly reports the ceiling as the cap that was hit.
-//   3. Any non-truncation error from the escalated call flows down the
-//      existing ladder (isAIUnavailable, model errors, 5xx retries) unchanged.
+//  1. Escalation fires FIRST, before tolerate_truncation: a complete answer
+//     at a taller cap beats keeping a fragment. The cut first call gets its
+//     own llm_call_log row (success=false, "ESCALATED (bugs_open/337: ...)"
+//     prefix) — one call, one forensic row, the rule every caller follows.
+//  2. If the escalated call ALSO truncates, the existing machinery sees the
+//     SECOND error verbatim: tolerate_truncation (with its bugs_open/076
+//     consumer guard) may salvage the taller partial, and the hard-fail
+//     message then honestly reports the ceiling as the cap that was hit.
+//  3. Any non-truncation error from the escalated call flows down the
+//     existing ladder (isAIUnavailable, model errors, 5xx retries) unchanged.
 //
 // Cost, measured before shipping (llm_call_log, 2026-08-22): the estate-wide
 // truncation-failure rate is a handful of calls per week outside the two steps
