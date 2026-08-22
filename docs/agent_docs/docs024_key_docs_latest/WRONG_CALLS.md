@@ -44978,3 +44978,38 @@ spot-checks.* Fetch N times, require agreement, and state N.
 consumed inside `xargs`/`bash -c`, assert the var is non-empty **inside the worker**, not in the shell
 that launched it. An unexported variable does not error — it silently becomes the default behaviour
 you were trying to compare against.
+
+---
+
+## 2026-08-22 — I told the owner an absent signal was "traffic, not a fault" without checking, and it was a fleet outage (`bugfix_305_negation_gate` lane)
+
+**The claim.** No `copy_gate` run had appeared on the new chassis build. I wrote in a handoff, and
+said to the owner, *"The code is binary-probed present, so this is traffic, not a fault."* I had
+measured the presence of the code and the absence of the runs, and then **inferred the reason for the
+absence without measuring it at all** — the marker rule was followed for the two facts and skipped
+for the conclusion drawn from them.
+
+**What caught it.** Chasing a different question — why one page build failed — surfaced a 400 from
+Anthropic: *"You have reached your specified API usage limits."* The account had hit its cap at
+18:15:35Z; `bugs_open/243`, third occurrence in 22 days.
+
+**And then the SECOND error, which is the more instructive one.** My first measurement of the outage
+used a ONE-HOUR bucket and reported *"84 successes alongside 7 failures — intermittent, not a wall"*.
+That window **straddled the cutover**: every success in it predated 18:15:51. Splitting at the last
+success instead gives 116 successes before / 1 success and 8 usage-limit failures after — an
+unambiguous wall. **An hourly bucket cannot see an outage that began inside it, and it will report
+the outage as noise.** So I was wrong twice in ten minutes, in opposite directions, on the same
+question.
+
+**The cheap check, both times:** for "why is X absent?", the disconfirming evidence lives in whether
+the UPSTREAM producer is alive — one query (`SELECT max(created_at) FROM llm_call_log WHERE
+success;`) would have answered it before I wrote either sentence. And for any before/after claim,
+split the window AT the event, never on a calendar boundary that contains it.
+
+**Cost if uncaught:** the owner would have been told the fleet was merely quiet on an evening when it
+was stopped, on the one class of failure that only he can clear — and a session reading my handoff
+would have gone looking for a gate defect that does not exist.
+
+**The transferable shape:** *"the code is present, so the silence is benign"* is two measurements and
+one guess wearing their credibility. **An absence is not evidence until you have measured its
+producer.**
