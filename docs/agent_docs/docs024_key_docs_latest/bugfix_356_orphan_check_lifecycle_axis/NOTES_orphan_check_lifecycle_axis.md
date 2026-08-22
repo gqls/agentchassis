@@ -252,3 +252,48 @@ traps; `git status --porcelain` + `go build ./...` after any mutate-and-restore.
 - **Council** (`4cf291a2`): dispatched, `review_editquality` executing at last check. Committed
   with `Council-Submitted:` rather than holding the code — on a shared HEAD, holding it back is
   not available (owner ruling 2026-07-29 §2).
+
+---
+
+## 2026-08-22 — the council round, and one thing that happened TO this lane
+
+### Council `4cf291a2`: APPROVED round 1, 15 reviewers, 3 advisory objections
+
+Two of the three named real gaps. Full table in the bug file §7b; the two worth repeating here
+because they change how I would work next time:
+
+- **`debug_historian` (medium)** — I wrote a §7 verification section with a census, a
+  disconfirming pair and a mutation arm, and **left out the step that comes before all three**:
+  proving the fix is in the running binary. On a tree where Go changes are inert until a roll,
+  every one of my three arms would have been measuring the old binary. The estate's most-repeated
+  trap, and I walked past it while writing the section whose whole job is not walking past it.
+- **`reuse_agent` (low)** — "no evidence you searched for an existing comment-stripper." I had
+  not. Searching found `stripGoComments` already in `actions/`, and **measuring it found it
+  carries the exact `*/*` defect my own v2 had**. So the objection's value was not "reuse this"
+  — it was that looking produced a finding either way. Latent not live in its own package (it
+  scans one file, zero `*/*` occurrences), so recorded for its lane rather than edited uninvited.
+
+The seat I expected to object — `architecture`, on a 51-entry package-wide build gate — approved
+it as `point_fix` with a low note, on the grounds that it extends an existing in-package idiom
+rather than inventing a mechanism. Worth knowing: **the size of a registry is not what that seat
+weighs; whether it exports a new cross-package expectation is.**
+
+### MISSTEP 8 — I held an append-only ledger uncommitted, and another session swept it
+
+I appended two entries to `WRONG_CALLS.md` and did not commit them for ~40 minutes while
+finishing other work. In that window another session ran a broad `add` and **my two entries went
+into their commit** (`4a7a1b1f9`, about tools-api and Mythic Beasts — nothing to do with this
+lane).
+
+**Nothing was lost** — all four of my entries are at HEAD, verified by content grep, and
+forward-only holds, so there is nothing to undo. But the provenance is now wrong: `git log` on
+that file attributes my two entries to a commit about something else entirely, which is exactly
+the review/bisect damage the commit-per-task rule exists to prevent — suffered from the other
+direction.
+
+**The cheap check:** `WRONG_CALLS.md`, `LANDMINES.md` and `MEMORY*.md` are **shared append-only
+ledgers on a tree many sessions write to**. Commit an append to one **immediately**, on its own
+pathspec, in the same breath as the append — never batch it with the end-of-task commit.
+CLAUDE.md already says "commit each task the moment it is coherent"; an append to a shared ledger
+is coherent the instant it is written, and it is the file class most likely to be concurrently
+touched.

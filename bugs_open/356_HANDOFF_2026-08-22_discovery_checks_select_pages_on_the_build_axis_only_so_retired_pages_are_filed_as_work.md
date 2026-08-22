@@ -1,7 +1,25 @@
 # 356 — discovery checks select pages on the BUILD axis only, so **retired pages are filed as work for handlers that all correctly refuse them**
 
+> ## ⏳ FIXED IN THE TREE, NOT YET LIVE — stays OPEN, 2026-08-22
+>
+> **The instance fix and the class guard are committed** (`24d0bc251`, council **APPROVED**
+> round 1 corr `4cf291a2`, follow-up `fa283256d`). This file stays in `bugs_open/` because the
+> bar is **fixed AND live** and half of this is not:
+>
+> | half | state |
+> |---|---|
+> | `check_orphan_pages`' lifecycle arm | **Go — INERT until the next `agent-chassis` build and roll.** The defect is still reproducible in production today. |
+> | the posture registry + guard | **test-only — live in CI on merge**, protecting the tree now |
+> | the other **17** routing gaps | **NOT FIXED.** Declared, counted and named in the registry; each needs its own judgement (§6-B). |
+>
+> **Do not close this on the roll alone.** §7 STEP 0 is a pod/ancestry check, and the census
+> arm needs its disconfirming PAIR. The remaining 17 gaps are the larger half of the ticket.
+>
+> **The 090 loop did NOT ratify this file** — one run died on infrastructure, one returned
+> UNVERIFIABLE. See the banner below before citing anything here as loop-confirmed.
+
 **Filed 2026-08-22** by the session named `bugs_open/298`, taking that file's explicitly
-unclaimed adjacent finding. **Status: OPEN. The damage is LIVE and RECURRING** — the same
+unclaimed adjacent finding. **The damage is LIVE and RECURRING** — the same
 archived pages have been re-detected and re-dispatched on every discovery rotation for four
 months.
 
