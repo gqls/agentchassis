@@ -7,7 +7,7 @@ actually said, and every misstep.
 
 ## 2026-08-21 (a) — session start: what I found before touching anything
 
-Picked up `bugs_open/204` on the owner's instruction. First job was to establish
+Picked up `bugs_closed/204` on the owner's instruction. First job was to establish
 what part of it is still open, because the file's own headline says
 **"✅ FIXED, LIVE AND BEHAVIOURALLY VERIFIED END TO END — 2026-08-06, v1.0.1259"**
 and is deliberately kept in `bugs_open/` (owner direction 2026-08-06, "leave the

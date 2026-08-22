@@ -1,7 +1,7 @@
 // FILE: platform/orchestration/datahelpers/page_slot_identities.go
 //
 // ONE answer to "what is this page actually made of, as the page itself records
-// it?" — the stored slot identities on `page_components` (bugs_open/204).
+// it?" — the stored slot identities on `page_components` (bugs_closed/204).
 //
 // THE DEFECT THIS SERVES. On a decomposed site a page's composition is a list of
 // POSITIONAL slot names — `prose-0`, `tool-1` — which are neither a
@@ -51,7 +51,7 @@
 //     no stored rows, so a positional name proposed for it points at nothing and
 //     dropping it is correct. Named here so the omission reads as a decision.
 //
-// The log and error strings are load-bearing beyond this file: `bugs_open/204`'s
+// The log and error strings are load-bearing beyond this file: `bugs_closed/204`'s
 // closure evidence pod-greps "load page slot identities" and "slot_name repeats
 // with different component_ids" to prove a binary carries the fix. Changing them
 // silently retires somebody's verification.

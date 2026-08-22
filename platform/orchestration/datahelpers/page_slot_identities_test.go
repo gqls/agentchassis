@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/datahelpers/page_slot_identities_test.go
 //
-// bugs_open/204 — these pin the three things the three call sites of this
+// bugs_closed/204 — these pin the three things the three call sites of this
 // judgement now share, and the one place they deliberately DIVERGE:
 //   1. the per-page projection is byte-identical to what plan_sections shipped
 //      (commit 13252f714), so the move to this package is a pure move;

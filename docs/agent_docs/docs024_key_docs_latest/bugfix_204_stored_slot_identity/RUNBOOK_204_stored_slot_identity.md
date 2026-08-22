@@ -10,7 +10,7 @@ Change it HERE when it changes, not in scrollback.
 ### 1. The census — how many section names no component can resolve
 
 > ⚠ **THE OBVIOUS VERSION OF THIS QUERY OVER-REPORTS, and it is the one in
-> `bugs_open/204`'s own §Measured block.** A predicate of
+> `bugs_closed/204`'s own §Measured block.** A predicate of
 > `cc.function = sec OR cc.name = sec` is a RAW match; the resolver's SECOND arm
 > normalises (`NormalizeComponentFunction`: `call_to_action` → `call-to-action`), so
 > every snake_case spelling counts as unresolvable when the live code resolves it

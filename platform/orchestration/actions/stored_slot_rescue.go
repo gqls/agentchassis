@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/stored_slot_rescue.go
 //
-// The STORED-IDENTITY half of section-name acceptance (bugs_open/204).
+// The STORED-IDENTITY half of section-name acceptance (bugs_closed/204).
 //
 // WHAT THIS IS FOR. Four surfaces resolve a proposed section name against the
 // component catalogue and DROP what they cannot resolve. On a decomposed site a
@@ -209,7 +209,7 @@ func (r *storedSlotRescue) keptFinding() []agenterrors.Finding {
 		findings = append(findings, agenterrors.Finding{
 			ErrorCode: "PLAN_SECTION_STORED_SLOT_READ_FAILED",
 			Severity:  "warning",
-			Message: fmt.Sprintf("stored slot identities could not be read for this site; %d section name(s) that resolve to no active component were KEPT rather than dropped, because a transient read failure must not be able to empty a decomposed page (bugs_open/204)",
+			Message: fmt.Sprintf("stored slot identities could not be read for this site; %d section name(s) that resolve to no active component were KEPT rather than dropped, because a transient read failure must not be able to empty a decomposed page (bugs_closed/204)",
 				r.unknown),
 			Context: map[string]interface{}{
 				"kept_without_checking": r.unknown,
@@ -224,7 +224,7 @@ func (r *storedSlotRescue) keptFinding() []agenterrors.Finding {
 	return append(findings, agenterrors.Finding{
 		ErrorCode: "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT",
 		Severity:  "warning",
-		Message: fmt.Sprintf("%d proposed section name(s) across %d page(s) resolved to no active component but ARE stored slot names on the page proposed for — kept instead of dropped (bugs_open/204)",
+		Message: fmt.Sprintf("%d proposed section name(s) across %d page(s) resolved to no active component but ARE stored slot names on the page proposed for — kept instead of dropped (bugs_closed/204)",
 			r.kept, len(r.keptPages)),
 		Context: map[string]interface{}{
 			"kept_count":  r.kept,

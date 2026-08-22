@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/upsert_page_sections_guard_test.go
 //
-// bugs_open/204, the write-side half. `sections = EXCLUDED.sections` was
+// bugs_closed/204, the write-side half. `sections = EXCLUDED.sections` was
 // unconditional while its nav_label and meta_description siblings IN THE SAME
 // STATEMENT had carried destructive-write guards since 2026-08-19. On 2026-08-20
 // that unguarded clause turned one planner defect into 41 emptied live pages.
@@ -280,7 +280,7 @@ func TestApplyAdoptionPlan_SectionsGuardIsInTheStatement(t *testing.T) {
 }
 
 // pageReturnRows builds the widened RETURNING row: the eleven original columns
-// plus sections_kept, which bugs_open/204 added so a refusal reaches the caller.
+// plus sections_kept, which bugs_closed/204 added so a refusal reaches the caller.
 func pageReturnRows(pageID, siteID uuid.UUID, sectionsKept bool) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{
 		"id", "site_id", "name", "url", "title", "page_type",

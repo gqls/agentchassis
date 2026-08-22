@@ -1,6 +1,6 @@
 // FILE: platform/orchestration/actions/stored_slot_rescue_test.go
 //
-// bugs_open/204 — validate_plan (and two apply_gap_plan arms) DELETED a section
+// bugs_closed/204 — validate_plan (and two apply_gap_plan arms) DELETED a section
 // name that is a positional slot the page already carries. These pin the fix and,
 // just as importantly, the four things it must NOT do:
 //

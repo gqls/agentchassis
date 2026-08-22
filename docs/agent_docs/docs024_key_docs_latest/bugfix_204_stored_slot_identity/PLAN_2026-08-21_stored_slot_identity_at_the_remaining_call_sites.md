@@ -210,7 +210,7 @@ separate small task, not smuggled in here.
   `check_section_source_drift`; `check_sectionless_pages` (stops being handed
   falsely-emptied pages).
 - **Told:** register amendments to PLAN-027 and the plan_sections/PBP-035 entries;
-  dated notes in `bugs_open/204` and the reconcile lane; the new datahelpers header
+  dated notes in `bugs_closed/204` and the reconcile lane; the new datahelpers header
   carries the list. The message is *"a validated plan may carry, for an existing
   decomposed page, that page's stored slot names; resolve identity via
   `page_components`, never by assuming a section name is a function."*
@@ -266,7 +266,7 @@ config-vs-Go ordering hazard.
   build down.) Behaviour-identical; suite green from `git archive HEAD` before B.
 - **Commit B — the behaviour.** Validate arm + gap-plan sites 2 and 4 +
   observables + tests + the guarantee-comment rewrite + register amendments +
-  the `bugs_open/204` fix note. **Council submission 1** covers A+B as one coherent
+  the `bugs_closed/204` fix note. **Council submission 1** covers A+B as one coherent
   task; `Council-Submitted:` trailer if committing before the verdict lands, and
   never `Council-Reviewed:` on a verdict not read.
 - **Commit C — the write guard.** **Council submission 2.**
