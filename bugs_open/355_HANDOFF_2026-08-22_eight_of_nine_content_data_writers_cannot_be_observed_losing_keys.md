@@ -405,6 +405,24 @@ anticipated):** finding rows expire — 30d unresolved, 14d RESOLVED (mig 466), 
 row's remaining life. Accepted deliberately: nothing depends on the rows persisting — the durable
 records are the heartbeat and the state census, both re-derived every run.
 
+**NAMED FOLLOW-UP (from the council's round-1 architecture and bug_historian seats, 2026-08-22,
+accepted rather than absorbed): the stamp convention has no enforcement.** A NEW writer of
+`page_components` that forgets `stampedExecContext`/`stampWriterTx` silently reverts to the socket
+string — distinguishable, not corrupt, and the daily heartbeat's unattributed counter watches the
+share — but the exposure is the historian's named pattern (per-site discipline required for ever).
+The follow-up is a `scripts/pattern-check.py` check in the `check_unrepaired_component_write`
+family: fire on any changed Go writer of `page_components` that neither stamps nor appears in an
+allow-list with a reason. Whoever builds it should note that check's own landmine — two writers are
+deliberately NOT allow-listed there, and the same honesty applies here (the funnel and the
+INSERT-only writers are unstamped BY DESIGN and belong in the allow-list with those reasons, not
+silently).
+
+**Round-1 REVISE, recorded because the cause was a choice:** the submission compressed eleven files
+into eight edit entries and named three in prose — which the editquality seat correctly read as
+unshipped work. The revision splits (A1 round 2 on `f5550f04`; 552 on `ebbea0c1`) instead of
+compressing. The lesson for the next submission that exceeds the cap: **split the submission —
+never compress files into prose**, because a seat can only review what the edits array names.
+
 **What closes this file:** the council verdict on `f5550f04` read and 552 applied; one scheduled
 run (07:05 UTC) producing its heartbeat unattended; and after the next roll, one archive row
 carrying an `action:*` writer. Then this moves to `bugs_closed/` with the fixed-AND-live bar met.
