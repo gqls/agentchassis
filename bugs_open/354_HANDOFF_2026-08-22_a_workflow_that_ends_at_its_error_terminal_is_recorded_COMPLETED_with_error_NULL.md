@@ -1,8 +1,8 @@
 # 354 — a workflow that ends at its ERROR TERMINAL is recorded `COMPLETED` with `error` NULL
 
 **Filed 2026-08-22** by the `bugs_open/260` lane (render-fallback), which met this while
-establishing that a symptom it was blamed for was pre-existing. **Status: OPEN, UNOWNED.**
-It is filed so somebody can own it; this lane is not working it.
+establishing that a symptom it was blamed for was pre-existing. **Status: OPEN — OWNED by the `bugs_open/307` lane from 2026-08-22 (they asked, I confirmed I was not working it).**
+It was filed so somebody could own it, and somebody has — the account now lives here, not in a fork.
 
 > **On the 090 loop, stated plainly because the 2026-07-31 owner ruling requires it.**
 > This is a cross-cutting structural claim, so it went to the diagnosis loop **before** this file
@@ -100,7 +100,13 @@ the run says `COMPLETED` with `error` NULL. `mark_item_failed` is the recursive 
 exists to record a failure failed, and that too reads as success.
 
 **(d) Retention, so nobody sizes this from `orchestration_states`.** `[MEASURED 2026-08-22]`
-That table holds **08-21 and 08-22 only** (2,384 + 723 rows), plus 24 stragglers stuck since July.
+That table holds **08-21 and 08-22 only** (2,384 + 723 rows), plus 24 older rows.
+> **CORRECTED 2026-08-22, same day, by the `bugs_open/307` lane picking this bug up — I called those
+> 24 rows "stragglers stuck since July" and never asked their status.** They are **all `CANCELLED`**
+> (`GROUP BY status` on rows older than 48h: `CANCELLED | 24 | 2026-07-19 | 2026-07-24`, re-verified
+> here before accepting it). They are not stuck — they are **unreaped**, which is a different defect
+> and is the one described in §5 below. **The check I skipped was one clause long.** Filed in
+> `WRONG_CALLS.md`: an anomalous row's AGE is not its diagnosis; ask what STATE it is in.
 So the counts above are **~2 days of traffic, not a census** — roughly 25–30 swallowed runs a day at
 current load. Anyone quoting "50" as a total is quoting a retention window.
 
@@ -169,6 +175,38 @@ own bug too. **Do not re-fix those from here; they are the damage, this is the r
 3. **Reporting only** — a view or sweep joining `agent_error_log` on `orchestration_id`, which
    §2(e) proves resolves 50/50. Cheapest, loses nothing, and closes no door at all: it depends on
    somebody choosing to look, which is the property that produced this bug.
+
+> **⚠ CORRECTED 2026-08-22 by the `bugs_open/307` lane — candidate 1's cost was reasoned from a
+> world three days out of date, and there is a trap underneath it that I would not have found.**
+> Independently re-verified here before folding in; both halves check out.
+>
+> **(a) Adding a status is CHEAPER than I assumed.** Migration `466` (landed 2026-08-19, three days
+> before this file) gave `orchestration_states.status` a **foreign key to
+> `orchestration_status_vocabulary`**, which carries an `is_terminal` column. Live today:
+> `AWAITING_RESPONSES f · CANCELLED t · COMPLETED t · EXECUTING_STEP f · FAILED t · INITIALIZED f ·
+> RUNNING f`. So the vocabulary is already a first-class, enumerable table rather than free text —
+> which is most of what made §5's "enumerate every consumer" sound expensive. **Do not inherit my
+> ordering as evidence**; it was reasoned without `466`.
+>
+> **(b) And a new terminal status would NEVER BE REAPED.** `database-cleanup`'s arm 3 deletes on a
+> **literal** `status IN ('COMPLETED','FAILED')`, while arm 4 skips anything `is_terminal`. A new
+> terminal status falls through **both**. This is not hypothetical — it is already happening to
+> `CANCELLED`: re-measured here, **every row in `orchestration_states` older than 48h is `CANCELLED`,
+> 24 of them, oldest 2026-07-19 — 34 days**, against a ~48h norm for everything else. So candidate 1
+> must carry a cleanup-arm fix **in the same migration**, or it quietly re-files `bugs_closed/294`.
+> Two arms keyed on the same concept by different means is exactly the drift class the council
+> reviews for.
+>
+> **(c) Prior art for the submission**, from the same lane: `bugs_closed/344` §5 #2 deferred this
+> precise fix as architecture-scope, and `RFC_023` records a `COMPLETED`→`FAILED` change on this
+> table drawing a **REJECTED guardian veto on SCOPE**. Per CLAUDE.md's 2026-07-28 ruling a scope veto
+> is not answered by resubmitting with better measurements — so expect the architecture route to be
+> the whole game, not a hurdle before the patch.
+>
+> **(d) The control replicated.** That lane independently re-measured §2(a)/(b): **36** COMPLETED
+> runs at `complete_error` carrying `__step_error`, all with `error` NULL, against **2 of ~3,020**
+> clean COMPLETED runs ending there. Different day, different sample, same discrimination — which is
+> worth more than either raw count, and the counts differing is just §2(d)'s retention window moving.
 
 **Whoever takes it: 1 and 2 are not alternatives.** 2 is the contained thing shippable now; 1 is
 the RFC that makes it stop recurring. Shipping 2 and calling it done leaves the door open.
