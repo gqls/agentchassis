@@ -1292,3 +1292,42 @@ correctly. A better demonstration than the 0-of-2 snapshot I submitted with.
 `tool-is-a-loan-right-for-me` reads `build_status='needs_rebuild'` while all three of its slots are
 `deployed` and the page serves — the `315` status-column family again. Recorded, not acted on: not
 this lane's, and the artefact is correct.
+
+## 2026-08-22 ~10:20Z — ⚠ ROUND 4: THE GUARDIAN SEAT KILLED MY FIX. `last_error` NEVER REACHES THE HANDLER, AND I HAD A COMFORTABLE STORY FOR THE ZERO THAT PROVED IT
+
+Round 4 = REVISE. Two objections were my plan sketches lagging the code again (edits 1/2 and the
+sqlmock lists still showed only `wi.error` after I added `completed_at` — same defect class as
+round 2, twice now, and worth its own lesson: **when the code moves, re-derive the whole submission
+from the code, never patch the edit you happen to be thinking about**).
+
+**The third objection is the one that matters.** `guardian` (HIGH) asked whether an intermediate
+allow-list gate sits between `LoadWorkItemsAction` and a handler's `input_data`, and said the plan
+"never checks" it. It doesn't, and I hadn't. **Checked now — there IS one, and it is fatal:**
+
+`build-dispatch-loop`'s `process_item → sub_workflow → call_handler` is `action: call_agent` with an
+explicit **`input_mapping`** — an allow-list of 14 keys (`spec`, `domain`, `source`, `site_id`,
+`item_type`, `work_item_id`, `current_page`, `component_id?`, `page_id?`, `page_name?` …).
+**`last_error` is not among them.** So the key I added to the loader's item map **never becomes part
+of the child's `input_data`**, and migration `533`'s `{{if .input_data.last_error}}` can never fire.
+
+Fleet census of every live `call_agent` `input_mapping` (73 rows, top-level and sub-workflow):
+**zero pass `last_error`.**
+
+**The evidence was in front of me and I explained it away.** I measured
+`collected_data->'input_data' ? 'last_error'` = **0 across all history** and attributed it to "no
+rejection-then-retry has happened since the roll". That was a plausible story for a zero — and the
+zero's real cause was that the path is disconnected. This is exactly the recorded lesson **"a
+post-fix ZERO needs a DEMAND control"**: I had the zero, I had a reason it could legitimately be
+zero, and I stopped. The demand control I should have run is one line — *does any orchestration in
+history carry ANY key I expect the mapping to pass?* — or simply reading the mapping.
+
+**What the fix actually needs (a THIRD half, not yet built):** `last_error?` added to
+`build-dispatch-loop`'s `call_handler` `input_mapping` (optional-marked, so an item without one is
+unchanged), plus the same question asked of `site-work-orchestrator`'s `sub:call_handler` (8 keys)
+for the handlers it dispatches. That is a migration on the dispatcher — a **shared seam**, which is
+precisely what the guardian's stability objection is about, so it should be named in the
+submission rather than slipped in.
+
+**Status of 345 corrected everywhere it appears: the fix is BUILT and LIVE and INERT** — the Go half
+and the prompt half are both deployed and correct, and connected to nothing. Not "waiting for
+demand"; **disconnected**.

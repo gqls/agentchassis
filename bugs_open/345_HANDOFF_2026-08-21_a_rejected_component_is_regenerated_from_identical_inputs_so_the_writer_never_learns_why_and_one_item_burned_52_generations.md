@@ -4,8 +4,16 @@
 `bugs_open/311`'s **originating page**. **Status: OPEN — FIX LIVE ON BOTH HALVES since 2026-08-21 ~17:05Z** (v1.0.1322 carries the Go
 half — provenance stamp `bac189921`, `0f80f5ea1` ancestor — and migration `533` is applied and
 ledger-recorded; the CSS lane's contrib below independently probed both replicas with a control and
-confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **DEMAND BAR OPEN: the
-path has never fired** — `collected_data->'input_data' ? 'last_error'` is 0 across all history
+confirmed the live prompt carries the `{{if .input_data.last_error}}` block). **⚠ CORRECTED 2026-08-22 (council round 4, guardian HIGH): THE FIX IS INERT — NOT MERELY
+UNEXERCISED.** `build-dispatch-loop`'s `call_handler` is a `call_agent` step with an explicit
+**`input_mapping` allow-list of 14 keys, and `last_error` is not one of them** — so the loader's new
+key never becomes part of the handler's `input_data` and `533`'s `{{if .input_data.last_error}}`
+cannot fire. Fleet census of all 73 live `call_agent` mappings: **zero pass it.** A THIRD half is
+required: add `last_error?` to that mapping (and check `site-work-orchestrator`'s 8-key
+`sub:call_handler`) — a dispatcher migration on a shared seam, to be named as such.
+**I had measured the zero and explained it away as "no retry yet"** — the "a post-fix ZERO needs a
+DEMAND control" lesson, paid again. ~~DEMAND BAR OPEN: the
+path has never fired~~ — `collected_data->'input_data' ? 'last_error'` is 0 across all history
 (their query), and the first post-fix generation on the originating page succeeded on attempt 0, so
 no retry existed to feed. The signal that closes this: two `component_validation_rejected` rows on
 ONE item with **different** `md5(error_message)`. **⚠ Do NOT read `bugs_closed/311`'s close as this
