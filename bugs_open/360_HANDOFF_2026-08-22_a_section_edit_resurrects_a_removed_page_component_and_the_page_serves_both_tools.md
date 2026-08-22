@@ -61,7 +61,7 @@ definition, and the same write helpers serve every `section_edit` producer. A SE
 the same hole one step earlier: **migration 486's `create_section_edit_delivery`** INSERT selects
 placements `WHERE pc.component_id=$1 AND p.rebuild_policy='owned'` — no build_status filter — so
 one template fix to the shared Ported Page component would file section_edits at EVERY owned
-placement, including all 27 tombstones on webdesign.co.uk, resurrecting them in one batch.
+placement, including all **27** tombstones on webdesign.co.uk as of 2026-08-22, resurrecting them in one batch.
 Any workflow that uses `build_status='removed'` as a tombstone (every rebuild/replacement lane) is
 exposed on every retire.
 
@@ -116,7 +116,7 @@ The one that needs a durable home HERE: **reuse_agent (medium) proposes folding 
 predicate into the shared writable helper (`datahelpers.AgentWritableSQLFor`) instead of a second
 const call-sites must remember to AND — and bug_historian separately asks that 486's predicate not
 reinvent the const.** The fold was NOT done in fix (1) because the helper is shared with
-`site_components` writers and five other `page_components` writers (adopt_verbatim,
+`site_components` writers and **5** other `page_components` writers as of 2026-08-22 (adopt_verbatim,
 chrome_link_policy, create_report_page, fix_forced_text_colours, create_tool_component_regenerate)
 whose removed-row semantics this round did not review. Whoever takes candidate (2) or (3): consider
 the fold as its own reviewed change (it would close the door for ALL writers at once), or at least

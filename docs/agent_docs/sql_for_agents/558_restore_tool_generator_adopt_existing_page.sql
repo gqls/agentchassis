@@ -27,6 +27,17 @@
 -- Same statements as 435 (pre-guard: key absent; snapshot; one jsonb_set;
 -- post-guard; doc_note), new number because forward-only and because
 -- schema_migrations already carries 435's row.
+--
+-- ⚠ COUNCIL REVISE (2026-08-22, corr a367b63e) — READ BEFORE COPYING THIS FILE AS A TEMPLATE.
+-- The UPDATE below targets type+is_active with NO version pin. The agent_definitions landmine
+-- documents agent types carrying TWO active rows where only the higher version loads — on such a
+-- type this shape writes BOTH rows and the guards abort (pre-guard expects exactly 1 key-less row;
+-- post-guard expects exactly 1 row carrying true), so the failure is a loud refusal, not a silent
+-- wrong-row write. Measured for THIS apply (2026-08-22): tool-generator has exactly 1 active
+-- non-snapshot row (version 1), the doc_notes subject_type 'pipeline' INSERT succeeded, and the
+-- refiled build adopted minutes later — the LOADED row demonstrably took the write.
+-- NEXT AUTHOR: pin `AND version = (SELECT max(version) ...)` (or the row id) so the two-row world
+-- degrades to a correct single-row write instead of an abort.
 
 ROLLBACK;
 

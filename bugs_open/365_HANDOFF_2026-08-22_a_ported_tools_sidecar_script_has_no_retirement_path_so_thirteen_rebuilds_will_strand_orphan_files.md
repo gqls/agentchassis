@@ -5,7 +5,7 @@ Capability gap, not a code defect — every guard involved behaved as designed.
 
 ## The requirement it blocks
 
-TL-032 / the lane PLAN: 13 ported tools on webdesign.co.uk keep their logic in external
+TL-032 / the lane PLAN: **13** ported tools as of 2026-08-22 (the lane scope query; 1 rebuilt today, 12 remain) on webdesign.co.uk keep their logic in external
 `<script src>` files under `/tools/<slug>/` (plus the shared `/tools/assets/webdesign-couk-header.js`
 used by every ported page). The lane's standing rule: **the external asset must be retired with the
 slot.** The slot half works (retire + rerender; the served page drops the `src` reference — proven
@@ -47,4 +47,6 @@ and dry-run default already carry the safety burden.
 Phase C proceeds; per tool the lane (a) proves the served page dropped the `src` reference (the
 serve-grade negative), (b) dispatches the dry-run retraction and records the refusal as the
 evidence the file is orphaned-but-present, (c) lists the orphan in the lane NOTES. Cleanup rides
-whichever candidate ships; the orphan list makes it one batch.
+whichever candidate ships; the orphan list makes it one batch. Orphans so far (as of 2026-08-22):
+`/tools/blueprint-compiler/script.js` · `/tools/image-optimizer/optimizer.js` (refusal corr `1acae77f`,
+same refusal text, orch by payload).
