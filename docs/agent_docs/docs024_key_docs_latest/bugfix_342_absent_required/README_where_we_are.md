@@ -33,3 +33,37 @@ What is still missing, and what this lane is doing:
 
 Next: put the code change through the review council, commit it for the next build, and
 apply the two small config changes (one now, one held until the new code has rolled).
+
+## 2026-08-22 midday — the review pushed back, and it was right about the important one
+
+We put the change through the review council. It came back "revise" with several
+objections, and two of them were worth the round.
+
+The first was a factual one I should have checked instead of asserting. Our config-change
+script updates the section-editor's settings by name — and the system has a known trap
+where a few agents exist twice, with only the newer copy actually running, so an update by
+name can quietly patch the copy nobody uses. I had written a guard against exactly that but
+had never confirmed which agents are affected. Checked now: the section editor is not one of
+them (four others are), and the guard now names them so a future reader knows what it is
+protecting against.
+
+The second changed the design, and it used our own bug against us. My plan turned on
+*detection* for the site headers and footers but only added *protection* to the page editor.
+That is the same mistake this bug is about: noticing a problem and then letting it through
+anyway, on whichever path nobody got round to. So the headers-and-footers path now has the
+same protection, sharing the identical decision code — but switched off, deliberately. Right
+now nothing can trigger it (no header or footer in use has a required field), so switching it
+on would arm something that can never fire; leaving the capability out entirely would mean
+the first site that needs it waits for a code change and a deployment. This way it is one
+setting away, and we have written down the signal that says it is time: the first alert of
+this kind about a header or footer.
+
+Two smaller ones were also fair. Our check that the config change had been applied everywhere
+only looked at the top level of each agent's workflow, so it would have reported "all done"
+while missing anything nested one level deeper — it now looks in both places. And the
+verification we plan to run after deployment now checks three things rather than one: that
+the live page is untouched, that the alert was filed, and what the job's own status ended up
+saying (we expect it to say "complete" wrongly until a separate known bug is fixed, and it is
+better to see that written down than to be surprised by it).
+
+Resubmitted. The code is committed and will ride the next build.
