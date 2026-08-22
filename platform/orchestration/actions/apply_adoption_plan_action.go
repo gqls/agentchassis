@@ -215,6 +215,12 @@ func ApplyAdoptionPlanAction(ctx context.Context, params ActionParams) (interfac
 	}
 	defer tx.Rollback()
 
+	// One stamp covers every archived write in this transaction — the
+	// adoption's ported-component overwrites fire the 357/552 archive
+	// triggers, and the stamp is what lets those rows name this action
+	// instead of the connection's socket (bugs_open/355 A1).
+	stampWriterTx(ctx, tx, contentWriterApplyAdoptionPlan, logger)
+
 	batchID := uuid.New()
 	specsWritten := 0
 	pagesCreated := 0

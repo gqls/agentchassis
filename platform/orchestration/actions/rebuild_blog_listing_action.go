@@ -332,7 +332,9 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 
 		// rendered_html_digest stamped in the SAME statement as the bytes
 		// (bugs_open/229): this is the render path for the listing component.
-		res, updErr := params.DB.ExecContext(ctx, `
+		// Writer stamp (bugs_open/355 A1): the archive row this UPDATE fires
+		// names the action, not the connection's socket.
+		res, updErr := stampedExecContext(ctx, params.DB, contentWriterRebuildBlogListing, `
 			UPDATE page_components
 			SET rendered_html = $1, rendered_html_digest = md5($1), content_data = $2::jsonb, updated_at = NOW()
 			WHERE id = $3 AND `+pageComponentAgentWritableSQL("")+`

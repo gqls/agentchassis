@@ -219,8 +219,10 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 				zap.Error(classifyErr))
 		}
 		// Stamp same-statement (bugs_open/229): the dossier render is
-		// machine-made; the 357 trigger archives what it replaces.
-		res, err = params.DB.ExecContext(ctx, `
+		// machine-made; the 357 trigger archives what it replaces — and the
+		// writer stamp (bugs_open/355 A1) is what lets that archive row name
+		// this action instead of the connection's socket.
+		res, err = stampedExecContext(ctx, params.DB, contentWriterCreateReportPage, `
 			UPDATE page_components
 			SET rendered_html = $1, rendered_html_digest = md5($1), content_data = $2::jsonb,
 			    build_status = 'approved', updated_at = NOW()

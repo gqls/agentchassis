@@ -1467,8 +1467,11 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 	// section editor renders the edited content, so its output is
 	// machine-made. The 357 trigger archives whatever these statements
 	// replace.
+	// stampedExecContext (bugs_open/355 A1): the 357 trigger archives whatever
+	// these statements replace, and the stamp is what lets that archive row
+	// name THIS writer instead of the connection's socket.
 	if contentDataJSON != nil {
-		res, err = db.ExecContext(ctx, `
+		res, err = stampedExecContext(ctx, db, contentWriterSectionEditorUpdate, `
 			UPDATE page_components
 			SET rendered_html = $2,
 			    rendered_html_digest = md5($2),
@@ -1478,7 +1481,7 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
 		`, pcID, html, string(contentDataJSON))
 	} else {
-		res, err = db.ExecContext(ctx, `
+		res, err = stampedExecContext(ctx, db, contentWriterSectionEditorUpdate, `
 			UPDATE page_components
 			SET rendered_html = $2,
 			    rendered_html_digest = md5($2),
@@ -1503,7 +1506,8 @@ func updatePageComponentSwap(ctx context.Context, db *sql.DB, pcID, componentID 
 		return fmt.Errorf("failed to marshal content_data: %w", err)
 	}
 
-	res, err := db.ExecContext(ctx, `
+	// stampedExecContext (bugs_open/355 A1): see updatePageComponent above.
+	res, err := stampedExecContext(ctx, db, contentWriterSectionEditorSwap, `
 		UPDATE page_components
 		SET component_id = $2,
 		    slot_name = $3,

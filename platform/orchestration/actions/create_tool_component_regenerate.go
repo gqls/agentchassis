@@ -224,6 +224,10 @@ func regenerateToolComponentInPlace(ctx context.Context, params ActionParams, lo
 	}
 	defer tx.Rollback()
 
+	// The placement rewrite below fires the 357 archive trigger; the stamp
+	// names this action in the archived row (bugs_open/355 A1).
+	stampWriterTx(ctx, tx, contentWriterToolRegenerate, logger)
+
 	// The incumbent's LIVE, agent-writable placements on this site's pages.
 	// build_status='removed' is the assembly-excluded tombstone and is not a
 	// live slot; a human lock (pageComponentAgentWritableSQL) is honoured —

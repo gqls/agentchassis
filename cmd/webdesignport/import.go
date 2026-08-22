@@ -167,6 +167,13 @@ func upsertPage(db *sql.DB, siteID, componentID string, p ManifestPage, body str
 	}
 	defer tx.Rollback()
 
+	// bugs_open/355 A1: the component overwrite below fires the archive
+	// trigger; name this CLI in the archived row's application_name.
+	// Transaction-scoped, best-effort — a stamp failure must not break the
+	// import (the only realistic failure is a dead connection, which the next
+	// statement surfaces itself).
+	_, _ = tx.Exec(`SELECT set_config('application_name', 'cli:webdesignport.import', true)`)
+
 	sections, _ := json.Marshal([]string{portedSlot})
 
 	// build_status='deployed' rather than 'planned': a 'planned' page is picked

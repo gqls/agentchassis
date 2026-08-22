@@ -303,6 +303,16 @@ func (h *PageAdminHandlers) HandleUpdateComponent(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
+	// bugs_open/355 A1: name this write in the archive triggers'
+	// application_name — 'admin-edit' matches the source this handler already
+	// writes on its own history row below. Transaction-scoped (is_local=true):
+	// mandatory behind pgbouncer's transaction pooling, where a session-level
+	// SET would leak onto other clients' work. Best-effort: the only realistic
+	// failure is a dead connection, which the next statement surfaces itself.
+	if _, err := tx.ExecContext(ctx, `SELECT set_config('application_name', 'admin-edit', true)`); err != nil {
+		h.logger.Warn("content write stamp failed — archive rows keep the socket identity (bugs_open/355 A1)", zap.Error(err))
+	}
+
 	// Step 1: Save current state to history
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO page_component_history (component_id, page_id, site_id, content_data, source)
