@@ -44715,3 +44715,82 @@ run embarrassed me. The rule to carry: **a suppression rule needs a test that pr
 the right things, not merely that it suppresses.** Related: `a-post-fix-zero-needs-a-demand-control`,
 and this lane's own LANDMINES entry on unmeasured-reads-as-clean, which I wrote this morning and
 which did not save me from the same family eight hours later.
+
+## 2026-08-22 — two probes of mine that could not discriminate, both caught before they were quoted (bugfix_342 lane)
+
+Same session, same afternoon, same shape twice: **I built a check whose passing result was
+guaranteed by its own construction.** Neither reached a durable claim, because both were
+caught — but they were caught by luck of ordering, not by a habit, and the tally is the point.
+
+### 1. A binary-probe positive control on a literal that ALREADY EXISTED
+
+Verifying that the v1.0.1326 roll carried the `bugs_open/342` refusal, I probed three positive
+literals in `/proc/1/exe` on both replicas. One was `refusing to persist` — the refusal's own
+error text. It came back PRESENT, and it would have come back PRESENT against **any** build of
+this codebase for months: `git grep "refusing to persist" 0ee442cfb^` finds it in three other
+files (`content_data_envelope_guard.go`, `create_tool_component_action.go`,
+`save_page_sections_action.go`). **A probe arm is only a control if the literal is NEW**, and I
+had not checked that before running it.
+
+Caught because I went back to prove the literals were novel *before* writing the result into the
+migration header. The other two arms were genuinely new (`refuse_absent_required_fields`,
+`REQUIRED content field(s) absent — refusing to store`, both 0 occurrences at their parent
+commit), so the conclusion survived — on two arms, not three.
+
+**The cheap check:** `git grep -c "<literal>" <your-commit>^ -- 'platform/**/*.go'` before the
+probe, not after. Zero occurrences at the parent commit is what makes PRESENT mean something.
+This is the estate's own "a control that matches everything hides the failure" landmine
+(the 40-zeros case) wearing a different hat: there the control matched everything, here the
+*positive* did.
+
+### 2. A monitor whose terminal-count could be satisfied by ONE of its two populations
+
+I fired the canary's two arms — refusal and positive control — and armed a monitor that waited
+for `count(*) ... WHERE correlation_id IN (arm_a, arm_b) AND status IN ('COMPLETED','FAILED') = 2`.
+It fired within a minute and said **BOTH CANARY ARMS TERMINAL**. It was wrong: the refusal arm
+alone writes **two** orchestration rows (child and parent, both FAILED), which satisfied the
+count on its own while the control arm was still at `AWAITING_RESPONSES`. I read the real state
+straight afterwards and saw it, so nothing downstream was wrong.
+
+**A count aggregated across two populations does not evidence that both are present.** The fix
+is to require one of each, not two of either:
+`SELECT count(DISTINCT correlation_id) FROM … WHERE status IN (…)` — or, better, assert the two
+correlations separately. Sibling of the estate's `count(DISTINCT)`-is-the-only-check-that-sees-a-
+constant-identity lesson, and of "a `[MEASURED]` figure is only evidence if it could have come
+out otherwise": this one could not come out false once either arm finished.
+
+## 2026-08-22 (`bugs_open/318` lane — the name it had at the time) — I bulk-repointed a closed bug's path across 19 files and rewrote HISTORY along with the POINTERS
+
+**The claim.** `318` moved to `bugs_closed/`, so 36 references across 19 files pointed at a
+path that no longer existed. The estate has a standing lesson about exactly this — *a closed
+bug does not retract the deferrals pointing AT it* — so I repointed them all with one `sed`.
+
+**What was wrong with that.** A bulk repoint cannot tell a **pointer** from a **fact**, and
+both contain the same string:
+
+- *"see `bugs_open/318` for the open work"* is a **pointer**. Repointing it is the whole
+  purpose of the exercise — a reader who follows it must land on the file.
+- *"filed 2026-08-19 as `bugs_open/318`"*, *"the `bugs_open/318` lane"*, *"**source:**
+  2026-08-22, `bugs_open/318` lane"* are **facts about the past**. They were accurate when
+  written. Rewriting them makes a dated entry describe a state that did not exist on its own
+  date — a small, silent falsification of the record, in the two files (`LANDMINES.md`,
+  `WRONG_CALLS.md`) whose entire value is that their dated entries are trustworthy.
+
+It also put an in-place edit into a `README_where_we_are.md`, which is append-only and the
+owner's.
+
+**What caught it: the pre-commit pattern check**, which flagged *"8 line(s) removed from
+LANDMINES.md, a fleet-wide append-only ledger"*, and whose own advice I had not followed —
+*"if this IS a deliberate consolidation, say so in the commit message"*. I had not said so,
+because I had not noticed I was doing it. **The check was in the output of my own commit and
+I read past it**; I only looked when the harness surfaced it a second time.
+
+**Cheapest check for the class:** before a bulk repoint, split the hits.
+`grep -rn "bugs_open/NNN" | grep -iE "source:|added:|filed|lane\b|^.*[0-9]{4}-[0-9]{2}-[0-9]{2}"`
+is the *leave alone* pile; everything else is the *repoint* pile. And on the append-only
+ledgers, prefer no edit at all — a stale path in a dated entry costs one `ls`, whereas an
+edited dated entry costs the reader's trust in every other date in the file.
+
+**Nothing was lost:** every changed line is one this lane wrote, only the path string
+differs, and it still resolves to the same file. Recorded because the damage class is
+*record integrity*, which does not announce itself and which no test can catch.

@@ -227,3 +227,30 @@ container of each service, so a sidecar would be missed; nothing here has one to
 **Where that leaves things.** The one outstanding item is unchanged and is yours: a real
 release under the new gate, with someone reading the output. Everything else on this bug
 is built, reviewed and recorded.
+
+---
+
+## 2026-08-22 — correction to this file, and I should not have made the edit that needs it
+
+When `318` moved to `bugs_closed/` I ran a bulk path repoint across every file this lane
+owns, and it caught two lines **in this file** — the title, and the opening sentence of the
+first entry. That sentence read *"I was pointed at `bugs_open/153` and told to fall back to
+`bugs_open/318`"*, which was **true when written**: 318 was in `bugs_open/` that morning. It
+now reads `bugs_closed/318`, which makes a historical sentence describe a state that did not
+exist at the time.
+
+Two things wrong with that, and the second is the one worth carrying:
+
+1. **This file is append-only and is yours.** I edited it in place rather than adding a
+   dated note below. The rule exists because a session overwrote one of these in July after
+   mistaking it for a stray file; I did something much smaller and it is the same rule.
+2. **A bulk repoint after a bug closes must distinguish a POINTER from a FACT.** A pointer
+   — *"see `bugs_open/318` for the open work"* — must be repointed, or the next reader
+   follows it to a path that no longer exists. A historical statement — *"filed as
+   `bugs_open/318`"*, *"the `bugs_open/318` lane"* — was accurate and should be left alone.
+   `sed` cannot tell them apart, and I did not stop to.
+
+Nothing is lost: every changed line is one of mine, only the path string differs, and the
+path still resolves to the same file. Correcting it here in words rather than editing the
+lines again, because a second in-place edit to fix a first one is how these files get worn
+away. Caught by the pre-commit pattern check, which flagged the removed lines — not by me.
