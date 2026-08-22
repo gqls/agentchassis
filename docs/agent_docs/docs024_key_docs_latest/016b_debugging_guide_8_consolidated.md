@@ -13300,7 +13300,7 @@ residual, one from the errors and one from reading the handler's own step config
   some inputs skip. The question to ask of any gated feature is not *"is it on?"* but
   *"what has to happen upstream for it to have anything to act on, and what does that step
   refuse?"*
-- **STRENGTHENED 2026-08-22 (`bugs_open/354`) — a control drawn from your own query shares your
+- **STRENGTHENED 2026-08-22 (`bugs_open/355`) — a control drawn from your own query shares your
   own blindness, so it can confirm a blind zero.** A census of `content_data` key losses at the
   eight uncarried writers returned **0**, and its obvious control — the same query restricted to
   LLM-written fields instead of resolved ones — returned **0 as well**. Two zeros side by side read

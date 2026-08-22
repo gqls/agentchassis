@@ -510,9 +510,20 @@ LANDMINE says so, and I still had to be shown twice in two days.
 ## 2026-08-22 — scoping RFC_042's detector, and the census that answered it before it was built
 
 The owner asked for a `bugs_open/` handoff scoping RFC_042 option (c), *"so we can measure it"*.
-Filed as **`bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`**.
-Number claimed at 354 (353 was the highest across both dirs at the time; the collision that cost
-migration 497 last week is the reason it was claimed before the file was written).
+Filed as **`bugs_open/355_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`**.
+**MISSTEP — filed as 354 and had to be renumbered to 355, which is the migration-497 collision of
+last week repeating in a different sequence.** 353 was the highest across both dirs when the session
+started, so 354 was written. It was `git mv`'d to 355 minutes after committing: another session had
+committed `bugs_open/354_HANDOFF_2026-08-22_a_workflow_that_ends_at_its_error_terminal_is_recorded_COMPLETED_with_error_NULL.md`
+at 10:17, ten minutes before this commit at 10:27. **The lesson is sharper than "allocate immediately
+before naming the file", which is what was written down last time and was followed here.** Writing
+the file does not claim the number and neither does `git add` — only a commit does, and only if you
+win the race. On a tree this many sessions share, the check that would have caught it is to re-run
+`ls bugs_open/ bugs_closed/ | grep -oE '^[0-9]+' | sort -n | tail -1` **immediately before the
+commit**, not at the start of the work. Renamed rather than kept because the estate already carries
+six numbers naming two unrelated cases, and knowingly adding a seventh is worse than inheriting one;
+the move commit names BOTH paths (a `git mv` under a pathspec commit otherwise ships a copy) and was
+verified with `git ls-tree`.
 
 **The scoping turned into a measurement, and the measurement came back empty.** The archive trigger
 on `page_components` has been recording pre-images with `slot_name` since 2026-08-09 — 6,210 rows —
@@ -541,7 +552,7 @@ FK is `ON DELETE SET NULL`, so every archived row whose page_components row was 
 regeneration has lost its pointer — **221 of 380, 58%**. A slot-keyed fallback recovers it to 279.
 A census keyed on the FK alone returns a clean, plausible, three-times-too-small denominator.
 
-**What keeps 354 open despite the zero** — four blind spots, each quantified in the file:
+**What keeps 355 open despite the zero** — four blind spots, each quantified in the file:
 1. 101 pairs unjudgeable by any route;
 2. **`application_name` cannot name the writer** — every app write carries the pgx connection default
    `app - <ip>:<port>`, hand SQL carries `psql`. So even a positive result could not be attributed,
@@ -563,7 +574,7 @@ Two paths destroy content_data by deleting the row rather than writing it —
 
 **The finding-with-no-reader count is now two, not one.** `CONTENT_DATA_REGRESSION` 41 rows
 (2026-08-08 → 08-21, 0 resolved) and `STRUCTURAL_KEY_CARRY_MISS` 28 rows (08-11 → 08-17, 0 resolved);
-grep confirms neither code appears anywhere but its own write site and prose. So 354's candidate A3 —
+grep confirms neither code appears anywhere but its own write site and prose. So 355's candidate A3 —
 ship the consumer in the same commit as the detector — is written as non-negotiable rather than as
 advice. A third unread code would be the pattern, not an accident.
 

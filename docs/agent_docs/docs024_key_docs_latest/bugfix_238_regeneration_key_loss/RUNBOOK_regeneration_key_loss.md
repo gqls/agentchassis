@@ -251,7 +251,7 @@ reads as "no such step".
 
 ## The content_data key-loss census, and the control without which it means nothing
 
-Added 2026-08-22 while scoping `bugs_open/354` (RFC_042 option (c)). This is the query that decides
+Added 2026-08-22 while scoping `bugs_open/355` (RFC_042 option (c)). This is the query that decides
 whether the eight uncarried writers lose resolved keys — and the reason it needs a second run.
 
 **How the population splits.** `page_component_history` rows written by the archive trigger carry

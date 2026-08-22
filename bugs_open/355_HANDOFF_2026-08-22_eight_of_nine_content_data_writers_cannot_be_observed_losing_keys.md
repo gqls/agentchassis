@@ -1,4 +1,4 @@
-# 354 — eight of the nine `page_components.content_data` writers cannot be observed losing keys
+# 355 — eight of the nine `page_components.content_data` writers cannot be observed losing keys
 
 **Filed** 2026-08-22 by the `bugfix_238_regeneration_key_loss` lane (which owns this territory —
 `scripts/who-owns.py 238`), at the owner's direction, to scope RFC_042 option **(c)**: the unified

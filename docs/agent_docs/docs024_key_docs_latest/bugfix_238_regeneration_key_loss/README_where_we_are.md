@@ -234,6 +234,6 @@ detector, **whatever reads its output ships in the same commit.** We now have tw
 codes in the system, 41 records and 28, that nothing anywhere reads. A third would be a habit rather
 than an accident.
 
-The file is `bugs_open/354_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`.
+The file is `bugs_open/355_HANDOFF_2026-08-22_eight_of_nine_content_data_writers_cannot_be_observed_losing_keys.md`.
 It says plainly that it can be closed with **no code at all** if you'd rather take the zero and put
 the census on a monthly schedule — that is a legitimate answer, and it's cheaper than the rest.

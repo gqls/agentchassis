@@ -42393,3 +42393,43 @@ irrelevant. **Verifying that your control CAN FAIL is not the same as verifying 
 PATH.** Ask both. And the specific trap for this estate: `replace_existing` silently reroutes
 `create_tool_component` through an entirely different function, so any claim about tool-creation
 behaviour has to state which arm it is about.
+
+---
+
+## 2026-08-22 — I took the SAME number-collision lesson I wrote down two days ago, followed it exactly, and collided anyway (bugfix 238 lane)
+
+**Asserted:** implicitly, by naming a file — that `bugs_open/354` was free. It was not. Another
+session committed `354_HANDOFF_2026-08-22_a_workflow_that_ends_at_its_error_terminal_is_recorded_COMPLETED_with_error_NULL.md`
+at **10:17**; my `FILE 354` commit landed at **10:27**. Two files, one number, both at HEAD.
+
+**What caught it:** a `ls bugs_open/ bugs_closed/ | grep -c '^354_'` run for an unrelated reason
+immediately after committing, which returned **2**. Nothing else would have — `git commit` does not
+object to a duplicate prefix, the commit-scope report lists filenames without comparing them, and
+the estate deliberately tolerates duplicate numbers, so no check anywhere is looking.
+
+**Why this is worth a second row rather than an edit to the first.** On 2026-08-20 the same thing
+happened with migration `497` and the lesson I recorded was *"allocate immediately before naming the
+file"*. **I followed that instruction. It is insufficient, and the tally is the evidence.** The
+number was read at the start of the session and the file was named at once — but the file then took
+half an hour to write, and the sequence moved underneath it. The instruction treats naming as the
+moment of claiming, and on a tree this many sessions share, **naming claims nothing; `git add`
+claims nothing; only the commit claims a number, and only if it wins the race.**
+
+**The cheap check that would have:** re-read the sequence in the same breath as the commit, not at
+the start of the work —
+`ls bugs_open/ bugs_closed/ | grep -oE '^[0-9]+' | sort -n | tail -1` immediately before
+`git commit`, and again after, comparing. The "after" half is the one that actually catches it,
+because the losing race is only visible once both commits exist.
+
+**Generalises past numbering.** Any resource claimed by *writing* rather than by *committing* —
+migration numbers, RFC numbers, bug numbers, work-item keys chosen by hand — is claimed at commit
+time, not at authoring time, and the gap between the two is however long your task takes. **The
+freshness of a uniqueness check decays at the rate the tree moves, not at the rate you work.** An
+RFC number was lost to exactly this on 2026-08-20 (RFC_041 taken between reading and writing) and
+the response then was to claim the next one on disk first — which, per this row, is also not a claim.
+
+**Resolved by renaming mine to 355**, since theirs was ten minutes older, and because the estate
+already carries six numbers naming two unrelated cases: inheriting an ambiguity is not a reason to
+add one knowingly. The move commit names **both** paths — a `git mv` under a pathspec commit
+otherwise ships a copy and leaves the original at HEAD — and was verified with `git ls-tree`, not
+with `ls`, which cannot see the difference.
