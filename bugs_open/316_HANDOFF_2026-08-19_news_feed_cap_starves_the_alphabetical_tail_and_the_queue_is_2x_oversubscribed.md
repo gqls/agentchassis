@@ -212,3 +212,54 @@ narrowing this file made to register **LCO-009**:
 > once served) is only a batching delay — and there, "coverage is eventual" is true.
 
 The row count alone cannot tell the two apart, which is precisely why LCO-009's WARN cannot.
+
+---
+
+# FIXED (ordering half) 2026-08-22 10:54Z — migration `554`, live on apply. **STILL OPEN** for the capacity half.
+
+`ORDER BY s.domain LIMIT 5` → `ORDER BY due_at ASC NULLS LAST, domain ASC LIMIT 5`, with the source
+aggregate lifted into a derived column because `next_fetch_at` is only in scope inside the `EXISTS`
+subquery. **The eligibility predicate is byte-for-byte unchanged**, so the blast radius is exactly "who
+goes first" — the pre-fix and post-fix queries return the same five sites at the same instant.
+
+`docs/agent_docs/sql_for_agents/554_news_feed_trigger_orders_by_the_schedule_not_the_alphabet.sql`
+(+`_ROLLBACK`), ledger-recorded. Council **APPROVED**, corr `e6e8b923-f614-4a1e-97d8-bf40fb5e3cc3`.
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_316_news_feed_ordering/`.
+
+**Verified at the artefact.** The query read back out of the live agent row and `EXECUTE`d as the runtime
+will run it now returns `webdesign.co.uk` **first** — the site that had been absent from 5 of 5 runs.
+
+**And the class now has a detector**, so this shape is findable without a human reading a query:
+`cmd/config-key-audit --capped-schedule-ordering`, daily CronJob `capped-schedule-ordering-check`,
+register **SCH-027**. Its demand control is the point: **1 finding over 194 live agents before the
+migration, 0 after** — same binary, same command, only the config changed. Both runs are committed in
+the lane as `CONTROL_prefix_…` / `CONTROL_postfix_…`. ⚠ The Go half is **inert until the owner's next
+fleet roll**, and its image has never been built, so do not apply the CronJob overlay before a
+`build-`+`push-` (an ImagePullBackOff here reports as a Job still RUNNING).
+
+## ⚠ WHY THIS FILE STAYS IN `bugs_open/`
+
+Two reasons, and the second is the one that matters:
+
+1. **The capacity half is untouched and is an owner decision.** 42 site-fetches/day demanded against 20
+   supplied (2.10×), re-derived from live rows on 2026-08-22. Ordering decides *who* absorbs a shortfall;
+   it cannot create a slot.
+2. **The relief itself is not yet observed.** Everything above verifies the *query*. The trigger is
+   6-hourly and the next run after the fix is **14:37Z**; nothing has re-fetched yet. Per this estate's
+   own bar, a fix is closed when it is **fixed AND live AND proven at the artefact**, and the artefact
+   here is a fetch that has not happened.
+
+## How the next session should verify the relief (and how NOT to)
+
+Run the lateness query in the lane RUNBOOK after 14:37Z and check the **bug file's own disconfirming
+test**: *the overdue set must no longer correlate with alphabetical rank.*
+
+- **Watch `webdesign.co.uk`, not `relojistas.com`.** This file nominates relojistas as the sentinel; on
+  2026-08-22 it was served in 4 of 5 runs and was not overdue at all, so it would have shown nothing.
+  `webdesign.co.uk` is the site the alphabet was actually starving.
+- ⚠ **Do not read "everyone is on time" as success — it would mean you measured wrong.** At 2.10×
+  oversubscription somebody is always late. The claim to test is that **lateness ROTATES**. If nobody is
+  late, suspect the measurement before believing the fix.
+- ⚠ **Do not read one good run as the fix working either.** Five slots, nine sites: after the most
+  overdue site is served, the next-most-overdue goes next. It is the *pattern over several runs* that
+  distinguishes a fair queue from a lucky one.
