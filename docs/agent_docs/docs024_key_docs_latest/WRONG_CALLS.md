@@ -45136,3 +45136,17 @@ A mutation test that silently tests the original is strictly worse than none, be
 a PASS you then trust. The generalisation the outage error paid for: **a discriminator must be run
 at a finer resolution than the effect it claims to discriminate** — daily buckets cannot separate
 "interleaved all day" from "dead two hours then recovered", and that distinction *was* the claim.
+
+## 2026-08-22 — I hedged a number instead of checking the model behind it, and the hedge made an unsound claim feel safe (bugfix 341 lane)
+
+**What I wrote.** In `bugs_open/341` §7, explaining 25 hours of silence from a sweep I had just changed: 0 observed against ~2.6 expected, *"about a **7 %** outcome by timing alone, so **suggestive rather than demonstrated**"* — and from it, a named hypothesis that our own fix for `bugs_closed/307` had removed the supply of the events I was waiting for.
+
+**What was wrong.** The 7 % comes from a rate model that assumes events arrive evenly. **They do not.** [MEASURED] in the 7 days before the fix, 33 claim timeouts fell in only **21 of 168 hours** — 12.5 % of hours, up to 8 in one. For clustered events the right comparison is the **gap distribution**, and there the answer is unambiguous: median gap **0.8 h**, and a **longest natural quiet gap of 2 days 3 h** — with the current silence at 24.2 h, *shorter than a gap that had already occurred naturally*. **The silence is evidence of nothing.**
+
+**What caught it.** Not my own review — the `bugs_open/358` lane refuted one of *their* headline claims and sent me the transferable form: **"a discriminator has to be run at a finer resolution than the effect it claims to discriminate."** Theirs was computed on daily buckets; so was mine, at the same hour, on a different bug. I applied their lesson to my own file expecting to confirm §7 and refuted it instead.
+
+**The specific self-deception, and it is the part worth carrying.** I did hedge — *"suggestive rather than demonstrated"* — and that hedge is exactly why the claim survived my own reading. **A cautious sentence wrapped around an unsound statistic is still an unsound claim**, and the hedge does double damage: it makes the number feel handled, and it makes a reader (including me, later) treat the figure as conservative rather than unfounded. **Hedging is a statement about confidence; it is not a substitute for checking whether the number can mean what you are using it to mean.**
+
+**The cheap check:** before quoting any "N expected vs M observed", ask what the arrival process looks like — one query, `count(*)` grouped by hour, and read whether the events cluster. If they do, quote the **longest natural gap** instead of a rate, because that is the number a silence has to beat.
+
+**Tally.** Sixth this week for *"my measurement answered the question I encoded"*, and the first where the flaw was in the **model** rather than the query — the SQL was correct, the arithmetic was correct, and the assumption underneath both was not. That is a harder one to catch by re-reading, which is why it took another lane's mistake to surface it.
