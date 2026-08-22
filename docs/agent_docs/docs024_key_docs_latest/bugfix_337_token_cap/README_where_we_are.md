@@ -56,3 +56,45 @@ change itself is a configuration change I will apply once the review council has
 at it (they are reviewing now — their verdict usually lands within the hour). After
 that, I re-run the two broken loan pages and check the live pages actually gain their
 calculators.
+
+## 2026-08-22 (evening) — the fix was approved and applied, and then testing it showed the bug was misdiagnosed. That is the important part.
+
+Two things happened, and the second matters more than the first.
+
+**First, the work landed.** The review council approved the change (eight of its
+thirteen reviewers had nothing to object to; four raised advisory points, two of which
+were fair and which I fixed rather than argued with — one caught me stating something I
+had not actually measured, the other asked a good question about reusing existing code).
+The limit change is now live on the system, and the retry-at-a-higher-ceiling ability is
+committed and switches on at the next fleet release.
+
+**Then I tested it against the real pages, and the test contradicted the bug.** The
+regenerations succeeded — but they came back *smaller than the old limit*, which cannot
+happen if this section genuinely always overruns it. So I ran the count nobody had run:
+of **82 attempts at generating this section, 73 succeeded comfortably** under the old
+16,000 limit and only 9 were cut off. The limit fits about nine times in ten.
+
+What is actually breaking these pages is a different thing entirely: the writer keeps
+inventing a reference to a piece of site data that does not exist ("ctas"), a safety
+check correctly refuses to store the result, and the system quietly regenerates — over
+and over. The three stuck pages had generated **11, 13 and 55 times** while the system's
+own counter said "3 attempts". Occasionally one of those many generations runs long and
+hits the token limit, and that is the failure that happened to be recorded last — which
+is why the bug was written up as a token-limit problem.
+
+**How I got it wrong, in plain terms:** the bug file's evidence was a search of failed
+jobs for the phrase "hit the token limit". That search can only ever return jobs whose
+*final* error was the token limit, so it could not have shown me the 73 successes even
+if I had looked harder — they were in a different table. I inherited that figure, put it
+in front of the review council, and was approved on it. I have logged that mistake in
+our shared record of wrong calls, and written the underlying trap into the debugging
+guide so the next person hits a check instead of the same wall.
+
+**Where that leaves things.** The limit raise and the new retry ability are still worth
+having and I have not reverted them — the step genuinely was running close to its
+ceiling, and 9 wasted full-price generations in 82 is a real loss. But they do **not**
+fix these pages and I have not claimed they do. The bug is re-scoped to the real cause
+and pointed at the team already working on that loop; I have told them, including
+warning them that today's limit change will make their "before and after" numbers look
+better for reasons that are mine, not theirs. One page's component did store today and
+is being attached now; the other is still blocked by the invented-data-reference problem.
