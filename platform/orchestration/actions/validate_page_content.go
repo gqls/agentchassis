@@ -465,6 +465,11 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 			repairs, rewritten, unlinked, logger)
 	}
 
+	// Persist the warnings the repair pass did NOT act on (bugs_open/071 gap 3,
+	// the residual half): without this, a valid build whose only findings were
+	// unrepairable warnings recorded nothing durable anywhere.
+	writeValidationWarningLog(ctx, params, siteIDStr, domain, issues, repairs, logger)
+
 	// Build issues list for output — after the repair pass, so each link issue
 	// carries what was done about it, not just that it was seen.
 	issuesMaps := make([]map[string]string, len(issues))
@@ -526,10 +531,7 @@ func annotateLinkRepairs(issues []ValidationIssue, repairs []datahelpers.LinkRep
 	if len(repairs) == 0 {
 		return
 	}
-	byHref := make(map[string]datahelpers.LinkRepair, len(repairs))
-	for _, r := range repairs {
-		byHref[r.Href] = r
-	}
+	byHref := repairsByHref(repairs)
 	for i := range issues {
 		if issues[i].Category != "link" {
 			continue
@@ -546,6 +548,18 @@ func annotateLinkRepairs(issues []ValidationIssue, repairs []datahelpers.LinkRep
 			issues[i].Description += " — link removed before save, anchor text kept"
 		}
 	}
+}
+
+// repairsByHref indexes a repair list by the href it acted on. Shared by
+// annotateLinkRepairs and writeValidationWarningLog so the "was this href
+// repaired?" answer cannot drift between the annotator and the warning
+// recorder's dedupe filter.
+func repairsByHref(repairs []datahelpers.LinkRepair) map[string]datahelpers.LinkRepair {
+	byHref := make(map[string]datahelpers.LinkRepair, len(repairs))
+	for _, r := range repairs {
+		byHref[r.Href] = r
+	}
+	return byHref
 }
 
 // ============================================================================
@@ -727,6 +741,110 @@ func writeLinkRepairLog(
 	logger.Info("ValidatePageContentAction: wrote link repair log",
 		zap.Int("rewritten", rewritten),
 		zap.Int("unlinked", unlinked))
+}
+
+// validationWarningErrorCode is DELIBERATELY distinct from both sibling codes
+// (same invariant as linkRepairErrorCode above): this row answers "what did the
+// gate SEE and leave in place on a build that succeeded", not "why did a build
+// fail" nor "what did the gate change". Queries filtering on either existing
+// code must keep returning exactly what they returned before this change.
+const validationWarningErrorCode = "CONTENT_VALIDATION_WARNING_DETAIL"
+
+// survivingWarnings selects the warnings a valid build leaves in place: every
+// warning-severity issue EXCEPT a link finding whose href the repair pass acted
+// on (that one is already durably recorded in the repair row's context.repairs,
+// and one finding must not become two rows). Pure so the write/no-write
+// decision is testable without a database — a mocked writer cannot assert the
+// negative, a filter's empty return can.
+func survivingWarnings(issues []ValidationIssue, repairs []datahelpers.LinkRepair) []map[string]string {
+	repaired := repairsByHref(repairs)
+	surviving := make([]map[string]string, 0, len(issues))
+	for _, issue := range issues {
+		if issue.Severity != "warning" {
+			continue
+		}
+		if issue.Category == "link" {
+			if _, ok := repaired[issue.Value]; ok {
+				continue
+			}
+		}
+		surviving = append(surviving, map[string]string{
+			"type":        issue.Type,
+			"category":    issue.Category,
+			"severity":    issue.Severity,
+			"location":    issue.Location,
+			"value":       issue.Value,
+			"description": issue.Description,
+		})
+	}
+	return surviving
+}
+
+// writeValidationWarningLog persists the warnings that SURVIVED a valid build —
+// the residual half of bugs_open/071 gap 3. writeValidationFailureLog covers
+// the failure path and writeLinkRepairLog covers what the repair pass changed,
+// but a VALID build whose warnings produced no repair (short_content,
+// stat_audit_unavailable, any phantom link when the page index was unavailable
+// or repair_internal_links is off) wrote nothing durable at all: the issue list
+// died with collected_data at ~24h, and the pod log carried the count but not
+// the detail.
+//
+// Dedupe: a link warning whose href the repair pass acted on is EXCLUDED here —
+// it is already durably recorded in the repair row's context.repairs, and one
+// finding must not become two rows. Membership comes from repairsByHref, the
+// same index annotateLinkRepairs uses, so the two views cannot drift.
+//
+// Like both siblings this is a work RECORD, not a work item, and best-effort:
+// a logging failure must never fail a build whose content is already correct.
+func writeValidationWarningLog(
+	ctx context.Context,
+	params ActionParams,
+	siteIDStr string,
+	domain string,
+	issues []ValidationIssue,
+	repairs []datahelpers.LinkRepair,
+	logger *zap.Logger,
+) {
+	if params.DB == nil {
+		return
+	}
+
+	surviving := survivingWarnings(issues, repairs)
+	if len(surviving) == 0 {
+		return
+	}
+
+	var siteIDArg string
+	if siteIDStr != "" {
+		if id, err := uuid.Parse(siteIDStr); err == nil {
+			siteIDArg = id.String()
+		}
+	}
+
+	// The gate's own provenance literals, as its two siblings write them — the
+	// row must keep naming the validation seam, not whichever step is running.
+	if !LogActionEntry(ctx, params, agenterrors.Entry{
+		SiteID:    siteIDArg,
+		Domain:    domain,
+		AgentType: "page-build-handler", // best-effort; the action runs under this agent
+		StepName:  "validate_content",
+		Action:    "validate_page_content",
+		ErrorMessage: fmt.Sprintf("Valid build carried %d unrepaired warning(s); see context.issues for detail",
+			len(surviving)),
+		ErrorCode: validationWarningErrorCode,
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"warning_count": len(surviving),
+			"issues":        surviving,
+			"page_name":     datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+			"page_url":      datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.url"),
+		},
+	}, logger) {
+		return
+	}
+
+	logger.Info("ValidatePageContentAction: wrote surviving-warning log",
+		zap.Int("warning_count", len(surviving)))
 }
 
 // ============================================================================
