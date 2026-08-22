@@ -1246,3 +1246,47 @@ their safety check looks for and check it catches it, then apply and reverse the
 text comes back byte-for-byte identical. One of the safety checks turned out to be one that could
 never fail given where the edits sit — I've said so in the file rather than counting it as a pass,
 because a check that cannot fail is not evidence. They've gone to the review council as usual.
+
+2026-08-22 — both bugs are closed, and the lane is done. You said close 083 and 277, and both are
+now in the closed folder with their evidence.
+
+On 083 — the queue with nobody to drain it — the fix has been running for days and the mechanism did
+the whole arc twice, so there was nothing technical left to wait for. I closed it on day five of the
+week we'd agreed rather than day seven, and said so in the file, because the evidence covers five days
+of watching and it would be dishonest to imply seven. Three things go into the close as caveats rather
+than being tidied away: a safety door we built to hand stuck work back to a machine has never once
+fired (nothing wrong with it — the situation hasn't arisen — but it should not be described as
+proven); 41 of the 42 items still sitting undispatched have no handler registered at all, which is a
+different problem belonging to other bugs, so nobody should read this as "nothing is stranded"; and
+there's a third way work can get stuck that none of 083's own instruments can see.
+
+On the backfill you asked for, the short version is that I wrote three of the twenty-seven and refused
+the rest, and the refusals are the useful part.
+
+The thing that decided the whole design: the platform treats a component as "rebuildable" the moment
+its stored data holds *any one* field the template asks for. So filling in one missing field flips a
+page from "cannot be rebuilt" to "can be rebuilt" — and the next rebuild would then render that one
+field and leave everything else blank. Filling in some of the data isn't a smaller version of the
+right fix; it's a destructive one. The parked state was protecting these pages.
+
+So I built the recovery to work backwards from the page itself — read the finished HTML, work out what
+each field must have contained — and then refuse to write anything unless re-rendering it reproduces
+the served page byte for byte. Three passed. Fifteen failed because the page was built by an older
+version of the component and that older version no longer exists anywhere, so the proof can't be met.
+And nine I refused outright, because they turned out not to be what they claimed: each is a whole
+working interactive tool stored in a slot labelled "hero". Filling those in would have armed a rebuild
+that replaces a working tool with an empty title band. A more obliging tool would have written all
+twenty-four. That's filed separately as its own bug.
+
+Two smaller things worth telling you. My first attempt to prove the safety check actually worked
+*passed when it should have failed* — the tests I'd written were all being caught by an earlier check,
+so the important one was never exercised. I had to construct a case that isolates it. And the review
+council caught a real mistake: I'd picked a migration number without checking that specific number
+was free, and it wasn't. Cosmetic in the end, but they were right to ask, and chasing it up turned out
+to reveal that none of this lane's database changes are recorded in the log the automated runner reads
+— which is now written down, because two of them would fail loudly if that runner ever swept the
+folder.
+
+What's left is one bug (the nine mislabelled tool pages, cause still unknown — the automated
+diagnosis came back honestly unable to narrow it) and one decision you've already effectively made by
+closing 277: the fifteen pages built from vanished templates stay as they are.
