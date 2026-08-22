@@ -1,0 +1,67 @@
+{
+  "rationale": "Owner ruled RFC_042 §6 = option (c) on 2026-08-22: commission the unified content-loss detector, executed as bugs_open/355 prescribes — A1 (writer attribution) first, then A2+A3 (detector + reader, one commit), A4 (refusal) deferred until a population exists. This submission covers the two halves already committed that make the detector's INSTRUMENT complete and attributable; the detector binary itself is cmd/ (out of gate scope) and follows. Half 1, migration 552 (commit e7567d1fc): 357's archive trigger is AFTER UPDATE OF rendered_html gated on the html changing, so a content_data-only UPDATE — the one change the content-loss class is about — archives nothing. Measured at HEAD: every Go in-place writer sets both columns in one UPDATE except the admin handler's dynamic SET list, which is the live producer of the blind shape, plus raw psql and every future writer. A second trigger on the SAME function fires exactly when 357's cannot (WHEN clauses mutually exclusive on NEW.rendered_html IS DISTINCT FROM OLD.rendered_html — no UPDATE can double-archive), skips '{}' pre-images, keeps 357's fail-closed posture (RFC_017), and its probe exercises all five arms selecting rows BY BYTES (357's own probe failed its first apply on same-xact created_at ordering). Deliberate redundancy stated in the header: this arm archives the unchanged html bytes rather than adding a second code path through a fail-closed function. Half 2, A1 (commits 8552e621d + 0702fb9cb): page_component_history.application_name has only ever held pgbouncer's socket stamp (app - <ip>:<port>, one value per CONNECTION, several writers per binary) — the archive pairs before/after perfectly and can attribute nothing, which is the exact question RFC_042 §4.3 names as the detector's purpose (which writers actually lose keys in practice). The form is SELECT set_config('application_name', $1, true) INSIDE the same transaction as the write; both halves load-bearing: SET/SET LOCAL take no bind parameters (355 §A1's original sketch was unrunnable — caught by the parallel 238 session), and under pgbouncer pool_mode=transaction a session-level SET would leak the stamp onto other clients' work while is_local=true dies at COMMIT. Only 2 of 9 write sites hold a transaction today (parallel session's census, verified), so stampedExecContext wraps the four bare-autocommit UPDATE writers in a short tx — on autocommit, set_config(...,true) is a statement-scoped no-op. Best-effort by construction: Begin failure and stamp failure both fall back to the unstamped statement; attribution must never break the write. Mutation-proven: M1 (delete the stamp) fails TestStampedExecStampsInsideTheSameTransaction; M2 (is_local=false) fails the same test on the pinned SQL text; M3 (stamp failure aborting the write) fails TestStampedExecStampFailureStillWrites. Deliberately NOT stamped, stated in the helper header so nobody 'finishes' it: save_page_sections (the funnel — its rows are already discriminated by op='delete', and its archive/DELETE/INSERTs are separate autocommit statements whose wrapping would change crash behaviour) and the INSERT-only writers (INSERT is never archived; no row to attribute). No new config keys; optional-key budget untouched (plan_sections stays 7/10). Acceptance at the artefact after the next roll: SELECT DISTINCT application_name FROM page_component_history WHERE created_at > now() - interval '1 day' shows action:*/admin-edit values — nothing else in the codebase sets application_name (grep-verified 2026-08-22), so any such value is provably this mechanism.",
+  "submitter": "bugfix_238_regeneration_key_loss lane (355 successor work, owner-ruled RFC_042 option c)",
+  "plan": {
+    "summary": "Make the page_components archive complete (content-only UPDATEs archive too — mig 552) and attributable (writers announce themselves via transaction-scoped application_name — A1), so the owner-commissioned content-loss detector reads an instrument with neither the coverage hole nor the socket-identity attribution gap.",
+    "grounded_in": [
+      "357's UPDATE trigger WHEN gate: 'AFTER UPDATE OF rendered_html ... WHEN (OLD.rendered_html IS NOT NULL AND OLD.rendered_html <> '' AND NEW.rendered_html IS DISTINCT FROM OLD.rendered_html)' — docs/agent_docs/sql_for_agents/357_page_component_artefact_archive.sql; a content_data-only UPDATE cannot fire it",
+      "The trigger reads current_setting('application_name', true) — 357 function body; measured 2026-08-22: every application-side archive row carries 'app - <ip>:<port>' (pgbouncer application_name_add_host), ~3,000 distinct values in 14 days, count(DISTINCT) thousands against 9 writers",
+      "bugs_open/355 §2: 380 overwrite-pair transitions, 279 judgeable, ZERO non-llm key losses at the eight uncarried writers — against a demand control of 72 on the funnel (op='delete') population, matching RFC_042 §4.6's independent measurement",
+      "Only 2 of 9 write sites hold a transaction (apply_adoption_plan_action.go:212, page_admin_handlers.go:299) — parallel session's census, spot-verified: section_editor/create_report_page/rebuild_blog_listing all write on bare params.DB/db ExecContext",
+      "pch_op_check permits only 'overwrite'|'delete' — INSERT is never archived; stated as out of scope for A1 (no row to attribute) and covered by the detector's current-state census instead",
+      "RFC_042 §6 decision block (commit d14e6a882): owner ruled option (c) 2026-08-22, A1 first, A2+A3 one commit, A4 deferred"
+    ],
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/552_content_only_update_archives_too.sql",
+        "operation": "add",
+        "rationale": "Close the archive's content-only blind spot before the detector reads it: second trigger on page_component_artefact_archive(), WHEN-gated mutually exclusive with 357's (fires only when content_data changed AND rendered_html did not), skipping empty pre-images; fail-closed like 357; five-arm self-cleaning probe selecting rows by bytes",
+        "sketch": "CREATE TRIGGER trg_page_component_content_archive_upd AFTER UPDATE OF content_data ON page_components FOR EACH ROW WHEN (OLD.content_data IS NOT NULL AND OLD.content_data <> '{}'::jsonb AND NEW.content_data IS DISTINCT FROM OLD.content_data AND NEW.rendered_html IS NOT DISTINCT FROM OLD.rendered_html) EXECUTE FUNCTION page_component_artefact_archive();"
+      },
+      {
+        "file": "docs/agent_docs/sql_for_agents/552_content_only_update_archives_too_ROLLBACK.sql",
+        "operation": "add",
+        "rationale": "Hand-run revert: drops the trigger only, archived rows KEPT (344/357 precedent — a rollback must not become the loss it guards against); states the honest signal that the arm went dark (heartbeat pair-volume falls)",
+        "sketch": "DROP TRIGGER trg_page_component_content_archive_upd ON page_components; -- verify block RAISEs if still present"
+      },
+      {
+        "file": "platform/orchestration/actions/content_write_stamp.go",
+        "operation": "add",
+        "rationale": "The A1 mechanism: stampedExecContext (short tx wrapping a bare-autocommit write: Begin -> set_config(application_name,$1,true) -> write -> Commit, falling back unstamped on Begin/stamp failure) and stampWriterTx (one stamp inside an existing tx). Header states why transaction-scoped is the ONLY safe form behind pgbouncer pool_mode=transaction, the acceptance predicate, and the writers deliberately not stamped",
+        "sketch": "const stampWriterSQL = `SELECT set_config('application_name', $1, true)`\nfunc stampedExecContext(ctx, db, writer, query string, args ...interface{}) (sql.Result, error) { tx, err := db.BeginTx(ctx, nil); if err != nil { return db.ExecContext(ctx, query, args...) } ... }"
+      },
+      {
+        "file": "platform/orchestration/actions/content_write_stamp_test.go",
+        "operation": "add",
+        "rationale": "Mutation-proven guards: stamp precedes the write INSIDE the tx with the exact is_local=true text (M1/M2); Begin failure and stamp failure both still execute the write (M3); the write's own error passes through; RowsAffected passes through (lock-refusal paths read it via the wrapper)",
+        "sketch": "mock.ExpectBegin(); mock.ExpectExec(QuoteMeta(`SELECT set_config('application_name', $1, true)`)).WithArgs(\"action:test_writer\")...; mock.ExpectExec(write)...; mock.ExpectCommit()"
+      },
+      {
+        "file": "platform/orchestration/actions/section_editor_actions.go",
+        "operation": "modify",
+        "rationale": "Wire the two bare-autocommit editor writers (field update, both variants, and swap) through stampedExecContext — these fire 357's trigger and their archive rows currently carry the socket",
+        "sketch": "res, err = stampedExecContext(ctx, db, contentWriterSectionEditorUpdate, `UPDATE page_components SET rendered_html = $2, ... WHERE id = $1 AND `+pageComponentAgentWritableSQL(\"\"), ...)"
+      },
+      {
+        "file": "platform/orchestration/actions/create_report_page_action.go",
+        "operation": "modify",
+        "rationale": "Same wire for the dossier overwrite (bare params.DB.ExecContext today). rebuild_blog_listing_action.go gets the identical one-line change (same shape, listed here for the seat's completeness; 8-edit cap)",
+        "sketch": "res, err = stampedExecContext(ctx, params.DB, contentWriterCreateReportPage, `UPDATE page_components SET rendered_html = $1, rendered_html_digest = md5($1), content_data = $2::jsonb, ...`)"
+      },
+      {
+        "file": "platform/orchestration/actions/apply_adoption_plan_action.go",
+        "operation": "modify",
+        "rationale": "One stampWriterTx call after BeginTx covers every archived write in the adoption transaction; create_tool_component_regenerate.go gets the identical call after its BeginTx (same shape; 8-edit cap)",
+        "sketch": "stampWriterTx(ctx, tx, contentWriterApplyAdoptionPlan, logger)"
+      },
+      {
+        "file": "internal/core-manager/admin/page_admin_handlers.go",
+        "operation": "modify",
+        "rationale": "Inline stamps (admin cannot import the actions helper): 'admin-edit' — matching the source this handler already writes on its own history row — inside HandleUpdateComponent's existing tx, and a short-tx wrap for HandleUpdateSiteComponent (the 016b §9 #26 untouched-twin finding was real: the 344 chrome archive also captures application_name and the twin wrote on bare autocommit). cmd/webdesignport/import.go stamps inline after its Begin for the same reason (cmd/ cannot import actions; 8-edit cap)",
+        "sketch": "if _, err := tx.ExecContext(ctx, `SELECT set_config('application_name', 'admin-edit', true)`); err != nil { h.logger.Warn(...) }"
+      }
+    ],
+    "risks": "The 552 trigger is fail-closed like 357: a broken history table halts content_data-only page writes loudly — the RFC_017 posture, chosen over a silent recreation of the loss class; its blast radius today is admin edits (the only live content-only writer). The short-tx wrap changes four writers from one autocommit statement to a three-statement transaction — atomicity of the single write is unchanged, and both failure modes fall back to the exact pre-A1 statement; the residual risk is pgbouncer treating the extra tx traffic differently, bounded by these writers' low volume (section edits, dossier renders, blog rebuilds). Stamp values are compile-time constants, never user input. The archive grows by the content-only arm's volume (admin edits today; the detector's daily heartbeat reports pair volumes so growth is watched). 552 is committed but NOT applied — apply follows this verdict.",
+    "non_scope": "The detector binary itself (cmd/content-loss-check — cmd/ is outside the gate's footprint; its design is recorded in bugs_open/355 and the lane docs). save_page_sections' transactional shape (named as a real observation — its archive/DELETE/INSERTs are separate statements and a crash mid-loop leaves a half-replaced page — but changing it is not attribution work; recorded in 355). The INSERT-only writers (no archive row exists to attribute; the detector's current-state census covers born-incomplete rows). A4 refusal arming (owner-deferred until A2/A3 produce a population). RFC_008's rendered_html seam (explicitly not ruled by the owner's option-c decision)."
+  }
+}
