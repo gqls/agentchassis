@@ -1405,9 +1405,24 @@ Checking whether the `completed_at` gate is in v1.0.1326, I read the provenance 
 **"completed_at gate: NOT in this build"** from `git merge-base --is-ancestor <sha> ""`. **That
 output was void**, and it is the exact memory-index landmine ("a control that matches everything
 hides it — and so does an EMPTY `$sha`"). Caught it before it reached a doc. Candidate-sha probing
-since: `347631a7e`, `7760963cf`, `758ee5ec2` all ABSENT — the stamp is elsewhere in the window and
-**the `completed_at` gate's presence in v1.0.1326 remains UNVERIFIED**, stated as unverified. It is
-a hardening, not a correctness requirement for the firing path, so nothing waits on it.
+since: `347631a7e`, `7760963cf`, `758ee5ec2`, `4c06bf3d6` all ABSENT **and so was the
+`deadbeef…` control** — i.e. the sha hunt failed to locate the build point at all, which is a
+NON-RESULT, not a negative.
+
+> **RESOLVED 2026-08-22 18:10Z by probing the CAPABILITY instead of the commit** — the memory
+> index's own advice, and it took one line. The loader's SQL is a Go string constant, so the
+> change itself is IN the binary: **`wi.error, wi.completed_at`** is **PRESENT on both replicas**.
+> Positive control `wi.batch_id, wi.attempt_count` (unchanged by this edit, so present either way)
+> PRESENT — proving the probe reads the binary; near-miss control
+> `wi.error, wi.completed_at_NOPE` ABSENT — proving it is not matching loosely.
+> **The `completed_at` gate IS LIVE on v1.0.1326.** All three parts of `345` plus the round-3
+> hardening are now deployed and verified.
+>
+> **The lesson, since I hunted shas for two rounds before doing this:** a commit sha is an
+> *identifier* of the change; the string the change introduces is the *change itself*. When the
+> provenance line has scrolled, probe what the edit ADDED — a query fragment, an error literal —
+> and pair it with an unchanged-line positive control and a near-miss negative. That is faster,
+> cheaper, and cannot be defeated by guessing the wrong build window.
 
 ### New CLAUDE.md rule (owner, 2026-08-22) paid on this lane's own files
 
