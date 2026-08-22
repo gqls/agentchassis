@@ -200,3 +200,69 @@ This is the strongest argument yet for the thing you asked for. The framework ha
 re-checks sourced figures on a schedule and raises a flag when the underlying source moves. A
 hand-built calculator has nothing of the kind, which is why this sat there quietly getting more
 wrong.
+
+---
+
+## 2026-08-22, later — the SFI calculator, taken apart
+
+You asked me to make it use correct figures and to deconstruct it as needed. Both done, as far as
+they can go before the new site exists. The short version is that patching it was never an option.
+
+I went and got the real SFI26 rates. They're published on GOV.UK in twenty-one tables, and I read
+them directly rather than sending the research agent — because the rates sit in table cells, and
+the verification step needs a quotable sentence, so a research run would have rejected them as
+unverifiable. That's a trap I'd hit earlier the same day and written up, so this time I went
+straight to the reliable route.
+
+Seventy-one actions, and I have a decent check that I got them all: the page separately says in
+its own prose that there are 71 actions, down from 102, and that sentence had already been
+verified independently. My count agrees with it. If I'd missed a table the two numbers wouldn't
+have matched.
+
+### What the audit found
+
+Your calculator has nine revenue lines. **Two of them are right.**
+
+The management payment is abolished — you know that one. But four more of its actions **no longer
+exist at all**: the soil assessment, the pest management plan, the nutrient management review, and
+the hedgerow assessment. Those were the paid planning actions, and DEFRA dropped them for the same
+reason they dropped the management payment — to free money for more agreements.
+
+Of the four actions that do survive, two have moved. **Herbal leys is £224 per hectare, not £382.**
+The calculator overstates it by £158 a hectare, which on fifty hectares is nearly eight thousand
+pounds of income that isn't there. And hedgerow management went the other way — £13 rather than
+£10 — but with a catch: it's now **per 100 metres for one side**, where the old tool just said per
+100 metres. On a boundary that's a factor-of-two difference, and it flatters the figure on screen
+before going against the farmer at audit.
+
+### What the new one has to do that the old one didn't
+
+Three things, and none of them is cosmetic.
+
+**Handle seven different payment units.** The old tool assumed per-hectare or a flat fee. SFI26
+pays per hectare, per 100 metres one side, per 100 metres both sides, per square metre, per pond,
+per plot, and per tonne. That "one side / both sides" distinction has to be visible on screen.
+
+**Apply the caps.** There's a £100,000 annual ceiling on an agreement, a three-hectare minimum
+before you can apply at all, one agreement per business, and a rule that certain action types can't
+cover more than a quarter of your land. The old calculator models none of these, so it will happily
+total up a number the scheme would never pay.
+
+**Respect the constraints buried in individual rates.** Ponds are capped at three per hectare.
+Skylark plots have a *minimum* of two. And supplementary bird food is capped at one tonne for every
+two hectares of a *different* action — so one action's ceiling depends on another's area.
+
+I've written all of that up as a build specification, including test criteria. Two of the tests
+exist purely to stop this recurring: one checks that £382 never comes back, and one checks that no
+line item called "management payment" ever appears again.
+
+### The one thing standing in the way
+
+The tool gets built by the framework, and the framework needs the site to exist first — it reads
+the site's design and voice before generating anything. agritec.uk has no pages yet, because I
+haven't submitted it.
+
+That submission is the next step, and it's yours to authorise: it starts the whole build cascade,
+not just this one tool. The mission and roadmap briefs are written and waiting for you in this
+directory if you'd like to read them first — I'd suggest you do, since the roadmap brief is what
+the planner treats as binding.
