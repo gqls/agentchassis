@@ -6,6 +6,28 @@ commit for the next chassis build, keep the docs current, log missteps.
 **State: five coherent tasks shipped, all four council correlations APPROVED, three of them LIVE.
 NEITHER BUG CLOSES, and §"What is still open" says exactly why.**
 
+> ## ⚠ OVERTAKEN 2026-08-22 — read this before acting on §3 or §4
+>
+> Appended by the `bugfix_029` lane, which put this file's open items to the owner and heard the
+> answers first-hand. **This file's own record above is unrewritten and was correct on 08-21.**
+>
+> - **§3 "THE FIRST THING TO DO NEXT — verify the second roll" is DONE.** `agent-chassis` is on
+>   **v1.0.1323** (both pods, 2026-08-22 08:36Z). `[VERIFIED at the binary]` `kafka produce succeeded
+>   after retry` **PRESENT** — it was §1's *absent* control on v1.0.1322, so the probe is shown to
+>   discriminate — plus `client_no_leader` PRESENT, `ai_persona_kafka_produce_total` PRESENT,
+>   `Reply beat the park - consumer owns the continuation` PRESENT, `zzz_nonexistent_marker_qqq`
+>   absent. The `build provenance` line had already scrolled at ~2h uptime, as its landmine predicts.
+> - **§4 "343 — the first death is untouched": still true, and 343 is CLOSED ANYWAY.** Owner ruling,
+>   an explicit override of the fixed-AND-live bar. Now at `bugs_closed/343_…`. RSH-011 stays armed
+>   and broad — **do not decommission it on the grounds that the bug is closed.**
+> - **§4 "040 — three things": items 1 and 3 are PARKED by the same ruling; item 2 is not.** 040
+>   itself **stays OPEN**. The park is recorded inside
+>   `bugs_open/040_HANDOFF_2026-07-20_kafka_dial_timeouts_fleetwide_intermittent.md` **§12 — by the
+>   040 lane, which owns that file**; grep it for `PARKED` rather than for a section number, because
+>   they are striking §12.6's items 1 and 3 in place and the exact shape is theirs to choose.
+> - **Still live and now armed by this roll:** the `empty_host` disconfirming test (item 2's cheap
+>   answer — no `090` needed any more) and the `DUPLICATE_SKIPPED` watch.
+
 ---
 
 ## 1. What is LIVE right now

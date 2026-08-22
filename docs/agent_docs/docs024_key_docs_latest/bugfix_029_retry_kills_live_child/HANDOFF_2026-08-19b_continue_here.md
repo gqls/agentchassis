@@ -1,6 +1,30 @@
 # HANDOFF — 2026-08-19b — `bugs_open/029`, continue here
 
+> # 🏁 LANE CLOSED 2026-08-22 — BOTH NUMBERS ARE NOW IN `bugs_closed/`. NOTHING HERE IS OUTSTANDING
+>
+> The owner was given this lane's three remaining calls and ruled on all three, first-hand:
+> **close 343**, **park** 040's `timeout` residual, **park** 040's 13 uninstrumented Deployments.
+>
+> - **343 is CLOSED** at `bugs_closed/343_HANDOFF_2026-08-20_parent_freezes_silently_after_an_abandoned_await.md`
+>   (commit `d7a34ba88`, verified at HEAD). ⚠ **By owner override of the fixed-AND-live bar — the
+>   FIRST DEATH is still unexplained.** Read that file's banner before citing this lane for anything.
+> - **The `workflow%` include widening — this file's last outstanding decision — is DONE and now
+>   BEHAVIOURALLY PROVEN.** The 08-21 17:00Z entry at the bottom left it unproven for want of a
+>   bundle; three bundles ran 2026-08-22 09:15–09:19Z and render `workflow_templates(` and
+>   `v_active_workflows(` with the `awaited_requests(` control true. **That check is now spent — do
+>   not re-run it looking for something to do.**
+> - **RSH-011 `wedge-evidence-capture` stays ARMED and BROAD**, deliberately, and its labels were
+>   retargeted at the closed path (`791c6e820`, applied and verified at the mounted configmap
+>   `wedge-evidence-capture-script-f565c4b7c7`). Closing the bug did not retire the instrument.
+> - **040 stays OPEN** — only two of its residuals are parked, recorded at its own §12.7.
+>
+> Everything below this banner is **historical and correct as of its date**, deliberately not
+> rewritten — including the 2026-08-20 redirect immediately following, which was true when written.
+
 > ## ➡️ REDIRECT, 2026-08-20 — `bugs_open/029` NO LONGER EXISTS. THE LIVE BUG IS **343**
+>
+> ⚠ **SUPERSEDED 2026-08-22 by the banner above: 343 is no longer in `bugs_open/` either.** The path
+> named below is dead; the file lives at `bugs_closed/343_…`. Kept unrewritten as the record.
 >
 > The owner ruled to split it, and the split is done and verified at HEAD (commit `75b77f751`):
 >

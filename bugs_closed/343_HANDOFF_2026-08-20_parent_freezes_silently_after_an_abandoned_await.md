@@ -32,6 +32,13 @@
 > the eight days around the burst were also zero *before anything changed*. It is why closing costs
 > little, not why closing is correct.
 >
+> **⚠ THE SECTION BELOW HEADED "WHY THIS DOES NOT CLOSE 343" IS NOT A CONTRADICTION OF THIS BANNER
+> — IT IS THE THING THE OWNER OVERRODE.** Its author (the 040/343 lane) asked for this to be said
+> explicitly, and they are right to: that section was true when written and **is still true today**.
+> The override does not make it wrong, it makes it *overridden*. Read the two together as "here is
+> precisely why this bug did not meet the bar, and here is the owner deciding to close it anyway"
+> — not as a live objection to the file's own status.
+>
 > **RSH-011 `wedge-evidence-capture` stays ARMED and its trigger stays BROAD.** Closing the file does
 > not retire the instrument: if the freeze recurs, the evidence that was missing in August gets
 > captured. Its labels have been retargeted at this closed path (see the dead-label note below) —
