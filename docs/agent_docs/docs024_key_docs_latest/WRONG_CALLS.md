@@ -42634,3 +42634,49 @@ vocabulary before believing a predicate does what it looks like.
 **Cost if uncaught:** the blast-radius section of `bugs_open/356` would have named the wrong set of
 checks — plausibly omitting the two highest-risk ones — and the framework fix would have been sized
 against a fiction.
+
+---
+
+## 2026-08-22 — I declared "nothing was lost" from a check that could not have said otherwise (`tr '\n' ' ' | grep -c`)
+
+**The claim.** My `LANDMINES.md` commit reported **30 insertions and 8 deletions** — and I had only
+appended. The `shared-ledger-not-appended` advisory flagged it. I picked three phrases from the
+removed lines, grepped for them at HEAD and on disk, got `1` and `1` for all three, and wrote:
+*"All three survive at HEAD and on disk — nothing lost."* I said it to the owner in the same breath.
+
+**Why it was not evidence.** The recipe was
+`git show HEAD:<file> | tr '\n' ' ' | grep -c "<phrase>"`. **`tr '\n' ' '` collapses the whole file
+to ONE line, so `grep -c` counts MATCHING LINES — and there is only ever one.** It returns `1` for a
+phrase appearing once and `1` for a phrase appearing fifty times, which means it cannot detect the
+partial loss it was run to rule out. It is the estate's own unwrapping idiom (from `MEMORY.md`,
+where it is correct — there the question is *presence*, and false ABSENCE is the hazard), reached
+for reflexively on a question about *quantity*.
+
+**What caught it.** Not the check — the arithmetic. My follow-up grep found **zero** added lines
+mentioning `bugs_open/343` while eight had been removed, which is inconsistent with "nothing lost",
+so the conclusion and the evidence disagreed and the evidence had to go.
+
+**The cheap check that would have.** A word-level SET DIFFERENCE between the two blobs, which is
+three commands and cannot be fooled by wrapping or by moves:
+```bash
+git show HEAD~1:<file> | tr -s '[:space:]' '\n' | sort > /tmp/before.words
+git show HEAD:<file>   | tr -s '[:space:]' '\n' | sort > /tmp/after.words
+comm -23 /tmp/before.words /tmp/after.words     # present BEFORE, gone AFTER
+```
+It found the real answer in one run: eight `bugs_open/343` tokens gone, eight `` `343` `` tokens
+arrived — **another session's uncommitted same-file edit** (resolving the bug by SLUG instead of an
+ambiguous path), carried as a passenger by my pathspec commit. Nothing lost, their edit intact,
+committed under my message — the case CLAUDE.md says no hook can prevent.
+
+**Generalises.** The conclusion happened to be RIGHT, which is what makes this worth logging rather
+than shrugging off: a lucky-correct claim on vacuous evidence is indistinguishable, to every later
+reader, from a checked one. **Before running a check, say what the disconfirming output would look
+like.** Here the honest answer was "I don't know — this command returns 1 either way", and that
+sentence is the whole check. Same family as
+[[your-measurement-answers-the-question-you-encoded]] and the standing rule that a `[MEASURED]`
+figure is only evidence if the measurement could have come out otherwise.
+
+**Cost if uncaught:** I would have closed an append-only-ledger integrity flag with a green tick and
+never discovered the passenger — so the 343 lane's author would have found their edit missing from
+their own commit, in a file where "nothing downstream can tell a deleted entry from one never
+written".
