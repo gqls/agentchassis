@@ -218,3 +218,80 @@ ruling licenses a seam-level default, this is the note that says why we did not 
 **Applied `550` after the verdict**: 7/7 steps armed, verified by reading the live rows rather
 than trusting the migration's own post-check, with a negative control (the REFUSE key must still
 be armed nowhere — it is). Ledgered via `--record-only`.
+
+## 2026-08-22 evening — v1.0.1326 rolled, 551 APPLIED, and the canary PASSED on both arms
+
+### The build check, and one probe arm that was invalid
+
+Fleet on **v1.0.1326** (both replicas, started 15:10Z). Probed at the binary, both replicas:
+
+| literal | novel? | want | got |
+|---|---|---|---|
+| `refuse_absent_required_fields` (editor key) | **yes**, 0 at `0ee442cfb^` | present | **present** |
+| `REQUIRED content field(s) absent — refusing to store` (chrome) | **yes**, 0 at `a39a16555^` | present | **present** |
+| ~~`refusing to persist`~~ | **NO — 3 pre-existing files** | — | **INVALID ARM**, see WRONG_CALLS |
+| nonsense literal | — | absent | absent |
+| `Go template execution failed, using regex fallback` (deleted) | — | absent | absent |
+
+The startup provenance line had scrolled (`--tail=3000`, absent), and probing the binary for my
+own commit shas returns OUT for all three — **a binary carries the ONE sha it was built from, not
+its ancestors**, so that is uninformative by construction, not evidence of absence. The two novel
+literals are the evidence, and they are capability-level, which is the stronger form.
+
+### 551 applied, and verified independently of its own post-check
+
+Preconditions re-checked live first (8 hours had passed): 1 live section-editor row, `apply_edit`
+still `apply_section_edit`, key absent, and this morning's chrome arm still 7/7. Applied clean.
+Read back from the live row: key `true`, **both sibling keys survived** (`strip_literal_markdown`,
+`allow_rendered_html_transform` — a wrong `jsonb_set` path replaces the whole config branch, which
+is what that check exists to catch), version 1→2. Two negative controls: no other agent gained the
+key (0), and the **chrome refusal is still armed nowhere** (0) — its deliberate state.
+`_HOLD` suffix dropped in the same commit; ledgered via `--record-only`.
+
+⚠ Another session held `.git/index.lock` during the rename. **Waited, did not remove it** — that
+file is another session's commit in progress.
+
+### The canary — BOTH ARMS, at the artefact
+
+Targets deliberately NOT `deployed`, so a failing canary could harm no live page.
+
+**Refusal arm** (`0a1498b3`, tool-cta, 3 required fields absent), corr `63f2eab4`:
+- step **FAILED** with the exact text: *"refusing to persist — 2 schema-required field(s)
+  rendered empty (headline, trust_note); the live section is left unchanged and a
+  required_fields_missing item has been filed"*;
+- **artefact byte-identical**: md5 still `69a2f28c…`, and `updated_at` still **2026-07-17** —
+  the row was not touched at all;
+- **item filed**: `required_fields_missing`, status `detected`, naming both fields,
+  `surface=page_component`, `route=content_edit`. Refusing did not cost the record.
+
+**Positive control** (`9737d0d9`, use-cases-list, required field present), corr `3eb5318a`:
+all orchestrations **COMPLETED** through `deploy_page`. The artefact's bytes are identical
+(expected — I set the field to its own value), but **`updated_at` moved to 18:05:04**, which is
+the discriminator that separates *"persisted"* from *"skipped"*. **An arm that only stops edits
+would have failed here.**
+
+### A finding the canary produced that no test could: the subset behaviour, observed
+
+The census predicted three absent fields (`headline`, `description`, `trust_note`); the refusal
+named **two**. `description` was filled by a default in the merged map the template actually sees.
+That is the documented seam-vs-gate divergence — *"did the WRITER supply it?"* vs *"will it RENDER
+EMPTY?"* — **confirmed in production for the first time**, having been pinned only by
+`TestSeamReportsASubsetOfThePreRenderGateAndSaysWhy` until now. The seam's report really is a
+strict subset. Do not "fix" the count.
+
+### HONEST LIMIT: check (c) of the canary did NOT fire
+
+551's header says the canary reads the DRIVING work item's terminal status, expecting `complete`
+until `bugs_open/344` lands. **It could not: a CLI-dispatched canary has no driving work item.**
+Measured — 0 trampled rows in the window, and the only `required_fields_missing` item is the one
+the refusal filed. So the 344 interaction remains **[UNEXERCISED]**, not "verified benign", and
+closing that needs a work-item-driven edit (the `section-editor` route reached from a queue item),
+not another CLI run.
+
+### Two measurement missteps of mine, both in WRONG_CALLS
+
+1. The invalid probe arm above — a positive control on a literal that already existed.
+2. My canary monitor waited for `count(*) = 2` across BOTH correlations, and the refusal arm
+   alone writes two rows (child + parent), so it fired **BOTH ARMS TERMINAL** while the control
+   was still running. A count aggregated over two populations can be satisfied by one; the fix is
+   `count(DISTINCT correlation_id)` or asserting each separately.

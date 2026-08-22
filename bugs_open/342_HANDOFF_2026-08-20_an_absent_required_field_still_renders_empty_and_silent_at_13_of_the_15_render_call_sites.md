@@ -6,7 +6,15 @@ advisory in round 2 — *"worth a follow-up ticket with a target date rather tha
 note"*). ~~**UNOWNED.**~~ **OWNED since 2026-08-22 by `bugfix_342_absent_required`**
 (`docs/agent_docs/docs024_key_docs_latest/bugfix_342_absent_required/`).
 
-**Status: OPEN — the SILENCE is FIXED AND LIVE on `agent-chassis` v1.0.1322 as at 2026-08-21 17:00Z**
+**Status: OPEN — but the REFUSAL IS NOW LIVE, ARMED AND PROVEN AT THE ARTEFACT.**
+**As at 2026-08-22 18:05Z on `agent-chassis` v1.0.1326** (both replicas; two positive controls on
+literals with ZERO occurrences before the commits that introduced them, two negative controls):
+the editor refusal is armed (migration `551`) and a live canary **refused a real edit, left the
+stored artefact byte-identical, and filed the work item anyway**, while a clean-edit positive
+control still persisted. What keeps this file OPEN is now a short, specific list — see
+"Remaining to close" below. Owned by `bugfix_342_absent_required`.
+
+~~**Status: OPEN — the SILENCE is FIXED AND LIVE on `agent-chassis` v1.0.1322 as at 2026-08-21 17:00Z**~~
 (probed on both replicas: the report literal and the config key PRESENT, two independent
 removed-string controls ABSENT, nonsense control absent). **Stays OPEN deliberately** — see the
 residual below: nine of fifteen call sites report, six do not, and ~~no refusal was added
@@ -53,6 +61,31 @@ arming.
 >    stitched TEMPLATE whose content arrives later; audit probes that remove fields by design).
 >    Still no change owed there.
 >
+> **✅ 2026-08-22 18:05Z — THE CANARY PASSED ON BOTH ARMS, ON v1.0.1326.** This is the evidence
+> the file was waiting for, so read it before re-deriving anything.
+> * **Refusal arm** (`0a1498b3`, tool-cta, `pending` so nothing live was at risk): the step
+>   FAILED with *"refusing to persist — 2 schema-required field(s) rendered empty (headline,
+>   trust_note); the live section is left unchanged and a required_fields_missing item has been
+>   filed"*; the artefact is **byte-identical** (md5 unchanged, `updated_at` still **2026-07-17** —
+>   untouched); and the item **was** filed (`detected`, naming both fields,
+>   `surface=page_component`). Refusing did not cost the record.
+> * **Positive control** (`9737d0d9`, all required fields present): COMPLETED through
+>   `deploy_page`, and `updated_at` moved — so the write path ran. **An arm that merely stopped
+>   edits would have failed here.**
+> * **A finding no unit test could produce:** the census predicted THREE absent fields; the
+>   refusal named **two** — `description` was filled by a fleet default in the merged map. The
+>   seam-vs-gate SUBSET behaviour, until now pinned only by
+>   `TestSeamReportsASubsetOfThePreRenderGateAndSaysWhy`, is **confirmed in production**. Do not
+>   "fix" the count.
+> * ⚠ **HONEST LIMIT — canary check (c) did NOT fire.** `551`'s header says to read the DRIVING
+>   work item's terminal status (expecting a wrong `complete` until `bugs_open/344` lands). A
+>   CLI-dispatched canary **has no driving work item**, and 0 trampled rows were measured in the
+>   window. So the 344 interaction is **[UNEXERCISED]**, not "verified benign" — closing it needs
+>   a queue-driven edit, not another CLI run.
+> * Script, re-runnable: `docs024_key_docs_latest/bugfix_342_absent_required/CANARY_342_editor_refusal.sh`
+>   (`refuse` | `control`). ⚠ Both targets are deliberately NOT `deployed`; do not re-point it at a
+>   live row.
+>
 > **APPROVED 2026-08-22 (council `3626629a`, round 2, three advisories none high) — and `550` IS
 > APPLIED AND LIVE.** All seven `render_site_components` steps carry `record_absent_required_fields`,
 > verified by reading the live rows rather than the migration's own post-check, with a negative
@@ -90,7 +123,10 @@ arming.
 > `render_site_components` 7 top-level / 0 nested.
 >
 > **Remaining to close this file:**
-> 1. ~~apply `550`~~ **DONE 2026-08-22, live and verified.** After the next roll: apply `551` + the canary — which checks
+> 1. ~~apply `550`~~ **DONE.** ~~apply `551` + the canary~~ **DONE 2026-08-22 on v1.0.1326 — both
+>    arms passed, see the banner above.** The one part of the canary still owed is check (c), the
+>    DRIVING item's terminal status, which a CLI dispatch cannot exercise — it needs a queue-driven
+>    edit. Original wording, kept because it is still the right check list:
 >    THREE things: the live section byte-identical, the `required_fields_missing` item filed, and
 >    the DRIVING item's terminal status READ (expect `complete` until `bugs_open/344` lands; its
 >    fingerprint is `retry_after > completed_at` on a `complete` row);

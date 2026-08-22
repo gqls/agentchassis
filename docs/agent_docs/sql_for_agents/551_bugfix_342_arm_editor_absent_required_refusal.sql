@@ -1,4 +1,23 @@
--- 551_bugfix_342_arm_editor_absent_required_refusal_HOLD.sql
+-- 551_bugfix_342_arm_editor_absent_required_refusal.sql
+--
+-- ✅ APPLIED BY HAND 2026-08-22 ~18:5xZ, AFTER the v1.0.1326 roll, and the _HOLD
+-- suffix was dropped in the same commit to say so. The precondition it was held
+-- for was met and checked AT THE ARTEFACT, not at the tag: both replicas carry
+-- the config key `refuse_absent_required_fields` and the chrome literal
+-- "REQUIRED content field(s) absent — refusing to store", each of which had
+-- ZERO occurrences in the tree before the commits that introduced them (checked
+-- with `git grep` at the parent commit, which is what makes them valid positive
+-- controls); two negative controls behaved (a nonsense literal absent, and the
+-- deleted regex-fallback literal absent).
+-- ⚠ A THIRD PROBE ARM WAS INVALID AND IS RECORDED RATHER THAN QUIETLY DROPPED:
+-- "refusing to persist" was ALREADY present in three other files before this
+-- change, so it would have read PRESENT whatever shipped. See WRONG_CALLS.md,
+-- 2026-08-22 — a probe arm is only a control if the literal is new.
+--
+-- Verified independently of this file's own post-check: the key reads true, BOTH
+-- sibling keys (strip_literal_markdown, allow_rendered_html_transform) survived
+-- the jsonb_set, version 1→2, no other agent gained the key, and the CHROME
+-- refusal is still armed nowhere (its deliberate state — see 550).
 --
 -- bugs_open/342 — arm the REFUSAL half on section-editor's apply_edit step:
 -- an edit whose render left a schema-required source:"llm" field EMPTY is
