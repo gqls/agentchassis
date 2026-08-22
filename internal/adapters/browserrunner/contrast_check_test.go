@@ -6,6 +6,8 @@
 package browserrunner
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,6 +216,19 @@ func TestAuditJSComposition(t *testing.T) {
 		t.Fatalf("golden missing: %v", err)
 	}
 	golden := strings.TrimSuffix(string(raw), "\n")
+
+	// The golden is pinned by CONTENT, not merely by filename (council 7e2391ec
+	// round 2, editquality advisory): a golden silently regenerated from the
+	// post-refactor code would otherwise "prove" the refactor against itself.
+	// This digest was taken from the COMPILER'S view of the pre-refactor const
+	// — go/parser + strconv.Unquote over b32aa9cd9~1, not an awk approximation
+	// — so trailing-whitespace or line-ending drift in the extraction cannot
+	// hide here either. Changing the audit's JS deliberately means updating
+	// BOTH the golden and this digest, in the same commit, on purpose.
+	const preRefactorSHA = "4ec6cb73d2481686087c636820ffe3198025e796841a9ed8e845f53757258da7"
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(golden))); got != preRefactorSHA {
+		t.Fatalf("golden no longer matches the pre-refactor const (sha %s, want %s) — it has been regenerated, not verified", got, preRefactorSHA)
+	}
 	if auditJS != golden {
 		i := 0
 		for i < len(auditJS) && i < len(golden) && auditJS[i] == golden[i] {

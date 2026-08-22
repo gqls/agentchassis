@@ -149,3 +149,40 @@ defeated in a throwaway copy of the tree and the intended test had to catch it:
 Note the second mutation kills TWO tests, which is what a guard in series looks like from the other
 side — nil and foreign payload reach the same arm by different routes, and both are pinned.
 Scratch copy deleted after; `git status internal/` clean throughout.
+
+## 2026-08-22 — council round 2: **APPROVED** (and what the advisories asked for)
+
+`decision: approved`, `decided_by: approved with 1 advisory objection(s) — none high-severity`,
+4 abstained. **`bug_historian`, the seat that gated round 1, approved with ZERO objections** — the
+fail-closed identity answered it. 11 of 14 seats approve clean.
+
+Advisory objections and what was done with each:
+
+- **editquality [low] — the golden's extraction was described but not itself verified**; if it were
+  off by a byte the test would fail permanently, "or, worse, [be] silently re-generated". **ACTED
+  ON, and it was worth acting on.** Proof: parsed the pre-refactor file with `go/parser` +
+  `strconv.Unquote` (the COMPILER's view of the const, not an awk approximation) and compared to
+  the golden — `len=2861`, `sha256=4ec6cb73…258da7`, **IDENTICAL: true**. That digest is now pinned
+  as a constant in `TestAuditJSComposition`, so a golden regenerated from post-refactor code fails
+  instead of vouching for the refactor against itself. Mutation-proven: appending ONE space to the
+  golden produces `sha d24adb69… — it has been regenerated, not verified`.
+- **reuse_agent [medium] — a second contrast mechanism alongside `contrast_failure`** (the audit's
+  CSS-source-reading producer) with no unification plan. **ACKNOWLEDGED, deliberately not merged.**
+  They answer different questions: the audit SWEEPS deployed sites and files tickets (async,
+  parked behind `improvement-sweep`, repair half known-defective per `bugs_closed/198`); this GATES
+  one page at acceptance time and can fail a build. Merging them would put a fleet sweep on the
+  acceptance path. Unification is the render-audit lane's call and belongs with `bugs_open/296`'s
+  queue decision — recorded, not silently ignored.
+- **reuse_agent [low] — `scripts/render_audit.py` is a THIRD copy of the WCAG maths.** True, and
+  named in the code comment already (`contrast_check.go`: "two implementations of this maths
+  already exist in this repo"). Out of scope here: it is a hand-run Python script on the other side
+  of a language boundary; this change reduced the Go-side copies from 2 to 1 rather than adding a
+  third, which was the objection's actual concern.
+- **guardian [low] ×2 — a possible THIRD binary building this JS; and the shared criteria struct.**
+  Enumerated: `grep -rl` for the package shows `browser-runner-adapter` and `render-audit-adapter`
+  only. The struct concern is answered by byte-identity plus the additive-only shape (new case arm,
+  new optional field, no signature change) that the seat itself noted.
+
+**Trailer**: the code commits carry `Council-Submitted: 7e2391ec…` (correct for pre-verdict, 098
+credits them automatically); this follow-up carries `Council-Reviewed:` because the approved
+verdict has now been READ, not assumed.
