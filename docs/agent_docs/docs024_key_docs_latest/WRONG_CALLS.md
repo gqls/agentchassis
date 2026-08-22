@@ -45060,3 +45060,55 @@ to cancel; cleanup left to them, since it is their site. The script is now fixed
 paths exercised (exit 2, exit 3), and a bug in my own fix — a single-quoted payload that would
 have shipped literal `${SITE_ID}` — caught and proven fixed *before* it ran, which is the habit
 this entry is meant to install.
+
+---
+
+## 2026-08-22 — I built a discriminator on daily aggregates and it could not see the thing it was discriminating (`bugs_open/358` lane)
+
+**The claim, made to the owner:** the Anthropic usage-limit outage that began 18:15Z "is not the
+usual blip — there have been five episodes in the last fortnight and on **every one successes
+CONTINUED after the first refusal**; today the successes stop dead fifteen seconds after the first
+refusal and do not resume. A rolling rate limit interleaves; a spent cap stops dead."
+
+**It was false, and the error is in the granularity, not the data.** I grouped `llm_call_log` **by
+day** and read "last success later than first refusal" as "the fleet worked around it". It does not
+mean that. It means *recovered later the same day*. Hourly, every prior episode has exactly the
+shape I claimed was unique to today:
+
+| episode | the hour it began | the dead hours | recovery |
+|---|---|---|---|
+| 2026-08-10 | 14:00 — 38 ok, 2 capped | 16:00 **0 ok**, 17:00 **0 ok** | 18:00 — 100 ok |
+| 2026-08-14 | 15:00 — 49 ok, 11 capped | 16:00 **0 ok**, 17 capped | 17:00 — 24 ok |
+| 2026-08-22 (mine) | 18:00 — 91 ok, 34 capped | *(this is still the transition hour)* | — |
+
+Today is at the **same stage** those were at in their transition hour. Nothing distinguishes it.
+
+**What caught it:** the `bugs_open/307 [abdc1e]` lane pointed me at `LANDMINES.md` ~2051–2059,
+which already records three recurrences of this exact 400 — **each stating a reset weeks away, each
+cleared in 1–3 hours because the owner raised the cap** — and says in terms: *"a stated three-week
+reset that in fact lasted two hours is exactly the shape that gets copied forward into other lanes'
+docs as a premise."* I then reproduced it from the table myself rather than taking the entry on
+trust, which is how the hourly numbers above got measured.
+
+**The cheap check that would have caught it:** the landmine names the query — group by **hour**,
+count the **success** side, and re-run it for the **current** hour before concluding anything. I
+used the failure side and daily buckets. *A discriminator must be run at a resolution finer than
+the effect it claims to discriminate* — daily buckets cannot distinguish "interleaved all day" from
+"dead for two hours then recovered", which was the entire content of my claim.
+
+**Two compounding faults worth separating:**
+
+1. **I did not grep LANDMINES for the symptom.** The `SessionStart` hook only surfaces entries whose
+   footprint matches files already dirty in the tree, and this one is footprinted on a table and an
+   error string. The standing rule — *grep it yourself for table, command and symbol footprints* —
+   is exactly what I skipped, on a symptom that turned out to have five prior entries.
+2. **Confidence came from the argument's shape, not its evidence.** "A rolling limit interleaves; a
+   spent cap stops dead" is a good-sounding mechanism, and I let it carry a measurement that could
+   not support it. It is the third vacuous measurement I made in this one session — after a control
+   comparing two 100%-NULL columns, and a migration verify block that passed a mutant. All three
+   share one shape: **the check was run at the wrong place to be able to fail.**
+
+**Cost:** an escalation to the owner framed as "plan around a ten-day outage" when the landmine's
+own instruction is to escalate as *"the cap is hit, please raise it"*. Corrected within the hour,
+before it was acted on — but it had already been written into two lane docs, which is precisely the
+copy-forward the landmine warns about.

@@ -163,3 +163,30 @@ is yours rather than something I can fix.
 It also means my change went live without its review. I submitted it before applying, it was
 accepted, and then no reviewer could run. I have recorded that plainly rather than letting the
 "submitted" note read as "approved", and it should be resubmitted once the cap clears.
+
+---
+
+**2026-08-22, ~19:05 — correcting myself on the outage, within the hour.**
+
+I told you above that this looked worse than the usual interruption, because on the previous five
+occasions the system kept working around it and this time it stopped dead. **That was wrong, and it
+was wrong because I measured it a day at a time.** Looking day by day, all I could actually see was
+"it was working again by the evening" — which I read as "it never really stopped". Hour by hour,
+the previous times stopped just as dead as this one: on the 10th there were two solid hours with
+not a single successful call before it came back, and on the 14th, one. Today is at exactly the
+same point in that pattern.
+
+We have a written record of this happening three times before. Every time the error named a reset
+date weeks away, and every time it came back within one to three hours — because you raised the
+limit. Our own notes say, in terms, not to repeat the mistake of writing "we are down for weeks"
+into documents, because other people then read it as fact. That is precisely what I did, twice, in
+this folder.
+
+So the honest version: **the cap is hit; the useful action is to raise it; the precedent is hours,
+not days.** I have no basis for the ten-day figure beyond the provider's message, and the record
+says that message is the worst case rather than a forecast.
+
+Another session spotted it and pointed me at the note. I re-did the measurement myself rather than
+take their word, and they were right. I have logged the mistake in the shared log of wrong calls,
+because the interesting part is not the outage — it is that I built a comparison at a resolution
+too coarse to show the thing I was comparing, and then found it convincing.

@@ -386,3 +386,30 @@ exists to prevent. The `bugs_open/307 [abdc1e]` lane declined for the same reaso
 choice; we independently reached the same answer, which is some evidence it is the right one.
 Surfaced to the owner instead — "finished work from an ended session, sitting untracked, fixing a
 leak that is losing rows today" is his call.
+
+> **CORRECTED 2026-08-22 ~19:05 UTC — the entry above is WRONG about the outage's likely duration,
+> and the error is mine.** I wrote that this episode "is not the usual rate-limit blip" because
+> "on every [prior] one, successes CONTINUED after the first refusal" while today's stopped dead.
+> **That discriminator was computed on DAILY buckets, and daily buckets cannot see it.** "Last
+> success later than first refusal" does not mean the fleet worked around the cap — it means it
+> *recovered later the same day*. Hourly, the prior episodes look identical to today:
+> 2026-08-10 had **0 successes in the 16:00 AND 17:00 hours** before 100 in the 18:00 hour;
+> 2026-08-14 had **0 in the 16:00 hour** before 24 in the 17:00. Today's 18:00 hour (91 ok, 34
+> capped) is the same *transition* hour those had. Nothing distinguishes this episode at all.
+>
+> `LANDMINES.md` ~2051–2059 already records three recurrences of this exact 400 — **each stating a
+> reset weeks out, each cleared in 1–3 hours because the owner raised the cap** — and says
+> explicitly that *"a stated three-week reset that in fact lasted two hours is exactly the shape
+> that gets copied forward into other lanes' docs as a premise."* Which is what I did, here and in
+> `README_where_we_are.md`. Caught by the `bugs_open/307 [abdc1e]` lane pointing at the entry;
+> the hourly figures above are my own re-measurement, not their word.
+>
+> **I also did not grep LANDMINES for the symptom** — the SessionStart hook only matches entries
+> footprinted on files already dirty, and this one is footprinted on a table and an error string.
+> Logged in `WRONG_CALLS.md`.
+>
+> **What stands:** the outage is real and fleet-wide, the council round genuinely did not run, and
+> 567 is genuinely live-unreviewed. **What does not:** any claim about how long it will last. The
+> right escalation is *"the cap is hit, please raise it"* — precedent is hours, not weeks — and the
+> only proof of a lift is a non-zero success count in the CURRENT hour, never the absence of
+> failures.
