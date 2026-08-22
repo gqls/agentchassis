@@ -125,3 +125,37 @@ against a fixture instead.
 **empty stdout**, exactly as `audit-optional-key-budget.sh` records. First reading of that control
 was logged as a failure before the landmine was recalled — no claim was published, so it is here
 rather than in `WRONG_CALLS.md`.
+
+## 2026-08-22 — council round 2: APPROVED, with three advisory objections, all three checked
+
+`be1fd678-0836-4f32-90a6-8927b2463fee`, round 2, **approved** (13 reviewers, 4 abstained, no
+gating objection). All three advisories came from `guardian` and none was waved through:
+
+1. **[medium] a new `_test.go` in `platform/orchestration/actions` — a package essentially every
+   pipeline imports — so a compile failure there blocks `go test ./...` for all of them, not just
+   the two tests it fixes.** True. Exercised in isolation before and after repointing:
+   `go test ./platform/orchestration/actions/` green, and green again from `git archive HEAD`.
+2. **[medium] the roster read couples two previously self-contained unit tests in a core package
+   to a file under `docs/`; a stage that copies only source now fails them for an unrelated
+   reason.** A real new coupling. **Measured:** nothing runs `go test` in a stripped context today
+   — no Dockerfile in the tree runs it, no CI workflow directory exists, and `.dockerignore`
+   strips `*.md`, not this `.json`. So it is real but unexercised. **Not removed**, because the
+   only way to remove it is to compile a copy of the roster into the package — the third
+   hand-maintained roster, i.e. the exact drift being retired. Instead the failure message now
+   names the coupling, says the fix is to carry the file, and says explicitly not to work around
+   it by hard-coding the list back. Failing rather than skipping is deliberate: a skip lets a
+   collision through in the one environment where nobody is watching.
+3. **[low] confirm no other script parses `os.Args[1]` positionally in a way the new branch could
+   shadow.** Checked all seven callers: every one passes either **no args** (`audit-config-keys.sh`,
+   the default mode) or an explicit `--<mode>` flag. `--finding-codes` is a distinct literal and
+   shadows nothing.
+
+The seat's own note is worth keeping: *"No architecture-change signal here… Every production-path
+edit is additive… Blast radius is real but bounded to CI/test-time coupling in a shared package
+plus a new docs->test-time file dependency."* That matches the plan's §8 scope argument, so the
+council-gate-not-RFC call was right.
+
+**Round cost:** one resubmission. **Round value:** the round-1 gating objection caught two edits
+that would not have compiled, and round 2's advisories caught a coupling I had created without
+naming. Both rounds found something real, which is now 4 of 6 for this lane's experience of the
+gate.

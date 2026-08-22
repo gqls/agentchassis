@@ -44,9 +44,30 @@ func findingCodeRoster(t *testing.T) []string {
 	path := filepath.Join(moduleRoot(t), findingCodeRegistryRelPath)
 	raw, err := os.ReadFile(path)
 	if err != nil {
+		// NEW COUPLING, NAMED DELIBERATELY (council guardian seat, advisory,
+		// corr be1fd678, medium): these were self-contained unit tests in a
+		// package essentially every pipeline imports, and they now depend on a
+		// file under docs/. If a future build or test stage copies only source,
+		// they fail here for a reason that has nothing to do with what they test.
+		//
+		// Measured 2026-08-22: nothing runs `go test` in a stripped context today
+		// (no Dockerfile in the tree runs it, and `.dockerignore` strips `*.md`,
+		// not this `.json`), so the exposure is real but unexercised. The fix if
+		// it ever bites is to CARRY THE FILE, not to embed a copy of the roster in
+		// Go — a compiled-in copy would be the third hand-maintained roster, which
+		// is the exact drift this file exists to retire.
+		//
+		// Failing loudly rather than skipping is the deliberate half: a skip would
+		// let a collision through in precisely the environment where nobody is
+		// watching, and "the check could not run" must never read as "the check
+		// passed".
 		t.Fatalf("finding-code registry unreadable at %s: %v\n"+
-			"This roster is the single source of truth for code distinctness (bugs_open/358); "+
-			"a missing file must fail loudly, never silently pass a collision.", path, err)
+			"This roster is the single source of truth for error-code distinctness "+
+			"(bugs_open/358, register DBG-075), and a missing file must fail loudly rather "+
+			"than silently pass a collision.\n"+
+			"If you are seeing this in CI rather than locally, the likely cause is a build "+
+			"stage that copies source without docs/ — carry that one file into the stage; do "+
+			"NOT work around it by hard-coding the code list back into this package.", path, err)
 	}
 	var entries map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &entries); err != nil {
