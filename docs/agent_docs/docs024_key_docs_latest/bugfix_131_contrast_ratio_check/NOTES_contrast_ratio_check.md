@@ -214,3 +214,26 @@ checks the entry. Recovered with the documented per-entry remedy,
 went through `landmines-verify-dispatch.sh` correctly (corr `b19e22da`). The rule in one line:
 **append → `landmines-verify-dispatch.sh` (never `--apply` first)**, and if you already applied,
 trigger per slug.
+
+### The two landmine-verifier verdicts read NEEDS_HUMAN_REVIEW — and that is INDEX STALENESS, not doubt (2026-08-22 11:13–11:15Z)
+
+Both entries this lane armed came back `NEEDS_HUMAN_REVIEW`. Read the reason before treating either
+as suspect — a future reader scanning verdicts will otherwise discount two sound entries:
+
+- **the blind-pass entry** (corr `b19e22da`): *"the core remediation file `contrast_check.go` and its
+  symbols (`runContrastRatio`, `contrastProbeMarker`)"* were not found. They exist — I committed them
+  today. The verifier's own footer says it answers about **indexed commit `1b4f836f`, committed
+  2026-08-21 19:02 UTC, "the last pushed tip, not the present tree"**. A code index a day behind
+  cannot see a file created this morning; the verdict is about the index's reach, not the entry.
+- **the 80-tags entry** (corr `e567ad52`): the useful half — *"the Go-level footprint resolves and is
+  **consistent with the entry's structural claim (one binary, two deployments)**"*. That is
+  independent corroboration of today's correction, arrived at from the code index rather than from
+  my grep. What it could not check — makefile targets and kustomize `newTag` pins — is because the
+  corpus is `.go` only (8,417 rows, "kinds with NO rows"), and those live in YAML and the makefile.
+
+**The transferable bit:** this verifier can only ever confirm or refute claims whose evidence is Go
+symbols at the last PUSHED tip. For an entry whose load-bearing facts are YAML pins, shell targets or
+same-day code, `NEEDS_HUMAN_REVIEW` is the *correct and uninformative* answer — it is the tool
+declining to guess, which is the behaviour we want, but it means **the verdict carries no information
+about the entry's truth** and must not be quoted as if it did. Both entries' own evidence is in this
+lane's NOTES and the commits.
