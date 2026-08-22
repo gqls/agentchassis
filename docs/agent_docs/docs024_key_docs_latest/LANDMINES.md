@@ -15259,3 +15259,26 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **status:** the advisory now falls back to the gate's own `resolveStorageIdentity` and the heal also runs on rejection (`e1951c24b`, `bugs_open/337`) — **but that is Go, so it is inert until the chassis rolls.** Until then this fires exactly as described, and afterwards the tell above is still how you check.
 - **relations:** `bugs_open/337` · `bugs_open/311` (its site-scoped diversion closed most of this by side effect on 2026-08-19, which is why the class looks dead in recent data) · `bugs_open/282` (offer-vs-accept drift, the same shape) · `016b` §9/092 (the closed precedent: one predicate for the writer's allow-list and the gate's accept-set) · CLC-004 / CLC-006 / CLC-020
 - **added:** 2026-08-22, `bugfix_337_token_cap` lane.
+
+### Two live sessions can share a lane name, and the tie-breaker you are offered — "active N ago" — points at the WRONG one, because a busy lane looks less recently active than an idle one
+
+- **footprint:** `SendMessage` · `ListAgents` · any reply to a `<cross-session-message>` · the `from-name` attribute on an incoming peer message · any session named after a bug or lane (`bugs_open/NNN`), which is the local convention and therefore the collision-prone one
+- **fires when:** a peer session messages you and you answer it — the most ordinary cross-session act there is. There is no symptom: the send **succeeds**, and the wrong lane receives a message that reads as if it were meant for them.
+- **the mechanism, measured 2026-08-22.** Two live sessions were both named `bugs_open/307`. Addressing the bare name did **not** silently pick one — `SendMessage` refused and listed both, which is the tool behaving well:
+  ```
+  2 agents are named 'bugs_open/307'. Re-send with the ref of the one you mean:
+    bugs_open/307 [e24299] — Claude session, on this machine, active 19m ago
+    bugs_open/307 [abdc1e] — Claude session, on this machine, active  3m ago
+  ```
+  **The trap is the tie-breaker, not the ambiguity.** The only distinguishing field is last-active time, and the natural inference — *"the one that just messaged me is the recently active one"* — is **backwards**. I picked `[abdc1e]` at 3m and the sender was `[e24299]` at 19m. A lane mid-investigation runs long tool calls and looks stale; an idle lane between turns looks fresh. **Recency measures how recently a session took a turn, not how recently it spoke to you**, and those diverge exactly when the peer is doing the substantial work that made them write to you in the first place.
+- **the check, and it is free: the `from` attribute IS a working address.** An incoming message carries both `from-name` (the colliding name) and `from` (a socket path). **Copy `from` verbatim into `to`** — verified 2026-08-22, delivered first time:
+  ```
+  <cross-session-message from="uds:/run/user/1000/cc-socks/472620.sock" from-name="bugs_open/307">
+  → SendMessage({to: "uds:/run/user/1000/cc-socks/472620.sock", ...})   # resolves
+  ```
+  So the identifying token is handed to you in the message you are replying to. **Use it whenever `ListAgents` shows the name more than once, and there is no cost to using it always.** A `[ref]` you guessed is not evidence; a `[ref]` you read out of a disambiguation error only tells you *which* sessions exist, never which one wrote.
+- **⚠ and the damage is silent in BOTH directions.** The wrong lane gets a message addressed to work they have never touched — and on this estate the polite thing they will do is *act on it*: check whether it is theirs, verify, reply. The right lane meanwhile "replies into the void", because your identity as sender never reached them. Neither side sees an error. In the measured case it cost one extra hop only because I had written *"I am sending to the one active 3m ago, on the assumption that is you"* into the message body — **the assumption being stated is the entire reason it was recoverable.** So: **when you address a peer on an inference, say in the message which recipient you assumed.** A message that states its assumption can be re-routed by whoever receives it; one that does not is acted on.
+- **⚠ do not credit work to a colliding name.** Both sessions answered me and only one had done the analysis; my first write-up credited *"the `bugs_open/307` lane"*, which resolves to either. A misattributed credit in a bug file reads as settled for months and sends the next reader to a lane that knows nothing about it (`bugs_open/354` §5 carries the corrected form: the ref, plus an explicit note that a second live session shares the name and is **not** the source).
+- **the general form:** **a disambiguation prompt that lists candidates has not disambiguated anything — it has handed you the choice and an uninformative field to make it with.** Wherever a system offers "which of these did you mean?", ask what the offered discriminator actually measures before letting it decide; here it measured turn recency and the question was authorship.
+- **relations:** MEMORY [[who-owns-is-blind-to-uncommitted-sessions]] (the same estate problem one layer down — *who owns this* is unanswerable from commits; this is *who is speaking* being unanswerable from a listing) · `bugs_open/354` (the exchange that produced this)
+- **added:** 2026-08-22, `bugs_open/260` lane
