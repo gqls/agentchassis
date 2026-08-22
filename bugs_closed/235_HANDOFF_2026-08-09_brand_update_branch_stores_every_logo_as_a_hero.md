@@ -663,3 +663,49 @@ quietly dropped:**
 The gate is advisory and the change is live and proven at the served page, so the trail
 closes here rather than iterating a fourth round on a fix whose correctness is no longer in
 question.
+
+---
+
+## CLOSED 2026-08-22 — the owner took the deletion decision, it is EXECUTED and verified on all 13 sites, and nothing else was open
+
+By the `bugfix_235_155_071_closeout` lane. The owner ruled in-session: **delete the stale
+`logo.jpg` objects via the framework** (`retract_asset_files` / DGH-010, the asset-level
+UNPUBLISH built 2026-08-17 — after this file's last substantive update — with exactly the
+guards this deletion needed: refuses any referenced, asset-row-owned, brand-head or
+out-of-scope path).
+
+**Pre-deletion audit, re-run immediately before dispatch** `[MEASURED 2026-08-22]`:
+`logo.jpg` references — `page_components` (rendered_html + content_data) **0** fleet-wide ·
+current `site_specs` **0** · `content_components` templates **0** · `sites.content_data`
+**1**, which is prose inside leopardessconsulting's array-typed stored brief, not a
+renderable reference (and that site already served 404 for logo.jpg). The 08-11 addendum's
+blocking condition stayed cleared.
+
+**Execution**: one `asset-retraction` dispatch per site, 13 sites, **13/13 retracted, 0
+refusals**, each a real commit (audit rows `ASSET_RETRACTION_AUDIT` in `agent_error_log`;
+correlations in the closeout lane's NOTES). Verified at the artefact, control PAIR per
+site — `logo.jpg` **404** AND `logo.png` **200** — on all 10 sites-repo domains plus
+idea.uk and relojistas.com; webdesign.uk 302s deliberately, so its evidence is the
+vm-sites repo: retract commit `85ca602`, `logo.jpg` gone, `logo.png` present.
+**The vm-sites deploy path propagates deletions** — proven on idea.uk first (~4 min lag),
+which was this file's open question for the VM-served trio.
+
+**A trap fired on the way, worth more than the deletion** — the dispatches were intended
+as dry runs and were ARMED: an operator edit of 2026-08-20 had baked `dry_run:false` into
+the live agent row while every description still said dry-run-by-default. The end state was
+exactly what the owner had authorised and the guard chain ran on every dispatch, but the
+audit pass did not exist. Disarmed same hour by migration `554` (seed 446's reviewed shape
+restored); `LANDMINES.md` ("the asset-retraction agent's 'dry run by default' was a LIE for
+two days") and `WRONG_CALLS.md` 2026-08-22 carry the prospective and retrospective halves.
+
+**Also closed with it**: fundamentallyai's two stale `image_url_404` logo items
+(`logo.png` filed 08-05 — premise inverted when the active logo asset landed 08-10 and the
+file serves 200/157KB; `logo.jpg` filed 08-11 — zero references since 08-21 and the origin
+files now deleted) — both `cancelled` with the verification in `result.reason`. The
+`hero.jpg` sibling item was left untouched, deliberately: not this file's, not verified
+either way.
+
+Every strand this file ever held is now closed: source (mig 360), artefacts (11/11),
+resolver fossil (544/545 + rerender, proven at the served page), fleet references (0), and
+now the stale objects themselves. Register DGH-010's stale status line is corrected in the
+same commit. Moved to `bugs_closed/`.
